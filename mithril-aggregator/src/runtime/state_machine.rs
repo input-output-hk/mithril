@@ -142,14 +142,24 @@ impl AggregatorRuntime {
 
                 info!(self.logger, "→ Trying to transition to READY"; "last_time_point" => ?last_time_point);
 
-                self.try_transition_from_idle_to_ready(
-                    state.current_time_point,
-                    last_time_point.clone(),
-                )
-                .await?;
-                self.state = AggregatorState::Ready(ReadyState {
-                    current_time_point: last_time_point,
-                });
+                let can_try_transition_from_idle_to_ready = if self.config.is_slave {
+                    println!("Checking if slave aggregator is at the same epoch as master");
+                    self.runner
+                        .is_slave_aggregator_at_same_epoch_as_master(&last_time_point)
+                        .await?
+                } else {
+                    true
+                };
+                if can_try_transition_from_idle_to_ready {
+                    self.try_transition_from_idle_to_ready(
+                        state.current_time_point,
+                        last_time_point.clone(),
+                    )
+                    .await?;
+                    self.state = AggregatorState::Ready(ReadyState {
+                        current_time_point: last_time_point,
+                    });
+                }
             }
             AggregatorState::Ready(state) => {
                 let last_time_point: TimePoint = self
@@ -255,7 +265,13 @@ impl AggregatorRuntime {
             self.runner
                 .update_stake_distribution(&new_time_point)
                 .await?;
+            if self.config.is_slave {
+                self.runner
+                    .synchronize_slave_aggregator_signer_registration()
+                    .await?;
+            }
             self.runner.inform_new_epoch(new_time_point.epoch).await?;
+
             self.runner.upkeep(new_time_point.epoch).await?;
             self.runner
                 .open_signer_registration_round(&new_time_point)
@@ -377,9 +393,10 @@ mod tests {
     async fn init_runtime(
         init_state: Option<AggregatorState>,
         runner: MockAggregatorRunner,
+        is_slave: bool,
     ) -> AggregatorRuntime {
         AggregatorRuntime::new(
-            AggregatorConfig::new(Duration::from_millis(20)),
+            AggregatorConfig::new(Duration::from_millis(20), is_slave),
             init_state,
             Arc::new(runner),
             TestLogger::stdout(),
@@ -388,439 +405,575 @@ mod tests {
         .unwrap()
     }
 
-    #[tokio::test]
-    pub async fn idle_check_certificate_chain_is_not_valid() {
-        let mut runner = MockAggregatorRunner::new();
-        runner
-            .expect_get_time_point_from_chain()
-            .once()
-            .returning(|| Ok(TimePoint::dummy()));
-        runner
-            .expect_update_stake_distribution()
-            .with(predicate::eq(TimePoint::dummy()))
-            .once()
-            .returning(|_| Ok(()));
-        runner
-            .expect_close_signer_registration_round()
-            .once()
-            .returning(|| Ok(()));
-        runner
-            .expect_open_signer_registration_round()
-            .once()
-            .returning(|_| Ok(()));
-        runner
-            .expect_is_certificate_chain_valid()
-            .once()
-            .returning(|_| Err(anyhow!("error")));
-        runner
-            .expect_update_era_checker()
-            .with(predicate::eq(TimePoint::dummy().epoch))
-            .once()
-            .returning(|_| Ok(()));
-        runner
-            .expect_inform_new_epoch()
-            .with(predicate::eq(TimePoint::dummy().epoch))
-            .once()
-            .returning(|_| Ok(()));
-        runner
-            .expect_update_epoch_settings()
-            .once()
-            .returning(|| Ok(()));
-        runner
-            .expect_precompute_epoch_data()
-            .once()
-            .returning(|| Ok(()));
-        runner
-            .expect_upkeep()
-            .with(predicate::eq(TimePoint::dummy().epoch))
-            .once()
-            .returning(|_| Ok(()));
-        runner
-            .expect_increment_runtime_cycle_total_since_startup_counter()
-            .once()
-            .returning(|| ());
-        runner
-            .expect_increment_runtime_cycle_success_since_startup_counter()
-            .never();
+    mod master {
+        use super::*;
 
-        let mut runtime = init_runtime(
-            Some(AggregatorState::Idle(IdleState {
-                current_time_point: None,
-            })),
-            runner,
-        )
-        .await;
-        let err = runtime.cycle().await.unwrap_err();
-        assert!(matches!(err, RuntimeError::KeepState { .. }));
+        #[tokio::test]
+        pub async fn idle_check_certificate_chain_is_not_valid() {
+            let mut runner = MockAggregatorRunner::new();
+            runner
+                .expect_get_time_point_from_chain()
+                .once()
+                .returning(|| Ok(TimePoint::dummy()));
+            runner
+                .expect_update_stake_distribution()
+                .with(predicate::eq(TimePoint::dummy()))
+                .once()
+                .returning(|_| Ok(()));
+            runner
+                .expect_close_signer_registration_round()
+                .once()
+                .returning(|| Ok(()));
+            runner
+                .expect_open_signer_registration_round()
+                .once()
+                .returning(|_| Ok(()));
+            runner
+                .expect_is_certificate_chain_valid()
+                .once()
+                .returning(|_| Err(anyhow!("error")));
+            runner
+                .expect_update_era_checker()
+                .with(predicate::eq(TimePoint::dummy().epoch))
+                .once()
+                .returning(|_| Ok(()));
+            runner
+                .expect_inform_new_epoch()
+                .with(predicate::eq(TimePoint::dummy().epoch))
+                .once()
+                .returning(|_| Ok(()));
+            runner
+                .expect_update_epoch_settings()
+                .once()
+                .returning(|| Ok(()));
+            runner
+                .expect_precompute_epoch_data()
+                .once()
+                .returning(|| Ok(()));
+            runner
+                .expect_upkeep()
+                .with(predicate::eq(TimePoint::dummy().epoch))
+                .once()
+                .returning(|_| Ok(()));
+            runner
+                .expect_increment_runtime_cycle_total_since_startup_counter()
+                .once()
+                .returning(|| ());
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .never();
 
-        assert_eq!("idle".to_string(), runtime.get_state());
-    }
+            let mut runtime = init_runtime(
+                Some(AggregatorState::Idle(IdleState {
+                    current_time_point: None,
+                })),
+                runner,
+                false,
+            )
+            .await;
+            let err = runtime.cycle().await.unwrap_err();
+            assert!(matches!(err, RuntimeError::KeepState { .. }));
 
-    #[tokio::test]
-    pub async fn idle_check_certificate_chain_is_valid() {
-        let mut runner = MockAggregatorRunner::new();
-        runner
-            .expect_get_time_point_from_chain()
-            .once()
-            .returning(|| Ok(TimePoint::dummy()));
-        runner
-            .expect_update_stake_distribution()
-            .with(predicate::eq(TimePoint::dummy()))
-            .once()
-            .returning(|_| Ok(()));
-        runner
-            .expect_close_signer_registration_round()
-            .once()
-            .returning(|| Ok(()));
-        runner
-            .expect_open_signer_registration_round()
-            .once()
-            .returning(|_| Ok(()));
-        runner
-            .expect_is_certificate_chain_valid()
-            .once()
-            .returning(|_| Ok(()));
-        runner
-            .expect_update_era_checker()
-            .with(predicate::eq(TimePoint::dummy().epoch))
-            .once()
-            .returning(|_| Ok(()));
-        runner
-            .expect_inform_new_epoch()
-            .with(predicate::eq(TimePoint::dummy().epoch))
-            .once()
-            .returning(|_| Ok(()));
-        runner
-            .expect_update_epoch_settings()
-            .once()
-            .returning(|| Ok(()));
-        runner
-            .expect_precompute_epoch_data()
-            .once()
-            .returning(|| Ok(()));
-        runner
-            .expect_upkeep()
-            .with(predicate::eq(TimePoint::dummy().epoch))
-            .once()
-            .returning(|_| Ok(()));
-        runner
-            .expect_increment_runtime_cycle_total_since_startup_counter()
-            .once()
-            .returning(|| ());
-        runner
-            .expect_increment_runtime_cycle_success_since_startup_counter()
-            .once()
-            .returning(|| ());
+            assert_eq!("idle".to_string(), runtime.get_state());
+        }
 
-        let mut runtime = init_runtime(
-            Some(AggregatorState::Idle(IdleState {
-                current_time_point: None,
-            })),
-            runner,
-        )
-        .await;
-        runtime.cycle().await.unwrap();
+        #[tokio::test]
+        pub async fn idle_check_certificate_chain_is_valid() {
+            let mut runner = MockAggregatorRunner::new();
+            runner
+                .expect_get_time_point_from_chain()
+                .once()
+                .returning(|| Ok(TimePoint::dummy()));
+            runner
+                .expect_update_stake_distribution()
+                .with(predicate::eq(TimePoint::dummy()))
+                .once()
+                .returning(|_| Ok(()));
+            runner
+                .expect_close_signer_registration_round()
+                .once()
+                .returning(|| Ok(()));
+            runner
+                .expect_open_signer_registration_round()
+                .once()
+                .returning(|_| Ok(()));
+            runner
+                .expect_is_certificate_chain_valid()
+                .once()
+                .returning(|_| Ok(()));
+            runner
+                .expect_update_era_checker()
+                .with(predicate::eq(TimePoint::dummy().epoch))
+                .once()
+                .returning(|_| Ok(()));
+            runner
+                .expect_inform_new_epoch()
+                .with(predicate::eq(TimePoint::dummy().epoch))
+                .once()
+                .returning(|_| Ok(()));
+            runner
+                .expect_update_epoch_settings()
+                .once()
+                .returning(|| Ok(()));
+            runner
+                .expect_precompute_epoch_data()
+                .once()
+                .returning(|| Ok(()));
+            runner
+                .expect_upkeep()
+                .with(predicate::eq(TimePoint::dummy().epoch))
+                .once()
+                .returning(|_| Ok(()));
+            runner
+                .expect_increment_runtime_cycle_total_since_startup_counter()
+                .once()
+                .returning(|| ());
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .once()
+                .returning(|| ());
 
-        assert_eq!("ready".to_string(), runtime.get_state());
-    }
+            let mut runtime = init_runtime(
+                Some(AggregatorState::Idle(IdleState {
+                    current_time_point: None,
+                })),
+                runner,
+                false,
+            )
+            .await;
+            runtime.cycle().await.unwrap();
 
-    #[tokio::test]
-    pub async fn ready_new_epoch_detected() {
-        let mut runner = MockAggregatorRunner::new();
-        let time_point = TimePoint::dummy();
-        let new_time_point = TimePoint {
-            epoch: time_point.epoch + 1,
-            ..time_point.clone()
-        };
-        runner
-            .expect_get_time_point_from_chain()
-            .once()
-            .returning(move || Ok(new_time_point.clone()));
-        runner
-            .expect_increment_runtime_cycle_total_since_startup_counter()
-            .once()
-            .returning(|| ());
-        runner
-            .expect_increment_runtime_cycle_success_since_startup_counter()
-            .once()
-            .returning(|| ());
-        let mut runtime = init_runtime(
-            Some(AggregatorState::Ready(ReadyState {
-                current_time_point: time_point,
-            })),
-            runner,
-        )
-        .await;
-        runtime.cycle().await.unwrap();
+            assert_eq!("ready".to_string(), runtime.get_state());
+        }
 
-        assert_eq!("idle".to_string(), runtime.get_state());
-    }
+        #[tokio::test]
+        pub async fn ready_new_epoch_detected() {
+            let mut runner = MockAggregatorRunner::new();
+            let time_point = TimePoint::dummy();
+            let new_time_point = TimePoint {
+                epoch: time_point.epoch + 1,
+                ..time_point.clone()
+            };
+            runner
+                .expect_get_time_point_from_chain()
+                .once()
+                .returning(move || Ok(new_time_point.clone()));
+            runner
+                .expect_increment_runtime_cycle_total_since_startup_counter()
+                .once()
+                .returning(|| ());
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .once()
+                .returning(|| ());
+            let mut runtime = init_runtime(
+                Some(AggregatorState::Ready(ReadyState {
+                    current_time_point: time_point,
+                })),
+                runner,
+                false,
+            )
+            .await;
+            runtime.cycle().await.unwrap();
 
-    #[tokio::test]
-    pub async fn ready_open_message_not_exist() {
-        let mut runner = MockAggregatorRunner::new();
-        let time_point = TimePoint::dummy();
-        let next_time_point = TimePoint {
-            immutable_file_number: time_point.immutable_file_number + 1,
-            ..time_point.clone()
-        };
-        let expected_time_point = next_time_point.clone();
-        runner
-            .expect_get_time_point_from_chain()
-            .once()
-            .returning(move || Ok(next_time_point.clone()));
-        runner
-            .expect_get_current_non_certified_open_message()
-            .once()
-            .returning(|_| Ok(None));
-        runner
-            .expect_increment_runtime_cycle_total_since_startup_counter()
-            .once()
-            .returning(|| ());
-        runner
-            .expect_increment_runtime_cycle_success_since_startup_counter()
-            .once()
-            .returning(|| ());
-        let mut runtime = init_runtime(
-            Some(AggregatorState::Ready(ReadyState {
-                current_time_point: time_point.clone(),
-            })),
-            runner,
-        )
-        .await;
-        runtime.cycle().await.unwrap();
+            assert_eq!("idle".to_string(), runtime.get_state());
+        }
 
-        assert_eq!("ready".to_string(), runtime.get_state());
-        assert_eq!(
-            AggregatorState::Ready(ReadyState {
-                current_time_point: expected_time_point,
-            }),
-            runtime.state
-        );
-    }
+        #[tokio::test]
+        pub async fn ready_open_message_not_exist() {
+            let mut runner = MockAggregatorRunner::new();
+            let time_point = TimePoint::dummy();
+            let next_time_point = TimePoint {
+                immutable_file_number: time_point.immutable_file_number + 1,
+                ..time_point.clone()
+            };
+            let expected_time_point = next_time_point.clone();
+            runner
+                .expect_get_time_point_from_chain()
+                .once()
+                .returning(move || Ok(next_time_point.clone()));
+            runner
+                .expect_get_current_non_certified_open_message()
+                .once()
+                .returning(|_| Ok(None));
+            runner
+                .expect_increment_runtime_cycle_total_since_startup_counter()
+                .once()
+                .returning(|| ());
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .once()
+                .returning(|| ());
+            let mut runtime = init_runtime(
+                Some(AggregatorState::Ready(ReadyState {
+                    current_time_point: time_point.clone(),
+                })),
+                runner,
+                false,
+            )
+            .await;
+            runtime.cycle().await.unwrap();
 
-    #[tokio::test]
-    pub async fn ready_certificate_does_not_exist_for_time_point() {
-        let mut runner = MockAggregatorRunner::new();
-        runner
-            .expect_get_time_point_from_chain()
-            .once()
-            .returning(|| Ok(TimePoint::dummy()));
-        runner
-            .expect_get_current_non_certified_open_message()
-            .once()
-            .returning(|_| {
-                let open_message = OpenMessage {
-                    is_certified: false,
-                    ..OpenMessage::dummy()
-                };
-                Ok(Some(open_message))
-            });
-        runner
-            .expect_increment_runtime_cycle_total_since_startup_counter()
-            .once()
-            .returning(|| ());
-        runner
-            .expect_increment_runtime_cycle_success_since_startup_counter()
-            .once()
-            .returning(|| ());
+            assert_eq!("ready".to_string(), runtime.get_state());
+            assert_eq!(
+                AggregatorState::Ready(ReadyState {
+                    current_time_point: expected_time_point,
+                }),
+                runtime.state
+            );
+        }
 
-        let mut runtime = init_runtime(
-            Some(AggregatorState::Ready(ReadyState {
+        #[tokio::test]
+        pub async fn ready_certificate_does_not_exist_for_time_point() {
+            let mut runner = MockAggregatorRunner::new();
+            runner
+                .expect_get_time_point_from_chain()
+                .once()
+                .returning(|| Ok(TimePoint::dummy()));
+            runner
+                .expect_get_current_non_certified_open_message()
+                .once()
+                .returning(|_| {
+                    let open_message = OpenMessage {
+                        is_certified: false,
+                        ..OpenMessage::dummy()
+                    };
+                    Ok(Some(open_message))
+                });
+            runner
+                .expect_increment_runtime_cycle_total_since_startup_counter()
+                .once()
+                .returning(|| ());
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .once()
+                .returning(|| ());
+
+            let mut runtime = init_runtime(
+                Some(AggregatorState::Ready(ReadyState {
+                    current_time_point: TimePoint::dummy(),
+                })),
+                runner,
+                false,
+            )
+            .await;
+            runtime.cycle().await.unwrap();
+
+            assert_eq!("signing".to_string(), runtime.get_state());
+        }
+
+        #[tokio::test]
+        async fn signing_changing_open_message_to_ready() {
+            let mut runner = MockAggregatorRunner::new();
+            runner
+                .expect_get_time_point_from_chain()
+                .once()
+                .returning(|| Ok(TimePoint::dummy()));
+            runner
+                .expect_is_open_message_outdated()
+                .once()
+                .returning(|_, _| Ok(true));
+            runner
+                .expect_increment_runtime_cycle_total_since_startup_counter()
+                .once()
+                .returning(|| ());
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .once()
+                .returning(|| ());
+
+            let initial_state = AggregatorState::Signing(SigningState {
                 current_time_point: TimePoint::dummy(),
-            })),
-            runner,
-        )
-        .await;
-        runtime.cycle().await.unwrap();
+                open_message: OpenMessage::dummy(),
+            });
 
-        assert_eq!("signing".to_string(), runtime.get_state());
+            let mut runtime = init_runtime(Some(initial_state), runner, false).await;
+            runtime.cycle().await.unwrap();
+
+            assert_eq!("ready".to_string(), runtime.get_state());
+        }
+
+        #[tokio::test]
+        async fn signing_certificate_is_not_created() {
+            let mut runner = MockAggregatorRunner::new();
+            runner
+                .expect_get_time_point_from_chain()
+                .once()
+                .returning(|| Ok(TimePoint::dummy()));
+            runner
+                .expect_is_open_message_outdated()
+                .once()
+                .returning(|_, _| Ok(false));
+            runner
+                .expect_create_certificate()
+                .once()
+                .returning(|_| Ok(None));
+            runner
+                .expect_increment_runtime_cycle_total_since_startup_counter()
+                .once()
+                .returning(|| ());
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .never();
+            let state = SigningState {
+                current_time_point: TimePoint::dummy(),
+                open_message: OpenMessage::dummy(),
+            };
+            let mut runtime =
+                init_runtime(Some(AggregatorState::Signing(state)), runner, false).await;
+            let err = runtime
+                .cycle()
+                .await
+                .expect_err("cycle should have returned an error");
+
+            match err {
+                RuntimeError::KeepState { .. } => (),
+                _ => panic!("KeepState error expected, got {err:?}."),
+            };
+
+            assert_eq!("signing".to_string(), runtime.get_state());
+        }
+
+        #[tokio::test]
+        async fn signing_artifact_not_created() {
+            let mut runner = MockAggregatorRunner::new();
+            runner
+                .expect_get_time_point_from_chain()
+                .once()
+                .returning(|| Ok(TimePoint::dummy()));
+            runner
+                .expect_is_open_message_outdated()
+                .once()
+                .returning(|_, _| Ok(false));
+            runner
+                .expect_create_certificate()
+                .return_once(move |_| Ok(Some(fake_data::certificate("whatever".to_string()))));
+            runner
+                .expect_create_artifact()
+                .once()
+                .returning(|_, _| Err(anyhow!("whatever")));
+            runner
+                .expect_increment_runtime_cycle_total_since_startup_counter()
+                .once()
+                .returning(|| ());
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .never();
+            let state = SigningState {
+                current_time_point: TimePoint::dummy(),
+                open_message: OpenMessage::dummy(),
+            };
+            let mut runtime =
+                init_runtime(Some(AggregatorState::Signing(state)), runner, false).await;
+            let err = runtime
+                .cycle()
+                .await
+                .expect_err("cycle should have returned an error");
+
+            match err {
+                RuntimeError::ReInit { .. } => (),
+                _ => panic!("ReInit error expected, got {err:?}."),
+            };
+
+            assert_eq!("signing".to_string(), runtime.get_state());
+        }
+
+        #[tokio::test]
+        async fn signing_certificate_is_created() {
+            let mut runner = MockAggregatorRunner::new();
+            runner
+                .expect_get_time_point_from_chain()
+                .once()
+                .returning(|| Ok(TimePoint::dummy()));
+            runner
+                .expect_is_open_message_outdated()
+                .once()
+                .returning(|_, _| Ok(false));
+            runner
+                .expect_create_certificate()
+                .return_once(move |_| Ok(Some(fake_data::certificate("whatever".to_string()))));
+            runner
+                .expect_create_artifact()
+                .once()
+                .returning(|_, _| Ok(()));
+            runner
+                .expect_increment_runtime_cycle_total_since_startup_counter()
+                .once()
+                .returning(|| ());
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .once()
+                .returning(|| ());
+
+            let state = SigningState {
+                current_time_point: TimePoint::dummy(),
+                open_message: OpenMessage::dummy(),
+            };
+            let mut runtime =
+                init_runtime(Some(AggregatorState::Signing(state)), runner, false).await;
+            runtime.cycle().await.unwrap();
+
+            assert_eq!("ready".to_string(), runtime.get_state());
+        }
+
+        #[tokio::test]
+        pub async fn critical_error() {
+            let mut runner = MockAggregatorRunner::new();
+            runner
+                .expect_get_time_point_from_chain()
+                .once()
+                .returning(|| Ok(TimePoint::dummy()));
+            runner
+                .expect_update_era_checker()
+                .with(predicate::eq(TimePoint::dummy().epoch))
+                .once()
+                .returning(|_| Err(anyhow!("ERROR")));
+            runner
+                .expect_close_signer_registration_round()
+                .once()
+                .returning(|| Ok(()));
+            runner
+                .expect_increment_runtime_cycle_total_since_startup_counter()
+                .once()
+                .returning(|| ());
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .never();
+
+            let mut runtime = init_runtime(
+                Some(AggregatorState::Idle(IdleState {
+                    current_time_point: None,
+                })),
+                runner,
+                false,
+            )
+            .await;
+            runtime.cycle().await.unwrap_err();
+
+            assert_eq!("idle".to_string(), runtime.get_state());
+        }
     }
 
-    #[tokio::test]
-    async fn signing_changing_open_message_to_ready() {
-        let mut runner = MockAggregatorRunner::new();
-        runner
-            .expect_get_time_point_from_chain()
-            .once()
-            .returning(|| Ok(TimePoint::dummy()));
-        runner
-            .expect_is_open_message_outdated()
-            .once()
-            .returning(|_, _| Ok(true));
-        runner
-            .expect_increment_runtime_cycle_total_since_startup_counter()
-            .once()
-            .returning(|| ());
-        runner
-            .expect_increment_runtime_cycle_success_since_startup_counter()
-            .once()
-            .returning(|| ());
+    mod slave {
+        use super::*;
 
-        let initial_state = AggregatorState::Signing(SigningState {
-            current_time_point: TimePoint::dummy(),
-            open_message: OpenMessage::dummy(),
-        });
+        #[tokio::test]
+        pub async fn idle_new_epoch_detected_and_master_not_transitioned_to_epoch() {
+            let mut runner = MockAggregatorRunner::new();
+            let time_point = TimePoint::dummy();
+            let new_time_point = TimePoint {
+                epoch: time_point.epoch + 1,
+                ..time_point.clone()
+            };
+            runner
+                .expect_get_time_point_from_chain()
+                .once()
+                .returning(move || Ok(new_time_point.clone()));
+            runner
+                .expect_is_slave_aggregator_at_same_epoch_as_master()
+                .once()
+                .returning(|_| Ok(false));
+            runner
+                .expect_increment_runtime_cycle_total_since_startup_counter()
+                .once()
+                .returning(|| ());
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .once()
+                .returning(|| ());
+            let mut runtime = init_runtime(
+                Some(AggregatorState::Idle(IdleState {
+                    current_time_point: Some(time_point),
+                })),
+                runner,
+                true,
+            )
+            .await;
+            runtime.cycle().await.unwrap();
 
-        let mut runtime = init_runtime(Some(initial_state), runner).await;
-        runtime.cycle().await.unwrap();
+            assert_eq!("idle".to_string(), runtime.get_state());
+        }
 
-        assert_eq!("ready".to_string(), runtime.get_state());
-    }
+        #[tokio::test]
+        pub async fn idle_new_epoch_detected_and_master_has_transitioned_to_epoch() {
+            let mut runner = MockAggregatorRunner::new();
+            let time_point = TimePoint::dummy();
+            let new_time_point = TimePoint {
+                epoch: time_point.epoch + 1,
+                ..time_point.clone()
+            };
+            let new_time_point_clone = new_time_point.clone();
+            runner
+                .expect_get_time_point_from_chain()
+                .once()
+                .returning(move || Ok(new_time_point.clone()));
+            runner
+                .expect_is_slave_aggregator_at_same_epoch_as_master()
+                .once()
+                .returning(|_| Ok(true));
+            runner
+                .expect_update_stake_distribution()
+                .with(predicate::eq(new_time_point_clone.clone()))
+                .once()
+                .returning(|_| Ok(()));
+            runner
+                .expect_close_signer_registration_round()
+                .once()
+                .returning(|| Ok(()));
+            runner
+                .expect_synchronize_slave_aggregator_signer_registration()
+                .once()
+                .returning(|| Ok(()));
+            runner
+                .expect_open_signer_registration_round()
+                .once()
+                .returning(|_| Ok(()));
+            runner
+                .expect_is_certificate_chain_valid()
+                .once()
+                .returning(|_| Ok(()));
+            runner
+                .expect_update_era_checker()
+                .with(predicate::eq(new_time_point_clone.clone().epoch))
+                .once()
+                .returning(|_| Ok(()));
+            runner
+                .expect_inform_new_epoch()
+                .with(predicate::eq(new_time_point_clone.clone().epoch))
+                .once()
+                .returning(|_| Ok(()));
+            runner
+                .expect_update_epoch_settings()
+                .once()
+                .returning(|| Ok(()));
+            runner
+                .expect_precompute_epoch_data()
+                .once()
+                .returning(|| Ok(()));
+            runner
+                .expect_upkeep()
+                .with(predicate::eq(new_time_point_clone.clone().epoch))
+                .once()
+                .returning(|_| Ok(()));
+            runner
+                .expect_increment_runtime_cycle_total_since_startup_counter()
+                .once()
+                .returning(|| ());
+            runner
+                .expect_increment_runtime_cycle_success_since_startup_counter()
+                .once()
+                .returning(|| ());
+            let mut runtime = init_runtime(
+                Some(AggregatorState::Idle(IdleState {
+                    current_time_point: Some(time_point),
+                })),
+                runner,
+                true,
+            )
+            .await;
+            runtime.cycle().await.unwrap();
 
-    #[tokio::test]
-    async fn signing_certificate_is_not_created() {
-        let mut runner = MockAggregatorRunner::new();
-        runner
-            .expect_get_time_point_from_chain()
-            .once()
-            .returning(|| Ok(TimePoint::dummy()));
-        runner
-            .expect_is_open_message_outdated()
-            .once()
-            .returning(|_, _| Ok(false));
-        runner
-            .expect_create_certificate()
-            .once()
-            .returning(|_| Ok(None));
-        runner
-            .expect_increment_runtime_cycle_total_since_startup_counter()
-            .once()
-            .returning(|| ());
-        runner
-            .expect_increment_runtime_cycle_success_since_startup_counter()
-            .never();
-        let state = SigningState {
-            current_time_point: TimePoint::dummy(),
-            open_message: OpenMessage::dummy(),
-        };
-        let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
-        let err = runtime
-            .cycle()
-            .await
-            .expect_err("cycle should have returned an error");
-
-        match err {
-            RuntimeError::KeepState { .. } => (),
-            _ => panic!("KeepState error expected, got {err:?}."),
-        };
-
-        assert_eq!("signing".to_string(), runtime.get_state());
-    }
-
-    #[tokio::test]
-    async fn signing_artifact_not_created() {
-        let mut runner = MockAggregatorRunner::new();
-        runner
-            .expect_get_time_point_from_chain()
-            .once()
-            .returning(|| Ok(TimePoint::dummy()));
-        runner
-            .expect_is_open_message_outdated()
-            .once()
-            .returning(|_, _| Ok(false));
-        runner
-            .expect_create_certificate()
-            .return_once(move |_| Ok(Some(fake_data::certificate("whatever".to_string()))));
-        runner
-            .expect_create_artifact()
-            .once()
-            .returning(|_, _| Err(anyhow!("whatever")));
-        runner
-            .expect_increment_runtime_cycle_total_since_startup_counter()
-            .once()
-            .returning(|| ());
-        runner
-            .expect_increment_runtime_cycle_success_since_startup_counter()
-            .never();
-        let state = SigningState {
-            current_time_point: TimePoint::dummy(),
-            open_message: OpenMessage::dummy(),
-        };
-        let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
-        let err = runtime
-            .cycle()
-            .await
-            .expect_err("cycle should have returned an error");
-
-        match err {
-            RuntimeError::ReInit { .. } => (),
-            _ => panic!("ReInit error expected, got {err:?}."),
-        };
-
-        assert_eq!("signing".to_string(), runtime.get_state());
-    }
-
-    #[tokio::test]
-    async fn signing_certificate_is_created() {
-        let mut runner = MockAggregatorRunner::new();
-        runner
-            .expect_get_time_point_from_chain()
-            .once()
-            .returning(|| Ok(TimePoint::dummy()));
-        runner
-            .expect_is_open_message_outdated()
-            .once()
-            .returning(|_, _| Ok(false));
-        runner
-            .expect_create_certificate()
-            .return_once(move |_| Ok(Some(fake_data::certificate("whatever".to_string()))));
-        runner
-            .expect_create_artifact()
-            .once()
-            .returning(|_, _| Ok(()));
-        runner
-            .expect_increment_runtime_cycle_total_since_startup_counter()
-            .once()
-            .returning(|| ());
-        runner
-            .expect_increment_runtime_cycle_success_since_startup_counter()
-            .once()
-            .returning(|| ());
-
-        let state = SigningState {
-            current_time_point: TimePoint::dummy(),
-            open_message: OpenMessage::dummy(),
-        };
-        let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
-        runtime.cycle().await.unwrap();
-
-        assert_eq!("ready".to_string(), runtime.get_state());
-    }
-
-    #[tokio::test]
-    pub async fn critical_error() {
-        let mut runner = MockAggregatorRunner::new();
-        runner
-            .expect_get_time_point_from_chain()
-            .once()
-            .returning(|| Ok(TimePoint::dummy()));
-        runner
-            .expect_update_era_checker()
-            .with(predicate::eq(TimePoint::dummy().epoch))
-            .once()
-            .returning(|_| Err(anyhow!("ERROR")));
-        runner
-            .expect_close_signer_registration_round()
-            .once()
-            .returning(|| Ok(()));
-        runner
-            .expect_increment_runtime_cycle_total_since_startup_counter()
-            .once()
-            .returning(|| ());
-        runner
-            .expect_increment_runtime_cycle_success_since_startup_counter()
-            .never();
-
-        let mut runtime = init_runtime(
-            Some(AggregatorState::Idle(IdleState {
-                current_time_point: None,
-            })),
-            runner,
-        )
-        .await;
-        runtime.cycle().await.unwrap_err();
-
-        assert_eq!("idle".to_string(), runtime.get_state());
+            assert_eq!("ready".to_string(), runtime.get_state());
+        }
     }
 }

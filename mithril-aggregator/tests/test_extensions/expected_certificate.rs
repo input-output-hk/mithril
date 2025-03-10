@@ -54,4 +54,8 @@ impl ExpectedCertificate {
     pub fn get_signed_type(&self) -> Option<SignedEntityType> {
         self.signed_type.clone()
     }
+
+    pub fn avk(&self) -> HexEncodedAggregateVerificationKey {
+        self.avk.clone()
+    }
 }

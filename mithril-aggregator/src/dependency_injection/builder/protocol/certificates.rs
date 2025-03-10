@@ -8,10 +8,14 @@ use mithril_common::crypto_helper::{
 
 use crate::database::repository::{BufferedSingleSignatureRepository, SingleSignatureRepository};
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
-use crate::services::{BufferedCertifierService, CertifierService, MithrilCertifierService};
+use crate::services::{
+    BufferedCertifierService, CertifierService, MithrilCertifierService,
+    MithrilSignerRegistrationSlave, SignerSynchronizer,
+};
 use crate::{
-    ExecutionEnvironment, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
-    SingleSignatureAuthenticator,
+    ExecutionEnvironment, MithrilSignerRegistrationMaster, MithrilSignerRegistrationVerifier,
+    MultiSigner, MultiSignerImpl, SignerRegisterer, SignerRegistrationRoundOpener,
+    SignerRegistrationVerifier, SingleSignatureAuthenticator,
 };
 
 impl DependenciesBuilder {
@@ -123,24 +127,133 @@ impl DependenciesBuilder {
         Ok(self.genesis_verifier.as_ref().cloned().unwrap())
     }
 
-    async fn build_mithril_registerer(&mut self) -> Result<Arc<MithrilSignerRegisterer>> {
-        let registerer = MithrilSignerRegisterer::new(
-            self.get_chain_observer().await?,
+    /// Return a [MithrilSignerRegistrationMaster] service
+    async fn build_mithril_signer_registration_master(
+        &mut self,
+    ) -> Result<Arc<MithrilSignerRegistrationMaster>> {
+        let registerer = MithrilSignerRegistrationMaster::new(
             self.get_verification_key_store().await?,
             self.get_signer_store().await?,
+            self.get_signer_registration_verifier().await?,
             self.configuration.safe_epoch_retention_limit(),
         );
 
         Ok(Arc::new(registerer))
     }
 
-    /// [MithrilSignerRegisterer] service
-    pub async fn get_mithril_registerer(&mut self) -> Result<Arc<MithrilSignerRegisterer>> {
-        if self.mithril_registerer.is_none() {
-            self.mithril_registerer = Some(self.build_mithril_registerer().await?);
+    /// Return a [MithrilSignerRegistrationMaster]
+    pub async fn get_mithril_signer_registration_master(
+        &mut self,
+    ) -> Result<Arc<MithrilSignerRegistrationMaster>> {
+        if self.mithril_signer_registration_master.is_none() {
+            self.mithril_signer_registration_master =
+                Some(self.build_mithril_signer_registration_master().await?);
         }
 
-        Ok(self.mithril_registerer.as_ref().cloned().unwrap())
+        Ok(self
+            .mithril_signer_registration_master
+            .as_ref()
+            .cloned()
+            .unwrap())
+    }
+
+    /// Return a [MithrilSignerRegistrationSlave] service
+    async fn build_mithril_signer_registration_slave(
+        &mut self,
+    ) -> Result<Arc<MithrilSignerRegistrationSlave>> {
+        let registerer = MithrilSignerRegistrationSlave::new(
+            self.get_verification_key_store().await?,
+            self.get_signer_store().await?,
+            self.get_signer_registration_verifier().await?,
+            self.get_master_aggregator_client().await?,
+            self.get_stake_store().await?,
+            self.configuration.safe_epoch_retention_limit(),
+        );
+
+        Ok(Arc::new(registerer))
+    }
+
+    /// Return a [MithrilSignerRegistrationSlave]
+    pub async fn get_mithril_signer_registration_slave(
+        &mut self,
+    ) -> Result<Arc<MithrilSignerRegistrationSlave>> {
+        if self.mithril_signer_registration_slave.is_none() {
+            self.mithril_signer_registration_slave =
+                Some(self.build_mithril_signer_registration_slave().await?);
+        }
+
+        Ok(self
+            .mithril_signer_registration_slave
+            .as_ref()
+            .cloned()
+            .unwrap())
+    }
+
+    /// Return a [SignerRegisterer]
+    pub async fn get_signer_registerer(&mut self) -> Result<Arc<dyn SignerRegisterer>> {
+        if self.signer_registerer.is_none() {
+            self.signer_registerer = Some(if self.configuration.is_slave_aggregator() {
+                self.get_mithril_signer_registration_slave().await?
+            } else {
+                self.get_mithril_signer_registration_master().await?
+            });
+        }
+
+        Ok(self.signer_registerer.as_ref().cloned().unwrap())
+    }
+
+    /// Return a [SignerSynchronizer]
+    pub async fn get_signer_synchronizer(&mut self) -> Result<Arc<dyn SignerSynchronizer>> {
+        if self.signer_synchronizer.is_none() {
+            self.signer_synchronizer = Some(if self.configuration.is_slave_aggregator() {
+                self.get_mithril_signer_registration_slave().await?
+            } else {
+                self.get_mithril_signer_registration_master().await?
+            });
+        }
+
+        Ok(self.signer_synchronizer.as_ref().cloned().unwrap())
+    }
+
+    async fn build_signer_registration_verifier(
+        &mut self,
+    ) -> Result<Arc<dyn SignerRegistrationVerifier>> {
+        let registerer = MithrilSignerRegistrationVerifier::new(self.get_chain_observer().await?);
+
+        Ok(Arc::new(registerer))
+    }
+
+    /// Return a [SignerRegistrationVerifier]
+    pub async fn get_signer_registration_verifier(
+        &mut self,
+    ) -> Result<Arc<dyn SignerRegistrationVerifier>> {
+        if self.signer_registration_verifier.is_none() {
+            self.signer_registration_verifier =
+                Some(self.build_signer_registration_verifier().await?);
+        }
+
+        Ok(self.signer_registration_verifier.as_ref().cloned().unwrap())
+    }
+
+    /// Return a [SignerRegistrationRoundOpener]
+    pub async fn get_signer_registration_round_opener(
+        &mut self,
+    ) -> Result<Arc<dyn SignerRegistrationRoundOpener>> {
+        if self.signer_registration_round_opener.is_none() {
+            if self.configuration.is_slave_aggregator() {
+                self.signer_registration_round_opener =
+                    Some(self.get_mithril_signer_registration_slave().await?);
+            } else {
+                self.signer_registration_round_opener =
+                    Some(self.get_mithril_signer_registration_master().await?);
+            }
+        }
+
+        Ok(self
+            .signer_registration_round_opener
+            .as_ref()
+            .cloned()
+            .unwrap())
     }
 
     async fn build_single_signature_authenticator(

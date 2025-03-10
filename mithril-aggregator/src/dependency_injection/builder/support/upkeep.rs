@@ -1,13 +1,24 @@
 use std::sync::Arc;
 
 use crate::dependency_injection::{DependenciesBuilder, Result};
-use crate::services::{AggregatorUpkeepService, UpkeepService};
+use crate::services::{AggregatorUpkeepService, EpochPruningTask, UpkeepService};
 
 impl DependenciesBuilder {
+    /// Return a [EpochPruningTask] instance
+    pub async fn get_signer_registration_pruning_task(
+        &mut self,
+    ) -> Result<Arc<dyn EpochPruningTask>> {
+        Ok(if self.configuration.is_slave_aggregator() {
+            self.get_mithril_signer_registration_slave().await?
+        } else {
+            self.get_mithril_signer_registration_master().await?
+        })
+    }
+
     async fn build_upkeep_service(&mut self) -> Result<Arc<dyn UpkeepService>> {
         let stake_pool_pruning_task = self.get_stake_store().await?;
         let epoch_settings_pruning_task = self.get_epoch_settings_store().await?;
-        let mithril_registerer_pruning_task = self.get_mithril_registerer().await?;
+        let signer_registration_pruning_task = self.get_signer_registration_pruning_task().await?;
 
         let upkeep_service = Arc::new(AggregatorUpkeepService::new(
             self.get_sqlite_connection().await?,
@@ -18,7 +29,7 @@ impl DependenciesBuilder {
             vec![
                 stake_pool_pruning_task,
                 epoch_settings_pruning_task,
-                mithril_registerer_pruning_task,
+                signer_registration_pruning_task,
             ],
             self.root_logger(),
         ));

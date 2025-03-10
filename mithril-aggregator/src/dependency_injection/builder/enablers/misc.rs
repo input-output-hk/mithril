@@ -5,12 +5,15 @@
 //! - redefine the actual categories so those miscellaneous enablers fit into them
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 
 use crate::database::repository::CertificateRepository;
 use crate::dependency_injection::{DependenciesBuilder, Result};
-use crate::services::{MessageService, MithrilMessageService};
+use crate::services::{
+    AggregatorClient, AggregatorHTTPClient, MessageService, MithrilMessageService,
+};
 
 impl DependenciesBuilder {
     async fn build_signed_entity_lock(&mut self) -> Result<Arc<SignedEntityTypeLock>> {
@@ -34,10 +37,12 @@ impl DependenciesBuilder {
         ));
         let signed_entity_storer = self.get_signed_entity_storer().await?;
         let immutable_file_digest_mapper = self.get_immutable_file_digest_mapper().await?;
+        let epoch_service = self.get_epoch_service().await?;
         let service = MithrilMessageService::new(
             certificate_repository,
             signed_entity_storer,
             immutable_file_digest_mapper,
+            epoch_service,
         );
 
         Ok(Arc::new(service))
@@ -50,5 +55,32 @@ impl DependenciesBuilder {
         }
 
         Ok(self.message_service.as_ref().cloned().unwrap())
+    }
+
+    /// build an [AggregatorClient]
+    pub async fn build_master_aggregator_client(&mut self) -> Result<Arc<dyn AggregatorClient>> {
+        let master_aggregator_endpoint = self
+            .configuration
+            .master_aggregator_endpoint
+            .to_owned()
+            .unwrap_or_default();
+        let aggregator_client = AggregatorHTTPClient::new(
+            master_aggregator_endpoint,
+            None,
+            self.get_api_version_provider().await?,
+            Some(Duration::from_secs(30)),
+            self.root_logger(),
+        );
+
+        Ok(Arc::new(aggregator_client))
+    }
+
+    /// Returns a master [AggregatorClient]
+    pub async fn get_master_aggregator_client(&mut self) -> Result<Arc<dyn AggregatorClient>> {
+        if self.master_aggregator_client.is_none() {
+            self.master_aggregator_client = Some(self.build_master_aggregator_client().await?);
+        }
+
+        Ok(self.master_aggregator_client.as_ref().cloned().unwrap())
     }
 }

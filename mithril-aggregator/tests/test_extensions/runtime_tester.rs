@@ -10,6 +10,7 @@ use mithril_aggregator::{
     services::FakeSnapshotter,
     AggregatorRuntime, Configuration, DependencyContainer, DumbUploader, SignerRegistrationError,
 };
+use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
 use mithril_common::{
     cardano_block_scanner::{DumbBlockScanner, ScannedBlock},
     chain_observer::{ChainObserver, FakeObserver},
@@ -26,11 +27,15 @@ use mithril_common::{
     },
     StdResult,
 };
+use serde_json::json;
 use slog::Drain;
 use slog_scope::debug;
+use std::convert::Infallible;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::UnboundedReceiver;
+use warp::http::StatusCode;
+use warp::Filter;
 
 #[macro_export]
 macro_rules! cycle {
@@ -258,6 +263,38 @@ impl RuntimeTester {
             })?;
 
         Ok(())
+    }
+
+    pub async fn expose_epoch_settings(&mut self) -> StdResult<TestHttpServer> {
+        fn with_observer(
+            runtime_tester: &RuntimeTester,
+        ) -> impl Filter<Extract = (Arc<AggregatorObserver>,), Error = Infallible> + Clone {
+            let observer = runtime_tester.observer.clone();
+            warp::any().map(move || observer.clone())
+        }
+
+        async fn epoch_settings_handler(
+            observer: Arc<AggregatorObserver>,
+        ) -> Result<impl warp::Reply, Infallible> {
+            let allowed_discriminants = SignedEntityTypeDiscriminants::all();
+            let epoch_settings_message = observer.get_epoch_settings(allowed_discriminants).await;
+            match epoch_settings_message {
+                Ok(message) => Ok(Box::new(warp::reply::with_status(
+                    warp::reply::json(&message),
+                    StatusCode::OK,
+                ))),
+                Err(err) => Ok(Box::new(warp::reply::with_status(
+                    warp::reply::json(&json!(err.to_string())),
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                ))),
+            }
+        }
+
+        let routes = warp::path("epoch-settings")
+            .and(with_observer(self))
+            .and_then(epoch_settings_handler);
+
+        Ok(test_http_server(routes))
     }
 
     /// Increase the immutable file number of the simulated db, returns the new number.

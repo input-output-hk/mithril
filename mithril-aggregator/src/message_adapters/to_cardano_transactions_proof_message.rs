@@ -64,7 +64,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_simple_message() {
+    fn try_adapt_cardano_transaction_proof_to_message() {
         let transaction_hashes = &[
             "tx-1".to_string(),
             "tx-2".to_string(),

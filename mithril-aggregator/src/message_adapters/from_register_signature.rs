@@ -34,7 +34,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_simple_message() {
+    fn try_adapt_single_signatures_message_to_entity() {
         let message = RegisterSignatureMessage::dummy();
         let signatures = FromRegisterSingleSignatureAdapter::try_adapt(message.clone()).unwrap();
 
