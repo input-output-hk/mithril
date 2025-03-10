@@ -16,6 +16,8 @@ use crate::{
 use super::signer::SignerConfig;
 
 pub struct MithrilInfrastructureConfig {
+    pub number_of_aggregators: u8,
+    pub number_of_signers: u8,
     pub server_port: u64,
     pub devnet: Devnet,
     pub work_dir: PathBuf,
@@ -54,8 +56,11 @@ impl MithrilInfrastructure {
         config.devnet.run().await?;
         let devnet_topology = config.devnet.topology();
         // Clap check that we always have at least 2 pools, no need to be defensive here
-        let aggregator_cardano_node = &devnet_topology.pool_nodes[0];
-        let signer_cardano_nodes = &devnet_topology.pool_nodes[1..];
+        let number_of_aggregators = config.number_of_aggregators as usize;
+        let number_of_signers = config.number_of_signers as usize;
+        let aggregator_cardano_nodes = &devnet_topology.pool_nodes[0..number_of_aggregators];
+        let signer_cardano_nodes = &devnet_topology.pool_nodes
+            [number_of_aggregators..number_of_aggregators + number_of_signers];
         let signer_party_ids = signer_cardano_nodes
             .iter()
             .map(|s| s.party_id())
