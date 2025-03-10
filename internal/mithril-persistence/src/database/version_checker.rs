@@ -163,6 +163,9 @@ pub struct SqlMigration {
 
     /// SQL statements to alter the database.
     pub alterations: String,
+
+    /// Indicates if this migration is squashed and the minimum node version required.
+    pub min_node_version: Option<String>,
 }
 
 impl SqlMigration {
@@ -171,6 +174,7 @@ impl SqlMigration {
         Self {
             version,
             alterations: alteration.into(),
+            min_node_version: None,
         }
     }
 }
@@ -264,6 +268,7 @@ mod tests {
         let migration = SqlMigration {
             version: 1,
             alterations: alterations.to_string(),
+            min_node_version: None,
         };
         db_checker.add_migration(migration);
         db_checker.apply().unwrap();
@@ -278,6 +283,7 @@ mod tests {
         let migration = SqlMigration {
             version: 2,
             alterations: alterations.to_string(),
+            min_node_version: None,
         };
         db_checker.add_migration(migration);
         db_checker.apply().unwrap();
@@ -291,12 +297,14 @@ mod tests {
         let migration = SqlMigration {
             version: 4,
             alterations: alterations.to_string(),
+            min_node_version: None,
         };
         db_checker.add_migration(migration);
         let alterations = "alter table whatever add column more_thing text; update whatever set more_thing = 'more thing'";
         let migration = SqlMigration {
             version: 3,
             alterations: alterations.to_string(),
+            min_node_version: None,
         };
         db_checker.add_migration(migration);
         db_checker.apply().unwrap();
@@ -318,6 +326,7 @@ mod tests {
         let migration = SqlMigration {
             version: 3,
             alterations: alterations.to_string(),
+            min_node_version: None,
         };
         db_checker.add_migration(migration);
         db_checker.apply().unwrap();
@@ -328,6 +337,7 @@ mod tests {
         let migration_with_version_gap = SqlMigration {
             version: 10,
             alterations: alterations.to_string(),
+            min_node_version: None,
         };
         db_checker.add_migration(migration_with_version_gap);
         db_checker.apply().unwrap();
@@ -348,6 +358,7 @@ mod tests {
         let migration = SqlMigration {
             version: 1,
             alterations: alterations.to_string(),
+            min_node_version: None,
         };
         db_checker.add_migration(migration);
         db_checker.apply().unwrap();
@@ -371,18 +382,21 @@ mod tests {
         let migration = SqlMigration {
             version: 1,
             alterations: alterations.to_string(),
+            min_node_version: None,
         };
         db_checker.add_migration(migration);
         let alterations = "alter table wrong add column thing_content text; update whatever set thing_content = 'some content'";
         let migration = SqlMigration {
             version: 2,
             alterations: alterations.to_string(),
+            min_node_version: None,
         };
         db_checker.add_migration(migration);
         let alterations = "alter table whatever add column thing_content text; update whatever set thing_content = 'some content'";
         let migration = SqlMigration {
             version: 3,
             alterations: alterations.to_string(),
+            min_node_version: None,
         };
         db_checker.add_migration(migration);
         db_checker.apply().unwrap_err();
@@ -401,6 +415,7 @@ mod tests {
         let migration = SqlMigration {
             version: 1,
             alterations: alterations.to_string(),
+            min_node_version: None,
         };
         db_checker.add_migration(migration);
         db_checker.apply().unwrap();
