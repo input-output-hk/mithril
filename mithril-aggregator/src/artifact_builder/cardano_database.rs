@@ -270,6 +270,7 @@ mod tests {
             DigestArtifactBuilder::new(
                 SanitizedUrlWithTrailingSlash::parse("http://aggregator_uri").unwrap(),
                 vec![],
+                CompressionAlgorithm::Gzip,
                 network,
                 test_dir.join("digests"),
                 Arc::new(immutable_file_digest_mapper),
