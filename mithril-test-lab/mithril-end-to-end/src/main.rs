@@ -51,9 +51,13 @@ pub struct Args {
     #[clap(long, default_value = ".")]
     bin_directory: PathBuf,
 
-    /// Number of Pool nodes in the devnet
-    #[clap(long, default_value_t = 3, value_parser = has_at_least_two_pool_nodes)]
-    number_of_pool_nodes: u8,
+    /// Number of aggregators
+    #[clap(long, default_value_t = 1)]
+    number_of_aggregators: u8,
+
+    /// Number of signers
+    #[clap(long, default_value_t = 2)]
+    number_of_signers: u8,
 
     /// Length of a Cardano slot in the devnet (in s)
     #[clap(long, default_value_t = 0.10)]
@@ -135,17 +139,21 @@ impl Args {
             _ => Level::Trace,
         }
     }
-}
 
-fn has_at_least_two_pool_nodes(s: &str) -> Result<u8, String> {
-    let number_of_pool_nodes: u8 = s.parse().map_err(|_| format!("`{}` isn't a number", s))?;
-    if number_of_pool_nodes >= 2 {
-        Ok(number_of_pool_nodes)
-    } else {
-        Err(format!(
-            "At least two pool nodes are required (one for the aggregator, one for at least one \
-            signer), number given: {s}",
-        ))
+    fn validate(&self) -> StdResult<()> {
+        if self.number_of_aggregators == 0 {
+            return Err(anyhow!("At least one aggregator is required"));
+        }
+        if self.number_of_signers == 0 {
+            return Err(anyhow!("At least one signer is required"));
+        }
+        if !self.use_p2p_network && self.number_of_aggregators >= 2 {
+            return Err(anyhow!(
+                "The P2P mode must be activated to run more than one aggregator"
+            ));
+        }
+
+        Ok(())
     }
 }
 
@@ -308,6 +316,7 @@ impl App {
         artifacts_dir: PathBuf,
     ) -> StdResult<()> {
         let server_port = 8080;
+        args.validate()?;
         let run_only_mode = args.run_only;
         let use_p2p_network_mode = args.use_p2p_network;
         let use_p2p_passive_relays = args.use_p2p_passive_relays;
@@ -315,7 +324,7 @@ impl App {
         let devnet = Devnet::bootstrap(&DevnetBootstrapArgs {
             devnet_scripts_dir: args.devnet_scripts_directory,
             artifacts_target_dir: work_dir.join("devnet"),
-            number_of_pool_nodes: args.number_of_pool_nodes,
+            number_of_pool_nodes: args.number_of_aggregators + args.number_of_signers,
             cardano_slot_length: args.cardano_slot_length,
             cardano_epoch_length: args.cardano_epoch_length,
             cardano_node_version: args.cardano_node_version.to_owned(),
@@ -326,6 +335,8 @@ impl App {
         *self.devnet.lock().await = Some(devnet.clone());
 
         let mut infrastructure = MithrilInfrastructure::start(&MithrilInfrastructureConfig {
+            number_of_aggregators: args.number_of_aggregators,
+            number_of_signers: args.number_of_signers,
             server_port,
             devnet: devnet.clone(),
             artifacts_dir,
@@ -486,5 +497,25 @@ mod tests {
             AppResult::from(Err(anyhow!(SignalError("an error".to_string())))),
             AppResult::Cancelled(_)
         ));
+    }
+
+    #[test]
+    fn args_fails_validation() {
+        let args = Args::parse_from(["", "--number-of-signers", "0"]);
+        args.validate()
+            .expect_err("validate should fail without signers");
+
+        let args = Args::parse_from(["", "--number-of-aggregators", "0"]);
+        args.validate()
+            .expect_err("validate should fail without aggregators");
+
+        let args = Args::parse_from(["", "--number-of-aggregators", "2"]);
+        args.validate().expect_err(
+            "validate should fail with more than one aggregator if p2p network is not used",
+        );
+
+        let args = Args::parse_from(["", "--use-p2p-network", "--number-of-aggregators", "2"]);
+        args.validate()
+            .expect("validate should succeed with more than one aggregator if p2p network is used");
     }
 }
