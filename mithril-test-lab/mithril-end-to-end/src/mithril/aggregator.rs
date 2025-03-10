@@ -28,6 +28,7 @@ pub struct AggregatorConfig<'a> {
     pub mithril_era_marker_address: &'a str,
     pub signed_entity_types: &'a [String],
     pub chain_observer_type: &'a str,
+    pub master_aggregator_endpoint: &'a Option<String>,
 }
 
 #[derive(Debug)]
@@ -57,7 +58,7 @@ impl Aggregator {
         let signed_entity_types = aggregator_config.signed_entity_types.join(",");
         let mithril_run_interval = format!("{}", aggregator_config.mithril_run_interval);
         let public_server_url = format!("http://localhost:{server_port_parameter}/aggregator");
-        let env = HashMap::from([
+        let mut env = HashMap::from([
             ("NETWORK", "devnet"),
             ("RUN_INTERVAL", &mithril_run_interval),
             ("SERVER_IP", "0.0.0.0"),
@@ -103,6 +104,9 @@ impl Aggregator {
             ("CARDANO_TRANSACTIONS_SIGNING_CONFIG__STEP", "15"),
             ("PERSIST_USAGE_REPORT_INTERVAL_IN_SECONDS", "3"),
         ]);
+        if let Some(master_aggregator_endpoint) = aggregator_config.master_aggregator_endpoint {
+            env.insert("MASTER_AGGREGATOR_ENDPOINT", master_aggregator_endpoint);
+        }
         let args = vec![
             "--db-directory",
             aggregator_config.pool_node.db_path.to_str().unwrap(),
