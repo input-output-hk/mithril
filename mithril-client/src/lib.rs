@@ -70,6 +70,10 @@
 //!
 //! - **fs**: Enables file system related functionalities.
 //! - **unstable**: Enables experimental or in-development `mithril-client` features that may change.
+//! - **rug-backend** *(enabled by default)*: Enables usage of `rug` numerical backend in `mithril-stm` (dependency of `mithril-common`).
+//! - **num-integer-backend**: Enables usage of `num-integer` numerical backend in `mithril-stm` (dependency of `mithril-common`).
+//!
+//! To allow fine tuning of the http queries, the following [Reqwest](https://docs.rs/reqwest/latest/reqwest/#optional-features) features are re-exported:
 //! - **native-tls** *(enabled by default)*: Enables TLS functionality provided by `native-tls`.
 //! - **native-tls-vendored**: Enables the `vendored` feature of `native-tls`.
 //! - **native-tls-alpn**: Enables the `alpn` feature of `native-tls`.
@@ -82,8 +86,6 @@
 //! - **rustls-tls-native-roots**: Enables TLS functionality provided by `rustls`,
 //!   while using root certificates from the `rustls-native-certs` crate.
 //! - **enable-http-compression** *(enabled by default)*: Enables compressed traffic with `reqwest`.
-//! - **rug-backend** *(enabled by default)*: Enables usage of `rug` numerical backend in `mithril-stm` (dependency of `mithril-common`).
-//! - **num-integer-backend**: Enables usage of `num-integer` numerical backend in `mithril-stm` (dependency of `mithril-common`).
 
 macro_rules! cfg_fs {
     ($($item:item)*) => {

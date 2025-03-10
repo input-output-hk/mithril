@@ -93,7 +93,7 @@ default = ["native-tls", "rug-backend", "enable-http-compression"]
 # Full feature set
 full = ["fs"]
 
-# Enable file system related functionnality, right now that mean ony snapshot download
+# Enable file system related functionality, right now that mean only snapshot download
 fs = ["flate2", "flume", "tar", "tokio/rt", "zstd"]
 portable = []                                       # deprecated, will be removed soon
 unstable = []
