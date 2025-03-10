@@ -112,6 +112,7 @@ impl<'conn> DatabaseVersionChecker<'conn> {
             .filter(|&m| m.version > starting_version.version)
             .collect::<Vec<&SqlMigration>>()
         {
+            self.check_minimum_required_version(starting_version.version, migration)?;
             connection.execute(&migration.alterations)?;
             let db_version = DatabaseVersion {
                 version: migration.version,
@@ -547,6 +548,40 @@ mod tests {
         let error = db_checker
             .check_minimum_required_version(1, &migration)
             .expect_err("Check minimum required version should fail when gap between db version and migration version");
+        assert!(error.to_string().contains("curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-aggregator -d 1.2.3 -p $(pwd)"));
+    }
+
+    #[test]
+    fn apply_fails_when_trying_to_apply_squashed_migration_on_old_database() {
+        let (_filepath, connection) =
+            create_sqlite_file("apply_fails_with_squashed_migration").unwrap();
+        let mut db_checker = DatabaseVersionChecker::new(
+            discard_logger(),
+            ApplicationNodeType::Aggregator,
+            &connection,
+        );
+
+        let alterations = "create table whatever (thing_id integer); insert into whatever (thing_id) values (1), (2), (3), (4);";
+        let migration = SqlMigration {
+            version: 1,
+            alterations: alterations.to_string(),
+            min_node_version: None,
+        };
+        db_checker.add_migration(migration);
+        db_checker.apply().unwrap();
+        check_database_version(&connection, 1);
+
+        let alterations = "alter table whatever add column thing_content text; update whatever set thing_content = 'some content'";
+        let squashed_migration = SqlMigration {
+            version: 3,
+            alterations: alterations.to_string(),
+            min_node_version: Some("1.2.3".to_string()),
+        };
+        db_checker.add_migration(squashed_migration);
+
+        let error = db_checker
+            .apply()
+            .expect_err("Should fail with minimum version error");
         assert!(error.to_string().contains("curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-aggregator -d 1.2.3 -p $(pwd)"));
     }
 }
