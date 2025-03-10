@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -5,6 +6,7 @@ use crate::entities::{
     AncillaryLocation, AncillaryLocations, CardanoDbBeacon, CompressionAlgorithm, DigestLocation,
     DigestsLocations, Epoch, ImmutablesLocation, ImmutablesLocations, MultiFilesUri, TemplateUri,
 };
+use crate::StdResult;
 
 /// The message part that represents the locations of the Cardano database digests.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -15,6 +17,25 @@ pub struct DigestsMessagePart {
     /// Locations of the digests.
     pub locations: Vec<DigestLocation>,
 }
+
+impl DigestsMessagePart {
+    /// Return the list of locations without the unknown locations, failing if all locations are unknown.
+    pub fn sanitized_locations(&self) -> StdResult<Vec<DigestLocation>> {
+        let sanitized_locations: Vec<_> = self
+            .locations
+            .iter()
+            .filter(|l| !matches!(l, DigestLocation::Unknown))
+            .cloned()
+            .collect();
+
+        if sanitized_locations.is_empty() {
+            Err(anyhow!("All digests locations are unknown."))
+        } else {
+            Ok(sanitized_locations)
+        }
+    }
+}
+
 /// The message part that represents the locations of the Cardano database immutables.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ImmutablesMessagePart {
@@ -24,6 +45,25 @@ pub struct ImmutablesMessagePart {
     /// Locations of the immutable files.
     pub locations: Vec<ImmutablesLocation>,
 }
+
+impl ImmutablesMessagePart {
+    /// Return the list of locations without the unknown locations, failing if all locations are unknown.
+    pub fn sanitized_locations(&self) -> StdResult<Vec<ImmutablesLocation>> {
+        let sanitized_locations: Vec<_> = self
+            .locations
+            .iter()
+            .filter(|l| !matches!(l, ImmutablesLocation::Unknown))
+            .cloned()
+            .collect();
+
+        if sanitized_locations.is_empty() {
+            Err(anyhow!("All locations are unknown."))
+        } else {
+            Ok(sanitized_locations)
+        }
+    }
+}
+
 /// The message part that represents the locations of the Cardano database ancillary.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AncillaryMessagePart {
@@ -32,6 +72,24 @@ pub struct AncillaryMessagePart {
 
     /// Locations of the ancillary files.
     pub locations: Vec<AncillaryLocation>,
+}
+
+impl AncillaryMessagePart {
+    /// Return the list of locations without the unknown locations, failing if all locations are unknown.
+    pub fn sanitized_locations(&self) -> StdResult<Vec<AncillaryLocation>> {
+        let sanitized_locations: Vec<_> = self
+            .locations
+            .iter()
+            .filter(|l| !matches!(l, AncillaryLocation::Unknown))
+            .cloned()
+            .collect();
+
+        if sanitized_locations.is_empty() {
+            Err(anyhow!("All locations are unknown."))
+        } else {
+            Ok(sanitized_locations)
+        }
+    }
 }
 
 impl From<DigestsLocations> for DigestsMessagePart {
@@ -323,5 +381,176 @@ mod tests {
 
         assert_eq!(message.ancillary.locations.len(), 1);
         assert_eq!(AncillaryLocation::Unknown, message.ancillary.locations[0]);
+    }
+
+    mod sanitize_immutable_locations {
+        use super::*;
+
+        #[test]
+        fn succeeds_and_leave_all_locations_intact_if_no_unknown_location() {
+            let immutable_locations = ImmutablesMessagePart {
+                locations: vec![ImmutablesLocation::CloudStorage {
+                    uri: MultiFilesUri::Template(TemplateUri(
+                        "http://whatever/{immutable_file_number}.tar.gz".to_string(),
+                    )),
+                    compression_algorithm: None,
+                }],
+                average_size_uncompressed: 512,
+            };
+
+            let sanitize_locations = immutable_locations
+                .sanitized_locations()
+                .expect("Should succeed since there are no unknown locations.");
+            assert_eq!(sanitize_locations, immutable_locations.locations);
+        }
+
+        #[test]
+        fn succeeds_and_remove_unknown_locations_if_some_locations_are_not_unknown() {
+            let immutable_locations = ImmutablesMessagePart {
+                locations: vec![
+                    ImmutablesLocation::CloudStorage {
+                        uri: MultiFilesUri::Template(TemplateUri(
+                            "http://whatever/{immutable_file_number}.tar.gz".to_string(),
+                        )),
+                        compression_algorithm: None,
+                    },
+                    ImmutablesLocation::Unknown,
+                ],
+                average_size_uncompressed: 512,
+            };
+
+            let sanitize_locations = immutable_locations
+                .sanitized_locations()
+                .expect("Should succeed since not all locations are unknown.");
+            assert_eq!(
+                sanitize_locations,
+                vec![ImmutablesLocation::CloudStorage {
+                    uri: MultiFilesUri::Template(TemplateUri(
+                        "http://whatever/{immutable_file_number}.tar.gz".to_string(),
+                    )),
+                    compression_algorithm: None,
+                }]
+            );
+        }
+
+        #[test]
+        fn fails_if_all_locations_are_unknown() {
+            ImmutablesMessagePart {
+                locations: vec![ImmutablesLocation::Unknown],
+                average_size_uncompressed: 512,
+            }
+            .sanitized_locations()
+            .expect_err("Should fail since all locations are unknown.");
+        }
+    }
+
+    mod sanitize_ancillary_locations {
+        use super::*;
+
+        #[test]
+        fn succeeds_and_leave_all_locations_intact_if_no_unknown_location() {
+            let ancillary_locations = AncillaryMessagePart {
+                locations: vec![AncillaryLocation::CloudStorage {
+                    uri: "http://whatever/ancillary.tar.gz".to_string(),
+                    compression_algorithm: None,
+                }],
+                size_uncompressed: 1024,
+            };
+
+            let sanitize_locations = ancillary_locations
+                .sanitized_locations()
+                .expect("Should succeed since there are no unknown locations.");
+            assert_eq!(sanitize_locations, ancillary_locations.locations);
+        }
+
+        #[test]
+        fn succeeds_and_remove_unknown_locations_if_some_locations_are_not_unknown() {
+            let ancillary_locations = AncillaryMessagePart {
+                locations: vec![
+                    AncillaryLocation::CloudStorage {
+                        uri: "http://whatever/digests.tar.gz".to_string(),
+                        compression_algorithm: None,
+                    },
+                    AncillaryLocation::Unknown,
+                ],
+                size_uncompressed: 512,
+            };
+
+            let sanitize_locations = ancillary_locations
+                .sanitized_locations()
+                .expect("Should succeed since not all locations are unknown.");
+            assert_eq!(
+                sanitize_locations,
+                vec![AncillaryLocation::CloudStorage {
+                    uri: "http://whatever/digests.tar.gz".to_string(),
+                    compression_algorithm: None,
+                }]
+            );
+        }
+
+        #[test]
+        fn fails_if_all_locations_are_unknown() {
+            AncillaryMessagePart {
+                locations: vec![AncillaryLocation::Unknown],
+                size_uncompressed: 512,
+            }
+            .sanitized_locations()
+            .expect_err("Should fail since all locations are unknown.");
+        }
+    }
+
+    mod sanitize_digests_locations {
+        use super::*;
+
+        #[test]
+        fn succeeds_and_leave_all_locations_intact_if_no_unknown_location() {
+            let digests_locations = DigestsMessagePart {
+                locations: vec![DigestLocation::CloudStorage {
+                    uri: "http://whatever/digests.tar.gz".to_string(),
+                    compression_algorithm: None,
+                }],
+                size_uncompressed: 512,
+            };
+
+            let sanitize_locations = digests_locations
+                .sanitized_locations()
+                .expect("Should succeed since there are no unknown locations.");
+            assert_eq!(sanitize_locations, digests_locations.locations);
+        }
+
+        #[test]
+        fn succeeds_and_remove_unknown_locations_if_some_locations_are_not_unknown() {
+            let digests_locations = DigestsMessagePart {
+                locations: vec![
+                    DigestLocation::CloudStorage {
+                        uri: "http://whatever/digests.tar.gz".to_string(),
+                        compression_algorithm: None,
+                    },
+                    DigestLocation::Unknown,
+                ],
+                size_uncompressed: 512,
+            };
+
+            let sanitize_locations = digests_locations
+                .sanitized_locations()
+                .expect("Should succeed since not all locations are unknown.");
+            assert_eq!(
+                sanitize_locations,
+                vec![DigestLocation::CloudStorage {
+                    uri: "http://whatever/digests.tar.gz".to_string(),
+                    compression_algorithm: None,
+                }]
+            );
+        }
+
+        #[test]
+        fn fails_if_all_locations_are_unknown() {
+            DigestsMessagePart {
+                locations: vec![DigestLocation::Unknown],
+                size_uncompressed: 512,
+            }
+            .sanitized_locations()
+            .expect_err("Should fail since all locations are unknown.");
+        }
     }
 }
