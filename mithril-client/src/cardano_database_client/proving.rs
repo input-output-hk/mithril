@@ -13,6 +13,7 @@ use mithril_common::{
     entities::{DigestLocation, HexEncodedDigest, ImmutableFileName},
     messages::{
         CardanoDatabaseDigestListItemMessage, CardanoDatabaseSnapshotMessage, CertificateMessage,
+        DigestsMessagePart,
     },
 };
 
@@ -47,10 +48,8 @@ impl InternalArtifactProver {
         immutable_file_range: &ImmutableFileRange,
         database_dir: &Path,
     ) -> MithrilResult<MKProof> {
-        let digests = &cardano_database_snapshot.digests;
         self.download_unpack_digest_file(
-            &digests.locations,
-            digests.size_uncompressed,
+            &cardano_database_snapshot.digests,
             &Self::digest_target_dir(database_dir),
         )
         .await?;
@@ -85,12 +84,11 @@ impl InternalArtifactProver {
 
     async fn download_unpack_digest_file(
         &self,
-        locations: &[DigestLocation],
-        file_size: u64,
-        digest_file_target_dir: &Path,
+        digests_locations: &DigestsMessagePart,
+        digests_file_target_dir: &Path,
     ) -> MithrilResult<()> {
-        create_directory_if_not_exists(digest_file_target_dir)?;
-        let mut locations_sorted = locations.to_owned();
+        create_directory_if_not_exists(digests_file_target_dir)?;
+        let mut locations_sorted = digests_locations.sanitized_locations()?;
         locations_sorted.sort();
         for location in locations_sorted {
             let download_id = MithrilEvent::new_cardano_database_download_id();
@@ -98,16 +96,15 @@ impl InternalArtifactProver {
                 DigestLocation::CloudStorage { .. } | DigestLocation::Aggregator { .. } => {
                     self.http_file_downloader.clone()
                 }
-                DigestLocation::Unknown => {
-                    continue;
-                }
+                // Note: unknown locations should have been filtered out by `sanitized_locations`
+                DigestLocation::Unknown => unreachable!(),
             };
             let file_downloader_uri: FileDownloaderUri = location.try_into()?;
             let downloaded = file_downloader
                 .download_unpack(
                     &file_downloader_uri,
-                    file_size,
-                    digest_file_target_dir,
+                    digests_locations.size_uncompressed,
+                    digests_file_target_dir,
                     None,
                     DownloadEvent::Digest {
                         download_id: download_id.clone(),
@@ -362,16 +359,18 @@ mod tests {
 
             artifact_prover
                 .download_unpack_digest_file(
-                    &[
-                        DigestLocation::CloudStorage {
-                            uri: "http://whatever-1/digests.json".to_string(),
-                            compression_algorithm: None,
-                        },
-                        DigestLocation::Aggregator {
-                            uri: "http://whatever-2/digest".to_string(),
-                        },
-                    ],
-                    0,
+                    &DigestsMessagePart {
+                        locations: vec![
+                            DigestLocation::CloudStorage {
+                                uri: "http://whatever-1/digests.json".to_string(),
+                                compression_algorithm: None,
+                            },
+                            DigestLocation::Aggregator {
+                                uri: "http://whatever-2/digest".to_string(),
+                            },
+                        ],
+                        size_uncompressed: 0,
+                    },
                     target_dir,
                 )
                 .await
@@ -379,7 +378,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn fails_if_location_is_unknown() {
+        async fn fails_if_all_locations_are_unknown() {
             let target_dir = Path::new(".");
             let artifact_prover = InternalArtifactProver::new(
                 Arc::new(MockFileDownloader::new()),
@@ -387,7 +386,13 @@ mod tests {
             );
 
             artifact_prover
-                .download_unpack_digest_file(&[DigestLocation::Unknown], 0, target_dir)
+                .download_unpack_digest_file(
+                    &DigestsMessagePart {
+                        locations: vec![DigestLocation::Unknown],
+                        size_uncompressed: 0,
+                    },
+                    target_dir,
+                )
                 .await
                 .expect_err("download_unpack_digest_file should fail");
         }
@@ -410,16 +415,18 @@ mod tests {
 
             artifact_prover
                 .download_unpack_digest_file(
-                    &[
-                        DigestLocation::CloudStorage {
-                            uri: "http://whatever-1/digests.json".to_string(),
-                            compression_algorithm: None,
-                        },
-                        DigestLocation::Aggregator {
-                            uri: "http://whatever-2/digest".to_string(),
-                        },
-                    ],
-                    0,
+                    &DigestsMessagePart {
+                        locations: vec![
+                            DigestLocation::CloudStorage {
+                                uri: "http://whatever-1/digests.json".to_string(),
+                                compression_algorithm: None,
+                            },
+                            DigestLocation::Aggregator {
+                                uri: "http://whatever-2/digest".to_string(),
+                            },
+                        ],
+                        size_uncompressed: 0,
+                    },
                     target_dir,
                 )
                 .await
@@ -442,16 +449,18 @@ mod tests {
 
             artifact_prover
                 .download_unpack_digest_file(
-                    &[
-                        DigestLocation::CloudStorage {
-                            uri: "http://whatever-1/digests.json".to_string(),
-                            compression_algorithm: None,
-                        },
-                        DigestLocation::Aggregator {
-                            uri: "http://whatever-2/digest".to_string(),
-                        },
-                    ],
-                    0,
+                    &DigestsMessagePart {
+                        locations: vec![
+                            DigestLocation::CloudStorage {
+                                uri: "http://whatever-1/digests.json".to_string(),
+                                compression_algorithm: None,
+                            },
+                            DigestLocation::Aggregator {
+                                uri: "http://whatever-2/digest".to_string(),
+                            },
+                        ],
+                        size_uncompressed: 0,
+                    },
                     target_dir,
                 )
                 .await

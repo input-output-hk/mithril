@@ -11,7 +11,7 @@ use anyhow::anyhow;
 use mithril_common::{
     digesters::{IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR},
     entities::{AncillaryLocation, CompressionAlgorithm, ImmutableFileNumber, ImmutablesLocation},
-    messages::CardanoDatabaseSnapshotMessage,
+    messages::{AncillaryMessagePart, CardanoDatabaseSnapshotMessage, ImmutablesMessagePart},
 };
 
 use crate::feedback::{FeedbackSender, MithrilEvent, MithrilEventCardanoDatabase};
@@ -121,24 +121,17 @@ impl InternalArtifactDownloader {
             last_immutable_file_number,
         )?;
         Self::verify_can_write_to_target_directory(target_dir, &download_unpack_options)?;
-        let immutable_locations = &cardano_database_snapshot.immutables.locations;
-        let average_size_uncompressed = cardano_database_snapshot
-            .immutables
-            .average_size_uncompressed;
 
         let mut tasks = VecDeque::from(self.build_download_tasks_for_immutables(
-            immutable_locations,
+            &cardano_database_snapshot.immutables,
             immutable_file_number_range,
             target_dir,
-            average_size_uncompressed,
             &download_id,
         )?);
         if download_unpack_options.include_ancillary {
-            let ancillary = &cardano_database_snapshot.ancillary;
             tasks.push_back(self.new_ancillary_download_task(
-                &ancillary.locations,
+                &cardano_database_snapshot.ancillary,
                 target_dir,
-                ancillary.size_uncompressed,
                 &download_id,
             )?);
         }
@@ -218,10 +211,9 @@ impl InternalArtifactDownloader {
 
     fn build_download_tasks_for_immutables(
         &self,
-        immutable_locations: &[ImmutablesLocation],
+        immutable_locations: &ImmutablesMessagePart,
         immutable_file_number_range: RangeInclusive<ImmutableFileNumber>,
         target_dir: &Path,
-        average_size_uncompressed: u64,
         download_id: &str,
     ) -> MithrilResult<Vec<DownloadTask>> {
         let immutable_file_numbers_to_download = immutable_file_number_range
@@ -234,7 +226,6 @@ impl InternalArtifactDownloader {
                 immutable_locations,
                 immutable_file_number,
                 target_dir,
-                average_size_uncompressed,
                 download_id,
             )?);
         }
@@ -243,14 +234,13 @@ impl InternalArtifactDownloader {
 
     fn new_immutable_download_task(
         &self,
-        locations: &[ImmutablesLocation],
+        immutable_locations: &ImmutablesMessagePart,
         immutable_file_number: ImmutableFileNumber,
         immutable_files_target_dir: &Path,
-        average_size_uncompressed: u64,
         download_id: &str,
     ) -> MithrilResult<DownloadTask> {
         let mut locations_to_try = vec![];
-        let mut locations_sorted = locations.to_owned();
+        let mut locations_sorted = immutable_locations.sanitized_locations()?;
         locations_sorted.sort();
         for location in locations_sorted {
             let location_to_try = match location {
@@ -269,9 +259,8 @@ impl InternalArtifactDownloader {
                         compression_algorithm: compression_algorithm.to_owned(),
                     }
                 }
-                ImmutablesLocation::Unknown => {
-                    return Err(anyhow!("Unknown location type to download immutable"));
-                }
+                // Note: unknown locations should have been filtered out by `sanitized_locations`
+                ImmutablesLocation::Unknown => unreachable!(),
             };
 
             locations_to_try.push(location_to_try);
@@ -281,7 +270,7 @@ impl InternalArtifactDownloader {
             name: format!("immutable_file_{:05}", immutable_file_number),
             locations_to_try,
             target_dir: immutable_files_target_dir.to_path_buf(),
-            size_uncompressed: average_size_uncompressed,
+            size_uncompressed: immutable_locations.average_size_uncompressed,
             download_event: DownloadEvent::Immutable {
                 download_id: download_id.to_string(),
                 immutable_file_number,
@@ -291,13 +280,12 @@ impl InternalArtifactDownloader {
 
     fn new_ancillary_download_task(
         &self,
-        locations: &[AncillaryLocation],
+        locations: &AncillaryMessagePart,
         ancillary_file_target_dir: &Path,
-        size_uncompressed: u64,
         download_id: &str,
     ) -> MithrilResult<DownloadTask> {
         let mut locations_to_try = vec![];
-        let mut locations_sorted = locations.to_owned();
+        let mut locations_sorted = locations.sanitized_locations()?;
         locations_sorted.sort();
         for location in locations_sorted {
             let location_to_try = match location {
@@ -314,9 +302,8 @@ impl InternalArtifactDownloader {
                         compression_algorithm: compression_algorithm.to_owned(),
                     }
                 }
-                AncillaryLocation::Unknown => {
-                    return Err(anyhow!("Unknown location type to download immutable"));
-                }
+                // Note: unknown locations should have been filtered out by `sanitized_locations`
+                AncillaryLocation::Unknown => unreachable!(),
             };
 
             locations_to_try.push(location_to_try);
@@ -326,7 +313,7 @@ impl InternalArtifactDownloader {
             name: "ancillary".to_string(),
             locations_to_try,
             target_dir: ancillary_file_target_dir.to_path_buf(),
-            size_uncompressed,
+            size_uncompressed: locations.size_uncompressed,
             download_event: DownloadEvent::Ancillary {
                 download_id: download_id.to_string(),
             },
@@ -820,17 +807,19 @@ mod tests {
 
             let tasks = artifact_downloader
                 .build_download_tasks_for_immutables(
-                    &[ImmutablesLocation::CloudStorage {
-                        uri: MultiFilesUri::Template(TemplateUri(
-                            "http://whatever/{immutable_file_number}.tar.gz".to_string(),
-                        )),
-                        compression_algorithm: Some(CompressionAlgorithm::default()),
-                    }],
+                    &ImmutablesMessagePart {
+                        locations: vec![ImmutablesLocation::CloudStorage {
+                            uri: MultiFilesUri::Template(TemplateUri(
+                                "http://whatever/{immutable_file_number}.tar.gz".to_string(),
+                            )),
+                            compression_algorithm: Some(CompressionAlgorithm::default()),
+                        }],
+                        average_size_uncompressed: 0,
+                    },
                     immutable_file_range
                         .to_range_inclusive(total_immutable_files)
                         .unwrap(),
                     &target_dir,
-                    0,
                     "download_id",
                 )
                 .unwrap();
@@ -842,7 +831,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn building_immutables_download_tasks_fails_if_location_is_unknown() {
+        async fn building_immutables_download_tasks_fails_if_all_locations_are_unknown() {
             let total_immutable_files = 2;
             let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
             let target_dir = TempDir::new("cardano_database_client", "download_unpack").build();
@@ -853,18 +842,20 @@ mod tests {
             );
 
             let build_tasks_result = artifact_downloader.build_download_tasks_for_immutables(
-                &[ImmutablesLocation::Unknown {}],
+                &ImmutablesMessagePart {
+                    locations: vec![ImmutablesLocation::Unknown {}],
+                    average_size_uncompressed: 0,
+                },
                 immutable_file_range
                     .to_range_inclusive(total_immutable_files)
                     .unwrap(),
                 &target_dir,
-                0,
                 "download_id",
             );
 
             assert!(
                 build_tasks_result.is_err(),
-                "building tasks should fail if a location is unknown"
+                "building tasks should fail if all location are unknown"
             );
         }
 
@@ -891,17 +882,19 @@ mod tests {
 
             let tasks = artifact_downloader
                 .build_download_tasks_for_immutables(
-                    &[ImmutablesLocation::CloudStorage {
-                        uri: MultiFilesUri::Template(TemplateUri(
-                            "http://whatever-1/{immutable_file_number}.tar.gz".to_string(),
-                        )),
-                        compression_algorithm: Some(CompressionAlgorithm::default()),
-                    }],
+                    &ImmutablesMessagePart {
+                        locations: vec![ImmutablesLocation::CloudStorage {
+                            uri: MultiFilesUri::Template(TemplateUri(
+                                "http://whatever-1/{immutable_file_number}.tar.gz".to_string(),
+                            )),
+                            compression_algorithm: Some(CompressionAlgorithm::default()),
+                        }],
+                        average_size_uncompressed: 0,
+                    },
                     immutable_file_range
                         .to_range_inclusive(total_immutable_files)
                         .unwrap(),
                     &target_dir,
-                    0,
                     "download_id",
                 )
                 .unwrap();
@@ -944,25 +937,27 @@ mod tests {
 
             let tasks = artifact_downloader
                 .build_download_tasks_for_immutables(
-                    &[
-                        ImmutablesLocation::CloudStorage {
-                            uri: MultiFilesUri::Template(TemplateUri(
-                                "http://whatever-1/{immutable_file_number}.tar.gz".to_string(),
-                            )),
-                            compression_algorithm: Some(CompressionAlgorithm::default()),
-                        },
-                        ImmutablesLocation::CloudStorage {
-                            uri: MultiFilesUri::Template(TemplateUri(
-                                "http://whatever-2/{immutable_file_number}.tar.gz".to_string(),
-                            )),
-                            compression_algorithm: Some(CompressionAlgorithm::default()),
-                        },
-                    ],
+                    &ImmutablesMessagePart {
+                        locations: vec![
+                            ImmutablesLocation::CloudStorage {
+                                uri: MultiFilesUri::Template(TemplateUri(
+                                    "http://whatever-1/{immutable_file_number}.tar.gz".to_string(),
+                                )),
+                                compression_algorithm: Some(CompressionAlgorithm::default()),
+                            },
+                            ImmutablesLocation::CloudStorage {
+                                uri: MultiFilesUri::Template(TemplateUri(
+                                    "http://whatever-2/{immutable_file_number}.tar.gz".to_string(),
+                                )),
+                                compression_algorithm: Some(CompressionAlgorithm::default()),
+                            },
+                        ],
+                        average_size_uncompressed: 0,
+                    },
                     immutable_file_range
                         .to_range_inclusive(total_immutable_files)
                         .unwrap(),
                     &target_dir,
-                    0,
                     "download_id",
                 )
                 .unwrap();
@@ -989,12 +984,14 @@ mod tests {
 
             let task = artifact_downloader
                 .new_ancillary_download_task(
-                    &[AncillaryLocation::CloudStorage {
-                        uri: "http://whatever-1/ancillary.tar.gz".to_string(),
-                        compression_algorithm: Some(CompressionAlgorithm::default()),
-                    }],
+                    &AncillaryMessagePart {
+                        locations: vec![AncillaryLocation::CloudStorage {
+                            uri: "http://whatever-1/ancillary.tar.gz".to_string(),
+                            compression_algorithm: Some(CompressionAlgorithm::default()),
+                        }],
+                        size_uncompressed: 0,
+                    },
                     target_dir,
-                    0,
                     "download_id",
                 )
                 .unwrap();
@@ -1006,7 +1003,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn building_ancillary_download_task_fails_if_location_is_unknown() {
+        async fn building_ancillary_download_tasks_fails_if_all_locations_are_unknown() {
             let target_dir = Path::new(".");
             let artifact_downloader = InternalArtifactDownloader::new(
                 Arc::new(MockFileDownloader::new()),
@@ -1015,15 +1012,17 @@ mod tests {
             );
 
             let build_tasks_result = artifact_downloader.new_ancillary_download_task(
-                &[AncillaryLocation::Unknown {}],
+                &AncillaryMessagePart {
+                    locations: vec![AncillaryLocation::Unknown {}],
+                    size_uncompressed: 0,
+                },
                 target_dir,
-                0,
                 "download_id",
             );
 
             assert!(
                 build_tasks_result.is_err(),
-                "building tasks should fail if a location is unknown"
+                "building tasks should fail if all location are unknown"
             );
         }
 
@@ -1048,18 +1047,20 @@ mod tests {
 
             let task = artifact_downloader
                 .new_ancillary_download_task(
-                    &[
-                        AncillaryLocation::CloudStorage {
-                            uri: "http://whatever-1/ancillary.tar.gz".to_string(),
-                            compression_algorithm: Some(CompressionAlgorithm::default()),
-                        },
-                        AncillaryLocation::CloudStorage {
-                            uri: "http://whatever-2/ancillary.tar.gz".to_string(),
-                            compression_algorithm: Some(CompressionAlgorithm::default()),
-                        },
-                    ],
+                    &AncillaryMessagePart {
+                        locations: vec![
+                            AncillaryLocation::CloudStorage {
+                                uri: "http://whatever-1/ancillary.tar.gz".to_string(),
+                                compression_algorithm: Some(CompressionAlgorithm::default()),
+                            },
+                            AncillaryLocation::CloudStorage {
+                                uri: "http://whatever-2/ancillary.tar.gz".to_string(),
+                                compression_algorithm: Some(CompressionAlgorithm::default()),
+                            },
+                        ],
+                        size_uncompressed: 0,
+                    },
                     target_dir,
-                    0,
                     "download_id",
                 )
                 .unwrap();
@@ -1087,18 +1088,20 @@ mod tests {
 
             let task = artifact_downloader
                 .new_ancillary_download_task(
-                    &[
-                        AncillaryLocation::CloudStorage {
-                            uri: "http://whatever-1/ancillary.tar.gz".to_string(),
-                            compression_algorithm: Some(CompressionAlgorithm::default()),
-                        },
-                        AncillaryLocation::CloudStorage {
-                            uri: "http://whatever-2/ancillary.tar.gz".to_string(),
-                            compression_algorithm: Some(CompressionAlgorithm::default()),
-                        },
-                    ],
+                    &AncillaryMessagePart {
+                        locations: vec![
+                            AncillaryLocation::CloudStorage {
+                                uri: "http://whatever-1/ancillary.tar.gz".to_string(),
+                                compression_algorithm: Some(CompressionAlgorithm::default()),
+                            },
+                            AncillaryLocation::CloudStorage {
+                                uri: "http://whatever-2/ancillary.tar.gz".to_string(),
+                                compression_algorithm: Some(CompressionAlgorithm::default()),
+                            },
+                        ],
+                        size_uncompressed: 0,
+                    },
                     target_dir,
-                    0,
                     "download_id",
                 )
                 .unwrap();
