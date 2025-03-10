@@ -1,14 +1,20 @@
 //! Migration module
 //!
-use mithril_persistence::database::SqlMigration;
+use semver::Version;
+
+use mithril_persistence::database::{NodeVersionRequirement, SqlMigration};
 
 /// Get all the migrations required by this version of the software.
 /// There shall be one migration per database version. There could be several
 /// statements per migration.
 pub fn get_migrations() -> Vec<SqlMigration> {
     vec![
-        SqlMigration::new(
+        SqlMigration::new_squashed(
             29,
+            NodeVersionRequirement {
+                node_version: Version::parse("0.2.228").unwrap(),
+                release_version: "2445.0".to_string(),
+            },
             r#"
 create table if not exists signed_entity_type (
     signed_entity_type_id       integer     not null,

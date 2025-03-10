@@ -11,7 +11,7 @@ mod version_checker;
 
 pub use db_version::*;
 pub use hydrator::Hydrator;
-pub use version_checker::{DatabaseVersionChecker, SqlMigration};
+pub use version_checker::{DatabaseVersionChecker, NodeVersionRequirement, SqlMigration};
 
 /// Database version.
 pub type DbVersion = i64;
