@@ -108,6 +108,17 @@ macro_rules! cfg_unstable {
     }
 }
 
+#[allow(unused_macros)]
+macro_rules! cfg_fs_unstable {
+    ($($item:item)*) => {
+        $(
+            #[cfg(all(feature = "unstable", feature = "fs"))]
+            #[cfg_attr(docsrs, doc(cfg(all(feature = "unstable", feature = "fs"))))]
+            $item
+        )*
+    }
+}
+
 pub mod aggregator_client;
 cfg_unstable! {
     pub mod cardano_database_client;
