@@ -153,6 +153,34 @@ insert into db_version (application_type, version, updated_at) values ('{applica
 
         Ok(())
     }
+
+    fn check_minimum_required_version(
+        &self,
+        db_version: DbVersion,
+        migration: &SqlMigration,
+    ) -> StdResult<()> {
+        if let Some(min_node_version) = &migration.min_node_version {
+            let min_required_version = migration.version - 1;
+            if db_version < min_required_version {
+                return Err(anyhow!(
+                    r#"
+                        Minimum required database version is not met to apply migration '{}'.
+                        Please upgrade your node to the minimum version compatible contains in the release: '{}'
+
+                        You can upgrade by running the following command:
+
+                        curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-{} -d {} -p $(pwd)
+                        "#,
+                    migration.version,
+                    min_node_version,
+                    self.application_type.to_string(),
+                    min_node_version,
+                ));
+            }
+        }
+
+        Ok(())
+    }
 }
 
 /// Represent a file containing SQL structure or data alterations.
@@ -175,6 +203,19 @@ impl SqlMigration {
             version,
             alterations: alteration.into(),
             min_node_version: None,
+        }
+    }
+
+    /// Create a new squashed SQL migration instance with minimum node version requirement.
+    pub fn new_squashed<T: Into<String>>(
+        version: DbVersion,
+        min_node_version: T,
+        alteration: T,
+    ) -> Self {
+        Self {
+            version,
+            alterations: alteration.into(),
+            min_node_version: Some(min_node_version.into()),
         }
     }
 }
@@ -432,5 +473,80 @@ mod tests {
             "using an old version with an up to date database should fail"
         );
         check_database_version(&connection, 1);
+    }
+
+    #[test]
+    fn check_minimum_required_version_does_not_fail_when_no_minimum_required_version() {
+        let (_filepath, connection) = create_sqlite_file(
+            "check_minimum_required_version_does_not_fail_when_no_minimum_required_version",
+        )
+        .unwrap();
+        let db_checker = DatabaseVersionChecker::new(
+            discard_logger(),
+            ApplicationNodeType::Aggregator,
+            &connection,
+        );
+
+        let alterations = "create table whatever (thing_id integer); insert into whatever (thing_id) values (1), (2), (3), (4);";
+        let migration = SqlMigration {
+            version: 3,
+            alterations: alterations.to_string(),
+            min_node_version: None,
+        };
+        db_checker
+            .check_minimum_required_version(1, &migration)
+            .expect(
+                "Check minimum required version should not fail when no minimum required version",
+            );
+    }
+
+    #[test]
+    fn check_minimum_required_version_does_not_fail_when_no_gap_between_db_version_and_migration_version(
+    ) {
+        let (_filepath, connection) = create_sqlite_file(
+            "check_minimum_required_version_does_not_fail_when_no_gap_between_db_version_and_migration_version",
+        )
+        .unwrap();
+        let db_checker = DatabaseVersionChecker::new(
+            discard_logger(),
+            ApplicationNodeType::Aggregator,
+            &connection,
+        );
+
+        let alterations = "alter table whatever add column thing_content text; update whatever set thing_content = 'some content'";
+        let migration = SqlMigration {
+            version: 2,
+            alterations: alterations.to_string(),
+            min_node_version: Some("1.2.3".to_string()),
+        };
+
+        db_checker
+            .check_minimum_required_version(1, &migration)
+            .expect("Check minimum required version should not fail when no gap between db version and migration version");
+    }
+
+    #[test]
+    fn check_minimum_required_version_fails_when_gap_between_db_version_and_migration_version() {
+        let (_filepath, connection) = create_sqlite_file(
+            "check_minimum_required_version_fails_when_gap_between_db_version_and_migration_version",
+        )
+        .unwrap();
+        let db_checker = DatabaseVersionChecker::new(
+            discard_logger(),
+            ApplicationNodeType::Aggregator,
+            &connection,
+        );
+
+        let alterations = "alter table whatever add column thing_content text; update whatever set thing_content = 'some content'";
+        let migration = SqlMigration {
+            version: 3,
+            alterations: alterations.to_string(),
+            min_node_version: Some("1.2.3".to_string()),
+        };
+
+        let error = db_checker
+            .check_minimum_required_version(1, &migration)
+            .expect_err("Check minimum required version should fail when gap between db version and migration version");
+        assert!(error.to_string().contains("curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-aggregator -d 1.2.3 -p $(pwd)"));
     }
 }
