@@ -90,6 +90,9 @@ impl SignerRelay {
                 .or(warp::path("register-signer")
                     .and(warp::post())
                     .and(warp::body::json())
+                    .and(middlewares::with_aggregator_endpoint(
+                        aggregator_endpoint.to_string(),
+                    ))
                     .and(middlewares::with_logger(&server_logger))
                     .and(middlewares::with_transmitter(signer_tx))
                     .and(middlewares::with_repeater(signer_repeater.clone()))
@@ -223,13 +226,14 @@ mod handlers {
 
     pub async fn register_signer_handler(
         register_signer_message: RegisterSignerMessage,
+        aggregator_endpoint: String,
         logger: Logger,
-        tx: UnboundedSender<RegisterSignerMessage>,
-        repeater: Arc<repeater::MessageRepeater<RegisterSignerMessage>>,
+        _tx: UnboundedSender<RegisterSignerMessage>,
+        _repeater: Arc<repeater::MessageRepeater<RegisterSignerMessage>>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!(logger, "Serve HTTP route /register-signer"; "register_signer_message" => #?register_signer_message);
 
-        repeater.set_message(register_signer_message.clone()).await;
+        /* repeater.set_message(register_signer_message.clone()).await;
         match tx.send(register_signer_message) {
             Ok(_) => Ok(Box::new(warp::reply::with_status(
                 "".to_string(),
@@ -239,7 +243,13 @@ mod handlers {
                 format!("{err:?}"),
                 StatusCode::INTERNAL_SERVER_ERROR,
             ))),
-        }
+        } */
+        let response = reqwest::Client::new()
+            .post(format!("{aggregator_endpoint}/register-signer"))
+            .json(&register_signer_message)
+            .send()
+            .await;
+        reply_response(logger, response).await
     }
 
     pub async fn register_signatures_handler(
