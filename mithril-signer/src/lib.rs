@@ -6,6 +6,7 @@
 //! See the [Mithril documentation](https://mithril.network/doc/manual/developer-docs/nodes/mithril-signer)
 //! for more information on how it works.
 
+mod commands;
 mod configuration;
 pub mod database;
 pub mod dependency_injection;
@@ -16,6 +17,7 @@ mod runtime;
 pub mod services;
 pub mod store;
 
+pub use commands::*;
 pub use configuration::{Configuration, DefaultConfiguration};
 pub use entities::SignerEpochSettings;
 pub use message_adapters::{FromEpochSettingsAdapter, ToRegisterSignerMessageAdapter};
