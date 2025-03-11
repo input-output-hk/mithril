@@ -149,7 +149,7 @@ mod tests {
     use crate::{
         artifact_builder::{MockAncillaryFileUploader, MockImmutableFilesUploader},
         immutable_file_digest_mapper::MockImmutableFileDigestMapper,
-        services::FakeSnapshotter,
+        services::{DumbSnapshotter, FakeSnapshotter},
         test_tools::TestLogger,
         tools::url_sanitizer::SanitizedUrlWithTrailingSlash,
     };
@@ -270,6 +270,7 @@ mod tests {
             DigestArtifactBuilder::new(
                 SanitizedUrlWithTrailingSlash::parse("http://aggregator_uri").unwrap(),
                 vec![],
+                Arc::new(DumbSnapshotter::new()),
                 CompressionAlgorithm::Gzip,
                 network,
                 test_dir.join("digests"),
