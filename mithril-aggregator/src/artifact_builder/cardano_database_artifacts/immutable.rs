@@ -300,11 +300,9 @@ mod tests {
     use std::io::Write;
     use uuid::Uuid;
 
-    use crate::services::{
-        CompressedArchiveSnapshotter, DumbSnapshotter, MockSnapshotter,
-        SnapshotterCompressionAlgorithm,
-    };
+    use crate::services::{CompressedArchiveSnapshotter, DumbSnapshotter, MockSnapshotter};
     use crate::test_tools::TestLogger;
+    use crate::tools::file_archiver::FileArchiverCompressionAlgorithm;
 
     use super::*;
 
@@ -373,7 +371,7 @@ mod tests {
         let mut snapshotter = CompressedArchiveSnapshotter::new(
             db_directory.clone(),
             db_directory.parent().unwrap().join("snapshot_dest"),
-            SnapshotterCompressionAlgorithm::Gzip,
+            FileArchiverCompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         )
         .unwrap();
@@ -467,7 +465,7 @@ mod tests {
             let mut snapshotter = CompressedArchiveSnapshotter::new(
                 db_directory.clone(),
                 db_directory.parent().unwrap().join("snapshot_dest"),
-                SnapshotterCompressionAlgorithm::Gzip,
+                FileArchiverCompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
@@ -510,7 +508,7 @@ mod tests {
             let mut snapshotter = CompressedArchiveSnapshotter::new(
                 db_directory.clone(),
                 db_directory.parent().unwrap().join("snapshot_dest"),
-                SnapshotterCompressionAlgorithm::Gzip,
+                FileArchiverCompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
@@ -545,7 +543,7 @@ mod tests {
             let mut snapshotter = CompressedArchiveSnapshotter::new(
                 db_directory.clone(),
                 db_directory.parent().unwrap().join("snapshot_dest"),
-                SnapshotterCompressionAlgorithm::Gzip,
+                FileArchiverCompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
@@ -578,7 +576,7 @@ mod tests {
             let mut snapshotter = CompressedArchiveSnapshotter::new(
                 db_directory.clone(),
                 db_directory.parent().unwrap().join("snapshot_dest"),
-                SnapshotterCompressionAlgorithm::Gzip,
+                FileArchiverCompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
@@ -634,7 +632,7 @@ mod tests {
             let mut snapshotter = CompressedArchiveSnapshotter::new(
                 db_directory.clone(),
                 db_directory.parent().unwrap().join("snapshot_dest"),
-                SnapshotterCompressionAlgorithm::Gzip,
+                FileArchiverCompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
