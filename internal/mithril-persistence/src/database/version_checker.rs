@@ -175,6 +175,9 @@ insert into db_version (application_type, version, updated_at) values ('{applica
 
                         First, download the required node version in your current directory by running the following command:
                         curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-{} -d {} -p $(pwd)
+
+                        Then run the database migrate command:
+                        mithril-{} database migrate --stores-directory /path/to/stores-directory
                     "#,
                     migration.version,
                     self.application_type.to_string(),
@@ -182,6 +185,7 @@ insert into db_version (application_type, version, updated_at) values ('{applica
                     min_requirement.release_version,
                     self.application_type.to_string(),
                     min_requirement.release_version,
+                    self.application_type.to_string()
                 ));
             }
         }
