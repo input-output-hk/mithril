@@ -19,8 +19,9 @@ use crate::file_uploaders::{
 use crate::http_server::CARDANO_DATABASE_DOWNLOAD_PATH;
 use crate::services::{
     CompressedArchiveSnapshotter, DumbSnapshotter, MithrilSignedEntityService, SignedEntityService,
-    SignedEntityServiceArtifactsDependencies, Snapshotter, SnapshotterCompressionAlgorithm,
+    SignedEntityServiceArtifactsDependencies, Snapshotter,
 };
+use crate::tools::file_archiver::FileArchiverCompressionAlgorithm;
 use crate::{
     DumbUploader, ExecutionEnvironment, FileUploader, LocalSnapshotUploader, SnapshotUploaderType,
 };
@@ -96,9 +97,9 @@ impl DependenciesBuilder {
         Ok(self.signed_entity_service.as_ref().cloned().unwrap())
     }
 
-    fn build_snapshotter_compression_algorithm(&mut self) -> SnapshotterCompressionAlgorithm {
+    fn build_file_archiver_compression_algorithm(&mut self) -> FileArchiverCompressionAlgorithm {
         match self.configuration.snapshot_compression_algorithm {
-            CompressionAlgorithm::Gzip => SnapshotterCompressionAlgorithm::Gzip,
+            CompressionAlgorithm::Gzip => FileArchiverCompressionAlgorithm::Gzip,
             CompressionAlgorithm::Zstandard => self
                 .configuration
                 .zstandard_parameters
@@ -115,7 +116,7 @@ impl DependenciesBuilder {
                     .get_snapshot_dir()?
                     .join("pending_snapshot");
 
-                let algorithm = self.build_snapshotter_compression_algorithm();
+                let algorithm = self.build_file_archiver_compression_algorithm();
 
                 Arc::new(CompressedArchiveSnapshotter::new(
                     self.configuration.db_directory.clone(),
@@ -139,7 +140,7 @@ impl DependenciesBuilder {
                 let ongoing_snapshot_directory =
                     self.configuration.get_snapshot_dir()?.join("digests");
 
-                let algorithm = self.build_snapshotter_compression_algorithm();
+                let algorithm = self.build_file_archiver_compression_algorithm();
 
                 Arc::new(CompressedArchiveSnapshotter::new(
                     digests_path,

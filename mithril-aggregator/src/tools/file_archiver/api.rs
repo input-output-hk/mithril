@@ -277,6 +277,13 @@ impl FileArchiver {
 
         Ok(())
     }
+
+    #[cfg(test)]
+    /// Allow to use a custom temporary directory to avoid conflicts during the snapshot verification.
+    pub fn set_verification_temp_dir<T: Into<String>>(&mut self, sub_dir: T) {
+        self.verification_temp_dir =
+            mithril_common::test_utils::TempDir::create("snapshotter-temp", sub_dir);
+    }
 }
 
 #[cfg(test)]
@@ -436,5 +443,17 @@ mod tests {
 
         let unpack_path = unpack_gz_decoder(test_dir, second_snapshot);
         assert!(unpack_path.join("another_file_to_archive.txt").exists());
+    }
+
+    #[test]
+    fn can_set_verification_temp_dir_with_str_or_string() {
+        let mut file_archiver = FileArchiver::new(
+            FileArchiverCompressionAlgorithm::Gzip,
+            PathBuf::new(),
+            TestLogger::stdout(),
+        );
+
+        file_archiver.set_verification_temp_dir("sub_dir");
+        file_archiver.set_verification_temp_dir("sub_dir".to_string());
     }
 }

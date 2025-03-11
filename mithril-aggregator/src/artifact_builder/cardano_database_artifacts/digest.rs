@@ -287,29 +287,29 @@ impl DigestArtifactBuilder {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::anyhow;
+    use flate2::read::GzDecoder;
     use std::{
         collections::BTreeMap,
         fs::{read_to_string, File},
     };
+    use tar::Archive;
+    use uuid::Uuid;
 
-    use crate::{
-        file_uploaders::FileUploadRetryPolicy,
-        immutable_file_digest_mapper::MockImmutableFileDigestMapper,
-        services::{
-            CompressedArchiveSnapshotter, DumbSnapshotter, SnapshotterCompressionAlgorithm,
-        },
-        test_tools::TestLogger,
-    };
-    use anyhow::anyhow;
-    use flate2::read::GzDecoder;
     use mithril_common::{
         current_function,
         entities::{CardanoDbBeacon, CompressionAlgorithm},
         messages::{CardanoDatabaseDigestListItemMessage, CardanoDatabaseDigestListMessage},
         test_utils::{assert_equivalent, TempDir},
     };
-    use tar::Archive;
-    use uuid::Uuid;
+
+    use crate::{
+        file_uploaders::FileUploadRetryPolicy,
+        immutable_file_digest_mapper::MockImmutableFileDigestMapper,
+        services::{CompressedArchiveSnapshotter, DumbSnapshotter},
+        test_tools::TestLogger,
+        tools::file_archiver::FileArchiverCompressionAlgorithm,
+    };
 
     use super::*;
 
@@ -646,7 +646,7 @@ mod tests {
         let mut snapshotter = CompressedArchiveSnapshotter::new(
             digests_dir.clone(),
             digests_archive_dir.clone(),
-            SnapshotterCompressionAlgorithm::Gzip,
+            FileArchiverCompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         )
         .unwrap();
