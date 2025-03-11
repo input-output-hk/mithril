@@ -19,10 +19,12 @@ pub async fn bootstrap_aggregator(
     let chain_observer_type = "cardano-cli";
 
     let mut aggregator = Aggregator::new(&AggregatorConfig {
+        index: 0,
         server_port: args.server_port as u64,
         pool_node: &args.pool_node,
         cardano_cli_path: &args.cardano_cli_path,
         work_dir: &args.work_dir,
+        store_dir: &args.work_dir,
         artifacts_dir: &args.work_dir,
         bin_dir: &args.bin_dir,
         cardano_node_version: "1.2.3",
@@ -32,6 +34,7 @@ pub async fn bootstrap_aggregator(
         mithril_era_reader_adapter: "dummy",
         signed_entity_types: &signed_entity_types,
         chain_observer_type,
+        master_aggregator_endpoint: &None,
     })
     .unwrap();
 

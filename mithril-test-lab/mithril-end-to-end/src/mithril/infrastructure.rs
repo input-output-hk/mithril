@@ -1,4 +1,3 @@
-use anyhow::Context;
 use mithril_common::chain_observer::{ChainObserver, PallasChainObserver};
 use mithril_common::entities::{Epoch, PartyId, ProtocolParameters};
 use mithril_common::{CardanoNetwork, StdResult};
@@ -21,6 +20,7 @@ pub struct MithrilInfrastructureConfig {
     pub server_port: u64,
     pub devnet: Devnet,
     pub work_dir: PathBuf,
+    pub store_dir: PathBuf,
     pub artifacts_dir: PathBuf,
     pub bin_dir: PathBuf,
     pub cardano_node_version: String,
@@ -38,12 +38,12 @@ pub struct MithrilInfrastructure {
     artifacts_dir: PathBuf,
     bin_dir: PathBuf,
     devnet: Devnet,
-    aggregator: Aggregator,
+    aggregators: Vec<Aggregator>,
     signers: Vec<Signer>,
     relay_aggregators: Vec<RelayAggregator>,
     relay_signers: Vec<RelaySigner>,
     relay_passives: Vec<RelayPassive>,
-    cardano_chain_observer: Arc<dyn ChainObserver>,
+    cardano_chain_observers: Vec<Arc<dyn ChainObserver>>,
     run_only_mode: bool,
     current_era: String,
     era_reader_adapter: String,
@@ -55,7 +55,6 @@ impl MithrilInfrastructure {
         let chain_observer_type = "pallas";
         config.devnet.run().await?;
         let devnet_topology = config.devnet.topology();
-        // Clap check that we always have at least 2 pools, no need to be defensive here
         let number_of_aggregators = config.number_of_aggregators as usize;
         let number_of_signers = config.number_of_signers as usize;
         let aggregator_cardano_nodes = &devnet_topology.pool_nodes[0..number_of_aggregators];
@@ -66,34 +65,47 @@ impl MithrilInfrastructure {
             .map(|s| s.party_id())
             .collect::<StdResult<Vec<PartyId>>>()?;
 
-        let aggregator =
-            Self::start_aggregator(config, aggregator_cardano_node, chain_observer_type).await?;
+        let aggregators =
+            Self::start_aggregators(config, aggregator_cardano_nodes, chain_observer_type).await?;
+        let aggregator_endpoints = aggregators
+            .iter()
+            .map(|aggregator| aggregator.endpoint())
+            .collect::<Vec<_>>();
+        let master_aggregator_endpoint = aggregator_endpoints[0].to_owned();
 
         let (relay_aggregators, relay_signers, relay_passives) =
-            Self::start_relays(config, aggregator.endpoint(), &signer_party_ids)?;
+            Self::start_relays(config, &aggregator_endpoints, &signer_party_ids)?;
 
         let signers = Self::start_signers(
             config,
-            aggregator.endpoint(),
+            master_aggregator_endpoint,
             signer_cardano_nodes,
             &relay_signers,
         )?;
 
-        let cardano_chain_observer = Arc::new(PallasChainObserver::new(
-            &aggregator_cardano_node.socket_path,
-            CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
-        ));
+        fn build_chain_observer(
+            cardano_node: &PoolNode,
+            network: CardanoNetwork,
+        ) -> Arc<dyn ChainObserver> {
+            Arc::new(PallasChainObserver::new(&cardano_node.socket_path, network))
+        }
+        let cardano_chain_observers: Vec<Arc<dyn ChainObserver>> = aggregator_cardano_nodes
+            .iter()
+            .map(|cardano_node| {
+                build_chain_observer(cardano_node, CardanoNetwork::DevNet(DEVNET_MAGIC_ID))
+            })
+            .collect();
 
         Ok(Self {
             bin_dir: config.bin_dir.to_path_buf(),
             artifacts_dir: config.artifacts_dir.to_path_buf(),
             devnet: config.devnet.clone(),
-            aggregator,
+            aggregators,
             signers,
             relay_aggregators,
             relay_signers,
             relay_passives,
-            cardano_chain_observer,
+            cardano_chain_observers,
             run_only_mode: config.run_only_mode,
             current_era: config.mithril_era.clone(),
             era_reader_adapter: config.mithril_era_reader_adapter.clone(),
@@ -121,15 +133,16 @@ impl MithrilInfrastructure {
 
     pub async fn register_switch_to_next_era(&mut self, next_era: &str) -> StdResult<()> {
         let next_era_epoch = self
-            .chain_observer()
+            .master_chain_observer()
             .get_current_epoch()
             .await?
             .unwrap_or_default()
             + 1;
         if self.era_reader_adapter == "cardano-chain" {
+            let devnet = self.devnet.clone();
             assertions::register_era_marker(
-                &mut self.aggregator,
-                &self.devnet,
+                self.master_aggregator_mut(),
+                &devnet,
                 next_era,
                 next_era_epoch,
             )
@@ -140,53 +153,68 @@ impl MithrilInfrastructure {
         Ok(())
     }
 
-    async fn start_aggregator(
+    async fn start_aggregators(
         config: &MithrilInfrastructureConfig,
-        pool_node: &PoolNode,
+        pool_nodes: &[PoolNode],
         chain_observer_type: &str,
-    ) -> StdResult<Aggregator> {
-        let aggregator_artifacts_directory = config.artifacts_dir.join("mithril-aggregator");
-        if !aggregator_artifacts_directory.exists() {
-            fs::create_dir_all(&aggregator_artifacts_directory).with_context(|| {
-                format!(
-                    "Could not create artifacts directory '{}'",
-                    aggregator_artifacts_directory.display()
-                )
+    ) -> StdResult<Vec<Aggregator>> {
+        let mut aggregators = vec![];
+        let mut master_aggregator_endpoint: Option<String> = None;
+        for (index, pool_node) in pool_nodes.iter().enumerate() {
+            let aggregator_artifacts_dir = if index == 0 {
+                config.artifacts_dir.join("mithril-aggregator")
+            } else {
+                config
+                    .artifacts_dir
+                    .join(format!("mithril-aggregator-slave-{index}"))
+            };
+            let aggregator_store_dir = if index == 0 {
+                config.store_dir.join("aggregator")
+            } else {
+                config.store_dir.join(format!("aggregator-slave-{index}"))
+            };
+
+            let mut aggregator = Aggregator::new(&AggregatorConfig {
+                index,
+                server_port: config.server_port + index as u64,
+                pool_node,
+                cardano_cli_path: &config.devnet.cardano_cli_path(),
+                work_dir: &config.work_dir,
+                store_dir: &aggregator_store_dir,
+                artifacts_dir: &aggregator_artifacts_dir,
+                bin_dir: &config.bin_dir,
+                cardano_node_version: &config.cardano_node_version,
+                mithril_run_interval: config.mithril_run_interval,
+                mithril_era: &config.mithril_era,
+                mithril_era_reader_adapter: &config.mithril_era_reader_adapter,
+                mithril_era_marker_address: &config.devnet.mithril_era_marker_address()?,
+                signed_entity_types: &config.signed_entity_types,
+                chain_observer_type,
+                master_aggregator_endpoint: &master_aggregator_endpoint.clone(),
             })?;
+
+            aggregator.set_protocol_parameters(&ProtocolParameters {
+                k: 75,
+                m: 105,
+                phi_f: 0.95,
+            });
+
+            Self::register_startup_era(&mut aggregator, config).await?;
+
+            aggregator.serve()?;
+
+            if master_aggregator_endpoint.is_none() {
+                master_aggregator_endpoint = Some(aggregator.endpoint());
+            }
+            aggregators.push(aggregator);
         }
 
-        let mut aggregator = Aggregator::new(&AggregatorConfig {
-            server_port: config.server_port,
-            pool_node,
-            cardano_cli_path: &config.devnet.cardano_cli_path(),
-            work_dir: &config.work_dir,
-            artifacts_dir: &aggregator_artifacts_directory,
-            bin_dir: &config.bin_dir,
-            cardano_node_version: &config.cardano_node_version,
-            mithril_run_interval: config.mithril_run_interval,
-            mithril_era: &config.mithril_era,
-            mithril_era_reader_adapter: &config.mithril_era_reader_adapter,
-            mithril_era_marker_address: &config.devnet.mithril_era_marker_address()?,
-            signed_entity_types: &config.signed_entity_types,
-            chain_observer_type,
-        })?;
-
-        aggregator.set_protocol_parameters(&ProtocolParameters {
-            k: 75,
-            m: 105,
-            phi_f: 0.95,
-        });
-
-        Self::register_startup_era(&mut aggregator, config).await?;
-
-        aggregator.serve()?;
-
-        Ok(aggregator)
+        Ok(aggregators)
     }
 
     fn start_relays(
         config: &MithrilInfrastructureConfig,
-        aggregator_endpoint: String,
+        aggregator_endpoints: &[String],
         signers_party_ids: &[PartyId],
     ) -> StdResult<(Vec<RelayAggregator>, Vec<RelaySigner>, Vec<RelayPassive>)> {
         if !config.use_p2p_network_mode {
@@ -199,19 +227,23 @@ impl MithrilInfrastructure {
 
         info!("Starting the Mithril infrastructure in P2P mode (experimental)");
 
-        let mut relay_aggregator = RelayAggregator::new(
-            config.server_port + 100,
-            &aggregator_endpoint,
-            &config.work_dir,
-            &config.bin_dir,
-        )?;
-        relay_aggregator.start()?;
+        for (index, aggregator_endpoint) in aggregator_endpoints.iter().enumerate() {
+            let mut relay_aggregator = RelayAggregator::new(
+                config.server_port + index as u64 + 100,
+                aggregator_endpoint,
+                &config.work_dir,
+                &config.bin_dir,
+            )?;
+            relay_aggregator.start()?;
+            relay_aggregators.push(relay_aggregator);
+        }
+        let master_aggregator = &relay_aggregators[0];
 
         let mut relay_passive_id = 1;
         if config.use_p2p_passive_relays {
             let mut relay_passive_aggregator = RelayPassive::new(
                 config.server_port + 200,
-                relay_aggregator.peer_addr().to_owned(),
+                master_aggregator.peer_addr().to_owned(),
                 format!("{relay_passive_id}"),
                 &config.work_dir,
                 &config.bin_dir,
@@ -224,8 +256,8 @@ impl MithrilInfrastructure {
             let mut relay_signer = RelaySigner::new(
                 config.server_port + index as u64 + 300,
                 config.server_port + index as u64 + 400,
-                relay_aggregator.peer_addr().to_owned(),
-                &aggregator_endpoint,
+                master_aggregator.peer_addr().to_owned(),
+                &aggregator_endpoints[0],
                 party_id.clone(),
                 &config.work_dir,
                 &config.bin_dir,
@@ -248,14 +280,12 @@ impl MithrilInfrastructure {
             relay_signers.push(relay_signer);
         }
 
-        relay_aggregators.push(relay_aggregator);
-
         Ok((relay_aggregators, relay_signers, relay_passives))
     }
 
     fn start_signers(
         config: &MithrilInfrastructureConfig,
-        aggregator_endpoint: String,
+        master_aggregator_endpoint: String,
         pool_nodes: &[PoolNode],
         relay_signers: &[RelaySigner],
     ) -> StdResult<Vec<Signer>> {
@@ -269,7 +299,7 @@ impl MithrilInfrastructure {
             let aggregator_endpoint = if config.use_p2p_network_mode {
                 relay_signers[index].endpoint()
             } else {
-                aggregator_endpoint.clone()
+                master_aggregator_endpoint.clone()
             };
 
             let mut signer = Signer::new(&SignerConfig {
@@ -278,6 +308,9 @@ impl MithrilInfrastructure {
                 pool_node,
                 cardano_cli_path: &config.devnet.cardano_cli_path(),
                 work_dir: &config.work_dir,
+                store_dir: &config
+                    .store_dir
+                    .join(format!("signer-{}", pool_node.party_id()?)),
                 bin_dir: &config.bin_dir,
                 mithril_run_interval: config.mithril_run_interval,
                 mithril_era: &config.mithril_era,
@@ -294,13 +327,15 @@ impl MithrilInfrastructure {
     }
 
     pub async fn stop_nodes(&mut self) -> StdResult<()> {
-        // Note: The aggregator should be stopped *last* since signers depends on it
+        // Note: The aggregators should be stopped *last* since signers depends on it
         info!("Stopping Mithril infrastructure");
         for signer in self.signers.as_mut_slice() {
             signer.stop().await?;
         }
 
-        self.aggregator.stop().await?;
+        for aggregator in self.aggregators.as_mut_slice() {
+            aggregator.stop().await?;
+        }
 
         Ok(())
     }
@@ -309,12 +344,12 @@ impl MithrilInfrastructure {
         &self.devnet
     }
 
-    pub fn aggregator(&self) -> &Aggregator {
-        &self.aggregator
+    pub fn master_aggregator(&self) -> &Aggregator {
+        &self.aggregators[0]
     }
 
-    pub fn aggregator_mut(&mut self) -> &mut Aggregator {
-        self.aggregator.borrow_mut()
+    pub fn master_aggregator_mut(&mut self) -> &mut Aggregator {
+        self.aggregators[0].borrow_mut()
     }
 
     pub fn signers(&self) -> &[Signer] {
@@ -337,8 +372,8 @@ impl MithrilInfrastructure {
         &self.relay_passives
     }
 
-    pub fn chain_observer(&self) -> Arc<dyn ChainObserver> {
-        self.cardano_chain_observer.clone()
+    pub fn master_chain_observer(&self) -> Arc<dyn ChainObserver> {
+        self.cardano_chain_observers[0].clone()
     }
 
     pub fn build_client(&self) -> StdResult<Client> {
@@ -354,7 +389,11 @@ impl MithrilInfrastructure {
             artifacts_dir
         };
 
-        Client::new(self.aggregator.endpoint(), &work_dir, &self.bin_dir)
+        Client::new(
+            self.master_aggregator().endpoint(),
+            &work_dir,
+            &self.bin_dir,
+        )
     }
 
     pub fn run_only_mode(&self) -> bool {
@@ -362,7 +401,7 @@ impl MithrilInfrastructure {
     }
 
     pub async fn tail_logs(&self, number_of_line: u64) -> StdResult<()> {
-        self.aggregator().tail_logs(number_of_line).await?;
+        self.master_aggregator().tail_logs(number_of_line).await?;
         for signer in self.signers() {
             signer.tail_logs(number_of_line).await?;
         }
@@ -380,7 +419,7 @@ impl MithrilInfrastructure {
     }
 
     pub async fn last_error_in_logs(&self, number_of_error: u64) -> StdResult<()> {
-        self.aggregator()
+        self.master_aggregator()
             .last_error_in_logs(number_of_error)
             .await?;
 
