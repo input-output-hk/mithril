@@ -8,7 +8,8 @@ use crate::artifact_builder::{
     AncillaryArtifactBuilder, AncillaryFileUploader, CardanoDatabaseArtifactBuilder,
     CardanoImmutableFilesFullArtifactBuilder, CardanoStakeDistributionArtifactBuilder,
     CardanoTransactionsArtifactBuilder, DigestArtifactBuilder, DigestFileUploader,
-    ImmutableArtifactBuilder, ImmutableFilesUploader, MithrilStakeDistributionArtifactBuilder,
+    DigestSnapshotter, ImmutableArtifactBuilder, ImmutableFilesUploader,
+    MithrilStakeDistributionArtifactBuilder,
 };
 use crate::dependency_injection::builder::SNAPSHOT_ARTIFACTS_DIR;
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
@@ -132,10 +133,9 @@ impl DependenciesBuilder {
     async fn build_digests_snapshotter(
         &mut self,
         digests_path: PathBuf,
-    ) -> Result<Arc<dyn Snapshotter>> {
+    ) -> Result<DigestSnapshotter> {
         let snapshotter: Arc<dyn Snapshotter> = match self.configuration.environment {
             ExecutionEnvironment::Production => {
-                // TODO should we use get_snapshot_dir ?
                 let ongoing_snapshot_directory =
                     self.configuration.get_snapshot_dir()?.join("digests");
 
@@ -151,7 +151,10 @@ impl DependenciesBuilder {
             _ => Arc::new(DumbSnapshotter::new()),
         };
 
-        Ok(snapshotter)
+        Ok(DigestSnapshotter {
+            snapshotter,
+            compression_algorithm: self.configuration.snapshot_compression_algorithm,
+        })
     }
 
     /// [Snapshotter] service.
@@ -382,11 +385,11 @@ impl DependenciesBuilder {
 
         let digests_path = snapshot_dir.join("pending_cardano_database_digests");
         let digests_snapshotter = self.build_digests_snapshotter(digests_path.clone()).await?;
+
         let digest_builder = Arc::new(DigestArtifactBuilder::new(
             self.configuration.get_server_url()?,
             self.build_cardano_database_digests_uploaders()?,
             digests_snapshotter,
-            CompressionAlgorithm::Gzip,
             self.configuration.get_network()?,
             digests_path,
             self.get_immutable_file_digest_mapper().await?,
