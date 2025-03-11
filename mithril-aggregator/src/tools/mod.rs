@@ -1,6 +1,7 @@
 mod certificates_hash_migrator;
 mod digest_helpers;
 mod era;
+pub mod file_archiver;
 mod genesis;
 #[cfg(test)]
 pub mod mocks;

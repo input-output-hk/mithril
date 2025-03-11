@@ -1,4 +1,3 @@
-mod appender;
 mod compressed_archive_snapshotter;
 mod interface;
 mod test_doubles;
