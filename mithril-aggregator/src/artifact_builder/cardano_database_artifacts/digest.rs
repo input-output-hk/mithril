@@ -228,7 +228,12 @@ impl DigestArtifactBuilder {
     async fn upload_digest_file(&self, digest_filepath: &Path) -> StdResult<Vec<DigestLocation>> {
         let mut locations = Vec::<DigestLocation>::new();
         for uploader in &self.uploaders {
-            let result = uploader.upload(digest_filepath, None).await;
+            let result = uploader
+                .upload(
+                    digest_filepath,
+                    Some(self.digest_snapshotter.compression_algorithm),
+                )
+                .await;
             match result {
                 Ok(location) => {
                     locations.push(location);
@@ -618,7 +623,7 @@ mod tests {
 
         digest_file_uploader
             .expect_upload()
-            .with(eq(archive_path.clone()), eq(None))
+            .with(eq(archive_path.clone()), eq(Some(compression_algorithm)))
             .times(1)
             .return_once(move |_, _| {
                 assert!(
