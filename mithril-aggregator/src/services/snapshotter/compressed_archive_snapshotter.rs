@@ -13,11 +13,9 @@ use zstd::{Decoder, Encoder};
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
-use super::{
-    appender::{AppenderDirAll, AppenderEntries, TarAppender},
-    OngoingSnapshot, SnapshotError, Snapshotter, SnapshotterCompressionAlgorithm,
-};
+use super::{OngoingSnapshot, SnapshotError, Snapshotter, SnapshotterCompressionAlgorithm};
 use crate::dependency_injection::DependenciesBuilderError;
+use crate::tools::file_archiver::appender::{AppenderDirAll, AppenderEntries, TarAppender};
 
 /// Compressed Archive Snapshotter create a compressed file.
 pub struct CompressedArchiveSnapshotter {
@@ -38,9 +36,7 @@ pub struct CompressedArchiveSnapshotter {
 
 impl Snapshotter for CompressedArchiveSnapshotter {
     fn snapshot_all(&self, filepath: &Path) -> StdResult<OngoingSnapshot> {
-        let appender = AppenderDirAll {
-            db_directory: self.db_directory.clone(),
-        };
+        let appender = AppenderDirAll::new(self.db_directory.clone());
 
         self.snapshot(filepath, appender)
     }
@@ -54,11 +50,7 @@ impl Snapshotter for CompressedArchiveSnapshotter {
             return Err(anyhow!("Can not create snapshot with empty entries"));
         }
 
-        let appender = AppenderEntries {
-            db_directory: self.db_directory.clone(),
-            entries,
-        };
-
+        let appender = AppenderEntries::new(entries, self.db_directory.clone())?;
         self.snapshot(filepath, appender)
     }
 }
@@ -497,7 +489,7 @@ mod tests {
         .unwrap();
         snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
-        let appender = AppenderDirAll { db_directory };
+        let appender = AppenderDirAll::new(db_directory);
         snapshotter
             .create_archive(
                 &pending_snapshot_directory.join(Path::new(pending_snapshot_archive_file)),
@@ -537,7 +529,7 @@ mod tests {
         .unwrap();
         snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
-        let appender = AppenderDirAll { db_directory };
+        let appender = AppenderDirAll::new(db_directory);
         snapshotter
             .create_archive(
                 &pending_snapshot_directory.join(Path::new(pending_snapshot_archive_file)),
