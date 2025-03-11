@@ -15,7 +15,6 @@ use mithril_common::StdResult;
 
 use super::appender::TarAppender;
 use super::{FileArchive, FileArchiverCompressionAlgorithm};
-use crate::services::SnapshotError;
 
 /// Tool to archive files and directories.
 pub struct FileArchiver {
@@ -123,11 +122,9 @@ impl FileArchiver {
             archive_path.display()
         );
 
-        let tar_file = File::create(archive_path)
-            .map_err(SnapshotError::CreateArchiveError)
-            .with_context(|| {
-                format!("Error while creating the archive with path: {archive_path:?}")
-            })?;
+        let tar_file = File::create(archive_path).with_context(|| {
+            format!("Error while creating the archive with path: {archive_path:?}")
+        })?;
 
         match self.compression_algorithm {
             FileArchiverCompressionAlgorithm::Gzip => {
@@ -140,16 +137,14 @@ impl FileArchiver {
 
                 let mut gz = tar
                     .into_inner()
-                    .map_err(SnapshotError::CreateArchiveError)
                     .with_context(|| "GzEncoder Builder can not write the archive")?;
                 gz.try_finish()
-                    .map_err(SnapshotError::CreateArchiveError)
                     .with_context(|| "GzEncoder can not finish the output stream after writing")?;
             }
             FileArchiverCompressionAlgorithm::Zstandard(params) => {
                 let mut enc = Encoder::new(tar_file, params.level)?;
                 enc.multithread(params.number_of_workers)
-                    .map_err(SnapshotError::CreateArchiveError)?;
+                    .with_context(|| "ZstandardEncoder can not set the number of workers")?;
                 let mut tar = tar::Builder::new(enc);
 
                 appender
@@ -158,13 +153,10 @@ impl FileArchiver {
 
                 let zstd = tar
                     .into_inner()
-                    .map_err(SnapshotError::CreateArchiveError)
                     .with_context(|| "ZstandardEncoder Builder can not write the archive")?;
-                zstd.finish()
-                    .map_err(SnapshotError::CreateArchiveError)
-                    .with_context(|| {
-                        "ZstandardEncoder can not finish the output stream after writing"
-                    })?;
+                zstd.finish().with_context(|| {
+                    "ZstandardEncoder can not finish the output stream after writing"
+                })?;
             }
         }
 
@@ -189,8 +181,12 @@ impl FileArchiver {
             archive.filepath.display()
         );
 
-        let mut snapshot_file_tar = File::open(&archive.filepath)
-            .map_err(|e| SnapshotError::InvalidArchiveError(e.to_string()))?;
+        let mut snapshot_file_tar = File::open(&archive.filepath).with_context(|| {
+            format!(
+                "Verify archive error: can not open archive: '{}'",
+                archive.filepath.display()
+            )
+        })?;
         snapshot_file_tar.seek(SeekFrom::Start(0))?;
 
         let mut snapshot_archive: Archive<Box<dyn Read>> = match self.compression_algorithm {
@@ -209,21 +205,16 @@ impl FileArchiver {
             .join("mithril_archiver_verify_archive")
             // Add the archive name to the directory to allow two verifications at the same time
             // (useful for tests).
-            .join(
-                &archive
-                    .filepath
-                    .file_name()
-                    .ok_or(SnapshotError::VerifyArchiveError(format!(
-                        "Could not append archive name to temp directory: archive `{}`",
-                        archive.filepath.display(),
-                    )))?,
-            );
+            .join(archive.filepath.file_name().ok_or(anyhow!(
+                "Verify archive error: Could not append archive name to temp directory: archive `{}`",
+                archive.filepath.display(),
+            ))?);
 
-        fs::create_dir_all(&unpack_temp_dir).map_err(|e| {
-            SnapshotError::VerifyArchiveError(format!(
-                "Could not create directory `{}`: {e}",
+        fs::create_dir_all(&unpack_temp_dir).with_context(|| {
+            format!(
+                "Verify archive error: Could not create directory `{}`",
                 unpack_temp_dir.display(),
-            ))
+            )
         })?;
 
         let unpack_temp_file = &unpack_temp_dir.join("unpack.tmp");
@@ -233,10 +224,7 @@ impl FileArchiver {
             for e in snapshot_archive.entries()? {
                 match e {
                     Err(e) => {
-                        result = Err(anyhow!(SnapshotError::InvalidArchiveError(format!(
-                            "invalid entry with error: '{:?}'",
-                            e
-                        ))));
+                        result = Err(anyhow!(e).context("Verify archive error: invalid entry"));
                         break;
                     }
                     Ok(entry) => Self::unpack_and_delete_file_from_entry(entry, unpack_temp_file)?,
@@ -246,11 +234,11 @@ impl FileArchiver {
         };
 
         // Always remove the temp directory
-        fs::remove_dir_all(&unpack_temp_dir).map_err(|e| {
-            SnapshotError::VerifyArchiveError(format!(
-                "Could not remove directory `{}`: {e}",
-                unpack_temp_dir.display(),
-            ))
+        fs::remove_dir_all(&unpack_temp_dir).with_context(|| {
+            format!(
+                "Verify archive error: Could not remove directory `{}`",
+                unpack_temp_dir.display()
+            )
         })?;
 
         verify_result
@@ -258,7 +246,12 @@ impl FileArchiver {
 
     fn get_file_size(filepath: &Path) -> StdResult<u64> {
         let res = fs::metadata(filepath)
-            .map_err(|e| SnapshotError::GeneralError(e.to_string()))?
+            .with_context(|| {
+                format!(
+                    "FileArchiver can not get metadata of file: '{}'",
+                    filepath.display()
+                )
+            })?
             .len();
         Ok(res)
     }
@@ -267,25 +260,19 @@ impl FileArchiver {
     fn unpack_and_delete_file_from_entry<R: Read>(
         entry: Entry<R>,
         unpack_file_path: &Path,
-    ) -> Result<(), SnapshotError> {
+    ) -> StdResult<()> {
         if entry.header().entry_type() != EntryType::Directory {
             let mut file = entry;
-            match file.unpack(unpack_file_path) {
-                Err(e) => {
-                    return Err(SnapshotError::InvalidArchiveError(format!(
-                        "can't unpack entry with error: '{:?}'",
-                        e
-                    )));
-                }
-                Ok(_) => {
-                    if let Err(e) = fs::remove_file(unpack_file_path) {
-                        return Err(SnapshotError::VerifyArchiveError(format!(
-                            "can't remove temporary unpacked file with error: '{e:?}', file path: `{}`",
-                            unpack_file_path.display()
-                        )));
-                    }
-                }
-            }
+            let _ = file
+                .unpack(unpack_file_path)
+                .with_context(|| "can't unpack entry")?;
+
+            fs::remove_file(unpack_file_path).with_context(|| {
+                format!(
+                    "can't remove temporary unpacked file, file path: `{}`",
+                    unpack_file_path.display()
+                )
+            })?;
         }
 
         Ok(())

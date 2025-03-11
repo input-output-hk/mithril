@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::ZstandardCompressionParameters;
 
@@ -25,18 +25,13 @@ pub struct FileArchive {
 }
 
 impl FileArchive {
-    /// `FileArchive` factory
-    pub fn new(filepath: PathBuf, filesize: u64) -> Self {
-        Self { filepath, filesize }
-    }
-
     /// Get the path of the archive.
-    pub fn get_file_path(&self) -> &PathBuf {
+    pub fn get_file_path(&self) -> &Path {
         &self.filepath
     }
 
     /// Get the size of the archive.
-    pub fn get_file_size(&self) -> &u64 {
-        &self.filesize
+    pub fn get_file_size(&self) -> u64 {
+        self.filesize
     }
 }
