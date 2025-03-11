@@ -201,13 +201,18 @@ async fn main_exec() -> StdResult<()> {
         fs::create_dir(&path).expect("Artifacts dir creation failure");
         path
     };
+    let store_dir = {
+        let path = work_dir.join("stores");
+        fs::create_dir(&path).expect("Stores dir creation failure");
+        path
+    };
 
     let mut app = App::new();
     let mut app_stopper = AppStopper::new(&app);
     let mut join_set = JoinSet::new();
     with_gracefull_shutdown(&mut join_set);
 
-    join_set.spawn(async move { app.run(args, work_dir, artifacts_dir).await });
+    join_set.spawn(async move { app.run(args, work_dir, store_dir, artifacts_dir).await });
 
     let res = match join_set.join_next().await {
         Some(Ok(tasks_result)) => tasks_result,
@@ -313,6 +318,7 @@ impl App {
         &mut self,
         args: Args,
         work_dir: PathBuf,
+        store_dir: PathBuf,
         artifacts_dir: PathBuf,
     ) -> StdResult<()> {
         let server_port = 8080;
@@ -339,8 +345,9 @@ impl App {
             number_of_signers: args.number_of_signers,
             server_port,
             devnet: devnet.clone(),
-            artifacts_dir,
             work_dir,
+            store_dir,
+            artifacts_dir,
             bin_dir: args.bin_directory,
             cardano_node_version: args.cardano_node_version,
             mithril_run_interval: args.mithril_run_interval,

@@ -44,12 +44,14 @@ impl<'a> Spec<'a> {
     }
 
     pub async fn run(&mut self) -> StdResult<()> {
-        let aggregator_endpoint = self.infrastructure.aggregator().endpoint();
-        assertions::wait_for_enough_immutable(self.infrastructure.aggregator().db_directory())
-            .await?;
+        let aggregator_endpoint = self.infrastructure.master_aggregator().endpoint();
+        assertions::wait_for_enough_immutable(
+            self.infrastructure.master_aggregator().db_directory(),
+        )
+        .await?;
         let start_epoch = self
             .infrastructure
-            .chain_observer()
+            .master_chain_observer()
             .get_current_epoch()
             .await?
             .unwrap_or_default();
@@ -63,19 +65,20 @@ impl<'a> Spec<'a> {
         // Wait 4 epochs after start epoch for the aggregator to be able to bootstrap a genesis certificate
         let mut target_epoch = start_epoch + 4;
         assertions::wait_for_target_epoch(
-            self.infrastructure.chain_observer(),
+            self.infrastructure.master_chain_observer(),
             target_epoch,
             "minimal epoch for the aggregator to be able to bootstrap genesis certificate"
                 .to_string(),
         )
         .await?;
-        assertions::bootstrap_genesis_certificate(self.infrastructure.aggregator_mut()).await?;
+        assertions::bootstrap_genesis_certificate(self.infrastructure.master_aggregator_mut())
+            .await?;
         assertions::wait_for_epoch_settings(&aggregator_endpoint).await?;
 
         // Wait 2 epochs before changing stake distribution, so that we use at least one original stake distribution
         target_epoch += 2;
         assertions::wait_for_target_epoch(
-            self.infrastructure.chain_observer(),
+            self.infrastructure.master_chain_observer(),
             target_epoch,
             "epoch after which the stake distribution will change".to_string(),
         )
@@ -87,17 +90,17 @@ impl<'a> Spec<'a> {
         // Wait 2 epochs before changing protocol parameters
         target_epoch += 2;
         assertions::wait_for_target_epoch(
-            self.infrastructure.chain_observer(),
+            self.infrastructure.master_chain_observer(),
             target_epoch,
             "epoch after which the protocol parameters will change".to_string(),
         )
         .await?;
-        assertions::update_protocol_parameters(self.infrastructure.aggregator_mut()).await?;
+        assertions::update_protocol_parameters(self.infrastructure.master_aggregator_mut()).await?;
 
         // Wait 6 epochs after protocol parameters update, so that we make sure that we use new protocol parameters as well as new stake distribution a few times
         target_epoch += 6;
         assertions::wait_for_target_epoch(
-            self.infrastructure.chain_observer(),
+            self.infrastructure.master_chain_observer(),
             target_epoch,
             "epoch after which the certificate chain will be long enough to catch most common troubles with stake distribution and protocol parameters".to_string(),
         )
@@ -114,7 +117,7 @@ impl<'a> Spec<'a> {
                 .await?;
             target_epoch += 5;
             assertions::wait_for_target_epoch(
-                self.infrastructure.chain_observer(),
+                self.infrastructure.master_chain_observer(),
                 target_epoch,
                 "epoch after which the era switch will have triggered".to_string(),
             )
@@ -122,11 +125,13 @@ impl<'a> Spec<'a> {
 
             // Proceed to a re-genesis of the certificate chain
             if self.regenesis_on_era_switch {
-                assertions::bootstrap_genesis_certificate(self.infrastructure.aggregator_mut())
-                    .await?;
+                assertions::bootstrap_genesis_certificate(
+                    self.infrastructure.master_aggregator_mut(),
+                )
+                .await?;
                 target_epoch += 5;
                 assertions::wait_for_target_epoch(
-                    self.infrastructure.chain_observer(),
+                    self.infrastructure.master_chain_observer(),
                     target_epoch,
                     "epoch after which the re-genesis on era switch will be completed".to_string(),
                 )
@@ -141,7 +146,7 @@ impl<'a> Spec<'a> {
     }
 
     async fn verify_artifacts_production(&self, target_epoch: Epoch) -> StdResult<Epoch> {
-        let aggregator_endpoint = self.infrastructure.aggregator().endpoint();
+        let aggregator_endpoint = self.infrastructure.master_aggregator().endpoint();
         let expected_epoch_min = target_epoch - 3;
         // Verify that mithril stake distribution artifacts are produced and signed correctly
         {

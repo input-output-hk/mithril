@@ -16,6 +16,7 @@ pub struct SignerConfig<'a> {
     pub pool_node: &'a PoolNode,
     pub cardano_cli_path: &'a Path,
     pub work_dir: &'a Path,
+    pub store_dir: &'a Path,
     pub bin_dir: &'a Path,
     pub mithril_run_interval: u32,
     pub mithril_era: &'a str,
@@ -36,7 +37,6 @@ impl Signer {
     pub fn new(signer_config: &SignerConfig) -> StdResult<Self> {
         let party_id = signer_config.pool_node.party_id()?;
         let magic_id = DEVNET_MAGIC_ID.to_string();
-        let data_stores_path = format!("./stores/signer-{party_id}");
         let era_reader_adapter_params =
             if signer_config.mithril_era_reader_adapter == "cardano-chain" {
                 format!(
@@ -58,7 +58,10 @@ impl Signer {
                 "DB_DIRECTORY",
                 signer_config.pool_node.db_path.to_str().unwrap(),
             ),
-            ("DATA_STORES_DIRECTORY", &data_stores_path),
+            (
+                "DATA_STORES_DIRECTORY",
+                signer_config.store_dir.to_str().unwrap(),
+            ),
             ("STORE_RETENTION_LIMIT", "10"),
             ("NETWORK_MAGIC", &magic_id),
             (
