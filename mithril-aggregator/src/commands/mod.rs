@@ -1,3 +1,4 @@
+mod database_command;
 mod era_command;
 mod genesis_command;
 mod serve_command;
@@ -21,6 +22,7 @@ pub enum MainCommand {
     Era(era_command::EraCommand),
     Serve(serve_command::ServeCommand),
     Tools(tools_command::ToolsCommand),
+    Database(database_command::DatabaseCommand),
     #[clap(alias("doc"), hide(true))]
     GenerateDoc(GenerateDocCommands),
 }
@@ -44,6 +46,7 @@ impl MainCommand {
             Self::Era(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::Serve(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::Tools(cmd) => cmd.execute(root_logger, config_builder).await,
+            Self::Database(cmd) => cmd.execute(root_logger).await,
             Self::GenerateDoc(cmd) => {
                 let config_infos = vec![Configuration::extract(), DefaultConfiguration::extract()];
                 cmd.execute_with_configurations(&mut MainOpts::command(), &config_infos)
@@ -58,6 +61,7 @@ impl MainCommand {
             MainCommand::Genesis(_) => CommandType::CommandLine,
             MainCommand::Era(_) => CommandType::CommandLine,
             MainCommand::Tools(_) => CommandType::CommandLine,
+            MainCommand::Database(_) => CommandType::CommandLine,
             MainCommand::GenerateDoc(_) => CommandType::CommandLine,
         }
     }
