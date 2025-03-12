@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Context};
 use chrono::Utc;
-use semver::Version;
 use slog::{debug, error, info, Logger};
 use std::{cmp::Ordering, collections::BTreeSet};
 
@@ -165,13 +164,13 @@ insert into db_version (application_type, version, updated_at) values ('{applica
             return Ok(());
         }
 
-        if let Some(min_requirement) = &migration.minimum_requirement {
+        if let Some(fallback_distribution_version) = &migration.fallback_distribution_version {
             let min_required_version = migration.version - 1;
             if db_version < min_required_version {
                 return Err(anyhow!(
                     r#"
                         Minimum required database version is not met to apply migration '{}'.
-                        Please migrate your {} node database with the minimum node version compatible '{}' available in the release: '{}'.
+                        Please migrate your {} node database with the minimum node version compatible available in the distribution: '{}'.
 
                         First, download the required node version in your current directory by running the following command:
                         curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-{} -d {} -p $(pwd)
@@ -181,10 +180,9 @@ insert into db_version (application_type, version, updated_at) values ('{applica
                     "#,
                     migration.version,
                     self.application_type.to_string(),
-                    min_requirement.node_version,
-                    min_requirement.release_version,
+                    fallback_distribution_version,
                     self.application_type.to_string(),
-                    min_requirement.release_version,
+                    fallback_distribution_version,
                     self.application_type.to_string()
                 ));
             }
@@ -192,16 +190,6 @@ insert into db_version (application_type, version, updated_at) values ('{applica
 
         Ok(())
     }
-}
-
-/// Node version requirement for a migration.
-#[derive(Debug, Clone)]
-pub struct NodeVersionRequirement {
-    /// The node version required to apply a migration.
-    pub node_version: Version,
-
-    /// The release version containing the required node version.
-    pub release_version: String,
 }
 
 /// Represent a file containing SQL structure or data alterations.
@@ -213,8 +201,8 @@ pub struct SqlMigration {
     /// SQL statements to alter the database.
     pub alterations: String,
 
-    /// Indicates if this migration is squashed and the minimum node version required.
-    pub minimum_requirement: Option<NodeVersionRequirement>,
+    /// The distribution version the user can fallback to in order to update their database before updating to the latest node.
+    pub fallback_distribution_version: Option<String>,
 }
 
 impl SqlMigration {
@@ -223,20 +211,20 @@ impl SqlMigration {
         Self {
             version,
             alterations: alteration.into(),
-            minimum_requirement: None,
+            fallback_distribution_version: None,
         }
     }
 
-    /// Create a new squashed SQL migration instance with minimum node version requirement.
+    /// Create a new squashed SQL migration instance with the fallback distribution version.
     pub fn new_squashed<T: Into<String>>(
         version: DbVersion,
-        minimum_requirement: NodeVersionRequirement,
+        fallback_distribution_version: T,
         alteration: T,
     ) -> Self {
         Self {
             version,
             alterations: alteration.into(),
-            minimum_requirement: Some(minimum_requirement),
+            fallback_distribution_version: Some(fallback_distribution_version.into()),
         }
     }
 }
@@ -330,7 +318,7 @@ mod tests {
         let migration = SqlMigration {
             version: 1,
             alterations: alterations.to_string(),
-            minimum_requirement: None,
+            fallback_distribution_version: None,
         };
         db_checker.add_migration(migration);
         db_checker.apply().unwrap();
@@ -345,7 +333,7 @@ mod tests {
         let migration = SqlMigration {
             version: 2,
             alterations: alterations.to_string(),
-            minimum_requirement: None,
+            fallback_distribution_version: None,
         };
         db_checker.add_migration(migration);
         db_checker.apply().unwrap();
@@ -359,14 +347,14 @@ mod tests {
         let migration = SqlMigration {
             version: 4,
             alterations: alterations.to_string(),
-            minimum_requirement: None,
+            fallback_distribution_version: None,
         };
         db_checker.add_migration(migration);
         let alterations = "alter table whatever add column more_thing text; update whatever set more_thing = 'more thing'";
         let migration = SqlMigration {
             version: 3,
             alterations: alterations.to_string(),
-            minimum_requirement: None,
+            fallback_distribution_version: None,
         };
         db_checker.add_migration(migration);
         db_checker.apply().unwrap();
@@ -388,7 +376,7 @@ mod tests {
         let migration = SqlMigration {
             version: 3,
             alterations: alterations.to_string(),
-            minimum_requirement: None,
+            fallback_distribution_version: None,
         };
         db_checker.add_migration(migration);
         db_checker.apply().unwrap();
@@ -399,7 +387,7 @@ mod tests {
         let migration_with_version_gap = SqlMigration {
             version: 10,
             alterations: alterations.to_string(),
-            minimum_requirement: None,
+            fallback_distribution_version: None,
         };
         db_checker.add_migration(migration_with_version_gap);
         db_checker.apply().unwrap();
@@ -420,7 +408,7 @@ mod tests {
         let migration = SqlMigration {
             version: 1,
             alterations: alterations.to_string(),
-            minimum_requirement: None,
+            fallback_distribution_version: None,
         };
         db_checker.add_migration(migration);
         db_checker.apply().unwrap();
@@ -444,21 +432,21 @@ mod tests {
         let migration = SqlMigration {
             version: 1,
             alterations: alterations.to_string(),
-            minimum_requirement: None,
+            fallback_distribution_version: None,
         };
         db_checker.add_migration(migration);
         let alterations = "alter table wrong add column thing_content text; update whatever set thing_content = 'some content'";
         let migration = SqlMigration {
             version: 2,
             alterations: alterations.to_string(),
-            minimum_requirement: None,
+            fallback_distribution_version: None,
         };
         db_checker.add_migration(migration);
         let alterations = "alter table whatever add column thing_content text; update whatever set thing_content = 'some content'";
         let migration = SqlMigration {
             version: 3,
             alterations: alterations.to_string(),
-            minimum_requirement: None,
+            fallback_distribution_version: None,
         };
         db_checker.add_migration(migration);
         db_checker.apply().unwrap_err();
@@ -477,7 +465,7 @@ mod tests {
         let migration = SqlMigration {
             version: 1,
             alterations: alterations.to_string(),
-            minimum_requirement: None,
+            fallback_distribution_version: None,
         };
         db_checker.add_migration(migration);
         db_checker.apply().unwrap();
@@ -497,9 +485,9 @@ mod tests {
     }
 
     #[test]
-    fn check_minimum_required_version_does_not_fail_when_no_minimum_required_version() {
+    fn check_minimum_required_version_does_not_fail_when_no_fallback_distribution_version() {
         let (_filepath, connection) = create_sqlite_file(
-            "check_minimum_required_version_does_not_fail_when_no_minimum_required_version",
+            "check_minimum_required_version_does_not_fail_when_no_fallback_distribution_version",
         )
         .unwrap();
         let db_checker = DatabaseVersionChecker::new(
@@ -512,21 +500,21 @@ mod tests {
         let migration = SqlMigration {
             version: 3,
             alterations: alterations.to_string(),
-            minimum_requirement: None,
+            fallback_distribution_version: None,
         };
 
         db_checker
             .check_minimum_required_version(1, &migration)
             .expect(
-                "Check minimum required version should not fail when no minimum required version",
-            );
+            "Check minimum required version should not fail when no fallback distribution version",
+        );
     }
 
     #[test]
-    fn check_minimum_required_version_does_not_fail_when_minimum_required_version_with_fresh_database(
+    fn check_minimum_required_version_does_not_fail_when_fallback_distribution_version_with_fresh_database(
     ) {
         let (_filepath, connection) = create_sqlite_file(
-            "check_minimum_required_version_does_not_fail_when_minimum_required_version_with_fresh_database",
+            "check_minimum_required_version_does_not_fail_when_fallback_distribution_version_with_fresh_database",
         )
         .unwrap();
         let db_checker = DatabaseVersionChecker::new(
@@ -536,21 +524,15 @@ mod tests {
         );
 
         let alterations = "create table whatever (thing_id integer); insert into whatever (thing_id) values (1), (2), (3), (4);";
-        let min_requirement = NodeVersionRequirement {
-            node_version: Version::parse("1.2.3").unwrap(),
-            release_version: "2511.0".to_string(),
-        };
         let migration = SqlMigration {
             version: 2,
             alterations: alterations.to_string(),
-            minimum_requirement: Some(min_requirement),
+            fallback_distribution_version: Some("2511.0".to_string()),
         };
 
         db_checker
             .check_minimum_required_version(0, &migration)
-            .expect(
-                "Check minimum required version should not fail when no minimum required version",
-            );
+            .expect("Check minimum required version should not fail with fresh database");
     }
 
     #[test]
@@ -567,14 +549,10 @@ mod tests {
         );
 
         let alterations = "alter table whatever add column thing_content text; update whatever set thing_content = 'some content'";
-        let min_requirement = NodeVersionRequirement {
-            node_version: Version::parse("1.2.3").unwrap(),
-            release_version: "2511.0".to_string(),
-        };
         let migration = SqlMigration {
             version: 2,
             alterations: alterations.to_string(),
-            minimum_requirement: Some(min_requirement),
+            fallback_distribution_version: Some("2511.0".to_string()),
         };
 
         db_checker
@@ -595,14 +573,10 @@ mod tests {
         );
 
         let alterations = "alter table whatever add column thing_content text; update whatever set thing_content = 'some content'";
-        let min_requirement = NodeVersionRequirement {
-            node_version: Version::parse("1.2.3").unwrap(),
-            release_version: "2511.0".to_string(),
-        };
         let migration = SqlMigration {
             version: 3,
             alterations: alterations.to_string(),
-            minimum_requirement: Some(min_requirement),
+            fallback_distribution_version: Some("2511.0".to_string()),
         };
 
         let error = db_checker
@@ -626,27 +600,23 @@ mod tests {
         let migration = SqlMigration {
             version: 1,
             alterations: alterations.to_string(),
-            minimum_requirement: None,
+            fallback_distribution_version: None,
         };
         db_checker.add_migration(migration);
         db_checker.apply().unwrap();
         check_database_version(&connection, 1);
 
         let alterations = "alter table whatever add column thing_content text; update whatever set thing_content = 'some content'";
-        let min_requirement = NodeVersionRequirement {
-            node_version: Version::parse("1.2.3").unwrap(),
-            release_version: "2511.0".to_string(),
-        };
         let squashed_migration = SqlMigration {
             version: 3,
             alterations: alterations.to_string(),
-            minimum_requirement: Some(min_requirement),
+            fallback_distribution_version: Some("2511.0".to_string()),
         };
         db_checker.add_migration(squashed_migration);
 
         let error = db_checker
             .apply()
-            .expect_err("Should fail with minimum version error");
+            .expect_err("Should fail when applying squashed migration on old database");
 
         assert!(error.to_string().contains("curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-aggregator -d 2511.0 -p $(pwd)"));
     }
