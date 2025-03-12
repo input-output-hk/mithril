@@ -6,7 +6,7 @@ use std::sync::RwLock;
 use mithril_common::entities::CompressionAlgorithm;
 use mithril_common::StdResult;
 
-use crate::services::{OngoingSnapshot, SnapshotError, Snapshotter};
+use crate::services::{OngoingSnapshot, Snapshotter};
 
 /// Snapshotter that does nothing. It is mainly used for test purposes.
 pub struct DumbSnapshotter {
@@ -27,12 +27,7 @@ impl DumbSnapshotter {
 
     /// Return the last fake snapshot produced.
     pub fn get_last_snapshot(&self) -> StdResult<Option<OngoingSnapshot>> {
-        let value = self
-            .last_snapshot
-            .read()
-            .map_err(|e| SnapshotError::UploadFileError(e.to_string()))?
-            .as_ref()
-            .cloned();
+        let value = self.last_snapshot.read().unwrap().as_ref().cloned();
 
         Ok(value)
     }
@@ -49,10 +44,7 @@ impl Default for DumbSnapshotter {
 
 impl Snapshotter for DumbSnapshotter {
     fn snapshot_all(&self, archive_name_without_extension: &str) -> StdResult<OngoingSnapshot> {
-        let mut value = self
-            .last_snapshot
-            .write()
-            .map_err(|e| SnapshotError::UploadFileError(e.to_string()))?;
+        let mut value = self.last_snapshot.write().unwrap();
         let snapshot = OngoingSnapshot {
             filepath: PathBuf::from(format!(
                 "{archive_name_without_extension}.{}",
