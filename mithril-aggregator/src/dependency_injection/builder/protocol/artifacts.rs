@@ -1,4 +1,5 @@
 use semver::Version;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use mithril_common::entities::CompressionAlgorithm;
@@ -7,7 +8,8 @@ use crate::artifact_builder::{
     AncillaryArtifactBuilder, AncillaryFileUploader, CardanoDatabaseArtifactBuilder,
     CardanoImmutableFilesFullArtifactBuilder, CardanoStakeDistributionArtifactBuilder,
     CardanoTransactionsArtifactBuilder, DigestArtifactBuilder, DigestFileUploader,
-    ImmutableArtifactBuilder, ImmutableFilesUploader, MithrilStakeDistributionArtifactBuilder,
+    DigestSnapshotter, ImmutableArtifactBuilder, ImmutableFilesUploader,
+    MithrilStakeDistributionArtifactBuilder,
 };
 use crate::dependency_injection::builder::SNAPSHOT_ARTIFACTS_DIR;
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
@@ -94,6 +96,17 @@ impl DependenciesBuilder {
         Ok(self.signed_entity_service.as_ref().cloned().unwrap())
     }
 
+    fn build_snapshotter_compression_algorithm(&mut self) -> SnapshotterCompressionAlgorithm {
+        match self.configuration.snapshot_compression_algorithm {
+            CompressionAlgorithm::Gzip => SnapshotterCompressionAlgorithm::Gzip,
+            CompressionAlgorithm::Zstandard => self
+                .configuration
+                .zstandard_parameters
+                .unwrap_or_default()
+                .into(),
+        }
+    }
+
     async fn build_snapshotter(&mut self) -> Result<Arc<dyn Snapshotter>> {
         let snapshotter: Arc<dyn Snapshotter> = match self.configuration.environment {
             ExecutionEnvironment::Production => {
@@ -102,14 +115,7 @@ impl DependenciesBuilder {
                     .get_snapshot_dir()?
                     .join("pending_snapshot");
 
-                let algorithm = match self.configuration.snapshot_compression_algorithm {
-                    CompressionAlgorithm::Gzip => SnapshotterCompressionAlgorithm::Gzip,
-                    CompressionAlgorithm::Zstandard => self
-                        .configuration
-                        .zstandard_parameters
-                        .unwrap_or_default()
-                        .into(),
-                };
+                let algorithm = self.build_snapshotter_compression_algorithm();
 
                 Arc::new(CompressedArchiveSnapshotter::new(
                     self.configuration.db_directory.clone(),
@@ -122,6 +128,33 @@ impl DependenciesBuilder {
         };
 
         Ok(snapshotter)
+    }
+
+    async fn build_digests_snapshotter(
+        &mut self,
+        digests_path: PathBuf,
+    ) -> Result<DigestSnapshotter> {
+        let snapshotter: Arc<dyn Snapshotter> = match self.configuration.environment {
+            ExecutionEnvironment::Production => {
+                let ongoing_snapshot_directory =
+                    self.configuration.get_snapshot_dir()?.join("digests");
+
+                let algorithm = self.build_snapshotter_compression_algorithm();
+
+                Arc::new(CompressedArchiveSnapshotter::new(
+                    digests_path,
+                    ongoing_snapshot_directory,
+                    algorithm,
+                    self.root_logger(),
+                )?)
+            }
+            _ => Arc::new(DumbSnapshotter::new()),
+        };
+
+        Ok(DigestSnapshotter {
+            snapshotter,
+            compression_algorithm: self.configuration.snapshot_compression_algorithm,
+        })
     }
 
     /// [Snapshotter] service.
@@ -350,11 +383,15 @@ impl DependenciesBuilder {
             self.root_logger(),
         )?);
 
+        let digests_path = snapshot_dir.join("pending_cardano_database_digests");
+        let digests_snapshotter = self.build_digests_snapshotter(digests_path.clone()).await?;
+
         let digest_builder = Arc::new(DigestArtifactBuilder::new(
             self.configuration.get_server_url()?,
             self.build_cardano_database_digests_uploaders()?,
+            digests_snapshotter,
             self.configuration.get_network()?,
-            snapshot_dir.join("pending_cardano_database_digests"),
+            digests_path,
             self.get_immutable_file_digest_mapper().await?,
             self.root_logger(),
         )?);

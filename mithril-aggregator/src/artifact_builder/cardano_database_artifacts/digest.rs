@@ -16,6 +16,7 @@ use slog::{error, Logger};
 
 use crate::{
     file_uploaders::{GcpUploader, LocalUploader},
+    services::Snapshotter,
     tools::url_sanitizer::SanitizedUrlWithTrailingSlash,
     DumbUploader, FileUploader, ImmutableFileDigestMapper,
 };
@@ -85,12 +86,37 @@ pub struct DigestUpload {
     pub size: u64,
 }
 
+pub struct DigestSnapshotter {
+    pub snapshotter: Arc<dyn Snapshotter>,
+    pub compression_algorithm: CompressionAlgorithm,
+}
+
+impl DigestSnapshotter {
+    fn create_archive_file(&self, digest_file_name: PathBuf) -> Result<PathBuf, anyhow::Error> {
+        let digest_archive_file_path =
+            digest_file_name.with_extension(self.compression_algorithm.tar_file_extension());
+        let ongoing_digests_archive = self
+            .snapshotter
+            .snapshot_subset(&digest_archive_file_path, vec![digest_file_name.clone()])
+            .with_context(|| {
+                format!(
+                    "Could not create snapshot of digest file: '{}'",
+                    digest_file_name.display()
+                )
+            })?;
+
+        Ok(ongoing_digests_archive.get_file_path().clone())
+    }
+}
+
 pub struct DigestArtifactBuilder {
     /// Aggregator URL prefix
     aggregator_url_prefix: SanitizedUrlWithTrailingSlash,
 
     /// Uploaders
     uploaders: Vec<Arc<dyn DigestFileUploader>>,
+
+    digest_snapshotter: DigestSnapshotter,
 
     network: CardanoNetwork,
 
@@ -106,6 +132,7 @@ impl DigestArtifactBuilder {
     pub fn new(
         aggregator_url_prefix: SanitizedUrlWithTrailingSlash,
         uploaders: Vec<Arc<dyn DigestFileUploader>>,
+        digest_snapshotter: DigestSnapshotter,
         network: CardanoNetwork,
         digests_dir: PathBuf,
         immutable_file_digest_mapper: Arc<dyn ImmutableFileDigestMapper>,
@@ -114,6 +141,7 @@ impl DigestArtifactBuilder {
         Ok(Self {
             aggregator_url_prefix,
             uploaders,
+            digest_snapshotter,
             network,
             digests_dir,
             immutable_file_digest_mapper,
@@ -123,14 +151,27 @@ impl DigestArtifactBuilder {
 
     pub async fn upload(&self, beacon: &CardanoDbBeacon) -> StdResult<DigestUpload> {
         let digest_path = self.create_digest_file(beacon).await?;
+        let digest_file_name =
+            PathBuf::from(Self::get_digests_file_name(&self.network, beacon, "json"));
+        let digest_archive_file_path = self
+            .digest_snapshotter
+            .create_archive_file(digest_file_name)?;
 
-        let locations = self.upload_digest_file(&digest_path).await;
+        let locations = self.upload_digest_file(&digest_archive_file_path).await;
 
         let file_metadata = std::fs::metadata(&digest_path);
 
         fs::remove_file(&digest_path).with_context(|| {
             format!("Could not remove digest file: '{}'", digest_path.display())
         })?;
+        if digest_archive_file_path.exists() {
+            fs::remove_file(&digest_archive_file_path).with_context(|| {
+                format!(
+                    "Could not remove digest archive file: '{}'",
+                    digest_archive_file_path.display()
+                )
+            })?;
+        }
 
         let size = file_metadata
             .with_context(|| {
@@ -161,8 +202,12 @@ impl DigestArtifactBuilder {
             )
             .collect::<Vec<_>>();
 
-        let digests_file_path =
-            DigestArtifactBuilder::get_digests_file_path(&self.digests_dir, &self.network, beacon);
+        let digests_file_path = DigestArtifactBuilder::get_digests_file_path(
+            &self.digests_dir,
+            &self.network,
+            beacon,
+            "json",
+        );
 
         if let Some(digests_dir) = digests_file_path.parent() {
             fs::create_dir_all(digests_dir).with_context(|| {
@@ -183,7 +228,12 @@ impl DigestArtifactBuilder {
     async fn upload_digest_file(&self, digest_filepath: &Path) -> StdResult<Vec<DigestLocation>> {
         let mut locations = Vec::<DigestLocation>::new();
         for uploader in &self.uploaders {
-            let result = uploader.upload(digest_filepath, None).await;
+            let result = uploader
+                .upload(
+                    digest_filepath,
+                    Some(self.digest_snapshotter.compression_algorithm),
+                )
+                .await;
             match result {
                 Ok(location) => {
                     locations.push(location);
@@ -212,33 +262,54 @@ impl DigestArtifactBuilder {
         })
     }
 
+    fn get_digests_file_name(
+        network: &CardanoNetwork,
+        beacon: &CardanoDbBeacon,
+        extension: &str,
+    ) -> String {
+        let filename = format!(
+            "{}-e{}-i{}.digests.{}",
+            network, *beacon.epoch, beacon.immutable_file_number, extension
+        );
+        filename
+    }
+
     fn get_digests_file_path<P: AsRef<Path>>(
         digests_dir: P,
         network: &CardanoNetwork,
         beacon: &CardanoDbBeacon,
+        extension: &str,
     ) -> PathBuf {
-        let filename = format!(
-            "{}-e{}-i{}.digests.json",
-            network, *beacon.epoch, beacon.immutable_file_number
-        );
+        let filename = Self::get_digests_file_name(network, beacon, extension);
         digests_dir.as_ref().join(filename)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::BTreeMap, fs::read_to_string};
+    use std::{
+        collections::BTreeMap,
+        fs::{read_to_string, File},
+    };
 
     use crate::{
-        immutable_file_digest_mapper::MockImmutableFileDigestMapper, test_tools::TestLogger,
+        file_uploaders::FileUploadRetryPolicy,
+        immutable_file_digest_mapper::MockImmutableFileDigestMapper,
+        services::{
+            CompressedArchiveSnapshotter, DumbSnapshotter, SnapshotterCompressionAlgorithm,
+        },
+        test_tools::TestLogger,
     };
     use anyhow::anyhow;
+    use flate2::read::GzDecoder;
     use mithril_common::{
         current_function,
         entities::{CardanoDbBeacon, CompressionAlgorithm},
         messages::{CardanoDatabaseDigestListItemMessage, CardanoDatabaseDigestListMessage},
         test_utils::{assert_equivalent, TempDir},
     };
+    use tar::Archive;
+    use uuid::Uuid;
 
     use super::*;
 
@@ -267,6 +338,42 @@ mod tests {
         uploader
     }
 
+    fn path_content(path: &Path) -> Vec<PathBuf> {
+        std::fs::read_dir(path)
+            .unwrap()
+            .map(|res| res.unwrap().path())
+            .collect()
+    }
+
+    fn build_local_uploader(path: &Path) -> LocalUploader {
+        std::fs::create_dir_all(path).unwrap();
+        LocalUploader::new(
+            SanitizedUrlWithTrailingSlash::parse("http://server/").unwrap(),
+            path,
+            FileUploadRetryPolicy::never(),
+            TestLogger::stdout(),
+        )
+    }
+
+    fn build_dummy_immutable_file_digest_mapper() -> MockImmutableFileDigestMapper {
+        let mut immutable_file_digest_mapper = MockImmutableFileDigestMapper::new();
+        immutable_file_digest_mapper
+            .expect_get_immutable_file_digest_map()
+            .returning(|| Ok(BTreeMap::new()));
+        immutable_file_digest_mapper
+    }
+
+    fn unpack_archive(archive_path: &Path, unpack_dir: &Path) -> StdResult<()> {
+        let mut archive = {
+            let file_tar_gz = File::open(archive_path)?;
+            let file_tar_gz_decoder = GzDecoder::new(file_tar_gz);
+            Archive::new(file_tar_gz_decoder)
+        };
+
+        archive.unpack(unpack_dir)?;
+        Ok(())
+    }
+
     #[tokio::test]
     async fn digest_artifact_builder_return_digests_route_on_aggregator() {
         let temp_dir = TempDir::create("digest", current_function!());
@@ -279,6 +386,10 @@ mod tests {
         let builder = DigestArtifactBuilder::new(
             SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
             vec![],
+            DigestSnapshotter {
+                snapshotter: Arc::new(DumbSnapshotter::new()),
+                compression_algorithm: CompressionAlgorithm::Gzip,
+            },
             CardanoNetwork::DevNet(123),
             temp_dir,
             Arc::new(immutable_file_digest_mapper),
@@ -307,6 +418,10 @@ mod tests {
         let builder = DigestArtifactBuilder::new(
             SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
             vec![],
+            DigestSnapshotter {
+                snapshotter: Arc::new(DumbSnapshotter::new()),
+                compression_algorithm: CompressionAlgorithm::Gzip,
+            },
             CardanoNetwork::DevNet(123),
             temp_dir,
             Arc::new(immutable_file_digest_mapper),
@@ -337,6 +452,10 @@ mod tests {
             let builder = DigestArtifactBuilder::new(
                 SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
                 vec![Arc::new(uploader)],
+                DigestSnapshotter {
+                    snapshotter: Arc::new(DumbSnapshotter::new()),
+                    compression_algorithm: CompressionAlgorithm::Gzip,
+                },
                 CardanoNetwork::DevNet(123),
                 PathBuf::from("/tmp/whatever"),
                 Arc::new(MockImmutableFileDigestMapper::new()),
@@ -358,6 +477,10 @@ mod tests {
         let builder = DigestArtifactBuilder::new(
             SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
             vec![Arc::new(uploader)],
+            DigestSnapshotter {
+                snapshotter: Arc::new(DumbSnapshotter::new()),
+                compression_algorithm: CompressionAlgorithm::Gzip,
+            },
             CardanoNetwork::DevNet(123),
             PathBuf::from("/tmp/whatever"),
             Arc::new(MockImmutableFileDigestMapper::new()),
@@ -388,6 +511,10 @@ mod tests {
         let builder = DigestArtifactBuilder::new(
             SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
             uploaders,
+            DigestSnapshotter {
+                snapshotter: Arc::new(DumbSnapshotter::new()),
+                compression_algorithm: CompressionAlgorithm::Gzip,
+            },
             CardanoNetwork::DevNet(123),
             PathBuf::from("/tmp/whatever"),
             Arc::new(MockImmutableFileDigestMapper::new()),
@@ -425,6 +552,10 @@ mod tests {
         let builder = DigestArtifactBuilder::new(
             SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
             uploaders,
+            DigestSnapshotter {
+                snapshotter: Arc::new(DumbSnapshotter::new()),
+                compression_algorithm: CompressionAlgorithm::Gzip,
+            },
             CardanoNetwork::DevNet(123),
             PathBuf::from("/tmp/whatever"),
             Arc::new(MockImmutableFileDigestMapper::new()),
@@ -471,6 +602,10 @@ mod tests {
         let builder = DigestArtifactBuilder::new(
             SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
             vec![],
+            DigestSnapshotter {
+                snapshotter: Arc::new(DumbSnapshotter::new()),
+                compression_algorithm: CompressionAlgorithm::Gzip,
+            },
             CardanoNetwork::DevNet(123),
             temp_dir,
             Arc::new(immutable_file_digest_mapper),
@@ -498,47 +633,80 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn upload_should_call_upload_with_created_digest_file_and_delete_the_file() {
-        let digests_dir = TempDir::create("digest", current_function!());
-        let mut immutable_file_digest_mapper = MockImmutableFileDigestMapper::new();
-        immutable_file_digest_mapper
-            .expect_get_immutable_file_digest_map()
-            .returning(|| Ok(BTreeMap::new()));
+    async fn upload_should_upload_a_digest_archive_file_and_delete_created_files() {
+        let tmp_dir = TempDir::create("digest", current_function!());
+        let digests_dir = tmp_dir.join("digest");
+        let digests_archive_dir = tmp_dir.join("archive");
+        let uploader_path = tmp_dir.join("uploaded_digests");
 
-        let mut digest_file_uploader = MockDigestFileUploader::new();
-
+        let compression_algorithm = CompressionAlgorithm::Gzip;
         let beacon = CardanoDbBeacon::new(3, 456);
         let network = CardanoNetwork::DevNet(24);
-        let digest_file =
-            DigestArtifactBuilder::get_digests_file_path(&digests_dir, &network, &beacon);
 
-        let digest_file_clone = digest_file.clone();
-        digest_file_uploader
-            .expect_upload()
-            .withf(move |path, algorithm| {
-                path == digest_file_clone && path.exists() && algorithm.is_none()
-            })
-            .times(1)
-            .return_once(|_, _| {
-                Ok(DigestLocation::CloudStorage {
-                    uri: "an_uri".to_string(),
-                    compression_algorithm: None,
-                })
-            });
+        let mut snapshotter = CompressedArchiveSnapshotter::new(
+            digests_dir.clone(),
+            digests_archive_dir.clone(),
+            SnapshotterCompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        )
+        .unwrap();
+        snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
         let builder = DigestArtifactBuilder::new(
             SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
-            vec![Arc::new(digest_file_uploader)],
+            vec![Arc::new(build_local_uploader(&uploader_path))],
+            DigestSnapshotter {
+                snapshotter: Arc::new(snapshotter),
+                compression_algorithm,
+            },
             network,
-            digests_dir,
-            Arc::new(immutable_file_digest_mapper),
+            digests_dir.clone(),
+            Arc::new(build_dummy_immutable_file_digest_mapper()),
             TestLogger::stdout(),
         )
         .unwrap();
 
         let _locations = builder.upload(&beacon).await.unwrap();
 
-        assert!(!digest_file.exists());
+        // Check uploader archive contains digests.json
+        {
+            let digest_archive_path =
+                uploader_path.join(DigestArtifactBuilder::get_digests_file_name(
+                    &network,
+                    &beacon,
+                    &compression_algorithm.tar_file_extension(),
+                ));
+            assert!(
+                digest_archive_path.exists(),
+                "Archive should have been uploaded to {}",
+                digest_archive_path.display()
+            );
+
+            let unpack_dir = tmp_dir.join("unpack");
+            unpack_archive(&digest_archive_path, &unpack_dir).unwrap();
+
+            let digest_file_path = unpack_dir.join(DigestArtifactBuilder::get_digests_file_name(
+                &network, &beacon, "json",
+            ));
+            assert!(digest_file_path.is_file());
+        }
+
+        // Check that all files have been deleted
+        {
+            let remaining_files = path_content(&digests_dir);
+            assert!(
+                remaining_files.is_empty(),
+                "There should be no remaining files in digests folder, but found: {:?}",
+                remaining_files
+            );
+
+            let remaining_files = path_content(&digests_archive_dir);
+            assert!(
+                remaining_files.is_empty(),
+                "There should be no remaining files in archive folder, but found: {:?}",
+                remaining_files
+            );
+        }
     }
 
     #[tokio::test]
@@ -548,7 +716,7 @@ mod tests {
         let beacon = CardanoDbBeacon::new(5, 456);
         let network = CardanoNetwork::MainNet;
         let digest_file =
-            DigestArtifactBuilder::get_digests_file_path(&digests_dir, &network, &beacon);
+            DigestArtifactBuilder::get_digests_file_path(&digests_dir, &network, &beacon, "json");
 
         assert_eq!(
             digest_file,

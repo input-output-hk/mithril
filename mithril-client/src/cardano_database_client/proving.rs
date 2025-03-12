@@ -92,10 +92,12 @@ impl InternalArtifactProver {
         locations_sorted.sort();
         for location in locations_sorted {
             let download_id = MithrilEvent::new_cardano_database_download_id();
-            let file_downloader = match &location {
-                DigestLocation::CloudStorage { .. } | DigestLocation::Aggregator { .. } => {
-                    self.http_file_downloader.clone()
-                }
+            let (file_downloader, compression_algorithm) = match &location {
+                DigestLocation::CloudStorage {
+                    uri: _,
+                    compression_algorithm,
+                } => (self.http_file_downloader.clone(), *compression_algorithm),
+                DigestLocation::Aggregator { .. } => (self.http_file_downloader.clone(), None),
                 // Note: unknown locations should have been filtered out by `sanitized_locations`
                 DigestLocation::Unknown => unreachable!(),
             };
@@ -105,7 +107,7 @@ impl InternalArtifactProver {
                     &file_downloader_uri,
                     digests_locations.size_uncompressed,
                     digests_file_target_dir,
-                    None,
+                    compression_algorithm,
                     DownloadEvent::Digest {
                         download_id: download_id.clone(),
                     },
@@ -339,6 +341,8 @@ mod tests {
 
     mod download_unpack_digest_file {
 
+        use mithril_common::entities::CompressionAlgorithm;
+
         use crate::file_downloader::MockFileDownloader;
 
         use super::*;
@@ -454,6 +458,40 @@ mod tests {
                             DigestLocation::CloudStorage {
                                 uri: "http://whatever-1/digests.json".to_string(),
                                 compression_algorithm: None,
+                            },
+                            DigestLocation::Aggregator {
+                                uri: "http://whatever-2/digest".to_string(),
+                            },
+                        ],
+                        size_uncompressed: 0,
+                    },
+                    target_dir,
+                )
+                .await
+                .unwrap();
+        }
+
+        #[tokio::test]
+        async fn should_call_download_with_compression_algorithm() {
+            let target_dir = Path::new(".");
+            let artifact_prover = InternalArtifactProver::new(
+                Arc::new(
+                    MockFileDownloaderBuilder::default()
+                        .with_compression(Some(CompressionAlgorithm::Gzip))
+                        .with_times(1)
+                        .with_success()
+                        .build(),
+                ),
+                test_utils::test_logger(),
+            );
+
+            artifact_prover
+                .download_unpack_digest_file(
+                    &DigestsMessagePart {
+                        locations: vec![
+                            DigestLocation::CloudStorage {
+                                uri: "http://whatever-1/digests.tar.gz".to_string(),
+                                compression_algorithm: Some(CompressionAlgorithm::Gzip),
                             },
                             DigestLocation::Aggregator {
                                 uri: "http://whatever-2/digest".to_string(),
