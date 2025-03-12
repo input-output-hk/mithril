@@ -655,8 +655,7 @@ mod tests {
             let vk = VerificationKey::from(&sk);
             let sig = sk.sign(&msg);
 
-            let result = sig.verify(&msg, &vk);
-            assert!(result.is_ok(), "verify {result:?}");
+            sig.verify(&msg, &vk).unwrap();
         }
 
         #[test]
