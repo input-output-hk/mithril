@@ -6,7 +6,7 @@ use mithril_common::{
 };
 
 pub struct Spec<'a> {
-    pub infrastructure: &'a mut MithrilInfrastructure,
+    pub infrastructure: &'a MithrilInfrastructure,
     is_signing_cardano_transactions: bool,
     is_signing_cardano_stake_distribution: bool,
     is_signing_cardano_database: bool,
@@ -16,7 +16,7 @@ pub struct Spec<'a> {
 
 impl<'a> Spec<'a> {
     pub fn new(
-        infrastructure: &'a mut MithrilInfrastructure,
+        infrastructure: &'a MithrilInfrastructure,
         signed_entity_types: Vec<String>,
         next_era: Option<String>,
         regenesis_on_era_switch: bool,
@@ -43,7 +43,7 @@ impl<'a> Spec<'a> {
         }
     }
 
-    pub async fn run(&mut self) -> StdResult<()> {
+    pub async fn run(&self) -> StdResult<()> {
         let aggregator_endpoint = self.infrastructure.master_aggregator().endpoint();
         assertions::wait_for_enough_immutable(
             self.infrastructure.master_aggregator().db_directory(),
@@ -71,8 +71,7 @@ impl<'a> Spec<'a> {
                 .to_string(),
         )
         .await?;
-        assertions::bootstrap_genesis_certificate(self.infrastructure.master_aggregator_mut())
-            .await?;
+        assertions::bootstrap_genesis_certificate(self.infrastructure.master_aggregator()).await?;
         assertions::wait_for_epoch_settings(&aggregator_endpoint).await?;
 
         // Wait 2 epochs before changing stake distribution, so that we use at least one original stake distribution
@@ -95,7 +94,7 @@ impl<'a> Spec<'a> {
             "epoch after which the protocol parameters will change".to_string(),
         )
         .await?;
-        assertions::update_protocol_parameters(self.infrastructure.master_aggregator_mut()).await?;
+        assertions::update_protocol_parameters(self.infrastructure.master_aggregator()).await?;
 
         // Wait 6 epochs after protocol parameters update, so that we make sure that we use new protocol parameters as well as new stake distribution a few times
         target_epoch += 6;
@@ -125,10 +124,8 @@ impl<'a> Spec<'a> {
 
             // Proceed to a re-genesis of the certificate chain
             if self.regenesis_on_era_switch {
-                assertions::bootstrap_genesis_certificate(
-                    self.infrastructure.master_aggregator_mut(),
-                )
-                .await?;
+                assertions::bootstrap_genesis_certificate(self.infrastructure.master_aggregator())
+                    .await?;
                 target_epoch += 5;
                 assertions::wait_for_target_epoch(
                     self.infrastructure.master_chain_observer(),
@@ -165,7 +162,7 @@ impl<'a> Spec<'a> {
                 self.infrastructure.signers().len(),
             )
             .await?;
-            let mut client = self.infrastructure.build_client()?;
+            let mut client = self.infrastructure.build_client().await?;
             assertions::assert_client_can_verify_mithril_stake_distribution(&mut client, &hash)
                 .await?;
         }
@@ -187,7 +184,7 @@ impl<'a> Spec<'a> {
             )
             .await?;
 
-            let mut client = self.infrastructure.build_client()?;
+            let mut client = self.infrastructure.build_client().await?;
             assertions::assert_client_can_verify_snapshot(&mut client, &digest).await?;
         }
 
@@ -213,7 +210,7 @@ impl<'a> Spec<'a> {
             assertions::assert_node_producing_cardano_database_digests_map(&aggregator_endpoint)
                 .await?;
 
-            let mut client = self.infrastructure.build_client()?;
+            let mut client = self.infrastructure.build_client().await?;
             assertions::assert_client_can_verify_cardano_database(&mut client, &hash).await?;
         }
 
@@ -239,7 +236,7 @@ impl<'a> Spec<'a> {
                 .infrastructure
                 .devnet()
                 .mithril_payments_transaction_hashes()?;
-            let mut client = self.infrastructure.build_client()?;
+            let mut client = self.infrastructure.build_client().await?;
             assertions::assert_client_can_verify_transactions(&mut client, transaction_hashes)
                 .await?;
         }
@@ -265,7 +262,7 @@ impl<'a> Spec<'a> {
                 )
                 .await?;
 
-                let mut client = self.infrastructure.build_client()?;
+                let mut client = self.infrastructure.build_client().await?;
                 assertions::assert_client_can_verify_cardano_stake_distribution(
                     &mut client,
                     &hash,
