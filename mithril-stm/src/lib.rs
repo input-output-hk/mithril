@@ -8,6 +8,7 @@ mod eligibility_check;
 mod error;
 pub mod key_reg;
 mod merkle_tree;
+pub mod sterling;
 pub mod stm;
 
 pub use crate::error::{
