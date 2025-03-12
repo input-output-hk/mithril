@@ -42,12 +42,9 @@ impl KeyReg {
     /// The function fails when the proof of possession is invalid or when the key is already registered.
     pub fn register(&mut self, stake: Stake, pk: VerificationKeyPoP) -> Result<(), RegisterError> {
         if let Entry::Vacant(e) = self.keys.entry(pk.vk) {
-            if pk.check().is_ok() {
-                e.insert(stake);
-                return Ok(());
-            } else {
-                return Err(RegisterError::KeyInvalid(Box::new(pk)));
-            }
+            pk.check()?;
+            e.insert(stake);
+            return Ok(());
         }
         Err(RegisterError::KeyRegistered(Box::new(pk.vk)))
     }
