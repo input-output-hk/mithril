@@ -293,6 +293,7 @@ mod tests {
     };
 
     use crate::{
+        file_uploaders::FileUploadRetryPolicy,
         immutable_file_digest_mapper::MockImmutableFileDigestMapper,
         services::{
             CompressedArchiveSnapshotter, DumbSnapshotter, SnapshotterCompressionAlgorithm,
@@ -307,7 +308,6 @@ mod tests {
         messages::{CardanoDatabaseDigestListItemMessage, CardanoDatabaseDigestListMessage},
         test_utils::{assert_equivalent, TempDir},
     };
-    use mockall::predicate::eq;
     use tar::Archive;
     use uuid::Uuid;
 
@@ -336,6 +336,42 @@ mod tests {
         });
 
         uploader
+    }
+
+    fn path_content(path: &Path) -> Vec<PathBuf> {
+        std::fs::read_dir(path)
+            .unwrap()
+            .map(|res| res.unwrap().path())
+            .collect()
+    }
+
+    fn build_local_uploader(path: &Path) -> LocalUploader {
+        std::fs::create_dir_all(path).unwrap();
+        LocalUploader::new(
+            SanitizedUrlWithTrailingSlash::parse("http://server/").unwrap(),
+            path,
+            FileUploadRetryPolicy::never(),
+            TestLogger::stdout(),
+        )
+    }
+
+    fn build_dummy_immutable_file_digest_mapper() -> MockImmutableFileDigestMapper {
+        let mut immutable_file_digest_mapper = MockImmutableFileDigestMapper::new();
+        immutable_file_digest_mapper
+            .expect_get_immutable_file_digest_map()
+            .returning(|| Ok(BTreeMap::new()));
+        immutable_file_digest_mapper
+    }
+
+    fn unpack_archive(archive_path: &Path, unpack_dir: &Path) -> StdResult<()> {
+        let mut archive = {
+            let file_tar_gz = File::open(archive_path)?;
+            let file_tar_gz_decoder = GzDecoder::new(file_tar_gz);
+            Archive::new(file_tar_gz_decoder)
+        };
+
+        archive.unpack(unpack_dir)?;
+        Ok(())
     }
 
     #[tokio::test]
@@ -597,56 +633,19 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn upload_should_call_upload_with_created_digest_archive_file_and_delete_the_file() {
+    async fn upload_should_upload_a_digest_archive_file_and_delete_created_files() {
         let tmp_dir = TempDir::create("digest", current_function!());
         let digests_dir = tmp_dir.join("digest");
         let digests_archive_dir = tmp_dir.join("archive");
-        let mut immutable_file_digest_mapper = MockImmutableFileDigestMapper::new();
-        immutable_file_digest_mapper
-            .expect_get_immutable_file_digest_map()
-            .returning(|| Ok(BTreeMap::new()));
-
-        let mut digest_file_uploader = MockDigestFileUploader::new();
+        let uploader_path = tmp_dir.join("uploaded_digests");
 
         let compression_algorithm = CompressionAlgorithm::Gzip;
-
         let beacon = CardanoDbBeacon::new(3, 456);
         let network = CardanoNetwork::DevNet(24);
-        let digest_file_name =
-            DigestArtifactBuilder::get_digests_file_name(&network, &beacon, "json");
-        let archive_path = DigestArtifactBuilder::get_digests_file_path(
-            &digests_archive_dir,
-            &network,
-            &beacon,
-            &compression_algorithm.tar_file_extension(),
-        );
-
-        digest_file_uploader
-            .expect_upload()
-            .with(eq(archive_path.clone()), eq(Some(compression_algorithm)))
-            .times(1)
-            .return_once(move |_, _| {
-                assert!(
-                    archive_path.exists(),
-                    "Path to upload should exist: {}",
-                    archive_path.display()
-                );
-
-                let unpack_dir = tmp_dir.join("unpack");
-                unpack_archive(&archive_path, &unpack_dir);
-
-                let unpack_digest_file = unpack_dir.join(digest_file_name);
-                assert!(unpack_digest_file.is_file());
-
-                Ok(DigestLocation::CloudStorage {
-                    uri: "an_uri".to_string(),
-                    compression_algorithm: None,
-                })
-            });
 
         let mut snapshotter = CompressedArchiveSnapshotter::new(
             digests_dir.clone(),
-            digests_archive_dir,
+            digests_archive_dir.clone(),
             SnapshotterCompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         )
@@ -655,39 +654,59 @@ mod tests {
 
         let builder = DigestArtifactBuilder::new(
             SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
-            vec![Arc::new(digest_file_uploader)],
+            vec![Arc::new(build_local_uploader(&uploader_path))],
             DigestSnapshotter {
                 snapshotter: Arc::new(snapshotter),
-                compression_algorithm: CompressionAlgorithm::Gzip,
+                compression_algorithm,
             },
             network,
             digests_dir.clone(),
-            Arc::new(immutable_file_digest_mapper),
+            Arc::new(build_dummy_immutable_file_digest_mapper()),
             TestLogger::stdout(),
         )
         .unwrap();
 
         let _locations = builder.upload(&beacon).await.unwrap();
 
-        let remaining_files: Vec<_> = std::fs::read_dir(&digests_dir)
-            .unwrap()
-            .map(|res| res.unwrap().path())
-            .collect();
-        assert!(
-            remaining_files.is_empty(),
-            "There should be no remaining files, but found: {:?}",
-            remaining_files
-        );
-    }
+        // Check uploader archive contains digests.json
+        {
+            let digest_archive_path =
+                uploader_path.join(DigestArtifactBuilder::get_digests_file_name(
+                    &network,
+                    &beacon,
+                    &compression_algorithm.tar_file_extension(),
+                ));
+            assert!(
+                digest_archive_path.exists(),
+                "Archive should have been uploaded to {}",
+                digest_archive_path.display()
+            );
 
-    fn unpack_archive(archive_path: &Path, unpack_dir: &Path) {
-        let mut archive = {
-            let file_tar_gz = File::open(archive_path).unwrap();
-            let file_tar_gz_decoder = GzDecoder::new(file_tar_gz);
-            Archive::new(file_tar_gz_decoder)
-        };
+            let unpack_dir = tmp_dir.join("unpack");
+            unpack_archive(&digest_archive_path, &unpack_dir).unwrap();
 
-        archive.unpack(unpack_dir).unwrap();
+            let digest_file_path = unpack_dir.join(DigestArtifactBuilder::get_digests_file_name(
+                &network, &beacon, "json",
+            ));
+            assert!(digest_file_path.is_file());
+        }
+
+        // Check that all files have been deleted
+        {
+            let remaining_files = path_content(&digests_dir);
+            assert!(
+                remaining_files.is_empty(),
+                "There should be no remaining files in digests folder, but found: {:?}",
+                remaining_files
+            );
+
+            let remaining_files = path_content(&digests_archive_dir);
+            assert!(
+                remaining_files.is_empty(),
+                "There should be no remaining files in archive folder, but found: {:?}",
+                remaining_files
+            );
+        }
     }
 
     #[tokio::test]
