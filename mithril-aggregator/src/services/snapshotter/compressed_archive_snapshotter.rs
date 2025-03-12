@@ -9,9 +9,9 @@ use std::sync::Arc;
 
 use crate::dependency_injection::DependenciesBuilderError;
 use crate::tools::file_archiver::appender::{AppenderDirAll, AppenderEntries, TarAppender};
-use crate::tools::file_archiver::{ArchiveParameters, FileArchiver};
+use crate::tools::file_archiver::{ArchiveParameters, FileArchive, FileArchiver};
 
-use super::{OngoingSnapshot, Snapshotter};
+use super::Snapshotter;
 
 /// Compressed Archive Snapshotter create a compressed file.
 pub struct CompressedArchiveSnapshotter {
@@ -30,7 +30,7 @@ pub struct CompressedArchiveSnapshotter {
 }
 
 impl Snapshotter for CompressedArchiveSnapshotter {
-    fn snapshot_all(&self, archive_name_without_extension: &str) -> StdResult<OngoingSnapshot> {
+    fn snapshot_all(&self, archive_name_without_extension: &str) -> StdResult<FileArchive> {
         let appender = AppenderDirAll::new(self.db_directory.clone());
 
         self.snapshot(archive_name_without_extension, appender)
@@ -40,7 +40,7 @@ impl Snapshotter for CompressedArchiveSnapshotter {
         &self,
         archive_name_without_extension: &str,
         entries: Vec<PathBuf>,
-    ) -> StdResult<OngoingSnapshot> {
+    ) -> StdResult<FileArchive> {
         if entries.is_empty() {
             return Err(anyhow!("Can not create snapshot with empty entries"));
         }
@@ -91,20 +91,15 @@ impl CompressedArchiveSnapshotter {
         &self,
         name_without_extension: &str,
         appender: T,
-    ) -> StdResult<OngoingSnapshot> {
-        self.file_archiver
-            .archive(
-                ArchiveParameters {
-                    archive_name_without_extension: name_without_extension.to_string(),
-                    target_directory: self.ongoing_snapshot_directory.clone(),
-                    compression_algorithm: self.compression_algorithm,
-                },
-                appender,
-            )
-            .map(|f| OngoingSnapshot {
-                filepath: f.get_file_path().to_path_buf(),
-                filesize: f.get_file_size(),
-            })
+    ) -> StdResult<FileArchive> {
+        self.file_archiver.archive(
+            ArchiveParameters {
+                archive_name_without_extension: name_without_extension.to_string(),
+                target_directory: self.ongoing_snapshot_directory.clone(),
+                compression_algorithm: self.compression_algorithm,
+            },
+            appender,
+        )
     }
 }
 

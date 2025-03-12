@@ -17,7 +17,8 @@ use mithril_common::{
 use crate::{
     artifact_builder::utils::compute_size,
     file_uploaders::{GcpUploader, LocalUploader},
-    services::{OngoingSnapshot, Snapshotter},
+    services::Snapshotter,
+    tools::file_archiver::FileArchive,
     DumbUploader, FileUploader,
 };
 
@@ -144,7 +145,7 @@ impl AncillaryArtifactBuilder {
     }
 
     /// Creates an archive for the Cardano database ancillary files for the given immutable file number.
-    fn create_ancillary_archive(&self, beacon: &CardanoDbBeacon) -> StdResult<OngoingSnapshot> {
+    fn create_ancillary_archive(&self, beacon: &CardanoDbBeacon) -> StdResult<FileArchive> {
         debug!(
             self.logger,
             "Creating ancillary archive for immutable file number: {}",
