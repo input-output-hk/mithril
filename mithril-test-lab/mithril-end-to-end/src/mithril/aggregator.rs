@@ -10,8 +10,10 @@ use slog_scope::info;
 use std::cmp;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::process::Child;
+use tokio::sync::RwLock;
 
 #[derive(Debug)]
 pub struct AggregatorConfig<'a> {
@@ -37,8 +39,8 @@ pub struct AggregatorConfig<'a> {
 pub struct Aggregator {
     server_port: u64,
     db_directory: PathBuf,
-    command: MithrilCommand,
-    process: Option<Child>,
+    command: Arc<RwLock<MithrilCommand>>,
+    process: RwLock<Option<Child>>,
 }
 
 impl Aggregator {
@@ -135,8 +137,8 @@ impl Aggregator {
         Ok(Self {
             server_port: aggregator_config.server_port,
             db_directory: aggregator_config.pool_node.db_path.clone(),
-            command,
-            process: None,
+            command: Arc::new(RwLock::new(command)),
+            process: RwLock::new(None),
         })
     }
 
@@ -145,7 +147,7 @@ impl Aggregator {
             server_port: other.server_port,
             db_directory: other.db_directory.clone(),
             command: other.command.clone(),
-            process: None,
+            process: RwLock::new(None),
         }
     }
 
@@ -157,14 +159,16 @@ impl Aggregator {
         &self.db_directory
     }
 
-    pub fn serve(&mut self) -> StdResult<()> {
-        self.process = Some(self.command.start(&["serve".to_string()])?);
+    pub async fn serve(&self) -> StdResult<()> {
+        let mut command = self.command.write().await;
+        let mut process = self.process.write().await;
+        *process = Some(command.start(&["serve".to_string()])?);
         Ok(())
     }
 
-    pub async fn bootstrap_genesis(&mut self) -> StdResult<()> {
+    pub async fn bootstrap_genesis(&self) -> StdResult<()> {
         // Clone the command so we can alter it without affecting the original
-        let mut command = self.command.clone();
+        let mut command = self.command.write().await;
         let process_name = "mithril-aggregator-genesis-bootstrap";
         command.set_log_name(process_name);
 
@@ -177,7 +181,7 @@ impl Aggregator {
         if exit_status.success() {
             Ok(())
         } else {
-            self.command.tail_logs(Some(process_name), 40).await?;
+            command.tail_logs(Some(process_name), 40).await?;
 
             Err(match exit_status.code() {
                 Some(c) => {
@@ -190,20 +194,21 @@ impl Aggregator {
         }
     }
 
-    pub async fn stop(&mut self) -> StdResult<()> {
-        if let Some(process) = self.process.as_mut() {
+    pub async fn stop(&self) -> StdResult<()> {
+        let mut process = self.process.write().await;
+        if let Some(mut process_running) = process.take() {
             info!("Stopping aggregator");
-            process
+            process_running
                 .kill()
                 .await
                 .with_context(|| "Could not kill aggregator")?;
-            self.process = None;
+            *process = None;
         }
         Ok(())
     }
 
     pub async fn era_generate_tx_datum(
-        &mut self,
+        &self,
         target_path: &Path,
         mithril_era: &str,
         next_era_activation_epoch: entities::Epoch,
@@ -234,8 +239,8 @@ impl Aggregator {
             args.push(next_era_epoch.to_string());
         }
 
-        let exit_status = self
-            .command
+        let mut command = self.command.write().await;
+        let exit_status = command
             .start(&args)?
             .wait()
             .await
@@ -257,45 +262,51 @@ impl Aggregator {
         }
     }
 
-    pub fn set_protocol_parameters(&mut self, protocol_parameters: &entities::ProtocolParameters) {
-        self.command.set_env_var(
+    pub async fn set_protocol_parameters(
+        &self,
+        protocol_parameters: &entities::ProtocolParameters,
+    ) {
+        let mut command = self.command.write().await;
+        command.set_env_var(
             "PROTOCOL_PARAMETERS__K",
             &format!("{}", protocol_parameters.k),
         );
-        self.command.set_env_var(
+        command.set_env_var(
             "PROTOCOL_PARAMETERS__M",
             &format!("{}", protocol_parameters.m),
         );
-        self.command.set_env_var(
+        command.set_env_var(
             "PROTOCOL_PARAMETERS__PHI_F",
             &format!("{}", protocol_parameters.phi_f),
         );
     }
 
-    pub fn set_mock_cardano_cli_file_path(
-        &mut self,
+    pub async fn set_mock_cardano_cli_file_path(
+        &self,
         stake_distribution_file: &Path,
         epoch_file_path: &Path,
     ) {
-        self.command.set_env_var(
+        let mut command = self.command.write().await;
+        command.set_env_var(
             "MOCK_STAKE_DISTRIBUTION_FILE",
             stake_distribution_file.to_str().unwrap(),
         );
-        self.command
-            .set_env_var("MOCK_EPOCH_FILE", epoch_file_path.to_str().unwrap());
+        command.set_env_var("MOCK_EPOCH_FILE", epoch_file_path.to_str().unwrap());
     }
 
     /// Change the run interval of the aggregator state machine (default: 400ms)
-    pub fn change_run_interval(&mut self, interval: Duration) {
-        self.command
-            .set_env_var("RUN_INTERVAL", &format!("{}", interval.as_millis()))
+    pub async fn change_run_interval(&self, interval: Duration) {
+        let mut command = self.command.write().await;
+        command.set_env_var("RUN_INTERVAL", &format!("{}", interval.as_millis()))
     }
 
     pub async fn tail_logs(&self, number_of_line: u64) -> StdResult<()> {
-        self.command.tail_logs(None, number_of_line).await
+        let command = self.command.write().await;
+        command.tail_logs(None, number_of_line).await
     }
 
     pub async fn last_error_in_logs(&self, number_of_error: u64) -> StdResult<()> {
-        self.command.last_error_in_logs(None, number_of_error).await
+        let command = self.command.write().await;
+        command.last_error_in_logs(None, number_of_error).await
     }
 }

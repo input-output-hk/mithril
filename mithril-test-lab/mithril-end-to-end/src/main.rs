@@ -340,7 +340,7 @@ impl App {
         .await?;
         *self.devnet.lock().await = Some(devnet.clone());
 
-        let mut infrastructure = MithrilInfrastructure::start(&MithrilInfrastructureConfig {
+        let infrastructure = MithrilInfrastructure::start(&MithrilInfrastructureConfig {
             number_of_aggregators: args.number_of_aggregators,
             number_of_signers: args.number_of_signers,
             server_port,
@@ -363,12 +363,12 @@ impl App {
 
         let runner: StdResult<()> = match run_only_mode {
             true => {
-                let mut run_only = RunOnly::new(&mut infrastructure);
+                let run_only = RunOnly::new(&infrastructure);
                 run_only.start().await
             }
             false => {
-                let mut spec = Spec::new(
-                    &mut infrastructure,
+                let spec = Spec::new(
+                    &infrastructure,
                     args.signed_entity_types,
                     args.mithril_next_era,
                     args.mithril_era_regenesis_on_switch,

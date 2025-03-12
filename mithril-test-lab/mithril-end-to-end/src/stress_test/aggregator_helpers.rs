@@ -43,18 +43,24 @@ pub async fn bootstrap_aggregator(
 
     // Extremely large interval since, for the two following starts, only the http_server part
     // of the aggregator is relevant as we need to send signer registrations.
-    aggregator.change_run_interval(Duration::from_secs(20000));
-    aggregator.set_mock_cardano_cli_file_path(
-        &args.mock_stake_distribution_file_path(),
-        &args.mock_epoch_file_path(),
-    );
-    aggregator.set_protocol_parameters(&signers_fixture.protocol_parameters());
+    aggregator
+        .change_run_interval(Duration::from_secs(20000))
+        .await;
+    aggregator
+        .set_mock_cardano_cli_file_path(
+            &args.mock_stake_distribution_file_path(),
+            &args.mock_epoch_file_path(),
+        )
+        .await;
+    aggregator
+        .set_protocol_parameters(&signers_fixture.protocol_parameters())
+        .await;
 
     info!(
         ">> Starting the aggregator with a large run interval to call the http_server\
     without being bothered by the state machine cycles"
     );
-    aggregator.serve().unwrap();
+    aggregator.serve().await.unwrap();
     wait::for_aggregator_http_server_to_start(&aggregator, Duration::from_secs(10)).await?;
 
     restart_aggregator_and_move_one_epoch_forward(&mut aggregator, current_epoch, args).await?;
@@ -98,7 +104,7 @@ pub async fn bootstrap_aggregator(
 
     {
         info!(">> Compute genesis certificate");
-        let mut genesis_aggregator = Aggregator::copy_configuration(&aggregator);
+        let genesis_aggregator = Aggregator::copy_configuration(&aggregator);
         genesis_aggregator
             .bootstrap_genesis()
             .await
@@ -106,8 +112,8 @@ pub async fn bootstrap_aggregator(
     }
 
     info!(">> Restart aggregator with a normal run interval");
-    aggregator.change_run_interval(Duration::from_secs(3));
-    aggregator.serve().unwrap();
+    aggregator.change_run_interval(Duration::from_secs(3)).await;
+    aggregator.serve().await.unwrap();
 
     wait::for_aggregator_http_server_to_start(&aggregator, Duration::from_secs(10)).await?;
 
@@ -128,7 +134,7 @@ async fn restart_aggregator_and_move_one_epoch_forward(
     fake_chain::set_epoch(&args.mock_epoch_file_path(), *current_epoch);
 
     info!(">> Restarting the aggregator with a large run interval");
-    aggregator.serve().unwrap();
+    aggregator.serve().await.unwrap();
     wait::for_aggregator_http_server_to_start(aggregator, Duration::from_secs(10)).await?;
     wait::for_epoch_settings_at_epoch(aggregator, Duration::from_secs(10), *current_epoch).await?;
 
