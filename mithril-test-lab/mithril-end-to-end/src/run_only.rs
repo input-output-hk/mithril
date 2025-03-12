@@ -3,15 +3,15 @@ use crate::MithrilInfrastructure;
 use mithril_common::StdResult;
 
 pub struct RunOnly<'a> {
-    pub infrastructure: &'a mut MithrilInfrastructure,
+    pub infrastructure: &'a MithrilInfrastructure,
 }
 
 impl<'a> RunOnly<'a> {
-    pub fn new(infrastructure: &'a mut MithrilInfrastructure) -> Self {
+    pub fn new(infrastructure: &'a MithrilInfrastructure) -> Self {
         Self { infrastructure }
     }
 
-    pub async fn start(&mut self) -> StdResult<()> {
+    pub async fn start(&self) -> StdResult<()> {
         let aggregator_endpoint = self.infrastructure.master_aggregator().endpoint();
         assertions::wait_for_enough_immutable(
             self.infrastructure.master_aggregator().db_directory(),
@@ -33,8 +33,7 @@ impl<'a> RunOnly<'a> {
                 .to_string(),
         )
         .await?;
-        assertions::bootstrap_genesis_certificate(self.infrastructure.master_aggregator_mut())
-            .await?;
+        assertions::bootstrap_genesis_certificate(self.infrastructure.master_aggregator()).await?;
         assertions::wait_for_epoch_settings(&aggregator_endpoint).await?;
 
         // Transfer some funds on the devnet to have some Cardano transactions to sign

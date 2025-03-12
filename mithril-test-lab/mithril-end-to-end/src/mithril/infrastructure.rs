@@ -2,10 +2,10 @@ use mithril_common::chain_observer::{ChainObserver, PallasChainObserver};
 use mithril_common::entities::{Epoch, PartyId, ProtocolParameters};
 use mithril_common::{CardanoNetwork, StdResult};
 use slog_scope::info;
-use std::borrow::BorrowMut;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 use crate::{
     assertions, Aggregator, AggregatorConfig, Client, Devnet, PoolNode, RelayAggregator,
@@ -45,7 +45,7 @@ pub struct MithrilInfrastructure {
     relay_passives: Vec<RelayPassive>,
     cardano_chain_observers: Vec<Arc<dyn ChainObserver>>,
     run_only_mode: bool,
-    current_era: String,
+    current_era: RwLock<String>,
     era_reader_adapter: String,
     use_era_specific_work_dir: bool,
 }
@@ -107,14 +107,14 @@ impl MithrilInfrastructure {
             relay_passives,
             cardano_chain_observers,
             run_only_mode: config.run_only_mode,
-            current_era: config.mithril_era.clone(),
+            current_era: RwLock::new(config.mithril_era.clone()),
             era_reader_adapter: config.mithril_era_reader_adapter.clone(),
             use_era_specific_work_dir: config.use_era_specific_work_dir,
         })
     }
 
     async fn register_startup_era(
-        aggregator: &mut Aggregator,
+        aggregator: &Aggregator,
         config: &MithrilInfrastructureConfig,
     ) -> StdResult<()> {
         let era_epoch = Epoch(0);
@@ -131,7 +131,7 @@ impl MithrilInfrastructure {
         Ok(())
     }
 
-    pub async fn register_switch_to_next_era(&mut self, next_era: &str) -> StdResult<()> {
+    pub async fn register_switch_to_next_era(&self, next_era: &str) -> StdResult<()> {
         let next_era_epoch = self
             .master_chain_observer()
             .get_current_epoch()
@@ -141,14 +141,15 @@ impl MithrilInfrastructure {
         if self.era_reader_adapter == "cardano-chain" {
             let devnet = self.devnet.clone();
             assertions::register_era_marker(
-                self.master_aggregator_mut(),
+                self.master_aggregator(),
                 &devnet,
                 next_era,
                 next_era_epoch,
             )
             .await?;
         }
-        self.current_era = next_era.to_owned();
+        let mut current_era = self.current_era.write().await;
+        *current_era = next_era.to_owned();
 
         Ok(())
     }
@@ -174,7 +175,7 @@ impl MithrilInfrastructure {
                 config.store_dir.join(format!("aggregator-slave-{index}"))
             };
 
-            let mut aggregator = Aggregator::new(&AggregatorConfig {
+            let aggregator = Aggregator::new(&AggregatorConfig {
                 index,
                 server_port: config.server_port + index as u64,
                 pool_node,
@@ -193,15 +194,17 @@ impl MithrilInfrastructure {
                 master_aggregator_endpoint: &master_aggregator_endpoint.clone(),
             })?;
 
-            aggregator.set_protocol_parameters(&ProtocolParameters {
-                k: 75,
-                m: 105,
-                phi_f: 0.95,
-            });
+            aggregator
+                .set_protocol_parameters(&ProtocolParameters {
+                    k: 75,
+                    m: 105,
+                    phi_f: 0.95,
+                })
+                .await;
 
-            Self::register_startup_era(&mut aggregator, config).await?;
+            Self::register_startup_era(&aggregator, config).await?;
 
-            aggregator.serve()?;
+            aggregator.serve().await?;
 
             if master_aggregator_endpoint.is_none() {
                 master_aggregator_endpoint = Some(aggregator.endpoint());
@@ -348,10 +351,6 @@ impl MithrilInfrastructure {
         &self.aggregators[0]
     }
 
-    pub fn master_aggregator_mut(&mut self) -> &mut Aggregator {
-        self.aggregators[0].borrow_mut()
-    }
-
     pub fn signers(&self) -> &[Signer] {
         &self.signers
     }
@@ -376,11 +375,12 @@ impl MithrilInfrastructure {
         self.cardano_chain_observers[0].clone()
     }
 
-    pub fn build_client(&self) -> StdResult<Client> {
+    pub async fn build_client(&self) -> StdResult<Client> {
         let work_dir = {
             let mut artifacts_dir = self.artifacts_dir.join("mithril-client");
             if self.use_era_specific_work_dir {
-                artifacts_dir = artifacts_dir.join(format!("era.{}", self.current_era));
+                let current_era = self.current_era.read().await;
+                artifacts_dir = artifacts_dir.join(format!("era.{}", current_era));
             }
             if !artifacts_dir.exists() {
                 fs::create_dir_all(&artifacts_dir)?;

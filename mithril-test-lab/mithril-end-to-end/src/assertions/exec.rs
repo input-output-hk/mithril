@@ -5,7 +5,7 @@ use mithril_common::entities::{Epoch, ProtocolParameters};
 use mithril_common::StdResult;
 use slog_scope::info;
 
-pub async fn bootstrap_genesis_certificate(aggregator: &mut Aggregator) -> StdResult<()> {
+pub async fn bootstrap_genesis_certificate(aggregator: &Aggregator) -> StdResult<()> {
     info!("Bootstrap genesis certificate");
 
     info!("> stopping aggregator");
@@ -13,13 +13,13 @@ pub async fn bootstrap_genesis_certificate(aggregator: &mut Aggregator) -> StdRe
     info!("> bootstrapping genesis using signers registered two epochs ago...");
     aggregator.bootstrap_genesis().await?;
     info!("> done, restarting aggregator");
-    aggregator.serve()?;
+    aggregator.serve().await?;
 
     Ok(())
 }
 
 pub async fn register_era_marker(
-    aggregator: &mut Aggregator,
+    aggregator: &Aggregator,
     devnet: &Devnet,
     mithril_era: &str,
     era_epoch: Epoch,
@@ -56,7 +56,7 @@ pub async fn transfer_funds(devnet: &Devnet) -> StdResult<()> {
     Ok(())
 }
 
-pub async fn update_protocol_parameters(aggregator: &mut Aggregator) -> StdResult<()> {
+pub async fn update_protocol_parameters(aggregator: &Aggregator) -> StdResult<()> {
     info!("Update protocol parameters");
 
     info!("> stopping aggregator");
@@ -70,9 +70,11 @@ pub async fn update_protocol_parameters(aggregator: &mut Aggregator) -> StdResul
         "> updating protocol parameters to {:?}...",
         protocol_parameters_new
     );
-    aggregator.set_protocol_parameters(&protocol_parameters_new);
+    aggregator
+        .set_protocol_parameters(&protocol_parameters_new)
+        .await;
     info!("> done, restarting aggregator");
-    aggregator.serve()?;
+    aggregator.serve().await?;
 
     Ok(())
 }
