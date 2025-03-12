@@ -261,7 +261,7 @@ mod tests {
     async fn test_post_statistics_increments_cardano_db_total_restoration_since_startup_metric() {
         let method = Method::POST.as_str();
         let path = "/statistics/snapshot";
-        let dependency_manager = Arc::new(initialize_dependencies().await);
+        let dependency_manager = Arc::new(initialize_dependencies!().await);
         let initial_counter_value = dependency_manager
             .metrics_service
             .get_cardano_immutable_files_full_total_restoration_since_startup()
@@ -295,7 +295,7 @@ mod tests {
         async fn conform_to_open_api_when_created() {
             let message = CardanoDatabaseImmutableFilesRestoredMessage::dummy();
 
-            let dependency_manager = Arc::new(initialize_dependencies().await);
+            let dependency_manager = Arc::new(initialize_dependencies!().await);
             let response = request()
                 .method(HTTP_METHOD.as_str())
                 .json(&message)
@@ -320,7 +320,7 @@ mod tests {
 
         #[tokio::test]
         async fn increments_metric() {
-            let dependency_manager = Arc::new(initialize_dependencies().await);
+            let dependency_manager = Arc::new(initialize_dependencies!().await);
             let metric_counter = dependency_manager
                 .metrics_service
                 .get_cardano_database_immutable_files_restored_since_startup();
@@ -351,7 +351,7 @@ mod tests {
 
         #[tokio::test]
         async fn conform_to_open_api_when_created() {
-            let dependency_manager = Arc::new(initialize_dependencies().await);
+            let dependency_manager = Arc::new(initialize_dependencies!().await);
             let response = request()
                 .method(HTTP_METHOD.as_str())
                 .json(&Value::Null)
@@ -376,7 +376,7 @@ mod tests {
 
         #[tokio::test]
         async fn increments_metric() {
-            let dependency_manager = Arc::new(initialize_dependencies().await);
+            let dependency_manager = Arc::new(initialize_dependencies!().await);
             let metric_counter = dependency_manager
                 .metrics_service
                 .get_cardano_database_ancillary_files_restored_since_startup();

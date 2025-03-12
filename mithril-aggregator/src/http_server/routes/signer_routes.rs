@@ -302,7 +302,7 @@ mod tests {
         mock_signer_registerer
             .expect_register_signer()
             .return_once(|_, _| Ok(signer_with_stake));
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
         let signer: RegisterSignerMessage = RegisterSignerMessage::dummy();
@@ -336,7 +336,7 @@ mod tests {
     ) {
         let method = Method::POST.as_str();
         let path = "/register-signer";
-        let dependency_manager = Arc::new(initialize_dependencies().await);
+        let dependency_manager = Arc::new(initialize_dependencies!().await);
         let initial_counter_value = dependency_manager
             .metrics_service
             .get_signer_registration_total_received_since_startup()
@@ -371,7 +371,7 @@ mod tests {
                     signer_with_stake,
                 )))
             });
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
         let signer: RegisterSignerMessage = RegisterSignerMessage::dummy();
@@ -410,7 +410,7 @@ mod tests {
                     ProtocolRegistrationError::OpCertInvalid
                 )))
             });
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
         let signer: RegisterSignerMessage = RegisterSignerMessage::dummy();
@@ -449,7 +449,7 @@ mod tests {
                     "an error occurred".to_string(),
                 ))
             });
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
         let signer: RegisterSignerMessage = RegisterSignerMessage::dummy();
@@ -483,7 +483,7 @@ mod tests {
         mock_signer_registerer
             .expect_register_signer()
             .return_once(|_, _| Err(SignerRegistrationError::RegistrationRoundNotYetOpened));
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
         let signer: RegisterSignerMessage = RegisterSignerMessage::dummy();
@@ -521,7 +521,7 @@ mod tests {
             .with(eq(expected_retrieval_epoch))
             .return_once(|_| Ok(Some(fake_data::signers_with_stakes(3))))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.verification_key_store = Arc::new(mock_verification_key_store);
 
         let method = Method::GET.as_str();
@@ -548,7 +548,7 @@ mod tests {
             .expect_get_signers()
             .return_once(|_| Ok(Some(fake_data::signers_with_stakes(3))))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.verification_key_store = Arc::new(mock_verification_key_store);
 
         let base_path = "/signers/registered";
@@ -581,7 +581,7 @@ mod tests {
             .expect_get_signers()
             .return_once(|_| Ok(None))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.verification_key_store = Arc::new(mock_verification_key_store);
 
         let method = Method::GET.as_str();
@@ -613,7 +613,7 @@ mod tests {
         mock_verification_key_store
             .expect_get_signers()
             .return_once(|_| Err(anyhow!("invalid query")));
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.verification_key_store = Arc::new(mock_verification_key_store);
 
         let method = Method::GET.as_str();
@@ -663,7 +663,7 @@ mod tests {
                 ])
             })
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.signer_getter = Arc::new(mock_signer_getter);
 
         let method = Method::GET.as_str();
@@ -696,7 +696,7 @@ mod tests {
             .expect_get_all()
             .return_once(|| Err(anyhow!("an error")))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.signer_getter = Arc::new(mock_signer_getter);
 
         let method = Method::GET.as_str();

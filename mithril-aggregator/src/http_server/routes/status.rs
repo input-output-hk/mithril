@@ -139,7 +139,7 @@ mod tests {
 
     #[tokio::test]
     async fn status_route_ko_500() {
-        let dependency_manager = initialize_dependencies().await;
+        let dependency_manager = initialize_dependencies!().await;
         let method = Method::GET.as_str();
         let path = "/status";
 
@@ -165,7 +165,7 @@ mod tests {
 
     #[tokio::test]
     async fn status_route_ok_200() {
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         let fixture = MithrilFixtureBuilder::default().build();
         let epoch_service = FakeEpochService::from_fixture(Epoch(5), &fixture);
         dependency_manager.epoch_service = Arc::new(RwLock::new(epoch_service));

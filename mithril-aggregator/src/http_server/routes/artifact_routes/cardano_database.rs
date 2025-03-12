@@ -202,7 +202,9 @@ mod tests {
             .expect_get_cardano_database_list_message()
             .return_once(|_| Ok(vec![CardanoDatabaseSnapshotListItemMessage::dummy()]))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+
+        let mut dependency_manager = initialize_dependencies!().await;
+
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
@@ -235,7 +237,7 @@ mod tests {
             .expect_get_cardano_database_list_message()
             .return_once(|_| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
@@ -266,7 +268,7 @@ mod tests {
     ) {
         let method = Method::GET.as_str();
         let path = "/artifact/cardano-database/{hash}";
-        let dependency_manager = Arc::new(initialize_dependencies().await);
+        let dependency_manager = Arc::new(initialize_dependencies!().await);
         let initial_counter_value = dependency_manager
             .metrics_service
             .get_artifact_detail_cardano_database_total_served_since_startup()
@@ -296,7 +298,7 @@ mod tests {
             .expect_get_cardano_database_message()
             .return_once(|_| Ok(Some(CardanoDatabaseSnapshotMessage::dummy())))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
@@ -330,7 +332,7 @@ mod tests {
             .expect_get_cardano_database_message()
             .return_once(|_| Ok(None))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
@@ -363,7 +365,7 @@ mod tests {
             .expect_get_cardano_database_message()
             .return_once(|_| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
@@ -396,7 +398,7 @@ mod tests {
             .expect_get_cardano_database_digest_list_message()
             .return_once(|| Ok(vec![CardanoDatabaseDigestListItemMessage::dummy()]))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
@@ -429,7 +431,7 @@ mod tests {
             .expect_get_cardano_database_digest_list_message()
             .return_once(|| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();

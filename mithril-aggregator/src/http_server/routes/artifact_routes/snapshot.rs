@@ -248,7 +248,7 @@ mod tests {
             .expect_get_snapshot_list_message()
             .return_once(|_| Ok(vec![SnapshotListItemMessage::dummy()]))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
@@ -281,7 +281,7 @@ mod tests {
             .expect_get_snapshot_list_message()
             .return_once(|_| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
@@ -311,7 +311,7 @@ mod tests {
     async fn test_snapshot_digest_increments_artifact_detail_total_served_since_startup_metric() {
         let method = Method::GET.as_str();
         let path = "/artifact/snapshot/{digest}";
-        let dependency_manager = Arc::new(initialize_dependencies().await);
+        let dependency_manager = Arc::new(initialize_dependencies!().await);
         let initial_counter_value = dependency_manager
             .metrics_service
             .get_artifact_detail_cardano_immutable_files_full_total_served_since_startup()
@@ -341,7 +341,7 @@ mod tests {
             .expect_get_snapshot_message()
             .return_once(|_| Ok(Some(SnapshotMessage::dummy())))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
@@ -374,7 +374,7 @@ mod tests {
             .expect_get_snapshot_message()
             .return_once(|_| Ok(None))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
@@ -407,7 +407,7 @@ mod tests {
             .expect_get_snapshot_message()
             .return_once(|_| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
@@ -448,7 +448,7 @@ mod tests {
             .expect_get_signed_snapshot_by_id()
             .return_once(|_| Ok(Some(signed_entity)))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
 
         let method = Method::GET.as_str();
@@ -484,7 +484,7 @@ mod tests {
             .expect_get_signed_snapshot_by_id()
             .return_once(|_| Ok(None))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
 
         let method = Method::GET.as_str();
@@ -517,7 +517,7 @@ mod tests {
             .expect_get_signed_snapshot_by_id()
             .return_once(|_| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
 
         let method = Method::GET.as_str();
