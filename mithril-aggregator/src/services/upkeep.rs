@@ -101,10 +101,7 @@ impl AggregatorUpkeepService {
             info!(db_upkeep_logger, "Cleaning main database");
             SqliteCleaner::new(&main_db_connection)
                 .with_logger(db_upkeep_logger.clone())
-                .with_tasks(&[
-                    SqliteCleaningTask::Vacuum,
-                    SqliteCleaningTask::WalCheckpointTruncate,
-                ])
+                .with_tasks(&[SqliteCleaningTask::WalCheckpointTruncate])
                 .run()?;
 
             info!(db_upkeep_logger, "Cleaning cardano transactions database");
@@ -219,16 +216,16 @@ mod tests {
         let logs = std::fs::read_to_string(&log_path).unwrap();
 
         assert_eq!(
-            logs.matches(SqliteCleaningTask::Vacuum.log_message())
-                .count(),
-            1,
-            "Should have run only once since only the main database has a `Vacuum` cleanup"
-        );
-        assert_eq!(
             logs.matches(SqliteCleaningTask::WalCheckpointTruncate.log_message())
                 .count(),
             3,
             "Should have run three times since the three databases have a `WalCheckpointTruncate` cleanup"
+        );
+        assert_eq!(
+            logs.matches(SqliteCleaningTask::Vacuum.log_message())
+                .count(),
+            0,
+            "Upkeep operation should not include Vacuum tasks"
         );
     }
 
@@ -257,11 +254,6 @@ mod tests {
 
         let logs = std::fs::read_to_string(&log_path).unwrap();
 
-        assert_eq!(
-            logs.matches(SqliteCleaningTask::Vacuum.log_message())
-                .count(),
-            0,
-        );
         assert_eq!(
             logs.matches(SqliteCleaningTask::WalCheckpointTruncate.log_message())
                 .count(),
