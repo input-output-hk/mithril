@@ -26,12 +26,16 @@ impl DatabaseCommand {
 pub enum DatabaseSubCommand {
     /// Migrate databases located in the given stores directory
     Migrate(MigrateCommand),
+
+    /// Vacuum the aggregator main database
+    Vacuum(VacuumCommand),
 }
 
 impl DatabaseSubCommand {
     pub async fn execute(&self, root_logger: Logger) -> StdResult<()> {
         match self {
             Self::Migrate(cmd) => cmd.execute(root_logger).await,
+            Self::Vacuum(cmd) => cmd.execute(root_logger).await,
         }
     }
 }
@@ -75,6 +79,41 @@ impl MigrateCommand {
             .with_context(|| {
                 "Dependencies Builder can not get cardano transaction pool sqlite connection"
             })?;
+
+        Ok(())
+    }
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct VacuumCommand {
+    /// Store directory
+    #[clap(long, env = "STORE_DIRECTORY")]
+    store_directory: PathBuf,
+}
+
+impl VacuumCommand {
+    pub async fn execute(&self, root_logger: Logger) -> StdResult<()> {
+        let config = Configuration {
+            environment: ExecutionEnvironment::Production,
+            data_stores_directory: self.store_directory.clone(),
+            // Temporary solution to avoid the need to provide a full configuration
+            ..Configuration::new_sample()
+        };
+        debug!(root_logger, "DATABASE VACUUM command"; "config" => format!("{config:?}"));
+        println!(
+            "Vacuuming database from store directory: {}",
+            self.store_directory.to_string_lossy()
+        );
+        let mut dependencies_builder =
+            DependenciesBuilder::new(root_logger.clone(), config.clone());
+
+        dependencies_builder
+            .get_upkeep_service()
+            .await
+            .with_context(|| "Dependencies Builder can not get upkeep service")?
+            .vacuum()
+            .await
+            .with_context(|| "Upkeep service can not vacuum")?;
 
         Ok(())
     }
