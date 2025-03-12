@@ -654,6 +654,20 @@ pub struct TelescopeProof<D: Clone + Digest + FixedOutput> {
 }
 
 
+/// STM-Telescope proof.
+pub struct AlbaProof<D: Clone + Digest + FixedOutput> {
+    /// StmSignatures of alba proof
+    pub signer_index_sigreg_map: IndexStmSigRegMap,
+    /// The list of unique merkle tree nodes that covers path for all signatures.
+    pub batch_proof: BatchPath<D>,
+    /// Numbers of retries done to find the proof
+    pub retry_counter: u64,
+    /// Index of the searched subtree to find the proof
+    pub search_counter: u64,
+    /// Sequence of elements from prover's set
+    pub index_sequence: Vec<(Index, Index)>,
+}
+
 /// `StmClerk` can verify and aggregate `StmSig`s and verify `StmMultiSig`s.
 /// Clerks can only be generated with the registration closed.
 /// This avoids that a Merkle Tree is computed before all parties have registered.
@@ -734,7 +748,7 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
         sigs: &[StmSig],
         telescope: &Telescope,
         msg: &[u8],
-    ) -> TelescopeProof<D> {
+    ) -> AlbaProof<D> {
         // Collect signatures and their reg party
         let sig_reg_list = sigs
             .iter()
@@ -754,7 +768,7 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
             &msgp,
             &sig_reg_list,
         )
-        .unwrap();
+            .unwrap();
 
         let mut signer_index_sigreg_map: IndexStmSigRegMap = IndexStmSigRegMap::new();
         let mut hash_lottery_index_map: BTreeMap<ElementData, Index> = BTreeMap::new();
@@ -798,7 +812,7 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
 
         let batch_proof = self.closed_reg.merkle_tree.get_batched_path(mt_index_list);
 
-        TelescopeProof {
+        AlbaProof {
             signer_index_sigreg_map,
             batch_proof,
             retry_counter: proof.retry_counter,
@@ -1188,7 +1202,7 @@ impl CoreVerifier {
     }
 }
 
-impl<D: Clone + Digest + FixedOutput + Send + Sync> TelescopeProof<D> {
+impl<D: Clone + Digest + FixedOutput + Send + Sync> AlbaProof<D> {
     /// Verify telescope-stm
     pub fn verify(
         &self,
