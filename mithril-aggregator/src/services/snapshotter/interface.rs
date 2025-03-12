@@ -1,5 +1,5 @@
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use thiserror::Error;
 
 use mithril_common::StdResult;
@@ -10,10 +10,14 @@ use crate::ZstandardCompressionParameters;
 /// Define the ability to create snapshots.
 pub trait Snapshotter: Sync + Send {
     /// Create a new snapshot with the given filepath.
-    fn snapshot_all(&self, filepath: &Path) -> StdResult<OngoingSnapshot>;
+    fn snapshot_all(&self, archive_name_without_extension: &str) -> StdResult<OngoingSnapshot>;
 
     /// Create a new snapshot with the given filepath from a subset of directories and files.
-    fn snapshot_subset(&self, filepath: &Path, files: Vec<PathBuf>) -> StdResult<OngoingSnapshot>;
+    fn snapshot_subset(
+        &self,
+        archive_name_without_extension: &str,
+        files: Vec<PathBuf>,
+    ) -> StdResult<OngoingSnapshot>;
 }
 
 /// Snapshotter error type.

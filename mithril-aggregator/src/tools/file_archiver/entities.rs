@@ -1,19 +1,27 @@
 use std::path::{Path, PathBuf};
 
-use crate::ZstandardCompressionParameters;
+use mithril_common::entities::CompressionAlgorithm;
 
-/// Compression algorithm and parameters of the [crate::services::CompressedArchiveSnapshotter].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FileArchiverCompressionAlgorithm {
-    /// Gzip compression format
-    Gzip,
-    /// Zstandard compression format
-    Zstandard(ZstandardCompressionParameters),
+/// Parameters for creating an archive.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArchiveParameters {
+    pub archive_name_without_extension: String,
+    pub target_directory: PathBuf,
+    pub compression_algorithm: CompressionAlgorithm,
 }
 
-impl From<ZstandardCompressionParameters> for FileArchiverCompressionAlgorithm {
-    fn from(params: ZstandardCompressionParameters) -> Self {
-        Self::Zstandard(params)
+impl ArchiveParameters {
+    pub(super) fn target_path(&self) -> PathBuf {
+        self.target_directory.join(format!(
+            "{}.{}",
+            self.archive_name_without_extension,
+            self.compression_algorithm.tar_file_extension()
+        ))
+    }
+
+    pub(super) fn temporary_archive_path(&self) -> PathBuf {
+        self.target_directory
+            .join(format!("{}.tar.tmp", self.archive_name_without_extension))
     }
 }
 
@@ -22,6 +30,7 @@ impl From<ZstandardCompressionParameters> for FileArchiverCompressionAlgorithm {
 pub struct FileArchive {
     pub(super) filepath: PathBuf,
     pub(super) filesize: u64,
+    pub(super) compression_algorithm: CompressionAlgorithm,
 }
 
 impl FileArchive {
@@ -33,5 +42,43 @@ impl FileArchive {
     /// Get the size of the archive.
     pub fn get_file_size(&self) -> u64 {
         self.filesize
+    }
+
+    /// Get the compression algorithm used to create the archive.
+    pub fn get_compression_algorithm(&self) -> CompressionAlgorithm {
+        self.compression_algorithm
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn getting_archive_parameters_target_path_should_not_override_trailing_dot_text() {
+        let archive_parameters = ArchiveParameters {
+            archive_name_without_extension: "archive.test_xxx".to_owned(),
+            target_directory: PathBuf::from("/tmp"),
+            compression_algorithm: CompressionAlgorithm::Gzip,
+        };
+
+        assert_eq!(
+            PathBuf::from("/tmp/archive.test_xxx.tar.gz"),
+            archive_parameters.target_path()
+        );
+    }
+
+    #[test]
+    fn getting_archive_parameters_temporary_archive_path_should_not_override_trailing_dot_text() {
+        let archive_parameters = ArchiveParameters {
+            archive_name_without_extension: "archive.test_xxx".to_owned(),
+            target_directory: PathBuf::from("/tmp"),
+            compression_algorithm: CompressionAlgorithm::Gzip,
+        };
+
+        assert_eq!(
+            PathBuf::from("/tmp/archive.test_xxx.tar.tmp"),
+            archive_parameters.temporary_archive_path()
+        );
     }
 }

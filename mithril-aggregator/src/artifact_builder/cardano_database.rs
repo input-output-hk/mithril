@@ -146,17 +146,17 @@ mod tests {
     };
     use mockall::{predicate, Predicate};
 
+    use super::*;
+    use crate::tools::file_archiver::FileArchiver;
     use crate::{
         artifact_builder::{
             DigestSnapshotter, MockAncillaryFileUploader, MockImmutableFilesUploader,
         },
         immutable_file_digest_mapper::MockImmutableFileDigestMapper,
-        services::{DumbSnapshotter, FakeSnapshotter},
+        services::FakeSnapshotter,
         test_tools::TestLogger,
         tools::url_sanitizer::SanitizedUrlWithTrailingSlash,
     };
-
-    use super::*;
 
     fn get_test_directory(dir_name: &str) -> PathBuf {
         TempDir::create("cardano_database", dir_name)
@@ -273,7 +273,10 @@ mod tests {
                 SanitizedUrlWithTrailingSlash::parse("http://aggregator_uri").unwrap(),
                 vec![],
                 DigestSnapshotter {
-                    snapshotter: Arc::new(DumbSnapshotter::new()),
+                    file_archiver: Arc::new(FileArchiver::new_for_test(
+                        test_dir.join("verification"),
+                    )),
+                    target_location: test_dir.clone(),
                     compression_algorithm: CompressionAlgorithm::Gzip,
                 },
                 network,

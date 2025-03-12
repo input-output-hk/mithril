@@ -1,14 +1,17 @@
 use anyhow::{anyhow, Context};
+use mithril_common::entities::CompressionAlgorithm;
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 use slog::Logger;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+use std::sync::Arc;
 
-use super::{OngoingSnapshot, Snapshotter};
 use crate::dependency_injection::DependenciesBuilderError;
 use crate::tools::file_archiver::appender::{AppenderDirAll, AppenderEntries, TarAppender};
-use crate::tools::file_archiver::{FileArchiver, FileArchiverCompressionAlgorithm};
+use crate::tools::file_archiver::{ArchiveParameters, FileArchiver};
+
+use super::{OngoingSnapshot, Snapshotter};
 
 /// Compressed Archive Snapshotter create a compressed file.
 pub struct CompressedArchiveSnapshotter {
@@ -18,21 +21,24 @@ pub struct CompressedArchiveSnapshotter {
     /// Directory to store ongoing snapshot
     ongoing_snapshot_directory: PathBuf,
 
-    file_archiver: FileArchiver,
+    /// Compression algorithm to use
+    compression_algorithm: CompressionAlgorithm,
+
+    file_archiver: Arc<FileArchiver>,
 
     logger: Logger,
 }
 
 impl Snapshotter for CompressedArchiveSnapshotter {
-    fn snapshot_all(&self, filepath: &Path) -> StdResult<OngoingSnapshot> {
+    fn snapshot_all(&self, archive_name_without_extension: &str) -> StdResult<OngoingSnapshot> {
         let appender = AppenderDirAll::new(self.db_directory.clone());
 
-        self.snapshot(filepath, appender)
+        self.snapshot(archive_name_without_extension, appender)
     }
 
     fn snapshot_subset(
         &self,
-        filepath: &Path,
+        archive_name_without_extension: &str,
         entries: Vec<PathBuf>,
     ) -> StdResult<OngoingSnapshot> {
         if entries.is_empty() {
@@ -40,7 +46,7 @@ impl Snapshotter for CompressedArchiveSnapshotter {
         }
 
         let appender = AppenderEntries::new(entries, self.db_directory.clone())?;
-        self.snapshot(filepath, appender)
+        self.snapshot(archive_name_without_extension, appender)
     }
 }
 
@@ -49,7 +55,8 @@ impl CompressedArchiveSnapshotter {
     pub fn new(
         db_directory: PathBuf,
         ongoing_snapshot_directory: PathBuf,
-        compression_algorithm: FileArchiverCompressionAlgorithm,
+        compression_algorithm: CompressionAlgorithm,
+        file_archiver: Arc<FileArchiver>,
         logger: Logger,
     ) -> StdResult<CompressedArchiveSnapshotter> {
         if ongoing_snapshot_directory.exists() {
@@ -70,27 +77,30 @@ impl CompressedArchiveSnapshotter {
                 error: Some(e.into()),
             }
         })?;
-        let file_archiver =
-            FileArchiver::new(compression_algorithm, std::env::temp_dir(), logger.clone());
 
         Ok(Self {
             db_directory,
             ongoing_snapshot_directory,
+            compression_algorithm,
             file_archiver,
             logger: logger.new_with_component_name::<Self>(),
         })
     }
 
-    #[cfg(test)]
-    /// Allow to use a custom temporary directory to avoid conflicts during the snapshot verification.
-    pub fn set_sub_temp_dir<T: Into<String>>(&mut self, sub_dir: T) {
-        self.file_archiver.set_verification_temp_dir(sub_dir);
-    }
-
-    fn snapshot<T: TarAppender>(&self, filepath: &Path, appender: T) -> StdResult<OngoingSnapshot> {
-        let archive_path = self.ongoing_snapshot_directory.join(filepath);
+    fn snapshot<T: TarAppender>(
+        &self,
+        name_without_extension: &str,
+        appender: T,
+    ) -> StdResult<OngoingSnapshot> {
         self.file_archiver
-            .archive(&archive_path, appender)
+            .archive(
+                ArchiveParameters {
+                    archive_name_without_extension: name_without_extension.to_string(),
+                    target_directory: self.ongoing_snapshot_directory.clone(),
+                    compression_algorithm: self.compression_algorithm,
+                },
+                appender,
+            )
             .map(|f| OngoingSnapshot {
                 filepath: f.get_file_path().to_path_buf(),
                 filesize: f.get_file_size(),
@@ -113,20 +123,19 @@ mod tests {
     #[test]
     fn should_create_directory_if_does_not_exist() {
         let test_dir = get_test_directory("should_create_directory_if_does_not_exist");
-        let pending_snapshot_directory = test_dir.join("pending_snapshot");
+        let ongoing_snapshot_directory = test_dir.join("pending_snapshot");
         let db_directory = test_dir.join("whatever");
 
-        Arc::new(
-            CompressedArchiveSnapshotter::new(
-                db_directory,
-                pending_snapshot_directory.clone(),
-                FileArchiverCompressionAlgorithm::Gzip,
-                TestLogger::stdout(),
-            )
-            .unwrap(),
-        );
+        CompressedArchiveSnapshotter::new(
+            db_directory,
+            ongoing_snapshot_directory.clone(),
+            CompressionAlgorithm::Gzip,
+            Arc::new(FileArchiver::new_for_test(test_dir.join("verification"))),
+            TestLogger::stdout(),
+        )
+        .unwrap();
 
-        assert!(pending_snapshot_directory.is_dir());
+        assert!(ongoing_snapshot_directory.is_dir());
     }
 
     #[test]
@@ -140,15 +149,14 @@ mod tests {
 
         File::create(pending_snapshot_directory.join("whatever.txt")).unwrap();
 
-        Arc::new(
-            CompressedArchiveSnapshotter::new(
-                db_directory,
-                pending_snapshot_directory.clone(),
-                FileArchiverCompressionAlgorithm::Gzip,
-                TestLogger::stdout(),
-            )
-            .unwrap(),
-        );
+        CompressedArchiveSnapshotter::new(
+            db_directory,
+            pending_snapshot_directory.clone(),
+            CompressionAlgorithm::Gzip,
+            Arc::new(FileArchiver::new_for_test(test_dir.join("verification"))),
+            TestLogger::stdout(),
+        )
+        .unwrap();
 
         assert_eq!(0, fs::read_dir(pending_snapshot_directory).unwrap().count());
     }
@@ -162,18 +170,15 @@ mod tests {
 
         create_file(&db_directory, "file_to_archive.txt");
 
-        let snapshotter = Arc::new(
-            CompressedArchiveSnapshotter::new(
-                db_directory,
-                pending_snapshot_directory.clone(),
-                FileArchiverCompressionAlgorithm::Gzip,
-                TestLogger::stdout(),
-            )
-            .unwrap(),
-        );
-        let snapshot = snapshotter
-            .snapshot_all(Path::new("whatever.tar.gz"))
-            .unwrap();
+        let snapshotter = CompressedArchiveSnapshotter::new(
+            db_directory,
+            pending_snapshot_directory.clone(),
+            CompressionAlgorithm::Gzip,
+            Arc::new(FileArchiver::new_for_test(test_dir.join("verification"))),
+            TestLogger::stdout(),
+        )
+        .unwrap();
+        let snapshot = snapshotter.snapshot_all("whatever").unwrap();
 
         assert_eq!(
             pending_snapshot_directory,
@@ -189,21 +194,20 @@ mod tests {
         let pending_snapshot_directory = test_dir.join("pending_snapshot");
         let db_directory = test_dir.join("db");
 
-        let snapshotter = Arc::new(
-            CompressedArchiveSnapshotter::new(
-                db_directory,
-                pending_snapshot_directory.clone(),
-                FileArchiverCompressionAlgorithm::Gzip,
-                TestLogger::stdout(),
-            )
-            .unwrap(),
-        );
+        let snapshotter = CompressedArchiveSnapshotter::new(
+            db_directory,
+            pending_snapshot_directory.clone(),
+            CompressionAlgorithm::Gzip,
+            Arc::new(FileArchiver::new_for_test(test_dir.join("verification"))),
+            TestLogger::stdout(),
+        )
+        .unwrap();
 
         // this file should not be deleted by the archive creation
         File::create(pending_snapshot_directory.join("other-process.file")).unwrap();
 
         let _ = snapshotter
-            .snapshot_all(Path::new("whatever.tar.gz"))
+            .snapshot_all("whatever")
             .expect_err("Snapshotter::snapshot should fail if the db is empty.");
         let remaining_files: Vec<String> = fs::read_dir(&pending_snapshot_directory)
             .unwrap()
@@ -214,22 +218,21 @@ mod tests {
     }
 
     #[test]
-    fn should_not_delete_an_alreay_existing_archive_with_same_name_if_snapshotting_fail() {
+    fn should_not_delete_an_already_existing_archive_with_same_name_if_snapshotting_fail() {
         let test_dir = get_test_directory(
-            "should_not_delete_an_alreay_existing_archive_with_same_name_if_snapshotting_fail",
+            "should_not_delete_an_already_existing_archive_with_same_name_if_snapshotting_fail",
         );
         let pending_snapshot_directory = test_dir.join("pending_snapshot");
         let db_directory = test_dir.join("db");
 
-        let snapshotter = Arc::new(
-            CompressedArchiveSnapshotter::new(
-                db_directory,
-                pending_snapshot_directory.clone(),
-                FileArchiverCompressionAlgorithm::Gzip,
-                TestLogger::stdout(),
-            )
-            .unwrap(),
-        );
+        let snapshotter = CompressedArchiveSnapshotter::new(
+            db_directory,
+            pending_snapshot_directory.clone(),
+            CompressionAlgorithm::Gzip,
+            Arc::new(FileArchiver::new_for_test(test_dir.join("verification"))),
+            TestLogger::stdout(),
+        )
+        .unwrap();
 
         // this file should not be deleted by the archive creation
         create_file(&pending_snapshot_directory, "other-process.file");
@@ -238,7 +241,7 @@ mod tests {
         create_file(&pending_snapshot_directory, "whatever.tar.tmp");
 
         let _ = snapshotter
-            .snapshot_all(Path::new("whatever.tar.gz"))
+            .snapshot_all("whatever")
             .expect_err("Snapshotter::snapshot should fail if the db is empty.");
         let remaining_files: Vec<String> = fs::read_dir(&pending_snapshot_directory)
             .unwrap()
@@ -265,21 +268,18 @@ mod tests {
         let snapshotter = CompressedArchiveSnapshotter::new(
             source.clone(),
             destination,
-            FileArchiverCompressionAlgorithm::Gzip,
+            CompressionAlgorithm::Gzip,
+            Arc::new(FileArchiver::new_for_test(test_dir.join("verification"))),
             TestLogger::stdout(),
         )
         .unwrap();
 
-        let first_snapshot = snapshotter
-            .snapshot_all(Path::new(&random_archive_name()))
-            .unwrap();
+        let first_snapshot = snapshotter.snapshot_all("whatever").unwrap();
         let first_snapshot_size = first_snapshot.get_file_size();
 
         create_file(&source, "another_file_to_archive.txt");
 
-        let second_snapshot = snapshotter
-            .snapshot_all(Path::new(&random_archive_name()))
-            .unwrap();
+        let second_snapshot = snapshotter.snapshot_all("whatever").unwrap();
         let second_snapshot_size = second_snapshot.get_file_size();
 
         assert_ne!(first_snapshot_size, second_snapshot_size);

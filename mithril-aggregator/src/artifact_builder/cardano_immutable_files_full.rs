@@ -3,7 +3,6 @@ use async_trait::async_trait;
 use mithril_common::entities::FileUri;
 use semver::Version;
 use slog::{debug, warn, Logger};
-use std::path::Path;
 use std::sync::Arc;
 use thiserror::Error;
 
@@ -69,17 +68,13 @@ impl CardanoImmutableFilesFullArtifactBuilder {
 
         let snapshotter = self.snapshotter.clone();
         let snapshot_name = format!(
-            "{}-e{}-i{}.{}.{}",
-            self.cardano_network,
-            *beacon.epoch,
-            beacon.immutable_file_number,
-            snapshot_digest,
-            self.compression_algorithm.tar_file_extension()
+            "{}-e{}-i{}.{}",
+            self.cardano_network, *beacon.epoch, beacon.immutable_file_number, snapshot_digest,
         );
         // spawn a separate thread to prevent blocking
         let ongoing_snapshot =
             tokio::task::spawn_blocking(move || -> StdResult<OngoingSnapshot> {
-                snapshotter.snapshot_all(Path::new(&snapshot_name))
+                snapshotter.snapshot_all(&snapshot_name)
             })
             .await??;
 
@@ -196,7 +191,7 @@ mod tests {
             .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
             .unwrap();
 
-        let dumb_snapshotter = Arc::new(DumbSnapshotter::new());
+        let dumb_snapshotter = Arc::new(DumbSnapshotter::default());
         let dumb_snapshot_uploader = Arc::new(DumbUploader::default());
 
         let cardano_immutable_files_full_artifact_builder =
@@ -244,7 +239,7 @@ mod tests {
             CardanoImmutableFilesFullArtifactBuilder::new(
                 fake_data::network(),
                 &Version::parse("1.0.0").unwrap(),
-                Arc::new(DumbSnapshotter::new()),
+                Arc::new(DumbSnapshotter::default()),
                 Arc::new(DumbUploader::default()),
                 CompressionAlgorithm::default(),
                 TestLogger::stdout(),
@@ -271,7 +266,7 @@ mod tests {
             CardanoImmutableFilesFullArtifactBuilder::new(
                 network,
                 &Version::parse("1.0.0").unwrap(),
-                Arc::new(DumbSnapshotter::new()),
+                Arc::new(DumbSnapshotter::default()),
                 Arc::new(DumbUploader::default()),
                 CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
@@ -300,7 +295,7 @@ mod tests {
                 CardanoImmutableFilesFullArtifactBuilder::new(
                     fake_data::network(),
                     &Version::parse("1.0.0").unwrap(),
-                    Arc::new(DumbSnapshotter::new()),
+                    Arc::new(DumbSnapshotter::new(algorithm)),
                     Arc::new(DumbUploader::default()),
                     algorithm,
                     TestLogger::stdout(),
@@ -343,7 +338,7 @@ mod tests {
             CardanoImmutableFilesFullArtifactBuilder::new(
                 fake_data::network(),
                 &Version::parse("1.0.0").unwrap(),
-                Arc::new(DumbSnapshotter::new()),
+                Arc::new(DumbSnapshotter::default()),
                 Arc::new(snapshot_uploader),
                 CompressionAlgorithm::default(),
                 TestLogger::stdout(),

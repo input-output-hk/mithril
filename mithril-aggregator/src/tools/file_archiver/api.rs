@@ -10,15 +10,18 @@ use std::{
 use tar::{Archive, Entry, EntryType};
 use zstd::{Decoder, Encoder};
 
+use mithril_common::entities::CompressionAlgorithm;
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
+use crate::ZstandardCompressionParameters;
+
 use super::appender::TarAppender;
-use super::{FileArchive, FileArchiverCompressionAlgorithm};
+use super::{ArchiveParameters, FileArchive};
 
 /// Tool to archive files and directories.
 pub struct FileArchiver {
-    compression_algorithm: FileArchiverCompressionAlgorithm,
+    zstandard_compression_parameter: ZstandardCompressionParameters,
     // Temporary directory to  the unpacked archive for verification
     verification_temp_dir: PathBuf,
     logger: Logger,
@@ -27,35 +30,45 @@ pub struct FileArchiver {
 impl FileArchiver {
     /// Constructs a new `FileArchiver`.
     pub fn new(
-        compression_algorithm: FileArchiverCompressionAlgorithm,
+        zstandard_compression_parameter: ZstandardCompressionParameters,
         verification_temp_dir: PathBuf,
         logger: Logger,
     ) -> Self {
         Self {
-            compression_algorithm,
+            zstandard_compression_parameter,
             verification_temp_dir,
             logger: logger.new_with_component_name::<Self>(),
+        }
+    }
+
+    #[cfg(test)]
+    pub fn new_for_test(verification_temp_dir: PathBuf) -> Self {
+        use crate::test_tools::TestLogger;
+        Self {
+            zstandard_compression_parameter: ZstandardCompressionParameters::default(),
+            verification_temp_dir,
+            logger: TestLogger::stdout(),
         }
     }
 
     /// Archive the content of a directory.
     pub fn archive<T: TarAppender>(
         &self,
-        target_path: &Path,
+        parameters: ArchiveParameters,
         appender: T,
     ) -> StdResult<FileArchive> {
-        let temporary_archive_path = target_path.with_extension("tmp");
-        if let Some(archive_dir) = target_path.parent() {
-            fs::create_dir_all(archive_dir).with_context(|| {
-                format!(
-                    "FileArchiver can not create archive directory: '{}'",
-                    archive_dir.display()
-                )
-            })?;
-        }
+        fs::create_dir_all(&parameters.target_directory).with_context(|| {
+            format!(
+                "FileArchiver can not create archive directory: '{}'",
+                parameters.target_directory.display()
+            )
+        })?;
+
+        let target_path = parameters.target_path();
+        let temporary_archive_path = parameters.temporary_archive_path();
 
         let temporary_file_archive = self
-            .create_and_verify_archive(&temporary_archive_path, appender)
+            .create_and_verify_archive(&temporary_archive_path, appender, parameters.compression_algorithm)
             .inspect_err(|_err| {
                 if temporary_archive_path.exists() {
                     if let Err(remove_error) = fs::remove_file(&temporary_archive_path) {
@@ -74,7 +87,7 @@ impl FileArchiver {
                 )
             })?;
 
-        fs::rename(&temporary_archive_path, target_path).with_context(|| {
+        fs::rename(&temporary_archive_path, &target_path).with_context(|| {
             format!(
                 "FileArchiver can not rename temporary archive: '{}' to final archive: '{}'",
                 temporary_archive_path.display(),
@@ -83,8 +96,8 @@ impl FileArchiver {
         })?;
 
         Ok(FileArchive {
-            filepath: target_path.to_path_buf(),
-            filesize: temporary_file_archive.filesize,
+            filepath: target_path,
+            ..temporary_file_archive
         })
     }
 
@@ -92,9 +105,10 @@ impl FileArchiver {
         &self,
         archive_path: &Path,
         appender: T,
+        compression_algorithm: CompressionAlgorithm,
     ) -> StdResult<FileArchive> {
         let file_archive = self
-            .create_archive(archive_path, appender)
+            .create_archive(archive_path, appender, compression_algorithm)
             .with_context(|| {
                 format!(
                     "FileArchiver can not create archive with path: '{}''",
@@ -115,6 +129,7 @@ impl FileArchiver {
         &self,
         archive_path: &Path,
         appender: T,
+        compression_algorithm: CompressionAlgorithm,
     ) -> StdResult<FileArchive> {
         info!(
             self.logger,
@@ -126,8 +141,8 @@ impl FileArchiver {
             format!("Error while creating the archive with path: {archive_path:?}")
         })?;
 
-        match self.compression_algorithm {
-            FileArchiverCompressionAlgorithm::Gzip => {
+        match compression_algorithm {
+            CompressionAlgorithm::Gzip => {
                 let enc = GzEncoder::new(tar_file, Compression::default());
                 let mut tar = tar::Builder::new(enc);
 
@@ -141,9 +156,9 @@ impl FileArchiver {
                 gz.try_finish()
                     .with_context(|| "GzEncoder can not finish the output stream after writing")?;
             }
-            FileArchiverCompressionAlgorithm::Zstandard(params) => {
-                let mut enc = Encoder::new(tar_file, params.level)?;
-                enc.multithread(params.number_of_workers)
+            CompressionAlgorithm::Zstandard => {
+                let mut enc = Encoder::new(tar_file, self.zstandard_compression_parameter.level)?;
+                enc.multithread(self.zstandard_compression_parameter.number_of_workers)
                     .with_context(|| "ZstandardEncoder can not set the number of workers")?;
                 let mut tar = tar::Builder::new(enc);
 
@@ -170,6 +185,7 @@ impl FileArchiver {
         Ok(FileArchive {
             filepath: archive_path.to_path_buf(),
             filesize,
+            compression_algorithm,
         })
     }
 
@@ -189,12 +205,12 @@ impl FileArchiver {
         })?;
         snapshot_file_tar.seek(SeekFrom::Start(0))?;
 
-        let mut snapshot_archive: Archive<Box<dyn Read>> = match self.compression_algorithm {
-            FileArchiverCompressionAlgorithm::Gzip => {
+        let mut snapshot_archive: Archive<Box<dyn Read>> = match archive.compression_algorithm {
+            CompressionAlgorithm::Gzip => {
                 let snapshot_file_tar = GzDecoder::new(snapshot_file_tar);
                 Archive::new(Box::new(snapshot_file_tar))
             }
-            FileArchiverCompressionAlgorithm::Zstandard(_) => {
+            CompressionAlgorithm::Zstandard => {
                 let snapshot_file_tar = Decoder::new(snapshot_file_tar)?;
                 Archive::new(Box::new(snapshot_file_tar))
             }
@@ -300,7 +316,7 @@ mod tests {
     use super::*;
 
     fn list_remaining_files(test_dir: &Path) -> Vec<String> {
-        fs::read_dir(&test_dir)
+        fs::read_dir(test_dir)
             .unwrap()
             .map(|f| f.unwrap().file_name().to_str().unwrap().to_owned())
             .collect()
@@ -313,14 +329,14 @@ mod tests {
         let archived_directory = test_dir.join(create_dir(&test_dir, "archived_directory"));
         create_file(&archived_directory, "file_to_archive.txt");
 
-        let file_archiver = FileArchiver::new(
-            FileArchiverCompressionAlgorithm::Gzip,
-            test_dir.join("verification_temp_dir"),
-            TestLogger::stdout(),
-        );
+        let file_archiver = FileArchiver::new_for_test(test_dir.join("verification"));
 
         let archive = file_archiver
-            .create_archive(&target_archive, AppenderDirAll::new(archived_directory))
+            .create_archive(
+                &target_archive,
+                AppenderDirAll::new(archived_directory),
+                CompressionAlgorithm::Gzip,
+            )
             .expect("create_archive should not fail");
         file_archiver
             .verify_archive(&archive)
@@ -335,14 +351,14 @@ mod tests {
         let archived_directory = test_dir.join(create_dir(&test_dir, "archived_directory"));
         create_file(&archived_directory, "file_to_archive.txt");
 
-        let file_archiver = FileArchiver::new(
-            ZstandardCompressionParameters::default().into(),
-            test_dir.join("verification_temp_dir"),
-            TestLogger::stdout(),
-        );
+        let file_archiver = FileArchiver::new_for_test(test_dir.join("verification"));
 
         let archive = file_archiver
-            .create_archive(&target_archive, AppenderDirAll::new(archived_directory))
+            .create_archive(
+                &target_archive,
+                AppenderDirAll::new(archived_directory),
+                CompressionAlgorithm::Zstandard,
+            )
             .expect("create_archive should not fail");
         file_archiver
             .verify_archive(&archive)
@@ -355,19 +371,19 @@ mod tests {
             get_test_directory("should_delete_tmp_file_in_target_directory_if_archiving_fail");
         // Note: the archived directory does not exist in order to make the archive process fail
         let archived_directory = test_dir.join("db");
-        let target_archive = test_dir.join("archive.tar.gz");
 
-        let file_archiver = FileArchiver::new(
-            FileArchiverCompressionAlgorithm::Gzip,
-            test_dir.join("verification_temp_dir"),
-            TestLogger::stdout(),
-        );
+        let file_archiver = FileArchiver::new_for_test(test_dir.join("verification"));
 
         // this file should not be deleted by the archive creation
         File::create(test_dir.join("other-process.file")).unwrap();
 
+        let archive_params = ArchiveParameters {
+            archive_name_without_extension: "archive".to_string(),
+            target_directory: test_dir.clone(),
+            compression_algorithm: CompressionAlgorithm::Gzip,
+        };
         let _ = file_archiver
-            .archive(&target_archive, AppenderDirAll::new(archived_directory))
+            .archive(archive_params, AppenderDirAll::new(archived_directory))
             .expect_err("FileArchiver::archive should fail if the target path doesn't exist.");
 
         let remaining_files: Vec<String> = list_remaining_files(&test_dir);
@@ -381,13 +397,8 @@ mod tests {
         );
         // Note: the archived directory does not exist in order to make the archive process fail
         let archived_directory = test_dir.join("db");
-        let target_archive = test_dir.join("archive.tar.gz");
 
-        let file_archiver = FileArchiver::new(
-            FileArchiverCompressionAlgorithm::Gzip,
-            test_dir.join("verification_temp_dir"),
-            TestLogger::stdout(),
-        );
+        let file_archiver = FileArchiver::new_for_test(test_dir.join("verification"));
 
         // this file should not be deleted by the archive creation
         create_file(&test_dir, "other-process.file");
@@ -395,8 +406,13 @@ mod tests {
         // an already existing temporary archive file should be deleted
         create_file(&test_dir, "archive.tar.tmp");
 
+        let archive_params = ArchiveParameters {
+            archive_name_without_extension: "archive".to_string(),
+            target_directory: test_dir.clone(),
+            compression_algorithm: CompressionAlgorithm::Gzip,
+        };
         let _ = file_archiver
-            .archive(&target_archive, AppenderDirAll::new(archived_directory))
+            .archive(archive_params, AppenderDirAll::new(archived_directory))
             .expect_err("FileArchiver::archive should fail if the db is empty.");
         let remaining_files: Vec<String> = list_remaining_files(&test_dir);
 
@@ -414,19 +430,19 @@ mod tests {
         let test_dir =
             get_test_directory("overwrite_already_existing_archive_when_archiving_succeed");
         let archived_directory = test_dir.join(create_dir(&test_dir, "archived_directory"));
-        let target_archive = test_dir.join("archive.tar.gz");
 
         create_file(&archived_directory, "file_to_archive.txt");
 
-        let file_archiver = FileArchiver::new(
-            FileArchiverCompressionAlgorithm::Gzip,
-            test_dir.join("verification_temp_dir"),
-            TestLogger::stdout(),
-        );
+        let file_archiver = FileArchiver::new_for_test(test_dir.join("verification"));
 
+        let archive_params = ArchiveParameters {
+            archive_name_without_extension: "archive".to_string(),
+            target_directory: test_dir.clone(),
+            compression_algorithm: CompressionAlgorithm::Gzip,
+        };
         let first_snapshot = file_archiver
             .archive(
-                &target_archive,
+                archive_params.clone(),
                 AppenderDirAll::new(archived_directory.clone()),
             )
             .unwrap();
@@ -435,7 +451,7 @@ mod tests {
         create_file(&archived_directory, "another_file_to_archive.txt");
 
         let second_snapshot = file_archiver
-            .archive(&target_archive, AppenderDirAll::new(archived_directory))
+            .archive(archive_params, AppenderDirAll::new(archived_directory))
             .unwrap();
         let second_snapshot_size = second_snapshot.get_file_size();
 
@@ -448,7 +464,7 @@ mod tests {
     #[test]
     fn can_set_verification_temp_dir_with_str_or_string() {
         let mut file_archiver = FileArchiver::new(
-            FileArchiverCompressionAlgorithm::Gzip,
+            ZstandardCompressionParameters::default(),
             PathBuf::new(),
             TestLogger::stdout(),
         );

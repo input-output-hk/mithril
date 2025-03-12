@@ -180,8 +180,6 @@ impl ImmutableArtifactBuilder {
         &self,
         up_to_immutable_file_number: ImmutableFileNumber,
     ) -> StdResult<Vec<PathBuf>> {
-        let immutable_archive_dir_path = Path::new("cardano-database").join("immutable");
-
         let mut archive_paths = vec![];
         for immutable_file_number in 1..=up_to_immutable_file_number {
             let files_to_archive = Self::immutable_trio_names(immutable_file_number)
@@ -189,19 +187,18 @@ impl ImmutableArtifactBuilder {
                 .map(|filename| PathBuf::from(IMMUTABLE_DIR).join(filename))
                 .collect();
 
+            let archive_name_without_extension = format!("{immutable_file_number:05}");
             let archive_name = format!(
-                "{:05}.{}",
-                immutable_file_number,
+                "{archive_name_without_extension}.{}",
                 self.compression_algorithm.tar_file_extension()
             );
 
             if let Some(existing_archive) = self.retrieve_existing_snapshot_archive(&archive_name) {
                 archive_paths.push(existing_archive);
             } else {
-                let immutable_archive_file_path = immutable_archive_dir_path.join(&archive_name);
                 let snapshot = self
                     .snapshotter
-                    .snapshot_subset(&immutable_archive_file_path, files_to_archive)?;
+                    .snapshot_subset(&archive_name_without_extension, files_to_archive)?;
 
                 let target_path = self.immutables_storage_dir.join(&archive_name);
                 fs::rename(snapshot.get_file_path(), &target_path).with_context(|| {
@@ -298,11 +295,10 @@ mod tests {
     };
     use std::fs::File;
     use std::io::Write;
-    use uuid::Uuid;
 
     use crate::services::{CompressedArchiveSnapshotter, DumbSnapshotter, MockSnapshotter};
     use crate::test_tools::TestLogger;
-    use crate::tools::file_archiver::FileArchiverCompressionAlgorithm;
+    use crate::tools::file_archiver::FileArchiver;
 
     use super::*;
 
@@ -368,14 +364,14 @@ mod tests {
             .build();
 
         let db_directory = cardano_db.get_dir().to_path_buf();
-        let mut snapshotter = CompressedArchiveSnapshotter::new(
+        let snapshotter = CompressedArchiveSnapshotter::new(
             db_directory.clone(),
             db_directory.parent().unwrap().join("snapshot_dest"),
-            FileArchiverCompressionAlgorithm::Gzip,
+            CompressionAlgorithm::Gzip,
+            Arc::new(FileArchiver::new_for_test(work_dir.join("verification"))),
             TestLogger::stdout(),
         )
         .unwrap();
-        snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
         let uploader = fake_uploader(
             vec![
@@ -418,7 +414,7 @@ mod tests {
         ImmutableArtifactBuilder::new(
             immutable_storage_dir.clone(),
             vec![Arc::new(DumbUploader::default())],
-            Arc::new(DumbSnapshotter::new()),
+            Arc::new(DumbSnapshotter::default()),
             CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         )
@@ -438,7 +434,7 @@ mod tests {
         ImmutableArtifactBuilder::new(
             immutable_storage_dir,
             vec![Arc::new(DumbUploader::default())],
-            Arc::new(DumbSnapshotter::new()),
+            Arc::new(DumbSnapshotter::default()),
             CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         )
@@ -462,14 +458,14 @@ mod tests {
                 .build();
 
             let db_directory = cardano_db.get_dir().to_path_buf();
-            let mut snapshotter = CompressedArchiveSnapshotter::new(
+            let snapshotter = CompressedArchiveSnapshotter::new(
                 db_directory.clone(),
                 db_directory.parent().unwrap().join("snapshot_dest"),
-                FileArchiverCompressionAlgorithm::Gzip,
+                CompressionAlgorithm::Gzip,
+                Arc::new(FileArchiver::new_for_test(work_dir.join("verification"))),
                 TestLogger::stdout(),
             )
             .unwrap();
-            snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
             let builder = ImmutableArtifactBuilder::new(
                 work_dir.clone(),
@@ -505,14 +501,14 @@ mod tests {
             std::fs::remove_file(file_to_remove).unwrap();
 
             let db_directory = cardano_db.get_dir().to_path_buf();
-            let mut snapshotter = CompressedArchiveSnapshotter::new(
+            let snapshotter = CompressedArchiveSnapshotter::new(
                 db_directory.clone(),
                 db_directory.parent().unwrap().join("snapshot_dest"),
-                FileArchiverCompressionAlgorithm::Gzip,
+                CompressionAlgorithm::Gzip,
+                Arc::new(FileArchiver::new_for_test(work_dir.join("verification"))),
                 TestLogger::stdout(),
             )
             .unwrap();
-            snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
             let builder = ImmutableArtifactBuilder::new(
                 work_dir,
@@ -540,14 +536,14 @@ mod tests {
                 .build();
 
             let db_directory = cardano_db.get_dir().to_path_buf();
-            let mut snapshotter = CompressedArchiveSnapshotter::new(
+            let snapshotter = CompressedArchiveSnapshotter::new(
                 db_directory.clone(),
                 db_directory.parent().unwrap().join("snapshot_dest"),
-                FileArchiverCompressionAlgorithm::Gzip,
+                CompressionAlgorithm::Gzip,
+                Arc::new(FileArchiver::new_for_test(work_dir.join("verification"))),
                 TestLogger::stdout(),
             )
             .unwrap();
-            snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
             let builder = ImmutableArtifactBuilder::new(
                 work_dir,
@@ -573,14 +569,14 @@ mod tests {
                 .build();
 
             let db_directory = cardano_db.get_dir().to_path_buf();
-            let mut snapshotter = CompressedArchiveSnapshotter::new(
+            let snapshotter = CompressedArchiveSnapshotter::new(
                 db_directory.clone(),
                 db_directory.parent().unwrap().join("snapshot_dest"),
-                FileArchiverCompressionAlgorithm::Gzip,
+                CompressionAlgorithm::Gzip,
+                Arc::new(FileArchiver::new_for_test(work_dir.join("verification"))),
                 TestLogger::stdout(),
             )
             .unwrap();
-            snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
             let builder = ImmutableArtifactBuilder::new(
                 work_dir,
@@ -629,14 +625,14 @@ mod tests {
                 .build();
 
             let db_directory = cardano_db.get_dir().to_path_buf();
-            let mut snapshotter = CompressedArchiveSnapshotter::new(
+            let snapshotter = CompressedArchiveSnapshotter::new(
                 db_directory.clone(),
                 db_directory.parent().unwrap().join("snapshot_dest"),
-                FileArchiverCompressionAlgorithm::Gzip,
+                CompressionAlgorithm::Gzip,
+                Arc::new(FileArchiver::new_for_test(work_dir.join("verification"))),
                 TestLogger::stdout(),
             )
             .unwrap();
-            snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
             create_fake_file(&work_dir.join("00001.tar.gz"), "00001 content");
             create_fake_file(&work_dir.join("00002.tar.gz"), "00002 content");
@@ -714,7 +710,7 @@ mod tests {
             let result = ImmutableArtifactBuilder::new(
                 get_builder_work_dir("create_immutable_builder_should_error_when_no_uploader"),
                 vec![],
-                Arc::new(DumbSnapshotter::new()),
+                Arc::new(DumbSnapshotter::default()),
                 CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             );
@@ -1027,7 +1023,7 @@ mod tests {
         let builder = ImmutableArtifactBuilder::new(
             work_dir,
             vec![Arc::new(MockImmutableFilesUploader::new())],
-            Arc::new(DumbSnapshotter::new()),
+            Arc::new(DumbSnapshotter::default()),
             CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         )
@@ -1054,7 +1050,7 @@ mod tests {
         let builder = ImmutableArtifactBuilder::new(
             work_dir,
             vec![Arc::new(MockImmutableFilesUploader::new())],
-            Arc::new(DumbSnapshotter::new()),
+            Arc::new(DumbSnapshotter::default()),
             CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         )

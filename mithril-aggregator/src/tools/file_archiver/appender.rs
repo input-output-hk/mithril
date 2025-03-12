@@ -36,6 +36,55 @@ impl TarAppender for AppenderDirAll {
     }
 }
 
+pub struct AppenderFile {
+    /// Location of the file in the archive.
+    location_in_archive: PathBuf,
+    /// Path to the file to add to the archive.
+    target_file: PathBuf,
+}
+
+impl AppenderFile {
+    /// Append the file at the root of the archive, keeping the same file name.
+    pub fn append_at_archive_root(target_file: PathBuf) -> StdResult<Self> {
+        if !target_file.is_file() {
+            return Err(anyhow!(
+                "The target file is not a file, path: {}",
+                target_file.display()
+            ));
+        }
+
+        let location_in_archive = target_file
+            .file_name()
+            .ok_or_else(|| {
+                anyhow!(
+                    "Can not get the file name from the target file path: '{}'",
+                    target_file.display()
+                )
+            })?
+            .to_owned();
+
+        Ok(Self {
+            location_in_archive: PathBuf::from(location_in_archive),
+            target_file,
+        })
+    }
+}
+
+impl TarAppender for AppenderFile {
+    fn append<T: Write>(&self, tar: &mut tar::Builder<T>) -> StdResult<()> {
+        let mut file = File::open(&self.target_file)
+            .with_context(|| format!("Can not open file: '{}'", self.target_file.display()))?;
+        tar.append_file(&self.location_in_archive, &mut file)
+            .with_context(|| {
+                format!(
+                    "Can not add file: '{}' to the archive",
+                    self.target_file.display()
+                )
+            })?;
+        Ok(())
+    }
+}
+
 pub struct AppenderEntries {
     entries: Vec<PathBuf>,
     base_directory: PathBuf,
@@ -90,16 +139,16 @@ impl TarAppender for AppenderEntries {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_tools::TestLogger;
+    use mithril_common::entities::CompressionAlgorithm;
+
     use crate::tools::file_archiver::test_tools::*;
-    use crate::tools::file_archiver::{FileArchiver, FileArchiverCompressionAlgorithm};
+    use crate::tools::file_archiver::{ArchiveParameters, FileArchiver};
 
     use super::*;
 
     #[test]
     fn snapshot_subset_should_create_archive_only_for_specified_directories_and_files() {
         let test_dir = get_test_directory("only_for_specified_directories_and_files");
-        let target_archive = test_dir.join("archive.tar.gz");
         let source = test_dir.join(create_dir(&test_dir, "source"));
 
         let directory_to_archive_path = create_dir(&source, "directory_to_archive");
@@ -107,15 +156,15 @@ mod tests {
         let directory_not_to_archive_path = create_dir(&source, "directory_not_to_archive");
         let file_not_to_archive_path = create_file(&source, "file_not_to_archive.txt");
 
-        let file_archiver = FileArchiver::new(
-            FileArchiverCompressionAlgorithm::Gzip,
-            test_dir.join("verification_temp_dir"),
-            TestLogger::stdout(),
-        );
+        let file_archiver = FileArchiver::new_for_test(test_dir.join("verification"));
 
         let snapshot = file_archiver
             .archive(
-                &target_archive,
+                ArchiveParameters {
+                    archive_name_without_extension: "archive".to_string(),
+                    target_directory: test_dir.clone(),
+                    compression_algorithm: CompressionAlgorithm::Gzip,
+                },
                 AppenderEntries::new(
                     vec![
                         directory_to_archive_path.clone(),
@@ -141,15 +190,15 @@ mod tests {
         let target_archive = test_dir.join("whatever.tar.gz");
         let source = test_dir.join(create_dir(&test_dir, "source"));
 
-        let file_archiver = FileArchiver::new(
-            FileArchiverCompressionAlgorithm::Gzip,
-            test_dir.join("verification_temp_dir"),
-            TestLogger::stdout(),
-        );
+        let file_archiver = FileArchiver::new_for_test(test_dir.join("verification"));
 
         file_archiver
             .archive(
-                &target_archive,
+                ArchiveParameters {
+                    archive_name_without_extension: "archive".to_string(),
+                    target_directory: test_dir.clone(),
+                    compression_algorithm: CompressionAlgorithm::Gzip,
+                },
                 AppenderEntries::new(vec![PathBuf::from("not_exist")], source).unwrap(),
             )
             .expect_err("snapshot_subset should return error when file or directory not exist");
@@ -165,21 +214,20 @@ mod tests {
     #[test]
     fn snapshot_subset_with_duplicate_files_and_directories() {
         let test_dir = get_test_directory("with_duplicate_files_and_directories");
-        let target_archive = test_dir.join("archive.tar.gz");
         let source = test_dir.join(create_dir(&test_dir, "source"));
 
         let directory_to_archive_path = create_dir(&source, "directory_to_archive");
         let file_to_archive_path = create_file(&source, "directory_to_archive/file_to_archive.txt");
 
-        let file_archiver = FileArchiver::new(
-            FileArchiverCompressionAlgorithm::Gzip,
-            test_dir.join("verification_temp_dir"),
-            TestLogger::stdout(),
-        );
+        let file_archiver = FileArchiver::new_for_test(test_dir.join("verification"));
 
         let snapshot = file_archiver
             .archive(
-                &target_archive,
+                ArchiveParameters {
+                    archive_name_without_extension: "archive".to_string(),
+                    target_directory: test_dir.clone(),
+                    compression_algorithm: CompressionAlgorithm::Gzip,
+                },
                 AppenderEntries::new(
                     vec![
                         directory_to_archive_path.clone(),
@@ -197,5 +245,40 @@ mod tests {
 
         assert!(unpack_path.join(directory_to_archive_path).is_dir());
         assert!(unpack_path.join(file_to_archive_path).is_file());
+    }
+
+    #[test]
+    fn appender_file_should_append_file_to_tar() {
+        let test_dir = get_test_directory("appender_file_should_append_file_to_tar");
+        let file_to_archive = create_file(&test_dir, "test_file.txt");
+
+        let file_archiver = FileArchiver::new_for_test(test_dir.join("verification"));
+        let archive = file_archiver
+            .archive(
+                ArchiveParameters {
+                    archive_name_without_extension: "archive".to_string(),
+                    target_directory: test_dir.clone(),
+                    compression_algorithm: CompressionAlgorithm::Gzip,
+                },
+                AppenderFile::append_at_archive_root(test_dir.join(&file_to_archive)).unwrap(),
+            )
+            .unwrap();
+
+        let unpack_path = unpack_gz_decoder(&test_dir, archive);
+
+        assert!(unpack_path.join(file_to_archive).exists());
+    }
+
+    #[test]
+    fn appender_file_should_return_error_if_file_does_not_exist() {
+        let target_file_path = PathBuf::from("non_existent_file.txt");
+        assert!(AppenderFile::append_at_archive_root(target_file_path).is_err());
+    }
+
+    #[test]
+    fn appender_file_should_return_error_if_input_is_not_a_file() {
+        let test_dir =
+            get_test_directory("appender_file_should_return_error_if_input_is_not_a_file");
+        assert!(AppenderFile::append_at_archive_root(test_dir).is_err());
     }
 }

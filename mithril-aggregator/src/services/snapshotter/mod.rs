@@ -12,7 +12,6 @@ pub(crate) mod test_tools {
     use std::fs::File;
     use std::path::{Path, PathBuf};
     use tar::Archive;
-    use uuid::Uuid;
 
     use mithril_common::test_utils::TempDir;
 
@@ -32,11 +31,6 @@ pub(crate) mod test_tools {
         let dir_path = PathBuf::from(dirname);
         std::fs::create_dir(root.join(dir_path.clone())).unwrap();
         dir_path
-    }
-
-    // Generate unique name for the archive is mandatory to avoid conflicts during the verification.
-    pub fn random_archive_name() -> String {
-        format!("{}.tar.gz", Uuid::new_v4())
     }
 
     pub fn unpack_gz_decoder(test_dir: PathBuf, snapshot: OngoingSnapshot) -> PathBuf {
