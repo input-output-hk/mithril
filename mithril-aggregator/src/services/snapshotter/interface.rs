@@ -1,6 +1,4 @@
-use std::io;
 use std::path::PathBuf;
-use thiserror::Error;
 
 use mithril_common::StdResult;
 
@@ -18,30 +16,6 @@ pub trait Snapshotter: Sync + Send {
         archive_name_without_extension: &str,
         files: Vec<PathBuf>,
     ) -> StdResult<OngoingSnapshot>;
-}
-
-/// Snapshotter error type.
-#[derive(Error, Debug)]
-pub enum SnapshotError {
-    /// Set when the snapshotter fails at creating a snapshot.
-    #[error("Create archive error: {0}")]
-    CreateArchiveError(#[from] io::Error),
-
-    /// Set when the snapshotter creates an invalid snapshot.
-    #[error("Invalid archive error: {0}")]
-    InvalidArchiveError(String),
-
-    /// Set when the snapshotter fails verifying a snapshot.
-    #[error("Archive verification error: {0}")]
-    VerifyArchiveError(String),
-
-    /// Set when the snapshotter fails at uploading the snapshot.
-    #[error("Upload file error: `{0}`")]
-    UploadFileError(String),
-
-    /// General error.
-    #[error("Snapshot General Error: `{0}`")]
-    GeneralError(String),
 }
 
 /// Compression algorithm and parameters of the [crate::services::CompressedArchiveSnapshotter].

@@ -5,8 +5,6 @@ use std::path::PathBuf;
 
 use mithril_common::StdResult;
 
-use crate::services::SnapshotError;
-
 /// Define multiple ways to append content to a tar archive.
 pub trait TarAppender {
     fn append<T: Write>(&self, tar: &mut tar::Builder<T>) -> StdResult<()>;
@@ -25,10 +23,9 @@ impl AppenderDirAll {
 impl TarAppender for AppenderDirAll {
     fn append<T: Write>(&self, tar: &mut tar::Builder<T>) -> StdResult<()> {
         tar.append_dir_all(".", &self.target_directory)
-            .map_err(SnapshotError::CreateArchiveError)
             .with_context(|| {
                 format!(
-                    "Can not add directory: '{}' to the archive",
+                    "Create archive error:  Can not add directory: '{}' to the archive",
                     self.target_directory.display()
                 )
             })?;
