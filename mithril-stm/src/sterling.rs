@@ -2,15 +2,15 @@
 
 use crate::key_reg::{ClosedKeyReg, RegParty};
 use crate::merkle_tree::{BatchPath, MerkleTreeCommitmentBatchCompat};
-use crate::stm::{Index, StmParameters, Stake, StmSig, StmSigRegParty, CoreVerifier};
+use crate::stm::{Index, Stake, StmParameters, StmSig, StmSigRegParty};
 use crate::AggregationError;
+use alba::centralized_telescope::proof::Proof;
 use alba::centralized_telescope::*;
 use alba::utils::types::{Element, ElementData};
 use blake2::digest::{Digest, FixedOutput, Update, VariableOutput};
 use blake2::Blake2bVar;
 use std::collections::{BTreeMap, HashMap, HashSet};
-use alba::centralized_telescope::proof::Proof;
-use serde::{Serialize, Deserialize};
+
 use crate::multi_sig::{Signature, VerificationKey};
 
 /// Initialization parameters for Sterling
@@ -22,57 +22,9 @@ pub struct SterlingInitializer {
     /// STM protocol parameters
     pub stm_parameters: StmParameters,
 }
-
-/// Aggregator
-#[derive(Debug, Clone)]
-pub struct SterlingClerk<D: Clone + Digest> {
-    /// Closed key registration
-    pub closed_reg: ClosedKeyReg<D>,
-    /// Mithril STM parameters
-    pub stm_parameters: StmParameters,
-    /// The main centralized Telescope struct
-    pub telescope: Telescope,
-}
-
-/// Helper struct for Sterling aggregation
-pub struct SterlingClerkHandler {
-    /// Signer index mapped to its StmSigRegParty
-    pub signer_sigreg_map: BTreeMap<Index, StmSigRegParty>,
-    /// Map of the hash of the lottery index to itself
-    pub lottery_hash_index_map: BTreeMap<ElementData, Index>,
-}
-
-/// STM-Telescope proof.
-pub struct SterlingProof<D: Clone + Digest + FixedOutput> {
-    /// StmSignatures of alba proof
-    pub signatures: Vec<StmSigRegParty>,
-    /// The list of unique merkle tree nodes that covers path for all signatures.
-    pub batch_proof: BatchPath<D>,
-    /// Numbers of retries done to find the proof
-    pub retry_counter: u64,
-    /// Index of the searched subtree to find the proof
-    pub search_counter: u64,
-    /// Sequence of elements from prover's set
-    pub index_sequence: Vec<(Index, Index)>,
-}
-
-/// Stm aggregate key (batch compatible), which contains the merkle tree commitment and the total stake of the system.
-/// Batch Compat Merkle tree commitment includes the number of leaves in the tree in order to obtain batch path.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(bound(
-serialize = "BatchPath<D>: Serialize",
-deserialize = "BatchPath<D>: Deserialize<'de>"
-))]
-pub struct SterlingAVK<D: Clone + Digest + FixedOutput> {
-    mt_commitment: MerkleTreeCommitmentBatchCompat<D>,
-    total_stake: Stake,
-}
-
-
-
 impl SterlingInitializer {
     /// New initializer
-    pub fn new(&self, soundness_param: f64, completeness_param: f64) -> Telescope {
+    pub fn init_telescope(&self, soundness_param: f64, completeness_param: f64) -> Telescope {
         let m_f64 = self.stm_parameters.m as f64;
         let set_size = (m_f64 * (1.0 - self.adversarial_stake) * self.liveness).ceil();
         let lower_bound = self.stm_parameters.k;
@@ -85,6 +37,16 @@ impl SterlingInitializer {
     }
 }
 
+/// Aggregator
+#[derive(Debug, Clone)]
+pub struct SterlingClerk<D: Clone + Digest> {
+    /// Closed key registration
+    pub closed_reg: ClosedKeyReg<D>,
+    /// Mithril STM parameters
+    pub stm_parameters: StmParameters,
+    /// The main centralized Telescope struct
+    pub telescope: Telescope,
+}
 impl<D: Digest + Clone + FixedOutput> SterlingClerk<D> {
     /// Create a new `Clerk` from a closed registration instance.
     pub fn from_registration(
@@ -157,6 +119,13 @@ impl<D: Digest + Clone + FixedOutput> SterlingClerk<D> {
     }
 }
 
+/// Helper struct for Sterling aggregation
+pub struct SterlingClerkHandler {
+    /// Signer index mapped to its StmSigRegParty
+    pub signer_sigreg_map: BTreeMap<Index, StmSigRegParty>,
+    /// Map of the hash of the lottery index to itself
+    pub lottery_hash_index_map: BTreeMap<ElementData, Index>,
+}
 impl SterlingClerkHandler {
     /// New handler
     pub fn new(unique_signatures: &[StmSigRegParty], size: usize) -> (Self, Vec<Element>) {
@@ -195,7 +164,6 @@ impl SterlingClerkHandler {
         let mut proof_index_sequence: Vec<(Index, Index)> = Vec::new();
         let mut valid_signer_indexes: HashSet<u64> = HashSet::new();
         let mut valid_indices: HashSet<Index> = HashSet::new();
-
 
         for e in proof_element_sequence {
             if let Some(unique_index) = self.lottery_hash_index_map.get(&e.data) {
@@ -312,14 +280,31 @@ impl SterlingClerkHandler {
         if count < params.k {
             return Err(AggregationError::NotEnoughSignatures(count, params.k));
         }
-        return Ok((dedup_sigs.into_iter().collect(), count));
+        Ok((dedup_sigs.into_iter().collect(), count))
     }
 }
 
-impl<D: Clone + Digest + FixedOutput> SterlingProof<D>{
-
+/// STM-Telescope proof.
+pub struct SterlingProof<D: Clone + Digest + FixedOutput> {
+    /// StmSignatures of alba proof
+    pub signatures: Vec<StmSigRegParty>,
+    /// The list of unique merkle tree nodes that covers path for all signatures.
+    pub batch_proof: BatchPath<D>,
+    /// Numbers of retries done to find the proof
+    pub retry_counter: u64,
+    /// Index of the searched subtree to find the proof
+    pub search_counter: u64,
+    /// Sequence of elements from prover's set
+    pub index_sequence: Vec<(Index, Index)>,
+}
+impl<D: Clone + Digest + FixedOutput> SterlingProof<D> {
     /// Verify indices
-    pub fn verify_indices(&self, msgp: &[u8], avk: &SterlingAVK<D>, stm_parameters: &StmParameters) -> bool {
+    pub fn verify_indices(
+        &self,
+        msgp: &[u8],
+        avk: &SterlingAVK<D>,
+        stm_parameters: &StmParameters,
+    ) -> bool {
         let mut unique_indices: HashSet<Index> = HashSet::new();
         let mut nr_indices = 0;
 
@@ -330,7 +315,7 @@ impl<D: Clone + Digest + FixedOutput> SterlingProof<D>{
             .filter_map(|sig_reg| {
                 if sig_reg
                     .sig
-                    .check_indices(stm_parameters, &sig_reg.reg_party.1, &msgp, &avk.total_stake)
+                    .check_indices(stm_parameters, &sig_reg.reg_party.1, msgp, &avk.total_stake)
                     .is_ok()
                 {
                     unique_indices.extend(&sig_reg.sig.indexes);
@@ -359,24 +344,24 @@ impl<D: Clone + Digest + FixedOutput> SterlingProof<D>{
         {
             return false;
         }
-        return true;
+        true
     }
 
-    pub fn verify_multi_sig(&self, avk: &SterlingAVK<D>, msgp:
-    &[u8]) -> bool {
+    /// Batch proof and multi sig verification
+    pub fn verify_multi_sig(&self, avk: &SterlingAVK<D>, msgp: &[u8]) -> bool {
         let leaves: Vec<RegParty> = self.signatures.iter().map(|r| r.reg_party).collect();
 
         // Verify batch proof
-        if avk.mt_commitment.check(&leaves, &self.batch_proof).is_err(){
+        if avk.mt_commitment.check(&leaves, &self.batch_proof).is_err() {
             return false;
         }
 
         // Verify aggregated signatures
         let (sigs, vks) = Self::collect_sigs_vks(&self.signatures);
-        if Signature::verify_aggregate(msgp, &vks, &sigs).is_err(){
+        if Signature::verify_aggregate(msgp, &vks, &sigs).is_err() {
             return false;
         }
-        return true;
+        true
     }
 
     /// Verify
@@ -389,10 +374,10 @@ impl<D: Clone + Digest + FixedOutput> SterlingProof<D>{
     ) {
         let msgp = avk.mt_commitment.concat_with_msg(msg);
 
-        if !self.verify_indices(&msgp, &avk, &stm_parameters){
+        if !self.verify_indices(&msgp, avk, stm_parameters) {
             println!("Indices check failed!");
         }
-        if !self.verify_multi_sig(&avk, &msgp){
+        if !self.verify_multi_sig(avk, &msgp) {
             println!("Multi signature check failed!");
         }
 
@@ -416,7 +401,6 @@ impl<D: Clone + Digest + FixedOutput> SterlingProof<D>{
         };
 
         println!("{}", telescope.verify(&proof));
-
     }
 
     /// Collect and return `Vec<Signature>, Vec<VerificationKey>` which will be used
@@ -435,6 +419,13 @@ impl<D: Clone + Digest + FixedOutput> SterlingProof<D>{
     }
 }
 
+/// Stm aggregate key (batch compatible), which contains the merkle tree commitment and the total stake of the system.
+/// Batch Compat Merkle tree commitment includes the number of leaves in the tree in order to obtain batch path.
+#[derive(Debug, Clone)]
+pub struct SterlingAVK<D: Clone + Digest + FixedOutput> {
+    mt_commitment: MerkleTreeCommitmentBatchCompat<D>,
+    total_stake: Stake,
+}
 impl<D: Clone + Digest + FixedOutput> From<&ClosedKeyReg<D>> for SterlingAVK<D> {
     fn from(reg: &ClosedKeyReg<D>) -> Self {
         Self {
@@ -443,7 +434,6 @@ impl<D: Clone + Digest + FixedOutput> From<&ClosedKeyReg<D>> for SterlingAVK<D> 
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -476,7 +466,7 @@ mod tests {
             liveness: 0.95,
             stm_parameters: params,
         };
-        let telescope = initializer.new(soundness_param, completeness_param);
+        let telescope = initializer.init_telescope(soundness_param, completeness_param);
 
         let nb_elements: u64 = 1_000;
 
