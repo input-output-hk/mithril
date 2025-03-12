@@ -273,7 +273,7 @@ pub struct CoreVerifier {
 }
 
 /// STM-Telescope proof.
-pub struct TelescopeProof<D: Clone + Digest + FixedOutput> {
+pub struct AlbaProof<D: Clone + Digest + FixedOutput> {
     /// StmSignatures of alba proof
     pub signer_index_sigreg_map: IndexStmSigRegMap,
     /// The list of unique merkle tree nodes that covers path for all signatures.
@@ -585,7 +585,7 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
         sigs: &[StmSig],
         telescope: &Telescope,
         msg: &[u8],
-    ) -> TelescopeProof<D> {
+    ) -> AlbaProof<D> {
         // Collect signatures and their reg party
         let sig_reg_list = sigs
             .iter()
@@ -649,7 +649,7 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
 
         let batch_proof = self.closed_reg.merkle_tree.get_batched_path(mt_index_list);
 
-        TelescopeProof {
+        AlbaProof {
             signer_index_sigreg_map,
             batch_proof,
             retry_counter: proof.retry_counter,
@@ -1187,7 +1187,7 @@ impl CoreVerifier {
     }
 }
 
-impl<D: Clone + Digest + FixedOutput + Send + Sync> TelescopeProof<D> {
+impl<D: Clone + Digest + FixedOutput + Send + Sync> AlbaProof<D> {
     /// Verify telescope-stm
     pub fn verify(
         &self,
