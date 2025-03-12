@@ -155,20 +155,13 @@ impl AncillaryArtifactBuilder {
             Self::get_files_and_directories_to_snapshot(beacon.immutable_file_number);
 
         let archive_name = format!(
-            "{}-e{}-i{}.ancillary.{}",
-            self.cardano_network,
-            *beacon.epoch,
-            beacon.immutable_file_number,
-            self.compression_algorithm.tar_file_extension()
+            "{}-e{}-i{}.ancillary",
+            self.cardano_network, *beacon.epoch, beacon.immutable_file_number,
         );
-
-        let ancillary_archive_path = Path::new("cardano-database")
-            .join("ancillary")
-            .join(&archive_name);
 
         let snapshot = self
             .snapshotter
-            .snapshot_subset(&ancillary_archive_path, paths_to_include)
+            .snapshot_subset(&archive_name, paths_to_include)
             .with_context(|| {
                 format!(
                     "Failed to create ancillary archive for immutable file number: {}",
@@ -253,11 +246,10 @@ mod tests {
         digesters::{DummyCardanoDbBuilder, IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR},
         test_utils::{assert_equivalent, TempDir},
     };
-    use uuid::Uuid;
 
     use crate::services::{CompressedArchiveSnapshotter, DumbSnapshotter, MockSnapshotter};
     use crate::test_tools::TestLogger;
-    use crate::tools::file_archiver::FileArchiverCompressionAlgorithm;
+    use crate::tools::file_archiver::FileArchiver;
 
     use super::*;
 
@@ -313,7 +305,7 @@ mod tests {
     fn create_ancillary_builder_should_error_when_no_uploader() {
         let result = AncillaryArtifactBuilder::new(
             vec![],
-            Arc::new(DumbSnapshotter::new()),
+            Arc::new(DumbSnapshotter::default()),
             CardanoNetwork::DevNet(123),
             CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
@@ -338,7 +330,7 @@ mod tests {
         {
             let builder = AncillaryArtifactBuilder::new(
                 vec![Arc::new(uploader)],
-                Arc::new(DumbSnapshotter::new()),
+                Arc::new(DumbSnapshotter::default()),
                 CardanoNetwork::DevNet(123),
                 CompressionAlgorithm::Gzip,
                 TestLogger::file(&log_path),
@@ -360,7 +352,7 @@ mod tests {
 
         let builder = AncillaryArtifactBuilder::new(
             vec![Arc::new(uploader)],
-            Arc::new(DumbSnapshotter::new()),
+            Arc::new(DumbSnapshotter::default()),
             CardanoNetwork::DevNet(123),
             CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
@@ -392,7 +384,7 @@ mod tests {
 
         let builder = AncillaryArtifactBuilder::new(
             uploaders,
-            Arc::new(DumbSnapshotter::new()),
+            Arc::new(DumbSnapshotter::default()),
             CardanoNetwork::DevNet(123),
             CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
@@ -428,7 +420,7 @@ mod tests {
 
         let builder = AncillaryArtifactBuilder::new(
             uploaders,
-            Arc::new(DumbSnapshotter::new()),
+            Arc::new(DumbSnapshotter::default()),
             CardanoNetwork::DevNet(123),
             CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
@@ -470,7 +462,7 @@ mod tests {
 
         let builder = AncillaryArtifactBuilder::new(
             vec![Arc::new(uploader)],
-            Arc::new(DumbSnapshotter::new()),
+            Arc::new(DumbSnapshotter::default()),
             CardanoNetwork::DevNet(123),
             CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
@@ -495,7 +487,7 @@ mod tests {
 
         let builder = AncillaryArtifactBuilder::new(
             vec![Arc::new(uploader)],
-            Arc::new(DumbSnapshotter::new()),
+            Arc::new(DumbSnapshotter::default()),
             CardanoNetwork::DevNet(123),
             CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
@@ -523,14 +515,16 @@ mod tests {
         std::fs::create_dir(cardano_db.get_dir().join("whatever")).unwrap();
 
         let db_directory = cardano_db.get_dir().to_path_buf();
-        let mut snapshotter = CompressedArchiveSnapshotter::new(
+        let snapshotter = CompressedArchiveSnapshotter::new(
             db_directory.clone(),
             db_directory.parent().unwrap().join("snapshot_dest"),
-            FileArchiverCompressionAlgorithm::Gzip,
+            CompressionAlgorithm::Gzip,
+            Arc::new(FileArchiver::new_for_test(
+                cardano_db.get_dir().join("verification"),
+            )),
             TestLogger::stdout(),
         )
         .unwrap();
-        snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
         let builder = AncillaryArtifactBuilder::new(
             vec![Arc::new(MockAncillaryFileUploader::new())],
@@ -625,7 +619,7 @@ mod tests {
 
         let builder = AncillaryArtifactBuilder::new(
             vec![Arc::new(MockAncillaryFileUploader::new())],
-            Arc::new(DumbSnapshotter::new()),
+            Arc::new(DumbSnapshotter::default()),
             CardanoNetwork::DevNet(123),
             CompressionAlgorithm::Gzip,
             TestLogger::stdout(),

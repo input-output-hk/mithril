@@ -2,8 +2,6 @@ use semver::Version;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use mithril_common::entities::CompressionAlgorithm;
-
 use crate::artifact_builder::{
     AncillaryArtifactBuilder, AncillaryFileUploader, CardanoDatabaseArtifactBuilder,
     CardanoImmutableFilesFullArtifactBuilder, CardanoStakeDistributionArtifactBuilder,
@@ -21,7 +19,7 @@ use crate::services::{
     CompressedArchiveSnapshotter, DumbSnapshotter, MithrilSignedEntityService, SignedEntityService,
     SignedEntityServiceArtifactsDependencies, Snapshotter,
 };
-use crate::tools::file_archiver::FileArchiverCompressionAlgorithm;
+use crate::tools::file_archiver::FileArchiver;
 use crate::{
     DumbUploader, ExecutionEnvironment, FileUploader, LocalSnapshotUploader, SnapshotUploaderType,
 };
@@ -97,15 +95,23 @@ impl DependenciesBuilder {
         Ok(self.signed_entity_service.as_ref().cloned().unwrap())
     }
 
-    fn build_file_archiver_compression_algorithm(&mut self) -> FileArchiverCompressionAlgorithm {
-        match self.configuration.snapshot_compression_algorithm {
-            CompressionAlgorithm::Gzip => FileArchiverCompressionAlgorithm::Gzip,
-            CompressionAlgorithm::Zstandard => self
-                .configuration
-                .zstandard_parameters
-                .unwrap_or_default()
-                .into(),
+    async fn build_file_archiver(&mut self) -> Result<Arc<FileArchiver>> {
+        let archive_verification_directory = std::env::temp_dir();
+        let file_archiver = Arc::new(FileArchiver::new(
+            self.configuration.zstandard_parameters.unwrap_or_default(),
+            archive_verification_directory,
+            self.root_logger(),
+        ));
+
+        Ok(file_archiver)
+    }
+
+    async fn get_file_archiver(&mut self) -> Result<Arc<FileArchiver>> {
+        if self.file_archiver.is_none() {
+            self.file_archiver = Some(self.build_file_archiver().await?);
         }
+
+        Ok(self.file_archiver.as_ref().cloned().unwrap())
     }
 
     async fn build_snapshotter(&mut self) -> Result<Arc<dyn Snapshotter>> {
@@ -116,16 +122,17 @@ impl DependenciesBuilder {
                     .get_snapshot_dir()?
                     .join("pending_snapshot");
 
-                let algorithm = self.build_file_archiver_compression_algorithm();
-
                 Arc::new(CompressedArchiveSnapshotter::new(
                     self.configuration.db_directory.clone(),
                     ongoing_snapshot_directory,
-                    algorithm,
+                    self.configuration.snapshot_compression_algorithm,
+                    self.get_file_archiver().await?,
                     self.root_logger(),
                 )?)
             }
-            _ => Arc::new(DumbSnapshotter::new()),
+            _ => Arc::new(DumbSnapshotter::new(
+                self.configuration.snapshot_compression_algorithm,
+            )),
         };
 
         Ok(snapshotter)
@@ -135,25 +142,9 @@ impl DependenciesBuilder {
         &mut self,
         digests_path: PathBuf,
     ) -> Result<DigestSnapshotter> {
-        let snapshotter: Arc<dyn Snapshotter> = match self.configuration.environment {
-            ExecutionEnvironment::Production => {
-                let ongoing_snapshot_directory =
-                    self.configuration.get_snapshot_dir()?.join("digests");
-
-                let algorithm = self.build_file_archiver_compression_algorithm();
-
-                Arc::new(CompressedArchiveSnapshotter::new(
-                    digests_path,
-                    ongoing_snapshot_directory,
-                    algorithm,
-                    self.root_logger(),
-                )?)
-            }
-            _ => Arc::new(DumbSnapshotter::new()),
-        };
-
         Ok(DigestSnapshotter {
-            snapshotter,
+            file_archiver: self.get_file_archiver().await?,
+            target_location: digests_path,
             compression_algorithm: self.configuration.snapshot_compression_algorithm,
         })
     }

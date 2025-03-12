@@ -48,7 +48,7 @@ use crate::{
         ProverService, SignedEntityService, SignerSynchronizer, Snapshotter,
         StakeDistributionService, UpkeepService,
     },
-    tools::GenesisToolsDependency,
+    tools::{file_archiver::FileArchiver, GenesisToolsDependency},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, Configuration, DependencyContainer,
     ImmutableFileDigestMapper, MetricsService, MithrilSignerRegistrationMaster, MultiSigner,
     SignerRegisterer, SignerRegistrationRoundOpener, SignerRegistrationVerifier,
@@ -139,6 +139,9 @@ pub struct DependenciesBuilder {
 
     /// Digester service.
     pub digester: Option<Arc<dyn ImmutableDigester>>,
+
+    /// File archiver service.
+    pub file_archiver: Option<Arc<FileArchiver>>,
 
     /// Snapshotter service.
     pub snapshotter: Option<Arc<dyn Snapshotter>>,
@@ -266,6 +269,7 @@ impl DependenciesBuilder {
             immutable_cache_provider: None,
             immutable_file_digest_mapper: None,
             digester: None,
+            file_archiver: None,
             snapshotter: None,
             certificate_verifier: None,
             genesis_verifier: None,
