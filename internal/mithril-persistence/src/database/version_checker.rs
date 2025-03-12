@@ -3,8 +3,7 @@ use chrono::Utc;
 use slog::{debug, error, info, Logger};
 use std::{cmp::Ordering, collections::BTreeSet};
 
-use mithril_common::logging::LoggerExtensions;
-use mithril_common::StdResult;
+use mithril_common::{logging::LoggerExtensions, StdError, StdResult};
 
 use super::{
     ApplicationNodeType, DatabaseVersion, DbVersion, GetDatabaseVersionQuery,
@@ -155,6 +154,10 @@ insert into db_version (application_type, version, updated_at) values ('{applica
         Ok(())
     }
 
+    /// Checks if the database version meets the minimum required version to apply a squashed migration.
+    /// If the database version 0 or if the migration doesn't specify a fallback distribution version, the check passes.
+    /// For migrations with a fallback distribution version, the check passes if the database version is exactly
+    /// one less than the migration version (i.e., there's no gap between them).
     fn check_minimum_required_version(
         &self,
         db_version: DbVersion,
@@ -167,28 +170,39 @@ insert into db_version (application_type, version, updated_at) values ('{applica
         if let Some(fallback_distribution_version) = &migration.fallback_distribution_version {
             let min_required_version = migration.version - 1;
             if db_version < min_required_version {
-                return Err(anyhow!(
-                    r#"
-                        Minimum required database version is not met to apply migration '{}'.
-                        Please migrate your {} node database with the minimum node version compatible available in the distribution: '{}'.
-
-                        First, download the required node version in your current directory by running the following command:
-                        curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-{} -d {} -p $(pwd)
-
-                        Then run the database migrate command:
-                        mithril-{} database migrate --stores-directory /path/to/stores-directory
-                    "#,
+                return Err(self.generate_fallback_migration_error(
                     migration.version,
-                    self.application_type.to_string(),
                     fallback_distribution_version,
-                    self.application_type.to_string(),
-                    fallback_distribution_version,
-                    self.application_type.to_string()
                 ));
             }
         }
 
         Ok(())
+    }
+
+    fn generate_fallback_migration_error(
+        &self,
+        migration_version: i64,
+        fallback_distribution_version: &str,
+    ) -> StdError {
+        anyhow!(
+            r#"
+                Minimum required database version is not met to apply migration '{}'.
+                Please migrate your {} node database with the minimum node version compatible available in the distribution: '{}'.
+
+                First, download the required node version in your current directory by running the following command:
+                curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-{} -d {} -p $(pwd)
+
+                Then run the database migrate command:
+                mithril-{} database migrate --stores-directory /path/to/stores-directory
+            "#,
+            migration_version,
+            self.application_type.to_string(),
+            fallback_distribution_version,
+            self.application_type.to_string(),
+            fallback_distribution_version,
+            self.application_type.to_string()
+        )
     }
 }
 
@@ -253,11 +267,14 @@ impl Eq for SqlMigration {}
 mod tests {
     use anyhow::Context;
     use mithril_common::test_utils::TempDir;
-    use mithril_common::StdResult;
-    use sqlite::Connection;
+    use mithril_common::{current_function, StdResult};
+    use sqlite::{Connection, ConnectionThreadSafe};
     use std::path::PathBuf;
 
     use super::*;
+
+    const CREATE_TABLE_SQL_REQUEST: &str = "create table whatever (thing_id integer); insert into whatever (thing_id) values (1), (2), (3), (4);";
+    const ALTER_TABLE_SQL_REQUEST: &str = "alter table whatever add column thing_content text; update whatever set thing_content = 'some content'";
 
     fn discard_logger() -> Logger {
         Logger::root(slog::Discard, slog::o!())
@@ -298,15 +315,18 @@ mod tests {
         column_count
     }
 
-    #[test]
-    fn test_upgrade_with_migration() {
-        let (_filepath, connection) =
-            create_sqlite_file("test_upgrade_with_migration.sqlite3").unwrap();
-        let mut db_checker = DatabaseVersionChecker::new(
+    fn create_db_checker(connection: &ConnectionThreadSafe) -> DatabaseVersionChecker {
+        DatabaseVersionChecker::new(
             discard_logger(),
             ApplicationNodeType::Aggregator,
-            &connection,
-        );
+            connection,
+        )
+    }
+
+    #[test]
+    fn test_upgrade_with_migration() {
+        let (_filepath, connection) = create_sqlite_file(current_function!()).unwrap();
+        let mut db_checker = create_db_checker(&connection);
 
         db_checker.apply().unwrap();
         assert_eq!(0, get_table_whatever_column_count(&connection));
@@ -364,13 +384,8 @@ mod tests {
 
     #[test]
     fn test_upgrade_with_migration_with_a_version_gap() {
-        let (_filepath, connection) =
-            create_sqlite_file("test_upgrade_with_migration_with_a_version_gap.sqlite3").unwrap();
-        let mut db_checker = DatabaseVersionChecker::new(
-            discard_logger(),
-            ApplicationNodeType::Aggregator,
-            &connection,
-        );
+        let (_filepath, connection) = create_sqlite_file(current_function!()).unwrap();
+        let mut db_checker = create_db_checker(&connection);
 
         let alterations = "create table whatever (thing_id integer); insert into whatever (thing_id) values (1), (2), (3), (4);";
         let migration = SqlMigration {
@@ -397,12 +412,8 @@ mod tests {
 
     #[test]
     fn starting_with_migration() {
-        let (_filepath, connection) = create_sqlite_file("starting_with_migration").unwrap();
-        let mut db_checker = DatabaseVersionChecker::new(
-            discard_logger(),
-            ApplicationNodeType::Aggregator,
-            &connection,
-        );
+        let (_filepath, connection) = create_sqlite_file(current_function!()).unwrap();
+        let mut db_checker = create_db_checker(&connection);
 
         let alterations = "create table whatever (thing_id integer); insert into whatever (thing_id) values (1), (2), (3), (4);";
         let migration = SqlMigration {
@@ -421,12 +432,8 @@ mod tests {
     /// * previous migrations are ok and the database version is updated
     /// * further migrations are not played.
     fn test_failing_migration() {
-        let (_filepath, connection) = create_sqlite_file("test_failing_migration").unwrap();
-        let mut db_checker = DatabaseVersionChecker::new(
-            discard_logger(),
-            ApplicationNodeType::Aggregator,
-            &connection,
-        );
+        let (_filepath, connection) = create_sqlite_file(current_function!()).unwrap();
+        let mut db_checker = create_db_checker(&connection);
         // Table whatever does not exist, this should fail with error.
         let alterations = "create table whatever (thing_id integer); insert into whatever (thing_id) values (1), (2), (3), (4);";
         let migration = SqlMigration {
@@ -455,16 +462,11 @@ mod tests {
 
     #[test]
     fn test_fail_downgrading() {
-        let (_filepath, connection) = create_sqlite_file("test_fail_downgrading").unwrap();
-        let mut db_checker = DatabaseVersionChecker::new(
-            discard_logger(),
-            ApplicationNodeType::Aggregator,
-            &connection,
-        );
-        let alterations = "create table whatever (thing_id integer); insert into whatever (thing_id) values (1), (2), (3), (4);";
+        let (_filepath, connection) = create_sqlite_file(current_function!()).unwrap();
+        let mut db_checker = create_db_checker(&connection);
         let migration = SqlMigration {
             version: 1,
-            alterations: alterations.to_string(),
+            alterations: CREATE_TABLE_SQL_REQUEST.to_string(),
             fallback_distribution_version: None,
         };
         db_checker.add_migration(migration);
@@ -472,11 +474,7 @@ mod tests {
         check_database_version(&connection, 1);
 
         // re instantiate a new checker with no migration registered (version 0).
-        let db_checker = DatabaseVersionChecker::new(
-            discard_logger(),
-            ApplicationNodeType::Aggregator,
-            &connection,
-        );
+        let db_checker = create_db_checker(&connection);
         assert!(
             db_checker.apply().is_err(),
             "using an old version with an up to date database should fail"
@@ -486,17 +484,10 @@ mod tests {
 
     #[test]
     fn check_minimum_required_version_does_not_fail_when_no_fallback_distribution_version() {
-        let (_filepath, connection) = create_sqlite_file(
-            "check_minimum_required_version_does_not_fail_when_no_fallback_distribution_version",
-        )
-        .unwrap();
-        let db_checker = DatabaseVersionChecker::new(
-            discard_logger(),
-            ApplicationNodeType::Aggregator,
-            &connection,
-        );
+        let (_filepath, connection) = create_sqlite_file(current_function!()).unwrap();
+        let db_checker = create_db_checker(&connection);
 
-        let alterations = "create table whatever (thing_id integer); insert into whatever (thing_id) values (1), (2), (3), (4);";
+        let alterations = CREATE_TABLE_SQL_REQUEST;
         let migration = SqlMigration {
             version: 3,
             alterations: alterations.to_string(),
@@ -513,17 +504,10 @@ mod tests {
     #[test]
     fn check_minimum_required_version_does_not_fail_when_fallback_distribution_version_with_fresh_database(
     ) {
-        let (_filepath, connection) = create_sqlite_file(
-            "check_minimum_required_version_does_not_fail_when_fallback_distribution_version_with_fresh_database",
-        )
-        .unwrap();
-        let db_checker = DatabaseVersionChecker::new(
-            discard_logger(),
-            ApplicationNodeType::Aggregator,
-            &connection,
-        );
+        let (_filepath, connection) = create_sqlite_file(current_function!()).unwrap();
+        let db_checker = create_db_checker(&connection);
 
-        let alterations = "create table whatever (thing_id integer); insert into whatever (thing_id) values (1), (2), (3), (4);";
+        let alterations = CREATE_TABLE_SQL_REQUEST;
         let migration = SqlMigration {
             version: 2,
             alterations: alterations.to_string(),
@@ -538,20 +522,12 @@ mod tests {
     #[test]
     fn check_minimum_required_version_does_not_fail_when_no_gap_between_db_version_and_migration_version(
     ) {
-        let (_filepath, connection) = create_sqlite_file(
-            "check_minimum_required_version_does_not_fail_when_no_gap_between_db_version_and_migration_version",
-        )
-        .unwrap();
-        let db_checker = DatabaseVersionChecker::new(
-            discard_logger(),
-            ApplicationNodeType::Aggregator,
-            &connection,
-        );
+        let (_filepath, connection) = create_sqlite_file(current_function!()).unwrap();
+        let db_checker = create_db_checker(&connection);
 
-        let alterations = "alter table whatever add column thing_content text; update whatever set thing_content = 'some content'";
         let migration = SqlMigration {
             version: 2,
-            alterations: alterations.to_string(),
+            alterations: CREATE_TABLE_SQL_REQUEST.to_string(),
             fallback_distribution_version: Some("2511.0".to_string()),
         };
 
@@ -562,20 +538,16 @@ mod tests {
 
     #[test]
     fn check_minimum_required_version_fails_when_gap_between_db_version_and_migration_version() {
-        let (_filepath, connection) = create_sqlite_file(
-            "check_minimum_required_version_fails_when_gap_between_db_version_and_migration_version",
-        )
-        .unwrap();
+        let (_filepath, connection) = create_sqlite_file(current_function!()).unwrap();
         let db_checker = DatabaseVersionChecker::new(
             discard_logger(),
             ApplicationNodeType::Aggregator,
             &connection,
         );
 
-        let alterations = "alter table whatever add column thing_content text; update whatever set thing_content = 'some content'";
         let migration = SqlMigration {
             version: 3,
-            alterations: alterations.to_string(),
+            alterations: CREATE_TABLE_SQL_REQUEST.to_string(),
             fallback_distribution_version: Some("2511.0".to_string()),
         };
 
@@ -588,28 +560,25 @@ mod tests {
 
     #[test]
     fn apply_fails_when_trying_to_apply_squashed_migration_on_old_database() {
-        let (_filepath, connection) =
-            create_sqlite_file("apply_fails_with_squashed_migration").unwrap();
+        let (_filepath, connection) = create_sqlite_file(current_function!()).unwrap();
         let mut db_checker = DatabaseVersionChecker::new(
             discard_logger(),
             ApplicationNodeType::Aggregator,
             &connection,
         );
 
-        let alterations = "create table whatever (thing_id integer); insert into whatever (thing_id) values (1), (2), (3), (4);";
         let migration = SqlMigration {
             version: 1,
-            alterations: alterations.to_string(),
+            alterations: CREATE_TABLE_SQL_REQUEST.to_string(),
             fallback_distribution_version: None,
         };
         db_checker.add_migration(migration);
         db_checker.apply().unwrap();
         check_database_version(&connection, 1);
 
-        let alterations = "alter table whatever add column thing_content text; update whatever set thing_content = 'some content'";
         let squashed_migration = SqlMigration {
             version: 3,
-            alterations: alterations.to_string(),
+            alterations: ALTER_TABLE_SQL_REQUEST.to_string(),
             fallback_distribution_version: Some("2511.0".to_string()),
         };
         db_checker.add_migration(squashed_migration);
