@@ -24,6 +24,9 @@ use slog::{info, Logger};
 pub trait UpkeepService: Send + Sync {
     /// Run the upkeep service.
     async fn run(&self, epoch: Epoch) -> StdResult<()>;
+
+    /// Vacuum database.
+    async fn vacuum(&self) -> StdResult<()>;
 }
 
 /// Define the task responsible for pruning a datasource below a certain epoch threshold.
@@ -124,6 +127,34 @@ impl AggregatorUpkeepService {
             .await
             .with_context(|| "Database Upkeep thread crashed")?
     }
+
+    async fn vacuum_main_database(&self) -> StdResult<()> {
+        if self.signed_entity_type_lock.has_locked_entities().await {
+            info!(
+                self.logger,
+                "Some entities are locked - Skipping main database vacuum"
+            );
+            return Ok(());
+        }
+
+        let main_db_connection = self.main_db_connection.clone();
+        let db_upkeep_logger = self.logger.clone();
+
+        // Run the database upkeep tasks in another thread to avoid blocking the tokio runtime
+        let db_upkeep_thread = tokio::task::spawn_blocking(move || -> StdResult<()> {
+            info!(db_upkeep_logger, "Vacuum main database");
+            SqliteCleaner::new(&main_db_connection)
+                .with_logger(db_upkeep_logger.clone())
+                .with_tasks(&[SqliteCleaningTask::Vacuum])
+                .run()?;
+
+            Ok(())
+        });
+
+        db_upkeep_thread
+            .await
+            .with_context(|| "Database Upkeep thread crashed")?
+    }
 }
 
 #[async_trait]
@@ -142,12 +173,23 @@ impl UpkeepService for AggregatorUpkeepService {
         info!(self.logger, "Upkeep finished");
         Ok(())
     }
+
+    async fn vacuum(&self) -> StdResult<()> {
+        info!(self.logger, "Start database vacuum");
+
+        self.vacuum_main_database()
+            .await
+            .with_context(|| "Vacuuming main database failed")?;
+
+        info!(self.logger, "Vacuum finished");
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::SignedEntityTypeDiscriminants;
-    use mithril_common::test_utils::TempDir;
+    use mithril_common::{entities::SignedEntityTypeDiscriminants, temp_dir_create};
     use mockall::predicate::eq;
 
     use crate::database::test_helper::{
@@ -184,7 +226,7 @@ mod tests {
     #[tokio::test]
     async fn test_cleanup_database() {
         let (main_db_path, ctx_db_path, event_store_db_path, log_path) = {
-            let db_dir = TempDir::create("aggregator_upkeep", "test_cleanup_database");
+            let db_dir = temp_dir_create!();
             (
                 db_dir.join("main.db"),
                 db_dir.join("cardano_tx.db"),
@@ -231,11 +273,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_doesnt_cleanup_db_if_any_entity_is_locked() {
-        let log_path = TempDir::create(
-            "aggregator_upkeep",
-            "test_doesnt_cleanup_db_if_any_entity_is_locked",
-        )
-        .join("upkeep.log");
+        let log_path = temp_dir_create!().join("upkeep.log");
 
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
         signed_entity_type_lock
@@ -281,5 +319,60 @@ mod tests {
         };
 
         service.run(Epoch(14)).await.expect("Upkeep service failed");
+    }
+
+    #[tokio::test]
+    async fn test_doesnt_vacuum_db_if_any_entity_is_locked() {
+        let log_path = temp_dir_create!().join("vacuum.log");
+
+        let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
+        signed_entity_type_lock
+            .lock(SignedEntityTypeDiscriminants::CardanoTransactions)
+            .await;
+
+        // Separate block to force log flushing by dropping the service that owns the logger
+        {
+            let service = AggregatorUpkeepService {
+                signed_entity_type_lock: signed_entity_type_lock.clone(),
+                logger: TestLogger::file(&log_path),
+                ..default_upkeep_service()
+            };
+            service.vacuum().await.expect("Vacuum failed");
+        }
+
+        let logs = std::fs::read_to_string(&log_path).unwrap();
+
+        assert_eq!(
+            logs.matches(SqliteCleaningTask::Vacuum.log_message())
+                .count(),
+            0,
+        );
+    }
+
+    #[tokio::test]
+    async fn test_vacuum_database() {
+        let log_path = temp_dir_create!().join("vacuum.log");
+
+        let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
+        signed_entity_type_lock
+            .lock(SignedEntityTypeDiscriminants::CardanoTransactions)
+            .await;
+
+        // Separate block to force log flushing by dropping the service that owns the logger
+        {
+            let service = AggregatorUpkeepService {
+                logger: TestLogger::file(&log_path),
+                ..default_upkeep_service()
+            };
+            service.vacuum().await.expect("Vacuum failed");
+        }
+
+        let logs = std::fs::read_to_string(&log_path).unwrap();
+
+        assert_eq!(
+            logs.matches(SqliteCleaningTask::Vacuum.log_message())
+                .count(),
+            1,
+        );
     }
 }
