@@ -34,6 +34,19 @@ pub struct FileArchive {
 }
 
 impl FileArchive {
+    /// Create a new instance of FileArchive.
+    pub fn new(
+        filepath: PathBuf,
+        filesize: u64,
+        compression_algorithm: CompressionAlgorithm,
+    ) -> Self {
+        Self {
+            filepath,
+            filesize,
+            compression_algorithm,
+        }
+    }
+
     /// Get the path of the archive.
     pub fn get_file_path(&self) -> &Path {
         &self.filepath

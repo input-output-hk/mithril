@@ -15,7 +15,7 @@ pub(crate) mod test_tools {
 
     use mithril_common::test_utils::TempDir;
 
-    use crate::services::OngoingSnapshot;
+    use crate::tools::file_archiver::FileArchive;
 
     pub fn get_test_directory(dir_name: &str) -> PathBuf {
         TempDir::create("snapshotter", dir_name)
@@ -33,7 +33,7 @@ pub(crate) mod test_tools {
         dir_path
     }
 
-    pub fn unpack_gz_decoder(test_dir: PathBuf, snapshot: OngoingSnapshot) -> PathBuf {
+    pub fn unpack_gz_decoder(test_dir: PathBuf, snapshot: FileArchive) -> PathBuf {
         let file_tar_gz = File::open(snapshot.get_file_path()).unwrap();
         let file_tar_gz_decoder = GzDecoder::new(file_tar_gz);
         let mut archive = Archive::new(file_tar_gz_decoder);

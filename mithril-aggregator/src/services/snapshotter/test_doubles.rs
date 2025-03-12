@@ -6,11 +6,12 @@ use std::sync::RwLock;
 use mithril_common::entities::CompressionAlgorithm;
 use mithril_common::StdResult;
 
-use crate::services::{OngoingSnapshot, Snapshotter};
+use crate::services::Snapshotter;
+use crate::tools::file_archiver::FileArchive;
 
 /// Snapshotter that does nothing. It is mainly used for test purposes.
 pub struct DumbSnapshotter {
-    last_snapshot: RwLock<Option<OngoingSnapshot>>,
+    last_snapshot: RwLock<Option<FileArchive>>,
     compression_algorithm: CompressionAlgorithm,
 }
 
@@ -26,7 +27,7 @@ impl DumbSnapshotter {
     }
 
     /// Return the last fake snapshot produced.
-    pub fn get_last_snapshot(&self) -> StdResult<Option<OngoingSnapshot>> {
+    pub fn get_last_snapshot(&self) -> StdResult<Option<FileArchive>> {
         let value = self.last_snapshot.read().unwrap().as_ref().cloned();
 
         Ok(value)
@@ -43,15 +44,16 @@ impl Default for DumbSnapshotter {
 }
 
 impl Snapshotter for DumbSnapshotter {
-    fn snapshot_all(&self, archive_name_without_extension: &str) -> StdResult<OngoingSnapshot> {
+    fn snapshot_all(&self, archive_name_without_extension: &str) -> StdResult<FileArchive> {
         let mut value = self.last_snapshot.write().unwrap();
-        let snapshot = OngoingSnapshot {
-            filepath: PathBuf::from(format!(
+        let snapshot = FileArchive::new(
+            PathBuf::from(format!(
                 "{archive_name_without_extension}.{}",
                 self.compression_algorithm.tar_file_extension()
             )),
-            filesize: 0,
-        };
+            0,
+            self.compression_algorithm,
+        );
         *value = Some(snapshot.clone());
 
         Ok(snapshot)
@@ -61,7 +63,7 @@ impl Snapshotter for DumbSnapshotter {
         &self,
         archive_name_without_extension: &str,
         _files: Vec<PathBuf>,
-    ) -> StdResult<OngoingSnapshot> {
+    ) -> StdResult<FileArchive> {
         self.snapshot_all(archive_name_without_extension)
     }
 }
@@ -92,7 +94,7 @@ impl FakeSnapshotter {
 }
 
 impl Snapshotter for FakeSnapshotter {
-    fn snapshot_all(&self, archive_name_without_extension: &str) -> StdResult<OngoingSnapshot> {
+    fn snapshot_all(&self, archive_name_without_extension: &str) -> StdResult<FileArchive> {
         let fake_archive_path = self.work_dir.join(format!(
             "{archive_name_without_extension}.{}",
             self.compression_algorithm.tar_file_extension()
@@ -102,17 +104,18 @@ impl Snapshotter for FakeSnapshotter {
         }
         File::create(&fake_archive_path).unwrap();
 
-        Ok(OngoingSnapshot {
-            filepath: fake_archive_path,
-            filesize: 0,
-        })
+        Ok(FileArchive::new(
+            fake_archive_path,
+            0,
+            self.compression_algorithm,
+        ))
     }
 
     fn snapshot_subset(
         &self,
         archive_name_without_extension: &str,
         _files: Vec<PathBuf>,
-    ) -> StdResult<OngoingSnapshot> {
+    ) -> StdResult<FileArchive> {
         self.snapshot_all(archive_name_without_extension)
     }
 }
@@ -133,13 +136,13 @@ mod tests {
             let snapshot = snapshotter.snapshot_all("archive").unwrap();
 
             assert_eq!(PathBuf::from("archive.tar.gz"), *snapshot.get_file_path());
-            assert_eq!(0, *snapshot.get_file_size());
+            assert_eq!(0, snapshot.get_file_size());
 
             let snapshot = snapshotter
                 .snapshot_subset("archive", vec![PathBuf::from("whatever")])
                 .unwrap();
             assert_eq!(PathBuf::from("archive.tar.gz"), *snapshot.get_file_path());
-            assert_eq!(0, *snapshot.get_file_size());
+            assert_eq!(0, snapshot.get_file_size());
         }
 
         #[test]
