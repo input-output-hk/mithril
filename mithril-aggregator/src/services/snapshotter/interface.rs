@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use mithril_common::entities::CompressionAlgorithm;
+use mithril_common::entities::{CompressionAlgorithm, ImmutableFileNumber};
 use mithril_common::StdResult;
 
 use crate::tools::file_archiver::FileArchive;
@@ -16,6 +16,13 @@ pub trait Snapshotter: Sync + Send {
         &self,
         archive_name_without_extension: &str,
         files: Vec<PathBuf>,
+    ) -> StdResult<FileArchive>;
+
+    /// Create a new snapshot of an immutable trio.
+    fn snapshot_immutable_trio(
+        &self,
+        immutable_file_number: ImmutableFileNumber,
+        archive_name_without_extension: &str,
     ) -> StdResult<FileArchive>;
 
     /// Return the compression algorithm used by the snapshotter.

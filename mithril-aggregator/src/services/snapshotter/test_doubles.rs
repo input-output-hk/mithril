@@ -3,7 +3,7 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 
-use mithril_common::entities::CompressionAlgorithm;
+use mithril_common::entities::{CompressionAlgorithm, ImmutableFileNumber};
 use mithril_common::StdResult;
 
 use crate::services::Snapshotter;
@@ -67,6 +67,14 @@ impl Snapshotter for DumbSnapshotter {
         self.snapshot_all(archive_name_without_extension)
     }
 
+    fn snapshot_immutable_trio(
+        &self,
+        _immutable_file_number: ImmutableFileNumber,
+        archive_name_without_extension: &str,
+    ) -> StdResult<FileArchive> {
+        self.snapshot_all(archive_name_without_extension)
+    }
+
     fn compression_algorithm(&self) -> CompressionAlgorithm {
         self.compression_algorithm
     }
@@ -123,6 +131,14 @@ impl Snapshotter for FakeSnapshotter {
         self.snapshot_all(archive_name_without_extension)
     }
 
+    fn snapshot_immutable_trio(
+        &self,
+        _immutable_file_number: ImmutableFileNumber,
+        archive_name_without_extension: &str,
+    ) -> StdResult<FileArchive> {
+        self.snapshot_all(archive_name_without_extension)
+    }
+
     fn compression_algorithm(&self) -> CompressionAlgorithm {
         self.compression_algorithm
     }
@@ -172,25 +188,39 @@ mod tests {
                 )
                 .is_none());
 
-            let snapshot = snapshotter
-                .snapshot_all("whatever")
-                .expect("Dumb snapshotter::snapshot should not fail.");
-            assert_eq!(
-                Some(snapshot),
-                snapshotter.get_last_snapshot().expect(
-                    "Dumb snapshotter::get_last_snapshot should not fail when some last snapshot."
-                )
-            );
-
-            let snapshot = snapshotter
-                .snapshot_subset("another_whatever", vec![PathBuf::from("subdir")])
-                .expect("Dumb snapshotter::snapshot should not fail.");
-            assert_eq!(
-                Some(snapshot),
-                snapshotter.get_last_snapshot().expect(
-                    "Dumb snapshotter::get_last_snapshot should not fail when some last snapshot."
-                )
-            );
+            {
+                let full_snapshot = snapshotter
+                    .snapshot_all("whatever")
+                    .expect("Dumb snapshotter::snapshot_all should not fail.");
+                assert_eq!(
+                    Some(full_snapshot),
+                    snapshotter.get_last_snapshot().expect(
+                        "Dumb snapshotter::get_last_snapshot should not fail when some last snapshot."
+                    )
+                );
+            }
+            {
+                let immutable_snapshot = snapshotter
+                    .snapshot_immutable_trio(4, "whatever")
+                    .expect("Dumb snapshotter::snapshot_immutable_trio should not fail.");
+                assert_eq!(
+                    Some(immutable_snapshot),
+                    snapshotter.get_last_snapshot().expect(
+                        "Dumb snapshotter::get_last_snapshot should not fail when some last snapshot."
+                    )
+                );
+            }
+            {
+                let subset_snapshot = snapshotter
+                    .snapshot_subset("another_whatever", vec![PathBuf::from("subdir")])
+                    .expect("Dumb snapshotter::snapshot_subset should not fail.");
+                assert_eq!(
+                    Some(subset_snapshot),
+                    snapshotter.get_last_snapshot().expect(
+                        "Dumb snapshotter::get_last_snapshot should not fail when some last snapshot."
+                    )
+                );
+            }
         }
     }
 
@@ -208,8 +238,8 @@ mod tests {
         }
 
         #[test]
-        fn snapshot_all_create_empty_file_located_at_work_dir_joined_filepath() {
-            let test_dir = get_test_directory("fake_snapshotter_snapshot_all_create_empty_file_located_at_work_dir_joined_filepath");
+        fn test_fake_snasphotter() {
+            let test_dir = get_test_directory("test_fake_snasphotter");
             let fake_snapshotter = FakeSnapshotter::new(&test_dir)
                 .with_compression_algorithm(CompressionAlgorithm::Gzip);
 
@@ -218,34 +248,36 @@ mod tests {
                 "one_level_subdir/child",
                 "two_levels/subdir/child",
             ] {
-                let snapshot = fake_snapshotter.snapshot_all(filename).unwrap();
+                {
+                    let full_snapshot = fake_snapshotter.snapshot_all(filename).unwrap();
 
-                assert_eq!(
-                    snapshot.get_file_path(),
-                    &test_dir.join(filename).with_extension("tar.gz")
-                );
-                assert!(snapshot.get_file_path().is_file());
-            }
-        }
+                    assert_eq!(
+                        full_snapshot.get_file_path(),
+                        &test_dir.join(filename).with_extension("tar.gz")
+                    );
+                    assert!(full_snapshot.get_file_path().is_file());
+                }
+                {
+                    let immutable_snapshot = fake_snapshotter
+                        .snapshot_immutable_trio(5, filename)
+                        .unwrap();
 
-        #[test]
-        fn snapshot_subset_create_empty_file_located_at_work_dir_joined_filepath() {
-            let test_dir = get_test_directory("fake_snapshotter_snapshot_subset_create_empty_file_located_at_work_dir_joined_filepath");
-            let fake_snapshotter = FakeSnapshotter::new(&test_dir)
-                .with_compression_algorithm(CompressionAlgorithm::Zstandard);
+                    assert_eq!(
+                        immutable_snapshot.get_file_path(),
+                        &test_dir.join(filename).with_extension("tar.gz")
+                    );
+                    assert!(immutable_snapshot.get_file_path().is_file());
+                }
+                {
+                    let subset_snapshot =
+                        fake_snapshotter.snapshot_subset(filename, vec![]).unwrap();
 
-            for filename in [
-                "direct_child",
-                "one_level_subdir/child",
-                "two_levels/subdir/child",
-            ] {
-                let snapshot = fake_snapshotter.snapshot_subset(filename, vec![]).unwrap();
-
-                assert_eq!(
-                    snapshot.get_file_path(),
-                    &test_dir.join(filename).with_extension("tar.zst")
-                );
-                assert!(snapshot.get_file_path().is_file());
+                    assert_eq!(
+                        subset_snapshot.get_file_path(),
+                        &test_dir.join(filename).with_extension("tar.gz")
+                    );
+                    assert!(subset_snapshot.get_file_path().is_file());
+                }
             }
         }
     }
