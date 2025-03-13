@@ -48,6 +48,10 @@ impl Snapshotter for CompressedArchiveSnapshotter {
         let appender = AppenderEntries::new(entries, self.db_directory.clone())?;
         self.snapshot(archive_name_without_extension, appender)
     }
+
+    fn compression_algorithm(&self) -> CompressionAlgorithm {
+        self.compression_algorithm
+    }
 }
 
 impl CompressedArchiveSnapshotter {
@@ -114,6 +118,24 @@ mod tests {
     use crate::test_tools::TestLogger;
 
     use super::*;
+
+    #[test]
+    fn return_parametrized_compression_algorithm() {
+        let test_dir = get_test_directory("return_parametrized_compression_algorithm");
+        let snapshotter = CompressedArchiveSnapshotter::new(
+            test_dir.join("whatever"),
+            test_dir.join("ongoing_snapshot"),
+            CompressionAlgorithm::Zstandard,
+            Arc::new(FileArchiver::new_for_test(test_dir.join("verification"))),
+            TestLogger::stdout(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            CompressionAlgorithm::Zstandard,
+            snapshotter.compression_algorithm()
+        );
+    }
 
     #[test]
     fn should_create_directory_if_does_not_exist() {

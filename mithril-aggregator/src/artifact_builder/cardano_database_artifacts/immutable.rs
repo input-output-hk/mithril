@@ -129,7 +129,6 @@ pub struct ImmutableArtifactBuilder {
     immutables_storage_dir: PathBuf,
     uploaders: Vec<Arc<dyn ImmutableFilesUploader>>,
     snapshotter: Arc<dyn Snapshotter>,
-    compression_algorithm: CompressionAlgorithm,
     logger: Logger,
 }
 
@@ -138,7 +137,6 @@ impl ImmutableArtifactBuilder {
         immutables_storage_dir: PathBuf,
         uploaders: Vec<Arc<dyn ImmutableFilesUploader>>,
         snapshotter: Arc<dyn Snapshotter>,
-        compression_algorithm: CompressionAlgorithm,
         logger: Logger,
     ) -> StdResult<Self> {
         if uploaders.is_empty() {
@@ -160,7 +158,6 @@ impl ImmutableArtifactBuilder {
             immutables_storage_dir,
             uploaders,
             snapshotter,
-            compression_algorithm,
             logger: logger.new_with_component_name::<Self>(),
         })
     }
@@ -169,9 +166,11 @@ impl ImmutableArtifactBuilder {
         &self,
         up_to_immutable_file_number: ImmutableFileNumber,
     ) -> StdResult<Vec<ImmutablesLocation>> {
-        let archives_paths =
+        let (archives_paths, compression_algorithm) =
             self.immutable_archives_paths_creating_the_missing_ones(up_to_immutable_file_number)?;
-        let locations = self.upload_immutable_archives(&archives_paths).await?;
+        let locations = self
+            .upload_immutable_archives(&archives_paths, compression_algorithm)
+            .await?;
 
         Ok(locations)
     }
@@ -179,8 +178,10 @@ impl ImmutableArtifactBuilder {
     pub fn immutable_archives_paths_creating_the_missing_ones(
         &self,
         up_to_immutable_file_number: ImmutableFileNumber,
-    ) -> StdResult<Vec<PathBuf>> {
+    ) -> StdResult<(Vec<PathBuf>, CompressionAlgorithm)> {
         let mut archive_paths = vec![];
+        let compression_algorithm = self.snapshotter.compression_algorithm();
+
         for immutable_file_number in 1..=up_to_immutable_file_number {
             let files_to_archive = Self::immutable_trio_names(immutable_file_number)
                 .iter()
@@ -190,7 +191,7 @@ impl ImmutableArtifactBuilder {
             let archive_name_without_extension = format!("{immutable_file_number:05}");
             let archive_name = format!(
                 "{archive_name_without_extension}.{}",
-                self.compression_algorithm.tar_file_extension()
+                compression_algorithm.tar_file_extension()
             );
 
             if let Some(existing_archive) = self.retrieve_existing_snapshot_archive(&archive_name) {
@@ -213,17 +214,18 @@ impl ImmutableArtifactBuilder {
             }
         }
 
-        Ok(archive_paths)
+        Ok((archive_paths, compression_algorithm))
     }
 
     async fn upload_immutable_archives(
         &self,
         archive_paths: &[PathBuf],
+        compression_algorithm: CompressionAlgorithm,
     ) -> StdResult<Vec<ImmutablesLocation>> {
         let mut locations = Vec::new();
         for uploader in &self.uploaders {
             let result = uploader
-                .batch_upload(archive_paths, Some(self.compression_algorithm))
+                .batch_upload(archive_paths, Some(compression_algorithm))
                 .await;
             match result {
                 Ok(location) => {
@@ -386,7 +388,6 @@ mod tests {
             work_dir,
             vec![Arc::new(uploader)],
             Arc::new(snapshotter),
-            CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         )
         .unwrap();
@@ -415,7 +416,6 @@ mod tests {
             immutable_storage_dir.clone(),
             vec![Arc::new(DumbUploader::default())],
             Arc::new(DumbSnapshotter::default()),
-            CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         )
         .unwrap();
@@ -435,7 +435,6 @@ mod tests {
             immutable_storage_dir,
             vec![Arc::new(DumbUploader::default())],
             Arc::new(DumbSnapshotter::default()),
-            CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         )
         .unwrap();
@@ -471,12 +470,11 @@ mod tests {
                 work_dir.clone(),
                 vec![Arc::new(MockImmutableFilesUploader::new())],
                 Arc::new(snapshotter),
-                CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
 
-            let archive_paths = builder
+            let (archive_paths, _) = builder
                 .immutable_archives_paths_creating_the_missing_ones(2)
                 .unwrap();
 
@@ -514,7 +512,6 @@ mod tests {
                 work_dir,
                 vec![Arc::new(MockImmutableFilesUploader::new())],
                 Arc::new(snapshotter),
-                CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
@@ -549,7 +546,6 @@ mod tests {
                 work_dir,
                 vec![Arc::new(MockImmutableFilesUploader::new())],
                 Arc::new(snapshotter),
-                CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
@@ -582,7 +578,6 @@ mod tests {
                 work_dir,
                 vec![Arc::new(MockImmutableFilesUploader::new())],
                 Arc::new(snapshotter),
-                CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
@@ -601,7 +596,6 @@ mod tests {
                 work_dir.clone(),
                 vec![Arc::new(MockImmutableFilesUploader::new())],
                 Arc::new(MockSnapshotter::new()),
-                CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
@@ -641,12 +635,11 @@ mod tests {
                 work_dir.clone(),
                 vec![Arc::new(MockImmutableFilesUploader::new())],
                 Arc::new(snapshotter),
-                CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
 
-            let archive_paths = builder
+            let (archive_paths, _) = builder
                 .immutable_archives_paths_creating_the_missing_ones(3)
                 .unwrap();
 
@@ -668,6 +661,9 @@ mod tests {
             let work_dir =
                 get_builder_work_dir("return_all_archives_paths_even_if_all_archives_exist");
             let mut snapshotter = MockSnapshotter::new();
+            snapshotter
+                .expect_compression_algorithm()
+                .returning(|| CompressionAlgorithm::Gzip);
             snapshotter.expect_snapshot_subset().never();
 
             create_fake_file(&work_dir.join("00001.tar.gz"), "00001 content");
@@ -678,12 +674,11 @@ mod tests {
                 work_dir.clone(),
                 vec![Arc::new(MockImmutableFilesUploader::new())],
                 Arc::new(snapshotter),
-                CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
 
-            let archive_paths = builder
+            let (archive_paths, _) = builder
                 .immutable_archives_paths_creating_the_missing_ones(3)
                 .unwrap();
 
@@ -711,7 +706,6 @@ mod tests {
                 get_builder_work_dir("create_immutable_builder_should_error_when_no_uploader"),
                 vec![],
                 Arc::new(DumbSnapshotter::default()),
-                CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             );
 
@@ -736,16 +730,15 @@ mod tests {
                     get_builder_work_dir("upload_immutable_archives_should_log_upload_errors"),
                     vec![Arc::new(uploader)],
                     Arc::new(MockSnapshotter::new()),
-                    CompressionAlgorithm::Gzip,
                     TestLogger::file(&log_path),
                 )
                 .unwrap();
 
                 let _ = builder
-                    .upload_immutable_archives(&[
-                        PathBuf::from("01.tar.gz"),
-                        PathBuf::from("02.tar.gz"),
-                    ])
+                    .upload_immutable_archives(
+                        &[PathBuf::from("01.tar.gz"), PathBuf::from("02.tar.gz")],
+                        CompressionAlgorithm::Gzip,
+                    )
                     .await;
             }
 
@@ -762,16 +755,15 @@ mod tests {
                 get_builder_work_dir("upload_immutable_archives_should_error_when_no_location"),
                 uploaders,
                 Arc::new(MockSnapshotter::new()),
-                CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
 
             let result = builder
-                .upload_immutable_archives(&[
-                    PathBuf::from("01.tar.gz"),
-                    PathBuf::from("02.tar.gz"),
-                ])
+                .upload_immutable_archives(
+                    &[PathBuf::from("01.tar.gz"), PathBuf::from("02.tar.gz")],
+                    CompressionAlgorithm::Gzip,
+                )
                 .await;
 
             assert!(
@@ -798,16 +790,15 @@ mod tests {
                 ),
                 uploaders,
                 Arc::new(MockSnapshotter::new()),
-                CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
 
             let archive_paths = builder
-                .upload_immutable_archives(&[
-                    PathBuf::from("01.tar.gz"),
-                    PathBuf::from("02.tar.gz"),
-                ])
+                .upload_immutable_archives(
+                    &[PathBuf::from("01.tar.gz"), PathBuf::from("02.tar.gz")],
+                    CompressionAlgorithm::Gzip,
+                )
                 .await
                 .unwrap();
 
@@ -841,16 +832,15 @@ mod tests {
                 ),
                 uploaders,
                 Arc::new(MockSnapshotter::new()),
-                CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
 
             let archive_paths = builder
-                .upload_immutable_archives(&[
-                    PathBuf::from("01.tar.gz"),
-                    PathBuf::from("02.tar.gz"),
-                ])
+                .upload_immutable_archives(
+                    &[PathBuf::from("01.tar.gz"), PathBuf::from("02.tar.gz")],
+                    CompressionAlgorithm::Gzip,
+                )
                 .await
                 .unwrap();
 
@@ -1024,7 +1014,6 @@ mod tests {
             work_dir,
             vec![Arc::new(MockImmutableFilesUploader::new())],
             Arc::new(DumbSnapshotter::default()),
-            CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         )
         .unwrap();
@@ -1051,7 +1040,6 @@ mod tests {
             work_dir,
             vec![Arc::new(MockImmutableFilesUploader::new())],
             Arc::new(DumbSnapshotter::default()),
-            CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         )
         .unwrap();

@@ -88,7 +88,6 @@ pub struct AncillaryArtifactBuilder {
     uploaders: Vec<Arc<dyn AncillaryFileUploader>>,
     snapshotter: Arc<dyn Snapshotter>,
     cardano_network: CardanoNetwork,
-    compression_algorithm: CompressionAlgorithm,
     logger: Logger,
 }
 
@@ -98,7 +97,6 @@ impl AncillaryArtifactBuilder {
         uploaders: Vec<Arc<dyn AncillaryFileUploader>>,
         snapshotter: Arc<dyn Snapshotter>,
         cardano_network: CardanoNetwork,
-        compression_algorithm: CompressionAlgorithm,
         logger: Logger,
     ) -> StdResult<Self> {
         if uploaders.is_empty() {
@@ -111,17 +109,13 @@ impl AncillaryArtifactBuilder {
             uploaders,
             logger: logger.new_with_component_name::<Self>(),
             cardano_network,
-            compression_algorithm,
             snapshotter,
         })
     }
 
     pub async fn upload(&self, beacon: &CardanoDbBeacon) -> StdResult<Vec<AncillaryLocation>> {
         let snapshot = self.create_ancillary_archive(beacon)?;
-
-        let locations = self
-            .upload_ancillary_archive(snapshot.get_file_path())
-            .await?;
+        let locations = self.upload_ancillary_archive(snapshot).await?;
 
         Ok(locations)
     }
@@ -182,12 +176,16 @@ impl AncillaryArtifactBuilder {
     /// Uploads the ancillary archive and returns the locations of the uploaded files.
     async fn upload_ancillary_archive(
         &self,
-        archive_filepath: &Path,
+        file_archive: FileArchive,
     ) -> StdResult<Vec<AncillaryLocation>> {
+        let archive_filepath = file_archive.get_file_path();
         let mut locations = Vec::new();
         for uploader in &self.uploaders {
             let result = uploader
-                .upload(archive_filepath, Some(self.compression_algorithm))
+                .upload(
+                    archive_filepath,
+                    Some(file_archive.get_compression_algorithm()),
+                )
                 .await;
             match result {
                 Ok(location) => {
@@ -308,7 +306,6 @@ mod tests {
             vec![],
             Arc::new(DumbSnapshotter::default()),
             CardanoNetwork::DevNet(123),
-            CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         );
 
@@ -333,13 +330,16 @@ mod tests {
                 vec![Arc::new(uploader)],
                 Arc::new(DumbSnapshotter::default()),
                 CardanoNetwork::DevNet(123),
-                CompressionAlgorithm::Gzip,
                 TestLogger::file(&log_path),
             )
             .unwrap();
 
             let _ = builder
-                .upload_ancillary_archive(Path::new("archive_path"))
+                .upload_ancillary_archive(FileArchive::new(
+                    PathBuf::from("archive_path"),
+                    0,
+                    CompressionAlgorithm::default(),
+                ))
                 .await;
         }
 
@@ -355,13 +355,16 @@ mod tests {
             vec![Arc::new(uploader)],
             Arc::new(DumbSnapshotter::default()),
             CardanoNetwork::DevNet(123),
-            CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         )
         .unwrap();
 
         let result = builder
-            .upload_ancillary_archive(Path::new("archive_path"))
+            .upload_ancillary_archive(FileArchive::new(
+                PathBuf::from("archive_path"),
+                0,
+                CompressionAlgorithm::default(),
+            ))
             .await;
 
         assert!(
@@ -387,13 +390,16 @@ mod tests {
             uploaders,
             Arc::new(DumbSnapshotter::default()),
             CardanoNetwork::DevNet(123),
-            CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         )
         .unwrap();
 
         let locations = builder
-            .upload_ancillary_archive(Path::new("archive_path"))
+            .upload_ancillary_archive(FileArchive::new(
+                PathBuf::from("archive_path"),
+                0,
+                CompressionAlgorithm::Gzip,
+            ))
             .await
             .unwrap();
 
@@ -421,15 +427,18 @@ mod tests {
 
         let builder = AncillaryArtifactBuilder::new(
             uploaders,
-            Arc::new(DumbSnapshotter::default()),
+            Arc::new(DumbSnapshotter::new(CompressionAlgorithm::Gzip)),
             CardanoNetwork::DevNet(123),
-            CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         )
         .unwrap();
 
         let locations = builder
-            .upload_ancillary_archive(Path::new("archive_path"))
+            .upload_ancillary_archive(FileArchive::new(
+                PathBuf::from("archive_path"),
+                0,
+                CompressionAlgorithm::Gzip,
+            ))
             .await
             .unwrap();
 
@@ -454,27 +463,27 @@ mod tests {
             "ancillary",
             "upload_ancillary_archive_should_remove_archive_after_upload",
         );
-        let archive = create_fake_archive(&source_dir, "ancillary.tar.gz");
+        let archive_path = create_fake_archive(&source_dir, "ancillary.tar.gz");
+        let archive = FileArchive::new(archive_path.clone(), 0, CompressionAlgorithm::Gzip);
         let uploader = fake_uploader(
-            archive.as_os_str().to_str().unwrap(),
+            archive_path.as_os_str().to_str().unwrap(),
             "an_uri",
             Some(CompressionAlgorithm::Gzip),
         );
 
         let builder = AncillaryArtifactBuilder::new(
             vec![Arc::new(uploader)],
-            Arc::new(DumbSnapshotter::default()),
+            Arc::new(DumbSnapshotter::new(CompressionAlgorithm::Gzip)),
             CardanoNetwork::DevNet(123),
-            CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         )
         .unwrap();
 
-        assert!(archive.exists());
+        assert!(archive_path.exists());
 
-        builder.upload_ancillary_archive(&archive).await.unwrap();
+        builder.upload_ancillary_archive(archive).await.unwrap();
 
-        assert!(!archive.exists());
+        assert!(!archive_path.exists());
     }
 
     #[tokio::test]
@@ -483,26 +492,23 @@ mod tests {
             "ancillary",
             "upload_ancillary_archive_should_remove_archive_when_no_uploader_succeed",
         );
-        let archive = create_fake_archive(&source_dir, "ancillary.tar.gz");
+        let archive_path = create_fake_archive(&source_dir, "ancillary.tar.gz");
+        let archive = FileArchive::new(archive_path.clone(), 0, CompressionAlgorithm::Gzip);
         let uploader = fake_uploader_returning_error();
 
         let builder = AncillaryArtifactBuilder::new(
             vec![Arc::new(uploader)],
             Arc::new(DumbSnapshotter::default()),
             CardanoNetwork::DevNet(123),
-            CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         )
         .unwrap();
 
-        assert!(archive.exists());
+        assert!(archive_path.exists());
 
-        builder
-            .upload_ancillary_archive(&archive)
-            .await
-            .unwrap_err();
+        builder.upload_ancillary_archive(archive).await.unwrap_err();
 
-        assert!(!archive.exists());
+        assert!(!archive_path.exists());
     }
 
     #[tokio::test]
@@ -531,7 +537,6 @@ mod tests {
             vec![Arc::new(MockAncillaryFileUploader::new())],
             Arc::new(snapshotter),
             CardanoNetwork::DevNet(123),
-            CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         )
         .unwrap();
@@ -588,7 +593,6 @@ mod tests {
             vec![Arc::new(uploader)],
             Arc::new(snapshotter),
             CardanoNetwork::DevNet(123),
-            CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         )
         .unwrap();
@@ -622,7 +626,6 @@ mod tests {
             vec![Arc::new(MockAncillaryFileUploader::new())],
             Arc::new(DumbSnapshotter::default()),
             CardanoNetwork::DevNet(123),
-            CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         )
         .unwrap();

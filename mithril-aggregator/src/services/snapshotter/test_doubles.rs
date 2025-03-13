@@ -66,6 +66,10 @@ impl Snapshotter for DumbSnapshotter {
     ) -> StdResult<FileArchive> {
         self.snapshot_all(archive_name_without_extension)
     }
+
+    fn compression_algorithm(&self) -> CompressionAlgorithm {
+        self.compression_algorithm
+    }
 }
 
 /// Snapshotter that writes empty files to the filesystem. Used for testing purposes.
@@ -118,6 +122,10 @@ impl Snapshotter for FakeSnapshotter {
     ) -> StdResult<FileArchive> {
         self.snapshot_all(archive_name_without_extension)
     }
+
+    fn compression_algorithm(&self) -> CompressionAlgorithm {
+        self.compression_algorithm
+    }
 }
 
 #[cfg(test)]
@@ -128,6 +136,15 @@ mod tests {
 
     mod dumb_snapshotter {
         use super::*;
+
+        #[test]
+        fn return_parametrized_compression_algorithm() {
+            let snapshotter = DumbSnapshotter::new(CompressionAlgorithm::Zstandard);
+            assert_eq!(
+                CompressionAlgorithm::Zstandard,
+                snapshotter.compression_algorithm()
+            );
+        }
 
         #[test]
         fn test_dumb_snapshotter_snapshot_return_archive_named_with_compression_algorithm_and_size_of_0(
@@ -179,6 +196,16 @@ mod tests {
 
     mod fake_snapshotter {
         use super::*;
+
+        #[test]
+        fn return_parametrized_compression_algorithm() {
+            let snapshotter = FakeSnapshotter::new("whatever")
+                .with_compression_algorithm(CompressionAlgorithm::Zstandard);
+            assert_eq!(
+                CompressionAlgorithm::Zstandard,
+                snapshotter.compression_algorithm()
+            );
+        }
 
         #[test]
         fn snapshot_all_create_empty_file_located_at_work_dir_joined_filepath() {

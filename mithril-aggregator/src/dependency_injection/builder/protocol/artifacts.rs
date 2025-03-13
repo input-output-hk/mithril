@@ -40,9 +40,8 @@ impl DependenciesBuilder {
             Arc::new(CardanoImmutableFilesFullArtifactBuilder::new(
                 self.configuration.get_network()?,
                 &cardano_node_version,
-                snapshotter.clone(),
+                snapshotter,
                 snapshot_uploader,
-                self.configuration.snapshot_compression_algorithm,
                 logger.clone(),
             ));
         let prover_service = self.get_prover_service().await?;
@@ -363,7 +362,6 @@ impl DependenciesBuilder {
             self.build_cardano_database_ancillary_uploaders()?,
             self.get_snapshotter().await?,
             self.configuration.get_network()?,
-            self.configuration.snapshot_compression_algorithm,
             self.root_logger(),
         )?);
 
@@ -371,7 +369,6 @@ impl DependenciesBuilder {
             immutable_dir,
             self.build_cardano_database_immutable_uploaders()?,
             self.get_snapshotter().await?,
-            self.configuration.snapshot_compression_algorithm,
             self.root_logger(),
         )?);
 

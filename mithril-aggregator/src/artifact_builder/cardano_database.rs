@@ -224,7 +224,6 @@ mod tests {
                 vec![Arc::new(ancillary_uploader)],
                 snapshotter.clone(),
                 network,
-                CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap()
@@ -256,7 +255,6 @@ mod tests {
                 test_dir.join("immutable"),
                 vec![Arc::new(immutable_uploader)],
                 snapshotter,
-                CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap()

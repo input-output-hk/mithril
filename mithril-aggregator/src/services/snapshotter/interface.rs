@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use mithril_common::entities::CompressionAlgorithm;
 use mithril_common::StdResult;
 
 use crate::tools::file_archiver::FileArchive;
@@ -16,4 +17,7 @@ pub trait Snapshotter: Sync + Send {
         archive_name_without_extension: &str,
         files: Vec<PathBuf>,
     ) -> StdResult<FileArchive>;
+
+    /// Return the compression algorithm used by the snapshotter.
+    fn compression_algorithm(&self) -> CompressionAlgorithm;
 }
