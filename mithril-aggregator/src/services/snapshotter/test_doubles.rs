@@ -67,6 +67,14 @@ impl Snapshotter for DumbSnapshotter {
         self.snapshot_all(archive_name_without_extension)
     }
 
+    fn snapshot_ancillary(
+        &self,
+        _immutable_file_number: ImmutableFileNumber,
+        archive_name_without_extension: &str,
+    ) -> StdResult<FileArchive> {
+        self.snapshot_all(archive_name_without_extension)
+    }
+
     fn snapshot_immutable_trio(
         &self,
         _immutable_file_number: ImmutableFileNumber,
@@ -127,6 +135,14 @@ impl Snapshotter for FakeSnapshotter {
         &self,
         archive_name_without_extension: &str,
         _files: Vec<PathBuf>,
+    ) -> StdResult<FileArchive> {
+        self.snapshot_all(archive_name_without_extension)
+    }
+
+    fn snapshot_ancillary(
+        &self,
+        _immutable_file_number: ImmutableFileNumber,
+        archive_name_without_extension: &str,
     ) -> StdResult<FileArchive> {
         self.snapshot_all(archive_name_without_extension)
     }
@@ -200,6 +216,17 @@ mod tests {
                 );
             }
             {
+                let ancillary_snapshot = snapshotter
+                    .snapshot_ancillary(3, "whatever")
+                    .expect("Dumb snapshotter::snapshot_ancillary should not fail.");
+                assert_eq!(
+                    Some(ancillary_snapshot),
+                    snapshotter.get_last_snapshot().expect(
+                        "Dumb snapshotter::get_last_snapshot should not fail when some last snapshot."
+                    )
+                );
+            }
+            {
                 let immutable_snapshot = snapshotter
                     .snapshot_immutable_trio(4, "whatever")
                     .expect("Dumb snapshotter::snapshot_immutable_trio should not fail.");
@@ -256,6 +283,16 @@ mod tests {
                         &test_dir.join(filename).with_extension("tar.gz")
                     );
                     assert!(full_snapshot.get_file_path().is_file());
+                }
+                {
+                    let ancillary_snapshot =
+                        fake_snapshotter.snapshot_ancillary(3, filename).unwrap();
+
+                    assert_eq!(
+                        ancillary_snapshot.get_file_path(),
+                        &test_dir.join(filename).with_extension("tar.gz")
+                    );
+                    assert!(ancillary_snapshot.get_file_path().is_file());
                 }
                 {
                     let immutable_snapshot = fake_snapshotter

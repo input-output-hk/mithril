@@ -4,7 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use mithril_common::digesters::{immutable_trio_names, IMMUTABLE_DIR};
+use mithril_common::digesters::{immutable_trio_names, LedgerFile, IMMUTABLE_DIR, LEDGER_DIR};
 use mithril_common::entities::{CompressionAlgorithm, ImmutableFileNumber};
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
@@ -48,6 +48,22 @@ impl Snapshotter for CompressedArchiveSnapshotter {
         }
 
         let appender = AppenderEntries::new(entries, self.db_directory.clone())?;
+        self.snapshot(archive_name_without_extension, appender)
+    }
+
+    fn snapshot_ancillary(
+        &self,
+        immutable_file_number: ImmutableFileNumber,
+        archive_name_without_extension: &str,
+    ) -> StdResult<FileArchive> {
+        debug!(
+            self.logger,
+            "Snapshotting ancillary archive: '{archive_name_without_extension}'"
+        );
+
+        let paths_to_include =
+            self.get_files_and_directories_for_ancillary_snapshot(immutable_file_number)?;
+        let appender = AppenderEntries::new(paths_to_include, self.db_directory.clone())?;
         self.snapshot(archive_name_without_extension, appender)
     }
 
@@ -125,6 +141,36 @@ impl CompressedArchiveSnapshotter {
             },
             appender,
         )
+    }
+
+    /// Returns the list of files and directories to include in ancillary snapshot.
+    ///
+    /// The immutable file included in the ancillary archive corresponds to the last one (and not finalized yet)
+    /// when the immutable file number given to the function corresponds to the penultimate.
+    fn get_files_and_directories_for_ancillary_snapshot(
+        &self,
+        immutable_file_number: u64,
+    ) -> StdResult<Vec<PathBuf>> {
+        let mut files_to_snapshot = Vec::with_capacity(4);
+
+        let next_immutable_file_number = immutable_file_number + 1;
+        files_to_snapshot.extend_from_slice(
+            immutable_trio_names(next_immutable_file_number)
+                .iter()
+                .map(|filename| PathBuf::from(IMMUTABLE_DIR).join(filename))
+                .collect::<Vec<_>>()
+                .as_slice(),
+        );
+
+        let db_ledger_dir = self.db_directory.join(LEDGER_DIR);
+        let ledger_files = LedgerFile::list_all_in_dir(&db_ledger_dir)?;
+        let last_ledger = ledger_files.last().ok_or(anyhow!(
+            "No ledger file found in directory: `{}`",
+            db_ledger_dir.display()
+        ))?;
+        files_to_snapshot.push(PathBuf::from(LEDGER_DIR).join(&last_ledger.filename));
+
+        Ok(files_to_snapshot)
     }
 }
 
@@ -280,6 +326,51 @@ mod tests {
                 ],
                 unpacked_immutable_files,
             );
+        }
+    }
+
+    mod snapshot_ancillary {
+        use mithril_common::digesters::VOLATILE_DIR;
+
+        use super::*;
+
+        #[tokio::test]
+        async fn create_archive_should_embed_only_last_ledger_and_last_immutables() {
+            let test_dir = get_test_directory(
+                "create_archive_should_embed_only_last_ledger_and_last_immutables",
+            );
+            let cardano_db = DummyCardanoDbBuilder::new(
+                "create_archive_should_embed_only_last_ledger_and_last_immutables",
+            )
+            .with_immutables(&[1, 2, 3])
+            .with_ledger_files(&["437", "537", "637", "737", "9not_included"])
+            .with_volatile_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
+            .build();
+            fs::create_dir(cardano_db.get_dir().join("whatever")).unwrap();
+
+            let db_directory = cardano_db.get_dir();
+            let snapshotter =
+                snapshotter_for_test(&test_dir, db_directory, CompressionAlgorithm::Gzip);
+
+            let snapshot = snapshotter.snapshot_ancillary(2, "ancillary").unwrap();
+
+            let unpack_dir = unpack_gz_decoder(test_dir, snapshot);
+
+            let expected_immutable_path = unpack_dir.join(IMMUTABLE_DIR);
+            assert!(expected_immutable_path.join("00003.chunk").exists());
+            assert!(expected_immutable_path.join("00003.primary").exists());
+            assert!(expected_immutable_path.join("00003.secondary").exists());
+            assert_eq!(3, list_files(&expected_immutable_path).len());
+
+            // Only the last ledger file should be included
+            let expected_ledger_path = unpack_dir.join(LEDGER_DIR);
+            assert!(expected_ledger_path.join("737").exists());
+            assert_eq!(1, list_files(&expected_ledger_path).len());
+
+            let expected_volatile_path = unpack_dir.join(VOLATILE_DIR);
+            assert!(!expected_volatile_path.exists());
+
+            assert!(!unpack_dir.join("whatever").exists());
         }
     }
 }

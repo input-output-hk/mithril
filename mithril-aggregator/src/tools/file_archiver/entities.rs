@@ -29,6 +29,7 @@ impl ArchiveParameters {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileArchive {
     pub(super) filepath: PathBuf,
+    // Todo: rename to `archive_size` and add `uncompressed_size` field.
     pub(super) filesize: u64,
     pub(super) compression_algorithm: CompressionAlgorithm,
 }

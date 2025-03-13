@@ -146,9 +146,6 @@ impl AncillaryArtifactBuilder {
             beacon.immutable_file_number
         );
 
-        let paths_to_include =
-            Self::get_files_and_directories_to_snapshot(beacon.immutable_file_number);
-
         let archive_name = format!(
             "{}-e{}-i{}.ancillary",
             self.cardano_network, *beacon.epoch, beacon.immutable_file_number,
@@ -156,7 +153,7 @@ impl AncillaryArtifactBuilder {
 
         let snapshot = self
             .snapshotter
-            .snapshot_subset(&archive_name, paths_to_include)
+            .snapshot_ancillary(beacon.immutable_file_number, &archive_name)
             .with_context(|| {
                 format!(
                     "Failed to create ancillary archive for immutable file number: {}",
@@ -236,19 +233,13 @@ impl AncillaryArtifactBuilder {
 
 #[cfg(test)]
 mod tests {
-    use std::fs::File;
-
-    use flate2::read::GzDecoder;
-    use tar::Archive;
-
     use mithril_common::{
-        digesters::{DummyCardanoDbBuilder, IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR},
+        digesters::DummyCardanoDbBuilder,
         test_utils::{assert_equivalent, TempDir},
     };
 
-    use crate::services::{CompressedArchiveSnapshotter, DumbSnapshotter, MockSnapshotter};
+    use crate::services::{DumbSnapshotter, MockSnapshotter};
     use crate::test_tools::TestLogger;
-    use crate::tools::file_archiver::FileArchiver;
 
     use super::*;
 
@@ -512,78 +503,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn create_archive_should_embed_ledger_volatile_directories_and_last_immutables() {
-        let test_dir = "create_archive/cardano_database";
-        let cardano_db = DummyCardanoDbBuilder::new(test_dir)
-            .with_immutables(&[1, 2, 3])
-            .with_ledger_files(&["437", "537", "637", "737"])
-            .with_volatile_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
-            .build();
-        std::fs::create_dir(cardano_db.get_dir().join("whatever")).unwrap();
-
-        let db_directory = cardano_db.get_dir().to_path_buf();
-        let snapshotter = CompressedArchiveSnapshotter::new(
-            db_directory.clone(),
-            db_directory.parent().unwrap().join("snapshot_dest"),
-            CompressionAlgorithm::Gzip,
-            Arc::new(FileArchiver::new_for_test(
-                cardano_db.get_dir().join("verification"),
-            )),
-            TestLogger::stdout(),
-        )
-        .unwrap();
-
-        let builder = AncillaryArtifactBuilder::new(
-            vec![Arc::new(MockAncillaryFileUploader::new())],
-            Arc::new(snapshotter),
-            CardanoNetwork::DevNet(123),
-            TestLogger::stdout(),
-        )
-        .unwrap();
-
-        let snapshot = builder
-            .create_ancillary_archive(&CardanoDbBeacon::new(99, 2))
-            .unwrap();
-
-        let mut archive = {
-            let file_tar_gz = File::open(snapshot.get_file_path()).unwrap();
-            let file_tar_gz_decoder = GzDecoder::new(file_tar_gz);
-            Archive::new(file_tar_gz_decoder)
-        };
-
-        let dst = cardano_db.get_dir().join("unpack_dir");
-        archive.unpack(dst.clone()).unwrap();
-
-        let expected_immutable_path = dst.join(IMMUTABLE_DIR);
-        assert!(expected_immutable_path.join("00003.chunk").exists());
-        assert!(expected_immutable_path.join("00003.primary").exists());
-        assert!(expected_immutable_path.join("00003.secondary").exists());
-        let immutables_nb = std::fs::read_dir(expected_immutable_path).unwrap().count();
-        assert_eq!(3, immutables_nb);
-
-        let expected_ledger_path = dst.join(LEDGER_DIR);
-        assert!(expected_ledger_path.join("437").exists());
-        assert!(expected_ledger_path.join("537").exists());
-        assert!(expected_ledger_path.join("637").exists());
-        assert!(expected_ledger_path.join("737").exists());
-        let volatile_nb = std::fs::read_dir(expected_ledger_path).unwrap().count();
-        assert_eq!(4, volatile_nb);
-
-        let expected_volatile_path = dst.join(VOLATILE_DIR);
-        assert!(expected_volatile_path.join("blocks-0.dat").exists());
-        assert!(expected_volatile_path.join("blocks-1.dat").exists());
-        assert!(expected_volatile_path.join("blocks-2.dat").exists());
-        let ledger_nb = std::fs::read_dir(expected_volatile_path).unwrap().count();
-        assert_eq!(3, ledger_nb);
-
-        assert!(!dst.join("whatever").exists());
-    }
-
-    #[tokio::test]
     async fn upload_should_return_error_and_not_upload_when_archive_creation_fails() {
         let mut snapshotter = MockSnapshotter::new();
         snapshotter
-            .expect_snapshot_subset()
+            .expect_snapshot_ancillary()
             .returning(|_, _| Err(anyhow!("Failed to create archive")));
 
         let mut uploader = MockAncillaryFileUploader::new();
