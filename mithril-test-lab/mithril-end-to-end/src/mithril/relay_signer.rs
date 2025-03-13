@@ -18,7 +18,7 @@ impl RelaySigner {
     pub fn new(
         listen_port: u64,
         server_port: u64,
-        dial_to: String,
+        dial_to: Option<String>,
         aggregator_endpoint: &str,
         party_id: PartyId,
         work_dir: &Path,
@@ -26,13 +26,15 @@ impl RelaySigner {
     ) -> StdResult<Self> {
         let listen_port_str = format!("{listen_port}");
         let server_port_str = format!("{server_port}");
-        let env = HashMap::from([
+        let mut env = HashMap::from([
             ("LISTEN_PORT", listen_port_str.as_str()),
             ("SERVER_PORT", server_port_str.as_str()),
             ("AGGREGATOR_ENDPOINT", aggregator_endpoint),
-            ("DIAL_TO", &dial_to),
             ("SIGNER_REPEATER_DELAY", "100"),
         ]);
+        if let Some(dial_to) = &dial_to {
+            env.insert("DIAL_TO", dial_to);
+        }
         let args = vec!["-vvv", "signer"];
 
         let mut command = MithrilCommand::new("mithril-relay", work_dir, bin_dir, env, &args)?;
