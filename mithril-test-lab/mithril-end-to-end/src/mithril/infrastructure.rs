@@ -202,13 +202,13 @@ impl MithrilInfrastructure {
                 })
                 .await;
 
-            Self::register_startup_era(&aggregator, config).await?;
+            if master_aggregator_endpoint.is_none() {
+                master_aggregator_endpoint = Some(aggregator.endpoint());
+                Self::register_startup_era(&aggregator, config).await?;
+            }
 
             aggregator.serve().await?;
 
-            if master_aggregator_endpoint.is_none() {
-                master_aggregator_endpoint = Some(aggregator.endpoint());
-            }
             aggregators.push(aggregator);
         }
 
@@ -227,60 +227,69 @@ impl MithrilInfrastructure {
         let mut relay_aggregators: Vec<RelayAggregator> = vec![];
         let mut relay_signers: Vec<RelaySigner> = vec![];
         let mut relay_passives: Vec<RelayPassive> = vec![];
+        let master_aggregator_endpoint = &aggregator_endpoints[0];
 
         info!("Starting the Mithril infrastructure in P2P mode (experimental)");
 
+        let mut bootstrap_peer_addr = None;
         for (index, aggregator_endpoint) in aggregator_endpoints.iter().enumerate() {
             let mut relay_aggregator = RelayAggregator::new(
+                index,
                 config.server_port + index as u64 + 100,
+                bootstrap_peer_addr.clone(),
                 aggregator_endpoint,
                 &config.work_dir,
                 &config.bin_dir,
             )?;
+            if bootstrap_peer_addr.is_none() {
+                bootstrap_peer_addr = Some(relay_aggregator.peer_addr().to_owned());
+            }
             relay_aggregator.start()?;
             relay_aggregators.push(relay_aggregator);
-        }
-        let master_aggregator = &relay_aggregators[0];
-
-        let mut relay_passive_id = 1;
-        if config.use_p2p_passive_relays {
-            let mut relay_passive_aggregator = RelayPassive::new(
-                config.server_port + 200,
-                master_aggregator.peer_addr().to_owned(),
-                format!("{relay_passive_id}"),
-                &config.work_dir,
-                &config.bin_dir,
-            )?;
-            relay_passive_aggregator.start()?;
-            relay_passives.push(relay_passive_aggregator);
         }
 
         for (index, party_id) in signers_party_ids.iter().enumerate() {
             let mut relay_signer = RelaySigner::new(
+                config.server_port + index as u64 + 200,
                 config.server_port + index as u64 + 300,
-                config.server_port + index as u64 + 400,
-                master_aggregator.peer_addr().to_owned(),
-                &aggregator_endpoints[0],
+                bootstrap_peer_addr.clone(),
+                master_aggregator_endpoint,
                 party_id.clone(),
                 &config.work_dir,
                 &config.bin_dir,
             )?;
             relay_signer.start()?;
 
-            if config.use_p2p_passive_relays {
+            relay_signers.push(relay_signer);
+        }
+
+        if config.use_p2p_passive_relays {
+            let mut relay_passive_id = 1;
+            for (index, _aggregator_endpoint) in aggregator_endpoints.iter().enumerate() {
+                let mut relay_passive_aggregator = RelayPassive::new(
+                    config.server_port + index as u64 + 400,
+                    bootstrap_peer_addr.clone(),
+                    format!("{relay_passive_id}"),
+                    &config.work_dir,
+                    &config.bin_dir,
+                )?;
+                relay_passive_aggregator.start()?;
+                relay_passives.push(relay_passive_aggregator);
                 relay_passive_id += 1;
+            }
+
+            for (index, _party_id) in signers_party_ids.iter().enumerate() {
                 let mut relay_passive_signer = RelayPassive::new(
                     config.server_port + index as u64 + 500,
-                    relay_signer.peer_addr().to_owned(),
+                    bootstrap_peer_addr.clone(),
                     format!("{relay_passive_id}"),
                     &config.work_dir,
                     &config.bin_dir,
                 )?;
                 relay_passive_signer.start()?;
                 relay_passives.push(relay_passive_signer);
+                relay_passive_id += 1;
             }
-
-            relay_signers.push(relay_signer);
         }
 
         Ok((relay_aggregators, relay_signers, relay_passives))
@@ -348,7 +357,19 @@ impl MithrilInfrastructure {
     }
 
     pub fn master_aggregator(&self) -> &Aggregator {
+        assert!(
+            !self.aggregators.is_empty(),
+            "No master aggregator available for this infrastructure"
+        );
         &self.aggregators[0]
+    }
+
+    pub fn slave_aggregators(&self) -> &[Aggregator] {
+        &self.aggregators[1..]
+    }
+
+    pub fn slave_aggregator(&self, index: usize) -> &Aggregator {
+        &self.aggregators[index + 1]
     }
 
     pub fn signers(&self) -> &[Signer] {
@@ -372,7 +393,19 @@ impl MithrilInfrastructure {
     }
 
     pub fn master_chain_observer(&self) -> Arc<dyn ChainObserver> {
+        assert!(
+            !self.aggregators.is_empty(),
+            "No master chain observer available for this infrastructure"
+        );
         self.cardano_chain_observers[0].clone()
+    }
+
+    pub fn slave_chain_observers(&self) -> &[Arc<dyn ChainObserver>] {
+        &self.cardano_chain_observers[1..]
+    }
+
+    pub fn slave_chain_observer(&self, index: usize) -> Arc<dyn ChainObserver> {
+        self.cardano_chain_observers[index + 1].clone()
     }
 
     pub async fn build_client(&self) -> StdResult<Client> {
@@ -402,6 +435,9 @@ impl MithrilInfrastructure {
 
     pub async fn tail_logs(&self, number_of_line: u64) -> StdResult<()> {
         self.master_aggregator().tail_logs(number_of_line).await?;
+        for aggregator in self.slave_aggregators() {
+            aggregator.tail_logs(number_of_line).await?;
+        }
         for signer in self.signers() {
             signer.tail_logs(number_of_line).await?;
         }
