@@ -12,7 +12,7 @@ use std::{
 use thiserror::Error;
 use tokio::{
     signal::unix::{signal, SignalKind},
-    sync::Mutex,
+    sync::{Mutex, RwLock},
     task::JoinSet,
 };
 
@@ -287,19 +287,19 @@ impl From<StdResult<()>> for AppResult {
 
 struct App {
     devnet: Arc<Mutex<Option<Devnet>>>,
-    infrastructure: Arc<Mutex<Option<MithrilInfrastructure>>>,
+    infrastructure: Arc<RwLock<Option<MithrilInfrastructure>>>,
 }
 
 impl App {
     fn new() -> Self {
         Self {
             devnet: Arc::new(Mutex::new(None)),
-            infrastructure: Arc::new(Mutex::new(None)),
+            infrastructure: Arc::new(RwLock::new(None)),
         }
     }
 
     async fn tail_logs(&self) {
-        if let Some(infrastructure) = self.infrastructure.lock().await.as_ref() {
+        if let Some(infrastructure) = self.infrastructure.read().await.as_ref() {
             let _ = infrastructure.tail_logs(40).await.inspect_err(|e| {
                 error!("Failed to tail logs: {}", e);
             });
@@ -307,7 +307,7 @@ impl App {
     }
 
     async fn last_error_in_logs(&self) {
-        if let Some(infrastructure) = self.infrastructure.lock().await.as_ref() {
+        if let Some(infrastructure) = self.infrastructure.read().await.as_ref() {
             let _ = infrastructure.last_error_in_logs(1).await.inspect_err(|e| {
                 error!("Failed to grep error in logs: {}", e);
             });
@@ -360,23 +360,21 @@ impl App {
             use_era_specific_work_dir: args.mithril_next_era.is_some(),
         })
         .await?;
+        *self.infrastructure.write().await = Some(infrastructure);
 
         let runner: StdResult<()> = match run_only_mode {
-            true => {
-                let run_only = RunOnly::new(&infrastructure);
-                run_only.start().await
-            }
+            true => RunOnly::new(self.infrastructure.clone()).run().await,
             false => {
-                let spec = Spec::new(
-                    &infrastructure,
+                Spec::new(
+                    self.infrastructure.clone(),
                     args.signed_entity_types,
                     args.mithril_next_era,
                     args.mithril_era_regenesis_on_switch,
-                );
-                spec.run().await
+                )
+                .run()
+                .await
             }
         };
-        *self.infrastructure.lock().await = Some(infrastructure);
 
         match runner.with_context(|| "Mithril End to End test failed") {
             Ok(()) if run_only_mode => loop {
@@ -395,7 +393,7 @@ impl App {
 
 struct AppStopper {
     devnet: Arc<Mutex<Option<Devnet>>>,
-    infrastructure: Arc<Mutex<Option<MithrilInfrastructure>>>,
+    infrastructure: Arc<RwLock<Option<MithrilInfrastructure>>>,
 }
 
 impl AppStopper {
@@ -407,7 +405,7 @@ impl AppStopper {
     }
 
     pub async fn stop(&mut self) {
-        if let Some(infrastructure) = self.infrastructure.lock().await.as_mut() {
+        if let Some(infrastructure) = self.infrastructure.write().await.as_mut() {
             let _ = infrastructure.stop_nodes().await.inspect_err(|e| {
                 error!("Failed to stop nodes: {}", e);
             });
