@@ -14,11 +14,12 @@ use mithril_common::{
 };
 use slog::{error, Logger};
 
-use crate::tools::file_archiver::appender::AppenderFile;
-use crate::tools::file_archiver::{ArchiveParameters, FileArchiver};
 use crate::{
     file_uploaders::{GcpUploader, LocalUploader},
-    tools::url_sanitizer::SanitizedUrlWithTrailingSlash,
+    tools::{
+        file_archiver::{appender::AppenderFile, ArchiveParameters, FileArchive, FileArchiver},
+        url_sanitizer::SanitizedUrlWithTrailingSlash,
+    },
     DumbUploader, FileUploader, ImmutableFileDigestMapper,
 };
 
@@ -98,7 +99,7 @@ impl DigestSnapshotter {
         &self,
         filename_without_extensions: &str,
         digest_file_path: &Path,
-    ) -> StdResult<PathBuf> {
+    ) -> StdResult<FileArchive> {
         let digests_archive = self
             .file_archiver
             .archive(
@@ -116,7 +117,7 @@ impl DigestSnapshotter {
                 )
             })?;
 
-        Ok(digests_archive.get_file_path().to_path_buf())
+        Ok(digests_archive)
     }
 }
 
@@ -166,25 +167,15 @@ impl DigestArtifactBuilder {
         let digest_path = self
             .create_digest_file(&filename_without_extensions)
             .await?;
-        let digest_archive_file_path = self
+        let digest_archive = self
             .digest_snapshotter
             .create_archive_file(&filename_without_extensions, &digest_path)?;
 
-        let locations = self.upload_digest_file(&digest_archive_file_path).await;
+        let locations = self.upload_digest_file(&digest_archive).await;
 
         let file_metadata = std::fs::metadata(&digest_path);
 
-        fs::remove_file(&digest_path).with_context(|| {
-            format!("Could not remove digest file: '{}'", digest_path.display())
-        })?;
-        if digest_archive_file_path.exists() {
-            fs::remove_file(&digest_archive_file_path).with_context(|| {
-                format!(
-                    "Could not remove digest archive file: '{}'",
-                    digest_archive_file_path.display()
-                )
-            })?;
-        }
+        self.cleanup_uploaded_artefacts(&digest_path, &digest_archive)?;
 
         let size = file_metadata
             .with_context(|| {
@@ -199,6 +190,27 @@ impl DigestArtifactBuilder {
             locations: locations?,
             size,
         })
+    }
+
+    fn cleanup_uploaded_artefacts(
+        &self,
+        digest_path: &PathBuf,
+        digest_archive: &FileArchive,
+    ) -> StdResult<()> {
+        fs::remove_file(digest_path).with_context(|| {
+            format!("Could not remove digest file: '{}'", digest_path.display())
+        })?;
+
+        let digest_archive_path = digest_archive.get_file_path();
+        if digest_archive_path.exists() {
+            fs::remove_file(digest_archive_path).with_context(|| {
+                format!(
+                    "Could not remove digest archive file: '{}'",
+                    digest_archive_path.display()
+                )
+            })?;
+        }
+        Ok(())
     }
 
     async fn create_digest_file(&self, filename_without_extensions: &str) -> StdResult<PathBuf> {
@@ -235,13 +247,16 @@ impl DigestArtifactBuilder {
     }
 
     /// Uploads the digest file and returns the locations of the uploaded files.
-    async fn upload_digest_file(&self, digest_filepath: &Path) -> StdResult<Vec<DigestLocation>> {
+    async fn upload_digest_file(
+        &self,
+        digest_archive: &FileArchive,
+    ) -> StdResult<Vec<DigestLocation>> {
         let mut locations = Vec::<DigestLocation>::new();
         for uploader in &self.uploaders {
             let result = uploader
                 .upload(
-                    digest_filepath,
-                    Some(self.digest_snapshotter.compression_algorithm),
+                    digest_archive.get_file_path(),
+                    Some(digest_archive.get_compression_algorithm()),
                 )
                 .await;
             match result {
@@ -464,7 +479,13 @@ mod tests {
             )
             .unwrap();
 
-            let _ = builder.upload_digest_file(Path::new("digest_file")).await;
+            let _ = builder
+                .upload_digest_file(&FileArchive::new(
+                    PathBuf::from("digest_file"),
+                    0,
+                    CompressionAlgorithm::Gzip,
+                ))
+                .await;
         }
 
         let logs = std::fs::read_to_string(&log_path).unwrap();
@@ -492,7 +513,11 @@ mod tests {
         .unwrap();
 
         let locations = builder
-            .upload_digest_file(Path::new("digest_file"))
+            .upload_digest_file(&FileArchive::new(
+                PathBuf::from("digest_file"),
+                0,
+                CompressionAlgorithm::Gzip,
+            ))
             .await
             .unwrap();
 
@@ -528,7 +553,11 @@ mod tests {
         .unwrap();
 
         let locations = builder
-            .upload_digest_file(Path::new("digest_file"))
+            .upload_digest_file(&FileArchive::new(
+                PathBuf::from("digest_file"),
+                0,
+                CompressionAlgorithm::Gzip,
+            ))
             .await
             .unwrap();
 
@@ -571,7 +600,11 @@ mod tests {
         .unwrap();
 
         let locations = builder
-            .upload_digest_file(Path::new("digest_file"))
+            .upload_digest_file(&FileArchive::new(
+                PathBuf::from("digest_file"),
+                0,
+                CompressionAlgorithm::Gzip,
+            ))
             .await
             .unwrap();
 

@@ -6,16 +6,14 @@ use slog::{debug, warn, Logger};
 use std::sync::Arc;
 use thiserror::Error;
 
-use crate::{services::Snapshotter, tools::file_archiver::FileArchive, FileUploader};
-
-use super::ArtifactBuilder;
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::{
-    entities::{
-        CardanoDbBeacon, Certificate, CompressionAlgorithm, ProtocolMessagePartKey, Snapshot,
-    },
+    entities::{CardanoDbBeacon, Certificate, ProtocolMessagePartKey, Snapshot},
     CardanoNetwork, StdResult,
 };
+
+use super::ArtifactBuilder;
+use crate::{services::Snapshotter, tools::file_archiver::FileArchive, FileUploader};
 
 /// [CardanoImmutableFilesFullArtifact] error
 /// to fail.
@@ -32,7 +30,6 @@ pub struct CardanoImmutableFilesFullArtifactBuilder {
     cardano_node_version: Version,
     snapshotter: Arc<dyn Snapshotter>,
     snapshot_uploader: Arc<dyn FileUploader>,
-    compression_algorithm: CompressionAlgorithm,
     logger: Logger,
 }
 
@@ -43,7 +40,6 @@ impl CardanoImmutableFilesFullArtifactBuilder {
         cardano_node_version: &Version,
         snapshotter: Arc<dyn Snapshotter>,
         snapshot_uploader: Arc<dyn FileUploader>,
-        compression_algorithm: CompressionAlgorithm,
         logger: Logger,
     ) -> Self {
         Self {
@@ -51,7 +47,6 @@ impl CardanoImmutableFilesFullArtifactBuilder {
             cardano_node_version: cardano_node_version.clone(),
             snapshotter,
             snapshot_uploader,
-            compression_algorithm,
             logger: logger.new_with_component_name::<Self>(),
         }
     }
@@ -114,7 +109,7 @@ impl CardanoImmutableFilesFullArtifactBuilder {
             beacon,
             ongoing_snapshot.get_file_size(),
             remote_locations,
-            self.compression_algorithm,
+            ongoing_snapshot.get_compression_algorithm(),
             &self.cardano_node_version,
         );
 
@@ -187,7 +182,7 @@ mod tests {
             .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
             .unwrap();
 
-        let dumb_snapshotter = Arc::new(DumbSnapshotter::default());
+        let dumb_snapshotter = Arc::new(DumbSnapshotter::new(CompressionAlgorithm::Zstandard));
         let dumb_snapshot_uploader = Arc::new(DumbUploader::default());
 
         let cardano_immutable_files_full_artifact_builder =
@@ -196,7 +191,6 @@ mod tests {
                 &Version::parse("1.0.0").unwrap(),
                 dumb_snapshotter.clone(),
                 dumb_snapshot_uploader.clone(),
-                CompressionAlgorithm::Zstandard,
                 TestLogger::stdout(),
             );
         let artifact = cardano_immutable_files_full_artifact_builder
@@ -241,7 +235,6 @@ mod tests {
                 &Version::parse("1.0.0").unwrap(),
                 Arc::new(DumbSnapshotter::default()),
                 Arc::new(DumbUploader::default()),
-                CompressionAlgorithm::default(),
                 TestLogger::stdout(),
             );
 
@@ -268,7 +261,6 @@ mod tests {
                 &Version::parse("1.0.0").unwrap(),
                 Arc::new(DumbSnapshotter::default()),
                 Arc::new(DumbUploader::default()),
-                CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             );
 
@@ -297,7 +289,6 @@ mod tests {
                     &Version::parse("1.0.0").unwrap(),
                     Arc::new(DumbSnapshotter::new(algorithm)),
                     Arc::new(DumbUploader::default()),
-                    algorithm,
                     TestLogger::stdout(),
                 );
 
@@ -344,7 +335,6 @@ mod tests {
                 &Version::parse("1.0.0").unwrap(),
                 Arc::new(DumbSnapshotter::default()),
                 Arc::new(snapshot_uploader),
-                CompressionAlgorithm::default(),
                 TestLogger::stdout(),
             );
 
