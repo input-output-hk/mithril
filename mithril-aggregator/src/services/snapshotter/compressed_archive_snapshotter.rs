@@ -255,8 +255,8 @@ mod tests {
             let test_dir = get_test_directory("include_only_immutable_trio");
             let cardano_db = DummyCardanoDbBuilder::new("include_only_immutable_trio")
                 .with_immutables(&[1, 2, 3])
-                .with_ledger_files(&["blocks-0.dat"])
-                .with_volatile_files(&["437"])
+                .with_ledger_files(&["437"])
+                .with_volatile_files(&["blocks-0.dat"])
                 .with_non_immutables(&["random_file.txt", "00002.trap"])
                 .build();
 

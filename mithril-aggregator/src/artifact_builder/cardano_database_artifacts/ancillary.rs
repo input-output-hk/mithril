@@ -516,8 +516,8 @@ mod tests {
         let test_dir = "create_archive/cardano_database";
         let cardano_db = DummyCardanoDbBuilder::new(test_dir)
             .with_immutables(&[1, 2, 3])
-            .with_ledger_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
-            .with_volatile_files(&["437", "537", "637", "737"])
+            .with_ledger_files(&["437", "537", "637", "737"])
+            .with_volatile_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
             .build();
         std::fs::create_dir(cardano_db.get_dir().join("whatever")).unwrap();
 
@@ -562,19 +562,19 @@ mod tests {
         assert_eq!(3, immutables_nb);
 
         let expected_ledger_path = dst.join(LEDGER_DIR);
-        assert!(expected_ledger_path.join("blocks-0.dat").exists());
-        assert!(expected_ledger_path.join("blocks-1.dat").exists());
-        assert!(expected_ledger_path.join("blocks-2.dat").exists());
-        let ledger_nb = std::fs::read_dir(expected_ledger_path).unwrap().count();
-        assert_eq!(3, ledger_nb);
+        assert!(expected_ledger_path.join("437").exists());
+        assert!(expected_ledger_path.join("537").exists());
+        assert!(expected_ledger_path.join("637").exists());
+        assert!(expected_ledger_path.join("737").exists());
+        let volatile_nb = std::fs::read_dir(expected_ledger_path).unwrap().count();
+        assert_eq!(4, volatile_nb);
 
         let expected_volatile_path = dst.join(VOLATILE_DIR);
-        assert!(expected_volatile_path.join("437").exists());
-        assert!(expected_volatile_path.join("537").exists());
-        assert!(expected_volatile_path.join("637").exists());
-        assert!(expected_volatile_path.join("737").exists());
-        let volatile_nb = std::fs::read_dir(expected_volatile_path).unwrap().count();
-        assert_eq!(4, volatile_nb);
+        assert!(expected_volatile_path.join("blocks-0.dat").exists());
+        assert!(expected_volatile_path.join("blocks-1.dat").exists());
+        assert!(expected_volatile_path.join("blocks-2.dat").exists());
+        let ledger_nb = std::fs::read_dir(expected_volatile_path).unwrap().count();
+        assert_eq!(3, ledger_nb);
 
         assert!(!dst.join("whatever").exists());
     }
@@ -614,9 +614,9 @@ mod tests {
         let cardano_db = DummyCardanoDbBuilder::new(test_dir)
             .with_immutables(&[1, 2, 3])
             .set_immutable_trio_file_size(immutable_trio_file_size)
-            .with_ledger_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
+            .with_ledger_files(&["437", "537", "637", "737"])
             .set_ledger_file_size(ledger_file_size)
-            .with_volatile_files(&["437", "537", "637", "737"])
+            .with_volatile_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
             .set_volatile_file_size(volatile_file_size)
             .build();
 
@@ -631,7 +631,7 @@ mod tests {
         .unwrap();
 
         let expected_total_size =
-            immutable_trio_file_size + (3 * ledger_file_size) + (4 * volatile_file_size);
+            immutable_trio_file_size + (4 * ledger_file_size) + (3 * volatile_file_size);
 
         let total_size = builder
             .compute_uncompressed_size(&db_directory, &CardanoDbBeacon::new(99, 1))
