@@ -37,6 +37,7 @@ pub struct AggregatorConfig<'a> {
 
 #[derive(Debug)]
 pub struct Aggregator {
+    index: usize,
     server_port: u64,
     db_directory: PathBuf,
     command: Arc<RwLock<MithrilCommand>>,
@@ -135,6 +136,7 @@ impl Aggregator {
         command.set_log_name(&name);
 
         Ok(Self {
+            index: aggregator_config.index,
             server_port: aggregator_config.server_port,
             db_directory: aggregator_config.pool_node.db_path.clone(),
             command: Arc::new(RwLock::new(command)),
@@ -144,6 +146,7 @@ impl Aggregator {
 
     pub fn copy_configuration(other: &Aggregator) -> Self {
         Self {
+            index: other.index,
             server_port: other.server_port,
             db_directory: other.db_directory.clone(),
             command: other.command.clone(),
@@ -169,8 +172,12 @@ impl Aggregator {
     pub async fn bootstrap_genesis(&self) -> StdResult<()> {
         // Clone the command so we can alter it without affecting the original
         let mut command = self.command.write().await;
-        let process_name = "mithril-aggregator-genesis-bootstrap";
-        command.set_log_name(process_name);
+        let command_name = if self.index == 0 {
+            "mithril-aggregator-genesis-bootstrap"
+        } else {
+            &format!("mithril-aggregator-genesis-bootstrap-slave-{}", self.index)
+        };
+        command.set_log_name(command_name);
 
         let exit_status = command
             .start(&["genesis".to_string(), "bootstrap".to_string()])?
@@ -181,7 +188,7 @@ impl Aggregator {
         if exit_status.success() {
             Ok(())
         } else {
-            command.tail_logs(Some(process_name), 40).await?;
+            command.tail_logs(Some(command_name), 40).await?;
 
             Err(match exit_status.code() {
                 Some(c) => {
