@@ -18,6 +18,15 @@ pub trait Snapshotter: Sync + Send {
         files: Vec<PathBuf>,
     ) -> StdResult<FileArchive>;
 
+    /// Create a new snapshot of ancillary files.
+    ///
+    /// Ancillary files include the last, uncompleted, immutable trio and the last ledger file.
+    fn snapshot_ancillary(
+        &self,
+        immutable_file_number: ImmutableFileNumber,
+        archive_name_without_extension: &str,
+    ) -> StdResult<FileArchive>;
+
     /// Create a new snapshot of an immutable trio.
     fn snapshot_immutable_trio(
         &self,
