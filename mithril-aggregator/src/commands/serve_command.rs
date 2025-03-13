@@ -8,6 +8,7 @@ use std::time::Duration;
 use std::{net::IpAddr, path::PathBuf};
 use tokio::{sync::oneshot, task::JoinSet};
 
+use crate::tools::VacuumTracker;
 use crate::{dependency_injection::DependenciesBuilder, Configuration};
 
 /// Server runtime mode
@@ -169,6 +170,34 @@ impl ServeCommand {
             .await
             .with_context(|| "Dependencies Builder can not create event store")?;
         let event_store_thread = tokio::spawn(async move { event_store.run().await.unwrap() });
+
+        // start the database vacuum operation, if needed
+        let vacuum_tracker = VacuumTracker::new(&config.data_stores_directory, root_logger.clone());
+        match vacuum_tracker.should_perform_vacuum() {
+            Ok((true, _)) => {
+                info!(root_logger, "Performing vacuum");
+
+                let upkeep = dependencies_builder
+                    .get_upkeep_service()
+                    .await
+                    .with_context(|| "Dependencies Builder can not create upkeep")?;
+                upkeep.vacuum().await?;
+
+                vacuum_tracker.update_last_vacuum_time().unwrap_or_else(
+                    |e| warn!(root_logger, "Failed to update last vacuum time"; "error" => ?e),
+                );
+            }
+            Ok((false, last_vacuum)) => {
+                // let time_display =
+                //     last_vacuum.map_or_else(|| "never".to_string(), |time| time.to_rfc3339());
+                // info!(root_logger, "No vacuum needed"; "last_vacuum" => time_display);
+                // We can unwrap() since a a vacuum is needed if there was no previous vacuum
+                info!(root_logger, "No vacuum needed"; "last_vacuum" => last_vacuum.unwrap().to_rfc3339());
+            }
+            Err(e) => {
+                warn!(root_logger, "Failed to check if vacuum is needed"; "error" => ?e);
+            }
+        }
 
         // start the aggregator runtime
         let mut runtime = dependencies_builder

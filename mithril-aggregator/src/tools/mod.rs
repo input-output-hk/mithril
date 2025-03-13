@@ -7,6 +7,7 @@ pub mod mocks;
 mod signer_importer;
 mod single_signature_authenticator;
 pub mod url_sanitizer;
+mod vacuum_tracker;
 
 pub use certificates_hash_migrator::CertificatesHashMigrator;
 pub use digest_helpers::extract_digest_from_path;
@@ -16,6 +17,7 @@ pub use signer_importer::{
     CExplorerSignerRetriever, SignersImporter, SignersImporterPersister, SignersImporterRetriever,
 };
 pub use single_signature_authenticator::*;
+pub use vacuum_tracker::VacuumTracker;
 
 /// Downcast the error to the specified error type and check if the error satisfies the condition.
 pub(crate) fn downcast_check<E>(
