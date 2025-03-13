@@ -154,6 +154,10 @@ impl Aggregator {
         }
     }
 
+    pub fn is_master(&self) -> bool {
+        self.index == 0
+    }
+
     pub fn endpoint(&self) -> String {
         format!("http://localhost:{}/aggregator", &self.server_port)
     }
@@ -172,7 +176,7 @@ impl Aggregator {
     pub async fn bootstrap_genesis(&self) -> StdResult<()> {
         // Clone the command so we can alter it without affecting the original
         let mut command = self.command.write().await;
-        let command_name = if self.index == 0 {
+        let command_name = if self.is_master() {
             "mithril-aggregator-genesis-bootstrap"
         } else {
             &format!("mithril-aggregator-genesis-bootstrap-slave-{}", self.index)
