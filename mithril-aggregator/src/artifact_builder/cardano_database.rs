@@ -172,13 +172,13 @@ mod tests {
         DummyCardanoDbBuilder::new(test_dir.as_os_str().to_str().unwrap())
             .with_immutables(&[1, 2])
             .set_immutable_trio_file_size(immutable_trio_file_size)
-            .with_ledger_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
+            .with_ledger_files(&["437", "537", "637", "737"])
             .set_ledger_file_size(ledger_file_size)
-            .with_volatile_files(&["437", "537", "637", "737"])
+            .with_volatile_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
             .set_volatile_file_size(volatile_file_size)
             .build();
         let expected_total_size =
-            (2 * immutable_trio_file_size) + (3 * ledger_file_size) + (4 * volatile_file_size);
+            (2 * immutable_trio_file_size) + (4 * ledger_file_size) + (3 * volatile_file_size);
 
         let total_size = compute_uncompressed_database_size(&test_dir).unwrap();
 
@@ -198,9 +198,9 @@ mod tests {
             .with_immutables(&[1, 2, 3])
             .append_immutable_trio()
             .set_immutable_trio_file_size(immutable_trio_file_size)
-            .with_ledger_files(&["blocks-0.dat"])
+            .with_ledger_files(&["437"])
             .set_ledger_file_size(ledger_file_size)
-            .with_volatile_files(&["437"])
+            .with_volatile_files(&["blocks-0.dat"])
             .set_volatile_file_size(volatile_file_size)
             .build();
         let expected_average_immutable_size = immutable_trio_file_size;

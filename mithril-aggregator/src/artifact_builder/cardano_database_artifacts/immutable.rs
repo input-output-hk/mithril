@@ -990,9 +990,9 @@ mod tests {
         let cardano_db = DummyCardanoDbBuilder::new(test_dir)
             .with_immutables(&[1, 2, 3])
             .set_immutable_trio_file_size(immutable_trio_file_size)
-            .with_ledger_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
+            .with_ledger_files(&["437", "537", "637", "737"])
             .set_ledger_file_size(ledger_file_size)
-            .with_volatile_files(&["437", "537", "637", "737"])
+            .with_volatile_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
             .set_volatile_file_size(volatile_file_size)
             .build();
 
