@@ -10,7 +10,7 @@ use regex::Regex;
 use slog::{error, Logger};
 
 use mithril_common::{
-    digesters::IMMUTABLE_DIR,
+    digesters::{immutable_trio_names, IMMUTABLE_DIR},
     entities::{CompressionAlgorithm, ImmutableFileNumber, ImmutablesLocation, MultiFilesUri},
     logging::LoggerExtensions,
     StdResult,
@@ -183,11 +183,6 @@ impl ImmutableArtifactBuilder {
         let compression_algorithm = self.snapshotter.compression_algorithm();
 
         for immutable_file_number in 1..=up_to_immutable_file_number {
-            let files_to_archive = Self::immutable_trio_names(immutable_file_number)
-                .iter()
-                .map(|filename| PathBuf::from(IMMUTABLE_DIR).join(filename))
-                .collect();
-
             let archive_name_without_extension = format!("{immutable_file_number:05}");
             let archive_name = format!(
                 "{archive_name_without_extension}.{}",
@@ -197,9 +192,10 @@ impl ImmutableArtifactBuilder {
             if let Some(existing_archive) = self.retrieve_existing_snapshot_archive(&archive_name) {
                 archive_paths.push(existing_archive);
             } else {
-                let snapshot = self
-                    .snapshotter
-                    .snapshot_subset(&archive_name_without_extension, files_to_archive)?;
+                let snapshot = self.snapshotter.snapshot_immutable_trio(
+                    immutable_file_number,
+                    &archive_name_without_extension,
+                )?;
 
                 let target_path = self.immutables_storage_dir.join(&archive_name);
                 fs::rename(snapshot.get_file_path(), &target_path).with_context(|| {
@@ -269,21 +265,13 @@ impl ImmutableArtifactBuilder {
         }
 
         let immutable_paths = (1..=up_to_immutable_file_number)
-            .flat_map(Self::immutable_trio_names)
+            .flat_map(immutable_trio_names)
             .map(|filename| db_path.join(IMMUTABLE_DIR).join(filename))
             .collect();
 
         let total_size = compute_size(immutable_paths)?;
 
         Ok(total_size / up_to_immutable_file_number)
-    }
-
-    fn immutable_trio_names(immutable_file_number: ImmutableFileNumber) -> Vec<String> {
-        vec![
-            format!("{:05}.chunk", immutable_file_number),
-            format!("{:05}.primary", immutable_file_number),
-            format!("{:05}.secondary", immutable_file_number),
-        ]
     }
 }
 

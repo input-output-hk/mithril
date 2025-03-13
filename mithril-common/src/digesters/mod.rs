@@ -26,6 +26,17 @@ pub const LEDGER_DIR: &str = "ledger";
 /// Directory name for the volatile files.
 pub const VOLATILE_DIR: &str = "volatile";
 
+/// Returns the names of the files that compose an immutable trio.
+pub fn immutable_trio_names(
+    immutable_file_number: crate::entities::ImmutableFileNumber,
+) -> Vec<String> {
+    vec![
+        format!("{:05}.chunk", immutable_file_number),
+        format!("{:05}.primary", immutable_file_number),
+        format!("{:05}.secondary", immutable_file_number),
+    ]
+}
+
 cfg_test_tools! {
     mod dummy_cardano_db;
 
