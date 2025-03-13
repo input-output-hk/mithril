@@ -15,9 +15,9 @@ use tokio::{
 use mithril_common::StdResult;
 use mithril_doc::{Documenter, DocumenterDefault, GenerateDocCommands, StructDoc};
 use mithril_metric::MetricsServer;
-use mithril_signer::dependency_injection::DependenciesBuilder;
 use mithril_signer::{
-    Configuration, DefaultConfiguration, SignerRunner, SignerState, StateMachine,
+    dependency_injection::DependenciesBuilder, Configuration, DatabaseCommand,
+    DefaultConfiguration, SignerRunner, SignerState, StateMachine,
 };
 
 /// CLI args
@@ -115,6 +115,7 @@ fn build_logger(min_level: Level) -> Logger {
 
 #[derive(Subcommand, Debug, Clone)]
 enum SignerCommands {
+    Database(DatabaseCommand),
     #[clap(alias("doc"), hide(true))]
     GenerateDoc(GenerateDocCommands),
 }
@@ -125,21 +126,26 @@ async fn main() -> StdResult<()> {
     let args = Args::parse();
     let root_logger = build_logger(args.log_level());
 
-    if let Some(SignerCommands::GenerateDoc(cmd)) = &args.command {
-        let config_infos = vec![
-            Args::extract(),
-            Configuration::extract(),
-            DefaultConfiguration::extract(),
-        ];
-        return cmd
-            .execute_with_configurations(&mut Args::command(), &config_infos)
-            .map_err(|message| anyhow!(message));
-    }
-
     debug!(root_logger, "Starting"; "node_version" => env!("CARGO_PKG_VERSION"));
 
+    if let Some(cmd) = &args.command {
+        match cmd {
+            SignerCommands::Database(cmd) => return cmd.execute(root_logger).await,
+            SignerCommands::GenerateDoc(cmd) => {
+                let config_infos = vec![
+                    Args::extract(),
+                    Configuration::extract(),
+                    DefaultConfiguration::extract(),
+                ];
+                return cmd
+                    .execute_with_configurations(&mut Args::command(), &config_infos)
+                    .map_err(|message| anyhow!(message));
+            }
+        }
+    };
+
     // Load config
-    let config: Configuration = config::Config::builder()
+    let config = config::Config::builder()
         .set_default("disable_digests_cache", args.disable_digests_cache)
         .with_context(|| "configuration error: could not set `disable_digests_cache`")?
         .set_default("reset_digests_cache", args.reset_digests_cache)

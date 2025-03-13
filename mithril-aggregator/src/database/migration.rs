@@ -7,8 +7,9 @@ use mithril_persistence::database::SqlMigration;
 /// statements per migration.
 pub fn get_migrations() -> Vec<SqlMigration> {
     vec![
-        SqlMigration::new(
+        SqlMigration::new_squashed(
             29,
+            "2445.0",
             r#"
 create table if not exists signed_entity_type (
     signed_entity_type_id       integer     not null,
