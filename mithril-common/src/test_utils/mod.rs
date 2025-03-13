@@ -24,6 +24,8 @@ mod temp_dir;
 #[cfg_attr(docsrs, doc(cfg(feature = "test_http_server")))]
 pub mod test_http_server;
 
+use std::path::PathBuf;
+
 pub use cardano_transactions_builder::CardanoTransactionsBuilder;
 pub use certificate_chain_builder::{
     CertificateChainBuilder, CertificateChainBuilderContext, CertificateChainingMethod,
@@ -92,14 +94,24 @@ macro_rules! current_function {
     }};
 }
 
+/// Build a path from a module and a function name.
+/// The module is the full name of the module, separated by `::`, like the `module path` return it.
+/// The path is built by replacing `::` by `/` and joining the function name.
+/// # Example
+/// With `build_function_path("module::sub_module::file", "function")`
+/// the path is: `module/sub_module/file/function`
+pub fn build_function_path<M: Into<String>, N: Into<String>>(module: M, function: N) -> PathBuf {
+    PathBuf::from(module.into().replace("::", "/")).join(function.into())
+}
+
 pub use assert_same_json;
 
 #[cfg(test)]
 mod utils {
-    use std::collections::HashSet;
     use std::fs::File;
     use std::io;
     use std::sync::Arc;
+    use std::{collections::HashSet, path::Path};
 
     use slog::{Drain, Logger};
     use slog_async::Async;
@@ -162,5 +174,26 @@ mod utils {
         let name = current_function!();
 
         assert_eq!("test_current_function_extract_async_function_name", name);
+    }
+
+    #[test]
+    fn test_build_function_path_giving_name() {
+        assert_eq!(
+            Path::new("module")
+                .join("sub_module")
+                .join("file")
+                .join("function"),
+            build_function_path("module::sub_module::file", "function")
+        );
+    }
+    #[test]
+    fn test_build_function_path_using_macros() {
+        assert_eq!(
+            Path::new("mithril_common")
+                .join("test_utils")
+                .join("utils")
+                .join("test_build_function_path_using_macros"),
+            build_function_path(module_path!(), current_function!())
+        );
     }
 }

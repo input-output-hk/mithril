@@ -192,10 +192,12 @@ mod handlers {
 mod tests {
     use super::*;
 
+    use mithril_common::current_function;
     use mithril_common::messages::{
         CardanoDatabaseImmutableFilesRestoredMessage, SnapshotDownloadMessage,
     };
     use mithril_common::test_utils::apispec::APISpec;
+    use mithril_common::test_utils::build_function_path;
     use tokio::sync::mpsc::UnboundedReceiver;
 
     use std::sync::Arc;
@@ -225,10 +227,7 @@ mod tests {
 
     #[tokio::test]
     async fn post_statistics_ok() {
-        let config = Configuration::new_sample();
-        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
-        let mut rx = builder.get_event_transmitter_receiver().await.unwrap();
-        let dependency_manager = builder.build_dependency_container().await.unwrap();
+        let (dependency_manager, mut rx) = setup_dependencies(current_function!()).await;
         let snapshot_download_message = SnapshotDownloadMessage::dummy();
 
         let method = Method::POST.as_str();
@@ -238,9 +237,9 @@ mod tests {
             .method(method)
             .json(&snapshot_download_message)
             .path(path)
-            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+            .reply(&setup_router(RouterState::new_with_dummy_config(
                 dependency_manager,
-            ))))
+            )))
             .await;
 
         let result = APISpec::verify_conformity(
@@ -396,8 +395,14 @@ mod tests {
         }
     }
 
-    async fn setup_dependencies() -> (Arc<DependencyContainer>, UnboundedReceiver<EventMessage>) {
-        let config = Configuration::new_sample();
+    async fn setup_dependencies(
+        test_name: &str,
+    ) -> (Arc<DependencyContainer>, UnboundedReceiver<EventMessage>) {
+        let config = Configuration {
+            snapshot_directory: std::env::temp_dir()
+                .join(build_function_path(module_path!(), test_name)),
+            ..Configuration::new_sample()
+        };
         let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
         let rx = builder.get_event_transmitter_receiver().await.unwrap();
         let dependency_manager = Arc::new(builder.build_dependency_container().await.unwrap());
@@ -412,7 +417,7 @@ mod tests {
 
         #[tokio::test]
         async fn conform_to_open_api_when_created() {
-            let (dependency_manager, _rx) = setup_dependencies().await;
+            let (dependency_manager, _rx) = setup_dependencies(current_function!()).await;
 
             let response = request()
                 .method(HTTP_METHOD.as_str())
@@ -438,7 +443,7 @@ mod tests {
 
         #[tokio::test]
         async fn should_conform_to_openapi_when_server_error() {
-            let (dependency_manager, mut rx) = setup_dependencies().await;
+            let (dependency_manager, mut rx) = setup_dependencies(current_function!()).await;
             rx.close();
 
             let response = request()
@@ -464,7 +469,7 @@ mod tests {
 
         #[tokio::test]
         async fn should_send_event() {
-            let (dependency_manager, mut rx) = setup_dependencies().await;
+            let (dependency_manager, mut rx) = setup_dependencies(current_function!()).await;
 
             request()
                 .method(HTTP_METHOD.as_str())
@@ -483,7 +488,7 @@ mod tests {
 
         #[tokio::test]
         async fn increments_metric() {
-            let (dependency_manager, _rx) = setup_dependencies().await;
+            let (dependency_manager, _rx) = setup_dependencies(current_function!()).await;
             let metric_counter = dependency_manager
                 .metrics_service
                 .get_cardano_database_complete_restoration_since_startup();
@@ -511,7 +516,7 @@ mod tests {
 
         #[tokio::test]
         async fn conform_to_open_api_when_created() {
-            let (dependency_manager, _rx) = setup_dependencies().await;
+            let (dependency_manager, _rx) = setup_dependencies(current_function!()).await;
             let response = request()
                 .method(HTTP_METHOD.as_str())
                 .json(&Value::Null)
@@ -536,7 +541,7 @@ mod tests {
 
         #[tokio::test]
         async fn should_conform_to_openapi_when_server_error() {
-            let (dependency_manager, mut rx) = setup_dependencies().await;
+            let (dependency_manager, mut rx) = setup_dependencies(current_function!()).await;
             rx.close();
 
             let response = request()
@@ -562,7 +567,7 @@ mod tests {
 
         #[tokio::test]
         async fn should_send_event() {
-            let (dependency_manager, mut rx) = setup_dependencies().await;
+            let (dependency_manager, mut rx) = setup_dependencies(current_function!()).await;
 
             request()
                 .method(HTTP_METHOD.as_str())
@@ -581,7 +586,7 @@ mod tests {
 
         #[tokio::test]
         async fn increments_metric() {
-            let (dependency_manager, _rx) = setup_dependencies().await;
+            let (dependency_manager, _rx) = setup_dependencies(current_function!()).await;
             let metric_counter = dependency_manager
                 .metrics_service
                 .get_cardano_database_partial_restoration_since_startup();

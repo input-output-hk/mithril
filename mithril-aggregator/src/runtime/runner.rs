@@ -531,9 +531,11 @@ pub mod tests {
     };
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
+    use mithril_common::current_function;
     use mithril_common::entities::{
         ChainPoint, Epoch, SignedEntityConfig, SignedEntityTypeDiscriminants,
     };
+    use mithril_common::test_utils::build_function_path;
     use mithril_common::{
         chain_observer::FakeObserver,
         digesters::DumbImmutableFileObserver,
@@ -875,7 +877,11 @@ pub mod tests {
             .returning(|_| Ok(()))
             .times(1);
 
-        let config = Configuration::new_sample();
+        let config = Configuration {
+            snapshot_directory: std::env::temp_dir()
+                .join(build_function_path(module_path!(), current_function!())),
+            ..Configuration::new_sample()
+        };
         let mut deps = DependenciesBuilder::new_with_stdout_logger(config.clone())
             .build_dependency_container()
             .await

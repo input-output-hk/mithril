@@ -311,12 +311,12 @@ impl DependencyContainer {
 #[cfg(test)]
 pub(crate) mod tests {
 
-    use std::path::{Path, PathBuf};
-
-    use mithril_common::current_function;
+    use mithril_common::test_utils::build_function_path;
 
     use crate::{dependency_injection::DependenciesBuilder, Configuration, DependencyContainer};
 
+    /// Initialize dependency container with a unique temporary snapshot directory build fril test path.
+    /// This macro should used directly in a function test to be able to retrieve the function name.
     #[macro_export]
     macro_rules! initialize_dependencies {
         () => {{
@@ -329,36 +329,12 @@ pub(crate) mod tests {
         name: N,
     ) -> DependencyContainer {
         let config = Configuration {
-            snapshot_directory: std::env::temp_dir().join(build_path(module, name)),
+            snapshot_directory: std::env::temp_dir().join(build_function_path(module, name)),
             ..Configuration::new_sample()
         };
 
         let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
 
         builder.build_dependency_container().await.unwrap()
-    }
-
-    fn build_path<M: Into<String>, N: Into<String>>(module: M, function: N) -> PathBuf {
-        PathBuf::from(module.into().replace("::", "/")).join(function.into())
-    }
-
-    #[test]
-    fn test_build_path() {
-        assert_eq!(
-            Path::new("module")
-                .join("sub_module")
-                .join("file")
-                .join("function"),
-            build_path("module::sub_module::file", "function")
-        );
-
-        assert_eq!(
-            Path::new("mithril_aggregator")
-                .join("dependency_injection")
-                .join("containers")
-                .join("tests")
-                .join("test_build_path"),
-            build_path(module_path!(), current_function!())
-        );
     }
 }
