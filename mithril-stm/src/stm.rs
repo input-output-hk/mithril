@@ -112,7 +112,8 @@ use crate::error::{
     StmSignatureError,
 };
 use crate::key_reg::{ClosedKeyReg, RegParty};
-use crate::merkle_tree::{BatchPath, MTLeaf, MerkleTreeCommitmentBatchCompat};
+use crate::merkle_tree::batch_compatible::*;
+use crate::merkle_tree::leaf::MTLeaf;
 use crate::multi_sig::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
 use blake2::digest::{Digest, FixedOutput};
 use rand_core::{CryptoRng, RngCore};
@@ -1091,7 +1092,6 @@ impl CoreVerifier {
 mod tests {
     use super::*;
     use crate::key_reg::*;
-    use crate::merkle_tree::BatchPath;
     use bincode;
     use blake2::{digest::consts::U32, Blake2b};
     use proptest::collection::{hash_map, vec};
