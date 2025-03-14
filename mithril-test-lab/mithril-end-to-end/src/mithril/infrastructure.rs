@@ -408,9 +408,12 @@ impl MithrilInfrastructure {
         self.cardano_chain_observers[index + 1].clone()
     }
 
-    pub async fn build_client(&self) -> StdResult<Client> {
+    pub async fn build_client(&self, aggregator: &Aggregator) -> StdResult<Client> {
         let work_dir = {
-            let mut artifacts_dir = self.artifacts_dir.join("mithril-client");
+            let mut artifacts_dir = self.artifacts_dir.join(format!(
+                "mithril-client-aggregator-{}",
+                Aggregator::name_suffix(aggregator.index())
+            ));
             if self.use_era_specific_work_dir {
                 let current_era = self.current_era.read().await;
                 artifacts_dir = artifacts_dir.join(format!("era.{}", current_era));
