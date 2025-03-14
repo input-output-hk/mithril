@@ -15,10 +15,10 @@ use mithril_common::{
 };
 
 use crate::{
-    artifact_builder::utils::compute_size,
     file_uploaders::{GcpUploader, LocalUploader},
     services::Snapshotter,
     tools::file_archiver::FileArchive,
+    tools::file_size,
     DumbUploader, FileUploader,
 };
 
@@ -222,7 +222,7 @@ impl AncillaryArtifactBuilder {
         let paths_to_include =
             Self::get_files_and_directories_to_snapshot(beacon.immutable_file_number);
 
-        compute_size(
+        file_size::compute_size(
             paths_to_include
                 .iter()
                 .map(|path| db_path.join(path))
