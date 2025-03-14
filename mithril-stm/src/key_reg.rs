@@ -19,18 +19,6 @@ pub struct KeyReg {
     keys: HashMap<VerificationKey, Stake>,
 }
 
-/// Structure generated out of a closed registration containing the registered parties, total stake, and the merkle tree.
-/// One can only get a global `avk` out of a closed key registration.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ClosedKeyReg<D: Digest> {
-    /// Ordered list of registered parties.
-    pub reg_parties: Vec<RegParty>,
-    /// Total stake of the registered parties.
-    pub total_stake: Stake,
-    /// Unique public key out of the key registration instance.
-    pub merkle_tree: Arc<MerkleTree<D>>,
-}
-
 impl KeyReg {
     /// Initialize an empty `KeyReg`.
     pub fn init() -> Self {
@@ -52,8 +40,8 @@ impl KeyReg {
     /// Finalize the key registration.
     /// This function disables `KeyReg::register`, consumes the instance of `self`, and returns a `ClosedKeyReg`.
     pub fn close<D>(self) -> ClosedKeyReg<D>
-    where
-        D: Digest + FixedOutput,
+        where
+            D: Digest + FixedOutput,
     {
         let mut total_stake: Stake = 0;
         let mut reg_parties = self
@@ -77,6 +65,20 @@ impl KeyReg {
         }
     }
 }
+
+
+/// Structure generated out of a closed registration containing the registered parties, total stake, and the merkle tree.
+/// One can only get a global `avk` out of a closed key registration.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ClosedKeyReg<D: Digest> {
+    /// Ordered list of registered parties.
+    pub reg_parties: Vec<RegParty>,
+    /// Total stake of the registered parties.
+    pub total_stake: Stake,
+    /// Unique public key out of the key registration instance.
+    pub merkle_tree: Arc<MerkleTree<D>>,
+}
+
 
 #[cfg(test)]
 mod tests {
