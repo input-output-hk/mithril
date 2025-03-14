@@ -228,7 +228,7 @@ impl Spec {
                 infrastructure.signers().len(),
             )
             .await?;
-            let mut client = infrastructure.build_client().await?;
+            let mut client = infrastructure.build_client(aggregator).await?;
             assertions::assert_client_can_verify_mithril_stake_distribution(&mut client, &hash)
                 .await?;
         }
@@ -250,7 +250,7 @@ impl Spec {
             )
             .await?;
 
-            let mut client = infrastructure.build_client().await?;
+            let mut client = infrastructure.build_client(aggregator).await?;
             assertions::assert_client_can_verify_snapshot(&mut client, &digest).await?;
         }
 
@@ -276,7 +276,7 @@ impl Spec {
             assertions::assert_node_producing_cardano_database_digests_map(&aggregator.endpoint())
                 .await?;
 
-            let mut client = infrastructure.build_client().await?;
+            let mut client = infrastructure.build_client(aggregator).await?;
             assertions::assert_client_can_verify_cardano_database(&mut client, &hash).await?;
         }
 
@@ -302,7 +302,7 @@ impl Spec {
             let transaction_hashes = infrastructure
                 .devnet()
                 .mithril_payments_transaction_hashes()?;
-            let mut client = infrastructure.build_client().await?;
+            let mut client = infrastructure.build_client(aggregator).await?;
             assertions::assert_client_can_verify_transactions(&mut client, transaction_hashes)
                 .await?;
         }
@@ -328,7 +328,7 @@ impl Spec {
                 )
                 .await?;
 
-                let mut client = infrastructure.build_client().await?;
+                let mut client = infrastructure.build_client(aggregator).await?;
                 assertions::assert_client_can_verify_cardano_stake_distribution(
                     &mut client,
                     &hash,
