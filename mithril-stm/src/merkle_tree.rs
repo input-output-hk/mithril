@@ -15,73 +15,6 @@ use std::marker::PhantomData;
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct MTLeaf(pub VerificationKey, pub Stake);
 
-/// Path of hashes from root to leaf in a Merkle Tree.
-/// Contains all hashes on the path, and the index of the leaf.
-/// Used to verify that signatures come from eligible signers.
-#[derive(Default, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Path<D: Digest> {
-    pub(crate) values: Vec<Vec<u8>>,
-    pub(crate) index: usize,
-    hasher: PhantomData<D>,
-}
-
-/// Path of hashes for a batch of indices.
-/// Contains the hashes and the corresponding merkle tree indices of given batch.
-/// Used to verify the signatures are issued by the registered signers.
-#[derive(Default, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BatchPath<D: Digest + FixedOutput> {
-    pub(crate) values: Vec<Vec<u8>>,
-    pub(crate) indices: Vec<usize>,
-    pub(crate) hasher: PhantomData<D>,
-}
-
-/// `MerkleTree` commitment.
-/// This structure differs from `MerkleTree` in that it does not contain all elements, which are not always necessary.
-/// Instead, it only contains the root of the tree.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MerkleTreeCommitment<D: Digest> {
-    /// Root of the merkle commitment.
-    pub root: Vec<u8>,
-    hasher: PhantomData<D>,
-}
-
-/// Batch compatible `MerkleTree` commitment .
-/// This structure differs from `MerkleTreeCommitment` in that it stores the number of leaves in the tree
-/// as well as the root of the tree.
-/// Number of leaves is required by the batch path generation/verification.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MerkleTreeCommitmentBatchCompat<D: Digest> {
-    /// Root of the merkle commitment.
-    pub root: Vec<u8>,
-    nr_leaves: usize,
-    hasher: PhantomData<D>,
-}
-
-impl<D: Digest> PartialEq for MerkleTreeCommitmentBatchCompat<D> {
-    fn eq(&self, other: &Self) -> bool {
-        self.root == other.root && self.nr_leaves == other.nr_leaves
-    }
-}
-
-impl<D: Digest> Eq for MerkleTreeCommitmentBatchCompat<D> {}
-
-/// Tree of hashes, providing a commitment of data and its ordering.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MerkleTree<D: Digest> {
-    /// The nodes are stored in an array heap:
-    /// * `nodes[0]` is the root,
-    /// * the parent of `nodes[i]` is `nodes[(i-1)/2]`
-    /// * the children of `nodes[i]` are `{nodes[2i + 1], nodes[2i + 2]}`
-    /// * All nodes have size `Output<D>::output_size()`, even leafs (which are hashed before committing them).
-    nodes: Vec<Vec<u8>>,
-    /// The leaves begin at `nodes[leaf_off]`.
-    leaf_off: usize,
-    /// Number of leaves cached in the merkle tree.
-    n: usize,
-    /// Phantom type to link the tree with its hasher
-    hasher: PhantomData<D>,
-}
-
 impl MTLeaf {
     pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self, MerkleTreeError<Blake2b<U32>>> {
         let pk = StmVerificationKey::from_bytes(bytes)
@@ -123,49 +56,14 @@ impl Ord for MTLeaf {
     }
 }
 
-impl<D: Digest + Clone + FixedOutput> Path<D> {
-    /// Convert to bytes
-    /// # Layout
-    /// * Index representing the position in the Merkle Tree
-    /// * Size of the Path
-    /// * Path of hashes
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut output = Vec::new();
-        output.extend_from_slice(&u64::try_from(self.index).unwrap().to_be_bytes());
-        output.extend_from_slice(&u64::try_from(self.values.len()).unwrap().to_be_bytes());
-        for value in &self.values {
-            output.extend_from_slice(value)
-        }
-
-        output
-    }
-
-    /// Extract a `Path` from a byte slice.
-    /// # Error
-    /// This function fails if the bytes cannot retrieve path.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Path<D>, MerkleTreeError<D>> {
-        let mut u64_bytes = [0u8; 8];
-        u64_bytes.copy_from_slice(&bytes[..8]);
-        let index = usize::try_from(u64::from_be_bytes(u64_bytes))
-            .map_err(|_| MerkleTreeError::SerializationError)?;
-        u64_bytes.copy_from_slice(&bytes[8..16]);
-        let len = usize::try_from(u64::from_be_bytes(u64_bytes))
-            .map_err(|_| MerkleTreeError::SerializationError)?;
-        let mut values = Vec::with_capacity(len);
-        for i in 0..len {
-            values.push(
-                bytes[16 + i * <D as Digest>::output_size()
-                    ..16 + (i + 1) * <D as Digest>::output_size()]
-                    .to_vec(),
-            );
-        }
-
-        Ok(Path {
-            values,
-            index,
-            hasher: PhantomData,
-        })
-    }
+/// Path of hashes for a batch of indices.
+/// Contains the hashes and the corresponding merkle tree indices of given batch.
+/// Used to verify the signatures are issued by the registered signers.
+#[derive(Default, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BatchPath<D: Digest + FixedOutput> {
+    pub(crate) values: Vec<Vec<u8>>,
+    pub(crate) indices: Vec<usize>,
+    pub(crate) hasher: PhantomData<D>,
 }
 
 impl<D: Digest + FixedOutput> BatchPath<D> {
@@ -234,41 +132,16 @@ impl<D: Digest + FixedOutput> BatchPath<D> {
     }
 }
 
-impl<D: Clone + Digest + FixedOutput> MerkleTreeCommitment<D> {
-    /// Check an inclusion proof that `val` is part of the tree by traveling the whole path until the root.
-    /// # Error
-    /// If the merkle tree path is invalid, then the function fails.
-    pub fn check(&self, val: &MTLeaf, proof: &Path<D>) -> Result<(), MerkleTreeError<D>> {
-        let mut idx = proof.index;
-
-        let mut h = D::digest(val.to_bytes()).to_vec();
-        for p in &proof.values {
-            if (idx & 0b1) == 0 {
-                h = D::new().chain_update(h).chain_update(p).finalize().to_vec();
-            } else {
-                h = D::new().chain_update(p).chain_update(h).finalize().to_vec();
-            }
-            idx >>= 1;
-        }
-
-        if h == self.root {
-            return Ok(());
-        }
-        Err(MerkleTreeError::PathInvalid(proof.clone()))
-    }
-
-    /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
-    /// Outputs `msg || self` as a vector of bytes.
-    pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8>
-    where
-        D: Digest,
-    {
-        let mut msgp = msg.to_vec();
-        let mut bytes = self.root.clone();
-        msgp.append(&mut bytes);
-
-        msgp
-    }
+/// Batch compatible `MerkleTree` commitment .
+/// This structure differs from `MerkleTreeCommitment` in that it stores the number of leaves in the tree
+/// as well as the root of the tree.
+/// Number of leaves is required by the batch path generation/verification.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MerkleTreeCommitmentBatchCompat<D: Digest> {
+    /// Root of the merkle commitment.
+    pub root: Vec<u8>,
+    nr_leaves: usize,
+    hasher: PhantomData<D>,
 }
 
 impl<D: Clone + Digest> MerkleTreeCommitmentBatchCompat<D> {
@@ -387,6 +260,31 @@ impl<D: Clone + Digest> MerkleTreeCommitmentBatchCompat<D> {
     }
 }
 
+impl<D: Digest> PartialEq for MerkleTreeCommitmentBatchCompat<D> {
+    fn eq(&self, other: &Self) -> bool {
+        self.root == other.root && self.nr_leaves == other.nr_leaves
+    }
+}
+
+impl<D: Digest> Eq for MerkleTreeCommitmentBatchCompat<D> {}
+
+/// Tree of hashes, providing a commitment of data and its ordering.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MerkleTree<D: Digest> {
+    /// The nodes are stored in an array heap:
+    /// * `nodes[0]` is the root,
+    /// * the parent of `nodes[i]` is `nodes[(i-1)/2]`
+    /// * the children of `nodes[i]` are `{nodes[2i + 1], nodes[2i + 2]}`
+    /// * All nodes have size `Output<D>::output_size()`, even leafs (which are hashed before committing them).
+    nodes: Vec<Vec<u8>>,
+    /// The leaves begin at `nodes[leaf_off]`.
+    leaf_off: usize,
+    /// Number of leaves cached in the merkle tree.
+    n: usize,
+    /// Phantom type to link the tree with its hasher
+    hasher: PhantomData<D>,
+}
+
 impl<D: Digest + FixedOutput> MerkleTree<D> {
     /// Provided a non-empty list of leaves, `create` generates its corresponding `MerkleTree`.
     pub fn create(leaves: &[MTLeaf]) -> MerkleTree<D> {
@@ -488,9 +386,9 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
     /// 2. Given an input vector `v = v1, . . .,vl`, if `v.len() == 1`, return `proof`, else, continue.
     /// 3. Map each `vi` to the corresponding number of the leaf (by adding the offset).
     /// 4. Initialise a new empty vector `p = []`. Next, iterate over each element `vi`
-    ///     a. Append the parent of `vi` to `p`
-    ///     b. Compute the sibling, `si` of `vi`
-    ///     c. If `si == v(i+1)` then do nothing, and skip step four for `v(i+1)`. Else append `si` to `proof`
+    ///    a. Append the parent of `vi` to `p`
+    ///    b. Compute the sibling, `si` of `vi`
+    ///    c. If `si == v(i+1)` then do nothing, and skip step four for `v(i+1)`. Else append `si` to `proof`
     /// 5. Iterate from step 2 with input vector `p`
     ///
     /// # Panics
@@ -596,10 +494,114 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
     }
 }
 
-//////////////////
-// Heap Helpers //
-//////////////////
+// ---------------------------------------------------------------------
+// Outdated
+// ---------------------------------------------------------------------
+/// Path of hashes from root to leaf in a Merkle Tree.
+/// Contains all hashes on the path, and the index of the leaf.
+/// Used to verify that signatures come from eligible signers.
+#[derive(Default, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Path<D: Digest> {
+    pub(crate) values: Vec<Vec<u8>>,
+    pub(crate) index: usize,
+    hasher: PhantomData<D>,
+}
 
+impl<D: Digest + Clone + FixedOutput> Path<D> {
+    /// Convert to bytes
+    /// # Layout
+    /// * Index representing the position in the Merkle Tree
+    /// * Size of the Path
+    /// * Path of hashes
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut output = Vec::new();
+        output.extend_from_slice(&u64::try_from(self.index).unwrap().to_be_bytes());
+        output.extend_from_slice(&u64::try_from(self.values.len()).unwrap().to_be_bytes());
+        for value in &self.values {
+            output.extend_from_slice(value)
+        }
+
+        output
+    }
+
+    /// Extract a `Path` from a byte slice.
+    /// # Error
+    /// This function fails if the bytes cannot retrieve path.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Path<D>, MerkleTreeError<D>> {
+        let mut u64_bytes = [0u8; 8];
+        u64_bytes.copy_from_slice(&bytes[..8]);
+        let index = usize::try_from(u64::from_be_bytes(u64_bytes))
+            .map_err(|_| MerkleTreeError::SerializationError)?;
+        u64_bytes.copy_from_slice(&bytes[8..16]);
+        let len = usize::try_from(u64::from_be_bytes(u64_bytes))
+            .map_err(|_| MerkleTreeError::SerializationError)?;
+        let mut values = Vec::with_capacity(len);
+        for i in 0..len {
+            values.push(
+                bytes[16 + i * <D as Digest>::output_size()
+                    ..16 + (i + 1) * <D as Digest>::output_size()]
+                    .to_vec(),
+            );
+        }
+
+        Ok(Path {
+            values,
+            index,
+            hasher: PhantomData,
+        })
+    }
+}
+
+/// `MerkleTree` commitment.
+/// This structure differs from `MerkleTree` in that it does not contain all elements, which are not always necessary.
+/// Instead, it only contains the root of the tree.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MerkleTreeCommitment<D: Digest> {
+    /// Root of the merkle commitment.
+    pub root: Vec<u8>,
+    hasher: PhantomData<D>,
+}
+
+impl<D: Clone + Digest + FixedOutput> MerkleTreeCommitment<D> {
+    /// Check an inclusion proof that `val` is part of the tree by traveling the whole path until the root.
+    /// # Error
+    /// If the merkle tree path is invalid, then the function fails.
+    pub fn check(&self, val: &MTLeaf, proof: &Path<D>) -> Result<(), MerkleTreeError<D>> {
+        let mut idx = proof.index;
+
+        let mut h = D::digest(val.to_bytes()).to_vec();
+        for p in &proof.values {
+            if (idx & 0b1) == 0 {
+                h = D::new().chain_update(h).chain_update(p).finalize().to_vec();
+            } else {
+                h = D::new().chain_update(p).chain_update(h).finalize().to_vec();
+            }
+            idx >>= 1;
+        }
+
+        if h == self.root {
+            return Ok(());
+        }
+        Err(MerkleTreeError::PathInvalid(proof.clone()))
+    }
+
+    /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
+    /// Outputs `msg || self` as a vector of bytes.
+    pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8>
+    where
+        D: Digest,
+    {
+        let mut msgp = msg.to_vec();
+        let mut bytes = self.root.clone();
+        msgp.append(&mut bytes);
+
+        msgp
+    }
+}
+
+// ---------------------------------------------------------------------
+// Heap Helpers
+// ---------------------------------------------------------------------
 fn parent(i: usize) -> usize {
     assert!(i > 0, "The root node does not have a parent");
     (i - 1) / 2
@@ -625,10 +627,6 @@ fn sibling(i: usize) -> usize {
     }
 }
 
-/////////////////////
-// Testing         //
-/////////////////////
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -637,6 +635,13 @@ mod tests {
     use proptest::prelude::*;
     use rand::{seq::IteratorRandom, thread_rng};
 
+    fn pow2_plus1(h: usize) -> usize {
+        1 + 2_usize.pow(h as u32)
+    }
+
+    // ---------------------------------------------------------------------
+    // Create an arbitrary tree
+    // ---------------------------------------------------------------------
     prop_compose! {
         fn arb_tree(max_size: u32)
                    (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<Blake2b<U32>>, Vec<MTLeaf>) {
@@ -646,6 +651,13 @@ mod tests {
         }
     }
 
+    // ---------------------------------------------------------------------
+    // Property test: `test_create_proof`
+    // Property test: `test_bytes_path`
+    // Property test: `test_bytes_tree_commitment`
+    // Property test: `test_bytes_tree`
+    // Property test: `test_bytes_tree_commitment_batch_compat`
+    // ---------------------------------------------------------------------
     proptest! {
         // Test the relation that t.get_path(i) is a valid
         // proof for i
@@ -704,10 +716,9 @@ mod tests {
 
     }
 
-    fn pow2_plus1(h: usize) -> usize {
-        1 + 2_usize.pow(h as u32)
-    }
-
+    // ---------------------------------------------------------------------
+    // Values with invalid proof
+    // ---------------------------------------------------------------------
     prop_compose! {
         // Returns values with a randomly generated path
         fn values_with_invalid_proof(max_height: usize)
@@ -720,6 +731,10 @@ mod tests {
         }
     }
 
+    // ---------------------------------------------------------------------
+    // Property test: `test_create_invalid_proof`
+    // Property test: `test_create_invalid_batch_proof`
+    // ---------------------------------------------------------------------
     proptest! {
         #[test]
         fn test_create_invalid_proof(
@@ -758,6 +773,9 @@ mod tests {
         }
     }
 
+    // ---------------------------------------------------------------------
+    // Create an arbitrary tree, arbitrary batch values with index list
+    // ---------------------------------------------------------------------
     prop_compose! {
         fn arb_tree_arb_batch(max_size: u32)
                    (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<Blake2b<U32>>, Vec<MTLeaf>, Vec<usize>) {
@@ -779,6 +797,10 @@ mod tests {
         }
     }
 
+    // ---------------------------------------------------------------------
+    // Property test: `test_create_batch_proof`
+    // Property test: `test_bytes_batch_path`
+    // ---------------------------------------------------------------------
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(100))]
         #[test]
