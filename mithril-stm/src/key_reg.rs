@@ -88,6 +88,9 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
+    // ---------------------------------------------------------------------
+    // Property test: `test_keyreg`
+    // ---------------------------------------------------------------------
     proptest! {
         #[test]
         fn test_keyreg(stake in vec(1..1u64 << 60, 2..=10),

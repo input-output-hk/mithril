@@ -651,6 +651,29 @@ mod tests {
 
     impl Eq for SigningKey {}
 
+    // ---------------------------------------------------------------------
+    // Test helpers
+    // ---------------------------------------------------------------------
+    impl PartialEq for SigningKey {
+        fn eq(&self, other: &Self) -> bool {
+            self.0.to_bytes() == other.0.to_bytes()
+        }
+    }
+
+    impl Eq for SigningKey {}
+
+    // ---------------------------------------------------------------------
+    // Property test: `test_sig`
+    // Property test: `test_invalid_sig`
+    // Property test: `test_infinity_sig`
+    // Property test: `test_infinity_vk`
+    // Property test: `test_keyreg_with_infinity_vk`
+    // Property test: `test_aggregate_sig`
+    // Property test: `test_eval_sanity_check`
+    // Property test: `serialize_deserialize_vk`
+    // Property test: `serialize_deserialize_sk`
+    // Property test: `batch_verify`
+    // ---------------------------------------------------------------------
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(1000))]
 
