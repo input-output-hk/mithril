@@ -136,8 +136,6 @@ pub type StmVerificationKeyPoP = VerificationKeyPoP;
 /// Wrapper of the MultiSignature Verification key
 pub type StmVerificationKey = VerificationKey;
 
-
-
 /// Used to set protocol parameters.
 // todo: this is the criteria to consider parameters valid:
 // Let A = max assumed adversarial stake
@@ -188,7 +186,6 @@ impl StmParameters {
         Ok(Self { m, k, phi_f })
     }
 }
-
 
 /// Initializer for `StmSigner`.
 /// This is the data that is used during the key registration procedure.
@@ -327,7 +324,6 @@ impl StmInitializer {
     }
 }
 
-
 /// Participant in the protocol can sign messages.
 /// * If the signer has `closed_reg`, then it can generate Stm certificate.
 ///     * This kind of signer can only be generated out of an `StmInitializer` and a `ClosedKeyReg`.
@@ -414,13 +410,12 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     }
 }
 
-
 /// Stm aggregate key (batch compatible), which contains the merkle tree commitment and the total stake of the system.
 /// Batch Compat Merkle tree commitment includes the number of leaves in the tree in order to obtain batch path.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(
-serialize = "BatchPath<D>: Serialize",
-deserialize = "BatchPath<D>: Deserialize<'de>"
+    serialize = "BatchPath<D>: Serialize",
+    deserialize = "BatchPath<D>: Deserialize<'de>"
 ))]
 pub struct StmAggrVerificationKey<D: Clone + Digest + FixedOutput> {
     mt_commitment: MerkleTreeCommitmentBatchCompat<D>,
@@ -443,7 +438,6 @@ impl<D: Clone + Digest + FixedOutput> From<&ClosedKeyReg<D>> for StmAggrVerifica
         }
     }
 }
-
 
 /// Signature created by a single party who has won the lottery.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -594,7 +588,6 @@ impl Ord for StmSig {
     }
 }
 
-
 /// Signature with its registered party.
 #[derive(Debug, Clone, Hash, Deserialize, Eq, PartialEq, Ord, PartialOrd)]
 pub struct StmSigRegParty {
@@ -629,8 +622,8 @@ impl StmSigRegParty {
 
 impl Serialize for StmSigRegParty {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
+    where
+        S: Serializer,
     {
         let mut tuple = serializer.serialize_tuple(2)?;
         tuple.serialize_element(&self.sig)?;
@@ -638,7 +631,6 @@ impl Serialize for StmSigRegParty {
         tuple.end()
     }
 }
-
 
 /// `StmClerk` can verify and aggregate `StmSig`s and verify `StmMultiSig`s.
 /// Clerks can only be generated with the registration closed.
@@ -728,14 +720,13 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
     }
 }
 
-
 /// `StmMultiSig` uses the "concatenation" proving system (as described in Section 4.3 of the original paper.)
 /// This means that the aggregated signature contains a vector with all individual signatures.
 /// BatchPath is also a part of the aggregate signature which covers path for all signatures.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(
-serialize = "BatchPath<D>: Serialize",
-deserialize = "BatchPath<D>: Deserialize<'de>"
+    serialize = "BatchPath<D>: Serialize",
+    deserialize = "BatchPath<D>: Deserialize<'de>"
 ))]
 pub struct StmAggrSig<D: Clone + Digest + FixedOutput> {
     pub(crate) signatures: Vec<StmSigRegParty>,
@@ -896,7 +887,6 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
         })
     }
 }
-
 
 /// Full node verifier including the list of eligible signers and the total stake of the system.
 pub struct CoreVerifier {
@@ -1096,8 +1086,6 @@ impl CoreVerifier {
         Ok(())
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {

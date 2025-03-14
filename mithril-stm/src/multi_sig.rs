@@ -26,8 +26,6 @@ use std::{
 /// String used to generate the proofs of possession.
 const POP: &[u8] = b"PoP";
 
-
-
 /// MultiSig secret key, which is a wrapper over the BlstSk type from the blst
 /// library.
 #[derive(Debug, Clone)]
@@ -66,7 +64,6 @@ impl SigningKey {
         }
     }
 }
-
 
 /// MultiSig verification key, which is a wrapper over the BlstVk (element in G2)
 /// from the blst library.
@@ -144,8 +141,8 @@ impl Ord for VerificationKey {
 
 impl<'a> Sum<&'a Self> for VerificationKey {
     fn sum<I>(iter: I) -> Self
-        where
-            I: Iterator<Item = &'a Self>,
+    where
+        I: Iterator<Item = &'a Self>,
     {
         let keys: Vec<&BlstVk> = iter.map(|x| &x.0).collect();
 
@@ -166,7 +163,6 @@ impl From<&SigningKey> for VerificationKey {
         VerificationKey(sk.0.sk_to_pk())
     }
 }
-
 
 /// MultiSig proof of possession, which contains two elements from G1. However,
 /// the two elements have different types: `k1` is represented as a BlstSig
@@ -221,7 +217,6 @@ impl From<&SigningKey> for ProofOfPossession {
         Self { k1, k2 }
     }
 }
-
 
 /// MultiSig public key, contains the verification key and the proof of possession.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -288,7 +283,6 @@ impl From<&SigningKey> for VerificationKeyPoP {
         }
     }
 }
-
 
 /// MultiSig signature, which is a wrapper over the `BlstSig` type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -473,8 +467,6 @@ impl Ord for Signature {
         self.cmp_msp_sig(other)
     }
 }
-
-
 
 // ---------------------------------------------------------------------
 // Serde implementation

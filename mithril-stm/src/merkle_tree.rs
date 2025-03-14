@@ -10,7 +10,6 @@ use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-
 /// The values that are committed in the Merkle Tree.
 /// Namely, a verified `VerificationKey` and its corresponding stake.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Hash)]
@@ -56,7 +55,6 @@ impl Ord for MTLeaf {
         self.1.cmp(&other.1).then(self.0.cmp(&other.0))
     }
 }
-
 
 /// Path of hashes for a batch of indices.
 /// Contains the hashes and the corresponding merkle tree indices of given batch.
@@ -134,7 +132,6 @@ impl<D: Digest + FixedOutput> BatchPath<D> {
     }
 }
 
-
 /// Batch compatible `MerkleTree` commitment .
 /// This structure differs from `MerkleTreeCommitment` in that it stores the number of leaves in the tree
 /// as well as the root of the tree.
@@ -152,8 +149,8 @@ impl<D: Clone + Digest> MerkleTreeCommitmentBatchCompat<D> {
     /// Outputs `msg || self` as a vector of bytes.
     // todo: Do we need to concat msg to whole commitment (nr_leaves and root) or just the root?
     pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8>
-        where
-            D: Digest,
+    where
+        D: Digest,
     {
         let mut msgp = msg.to_vec();
         let mut bytes = self.root.clone();
@@ -174,8 +171,8 @@ impl<D: Clone + Digest> MerkleTreeCommitmentBatchCompat<D> {
         batch_val: &[MTLeaf],
         proof: &BatchPath<D>,
     ) -> Result<(), MerkleTreeError<D>>
-        where
-            D: FixedOutput,
+    where
+        D: FixedOutput,
     {
         if batch_val.len() != proof.indices.len() {
             return Err(MerkleTreeError::BatchPathInvalid(proof.clone()));
@@ -270,7 +267,6 @@ impl<D: Digest> PartialEq for MerkleTreeCommitmentBatchCompat<D> {
 }
 
 impl<D: Digest> Eq for MerkleTreeCommitmentBatchCompat<D> {}
-
 
 /// Tree of hashes, providing a commitment of data and its ordering.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -390,9 +386,9 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
     /// 2. Given an input vector `v = v1, . . .,vl`, if `v.len() == 1`, return `proof`, else, continue.
     /// 3. Map each `vi` to the corresponding number of the leaf (by adding the offset).
     /// 4. Initialise a new empty vector `p = []`. Next, iterate over each element `vi`
-    ///     a. Append the parent of `vi` to `p`
-    ///     b. Compute the sibling, `si` of `vi`
-    ///     c. If `si == v(i+1)` then do nothing, and skip step four for `v(i+1)`. Else append `si` to `proof`
+    ///    a. Append the parent of `vi` to `p`
+    ///    b. Compute the sibling, `si` of `vi`
+    ///    c. If `si == v(i+1)` then do nothing, and skip step four for `v(i+1)`. Else append `si` to `proof`
     /// 5. Iterate from step 2 with input vector `p`
     ///
     /// # Panics
@@ -498,7 +494,6 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
     }
 }
 
-
 //////////////////
 //   Outdated   //
 //////////////////
@@ -593,8 +588,8 @@ impl<D: Clone + Digest + FixedOutput> MerkleTreeCommitment<D> {
     /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
     /// Outputs `msg || self` as a vector of bytes.
     pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8>
-        where
-            D: Digest,
+    where
+        D: Digest,
     {
         let mut msgp = msg.to_vec();
         let mut bytes = self.root.clone();
@@ -603,7 +598,6 @@ impl<D: Clone + Digest + FixedOutput> MerkleTreeCommitment<D> {
         msgp
     }
 }
-
 
 //////////////////
 // Heap Helpers //

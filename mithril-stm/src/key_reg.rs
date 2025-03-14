@@ -40,8 +40,8 @@ impl KeyReg {
     /// Finalize the key registration.
     /// This function disables `KeyReg::register`, consumes the instance of `self`, and returns a `ClosedKeyReg`.
     pub fn close<D>(self) -> ClosedKeyReg<D>
-        where
-            D: Digest + FixedOutput,
+    where
+        D: Digest + FixedOutput,
     {
         let mut total_stake: Stake = 0;
         let mut reg_parties = self
@@ -66,7 +66,6 @@ impl KeyReg {
     }
 }
 
-
 /// Structure generated out of a closed registration containing the registered parties, total stake, and the merkle tree.
 /// One can only get a global `avk` out of a closed key registration.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -78,7 +77,6 @@ pub struct ClosedKeyReg<D: Digest> {
     /// Unique public key out of the key registration instance.
     pub merkle_tree: Arc<MerkleTree<D>>,
 }
-
 
 #[cfg(test)]
 mod tests {

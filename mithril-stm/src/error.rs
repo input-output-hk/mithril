@@ -39,7 +39,6 @@ pub enum MultiSignatureError {
     VerificationKeyInfinity(Box<VerificationKey>),
 }
 
-
 /// Error types related to merkle trees.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum MerkleTreeError<D: Digest + FixedOutput> {
@@ -55,7 +54,6 @@ pub enum MerkleTreeError<D: Digest + FixedOutput> {
     #[error("Batch path does not verify against root")]
     BatchPathInvalid(BatchPath<D>),
 }
-
 
 /// Errors which can be output by Mithril single signature verification.
 #[derive(Debug, Clone, thiserror::Error)]
@@ -108,7 +106,6 @@ impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSignatureError {
     }
 }
 
-
 /// Error types for aggregation.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum AggregationError {
@@ -120,7 +117,6 @@ pub enum AggregationError {
     #[error("Invalid usize conversion")]
     UsizeConversionInvalid,
 }
-
 
 /// Errors which can be output by `CoreVerifier`.
 #[derive(Debug, Clone, thiserror::Error)]
@@ -170,7 +166,6 @@ impl From<StmSignatureError> for CoreVerifierError {
         CoreVerifierError::IndividualSignatureInvalid(e)
     }
 }
-
 
 /// Errors which can be output by Mithril aggregate verification.
 #[derive(Debug, Clone, thiserror::Error)]
@@ -243,7 +238,6 @@ impl<D: Digest + FixedOutput> From<StmSignatureError> for StmAggregateSignatureE
     }
 }
 
-
 /// Errors which can be outputted by key registration.
 #[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
 pub enum RegisterError {
@@ -278,7 +272,6 @@ impl From<MultiSignatureError> for RegisterError {
         }
     }
 }
-
 
 /// If verifying a single signature, the signature should be provided. If verifying a multi-sig,
 /// no need to provide the signature
