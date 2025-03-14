@@ -377,6 +377,7 @@ mod tests {
             .upload_ancillary_archive(FileArchive::new(
                 PathBuf::from("archive_path"),
                 0,
+                0,
                 CompressionAlgorithm::Gzip,
             ))
             .await
@@ -416,6 +417,7 @@ mod tests {
             .upload_ancillary_archive(FileArchive::new(
                 PathBuf::from("archive_path"),
                 0,
+                0,
                 CompressionAlgorithm::Gzip,
             ))
             .await
@@ -443,7 +445,7 @@ mod tests {
             "upload_ancillary_archive_should_remove_archive_after_upload",
         );
         let archive_path = create_fake_archive(&source_dir, "ancillary.tar.gz");
-        let archive = FileArchive::new(archive_path.clone(), 0, CompressionAlgorithm::Gzip);
+        let archive = FileArchive::new(archive_path.clone(), 0, 0, CompressionAlgorithm::Gzip);
         let uploader = fake_uploader(
             archive_path.as_os_str().to_str().unwrap(),
             "an_uri",
@@ -472,7 +474,7 @@ mod tests {
             "upload_ancillary_archive_should_remove_archive_when_no_uploader_succeed",
         );
         let archive_path = create_fake_archive(&source_dir, "ancillary.tar.gz");
-        let archive = FileArchive::new(archive_path.clone(), 0, CompressionAlgorithm::Gzip);
+        let archive = FileArchive::new(archive_path.clone(), 0, 0, CompressionAlgorithm::Gzip);
         let uploader = fake_uploader_returning_error();
 
         let builder = AncillaryArtifactBuilder::new(

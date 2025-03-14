@@ -107,7 +107,7 @@ impl CardanoImmutableFilesFullArtifactBuilder {
             snapshot_digest,
             self.cardano_network,
             beacon,
-            ongoing_snapshot.get_file_size(),
+            ongoing_snapshot.get_archive_size(),
             remote_locations,
             ongoing_snapshot.get_compression_algorithm(),
             &self.cardano_node_version,
@@ -211,7 +211,7 @@ mod tests {
             snapshot_digest.to_owned(),
             fake_data::network(),
             beacon,
-            last_ongoing_snapshot.get_file_size(),
+            last_ongoing_snapshot.get_archive_size(),
             remote_locations,
             CompressionAlgorithm::Zstandard,
             &Version::parse("1.0.0").unwrap(),
@@ -225,6 +225,7 @@ mod tests {
         let file_path = file.path();
         let snapshot = FileArchive::new(
             file_path.to_path_buf(),
+            7331,
             7331,
             CompressionAlgorithm::default(),
         );
@@ -320,6 +321,7 @@ mod tests {
         let file_path = file.path();
         let snapshot = FileArchive::new(
             file_path.to_path_buf(),
+            7331,
             7331,
             CompressionAlgorithm::default(),
         );

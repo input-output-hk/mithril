@@ -52,6 +52,7 @@ impl Snapshotter for DumbSnapshotter {
                 self.compression_algorithm.tar_file_extension()
             )),
             0,
+            0,
             self.compression_algorithm,
         );
         *value = Some(snapshot.clone());
@@ -127,6 +128,7 @@ impl Snapshotter for FakeSnapshotter {
         Ok(FileArchive::new(
             fake_archive_path,
             0,
+            0,
             self.compression_algorithm,
         ))
     }
@@ -185,13 +187,13 @@ mod tests {
             let snapshot = snapshotter.snapshot_all("archive").unwrap();
 
             assert_eq!(PathBuf::from("archive.tar.gz"), *snapshot.get_file_path());
-            assert_eq!(0, snapshot.get_file_size());
+            assert_eq!(0, snapshot.get_archive_size());
 
             let snapshot = snapshotter
                 .snapshot_subset("archive", vec![PathBuf::from("whatever")])
                 .unwrap();
             assert_eq!(PathBuf::from("archive.tar.gz"), *snapshot.get_file_path());
-            assert_eq!(0, snapshot.get_file_size());
+            assert_eq!(0, snapshot.get_archive_size());
         }
 
         #[test]
