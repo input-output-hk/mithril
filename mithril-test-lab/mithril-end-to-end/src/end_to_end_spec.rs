@@ -212,18 +212,16 @@ impl Spec {
         let expected_epoch_min = target_epoch - 3;
         // Verify that mithril stake distribution artifacts are produced and signed correctly
         {
-            let hash = assertions::assert_node_producing_mithril_stake_distribution(
-                &aggregator.endpoint(),
-            )
-            .await?;
+            let hash =
+                assertions::assert_node_producing_mithril_stake_distribution(aggregator).await?;
             let certificate_hash = assertions::assert_signer_is_signing_mithril_stake_distribution(
-                &aggregator.endpoint(),
+                aggregator,
                 &hash,
                 expected_epoch_min,
             )
             .await?;
             assertions::assert_is_creating_certificate_with_enough_signers(
-                &aggregator.endpoint(),
+                aggregator,
                 &certificate_hash,
                 infrastructure.signers().len(),
             )
@@ -235,16 +233,16 @@ impl Spec {
 
         // Verify that snapshot artifacts are produced and signed correctly
         {
-            let digest = assertions::assert_node_producing_snapshot(&aggregator.endpoint()).await?;
+            let digest = assertions::assert_node_producing_snapshot(aggregator).await?;
             let certificate_hash = assertions::assert_signer_is_signing_snapshot(
-                &aggregator.endpoint(),
+                aggregator,
                 &digest,
                 expected_epoch_min,
             )
             .await?;
 
             assertions::assert_is_creating_certificate_with_enough_signers(
-                &aggregator.endpoint(),
+                aggregator,
                 &certificate_hash,
                 infrastructure.signers().len(),
             )
@@ -257,24 +255,22 @@ impl Spec {
         // Verify that Cardano database snapshot artifacts are produced and signed correctly
         if self.is_signing_cardano_database {
             let hash =
-                assertions::assert_node_producing_cardano_database_snapshot(&aggregator.endpoint())
-                    .await?;
+                assertions::assert_node_producing_cardano_database_snapshot(aggregator).await?;
             let certificate_hash = assertions::assert_signer_is_signing_cardano_database_snapshot(
-                &aggregator.endpoint(),
+                aggregator,
                 &hash,
                 expected_epoch_min,
             )
             .await?;
 
             assertions::assert_is_creating_certificate_with_enough_signers(
-                &aggregator.endpoint(),
+                aggregator,
                 &certificate_hash,
                 infrastructure.signers().len(),
             )
             .await?;
 
-            assertions::assert_node_producing_cardano_database_digests_map(&aggregator.endpoint())
-                .await?;
+            assertions::assert_node_producing_cardano_database_digests_map(aggregator).await?;
 
             let mut client = infrastructure.build_client(aggregator).await?;
             assertions::assert_client_can_verify_cardano_database(&mut client, &hash).await?;
@@ -282,18 +278,16 @@ impl Spec {
 
         // Verify that Cardano transactions artifacts are produced and signed correctly
         if self.is_signing_cardano_transactions {
-            let hash =
-                assertions::assert_node_producing_cardano_transactions(&aggregator.endpoint())
-                    .await?;
+            let hash = assertions::assert_node_producing_cardano_transactions(aggregator).await?;
             let certificate_hash = assertions::assert_signer_is_signing_cardano_transactions(
-                &aggregator.endpoint(),
+                aggregator,
                 &hash,
                 expected_epoch_min,
             )
             .await?;
 
             assertions::assert_is_creating_certificate_with_enough_signers(
-                &aggregator.endpoint(),
+                aggregator,
                 &certificate_hash,
                 infrastructure.signers().len(),
             )
@@ -310,19 +304,18 @@ impl Spec {
         // Verify that Cardano stake distribution artifacts are produced and signed correctly
         if self.is_signing_cardano_stake_distribution {
             {
-                let (hash, epoch) = assertions::assert_node_producing_cardano_stake_distribution(
-                    &aggregator.endpoint(),
-                )
-                .await?;
+                let (hash, epoch) =
+                    assertions::assert_node_producing_cardano_stake_distribution(aggregator)
+                        .await?;
                 let certificate_hash =
                     assertions::assert_signer_is_signing_cardano_stake_distribution(
-                        &aggregator.endpoint(),
+                        aggregator,
                         &hash,
                         expected_epoch_min,
                     )
                     .await?;
                 assertions::assert_is_creating_certificate_with_enough_signers(
-                    &aggregator.endpoint(),
+                    aggregator,
                     &certificate_hash,
                     infrastructure.signers().len(),
                 )
