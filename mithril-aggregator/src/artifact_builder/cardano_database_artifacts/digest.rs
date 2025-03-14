@@ -83,6 +83,7 @@ impl DigestFileUploader for GcpUploader {
     }
 }
 
+#[derive(Debug)]
 pub struct DigestUpload {
     pub locations: Vec<DigestLocation>,
     pub size: u64,
@@ -173,22 +174,11 @@ impl DigestArtifactBuilder {
 
         let locations = self.upload_digest_file(&digest_archive).await;
 
-        let file_metadata = std::fs::metadata(&digest_path);
-
         self.cleanup_uploaded_artefacts(&digest_path, &digest_archive)?;
-
-        let size = file_metadata
-            .with_context(|| {
-                format!(
-                    "Could not get size of digest file: '{}'",
-                    digest_path.display()
-                )
-            })?
-            .len();
 
         Ok(DigestUpload {
             locations: locations?,
-            size,
+            size: digest_archive.get_uncompressed_size(),
         })
     }
 

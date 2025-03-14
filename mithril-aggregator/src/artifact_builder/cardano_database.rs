@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
@@ -14,13 +14,11 @@ use mithril_common::{
 };
 
 use crate::artifact_builder::{AncillaryArtifactBuilder, ArtifactBuilder};
-use crate::tools::file_size;
 
 use super::{DigestArtifactBuilder, ImmutableArtifactBuilder};
 
 pub struct CardanoDatabaseArtifactBuilder {
     network: CardanoNetwork,
-    db_directory: PathBuf,
     cardano_node_version: Version,
     ancillary_builder: Arc<AncillaryArtifactBuilder>,
     immutable_builder: Arc<ImmutableArtifactBuilder>,
@@ -30,7 +28,6 @@ pub struct CardanoDatabaseArtifactBuilder {
 impl CardanoDatabaseArtifactBuilder {
     pub fn new(
         network: CardanoNetwork,
-        db_directory: PathBuf,
         cardano_node_version: &Version,
         ancillary_builder: Arc<AncillaryArtifactBuilder>,
         immutable_builder: Arc<ImmutableArtifactBuilder>,
@@ -38,7 +35,6 @@ impl CardanoDatabaseArtifactBuilder {
     ) -> Self {
         Self {
             network,
-            db_directory,
             cardano_node_version: cardano_node_version.clone(),
             ancillary_builder,
             immutable_builder,
@@ -66,55 +62,27 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
                     SignedEntityType::CardanoDatabase(beacon.clone())
                 )
             })?;
-        let total_db_size_uncompressed = {
-            let db_directory = self.db_directory.clone();
-            tokio::task::spawn_blocking(move || -> StdResult<u64> {
-                file_size::compute_size_of_path(&db_directory)
-            })
-            .await??
-        };
 
-        let ancillary_locations = self.ancillary_builder.upload(&beacon).await?;
-        let ancillary_builder = self.ancillary_builder.clone();
-        let ancillary_size = {
-            let db_directory = self.db_directory.clone();
-            let beacon = beacon.clone();
-            tokio::task::spawn_blocking(move || -> StdResult<u64> {
-                ancillary_builder.compute_uncompressed_size(&db_directory, &beacon)
-            })
-            .await??
-        };
-
-        let immutables_locations = self
+        let ancillary_upload = self.ancillary_builder.upload(&beacon).await?;
+        let immutables_upload = self
             .immutable_builder
             .upload(beacon.immutable_file_number)
             .await?;
-        let immutable_average_size = {
-            let db_directory = self.db_directory.clone();
-            let immutable_file_number = beacon.immutable_file_number;
-            let immutable_builder = self.immutable_builder.clone();
-            tokio::task::spawn_blocking(move || -> StdResult<u64> {
-                immutable_builder
-                    .compute_average_uncompressed_size(&db_directory, immutable_file_number)
-            })
-            .await??
-        };
-
         let digest_upload = self.digest_builder.upload(&beacon).await?;
 
         let content = CardanoDatabaseSnapshotArtifactData {
-            total_db_size_uncompressed,
+            total_db_size_uncompressed: ancillary_upload.size + immutables_upload.total_size,
             digests: DigestsLocations {
                 size_uncompressed: digest_upload.size,
                 locations: digest_upload.locations,
             },
             immutables: ImmutablesLocations {
-                average_size_uncompressed: immutable_average_size,
-                locations: immutables_locations,
+                average_size_uncompressed: immutables_upload.average_size,
+                locations: immutables_upload.locations,
             },
             ancillary: AncillaryLocations {
-                size_uncompressed: ancillary_size,
-                locations: ancillary_locations,
+                size_uncompressed: ancillary_upload.size,
+                locations: ancillary_upload.locations,
             },
         };
 
@@ -145,43 +113,20 @@ mod tests {
     };
     use mockall::{predicate, Predicate};
 
-    use super::*;
-    use crate::tools::file_archiver::FileArchiver;
     use crate::{
         artifact_builder::{
             DigestSnapshotter, MockAncillaryFileUploader, MockImmutableFilesUploader,
         },
         immutable_file_digest_mapper::MockImmutableFileDigestMapper,
-        services::FakeSnapshotter,
+        services::CompressedArchiveSnapshotter,
         test_tools::TestLogger,
-        tools::url_sanitizer::SanitizedUrlWithTrailingSlash,
+        tools::{file_archiver::FileArchiver, url_sanitizer::SanitizedUrlWithTrailingSlash},
     };
+
+    use super::*;
 
     fn get_test_directory(dir_name: &str) -> PathBuf {
         TempDir::create("cardano_database", dir_name)
-    }
-
-    #[test]
-    fn should_compute_the_size_of_the_uncompressed_database_only_immutable_ledger_and_volatile() {
-        let test_dir = get_test_directory("should_compute_the_size_of_the_uncompressed_database_only_immutable_ledger_and_volatile");
-
-        let immutable_trio_file_size = 777;
-        let ledger_file_size = 6666;
-        let volatile_file_size = 99;
-        DummyCardanoDbBuilder::new(test_dir.as_os_str().to_str().unwrap())
-            .with_immutables(&[1, 2])
-            .set_immutable_trio_file_size(immutable_trio_file_size)
-            .with_ledger_files(&["437", "537", "637", "737"])
-            .set_ledger_file_size(ledger_file_size)
-            .with_volatile_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
-            .set_volatile_file_size(volatile_file_size)
-            .build();
-        let expected_total_size =
-            (2 * immutable_trio_file_size) + (4 * ledger_file_size) + (3 * volatile_file_size);
-
-        let total_size = file_size::compute_size_of_path(&test_dir).unwrap();
-
-        assert_eq!(expected_total_size, total_size);
     }
 
     #[tokio::test]
@@ -203,12 +148,19 @@ mod tests {
             .set_volatile_file_size(volatile_file_size)
             .build();
         let expected_average_immutable_size = immutable_trio_file_size;
-        let expected_ancillary_size =
-            immutable_trio_file_size + ledger_file_size + volatile_file_size;
-        let expected_total_size =
-            4 * immutable_trio_file_size + ledger_file_size + volatile_file_size;
+        let expected_ancillary_size = immutable_trio_file_size + ledger_file_size;
+        let expected_total_size = 4 * immutable_trio_file_size + ledger_file_size;
 
-        let snapshotter = Arc::new(FakeSnapshotter::new(test_dir.join("fake_snapshots")));
+        let snapshotter = Arc::new(
+            CompressedArchiveSnapshotter::new(
+                cardano_db.get_dir().to_path_buf(),
+                test_dir.join("ongoing_snapshots"),
+                CompressionAlgorithm::Gzip,
+                Arc::new(FileArchiver::new_for_test(test_dir.join("verification"))),
+                TestLogger::stdout(),
+            )
+            .unwrap(),
+        );
 
         let ancillary_artifact_builder = {
             let mut ancillary_uploader = MockAncillaryFileUploader::new();
@@ -251,7 +203,7 @@ mod tests {
                 });
 
             ImmutableArtifactBuilder::new(
-                test_dir.join("immutable"),
+                cardano_db.get_immutable_dir().to_path_buf(),
                 vec![Arc::new(immutable_uploader)],
                 snapshotter,
                 TestLogger::stdout(),
@@ -286,7 +238,6 @@ mod tests {
 
         let cardano_database_artifact_builder = CardanoDatabaseArtifactBuilder::new(
             network,
-            cardano_db.get_dir().to_owned(),
             &Version::parse("1.0.0").unwrap(),
             Arc::new(ancillary_artifact_builder),
             Arc::new(immutable_artifact_builder),

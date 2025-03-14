@@ -387,7 +387,6 @@ impl DependenciesBuilder {
 
         Ok(CardanoDatabaseArtifactBuilder::new(
             self.configuration.get_network()?,
-            self.configuration.db_directory.clone(),
             &cardano_node_version,
             ancillary_builder,
             immutable_builder,

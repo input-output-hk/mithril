@@ -1,14 +1,10 @@
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{path::Path, sync::Arc};
 
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use slog::{debug, error, warn, Logger};
 
 use mithril_common::{
-    digesters::{IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR},
     entities::{AncillaryLocation, CardanoDbBeacon, CompressionAlgorithm},
     logging::LoggerExtensions,
     CardanoNetwork, StdResult,
@@ -18,7 +14,6 @@ use crate::{
     file_uploaders::{GcpUploader, LocalUploader},
     services::Snapshotter,
     tools::file_archiver::FileArchive,
-    tools::file_size,
     DumbUploader, FileUploader,
 };
 
@@ -82,6 +77,12 @@ impl AncillaryFileUploader for GcpUploader {
     }
 }
 
+#[derive(Debug)]
+pub struct AncillaryUpload {
+    pub locations: Vec<AncillaryLocation>,
+    pub size: u64,
+}
+
 /// The [AncillaryArtifactBuilder] creates an ancillary archive from the cardano database directory (including ledger and volatile directories).
 /// The archive is uploaded with the provided uploaders.
 pub struct AncillaryArtifactBuilder {
@@ -113,29 +114,14 @@ impl AncillaryArtifactBuilder {
         })
     }
 
-    pub async fn upload(&self, beacon: &CardanoDbBeacon) -> StdResult<Vec<AncillaryLocation>> {
+    pub async fn upload(&self, beacon: &CardanoDbBeacon) -> StdResult<AncillaryUpload> {
         let snapshot = self.create_ancillary_archive(beacon)?;
-        let locations = self.upload_ancillary_archive(snapshot).await?;
+        let locations = self.upload_ancillary_archive(&snapshot).await?;
 
-        Ok(locations)
-    }
-
-    /// Returns the list of files and directories to include in the snapshot.
-    /// The immutable file included in the ancillary archive corresponds to the last one (and not finalized yet)
-    /// when the immutable file number given to the function corresponds to the penultimate.
-    fn get_files_and_directories_to_snapshot(immutable_file_number: u64) -> Vec<PathBuf> {
-        let next_immutable_file_number = immutable_file_number + 1;
-        let chunk_filename = format!("{:05}.chunk", next_immutable_file_number);
-        let primary_filename = format!("{:05}.primary", next_immutable_file_number);
-        let secondary_filename = format!("{:05}.secondary", next_immutable_file_number);
-
-        vec![
-            PathBuf::from(VOLATILE_DIR),
-            PathBuf::from(LEDGER_DIR),
-            PathBuf::from(IMMUTABLE_DIR).join(chunk_filename),
-            PathBuf::from(IMMUTABLE_DIR).join(primary_filename),
-            PathBuf::from(IMMUTABLE_DIR).join(secondary_filename),
-        ]
+        Ok(AncillaryUpload {
+            locations,
+            size: snapshot.get_uncompressed_size(),
+        })
     }
 
     /// Creates an archive for the Cardano database ancillary files for the given immutable file number.
@@ -173,7 +159,7 @@ impl AncillaryArtifactBuilder {
     /// Uploads the ancillary archive and returns the locations of the uploaded files.
     async fn upload_ancillary_archive(
         &self,
-        file_archive: FileArchive,
+        file_archive: &FileArchive,
     ) -> StdResult<Vec<AncillaryLocation>> {
         let archive_filepath = file_archive.get_file_path();
         let mut locations = Vec::new();
@@ -213,30 +199,13 @@ impl AncillaryArtifactBuilder {
 
         Ok(locations)
     }
-
-    pub fn compute_uncompressed_size(
-        &self,
-        db_path: &Path,
-        beacon: &CardanoDbBeacon,
-    ) -> StdResult<u64> {
-        let paths_to_include =
-            Self::get_files_and_directories_to_snapshot(beacon.immutable_file_number);
-
-        file_size::compute_size(
-            paths_to_include
-                .iter()
-                .map(|path| db_path.join(path))
-                .collect(),
-        )
-    }
 }
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::{
-        digesters::DummyCardanoDbBuilder,
-        test_utils::{assert_equivalent, TempDir},
-    };
+    use std::path::PathBuf;
+
+    use mithril_common::test_utils::{assert_equivalent, TempDir};
 
     use crate::services::{DumbSnapshotter, MockSnapshotter};
     use crate::test_tools::TestLogger;
@@ -325,7 +294,9 @@ mod tests {
             )
             .unwrap();
 
-            let _ = builder.upload_ancillary_archive(FileArchive::dummy()).await;
+            let _ = builder
+                .upload_ancillary_archive(&FileArchive::dummy())
+                .await;
         }
 
         let logs = std::fs::read_to_string(&log_path).unwrap();
@@ -344,7 +315,9 @@ mod tests {
         )
         .unwrap();
 
-        let result = builder.upload_ancillary_archive(FileArchive::dummy()).await;
+        let result = builder
+            .upload_ancillary_archive(&FileArchive::dummy())
+            .await;
 
         assert!(
             result.is_err(),
@@ -374,7 +347,7 @@ mod tests {
         .unwrap();
 
         let locations = builder
-            .upload_ancillary_archive(FileArchive::new(
+            .upload_ancillary_archive(&FileArchive::new(
                 PathBuf::from("archive_path"),
                 0,
                 0,
@@ -414,7 +387,7 @@ mod tests {
         .unwrap();
 
         let locations = builder
-            .upload_ancillary_archive(FileArchive::new(
+            .upload_ancillary_archive(&FileArchive::new(
                 PathBuf::from("archive_path"),
                 0,
                 0,
@@ -462,7 +435,7 @@ mod tests {
 
         assert!(archive_path.exists());
 
-        builder.upload_ancillary_archive(archive).await.unwrap();
+        builder.upload_ancillary_archive(&archive).await.unwrap();
 
         assert!(!archive_path.exists());
     }
@@ -487,7 +460,10 @@ mod tests {
 
         assert!(archive_path.exists());
 
-        builder.upload_ancillary_archive(archive).await.unwrap_err();
+        builder
+            .upload_ancillary_archive(&archive)
+            .await
+            .unwrap_err();
 
         assert!(!archive_path.exists());
     }
@@ -516,40 +492,36 @@ mod tests {
             .expect_err("Should return an error when archive creation fails");
     }
 
-    #[test]
-    fn should_compute_the_size_of_the_ancillary() {
-        let test_dir = "should_compute_the_size_of_the_ancillary/cardano_database";
-
-        let immutable_trio_file_size = 777;
-        let ledger_file_size = 6666;
-        let volatile_file_size = 99;
-
-        let cardano_db = DummyCardanoDbBuilder::new(test_dir)
-            .with_immutables(&[1, 2, 3])
-            .set_immutable_trio_file_size(immutable_trio_file_size)
-            .with_ledger_files(&["437", "537", "637", "737"])
-            .set_ledger_file_size(ledger_file_size)
-            .with_volatile_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
-            .set_volatile_file_size(volatile_file_size)
-            .build();
-
-        let db_directory = cardano_db.get_dir().to_path_buf();
+    #[tokio::test]
+    async fn should_compute_the_size_of_the_ancillary() {
+        let mut snapshotter = MockSnapshotter::new();
+        snapshotter.expect_snapshot_ancillary().returning(|_, _| {
+            let expected_uncompressed_size = 123456;
+            Ok(FileArchive::new(
+                PathBuf::from("whatever.tar.gz"),
+                0,
+                expected_uncompressed_size,
+                CompressionAlgorithm::Gzip,
+            ))
+        });
+        let mut uploader = MockAncillaryFileUploader::new();
+        uploader.expect_upload().returning(|_, _| {
+            Ok(AncillaryLocation::CloudStorage {
+                uri: "an_uri".to_string(),
+                compression_algorithm: Some(CompressionAlgorithm::Gzip),
+            })
+        });
 
         let builder = AncillaryArtifactBuilder::new(
-            vec![Arc::new(MockAncillaryFileUploader::new())],
-            Arc::new(DumbSnapshotter::default()),
+            vec![Arc::new(uploader)],
+            Arc::new(snapshotter),
             CardanoNetwork::DevNet(123),
             TestLogger::stdout(),
         )
         .unwrap();
 
-        let expected_total_size =
-            immutable_trio_file_size + (4 * ledger_file_size) + (3 * volatile_file_size);
+        let upload = builder.upload(&CardanoDbBeacon::new(99, 1)).await.unwrap();
 
-        let total_size = builder
-            .compute_uncompressed_size(&db_directory, &CardanoDbBeacon::new(99, 1))
-            .unwrap();
-
-        assert_eq!(expected_total_size, total_size);
+        assert_eq!(123456, upload.size);
     }
 }
