@@ -14,6 +14,7 @@ use mithril_common::entities::CompressionAlgorithm;
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
+use crate::tools::file_size;
 use crate::ZstandardCompressionParameters;
 
 use super::appender::TarAppender;
@@ -175,16 +176,24 @@ impl FileArchiver {
             }
         }
 
-        let filesize = Self::get_file_size(archive_path).with_context(|| {
+        let uncompressed_size = appender.compute_uncompressed_data_size().with_context(|| {
             format!(
-                "FileArchiver can not get file size of archive with path: '{}'",
+                "FileArchiver can not get the size of the uncompressed data to archive: '{}'",
                 archive_path.display()
             )
         })?;
+        let archive_filesize =
+            file_size::compute_size_of_path(archive_path).with_context(|| {
+                format!(
+                    "FileArchiver can not get file size of archive with path: '{}'",
+                    archive_path.display()
+                )
+            })?;
 
         Ok(FileArchive {
             filepath: archive_path.to_path_buf(),
-            filesize,
+            archive_filesize,
+            uncompressed_size,
             compression_algorithm,
         })
     }
@@ -260,18 +269,6 @@ impl FileArchiver {
         verify_result
     }
 
-    fn get_file_size(filepath: &Path) -> StdResult<u64> {
-        let res = fs::metadata(filepath)
-            .with_context(|| {
-                format!(
-                    "FileArchiver can not get metadata of file: '{}'",
-                    filepath.display()
-                )
-            })?
-            .len();
-        Ok(res)
-    }
-
     // Helper to unpack and delete a file from en entry, for archive verification purpose
     fn unpack_and_delete_file_from_entry<R: Read>(
         entry: Entry<R>,
@@ -309,7 +306,7 @@ mod tests {
     use mithril_common::test_utils::assert_equivalent;
 
     use crate::test_tools::TestLogger;
-    use crate::tools::file_archiver::appender::AppenderDirAll;
+    use crate::tools::file_archiver::appender::{AppenderDirAll, AppenderFile};
     use crate::tools::file_archiver::test_tools::*;
     use crate::ZstandardCompressionParameters;
 
@@ -446,14 +443,14 @@ mod tests {
                 AppenderDirAll::new(archived_directory.clone()),
             )
             .unwrap();
-        let first_snapshot_size = first_snapshot.get_file_size();
+        let first_snapshot_size = first_snapshot.get_archive_size();
 
         create_file(&archived_directory, "another_file_to_archive.txt");
 
         let second_snapshot = file_archiver
             .archive(archive_params, AppenderDirAll::new(archived_directory))
             .unwrap();
-        let second_snapshot_size = second_snapshot.get_file_size();
+        let second_snapshot_size = second_snapshot.get_archive_size();
 
         assert_ne!(first_snapshot_size, second_snapshot_size);
 
@@ -471,5 +468,32 @@ mod tests {
 
         file_archiver.set_verification_temp_dir("sub_dir");
         file_archiver.set_verification_temp_dir("sub_dir".to_string());
+    }
+
+    #[test]
+    fn compute_size_of_uncompressed_data_and_archive() {
+        let test_dir = get_test_directory("compute_size_of_uncompressed_data_and_archive");
+
+        let file_path = test_dir.join("file.txt");
+        let file = File::create(&file_path).unwrap();
+        file.set_len(777).unwrap();
+
+        let file_archiver = FileArchiver::new_for_test(test_dir.join("verification"));
+
+        let archive_params = ArchiveParameters {
+            archive_name_without_extension: "archive".to_string(),
+            target_directory: test_dir.clone(),
+            compression_algorithm: CompressionAlgorithm::Gzip,
+        };
+        let snapshot = file_archiver
+            .archive(
+                archive_params.clone(),
+                AppenderFile::append_at_archive_root(file_path.clone()).unwrap(),
+            )
+            .unwrap();
+
+        let expected_archive_size = file_size::compute_size_of_path(&snapshot.filepath).unwrap();
+        assert_eq!(expected_archive_size, snapshot.get_archive_size(),);
+        assert_eq!(777, snapshot.get_uncompressed_size());
     }
 }

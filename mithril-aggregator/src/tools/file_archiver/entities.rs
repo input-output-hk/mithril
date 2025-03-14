@@ -29,8 +29,8 @@ impl ArchiveParameters {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileArchive {
     pub(super) filepath: PathBuf,
-    // Todo: rename to `archive_size` and add `uncompressed_size` field.
-    pub(super) filesize: u64,
+    pub(super) archive_filesize: u64,
+    pub(super) uncompressed_size: u64,
     pub(super) compression_algorithm: CompressionAlgorithm,
 }
 
@@ -38,12 +38,14 @@ impl FileArchive {
     /// Create a new instance of FileArchive.
     pub fn new(
         filepath: PathBuf,
-        filesize: u64,
+        archive_filesize: u64,
+        uncompressed_size: u64,
         compression_algorithm: CompressionAlgorithm,
     ) -> Self {
         Self {
             filepath,
-            filesize,
+            archive_filesize,
+            uncompressed_size,
             compression_algorithm,
         }
     }
@@ -53,6 +55,7 @@ impl FileArchive {
         Self {
             filepath: PathBuf::from("archive.tar.gz"),
             archive_filesize: 10,
+            uncompressed_size: 789,
             compression_algorithm: CompressionAlgorithm::Gzip,
         }
     }
@@ -63,8 +66,13 @@ impl FileArchive {
     }
 
     /// Get the size of the archive.
-    pub fn get_file_size(&self) -> u64 {
-        self.filesize
+    pub fn get_archive_size(&self) -> u64 {
+        self.archive_filesize
+    }
+
+    /// Get the size of the data before compression.
+    pub fn get_uncompressed_size(&self) -> u64 {
+        self.uncompressed_size
     }
 
     /// Get the compression algorithm used to create the archive.
