@@ -79,6 +79,29 @@ impl FileArchive {
     pub fn get_compression_algorithm(&self) -> CompressionAlgorithm {
         self.compression_algorithm
     }
+
+    /// Unpack the archive to a directory.
+    ///
+    /// An 'unpack' directory will be created in the given parent directory.
+    #[cfg(test)]
+    pub fn unpack_gzip<P: AsRef<Path>>(&self, parent_dir: P) -> PathBuf {
+        use super::test_tools::create_dir;
+        use flate2::read::GzDecoder;
+        use std::fs::File;
+        use tar::Archive;
+        if self.compression_algorithm != CompressionAlgorithm::Gzip {
+            panic!("Only Gzip compression is supported");
+        }
+
+        let parent_dir = parent_dir.as_ref();
+        let file_tar_gz = File::open(self.get_file_path()).unwrap();
+        let file_tar_gz_decoder = GzDecoder::new(file_tar_gz);
+        let mut archive = Archive::new(file_tar_gz_decoder);
+        let unpack_path = parent_dir.join(create_dir(parent_dir, "unpack"));
+        archive.unpack(&unpack_path).unwrap();
+
+        unpack_path
+    }
 }
 
 #[cfg(test)]

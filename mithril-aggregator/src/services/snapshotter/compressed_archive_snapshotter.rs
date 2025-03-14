@@ -273,9 +273,10 @@ mod tests {
         let test_dir =
             get_test_directory("should_create_snapshots_in_its_ongoing_snapshot_directory");
         let pending_snapshot_directory = test_dir.join("pending_snapshot");
-        let db_directory = test_dir.join(create_dir(&test_dir, "db"));
+        let db_directory = test_dir.join("db");
 
-        create_file(&db_directory, "file_to_archive.txt");
+        fs::create_dir(&db_directory).unwrap();
+        File::create(&db_directory.join("file_to_archive.txt")).unwrap();
 
         let snapshotter = CompressedArchiveSnapshotter::new(
             db_directory,
@@ -313,7 +314,7 @@ mod tests {
                 .snapshot_immutable_trio(2, "immutable-2")
                 .unwrap();
 
-            let unpack_dir = unpack_gz_decoder(test_dir, snapshot);
+            let unpack_dir = snapshot.unpack_gzip(&test_dir);
             let unpacked_files = list_files(&unpack_dir);
             let unpacked_immutable_files = list_files(&unpack_dir.join(IMMUTABLE_DIR));
 
@@ -354,7 +355,7 @@ mod tests {
 
             let snapshot = snapshotter.snapshot_ancillary(2, "ancillary").unwrap();
 
-            let unpack_dir = unpack_gz_decoder(test_dir, snapshot);
+            let unpack_dir = snapshot.unpack_gzip(&test_dir);
 
             let expected_immutable_path = unpack_dir.join(IMMUTABLE_DIR);
             assert!(expected_immutable_path.join("00003.chunk").exists());
