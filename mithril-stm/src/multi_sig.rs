@@ -26,39 +26,12 @@ use std::{
 /// String used to generate the proofs of possession.
 const POP: &[u8] = b"PoP";
 
+
+
 /// MultiSig secret key, which is a wrapper over the BlstSk type from the blst
 /// library.
 #[derive(Debug, Clone)]
 pub struct SigningKey(BlstSk);
-
-/// MultiSig verification key, which is a wrapper over the BlstVk (element in G2)
-/// from the blst library.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct VerificationKey(BlstVk);
-
-/// MultiSig proof of possession, which contains two elements from G1. However,
-/// the two elements have different types: `k1` is represented as a BlstSig
-/// as it has the same structure, and this facilitates its verification. On
-/// the other hand, `k2` is a G1 point, as it does not share structure with
-/// the BLS signature, and we need to have an ad-hoc verification mechanism.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ProofOfPossession {
-    k1: BlstSig,
-    k2: blst_p1,
-}
-
-/// MultiSig public key, contains the verification key and the proof of possession.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VerificationKeyPoP {
-    /// The verification key.
-    pub vk: VerificationKey,
-    /// Proof of Possession.
-    pub pop: ProofOfPossession,
-}
-
-/// MultiSig signature, which is a wrapper over the `BlstSig` type.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Signature(BlstSig);
 
 impl SigningKey {
     /// Generate a secret key
@@ -93,6 +66,12 @@ impl SigningKey {
         }
     }
 }
+
+
+/// MultiSig verification key, which is a wrapper over the BlstVk (element in G2)
+/// from the blst library.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct VerificationKey(BlstVk);
 
 impl VerificationKey {
     /// Convert an `VerificationKey` to its compressed byte representation.
@@ -165,8 +144,8 @@ impl Ord for VerificationKey {
 
 impl<'a> Sum<&'a Self> for VerificationKey {
     fn sum<I>(iter: I) -> Self
-    where
-        I: Iterator<Item = &'a Self>,
+        where
+            I: Iterator<Item = &'a Self>,
     {
         let keys: Vec<&BlstVk> = iter.map(|x| &x.0).collect();
 
@@ -186,6 +165,71 @@ impl From<&SigningKey> for VerificationKey {
     fn from(sk: &SigningKey) -> Self {
         VerificationKey(sk.0.sk_to_pk())
     }
+}
+
+
+/// MultiSig proof of possession, which contains two elements from G1. However,
+/// the two elements have different types: `k1` is represented as a BlstSig
+/// as it has the same structure, and this facilitates its verification. On
+/// the other hand, `k2` is a G1 point, as it does not share structure with
+/// the BLS signature, and we need to have an ad-hoc verification mechanism.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProofOfPossession {
+    k1: BlstSig,
+    k2: blst_p1,
+}
+
+impl ProofOfPossession {
+    /// Convert to a 96 byte string.
+    ///
+    /// # Layout
+    /// The layout of a `MspPoP` encoding is
+    /// * K1 (G1 point)
+    /// * K2 (G1 point)
+    pub fn to_bytes(self) -> [u8; 96] {
+        let mut pop_bytes = [0u8; 96];
+        pop_bytes[..48].copy_from_slice(&self.k1.to_bytes());
+
+        pop_bytes[48..].copy_from_slice(&compress_p1(&self.k2)[..]);
+        pop_bytes
+    }
+
+    /// Deserialize a byte string to a `PublicKeyPoP`.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
+        let k1 = match BlstSig::from_bytes(&bytes[..48]) {
+            Ok(key) => key,
+            Err(e) => {
+                return Err(blst_err_to_mithril(e, None, None)
+                    .expect_err("If it passed, blst returns and error different to SUCCESS."))
+            }
+        };
+
+        let k2 = uncompress_p1(&bytes[48..96])?;
+
+        Ok(Self { k1, k2 })
+    }
+}
+
+impl From<&SigningKey> for ProofOfPossession {
+    /// Convert a secret key into an `MspPoP`. This is performed by computing
+    /// `k1 =  H_G1(b"PoP" || mvk)` and `k2 = g1 * sk` where `H_G1` hashes into
+    /// `G1` and `g1` is the generator in `G1`.
+    fn from(sk: &SigningKey) -> Self {
+        let k1 = sk.0.sign(POP, &[], &[]);
+        let k2 = scalar_to_pk_in_g1(sk);
+
+        Self { k1, k2 }
+    }
+}
+
+
+/// MultiSig public key, contains the verification key and the proof of possession.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VerificationKeyPoP {
+    /// The verification key.
+    pub vk: VerificationKey,
+    /// Proof of Possession.
+    pub pop: ProofOfPossession,
 }
 
 impl VerificationKeyPoP {
@@ -245,48 +289,10 @@ impl From<&SigningKey> for VerificationKeyPoP {
     }
 }
 
-impl ProofOfPossession {
-    /// Convert to a 96 byte string.
-    ///
-    /// # Layout
-    /// The layout of a `MspPoP` encoding is
-    /// * K1 (G1 point)
-    /// * K2 (G1 point)
-    pub fn to_bytes(self) -> [u8; 96] {
-        let mut pop_bytes = [0u8; 96];
-        pop_bytes[..48].copy_from_slice(&self.k1.to_bytes());
 
-        pop_bytes[48..].copy_from_slice(&compress_p1(&self.k2)[..]);
-        pop_bytes
-    }
-
-    /// Deserialize a byte string to a `PublicKeyPoP`.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
-        let k1 = match BlstSig::from_bytes(&bytes[..48]) {
-            Ok(key) => key,
-            Err(e) => {
-                return Err(blst_err_to_mithril(e, None, None)
-                    .expect_err("If it passed, blst returns and error different to SUCCESS."))
-            }
-        };
-
-        let k2 = uncompress_p1(&bytes[48..96])?;
-
-        Ok(Self { k1, k2 })
-    }
-}
-
-impl From<&SigningKey> for ProofOfPossession {
-    /// Convert a secret key into an `MspPoP`. This is performed by computing
-    /// `k1 =  H_G1(b"PoP" || mvk)` and `k2 = g1 * sk` where `H_G1` hashes into
-    /// `G1` and `g1` is the generator in `G1`.
-    fn from(sk: &SigningKey) -> Self {
-        let k1 = sk.0.sign(POP, &[], &[]);
-        let k2 = scalar_to_pk_in_g1(sk);
-
-        Self { k1, k2 }
-    }
-}
+/// MultiSig signature, which is a wrapper over the `BlstSig` type.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Signature(BlstSig);
 
 impl Signature {
     /// Verify a signature against a verification key.
@@ -467,6 +473,8 @@ impl Ord for Signature {
         self.cmp_msp_sig(other)
     }
 }
+
+
 
 // ---------------------------------------------------------------------
 // Serde implementation
