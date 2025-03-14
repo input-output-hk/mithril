@@ -1,7 +1,8 @@
 //! Key registration functionality.
 use super::stm::Stake;
 use crate::error::RegisterError;
-use crate::merkle_tree::{MTLeaf, MerkleTree};
+use crate::merkle_tree::leaf::MTLeaf;
+use crate::merkle_tree::tree::MerkleTree;
 use crate::multi_sig::{VerificationKey, VerificationKeyPoP};
 use blake2::digest::{Digest, FixedOutput};
 use std::collections::hash_map::Entry;
@@ -88,9 +89,6 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    // ---------------------------------------------------------------------
-    // Property test: `test_keyreg`
-    // ---------------------------------------------------------------------
     proptest! {
         #[test]
         fn test_keyreg(stake in vec(1..1u64 << 60, 2..=10),
