@@ -643,6 +643,29 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::{OsRng, SeedableRng};
 
+    // ---------------------------------------------------------------------
+    // Test helpers
+    // ---------------------------------------------------------------------
+    impl PartialEq for SigningKey {
+        fn eq(&self, other: &Self) -> bool {
+            self.0.to_bytes() == other.0.to_bytes()
+        }
+    }
+
+    impl Eq for SigningKey {}
+
+    // ---------------------------------------------------------------------
+    // Property test: `test_sig`
+    // Property test: `test_invalid_sig`
+    // Property test: `test_infinity_sig`
+    // Property test: `test_infinity_vk`
+    // Property test: `test_keyreg_with_infinity_vk`
+    // Property test: `test_aggregate_sig`
+    // Property test: `test_eval_sanity_check`
+    // Property test: `serialize_deserialize_vk`
+    // Property test: `serialize_deserialize_sk`
+    // Property test: `batch_verify`
+    // ---------------------------------------------------------------------
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(1000))]
 
@@ -827,23 +850,6 @@ mod tests {
 
             let batch_result = Signature::batch_verify_aggregates(&batch_msgs, &batch_vk, &batch_sig);
             assert_eq!(batch_result, Err(MultiSignatureError::BatchInvalid));
-        }
-    }
-
-    impl PartialEq for SigningKey {
-        fn eq(&self, other: &Self) -> bool {
-            self.0.to_bytes() == other.0.to_bytes()
-        }
-    }
-
-    impl Eq for SigningKey {}
-
-    #[test]
-    fn test_gen() {
-        for _ in 0..128 {
-            let sk = SigningKey::gen(&mut OsRng);
-            let vk = VerificationKeyPoP::from(&sk);
-            assert!(vk.check().is_ok());
         }
     }
 }

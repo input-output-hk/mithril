@@ -126,6 +126,10 @@ mod tests {
         q < phi
     }
 
+    // ---------------------------------------------------------------------
+    // Property test: `test_precision_approximation`
+    // Property test: `early_break_taylor`
+    // ---------------------------------------------------------------------
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(50))]
 

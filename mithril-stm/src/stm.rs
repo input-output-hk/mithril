@@ -1105,6 +1105,9 @@ mod tests {
     type Sig = StmAggrSig<D>;
     type D = Blake2b<U32>;
 
+    // ---------------------------------------------------------------------
+    // Test helpers
+    // ---------------------------------------------------------------------
     fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner<D>> {
         let stake = vec![1; nparties];
         setup_parties(params, stake)
@@ -1200,6 +1203,69 @@ mod tests {
         sigs
     }
 
+    /// Pick N between min and max, and then
+    /// generate a vector of N stakes summing to N * tstake,
+    /// plus a subset S of 0..N such that the sum of the stakes at indices
+    /// in S is astake * N
+    fn arb_parties_adversary_stake(
+        min: usize,
+        max: usize,
+        tstake: Stake,
+        astake: Stake,
+    ) -> impl Strategy<Value = (HashSet<usize>, Vec<Stake>)> {
+        (min..max)
+            .prop_flat_map(|n| (Just(n), 1..=n / 2))
+            .prop_flat_map(move |(n, nadv)| {
+                arb_parties_with_adversaries(n, nadv, tstake * n as Stake, astake * n as Stake)
+            })
+    }
+
+    #[derive(Debug)]
+    struct ProofTest {
+        msig: Result<Sig, AggregationError>,
+        clerk: StmClerk<D>,
+        msg: [u8; 16],
+    }
+    /// Run the protocol up to aggregation. This will produce a valid aggregation of signatures.
+    /// The following tests mutate this aggregation so that the proof is no longer valid.
+    fn arb_proof_setup(max_parties: usize) -> impl Strategy<Value = ProofTest> {
+        any::<[u8; 16]>().prop_flat_map(move |msg| {
+            (2..max_parties).prop_map(move |n| {
+                let params = StmParameters {
+                    m: 5,
+                    k: 5,
+                    phi_f: 1.0,
+                };
+                let ps = setup_equal_parties(params, n);
+                let clerk = StmClerk::from_signer(&ps[0]);
+
+                let all_ps: Vec<usize> = (0..n).collect();
+                let sigs = find_signatures(&msg, &ps, &all_ps);
+
+                let msig = clerk.aggregate(&sigs, &msg);
+                ProofTest { msig, clerk, msg }
+            })
+        })
+    }
+
+    fn with_proof_mod<F>(mut tc: ProofTest, f: F)
+    where
+        F: Fn(&mut Sig, &mut StmClerk<D>, &mut [u8; 16]),
+    {
+        match tc.msig {
+            Ok(mut aggr) => {
+                f(&mut aggr, &mut tc.clerk, &mut tc.msg);
+                assert!(aggr
+                    .verify(&tc.msg, &tc.clerk.compute_avk(), &tc.clerk.params)
+                    .is_err())
+            }
+            Err(e) => unreachable!("Reached an unexpected error: {:?}", e),
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Property test: `test_dedup`
+    // ---------------------------------------------------------------------
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(50))]
 
@@ -1244,6 +1310,10 @@ mod tests {
         }
     }
 
+    // ---------------------------------------------------------------------
+    // Property test: `test_aggregate_sig`
+    // Property test: `batch_verify`
+    // ---------------------------------------------------------------------
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(50))]
 
@@ -1329,6 +1399,9 @@ mod tests {
         }
     }
 
+    // ---------------------------------------------------------------------
+    // Property test: `test_sig`
+    // ---------------------------------------------------------------------
     proptest! {
         #[test]
         /// Test that when a party creates a signature it can be verified
@@ -1344,6 +1417,12 @@ mod tests {
         }
     }
 
+    // ---------------------------------------------------------------------
+    // Property test: `test_parameters_serialize_deserialize`
+    // Property test: `test_initializer_serialize_deserialize`
+    // Property test: `test_sig_serialize_deserialize`
+    // Property test: `test_multisig_serialize_deserialize`
+    // ---------------------------------------------------------------------
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(10))]
         #[test]
@@ -1409,23 +1488,9 @@ mod tests {
         }
     }
 
-    /// Pick N between min and max, and then
-    /// generate a vector of N stakes summing to N * tstake,
-    /// plus a subset S of 0..N such that the sum of the stakes at indices
-    /// in S is astake * N
-    fn arb_parties_adversary_stake(
-        min: usize,
-        max: usize,
-        tstake: Stake,
-        astake: Stake,
-    ) -> impl Strategy<Value = (HashSet<usize>, Vec<Stake>)> {
-        (min..max)
-            .prop_flat_map(|n| (Just(n), 1..=n / 2))
-            .prop_flat_map(move |(n, nadv)| {
-                arb_parties_with_adversaries(n, nadv, tstake * n as Stake, astake * n as Stake)
-            })
-    }
-
+    // ---------------------------------------------------------------------
+    // Property test: `test_adversary_quorum`
+    // ---------------------------------------------------------------------
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(10))]
 
@@ -1465,49 +1530,12 @@ mod tests {
         }
     }
 
-    #[derive(Debug)]
-    struct ProofTest {
-        msig: Result<Sig, AggregationError>,
-        clerk: StmClerk<D>,
-        msg: [u8; 16],
-    }
-    /// Run the protocol up to aggregation. This will produce a valid aggregation of signatures.
-    /// The following tests mutate this aggregation so that the proof is no longer valid.
-    fn arb_proof_setup(max_parties: usize) -> impl Strategy<Value = ProofTest> {
-        any::<[u8; 16]>().prop_flat_map(move |msg| {
-            (2..max_parties).prop_map(move |n| {
-                let params = StmParameters {
-                    m: 5,
-                    k: 5,
-                    phi_f: 1.0,
-                };
-                let ps = setup_equal_parties(params, n);
-                let clerk = StmClerk::from_signer(&ps[0]);
-
-                let all_ps: Vec<usize> = (0..n).collect();
-                let sigs = find_signatures(&msg, &ps, &all_ps);
-
-                let msig = clerk.aggregate(&sigs, &msg);
-                ProofTest { msig, clerk, msg }
-            })
-        })
-    }
-
-    fn with_proof_mod<F>(mut tc: ProofTest, f: F)
-    where
-        F: Fn(&mut Sig, &mut StmClerk<D>, &mut [u8; 16]),
-    {
-        match tc.msig {
-            Ok(mut aggr) => {
-                f(&mut aggr, &mut tc.clerk, &mut tc.msg);
-                assert!(aggr
-                    .verify(&tc.msg, &tc.clerk.compute_avk(), &tc.clerk.params)
-                    .is_err())
-            }
-            Err(e) => unreachable!("Reached an unexpected error: {:?}", e),
-        }
-    }
-
+    // ---------------------------------------------------------------------
+    // Property test: `test_invalid_proof_quorum`
+    // Property test: `test_invalid_proof_index_bound`
+    // Property test: `test_invalid_proof_index_unique`
+    // Property test: `test_invalid_proof_path`
+    // ---------------------------------------------------------------------
     proptest! {
         // Each of the tests below corresponds to falsifying a conjunct in the
         // definition of a valid signature
@@ -1553,9 +1581,9 @@ mod tests {
         }
     }
 
-    //------------------------------------------------//
-    //----------------- Core Verifier -----------------//
-    //------------------------------------------------//
+    // ---------------------------------------------------------------------
+    // Core verifier test helpers
+    // ---------------------------------------------------------------------
     fn setup_equal_core_parties(
         params: StmParameters,
         nparties: usize,
@@ -1599,6 +1627,10 @@ mod tests {
         sigs
     }
 
+    // ---------------------------------------------------------------------
+    // Core verifier property test: `test_core_verifier`
+    // Core verifier property test: `test_total_stake_core_verifier`
+    // ---------------------------------------------------------------------
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(50))]
 
