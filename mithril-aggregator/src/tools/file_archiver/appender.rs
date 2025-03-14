@@ -197,7 +197,7 @@ mod tests {
             )
             .unwrap();
 
-        let unpack_path = unpack_gz_decoder(&test_dir, snapshot);
+        let unpack_path = snapshot.unpack_gzip(&test_dir);
 
         assert!(unpack_path.join(directory_to_archive_path).is_dir());
         assert!(unpack_path.join(file_to_archive_path).is_file());
@@ -262,7 +262,7 @@ mod tests {
             )
             .unwrap();
 
-        let unpack_path = unpack_gz_decoder(&test_dir, snapshot);
+        let unpack_path = snapshot.unpack_gzip(&test_dir);
 
         assert!(unpack_path.join(directory_to_archive_path).is_dir());
         assert!(unpack_path.join(file_to_archive_path).is_file());
@@ -285,7 +285,7 @@ mod tests {
             )
             .unwrap();
 
-        let unpack_path = unpack_gz_decoder(&test_dir, archive);
+        let unpack_path = archive.unpack_gzip(&test_dir);
 
         assert!(unpack_path.join(file_to_archive).exists());
     }

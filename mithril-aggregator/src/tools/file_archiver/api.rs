@@ -454,7 +454,7 @@ mod tests {
 
         assert_ne!(first_snapshot_size, second_snapshot_size);
 
-        let unpack_path = unpack_gz_decoder(test_dir, second_snapshot);
+        let unpack_path = second_snapshot.unpack_gzip(&test_dir);
         assert!(unpack_path.join("another_file_to_archive.txt").exists());
     }
 
