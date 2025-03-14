@@ -34,12 +34,15 @@ pub(crate) fn compute_size(paths: Vec<PathBuf>) -> StdResult<u64> {
 
     let mut total = 0;
     for path_to_include in paths {
-        total += compute_uncompressed_database_size(&path_to_include)?;
+        total += compute_size_of_path(&path_to_include)?;
     }
     Ok(total)
 }
 
-pub(crate) fn compute_uncompressed_database_size(path: &Path) -> StdResult<u64> {
+/// Compute the size of one given path that could be a file or a folder.
+///
+/// Returns 0 if the path is not a file or a folder.
+pub(crate) fn compute_size_of_path(path: &Path) -> StdResult<u64> {
     if path.is_file() {
         let metadata = std::fs::metadata(path)
             .with_context(|| format!("Failed to read metadata for file: {:?}", path))?;
@@ -55,7 +58,7 @@ pub(crate) fn compute_uncompressed_database_size(path: &Path) -> StdResult<u64> 
             let path = entry
                 .with_context(|| format!("Failed to read directory entry in {:?}", path))?
                 .path();
-            directory_size += compute_uncompressed_database_size(&path)?;
+            directory_size += compute_size_of_path(&path)?;
         }
 
         return Ok(directory_size);
