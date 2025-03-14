@@ -5,9 +5,13 @@ use std::path::PathBuf;
 
 use mithril_common::StdResult;
 
+use crate::tools::file_size;
+
 /// Define multiple ways to append content to a tar archive.
 pub trait TarAppender {
     fn append<T: Write>(&self, tar: &mut tar::Builder<T>) -> StdResult<()>;
+
+    fn compute_uncompressed_data_size(&self) -> StdResult<u64>;
 }
 
 pub struct AppenderDirAll {
@@ -30,6 +34,10 @@ impl TarAppender for AppenderDirAll {
                 )
             })?;
         Ok(())
+    }
+
+    fn compute_uncompressed_data_size(&self) -> StdResult<u64> {
+        file_size::compute_size_of_path(&self.target_directory)
     }
 }
 
@@ -79,6 +87,10 @@ impl TarAppender for AppenderFile {
                 )
             })?;
         Ok(())
+    }
+
+    fn compute_uncompressed_data_size(&self) -> StdResult<u64> {
+        file_size::compute_size_of_path(&self.target_file)
     }
 }
 
@@ -132,10 +144,22 @@ impl TarAppender for AppenderEntries {
         }
         Ok(())
     }
+
+    fn compute_uncompressed_data_size(&self) -> StdResult<u64> {
+        let full_entries_path = self
+            .entries
+            .iter()
+            .map(|entry| self.base_directory.join(entry))
+            .collect();
+        file_size::compute_size(full_entries_path)
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::digesters::{
+        DummyCardanoDbBuilder, IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR,
+    };
     use mithril_common::entities::CompressionAlgorithm;
 
     use crate::tools::file_archiver::test_tools::*;
@@ -277,5 +301,78 @@ mod tests {
         let test_dir =
             get_test_directory("appender_file_should_return_error_if_input_is_not_a_file");
         assert!(AppenderFile::append_at_archive_root(test_dir).is_err());
+    }
+
+    #[test]
+    fn appender_dir_all_compute_size() {
+        let test_dir = "appender_dir_all_compute_size";
+
+        let immutable_trio_file_size = 777;
+        let ledger_file_size = 6666;
+        let volatile_file_size = 99;
+
+        let cardano_db = DummyCardanoDbBuilder::new(test_dir)
+            .with_immutables(&[1, 2])
+            .set_immutable_trio_file_size(immutable_trio_file_size)
+            .with_ledger_files(&["437", "537", "637"])
+            .set_ledger_file_size(ledger_file_size)
+            .with_volatile_files(&["blocks-0.dat"])
+            .set_volatile_file_size(volatile_file_size)
+            .build();
+
+        let appender_dir_all = AppenderDirAll::new(cardano_db.get_dir().clone());
+
+        let entries_size = appender_dir_all.compute_uncompressed_data_size().unwrap();
+        let expected_total_size =
+            (immutable_trio_file_size * 2) + (3 * ledger_file_size) + volatile_file_size;
+        assert_eq!(expected_total_size, entries_size);
+    }
+
+    #[test]
+    fn appender_file_all_compute_size() {
+        let test_dir = get_test_directory("appender_file_all_compute_size");
+
+        let file_path = test_dir.join("file.txt");
+        let file = File::create(&file_path).unwrap();
+        file.set_len(777).unwrap();
+
+        let appender_file = AppenderFile::append_at_archive_root(file_path).unwrap();
+
+        let entries_size = appender_file.compute_uncompressed_data_size().unwrap();
+        assert_eq!(777, entries_size);
+    }
+
+    #[test]
+    fn appender_entries_compute_size_of_its_paths() {
+        let test_dir = "appender_entries_compute_size_of_its_paths";
+
+        let immutable_trio_file_size = 777;
+        let ledger_file_size = 6666;
+        let volatile_file_size = 99;
+
+        let cardano_db = DummyCardanoDbBuilder::new(test_dir)
+            .with_immutables(&[1, 2, 3])
+            .set_immutable_trio_file_size(immutable_trio_file_size)
+            .with_ledger_files(&["437", "537", "637", "737"])
+            .set_ledger_file_size(ledger_file_size)
+            .with_volatile_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
+            .set_volatile_file_size(volatile_file_size)
+            .build();
+
+        let appender_entries = AppenderEntries::new(
+            vec![
+                PathBuf::from(IMMUTABLE_DIR),
+                PathBuf::from(LEDGER_DIR).join("437"),
+                PathBuf::from(LEDGER_DIR).join("537"),
+                PathBuf::from(VOLATILE_DIR).join("blocks-0.dat"),
+            ],
+            cardano_db.get_dir().clone(),
+        )
+        .unwrap();
+
+        let entries_size = appender_entries.compute_uncompressed_data_size().unwrap();
+        let expected_total_size =
+            (immutable_trio_file_size * 3) + (2 * ledger_file_size) + volatile_file_size;
+        assert_eq!(expected_total_size, entries_size);
     }
 }
