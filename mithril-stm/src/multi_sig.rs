@@ -641,7 +641,7 @@ mod tests {
     use crate::key_reg::KeyReg;
     use proptest::prelude::*;
     use rand_chacha::ChaCha20Rng;
-    use rand_core::{OsRng, SeedableRng};
+    use rand_core::SeedableRng;
 
     // ---------------------------------------------------------------------
     // Test helpers
