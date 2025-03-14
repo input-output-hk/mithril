@@ -3,6 +3,7 @@ use mithril_aggregator::{Configuration, RuntimeError};
 use mithril_common::{
     entities::{BlockNumber, ChainPoint, Epoch, ProtocolParameters, SlotNumber, TimePoint},
     era::{EraMarker, SupportedEra},
+    temp_dir,
     test_utils::MithrilFixtureBuilder,
 };
 
@@ -21,7 +22,7 @@ async fn testing_eras() {
     let configuration = Configuration {
         protocol_parameters: protocol_parameters.clone(),
         data_stores_directory: get_test_dir("testing_eras"),
-        ..Configuration::new_sample()
+        ..Configuration::new_sample(temp_dir!())
     };
     let mut tester = RuntimeTester::build(
         TimePoint::new(

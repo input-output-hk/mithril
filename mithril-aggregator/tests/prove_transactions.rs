@@ -4,6 +4,7 @@ use mithril_common::{
         BlockNumber, CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolMessagePartKey,
         ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants, SlotNumber, TimePoint,
     },
+    temp_dir,
     test_utils::MithrilFixtureBuilder,
 };
 use test_extensions::{
@@ -29,7 +30,7 @@ async fn prove_transactions() {
             security_parameter: BlockNumber(0),
             step: BlockNumber(30),
         },
-        ..Configuration::new_sample()
+        ..Configuration::new_sample(temp_dir!())
     };
     let mut tester = RuntimeTester::build(
         TimePoint {

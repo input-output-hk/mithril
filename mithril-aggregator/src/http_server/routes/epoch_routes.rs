@@ -86,7 +86,7 @@ mod tests {
     async fn test_epoch_settings_get_ok() {
         let method = Method::GET.as_str();
         let path = "/epoch-settings";
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_epoch_settings_message()
@@ -118,7 +118,7 @@ mod tests {
     async fn test_epoch_settings_get_ko_500() {
         let method = Method::GET.as_str();
         let path = "/epoch-settings";
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_epoch_settings_message()

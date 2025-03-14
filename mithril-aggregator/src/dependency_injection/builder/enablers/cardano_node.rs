@@ -184,7 +184,7 @@ impl DependenciesBuilder {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::SignedEntityTypeDiscriminants;
+    use mithril_common::{entities::SignedEntityTypeDiscriminants, temp_dir};
 
     use crate::Configuration;
 
@@ -211,7 +211,7 @@ mod tests {
     ) {
         let configuration = Configuration {
             signed_entity_types: Some(signed_entity_types),
-            ..Configuration::new_sample()
+            ..Configuration::new_sample(temp_dir!())
         };
         let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
 

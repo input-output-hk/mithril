@@ -49,7 +49,7 @@ impl MigrateCommand {
             environment: ExecutionEnvironment::Production,
             data_stores_directory: self.stores_directory.clone(),
             // Temporary solution to avoid the need to provide a full configuration
-            ..Configuration::new_sample()
+            ..Configuration::new_sample(std::env::temp_dir())
         };
         debug!(root_logger, "DATABASE MIGRATE command"; "config" => format!("{config:?}"));
         println!(

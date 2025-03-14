@@ -224,14 +224,17 @@ impl StakeDistributionService for MithrilStakeDistributionService {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::temp_dir;
+
     use crate::dependency_injection::DependenciesBuilder;
     use crate::tools::mocks::MockChainObserver;
 
     use super::*;
 
     async fn get_service(chain_observer: MockChainObserver) -> MithrilStakeDistributionService {
-        let mut builder =
-            DependenciesBuilder::new_with_stdout_logger(crate::Configuration::new_sample());
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(
+            crate::Configuration::new_sample(temp_dir!()),
+        );
         let stake_service = MithrilStakeDistributionService::new(
             builder.get_stake_store().await.unwrap(),
             Arc::new(chain_observer),

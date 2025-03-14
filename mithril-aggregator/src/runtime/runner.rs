@@ -534,6 +534,7 @@ pub mod tests {
     use mithril_common::entities::{
         ChainPoint, Epoch, SignedEntityConfig, SignedEntityTypeDiscriminants,
     };
+    use mithril_common::temp_dir;
     use mithril_common::{
         chain_observer::FakeObserver,
         digesters::DumbImmutableFileObserver,
@@ -585,7 +586,7 @@ pub mod tests {
     }
 
     async fn build_runner(mock_certifier_service: MockCertifierService) -> AggregatorRunner {
-        let mut deps = initialize_dependencies().await;
+        let mut deps = initialize_dependencies!().await;
         deps.certifier_service = Arc::new(mock_certifier_service);
 
         let mut mock_signable_builder_service = MockSignableBuilderServiceImpl::new();
@@ -654,7 +655,7 @@ pub mod tests {
     #[tokio::test]
     async fn test_get_time_point_from_chain() {
         let expected = TimePoint::new(2, 17, ChainPoint::dummy());
-        let mut dependencies = initialize_dependencies().await;
+        let mut dependencies = initialize_dependencies!().await;
         let immutable_file_observer = Arc::new(DumbImmutableFileObserver::default());
         immutable_file_observer
             .shall_return(Some(expected.immutable_file_number))
@@ -673,7 +674,7 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_update_stake_distribution() {
-        let mut deps = initialize_dependencies().await;
+        let mut deps = initialize_dependencies!().await;
         let chain_observer = Arc::new(FakeObserver::default());
         deps.chain_observer = chain_observer.clone();
         deps.stake_distribution_service = Arc::new(MithrilStakeDistributionService::new(
@@ -711,7 +712,7 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_open_signer_registration_round() {
-        let mut deps = initialize_dependencies().await;
+        let mut deps = initialize_dependencies!().await;
         let signer_registration_round_opener = Arc::new(MithrilSignerRegistrationMaster::new(
             deps.verification_key_store.clone(),
             deps.signer_recorder.clone(),
@@ -751,7 +752,7 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_close_signer_registration_round() {
-        let mut deps = initialize_dependencies().await;
+        let mut deps = initialize_dependencies!().await;
         let signer_registration_round_opener = Arc::new(MithrilSignerRegistrationMaster::new(
             deps.verification_key_store.clone(),
             deps.signer_recorder.clone(),
@@ -797,7 +798,7 @@ pub mod tests {
             .expect_mark_open_message_if_expired()
             .return_once(|_| Ok(Some(open_message_clone)));
 
-        let mut deps = initialize_dependencies().await;
+        let mut deps = initialize_dependencies!().await;
         deps.certifier_service = Arc::new(mock_certifier_service);
 
         let runner = build_runner_with_fixture_data(deps).await;
@@ -811,7 +812,7 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_update_era_checker() {
-        let deps = initialize_dependencies().await;
+        let deps = initialize_dependencies!().await;
         let ticker_service = deps.ticker_service.clone();
         let era_checker = deps.era_checker.clone();
         let mut time_point = ticker_service.get_current_time_point().await.unwrap();
@@ -831,7 +832,7 @@ pub mod tests {
             .expect_inform_epoch()
             .returning(|_| Ok(()))
             .times(1);
-        let mut deps = initialize_dependencies().await;
+        let mut deps = initialize_dependencies!().await;
         let current_epoch = deps
             .chain_observer
             .get_current_epoch()
@@ -859,7 +860,7 @@ pub mod tests {
             .returning(|_| Ok(()))
             .times(1);
 
-        let mut deps = initialize_dependencies().await;
+        let mut deps = initialize_dependencies!().await;
         deps.upkeep_service = Arc::new(upkeep_service);
 
         let runner = AggregatorRunner::new(Arc::new(deps));
@@ -875,7 +876,7 @@ pub mod tests {
             .returning(|_| Ok(()))
             .times(1);
 
-        let config = Configuration::new_sample();
+        let config = Configuration::new_sample(temp_dir!());
         let mut deps = DependenciesBuilder::new_with_stdout_logger(config.clone())
             .build_dependency_container()
             .await
@@ -911,7 +912,7 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_precompute_epoch_data() {
-        let mut deps = initialize_dependencies().await;
+        let mut deps = initialize_dependencies!().await;
         let current_epoch = deps
             .chain_observer
             .get_current_epoch()
@@ -1132,7 +1133,7 @@ pub mod tests {
     #[tokio::test]
     async fn list_available_signed_entity_types_list_all_configured_entities_if_none_are_locked() {
         let runner = {
-            let mut dependencies = initialize_dependencies().await;
+            let mut dependencies = initialize_dependencies!().await;
             let epoch_service = FakeEpochServiceBuilder {
                 signed_entity_config: SignedEntityConfig {
                     allowed_discriminants: SignedEntityTypeDiscriminants::all(),
@@ -1167,7 +1168,7 @@ pub mod tests {
     async fn list_available_signed_entity_types_exclude_locked_entities() {
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
         let runner = {
-            let mut dependencies = initialize_dependencies().await;
+            let mut dependencies = initialize_dependencies!().await;
             dependencies.signed_entity_type_lock = signed_entity_type_lock.clone();
             let epoch_service = FakeEpochServiceBuilder {
                 signed_entity_config: SignedEntityConfig {
@@ -1241,7 +1242,7 @@ pub mod tests {
         };
 
         let runner = {
-            let mut deps = initialize_dependencies().await;
+            let mut deps = initialize_dependencies!().await;
             let mut mock_certifier_service = MockCertifierService::new();
 
             let open_message_current = open_message_to_verify.clone();

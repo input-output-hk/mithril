@@ -310,10 +310,23 @@ impl DependencyContainer {
 
 #[cfg(test)]
 pub(crate) mod tests {
+
+    use std::path::PathBuf;
+
     use crate::{dependency_injection::DependenciesBuilder, Configuration, DependencyContainer};
 
-    pub async fn initialize_dependencies() -> DependencyContainer {
-        let config = Configuration::new_sample();
+    /// Initialize dependency container with a unique temporary snapshot directory build from test path.
+    /// This macro should used directly in a function test to be able to retrieve the function name.
+    #[macro_export]
+    macro_rules! initialize_dependencies {
+        () => {{
+            initialize_dependencies(mithril_common::temp_dir!())
+        }};
+    }
+
+    pub async fn initialize_dependencies(tmp_path: PathBuf) -> DependencyContainer {
+        let config = Configuration::new_sample(tmp_path);
+
         let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
 
         builder.build_dependency_container().await.unwrap()
