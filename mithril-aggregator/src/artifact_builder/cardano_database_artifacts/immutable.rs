@@ -10,7 +10,7 @@ use regex::Regex;
 use slog::{error, Logger};
 
 use mithril_common::{
-    digesters::{immutable_trio_names, IMMUTABLE_DIR},
+    digesters::immutable_trio_names,
     entities::{CompressionAlgorithm, ImmutableFileNumber, ImmutablesLocation, MultiFilesUri},
     logging::LoggerExtensions,
     StdResult,
@@ -47,6 +47,13 @@ pub trait ImmutableFilesUploader: Send + Sync {
         filepaths: &[PathBuf],
         compression_algorithm: Option<CompressionAlgorithm>,
     ) -> StdResult<ImmutablesLocation>;
+}
+
+#[derive(Debug)]
+pub struct ImmutablesUpload {
+    pub locations: Vec<ImmutablesLocation>,
+    pub average_size: u64,
+    pub total_size: u64,
 }
 
 #[async_trait]
@@ -165,14 +172,30 @@ impl ImmutableArtifactBuilder {
     pub async fn upload(
         &self,
         up_to_immutable_file_number: ImmutableFileNumber,
-    ) -> StdResult<Vec<ImmutablesLocation>> {
+    ) -> StdResult<ImmutablesUpload> {
         let (archives_paths, compression_algorithm) =
             self.immutable_archives_paths_creating_the_missing_ones(up_to_immutable_file_number)?;
         let locations = self
             .upload_immutable_archives(&archives_paths, compression_algorithm)
             .await?;
 
-        Ok(locations)
+        let (total_size, average_size) = {
+            let db_directory = self.immutables_storage_dir.clone();
+            let immutable_file_number = up_to_immutable_file_number;
+            tokio::task::spawn_blocking(move || -> StdResult<_> {
+                Self::compute_total_and_average_uncompressed_size(
+                    &db_directory,
+                    immutable_file_number,
+                )
+            })
+            .await??
+        };
+
+        Ok(ImmutablesUpload {
+            locations,
+            average_size,
+            total_size,
+        })
     }
 
     pub fn immutable_archives_paths_creating_the_missing_ones(
@@ -253,25 +276,27 @@ impl ImmutableArtifactBuilder {
             .then_some(expected_archive_path)
     }
 
-    pub fn compute_average_uncompressed_size(
-        &self,
-        db_path: &Path,
+    /// Computes the total and average size of the immutable files up to the given immutable file number.
+    ///
+    /// Returns a tuple with the total size followed by the average size.
+    fn compute_total_and_average_uncompressed_size(
+        immutable_directory: &Path,
         up_to_immutable_file_number: ImmutableFileNumber,
-    ) -> StdResult<u64> {
+    ) -> StdResult<(u64, u64)> {
         if up_to_immutable_file_number == 0 {
             return Err(anyhow!(
-                "Could not compute the average size without immutable files"
+                "Could not compute the total and average size without immutable files"
             ));
         }
 
         let immutable_paths = (1..=up_to_immutable_file_number)
             .flat_map(immutable_trio_names)
-            .map(|filename| db_path.join(IMMUTABLE_DIR).join(filename))
+            .map(|filename| immutable_directory.join(filename))
             .collect();
 
         let total_size = file_size::compute_size(immutable_paths)?;
 
-        Ok(total_size / up_to_immutable_file_number)
+        Ok((total_size, total_size / up_to_immutable_file_number))
     }
 }
 
@@ -380,10 +405,10 @@ mod tests {
         )
         .unwrap();
 
-        let archive_paths = builder.upload(2).await.unwrap();
+        let upload = builder.upload(2).await.unwrap();
 
         assert_equivalent(
-            archive_paths,
+            upload.locations,
             vec![ImmutablesLocation::CloudStorage {
                 uri: MultiFilesUri::Template(TemplateUri("archive.tar.gz".to_string())),
                 compression_algorithm: Some(CompressionAlgorithm::Gzip),
@@ -979,8 +1004,7 @@ mod tests {
     }
 
     #[test]
-    fn should_compute_the_average_size_of_the_immutables() {
-        let work_dir = get_builder_work_dir("should_compute_the_average_size_of_the_immutables");
+    fn should_compute_the_total_and_average_size_of_the_immutables() {
         let test_dir = "should_compute_the_average_size_of_the_immutables/cardano_database";
 
         let immutable_trio_file_size = 777;
@@ -996,44 +1020,30 @@ mod tests {
             .set_volatile_file_size(volatile_file_size)
             .build();
 
-        let db_directory = cardano_db.get_dir().to_path_buf();
-
-        let builder = ImmutableArtifactBuilder::new(
-            work_dir,
-            vec![Arc::new(MockImmutableFilesUploader::new())],
-            Arc::new(DumbSnapshotter::default()),
-            TestLogger::stdout(),
-        )
-        .unwrap();
-
-        let expected_total_size = immutable_trio_file_size;
-
-        let total_size = builder
-            .compute_average_uncompressed_size(&db_directory, 2)
+        let (total_size, average_size) =
+            ImmutableArtifactBuilder::compute_total_and_average_uncompressed_size(
+                cardano_db.get_immutable_dir(),
+                2,
+            )
             .unwrap();
 
+        let expected_average_size = immutable_trio_file_size;
+        let expected_total_size = immutable_trio_file_size * 2;
         assert_eq!(expected_total_size, total_size);
+        assert_eq!(expected_average_size, average_size);
     }
 
     #[test]
-    fn should_return_an_error_when_compute_the_average_size_of_the_immutables_with_zero() {
-        let work_dir = get_builder_work_dir("should_compute_the_average_size_of_the_immutables");
+    fn should_return_an_error_when_compute_the_total_and_average_size_of_the_immutables_with_zero()
+    {
         let test_dir = &format!("{}/cardano_database", current_function!());
 
         let cardano_db = DummyCardanoDbBuilder::new(test_dir).build();
 
-        let db_directory = cardano_db.get_dir().to_path_buf();
-
-        let builder = ImmutableArtifactBuilder::new(
-            work_dir,
-            vec![Arc::new(MockImmutableFilesUploader::new())],
-            Arc::new(DumbSnapshotter::default()),
-            TestLogger::stdout(),
+        ImmutableArtifactBuilder::compute_total_and_average_uncompressed_size(
+            cardano_db.get_immutable_dir(),
+            0,
         )
-        .unwrap();
-
-        builder
-            .compute_average_uncompressed_size(&db_directory, 0)
-            .expect_err("Should return an error when no immutable file number");
+        .expect_err("Should return an error when no immutable file number");
     }
 }
