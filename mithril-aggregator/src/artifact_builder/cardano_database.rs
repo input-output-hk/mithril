@@ -13,9 +13,8 @@ use mithril_common::{
     CardanoNetwork, StdResult,
 };
 
-use crate::artifact_builder::{
-    utils::compute_uncompressed_database_size, AncillaryArtifactBuilder, ArtifactBuilder,
-};
+use crate::artifact_builder::{AncillaryArtifactBuilder, ArtifactBuilder};
+use crate::tools::file_size;
 
 use super::{DigestArtifactBuilder, ImmutableArtifactBuilder};
 
@@ -70,7 +69,7 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
         let total_db_size_uncompressed = {
             let db_directory = self.db_directory.clone();
             tokio::task::spawn_blocking(move || -> StdResult<u64> {
-                compute_uncompressed_database_size(&db_directory)
+                file_size::compute_size_of_path(&db_directory)
             })
             .await??
         };
@@ -180,7 +179,7 @@ mod tests {
         let expected_total_size =
             (2 * immutable_trio_file_size) + (4 * ledger_file_size) + (3 * volatile_file_size);
 
-        let total_size = compute_uncompressed_database_size(&test_dir).unwrap();
+        let total_size = file_size::compute_size_of_path(&test_dir).unwrap();
 
         assert_eq!(expected_total_size, total_size);
     }

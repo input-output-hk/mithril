@@ -17,9 +17,9 @@ use mithril_common::{
 };
 
 use crate::{
-    artifact_builder::utils::compute_size,
     file_uploaders::{GcpUploader, LocalUploader},
     services::Snapshotter,
+    tools::file_size,
     DumbUploader, FileUploader,
 };
 
@@ -269,7 +269,7 @@ impl ImmutableArtifactBuilder {
             .map(|filename| db_path.join(IMMUTABLE_DIR).join(filename))
             .collect();
 
-        let total_size = compute_size(immutable_paths)?;
+        let total_size = file_size::compute_size(immutable_paths)?;
 
         Ok(total_size / up_to_immutable_file_number)
     }
