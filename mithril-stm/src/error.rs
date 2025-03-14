@@ -39,6 +39,22 @@ pub enum MultiSignatureError {
     VerificationKeyInfinity(Box<VerificationKey>),
 }
 
+/// Error types related to merkle trees.
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum MerkleTreeError<D: Digest + FixedOutput> {
+    /// Serialization error
+    #[error("Serialization of a merkle tree failed")]
+    SerializationError,
+
+    /// Invalid merkle path
+    #[error("Path does not verify against root")]
+    PathInvalid(Path<D>),
+
+    /// Invalid merkle batch path
+    #[error("Batch path does not verify against root")]
+    BatchPathInvalid(BatchPath<D>),
+}
+
 /// Errors which can be output by Mithril single signature verification.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum StmSignatureError {
@@ -67,28 +83,39 @@ pub enum StmSignatureError {
     SerializationError,
 }
 
-/// Errors which can be output by Mithril aggregate verification.
+impl From<MultiSignatureError> for StmSignatureError {
+    fn from(e: MultiSignatureError) -> Self {
+        match e {
+            MultiSignatureError::SerializationError => Self::SerializationError,
+            MultiSignatureError::SignatureInvalid(e) => Self::SignatureInvalid(e),
+            MultiSignatureError::BatchInvalid => unreachable!(),
+            MultiSignatureError::KeyInvalid(_) => unreachable!(),
+            MultiSignatureError::AggregateSignatureInvalid => unreachable!(),
+            MultiSignatureError::SignatureInfinity(_) => unreachable!(),
+            MultiSignatureError::VerificationKeyInfinity(_) => unreachable!(),
+        }
+    }
+}
+
+impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSignatureError {
+    fn from(e: MerkleTreeError<D>) -> Self {
+        match e {
+            MerkleTreeError::SerializationError => Self::SerializationError,
+            _ => unreachable!(),
+        }
+    }
+}
+
+/// Error types for aggregation.
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
-    /// The IVK is invalid after aggregating the keys
-    #[error("Aggregated key does not correspond to the expected key.")]
-    IvkInvalid(Box<VerificationKey>),
+pub enum AggregationError {
+    /// Not enough signatures were collected, got this many instead.
+    #[error("Not enough signatures. Got only {0} out of {1}.")]
+    NotEnoughSignatures(u64, u64),
 
-    /// This error occurs when the the serialization of the raw bytes failed
-    #[error("Invalid bytes")]
-    SerializationError,
-
-    /// Invalid merkle batch path
-    #[error("Batch path does not verify against root")]
-    PathInvalid(BatchPath<D>),
-
-    /// Batch verification of STM aggregate signatures failed
-    #[error("Batch verification of STM aggregate signatures failed")]
-    BatchInvalid,
-
-    /// `CoreVerifier` check failed
-    #[error("Core verification error: {0}")]
-    CoreVerificationError(#[source] CoreVerifierError),
+    /// This error happens when we try to convert a u64 to a usize and it does not fit
+    #[error("Invalid usize conversion")]
+    UsizeConversionInvalid,
 }
 
 /// Errors which can be output by `CoreVerifier`.
@@ -111,79 +138,57 @@ pub enum CoreVerifierError {
     IndividualSignatureInvalid(#[source] StmSignatureError),
 }
 
-/// Error types for aggregation.
-#[derive(Debug, Clone, thiserror::Error)]
-pub enum AggregationError {
-    /// Not enough signatures were collected, got this many instead.
-    #[error("Not enough signatures. Got only {0} out of {1}.")]
-    NotEnoughSignatures(u64, u64),
-
-    /// This error happens when we try to convert a u64 to a usize and it does not fit
-    #[error("Invalid usize conversion")]
-    UsizeConversionInvalid,
+impl From<AggregationError> for CoreVerifierError {
+    fn from(e: AggregationError) -> Self {
+        match e {
+            AggregationError::NotEnoughSignatures(e, _e) => Self::NoQuorum(e, e),
+            AggregationError::UsizeConversionInvalid => unreachable!(),
+        }
+    }
 }
 
-/// Error types related to merkle trees.
-#[derive(Debug, Clone, thiserror::Error)]
-pub enum MerkleTreeError<D: Digest + FixedOutput> {
-    /// Serialization error
-    #[error("Serialization of a merkle tree failed")]
-    SerializationError,
-
-    /// Invalid merkle path
-    #[error("Path does not verify against root")]
-    PathInvalid(Path<D>),
-
-    /// Invalid merkle batch path
-    #[error("Batch path does not verify against root")]
-    BatchPathInvalid(BatchPath<D>),
-}
-
-/// Errors which can be outputted by key registration.
-#[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
-pub enum RegisterError {
-    /// This key has already been registered by a participant
-    #[error("This key has already been registered.")]
-    KeyRegistered(Box<VerificationKey>),
-
-    /// Verification key is the infinity
-    #[error("Verification key is the infinity")]
-    VerificationKeyInfinity(Box<VerificationKey>),
-
-    /// The supplied key is not valid
-    #[error("The verification of correctness of the supplied key is invalid.")]
-    KeyInvalid(Box<VerificationKeyPoP>),
-
-    /// Serialization error
-    #[error("Serialization error")]
-    SerializationError,
-
-    /// UnregisteredInitializer error
-    #[error("Initializer not registered. Cannot participate as a signer.")]
-    UnregisteredInitializer,
-}
-
-impl From<MultiSignatureError> for StmSignatureError {
+impl From<MultiSignatureError> for CoreVerifierError {
     fn from(e: MultiSignatureError) -> Self {
         match e {
-            MultiSignatureError::SerializationError => Self::SerializationError,
-            MultiSignatureError::SignatureInvalid(e) => Self::SignatureInvalid(e),
+            MultiSignatureError::AggregateSignatureInvalid => Self::AggregateSignatureInvalid,
             MultiSignatureError::BatchInvalid => unreachable!(),
+            MultiSignatureError::SerializationError => unreachable!(),
             MultiSignatureError::KeyInvalid(_) => unreachable!(),
-            MultiSignatureError::AggregateSignatureInvalid => unreachable!(),
+            MultiSignatureError::SignatureInvalid(_e) => unreachable!(),
             MultiSignatureError::SignatureInfinity(_) => unreachable!(),
             MultiSignatureError::VerificationKeyInfinity(_) => unreachable!(),
         }
     }
 }
 
-impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSignatureError {
-    fn from(e: MerkleTreeError<D>) -> Self {
-        match e {
-            MerkleTreeError::SerializationError => Self::SerializationError,
-            _ => unreachable!(),
-        }
+impl From<StmSignatureError> for CoreVerifierError {
+    fn from(e: StmSignatureError) -> Self {
+        CoreVerifierError::IndividualSignatureInvalid(e)
     }
+}
+
+/// Errors which can be output by Mithril aggregate verification.
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
+    /// The IVK is invalid after aggregating the keys
+    #[error("Aggregated key does not correspond to the expected key.")]
+    IvkInvalid(Box<VerificationKey>),
+
+    /// This error occurs when the the serialization of the raw bytes failed
+    #[error("Invalid bytes")]
+    SerializationError,
+
+    /// Invalid merkle batch path
+    #[error("Batch path does not verify against root")]
+    PathInvalid(BatchPath<D>),
+
+    /// Batch verification of STM aggregate signatures failed
+    #[error("Batch verification of STM aggregate signatures failed")]
+    BatchInvalid,
+
+    /// `CoreVerifier` check failed
+    #[error("Core verification error: {0}")]
+    CoreVerificationError(#[source] CoreVerifierError),
 }
 
 impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmAggregateSignatureError<D> {
@@ -233,33 +238,28 @@ impl<D: Digest + FixedOutput> From<StmSignatureError> for StmAggregateSignatureE
     }
 }
 
-impl From<AggregationError> for CoreVerifierError {
-    fn from(e: AggregationError) -> Self {
-        match e {
-            AggregationError::NotEnoughSignatures(e, _e) => Self::NoQuorum(e, e),
-            AggregationError::UsizeConversionInvalid => unreachable!(),
-        }
-    }
-}
+/// Errors which can be outputted by key registration.
+#[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
+pub enum RegisterError {
+    /// This key has already been registered by a participant
+    #[error("This key has already been registered.")]
+    KeyRegistered(Box<VerificationKey>),
 
-impl From<MultiSignatureError> for CoreVerifierError {
-    fn from(e: MultiSignatureError) -> Self {
-        match e {
-            MultiSignatureError::AggregateSignatureInvalid => Self::AggregateSignatureInvalid,
-            MultiSignatureError::BatchInvalid => unreachable!(),
-            MultiSignatureError::SerializationError => unreachable!(),
-            MultiSignatureError::KeyInvalid(_) => unreachable!(),
-            MultiSignatureError::SignatureInvalid(_e) => unreachable!(),
-            MultiSignatureError::SignatureInfinity(_) => unreachable!(),
-            MultiSignatureError::VerificationKeyInfinity(_) => unreachable!(),
-        }
-    }
-}
+    /// Verification key is the infinity
+    #[error("Verification key is the infinity")]
+    VerificationKeyInfinity(Box<VerificationKey>),
 
-impl From<StmSignatureError> for CoreVerifierError {
-    fn from(e: StmSignatureError) -> Self {
-        CoreVerifierError::IndividualSignatureInvalid(e)
-    }
+    /// The supplied key is not valid
+    #[error("The verification of correctness of the supplied key is invalid.")]
+    KeyInvalid(Box<VerificationKeyPoP>),
+
+    /// Serialization error
+    #[error("Serialization error")]
+    SerializationError,
+
+    /// UnregisteredInitializer error
+    #[error("Initializer not registered. Cannot participate as a signer.")]
+    UnregisteredInitializer,
 }
 
 impl From<MultiSignatureError> for RegisterError {

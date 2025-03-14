@@ -153,121 +153,6 @@ pub struct StmParameters {
     pub phi_f: f64,
 }
 
-/// Initializer for `StmSigner`.
-/// This is the data that is used during the key registration procedure.
-/// Once the latter is finished, this instance is consumed into an `StmSigner`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StmInitializer {
-    /// This participant's stake.
-    pub stake: Stake,
-    /// Current protocol instantiation parameters.
-    pub params: StmParameters,
-    /// Secret key.
-    pub(crate) sk: SigningKey,
-    /// Verification (public) key + proof of possession.
-    pub(crate) pk: StmVerificationKeyPoP,
-}
-
-/// Participant in the protocol can sign messages.
-/// * If the signer has `closed_reg`, then it can generate Stm certificate.
-///     * This kind of signer can only be generated out of an `StmInitializer` and a `ClosedKeyReg`.
-///     * This ensures that a `MerkleTree` root is not computed before all participants have registered.
-/// * If the signer does not have `closed_reg`, then it is a core signer.
-///     * This kind of signer cannot participate certificate generation.
-///     * Signature generated can be verified by a full node verifier (core verifier).
-#[derive(Debug, Clone)]
-pub struct StmSigner<D: Digest> {
-    signer_index: u64,
-    stake: Stake,
-    params: StmParameters,
-    sk: SigningKey,
-    vk: StmVerificationKey,
-    closed_reg: Option<ClosedKeyReg<D>>,
-}
-
-/// `StmClerk` can verify and aggregate `StmSig`s and verify `StmMultiSig`s.
-/// Clerks can only be generated with the registration closed.
-/// This avoids that a Merkle Tree is computed before all parties have registered.
-#[derive(Debug, Clone)]
-pub struct StmClerk<D: Clone + Digest> {
-    pub(crate) closed_reg: ClosedKeyReg<D>,
-    pub(crate) params: StmParameters,
-}
-
-/// Signature created by a single party who has won the lottery.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StmSig {
-    /// The signature from the underlying MSP scheme.
-    pub sigma: Signature,
-    /// The index(es) for which the signature is valid
-    pub indexes: Vec<Index>,
-    /// Merkle tree index of the signer.
-    pub signer_index: Index,
-}
-
-/// Stm aggregate key (batch compatible), which contains the merkle tree commitment and the total stake of the system.
-/// Batch Compat Merkle tree commitment includes the number of leaves in the tree in order to obtain batch path.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(bound(
-    serialize = "BatchPath<D>: Serialize",
-    deserialize = "BatchPath<D>: Deserialize<'de>"
-))]
-pub struct StmAggrVerificationKey<D: Clone + Digest + FixedOutput> {
-    mt_commitment: MerkleTreeCommitmentBatchCompat<D>,
-    total_stake: Stake,
-}
-
-impl<D: Digest + Clone + FixedOutput> PartialEq for StmAggrVerificationKey<D> {
-    fn eq(&self, other: &Self) -> bool {
-        self.mt_commitment == other.mt_commitment && self.total_stake == other.total_stake
-    }
-}
-
-impl<D: Digest + Clone + FixedOutput> Eq for StmAggrVerificationKey<D> {}
-
-/// Signature with its registered party.
-#[derive(Debug, Clone, Hash, Deserialize, Eq, PartialEq, Ord, PartialOrd)]
-pub struct StmSigRegParty {
-    /// Stm signature
-    pub sig: StmSig,
-    /// Registered party
-    pub reg_party: RegParty,
-}
-
-impl Serialize for StmSigRegParty {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut tuple = serializer.serialize_tuple(2)?;
-        tuple.serialize_element(&self.sig)?;
-        tuple.serialize_element(&self.reg_party)?;
-        tuple.end()
-    }
-}
-
-/// `StmMultiSig` uses the "concatenation" proving system (as described in Section 4.3 of the original paper.)
-/// This means that the aggregated signature contains a vector with all individual signatures.
-/// BatchPath is also a part of the aggregate signature which covers path for all signatures.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(bound(
-    serialize = "BatchPath<D>: Serialize",
-    deserialize = "BatchPath<D>: Deserialize<'de>"
-))]
-pub struct StmAggrSig<D: Clone + Digest + FixedOutput> {
-    pub(crate) signatures: Vec<StmSigRegParty>,
-    /// The list of unique merkle tree nodes that covers path for all signatures.
-    pub batch_proof: BatchPath<D>,
-}
-
-/// Full node verifier including the list of eligible signers and the total stake of the system.
-pub struct CoreVerifier {
-    /// List of registered parties.
-    pub eligible_parties: Vec<RegParty>,
-    /// Total stake of registered parties.
-    pub total_stake: Stake,
-}
-
 impl StmParameters {
     /// Convert to bytes
     /// # Layout
@@ -300,6 +185,21 @@ impl StmParameters {
 
         Ok(Self { m, k, phi_f })
     }
+}
+
+/// Initializer for `StmSigner`.
+/// This is the data that is used during the key registration procedure.
+/// Once the latter is finished, this instance is consumed into an `StmSigner`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StmInitializer {
+    /// This participant's stake.
+    pub stake: Stake,
+    /// Current protocol instantiation parameters.
+    pub params: StmParameters,
+    /// Secret key.
+    pub(crate) sk: SigningKey,
+    /// Verification (public) key + proof of possession.
+    pub(crate) pk: StmVerificationKeyPoP,
 }
 
 impl StmInitializer {
@@ -424,6 +324,23 @@ impl StmInitializer {
     }
 }
 
+/// Participant in the protocol can sign messages.
+/// * If the signer has `closed_reg`, then it can generate Stm certificate.
+///     * This kind of signer can only be generated out of an `StmInitializer` and a `ClosedKeyReg`.
+///     * This ensures that a `MerkleTree` root is not computed before all participants have registered.
+/// * If the signer does not have `closed_reg`, then it is a core signer.
+///     * This kind of signer cannot participate certificate generation.
+///     * Signature generated can be verified by a full node verifier (core verifier).
+#[derive(Debug, Clone)]
+pub struct StmSigner<D: Digest> {
+    signer_index: u64,
+    stake: Stake,
+    params: StmParameters,
+    sk: SigningKey,
+    vk: StmVerificationKey,
+    closed_reg: Option<ClosedKeyReg<D>>,
+}
+
 impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     /// This function produces a signature following the description of Section 2.4.
     /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
@@ -493,83 +410,44 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     }
 }
 
-impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
-    /// Create a new `Clerk` from a closed registration instance.
-    pub fn from_registration(params: &StmParameters, closed_reg: &ClosedKeyReg<D>) -> Self {
+/// Stm aggregate key (batch compatible), which contains the merkle tree commitment and the total stake of the system.
+/// Batch Compat Merkle tree commitment includes the number of leaves in the tree in order to obtain batch path.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound(
+    serialize = "BatchPath<D>: Serialize",
+    deserialize = "BatchPath<D>: Deserialize<'de>"
+))]
+pub struct StmAggrVerificationKey<D: Clone + Digest + FixedOutput> {
+    mt_commitment: MerkleTreeCommitmentBatchCompat<D>,
+    total_stake: Stake,
+}
+
+impl<D: Digest + Clone + FixedOutput> PartialEq for StmAggrVerificationKey<D> {
+    fn eq(&self, other: &Self) -> bool {
+        self.mt_commitment == other.mt_commitment && self.total_stake == other.total_stake
+    }
+}
+
+impl<D: Digest + Clone + FixedOutput> Eq for StmAggrVerificationKey<D> {}
+
+impl<D: Clone + Digest + FixedOutput> From<&ClosedKeyReg<D>> for StmAggrVerificationKey<D> {
+    fn from(reg: &ClosedKeyReg<D>) -> Self {
         Self {
-            params: *params,
-            closed_reg: closed_reg.clone(),
+            mt_commitment: reg.merkle_tree.to_commitment_batch_compat(),
+            total_stake: reg.total_stake,
         }
     }
+}
 
-    /// Create a Clerk from a signer.
-    pub fn from_signer(signer: &StmSigner<D>) -> Self {
-        let closed_reg = signer
-            .closed_reg
-            .clone()
-            .expect("Core signer does not include closed registration. StmClerk, and so, the Stm certificate cannot be built without closed registration!");
-
-        Self {
-            params: signer.params,
-            closed_reg,
-        }
-    }
-
-    /// Aggregate a set of signatures for their corresponding indices.
-    ///
-    /// This function first deduplicates the repeated signatures, and if there are enough signatures, it collects the merkle tree indexes of unique signatures.
-    /// The list of merkle tree indexes is used to create a batch proof, to prove that all signatures are from eligible signers.
-    ///
-    /// It returns an instance of `StmAggrSig`.
-    pub fn aggregate(
-        &self,
-        sigs: &[StmSig],
-        msg: &[u8],
-    ) -> Result<StmAggrSig<D>, AggregationError> {
-        let sig_reg_list = sigs
-            .iter()
-            .map(|sig| StmSigRegParty {
-                sig: sig.clone(),
-                reg_party: self.closed_reg.reg_parties[sig.signer_index as usize],
-            })
-            .collect::<Vec<StmSigRegParty>>();
-
-        let avk = StmAggrVerificationKey::from(&self.closed_reg);
-        let msgp = avk.mt_commitment.concat_with_msg(msg);
-        let mut unique_sigs = CoreVerifier::dedup_sigs_for_indices(
-            &self.closed_reg.total_stake,
-            &self.params,
-            &msgp,
-            &sig_reg_list,
-        )?;
-
-        unique_sigs.sort_unstable();
-
-        let mt_index_list = unique_sigs
-            .iter()
-            .map(|sig_reg| sig_reg.sig.signer_index as usize)
-            .collect::<Vec<usize>>();
-
-        let batch_proof = self.closed_reg.merkle_tree.get_batched_path(mt_index_list);
-
-        Ok(StmAggrSig {
-            signatures: unique_sigs,
-            batch_proof,
-        })
-    }
-
-    /// Compute the `StmAggrVerificationKey` related to the used registration.
-    pub fn compute_avk(&self) -> StmAggrVerificationKey<D> {
-        StmAggrVerificationKey::from(&self.closed_reg)
-    }
-
-    /// Get the (VK, stake) of a party given its index.
-    pub fn get_reg_party(&self, party_index: &Index) -> Option<(StmVerificationKey, Stake)> {
-        self.closed_reg
-            .reg_parties
-            .get(*party_index as usize)
-            .map(|&r| r.into())
-    }
+/// Signature created by a single party who has won the lottery.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StmSig {
+    /// The signature from the underlying MSP scheme.
+    pub sigma: Signature,
+    /// The index(es) for which the signature is valid
+    pub indexes: Vec<Index>,
+    /// Merkle tree index of the signer.
+    pub signer_index: Index,
 }
 
 impl StmSig {
@@ -710,13 +588,13 @@ impl Ord for StmSig {
     }
 }
 
-impl<D: Clone + Digest + FixedOutput> From<&ClosedKeyReg<D>> for StmAggrVerificationKey<D> {
-    fn from(reg: &ClosedKeyReg<D>) -> Self {
-        Self {
-            mt_commitment: reg.merkle_tree.to_commitment_batch_compat(),
-            total_stake: reg.total_stake,
-        }
-    }
+/// Signature with its registered party.
+#[derive(Debug, Clone, Hash, Deserialize, Eq, PartialEq, Ord, PartialOrd)]
+pub struct StmSigRegParty {
+    /// Stm signature
+    pub sig: StmSig,
+    /// Registered party
+    pub reg_party: RegParty,
 }
 
 impl StmSigRegParty {
@@ -740,6 +618,120 @@ impl StmSigRegParty {
 
         Ok(StmSigRegParty { sig, reg_party })
     }
+}
+
+impl Serialize for StmSigRegParty {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut tuple = serializer.serialize_tuple(2)?;
+        tuple.serialize_element(&self.sig)?;
+        tuple.serialize_element(&self.reg_party)?;
+        tuple.end()
+    }
+}
+
+/// `StmClerk` can verify and aggregate `StmSig`s and verify `StmMultiSig`s.
+/// Clerks can only be generated with the registration closed.
+/// This avoids that a Merkle Tree is computed before all parties have registered.
+#[derive(Debug, Clone)]
+pub struct StmClerk<D: Clone + Digest> {
+    pub(crate) closed_reg: ClosedKeyReg<D>,
+    pub(crate) params: StmParameters,
+}
+
+impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
+    /// Create a new `Clerk` from a closed registration instance.
+    pub fn from_registration(params: &StmParameters, closed_reg: &ClosedKeyReg<D>) -> Self {
+        Self {
+            params: *params,
+            closed_reg: closed_reg.clone(),
+        }
+    }
+
+    /// Create a Clerk from a signer.
+    pub fn from_signer(signer: &StmSigner<D>) -> Self {
+        let closed_reg = signer
+            .closed_reg
+            .clone()
+            .expect("Core signer does not include closed registration. StmClerk, and so, the Stm certificate cannot be built without closed registration!");
+
+        Self {
+            params: signer.params,
+            closed_reg,
+        }
+    }
+
+    /// Aggregate a set of signatures for their corresponding indices.
+    ///
+    /// This function first deduplicates the repeated signatures, and if there are enough signatures, it collects the merkle tree indexes of unique signatures.
+    /// The list of merkle tree indexes is used to create a batch proof, to prove that all signatures are from eligible signers.
+    ///
+    /// It returns an instance of `StmAggrSig`.
+    pub fn aggregate(
+        &self,
+        sigs: &[StmSig],
+        msg: &[u8],
+    ) -> Result<StmAggrSig<D>, AggregationError> {
+        let sig_reg_list = sigs
+            .iter()
+            .map(|sig| StmSigRegParty {
+                sig: sig.clone(),
+                reg_party: self.closed_reg.reg_parties[sig.signer_index as usize],
+            })
+            .collect::<Vec<StmSigRegParty>>();
+
+        let avk = StmAggrVerificationKey::from(&self.closed_reg);
+        let msgp = avk.mt_commitment.concat_with_msg(msg);
+        let mut unique_sigs = CoreVerifier::dedup_sigs_for_indices(
+            &self.closed_reg.total_stake,
+            &self.params,
+            &msgp,
+            &sig_reg_list,
+        )?;
+
+        unique_sigs.sort_unstable();
+
+        let mt_index_list = unique_sigs
+            .iter()
+            .map(|sig_reg| sig_reg.sig.signer_index as usize)
+            .collect::<Vec<usize>>();
+
+        let batch_proof = self.closed_reg.merkle_tree.get_batched_path(mt_index_list);
+
+        Ok(StmAggrSig {
+            signatures: unique_sigs,
+            batch_proof,
+        })
+    }
+
+    /// Compute the `StmAggrVerificationKey` related to the used registration.
+    pub fn compute_avk(&self) -> StmAggrVerificationKey<D> {
+        StmAggrVerificationKey::from(&self.closed_reg)
+    }
+
+    /// Get the (VK, stake) of a party given its index.
+    pub fn get_reg_party(&self, party_index: &Index) -> Option<(StmVerificationKey, Stake)> {
+        self.closed_reg
+            .reg_parties
+            .get(*party_index as usize)
+            .map(|&r| r.into())
+    }
+}
+
+/// `StmMultiSig` uses the "concatenation" proving system (as described in Section 4.3 of the original paper.)
+/// This means that the aggregated signature contains a vector with all individual signatures.
+/// BatchPath is also a part of the aggregate signature which covers path for all signatures.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound(
+    serialize = "BatchPath<D>: Serialize",
+    deserialize = "BatchPath<D>: Deserialize<'de>"
+))]
+pub struct StmAggrSig<D: Clone + Digest + FixedOutput> {
+    pub(crate) signatures: Vec<StmSigRegParty>,
+    /// The list of unique merkle tree nodes that covers path for all signatures.
+    pub batch_proof: BatchPath<D>,
 }
 
 impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
@@ -894,6 +886,14 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
             batch_proof,
         })
     }
+}
+
+/// Full node verifier including the list of eligible signers and the total stake of the system.
+pub struct CoreVerifier {
+    /// List of registered parties.
+    pub eligible_parties: Vec<RegParty>,
+    /// Total stake of registered parties.
+    pub total_stake: Stake,
 }
 
 impl CoreVerifier {
@@ -1105,6 +1105,9 @@ mod tests {
     type Sig = StmAggrSig<D>;
     type D = Blake2b<U32>;
 
+    // ---------------------------------------------------------------------
+    // Test helpers
+    // ---------------------------------------------------------------------
     fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner<D>> {
         let stake = vec![1; nparties];
         setup_parties(params, stake)
@@ -1200,6 +1203,69 @@ mod tests {
         sigs
     }
 
+    /// Pick N between min and max, and then
+    /// generate a vector of N stakes summing to N * tstake,
+    /// plus a subset S of 0..N such that the sum of the stakes at indices
+    /// in S is astake * N
+    fn arb_parties_adversary_stake(
+        min: usize,
+        max: usize,
+        tstake: Stake,
+        astake: Stake,
+    ) -> impl Strategy<Value = (HashSet<usize>, Vec<Stake>)> {
+        (min..max)
+            .prop_flat_map(|n| (Just(n), 1..=n / 2))
+            .prop_flat_map(move |(n, nadv)| {
+                arb_parties_with_adversaries(n, nadv, tstake * n as Stake, astake * n as Stake)
+            })
+    }
+
+    #[derive(Debug)]
+    struct ProofTest {
+        msig: Result<Sig, AggregationError>,
+        clerk: StmClerk<D>,
+        msg: [u8; 16],
+    }
+    /// Run the protocol up to aggregation. This will produce a valid aggregation of signatures.
+    /// The following tests mutate this aggregation so that the proof is no longer valid.
+    fn arb_proof_setup(max_parties: usize) -> impl Strategy<Value = ProofTest> {
+        any::<[u8; 16]>().prop_flat_map(move |msg| {
+            (2..max_parties).prop_map(move |n| {
+                let params = StmParameters {
+                    m: 5,
+                    k: 5,
+                    phi_f: 1.0,
+                };
+                let ps = setup_equal_parties(params, n);
+                let clerk = StmClerk::from_signer(&ps[0]);
+
+                let all_ps: Vec<usize> = (0..n).collect();
+                let sigs = find_signatures(&msg, &ps, &all_ps);
+
+                let msig = clerk.aggregate(&sigs, &msg);
+                ProofTest { msig, clerk, msg }
+            })
+        })
+    }
+
+    fn with_proof_mod<F>(mut tc: ProofTest, f: F)
+    where
+        F: Fn(&mut Sig, &mut StmClerk<D>, &mut [u8; 16]),
+    {
+        match tc.msig {
+            Ok(mut aggr) => {
+                f(&mut aggr, &mut tc.clerk, &mut tc.msg);
+                assert!(aggr
+                    .verify(&tc.msg, &tc.clerk.compute_avk(), &tc.clerk.params)
+                    .is_err())
+            }
+            Err(e) => unreachable!("Reached an unexpected error: {:?}", e),
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Property test: `test_dedup`
+    // ---------------------------------------------------------------------
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(50))]
 
@@ -1244,6 +1310,10 @@ mod tests {
         }
     }
 
+    // ---------------------------------------------------------------------
+    // Property test: `test_aggregate_sig`
+    // Property test: `batch_verify`
+    // ---------------------------------------------------------------------
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(50))]
 
@@ -1329,6 +1399,9 @@ mod tests {
         }
     }
 
+    // ---------------------------------------------------------------------
+    // Property test: `test_sig`
+    // ---------------------------------------------------------------------
     proptest! {
         #[test]
         /// Test that when a party creates a signature it can be verified
@@ -1344,6 +1417,12 @@ mod tests {
         }
     }
 
+    // ---------------------------------------------------------------------
+    // Property test: `test_parameters_serialize_deserialize`
+    // Property test: `test_initializer_serialize_deserialize`
+    // Property test: `test_sig_serialize_deserialize`
+    // Property test: `test_multisig_serialize_deserialize`
+    // ---------------------------------------------------------------------
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(10))]
         #[test]
@@ -1409,23 +1488,9 @@ mod tests {
         }
     }
 
-    /// Pick N between min and max, and then
-    /// generate a vector of N stakes summing to N * tstake,
-    /// plus a subset S of 0..N such that the sum of the stakes at indices
-    /// in S is astake * N
-    fn arb_parties_adversary_stake(
-        min: usize,
-        max: usize,
-        tstake: Stake,
-        astake: Stake,
-    ) -> impl Strategy<Value = (HashSet<usize>, Vec<Stake>)> {
-        (min..max)
-            .prop_flat_map(|n| (Just(n), 1..=n / 2))
-            .prop_flat_map(move |(n, nadv)| {
-                arb_parties_with_adversaries(n, nadv, tstake * n as Stake, astake * n as Stake)
-            })
-    }
-
+    // ---------------------------------------------------------------------
+    // Property test: `test_adversary_quorum`
+    // ---------------------------------------------------------------------
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(10))]
 
@@ -1465,49 +1530,12 @@ mod tests {
         }
     }
 
-    #[derive(Debug)]
-    struct ProofTest {
-        msig: Result<Sig, AggregationError>,
-        clerk: StmClerk<D>,
-        msg: [u8; 16],
-    }
-    /// Run the protocol up to aggregation. This will produce a valid aggregation of signatures.
-    /// The following tests mutate this aggregation so that the proof is no longer valid.
-    fn arb_proof_setup(max_parties: usize) -> impl Strategy<Value = ProofTest> {
-        any::<[u8; 16]>().prop_flat_map(move |msg| {
-            (2..max_parties).prop_map(move |n| {
-                let params = StmParameters {
-                    m: 5,
-                    k: 5,
-                    phi_f: 1.0,
-                };
-                let ps = setup_equal_parties(params, n);
-                let clerk = StmClerk::from_signer(&ps[0]);
-
-                let all_ps: Vec<usize> = (0..n).collect();
-                let sigs = find_signatures(&msg, &ps, &all_ps);
-
-                let msig = clerk.aggregate(&sigs, &msg);
-                ProofTest { msig, clerk, msg }
-            })
-        })
-    }
-
-    fn with_proof_mod<F>(mut tc: ProofTest, f: F)
-    where
-        F: Fn(&mut Sig, &mut StmClerk<D>, &mut [u8; 16]),
-    {
-        match tc.msig {
-            Ok(mut aggr) => {
-                f(&mut aggr, &mut tc.clerk, &mut tc.msg);
-                assert!(aggr
-                    .verify(&tc.msg, &tc.clerk.compute_avk(), &tc.clerk.params)
-                    .is_err())
-            }
-            Err(e) => unreachable!("Reached an unexpected error: {:?}", e),
-        }
-    }
-
+    // ---------------------------------------------------------------------
+    // Property test: `test_invalid_proof_quorum`
+    // Property test: `test_invalid_proof_index_bound`
+    // Property test: `test_invalid_proof_index_unique`
+    // Property test: `test_invalid_proof_path`
+    // ---------------------------------------------------------------------
     proptest! {
         // Each of the tests below corresponds to falsifying a conjunct in the
         // definition of a valid signature
@@ -1553,9 +1581,9 @@ mod tests {
         }
     }
 
-    //------------------------------------------------//
-    //----------------- Core Verifier -----------------//
-    //------------------------------------------------//
+    // ---------------------------------------------------------------------
+    // Core verifier test helpers
+    // ---------------------------------------------------------------------
     fn setup_equal_core_parties(
         params: StmParameters,
         nparties: usize,
@@ -1599,6 +1627,10 @@ mod tests {
         sigs
     }
 
+    // ---------------------------------------------------------------------
+    // Core verifier property test: `test_core_verifier`
+    // Core verifier property test: `test_total_stake_core_verifier`
+    // ---------------------------------------------------------------------
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(50))]
 
