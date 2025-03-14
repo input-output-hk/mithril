@@ -32,7 +32,10 @@ impl RelayAggregator {
         let args = vec!["-vvv", "aggregator"];
 
         let mut command = MithrilCommand::new("mithril-relay", work_dir, bin_dir, env, &args)?;
-        command.set_log_name(&Self::command_name(index));
+        command.set_log_name(&format!(
+            "mithril-relay-aggregator-{}",
+            Self::name_suffix(index),
+        ));
 
         Ok(Self {
             index,
@@ -46,11 +49,11 @@ impl RelayAggregator {
         format!("/ip4/127.0.0.1/tcp/{}", self.listen_port)
     }
 
-    fn command_name(index: usize) -> String {
+    pub fn name_suffix(index: usize) -> String {
         if index == 0 {
-            "mithril-relay-aggregator".to_string()
+            "master".to_string()
         } else {
-            format!("mithril-relay-aggregator-slave-{}", index)
+            format!("slave-{}", index)
         }
     }
 
@@ -61,7 +64,13 @@ impl RelayAggregator {
 
     pub async fn tail_logs(&self, number_of_line: u64) -> StdResult<()> {
         self.command
-            .tail_logs(Some(&Self::command_name(self.index)), number_of_line)
+            .tail_logs(
+                Some(&format!(
+                    "mithril-relay-aggregator-{}",
+                    Self::name_suffix(self.index),
+                )),
+                number_of_line,
+            )
             .await
     }
 }

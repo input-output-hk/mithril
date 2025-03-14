@@ -128,12 +128,10 @@ impl Aggregator {
             env,
             &args,
         )?;
-        let name = if aggregator_config.index == 0 {
-            "mithril-aggregator".to_string()
-        } else {
-            format!("mithril-aggregator-slave-{}", aggregator_config.index)
-        };
-        command.set_log_name(&name);
+        command.set_log_name(&format!(
+            "mithril-aggregator-{}",
+            Self::name_suffix(aggregator_config.index),
+        ));
 
         Ok(Self {
             index: aggregator_config.index,
@@ -154,8 +152,24 @@ impl Aggregator {
         }
     }
 
+    pub fn index(&self) -> usize {
+        self.index
+    }
+
     pub fn is_master(&self) -> bool {
         self.index == 0
+    }
+
+    pub fn name(&self) -> String {
+        format!("mithril-aggregator-{}", Self::name_suffix(self.index))
+    }
+
+    pub fn name_suffix(index: usize) -> String {
+        if index == 0 {
+            "master".to_string()
+        } else {
+            format!("slave-{}", index)
+        }
     }
 
     pub fn endpoint(&self) -> String {
@@ -176,11 +190,10 @@ impl Aggregator {
     pub async fn bootstrap_genesis(&self) -> StdResult<()> {
         // Clone the command so we can alter it without affecting the original
         let mut command = self.command.write().await;
-        let command_name = if self.is_master() {
-            "mithril-aggregator-genesis-bootstrap"
-        } else {
-            &format!("mithril-aggregator-genesis-bootstrap-slave-{}", self.index)
-        };
+        let command_name = &format!(
+            "mithril-aggregator-genesis-bootstrap-{}",
+            Self::name_suffix(self.index),
+        );
         command.set_log_name(command_name);
 
         let exit_status = command
@@ -208,7 +221,7 @@ impl Aggregator {
     pub async fn stop(&self) -> StdResult<()> {
         let mut process = self.process.write().await;
         if let Some(mut process_running) = process.take() {
-            info!("Stopping aggregator");
+            info!("Stopping {}", self.name());
             process_running
                 .kill()
                 .await
@@ -313,11 +326,13 @@ impl Aggregator {
 
     pub async fn tail_logs(&self, number_of_line: u64) -> StdResult<()> {
         let command = self.command.write().await;
-        command.tail_logs(None, number_of_line).await
+        command.tail_logs(Some(&self.name()), number_of_line).await
     }
 
     pub async fn last_error_in_logs(&self, number_of_error: u64) -> StdResult<()> {
         let command = self.command.write().await;
-        command.last_error_in_logs(None, number_of_error).await
+        command
+            .last_error_in_logs(Some(&self.name()), number_of_error)
+            .await
     }
 }
