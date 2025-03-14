@@ -24,8 +24,6 @@ mod temp_dir;
 #[cfg_attr(docsrs, doc(cfg(feature = "test_http_server")))]
 pub mod test_http_server;
 
-use std::path::PathBuf;
-
 pub use cardano_transactions_builder::CardanoTransactionsBuilder;
 pub use certificate_chain_builder::{
     CertificateChainBuilder, CertificateChainBuilderContext, CertificateChainingMethod,
@@ -77,31 +75,46 @@ fn as_sorted_vec<T: Ord, I: IntoIterator<Item = T> + Clone>(iter: I) -> Vec<T> {
     list
 }
 
+/// Return the path of the given function.
+/// If the last function is `f`, it is removed.
+/// The last `{{closure}}` is also removed.
+pub fn format_current_function_module<T>(f: T) -> &'static str {
+    fn type_name_of<T>(_: T) -> &'static str {
+        std::any::type_name::<T>()
+    }
+
+    let name = type_name_of(f);
+    let name = name.strip_suffix("::f").unwrap_or(name);
+    name.strip_suffix("::{{closure}}").unwrap_or(name)
+}
+
+/// Return a string representing the path of the given function.
+pub fn format_current_function_path<T>(f: T) -> String {
+    let name = format_current_function_module(f);
+    name.replace("::", "/")
+}
+
 /// Returns the name of the function that called this macro.
 #[macro_export]
 macro_rules! current_function {
     () => {{
         fn f() {}
-        fn type_name_of<T>(_: T) -> &'static str {
-            std::any::type_name::<T>()
-        }
-
-        let name = type_name_of(f);
-        let name = name.strip_suffix("::f").unwrap_or(name);
-        let name = name.strip_suffix("::{{closure}}").unwrap_or(name);
+        let name = $crate::test_utils::format_current_function_module(f);
+        // The index found is the beginning of the '..', this is why we add 2.
         let function_name_index = name.rfind("::").map(|index| index + 2).unwrap_or(0);
+
         &name[function_name_index..]
     }};
 }
 
-/// Build a path from a module and a function name.
-/// The module is the full name of the module, separated by `::`, like the `module path` return it.
-/// The path is built by replacing `::` by `/` and joining the function name.
-/// # Example
-/// With `build_function_path("module::sub_module::file", "function")`
-/// the path is: `module/sub_module/file/function`
-pub fn build_function_path<M: Into<String>, N: Into<String>>(module: M, function: N) -> PathBuf {
-    PathBuf::from(module.into().replace("::", "/")).join(function.into())
+/// Returns the path of the function that called this macro.
+#[macro_export]
+macro_rules! current_function_path {
+    () => {{
+        fn f() {}
+
+        std::path::PathBuf::from($crate::test_utils::format_current_function_path(f))
+    }};
 }
 
 pub use assert_same_json;
@@ -177,23 +190,50 @@ mod utils {
     }
 
     #[test]
-    fn test_build_function_path_giving_name() {
+    fn test_format_function_path_from_given_function() {
         assert_eq!(
-            Path::new("module")
-                .join("sub_module")
-                .join("file")
-                .join("function"),
-            build_function_path("module::sub_module::file", "function")
+            "mithril_common/test_utils/utils/test_format_function_path_from_given_function",
+            format_current_function_path(test_format_function_path_from_given_function)
         );
     }
+
     #[test]
-    fn test_build_function_path_using_macros() {
+    fn test_format_function_path_from_given_pseudo_function_f() {
+        fn f() {}
+        assert_eq!(
+            "mithril_common/test_utils/utils/test_format_function_path_from_given_pseudo_function_f",
+            format_current_function_path(f)
+        );
+    }
+
+    #[tokio::test]
+    async fn test_format_function_path_from_given_async_function_f() {
+        fn f() {}
+        assert_eq!(
+            "mithril_common/test_utils/utils/test_format_function_path_from_given_async_function_f",
+            format_current_function_path(f)
+        );
+    }
+
+    #[test]
+    fn test_build_current_function_path_using_macros() {
         assert_eq!(
             Path::new("mithril_common")
                 .join("test_utils")
                 .join("utils")
-                .join("test_build_function_path_using_macros"),
-            build_function_path(module_path!(), current_function!())
+                .join("test_build_current_function_path_using_macros"),
+            current_function_path!()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_build_current_async_function_path_using_macros() {
+        assert_eq!(
+            Path::new("mithril_common")
+                .join("test_utils")
+                .join("utils")
+                .join("test_build_current_async_function_path_using_macros"),
+            current_function_path!()
         );
     }
 }

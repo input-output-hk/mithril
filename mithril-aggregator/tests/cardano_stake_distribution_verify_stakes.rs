@@ -2,6 +2,7 @@ mod test_extensions;
 
 use mithril_aggregator::Configuration;
 use mithril_common::entities::SignerWithStake;
+use mithril_common::temp_dir;
 use mithril_common::{
     entities::{
         BlockNumber, ChainPoint, Epoch, ProtocolParameters, SignedEntityType,
@@ -26,7 +27,7 @@ async fn cardano_stake_distribution_verify_stakes() {
             SignedEntityTypeDiscriminants::CardanoStakeDistribution.to_string(),
         ),
         data_stores_directory: get_test_dir("cardano_stake_distribution_verify_stakes"),
-        ..Configuration::new_sample()
+        ..Configuration::new_sample(temp_dir!())
     };
     let mut tester = RuntimeTester::build(
         TimePoint::new(
