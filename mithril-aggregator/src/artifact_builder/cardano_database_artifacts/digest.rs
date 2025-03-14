@@ -479,13 +479,7 @@ mod tests {
             )
             .unwrap();
 
-            let _ = builder
-                .upload_digest_file(&FileArchive::new(
-                    PathBuf::from("digest_file"),
-                    0,
-                    CompressionAlgorithm::Gzip,
-                ))
-                .await;
+            let _ = builder.upload_digest_file(&FileArchive::dummy()).await;
         }
 
         let logs = std::fs::read_to_string(&log_path).unwrap();
@@ -513,11 +507,7 @@ mod tests {
         .unwrap();
 
         let locations = builder
-            .upload_digest_file(&FileArchive::new(
-                PathBuf::from("digest_file"),
-                0,
-                CompressionAlgorithm::Gzip,
-            ))
+            .upload_digest_file(&FileArchive::dummy())
             .await
             .unwrap();
 
@@ -553,11 +543,7 @@ mod tests {
         .unwrap();
 
         let locations = builder
-            .upload_digest_file(&FileArchive::new(
-                PathBuf::from("digest_file"),
-                0,
-                CompressionAlgorithm::Gzip,
-            ))
+            .upload_digest_file(&FileArchive::dummy())
             .await
             .unwrap();
 
@@ -600,11 +586,7 @@ mod tests {
         .unwrap();
 
         let locations = builder
-            .upload_digest_file(&FileArchive::new(
-                PathBuf::from("digest_file"),
-                0,
-                CompressionAlgorithm::Gzip,
-            ))
+            .upload_digest_file(&FileArchive::dummy())
             .await
             .unwrap();
 

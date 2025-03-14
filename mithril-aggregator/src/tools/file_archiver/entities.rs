@@ -48,6 +48,15 @@ impl FileArchive {
         }
     }
 
+    #[cfg(test)]
+    pub fn dummy() -> Self {
+        Self {
+            filepath: PathBuf::from("archive.tar.gz"),
+            archive_filesize: 10,
+            compression_algorithm: CompressionAlgorithm::Gzip,
+        }
+    }
+
     /// Get the path of the archive.
     pub fn get_file_path(&self) -> &Path {
         &self.filepath

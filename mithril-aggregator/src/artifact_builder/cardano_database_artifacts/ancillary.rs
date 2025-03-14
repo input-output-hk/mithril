@@ -325,13 +325,7 @@ mod tests {
             )
             .unwrap();
 
-            let _ = builder
-                .upload_ancillary_archive(FileArchive::new(
-                    PathBuf::from("archive_path"),
-                    0,
-                    CompressionAlgorithm::default(),
-                ))
-                .await;
+            let _ = builder.upload_ancillary_archive(FileArchive::dummy()).await;
         }
 
         let logs = std::fs::read_to_string(&log_path).unwrap();
@@ -350,13 +344,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = builder
-            .upload_ancillary_archive(FileArchive::new(
-                PathBuf::from("archive_path"),
-                0,
-                CompressionAlgorithm::default(),
-            ))
-            .await;
+        let result = builder.upload_ancillary_archive(FileArchive::dummy()).await;
 
         assert!(
             result.is_err(),
