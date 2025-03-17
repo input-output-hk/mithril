@@ -1,7 +1,11 @@
 //! Crate specific errors
 
+#[cfg(not(feature = "batch"))]
 use crate::merkle_tree::basic::Path;
+
+#[cfg(feature = "batch")]
 use crate::merkle_tree::batch_compatible::BatchPath;
+
 use blake2::digest::{Digest, FixedOutput};
 use {
     crate::multi_sig::{Signature, VerificationKey, VerificationKeyPoP},
@@ -47,10 +51,12 @@ pub enum MerkleTreeError<D: Digest + FixedOutput> {
     #[error("Serialization of a merkle tree failed")]
     SerializationError,
 
+    #[cfg(not(feature = "batch"))]
     /// Invalid merkle path
     #[error("Path does not verify against root")]
     PathInvalid(Path<D>),
 
+    #[cfg(feature = "batch")]
     /// Invalid merkle batch path
     #[error("Batch path does not verify against root")]
     BatchPathInvalid(BatchPath<D>),
@@ -75,6 +81,7 @@ pub enum StmSignatureError {
     #[error("A provided signature is invalid")]
     SignatureInvalid(Signature),
 
+    #[cfg(feature = "batch")]
     /// Batch verification of STM signatures failed
     #[error("Batch verification of STM signatures failed")]
     BatchInvalid,
@@ -89,7 +96,10 @@ impl From<MultiSignatureError> for StmSignatureError {
         match e {
             MultiSignatureError::SerializationError => Self::SerializationError,
             MultiSignatureError::SignatureInvalid(e) => Self::SignatureInvalid(e),
+
+            #[cfg(feature = "batch")]
             MultiSignatureError::BatchInvalid => unreachable!(),
+
             MultiSignatureError::KeyInvalid(_) => unreachable!(),
             MultiSignatureError::AggregateSignatureInvalid => unreachable!(),
             MultiSignatureError::SignatureInfinity(_) => unreachable!(),
@@ -102,6 +112,11 @@ impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSignatureError {
     fn from(e: MerkleTreeError<D>) -> Self {
         match e {
             MerkleTreeError::SerializationError => Self::SerializationError,
+
+            #[cfg(feature = "batch")]
+            MerkleTreeError::BatchPathInvalid(_) => Self::BatchInvalid,
+
+            #[cfg(not(feature = "batch"))]
             _ => unreachable!(),
         }
     }
@@ -152,7 +167,10 @@ impl From<MultiSignatureError> for CoreVerifierError {
     fn from(e: MultiSignatureError) -> Self {
         match e {
             MultiSignatureError::AggregateSignatureInvalid => Self::AggregateSignatureInvalid,
+
+            #[cfg(feature = "batch")]
             MultiSignatureError::BatchInvalid => unreachable!(),
+
             MultiSignatureError::SerializationError => unreachable!(),
             MultiSignatureError::KeyInvalid(_) => unreachable!(),
             MultiSignatureError::SignatureInvalid(_e) => unreachable!(),
@@ -195,8 +213,12 @@ pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
 impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmAggregateSignatureError<D> {
     fn from(e: MerkleTreeError<D>) -> Self {
         match e {
+            #[cfg(feature = "batch")]
             MerkleTreeError::BatchPathInvalid(e) => Self::PathInvalid(e),
+
             MerkleTreeError::SerializationError => Self::SerializationError,
+
+            #[cfg(not(feature = "batch"))]
             MerkleTreeError::PathInvalid(_e) => unreachable!(),
         }
     }
@@ -208,7 +230,10 @@ impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmAggregateSignatur
             MultiSignatureError::AggregateSignatureInvalid => {
                 Self::from(CoreVerifierError::from(e))
             }
+
+            #[cfg(feature = "batch")]
             MultiSignatureError::BatchInvalid => Self::BatchInvalid,
+
             MultiSignatureError::SerializationError => unreachable!(),
             MultiSignatureError::KeyInvalid(_) => unreachable!(),
             MultiSignatureError::SignatureInvalid(_) => {

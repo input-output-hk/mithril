@@ -1,6 +1,11 @@
 use crate::error::MerkleTreeError;
+
+#[cfg(not(feature = "batch"))]
 use crate::merkle_tree::basic::*;
+
+#[cfg(feature = "batch")]
 use crate::merkle_tree::batch_compatible::*;
+
 use crate::merkle_tree::leaf::MTLeaf;
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
@@ -74,12 +79,14 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
         self.leaf_off + i
     }
 
+    #[cfg(feature = "batch")]
     /// Convert merkle tree to a batch compatible commitment.
     /// This function simply returns the root and the number of leaves in the tree.
     pub fn to_commitment_batch_compat(&self) -> MerkleTreeCommitmentBatchCompat<D> {
         MerkleTreeCommitmentBatchCompat::new(self.nodes[0].clone(), self.n)
     }
 
+    #[cfg(feature = "batch")]
     /// Get a path for a batch of leaves. The indices must be ordered. We use the Octopus algorithm to
     /// avoid redundancy with nodes in the path. Let `x1, . . . , xk` be the indices of elements we
     /// want to produce an opening for. The algorithm takes as input `x1, . . ., xk`, and  proceeds as follows:
@@ -185,11 +192,13 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
         })
     }
 
+    #[cfg(not(feature = "batch"))]
     /// Convert merkle tree to a commitment. This function simply returns the root.
     pub fn to_commitment(&self) -> MerkleTreeCommitment<D> {
         MerkleTreeCommitment::new(self.nodes[0].clone()) // Use private constructor
     }
 
+    #[cfg(not(feature = "batch"))]
     /// Get a path (hashes of siblings of the path to the root node)
     /// for the `i`th value stored in the tree.
     /// Requires `i < self.n`
@@ -281,6 +290,8 @@ mod tests {
         // Test the relation that t.get_path(i) is a valid
         // proof for i
         #![proptest_config(ProptestConfig::with_cases(100))]
+
+        #[cfg(not(feature = "batch"))]
         #[test]
         fn test_create_proof((t, values) in arb_tree(30)) {
             values.iter().enumerate().for_each(|(i, _v)| {
@@ -289,6 +300,7 @@ mod tests {
             })
         }
 
+        #[cfg(not(feature = "batch"))]
         #[test]
         fn test_bytes_path((t, values) in arb_tree(30)) {
             values.iter().enumerate().for_each(|(i, _v)| {
@@ -303,6 +315,7 @@ mod tests {
             })
         }
 
+        #[cfg(not(feature = "batch"))]
         #[test]
         fn test_bytes_tree_commitment((t, values) in arb_tree(5)) {
             let encoded = bincode::serialize(&t.to_commitment()).unwrap();
@@ -311,6 +324,7 @@ mod tests {
             assert_eq!(tree_commitment.root, decoded.root);
         }
 
+        #[cfg(not(feature = "batch"))]
         #[test]
         fn test_bytes_tree((t, values) in arb_tree(5)) {
             let bytes = t.to_bytes();
@@ -323,6 +337,7 @@ mod tests {
             assert_eq!(tree.nodes, decoded.nodes);
         }
 
+        #[cfg(not(feature = "batch"))]
         #[test]
         fn test_bytes_tree_commitment_batch_compat((t, values) in arb_tree(5)) {
             let encoded = bincode::serialize(&t.to_commitment_batch_compat()).unwrap();
@@ -372,7 +387,7 @@ mod tests {
         //     assert!(t.to_commitment().check(&values[0], &path).is_err());
         // }
 
-
+        #[cfg(feature = "batch")]
         #[test]
         fn test_create_invalid_batch_proof(
             i in any::<usize>(),
@@ -422,12 +437,15 @@ mod tests {
     // ---------------------------------------------------------------------
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(100))]
+
+        #[cfg(feature = "batch")]
         #[test]
         fn test_create_batch_proof((t, batch_values, indices) in arb_tree_arb_batch(30)) {
             let batch_proof = t.get_batched_path(indices);
             assert!(t.to_commitment_batch_compat().check(&batch_values, &batch_proof).is_ok());
         }
 
+        #[cfg(feature = "batch")]
         #[test]
         fn test_bytes_batch_path((t, batch_values, indices) in arb_tree_arb_batch(30)) {
             let bp = t.get_batched_path(indices);

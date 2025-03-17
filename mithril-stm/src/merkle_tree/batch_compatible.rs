@@ -119,8 +119,7 @@ impl<D: Digest> MerkleTreeCommitmentBatchCompat<D> {
     /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
     /// Outputs `msg || self` as a vector of bytes.
     // todo: Do we need to concat msg to whole commitment (nr_leaves and root) or just the root?
-    pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8>
-    {
+    pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8> {
         let mut msgp = msg.to_vec();
         let mut bytes = self.root.clone();
         msgp.append(&mut bytes);

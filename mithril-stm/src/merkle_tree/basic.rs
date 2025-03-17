@@ -88,7 +88,10 @@ impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
     /// Check an inclusion proof that `val` is part of the tree by traveling the whole path until the root.
     /// # Error
     /// If the merkle tree path is invalid, then the function fails.
-    pub fn check(&self, val: &MTLeaf, proof: &Path<D>) -> Result<(), MerkleTreeError<D>> where D: FixedOutput + Clone, {
+    pub fn check(&self, val: &MTLeaf, proof: &Path<D>) -> Result<(), MerkleTreeError<D>>
+    where
+        D: FixedOutput + Clone,
+    {
         let mut idx = proof.index;
 
         let mut h = D::digest(val.to_bytes()).to_vec();
