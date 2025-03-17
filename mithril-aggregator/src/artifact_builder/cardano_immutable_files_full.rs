@@ -103,15 +103,18 @@ impl CardanoImmutableFilesFullArtifactBuilder {
     ) -> StdResult<Snapshot> {
         debug!(self.logger, ">> create_snapshot");
 
-        let snapshot = Snapshot::new(
-            snapshot_digest,
-            self.cardano_network,
+        let snapshot = Snapshot {
+            digest: snapshot_digest,
+            network: self.cardano_network.into(),
             beacon,
-            ongoing_snapshot.get_archive_size(),
-            remote_locations,
-            ongoing_snapshot.get_compression_algorithm(),
-            &self.cardano_node_version,
-        );
+            size: ongoing_snapshot.get_archive_size(),
+            ancillary_size: None,
+            locations: remote_locations,
+            // Todo: upload ancillary files separately
+            ancillary_locations: None,
+            compression_algorithm: ongoing_snapshot.get_compression_algorithm(),
+            cardano_node_version: self.cardano_node_version.to_string(),
+        };
 
         Ok(snapshot)
     }
@@ -207,15 +210,18 @@ mod tests {
             .unwrap()
             .map(Into::into)
             .expect("A snapshot should have been 'uploaded'")];
-        let artifact_expected = Snapshot::new(
-            snapshot_digest.to_owned(),
-            fake_data::network(),
+        let artifact_expected = Snapshot {
+            digest: snapshot_digest.to_owned(),
+            network: fake_data::network().into(),
             beacon,
-            last_ongoing_snapshot.get_archive_size(),
-            remote_locations,
-            CompressionAlgorithm::Zstandard,
-            &Version::parse("1.0.0").unwrap(),
-        );
+            size: last_ongoing_snapshot.get_archive_size(),
+            ancillary_size: None,
+            locations: remote_locations,
+            ancillary_locations: None, // todo
+            compression_algorithm: CompressionAlgorithm::Zstandard,
+            cardano_node_version: "1.0.0".to_string(),
+        };
+        assert_eq!(artifact_expected, artifact);
         assert_eq!(artifact_expected, artifact);
     }
 

@@ -160,8 +160,10 @@ impl TryFrom<SignedEntityRecord> for SnapshotMessage {
             beacon: artifact.beacon,
             certificate_hash: value.certificate_id,
             size: artifact.size,
+            ancillary_size: artifact.ancillary_size,
             created_at: value.created_at,
             locations: artifact.locations,
+            ancillary_locations: artifact.ancillary_locations,
             compression_algorithm: artifact.compression_algorithm,
             cardano_node_version: artifact.cardano_node_version,
         };
@@ -317,8 +319,10 @@ impl TryFrom<SignedEntityRecord> for SnapshotListItemMessage {
             beacon: artifact.beacon,
             certificate_hash: value.certificate_id,
             size: artifact.size,
+            ancillary_size: artifact.ancillary_size,
             created_at: value.created_at,
             locations: artifact.locations,
+            ancillary_locations: artifact.ancillary_locations,
             compression_algorithm: artifact.compression_algorithm,
             cardano_node_version: artifact.cardano_node_version,
         };
