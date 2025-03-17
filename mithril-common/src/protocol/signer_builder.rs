@@ -218,6 +218,7 @@ mod test {
             .with_stake_distribution(
                 crate::test_utils::StakeDistributionGenerationMethod::RandomDistribution {
                     seed: [4u8; 32],
+                    min_stake: 1,
                 },
             )
             .build();

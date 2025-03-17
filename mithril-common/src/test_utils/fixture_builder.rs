@@ -29,7 +29,10 @@ impl Default for MithrilFixtureBuilder {
             enable_signers_certification: true,
             number_of_signers: 5,
             stake_distribution_generation_method:
-                StakeDistributionGenerationMethod::RandomDistribution { seed: [0u8; 32] },
+                StakeDistributionGenerationMethod::RandomDistribution {
+                    seed: [0u8; 32],
+                    min_stake: 1,
+                },
             party_id_seed: [0u8; 32],
         }
     }
@@ -41,6 +44,8 @@ pub enum StakeDistributionGenerationMethod {
     RandomDistribution {
         /// The randomizer seed
         seed: [u8; 32],
+        /// The minimum stake
+        min_stake: Stake,
     },
 
     /// Use a custom stake distribution
@@ -106,13 +111,13 @@ impl MithrilFixtureBuilder {
         let signers_party_ids = self.generate_party_ids();
 
         match &self.stake_distribution_generation_method {
-            StakeDistributionGenerationMethod::RandomDistribution { seed } => {
+            StakeDistributionGenerationMethod::RandomDistribution { seed, min_stake } => {
                 let mut stake_rng = ChaCha20Rng::from_seed(*seed);
 
                 signers_party_ids
                     .into_iter()
                     .map(|party_id| {
-                        let stake = 1 + stake_rng.next_u64() % 999;
+                        let stake = min_stake + stake_rng.next_u64() % 999;
                         (party_id, stake)
                     })
                     .collect::<Vec<_>>()
@@ -246,6 +251,7 @@ mod tests {
         let result = MithrilFixtureBuilder::default()
             .with_stake_distribution(StakeDistributionGenerationMethod::RandomDistribution {
                 seed: [0u8; 32],
+                min_stake: 1,
             })
             .with_signers(4)
             .build();
@@ -275,6 +281,7 @@ mod tests {
         let result = MithrilFixtureBuilder::default()
             .with_stake_distribution(StakeDistributionGenerationMethod::RandomDistribution {
                 seed: [0u8; 32],
+                min_stake: 1,
             })
             .with_signers(5)
             .build();
