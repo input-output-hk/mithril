@@ -44,6 +44,7 @@ impl EpochFixturesMapBuilder {
                         .with_stake_distribution(
                             StakeDistributionGenerationMethod::RandomDistribution {
                                 seed: [epoch as u8; 32],
+                                min_stake: 10,
                             },
                         )
                         .build(),
