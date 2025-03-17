@@ -118,6 +118,7 @@ macro_rules! temp_dir {
     () => {{
         fn f() {}
         let current_function_path = $crate::test_utils::format_current_function_path(f);
+        let current_function_path = current_function_path.replace("/tests/", "/");
 
         $crate::test_utils::TempDir::new(current_function_path, "").build_path()
     }};
@@ -129,6 +130,7 @@ macro_rules! temp_dir_create {
     () => {{
         fn f() {}
         let current_function_path = $crate::test_utils::format_current_function_path(f);
+        let current_function_path = current_function_path.replace("/tests/", "/");
 
         $crate::test_utils::TempDir::new(current_function_path, "").build()
     }};
@@ -260,7 +262,6 @@ mod tests {
                 .join("mithril_common")
                 .join("test_utils")
                 .join("temp_dir")
-                .join("tests")
                 .join("creating_temp_dir_base_on_current_function"),
             temp_dir!(),
         );
@@ -274,7 +275,6 @@ mod tests {
                 .join("mithril_common")
                 .join("test_utils")
                 .join("temp_dir")
-                .join("tests")
                 .join("creating_temp_dir_base_on_current_async_function"),
             temp_dir!(),
         );
