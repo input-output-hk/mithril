@@ -54,24 +54,19 @@ impl VacuumTracker {
         let duration_since_last = Utc::now() - (last_vacuum);
 
         let should_vacuum = duration_since_last >= self.min_interval;
-
-        if should_vacuum {
-            info!(
-                self.logger,
-                "Sufficient time has passed since last vacuum";
-                "last_vacuum" => last_vacuum.to_string(),
-                "elapsed_days" => duration_since_last.num_days(),
-                "min_interval_days" => self.min_interval.num_days()
-            );
+        let info_message = if should_vacuum {
+            "Sufficient time has passed since last vacuum"
         } else {
-            info!(
-                self.logger,
-                "Not enough time elapsed since last vacuum";
-                "last_vacuum" => last_vacuum.to_string(),
-                "elapsed_days" => duration_since_last.num_days(),
-                "min_interval_days" => self.min_interval.num_days()
-            );
+            "Not enough time elapsed since last vacuum"
         };
+
+        info!(
+            self.logger,
+            "{}", info_message;
+            "last_vacuum" => last_vacuum.to_string(),
+            "elapsed_days" => duration_since_last.num_days(),
+            "min_interval_days" => self.min_interval.num_days()
+        );
 
         Ok((should_vacuum, Some(last_vacuum)))
     }
@@ -93,8 +88,6 @@ impl VacuumTracker {
 
 #[cfg(test)]
 mod tests {
-    use std::thread::sleep;
-
     use mithril_common::temp_dir_create;
 
     use crate::test_tools::TestLogger;
@@ -159,8 +152,8 @@ mod tests {
         let min_interval = TimeDelta::milliseconds(10);
         let tracker = VacuumTracker::new(&temp_dir_create!(), min_interval, TestLogger::stdout());
 
-        let saved_timestamp = tracker.update_last_vacuum_time().unwrap();
-        sleep(min_interval.to_std().unwrap());
+        let saved_timestamp = Utc::now() - TimeDelta::milliseconds(10);
+        fs::write(tracker.clone().tracker_file, saved_timestamp.to_rfc3339()).unwrap();
 
         let (is_vacuum_needed, last_timestamp) = tracker.check_vacuum_needed().unwrap();
 
