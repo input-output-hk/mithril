@@ -22,6 +22,7 @@ As a minor extension, we have adopted a slightly different versioning convention
   - Implement the client library for the the signed entity type `CardanoDatabase` (download and prove snapshot).
   - Implement the client CLI commands for the signed entity type `CardanoDatabase` (snapshot list, snapshot show and download commands).
   - Implement an example crate for the signed entity type `CardanoDatabase`.
+  - Lighter ancillary archive by only including what's strictly necessary: the latest ledger file and the last immutable file trio.
 
 - Crates versions:
 
