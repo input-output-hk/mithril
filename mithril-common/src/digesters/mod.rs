@@ -6,6 +6,7 @@ mod dumb_immutable_digester;
 mod immutable_digester;
 mod immutable_file;
 mod immutable_file_observer;
+mod ledger_file;
 
 pub use cardano_immutable_digester::CardanoImmutableDigester;
 pub use immutable_digester::{
@@ -16,6 +17,7 @@ pub use immutable_file_observer::{
     DumbImmutableFileObserver, ImmutableFileObserver, ImmutableFileObserverError,
     ImmutableFileSystemObserver,
 };
+pub use ledger_file::{LedgerFile, LedgerFileListingError};
 
 pub use dumb_immutable_digester::DumbImmutableDigester;
 
@@ -25,6 +27,17 @@ pub const IMMUTABLE_DIR: &str = "immutable";
 pub const LEDGER_DIR: &str = "ledger";
 /// Directory name for the volatile files.
 pub const VOLATILE_DIR: &str = "volatile";
+
+/// Returns the names of the files that compose an immutable trio.
+pub fn immutable_trio_names(
+    immutable_file_number: crate::entities::ImmutableFileNumber,
+) -> Vec<String> {
+    vec![
+        format!("{:05}.chunk", immutable_file_number),
+        format!("{:05}.primary", immutable_file_number),
+        format!("{:05}.secondary", immutable_file_number),
+    ]
+}
 
 cfg_test_tools! {
     mod dummy_cardano_db;

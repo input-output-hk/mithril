@@ -10,16 +10,16 @@ use regex::Regex;
 use slog::{error, Logger};
 
 use mithril_common::{
-    digesters::IMMUTABLE_DIR,
+    digesters::immutable_trio_names,
     entities::{CompressionAlgorithm, ImmutableFileNumber, ImmutablesLocation, MultiFilesUri},
     logging::LoggerExtensions,
     StdResult,
 };
 
 use crate::{
-    artifact_builder::utils::compute_size,
     file_uploaders::{GcpUploader, LocalUploader},
     services::Snapshotter,
+    tools::file_size,
     DumbUploader, FileUploader,
 };
 
@@ -47,6 +47,13 @@ pub trait ImmutableFilesUploader: Send + Sync {
         filepaths: &[PathBuf],
         compression_algorithm: Option<CompressionAlgorithm>,
     ) -> StdResult<ImmutablesLocation>;
+}
+
+#[derive(Debug)]
+pub struct ImmutablesUpload {
+    pub locations: Vec<ImmutablesLocation>,
+    pub average_size: u64,
+    pub total_size: u64,
 }
 
 #[async_trait]
@@ -129,7 +136,6 @@ pub struct ImmutableArtifactBuilder {
     immutables_storage_dir: PathBuf,
     uploaders: Vec<Arc<dyn ImmutableFilesUploader>>,
     snapshotter: Arc<dyn Snapshotter>,
-    compression_algorithm: CompressionAlgorithm,
     logger: Logger,
 }
 
@@ -138,7 +144,6 @@ impl ImmutableArtifactBuilder {
         immutables_storage_dir: PathBuf,
         uploaders: Vec<Arc<dyn ImmutableFilesUploader>>,
         snapshotter: Arc<dyn Snapshotter>,
-        compression_algorithm: CompressionAlgorithm,
         logger: Logger,
     ) -> StdResult<Self> {
         if uploaders.is_empty() {
@@ -160,7 +165,6 @@ impl ImmutableArtifactBuilder {
             immutables_storage_dir,
             uploaders,
             snapshotter,
-            compression_algorithm,
             logger: logger.new_with_component_name::<Self>(),
         })
     }
@@ -168,40 +172,53 @@ impl ImmutableArtifactBuilder {
     pub async fn upload(
         &self,
         up_to_immutable_file_number: ImmutableFileNumber,
-    ) -> StdResult<Vec<ImmutablesLocation>> {
-        let archives_paths =
+    ) -> StdResult<ImmutablesUpload> {
+        let (archives_paths, compression_algorithm) =
             self.immutable_archives_paths_creating_the_missing_ones(up_to_immutable_file_number)?;
-        let locations = self.upload_immutable_archives(&archives_paths).await?;
+        let locations = self
+            .upload_immutable_archives(&archives_paths, compression_algorithm)
+            .await?;
 
-        Ok(locations)
+        let (total_size, average_size) = {
+            let db_directory = self.immutables_storage_dir.clone();
+            let immutable_file_number = up_to_immutable_file_number;
+            tokio::task::spawn_blocking(move || -> StdResult<_> {
+                Self::compute_total_and_average_uncompressed_size(
+                    &db_directory,
+                    immutable_file_number,
+                )
+            })
+            .await??
+        };
+
+        Ok(ImmutablesUpload {
+            locations,
+            average_size,
+            total_size,
+        })
     }
 
     pub fn immutable_archives_paths_creating_the_missing_ones(
         &self,
         up_to_immutable_file_number: ImmutableFileNumber,
-    ) -> StdResult<Vec<PathBuf>> {
-        let immutable_archive_dir_path = Path::new("cardano-database").join("immutable");
-
+    ) -> StdResult<(Vec<PathBuf>, CompressionAlgorithm)> {
         let mut archive_paths = vec![];
-        for immutable_file_number in 1..=up_to_immutable_file_number {
-            let files_to_archive = Self::immutable_trio_names(immutable_file_number)
-                .iter()
-                .map(|filename| PathBuf::from(IMMUTABLE_DIR).join(filename))
-                .collect();
+        let compression_algorithm = self.snapshotter.compression_algorithm();
 
+        for immutable_file_number in 1..=up_to_immutable_file_number {
+            let archive_name_without_extension = format!("{immutable_file_number:05}");
             let archive_name = format!(
-                "{:05}.{}",
-                immutable_file_number,
-                self.compression_algorithm.tar_file_extension()
+                "{archive_name_without_extension}.{}",
+                compression_algorithm.tar_file_extension()
             );
 
             if let Some(existing_archive) = self.retrieve_existing_snapshot_archive(&archive_name) {
                 archive_paths.push(existing_archive);
             } else {
-                let immutable_archive_file_path = immutable_archive_dir_path.join(&archive_name);
-                let snapshot = self
-                    .snapshotter
-                    .snapshot_subset(&immutable_archive_file_path, files_to_archive)?;
+                let snapshot = self.snapshotter.snapshot_immutable_trio(
+                    immutable_file_number,
+                    &archive_name_without_extension,
+                )?;
 
                 let target_path = self.immutables_storage_dir.join(&archive_name);
                 fs::rename(snapshot.get_file_path(), &target_path).with_context(|| {
@@ -216,17 +233,18 @@ impl ImmutableArtifactBuilder {
             }
         }
 
-        Ok(archive_paths)
+        Ok((archive_paths, compression_algorithm))
     }
 
     async fn upload_immutable_archives(
         &self,
         archive_paths: &[PathBuf],
+        compression_algorithm: CompressionAlgorithm,
     ) -> StdResult<Vec<ImmutablesLocation>> {
         let mut locations = Vec::new();
         for uploader in &self.uploaders {
             let result = uploader
-                .batch_upload(archive_paths, Some(self.compression_algorithm))
+                .batch_upload(archive_paths, Some(compression_algorithm))
                 .await;
             match result {
                 Ok(location) => {
@@ -258,33 +276,27 @@ impl ImmutableArtifactBuilder {
             .then_some(expected_archive_path)
     }
 
-    pub fn compute_average_uncompressed_size(
-        &self,
-        db_path: &Path,
+    /// Computes the total and average size of the immutable files up to the given immutable file number.
+    ///
+    /// Returns a tuple with the total size followed by the average size.
+    fn compute_total_and_average_uncompressed_size(
+        immutable_directory: &Path,
         up_to_immutable_file_number: ImmutableFileNumber,
-    ) -> StdResult<u64> {
+    ) -> StdResult<(u64, u64)> {
         if up_to_immutable_file_number == 0 {
             return Err(anyhow!(
-                "Could not compute the average size without immutable files"
+                "Could not compute the total and average size without immutable files"
             ));
         }
 
         let immutable_paths = (1..=up_to_immutable_file_number)
-            .flat_map(Self::immutable_trio_names)
-            .map(|filename| db_path.join(IMMUTABLE_DIR).join(filename))
+            .flat_map(immutable_trio_names)
+            .map(|filename| immutable_directory.join(filename))
             .collect();
 
-        let total_size = compute_size(immutable_paths)?;
+        let total_size = file_size::compute_size(immutable_paths)?;
 
-        Ok(total_size / up_to_immutable_file_number)
-    }
-
-    fn immutable_trio_names(immutable_file_number: ImmutableFileNumber) -> Vec<String> {
-        vec![
-            format!("{:05}.chunk", immutable_file_number),
-            format!("{:05}.primary", immutable_file_number),
-            format!("{:05}.secondary", immutable_file_number),
-        ]
+        Ok((total_size, total_size / up_to_immutable_file_number))
     }
 }
 
@@ -298,13 +310,10 @@ mod tests {
     };
     use std::fs::File;
     use std::io::Write;
-    use uuid::Uuid;
 
-    use crate::services::{
-        CompressedArchiveSnapshotter, DumbSnapshotter, MockSnapshotter,
-        SnapshotterCompressionAlgorithm,
-    };
+    use crate::services::{CompressedArchiveSnapshotter, DumbSnapshotter, MockSnapshotter};
     use crate::test_tools::TestLogger;
+    use crate::tools::file_archiver::FileArchiver;
 
     use super::*;
 
@@ -370,14 +379,14 @@ mod tests {
             .build();
 
         let db_directory = cardano_db.get_dir().to_path_buf();
-        let mut snapshotter = CompressedArchiveSnapshotter::new(
+        let snapshotter = CompressedArchiveSnapshotter::new(
             db_directory.clone(),
             db_directory.parent().unwrap().join("snapshot_dest"),
-            SnapshotterCompressionAlgorithm::Gzip,
+            CompressionAlgorithm::Gzip,
+            Arc::new(FileArchiver::new_for_test(work_dir.join("verification"))),
             TestLogger::stdout(),
         )
         .unwrap();
-        snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
         let uploader = fake_uploader(
             vec![
@@ -392,15 +401,14 @@ mod tests {
             work_dir,
             vec![Arc::new(uploader)],
             Arc::new(snapshotter),
-            CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         )
         .unwrap();
 
-        let archive_paths = builder.upload(2).await.unwrap();
+        let upload = builder.upload(2).await.unwrap();
 
         assert_equivalent(
-            archive_paths,
+            upload.locations,
             vec![ImmutablesLocation::CloudStorage {
                 uri: MultiFilesUri::Template(TemplateUri("archive.tar.gz".to_string())),
                 compression_algorithm: Some(CompressionAlgorithm::Gzip),
@@ -420,8 +428,7 @@ mod tests {
         ImmutableArtifactBuilder::new(
             immutable_storage_dir.clone(),
             vec![Arc::new(DumbUploader::default())],
-            Arc::new(DumbSnapshotter::new()),
-            CompressionAlgorithm::Gzip,
+            Arc::new(DumbSnapshotter::default()),
             TestLogger::stdout(),
         )
         .unwrap();
@@ -440,8 +447,7 @@ mod tests {
         ImmutableArtifactBuilder::new(
             immutable_storage_dir,
             vec![Arc::new(DumbUploader::default())],
-            Arc::new(DumbSnapshotter::new()),
-            CompressionAlgorithm::Gzip,
+            Arc::new(DumbSnapshotter::default()),
             TestLogger::stdout(),
         )
         .unwrap();
@@ -464,25 +470,24 @@ mod tests {
                 .build();
 
             let db_directory = cardano_db.get_dir().to_path_buf();
-            let mut snapshotter = CompressedArchiveSnapshotter::new(
+            let snapshotter = CompressedArchiveSnapshotter::new(
                 db_directory.clone(),
                 db_directory.parent().unwrap().join("snapshot_dest"),
-                SnapshotterCompressionAlgorithm::Gzip,
+                CompressionAlgorithm::Gzip,
+                Arc::new(FileArchiver::new_for_test(work_dir.join("verification"))),
                 TestLogger::stdout(),
             )
             .unwrap();
-            snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
             let builder = ImmutableArtifactBuilder::new(
                 work_dir.clone(),
                 vec![Arc::new(MockImmutableFilesUploader::new())],
                 Arc::new(snapshotter),
-                CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
 
-            let archive_paths = builder
+            let (archive_paths, _) = builder
                 .immutable_archives_paths_creating_the_missing_ones(2)
                 .unwrap();
 
@@ -507,20 +512,19 @@ mod tests {
             std::fs::remove_file(file_to_remove).unwrap();
 
             let db_directory = cardano_db.get_dir().to_path_buf();
-            let mut snapshotter = CompressedArchiveSnapshotter::new(
+            let snapshotter = CompressedArchiveSnapshotter::new(
                 db_directory.clone(),
                 db_directory.parent().unwrap().join("snapshot_dest"),
-                SnapshotterCompressionAlgorithm::Gzip,
+                CompressionAlgorithm::Gzip,
+                Arc::new(FileArchiver::new_for_test(work_dir.join("verification"))),
                 TestLogger::stdout(),
             )
             .unwrap();
-            snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
             let builder = ImmutableArtifactBuilder::new(
                 work_dir,
                 vec![Arc::new(MockImmutableFilesUploader::new())],
                 Arc::new(snapshotter),
-                CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
@@ -542,20 +546,19 @@ mod tests {
                 .build();
 
             let db_directory = cardano_db.get_dir().to_path_buf();
-            let mut snapshotter = CompressedArchiveSnapshotter::new(
+            let snapshotter = CompressedArchiveSnapshotter::new(
                 db_directory.clone(),
                 db_directory.parent().unwrap().join("snapshot_dest"),
-                SnapshotterCompressionAlgorithm::Gzip,
+                CompressionAlgorithm::Gzip,
+                Arc::new(FileArchiver::new_for_test(work_dir.join("verification"))),
                 TestLogger::stdout(),
             )
             .unwrap();
-            snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
             let builder = ImmutableArtifactBuilder::new(
                 work_dir,
                 vec![Arc::new(MockImmutableFilesUploader::new())],
                 Arc::new(snapshotter),
-                CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
@@ -575,20 +578,19 @@ mod tests {
                 .build();
 
             let db_directory = cardano_db.get_dir().to_path_buf();
-            let mut snapshotter = CompressedArchiveSnapshotter::new(
+            let snapshotter = CompressedArchiveSnapshotter::new(
                 db_directory.clone(),
                 db_directory.parent().unwrap().join("snapshot_dest"),
-                SnapshotterCompressionAlgorithm::Gzip,
+                CompressionAlgorithm::Gzip,
+                Arc::new(FileArchiver::new_for_test(work_dir.join("verification"))),
                 TestLogger::stdout(),
             )
             .unwrap();
-            snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
             let builder = ImmutableArtifactBuilder::new(
                 work_dir,
                 vec![Arc::new(MockImmutableFilesUploader::new())],
                 Arc::new(snapshotter),
-                CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
@@ -607,7 +609,6 @@ mod tests {
                 work_dir.clone(),
                 vec![Arc::new(MockImmutableFilesUploader::new())],
                 Arc::new(MockSnapshotter::new()),
-                CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
@@ -631,14 +632,14 @@ mod tests {
                 .build();
 
             let db_directory = cardano_db.get_dir().to_path_buf();
-            let mut snapshotter = CompressedArchiveSnapshotter::new(
+            let snapshotter = CompressedArchiveSnapshotter::new(
                 db_directory.clone(),
                 db_directory.parent().unwrap().join("snapshot_dest"),
-                SnapshotterCompressionAlgorithm::Gzip,
+                CompressionAlgorithm::Gzip,
+                Arc::new(FileArchiver::new_for_test(work_dir.join("verification"))),
                 TestLogger::stdout(),
             )
             .unwrap();
-            snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
             create_fake_file(&work_dir.join("00001.tar.gz"), "00001 content");
             create_fake_file(&work_dir.join("00002.tar.gz"), "00002 content");
@@ -647,12 +648,11 @@ mod tests {
                 work_dir.clone(),
                 vec![Arc::new(MockImmutableFilesUploader::new())],
                 Arc::new(snapshotter),
-                CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
 
-            let archive_paths = builder
+            let (archive_paths, _) = builder
                 .immutable_archives_paths_creating_the_missing_ones(3)
                 .unwrap();
 
@@ -674,7 +674,9 @@ mod tests {
             let work_dir =
                 get_builder_work_dir("return_all_archives_paths_even_if_all_archives_exist");
             let mut snapshotter = MockSnapshotter::new();
-            snapshotter.expect_snapshot_subset().never();
+            snapshotter
+                .expect_compression_algorithm()
+                .returning(|| CompressionAlgorithm::Gzip);
 
             create_fake_file(&work_dir.join("00001.tar.gz"), "00001 content");
             create_fake_file(&work_dir.join("00002.tar.gz"), "00002 content");
@@ -684,12 +686,11 @@ mod tests {
                 work_dir.clone(),
                 vec![Arc::new(MockImmutableFilesUploader::new())],
                 Arc::new(snapshotter),
-                CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
 
-            let archive_paths = builder
+            let (archive_paths, _) = builder
                 .immutable_archives_paths_creating_the_missing_ones(3)
                 .unwrap();
 
@@ -716,8 +717,7 @@ mod tests {
             let result = ImmutableArtifactBuilder::new(
                 get_builder_work_dir("create_immutable_builder_should_error_when_no_uploader"),
                 vec![],
-                Arc::new(DumbSnapshotter::new()),
-                CompressionAlgorithm::Gzip,
+                Arc::new(DumbSnapshotter::default()),
                 TestLogger::stdout(),
             );
 
@@ -742,16 +742,15 @@ mod tests {
                     get_builder_work_dir("upload_immutable_archives_should_log_upload_errors"),
                     vec![Arc::new(uploader)],
                     Arc::new(MockSnapshotter::new()),
-                    CompressionAlgorithm::Gzip,
                     TestLogger::file(&log_path),
                 )
                 .unwrap();
 
                 let _ = builder
-                    .upload_immutable_archives(&[
-                        PathBuf::from("01.tar.gz"),
-                        PathBuf::from("02.tar.gz"),
-                    ])
+                    .upload_immutable_archives(
+                        &[PathBuf::from("01.tar.gz"), PathBuf::from("02.tar.gz")],
+                        CompressionAlgorithm::Gzip,
+                    )
                     .await;
             }
 
@@ -768,16 +767,15 @@ mod tests {
                 get_builder_work_dir("upload_immutable_archives_should_error_when_no_location"),
                 uploaders,
                 Arc::new(MockSnapshotter::new()),
-                CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
 
             let result = builder
-                .upload_immutable_archives(&[
-                    PathBuf::from("01.tar.gz"),
-                    PathBuf::from("02.tar.gz"),
-                ])
+                .upload_immutable_archives(
+                    &[PathBuf::from("01.tar.gz"), PathBuf::from("02.tar.gz")],
+                    CompressionAlgorithm::Gzip,
+                )
                 .await;
 
             assert!(
@@ -804,16 +802,15 @@ mod tests {
                 ),
                 uploaders,
                 Arc::new(MockSnapshotter::new()),
-                CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
 
             let archive_paths = builder
-                .upload_immutable_archives(&[
-                    PathBuf::from("01.tar.gz"),
-                    PathBuf::from("02.tar.gz"),
-                ])
+                .upload_immutable_archives(
+                    &[PathBuf::from("01.tar.gz"), PathBuf::from("02.tar.gz")],
+                    CompressionAlgorithm::Gzip,
+                )
                 .await
                 .unwrap();
 
@@ -847,16 +844,15 @@ mod tests {
                 ),
                 uploaders,
                 Arc::new(MockSnapshotter::new()),
-                CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
             .unwrap();
 
             let archive_paths = builder
-                .upload_immutable_archives(&[
-                    PathBuf::from("01.tar.gz"),
-                    PathBuf::from("02.tar.gz"),
-                ])
+                .upload_immutable_archives(
+                    &[PathBuf::from("01.tar.gz"), PathBuf::from("02.tar.gz")],
+                    CompressionAlgorithm::Gzip,
+                )
                 .await
                 .unwrap();
 
@@ -1007,8 +1003,7 @@ mod tests {
     }
 
     #[test]
-    fn should_compute_the_average_size_of_the_immutables() {
-        let work_dir = get_builder_work_dir("should_compute_the_average_size_of_the_immutables");
+    fn should_compute_the_total_and_average_size_of_the_immutables() {
         let test_dir = "should_compute_the_average_size_of_the_immutables/cardano_database";
 
         let immutable_trio_file_size = 777;
@@ -1018,52 +1013,36 @@ mod tests {
         let cardano_db = DummyCardanoDbBuilder::new(test_dir)
             .with_immutables(&[1, 2, 3])
             .set_immutable_trio_file_size(immutable_trio_file_size)
-            .with_ledger_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
+            .with_ledger_files(&["437", "537", "637", "737"])
             .set_ledger_file_size(ledger_file_size)
-            .with_volatile_files(&["437", "537", "637", "737"])
+            .with_volatile_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
             .set_volatile_file_size(volatile_file_size)
             .build();
 
-        let db_directory = cardano_db.get_dir().to_path_buf();
-
-        let builder = ImmutableArtifactBuilder::new(
-            work_dir,
-            vec![Arc::new(MockImmutableFilesUploader::new())],
-            Arc::new(DumbSnapshotter::new()),
-            CompressionAlgorithm::Gzip,
-            TestLogger::stdout(),
-        )
-        .unwrap();
-
-        let expected_total_size = immutable_trio_file_size;
-
-        let total_size = builder
-            .compute_average_uncompressed_size(&db_directory, 2)
+        let (total_size, average_size) =
+            ImmutableArtifactBuilder::compute_total_and_average_uncompressed_size(
+                cardano_db.get_immutable_dir(),
+                2,
+            )
             .unwrap();
 
+        let expected_average_size = immutable_trio_file_size;
+        let expected_total_size = immutable_trio_file_size * 2;
         assert_eq!(expected_total_size, total_size);
+        assert_eq!(expected_average_size, average_size);
     }
 
     #[test]
-    fn should_return_an_error_when_compute_the_average_size_of_the_immutables_with_zero() {
-        let work_dir = get_builder_work_dir("should_compute_the_average_size_of_the_immutables");
+    fn should_return_an_error_when_compute_the_total_and_average_size_of_the_immutables_with_zero()
+    {
         let test_dir = &format!("{}/cardano_database", current_function!());
 
         let cardano_db = DummyCardanoDbBuilder::new(test_dir).build();
 
-        let db_directory = cardano_db.get_dir().to_path_buf();
-
-        let builder = ImmutableArtifactBuilder::new(
-            work_dir,
-            vec![Arc::new(MockImmutableFilesUploader::new())],
-            Arc::new(DumbSnapshotter::new()),
-            CompressionAlgorithm::Gzip,
-            TestLogger::stdout(),
+        ImmutableArtifactBuilder::compute_total_and_average_uncompressed_size(
+            cardano_db.get_immutable_dir(),
+            0,
         )
-        .unwrap();
-
-        builder
-            .compute_average_uncompressed_size(&db_directory, 0)
-            .expect_err("Should return an error when no immutable file number");
+        .expect_err("Should return an error when no immutable file number");
     }
 }
