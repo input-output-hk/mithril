@@ -60,14 +60,6 @@ impl Snapshotter for DumbSnapshotter {
         Ok(snapshot)
     }
 
-    fn snapshot_subset(
-        &self,
-        archive_name_without_extension: &str,
-        _files: Vec<PathBuf>,
-    ) -> StdResult<FileArchive> {
-        self.snapshot_all(archive_name_without_extension)
-    }
-
     fn snapshot_ancillary(
         &self,
         _immutable_file_number: ImmutableFileNumber,
@@ -133,14 +125,6 @@ impl Snapshotter for FakeSnapshotter {
         ))
     }
 
-    fn snapshot_subset(
-        &self,
-        archive_name_without_extension: &str,
-        _files: Vec<PathBuf>,
-    ) -> StdResult<FileArchive> {
-        self.snapshot_all(archive_name_without_extension)
-    }
-
     fn snapshot_ancillary(
         &self,
         _immutable_file_number: ImmutableFileNumber,
@@ -189,9 +173,11 @@ mod tests {
             assert_eq!(PathBuf::from("archive.tar.gz"), *snapshot.get_file_path());
             assert_eq!(0, snapshot.get_archive_size());
 
-            let snapshot = snapshotter
-                .snapshot_subset("archive", vec![PathBuf::from("whatever")])
-                .unwrap();
+            let snapshot = snapshotter.snapshot_ancillary(3, "archive").unwrap();
+            assert_eq!(PathBuf::from("archive.tar.gz"), *snapshot.get_file_path());
+            assert_eq!(0, snapshot.get_archive_size());
+
+            let snapshot = snapshotter.snapshot_immutable_trio(4, "archive").unwrap();
             assert_eq!(PathBuf::from("archive.tar.gz"), *snapshot.get_file_path());
             assert_eq!(0, snapshot.get_archive_size());
         }
@@ -234,17 +220,6 @@ mod tests {
                     .expect("Dumb snapshotter::snapshot_immutable_trio should not fail.");
                 assert_eq!(
                     Some(immutable_snapshot),
-                    snapshotter.get_last_snapshot().expect(
-                        "Dumb snapshotter::get_last_snapshot should not fail when some last snapshot."
-                    )
-                );
-            }
-            {
-                let subset_snapshot = snapshotter
-                    .snapshot_subset("another_whatever", vec![PathBuf::from("subdir")])
-                    .expect("Dumb snapshotter::snapshot_subset should not fail.");
-                assert_eq!(
-                    Some(subset_snapshot),
                     snapshotter.get_last_snapshot().expect(
                         "Dumb snapshotter::get_last_snapshot should not fail when some last snapshot."
                     )
@@ -306,16 +281,6 @@ mod tests {
                         &test_dir.join(filename).with_extension("tar.gz")
                     );
                     assert!(immutable_snapshot.get_file_path().is_file());
-                }
-                {
-                    let subset_snapshot =
-                        fake_snapshotter.snapshot_subset(filename, vec![]).unwrap();
-
-                    assert_eq!(
-                        subset_snapshot.get_file_path(),
-                        &test_dir.join(filename).with_extension("tar.gz")
-                    );
-                    assert!(subset_snapshot.get_file_path().is_file());
                 }
             }
         }

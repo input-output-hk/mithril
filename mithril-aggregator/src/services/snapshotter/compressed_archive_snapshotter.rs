@@ -38,19 +38,6 @@ impl Snapshotter for CompressedArchiveSnapshotter {
         self.snapshot(archive_name_without_extension, appender)
     }
 
-    fn snapshot_subset(
-        &self,
-        archive_name_without_extension: &str,
-        entries: Vec<PathBuf>,
-    ) -> StdResult<FileArchive> {
-        if entries.is_empty() {
-            return Err(anyhow!("Can not create snapshot with empty entries"));
-        }
-
-        let appender = AppenderEntries::new(entries, self.db_directory.clone())?;
-        self.snapshot(archive_name_without_extension, appender)
-    }
-
     fn snapshot_ancillary(
         &self,
         immutable_file_number: ImmutableFileNumber,
@@ -151,16 +138,11 @@ impl CompressedArchiveSnapshotter {
         &self,
         immutable_file_number: u64,
     ) -> StdResult<Vec<PathBuf>> {
-        let mut files_to_snapshot = Vec::with_capacity(4);
-
         let next_immutable_file_number = immutable_file_number + 1;
-        files_to_snapshot.extend_from_slice(
-            immutable_trio_names(next_immutable_file_number)
-                .iter()
-                .map(|filename| PathBuf::from(IMMUTABLE_DIR).join(filename))
-                .collect::<Vec<_>>()
-                .as_slice(),
-        );
+        let mut files_to_snapshot: Vec<PathBuf> = immutable_trio_names(next_immutable_file_number)
+            .into_iter()
+            .map(|filename| PathBuf::from(IMMUTABLE_DIR).join(filename))
+            .collect();
 
         let db_ledger_dir = self.db_directory.join(LEDGER_DIR);
         let ledger_files = LedgerFile::list_all_in_dir(&db_ledger_dir)?;
@@ -276,7 +258,7 @@ mod tests {
         let db_directory = test_dir.join("db");
 
         fs::create_dir(&db_directory).unwrap();
-        File::create(&db_directory.join("file_to_archive.txt")).unwrap();
+        File::create(db_directory.join("file_to_archive.txt")).unwrap();
 
         let snapshotter = CompressedArchiveSnapshotter::new(
             db_directory,

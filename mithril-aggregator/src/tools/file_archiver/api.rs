@@ -74,7 +74,7 @@ impl FileArchiver {
                 if temporary_archive_path.exists() {
                     if let Err(remove_error) = fs::remove_file(&temporary_archive_path) {
                         warn!(
-                            self.logger, " > Post snapshotter.snapshot failure, could not remove temporary archive";
+                            self.logger, " > Post FileArchiver.archive failure, could not remove temporary archive";
                             "archive_path" => temporary_archive_path.display(),
                             "error" => remove_error
                         );
@@ -206,30 +206,28 @@ impl FileArchiver {
             archive.filepath.display()
         );
 
-        let mut snapshot_file_tar = File::open(&archive.filepath).with_context(|| {
+        let mut archive_file_tar = File::open(&archive.filepath).with_context(|| {
             format!(
                 "Verify archive error: can not open archive: '{}'",
                 archive.filepath.display()
             )
         })?;
-        snapshot_file_tar.seek(SeekFrom::Start(0))?;
+        archive_file_tar.seek(SeekFrom::Start(0))?;
 
-        let mut snapshot_archive: Archive<Box<dyn Read>> = match archive.compression_algorithm {
+        let mut tar_archive: Archive<Box<dyn Read>> = match archive.compression_algorithm {
             CompressionAlgorithm::Gzip => {
-                let snapshot_file_tar = GzDecoder::new(snapshot_file_tar);
-                Archive::new(Box::new(snapshot_file_tar))
+                let archive_decoder = GzDecoder::new(archive_file_tar);
+                Archive::new(Box::new(archive_decoder))
             }
             CompressionAlgorithm::Zstandard => {
-                let snapshot_file_tar = Decoder::new(snapshot_file_tar)?;
-                Archive::new(Box::new(snapshot_file_tar))
+                let archive_decoder = Decoder::new(archive_file_tar)?;
+                Archive::new(Box::new(archive_decoder))
             }
         };
 
         let unpack_temp_dir = self
             .verification_temp_dir
-            .join("mithril_archiver_verify_archive")
             // Add the archive name to the directory to allow two verifications at the same time
-            // (useful for tests).
             .join(archive.filepath.file_name().ok_or(anyhow!(
                 "Verify archive error: Could not append archive name to temp directory: archive `{}`",
                 archive.filepath.display(),
@@ -246,7 +244,7 @@ impl FileArchiver {
 
         let verify_result = {
             let mut result = Ok(());
-            for e in snapshot_archive.entries()? {
+            for e in tar_archive.entries()? {
                 match e {
                     Err(e) => {
                         result = Err(anyhow!(e).context("Verify archive error: invalid entry"));
@@ -290,13 +288,6 @@ impl FileArchiver {
 
         Ok(())
     }
-
-    #[cfg(test)]
-    /// Allow to use a custom temporary directory to avoid conflicts during the snapshot verification.
-    pub fn set_verification_temp_dir<T: Into<String>>(&mut self, sub_dir: T) {
-        self.verification_temp_dir =
-            mithril_common::test_utils::TempDir::create("snapshotter-temp", sub_dir);
-    }
 }
 
 #[cfg(test)]
@@ -305,10 +296,8 @@ mod tests {
 
     use mithril_common::test_utils::assert_equivalent;
 
-    use crate::test_tools::TestLogger;
     use crate::tools::file_archiver::appender::{AppenderDirAll, AppenderFile};
     use crate::tools::file_archiver::test_tools::*;
-    use crate::ZstandardCompressionParameters;
 
     use super::*;
 
@@ -344,7 +333,7 @@ mod tests {
     fn should_create_a_valid_archive_with_zstandard_compression() {
         let test_dir =
             get_test_directory("should_create_a_valid_archive_with_zstandard_compression");
-        let target_archive = test_dir.join("archive.tar.gz");
+        let target_archive = test_dir.join("archive.tar.zst");
         let archived_directory = test_dir.join(create_dir(&test_dir, "archived_directory"));
         create_file(&archived_directory, "file_to_archive.txt");
 
@@ -437,37 +426,25 @@ mod tests {
             target_directory: test_dir.clone(),
             compression_algorithm: CompressionAlgorithm::Gzip,
         };
-        let first_snapshot = file_archiver
+        let first_archive = file_archiver
             .archive(
                 archive_params.clone(),
                 AppenderDirAll::new(archived_directory.clone()),
             )
             .unwrap();
-        let first_snapshot_size = first_snapshot.get_archive_size();
+        let first_archive_size = first_archive.get_archive_size();
 
         create_file(&archived_directory, "another_file_to_archive.txt");
 
-        let second_snapshot = file_archiver
+        let second_archive = file_archiver
             .archive(archive_params, AppenderDirAll::new(archived_directory))
             .unwrap();
-        let second_snapshot_size = second_snapshot.get_archive_size();
+        let second_archive_size = second_archive.get_archive_size();
 
-        assert_ne!(first_snapshot_size, second_snapshot_size);
+        assert_ne!(first_archive_size, second_archive_size);
 
-        let unpack_path = second_snapshot.unpack_gzip(&test_dir);
+        let unpack_path = second_archive.unpack_gzip(&test_dir);
         assert!(unpack_path.join("another_file_to_archive.txt").exists());
-    }
-
-    #[test]
-    fn can_set_verification_temp_dir_with_str_or_string() {
-        let mut file_archiver = FileArchiver::new(
-            ZstandardCompressionParameters::default(),
-            PathBuf::new(),
-            TestLogger::stdout(),
-        );
-
-        file_archiver.set_verification_temp_dir("sub_dir");
-        file_archiver.set_verification_temp_dir("sub_dir".to_string());
     }
 
     #[test]
@@ -485,15 +462,15 @@ mod tests {
             target_directory: test_dir.clone(),
             compression_algorithm: CompressionAlgorithm::Gzip,
         };
-        let snapshot = file_archiver
+        let archive = file_archiver
             .archive(
                 archive_params.clone(),
                 AppenderFile::append_at_archive_root(file_path.clone()).unwrap(),
             )
             .unwrap();
 
-        let expected_archive_size = file_size::compute_size_of_path(&snapshot.filepath).unwrap();
-        assert_eq!(expected_archive_size, snapshot.get_archive_size(),);
-        assert_eq!(777, snapshot.get_uncompressed_size());
+        let expected_archive_size = file_size::compute_size_of_path(&archive.filepath).unwrap();
+        assert_eq!(expected_archive_size, archive.get_archive_size(),);
+        assert_eq!(777, archive.get_uncompressed_size());
     }
 }

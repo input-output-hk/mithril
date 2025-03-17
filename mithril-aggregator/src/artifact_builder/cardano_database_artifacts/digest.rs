@@ -174,7 +174,7 @@ impl DigestArtifactBuilder {
 
         let locations = self.upload_digest_file(&digest_archive).await;
 
-        self.cleanup_uploaded_artefacts(&digest_path, &digest_archive)?;
+        self.cleanup_uploaded_artifacts(&digest_path, &digest_archive)?;
 
         Ok(DigestUpload {
             locations: locations?,
@@ -182,7 +182,7 @@ impl DigestArtifactBuilder {
         })
     }
 
-    fn cleanup_uploaded_artefacts(
+    fn cleanup_uploaded_artifacts(
         &self,
         digest_path: &PathBuf,
         digest_archive: &FileArchive,

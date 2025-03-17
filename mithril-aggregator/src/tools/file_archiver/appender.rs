@@ -168,7 +168,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn snapshot_subset_should_create_archive_only_for_specified_directories_and_files() {
+    fn appender_entries_should_create_archive_only_for_specified_directories_and_files() {
         let test_dir = get_test_directory("only_for_specified_directories_and_files");
         let source = test_dir.join(create_dir(&test_dir, "source"));
 
@@ -179,7 +179,7 @@ mod tests {
 
         let file_archiver = FileArchiver::new_for_test(test_dir.join("verification"));
 
-        let snapshot = file_archiver
+        let archive = file_archiver
             .archive(
                 ArchiveParameters {
                     archive_name_without_extension: "archive".to_string(),
@@ -197,7 +197,7 @@ mod tests {
             )
             .unwrap();
 
-        let unpack_path = snapshot.unpack_gzip(&test_dir);
+        let unpack_path = archive.unpack_gzip(&test_dir);
 
         assert!(unpack_path.join(directory_to_archive_path).is_dir());
         assert!(unpack_path.join(file_to_archive_path).is_file());
@@ -206,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    fn snapshot_subset_return_error_when_file_or_directory_not_exist() {
+    fn appender_entries_return_error_when_file_or_directory_not_exist() {
         let test_dir = get_test_directory("file_or_directory_not_exist");
         let target_archive = test_dir.join("whatever.tar.gz");
         let source = test_dir.join(create_dir(&test_dir, "source"));
@@ -222,18 +222,18 @@ mod tests {
                 },
                 AppenderEntries::new(vec![PathBuf::from("not_exist")], source).unwrap(),
             )
-            .expect_err("snapshot_subset should return error when file or directory not exist");
+            .expect_err("AppenderEntries should return error when file or directory not exist");
         assert!(!target_archive.exists());
     }
 
     #[test]
-    fn snapshot_subset_return_error_when_empty_entries() {
+    fn appender_entries_return_error_when_empty_entries() {
         let appender_creation_result = AppenderEntries::new(vec![], PathBuf::new());
         assert!(appender_creation_result.is_err(),);
     }
 
     #[test]
-    fn snapshot_subset_with_duplicate_files_and_directories() {
+    fn appender_entries_with_duplicate_files_and_directories() {
         let test_dir = get_test_directory("with_duplicate_files_and_directories");
         let source = test_dir.join(create_dir(&test_dir, "source"));
 
@@ -242,7 +242,7 @@ mod tests {
 
         let file_archiver = FileArchiver::new_for_test(test_dir.join("verification"));
 
-        let snapshot = file_archiver
+        let archive = file_archiver
             .archive(
                 ArchiveParameters {
                     archive_name_without_extension: "archive".to_string(),
@@ -262,7 +262,7 @@ mod tests {
             )
             .unwrap();
 
-        let unpack_path = snapshot.unpack_gzip(&test_dir);
+        let unpack_path = archive.unpack_gzip(&test_dir);
 
         assert!(unpack_path.join(directory_to_archive_path).is_dir());
         assert!(unpack_path.join(file_to_archive_path).is_file());

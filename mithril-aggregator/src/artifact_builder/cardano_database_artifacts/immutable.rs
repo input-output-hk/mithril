@@ -677,7 +677,6 @@ mod tests {
             snapshotter
                 .expect_compression_algorithm()
                 .returning(|| CompressionAlgorithm::Gzip);
-            snapshotter.expect_snapshot_subset().never();
 
             create_fake_file(&work_dir.join("00001.tar.gz"), "00001 content");
             create_fake_file(&work_dir.join("00002.tar.gz"), "00002 content");

@@ -95,7 +95,8 @@ impl DependenciesBuilder {
     }
 
     async fn build_file_archiver(&mut self) -> Result<Arc<FileArchiver>> {
-        let archive_verification_directory = std::env::temp_dir();
+        let archive_verification_directory =
+            std::env::temp_dir().join("mithril_archiver_verify_archive");
         let file_archiver = Arc::new(FileArchiver::new(
             self.configuration.zstandard_parameters.unwrap_or_default(),
             archive_verification_directory,
