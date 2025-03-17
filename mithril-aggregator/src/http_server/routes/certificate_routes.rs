@@ -113,7 +113,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_certificates_get_ok() {
-        let dependency_manager = initialize_dependencies().await;
+        let dependency_manager = initialize_dependencies!().await;
         dependency_manager
             .certificate_repository
             .create_certificate(fake_data::genesis_certificate("{certificate_hash}"))
@@ -145,7 +145,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_when_error_retrieving_certificates_returns_ko_500() {
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         let mut message_service = MockMessageService::new();
         message_service
             .expect_get_certificate_list_message()
@@ -180,7 +180,7 @@ mod tests {
     ) {
         let method = Method::GET.as_str();
         let path = "/certificate/{certificate_hash}";
-        let dependency_manager = Arc::new(initialize_dependencies().await);
+        let dependency_manager = Arc::new(initialize_dependencies!().await);
         let initial_counter_value = dependency_manager
             .metrics_service
             .get_certificate_detail_total_served_since_startup()
@@ -205,7 +205,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_certificate_hash_get_ok() {
-        let dependency_manager = initialize_dependencies().await;
+        let dependency_manager = initialize_dependencies!().await;
         dependency_manager
             .certificate_repository
             .create_certificate(fake_data::genesis_certificate("{certificate_hash}"))
@@ -237,7 +237,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_certificate_hash_get_ok_404() {
-        let dependency_manager = initialize_dependencies().await;
+        let dependency_manager = initialize_dependencies!().await;
 
         let method = Method::GET.as_str();
         let path = "/certificate/{certificate_hash}";
@@ -264,7 +264,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_when_error_on_retrieving_certificate_hash_returns_ko_500() {
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         let mut message_service = MockMessageService::new();
         message_service
             .expect_get_certificate_message()

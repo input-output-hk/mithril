@@ -182,7 +182,7 @@ pub mod tests {
             .expect_get_cardano_stake_distribution_list_message()
             .return_once(|_| Ok(message))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
@@ -215,7 +215,7 @@ pub mod tests {
             .expect_get_cardano_stake_distribution_list_message()
             .return_once(|_| Err(anyhow!("an error occured")))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
@@ -245,7 +245,7 @@ pub mod tests {
     async fn test_cardano_stake_distribution_increments_artifact_detail_total_served_since_startup_metric(
     ) {
         let method = Method::GET.as_str();
-        let dependency_manager = Arc::new(initialize_dependencies().await);
+        let dependency_manager = Arc::new(initialize_dependencies!().await);
         let initial_counter_value = dependency_manager
             .metrics_service
             .get_artifact_detail_cardano_stake_distribution_total_served_since_startup()
@@ -299,7 +299,7 @@ pub mod tests {
             .expect_get_cardano_stake_distribution_message()
             .return_once(|_| Ok(Some(message)))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
@@ -332,7 +332,7 @@ pub mod tests {
             .expect_get_cardano_stake_distribution_message()
             .return_once(|_| Ok(None))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
@@ -365,7 +365,7 @@ pub mod tests {
             .expect_get_cardano_stake_distribution_message()
             .return_once(|_| Err(anyhow!("an error occured")))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
@@ -399,7 +399,7 @@ pub mod tests {
             .expect_get_cardano_stake_distribution_message_by_epoch()
             .return_once(|_| Ok(Some(message)))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
@@ -428,7 +428,7 @@ pub mod tests {
     #[tokio::test]
     async fn test_cardano_stake_distribution_by_epoch_returns_400_bad_request_when_invalid_epoch() {
         let mock_http_message_service = MockMessageService::new();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
@@ -461,7 +461,7 @@ pub mod tests {
             .expect_get_cardano_stake_distribution_message_by_epoch()
             .return_once(|_| Ok(None))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
@@ -494,7 +494,7 @@ pub mod tests {
             .expect_get_cardano_stake_distribution_message_by_epoch()
             .return_once(|_| Err(anyhow!("an error occured")))
             .once();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();

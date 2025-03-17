@@ -112,6 +112,30 @@ impl TempDir {
     }
 }
 
+/// Return a temporary directory based on the current function name.
+#[macro_export]
+macro_rules! temp_dir {
+    () => {{
+        fn f() {}
+        let current_function_path = $crate::test_utils::format_current_function_path(f);
+        let current_function_path = current_function_path.replace("/tests/", "/");
+
+        $crate::test_utils::TempDir::new(current_function_path, "").build_path()
+    }};
+}
+
+/// Create and return a temporary directory based on the current function name.
+#[macro_export]
+macro_rules! temp_dir_create {
+    () => {{
+        fn f() {}
+        let current_function_path = $crate::test_utils::format_current_function_path(f);
+        let current_function_path = current_function_path.replace("/tests/", "/");
+
+        $crate::test_utils::TempDir::new(current_function_path, "").build()
+    }};
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -227,6 +251,32 @@ mod tests {
         assert!(
             existing_dir.exists().not(),
             "should have cleaned up existing subdirectory"
+        );
+    }
+
+    #[test]
+    fn creating_temp_dir_base_on_current_function() {
+        assert_eq!(
+            std::env::temp_dir()
+                .join(TEMP_DIR_ROOT_NAME)
+                .join("mithril_common")
+                .join("test_utils")
+                .join("temp_dir")
+                .join("creating_temp_dir_base_on_current_function"),
+            temp_dir!(),
+        );
+    }
+
+    #[tokio::test]
+    async fn creating_temp_dir_base_on_current_async_function() {
+        assert_eq!(
+            std::env::temp_dir()
+                .join(TEMP_DIR_ROOT_NAME)
+                .join("mithril_common")
+                .join("test_utils")
+                .join("temp_dir")
+                .join("creating_temp_dir_base_on_current_async_function"),
+            temp_dir!(),
         );
     }
 }

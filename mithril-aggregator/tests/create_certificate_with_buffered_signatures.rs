@@ -7,6 +7,7 @@ use mithril_common::{
         SignedEntityType, SignedEntityTypeDiscriminants, SlotNumber, StakeDistributionParty,
         TimePoint,
     },
+    temp_dir,
     test_utils::MithrilFixtureBuilder,
 };
 use test_extensions::{
@@ -28,7 +29,7 @@ async fn create_certificate_with_buffered_signatures() {
             security_parameter: BlockNumber(0),
             step: BlockNumber(30),
         },
-        ..Configuration::new_sample()
+        ..Configuration::new_sample(temp_dir!())
     };
     let mut tester = RuntimeTester::build(
         TimePoint {

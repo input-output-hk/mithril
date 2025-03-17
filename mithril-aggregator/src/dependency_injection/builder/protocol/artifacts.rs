@@ -409,7 +409,7 @@ impl DependenciesBuilder {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::test_utils::TempDir;
+    use mithril_common::temp_dir_create;
     use mithril_persistence::sqlite::ConnectionBuilder;
 
     use crate::dependency_injection::builder::CARDANO_DB_ARTIFACTS_DIR;
@@ -419,10 +419,7 @@ mod tests {
 
     #[tokio::test]
     async fn if_not_local_uploader_create_cardano_database_immutable_dirs() {
-        let snapshot_directory = TempDir::create(
-            "builder",
-            "if_not_local_uploader_create_cardano_database_immutable_dirs",
-        );
+        let snapshot_directory = temp_dir_create!();
         let cdb_dir = snapshot_directory.join(CARDANO_DB_ARTIFACTS_DIR);
         let ancillary_dir = cdb_dir.join("ancillary");
         let immutable_dir = cdb_dir.join("immutable");
@@ -430,10 +427,9 @@ mod tests {
 
         let mut dep_builder = {
             let config = Configuration {
-                snapshot_directory,
                 // Test environment yield dumb uploaders
                 environment: ExecutionEnvironment::Test,
-                ..Configuration::new_sample()
+                ..Configuration::new_sample(snapshot_directory)
             };
 
             DependenciesBuilder::new_with_stdout_logger(config)
@@ -455,10 +451,7 @@ mod tests {
 
     #[tokio::test]
     async fn if_local_uploader_creates_all_cardano_database_subdirs() {
-        let snapshot_directory = TempDir::create(
-            "builder",
-            "if_local_uploader_creates_all_cardano_database_subdirs",
-        );
+        let snapshot_directory = temp_dir_create!();
         let cdb_dir = snapshot_directory.join(CARDANO_DB_ARTIFACTS_DIR);
         let ancillary_dir = cdb_dir.join("ancillary");
         let immutable_dir = cdb_dir.join("immutable");
@@ -466,11 +459,10 @@ mod tests {
 
         let mut dep_builder = {
             let config = Configuration {
-                snapshot_directory,
                 // Must use production environment to make `snapshot_uploader_type` effective
                 environment: ExecutionEnvironment::Production,
                 snapshot_uploader_type: SnapshotUploaderType::Local,
-                ..Configuration::new_sample()
+                ..Configuration::new_sample(snapshot_directory)
             };
 
             DependenciesBuilder::new_with_stdout_logger(config)

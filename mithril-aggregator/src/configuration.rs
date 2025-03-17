@@ -233,7 +233,7 @@ impl Default for ZstandardCompressionParameters {
 
 impl Configuration {
     /// Create a sample configuration mainly for tests
-    pub fn new_sample() -> Self {
+    pub fn new_sample(tmp_path: PathBuf) -> Self {
         let genesis_verification_key = ProtocolGenesisSigner::create_deterministic_genesis_signer()
             .create_genesis_verifier()
             .to_verification_key();
@@ -263,8 +263,9 @@ impl Configuration {
             // crate directory.
             // Know issue:
             // - There may be collision of the `snapshot_directory` between tests. Tests that
-            // depend on the `snapshot_directory` should specify their own.
-            snapshot_directory: std::env::temp_dir(),
+            // depend on the `snapshot_directory` should specify their own,
+            // and they can use the `temp_dir` macro for that.
+            snapshot_directory: tmp_path,
             data_stores_directory: PathBuf::from(":memory:"),
             genesis_verification_key: genesis_verification_key.to_json_hex().unwrap(),
             reset_digests_cache: false,
@@ -592,6 +593,8 @@ impl Source for DefaultConfiguration {
 
 #[cfg(test)]
 mod test {
+    use mithril_common::temp_dir;
+
     use super::*;
 
     #[test]
@@ -599,7 +602,7 @@ mod test {
         for limit in 4..=10u64 {
             let configuration = Configuration {
                 store_retention_limit: Some(limit as usize),
-                ..Configuration::new_sample()
+                ..Configuration::new_sample(temp_dir!())
             };
             assert_eq!(configuration.safe_epoch_retention_limit(), Some(limit));
         }
@@ -609,7 +612,7 @@ mod test {
     fn safe_epoch_retention_limit_wont_change_a_none_value() {
         let configuration = Configuration {
             store_retention_limit: None,
-            ..Configuration::new_sample()
+            ..Configuration::new_sample(temp_dir!())
         };
         assert_eq!(configuration.safe_epoch_retention_limit(), None);
     }
@@ -619,7 +622,7 @@ mod test {
         for limit in 0..=3 {
             let configuration = Configuration {
                 store_retention_limit: Some(limit),
-                ..Configuration::new_sample()
+                ..Configuration::new_sample(temp_dir!())
             };
             assert_eq!(configuration.safe_epoch_retention_limit(), Some(3));
         }
@@ -645,7 +648,7 @@ mod test {
     fn compute_allowed_signed_entity_types_discriminants_append_default_discriminants() {
         let config = Configuration {
             signed_entity_types: None,
-            ..Configuration::new_sample()
+            ..Configuration::new_sample(temp_dir!())
         };
 
         assert_eq!(
@@ -660,14 +663,14 @@ mod test {
     fn allow_http_serve_directory() {
         let config = Configuration {
             snapshot_uploader_type: SnapshotUploaderType::Local,
-            ..Configuration::new_sample()
+            ..Configuration::new_sample(temp_dir!())
         };
 
         assert!(config.allow_http_serve_directory());
 
         let config = Configuration {
             snapshot_uploader_type: SnapshotUploaderType::Gcp,
-            ..Configuration::new_sample()
+            ..Configuration::new_sample(temp_dir!())
         };
 
         assert!(!config.allow_http_serve_directory());
@@ -679,7 +682,7 @@ mod test {
             server_ip: "1.2.3.4".to_string(),
             server_port: 5678,
             public_server_url: None,
-            ..Configuration::new_sample()
+            ..Configuration::new_sample(temp_dir!())
         };
 
         assert_eq!(
@@ -694,7 +697,7 @@ mod test {
             server_ip: "1.2.3.4".to_string(),
             server_port: 5678,
             public_server_url: Some("https://example.com".to_string()),
-            ..Configuration::new_sample()
+            ..Configuration::new_sample(temp_dir!())
         };
 
         assert_eq!(
@@ -709,7 +712,7 @@ mod test {
             server_ip: "1.2.3.4".to_string(),
             server_port: 6789,
             public_server_url: None,
-            ..Configuration::new_sample()
+            ..Configuration::new_sample(temp_dir!())
         };
 
         let joined_url = config
@@ -730,7 +733,7 @@ mod test {
             public_server_url: Some(format!(
                 "https://example.com/{subpath_without_trailing_slash}"
             )),
-            ..Configuration::new_sample()
+            ..Configuration::new_sample(temp_dir!())
         };
 
         let joined_url = config.get_server_url().unwrap().join("some/path").unwrap();
@@ -744,7 +747,7 @@ mod test {
     fn is_slave_aggregator_returns_true_when_in_slave_mode() {
         let config = Configuration {
             master_aggregator_endpoint: Some("some_endpoint".to_string()),
-            ..Configuration::new_sample()
+            ..Configuration::new_sample(temp_dir!())
         };
 
         assert!(config.is_slave_aggregator());
@@ -754,7 +757,7 @@ mod test {
     fn is_slave_aggregator_returns_false_when_in_master_mode() {
         let config = Configuration {
             master_aggregator_endpoint: None,
-            ..Configuration::new_sample()
+            ..Configuration::new_sample(temp_dir!())
         };
 
         assert!(!config.is_slave_aggregator());

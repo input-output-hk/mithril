@@ -120,7 +120,7 @@ mod tests {
             ]),
             ..RouterConfig::dummy()
         };
-        let dependency_manager = initialize_dependencies().await;
+        let dependency_manager = initialize_dependencies!().await;
 
         let expected_open_api_version = dependency_manager
             .api_version_provider
@@ -182,7 +182,7 @@ mod tests {
             cardano_transactions_prover_max_hashes_allowed_by_request: 99,
             ..RouterConfig::dummy()
         };
-        let dependency_manager = initialize_dependencies().await;
+        let dependency_manager = initialize_dependencies!().await;
 
         let response = request()
             .method(method)
