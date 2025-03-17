@@ -11,7 +11,7 @@ use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind
 use slog::{crit, debug, info, warn, Logger};
 use tokio::{sync::oneshot, task::JoinSet};
 
-use mithril_common::StdResult;
+use mithril_common::{register, register_parameter_bool, register_parameter_opt, StdResult};
 use mithril_metric::MetricsServer;
 
 use crate::{dependency_injection::DependenciesBuilder, tools::VacuumTracker, Configuration};
@@ -80,72 +80,27 @@ impl Source for ServeCommand {
         let mut result = Map::new();
         let namespace = "clap arguments".to_string();
 
-        if let Some(server_ip) = self.server_ip.clone() {
-            result.insert(
-                "server_ip".to_string(),
-                Value::new(Some(&namespace), ValueKind::from(server_ip)),
-            );
-        }
-        if let Some(server_port) = self.server_port {
-            result.insert(
-                "server_port".to_string(),
-                Value::new(Some(&namespace), ValueKind::from(server_port)),
-            );
-        }
-        if let Some(snapshot_directory) = self.snapshot_directory.clone() {
-            result.insert(
-                "snapshot_directory".to_string(),
-                Value::new(
-                    Some(&namespace),
-                    ValueKind::from(format!("{}", snapshot_directory.to_string_lossy())),
-                ),
-            );
-        }
-        if self.disable_digests_cache {
-            result.insert(
-                "disable_digests_cache".to_string(),
-                Value::new(Some(&namespace), ValueKind::from(true)),
-            );
-        };
-        if self.reset_digests_cache {
-            result.insert(
-                "reset_digests_cache".to_string(),
-                Value::new(Some(&namespace), ValueKind::from(true)),
-            );
-        }
-        if self.allow_unparsable_block {
-            result.insert(
-                "allow_unparsable_block".to_string(),
-                Value::new(Some(&namespace), ValueKind::from(true)),
-            );
-        };
-        if self.enable_metrics_server {
-            result.insert(
-                "enable_metrics_server".to_string(),
-                Value::new(Some(&namespace), ValueKind::from(true)),
-            );
-        };
-        if let Some(metrics_server_ip) = self.metrics_server_ip.clone() {
-            result.insert(
-                "metrics_server_ip".to_string(),
-                Value::new(Some(&namespace), ValueKind::from(metrics_server_ip)),
-            );
-        }
-        if let Some(metrics_server_port) = self.metrics_server_port {
-            result.insert(
-                "metrics_server_port".to_string(),
-                Value::new(Some(&namespace), ValueKind::from(metrics_server_port)),
-            );
-        }
-        if let Some(master_aggregator_endpoint) = self.master_aggregator_endpoint.clone() {
-            result.insert(
-                "master_aggregator_endpoint".to_string(),
-                Value::new(
-                    Some(&namespace),
-                    ValueKind::from(Some(master_aggregator_endpoint)),
-                ),
-            );
-        }
+        register_parameter_opt!(result, &namespace, self.server_ip);
+        register_parameter_opt!(result, &namespace, self.server_port);
+        register_parameter_opt!(
+            result,
+            &namespace,
+            self.snapshot_directory,
+            |v: PathBuf| format!("{}", v.to_string_lossy())
+        );
+        register_parameter_bool!(result, &namespace, self.disable_digests_cache);
+        register_parameter_bool!(result, &namespace, self.reset_digests_cache);
+        register_parameter_bool!(result, &namespace, self.allow_unparsable_block);
+        register_parameter_bool!(result, &namespace, self.enable_metrics_server);
+        register_parameter_opt!(result, &namespace, self.metrics_server_ip);
+        register_parameter_opt!(result, &namespace, self.metrics_server_port);
+        // TODO is it normal to pass a Some(v) and not only v when value is present ?
+        register_parameter_opt!(
+            result,
+            &namespace,
+            self.master_aggregator_endpoint,
+            |v: String| { Some(v) }
+        );
 
         Ok(result)
     }
@@ -360,5 +315,193 @@ impl ServeCommand {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    // TODO : just here to check there is no regression with the old configuration.
+    // We may remove it and probably all tests in this file when macros are finished
+    impl ServeCommand {
+        fn collect_legacy(&self) -> Result<Map<String, Value>, config::ConfigError> {
+            let mut result = Map::new();
+            let namespace = "clap arguments".to_string();
+
+            if let Some(server_ip) = self.server_ip.clone() {
+                result.insert(
+                    "server_ip".to_string(),
+                    Value::new(Some(&namespace), ValueKind::from(server_ip)),
+                );
+            }
+            if let Some(server_port) = self.server_port {
+                result.insert(
+                    "server_port".to_string(),
+                    Value::new(Some(&namespace), ValueKind::from(server_port)),
+                );
+            }
+            if let Some(snapshot_directory) = self.snapshot_directory.clone() {
+                result.insert(
+                    "snapshot_directory".to_string(),
+                    Value::new(
+                        Some(&namespace),
+                        ValueKind::from(format!("{}", snapshot_directory.to_string_lossy())),
+                    ),
+                );
+            }
+            if self.disable_digests_cache {
+                result.insert(
+                    "disable_digests_cache".to_string(),
+                    Value::new(Some(&namespace), ValueKind::from(true)),
+                );
+            };
+            if self.reset_digests_cache {
+                result.insert(
+                    "reset_digests_cache".to_string(),
+                    Value::new(Some(&namespace), ValueKind::from(true)),
+                );
+            }
+            if self.allow_unparsable_block {
+                result.insert(
+                    "allow_unparsable_block".to_string(),
+                    Value::new(Some(&namespace), ValueKind::from(true)),
+                );
+            };
+            if self.enable_metrics_server {
+                result.insert(
+                    "enable_metrics_server".to_string(),
+                    Value::new(Some(&namespace), ValueKind::from(true)),
+                );
+            };
+            if let Some(metrics_server_ip) = self.metrics_server_ip.clone() {
+                result.insert(
+                    "metrics_server_ip".to_string(),
+                    Value::new(Some(&namespace), ValueKind::from(metrics_server_ip)),
+                );
+            }
+            if let Some(metrics_server_port) = self.metrics_server_port {
+                result.insert(
+                    "metrics_server_port".to_string(),
+                    Value::new(Some(&namespace), ValueKind::from(metrics_server_port)),
+                );
+            }
+            if let Some(master_aggregator_endpoint) = self.master_aggregator_endpoint.clone() {
+                result.insert(
+                    "master_aggregator_endpoint".to_string(),
+                    Value::new(
+                        Some(&namespace),
+                        ValueKind::from(Some(master_aggregator_endpoint)),
+                    ),
+                );
+            }
+
+            Ok(result)
+        }
+    }
+
+    #[test]
+    fn test_serve_command_collect() {
+        let serve_command = ServeCommand {
+            server_ip: Some("value_server_ip".to_string()),
+            server_port: Some(8000),
+            snapshot_directory: Some(PathBuf::from("/mithril/aggregator/")),
+            disable_digests_cache: true,
+            reset_digests_cache: true,
+            allow_unparsable_block: true,
+            enable_metrics_server: true,
+            metrics_server_ip: Some("value_metrics_server_ip".to_string()),
+            metrics_server_port: Some(8080),
+            master_aggregator_endpoint: Some("value_master_aggregator_endpoint".to_string()),
+        };
+
+        let result = serve_command.collect().unwrap().clone();
+        let mut expected = HashMap::new();
+        expected.insert(
+            "server_ip".to_string(),
+            Value::new(
+                Some(&"clap arguments".to_string()),
+                ValueKind::from("value_server_ip"),
+            ),
+        );
+        expected.insert(
+            "server_port".to_string(),
+            Value::new(
+                Some(&"clap arguments".to_string()),
+                ValueKind::from(8000 as u64),
+            ),
+        );
+        expected.insert(
+            "snapshot_directory".to_string(),
+            Value::new(
+                Some(&"clap arguments".to_string()),
+                ValueKind::from("/mithril/aggregator/"),
+            ),
+        );
+        expected.insert(
+            "disable_digests_cache".to_string(),
+            Value::new(Some(&"clap arguments".to_string()), ValueKind::from(true)),
+        );
+        expected.insert(
+            "reset_digests_cache".to_string(),
+            Value::new(Some(&"clap arguments".to_string()), ValueKind::from(true)),
+        );
+        expected.insert(
+            "allow_unparsable_block".to_string(),
+            Value::new(Some(&"clap arguments".to_string()), ValueKind::from(true)),
+        );
+        expected.insert(
+            "enable_metrics_server".to_string(),
+            Value::new(Some(&"clap arguments".to_string()), ValueKind::from(true)),
+        );
+        expected.insert(
+            "metrics_server_ip".to_string(),
+            Value::new(
+                Some(&"clap arguments".to_string()),
+                ValueKind::from("value_metrics_server_ip"),
+            ),
+        );
+        expected.insert(
+            "metrics_server_port".to_string(),
+            Value::new(
+                Some(&"clap arguments".to_string()),
+                ValueKind::from(Some(8080 as u64)),
+            ),
+        );
+        expected.insert(
+            "master_aggregator_endpoint".to_string(),
+            Value::new(
+                Some(&"clap arguments".to_string()),
+                ValueKind::from("value_master_aggregator_endpoint"),
+            ),
+        );
+
+        assert_eq!(expected, result);
+
+        assert_eq!(serve_command.collect_legacy().unwrap(), result);
+    }
+
+    #[test]
+    fn test_serve_command_collect_when_empty_values() {
+        let serve_command = ServeCommand {
+            server_ip: None,
+            server_port: None,
+            snapshot_directory: None,
+            disable_digests_cache: false,
+            reset_digests_cache: false,
+            allow_unparsable_block: false,
+            enable_metrics_server: false,
+            metrics_server_ip: None,
+            metrics_server_port: None,
+            master_aggregator_endpoint: None,
+        };
+
+        let result = serve_command.collect().unwrap().clone();
+        let expected = HashMap::new();
+
+        assert_eq!(expected, result);
+
+        assert_eq!(serve_command.collect_legacy().unwrap(), result);
     }
 }

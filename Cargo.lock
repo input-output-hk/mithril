@@ -3801,6 +3801,7 @@ dependencies = [
  "chrono",
  "ciborium",
  "ckb-merkle-mountain-range",
+ "config",
  "criterion",
  "digest 0.10.7",
  "ed25519-dalek",
