@@ -13,7 +13,7 @@ use mithril_common::entities::{
     SignedEntityTypeDiscriminants,
 };
 use mithril_common::era::adapters::EraReaderAdapterType;
-use mithril_common::{CardanoNetwork, StdResult};
+use mithril_common::{register, register_parameter, CardanoNetwork, StdResult};
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 
 use crate::entities::AggregatorEpochSettings;
@@ -525,67 +525,64 @@ impl Source for DefaultConfiguration {
     }
 
     fn collect(&self) -> Result<Map<String, Value>, ConfigError> {
-        macro_rules! insert_default_configuration {
-            ( $map:ident, $config:ident.$parameter:ident ) => {{
-                $map.insert(
-                    stringify!($parameter).to_string(),
-                    into_value($config.$parameter),
-                );
-            }};
-        }
-
-        fn into_value<V: Into<ValueKind>>(value: V) -> Value {
-            Value::new(Some(&DefaultConfiguration::namespace()), value.into())
-        }
         let mut result = Map::new();
+
+        let namespace = DefaultConfiguration::namespace();
+
         let myself = self.clone();
-        insert_default_configuration!(result, myself.environment);
-        insert_default_configuration!(result, myself.server_ip);
-        insert_default_configuration!(result, myself.server_port);
-        insert_default_configuration!(result, myself.db_directory);
-        insert_default_configuration!(result, myself.snapshot_directory);
-        insert_default_configuration!(result, myself.snapshot_store_type);
-        insert_default_configuration!(result, myself.snapshot_uploader_type);
-        insert_default_configuration!(result, myself.era_reader_adapter_type);
-        insert_default_configuration!(result, myself.reset_digests_cache);
-        insert_default_configuration!(result, myself.disable_digests_cache);
-        insert_default_configuration!(result, myself.snapshot_compression_algorithm);
-        insert_default_configuration!(result, myself.snapshot_use_cdn_domain);
-        insert_default_configuration!(result, myself.signer_importer_run_interval);
-        insert_default_configuration!(result, myself.allow_unparsable_block);
-        insert_default_configuration!(result, myself.cardano_transactions_prover_cache_pool_size);
-        insert_default_configuration!(
+        register_parameter!(result, &namespace, myself.environment);
+        register_parameter!(result, &namespace, myself.server_ip);
+        register_parameter!(result, &namespace, myself.server_port);
+        register_parameter!(result, &namespace, myself.db_directory);
+        register_parameter!(result, &namespace, myself.snapshot_directory);
+        register_parameter!(result, &namespace, myself.snapshot_store_type);
+        register_parameter!(result, &namespace, myself.snapshot_uploader_type);
+        register_parameter!(result, &namespace, myself.era_reader_adapter_type);
+        register_parameter!(result, &namespace, myself.reset_digests_cache);
+        register_parameter!(result, &namespace, myself.disable_digests_cache);
+        register_parameter!(result, &namespace, myself.snapshot_compression_algorithm);
+        register_parameter!(result, &namespace, myself.snapshot_use_cdn_domain);
+        register_parameter!(result, &namespace, myself.signer_importer_run_interval);
+        register_parameter!(result, &namespace, myself.allow_unparsable_block);
+        register_parameter!(
             result,
+            &namespace,
+            myself.cardano_transactions_prover_cache_pool_size
+        );
+        register_parameter!(
+            result,
+            &namespace,
             myself.cardano_transactions_database_connection_pool_size
         );
-        insert_default_configuration!(
+        register_parameter!(
             result,
+            &namespace,
             myself.cardano_transactions_prover_max_hashes_allowed_by_request
         );
-        insert_default_configuration!(
+        register_parameter!(
             result,
+            &namespace,
             myself.cardano_transactions_block_streamer_max_roll_forwards_per_poll
         );
-        insert_default_configuration!(result, myself.enable_metrics_server);
-        insert_default_configuration!(result, myself.metrics_server_ip);
-        insert_default_configuration!(result, myself.metrics_server_port);
-        insert_default_configuration!(result, myself.persist_usage_report_interval_in_seconds);
-        result.insert(
-            "cardano_transactions_signing_config".to_string(),
-            into_value(HashMap::from([
+        register_parameter!(result, &namespace, myself.enable_metrics_server);
+        register_parameter!(result, &namespace, myself.metrics_server_ip);
+        register_parameter!(result, &namespace, myself.metrics_server_port);
+        register_parameter!(
+            result,
+            &namespace,
+            myself.persist_usage_report_interval_in_seconds
+        );
+        register_parameter!(
+            result,
+            &namespace,
+            myself.cardano_transactions_signing_config,
+            |v: CardanoTransactionsSigningConfig| HashMap::from([
                 (
                     "security_parameter".to_string(),
-                    ValueKind::from(
-                        *myself
-                            .cardano_transactions_signing_config
-                            .security_parameter,
-                    ),
+                    ValueKind::from(*v.security_parameter,),
                 ),
-                (
-                    "step".to_string(),
-                    ValueKind::from(*myself.cardano_transactions_signing_config.step),
-                ),
-            ])),
+                ("step".to_string(), ValueKind::from(*v.step),)
+            ])
         );
         Ok(result)
     }
@@ -596,6 +593,172 @@ mod test {
     use mithril_common::temp_dir;
 
     use super::*;
+
+    // TODO : just here to check there is no regression with the old configuration.
+    // We may remove it and probably all tests in this file when macros are finished
+    impl DefaultConfiguration {
+        fn collect_legacy(&self) -> Result<Map<String, Value>, ConfigError> {
+            macro_rules! insert_default_configuration {
+                ( $map:ident, $config:ident.$parameter:ident ) => {{
+                    $map.insert(
+                        stringify!($parameter).to_string(),
+                        into_value($config.$parameter),
+                    );
+                }};
+            }
+
+            fn into_value<V: Into<ValueKind>>(value: V) -> Value {
+                Value::new(Some(&DefaultConfiguration::namespace()), value.into())
+            }
+            let mut result = Map::new();
+            let myself = self.clone();
+
+            result.insert(
+                "cardano_transactions_signing_config".to_string(),
+                into_value(HashMap::from([
+                    (
+                        "security_parameter".to_string(),
+                        ValueKind::from(
+                            *myself
+                                .cardano_transactions_signing_config
+                                .security_parameter,
+                        ),
+                    ),
+                    (
+                        "step".to_string(),
+                        ValueKind::from(*myself.cardano_transactions_signing_config.step),
+                    ),
+                ])),
+            );
+
+            insert_default_configuration!(result, myself.environment);
+            insert_default_configuration!(result, myself.server_ip);
+            insert_default_configuration!(result, myself.server_port);
+            insert_default_configuration!(result, myself.db_directory);
+            insert_default_configuration!(result, myself.snapshot_directory);
+            insert_default_configuration!(result, myself.snapshot_store_type);
+            insert_default_configuration!(result, myself.snapshot_uploader_type);
+            insert_default_configuration!(result, myself.era_reader_adapter_type);
+            insert_default_configuration!(result, myself.reset_digests_cache);
+            insert_default_configuration!(result, myself.disable_digests_cache);
+            insert_default_configuration!(result, myself.snapshot_compression_algorithm);
+            insert_default_configuration!(result, myself.snapshot_use_cdn_domain);
+            insert_default_configuration!(result, myself.signer_importer_run_interval);
+            insert_default_configuration!(result, myself.allow_unparsable_block);
+            insert_default_configuration!(
+                result,
+                myself.cardano_transactions_prover_cache_pool_size
+            );
+            insert_default_configuration!(
+                result,
+                myself.cardano_transactions_database_connection_pool_size
+            );
+            insert_default_configuration!(
+                result,
+                myself.cardano_transactions_prover_max_hashes_allowed_by_request
+            );
+            insert_default_configuration!(
+                result,
+                myself.cardano_transactions_block_streamer_max_roll_forwards_per_poll
+            );
+            insert_default_configuration!(result, myself.enable_metrics_server);
+            insert_default_configuration!(result, myself.metrics_server_ip);
+            insert_default_configuration!(result, myself.metrics_server_port);
+            insert_default_configuration!(result, myself.persist_usage_report_interval_in_seconds);
+            result.insert(
+                "cardano_transactions_signing_config".to_string(),
+                into_value(HashMap::from([
+                    (
+                        "security_parameter".to_string(),
+                        ValueKind::from(
+                            *myself
+                                .cardano_transactions_signing_config
+                                .security_parameter,
+                        ),
+                    ),
+                    (
+                        "step".to_string(),
+                        ValueKind::from(*myself.cardano_transactions_signing_config.step),
+                    ),
+                ])),
+            );
+            Ok(result)
+        }
+    }
+
+    #[test]
+    fn test_default_configuration_collect() {
+        let default_configuration = DefaultConfiguration {
+            environment: ExecutionEnvironment::Production,
+            server_ip: "0.0.0.0".to_string(),
+            server_port: "8080".to_string(),
+            db_directory: "/db".to_string(),
+            snapshot_directory: ".".to_string(),
+            snapshot_store_type: "local".to_string(),
+            snapshot_uploader_type: "gcp".to_string(),
+            era_reader_adapter_type: "bootstrap".to_string(),
+            chain_observer_type: "pallas".to_string(),
+            reset_digests_cache: "true".to_string(),
+            disable_digests_cache: "true".to_string(),
+            snapshot_compression_algorithm: "zstandard".to_string(),
+            snapshot_use_cdn_domain: "true".to_string(),
+            signer_importer_run_interval: 720,
+            allow_unparsable_block: "true".to_string(),
+            cardano_transactions_prover_cache_pool_size: 10,
+            cardano_transactions_database_connection_pool_size: 10,
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(3000),
+                step: BlockNumber(120),
+            },
+            cardano_transactions_prover_max_hashes_allowed_by_request: 100,
+            cardano_transactions_block_streamer_max_roll_forwards_per_poll: 10000,
+            enable_metrics_server: "true".to_string(),
+            metrics_server_ip: "0.0.0.0".to_string(),
+            metrics_server_port: 9090,
+            persist_usage_report_interval_in_seconds: 10,
+        };
+
+        let result = default_configuration.collect().unwrap().clone();
+
+        assert_eq!(default_configuration.collect_legacy().unwrap(), result);
+    }
+
+    #[test]
+    fn test_default_configuration_collect_when_empty_values() {
+        let default_configuration = DefaultConfiguration {
+            environment: ExecutionEnvironment::Production,
+            server_ip: "0.0.0.0".to_string(),
+            server_port: "8080".to_string(),
+            db_directory: "/db".to_string(),
+            snapshot_directory: ".".to_string(),
+            snapshot_store_type: "local".to_string(),
+            snapshot_uploader_type: "gcp".to_string(),
+            era_reader_adapter_type: "bootstrap".to_string(),
+            chain_observer_type: "pallas".to_string(),
+            reset_digests_cache: "false".to_string(),
+            disable_digests_cache: "false".to_string(),
+            snapshot_compression_algorithm: "zstandard".to_string(),
+            snapshot_use_cdn_domain: "false".to_string(),
+            signer_importer_run_interval: 720,
+            allow_unparsable_block: "false".to_string(),
+            cardano_transactions_prover_cache_pool_size: 10,
+            cardano_transactions_database_connection_pool_size: 10,
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(3000),
+                step: BlockNumber(120),
+            },
+            cardano_transactions_prover_max_hashes_allowed_by_request: 100,
+            cardano_transactions_block_streamer_max_roll_forwards_per_poll: 10000,
+            enable_metrics_server: "false".to_string(),
+            metrics_server_ip: "0.0.0.0".to_string(),
+            metrics_server_port: 9090,
+            persist_usage_report_interval_in_seconds: 10,
+        };
+
+        let result = default_configuration.collect().unwrap().clone();
+
+        assert_eq!(default_configuration.collect_legacy().unwrap(), result);
+    }
 
     #[test]
     fn safe_epoch_retention_limit_wont_change_a_value_higher_than_three() {

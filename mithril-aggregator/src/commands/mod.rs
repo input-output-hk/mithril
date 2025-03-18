@@ -7,7 +7,7 @@ mod tools_command;
 use anyhow::anyhow;
 use clap::{CommandFactory, Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
-use mithril_common::StdResult;
+use mithril_common::{register, register_parameter_opt, StdResult};
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use slog::{debug, Level, Logger};
 use std::path::PathBuf;
@@ -102,15 +102,11 @@ impl Source for MainOpts {
         let mut result = Map::new();
         let namespace = "clap arguments".to_string();
 
-        if let Some(db_directory) = self.db_directory.clone() {
-            result.insert(
-                "db_directory".to_string(),
-                Value::new(
-                    Some(&namespace),
-                    ValueKind::from(format!("{}", db_directory.to_string_lossy())),
-                ),
-            );
-        }
+        // TODO Is it normal to only have db_directory ?
+        register_parameter_opt!(result, &namespace, self.db_directory, |v: PathBuf| format!(
+            "{}",
+            v.to_string_lossy()
+        ));
 
         Ok(result)
     }
@@ -143,5 +139,69 @@ impl MainOpts {
             3 => Level::Debug,
             _ => Level::Trace,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::commands::tools_command::{
+        RecomputeCertificatesHashCommand, ToolsCommand, ToolsSubCommand::RecomputeCertificatesHash,
+    };
+
+    use super::*;
+
+    // TODO : just here to check there is no regression with the old configuration.
+    // We may remove it and probably all tests in this file when macros are finished
+    impl MainOpts {
+        fn collect_legacy(&self) -> Result<Map<String, Value>, config::ConfigError> {
+            let mut result = Map::new();
+            let namespace = "clap arguments".to_string();
+
+            if let Some(db_directory) = self.db_directory.clone() {
+                result.insert(
+                    "db_directory".to_string(),
+                    Value::new(
+                        Some(&namespace),
+                        ValueKind::from(format!("{}", db_directory.to_string_lossy())),
+                    ),
+                );
+            }
+
+            Ok(result)
+        }
+    }
+
+    #[test]
+    fn test_main_opts_collect() {
+        let serve_command = MainOpts {
+            db_directory: Some(PathBuf::from("/db_directory")),
+            command: MainCommand::Tools(ToolsCommand {
+                genesis_subcommand: RecomputeCertificatesHash(RecomputeCertificatesHashCommand {}),
+            }),
+            run_mode: "mode".to_string(),
+            verbose: 1,
+            config_directory: PathBuf::from(""),
+        };
+
+        let result = serve_command.collect().unwrap().clone();
+
+        assert_eq!(serve_command.collect_legacy().unwrap(), result);
+    }
+
+    #[test]
+    fn test_main_opts_collect_when_empty_values() {
+        let serve_command = MainOpts {
+            db_directory: None,
+            command: MainCommand::Tools(ToolsCommand {
+                genesis_subcommand: RecomputeCertificatesHash(RecomputeCertificatesHashCommand {}),
+            }),
+            run_mode: "mode".to_string(),
+            verbose: 1,
+            config_directory: PathBuf::from(""),
+        };
+
+        let result = serve_command.collect().unwrap().clone();
+
+        assert_eq!(serve_command.collect_legacy().unwrap(), result);
     }
 }
