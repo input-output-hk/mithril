@@ -7,7 +7,7 @@ mod tools_command;
 use anyhow::anyhow;
 use clap::{CommandFactory, Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value};
-use mithril_cli_helper::{register, register_config_value_option};
+use mithril_cli_helper::{register_config_value, register_config_value_option};
 use mithril_common::StdResult;
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use slog::{debug, Level, Logger};

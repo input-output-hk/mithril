@@ -1,27 +1,16 @@
 //! Utilities to register config parameters.
 
-/// Register a parameter in the config map.
-#[macro_export]
-macro_rules! register {
-    ( $map:ident, $namespace:expr, $command: ident, $value:expr ) => {{
-        $map.insert(
-            stringify!($command).to_string(),
-            config::Value::new(Some($namespace), $value),
-        );
-    }};
-}
-
 /// Register a optional parameter in the config map when it's not None.
 #[macro_export]
 macro_rules! register_config_value_option {
     ( $map:ident, $namespace:expr, $self:ident.$command:ident ) => {{
         if let Some(value) = $self.$command.clone() {
-            register!($map, $namespace, $command, value);
+            register_config_value!($map, $namespace, $command = value);
         }
     }};
     ( $map:ident, $namespace:expr, $self:ident.$command:ident, $mapping:expr ) => {{
         if let Some(value) = $self.$command.clone() {
-            register!($map, $namespace, $command, $mapping(value));
+            register_config_value!($map, $namespace, $command = $mapping(value));
         }
     }};
 }
@@ -31,19 +20,33 @@ macro_rules! register_config_value_option {
 macro_rules! register_config_value_bool {
     ( $map:ident, $namespace:expr, $self:ident.$command:ident ) => {{
         if $self.$command {
-            register!($map, $namespace, $command, true);
+            register_config_value!($map, $namespace, $command = true);
         }
     }};
 }
 
-/// Register a parameter in the config map.
+/// Register a parameter in the config map using the identifier as key.
+/// Example:
+///     register_config_value(map, namespace, self.identifier)
+///
+/// The same macro, with a different syntax, is used to insert the given value without transformation.
+/// Iit is designed to be used by other macros.
+/// Example:
+///     register_config_value!(map, namespace, identifier = value)
 #[macro_export]
 macro_rules! register_config_value {
     ( $map:ident, $namespace:expr, $self:ident.$command:ident ) => {{
-        register!($map, $namespace, $command, $self.$command);
+        register_config_value!($map, $namespace, $command = $self.$command);
     }};
     ( $map:ident, $namespace:expr, $self:ident.$command:ident, $mapping:expr ) => {{
-        register!($map, $namespace, $command, $mapping($self.$command));
+        register_config_value!($map, $namespace, $command = $mapping($self.$command));
+    }};
+
+    ( $map:ident, $namespace:expr, $command:ident = $value:expr ) => {{
+        $map.insert(
+            stringify!($command).to_string(),
+            config::Value::new(Some($namespace), $value),
+        );
     }};
 }
 
@@ -53,13 +56,12 @@ mod tests {
     use std::collections::HashMap;
 
     #[test]
-    fn test_register_macro() {
+    fn test_register_config_value_macro_with_the_value() {
         let mut map = HashMap::new();
-        register!(
+        register_config_value!(
             map,
             &"namespace".to_string(),
-            server_ip,
-            Some("value_server_ip".to_string())
+            server_ip = Some("value_server_ip".to_string())
         );
 
         let expected = HashMap::from([(

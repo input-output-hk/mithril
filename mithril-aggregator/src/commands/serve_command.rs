@@ -13,7 +13,9 @@ use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value};
 use slog::{crit, debug, info, warn, Logger};
 use tokio::{sync::oneshot, task::JoinSet};
 
-use mithril_cli_helper::{register, register_config_value_bool, register_config_value_option};
+use mithril_cli_helper::{
+    register_config_value, register_config_value_bool, register_config_value_option,
+};
 use mithril_common::StdResult;
 use mithril_metric::MetricsServer;
 

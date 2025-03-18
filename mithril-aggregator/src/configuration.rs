@@ -5,7 +5,7 @@ use std::collections::{BTreeSet, HashMap};
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use mithril_cli_helper::{register, register_config_value};
+use mithril_cli_helper::register_config_value;
 use mithril_common::chain_observer::ChainObserverType;
 use mithril_common::crypto_helper::ProtocolGenesisSigner;
 use mithril_common::entities::{
