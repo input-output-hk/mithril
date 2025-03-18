@@ -1,16 +1,17 @@
+use crate::mithril::relay_signer::RelaySignerConfiguration;
+use crate::{
+    assertions, Aggregator, AggregatorConfig, Client, Devnet, PoolNode, RelayAggregator,
+    RelayPassive, RelaySigner, Signer, DEVNET_MAGIC_ID,
+};
 use mithril_common::chain_observer::{ChainObserver, PallasChainObserver};
 use mithril_common::entities::{Epoch, PartyId, ProtocolParameters};
 use mithril_common::{CardanoNetwork, StdResult};
+use mithril_relay::SignerRelayMode;
 use slog_scope::info;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-
-use crate::{
-    assertions, Aggregator, AggregatorConfig, Client, Devnet, PoolNode, RelayAggregator,
-    RelayPassive, RelaySigner, Signer, DEVNET_MAGIC_ID,
-};
 
 use super::signer::SignerConfig;
 
@@ -29,7 +30,9 @@ pub struct MithrilInfrastructureConfig {
     pub mithril_era_reader_adapter: String,
     pub signed_entity_types: Vec<String>,
     pub run_only_mode: bool,
-    pub use_p2p_network_mode: bool,
+    pub use_relays: bool,
+    pub relay_signer_registration_mode: SignerRelayMode,
+    pub relay_signature_registration_mode: SignerRelayMode,
     pub use_p2p_passive_relays: bool,
     pub use_era_specific_work_dir: bool,
 }
@@ -64,6 +67,8 @@ impl MithrilInfrastructure {
             .iter()
             .map(|s| s.party_id())
             .collect::<StdResult<Vec<PartyId>>>()?;
+        let relay_signer_registration_mode = &config.relay_signer_registration_mode;
+        let relay_signature_registration_mode = &config.relay_signature_registration_mode;
 
         let aggregators =
             Self::start_aggregators(config, aggregator_cardano_nodes, chain_observer_type).await?;
@@ -73,8 +78,13 @@ impl MithrilInfrastructure {
             .collect::<Vec<_>>();
         let master_aggregator_endpoint = aggregator_endpoints[0].to_owned();
 
-        let (relay_aggregators, relay_signers, relay_passives) =
-            Self::start_relays(config, &aggregator_endpoints, &signer_party_ids)?;
+        let (relay_aggregators, relay_signers, relay_passives) = Self::start_relays(
+            config,
+            &aggregator_endpoints,
+            &signer_party_ids,
+            relay_signer_registration_mode.to_owned(),
+            relay_signature_registration_mode.to_owned(),
+        )?;
 
         let signers = Self::start_signers(
             config,
@@ -219,8 +229,10 @@ impl MithrilInfrastructure {
         config: &MithrilInfrastructureConfig,
         aggregator_endpoints: &[String],
         signers_party_ids: &[PartyId],
+        relay_signer_registration_mode: SignerRelayMode,
+        relay_signature_registration_mode: SignerRelayMode,
     ) -> StdResult<(Vec<RelayAggregator>, Vec<RelaySigner>, Vec<RelayPassive>)> {
-        if !config.use_p2p_network_mode {
+        if !config.use_relays {
             return Ok((vec![], vec![], vec![]));
         }
 
@@ -249,15 +261,17 @@ impl MithrilInfrastructure {
         }
 
         for (index, party_id) in signers_party_ids.iter().enumerate() {
-            let mut relay_signer = RelaySigner::new(
-                config.server_port + index as u64 + 200,
-                config.server_port + index as u64 + 300,
-                bootstrap_peer_addr.clone(),
-                master_aggregator_endpoint,
-                party_id.clone(),
-                &config.work_dir,
-                &config.bin_dir,
-            )?;
+            let mut relay_signer = RelaySigner::new(&RelaySignerConfiguration {
+                listen_port: config.server_port + index as u64 + 200,
+                server_port: config.server_port + index as u64 + 300,
+                dial_to: bootstrap_peer_addr.clone(),
+                relay_signer_registration_mode: relay_signer_registration_mode.clone(),
+                relay_signature_registration_mode: relay_signature_registration_mode.clone(),
+                aggregator_endpoint: master_aggregator_endpoint,
+                party_id: party_id.clone(),
+                work_dir: &config.work_dir,
+                bin_dir: &config.bin_dir,
+            })?;
             relay_signer.start()?;
 
             relay_signers.push(relay_signer);
@@ -308,7 +322,7 @@ impl MithrilInfrastructure {
             // Or 100% of signers otherwise
             let enable_certification =
                 index % 2 == 0 || cfg!(not(feature = "allow_skip_signer_certification"));
-            let aggregator_endpoint = if config.use_p2p_network_mode {
+            let aggregator_endpoint = if config.use_relays {
                 relay_signers[index].endpoint()
             } else {
                 master_aggregator_endpoint.clone()
