@@ -11,7 +11,7 @@ macro_rules! register {
     }};
 }
 
-/// Register a optional parameter in the config map.
+/// Register a optional parameter in the config map when it's not None.
 #[macro_export]
 macro_rules! register_parameter_opt {
     ( $map:ident, $namespace:expr, $self:ident.$command:ident ) => {{
@@ -26,7 +26,7 @@ macro_rules! register_parameter_opt {
     }};
 }
 
-/// Register a boolean parameter in the config map.
+/// Register a boolean parameter in the config map only when it's true.
 #[macro_export]
 macro_rules! register_parameter_bool {
     ( $map:ident, $namespace:expr, $self:ident.$command:ident ) => {{
@@ -72,8 +72,6 @@ mod tests {
 
         assert_eq!(expected, map);
     }
-
-    // #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 
     #[derive(Debug, Clone)]
     pub enum EnumValue {
