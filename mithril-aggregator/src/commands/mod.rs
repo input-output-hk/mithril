@@ -103,7 +103,6 @@ impl Source for MainOpts {
         let mut result = Map::new();
         let namespace = "clap arguments".to_string();
 
-        // TODO Is it normal to only have db_directory ?
         register_config_value_option!(result, &namespace, self.db_directory, |v: PathBuf| format!(
             "{}",
             v.to_string_lossy()

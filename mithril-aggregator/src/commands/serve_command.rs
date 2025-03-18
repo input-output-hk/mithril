@@ -99,7 +99,6 @@ impl Source for ServeCommand {
         register_config_value_bool!(result, &namespace, self.enable_metrics_server);
         register_config_value_option!(result, &namespace, self.metrics_server_ip);
         register_config_value_option!(result, &namespace, self.metrics_server_port);
-        // TODO is it normal to pass a Some(v) and not only v when value is present ?
         register_config_value_option!(
             result,
             &namespace,
