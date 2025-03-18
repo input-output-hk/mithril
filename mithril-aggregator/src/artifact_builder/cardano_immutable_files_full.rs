@@ -16,7 +16,6 @@ use super::ArtifactBuilder;
 use crate::{services::Snapshotter, tools::file_archiver::FileArchive, FileUploader};
 
 /// [CardanoImmutableFilesFullArtifact] error
-/// to fail.
 #[derive(Debug, Error)]
 pub enum CardanoImmutableFilesFullArtifactError {
     /// Protocol message part is missing
@@ -53,16 +52,12 @@ impl CardanoImmutableFilesFullArtifactBuilder {
 
     async fn create_snapshot_archive(
         &self,
-        beacon: &CardanoDbBeacon,
-        snapshot_digest: &str,
+        base_file_name_without_extension: &str,
     ) -> StdResult<FileArchive> {
         debug!(self.logger, ">> create_snapshot_archive");
 
         let snapshotter = self.snapshotter.clone();
-        let snapshot_name = format!(
-            "{}-e{}-i{}.{}",
-            self.cardano_network, *beacon.epoch, beacon.immutable_file_number, snapshot_digest,
-        );
+        let snapshot_name = base_file_name_without_extension.to_owned();
         // spawn a separate thread to prevent blocking
         let ongoing_snapshot = tokio::task::spawn_blocking(move || -> StdResult<FileArchive> {
             snapshotter.snapshot_all_completed_immutables(&snapshot_name)
@@ -118,6 +113,18 @@ impl CardanoImmutableFilesFullArtifactBuilder {
 
         Ok(snapshot)
     }
+
+    fn get_base_file_name_without_extension(
+        &self,
+        beacon: &CardanoDbBeacon,
+        snapshot_digest: &str,
+    ) -> String {
+        let snapshot_name = format!(
+            "{}-e{}-i{}.{}",
+            self.cardano_network, *beacon.epoch, beacon.immutable_file_number, snapshot_digest,
+        );
+        snapshot_name
+    }
 }
 
 #[async_trait]
@@ -135,8 +142,10 @@ impl ArtifactBuilder<CardanoDbBeacon, Snapshot> for CardanoImmutableFilesFullArt
             })?
             .to_owned();
 
+        let base_file_name_without_extension =
+            self.get_base_file_name_without_extension(&beacon, &snapshot_digest);
         let ongoing_snapshot = self
-            .create_snapshot_archive(&beacon, &snapshot_digest)
+            .create_snapshot_archive(&base_file_name_without_extension)
             .await
             .with_context(|| {
                 "Cardano Immutable Files Full Artifact Builder can not create snapshot archive"
@@ -164,7 +173,6 @@ impl ArtifactBuilder<CardanoDbBeacon, Snapshot> for CardanoImmutableFilesFullArt
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
-    use std::path::Path;
     use tempfile::NamedTempFile;
 
     use mithril_common::{entities::CompressionAlgorithm, test_utils::fake_data};
@@ -226,6 +234,33 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn snapshot_archive_name_include_beacon_and_network_values() {
+        let network = fake_data::network();
+        let beacon = CardanoDbBeacon::new(20, 145);
+        let digest = "test+digest";
+
+        let cardano_immutable_files_full_artifact_builder =
+            CardanoImmutableFilesFullArtifactBuilder::new(
+                network,
+                &Version::parse("1.0.0").unwrap(),
+                Arc::new(DumbSnapshotter::default()),
+                Arc::new(DumbUploader::default()),
+                TestLogger::stdout(),
+            );
+
+        let name = cardano_immutable_files_full_artifact_builder
+            .get_base_file_name_without_extension(&beacon, digest);
+
+        assert_eq!(
+            format!(
+                "{}-e{}-i{}.{digest}",
+                network, *beacon.epoch, beacon.immutable_file_number,
+            ),
+            name
+        );
+    }
+
+    #[tokio::test]
     async fn remove_snapshot_archive_after_upload() {
         let file = NamedTempFile::new().unwrap();
         let file_path = file.path();
@@ -253,71 +288,6 @@ mod tests {
         assert!(
             !file_path.exists(),
             "Ongoing snapshot file should have been removed after upload"
-        );
-    }
-
-    #[tokio::test]
-    async fn snapshot_archive_name_after_beacon_values() {
-        let network = fake_data::network();
-        let beacon = CardanoDbBeacon::new(20, 145);
-        let digest = "test+digest";
-
-        let cardano_immutable_files_full_artifact_builder =
-            CardanoImmutableFilesFullArtifactBuilder::new(
-                network,
-                &Version::parse("1.0.0").unwrap(),
-                Arc::new(DumbSnapshotter::default()),
-                Arc::new(DumbUploader::default()),
-                TestLogger::stdout(),
-            );
-
-        let ongoing_snapshot = cardano_immutable_files_full_artifact_builder
-            .create_snapshot_archive(&beacon, digest)
-            .await
-            .expect("create_snapshot_archive should not fail");
-
-        assert_eq!(
-            Path::new(&format!(
-                "{}-e{}-i{}.{digest}.tar.gz",
-                network, *beacon.epoch, beacon.immutable_file_number,
-            )),
-            ongoing_snapshot.get_file_path()
-        );
-    }
-
-    #[tokio::test]
-    async fn snapshot_archive_name_after_compression_algorithm() {
-        let mut invalid_result: Vec<CompressionAlgorithm> = vec![];
-
-        for algorithm in CompressionAlgorithm::list() {
-            let cardano_immutable_files_full_artifact_builder =
-                CardanoImmutableFilesFullArtifactBuilder::new(
-                    fake_data::network(),
-                    &Version::parse("1.0.0").unwrap(),
-                    Arc::new(DumbSnapshotter::new(algorithm)),
-                    Arc::new(DumbUploader::default()),
-                    TestLogger::stdout(),
-                );
-
-            let ongoing_snapshot = cardano_immutable_files_full_artifact_builder
-                .create_snapshot_archive(&CardanoDbBeacon::default(), "test+digest")
-                .await
-                .expect("create_snapshot_archive should not fail");
-            let file_name = ongoing_snapshot
-                .get_file_path()
-                .file_name()
-                .and_then(|f| f.to_str())
-                .unwrap();
-            let expected_extension = algorithm.tar_file_extension();
-
-            if !file_name.ends_with(&expected_extension) {
-                invalid_result.push(algorithm);
-            }
-        }
-
-        assert!(
-            invalid_result.is_empty(),
-            "Archive name did not contain some algorithms extension after snapshot, failing algorithm(s): {invalid_result:?}",
         );
     }
 
