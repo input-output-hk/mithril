@@ -72,33 +72,30 @@ impl FakeAggregator {
                 ))
                 .or(routes::statistics::routes(self.calls.clone()));
 
-        let snapshot_archive_path =
-            snapshot_archives::build_fake_immutable_files_full_snapshot(cardano_db, work_dir);
+        let cardano_db_archives =
+            snapshot_archives::build_cardano_db_v1_snapshot_archives(cardano_db, work_dir);
 
         let routes = routes.or(routes::snapshot::download(
             self.calls.clone(),
-            snapshot_archive_path,
+            cardano_db_archives,
         ));
         let server = test_http_server(routes);
 
-        update_snapshot_location(&server.url(), snapshot_digest, snapshot);
+        update_snapshot_location(&server.url(), snapshot);
 
         server
     }
 }
 
-fn update_snapshot_location(
-    aggregator_url: &str,
-    snapshot_digest: &str,
-    snapshot: Arc<RwLock<Snapshot>>,
-) {
-    let snapshot_location =
-        format!("{aggregator_url}/artifact/snapshot/{snapshot_digest}/download",);
+fn update_snapshot_location(aggregator_url: &str, snapshot: Arc<RwLock<Snapshot>>) {
     let mut snapshot_to_update = snapshot.write().unwrap();
     *snapshot_to_update = Snapshot {
-        locations: vec![snapshot_location],
-        // Todo:
-        ancillary_locations: None,
+        locations: vec![format!(
+            "{aggregator_url}/snapshot_download/completed_immutables.tar.zst"
+        )],
+        ancillary_locations: Some(vec![format!(
+            "{aggregator_url}/snapshot_download/ancillary.tar.zst"
+        )]),
         ..snapshot_to_update.clone()
     };
 }

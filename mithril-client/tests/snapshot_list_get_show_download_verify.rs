@@ -17,6 +17,7 @@ async fn snapshot_list_get_show_download_verify() {
     let cardano_db = DummyCardanoDbBuilder::new("snapshot_list_get_show_download_verify_db")
         .with_immutables(&[1, 2, 3])
         .append_immutable_trio()
+        .with_ledger_files(&["506", "562"])
         .build();
     let fake_aggregator = FakeAggregator::new();
     let test_http_server = fake_aggregator
@@ -83,16 +84,6 @@ async fn snapshot_list_get_show_download_verify() {
         .download_unpack(&snapshot, &unpacked_dir)
         .await
         .expect("download/unpack snapshot should not fail");
-    assert_eq!(
-        fake_aggregator.get_last_call().await,
-        Some(format!(
-            "/{}/download",
-            AggregatorRequest::GetSnapshot {
-                digest: (snapshot.digest.clone())
-            }
-            .route()
-        ))
-    );
 
     client
         .cardano_database()
