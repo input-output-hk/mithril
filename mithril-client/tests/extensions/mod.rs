@@ -5,6 +5,8 @@
 pub mod fake;
 pub mod mock;
 mod routes;
+#[cfg(feature = "fs")]
+mod snapshot_archives;
 
 use mithril_common::test_utils::TempDir;
 use std::path::PathBuf;
