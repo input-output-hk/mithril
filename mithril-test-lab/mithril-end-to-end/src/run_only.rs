@@ -94,7 +94,7 @@ impl RunOnly {
         assertions::bootstrap_genesis_certificate(aggregator).await?;
         assertions::wait_for_epoch_settings(&aggregator.endpoint()).await?;
 
-        if aggregator.is_master() {
+        if aggregator.index() == 0 {
             // Transfer some funds on the devnet to have some Cardano transactions to sign
             assertions::transfer_funds(infrastructure.devnet()).await?;
         }

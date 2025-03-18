@@ -20,6 +20,7 @@ pub async fn bootstrap_aggregator(
 
     let mut aggregator = Aggregator::new(&AggregatorConfig {
         is_master: false,
+        index: 0,
         name: "genesis",
         server_port: args.server_port as u64,
         pool_node: &args.pool_node,
