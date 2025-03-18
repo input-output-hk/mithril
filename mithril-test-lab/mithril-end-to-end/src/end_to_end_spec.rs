@@ -138,7 +138,7 @@ impl Spec {
         )
         .await?;
 
-        if aggregator.is_master() {
+        if aggregator.index() == 0 {
             // Delegate some stakes to pools
             let delegation_round = 1;
             assertions::delegate_stakes_to_pools(infrastructure.devnet(), delegation_round).await?;

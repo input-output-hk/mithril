@@ -238,6 +238,7 @@ impl MithrilInfrastructure {
                 .join(format!("aggregator-{aggregator_name}"));
             let aggregator = Aggregator::new(&AggregatorConfig {
                 is_master: config.is_master_aggregator(index),
+                index,
                 name: &aggregator_name,
                 server_port: config.server_port + index as u64,
                 pool_node,
@@ -264,14 +265,17 @@ impl MithrilInfrastructure {
                 })
                 .await;
 
-            if master_aggregator_endpoint.is_none() {
+            if master_aggregator_endpoint.is_none() && config.is_master_aggregator(0) {
                 master_aggregator_endpoint = Some(aggregator.endpoint());
-                Self::register_startup_era(&aggregator, config).await?;
             }
 
-            aggregator.serve().await?;
-
             aggregators.push(aggregator);
+        }
+
+        Self::register_startup_era(&aggregators[0], config).await?;
+
+        for aggregator in &aggregators {
+            aggregator.serve().await?;
         }
 
         Ok(aggregators)
