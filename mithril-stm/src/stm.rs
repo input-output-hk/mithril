@@ -1105,9 +1105,6 @@ mod tests {
     type Sig = StmAggrSig<D>;
     type D = Blake2b<U32>;
 
-    // ---------------------------------------------------------------------
-    // Test helpers
-    // ---------------------------------------------------------------------
     fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner<D>> {
         let stake = vec![1; nparties];
         setup_parties(params, stake)
@@ -1263,9 +1260,6 @@ mod tests {
         }
     }
 
-    // ---------------------------------------------------------------------
-    // Property test: `test_dedup`
-    // ---------------------------------------------------------------------
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(50))]
 
@@ -1310,10 +1304,6 @@ mod tests {
         }
     }
 
-    // ---------------------------------------------------------------------
-    // Property test: `test_aggregate_sig`
-    // Property test: `batch_verify`
-    // ---------------------------------------------------------------------
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(50))]
 
@@ -1399,9 +1389,6 @@ mod tests {
         }
     }
 
-    // ---------------------------------------------------------------------
-    // Property test: `test_sig`
-    // ---------------------------------------------------------------------
     proptest! {
         #[test]
         /// Test that when a party creates a signature it can be verified
@@ -1417,12 +1404,6 @@ mod tests {
         }
     }
 
-    // ---------------------------------------------------------------------
-    // Property test: `test_parameters_serialize_deserialize`
-    // Property test: `test_initializer_serialize_deserialize`
-    // Property test: `test_sig_serialize_deserialize`
-    // Property test: `test_multisig_serialize_deserialize`
-    // ---------------------------------------------------------------------
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(10))]
         #[test]
@@ -1488,9 +1469,6 @@ mod tests {
         }
     }
 
-    // ---------------------------------------------------------------------
-    // Property test: `test_adversary_quorum`
-    // ---------------------------------------------------------------------
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(10))]
 
@@ -1530,12 +1508,6 @@ mod tests {
         }
     }
 
-    // ---------------------------------------------------------------------
-    // Property test: `test_invalid_proof_quorum`
-    // Property test: `test_invalid_proof_index_bound`
-    // Property test: `test_invalid_proof_index_unique`
-    // Property test: `test_invalid_proof_path`
-    // ---------------------------------------------------------------------
     proptest! {
         // Each of the tests below corresponds to falsifying a conjunct in the
         // definition of a valid signature
@@ -1582,7 +1554,7 @@ mod tests {
     }
 
     // ---------------------------------------------------------------------
-    // Core verifier test helpers
+    // Core verifier
     // ---------------------------------------------------------------------
     fn setup_equal_core_parties(
         params: StmParameters,
@@ -1627,10 +1599,6 @@ mod tests {
         sigs
     }
 
-    // ---------------------------------------------------------------------
-    // Core verifier property test: `test_core_verifier`
-    // Core verifier property test: `test_total_stake_core_verifier`
-    // ---------------------------------------------------------------------
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(50))]
 

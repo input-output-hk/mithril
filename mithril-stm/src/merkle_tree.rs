@@ -494,9 +494,6 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
     }
 }
 
-// ---------------------------------------------------------------------
-// Outdated
-// ---------------------------------------------------------------------
 /// Path of hashes from root to leaf in a Merkle Tree.
 /// Contains all hashes on the path, and the index of the leaf.
 /// Used to verify that signatures come from eligible signers.
@@ -639,9 +636,6 @@ mod tests {
         1 + 2_usize.pow(h as u32)
     }
 
-    // ---------------------------------------------------------------------
-    // Create an arbitrary tree
-    // ---------------------------------------------------------------------
     prop_compose! {
         fn arb_tree(max_size: u32)
                    (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<Blake2b<U32>>, Vec<MTLeaf>) {
@@ -651,13 +645,6 @@ mod tests {
         }
     }
 
-    // ---------------------------------------------------------------------
-    // Property test: `test_create_proof`
-    // Property test: `test_bytes_path`
-    // Property test: `test_bytes_tree_commitment`
-    // Property test: `test_bytes_tree`
-    // Property test: `test_bytes_tree_commitment_batch_compat`
-    // ---------------------------------------------------------------------
     proptest! {
         // Test the relation that t.get_path(i) is a valid
         // proof for i
@@ -716,9 +703,6 @@ mod tests {
 
     }
 
-    // ---------------------------------------------------------------------
-    // Values with invalid proof
-    // ---------------------------------------------------------------------
     prop_compose! {
         // Returns values with a randomly generated path
         fn values_with_invalid_proof(max_height: usize)
@@ -731,10 +715,6 @@ mod tests {
         }
     }
 
-    // ---------------------------------------------------------------------
-    // Property test: `test_create_invalid_proof`
-    // Property test: `test_create_invalid_batch_proof`
-    // ---------------------------------------------------------------------
     proptest! {
         #[test]
         fn test_create_invalid_proof(
@@ -773,9 +753,6 @@ mod tests {
         }
     }
 
-    // ---------------------------------------------------------------------
-    // Create an arbitrary tree, arbitrary batch values with index list
-    // ---------------------------------------------------------------------
     prop_compose! {
         fn arb_tree_arb_batch(max_size: u32)
                    (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<Blake2b<U32>>, Vec<MTLeaf>, Vec<usize>) {
@@ -797,10 +774,6 @@ mod tests {
         }
     }
 
-    // ---------------------------------------------------------------------
-    // Property test: `test_create_batch_proof`
-    // Property test: `test_bytes_batch_path`
-    // ---------------------------------------------------------------------
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(100))]
         #[test]
