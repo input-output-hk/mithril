@@ -14,15 +14,13 @@ use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError,
 use crate::file_uploaders::{
     CloudRemotePath, FileUploadRetryPolicy, GcpBackendUploader, GcpUploader, LocalUploader,
 };
-use crate::http_server::CARDANO_DATABASE_DOWNLOAD_PATH;
+use crate::http_server::{CARDANO_DATABASE_DOWNLOAD_PATH, SNAPSHOT_DOWNLOAD_PATH};
 use crate::services::{
     CompressedArchiveSnapshotter, DumbSnapshotter, MithrilSignedEntityService, SignedEntityService,
     SignedEntityServiceArtifactsDependencies, Snapshotter,
 };
 use crate::tools::file_archiver::FileArchiver;
-use crate::{
-    DumbUploader, ExecutionEnvironment, FileUploader, LocalSnapshotUploader, SnapshotUploaderType,
-};
+use crate::{DumbUploader, ExecutionEnvironment, FileUploader, SnapshotUploaderType};
 
 impl DependenciesBuilder {
     async fn build_signed_entity_service(&mut self) -> Result<Arc<dyn SignedEntityService>> {
@@ -171,6 +169,9 @@ impl DependenciesBuilder {
                     ))
                 }
                 SnapshotUploaderType::Local => {
+                    let server_url_prefix = self.configuration.get_server_url()?;
+                    let snapshot_url_prefix =
+                        server_url_prefix.sanitize_join(SNAPSHOT_DOWNLOAD_PATH)?;
                     let snapshot_artifacts_dir = self
                         .configuration
                         .get_snapshot_dir()?
@@ -184,9 +185,10 @@ impl DependenciesBuilder {
                         }
                     })?;
 
-                    Ok(Arc::new(LocalSnapshotUploader::new(
-                        self.configuration.get_server_url()?,
+                    Ok(Arc::new(LocalUploader::new(
+                        snapshot_url_prefix,
                         &snapshot_artifacts_dir,
+                        FileUploadRetryPolicy::default(),
                         logger,
                     )))
                 }
