@@ -79,8 +79,10 @@ pub fn build_immutable_files_archives(cardano_db: &DummyCardanoDb, target_dir: &
 pub fn build_ancillary_files_archive(cardano_db: &DummyCardanoDb, target_dir: &Path) {
     let ancillary_immutable_number = cardano_db.last_immutable_number().unwrap() + 1;
     let immutable_dir = cardano_db.get_immutable_dir();
-    let volatile_dir = cardano_db.get_volatile_dir();
-    let ledger_dir = cardano_db.get_ledger_dir();
+    let last_ledger_file_path = cardano_db
+        .get_ledger_files()
+        .last()
+        .expect("Given db should have at least one ledger file");
     let archive_name = format!(
         "ancillary.{}",
         CompressionAlgorithm::Zstandard.tar_file_extension()
@@ -90,10 +92,14 @@ pub fn build_ancillary_files_archive(cardano_db: &DummyCardanoDb, target_dir: &P
     let enc = zstd::Encoder::new(tar_file, 3).unwrap();
     let mut tar = tar::Builder::new(enc);
 
-    tar.append_path_with_name(&volatile_dir, "volatile")
-        .unwrap();
-
-    tar.append_path_with_name(&ledger_dir, "ledger").unwrap();
+    tar.append_path_with_name(
+        last_ledger_file_path,
+        format!(
+            "ledger/{}",
+            last_ledger_file_path.file_name().unwrap().to_string_lossy()
+        ),
+    )
+    .unwrap();
 
     for extension in &[".chunk", ".primary", ".secondary"] {
         let file_name = format!("{:05}{}", ancillary_immutable_number, extension);

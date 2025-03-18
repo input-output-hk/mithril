@@ -43,6 +43,9 @@ pub struct DummyCardanoDb {
 
     /// Dummy immutable db
     immutable_db: DummyImmutableDb,
+
+    /// Ledger files in the dummy cardano db.
+    ledger_files: Vec<PathBuf>,
 }
 
 impl DummyCardanoDb {
@@ -69,6 +72,11 @@ impl DummyCardanoDb {
     /// Return the file number of the last immutable
     pub fn get_immutable_files(&self) -> &Vec<ImmutableFile> {
         &self.immutable_db.immutables_files
+    }
+
+    /// Return the path of the files in the ledger directory.
+    pub fn get_ledger_files(&self) -> &Vec<PathBuf> {
+        &self.ledger_files
     }
 
     /// Add an immutable chunk file and its primary & secondary to the dummy DB.
@@ -179,6 +187,7 @@ impl DummyCardanoDbBuilder {
     pub fn build(&self) -> DummyCardanoDb {
         let dir = get_test_dir(&self.sub_dir);
 
+        let mut ledger_files = vec![];
         let mut non_immutables_files = vec![];
         let mut immutable_numbers = self.immutables_to_write.clone();
         immutable_numbers.sort();
@@ -203,7 +212,9 @@ impl DummyCardanoDbBuilder {
         }
 
         for filename in &self.ledger_files_to_write {
-            write_dummy_file(self.ledger_file_size, &dir.join(LEDGER_DIR), filename);
+            let ledger_file_path =
+                write_dummy_file(self.ledger_file_size, &dir.join(LEDGER_DIR), filename);
+            ledger_files.push(ledger_file_path);
         }
 
         for filename in &self.volatile_files_to_write {
@@ -221,7 +232,11 @@ impl DummyCardanoDbBuilder {
             non_immutables_files,
         };
 
-        DummyCardanoDb { dir, immutable_db }
+        DummyCardanoDb {
+            dir,
+            immutable_db,
+            ledger_files,
+        }
     }
 }
 
