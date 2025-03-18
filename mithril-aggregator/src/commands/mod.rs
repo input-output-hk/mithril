@@ -7,7 +7,7 @@ mod tools_command;
 use anyhow::anyhow;
 use clap::{CommandFactory, Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value};
-use mithril_cli_helper::{register, register_parameter_opt};
+use mithril_cli_helper::{register, register_config_value_option};
 use mithril_common::StdResult;
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use slog::{debug, Level, Logger};
@@ -104,7 +104,7 @@ impl Source for MainOpts {
         let namespace = "clap arguments".to_string();
 
         // TODO Is it normal to only have db_directory ?
-        register_parameter_opt!(result, &namespace, self.db_directory, |v: PathBuf| format!(
+        register_config_value_option!(result, &namespace, self.db_directory, |v: PathBuf| format!(
             "{}",
             v.to_string_lossy()
         ));

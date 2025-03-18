@@ -13,7 +13,7 @@ use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value};
 use slog::{crit, debug, info, warn, Logger};
 use tokio::{sync::oneshot, task::JoinSet};
 
-use mithril_cli_helper::{register, register_parameter_bool, register_parameter_opt};
+use mithril_cli_helper::{register, register_config_value_bool, register_config_value_option};
 use mithril_common::StdResult;
 use mithril_metric::MetricsServer;
 
@@ -83,22 +83,22 @@ impl Source for ServeCommand {
         let mut result = Map::new();
         let namespace = "clap arguments".to_string();
 
-        register_parameter_opt!(result, &namespace, self.server_ip);
-        register_parameter_opt!(result, &namespace, self.server_port);
-        register_parameter_opt!(
+        register_config_value_option!(result, &namespace, self.server_ip);
+        register_config_value_option!(result, &namespace, self.server_port);
+        register_config_value_option!(
             result,
             &namespace,
             self.snapshot_directory,
             |v: PathBuf| format!("{}", v.to_string_lossy())
         );
-        register_parameter_bool!(result, &namespace, self.disable_digests_cache);
-        register_parameter_bool!(result, &namespace, self.reset_digests_cache);
-        register_parameter_bool!(result, &namespace, self.allow_unparsable_block);
-        register_parameter_bool!(result, &namespace, self.enable_metrics_server);
-        register_parameter_opt!(result, &namespace, self.metrics_server_ip);
-        register_parameter_opt!(result, &namespace, self.metrics_server_port);
+        register_config_value_bool!(result, &namespace, self.disable_digests_cache);
+        register_config_value_bool!(result, &namespace, self.reset_digests_cache);
+        register_config_value_bool!(result, &namespace, self.allow_unparsable_block);
+        register_config_value_bool!(result, &namespace, self.enable_metrics_server);
+        register_config_value_option!(result, &namespace, self.metrics_server_ip);
+        register_config_value_option!(result, &namespace, self.metrics_server_port);
         // TODO is it normal to pass a Some(v) and not only v when value is present ?
-        register_parameter_opt!(
+        register_config_value_option!(
             result,
             &namespace,
             self.master_aggregator_endpoint,

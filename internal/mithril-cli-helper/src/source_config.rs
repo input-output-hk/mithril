@@ -13,7 +13,7 @@ macro_rules! register {
 
 /// Register a optional parameter in the config map when it's not None.
 #[macro_export]
-macro_rules! register_parameter_opt {
+macro_rules! register_config_value_option {
     ( $map:ident, $namespace:expr, $self:ident.$command:ident ) => {{
         if let Some(value) = $self.$command.clone() {
             register!($map, $namespace, $command, value);
@@ -28,7 +28,7 @@ macro_rules! register_parameter_opt {
 
 /// Register a boolean parameter in the config map only when it's true.
 #[macro_export]
-macro_rules! register_parameter_bool {
+macro_rules! register_config_value_bool {
     ( $map:ident, $namespace:expr, $self:ident.$command:ident ) => {{
         if $self.$command {
             register!($map, $namespace, $command, true);
@@ -38,7 +38,7 @@ macro_rules! register_parameter_bool {
 
 /// Register a parameter in the config map.
 #[macro_export]
-macro_rules! register_parameter {
+macro_rules! register_config_value {
     ( $map:ident, $namespace:expr, $self:ident.$command:ident ) => {{
         register!($map, $namespace, $command, $self.$command);
     }};
@@ -86,7 +86,7 @@ mod tests {
     }
 
     #[test]
-    fn test_register_parameter_macro_add_value() {
+    fn test_register_config_value_macro_add_value() {
         struct Fake {
             string_value: String,
             u64_value: u64,
@@ -100,9 +100,9 @@ mod tests {
         };
 
         let mut map = HashMap::new();
-        register_parameter!(map, &"namespace".to_string(), fake.string_value);
-        register_parameter!(map, &"namespace".to_string(), fake.u64_value);
-        register_parameter!(map, &"namespace".to_string(), fake.enum_value);
+        register_config_value!(map, &"namespace".to_string(), fake.string_value);
+        register_config_value!(map, &"namespace".to_string(), fake.u64_value);
+        register_config_value!(map, &"namespace".to_string(), fake.enum_value);
 
         let expected = HashMap::from([
             (
@@ -126,7 +126,7 @@ mod tests {
     }
 
     #[test]
-    fn test_register_parameter_macro_with_mapping_transform_value_before_adding_it() {
+    fn test_register_config_value_macro_with_mapping_transform_value_before_adding_it() {
         struct Fake {
             string_value: String,
         }
@@ -136,7 +136,7 @@ mod tests {
         };
 
         let mut map = HashMap::new();
-        register_parameter!(
+        register_config_value!(
             map,
             &"namespace".to_string(),
             fake.string_value,
@@ -155,7 +155,7 @@ mod tests {
     }
 
     #[test]
-    fn test_register_parameter_option_macro_not_add_none_value() {
+    fn test_register_config_value_optionion_macro_not_add_none_value() {
         struct Fake {
             option_with_value: Option<String>,
             option_none: Option<String>,
@@ -167,8 +167,8 @@ mod tests {
         };
 
         let mut map = HashMap::new();
-        register_parameter_opt!(map, &"namespace".to_string(), fake.option_with_value);
-        register_parameter_opt!(map, &"namespace".to_string(), fake.option_none);
+        register_config_value_option!(map, &"namespace".to_string(), fake.option_with_value);
+        register_config_value_option!(map, &"namespace".to_string(), fake.option_none);
 
         let expected = HashMap::from([(
             "option_with_value".to_string(),
@@ -182,7 +182,7 @@ mod tests {
     }
 
     #[test]
-    fn test_register_parameter_option_macro_with_mapping_transform_value_before_adding_it() {
+    fn test_register_config_value_optionion_macro_with_mapping_transform_value_before_adding_it() {
         struct Fake {
             option_with_value: Option<String>,
             option_none: Option<String>,
@@ -194,13 +194,13 @@ mod tests {
         };
 
         let mut map = HashMap::new();
-        register_parameter_opt!(
+        register_config_value_option!(
             map,
             &"namespace".to_string(),
             fake.option_with_value,
             |v: String| format!("mapped_value from {}", v)
         );
-        register_parameter_opt!(map, &"namespace".to_string(), fake.option_none);
+        register_config_value_option!(map, &"namespace".to_string(), fake.option_none);
 
         let expected = HashMap::from([(
             "option_with_value".to_string(),
@@ -214,7 +214,7 @@ mod tests {
     }
 
     #[test]
-    fn test_register_parameter_bool_macro_add_only_true_values() {
+    fn test_register_config_value_bool_macro_add_only_true_values() {
         struct Fake {
             bool_true: bool,
             bool_false: bool,
@@ -226,8 +226,8 @@ mod tests {
         };
 
         let mut map = HashMap::new();
-        register_parameter_bool!(map, &"namespace".to_string(), fake.bool_true);
-        register_parameter_bool!(map, &"namespace".to_string(), fake.bool_false);
+        register_config_value_bool!(map, &"namespace".to_string(), fake.bool_true);
+        register_config_value_bool!(map, &"namespace".to_string(), fake.bool_false);
 
         let expected = HashMap::from([(
             "bool_true".to_string(),
@@ -238,7 +238,7 @@ mod tests {
     }
 
     #[test]
-    fn test_register_parameter_macro() {
+    fn test_register_config_value_macro() {
         struct Fake {
             server_ip: Option<String>,
         }
@@ -248,7 +248,7 @@ mod tests {
         };
 
         let mut map = HashMap::new();
-        register_parameter!(map, &"namespace".to_string(), fake.server_ip);
+        register_config_value!(map, &"namespace".to_string(), fake.server_ip);
 
         let expected = HashMap::from([(
             "server_ip".to_string(),
@@ -283,10 +283,10 @@ mod tests {
                 let mut map = Map::new();
 
                 let myself = self.clone();
-                register_parameter_opt!(map, &"namespace".to_string(), myself.option_value);
-                register_parameter!(map, &"namespace".to_string(), myself.string_value);
-                register_parameter!(map, &"namespace".to_string(), myself.u64_value);
-                register_parameter!(map, &"namespace".to_string(), myself.enum_value);
+                register_config_value_option!(map, &"namespace".to_string(), myself.option_value);
+                register_config_value!(map, &"namespace".to_string(), myself.string_value);
+                register_config_value!(map, &"namespace".to_string(), myself.u64_value);
+                register_config_value!(map, &"namespace".to_string(), myself.enum_value);
 
                 Ok(map)
             }

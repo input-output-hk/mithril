@@ -4,7 +4,7 @@ use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};
 
-use mithril_cli_helper::{register, register_parameter};
+use mithril_cli_helper::{register, register_config_value};
 use mithril_common::{
     chain_observer::ChainObserver,
     crypto_helper::tests_setup,
@@ -267,18 +267,18 @@ impl Source for DefaultConfiguration {
         let namespace = DefaultConfiguration::namespace();
         let myself = self.clone();
 
-        register_parameter!(result, &namespace, myself.era_reader_adapter_type);
-        register_parameter!(result, &namespace, myself.metrics_server_ip);
-        register_parameter!(result, &namespace, myself.metrics_server_port);
-        register_parameter!(result, &namespace, myself.network_security_parameter);
-        register_parameter!(result, &namespace, myself.preload_security_parameter);
-        register_parameter!(result, &namespace, myself.enable_transaction_pruning);
-        register_parameter!(
+        register_config_value!(result, &namespace, myself.era_reader_adapter_type);
+        register_config_value!(result, &namespace, myself.metrics_server_ip);
+        register_config_value!(result, &namespace, myself.metrics_server_port);
+        register_config_value!(result, &namespace, myself.network_security_parameter);
+        register_config_value!(result, &namespace, myself.preload_security_parameter);
+        register_config_value!(result, &namespace, myself.enable_transaction_pruning);
+        register_config_value!(
             result,
             &namespace,
             myself.transactions_import_block_chunk_size
         );
-        register_parameter!(
+        register_config_value!(
             result,
             &namespace,
             myself.cardano_transactions_block_streamer_max_roll_forwards_per_poll
