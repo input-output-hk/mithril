@@ -15,6 +15,7 @@ config = "0.15.7"
 mithril-doc-derive = { path = "../mithril-doc-derive" }
 
 [dev-dependencies]
+mithril-cli-helper = { path = "../mithril-cli-helper" }
 regex = "1.11.1"
 
 [features]

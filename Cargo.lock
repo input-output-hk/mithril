@@ -3857,6 +3857,7 @@ version = "0.1.17"
 dependencies = [
  "clap",
  "config",
+ "mithril-cli-helper",
  "mithril-doc-derive",
  "regex",
 ]
