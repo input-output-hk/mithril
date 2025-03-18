@@ -16,6 +16,12 @@ impl From<FileUri> for String {
     }
 }
 
+impl From<&FileUri> for String {
+    fn from(file_uri: &FileUri) -> Self {
+        file_uri.0.clone()
+    }
+}
+
 /// TemplateVariable represents a variable in a template
 pub type TemplateVariable = String;
 

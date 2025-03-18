@@ -1,6 +1,6 @@
 use anyhow::Context;
 use async_trait::async_trait;
-use mithril_common::entities::FileUri;
+use mithril_common::entities::{FileUri, ImmutableFileNumber};
 use semver::Version;
 use slog::{debug, warn, Logger};
 use std::sync::Arc;
@@ -50,11 +50,11 @@ impl CardanoImmutableFilesFullArtifactBuilder {
         }
     }
 
-    async fn create_snapshot_archive(
+    async fn create_immutables_snapshot_archive(
         &self,
         base_file_name_without_extension: &str,
     ) -> StdResult<FileArchive> {
-        debug!(self.logger, ">> create_snapshot_archive");
+        debug!(self.logger, ">> create_immutables_snapshot_archive");
 
         let snapshotter = self.snapshotter.clone();
         let snapshot_name = base_file_name_without_extension.to_owned();
@@ -64,7 +64,33 @@ impl CardanoImmutableFilesFullArtifactBuilder {
         })
         .await??;
 
-        debug!(self.logger, " > Snapshot created: '{ongoing_snapshot:?}'");
+        debug!(
+            self.logger,
+            " > Immutables snapshot created: '{ongoing_snapshot:?}'"
+        );
+
+        Ok(ongoing_snapshot)
+    }
+
+    async fn create_ancillary_snapshot_archive(
+        &self,
+        immutable_file_number: ImmutableFileNumber,
+        base_file_name_without_extension: &str,
+    ) -> StdResult<FileArchive> {
+        debug!(self.logger, ">> create_ancillary_snapshot_archive");
+
+        let snapshotter = self.snapshotter.clone();
+        let snapshot_name = format!("ancillary-{base_file_name_without_extension}");
+        // spawn a separate thread to prevent blocking
+        let ongoing_snapshot = tokio::task::spawn_blocking(move || -> StdResult<FileArchive> {
+            snapshotter.snapshot_ancillary(immutable_file_number, &snapshot_name)
+        })
+        .await??;
+
+        debug!(
+            self.logger,
+            " > Ancillary snapshot created: '{ongoing_snapshot:?}'"
+        );
 
         Ok(ongoing_snapshot)
     }
@@ -89,12 +115,14 @@ impl CardanoImmutableFilesFullArtifactBuilder {
         Ok(vec![location?])
     }
 
-    async fn create_snapshot(
+    fn create_snapshot(
         &self,
         beacon: CardanoDbBeacon,
-        ongoing_snapshot: &FileArchive,
+        ongoing_immutables_snapshot: &FileArchive,
+        ongoing_ancillary_snapshot: &FileArchive,
         snapshot_digest: String,
-        remote_locations: Vec<String>,
+        immutables_remote_locations: Vec<String>,
+        ancillary_remote_locations: Vec<String>,
     ) -> StdResult<Snapshot> {
         debug!(self.logger, ">> create_snapshot");
 
@@ -102,12 +130,11 @@ impl CardanoImmutableFilesFullArtifactBuilder {
             digest: snapshot_digest,
             network: self.cardano_network.into(),
             beacon,
-            size: ongoing_snapshot.get_archive_size(),
-            ancillary_size: None,
-            locations: remote_locations,
-            // Todo: upload ancillary files separately
-            ancillary_locations: None,
-            compression_algorithm: ongoing_snapshot.get_compression_algorithm(),
+            size: ongoing_immutables_snapshot.get_archive_size(),
+            ancillary_size: Some(ongoing_ancillary_snapshot.get_archive_size()),
+            locations: immutables_remote_locations,
+            ancillary_locations: Some(ancillary_remote_locations),
+            compression_algorithm: ongoing_immutables_snapshot.get_compression_algorithm(),
             cardano_node_version: self.cardano_node_version.to_string(),
         };
 
@@ -144,27 +171,39 @@ impl ArtifactBuilder<CardanoDbBeacon, Snapshot> for CardanoImmutableFilesFullArt
 
         let base_file_name_without_extension =
             self.get_base_file_name_without_extension(&beacon, &snapshot_digest);
-        let ongoing_snapshot = self
-            .create_snapshot_archive(&base_file_name_without_extension)
+        let ongoing_immutables_snapshot = self
+            .create_immutables_snapshot_archive(&base_file_name_without_extension)
             .await
             .with_context(|| {
-                "Cardano Immutable Files Full Artifact Builder can not create snapshot archive"
+                "Cardano Immutable Files Full Artifact Builder can not create immutables snapshot archive"
             })?;
-        let locations = self
-            .upload_snapshot_archive(&ongoing_snapshot)
+        let ongoing_ancillary_snapshot = self
+            .create_ancillary_snapshot_archive(beacon.immutable_file_number, &base_file_name_without_extension)
             .await
             .with_context(|| {
-                format!("Cardano Immutable Files Full Artifact Builder can not upload snapshot archive to path: '{:?}'", ongoing_snapshot.get_file_path())
+                "Cardano Immutable Files Full Artifact Builder can not create ancillary snapshot archive"
+            })?;
+        let immutables_locations = self
+            .upload_snapshot_archive(&ongoing_immutables_snapshot)
+            .await
+            .with_context(|| {
+                format!("Cardano Immutable Files Full Artifact Builder can not upload immutables snapshot archive to path: '{:?}'", ongoing_immutables_snapshot.get_file_path())
+            })?;
+        let ancillary_locations = self
+            .upload_snapshot_archive(&ongoing_ancillary_snapshot)
+            .await
+            .with_context(|| {
+                format!("Cardano Immutable Files Full Artifact Builder can not upload ancillary snapshot archive to path: '{:?}'", ongoing_ancillary_snapshot.get_file_path())
             })?;
 
-        let snapshot = self
-            .create_snapshot(
-                beacon,
-                &ongoing_snapshot,
-                snapshot_digest,
-                locations.into_iter().map(Into::into).collect(),
-            )
-            .await?;
+        let snapshot = self.create_snapshot(
+            beacon,
+            &ongoing_immutables_snapshot,
+            &ongoing_ancillary_snapshot,
+            snapshot_digest,
+            immutables_locations.into_iter().map(Into::into).collect(),
+            ancillary_locations.into_iter().map(Into::into).collect(),
+        )?;
 
         Ok(snapshot)
     }
@@ -192,8 +231,12 @@ mod tests {
             .protocol_message
             .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
             .unwrap();
+        let individual_snapshot_archive_size = 7331;
 
-        let dumb_snapshotter = Arc::new(DumbSnapshotter::new(CompressionAlgorithm::Zstandard));
+        let dumb_snapshotter = Arc::new(
+            DumbSnapshotter::new(CompressionAlgorithm::Zstandard)
+                .with_archive_size(individual_snapshot_archive_size),
+        );
         let dumb_snapshot_uploader = Arc::new(DumbUploader::default());
 
         let cardano_immutable_files_full_artifact_builder =
@@ -208,28 +251,23 @@ mod tests {
             .compute_artifact(beacon.clone(), &certificate)
             .await
             .unwrap();
-        let last_ongoing_snapshot = dumb_snapshotter
-            .get_last_snapshot()
-            .unwrap()
-            .expect("A snapshot should have been 'created'");
 
-        let remote_locations = vec![dumb_snapshot_uploader
-            .get_last_upload()
-            .unwrap()
-            .map(Into::into)
-            .expect("A snapshot should have been 'uploaded'")];
+        let last_uploads = dumb_snapshot_uploader.get_last_n_uploads(2).unwrap();
+        let [ancillary_location, immutables_location, ..] = last_uploads.as_slice() else {
+            panic!("Two snapshots should have been 'uploaded'");
+        };
         let artifact_expected = Snapshot {
             digest: snapshot_digest.to_owned(),
             network: fake_data::network().into(),
             beacon,
-            size: last_ongoing_snapshot.get_archive_size(),
-            ancillary_size: None,
-            locations: remote_locations,
-            ancillary_locations: None, // todo
+            size: individual_snapshot_archive_size,
+            ancillary_size: Some(individual_snapshot_archive_size),
+            locations: vec![immutables_location.into()],
+            ancillary_locations: Some(vec![ancillary_location.into()]),
             compression_algorithm: CompressionAlgorithm::Zstandard,
             cardano_node_version: "1.0.0".to_string(),
         };
-        assert_eq!(artifact_expected, artifact);
+
         assert_eq!(artifact_expected, artifact);
     }
 

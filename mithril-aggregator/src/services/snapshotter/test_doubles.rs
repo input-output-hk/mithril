@@ -13,6 +13,7 @@ use crate::tools::file_archiver::FileArchive;
 pub struct DumbSnapshotter {
     last_snapshot: RwLock<Option<FileArchive>>,
     compression_algorithm: CompressionAlgorithm,
+    archive_size: u64,
 }
 
 impl DumbSnapshotter {
@@ -23,7 +24,14 @@ impl DumbSnapshotter {
         Self {
             last_snapshot: RwLock::new(None),
             compression_algorithm,
+            archive_size: 0,
         }
+    }
+
+    /// Set the size assigned to the produced snapshots.
+    pub fn with_archive_size(mut self, size: u64) -> Self {
+        self.archive_size = size;
+        self
     }
 
     /// Return the last fake snapshot produced.
@@ -39,6 +47,7 @@ impl Default for DumbSnapshotter {
         Self {
             last_snapshot: RwLock::new(None),
             compression_algorithm: CompressionAlgorithm::Gzip,
+            archive_size: 0,
         }
     }
 }
@@ -54,7 +63,7 @@ impl Snapshotter for DumbSnapshotter {
                 "{archive_name_without_extension}.{}",
                 self.compression_algorithm.tar_file_extension()
             )),
-            0,
+            self.archive_size,
             0,
             self.compression_algorithm,
         );
@@ -246,6 +255,23 @@ mod tests {
                     )
                 );
             }
+        }
+
+        #[test]
+        fn set_dumb_snapshotter_archive_size() {
+            let snapshotter = DumbSnapshotter::new(CompressionAlgorithm::Gzip);
+
+            // Default size is 0
+            let snapshot = snapshotter
+                .snapshot_all_completed_immutables("whatever")
+                .unwrap();
+            assert_eq!(0, snapshot.get_archive_size());
+
+            let snapshotter = snapshotter.with_archive_size(42);
+            let snapshot = snapshotter
+                .snapshot_all_completed_immutables("whatever")
+                .unwrap();
+            assert_eq!(42, snapshot.get_archive_size());
         }
     }
 
