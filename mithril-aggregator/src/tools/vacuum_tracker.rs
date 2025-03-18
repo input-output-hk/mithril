@@ -9,7 +9,7 @@ use slog::{debug, info, Logger};
 
 use mithril_common::StdResult;
 
-const LAST_VACUUM_FILENAME: &str = "last_vacuum_time";
+const LAST_VACUUM_TIME_FILENAME: &str = "last_vacuum_time";
 
 type LastVacuumTime = DateTime<Utc>;
 
@@ -24,7 +24,7 @@ pub struct VacuumTracker {
 impl VacuumTracker {
     /// Create a new [VacuumTracker] for the given store directory
     pub fn new(store_dir: &Path, interval: TimeDelta, logger: Logger) -> Self {
-        let last_vacuum_file = store_dir.join(LAST_VACUUM_FILENAME);
+        let last_vacuum_file = store_dir.join(LAST_VACUUM_TIME_FILENAME);
 
         Self {
             tracker_file: last_vacuum_file,

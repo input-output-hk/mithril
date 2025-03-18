@@ -16,6 +16,8 @@ use mithril_metric::MetricsServer;
 
 use crate::{dependency_injection::DependenciesBuilder, tools::VacuumTracker, Configuration};
 
+const VACUUM_MINIMUM_INTERVAL: TimeDelta = TimeDelta::weeks(1);
+
 /// Server runtime mode
 #[derive(Parser, Debug, Clone)]
 pub struct ServeCommand {
@@ -180,7 +182,7 @@ impl ServeCommand {
         self.perform_database_vacuum_if_needed(
             &config.data_stores_directory,
             &mut dependencies_builder,
-            TimeDelta::weeks(1),
+            VACUUM_MINIMUM_INTERVAL,
             &root_logger,
         )
         .await?;
