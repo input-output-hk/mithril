@@ -3767,6 +3767,7 @@ dependencies = [
  "futures",
  "human_bytes",
  "indicatif",
+ "mithril-cli-helper",
  "mithril-client",
  "mithril-common",
  "mithril-doc",
