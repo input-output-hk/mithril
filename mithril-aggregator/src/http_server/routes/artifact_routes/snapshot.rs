@@ -51,7 +51,7 @@ fn snapshot_download(
 fn serve_snapshots_dir(
     router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    warp::path("snapshot_download")
+    warp::path(crate::http_server::SNAPSHOT_DOWNLOAD_PATH)
         .and(warp::fs::dir(
             router_state.configuration.snapshot_directory.clone(),
         ))
