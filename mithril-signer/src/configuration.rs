@@ -12,7 +12,7 @@ use mithril_common::{
         adapters::{EraReaderAdapterBuilder, EraReaderAdapterType},
         EraReaderAdapter,
     },
-    CardanoNetwork, StdResult,
+    register, register_parameter, CardanoNetwork, StdResult,
 };
 
 /// Client configuration
@@ -262,33 +262,102 @@ impl Source for DefaultConfiguration {
     }
 
     fn collect(&self) -> Result<Map<String, Value>, ConfigError> {
-        macro_rules! insert_default_configuration {
-            ( $map:ident, $config:ident.$parameter:ident ) => {{
-                $map.insert(
-                    stringify!($parameter).to_string(),
-                    into_value($config.$parameter),
-                );
-            }};
-        }
-
-        fn into_value<V: Into<ValueKind>>(value: V) -> Value {
-            Value::new(Some(&DefaultConfiguration::namespace()), value.into())
-        }
         let mut result = Map::new();
+        let namespace = DefaultConfiguration::namespace();
         let myself = self.clone();
 
-        insert_default_configuration!(result, myself.era_reader_adapter_type);
-        insert_default_configuration!(result, myself.metrics_server_ip);
-        insert_default_configuration!(result, myself.metrics_server_port);
-        insert_default_configuration!(result, myself.network_security_parameter);
-        insert_default_configuration!(result, myself.preload_security_parameter);
-        insert_default_configuration!(result, myself.enable_transaction_pruning);
-        insert_default_configuration!(result, myself.transactions_import_block_chunk_size);
-        insert_default_configuration!(
+        register_parameter!(result, &namespace, myself.era_reader_adapter_type);
+        register_parameter!(result, &namespace, myself.metrics_server_ip);
+        register_parameter!(result, &namespace, myself.metrics_server_port);
+        register_parameter!(result, &namespace, myself.network_security_parameter);
+        register_parameter!(result, &namespace, myself.preload_security_parameter);
+        register_parameter!(result, &namespace, myself.enable_transaction_pruning);
+        register_parameter!(
             result,
+            &namespace,
+            myself.transactions_import_block_chunk_size
+        );
+        register_parameter!(
+            result,
+            &namespace,
             myself.cardano_transactions_block_streamer_max_roll_forwards_per_poll
         );
 
         Ok(result)
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+
+    // TODO : just here to check there is no regression with the old configuration.
+    // We may remove it and probably all tests in this file when macros are finished
+    impl DefaultConfiguration {
+        fn collect_legacy(&self) -> Result<Map<String, Value>, ConfigError> {
+            macro_rules! insert_default_configuration {
+                ( $map:ident, $config:ident.$parameter:ident ) => {{
+                    $map.insert(
+                        stringify!($parameter).to_string(),
+                        into_value($config.$parameter),
+                    );
+                }};
+            }
+
+            fn into_value<V: Into<ValueKind>>(value: V) -> Value {
+                Value::new(Some(&DefaultConfiguration::namespace()), value.into())
+            }
+            let mut result = Map::new();
+            let myself = self.clone();
+
+            insert_default_configuration!(result, myself.era_reader_adapter_type);
+            insert_default_configuration!(result, myself.metrics_server_ip);
+            insert_default_configuration!(result, myself.metrics_server_port);
+            insert_default_configuration!(result, myself.network_security_parameter);
+            insert_default_configuration!(result, myself.preload_security_parameter);
+            insert_default_configuration!(result, myself.enable_transaction_pruning);
+            insert_default_configuration!(result, myself.transactions_import_block_chunk_size);
+            insert_default_configuration!(
+                result,
+                myself.cardano_transactions_block_streamer_max_roll_forwards_per_poll
+            );
+
+            Ok(result)
+        }
+    }
+
+    #[test]
+    fn test_default_configuration_collect() {
+        let default_configuration = DefaultConfiguration {
+            era_reader_adapter_type: "bootstrap".to_string(),
+            metrics_server_ip: "0.0.0.0".to_string(),
+            metrics_server_port: 9090,
+            network_security_parameter: 2160,
+            preload_security_parameter: 1000,
+            enable_transaction_pruning: true,
+            transactions_import_block_chunk_size: 1500,
+            cardano_transactions_block_streamer_max_roll_forwards_per_poll: 10000,
+        };
+        let result = default_configuration.collect().unwrap().clone();
+
+        assert_eq!(default_configuration.collect_legacy().unwrap(), result);
+    }
+
+    #[test]
+    fn test_default_configuration_collect_with_empty_values() {
+        let default_configuration = DefaultConfiguration {
+            era_reader_adapter_type: "bootstrap".to_string(),
+            metrics_server_ip: "0.0.0.0".to_string(),
+            metrics_server_port: 9090,
+            network_security_parameter: 2160,
+            preload_security_parameter: 1000,
+            enable_transaction_pruning: false,
+            transactions_import_block_chunk_size: 1500,
+            cardano_transactions_block_streamer_max_roll_forwards_per_poll: 10000,
+        };
+        let result = default_configuration.collect().unwrap().clone();
+
+        assert_eq!(default_configuration.collect_legacy().unwrap(), result);
     }
 }
