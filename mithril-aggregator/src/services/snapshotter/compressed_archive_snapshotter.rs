@@ -12,7 +12,7 @@ use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
 use crate::dependency_injection::DependenciesBuilderError;
-use crate::tools::file_archiver::appender::{AppenderDirAll, AppenderEntries, TarAppender};
+use crate::tools::file_archiver::appender::{AppenderEntries, TarAppender};
 use crate::tools::file_archiver::{ArchiveParameters, FileArchive, FileArchiver};
 
 use super::Snapshotter;
@@ -34,12 +34,6 @@ pub struct CompressedArchiveSnapshotter {
 }
 
 impl Snapshotter for CompressedArchiveSnapshotter {
-    fn snapshot_all(&self, archive_name_without_extension: &str) -> StdResult<FileArchive> {
-        let appender = AppenderDirAll::new(self.db_directory.clone());
-
-        self.snapshot(archive_name_without_extension, appender)
-    }
-
     fn snapshot_all_completed_immutables(
         &self,
         archive_name_without_extension: &str,
@@ -280,23 +274,25 @@ mod tests {
 
     #[test]
     fn should_create_snapshots_in_its_ongoing_snapshot_directory() {
-        let test_dir =
-            get_test_directory("should_create_snapshots_in_its_ongoing_snapshot_directory");
+        let test_dir = temp_dir_create!();
         let pending_snapshot_directory = test_dir.join("pending_snapshot");
-        let db_directory = test_dir.join("db");
-
-        fs::create_dir(&db_directory).unwrap();
-        File::create(db_directory.join("file_to_archive.txt")).unwrap();
+        let cardano_db =
+            DummyCardanoDbBuilder::new("should_create_snapshots_in_its_ongoing_snapshot_directory")
+                .with_immutables(&[1])
+                .append_immutable_trio()
+                .build();
 
         let snapshotter = CompressedArchiveSnapshotter::new(
-            db_directory,
+            cardano_db.get_dir().clone(),
             pending_snapshot_directory.clone(),
             CompressionAlgorithm::Gzip,
             Arc::new(FileArchiver::new_for_test(test_dir.join("verification"))),
             TestLogger::stdout(),
         )
         .unwrap();
-        let snapshot = snapshotter.snapshot_all("whatever").unwrap();
+        let snapshot = snapshotter
+            .snapshot_all_completed_immutables("whatever")
+            .unwrap();
 
         assert_eq!(
             pending_snapshot_directory,

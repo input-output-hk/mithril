@@ -65,7 +65,7 @@ impl CardanoImmutableFilesFullArtifactBuilder {
         );
         // spawn a separate thread to prevent blocking
         let ongoing_snapshot = tokio::task::spawn_blocking(move || -> StdResult<FileArchive> {
-            snapshotter.snapshot_all(&snapshot_name)
+            snapshotter.snapshot_all_completed_immutables(&snapshot_name)
         })
         .await??;
 
