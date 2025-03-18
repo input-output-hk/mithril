@@ -547,6 +547,7 @@ pub mod tests {
     use mithril_signed_entity_lock::SignedEntityTypeLock;
     use mockall::predicate::eq;
     use mockall::{mock, Sequence};
+    use std::path::PathBuf;
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
@@ -585,8 +586,11 @@ pub mod tests {
         AggregatorRunner::new(Arc::new(deps))
     }
 
-    async fn build_runner(mock_certifier_service: MockCertifierService) -> AggregatorRunner {
-        let mut deps = initialize_dependencies!().await;
+    async fn build_runner(
+        temp_dir: PathBuf,
+        mock_certifier_service: MockCertifierService,
+    ) -> AggregatorRunner {
+        let mut deps = initialize_dependencies(temp_dir).await;
         deps.certifier_service = Arc::new(mock_certifier_service);
 
         let mut mock_signable_builder_service = MockSignableBuilderServiceImpl::new();
@@ -944,7 +948,7 @@ pub mod tests {
                 .expect_create_open_message()
                 .return_once(|_, _| Ok(open_message_created))
                 .times(1);
-            build_runner(mock_certifier_service).await
+            build_runner(temp_dir!(), mock_certifier_service).await
         };
 
         let open_message_returned = runner
@@ -969,7 +973,7 @@ pub mod tests {
             );
 
             mock_certifier_service.expect_create_open_message().never();
-            build_runner(mock_certifier_service).await
+            build_runner(temp_dir!(), mock_certifier_service).await
         };
 
         let open_message_returned = runner
@@ -996,7 +1000,7 @@ pub mod tests {
             );
 
             mock_certifier_service.expect_create_open_message().never();
-            build_runner(mock_certifier_service).await
+            build_runner(temp_dir!(), mock_certifier_service).await
         };
 
         let open_message_returned = runner
@@ -1026,7 +1030,7 @@ pub mod tests {
                 .expect_create_open_message()
                 .return_once(|_, _| Ok(open_message_created))
                 .times(1);
-            build_runner(mock_certifier_service).await
+            build_runner(temp_dir!(), mock_certifier_service).await
         };
 
         let open_message_returned = runner
@@ -1051,7 +1055,7 @@ pub mod tests {
             );
 
             mock_certifier_service.expect_create_open_message().never();
-            build_runner(mock_certifier_service).await
+            build_runner(temp_dir!(), mock_certifier_service).await
         };
 
         let open_message_returned = runner
@@ -1078,7 +1082,7 @@ pub mod tests {
             );
 
             mock_certifier_service.expect_create_open_message().never();
-            build_runner(mock_certifier_service).await
+            build_runner(temp_dir!(), mock_certifier_service).await
         };
 
         let open_message_returned = runner
@@ -1122,7 +1126,7 @@ pub mod tests {
             .expect_mark_open_message_if_expired()
             .returning(|_| Ok(None));
 
-        let runner = build_runner(mock_certifier_service).await;
+        let runner = build_runner(temp_dir!(), mock_certifier_service).await;
 
         runner
             .get_current_non_certified_open_message(&TimePoint::dummy())
@@ -1203,28 +1207,32 @@ pub mod tests {
     #[tokio::test]
     async fn is_open_message_outdated_return_false_when_message_is_not_expired_and_no_newer_open_message(
     ) {
-        assert!(!is_outdated_returned_when(IsExpired::No, false).await);
+        assert!(!is_outdated_returned_when(temp_dir!(), IsExpired::No, false).await);
     }
 
     #[tokio::test]
     async fn is_open_message_outdated_return_true_when_message_is_expired_and_no_newer_open_message(
     ) {
-        assert!(is_outdated_returned_when(IsExpired::Yes, false).await);
+        assert!(is_outdated_returned_when(temp_dir!(), IsExpired::Yes, false).await);
     }
 
     #[tokio::test]
     async fn is_open_message_outdated_return_true_when_message_is_not_expired_and_exists_newer_open_message(
     ) {
-        assert!(is_outdated_returned_when(IsExpired::No, true).await);
+        assert!(is_outdated_returned_when(temp_dir!(), IsExpired::No, true).await);
     }
 
     #[tokio::test]
     async fn is_open_message_outdated_return_true_when_message_is_expired_and_exists_newer_open_message(
     ) {
-        assert!(is_outdated_returned_when(IsExpired::Yes, true).await);
+        assert!(is_outdated_returned_when(temp_dir!(), IsExpired::Yes, true).await);
     }
 
-    async fn is_outdated_returned_when(is_expired: IsExpired, newer_open_message: bool) -> bool {
+    async fn is_outdated_returned_when(
+        tmp_path: PathBuf,
+        is_expired: IsExpired,
+        newer_open_message: bool,
+    ) -> bool {
         let current_time_point = TimePoint {
             epoch: Epoch(2),
             ..TimePoint::dummy()
@@ -1242,7 +1250,7 @@ pub mod tests {
         };
 
         let runner = {
-            let mut deps = initialize_dependencies!().await;
+            let mut deps = initialize_dependencies(tmp_path).await;
             let mut mock_certifier_service = MockCertifierService::new();
 
             let open_message_current = open_message_to_verify.clone();
