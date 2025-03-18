@@ -5,3 +5,4 @@ mod signer;
 pub use aggregator::AggregatorRelay;
 pub use passive::PassiveRelay;
 pub use signer::SignerRelay;
+pub use signer::SignerRelayMode;
