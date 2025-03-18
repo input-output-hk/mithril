@@ -42,6 +42,9 @@ macro_rules! register_parameter {
     ( $map:ident, $namespace:expr, $self:ident.$command:ident ) => {{
         register!($map, $namespace, $command, $self.$command);
     }};
+    ( $map:ident, $namespace:expr, $self:ident.$command:ident, $mapping:expr ) => {{
+        register!($map, $namespace, $command, $mapping($self.$command));
+    }};
 }
 
 #[cfg(test)]
@@ -70,21 +73,38 @@ mod tests {
         assert_eq!(expected, map);
     }
 
+    // #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+
+    #[derive(Debug, Clone)]
+    pub enum EnumValue {
+        Test,
+    }
+    impl From<EnumValue> for ValueKind {
+        fn from(value: EnumValue) -> Self {
+            match value {
+                EnumValue::Test => ValueKind::String("Test".to_string()),
+            }
+        }
+    }
+
     #[test]
     fn test_register_parameter_macro_add_value() {
         struct Fake {
             string_value: String,
             u64_value: u64,
+            enum_value: EnumValue,
         }
 
         let fake = Fake {
             string_value: "a string value".to_string(),
             u64_value: 124,
+            enum_value: EnumValue::Test,
         };
 
         let mut map = HashMap::new();
         register_parameter!(map, &"namespace".to_string(), fake.string_value);
         register_parameter!(map, &"namespace".to_string(), fake.u64_value);
+        register_parameter!(map, &"namespace".to_string(), fake.enum_value);
 
         let expected = HashMap::from([
             (
@@ -98,7 +118,40 @@ mod tests {
                 "u64_value".to_string(),
                 Value::new(Some(&"namespace".to_string()), ValueKind::from(124 as u64)),
             ),
+            (
+                "enum_value".to_string(),
+                Value::new(Some(&"namespace".to_string()), ValueKind::from("Test")),
+            ),
         ]);
+
+        assert_eq!(expected, map);
+    }
+
+    #[test]
+    fn test_register_parameter_macro_with_mapping_transform_value_before_adding_it() {
+        struct Fake {
+            string_value: String,
+        }
+
+        let fake = Fake {
+            string_value: "a string value".to_string(),
+        };
+
+        let mut map = HashMap::new();
+        register_parameter!(
+            map,
+            &"namespace".to_string(),
+            fake.string_value,
+            |v: String| { format!("mapped_value from {}", v) }
+        );
+
+        let expected = HashMap::from([(
+            "string_value".to_string(),
+            Value::new(
+                Some(&"namespace".to_string()),
+                ValueKind::from("mapped_value from a string value"),
+            ),
+        )]);
 
         assert_eq!(expected, map);
     }
@@ -214,17 +267,29 @@ mod tests {
     fn test_collect_source_values() {
         #[derive(Debug, Clone)]
         struct Fake {
-            server_ip: Option<String>,
+            option_value: Option<String>,
+            string_value: String,
+            u64_value: u64,
+            enum_value: EnumValue,
         }
 
         let fake = Fake {
-            server_ip: Some("value_server_ip".to_string()),
+            option_value: Some("option value".to_string()),
+            string_value: "a string value".to_string(),
+            u64_value: 124,
+            enum_value: EnumValue::Test,
         };
 
         impl Source for Fake {
             fn collect(&self) -> Result<Map<String, Value>, ConfigError> {
                 let mut map = Map::new();
-                register_parameter_opt!(map, &"namespace".to_string(), self.server_ip);
+
+                let myself = self.clone();
+                register_parameter_opt!(map, &"namespace".to_string(), myself.option_value);
+                register_parameter!(map, &"namespace".to_string(), myself.string_value);
+                register_parameter!(map, &"namespace".to_string(), myself.u64_value);
+                register_parameter!(map, &"namespace".to_string(), myself.enum_value);
+
                 Ok(map)
             }
 
@@ -235,13 +300,30 @@ mod tests {
 
         let result = fake.collect().unwrap().clone();
 
-        let expected = HashMap::from([(
-            "server_ip".to_string(),
-            Value::new(
-                Some(&"namespace".to_string()),
-                ValueKind::from("value_server_ip"),
+        let expected = HashMap::from([
+            (
+                "option_value".to_string(),
+                Value::new(
+                    Some(&"namespace".to_string()),
+                    ValueKind::from("option value"),
+                ),
             ),
-        )]);
+            (
+                "string_value".to_string(),
+                Value::new(
+                    Some(&"namespace".to_string()),
+                    ValueKind::from("a string value"),
+                ),
+            ),
+            (
+                "u64_value".to_string(),
+                Value::new(Some(&"namespace".to_string()), ValueKind::from(124 as u64)),
+            ),
+            (
+                "enum_value".to_string(),
+                Value::new(Some(&"namespace".to_string()), ValueKind::from("Test")),
+            ),
+        ]);
 
         assert_eq!(expected, result);
     }
