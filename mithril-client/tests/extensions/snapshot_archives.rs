@@ -5,18 +5,26 @@ use mithril_common::digesters::{ComputedImmutablesDigests, DummyCardanoDb};
 use mithril_common::entities::CompressionAlgorithm;
 use mithril_common::messages::CardanoDatabaseDigestListItemMessage;
 
-/// Compress the given db into a zstd archive in the given target directory.
-///
-/// return the path to the compressed archive.
-pub fn build_fake_immutable_files_full_snapshot(
+pub fn build_cardano_db_v1_snapshot_archives(
+    cardano_db: &DummyCardanoDb,
+    target_dir: &Path,
+) -> PathBuf {
+    let target_dir = target_dir.join("archives");
+    std::fs::create_dir_all(&target_dir).unwrap();
+
+    build_all_completed_immutables_snapshot(cardano_db, &target_dir);
+    build_ancillary_files_archive(cardano_db, &target_dir);
+    target_dir
+}
+
+pub fn build_all_completed_immutables_snapshot(
     cardano_db: &DummyCardanoDb,
     target_dir: &Path,
 ) -> PathBuf {
     use std::fs::File;
 
     let snapshot_name = format!(
-        "db-i{}.{}",
-        cardano_db.get_immutable_files().len(),
+        "completed_immutables.{}",
         CompressionAlgorithm::Zstandard.tar_file_extension()
     );
     let target_file = target_dir.join(snapshot_name);
