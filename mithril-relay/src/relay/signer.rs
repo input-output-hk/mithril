@@ -19,7 +19,7 @@ use warp::Filter;
 /// Signer relay mode
 ///
 /// The relay mode defines how the relay will behave when it receives a message
-#[derive(Debug, Clone, Display, ValueEnum)]
+#[derive(Debug, Clone, Display, PartialEq, Eq, ValueEnum)]
 #[strum(serialize_all = "mixed_case")]
 pub enum SignerRelayMode {
     /// Passthrough relay mode

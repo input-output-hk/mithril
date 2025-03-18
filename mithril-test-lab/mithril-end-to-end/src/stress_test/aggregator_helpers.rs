@@ -19,7 +19,8 @@ pub async fn bootstrap_aggregator(
     let chain_observer_type = "cardano-cli";
 
     let mut aggregator = Aggregator::new(&AggregatorConfig {
-        index: 0,
+        is_master: false,
+        name: "genesis",
         server_port: args.server_port as u64,
         pool_node: &args.pool_node,
         cardano_cli_path: &args.cardano_cli_path,
