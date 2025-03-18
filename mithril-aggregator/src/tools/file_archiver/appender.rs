@@ -19,6 +19,8 @@ pub struct AppenderDirAll {
 }
 
 impl AppenderDirAll {
+    // Note: Not used anymore outside of tests but useful tool to keep around if we ever need to archive a directory
+    #[cfg(test)]
     pub fn new(target_directory: PathBuf) -> Self {
         Self { target_directory }
     }
