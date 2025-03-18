@@ -6,7 +6,7 @@ use tokio::process::Child;
 
 #[derive(Debug)]
 pub struct RelayAggregator {
-    index: usize,
+    name_suffix: String,
     listen_port: u64,
     command: MithrilCommand,
     process: Option<Child>,
@@ -14,7 +14,7 @@ pub struct RelayAggregator {
 
 impl RelayAggregator {
     pub fn new(
-        index: usize,
+        name: String,
         listen_port: u64,
         dial_to: Option<String>,
         aggregator_endpoint: &str,
@@ -32,13 +32,10 @@ impl RelayAggregator {
         let args = vec!["-vvv", "aggregator"];
 
         let mut command = MithrilCommand::new("mithril-relay", work_dir, bin_dir, env, &args)?;
-        command.set_log_name(&format!(
-            "mithril-relay-aggregator-{}",
-            Self::name_suffix(index),
-        ));
+        command.set_log_name(&format!("mithril-relay-aggregator-{}", name,));
 
         Ok(Self {
-            index,
+            name_suffix: name,
             listen_port,
             command,
             process: None,
@@ -49,12 +46,8 @@ impl RelayAggregator {
         format!("/ip4/127.0.0.1/tcp/{}", self.listen_port)
     }
 
-    pub fn name_suffix(index: usize) -> String {
-        if index == 0 {
-            "master".to_string()
-        } else {
-            format!("slave-{}", index)
-        }
+    pub fn name_suffix(&self) -> String {
+        self.name_suffix.clone()
     }
 
     pub fn start(&mut self) -> StdResult<()> {
@@ -65,10 +58,7 @@ impl RelayAggregator {
     pub async fn tail_logs(&self, number_of_line: u64) -> StdResult<()> {
         self.command
             .tail_logs(
-                Some(&format!(
-                    "mithril-relay-aggregator-{}",
-                    Self::name_suffix(self.index),
-                )),
+                Some(&format!("mithril-relay-aggregator-{}", self.name_suffix())),
                 number_of_line,
             )
             .await

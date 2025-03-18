@@ -37,6 +37,63 @@ pub struct MithrilInfrastructureConfig {
     pub use_era_specific_work_dir: bool,
 }
 
+impl MithrilInfrastructureConfig {
+    pub fn is_master_aggregator(&self, index: usize) -> bool {
+        assert!(
+            index < self.number_of_aggregators as usize,
+            "Aggregator index out of bounds"
+        );
+
+        if self.relay_signer_registration_mode == SignerRelayMode::Passthrough {
+            self.number_of_aggregators > 1 && index == 0
+        } else {
+            false
+        }
+    }
+
+    pub fn aggregator_name_suffix(&self, index: usize) -> String {
+        assert!(
+            index < self.number_of_aggregators as usize,
+            "Aggregator index out of bounds"
+        );
+
+        if self.is_master_aggregator(0) {
+            if self.is_master_aggregator(index) {
+                "master".to_string()
+            } else {
+                format!("slave-{index}")
+            }
+        } else {
+            format!("{}", index + 1)
+        }
+    }
+
+    #[cfg(test)]
+    pub fn dummy() -> Self {
+        Self {
+            number_of_aggregators: 1,
+            number_of_signers: 1,
+            server_port: 8080,
+            devnet: Devnet::default(),
+            work_dir: PathBuf::from("/tmp/work"),
+            store_dir: PathBuf::from("/tmp/store"),
+            artifacts_dir: PathBuf::from("/tmp/artifacts"),
+            bin_dir: PathBuf::from("/tmp/bin"),
+            cardano_node_version: "1.0.0".to_string(),
+            mithril_run_interval: 10,
+            mithril_era: "era1".to_string(),
+            mithril_era_reader_adapter: "adapter1".to_string(),
+            signed_entity_types: vec!["type1".to_string()],
+            run_only_mode: false,
+            use_relays: false,
+            relay_signer_registration_mode: SignerRelayMode::Passthrough,
+            relay_signature_registration_mode: SignerRelayMode::Passthrough,
+            use_p2p_passive_relays: false,
+            use_era_specific_work_dir: false,
+        }
+    }
+}
+
 pub struct MithrilInfrastructure {
     artifacts_dir: PathBuf,
     bin_dir: PathBuf,
@@ -172,21 +229,16 @@ impl MithrilInfrastructure {
         let mut aggregators = vec![];
         let mut master_aggregator_endpoint: Option<String> = None;
         for (index, pool_node) in pool_nodes.iter().enumerate() {
-            let aggregator_artifacts_dir = if index == 0 {
-                config.artifacts_dir.join("mithril-aggregator")
-            } else {
-                config
-                    .artifacts_dir
-                    .join(format!("mithril-aggregator-slave-{index}"))
-            };
-            let aggregator_store_dir = if index == 0 {
-                config.store_dir.join("aggregator")
-            } else {
-                config.store_dir.join(format!("aggregator-slave-{index}"))
-            };
-
+            let aggregator_name = config.aggregator_name_suffix(index);
+            let aggregator_artifacts_dir = config
+                .artifacts_dir
+                .join(format!("mithril-aggregator-{aggregator_name}"));
+            let aggregator_store_dir = config
+                .store_dir
+                .join(format!("aggregator-{aggregator_name}"));
             let aggregator = Aggregator::new(&AggregatorConfig {
-                index,
+                is_master: config.is_master_aggregator(index),
+                name: &aggregator_name,
                 server_port: config.server_port + index as u64,
                 pool_node,
                 cardano_cli_path: &config.devnet.cardano_cli_path(),
@@ -246,7 +298,7 @@ impl MithrilInfrastructure {
         let mut bootstrap_peer_addr = None;
         for (index, aggregator_endpoint) in aggregator_endpoints.iter().enumerate() {
             let mut relay_aggregator = RelayAggregator::new(
-                index,
+                config.aggregator_name_suffix(index),
                 config.server_port + index as u64 + 100,
                 bootstrap_peer_addr.clone(),
                 aggregator_endpoint,
@@ -424,10 +476,9 @@ impl MithrilInfrastructure {
 
     pub async fn build_client(&self, aggregator: &Aggregator) -> StdResult<Client> {
         let work_dir = {
-            let mut artifacts_dir = self.artifacts_dir.join(format!(
-                "mithril-client-aggregator-{}",
-                Aggregator::name_suffix(aggregator.index())
-            ));
+            let mut artifacts_dir = self
+                .artifacts_dir
+                .join(format!("mithril-client-aggregator-{}", aggregator.name()));
             if self.use_era_specific_work_dir {
                 let current_era = self.current_era.read().await;
                 artifacts_dir = artifacts_dir.join(format!("era.{}", current_era));
@@ -477,5 +528,95 @@ impl MithrilInfrastructure {
             .await?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::MithrilInfrastructureConfig;
+
+    use super::*;
+
+    #[test]
+    fn is_master_aggregator_succeeds() {
+        let config = MithrilInfrastructureConfig {
+            use_relays: true,
+            relay_signer_registration_mode: SignerRelayMode::Passthrough,
+            number_of_aggregators: 2,
+            ..MithrilInfrastructureConfig::dummy()
+        };
+
+        assert!(config.is_master_aggregator(0));
+        assert!(!config.is_master_aggregator(1));
+
+        let config = MithrilInfrastructureConfig {
+            use_relays: true,
+            relay_signer_registration_mode: SignerRelayMode::P2P,
+            number_of_aggregators: 2,
+            ..MithrilInfrastructureConfig::dummy()
+        };
+
+        assert!(!config.is_master_aggregator(0));
+        assert!(!config.is_master_aggregator(1));
+
+        let config = MithrilInfrastructureConfig {
+            use_relays: false,
+            number_of_aggregators: 1,
+            ..MithrilInfrastructureConfig::dummy()
+        };
+
+        assert!(!config.is_master_aggregator(0));
+    }
+
+    #[test]
+    #[should_panic]
+    fn is_master_aggregator_fails() {
+        let config = MithrilInfrastructureConfig {
+            number_of_aggregators: 1,
+            ..MithrilInfrastructureConfig::dummy()
+        };
+
+        config.is_master_aggregator(2);
+    }
+
+    #[test]
+    fn aggregator_name_suffix_succeeds() {
+        let config = MithrilInfrastructureConfig {
+            relay_signer_registration_mode: SignerRelayMode::Passthrough,
+            number_of_aggregators: 3,
+            ..MithrilInfrastructureConfig::dummy()
+        };
+
+        assert_eq!(config.aggregator_name_suffix(0), "master");
+        assert_eq!(config.aggregator_name_suffix(1), "slave-1");
+        assert_eq!(config.aggregator_name_suffix(2), "slave-2");
+
+        let config = MithrilInfrastructureConfig {
+            number_of_aggregators: 3,
+            relay_signer_registration_mode: SignerRelayMode::P2P,
+            ..MithrilInfrastructureConfig::dummy()
+        };
+
+        assert_eq!(config.aggregator_name_suffix(0), "1");
+        assert_eq!(config.aggregator_name_suffix(1), "2");
+        assert_eq!(config.aggregator_name_suffix(2), "3");
+
+        let config = MithrilInfrastructureConfig {
+            number_of_aggregators: 1,
+            ..MithrilInfrastructureConfig::dummy()
+        };
+
+        assert_eq!(config.aggregator_name_suffix(0), "1");
+    }
+
+    #[test]
+    #[should_panic]
+    fn aggregator_name_suffix_fails() {
+        let config = MithrilInfrastructureConfig {
+            number_of_aggregators: 1,
+            ..MithrilInfrastructureConfig::dummy()
+        };
+
+        config.aggregator_name_suffix(2);
     }
 }

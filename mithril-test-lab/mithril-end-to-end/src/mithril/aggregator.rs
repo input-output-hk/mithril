@@ -17,7 +17,8 @@ use tokio::sync::RwLock;
 
 #[derive(Debug)]
 pub struct AggregatorConfig<'a> {
-    pub index: usize,
+    pub is_master: bool,
+    pub name: &'a str,
     pub server_port: u64,
     pub pool_node: &'a PoolNode,
     pub cardano_cli_path: &'a Path,
@@ -37,7 +38,8 @@ pub struct AggregatorConfig<'a> {
 
 #[derive(Debug)]
 pub struct Aggregator {
-    index: usize,
+    is_master: bool,
+    name_suffix: String,
     server_port: u64,
     db_directory: PathBuf,
     command: Arc<RwLock<MithrilCommand>>,
@@ -121,20 +123,17 @@ impl Aggregator {
             "-vvv",
         ];
 
-        let mut command = MithrilCommand::new(
+        let command = MithrilCommand::new(
             "mithril-aggregator",
             aggregator_config.work_dir,
             aggregator_config.bin_dir,
             env,
             &args,
         )?;
-        command.set_log_name(&format!(
-            "mithril-aggregator-{}",
-            Self::name_suffix(aggregator_config.index),
-        ));
 
         Ok(Self {
-            index: aggregator_config.index,
+            is_master: aggregator_config.is_master,
+            name_suffix: aggregator_config.name.to_string(),
             server_port: aggregator_config.server_port,
             db_directory: aggregator_config.pool_node.db_path.clone(),
             command: Arc::new(RwLock::new(command)),
@@ -144,7 +143,8 @@ impl Aggregator {
 
     pub fn copy_configuration(other: &Aggregator) -> Self {
         Self {
-            index: other.index,
+            is_master: other.is_master,
+            name_suffix: other.name_suffix.clone(),
             server_port: other.server_port,
             db_directory: other.db_directory.clone(),
             command: other.command.clone(),
@@ -152,24 +152,12 @@ impl Aggregator {
         }
     }
 
-    pub fn index(&self) -> usize {
-        self.index
-    }
-
     pub fn is_master(&self) -> bool {
-        self.index == 0
+        self.is_master
     }
 
     pub fn name(&self) -> String {
-        format!("mithril-aggregator-{}", Self::name_suffix(self.index))
-    }
-
-    pub fn name_suffix(index: usize) -> String {
-        if index == 0 {
-            "master".to_string()
-        } else {
-            format!("slave-{}", index)
-        }
+        format!("mithril-aggregator-{}", self.name_suffix)
     }
 
     pub fn endpoint(&self) -> String {
@@ -182,6 +170,7 @@ impl Aggregator {
 
     pub async fn serve(&self) -> StdResult<()> {
         let mut command = self.command.write().await;
+        command.set_log_name(&format!("mithril-aggregator-{}", self.name_suffix));
         let mut process = self.process.write().await;
         *process = Some(command.start(&["serve".to_string()])?);
         Ok(())
@@ -190,10 +179,7 @@ impl Aggregator {
     pub async fn bootstrap_genesis(&self) -> StdResult<()> {
         // Clone the command so we can alter it without affecting the original
         let mut command = self.command.write().await;
-        let command_name = &format!(
-            "mithril-aggregator-genesis-bootstrap-{}",
-            Self::name_suffix(self.index),
-        );
+        let command_name = &format!("mithril-aggregator-genesis-bootstrap-{}", self.name_suffix,);
         command.set_log_name(command_name);
 
         let exit_status = command
