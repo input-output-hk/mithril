@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Context};
 use clap::{CommandFactory, Parser, Subcommand};
+use mithril_relay::SignerRelayMode;
 use slog::{Drain, Level, Logger};
 use slog_scope::{error, info};
 use std::{
@@ -107,11 +108,19 @@ pub struct Args {
     #[clap(long)]
     run_only: bool,
 
-    /// Enable P2P network mode
+    /// Use Mithril relays
     #[clap(long)]
-    use_p2p_network: bool,
+    use_relays: bool,
 
-    /// Enable P2P passive relays in P2P mode
+    /// Signer registration relay mode (used only when 'use_relays' is set)
+    #[clap(long, value_enum, default_value_t = SignerRelayMode::Passthrough)]
+    relay_signer_registration_mode: SignerRelayMode,
+
+    /// Signature registration relay mode (used only when 'use_relays' is set)
+    #[clap(long, value_enum, default_value_t = SignerRelayMode::P2P)]
+    relay_signature_registration_mode: SignerRelayMode,
+
+    /// Enable P2P passive relays in P2P mode (used only when 'use_relays' is set)
     #[clap(long, default_value = "true")]
     use_p2p_passive_relays: bool,
 
@@ -147,9 +156,9 @@ impl Args {
         if self.number_of_signers == 0 {
             return Err(anyhow!("At least one signer is required"));
         }
-        if !self.use_p2p_network && self.number_of_aggregators >= 2 {
+        if !self.use_relays && self.number_of_aggregators >= 2 {
             return Err(anyhow!(
-                "The P2P mode must be activated to run more than one aggregator"
+                "The 'use_relays' parameter must be activated to run more than one aggregator"
             ));
         }
 
@@ -324,7 +333,10 @@ impl App {
         let server_port = 8080;
         args.validate()?;
         let run_only_mode = args.run_only;
-        let use_p2p_network_mode = args.use_p2p_network;
+        let use_relays = args.use_relays;
+        let relay_signer_registration_mode = args.relay_signer_registration_mode;
+        let relay_signature_registration_mode = args.relay_signature_registration_mode;
+
         let use_p2p_passive_relays = args.use_p2p_passive_relays;
 
         let devnet = Devnet::bootstrap(&DevnetBootstrapArgs {
@@ -355,7 +367,9 @@ impl App {
             mithril_era_reader_adapter: args.mithril_era_reader_adapter,
             signed_entity_types: args.signed_entity_types.clone(),
             run_only_mode,
-            use_p2p_network_mode,
+            use_relays,
+            relay_signer_registration_mode,
+            relay_signature_registration_mode,
             use_p2p_passive_relays,
             use_era_specific_work_dir: args.mithril_next_era.is_some(),
         })
@@ -519,7 +533,7 @@ mod tests {
             "validate should fail with more than one aggregator if p2p network is not used",
         );
 
-        let args = Args::parse_from(["", "--use-p2p-network", "--number-of-aggregators", "2"]);
+        let args = Args::parse_from(["", "--use-relays", "--number-of-aggregators", "2"]);
         args.validate()
             .expect("validate should succeed with more than one aggregator if p2p network is used");
     }
