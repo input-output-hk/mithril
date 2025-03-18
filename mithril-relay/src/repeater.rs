@@ -35,6 +35,7 @@ impl<M: Clone + Debug + Sync + Send + 'static> MessageRepeater<M> {
     }
 
     /// Set the message to repeat
+    #[allow(dead_code)]
     pub async fn set_message(&self, message: M) {
         debug!(self.logger, "Set message"; "message" => #?message);
         *self.message.lock().await = Some(message);
