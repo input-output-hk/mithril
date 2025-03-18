@@ -1,14 +1,22 @@
+use std::{
+    net::IpAddr,
+    path::{Path, PathBuf},
+    time::Duration,
+};
+
 use anyhow::{anyhow, Context};
+use chrono::TimeDelta;
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
-use mithril_common::StdResult;
-use mithril_metric::MetricsServer;
 use slog::{crit, debug, info, warn, Logger};
-use std::time::Duration;
-use std::{net::IpAddr, path::PathBuf};
 use tokio::{sync::oneshot, task::JoinSet};
 
-use crate::{dependency_injection::DependenciesBuilder, Configuration};
+use mithril_common::StdResult;
+use mithril_metric::MetricsServer;
+
+use crate::{dependency_injection::DependenciesBuilder, tools::VacuumTracker, Configuration};
+
+const VACUUM_MINIMUM_INTERVAL: TimeDelta = TimeDelta::weeks(1);
 
 /// Server runtime mode
 #[derive(Parser, Debug, Clone)]
@@ -170,6 +178,15 @@ impl ServeCommand {
             .with_context(|| "Dependencies Builder can not create event store")?;
         let event_store_thread = tokio::spawn(async move { event_store.run().await.unwrap() });
 
+        // start the database vacuum operation, if needed
+        self.perform_database_vacuum_if_needed(
+            &config.data_stores_directory,
+            &mut dependencies_builder,
+            VACUUM_MINIMUM_INTERVAL,
+            &root_logger,
+        )
+        .await?;
+
         // start the aggregator runtime
         let mut runtime = dependencies_builder
             .create_aggregator_runner()
@@ -294,6 +311,53 @@ impl ServeCommand {
         info!(root_logger, "Event store is finishing...");
         event_store_thread.await.unwrap();
         println!("Services stopped, exiting.");
+
+        Ok(())
+    }
+
+    /// This function checks if a database vacuum is needed and performs it if necessary.
+    ///
+    /// Errors from [VacuumTracker] operations are logged but not propagated as errors.
+    async fn perform_database_vacuum_if_needed(
+        &self,
+        store_dir: &Path,
+        dependencies_builder: &mut DependenciesBuilder,
+        vacuum_min_interval: TimeDelta,
+        logger: &Logger,
+    ) -> StdResult<()> {
+        let vacuum_tracker = VacuumTracker::new(store_dir, vacuum_min_interval, logger.clone());
+        match vacuum_tracker.check_vacuum_needed() {
+            Ok((true, _)) => {
+                info!(logger, "Performing vacuum");
+
+                let upkeep = dependencies_builder
+                    .get_upkeep_service()
+                    .await
+                    .with_context(|| "Dependencies Builder can not create upkeep")?;
+
+                upkeep
+                    .vacuum()
+                    .await
+                    .with_context(|| "Upkeep service failed to vacuum database")?;
+
+                match vacuum_tracker.update_last_vacuum_time() {
+                    Ok(last_vacuum) => {
+                        info!(logger, "Vacuum performed"; "last_vacuum" => last_vacuum.to_rfc3339());
+                    }
+                    Err(e) => {
+                        warn!(logger, "Failed to update last vacuum time"; "error" => ?e);
+                    }
+                }
+            }
+            Ok((false, last_vacuum)) => {
+                let time_display =
+                    last_vacuum.map_or_else(|| "never".to_string(), |time| time.to_rfc3339());
+                info!(logger, "No vacuum needed"; "last_vacuum" => time_display);
+            }
+            Err(e) => {
+                warn!(logger, "Failed to check if vacuum is needed"; "error" => ?e);
+            }
+        }
 
         Ok(())
     }
