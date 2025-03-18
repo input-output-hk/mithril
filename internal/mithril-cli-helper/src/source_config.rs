@@ -114,7 +114,7 @@ mod tests {
             ),
             (
                 "u64_value".to_string(),
-                Value::new(Some(&"namespace".to_string()), ValueKind::from(124 as u64)),
+                Value::new(Some(&"namespace".to_string()), ValueKind::from(124_u64)),
             ),
             (
                 "enum_value".to_string(),
@@ -315,7 +315,7 @@ mod tests {
             ),
             (
                 "u64_value".to_string(),
-                Value::new(Some(&"namespace".to_string()), ValueKind::from(124 as u64)),
+                Value::new(Some(&"namespace".to_string()), ValueKind::from(124_u64)),
             ),
             (
                 "enum_value".to_string(),

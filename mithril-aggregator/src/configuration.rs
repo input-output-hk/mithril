@@ -5,6 +5,7 @@ use std::collections::{BTreeSet, HashMap};
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use mithril_cli_helper::{register, register_parameter};
 use mithril_common::chain_observer::ChainObserverType;
 use mithril_common::crypto_helper::ProtocolGenesisSigner;
 use mithril_common::entities::{
@@ -13,7 +14,7 @@ use mithril_common::entities::{
     SignedEntityTypeDiscriminants,
 };
 use mithril_common::era::adapters::EraReaderAdapterType;
-use mithril_common::{register, register_parameter, CardanoNetwork, StdResult};
+use mithril_common::{CardanoNetwork, StdResult};
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 
 use crate::entities::AggregatorEpochSettings;

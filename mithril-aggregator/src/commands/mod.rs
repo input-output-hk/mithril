@@ -6,8 +6,9 @@ mod tools_command;
 
 use anyhow::anyhow;
 use clap::{CommandFactory, Parser, Subcommand};
-use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
-use mithril_common::{register, register_parameter_opt, StdResult};
+use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value};
+use mithril_cli_helper::{register, register_parameter_opt};
+use mithril_common::StdResult;
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use slog::{debug, Level, Logger};
 use std::path::PathBuf;
@@ -144,6 +145,8 @@ impl MainOpts {
 
 #[cfg(test)]
 mod tests {
+    use config::ValueKind;
+
     use crate::commands::tools_command::{
         RecomputeCertificatesHashCommand, ToolsCommand, ToolsSubCommand::RecomputeCertificatesHash,
     };

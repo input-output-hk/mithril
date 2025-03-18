@@ -7,11 +7,14 @@ use std::{
 use anyhow::{anyhow, Context};
 use chrono::TimeDelta;
 use clap::Parser;
-use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
+
+use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value};
+
 use slog::{crit, debug, info, warn, Logger};
 use tokio::{sync::oneshot, task::JoinSet};
 
-use mithril_common::{register, register_parameter_bool, register_parameter_opt, StdResult};
+use mithril_cli_helper::{register, register_parameter_bool, register_parameter_opt};
+use mithril_common::StdResult;
 use mithril_metric::MetricsServer;
 
 use crate::{dependency_injection::DependenciesBuilder, tools::VacuumTracker, Configuration};
@@ -320,6 +323,8 @@ impl ServeCommand {
 
 #[cfg(test)]
 mod tests {
+    use config::ValueKind;
+
     use super::*;
     use std::collections::HashMap;
 
@@ -429,7 +434,7 @@ mod tests {
             "server_port".to_string(),
             Value::new(
                 Some(&"clap arguments".to_string()),
-                ValueKind::from(8000 as u64),
+                ValueKind::from(8000_u64),
             ),
         );
         expected.insert(
@@ -466,7 +471,7 @@ mod tests {
             "metrics_server_port".to_string(),
             Value::new(
                 Some(&"clap arguments".to_string()),
-                ValueKind::from(Some(8080 as u64)),
+                ValueKind::from(Some(8080_u64)),
             ),
         );
         expected.insert(

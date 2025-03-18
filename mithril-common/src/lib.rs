@@ -41,7 +41,6 @@ pub mod logging;
 pub mod messages;
 pub mod protocol;
 pub mod signable_builder;
-pub mod source_config;
 
 cfg_test_tools! {
     pub mod test_utils;

@@ -3652,6 +3652,7 @@ dependencies = [
  "hex",
  "http 1.2.0",
  "httpmock",
+ "mithril-cli-helper",
  "mithril-common",
  "mithril-doc",
  "mithril-metric",
@@ -3712,6 +3713,13 @@ dependencies = [
  "semver",
  "serde_json",
  "serde_yaml",
+]
+
+[[package]]
+name = "mithril-cli-helper"
+version = "0.0.1"
+dependencies = [
+ "config",
 ]
 
 [[package]]
@@ -3801,7 +3809,6 @@ dependencies = [
  "chrono",
  "ciborium",
  "ckb-merkle-mountain-range",
- "config",
  "criterion",
  "digest 0.10.7",
  "ed25519-dalek",
@@ -3988,6 +3995,7 @@ dependencies = [
  "hex",
  "http 1.2.0",
  "httpmock",
+ "mithril-cli-helper",
  "mithril-common",
  "mithril-doc",
  "mithril-metric",

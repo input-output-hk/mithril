@@ -36,7 +36,6 @@ bech32 = "0.11.0"
 blake2 = "0.10.6"
 chrono = { version = "0.4.39", features = ["serde"] }
 ciborium = "0.2.2"
-config = "0.15.7"
 ckb-merkle-mountain-range = "0.6.0"
 digest = "0.10.7"
 ed25519-dalek = { version = "2.1.1", features = ["rand_core", "serde"] }

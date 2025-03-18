@@ -1,9 +1,10 @@
 use anyhow::Context;
-use config::{ConfigError, Map, Source, Value, ValueKind};
+use config::{ConfigError, Map, Source, Value};
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};
 
+use mithril_cli_helper::{register, register_parameter};
 use mithril_common::{
     chain_observer::ChainObserver,
     crypto_helper::tests_setup,
@@ -12,7 +13,7 @@ use mithril_common::{
         adapters::{EraReaderAdapterBuilder, EraReaderAdapterType},
         EraReaderAdapter,
     },
-    register, register_parameter, CardanoNetwork, StdResult,
+    CardanoNetwork, StdResult,
 };
 
 /// Client configuration
@@ -289,6 +290,8 @@ impl Source for DefaultConfiguration {
 
 #[cfg(test)]
 mod test {
+
+    use config::ValueKind;
 
     use super::*;
 
