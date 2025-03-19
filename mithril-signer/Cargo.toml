@@ -1,6 +1,6 @@
 [package]
 name = "mithril-signer"
-version = "0.2.234"
+version = "0.2.235"
 description = "A Mithril Signer"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -20,6 +20,7 @@ chrono = { version = "0.4.39", features = ["serde"] }
 clap = { version = "4.5.28", features = ["derive", "env"] }
 config = "0.15.7"
 hex = "0.4.3"
+mithril-cli-helper = { path = "../internal/mithril-cli-helper" }
 mithril-common = { path = "../mithril-common", features = ["full"] }
 mithril-doc = { path = "../internal/mithril-doc" }
 mithril-metric = { path = "../internal/mithril-metric" }

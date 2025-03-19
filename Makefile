@@ -1,6 +1,11 @@
-COMPONENTS = mithril-common mithril-stm mithril-aggregator mithril-client mithril-client-cli mithril-signer \
-			internal/mithril-persistence internal/mithril-doc-derive internal/mithril-doc internal/mithril-build-script \
-			demo/protocol-demo mithril-test-lab/mithril-end-to-end
+COMPONENTS = mithril-aggregator mithril-client mithril-client-cli mithril-client-wasm \
+			 mithril-common mithril-relay mithril-signer mithril-stm \
+			 internal/mithril-build-script internal/mithril-cli-helper internal/mithril-doc \
+			 internal/mithril-doc-derive internal/mithril-metric internal/mithril-persistence \
+			 internal/mithril-resource-pool internal/signed-entity/mithril-signed-entity-lock \
+			 internal/signed-entity/mithril-signed-entity-preloader \
+			 demo/protocol-demo \
+			 mithril-test-lab/mithril-aggregator-fake mithril-test-lab/mithril-end-to-end
 GOALS := $(or $(MAKECMDGOALS),all)
 NON_COMPONENT_GOALS := check-format format
 

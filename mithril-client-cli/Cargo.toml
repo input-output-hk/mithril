@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client-cli"
-version = "0.11.9"
+version = "0.11.10"
 description = "A Mithril Client"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -32,6 +32,7 @@ fs2 = "0.4.3"
 futures = "0.3.31"
 human_bytes = { version = "0.4.3", features = ["fast"] }
 indicatif = { version = "0.17.11", features = ["tokio"] }
+mithril-cli-helper = { path = "../internal/mithril-cli-helper" }
 mithril-client = { path = "../mithril-client", features = ["fs", "unstable"] }
 mithril-doc = { path = "../internal/mithril-doc" }
 serde = { version = "1.0.217", features = ["derive"] }

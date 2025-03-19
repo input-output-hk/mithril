@@ -3639,7 +3639,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.7.17"
+version = "0.7.18"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3652,6 +3652,7 @@ dependencies = [
  "hex",
  "http 1.2.0",
  "httpmock",
+ "mithril-cli-helper",
  "mithril-common",
  "mithril-doc",
  "mithril-metric",
@@ -3715,6 +3716,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "mithril-cli-helper"
+version = "0.0.1"
+dependencies = [
+ "config",
+]
+
+[[package]]
 name = "mithril-client"
 version = "0.11.16"
 dependencies = [
@@ -3747,7 +3755,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.11.9"
+version = "0.11.10"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3759,6 +3767,7 @@ dependencies = [
  "futures",
  "human_bytes",
  "indicatif",
+ "mithril-cli-helper",
  "mithril-client",
  "mithril-common",
  "mithril-doc",
@@ -3844,10 +3853,11 @@ dependencies = [
 
 [[package]]
 name = "mithril-doc"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "clap",
  "config",
+ "mithril-cli-helper",
  "mithril-doc-derive",
  "regex",
 ]
@@ -3976,7 +3986,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.234"
+version = "0.2.235"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3987,6 +3997,7 @@ dependencies = [
  "hex",
  "http 1.2.0",
  "httpmock",
+ "mithril-cli-helper",
  "mithril-common",
  "mithril-doc",
  "mithril-metric",

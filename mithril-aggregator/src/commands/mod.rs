@@ -6,7 +6,8 @@ mod tools_command;
 
 use anyhow::anyhow;
 use clap::{CommandFactory, Parser, Subcommand};
-use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
+use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value};
+use mithril_cli_helper::{register_config_value, register_config_value_option};
 use mithril_common::StdResult;
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use slog::{debug, Level, Logger};
@@ -102,15 +103,10 @@ impl Source for MainOpts {
         let mut result = Map::new();
         let namespace = "clap arguments".to_string();
 
-        if let Some(db_directory) = self.db_directory.clone() {
-            result.insert(
-                "db_directory".to_string(),
-                Value::new(
-                    Some(&namespace),
-                    ValueKind::from(format!("{}", db_directory.to_string_lossy())),
-                ),
-            );
-        }
+        register_config_value_option!(result, &namespace, self.db_directory, |v: PathBuf| format!(
+            "{}",
+            v.to_string_lossy()
+        ));
 
         Ok(result)
     }

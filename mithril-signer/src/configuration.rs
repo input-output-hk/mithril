@@ -1,9 +1,10 @@
 use anyhow::Context;
-use config::{ConfigError, Map, Source, Value, ValueKind};
+use config::{ConfigError, Map, Source, Value};
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};
 
+use mithril_cli_helper::register_config_value;
 use mithril_common::{
     chain_observer::ChainObserver,
     crypto_helper::tests_setup,
@@ -262,30 +263,24 @@ impl Source for DefaultConfiguration {
     }
 
     fn collect(&self) -> Result<Map<String, Value>, ConfigError> {
-        macro_rules! insert_default_configuration {
-            ( $map:ident, $config:ident.$parameter:ident ) => {{
-                $map.insert(
-                    stringify!($parameter).to_string(),
-                    into_value($config.$parameter),
-                );
-            }};
-        }
-
-        fn into_value<V: Into<ValueKind>>(value: V) -> Value {
-            Value::new(Some(&DefaultConfiguration::namespace()), value.into())
-        }
         let mut result = Map::new();
+        let namespace = DefaultConfiguration::namespace();
         let myself = self.clone();
 
-        insert_default_configuration!(result, myself.era_reader_adapter_type);
-        insert_default_configuration!(result, myself.metrics_server_ip);
-        insert_default_configuration!(result, myself.metrics_server_port);
-        insert_default_configuration!(result, myself.network_security_parameter);
-        insert_default_configuration!(result, myself.preload_security_parameter);
-        insert_default_configuration!(result, myself.enable_transaction_pruning);
-        insert_default_configuration!(result, myself.transactions_import_block_chunk_size);
-        insert_default_configuration!(
+        register_config_value!(result, &namespace, myself.era_reader_adapter_type);
+        register_config_value!(result, &namespace, myself.metrics_server_ip);
+        register_config_value!(result, &namespace, myself.metrics_server_port);
+        register_config_value!(result, &namespace, myself.network_security_parameter);
+        register_config_value!(result, &namespace, myself.preload_security_parameter);
+        register_config_value!(result, &namespace, myself.enable_transaction_pruning);
+        register_config_value!(
             result,
+            &namespace,
+            myself.transactions_import_block_chunk_size
+        );
+        register_config_value!(
+            result,
+            &namespace,
             myself.cardano_transactions_block_streamer_max_roll_forwards_per_poll
         );
 

@@ -7,10 +7,15 @@ use std::{
 use anyhow::{anyhow, Context};
 use chrono::TimeDelta;
 use clap::Parser;
-use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
+
+use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value};
+
 use slog::{crit, debug, info, warn, Logger};
 use tokio::{sync::oneshot, task::JoinSet};
 
+use mithril_cli_helper::{
+    register_config_value, register_config_value_bool, register_config_value_option,
+};
 use mithril_common::StdResult;
 use mithril_metric::MetricsServer;
 
@@ -80,72 +85,26 @@ impl Source for ServeCommand {
         let mut result = Map::new();
         let namespace = "clap arguments".to_string();
 
-        if let Some(server_ip) = self.server_ip.clone() {
-            result.insert(
-                "server_ip".to_string(),
-                Value::new(Some(&namespace), ValueKind::from(server_ip)),
-            );
-        }
-        if let Some(server_port) = self.server_port {
-            result.insert(
-                "server_port".to_string(),
-                Value::new(Some(&namespace), ValueKind::from(server_port)),
-            );
-        }
-        if let Some(snapshot_directory) = self.snapshot_directory.clone() {
-            result.insert(
-                "snapshot_directory".to_string(),
-                Value::new(
-                    Some(&namespace),
-                    ValueKind::from(format!("{}", snapshot_directory.to_string_lossy())),
-                ),
-            );
-        }
-        if self.disable_digests_cache {
-            result.insert(
-                "disable_digests_cache".to_string(),
-                Value::new(Some(&namespace), ValueKind::from(true)),
-            );
-        };
-        if self.reset_digests_cache {
-            result.insert(
-                "reset_digests_cache".to_string(),
-                Value::new(Some(&namespace), ValueKind::from(true)),
-            );
-        }
-        if self.allow_unparsable_block {
-            result.insert(
-                "allow_unparsable_block".to_string(),
-                Value::new(Some(&namespace), ValueKind::from(true)),
-            );
-        };
-        if self.enable_metrics_server {
-            result.insert(
-                "enable_metrics_server".to_string(),
-                Value::new(Some(&namespace), ValueKind::from(true)),
-            );
-        };
-        if let Some(metrics_server_ip) = self.metrics_server_ip.clone() {
-            result.insert(
-                "metrics_server_ip".to_string(),
-                Value::new(Some(&namespace), ValueKind::from(metrics_server_ip)),
-            );
-        }
-        if let Some(metrics_server_port) = self.metrics_server_port {
-            result.insert(
-                "metrics_server_port".to_string(),
-                Value::new(Some(&namespace), ValueKind::from(metrics_server_port)),
-            );
-        }
-        if let Some(master_aggregator_endpoint) = self.master_aggregator_endpoint.clone() {
-            result.insert(
-                "master_aggregator_endpoint".to_string(),
-                Value::new(
-                    Some(&namespace),
-                    ValueKind::from(Some(master_aggregator_endpoint)),
-                ),
-            );
-        }
+        register_config_value_option!(result, &namespace, self.server_ip);
+        register_config_value_option!(result, &namespace, self.server_port);
+        register_config_value_option!(
+            result,
+            &namespace,
+            self.snapshot_directory,
+            |v: PathBuf| format!("{}", v.to_string_lossy())
+        );
+        register_config_value_bool!(result, &namespace, self.disable_digests_cache);
+        register_config_value_bool!(result, &namespace, self.reset_digests_cache);
+        register_config_value_bool!(result, &namespace, self.allow_unparsable_block);
+        register_config_value_bool!(result, &namespace, self.enable_metrics_server);
+        register_config_value_option!(result, &namespace, self.metrics_server_ip);
+        register_config_value_option!(result, &namespace, self.metrics_server_port);
+        register_config_value_option!(
+            result,
+            &namespace,
+            self.master_aggregator_endpoint,
+            |v: String| { Some(v) }
+        );
 
         Ok(result)
     }

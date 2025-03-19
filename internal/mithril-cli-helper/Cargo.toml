@@ -1,0 +1,16 @@
+[package]
+name = "mithril-cli-helper"
+version = "0.0.1"
+description = "An internal crate to provide tools for cli."
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
+
+[dependencies]
+config = "0.15.7"
+
+[features]
+default = []

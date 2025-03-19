@@ -5,6 +5,7 @@ use std::collections::{BTreeSet, HashMap};
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use mithril_cli_helper::register_config_value;
 use mithril_common::chain_observer::ChainObserverType;
 use mithril_common::crypto_helper::ProtocolGenesisSigner;
 use mithril_common::entities::{
@@ -525,67 +526,64 @@ impl Source for DefaultConfiguration {
     }
 
     fn collect(&self) -> Result<Map<String, Value>, ConfigError> {
-        macro_rules! insert_default_configuration {
-            ( $map:ident, $config:ident.$parameter:ident ) => {{
-                $map.insert(
-                    stringify!($parameter).to_string(),
-                    into_value($config.$parameter),
-                );
-            }};
-        }
-
-        fn into_value<V: Into<ValueKind>>(value: V) -> Value {
-            Value::new(Some(&DefaultConfiguration::namespace()), value.into())
-        }
         let mut result = Map::new();
+
+        let namespace = DefaultConfiguration::namespace();
+
         let myself = self.clone();
-        insert_default_configuration!(result, myself.environment);
-        insert_default_configuration!(result, myself.server_ip);
-        insert_default_configuration!(result, myself.server_port);
-        insert_default_configuration!(result, myself.db_directory);
-        insert_default_configuration!(result, myself.snapshot_directory);
-        insert_default_configuration!(result, myself.snapshot_store_type);
-        insert_default_configuration!(result, myself.snapshot_uploader_type);
-        insert_default_configuration!(result, myself.era_reader_adapter_type);
-        insert_default_configuration!(result, myself.reset_digests_cache);
-        insert_default_configuration!(result, myself.disable_digests_cache);
-        insert_default_configuration!(result, myself.snapshot_compression_algorithm);
-        insert_default_configuration!(result, myself.snapshot_use_cdn_domain);
-        insert_default_configuration!(result, myself.signer_importer_run_interval);
-        insert_default_configuration!(result, myself.allow_unparsable_block);
-        insert_default_configuration!(result, myself.cardano_transactions_prover_cache_pool_size);
-        insert_default_configuration!(
+        register_config_value!(result, &namespace, myself.environment);
+        register_config_value!(result, &namespace, myself.server_ip);
+        register_config_value!(result, &namespace, myself.server_port);
+        register_config_value!(result, &namespace, myself.db_directory);
+        register_config_value!(result, &namespace, myself.snapshot_directory);
+        register_config_value!(result, &namespace, myself.snapshot_store_type);
+        register_config_value!(result, &namespace, myself.snapshot_uploader_type);
+        register_config_value!(result, &namespace, myself.era_reader_adapter_type);
+        register_config_value!(result, &namespace, myself.reset_digests_cache);
+        register_config_value!(result, &namespace, myself.disable_digests_cache);
+        register_config_value!(result, &namespace, myself.snapshot_compression_algorithm);
+        register_config_value!(result, &namespace, myself.snapshot_use_cdn_domain);
+        register_config_value!(result, &namespace, myself.signer_importer_run_interval);
+        register_config_value!(result, &namespace, myself.allow_unparsable_block);
+        register_config_value!(
             result,
+            &namespace,
+            myself.cardano_transactions_prover_cache_pool_size
+        );
+        register_config_value!(
+            result,
+            &namespace,
             myself.cardano_transactions_database_connection_pool_size
         );
-        insert_default_configuration!(
+        register_config_value!(
             result,
+            &namespace,
             myself.cardano_transactions_prover_max_hashes_allowed_by_request
         );
-        insert_default_configuration!(
+        register_config_value!(
             result,
+            &namespace,
             myself.cardano_transactions_block_streamer_max_roll_forwards_per_poll
         );
-        insert_default_configuration!(result, myself.enable_metrics_server);
-        insert_default_configuration!(result, myself.metrics_server_ip);
-        insert_default_configuration!(result, myself.metrics_server_port);
-        insert_default_configuration!(result, myself.persist_usage_report_interval_in_seconds);
-        result.insert(
-            "cardano_transactions_signing_config".to_string(),
-            into_value(HashMap::from([
+        register_config_value!(result, &namespace, myself.enable_metrics_server);
+        register_config_value!(result, &namespace, myself.metrics_server_ip);
+        register_config_value!(result, &namespace, myself.metrics_server_port);
+        register_config_value!(
+            result,
+            &namespace,
+            myself.persist_usage_report_interval_in_seconds
+        );
+        register_config_value!(
+            result,
+            &namespace,
+            myself.cardano_transactions_signing_config,
+            |v: CardanoTransactionsSigningConfig| HashMap::from([
                 (
                     "security_parameter".to_string(),
-                    ValueKind::from(
-                        *myself
-                            .cardano_transactions_signing_config
-                            .security_parameter,
-                    ),
+                    ValueKind::from(*v.security_parameter,),
                 ),
-                (
-                    "step".to_string(),
-                    ValueKind::from(*myself.cardano_transactions_signing_config.step),
-                ),
-            ])),
+                ("step".to_string(), ValueKind::from(*v.step),)
+            ])
         );
         Ok(result)
     }
