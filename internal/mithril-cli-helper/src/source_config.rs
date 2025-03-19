@@ -1,6 +1,6 @@
 //! Utilities to register config parameters.
 
-/// Register a optional parameter in the config map when it's not None.
+/// Register an optional parameter in the config map when it's not None.
 #[macro_export]
 macro_rules! register_config_value_option {
     ( $map:ident, $namespace:expr, $self:ident.$command:ident ) => {{
@@ -27,7 +27,7 @@ macro_rules! register_config_value_bool {
 
 /// Register a parameter in the config map using the identifier as key.
 /// Example:
-///     register_config_value(map, namespace, self.identifier)
+///     register_config_value!(map, namespace, self.identifier)
 ///
 /// The same macro, with a different syntax, is used to insert the given value without transformation.
 /// Iit is designed to be used by other macros.
@@ -157,7 +157,7 @@ mod tests {
     }
 
     #[test]
-    fn test_register_config_value_optionion_macro_not_add_none_value() {
+    fn test_register_config_value_option_macro_not_add_none_value() {
         struct Fake {
             option_with_value: Option<String>,
             option_none: Option<String>,
@@ -184,7 +184,7 @@ mod tests {
     }
 
     #[test]
-    fn test_register_config_value_optionion_macro_with_mapping_transform_value_before_adding_it() {
+    fn test_register_config_value_option_macro_with_mapping_transform_value_before_adding_it() {
         struct Fake {
             option_with_value: Option<String>,
             option_none: Option<String>,
