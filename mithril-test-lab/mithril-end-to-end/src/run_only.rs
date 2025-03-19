@@ -21,18 +21,28 @@ impl RunOnly {
     pub async fn run(self) -> StdResult<()> {
         let run_only = Arc::new(self);
         let mut join_set = JoinSet::new();
-
-        let run_only_clone = run_only.clone();
-        join_set.spawn(async move { run_only_clone.start_master().await });
-
         let infrastructure_guard = run_only.infrastructure.read().await;
-        let slave_aggregators = infrastructure_guard
+        let aggregators = infrastructure_guard
             .as_ref()
             .ok_or(anyhow!("No infrastructure found"))?
-            .slave_aggregators();
-        for index in 0..slave_aggregators.len() {
+            .aggregators();
+
+        for index in 0..aggregators.len() {
             let run_only_clone = run_only.clone();
-            join_set.spawn(async move { run_only_clone.start_slave(index).await });
+            join_set.spawn(async move {
+                let infrastructure_guard = run_only_clone.infrastructure.read().await;
+                let infrastructure = infrastructure_guard
+                    .as_ref()
+                    .ok_or(anyhow!("No infrastructure found"))?;
+
+                run_only_clone
+                    .start_aggregator(
+                        infrastructure.aggregator(index),
+                        infrastructure.chain_observer(index),
+                        infrastructure,
+                    )
+                    .await
+            });
         }
 
         while let Some(res) = join_set.join_next().await {
@@ -40,34 +50,6 @@ impl RunOnly {
         }
 
         Ok(())
-    }
-
-    pub async fn start_master(&self) -> StdResult<()> {
-        let infrastructure_guard = self.infrastructure.read().await;
-        let infrastructure = infrastructure_guard
-            .as_ref()
-            .ok_or(anyhow!("No infrastructure found"))?;
-
-        self.start_aggregator(
-            infrastructure.master_aggregator(),
-            infrastructure.master_chain_observer(),
-            infrastructure,
-        )
-        .await
-    }
-
-    pub async fn start_slave(&self, slave_index: usize) -> StdResult<()> {
-        let infrastructure_guard = self.infrastructure.read().await;
-        let infrastructure = infrastructure_guard
-            .as_ref()
-            .ok_or(anyhow!("No infrastructure found"))?;
-
-        self.start_aggregator(
-            infrastructure.slave_aggregator(slave_index),
-            infrastructure.slave_chain_observer(slave_index),
-            infrastructure,
-        )
-        .await
     }
 
     pub async fn start_aggregator(
@@ -94,7 +76,7 @@ impl RunOnly {
         assertions::bootstrap_genesis_certificate(aggregator).await?;
         assertions::wait_for_epoch_settings(&aggregator.endpoint()).await?;
 
-        if aggregator.index() == 0 {
+        if aggregator.is_first() {
             // Transfer some funds on the devnet to have some Cardano transactions to sign
             assertions::transfer_funds(infrastructure.devnet()).await?;
         }

@@ -51,11 +51,16 @@ impl Spec {
     }
 
     pub async fn run(self) -> StdResult<()> {
+        let mut join_set = JoinSet::new();
         let spec = Arc::new(self);
         let infrastructure_guard = spec.infrastructure.read().await;
         let infrastructure = infrastructure_guard
             .as_ref()
             .ok_or(anyhow!("No infrastructure found"))?;
+        let aggregators = infrastructure_guard
+            .as_ref()
+            .ok_or(anyhow!("No infrastructure found"))?
+            .aggregators();
 
         // Transfer some funds on the devnet to have some Cardano transactions to sign.
         // This step needs to be executed early in the process so that the transactions are available
@@ -63,46 +68,29 @@ impl Spec {
         // As we get closer to the tip of the chain when signing, we'll be able to relax this constraint.
         assertions::transfer_funds(infrastructure.devnet()).await?;
 
-        let mut join_set = JoinSet::new();
-        let spec_clone = spec.clone();
-        join_set.spawn(async move { spec_clone.start_master().await });
-        for index in 0..infrastructure.slave_aggregators().len() {
+        for index in 0..aggregators.len() {
             let spec_clone = spec.clone();
-            join_set.spawn(async move { spec_clone.start_slave(index).await });
+            join_set.spawn(async move {
+                let infrastructure_guard = spec_clone.infrastructure.read().await;
+                let infrastructure = infrastructure_guard
+                    .as_ref()
+                    .ok_or(anyhow!("No infrastructure found"))?;
+
+                spec_clone
+                    .start_aggregator(
+                        infrastructure.aggregator(index),
+                        infrastructure.chain_observer(index),
+                        infrastructure,
+                    )
+                    .await
+            });
         }
+
         while let Some(res) = join_set.join_next().await {
             res??;
         }
 
         Ok(())
-    }
-
-    pub async fn start_master(&self) -> StdResult<()> {
-        let infrastructure_guard = self.infrastructure.read().await;
-        let infrastructure = infrastructure_guard
-            .as_ref()
-            .ok_or(anyhow!("No infrastructure found"))?;
-
-        self.start_aggregator(
-            infrastructure.master_aggregator(),
-            infrastructure.master_chain_observer(),
-            infrastructure,
-        )
-        .await
-    }
-
-    pub async fn start_slave(&self, slave_index: usize) -> StdResult<()> {
-        let infrastructure_guard = self.infrastructure.read().await;
-        let infrastructure = infrastructure_guard
-            .as_ref()
-            .ok_or(anyhow!("No infrastructure found"))?;
-
-        self.start_aggregator(
-            infrastructure.slave_aggregator(slave_index),
-            infrastructure.slave_chain_observer(slave_index),
-            infrastructure,
-        )
-        .await
     }
 
     pub async fn start_aggregator(
@@ -138,7 +126,7 @@ impl Spec {
         )
         .await?;
 
-        if aggregator.index() == 0 {
+        if aggregator.is_first() {
             // Delegate some stakes to pools
             let delegation_round = 1;
             assertions::delegate_stakes_to_pools(infrastructure.devnet(), delegation_round).await?;
