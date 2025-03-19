@@ -17,7 +17,6 @@ use tokio::sync::RwLock;
 
 #[derive(Debug)]
 pub struct AggregatorConfig<'a> {
-    pub is_master: bool,
     pub index: usize,
     pub name: &'a str,
     pub server_port: u64,
@@ -39,7 +38,6 @@ pub struct AggregatorConfig<'a> {
 
 #[derive(Debug)]
 pub struct Aggregator {
-    is_master: bool,
     index: usize,
     name_suffix: String,
     server_port: u64,
@@ -134,7 +132,6 @@ impl Aggregator {
         )?;
 
         Ok(Self {
-            is_master: aggregator_config.is_master,
             index: aggregator_config.index,
             name_suffix: aggregator_config.name.to_string(),
             server_port: aggregator_config.server_port,
@@ -144,9 +141,12 @@ impl Aggregator {
         })
     }
 
+    pub fn name_suffix(index: usize) -> String {
+        format!("{}", index + 1)
+    }
+
     pub fn copy_configuration(other: &Aggregator) -> Self {
         Self {
-            is_master: other.is_master,
             index: other.index,
             name_suffix: other.name_suffix.clone(),
             server_port: other.server_port,
@@ -156,8 +156,8 @@ impl Aggregator {
         }
     }
 
-    pub fn is_master(&self) -> bool {
-        self.is_master
+    pub fn is_first(&self) -> bool {
+        self.index == 0
     }
 
     pub fn index(&self) -> usize {

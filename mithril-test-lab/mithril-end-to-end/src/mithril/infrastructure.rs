@@ -38,33 +38,11 @@ pub struct MithrilInfrastructureConfig {
 }
 
 impl MithrilInfrastructureConfig {
-    pub fn is_master_aggregator(&self, index: usize) -> bool {
-        assert!(
-            index < self.number_of_aggregators as usize,
-            "Aggregator index out of bounds"
-        );
-
+    pub fn has_master_slave_signer_registration(&self) -> bool {
         if self.relay_signer_registration_mode == SignerRelayMode::Passthrough {
-            self.number_of_aggregators > 1 && index == 0
+            self.number_of_aggregators > 1
         } else {
             false
-        }
-    }
-
-    pub fn aggregator_name_suffix(&self, index: usize) -> String {
-        assert!(
-            index < self.number_of_aggregators as usize,
-            "Aggregator index out of bounds"
-        );
-
-        if self.is_master_aggregator(0) {
-            if self.is_master_aggregator(index) {
-                "master".to_string()
-            } else {
-                format!("slave-{index}")
-            }
-        } else {
-            format!("{}", index + 1)
         }
     }
 
@@ -200,20 +178,15 @@ impl MithrilInfrastructure {
 
     pub async fn register_switch_to_next_era(&self, next_era: &str) -> StdResult<()> {
         let next_era_epoch = self
-            .master_chain_observer()
+            .chain_observer(0)
             .get_current_epoch()
             .await?
             .unwrap_or_default()
             + 1;
         if self.era_reader_adapter == "cardano-chain" {
             let devnet = self.devnet.clone();
-            assertions::register_era_marker(
-                self.master_aggregator(),
-                &devnet,
-                next_era,
-                next_era_epoch,
-            )
-            .await?;
+            assertions::register_era_marker(self.aggregator(0), &devnet, next_era, next_era_epoch)
+                .await?;
         }
         let mut current_era = self.current_era.write().await;
         *current_era = next_era.to_owned();
@@ -229,7 +202,7 @@ impl MithrilInfrastructure {
         let mut aggregators = vec![];
         let mut master_aggregator_endpoint: Option<String> = None;
         for (index, pool_node) in pool_nodes.iter().enumerate() {
-            let aggregator_name = config.aggregator_name_suffix(index);
+            let aggregator_name = Aggregator::name_suffix(index);
             let aggregator_artifacts_dir = config
                 .artifacts_dir
                 .join(format!("mithril-aggregator-{aggregator_name}"));
@@ -237,7 +210,6 @@ impl MithrilInfrastructure {
                 .store_dir
                 .join(format!("aggregator-{aggregator_name}"));
             let aggregator = Aggregator::new(&AggregatorConfig {
-                is_master: config.is_master_aggregator(index),
                 index,
                 name: &aggregator_name,
                 server_port: config.server_port + index as u64,
@@ -265,7 +237,8 @@ impl MithrilInfrastructure {
                 })
                 .await;
 
-            if master_aggregator_endpoint.is_none() && config.is_master_aggregator(0) {
+            if master_aggregator_endpoint.is_none() && config.has_master_slave_signer_registration()
+            {
                 master_aggregator_endpoint = Some(aggregator.endpoint());
             }
 
@@ -302,7 +275,7 @@ impl MithrilInfrastructure {
         let mut bootstrap_peer_addr = None;
         for (index, aggregator_endpoint) in aggregator_endpoints.iter().enumerate() {
             let mut relay_aggregator = RelayAggregator::new(
-                config.aggregator_name_suffix(index),
+                Aggregator::name_suffix(index),
                 config.server_port + index as u64 + 100,
                 bootstrap_peer_addr.clone(),
                 aggregator_endpoint,
@@ -426,20 +399,12 @@ impl MithrilInfrastructure {
         &self.devnet
     }
 
-    pub fn master_aggregator(&self) -> &Aggregator {
-        assert!(
-            !self.aggregators.is_empty(),
-            "No master aggregator available for this infrastructure"
-        );
-        &self.aggregators[0]
+    pub fn aggregators(&self) -> &[Aggregator] {
+        &self.aggregators
     }
 
-    pub fn slave_aggregators(&self) -> &[Aggregator] {
-        &self.aggregators[1..]
-    }
-
-    pub fn slave_aggregator(&self, index: usize) -> &Aggregator {
-        &self.aggregators[index + 1]
+    pub fn aggregator(&self, index: usize) -> &Aggregator {
+        &self.aggregators[index]
     }
 
     pub fn signers(&self) -> &[Signer] {
@@ -462,20 +427,12 @@ impl MithrilInfrastructure {
         &self.relay_passives
     }
 
-    pub fn master_chain_observer(&self) -> Arc<dyn ChainObserver> {
-        assert!(
-            !self.aggregators.is_empty(),
-            "No master chain observer available for this infrastructure"
-        );
-        self.cardano_chain_observers[0].clone()
+    pub fn chain_observers(&self) -> &[Arc<dyn ChainObserver>] {
+        &self.cardano_chain_observers
     }
 
-    pub fn slave_chain_observers(&self) -> &[Arc<dyn ChainObserver>] {
-        &self.cardano_chain_observers[1..]
-    }
-
-    pub fn slave_chain_observer(&self, index: usize) -> Arc<dyn ChainObserver> {
-        self.cardano_chain_observers[index + 1].clone()
+    pub fn chain_observer(&self, index: usize) -> Arc<dyn ChainObserver> {
+        self.cardano_chain_observers[index].clone()
     }
 
     pub async fn build_client(&self, aggregator: &Aggregator) -> StdResult<Client> {
@@ -494,11 +451,7 @@ impl MithrilInfrastructure {
             artifacts_dir
         };
 
-        Client::new(
-            self.master_aggregator().endpoint(),
-            &work_dir,
-            &self.bin_dir,
-        )
+        Client::new(aggregator.endpoint(), &work_dir, &self.bin_dir)
     }
 
     pub fn run_only_mode(&self) -> bool {
@@ -506,8 +459,7 @@ impl MithrilInfrastructure {
     }
 
     pub async fn tail_logs(&self, number_of_line: u64) -> StdResult<()> {
-        self.master_aggregator().tail_logs(number_of_line).await?;
-        for aggregator in self.slave_aggregators() {
+        for aggregator in self.aggregators() {
             aggregator.tail_logs(number_of_line).await?;
         }
         for signer in self.signers() {
@@ -527,9 +479,9 @@ impl MithrilInfrastructure {
     }
 
     pub async fn last_error_in_logs(&self, number_of_error: u64) -> StdResult<()> {
-        self.master_aggregator()
-            .last_error_in_logs(number_of_error)
-            .await?;
+        for aggregator in self.aggregators() {
+            aggregator.last_error_in_logs(number_of_error).await?;
+        }
 
         Ok(())
     }
@@ -542,7 +494,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn is_master_aggregator_succeeds() {
+    fn has_master_aggregator_succeeds() {
         let config = MithrilInfrastructureConfig {
             use_relays: true,
             relay_signer_registration_mode: SignerRelayMode::Passthrough,
@@ -550,8 +502,7 @@ mod tests {
             ..MithrilInfrastructureConfig::dummy()
         };
 
-        assert!(config.is_master_aggregator(0));
-        assert!(!config.is_master_aggregator(1));
+        assert!(config.has_master_slave_signer_registration());
 
         let config = MithrilInfrastructureConfig {
             use_relays: true,
@@ -560,8 +511,7 @@ mod tests {
             ..MithrilInfrastructureConfig::dummy()
         };
 
-        assert!(!config.is_master_aggregator(0));
-        assert!(!config.is_master_aggregator(1));
+        assert!(!config.has_master_slave_signer_registration());
 
         let config = MithrilInfrastructureConfig {
             use_relays: false,
@@ -569,58 +519,6 @@ mod tests {
             ..MithrilInfrastructureConfig::dummy()
         };
 
-        assert!(!config.is_master_aggregator(0));
-    }
-
-    #[test]
-    #[should_panic]
-    fn is_master_aggregator_fails() {
-        let config = MithrilInfrastructureConfig {
-            number_of_aggregators: 1,
-            ..MithrilInfrastructureConfig::dummy()
-        };
-
-        config.is_master_aggregator(2);
-    }
-
-    #[test]
-    fn aggregator_name_suffix_succeeds() {
-        let config = MithrilInfrastructureConfig {
-            relay_signer_registration_mode: SignerRelayMode::Passthrough,
-            number_of_aggregators: 3,
-            ..MithrilInfrastructureConfig::dummy()
-        };
-
-        assert_eq!(config.aggregator_name_suffix(0), "master");
-        assert_eq!(config.aggregator_name_suffix(1), "slave-1");
-        assert_eq!(config.aggregator_name_suffix(2), "slave-2");
-
-        let config = MithrilInfrastructureConfig {
-            number_of_aggregators: 3,
-            relay_signer_registration_mode: SignerRelayMode::P2P,
-            ..MithrilInfrastructureConfig::dummy()
-        };
-
-        assert_eq!(config.aggregator_name_suffix(0), "1");
-        assert_eq!(config.aggregator_name_suffix(1), "2");
-        assert_eq!(config.aggregator_name_suffix(2), "3");
-
-        let config = MithrilInfrastructureConfig {
-            number_of_aggregators: 1,
-            ..MithrilInfrastructureConfig::dummy()
-        };
-
-        assert_eq!(config.aggregator_name_suffix(0), "1");
-    }
-
-    #[test]
-    #[should_panic]
-    fn aggregator_name_suffix_fails() {
-        let config = MithrilInfrastructureConfig {
-            number_of_aggregators: 1,
-            ..MithrilInfrastructureConfig::dummy()
-        };
-
-        config.aggregator_name_suffix(2);
+        assert!(!config.has_master_slave_signer_registration());
     }
 }
