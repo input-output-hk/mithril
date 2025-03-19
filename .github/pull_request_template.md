@@ -13,7 +13,7 @@ This PR includes...
   - [ ] Commit sequence broadly makes sense
   - [ ] Key commits have useful messages
 - PR
-  - [ ] No clippy warnings in the CI
+  - [ ] All check jobs of the CI have succeeded
   - [ ] Self-reviewed the diff
   - [ ] Useful pull request description
   - [ ] Reviewer requested
@@ -21,6 +21,8 @@ This PR includes...
   - [ ] Update README file (if relevant)
   - [ ] Update documentation website (if relevant)
   - [ ] Add dev blog post (if relevant)
+  - [ ] Add ADR blog post or Dev ADR entry (if relevant)
+  - [ ] No new TODOs introduced
 
 ## Comments
 

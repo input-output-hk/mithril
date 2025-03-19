@@ -190,9 +190,8 @@ mod tests {
         era::{EraChecker, SupportedEra},
     };
 
-    use crate::dependency_injection::DependenciesBuilder;
+    use crate::initialize_dependencies;
     use crate::test_tools::TestLogger;
-    use crate::Configuration;
 
     use super::*;
 
@@ -259,12 +258,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_404_response_should_include_status_code_and_headers() {
-        let container = Arc::new(
-            DependenciesBuilder::new_with_stdout_logger(Configuration::new_sample())
-                .build_dependency_container()
-                .await
-                .unwrap(),
-        );
+        let container = Arc::new(initialize_dependencies!().await);
         let state = RouterState::new_with_dummy_config(container);
         let routes = routes(Arc::new(state));
 

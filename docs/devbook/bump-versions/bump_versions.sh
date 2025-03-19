@@ -39,6 +39,18 @@ readonly OPEN_API_FILE=openapi.yaml
 declare OPEN_API_UPDATE=""
 declare OPEN_API_UPDATE_MESSAGE=""
 
+readonly INFRA_VERSION_FILE=mithril-infra/assets/infra.version
+declare INFRA_UPDATE=""
+declare INFRA_UPDATE_MESSAGE=""
+
+readonly DEVNET_VERSION_FILE=mithril-test-lab/mithril-devnet/VERSION
+declare DEVNET_UPDATE=""
+declare DEVNET_UPDATE_MESSAGE=""
+
+readonly BENCHMARK_VERSION_FILE=mithril-test-lab/benchmark/aggregator-prover/VERSION
+declare BENCHMARK_UPDATE=""
+declare BENCHMARK_UPDATE_MESSAGE=""
+
 update_crate_versions() {
     # NOTE
     # `cargo get workspace.members` display the list of path to crates in the workspace.
@@ -141,6 +153,28 @@ update_openapi_version() {
     OPEN_API_UPDATE_MESSAGE=" and \`$OPEN_API_FILE\` version"
 }
 
+update_plain_version_file() {
+    local -r dry_run=$1
+    local -r version_file=$2
+    local -r var_name_prefix=$3
+
+    local -r version_line=$(head -n 1 "$version_file")
+    local -r patch_number=$(echo "$version_line" | cut -d . -f 3)
+    local -r next_patch_number=$((patch_number + 1))
+    local -r new_version=$(echo "$version_line" | cut -d . -f 1-2).$next_patch_number
+
+    echo -e "   ${GREEN}Upgrading${RESET} $version_file from ${version_line} to ${new_version}"
+    if [ true = "$dry_run" ]
+    then
+        echo -e "${ORANGE}warning${RESET}: aborting $version_file update due to dry run"
+    else
+        echo -e "$new_version\n" > "$version_file"
+    fi
+    
+    eval "${var_name_prefix}_UPDATE=\"\n* $version_file from \\\`${version_line}\\\` to \\\`${new_version}\\\`\""
+    eval "${var_name_prefix}_UPDATE_MESSAGE=\" and \\\`$version_file\\\` version\""
+}
+
 ################
 check_requirements
 
@@ -168,6 +202,22 @@ if [ "$(echo "${FILES_MODIFY[@]}" | grep -xc "$OPEN_API_FILE")" -gt 0 ]
 then
     update_openapi_version $DRY_RUN
 fi
+
+if [ "$(echo "${FILES_MODIFY[@]}" | grep -c "^mithril-infra/.*\.tf$")" -gt 0 ]
+then
+    update_plain_version_file $DRY_RUN "$INFRA_VERSION_FILE" "INFRA"
+fi
+
+if [ "$(echo "${FILES_MODIFY[@]}" | grep -c "^mithril-test-lab/mithril-devnet/.*\.sh$")" -gt 0 ]
+then
+    update_plain_version_file $DRY_RUN "$DEVNET_VERSION_FILE" "DEVNET"
+fi
+
+if [ "$(echo "${FILES_MODIFY[@]}" | grep -c "^mithril-test-lab/benchmark/aggregator-prover/.*\.sh$")" -gt 0 ]
+then
+    update_plain_version_file $DRY_RUN "$BENCHMARK_VERSION_FILE" "BENCHMARK"
+fi
+
 
 if [ true = $DRY_RUN ]
 then
@@ -204,14 +254,15 @@ else
     UPDATED_PACKAGE_JSONS="\n${UPDATED_PACKAGE_JSONS}"
   fi
 
-  COMMIT_MESSAGE=$(echo -e "chore: upgrade crate versions${OPEN_API_UPDATE_MESSAGE}\n${UPDATED_CRATES}${UPDATED_PACKAGE_JSONS}${OPEN_API_UPDATE}")
+  COMMIT_MESSAGE=$(echo -e "chore: upgrade crate versions${OPEN_API_UPDATE_MESSAGE}${INFRA_UPDATE_MESSAGE}${DEVNET_UPDATE_MESSAGE}${BENCHMARK_UPDATE_MESSAGE}\n${UPDATED_CRATES}${UPDATED_PACKAGE_JSONS}${OPEN_API_UPDATE}${INFRA_UPDATE}${DEVNET_UPDATE}${BENCHMARK_UPDATE}")
 
   echo -e "$COMMIT_MESSAGE"
 
   if [ true = $COMMIT ]
   then
-    git add --update $OPEN_API_FILE Cargo.lock ./*/Cargo.toml ./internal/*/Cargo.toml ./mithril-test-lab/*/Cargo.toml
+    git add --update $OPEN_API_FILE Cargo.lock ./*/Cargo.toml ./internal/*/Cargo.toml ./mithril-test-lab/*/Cargo.toml examples/*/Cargo.toml
     git add --update ./*/package.json ./*/package-lock.json mithril-client-wasm/ci-test/package-lock.json examples/*/package.json examples/*/package-lock.json
+    git add --update $INFRA_VERSION_FILE $DEVNET_VERSION_FILE $BENCHMARK_VERSION_FILE
     git commit -m "$COMMIT_MESSAGE"
   fi
 fi

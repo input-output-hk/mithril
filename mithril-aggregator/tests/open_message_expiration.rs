@@ -8,6 +8,7 @@ use mithril_common::{
         BlockNumber, CardanoDbBeacon, ChainPoint, Epoch, ProtocolParameters, SignedEntityType,
         SignedEntityTypeDiscriminants, SlotNumber, TimePoint,
     },
+    temp_dir,
     test_utils::MithrilFixtureBuilder,
 };
 use test_extensions::{
@@ -24,7 +25,7 @@ async fn open_message_expiration() {
     let configuration = Configuration {
         protocol_parameters: protocol_parameters.clone(),
         data_stores_directory: get_test_dir("open_message_expiration"),
-        ..Configuration::new_sample()
+        ..Configuration::new_sample(temp_dir!())
     };
     let mut tester = RuntimeTester::build(
         TimePoint::new(

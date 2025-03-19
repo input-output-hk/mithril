@@ -1,13 +1,13 @@
 use semver::Version;
+use std::path::PathBuf;
 use std::sync::Arc;
-
-use mithril_common::entities::CompressionAlgorithm;
 
 use crate::artifact_builder::{
     AncillaryArtifactBuilder, AncillaryFileUploader, CardanoDatabaseArtifactBuilder,
     CardanoImmutableFilesFullArtifactBuilder, CardanoStakeDistributionArtifactBuilder,
     CardanoTransactionsArtifactBuilder, DigestArtifactBuilder, DigestFileUploader,
-    ImmutableArtifactBuilder, ImmutableFilesUploader, MithrilStakeDistributionArtifactBuilder,
+    DigestSnapshotter, ImmutableArtifactBuilder, ImmutableFilesUploader,
+    MithrilStakeDistributionArtifactBuilder,
 };
 use crate::dependency_injection::builder::SNAPSHOT_ARTIFACTS_DIR;
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
@@ -17,8 +17,9 @@ use crate::file_uploaders::{
 use crate::http_server::CARDANO_DATABASE_DOWNLOAD_PATH;
 use crate::services::{
     CompressedArchiveSnapshotter, DumbSnapshotter, MithrilSignedEntityService, SignedEntityService,
-    SignedEntityServiceArtifactsDependencies, Snapshotter, SnapshotterCompressionAlgorithm,
+    SignedEntityServiceArtifactsDependencies, Snapshotter,
 };
+use crate::tools::file_archiver::FileArchiver;
 use crate::{
     DumbUploader, ExecutionEnvironment, FileUploader, LocalSnapshotUploader, SnapshotUploaderType,
 };
@@ -39,9 +40,8 @@ impl DependenciesBuilder {
             Arc::new(CardanoImmutableFilesFullArtifactBuilder::new(
                 self.configuration.get_network()?,
                 &cardano_node_version,
-                snapshotter.clone(),
+                snapshotter,
                 snapshot_uploader,
-                self.configuration.snapshot_compression_algorithm,
                 logger.clone(),
             ));
         let prover_service = self.get_prover_service().await?;
@@ -94,6 +94,26 @@ impl DependenciesBuilder {
         Ok(self.signed_entity_service.as_ref().cloned().unwrap())
     }
 
+    async fn build_file_archiver(&mut self) -> Result<Arc<FileArchiver>> {
+        let archive_verification_directory =
+            std::env::temp_dir().join("mithril_archiver_verify_archive");
+        let file_archiver = Arc::new(FileArchiver::new(
+            self.configuration.zstandard_parameters.unwrap_or_default(),
+            archive_verification_directory,
+            self.root_logger(),
+        ));
+
+        Ok(file_archiver)
+    }
+
+    async fn get_file_archiver(&mut self) -> Result<Arc<FileArchiver>> {
+        if self.file_archiver.is_none() {
+            self.file_archiver = Some(self.build_file_archiver().await?);
+        }
+
+        Ok(self.file_archiver.as_ref().cloned().unwrap())
+    }
+
     async fn build_snapshotter(&mut self) -> Result<Arc<dyn Snapshotter>> {
         let snapshotter: Arc<dyn Snapshotter> = match self.configuration.environment {
             ExecutionEnvironment::Production => {
@@ -102,26 +122,31 @@ impl DependenciesBuilder {
                     .get_snapshot_dir()?
                     .join("pending_snapshot");
 
-                let algorithm = match self.configuration.snapshot_compression_algorithm {
-                    CompressionAlgorithm::Gzip => SnapshotterCompressionAlgorithm::Gzip,
-                    CompressionAlgorithm::Zstandard => self
-                        .configuration
-                        .zstandard_parameters
-                        .unwrap_or_default()
-                        .into(),
-                };
-
                 Arc::new(CompressedArchiveSnapshotter::new(
                     self.configuration.db_directory.clone(),
                     ongoing_snapshot_directory,
-                    algorithm,
+                    self.configuration.snapshot_compression_algorithm,
+                    self.get_file_archiver().await?,
                     self.root_logger(),
                 )?)
             }
-            _ => Arc::new(DumbSnapshotter::new()),
+            _ => Arc::new(DumbSnapshotter::new(
+                self.configuration.snapshot_compression_algorithm,
+            )),
         };
 
         Ok(snapshotter)
+    }
+
+    async fn build_digests_snapshotter(
+        &mut self,
+        digests_path: PathBuf,
+    ) -> Result<DigestSnapshotter> {
+        Ok(DigestSnapshotter {
+            file_archiver: self.get_file_archiver().await?,
+            target_location: digests_path,
+            compression_algorithm: self.configuration.snapshot_compression_algorithm,
+        })
     }
 
     /// [Snapshotter] service.
@@ -338,7 +363,6 @@ impl DependenciesBuilder {
             self.build_cardano_database_ancillary_uploaders()?,
             self.get_snapshotter().await?,
             self.configuration.get_network()?,
-            self.configuration.snapshot_compression_algorithm,
             self.root_logger(),
         )?);
 
@@ -346,22 +370,24 @@ impl DependenciesBuilder {
             immutable_dir,
             self.build_cardano_database_immutable_uploaders()?,
             self.get_snapshotter().await?,
-            self.configuration.snapshot_compression_algorithm,
             self.root_logger(),
         )?);
+
+        let digests_path = snapshot_dir.join("pending_cardano_database_digests");
+        let digests_snapshotter = self.build_digests_snapshotter(digests_path.clone()).await?;
 
         let digest_builder = Arc::new(DigestArtifactBuilder::new(
             self.configuration.get_server_url()?,
             self.build_cardano_database_digests_uploaders()?,
+            digests_snapshotter,
             self.configuration.get_network()?,
-            snapshot_dir.join("pending_cardano_database_digests"),
+            digests_path,
             self.get_immutable_file_digest_mapper().await?,
             self.root_logger(),
         )?);
 
         Ok(CardanoDatabaseArtifactBuilder::new(
             self.configuration.get_network()?,
-            self.configuration.db_directory.clone(),
             &cardano_node_version,
             ancillary_builder,
             immutable_builder,
@@ -372,7 +398,7 @@ impl DependenciesBuilder {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::test_utils::TempDir;
+    use mithril_common::temp_dir_create;
     use mithril_persistence::sqlite::ConnectionBuilder;
 
     use crate::dependency_injection::builder::CARDANO_DB_ARTIFACTS_DIR;
@@ -382,10 +408,7 @@ mod tests {
 
     #[tokio::test]
     async fn if_not_local_uploader_create_cardano_database_immutable_dirs() {
-        let snapshot_directory = TempDir::create(
-            "builder",
-            "if_not_local_uploader_create_cardano_database_immutable_dirs",
-        );
+        let snapshot_directory = temp_dir_create!();
         let cdb_dir = snapshot_directory.join(CARDANO_DB_ARTIFACTS_DIR);
         let ancillary_dir = cdb_dir.join("ancillary");
         let immutable_dir = cdb_dir.join("immutable");
@@ -393,10 +416,9 @@ mod tests {
 
         let mut dep_builder = {
             let config = Configuration {
-                snapshot_directory,
                 // Test environment yield dumb uploaders
                 environment: ExecutionEnvironment::Test,
-                ..Configuration::new_sample()
+                ..Configuration::new_sample(snapshot_directory)
             };
 
             DependenciesBuilder::new_with_stdout_logger(config)
@@ -418,10 +440,7 @@ mod tests {
 
     #[tokio::test]
     async fn if_local_uploader_creates_all_cardano_database_subdirs() {
-        let snapshot_directory = TempDir::create(
-            "builder",
-            "if_local_uploader_creates_all_cardano_database_subdirs",
-        );
+        let snapshot_directory = temp_dir_create!();
         let cdb_dir = snapshot_directory.join(CARDANO_DB_ARTIFACTS_DIR);
         let ancillary_dir = cdb_dir.join("ancillary");
         let immutable_dir = cdb_dir.join("immutable");
@@ -429,11 +448,10 @@ mod tests {
 
         let mut dep_builder = {
             let config = Configuration {
-                snapshot_directory,
                 // Must use production environment to make `snapshot_uploader_type` effective
                 environment: ExecutionEnvironment::Production,
                 snapshot_uploader_type: SnapshotUploaderType::Local,
-                ..Configuration::new_sample()
+                ..Configuration::new_sample(snapshot_directory)
             };
 
             DependenciesBuilder::new_with_stdout_logger(config)

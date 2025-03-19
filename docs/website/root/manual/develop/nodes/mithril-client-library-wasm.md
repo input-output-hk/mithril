@@ -10,10 +10,10 @@ Mithril client library WASM can be used by Javascript developers to use the Mith
 
 It is responsible for handling the different types of data certified by Mithril and available through a Mithril aggregator:
 
-- [**Snapshot**](../../../glossary.md#snapshot): list and get
-- [**Mithril stake distribution**](../../../glossary.md#stake-distribution): list and get
 - [**Cardano transaction**](../../../glossary.md#cardano-transaction): list and get snapshots, get proofs
 - [**Cardano stake distribution**](../../../glossary.md#stake-distribution): list, get and get by epoch
+- [**Cardano database**](../../../glossary.md#cardano-database): list and get
+- [**Mithril stake distribution**](../../../glossary.md#stake-distribution): list and get
 - [**Certificate**](../../../glossary.md#certificate): list, get, and chain validation.
 
 :::

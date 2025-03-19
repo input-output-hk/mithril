@@ -5,6 +5,7 @@ use std::collections::{BTreeSet, HashMap};
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use mithril_cli_helper::register_config_value;
 use mithril_common::chain_observer::ChainObserverType;
 use mithril_common::crypto_helper::ProtocolGenesisSigner;
 use mithril_common::entities::{
@@ -193,6 +194,13 @@ pub struct Configuration {
 
     /// Time interval at which usage metrics are persisted in event database (in seconds).
     pub persist_usage_report_interval_in_seconds: u64,
+
+    // Master aggregator endpoint
+    ///
+    /// This is the endpoint of the aggregator that will be used to fetch the latest epoch settings
+    /// and store the signer registrations when the aggregator is running in a slave mode.
+    /// If this is not set, the aggregator will run in a master mode.
+    pub master_aggregator_endpoint: Option<String>,
 }
 
 /// Uploader needed to copy the snapshot once computed.
@@ -226,7 +234,7 @@ impl Default for ZstandardCompressionParameters {
 
 impl Configuration {
     /// Create a sample configuration mainly for tests
-    pub fn new_sample() -> Self {
+    pub fn new_sample(tmp_path: PathBuf) -> Self {
         let genesis_verification_key = ProtocolGenesisSigner::create_deterministic_genesis_signer()
             .create_genesis_verifier()
             .to_verification_key();
@@ -256,8 +264,9 @@ impl Configuration {
             // crate directory.
             // Know issue:
             // - There may be collision of the `snapshot_directory` between tests. Tests that
-            // depend on the `snapshot_directory` should specify their own.
-            snapshot_directory: std::env::temp_dir(),
+            // depend on the `snapshot_directory` should specify their own,
+            // and they can use the `temp_dir` macro for that.
+            snapshot_directory: tmp_path,
             data_stores_directory: PathBuf::from(":memory:"),
             genesis_verification_key: genesis_verification_key.to_json_hex().unwrap(),
             reset_digests_cache: false,
@@ -283,6 +292,7 @@ impl Configuration {
             metrics_server_ip: "0.0.0.0".to_string(),
             metrics_server_port: 9090,
             persist_usage_report_interval_in_seconds: 10,
+            master_aggregator_endpoint: None,
         }
     }
 
@@ -374,6 +384,11 @@ impl Configuration {
             protocol_parameters: self.protocol_parameters.clone(),
             cardano_transactions_signing_config: self.cardano_transactions_signing_config.clone(),
         }
+    }
+
+    /// Check if the aggregator is running in slave mode.
+    pub fn is_slave_aggregator(&self) -> bool {
+        self.master_aggregator_endpoint.is_some()
     }
 }
 
@@ -511,67 +526,64 @@ impl Source for DefaultConfiguration {
     }
 
     fn collect(&self) -> Result<Map<String, Value>, ConfigError> {
-        macro_rules! insert_default_configuration {
-            ( $map:ident, $config:ident.$parameter:ident ) => {{
-                $map.insert(
-                    stringify!($parameter).to_string(),
-                    into_value($config.$parameter),
-                );
-            }};
-        }
-
-        fn into_value<V: Into<ValueKind>>(value: V) -> Value {
-            Value::new(Some(&DefaultConfiguration::namespace()), value.into())
-        }
         let mut result = Map::new();
+
+        let namespace = DefaultConfiguration::namespace();
+
         let myself = self.clone();
-        insert_default_configuration!(result, myself.environment);
-        insert_default_configuration!(result, myself.server_ip);
-        insert_default_configuration!(result, myself.server_port);
-        insert_default_configuration!(result, myself.db_directory);
-        insert_default_configuration!(result, myself.snapshot_directory);
-        insert_default_configuration!(result, myself.snapshot_store_type);
-        insert_default_configuration!(result, myself.snapshot_uploader_type);
-        insert_default_configuration!(result, myself.era_reader_adapter_type);
-        insert_default_configuration!(result, myself.reset_digests_cache);
-        insert_default_configuration!(result, myself.disable_digests_cache);
-        insert_default_configuration!(result, myself.snapshot_compression_algorithm);
-        insert_default_configuration!(result, myself.snapshot_use_cdn_domain);
-        insert_default_configuration!(result, myself.signer_importer_run_interval);
-        insert_default_configuration!(result, myself.allow_unparsable_block);
-        insert_default_configuration!(result, myself.cardano_transactions_prover_cache_pool_size);
-        insert_default_configuration!(
+        register_config_value!(result, &namespace, myself.environment);
+        register_config_value!(result, &namespace, myself.server_ip);
+        register_config_value!(result, &namespace, myself.server_port);
+        register_config_value!(result, &namespace, myself.db_directory);
+        register_config_value!(result, &namespace, myself.snapshot_directory);
+        register_config_value!(result, &namespace, myself.snapshot_store_type);
+        register_config_value!(result, &namespace, myself.snapshot_uploader_type);
+        register_config_value!(result, &namespace, myself.era_reader_adapter_type);
+        register_config_value!(result, &namespace, myself.reset_digests_cache);
+        register_config_value!(result, &namespace, myself.disable_digests_cache);
+        register_config_value!(result, &namespace, myself.snapshot_compression_algorithm);
+        register_config_value!(result, &namespace, myself.snapshot_use_cdn_domain);
+        register_config_value!(result, &namespace, myself.signer_importer_run_interval);
+        register_config_value!(result, &namespace, myself.allow_unparsable_block);
+        register_config_value!(
             result,
+            &namespace,
+            myself.cardano_transactions_prover_cache_pool_size
+        );
+        register_config_value!(
+            result,
+            &namespace,
             myself.cardano_transactions_database_connection_pool_size
         );
-        insert_default_configuration!(
+        register_config_value!(
             result,
+            &namespace,
             myself.cardano_transactions_prover_max_hashes_allowed_by_request
         );
-        insert_default_configuration!(
+        register_config_value!(
             result,
+            &namespace,
             myself.cardano_transactions_block_streamer_max_roll_forwards_per_poll
         );
-        insert_default_configuration!(result, myself.enable_metrics_server);
-        insert_default_configuration!(result, myself.metrics_server_ip);
-        insert_default_configuration!(result, myself.metrics_server_port);
-        insert_default_configuration!(result, myself.persist_usage_report_interval_in_seconds);
-        result.insert(
-            "cardano_transactions_signing_config".to_string(),
-            into_value(HashMap::from([
+        register_config_value!(result, &namespace, myself.enable_metrics_server);
+        register_config_value!(result, &namespace, myself.metrics_server_ip);
+        register_config_value!(result, &namespace, myself.metrics_server_port);
+        register_config_value!(
+            result,
+            &namespace,
+            myself.persist_usage_report_interval_in_seconds
+        );
+        register_config_value!(
+            result,
+            &namespace,
+            myself.cardano_transactions_signing_config,
+            |v: CardanoTransactionsSigningConfig| HashMap::from([
                 (
                     "security_parameter".to_string(),
-                    ValueKind::from(
-                        *myself
-                            .cardano_transactions_signing_config
-                            .security_parameter,
-                    ),
+                    ValueKind::from(*v.security_parameter,),
                 ),
-                (
-                    "step".to_string(),
-                    ValueKind::from(*myself.cardano_transactions_signing_config.step),
-                ),
-            ])),
+                ("step".to_string(), ValueKind::from(*v.step),)
+            ])
         );
         Ok(result)
     }
@@ -579,6 +591,8 @@ impl Source for DefaultConfiguration {
 
 #[cfg(test)]
 mod test {
+    use mithril_common::temp_dir;
+
     use super::*;
 
     #[test]
@@ -586,7 +600,7 @@ mod test {
         for limit in 4..=10u64 {
             let configuration = Configuration {
                 store_retention_limit: Some(limit as usize),
-                ..Configuration::new_sample()
+                ..Configuration::new_sample(temp_dir!())
             };
             assert_eq!(configuration.safe_epoch_retention_limit(), Some(limit));
         }
@@ -596,7 +610,7 @@ mod test {
     fn safe_epoch_retention_limit_wont_change_a_none_value() {
         let configuration = Configuration {
             store_retention_limit: None,
-            ..Configuration::new_sample()
+            ..Configuration::new_sample(temp_dir!())
         };
         assert_eq!(configuration.safe_epoch_retention_limit(), None);
     }
@@ -606,7 +620,7 @@ mod test {
         for limit in 0..=3 {
             let configuration = Configuration {
                 store_retention_limit: Some(limit),
-                ..Configuration::new_sample()
+                ..Configuration::new_sample(temp_dir!())
             };
             assert_eq!(configuration.safe_epoch_retention_limit(), Some(3));
         }
@@ -632,7 +646,7 @@ mod test {
     fn compute_allowed_signed_entity_types_discriminants_append_default_discriminants() {
         let config = Configuration {
             signed_entity_types: None,
-            ..Configuration::new_sample()
+            ..Configuration::new_sample(temp_dir!())
         };
 
         assert_eq!(
@@ -647,14 +661,14 @@ mod test {
     fn allow_http_serve_directory() {
         let config = Configuration {
             snapshot_uploader_type: SnapshotUploaderType::Local,
-            ..Configuration::new_sample()
+            ..Configuration::new_sample(temp_dir!())
         };
 
         assert!(config.allow_http_serve_directory());
 
         let config = Configuration {
             snapshot_uploader_type: SnapshotUploaderType::Gcp,
-            ..Configuration::new_sample()
+            ..Configuration::new_sample(temp_dir!())
         };
 
         assert!(!config.allow_http_serve_directory());
@@ -666,7 +680,7 @@ mod test {
             server_ip: "1.2.3.4".to_string(),
             server_port: 5678,
             public_server_url: None,
-            ..Configuration::new_sample()
+            ..Configuration::new_sample(temp_dir!())
         };
 
         assert_eq!(
@@ -681,7 +695,7 @@ mod test {
             server_ip: "1.2.3.4".to_string(),
             server_port: 5678,
             public_server_url: Some("https://example.com".to_string()),
-            ..Configuration::new_sample()
+            ..Configuration::new_sample(temp_dir!())
         };
 
         assert_eq!(
@@ -696,7 +710,7 @@ mod test {
             server_ip: "1.2.3.4".to_string(),
             server_port: 6789,
             public_server_url: None,
-            ..Configuration::new_sample()
+            ..Configuration::new_sample(temp_dir!())
         };
 
         let joined_url = config
@@ -717,7 +731,7 @@ mod test {
             public_server_url: Some(format!(
                 "https://example.com/{subpath_without_trailing_slash}"
             )),
-            ..Configuration::new_sample()
+            ..Configuration::new_sample(temp_dir!())
         };
 
         let joined_url = config.get_server_url().unwrap().join("some/path").unwrap();
@@ -725,5 +739,25 @@ mod test {
             joined_url.as_str().contains(subpath_without_trailing_slash),
             "Joined URL `{joined_url}`, does not contain subpath `{subpath_without_trailing_slash}`"
         );
+    }
+
+    #[test]
+    fn is_slave_aggregator_returns_true_when_in_slave_mode() {
+        let config = Configuration {
+            master_aggregator_endpoint: Some("some_endpoint".to_string()),
+            ..Configuration::new_sample(temp_dir!())
+        };
+
+        assert!(config.is_slave_aggregator());
+    }
+
+    #[test]
+    fn is_slave_aggregator_returns_false_when_in_master_mode() {
+        let config = Configuration {
+            master_aggregator_endpoint: None,
+            ..Configuration::new_sample(temp_dir!())
+        };
+
+        assert!(!config.is_slave_aggregator());
     }
 }

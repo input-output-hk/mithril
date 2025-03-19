@@ -3,6 +3,7 @@ mod test_extensions;
 use mithril_aggregator::Configuration;
 use mithril_common::{
     entities::{BlockNumber, ChainPoint, Epoch, ProtocolParameters, SlotNumber, TimePoint},
+    temp_dir,
     test_utils::MithrilFixtureBuilder,
 };
 use test_extensions::{utilities::get_test_dir, ExpectedCertificate, RuntimeTester};
@@ -17,7 +18,7 @@ async fn genesis_to_signing() {
     let configuration = Configuration {
         protocol_parameters: protocol_parameters.clone(),
         data_stores_directory: get_test_dir("genesis_to_signing"),
-        ..Configuration::new_sample()
+        ..Configuration::new_sample(temp_dir!())
     };
     let mut tester = RuntimeTester::build(
         TimePoint::new(

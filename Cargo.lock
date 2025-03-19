@@ -1003,7 +1003,20 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-database"
-version = "0.0.1"
+version = "0.1.26"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "clap",
+ "futures",
+ "indicatif",
+ "mithril-client",
+ "tokio",
+]
+
+[[package]]
+name = "client-cardano-database-v2"
+version = "0.0.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1050,19 +1063,6 @@ dependencies = [
  "slog",
  "slog-async",
  "slog-term",
- "tokio",
-]
-
-[[package]]
-name = "client-snapshot"
-version = "0.1.25"
-dependencies = [
- "anyhow",
- "async-trait",
- "clap",
- "futures",
- "indicatif",
- "mithril-client",
  "tokio",
 ]
 
@@ -3651,7 +3651,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.7.10"
+version = "0.7.18"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3662,6 +3662,9 @@ dependencies = [
  "criterion",
  "flate2",
  "hex",
+ "http 1.2.0",
+ "httpmock",
+ "mithril-cli-helper",
  "mithril-common",
  "mithril-doc",
  "mithril-metric",
@@ -3725,8 +3728,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "mithril-cli-helper"
+version = "0.0.1"
+dependencies = [
+ "config",
+]
+
+[[package]]
 name = "mithril-client"
-version = "0.11.10"
+version = "0.11.16"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3757,7 +3767,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.11.8"
+version = "0.11.10"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3769,6 +3779,7 @@ dependencies = [
  "futures",
  "human_bytes",
  "indicatif",
+ "mithril-cli-helper",
  "mithril-client",
  "mithril-common",
  "mithril-doc",
@@ -3784,7 +3795,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-wasm"
-version = "0.8.4"
+version = "0.8.5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3802,7 +3813,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.5.9"
+version = "0.5.13"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3854,10 +3865,11 @@ dependencies = [
 
 [[package]]
 name = "mithril-doc"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "clap",
  "config",
+ "mithril-cli-helper",
  "mithril-doc-derive",
  "regex",
 ]
@@ -3910,7 +3922,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-persistence"
-version = "0.2.47"
+version = "0.2.48"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3986,7 +3998,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.232"
+version = "0.2.235"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3997,6 +4009,7 @@ dependencies = [
  "hex",
  "http 1.2.0",
  "httpmock",
+ "mithril-cli-helper",
  "mithril-common",
  "mithril-doc",
  "mithril-metric",
@@ -4022,7 +4035,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-stm"
-version = "0.3.38"
+version = "0.3.40"
 dependencies = [
  "alba",
  "bincode",

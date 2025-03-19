@@ -7,7 +7,8 @@ use mithril_common::{
         ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants, SlotNumber,
         StakeDistributionParty, TimePoint,
     },
-    test_utils::{MithrilFixtureBuilder, TempDir},
+    temp_dir,
+    test_utils::MithrilFixtureBuilder,
 };
 use test_extensions::{
     utilities::get_test_dir, ExpectedCertificate, ExpectedMetrics, RuntimeTester,
@@ -30,12 +31,11 @@ async fn create_certificate() {
             .join(","),
         ),
         data_stores_directory: get_test_dir("create_certificate"),
-        snapshot_directory: TempDir::create("aggregator-integration", "create_certificate"),
         cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
             security_parameter: BlockNumber(0),
             step: BlockNumber(30),
         },
-        ..Configuration::new_sample()
+        ..Configuration::new_sample(temp_dir!())
     };
     let mut tester = RuntimeTester::build(
         TimePoint {

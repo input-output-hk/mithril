@@ -66,8 +66,11 @@ pub type StdResult<T> = anyhow::Result<T, StdError>;
 /// Mithril API protocol version header name
 pub const MITHRIL_API_VERSION_HEADER: &str = "mithril-api-version";
 
-/// Mithril Signer node version header name
+/// Mithril signer node version header name
 pub const MITHRIL_SIGNER_VERSION_HEADER: &str = "signer-node-version";
+
+/// Mithril aggregator node version header name
+pub const MITHRIL_AGGREGATOR_VERSION_HEADER: &str = "aggregator-node-version";
 
 #[cfg(test)]
 mod tests {

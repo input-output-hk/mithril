@@ -1,3 +1,4 @@
+mod database_command;
 mod era_command;
 mod genesis_command;
 mod serve_command;
@@ -5,7 +6,8 @@ mod tools_command;
 
 use anyhow::anyhow;
 use clap::{CommandFactory, Parser, Subcommand};
-use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
+use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value};
+use mithril_cli_helper::{register_config_value, register_config_value_option};
 use mithril_common::StdResult;
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use slog::{debug, Level, Logger};
@@ -21,6 +23,7 @@ pub enum MainCommand {
     Era(era_command::EraCommand),
     Serve(serve_command::ServeCommand),
     Tools(tools_command::ToolsCommand),
+    Database(database_command::DatabaseCommand),
     #[clap(alias("doc"), hide(true))]
     GenerateDoc(GenerateDocCommands),
 }
@@ -44,6 +47,7 @@ impl MainCommand {
             Self::Era(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::Serve(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::Tools(cmd) => cmd.execute(root_logger, config_builder).await,
+            Self::Database(cmd) => cmd.execute(root_logger).await,
             Self::GenerateDoc(cmd) => {
                 let config_infos = vec![Configuration::extract(), DefaultConfiguration::extract()];
                 cmd.execute_with_configurations(&mut MainOpts::command(), &config_infos)
@@ -58,6 +62,7 @@ impl MainCommand {
             MainCommand::Genesis(_) => CommandType::CommandLine,
             MainCommand::Era(_) => CommandType::CommandLine,
             MainCommand::Tools(_) => CommandType::CommandLine,
+            MainCommand::Database(_) => CommandType::CommandLine,
             MainCommand::GenerateDoc(_) => CommandType::CommandLine,
         }
     }
@@ -98,15 +103,10 @@ impl Source for MainOpts {
         let mut result = Map::new();
         let namespace = "clap arguments".to_string();
 
-        if let Some(db_directory) = self.db_directory.clone() {
-            result.insert(
-                "db_directory".to_string(),
-                Value::new(
-                    Some(&namespace),
-                    ValueKind::from(format!("{}", db_directory.to_string_lossy())),
-                ),
-            );
-        }
+        register_config_value_option!(result, &namespace, self.db_directory, |v: PathBuf| format!(
+            "{}",
+            v.to_string_lossy()
+        ));
 
         Ok(result)
     }

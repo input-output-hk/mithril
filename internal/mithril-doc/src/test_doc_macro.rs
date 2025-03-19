@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod tests {
     use crate::{Documenter, DocumenterDefault, StructDoc};
-    use config::{Map, Source, Value, ValueKind};
+    use config::{Map, Source, Value};
+    use mithril_cli_helper::register_config_value;
 
     #[allow(dead_code)]
     #[derive(Debug, Clone, mithril_doc_derive::Documenter)]
@@ -32,11 +33,10 @@ mod tests {
         fn collect(&self) -> Result<Map<String, Value>, config::ConfigError> {
             let mut result = Map::new();
             let namespace = "default configuration".to_string();
+
             let myself = self.clone();
-            result.insert(
-                "environment".to_string(),
-                Value::new(Some(&namespace), ValueKind::from(myself.environment)),
-            );
+            register_config_value!(result, &namespace, myself.environment);
+
             Ok(result)
         }
     }

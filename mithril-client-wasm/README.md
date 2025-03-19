@@ -5,10 +5,10 @@
 - `mithril-client-wasm` defines all the tooling necessary to manipulate Mithril certified types available from a Mithril aggregator from a WASM compatible browser.
 
 - The different types of available data certified by Mithril are:
-  - Snapshot: list and get.
-  - Mithril stake distribution: list and get.
   - Cardano transactions: list & get snapshots, get proofs.
   - Cardano stake distribution: list, get and get by epoch.
+  - Cardano database: list and get.
+  - Mithril stake distribution: list and get.
   - Certificate: list, get, and chain validation.
 
 ## Installation

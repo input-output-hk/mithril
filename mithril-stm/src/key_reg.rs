@@ -19,18 +19,6 @@ pub struct KeyReg {
     keys: HashMap<VerificationKey, Stake>,
 }
 
-/// Structure generated out of a closed registration containing the registered parties, total stake, and the merkle tree.
-/// One can only get a global `avk` out of a closed key registration.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ClosedKeyReg<D: Digest> {
-    /// Ordered list of registered parties.
-    pub reg_parties: Vec<RegParty>,
-    /// Total stake of the registered parties.
-    pub total_stake: Stake,
-    /// Unique public key out of the key registration instance.
-    pub merkle_tree: Arc<MerkleTree<D>>,
-}
-
 impl KeyReg {
     /// Initialize an empty `KeyReg`.
     pub fn init() -> Self {
@@ -42,12 +30,9 @@ impl KeyReg {
     /// The function fails when the proof of possession is invalid or when the key is already registered.
     pub fn register(&mut self, stake: Stake, pk: VerificationKeyPoP) -> Result<(), RegisterError> {
         if let Entry::Vacant(e) = self.keys.entry(pk.vk) {
-            if pk.check().is_ok() {
-                e.insert(stake);
-                return Ok(());
-            } else {
-                return Err(RegisterError::KeyInvalid(Box::new(pk)));
-            }
+            pk.check()?;
+            e.insert(stake);
+            return Ok(());
         }
         Err(RegisterError::KeyRegistered(Box::new(pk.vk)))
     }
@@ -79,6 +64,18 @@ impl KeyReg {
             total_stake,
         }
     }
+}
+
+/// Structure generated out of a closed registration containing the registered parties, total stake, and the merkle tree.
+/// One can only get a global `avk` out of a closed key registration.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ClosedKeyReg<D: Digest> {
+    /// Ordered list of registered parties.
+    pub reg_parties: Vec<RegParty>,
+    /// Total stake of the registered parties.
+    pub total_stake: Stake,
+    /// Unique public key out of the key registration instance.
+    pub merkle_tree: Arc<MerkleTree<D>>,
 }
 
 #[cfg(test)]

@@ -151,7 +151,7 @@ mod tests {
     ) {
         let method = Method::POST.as_str();
         let path = "/register-signatures";
-        let dependency_manager = Arc::new(initialize_dependencies().await);
+        let dependency_manager = Arc::new(initialize_dependencies!().await);
         let initial_counter_value = dependency_manager
             .metrics_service
             .get_signature_registration_total_received_since_startup()
@@ -183,7 +183,7 @@ mod tests {
             .withf(|_, signature| signature.is_authenticated())
             .once()
             .return_once(move |_, _| Ok(SignatureRegistrationStatus::Registered));
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
         dependency_manager.single_signer_authenticator =
             Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());
@@ -212,7 +212,7 @@ mod tests {
         mock_certifier_service
             .expect_register_single_signature()
             .never();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
         dependency_manager.single_signer_authenticator =
             Arc::new(SingleSignatureAuthenticator::new_that_reject_everything());
@@ -252,7 +252,7 @@ mod tests {
         mock_certifier_service
             .expect_register_single_signature()
             .return_once(move |_, _| Ok(SignatureRegistrationStatus::Registered));
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
         dependency_manager.single_signer_authenticator =
             Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());
@@ -289,7 +289,7 @@ mod tests {
         mock_certifier_service
             .expect_register_single_signature()
             .return_once(move |_, _| Ok(SignatureRegistrationStatus::Buffered));
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
         dependency_manager.single_signer_authenticator =
             Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());
@@ -326,7 +326,7 @@ mod tests {
         mock_certifier_service
             .expect_register_single_signature()
             .return_once(move |_, _| Ok(SignatureRegistrationStatus::Registered));
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
         dependency_manager.single_signer_authenticator =
             Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());
@@ -368,7 +368,7 @@ mod tests {
             .return_once(move |_, _| {
                 Err(CertifierServiceError::NotFound(signed_entity_type).into())
             });
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
         dependency_manager.single_signer_authenticator =
             Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());
@@ -407,7 +407,7 @@ mod tests {
             .return_once(move |_, _| {
                 Err(CertifierServiceError::AlreadyCertified(signed_entity_type).into())
             });
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
         dependency_manager.single_signer_authenticator =
             Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());
@@ -454,7 +454,7 @@ mod tests {
             .return_once(move |_, _| {
                 Err(CertifierServiceError::Expired(SignedEntityType::dummy()).into())
             });
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
         dependency_manager.single_signer_authenticator =
             Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());
@@ -498,7 +498,7 @@ mod tests {
         mock_certifier_service
             .expect_register_single_signature()
             .return_once(move |_, _| Err(anyhow!("an error occurred")));
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
         dependency_manager.single_signer_authenticator =
             Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());

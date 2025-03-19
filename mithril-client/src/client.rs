@@ -108,14 +108,20 @@ impl Client {
         self.mithril_stake_distribution_client.clone()
     }
 
+    #[deprecated(since = "0.11.9", note = "supersede by `cardano_database`")]
     /// Get the client that fetches and downloads Mithril snapshots.
     pub fn snapshot(&self) -> Arc<SnapshotClient> {
+        self.cardano_database()
+    }
+
+    /// Get the client that fetches and downloads Mithril snapshots.
+    pub fn cardano_database(&self) -> Arc<SnapshotClient> {
         self.snapshot_client.clone()
     }
 
     /// Get the client that fetches and downloads Cardano database snapshots.
     #[cfg(feature = "unstable")]
-    pub fn cardano_database(&self) -> Arc<CardanoDatabaseClient> {
+    pub fn cardano_database_v2(&self) -> Arc<CardanoDatabaseClient> {
         self.cardano_database_client.clone()
     }
 

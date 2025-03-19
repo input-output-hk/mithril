@@ -2,7 +2,8 @@
 
 use anyhow::{anyhow, Context};
 use clap::{CommandFactory, Parser, Subcommand};
-use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
+use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value};
+use mithril_cli_helper::{register_config_value, register_config_value_option};
 use slog::{debug, Drain, Fuse, Level, Logger};
 use slog_term::Decorator;
 use std::io::Write;
@@ -177,12 +178,8 @@ impl Source for Args {
         let mut map = Map::new();
         let namespace = "clap arguments".to_string();
 
-        if let Some(aggregator_endpoint) = self.aggregator_endpoint.clone() {
-            map.insert(
-                "aggregator_endpoint".to_string(),
-                Value::new(Some(&namespace), ValueKind::from(aggregator_endpoint)),
-            );
-        }
+        let myself = self.clone();
+        register_config_value_option!(map, &namespace, myself.aggregator_endpoint);
 
         Ok(map)
     }

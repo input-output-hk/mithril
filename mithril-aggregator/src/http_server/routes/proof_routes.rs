@@ -202,7 +202,7 @@ mod tests {
     async fn test_proof_cardano_transaction_increments_proofs_metrics() {
         let method = Method::GET.as_str();
         let path = "/proof/cardano-transaction";
-        let dependency_manager = Arc::new(initialize_dependencies().await);
+        let dependency_manager = Arc::new(initialize_dependencies!().await);
         let initial_proofs_counter_value = dependency_manager
             .metrics_service
             .get_proof_cardano_transaction_total_proofs_served_since_startup()
@@ -243,7 +243,7 @@ mod tests {
 
     #[tokio::test]
     async fn proof_cardano_transaction_ok() {
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         mock_signed_entity_service
             .expect_get_last_cardano_transaction_snapshot()
@@ -285,7 +285,7 @@ mod tests {
 
     #[tokio::test]
     async fn proof_cardano_transaction_not_found() {
-        let dependency_manager = initialize_dependencies().await;
+        let dependency_manager = initialize_dependencies!().await;
 
         let method = Method::GET.as_str();
         let path = "/proof/cardano-transaction";
@@ -316,7 +316,7 @@ mod tests {
 
     #[tokio::test]
     async fn proof_cardano_transaction_ko() {
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         mock_signed_entity_service
             .expect_get_last_cardano_transaction_snapshot()
@@ -352,7 +352,7 @@ mod tests {
 
     #[tokio::test]
     async fn proof_cardano_transaction_return_bad_request_with_invalid_hashes() {
-        let dependency_manager = initialize_dependencies().await;
+        let dependency_manager = initialize_dependencies!().await;
 
         let method = Method::GET.as_str();
         let path = "/proof/cardano-transaction";
@@ -382,7 +382,7 @@ mod tests {
     #[tokio::test]
     async fn proof_cardano_transaction_route_deduplicate_hashes() {
         let tx = fake_data::transaction_hashes()[0].to_string();
-        let mut dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies!().await;
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         mock_signed_entity_service
             .expect_get_last_cardano_transaction_snapshot()

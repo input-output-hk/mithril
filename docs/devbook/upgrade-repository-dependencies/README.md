@@ -17,7 +17,7 @@ cargo install cargo-edit cargo-audit
 To start the update, execute the command below from the root of the repository:
 
 ```
-. ./docs/devbook/upgrade-repository-dependencies/upgrade_dependencies.sh
+./docs/devbook/upgrade-repository-dependencies/upgrade_dependencies.sh
 ```
 
 By default, Rust dependencies are updated to the latest version. If you want to only update to the latest compatible versions, add the `--incompatible` option to the command.

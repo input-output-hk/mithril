@@ -136,12 +136,19 @@ impl MithrilClient {
         )))
     }
 
+    #[deprecated(since = "0.8.4", note = "supersede by `get_cardano_database_snapshot`")]
     /// Call the client to get a snapshot from a digest
     #[wasm_bindgen]
     pub async fn get_snapshot(&self, digest: &str) -> WasmResult {
+        self.get_cardano_database_snapshot(digest).await
+    }
+
+    /// Call the client to get a snapshot from a digest
+    #[wasm_bindgen]
+    pub async fn get_cardano_database_snapshot(&self, digest: &str) -> WasmResult {
         let result = self
             .client
-            .snapshot()
+            .cardano_database()
             .get(digest)
             .await
             .map_err(|err| format!("{err:?}"))?
@@ -152,12 +159,22 @@ impl MithrilClient {
         Ok(serde_wasm_bindgen::to_value(&result)?)
     }
 
+    #[deprecated(
+        since = "0.8.4",
+        note = "supersede by `list_cardano_database_snapshots`"
+    )]
     /// Call the client to get the list of available snapshots
     #[wasm_bindgen]
     pub async fn list_snapshots(&self) -> WasmResult {
+        self.list_cardano_database_snapshots().await
+    }
+
+    /// Call the client to get the list of available snapshots
+    #[wasm_bindgen]
+    pub async fn list_cardano_database_snapshots(&self) -> WasmResult {
         let result = self
             .client
-            .snapshot()
+            .cardano_database()
             .list()
             .await
             .map_err(|err| format!("{err:?}"))?;
@@ -426,7 +443,7 @@ impl MithrilClient {
 
         let result = self
             .client
-            .cardano_database()
+            .cardano_database_v2()
             .get(hash)
             .await
             .map_err(|err| format!("{err:?}"))?
@@ -446,7 +463,7 @@ impl MithrilClient {
 
         let result = self
             .client
-            .cardano_database()
+            .cardano_database_v2()
             .list()
             .await
             .map_err(|err| format!("{err:?}"))?;
