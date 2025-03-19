@@ -1,7 +1,6 @@
 //! Crate specific errors
 
-use crate::merkle_tree::basic::Path;
-use crate::merkle_tree::batch_compatible::BatchPath;
+use crate::merkle_tree::{BatchPath, Path};
 use blake2::digest::{Digest, FixedOutput};
 use {
     crate::multi_sig::{Signature, VerificationKey, VerificationKeyPoP},

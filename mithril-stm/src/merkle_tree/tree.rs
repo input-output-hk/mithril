@@ -1,7 +1,8 @@
 use crate::error::MerkleTreeError;
-use crate::merkle_tree::basic::*;
-use crate::merkle_tree::batch_compatible::*;
-use crate::merkle_tree::leaf::MTLeaf;
+use crate::merkle_tree::{
+    left_child, parent, right_child, sibling, BatchPath, MTLeaf, MerkleTreeCommitment,
+    MerkleTreeCommitmentBatchCompat, Path,
+};
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -217,34 +218,6 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
     }
 }
 
-// ---------------------------------------------------------------------
-// Heap Helpers
-// ---------------------------------------------------------------------
-pub(crate) fn parent(i: usize) -> usize {
-    assert!(i > 0, "The root node does not have a parent");
-    (i - 1) / 2
-}
-
-pub(crate) fn left_child(i: usize) -> usize {
-    (2 * i) + 1
-}
-
-pub(crate) fn right_child(i: usize) -> usize {
-    (2 * i) + 2
-}
-
-pub(crate) fn sibling(i: usize) -> usize {
-    assert!(i > 0, "The root node does not have a sibling");
-    // In the heap representation, the left sibling is always odd
-    // And the right sibling is the next node
-    // We're assuming that the heap is complete
-    if i % 2 == 1 {
-        i + 1
-    } else {
-        i - 1
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -338,23 +311,17 @@ mod tests {
     }
 
     proptest! {
-        // #[test]
-        // fn test_create_invalid_proof(
-        //     i in any::<usize>(),
-        //     (values, proof) in values_with_invalid_proof(10)
-        // ) {
-        //     let t = MerkleTree::<Blake2b<U32>>::create(&values[1..]);
-        //     let index = i % (values.len() - 1);
-        //     let path = Path{values: proof
-        //                     .iter()
-        //                     .map(|x|  Blake2b::<U32>::digest(x).to_vec())
-        //                     .collect(),
-        //         index,
-        //         hasher: PhantomData::<Blake2b<U32>>
-        //         };
-        //     assert!(t.to_commitment().check(&values[0], &path).is_err());
-        // }
-
+        #[test]
+        fn test_create_invalid_proof(
+            i in any::<usize>(),
+            (values, proof) in values_with_invalid_proof(10)
+        ) {
+            let t = MerkleTree::<Blake2b<U32>>::create(&values[1..]);
+            let index = i % (values.len() - 1);
+            let path_values = proof. iter().map(|x|  Blake2b::<U32>::digest(x).to_vec()).collect();
+            let path = Path::new(path_values, index);
+            assert!(t.to_commitment().check(&values[0], &path).is_err());
+        }
 
         #[test]
         fn test_create_invalid_batch_proof(
