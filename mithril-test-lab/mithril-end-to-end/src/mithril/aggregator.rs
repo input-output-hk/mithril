@@ -1,7 +1,7 @@
 use crate::utils::MithrilCommand;
 use crate::{
-    PoolNode, DEVNET_MAGIC_ID, ERA_MARKERS_SECRET_KEY, ERA_MARKERS_VERIFICATION_KEY,
-    GENESIS_SECRET_KEY, GENESIS_VERIFICATION_KEY,
+    PoolNode, RetryableDevnetError, DEVNET_MAGIC_ID, ERA_MARKERS_SECRET_KEY,
+    ERA_MARKERS_VERIFICATION_KEY, GENESIS_SECRET_KEY, GENESIS_VERIFICATION_KEY,
 };
 use anyhow::{anyhow, Context};
 use mithril_common::era::SupportedEra;
@@ -209,6 +209,7 @@ impl Aggregator {
                     anyhow!("`mithril-aggregator genesis bootstrap` was terminated with a signal")
                 }
             })
+            .map_err(|e| anyhow!(RetryableDevnetError(e.to_string())))
         }
     }
 
