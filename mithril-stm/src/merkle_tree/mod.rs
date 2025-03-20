@@ -1,16 +1,14 @@
 //! Merkle tree implementation for STM
 
-mod leaf;
-pub use leaf::MTLeaf;
-
-mod tree;
-pub use tree::MerkleTree;
-
 mod commitment;
-pub use commitment::{MerkleTreeCommitment, MerkleTreeCommitmentBatchCompat};
-
+mod leaf;
 mod path;
+mod tree;
+
+pub use commitment::{MerkleTreeCommitment, MerkleTreeCommitmentBatchCompat};
+pub use leaf::MTLeaf;
 pub use path::{BatchPath, Path};
+pub use tree::MerkleTree;
 
 // ---------------------------------------------------------------------
 // Heap Helpers

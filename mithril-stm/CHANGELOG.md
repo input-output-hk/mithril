@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.3.41 (20-03-2025)
+
+### Added
+
+- Added a `merkle_tree` module and Merkle tree functionality covered by its submodules:
+  - Module `leaf`: Includes structure `MTLeaf` and its implementation.
+  - Module `path`: Includes structures `Path` and `BatchPath` and their implementations.
+  - Module `commitment`: Includes structures `MerkleTreeCommitment` and `MerkleTreeCommitmentBatchCompat` and their implementations.
+  - Module `tree`: Includes structure `MerkleTree` and its implementation.
+
 ## 0.3.40 (18-03-2025)
 
 ### Changed
