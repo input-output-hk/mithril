@@ -143,7 +143,6 @@ impl AggregatorRuntime {
                 info!(self.logger, "→ Trying to transition to READY"; "last_time_point" => ?last_time_point);
 
                 let can_try_transition_from_idle_to_ready = if self.config.is_slave {
-                    println!("Checking if slave aggregator is at the same epoch as master");
                     self.runner
                         .is_slave_aggregator_at_same_epoch_as_master(&last_time_point)
                         .await?
