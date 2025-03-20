@@ -58,7 +58,7 @@ impl RunOnly {
         chain_observer: Arc<dyn ChainObserver>,
         infrastructure: &MithrilInfrastructure,
     ) -> StdResult<()> {
-        assertions::wait_for_enough_immutable(aggregator.db_directory()).await?;
+        assertions::wait_for_enough_immutable(aggregator).await?;
         let start_epoch = chain_observer
             .get_current_epoch()
             .await?
@@ -67,6 +67,7 @@ impl RunOnly {
         // Wait 3 epochs after start epoch for the aggregator to be able to bootstrap a genesis certificate
         let target_epoch = start_epoch + 3;
         assertions::wait_for_target_epoch(
+            aggregator,
             chain_observer,
             target_epoch,
             "minimal epoch for the aggregator to be able to bootstrap genesis certificate"
@@ -74,7 +75,7 @@ impl RunOnly {
         )
         .await?;
         assertions::bootstrap_genesis_certificate(aggregator).await?;
-        assertions::wait_for_epoch_settings(&aggregator.endpoint()).await?;
+        assertions::wait_for_epoch_settings(aggregator).await?;
 
         if aggregator.is_first() {
             // Transfer some funds on the devnet to have some Cardano transactions to sign

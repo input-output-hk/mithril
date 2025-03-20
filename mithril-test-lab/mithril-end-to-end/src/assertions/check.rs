@@ -60,7 +60,7 @@ pub async fn assert_node_producing_mithril_stake_distribution(
         fetch_last_mithril_stake_distribution_hash(url.clone()).await
     }) {
         AttemptResult::Ok(hash) => {
-            info!("Aggregator produced a mithril stake distribution"; "hash" => &hash);
+            info!("Aggregator produced a mithril stake distribution"; "hash" => &hash, "aggregator" => &aggregator.name());
             Ok(hash)
         }
         AttemptResult::Err(error) => Err(error),
@@ -112,7 +112,7 @@ pub async fn assert_signer_is_signing_mithril_stake_distribution(
         fetch_mithril_stake_distribution_message(url.clone(), expected_epoch_min).await
     }) {
         AttemptResult::Ok(stake_distribution) => {
-            info!("Signer signed a mithril stake distribution"; "certificate_hash" => &stake_distribution.certificate_hash);
+            info!("Signer signed a mithril stake distribution"; "certificate_hash" => &stake_distribution.certificate_hash, "aggregator" => &aggregator.name());
             Ok(stake_distribution.certificate_hash)
         }
         AttemptResult::Err(error) => Err(error),
@@ -146,7 +146,7 @@ pub async fn assert_node_producing_snapshot(aggregator: &Aggregator) -> StdResul
         fetch_last_snapshot_digest(url.clone()).await
     }) {
         AttemptResult::Ok(digest) => {
-            info!("Aggregator produced a snapshot"; "digest" => &digest);
+            info!("Aggregator produced a snapshot"; "digest" => &digest, "aggregator" => &aggregator.name());
             Ok(digest)
         }
         AttemptResult::Err(error) => Err(error),
@@ -189,7 +189,7 @@ pub async fn assert_signer_is_signing_snapshot(
         fetch_snapshot_message(url.clone(), expected_epoch_min).await
     }) {
         AttemptResult::Ok(snapshot) => {
-            info!("Signer signed a snapshot"; "certificate_hash" => &snapshot.certificate_hash);
+            info!("Signer signed a snapshot"; "certificate_hash" => &snapshot.certificate_hash, "aggregator" => &aggregator.name());
             Ok(snapshot.certificate_hash)
         }
         AttemptResult::Err(error) => {
@@ -223,7 +223,7 @@ pub async fn assert_node_producing_cardano_database_snapshot(
         fetch_last_cardano_database_snapshot_hash(url.clone()).await
     }) {
         AttemptResult::Ok(hash) => {
-            info!("Aggregator produced a Cardano database snapshot"; "hash" => &hash);
+            info!("Aggregator produced a Cardano database snapshot"; "hash" => &hash, "aggregator" => &aggregator.name());
             Ok(hash)
         }
         AttemptResult::Err(error) => Err(error),
@@ -268,7 +268,7 @@ pub async fn assert_signer_is_signing_cardano_database_snapshot(
         fetch_cardano_database_snapshot_message(url.clone(), expected_epoch_min).await
     }) {
         AttemptResult::Ok(snapshot) => {
-            info!("Signer signed a snapshot"; "certificate_hash" => &snapshot.certificate_hash);
+            info!("Signer signed a snapshot"; "certificate_hash" => &snapshot.certificate_hash, "aggregator" => &aggregator.name());
             Ok(snapshot.certificate_hash)
         }
         AttemptResult::Err(error) => Err(error),
@@ -310,7 +310,7 @@ pub async fn assert_node_producing_cardano_database_digests_map(
         fetch_cardano_database_digests_map(url.clone()).await
     }) {
         AttemptResult::Ok(cardano_database_digests_map) => {
-            info!("Aggregator produced a Cardano database digests map"; "total_digests" => &cardano_database_digests_map.len());
+            info!("Aggregator produced a Cardano database digests map"; "total_digests" => &cardano_database_digests_map.len(), "aggregator" => &aggregator.name());
             Ok(cardano_database_digests_map)
         }
         AttemptResult::Err(error) => Err(error),
@@ -329,7 +329,7 @@ pub async fn assert_node_producing_cardano_transactions(
     aggregator: &Aggregator,
 ) -> StdResult<String> {
     let url = format!("{}/artifact/cardano-transactions", aggregator.endpoint());
-    info!("Waiting for the aggregator to produce a Cardano transactions artifact"; "aggregator" => &aggregator.name());
+    info!("Waiting for the aggregator to produce a Cardano transactions artifact"; "aggregator" => &aggregator.name(), "aggregator" => &aggregator.name());
 
     async fn fetch_last_cardano_transaction_snapshot_hash(
         url: String,
@@ -348,7 +348,7 @@ pub async fn assert_node_producing_cardano_transactions(
         fetch_last_cardano_transaction_snapshot_hash(url.clone()).await
     }) {
         AttemptResult::Ok(hash) => {
-            info!("Aggregator produced a Cardano transactions artifact"; "hash" => &hash);
+            info!("Aggregator produced a Cardano transactions artifact"; "hash" => &hash, "aggregator" => &aggregator.name());
             Ok(hash)
         }
         AttemptResult::Err(error) => Err(error),
@@ -394,7 +394,7 @@ pub async fn assert_signer_is_signing_cardano_transactions(
         fetch_cardano_transaction_snapshot_message(url.clone(), expected_epoch_min).await
     }) {
         AttemptResult::Ok(artifact) => {
-            info!("Signer signed a Cardano transactions artifact"; "certificate_hash" => &artifact.certificate_hash);
+            info!("Signer signed a Cardano transactions artifact"; "certificate_hash" => &artifact.certificate_hash, "aggregator" => &aggregator.name());
             Ok(artifact.certificate_hash)
         }
         AttemptResult::Err(error) => Err(error),
@@ -438,7 +438,7 @@ pub async fn assert_node_producing_cardano_stake_distribution(
         fetch_last_cardano_stake_distribution_message(url.clone()).await
     }) {
         AttemptResult::Ok((hash, epoch)) => {
-            info!("Aggregator produced a Cardano stake distribution"; "hash" => &hash, "epoch" => #?epoch);
+            info!("Aggregator produced a Cardano stake distribution"; "hash" => &hash, "epoch" => #?epoch, "aggregator" => &aggregator.name());
             Ok((hash, epoch))
         }
         AttemptResult::Err(error) => Err(error),
@@ -490,7 +490,7 @@ pub async fn assert_signer_is_signing_cardano_stake_distribution(
         fetch_cardano_stake_distribution_message(url.clone(), expected_epoch_min).await
     }) {
         AttemptResult::Ok(cardano_stake_distribution) => {
-            info!("Signer signed a Cardano stake distribution"; "certificate_hash" => &cardano_stake_distribution.certificate_hash);
+            info!("Signer signed a Cardano stake distribution"; "certificate_hash" => &cardano_stake_distribution.certificate_hash, "aggregator" => &aggregator.name());
             Ok(cardano_stake_distribution.certificate_hash)
         }
         AttemptResult::Err(error) => Err(error),
@@ -529,7 +529,8 @@ pub async fn assert_is_creating_certificate_with_enough_signers(
                 info!(
                     "Certificate is signed by expected number of signers: {} >= {} ",
                     certificate.metadata.signers.len(),
-                    total_signers_expected
+                    total_signers_expected ;
+                    "aggregator" => &aggregator.name()
                 );
                 Ok(())
             } else {

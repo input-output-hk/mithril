@@ -1,4 +1,4 @@
-use crate::{attempt, utils::AttemptResult};
+use crate::{attempt, utils::AttemptResult, Aggregator};
 use anyhow::{anyhow, Context};
 use mithril_common::{
     chain_observer::ChainObserver, digesters::ImmutableFile, entities::Epoch,
@@ -6,11 +6,12 @@ use mithril_common::{
 };
 use reqwest::StatusCode;
 use slog_scope::{info, warn};
-use std::{path::Path, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
-pub async fn wait_for_enough_immutable(db_directory: &Path) -> StdResult<()> {
-    info!("Waiting that enough immutable have been written in the devnet");
+pub async fn wait_for_enough_immutable(aggregator: &Aggregator) -> StdResult<()> {
+    info!("Waiting that enough immutable have been written in the devnet"; "aggregator" => aggregator.name());
 
+    let db_directory = aggregator.db_directory();
     match attempt!(24, Duration::from_secs(5), {
         match ImmutableFile::list_completed_in_dir(db_directory)
             .with_context(|| {
@@ -34,9 +35,10 @@ pub async fn wait_for_enough_immutable(db_directory: &Path) -> StdResult<()> {
     }
 }
 
-pub async fn wait_for_epoch_settings(aggregator_endpoint: &str) -> StdResult<EpochSettingsMessage> {
+pub async fn wait_for_epoch_settings(aggregator: &Aggregator) -> StdResult<EpochSettingsMessage> {
+    let aggregator_endpoint = aggregator.endpoint();
     let url = format!("{aggregator_endpoint}/epoch-settings");
-    info!("Waiting for the aggregator to expose epoch settings");
+    info!("Waiting for the aggregator to expose epoch settings"; "aggregator" => aggregator.name());
 
     match attempt!(20, Duration::from_millis(1000), {
         match reqwest::get(url.clone()).await {
@@ -52,7 +54,8 @@ pub async fn wait_for_epoch_settings(aggregator_endpoint: &str) -> StdResult<Epo
                 s if s.is_server_error() => {
                     warn!(
                         "Server error while waiting for the Aggregator, http code: {}",
-                        s
+                        s;
+                        "aggregator" => aggregator.name()
                     );
                     Ok(None)
                 }
@@ -70,12 +73,14 @@ pub async fn wait_for_epoch_settings(aggregator_endpoint: &str) -> StdResult<Epo
 }
 
 pub async fn wait_for_target_epoch(
+    aggregator: &Aggregator,
     chain_observer: Arc<dyn ChainObserver>,
     target_epoch: Epoch,
     wait_reason: String,
 ) -> StdResult<()> {
     info!(
         "Waiting for the cardano network to be at the target epoch: {}", wait_reason;
+        "aggregator" => aggregator.name(),
         "target_epoch" => ?target_epoch
     );
 
@@ -96,7 +101,7 @@ pub async fn wait_for_target_epoch(
         }
     }) {
         AttemptResult::Ok(_) => {
-            info!("Target epoch reached!"; "target_epoch" => ?target_epoch);
+            info!("Target epoch reached!"; "aggregator" => aggregator.name(), "target_epoch" => ?target_epoch);
             Ok(())
         }
         AttemptResult::Err(error) => Err(error),
