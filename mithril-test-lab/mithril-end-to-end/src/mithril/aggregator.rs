@@ -42,6 +42,7 @@ pub struct Aggregator {
     name_suffix: String,
     server_port: u64,
     db_directory: PathBuf,
+    mithril_run_interval: u32,
     command: Arc<RwLock<MithrilCommand>>,
     process: RwLock<Option<Child>>,
 }
@@ -136,6 +137,7 @@ impl Aggregator {
             name_suffix: aggregator_config.name.to_string(),
             server_port: aggregator_config.server_port,
             db_directory: aggregator_config.pool_node.db_path.clone(),
+            mithril_run_interval: aggregator_config.mithril_run_interval,
             command: Arc::new(RwLock::new(command)),
             process: RwLock::new(None),
         })
@@ -151,6 +153,7 @@ impl Aggregator {
             name_suffix: other.name_suffix.clone(),
             server_port: other.server_port,
             db_directory: other.db_directory.clone(),
+            mithril_run_interval: other.mithril_run_interval,
             command: other.command.clone(),
             process: RwLock::new(None),
         }
@@ -174,6 +177,10 @@ impl Aggregator {
 
     pub fn db_directory(&self) -> &Path {
         &self.db_directory
+    }
+
+    pub fn mithril_run_interval(&self) -> u32 {
+        self.mithril_run_interval
     }
 
     pub async fn serve(&self) -> StdResult<()> {
