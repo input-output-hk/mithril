@@ -10,6 +10,14 @@ use mithril_persistence::sqlite::error::{SqliteError, SQLITE_BUSY};
 use crate::tools::downcast_check;
 use crate::SignerRegistrationError;
 
+pub struct MithrilStatusCode();
+
+impl MithrilStatusCode {
+    pub fn registration_round_not_yet_opened() -> StatusCode {
+        StatusCode::from_u16(550).unwrap()
+    }
+}
+
 pub fn json<T>(value: &T, status_code: StatusCode) -> Box<dyn warp::Reply>
 where
     T: Serialize,
@@ -46,7 +54,7 @@ pub fn server_error<E: Into<StdError>>(error: E) -> Box<dyn warp::Reply> {
         if downcast_check::<SignerRegistrationError>(&std_error, |e| {
             matches!(e, SignerRegistrationError::RegistrationRoundNotYetOpened)
         }) {
-            code = StatusCode::SERVICE_UNAVAILABLE;
+            code = MithrilStatusCode::registration_round_not_yet_opened();
         }
 
         code
@@ -57,10 +65,6 @@ pub fn server_error<E: Into<StdError>>(error: E) -> Box<dyn warp::Reply> {
 
 pub fn internal_server_error<T: Into<ServerError>>(message: T) -> Box<dyn warp::Reply> {
     json(&message.into(), StatusCode::INTERNAL_SERVER_ERROR)
-}
-
-pub fn service_unavailable<T: Into<ServerError>>(message: T) -> Box<dyn warp::Reply> {
-    json(&message.into(), StatusCode::SERVICE_UNAVAILABLE)
 }
 
 pub fn add_content_disposition_header(
@@ -113,16 +117,22 @@ mod tests {
     }
 
     #[test]
-    fn test_server_error_convert_signer_registration_round_not_yet_opened_to_503() {
+    fn test_server_error_convert_signer_registration_round_not_yet_opened_to_550() {
         let err = SignerRegistrationError::RegistrationRoundNotYetOpened;
         let response = server_error(err).into_response();
 
-        assert_eq!(StatusCode::SERVICE_UNAVAILABLE, response.status());
+        assert_eq!(
+            MithrilStatusCode::registration_round_not_yet_opened(),
+            response.status()
+        );
 
         // Wrapping the error in a StdError should also work
         let err = anyhow!(SignerRegistrationError::RegistrationRoundNotYetOpened);
         let response = server_error(err).into_response();
 
-        assert_eq!(StatusCode::SERVICE_UNAVAILABLE, response.status());
+        assert_eq!(
+            MithrilStatusCode::registration_round_not_yet_opened(),
+            response.status()
+        );
     }
 }
