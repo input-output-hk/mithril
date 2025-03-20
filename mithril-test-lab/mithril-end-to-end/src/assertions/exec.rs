@@ -8,6 +8,15 @@ use slog_scope::info;
 pub async fn bootstrap_genesis_certificate(aggregator: &Aggregator) -> StdResult<()> {
     info!("Bootstrap genesis certificate");
 
+    // A slave aggregator needs to wait few cycles of the state machine to be able to bootstrap
+    // This should be removed when the aggregator is able to synchronize its certificate chain from another aggregator
+    if !aggregator.is_first() {
+        tokio::time::sleep(std::time::Duration::from_millis(
+            5 * aggregator.mithril_run_interval() as u64,
+        ))
+        .await;
+    }
+
     info!("> stopping aggregator");
     aggregator.stop().await?;
     info!("> bootstrapping genesis using signers registered two epochs ago...");
