@@ -44,6 +44,7 @@ macro_rules! assert_same_json {
         )
     };
 }
+pub use assert_same_json;
 
 /// Compare two iterators ignoring the order
 pub fn equivalent_to<T, I1, I2>(a: I1, b: I2) -> bool
@@ -106,6 +107,7 @@ macro_rules! current_function {
         &name[function_name_index..]
     }};
 }
+pub use current_function;
 
 /// Returns the path of the function that called this macro.
 #[macro_export]
@@ -116,8 +118,7 @@ macro_rules! current_function_path {
         std::path::PathBuf::from($crate::test_utils::format_current_function_path(f))
     }};
 }
-
-pub use assert_same_json;
+pub use current_function_path;
 
 #[cfg(test)]
 mod utils {

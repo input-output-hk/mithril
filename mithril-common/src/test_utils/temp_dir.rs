@@ -123,6 +123,7 @@ macro_rules! temp_dir {
         $crate::test_utils::TempDir::new(current_function_path, "").build_path()
     }};
 }
+pub use temp_dir;
 
 /// Create and return a temporary directory based on the current function name.
 #[macro_export]
@@ -135,6 +136,7 @@ macro_rules! temp_dir_create {
         $crate::test_utils::TempDir::new(current_function_path, "").build()
     }};
 }
+pub use temp_dir_create;
 
 #[cfg(test)]
 mod tests {
