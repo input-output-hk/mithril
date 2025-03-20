@@ -2,16 +2,20 @@
 
 use crate::key_reg::{ClosedKeyReg, RegParty};
 use crate::merkle_tree::{BatchPath, MerkleTreeCommitmentBatchCompat};
+use crate::multi_sig::{Signature, VerificationKey};
 use crate::stm::{Index, Stake, StmParameters, StmSig, StmSigRegParty};
 use crate::AggregationError;
 use alba::centralized_telescope::proof::Proof;
 use alba::centralized_telescope::*;
-use alba::utils::types::{Element, ElementData};
+use alba::utils::types::Element;
 use blake2::digest::{Digest, FixedOutput, Update, VariableOutput};
 use blake2::Blake2bVar;
+use sha2::Sha256;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::multi_sig::{Signature, VerificationKey};
+const DATA_LENGTH: usize = 48;
+type Data = [u8; DATA_LENGTH];
+type P = Proof<Data, Sha256>;
 
 /// Initialization parameters for Sterling
 pub struct SterlingInitializer {
@@ -62,12 +66,15 @@ impl<D: Digest + Clone + FixedOutput> SterlingClerk<D> {
     }
 
     /// Create Sterling Proof
-    pub fn aggregate(&self, sigs: &[StmSig], msg: &[u8]) -> SterlingProof<D> {
+    pub fn aggregate<E>(&self, sigs: &[StmSig], msg: &[u8]) -> SterlingProof<D>
+    where
+        E: AsRef<[u8]> + Clone,
+    {
         let (unique_signatures, index_count) = self.collect_prover_signatures(sigs, msg);
         let (clerk_handler, prover_set) =
             SterlingClerkHandler::new(&unique_signatures, index_count as usize);
 
-        let telescope_proof = self.telescope.prove(&prover_set).unwrap();
+        let telescope_proof: P = self.telescope.prove(&prover_set).unwrap();
 
         let (proof_index_sequence, proof_signatures) =
             clerk_handler.decode_proof(&telescope_proof.element_sequence);
@@ -124,13 +131,16 @@ pub struct SterlingClerkHandler {
     /// Signer index mapped to its StmSigRegParty
     pub signer_sigreg_map: BTreeMap<Index, StmSigRegParty>,
     /// Map of the hash of the lottery index to itself
-    pub lottery_hash_index_map: BTreeMap<ElementData, Index>,
+    pub lottery_hash_index_map: BTreeMap<Data, Index>,
 }
 impl SterlingClerkHandler {
-    /// New handler
-    pub fn new(unique_signatures: &[StmSigRegParty], size: usize) -> (Self, Vec<Element>) {
+    /// create a new handler
+    pub fn new<E>(unique_signatures: &[StmSigRegParty], size: usize) -> (Self, Vec<Element<E>>)
+    where
+        E: AsRef<[u8]> + Clone + for<'a> TryFrom<&'a [u8]>,
+    {
         let mut signer_sigreg_map: BTreeMap<Index, StmSigRegParty> = BTreeMap::new();
-        let mut lottery_hash_index_map: BTreeMap<ElementData, Index> = BTreeMap::new();
+        let mut lottery_hash_index_map: BTreeMap<Data, Index> = BTreeMap::new();
         let mut prover_set = Vec::with_capacity(size);
 
         for sr in unique_signatures {
@@ -138,15 +148,19 @@ impl SterlingClerkHandler {
             signer_sigreg_map.insert(signer_index, sr.clone());
 
             for i in &sr.sig.indexes {
-                let element_data = Self::generate_element_data(i);
+                let raw_data = Self::generate_raw_data(i);
+                lottery_hash_index_map.insert(raw_data, *i);
 
-                lottery_hash_index_map.insert(element_data, *i);
-                prover_set.push(Element {
-                    data: element_data,
-                    index: Some(signer_index),
-                });
+                // Convert raw_data from &[u8] to E safely
+                if let Ok(data) = raw_data.as_slice().try_into() {
+                    prover_set.push(Element {
+                        data,
+                        index: Some(signer_index),
+                    });
+                };
             }
         }
+
         (
             Self {
                 signer_sigreg_map,
@@ -157,16 +171,19 @@ impl SterlingClerkHandler {
     }
 
     /// Decode proof elements
-    pub fn decode_proof(
+    pub fn decode_proof<E>(
         &self,
-        proof_element_sequence: &[Element],
-    ) -> (Vec<(Index, Index)>, BTreeMap<Index, StmSigRegParty>) {
+        proof_element_sequence: &[Element<E>],
+    ) -> (Vec<(Index, Index)>, BTreeMap<Index, StmSigRegParty>)
+    where
+        E: AsRef<[u8]> + Clone,
+    {
         let mut proof_index_sequence: Vec<(Index, Index)> = Vec::new();
         let mut valid_signer_indexes: HashSet<u64> = HashSet::new();
         let mut valid_indices: HashSet<Index> = HashSet::new();
 
         for e in proof_element_sequence {
-            if let Some(unique_index) = self.lottery_hash_index_map.get(&e.data) {
+            if let Some(unique_index) = self.lottery_hash_index_map.get(e.as_ref()) {
                 if let Some(signer_index) = e.index {
                     proof_index_sequence.push((*unique_index, signer_index));
                     valid_signer_indexes.insert(signer_index);
@@ -189,7 +206,7 @@ impl SterlingClerkHandler {
     }
 
     /// create element data by hashing the index
-    pub fn generate_element_data(input: &Index) -> ElementData {
+    pub fn generate_raw_data(input: &Index) -> Data {
         let mut digest_buf = [0u8; 48];
         let data_buf = input.to_be_bytes();
         let mut hasher = Blake2bVar::new(48).expect("Failed to construct hasher");
@@ -197,7 +214,7 @@ impl SterlingClerkHandler {
         hasher
             .finalize_variable(&mut digest_buf)
             .expect("Hashing failed");
-        ElementData::from_bytes(digest_buf.as_slice()).unwrap()
+        digest_buf
     }
 
     /// Filter unique indices
@@ -382,11 +399,11 @@ impl<D: Clone + Digest + FixedOutput> SterlingProof<D> {
         }
 
         // Construct telescope proof element sequence
-        let element_sequence: Vec<Element> = self
+        let element_sequence: Vec<Element<Data>> = self
             .index_sequence
             .iter()
             .map(|(proof_element, element_index)| {
-                let element_data = SterlingClerkHandler::generate_element_data(proof_element);
+                let element_data = SterlingClerkHandler::generate_raw_data(proof_element);
                 Element {
                     data: element_data,
                     index: Some(*element_index),
@@ -394,11 +411,7 @@ impl<D: Clone + Digest + FixedOutput> SterlingProof<D> {
             })
             .collect();
 
-        let proof = Proof {
-            retry_counter: self.retry_counter,
-            search_counter: self.search_counter,
-            element_sequence,
-        };
+        let proof: P = Proof::from(self.retry_counter, self.search_counter, element_sequence);
 
         println!("{}", telescope.verify(&proof));
     }
@@ -419,8 +432,7 @@ impl<D: Clone + Digest + FixedOutput> SterlingProof<D> {
     }
 }
 
-/// Stm aggregate key (batch compatible), which contains the merkle tree commitment and the total stake of the system.
-/// Batch Compat Merkle tree commitment includes the number of leaves in the tree in order to obtain batch path.
+/// Sterling aggregate key, containing the merkle tree commitment and the total stake of the system.
 #[derive(Debug, Clone)]
 pub struct SterlingAVK<D: Clone + Digest + FixedOutput> {
     mt_commitment: MerkleTreeCommitmentBatchCompat<D>,
@@ -494,7 +506,7 @@ mod tests {
             .collect::<Vec<StmSig>>();
 
         let clerk = SterlingClerk::from_registration(&params, &closed_reg, &telescope);
-        let sterling_proof = clerk.aggregate(&sigs, msg);
+        let sterling_proof = clerk.aggregate::<Data>(&sigs, msg);
 
         sterling_proof.verify(&telescope, msg, &clerk.compute_avk(), &params);
     }
