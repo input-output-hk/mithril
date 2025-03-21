@@ -1,6 +1,6 @@
 mod extensions;
 
-use crate::extensions::fake::{FakeAggregator, FakeCertificateVerifier};
+use crate::extensions::fake_aggregator::{FakeAggregator, FakeCertificateVerifier};
 use mithril_client::aggregator_client::AggregatorRequest;
 use mithril_client::feedback::SlogFeedbackReceiver;
 use mithril_client::{ClientBuilder, MessageBuilder};

@@ -7,7 +7,7 @@ pub mod snapshot;
 pub mod statistics;
 
 mod middleware {
-    use crate::extensions::fake::FakeAggregatorCalls;
+    use crate::extensions::fake_aggregator::FakeAggregatorCalls;
     use std::convert::Infallible;
     use warp::Filter;
 

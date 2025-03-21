@@ -1,4 +1,4 @@
-use crate::extensions::fake::{FakeAggregator, FakeAggregatorCalls};
+use crate::extensions::fake_aggregator::{FakeAggregator, FakeAggregatorCalls};
 use crate::extensions::routes::middleware::with_calls_middleware;
 use warp::Filter;
 

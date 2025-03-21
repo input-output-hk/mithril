@@ -8,7 +8,7 @@ use warp::{filters::path::FullPath, Filter};
 
 use mithril_client::CardanoDatabaseSnapshot;
 
-use crate::extensions::fake::FakeAggregatorCalls;
+use crate::extensions::fake_aggregator::FakeAggregatorCalls;
 
 use super::middleware::with_calls_middleware;
 
