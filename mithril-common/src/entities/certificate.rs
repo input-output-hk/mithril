@@ -157,7 +157,7 @@ impl Debug for Certificate {
             true => debug
                 .field(
                     "aggregate_verification_key",
-                    &format_args!("{:?}", self.aggregate_verification_key),
+                    &format_args!("{:?}", self.aggregate_verification_key.to_json_hex()),
                 )
                 .field("signature", &format_args!("{:?}", self.signature))
                 .finish(),

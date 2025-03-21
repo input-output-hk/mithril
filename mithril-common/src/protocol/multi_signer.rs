@@ -171,6 +171,7 @@ mod test {
                 .with_signers(1)
                 .with_stake_distribution(StakeDistributionGenerationMethod::RandomDistribution {
                     seed: [3u8; 32],
+                    min_stake: 1,
                 })
                 .build(),
         );

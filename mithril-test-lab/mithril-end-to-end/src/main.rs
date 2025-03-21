@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Context};
 use clap::{CommandFactory, Parser, Subcommand};
+use mithril_relay::SignerRelayMode;
 use slog::{Drain, Level, Logger};
 use slog_scope::{error, info};
 use std::{
@@ -12,7 +13,7 @@ use std::{
 use thiserror::Error;
 use tokio::{
     signal::unix::{signal, SignalKind},
-    sync::Mutex,
+    sync::{Mutex, RwLock},
     task::JoinSet,
 };
 
@@ -51,9 +52,13 @@ pub struct Args {
     #[clap(long, default_value = ".")]
     bin_directory: PathBuf,
 
-    /// Number of Pool nodes in the devnet
-    #[clap(long, default_value_t = 3, value_parser = has_at_least_two_pool_nodes)]
-    number_of_pool_nodes: u8,
+    /// Number of aggregators
+    #[clap(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..))]
+    number_of_aggregators: u8,
+
+    /// Number of signers
+    #[clap(long, default_value_t = 2, value_parser = clap::value_parser!(u8).range(1..))]
+    number_of_signers: u8,
 
     /// Length of a Cardano slot in the devnet (in s)
     #[clap(long, default_value_t = 0.10)]
@@ -103,11 +108,19 @@ pub struct Args {
     #[clap(long)]
     run_only: bool,
 
-    /// Enable P2P network mode
+    /// Use Mithril relays
     #[clap(long)]
-    use_p2p_network: bool,
+    use_relays: bool,
 
-    /// Enable P2P passive relays in P2P mode
+    /// Signer registration relay mode (used only when 'use_relays' is set)
+    #[clap(long, value_enum, default_value_t = SignerRelayMode::Passthrough)]
+    relay_signer_registration_mode: SignerRelayMode,
+
+    /// Signature registration relay mode (used only when 'use_relays' is set)
+    #[clap(long, value_enum, default_value_t = SignerRelayMode::P2P)]
+    relay_signature_registration_mode: SignerRelayMode,
+
+    /// Enable P2P passive relays in P2P mode (used only when 'use_relays' is set)
     #[clap(long, default_value = "true")]
     use_p2p_passive_relays: bool,
 
@@ -135,17 +148,15 @@ impl Args {
             _ => Level::Trace,
         }
     }
-}
 
-fn has_at_least_two_pool_nodes(s: &str) -> Result<u8, String> {
-    let number_of_pool_nodes: u8 = s.parse().map_err(|_| format!("`{}` isn't a number", s))?;
-    if number_of_pool_nodes >= 2 {
-        Ok(number_of_pool_nodes)
-    } else {
-        Err(format!(
-            "At least two pool nodes are required (one for the aggregator, one for at least one \
-            signer), number given: {s}",
-        ))
+    fn validate(&self) -> StdResult<()> {
+        if !self.use_relays && self.number_of_aggregators >= 2 {
+            return Err(anyhow!(
+                "The 'use_relays' parameter must be activated to run more than one aggregator"
+            ));
+        }
+
+        Ok(())
     }
 }
 
@@ -190,16 +201,21 @@ async fn main_exec() -> StdResult<()> {
     };
     let artifacts_dir = {
         let path = work_dir.join("artifacts");
-        fs::create_dir(&path).expect("Artifacts dir creation failure");
+        fs::create_dir(&path).with_context(|| "Artifacts dir creation failure")?;
+        path
+    };
+    let store_dir = {
+        let path = work_dir.join("stores");
+        fs::create_dir(&path).with_context(|| "Stores dir creation failure")?;
         path
     };
 
     let mut app = App::new();
     let mut app_stopper = AppStopper::new(&app);
     let mut join_set = JoinSet::new();
-    with_gracefull_shutdown(&mut join_set);
+    with_graceful_shutdown(&mut join_set);
 
-    join_set.spawn(async move { app.run(args, work_dir, artifacts_dir).await });
+    join_set.spawn(async move { app.run(args, work_dir, store_dir, artifacts_dir).await });
 
     let res = match join_set.join_next().await {
         Some(Ok(tasks_result)) => tasks_result,
@@ -274,19 +290,19 @@ impl From<StdResult<()>> for AppResult {
 
 struct App {
     devnet: Arc<Mutex<Option<Devnet>>>,
-    infrastructure: Arc<Mutex<Option<MithrilInfrastructure>>>,
+    infrastructure: Arc<RwLock<Option<MithrilInfrastructure>>>,
 }
 
 impl App {
     fn new() -> Self {
         Self {
             devnet: Arc::new(Mutex::new(None)),
-            infrastructure: Arc::new(Mutex::new(None)),
+            infrastructure: Arc::new(RwLock::new(None)),
         }
     }
 
     async fn tail_logs(&self) {
-        if let Some(infrastructure) = self.infrastructure.lock().await.as_ref() {
+        if let Some(infrastructure) = self.infrastructure.read().await.as_ref() {
             let _ = infrastructure.tail_logs(40).await.inspect_err(|e| {
                 error!("Failed to tail logs: {}", e);
             });
@@ -294,7 +310,7 @@ impl App {
     }
 
     async fn last_error_in_logs(&self) {
-        if let Some(infrastructure) = self.infrastructure.lock().await.as_ref() {
+        if let Some(infrastructure) = self.infrastructure.read().await.as_ref() {
             let _ = infrastructure.last_error_in_logs(1).await.inspect_err(|e| {
                 error!("Failed to grep error in logs: {}", e);
             });
@@ -305,17 +321,22 @@ impl App {
         &mut self,
         args: Args,
         work_dir: PathBuf,
+        store_dir: PathBuf,
         artifacts_dir: PathBuf,
     ) -> StdResult<()> {
         let server_port = 8080;
+        args.validate()?;
         let run_only_mode = args.run_only;
-        let use_p2p_network_mode = args.use_p2p_network;
+        let use_relays = args.use_relays;
+        let relay_signer_registration_mode = args.relay_signer_registration_mode;
+        let relay_signature_registration_mode = args.relay_signature_registration_mode;
+
         let use_p2p_passive_relays = args.use_p2p_passive_relays;
 
         let devnet = Devnet::bootstrap(&DevnetBootstrapArgs {
             devnet_scripts_dir: args.devnet_scripts_directory,
             artifacts_target_dir: work_dir.join("devnet"),
-            number_of_pool_nodes: args.number_of_pool_nodes,
+            number_of_pool_nodes: args.number_of_aggregators + args.number_of_signers,
             cardano_slot_length: args.cardano_slot_length,
             cardano_epoch_length: args.cardano_epoch_length,
             cardano_node_version: args.cardano_node_version.to_owned(),
@@ -325,11 +346,14 @@ impl App {
         .await?;
         *self.devnet.lock().await = Some(devnet.clone());
 
-        let mut infrastructure = MithrilInfrastructure::start(&MithrilInfrastructureConfig {
+        let infrastructure = MithrilInfrastructure::start(&MithrilInfrastructureConfig {
+            number_of_aggregators: args.number_of_aggregators,
+            number_of_signers: args.number_of_signers,
             server_port,
             devnet: devnet.clone(),
-            artifacts_dir,
             work_dir,
+            store_dir,
+            artifacts_dir,
             bin_dir: args.bin_directory,
             cardano_node_version: args.cardano_node_version,
             mithril_run_interval: args.mithril_run_interval,
@@ -337,28 +361,28 @@ impl App {
             mithril_era_reader_adapter: args.mithril_era_reader_adapter,
             signed_entity_types: args.signed_entity_types.clone(),
             run_only_mode,
-            use_p2p_network_mode,
+            use_relays,
+            relay_signer_registration_mode,
+            relay_signature_registration_mode,
             use_p2p_passive_relays,
             use_era_specific_work_dir: args.mithril_next_era.is_some(),
         })
         .await?;
+        *self.infrastructure.write().await = Some(infrastructure);
 
         let runner: StdResult<()> = match run_only_mode {
-            true => {
-                let mut run_only = RunOnly::new(&mut infrastructure);
-                run_only.start().await
-            }
+            true => RunOnly::new(self.infrastructure.clone()).run().await,
             false => {
-                let mut spec = Spec::new(
-                    &mut infrastructure,
+                Spec::new(
+                    self.infrastructure.clone(),
                     args.signed_entity_types,
                     args.mithril_next_era,
                     args.mithril_era_regenesis_on_switch,
-                );
-                spec.run().await
+                )
+                .run()
+                .await
             }
         };
-        *self.infrastructure.lock().await = Some(infrastructure);
 
         match runner.with_context(|| "Mithril End to End test failed") {
             Ok(()) if run_only_mode => loop {
@@ -377,7 +401,7 @@ impl App {
 
 struct AppStopper {
     devnet: Arc<Mutex<Option<Devnet>>>,
-    infrastructure: Arc<Mutex<Option<MithrilInfrastructure>>>,
+    infrastructure: Arc<RwLock<Option<MithrilInfrastructure>>>,
 }
 
 impl AppStopper {
@@ -389,7 +413,7 @@ impl AppStopper {
     }
 
     pub async fn stop(&mut self) {
-        if let Some(infrastructure) = self.infrastructure.lock().await.as_mut() {
+        if let Some(infrastructure) = self.infrastructure.write().await.as_mut() {
             let _ = infrastructure.stop_nodes().await.inspect_err(|e| {
                 error!("Failed to stop nodes: {}", e);
             });
@@ -422,7 +446,7 @@ fn create_workdir_if_not_exist_clean_otherwise(work_dir: &Path) {
 #[error("Signal received: `{0}`")]
 pub struct SignalError(pub String);
 
-fn with_gracefull_shutdown(join_set: &mut JoinSet<StdResult<()>>) {
+fn with_graceful_shutdown(join_set: &mut JoinSet<StdResult<()>>) {
     join_set.spawn(async move {
         let mut sigterm = signal(SignalKind::terminate()).expect("Failed to create SIGTERM signal");
         sigterm.recv().await;
@@ -486,5 +510,17 @@ mod tests {
             AppResult::from(Err(anyhow!(SignalError("an error".to_string())))),
             AppResult::Cancelled(_)
         ));
+    }
+
+    #[test]
+    fn args_fails_validation() {
+        let args = Args::parse_from(["", "--number-of-aggregators", "2"]);
+        args.validate().expect_err(
+            "validate should fail with more than one aggregator if p2p network is not used",
+        );
+
+        let args = Args::parse_from(["", "--use-relays", "--number-of-aggregators", "2"]);
+        args.validate()
+            .expect("validate should succeed with more than one aggregator if p2p network is used");
     }
 }

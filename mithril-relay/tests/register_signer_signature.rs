@@ -4,7 +4,7 @@ use libp2p::{gossipsub, Multiaddr};
 use mithril_common::messages::{RegisterSignatureMessage, RegisterSignerMessage};
 use mithril_relay::{
     p2p::{BroadcastMessage, PeerBehaviourEvent, PeerEvent},
-    PassiveRelay, SignerRelay,
+    PassiveRelay, SignerRelay, SignerRelayMode,
 };
 use reqwest::StatusCode;
 use slog::{Drain, Level, Logger};
@@ -35,11 +35,15 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
     let total_peers = 1 + total_p2p_client;
     let addr: Multiaddr = "/ip4/0.0.0.0/tcp/0".parse().unwrap();
     let server_port = 0;
+    let signer_registration_mode = SignerRelayMode::P2P;
+    let signature_registration_mode = SignerRelayMode::P2P;
     let aggregator_endpoint = "http://0.0.0.0:1234".to_string();
     let signer_repeater_delay = Duration::from_secs(100);
     let mut signer_relay = SignerRelay::start(
         &addr,
         &server_port,
+        &signer_registration_mode,
+        &signature_registration_mode,
         &aggregator_endpoint,
         &signer_repeater_delay,
         &logger,
