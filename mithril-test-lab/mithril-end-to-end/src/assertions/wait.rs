@@ -80,7 +80,7 @@ pub async fn wait_for_target_epoch(
         "target_epoch" => ?target_epoch
     );
 
-    match attempt!(90, Duration::from_millis(1000), {
+    match attempt!(450, Duration::from_millis(200), {
         match chain_observer
             .get_current_epoch()
             .await
