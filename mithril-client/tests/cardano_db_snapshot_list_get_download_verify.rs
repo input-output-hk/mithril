@@ -10,7 +10,7 @@ use mithril_client::{
 };
 use mithril_common::digesters::{CardanoImmutableDigester, DummyCardanoDbBuilder};
 
-use crate::extensions::fake::{FakeAggregator, FakeCertificateVerifier};
+use crate::extensions::fake_aggregator::{FakeAggregator, FakeCertificateVerifier};
 
 #[tokio::test]
 async fn cardano_db_snapshot_list_get_download_verify() {
