@@ -144,6 +144,7 @@ impl SnapshotClient {
             aggregator_client,
             #[cfg(feature = "fs")]
             http_file_downloader,
+            // The underscore prefix prevents breaking the `SnapshotClient` API compatibility.
             #[cfg(feature = "fs")]
             _feedback_sender: feedback_sender,
             #[cfg(feature = "fs")]
