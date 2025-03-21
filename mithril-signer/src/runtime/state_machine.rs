@@ -318,7 +318,7 @@ impl StateMachine {
                 nested_error: Some(e),
             })?;
 
-        fn filter_error(
+        fn handle_registration_result(
             register_result: Result<(), Error>,
             epoch: Epoch,
         ) -> Result<Option<SignerState>, RuntimeError> {
@@ -338,7 +338,7 @@ impl StateMachine {
         }
 
         let register_result = self.runner.register_signer_to_aggregator().await;
-        let next_state_found = filter_error(register_result, epoch)?;
+        let next_state_found = handle_registration_result(register_result, epoch)?;
 
         self.metrics_service
             .get_signer_registration_success_since_startup_counter()

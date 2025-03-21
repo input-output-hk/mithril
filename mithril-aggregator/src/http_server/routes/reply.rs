@@ -14,6 +14,7 @@ pub struct MithrilStatusCode();
 
 impl MithrilStatusCode {
     pub fn registration_round_not_yet_opened() -> StatusCode {
+        // The unwrap is safe here because `from_16` function return error only for values outside of the range 100-999,
         StatusCode::from_u16(550).unwrap()
     }
 }
