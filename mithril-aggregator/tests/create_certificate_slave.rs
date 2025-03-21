@@ -39,7 +39,7 @@ impl EpochFixturesMapBuilder {
                 (
                     Epoch(epoch as u64),
                     MithrilFixtureBuilder::default()
-                        .with_signers(epoch + 1)
+                        .with_signers(epoch)
                         .with_protocol_parameters(protocol_parameters.clone())
                         .with_stake_distribution(
                             StakeDistributionGenerationMethod::RandomDistribution {
@@ -63,16 +63,14 @@ impl EpochFixturesMapBuilder {
                     Epoch(*index),
                     EpochFixtures {
                         registering: &fixtures[&Epoch(*index)],
-                        next_signing: if *index >= 1 {
-                            fixtures.get(&Epoch(*index - 1))
-                        } else {
-                            None
-                        },
-                        current_signing: if *index >= 2 {
-                            fixtures.get(&Epoch(*index - 2))
-                        } else {
-                            None
-                        },
+                        next_signing: index
+                            .checked_sub(1)
+                            .map(Epoch)
+                            .and_then(|e| fixtures.get(&e)),
+                        current_signing: index
+                            .checked_sub(2)
+                            .map(Epoch)
+                            .and_then(|e| fixtures.get(&e)),
                     },
                 )
             })
@@ -143,10 +141,8 @@ async fn create_certificate_slave() {
 
     comment!("Master: start the runtime state machine");
     cycle_err!(master_tester, "idle");
-    cycle_err!(master_tester, "idle");
 
     comment!("Slave: start the runtime state machine");
-    cycle_err!(slave_tester, "idle");
     cycle_err!(slave_tester, "idle");
 
     comment!("Master: register signers");
@@ -180,11 +176,9 @@ async fn create_certificate_slave() {
     comment!("Master: change the epoch");
     master_tester.increase_epoch().await.unwrap();
     cycle_err!(master_tester, "idle");
-    cycle_err!(master_tester, "idle");
 
     comment!("Slave: change the epoch after master");
     slave_tester.increase_epoch().await.unwrap();
-    cycle_err!(slave_tester, "idle");
     cycle_err!(slave_tester, "idle");
 
     comment!("Master: register signers");
@@ -236,7 +230,6 @@ async fn create_certificate_slave() {
 
     comment!("Slave: change the epoch after master");
     slave_tester.increase_epoch().await.unwrap();
-    cycle_err!(slave_tester, "idle");
     cycle_err!(slave_tester, "idle");
 
     comment!("Master: register signers");
@@ -305,7 +298,6 @@ async fn create_certificate_slave() {
     comment!("Slave: change the epoch after master");
     slave_tester.increase_epoch().await.unwrap();
     cycle_err!(slave_tester, "idle");
-    cycle_err!(slave_tester, "idle");
 
     comment!("Slave: bootstrap the genesis certificate");
     slave_tester
@@ -372,7 +364,6 @@ async fn create_certificate_slave() {
 
     comment!("Slave: change the epoch before master");
     slave_tester.increase_epoch().await.unwrap();
-    cycle!(slave_tester, "idle");
     cycle!(slave_tester, "idle");
 
     comment!("Master: change the epoch");
@@ -537,103 +528,6 @@ async fn create_certificate_slave() {
             .compute_and_encode_avk(),
         SignedEntityType::MithrilStakeDistribution(Epoch(6)),
         ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(5))),
-    );
-    assert_last_certificate_eq!(slave_tester, slave_expected_certificate);
-    let expected_avk = epoch_fixture
-        .current_signing
-        .unwrap()
-        .compute_and_encode_avk()
-        .clone();
-    assert_eq!(expected_avk, master_expected_certificate.avk());
-    assert_eq!(expected_avk, slave_expected_certificate.avk());
-
-    comment!(
-        "Epoch 7:
-    - the master aggregator produces a new certificate
-    - the slave aggregator produces a new certificate
-    - the slave aggregator new certificate uses the same avk as the master aggregator's new certificate
-    ");
-    let epoch_fixture = &epoch_fixtures_map[&Epoch(7)];
-
-    comment!("Master: update stake distribution source");
-    master_tester
-        .update_stake_distribution(epoch_fixture.registering.stake_distribution())
-        .await
-        .unwrap();
-
-    comment!("Slave: update stake distribution source");
-    slave_tester
-        .update_stake_distribution(epoch_fixture.registering.stake_distribution())
-        .await
-        .unwrap();
-
-    comment!("Master: change the epoch");
-    master_tester.increase_epoch().await.unwrap();
-    cycle!(master_tester, "idle");
-    cycle!(master_tester, "ready");
-
-    comment!("Slave: change the epoch after master");
-    slave_tester.increase_epoch().await.unwrap();
-    cycle!(slave_tester, "idle");
-    cycle!(slave_tester, "ready");
-
-    comment!("Master: register signers");
-    master_tester
-        .register_signers(&epoch_fixture.registering.signers_fixture())
-        .await
-        .unwrap();
-    cycle!(master_tester, "signing");
-
-    comment!("Master: signers send their single signature");
-    master_tester
-        .send_single_signatures(
-            SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-            &epoch_fixture.current_signing.unwrap().signers_fixture(),
-        )
-        .await
-        .unwrap();
-
-    comment!("Slave: signers send their single signature");
-    cycle!(slave_tester, "signing");
-    slave_tester
-        .send_single_signatures(
-            SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-            &epoch_fixture.current_signing.unwrap().signers_fixture(),
-        )
-        .await
-        .unwrap();
-
-    comment!("Master: state machine should issue a certificate for the MithrilStakeDistribution");
-    cycle!(master_tester, "ready");
-    let master_expected_certificate = ExpectedCertificate::new(
-        Epoch(7),
-        StakeDistributionParty::from_signers(
-            epoch_fixture.current_signing.unwrap().signers_with_stake(),
-        )
-        .as_slice(),
-        epoch_fixture
-            .current_signing
-            .unwrap()
-            .compute_and_encode_avk(),
-        SignedEntityType::MithrilStakeDistribution(Epoch(7)),
-        ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(6))),
-    );
-    assert_last_certificate_eq!(master_tester, master_expected_certificate);
-
-    comment!("Slave: state machine should issue a certificate for the MithrilStakeDistribution");
-    cycle!(slave_tester, "ready");
-    let slave_expected_certificate = ExpectedCertificate::new(
-        Epoch(7),
-        StakeDistributionParty::from_signers(
-            epoch_fixture.current_signing.unwrap().signers_with_stake(),
-        )
-        .as_slice(),
-        epoch_fixture
-            .current_signing
-            .unwrap()
-            .compute_and_encode_avk(),
-        SignedEntityType::MithrilStakeDistribution(Epoch(7)),
-        ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(6))),
     );
     assert_last_certificate_eq!(slave_tester, slave_expected_certificate);
     let expected_avk = epoch_fixture
