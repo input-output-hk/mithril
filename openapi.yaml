@@ -1654,7 +1654,7 @@ components:
                 ],
               "ancillary_locations":
                 [
-                  "https://mithril-cdn-us.iohk.io/snapshot/ancillary-6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.tar.zst"
+                  "https://mithril-cdn-us.iohk.io/snapshot/6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.ancillary.tar.zst"
                 ]
             }
           ]
@@ -1731,7 +1731,7 @@ components:
               ],
             "ancillary_locations":
               [
-                "https://mithril-cdn-us.iohk.io/snapshot/ancillary-6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.tar.zst"
+                "https://mithril-cdn-us.iohk.io/snapshot/6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.ancillary.tar.zst"
               ],
             "compression_algorithm": "zstandard",
             "cardano_node_version": "1.0.0"
@@ -1759,7 +1759,7 @@ components:
               ],
             "ancillary_locations":
               [
-                "https://mithril-cdn-us.iohk.io/snapshot/ancillary-6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.tar.zst"
+                "https://mithril-cdn-us.iohk.io/snapshot/6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.ancillary.tar.zst"
               ],
             "compression_algorithm": "zstandard",
             "cardano_node_version": "1.0.0"
@@ -1827,7 +1827,7 @@ components:
               ],
             "ancillary_locations":
               [
-                "https://mithril-cdn-us.iohk.io/snapshot/ancillary-6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.tar.zst"
+                "https://mithril-cdn-us.iohk.io/snapshot/6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.ancillary.tar.zst"
               ],
             "compression_algorithm": "zstandard",
             "cardano_node_version": "1.0.0"

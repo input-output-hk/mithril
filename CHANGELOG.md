@@ -27,7 +27,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - End support for **macOS x64 pre-built binaries** for the client CLI.
 
-- Legacy Cardano database certification: split the archive into two separate archives, one for the immutable files and one for the ancillary files.
+- Cardano database certification: creation of two separate archives, one for the immutable files and another for the ancillary files.
 
 - **UNSTABLE** Implement a slave signer registration mode in the aggregator.
 
