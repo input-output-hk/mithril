@@ -163,7 +163,7 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                 download_id: _,
                 size,
             } => {
-                println!("Starting download of snapshot ancillary");
+                println!("Starting download of ancillary snapshot");
                 let pb = Self::new_download_bytes_progress_bar(size);
                 self.progress_bar.add(pb.clone());
                 let mut ancillary_download_pb = self.ancillary_download_pb.write().await;
