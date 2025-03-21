@@ -174,8 +174,8 @@ mod handlers {
             }
             Err(SignerRegistrationError::RegistrationRoundNotYetOpened) => {
                 warn!(logger, "register_signer::registration_round_not_yed_opened");
-                Ok(reply::service_unavailable(
-                    SignerRegistrationError::RegistrationRoundNotYetOpened.to_string(),
+                Ok(reply::server_error(
+                    SignerRegistrationError::RegistrationRoundNotYetOpened,
                 ))
             }
             Err(err) => {
@@ -275,6 +275,7 @@ mod tests {
 
     use crate::{
         database::{record::SignerRecord, repository::MockSignerGetter},
+        http_server::routes::reply::MithrilStatusCode,
         initialize_dependencies,
         services::{FakeEpochService, MockSignerRegisterer},
         store::MockVerificationKeyStorer,
@@ -478,7 +479,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signer_post_ko_503() {
+    async fn test_register_signer_post_ko_550() {
         let mut mock_signer_registerer = MockSignerRegisterer::new();
         mock_signer_registerer
             .expect_register_signer()
@@ -506,7 +507,7 @@ mod tests {
             "application/json",
             &signer,
             &response,
-            &StatusCode::SERVICE_UNAVAILABLE,
+            &MithrilStatusCode::registration_round_not_yet_opened(),
         )
         .unwrap();
     }
