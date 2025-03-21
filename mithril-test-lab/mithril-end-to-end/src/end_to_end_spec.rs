@@ -163,7 +163,9 @@ impl Spec {
         // Verify that artifacts are produced and signed correctly after era switch
         if let Some(next_era) = &self.next_era {
             // Switch to next era
-            infrastructure.register_switch_to_next_era(next_era).await?;
+            if aggregator.is_first() {
+                infrastructure.register_switch_to_next_era(next_era).await?;
+            }
             target_epoch += 5;
             assertions::wait_for_target_epoch(
                 aggregator,
