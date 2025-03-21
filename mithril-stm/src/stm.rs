@@ -1091,7 +1091,6 @@ impl CoreVerifier {
 mod tests {
     use super::*;
     use crate::key_reg::*;
-    use crate::merkle_tree::BatchPath;
     use bincode;
     use blake2::{digest::consts::U32, Blake2b};
     use proptest::collection::{hash_map, vec};

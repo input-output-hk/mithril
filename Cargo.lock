@@ -4023,7 +4023,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-stm"
-version = "0.3.40"
+version = "0.3.41"
 dependencies = [
  "bincode",
  "blake2 0.10.6",
