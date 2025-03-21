@@ -2,6 +2,50 @@
 
 ---
 
+<!--
+Template of ADR
+
+## ID. TITLE
+
+date: 2025-XX-XX
+status: Accepted
+
+### Context
+
+To complete
+
+### Decision
+
+To complete
+
+### Consequences
+
+To complete
+-->
+
+## 3. Specific Mithril status code
+
+date: 2025-03-21
+status: Accepted
+
+### Context
+
+In exchanges between the signer and the aggregator, we need to retrieve the reason why a request was unsuccessful.
+Error handling will depend on the specific functional case of Mithril.
+We could have reused existing HTTP codes, but they are too general and could be returned for cases other than the one we wish to isolate.
+
+### Decision
+
+We therefore decided to return specific server error codes starting at 550.
+
+Status codes introduced:
+
+- 550: registration round not yet opened
+
+### Consequences
+
+Specific Mithril HTTP status code on server error should be greater or equal to 550.
+
 ## 2. Remove Artifacts serialization support when compiling to WebAssembly
 
 date: 2025-02-26
