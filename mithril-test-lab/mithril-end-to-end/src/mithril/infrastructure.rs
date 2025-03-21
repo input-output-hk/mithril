@@ -126,7 +126,8 @@ impl MithrilInfrastructure {
             master_aggregator_endpoint,
             signer_cardano_nodes,
             &relay_signers,
-        )?;
+        )
+        .await?;
 
         fn build_chain_observer(
             cardano_node: &PoolNode,
@@ -338,7 +339,7 @@ impl MithrilInfrastructure {
         Ok((relay_aggregators, relay_signers, relay_passives))
     }
 
-    fn start_signers(
+    async fn start_signers(
         config: &MithrilInfrastructureConfig,
         master_aggregator_endpoint: String,
         pool_nodes: &[PoolNode],
@@ -357,7 +358,7 @@ impl MithrilInfrastructure {
                 master_aggregator_endpoint.clone()
             };
 
-            let mut signer = Signer::new(&SignerConfig {
+            let signer = Signer::new(&SignerConfig {
                 signer_number: index + 1,
                 aggregator_endpoint,
                 pool_node,
@@ -373,7 +374,7 @@ impl MithrilInfrastructure {
                 mithril_era_marker_address: &config.devnet.mithril_era_marker_address()?,
                 enable_certification,
             })?;
-            signer.start()?;
+            signer.start().await?;
 
             signers.push(signer);
         }
@@ -381,14 +382,14 @@ impl MithrilInfrastructure {
         Ok(signers)
     }
 
-    pub async fn stop_nodes(&mut self) -> StdResult<()> {
+    pub async fn stop_nodes(&self) -> StdResult<()> {
         // Note: The aggregators should be stopped *last* since signers depends on it
         info!("Stopping Mithril infrastructure");
-        for signer in self.signers.as_mut_slice() {
+        for signer in &self.signers {
             signer.stop().await?;
         }
 
-        for aggregator in self.aggregators.as_mut_slice() {
+        for aggregator in &self.aggregators {
             aggregator.stop().await?;
         }
 
@@ -409,10 +410,6 @@ impl MithrilInfrastructure {
 
     pub fn signers(&self) -> &[Signer] {
         &self.signers
-    }
-
-    pub fn signers_mut(&mut self) -> &mut [Signer] {
-        self.signers.as_mut_slice()
     }
 
     pub fn relay_aggregators(&self) -> &[RelayAggregator] {

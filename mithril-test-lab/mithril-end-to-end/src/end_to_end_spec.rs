@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use anyhow::anyhow;
-use tokio::sync::RwLock;
 use tokio::task::JoinSet;
 
 use mithril_common::{
@@ -13,7 +11,7 @@ use mithril_common::{
 use crate::{assertions, Aggregator, MithrilInfrastructure};
 
 pub struct Spec {
-    pub infrastructure: Arc<RwLock<Option<MithrilInfrastructure>>>,
+    pub infrastructure: Arc<MithrilInfrastructure>,
     is_signing_cardano_transactions: bool,
     is_signing_cardano_stake_distribution: bool,
     is_signing_cardano_database: bool,
@@ -23,7 +21,7 @@ pub struct Spec {
 
 impl Spec {
     pub fn new(
-        infrastructure: Arc<RwLock<Option<MithrilInfrastructure>>>,
+        infrastructure: Arc<MithrilInfrastructure>,
         signed_entity_types: Vec<String>,
         next_era: Option<String>,
         regenesis_on_era_switch: bool,
@@ -53,28 +51,17 @@ impl Spec {
     pub async fn run(self) -> StdResult<()> {
         let mut join_set = JoinSet::new();
         let spec = Arc::new(self);
-        let infrastructure_guard = spec.infrastructure.read().await;
-        let infrastructure = infrastructure_guard
-            .as_ref()
-            .ok_or(anyhow!("No infrastructure found"))?;
-        let aggregators = infrastructure_guard
-            .as_ref()
-            .ok_or(anyhow!("No infrastructure found"))?
-            .aggregators();
 
         // Transfer some funds on the devnet to have some Cardano transactions to sign.
         // This step needs to be executed early in the process so that the transactions are available
         // for signing in the penultimate immutable chunk before the end of the test.
         // As we get closer to the tip of the chain when signing, we'll be able to relax this constraint.
-        assertions::transfer_funds(infrastructure.devnet()).await?;
+        assertions::transfer_funds(spec.infrastructure.devnet()).await?;
 
-        for index in 0..aggregators.len() {
+        for index in 0..spec.infrastructure.aggregators().len() {
             let spec_clone = spec.clone();
             join_set.spawn(async move {
-                let infrastructure_guard = spec_clone.infrastructure.read().await;
-                let infrastructure = infrastructure_guard
-                    .as_ref()
-                    .ok_or(anyhow!("No infrastructure found"))?;
+                let infrastructure = &spec_clone.infrastructure;
 
                 spec_clone
                     .run_scenario(

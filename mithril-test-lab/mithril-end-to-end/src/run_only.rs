@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use mithril_common::chain_observer::ChainObserver;
-use tokio::sync::RwLock;
 use tokio::task::JoinSet;
 
 use mithril_common::StdResult;
@@ -10,30 +8,22 @@ use mithril_common::StdResult;
 use crate::{assertions, Aggregator, MithrilInfrastructure};
 
 pub struct RunOnly {
-    pub infrastructure: Arc<RwLock<Option<MithrilInfrastructure>>>,
+    pub infrastructure: Arc<MithrilInfrastructure>,
 }
 
 impl RunOnly {
-    pub fn new(infrastructure: Arc<RwLock<Option<MithrilInfrastructure>>>) -> Self {
+    pub fn new(infrastructure: Arc<MithrilInfrastructure>) -> Self {
         Self { infrastructure }
     }
 
     pub async fn run(self) -> StdResult<()> {
         let run_only = Arc::new(self);
         let mut join_set = JoinSet::new();
-        let infrastructure_guard = run_only.infrastructure.read().await;
-        let aggregators = infrastructure_guard
-            .as_ref()
-            .ok_or(anyhow!("No infrastructure found"))?
-            .aggregators();
 
-        for index in 0..aggregators.len() {
+        for index in 0..run_only.infrastructure.aggregators().len() {
             let run_only_clone = run_only.clone();
             join_set.spawn(async move {
-                let infrastructure_guard = run_only_clone.infrastructure.read().await;
-                let infrastructure = infrastructure_guard
-                    .as_ref()
-                    .ok_or(anyhow!("No infrastructure found"))?;
+                let infrastructure = &run_only_clone.infrastructure;
 
                 run_only_clone
                     .start_aggregator(
