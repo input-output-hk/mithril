@@ -494,9 +494,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn has_master_aggregator_succeeds() {
+    fn has_master_slave_signer_registration_succeeds() {
         let config = MithrilInfrastructureConfig {
-            use_relays: true,
+            relay_signer_registration_mode: SignerRelayMode::Passthrough,
+            number_of_aggregators: 1,
+            ..MithrilInfrastructureConfig::dummy()
+        };
+
+        assert!(!config.has_master_slave_signer_registration());
+
+        let config = MithrilInfrastructureConfig {
             relay_signer_registration_mode: SignerRelayMode::Passthrough,
             number_of_aggregators: 2,
             ..MithrilInfrastructureConfig::dummy()
@@ -505,17 +512,16 @@ mod tests {
         assert!(config.has_master_slave_signer_registration());
 
         let config = MithrilInfrastructureConfig {
-            use_relays: true,
             relay_signer_registration_mode: SignerRelayMode::P2P,
-            number_of_aggregators: 2,
+            number_of_aggregators: 1,
             ..MithrilInfrastructureConfig::dummy()
         };
 
         assert!(!config.has_master_slave_signer_registration());
 
         let config = MithrilInfrastructureConfig {
-            use_relays: false,
-            number_of_aggregators: 1,
+            relay_signer_registration_mode: SignerRelayMode::P2P,
+            number_of_aggregators: 2,
             ..MithrilInfrastructureConfig::dummy()
         };
 

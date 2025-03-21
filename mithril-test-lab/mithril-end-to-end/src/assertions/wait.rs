@@ -52,11 +52,7 @@ pub async fn wait_for_epoch_settings(aggregator: &Aggregator) -> StdResult<Epoch
                     Ok(Some(epoch_settings))
                 }
                 s if s.is_server_error() => {
-                    warn!(
-                        "Server error while waiting for the Aggregator, http code: {}",
-                        s;
-                        "aggregator" => aggregator.name()
-                    );
+                    warn!( "Server error while waiting for the Aggregator, http code: {s}"; "aggregator" => aggregator.name());
                     Ok(None)
                 }
                 _ => Ok(None),
