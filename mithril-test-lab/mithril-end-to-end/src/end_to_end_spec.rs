@@ -77,7 +77,7 @@ impl Spec {
                     .ok_or(anyhow!("No infrastructure found"))?;
 
                 spec_clone
-                    .start_aggregator(
+                    .run_scenario(
                         infrastructure.aggregator(index),
                         infrastructure.chain_observer(index),
                         infrastructure,
@@ -93,7 +93,7 @@ impl Spec {
         Ok(())
     }
 
-    pub async fn start_aggregator(
+    pub async fn run_scenario(
         &self,
         aggregator: &Aggregator,
         chain_observer: Arc<dyn ChainObserver>,

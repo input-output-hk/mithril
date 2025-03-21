@@ -201,19 +201,19 @@ async fn main_exec() -> StdResult<()> {
     };
     let artifacts_dir = {
         let path = work_dir.join("artifacts");
-        fs::create_dir(&path).expect("Artifacts dir creation failure");
+        fs::create_dir(&path).with_context(|| "Artifacts dir creation failure")?;
         path
     };
     let store_dir = {
         let path = work_dir.join("stores");
-        fs::create_dir(&path).expect("Stores dir creation failure");
+        fs::create_dir(&path).with_context(|| "Stores dir creation failure")?;
         path
     };
 
     let mut app = App::new();
     let mut app_stopper = AppStopper::new(&app);
     let mut join_set = JoinSet::new();
-    with_gracefull_shutdown(&mut join_set);
+    with_graceful_shutdown(&mut join_set);
 
     join_set.spawn(async move { app.run(args, work_dir, store_dir, artifacts_dir).await });
 
@@ -446,7 +446,7 @@ fn create_workdir_if_not_exist_clean_otherwise(work_dir: &Path) {
 #[error("Signal received: `{0}`")]
 pub struct SignalError(pub String);
 
-fn with_gracefull_shutdown(join_set: &mut JoinSet<StdResult<()>>) {
+fn with_graceful_shutdown(join_set: &mut JoinSet<StdResult<()>>) {
     join_set.spawn(async move {
         let mut sigterm = signal(SignalKind::terminate()).expect("Failed to create SIGTERM signal");
         sigterm.recv().await;
