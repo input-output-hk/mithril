@@ -53,11 +53,11 @@ pub struct Args {
     bin_directory: PathBuf,
 
     /// Number of aggregators
-    #[clap(long, default_value_t = 1)]
+    #[clap(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..))]
     number_of_aggregators: u8,
 
     /// Number of signers
-    #[clap(long, default_value_t = 2)]
+    #[clap(long, default_value_t = 2, value_parser = clap::value_parser!(u8).range(1..))]
     number_of_signers: u8,
 
     /// Length of a Cardano slot in the devnet (in s)
@@ -150,12 +150,6 @@ impl Args {
     }
 
     fn validate(&self) -> StdResult<()> {
-        if self.number_of_aggregators == 0 {
-            return Err(anyhow!("At least one aggregator is required"));
-        }
-        if self.number_of_signers == 0 {
-            return Err(anyhow!("At least one signer is required"));
-        }
         if !self.use_relays && self.number_of_aggregators >= 2 {
             return Err(anyhow!(
                 "The 'use_relays' parameter must be activated to run more than one aggregator"
@@ -520,14 +514,6 @@ mod tests {
 
     #[test]
     fn args_fails_validation() {
-        let args = Args::parse_from(["", "--number-of-signers", "0"]);
-        args.validate()
-            .expect_err("validate should fail without signers");
-
-        let args = Args::parse_from(["", "--number-of-aggregators", "0"]);
-        args.validate()
-            .expect_err("validate should fail without aggregators");
-
         let args = Args::parse_from(["", "--number-of-aggregators", "2"]);
         args.validate().expect_err(
             "validate should fail with more than one aggregator if p2p network is not used",
