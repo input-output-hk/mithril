@@ -4,6 +4,7 @@ use crate::key_reg::{ClosedKeyReg, RegParty};
 use crate::merkle_tree::{BatchPath, MerkleTreeCommitmentBatchCompat};
 use crate::multi_sig::{Signature, VerificationKey};
 use crate::stm::{Index, Stake, StmParameters, StmSig, StmSigRegParty};
+use crate::stm_telescope::utils::{analyze, phi};
 use crate::AggregationError;
 use alba::centralized_telescope::proof::Proof;
 use alba::centralized_telescope::*;
@@ -17,27 +18,45 @@ const DATA_LENGTH: usize = 48;
 type Data = [u8; DATA_LENGTH];
 type P = Proof<Data, Sha256>;
 
-/// Initialization parameters for Sterling
+/// Parameters to initialize STM and Telescope
 pub struct SterlingInitializer {
-    /// Adversarial stake percentage
-    pub adversarial_stake: f64,
-    /// Liveness parameter
-    pub liveness: f64,
-    /// STM protocol parameters
-    pub stm_parameters: StmParameters,
+    adv_percentage: f64,
+    hon_percentage: f64,
+    f: f64,
+    soundness_param: f64,
+    completeness_param: f64,
 }
 impl SterlingInitializer {
-    /// New initializer
-    pub fn init_telescope(&self, soundness_param: f64, completeness_param: f64) -> Telescope {
-        let m_f64 = self.stm_parameters.m as f64;
-        let set_size = (m_f64 * (1.0 - self.adversarial_stake) * self.liveness).ceil();
-        let lower_bound = self.stm_parameters.k;
-        Telescope::create(
-            soundness_param,
-            completeness_param,
-            set_size as u64,
-            lower_bound,
-        )
+    fn generate_parameters(&self, constant: f64) -> (StmParameters, Telescope) {
+        let x = ((1.0 - self.adv_percentage) / self.adv_percentage).sqrt();
+        let first_guess = x * self.adv_percentage;
+
+        let prob_adv = phi(self.adv_percentage, self.f);
+        let prob_tar = phi(first_guess, self.f);
+        let overshoot = prob_tar / prob_adv;
+        let a = overshoot - 1.0;
+        let mu = self.soundness_param * (2_f64.ln() / (a * a) * (2.0 + a));
+        let mut m = mu / prob_adv;
+        m = m.round();
+
+        let m_initial = constant * m;
+        let (m, kadv, khon) = analyze(
+            self.adv_percentage,
+            m_initial,
+            self.hon_percentage,
+            self.f,
+            self.soundness_param,
+            self.completeness_param,
+        );
+        let stm_parameters = StmParameters {
+            m,
+            k: khon,
+            phi_f: self.f,
+        };
+        let telescope =
+            Telescope::create(self.soundness_param, self.completeness_param, khon, kadv);
+
+        (stm_parameters, telescope)
     }
 }
 
@@ -52,8 +71,8 @@ pub struct SterlingClerk<D: Clone + Digest> {
     pub telescope: Telescope,
 }
 impl<D: Digest + Clone + FixedOutput> SterlingClerk<D> {
-    /// Create a new `Clerk` from a closed registration instance.
-    pub fn from_registration(
+    /// Create a new `Clerk`
+    pub fn new(
         stm_parameters: &StmParameters,
         closed_reg: &ClosedKeyReg<D>,
         telescope: &Telescope,
@@ -120,7 +139,7 @@ impl<D: Digest + Clone + FixedOutput> SterlingClerk<D> {
         .unwrap()
     }
 
-    /// Compute the `StmAggrVerificationKey` related to the used registration.
+    /// Compute the `SterlingAVK` related to the used registration.
     pub fn compute_avk(&self) -> SterlingAVK<D> {
         SterlingAVK::from(&self.closed_reg)
     }
@@ -466,19 +485,15 @@ mod tests {
         let sentence = "ALBA Rocks!";
         let msg = sentence.as_bytes();
 
-        let soundness_param = 10.0;
-        let completeness_param = 10.0;
-        let params = StmParameters {
-            k: 100,  // 2300,
-            m: 3000, // 20000,
-            phi_f: 0.9,
-        };
         let initializer = SterlingInitializer {
-            adversarial_stake: 0.55,
-            liveness: 0.95,
-            stm_parameters: params,
+            adv_percentage: 0.05,
+            hon_percentage: 0.95,
+            f: 0.9,
+            soundness_param: 128.0,
+            completeness_param: 32.0,
         };
-        let telescope = initializer.init_telescope(soundness_param, completeness_param);
+
+        let (stm_parameters, telescope) = initializer.generate_parameters(1.0);
 
         let nb_elements: u64 = 1_000;
 
@@ -488,7 +503,7 @@ mod tests {
 
         let mut ps: Vec<StmInitializer> = Vec::with_capacity(nb_elements as usize);
         for stake in stakes {
-            let p = StmInitializer::setup(params, stake, &mut rng);
+            let p = StmInitializer::setup(stm_parameters, stake, &mut rng);
             key_reg.register(p.stake, p.verification_key()).unwrap();
             ps.push(p);
         }
@@ -505,9 +520,9 @@ mod tests {
             .filter_map(|p| p.sign(msg))
             .collect::<Vec<StmSig>>();
 
-        let clerk = SterlingClerk::from_registration(&params, &closed_reg, &telescope);
+        let clerk = SterlingClerk::new(&stm_parameters, &closed_reg, &telescope);
         let sterling_proof = clerk.aggregate::<Data>(&sigs, msg);
 
-        sterling_proof.verify(&telescope, msg, &clerk.compute_avk(), &params);
+        sterling_proof.verify(&telescope, msg, &clerk.compute_avk(), &stm_parameters);
     }
 }

@@ -23,6 +23,8 @@ rand_core = "0.6.4"
 rayon = "1.10.0"
 serde = { version = "1.0.219", features = ["rc", "derive"] }
 thiserror = "2.0.12"
+sha2 = "0.10.6"
+statrs = "0.16"
 
 [target.'cfg(not(any(target_family = "wasm", windows)))'.dependencies]
 # only unix supports the rug backend

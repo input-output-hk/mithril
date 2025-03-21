@@ -8,7 +8,6 @@ mod eligibility_check;
 mod error;
 pub mod key_reg;
 mod merkle_tree;
-pub mod sterling;
 pub mod stm;
 
 pub use crate::error::{
@@ -21,3 +20,4 @@ pub mod multi_sig;
 
 #[cfg(not(feature = "benchmark-internals"))]
 mod multi_sig;
+mod stm_telescope;
