@@ -314,7 +314,7 @@ jobs:
           # Include a test for full dedentralization P2P signer registration and P2P signature registration
           - mode: "decentralized"
             era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
-            next_era: [""]
+            next_era: ""
             cardano_node_version: "10.1.4"
             hard_fork_latest_era_at_epoch: 0
             run_id: "#1"
