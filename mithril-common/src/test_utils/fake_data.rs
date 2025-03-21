@@ -178,21 +178,29 @@ pub fn snapshots(total: u64) -> Vec<entities::Snapshot> {
             let mut beacon = beacon();
             beacon.immutable_file_number += snapshot_id;
             let certificate_hash = "123".to_string();
-            let size = snapshot_id * 100000;
+            let size = snapshot_id * 100_000;
+            let ancillary_size = snapshot_id * 10_000;
             let cardano_node_version = Version::parse("1.0.0").unwrap();
-            let mut locations = Vec::new();
-            locations.push(format!("http://{certificate_hash}"));
-            locations.push(format!("http2://{certificate_hash}"));
+            let locations = vec![
+                format!("http://{certificate_hash}"),
+                format!("http2://{certificate_hash}"),
+            ];
+            let ancillary_locations = vec![
+                format!("http://ancillary-{certificate_hash}"),
+                format!("http2://ancillary-{certificate_hash}"),
+            ];
 
-            entities::Snapshot::new(
+            entities::Snapshot {
                 digest,
-                network(),
+                network: network().into(),
                 beacon,
                 size,
+                ancillary_size: Some(ancillary_size),
                 locations,
-                CompressionAlgorithm::Gzip,
-                &cardano_node_version,
-            )
+                ancillary_locations: Some(ancillary_locations),
+                compression_algorithm: CompressionAlgorithm::Gzip,
+                cardano_node_version: cardano_node_version.to_string(),
+            }
         })
         .collect::<Vec<entities::Snapshot>>()
 }

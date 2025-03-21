@@ -94,12 +94,17 @@ pub enum DownloadEvent {
         /// Unique download identifier
         download_id: String,
     },
-    /// Full database download
+    /// Database download of all immutable files together
     Full {
         /// Unique download identifier
         download_id: String,
         /// Digest of the downloaded snapshot
         digest: String,
+    },
+    /// Download of the ancillary file associated with a full immutables download
+    FullAncillary {
+        /// Unique download identifier
+        download_id: String,
     },
 }
 
@@ -110,7 +115,8 @@ impl DownloadEvent {
             DownloadEvent::Immutable { download_id, .. }
             | DownloadEvent::Ancillary { download_id }
             | DownloadEvent::Digest { download_id }
-            | DownloadEvent::Full { download_id, .. } => download_id,
+            | DownloadEvent::Full { download_id, .. }
+            | DownloadEvent::FullAncillary { download_id } => download_id,
         }
     }
 
@@ -147,6 +153,12 @@ impl DownloadEvent {
                 digest: digest.to_string(),
                 size,
             },
+            DownloadEvent::FullAncillary { download_id } => {
+                MithrilEvent::SnapshotAncillaryDownloadStarted {
+                    download_id: download_id.to_string(),
+                    size,
+                }
+            }
         }
     }
 
@@ -187,6 +199,13 @@ impl DownloadEvent {
                 downloaded_bytes,
                 size: total_bytes,
             },
+            DownloadEvent::FullAncillary { download_id } => {
+                MithrilEvent::SnapshotAncillaryDownloadProgress {
+                    download_id: download_id.to_string(),
+                    downloaded_bytes,
+                    size: total_bytes,
+                }
+            }
         }
     }
 
@@ -215,6 +234,11 @@ impl DownloadEvent {
             DownloadEvent::Full { download_id, .. } => MithrilEvent::SnapshotDownloadCompleted {
                 download_id: download_id.to_string(),
             },
+            DownloadEvent::FullAncillary { download_id, .. } => {
+                MithrilEvent::SnapshotAncillaryDownloadCompleted {
+                    download_id: download_id.to_string(),
+                }
+            }
         }
     }
 }
@@ -292,6 +316,18 @@ mod tests {
             },
             event,
         );
+
+        let download_event_type = DownloadEvent::FullAncillary {
+            download_id: "download-123".to_string(),
+        };
+        let event = download_event_type.build_download_started_event(1234);
+        assert_eq!(
+            MithrilEvent::SnapshotAncillaryDownloadStarted {
+                download_id: "download-123".to_string(),
+                size: 1234,
+            },
+            event,
+        );
     }
 
     #[test]
@@ -344,6 +380,19 @@ mod tests {
         let event = download_event_type.build_download_progress_event(123, 1234);
         assert_eq!(
             MithrilEvent::SnapshotDownloadProgress {
+                download_id: "download-123".to_string(),
+                downloaded_bytes: 123,
+                size: 1234,
+            },
+            event,
+        );
+
+        let download_event_type = DownloadEvent::FullAncillary {
+            download_id: "download-123".to_string(),
+        };
+        let event = download_event_type.build_download_progress_event(123, 1234);
+        assert_eq!(
+            MithrilEvent::SnapshotAncillaryDownloadProgress {
                 download_id: "download-123".to_string(),
                 downloaded_bytes: 123,
                 size: 1234,
@@ -442,6 +491,17 @@ mod tests {
         let event = download_event_type.build_download_completed_event();
         assert_eq!(
             MithrilEvent::SnapshotDownloadCompleted {
+                download_id: "download-123".to_string(),
+            },
+            event,
+        );
+
+        let download_event_type = DownloadEvent::FullAncillary {
+            download_id: "download-123".to_string(),
+        };
+        let event = download_event_type.build_download_completed_event();
+        assert_eq!(
+            MithrilEvent::SnapshotAncillaryDownloadCompleted {
                 download_id: "download-123".to_string(),
             },
             event,

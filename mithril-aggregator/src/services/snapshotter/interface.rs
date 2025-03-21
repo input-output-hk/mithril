@@ -6,8 +6,11 @@ use crate::tools::file_archiver::FileArchive;
 #[cfg_attr(test, mockall::automock)]
 /// Define the ability to create snapshots.
 pub trait Snapshotter: Sync + Send {
-    /// Create a new snapshot with the given filepath.
-    fn snapshot_all(&self, archive_name_without_extension: &str) -> StdResult<FileArchive>;
+    /// Create a new snapshot containing all completed immutables.
+    fn snapshot_all_completed_immutables(
+        &self,
+        archive_name_without_extension: &str,
+    ) -> StdResult<FileArchive>;
 
     /// Create a new snapshot of ancillary files.
     ///

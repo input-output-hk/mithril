@@ -103,6 +103,7 @@ async fn main() -> MithrilResult<()> {
 pub struct IndicatifFeedbackReceiver {
     progress_bar: MultiProgress,
     download_pb: RwLock<Option<ProgressBar>>,
+    ancillary_download_pb: RwLock<Option<ProgressBar>>,
     certificate_validation_pb: RwLock<Option<ProgressBar>>,
 }
 
@@ -111,8 +112,18 @@ impl IndicatifFeedbackReceiver {
         Self {
             progress_bar: progress_bar.clone(),
             download_pb: RwLock::new(None),
+            ancillary_download_pb: RwLock::new(None),
             certificate_validation_pb: RwLock::new(None),
         }
+    }
+
+    fn new_download_bytes_progress_bar(size: u64) -> ProgressBar {
+        let pb = ProgressBar::new(size);
+        pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
+            .unwrap()
+            .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
+            .progress_chars("#>-"));
+        pb
     }
 }
 
@@ -126,11 +137,7 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                 size,
             } => {
                 println!("Starting download of snapshot '{digest}'");
-                let pb = ProgressBar::new(size);
-                pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
-                    .unwrap()
-                    .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
-                    .progress_chars("#>-"));
+                let pb = Self::new_download_bytes_progress_bar(size);
                 self.progress_bar.add(pb.clone());
                 let mut download_pb = self.download_pb.write().await;
                 *download_pb = Some(pb);
@@ -151,6 +158,33 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                     progress_bar.finish_with_message("Snapshot download completed");
                 }
                 *download_pb = None;
+            }
+            MithrilEvent::SnapshotAncillaryDownloadStarted {
+                download_id: _,
+                size,
+            } => {
+                println!("Starting download of ancillary snapshot");
+                let pb = Self::new_download_bytes_progress_bar(size);
+                self.progress_bar.add(pb.clone());
+                let mut ancillary_download_pb = self.ancillary_download_pb.write().await;
+                *ancillary_download_pb = Some(pb);
+            }
+            MithrilEvent::SnapshotAncillaryDownloadProgress {
+                download_id: _,
+                downloaded_bytes,
+                size: _,
+            } => {
+                let ancillary_download_pb = self.ancillary_download_pb.read().await;
+                if let Some(progress_bar) = ancillary_download_pb.as_ref() {
+                    progress_bar.set_position(downloaded_bytes);
+                }
+            }
+            MithrilEvent::SnapshotAncillaryDownloadCompleted { download_id: _ } => {
+                let mut ancillary_download_pb = self.ancillary_download_pb.write().await;
+                if let Some(progress_bar) = ancillary_download_pb.as_ref() {
+                    progress_bar.finish_with_message("Snapshot ancillary download completed");
+                }
+                *ancillary_download_pb = None;
             }
             MithrilEvent::CertificateChainValidationStarted {
                 certificate_chain_validation_id: _,

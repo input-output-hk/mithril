@@ -177,6 +177,27 @@ pub enum MithrilEvent {
         /// Unique identifier used to track this specific snapshot download
         download_id: String,
     },
+    /// A snapshot ancillary download has started
+    SnapshotAncillaryDownloadStarted {
+        /// Unique identifier used to track this specific snapshot ancillary download
+        download_id: String,
+        /// Size of the downloaded archive
+        size: u64,
+    },
+    /// A snapshot ancillary download is in progress
+    SnapshotAncillaryDownloadProgress {
+        /// Unique identifier used to track this specific snapshot ancillary download
+        download_id: String,
+        /// Number of bytes that have been downloaded
+        downloaded_bytes: u64,
+        /// Size of the downloaded archive
+        size: u64,
+    },
+    /// A snapshot ancillary download has completed
+    SnapshotAncillaryDownloadCompleted {
+        /// Unique identifier used to track this specific snapshot ancillary download
+        download_id: String,
+    },
 
     /// Cardano database related events
     CardanoDatabase(MithrilEventCardanoDatabase),
@@ -229,6 +250,9 @@ impl MithrilEvent {
             MithrilEvent::SnapshotDownloadStarted { download_id, .. } => download_id,
             MithrilEvent::SnapshotDownloadProgress { download_id, .. } => download_id,
             MithrilEvent::SnapshotDownloadCompleted { download_id } => download_id,
+            MithrilEvent::SnapshotAncillaryDownloadStarted { download_id, .. } => download_id,
+            MithrilEvent::SnapshotAncillaryDownloadProgress { download_id, .. } => download_id,
+            MithrilEvent::SnapshotAncillaryDownloadCompleted { download_id } => download_id,
             MithrilEvent::CardanoDatabase(MithrilEventCardanoDatabase::Started {
                 download_id,
                 ..
@@ -354,6 +378,25 @@ impl FeedbackReceiver for SlogFeedbackReceiver {
             }
             MithrilEvent::SnapshotDownloadCompleted { download_id } => {
                 info!(self.logger, "Snapshot download completed"; "download_id" => download_id);
+            }
+            MithrilEvent::SnapshotAncillaryDownloadStarted { download_id, size } => {
+                info!(
+                    self.logger, "Snapshot ancillary download started";
+                    "size" => size, "download_id" => download_id,
+                );
+            }
+            MithrilEvent::SnapshotAncillaryDownloadProgress {
+                download_id,
+                downloaded_bytes,
+                size,
+            } => {
+                info!(
+                    self.logger, "Snapshot ancillary download in progress ...";
+                    "downloaded_bytes" => downloaded_bytes, "size" => size, "download_id" => download_id,
+                );
+            }
+            MithrilEvent::SnapshotAncillaryDownloadCompleted { download_id } => {
+                info!(self.logger, "Snapshot ancillary download completed"; "download_id" => download_id);
             }
             MithrilEvent::CardanoDatabase(MithrilEventCardanoDatabase::Started {
                 download_id,
