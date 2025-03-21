@@ -3,7 +3,6 @@ use std::sync::Arc;
 use tokio::task::JoinSet;
 
 use mithril_common::{
-    chain_observer::ChainObserver,
     entities::{Epoch, SignedEntityTypeDiscriminants},
     StdResult,
 };
@@ -64,11 +63,7 @@ impl Spec {
                 let infrastructure = &spec_clone.infrastructure;
 
                 spec_clone
-                    .run_scenario(
-                        infrastructure.aggregator(index),
-                        infrastructure.chain_observer(index),
-                        infrastructure,
-                    )
+                    .run_scenario(infrastructure.aggregator(index), infrastructure)
                     .await
             });
         }
@@ -83,10 +78,10 @@ impl Spec {
     pub async fn run_scenario(
         &self,
         aggregator: &Aggregator,
-        chain_observer: Arc<dyn ChainObserver>,
         infrastructure: &MithrilInfrastructure,
     ) -> StdResult<()> {
         assertions::wait_for_enough_immutable(aggregator).await?;
+        let chain_observer = aggregator.chain_observer();
         let start_epoch = chain_observer
             .get_current_epoch()
             .await?
@@ -94,9 +89,8 @@ impl Spec {
 
         // Wait 4 epochs after start epoch for the aggregator to be able to bootstrap a genesis certificate
         let mut target_epoch = start_epoch + 4;
-        assertions::wait_for_target_epoch(
+        assertions::wait_for_aggregator_at_target_epoch(
             aggregator,
-            chain_observer.clone(),
             target_epoch,
             "minimal epoch for the aggregator to be able to bootstrap genesis certificate"
                 .to_string(),
@@ -107,9 +101,8 @@ impl Spec {
 
         // Wait 2 epochs before changing stake distribution, so that we use at least one original stake distribution
         target_epoch += 2;
-        assertions::wait_for_target_epoch(
+        assertions::wait_for_aggregator_at_target_epoch(
             aggregator,
-            chain_observer.clone(),
             target_epoch,
             "epoch after which the stake distribution will change".to_string(),
         )
@@ -123,9 +116,8 @@ impl Spec {
 
         // Wait 2 epochs before changing protocol parameters
         target_epoch += 2;
-        assertions::wait_for_target_epoch(
+        assertions::wait_for_aggregator_at_target_epoch(
             aggregator,
-            chain_observer.clone(),
             target_epoch,
             "epoch after which the protocol parameters will change".to_string(),
         )
@@ -134,9 +126,8 @@ impl Spec {
 
         // Wait 6 epochs after protocol parameters update, so that we make sure that we use new protocol parameters as well as new stake distribution a few times
         target_epoch += 6;
-        assertions::wait_for_target_epoch(
+        assertions::wait_for_aggregator_at_target_epoch(
             aggregator,
-            chain_observer.clone(),
             target_epoch,
             "epoch after which the certificate chain will be long enough to catch most common troubles with stake distribution and protocol parameters".to_string(),
         )
@@ -154,9 +145,8 @@ impl Spec {
                 infrastructure.register_switch_to_next_era(next_era).await?;
             }
             target_epoch += 5;
-            assertions::wait_for_target_epoch(
+            assertions::wait_for_aggregator_at_target_epoch(
                 aggregator,
-                chain_observer.clone(),
                 target_epoch,
                 "epoch after which the era switch will have triggered".to_string(),
             )
@@ -166,9 +156,8 @@ impl Spec {
             if self.regenesis_on_era_switch {
                 assertions::bootstrap_genesis_certificate(aggregator).await?;
                 target_epoch += 5;
-                assertions::wait_for_target_epoch(
+                assertions::wait_for_aggregator_at_target_epoch(
                     aggregator,
-                    chain_observer.clone(),
                     target_epoch,
                     "epoch after which the re-genesis on era switch will be completed".to_string(),
                 )

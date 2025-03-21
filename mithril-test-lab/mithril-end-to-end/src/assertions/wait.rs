@@ -1,12 +1,11 @@
 use crate::{attempt, utils::AttemptResult, Aggregator};
 use anyhow::{anyhow, Context};
 use mithril_common::{
-    chain_observer::ChainObserver, digesters::ImmutableFile, entities::Epoch,
-    messages::EpochSettingsMessage, StdResult,
+    digesters::ImmutableFile, entities::Epoch, messages::EpochSettingsMessage, StdResult,
 };
 use reqwest::StatusCode;
 use slog_scope::{info, warn};
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 pub async fn wait_for_enough_immutable(aggregator: &Aggregator) -> StdResult<()> {
     info!("Waiting that enough immutable have been written in the devnet"; "aggregator" => aggregator.name());
@@ -68,9 +67,8 @@ pub async fn wait_for_epoch_settings(aggregator: &Aggregator) -> StdResult<Epoch
     }
 }
 
-pub async fn wait_for_target_epoch(
+pub async fn wait_for_aggregator_at_target_epoch(
     aggregator: &Aggregator,
-    chain_observer: Arc<dyn ChainObserver>,
     target_epoch: Epoch,
     wait_reason: String,
 ) -> StdResult<()> {
@@ -81,7 +79,8 @@ pub async fn wait_for_target_epoch(
     );
 
     match attempt!(90, Duration::from_millis(1000), {
-        match chain_observer
+        match aggregator
+            .chain_observer()
             .get_current_epoch()
             .await
             .with_context(|| "Could not query current epoch")?

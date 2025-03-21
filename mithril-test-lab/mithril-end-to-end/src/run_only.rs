@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use mithril_common::chain_observer::ChainObserver;
 use tokio::task::JoinSet;
 
 use mithril_common::StdResult;
@@ -26,11 +25,7 @@ impl RunOnly {
                 let infrastructure = &run_only_clone.infrastructure;
 
                 run_only_clone
-                    .start_aggregator(
-                        infrastructure.aggregator(index),
-                        infrastructure.chain_observer(index),
-                        infrastructure,
-                    )
+                    .bootstrap_aggregator(infrastructure.aggregator(index), infrastructure)
                     .await
             });
         }
@@ -42,13 +37,13 @@ impl RunOnly {
         Ok(())
     }
 
-    pub async fn start_aggregator(
+    pub async fn bootstrap_aggregator(
         &self,
         aggregator: &Aggregator,
-        chain_observer: Arc<dyn ChainObserver>,
         infrastructure: &MithrilInfrastructure,
     ) -> StdResult<()> {
         assertions::wait_for_enough_immutable(aggregator).await?;
+        let chain_observer = aggregator.chain_observer();
         let start_epoch = chain_observer
             .get_current_epoch()
             .await?
@@ -56,9 +51,8 @@ impl RunOnly {
 
         // Wait 3 epochs after start epoch for the aggregator to be able to bootstrap a genesis certificate
         let target_epoch = start_epoch + 3;
-        assertions::wait_for_target_epoch(
+        assertions::wait_for_aggregator_at_target_epoch(
             aggregator,
-            chain_observer,
             target_epoch,
             "minimal epoch for the aggregator to be able to bootstrap genesis certificate"
                 .to_string(),

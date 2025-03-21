@@ -4,11 +4,13 @@ use crate::{
     ERA_MARKERS_VERIFICATION_KEY, GENESIS_SECRET_KEY, GENESIS_VERIFICATION_KEY,
 };
 use anyhow::{anyhow, Context};
+use mithril_common::chain_observer::{ChainObserver, PallasChainObserver};
 use mithril_common::era::SupportedEra;
-use mithril_common::{entities, StdResult};
+use mithril_common::{entities, CardanoNetwork, StdResult};
 use slog_scope::info;
 use std::cmp;
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
@@ -36,7 +38,6 @@ pub struct AggregatorConfig<'a> {
     pub master_aggregator_endpoint: &'a Option<String>,
 }
 
-#[derive(Debug)]
 pub struct Aggregator {
     index: usize,
     name_suffix: String,
@@ -45,6 +46,7 @@ pub struct Aggregator {
     mithril_run_interval: u32,
     command: Arc<RwLock<MithrilCommand>>,
     process: RwLock<Option<Child>>,
+    chain_observer: Arc<dyn ChainObserver>,
 }
 
 impl Aggregator {
@@ -131,6 +133,10 @@ impl Aggregator {
             env,
             &args,
         )?;
+        let chain_observer = Arc::new(PallasChainObserver::new(
+            &aggregator_config.pool_node.socket_path,
+            CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
+        ));
 
         Ok(Self {
             index: aggregator_config.index,
@@ -140,6 +146,7 @@ impl Aggregator {
             mithril_run_interval: aggregator_config.mithril_run_interval,
             command: Arc::new(RwLock::new(command)),
             process: RwLock::new(None),
+            chain_observer,
         })
     }
 
@@ -156,6 +163,7 @@ impl Aggregator {
             mithril_run_interval: other.mithril_run_interval,
             command: other.command.clone(),
             process: RwLock::new(None),
+            chain_observer: other.chain_observer.clone(),
         }
     }
 
@@ -181,6 +189,10 @@ impl Aggregator {
 
     pub fn mithril_run_interval(&self) -> u32 {
         self.mithril_run_interval
+    }
+
+    pub fn chain_observer(&self) -> Arc<dyn ChainObserver> {
+        self.chain_observer.clone()
     }
 
     pub async fn serve(&self) -> StdResult<()> {

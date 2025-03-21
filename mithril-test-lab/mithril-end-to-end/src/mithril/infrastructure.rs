@@ -81,7 +81,7 @@ pub struct MithrilInfrastructure {
     relay_aggregators: Vec<RelayAggregator>,
     relay_signers: Vec<RelaySigner>,
     relay_passives: Vec<RelayPassive>,
-    cardano_chain_observers: Vec<Arc<dyn ChainObserver>>,
+    cardano_chain_observer: Arc<dyn ChainObserver>,
     run_only_mode: bool,
     current_era: RwLock<String>,
     era_reader_adapter: String,
@@ -129,18 +129,10 @@ impl MithrilInfrastructure {
         )
         .await?;
 
-        fn build_chain_observer(
-            cardano_node: &PoolNode,
-            network: CardanoNetwork,
-        ) -> Arc<dyn ChainObserver> {
-            Arc::new(PallasChainObserver::new(&cardano_node.socket_path, network))
-        }
-        let cardano_chain_observers: Vec<Arc<dyn ChainObserver>> = aggregator_cardano_nodes
-            .iter()
-            .map(|cardano_node| {
-                build_chain_observer(cardano_node, CardanoNetwork::DevNet(DEVNET_MAGIC_ID))
-            })
-            .collect();
+        let cardano_chain_observer = Arc::new(PallasChainObserver::new(
+            &aggregator_cardano_nodes[0].socket_path,
+            CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
+        ));
 
         Ok(Self {
             bin_dir: config.bin_dir.to_path_buf(),
@@ -151,7 +143,7 @@ impl MithrilInfrastructure {
             relay_aggregators,
             relay_signers,
             relay_passives,
-            cardano_chain_observers,
+            cardano_chain_observer,
             run_only_mode: config.run_only_mode,
             current_era: RwLock::new(config.mithril_era.clone()),
             era_reader_adapter: config.mithril_era_reader_adapter.clone(),
@@ -179,7 +171,7 @@ impl MithrilInfrastructure {
 
     pub async fn register_switch_to_next_era(&self, next_era: &str) -> StdResult<()> {
         let next_era_epoch = self
-            .chain_observer(0)
+            .cardano_chain_observer
             .get_current_epoch()
             .await?
             .unwrap_or_default()
@@ -424,12 +416,8 @@ impl MithrilInfrastructure {
         &self.relay_passives
     }
 
-    pub fn chain_observers(&self) -> &[Arc<dyn ChainObserver>] {
-        &self.cardano_chain_observers
-    }
-
-    pub fn chain_observer(&self, index: usize) -> Arc<dyn ChainObserver> {
-        self.cardano_chain_observers[index].clone()
+    pub fn chain_observer(&self) -> Arc<dyn ChainObserver> {
+        self.cardano_chain_observer.clone()
     }
 
     pub async fn build_client(&self, aggregator: &Aggregator) -> StdResult<Client> {
