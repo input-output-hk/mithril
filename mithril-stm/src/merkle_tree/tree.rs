@@ -225,7 +225,7 @@ mod tests {
     use blake2::{digest::consts::U32, Blake2b};
     use proptest::collection::vec;
     use proptest::prelude::*;
-    use rand::{seq::IteratorRandom, thread_rng};
+    use rand::{rng, seq::IteratorRandom};
 
     fn pow2_plus1(h: usize) -> usize {
         1 + 2_usize.pow(h as u32)
@@ -345,7 +345,7 @@ mod tests {
     prop_compose! {
         fn arb_tree_arb_batch(max_size: u32)
                    (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<Blake2b<U32>>, Vec<MTLeaf>, Vec<usize>) {
-            let mut rng = thread_rng();
+            let mut rng = rng();
             let size = v.len();
             let pks = vec![VerificationKey::default(); size];
             let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MTLeaf(key, stake)).collect::<Vec<MTLeaf>>();
