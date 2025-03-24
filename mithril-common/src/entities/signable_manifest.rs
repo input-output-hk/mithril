@@ -47,6 +47,30 @@ pub enum AncillaryFilesManifestVerifyError {
 
 impl AncillaryFilesManifest {
     cfg_fs! {
+        /// Creates a new manifest, without signature, from the files in the provided paths
+        ///
+        /// The hash of each file will be computed and stored in the manifest
+        pub async fn from_paths(
+            base_directory: &std::path::Path,
+            paths: Vec<PathBuf>,
+        ) -> crate::StdResult<Self> {
+            use anyhow::Context;
+            let mut data = BTreeMap::new();
+
+            for path in paths {
+                let file_path = base_directory.join(&path);
+                let hash = Self::compute_file_hash(&file_path).await.with_context(|| {
+                    format!("Failed to compute hash for file `{}`", file_path.display())
+                })?;
+                data.insert(path, hash);
+            }
+
+            Ok(Self {
+                data,
+                signature: None,
+            })
+        }
+
         /// Verifies the integrity of the data in the manifest
         ///
         /// Checks if the files in the manifest are present in the base directory and have the same hash
@@ -56,12 +80,12 @@ impl AncillaryFilesManifest {
         ) -> Result<(), AncillaryFilesManifestVerifyError> {
             for (file_path, expected_hash) in &self.data {
                 let file_path = base_directory.join(file_path);
-                let actual_hash = Self::compute_file_hash(&file_path).await.map_err(
-                    |source| AncillaryFilesManifestVerifyError::HashCompute {
+                let actual_hash = Self::compute_file_hash(&file_path)
+                    .await
+                    .map_err(|source| AncillaryFilesManifestVerifyError::HashCompute {
                         file_path: file_path.clone(),
                         source,
-                    },
-                )?;
+                    })?;
 
                 if actual_hash != *expected_hash {
                     return Err(AncillaryFilesManifestVerifyError::FileHashMismatch {
@@ -75,9 +99,7 @@ impl AncillaryFilesManifest {
             Ok(())
         }
 
-        async fn compute_file_hash(
-            file_path: &std::path::Path,
-        ) -> crate::StdResult<String> {
+        async fn compute_file_hash(file_path: &std::path::Path) -> crate::StdResult<String> {
             use tokio::io::AsyncReadExt;
 
             let mut file = tokio::fs::File::open(&file_path).await?;
@@ -111,7 +133,18 @@ impl AncillaryFilesManifest {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "fs")]
+    use std::{fs::File, io::Write};
+
+    #[cfg(feature = "fs")]
+    use crate::test_utils::temp_dir_create;
+
     use super::*;
+
+    #[cfg(feature = "fs")]
+    fn compute_sha256_hash(data: impl AsRef<[u8]>) -> String {
+        hex::encode(Sha256::digest(data))
+    }
 
     mod ancillary_files_manifest {
         use super::*;
@@ -199,17 +232,42 @@ mod tests {
         }
 
         #[cfg(feature = "fs")]
+        #[tokio::test]
+        async fn from_paths() {
+            let test_dir = temp_dir_create!();
+            std::fs::create_dir(test_dir.join("sub_folder")).unwrap();
+
+            let file1_path = PathBuf::from("file1.txt");
+            let file2_path = PathBuf::from("sub_folder/file1.txt");
+
+            let mut file1 = File::create(test_dir.join(&file1_path)).unwrap();
+            write!(&mut file1, "file1 content").unwrap();
+
+            let mut file2 = File::create(test_dir.join(&file2_path)).unwrap();
+            write!(&mut file2, "file2 content").unwrap();
+
+            let manifest = AncillaryFilesManifest::from_paths(
+                &test_dir,
+                vec![file1_path.clone(), file2_path.clone()],
+            )
+            .await
+            .expect("Manifest creation should succeed");
+
+            assert_eq!(
+                AncillaryFilesManifest {
+                    data: BTreeMap::from([
+                        (file1_path, compute_sha256_hash("file1 content".as_bytes()),),
+                        (file2_path, compute_sha256_hash("file2 content".as_bytes()),),
+                    ]),
+                    signature: None,
+                },
+                manifest
+            );
+        }
+
+        #[cfg(feature = "fs")]
         mod verify_data {
-            use std::fs::File;
-            use std::io::Write;
-
-            use crate::test_utils::temp_dir_create;
-
             use super::*;
-
-            fn compute_sha256_hash(data: impl AsRef<[u8]>) -> String {
-                hex::encode(Sha256::digest(data))
-            }
 
             #[tokio::test]
             async fn verify_data_succeed_when_files_hashes_in_target_directory_match() {
@@ -230,14 +288,8 @@ mod tests {
 
                 let manifest = AncillaryFilesManifest {
                     data: BTreeMap::from([
-                        (
-                            file1_path.clone(),
-                            compute_sha256_hash("file1 content".as_bytes()),
-                        ),
-                        (
-                            file2_path.clone(),
-                            compute_sha256_hash("file2 content".as_bytes()),
-                        ),
+                        (file1_path, compute_sha256_hash("file1 content".as_bytes())),
+                        (file2_path, compute_sha256_hash("file2 content".as_bytes())),
                     ]),
                     signature: None,
                 };
