@@ -26,7 +26,6 @@ use mithril_persistence::{
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 
 use crate::{
-    configuration::*,
     database::repository::{
         CertificateRepository, OpenMessageRepository, SignedEntityStorer, SignerGetter,
         StakePoolStore,
@@ -49,11 +48,6 @@ pub type EpochServiceWrapper = Arc<RwLock<dyn EpochService>>;
 
 /// DependencyManager handles the dependencies
 pub struct DependencyContainer {
-    /// Configuration structure.
-    // TODO: remove this field and only use the `Configuration` in the dependencies builder
-    #[deprecated]
-    pub config: Configuration,
-
     /// Application root logger
     pub root_logger: Logger,
 

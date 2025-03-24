@@ -327,7 +327,6 @@ impl DependenciesBuilder {
     pub async fn build_dependency_container(&mut self) -> Result<DependencyContainer> {
         #[allow(deprecated)]
         let dependency_manager = DependencyContainer {
-            config: self.configuration.clone(),
             root_logger: self.root_logger(),
             sqlite_connection: self.get_sqlite_connection().await?,
             sqlite_connection_cardano_transaction_pool: self
