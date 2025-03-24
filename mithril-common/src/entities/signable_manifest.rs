@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -40,39 +40,79 @@ pub enum AncillaryFilesManifestVerifyError {
     FileMissing {
         /// Path of the missing file
         file_path: PathBuf,
+    },
+    /// An error occurred while reading a file
+    #[error("Failed to process file `{file_path}`")]
+    FileRead {
+        /// Path of the file
+        file_path: PathBuf,
         /// Source of the error
         source: io::Error,
     },
 }
 
 impl AncillaryFilesManifest {
-    /// Verifies the integrity of the data in the manifest
-    ///
-    /// Checks if the files in the manifest are present in the base directory and have the same hash
-    pub fn verify_data(
-        &self,
-        base_directory: &Path,
-    ) -> Result<(), AncillaryFilesManifestVerifyError> {
-        for (file_path, expected_hash) in &self.data {
-            let file_path = base_directory.join(file_path);
-            let file_content = std::fs::read(&file_path).map_err(|error| {
-                AncillaryFilesManifestVerifyError::FileMissing {
-                    file_path: file_path.clone(),
+    cfg_fs! {
+        /// Verifies the integrity of the data in the manifest
+        ///
+        /// Checks if the files in the manifest are present in the base directory and have the same hash
+        pub async fn verify_data(
+            &self,
+            base_directory: &std::path::Path,
+        ) -> Result<(), AncillaryFilesManifestVerifyError> {
+            for (file_path, expected_hash) in &self.data {
+                let file_path = base_directory.join(file_path);
+                let actual_hash = Self::compute_file_hash(&file_path).await?;
+
+                if actual_hash != *expected_hash {
+                    return Err(AncillaryFilesManifestVerifyError::FileHashMismatch {
+                        file_path,
+                        expected_hash: expected_hash.clone(),
+                        actual_hash,
+                    });
+                }
+            }
+
+            Ok(())
+        }
+
+        async fn compute_file_hash(
+            file_path: &std::path::Path,
+        ) -> Result<String, AncillaryFilesManifestVerifyError> {
+            use tokio::io::AsyncReadExt;
+
+            if !file_path.exists() {
+                return Err(AncillaryFilesManifestVerifyError::FileMissing {
+                    file_path: file_path.to_path_buf(),
+                });
+            }
+
+            let mut file = tokio::fs::File::open(&file_path).await.map_err(|error| {
+                AncillaryFilesManifestVerifyError::FileRead {
+                    file_path: file_path.to_path_buf(),
                     source: error,
                 }
             })?;
-            let actual_hash = hex::encode(Sha256::digest(&file_content));
+            let mut hasher = Sha256::new();
 
-            if actual_hash != *expected_hash {
-                return Err(AncillaryFilesManifestVerifyError::FileHashMismatch {
-                    file_path,
-                    expected_hash: expected_hash.clone(),
-                    actual_hash,
-                });
+            let mut data = vec![0; 64 * 1024];
+            loop {
+                let len = file.read(&mut data).await.map_err(|error| {
+                    AncillaryFilesManifestVerifyError::FileRead {
+                        file_path: file_path.to_path_buf(),
+                        source: error,
+                    }
+                })?;
+                // No more data to read
+                if len == 0 {
+                    break;
+                }
+
+                hasher.update(&data[..len]);
             }
-        }
 
-        Ok(())
+            Ok(hex::encode(hasher.finalize()))
+        }
     }
 
     /// Aggregates the hashes of all the keys and values of the manifest
@@ -88,19 +128,10 @@ impl AncillaryFilesManifest {
 
 #[cfg(test)]
 mod tests {
-    use std::fs::File;
-    use std::io::Write;
-
-    use crate::test_utils::temp_dir_create;
-
     use super::*;
 
     mod ancillary_files_manifest {
         use super::*;
-
-        fn compute_sha256_hash(data: impl AsRef<[u8]>) -> String {
-            hex::encode(Sha256::digest(data))
-        }
 
         #[test]
         fn compute_hash_when_data_is_empty() {
@@ -184,90 +215,105 @@ mod tests {
             );
         }
 
-        #[test]
-        fn verify_data_succeed_when_files_hashes_in_target_directory_match() {
-            let test_dir = temp_dir_create!();
-            std::fs::create_dir(test_dir.join("sub_folder")).unwrap();
+        #[cfg(feature = "fs")]
+        mod verify_data {
+            use std::fs::File;
+            use std::io::Write;
 
-            let file1_path = PathBuf::from("file1.txt");
-            let file2_path = PathBuf::from("sub_folder/file1.txt");
+            use crate::test_utils::temp_dir_create;
 
-            // File not included in the manifest should not be considered
-            File::create(test_dir.join("random_not_included_file.txt")).unwrap();
+            use super::*;
 
-            let mut file1 = File::create(test_dir.join(&file1_path)).unwrap();
-            write!(&mut file1, "file1 content").unwrap();
+            fn compute_sha256_hash(data: impl AsRef<[u8]>) -> String {
+                hex::encode(Sha256::digest(data))
+            }
 
-            let mut file2 = File::create(test_dir.join(&file2_path)).unwrap();
-            write!(&mut file2, "file2 content").unwrap();
+            #[tokio::test]
+            async fn verify_data_succeed_when_files_hashes_in_target_directory_match() {
+                let test_dir = temp_dir_create!();
+                std::fs::create_dir(test_dir.join("sub_folder")).unwrap();
 
-            let manifest = AncillaryFilesManifest {
-                data: BTreeMap::from([
-                    (
-                        file1_path.clone(),
-                        compute_sha256_hash("file1 content".as_bytes()),
+                let file1_path = PathBuf::from("file1.txt");
+                let file2_path = PathBuf::from("sub_folder/file1.txt");
+
+                // File not included in the manifest should not be considered
+                File::create(test_dir.join("random_not_included_file.txt")).unwrap();
+
+                let mut file1 = File::create(test_dir.join(&file1_path)).unwrap();
+                write!(&mut file1, "file1 content").unwrap();
+
+                let mut file2 = File::create(test_dir.join(&file2_path)).unwrap();
+                write!(&mut file2, "file2 content").unwrap();
+
+                let manifest = AncillaryFilesManifest {
+                    data: BTreeMap::from([
+                        (
+                            file1_path.clone(),
+                            compute_sha256_hash("file1 content".as_bytes()),
+                        ),
+                        (
+                            file2_path.clone(),
+                            compute_sha256_hash("file2 content".as_bytes()),
+                        ),
+                    ]),
+                    signature: None,
+                };
+
+                manifest
+                    .verify_data(&test_dir)
+                    .await
+                    .expect("Verification should succeed when files exists and hashes match");
+            }
+
+            #[tokio::test]
+            async fn verify_data_fail_when_a_file_in_missing_in_target_directory() {
+                let test_dir = temp_dir_create!();
+                let file_path = PathBuf::from("file1.txt");
+
+                let manifest = AncillaryFilesManifest {
+                    data: BTreeMap::from([(
+                        file_path.clone(),
+                        compute_sha256_hash("non existent file content".as_bytes()),
+                    )]),
+                    signature: None,
+                };
+
+                let result = manifest.verify_data(&test_dir).await;
+                assert!(
+                    matches!(
+                        result,
+                        Err(AncillaryFilesManifestVerifyError::FileMissing { .. }),
                     ),
-                    (
-                        file2_path.clone(),
-                        compute_sha256_hash("file2 content".as_bytes()),
+                    "Expected FileMissing error, got: {result:?}",
+                );
+            }
+
+            #[tokio::test]
+            async fn verify_data_fail_when_a_file_hash_does_not_match_in_target_directory() {
+                let test_dir = temp_dir_create!();
+
+                let file_path = PathBuf::from("file1.txt");
+
+                let mut file = File::create(test_dir.join(&file_path)).unwrap();
+                write!(&mut file, "file content").unwrap();
+
+                let manifest = AncillaryFilesManifest {
+                    data: BTreeMap::from([(
+                        file_path.clone(),
+                        "This is not the file content hash".to_string(),
+                    )]),
+                    signature: None,
+                };
+
+                let result = manifest.verify_data(&test_dir).await;
+                assert!(
+                    matches!(
+                        result,
+                        Err(AncillaryFilesManifestVerifyError::FileHashMismatch { .. }),
                     ),
-                ]),
-                signature: None,
-            };
-
-            manifest
-                .verify_data(&test_dir)
-                .expect("Verification should succeed when files exists and hashes match");
-        }
-
-        #[test]
-        fn verify_data_fail_when_a_file_in_missing_in_target_directory() {
-            let test_dir = temp_dir_create!();
-            let file_path = PathBuf::from("file1.txt");
-
-            let manifest = AncillaryFilesManifest {
-                data: BTreeMap::from([(
-                    file_path.clone(),
-                    compute_sha256_hash("non existent file content".as_bytes()),
-                )]),
-                signature: None,
-            };
-
-            let result = manifest.verify_data(&test_dir);
-            assert!(
-                matches!(
-                    result,
-                    Err(AncillaryFilesManifestVerifyError::FileMissing { .. }),
-                ),
-                "Expected FileMissing error, got: {result:?}",
-            );
-        }
-
-        #[test]
-        fn verify_data_fail_when_a_file_hash_does_not_match_in_target_directory() {
-            let test_dir = temp_dir_create!();
-
-            let file_path = PathBuf::from("file1.txt");
-
-            let mut file = File::create(test_dir.join(&file_path)).unwrap();
-            write!(&mut file, "file content").unwrap();
-
-            let manifest = AncillaryFilesManifest {
-                data: BTreeMap::from([(
-                    file_path.clone(),
-                    "This is not the file content hash".to_string(),
-                )]),
-                signature: None,
-            };
-
-            let result = manifest.verify_data(&test_dir);
-            assert!(
-                matches!(
-                    result,
-                    Err(AncillaryFilesManifestVerifyError::FileHashMismatch { .. }),
-                ),
-                "Expected FileHashMismatch error, got: {result:?}",
-            );
+                    "Expected FileHashMismatch error, got: {result:?}",
+                );
+            }
         }
     }
 }
