@@ -54,8 +54,8 @@ pallas-codec = { version = "0.32.0", optional = true }
 pallas-network = { version = "0.32.0", optional = true }
 pallas-primitives = { version = "0.32.0", optional = true }
 pallas-traverse = { version = "0.32.0", optional = true }
-rand_chacha = "0.9.0"
-rand_core = { version = "0.9.3", features = ["getrandom"] }
+rand_chacha = "0.3.1"
+rand_core = { version = "0.6.4", features = ["getrandom"] }
 rayon = "1.10.0"
 reqwest = { version = "0.12.15", optional = true }
 semver = "1.0.26"

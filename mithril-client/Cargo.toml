@@ -60,7 +60,7 @@ mithril-common = { path = "../mithril-common", version = "=0.5", default-feature
 ] }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
-getrandom = { version = "0.3.2", features = ["js"] }
+getrandom = { version = "0.2.15", features = ["js"] }
 mithril-common = { path = "../mithril-common", version = "=0.5", default-features = false }
 reqwest = { version = "0.12.15", default-features = false, features = [
     "charset",

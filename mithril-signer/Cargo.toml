@@ -27,7 +27,7 @@ mithril-metric = { path = "../internal/mithril-metric" }
 mithril-persistence = { path = "../internal/mithril-persistence" }
 mithril-signed-entity-lock = { path = "../internal/signed-entity/mithril-signed-entity-lock" }
 mithril-signed-entity-preloader = { path = "../internal/signed-entity/mithril-signed-entity-preloader" }
-rand_core = "0.9.3"
+rand_core = "0.6.4"
 reqwest = { version = "0.12.15", features = [
     "json",
     "stream",
