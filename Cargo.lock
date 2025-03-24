@@ -3892,7 +3892,6 @@ dependencies = [
  "indicatif",
  "mithril-common",
  "mithril-doc",
- "mithril-relay",
  "reqwest 0.12.15",
  "serde",
  "serde_json",

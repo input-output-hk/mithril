@@ -6,7 +6,6 @@ use crate::{
 use mithril_common::chain_observer::{ChainObserver, PallasChainObserver};
 use mithril_common::entities::{Epoch, PartyId, ProtocolParameters};
 use mithril_common::{CardanoNetwork, StdResult};
-use mithril_relay::SignerRelayMode;
 use slog_scope::info;
 use std::fs;
 use std::path::PathBuf;
@@ -31,15 +30,15 @@ pub struct MithrilInfrastructureConfig {
     pub signed_entity_types: Vec<String>,
     pub run_only_mode: bool,
     pub use_relays: bool,
-    pub relay_signer_registration_mode: SignerRelayMode,
-    pub relay_signature_registration_mode: SignerRelayMode,
+    pub relay_signer_registration_mode: String,
+    pub relay_signature_registration_mode: String,
     pub use_p2p_passive_relays: bool,
     pub use_era_specific_work_dir: bool,
 }
 
 impl MithrilInfrastructureConfig {
     pub fn has_master_slave_signer_registration(&self) -> bool {
-        if self.relay_signer_registration_mode == SignerRelayMode::Passthrough {
+        if &self.relay_signer_registration_mode == "passthrough" {
             self.number_of_aggregators > 1
         } else {
             false
@@ -64,8 +63,8 @@ impl MithrilInfrastructureConfig {
             signed_entity_types: vec!["type1".to_string()],
             run_only_mode: false,
             use_relays: false,
-            relay_signer_registration_mode: SignerRelayMode::Passthrough,
-            relay_signature_registration_mode: SignerRelayMode::Passthrough,
+            relay_signer_registration_mode: "passthrough".to_string(),
+            relay_signature_registration_mode: "passthrough".to_string(),
             use_p2p_passive_relays: false,
             use_era_specific_work_dir: false,
         }
@@ -251,8 +250,8 @@ impl MithrilInfrastructure {
         config: &MithrilInfrastructureConfig,
         aggregator_endpoints: &[String],
         signers_party_ids: &[PartyId],
-        relay_signer_registration_mode: SignerRelayMode,
-        relay_signature_registration_mode: SignerRelayMode,
+        relay_signer_registration_mode: String,
+        relay_signature_registration_mode: String,
     ) -> StdResult<(Vec<RelayAggregator>, Vec<RelaySigner>, Vec<RelayPassive>)> {
         if !config.use_relays {
             return Ok((vec![], vec![], vec![]));
@@ -476,12 +475,10 @@ impl MithrilInfrastructure {
 mod tests {
     use crate::MithrilInfrastructureConfig;
 
-    use super::*;
-
     #[test]
     fn has_master_slave_signer_registration_succeeds() {
         let config = MithrilInfrastructureConfig {
-            relay_signer_registration_mode: SignerRelayMode::Passthrough,
+            relay_signer_registration_mode: "passthrough".to_string(),
             number_of_aggregators: 1,
             ..MithrilInfrastructureConfig::dummy()
         };
@@ -489,7 +486,7 @@ mod tests {
         assert!(!config.has_master_slave_signer_registration());
 
         let config = MithrilInfrastructureConfig {
-            relay_signer_registration_mode: SignerRelayMode::Passthrough,
+            relay_signer_registration_mode: "passthrough".to_string(),
             number_of_aggregators: 2,
             ..MithrilInfrastructureConfig::dummy()
         };
@@ -497,7 +494,7 @@ mod tests {
         assert!(config.has_master_slave_signer_registration());
 
         let config = MithrilInfrastructureConfig {
-            relay_signer_registration_mode: SignerRelayMode::P2P,
+            relay_signer_registration_mode: "p2p".to_string(),
             number_of_aggregators: 1,
             ..MithrilInfrastructureConfig::dummy()
         };
@@ -505,7 +502,7 @@ mod tests {
         assert!(!config.has_master_slave_signer_registration());
 
         let config = MithrilInfrastructureConfig {
-            relay_signer_registration_mode: SignerRelayMode::P2P,
+            relay_signer_registration_mode: "p2p".to_string(),
             number_of_aggregators: 2,
             ..MithrilInfrastructureConfig::dummy()
         };

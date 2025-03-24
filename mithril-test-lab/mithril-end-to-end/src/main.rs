@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Context};
 use clap::{CommandFactory, Parser, Subcommand};
-use mithril_relay::SignerRelayMode;
 use slog::{Drain, Level, Logger};
 use slog_scope::{error, info};
 use std::{
@@ -112,13 +111,13 @@ pub struct Args {
     #[clap(long)]
     use_relays: bool,
 
-    /// Signer registration relay mode (used only when 'use_relays' is set)
-    #[clap(long, value_enum, default_value_t = SignerRelayMode::Passthrough)]
-    relay_signer_registration_mode: SignerRelayMode,
+    /// Signer registration relay mode (used only when 'use_relays' is set, can be 'passthrough' or 'p2p')
+    #[clap(long, default_value = "passthrough")]
+    relay_signer_registration_mode: String,
 
-    /// Signature registration relay mode (used only when 'use_relays' is set)
-    #[clap(long, value_enum, default_value_t = SignerRelayMode::P2P)]
-    relay_signature_registration_mode: SignerRelayMode,
+    /// Signature registration relay mode (used only when 'use_relays' is set, can be 'passthrough' or 'p2p')
+    #[clap(long, default_value = "p2p")]
+    relay_signature_registration_mode: String,
 
     /// Enable P2P passive relays in P2P mode (used only when 'use_relays' is set)
     #[clap(long, default_value = "true")]

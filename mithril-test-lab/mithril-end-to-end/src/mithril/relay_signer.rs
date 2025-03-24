@@ -1,7 +1,6 @@
 use crate::utils::MithrilCommand;
 use mithril_common::entities::PartyId;
 use mithril_common::StdResult;
-use mithril_relay::SignerRelayMode;
 use std::collections::HashMap;
 use std::path::Path;
 use tokio::process::Child;
@@ -10,8 +9,8 @@ pub struct RelaySignerConfiguration<'a> {
     pub listen_port: u64,
     pub server_port: u64,
     pub dial_to: Option<String>,
-    pub relay_signer_registration_mode: SignerRelayMode,
-    pub relay_signature_registration_mode: SignerRelayMode,
+    pub relay_signer_registration_mode: String,
+    pub relay_signature_registration_mode: String,
     pub aggregator_endpoint: &'a str,
     pub party_id: PartyId,
     pub work_dir: &'a Path,
