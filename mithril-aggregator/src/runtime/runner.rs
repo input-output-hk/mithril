@@ -532,7 +532,8 @@ pub mod tests {
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
     use mithril_common::entities::{
-        ChainPoint, Epoch, SignedEntityConfig, SignedEntityTypeDiscriminants,
+        CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,
+        SignedEntityTypeDiscriminants,
     };
     use mithril_common::temp_dir;
     use mithril_common::{
@@ -575,6 +576,7 @@ pub mod tests {
             .unwrap();
         deps.init_state_from_fixture(
             &fixture,
+            &CardanoTransactionsSigningConfig::dummy(),
             &[
                 current_epoch.offset_to_signer_retrieval_epoch().unwrap(),
                 current_epoch,
