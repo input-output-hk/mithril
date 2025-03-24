@@ -26,7 +26,6 @@ use mithril_persistence::{
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 
 use crate::{
-    configuration::*,
     database::repository::{
         CertificateRepository, OpenMessageRepository, SignedEntityStorer, SignerGetter,
         StakePoolStore,
@@ -49,11 +48,6 @@ pub type EpochServiceWrapper = Arc<RwLock<dyn EpochService>>;
 
 /// DependencyManager handles the dependencies
 pub struct DependencyContainer {
-    /// Configuration structure.
-    // TODO: remove this field and only use the `Configuration` in the dependencies builder
-    #[deprecated]
-    pub config: Configuration,
-
     /// Application root logger
     pub root_logger: Logger,
 
@@ -209,17 +203,19 @@ impl DependencyContainer {
     ///
     /// Fill the stores of a [DependencyManager] in a way to simulate an aggregator state
     /// using the data from a precomputed fixture.
-    pub async fn init_state_from_fixture(&self, fixture: &MithrilFixture, target_epochs: &[Epoch]) {
+    pub async fn init_state_from_fixture(
+        &self,
+        fixture: &MithrilFixture,
+        cardano_transactions_signing_config: &CardanoTransactionsSigningConfig,
+        target_epochs: &[Epoch],
+    ) {
         for epoch in target_epochs {
             self.epoch_settings_storer
                 .save_epoch_settings(
                     *epoch,
-                    #[allow(deprecated)]
                     AggregatorEpochSettings {
                         protocol_parameters: fixture.protocol_parameters(),
-                        cardano_transactions_signing_config: self
-                            .config
-                            .cardano_transactions_signing_config
+                        cardano_transactions_signing_config: cardano_transactions_signing_config
                             .clone(),
                     },
                 )

@@ -439,6 +439,8 @@ mod tests {
         current_epoch: Option<Epoch>,
     ) -> MithrilCertifierService {
         let configuration = Configuration::new_sample(snapshot_directory);
+        let cardano_transactions_signing_config =
+            configuration.cardano_transactions_signing_config.clone();
         let mut dependency_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
         if let Some(epoch) = current_epoch {
             dependency_builder.epoch_service = Some(Arc::new(RwLock::new(
@@ -451,7 +453,11 @@ mod tests {
             .await
             .unwrap();
         dependency_manager
-            .init_state_from_fixture(fixture, epochs_with_signers)
+            .init_state_from_fixture(
+                fixture,
+                &cardano_transactions_signing_config,
+                epochs_with_signers,
+            )
             .await;
 
         MithrilCertifierService::from_deps(network, dependency_builder).await
