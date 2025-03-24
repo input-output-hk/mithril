@@ -256,7 +256,7 @@ mod handlers {
     use reqwest::{Error, Response};
     use slog::{debug, Logger};
     use std::{convert::Infallible, sync::Arc};
-    use tokio::sync::mpsc::UnboundedSender;
+    use tokio::sync::mpsc::{error::SendError, UnboundedSender};
     use warp::{http::StatusCode, reply::WithStatus};
 
     use crate::repeater;
@@ -287,16 +287,7 @@ mod handlers {
         match signer_relay_mode {
             SignerRelayMode::P2P => {
                 repeater.set_message(register_signer_message.clone()).await;
-                match tx.send(register_signer_message) {
-                    Ok(_) => Ok(Box::new(warp::reply::with_status(
-                        "".to_string(),
-                        StatusCode::CREATED,
-                    ))),
-                    Err(err) => Ok(Box::new(warp::reply::with_status(
-                        format!("{err:?}"),
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                    ))),
-                }
+                reply_response_from_tx_send_result(tx.send(register_signer_message))
             }
             SignerRelayMode::Passthrough => {
                 let response = reqwest::Client::new()
@@ -319,16 +310,9 @@ mod handlers {
         debug!(logger, "Serve HTTP route /register-signatures"; "signer_relay_mode" => ?signer_relay_mode, "register_signature_message" => #?register_signature_message);
 
         match signer_relay_mode {
-            SignerRelayMode::P2P => match tx.send(register_signature_message) {
-                Ok(_) => Ok(Box::new(warp::reply::with_status(
-                    "".to_string(),
-                    StatusCode::CREATED,
-                ))),
-                Err(err) => Ok(Box::new(warp::reply::with_status(
-                    format!("{err:?}"),
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                ))),
-            },
+            SignerRelayMode::P2P => {
+                reply_response_from_tx_send_result(tx.send(register_signature_message))
+            }
             SignerRelayMode::Passthrough => {
                 let response = reqwest::Client::new()
                     .post(format!("{aggregator_endpoint}/register-signatures"))
@@ -337,6 +321,21 @@ mod handlers {
                     .await;
                 reply_response(logger, response).await
             }
+        }
+    }
+
+    fn reply_response_from_tx_send_result<T>(
+        result: Result<(), SendError<T>>,
+    ) -> Result<Box<WithStatus<String>>, Infallible> {
+        match result {
+            Ok(_) => Ok(Box::new(warp::reply::with_status(
+                "".to_string(),
+                StatusCode::CREATED,
+            ))),
+            Err(err) => Ok(Box::new(warp::reply::with_status(
+                format!("{err:?}"),
+                StatusCode::INTERNAL_SERVER_ERROR,
+            ))),
         }
     }
 
