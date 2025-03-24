@@ -10,7 +10,7 @@ repository = { workspace = true }
 include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 
 [dependencies]
-config = "0.15.7"
+config = "0.15.11"
 
 [features]
 default = []

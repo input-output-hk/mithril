@@ -14,11 +14,11 @@ name = "mktree_store_sqlite"
 harness = false
 
 [dependencies]
-anyhow = "1.0.95"
-async-trait = "0.1.86"
-chrono = { version = "0.4.39", features = ["serde"] }
-clap = { version = "4.5.28", features = ["derive", "env"] }
-config = "0.15.7"
+anyhow = "1.0.97"
+async-trait = "0.1.88"
+chrono = { version = "0.4.40", features = ["serde"] }
+clap = { version = "4.5.32", features = ["derive", "env"] }
+config = "0.15.11"
 hex = "0.4.3"
 mithril-cli-helper = { path = "../internal/mithril-cli-helper" }
 mithril-common = { path = "../mithril-common", features = ["full"] }
@@ -27,8 +27,8 @@ mithril-metric = { path = "../internal/mithril-metric" }
 mithril-persistence = { path = "../internal/mithril-persistence" }
 mithril-signed-entity-lock = { path = "../internal/signed-entity/mithril-signed-entity-lock" }
 mithril-signed-entity-preloader = { path = "../internal/signed-entity/mithril-signed-entity-preloader" }
-rand_core = "0.6.4"
-reqwest = { version = "0.12.12", features = [
+rand_core = "0.9.3"
+reqwest = { version = "0.12.15", features = [
     "json",
     "stream",
     "gzip",
@@ -36,24 +36,24 @@ reqwest = { version = "0.12.12", features = [
     "deflate",
     "brotli"
 ] }
-serde = { version = "1.0.217", features = ["derive"] }
-serde_json = "1.0.138"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
 slog = { version = "2.7.0", features = [
     "max_level_trace",
     "release_max_level_debug",
 ] }
 slog-async = "2.8.0"
 slog-bunyan = "2.5.0"
-sqlite = { version = "0.36.1", features = ["bundled"] }
-thiserror = "2.0.11"
-tokio = { version = "1.43.0", features = ["full"] }
+sqlite = { version = "0.36.2", features = ["bundled"] }
+thiserror = "2.0.12"
+tokio = { version = "1.44.1", features = ["full"] }
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = { version = "0.6.0", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports", "async_tokio"] }
-http = "1.2.0"
+http = "1.3.1"
 httpmock = "0.7.0"
 mithril-common = { path = "../mithril-common" }
 mockall = "0.13.1"

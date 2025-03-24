@@ -15,15 +15,15 @@ test = false
 bench = false
 
 [dependencies]
-anyhow = "1.0.95"
+anyhow = "1.0.97"
 async-recursion = "1.1.1"
-clap = { version = "4.5.28", features = ["derive"] }
+clap = { version = "4.5.32", features = ["derive"] }
 indicatif = { version = "0.17.11", features = ["tokio"] }
 mithril-common = { path = "../../mithril-common", features = ["full"] }
 mithril-doc = { path = "../../internal/mithril-doc" }
-reqwest = { version = "0.12.12", features = ["json"] }
-serde = { version = "1.0.217", features = ["derive"] }
-serde_json = "1.0.138"
+reqwest = { version = "0.12.15", features = ["json"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
 slog = { version = "2.7.0", features = [
     "max_level_trace",
     "release_max_level_trace",
@@ -31,8 +31,8 @@ slog = { version = "2.7.0", features = [
 slog-async = "2.8.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.1"
-thiserror = "2.0.11"
-tokio = { version = "1.43.0", features = ["full"] }
+thiserror = "2.0.12"
+tokio = { version = "1.44.1", features = ["full"] }
 
 [features]
 default = []
