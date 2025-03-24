@@ -9,9 +9,19 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
-- **BREAKING** changes in Mithril client library, CLI, and WASM:
+- Crates versions:
 
-  - Upgraded the minimum required `glibc` version from `2.31` to `2.35` for the pre-built Linux binaries.
+| Crate | Version |
+| ----- | ------- |
+| N/A   | `-`     |
+
+## Mithril Distribution [2513.0] - UNRELEASED
+
+- **BREAKING** changes in Mithril nodes:
+
+  - Upgraded the minimum required `glibc` version from `2.31` to `2.35` for the pre-built Linux binaries
+  - Mithril signer with versions `<=0.2.200` **must be updated** following the cleanup of `Thales` era legacy code
+  - Mithril client library `with_snapshot_uploader` function has been renamed to `with_file_uploader`.
 
 - Support for `Cardano node` `10.2.1` in the signer and the aggregator.
 
