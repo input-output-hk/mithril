@@ -2,6 +2,27 @@
 
 ---
 
+<!--
+Template of ADR
+
+## ID. TITLE
+
+date: 2025-XX-XX
+status: Accepted
+
+### Context
+
+To complete
+
+### Decision
+
+To complete
+
+### Consequences
+
+To complete
+-->
+
 ## 2. Remove Artifacts serialization support when compiling to WebAssembly
 
 date: 2025-02-26

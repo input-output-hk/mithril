@@ -1,3 +1,4 @@
+use anyhow::Error;
 use slog::{debug, info, Logger};
 use std::{fmt::Display, ops::Deref, sync::Arc, time::Duration};
 use tokio::{sync::Mutex, time::sleep};
@@ -8,8 +9,11 @@ use mithril_common::{
     logging::LoggerExtensions,
 };
 
-use crate::entities::{BeaconToSign, SignerEpochSettings};
 use crate::MetricsService;
+use crate::{
+    entities::{BeaconToSign, SignerEpochSettings},
+    services::AggregatorClientError,
+};
 
 use super::{Runner, RuntimeError};
 
@@ -314,18 +318,35 @@ impl StateMachine {
                 nested_error: Some(e),
             })?;
 
-        self.runner.register_signer_to_aggregator()
-            .await.map_err(|e| {
-            if e.downcast_ref::<ProtocolInitializerError>().is_some() {
-                RuntimeError::Critical { message: format!("Could not register to aggregator in 'unregistered → registered' phase for epoch {:?}.", epoch), nested_error: Some(e) }
+        fn handle_registration_result(
+            register_result: Result<(), Error>,
+            epoch: Epoch,
+        ) -> Result<Option<SignerState>, RuntimeError> {
+            if let Err(e) = register_result {
+                if let Some(AggregatorClientError::RegistrationRoundNotYetOpened(_)) =
+                    e.downcast_ref::<AggregatorClientError>()
+                {
+                    Ok(Some(SignerState::Unregistered { epoch }))
+                } else if e.downcast_ref::<ProtocolInitializerError>().is_some() {
+                    Err(RuntimeError::Critical { message: format!("Could not register to aggregator in 'unregistered → registered' phase for epoch {:?}.", epoch), nested_error: Some(e) })
+                } else {
+                    Err(RuntimeError::KeepState { message: format!("Could not register to aggregator in 'unregistered → registered' phase for epoch {:?}.", epoch), nested_error: Some(e) })
+                }
             } else {
-                RuntimeError::KeepState { message: format!("Could not register to aggregator in 'unregistered → registered' phase for epoch {:?}.", epoch), nested_error: Some(e) }
+                Ok(None)
             }
-        })?;
+        }
+
+        let register_result = self.runner.register_signer_to_aggregator().await;
+        let next_state_found = handle_registration_result(register_result, epoch)?;
 
         self.metrics_service
             .get_signer_registration_success_since_startup_counter()
             .increment();
+
+        if let Some(state) = next_state_found {
+            return Ok(state);
+        }
 
         self.metrics_service
             .get_signer_registration_success_last_epoch_gauge()
@@ -452,6 +473,7 @@ impl StateMachine {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::anyhow;
     use chrono::DateTime;
     use mockall::predicate;
 
@@ -459,6 +481,7 @@ mod tests {
     use mithril_common::test_utils::fake_data;
 
     use crate::runtime::runner::MockSignerRunner;
+    use crate::services::AggregatorClientError;
     use crate::test_tools::TestLogger;
 
     use super::*;
@@ -644,6 +667,88 @@ mod tests {
                 epoch: TimePoint::dummy().epoch,
             },
             state_machine.get_state().await
+        );
+
+        let metrics_service = state_machine.metrics_service;
+        let success_since_startup =
+            metrics_service.get_runtime_cycle_success_since_startup_counter();
+        assert_eq!(1, success_since_startup.get());
+    }
+
+    #[tokio::test]
+    async fn unregistered_to_ready_to_sign_counter() {
+        let mut runner = MockSignerRunner::new();
+
+        runner
+            .expect_get_epoch_settings()
+            .once()
+            .returning(|| Ok(Some(SignerEpochSettings::dummy())));
+
+        runner
+            .expect_inform_epoch_settings()
+            .with(predicate::eq(SignerEpochSettings::dummy()))
+            .once()
+            .returning(|_| Ok(()));
+
+        runner
+            .expect_get_current_time_point()
+            .times(2)
+            .returning(|| Ok(TimePoint::dummy()));
+        runner
+            .expect_update_stake_distribution()
+            .once()
+            .returning(|_| Ok(()));
+        runner
+            .expect_register_signer_to_aggregator()
+            .once()
+            .returning(|| {
+                Err(AggregatorClientError::RegistrationRoundNotYetOpened(
+                    anyhow!("Not yet opened"),
+                ))?
+            });
+
+        runner.expect_upkeep().never();
+        runner.expect_can_sign_current_epoch().never();
+
+        let state_machine = init_state_machine(
+            SignerState::Unregistered {
+                epoch: TimePoint::dummy().epoch,
+            },
+            runner,
+        );
+
+        state_machine
+            .cycle()
+            .await
+            .expect("Cycling the state machine should not fail");
+
+        assert_eq!(
+            SignerState::Unregistered {
+                epoch: TimePoint::dummy().epoch,
+            },
+            state_machine.get_state().await
+        );
+
+        let metrics_service = state_machine.metrics_service;
+        assert_eq!(
+            1,
+            metrics_service
+                .get_signer_registration_success_since_startup_counter()
+                .get()
+        );
+
+        assert_eq!(
+            0 as f64,
+            metrics_service
+                .get_signer_registration_success_last_epoch_gauge()
+                .get()
+        );
+
+        assert_eq!(
+            1,
+            metrics_service
+                .get_runtime_cycle_total_since_startup_counter()
+                .get()
         );
     }
 
