@@ -65,6 +65,11 @@ impl SnapshotMessage {
             cardano_node_version: "0.0.1".to_string(),
         }
     }
+
+    /// Compute the total size of the snapshot including ancillary files
+    pub fn compute_total_size(&self) -> u64 {
+        self.size + self.ancillary_size.unwrap_or(0)
+    }
 }
 
 #[cfg(test)]
@@ -161,5 +166,27 @@ mod tests {
         let message: SnapshotMessage = serde_json::from_str(json).unwrap();
 
         assert_eq!(golden_message_current(), message);
+    }
+
+    #[test]
+    fn compute_total_size_with_ancillary_size() {
+        let message = SnapshotMessage {
+            size: 12,
+            ancillary_size: Some(33),
+            ..SnapshotMessage::dummy()
+        };
+
+        assert_eq!(message.compute_total_size(), 45);
+    }
+
+    #[test]
+    fn compute_total_size_without_ancillary_size() {
+        let message = SnapshotMessage {
+            size: 12,
+            ancillary_size: None,
+            ..SnapshotMessage::dummy()
+        };
+
+        assert_eq!(message.compute_total_size(), 12);
     }
 }

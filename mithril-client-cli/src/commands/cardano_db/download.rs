@@ -151,7 +151,7 @@ impl CardanoDbDownloadCommand {
         CardanoDbDownloadChecker::ensure_dir_exist(db_dir)?;
         if let Err(e) = CardanoDbDownloadChecker::check_prerequisites_for_archive(
             db_dir,
-            cardano_db.size + cardano_db.ancillary_size.unwrap_or(0),
+            cardano_db.compute_total_size(),
             cardano_db.compression_algorithm,
         ) {
             progress_printer
