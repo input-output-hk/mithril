@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::io;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
@@ -7,6 +6,7 @@ use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 use crate::crypto_helper::ManifestSignature;
+use crate::StdError;
 
 /// Stores a map of files and their hashes, with an optional signature to verify the integrity of the
 /// signed data.
@@ -35,19 +35,13 @@ pub enum AncillaryFilesManifestVerifyError {
         /// Actual hash of the file
         actual_hash: String,
     },
-    /// A file is missing in the base directory
-    #[error("File `{file_path}` is missing")]
-    FileMissing {
-        /// Path of the missing file
-        file_path: PathBuf,
-    },
-    /// An error occurred while reading a file
-    #[error("Failed to process file `{file_path}`")]
-    FileRead {
+    /// An error occurred while computing the hash of a file
+    #[error("Failed to compute hash for file `{file_path}`")]
+    HashCompute {
         /// Path of the file
         file_path: PathBuf,
         /// Source of the error
-        source: io::Error,
+        source: StdError,
     },
 }
 
@@ -62,7 +56,12 @@ impl AncillaryFilesManifest {
         ) -> Result<(), AncillaryFilesManifestVerifyError> {
             for (file_path, expected_hash) in &self.data {
                 let file_path = base_directory.join(file_path);
-                let actual_hash = Self::compute_file_hash(&file_path).await?;
+                let actual_hash = Self::compute_file_hash(&file_path).await.map_err(
+                    |source| AncillaryFilesManifestVerifyError::HashCompute {
+                        file_path: file_path.clone(),
+                        source,
+                    },
+                )?;
 
                 if actual_hash != *expected_hash {
                     return Err(AncillaryFilesManifestVerifyError::FileHashMismatch {
@@ -78,31 +77,15 @@ impl AncillaryFilesManifest {
 
         async fn compute_file_hash(
             file_path: &std::path::Path,
-        ) -> Result<String, AncillaryFilesManifestVerifyError> {
+        ) -> crate::StdResult<String> {
             use tokio::io::AsyncReadExt;
 
-            if !file_path.exists() {
-                return Err(AncillaryFilesManifestVerifyError::FileMissing {
-                    file_path: file_path.to_path_buf(),
-                });
-            }
-
-            let mut file = tokio::fs::File::open(&file_path).await.map_err(|error| {
-                AncillaryFilesManifestVerifyError::FileRead {
-                    file_path: file_path.to_path_buf(),
-                    source: error,
-                }
-            })?;
+            let mut file = tokio::fs::File::open(&file_path).await?;
             let mut hasher = Sha256::new();
 
             let mut data = vec![0; 64 * 1024];
             loop {
-                let len = file.read(&mut data).await.map_err(|error| {
-                    AncillaryFilesManifestVerifyError::FileRead {
-                        file_path: file_path.to_path_buf(),
-                        source: error,
-                    }
-                })?;
+                let len = file.read(&mut data).await?;
                 // No more data to read
                 if len == 0 {
                     break;
@@ -282,9 +265,9 @@ mod tests {
                 assert!(
                     matches!(
                         result,
-                        Err(AncillaryFilesManifestVerifyError::FileMissing { .. }),
+                        Err(AncillaryFilesManifestVerifyError::HashCompute { .. }),
                     ),
-                    "Expected FileMissing error, got: {result:?}",
+                    "Expected HashCompute error, got: {result:?}",
                 );
             }
 
