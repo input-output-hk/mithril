@@ -632,35 +632,6 @@ impl Serialize for StmSigRegParty {
     }
 }
 
-/// STM-Telescope proof.
-pub struct TelescopeProof<D: Clone + Digest + FixedOutput> {
-    /// StmSignatures of alba proof
-    pub signer_index_sigreg_map: IndexStmSigRegMap,
-    /// The list of unique merkle tree nodes that covers path for all signatures.
-    pub batch_proof: BatchPath<D>,
-    /// Numbers of retries done to find the proof
-    pub retry_counter: u64,
-    /// Index of the searched subtree to find the proof
-    pub search_counter: u64,
-    /// Sequence of elements from prover's set
-    pub index_sequence: Vec<(Index, Index)>,
-}
-
-
-/// STM-Telescope proof.
-pub struct AlbaProof<D: Clone + Digest + FixedOutput> {
-    /// StmSignatures of alba proof
-    pub signer_index_sigreg_map: IndexStmSigRegMap,
-    /// The list of unique merkle tree nodes that covers path for all signatures.
-    pub batch_proof: BatchPath<D>,
-    /// Numbers of retries done to find the proof
-    pub retry_counter: u64,
-    /// Index of the searched subtree to find the proof
-    pub search_counter: u64,
-    /// Sequence of elements from prover's set
-    pub index_sequence: Vec<(Index, Index)>,
-}
-
 /// `StmClerk` can verify and aggregate `StmSig`s and verify `StmMultiSig`s.
 /// Clerks can only be generated with the registration closed.
 /// This avoids that a Merkle Tree is computed before all parties have registered.

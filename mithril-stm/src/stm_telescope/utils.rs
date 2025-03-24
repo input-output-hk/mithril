@@ -1,3 +1,8 @@
+//! Sterling parameter setup helpers
+
+#![allow(dead_code)]
+#![allow(clippy::extra_unused_type_parameters)]
+
 use statrs::distribution::Binomial;
 use statrs::distribution::DiscreteCDF;
 use std::f64::consts::LN_2;
@@ -24,12 +29,12 @@ pub(crate) fn analyze(
     let mut secadv = -logsf.ln() / LN_2;
 
     while secadv < soundness_param {
-        kadv = kadv + 1.0;
+        kadv += 1.0;
         let binom = Binomial::new(prob_adv, m as u64).unwrap();
         let logsf = 1.0 - binom.cdf(kadv as u64 - 1);
         secadv = -logsf.ln() / LN_2;
     }
-    kadv = kadv - 1.0;
+    kadv -= 1.0;
     // let binom = Binomial::new(prob_adv, m as u64).unwrap();
     // let logsf = 1.0 - binom.cdf(kadv as u64 - 1);
     // secadv = -logsf.ln() / LN_2;
@@ -40,17 +45,17 @@ pub(crate) fn analyze(
     let mut relhon = -logcdf / LN_2;
 
     while relhon < completeness_param {
-        khon = khon - 1.0;
+        khon -= 1.0;
         let binom = Binomial::new(prob_hon, m as u64).unwrap();
         let logcdf = binom.cdf(khon as u64).ln();
         relhon = -logcdf / LN_2;
     }
-    khon = khon + 1.0;
+    khon += 1.0;
     // let binom = Binomial::new(prob_hon, m as u64).unwrap();
     // let logcdf = binom.cdf(khon as u64).ln();
     // relhon = -logcdf / LN_2;
 
-    return (m as u64, kadv as u64, khon as u64);
+    (m as u64, kadv as u64, khon as u64)
 
     // println!("Honest kmin= {}, rel = {:.4}", khon, relhon);
     // println!("===================================");
