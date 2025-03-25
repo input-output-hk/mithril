@@ -171,10 +171,7 @@ impl SterlingClerkHandler {
 
                 // Convert raw_data from &[u8] to E safely
                 if let Ok(data) = raw_data.as_slice().try_into() {
-                    prover_set.push(Element {
-                        data,
-                        index: Some(signer_index),
-                    });
+                    prover_set.push(Element::new(data, Some(sr.sig.signer_index)))
                 };
             }
         }
