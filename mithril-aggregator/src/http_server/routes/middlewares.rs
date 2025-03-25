@@ -1,3 +1,4 @@
+use mithril_common::MITHRIL_ORIGIN_TAG_HEADER;
 use slog::{debug, Logger};
 use std::convert::Infallible;
 use std::sync::Arc;
@@ -149,6 +150,12 @@ pub fn with_metrics_service(
     warp::any().map(move || metrics_service.clone())
 }
 
+/// With origin tag of the request
+pub fn with_origin_tag(
+) -> impl Filter<Extract = (Option<String>,), Error = warp::reject::Rejection> + Copy {
+    warp::header::optional::<String>(MITHRIL_ORIGIN_TAG_HEADER)
+}
+
 pub mod validators {
     use crate::http_server::validators::ProverTransactionsHashValidator;
 
@@ -163,5 +170,60 @@ pub mod validators {
             .cardano_transactions_prover_max_hashes_allowed_by_request;
 
         warp::any().map(move || ProverTransactionsHashValidator::new(max_hashes))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value;
+    use std::convert::Infallible;
+    use warp::{
+        http::{Method, StatusCode},
+        test::request,
+        Filter,
+    };
+
+    use crate::http_server::routes::reply;
+
+    mod origin_tag {
+        use super::*;
+
+        fn route_with_origin_tag(
+        ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+            warp::path!("route")
+                .and(warp::get())
+                .and(with_origin_tag())
+                .and_then(route_handler)
+        }
+
+        async fn route_handler(origin_tag: Option<String>) -> Result<impl warp::Reply, Infallible> {
+            Ok(reply::json(&origin_tag, StatusCode::OK))
+        }
+
+        #[tokio::test]
+        async fn test_origin_tag_with_value() {
+            let response = request()
+                .header(MITHRIL_ORIGIN_TAG_HEADER, "NA")
+                .method(Method::GET.as_str())
+                .path("/route")
+                .reply(&route_with_origin_tag())
+                .await;
+
+            let result: &Value = &serde_json::from_slice(response.body()).unwrap();
+            assert_eq!(Some("NA"), result.as_str());
+        }
+
+        #[tokio::test]
+        async fn test_without_origin_tag() {
+            let response = request()
+                .method(Method::GET.as_str())
+                .path("/route")
+                .reply(&route_with_origin_tag())
+                .await;
+
+            let result: &Value = &serde_json::from_slice(response.body()).unwrap();
+            assert_eq!(None, result.as_str());
+        }
     }
 }

@@ -72,6 +72,9 @@ pub const MITHRIL_SIGNER_VERSION_HEADER: &str = "signer-node-version";
 /// Mithril aggregator node version header name
 pub const MITHRIL_AGGREGATOR_VERSION_HEADER: &str = "aggregator-node-version";
 
+/// Mithril origin of the request
+pub const MITHRIL_ORIGIN_TAG_HEADER: &str = "mithril-origin-tag";
+
 #[cfg(test)]
 mod tests {
     #[cfg(feature = "apispec")]
