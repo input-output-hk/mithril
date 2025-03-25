@@ -1,17 +1,20 @@
-
-use crate::error::{blst_err_to_mithril, MultiSignatureError};
-use blst::min_sig::{
-    AggregatePublicKey, AggregateSignature, PublicKey as BlstVk, SecretKey as BlstSk,
-    Signature as BlstSig,
+use crate::bls_multi_sig::unsafe_helpers::{
+    p1_affine_to_sig, p2_affine_to_vk, sig_to_p1, vk_from_p2_affine,
 };
-use blst::{blst_p1, blst_p2, p1_affines, p2_affines, BLST_ERROR};
-use crate::bls_multi_sig::pop::ProofOfPossession;
-use crate::bls_multi_sig::signing_key::SigningKey;
 use crate::bls_multi_sig::verification_key::VerificationKey;
+use crate::error::{blst_err_to_mithril, MultiSignatureError};
+use crate::stm::Index;
+use blake2::Blake2b;
+use blake2::{Blake2b512, Digest};
+use blst::min_sig::{AggregateSignature, PublicKey as BlstVk, Signature as BlstSig};
+use blst::{blst_p1, blst_p2, p1_affines, p2_affines};
+use digest::consts::U16;
+use std::cmp::Ordering;
+use std::iter::Sum;
 
 /// MultiSig signature, which is a wrapper over the `BlstSig` type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Signature(BlstSig);
+pub struct Signature(pub BlstSig);
 
 impl Signature {
     /// Verify a signature against a verification key.
@@ -19,7 +22,10 @@ impl Signature {
         blst_err_to_mithril(
             self.0.validate(true).map_or_else(
                 |e| e,
-                |_| self.0.verify(false, msg, &[], &[], &mvk.0, false),
+                |_| {
+                    self.0
+                        .verify(false, msg, &[], &[], &mvk.to_blst_vk(), false)
+                },
             ),
             Some(*self),
             None,
@@ -130,7 +136,9 @@ impl Signature {
         let (aggr_vk, aggr_sig) = Self::aggregate(vks, sigs)?;
 
         blst_err_to_mithril(
-            aggr_sig.0.verify(false, msg, &[], &[], &aggr_vk.0, false),
+            aggr_sig
+                .0
+                .verify(false, msg, &[], &[], &aggr_vk.to_blst_vk(), false),
             Some(aggr_sig),
             None,
         )
@@ -151,25 +159,26 @@ impl Signature {
             Err(e) => return blst_err_to_mithril(e, None, None),
         };
 
-        let p2_vks: Vec<&BlstVk> = vks.iter().map(|vk| &vk.0).collect();
+        let p2_vks: Vec<BlstVk> = vks.iter().map(|vk| vk.to_blst_vk()).collect();
+        let p2_vks_ref: Vec<&BlstVk> = p2_vks.iter().collect();
         let slice_msgs = msgs
             .iter()
             .map(|msg| msg.as_slice())
             .collect::<Vec<&[u8]>>();
 
         blst_err_to_mithril(
-            batched_sig.aggregate_verify(false, &slice_msgs, &[], &p2_vks, false),
+            batched_sig.aggregate_verify(false, &slice_msgs, &[], &p2_vks_ref, false),
             None,
             None,
         )
-            .map_err(|_| MultiSignatureError::BatchInvalid)
+        .map_err(|_| MultiSignatureError::BatchInvalid)
     }
 }
 
 impl<'a> Sum<&'a Self> for Signature {
     fn sum<I>(iter: I) -> Self
-        where
-            I: Iterator<Item = &'a Self>,
+    where
+        I: Iterator<Item = &'a Self>,
     {
         let signatures: Vec<&BlstSig> = iter.map(|x| &x.0).collect();
         assert!(!signatures.is_empty(), "One cannot add an empty vector");

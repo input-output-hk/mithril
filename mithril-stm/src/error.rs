@@ -3,7 +3,7 @@
 use crate::merkle_tree::{BatchPath, Path};
 use blake2::digest::{Digest, FixedOutput};
 use {
-    crate::multi_sig::{Signature, VerificationKey, VerificationKeyPoP},
+    crate::bls_multi_sig::{Signature, VerificationKey, VerificationKeyPoP},
     blst::BLST_ERROR,
 };
 

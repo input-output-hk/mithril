@@ -106,6 +106,7 @@
 //! # }
 //! ```
 
+use crate::bls_multi_sig::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
 use crate::eligibility_check::ev_lt_phi;
 use crate::error::{
     AggregationError, CoreVerifierError, RegisterError, StmAggregateSignatureError,
@@ -113,7 +114,6 @@ use crate::error::{
 };
 use crate::key_reg::{ClosedKeyReg, RegParty};
 use crate::merkle_tree::{BatchPath, MTLeaf, MerkleTreeCommitmentBatchCompat};
-use crate::multi_sig::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
 use blake2::digest::{Digest, FixedOutput};
 use rand_core::{CryptoRng, RngCore};
 use serde::ser::SerializeTuple;

@@ -1,13 +1,11 @@
-
-use crate::error::{blst_err_to_mithril, MultiSignatureError};
-use blst::min_sig::{
-    AggregatePublicKey, AggregateSignature, PublicKey as BlstVk, SecretKey as BlstSk,
-    Signature as BlstSig,
-};
-use blst::{blst_p1, blst_p2, p1_affines, p2_affines, BLST_ERROR};
 use crate::bls_multi_sig::pop::ProofOfPossession;
 use crate::bls_multi_sig::signing_key::SigningKey;
+use crate::bls_multi_sig::unsafe_helpers::verify_pairing;
 use crate::bls_multi_sig::verification_key::VerificationKey;
+use crate::bls_multi_sig::POP;
+use crate::error::{blst_err_to_mithril, MultiSignatureError};
+use blst::BLST_ERROR;
+use serde::{Deserialize, Serialize};
 
 /// MultiSig public key, contains the verification key and the proof of possession.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -26,10 +24,13 @@ impl VerificationKeyPoP {
     // If we are really looking for performance improvements, we can combine the
     // two final exponentiations (for verifying k1 and k2) into a single one.
     pub fn check(&self) -> Result<(), MultiSignatureError> {
-        match self.vk.0.validate() {
+        match self.vk.to_blst_vk().validate() {
             Ok(_) => {
                 let result = verify_pairing(&self.vk, &self.pop);
-                if !(self.pop.k1.verify(false, POP, &[], &[], &self.vk.0, false)
+                if !(self
+                    .pop
+                    .to_k1()
+                    .verify(false, POP, &[], &[], &self.vk.to_blst_vk(), false)
                     == BLST_ERROR::BLST_SUCCESS
                     && result)
                 {

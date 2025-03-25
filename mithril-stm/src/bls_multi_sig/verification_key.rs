@@ -1,22 +1,17 @@
-
+use crate::bls_multi_sig::signing_key::SigningKey;
 use crate::error::{blst_err_to_mithril, MultiSignatureError};
-use blst::min_sig::{
-    AggregatePublicKey, AggregateSignature, PublicKey as BlstVk, SecretKey as BlstSk,
-    Signature as BlstSig,
-};
-use blst::{blst_p1, blst_p2, p1_affines, p2_affines, BLST_ERROR};
+use blst::min_sig::{AggregatePublicKey, PublicKey as BlstVk};
 use std::{
     cmp::Ordering,
     fmt::{Display, Formatter},
     hash::{Hash, Hasher},
     iter::Sum,
 };
-use crate::bls_multi_sig::signing_key::SigningKey;
 
 /// MultiSig verification key, which is a wrapper over the BlstVk (element in G2)
 /// from the blst library.
 #[derive(Debug, Clone, Copy, Default)]
-pub struct VerificationKey(BlstVk);
+pub struct VerificationKey(pub BlstVk);
 
 impl VerificationKey {
     /// Convert an `VerificationKey` to its compressed byte representation.
@@ -52,6 +47,10 @@ impl VerificationKey {
         }
 
         result
+    }
+
+    pub(crate) fn to_blst_vk(self) -> BlstVk {
+        self.0
     }
 }
 
@@ -89,8 +88,8 @@ impl Ord for VerificationKey {
 
 impl<'a> Sum<&'a Self> for VerificationKey {
     fn sum<I>(iter: I) -> Self
-        where
-            I: Iterator<Item = &'a Self>,
+    where
+        I: Iterator<Item = &'a Self>,
     {
         let keys: Vec<&BlstVk> = iter.map(|x| &x.0).collect();
 
