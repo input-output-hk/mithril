@@ -1,6 +1,6 @@
 [package]
 name = "mithril-stm"
-version = "0.3.41"
+version = "0.3.42"
 edition = { workspace = true }
 authors = { workspace = true }
 homepage = { workspace = true }
@@ -16,12 +16,12 @@ crate-type = ["lib", "cdylib", "staticlib"]
 [dependencies]
 blake2 = "0.10.6"
 # Enforce blst portable feature for runtime detection of Intel ADX instruction set.
-blst = { version = "0.3.13", features = ["portable"] }
+blst = { version = "0.3.14", features = ["portable"] }
 digest = { version = "0.10.7", features = ["alloc"] }
 rand_core = "0.6.4"
 rayon = "1.10.0"
-serde = { version = "1.0.217", features = ["rc", "derive"] }
-thiserror = "2.0.11"
+serde = { version = "1.0.219", features = ["rc", "derive"] }
+thiserror = "2.0.12"
 
 [target.'cfg(not(any(target_family = "wasm", windows)))'.dependencies]
 # only unix supports the rug backend
@@ -42,7 +42,7 @@ criterion = { version = "0.5.1", features = ["html_reports"] }
 num-bigint = "0.4.6"
 num-rational = "0.4.2"
 proptest = "1.6.0"
-rand = "0.8.5"
+rand = "0.9.0"
 rand_chacha = "0.3.1"
 
 [[bench]]

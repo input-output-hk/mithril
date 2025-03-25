@@ -1,6 +1,6 @@
 [package]
 name = "mithril-common"
-version = "0.5.13"
+version = "0.5.14"
 description = "Common types, interfaces, and utilities for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -30,25 +30,25 @@ name = "merkle_map"
 harness = false
 
 [dependencies]
-anyhow = "1.0.95"
-async-trait = "0.1.86"
+anyhow = "1.0.97"
+async-trait = "0.1.88"
 bech32 = "0.11.0"
 blake2 = "0.10.6"
-chrono = { version = "0.4.39", features = ["serde"] }
+chrono = { version = "0.4.40", features = ["serde"] }
 ciborium = "0.2.2"
-ckb-merkle-mountain-range = "0.6.0"
+ckb-merkle-mountain-range = "0.6.1"
 digest = "0.10.7"
 ed25519-dalek = { version = "2.1.1", features = ["rand_core", "serde"] }
-fixed = "1.28.0"
+fixed = "1.29.0"
 glob = { version = "0.3.2", optional = true }
 hex = "0.4.3"
-jsonschema = { version = "0.28.3", optional = true }
+jsonschema = { version = "0.29.0", optional = true }
 kes-summed-ed25519 = { version = "0.2.1", features = [
     "serde_enabled",
     "sk_clone_enabled",
 ] }
 mithril-stm = { path = "../mithril-stm", version = "0.3", default-features = false }
-nom = "7.1.3"
+nom = "8.0.0"
 pallas-addresses = { version = "0.32.0", optional = true }
 pallas-codec = { version = "0.32.0", optional = true }
 pallas-network = { version = "0.32.0", optional = true }
@@ -57,19 +57,19 @@ pallas-traverse = { version = "0.32.0", optional = true }
 rand_chacha = "0.3.1"
 rand_core = { version = "0.6.4", features = ["getrandom"] }
 rayon = "1.10.0"
-reqwest = { version = "0.12.12", optional = true }
-semver = "1.0.25"
-serde = { version = "1.0.217", features = ["derive"] }
-serde_bytes = "0.11.15"
-serde_json = "1.0.138"
+reqwest = { version = "0.12.15", optional = true }
+semver = "1.0.26"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_bytes = "0.11.17"
+serde_json = "1.0.140"
 serde_with = "3.12.0"
 serde_yaml = "0.9.34"
 sha2 = "0.10.8"
 slog = "2.7.0"
-strum = { version = "0.26.3", features = ["derive"] }
-thiserror = "2.0.11"
-tokio = { version = "1.43.0", features = ["io-util", "rt", "sync"] }
-typetag = "0.2.19"
+strum = { version = "0.27.1", features = ["derive"] }
+thiserror = "2.0.12"
+tokio = { version = "1.44.1", features = ["io-util", "rt", "sync"] }
+typetag = "0.2.20"
 walkdir = "2.5.0"
 warp = { version = "0.3.7", optional = true }
 
@@ -80,10 +80,10 @@ wasm-bindgen = "0.2.100"
 criterion = { version = "0.5.1", features = ["html_reports", "async_tokio"] }
 mockall = "0.13.1"
 pallas-crypto = "0.32.0"
-reqwest = { version = "0.12.12", features = ["json"] }
+reqwest = { version = "0.12.15", features = ["json"] }
 slog-async = "2.8.0"
 slog-term = "2.9.1"
-tokio = { version = "1.43.0", features = ["macros", "rt-multi-thread", "time"] }
+tokio = { version = "1.44.1", features = ["macros", "rt-multi-thread", "time"] }
 
 [build-dependencies]
 mithril-build-script = { path = "../internal/mithril-build-script", version = "=0.2" }

@@ -1,6 +1,6 @@
 [package]
 name = "mithril-persistence"
-version = "0.2.48"
+version = "0.2.49"
 description = "Common types, interfaces, and utilities to persist data for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -12,19 +12,19 @@ repository = { workspace = true }
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
-anyhow = "1.0.95"
-async-trait = "0.1.86"
-chrono = { version = "0.4.39", features = ["serde"] }
+anyhow = "1.0.97"
+async-trait = "0.1.88"
+chrono = { version = "0.4.40", features = ["serde"] }
 mithril-common = { path = "../../mithril-common", features = ["fs"] }
 mithril-resource-pool = { path = "../mithril-resource-pool" }
-semver = "1.0.25"
-serde = { version = "1.0.217", features = ["derive"] }
-serde_json = "1.0.138"
+semver = "1.0.26"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
 slog = "2.7.0"
-sqlite = { version = "0.36.1", features = ["bundled"] }
-thiserror = "2.0.11"
-tokio = { version = "1.43.0", features = ["sync"] }
+sqlite = { version = "0.36.2", features = ["bundled"] }
+thiserror = "2.0.12"
+tokio = { version = "1.44.1", features = ["sync"] }
 
 [dev-dependencies]
 mithril-common = { path = "../../mithril-common", features = ["test_tools"] }
-tokio = { version = "1.43.0", features = ["macros", "time"] }
+tokio = { version = "1.44.1", features = ["macros", "time"] }

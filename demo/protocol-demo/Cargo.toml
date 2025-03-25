@@ -1,6 +1,6 @@
 [package]
 name = "mithrildemo"
-version = "0.1.48"
+version = "0.1.49"
 authors = { workspace = true }
 edition = { workspace = true }
 documentation = { workspace = true }
@@ -10,14 +10,14 @@ repository = { workspace = true }
 
 [dependencies]
 blake2 = "0.10.6"
-clap = { version = "4.5.28", features = ["derive"] }
+clap = { version = "4.5.32", features = ["derive"] }
 hex = "0.4.3"
 mithril-common = { path = "../../mithril-common", features = ["fs"] }
 mithril-doc = { path = "../../internal/mithril-doc" }
 rand_chacha = "0.3.1"
 rand_core = "0.6.4"
-serde = { version = "1.0.217", features = ["derive"] }
-serde_json = "1.0.138"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
 
 [target.'cfg(not(windows))'.dependencies]
 # non-windows: use default rug backend
