@@ -39,11 +39,11 @@ pub type ProtocolAggregateVerificationKey = ProtocolKey<StmAggrVerificationKey<D
 /// Wrapper of [MKProof] to add serialization utilities.
 pub type ProtocolMkProof = ProtocolKey<MKMapProof<BlockRange>>;
 
-impl ProtocolGenesisSignature {
+impl ProtocolKey<ed25519_dalek::Signature> {
     /// Create an instance from a bytes hex representation
     pub fn from_bytes_hex(hex_string: &str) -> StdResult<Self> {
         let hex_bytes = Vec::from_hex(hex_string).with_context(|| {
-            "Could not deserialize a ProtocolGenesisSignature from bytes hex string:\
+            "Could not deserialize a ED25519 signature from bytes hex string:\
             could not convert the encoded string to bytes."
         })?;
 
@@ -53,7 +53,7 @@ impl ProtocolGenesisSignature {
     /// Create an instance from a bytes representation
     pub fn from_bytes(bytes: &[u8]) -> StdResult<Self> {
         let key = ed25519_dalek::Signature::from_slice(bytes).with_context(|| {
-            "Could not deserialize a ProtocolGenesisSignature from bytes hex string:\
+            "Could not deserialize a ED25519 signature from bytes hex string:\
             invalid bytes"
                 .to_string()
         })?;
@@ -74,11 +74,13 @@ impl ProtocolGenesisSignature {
 
 impl ProtocolKeyCodec<ed25519_dalek::Signature> for ed25519_dalek::Signature {
     fn decode_key(encoded: &str) -> StdResult<ProtocolKey<ed25519_dalek::Signature>> {
-        ProtocolGenesisSignature::from_bytes_hex(encoded)
+        ProtocolKey::<ed25519_dalek::Signature>::from_bytes_hex(encoded)
     }
 
     fn encode_key(key: &ed25519_dalek::Signature) -> StdResult<String> {
-        Ok(ProtocolGenesisSignature::key_to_bytes_hex(key))
+        Ok(ProtocolKey::<ed25519_dalek::Signature>::key_to_bytes_hex(
+            key,
+        ))
     }
 }
 

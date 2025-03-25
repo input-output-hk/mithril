@@ -1,5 +1,6 @@
 //! Ed25519 cryptographic helpers
 
+use anyhow::anyhow;
 use ed25519_dalek::{Signer, SigningKey};
 use rand_chacha::rand_core::{CryptoRng, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -21,11 +22,8 @@ pub type Ed25519Signature = ProtocolKey<ed25519_dalek::Signature>;
 
 #[derive(Error, Debug)]
 /// [Ed25519Signer] and [Ed25519Verifier] related errors.
-pub enum Ed25519VerifierError {
-    /// Error raised when a Signature verification fail
-    #[error("Ed25519 signature verification error")]
-    SignatureVerification(#[source] StdError),
-}
+#[error("Ed25519 signature verification error")]
+pub struct Ed25519VerifierError(#[source] StdError);
 
 /// A cryptographic signer that is responsible for signing messages using Ed25519 signature scheme
 #[derive(Debug, Serialize, Deserialize)]
@@ -100,7 +98,16 @@ impl Ed25519Verifier {
 
     /// Verifies the signature of a message
     pub fn verify(&self, message: &[u8], signature: &Ed25519Signature) -> StdResult<()> {
-        Ok(self.verification_key.verify_strict(message, signature)?)
+        self.verification_key.verify(message, signature)
+    }
+}
+
+impl Ed25519VerificationKey {
+    /// Verifies the signature of a message
+    pub fn verify(&self, message: &[u8], signature: &Ed25519Signature) -> StdResult<()> {
+        Ok(self
+            .verify_strict(message, signature)
+            .map_err(|e| Ed25519VerifierError(anyhow!(e)))?)
     }
 }
 

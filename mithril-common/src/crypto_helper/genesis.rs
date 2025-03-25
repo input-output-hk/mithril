@@ -1,17 +1,16 @@
-use crate::{StdError, StdResult};
-use anyhow::anyhow;
+use crate::StdResult;
 use ed25519_dalek::{Signer, SigningKey};
 use rand_chacha::rand_core::{CryptoRng, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
-use super::{ProtocolGenesisSecretKey, ProtocolGenesisSignature, ProtocolGenesisVerificationKey};
+use super::{
+    ed25519::Ed25519VerifierError, ProtocolGenesisSecretKey, ProtocolGenesisSignature,
+    ProtocolGenesisVerificationKey,
+};
 
-#[derive(Error, Debug)]
 /// [ProtocolGenesisSigner] and [ProtocolGenesisVerifier] related errors.
-#[error("genesis signature verification error")]
-pub struct ProtocolGenesisError(#[source] StdError);
+pub type ProtocolGenesisError = Ed25519VerifierError;
 
 /// A protocol Genesis Signer that is responsible for signing the
 /// [Genesis Certificate](https://mithril.network/doc/mithril/mithril-protocol/certificates#the-certificate-chain-design)
@@ -90,15 +89,6 @@ impl ProtocolGenesisVerifier {
     /// Verifies the genesis signature of a message
     pub fn verify(&self, message: &[u8], signature: &ProtocolGenesisSignature) -> StdResult<()> {
         self.verification_key.verify(message, signature)
-    }
-}
-
-impl ProtocolGenesisVerificationKey {
-    /// Verifies the genesis signature of a message
-    pub fn verify(&self, message: &[u8], signature: &ProtocolGenesisSignature) -> StdResult<()> {
-        Ok(self
-            .verify_strict(message, signature)
-            .map_err(|e| ProtocolGenesisError(anyhow!(e)))?)
     }
 }
 
