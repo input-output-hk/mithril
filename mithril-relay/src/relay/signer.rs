@@ -392,9 +392,13 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    use httpmock::MockServer;
+    use httpmock::{
+        Method::{GET, POST},
+        MockServer,
+    };
+    use tokio::sync::mpsc::error::TryRecvError;
 
-    use crate::test_tools::TestLogger;
+    use crate::{repeater, test_tools::TestLogger};
 
     use super::*;
 
@@ -423,5 +427,121 @@ mod tests {
             .unwrap();
 
         mock.assert();
+    }
+
+    #[tokio::test]
+    async fn epoch_settings_handler() {
+        let test_logger = TestLogger::stdout();
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/epoch-settings");
+            then.status(201).body("ok");
+        });
+
+        handlers::epoch_settings_handler(test_logger, server.url(""))
+            .await
+            .unwrap();
+
+        mock.assert();
+    }
+
+    #[tokio::test]
+    async fn register_signer_handler_with_passthrough() {
+        let test_logger = TestLogger::stdout();
+        let (tx, mut rx) = unbounded_channel::<RegisterSignerMessage>();
+        let message = RegisterSignerMessage::dummy();
+        let repeater =
+            repeater::MessageRepeater::new(tx.clone(), Duration::from_secs(10), &test_logger);
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST)
+                .path("/register-signer")
+                .body_contains(serde_json::to_string(&message).unwrap());
+            then.status(201).body("ok");
+        });
+
+        handlers::register_signer_handler(
+            message,
+            SignerRelayMode::Passthrough,
+            server.url(""),
+            test_logger.clone(),
+            tx.clone(),
+            Arc::new(repeater),
+        )
+        .await
+        .unwrap();
+
+        mock.assert();
+        assert_eq!(Err(TryRecvError::Empty), rx.try_recv());
+    }
+
+    #[tokio::test]
+    async fn register_signer_handler_with_p2p() {
+        let test_logger = TestLogger::stdout();
+        let (tx, mut rx) = unbounded_channel::<RegisterSignerMessage>();
+        let message = RegisterSignerMessage::dummy();
+        let repeater =
+            repeater::MessageRepeater::new(tx.clone(), Duration::from_secs(10), &test_logger);
+
+        handlers::register_signer_handler(
+            message.clone(),
+            SignerRelayMode::P2P,
+            "unreachable_endpoint".to_string(),
+            test_logger.clone(),
+            tx.clone(),
+            Arc::new(repeater),
+        )
+        .await
+        .unwrap();
+
+        let received_message = rx.recv().await.unwrap();
+        assert_eq!(received_message, message);
+    }
+
+    #[tokio::test]
+    async fn register_signatures_handler_with_passthrough() {
+        let test_logger = TestLogger::stdout();
+        let (tx, mut rx) = unbounded_channel::<RegisterSignatureMessage>();
+        let message = RegisterSignatureMessage::dummy();
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST)
+                .path("/register-signatures")
+                .body_contains(serde_json::to_string(&message).unwrap());
+            then.status(201).body("ok");
+        });
+
+        handlers::register_signatures_handler(
+            message,
+            SignerRelayMode::Passthrough,
+            server.url(""),
+            test_logger.clone(),
+            tx.clone(),
+        )
+        .await
+        .unwrap();
+
+        mock.assert();
+        assert_eq!(Err(TryRecvError::Empty), rx.try_recv());
+    }
+
+    #[tokio::test]
+    async fn register_signatures_handler_with_p2p() {
+        let test_logger = TestLogger::stdout();
+        let (tx, mut rx) = unbounded_channel::<RegisterSignatureMessage>();
+        let message = RegisterSignatureMessage::dummy();
+
+        handlers::register_signatures_handler(
+            message.clone(),
+            SignerRelayMode::P2P,
+            "unreachable_endpoint".to_string(),
+            test_logger.clone(),
+            tx.clone(),
+        )
+        .await
+        .unwrap();
+
+        let received_message = rx.recv().await.unwrap();
+        assert_eq!(received_message, message);
     }
 }
