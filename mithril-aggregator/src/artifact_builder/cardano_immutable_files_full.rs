@@ -1,6 +1,6 @@
 use anyhow::Context;
 use async_trait::async_trait;
-use mithril_common::entities::FileUri;
+use mithril_common::entities::{FileUri, ImmutableFileNumber};
 use semver::Version;
 use slog::{debug, warn, Logger};
 use std::sync::Arc;
@@ -16,7 +16,6 @@ use super::ArtifactBuilder;
 use crate::{services::Snapshotter, tools::file_archiver::FileArchive, FileUploader};
 
 /// [CardanoImmutableFilesFullArtifact] error
-/// to fail.
 #[derive(Debug, Error)]
 pub enum CardanoImmutableFilesFullArtifactError {
     /// Protocol message part is missing
@@ -51,25 +50,47 @@ impl CardanoImmutableFilesFullArtifactBuilder {
         }
     }
 
-    async fn create_snapshot_archive(
+    async fn create_immutables_snapshot_archive(
         &self,
-        beacon: &CardanoDbBeacon,
-        snapshot_digest: &str,
+        base_file_name_without_extension: &str,
     ) -> StdResult<FileArchive> {
-        debug!(self.logger, ">> create_snapshot_archive");
+        debug!(self.logger, ">> create_immutables_snapshot_archive");
 
         let snapshotter = self.snapshotter.clone();
-        let snapshot_name = format!(
-            "{}-e{}-i{}.{}",
-            self.cardano_network, *beacon.epoch, beacon.immutable_file_number, snapshot_digest,
-        );
+        let snapshot_name = base_file_name_without_extension.to_owned();
         // spawn a separate thread to prevent blocking
         let ongoing_snapshot = tokio::task::spawn_blocking(move || -> StdResult<FileArchive> {
-            snapshotter.snapshot_all(&snapshot_name)
+            snapshotter.snapshot_all_completed_immutables(&snapshot_name)
         })
         .await??;
 
-        debug!(self.logger, " > Snapshot created: '{ongoing_snapshot:?}'");
+        debug!(
+            self.logger,
+            " > Immutables snapshot created: '{ongoing_snapshot:?}'"
+        );
+
+        Ok(ongoing_snapshot)
+    }
+
+    async fn create_ancillary_snapshot_archive(
+        &self,
+        immutable_file_number: ImmutableFileNumber,
+        base_file_name_without_extension: &str,
+    ) -> StdResult<FileArchive> {
+        debug!(self.logger, ">> create_ancillary_snapshot_archive");
+
+        let snapshotter = self.snapshotter.clone();
+        let snapshot_name = format!("{base_file_name_without_extension}.ancillary");
+        // spawn a separate thread to prevent blocking
+        let ongoing_snapshot = tokio::task::spawn_blocking(move || -> StdResult<FileArchive> {
+            snapshotter.snapshot_ancillary(immutable_file_number, &snapshot_name)
+        })
+        .await??;
+
+        debug!(
+            self.logger,
+            " > Ancillary snapshot created: '{ongoing_snapshot:?}'"
+        );
 
         Ok(ongoing_snapshot)
     }
@@ -94,26 +115,42 @@ impl CardanoImmutableFilesFullArtifactBuilder {
         Ok(vec![location?])
     }
 
-    async fn create_snapshot(
+    fn create_snapshot(
         &self,
         beacon: CardanoDbBeacon,
-        ongoing_snapshot: &FileArchive,
+        ongoing_immutables_snapshot: &FileArchive,
+        ongoing_ancillary_snapshot: &FileArchive,
         snapshot_digest: String,
-        remote_locations: Vec<String>,
+        immutables_remote_locations: Vec<String>,
+        ancillary_remote_locations: Vec<String>,
     ) -> StdResult<Snapshot> {
         debug!(self.logger, ">> create_snapshot");
 
-        let snapshot = Snapshot::new(
-            snapshot_digest,
-            self.cardano_network,
+        let snapshot = Snapshot {
+            digest: snapshot_digest,
+            network: self.cardano_network.into(),
             beacon,
-            ongoing_snapshot.get_archive_size(),
-            remote_locations,
-            ongoing_snapshot.get_compression_algorithm(),
-            &self.cardano_node_version,
-        );
+            size: ongoing_immutables_snapshot.get_archive_size(),
+            ancillary_size: Some(ongoing_ancillary_snapshot.get_archive_size()),
+            locations: immutables_remote_locations,
+            ancillary_locations: Some(ancillary_remote_locations),
+            compression_algorithm: ongoing_immutables_snapshot.get_compression_algorithm(),
+            cardano_node_version: self.cardano_node_version.to_string(),
+        };
 
         Ok(snapshot)
+    }
+
+    fn get_base_file_name_without_extension(
+        &self,
+        beacon: &CardanoDbBeacon,
+        snapshot_digest: &str,
+    ) -> String {
+        let snapshot_name = format!(
+            "{}-e{}-i{}.{}",
+            self.cardano_network, *beacon.epoch, beacon.immutable_file_number, snapshot_digest,
+        );
+        snapshot_name
     }
 }
 
@@ -132,27 +169,41 @@ impl ArtifactBuilder<CardanoDbBeacon, Snapshot> for CardanoImmutableFilesFullArt
             })?
             .to_owned();
 
-        let ongoing_snapshot = self
-            .create_snapshot_archive(&beacon, &snapshot_digest)
+        let base_file_name_without_extension =
+            self.get_base_file_name_without_extension(&beacon, &snapshot_digest);
+        let ongoing_immutables_snapshot = self
+            .create_immutables_snapshot_archive(&base_file_name_without_extension)
             .await
             .with_context(|| {
-                "Cardano Immutable Files Full Artifact Builder can not create snapshot archive"
+                "Cardano Immutable Files Full Artifact Builder can not create immutables snapshot archive"
             })?;
-        let locations = self
-            .upload_snapshot_archive(&ongoing_snapshot)
+        let ongoing_ancillary_snapshot = self
+            .create_ancillary_snapshot_archive(beacon.immutable_file_number, &base_file_name_without_extension)
             .await
             .with_context(|| {
-                format!("Cardano Immutable Files Full Artifact Builder can not upload snapshot archive to path: '{:?}'", ongoing_snapshot.get_file_path())
+                "Cardano Immutable Files Full Artifact Builder can not create ancillary snapshot archive"
+            })?;
+        let immutables_locations = self
+            .upload_snapshot_archive(&ongoing_immutables_snapshot)
+            .await
+            .with_context(|| {
+                format!("Cardano Immutable Files Full Artifact Builder can not upload immutables snapshot archive to path: '{:?}'", ongoing_immutables_snapshot.get_file_path())
+            })?;
+        let ancillary_locations = self
+            .upload_snapshot_archive(&ongoing_ancillary_snapshot)
+            .await
+            .with_context(|| {
+                format!("Cardano Immutable Files Full Artifact Builder can not upload ancillary snapshot archive to path: '{:?}'", ongoing_ancillary_snapshot.get_file_path())
             })?;
 
-        let snapshot = self
-            .create_snapshot(
-                beacon,
-                &ongoing_snapshot,
-                snapshot_digest,
-                locations.into_iter().map(Into::into).collect(),
-            )
-            .await?;
+        let snapshot = self.create_snapshot(
+            beacon,
+            &ongoing_immutables_snapshot,
+            &ongoing_ancillary_snapshot,
+            snapshot_digest,
+            immutables_locations.into_iter().map(Into::into).collect(),
+            ancillary_locations.into_iter().map(Into::into).collect(),
+        )?;
 
         Ok(snapshot)
     }
@@ -161,7 +212,6 @@ impl ArtifactBuilder<CardanoDbBeacon, Snapshot> for CardanoImmutableFilesFullArt
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
-    use std::path::Path;
     use tempfile::NamedTempFile;
 
     use mithril_common::{entities::CompressionAlgorithm, test_utils::fake_data};
@@ -181,8 +231,12 @@ mod tests {
             .protocol_message
             .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
             .unwrap();
+        let individual_snapshot_archive_size = 7331;
 
-        let dumb_snapshotter = Arc::new(DumbSnapshotter::new(CompressionAlgorithm::Zstandard));
+        let dumb_snapshotter = Arc::new(
+            DumbSnapshotter::new(CompressionAlgorithm::Zstandard)
+                .with_archive_size(individual_snapshot_archive_size),
+        );
         let dumb_snapshot_uploader = Arc::new(DumbUploader::default());
 
         let cardano_immutable_files_full_artifact_builder =
@@ -197,26 +251,51 @@ mod tests {
             .compute_artifact(beacon.clone(), &certificate)
             .await
             .unwrap();
-        let last_ongoing_snapshot = dumb_snapshotter
-            .get_last_snapshot()
-            .unwrap()
-            .expect("A snapshot should have been 'created'");
 
-        let remote_locations = vec![dumb_snapshot_uploader
-            .get_last_upload()
-            .unwrap()
-            .map(Into::into)
-            .expect("A snapshot should have been 'uploaded'")];
-        let artifact_expected = Snapshot::new(
-            snapshot_digest.to_owned(),
-            fake_data::network(),
+        let last_uploads = dumb_snapshot_uploader.get_last_n_uploads(2).unwrap();
+        let [ancillary_location, immutables_location, ..] = last_uploads.as_slice() else {
+            panic!("Two snapshots should have been 'uploaded'");
+        };
+        let artifact_expected = Snapshot {
+            digest: snapshot_digest.to_owned(),
+            network: fake_data::network().into(),
             beacon,
-            last_ongoing_snapshot.get_archive_size(),
-            remote_locations,
-            CompressionAlgorithm::Zstandard,
-            &Version::parse("1.0.0").unwrap(),
-        );
+            size: individual_snapshot_archive_size,
+            ancillary_size: Some(individual_snapshot_archive_size),
+            locations: vec![immutables_location.into()],
+            ancillary_locations: Some(vec![ancillary_location.into()]),
+            compression_algorithm: CompressionAlgorithm::Zstandard,
+            cardano_node_version: "1.0.0".to_string(),
+        };
+
         assert_eq!(artifact_expected, artifact);
+    }
+
+    #[tokio::test]
+    async fn snapshot_archive_name_include_beacon_and_network_values() {
+        let network = fake_data::network();
+        let beacon = CardanoDbBeacon::new(20, 145);
+        let digest = "test+digest";
+
+        let cardano_immutable_files_full_artifact_builder =
+            CardanoImmutableFilesFullArtifactBuilder::new(
+                network,
+                &Version::parse("1.0.0").unwrap(),
+                Arc::new(DumbSnapshotter::default()),
+                Arc::new(DumbUploader::default()),
+                TestLogger::stdout(),
+            );
+
+        let name = cardano_immutable_files_full_artifact_builder
+            .get_base_file_name_without_extension(&beacon, digest);
+
+        assert_eq!(
+            format!(
+                "{}-e{}-i{}.{digest}",
+                network, *beacon.epoch, beacon.immutable_file_number,
+            ),
+            name
+        );
     }
 
     #[tokio::test]
@@ -247,71 +326,6 @@ mod tests {
         assert!(
             !file_path.exists(),
             "Ongoing snapshot file should have been removed after upload"
-        );
-    }
-
-    #[tokio::test]
-    async fn snapshot_archive_name_after_beacon_values() {
-        let network = fake_data::network();
-        let beacon = CardanoDbBeacon::new(20, 145);
-        let digest = "test+digest";
-
-        let cardano_immutable_files_full_artifact_builder =
-            CardanoImmutableFilesFullArtifactBuilder::new(
-                network,
-                &Version::parse("1.0.0").unwrap(),
-                Arc::new(DumbSnapshotter::default()),
-                Arc::new(DumbUploader::default()),
-                TestLogger::stdout(),
-            );
-
-        let ongoing_snapshot = cardano_immutable_files_full_artifact_builder
-            .create_snapshot_archive(&beacon, digest)
-            .await
-            .expect("create_snapshot_archive should not fail");
-
-        assert_eq!(
-            Path::new(&format!(
-                "{}-e{}-i{}.{digest}.tar.gz",
-                network, *beacon.epoch, beacon.immutable_file_number,
-            )),
-            ongoing_snapshot.get_file_path()
-        );
-    }
-
-    #[tokio::test]
-    async fn snapshot_archive_name_after_compression_algorithm() {
-        let mut invalid_result: Vec<CompressionAlgorithm> = vec![];
-
-        for algorithm in CompressionAlgorithm::list() {
-            let cardano_immutable_files_full_artifact_builder =
-                CardanoImmutableFilesFullArtifactBuilder::new(
-                    fake_data::network(),
-                    &Version::parse("1.0.0").unwrap(),
-                    Arc::new(DumbSnapshotter::new(algorithm)),
-                    Arc::new(DumbUploader::default()),
-                    TestLogger::stdout(),
-                );
-
-            let ongoing_snapshot = cardano_immutable_files_full_artifact_builder
-                .create_snapshot_archive(&CardanoDbBeacon::default(), "test+digest")
-                .await
-                .expect("create_snapshot_archive should not fail");
-            let file_name = ongoing_snapshot
-                .get_file_path()
-                .file_name()
-                .and_then(|f| f.to_str())
-                .unwrap();
-            let expected_extension = algorithm.tar_file_extension();
-
-            if !file_name.ends_with(&expected_extension) {
-                invalid_result.push(algorithm);
-            }
-        }
-
-        assert!(
-            invalid_result.is_empty(),
-            "Archive name did not contain some algorithms extension after snapshot, failing algorithm(s): {invalid_result:?}",
         );
     }
 

@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.48
+  version: 0.1.49
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -1643,6 +1643,7 @@ components:
               "beacon": { "epoch": 329, "immutable_file_number": 7060000 },
               "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
               "size": 26058531636,
+              "ancillary_size": 123456789,
               "created_at": "2022-07-21T17:32:28Z",
               "locations":
                 [
@@ -1650,6 +1651,10 @@ components:
                   "https://mithril-cdn-eu.iohk.io/snapshot/6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
                   "magnet:?xt=urn:sha1:YNCKHTQCWBTRNJIV4WNAE52SJUQCZO5C",
                   "ipfs:QmPXME1oRtoT627YKaDPDQ3PwA8tdP9rWuAAweLzqSwAWT"
+                ],
+              "ancillary_locations":
+                [
+                  "https://mithril-cdn-us.iohk.io/snapshot/6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.ancillary.tar.zst"
                 ]
             }
           ]
@@ -1681,7 +1686,11 @@ components:
           type: string
           format: bytes
         size:
-          description: Size of the snapshot file in Bytes
+          description: Size of the immutables snapshot file in Bytes
+          type: integer
+          format: int64
+        ancillary_size:
+          description: Size of the ancillary snapshot file in Bytes
           type: integer
           format: int64
         created_at:
@@ -1689,7 +1698,12 @@ components:
           type: string
           format: date-time
         locations:
-          description: Locations where the binary content of the snapshot can be retrieved
+          description: Locations where the snapshot of the immutable files can be retrieved
+          type: array
+          items:
+            type: string
+        ancillary_locations:
+          description: Locations where the snapshot of the ancillary files can be retrieved
           type: array
           items:
             type: string
@@ -1706,6 +1720,7 @@ components:
             "beacon": { "epoch": 329, "immutable_file_number": 7060000 },
             "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
             "size": 26058531636,
+            "ancillary_size": 123456789,
             "created_at": "2022-07-21T17:32:28Z",
             "locations":
               [
@@ -1713,6 +1728,10 @@ components:
                 "https://mithril-cdn-eu.iohk.io/snapshot/6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
                 "magnet:?xt=urn:sha1:YNCKHTQCWBTRNJIV4WNAE52SJUQCZO5C",
                 "ipfs:QmPXME1oRtoT627YKaDPDQ3PwA8tdP9rWuAAweLzqSwAWT"
+              ],
+            "ancillary_locations":
+              [
+                "https://mithril-cdn-us.iohk.io/snapshot/6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.ancillary.tar.zst"
               ],
             "compression_algorithm": "zstandard",
             "cardano_node_version": "1.0.0"
@@ -1729,6 +1748,7 @@ components:
             "beacon": { "epoch": 329, "immutable_file_number": 7060000 },
             "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
             "size": 26058531636,
+            "ancillary_size": 123456789,
             "created_at": "2022-07-21T17:32:28Z",
             "locations":
               [
@@ -1736,6 +1756,10 @@ components:
                 "https://mithril-cdn-eu.iohk.io/snapshot/6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
                 "magnet:?xt=urn:sha1:YNCKHTQCWBTRNJIV4WNAE52SJUQCZO5C",
                 "ipfs:QmPXME1oRtoT627YKaDPDQ3PwA8tdP9rWuAAweLzqSwAWT"
+              ],
+            "ancillary_locations":
+              [
+                "https://mithril-cdn-us.iohk.io/snapshot/6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.ancillary.tar.zst"
               ],
             "compression_algorithm": "zstandard",
             "cardano_node_version": "1.0.0"
@@ -1764,11 +1788,20 @@ components:
         beacon:
           $ref: "#/components/schemas/CardanoDbBeacon"
         size:
-          description: Size of the snapshot file in Bytes
+          description: Size of the immutables snapshot file in Bytes
+          type: integer
+          format: int64
+        ancillary_size:
+          description: Size of the ancillary snapshot file in Bytes
           type: integer
           format: int64
         locations:
-          description: Locations where the binary content of the snapshot can be retrieved
+          description: Locations where the snapshot of the immutable files can be retrieved
+          type: array
+          items:
+            type: string
+        ancillary_locations:
+          description: Locations where the snapshot of the ancillary files can be retrieved
           type: array
           items:
             type: string
@@ -1784,12 +1817,17 @@ components:
             "network": "mainnet",
             "beacon": { "epoch": 329, "immutable_file_number": 7060000 },
             "size": 26058531636,
+            "ancillary_size": 123456789,
             "locations":
               [
                 "https://mithril-cdn-us.iohk.io/snapshot/6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
                 "https://mithril-cdn-eu.iohk.io/snapshot/6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
                 "magnet:?xt=urn:sha1:YNCKHTQCWBTRNJIV4WNAE52SJUQCZO5C",
                 "ipfs:QmPXME1oRtoT627YKaDPDQ3PwA8tdP9rWuAAweLzqSwAWT"
+              ],
+            "ancillary_locations":
+              [
+                "https://mithril-cdn-us.iohk.io/snapshot/6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.ancillary.tar.zst"
               ],
             "compression_algorithm": "zstandard",
             "cardano_node_version": "1.0.0"

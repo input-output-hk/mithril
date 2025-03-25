@@ -97,13 +97,14 @@ use slog::Logger;
 use std::sync::Arc;
 use thiserror::Error;
 
+#[cfg(feature = "fs")]
+use mithril_common::entities::CompressionAlgorithm;
+
 use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest};
 #[cfg(feature = "fs")]
 use crate::feedback::FeedbackSender;
 #[cfg(feature = "fs")]
-use crate::file_downloader::DownloadEvent;
-#[cfg(feature = "fs")]
-use crate::file_downloader::FileDownloader;
+use crate::file_downloader::{DownloadEvent, FileDownloader};
 use crate::{MithrilResult, Snapshot, SnapshotListItem};
 
 /// Error for the Snapshot client
@@ -126,7 +127,7 @@ pub struct SnapshotClient {
     #[cfg(feature = "fs")]
     http_file_downloader: Arc<dyn FileDownloader>,
     #[cfg(feature = "fs")]
-    feedback_sender: FeedbackSender,
+    _feedback_sender: FeedbackSender,
     #[cfg(feature = "fs")]
     logger: Logger,
 }
@@ -143,8 +144,9 @@ impl SnapshotClient {
             aggregator_client,
             #[cfg(feature = "fs")]
             http_file_downloader,
+            // The underscore prefix prevents breaking the `SnapshotClient` API compatibility.
             #[cfg(feature = "fs")]
-            feedback_sender,
+            _feedback_sender: feedback_sender,
             #[cfg(feature = "fs")]
             logger: mithril_common::logging::LoggerExtensions::new_with_component_name::<Self>(
                 &logger,
@@ -196,29 +198,58 @@ impl SnapshotClient {
             target_dir: &std::path::Path,
         ) -> MithrilResult<()> {
             use crate::feedback::MithrilEvent;
+            let download_id = MithrilEvent::new_snapshot_download_id();
 
-            for location in snapshot.locations.as_slice() {
-                let download_id = MithrilEvent::new_snapshot_download_id();
-                self.feedback_sender
-                    .send_event(MithrilEvent::SnapshotDownloadStarted {
-                        digest: snapshot.digest.clone(),
+            self.download_unpack_file
+                (
+                    &snapshot.digest,
+                    &snapshot.locations,
+                    snapshot.size,
+                    target_dir,
+                    snapshot.compression_algorithm,
+                    DownloadEvent::Full {
                         download_id: download_id.clone(),
-                        size: snapshot.size,
-                    })
-                    .await;
+                        digest: snapshot.digest.clone(),
+                    },
+                )
+                .await?;
+
+            if let Some(ancillary_locations) = &snapshot.ancillary_locations {
+                self.download_unpack_file(
+                    &snapshot.digest,
+                    ancillary_locations,
+                    snapshot.ancillary_size.unwrap_or(0),
+                    target_dir,
+                    snapshot.compression_algorithm,
+                    DownloadEvent::FullAncillary {
+                        download_id: download_id.clone(),
+                    },
+                )
+                .await?;
+            }
+
+            Ok(())
+        }
+
+        async fn download_unpack_file(&self,
+            digest: &str,
+            locations: &[String],
+            size: u64,
+            target_dir: &std::path::Path,
+            compression_algorithm: CompressionAlgorithm,
+            download_event: DownloadEvent
+        ) -> MithrilResult<()> {
+            for location in locations {
                 let file_downloader_uri = location.to_owned().into();
 
                 if let Err(error) = self
                     .http_file_downloader
                     .download_unpack(
                         &file_downloader_uri,
-                        snapshot.size,
+                        size,
                         target_dir,
-                        Some(snapshot.compression_algorithm),
-                        DownloadEvent::Full {
-                            download_id: download_id.clone(),
-                            digest: snapshot.digest.clone(),
-                        },
+                        Some(compression_algorithm),
+                        download_event.clone(),
                     )
                     .await
                 {
@@ -228,10 +259,10 @@ impl SnapshotClient {
                 }
             }
 
-            let locations = snapshot.locations.join(", ");
+            let locations = locations.join(", ");
 
             Err(SnapshotClientError::NoWorkingLocation {
-                digest: snapshot.digest.clone(),
+                digest: digest.to_string(),
                 locations,
             }
             .into())

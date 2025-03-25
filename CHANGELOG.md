@@ -27,11 +27,13 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - End support for **macOS x64 pre-built binaries** for the client CLI.
 
+- Cardano database certification: creation of two separate archives, one for the immutable files and another for the ancillary files.
+
 - **UNSTABLE** Implement a slave signer registration mode in the aggregator.
 
 - **UNSTABLE** Cardano database incremental certification:
 
-  - Implement the client library for the the signed entity type `CardanoDatabase` (download and prove snapshot).
+  - Implement the client library for the signed entity type `CardanoDatabase` (download and prove snapshot).
   - Implement the client CLI commands for the signed entity type `CardanoDatabase` (snapshot list, snapshot show and download commands).
   - Implement an example crate for the signed entity type `CardanoDatabase`.
   - Lighter ancillary archive by only including what's strictly necessary: the latest ledger file and the last immutable file trio.

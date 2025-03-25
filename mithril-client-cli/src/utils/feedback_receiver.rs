@@ -14,6 +14,7 @@ use mithril_client::feedback::{FeedbackReceiver, MithrilEvent, MithrilEventCarda
 /// by the `mithril-client` library
 pub struct IndicatifFeedbackReceiver {
     download_progress_reporter: RwLock<Option<DownloadProgressReporter>>,
+    ancillary_download_progress_reporter: RwLock<Option<DownloadProgressReporter>>,
     certificate_validation_pb: RwLock<Option<ProgressBar>>,
     cardano_database_multi_pb: RwLock<Option<MultiDownloadProgressReporter>>,
     output_type: ProgressOutputType,
@@ -25,6 +26,7 @@ impl IndicatifFeedbackReceiver {
     pub fn new(output_type: ProgressOutputType, logger: Logger) -> Self {
         Self {
             download_progress_reporter: RwLock::new(None),
+            ancillary_download_progress_reporter: RwLock::new(None),
             certificate_validation_pb: RwLock::new(None),
             cardano_database_multi_pb: RwLock::new(None),
             output_type,
@@ -75,6 +77,42 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                     progress_reporter.finish("Cardano DB download completed");
                 }
                 *download_progress_reporter = None;
+            }
+            MithrilEvent::SnapshotAncillaryDownloadStarted { size, .. } => {
+                let pb = if self.output_type == ProgressOutputType::Tty {
+                    ProgressBar::new(size)
+                } else {
+                    ProgressBar::with_draw_target(Some(size), ProgressDrawTarget::hidden())
+                };
+                let mut ancillary_download_progress_reporter =
+                    self.ancillary_download_progress_reporter.write().await;
+                *ancillary_download_progress_reporter = Some(DownloadProgressReporter::new(
+                    pb,
+                    DownloadProgressReporterParams {
+                        label: "Snapshot ancillary".to_string(),
+                        output_type: self.output_type,
+                        progress_bar_kind: ProgressBarKind::Bytes,
+                        include_label_in_tty: false,
+                    },
+                    self.logger.clone(),
+                ));
+            }
+            MithrilEvent::SnapshotAncillaryDownloadProgress {
+                downloaded_bytes, ..
+            } => {
+                let ancillary_download_progress_reporter =
+                    self.ancillary_download_progress_reporter.read().await;
+                if let Some(progress_reporter) = ancillary_download_progress_reporter.as_ref() {
+                    progress_reporter.report(downloaded_bytes);
+                }
+            }
+            MithrilEvent::SnapshotAncillaryDownloadCompleted { .. } => {
+                let mut ancillary_download_progress_reporter =
+                    self.ancillary_download_progress_reporter.write().await;
+                if let Some(progress_reporter) = ancillary_download_progress_reporter.as_ref() {
+                    progress_reporter.finish("Cardano DB ancillary download completed");
+                }
+                *ancillary_download_progress_reporter = None;
             }
             MithrilEvent::CardanoDatabase(cardano_database_event) => match cardano_database_event {
                 MithrilEventCardanoDatabase::Started {
@@ -321,6 +359,55 @@ mod tests {
                 ))
                 .await;
         };
+        (cardano_db_v1, full_immutables_dl, started => $sender:expr, digest:$digest:expr, size:$size:expr) => {
+            $sender
+                .send_event(MithrilEvent::SnapshotDownloadStarted {
+                    download_id: DOWNLOAD_ID.to_string(),
+                    digest: $digest.into(),
+                    size: $size,
+                })
+                .await;
+        };
+        (cardano_db_v1, full_immutables_dl, progress => $sender:expr, bytes:$downloaded_bytes:expr, size:$size:expr) => {
+            $sender
+                .send_event(MithrilEvent::SnapshotDownloadProgress {
+                    download_id: DOWNLOAD_ID.to_string(),
+                    downloaded_bytes: $downloaded_bytes,
+                    size: $size,
+                })
+                .await;
+        };
+        (cardano_db_v1, full_immutables_dl, completed => $sender:expr) => {
+            $sender
+                .send_event(MithrilEvent::SnapshotDownloadCompleted {
+                    download_id: DOWNLOAD_ID.to_string(),
+                })
+                .await;
+        };
+        (cardano_db_v1, ancillary_dl, started => $sender:expr, size:$size:expr) => {
+            $sender
+                .send_event(MithrilEvent::SnapshotAncillaryDownloadStarted {
+                    download_id: DOWNLOAD_ID.to_string(),
+                    size: $size,
+                })
+                .await;
+        };
+        (cardano_db_v1, ancillary_dl, progress => $sender:expr, bytes:$downloaded_bytes:expr, size:$size:expr) => {
+            $sender
+                .send_event(MithrilEvent::SnapshotAncillaryDownloadProgress {
+                    download_id: DOWNLOAD_ID.to_string(),
+                    downloaded_bytes: $downloaded_bytes,
+                    size: $size,
+                })
+                .await;
+        };
+        (cardano_db_v1, ancillary_dl, completed => $sender:expr) => {
+            $sender
+                .send_event(MithrilEvent::SnapshotAncillaryDownloadCompleted {
+                    download_id: DOWNLOAD_ID.to_string(),
+                })
+                .await;
+        };
     }
 
     fn build_feedback_receiver(output_type: ProgressOutputType) -> Arc<IndicatifFeedbackReceiver> {
@@ -330,7 +417,68 @@ mod tests {
         ))
     }
 
-    mod cardano_database {
+    mod cardano_database_v1 {
+        use super::*;
+
+        #[tokio::test]
+        async fn starting_full_immutables_and_ancillary_together_spawn_two_progress_bars() {
+            let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
+            let sender = FeedbackSender::new(&[receiver.clone()]);
+
+            send_event!(cardano_db_v1, full_immutables_dl, started => sender, digest:"digest", size:123);
+            send_event!(cardano_db_v1, ancillary_dl, started =>  sender, size:456);
+
+            assert!(receiver.download_progress_reporter.read().await.is_some());
+            assert!(receiver
+                .ancillary_download_progress_reporter
+                .read()
+                .await
+                .is_some());
+        }
+
+        #[tokio::test]
+        async fn start_and_progress_ancillary_download_with_a_size_of_zero_should_not_crash() {
+            let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
+            let sender = FeedbackSender::new(&[receiver.clone()]);
+
+            send_event!(cardano_db_v1, ancillary_dl, started => sender, size:0);
+            send_event!(cardano_db_v1, ancillary_dl, progress => sender, bytes:124, size:0);
+
+            assert!(receiver
+                .ancillary_download_progress_reporter
+                .read()
+                .await
+                .is_some());
+        }
+
+        #[tokio::test]
+        async fn start_then_complete_should_remove_immutables_progress_bar() {
+            let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
+            let sender = FeedbackSender::new(&[receiver.clone()]);
+
+            send_event!(cardano_db_v1, full_immutables_dl, started => sender, digest:"digest", size:123);
+            send_event!(cardano_db_v1, full_immutables_dl, completed => sender);
+
+            assert!(receiver.cardano_database_multi_pb.read().await.is_none());
+        }
+
+        #[tokio::test]
+        async fn start_then_complete_should_remove_ancillary_progress_bar() {
+            let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
+            let sender = FeedbackSender::new(&[receiver.clone()]);
+
+            send_event!(cardano_db_v1, ancillary_dl, started =>  sender, size:456);
+            send_event!(cardano_db_v1, ancillary_dl, completed =>  sender);
+
+            assert!(receiver
+                .ancillary_download_progress_reporter
+                .read()
+                .await
+                .is_none());
+        }
+    }
+
+    mod cardano_database_v2 {
         use super::*;
 
         #[tokio::test]

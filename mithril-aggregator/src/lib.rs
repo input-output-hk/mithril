@@ -37,7 +37,7 @@ pub use crate::configuration::{
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl};
 pub use commands::{CommandType, MainOpts};
 pub use dependency_injection::DependencyContainer;
-pub use file_uploaders::{DumbUploader, FileUploader, LocalSnapshotUploader};
+pub use file_uploaders::{DumbUploader, FileUploader};
 pub use message_adapters::FromRegisterSignerAdapter;
 pub use metrics::*;
 pub use runtime::{

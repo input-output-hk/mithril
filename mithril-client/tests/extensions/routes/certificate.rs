@@ -1,5 +1,5 @@
 use super::middleware::with_calls_middleware;
-use crate::extensions::fake::{FakeAggregator, FakeAggregatorCalls};
+use crate::extensions::fake_aggregator::{FakeAggregator, FakeAggregatorCalls};
 use warp::Filter;
 
 pub fn routes(

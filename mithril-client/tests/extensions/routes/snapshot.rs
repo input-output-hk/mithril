@@ -1,5 +1,5 @@
 use super::middleware::with_calls_middleware;
-use crate::extensions::fake::{FakeAggregator, FakeAggregatorCalls};
+use crate::extensions::fake_aggregator::{FakeAggregator, FakeAggregatorCalls};
 use mithril_client::Snapshot;
 use std::{
     convert::Infallible,
@@ -48,23 +48,22 @@ fn snapshot_by_id(
         })
 }
 
-/// Route: /artifact/snapshots/{digest}/download
+/// Route: /snapshot_download/:filename:
 pub fn download(
     calls: FakeAggregatorCalls,
     archive_path: PathBuf,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    warp::path!("artifact" / "snapshot" / String / "download")
+    warp::path("snapshot_download")
+        .and(warp::fs::dir(archive_path))
         .and(warp::path::full().map(move |p| p))
         .and(with_calls_middleware(calls.clone()))
-        .and(warp::fs::file(archive_path))
         .and_then(store_call_and_download_return)
 }
 
 async fn store_call_and_download_return(
-    _digest: String,
+    reply: warp::fs::File,
     full_path: FullPath,
     calls: FakeAggregatorCalls,
-    reply: warp::fs::File,
 ) -> Result<impl warp::Reply, Infallible> {
     let mut call_list = calls.lock().await;
     call_list.push(full_path.as_str().to_string());

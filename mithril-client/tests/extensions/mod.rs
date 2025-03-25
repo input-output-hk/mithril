@@ -2,9 +2,11 @@
 // is a different compilation target).
 #![allow(dead_code)]
 
-pub mod fake;
+pub mod fake_aggregator;
 pub mod mock;
 mod routes;
+#[cfg(feature = "fs")]
+mod snapshot_archives;
 
 use mithril_common::test_utils::TempDir;
 use std::path::PathBuf;
