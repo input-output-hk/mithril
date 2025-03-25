@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use std::fs;
 use std::fs::File;
 use std::path::{Path, PathBuf};
@@ -52,8 +53,9 @@ impl Default for DumbSnapshotter {
     }
 }
 
+#[async_trait]
 impl Snapshotter for DumbSnapshotter {
-    fn snapshot_all_completed_immutables(
+    async fn snapshot_all_completed_immutables(
         &self,
         archive_name_without_extension: &str,
     ) -> StdResult<FileArchive> {
@@ -72,20 +74,22 @@ impl Snapshotter for DumbSnapshotter {
         Ok(snapshot)
     }
 
-    fn snapshot_ancillary(
+    async fn snapshot_ancillary(
         &self,
         _immutable_file_number: ImmutableFileNumber,
         archive_name_without_extension: &str,
     ) -> StdResult<FileArchive> {
         self.snapshot_all_completed_immutables(archive_name_without_extension)
+            .await
     }
 
-    fn snapshot_immutable_trio(
+    async fn snapshot_immutable_trio(
         &self,
         _immutable_file_number: ImmutableFileNumber,
         archive_name_without_extension: &str,
     ) -> StdResult<FileArchive> {
         self.snapshot_all_completed_immutables(archive_name_without_extension)
+            .await
     }
 
     fn compression_algorithm(&self) -> CompressionAlgorithm {
@@ -118,8 +122,9 @@ impl FakeSnapshotter {
     }
 }
 
+#[async_trait]
 impl Snapshotter for FakeSnapshotter {
-    fn snapshot_all_completed_immutables(
+    async fn snapshot_all_completed_immutables(
         &self,
         archive_name_without_extension: &str,
     ) -> StdResult<FileArchive> {
@@ -140,20 +145,22 @@ impl Snapshotter for FakeSnapshotter {
         ))
     }
 
-    fn snapshot_ancillary(
+    async fn snapshot_ancillary(
         &self,
         _immutable_file_number: ImmutableFileNumber,
         archive_name_without_extension: &str,
     ) -> StdResult<FileArchive> {
         self.snapshot_all_completed_immutables(archive_name_without_extension)
+            .await
     }
 
-    fn snapshot_immutable_trio(
+    async fn snapshot_immutable_trio(
         &self,
         _immutable_file_number: ImmutableFileNumber,
         archive_name_without_extension: &str,
     ) -> StdResult<FileArchive> {
         self.snapshot_all_completed_immutables(archive_name_without_extension)
+            .await
     }
 
     fn compression_algorithm(&self) -> CompressionAlgorithm {
@@ -179,13 +186,14 @@ mod tests {
             );
         }
 
-        #[test]
-        fn test_dumb_snapshotter_snapshot_return_archive_named_with_compression_algorithm_and_size_of_0(
+        #[tokio::test]
+        async fn test_dumb_snapshotter_snapshot_return_archive_named_with_compression_algorithm_and_size_of_0(
         ) {
             let snapshotter = DumbSnapshotter::new(CompressionAlgorithm::Gzip);
 
             let snapshot = snapshotter
                 .snapshot_all_completed_immutables("archive_full_immutables")
+                .await
                 .unwrap();
             assert_eq!(
                 PathBuf::from("archive_full_immutables.tar.gz"),
@@ -195,6 +203,7 @@ mod tests {
 
             let snapshot = snapshotter
                 .snapshot_ancillary(3, "archive_ancillary")
+                .await
                 .unwrap();
             assert_eq!(
                 PathBuf::from("archive_ancillary.tar.gz"),
@@ -204,6 +213,7 @@ mod tests {
 
             let snapshot = snapshotter
                 .snapshot_immutable_trio(4, "archive_immutable_trio")
+                .await
                 .unwrap();
             assert_eq!(
                 PathBuf::from("archive_immutable_trio.tar.gz"),
@@ -212,8 +222,8 @@ mod tests {
             assert_eq!(0, snapshot.get_archive_size());
         }
 
-        #[test]
-        fn test_dumb_snapshotter() {
+        #[tokio::test]
+        async fn test_dumb_snapshotter() {
             let snapshotter = DumbSnapshotter::new(CompressionAlgorithm::Zstandard);
             assert!(snapshotter
                 .get_last_snapshot()
@@ -225,6 +235,7 @@ mod tests {
             {
                 let full_immutables_snapshot = snapshotter
                     .snapshot_all_completed_immutables("whatever")
+                    .await
                     .expect("Dumb snapshotter::snapshot_all_completed_immutables should not fail.");
                 assert_eq!(
                     Some(full_immutables_snapshot),
@@ -236,6 +247,7 @@ mod tests {
             {
                 let ancillary_snapshot = snapshotter
                     .snapshot_ancillary(3, "whatever")
+                    .await
                     .expect("Dumb snapshotter::snapshot_ancillary should not fail.");
                 assert_eq!(
                     Some(ancillary_snapshot),
@@ -247,6 +259,7 @@ mod tests {
             {
                 let immutable_snapshot = snapshotter
                     .snapshot_immutable_trio(4, "whatever")
+                    .await
                     .expect("Dumb snapshotter::snapshot_immutable_trio should not fail.");
                 assert_eq!(
                     Some(immutable_snapshot),
@@ -257,19 +270,21 @@ mod tests {
             }
         }
 
-        #[test]
-        fn set_dumb_snapshotter_archive_size() {
+        #[tokio::test]
+        async fn set_dumb_snapshotter_archive_size() {
             let snapshotter = DumbSnapshotter::new(CompressionAlgorithm::Gzip);
 
             // Default size is 0
             let snapshot = snapshotter
                 .snapshot_all_completed_immutables("whatever")
+                .await
                 .unwrap();
             assert_eq!(0, snapshot.get_archive_size());
 
             let snapshotter = snapshotter.with_archive_size(42);
             let snapshot = snapshotter
                 .snapshot_all_completed_immutables("whatever")
+                .await
                 .unwrap();
             assert_eq!(42, snapshot.get_archive_size());
         }
@@ -288,8 +303,8 @@ mod tests {
             );
         }
 
-        #[test]
-        fn test_fake_snasphotter() {
+        #[tokio::test]
+        async fn test_fake_snasphotter() {
             let test_dir = get_test_directory("test_fake_snasphotter");
             let fake_snapshotter = FakeSnapshotter::new(&test_dir)
                 .with_compression_algorithm(CompressionAlgorithm::Gzip);
@@ -302,6 +317,7 @@ mod tests {
                 {
                     let full_immutables_snapshot = fake_snapshotter
                         .snapshot_all_completed_immutables(filename)
+                        .await
                         .unwrap();
 
                     assert_eq!(
@@ -311,8 +327,10 @@ mod tests {
                     assert!(full_immutables_snapshot.get_file_path().is_file());
                 }
                 {
-                    let ancillary_snapshot =
-                        fake_snapshotter.snapshot_ancillary(3, filename).unwrap();
+                    let ancillary_snapshot = fake_snapshotter
+                        .snapshot_ancillary(3, filename)
+                        .await
+                        .unwrap();
 
                     assert_eq!(
                         ancillary_snapshot.get_file_path(),
@@ -323,6 +341,7 @@ mod tests {
                 {
                     let immutable_snapshot = fake_snapshotter
                         .snapshot_immutable_trio(5, filename)
+                        .await
                         .unwrap();
 
                     assert_eq!(

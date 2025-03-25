@@ -173,8 +173,9 @@ impl ImmutableArtifactBuilder {
         &self,
         up_to_immutable_file_number: ImmutableFileNumber,
     ) -> StdResult<ImmutablesUpload> {
-        let (archives_paths, compression_algorithm) =
-            self.immutable_archives_paths_creating_the_missing_ones(up_to_immutable_file_number)?;
+        let (archives_paths, compression_algorithm) = self
+            .immutable_archives_paths_creating_the_missing_ones(up_to_immutable_file_number)
+            .await?;
         let locations = self
             .upload_immutable_archives(&archives_paths, compression_algorithm)
             .await?;
@@ -198,7 +199,7 @@ impl ImmutableArtifactBuilder {
         })
     }
 
-    pub fn immutable_archives_paths_creating_the_missing_ones(
+    pub async fn immutable_archives_paths_creating_the_missing_ones(
         &self,
         up_to_immutable_file_number: ImmutableFileNumber,
     ) -> StdResult<(Vec<PathBuf>, CompressionAlgorithm)> {
@@ -215,10 +216,10 @@ impl ImmutableArtifactBuilder {
             if let Some(existing_archive) = self.retrieve_existing_snapshot_archive(&archive_name) {
                 archive_paths.push(existing_archive);
             } else {
-                let snapshot = self.snapshotter.snapshot_immutable_trio(
-                    immutable_file_number,
-                    &archive_name_without_extension,
-                )?;
+                let snapshot = self
+                    .snapshotter
+                    .snapshot_immutable_trio(immutable_file_number, &archive_name_without_extension)
+                    .await?;
 
                 let target_path = self.immutables_storage_dir.join(&archive_name);
                 fs::rename(snapshot.get_file_path(), &target_path).with_context(|| {
@@ -458,8 +459,8 @@ mod tests {
     mod create_archive {
         use super::*;
 
-        #[test]
-        fn snapshot_immutables_files_up_to_the_given_immutable_file_number() {
+        #[tokio::test]
+        async fn snapshot_immutables_files_up_to_the_given_immutable_file_number() {
             let work_dir = get_builder_work_dir(
                 "snapshot_immutables_files_up_to_the_given_immutable_file_number",
             );
@@ -489,6 +490,7 @@ mod tests {
 
             let (archive_paths, _) = builder
                 .immutable_archives_paths_creating_the_missing_ones(2)
+                .await
                 .unwrap();
 
             assert_equivalent(
@@ -497,8 +499,8 @@ mod tests {
             )
         }
 
-        #[test]
-        fn return_error_when_one_of_the_three_immutable_files_is_missing() {
+        #[tokio::test]
+        async fn return_error_when_one_of_the_three_immutable_files_is_missing() {
             let work_dir = get_builder_work_dir(
                 "return_error_when_one_of_the_three_immutable_files_is_missing",
             );
@@ -531,13 +533,14 @@ mod tests {
 
             builder
                 .immutable_archives_paths_creating_the_missing_ones(2)
+                .await
                 .expect_err(
                     "Should return an error when one of the three immutable files is missing",
                 );
         }
 
-        #[test]
-        fn return_error_when_an_immutable_file_trio_is_missing() {
+        #[tokio::test]
+        async fn return_error_when_an_immutable_file_trio_is_missing() {
             let work_dir =
                 get_builder_work_dir("return_error_when_an_immutable_file_trio_is_missing");
             let test_dir = "error_when_an_immutable_file_trio_is_missing/cardano_database";
@@ -565,11 +568,12 @@ mod tests {
 
             builder
                 .immutable_archives_paths_creating_the_missing_ones(3)
+                .await
                 .expect_err("Should return an error when an immutable file trio is missing");
         }
 
-        #[test]
-        fn return_error_when_immutable_file_number_is_not_produced_yet() {
+        #[tokio::test]
+        async fn return_error_when_immutable_file_number_is_not_produced_yet() {
             let work_dir =
                 get_builder_work_dir("return_error_when_immutable_file_number_is_not_produced_yet");
             let test_dir = "error_when_up_to_immutable_file_number_is_missing/cardano_database";
@@ -597,6 +601,7 @@ mod tests {
 
             builder
                 .immutable_archives_paths_creating_the_missing_ones(3)
+                .await
                 .expect_err("Should return an error when an immutable file trio is missing");
         }
 
@@ -623,8 +628,8 @@ mod tests {
             );
         }
 
-        #[test]
-        fn return_all_archives_but_not_rebuild_archives_already_compressed() {
+        #[tokio::test]
+        async fn return_all_archives_but_not_rebuild_archives_already_compressed() {
             let work_dir = get_builder_work_dir("return_all_archives_but_not_rebuild_archives");
             let test_dir = "return_all_archives_but_not_rebuild_archives/cardano_database";
             let cardano_db = DummyCardanoDbBuilder::new(test_dir)
@@ -654,6 +659,7 @@ mod tests {
 
             let (archive_paths, _) = builder
                 .immutable_archives_paths_creating_the_missing_ones(3)
+                .await
                 .unwrap();
 
             assert_equivalent(
@@ -669,8 +675,8 @@ mod tests {
             assert_file_content!(work_dir.join("00002.tar.gz"), "00002 content");
         }
 
-        #[test]
-        fn return_all_archives_paths_even_if_all_archives_already_exist() {
+        #[tokio::test]
+        async fn return_all_archives_paths_even_if_all_archives_already_exist() {
             let work_dir =
                 get_builder_work_dir("return_all_archives_paths_even_if_all_archives_exist");
             let mut snapshotter = MockSnapshotter::new();
@@ -692,6 +698,7 @@ mod tests {
 
             let (archive_paths, _) = builder
                 .immutable_archives_paths_creating_the_missing_ones(3)
+                .await
                 .unwrap();
 
             assert_equivalent(
