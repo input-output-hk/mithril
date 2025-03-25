@@ -1,12 +1,9 @@
-
-
-use crate::error::{blst_err_to_mithril, MultiSignatureError};
-use blst::min_sig::{
-    AggregatePublicKey, AggregateSignature, PublicKey as BlstVk, SecretKey as BlstSk,
-    Signature as BlstSig,
-};
-use blst::{blst_p1, blst_p2, p1_affines, p2_affines, BLST_ERROR};
 use crate::bls_multi_sig::signing_key::SigningKey;
+use crate::bls_multi_sig::unsafe_helpers::{compress_p1, scalar_to_pk_in_g1, uncompress_p1};
+use crate::bls_multi_sig::POP;
+use crate::error::{blst_err_to_mithril, MultiSignatureError};
+use blst::blst_p1;
+use blst::min_sig::Signature as BlstSig;
 
 /// MultiSig proof of possession, which contains two elements from G1. However,
 /// the two elements have different types: `k1` is represented as a BlstSig
@@ -48,6 +45,14 @@ impl ProofOfPossession {
 
         Ok(Self { k1, k2 })
     }
+
+    pub(crate) fn to_k1(self) -> BlstSig {
+        self.k1
+    }
+
+    pub(crate) fn to_k2(self) -> blst_p1 {
+        self.k2
+    }
 }
 
 impl From<&SigningKey> for ProofOfPossession {
@@ -56,8 +61,7 @@ impl From<&SigningKey> for ProofOfPossession {
     /// `G1` and `g1` is the generator in `G1`.
     fn from(sk: &SigningKey) -> Self {
         let k1 = sk.to_blst_sk().sign(POP, &[], &[]);
-        let k2 = scalar_to_pk_in_g1(sk);
-
+        let k2 = scalar_to_pk_in_g1(&sk.to_blst_sk());
         Self { k1, k2 }
     }
 }

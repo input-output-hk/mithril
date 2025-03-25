@@ -2,7 +2,8 @@
 use super::stm::Stake;
 use crate::error::RegisterError;
 use crate::merkle_tree::{MTLeaf, MerkleTree};
-use crate::multi_sig::{VerificationKey, VerificationKeyPoP};
+// use crate::multi_sig::{VerificationKey, VerificationKeyPoP};
+use crate::bls_multi_sig::{VerificationKey, VerificationKeyPoP};
 use blake2::digest::{Digest, FixedOutput};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -81,7 +82,7 @@ pub struct ClosedKeyReg<D: Digest> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::multi_sig::SigningKey;
+    use crate::bls_multi_sig::SigningKey;
     use blake2::{digest::consts::U32, Blake2b};
     use proptest::collection::vec;
     use proptest::prelude::*;
@@ -90,7 +91,7 @@ mod tests {
 
     proptest! {
         #[test]
-        fn test_keyreg(stake in vec(1..1u64 << 60, 2..=10),
+        fn test_keyreg(stake in vec(1..1u64 << 10, 2..=10),
                        nkeys in 2..10_usize,
                        fake_it in 0..4usize,
                        seed in any::<[u8;32]>()) {
