@@ -197,7 +197,7 @@ impl MithrilFixture {
         epoch: Epoch,
     ) -> Certificate {
         let genesis_avk = self.compute_avk();
-        let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
+        let genesis_signer = ProtocolGenesisSigner::create_deterministic_signer();
         let genesis_producer = CertificateGenesisProducer::new(Some(Arc::new(genesis_signer)));
         let genesis_protocol_message = CertificateGenesisProducer::create_genesis_protocol_message(
             &self.protocol_parameters,

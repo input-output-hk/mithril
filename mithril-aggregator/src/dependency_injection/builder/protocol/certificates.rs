@@ -111,8 +111,7 @@ impl DependenciesBuilder {
                     error: Some(e),
                 })?,
             ),
-            _ => ProtocolGenesisSigner::create_deterministic_genesis_signer()
-                .create_genesis_verifier(),
+            _ => ProtocolGenesisSigner::create_deterministic_signer().create_verifier(),
         };
 
         Ok(Arc::new(genesis_verifier))

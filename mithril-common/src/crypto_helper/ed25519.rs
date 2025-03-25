@@ -26,7 +26,7 @@ pub type Ed25519Signature = ProtocolKey<ed25519_dalek::Signature>;
 pub struct Ed25519VerifierError(#[source] StdError);
 
 /// A cryptographic signer that is responsible for signing messages using Ed25519 signature scheme
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Ed25519Signer {
     pub(crate) secret_key: Ed25519SecretKey,
 }

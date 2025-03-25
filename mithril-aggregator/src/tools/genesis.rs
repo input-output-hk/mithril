@@ -203,7 +203,7 @@ impl GenesisTools {
 
     /// Export the genesis keypair to a folder and returns the paths to the files (secret key, verification_key)
     pub fn create_and_save_genesis_keypair(keypair_path: &Path) -> StdResult<(PathBuf, PathBuf)> {
-        let genesis_signer = ProtocolGenesisSigner::create_non_deterministic_genesis_signer();
+        let genesis_signer = ProtocolGenesisSigner::create_non_deterministic_signer();
         let genesis_secret_key_path = keypair_path.join("genesis.sk");
         genesis_signer
             .secret_key()
@@ -258,7 +258,7 @@ mod tests {
             certificate_store.clone(),
         ));
         let genesis_avk = create_fake_genesis_avk();
-        let genesis_verifier = Arc::new(genesis_signer.create_genesis_verifier());
+        let genesis_verifier = Arc::new(genesis_signer.create_verifier());
         let genesis_tools = GenesisTools::new(
             fake_data::network(),
             TimePoint::dummy(),
@@ -324,7 +324,7 @@ mod tests {
 
     #[tokio::test]
     async fn bootstrap_test_genesis_certificate_works() {
-        let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
+        let genesis_signer = ProtocolGenesisSigner::create_deterministic_signer();
         let (genesis_tools, certificate_store, genesis_verifier, certificate_verifier) =
             build_tools(&genesis_signer);
 
@@ -364,7 +364,7 @@ mod tests {
         )
         .expect("Failed to parse genesis verification key");
         let genesis_verifier =
-            ProtocolGenesisSigner::from_secret_key(genesis_secret_key).create_genesis_verifier();
+            ProtocolGenesisSigner::from_secret_key(genesis_secret_key).create_verifier();
 
         let expected_genesis_verification_key = genesis_verifier.to_verification_key();
         assert_eq!(expected_genesis_verification_key, genesis_verification_key);

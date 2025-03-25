@@ -1,5 +1,5 @@
 //! Test data builders for Mithril STM types, for testing purpose.
-use super::{genesis::*, types::*, OpCert, SerDeShelleyFileFormat};
+use super::{ed25519_alias::genesis::*, types::*, OpCert, SerDeShelleyFileFormat};
 use crate::{
     entities::{Certificate, ProtocolMessage, ProtocolMessagePartKey, SignerWithStake, Stake},
     test_utils::{CertificateChainBuilder, SignerFixture, TempDir},

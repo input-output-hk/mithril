@@ -150,7 +150,7 @@ impl RuntimeTester {
                 .unwrap()
                 .join("fake_snapshots"),
         ));
-        let genesis_signer = Arc::new(ProtocolGenesisSigner::create_deterministic_genesis_signer());
+        let genesis_signer = Arc::new(ProtocolGenesisSigner::create_deterministic_signer());
         let era_reader_adapter =
             Arc::new(EraReaderDummyAdapter::from_markers(vec![EraMarker::new(
                 &SupportedEra::dummy().to_string(),

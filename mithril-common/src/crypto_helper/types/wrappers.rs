@@ -21,17 +21,8 @@ pub type ProtocolSingleSignature = ProtocolKey<StmSig>;
 /// Wrapper of [MithrilStm:StmAggrSig](struct@StmAggrSig) to add serialization utilities.
 pub type ProtocolMultiSignature = ProtocolKey<StmAggrSig<D>>;
 
-/// Wrapper of [Ed25519:Signature](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.Signature.html).
-pub type ProtocolGenesisSignature = ProtocolKey<ed25519_dalek::Signature>;
-
 /// Wrapper of [OpCert] to add serialization utilities.
 pub type ProtocolOpCert = ProtocolKey<OpCert>;
-
-/// Wrapper of [Ed25519:PublicKey](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.VerifyingKey.html).
-pub type ProtocolGenesisVerificationKey = ProtocolKey<ed25519_dalek::VerifyingKey>;
-
-/// Wrapper of [Ed25519:SigningKey](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.SigningKey.html).
-pub type ProtocolGenesisSecretKey = ProtocolKey<ed25519_dalek::SigningKey>;
 
 /// Wrapper of [MithrilStm:StmAggrVerificationKey](struct@StmAggrVerificationKey).
 pub type ProtocolAggregateVerificationKey = ProtocolKey<StmAggrVerificationKey<D>>;
