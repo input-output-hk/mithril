@@ -20,3 +20,5 @@ pub mod multi_sig;
 
 #[cfg(not(feature = "benchmark-internals"))]
 mod multi_sig;
+
+mod bls_multi_sig;
