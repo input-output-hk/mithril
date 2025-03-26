@@ -163,218 +163,231 @@ mod tests {
         DummyCardanoDbBuilder, IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR,
     };
     use mithril_common::entities::CompressionAlgorithm;
+    use mithril_common::temp_dir_create;
 
     use crate::tools::file_archiver::test_tools::*;
     use crate::tools::file_archiver::{ArchiveParameters, FileArchiver};
 
     use super::*;
 
-    #[test]
-    fn appender_entries_should_create_archive_only_for_specified_directories_and_files() {
-        let test_dir = get_test_directory("only_for_specified_directories_and_files");
-        let source = test_dir.join(create_dir(&test_dir, "source"));
+    mod appender_entries {
+        use super::*;
 
-        let directory_to_archive_path = create_dir(&source, "directory_to_archive");
-        let file_to_archive_path = create_file(&source, "file_to_archive.txt");
-        let directory_not_to_archive_path = create_dir(&source, "directory_not_to_archive");
-        let file_not_to_archive_path = create_file(&source, "file_not_to_archive.txt");
+        #[test]
+        fn create_archive_only_for_specified_directories_and_files() {
+            let test_dir = temp_dir_create!();
+            let source = test_dir.join(create_dir(&test_dir, "source"));
 
-        let file_archiver = FileArchiver::new_for_test(test_dir.join("verification"));
+            let directory_to_archive_path = create_dir(&source, "directory_to_archive");
+            let file_to_archive_path = create_file(&source, "file_to_archive.txt");
+            let directory_not_to_archive_path = create_dir(&source, "directory_not_to_archive");
+            let file_not_to_archive_path = create_file(&source, "file_not_to_archive.txt");
 
-        let archive = file_archiver
-            .archive(
-                ArchiveParameters {
-                    archive_name_without_extension: "archive".to_string(),
-                    target_directory: test_dir.clone(),
-                    compression_algorithm: CompressionAlgorithm::Gzip,
-                },
-                AppenderEntries::new(
-                    vec![
-                        directory_to_archive_path.clone(),
-                        file_to_archive_path.clone(),
-                    ],
-                    source,
+            let file_archiver = FileArchiver::new_for_test(test_dir.join("verification"));
+
+            let archive = file_archiver
+                .archive(
+                    ArchiveParameters {
+                        archive_name_without_extension: "archive".to_string(),
+                        target_directory: test_dir.clone(),
+                        compression_algorithm: CompressionAlgorithm::Gzip,
+                    },
+                    AppenderEntries::new(
+                        vec![
+                            directory_to_archive_path.clone(),
+                            file_to_archive_path.clone(),
+                        ],
+                        source,
+                    )
+                    .unwrap(),
                 )
-                .unwrap(),
-            )
-            .unwrap();
+                .unwrap();
 
-        let unpack_path = archive.unpack_gzip(&test_dir);
+            let unpack_path = archive.unpack_gzip(&test_dir);
 
-        assert!(unpack_path.join(directory_to_archive_path).is_dir());
-        assert!(unpack_path.join(file_to_archive_path).is_file());
-        assert!(!unpack_path.join(directory_not_to_archive_path).exists());
-        assert!(!unpack_path.join(file_not_to_archive_path).exists());
-    }
+            assert!(unpack_path.join(directory_to_archive_path).is_dir());
+            assert!(unpack_path.join(file_to_archive_path).is_file());
+            assert!(!unpack_path.join(directory_not_to_archive_path).exists());
+            assert!(!unpack_path.join(file_not_to_archive_path).exists());
+        }
 
-    #[test]
-    fn appender_entries_return_error_when_file_or_directory_not_exist() {
-        let test_dir = get_test_directory("file_or_directory_not_exist");
-        let target_archive = test_dir.join("whatever.tar.gz");
-        let source = test_dir.join(create_dir(&test_dir, "source"));
+        #[test]
+        fn return_error_when_appending_file_or_directory_that_does_not_exist() {
+            let test_dir = temp_dir_create!();
+            let target_archive = test_dir.join("whatever.tar.gz");
+            let source = test_dir.join(create_dir(&test_dir, "source"));
 
-        let file_archiver = FileArchiver::new_for_test(test_dir.join("verification"));
+            let file_archiver = FileArchiver::new_for_test(test_dir.join("verification"));
 
-        file_archiver
-            .archive(
-                ArchiveParameters {
-                    archive_name_without_extension: "archive".to_string(),
-                    target_directory: test_dir.clone(),
-                    compression_algorithm: CompressionAlgorithm::Gzip,
-                },
-                AppenderEntries::new(vec![PathBuf::from("not_exist")], source).unwrap(),
-            )
-            .expect_err("AppenderEntries should return error when file or directory not exist");
-        assert!(!target_archive.exists());
-    }
-
-    #[test]
-    fn appender_entries_return_error_when_empty_entries() {
-        let appender_creation_result = AppenderEntries::new(vec![], PathBuf::new());
-        assert!(appender_creation_result.is_err(),);
-    }
-
-    #[test]
-    fn appender_entries_with_duplicate_files_and_directories() {
-        let test_dir = get_test_directory("with_duplicate_files_and_directories");
-        let source = test_dir.join(create_dir(&test_dir, "source"));
-
-        let directory_to_archive_path = create_dir(&source, "directory_to_archive");
-        let file_to_archive_path = create_file(&source, "directory_to_archive/file_to_archive.txt");
-
-        let file_archiver = FileArchiver::new_for_test(test_dir.join("verification"));
-
-        let archive = file_archiver
-            .archive(
-                ArchiveParameters {
-                    archive_name_without_extension: "archive".to_string(),
-                    target_directory: test_dir.clone(),
-                    compression_algorithm: CompressionAlgorithm::Gzip,
-                },
-                AppenderEntries::new(
-                    vec![
-                        directory_to_archive_path.clone(),
-                        directory_to_archive_path.clone(),
-                        file_to_archive_path.clone(),
-                        file_to_archive_path.clone(),
-                    ],
-                    source,
+            file_archiver
+                .archive(
+                    ArchiveParameters {
+                        archive_name_without_extension: "archive".to_string(),
+                        target_directory: test_dir.clone(),
+                        compression_algorithm: CompressionAlgorithm::Gzip,
+                    },
+                    AppenderEntries::new(vec![PathBuf::from("not_exist")], source).unwrap(),
                 )
-                .unwrap(),
+                .expect_err("AppenderEntries should return error when file or directory not exist");
+            assert!(!target_archive.exists());
+        }
+
+        #[test]
+        fn return_error_when_appending_empty_entries() {
+            let appender_creation_result = AppenderEntries::new(vec![], PathBuf::new());
+            assert!(appender_creation_result.is_err(),);
+        }
+
+        #[test]
+        fn can_append_duplicate_files_and_directories() {
+            let test_dir = temp_dir_create!();
+            let source = test_dir.join(create_dir(&test_dir, "source"));
+
+            let directory_to_archive_path = create_dir(&source, "directory_to_archive");
+            let file_to_archive_path =
+                create_file(&source, "directory_to_archive/file_to_archive.txt");
+
+            let file_archiver = FileArchiver::new_for_test(test_dir.join("verification"));
+
+            let archive = file_archiver
+                .archive(
+                    ArchiveParameters {
+                        archive_name_without_extension: "archive".to_string(),
+                        target_directory: test_dir.clone(),
+                        compression_algorithm: CompressionAlgorithm::Gzip,
+                    },
+                    AppenderEntries::new(
+                        vec![
+                            directory_to_archive_path.clone(),
+                            directory_to_archive_path.clone(),
+                            file_to_archive_path.clone(),
+                            file_to_archive_path.clone(),
+                        ],
+                        source,
+                    )
+                    .unwrap(),
+                )
+                .unwrap();
+
+            let unpack_path = archive.unpack_gzip(&test_dir);
+
+            assert!(unpack_path.join(directory_to_archive_path).is_dir());
+            assert!(unpack_path.join(file_to_archive_path).is_file());
+        }
+
+        #[test]
+        fn compute_uncompressed_size_of_its_paths() {
+            let test_dir = "compute_uncompressed_size_of_its_paths";
+
+            let immutable_trio_file_size = 777;
+            let ledger_file_size = 6666;
+            let volatile_file_size = 99;
+
+            let cardano_db = DummyCardanoDbBuilder::new(test_dir)
+                .with_immutables(&[1, 2, 3])
+                .set_immutable_trio_file_size(immutable_trio_file_size)
+                .with_ledger_files(&["437", "537", "637", "737"])
+                .set_ledger_file_size(ledger_file_size)
+                .with_volatile_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
+                .set_volatile_file_size(volatile_file_size)
+                .build();
+
+            let appender_entries = AppenderEntries::new(
+                vec![
+                    PathBuf::from(IMMUTABLE_DIR),
+                    PathBuf::from(LEDGER_DIR).join("437"),
+                    PathBuf::from(LEDGER_DIR).join("537"),
+                    PathBuf::from(VOLATILE_DIR).join("blocks-0.dat"),
+                ],
+                cardano_db.get_dir().clone(),
             )
             .unwrap();
 
-        let unpack_path = archive.unpack_gzip(&test_dir);
-
-        assert!(unpack_path.join(directory_to_archive_path).is_dir());
-        assert!(unpack_path.join(file_to_archive_path).is_file());
+            let entries_size = appender_entries.compute_uncompressed_data_size().unwrap();
+            let expected_total_size =
+                (immutable_trio_file_size * 3) + (2 * ledger_file_size) + volatile_file_size;
+            assert_eq!(expected_total_size, entries_size);
+        }
     }
 
-    #[test]
-    fn appender_file_should_append_file_to_tar() {
-        let test_dir = get_test_directory("appender_file_should_append_file_to_tar");
-        let file_to_archive = create_file(&test_dir, "test_file.txt");
+    mod appender_file {
+        use super::*;
 
-        let file_archiver = FileArchiver::new_for_test(test_dir.join("verification"));
-        let archive = file_archiver
-            .archive(
-                ArchiveParameters {
-                    archive_name_without_extension: "archive".to_string(),
-                    target_directory: test_dir.clone(),
-                    compression_algorithm: CompressionAlgorithm::Gzip,
-                },
-                AppenderFile::append_at_archive_root(test_dir.join(&file_to_archive)).unwrap(),
-            )
-            .unwrap();
+        #[test]
+        fn appending_file_to_tar() {
+            let test_dir = temp_dir_create!();
+            let file_to_archive = create_file(&test_dir, "test_file.txt");
 
-        let unpack_path = archive.unpack_gzip(&test_dir);
+            let file_archiver = FileArchiver::new_for_test(test_dir.join("verification"));
+            let archive = file_archiver
+                .archive(
+                    ArchiveParameters {
+                        archive_name_without_extension: "archive".to_string(),
+                        target_directory: test_dir.clone(),
+                        compression_algorithm: CompressionAlgorithm::Gzip,
+                    },
+                    AppenderFile::append_at_archive_root(test_dir.join(&file_to_archive)).unwrap(),
+                )
+                .unwrap();
 
-        assert!(unpack_path.join(file_to_archive).exists());
+            let unpack_path = archive.unpack_gzip(&test_dir);
+
+            assert!(unpack_path.join(file_to_archive).exists());
+        }
+
+        #[test]
+        fn return_error_if_file_does_not_exist() {
+            let target_file_path = PathBuf::from("non_existent_file.txt");
+            assert!(AppenderFile::append_at_archive_root(target_file_path).is_err());
+        }
+
+        #[test]
+        fn return_error_if_input_is_not_a_file() {
+            let test_dir = temp_dir_create!();
+            assert!(AppenderFile::append_at_archive_root(test_dir).is_err());
+        }
+
+        #[test]
+        fn compute_uncompressed_size() {
+            let test_dir = temp_dir_create!();
+
+            let file_path = test_dir.join("file.txt");
+            let file = File::create(&file_path).unwrap();
+            file.set_len(777).unwrap();
+
+            let appender_file = AppenderFile::append_at_archive_root(file_path).unwrap();
+
+            let entries_size = appender_file.compute_uncompressed_data_size().unwrap();
+            assert_eq!(777, entries_size);
+        }
     }
 
-    #[test]
-    fn appender_file_should_return_error_if_file_does_not_exist() {
-        let target_file_path = PathBuf::from("non_existent_file.txt");
-        assert!(AppenderFile::append_at_archive_root(target_file_path).is_err());
-    }
+    mod appender_dir_all {
+        use super::*;
 
-    #[test]
-    fn appender_file_should_return_error_if_input_is_not_a_file() {
-        let test_dir =
-            get_test_directory("appender_file_should_return_error_if_input_is_not_a_file");
-        assert!(AppenderFile::append_at_archive_root(test_dir).is_err());
-    }
+        #[test]
+        fn compute_uncompressed_size() {
+            let test_dir = "appender_dir_all_compute_size";
 
-    #[test]
-    fn appender_dir_all_compute_size() {
-        let test_dir = "appender_dir_all_compute_size";
+            let immutable_trio_file_size = 777;
+            let ledger_file_size = 6666;
+            let volatile_file_size = 99;
 
-        let immutable_trio_file_size = 777;
-        let ledger_file_size = 6666;
-        let volatile_file_size = 99;
+            let cardano_db = DummyCardanoDbBuilder::new(test_dir)
+                .with_immutables(&[1, 2])
+                .set_immutable_trio_file_size(immutable_trio_file_size)
+                .with_ledger_files(&["437", "537", "637"])
+                .set_ledger_file_size(ledger_file_size)
+                .with_volatile_files(&["blocks-0.dat"])
+                .set_volatile_file_size(volatile_file_size)
+                .build();
 
-        let cardano_db = DummyCardanoDbBuilder::new(test_dir)
-            .with_immutables(&[1, 2])
-            .set_immutable_trio_file_size(immutable_trio_file_size)
-            .with_ledger_files(&["437", "537", "637"])
-            .set_ledger_file_size(ledger_file_size)
-            .with_volatile_files(&["blocks-0.dat"])
-            .set_volatile_file_size(volatile_file_size)
-            .build();
+            let appender_dir_all = AppenderDirAll::new(cardano_db.get_dir().clone());
 
-        let appender_dir_all = AppenderDirAll::new(cardano_db.get_dir().clone());
-
-        let entries_size = appender_dir_all.compute_uncompressed_data_size().unwrap();
-        let expected_total_size =
-            (immutable_trio_file_size * 2) + (3 * ledger_file_size) + volatile_file_size;
-        assert_eq!(expected_total_size, entries_size);
-    }
-
-    #[test]
-    fn appender_file_all_compute_size() {
-        let test_dir = get_test_directory("appender_file_all_compute_size");
-
-        let file_path = test_dir.join("file.txt");
-        let file = File::create(&file_path).unwrap();
-        file.set_len(777).unwrap();
-
-        let appender_file = AppenderFile::append_at_archive_root(file_path).unwrap();
-
-        let entries_size = appender_file.compute_uncompressed_data_size().unwrap();
-        assert_eq!(777, entries_size);
-    }
-
-    #[test]
-    fn appender_entries_compute_size_of_its_paths() {
-        let test_dir = "appender_entries_compute_size_of_its_paths";
-
-        let immutable_trio_file_size = 777;
-        let ledger_file_size = 6666;
-        let volatile_file_size = 99;
-
-        let cardano_db = DummyCardanoDbBuilder::new(test_dir)
-            .with_immutables(&[1, 2, 3])
-            .set_immutable_trio_file_size(immutable_trio_file_size)
-            .with_ledger_files(&["437", "537", "637", "737"])
-            .set_ledger_file_size(ledger_file_size)
-            .with_volatile_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
-            .set_volatile_file_size(volatile_file_size)
-            .build();
-
-        let appender_entries = AppenderEntries::new(
-            vec![
-                PathBuf::from(IMMUTABLE_DIR),
-                PathBuf::from(LEDGER_DIR).join("437"),
-                PathBuf::from(LEDGER_DIR).join("537"),
-                PathBuf::from(VOLATILE_DIR).join("blocks-0.dat"),
-            ],
-            cardano_db.get_dir().clone(),
-        )
-        .unwrap();
-
-        let entries_size = appender_entries.compute_uncompressed_data_size().unwrap();
-        let expected_total_size =
-            (immutable_trio_file_size * 3) + (2 * ledger_file_size) + volatile_file_size;
-        assert_eq!(expected_total_size, entries_size);
+            let entries_size = appender_dir_all.compute_uncompressed_data_size().unwrap();
+            let expected_total_size =
+                (immutable_trio_file_size * 2) + (3 * ledger_file_size) + volatile_file_size;
+            assert_eq!(expected_total_size, entries_size);
+        }
     }
 }
