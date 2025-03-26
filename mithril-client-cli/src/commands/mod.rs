@@ -23,10 +23,15 @@ pub struct SharedArgs {
     /// Enable JSON output.
     #[clap(long)]
     json: bool,
+
+    /// Request origin tag
+    #[clap(long)]
+    origin_tag: Option<String>,
 }
 
 pub(crate) fn client_builder(params: &ConfigParameters) -> MithrilResult<ClientBuilder> {
     let builder = ClientBuilder::aggregator(
+        params.get("origin_tag"),
         &params.require("aggregator_endpoint")?,
         &params.require("genesis_verification_key")?,
     );
@@ -44,6 +49,7 @@ pub(crate) fn client_builder_with_fallback_genesis_key(
         5322c3138302c37322c3133342c3133372c3234372c3136312c36385d";
 
     let builder = ClientBuilder::aggregator(
+        params.get("origin_tag"),
         &params.require("aggregator_endpoint")?,
         &params.get_or(
             "genesis_verification_key",
