@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context};
+use async_trait::async_trait;
 use slog::{debug, Logger};
 use std::fs;
 use std::path::PathBuf;
@@ -33,8 +34,9 @@ pub struct CompressedArchiveSnapshotter {
     logger: Logger,
 }
 
+#[async_trait]
 impl Snapshotter for CompressedArchiveSnapshotter {
-    fn snapshot_all_completed_immutables(
+    async fn snapshot_all_completed_immutables(
         &self,
         archive_name_without_extension: &str,
     ) -> StdResult<FileArchive> {
@@ -57,9 +59,10 @@ impl Snapshotter for CompressedArchiveSnapshotter {
             .collect();
         let appender = AppenderEntries::new(paths_to_include, self.db_directory.clone())?;
         self.snapshot(archive_name_without_extension, appender)
+            .await
     }
 
-    fn snapshot_ancillary(
+    async fn snapshot_ancillary(
         &self,
         immutable_file_number: ImmutableFileNumber,
         archive_name_without_extension: &str,
@@ -73,9 +76,10 @@ impl Snapshotter for CompressedArchiveSnapshotter {
             self.get_files_and_directories_for_ancillary_snapshot(immutable_file_number)?;
         let appender = AppenderEntries::new(paths_to_include, self.db_directory.clone())?;
         self.snapshot(archive_name_without_extension, appender)
+            .await
     }
 
-    fn snapshot_immutable_trio(
+    async fn snapshot_immutable_trio(
         &self,
         immutable_file_number: ImmutableFileNumber,
         archive_name_without_extension: &str,
@@ -92,6 +96,7 @@ impl Snapshotter for CompressedArchiveSnapshotter {
         let appender = AppenderEntries::new(files_to_archive, self.db_directory.clone())?;
 
         self.snapshot(archive_name_without_extension, appender)
+            .await
     }
 
     fn compression_algorithm(&self) -> CompressionAlgorithm {
@@ -136,19 +141,25 @@ impl CompressedArchiveSnapshotter {
         })
     }
 
-    fn snapshot<T: TarAppender>(
+    async fn snapshot<T: TarAppender + 'static>(
         &self,
         name_without_extension: &str,
         appender: T,
     ) -> StdResult<FileArchive> {
-        self.file_archiver.archive(
-            ArchiveParameters {
-                archive_name_without_extension: name_without_extension.to_string(),
-                target_directory: self.ongoing_snapshot_directory.clone(),
-                compression_algorithm: self.compression_algorithm,
-            },
-            appender,
-        )
+        let file_archiver = self.file_archiver.clone();
+        let parameters = ArchiveParameters {
+            archive_name_without_extension: name_without_extension.to_string(),
+            target_directory: self.ongoing_snapshot_directory.clone(),
+            compression_algorithm: self.compression_algorithm,
+        };
+
+        // spawn a separate thread to prevent blocking
+        let file_archive = tokio::task::spawn_blocking(move || -> StdResult<FileArchive> {
+            file_archiver.archive(parameters, appender)
+        })
+        .await??;
+
+        Ok(file_archive)
     }
 
     /// Returns the list of files and directories to include in ancillary snapshot.
@@ -272,8 +283,8 @@ mod tests {
         assert_eq!(0, fs::read_dir(ongoing_snapshot_directory).unwrap().count());
     }
 
-    #[test]
-    fn should_create_snapshots_in_its_ongoing_snapshot_directory() {
+    #[tokio::test]
+    async fn should_create_snapshots_in_its_ongoing_snapshot_directory() {
         let test_dir = temp_dir_create!();
         let pending_snapshot_directory = test_dir.join("pending_snapshot");
         let cardano_db =
@@ -292,6 +303,7 @@ mod tests {
         .unwrap();
         let snapshot = snapshotter
             .snapshot_all_completed_immutables("whatever")
+            .await
             .unwrap();
 
         assert_eq!(
@@ -303,8 +315,8 @@ mod tests {
     mod snapshot_all_completed_immutables {
         use super::*;
 
-        #[test]
-        fn include_only_completed_immutables() {
+        #[tokio::test]
+        async fn include_only_completed_immutables() {
             let test_dir = temp_dir_create!();
             let cardano_db = DummyCardanoDbBuilder::new(
                 "snapshot_all_immutables_include_only_completed_immutables",
@@ -321,6 +333,7 @@ mod tests {
 
             let snapshot = snapshotter
                 .snapshot_all_completed_immutables("completed_immutables")
+                .await
                 .unwrap();
 
             let unpack_dir = snapshot.unpack_gzip(&test_dir);
@@ -348,8 +361,8 @@ mod tests {
     mod snapshot_immutable_trio {
         use super::*;
 
-        #[test]
-        fn include_only_immutable_trio() {
+        #[tokio::test]
+        async fn include_only_immutable_trio() {
             let test_dir = get_test_directory("include_only_immutable_trio");
             let cardano_db = DummyCardanoDbBuilder::new("include_only_immutable_trio")
                 .with_immutables(&[1, 2, 3])
@@ -363,6 +376,7 @@ mod tests {
 
             let snapshot = snapshotter
                 .snapshot_immutable_trio(2, "immutable-2")
+                .await
                 .unwrap();
 
             let unpack_dir = snapshot.unpack_gzip(&test_dir);
@@ -404,7 +418,10 @@ mod tests {
             let snapshotter =
                 snapshotter_for_test(&test_dir, db_directory, CompressionAlgorithm::Gzip);
 
-            let snapshot = snapshotter.snapshot_ancillary(2, "ancillary").unwrap();
+            let snapshot = snapshotter
+                .snapshot_ancillary(2, "ancillary")
+                .await
+                .unwrap();
 
             let unpack_dir = snapshot.unpack_gzip(&test_dir);
 

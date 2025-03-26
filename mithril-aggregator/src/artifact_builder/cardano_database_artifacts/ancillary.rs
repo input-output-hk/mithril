@@ -115,7 +115,7 @@ impl AncillaryArtifactBuilder {
     }
 
     pub async fn upload(&self, beacon: &CardanoDbBeacon) -> StdResult<AncillaryUpload> {
-        let snapshot = self.create_ancillary_archive(beacon)?;
+        let snapshot = self.create_ancillary_archive(beacon).await?;
         let locations = self.upload_ancillary_archive(&snapshot).await?;
 
         Ok(AncillaryUpload {
@@ -125,7 +125,7 @@ impl AncillaryArtifactBuilder {
     }
 
     /// Creates an archive for the Cardano database ancillary files for the given immutable file number.
-    fn create_ancillary_archive(&self, beacon: &CardanoDbBeacon) -> StdResult<FileArchive> {
+    async fn create_ancillary_archive(&self, beacon: &CardanoDbBeacon) -> StdResult<FileArchive> {
         debug!(
             self.logger,
             "Creating ancillary archive for immutable file number: {}",
@@ -140,6 +140,7 @@ impl AncillaryArtifactBuilder {
         let snapshot = self
             .snapshotter
             .snapshot_ancillary(beacon.immutable_file_number, &archive_name)
+            .await
             .with_context(|| {
                 format!(
                     "Failed to create ancillary archive for immutable file number: {}",

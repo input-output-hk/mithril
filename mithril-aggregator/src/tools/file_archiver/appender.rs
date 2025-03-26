@@ -8,7 +8,7 @@ use mithril_common::StdResult;
 use crate::tools::file_size;
 
 /// Define multiple ways to append content to a tar archive.
-pub trait TarAppender {
+pub trait TarAppender: Send {
     fn append<T: Write>(&self, tar: &mut tar::Builder<T>) -> StdResult<()>;
 
     fn compute_uncompressed_data_size(&self) -> StdResult<u64>;

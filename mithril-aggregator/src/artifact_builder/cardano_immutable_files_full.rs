@@ -58,11 +58,9 @@ impl CardanoImmutableFilesFullArtifactBuilder {
 
         let snapshotter = self.snapshotter.clone();
         let snapshot_name = base_file_name_without_extension.to_owned();
-        // spawn a separate thread to prevent blocking
-        let ongoing_snapshot = tokio::task::spawn_blocking(move || -> StdResult<FileArchive> {
-            snapshotter.snapshot_all_completed_immutables(&snapshot_name)
-        })
-        .await??;
+        let ongoing_snapshot = snapshotter
+            .snapshot_all_completed_immutables(&snapshot_name)
+            .await?;
 
         debug!(
             self.logger,
@@ -81,11 +79,9 @@ impl CardanoImmutableFilesFullArtifactBuilder {
 
         let snapshotter = self.snapshotter.clone();
         let snapshot_name = format!("{base_file_name_without_extension}.ancillary");
-        // spawn a separate thread to prevent blocking
-        let ongoing_snapshot = tokio::task::spawn_blocking(move || -> StdResult<FileArchive> {
-            snapshotter.snapshot_ancillary(immutable_file_number, &snapshot_name)
-        })
-        .await??;
+        let ongoing_snapshot = snapshotter
+            .snapshot_ancillary(immutable_file_number, &snapshot_name)
+            .await?;
 
         debug!(
             self.logger,

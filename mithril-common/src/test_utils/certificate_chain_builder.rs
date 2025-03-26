@@ -295,8 +295,8 @@ impl<'a> CertificateChainBuilder<'a> {
     }
 
     fn setup_genesis() -> (ProtocolGenesisSigner, ProtocolGenesisVerifier) {
-        let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
-        let genesis_verifier = genesis_signer.create_genesis_verifier();
+        let genesis_signer = ProtocolGenesisSigner::create_deterministic_signer();
+        let genesis_verifier = genesis_signer.create_verifier();
 
         (genesis_signer, genesis_verifier)
     }

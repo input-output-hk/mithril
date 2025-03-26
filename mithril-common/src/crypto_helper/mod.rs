@@ -3,8 +3,8 @@
 mod cardano;
 mod codec;
 mod conversions;
-mod era;
-mod genesis;
+pub mod ed25519;
+mod ed25519_alias;
 mod merkle_map;
 mod merkle_tree;
 mod types;
@@ -20,11 +20,7 @@ pub use cardano::{
     SerDeShelleyFileFormat, Sum6KesBytes,
 };
 pub use codec::*;
-pub use era::{
-    EraMarkersSigner, EraMarkersVerifier, EraMarkersVerifierError, EraMarkersVerifierSecretKey,
-    EraMarkersVerifierSignature, EraMarkersVerifierVerificationKey,
-};
-pub use genesis::{ProtocolGenesisError, ProtocolGenesisSigner, ProtocolGenesisVerifier};
+pub use ed25519_alias::{era::*, genesis::*};
 pub use merkle_map::{MKMap, MKMapKey, MKMapNode, MKMapProof, MKMapValue};
 pub use merkle_tree::{
     Bytes, MKProof, MKTree, MKTreeLeafIndexer, MKTreeLeafPosition, MKTreeNode, MKTreeStoreInMemory,

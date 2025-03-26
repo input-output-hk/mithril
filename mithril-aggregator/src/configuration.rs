@@ -235,8 +235,8 @@ impl Default for ZstandardCompressionParameters {
 impl Configuration {
     /// Create a sample configuration mainly for tests
     pub fn new_sample(tmp_path: PathBuf) -> Self {
-        let genesis_verification_key = ProtocolGenesisSigner::create_deterministic_genesis_signer()
-            .create_genesis_verifier()
+        let genesis_verification_key = ProtocolGenesisSigner::create_deterministic_signer()
+            .create_verifier()
             .to_verification_key();
 
         Self {
