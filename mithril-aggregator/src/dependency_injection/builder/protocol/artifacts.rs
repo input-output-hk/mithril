@@ -15,6 +15,7 @@ use crate::file_uploaders::{
     CloudRemotePath, FileUploadRetryPolicy, GcpBackendUploader, GcpUploader, LocalUploader,
 };
 use crate::http_server::{CARDANO_DATABASE_DOWNLOAD_PATH, SNAPSHOT_DOWNLOAD_PATH};
+use crate::services::ancillary_signer::AncillarySigner;
 use crate::services::{
     CompressedArchiveSnapshotter, DumbSnapshotter, MithrilSignedEntityService, SignedEntityService,
     SignedEntityServiceArtifactsDependencies, Snapshotter,
@@ -112,6 +113,10 @@ impl DependenciesBuilder {
         Ok(self.file_archiver.as_ref().cloned().unwrap())
     }
 
+    async fn get_ancillary_signer(&self) -> Result<Arc<dyn AncillarySigner>> {
+        todo!()
+    }
+
     async fn build_snapshotter(&mut self) -> Result<Arc<dyn Snapshotter>> {
         let snapshotter: Arc<dyn Snapshotter> = match self.configuration.environment {
             ExecutionEnvironment::Production => {
@@ -125,6 +130,7 @@ impl DependenciesBuilder {
                     ongoing_snapshot_directory,
                     self.configuration.snapshot_compression_algorithm,
                     self.get_file_archiver().await?,
+                    self.get_ancillary_signer().await?,
                     self.root_logger(),
                 )?)
             }

@@ -8,15 +8,15 @@ use std::sync::Arc;
 use mithril_common::digesters::{
     immutable_trio_names, ImmutableFile, LedgerFile, IMMUTABLE_DIR, LEDGER_DIR,
 };
-use mithril_common::entities::{CompressionAlgorithm, ImmutableFileNumber};
+use mithril_common::entities::{AncillaryFilesManifest, CompressionAlgorithm, ImmutableFileNumber};
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
 use crate::dependency_injection::DependenciesBuilderError;
-use crate::tools::file_archiver::appender::{AppenderEntries, TarAppender};
+use crate::tools::file_archiver::appender::{AppenderData, AppenderEntries, TarAppender};
 use crate::tools::file_archiver::{ArchiveParameters, FileArchive, FileArchiver};
 
-use super::Snapshotter;
+use super::{ancillary_signer::AncillarySigner, Snapshotter};
 
 /// Compressed Archive Snapshotter create a compressed file.
 pub struct CompressedArchiveSnapshotter {
@@ -30,6 +30,8 @@ pub struct CompressedArchiveSnapshotter {
     compression_algorithm: CompressionAlgorithm,
 
     file_archiver: Arc<FileArchiver>,
+
+    ancillary_signer: Arc<dyn AncillarySigner>,
 
     logger: Logger,
 }
@@ -74,7 +76,12 @@ impl Snapshotter for CompressedArchiveSnapshotter {
 
         let paths_to_include =
             self.get_files_and_directories_for_ancillary_snapshot(immutable_file_number)?;
-        let appender = AppenderEntries::new(paths_to_include, self.db_directory.clone())?;
+        let signed_manifest = self
+            .build_and_sign_ancillary_manifest(paths_to_include.clone())
+            .await?;
+        let appender = AppenderEntries::new(paths_to_include, self.db_directory.clone())?.chain(
+            AppenderData::from_json(PathBuf::from("ancillary_manifest.json"), &signed_manifest)?,
+        );
         self.snapshot(archive_name_without_extension, appender)
             .await
     }
@@ -111,6 +118,7 @@ impl CompressedArchiveSnapshotter {
         ongoing_snapshot_directory: PathBuf,
         compression_algorithm: CompressionAlgorithm,
         file_archiver: Arc<FileArchiver>,
+        ancillary_signer: Arc<dyn AncillarySigner>,
         logger: Logger,
     ) -> StdResult<CompressedArchiveSnapshotter> {
         if ongoing_snapshot_directory.exists() {
@@ -137,6 +145,7 @@ impl CompressedArchiveSnapshotter {
             ongoing_snapshot_directory,
             compression_algorithm,
             file_archiver,
+            ancillary_signer,
             logger: logger.new_with_component_name::<Self>(),
         })
     }
@@ -186,6 +195,24 @@ impl CompressedArchiveSnapshotter {
 
         Ok(files_to_snapshot)
     }
+
+    async fn build_and_sign_ancillary_manifest(
+        &self,
+        paths_to_include: Vec<PathBuf>,
+    ) -> StdResult<AncillaryFilesManifest> {
+        let manifest =
+            AncillaryFilesManifest::from_paths(&self.db_directory, paths_to_include).await?;
+        let signature = self
+            .ancillary_signer
+            .compute_ancillary_manifest_signature(&manifest)
+            .await?;
+        let signed_manifest = AncillaryFilesManifest {
+            signature: Some(signature),
+            ..manifest
+        };
+
+        Ok(signed_manifest)
+    }
 }
 
 #[cfg(test)]
@@ -198,6 +225,7 @@ mod tests {
     use mithril_common::temp_dir_create;
     use mithril_common::test_utils::assert_equivalent;
 
+    use crate::services::ancillary_signer::MockAncillarySigner;
     use crate::services::snapshotter::test_tools::*;
     use crate::test_tools::TestLogger;
 
@@ -222,6 +250,7 @@ mod tests {
             Arc::new(FileArchiver::new_for_test(
                 test_directory.join("verification"),
             )),
+            Arc::new(MockAncillarySigner::new()),
             TestLogger::stdout(),
         )
         .unwrap()
@@ -253,6 +282,7 @@ mod tests {
             ongoing_snapshot_directory.clone(),
             CompressionAlgorithm::Gzip,
             Arc::new(FileArchiver::new_for_test(test_dir.join("verification"))),
+            Arc::new(MockAncillarySigner::new()),
             TestLogger::stdout(),
         )
         .unwrap();
@@ -276,6 +306,7 @@ mod tests {
             ongoing_snapshot_directory.clone(),
             CompressionAlgorithm::Gzip,
             Arc::new(FileArchiver::new_for_test(test_dir.join("verification"))),
+            Arc::new(MockAncillarySigner::new()),
             TestLogger::stdout(),
         )
         .unwrap();
@@ -298,6 +329,7 @@ mod tests {
             pending_snapshot_directory.clone(),
             CompressionAlgorithm::Gzip,
             Arc::new(FileArchiver::new_for_test(test_dir.join("verification"))),
+            Arc::new(MockAncillarySigner::new()),
             TestLogger::stdout(),
         )
         .unwrap();
@@ -397,14 +429,13 @@ mod tests {
 
     mod snapshot_ancillary {
         use mithril_common::digesters::VOLATILE_DIR;
+        use mithril_common::test_utils::fake_keys;
 
         use super::*;
 
         #[tokio::test]
         async fn create_archive_should_embed_only_last_ledger_and_last_immutables() {
-            let test_dir = get_test_directory(
-                "create_archive_should_embed_only_last_ledger_and_last_immutables",
-            );
+            let test_dir = temp_dir_create!();
             let cardano_db = DummyCardanoDbBuilder::new(
                 "create_archive_should_embed_only_last_ledger_and_last_immutables",
             )
@@ -415,8 +446,13 @@ mod tests {
             fs::create_dir(cardano_db.get_dir().join("whatever")).unwrap();
 
             let db_directory = cardano_db.get_dir();
-            let snapshotter =
-                snapshotter_for_test(&test_dir, db_directory, CompressionAlgorithm::Gzip);
+
+            let snapshotter = CompressedArchiveSnapshotter {
+                ancillary_signer: Arc::new(MockAncillarySigner::that_succeeds_with_signature(
+                    fake_keys::signable_manifest_signature()[0],
+                )),
+                ..snapshotter_for_test(&test_dir, db_directory, CompressionAlgorithm::Gzip)
+            };
 
             let snapshot = snapshotter
                 .snapshot_ancillary(2, "ancillary")
@@ -440,6 +476,88 @@ mod tests {
             assert!(!expected_volatile_path.exists());
 
             assert!(!unpack_dir.join("whatever").exists());
+        }
+
+        #[tokio::test]
+        async fn create_archive_fail_if_manifest_signing_fail() {
+            let test_dir = temp_dir_create!();
+            let cardano_db =
+                DummyCardanoDbBuilder::new("create_archive_fail_if_manifest_signing_fail")
+                    .with_immutables(&[1, 2])
+                    .with_ledger_files(&["737"])
+                    .build();
+
+            let db_directory = cardano_db.get_dir();
+
+            let snapshotter = CompressedArchiveSnapshotter {
+                ancillary_signer: Arc::new(MockAncillarySigner::that_fails_with_message(
+                    "MockAncillarySigner failed",
+                )),
+                ..snapshotter_for_test(&test_dir, db_directory, CompressionAlgorithm::Gzip)
+            };
+
+            let err = snapshotter
+                .snapshot_ancillary(1, "ancillary")
+                .await
+                .expect_err("Must fail if manifest signing fails");
+            assert!(
+                err.to_string().contains("MockAncillarySigner failed"),
+                "Expected error message to be raised by the mock ancillary signer, but got: '{err:?}'",
+            );
+        }
+
+        #[tokio::test]
+        async fn create_archive_generate_sign_and_include_manifest_file() {
+            let test_dir = temp_dir_create!();
+            let cardano_db = DummyCardanoDbBuilder::new(
+                "create_archive_generate_sign_and_include_manifest_file",
+            )
+            .with_immutables(&[1, 2, 3])
+            .with_ledger_files(&["321", "737"])
+            .with_non_immutables(&["not_to_include.txt"])
+            .build();
+            File::create(cardano_db.get_dir().join("not_to_include_as_well.txt")).unwrap();
+
+            let db_directory = cardano_db.get_dir();
+
+            let snapshotter = CompressedArchiveSnapshotter {
+                ancillary_signer: Arc::new(MockAncillarySigner::that_succeeds_with_signature(
+                    fake_keys::signable_manifest_signature()[0],
+                )),
+                ..snapshotter_for_test(&test_dir, db_directory, CompressionAlgorithm::Gzip)
+            };
+
+            let archive = snapshotter
+                .snapshot_ancillary(2, "ancillary")
+                .await
+                .unwrap();
+            let unpacked = archive.unpack_gzip(test_dir);
+            let manifest_path = unpacked.join("ancillary_manifest.json");
+
+            assert!(manifest_path.exists());
+
+            let manifest = serde_json::from_reader::<_, AncillaryFilesManifest>(
+                File::open(&manifest_path).unwrap(),
+            )
+            .unwrap();
+
+            assert_eq!(
+                vec![
+                    &PathBuf::from(IMMUTABLE_DIR).join("00003.chunk"),
+                    &PathBuf::from(IMMUTABLE_DIR).join("00003.primary"),
+                    &PathBuf::from(IMMUTABLE_DIR).join("00003.secondary"),
+                    &PathBuf::from(LEDGER_DIR).join("737"),
+                ],
+                manifest.data.keys().collect::<Vec<_>>()
+            );
+            assert_eq!(
+                Some(
+                    fake_keys::signable_manifest_signature()[0]
+                        .try_into()
+                        .unwrap()
+                ),
+                manifest.signature
+            )
         }
     }
 }
