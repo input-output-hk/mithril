@@ -37,6 +37,7 @@ fn proof_cardano_transaction(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("proof" / "cardano-transaction")
         .and(warp::get())
+        .and(middlewares::with_origin_tag(router_state))
         .and(warp::query::<CardanoTransactionProofQueryParams>())
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_signed_entity_service(router_state))
@@ -65,6 +66,7 @@ mod handlers {
     use super::CardanoTransactionProofQueryParams;
 
     pub async fn proof_cardano_transaction(
+        _origin_tag: Option<String>,
         transaction_parameters: CardanoTransactionProofQueryParams,
         logger: Logger,
         signed_entity_service: Arc<dyn SignedEntityService>,
