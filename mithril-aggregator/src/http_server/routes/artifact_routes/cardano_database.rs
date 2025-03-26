@@ -17,6 +17,7 @@ fn artifact_cardano_database_list(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "cardano-database")
         .and(warp::get())
+        .and(middlewares::with_origin_tag(router_state))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_http_message_service(router_state))
         .and_then(handlers::list_artifacts)
@@ -28,6 +29,7 @@ fn artifact_cardano_database_by_id(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "cardano-database" / String)
         .and(warp::get())
+        .and(middlewares::with_origin_tag(dependency_manager))
         .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_http_message_service(dependency_manager))
         .and(middlewares::with_metrics_service(dependency_manager))
@@ -40,6 +42,7 @@ fn artifact_cardano_database_digest_list(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "cardano-database" / "digests")
         .and(warp::get())
+        .and(middlewares::with_origin_tag(router_state))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_http_message_service(router_state))
         .and_then(handlers::list_digests)
@@ -49,6 +52,7 @@ fn serve_cardano_database_dir(
     router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path(crate::http_server::CARDANO_DATABASE_DOWNLOAD_PATH)
+        .and(middlewares::with_origin_tag(router_state))
         .and(warp::fs::dir(
             router_state
                 .configuration
@@ -75,6 +79,7 @@ mod handlers {
 
     /// List artifacts
     pub async fn list_artifacts(
+        _origin_tag: Option<String>,
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
@@ -93,6 +98,7 @@ mod handlers {
     /// Get artifact by signed entity id
     pub async fn get_artifact_by_signed_entity_id(
         signed_entity_id: String,
+        _origin_tag: Option<String>,
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
         metrics_service: Arc<MetricsService>,
@@ -120,6 +126,7 @@ mod handlers {
     /// Download a file if it's a Cardano_database artifact file
     // TODO: this function should probable be unit tested once the file naming convention is defined
     pub async fn ensure_downloaded_file_is_a_cardano_database_artifact(
+        _origin_tag: Option<String>,
         reply: warp::fs::File,
         logger: Logger,
         allow_http_serve_directory: bool,
@@ -151,6 +158,7 @@ mod handlers {
 
     /// List digests
     pub async fn list_digests(
+        _origin_tag: Option<String>,
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {

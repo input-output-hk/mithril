@@ -19,6 +19,7 @@ fn status(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("status")
         .and(warp::get())
+        .and(middlewares::with_origin_tag(router_state))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_epoch_service(router_state))
         .and(middlewares::extract_config(router_state, |config| {
@@ -83,6 +84,7 @@ mod handlers {
 
     /// Status
     pub async fn status(
+        _origin_tag: Option<String>,
         logger: Logger,
         epoch_service: EpochServiceWrapper,
         cardano_node_version: String,

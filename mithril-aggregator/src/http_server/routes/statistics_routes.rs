@@ -19,6 +19,7 @@ fn post_statistics(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("statistics" / "snapshot")
         .and(warp::post())
+        .and(middlewares::with_origin_tag(router_state))
         .and(warp::body::json())
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_event_transmitter(router_state))
@@ -32,6 +33,7 @@ fn post_cardano_database_immutable_files_restored(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("statistics" / "cardano-database" / "immutable-files-restored")
         .and(warp::post())
+        .and(middlewares::with_origin_tag(router_state))
         .and(warp::body::json())
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_metrics_service(router_state))
@@ -44,6 +46,7 @@ fn post_cardano_database_ancillary_files_restored(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("statistics" / "cardano-database" / "ancillary-files-restored")
         .and(warp::post())
+        .and(middlewares::with_origin_tag(router_state))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_metrics_service(router_state))
         .and_then(handlers::post_cardano_database_ancillary_files_restored)
@@ -55,6 +58,7 @@ fn post_cardano_database_complete_restoration(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("statistics" / "cardano-database" / "complete-restoration")
         .and(warp::post())
+        .and(middlewares::with_origin_tag(router_state))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_event_transmitter(router_state))
         .and(middlewares::with_metrics_service(router_state))
@@ -67,6 +71,7 @@ fn post_cardano_database_partial_restoration(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("statistics" / "cardano-database" / "partial-restoration")
         .and(warp::post())
+        .and(middlewares::with_origin_tag(router_state))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_event_transmitter(router_state))
         .and(middlewares::with_metrics_service(router_state))
@@ -87,6 +92,7 @@ mod handlers {
     use crate::MetricsService;
 
     pub async fn post_snapshot_statistics(
+        _origin_tag: Option<String>,
         snapshot_download_message: SnapshotDownloadMessage,
         logger: slog::Logger,
         event_transmitter: Arc<TransmitterService<EventMessage>>,
@@ -115,6 +121,7 @@ mod handlers {
     }
 
     pub async fn post_cardano_database_immutable_files_restored(
+        _origin_tag: Option<String>,
         message: CardanoDatabaseImmutableFilesRestoredMessage,
         _logger: slog::Logger,
         metrics_service: Arc<MetricsService>,
@@ -127,6 +134,7 @@ mod handlers {
     }
 
     pub async fn post_cardano_database_ancillary_files_restored(
+        _origin_tag: Option<String>,
         _logger: slog::Logger,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
@@ -138,6 +146,7 @@ mod handlers {
     }
 
     pub async fn post_cardano_database_complete_restoration(
+        _origin_tag: Option<String>,
         logger: slog::Logger,
         event_transmitter: Arc<TransmitterService<EventMessage>>,
         metrics_service: Arc<MetricsService>,
@@ -163,6 +172,7 @@ mod handlers {
     }
 
     pub async fn post_cardano_database_partial_restoration(
+        _origin_tag: Option<String>,
         logger: slog::Logger,
         event_transmitter: Arc<TransmitterService<EventMessage>>,
         metrics_service: Arc<MetricsService>,

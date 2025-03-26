@@ -14,6 +14,7 @@ fn artifact_cardano_transactions(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "cardano-transactions")
         .and(warp::get())
+        .and(middlewares::with_origin_tag(router_state))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_http_message_service(router_state))
         .and_then(handlers::list_artifacts)
@@ -25,6 +26,7 @@ fn artifact_cardano_transaction_by_id(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "cardano-transaction" / String)
         .and(warp::get())
+        .and(middlewares::with_origin_tag(router_state))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_http_message_service(router_state))
         .and(middlewares::with_metrics_service(router_state))
@@ -45,6 +47,7 @@ pub mod handlers {
 
     /// List Cardano Transactions set artifacts
     pub async fn list_artifacts(
+        _origin_tag: Option<String>,
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
@@ -64,6 +67,7 @@ pub mod handlers {
     /// Get Artifact by signed entity id
     pub async fn get_artifact_by_signed_entity_id(
         signed_entity_id: String,
+        _origin_tag: Option<String>,
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
         metrics_service: Arc<MetricsService>,
