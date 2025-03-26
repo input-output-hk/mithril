@@ -22,7 +22,7 @@ pub async fn bootstrap_aggregator(
         index: 0,
         name: "genesis",
         server_port: args.server_port as u64,
-        pool_node: &args.pool_node,
+        full_node: &args.full_node,
         cardano_cli_path: &args.cardano_cli_path,
         work_dir: &args.work_dir,
         store_dir: &args.work_dir,

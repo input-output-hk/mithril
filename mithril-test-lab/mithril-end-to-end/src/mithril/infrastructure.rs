@@ -1,6 +1,6 @@
 use crate::mithril::relay_signer::RelaySignerConfiguration;
 use crate::{
-    assertions, Aggregator, AggregatorConfig, Client, Devnet, PoolNode, RelayAggregator,
+    assertions, Aggregator, AggregatorConfig, Client, Devnet, FullNode, PoolNode, RelayAggregator,
     RelayPassive, RelaySigner, Signer, DEVNET_MAGIC_ID,
 };
 use mithril_common::chain_observer::{ChainObserver, PallasChainObserver};
@@ -92,11 +92,8 @@ impl MithrilInfrastructure {
         let chain_observer_type = "pallas";
         config.devnet.run().await?;
         let devnet_topology = config.devnet.topology();
-        let number_of_aggregators = config.number_of_aggregators as usize;
-        let number_of_signers = config.number_of_signers as usize;
-        let aggregator_cardano_nodes = &devnet_topology.pool_nodes[0..number_of_aggregators];
-        let signer_cardano_nodes = &devnet_topology.pool_nodes
-            [number_of_aggregators..number_of_aggregators + number_of_signers];
+        let aggregator_cardano_nodes = &devnet_topology.full_nodes;
+        let signer_cardano_nodes = &devnet_topology.pool_nodes;
         let signer_party_ids = signer_cardano_nodes
             .iter()
             .map(|s| s.party_id())
@@ -188,12 +185,12 @@ impl MithrilInfrastructure {
 
     async fn start_aggregators(
         config: &MithrilInfrastructureConfig,
-        pool_nodes: &[PoolNode],
+        pool_nodes: &[FullNode],
         chain_observer_type: &str,
     ) -> StdResult<Vec<Aggregator>> {
         let mut aggregators = vec![];
         let mut master_aggregator_endpoint: Option<String> = None;
-        for (index, pool_node) in pool_nodes.iter().enumerate() {
+        for (index, full_node) in pool_nodes.iter().enumerate() {
             let aggregator_name = Aggregator::name_suffix(index);
             let aggregator_artifacts_dir = config
                 .artifacts_dir
@@ -205,7 +202,7 @@ impl MithrilInfrastructure {
                 index,
                 name: &aggregator_name,
                 server_port: config.server_port + index as u64,
-                pool_node,
+                full_node,
                 cardano_cli_path: &config.devnet.cardano_cli_path(),
                 work_dir: &config.work_dir,
                 store_dir: &aggregator_store_dir,

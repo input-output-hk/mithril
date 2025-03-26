@@ -1,3 +1,5 @@
 mod runner;
 
-pub use runner::{Devnet, DevnetBootstrapArgs, DevnetTopology, PoolNode, RetryableDevnetError};
+pub use runner::{
+    Devnet, DevnetBootstrapArgs, DevnetTopology, FullNode, PoolNode, RetryableDevnetError,
+};

@@ -1,6 +1,6 @@
 use crate::utils::MithrilCommand;
 use crate::{
-    PoolNode, RetryableDevnetError, DEVNET_MAGIC_ID, ERA_MARKERS_SECRET_KEY,
+    FullNode, RetryableDevnetError, DEVNET_MAGIC_ID, ERA_MARKERS_SECRET_KEY,
     ERA_MARKERS_VERIFICATION_KEY, GENESIS_SECRET_KEY, GENESIS_VERIFICATION_KEY,
 };
 use anyhow::{anyhow, Context};
@@ -22,7 +22,7 @@ pub struct AggregatorConfig<'a> {
     pub index: usize,
     pub name: &'a str,
     pub server_port: u64,
-    pub pool_node: &'a PoolNode,
+    pub full_node: &'a FullNode,
     pub cardano_cli_path: &'a Path,
     pub work_dir: &'a Path,
     pub store_dir: &'a Path,
@@ -88,7 +88,7 @@ impl Aggregator {
             ),
             (
                 "CARDANO_NODE_SOCKET_PATH",
-                aggregator_config.pool_node.socket_path.to_str().unwrap(),
+                aggregator_config.full_node.socket_path.to_str().unwrap(),
             ),
             ("STORE_RETENTION_LIMIT", "10"),
             (
@@ -122,7 +122,7 @@ impl Aggregator {
         }
         let args = vec![
             "--db-directory",
-            aggregator_config.pool_node.db_path.to_str().unwrap(),
+            aggregator_config.full_node.db_path.to_str().unwrap(),
             "-vvv",
         ];
 
@@ -134,7 +134,7 @@ impl Aggregator {
             &args,
         )?;
         let chain_observer = Arc::new(PallasChainObserver::new(
-            &aggregator_config.pool_node.socket_path,
+            &aggregator_config.full_node.socket_path,
             CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
         ));
 
@@ -142,7 +142,7 @@ impl Aggregator {
             index: aggregator_config.index,
             name_suffix: aggregator_config.name.to_string(),
             server_port: aggregator_config.server_port,
-            db_directory: aggregator_config.pool_node.db_path.clone(),
+            db_directory: aggregator_config.full_node.db_path.clone(),
             mithril_run_interval: aggregator_config.mithril_run_interval,
             command: Arc::new(RwLock::new(command)),
             process: RwLock::new(None),

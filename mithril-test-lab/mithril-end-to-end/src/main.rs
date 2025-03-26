@@ -335,7 +335,8 @@ impl App {
         let devnet = Devnet::bootstrap(&DevnetBootstrapArgs {
             devnet_scripts_dir: args.devnet_scripts_directory,
             artifacts_target_dir: work_dir.join("devnet"),
-            number_of_pool_nodes: args.number_of_aggregators + args.number_of_signers,
+            number_of_pool_nodes: args.number_of_signers,
+            number_of_full_nodes: args.number_of_aggregators,
             cardano_slot_length: args.cardano_slot_length,
             cardano_epoch_length: args.cardano_epoch_length,
             cardano_node_version: args.cardano_node_version.to_owned(),
