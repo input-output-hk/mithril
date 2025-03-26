@@ -12,10 +12,14 @@ async fn mithril_stake_distribution_list_get_show_verify() {
     let fake_aggregator = FakeAggregator::new();
     let test_http_server =
         fake_aggregator.spawn_with_mithril_stake_distribution(msd_hash, certificate_hash);
-    let client = ClientBuilder::aggregator(&test_http_server.url(), genesis_verification_key)
-        .with_certificate_verifier(FakeCertificateVerifier::build_that_validate_any_certificate())
-        .build()
-        .expect("Should be able to create a Client");
+    let client = ClientBuilder::aggregator(
+        Some("TEST".to_string()),
+        &test_http_server.url(),
+        genesis_verification_key,
+    )
+    .with_certificate_verifier(FakeCertificateVerifier::build_that_validate_any_certificate())
+    .build()
+    .expect("Should be able to create a Client");
     let mithril_stake_distribution_client = client.mithril_stake_distribution();
 
     let mithril_stake_distributions = mithril_stake_distribution_client
