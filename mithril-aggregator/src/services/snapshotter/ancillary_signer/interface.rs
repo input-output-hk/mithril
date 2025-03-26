@@ -14,3 +14,26 @@ pub trait AncillarySigner: Sync + Send {
         manifest: &AncillaryFilesManifest,
     ) -> StdResult<ManifestSignature>;
 }
+
+#[cfg(test)]
+impl MockAncillarySigner {
+    pub(crate) fn that_succeeds_with_signature<T>(signature_to_return: T) -> Self
+    where
+        T: TryInto<ManifestSignature>,
+        T::Error: std::fmt::Debug,
+    {
+        let expected_signature = signature_to_return.try_into().unwrap();
+        let mut mock = MockAncillarySigner::new();
+        mock.expect_compute_ancillary_manifest_signature()
+            .returning(move |_| Ok(expected_signature));
+        mock
+    }
+
+    pub(crate) fn that_fails_with_message<T: Into<String>>(message: T) -> Self {
+        let error = anyhow::anyhow!("{}", message.into());
+        let mut mock = MockAncillarySigner::new();
+        mock.expect_compute_ancillary_manifest_signature()
+            .return_once(move |_| Err(error));
+        mock
+    }
+}

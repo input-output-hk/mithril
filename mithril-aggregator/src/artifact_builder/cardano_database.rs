@@ -100,15 +100,17 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
     use std::{collections::BTreeMap, path::PathBuf};
 
     use mithril_common::{
-        digesters::DummyCardanoDbBuilder,
+        digesters::{immutable_trio_names, DummyCardanoDbBuilder, IMMUTABLE_DIR, LEDGER_DIR},
         entities::{
-            AncillaryLocation, CompressionAlgorithm, DigestLocation, ImmutablesLocation,
-            MultiFilesUri, ProtocolMessage, ProtocolMessagePartKey, TemplateUri,
+            AncillaryFilesManifest, AncillaryLocation, CompressionAlgorithm, DigestLocation,
+            ImmutableFileNumber, ImmutablesLocation, MultiFilesUri, ProtocolMessage,
+            ProtocolMessagePartKey, TemplateUri,
         },
-        test_utils::{fake_data, TempDir},
+        test_utils::{fake_data, fake_keys, TempDir},
         CardanoNetwork,
     };
     use mockall::{predicate, Predicate};
@@ -118,6 +120,7 @@ mod tests {
             DigestSnapshotter, MockAncillaryFileUploader, MockImmutableFilesUploader,
         },
         immutable_file_digest_mapper::MockImmutableFileDigestMapper,
+        services::ancillary_signer::MockAncillarySigner,
         services::CompressedArchiveSnapshotter,
         test_tools::TestLogger,
         tools::{file_archiver::FileArchiver, url_sanitizer::SanitizedUrlWithTrailingSlash},
@@ -127,6 +130,30 @@ mod tests {
 
     fn get_test_directory(dir_name: &str) -> PathBuf {
         TempDir::create("cardano_database", dir_name)
+    }
+
+    async fn get_expected_manifest_size(
+        cardano_db_dir: &Path,
+        ancillary_immutable_file_number: ImmutableFileNumber,
+        ancillary_ledger_file_name: &str,
+        ancillary_manifest_signature: &str,
+    ) -> u64 {
+        let mut manifest_dummy = AncillaryFilesManifest::from_paths(
+            cardano_db_dir,
+            [
+                immutable_trio_names(ancillary_immutable_file_number)
+                    .into_iter()
+                    .map(|filename| PathBuf::from(IMMUTABLE_DIR).join(filename))
+                    .collect(),
+                vec![PathBuf::from(LEDGER_DIR).join(ancillary_ledger_file_name)],
+            ]
+            .concat(),
+        )
+        .await
+        .unwrap();
+        manifest_dummy.signature = Some(ancillary_manifest_signature.try_into().unwrap());
+
+        serde_json::to_string(&manifest_dummy).unwrap().len() as u64
     }
 
     #[tokio::test]
@@ -147,9 +174,21 @@ mod tests {
             .with_volatile_files(&["blocks-0.dat"])
             .set_volatile_file_size(volatile_file_size)
             .build();
+
+        let ancillary_manifest_signature = fake_keys::signable_manifest_signature()[0];
+
+        // The ancillary archive also contains a signed manifest file whose size IS INCLUDED in
+        // the total size and ancillary artifact size
+        let manifest_size = get_expected_manifest_size(
+            cardano_db.get_dir(),
+            4,
+            "437",
+            ancillary_manifest_signature,
+        )
+        .await;
         let expected_average_immutable_size = immutable_trio_file_size;
         let expected_ancillary_size = immutable_trio_file_size + ledger_file_size;
-        let expected_total_size = 4 * immutable_trio_file_size + ledger_file_size;
+        let expected_total_size = 4 * immutable_trio_file_size + ledger_file_size + manifest_size;
 
         let snapshotter = Arc::new(
             CompressedArchiveSnapshotter::new(
@@ -157,6 +196,9 @@ mod tests {
                 test_dir.join("ongoing_snapshots"),
                 CompressionAlgorithm::Gzip,
                 Arc::new(FileArchiver::new_for_test(test_dir.join("verification"))),
+                Arc::new(MockAncillarySigner::that_succeeds_with_signature(
+                    ancillary_manifest_signature,
+                )),
                 TestLogger::stdout(),
             )
             .unwrap(),
@@ -290,7 +332,7 @@ mod tests {
                     locations: expected_immutables_locations,
                 },
                 ancillary: AncillaryLocations {
-                    size_uncompressed: expected_ancillary_size,
+                    size_uncompressed: expected_ancillary_size + manifest_size,
                     locations: expected_ancillary_locations,
                 },
             },
