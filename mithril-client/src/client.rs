@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context};
+use mithril_common::MITHRIL_ORIGIN_TAG_HEADER;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use slog::{o, Logger};
@@ -149,12 +150,17 @@ pub struct ClientBuilder {
     logger: Option<Logger>,
     feedback_receivers: Vec<Arc<dyn FeedbackReceiver>>,
     options: ClientOptions,
+    origin_tag: Option<String>, // TODO is it an Option ?
 }
 
 impl ClientBuilder {
     /// Constructs a new `ClientBuilder` that fetches data from the aggregator at the given
     /// endpoint and with the given genesis verification key.
-    pub fn aggregator(endpoint: &str, genesis_verification_key: &str) -> ClientBuilder {
+    pub fn aggregator(
+        origin_tag: Option<String>,
+        endpoint: &str,
+        genesis_verification_key: &str,
+    ) -> ClientBuilder {
         Self {
             aggregator_endpoint: Some(endpoint.to_string()),
             genesis_verification_key: genesis_verification_key.to_string(),
@@ -167,6 +173,7 @@ impl ClientBuilder {
             logger: None,
             feedback_receivers: vec![],
             options: ClientOptions::default(),
+            origin_tag,
         }
     }
 
@@ -174,7 +181,7 @@ impl ClientBuilder {
     ///
     /// Use [ClientBuilder::aggregator] if you don't need to set a custom [AggregatorClient]
     /// to request data from the aggregator.
-    pub fn new(genesis_verification_key: &str) -> ClientBuilder {
+    pub fn new(origin_tag: Option<String>, genesis_verification_key: &str) -> ClientBuilder {
         Self {
             aggregator_endpoint: None,
             genesis_verification_key: genesis_verification_key.to_string(),
@@ -187,6 +194,7 @@ impl ClientBuilder {
             logger: None,
             feedback_receivers: vec![],
             options: ClientOptions::default(),
+            origin_tag,
         }
     }
 
@@ -197,32 +205,12 @@ impl ClientBuilder {
     pub fn build(self) -> MithrilResult<Client> {
         let logger = self
             .logger
+            .clone()
             .unwrap_or_else(|| Logger::root(slog::Discard, o!()));
 
+        let aggregator_client = self.get_aggregator_client(logger.clone())?;
+
         let feedback_sender = FeedbackSender::new(&self.feedback_receivers);
-
-        let aggregator_client = match self.aggregator_client {
-            None => {
-                let endpoint = self
-                    .aggregator_endpoint
-                    .ok_or(anyhow!("No aggregator endpoint set: \
-                    You must either provide an aggregator endpoint or your own AggregatorClient implementation"))?;
-                let endpoint_url = Url::parse(&endpoint)
-                    .with_context(|| format!("Invalid aggregator endpoint, it must be a correctly formed url: '{endpoint}'"))?;
-
-                Arc::new(
-                    AggregatorHTTPClient::new(
-                        endpoint_url,
-                        APIVersionProvider::compute_all_versions_sorted()
-                            .with_context(|| "Could not compute aggregator api versions")?,
-                        logger.clone(),
-                        self.options.http_headers,
-                    )
-                    .with_context(|| "Building aggregator client failed")?,
-                )
-            }
-            Some(client) => client,
-        };
 
         let certificate_verifier = match self.certificate_verifier {
             None => Arc::new(
@@ -298,6 +286,50 @@ impl ClientBuilder {
         })
     }
 
+    fn get_aggregator_client(
+        &self,
+        logger: Logger,
+    ) -> Result<Arc<dyn AggregatorClient>, anyhow::Error> {
+        // TODO in builder, we normally set self.aggregator_client but it's not done here. Should we do ?
+        let aggregator_client = match self.aggregator_client.clone() {
+            None => Arc::new(self.build_aggregator_client(logger)?),
+            Some(client) => client,
+        };
+        Ok(aggregator_client)
+    }
+
+    fn build_aggregator_client(
+        &self,
+        logger: Logger,
+    ) -> Result<AggregatorHTTPClient, anyhow::Error> {
+        let endpoint = self
+            .aggregator_endpoint.as_ref()
+            .ok_or(anyhow!("No aggregator endpoint set: \
+                    You must either provide an aggregator endpoint or your own AggregatorClient implementation"))?;
+        let endpoint_url = Url::parse(&endpoint).with_context(|| {
+            format!("Invalid aggregator endpoint, it must be a correctly formed url: '{endpoint}'")
+        })?;
+
+        let mut headers = self.options.http_headers.clone().unwrap_or_default();
+        if let Some(origin_tag) = self.origin_tag.clone() {
+            headers.insert(MITHRIL_ORIGIN_TAG_HEADER.to_string(), origin_tag);
+        }
+
+        // TODO do we add value to http_headers ? or a new parameter ?
+        // Add into header => Risk to forget but this is the only instantiation
+        // Add into options ? Risk of overwriting with `with_option` function
+        // or a ClientBuilder parameter ?
+        // Do we add a parameter to `aggregator` or add a builder function ?
+        AggregatorHTTPClient::new(
+            endpoint_url,
+            APIVersionProvider::compute_all_versions_sorted()
+                .with_context(|| "Could not compute aggregator api versions")?,
+            logger,
+            Some(headers),
+        )
+        .with_context(|| "Building aggregator client failed")
+    }
+
     /// Set the [AggregatorClient] that will be used to request data to the aggregator.
     pub fn with_aggregator_client(
         mut self,
@@ -346,6 +378,12 @@ impl ClientBuilder {
         self
     }
 
+    /// Set the origin tag.
+    pub fn with_origin_tag(mut self, origin_tag: Option<String>) -> Self {
+        self.origin_tag = origin_tag;
+        self
+    }
+
     /// Add a [feedback receiver][FeedbackReceiver] to receive [events][crate::feedback::MithrilEvent]
     /// for tasks that can have a long duration (ie: snapshot download or a long certificate chain
     /// validation).
@@ -358,5 +396,48 @@ impl ClientBuilder {
     pub fn with_options(mut self, options: ClientOptions) -> Self {
         self.options = options;
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use httpmock::MockServer;
+
+    use crate::aggregator_client::AggregatorRequest;
+
+    use super::*;
+
+    // TODO : this test is a bit complicated just to test that the origin-tag is in the header
+    #[tokio::test]
+    async fn test_origin_tag_in_client_options() {
+        let server = MockServer::start();
+        let client_builder = ClientBuilder::aggregator(&server.url(""), "")
+            .with_origin_tag(Some("CLIENT_TAG".to_string()));
+
+        let aggregator_client = client_builder
+            .build_aggregator_client(crate::test_utils::test_logger())
+            .unwrap();
+
+        server.mock(|when, then| {
+            when.matches(|req| {
+                let headers = req.headers.clone().expect("HTTP headers not found");
+                let (_tag, value) = headers
+                    .iter()
+                    .find(|(name, _value)| name == MITHRIL_ORIGIN_TAG_HEADER)
+                    .expect(&format!("'{}' not found", MITHRIL_ORIGIN_TAG_HEADER));
+                assert_eq!(value, "CLIENT_TAG");
+                true
+            });
+
+            then.status(200).body("ok");
+        });
+
+        aggregator_client
+            .get_content(AggregatorRequest::ListCertificates)
+            .await
+            .expect(&format!(
+                "GET request should succeed with '{}' header",
+                MITHRIL_ORIGIN_TAG_HEADER,
+            ));
     }
 }

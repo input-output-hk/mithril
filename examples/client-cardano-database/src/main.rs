@@ -43,10 +43,13 @@ async fn main() -> MithrilResult<()> {
     let args = Args::parse();
     let work_dir = get_temp_dir()?;
     let progress_bar = indicatif::MultiProgress::new();
-    let client =
-        ClientBuilder::aggregator(&args.aggregator_endpoint, &args.genesis_verification_key)
-            .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(&progress_bar)))
-            .build()?;
+    let client = ClientBuilder::aggregator(
+        Some("EXAMPLE".to_string()),
+        &args.aggregator_endpoint,
+        &args.genesis_verification_key,
+    )
+    .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(&progress_bar)))
+    .build()?;
 
     let snapshots = client.cardano_database().list().await?;
 
