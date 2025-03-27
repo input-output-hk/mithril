@@ -31,9 +31,13 @@ pub enum SignerRegistrationError {
     #[error("signer already registered")]
     ExistingSigner(Box<SignerWithStake>),
 
-    /// Store error.
+    /// Store.
     #[error("store error")]
-    StoreError(#[source] StdError),
+    Store(#[source] StdError),
+
+    /// Epoch service.
+    #[error("epoch service error")]
+    EpochService(#[source] StdError),
 
     /// Signer registration failed.
     #[error("signer registration failed")]

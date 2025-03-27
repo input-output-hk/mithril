@@ -274,8 +274,6 @@ impl AggregatorRuntime {
                 self.runner
                     .synchronize_slave_aggregator_signer_registration()
                     .await?;
-                // Needed to recompute epoch data for the next signing round on the slave
-                self.runner.inform_new_epoch(new_time_point.epoch).await?;
             }
             self.runner.precompute_epoch_data().await?;
         }
@@ -940,7 +938,7 @@ mod tests {
             runner
                 .expect_inform_new_epoch()
                 .with(predicate::eq(new_time_point_clone.clone().epoch))
-                .times(2)
+                .once()
                 .returning(|_| Ok(()));
             runner
                 .expect_update_epoch_settings()

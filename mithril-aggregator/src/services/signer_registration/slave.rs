@@ -10,6 +10,7 @@ use mithril_common::{
 use mithril_persistence::store::StakeStorer;
 
 use crate::{
+    dependency_injection::EpochServiceWrapper,
     services::{AggregatorClient, EpochPruningTask},
     SignerRegistrationVerifier, VerificationKeyStorer,
 };
@@ -21,6 +22,9 @@ use super::{
 
 /// A [MithrilSignerRegistrationSlave] supports signer registrations in a slave aggregator
 pub struct MithrilSignerRegistrationSlave {
+    /// Epoch service
+    pub epoch_service: EpochServiceWrapper,
+
     /// Verification key store
     verification_key_store: Arc<dyn VerificationKeyStorer>,
 
@@ -44,6 +48,7 @@ pub struct MithrilSignerRegistrationSlave {
 impl MithrilSignerRegistrationSlave {
     /// MithrilSignerRegistererSlave factory
     pub fn new(
+        epoch_service: EpochServiceWrapper,
         verification_key_store: Arc<dyn VerificationKeyStorer>,
         signer_recorder: Arc<dyn SignerRecorder>,
         signer_registration_verifier: Arc<dyn SignerRegistrationVerifier>,
@@ -52,6 +57,7 @@ impl MithrilSignerRegistrationSlave {
         verification_key_epoch_retention_limit: Option<u64>,
     ) -> Self {
         Self {
+            epoch_service,
             verification_key_store,
             signer_recorder,
             signer_registration_verifier,
@@ -90,8 +96,15 @@ impl MithrilSignerRegistrationSlave {
                         epoch
                     )
                 })
-                .map_err(|e| SignerRegistrationError::StoreError(anyhow!(e)))?;
+                .map_err(|e| SignerRegistrationError::Store(anyhow!(e)))?;
         }
+
+        self.epoch_service
+            .write()
+            .await
+            .update_next_signers_with_stake()
+            .await
+            .map_err(|e| SignerRegistrationError::EpochService(anyhow!(e)))?;
 
         Ok(())
     }
@@ -130,8 +143,8 @@ impl SignerSynchronizer for MithrilSignerRegistrationSlave {
             .get_stakes(registration_epoch)
             .await
             .with_context(|| "synchronize_all_signers failed")
-            .map_err(SignerRegistrationError::StoreError)?
-            .ok_or(SignerRegistrationError::StoreError(anyhow::anyhow!(
+            .map_err(SignerRegistrationError::Store)?
+            .ok_or(SignerRegistrationError::Store(anyhow::anyhow!(
                 "Slave aggregator did not return any stake distribution"
             )))?;
         self.synchronize_signers(registration_epoch, &next_signers, &stake_distribution)
@@ -214,8 +227,9 @@ mod tests {
         database::{repository::SignerRegistrationStore, test_helper::main_db_connection},
         message_adapters::FromEpochSettingsAdapter,
         services::{
-            AggregatorClient, AggregatorClientError, EpochPruningTask, MockAggregatorClient,
-            MockSignerRecorder, MockSignerRegistrationVerifier, SignerSynchronizer,
+            AggregatorClient, AggregatorClientError, EpochPruningTask, FakeEpochService,
+            MockAggregatorClient, MockSignerRecorder, MockSignerRegistrationVerifier,
+            SignerSynchronizer,
         },
         store::MockVerificationKeyStorer,
         tools::mocks::MockStakeStore,
@@ -226,10 +240,15 @@ mod tests {
     use test_utils::*;
 
     mod test_utils {
+        use tokio::sync::RwLock;
+
+        use crate::{dependency_injection::EpochServiceWrapper, services::FakeEpochService};
+
         use super::*;
 
         /// MithrilSignerRegistrationSlaveBuilder is a test builder for [MithrilSignerRegistrationSlave]
         pub struct MithrilSignerRegistrationSlaveBuilder {
+            epoch_service: EpochServiceWrapper,
             signer_recorder: Arc<dyn SignerRecorder>,
             signer_registration_verifier: Arc<dyn SignerRegistrationVerifier>,
             master_aggregator_client: Arc<dyn AggregatorClient>,
@@ -241,6 +260,7 @@ mod tests {
         impl Default for MithrilSignerRegistrationSlaveBuilder {
             fn default() -> Self {
                 Self {
+                    epoch_service: Arc::new(RwLock::new(FakeEpochService::without_data())),
                     signer_recorder: Arc::new(MockSignerRecorder::new()),
                     signer_registration_verifier: Arc::new(MockSignerRegistrationVerifier::new()),
                     master_aggregator_client: Arc::new(MockAggregatorClient::new()),
@@ -254,6 +274,13 @@ mod tests {
         }
 
         impl MithrilSignerRegistrationSlaveBuilder {
+            pub fn with_epoch_service(self, epoch_service: FakeEpochService) -> Self {
+                Self {
+                    epoch_service: Arc::new(RwLock::new(epoch_service)),
+                    ..self
+                }
+            }
+
             pub fn with_verification_key_store(
                 self,
                 verification_key_store: Arc<dyn VerificationKeyStorer>,
@@ -310,6 +337,7 @@ mod tests {
 
             pub fn build(self) -> MithrilSignerRegistrationSlave {
                 MithrilSignerRegistrationSlave {
+                    epoch_service: self.epoch_service,
                     verification_key_store: self.verification_key_store,
                     signer_recorder: self.signer_recorder,
                     signer_registration_verifier: self.signer_registration_verifier,
@@ -440,6 +468,73 @@ mod tests {
                     .expect_record_signer_registration()
                     .returning(|_| Err(anyhow!("an error")))
                     .times(1);
+
+                Arc::new(signer_recorder)
+            })
+            .with_signer_registration_verifier({
+                let mut signer_registration_verifier = MockSignerRegistrationVerifier::new();
+                signer_registration_verifier
+                    .expect_verify()
+                    .returning(|signer, _| Ok(SignerWithStake::from_signer(signer.to_owned(), 123)))
+                    .times(5);
+
+                Arc::new(signer_registration_verifier)
+            })
+            .with_master_aggregator_client({
+                let mut aggregator_client = MockAggregatorClient::new();
+                aggregator_client
+                    .expect_retrieve_epoch_settings()
+                    .returning(move || Ok(Some(epoch_settings_message.clone())))
+                    .times(1);
+
+                Arc::new(aggregator_client)
+            })
+            .with_stake_store({
+                let mut stake_store = MockStakeStore::new();
+                stake_store
+                    .expect_get_stakes()
+                    .returning(move |_epoch| Ok(Some(stake_distribution.clone())))
+                    .times(1);
+
+                Arc::new(stake_store)
+            })
+            .build();
+
+        signer_registration_slave
+            .synchronize_all_signers()
+            .await
+            .expect_err("synchronize_all_signers should fail");
+    }
+
+    #[tokio::test]
+    async fn synchronize_all_signers_fails_if_epoch_service_update_next_signers_fails() {
+        let registration_epoch = Epoch(1);
+        let fixture = MithrilFixtureBuilder::default()
+            .with_signers(5)
+            .disable_signers_certification()
+            .build();
+        let signers = fixture.signers();
+        let stake_distribution = fixture.stake_distribution();
+        let epoch_settings_message = FromEpochSettingsAdapter::try_adapt(EpochSettingsMessage {
+            epoch: registration_epoch,
+            next_signers: SignerMessagePart::from_signers(signers),
+            ..EpochSettingsMessage::dummy()
+        })
+        .unwrap();
+
+        let signer_registration_slave = MithrilSignerRegistrationSlaveBuilder::default()
+            .with_epoch_service({
+                let mut epoch_service = FakeEpochService::without_data();
+                epoch_service.toggle_errors(false, false, false, true);
+
+                epoch_service
+            })
+            .with_signer_recorder({
+                let mut signer_recorder = MockSignerRecorder::new();
+                signer_recorder
+                    .expect_record_signer_registration()
+                    .returning(|_| Ok(()))
+                    .times(5);
 
                 Arc::new(signer_recorder)
             })

@@ -49,6 +49,9 @@ pub trait EpochService: Sync + Send {
     /// Note: must be called after `inform_epoch`.
     async fn update_epoch_settings(&mut self) -> StdResult<()>;
 
+    /// Update the next signers with stake for the next epoch.
+    async fn update_next_signers_with_stake(&mut self) -> StdResult<()>;
+
     /// Inform the service that it can precompute data for its current epoch.
     ///
     /// Note: must be called after `inform_epoch`.
@@ -383,6 +386,27 @@ impl EpochService for MithrilEpochService {
         self.insert_future_epoch_settings(data.epoch).await
     }
 
+    async fn update_next_signers_with_stake(&mut self) -> StdResult<()> {
+        debug!(self.logger, ">> update_next_signers_with_stake");
+
+        let data = self.unwrap_data().with_context(|| {
+            "can't update next signers with stake if inform_epoch has not been called first"
+        })?;
+
+        let next_signer_retrieval_epoch = data.epoch.offset_to_next_signer_retrieval_epoch();
+        let next_signers_with_stake = self
+            .get_signers_with_stake_at_epoch(next_signer_retrieval_epoch)
+            .await?;
+
+        self.epoch_data.as_mut().unwrap().next_signers_with_stake = next_signers_with_stake;
+
+        self.precompute_epoch_data()
+            .await
+            .with_context(|| "Epoch service failed to precompute epoch data")?;
+
+        Ok(())
+    }
+
     async fn precompute_epoch_data(&mut self) -> StdResult<()> {
         debug!(self.logger, ">> precompute_epoch_data");
 
@@ -523,6 +547,7 @@ pub(crate) struct FakeEpochService {
     inform_epoch_error: bool,
     update_epoch_settings_error: bool,
     precompute_epoch_data_error: bool,
+    update_next_signers_with_stake_error: bool,
 }
 
 #[cfg(test)]
@@ -615,6 +640,7 @@ impl FakeEpochServiceBuilder {
             inform_epoch_error: false,
             update_epoch_settings_error: false,
             precompute_epoch_data_error: false,
+            update_next_signers_with_stake_error: false,
         }
     }
 }
@@ -660,19 +686,21 @@ impl FakeEpochService {
             inform_epoch_error: false,
             update_epoch_settings_error: false,
             precompute_epoch_data_error: false,
+            update_next_signers_with_stake_error: false,
         }
     }
 
-    #[allow(dead_code)]
     pub fn toggle_errors(
         &mut self,
         inform_epoch: bool,
         update_protocol_parameters: bool,
         precompute_epoch: bool,
+        update_next_signers_with_stake: bool,
     ) {
         self.inform_epoch_error = inform_epoch;
         self.update_epoch_settings_error = update_protocol_parameters;
         self.precompute_epoch_data_error = precompute_epoch;
+        self.update_next_signers_with_stake_error = update_next_signers_with_stake;
     }
 
     fn unwrap_data(&self) -> Result<&EpochData, EpochServiceError> {
@@ -710,6 +738,13 @@ impl EpochService for FakeEpochService {
     async fn precompute_epoch_data(&mut self) -> StdResult<()> {
         if self.precompute_epoch_data_error {
             anyhow::bail!("precompute_epoch_data fake error");
+        }
+        Ok(())
+    }
+
+    async fn update_next_signers_with_stake(&mut self) -> StdResult<()> {
+        if self.update_next_signers_with_stake_error {
+            anyhow::bail!("update_next_signers_with_stake fake error");
         }
         Ok(())
     }
@@ -1211,6 +1246,48 @@ mod tests {
             .expect("inform_epoch should not fail");
 
         assert!(service.computed_epoch_data.is_none());
+    }
+
+    #[tokio::test]
+    async fn update_next_signers_with_stake_succeeds() {
+        let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
+        let next_fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let next_avk = next_fixture.compute_avk();
+        let epoch = Epoch(4);
+        let mut service = EpochServiceBuilder {
+            next_signers_with_stake: next_fixture.signers_with_stake().clone(),
+            ..EpochServiceBuilder::new(epoch, fixture.clone())
+        }
+        .build()
+        .await;
+        service
+            .inform_epoch(epoch)
+            .await
+            .expect("inform_epoch should not fail");
+        service.epoch_data = Some(EpochData {
+            next_signers_with_stake: vec![],
+            ..service.epoch_data.unwrap()
+        });
+        service.computed_epoch_data = None;
+
+        service
+            .update_next_signers_with_stake()
+            .await
+            .expect("update_next_signers_with_stake should not fail");
+
+        let expected_next_signers_with_stake = next_fixture.signers_with_stake();
+        assert_eq!(
+            expected_next_signers_with_stake,
+            service.epoch_data.unwrap().next_signers_with_stake
+        );
+
+        assert_eq!(
+            next_avk,
+            service
+                .computed_epoch_data
+                .unwrap()
+                .next_aggregate_verification_key
+        );
     }
 
     #[tokio::test]
