@@ -120,7 +120,7 @@ pub struct Args {
     relay_signature_registration_mode: String,
 
     /// Enable P2P passive relays in P2P mode (used only when 'use_relays' is set)
-    #[clap(long, default_value = "true")]
+    #[clap(long, default_value = "false")]
     use_p2p_passive_relays: bool,
 
     /// Skip cardano binaries download
