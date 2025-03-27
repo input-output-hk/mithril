@@ -223,7 +223,7 @@ impl MithrilInfrastructure {
 
             aggregator
                 .set_protocol_parameters(&ProtocolParameters {
-                    k: 75,
+                    k: 70,
                     m: 105,
                     phi_f: 0.95,
                 })
