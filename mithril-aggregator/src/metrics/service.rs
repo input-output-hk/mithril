@@ -1,14 +1,17 @@
 use std::collections::HashMap;
 
-use mithril_metric::{build_metrics_service, MetricsServiceExporter};
+use mithril_metric::{build_metrics_service, MetricCounterVec, MetricsServiceExporter};
 
 use mithril_metric::metric::{MetricCollector, MetricCounter};
+use prometheus::proto::{LabelPair, MetricFamily};
 
 build_metrics_service!(
     MetricsService,
-    certificate_detail_total_served_since_startup:MetricCounter(
-        "mithril_aggregator_certificate_detail_total_served_since_startup",
-        "Number of certificate details served since startup on a Mithril aggregator node"
+
+    certificate_detail_total_served_since_startup:MetricCounterVec(
+        "certificate_detail_total_served_since_startup",
+        "Number of certificate details served since startup on a Mithril aggregator node",
+        &["origin_tag"]
     ),
     artifact_detail_cardano_immutable_files_full_total_served_since_startup:MetricCounter(
         "mithril_aggregator_artifact_detail_cardano_db_total_served_since_startup",
@@ -103,20 +106,35 @@ build_metrics_service!(
 
 impl MetricsService {
     /// Export metrics in map.
-    // `get metric` returns a list of Metrics for CounterVec purposes for example.
-    // We therefore add up the values ​​even though we will always only have one value with our Counter type metrics.
-    pub fn export_metrics_map(&self) -> HashMap<String, u32> {
+    pub fn export_metrics_map(&self) -> HashMap<String, HashMap<String, u32>> {
         self.registry
             .gather()
             .iter()
             .map(|metric_family| {
                 (
                     metric_family.get_name().to_string(),
-                    metric_family
-                        .get_metric()
-                        .iter()
-                        .map(|m| m.get_counter().get_value() as u32)
-                        .sum(),
+                    self.build_metric_map_per_label(metric_family),
+                )
+            })
+            .collect()
+    }
+
+    fn build_label_key(&self, labels: &[LabelPair]) -> String {
+        labels
+            .iter()
+            .map(|p| p.get_value())
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    fn build_metric_map_per_label(&self, metric_family: &MetricFamily) -> HashMap<String, u32> {
+        metric_family
+            .get_metric()
+            .iter()
+            .map(|m| {
+                (
+                    self.build_label_key(m.get_label()),
+                    m.get_counter().get_value() as u32,
                 )
             })
             .collect()
@@ -138,8 +156,20 @@ mod tests {
         metric_b.increment_by(12);
 
         let export = metrics_service.export_metrics_map();
-        assert_eq!(5, export[&metric_a.name()]);
-        assert_eq!(12, export[&metric_b.name()]);
+        assert_eq!(5, export[&metric_a.name()][""]);
+        assert_eq!(12, export[&metric_b.name()][""]);
+    }
+
+    #[test]
+    fn should_export_counter_metrics_with_label_in_a_map() {
+        let metrics_service = MetricsService::new(TestLogger::stdout()).unwrap();
+        let metric_a = metrics_service.get_certificate_detail_total_served_since_startup();
+        metric_a.increment_by(&["TOKEN_A"], 5);
+        metric_a.increment_by(&["TOKEN_B"], 12);
+
+        let export = metrics_service.export_metrics_map();
+        assert_eq!(5, export[&metric_a.name()]["TOKEN_A"]);
+        assert_eq!(12, export[&metric_a.name()]["TOKEN_B"]);
     }
 
     #[test]
@@ -149,11 +179,11 @@ mod tests {
         metric_a.increment_by(5);
 
         let export = metrics_service.export_metrics_map();
-        assert_eq!(5, export[&metric_a.name()]);
+        assert_eq!(5, export[&metric_a.name()][""]);
 
         metric_a.increment();
         let export = metrics_service.export_metrics_map();
-        assert_eq!(6, export[&metric_a.name()]);
+        assert_eq!(6, export[&metric_a.name()][""]);
     }
 
     #[test]
@@ -162,7 +192,7 @@ mod tests {
         let metric_a = metrics_service.get_runtime_cycle_total_since_startup();
 
         let export = metrics_service.export_metrics_map();
-        assert_eq!(0, export[&metric_a.name()]);
+        assert_eq!(0, export[&metric_a.name()][""]);
     }
 
     #[test]
