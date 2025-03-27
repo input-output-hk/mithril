@@ -42,13 +42,13 @@ impl AggregatorRelay {
             .await;
         match response {
             Ok(response) => match response.status() {
-                StatusCode::CREATED => {
+                StatusCode::CREATED | StatusCode::ACCEPTED => {
                     info!(self.logger, "Sent successfully signature message to aggregator"; "signature_message" => #?signature_message);
                     Ok(())
                 }
                 status => {
-                    error!(self.logger, "Post `/register-signatures` should have returned a 201 status code, got: {status}");
-                    Err(anyhow!("Post `/register-signatures` should have returned a 201 status code, got: {status}"))
+                    error!(self.logger, "Post `/register-signatures` should have returned a 201 or 202 status code, got: {status}");
+                    Err(anyhow!("Post `/register-signatures` should have returned a 201 or 202 status code, got: {status}"))
                 }
             },
             Err(err) => {
