@@ -105,6 +105,7 @@ mod tests {
                 metric_name.to_string(),
                 value,
                 Duration::from_secs(5),
+                "TOKEN".to_string(), // TODO We need to check that metric per day take this field into account.
                 metric_date.into(),
             );
 

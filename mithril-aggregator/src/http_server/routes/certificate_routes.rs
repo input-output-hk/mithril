@@ -66,14 +66,14 @@ mod handlers {
     /// Certificate by certificate hash
     pub async fn certificate_certificate_hash(
         certificate_hash: String,
-        _origin_tag: Option<String>,
+        origin_tag: Option<String>,
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_certificate_detail_total_served_since_startup()
-            .increment();
+            .increment(&[origin_tag.unwrap_or_default().as_str()]);
 
         match http_message_service
             .get_certificate_message(&certificate_hash)
@@ -92,15 +92,21 @@ mod handlers {
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
-    use mithril_common::test_utils::{apispec::APISpec, fake_data};
+    use mithril_common::{
+        test_utils::{apispec::APISpec, fake_data},
+        MITHRIL_ORIGIN_TAG_HEADER,
+    };
     use serde_json::Value::Null;
-    use std::sync::Arc;
+    use std::{collections::HashSet, sync::Arc};
     use warp::{
         http::{Method, StatusCode},
         test::request,
     };
 
-    use crate::{initialize_dependencies, services::MockMessageService};
+    use crate::{
+        http_server::routes::router::RouterConfig, initialize_dependencies,
+        services::MockMessageService,
+    };
 
     use super::*;
 
@@ -184,26 +190,33 @@ mod tests {
     ) {
         let method = Method::GET.as_str();
         let path = "/certificate/{certificate_hash}";
+
         let dependency_manager = Arc::new(initialize_dependencies!().await);
-        let initial_counter_value = dependency_manager
+        let metric = dependency_manager
             .metrics_service
-            .get_certificate_detail_total_served_since_startup()
-            .get();
+            .get_certificate_detail_total_served_since_startup();
+        let initial_counter_value_with_tag = metric.get(&["TEST"]);
+        let initial_counter_value_with_unknown_tag = metric.get(&["UNKNOWN"]);
 
         request()
             .method(method)
             .path(path)
-            .reply(&setup_router(RouterState::new_with_dummy_config(
+            .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
+            // TODO see router_state_with_origin_whitelist in middlewares.rs
+            // Can we reuse something ?
+            .reply(&setup_router(RouterState::new(
                 dependency_manager.clone(),
+                RouterConfig {
+                    origin_tag_white_list: HashSet::from(["TEST".to_string()]),
+                    ..RouterConfig::dummy()
+                },
             )))
             .await;
 
+        assert_eq!(initial_counter_value_with_tag + 1, metric.get(&["TEST"]));
         assert_eq!(
-            initial_counter_value + 1,
-            dependency_manager
-                .metrics_service
-                .get_certificate_detail_total_served_since_startup()
-                .get()
+            initial_counter_value_with_unknown_tag,
+            metric.get(&["UNKNOWN"])
         );
     }
 
