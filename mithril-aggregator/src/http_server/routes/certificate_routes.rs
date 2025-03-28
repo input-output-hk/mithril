@@ -97,16 +97,13 @@ mod tests {
         MITHRIL_ORIGIN_TAG_HEADER,
     };
     use serde_json::Value::Null;
-    use std::{collections::HashSet, sync::Arc};
+    use std::sync::Arc;
     use warp::{
         http::{Method, StatusCode},
         test::request,
     };
 
-    use crate::{
-        http_server::routes::router::RouterConfig, initialize_dependencies,
-        services::MockMessageService,
-    };
+    use crate::{initialize_dependencies, services::MockMessageService};
 
     use super::*;
 
@@ -202,14 +199,9 @@ mod tests {
             .method(method)
             .path(path)
             .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
-            // TODO see router_state_with_origin_whitelist in middlewares.rs
-            // Can we reuse something ?
-            .reply(&setup_router(RouterState::new(
+            .reply(&setup_router(RouterState::new_with_origin_tag_white_list(
                 dependency_manager.clone(),
-                RouterConfig {
-                    origin_tag_white_list: HashSet::from(["TEST".to_string()]),
-                    ..RouterConfig::dummy()
-                },
+                &["TEST"],
             )))
             .await;
 
