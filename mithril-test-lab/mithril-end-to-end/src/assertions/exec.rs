@@ -5,28 +5,38 @@ use mithril_common::entities::{Epoch, ProtocolParameters};
 use mithril_common::StdResult;
 use slog_scope::info;
 
-pub async fn bootstrap_genesis_certificate(aggregator: &mut Aggregator) -> StdResult<()> {
-    info!("Bootstrap genesis certificate");
+pub async fn bootstrap_genesis_certificate(aggregator: &Aggregator) -> StdResult<()> {
+    info!("Bootstrap genesis certificate"; "aggregator" => &aggregator.name());
 
-    info!("> stopping aggregator");
+    // A slave aggregator needs to wait few cycles of the state machine to be able to bootstrap
+    // This should be removed when the aggregator is able to synchronize its certificate chain from another aggregator
+    if !aggregator.is_first() {
+        const CYCLES_WAIT_SLAVE: u64 = 3;
+        tokio::time::sleep(std::time::Duration::from_millis(
+            CYCLES_WAIT_SLAVE * aggregator.mithril_run_interval() as u64,
+        ))
+        .await;
+    }
+
+    info!("> stopping aggregator"; "aggregator" => &aggregator.name());
     aggregator.stop().await?;
-    info!("> bootstrapping genesis using signers registered two epochs ago...");
+    info!("> bootstrapping genesis using signers registered two epochs ago..."; "aggregator" => &aggregator.name());
     aggregator.bootstrap_genesis().await?;
-    info!("> done, restarting aggregator");
-    aggregator.serve()?;
+    info!("> done, restarting aggregator"; "aggregator" => &aggregator.name());
+    aggregator.serve().await?;
 
     Ok(())
 }
 
 pub async fn register_era_marker(
-    aggregator: &mut Aggregator,
+    aggregator: &Aggregator,
     devnet: &Devnet,
     mithril_era: &str,
     era_epoch: Epoch,
 ) -> StdResult<()> {
-    info!("Register '{mithril_era}' era marker");
+    info!("Register '{mithril_era}' era marker"; "aggregator" => &aggregator.name());
 
-    info!("> generating era marker tx datum...");
+    info!("> generating era marker tx datum..."; "aggregator" => &aggregator.name());
     let tx_datum_file_path = devnet
         .artifacts_dir()
         .join(PathBuf::from("era-tx-datum.txt".to_string()));
@@ -34,7 +44,7 @@ pub async fn register_era_marker(
         .era_generate_tx_datum(&tx_datum_file_path, mithril_era, era_epoch)
         .await?;
 
-    info!("> writing '{mithril_era}' era marker on the Cardano chain...");
+    info!("> writing '{mithril_era}' era marker on the Cardano chain..."; "aggregator" => &aggregator.name());
     devnet.write_era_marker(&tx_datum_file_path).await?;
 
     Ok(())
@@ -56,8 +66,8 @@ pub async fn transfer_funds(devnet: &Devnet) -> StdResult<()> {
     Ok(())
 }
 
-pub async fn update_protocol_parameters(aggregator: &mut Aggregator) -> StdResult<()> {
-    info!("Update protocol parameters");
+pub async fn update_protocol_parameters(aggregator: &Aggregator) -> StdResult<()> {
+    info!("Update protocol parameters"; "aggregator" => &aggregator.name());
 
     info!("> stopping aggregator");
     aggregator.stop().await?;
@@ -67,12 +77,13 @@ pub async fn update_protocol_parameters(aggregator: &mut Aggregator) -> StdResul
         phi_f: 0.80,
     };
     info!(
-        "> updating protocol parameters to {:?}...",
-        protocol_parameters_new
+        "> updating protocol parameters to {protocol_parameters_new:?}..."; "aggregator" => &aggregator.name()
     );
-    aggregator.set_protocol_parameters(&protocol_parameters_new);
-    info!("> done, restarting aggregator");
-    aggregator.serve()?;
+    aggregator
+        .set_protocol_parameters(&protocol_parameters_new)
+        .await;
+    info!("> done, restarting aggregator"; "aggregator" => &aggregator.name());
+    aggregator.serve().await?;
 
     Ok(())
 }

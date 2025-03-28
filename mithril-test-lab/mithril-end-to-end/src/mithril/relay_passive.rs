@@ -15,16 +15,16 @@ pub struct RelayPassive {
 impl RelayPassive {
     pub fn new(
         listen_port: u64,
-        dial_to: String,
+        dial_to: Option<String>,
         relay_id: String,
         work_dir: &Path,
         bin_dir: &Path,
     ) -> StdResult<Self> {
         let listen_port_str = format!("{listen_port}");
-        let env = HashMap::from([
-            ("LISTEN_PORT", listen_port_str.as_str()),
-            ("DIAL_TO", &dial_to),
-        ]);
+        let mut env = HashMap::from([("LISTEN_PORT", listen_port_str.as_str())]);
+        if let Some(dial_to) = &dial_to {
+            env.insert("DIAL_TO", dial_to);
+        }
         let args = vec!["-vvv", "passive"];
 
         let mut command = MithrilCommand::new("mithril-relay", work_dir, bin_dir, env, &args)?;

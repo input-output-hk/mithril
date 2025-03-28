@@ -12,6 +12,7 @@ pub use commands::RelayCommands;
 pub use relay::AggregatorRelay;
 pub use relay::PassiveRelay;
 pub use relay::SignerRelay;
+pub use relay::SignerRelayMode;
 
 /// The P2P topic names used by Mithril
 pub mod mithril_p2p_topic {

@@ -1,24 +1,31 @@
 use crate::utils::MithrilCommand;
 use crate::{
-    PoolNode, DEVNET_MAGIC_ID, ERA_MARKERS_SECRET_KEY, ERA_MARKERS_VERIFICATION_KEY,
-    GENESIS_SECRET_KEY, GENESIS_VERIFICATION_KEY,
+    FullNode, RetryableDevnetError, DEVNET_MAGIC_ID, ERA_MARKERS_SECRET_KEY,
+    ERA_MARKERS_VERIFICATION_KEY, GENESIS_SECRET_KEY, GENESIS_VERIFICATION_KEY,
 };
 use anyhow::{anyhow, Context};
+use mithril_common::chain_observer::{ChainObserver, PallasChainObserver};
 use mithril_common::era::SupportedEra;
-use mithril_common::{entities, StdResult};
+use mithril_common::{entities, CardanoNetwork, StdResult};
 use slog_scope::info;
 use std::cmp;
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::process::Child;
+use tokio::sync::RwLock;
 
 #[derive(Debug)]
 pub struct AggregatorConfig<'a> {
+    pub index: usize,
+    pub name: &'a str,
     pub server_port: u64,
-    pub pool_node: &'a PoolNode,
+    pub full_node: &'a FullNode,
     pub cardano_cli_path: &'a Path,
     pub work_dir: &'a Path,
+    pub store_dir: &'a Path,
     pub artifacts_dir: &'a Path,
     pub bin_dir: &'a Path,
     pub cardano_node_version: &'a str,
@@ -28,14 +35,18 @@ pub struct AggregatorConfig<'a> {
     pub mithril_era_marker_address: &'a str,
     pub signed_entity_types: &'a [String],
     pub chain_observer_type: &'a str,
+    pub master_aggregator_endpoint: &'a Option<String>,
 }
 
-#[derive(Debug)]
 pub struct Aggregator {
+    index: usize,
+    name_suffix: String,
     server_port: u64,
     db_directory: PathBuf,
-    command: MithrilCommand,
-    process: Option<Child>,
+    mithril_run_interval: u32,
+    command: Arc<RwLock<MithrilCommand>>,
+    process: RwLock<Option<Child>>,
+    chain_observer: Arc<dyn ChainObserver>,
 }
 
 impl Aggregator {
@@ -57,7 +68,7 @@ impl Aggregator {
         let signed_entity_types = aggregator_config.signed_entity_types.join(",");
         let mithril_run_interval = format!("{}", aggregator_config.mithril_run_interval);
         let public_server_url = format!("http://localhost:{server_port_parameter}/aggregator");
-        let env = HashMap::from([
+        let mut env = HashMap::from([
             ("NETWORK", "devnet"),
             ("RUN_INTERVAL", &mithril_run_interval),
             ("SERVER_IP", "0.0.0.0"),
@@ -71,10 +82,13 @@ impl Aggregator {
                 aggregator_config.artifacts_dir.to_str().unwrap(),
             ),
             ("NETWORK_MAGIC", &magic_id),
-            ("DATA_STORES_DIRECTORY", "./stores/aggregator"),
+            (
+                "DATA_STORES_DIRECTORY",
+                aggregator_config.store_dir.to_str().unwrap(),
+            ),
             (
                 "CARDANO_NODE_SOCKET_PATH",
-                aggregator_config.pool_node.socket_path.to_str().unwrap(),
+                aggregator_config.full_node.socket_path.to_str().unwrap(),
             ),
             ("STORE_RETENTION_LIMIT", "10"),
             (
@@ -103,9 +117,12 @@ impl Aggregator {
             ("CARDANO_TRANSACTIONS_SIGNING_CONFIG__STEP", "15"),
             ("PERSIST_USAGE_REPORT_INTERVAL_IN_SECONDS", "3"),
         ]);
+        if let Some(master_aggregator_endpoint) = aggregator_config.master_aggregator_endpoint {
+            env.insert("MASTER_AGGREGATOR_ENDPOINT", master_aggregator_endpoint);
+        }
         let args = vec![
             "--db-directory",
-            aggregator_config.pool_node.db_path.to_str().unwrap(),
+            aggregator_config.full_node.db_path.to_str().unwrap(),
             "-vvv",
         ];
 
@@ -116,22 +133,50 @@ impl Aggregator {
             env,
             &args,
         )?;
+        let chain_observer = Arc::new(PallasChainObserver::new(
+            &aggregator_config.full_node.socket_path,
+            CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
+        ));
 
         Ok(Self {
+            index: aggregator_config.index,
+            name_suffix: aggregator_config.name.to_string(),
             server_port: aggregator_config.server_port,
-            db_directory: aggregator_config.pool_node.db_path.clone(),
-            command,
-            process: None,
+            db_directory: aggregator_config.full_node.db_path.clone(),
+            mithril_run_interval: aggregator_config.mithril_run_interval,
+            command: Arc::new(RwLock::new(command)),
+            process: RwLock::new(None),
+            chain_observer,
         })
+    }
+
+    pub fn name_suffix(index: usize) -> String {
+        format!("{}", index + 1)
     }
 
     pub fn copy_configuration(other: &Aggregator) -> Self {
         Self {
+            index: other.index,
+            name_suffix: other.name_suffix.clone(),
             server_port: other.server_port,
             db_directory: other.db_directory.clone(),
+            mithril_run_interval: other.mithril_run_interval,
             command: other.command.clone(),
-            process: None,
+            process: RwLock::new(None),
+            chain_observer: other.chain_observer.clone(),
         }
+    }
+
+    pub fn is_first(&self) -> bool {
+        self.index == 0
+    }
+
+    pub fn index(&self) -> usize {
+        self.index
+    }
+
+    pub fn name(&self) -> String {
+        format!("mithril-aggregator-{}", self.name_suffix)
     }
 
     pub fn endpoint(&self) -> String {
@@ -142,16 +187,27 @@ impl Aggregator {
         &self.db_directory
     }
 
-    pub fn serve(&mut self) -> StdResult<()> {
-        self.process = Some(self.command.start(&["serve".to_string()])?);
+    pub fn mithril_run_interval(&self) -> u32 {
+        self.mithril_run_interval
+    }
+
+    pub fn chain_observer(&self) -> Arc<dyn ChainObserver> {
+        self.chain_observer.clone()
+    }
+
+    pub async fn serve(&self) -> StdResult<()> {
+        let mut command = self.command.write().await;
+        command.set_log_name(&format!("mithril-aggregator-{}", self.name_suffix));
+        let mut process = self.process.write().await;
+        *process = Some(command.start(&["serve".to_string()])?);
         Ok(())
     }
 
-    pub async fn bootstrap_genesis(&mut self) -> StdResult<()> {
+    pub async fn bootstrap_genesis(&self) -> StdResult<()> {
         // Clone the command so we can alter it without affecting the original
-        let mut command = self.command.clone();
-        let process_name = "mithril-aggregator-genesis-bootstrap";
-        command.set_log_name(process_name);
+        let mut command = self.command.write().await;
+        let command_name = &format!("mithril-aggregator-genesis-bootstrap-{}", self.name_suffix,);
+        command.set_log_name(command_name);
 
         let exit_status = command
             .start(&["genesis".to_string(), "bootstrap".to_string()])?
@@ -162,7 +218,7 @@ impl Aggregator {
         if exit_status.success() {
             Ok(())
         } else {
-            self.command.tail_logs(Some(process_name), 40).await?;
+            command.tail_logs(Some(command_name), 40).await?;
 
             Err(match exit_status.code() {
                 Some(c) => {
@@ -172,23 +228,25 @@ impl Aggregator {
                     anyhow!("`mithril-aggregator genesis bootstrap` was terminated with a signal")
                 }
             })
+            .map_err(|e| anyhow!(RetryableDevnetError(e.to_string())))
         }
     }
 
-    pub async fn stop(&mut self) -> StdResult<()> {
-        if let Some(process) = self.process.as_mut() {
-            info!("Stopping aggregator");
-            process
+    pub async fn stop(&self) -> StdResult<()> {
+        let mut process = self.process.write().await;
+        if let Some(mut process_running) = process.take() {
+            info!("Stopping {}", self.name());
+            process_running
                 .kill()
                 .await
                 .with_context(|| "Could not kill aggregator")?;
-            self.process = None;
+            *process = None;
         }
         Ok(())
     }
 
     pub async fn era_generate_tx_datum(
-        &mut self,
+        &self,
         target_path: &Path,
         mithril_era: &str,
         next_era_activation_epoch: entities::Epoch,
@@ -219,8 +277,8 @@ impl Aggregator {
             args.push(next_era_epoch.to_string());
         }
 
-        let exit_status = self
-            .command
+        let mut command = self.command.write().await;
+        let exit_status = command
             .start(&args)?
             .wait()
             .await
@@ -242,45 +300,53 @@ impl Aggregator {
         }
     }
 
-    pub fn set_protocol_parameters(&mut self, protocol_parameters: &entities::ProtocolParameters) {
-        self.command.set_env_var(
+    pub async fn set_protocol_parameters(
+        &self,
+        protocol_parameters: &entities::ProtocolParameters,
+    ) {
+        let mut command = self.command.write().await;
+        command.set_env_var(
             "PROTOCOL_PARAMETERS__K",
             &format!("{}", protocol_parameters.k),
         );
-        self.command.set_env_var(
+        command.set_env_var(
             "PROTOCOL_PARAMETERS__M",
             &format!("{}", protocol_parameters.m),
         );
-        self.command.set_env_var(
+        command.set_env_var(
             "PROTOCOL_PARAMETERS__PHI_F",
             &format!("{}", protocol_parameters.phi_f),
         );
     }
 
-    pub fn set_mock_cardano_cli_file_path(
-        &mut self,
+    pub async fn set_mock_cardano_cli_file_path(
+        &self,
         stake_distribution_file: &Path,
         epoch_file_path: &Path,
     ) {
-        self.command.set_env_var(
+        let mut command = self.command.write().await;
+        command.set_env_var(
             "MOCK_STAKE_DISTRIBUTION_FILE",
             stake_distribution_file.to_str().unwrap(),
         );
-        self.command
-            .set_env_var("MOCK_EPOCH_FILE", epoch_file_path.to_str().unwrap());
+        command.set_env_var("MOCK_EPOCH_FILE", epoch_file_path.to_str().unwrap());
     }
 
     /// Change the run interval of the aggregator state machine (default: 400ms)
-    pub fn change_run_interval(&mut self, interval: Duration) {
-        self.command
-            .set_env_var("RUN_INTERVAL", &format!("{}", interval.as_millis()))
+    pub async fn change_run_interval(&self, interval: Duration) {
+        let mut command = self.command.write().await;
+        command.set_env_var("RUN_INTERVAL", &format!("{}", interval.as_millis()))
     }
 
     pub async fn tail_logs(&self, number_of_line: u64) -> StdResult<()> {
-        self.command.tail_logs(None, number_of_line).await
+        let command = self.command.write().await;
+        command.tail_logs(Some(&self.name()), number_of_line).await
     }
 
     pub async fn last_error_in_logs(&self, number_of_error: u64) -> StdResult<()> {
-        self.command.last_error_in_logs(None, number_of_error).await
+        let command = self.command.write().await;
+        command
+            .last_error_in_logs(Some(&self.name()), number_of_error)
+            .await
     }
 }

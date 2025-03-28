@@ -38,7 +38,7 @@ impl Epoch {
     pub const CARDANO_STAKE_DISTRIBUTION_SNAPSHOT_OFFSET: u64 = 2;
 
     /// The epoch offset used to retrieve the epoch at which a signer has registered to the master aggregator.
-    pub const SIGNER_MASTER_SYNCHRONIZATION_OFFSET: u64 = 1;
+    pub const SIGNER_MASTER_SYNCHRONIZATION_OFFSET: u64 = 0;
 
     /// Computes a new Epoch by applying an epoch offset.
     ///

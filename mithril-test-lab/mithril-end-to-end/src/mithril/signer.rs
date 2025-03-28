@@ -7,7 +7,9 @@ use mithril_common::StdResult;
 use slog_scope::info;
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Arc;
 use tokio::process::Child;
+use tokio::sync::RwLock;
 
 #[derive(Debug)]
 pub struct SignerConfig<'a> {
@@ -16,6 +18,7 @@ pub struct SignerConfig<'a> {
     pub pool_node: &'a PoolNode,
     pub cardano_cli_path: &'a Path,
     pub work_dir: &'a Path,
+    pub store_dir: &'a Path,
     pub bin_dir: &'a Path,
     pub mithril_run_interval: u32,
     pub mithril_era: &'a str,
@@ -28,15 +31,14 @@ pub struct SignerConfig<'a> {
 pub struct Signer {
     name: String,
     party_id: PartyId,
-    command: MithrilCommand,
-    process: Option<Child>,
+    command: Arc<RwLock<MithrilCommand>>,
+    process: RwLock<Option<Child>>,
 }
 
 impl Signer {
     pub fn new(signer_config: &SignerConfig) -> StdResult<Self> {
         let party_id = signer_config.pool_node.party_id()?;
         let magic_id = DEVNET_MAGIC_ID.to_string();
-        let data_stores_path = format!("./stores/signer-{party_id}");
         let era_reader_adapter_params =
             if signer_config.mithril_era_reader_adapter == "cardano-chain" {
                 format!(
@@ -58,7 +60,10 @@ impl Signer {
                 "DB_DIRECTORY",
                 signer_config.pool_node.db_path.to_str().unwrap(),
             ),
-            ("DATA_STORES_DIRECTORY", &data_stores_path),
+            (
+                "DATA_STORES_DIRECTORY",
+                signer_config.store_dir.to_str().unwrap(),
+            ),
             ("STORE_RETENTION_LIMIT", "10"),
             ("NETWORK_MAGIC", &magic_id),
             (
@@ -112,30 +117,35 @@ impl Signer {
         Ok(Self {
             name,
             party_id,
-            command,
-            process: None,
+            command: Arc::new(RwLock::new(command)),
+            process: RwLock::new(None),
         })
     }
 
-    pub fn start(&mut self) -> StdResult<()> {
-        self.process = Some(self.command.start(&[])?);
+    pub async fn start(&self) -> StdResult<()> {
+        let mut command = self.command.write().await;
+        let mut process = self.process.write().await;
+        *process = Some(command.start(&[])?);
         Ok(())
     }
 
-    pub async fn stop(&mut self) -> StdResult<()> {
-        if let Some(process) = self.process.as_mut() {
+    pub async fn stop(&self) -> StdResult<()> {
+        let mut process_option = self.process.write().await;
+        if let Some(process) = process_option.as_mut() {
             let name = self.name.as_str();
             info!("Stopping {name}");
             process
                 .kill()
                 .await
                 .with_context(|| "Could not kill signer")?;
-            self.process = None;
+            *process_option = None;
         }
         Ok(())
     }
     pub async fn tail_logs(&self, number_of_line: u64) -> StdResult<()> {
         self.command
+            .read()
+            .await
             .tail_logs(
                 Some(format!("mithril-signer-{}", self.party_id).as_str()),
                 number_of_line,

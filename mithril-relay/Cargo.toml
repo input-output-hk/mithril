@@ -1,6 +1,6 @@
 [package]
 name = "mithril-relay"
-version = "0.1.38"
+version = "0.1.39"
 description = "A Mithril relay"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -48,6 +48,7 @@ slog = { version = "2.7.0", features = [
 ] }
 slog-async = "2.8.0"
 slog-bunyan = "2.5.0"
+strum = { version = "0.26.3", features = ["derive"] }
 thiserror = "2.0.12"
 tokio = { version = "1.44.1", features = ["full"] }
 warp = "0.3.7"

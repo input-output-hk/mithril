@@ -147,7 +147,7 @@ impl SignerRegisterer for MithrilSignerRegistrationMaster {
                     registration_round.epoch
                 )
             })
-            .map_err(|e| SignerRegistrationError::StoreError(anyhow!(e)))?
+            .map_err(|e| SignerRegistrationError::Store(anyhow!(e)))?
         {
             Some(_) => Err(SignerRegistrationError::ExistingSigner(Box::new(
                 signer_save,

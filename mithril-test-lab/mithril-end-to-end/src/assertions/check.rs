@@ -18,7 +18,7 @@ use mithril_common::{
 };
 
 use crate::{
-    attempt, utils::AttemptResult, CardanoDbCommand, CardanoDbV2Command,
+    attempt, utils::AttemptResult, Aggregator, CardanoDbCommand, CardanoDbV2Command,
     CardanoStakeDistributionCommand, CardanoTransactionCommand, Client, ClientCommand,
     MithrilStakeDistributionCommand,
 };
@@ -37,10 +37,13 @@ async fn get_json_response<T: DeserializeOwned>(url: String) -> StdResult<reqwes
 }
 
 pub async fn assert_node_producing_mithril_stake_distribution(
-    aggregator_endpoint: &str,
+    aggregator: &Aggregator,
 ) -> StdResult<String> {
-    let url = format!("{aggregator_endpoint}/artifact/mithril-stake-distributions");
-    info!("Waiting for the aggregator to produce a mithril stake distribution");
+    let url = format!(
+        "{}/artifact/mithril-stake-distributions",
+        aggregator.endpoint()
+    );
+    info!("Waiting for the aggregator to produce a mithril stake distribution"; "aggregator" => &aggregator.name());
 
     async fn fetch_last_mithril_stake_distribution_hash(url: String) -> StdResult<Option<String>> {
         match get_json_response::<MithrilStakeDistributionListMessage>(url)
@@ -49,7 +52,7 @@ pub async fn assert_node_producing_mithril_stake_distribution(
         {
             Ok([stake_distribution, ..]) => Ok(Some(stake_distribution.hash.clone())),
             Ok(&[]) => Ok(None),
-            Err(err) => Err(anyhow!("Invalid mithril stake distribution body : {err}",)),
+            Err(err) => Err(anyhow!("Invalid mithril stake distribution body: {err}",)),
         }
     }
 
@@ -57,42 +60,51 @@ pub async fn assert_node_producing_mithril_stake_distribution(
         fetch_last_mithril_stake_distribution_hash(url.clone()).await
     }) {
         AttemptResult::Ok(hash) => {
-            info!("Aggregator produced a mithril stake distribution"; "hash" => &hash);
+            info!("Aggregator produced a mithril stake distribution"; "hash" => &hash, "aggregator" => &aggregator.name());
             Ok(hash)
         }
         AttemptResult::Err(error) => Err(error),
         AttemptResult::Timeout() => Err(anyhow!(
             "Timeout exhausted assert_node_producing_mithril_stake_distribution, no response from `{url}`"
         )),
-    }
+    }.with_context(|| {
+        format!(
+            "Requesting aggregator `{}`",
+            aggregator.name()
+        )
+    })
 }
 
 pub async fn assert_signer_is_signing_mithril_stake_distribution(
-    aggregator_endpoint: &str,
+    aggregator: &Aggregator,
     hash: &str,
     expected_epoch_min: Epoch,
 ) -> StdResult<String> {
-    let url = format!("{aggregator_endpoint}/artifact/mithril-stake-distribution/{hash}");
+    let url = format!(
+        "{}/artifact/mithril-stake-distribution/{hash}",
+        aggregator.endpoint()
+    );
     info!(
         "Asserting the aggregator is signing the mithril stake distribution message `{}` with an expected min epoch of `{}`",
         hash,
-        expected_epoch_min
+        expected_epoch_min;
+        "aggregator" => &aggregator.name()
     );
 
     async fn fetch_mithril_stake_distribution_message(
         url: String,
         expected_epoch_min: Epoch,
     ) -> StdResult<Option<MithrilStakeDistributionMessage>> {
-        match get_json_response::<MithrilStakeDistributionMessage>(url)
+        match get_json_response::<MithrilStakeDistributionMessage>(url.clone())
             .await?
             {
                 Ok(stake_distribution) => match stake_distribution.epoch {
                     epoch if epoch >= expected_epoch_min => Ok(Some(stake_distribution)),
                     epoch => Err(anyhow!(
-                        "Minimum expected mithril stake distribution epoch not reached : {epoch} < {expected_epoch_min}"
+                        "Minimum expected mithril stake distribution epoch not reached: {epoch} < {expected_epoch_min}"
                     )),
                 },
-                Err(err) => Err(anyhow!("Invalid mithril stake distribution body : {err}",)),
+                Err(err) => Err(anyhow!("Invalid mithril stake distribution body: {err}",)),
             }
     }
 
@@ -100,19 +112,24 @@ pub async fn assert_signer_is_signing_mithril_stake_distribution(
         fetch_mithril_stake_distribution_message(url.clone(), expected_epoch_min).await
     }) {
         AttemptResult::Ok(stake_distribution) => {
-            info!("Signer signed a mithril stake distribution"; "certificate_hash" => &stake_distribution.certificate_hash);
+            info!("Signer signed a mithril stake distribution"; "certificate_hash" => &stake_distribution.certificate_hash, "aggregator" => &aggregator.name());
             Ok(stake_distribution.certificate_hash)
         }
         AttemptResult::Err(error) => Err(error),
         AttemptResult::Timeout() => Err(anyhow!(
             "Timeout exhausted assert_signer_is_signing_mithril_stake_distribution, no response from `{url}`"
         )),
-    }
+    }.with_context(|| {
+        format!(
+            "Requesting aggregator `{}`",
+            aggregator.name()
+        )
+    })
 }
 
-pub async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> StdResult<String> {
-    let url = format!("{aggregator_endpoint}/artifact/snapshots");
-    info!("Waiting for the aggregator to produce a snapshot");
+pub async fn assert_node_producing_snapshot(aggregator: &Aggregator) -> StdResult<String> {
+    let url = format!("{}/artifact/snapshots", aggregator.endpoint());
+    info!("Waiting for the aggregator to produce a snapshot"; "aggregator" => &aggregator.name());
 
     async fn fetch_last_snapshot_digest(url: String) -> StdResult<Option<String>> {
         match get_json_response::<Vec<SnapshotMessage>>(url)
@@ -121,7 +138,7 @@ pub async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> StdRes
         {
             Ok([snapshot, ..]) => Ok(Some(snapshot.digest.clone())),
             Ok(&[]) => Ok(None),
-            Err(err) => Err(anyhow!("Invalid snapshot body : {err}",)),
+            Err(err) => Err(anyhow!("Invalid snapshot body: {err}",)),
         }
     }
 
@@ -129,7 +146,7 @@ pub async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> StdRes
         fetch_last_snapshot_digest(url.clone()).await
     }) {
         AttemptResult::Ok(digest) => {
-            info!("Aggregator produced a snapshot"; "digest" => &digest);
+            info!("Aggregator produced a snapshot"; "digest" => &digest, "aggregator" => &aggregator.name());
             Ok(digest)
         }
         AttemptResult::Err(error) => Err(error),
@@ -137,18 +154,20 @@ pub async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> StdRes
             "Timeout exhausted assert_node_producing_snapshot, no response from `{url}`"
         )),
     }
+    .with_context(|| format!("Requesting aggregator `{}`", aggregator.name()))
 }
 
 pub async fn assert_signer_is_signing_snapshot(
-    aggregator_endpoint: &str,
+    aggregator: &Aggregator,
     digest: &str,
     expected_epoch_min: Epoch,
 ) -> StdResult<String> {
-    let url = format!("{aggregator_endpoint}/artifact/snapshot/{digest}");
+    let url = format!("{}/artifact/snapshot/{digest}", aggregator.endpoint());
     info!(
         "Asserting the aggregator is signing the snapshot message `{}` with an expected min epoch of `{}`",
         digest,
-        expected_epoch_min
+        expected_epoch_min;
+        "aggregator" => &aggregator.name()
     );
 
     async fn fetch_snapshot_message(
@@ -159,7 +178,7 @@ pub async fn assert_signer_is_signing_snapshot(
             Ok(snapshot) => match snapshot.beacon.epoch {
                 epoch if epoch >= expected_epoch_min => Ok(Some(snapshot)),
                 epoch => Err(anyhow!(
-                    "Minimum expected snapshot epoch not reached : {epoch} < {expected_epoch_min}"
+                    "Minimum expected snapshot epoch not reached: {epoch} < {expected_epoch_min}"
                 )),
             },
             Err(err) => Err(anyhow!(err).context("Invalid snapshot body")),
@@ -170,21 +189,24 @@ pub async fn assert_signer_is_signing_snapshot(
         fetch_snapshot_message(url.clone(), expected_epoch_min).await
     }) {
         AttemptResult::Ok(snapshot) => {
-            info!("Signer signed a snapshot"; "certificate_hash" => &snapshot.certificate_hash);
+            info!("Signer signed a snapshot"; "certificate_hash" => &snapshot.certificate_hash, "aggregator" => &aggregator.name());
             Ok(snapshot.certificate_hash)
         }
-        AttemptResult::Err(error) => Err(error),
+        AttemptResult::Err(error) => {
+            Err(error).with_context(|| format!("Requesting aggregator `{}`", aggregator.name()))
+        }
         AttemptResult::Timeout() => Err(anyhow!(
             "Timeout exhausted assert_signer_is_signing_snapshot, no response from `{url}`"
         )),
     }
+    .with_context(|| format!("Requesting aggregator `{}`", aggregator.name()))
 }
 
 pub async fn assert_node_producing_cardano_database_snapshot(
-    aggregator_endpoint: &str,
+    aggregator: &Aggregator,
 ) -> StdResult<String> {
-    let url = format!("{aggregator_endpoint}/artifact/cardano-database");
-    info!("Waiting for the aggregator to produce a Cardano database snapshot");
+    let url = format!("{}/artifact/cardano-database", aggregator.endpoint());
+    info!("Waiting for the aggregator to produce a Cardano database snapshot"; "aggregator" => &aggregator.name());
 
     async fn fetch_last_cardano_database_snapshot_hash(url: String) -> StdResult<Option<String>> {
         match get_json_response::<CardanoDatabaseSnapshotListMessage>(url)
@@ -193,7 +215,7 @@ pub async fn assert_node_producing_cardano_database_snapshot(
         {
             Ok([cardano_database_snapshot, ..]) => Ok(Some(cardano_database_snapshot.hash.clone())),
             Ok(&[]) => Ok(None),
-            Err(err) => Err(anyhow!("Invalid Cardano database snapshot body : {err}",)),
+            Err(err) => Err(anyhow!("Invalid Cardano database snapshot body: {err}",)),
         }
     }
 
@@ -201,7 +223,7 @@ pub async fn assert_node_producing_cardano_database_snapshot(
         fetch_last_cardano_database_snapshot_hash(url.clone()).await
     }) {
         AttemptResult::Ok(hash) => {
-            info!("Aggregator produced a Cardano database snapshot"; "hash" => &hash);
+            info!("Aggregator produced a Cardano database snapshot"; "hash" => &hash, "aggregator" => &aggregator.name());
             Ok(hash)
         }
         AttemptResult::Err(error) => Err(error),
@@ -209,18 +231,20 @@ pub async fn assert_node_producing_cardano_database_snapshot(
             "Timeout exhausted assert_node_producing_snapshot, no response from `{url}`"
         )),
     }
+    .with_context(|| format!("Requesting aggregator `{}`", aggregator.name()))
 }
 
 pub async fn assert_signer_is_signing_cardano_database_snapshot(
-    aggregator_endpoint: &str,
+    aggregator: &Aggregator,
     hash: &str,
     expected_epoch_min: Epoch,
 ) -> StdResult<String> {
-    let url = format!("{aggregator_endpoint}/artifact/cardano-database/{hash}");
+    let url = format!("{}/artifact/cardano-database/{hash}", aggregator.endpoint());
     info!(
         "Asserting the aggregator is signing the Cardano database snapshot message `{}` with an expected min epoch of `{}`",
         hash,
-        expected_epoch_min
+        expected_epoch_min;
+        "aggregator" => &aggregator.name()
     );
 
     async fn fetch_cardano_database_snapshot_message(
@@ -233,7 +257,7 @@ pub async fn assert_signer_is_signing_cardano_database_snapshot(
                 Ok(cardano_database_snapshot) => match cardano_database_snapshot.beacon.epoch {
                     epoch if epoch >= expected_epoch_min => Ok(Some(cardano_database_snapshot)),
                     epoch => Err(anyhow!(
-                        "Minimum expected Cardano database snapshot epoch not reached : {epoch} < {expected_epoch_min}"
+                        "Minimum expected Cardano database snapshot epoch not reached: {epoch} < {expected_epoch_min}"
                     )),
                 },
                 Err(err) => Err(anyhow!(err).context("Invalid Cardano database snapshot body")),
@@ -244,7 +268,7 @@ pub async fn assert_signer_is_signing_cardano_database_snapshot(
         fetch_cardano_database_snapshot_message(url.clone(), expected_epoch_min).await
     }) {
         AttemptResult::Ok(snapshot) => {
-            info!("Signer signed a snapshot"; "certificate_hash" => &snapshot.certificate_hash);
+            info!("Signer signed a snapshot"; "certificate_hash" => &snapshot.certificate_hash, "aggregator" => &aggregator.name());
             Ok(snapshot.certificate_hash)
         }
         AttemptResult::Err(error) => Err(error),
@@ -252,13 +276,17 @@ pub async fn assert_signer_is_signing_cardano_database_snapshot(
             "Timeout exhausted assert_signer_is_signing_snapshot, no response from `{url}`"
         )),
     }
+    .with_context(|| format!("Requesting aggregator `{}`", aggregator.name()))
 }
 
 pub async fn assert_node_producing_cardano_database_digests_map(
-    aggregator_endpoint: &str,
+    aggregator: &Aggregator,
 ) -> StdResult<Vec<(String, String)>> {
-    let url = format!("{aggregator_endpoint}/artifact/cardano-database/digests");
-    info!("Waiting for the aggregator to produce a Cardano database digests map");
+    let url = format!(
+        "{}/artifact/cardano-database/digests",
+        aggregator.endpoint()
+    );
+    info!("Waiting for the aggregator to produce a Cardano database digests map"; "aggregator" => &aggregator.name());
 
     async fn fetch_cardano_database_digests_map(
         url: String,
@@ -274,7 +302,7 @@ pub async fn assert_node_producing_cardano_database_digests_map(
                     .map(|item| (item.immutable_file_name.clone(), item.digest.clone()))
                     .collect(),
             )),
-            Err(err) => Err(anyhow!("Invalid Cardano database digests map body : {err}",)),
+            Err(err) => Err(anyhow!("Invalid Cardano database digests map body: {err}",)),
         }
     }
 
@@ -282,21 +310,26 @@ pub async fn assert_node_producing_cardano_database_digests_map(
         fetch_cardano_database_digests_map(url.clone()).await
     }) {
         AttemptResult::Ok(cardano_database_digests_map) => {
-            info!("Aggregator produced a Cardano database digests map"; "total_digests" => &cardano_database_digests_map.len());
+            info!("Aggregator produced a Cardano database digests map"; "total_digests" => &cardano_database_digests_map.len(), "aggregator" => &aggregator.name());
             Ok(cardano_database_digests_map)
         }
         AttemptResult::Err(error) => Err(error),
         AttemptResult::Timeout() => Err(anyhow!(
             "Timeout exhausted assert_node_producing_cardano_database_digests_map, no response from `{url}`"
         )),
-    }
+    }.with_context(|| {
+        format!(
+            "Requesting aggregator `{}`",
+            aggregator.name()
+        )
+    })
 }
 
 pub async fn assert_node_producing_cardano_transactions(
-    aggregator_endpoint: &str,
+    aggregator: &Aggregator,
 ) -> StdResult<String> {
-    let url = format!("{aggregator_endpoint}/artifact/cardano-transactions");
-    info!("Waiting for the aggregator to produce a Cardano transactions artifact");
+    let url = format!("{}/artifact/cardano-transactions", aggregator.endpoint());
+    info!("Waiting for the aggregator to produce a Cardano transactions artifact"; "aggregator" => &aggregator.name(), "aggregator" => &aggregator.name());
 
     async fn fetch_last_cardano_transaction_snapshot_hash(
         url: String,
@@ -307,9 +340,7 @@ pub async fn assert_node_producing_cardano_transactions(
         {
             Ok([artifact, ..]) => Ok(Some(artifact.hash.clone())),
             Ok(&[]) => Ok(None),
-            Err(err) => Err(anyhow!(
-                "Invalid Cardano transactions artifact body : {err}",
-            )),
+            Err(err) => Err(anyhow!("Invalid Cardano transactions artifact body: {err}",)),
         }
     }
 
@@ -317,7 +348,7 @@ pub async fn assert_node_producing_cardano_transactions(
         fetch_last_cardano_transaction_snapshot_hash(url.clone()).await
     }) {
         AttemptResult::Ok(hash) => {
-            info!("Aggregator produced a Cardano transactions artifact"; "hash" => &hash);
+            info!("Aggregator produced a Cardano transactions artifact"; "hash" => &hash, "aggregator" => &aggregator.name());
             Ok(hash)
         }
         AttemptResult::Err(error) => Err(error),
@@ -325,18 +356,23 @@ pub async fn assert_node_producing_cardano_transactions(
             "Timeout exhausted assert_node_producing_cardano_transactions, no response from `{url}`"
         )),
     }
+    .with_context(|| format!("Requesting aggregator `{}`", aggregator.name()))
 }
 
 pub async fn assert_signer_is_signing_cardano_transactions(
-    aggregator_endpoint: &str,
+    aggregator: &Aggregator,
     hash: &str,
     expected_epoch_min: Epoch,
 ) -> StdResult<String> {
-    let url = format!("{aggregator_endpoint}/artifact/cardano-transaction/{hash}");
+    let url = format!(
+        "{}/artifact/cardano-transaction/{hash}",
+        aggregator.endpoint()
+    );
     info!(
         "Asserting the aggregator is signing the Cardano transactions artifact `{}` with an expected min epoch of `{}`",
         hash,
-        expected_epoch_min
+        expected_epoch_min;
+        "aggregator" => &aggregator.name()
     );
 
     async fn fetch_cardano_transaction_snapshot_message(
@@ -347,7 +383,7 @@ pub async fn assert_signer_is_signing_cardano_transactions(
             Ok(artifact) => match artifact.epoch {
                 epoch if epoch >= expected_epoch_min => Ok(Some(artifact)),
                 epoch => Err(anyhow!(
-                    "Minimum expected artifact epoch not reached : {epoch} < {expected_epoch_min}"
+                    "Minimum expected artifact epoch not reached: {epoch} < {expected_epoch_min}"
                 )),
             },
             Err(err) => Err(anyhow!(err).context("Invalid Cardano transactions artifact body")),
@@ -358,21 +394,29 @@ pub async fn assert_signer_is_signing_cardano_transactions(
         fetch_cardano_transaction_snapshot_message(url.clone(), expected_epoch_min).await
     }) {
         AttemptResult::Ok(artifact) => {
-            info!("Signer signed a Cardano transactions artifact"; "certificate_hash" => &artifact.certificate_hash);
+            info!("Signer signed a Cardano transactions artifact"; "certificate_hash" => &artifact.certificate_hash, "aggregator" => &aggregator.name());
             Ok(artifact.certificate_hash)
         }
         AttemptResult::Err(error) => Err(error),
         AttemptResult::Timeout() => Err(anyhow!(
             "Timeout exhausted assert_signer_is_signing_cardano_transactions, no response from `{url}`"
         )),
-    }
+    }.with_context(|| {
+        format!(
+            "Requesting aggregator `{}`",
+            aggregator.name()
+        )
+    })
 }
 
 pub async fn assert_node_producing_cardano_stake_distribution(
-    aggregator_endpoint: &str,
+    aggregator: &Aggregator,
 ) -> StdResult<(String, Epoch)> {
-    let url = format!("{aggregator_endpoint}/artifact/cardano-stake-distributions");
-    info!("Waiting for the aggregator to produce a Cardano stake distribution");
+    let url = format!(
+        "{}/artifact/cardano-stake-distributions",
+        aggregator.endpoint()
+    );
+    info!("Waiting for the aggregator to produce a Cardano stake distribution"; "aggregator" => &aggregator.name());
 
     async fn fetch_last_cardano_stake_distribution_message(
         url: String,
@@ -386,7 +430,7 @@ pub async fn assert_node_producing_cardano_stake_distribution(
                 stake_distribution.epoch,
             ))),
             Ok(&[]) => Ok(None),
-            Err(err) => Err(anyhow!("Invalid Cardano stake distribution body : {err}",)),
+            Err(err) => Err(anyhow!("Invalid Cardano stake distribution body: {err}",)),
         }
     }
 
@@ -394,26 +438,35 @@ pub async fn assert_node_producing_cardano_stake_distribution(
         fetch_last_cardano_stake_distribution_message(url.clone()).await
     }) {
         AttemptResult::Ok((hash, epoch)) => {
-            info!("Aggregator produced a Cardano stake distribution"; "hash" => &hash, "epoch" => #?epoch);
+            info!("Aggregator produced a Cardano stake distribution"; "hash" => &hash, "epoch" => #?epoch, "aggregator" => &aggregator.name());
             Ok((hash, epoch))
         }
         AttemptResult::Err(error) => Err(error),
         AttemptResult::Timeout() => Err(anyhow!(
             "Timeout exhausted assert_node_producing_cardano_stake_distribution, no response from `{url}`"
         )),
-    }
+    }.with_context(|| {
+        format!(
+            "Requesting aggregator `{}`",
+            aggregator.name()
+        )
+    })
 }
 
 pub async fn assert_signer_is_signing_cardano_stake_distribution(
-    aggregator_endpoint: &str,
+    aggregator: &Aggregator,
     hash: &str,
     expected_epoch_min: Epoch,
 ) -> StdResult<String> {
-    let url = format!("{aggregator_endpoint}/artifact/cardano-stake-distribution/{hash}");
+    let url = format!(
+        "{}/artifact/cardano-stake-distribution/{hash}",
+        aggregator.endpoint()
+    );
     info!(
         "Asserting the aggregator is signing the Cardano stake distribution message `{}` with an expected min epoch of `{}`",
         hash,
-        expected_epoch_min
+        expected_epoch_min;
+        "aggregator" => &aggregator.name()
     );
 
     async fn fetch_cardano_stake_distribution_message(
@@ -426,7 +479,7 @@ pub async fn assert_signer_is_signing_cardano_stake_distribution(
             Ok(stake_distribution) => match stake_distribution.epoch {
                 epoch if epoch >= expected_epoch_min => Ok(Some(stake_distribution)),
                 epoch => Err(anyhow!(
-                    "Minimum expected Cardano stake distribution epoch not reached : {epoch} < {expected_epoch_min}"
+                    "Minimum expected Cardano stake distribution epoch not reached: {epoch} < {expected_epoch_min}"
                 )),
             },
             Err(err) => Err(anyhow!(err).context("Invalid Cardano stake distribution body",)),
@@ -437,22 +490,28 @@ pub async fn assert_signer_is_signing_cardano_stake_distribution(
         fetch_cardano_stake_distribution_message(url.clone(), expected_epoch_min).await
     }) {
         AttemptResult::Ok(cardano_stake_distribution) => {
-            info!("Signer signed a Cardano stake distribution"; "certificate_hash" => &cardano_stake_distribution.certificate_hash);
+            info!("Signer signed a Cardano stake distribution"; "certificate_hash" => &cardano_stake_distribution.certificate_hash, "aggregator" => &aggregator.name());
             Ok(cardano_stake_distribution.certificate_hash)
         }
         AttemptResult::Err(error) => Err(error),
         AttemptResult::Timeout() => Err(anyhow!(
             "Timeout exhausted assert_signer_is_signing_cardano_stake_distribution, no response from `{url}`"
         )),
-    }
+    }.with_context(|| {
+        format!(
+            "Requesting aggregator `{}`",
+            aggregator.name()
+        )
+    })
 }
 
 pub async fn assert_is_creating_certificate_with_enough_signers(
-    aggregator_endpoint: &str,
+    aggregator: &Aggregator,
     certificate_hash: &str,
     total_signers_expected: usize,
 ) -> StdResult<()> {
-    let url = format!("{aggregator_endpoint}/certificate/{certificate_hash}");
+    let url = format!("{}/certificate/{certificate_hash}", aggregator.endpoint());
+    info!("Waiting for the aggregator to create a certificate with enough signers"; "aggregator" => &aggregator.name());
 
     async fn fetch_certificate_message(url: String) -> StdResult<Option<CertificateMessage>> {
         match get_json_response::<CertificateMessage>(url).await? {
@@ -470,7 +529,8 @@ pub async fn assert_is_creating_certificate_with_enough_signers(
                 info!(
                     "Certificate is signed by expected number of signers: {} >= {} ",
                     certificate.metadata.signers.len(),
-                    total_signers_expected
+                    total_signers_expected ;
+                    "aggregator" => &aggregator.name()
                 );
                 Ok(())
             } else {
@@ -486,6 +546,7 @@ pub async fn assert_is_creating_certificate_with_enough_signers(
             "Timeout exhausted assert_is_creating_certificate, no response from `{url}`"
         )),
     }
+    .with_context(|| format!("Requesting aggregator `{}`", aggregator.name()))
 }
 
 pub async fn assert_client_can_verify_snapshot(client: &mut Client, digest: &str) -> StdResult<()> {

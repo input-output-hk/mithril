@@ -143,7 +143,6 @@ impl AggregatorRuntime {
                 info!(self.logger, "→ Trying to transition to READY"; "last_time_point" => ?last_time_point);
 
                 let can_try_transition_from_idle_to_ready = if self.config.is_slave {
-                    println!("Checking if slave aggregator is at the same epoch as master");
                     self.runner
                         .is_slave_aggregator_at_same_epoch_as_master(&last_time_point)
                         .await?
@@ -265,18 +264,17 @@ impl AggregatorRuntime {
             self.runner
                 .update_stake_distribution(&new_time_point)
                 .await?;
-            if self.config.is_slave {
-                self.runner
-                    .synchronize_slave_aggregator_signer_registration()
-                    .await?;
-            }
             self.runner.inform_new_epoch(new_time_point.epoch).await?;
-
             self.runner.upkeep(new_time_point.epoch).await?;
             self.runner
                 .open_signer_registration_round(&new_time_point)
                 .await?;
             self.runner.update_epoch_settings().await?;
+            if self.config.is_slave {
+                self.runner
+                    .synchronize_slave_aggregator_signer_registration()
+                    .await?;
+            }
             self.runner.precompute_epoch_data().await?;
         }
 

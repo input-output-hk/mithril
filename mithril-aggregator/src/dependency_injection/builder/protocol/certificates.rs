@@ -161,6 +161,7 @@ impl DependenciesBuilder {
         &mut self,
     ) -> Result<Arc<MithrilSignerRegistrationSlave>> {
         let registerer = MithrilSignerRegistrationSlave::new(
+            self.get_epoch_service().await?,
             self.get_verification_key_store().await?,
             self.get_signer_store().await?,
             self.get_signer_registration_verifier().await?,

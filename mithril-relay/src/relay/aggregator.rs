@@ -42,13 +42,13 @@ impl AggregatorRelay {
             .await;
         match response {
             Ok(response) => match response.status() {
-                StatusCode::CREATED => {
+                StatusCode::CREATED | StatusCode::ACCEPTED => {
                     info!(self.logger, "Sent successfully signature message to aggregator"; "signature_message" => #?signature_message);
                     Ok(())
                 }
                 status => {
-                    error!(self.logger, "Post `/register-signatures` should have returned a 201 status code, got: {status}");
-                    Err(anyhow!("Post `/register-signatures` should have returned a 201 status code, got: {status}"))
+                    error!(self.logger, "Post `/register-signatures` should have returned a 201 or 202 status code, got: {status}");
+                    Err(anyhow!("Post `/register-signatures` should have returned a 201 or 202 status code, got: {status}"))
                 }
             },
             Err(err) => {
@@ -154,7 +154,7 @@ mod tests {
     #[tokio::test]
     async fn sends_accept_encoding_header_with_correct_values() {
         let server = MockServer::start();
-        server.mock(|when, then| {
+        let mock = server.mock(|when, then| {
             when.matches(|req| {
                 let headers = req.headers.clone().expect("HTTP headers not found");
                 let accept_encoding_header = headers
@@ -179,5 +179,7 @@ mod tests {
             .notify_signature_to_aggregator(&RegisterSignatureMessage::dummy())
             .await
             .expect("Should succeed with Accept-Encoding header");
+
+        mock.assert();
     }
 }

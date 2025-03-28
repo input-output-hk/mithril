@@ -17,6 +17,7 @@ pub struct RetryableDevnetError(pub String);
 pub struct Devnet {
     artifacts_dir: PathBuf,
     number_of_pool_nodes: u8,
+    number_of_full_nodes: u8,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -46,8 +47,15 @@ impl PoolNode {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FullNode {
+    pub db_path: PathBuf,
+    pub socket_path: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DevnetTopology {
     pub pool_nodes: Vec<PoolNode>,
+    pub full_nodes: Vec<FullNode>,
 }
 
 #[derive(Debug, Clone)]
@@ -55,6 +63,7 @@ pub struct DevnetBootstrapArgs {
     pub devnet_scripts_dir: PathBuf,
     pub artifacts_target_dir: PathBuf,
     pub number_of_pool_nodes: u8,
+    pub number_of_full_nodes: u8,
     pub cardano_slot_length: f64,
     pub cardano_epoch_length: f64,
     pub cardano_node_version: String,
@@ -91,7 +100,10 @@ impl Devnet {
             "ARTIFACTS_DIR",
             bootstrap_args.artifacts_target_dir.to_str().unwrap(),
         );
-        bootstrap_command.env("NUM_FULL_NODES", 0.to_string());
+        bootstrap_command.env(
+            "NUM_FULL_NODES",
+            bootstrap_args.number_of_full_nodes.to_string(),
+        );
         bootstrap_command.env(
             "NUM_POOL_NODES",
             bootstrap_args.number_of_pool_nodes.to_string(),
@@ -129,6 +141,7 @@ impl Devnet {
             Some(0) => Ok(Devnet {
                 artifacts_dir: bootstrap_args.artifacts_target_dir.to_owned(),
                 number_of_pool_nodes: bootstrap_args.number_of_pool_nodes,
+                number_of_full_nodes: bootstrap_args.number_of_full_nodes,
             }),
             Some(code) => Err(anyhow!(RetryableDevnetError(format!(
                 "Bootstrap devnet exited with status code: {code}"
@@ -139,10 +152,11 @@ impl Devnet {
 
     /// Factory for test purposes
     #[cfg(test)]
-    pub fn new(artifacts_dir: PathBuf, number_of_pool_nodes: u8) -> Self {
+    pub fn new(artifacts_dir: PathBuf, number_of_pool_nodes: u8, number_of_full_nodes: u8) -> Self {
         Self {
             artifacts_dir,
             number_of_pool_nodes,
+            number_of_full_nodes,
         }
     }
 
@@ -199,8 +213,19 @@ impl Devnet {
                     .join(format!("node-pool{n}/shelley/opcert.cert")),
             })
             .collect::<Vec<_>>();
+        let full_nodes = (1..=self.number_of_full_nodes)
+            .map(|n| FullNode {
+                db_path: self.artifacts_dir.join(format!("node-full{n}/db")),
+                socket_path: self
+                    .artifacts_dir
+                    .join(format!("node-full{n}/ipc/node.sock")),
+            })
+            .collect::<Vec<_>>();
 
-        DevnetTopology { pool_nodes }
+        DevnetTopology {
+            pool_nodes,
+            full_nodes,
+        }
     }
 
     pub async fn run(&self) -> StdResult<()> {
@@ -332,29 +357,38 @@ impl Devnet {
 
 #[cfg(test)]
 mod tests {
-    use crate::devnet::runner::{Devnet, PoolNode};
+    use crate::devnet::runner::{Devnet, FullNode, PoolNode};
     use crate::devnet::DevnetTopology;
     use std::path::PathBuf;
 
     #[test]
     pub fn yield_empty_topology_with_0_nodes() {
-        let devnet = Devnet::new(PathBuf::new(), 0);
+        let devnet = Devnet::new(PathBuf::new(), 0, 0);
         let topology = devnet.topology();
 
         assert_eq!(0, topology.pool_nodes.len());
+        assert_eq!(0, topology.full_nodes.len());
     }
 
     #[test]
     pub fn yield_complete_topology_with_12_pool_nodes() {
-        let devnet = Devnet::new(PathBuf::new(), 12);
+        let devnet = Devnet::new(PathBuf::new(), 12, 0);
         let topology = devnet.topology();
 
         assert_eq!(12, topology.pool_nodes.len());
     }
 
     #[test]
+    pub fn yield_complete_topology_with_12_full_nodes() {
+        let devnet = Devnet::new(PathBuf::new(), 0, 12);
+        let topology = devnet.topology();
+
+        assert_eq!(12, topology.full_nodes.len());
+    }
+
+    #[test]
     pub fn topology_path_leads_to_artifacts_subfolders() {
-        let devnet = Devnet::new(PathBuf::from(r"test/path/"), 1);
+        let devnet = Devnet::new(PathBuf::from(r"test/path/"), 1, 1);
 
         assert_eq!(
             DevnetTopology {
@@ -367,6 +401,10 @@ mod tests {
                         r"test/path/node-pool1/shelley/opcert.cert"
                     ),
                 },],
+                full_nodes: vec![FullNode {
+                    db_path: PathBuf::from(r"test/path/node-full1/db"),
+                    socket_path: PathBuf::from(r"test/path/node-full1/ipc/node.sock")
+                }]
             },
             devnet.topology()
         );
