@@ -112,8 +112,9 @@ mod handlers {
     use warp::http::StatusCode;
 
     /// Register Signer
+    #[allow(clippy::too_many_arguments)]
     pub async fn register_signer(
-        _origin_tag: Option<String>,
+        origin_tag: Option<String>,
         signer_node_version: Option<String>,
         register_signer_message: RegisterSignerMessage,
         logger: Logger,
@@ -126,7 +127,7 @@ mod handlers {
 
         metrics_service
             .get_signer_registration_total_received_since_startup()
-            .increment();
+            .increment(&[origin_tag.unwrap_or_default().as_str()]);
 
         let registration_epoch = register_signer_message.epoch;
 
@@ -275,8 +276,8 @@ mod tests {
         crypto_helper::ProtocolRegistrationError,
         entities::Epoch,
         messages::RegisterSignerMessage,
-        test_utils::MithrilFixtureBuilder,
-        test_utils::{apispec::APISpec, fake_data},
+        test_utils::{apispec::APISpec, fake_data, MithrilFixtureBuilder},
+        MITHRIL_ORIGIN_TAG_HEADER,
     };
 
     use crate::{
@@ -347,14 +348,16 @@ mod tests {
         let initial_counter_value = dependency_manager
             .metrics_service
             .get_signer_registration_total_received_since_startup()
-            .get();
+            .get(&["TEST"]);
 
         request()
             .method(method)
             .path(path)
             .json(&RegisterSignerMessage::dummy())
-            .reply(&setup_router(RouterState::new_with_dummy_config(
+            .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
+            .reply(&setup_router(RouterState::new_with_origin_tag_white_list(
                 dependency_manager.clone(),
+                &["TEST"],
             )))
             .await;
 
@@ -363,7 +366,7 @@ mod tests {
             dependency_manager
                 .metrics_service
                 .get_signer_registration_total_received_since_startup()
-                .get()
+                .get(&["TEST"])
         );
     }
 

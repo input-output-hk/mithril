@@ -62,6 +62,16 @@ impl RouterConfig {
             origin_tag_white_list: HashSet::from(["DUMMY_TAG".to_string()]),
         }
     }
+
+    pub fn dummy_with_origin_tag_white_list(origin_tag_white_list: &[&str]) -> Self {
+        Self {
+            origin_tag_white_list: origin_tag_white_list
+                .iter()
+                .map(|tag| tag.to_string())
+                .collect(),
+            ..RouterConfig::dummy()
+        }
+    }
 }
 
 /// Shared state for the router
@@ -86,6 +96,16 @@ impl RouterState {
         Self {
             dependencies,
             configuration: RouterConfig::dummy(),
+        }
+    }
+
+    pub fn new_with_origin_tag_white_list(
+        dependencies: Arc<DependencyContainer>,
+        origin_tag_white_list: &[&str],
+    ) -> Self {
+        Self {
+            dependencies,
+            configuration: RouterConfig::dummy_with_origin_tag_white_list(origin_tag_white_list),
         }
     }
 }
