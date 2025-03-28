@@ -3732,6 +3732,8 @@ name = "mithril-cli-helper"
 version = "0.0.2"
 dependencies = [
  "config",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
