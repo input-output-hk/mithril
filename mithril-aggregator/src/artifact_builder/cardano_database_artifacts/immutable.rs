@@ -312,6 +312,7 @@ mod tests {
     use std::fs::File;
     use std::io::Write;
 
+    use crate::services::ancillary_signer::MockAncillarySigner;
     use crate::services::{CompressedArchiveSnapshotter, DumbSnapshotter, MockSnapshotter};
     use crate::test_tools::TestLogger;
     use crate::tools::file_archiver::FileArchiver;
@@ -385,6 +386,7 @@ mod tests {
             db_directory.parent().unwrap().join("snapshot_dest"),
             CompressionAlgorithm::Gzip,
             Arc::new(FileArchiver::new_for_test(work_dir.join("verification"))),
+            Arc::new(MockAncillarySigner::new()),
             TestLogger::stdout(),
         )
         .unwrap();
@@ -476,6 +478,7 @@ mod tests {
                 db_directory.parent().unwrap().join("snapshot_dest"),
                 CompressionAlgorithm::Gzip,
                 Arc::new(FileArchiver::new_for_test(work_dir.join("verification"))),
+                Arc::new(MockAncillarySigner::new()),
                 TestLogger::stdout(),
             )
             .unwrap();
@@ -519,6 +522,7 @@ mod tests {
                 db_directory.parent().unwrap().join("snapshot_dest"),
                 CompressionAlgorithm::Gzip,
                 Arc::new(FileArchiver::new_for_test(work_dir.join("verification"))),
+                Arc::new(MockAncillarySigner::new()),
                 TestLogger::stdout(),
             )
             .unwrap();
@@ -554,6 +558,7 @@ mod tests {
                 db_directory.parent().unwrap().join("snapshot_dest"),
                 CompressionAlgorithm::Gzip,
                 Arc::new(FileArchiver::new_for_test(work_dir.join("verification"))),
+                Arc::new(MockAncillarySigner::new()),
                 TestLogger::stdout(),
             )
             .unwrap();
@@ -587,6 +592,7 @@ mod tests {
                 db_directory.parent().unwrap().join("snapshot_dest"),
                 CompressionAlgorithm::Gzip,
                 Arc::new(FileArchiver::new_for_test(work_dir.join("verification"))),
+                Arc::new(MockAncillarySigner::new()),
                 TestLogger::stdout(),
             )
             .unwrap();
@@ -642,6 +648,7 @@ mod tests {
                 db_directory.parent().unwrap().join("snapshot_dest"),
                 CompressionAlgorithm::Gzip,
                 Arc::new(FileArchiver::new_for_test(work_dir.join("verification"))),
+                Arc::new(MockAncillarySigner::new()),
                 TestLogger::stdout(),
             )
             .unwrap();
