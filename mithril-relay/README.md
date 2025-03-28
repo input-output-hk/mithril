@@ -64,7 +64,7 @@ Generate the Rust documentation:
 make doc
 ```
 
-## Release the build and run the binary
+## Building for release and running the binary
 
 Build only in release mode:
 

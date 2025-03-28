@@ -163,7 +163,7 @@ Run in debug mode with the default configuration:
   </TabItem>
 </Tabs>
 
-## Release the build and run the binary
+## Building for release and running the binary
 
 Build and run in release mode with the default configuration:
 

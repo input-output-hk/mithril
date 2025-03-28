@@ -96,7 +96,7 @@ Run in debug mode with the default configuration:
 make debug
 ```
 
-## Release the build and run the binary
+## Building for release and running the binary
 
 To build and run in release mode with the default configuration:
 
