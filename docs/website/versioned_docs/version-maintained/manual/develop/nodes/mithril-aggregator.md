@@ -94,7 +94,7 @@ To run in debug mode with the default configuration, use the following command:
 make debug
 ```
 
-## Release the build and run the binary 'serve' command
+## Building for release and running the binary 'serve' command
 
 To build and run in release mode with the default configuration:
 
@@ -161,7 +161,7 @@ Run the 'serve' command in release mode with a custom configuration using enviro
 GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**) RUN_INTERVAL=60000 NETWORK=**YOUR_CARDANO_NETWORK** ./mithril-aggregator serve
 ```
 
-## Release the build and run the binary 'genesis' command
+## Building for release and running the binary 'genesis' command
 
 Build in release mode with the default configuration:
 
@@ -235,7 +235,7 @@ Run the 'genesis import' command in release mode with a custom configuration usi
 GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**) RUN_INTERVAL=60000 NETWORK=**YOUR_CARDANO_NETWORK** ./mithril-aggregator genesis import
 ```
 
-## Release the build and run the binary 'era' command
+## Building for release and running the binary 'era' command
 
 Build in release mode using the default configuration:
 
@@ -323,7 +323,7 @@ You should see something like:
 ./mithril-aggregator era generate-tx-datum --current-era-epoch **EPOCH_AT_WHICH_CURRENT_ERA_STARTS** --next-era-epoch **EPOCH_AT_WHICH_NEXT_ERA_STARTS** --era-markers-secret-key **YOUR_ERA_ACTIVATION_SECRET_KEY** --target-path **TARGET_PATH**
 ```
 
-## Release the build and run the binary 'tools' command
+## Building for release and running the binary 'tools' command
 
 Build in release mode using the default configuration:
 
