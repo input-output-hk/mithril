@@ -67,14 +67,14 @@ pub mod handlers {
     /// Get Artifact by signed entity id
     pub async fn get_artifact_by_signed_entity_id(
         signed_entity_id: String,
-        _origin_tag: Option<String>,
+        origin_tag: Option<String>,
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_artifact_detail_cardano_transaction_total_served_since_startup()
-            .increment();
+            .increment(&[origin_tag.unwrap_or_default().as_str()]);
 
         match http_message_service
             .get_cardano_transaction_message(&signed_entity_id)
@@ -102,10 +102,11 @@ pub mod tests {
         test::request,
     };
 
-    use mithril_common::messages::{
-        CardanoTransactionSnapshotListItemMessage, CardanoTransactionSnapshotMessage,
-    };
     use mithril_common::test_utils::apispec::APISpec;
+    use mithril_common::{
+        messages::{CardanoTransactionSnapshotListItemMessage, CardanoTransactionSnapshotMessage},
+        MITHRIL_ORIGIN_TAG_HEADER,
+    };
     use mithril_persistence::sqlite::HydrationError;
 
     use crate::{initialize_dependencies, services::MockMessageService};
@@ -198,13 +199,15 @@ pub mod tests {
         let initial_counter_value = dependency_manager
             .metrics_service
             .get_artifact_detail_cardano_transaction_total_served_since_startup()
-            .get();
+            .get(&["TEST"]);
 
         request()
             .method(method)
             .path(path)
-            .reply(&setup_router(RouterState::new_with_dummy_config(
+            .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
+            .reply(&setup_router(RouterState::new_with_origin_tag_white_list(
                 dependency_manager.clone(),
+                &["TEST"],
             )))
             .await;
 
@@ -213,7 +216,7 @@ pub mod tests {
             dependency_manager
                 .metrics_service
                 .get_artifact_detail_cardano_transaction_total_served_since_startup()
-                .get()
+                .get(&["TEST"])
         );
     }
 
