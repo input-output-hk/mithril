@@ -213,7 +213,7 @@ Display the help menu:
 You should see:
 
 ```bash
-This program shows, downloads, and verifies certified blockchain artifacts.
+This program shows, downloads and verifies certified blockchain artifacts.
 
 Usage: mithril-client [OPTIONS] <COMMAND>
 
@@ -222,6 +222,7 @@ Commands:
   mithril-stake-distribution  Mithril stake distribution management (alias: msd)
   cardano-transaction         Cardano transactions management (alias: ctx)
   cardano-stake-distribution  Cardano stake distribution management (alias: csd)
+  cardano-db-v2               [unstable] Cardano db v2 management (alias: cdbv2)
   help                        Print this message or the help of the given subcommand(s)
 
 Options:
@@ -511,6 +512,15 @@ Here are the subcommands available:
 | **help**     | Prints this message or the help for the given subcommand(s) |
 | **list**     | Lists available Cardano stake distributions                 |
 
+### Cardano DB V2 (`unstable`, will replace `Cardano DB` in the future)
+
+| Subcommand        | Performed action                                            |
+| ----------------- | ----------------------------------------------------------- |
+| **download**      | Downloads and restores a cardano-db v2 snapshot             |
+| **help**          | Prints this message or the help for the given subcommand(s) |
+| **snapshot list** | Lists available cardano-db v2 snapshots                     |
+| **snapshot show** | Shows information about a cardano-db v2 snapshot            |
+
 ## Configuration parameters
 
 The configuration parameters can be set in either of the following ways:
@@ -598,3 +608,28 @@ Here is a list of the available parameters:
 | ------------------- | --------------------- | :------------------: | -------------------- | -------------------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
 | `unique_identifier` | `--unique-identifier` |          -           | -                    | Epoch or hash of the Cardano stake distribution artifact or `latest` for the latest artifact | -             | -       | :heavy_check_mark: |
 | `download_dir`      | `--download-dir`      |          -           | -                    | Directory where the Cardano stake distribution will be downloaded                            | .             | -       |         -          |
+
+`cardano-db-v2 snapshot show` command:
+
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description                                              | Default value | Example |     Mandatory      |
+| --------- | ------------------- | :------------------: | -------------------- | -------------------------------------------------------- | ------------- | ------- | :----------------: |
+| `hash`    | `--hash`            |          -           | -                    | Cardano DB snapshot hash or `latest` for the latest hash | -             | -       | :heavy_check_mark: |
+| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results                   | -             | -       |         -          |
+
+`cardano-db-v2 snapshot list` command:
+
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description                            | Default value | Example | Mandatory |
+| --------- | ------------------- | :------------------: | -------------------- | -------------------------------------- | ------------- | ------- | :-------: |
+| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results | -             | -       |     -     |
+
+`cardano-db-v2 download` command:
+
+| Parameter           | Command line (long)   | Command line (short) | Environment variable | Description                                                    | Default value | Example |     Mandatory      |
+| ------------------- | --------------------- | :------------------: | -------------------- | -------------------------------------------------------------- | ------------- | ------- | :----------------: |
+| `hash`              | `--hash`              |          -           | -                    | Cardano DB snapshot hash or `latest` for the latest hash       | -             | -       | :heavy_check_mark: |
+| `start`             | `--start`             |          -           | -                    | The first immutable file number to download                    | .             | -       |         -          |
+| `end`               | `--end`               |          -           | -                    | The last immutable file number to download                     | .             | -       |         -          |
+| `include_ancillary` | `--include-ancillary` |          -           | -                    | Include ancillary files in the download                        | .             | -       |         -          |
+| `allow_override`    | `--allow-override`    |          -           | -                    | Allow existing files in the download directory to be overridde | .             | -       |         -          |
+| `download_dir`      | `--download-dir`      |          -           | -                    | Directory where the Cardano DB will be downloaded              | .             | -       |         -          |
+| `json`              | `--json`              |          -           | -                    | Enable JSON output for progress logs                           | -             | -       |         -          |
