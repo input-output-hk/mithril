@@ -15,7 +15,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 | ----- | ------- |
 | N/A   | `-`     |
 
-## Mithril Distribution [2513.0] - UNRELEASED
+## Mithril Distribution [2513.0] - 2025-03-28
 
 - **BREAKING** changes in Mithril nodes:
 
@@ -40,9 +40,15 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Crates versions:
 
-| Crate | Version |
-| ----- | ------- |
-| N/A   | `-`     |
+| Crate               | Version   |
+| ------------------- | --------- |
+| mithril-aggregator  | `0.7.23`  |
+| mithril-client      | `0.11.17` |
+| mithril-client-cli  | `0.11.11` |
+| mithril-client-wasm | `0.8.6`   |
+| mithril-common      | `0.5.14`  |
+| mithril-signer      | `0.2.237` |
+| mithril-stm         | `0.3.42`  |
 
 ## Mithril Distribution [2506.0] - 2025-02-14
 
