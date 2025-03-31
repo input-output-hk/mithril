@@ -51,7 +51,7 @@ impl ImmutableFileObserver for ImmutableFileSystemObserver {
             .map_err(|e| anyhow!(e))
             .with_context(|| "Immutable File System Observer can not list all immutable files")?
             .into_iter()
-            .last()
+            .next_back()
             .ok_or(anyhow!(ImmutableFileObserverError::Missing()))?
             .number;
 

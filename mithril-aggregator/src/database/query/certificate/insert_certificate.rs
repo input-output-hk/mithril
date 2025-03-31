@@ -1,4 +1,4 @@
-use std::iter::repeat;
+use std::iter::repeat_n;
 
 use sqlite::Value;
 
@@ -33,10 +33,11 @@ impl InsertCertificateRecordQuery {
         signers, \
         initiated_at, \
         sealed_at)";
-        let values_columns: Vec<&str> =
-            repeat("(?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*)")
-                .take(certificates_records.len())
-                .collect();
+        let values_columns: Vec<&str> = repeat_n(
+            "(?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*)",
+            certificates_records.len(),
+        )
+        .collect();
 
         let values: Vec<Value> = certificates_records
             .into_iter()

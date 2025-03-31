@@ -1,5 +1,5 @@
 use sqlite::Value;
-use std::iter::repeat;
+use std::iter::repeat_n;
 
 /// Internal Boolean representation
 #[derive(Debug, Clone)]
@@ -90,7 +90,7 @@ impl WhereCondition {
 
     /// Instantiate a condition with a `IN` statement.
     pub fn where_in(field: &str, parameters: Vec<Value>) -> Self {
-        let params: Vec<&str> = repeat("?*").take(parameters.len()).collect();
+        let params: Vec<&str> = repeat_n("?*", parameters.len()).collect();
         let expression = format!("{} in ({})", field, params.join(", "));
 
         Self {

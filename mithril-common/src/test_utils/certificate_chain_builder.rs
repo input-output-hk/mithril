@@ -12,7 +12,7 @@ use crate::entities::CertificateMetadata;
 use std::{
     cmp::min,
     collections::{BTreeSet, HashMap},
-    iter::repeat,
+    iter::repeat_n,
     sync::Arc,
 };
 
@@ -335,7 +335,7 @@ impl<'a> CertificateChainBuilder<'a> {
                 } else {
                     certificates_per_epoch
                 };
-                repeat(Epoch(*epoch)).take(repeat_epoch)
+                repeat_n(Epoch(*epoch), repeat_epoch)
             })
             .take(total_certificates)
             .enumerate()
@@ -485,7 +485,7 @@ impl<'a> CertificateChainBuilder<'a> {
                             c.epoch == certificate.epoch
                         }
                     })
-                    .last()
+                    .next_back()
             }
             CertificateChainingMethod::Sequential => certificates_chained.last(),
         }
