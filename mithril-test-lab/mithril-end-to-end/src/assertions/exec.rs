@@ -8,12 +8,12 @@ use slog_scope::info;
 pub async fn bootstrap_genesis_certificate(aggregator: &Aggregator) -> StdResult<()> {
     info!("Bootstrap genesis certificate"; "aggregator" => &aggregator.name());
 
-    // A slave aggregator needs to wait few cycles of the state machine to be able to bootstrap
+    // A follower aggregator needs to wait few cycles of the state machine to be able to bootstrap
     // This should be removed when the aggregator is able to synchronize its certificate chain from another aggregator
     if !aggregator.is_first() {
-        const CYCLES_WAIT_SLAVE: u64 = 3;
+        const CYCLES_WAIT_FOLLOWER: u64 = 3;
         tokio::time::sleep(std::time::Duration::from_millis(
-            CYCLES_WAIT_SLAVE * aggregator.mithril_run_interval() as u64,
+            CYCLES_WAIT_FOLLOWER * aggregator.mithril_run_interval() as u64,
         ))
         .await;
     }
