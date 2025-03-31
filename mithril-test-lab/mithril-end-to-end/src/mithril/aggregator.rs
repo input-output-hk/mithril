@@ -1,7 +1,8 @@
 use crate::utils::MithrilCommand;
 use crate::{
-    FullNode, RetryableDevnetError, DEVNET_MAGIC_ID, ERA_MARKERS_SECRET_KEY,
-    ERA_MARKERS_VERIFICATION_KEY, GENESIS_SECRET_KEY, GENESIS_VERIFICATION_KEY,
+    FullNode, RetryableDevnetError, ANCILLARY_MANIFEST_SECRET_KEY, DEVNET_MAGIC_ID,
+    ERA_MARKERS_SECRET_KEY, ERA_MARKERS_VERIFICATION_KEY, GENESIS_SECRET_KEY,
+    GENESIS_VERIFICATION_KEY,
 };
 use anyhow::{anyhow, Context};
 use mithril_common::chain_observer::{ChainObserver, PallasChainObserver};
@@ -65,6 +66,8 @@ impl Aggregator {
                     aggregator_config.mithril_era
                 )
             };
+        let ancillary_files_signer_config =
+            format!(r#"{{"type": "secret-key", "secret_key": "{ANCILLARY_MANIFEST_SECRET_KEY}"}}"#);
         let signed_entity_types = aggregator_config.signed_entity_types.join(",");
         let mithril_run_interval = format!("{}", aggregator_config.mithril_run_interval);
         let public_server_url = format!("http://localhost:{server_port_parameter}/aggregator");
@@ -100,6 +103,10 @@ impl Aggregator {
             (
                 "ERA_READER_ADAPTER_TYPE",
                 aggregator_config.mithril_era_reader_adapter,
+            ),
+            (
+                "ANCILLARY_FILES_SIGNER_CONFIG",
+                &ancillary_files_signer_config,
             ),
             ("ERA_READER_ADAPTER_PARAMS", &era_reader_adapter_params),
             ("SIGNED_ENTITY_TYPES", &signed_entity_types),

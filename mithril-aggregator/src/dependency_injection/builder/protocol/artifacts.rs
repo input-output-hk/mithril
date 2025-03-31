@@ -1,6 +1,9 @@
+use anyhow::Context;
 use semver::Version;
 use std::path::PathBuf;
 use std::sync::Arc;
+
+use mithril_common::crypto_helper::ManifestSigner;
 
 use crate::artifact_builder::{
     AncillaryArtifactBuilder, AncillaryFileUploader, CardanoDatabaseArtifactBuilder,
@@ -9,12 +12,14 @@ use crate::artifact_builder::{
     DigestSnapshotter, ImmutableArtifactBuilder, ImmutableFilesUploader,
     MithrilStakeDistributionArtifactBuilder,
 };
+use crate::configuration::AncillaryFilesSignerConfig;
 use crate::dependency_injection::builder::SNAPSHOT_ARTIFACTS_DIR;
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
 use crate::file_uploaders::{
     CloudRemotePath, FileUploadRetryPolicy, GcpBackendUploader, GcpUploader, LocalUploader,
 };
 use crate::http_server::{CARDANO_DATABASE_DOWNLOAD_PATH, SNAPSHOT_DOWNLOAD_PATH};
+use crate::services::ancillary_signer::{AncillarySigner, AncillarySignerWithSecretKey};
 use crate::services::{
     CompressedArchiveSnapshotter, DumbSnapshotter, MithrilSignedEntityService, SignedEntityService,
     SignedEntityServiceArtifactsDependencies, Snapshotter,
@@ -112,6 +117,24 @@ impl DependenciesBuilder {
         Ok(self.file_archiver.as_ref().cloned().unwrap())
     }
 
+    async fn get_ancillary_signer(&self) -> Result<Arc<dyn AncillarySigner>> {
+        match &self.configuration.ancillary_files_signer_config {
+            AncillaryFilesSignerConfig::SecretKey { secret_key } => {
+                let manifest_signer = ManifestSigner::from_secret_key(
+                    secret_key
+                        .as_str()
+                        .try_into()
+                        .with_context(|| "Failed to build ancillary signer: Invalid secret key")?,
+                );
+
+                Ok(Arc::new(AncillarySignerWithSecretKey::new(
+                    manifest_signer,
+                    self.root_logger(),
+                )))
+            }
+        }
+    }
+
     async fn build_snapshotter(&mut self) -> Result<Arc<dyn Snapshotter>> {
         let snapshotter: Arc<dyn Snapshotter> = match self.configuration.environment {
             ExecutionEnvironment::Production => {
@@ -125,6 +148,7 @@ impl DependenciesBuilder {
                     ongoing_snapshot_directory,
                     self.configuration.snapshot_compression_algorithm,
                     self.get_file_archiver().await?,
+                    self.get_ancillary_signer().await?,
                     self.root_logger(),
                 )?)
             }

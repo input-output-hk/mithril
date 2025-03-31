@@ -5,12 +5,12 @@ use std::collections::{BTreeSet, HashMap};
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use mithril_cli_helper::register_config_value;
+use mithril_cli_helper::{register_config_value, serde_deserialization};
 use mithril_common::chain_observer::ChainObserverType;
-use mithril_common::crypto_helper::ProtocolGenesisSigner;
+use mithril_common::crypto_helper::{ManifestSigner, ProtocolGenesisSigner};
 use mithril_common::entities::{
     BlockNumber, CardanoTransactionsSigningConfig, CompressionAlgorithm,
-    HexEncodedGenesisVerificationKey, ProtocolParameters, SignedEntityConfig,
+    HexEncodedGenesisVerificationKey, HexEncodedKey, ProtocolParameters, SignedEntityConfig,
     SignedEntityTypeDiscriminants,
 };
 use mithril_common::era::adapters::EraReaderAdapterType;
@@ -139,6 +139,13 @@ pub struct Configuration {
     /// Era reader adapter parameters
     pub era_reader_adapter_params: Option<String>,
 
+    /// Configuration of the ancillary files signer
+    ///
+    /// **IMPORTANT**: The cryptographic scheme used is ED25519
+    #[example = "`{ \"type\": \"secret-key\", \"secret_key\": \"136372c3138312c3138382c3130352c3233312c3135\" }`"]
+    #[serde(deserialize_with = "serde_deserialization::string_or_struct")]
+    pub ancillary_files_signer_config: AncillaryFilesSignerConfig,
+
     /// Signed entity types parameters (discriminants names in an ordered, case-sensitive, comma
     /// separated list).
     ///
@@ -232,12 +239,35 @@ impl Default for ZstandardCompressionParameters {
     }
 }
 
+/// Configuration of the ancillary files signer
+///
+/// **IMPORTANT**: The cryptographic scheme used is ED25519
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case", tag = "type")]
+pub enum AncillaryFilesSignerConfig {
+    /// Sign with a secret key
+    SecretKey {
+        /// Hex encoded secret key
+        secret_key: HexEncodedKey,
+    },
+}
+
+impl FromStr for AncillaryFilesSignerConfig {
+    type Err = serde_json::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str(s)
+    }
+}
+
 impl Configuration {
     /// Create a sample configuration mainly for tests
     pub fn new_sample(tmp_path: PathBuf) -> Self {
         let genesis_verification_key = ProtocolGenesisSigner::create_deterministic_signer()
             .create_verifier()
             .to_verification_key();
+        let ancillary_files_signer_secret_key =
+            ManifestSigner::create_deterministic_signer().secret_key();
 
         Self {
             environment: ExecutionEnvironment::Test,
@@ -274,6 +304,9 @@ impl Configuration {
             store_retention_limit: None,
             era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
             era_reader_adapter_params: None,
+            ancillary_files_signer_config: AncillaryFilesSignerConfig::SecretKey {
+                secret_key: ancillary_files_signer_secret_key.to_json_hex().unwrap(),
+            },
             signed_entity_types: None,
             snapshot_compression_algorithm: CompressionAlgorithm::Zstandard,
             zstandard_parameters: Some(ZstandardCompressionParameters::default()),
@@ -759,5 +792,23 @@ mod test {
         };
 
         assert!(!config.is_slave_aggregator());
+    }
+
+    #[test]
+    fn serialized_ancillary_files_signer_config_use_snake_case_for_keys_and_kebab_case_for_type_value(
+    ) {
+        let serialized_json = r#"{
+            "type": "secret-key",
+            "secret_key": "whatever"
+        }"#;
+
+        let deserialized: AncillaryFilesSignerConfig =
+            serde_json::from_str(serialized_json).unwrap();
+        assert_eq!(
+            deserialized,
+            AncillaryFilesSignerConfig::SecretKey {
+                secret_key: "whatever".to_string()
+            }
+        );
     }
 }

@@ -35,3 +35,20 @@ pub mod era {
     /// [EraMarkersSigner] and [EraMarkersVerifier] related errors.
     pub type EraMarkersVerifierError = Ed25519VerifierError;
 }
+
+pub mod manifest {
+    use super::*;
+
+    /// Manifest verifier secret key
+    pub type ManifestVerifierSecretKey = Ed25519SecretKey;
+    /// Manifest verifier verification key
+    pub type ManifestVerifierVerificationKey = Ed25519VerificationKey;
+    /// Manifest signature
+    pub type ManifestSignature = Ed25519Signature;
+    /// A cryptographic signer that is responsible for signing the Manifest
+    pub type ManifestSigner = Ed25519Signer;
+    /// A manifest verifier that checks the authenticity of a manifest
+    pub type ManifestVerifier = Ed25519Verifier;
+    /// [ManifestSigner] and [ManifestVerifier] related errors.
+    pub type ManifestVerifierError = Ed25519VerifierError;
+}

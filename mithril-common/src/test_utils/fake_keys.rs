@@ -148,6 +148,16 @@ pub const fn genesis_signature<'a>() -> [&'a str; 2] {
     ]
 }
 
+/// A list of pre json hex encoded [Ed25519:Signature](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.Signature.html).
+pub const fn signable_manifest_signature<'a>() -> [&'a str; 2] {
+    [
+        "ebc0652ffe864970a2ba538eacf7d088e9840e3db883c96d13eb6c5b4c74cfc6e84932e4640ca9e3b5e3de2dd6\
+        15247a88c011405cc7508736abcf99cae2b10b",
+        "cee89d557736c43990d4004a698036018ecadfd1dd219e8d58996c778e489500e0f113ec8bc1b7b3b4f90424e7\
+        7f45430c073eedfc76b5d40b34ddf71b09d308",
+    ]
+}
+
 /// A list of pre json hex encoded [MithrilStm:StmVerificationKeyPoP](type@mithril_stm::stm::StmVerificationKeyPoP)
 pub const fn signer_verification_key<'a>() -> [&'a str; 4] {
     [
@@ -375,7 +385,8 @@ mod test {
     use std::any::type_name;
 
     use crate::crypto_helper::{
-        key_decode_hex, OpCert, ProtocolGenesisSignature, ProtocolKey, ProtocolKeyCodec, D,
+        key_decode_hex, ManifestSignature, OpCert, ProtocolGenesisSignature, ProtocolKey,
+        ProtocolKeyCodec, D,
     };
 
     fn assert_decode_all<T: Fn(&str) -> Result<(), String>>(encoded_types: &[&str], decode_fun: T) {
@@ -447,6 +458,18 @@ mod test {
         });
 
         assert_can_convert_to_protocol_key::<ed25519_dalek::Signature>(&genesis_signature());
+    }
+
+    #[test]
+    fn assert_encoded_signable_manifest_signatures_are_still_matching_concrete_type() {
+        assert_decode_all(&signable_manifest_signature(), |encoded_sig| {
+            ManifestSignature::from_bytes_hex(encoded_sig).map_err(|e| e.to_string())?;
+            Ok(())
+        });
+
+        assert_can_convert_to_protocol_key::<ed25519_dalek::Signature>(
+            &signable_manifest_signature(),
+        );
     }
 
     #[test]
