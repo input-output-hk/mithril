@@ -44,7 +44,7 @@ pub use runtime::{
     AggregatorConfig, AggregatorRunner, AggregatorRunnerTrait, AggregatorRuntime, RuntimeError,
 };
 pub use services::{
-    MithrilSignerRegistrationMaster, MithrilSignerRegistrationSlave,
+    MithrilSignerRegistrationFollower, MithrilSignerRegistrationLeader,
     MithrilSignerRegistrationVerifier, SignerRecorder, SignerRegisterer, SignerRegistrationError,
     SignerRegistrationRound, SignerRegistrationRoundOpener, SignerRegistrationVerifier,
     SignerSynchronizer,

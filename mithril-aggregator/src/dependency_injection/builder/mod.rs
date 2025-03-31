@@ -44,13 +44,13 @@ use crate::{
     file_uploaders::FileUploader,
     http_server::routes::router::{self, RouterConfig, RouterState},
     services::{
-        AggregatorClient, CertifierService, MessageService, MithrilSignerRegistrationSlave,
+        AggregatorClient, CertifierService, MessageService, MithrilSignerRegistrationFollower,
         ProverService, SignedEntityService, SignerSynchronizer, Snapshotter,
         StakeDistributionService, UpkeepService,
     },
     tools::{file_archiver::FileArchiver, GenesisToolsDependency},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, Configuration, DependencyContainer,
-    ImmutableFileDigestMapper, MetricsService, MithrilSignerRegistrationMaster, MultiSigner,
+    ImmutableFileDigestMapper, MetricsService, MithrilSignerRegistrationLeader, MultiSigner,
     SignerRegisterer, SignerRegistrationRoundOpener, SignerRegistrationVerifier,
     SingleSignatureAuthenticator, VerificationKeyStorer,
 };
@@ -152,11 +152,11 @@ pub struct DependenciesBuilder {
     /// Genesis signature verifier service.
     pub genesis_verifier: Option<Arc<ProtocolGenesisVerifier>>,
 
-    /// Mithril signer registration master service
-    pub mithril_signer_registration_master: Option<Arc<MithrilSignerRegistrationMaster>>,
+    /// Mithril signer registration leader service
+    pub mithril_signer_registration_leader: Option<Arc<MithrilSignerRegistrationLeader>>,
 
-    /// Mithril signer registration slave service
-    pub mithril_signer_registration_slave: Option<Arc<MithrilSignerRegistrationSlave>>,
+    /// Mithril signer registration follower service
+    pub mithril_signer_registration_follower: Option<Arc<MithrilSignerRegistrationFollower>>,
 
     /// Signer registerer service
     pub signer_registerer: Option<Arc<dyn SignerRegisterer>>,
@@ -239,8 +239,8 @@ pub struct DependenciesBuilder {
     /// Metrics service
     pub metrics_service: Option<Arc<MetricsService>>,
 
-    /// Master aggregator client
-    pub master_aggregator_client: Option<Arc<dyn AggregatorClient>>,
+    /// Leader aggregator client
+    pub leader_aggregator_client: Option<Arc<dyn AggregatorClient>>,
 }
 
 impl DependenciesBuilder {
@@ -273,8 +273,8 @@ impl DependenciesBuilder {
             snapshotter: None,
             certificate_verifier: None,
             genesis_verifier: None,
-            mithril_signer_registration_master: None,
-            mithril_signer_registration_slave: None,
+            mithril_signer_registration_leader: None,
+            mithril_signer_registration_follower: None,
             signer_registerer: None,
             signer_synchronizer: None,
             signer_registration_verifier: None,
@@ -301,7 +301,7 @@ impl DependenciesBuilder {
             upkeep_service: None,
             single_signer_authenticator: None,
             metrics_service: None,
-            master_aggregator_client: None,
+            leader_aggregator_client: None,
         }
     }
 
@@ -370,7 +370,7 @@ impl DependenciesBuilder {
             upkeep_service: self.get_upkeep_service().await?,
             single_signer_authenticator: self.get_single_signature_authenticator().await?,
             metrics_service: self.get_metrics_service().await?,
-            master_aggregator_client: self.get_master_aggregator_client().await?,
+            leader_aggregator_client: self.get_leader_aggregator_client().await?,
         };
 
         Ok(dependency_manager)
@@ -382,7 +382,7 @@ impl DependenciesBuilder {
 
         let config = AggregatorConfig::new(
             Duration::from_millis(self.configuration.run_interval),
-            self.configuration.is_slave_aggregator(),
+            self.configuration.is_follower_aggregator(),
         );
         let runtime = AggregatorRuntime::new(
             config,

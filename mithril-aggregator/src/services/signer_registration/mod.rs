@@ -1,7 +1,7 @@
 mod api;
 mod error;
-mod master;
-mod slave;
+mod follower;
+mod leader;
 mod verifier;
 
 pub use api::{
@@ -9,8 +9,8 @@ pub use api::{
     SignerRegistrationVerifier, SignerSynchronizer,
 };
 pub use error::SignerRegistrationError;
-pub use master::MithrilSignerRegistrationMaster;
-pub use slave::MithrilSignerRegistrationSlave;
+pub use follower::MithrilSignerRegistrationFollower;
+pub use leader::MithrilSignerRegistrationLeader;
 pub use verifier::MithrilSignerRegistrationVerifier;
 
 #[cfg(test)]

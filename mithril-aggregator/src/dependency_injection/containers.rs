@@ -175,8 +175,8 @@ pub struct DependencyContainer {
     /// Metrics service
     pub metrics_service: Arc<MetricsService>,
 
-    /// Master aggregator client
-    pub master_aggregator_client: Arc<dyn AggregatorClient>,
+    /// Leader aggregator client
+    pub leader_aggregator_client: Arc<dyn AggregatorClient>,
 }
 
 #[doc(hidden)]

@@ -297,7 +297,7 @@ impl CertifierService for MithrilCertifierService {
             .await
             .with_context(|| {
                 format!(
-                    "Certifier can not get master certificate for epoch: '{}'",
+                    "Certifier can not get leader certificate for epoch: '{}'",
                     open_message.epoch
                 )
             })?

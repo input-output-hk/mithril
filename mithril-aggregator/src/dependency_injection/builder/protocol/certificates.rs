@@ -10,10 +10,10 @@ use crate::database::repository::{BufferedSingleSignatureRepository, SingleSigna
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
 use crate::services::{
     BufferedCertifierService, CertifierService, MithrilCertifierService,
-    MithrilSignerRegistrationSlave, SignerSynchronizer,
+    MithrilSignerRegistrationFollower, SignerSynchronizer,
 };
 use crate::{
-    ExecutionEnvironment, MithrilSignerRegistrationMaster, MithrilSignerRegistrationVerifier,
+    ExecutionEnvironment, MithrilSignerRegistrationLeader, MithrilSignerRegistrationVerifier,
     MultiSigner, MultiSignerImpl, SignerRegisterer, SignerRegistrationRoundOpener,
     SignerRegistrationVerifier, SingleSignatureAuthenticator,
 };
@@ -126,11 +126,11 @@ impl DependenciesBuilder {
         Ok(self.genesis_verifier.as_ref().cloned().unwrap())
     }
 
-    /// Return a [MithrilSignerRegistrationMaster] service
-    async fn build_mithril_signer_registration_master(
+    /// Return a [MithrilSignerRegistrationLeader] service
+    async fn build_mithril_signer_registration_leader(
         &mut self,
-    ) -> Result<Arc<MithrilSignerRegistrationMaster>> {
-        let registerer = MithrilSignerRegistrationMaster::new(
+    ) -> Result<Arc<MithrilSignerRegistrationLeader>> {
+        let registerer = MithrilSignerRegistrationLeader::new(
             self.get_verification_key_store().await?,
             self.get_signer_store().await?,
             self.get_signer_registration_verifier().await?,
@@ -140,32 +140,32 @@ impl DependenciesBuilder {
         Ok(Arc::new(registerer))
     }
 
-    /// Return a [MithrilSignerRegistrationMaster]
-    pub async fn get_mithril_signer_registration_master(
+    /// Return a [MithrilSignerRegistrationLeader]
+    pub async fn get_mithril_signer_registration_leader(
         &mut self,
-    ) -> Result<Arc<MithrilSignerRegistrationMaster>> {
-        if self.mithril_signer_registration_master.is_none() {
-            self.mithril_signer_registration_master =
-                Some(self.build_mithril_signer_registration_master().await?);
+    ) -> Result<Arc<MithrilSignerRegistrationLeader>> {
+        if self.mithril_signer_registration_leader.is_none() {
+            self.mithril_signer_registration_leader =
+                Some(self.build_mithril_signer_registration_leader().await?);
         }
 
         Ok(self
-            .mithril_signer_registration_master
+            .mithril_signer_registration_leader
             .as_ref()
             .cloned()
             .unwrap())
     }
 
-    /// Return a [MithrilSignerRegistrationSlave] service
-    async fn build_mithril_signer_registration_slave(
+    /// Return a [MithrilSignerRegistrationFollower] service
+    async fn build_mithril_signer_registration_follower(
         &mut self,
-    ) -> Result<Arc<MithrilSignerRegistrationSlave>> {
-        let registerer = MithrilSignerRegistrationSlave::new(
+    ) -> Result<Arc<MithrilSignerRegistrationFollower>> {
+        let registerer = MithrilSignerRegistrationFollower::new(
             self.get_epoch_service().await?,
             self.get_verification_key_store().await?,
             self.get_signer_store().await?,
             self.get_signer_registration_verifier().await?,
-            self.get_master_aggregator_client().await?,
+            self.get_leader_aggregator_client().await?,
             self.get_stake_store().await?,
             self.configuration.safe_epoch_retention_limit(),
         );
@@ -173,17 +173,17 @@ impl DependenciesBuilder {
         Ok(Arc::new(registerer))
     }
 
-    /// Return a [MithrilSignerRegistrationSlave]
-    pub async fn get_mithril_signer_registration_slave(
+    /// Return a [MithrilSignerRegistrationFollower]
+    pub async fn get_mithril_signer_registration_follower(
         &mut self,
-    ) -> Result<Arc<MithrilSignerRegistrationSlave>> {
-        if self.mithril_signer_registration_slave.is_none() {
-            self.mithril_signer_registration_slave =
-                Some(self.build_mithril_signer_registration_slave().await?);
+    ) -> Result<Arc<MithrilSignerRegistrationFollower>> {
+        if self.mithril_signer_registration_follower.is_none() {
+            self.mithril_signer_registration_follower =
+                Some(self.build_mithril_signer_registration_follower().await?);
         }
 
         Ok(self
-            .mithril_signer_registration_slave
+            .mithril_signer_registration_follower
             .as_ref()
             .cloned()
             .unwrap())
@@ -192,10 +192,10 @@ impl DependenciesBuilder {
     /// Return a [SignerRegisterer]
     pub async fn get_signer_registerer(&mut self) -> Result<Arc<dyn SignerRegisterer>> {
         if self.signer_registerer.is_none() {
-            self.signer_registerer = Some(if self.configuration.is_slave_aggregator() {
-                self.get_mithril_signer_registration_slave().await?
+            self.signer_registerer = Some(if self.configuration.is_follower_aggregator() {
+                self.get_mithril_signer_registration_follower().await?
             } else {
-                self.get_mithril_signer_registration_master().await?
+                self.get_mithril_signer_registration_leader().await?
             });
         }
 
@@ -205,10 +205,10 @@ impl DependenciesBuilder {
     /// Return a [SignerSynchronizer]
     pub async fn get_signer_synchronizer(&mut self) -> Result<Arc<dyn SignerSynchronizer>> {
         if self.signer_synchronizer.is_none() {
-            self.signer_synchronizer = Some(if self.configuration.is_slave_aggregator() {
-                self.get_mithril_signer_registration_slave().await?
+            self.signer_synchronizer = Some(if self.configuration.is_follower_aggregator() {
+                self.get_mithril_signer_registration_follower().await?
             } else {
-                self.get_mithril_signer_registration_master().await?
+                self.get_mithril_signer_registration_leader().await?
             });
         }
 
@@ -240,12 +240,12 @@ impl DependenciesBuilder {
         &mut self,
     ) -> Result<Arc<dyn SignerRegistrationRoundOpener>> {
         if self.signer_registration_round_opener.is_none() {
-            if self.configuration.is_slave_aggregator() {
+            if self.configuration.is_follower_aggregator() {
                 self.signer_registration_round_opener =
-                    Some(self.get_mithril_signer_registration_slave().await?);
+                    Some(self.get_mithril_signer_registration_follower().await?);
             } else {
                 self.signer_registration_round_opener =
-                    Some(self.get_mithril_signer_registration_master().await?);
+                    Some(self.get_mithril_signer_registration_leader().await?);
             }
         }
 

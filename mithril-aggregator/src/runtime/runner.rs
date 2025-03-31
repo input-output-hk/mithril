@@ -18,14 +18,17 @@ pub struct AggregatorConfig {
     /// Interval between each snapshot, in ms
     pub interval: Duration,
 
-    /// Whether the aggregator is a slave
-    pub is_slave: bool,
+    /// Whether the aggregator is a follower
+    pub is_follower: bool,
 }
 
 impl AggregatorConfig {
     /// Create a new instance of AggregatorConfig.
-    pub fn new(interval: Duration, is_slave: bool) -> Self {
-        Self { interval, is_slave }
+    pub fn new(interval: Duration, is_follower: bool) -> Self {
+        Self {
+            interval,
+            is_follower,
+        }
     }
 }
 
@@ -60,14 +63,14 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Close the signer registration round of an epoch.
     async fn close_signer_registration_round(&self) -> StdResult<()>;
 
-    /// Check if the slave aggregator is running the same epoch as the master.
-    async fn is_slave_aggregator_at_same_epoch_as_master(
+    /// Check if the follower aggregator is running the same epoch as the leader.
+    async fn is_follower_aggregator_at_same_epoch_as_leader(
         &self,
         time_point: &TimePoint,
     ) -> StdResult<bool>;
 
-    /// Synchronize the slave aggregator signer registration.
-    async fn synchronize_slave_aggregator_signer_registration(&self) -> StdResult<()>;
+    /// Synchronize the follower aggregator signer registration.
+    async fn synchronize_follower_aggregator_signer_registration(&self) -> StdResult<()>;
 
     /// Ask the EpochService to update the epoch settings.
     async fn update_epoch_settings(&self) -> StdResult<()>;
@@ -276,7 +279,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await
     }
 
-    async fn is_slave_aggregator_at_same_epoch_as_master(
+    async fn is_follower_aggregator_at_same_epoch_as_leader(
         &self,
         time_point: &TimePoint,
     ) -> StdResult<bool> {
@@ -287,7 +290,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .map_err(|e| e.into())
     }
 
-    async fn synchronize_slave_aggregator_signer_registration(&self) -> StdResult<()> {
+    async fn synchronize_follower_aggregator_signer_registration(&self) -> StdResult<()> {
         self.dependencies
             .signer_synchronizer
             .synchronize_all_signers()
@@ -526,7 +529,7 @@ pub mod tests {
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
         services::{MithrilStakeDistributionService, MockCertifierService},
-        Configuration, DependencyContainer, MithrilSignerRegistrationMaster,
+        Configuration, DependencyContainer, MithrilSignerRegistrationLeader,
         SignerRegistrationRound,
     };
     use async_trait::async_trait;
@@ -719,7 +722,7 @@ pub mod tests {
     #[tokio::test]
     async fn test_open_signer_registration_round() {
         let mut deps = initialize_dependencies!().await;
-        let signer_registration_round_opener = Arc::new(MithrilSignerRegistrationMaster::new(
+        let signer_registration_round_opener = Arc::new(MithrilSignerRegistrationLeader::new(
             deps.verification_key_store.clone(),
             deps.signer_recorder.clone(),
             deps.signer_registration_verifier.clone(),
@@ -759,7 +762,7 @@ pub mod tests {
     #[tokio::test]
     async fn test_close_signer_registration_round() {
         let mut deps = initialize_dependencies!().await;
-        let signer_registration_round_opener = Arc::new(MithrilSignerRegistrationMaster::new(
+        let signer_registration_round_opener = Arc::new(MithrilSignerRegistrationLeader::new(
             deps.verification_key_store.clone(),
             deps.signer_recorder.clone(),
             deps.signer_registration_verifier.clone(),
