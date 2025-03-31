@@ -1,4 +1,4 @@
-use std::{iter::repeat, sync::Arc};
+use std::{iter::repeat_n, sync::Arc};
 
 use anyhow::Context;
 use mithril_common::{
@@ -55,7 +55,7 @@ impl MKTreeStoreSqlite {
         position: u64,
         elements: Vec<Arc<MKTreeNode>>,
     ) -> StdResult<()> {
-        let values_columns: Vec<&str> = repeat("(?, ?)").take(elements.len()).collect();
+        let values_columns: Vec<&str> = repeat_n("(?, ?)", elements.len()).collect();
         let values: Vec<sqlite::Value> = elements
             .into_iter()
             .enumerate()

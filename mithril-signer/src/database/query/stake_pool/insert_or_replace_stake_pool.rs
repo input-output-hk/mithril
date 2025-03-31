@@ -1,4 +1,4 @@
-use std::iter::repeat;
+use std::iter::repeat_n;
 
 use chrono::Utc;
 use sqlite::Value;
@@ -16,7 +16,7 @@ pub struct InsertOrReplaceStakePoolQuery {
 impl InsertOrReplaceStakePoolQuery {
     pub fn many(records: Vec<(PartyId, Epoch, Stake)>) -> Self {
         let columns = "(stake_pool_id, epoch, stake, created_at)";
-        let values_columns: Vec<&str> = repeat("(?*, ?*, ?*, ?*)").take(records.len()).collect();
+        let values_columns: Vec<&str> = repeat_n("(?*, ?*, ?*, ?*)", records.len()).collect();
         let values = records
             .into_iter()
             .flat_map(|(stake_pool_id, epoch, stake)| {

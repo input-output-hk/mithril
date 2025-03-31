@@ -307,7 +307,7 @@ mod tests {
         assert!(
             matches!(
                 error,
-                VerifyCardanoTransactionsProofsError::NonMatchingMerkleRoot { .. },
+                VerifyCardanoTransactionsProofsError::NonMatchingMerkleRoot,
             ),
             "Expected 'NonMatchingMerkleRoot' error but got '{:?}'",
             error

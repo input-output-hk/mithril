@@ -1,4 +1,4 @@
-use std::iter::repeat;
+use std::iter::repeat_n;
 
 use sqlite::Value;
 
@@ -21,9 +21,8 @@ impl InsertCardanoTransactionQuery {
     /// Query that insert multiples records.
     pub fn insert_many(transactions_records: Vec<CardanoTransactionRecord>) -> StdResult<Self> {
         let columns = "(transaction_hash, block_number, slot_number, block_hash)";
-        let values_columns: Vec<&str> = repeat("(?*, ?*, ?*, ?*)")
-            .take(transactions_records.len())
-            .collect();
+        let values_columns: Vec<&str> =
+            repeat_n("(?*, ?*, ?*, ?*)", transactions_records.len()).collect();
 
         let values: StdResult<Vec<Value>> =
             transactions_records

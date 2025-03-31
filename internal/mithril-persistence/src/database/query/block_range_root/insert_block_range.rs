@@ -1,4 +1,4 @@
-use std::iter::repeat;
+use std::iter::repeat_n;
 
 use sqlite::Value;
 
@@ -16,9 +16,8 @@ impl InsertBlockRangeRootQuery {
     /// Query that insert multiples records.
     pub fn insert_many(block_range_records: Vec<BlockRangeRootRecord>) -> StdResult<Self> {
         let columns = "(start, end, merkle_root)";
-        let values_columns: Vec<&str> = repeat("(?*, ?*, ?*)")
-            .take(block_range_records.len())
-            .collect();
+        let values_columns: Vec<&str> =
+            repeat_n("(?*, ?*, ?*)", block_range_records.len()).collect();
 
         let values: StdResult<Vec<Value>> =
             block_range_records

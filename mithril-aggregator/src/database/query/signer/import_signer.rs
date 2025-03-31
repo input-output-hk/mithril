@@ -1,4 +1,4 @@
-use std::iter::repeat;
+use std::iter::repeat_n;
 
 use sqlite::Value;
 
@@ -21,9 +21,8 @@ impl ImportSignerRecordQuery {
 
     pub fn many(signer_records: Vec<SignerRecord>) -> Self {
         let columns = "(signer_id, pool_ticker, created_at, updated_at, last_registered_at)";
-        let values_columns: Vec<&str> = repeat("(?*, ?*, ?*, ?*, ?*)")
-            .take(signer_records.len())
-            .collect();
+        let values_columns: Vec<&str> =
+            repeat_n("(?*, ?*, ?*, ?*, ?*)", signer_records.len()).collect();
         let values = signer_records
             .into_iter()
             .flat_map(|signer_record| {
