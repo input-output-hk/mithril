@@ -144,7 +144,7 @@ pub struct Configuration {
     /// **IMPORTANT**: The cryptographic scheme used is ED25519
     #[example = "`{ \"type\": \"secret-key\", \"secret_key\": \"136372c3138312c3138382c3130352c3233312c3135\" }`"]
     #[serde(deserialize_with = "serde_deserialization::string_or_struct")]
-    pub ancillary_files_signer: AncillaryFilesSignerConfig,
+    pub ancillary_files_signer_config: AncillaryFilesSignerConfig,
 
     /// Signed entity types parameters (discriminants names in an ordered, case-sensitive, comma
     /// separated list).
@@ -304,7 +304,7 @@ impl Configuration {
             store_retention_limit: None,
             era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
             era_reader_adapter_params: None,
-            ancillary_files_signer: AncillaryFilesSignerConfig::SecretKey {
+            ancillary_files_signer_config: AncillaryFilesSignerConfig::SecretKey {
                 secret_key: ancillary_files_signer_secret_key.to_json_hex().unwrap(),
             },
             signed_entity_types: None,
@@ -795,7 +795,8 @@ mod test {
     }
 
     #[test]
-    fn serialized_ancillary_files_signer_use_snake_case_for_keys_and_kebab_case_for_type_value() {
+    fn serialized_ancillary_files_signer_config_use_snake_case_for_keys_and_kebab_case_for_type_value(
+    ) {
         let serialized_json = r#"{
             "type": "secret-key",
             "secret_key": "whatever"

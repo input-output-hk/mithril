@@ -104,7 +104,10 @@ impl Aggregator {
                 "ERA_READER_ADAPTER_TYPE",
                 aggregator_config.mithril_era_reader_adapter,
             ),
-            ("ANCILLARY_FILES_SIGNER", &ancillary_files_signer_config),
+            (
+                "ANCILLARY_FILES_SIGNER_CONFIG",
+                &ancillary_files_signer_config,
+            ),
             ("ERA_READER_ADAPTER_PARAMS", &era_reader_adapter_params),
             ("SIGNED_ENTITY_TYPES", &signed_entity_types),
             (

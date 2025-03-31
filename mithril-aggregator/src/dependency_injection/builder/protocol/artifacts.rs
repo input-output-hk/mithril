@@ -118,7 +118,7 @@ impl DependenciesBuilder {
     }
 
     async fn get_ancillary_signer(&self) -> Result<Arc<dyn AncillarySigner>> {
-        match &self.configuration.ancillary_files_signer {
+        match &self.configuration.ancillary_files_signer_config {
             AncillaryFilesSignerConfig::SecretKey { secret_key } => {
                 let manifest_signer = ManifestSigner::from_secret_key(
                     secret_key
