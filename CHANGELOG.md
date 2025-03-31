@@ -32,7 +32,7 @@ As a minor extension, we have adopted a slightly different versioning convention
   - Creation of two separate archives for the immutable files and for the ancillary files.
   - Added a signed manifest file to the ancillary archive (contains the list of all files in the archive and their sha256 hashes).
 
-- **UNSTABLE** Implement a slave signer registration mode in the aggregator.
+- **UNSTABLE** Implement a follower signer registration mode in the aggregator.
 
 - **UNSTABLE** Cardano database incremental certification:
 
