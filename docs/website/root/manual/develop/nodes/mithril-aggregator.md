@@ -94,7 +94,7 @@ To run in debug mode with the default configuration, use the following command:
 make debug
 ```
 
-## Release the build and run the binary 'serve' command
+## Building for release and running the binary 'serve' command
 
 To build and run in release mode with the default configuration:
 
@@ -117,16 +117,17 @@ Display the help menu:
 You should see:
 
 ```bash
-Mithril aggregator Node
+Mithril aggregator node
 
 Usage: mithril-aggregator [OPTIONS] <COMMAND>
 
 Commands:
-  genesis  Genesis tools
-  era      Era tools
-  serve    Server runtime mode
-  tools    List of tools to upkeep the aggregator
-  help     Print this message or the help of the given subcommand(s)
+  genesis   Genesis tools
+  era       Era tools
+  serve     Server runtime mode
+  tools     List of tools to upkeep the aggregator
+  database  Database tools
+  help      Print this message or the help of the given subcommand(s)
 
 Options:
   -r, --run-mode <RUN_MODE>
@@ -136,7 +137,7 @@ Options:
       --db-directory <DB_DIRECTORY>
           Directory of the Cardano node files
       --config-directory <CONFIG_DIRECTORY>
-          Directory where the configuration file is located [default: ./config]
+          Directory where configuration file is located [default: ./config]
   -h, --help
           Print help
   -V, --version
@@ -161,7 +162,7 @@ Run the 'serve' command in release mode with a custom configuration using enviro
 GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**) RUN_INTERVAL=60000 NETWORK=**YOUR_CARDANO_NETWORK** ./mithril-aggregator serve
 ```
 
-## Release the build and run the binary 'genesis' command
+## Building for release and running the binary 'genesis' command
 
 Build in release mode with the default configuration:
 
@@ -178,17 +179,20 @@ Display the help menu:
 You should see:
 
 ```bash
-mithril-aggregator-genesis
-The aggregator runs in Genesis tools mode
-USAGE:
-    mithril-aggregator genesis <SUBCOMMAND>
-OPTIONS:
-    -h, --help    Print help information
-SUBCOMMANDS:
-    bootstrap    Bootstrap a genesis certificate test-only usage
-    export       Export payload to sign with genesis secret key
-    help         Print this message or the help of the given subcommand(s)
-    import       Import payload signed with genesis secret key and create & import a genesis certificate
+Genesis tools
+
+Usage: mithril-aggregator genesis <COMMAND>
+
+Commands:
+  export            Genesis certificate export command
+  import            Genesis certificate import command
+  sign              Genesis certificate sign command
+  bootstrap         Genesis certificate bootstrap command
+  generate-keypair  Genesis keypair generation command
+  help              Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
 ```
 
 ### Bootstrap sub-command (test-only)
@@ -235,7 +239,7 @@ Run the 'genesis import' command in release mode with a custom configuration usi
 GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**) RUN_INTERVAL=60000 NETWORK=**YOUR_CARDANO_NETWORK** ./mithril-aggregator genesis import
 ```
 
-## Release the build and run the binary 'era' command
+## Building for release and running the binary 'era' command
 
 Build in release mode using the default configuration:
 
@@ -323,7 +327,7 @@ You should see something like:
 ./mithril-aggregator era generate-tx-datum --current-era-epoch **EPOCH_AT_WHICH_CURRENT_ERA_STARTS** --next-era-epoch **EPOCH_AT_WHICH_NEXT_ERA_STARTS** --era-markers-secret-key **YOUR_ERA_ACTIVATION_SECRET_KEY** --target-path **TARGET_PATH**
 ```
 
-## Release the build and run the binary 'tools' command
+## Building for release and running the binary 'tools' command
 
 Build in release mode using the default configuration:
 
@@ -356,6 +360,50 @@ Run the 'tools recompute-certificates-hash' command in release mode with the def
 
 ```bash
 ./mithril-aggregator tools recompute-certificates-hash
+```
+
+## Building for release and running the binary 'database' command
+
+Build in release mode using the default configuration:
+
+```bash
+make build
+```
+
+Display the help menu:
+
+```bash
+./mithril-aggregator database --help
+```
+
+You should see:
+
+```bash
+Database tools
+
+Usage: mithril-aggregator database <COMMAND>
+
+Commands:
+  migrate  Migrate databases located in the given stores directory
+  vacuum   Vacuum the aggregator main database
+  help     Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+Run the 'database migrate' command in release mode, which allows the Mithril aggregator node to migrate all databases
+located in the given stores directory.
+
+```bash
+./mithril-aggregator database migrate --stores-directory **YOUR_STORES_DIRECTORY**
+```
+
+Run the 'database vacuum' command in release mode, which allows the Mithril aggregator node to
+[vacuum](https://www.sqlite.org/lang_vacuum.html) the main database.
+
+```bash
+./mithril-aggregator database vacuum --stores-directory **YOUR_STORES_DIRECTORY**
 ```
 
 :::tip
@@ -403,6 +451,8 @@ Here are the available subcommands:
 | **era list**                          | Lists the supported eras                                                                                                                  |
 | **era generate-tx-datum**             | Generates the era markers transaction datum to be stored on-chain                                                                         |
 | **era generate-keypair**              | Generates an era keypair                                                                                                                  |
+| **database migrate**                  | Migrate databases located in the given stores directory                                                                                   |
+| **database vacuum**                   | Vacuum the aggregator main database                                                                                                       |
 | **tools recompute-certificates-hash** | Loads all certificates in the database, recomputing their hash, and updating all related entities                                         |
 
 ## Configuration parameters
@@ -513,5 +563,17 @@ Here is a list of the available parameters:
 | Parameter     | Command line (long) | Command line (short) | Environment variable | Description                           | Default value | Example |     Mandatory      |
 | ------------- | ------------------- | :------------------: | -------------------- | ------------------------------------- | ------------- | ------- | :----------------: |
 | `target_path` | `--target-path`     |          -           | -                    | Target path for the generated keypair | -             | -       | :heavy_check_mark: |
+
+`database migrate` command:
+
+| Parameter          | Command line (long)  | Command line (short) | Environment variable | Description                                              | Default value | Example |     Mandatory      |
+| ------------------ | -------------------- | :------------------: | -------------------- | -------------------------------------------------------- | ------------- | ------- | :----------------: |
+| `stores_directory` | `--stores-directory` |          -           | `STORES_DIRECTORY`   | Location of the stores directory for migrating databases | -             | -       | :heavy_check_mark: |
+
+`database vacuum` command:
+
+| Parameter          | Command line (long)  | Command line (short) | Environment variable | Description                                                      | Default value | Example |     Mandatory      |
+| ------------------ | -------------------- | :------------------: | -------------------- | ---------------------------------------------------------------- | ------------- | ------- | :----------------: |
+| `stores_directory` | `--stores-directory` |          -           | `STORES_DIRECTORY`   | Location of the stores directory for vacuuming the main database | -             | -       | :heavy_check_mark: |
 
 The `tools recompute-certificates-hash` command has no dedicated parameters.
