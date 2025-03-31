@@ -303,8 +303,8 @@ jobs:
         extra_args: [""]
 
         include:
-          # Include a test for partial decentralization with master/slave signer registration and P2P signature registration
-          - mode: "master-slave"
+          # Include a test for partial decentralization with leader/follower signer registration and P2P signature registration
+          - mode: "leader-follower"
             era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
             next_era: [""]
             cardano_node_version: "10.2.1"
