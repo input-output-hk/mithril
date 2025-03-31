@@ -4,17 +4,17 @@ use mithril_common::{
     StdResult,
 };
 
-use crate::entities::MasterAggregatorEpochSettings;
+use crate::entities::LeaderAggregatorEpochSettings;
 
-/// Adapter to convert [EpochSettingsMessage] to [MasterAggregatorEpochSettings].
+/// Adapter to convert [EpochSettingsMessage] to [LeaderAggregatorEpochSettings].
 pub struct FromEpochSettingsAdapter;
 
-impl TryFromMessageAdapter<EpochSettingsMessage, MasterAggregatorEpochSettings>
+impl TryFromMessageAdapter<EpochSettingsMessage, LeaderAggregatorEpochSettings>
     for FromEpochSettingsAdapter
 {
     /// Method to convert.
-    fn try_adapt(message: EpochSettingsMessage) -> StdResult<MasterAggregatorEpochSettings> {
-        let epoch_settings = MasterAggregatorEpochSettings {
+    fn try_adapt(message: EpochSettingsMessage) -> StdResult<LeaderAggregatorEpochSettings> {
+        let epoch_settings = LeaderAggregatorEpochSettings {
             epoch: message.epoch,
             registration_protocol_parameters: message.signer_registration_protocol_parameters,
             current_signers: SignerMessagePart::try_into_signers(message.current_signers)

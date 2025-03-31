@@ -47,15 +47,15 @@ pub enum SignerRegistrationError {
     #[error("signer recorder failed: '{0}'")]
     FailedSignerRecorder(String),
 
-    /// Signer registration is always closed on a slave aggregator.
-    #[error("signer registration is always closed on a slave aggregator")]
-    RegistrationRoundAlwaysClosedOnSlaveAggregator,
+    /// Signer registration is always closed on a follower aggregator.
+    #[error("signer registration is always closed on a follower aggregator")]
+    RegistrationRoundAlwaysClosedOnFollowerAggregator,
 
-    /// Signer synchronization is not available on a master aggregator.
-    #[error("signer synchronization is not available on a master aggregator")]
-    SignerSynchronizationUnavailableOnMasterAggregator,
+    /// Signer synchronization is not available on a leader aggregator.
+    #[error("signer synchronization is not available on a leader aggregator")]
+    SignerSynchronizationUnavailableOnLeaderAggregator,
 
-    /// Failed fetching master aggregator epoch settings.
-    #[error("failed fetching master aggregator epoch settings: '{0}'")]
-    FailedFetchingMasterAggregatorEpochSettings(#[source] StdError),
+    /// Failed fetching leader aggregator epoch settings.
+    #[error("failed fetching leader aggregator epoch settings: '{0}'")]
+    FailedFetchingLeaderAggregatorEpochSettings(#[source] StdError),
 }

@@ -20,8 +20,8 @@ use super::{
     SignerRegistrationRoundOpener, SignerSynchronizer,
 };
 
-/// A [MithrilSignerRegistrationSlave] supports signer registrations in a slave aggregator
-pub struct MithrilSignerRegistrationSlave {
+/// A [MithrilSignerRegistrationFollower] supports signer registrations in a follower aggregator
+pub struct MithrilSignerRegistrationFollower {
     /// Epoch service
     pub epoch_service: EpochServiceWrapper,
 
@@ -34,8 +34,8 @@ pub struct MithrilSignerRegistrationSlave {
     /// Signer registration verifier
     signer_registration_verifier: Arc<dyn SignerRegistrationVerifier>,
 
-    /// Master aggregator client
-    master_aggregator_client: Arc<dyn AggregatorClient>,
+    /// Leader aggregator client
+    leader_aggregator_client: Arc<dyn AggregatorClient>,
 
     /// Stake store
     stake_store: Arc<dyn StakeStorer>,
@@ -45,14 +45,14 @@ pub struct MithrilSignerRegistrationSlave {
     verification_key_epoch_retention_limit: Option<u64>,
 }
 
-impl MithrilSignerRegistrationSlave {
-    /// MithrilSignerRegistererSlave factory
+impl MithrilSignerRegistrationFollower {
+    /// MithrilSignerRegistererFollower factory
     pub fn new(
         epoch_service: EpochServiceWrapper,
         verification_key_store: Arc<dyn VerificationKeyStorer>,
         signer_recorder: Arc<dyn SignerRecorder>,
         signer_registration_verifier: Arc<dyn SignerRegistrationVerifier>,
-        master_aggregator_client: Arc<dyn AggregatorClient>,
+        leader_aggregator_client: Arc<dyn AggregatorClient>,
         stake_store: Arc<dyn StakeStorer>,
         verification_key_epoch_retention_limit: Option<u64>,
     ) -> Self {
@@ -61,7 +61,7 @@ impl MithrilSignerRegistrationSlave {
             verification_key_store,
             signer_recorder,
             signer_registration_verifier,
-            master_aggregator_client,
+            leader_aggregator_client,
             stake_store,
             verification_key_epoch_retention_limit,
         }
@@ -111,33 +111,33 @@ impl MithrilSignerRegistrationSlave {
 }
 
 #[async_trait]
-impl SignerSynchronizer for MithrilSignerRegistrationSlave {
+impl SignerSynchronizer for MithrilSignerRegistrationFollower {
     async fn can_synchronize_signers(&self, epoch: Epoch) -> Result<bool, SignerRegistrationError> {
         Ok(self
-            .master_aggregator_client
+            .leader_aggregator_client
             .retrieve_epoch_settings()
             .await
             .with_context(|| "can_synchronize_signers failed")
-            .map_err(SignerRegistrationError::FailedFetchingMasterAggregatorEpochSettings)?
-            .is_some_and(|master_epoch_settings| epoch == master_epoch_settings.epoch))
+            .map_err(SignerRegistrationError::FailedFetchingLeaderAggregatorEpochSettings)?
+            .is_some_and(|leader_epoch_settings| epoch == leader_epoch_settings.epoch))
     }
 
     async fn synchronize_all_signers(&self) -> Result<(), SignerRegistrationError> {
-        let master_epoch_settings = self
-            .master_aggregator_client
+        let leader_epoch_settings = self
+            .leader_aggregator_client
             .retrieve_epoch_settings()
             .await
             .with_context(|| "synchronize_all_signers failed")
-            .map_err(SignerRegistrationError::FailedFetchingMasterAggregatorEpochSettings)?
+            .map_err(SignerRegistrationError::FailedFetchingLeaderAggregatorEpochSettings)?
             .ok_or(
-                SignerRegistrationError::FailedFetchingMasterAggregatorEpochSettings(
-                    anyhow::anyhow!("Master aggregator did not return any epoch settings"),
+                SignerRegistrationError::FailedFetchingLeaderAggregatorEpochSettings(
+                    anyhow::anyhow!("Leader aggregator did not return any epoch settings"),
                 ),
             )?;
-        let registration_epoch = master_epoch_settings
+        let registration_epoch = leader_epoch_settings
             .epoch
-            .offset_to_master_synchronization_epoch();
-        let next_signers = master_epoch_settings.next_signers;
+            .offset_to_leader_synchronization_epoch();
+        let next_signers = leader_epoch_settings.next_signers;
         let stake_distribution = self
             .stake_store
             .get_stakes(registration_epoch)
@@ -145,7 +145,7 @@ impl SignerSynchronizer for MithrilSignerRegistrationSlave {
             .with_context(|| "synchronize_all_signers failed")
             .map_err(SignerRegistrationError::Store)?
             .ok_or(SignerRegistrationError::Store(anyhow::anyhow!(
-                "Slave aggregator did not return any stake distribution"
+                "Follower aggregator did not return any stake distribution"
             )))?;
         self.synchronize_signers(registration_epoch, &next_signers, &stake_distribution)
             .await?;
@@ -155,13 +155,13 @@ impl SignerSynchronizer for MithrilSignerRegistrationSlave {
 }
 
 #[async_trait]
-impl SignerRegisterer for MithrilSignerRegistrationSlave {
+impl SignerRegisterer for MithrilSignerRegistrationFollower {
     async fn register_signer(
         &self,
         _epoch: Epoch,
         _signer: &Signer,
     ) -> Result<SignerWithStake, SignerRegistrationError> {
-        Err(SignerRegistrationError::RegistrationRoundAlwaysClosedOnSlaveAggregator)
+        Err(SignerRegistrationError::RegistrationRoundAlwaysClosedOnFollowerAggregator)
     }
 
     async fn get_current_round(&self) -> Option<SignerRegistrationRound> {
@@ -170,7 +170,7 @@ impl SignerRegisterer for MithrilSignerRegistrationSlave {
 }
 
 #[async_trait]
-impl SignerRegistrationRoundOpener for MithrilSignerRegistrationSlave {
+impl SignerRegistrationRoundOpener for MithrilSignerRegistrationFollower {
     async fn open_registration_round(
         &self,
         _registration_epoch: Epoch,
@@ -185,7 +185,7 @@ impl SignerRegistrationRoundOpener for MithrilSignerRegistrationSlave {
 }
 
 #[async_trait]
-impl EpochPruningTask for MithrilSignerRegistrationSlave {
+impl EpochPruningTask for MithrilSignerRegistrationFollower {
     fn pruned_data(&self) -> &'static str {
         "Signer registration"
     }
@@ -233,7 +233,7 @@ mod tests {
         },
         store::MockVerificationKeyStorer,
         tools::mocks::MockStakeStore,
-        MithrilSignerRegistrationSlave, SignerRecorder, SignerRegisterer,
+        MithrilSignerRegistrationFollower, SignerRecorder, SignerRegisterer,
         SignerRegistrationRoundOpener, SignerRegistrationVerifier, VerificationKeyStorer,
     };
 
@@ -246,24 +246,24 @@ mod tests {
 
         use super::*;
 
-        /// MithrilSignerRegistrationSlaveBuilder is a test builder for [MithrilSignerRegistrationSlave]
-        pub struct MithrilSignerRegistrationSlaveBuilder {
+        /// MithrilSignerRegistrationFollowerBuilder is a test builder for [MithrilSignerRegistrationFollower]
+        pub struct MithrilSignerRegistrationFollowerBuilder {
             epoch_service: EpochServiceWrapper,
             signer_recorder: Arc<dyn SignerRecorder>,
             signer_registration_verifier: Arc<dyn SignerRegistrationVerifier>,
-            master_aggregator_client: Arc<dyn AggregatorClient>,
+            leader_aggregator_client: Arc<dyn AggregatorClient>,
             stake_store: Arc<dyn StakeStorer>,
             verification_key_store: Arc<dyn VerificationKeyStorer>,
             verification_key_epoch_retention_limit: Option<u64>,
         }
 
-        impl Default for MithrilSignerRegistrationSlaveBuilder {
+        impl Default for MithrilSignerRegistrationFollowerBuilder {
             fn default() -> Self {
                 Self {
                     epoch_service: Arc::new(RwLock::new(FakeEpochService::without_data())),
                     signer_recorder: Arc::new(MockSignerRecorder::new()),
                     signer_registration_verifier: Arc::new(MockSignerRegistrationVerifier::new()),
-                    master_aggregator_client: Arc::new(MockAggregatorClient::new()),
+                    leader_aggregator_client: Arc::new(MockAggregatorClient::new()),
                     stake_store: Arc::new(MockStakeStore::new()),
                     verification_key_store: Arc::new(SignerRegistrationStore::new(Arc::new(
                         main_db_connection().unwrap(),
@@ -273,7 +273,7 @@ mod tests {
             }
         }
 
-        impl MithrilSignerRegistrationSlaveBuilder {
+        impl MithrilSignerRegistrationFollowerBuilder {
             pub fn with_epoch_service(self, epoch_service: FakeEpochService) -> Self {
                 Self {
                     epoch_service: Arc::new(RwLock::new(epoch_service)),
@@ -308,12 +308,12 @@ mod tests {
                 }
             }
 
-            pub fn with_master_aggregator_client(
+            pub fn with_leader_aggregator_client(
                 self,
-                master_aggregator_client: Arc<dyn AggregatorClient>,
+                leader_aggregator_client: Arc<dyn AggregatorClient>,
             ) -> Self {
                 Self {
-                    master_aggregator_client,
+                    leader_aggregator_client,
                     ..self
                 }
             }
@@ -335,13 +335,13 @@ mod tests {
                 }
             }
 
-            pub fn build(self) -> MithrilSignerRegistrationSlave {
-                MithrilSignerRegistrationSlave {
+            pub fn build(self) -> MithrilSignerRegistrationFollower {
+                MithrilSignerRegistrationFollower {
                     epoch_service: self.epoch_service,
                     verification_key_store: self.verification_key_store,
                     signer_recorder: self.signer_recorder,
                     signer_registration_verifier: self.signer_registration_verifier,
-                    master_aggregator_client: self.master_aggregator_client,
+                    leader_aggregator_client: self.leader_aggregator_client,
                     stake_store: self.stake_store,
                     verification_key_epoch_retention_limit: self
                         .verification_key_epoch_retention_limit,
@@ -352,17 +352,18 @@ mod tests {
 
     #[tokio::test]
     async fn open_close_registration_always_succeeds() {
-        let signer_registration_slave = MithrilSignerRegistrationSlaveBuilder::default().build();
+        let signer_registration_follower =
+            MithrilSignerRegistrationFollowerBuilder::default().build();
         let registration_epoch = Epoch(1);
         let fixture = MithrilFixtureBuilder::default().with_signers(1).build();
         let stake_distribution = fixture.stake_distribution();
 
-        signer_registration_slave
+        signer_registration_follower
             .open_registration_round(registration_epoch, stake_distribution)
             .await
             .expect("signer registration round opening should not fail");
 
-        signer_registration_slave
+        signer_registration_follower
             .close_registration_round()
             .await
             .expect("signer registration round opening should not fail");
@@ -370,12 +371,13 @@ mod tests {
 
     #[tokio::test]
     async fn register_signer_always_fails() {
-        let signer_registration_slave = MithrilSignerRegistrationSlaveBuilder::default().build();
+        let signer_registration_follower =
+            MithrilSignerRegistrationFollowerBuilder::default().build();
         let registration_epoch = Epoch(1);
         let fixture = MithrilFixtureBuilder::default().with_signers(1).build();
         let signer_to_register: Signer = fixture.signers()[0].to_owned();
 
-        signer_registration_slave
+        signer_registration_follower
             .register_signer(registration_epoch, &signer_to_register)
             .await
             .expect_err("signer registration should always fail");
@@ -396,7 +398,7 @@ mod tests {
             ..EpochSettingsMessage::dummy()
         })
         .unwrap();
-        let signer_registration_slave = MithrilSignerRegistrationSlaveBuilder::default()
+        let signer_registration_follower = MithrilSignerRegistrationFollowerBuilder::default()
             .with_signer_recorder({
                 let mut signer_recorder = MockSignerRecorder::new();
                 signer_recorder
@@ -415,7 +417,7 @@ mod tests {
 
                 Arc::new(signer_registration_verifier)
             })
-            .with_master_aggregator_client({
+            .with_leader_aggregator_client({
                 let mut aggregator_client = MockAggregatorClient::new();
                 aggregator_client
                     .expect_retrieve_epoch_settings()
@@ -435,7 +437,7 @@ mod tests {
             })
             .build();
 
-        signer_registration_slave
+        signer_registration_follower
             .synchronize_all_signers()
             .await
             .unwrap();
@@ -457,7 +459,7 @@ mod tests {
         })
         .unwrap();
 
-        let signer_registration_slave = MithrilSignerRegistrationSlaveBuilder::default()
+        let signer_registration_follower = MithrilSignerRegistrationFollowerBuilder::default()
             .with_signer_recorder({
                 let mut signer_recorder = MockSignerRecorder::new();
                 signer_recorder
@@ -480,7 +482,7 @@ mod tests {
 
                 Arc::new(signer_registration_verifier)
             })
-            .with_master_aggregator_client({
+            .with_leader_aggregator_client({
                 let mut aggregator_client = MockAggregatorClient::new();
                 aggregator_client
                     .expect_retrieve_epoch_settings()
@@ -500,7 +502,7 @@ mod tests {
             })
             .build();
 
-        signer_registration_slave
+        signer_registration_follower
             .synchronize_all_signers()
             .await
             .expect_err("synchronize_all_signers should fail");
@@ -522,7 +524,7 @@ mod tests {
         })
         .unwrap();
 
-        let signer_registration_slave = MithrilSignerRegistrationSlaveBuilder::default()
+        let signer_registration_follower = MithrilSignerRegistrationFollowerBuilder::default()
             .with_epoch_service({
                 let mut epoch_service = FakeEpochService::without_data();
                 epoch_service.toggle_errors(false, false, false, true);
@@ -547,7 +549,7 @@ mod tests {
 
                 Arc::new(signer_registration_verifier)
             })
-            .with_master_aggregator_client({
+            .with_leader_aggregator_client({
                 let mut aggregator_client = MockAggregatorClient::new();
                 aggregator_client
                     .expect_retrieve_epoch_settings()
@@ -567,7 +569,7 @@ mod tests {
             })
             .build();
 
-        signer_registration_slave
+        signer_registration_follower
             .synchronize_all_signers()
             .await
             .expect_err("synchronize_all_signers should fail");
@@ -575,8 +577,8 @@ mod tests {
 
     #[tokio::test]
     async fn synchronize_all_signers_fails_if_fetching_epoch_settings_fails() {
-        let signer_registration_slave = MithrilSignerRegistrationSlaveBuilder::default()
-            .with_master_aggregator_client({
+        let signer_registration_follower = MithrilSignerRegistrationFollowerBuilder::default()
+            .with_leader_aggregator_client({
                 let mut aggregator_client = MockAggregatorClient::new();
                 aggregator_client
                     .expect_retrieve_epoch_settings()
@@ -591,7 +593,7 @@ mod tests {
             })
             .build();
 
-        signer_registration_slave
+        signer_registration_follower
             .synchronize_all_signers()
             .await
             .expect_err("synchronize_all_signers should fail");
@@ -611,8 +613,8 @@ mod tests {
             ..EpochSettingsMessage::dummy()
         })
         .unwrap();
-        let signer_registration_slave = MithrilSignerRegistrationSlaveBuilder::default()
-            .with_master_aggregator_client({
+        let signer_registration_follower = MithrilSignerRegistrationFollowerBuilder::default()
+            .with_leader_aggregator_client({
                 let mut aggregator_client = MockAggregatorClient::new();
                 aggregator_client
                     .expect_retrieve_epoch_settings()
@@ -632,7 +634,7 @@ mod tests {
             })
             .build();
 
-        signer_registration_slave
+        signer_registration_follower
             .synchronize_all_signers()
             .await
             .expect_err("synchronize_all_signers should fail");
@@ -641,7 +643,7 @@ mod tests {
     #[tokio::test]
     async fn prune_epoch_older_than_threshold() {
         const PROTOCOL_INITIALIZER_PRUNE_EPOCH_THRESHOLD: u64 = 10;
-        let signer_registration_slave = MithrilSignerRegistrationSlaveBuilder::default()
+        let signer_registration_follower = MithrilSignerRegistrationFollowerBuilder::default()
             .with_verification_key_store({
                 let mut verification_key_store = MockVerificationKeyStorer::new();
                 verification_key_store
@@ -658,7 +660,7 @@ mod tests {
             .build();
 
         let current_epoch = Epoch(4) + PROTOCOL_INITIALIZER_PRUNE_EPOCH_THRESHOLD;
-        signer_registration_slave
+        signer_registration_follower
             .prune(current_epoch)
             .await
             .unwrap();
@@ -666,7 +668,7 @@ mod tests {
 
     #[tokio::test]
     async fn without_threshold_nothing_is_pruned() {
-        let signer_registration_slave = MithrilSignerRegistrationSlaveBuilder::default()
+        let signer_registration_follower = MithrilSignerRegistrationFollowerBuilder::default()
             .with_verification_key_store({
                 let mut verification_key_store = MockVerificationKeyStorer::new();
                 verification_key_store
@@ -678,6 +680,9 @@ mod tests {
             .with_verification_key_epoch_retention_limit(None)
             .build();
 
-        signer_registration_slave.prune(Epoch(100)).await.unwrap();
+        signer_registration_follower
+            .prune(Epoch(100))
+            .await
+            .unwrap();
     }
 }

@@ -36,7 +36,7 @@ pub struct AggregatorConfig<'a> {
     pub mithril_era_marker_address: &'a str,
     pub signed_entity_types: &'a [String],
     pub chain_observer_type: &'a str,
-    pub master_aggregator_endpoint: &'a Option<String>,
+    pub leader_aggregator_endpoint: &'a Option<String>,
 }
 
 pub struct Aggregator {
@@ -124,8 +124,8 @@ impl Aggregator {
             ("CARDANO_TRANSACTIONS_SIGNING_CONFIG__STEP", "15"),
             ("PERSIST_USAGE_REPORT_INTERVAL_IN_SECONDS", "3"),
         ]);
-        if let Some(master_aggregator_endpoint) = aggregator_config.master_aggregator_endpoint {
-            env.insert("MASTER_AGGREGATOR_ENDPOINT", master_aggregator_endpoint);
+        if let Some(leader_aggregator_endpoint) = aggregator_config.leader_aggregator_endpoint {
+            env.insert("LEADER_AGGREGATOR_ENDPOINT", leader_aggregator_endpoint);
         }
         let args = vec![
             "--db-directory",

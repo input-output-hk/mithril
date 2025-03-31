@@ -2,9 +2,9 @@ use mithril_common::entities::{
     CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, Signer,
 };
 
-/// MasterAggregatorEpochSettings represents the settings of an epoch
+/// LeaderAggregatorEpochSettings represents the settings of an epoch
 #[derive(Clone, Debug, PartialEq)]
-pub struct MasterAggregatorEpochSettings {
+pub struct LeaderAggregatorEpochSettings {
     /// Current Epoch
     pub epoch: Epoch,
 
@@ -24,10 +24,10 @@ pub struct MasterAggregatorEpochSettings {
     pub next_cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
 }
 
-impl MasterAggregatorEpochSettings {
+impl LeaderAggregatorEpochSettings {
     #[cfg(test)]
-    /// Create a dummy MasterAggregatorEpochSettings
-    pub fn dummy() -> MasterAggregatorEpochSettings {
+    /// Create a dummy LeaderAggregatorEpochSettings
+    pub fn dummy() -> LeaderAggregatorEpochSettings {
         use mithril_common::test_utils::fake_data;
 
         // Beacon
@@ -47,7 +47,7 @@ impl MasterAggregatorEpochSettings {
             Some(CardanoTransactionsSigningConfig::dummy());
 
         // Signer Epoch settings
-        MasterAggregatorEpochSettings {
+        LeaderAggregatorEpochSettings {
             epoch: beacon.epoch,
             registration_protocol_parameters,
             current_signers,

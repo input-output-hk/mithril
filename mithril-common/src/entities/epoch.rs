@@ -37,8 +37,8 @@ impl Epoch {
     /// was taken by the Cardano node and labeled as 'Mark' snapshot during the following epoch.
     pub const CARDANO_STAKE_DISTRIBUTION_SNAPSHOT_OFFSET: u64 = 2;
 
-    /// The epoch offset used to retrieve the epoch at which a signer has registered to the master aggregator.
-    pub const SIGNER_MASTER_SYNCHRONIZATION_OFFSET: u64 = 0;
+    /// The epoch offset used to retrieve the epoch at which a signer has registered to the leader aggregator.
+    pub const SIGNER_LEADER_SYNCHRONIZATION_OFFSET: u64 = 0;
 
     /// Computes a new Epoch by applying an epoch offset.
     ///
@@ -81,9 +81,9 @@ impl Epoch {
         *self + Self::CARDANO_STAKE_DISTRIBUTION_SNAPSHOT_OFFSET
     }
 
-    /// Apply the [recording offset][Self::SIGNER_MASTER_SYNCHRONIZATION_OFFSET] to this epoch
-    pub fn offset_to_master_synchronization_epoch(&self) -> Self {
-        *self + Self::SIGNER_MASTER_SYNCHRONIZATION_OFFSET
+    /// Apply the [recording offset][Self::SIGNER_LEADER_SYNCHRONIZATION_OFFSET] to this epoch
+    pub fn offset_to_leader_synchronization_epoch(&self) -> Self {
+        *self + Self::SIGNER_LEADER_SYNCHRONIZATION_OFFSET
     }
 
     /// Computes the next Epoch

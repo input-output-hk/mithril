@@ -8,10 +8,10 @@ impl DependenciesBuilder {
     pub async fn get_signer_registration_pruning_task(
         &mut self,
     ) -> Result<Arc<dyn EpochPruningTask>> {
-        Ok(if self.configuration.is_slave_aggregator() {
-            self.get_mithril_signer_registration_slave().await?
+        Ok(if self.configuration.is_follower_aggregator() {
+            self.get_mithril_signer_registration_follower().await?
         } else {
-            self.get_mithril_signer_registration_master().await?
+            self.get_mithril_signer_registration_leader().await?
         })
     }
 

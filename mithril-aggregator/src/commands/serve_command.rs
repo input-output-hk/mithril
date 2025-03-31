@@ -67,13 +67,13 @@ pub struct ServeCommand {
     #[clap(long)]
     metrics_server_port: Option<u16>,
 
-    /// Master aggregator endpoint
+    /// Leader aggregator endpoint
     ///
     /// This is the endpoint of the aggregator that will be used to fetch the latest epoch settings
-    /// and store the signer registrations when the aggregator is running in a slave mode.
-    /// If this is not set, the aggregator will run in a master mode.
+    /// and store the signer registrations when the aggregator is running in a follower mode.
+    /// If this is not set, the aggregator will run in a leader mode.
     #[clap(long)]
-    master_aggregator_endpoint: Option<String>,
+    leader_aggregator_endpoint: Option<String>,
 }
 
 impl Source for ServeCommand {
@@ -102,7 +102,7 @@ impl Source for ServeCommand {
         register_config_value_option!(
             result,
             &namespace,
-            self.master_aggregator_endpoint,
+            self.leader_aggregator_endpoint,
             |v: String| { Some(v) }
         );
 

@@ -58,14 +58,14 @@ impl DependenciesBuilder {
     }
 
     /// build an [AggregatorClient]
-    pub async fn build_master_aggregator_client(&mut self) -> Result<Arc<dyn AggregatorClient>> {
-        let master_aggregator_endpoint = self
+    pub async fn build_leader_aggregator_client(&mut self) -> Result<Arc<dyn AggregatorClient>> {
+        let leader_aggregator_endpoint = self
             .configuration
-            .master_aggregator_endpoint
+            .leader_aggregator_endpoint
             .to_owned()
             .unwrap_or_default();
         let aggregator_client = AggregatorHTTPClient::new(
-            master_aggregator_endpoint,
+            leader_aggregator_endpoint,
             None,
             self.get_api_version_provider().await?,
             Some(Duration::from_secs(30)),
@@ -75,12 +75,12 @@ impl DependenciesBuilder {
         Ok(Arc::new(aggregator_client))
     }
 
-    /// Returns a master [AggregatorClient]
-    pub async fn get_master_aggregator_client(&mut self) -> Result<Arc<dyn AggregatorClient>> {
-        if self.master_aggregator_client.is_none() {
-            self.master_aggregator_client = Some(self.build_master_aggregator_client().await?);
+    /// Returns a leader [AggregatorClient]
+    pub async fn get_leader_aggregator_client(&mut self) -> Result<Arc<dyn AggregatorClient>> {
+        if self.leader_aggregator_client.is_none() {
+            self.leader_aggregator_client = Some(self.build_leader_aggregator_client().await?);
         }
 
-        Ok(self.master_aggregator_client.as_ref().cloned().unwrap())
+        Ok(self.leader_aggregator_client.as_ref().cloned().unwrap())
     }
 }

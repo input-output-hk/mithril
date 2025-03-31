@@ -142,9 +142,9 @@ impl AggregatorRuntime {
 
                 info!(self.logger, "→ Trying to transition to READY"; "last_time_point" => ?last_time_point);
 
-                let can_try_transition_from_idle_to_ready = if self.config.is_slave {
+                let can_try_transition_from_idle_to_ready = if self.config.is_follower {
                     self.runner
-                        .is_slave_aggregator_at_same_epoch_as_master(&last_time_point)
+                        .is_follower_aggregator_at_same_epoch_as_leader(&last_time_point)
                         .await?
                 } else {
                     true
@@ -270,9 +270,9 @@ impl AggregatorRuntime {
                 .open_signer_registration_round(&new_time_point)
                 .await?;
             self.runner.update_epoch_settings().await?;
-            if self.config.is_slave {
+            if self.config.is_follower {
                 self.runner
-                    .synchronize_slave_aggregator_signer_registration()
+                    .synchronize_follower_aggregator_signer_registration()
                     .await?;
             }
             self.runner.precompute_epoch_data().await?;
@@ -391,10 +391,10 @@ mod tests {
     async fn init_runtime(
         init_state: Option<AggregatorState>,
         runner: MockAggregatorRunner,
-        is_slave: bool,
+        is_follower: bool,
     ) -> AggregatorRuntime {
         AggregatorRuntime::new(
-            AggregatorConfig::new(Duration::from_millis(20), is_slave),
+            AggregatorConfig::new(Duration::from_millis(20), is_follower),
             init_state,
             Arc::new(runner),
             TestLogger::stdout(),
@@ -403,7 +403,7 @@ mod tests {
         .unwrap()
     }
 
-    mod master {
+    mod leader {
         use super::*;
 
         #[tokio::test]
@@ -852,11 +852,11 @@ mod tests {
         }
     }
 
-    mod slave {
+    mod follower {
         use super::*;
 
         #[tokio::test]
-        pub async fn idle_new_epoch_detected_and_master_not_transitioned_to_epoch() {
+        pub async fn idle_new_epoch_detected_and_leader_not_transitioned_to_epoch() {
             let mut runner = MockAggregatorRunner::new();
             let time_point = TimePoint::dummy();
             let new_time_point = TimePoint {
@@ -868,7 +868,7 @@ mod tests {
                 .once()
                 .returning(move || Ok(new_time_point.clone()));
             runner
-                .expect_is_slave_aggregator_at_same_epoch_as_master()
+                .expect_is_follower_aggregator_at_same_epoch_as_leader()
                 .once()
                 .returning(|_| Ok(false));
             runner
@@ -893,7 +893,7 @@ mod tests {
         }
 
         #[tokio::test]
-        pub async fn idle_new_epoch_detected_and_master_has_transitioned_to_epoch() {
+        pub async fn idle_new_epoch_detected_and_leader_has_transitioned_to_epoch() {
             let mut runner = MockAggregatorRunner::new();
             let time_point = TimePoint::dummy();
             let new_time_point = TimePoint {
@@ -906,7 +906,7 @@ mod tests {
                 .once()
                 .returning(move || Ok(new_time_point.clone()));
             runner
-                .expect_is_slave_aggregator_at_same_epoch_as_master()
+                .expect_is_follower_aggregator_at_same_epoch_as_leader()
                 .once()
                 .returning(|_| Ok(true));
             runner
@@ -919,7 +919,7 @@ mod tests {
                 .once()
                 .returning(|| Ok(()));
             runner
-                .expect_synchronize_slave_aggregator_signer_registration()
+                .expect_synchronize_follower_aggregator_signer_registration()
                 .once()
                 .returning(|| Ok(()));
             runner

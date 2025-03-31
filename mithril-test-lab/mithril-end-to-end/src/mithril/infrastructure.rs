@@ -37,7 +37,7 @@ pub struct MithrilInfrastructureConfig {
 }
 
 impl MithrilInfrastructureConfig {
-    pub fn has_master_slave_signer_registration(&self) -> bool {
+    pub fn has_leader_follower_signer_registration(&self) -> bool {
         if &self.relay_signer_registration_mode == "passthrough" {
             self.number_of_aggregators > 1
         } else {
@@ -107,7 +107,7 @@ impl MithrilInfrastructure {
             .iter()
             .map(|aggregator| aggregator.endpoint())
             .collect::<Vec<_>>();
-        let master_aggregator_endpoint = aggregator_endpoints[0].to_owned();
+        let leader_aggregator_endpoint = aggregator_endpoints[0].to_owned();
 
         let (relay_aggregators, relay_signers, relay_passives) = Self::start_relays(
             config,
@@ -119,7 +119,7 @@ impl MithrilInfrastructure {
 
         let signers = Self::start_signers(
             config,
-            master_aggregator_endpoint,
+            leader_aggregator_endpoint,
             signer_cardano_nodes,
             &relay_signers,
         )
@@ -189,7 +189,7 @@ impl MithrilInfrastructure {
         chain_observer_type: &str,
     ) -> StdResult<Vec<Aggregator>> {
         let mut aggregators = vec![];
-        let mut master_aggregator_endpoint: Option<String> = None;
+        let mut leader_aggregator_endpoint: Option<String> = None;
         for (index, full_node) in pool_nodes.iter().enumerate() {
             let aggregator_name = Aggregator::name_suffix(index);
             let aggregator_artifacts_dir = config
@@ -215,7 +215,7 @@ impl MithrilInfrastructure {
                 mithril_era_marker_address: &config.devnet.mithril_era_marker_address()?,
                 signed_entity_types: &config.signed_entity_types,
                 chain_observer_type,
-                master_aggregator_endpoint: &master_aggregator_endpoint.clone(),
+                leader_aggregator_endpoint: &leader_aggregator_endpoint.clone(),
             })?;
 
             aggregator
@@ -226,9 +226,10 @@ impl MithrilInfrastructure {
                 })
                 .await;
 
-            if master_aggregator_endpoint.is_none() && config.has_master_slave_signer_registration()
+            if leader_aggregator_endpoint.is_none()
+                && config.has_leader_follower_signer_registration()
             {
-                master_aggregator_endpoint = Some(aggregator.endpoint());
+                leader_aggregator_endpoint = Some(aggregator.endpoint());
             }
 
             aggregators.push(aggregator);
@@ -257,7 +258,7 @@ impl MithrilInfrastructure {
         let mut relay_aggregators: Vec<RelayAggregator> = vec![];
         let mut relay_signers: Vec<RelaySigner> = vec![];
         let mut relay_passives: Vec<RelayPassive> = vec![];
-        let master_aggregator_endpoint = &aggregator_endpoints[0];
+        let leader_aggregator_endpoint = &aggregator_endpoints[0];
 
         info!("Starting the Mithril infrastructure in P2P mode (experimental)");
 
@@ -285,7 +286,7 @@ impl MithrilInfrastructure {
                 dial_to: bootstrap_peer_addr.clone(),
                 relay_signer_registration_mode: relay_signer_registration_mode.clone(),
                 relay_signature_registration_mode: relay_signature_registration_mode.clone(),
-                aggregator_endpoint: master_aggregator_endpoint,
+                aggregator_endpoint: leader_aggregator_endpoint,
                 party_id: party_id.clone(),
                 work_dir: &config.work_dir,
                 bin_dir: &config.bin_dir,
@@ -329,7 +330,7 @@ impl MithrilInfrastructure {
 
     async fn start_signers(
         config: &MithrilInfrastructureConfig,
-        master_aggregator_endpoint: String,
+        leader_aggregator_endpoint: String,
         pool_nodes: &[PoolNode],
         relay_signers: &[RelaySigner],
     ) -> StdResult<Vec<Signer>> {
@@ -343,7 +344,7 @@ impl MithrilInfrastructure {
             let aggregator_endpoint = if config.use_relays {
                 relay_signers[index].endpoint()
             } else {
-                master_aggregator_endpoint.clone()
+                leader_aggregator_endpoint.clone()
             };
 
             let signer = Signer::new(&SignerConfig {
@@ -473,14 +474,14 @@ mod tests {
     use crate::MithrilInfrastructureConfig;
 
     #[test]
-    fn has_master_slave_signer_registration_succeeds() {
+    fn has_leader_follower_signer_registration_succeeds() {
         let config = MithrilInfrastructureConfig {
             relay_signer_registration_mode: "passthrough".to_string(),
             number_of_aggregators: 1,
             ..MithrilInfrastructureConfig::dummy()
         };
 
-        assert!(!config.has_master_slave_signer_registration());
+        assert!(!config.has_leader_follower_signer_registration());
 
         let config = MithrilInfrastructureConfig {
             relay_signer_registration_mode: "passthrough".to_string(),
@@ -488,7 +489,7 @@ mod tests {
             ..MithrilInfrastructureConfig::dummy()
         };
 
-        assert!(config.has_master_slave_signer_registration());
+        assert!(config.has_leader_follower_signer_registration());
 
         let config = MithrilInfrastructureConfig {
             relay_signer_registration_mode: "p2p".to_string(),
@@ -496,7 +497,7 @@ mod tests {
             ..MithrilInfrastructureConfig::dummy()
         };
 
-        assert!(!config.has_master_slave_signer_registration());
+        assert!(!config.has_leader_follower_signer_registration());
 
         let config = MithrilInfrastructureConfig {
             relay_signer_registration_mode: "p2p".to_string(),
@@ -504,6 +505,6 @@ mod tests {
             ..MithrilInfrastructureConfig::dummy()
         };
 
-        assert!(!config.has_master_slave_signer_registration());
+        assert!(!config.has_leader_follower_signer_registration());
     }
 }

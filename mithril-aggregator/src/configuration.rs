@@ -202,12 +202,12 @@ pub struct Configuration {
     /// Time interval at which usage metrics are persisted in event database (in seconds).
     pub persist_usage_report_interval_in_seconds: u64,
 
-    // Master aggregator endpoint
+    // Leader aggregator endpoint
     ///
     /// This is the endpoint of the aggregator that will be used to fetch the latest epoch settings
-    /// and store the signer registrations when the aggregator is running in a slave mode.
-    /// If this is not set, the aggregator will run in a master mode.
-    pub master_aggregator_endpoint: Option<String>,
+    /// and store the signer registrations when the aggregator is running in a follower mode.
+    /// If this is not set, the aggregator will run in a leader mode.
+    pub leader_aggregator_endpoint: Option<String>,
 }
 
 /// Uploader needed to copy the snapshot once computed.
@@ -325,7 +325,7 @@ impl Configuration {
             metrics_server_ip: "0.0.0.0".to_string(),
             metrics_server_port: 9090,
             persist_usage_report_interval_in_seconds: 10,
-            master_aggregator_endpoint: None,
+            leader_aggregator_endpoint: None,
         }
     }
 
@@ -419,9 +419,9 @@ impl Configuration {
         }
     }
 
-    /// Check if the aggregator is running in slave mode.
-    pub fn is_slave_aggregator(&self) -> bool {
-        self.master_aggregator_endpoint.is_some()
+    /// Check if the aggregator is running in follower mode.
+    pub fn is_follower_aggregator(&self) -> bool {
+        self.leader_aggregator_endpoint.is_some()
     }
 }
 
@@ -775,23 +775,23 @@ mod test {
     }
 
     #[test]
-    fn is_slave_aggregator_returns_true_when_in_slave_mode() {
+    fn is_follower_aggregator_returns_true_when_in_follower_mode() {
         let config = Configuration {
-            master_aggregator_endpoint: Some("some_endpoint".to_string()),
+            leader_aggregator_endpoint: Some("some_endpoint".to_string()),
             ..Configuration::new_sample(temp_dir!())
         };
 
-        assert!(config.is_slave_aggregator());
+        assert!(config.is_follower_aggregator());
     }
 
     #[test]
-    fn is_slave_aggregator_returns_false_when_in_master_mode() {
+    fn is_follower_aggregator_returns_false_when_in_leader_mode() {
         let config = Configuration {
-            master_aggregator_endpoint: None,
+            leader_aggregator_endpoint: None,
             ..Configuration::new_sample(temp_dir!())
         };
 
-        assert!(!config.is_slave_aggregator());
+        assert!(!config.is_follower_aggregator());
     }
 
     #[test]

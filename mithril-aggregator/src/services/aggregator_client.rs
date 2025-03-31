@@ -15,7 +15,7 @@ use mithril_common::{
     StdError, MITHRIL_AGGREGATOR_VERSION_HEADER, MITHRIL_API_VERSION_HEADER,
 };
 
-use crate::entities::MasterAggregatorEpochSettings;
+use crate::entities::LeaderAggregatorEpochSettings;
 use crate::message_adapters::FromEpochSettingsAdapter;
 
 const JSON_CONTENT_TYPE: HeaderValue = HeaderValue::from_static("application/json");
@@ -135,7 +135,7 @@ pub trait AggregatorClient: Sync + Send {
     /// Retrieves epoch settings from the aggregator
     async fn retrieve_epoch_settings(
         &self,
-    ) -> Result<Option<MasterAggregatorEpochSettings>, AggregatorClientError>;
+    ) -> Result<Option<LeaderAggregatorEpochSettings>, AggregatorClientError>;
 }
 
 /// AggregatorHTTPClient is a http client for an aggregator
@@ -222,7 +222,7 @@ impl AggregatorHTTPClient {
 impl AggregatorClient for AggregatorHTTPClient {
     async fn retrieve_epoch_settings(
         &self,
-    ) -> Result<Option<MasterAggregatorEpochSettings>, AggregatorClientError> {
+    ) -> Result<Option<LeaderAggregatorEpochSettings>, AggregatorClientError> {
         debug!(self.logger, "Retrieve epoch settings");
         let url = format!("{}/epoch-settings", self.aggregator_endpoint);
         let response = self
@@ -258,13 +258,13 @@ pub(crate) mod dumb {
     /// It actually does not communicate with an aggregator host but mimics this behavior.
     /// It is driven by a Tester that controls the data it can return, and it can return its internal state for testing.
     pub struct DumbAggregatorClient {
-        epoch_settings: RwLock<Option<MasterAggregatorEpochSettings>>,
+        epoch_settings: RwLock<Option<LeaderAggregatorEpochSettings>>,
     }
 
     impl Default for DumbAggregatorClient {
         fn default() -> Self {
             Self {
-                epoch_settings: RwLock::new(Some(MasterAggregatorEpochSettings::dummy())),
+                epoch_settings: RwLock::new(Some(LeaderAggregatorEpochSettings::dummy())),
             }
         }
     }
@@ -273,7 +273,7 @@ pub(crate) mod dumb {
     impl AggregatorClient for DumbAggregatorClient {
         async fn retrieve_epoch_settings(
             &self,
-        ) -> Result<Option<MasterAggregatorEpochSettings>, AggregatorClientError> {
+        ) -> Result<Option<LeaderAggregatorEpochSettings>, AggregatorClientError> {
             let epoch_settings = self.epoch_settings.read().await.clone();
 
             Ok(epoch_settings)

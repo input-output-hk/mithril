@@ -35,7 +35,7 @@ pub async fn bootstrap_aggregator(
         mithril_era_reader_adapter: "dummy",
         signed_entity_types: &signed_entity_types,
         chain_observer_type,
-        master_aggregator_endpoint: &None,
+        leader_aggregator_endpoint: &None,
     })
     .unwrap();
 

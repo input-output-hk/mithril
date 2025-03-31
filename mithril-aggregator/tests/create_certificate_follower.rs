@@ -79,7 +79,7 @@ impl EpochFixturesMapBuilder {
 }
 
 #[tokio::test]
-async fn create_certificate_slave() {
+async fn create_certificate_follower() {
     let protocol_parameters = ProtocolParameters {
         k: 5,
         m: 150,
@@ -97,105 +97,108 @@ async fn create_certificate_slave() {
             block_hash: "block_hash-100".to_string(),
         },
     };
-    let master_configuration = Configuration {
+    let leader_configuration = Configuration {
         protocol_parameters: protocol_parameters.clone(),
-        data_stores_directory: get_test_dir("create_certificate_master"),
+        data_stores_directory: get_test_dir("create_certificate_leader"),
         cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
             security_parameter: BlockNumber(0),
             step: BlockNumber(30),
         },
         ..Configuration::new_sample(temp_dir!())
     };
-    let mut master_tester =
-        RuntimeTester::build(start_time_point.clone(), master_configuration.clone()).await;
-    let master_aggregator_http_server = master_tester.expose_epoch_settings().await.unwrap();
+    let mut leader_tester =
+        RuntimeTester::build(start_time_point.clone(), leader_configuration.clone()).await;
+    let leader_aggregator_http_server = leader_tester.expose_epoch_settings().await.unwrap();
 
-    let slave_configuration = Configuration {
-        data_stores_directory: get_test_dir("create_certificate_slave"),
-        snapshot_directory: TempDir::create("aggregator-integration", "create_certificate_slave"),
-        master_aggregator_endpoint: Some(master_aggregator_http_server.url()),
-        ..master_configuration
+    let follower_configuration = Configuration {
+        data_stores_directory: get_test_dir("create_certificate_follower"),
+        snapshot_directory: TempDir::create(
+            "aggregator-integration",
+            "create_certificate_follower",
+        ),
+        leader_aggregator_endpoint: Some(leader_aggregator_http_server.url()),
+        ..leader_configuration
     };
-    let mut slave_tester = RuntimeTester::build(start_time_point, slave_configuration).await;
+    let mut follower_tester = RuntimeTester::build(start_time_point, follower_configuration).await;
 
     comment!(
         "Epoch 1:
-    - the master aggregator registers the first signers
-    - the master aggregator can't transition from 'Idle' to 'Ready'
-    - the slave aggregator can't transition from 'Idle' to 'Ready'
+    - the leader aggregator registers the first signers
+    - the leader aggregator can't transition from 'Idle' to 'Ready'
+    - the follower aggregator can't transition from 'Idle' to 'Ready'
     "
     );
     let epoch_fixture = &epoch_fixtures_map[&Epoch(1)];
 
-    comment!("Master: update stake distribution source");
-    master_tester
+    comment!("Leader: update stake distribution source");
+    leader_tester
         .update_stake_distribution(epoch_fixture.registering.stake_distribution())
         .await
         .unwrap();
 
-    comment!("Slave: update stake distribution source");
-    slave_tester
+    comment!("Follower: update stake distribution source");
+    follower_tester
         .update_stake_distribution(epoch_fixture.registering.stake_distribution())
         .await
         .unwrap();
 
-    comment!("Master: start the runtime state machine");
-    cycle_err!(master_tester, "idle");
+    comment!("Leader: start the runtime state machine");
+    cycle_err!(leader_tester, "idle");
 
-    comment!("Slave: start the runtime state machine");
-    cycle_err!(slave_tester, "idle");
+    comment!("Follower: start the runtime state machine");
+    cycle_err!(follower_tester, "idle");
 
-    comment!("Master: register signers");
-    master_tester
+    comment!("Leader: register signers");
+    leader_tester
         .register_signers(&epoch_fixture.registering.signers_fixture())
         .await
         .unwrap();
-    cycle_err!(master_tester, "idle");
+    cycle_err!(leader_tester, "idle");
 
     comment!(
         "Epoch 2:
-    - the master aggregator creates its genesis certificate
-    - the master aggregator can't transition from 'Idle' to 'Ready'
-    - the slave aggregator can't transition from 'Idle' to 'Ready'
+    - the leader aggregator creates its genesis certificate
+    - the leader aggregator can't transition from 'Idle' to 'Ready'
+    - the follower aggregator can't transition from 'Idle' to 'Ready'
     "
     );
     let epoch_fixture = &epoch_fixtures_map[&Epoch(2)];
 
-    comment!("Master: update stake distribution source");
-    master_tester
+    comment!("Leader: update stake distribution source");
+    leader_tester
         .update_stake_distribution(epoch_fixture.registering.stake_distribution())
         .await
         .unwrap();
 
-    comment!("Slave: update stake distribution source");
-    slave_tester
+    comment!("Follower: update stake distribution source");
+    follower_tester
         .update_stake_distribution(epoch_fixture.registering.stake_distribution())
         .await
         .unwrap();
 
-    comment!("Master: change the epoch");
-    master_tester.increase_epoch().await.unwrap();
-    cycle_err!(master_tester, "idle");
+    comment!("Leader: change the epoch");
+    leader_tester.increase_epoch().await.unwrap();
+    cycle_err!(leader_tester, "idle");
 
-    comment!("Slave: change the epoch after master");
-    slave_tester.increase_epoch().await.unwrap();
-    cycle_err!(slave_tester, "idle");
+    comment!("Follower: change the epoch after leader");
+    follower_tester.increase_epoch().await.unwrap();
+    cycle_err!(follower_tester, "idle");
 
-    comment!("Master: register signers");
-    master_tester
+    comment!("Leader: register signers");
+    leader_tester
         .register_signers(&epoch_fixture.registering.signers_fixture())
         .await
         .unwrap();
-    cycle_err!(master_tester, "idle");
+    cycle_err!(leader_tester, "idle");
 
-    comment!("Master: bootstrap the genesis certificate");
-    master_tester
+    comment!("Leader: bootstrap the genesis certificate");
+    leader_tester
         .register_genesis_certificate(epoch_fixture.next_signing.unwrap())
         .await
         .unwrap();
 
     assert_last_certificate_eq!(
-        master_tester,
+        leader_tester,
         ExpectedCertificate::new_genesis(
             Epoch(2),
             epoch_fixture.next_signing.unwrap().compute_and_encode_avk()
@@ -204,55 +207,55 @@ async fn create_certificate_slave() {
 
     comment!(
         "Epoch 3:
-    - the master aggregator produces a new certificate
-    - the slave aggregator synchronizes signers from the master aggregator
-    - the slave aggregator can't transition from 'Idle' to 'Ready'
+    - the leader aggregator produces a new certificate
+    - the follower aggregator synchronizes signers from the leader aggregator
+    - the follower aggregator can't transition from 'Idle' to 'Ready'
     "
     );
     let epoch_fixture = &epoch_fixtures_map[&Epoch(3)];
 
-    comment!("Master: update stake distribution source");
-    master_tester
+    comment!("Leader: update stake distribution source");
+    leader_tester
         .update_stake_distribution(epoch_fixture.registering.stake_distribution())
         .await
         .unwrap();
 
-    comment!("Slave: update stake distribution source");
-    slave_tester
+    comment!("Follower: update stake distribution source");
+    follower_tester
         .update_stake_distribution(epoch_fixture.registering.stake_distribution())
         .await
         .unwrap();
 
-    comment!("Master: change the epoch");
-    master_tester.increase_epoch().await.unwrap();
-    cycle!(master_tester, "ready");
-    cycle!(master_tester, "signing");
+    comment!("Leader: change the epoch");
+    leader_tester.increase_epoch().await.unwrap();
+    cycle!(leader_tester, "ready");
+    cycle!(leader_tester, "signing");
 
-    comment!("Slave: change the epoch after master");
-    slave_tester.increase_epoch().await.unwrap();
-    cycle_err!(slave_tester, "idle");
+    comment!("Follower: change the epoch after leader");
+    follower_tester.increase_epoch().await.unwrap();
+    cycle_err!(follower_tester, "idle");
 
-    comment!("Master: register signers");
-    master_tester
+    comment!("Leader: register signers");
+    leader_tester
         .register_signers(&epoch_fixture.registering.signers_fixture())
         .await
         .unwrap();
 
-    comment!("Master: signers send their single signature");
-    master_tester
+    comment!("Leader: signers send their single signature");
+    leader_tester
         .send_single_signatures(
             SignedEntityTypeDiscriminants::MithrilStakeDistribution,
             &epoch_fixture.current_signing.unwrap().signers_fixture(),
         )
         .await
         .unwrap();
-    cycle!(master_tester, "ready");
+    cycle!(leader_tester, "ready");
 
-    comment!("Master: state machine should issue a certificate for the MithrilStakeDistribution");
-    cycle!(master_tester, "signing");
+    comment!("Leader: state machine should issue a certificate for the MithrilStakeDistribution");
+    cycle!(leader_tester, "signing");
 
     assert_last_certificate_eq!(
-        master_tester,
+        leader_tester,
         ExpectedCertificate::new(
             Epoch(3),
             StakeDistributionParty::from_signers(
@@ -267,53 +270,53 @@ async fn create_certificate_slave() {
             ExpectedCertificate::genesis_identifier(Epoch(2)),
         )
     );
-    cycle_err!(master_tester, "signing");
+    cycle_err!(leader_tester, "signing");
 
     comment!(
         "Epoch 4:
-    - the master aggregator produces a new certificate
-    - the slave aggregator synchronizes signers from the master aggregator
-    - the slave aggregator bootstraps its genesis certificate
-    - the slave aggregator can't transition from 'Idle' to 'Ready'"
+    - the leader aggregator produces a new certificate
+    - the follower aggregator synchronizes signers from the leader aggregator
+    - the follower aggregator bootstraps its genesis certificate
+    - the follower aggregator can't transition from 'Idle' to 'Ready'"
     );
     let epoch_fixture = &epoch_fixtures_map[&Epoch(4)];
 
-    comment!("Master: update stake distribution source");
-    master_tester
+    comment!("Leader: update stake distribution source");
+    leader_tester
         .update_stake_distribution(epoch_fixture.registering.stake_distribution())
         .await
         .unwrap();
 
-    comment!("Slave: update stake distribution source");
-    slave_tester
+    comment!("Follower: update stake distribution source");
+    follower_tester
         .update_stake_distribution(epoch_fixture.registering.stake_distribution())
         .await
         .unwrap();
 
-    comment!("Master: change the epoch");
-    master_tester.increase_epoch().await.unwrap();
-    cycle!(master_tester, "idle");
-    cycle!(master_tester, "ready");
+    comment!("Leader: change the epoch");
+    leader_tester.increase_epoch().await.unwrap();
+    cycle!(leader_tester, "idle");
+    cycle!(leader_tester, "ready");
 
-    comment!("Slave: change the epoch after master");
-    slave_tester.increase_epoch().await.unwrap();
-    cycle_err!(slave_tester, "idle");
+    comment!("Follower: change the epoch after leader");
+    follower_tester.increase_epoch().await.unwrap();
+    cycle_err!(follower_tester, "idle");
 
-    comment!("Slave: bootstrap the genesis certificate");
-    slave_tester
+    comment!("Follower: bootstrap the genesis certificate");
+    follower_tester
         .register_genesis_certificate(epoch_fixture.next_signing.unwrap())
         .await
         .unwrap();
 
-    comment!("Master: register signers");
-    master_tester
+    comment!("Leader: register signers");
+    leader_tester
         .register_signers(&epoch_fixture.registering.signers_fixture())
         .await
         .unwrap();
-    cycle!(master_tester, "signing");
+    cycle!(leader_tester, "signing");
 
-    comment!("Master: signers send their single signature");
-    master_tester
+    comment!("Leader: signers send their single signature");
+    leader_tester
         .send_single_signatures(
             SignedEntityTypeDiscriminants::MithrilStakeDistribution,
             &epoch_fixture.current_signing.unwrap().signers_fixture(),
@@ -321,11 +324,11 @@ async fn create_certificate_slave() {
         .await
         .unwrap();
 
-    comment!("Master: state machine should issue a certificate for the MithrilStakeDistribution");
-    cycle!(master_tester, "ready");
+    comment!("Leader: state machine should issue a certificate for the MithrilStakeDistribution");
+    cycle!(leader_tester, "ready");
 
     assert_last_certificate_eq!(
-        master_tester,
+        leader_tester,
         ExpectedCertificate::new(
             Epoch(4),
             StakeDistributionParty::from_signers(
@@ -340,49 +343,49 @@ async fn create_certificate_slave() {
             ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(3))),
         )
     );
-    cycle!(master_tester, "signing");
+    cycle!(leader_tester, "signing");
 
     comment!(
         "Epoch 5:
-    - the master aggregator produces a new certificate
-    - the slave aggregator produces a new certificate
-    - the slave aggregator new certificate uses the same avk as the master aggregator's new certificate
+    - the leader aggregator produces a new certificate
+    - the follower aggregator produces a new certificate
+    - the follower aggregator new certificate uses the same avk as the leader aggregator's new certificate
     ");
     let epoch_fixture = &epoch_fixtures_map[&Epoch(5)];
 
-    comment!("Master: update stake distribution source");
-    master_tester
+    comment!("Leader: update stake distribution source");
+    leader_tester
         .update_stake_distribution(epoch_fixture.registering.stake_distribution())
         .await
         .unwrap();
 
-    comment!("Slave: update stake distribution source");
-    slave_tester
+    comment!("Follower: update stake distribution source");
+    follower_tester
         .update_stake_distribution(epoch_fixture.registering.stake_distribution())
         .await
         .unwrap();
 
-    comment!("Slave: change the epoch before master");
-    slave_tester.increase_epoch().await.unwrap();
-    cycle!(slave_tester, "idle");
+    comment!("Follower: change the epoch before leader");
+    follower_tester.increase_epoch().await.unwrap();
+    cycle!(follower_tester, "idle");
 
-    comment!("Master: change the epoch");
-    master_tester.increase_epoch().await.unwrap();
-    cycle!(master_tester, "idle");
-    cycle!(master_tester, "ready");
+    comment!("Leader: change the epoch");
+    leader_tester.increase_epoch().await.unwrap();
+    cycle!(leader_tester, "idle");
+    cycle!(leader_tester, "ready");
 
-    comment!("Slave: change the epoch after master");
-    cycle!(slave_tester, "ready");
+    comment!("Follower: change the epoch after leader");
+    cycle!(follower_tester, "ready");
 
-    comment!("Master: register signers");
-    master_tester
+    comment!("Leader: register signers");
+    leader_tester
         .register_signers(&epoch_fixture.registering.signers_fixture())
         .await
         .unwrap();
-    cycle!(master_tester, "signing");
+    cycle!(leader_tester, "signing");
 
-    comment!("Master: signers send their single signature");
-    master_tester
+    comment!("Leader: signers send their single signature");
+    leader_tester
         .send_single_signatures(
             SignedEntityTypeDiscriminants::MithrilStakeDistribution,
             &epoch_fixture.current_signing.unwrap().signers_fixture(),
@@ -390,9 +393,9 @@ async fn create_certificate_slave() {
         .await
         .unwrap();
 
-    comment!("Slave: signers send their single signature");
-    cycle!(slave_tester, "signing");
-    slave_tester
+    comment!("Follower: signers send their single signature");
+    cycle!(follower_tester, "signing");
+    follower_tester
         .send_single_signatures(
             SignedEntityTypeDiscriminants::MithrilStakeDistribution,
             &epoch_fixture.current_signing.unwrap().signers_fixture(),
@@ -400,9 +403,9 @@ async fn create_certificate_slave() {
         .await
         .unwrap();
 
-    comment!("Master: state machine should issue a certificate for the MithrilStakeDistribution");
-    cycle!(master_tester, "ready");
-    let master_expected_certificate = ExpectedCertificate::new(
+    comment!("Leader: state machine should issue a certificate for the MithrilStakeDistribution");
+    cycle!(leader_tester, "ready");
+    let leader_expected_certificate = ExpectedCertificate::new(
         Epoch(5),
         StakeDistributionParty::from_signers(
             epoch_fixture.current_signing.unwrap().signers_with_stake(),
@@ -415,11 +418,11 @@ async fn create_certificate_slave() {
         SignedEntityType::MithrilStakeDistribution(Epoch(5)),
         ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(4))),
     );
-    assert_last_certificate_eq!(master_tester, master_expected_certificate);
+    assert_last_certificate_eq!(leader_tester, leader_expected_certificate);
 
-    comment!("Slave: state machine should issue a certificate for the MithrilStakeDistribution");
-    cycle!(slave_tester, "ready");
-    let slave_expected_certificate = ExpectedCertificate::new(
+    comment!("Follower: state machine should issue a certificate for the MithrilStakeDistribution");
+    cycle!(follower_tester, "ready");
+    let follower_expected_certificate = ExpectedCertificate::new(
         Epoch(5),
         StakeDistributionParty::from_signers(
             epoch_fixture.current_signing.unwrap().signers_with_stake(),
@@ -432,54 +435,54 @@ async fn create_certificate_slave() {
         SignedEntityType::MithrilStakeDistribution(Epoch(5)),
         ExpectedCertificate::genesis_identifier(Epoch(4)),
     );
-    assert_last_certificate_eq!(slave_tester, slave_expected_certificate);
+    assert_last_certificate_eq!(follower_tester, follower_expected_certificate);
     let expected_avk = epoch_fixture
         .current_signing
         .unwrap()
         .compute_and_encode_avk()
         .clone();
-    assert_eq!(expected_avk, master_expected_certificate.avk());
-    assert_eq!(expected_avk, slave_expected_certificate.avk());
+    assert_eq!(expected_avk, leader_expected_certificate.avk());
+    assert_eq!(expected_avk, follower_expected_certificate.avk());
 
     comment!(
         "Epoch 6:
-    - the master aggregator produces a new certificate
-    - the slave aggregator produces a new certificate
-    - the slave aggregator new certificate uses the same avk as the master aggregator's new certificate
+    - the leader aggregator produces a new certificate
+    - the follower aggregator produces a new certificate
+    - the follower aggregator new certificate uses the same avk as the leader aggregator's new certificate
     ");
     let epoch_fixture = &epoch_fixtures_map[&Epoch(6)];
 
-    comment!("Master: update stake distribution source");
-    master_tester
+    comment!("Leader: update stake distribution source");
+    leader_tester
         .update_stake_distribution(epoch_fixture.registering.stake_distribution())
         .await
         .unwrap();
 
-    comment!("Slave: update stake distribution source");
-    slave_tester
+    comment!("Follower: update stake distribution source");
+    follower_tester
         .update_stake_distribution(epoch_fixture.registering.stake_distribution())
         .await
         .unwrap();
 
-    comment!("Master: change the epoch");
-    master_tester.increase_epoch().await.unwrap();
-    cycle!(master_tester, "idle");
-    cycle!(master_tester, "ready");
+    comment!("Leader: change the epoch");
+    leader_tester.increase_epoch().await.unwrap();
+    cycle!(leader_tester, "idle");
+    cycle!(leader_tester, "ready");
 
-    comment!("Slave: change the epoch after master");
-    slave_tester.increase_epoch().await.unwrap();
-    cycle!(slave_tester, "idle");
-    cycle!(slave_tester, "ready");
+    comment!("Follower: change the epoch after leader");
+    follower_tester.increase_epoch().await.unwrap();
+    cycle!(follower_tester, "idle");
+    cycle!(follower_tester, "ready");
 
-    comment!("Master: register signers");
-    master_tester
+    comment!("Leader: register signers");
+    leader_tester
         .register_signers(&epoch_fixture.registering.signers_fixture())
         .await
         .unwrap();
-    cycle!(master_tester, "signing");
+    cycle!(leader_tester, "signing");
 
-    comment!("Master: signers send their single signature");
-    master_tester
+    comment!("Leader: signers send their single signature");
+    leader_tester
         .send_single_signatures(
             SignedEntityTypeDiscriminants::MithrilStakeDistribution,
             &epoch_fixture.current_signing.unwrap().signers_fixture(),
@@ -487,9 +490,9 @@ async fn create_certificate_slave() {
         .await
         .unwrap();
 
-    comment!("Slave: signers send their single signature");
-    cycle!(slave_tester, "signing");
-    slave_tester
+    comment!("Follower: signers send their single signature");
+    cycle!(follower_tester, "signing");
+    follower_tester
         .send_single_signatures(
             SignedEntityTypeDiscriminants::MithrilStakeDistribution,
             &epoch_fixture.current_signing.unwrap().signers_fixture(),
@@ -497,9 +500,9 @@ async fn create_certificate_slave() {
         .await
         .unwrap();
 
-    comment!("Master: state machine should issue a certificate for the MithrilStakeDistribution");
-    cycle!(master_tester, "ready");
-    let master_expected_certificate = ExpectedCertificate::new(
+    comment!("Leader: state machine should issue a certificate for the MithrilStakeDistribution");
+    cycle!(leader_tester, "ready");
+    let leader_expected_certificate = ExpectedCertificate::new(
         Epoch(6),
         StakeDistributionParty::from_signers(
             epoch_fixture.current_signing.unwrap().signers_with_stake(),
@@ -512,11 +515,11 @@ async fn create_certificate_slave() {
         SignedEntityType::MithrilStakeDistribution(Epoch(6)),
         ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(5))),
     );
-    assert_last_certificate_eq!(master_tester, master_expected_certificate);
+    assert_last_certificate_eq!(leader_tester, leader_expected_certificate);
 
-    comment!("Slave: state machine should issue a certificate for the MithrilStakeDistribution");
-    cycle!(slave_tester, "ready");
-    let slave_expected_certificate = ExpectedCertificate::new(
+    comment!("Follower: state machine should issue a certificate for the MithrilStakeDistribution");
+    cycle!(follower_tester, "ready");
+    let follower_expected_certificate = ExpectedCertificate::new(
         Epoch(6),
         StakeDistributionParty::from_signers(
             epoch_fixture.current_signing.unwrap().signers_with_stake(),
@@ -529,12 +532,12 @@ async fn create_certificate_slave() {
         SignedEntityType::MithrilStakeDistribution(Epoch(6)),
         ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(5))),
     );
-    assert_last_certificate_eq!(slave_tester, slave_expected_certificate);
+    assert_last_certificate_eq!(follower_tester, follower_expected_certificate);
     let expected_avk = epoch_fixture
         .current_signing
         .unwrap()
         .compute_and_encode_avk()
         .clone();
-    assert_eq!(expected_avk, master_expected_certificate.avk());
-    assert_eq!(expected_avk, slave_expected_certificate.avk());
+    assert_eq!(expected_avk, leader_expected_certificate.avk());
+    assert_eq!(expected_avk, follower_expected_certificate.avk());
 }
