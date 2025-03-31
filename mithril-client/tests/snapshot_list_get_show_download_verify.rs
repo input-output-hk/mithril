@@ -4,6 +4,7 @@ use crate::extensions::fake_aggregator::{FakeAggregator, FakeCertificateVerifier
 use mithril_client::aggregator_client::AggregatorRequest;
 use mithril_client::feedback::SlogFeedbackReceiver;
 use mithril_client::{ClientBuilder, MessageBuilder};
+use mithril_common::crypto_helper::ManifestSigner;
 use mithril_common::digesters::DummyCardanoDbBuilder;
 use std::sync::Arc;
 
@@ -12,6 +13,10 @@ async fn snapshot_list_get_show_download_verify() {
     let work_dir = extensions::get_test_dir("snapshot_list_get_show_download_verify");
     let genesis_verification_key =
         mithril_common::test_utils::fake_keys::genesis_verification_key()[0];
+    let (ancillary_manifest_signing_key, ancillary_manifest_signer_verification_key) = {
+        let signer = ManifestSigner::create_deterministic_signer();
+        (signer.secret_key(), signer.verification_key())
+    };
     let digest = "snapshot_digest";
     let certificate_hash = "certificate_hash";
     let cardano_db = DummyCardanoDbBuilder::new("snapshot_list_get_show_download_verify_db")
@@ -21,13 +26,25 @@ async fn snapshot_list_get_show_download_verify() {
         .build();
     let fake_aggregator = FakeAggregator::new();
     let test_http_server = fake_aggregator
-        .spawn_with_snapshot(digest, certificate_hash, &cardano_db, &work_dir)
+        .spawn_with_snapshot(
+            digest,
+            certificate_hash,
+            &cardano_db,
+            &work_dir,
+            ancillary_manifest_signing_key,
+        )
         .await;
     let client = ClientBuilder::aggregator(&test_http_server.url(), genesis_verification_key)
+        .set_ancillary_verification_key(
+            ancillary_manifest_signer_verification_key
+                .try_into()
+                .unwrap(),
+        )
         .with_certificate_verifier(FakeCertificateVerifier::build_that_validate_any_certificate())
         .add_feedback_receiver(Arc::new(SlogFeedbackReceiver::new(
             extensions::test_logger(),
         )))
+        .with_logger(extensions::test_logger())
         .build()
         .expect("Should be able to create a Client");
 
@@ -81,7 +98,7 @@ async fn snapshot_list_get_show_download_verify() {
 
     client
         .cardano_database()
-        .download_unpack(&snapshot, &unpacked_dir)
+        .download_unpack_full(&snapshot, &unpacked_dir)
         .await
         .expect("download/unpack snapshot should not fail");
 

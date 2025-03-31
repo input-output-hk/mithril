@@ -3,6 +3,7 @@ use std::sync::{Arc, RwLock};
 use warp::Filter;
 
 use mithril_client::{MessageBuilder, MithrilCertificate, Snapshot, SnapshotListItem};
+use mithril_common::crypto_helper::ManifestVerifierSecretKey;
 use mithril_common::digesters::DummyCardanoDb;
 use mithril_common::entities::{CardanoDbBeacon, CompressionAlgorithm, SignedEntityType};
 use mithril_common::test_utils::fake_data;
@@ -19,6 +20,7 @@ impl FakeAggregator {
         certificate_hash: &str,
         cardano_db: &DummyCardanoDb,
         work_dir: &Path,
+        ancillary_manifest_signing_key: ManifestVerifierSecretKey,
     ) -> TestHttpServer {
         let beacon = CardanoDbBeacon {
             immutable_file_number: cardano_db.last_immutable_number().unwrap(),
@@ -68,8 +70,12 @@ impl FakeAggregator {
                 ))
                 .or(routes::statistics::routes(self.calls.clone()));
 
-        let cardano_db_archives =
-            snapshot_archives::build_cardano_db_v1_snapshot_archives(cardano_db, work_dir);
+        let cardano_db_archives = snapshot_archives::build_cardano_db_v1_snapshot_archives(
+            cardano_db,
+            work_dir,
+            ancillary_manifest_signing_key,
+        )
+        .await;
 
         let routes = routes.or(routes::snapshot::download(
             self.calls.clone(),
