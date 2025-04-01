@@ -137,7 +137,7 @@ pub(crate) mod test_dependency_injector {
     #[cfg(feature = "fs")]
     use crate::file_downloader::{FileDownloader, MockFileDownloaderBuilder};
     #[cfg(feature = "fs")]
-    use crate::{feedback::FeedbackReceiver, test_utils};
+    use crate::{feedback::FeedbackReceiver, test_utils::TestLogger};
 
     /// Dependency injector for `CardanoDatabaseClient` for testing purposes.
     pub(crate) struct CardanoDatabaseClientDependencyInjector {
@@ -202,7 +202,7 @@ pub(crate) mod test_dependency_injector {
                 Arc::new(self.aggregator_client),
                 self.http_file_downloader,
                 FeedbackSender::new(&self.feedback_receivers),
-                test_utils::test_logger(),
+                TestLogger::stdout(),
             )
         }
 
