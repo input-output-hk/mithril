@@ -249,7 +249,7 @@ mod tests {
 
     use crate::{
         feedback::{MithrilEvent, MithrilEventCardanoDatabase, StackFeedbackReceiver},
-        test_utils,
+        test_utils::TestLogger,
     };
 
     use super::*;
@@ -293,7 +293,7 @@ mod tests {
         let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
         let http_file_downloader = HttpFileDownloader::new(
             FeedbackSender::new(&[feedback_receiver.clone()]),
-            test_utils::test_logger(),
+            TestLogger::stdout(),
         )
         .unwrap();
         let download_id = "id".to_string();
@@ -344,7 +344,7 @@ mod tests {
         let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
         let http_file_downloader = HttpFileDownloader::new(
             FeedbackSender::new(&[feedback_receiver.clone()]),
-            test_utils::test_logger(),
+            TestLogger::stdout(),
         )
         .unwrap();
         let download_id = "id".to_string();

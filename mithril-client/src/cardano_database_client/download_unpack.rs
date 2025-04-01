@@ -402,7 +402,7 @@ mod tests {
 
     use crate::cardano_database_client::CardanoDatabaseClientDependencyInjector;
     use crate::file_downloader::{MockFileDownloader, MockFileDownloaderBuilder};
-    use crate::test_utils;
+    use crate::test_utils::TestLogger;
 
     use super::*;
 
@@ -802,7 +802,7 @@ mod tests {
                         .build(),
                 ),
                 FeedbackSender::new(&[]),
-                test_utils::test_logger(),
+                TestLogger::stdout(),
             );
 
             let tasks = artifact_downloader
@@ -838,7 +838,7 @@ mod tests {
             let artifact_downloader = InternalArtifactDownloader::new(
                 Arc::new(MockFileDownloader::new()),
                 FeedbackSender::new(&[]),
-                test_utils::test_logger(),
+                TestLogger::stdout(),
             );
 
             let build_tasks_result = artifact_downloader.build_download_tasks_for_immutables(
@@ -877,7 +877,7 @@ mod tests {
                         .build(),
                 ),
                 FeedbackSender::new(&[]),
-                test_utils::test_logger(),
+                TestLogger::stdout(),
             );
 
             let tasks = artifact_downloader
@@ -932,7 +932,7 @@ mod tests {
                         .build(),
                 ),
                 FeedbackSender::new(&[]),
-                test_utils::test_logger(),
+                TestLogger::stdout(),
             );
 
             let tasks = artifact_downloader
@@ -979,7 +979,7 @@ mod tests {
             let artifact_downloader = InternalArtifactDownloader::new(
                 Arc::new(MockFileDownloaderBuilder::default().with_failure().build()),
                 FeedbackSender::new(&[]),
-                test_utils::test_logger(),
+                TestLogger::stdout(),
             );
 
             let task = artifact_downloader
@@ -1008,7 +1008,7 @@ mod tests {
             let artifact_downloader = InternalArtifactDownloader::new(
                 Arc::new(MockFileDownloader::new()),
                 FeedbackSender::new(&[]),
-                test_utils::test_logger(),
+                TestLogger::stdout(),
             );
 
             let build_tasks_result = artifact_downloader.new_ancillary_download_task(
@@ -1042,7 +1042,7 @@ mod tests {
                         .build(),
                 ),
                 FeedbackSender::new(&[]),
-                test_utils::test_logger(),
+                TestLogger::stdout(),
             );
 
             let task = artifact_downloader
@@ -1083,7 +1083,7 @@ mod tests {
                         .build(),
                 ),
                 FeedbackSender::new(&[]),
-                test_utils::test_logger(),
+                TestLogger::stdout(),
             );
 
             let task = artifact_downloader

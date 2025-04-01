@@ -504,6 +504,8 @@ mod tests {
     use mithril_common::api_version::APIVersionProvider;
     use mithril_common::entities::{ClientError, ServerError};
 
+    use crate::test_utils::TestLogger;
+
     use super::*;
 
     macro_rules! assert_error_eq {
@@ -520,7 +522,7 @@ mod tests {
         AggregatorHTTPClient::new(
             Url::parse(server_url).unwrap(),
             api_versions,
-            crate::test_utils::test_logger(),
+            TestLogger::stdout(),
             custom_headers,
         )
         .expect("building aggregator http client should not fail")
@@ -570,9 +572,8 @@ mod tests {
             ),
         ] {
             let url = Url::parse(url).unwrap();
-            let client =
-                AggregatorHTTPClient::new(url, vec![], crate::test_utils::test_logger(), None)
-                    .expect("building aggregator http client should not fail");
+            let client = AggregatorHTTPClient::new(url, vec![], TestLogger::stdout(), None)
+                .expect("building aggregator http client should not fail");
 
             assert_eq!(expected, client.aggregator_endpoint.as_str());
         }
