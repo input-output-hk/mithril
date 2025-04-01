@@ -56,6 +56,9 @@ inputs:
   google_application_credentials:
     description: Google Cloud application credentials (service account).
     required: true
+  google_compute_instance_ssh_keys_environment:
+    description: Google Cloud VM SSH keys environment (`testing` or `production`).
+    required: true
   mithril_use_p2p_network:
     description: Mithril use P2P network (experimental, for test only).
     required: false
@@ -176,9 +179,9 @@ runs:
       shell: bash
       working-directory: mithril-infra
       run: |
-        echo '${{ inputs.google_application_credentials}}' > ./google-application-credentials.json
+        echo '${{ inputs.google_application_credentials }}' > ./google-application-credentials.json
         chmod u+x ./assets/tools/utils/google-credentials-public-key.sh
-        ./assets/tools/utils/google-credentials-public-key.sh ./google-application-credentials.json ./assets/ssh_keys curry
+        ./assets/tools/utils/google-credentials-public-key.sh ./google-application-credentials.json ./assets/ssh_keys-${{ inputs.google_compute_instance_ssh_keys_environment }} curry
 
     - name: Prepare terraform variables
       shell: bash
@@ -198,6 +201,7 @@ runs:
           google_compute_instance_data_disk_size                                    = "${{ inputs.google_compute_instance_data_disk_size }}"
           google_compute_instance_data_disk_type                                    = "${{ inputs.google_compute_instance_data_disk_type }}"
           google_compute_instance_data_disk_snapshot                                = "${{ inputs.google_compute_instance_data_disk_snapshot }}"
+          google_compute_instance_ssh_keys_environment                              = "${{ inputs.google_compute_instance_ssh_keys_environment }}"
           google_service_credentials_json_file                                      = "./google-application-credentials.json"
           mithril_use_p2p_network                                                   = "${{ inputs.mithril_use_p2p_network }}"
           mithril_api_domain                                                        = "${{ inputs.mithril_api_domain }}"
