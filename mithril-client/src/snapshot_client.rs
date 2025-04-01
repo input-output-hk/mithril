@@ -105,6 +105,8 @@ use crate::aggregator_client::{AggregatorClient, AggregatorClientError, Aggregat
 use crate::feedback::FeedbackSender;
 #[cfg(feature = "fs")]
 use crate::file_downloader::{DownloadEvent, FileDownloader};
+#[cfg(feature = "fs")]
+use crate::utils::AncillaryVerifier;
 use crate::{MithrilResult, Snapshot, SnapshotListItem};
 
 /// Error for the Snapshot client
@@ -127,6 +129,8 @@ pub struct SnapshotClient {
     #[cfg(feature = "fs")]
     http_file_downloader: Arc<dyn FileDownloader>,
     #[cfg(feature = "fs")]
+    ancillary_verifier: Option<Arc<AncillaryVerifier>>,
+    #[cfg(feature = "fs")]
     _feedback_sender: FeedbackSender,
     #[cfg(feature = "fs")]
     logger: Logger,
@@ -137,6 +141,7 @@ impl SnapshotClient {
     pub fn new(
         aggregator_client: Arc<dyn AggregatorClient>,
         #[cfg(feature = "fs")] http_file_downloader: Arc<dyn FileDownloader>,
+        #[cfg(feature = "fs")] ancillary_verifier: Option<Arc<AncillaryVerifier>>,
         #[cfg(feature = "fs")] feedback_sender: FeedbackSender,
         #[cfg(feature = "fs")] logger: Logger,
     ) -> Self {
@@ -144,6 +149,8 @@ impl SnapshotClient {
             aggregator_client,
             #[cfg(feature = "fs")]
             http_file_downloader,
+            #[cfg(feature = "fs")]
+            ancillary_verifier,
             // The underscore prefix prevents breaking the `SnapshotClient` API compatibility.
             #[cfg(feature = "fs")]
             _feedback_sender: feedback_sender,
@@ -192,6 +199,25 @@ impl SnapshotClient {
         ///
         /// **NOTE**: The directory should already exist, and the user running the binary
         /// must have read/write access to it.
+        pub async fn download_unpack_full(
+            &self,
+            snapshot: &Snapshot,
+            target_dir: &std::path::Path,
+        ) -> MithrilResult<()> {
+            use crate::feedback::MithrilEvent;
+            let download_id = MithrilEvent::new_snapshot_download_id();
+            self.download_unpack_immutables_files(snapshot, target_dir, &download_id)
+                .await?;
+            self.download_unpack_ancillary(snapshot, target_dir, &download_id)
+                .await?;
+
+            Ok(())
+        }
+
+        /// Download and unpack the given immutable files of the snapshot to the given directory
+        ///
+        /// **NOTE**: The directory should already exist, and the user running the binary
+        /// must have read/write access to it.
         pub async fn download_unpack(
             &self,
             snapshot: &Snapshot,
@@ -199,45 +225,122 @@ impl SnapshotClient {
         ) -> MithrilResult<()> {
             use crate::feedback::MithrilEvent;
             let download_id = MithrilEvent::new_snapshot_download_id();
-
-            self.download_unpack_file
-                (
-                    &snapshot.digest,
-                    &snapshot.locations,
-                    snapshot.size,
-                    target_dir,
-                    snapshot.compression_algorithm,
-                    DownloadEvent::Full {
-                        download_id: download_id.clone(),
-                        digest: snapshot.digest.clone(),
-                    },
-                )
+            self.download_unpack_immutables_files(snapshot, target_dir, &download_id)
                 .await?;
-
-            if let Some(ancillary_locations) = &snapshot.ancillary_locations {
-                self.download_unpack_file(
-                    &snapshot.digest,
-                    ancillary_locations,
-                    snapshot.ancillary_size.unwrap_or(0),
-                    target_dir,
-                    snapshot.compression_algorithm,
-                    DownloadEvent::FullAncillary {
-                        download_id: download_id.clone(),
-                    },
-                )
-                .await?;
-            }
 
             Ok(())
         }
 
-        async fn download_unpack_file(&self,
+        async fn download_unpack_immutables_files(
+            &self,
+            snapshot: &Snapshot,
+            target_dir: &std::path::Path,
+            download_id: &str,
+        ) -> MithrilResult<()> {
+            self.download_unpack_file(
+                &snapshot.digest,
+                &snapshot.locations,
+                snapshot.size,
+                target_dir,
+                snapshot.compression_algorithm,
+                DownloadEvent::Full {
+                    download_id: download_id.to_string(),
+                    digest: snapshot.digest.clone(),
+                },
+            )
+            .await?;
+
+            Ok(())
+        }
+
+        async fn download_unpack_ancillary(
+            &self,
+            snapshot: &Snapshot,
+            target_dir: &std::path::Path,
+            download_id: &str,
+        ) -> MithrilResult<()> {
+            if self.ancillary_verifier.is_none() {
+                slog::warn!(
+                    self.logger,
+                    "No ancillary verifier set, skipping ancillary download"
+                );
+                return Ok(());
+            }
+
+            match &snapshot.ancillary_locations {
+                None => Ok(()),
+                Some(ancillary_locations) => {
+                    let temp_ancillary_unpack_dir = Self::ancillary_subdir(target_dir, download_id);
+                    tokio::fs::create_dir(&temp_ancillary_unpack_dir)
+                        .await
+                        .with_context(|| {
+                            format!(
+                                "Snapshot Client can not create ancillary unpack directory '{}'",
+                                temp_ancillary_unpack_dir.display()
+                            )
+                        })?;
+
+                    let result = self.download_unpack_verify_ancillary(
+                        snapshot,
+                        ancillary_locations,
+                        snapshot.ancillary_size.unwrap_or(0),
+                        target_dir,
+                        &temp_ancillary_unpack_dir,
+                        download_id,
+                    )
+                    .await;
+
+                    if let Err(e) = std::fs::remove_dir_all(&temp_ancillary_unpack_dir) {
+                        slog::warn!(
+                            self.logger, "Failed to remove ancillary unpack directory '{}'", temp_ancillary_unpack_dir.display();
+                            "error" => ?e
+                        );
+                    }
+
+                    result
+                }
+            }
+        }
+
+        async fn download_unpack_verify_ancillary(
+            &self,
+            snapshot: &Snapshot,
+            ancillary_locations: &[String],
+            ancillary_size: u64,
+            target_dir: &std::path::Path,
+            temp_ancillary_unpack_dir: &std::path::Path,
+            download_id: &str,
+        ) -> MithrilResult<()> {
+            self.download_unpack_file(
+                &snapshot.digest,
+                ancillary_locations,
+                ancillary_size,
+                temp_ancillary_unpack_dir,
+                snapshot.compression_algorithm,
+                DownloadEvent::FullAncillary {
+                    download_id: download_id.to_string(),
+                },
+            )
+            .await?;
+
+            let ancillary_verifier = self.ancillary_verifier.as_ref().ok_or(anyhow::anyhow!(
+                "Ancillary verifier is not set, please use `set_ancillary_verification_key` when creating the client"
+            ))?;
+
+            let validated_manifest = ancillary_verifier.verify(temp_ancillary_unpack_dir).await?;
+            validated_manifest.move_to_final_location(target_dir).await?;
+
+            Ok(())
+        }
+
+        async fn download_unpack_file(
+            &self,
             digest: &str,
             locations: &[String],
             size: u64,
             target_dir: &std::path::Path,
             compression_algorithm: CompressionAlgorithm,
-            download_event: DownloadEvent
+            download_event: DownloadEvent,
         ) -> MithrilResult<()> {
             for location in locations {
                 let file_downloader_uri = location.to_owned().into();
@@ -267,6 +370,10 @@ impl SnapshotClient {
             }
             .into())
         }
+
+        fn ancillary_subdir(target_dir: &std::path::Path, download_id: &str) -> std::path::PathBuf {
+            target_dir.join(format!("ancillary-{download_id}"))
+        }
     }
 
     /// Increments the aggregator snapshot download statistics
@@ -284,20 +391,33 @@ impl SnapshotClient {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "fs")]
+    use std::path::PathBuf;
+
+    #[cfg(feature = "fs")]
+    use crate::{
+        aggregator_client::MockAggregatorClient,
+        common::CompressionAlgorithm,
+        feedback::MithrilEvent,
+        file_downloader::{MockFileDownloader, MockFileDownloaderBuilder},
+        test_utils::TestLogger,
+    };
+
     use super::*;
 
     #[cfg(feature = "fs")]
+    use mithril_common::temp_dir_create;
+
+    #[cfg(feature = "fs")]
+    fn dummy_download_event() -> DownloadEvent {
+        DownloadEvent::Full {
+            download_id: MithrilEvent::new_snapshot_download_id(),
+            digest: "test-digest".to_string(),
+        }
+    }
+
+    #[cfg(feature = "fs")]
     mod download_unpack_file {
-        use std::path::PathBuf;
-
-        use mithril_common::temp_dir_create;
-
-        use crate::aggregator_client::MockAggregatorClient;
-        use crate::common::CompressionAlgorithm;
-        use crate::feedback::MithrilEvent;
-        use crate::file_downloader::{MockFileDownloader, MockFileDownloaderBuilder};
-        use crate::test_utils::TestLogger;
-
         use super::*;
 
         fn setup_snapshot_client(file_downloader: Arc<dyn FileDownloader>) -> SnapshotClient {
@@ -307,16 +427,10 @@ mod tests {
             SnapshotClient::new(
                 aggregator_client,
                 file_downloader,
+                None,
                 FeedbackSender::new(&[]),
                 logger.clone(),
             )
-        }
-
-        fn dummy_download_event() -> DownloadEvent {
-            DownloadEvent::Full {
-                download_id: MithrilEvent::new_snapshot_download_id(),
-                digest: "test-digest".to_string(),
-            }
         }
 
         #[tokio::test]
@@ -439,6 +553,205 @@ mod tests {
             } else {
                 panic!("Expected SnapshotClientError::NoWorkingLocation, but got: {error:?}");
             }
+        }
+    }
+
+    #[cfg(feature = "fs")]
+    mod download_unpack_ancillary {
+        use std::fs::File;
+        use std::path::Path;
+
+        use async_trait::async_trait;
+
+        use mithril_common::crypto_helper::ManifestSigner;
+        use mithril_common::entities::AncillaryFilesManifest;
+        use mithril_common::test_utils::fake_keys;
+
+        use crate::file_downloader::FileDownloaderUri;
+
+        use super::*;
+
+        fn setup_snapshot_client(
+            file_downloader: Arc<dyn FileDownloader>,
+            ancillary_verifier: Option<Arc<AncillaryVerifier>>,
+        ) -> SnapshotClient {
+            let aggregator_client = Arc::new(MockAggregatorClient::new());
+            let logger = TestLogger::stdout();
+
+            SnapshotClient::new(
+                aggregator_client,
+                file_downloader,
+                ancillary_verifier,
+                FeedbackSender::new(&[]),
+                logger.clone(),
+            )
+        }
+
+        #[tokio::test]
+        async fn log_a_warning_and_do_nothing_if_verifier_is_not_set() {
+            let log_path = temp_dir_create!().join("test.log");
+            let snapshot = Snapshot {
+                ancillary_locations: Some(vec!["http://example.com/ancillary".to_string()]),
+                ancillary_size: Some(123),
+                ..Snapshot::dummy()
+            };
+
+            {
+                let client = SnapshotClient {
+                    logger: TestLogger::file(&log_path),
+                    ..setup_snapshot_client(Arc::new(MockFileDownloader::new()), None)
+                };
+
+                client
+                    .download_unpack_ancillary(
+                        &snapshot,
+                        &PathBuf::from("/whatever"),
+                        "test-download-id",
+                    )
+                    .await
+                    .expect("Should succeed when no ancillary verifier is set");
+            }
+
+            let logs = std::fs::read_to_string(&log_path).unwrap();
+            assert!(logs.contains("No ancillary verifier set, skipping ancillary download"));
+        }
+
+        #[tokio::test]
+        async fn do_nothing_if_no_ancillary_locations_available_in_snapshot() {
+            let mock_downloader = MockFileDownloader::new();
+            let client = setup_snapshot_client(Arc::new(mock_downloader), None);
+
+            let snapshot = Snapshot {
+                ancillary_locations: None,
+                ancillary_size: None,
+                ..Snapshot::dummy()
+            };
+
+            client
+                .download_unpack_ancillary(
+                    &snapshot,
+                    &PathBuf::from("/whatever"),
+                    "test-download-id",
+                )
+                .await
+                .expect("Should succeed when no ancillary locations are available");
+        }
+
+        #[tokio::test]
+        async fn delete_temporary_unpack_subfolder_if_download_fail() {
+            let test_dir = temp_dir_create!();
+            let mock_downloader = MockFileDownloaderBuilder::default()
+                .with_file_uri("http://example.com/ancillary")
+                .with_failure()
+                .build();
+            let verification_key = fake_keys::manifest_verification_key()[0]
+                .try_into()
+                .unwrap();
+
+            let client = setup_snapshot_client(
+                Arc::new(mock_downloader),
+                Some(Arc::new(AncillaryVerifier::new(verification_key))),
+            );
+            let snapshot = Snapshot {
+                ancillary_locations: Some(vec!["http://example.com/ancillary".to_string()]),
+                ancillary_size: Some(123),
+                ..Snapshot::dummy()
+            };
+
+            client
+                .download_unpack_ancillary(&snapshot, &test_dir, "test-download-id")
+                .await
+                .unwrap_err();
+
+            assert!(!SnapshotClient::ancillary_subdir(&test_dir, "test-download-id").exists());
+        }
+
+        #[tokio::test]
+        async fn delete_temporary_unpack_subfolder_if_verify_fail() {
+            let test_dir = temp_dir_create!();
+            let mock_downloader = MockFileDownloaderBuilder::default()
+                .with_file_uri("http://example.com/ancillary")
+                .with_success()
+                .build();
+            let verification_key = fake_keys::manifest_verification_key()[0]
+                .try_into()
+                .unwrap();
+
+            let client = setup_snapshot_client(
+                Arc::new(mock_downloader),
+                Some(Arc::new(AncillaryVerifier::new(verification_key))),
+            );
+            let snapshot = Snapshot {
+                ancillary_locations: Some(vec!["http://example.com/ancillary".to_string()]),
+                ancillary_size: Some(123),
+                ..Snapshot::dummy()
+            };
+
+            client
+                .download_unpack_ancillary(&snapshot, &test_dir, "test-download-id")
+                .await
+                .unwrap_err();
+
+            assert!(!SnapshotClient::ancillary_subdir(&test_dir, "test-download-id").exists());
+        }
+
+        #[tokio::test]
+        async fn move_file_in_manifest_then_delete_temporary_unpack_subfolder_if_verify_succeed() {
+            struct DummyAncillaryDownloader {
+                ancillary_signer: ManifestSigner,
+            }
+            #[async_trait]
+            impl FileDownloader for DummyAncillaryDownloader {
+                async fn download_unpack(
+                    &self,
+                    _location: &FileDownloaderUri,
+                    _file_size: u64,
+                    target_dir: &Path,
+                    _compression_algorithm: Option<CompressionAlgorithm>,
+                    _download_event_type: DownloadEvent,
+                ) -> MithrilResult<()> {
+                    File::create(target_dir.join("dummy_ledger")).unwrap();
+                    File::create(target_dir.join("not_in_ancillary")).unwrap();
+                    let mut ancillary_manifest = AncillaryFilesManifest::from_paths(
+                        target_dir,
+                        vec![PathBuf::from("dummy_ledger")],
+                    )
+                    .await
+                    .unwrap();
+                    ancillary_manifest.signature = Some(
+                        self.ancillary_signer
+                            .sign(&ancillary_manifest.compute_hash()),
+                    );
+
+                    let ancillary_file =
+                        File::create(target_dir.join("ancillary_files_manifest.json")).unwrap();
+                    serde_json::to_writer(ancillary_file, &ancillary_manifest).unwrap();
+                    Ok(())
+                }
+            }
+
+            let test_dir = temp_dir_create!();
+            let ancillary_signer = ManifestSigner::create_deterministic_signer();
+            let verification_key = ancillary_signer.verification_key();
+
+            let client = setup_snapshot_client(
+                Arc::new(DummyAncillaryDownloader { ancillary_signer }),
+                Some(Arc::new(AncillaryVerifier::new(verification_key))),
+            );
+
+            let snapshot = Snapshot {
+                ancillary_locations: Some(vec!["http://example.com/ancillary".to_string()]),
+                ancillary_size: Some(123),
+                ..Snapshot::dummy()
+            };
+            client
+                .download_unpack_ancillary(&snapshot, &test_dir, "test-download-id")
+                .await
+                .expect("Should succeed when ancillary verification is successful");
+
+            assert!(test_dir.join("dummy_ledger").exists());
+            assert!(!test_dir.join("not_in_ancillary").exists());
+            assert!(!SnapshotClient::ancillary_subdir(&test_dir, "test-download-id").exists());
         }
     }
 }
