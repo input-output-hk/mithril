@@ -10,6 +10,10 @@ terraform {
   }
 }
 
+locals {
+  google_compute_ssh_keys_file = format("./assets/ssh_keys-%s", var.google_compute_instance_ssh_keys_environment)
+}
+
 provider "google" {
   credentials = file(var.google_service_credentials_json_file)
   project     = local.google_project_id

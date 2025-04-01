@@ -148,7 +148,6 @@ locals {
   google_service_credentials_json_file_decoded = jsondecode(file(var.google_service_credentials_json_file))
   google_service_account_private_key           = local.google_service_credentials_json_file_decoded.private_key
   google_project_id                            = local.google_service_credentials_json_file_decoded.project_id
-  google_compute_ssh_keys_file                 = format("./assets/ssh_keys-%s", var.google_compute_instance_ssh_keys_environment)
 }
 
 variable "cardano_image_id" {
