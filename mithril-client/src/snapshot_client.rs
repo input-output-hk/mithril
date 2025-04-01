@@ -281,3 +281,164 @@ impl SnapshotClient {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(feature = "fs")]
+    mod download_unpack_file {
+        use std::path::PathBuf;
+
+        use mithril_common::temp_dir_create;
+
+        use crate::aggregator_client::MockAggregatorClient;
+        use crate::common::CompressionAlgorithm;
+        use crate::feedback::MithrilEvent;
+        use crate::file_downloader::{MockFileDownloader, MockFileDownloaderBuilder};
+        use crate::test_utils::TestLogger;
+
+        use super::*;
+
+        fn setup_snapshot_client(file_downloader: Arc<dyn FileDownloader>) -> SnapshotClient {
+            let aggregator_client = Arc::new(MockAggregatorClient::new());
+            let logger = TestLogger::stdout();
+
+            SnapshotClient::new(
+                aggregator_client,
+                file_downloader,
+                FeedbackSender::new(&[]),
+                logger.clone(),
+            )
+        }
+
+        fn dummy_download_event() -> DownloadEvent {
+            DownloadEvent::Full {
+                download_id: MithrilEvent::new_snapshot_download_id(),
+                digest: "test-digest".to_string(),
+            }
+        }
+
+        #[tokio::test]
+        async fn log_warning_if_location_fails() {
+            let log_path = temp_dir_create!().join("test.log");
+            let mock_downloader = MockFileDownloaderBuilder::default()
+                .with_file_uri("http://whatever.co/snapshot")
+                .with_failure()
+                .build();
+
+            {
+                let client = SnapshotClient {
+                    logger: TestLogger::file(&log_path),
+                    ..setup_snapshot_client(Arc::new(mock_downloader))
+                };
+
+                let _result = client
+                    .download_unpack_file(
+                        "test-digest",
+                        &["http://whatever.co/snapshot".to_string()],
+                        19,
+                        &PathBuf::from("/whatever"),
+                        CompressionAlgorithm::Gzip,
+                        dummy_download_event(),
+                    )
+                    .await;
+            }
+
+            let logs = std::fs::read_to_string(&log_path).unwrap();
+            assert!(logs.contains("Failed downloading snapshot"));
+        }
+
+        #[tokio::test]
+        async fn error_contains_joined_locations_list_when_all_locations_fail() {
+            let test_locations = vec![
+                "http://example.com/snapshot1".to_string(),
+                "http://example.com/snapshot2".to_string(),
+            ];
+            let mock_downloader = MockFileDownloaderBuilder::default()
+                .with_file_uri("http://example.com/snapshot1")
+                .with_failure()
+                .next_call()
+                .with_file_uri("http://example.com/snapshot2")
+                .with_failure()
+                .build();
+            let client = setup_snapshot_client(Arc::new(mock_downloader));
+
+            let error = client
+                .download_unpack_file(
+                    "test-digest",
+                    &test_locations,
+                    19,
+                    &PathBuf::from("/whatever"),
+                    CompressionAlgorithm::Gzip,
+                    dummy_download_event(),
+                )
+                .await
+                .expect_err("Should fail when all locations fail");
+
+            if let Some(SnapshotClientError::NoWorkingLocation { digest, locations }) =
+                error.downcast_ref::<SnapshotClientError>()
+            {
+                assert_eq!(digest, "test-digest");
+                assert_eq!(
+                    locations,
+                    "http://example.com/snapshot1, http://example.com/snapshot2"
+                );
+            } else {
+                panic!("Expected SnapshotClientError::NoWorkingLocation, but got: {error:?}");
+            }
+        }
+
+        #[tokio::test]
+        async fn fallback_to_another_location() {
+            let mock_downloader = MockFileDownloaderBuilder::default()
+                .with_file_uri("http://example.com/snapshot1")
+                .with_failure()
+                .next_call()
+                .with_file_uri("http://example.com/snapshot2")
+                .with_success()
+                .build();
+            let client = setup_snapshot_client(Arc::new(mock_downloader));
+
+            client
+                .download_unpack_file(
+                    "test-digest",
+                    &[
+                        "http://example.com/snapshot1".to_string(),
+                        "http://example.com/snapshot2".to_string(),
+                    ],
+                    19,
+                    &PathBuf::from("/whatever"),
+                    CompressionAlgorithm::Gzip,
+                    dummy_download_event(),
+                )
+                .await
+                .expect("Should succeed when fallbacking to another location");
+        }
+
+        #[tokio::test]
+        async fn fail_if_location_list_is_empty() {
+            let client = setup_snapshot_client(Arc::new(MockFileDownloader::new()));
+
+            let error = client
+                .download_unpack_file(
+                    "test-digest",
+                    &Vec::new(),
+                    19,
+                    &PathBuf::from("/whatever"),
+                    CompressionAlgorithm::Gzip,
+                    dummy_download_event(),
+                )
+                .await
+                .expect_err("Should fail with empty location list");
+
+            if let Some(SnapshotClientError::NoWorkingLocation { locations, .. }) =
+                error.downcast_ref::<SnapshotClientError>()
+            {
+                assert_eq!(locations, "");
+            } else {
+                panic!("Expected SnapshotClientError::NoWorkingLocation, but got: {error:?}");
+            }
+        }
+    }
+}
