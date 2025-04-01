@@ -34,7 +34,7 @@ resource "google_compute_instance" "vm_instance" {
   allow_stopping_for_update = true
 
   metadata = {
-    sshKeys = file("./assets/ssh_keys")
+    sshKeys = file(local.google_compute_ssh_keys_file)
   }
 
   metadata_startup_script = file("./assets/startup-vm.sh")
