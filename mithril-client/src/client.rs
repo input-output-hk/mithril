@@ -24,6 +24,8 @@ use crate::file_downloader::{
 };
 use crate::mithril_stake_distribution_client::MithrilStakeDistributionClient;
 use crate::snapshot_client::SnapshotClient;
+#[cfg(feature = "fs")]
+use crate::utils::AncillaryVerifier;
 use crate::MithrilResult;
 
 #[cfg(target_family = "wasm")]
@@ -140,6 +142,8 @@ impl Client {
 pub struct ClientBuilder {
     aggregator_endpoint: Option<String>,
     genesis_verification_key: String,
+    #[cfg(feature = "fs")]
+    ancillary_verification_key: Option<String>,
     aggregator_client: Option<Arc<dyn AggregatorClient>>,
     certificate_verifier: Option<Arc<dyn CertificateVerifier>>,
     #[cfg(feature = "fs")]
@@ -158,6 +162,8 @@ impl ClientBuilder {
         Self {
             aggregator_endpoint: Some(endpoint.to_string()),
             genesis_verification_key: genesis_verification_key.to_string(),
+            #[cfg(feature = "fs")]
+            ancillary_verification_key: None,
             aggregator_client: None,
             certificate_verifier: None,
             #[cfg(feature = "fs")]
@@ -178,6 +184,8 @@ impl ClientBuilder {
         Self {
             aggregator_endpoint: None,
             genesis_verification_key: genesis_verification_key.to_string(),
+            #[cfg(feature = "fs")]
+            ancillary_verification_key: None,
             aggregator_client: None,
             certificate_verifier: None,
             #[cfg(feature = "fs")]
@@ -260,10 +268,22 @@ impl ClientBuilder {
             Some(http_file_downloader) => http_file_downloader,
         };
 
+        #[cfg(feature = "fs")]
+        let ancillary_verifier = match self.ancillary_verification_key {
+            None => None,
+            Some(verification_key) => Some(Arc::new(AncillaryVerifier::new(
+                verification_key
+                    .try_into()
+                    .with_context(|| "Building ancillary verifier failed")?,
+            ))),
+        };
+
         let snapshot_client = Arc::new(SnapshotClient::new(
             aggregator_client.clone(),
             #[cfg(feature = "fs")]
             http_file_downloader.clone(),
+            #[cfg(feature = "fs")]
+            ancillary_verifier,
             #[cfg(feature = "fs")]
             feedback_sender.clone(),
             #[cfg(feature = "fs")]
@@ -336,6 +356,15 @@ impl ClientBuilder {
             http_file_downloader: Arc<dyn FileDownloader>,
         ) -> ClientBuilder {
             self.http_file_downloader = Some(http_file_downloader);
+            self
+        }
+
+        /// Set the ancillary verification key to use when verifying the downloaded ancillary files.
+        pub fn set_ancillary_verification_key(
+            mut self,
+            ancillary_verification_key: String,
+        ) -> ClientBuilder {
+            self.ancillary_verification_key = Some(ancillary_verification_key);
             self
         }
     }
