@@ -411,8 +411,8 @@ mod tests {
     #[tokio::test]
     async fn test_origin_tag_in_client_options() {
         let server = MockServer::start();
-        let client_builder = ClientBuilder::aggregator(&server.url(""), "")
-            .with_origin_tag(Some("CLIENT_TAG".to_string()));
+        let client_builder =
+            ClientBuilder::aggregator(Some("CLIENT_TAG".to_string()), &server.url(""), "");
 
         let aggregator_client = client_builder
             .build_aggregator_client(crate::test_utils::test_logger())
