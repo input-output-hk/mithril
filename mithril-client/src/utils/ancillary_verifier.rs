@@ -11,8 +11,6 @@ use mithril_common::{
 
 use crate::{MithrilError, MithrilResult};
 
-const ANCILLARY_MANIFEST_FILE_NAME: &str = "ancillary_files_manifest.json";
-
 /// Verifies the ancillary files contained in a unpacked ancillary archive
 pub struct AncillaryVerifier {
     verifier: ManifestVerifier,
@@ -52,7 +50,8 @@ impl AncillaryVerifier {
         &self,
         temp_ancillary_dir: &Path,
     ) -> Result<ValidatedAncillaryManifest, AncillaryVerificationError> {
-        let ancillary_manifest_path = temp_ancillary_dir.join(ANCILLARY_MANIFEST_FILE_NAME);
+        let ancillary_manifest_path =
+            temp_ancillary_dir.join(AncillaryFilesManifest::ANCILLARY_MANIFEST_FILE_NAME);
         let manifest_file = File::open(&ancillary_manifest_path)
             .with_context(|| "Failed to open manifest file")
             .map_err(|e| {
@@ -138,7 +137,8 @@ mod tests {
 
         fn write_manifest(target_dir: &Path, manifest: &AncillaryFilesManifest) {
             serde_json::to_writer(
-                File::create(target_dir.join(ANCILLARY_MANIFEST_FILE_NAME)).unwrap(),
+                File::create(target_dir.join(AncillaryFilesManifest::ANCILLARY_MANIFEST_FILE_NAME))
+                    .unwrap(),
                 manifest,
             )
             .unwrap();
@@ -180,7 +180,9 @@ mod tests {
         #[tokio::test]
         async fn fail_if_manifest_is_not_a_valid_json() {
             let temp_dir = temp_dir_create!();
-            let manifest_file = File::create(temp_dir.join(ANCILLARY_MANIFEST_FILE_NAME)).unwrap();
+            let manifest_file =
+                File::create(temp_dir.join(AncillaryFilesManifest::ANCILLARY_MANIFEST_FILE_NAME))
+                    .unwrap();
             write!(&manifest_file, "invalid json").unwrap();
 
             let ancillary_verifier = AncillaryVerifier::new(
