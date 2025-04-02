@@ -115,6 +115,12 @@ variable "google_compute_instance_data_disk_snapshot_start_time" {
   default     = "03:00"
 }
 
+
+variable "google_compute_instance_ssh_keys_environment" {
+  type        = string
+  description = "VM SSH keys environment (`testing` or `production`)"
+}
+
 variable "google_service_credentials_json_file" {
   type        = string
   description = "The credentials of the GCP service account"

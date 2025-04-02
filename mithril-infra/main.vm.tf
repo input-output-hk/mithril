@@ -10,6 +10,10 @@ terraform {
   }
 }
 
+locals {
+  google_compute_ssh_keys_file = format("./assets/ssh_keys-%s", var.google_compute_instance_ssh_keys_environment)
+}
+
 provider "google" {
   credentials = file(var.google_service_credentials_json_file)
   project     = local.google_project_id
@@ -34,7 +38,7 @@ resource "google_compute_instance" "vm_instance" {
   allow_stopping_for_update = true
 
   metadata = {
-    sshKeys = file("./assets/ssh_keys")
+    sshKeys = file(local.google_compute_ssh_keys_file)
   }
 
   metadata_startup_script = file("./assets/startup-vm.sh")
