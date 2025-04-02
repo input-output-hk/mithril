@@ -291,6 +291,12 @@ variable "mithril_aggregator_allow_unparsable_block" {
   default     = false
 }
 
+variable "mithril_aggregator_leader_aggregator_endpoint" {
+  type        = string
+  description = "The endpoint of the leader aggregator to use when running in follower mode (optional)"
+  default     = ""
+}
+
 variable "prometheus_auth_username" {
   type        = string
   description = "The username for authentication on local prometheus endpoint"
@@ -354,6 +360,7 @@ variable "loki_ingest_password" {
 locals {
   mithril_aggregator_use_authentication = var.mithril_aggregator_auth_username == "" ? false : true
   mithril_aggregator_use_p2p_network    = var.mithril_use_p2p_network ? true : false
+  mithril_aggregator_is_follower        = var.mithril_aggregator_leader_aggregator_endpoint == "" ? false : true
   mithril_aggregator_credentials        = var.mithril_aggregator_auth_username == "" ? "" : format("%s:%s@", var.mithril_aggregator_auth_username, var.mithril_aggregator_auth_password)
   prometheus_credentials                = var.prometheus_auth_username == "" ? "" : format("%s:%s@", var.prometheus_auth_username, var.prometheus_auth_password)
   loki_credentials                      = var.loki_auth_username == "" ? "" : format("%s:%s@", var.loki_auth_username, var.loki_auth_password)
