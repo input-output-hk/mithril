@@ -133,6 +133,10 @@ inputs:
   mithril_aggregator_cardano_transactions_signing_config_step:
     description: Mithril aggregator number of blocks between signature of the Cardano transactions
     required: true
+  mithril_aggregator_leader_aggregator_endpoint:
+    description: Mithril aggregator leader aggregator endpoint to follow.
+    required: false
+    default: ""
   prometheus_auth_username:
     description: Prometheus metrics endpoint username.
     required: false
@@ -226,6 +230,7 @@ runs:
           mithril_aggregator_cardano_transactions_database_connection_pool_size     = "${{ inputs.mithril_aggregator_cardano_transactions_database_connection_pool_size }}"
           mithril_aggregator_cardano_transactions_signing_config_security_parameter = "${{ inputs.mithril_aggregator_cardano_transactions_signing_config_security_parameter }}"
           mithril_aggregator_cardano_transactions_signing_config_step               = "${{ inputs.mithril_aggregator_cardano_transactions_signing_config_step }}"
+          mithril_aggregator_leader_aggregator_endpoint                             = "${{ inputs.mithril_aggregator_leader_aggregator_endpoint }}"
           prometheus_auth_username                                                  = "${{ inputs.prometheus_auth_username }}"
           prometheus_auth_password                                                  = "${{ inputs.prometheus_auth_password }}"
           prometheus_ingest_host                                                    = "${{ inputs.prometheus_ingest_host }}"
