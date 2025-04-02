@@ -1,15 +1,15 @@
 mod pop;
 mod signature;
-mod signing_key;
+pub mod signing_key;
 mod verification_key;
 mod verification_key_pop;
 
-use crate::bls_multi_sig::pop::ProofOfPossession;
+pub use crate::bls_multi_sig::pop::ProofOfPossession;
+pub use crate::bls_multi_sig::signature::Signature;
+pub use crate::bls_multi_sig::signing_key::SigningKey;
+pub use crate::bls_multi_sig::verification_key::VerificationKey;
+pub use crate::bls_multi_sig::verification_key_pop::VerificationKeyPoP;
 use crate::error::MultiSignatureError;
-pub use signature::Signature;
-pub use signing_key::SigningKey;
-pub use verification_key::VerificationKey;
-pub use verification_key_pop::VerificationKeyPoP;
 
 use blst::min_sig::{PublicKey as BlstVk, SecretKey as BlstSk, Signature as BlstSig};
 use blst::{blst_p1, blst_p2};
