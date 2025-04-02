@@ -723,8 +723,10 @@ mod tests {
                             .sign(&ancillary_manifest.compute_hash()),
                     );
 
-                    let ancillary_file =
-                        File::create(target_dir.join("ancillary_files_manifest.json")).unwrap();
+                    let ancillary_file = File::create(
+                        target_dir.join(AncillaryFilesManifest::ANCILLARY_MANIFEST_FILE_NAME),
+                    )
+                    .unwrap();
                     serde_json::to_writer(ancillary_file, &ancillary_manifest).unwrap();
                     Ok(())
                 }

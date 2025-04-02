@@ -81,7 +81,10 @@ impl Snapshotter for CompressedArchiveSnapshotter {
             .build_and_sign_ancillary_manifest(paths_to_include.clone())
             .await?;
         let appender = AppenderEntries::new(paths_to_include, self.db_directory.clone())?.chain(
-            AppenderData::from_json(PathBuf::from("ancillary_manifest.json"), &signed_manifest)?,
+            AppenderData::from_json(
+                PathBuf::from(AncillaryFilesManifest::ANCILLARY_MANIFEST_FILE_NAME),
+                &signed_manifest,
+            )?,
         );
         self.snapshot(archive_name_without_extension, appender)
             .await
@@ -555,7 +558,7 @@ mod tests {
                 .await
                 .unwrap();
             let unpacked = archive.unpack_gzip(test_dir);
-            let manifest_path = unpacked.join("ancillary_manifest.json");
+            let manifest_path = unpacked.join(AncillaryFilesManifest::ANCILLARY_MANIFEST_FILE_NAME);
 
             assert!(manifest_path.exists());
 
