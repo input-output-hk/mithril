@@ -56,6 +56,7 @@ jobs:
                   pool_id = "pool1r0tln8nct3mpyvehgy6uu3cdlmjnmtr2fxjcqnfl6v0qg0we42e",
                 },
               }
+            mithril_leader_aggregator_endpoint: ""
             terraform_backend_bucket: hydra-terraform-admin
             google_region: europe-west1
             google_zone: europe-west1-b
@@ -83,6 +84,7 @@ jobs:
                   pool_id = "pool1re8cmjt895tpx8dx2veg0cew5yqtxnt82sll03e433a4ugnh9w7",
                 }
               }
+            mithril_leader_aggregator_endpoint: ""
             terraform_backend_bucket: hydra-terraform-admin
             google_region: europe-west1
             google_zone: europe-west1-b
@@ -146,6 +148,7 @@ jobs:
           mithril_aggregator_cardano_transactions_database_connection_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE }}
           mithril_aggregator_cardano_transactions_signing_config_security_parameter: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_SIGNING_CONFIG_SECURITY_PARAMETER }}
           mithril_aggregator_cardano_transactions_signing_config_step: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_SIGNING_CONFIG_STEP }}
+          mithril_aggregator_leader_aggregator_endpoint: ${{ matrix.mithril_leader_aggregator_endpoint }}
           prometheus_auth_username: ${{ secrets.PROMETHEUS_AUTH_USERNAME }}
           prometheus_auth_password: ${{ secrets.PROMETHEUS_AUTH_PASSWORD }}
           prometheus_ingest_host: ${{ vars.PROMETHEUS_INGEST_HOST }}
