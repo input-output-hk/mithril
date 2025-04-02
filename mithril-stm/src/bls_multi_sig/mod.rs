@@ -1,6 +1,8 @@
+//! BLST Multi-signature module
+
 mod pop;
 mod signature;
-pub mod signing_key;
+mod signing_key;
 mod verification_key;
 mod verification_key_pop;
 
