@@ -33,13 +33,11 @@ pub struct Args {
 async fn main() -> MithrilResult<()> {
     let args = Args::parse();
     let logger = build_logger();
-    let client = ClientBuilder::aggregator(
-        Some("EXAMPLE".to_string()),
-        &args.aggregator_endpoint,
-        &args.genesis_verification_key,
-    )
-    .with_logger(logger.clone())
-    .build()?;
+    let client =
+        ClientBuilder::aggregator(&args.aggregator_endpoint, &args.genesis_verification_key)
+            .with_origin_tag(Some("EXAMPLE".to_string()))
+            .with_logger(logger.clone())
+            .build()?;
 
     let cardano_stake_distributions = client.cardano_stake_distribution().list().await?;
     info!(
