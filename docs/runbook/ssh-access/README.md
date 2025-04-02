@@ -26,10 +26,13 @@ cat ~/.ssh/id_ed25519.pub
 
 ### Declare the public key
 
-Add a line with the format `**REMOTE_USER**:*PUBLIC_KEY**` in the `mithril-infra/assets/ssh_keys` file for each:
+Add a line with the format `**REMOTE_USER**:*PUBLIC_KEY**` in the:
+
+- `mithril-infra/assets/ssh_keys-testing` for accessing the testing networks (`testing-preview`, `pre-release-preview` and `release-preprod`)
+- `mithril-infra/assets/ssh_keys-production` for accessing the production networks (`release-mainnet`)
 
 ```bash
-echo "curry:ssh-ed25519 AAAE53AC3NzQ2vlZDI1aC1O4CpX+S2y1X9NTB4rv4k3pAAAAIF3b7L9sPV5ZiGgogmko your_email@example.com" >> **REPOSITORY_PATH**/mithril-infra/assets/ssh_keys
+echo "curry:ssh-ed25519 AAAE53AC3NzQ2vlZDI1aC1O4CpX+S2y1X9NTB4rv4k3pAAAAIF3b7L9sPV5ZiGgogmko your_email@example.com" >> **REPOSITORY_PATH**/mithril-infra/assets/ssh_keys-testing
 ```
 
 Then, create a PR with the updated `ssh_keys` file.
@@ -38,7 +41,7 @@ Then, create a PR with the updated `ssh_keys` file.
 
 To remove an access, simply remove the line(s) related to this user.
 
-Then, create a PR with the updated `ssh_keys` file.
+Then, create a PR with the updated `ssh_keys-testing` or `ssh_keys-production` file.
 
 ## When are the modifications applied?
 
