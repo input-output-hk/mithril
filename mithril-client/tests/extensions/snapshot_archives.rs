@@ -138,8 +138,11 @@ pub async fn build_ancillary_files_archive(
     for file in &files_to_include {
         tar.append_path_with_name(db_dir.join(file), file).unwrap();
     }
-    tar.append_path_with_name(&ancillary_manifest, "ancillary_files_manifest.json")
-        .unwrap();
+    tar.append_path_with_name(
+        &ancillary_manifest,
+        AncillaryFilesManifest::ANCILLARY_MANIFEST_FILE_NAME,
+    )
+    .unwrap();
 
     let zstd = tar.into_inner().unwrap();
     zstd.finish().unwrap();
@@ -181,7 +184,7 @@ async fn build_ancillary_manifest(
         .unwrap();
     manifest.signature = Some(signer.sign(&manifest.compute_hash()));
 
-    let target_file = cardano_db_dir.join("ancillary_manifest.json");
+    let target_file = cardano_db_dir.join(AncillaryFilesManifest::ANCILLARY_MANIFEST_FILE_NAME);
     serde_json::to_writer(File::create(&target_file).unwrap(), &manifest).unwrap();
     target_file
 }
