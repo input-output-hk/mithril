@@ -9,6 +9,7 @@ mod error;
 pub mod key_reg;
 mod merkle_tree;
 pub mod stm;
+pub mod participant;
 
 pub use crate::error::{
     AggregationError, CoreVerifierError, RegisterError, StmAggregateSignatureError,
