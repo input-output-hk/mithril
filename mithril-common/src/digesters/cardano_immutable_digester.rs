@@ -176,7 +176,7 @@ fn list_immutable_files_to_process(
     dirpath: &Path,
     up_to_file_number: ImmutableFileNumber,
 ) -> Result<Vec<ImmutableFile>, ImmutableDigesterError> {
-    let immutables: Vec<ImmutableFile> = ImmutableFile::list_completed_in_dir(dirpath)?
+    let immutables: Vec<ImmutableFile> = ImmutableFile::list_all_in_dir(dirpath)?
         .into_iter()
         .filter(|f| f.number <= up_to_file_number)
         .collect();
@@ -202,7 +202,7 @@ fn list_immutable_files_to_process_for_range(
     dirpath: &Path,
     range: &RangeInclusive<ImmutableFileNumber>,
 ) -> Result<Vec<ImmutableFile>, ImmutableDigesterError> {
-    let immutables: Vec<ImmutableFile> = ImmutableFile::list_completed_in_dir(dirpath)?
+    let immutables: Vec<ImmutableFile> = ImmutableFile::list_all_in_dir(dirpath)?
         .into_iter()
         .filter(|f| range.contains(&f.number))
         .collect();
@@ -299,24 +299,26 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn fail_if_theres_only_the_uncompleted_immutable_trio() {
-        let cardano_db = db_builder("fail_if_theres_only_the_uncompleted_immutable_trio")
-            .append_immutable_trio()
-            .build();
+    async fn can_list_files_to_process_even_if_theres_only_the_uncompleted_immutable_trio() {
+        let cardano_db = db_builder(
+            "can_list_files_to_process_even_if_theres_only_the_uncompleted_immutable_trio",
+        )
+        .with_immutables(&[1])
+        .build();
 
-        let result = list_immutable_files_to_process(cardano_db.get_immutable_dir(), 1)
-            .expect_err("list_immutable_files_to_process should've failed");
+        let processable_files =
+            list_immutable_files_to_process(cardano_db.get_immutable_dir(), 1).unwrap();
 
         assert_eq!(
-            format!(
-                "{:?}",
-                ImmutableDigesterError::NotEnoughImmutable {
-                    expected_number: 1,
-                    found_number: None,
-                    db_dir: cardano_db.get_immutable_dir().to_path_buf(),
-                }
-            ),
-            format!("{result:?}")
+            vec![
+                "00001.chunk".to_string(),
+                "00001.primary".to_string(),
+                "00001.secondary".to_string()
+            ],
+            processable_files
+                .into_iter()
+                .map(|f| f.filename)
+                .collect::<Vec<_>>()
         );
     }
 
@@ -335,7 +337,7 @@ mod tests {
                 "{:?}",
                 ImmutableDigesterError::NotEnoughImmutable {
                     expected_number: 10,
-                    found_number: Some(5),
+                    found_number: Some(6),
                     db_dir: cardano_db.get_immutable_dir().to_path_buf(),
                 }
             ),
