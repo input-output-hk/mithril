@@ -19,4 +19,4 @@ pub use crate::error::{
 pub mod bls_multi_sig;
 
 #[cfg(not(feature = "benchmark-internals"))]
-mod bls_multi_sig;
+pub mod bls_multi_sig;
