@@ -184,6 +184,12 @@ variable "mithril_use_p2p_network" {
   default     = false
 }
 
+variable "mithril_p2p_network_bootstrap_peer" {
+  type        = string
+  description = "The dial to address of a bootstrap peer of the P2P network layer. Useful when setting-up a follower aggregator and signers in a different VM. (experimental, for test only)"
+  default     = ""
+}
+
 variable "mithril_p2p_signer_registration_repeat_delay" {
   type        = number
   description = "The repeat delay in milliseconds for the signer registration when operating in P2P mode (defaults to 1 hour)"
@@ -346,10 +352,11 @@ variable "loki_ingest_password" {
 }
 
 locals {
-  mithril_aggregator_type        = var.mithril_aggregator_auth_username == "" ? "noauth" : "auth"
-  mithril_aggregator_credentials = var.mithril_aggregator_auth_username == "" ? "" : format("%s:%s@", var.mithril_aggregator_auth_username, var.mithril_aggregator_auth_password)
-  prometheus_credentials         = var.prometheus_auth_username == "" ? "" : format("%s:%s@", var.prometheus_auth_username, var.prometheus_auth_password)
-  loki_credentials               = var.loki_auth_username == "" ? "" : format("%s:%s@", var.loki_auth_username, var.loki_auth_password)
+  mithril_aggregator_use_authentication = var.mithril_aggregator_auth_username == "" ? false : true
+  mithril_aggregator_use_p2p_network    = var.mithril_use_p2p_network ? true : false
+  mithril_aggregator_credentials        = var.mithril_aggregator_auth_username == "" ? "" : format("%s:%s@", var.mithril_aggregator_auth_username, var.mithril_aggregator_auth_password)
+  prometheus_credentials                = var.prometheus_auth_username == "" ? "" : format("%s:%s@", var.prometheus_auth_username, var.prometheus_auth_password)
+  loki_credentials                      = var.loki_auth_username == "" ? "" : format("%s:%s@", var.loki_auth_username, var.loki_auth_password)
 }
 
 variable "mithril_genesis_verification_key_url" {

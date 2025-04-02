@@ -108,9 +108,23 @@ EOT
       "export LOGGING_DRIVER='${var.mithril_container_logging_driver}'",
       "export AUTH_USER_PASSWORD=$(htpasswd -nb ${var.mithril_aggregator_auth_username} ${var.mithril_aggregator_auth_password})",
       "export AGGREGATOR_RELAY_LISTEN_PORT='${local.mithril_aggregator_relay_mithril_listen_port}'",
+      "export LEADER_AGGREGATOR_ENDPOINT='${vars.mithril_aggregator_leader_aggregator_endpoint}'",
       "export CURRENT_UID=$(id -u)",
       "export DOCKER_GID=$(getent group docker | cut -d: -f3)",
-      "docker compose -f /home/curry/docker/docker-compose-aggregator-${local.mithril_aggregator_type}${local.mithril_network_type_suffix}.yaml --profile all up -d",
+      <<-EOT
+      DOCKER_DIRECTORY=/home/curry/docker
+      DOCKER_COMPOSE_FILES = "-f ${DOCKER_DIRECTORY}/docker-compose-aggregator-base.yaml"
+      if [[ "${local.mithril_aggregator_use_authentication}" == "true" ]]; then
+        echo "Aggregator authentication enabled"
+        DOCKER_COMPOSE_FILES = "$DOCKER_COMPOSE_FILES -f ${DOCKER_DIRECTORY}/docker-compose-aggregator-auth-override.yaml"
+      fi
+      if [[ "${local.mithril_aggregator_use_p2p_network}" == "true" ]]; then
+      echo "Aggregator P2P enabled"
+        DOCKER_COMPOSE_FILES = "$DOCKER_COMPOSE_FILES -f ${DOCKER_DIRECTORY}/docker-compose-aggregator-p2p-override.yaml"
+      fi
+EOT
+      ,
+      "docker compose ${DOCKER_COMPOSE_FILES} --profile all up -d",
     ]
   }
 }

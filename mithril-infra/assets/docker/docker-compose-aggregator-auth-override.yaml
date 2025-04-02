@@ -1,0 +1,7 @@
+version: "3.9"
+
+services:
+  mithril-aggregator:
+    labels:
+      - "traefik.http.routers.mithril-aggregator.middlewares=test-auth,test-compress"
+      - "traefik.http.middlewares.test-auth.basicauth.users=${AUTH_USER_PASSWORD}"
