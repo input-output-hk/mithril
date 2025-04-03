@@ -1,0 +1,6 @@
+version: "3.9"
+
+services:
+  mithril-aggregator-relay:
+    environment:
+      - DIAL_TO=${P2P_BOOTSTRAP_PEER}
