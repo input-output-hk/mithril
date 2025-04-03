@@ -600,16 +600,10 @@ mod tests {
 
     #[cfg(feature = "fs")]
     mod download_unpack_ancillary {
-        use std::fs::File;
-        use std::path::Path;
-
-        use async_trait::async_trait;
-
         use mithril_common::crypto_helper::ManifestSigner;
-        use mithril_common::entities::AncillaryFilesManifest;
         use mithril_common::test_utils::fake_keys;
 
-        use crate::file_downloader::FileDownloaderUri;
+        use crate::file_downloader::FakeAncillaryFileBuilder;
 
         use super::*;
 
@@ -734,47 +728,22 @@ mod tests {
 
         #[tokio::test]
         async fn move_file_in_manifest_then_delete_temporary_unpack_subfolder_if_verify_succeed() {
-            struct DummyAncillaryDownloader {
-                ancillary_signer: ManifestSigner,
-            }
-            #[async_trait]
-            impl FileDownloader for DummyAncillaryDownloader {
-                async fn download_unpack(
-                    &self,
-                    _location: &FileDownloaderUri,
-                    _file_size: u64,
-                    target_dir: &Path,
-                    _compression_algorithm: Option<CompressionAlgorithm>,
-                    _download_event_type: DownloadEvent,
-                ) -> MithrilResult<()> {
-                    File::create(target_dir.join("dummy_ledger")).unwrap();
-                    File::create(target_dir.join("not_in_ancillary")).unwrap();
-                    let mut ancillary_manifest = AncillaryFilesManifest::from_paths(
-                        target_dir,
-                        vec![PathBuf::from("dummy_ledger")],
-                    )
-                    .await
-                    .unwrap();
-                    ancillary_manifest.signature = Some(
-                        self.ancillary_signer
-                            .sign(&ancillary_manifest.compute_hash()),
-                    );
-
-                    let ancillary_file = File::create(
-                        target_dir.join(AncillaryFilesManifest::ANCILLARY_MANIFEST_FILE_NAME),
-                    )
-                    .unwrap();
-                    serde_json::to_writer(ancillary_file, &ancillary_manifest).unwrap();
-                    Ok(())
-                }
-            }
-
             let test_dir = temp_dir_create!();
             let ancillary_signer = ManifestSigner::create_deterministic_signer();
             let verification_key = ancillary_signer.verification_key();
+            let mock_downloader = MockFileDownloaderBuilder::default()
+                .with_file_uri("http://example.com/ancillary")
+                .with_success_and_create_fake_ancillary_files(
+                    FakeAncillaryFileBuilder::builder()
+                        .files_in_manifest_to_create(vec!["dummy_ledger".to_string()])
+                        .files_not_in_manifest_to_create(vec!["not_in_ancillary".to_string()])
+                        .sign_manifest(ancillary_signer)
+                        .build(),
+                )
+                .build();
 
             let client = setup_snapshot_client(
-                Arc::new(DummyAncillaryDownloader { ancillary_signer }),
+                Arc::new(mock_downloader),
                 Some(Arc::new(AncillaryVerifier::new(verification_key))),
             );
 
