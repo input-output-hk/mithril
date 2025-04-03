@@ -112,17 +112,19 @@ EOT
       "export CURRENT_UID=$(id -u)",
       "export DOCKER_GID=$(getent group docker | cut -d: -f3)",
       <<-EOT
+set -e
+# Compute the docker compose files merge sequence for the aggregator
 DOCKER_DIRECTORY=/home/curry/docker
 DOCKER_COMPOSE_FILES="-f $DOCKER_DIRECTORY/docker-compose-aggregator-base.yaml"
-if [[ "${local.mithril_aggregator_use_authentication}" == "true" ]]; then
+if [ "${local.mithril_aggregator_use_authentication}" = "true" ]; then
   echo "Aggregator authentication enabled"
   DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-aggregator-auth-override.yaml"
 fi
-if [[ "${local.mithril_aggregator_use_p2p_network}" == "true" ]]; then
-echo "Aggregator P2P enabled"
+if [ "${local.mithril_aggregator_use_p2p_network}" = "true" ]; then
+  echo "Aggregator P2P enabled"
   DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-aggregator-p2p-override.yaml"
 fi
-if [[ "${local.mithril_aggregator_is_follower}" == "true" ]]; then
+if [ "${local.mithril_aggregator_is_follower}" = "true" ]; then
   echo "Aggregator follower enabled"
   DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-aggregator-follower-override.yaml"
 fi
