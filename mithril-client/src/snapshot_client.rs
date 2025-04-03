@@ -266,6 +266,8 @@ impl SnapshotClient {
             target_dir: &std::path::Path,
             download_id: &str,
         ) -> MithrilResult<()> {
+            slog::info!(self.logger, "Ancillary verification don't use Mithril certification");
+
             match &snapshot.ancillary_locations {
                 None => Ok(()),
                 Some(ancillary_locations) => {
@@ -610,6 +612,41 @@ mod tests {
         use crate::file_downloader::FileDownloaderUri;
 
         use super::*;
+
+        #[tokio::test]
+        async fn log_a_info_message_telling_that_the_feature_does_not_use_mithril_certification() {
+            let log_path = temp_dir_create!().join("test.log");
+            let verification_key = fake_keys::manifest_verification_key()[0]
+                .try_into()
+                .unwrap();
+            let snapshot = Snapshot {
+                ancillary_locations: None,
+                ancillary_size: None,
+                ..Snapshot::dummy()
+            };
+
+            {
+                let client = SnapshotClient {
+                    logger: TestLogger::file(&log_path),
+                    ..setup_snapshot_client(
+                        Arc::new(MockFileDownloader::new()),
+                        Some(Arc::new(AncillaryVerifier::new(verification_key))),
+                    )
+                };
+
+                client
+                    .download_unpack_ancillary(
+                        &snapshot,
+                        &PathBuf::from("/whatever"),
+                        "test-download-id",
+                    )
+                    .await
+                    .unwrap()
+            }
+
+            let logs = std::fs::read_to_string(&log_path).unwrap();
+            assert!(logs.contains("Ancillary verification don't use Mithril certification"));
+        }
 
         #[tokio::test]
         async fn do_nothing_if_no_ancillary_locations_available_in_snapshot() {
