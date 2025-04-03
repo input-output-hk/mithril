@@ -121,6 +121,9 @@ pub enum SnapshotClientError {
         /// list of locations tried
         locations: String,
     },
+    /// Missing ancillary verifier
+    #[error("Ancillary verifier is not set, please use `set_ancillary_verification_key` when creating the client")]
+    MissingAncillaryVerifier,
 }
 
 /// Aggregator client for the snapshot artifact
@@ -205,6 +208,10 @@ impl SnapshotClient {
             target_dir: &std::path::Path,
         ) -> MithrilResult<()> {
             use crate::feedback::MithrilEvent;
+            if self.ancillary_verifier.is_none() {
+                return Err(SnapshotClientError::MissingAncillaryVerifier.into());
+            }
+
             let download_id = MithrilEvent::new_snapshot_download_id();
             self.download_unpack_immutables_files(snapshot, target_dir, &download_id)
                 .await?;
@@ -259,14 +266,6 @@ impl SnapshotClient {
             target_dir: &std::path::Path,
             download_id: &str,
         ) -> MithrilResult<()> {
-            if self.ancillary_verifier.is_none() {
-                slog::warn!(
-                    self.logger,
-                    "No ancillary verifier set, skipping ancillary download"
-                );
-                return Ok(());
-            }
-
             match &snapshot.ancillary_locations {
                 None => Ok(()),
                 Some(ancillary_locations) => {
@@ -280,15 +279,16 @@ impl SnapshotClient {
                             )
                         })?;
 
-                    let result = self.download_unpack_verify_ancillary(
-                        snapshot,
-                        ancillary_locations,
-                        snapshot.ancillary_size.unwrap_or(0),
-                        target_dir,
-                        &temp_ancillary_unpack_dir,
-                        download_id,
-                    )
-                    .await;
+                    let result = self
+                        .download_unpack_verify_ancillary(
+                            snapshot,
+                            ancillary_locations,
+                            snapshot.ancillary_size.unwrap_or(0),
+                            target_dir,
+                            &temp_ancillary_unpack_dir,
+                            download_id,
+                        )
+                        .await;
 
                     if let Err(e) = std::fs::remove_dir_all(&temp_ancillary_unpack_dir) {
                         slog::warn!(
@@ -323,12 +323,15 @@ impl SnapshotClient {
             )
             .await?;
 
-            let ancillary_verifier = self.ancillary_verifier.as_ref().ok_or(anyhow::anyhow!(
-                "Ancillary verifier is not set, please use `set_ancillary_verification_key` when creating the client"
-            ))?;
+            let ancillary_verifier = self
+                .ancillary_verifier
+                .as_ref()
+                .ok_or(SnapshotClientError::MissingAncillaryVerifier)?;
 
             let validated_manifest = ancillary_verifier.verify(temp_ancillary_unpack_dir).await?;
-            validated_manifest.move_to_final_location(target_dir).await?;
+            validated_manifest
+                .move_to_final_location(target_dir)
+                .await?;
 
             Ok(())
         }
@@ -417,20 +420,28 @@ mod tests {
     }
 
     #[cfg(feature = "fs")]
+    fn setup_snapshot_client(
+        file_downloader: Arc<dyn FileDownloader>,
+        ancillary_verifier: Option<Arc<AncillaryVerifier>>,
+    ) -> SnapshotClient {
+        let aggregator_client = Arc::new(MockAggregatorClient::new());
+        let logger = TestLogger::stdout();
+
+        SnapshotClient::new(
+            aggregator_client,
+            file_downloader,
+            ancillary_verifier,
+            FeedbackSender::new(&[]),
+            logger.clone(),
+        )
+    }
+
+    #[cfg(feature = "fs")]
     mod download_unpack_file {
         use super::*;
 
         fn setup_snapshot_client(file_downloader: Arc<dyn FileDownloader>) -> SnapshotClient {
-            let aggregator_client = Arc::new(MockAggregatorClient::new());
-            let logger = TestLogger::stdout();
-
-            SnapshotClient::new(
-                aggregator_client,
-                file_downloader,
-                None,
-                FeedbackSender::new(&[]),
-                logger.clone(),
-            )
+            super::setup_snapshot_client(file_downloader, None)
         }
 
         #[tokio::test]
@@ -557,6 +568,35 @@ mod tests {
     }
 
     #[cfg(feature = "fs")]
+    mod download_unpack_full {
+        use super::*;
+
+        #[tokio::test]
+        async fn fail_if_ancillary_verifier_is_not_set() {
+            let snapshot = Snapshot {
+                ancillary_locations: Some(vec!["http://example.com/ancillary".to_string()]),
+                ancillary_size: Some(123),
+                ..Snapshot::dummy()
+            };
+
+            let client = setup_snapshot_client(Arc::new(MockFileDownloader::new()), None);
+
+            let error = client
+                .download_unpack_full(&snapshot, &PathBuf::from("/whatever"))
+                .await
+                .expect_err("Should fail when ancillary verifier is not set");
+
+            assert!(
+                matches!(
+                    error.downcast_ref::<SnapshotClientError>(),
+                    Some(SnapshotClientError::MissingAncillaryVerifier)
+                ),
+                "Expected SnapshotClientError::MissingAncillaryVerifier, but got: {error:#?}"
+            );
+        }
+    }
+
+    #[cfg(feature = "fs")]
     mod download_unpack_ancillary {
         use std::fs::File;
         use std::path::Path;
@@ -571,61 +611,21 @@ mod tests {
 
         use super::*;
 
-        fn setup_snapshot_client(
-            file_downloader: Arc<dyn FileDownloader>,
-            ancillary_verifier: Option<Arc<AncillaryVerifier>>,
-        ) -> SnapshotClient {
-            let aggregator_client = Arc::new(MockAggregatorClient::new());
-            let logger = TestLogger::stdout();
-
-            SnapshotClient::new(
-                aggregator_client,
-                file_downloader,
-                ancillary_verifier,
-                FeedbackSender::new(&[]),
-                logger.clone(),
-            )
-        }
-
-        #[tokio::test]
-        async fn log_a_warning_and_do_nothing_if_verifier_is_not_set() {
-            let log_path = temp_dir_create!().join("test.log");
-            let snapshot = Snapshot {
-                ancillary_locations: Some(vec!["http://example.com/ancillary".to_string()]),
-                ancillary_size: Some(123),
-                ..Snapshot::dummy()
-            };
-
-            {
-                let client = SnapshotClient {
-                    logger: TestLogger::file(&log_path),
-                    ..setup_snapshot_client(Arc::new(MockFileDownloader::new()), None)
-                };
-
-                client
-                    .download_unpack_ancillary(
-                        &snapshot,
-                        &PathBuf::from("/whatever"),
-                        "test-download-id",
-                    )
-                    .await
-                    .expect("Should succeed when no ancillary verifier is set");
-            }
-
-            let logs = std::fs::read_to_string(&log_path).unwrap();
-            assert!(logs.contains("No ancillary verifier set, skipping ancillary download"));
-        }
-
         #[tokio::test]
         async fn do_nothing_if_no_ancillary_locations_available_in_snapshot() {
-            let mock_downloader = MockFileDownloader::new();
-            let client = setup_snapshot_client(Arc::new(mock_downloader), None);
-
+            let verification_key = fake_keys::manifest_verification_key()[0]
+                .try_into()
+                .unwrap();
             let snapshot = Snapshot {
                 ancillary_locations: None,
                 ancillary_size: None,
                 ..Snapshot::dummy()
             };
+
+            let client = setup_snapshot_client(
+                Arc::new(MockFileDownloader::new()),
+                Some(Arc::new(AncillaryVerifier::new(verification_key))),
+            );
 
             client
                 .download_unpack_ancillary(
