@@ -20,3 +20,4 @@ pub mod multi_sig;
 
 #[cfg(not(feature = "benchmark-internals"))]
 mod multi_sig;
+mod stm_telescope;
