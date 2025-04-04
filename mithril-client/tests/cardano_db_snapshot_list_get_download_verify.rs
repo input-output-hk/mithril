@@ -51,6 +51,11 @@ async fn cardano_db_snapshot_list_get_download_verify() {
         .await;
     let client = ClientBuilder::aggregator(&test_http_server.url(), genesis_verification_key)
         .with_certificate_verifier(FakeCertificateVerifier::build_that_validate_any_certificate())
+        .set_ancillary_verification_key(
+            ancillary_manifest_signer_verification_key
+                .try_into()
+                .unwrap(),
+        )
         .add_feedback_receiver(Arc::new(SlogFeedbackReceiver::new(
             extensions::test_logger(),
         )))
