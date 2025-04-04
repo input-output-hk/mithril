@@ -240,6 +240,8 @@ Options:
           Redirect the logs to a file
       --unstable
           Enable unstable commands
+      --origin-tag <ORIGIN_TAG>
+          Request origin tag
   -h, --help
           Print help
   -V, --version
