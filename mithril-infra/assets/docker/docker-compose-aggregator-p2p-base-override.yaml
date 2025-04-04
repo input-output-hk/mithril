@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   mithril-aggregator-relay:
     image: ghcr.io/input-output-hk/mithril-relay:${MITHRIL_IMAGE_ID}
