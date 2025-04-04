@@ -39,17 +39,13 @@ async fn cardano_db_snapshot_list_get_download_verify() {
             range,
         )
         .await;
-    let client = ClientBuilder::aggregator(
-        Some("TEST".to_string()),
-        &test_http_server.url(),
-        genesis_verification_key,
-    )
-    .with_certificate_verifier(FakeCertificateVerifier::build_that_validate_any_certificate())
-    .add_feedback_receiver(Arc::new(SlogFeedbackReceiver::new(
-        extensions::test_logger(),
-    )))
-    .build()
-    .expect("Should be able to create a Client");
+    let client = ClientBuilder::aggregator(&test_http_server.url(), genesis_verification_key)
+        .with_certificate_verifier(FakeCertificateVerifier::build_that_validate_any_certificate())
+        .add_feedback_receiver(Arc::new(SlogFeedbackReceiver::new(
+            extensions::test_logger(),
+        )))
+        .build()
+        .expect("Should be able to create a Client");
 
     let cardano_db_snapshots = client
         .cardano_database_v2()
