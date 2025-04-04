@@ -9,6 +9,7 @@ import RawJsonButton from "#/RawJsonButton";
 import LocalDateTime from "#/LocalDateTime";
 import { selectedAggregator } from "@/store/settingsSlice";
 import { formatBytes } from "@/utils";
+import { fetchAggregator } from "@/aggregator-api";
 
 export default function CardanoDbSnapshotsList(props) {
   const [cardanoDbSnapshots, setCardanoDbSnapshots] = useState([]);
@@ -22,7 +23,7 @@ export default function CardanoDbSnapshotsList(props) {
 
   useEffect(() => {
     let fetchSnapshots = () => {
-      fetch(artifactsEndpoint)
+      fetchAggregator(artifactsEndpoint)
         .then((response) => response.json())
         .then((data) => setCardanoDbSnapshots(data))
         .catch((error) => {

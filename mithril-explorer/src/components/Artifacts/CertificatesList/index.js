@@ -9,6 +9,7 @@ import LocalDateTime from "#/LocalDateTime";
 import RawJsonButton from "#/RawJsonButton";
 import { selectedAggregator } from "@/store/settingsSlice";
 import { parseSignedEntity } from "@/utils";
+import { fetchAggregator } from "@/aggregator-api";
 
 function BeaconColumns({ signedEntity }) {
   const beacon = parseSignedEntity(signedEntity ?? {});
@@ -38,7 +39,7 @@ export default function CertificatesList(props) {
 
   useEffect(() => {
     let fetchCertificates = () => {
-      fetch(certificatesEndpoint)
+      fetchAggregator(certificatesEndpoint)
         .then((response) => response.json())
         .then((data) => setCertificates(data))
         .catch((error) => {

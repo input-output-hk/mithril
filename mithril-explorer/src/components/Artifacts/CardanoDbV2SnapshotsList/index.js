@@ -11,6 +11,7 @@ import RawJsonButton from "#/RawJsonButton";
 import { formatBytes } from "@/utils";
 import DownloadButton from "#/Artifacts/CardanoDbV2SnapshotsList/DownloadButton";
 import { selectedAggregator } from "@/store/settingsSlice";
+import { fetchAggregator } from "@/aggregator-api";
 
 export default function CardanoDbV2SnapshotsList(props) {
   const [cardanoDbSnapshots, setCardanoDbSnapshots] = useState([]);
@@ -23,7 +24,7 @@ export default function CardanoDbV2SnapshotsList(props) {
 
   useEffect(() => {
     let fetchSnapshots = () => {
-      fetch(artifactsEndpoint)
+      fetchAggregator(artifactsEndpoint)
         .then((response) => response.json())
         .then((data) => setCardanoDbSnapshots(data))
         .catch((error) => {

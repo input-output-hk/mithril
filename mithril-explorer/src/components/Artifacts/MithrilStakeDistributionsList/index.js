@@ -8,6 +8,7 @@ import CertificateModal from "#/CertificateModal";
 import RawJsonButton from "#/RawJsonButton";
 import LocalDateTime from "#/LocalDateTime";
 import { selectedAggregator } from "@/store/settingsSlice";
+import { fetchAggregator } from "@/aggregator-api";
 
 export default function MithrilStakeDistributionsList(props) {
   const [mithrilStakeDistributions, setMithrilStakeDistributions] = useState([]);
@@ -21,7 +22,7 @@ export default function MithrilStakeDistributionsList(props) {
 
   useEffect(() => {
     let fetchMithrilStakeDistribution = () => {
-      fetch(artifactsEndpoint)
+      fetchAggregator(artifactsEndpoint)
         .then((response) => response.json())
         .then((data) => setMithrilStakeDistributions(data))
         .catch((error) => {
