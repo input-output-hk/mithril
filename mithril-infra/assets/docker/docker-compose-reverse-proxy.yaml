@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   reverse-proxy:
     image: traefik:3.3

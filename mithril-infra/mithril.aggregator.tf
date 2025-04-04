@@ -122,11 +122,12 @@ if [ "${local.mithril_aggregator_use_authentication}" = "true" ]; then
   DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-aggregator-auth-override.yaml"
 fi
 # Support for aggregator P2P network
-if [ "${local.mithril_aggregator_use_p2p_network}" = "true" ]; then
+if [ "${var.mithril_use_p2p_network}" = "true" ]; then
   DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-aggregator-p2p-base-override.yaml"
-fi
-if [ "${var.mithril_p2p_network_bootstrap_peer}" != "" ]; then
-  DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-aggregator-p2p-bootstrap-override.yaml"
+
+  if [ "${var.mithril_p2p_network_bootstrap_peer}" != "" ]; then
+    DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-aggregator-p2p-bootstrap-override.yaml"
+  fi
 fi
 # Support for aggregator follower
 if [ "${local.mithril_aggregator_is_follower}" = "true" ]; then
