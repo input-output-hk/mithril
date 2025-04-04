@@ -67,6 +67,14 @@ inputs:
     description: Mithril P2P network bootstrap peer (experimental, for test only).
     required: false
     default: ""
+  mithril_p2p_signer_relay_signer_registration_mode:
+    description: Mithril P2P network signer relay signer registration mode ('p2p' or 'passthrough') (experimental, for test only).
+    required: false
+    default: "passthrough"
+  mithril_p2p_signer_relay_signature_registration_mode:
+    description: Mithril P2P network signer relay signature registration mode ('p2p' or 'passthrough') (experimental, for test only).
+    required: false
+    default: "p2p"
   mithril_api_domain:
     description: Mithril network api domain root.
     required: true
@@ -213,6 +221,8 @@ runs:
           google_service_credentials_json_file                                      = "./google-application-credentials.json"
           mithril_use_p2p_network                                                   = "${{ inputs.mithril_use_p2p_network }}"
           mithril_p2p_network_bootstrap_peer                                        = "${{ inputs.mithril_p2p_network_bootstrap_peer }}"
+          mithril_p2p_signer_relay_signer_registration_mode                         = "${{ inputs.mithril_p2p_signer_relay_signer_registration_mode }}"
+          mithril_p2p_signer_relay_signature_registration_mode                      = "${{ inputs.mithril_p2p_signer_relay_signature_registration_mode }}"
           mithril_api_domain                                                        = "${{ inputs.mithril_api_domain }}"
           mithril_image_id                                                          = "${{ inputs.mithril_image_id }}"
           mithril_genesis_verification_key_url                                      = "${{ inputs.mithril_genesis_verification_key_url }}"
