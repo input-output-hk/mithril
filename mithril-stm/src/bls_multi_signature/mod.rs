@@ -1,6 +1,6 @@
 //! BLST Multi-signature module
 
-mod helper;
+pub(super) mod helper;
 mod proof_of_possession;
 mod signature;
 mod signing_key;
