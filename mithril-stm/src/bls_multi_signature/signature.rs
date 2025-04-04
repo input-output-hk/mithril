@@ -1,7 +1,7 @@
-use crate::bls_multi_sig::unsafe_helpers::{
+use crate::bls_multi_signature::helper::unsafe_helpers::{
     p1_affine_to_sig, p2_affine_to_vk, sig_to_p1, vk_from_p2_affine,
 };
-use crate::bls_multi_sig::verification_key::VerificationKey;
+use crate::bls_multi_signature::verification_key::VerificationKey;
 use crate::error::{blst_err_to_mithril, MultiSignatureError};
 use crate::stm::Index;
 use blake2::Blake2b;

@@ -1,4 +1,4 @@
-use crate::bls_multi_sig::VerificationKey;
+use crate::bls_multi_signature::VerificationKey;
 use crate::error::MerkleTreeError;
 use crate::participant::StmVerificationKey;
 use crate::stm::Stake;
