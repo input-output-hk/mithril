@@ -106,13 +106,64 @@ EOT
       "export SIGNER_RELAY_LISTEN_PORT='${local.mithril_signers_relay_listen_port[each.key]}'",
       "export SIGNER_RELAY_SERVER_PORT='${local.mithril_signers_relay_server_port[each.key]}'",
       "export SIGNER_RELAY_REGISTRATION_REPEATER_DELAY='${var.mithril_p2p_signer_registration_repeat_delay}'",
+      "export LEADER_AGGREGATOR_ENDPOINT='${var.mithril_aggregator_leader_aggregator_endpoint}'",
+      "export P2P_BOOTSTRAP_PEER='${var.mithril_p2p_network_bootstrap_peer}'",
       "export ENABLE_METRICS_SERVER=true",
       "export METRICS_SERVER_IP=0.0.0.0",
       "export METRICS_SERVER_PORT=9090",
       "export LOGGING_DRIVER='${var.mithril_container_logging_driver}'",
       "export CURRENT_UID=$(id -u)",
       "export DOCKER_GID=$(getent group docker | cut -d: -f3)",
-      "docker compose -p $SIGNER_ID -f /home/curry/docker/docker-compose-signer-${each.value.type}${local.mithril_network_type_suffix}.yaml --profile all up -d",
+      <<-EOT
+set -e
+# Compute the docker compose files merge sequence for the signer
+DOCKER_DIRECTORY=/home/curry/docker
+DOCKER_COMPOSE_FILES="-f $DOCKER_DIRECTORY/docker-compose-signer-base.yaml"
+# Support for signer verified signer with squid relay
+if [ "${each.value.type}" = "verified" ]; then
+  DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-verified-override.yaml"
+  DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-cardano-bp-override.yaml"
+  DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-squid-relay-override.yaml"
+fi
+if [ "${each.value.type}" = "verified-norelay" ]; then
+  DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-verified-override.yaml"
+  DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-cardano-bp-override.yaml"
+fi
+# Support for signer unverified signer with passive Cardano node
+if [ "${each.value.type}" = "unverified-cardano-passive" ]; then
+  DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-unverified-override.yaml"
+  DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-cardano-passive-override.yaml"
+  DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-squid-relay-override.yaml"
+fi
+if [ "${each.value.type}" = "unverified-cardano-passive-norelay" ]; then
+  DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-unverified-override.yaml"
+  DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-cardano-passive-override.yaml"
+fi
+# Support for signer unverified signer with shared Cardano node
+if [ "${each.value.type}" = "unverified-cardano-shared" ]; then
+  DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-unverified-override.yaml"
+  DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-cardano-shared-override.yaml"
+  DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-squid-relay-override.yaml"
+fi
+if [ "${each.value.type}" = "unverified-cardano-shared-norelay" ]; then
+  DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-unverified-override.yaml"
+  DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-cardano-shared-override.yaml"
+fi
+# Support for signer P2P network
+if [ "${var.mithril_use_p2p_network}" = "true" ]; then
+  DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-p2p-base-override.yaml"
+  
+  if [ "${var.mithril_p2p_network_bootstrap_peer}" != "" ]; then
+    DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-p2p-bootstrap-override.yaml"
+  fi
+fi
+# Support for aggregator follower
+if [ "${local.mithril_aggregator_is_follower}" = "true" ]; then
+  DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-follower-override.yaml"
+fi
+EOT
+      ,
+      "docker compose -p $SIGNER_ID $DOCKER_COMPOSE_FILES --profile all up -d",
     ]
   }
 }

@@ -1,0 +1,46 @@
+services:
+  cardano-node-signer:
+    image: cardano-node/${CARDANO_IMAGE_ID}-modified
+    container_name: cardano-node-full-signer-${SIGNER_ID}
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile.cardano
+      args:
+        CARDANO_IMAGE_ID: ${CARDANO_IMAGE_ID}
+        CARDANO_IMAGE_REGISTRY: ${CARDANO_IMAGE_REGISTRY}
+    user: ${CURRENT_UID}
+    profiles:
+      - cardano
+      - all
+    logging:
+      driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+    volumes:
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/config/full/${NETWORK}:/config
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/passive:/db
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
+    environment:
+      - CARDANO_SOCKET_PATH=/ipc/node.socket
+      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
+    command:
+      [
+        "run",
+        "--config",
+        "/config/cardano-node/config.json",
+        "--topology",
+        "/config/cardano-node/topology.json",
+        "--database-path",
+        "/db"
+      ]
+
+  mithril-signer:
+    depends_on:
+      cardano-node-signer:
+        condition: service_started
+    environment:
+      - DB_DIRECTORY=/mithril-signer-${SIGNER_ID}/cardano/db
+    volumes:
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/passive:/mithril-signer-${SIGNER_ID}/cardano/db
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
