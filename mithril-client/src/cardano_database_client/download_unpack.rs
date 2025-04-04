@@ -6,7 +6,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use tokio::task::JoinSet;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 
 use mithril_common::{
     digesters::{IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR},
@@ -16,7 +16,7 @@ use mithril_common::{
 
 use crate::feedback::{FeedbackSender, MithrilEvent, MithrilEventCardanoDatabase};
 use crate::file_downloader::{DownloadEvent, FileDownloader, FileDownloaderUri};
-use crate::utils::VecDequeExtensions;
+use crate::utils::{delete_directory, AncillaryVerifier, VecDequeExtensions};
 use crate::MithrilResult;
 
 use super::immutable_file_range::ImmutableFileRange;
@@ -31,6 +31,8 @@ struct DownloadTask {
     size_uncompressed: u64,
     target_dir: PathBuf,
     download_event: DownloadEvent,
+    create_target_dir: bool,
+    post_download_task: Option<Pin<Box<DownloadFuture>>>,
 }
 
 impl DownloadTask {
@@ -74,6 +76,7 @@ impl Default for DownloadUnpackOptions {
 
 pub struct InternalArtifactDownloader {
     http_file_downloader: Arc<dyn FileDownloader>,
+    ancillary_verifier: Option<Arc<AncillaryVerifier>>,
     feedback_sender: FeedbackSender,
     logger: slog::Logger,
 }
@@ -82,11 +85,13 @@ impl InternalArtifactDownloader {
     /// Constructs a new `InternalArtifactDownloader`.
     pub fn new(
         http_file_downloader: Arc<dyn FileDownloader>,
+        ancillary_verifier: Option<Arc<AncillaryVerifier>>,
         feedback_sender: FeedbackSender,
         logger: slog::Logger,
     ) -> Self {
         Self {
             http_file_downloader,
+            ancillary_verifier,
             feedback_sender,
             logger,
         }
@@ -159,6 +164,10 @@ impl InternalArtifactDownloader {
 
     fn ledger_target_dir(target_dir: &Path) -> PathBuf {
         target_dir.join(LEDGER_DIR)
+    }
+
+    fn temp_ancillary_target_dir(target_dir: &Path, download_id: &str) -> PathBuf {
+        target_dir.join(format!("ancillary-{download_id}"))
     }
 
     /// Verify if the target directory is writable.
@@ -275,15 +284,21 @@ impl InternalArtifactDownloader {
                 download_id: download_id.to_string(),
                 immutable_file_number,
             },
+            create_target_dir: false,
+            post_download_task: None,
         })
     }
 
     fn new_ancillary_download_task(
         &self,
         locations: &AncillaryMessagePart,
-        ancillary_file_target_dir: &Path,
+        target_dir: &Path,
         download_id: &str,
     ) -> MithrilResult<DownloadTask> {
+        let ancillary_verifier = self.ancillary_verifier.clone().ok_or(anyhow!(
+            "ancillary verifier is not set, please use `set_ancillary_verification_key` when creating the client"
+        ))?;
+
         let mut locations_to_try = vec![];
         let mut locations_sorted = locations.sanitized_locations()?;
         locations_sorted.sort();
@@ -309,14 +324,39 @@ impl InternalArtifactDownloader {
             locations_to_try.push(location_to_try);
         }
 
+        let ancillary_files_target_dir = Self::temp_ancillary_target_dir(target_dir, download_id);
+        let ancillary_files_target_dir_clone = ancillary_files_target_dir.clone();
+        let final_ancillary_location = target_dir.to_path_buf();
+        let logger_clone = self.logger.clone();
+        let post_ancillary_download_future = async move {
+            let result = ancillary_verifier
+                .verify_and_move_to_final_location(
+                    &ancillary_files_target_dir_clone,
+                    &final_ancillary_location,
+                )
+                .await;
+
+            if let Err(e) = delete_directory(&ancillary_files_target_dir_clone) {
+                slog::warn!(
+                    logger_clone,
+                    "Failed to remove ancillary unpack directory '{}': {e:?}",
+                    ancillary_files_target_dir_clone.display()
+                );
+            }
+
+            result
+        };
+
         Ok(DownloadTask {
             name: "ancillary".to_string(),
             locations_to_try,
-            target_dir: ancillary_file_target_dir.to_path_buf(),
+            target_dir: ancillary_files_target_dir.to_path_buf(),
             size_uncompressed: locations.size_uncompressed,
             download_event: DownloadEvent::Ancillary {
                 download_id: download_id.to_string(),
             },
+            create_target_dir: true,
+            post_download_task: Some(Box::pin(post_ancillary_download_future)),
         })
     }
 
@@ -355,6 +395,17 @@ impl InternalArtifactDownloader {
         let logger_clone = self.logger.clone();
         let download_future = async move {
             let tried_locations = task.tried_locations();
+            if task.create_target_dir {
+                tokio::fs::create_dir(&task.target_dir)
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "can not create download target directory '{}'",
+                            task.target_dir.display()
+                        )
+                    })?;
+            }
+
             for location_to_try in task.locations_to_try {
                 let downloaded = location_to_try
                     .file_downloader
@@ -375,6 +426,9 @@ impl InternalArtifactDownloader {
                         "error" => ?e
                     );
                 } else {
+                    if let Some(post_download_task) = task.post_download_task {
+                        post_download_task.await?;
+                    }
                     return Ok(());
                 }
             }
@@ -397,7 +451,7 @@ mod tests {
     use mithril_common::{
         entities::{CardanoDbBeacon, Epoch, MultiFilesUri, TemplateUri},
         messages::CardanoDatabaseSnapshotMessage as CardanoDatabaseSnapshot,
-        test_utils::TempDir,
+        test_utils::{fake_keys, temp_dir_create, TempDir},
     };
 
     use crate::cardano_database_client::CardanoDatabaseClientDependencyInjector;
@@ -407,10 +461,12 @@ mod tests {
     use super::*;
 
     mod download_unpack {
-
+        use mithril_common::crypto_helper::ManifestSigner;
         use mithril_common::messages::{
             AncillaryMessagePart, DigestsMessagePart, ImmutablesMessagePart,
         };
+
+        use crate::file_downloader::FakeAncillaryFileBuilder;
 
         use super::*;
 
@@ -517,6 +573,7 @@ mod tests {
                 include_ancillary: true,
                 ..DownloadUnpackOptions::default()
             };
+            let ancillary_signer = ManifestSigner::create_deterministic_signer();
             let cardano_db_snapshot = CardanoDatabaseSnapshot {
                 hash: "hash-123".to_string(),
                 beacon: CardanoDbBeacon {
@@ -562,11 +619,16 @@ mod tests {
                         .with_success()
                         .next_call()
                         .with_file_uri("http://whatever/ancillary.tar.gz")
-                        .with_target_dir(target_dir.clone())
                         .with_compression(Some(CompressionAlgorithm::Gzip))
-                        .with_success()
+                        .with_success_and_create_fake_ancillary_files(
+                            FakeAncillaryFileBuilder::builder()
+                                .files_in_manifest_to_create(vec!["ledger".to_string()])
+                                .sign_manifest(ancillary_signer.clone())
+                                .build(),
+                        )
                         .build()
                 }))
+                .with_ancillary_verifier(ancillary_signer.verification_key())
                 .build_cardano_database_client();
 
             client
@@ -578,6 +640,37 @@ mod tests {
                 )
                 .await
                 .unwrap();
+        }
+
+        #[tokio::test]
+        async fn fail_if_include_ancillary_is_true_and_ancillary_verifier_is_not_set() {
+            let download_unpack_options = DownloadUnpackOptions {
+                include_ancillary: true,
+                ..Default::default()
+            };
+            let cardano_db_snapshot = CardanoDatabaseSnapshot {
+                hash: "hash-123".to_string(),
+                ..CardanoDatabaseSnapshot::dummy()
+            };
+            let target_dir = temp_dir_create!();
+            let client =
+                CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
+
+            let error = client
+                .download_unpack(
+                    &cardano_db_snapshot,
+                    &ImmutableFileRange::Full,
+                    &target_dir,
+                    download_unpack_options,
+                )
+                .await
+                .unwrap_err();
+
+            let expected_error_text = "ancillary verifier is not set, please use `set_ancillary_verification_key` when creating the client";
+            assert!(
+                error.to_string().contains(expected_error_text),
+                "Expected error message to contain '{expected_error_text}', but got: {error}"
+            );
         }
     }
 
@@ -781,7 +874,6 @@ mod tests {
     }
 
     mod download_unpack_immutable_files {
-
         use super::*;
 
         #[tokio::test]
@@ -801,6 +893,7 @@ mod tests {
                         .with_failure()
                         .build(),
                 ),
+                None,
                 FeedbackSender::new(&[]),
                 TestLogger::stdout(),
             );
@@ -837,6 +930,7 @@ mod tests {
             let target_dir = TempDir::new("cardano_database_client", "download_unpack").build();
             let artifact_downloader = InternalArtifactDownloader::new(
                 Arc::new(MockFileDownloader::new()),
+                None,
                 FeedbackSender::new(&[]),
                 TestLogger::stdout(),
             );
@@ -876,6 +970,7 @@ mod tests {
                         .with_success()
                         .build(),
                 ),
+                None,
                 FeedbackSender::new(&[]),
                 TestLogger::stdout(),
             );
@@ -931,6 +1026,7 @@ mod tests {
                         .with_success()
                         .build(),
                 ),
+                None,
                 FeedbackSender::new(&[]),
                 TestLogger::stdout(),
             );
@@ -970,14 +1066,26 @@ mod tests {
     }
 
     mod download_unpack_ancillary_file {
+        use mithril_common::crypto_helper::ManifestSigner;
+
+        use crate::file_downloader::FakeAncillaryFileBuilder;
 
         use super::*;
 
+        fn fake_ancillary_verifier() -> AncillaryVerifier {
+            AncillaryVerifier::new(
+                fake_keys::manifest_verification_key()[0]
+                    .try_into()
+                    .unwrap(),
+            )
+        }
+
         #[tokio::test]
-        async fn download_unpack_ancillary_file_fails_if_no_location_is_retrieved() {
-            let target_dir = Path::new(".");
+        async fn fails_and_delete_temp_ancillary_download_dir_if_no_location_is_retrieved() {
+            let target_dir = temp_dir_create!();
             let artifact_downloader = InternalArtifactDownloader::new(
                 Arc::new(MockFileDownloaderBuilder::default().with_failure().build()),
+                Some(Arc::new(fake_ancillary_verifier())),
                 FeedbackSender::new(&[]),
                 TestLogger::stdout(),
             );
@@ -991,7 +1099,7 @@ mod tests {
                         }],
                         size_uncompressed: 0,
                     },
-                    target_dir,
+                    &target_dir,
                     "download_id",
                 )
                 .unwrap();
@@ -1000,13 +1108,20 @@ mod tests {
                 .batch_download_unpack(vec![task].into(), 1)
                 .await
                 .expect_err("batch_download_unpack of ancillary file should fail");
+
+            assert!(!InternalArtifactDownloader::temp_ancillary_target_dir(
+                &target_dir,
+                "download_id"
+            )
+            .exists());
         }
 
         #[tokio::test]
         async fn building_ancillary_download_tasks_fails_if_all_locations_are_unknown() {
-            let target_dir = Path::new(".");
+            let target_dir = temp_dir_create!();
             let artifact_downloader = InternalArtifactDownloader::new(
                 Arc::new(MockFileDownloader::new()),
+                Some(Arc::new(fake_ancillary_verifier())),
                 FeedbackSender::new(&[]),
                 TestLogger::stdout(),
             );
@@ -1016,7 +1131,7 @@ mod tests {
                     locations: vec![AncillaryLocation::Unknown {}],
                     size_uncompressed: 0,
                 },
-                target_dir,
+                &target_dir,
                 "download_id",
             );
 
@@ -1027,25 +1142,32 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn download_unpack_ancillary_file_succeeds_if_at_least_one_location_is_retrieved() {
-            let target_dir = Path::new(".");
+        async fn succeeds_if_at_least_one_location_is_retrieved() {
+            let target_dir = temp_dir_create!();
             let artifact_downloader = InternalArtifactDownloader::new(
                 Arc::new(
                     MockFileDownloaderBuilder::default()
                         .with_file_uri("http://whatever-1/ancillary.tar.gz")
-                        .with_target_dir(target_dir.to_path_buf())
+                        .with_target_dir(InternalArtifactDownloader::temp_ancillary_target_dir(
+                            &target_dir,
+                            "download_id",
+                        ))
                         .with_failure()
                         .next_call()
                         .with_file_uri("http://whatever-2/ancillary.tar.gz")
-                        .with_target_dir(target_dir.to_path_buf())
+                        .with_target_dir(InternalArtifactDownloader::temp_ancillary_target_dir(
+                            &target_dir,
+                            "download_id",
+                        ))
                         .with_success()
                         .build(),
                 ),
+                Some(Arc::new(fake_ancillary_verifier())),
                 FeedbackSender::new(&[]),
                 TestLogger::stdout(),
             );
 
-            let task = artifact_downloader
+            let mut task = artifact_downloader
                 .new_ancillary_download_task(
                     &AncillaryMessagePart {
                         locations: vec![
@@ -1060,10 +1182,12 @@ mod tests {
                         ],
                         size_uncompressed: 0,
                     },
-                    target_dir,
+                    &target_dir,
                     "download_id",
                 )
                 .unwrap();
+            // Avoid ancillary verification & move (checked by other tests)
+            task.post_download_task = None;
 
             artifact_downloader
                 .batch_download_unpack(vec![task].into(), 1)
@@ -1072,21 +1196,25 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn download_unpack_ancillary_file_succeeds_when_first_location_is_retrieved() {
-            let target_dir = Path::new(".");
+        async fn succeeds_when_first_location_is_retrieved() {
+            let target_dir = temp_dir_create!();
             let artifact_downloader = InternalArtifactDownloader::new(
                 Arc::new(
                     MockFileDownloaderBuilder::default()
                         .with_file_uri("http://whatever-1/ancillary.tar.gz")
-                        .with_target_dir(target_dir.to_path_buf())
+                        .with_target_dir(InternalArtifactDownloader::temp_ancillary_target_dir(
+                            &target_dir,
+                            "download_id",
+                        ))
                         .with_success()
                         .build(),
                 ),
+                Some(Arc::new(fake_ancillary_verifier())),
                 FeedbackSender::new(&[]),
                 TestLogger::stdout(),
             );
 
-            let task = artifact_downloader
+            let mut task = artifact_downloader
                 .new_ancillary_download_task(
                     &AncillaryMessagePart {
                         locations: vec![
@@ -1101,7 +1229,104 @@ mod tests {
                         ],
                         size_uncompressed: 0,
                     },
-                    target_dir,
+                    &target_dir,
+                    "download_id",
+                )
+                .unwrap();
+            // Avoid ancillary verification & move (checked by other tests)
+            task.post_download_task = None;
+
+            artifact_downloader
+                .batch_download_unpack(vec![task].into(), 1)
+                .await
+                .unwrap();
+        }
+
+        #[tokio::test]
+        async fn fail_and_delete_temp_ancillary_download_dir_if_verify_fail() {
+            let target_dir = temp_dir_create!();
+            // The verifier will fail because the manifest is not signed
+            let artifact_downloader = InternalArtifactDownloader::new(
+                Arc::new(
+                    MockFileDownloaderBuilder::default()
+                        .with_file_uri("http://whatever-1/ancillary.tar.gz")
+                        .with_success_and_create_fake_ancillary_files(
+                            FakeAncillaryFileBuilder::builder()
+                                .files_in_manifest_to_create(vec!["ledger".to_string()])
+                                .build(),
+                        )
+                        .build(),
+                ),
+                Some(Arc::new(fake_ancillary_verifier())),
+                FeedbackSender::new(&[]),
+                TestLogger::stdout(),
+            );
+
+            let task = artifact_downloader
+                .new_ancillary_download_task(
+                    &AncillaryMessagePart {
+                        locations: vec![AncillaryLocation::CloudStorage {
+                            uri: "http://whatever-1/ancillary.tar.gz".to_string(),
+                            compression_algorithm: Some(CompressionAlgorithm::default()),
+                        }],
+                        size_uncompressed: 0,
+                    },
+                    &target_dir,
+                    "download_id",
+                )
+                .unwrap();
+
+            artifact_downloader
+                .batch_download_unpack(vec![task].into(), 1)
+                .await
+                .unwrap_err();
+
+            assert!(!InternalArtifactDownloader::temp_ancillary_target_dir(
+                &target_dir,
+                "download_id"
+            )
+            .exists());
+        }
+
+        #[tokio::test]
+        async fn move_file_in_manifest_then_delete_temporary_unpack_subfolder_if_verify_succeed() {
+            let target_dir = temp_dir_create!();
+            let ancillary_signer = ManifestSigner::create_deterministic_signer();
+            let verification_key = ancillary_signer.verification_key();
+            let artifact_downloader = InternalArtifactDownloader::new(
+                Arc::new(
+                    MockFileDownloaderBuilder::default()
+                        .with_file_uri("http://whatever/ancillary.tar.gz")
+                        .with_target_dir(InternalArtifactDownloader::temp_ancillary_target_dir(
+                            &target_dir,
+                            "download_id",
+                        ))
+                        .with_success_and_create_fake_ancillary_files(
+                            FakeAncillaryFileBuilder::builder()
+                                .files_in_manifest_to_create(vec!["dummy_ledger".to_string()])
+                                .files_not_in_manifest_to_create(vec![
+                                    "not_in_ancillary".to_string()
+                                ])
+                                .sign_manifest(ancillary_signer)
+                                .build(),
+                        )
+                        .build(),
+                ),
+                Some(Arc::new(AncillaryVerifier::new(verification_key))),
+                FeedbackSender::new(&[]),
+                TestLogger::stdout(),
+            );
+
+            let task = artifact_downloader
+                .new_ancillary_download_task(
+                    &AncillaryMessagePart {
+                        locations: vec![AncillaryLocation::CloudStorage {
+                            uri: "http://whatever/ancillary.tar.gz".to_string(),
+                            compression_algorithm: Some(CompressionAlgorithm::default()),
+                        }],
+                        size_uncompressed: 0,
+                    },
+                    &target_dir,
                     "download_id",
                 )
                 .unwrap();
@@ -1110,6 +1335,14 @@ mod tests {
                 .batch_download_unpack(vec![task].into(), 1)
                 .await
                 .unwrap();
+
+            assert!(target_dir.join("dummy_ledger").exists());
+            assert!(!target_dir.join("not_in_ancillary").exists());
+            assert!(!InternalArtifactDownloader::temp_ancillary_target_dir(
+                &target_dir,
+                "download-id"
+            )
+            .exists());
         }
     }
 }
