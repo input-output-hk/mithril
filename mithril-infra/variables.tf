@@ -190,6 +190,18 @@ variable "mithril_p2p_network_bootstrap_peer" {
   default     = ""
 }
 
+variable "mithril_p2p_signer_relay_signer_registration_mode" {
+  type        = string
+  description = "The signer registration mode used by the mithril signer relay. Can be either `p2p` or `passthrough` (defaults to `passthrough`) (experimental, for test only)"
+  default     = "passthrough"
+}
+
+variable "mithril_p2p_signer_relay_signature_registration_mode" {
+  type        = string
+  description = "The signature registration mode used by the mithril signer relay. Can be either `p2p` or `passthrough` (defaults to `p2p`) (experimental, for test only)"
+  default     = "p2p"
+}
+
 variable "mithril_p2p_signer_registration_repeat_delay" {
   type        = number
   description = "The repeat delay in milliseconds for the signer registration when operating in P2P mode (defaults to 1 hour)"

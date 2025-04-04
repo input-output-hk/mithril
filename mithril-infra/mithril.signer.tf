@@ -105,6 +105,8 @@ EOT
       "export AGGREGATOR_RELAY_LISTEN_PORT='${local.mithril_aggregator_relay_mithril_listen_port}'",
       "export SIGNER_RELAY_LISTEN_PORT='${local.mithril_signers_relay_listen_port[each.key]}'",
       "export SIGNER_RELAY_SERVER_PORT='${local.mithril_signers_relay_server_port[each.key]}'",
+      "export SIGNER_RELAY_SIGNER_REGISTRATION_MODE='${var.mithril_p2p_signer_relay_signer_registration_mode}'",
+      "export SIGNER_RELAY_SIGNATURE_REGISTRATION_MODE='${var.mithril_p2p_signer_relay_signature_registration_mode}'",
       "export SIGNER_RELAY_REGISTRATION_REPEATER_DELAY='${var.mithril_p2p_signer_registration_repeat_delay}'",
       "export LEADER_AGGREGATOR_ENDPOINT='${var.mithril_aggregator_leader_aggregator_endpoint}'",
       "export P2P_BOOTSTRAP_PEER='${var.mithril_p2p_network_bootstrap_peer}'",
