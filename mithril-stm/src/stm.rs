@@ -107,7 +107,7 @@
 //! # }
 //! ```
 
-use crate::bls_multi_signature::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
+use crate::bls_multi_signature::{Signature, VerificationKey};
 use crate::eligibility_check::ev_lt_phi;
 use crate::error::{
     AggregationError, CoreVerifierError, RegisterError, StmAggregateSignatureError,
@@ -130,12 +130,6 @@ pub type Stake = u64;
 /// Quorum index for signatures.
 /// An aggregate signature (`StmMultiSig`) must have at least `k` unique indices.
 pub type Index = u64;
-
-// /// Wrapper of the MultiSignature Verification key with proof of possession
-// pub type StmVerificationKeyPoP = VerificationKeyPoP;
-//
-// /// Wrapper of the MultiSignature Verification key
-// pub type StmVerificationKey = VerificationKey;
 
 /// Used to set protocol parameters.
 // todo: this is the criteria to consider parameters valid:
@@ -187,229 +181,6 @@ impl StmParameters {
         Ok(Self { m, k, phi_f })
     }
 }
-
-// /// Initializer for `StmSigner`.
-// /// This is the data that is used during the key registration procedure.
-// /// Once the latter is finished, this instance is consumed into an `StmSigner`.
-// #[derive(Debug, Clone, Serialize, Deserialize)]
-// pub struct StmInitializer {
-//     /// This participant's stake.
-//     pub stake: Stake,
-//     /// Current protocol instantiation parameters.
-//     pub params: StmParameters,
-//     /// Secret key.
-//     pub(crate) sk: SigningKey,
-//     /// Verification (public) key + proof of possession.
-//     pub(crate) pk: StmVerificationKeyPoP,
-// }
-//
-// impl StmInitializer {
-//     /// Builds an `StmInitializer` that is ready to register with the key registration service.
-//     /// This function generates the signing and verification key with a PoP, and initialises the structure.
-//     pub fn setup<R: RngCore + CryptoRng>(params: StmParameters, stake: Stake, rng: &mut R) -> Self {
-//         let sk = SigningKey::gen(rng);
-//         let pk = StmVerificationKeyPoP::from(&sk);
-//         Self {
-//             stake,
-//             params,
-//             sk,
-//             pk,
-//         }
-//     }
-//
-//     /// Extract the verification key.
-//     pub fn verification_key(&self) -> StmVerificationKeyPoP {
-//         self.pk
-//     }
-//
-//     /// Build the `avk` for the given list of parties.
-//     ///
-//     /// Note that if this StmInitializer was modified *between* the last call to `register`,
-//     /// then the resulting `StmSigner` may not be able to produce valid signatures.
-//     ///
-//     /// Returns an `StmSigner` specialized to
-//     /// * this `StmSigner`'s ID and current stake
-//     /// * this `StmSigner`'s parameter valuation
-//     /// * the `avk` as built from the current registered parties (according to the registration service)
-//     /// * the current total stake (according to the registration service)
-//     /// # Error
-//     /// This function fails if the initializer is not registered.
-//     pub fn new_signer<D: Digest + Clone>(
-//         self,
-//         closed_reg: ClosedKeyReg<D>,
-//     ) -> Result<StmSigner<D>, RegisterError> {
-//         let mut my_index = None;
-//         for (i, rp) in closed_reg.reg_parties.iter().enumerate() {
-//             if rp.0 == self.pk.vk {
-//                 my_index = Some(i as u64);
-//                 break;
-//             }
-//         }
-//         if my_index.is_none() {
-//             return Err(RegisterError::UnregisteredInitializer);
-//         }
-//
-//         Ok(StmSigner {
-//             signer_index: my_index.unwrap(),
-//             stake: self.stake,
-//             params: self.params,
-//             sk: self.sk,
-//             vk: self.pk.vk,
-//             closed_reg: Some(closed_reg),
-//         })
-//     }
-//
-//     /// Creates a new core signer that does not include closed registration.
-//     /// Takes `eligible_parties` as a parameter and determines the signer's index in the parties.
-//     /// `eligible_parties` is verified and trusted which is only run by a full-node
-//     /// that has already verified the parties.
-//     pub fn new_core_signer<D: Digest + Clone>(
-//         self,
-//         eligible_parties: &[RegParty],
-//     ) -> Option<StmSigner<D>> {
-//         let mut parties = eligible_parties.to_vec();
-//         parties.sort_unstable();
-//         let mut my_index = None;
-//         for (i, rp) in parties.iter().enumerate() {
-//             if rp.0 == self.pk.vk {
-//                 my_index = Some(i as u64);
-//                 break;
-//             }
-//         }
-//         if let Some(index) = my_index {
-//             Some(StmSigner {
-//                 signer_index: index,
-//                 stake: self.stake,
-//                 params: self.params,
-//                 sk: self.sk,
-//                 vk: self.pk.vk,
-//                 closed_reg: None,
-//             })
-//         } else {
-//             None
-//         }
-//     }
-//
-//     /// Convert to bytes
-//     /// # Layout
-//     /// * Stake (u64)
-//     /// * Params
-//     /// * Secret Key
-//     /// * Public key (including PoP)
-//     pub fn to_bytes(&self) -> [u8; 256] {
-//         let mut out = [0u8; 256];
-//         out[..8].copy_from_slice(&self.stake.to_be_bytes());
-//         out[8..32].copy_from_slice(&self.params.to_bytes());
-//         out[32..64].copy_from_slice(&self.sk.to_bytes());
-//         out[64..].copy_from_slice(&self.pk.to_bytes());
-//         out
-//     }
-//
-//     /// Convert a slice of bytes to an `StmInitializer`
-//     /// # Error
-//     /// The function fails if the given string of bytes is not of required size.
-//     pub fn from_bytes(bytes: &[u8]) -> Result<StmInitializer, RegisterError> {
-//         let mut u64_bytes = [0u8; 8];
-//         u64_bytes.copy_from_slice(&bytes[..8]);
-//         let stake = u64::from_be_bytes(u64_bytes);
-//         let params = StmParameters::from_bytes(&bytes[8..32])?;
-//         let sk = SigningKey::from_bytes(&bytes[32..])?;
-//         let pk = StmVerificationKeyPoP::from_bytes(&bytes[64..])?;
-//
-//         Ok(Self {
-//             stake,
-//             params,
-//             sk,
-//             pk,
-//         })
-//     }
-// }
-//
-// /// Participant in the protocol can sign messages.
-// /// * If the signer has `closed_reg`, then it can generate Stm certificate.
-// ///     * This kind of signer can only be generated out of an `StmInitializer` and a `ClosedKeyReg`.
-// ///     * This ensures that a `MerkleTree` root is not computed before all participants have registered.
-// /// * If the signer does not have `closed_reg`, then it is a core signer.
-// ///     * This kind of signer cannot participate certificate generation.
-// ///     * Signature generated can be verified by a full node verifier (core verifier).
-// #[derive(Debug, Clone)]
-// pub struct StmSigner<D: Digest> {
-//     signer_index: u64,
-//     stake: Stake,
-//     params: StmParameters,
-//     sk: SigningKey,
-//     vk: StmVerificationKey,
-//     closed_reg: Option<ClosedKeyReg<D>>,
-// }
-//
-// impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
-//     /// This function produces a signature following the description of Section 2.4.
-//     /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
-//     /// wins the lottery by evaluating the dense mapping.
-//     /// It records all the winning indexes in `Self.indexes`.
-//     /// If it wins at least one lottery, it stores the signer's merkle tree index. The proof of membership
-//     /// will be handled by the aggregator.
-//     pub fn sign(&self, msg: &[u8]) -> Option<StmSig> {
-//         let closed_reg = self.closed_reg.as_ref().expect("Closed registration not found! Cannot produce StmSignatures. Use core_sign to produce core signatures (not valid for an StmCertificate).");
-//         let msgp = closed_reg
-//             .merkle_tree
-//             .to_commitment_batch_compat()
-//             .concat_with_msg(msg);
-//         let signature = self.core_sign(&msgp, closed_reg.total_stake)?;
-//
-//         Some(StmSig {
-//             sigma: signature.sigma,
-//             signer_index: self.signer_index,
-//             indexes: signature.indexes,
-//         })
-//     }
-//
-//     /// Extract the verification key.
-//     pub fn verification_key(&self) -> StmVerificationKey {
-//         self.vk
-//     }
-//
-//     /// Extract stake from the signer.
-//     pub fn get_stake(&self) -> Stake {
-//         self.stake
-//     }
-//
-//     /// A core signature generated without closed registration.
-//     /// The core signature can be verified by core verifier.
-//     /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
-//     /// wins the lottery by evaluating the dense mapping.
-//     /// It records all the winning indexes in `Self.indexes`.
-//     pub fn core_sign(&self, msg: &[u8], total_stake: Stake) -> Option<StmSig> {
-//         let sigma = self.sk.sign(msg);
-//
-//         let indexes = self.check_lottery(msg, &sigma, total_stake);
-//         if !indexes.is_empty() {
-//             Some(StmSig {
-//                 sigma,
-//                 indexes,
-//                 signer_index: self.signer_index,
-//             })
-//         } else {
-//             None
-//         }
-//     }
-//
-//     /// Collects and returns the winning indices.
-//     pub fn check_lottery(&self, msg: &[u8], sigma: &Signature, total_stake: Stake) -> Vec<u64> {
-//         let mut indexes = Vec::new();
-//         for index in 0..self.params.m {
-//             if ev_lt_phi(
-//                 self.params.phi_f,
-//                 sigma.eval(msg, index),
-//                 self.stake,
-//                 total_stake,
-//             ) {
-//                 indexes.push(index);
-//             }
-//         }
-//         indexes
-//     }
-// }
 
 /// Stm aggregate key (batch compatible), which contains the merkle tree commitment and the total stake of the system.
 /// Batch Compat Merkle tree commitment includes the number of leaves in the tree in order to obtain batch path.
@@ -1100,9 +871,9 @@ mod tests {
     use proptest::test_runner::{RngAlgorithm::ChaCha, TestRng};
     use std::collections::{HashMap, HashSet};
 
+    use crate::participant::{StmInitializer, StmSigner};
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
-    use crate::participant::{StmInitializer, StmSigner};
 
     type Sig = StmAggrSig<D>;
     type D = Blake2b<U32>;

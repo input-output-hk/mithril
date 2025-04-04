@@ -1,4 +1,4 @@
-use crate::bls_multi_sig::{SigningKey, VerificationKeyPoP};
+use crate::bls_multi_signature::{SigningKey, VerificationKeyPoP};
 use crate::key_reg::{ClosedKeyReg, RegParty};
 use crate::participant::StmSigner;
 use crate::stm::{Stake, StmParameters};
