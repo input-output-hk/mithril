@@ -1,0 +1,13 @@
+services:
+  mithril-relay:
+    image: ubuntu/squid:latest
+    container_name: mithril-relay-${SIGNER_ID}
+    profiles:
+      - mithril
+      - all
+    volumes:
+      - ./squid/squid.conf:/etc/squid/squid.conf:ro
+
+  mithril-signer:
+    environment:
+      - RELAY_ENDPOINT=http://mithril-relay-${SIGNER_ID}:3128
