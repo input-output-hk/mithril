@@ -196,11 +196,6 @@ variable "mithril_p2p_signer_registration_repeat_delay" {
   default     = 3600 * 1000
 }
 
-locals {
-  mithril_network_type_suffix = var.mithril_use_p2p_network ? "-p2p" : ""
-}
-
-
 variable "mithril_aggregator_signed_entity_types" {
   type        = string
   description = "The custom signed list of entity types used by the mithril aggregator (discriminants names in an ordered comma separated list)."
@@ -359,7 +354,6 @@ variable "loki_ingest_password" {
 
 locals {
   mithril_aggregator_use_authentication = var.mithril_aggregator_auth_username == "" ? false : true
-  mithril_aggregator_use_p2p_network    = var.mithril_use_p2p_network ? true : false
   mithril_aggregator_is_follower        = var.mithril_aggregator_leader_aggregator_endpoint == "" ? false : true
   mithril_aggregator_credentials        = var.mithril_aggregator_auth_username == "" ? "" : format("%s:%s@", var.mithril_aggregator_auth_username, var.mithril_aggregator_auth_password)
   prometheus_credentials                = var.prometheus_auth_username == "" ? "" : format("%s:%s@", var.prometheus_auth_username, var.prometheus_auth_password)
@@ -419,7 +413,7 @@ variable "mithril_signers" {
   }))
   default = {
     "1" = {
-      type    = "unverified",
+      type    = "unverified-cardano-passive",
       pool_id = "pool15qde6mnkc0jgycm69ua0grwxmmu0tke54h5uhml0j8ndw3kcu9x",
     }
   }
