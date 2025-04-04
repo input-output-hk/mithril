@@ -303,7 +303,7 @@ impl ClientBuilder {
             .aggregator_endpoint.as_ref()
             .ok_or(anyhow!("No aggregator endpoint set: \
                     You must either provide an aggregator endpoint or your own AggregatorClient implementation"))?;
-        let endpoint_url = Url::parse(&endpoint).with_context(|| {
+        let endpoint_url = Url::parse(endpoint).with_context(|| {
             format!("Invalid aggregator endpoint, it must be a correctly formed url: '{endpoint}'")
         })?;
 
@@ -401,8 +401,6 @@ impl ClientBuilder {
 
 #[cfg(test)]
 mod tests {
-    use std::hash::RandomState;
-
     use httpmock::MockServer;
 
     use crate::aggregator_client::AggregatorRequest;
@@ -426,7 +424,7 @@ mod tests {
                 let (_tag, value) = headers
                     .iter()
                     .find(|(name, _value)| name == MITHRIL_ORIGIN_TAG_HEADER)
-                    .expect(&format!("'{}' not found", MITHRIL_ORIGIN_TAG_HEADER));
+                    .unwrap_or_else(|| panic!("'{}' not found", MITHRIL_ORIGIN_TAG_HEADER));
                 assert_eq!(value, "CLIENT_TAG");
                 true
             });
@@ -437,13 +435,15 @@ mod tests {
         aggregator_client
             .get_content(AggregatorRequest::ListCertificates)
             .await
-            .expect(&format!(
-                "GET request should succeed with '{}' header",
-                MITHRIL_ORIGIN_TAG_HEADER,
-            ));
+            .unwrap_or_else(|_| {
+                panic!(
+                    "GET request should succeed with '{}' header",
+                    MITHRIL_ORIGIN_TAG_HEADER
+                )
+            });
     }
 
-    #[test]
+    #[tokio::test]
     async fn test_with_origin_tag_not_overwrite_other_client_options_attributes() {
         let builder = ClientBuilder::new("")
             .with_options(ClientOptions {
@@ -457,7 +457,7 @@ mod tests {
         let http_headers = HashMap::from([("Key".to_string(), "Value".to_string())]);
         let builder = ClientBuilder::new("")
             .with_options(ClientOptions {
-                http_headers: Some(http_headers),
+                http_headers: Some(http_headers.clone()),
                 origin_tag: None,
             })
             .with_origin_tag(Some("TEST".to_string()));
@@ -465,10 +465,11 @@ mod tests {
         assert_eq!(Some("TEST".to_string()), builder.options.origin_tag);
     }
 
-    #[test]
+    #[tokio::test]
     async fn test_with_origin_tag_can_be_unset() {
+        let http_headers = HashMap::from([("Key".to_string(), "Value".to_string())]);
         let client_options = ClientOptions {
-            http_headers: Some(http_headers),
+            http_headers: Some(http_headers.clone()),
             origin_tag: Some("TEST".to_string()),
         };
         let builder = ClientBuilder::new("")
