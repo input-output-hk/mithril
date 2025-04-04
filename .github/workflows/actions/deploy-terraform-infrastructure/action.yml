@@ -63,6 +63,10 @@ inputs:
     description: Mithril use P2P network (experimental, for test only).
     required: false
     default: "false"
+  mithril_p2p_network_bootstrap_peer:
+    description: Mithril P2P network bootstrap peer (experimental, for test only).
+    required: false
+    default: ""
   mithril_api_domain:
     description: Mithril network api domain root.
     required: true
@@ -208,6 +212,7 @@ runs:
           google_compute_instance_ssh_keys_environment                              = "${{ inputs.google_compute_instance_ssh_keys_environment }}"
           google_service_credentials_json_file                                      = "./google-application-credentials.json"
           mithril_use_p2p_network                                                   = "${{ inputs.mithril_use_p2p_network }}"
+          mithril_p2p_network_bootstrap_peer                                        = "${{ inputs.mithril_p2p_network_bootstrap_peer }}"
           mithril_api_domain                                                        = "${{ inputs.mithril_api_domain }}"
           mithril_image_id                                                          = "${{ inputs.mithril_image_id }}"
           mithril_genesis_verification_key_url                                      = "${{ inputs.mithril_genesis_verification_key_url }}"
