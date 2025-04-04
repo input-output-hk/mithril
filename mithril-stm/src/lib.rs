@@ -16,7 +16,7 @@ pub use crate::error::{
 };
 
 #[cfg(feature = "benchmark-internals")]
-pub mod bls_multi_sig;
+pub mod bls_multi_signature;
 
 #[cfg(not(feature = "benchmark-internals"))]
-pub mod bls_multi_sig;
+pub mod bls_multi_signature;

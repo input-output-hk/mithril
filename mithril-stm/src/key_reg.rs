@@ -3,7 +3,7 @@ use super::stm::Stake;
 use crate::error::RegisterError;
 use crate::merkle_tree::{MTLeaf, MerkleTree};
 // use crate::multi_sig::{VerificationKey, VerificationKeyPoP};
-use crate::bls_multi_sig::{VerificationKey, VerificationKeyPoP};
+use crate::bls_multi_signature::{VerificationKey, VerificationKeyPoP};
 use blake2::digest::{Digest, FixedOutput};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -82,7 +82,7 @@ pub struct ClosedKeyReg<D: Digest> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bls_multi_sig::SigningKey;
+    use crate::bls_multi_signature::SigningKey;
     use blake2::{digest::consts::U32, Blake2b};
     use proptest::collection::vec;
     use proptest::prelude::*;

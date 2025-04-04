@@ -106,7 +106,7 @@
 //! # }
 //! ```
 
-use crate::bls_multi_sig::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
+use crate::bls_multi_signature::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
 use crate::eligibility_check::ev_lt_phi;
 use crate::error::{
     AggregationError, CoreVerifierError, RegisterError, StmAggregateSignatureError,
