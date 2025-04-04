@@ -16,6 +16,8 @@ use crate::aggregator_client::AggregatorClient;
 use crate::feedback::FeedbackSender;
 #[cfg(feature = "fs")]
 use crate::file_downloader::FileDownloader;
+#[cfg(feature = "fs")]
+use crate::utils::AncillaryVerifier;
 use crate::{CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem, MithrilResult};
 
 use super::fetch::InternalArtifactRetriever;
@@ -41,6 +43,7 @@ impl CardanoDatabaseClient {
     pub fn new(
         aggregator_client: Arc<dyn AggregatorClient>,
         #[cfg(feature = "fs")] http_file_downloader: Arc<dyn FileDownloader>,
+        #[cfg(feature = "fs")] ancillary_verifier: Option<Arc<AncillaryVerifier>>,
         #[cfg(feature = "fs")] feedback_sender: FeedbackSender,
         #[cfg(feature = "fs")] logger: Logger,
     ) -> Self {
@@ -52,6 +55,7 @@ impl CardanoDatabaseClient {
             #[cfg(feature = "fs")]
             artifact_downloader: InternalArtifactDownloader::new(
                 http_file_downloader.clone(),
+                ancillary_verifier,
                 feedback_sender.clone(),
                 logger.clone(),
             ),
@@ -133,6 +137,9 @@ impl CardanoDatabaseClient {
 pub(crate) mod test_dependency_injector {
     use super::*;
 
+    #[cfg(feature = "fs")]
+    use mithril_common::crypto_helper::ManifestVerifierVerificationKey;
+
     use crate::aggregator_client::MockAggregatorClient;
     #[cfg(feature = "fs")]
     use crate::file_downloader::{FileDownloader, MockFileDownloaderBuilder};
@@ -144,6 +151,8 @@ pub(crate) mod test_dependency_injector {
         aggregator_client: MockAggregatorClient,
         #[cfg(feature = "fs")]
         http_file_downloader: Arc<dyn FileDownloader>,
+        #[cfg(feature = "fs")]
+        ancillary_verifier: Option<Arc<AncillaryVerifier>>,
         #[cfg(feature = "fs")]
         feedback_receivers: Vec<Arc<dyn FeedbackReceiver>>,
     }
@@ -160,6 +169,8 @@ pub(crate) mod test_dependency_injector {
                         .with_times(0)
                         .build(),
                 ),
+                #[cfg(feature = "fs")]
+                ancillary_verifier: None,
                 #[cfg(feature = "fs")]
                 feedback_receivers: vec![],
             }
@@ -186,6 +197,20 @@ pub(crate) mod test_dependency_injector {
         }
 
         #[cfg(feature = "fs")]
+        pub(crate) fn with_ancillary_verifier<T>(self, ancillary_verification_key: T) -> Self
+        where
+            T: TryInto<ManifestVerifierVerificationKey>,
+            T::Error: std::fmt::Debug,
+        {
+            Self {
+                ancillary_verifier: Some(Arc::new(AncillaryVerifier::new(
+                    ancillary_verification_key.try_into().unwrap(),
+                ))),
+                ..self
+            }
+        }
+
+        #[cfg(feature = "fs")]
         pub(crate) fn with_feedback_receivers(
             self,
             feedback_receivers: &[Arc<dyn FeedbackReceiver>],
@@ -201,6 +226,7 @@ pub(crate) mod test_dependency_injector {
             CardanoDatabaseClient::new(
                 Arc::new(self.aggregator_client),
                 self.http_file_downloader,
+                self.ancillary_verifier,
                 FeedbackSender::new(&self.feedback_receivers),
                 TestLogger::stdout(),
             )

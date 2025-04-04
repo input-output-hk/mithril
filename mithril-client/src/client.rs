@@ -277,7 +277,7 @@ impl ClientBuilder {
             #[cfg(feature = "fs")]
             http_file_downloader.clone(),
             #[cfg(feature = "fs")]
-            ancillary_verifier,
+            ancillary_verifier.clone(),
             #[cfg(feature = "fs")]
             feedback_sender.clone(),
             #[cfg(feature = "fs")]
@@ -289,6 +289,8 @@ impl ClientBuilder {
             aggregator_client.clone(),
             #[cfg(feature = "fs")]
             http_file_downloader,
+            #[cfg(feature = "fs")]
+            ancillary_verifier,
             #[cfg(feature = "fs")]
             feedback_sender,
             #[cfg(feature = "fs")]

@@ -44,6 +44,20 @@ impl AncillaryVerifier {
         }
     }
 
+    /// Verifies the unpacked ancillary archive and moves the files to their final location
+    ///
+    /// Equivalent to calling `verify` and then `move_to_final_location` successively
+    pub async fn verify_and_move_to_final_location(
+        &self,
+        temp_ancillary_dir: &Path,
+        final_location: &Path,
+    ) -> MithrilResult<()> {
+        let validated_manifest = self.verify(temp_ancillary_dir).await?;
+        validated_manifest
+            .move_to_final_location(final_location)
+            .await
+    }
+
     /// Verifies that the unpacked ancillary archive contains a signed manifest and that the
     /// files contained in the manifest are present and match the expected hashes
     pub async fn verify(
