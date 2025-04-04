@@ -7,7 +7,7 @@ use crate::key_reg::{ClosedKeyReg, RegParty};
 use crate::merkle_tree::{BatchPath, MerkleTreeCommitmentBatchCompat};
 use crate::multi_sig::{Signature, VerificationKey};
 use crate::stm::{Index, Stake, StmParameters, StmSig, StmSigRegParty};
-use crate::stm_telescope::utils::{analyze, phi};
+use crate::stm_telescope::utils::{compute_k_adv, compute_k_hon, compute_m};
 use crate::AggregationError;
 use alba::centralized_telescope::proof::Proof;
 use alba::centralized_telescope::*;
@@ -31,28 +31,12 @@ struct SterlingInitializer {
 }
 impl SterlingInitializer {
     fn generate_parameters(&self, constant: f64) -> (StmParameters, Telescope) {
-        let x = ((1.0 - self.adv_percentage) / self.adv_percentage).sqrt();
-        let first_guess = x * self.adv_percentage;
+        let m = compute_m(self.adv_percentage, self.soundness_param, self.f, constant);
+        let khon = compute_k_hon(m, self.hon_percentage, self.f, self.completeness_param);
+        let kadv = compute_k_adv(self.soundness_param, m, self.adv_percentage, self.f);
 
-        let prob_adv = phi(self.adv_percentage, self.f);
-        let prob_tar = phi(first_guess, self.f);
-        let overshoot = prob_tar / prob_adv;
-        let a = overshoot - 1.0;
-        let mu = self.soundness_param * (2_f64.ln() / (a * a) * (2.0 + a));
-        let mut m = mu / prob_adv;
-        m = m.round();
-
-        let m_initial = constant * m;
-        let (m, kadv, khon) = analyze(
-            self.adv_percentage,
-            m_initial,
-            self.hon_percentage,
-            self.f,
-            self.soundness_param,
-            self.completeness_param,
-        );
         let stm_parameters = StmParameters {
-            m,
+            m: m as u64,
             k: khon,
             phi_f: self.f,
         };
@@ -60,6 +44,25 @@ impl SterlingInitializer {
             Telescope::create(self.soundness_param, self.completeness_param, khon, kadv);
 
         (stm_parameters, telescope)
+    }
+
+    fn stm_from_telescope(&self, telescope: Telescope, constant: f64) -> StmParameters {
+        let m = compute_m(self.adv_percentage, self.soundness_param, self.f, constant);
+        StmParameters {
+            m: m as u64,
+            k: telescope.get_set_size(),
+            phi_f: self.f,
+        }
+    }
+
+    fn telescope_from_stm(&self, stm: StmParameters) -> Telescope {
+        let kadv = compute_k_adv(
+            self.soundness_param,
+            stm.m as f64,
+            self.adv_percentage,
+            stm.phi_f,
+        );
+        Telescope::create(self.soundness_param, self.completeness_param, stm.k, kadv)
     }
 }
 
@@ -468,11 +471,43 @@ mod tests {
     use crate::stm::{StmInitializer, StmSigner};
     use blake2::Blake2b;
     use digest::consts::U32;
-    use rand::Rng;
+    use proptest::prelude::Rng;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
     type D = Blake2b<U32>;
+
+    #[test]
+    fn test_params() {
+        let initializer = SterlingInitializer {
+            adv_percentage: 0.05,
+            hon_percentage: 0.95,
+            f: 0.9,
+            soundness_param: 128.0,
+            completeness_param: 32.0,
+        };
+
+        let (stm, telescope) = initializer.generate_parameters(1.0);
+
+        let stm_parameters = initializer.stm_from_telescope(telescope, 1.0);
+        println!("m: {}, khon: {}, phi: {}", stm.k, stm.m, stm.phi_f);
+        println!(
+            "m: {}, khon: {}, phi: {}",
+            stm_parameters.k, stm_parameters.m, stm_parameters.phi_f
+        );
+
+        let telescope_parameters = initializer.telescope_from_stm(stm);
+        println!(
+            "set size: {}, params: {:?}",
+            telescope.get_set_size(),
+            telescope.get_params()
+        );
+        println!(
+            "set size: {}, params: {:?}",
+            telescope_parameters.get_set_size(),
+            telescope_parameters.get_params()
+        );
+    }
 
     #[test]
     fn test_stm_telescope() {
