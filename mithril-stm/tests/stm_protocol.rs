@@ -1,8 +1,7 @@
 use mithril_stm::key_reg::KeyReg;
 use mithril_stm::stm::{
-    Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmInitializer, StmParameters, StmSig,
-    StmSigner, StmVerificationKey,
-};
+    Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmParameters, StmSig};
+use mithril_stm::participant::{StmInitializer, StmSigner, StmVerificationKey};
 use mithril_stm::AggregationError;
 
 use blake2::{digest::consts::U32, Blake2b};

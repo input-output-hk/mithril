@@ -20,3 +20,5 @@ pub mod bls_multi_sig;
 
 #[cfg(not(feature = "benchmark-internals"))]
 pub mod bls_multi_sig;
+
+pub mod participant;
