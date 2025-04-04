@@ -45,6 +45,7 @@ async fn main() -> MithrilResult<()> {
     let logger = build_logger();
     let client =
         ClientBuilder::aggregator(&args.aggregator_endpoint, &args.genesis_verification_key)
+            .with_origin_tag(Some("EXAMPLE".to_string()))
             .with_logger(logger.clone())
             .build()?;
 

@@ -76,8 +76,9 @@ async fn main() -> MithrilResult<()> {
     const AGGREGATOR_ENDPOINT: &str =
         "https://aggregator.release-preprod.api.mithril.network/aggregator";
     const GENESIS_VERIFICATION_KEY: &str = "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d";
-    let client =
-        ClientBuilder::aggregator(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY).build()?;
+    let client = ClientBuilder::aggregator(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY)
+        .with_origin_tag(Some("EXAMPLE".to_string()))
+        .build()?;
 
     let transactions_hashes = [
         "f9b5221b3ead45d46c0ecae6bee18a0746c5694d0285281cca1b651bce5f49a5",
@@ -151,8 +152,9 @@ async fn main() -> MithrilResult<()> {
     const AGGREGATOR_ENDPOINT: &str =
         "https://aggregator.release-preprod.api.mithril.network/aggregator";
     const GENESIS_VERIFICATION_KEY: &str = "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d";
-    let client =
-        ClientBuilder::aggregator(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY).build()?;
+    let client = ClientBuilder::aggregator(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY)
+        .with_origin_tag(Some("EXAMPLE".to_string()))
+        .build()?;
 
     let cardano_stake_distributions = client.cardano_stake_distribution().list().await?;
     let last_epoch = cardano_stake_distributions.first().unwrap().epoch;
@@ -206,8 +208,9 @@ async fn main() -> mithril_client::MithrilResult<()> {
     const AGGREGATOR_ENDPOINT: &str =
         "https://aggregator.release-preprod.api.mithril.network/aggregator";
     const GENESIS_VERIFICATION_KEY: &str = "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d";
-    let client =
-        ClientBuilder::aggregator(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY).build()?;
+    let client = ClientBuilder::aggregator(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY)
+        .with_origin_tag(Some("EXAMPLE".to_string()))
+        .build()?;
     let snapshots = client.cardano_database().list().await?;
 
     let last_digest = snapshots.first().unwrap().digest.as_ref();
@@ -300,8 +303,9 @@ async fn main() -> mithril_client::MithrilResult<()> {
     const AGGREGATOR_ENDPOINT: &str =
         "https://aggregator.testing-preview.api.mithril.network/aggregator";
     const GENESIS_VERIFICATION_KEY: &str = "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d";
-    let client =
-        ClientBuilder::aggregator(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY).build()?;
+    let client = ClientBuilder::aggregator(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY)
+        .with_origin_tag(Some("EXAMPLE".to_string()))
+        .build()?;
 
     let snapshots = client.cardano_database_v2().list().await?;
 

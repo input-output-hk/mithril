@@ -34,14 +34,16 @@ async function main() {
     certificate_chain_validated_occurs = false;
   }
 
-  let client = new MithrilClient(aggregator_endpoint, genesis_verification_key, {
+  let client_options = {
     // The following header is set as an example.
     // It's used to demonstrate how to add headers.
     http_headers: new Map([["Content-Type", "application/json"]]),
+    origin_tag: "EXAMPLE",
     // The following option activates the unstable features of the client.
     // Unstable features will trigger an error if this option is not set.
     unstable: true,
-  });
+  };
+  let client = new MithrilClient(aggregator_endpoint, genesis_verification_key, client_options);
 
   console.log(1, "Getting stake distributions list...");
   let mithril_stake_distributions_list = await client.list_mithril_stake_distributions();

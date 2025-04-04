@@ -45,6 +45,7 @@ async fn main() -> MithrilResult<()> {
     let progress_bar = indicatif::MultiProgress::new();
     let client =
         ClientBuilder::aggregator(&args.aggregator_endpoint, &args.genesis_verification_key)
+            .with_origin_tag(Some("EXAMPLE".to_string()))
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(&progress_bar)))
             .build()?;
 

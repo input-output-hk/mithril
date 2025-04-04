@@ -82,6 +82,10 @@ pub struct Args {
     /// Enable unstable commands
     #[clap(long)]
     unstable: bool,
+
+    /// Request origin tag
+    #[clap(long)]
+    origin_tag: Option<String>,
 }
 
 impl Args {
@@ -180,6 +184,7 @@ impl Source for Args {
 
         let myself = self.clone();
         register_config_value_option!(map, &namespace, myself.aggregator_endpoint);
+        register_config_value_option!(map, &namespace, myself.origin_tag);
 
         Ok(map)
     }

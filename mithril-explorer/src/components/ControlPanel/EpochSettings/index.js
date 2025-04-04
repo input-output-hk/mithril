@@ -6,6 +6,7 @@ import RawJsonButton from "#/RawJsonButton";
 import ProtocolParameters from "#/ProtocolParameters";
 import { selectedAggregator } from "@/store/settingsSlice";
 import { checkUrl } from "@/utils";
+import { fetchAggregator } from "@/aggregator-api";
 
 export default function EpochSettings() {
   const [epochSettings, setEpochSettings] = useState({});
@@ -20,7 +21,7 @@ export default function EpochSettings() {
 
   useEffect(() => {
     let fetchEpochSettings = () => {
-      fetch(epochSettingsEndpoint)
+      fetchAggregator(epochSettingsEndpoint)
         .then((response) => (response.status === 200 ? response.json() : {}))
         .then((data) => setEpochSettings(data))
         .catch((error) => {

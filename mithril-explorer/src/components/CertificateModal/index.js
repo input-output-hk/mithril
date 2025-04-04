@@ -10,6 +10,7 @@ import ProtocolParameters from "#/ProtocolParameters";
 import SignedEntityType from "#/SignedEntityType";
 import SignerTable from "#/SignerTable";
 import VerifyCertificateModal from "#/VerifyCertificate/VerifyCertificateModal";
+import { fetchAggregator } from "@/aggregator-api";
 
 export default function CertificateModal({
   hash,
@@ -30,7 +31,7 @@ export default function CertificateModal({
       return;
     }
 
-    fetch(certificateEndpoint)
+    fetchAggregator(certificateEndpoint)
       .then((response) => (response.status === 200 ? response.json() : {}))
       .then((data) => {
         setCertificate(data);

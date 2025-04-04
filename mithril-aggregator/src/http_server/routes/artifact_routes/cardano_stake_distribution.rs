@@ -16,6 +16,7 @@ fn artifact_cardano_stake_distributions(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "cardano-stake-distributions")
         .and(warp::get())
+        .and(middlewares::with_origin_tag(router_state))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_http_message_service(router_state))
         .and_then(handlers::list_artifacts)
@@ -27,6 +28,7 @@ fn artifact_cardano_stake_distribution_by_id(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "cardano-stake-distribution" / String)
         .and(warp::get())
+        .and(middlewares::with_origin_tag(router_state))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_http_message_service(router_state))
         .and(middlewares::with_metrics_service(router_state))
@@ -39,6 +41,7 @@ fn artifact_cardano_stake_distribution_by_epoch(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "cardano-stake-distribution" / "epoch" / String)
         .and(warp::get())
+        .and(middlewares::with_origin_tag(router_state))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_http_message_service(router_state))
         .and(middlewares::with_metrics_service(router_state))
@@ -60,6 +63,7 @@ pub mod handlers {
 
     /// List CardanoStakeDistribution artifacts
     pub async fn list_artifacts(
+        _origin_tag: Option<String>,
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
@@ -78,13 +82,14 @@ pub mod handlers {
     /// Get Artifact by signed entity id
     pub async fn get_artifact_by_signed_entity_id(
         signed_entity_id: String,
+        origin_tag: Option<String>,
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_artifact_detail_cardano_stake_distribution_total_served_since_startup()
-            .increment();
+            .increment(&[origin_tag.unwrap_or_default().as_str()]);
 
         match http_message_service
             .get_cardano_stake_distribution_message(&signed_entity_id)
@@ -105,13 +110,14 @@ pub mod handlers {
     /// Get Artifact by epoch
     pub async fn get_artifact_by_epoch(
         epoch: String,
+        origin_tag: Option<String>,
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_artifact_detail_cardano_stake_distribution_total_served_since_startup()
-            .increment();
+            .increment(&[origin_tag.unwrap_or_default().as_str()]);
 
         let artifact_epoch = match epoch.parse::<u64>() {
             Ok(epoch) => Epoch(epoch),
@@ -157,6 +163,7 @@ pub mod tests {
     use mithril_common::{
         messages::{CardanoStakeDistributionListItemMessage, CardanoStakeDistributionMessage},
         test_utils::apispec::APISpec,
+        MITHRIL_ORIGIN_TAG_HEADER,
     };
 
     use crate::{initialize_dependencies, services::MockMessageService};
@@ -249,15 +256,17 @@ pub mod tests {
         let initial_counter_value = dependency_manager
             .metrics_service
             .get_artifact_detail_cardano_stake_distribution_total_served_since_startup()
-            .get();
+            .get(&["TEST"]);
         {
             let path = "/artifact/cardano-stake-distribution/{hash}";
 
             request()
                 .method(method)
                 .path(path)
-                .reply(&setup_router(RouterState::new_with_dummy_config(
+                .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
+                .reply(&setup_router(RouterState::new_with_origin_tag_white_list(
                     dependency_manager.clone(),
+                    &["TEST"],
                 )))
                 .await;
 
@@ -266,7 +275,7 @@ pub mod tests {
                 dependency_manager
                     .metrics_service
                     .get_artifact_detail_cardano_stake_distribution_total_served_since_startup()
-                    .get()
+                    .get(&["TEST"])
             );
         }
 
@@ -276,8 +285,10 @@ pub mod tests {
             request()
                 .method(method)
                 .path(&format!("{base_path}/123"))
-                .reply(&setup_router(RouterState::new_with_dummy_config(
+                .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
+                .reply(&setup_router(RouterState::new_with_origin_tag_white_list(
                     dependency_manager.clone(),
+                    &["TEST"],
                 )))
                 .await;
 
@@ -286,7 +297,7 @@ pub mod tests {
                 dependency_manager
                     .metrics_service
                     .get_artifact_detail_cardano_stake_distribution_total_served_since_startup()
-                    .get()
+                    .get(&["TEST"])
             );
         }
     }

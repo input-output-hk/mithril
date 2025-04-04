@@ -24,6 +24,7 @@ async function newMithrilWasmClient(aggregator, genesisVerificationKey) {
         // Unstable features will trigger an error if this option is not set.
         unstable: true,
         enable_certificate_chain_verification_cache: isCacheEnabled,
+        origin_tag: "EXPLORER",
       }
     : {};
 

@@ -11,6 +11,7 @@ import CertificateModal from "#/CertificateModal";
 import CertifyCardanoTransactionsModal from "#/CertifyCardanoTransactionsModal";
 import { defaultAggregatorCapabilities } from "@/constants";
 import { selectedAggregator, selectedAggregatorCapabilities } from "@/store/settingsSlice";
+import { fetchAggregator } from "@/aggregator-api";
 
 export default function CardanoTransactionsSnapshotsList(props) {
   const [cardanoTransactionsSnapshots, setCardanoTransactionsSnapshots] = useState([]);
@@ -29,7 +30,7 @@ export default function CardanoTransactionsSnapshotsList(props) {
 
   useEffect(() => {
     let fetchSnapshots = () => {
-      fetch(artifactsEndpoint)
+      fetchAggregator(artifactsEndpoint)
         .then((response) => response.json())
         .then((data) => setCardanoTransactionsSnapshots(data))
         .catch((error) => {

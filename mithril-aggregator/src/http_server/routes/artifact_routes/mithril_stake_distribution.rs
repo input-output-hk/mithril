@@ -15,6 +15,7 @@ fn artifact_mithril_stake_distributions(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "mithril-stake-distributions")
         .and(warp::get())
+        .and(middlewares::with_origin_tag(router_state))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_http_message_service(router_state))
         .and_then(handlers::list_artifacts)
@@ -26,6 +27,7 @@ fn artifact_mithril_stake_distribution_by_id(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "mithril-stake-distribution" / String)
         .and(warp::get())
+        .and(middlewares::with_origin_tag(router_state))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_http_message_service(router_state))
         .and(middlewares::with_metrics_service(router_state))
@@ -46,6 +48,7 @@ pub mod handlers {
 
     /// List MithrilStakeDistribution artifacts
     pub async fn list_artifacts(
+        _origin_tag: Option<String>,
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
@@ -64,13 +67,14 @@ pub mod handlers {
     /// Get Artifact by signed entity id
     pub async fn get_artifact_by_signed_entity_id(
         signed_entity_id: String,
+        origin_tag: Option<String>,
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_artifact_detail_mithril_stake_distribution_total_served_since_startup()
-            .increment();
+            .increment(&[origin_tag.unwrap_or_default().as_str()]);
 
         match http_message_service
             .get_mithril_stake_distribution_message(&signed_entity_id)
@@ -98,10 +102,11 @@ pub mod tests {
         test::request,
     };
 
-    use mithril_common::messages::{
-        MithrilStakeDistributionListItemMessage, MithrilStakeDistributionMessage,
-    };
     use mithril_common::test_utils::apispec::APISpec;
+    use mithril_common::{
+        messages::{MithrilStakeDistributionListItemMessage, MithrilStakeDistributionMessage},
+        MITHRIL_ORIGIN_TAG_HEADER,
+    };
     use mithril_persistence::sqlite::HydrationError;
 
     use crate::{initialize_dependencies, services::MockMessageService};
@@ -194,13 +199,15 @@ pub mod tests {
         let initial_counter_value = dependency_manager
             .metrics_service
             .get_artifact_detail_mithril_stake_distribution_total_served_since_startup()
-            .get();
+            .get(&["TEST"]);
 
         request()
             .method(method)
             .path(path)
-            .reply(&setup_router(RouterState::new_with_dummy_config(
+            .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
+            .reply(&setup_router(RouterState::new_with_origin_tag_white_list(
                 dependency_manager.clone(),
+                &["TEST"],
             )))
             .await;
 
@@ -209,7 +216,7 @@ pub mod tests {
             dependency_manager
                 .metrics_service
                 .get_artifact_detail_mithril_stake_distribution_total_served_since_startup()
-                .get()
+                .get(&["TEST"])
         );
     }
 

@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context};
+use mithril_common::MITHRIL_ORIGIN_TAG_HEADER;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use slog::{o, Logger};
@@ -37,6 +38,9 @@ pub struct ClientOptions {
     /// HTTP headers to include in the client requests.
     pub http_headers: Option<HashMap<String, String>>,
 
+    /// Tag to retrieve the origin of the client requests.
+    pub origin_tag: Option<String>,
+
     /// Whether to enable unstable features in the WASM client.
     #[cfg(target_family = "wasm")]
     #[cfg_attr(target_family = "wasm", serde(default))]
@@ -64,9 +68,10 @@ pub struct ClientOptions {
 
 impl ClientOptions {
     /// Instantiate a new [ClientOptions].
-    pub fn new(http_headers: Option<HashMap<String, String>>) -> Self {
+    pub fn new(http_headers: Option<HashMap<String, String>>, origin_tag: Option<String>) -> Self {
         Self {
             http_headers,
+            origin_tag,
             #[cfg(target_family = "wasm")]
             unstable: false,
             #[cfg(target_family = "wasm")]
@@ -197,32 +202,12 @@ impl ClientBuilder {
     pub fn build(self) -> MithrilResult<Client> {
         let logger = self
             .logger
+            .clone()
             .unwrap_or_else(|| Logger::root(slog::Discard, o!()));
 
+        let aggregator_client = self.get_aggregator_client(logger.clone())?;
+
         let feedback_sender = FeedbackSender::new(&self.feedback_receivers);
-
-        let aggregator_client = match self.aggregator_client {
-            None => {
-                let endpoint = self
-                    .aggregator_endpoint
-                    .ok_or(anyhow!("No aggregator endpoint set: \
-                    You must either provide an aggregator endpoint or your own AggregatorClient implementation"))?;
-                let endpoint_url = Url::parse(&endpoint)
-                    .with_context(|| format!("Invalid aggregator endpoint, it must be a correctly formed url: '{endpoint}'"))?;
-
-                Arc::new(
-                    AggregatorHTTPClient::new(
-                        endpoint_url,
-                        APIVersionProvider::compute_all_versions_sorted()
-                            .with_context(|| "Could not compute aggregator api versions")?,
-                        logger.clone(),
-                        self.options.http_headers,
-                    )
-                    .with_context(|| "Building aggregator client failed")?,
-                )
-            }
-            Some(client) => client,
-        };
 
         let certificate_verifier = match self.certificate_verifier {
             None => Arc::new(
@@ -298,6 +283,50 @@ impl ClientBuilder {
         })
     }
 
+    fn get_aggregator_client(
+        &self,
+        logger: Logger,
+    ) -> Result<Arc<dyn AggregatorClient>, anyhow::Error> {
+        // TODO in builder, we normally set self.aggregator_client but it's not done here. Should we do ?
+        let aggregator_client = match self.aggregator_client.clone() {
+            None => Arc::new(self.build_aggregator_client(logger)?),
+            Some(client) => client,
+        };
+        Ok(aggregator_client)
+    }
+
+    fn build_aggregator_client(
+        &self,
+        logger: Logger,
+    ) -> Result<AggregatorHTTPClient, anyhow::Error> {
+        let endpoint = self
+            .aggregator_endpoint.as_ref()
+            .ok_or(anyhow!("No aggregator endpoint set: \
+                    You must either provide an aggregator endpoint or your own AggregatorClient implementation"))?;
+        let endpoint_url = Url::parse(endpoint).with_context(|| {
+            format!("Invalid aggregator endpoint, it must be a correctly formed url: '{endpoint}'")
+        })?;
+
+        let mut headers = self.options.http_headers.clone().unwrap_or_default();
+        if let Some(origin_tag) = self.options.origin_tag.clone() {
+            headers.insert(MITHRIL_ORIGIN_TAG_HEADER.to_string(), origin_tag);
+        }
+
+        // TODO do we add value to http_headers ? or a new parameter ?
+        // Add into header => Risk to forget but this is the only instantiation
+        // Add into options ? Risk of overwriting with `with_option` function
+        // or a ClientBuilder parameter ?
+        // Do we add a parameter to `aggregator` or add a builder function ?
+        AggregatorHTTPClient::new(
+            endpoint_url,
+            APIVersionProvider::compute_all_versions_sorted()
+                .with_context(|| "Could not compute aggregator api versions")?,
+            logger,
+            Some(headers),
+        )
+        .with_context(|| "Building aggregator client failed")
+    }
+
     /// Set the [AggregatorClient] that will be used to request data to the aggregator.
     pub fn with_aggregator_client(
         mut self,
@@ -346,6 +375,15 @@ impl ClientBuilder {
         self
     }
 
+    /// Set the origin tag.
+    pub fn with_origin_tag(self, origin_tag: Option<String>) -> Self {
+        let options = self.options.clone();
+        self.with_options(ClientOptions {
+            origin_tag,
+            ..options
+        })
+    }
+
     /// Add a [feedback receiver][FeedbackReceiver] to receive [events][crate::feedback::MithrilEvent]
     /// for tasks that can have a long duration (ie: snapshot download or a long certificate chain
     /// validation).
@@ -358,5 +396,87 @@ impl ClientBuilder {
     pub fn with_options(mut self, options: ClientOptions) -> Self {
         self.options = options;
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use httpmock::MockServer;
+
+    use crate::aggregator_client::AggregatorRequest;
+
+    use super::*;
+
+    // TODO : this test is a bit complicated just to test that the origin-tag is in the header
+    #[tokio::test]
+    async fn test_origin_tag_in_client_options() {
+        let server = MockServer::start();
+        let client_builder = ClientBuilder::aggregator(&server.url(""), "")
+            .with_origin_tag(Some("CLIENT_TAG".to_string()));
+
+        let aggregator_client = client_builder
+            .build_aggregator_client(crate::test_utils::test_logger())
+            .unwrap();
+
+        server.mock(|when, then| {
+            when.matches(|req| {
+                let headers = req.headers.clone().expect("HTTP headers not found");
+                let (_tag, value) = headers
+                    .iter()
+                    .find(|(name, _value)| name == MITHRIL_ORIGIN_TAG_HEADER)
+                    .unwrap_or_else(|| panic!("'{}' not found", MITHRIL_ORIGIN_TAG_HEADER));
+                assert_eq!(value, "CLIENT_TAG");
+                true
+            });
+
+            then.status(200).body("ok");
+        });
+
+        aggregator_client
+            .get_content(AggregatorRequest::ListCertificates)
+            .await
+            .unwrap_or_else(|_| {
+                panic!(
+                    "GET request should succeed with '{}' header",
+                    MITHRIL_ORIGIN_TAG_HEADER
+                )
+            });
+    }
+
+    #[tokio::test]
+    async fn test_with_origin_tag_not_overwrite_other_client_options_attributes() {
+        let builder = ClientBuilder::new("")
+            .with_options(ClientOptions {
+                http_headers: None,
+                origin_tag: None,
+            })
+            .with_origin_tag(Some("TEST".to_string()));
+        assert_eq!(None, builder.options.http_headers);
+        assert_eq!(Some("TEST".to_string()), builder.options.origin_tag);
+
+        let http_headers = HashMap::from([("Key".to_string(), "Value".to_string())]);
+        let builder = ClientBuilder::new("")
+            .with_options(ClientOptions {
+                http_headers: Some(http_headers.clone()),
+                origin_tag: None,
+            })
+            .with_origin_tag(Some("TEST".to_string()));
+        assert_eq!(Some(http_headers), builder.options.http_headers);
+        assert_eq!(Some("TEST".to_string()), builder.options.origin_tag);
+    }
+
+    #[tokio::test]
+    async fn test_with_origin_tag_can_be_unset() {
+        let http_headers = HashMap::from([("Key".to_string(), "Value".to_string())]);
+        let client_options = ClientOptions {
+            http_headers: Some(http_headers.clone()),
+            origin_tag: Some("TEST".to_string()),
+        };
+        let builder = ClientBuilder::new("")
+            .with_options(client_options)
+            .with_origin_tag(None);
+
+        assert_eq!(Some(http_headers), builder.options.http_headers);
+        assert_eq!(None, builder.options.origin_tag);
     }
 }
