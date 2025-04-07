@@ -4,9 +4,10 @@ use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
-use tokio::task::JoinSet;
 
 use anyhow::{anyhow, Context};
+use slog::Logger;
+use tokio::task::JoinSet;
 
 use mithril_common::{
     digesters::{IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR},
@@ -16,7 +17,7 @@ use mithril_common::{
 
 use crate::feedback::{FeedbackSender, MithrilEvent, MithrilEventCardanoDatabase};
 use crate::file_downloader::{DownloadEvent, FileDownloader, FileDownloaderUri};
-use crate::utils::{delete_directory, AncillaryVerifier, VecDequeExtensions};
+use crate::utils::{AncillaryVerifier, VecDequeExtensions};
 use crate::MithrilResult;
 
 use super::immutable_file_range::ImmutableFileRange;
@@ -26,12 +27,11 @@ type DownloadFuture = dyn Future<Output = MithrilResult<()>> + Send;
 
 /// A task to download and unpack a file
 struct DownloadTask {
-    name: String,
+    kind: DownloadKind,
     locations_to_try: Vec<LocationToDownload>,
     size_uncompressed: u64,
-    target_dir: DownloadTargetDir,
+    target_dir: PathBuf,
     download_event: DownloadEvent,
-    post_download_task: Option<Pin<Box<DownloadFuture>>>,
 }
 
 impl DownloadTask {
@@ -42,12 +42,121 @@ impl DownloadTask {
             .collect::<Vec<_>>()
             .join(", ")
     }
+
+    fn name(&self) -> String {
+        match &self.kind {
+            DownloadKind::Immutable(immutable_file_number) => {
+                format!("immutable_file_{immutable_file_number:05}")
+            }
+            DownloadKind::Ancillary { .. } => "ancillary".to_string(),
+        }
+    }
+
+    async fn download_unpack_file(&self, target_dir: &Path, logger: &Logger) -> MithrilResult<()> {
+        let mut download_succeeded = false;
+
+        for location_to_try in &self.locations_to_try {
+            let downloaded = location_to_try
+                .file_downloader
+                .download_unpack(
+                    &location_to_try.file_downloader_uri,
+                    self.size_uncompressed,
+                    target_dir,
+                    location_to_try.compression_algorithm,
+                    self.download_event.clone(),
+                )
+                .await;
+
+            if let Err(e) = downloaded {
+                slog::error!(
+                    logger,
+                    "Failed downloading and unpacking {} for location {:?}",
+                    self.name(), location_to_try.file_downloader_uri;
+                    "error" => ?e
+                );
+            } else {
+                download_succeeded = true;
+                break;
+            }
+        }
+
+        if download_succeeded {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "All locations failed for {}, tried locations: {}",
+                self.name(),
+                self.tried_locations()
+            ))
+        }
+    }
+
+    async fn download_unpack_verify_ancillary(
+        &self,
+        ancillary_files_temp_dir: &Path,
+        target_dir: &Path,
+        ancillary_verifier: &Arc<AncillaryVerifier>,
+        logger: &Logger,
+    ) -> MithrilResult<()> {
+        self.download_unpack_file(ancillary_files_temp_dir, logger)
+            .await?;
+        let validated_manifest = ancillary_verifier.verify(ancillary_files_temp_dir).await?;
+        validated_manifest.move_to_final_location(target_dir).await
+    }
+
+    /// Build a future that will download and unpack the file when awaited.
+    ///
+    /// The download is attempted for each location until the file is downloaded.
+    /// If all locations fail, an error is returned.
+    fn build_download_future(self, logger: Logger) -> Pin<Box<DownloadFuture>> {
+        let download_future = async move {
+            match &self.kind {
+                DownloadKind::Immutable(..) => {
+                    self.download_unpack_file(&self.target_dir, &logger).await
+                }
+                DownloadKind::Ancillary { verifier } => {
+                    let ancillary_files_temp_dir =
+                        InternalArtifactDownloader::temp_ancillary_target_dir(
+                            &self.target_dir,
+                            self.download_event.download_id(),
+                        );
+                    tokio::fs::create_dir(&ancillary_files_temp_dir)
+                        .await
+                        .with_context(|| {
+                            format!(
+                                "can not create download target directory '{}'",
+                                self.target_dir.display()
+                            )
+                        })?;
+
+                    let download_unpack_verify_result = self
+                        .download_unpack_verify_ancillary(
+                            &ancillary_files_temp_dir,
+                            &self.target_dir,
+                            verifier,
+                            &logger,
+                        )
+                        .await;
+
+                    if let Err(e) = tokio::fs::remove_dir_all(&ancillary_files_temp_dir).await {
+                        slog::warn!(
+                            logger, "Failed to remove ancillary unpack directory '{}'", ancillary_files_temp_dir.display();
+                            "error" => ?e
+                        );
+                    }
+
+                    download_unpack_verify_result
+                }
+            }
+        };
+
+        Box::pin(download_future)
+    }
 }
 
-struct DownloadTargetDir {
-    path: PathBuf,
-    create_before_download: bool,
-    delete_after_download: bool,
+enum DownloadKind {
+    Immutable(ImmutableFileNumber),
+    Ancillary { verifier: Arc<AncillaryVerifier> },
 }
 
 struct LocationToDownload {
@@ -281,19 +390,14 @@ impl InternalArtifactDownloader {
         }
 
         Ok(DownloadTask {
-            name: format!("immutable_file_{:05}", immutable_file_number),
+            kind: DownloadKind::Immutable(immutable_file_number),
             locations_to_try,
-            target_dir: DownloadTargetDir {
-                path: immutable_files_target_dir.to_path_buf(),
-                create_before_download: false,
-                delete_after_download: false,
-            },
+            target_dir: immutable_files_target_dir.to_path_buf(),
             size_uncompressed: immutable_locations.average_size_uncompressed,
             download_event: DownloadEvent::Immutable {
                 download_id: download_id.to_string(),
                 immutable_file_number,
             },
-            post_download_task: None,
         })
     }
 
@@ -332,42 +436,16 @@ impl InternalArtifactDownloader {
             locations_to_try.push(location_to_try);
         }
 
-        let ancillary_files_target_dir = Self::temp_ancillary_target_dir(target_dir, download_id);
-        let ancillary_files_target_dir_clone = ancillary_files_target_dir.clone();
-        let final_ancillary_location = target_dir.to_path_buf();
-        let logger_clone = self.logger.clone();
-        let post_ancillary_download_future = async move {
-            let result = ancillary_verifier
-                .verify_and_move_to_final_location(
-                    &ancillary_files_target_dir_clone,
-                    &final_ancillary_location,
-                )
-                .await;
-
-            if let Err(e) = delete_directory(&ancillary_files_target_dir_clone) {
-                slog::warn!(
-                    logger_clone,
-                    "Failed to remove ancillary unpack directory '{}': {e:?}",
-                    ancillary_files_target_dir_clone.display()
-                );
-            }
-
-            result
-        };
-
         Ok(DownloadTask {
-            name: "ancillary".to_string(),
-            locations_to_try,
-            target_dir: DownloadTargetDir {
-                path: ancillary_files_target_dir,
-                create_before_download: true,
-                delete_after_download: true,
+            kind: DownloadKind::Ancillary {
+                verifier: ancillary_verifier.clone(),
             },
+            locations_to_try,
+            target_dir: target_dir.to_path_buf(),
             size_uncompressed: locations.size_uncompressed,
             download_event: DownloadEvent::Ancillary {
                 download_id: download_id.to_string(),
             },
-            post_download_task: Some(Box::pin(post_ancillary_download_future)),
         })
     }
 
@@ -381,7 +459,7 @@ impl InternalArtifactDownloader {
 
         let initial_tasks_chunk = tasks.pop_up_to_n(max_parallel_downloads);
         for task in initial_tasks_chunk {
-            join_set.spawn(self.spawn_download_future(task));
+            join_set.spawn(task.build_download_future(self.logger.clone()));
         }
 
         while let Some(result) = join_set.join_next().await {
@@ -391,82 +469,11 @@ impl InternalArtifactDownloader {
             }
 
             if let Some(task) = tasks.pop_front() {
-                join_set.spawn(self.spawn_download_future(task));
+                join_set.spawn(task.build_download_future(self.logger.clone()));
             }
         }
 
         Ok(())
-    }
-
-    /// Spawn a download future that can be added to a join set.
-    ///
-    /// The download is attempted for each location until the file is downloaded.
-    /// If all locations fail, an error is returned.
-    fn spawn_download_future(&self, task: DownloadTask) -> Pin<Box<DownloadFuture>> {
-        let logger_clone = self.logger.clone();
-        let download_future = async move {
-            if task.target_dir.create_before_download {
-                tokio::fs::create_dir(&task.target_dir.path)
-                    .await
-                    .with_context(|| {
-                        format!(
-                            "can not create download target directory '{}'",
-                            task.target_dir.path.display()
-                        )
-                    })?;
-            }
-            let mut download_succeeded = false;
-            let tried_locations = task.tried_locations();
-
-            for location_to_try in task.locations_to_try {
-                let downloaded = location_to_try
-                    .file_downloader
-                    .download_unpack(
-                        &location_to_try.file_downloader_uri,
-                        task.size_uncompressed,
-                        &task.target_dir.path,
-                        location_to_try.compression_algorithm,
-                        task.download_event.clone(),
-                    )
-                    .await;
-
-                if let Err(e) = downloaded {
-                    slog::error!(
-                        logger_clone,
-                        "Failed downloading and unpacking {} for location {:?}",
-                        task.name, location_to_try.file_downloader_uri;
-                        "error" => ?e
-                    );
-                } else {
-                    if let Some(post_download_task) = task.post_download_task {
-                        post_download_task.await?;
-                    }
-                    download_succeeded = true;
-                    break;
-                }
-            }
-
-            if task.target_dir.delete_after_download {
-                if let Err(e) = tokio::fs::remove_dir_all(&task.target_dir.path).await {
-                    slog::warn!(
-                        logger_clone,
-                        "Failed to remove download target directory '{}': error: {e:?}",
-                        task.target_dir.path.display()
-                    );
-                }
-            }
-
-            if download_succeeded {
-                Ok(())
-            } else {
-                Err(anyhow!(
-                    "All locations failed for {}, tried locations: {tried_locations}",
-                    task.name,
-                ))
-            }
-        };
-
-        Box::pin(download_future)
     }
 }
 
@@ -1171,6 +1178,7 @@ mod tests {
         #[tokio::test]
         async fn succeeds_if_at_least_one_location_is_retrieved() {
             let target_dir = temp_dir_create!();
+            let ancillary_signer = ManifestSigner::create_deterministic_signer();
             let artifact_downloader = InternalArtifactDownloader::new(
                 Arc::new(
                     MockFileDownloaderBuilder::default()
@@ -1186,15 +1194,22 @@ mod tests {
                             &target_dir,
                             "download_id",
                         ))
-                        .with_success()
+                        .with_success_and_create_fake_ancillary_files(
+                            FakeAncillaryFileBuilder::builder()
+                                .files_in_manifest_to_create(vec!["ledger".to_string()])
+                                .sign_manifest(ancillary_signer.clone())
+                                .build(),
+                        )
                         .build(),
                 ),
-                Some(Arc::new(fake_ancillary_verifier())),
+                Some(Arc::new(AncillaryVerifier::new(
+                    ancillary_signer.verification_key(),
+                ))),
                 FeedbackSender::new(&[]),
                 TestLogger::stdout(),
             );
 
-            let mut task = artifact_downloader
+            let task = artifact_downloader
                 .new_ancillary_download_task(
                     &AncillaryMessagePart {
                         locations: vec![
@@ -1213,8 +1228,6 @@ mod tests {
                     "download_id",
                 )
                 .unwrap();
-            // Avoid ancillary verification & move (checked by other tests)
-            task.post_download_task = None;
 
             artifact_downloader
                 .batch_download_unpack(vec![task].into(), 1)
@@ -1225,6 +1238,7 @@ mod tests {
         #[tokio::test]
         async fn succeeds_when_first_location_is_retrieved() {
             let target_dir = temp_dir_create!();
+            let ancillary_signer = ManifestSigner::create_deterministic_signer();
             let artifact_downloader = InternalArtifactDownloader::new(
                 Arc::new(
                     MockFileDownloaderBuilder::default()
@@ -1233,15 +1247,22 @@ mod tests {
                             &target_dir,
                             "download_id",
                         ))
-                        .with_success()
+                        .with_success_and_create_fake_ancillary_files(
+                            FakeAncillaryFileBuilder::builder()
+                                .files_in_manifest_to_create(vec!["ledger".to_string()])
+                                .sign_manifest(ancillary_signer.clone())
+                                .build(),
+                        )
                         .build(),
                 ),
-                Some(Arc::new(fake_ancillary_verifier())),
+                Some(Arc::new(AncillaryVerifier::new(
+                    ancillary_signer.verification_key(),
+                ))),
                 FeedbackSender::new(&[]),
                 TestLogger::stdout(),
             );
 
-            let mut task = artifact_downloader
+            let task = artifact_downloader
                 .new_ancillary_download_task(
                     &AncillaryMessagePart {
                         locations: vec![
@@ -1260,8 +1281,6 @@ mod tests {
                     "download_id",
                 )
                 .unwrap();
-            // Avoid ancillary verification & move (checked by other tests)
-            task.post_download_task = None;
 
             artifact_downloader
                 .batch_download_unpack(vec![task].into(), 1)
