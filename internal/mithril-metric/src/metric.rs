@@ -76,17 +76,18 @@ impl MetricCollector for MetricCounter {
     }
 }
 
-/// Metric counter vec
-pub struct MetricCounterVec {
+/// Metric counter with labels
+pub struct MetricCounterWithLabels {
     name: String,
     logger: Logger,
     counter: Box<CounterVec>,
 }
 
-impl MetricCounterVec {
+impl MetricCounterWithLabels {
     /// Create a new metric counter.
     pub fn new(logger: Logger, name: &str, help: &str, labels: &[&str]) -> StdResult<Self> {
-        let counter = MetricCounterVec::create_metric_counter_vec(name, help, labels)?;
+        let counter =
+            MetricCounterWithLabels::create_metric_counter_with_labels(name, help, labels)?;
         Ok(Self {
             logger,
             name: name.to_string(),
@@ -114,7 +115,7 @@ impl MetricCounterVec {
         self.counter.with_label_values(labels).get().round() as CounterValue
     }
 
-    fn create_metric_counter_vec(
+    fn create_metric_counter_with_labels(
         name: &MetricName,
         help: &str,
         labels: &[&str],
@@ -125,7 +126,7 @@ impl MetricCounterVec {
     }
 }
 
-impl MetricCollector for MetricCounterVec {
+impl MetricCollector for MetricCounterWithLabels {
     fn collector(&self) -> Box<dyn Collector> {
         self.counter.clone()
     }
@@ -220,10 +221,10 @@ mod tests {
 
     #[test]
     fn test_metric_counter_vec_can_be_recorded() {
-        let metric = MetricCounterVec::new(
+        let metric = MetricCounterWithLabels::new(
             TestLogger::stdout(),
-            "test_counter_vec",
-            "test counter vec help",
+            "test_counter_with_labels",
+            "test counter with labels help",
             &["label_1", "label_2"],
         )
         .unwrap();

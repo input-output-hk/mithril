@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use mithril_metric::{build_metrics_service, MetricCounterVec, MetricsServiceExporter};
+use mithril_metric::{build_metrics_service, MetricCounterWithLabels, MetricsServiceExporter};
 
 use mithril_metric::metric::{MetricCollector, MetricCounter};
 use prometheus::proto::{LabelPair, MetricFamily};
@@ -10,77 +10,77 @@ static ORIGIN_TAG_LABEL: &str = "origin_tag";
 build_metrics_service!(
     MetricsService,
 
-    certificate_detail_total_served_since_startup:MetricCounterVec(
+    certificate_detail_total_served_since_startup:MetricCounterWithLabels(
         "certificate_detail_total_served_since_startup",
         "Number of certificate details served since startup on a Mithril aggregator node",
         &[ORIGIN_TAG_LABEL]
     ),
-    artifact_detail_cardano_immutable_files_full_total_served_since_startup:MetricCounterVec(
+    artifact_detail_cardano_immutable_files_full_total_served_since_startup:MetricCounterWithLabels(
         "mithril_aggregator_artifact_detail_cardano_db_total_served_since_startup",
         "Number of Cardano immutable files full artifact details served since startup on a Mithril aggregator node",
         &[ORIGIN_TAG_LABEL]
     ),
-    cardano_immutable_files_full_total_restoration_since_startup:MetricCounterVec(
+    cardano_immutable_files_full_total_restoration_since_startup:MetricCounterWithLabels(
         "mithril_aggregator_cardano_db_total_restoration_since_startup",
         "Number of Cardano immutable files full restorations since startup on a Mithril aggregator node",
         &[ORIGIN_TAG_LABEL]
     ),
-    cardano_database_immutable_files_restored_since_startup:MetricCounterVec(
+    cardano_database_immutable_files_restored_since_startup:MetricCounterWithLabels(
         "mithril_aggregator_cardano_db_immutable_files_restored_since_startup",
         "Number of Cardano immutable files restored since startup on a Mithril aggregator node",
         &[ORIGIN_TAG_LABEL]
     ),
-    cardano_database_ancillary_files_restored_since_startup:MetricCounterVec(
+    cardano_database_ancillary_files_restored_since_startup:MetricCounterWithLabels(
         "mithril_aggregator_cardano_db_ancillary_files_restored_since_startup",
         "Number of Cardano ancillary files restored since startup on a Mithril aggregator node",
         &[ORIGIN_TAG_LABEL]
     ),
-    cardano_database_complete_restoration_since_startup:MetricCounterVec(
+    cardano_database_complete_restoration_since_startup:MetricCounterWithLabels(
         "mithril_aggregator_cardano_db_complete_restoration_since_startup",
         "Number of complete Cardano database restoration since startup on a Mithril aggregator node",
         &[ORIGIN_TAG_LABEL]
     ),
-    cardano_database_partial_restoration_since_startup:MetricCounterVec(
+    cardano_database_partial_restoration_since_startup:MetricCounterWithLabels(
         "mithril_aggregator_cardano_db_partial_restoration_since_startup",
         "Number of partial Cardano database restoration since startup on a Mithril aggregator node",
         &[ORIGIN_TAG_LABEL]
     ),
-    artifact_detail_cardano_database_total_served_since_startup:MetricCounterVec(
+    artifact_detail_cardano_database_total_served_since_startup:MetricCounterWithLabels(
         "mithril_aggregator_artifact_detail_cardano_database_total_served_since_startup",
         "Number of Cardano database artifact details served since startup on a Mithril aggregator node",
         &[ORIGIN_TAG_LABEL]
     ),
-    artifact_detail_mithril_stake_distribution_total_served_since_startup:MetricCounterVec(
+    artifact_detail_mithril_stake_distribution_total_served_since_startup:MetricCounterWithLabels(
         "mithril_aggregator_artifact_detail_mithril_stake_distribution_total_served_since_startup",
         "Number of Mithril stake distribution artifact details served since startup on a Mithril aggregator node",
         &[ORIGIN_TAG_LABEL]
     ),
-    artifact_detail_cardano_stake_distribution_total_served_since_startup:MetricCounterVec(
+    artifact_detail_cardano_stake_distribution_total_served_since_startup:MetricCounterWithLabels(
         "mithril_aggregator_artifact_detail_cardano_stake_distribution_total_served_since_startup",
         "Number of Cardano stake distribution artifact details served since startup on a Mithril aggregator node",
         &[ORIGIN_TAG_LABEL]
     ),
-    artifact_detail_cardano_transaction_total_served_since_startup:MetricCounterVec(
+    artifact_detail_cardano_transaction_total_served_since_startup:MetricCounterWithLabels(
         "mithril_aggregator_artifact_detail_cardano_transaction_total_served_since_startup",
         "Number of Cardano transaction artifact details served since startup on a Mithril aggregator node",
         &[ORIGIN_TAG_LABEL]
     ),
-    proof_cardano_transaction_total_proofs_served_since_startup:MetricCounterVec(
+    proof_cardano_transaction_total_proofs_served_since_startup:MetricCounterWithLabels(
         "mithril_aggregator_proof_cardano_transaction_total_proofs_served_since_startup",
         "Number of Cardano transaction proofs served since startup on a Mithril aggregator node",
         &[ORIGIN_TAG_LABEL]
     ),
-    proof_cardano_transaction_total_transactions_served_since_startup:MetricCounterVec(
+    proof_cardano_transaction_total_transactions_served_since_startup:MetricCounterWithLabels(
         "mithril_aggregator_proof_cardano_transaction_total_transactions_served_since_startup",
         "Number of Cardano transaction hashes requested for proof since startup on a Mithril aggregator node",
         &[ORIGIN_TAG_LABEL]
     ),
-    signer_registration_total_received_since_startup:MetricCounterVec(
+    signer_registration_total_received_since_startup:MetricCounterWithLabels(
         "mithril_aggregator_signer_registration_total_received_since_startup",
         "Number of signer registrations received since startup on a Mithril aggregator node",
         &[ORIGIN_TAG_LABEL]
     ),
-    signature_registration_total_received_since_startup:MetricCounterVec(
+    signature_registration_total_received_since_startup:MetricCounterWithLabels(
         "mithril_aggregator_signature_registration_total_received_since_startup",
         "Number of signature registrations received since startup on a Mithril aggregator node",
         &[ORIGIN_TAG_LABEL]
