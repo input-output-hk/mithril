@@ -15,7 +15,6 @@ fn epoch_settings(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("epoch-settings")
         .and(warp::get())
-        .and(middlewares::with_origin_tag(router_state))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_http_message_service(router_state))
         .and(middlewares::extract_config(router_state, |config| {
@@ -38,7 +37,6 @@ mod handlers {
 
     /// Epoch Settings
     pub async fn epoch_settings(
-        _origin_tag: Option<String>,
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,

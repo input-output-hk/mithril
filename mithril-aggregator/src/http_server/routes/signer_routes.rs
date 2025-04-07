@@ -44,7 +44,6 @@ fn signers_tickers(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("signers" / "tickers")
         .and(warp::get())
-        .and(middlewares::with_origin_tag(router_state))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::extract_config(router_state, |config| {
             config.network.to_string()
@@ -59,7 +58,6 @@ fn registered_signers(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("signers" / "registered" / String)
         .and(warp::get())
-        .and(middlewares::with_origin_tag(router_state))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_epoch_service(router_state))
         .and(middlewares::with_verification_key_store(router_state))
@@ -193,7 +191,6 @@ mod handlers {
     /// Get Registered Signers for a given epoch
     pub async fn registered_signers(
         registered_at: String,
-        _origin_tag: Option<String>,
         logger: Logger,
         epoch_service: EpochServiceWrapper,
         verification_key_store: Arc<dyn VerificationKeyStorer>,
@@ -232,7 +229,6 @@ mod handlers {
     }
 
     pub async fn signers_tickers(
-        _origin_tag: Option<String>,
         logger: Logger,
         network: String,
         signer_getter: Arc<dyn SignerGetter>,

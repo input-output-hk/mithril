@@ -13,7 +13,6 @@ fn root(
     router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path::end()
-        .and(middlewares::with_origin_tag(router_state))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_api_version_provider(router_state))
         .and(middlewares::extract_config(router_state, |config| {
@@ -43,7 +42,6 @@ mod handlers {
 
     /// Root
     pub async fn root(
-        _origin_tag: Option<String>,
         logger: Logger,
         api_version_provider: Arc<APIVersionProvider>,
         allowed_signed_entity_type_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,

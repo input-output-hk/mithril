@@ -17,7 +17,6 @@ fn artifact_cardano_full_immutable_snapshots(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "snapshots")
         .and(warp::get())
-        .and(middlewares::with_origin_tag(router_state))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_http_message_service(router_state))
         .and_then(handlers::list_artifacts)
@@ -42,7 +41,6 @@ fn snapshot_download(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "snapshot" / String / "download")
         .and(warp::get().or(warp::head()).unify())
-        .and(middlewares::with_origin_tag(router_state))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::extract_config(router_state, |config| {
             config.server_url.clone()
@@ -55,7 +53,6 @@ fn serve_snapshots_dir(
     router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path(crate::http_server::SNAPSHOT_DOWNLOAD_PATH)
-        .and(middlewares::with_origin_tag(router_state))
         .and(warp::fs::dir(
             router_state.configuration.snapshot_directory.clone(),
         ))
@@ -85,7 +82,6 @@ mod handlers {
 
     /// List Snapshot artifacts
     pub async fn list_artifacts(
-        _origin_tag: Option<String>,
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
@@ -131,7 +127,6 @@ mod handlers {
 
     /// Download a file if and only if it's a snapshot archive
     pub async fn ensure_downloaded_file_is_a_snapshot(
-        _origin_tag: Option<String>,
         reply: warp::fs::File,
         logger: Logger,
         signed_entity_service: Arc<dyn SignedEntityService>,
@@ -167,7 +162,6 @@ mod handlers {
     /// Snapshot download
     pub async fn snapshot_download(
         digest: String,
-        _origin_tag: Option<String>,
         logger: Logger,
         server_url: SanitizedUrlWithTrailingSlash,
         signed_entity_service: Arc<dyn SignedEntityService>,

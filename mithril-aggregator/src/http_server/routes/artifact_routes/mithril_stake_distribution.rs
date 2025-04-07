@@ -15,7 +15,6 @@ fn artifact_mithril_stake_distributions(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "mithril-stake-distributions")
         .and(warp::get())
-        .and(middlewares::with_origin_tag(router_state))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_http_message_service(router_state))
         .and_then(handlers::list_artifacts)
@@ -48,7 +47,6 @@ pub mod handlers {
 
     /// List MithrilStakeDistribution artifacts
     pub async fn list_artifacts(
-        _origin_tag: Option<String>,
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
