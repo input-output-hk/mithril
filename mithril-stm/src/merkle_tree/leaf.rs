@@ -1,5 +1,5 @@
+use crate::bls_multi_signature::VerificationKey;
 use crate::error::MerkleTreeError;
-use crate::multi_sig::VerificationKey;
 use crate::stm::{Stake, StmVerificationKey};
 use blake2::Blake2b;
 use digest::consts::U32;
