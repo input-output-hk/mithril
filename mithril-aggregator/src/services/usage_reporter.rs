@@ -18,8 +18,8 @@ struct MetricEventMessage {
     value: i64,
     /// Period of time during which the metric was collected.
     period: Duration,
-    /// Token to identify origin.
-    token: String,
+    /// Identify the origin of the metric.
+    origin: String,
     /// Date at which the metric was collected.
     date: DateTime<Utc>,
 }
@@ -84,10 +84,15 @@ impl UsageReporter {
 
         self.last_reported_metrics = metrics;
 
-        for (name, token_values) in delta {
-            for (token, value) in token_values {
-                let message =
-                    Self::create_metrics_event_message(name.clone(), value, *duration, token, date);
+        for (name, origin_values) in delta {
+            for (origin, value) in origin_values {
+                let message = Self::create_metrics_event_message(
+                    name.clone(),
+                    value,
+                    *duration,
+                    origin,
+                    date,
+                );
                 self.transmitter_service.send(message);
             }
         }
@@ -114,7 +119,7 @@ impl UsageReporter {
         name: String,
         value: i64,
         period: Duration,
-        token: String,
+        origin: String,
         date: DateTime<Utc>,
     ) -> EventMessage {
         EventMessage::new(
@@ -124,7 +129,7 @@ impl UsageReporter {
                 name,
                 value,
                 period,
-                token,
+                origin,
                 date,
             },
             vec![],
@@ -199,7 +204,7 @@ mod tests {
             serde_json::from_value(message.content.clone()).unwrap();
         assert_eq!(3, message_content.value);
         assert_eq!(Duration::from_secs(10), message_content.period);
-        assert_eq!("".to_string(), message_content.token);
+        assert_eq!("".to_string(), message_content.origin);
     }
 
     #[test]
@@ -207,7 +212,7 @@ mod tests {
         let (mut usage_reporter, metrics_service, mut rx) = build_usage_reporter();
 
         let metric = metrics_service.get_certificate_detail_total_served_since_startup();
-        metric.increment_by(&["TOKEN_A"], 3);
+        metric.increment_by(&["ORIGIN_A"], 3);
         usage_reporter.send_metrics(&Duration::from_secs(10));
 
         let received_messages = received_messages(&mut rx);
@@ -218,16 +223,16 @@ mod tests {
             serde_json::from_value(message.content.clone()).unwrap();
         assert_eq!(3, message_content.value);
         assert_eq!(Duration::from_secs(10), message_content.period);
-        assert_eq!("TOKEN_A", message_content.token);
+        assert_eq!("ORIGIN_A", message_content.origin);
     }
 
     #[test]
-    fn send_one_message_per_token() {
+    fn send_one_message_per_origin() {
         let (mut usage_reporter, metrics_service, mut rx) = build_usage_reporter();
 
         let metric = metrics_service.get_certificate_detail_total_served_since_startup();
-        metric.increment_by(&["TOKEN_A"], 3);
-        metric.increment_by(&["TOKEN_B"], 7);
+        metric.increment_by(&["ORIGIN_A"], 3);
+        metric.increment_by(&["ORIGIN_B"], 7);
         usage_reporter.send_metrics(&Duration::from_secs(10));
 
         let received_messages = received_messages(&mut rx);
@@ -237,11 +242,11 @@ mod tests {
             .map(|message| {
                 let event: MetricEventMessage =
                     serde_json::from_value(message.content.clone()).unwrap();
-                (event.token, event.value)
+                (event.origin, event.value)
             })
             .collect();
-        assert_eq!(Some(&3), received_messages.get("TOKEN_A"));
-        assert_eq!(Some(&7), received_messages.get("TOKEN_B"));
+        assert_eq!(Some(&3), received_messages.get("ORIGIN_A"));
+        assert_eq!(Some(&7), received_messages.get("ORIGIN_B"));
     }
 
     #[test]
@@ -251,7 +256,7 @@ mod tests {
         let metric_1 = metrics_service.get_certificate_total_produced_since_startup();
         let metric_2 = metrics_service.get_certificate_detail_total_served_since_startup();
         metric_1.increment();
-        metric_2.increment(&["TOKEN"]);
+        metric_2.increment(&["ORIGIN"]);
 
         usage_reporter.send_metrics(&Duration::from_secs(10));
 
@@ -272,15 +277,15 @@ mod tests {
 
         {
             metric_1.increment_by(12);
-            metric_2.increment_by(&["TOKEN"], 5);
+            metric_2.increment_by(&["ORIGIN"], 5);
             usage_reporter.send_metrics(&Duration::from_secs(10));
 
             let received_messages = received_messages(&mut rx);
             assert_eq!(2, received_messages.len());
         }
         {
-            metric_2.increment_by(&["TOKEN"], 20);
-            metric_2.increment_by(&["TOKEN"], 33);
+            metric_2.increment_by(&["ORIGIN"], 20);
+            metric_2.increment_by(&["ORIGIN"], 33);
             usage_reporter.send_metrics(&Duration::from_secs(10));
 
             let received_messages = received_messages(&mut rx);
@@ -292,7 +297,7 @@ mod tests {
             );
         }
         {
-            metric_2.increment_by(&["TOKEN"], 15);
+            metric_2.increment_by(&["ORIGIN"], 15);
             usage_reporter.send_metrics(&Duration::from_secs(10));
 
             let received_messages = received_messages(&mut rx);
@@ -313,10 +318,10 @@ mod tests {
         ) -> HashMap<String, HashMap<String, T>> {
             values
                 .iter()
-                .map(|(name, token_values)| {
-                    let value_per_label: HashMap<String, T> = token_values
+                .map(|(name, origin_values)| {
+                    let value_per_label: HashMap<String, T> = origin_values
                         .iter()
-                        .map(|(token, value)| (token.to_string(), *value))
+                        .map(|(origin, value)| (origin.to_string(), *value))
                         .collect();
                     (name.to_string(), value_per_label)
                 })
@@ -325,9 +330,9 @@ mod tests {
 
         #[test]
         fn should_not_contain_metric_that_not_change() {
-            let metrics_before = build_hashmap(&[("metric_a", &[("token_1", 1)])]);
+            let metrics_before = build_hashmap(&[("metric_a", &[("origin_1", 1)])]);
 
-            let metrics_after = build_hashmap(&[("metric_a", &[("token_1", 1)])]);
+            let metrics_after = build_hashmap(&[("metric_a", &[("origin_1", 1)])]);
 
             let expected = build_hashmap(&[]);
 
@@ -339,11 +344,11 @@ mod tests {
 
         #[test]
         fn should_contain_the_difference_of_an_increased_metric() {
-            let metrics_before = build_hashmap(&[("metric_a", &[("token_1", 1)])]);
+            let metrics_before = build_hashmap(&[("metric_a", &[("origin_1", 1)])]);
 
-            let metrics_after = build_hashmap(&[("metric_a", &[("token_1", 5)])]);
+            let metrics_after = build_hashmap(&[("metric_a", &[("origin_1", 5)])]);
 
-            let expected = build_hashmap(&[("metric_a", &[("token_1", 4)])]);
+            let expected = build_hashmap(&[("metric_a", &[("origin_1", 4)])]);
 
             assert_eq!(
                 expected,
@@ -353,11 +358,11 @@ mod tests {
 
         #[test]
         fn should_contain_the_difference_of_a_decreased_metric() {
-            let metrics_before = build_hashmap(&[("metric_a", &[("token_1", 5)])]);
+            let metrics_before = build_hashmap(&[("metric_a", &[("origin_1", 5)])]);
 
-            let metrics_after = build_hashmap(&[("metric_a", &[("token_1", 2)])]);
+            let metrics_after = build_hashmap(&[("metric_a", &[("origin_1", 2)])]);
 
-            let expected = build_hashmap(&[("metric_a", &[("token_1", -3)])]);
+            let expected = build_hashmap(&[("metric_a", &[("origin_1", -3)])]);
 
             assert_eq!(
                 expected,
@@ -369,9 +374,9 @@ mod tests {
         fn should_contain_new_value_of_a_metric_not_present_before() {
             let metrics_before = build_hashmap(&[]);
 
-            let metrics_after = build_hashmap(&[("metric_a", &[("token_1", 5)])]);
+            let metrics_after = build_hashmap(&[("metric_a", &[("origin_1", 5)])]);
 
-            let expected = build_hashmap(&[("metric_a", &[("token_1", 5)])]);
+            let expected = build_hashmap(&[("metric_a", &[("origin_1", 5)])]);
 
             assert_eq!(
                 expected,
@@ -381,32 +386,32 @@ mod tests {
 
         #[test]
         fn should_not_panic_with_a_large_delta() {
-            let metrics_at_0 = build_hashmap(&[("metric_a", &[("token_1", 0)])]);
-            let metrics_at_max = build_hashmap(&[("metric_a", &[("token_1", u32::MAX)])]);
+            let metrics_at_0 = build_hashmap(&[("metric_a", &[("origin_1", 0)])]);
+            let metrics_at_max = build_hashmap(&[("metric_a", &[("origin_1", u32::MAX)])]);
 
             assert_eq!(
-                build_hashmap(&[("metric_a", &[("token_1", u32::MAX as i64)])]),
+                build_hashmap(&[("metric_a", &[("origin_1", u32::MAX as i64)])]),
                 UsageReporter::compute_metrics_delta_with_label(&metrics_at_0, &metrics_at_max)
             );
             assert_eq!(
-                build_hashmap(&[("metric_a", &[("token_1", -(u32::MAX as i64))])]),
+                build_hashmap(&[("metric_a", &[("origin_1", -(u32::MAX as i64))])]),
                 UsageReporter::compute_metrics_delta_with_label(&metrics_at_max, &metrics_at_0)
             );
         }
 
         #[test]
-        fn should_contain_only_the_difference_for_token_on_which_value_change() {
+        fn should_contain_only_the_difference_for_origin_on_which_value_change() {
             let metrics_before = build_hashmap(&[(
                 "metric_a",
-                &[("token_1", 1), ("token_2", 3), ("token_3", 7)],
+                &[("origin_1", 1), ("origin_2", 3), ("origin_3", 7)],
             )]);
 
             let metrics_after = build_hashmap(&[(
                 "metric_a",
-                &[("token_1", 5), ("token_2", 3), ("token_3", 9)],
+                &[("origin_1", 5), ("origin_2", 3), ("origin_3", 9)],
             )]);
 
-            let expected = build_hashmap(&[("metric_a", &[("token_1", 4), ("token_3", 2)])]);
+            let expected = build_hashmap(&[("metric_a", &[("origin_1", 4), ("origin_3", 2)])]);
 
             assert_eq!(
                 expected,

@@ -440,6 +440,7 @@ impl Configuration {
         if let Some(custom_tags) = &self.custom_origin_tag_white_list {
             white_list.extend(custom_tags.split(',').map(|tag| tag.trim().to_string()));
         }
+
         white_list
     }
 }
