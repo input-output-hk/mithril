@@ -1,4 +1,5 @@
 use crate::utils::MithrilCommand;
+use crate::{ANCILLARY_MANIFEST_VERIFICATION_KEY, GENESIS_VERIFICATION_KEY};
 use anyhow::{anyhow, Context};
 use mithril_common::{entities::TransactionHash, StdResult};
 use std::collections::HashMap;
@@ -65,7 +66,11 @@ impl CardanoDbV2Command {
                 vec!["snapshot".to_string(), "show".to_string(), hash.clone()]
             }
             CardanoDbV2Command::Download { hash } => {
-                vec!["download".to_string(), hash.clone()]
+                vec![
+                    "download".to_string(),
+                    "--include-ancillary".to_string(),
+                    hash.clone(),
+                ]
             }
         }
     }
@@ -223,8 +228,12 @@ impl ClientCommand {
 impl Client {
     pub fn new(aggregator_endpoint: String, work_dir: &Path, bin_dir: &Path) -> StdResult<Self> {
         let env = HashMap::from([
-            ("GENESIS_VERIFICATION_KEY", "5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d"),
+            ("GENESIS_VERIFICATION_KEY", GENESIS_VERIFICATION_KEY),
             ("AGGREGATOR_ENDPOINT", &aggregator_endpoint),
+            (
+                "ANCILLARY_VERIFICATION_KEY",
+                ANCILLARY_MANIFEST_VERIFICATION_KEY,
+            ),
         ]);
         let args = vec!["-vvv", "--origin-tag", "E2E"];
         let command = MithrilCommand::new("mithril-client", work_dir, bin_dir, env, &args)?;
