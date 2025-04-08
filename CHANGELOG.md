@@ -9,6 +9,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
+- Add `with_origin_tag` function to the Mithril client library to record the origin of client requests.
+
 - Crates versions:
 
 | Crate | Version |
