@@ -37,7 +37,7 @@ async fn snapshot_list_get_show_download_verify() {
     let client = ClientBuilder::aggregator(&test_http_server.url(), genesis_verification_key)
         .set_ancillary_verification_key(
             ancillary_manifest_signer_verification_key
-                .try_into()
+                .to_json_hex()
                 .unwrap(),
         )
         .with_certificate_verifier(FakeCertificateVerifier::build_that_validate_any_certificate())
