@@ -39,6 +39,8 @@ pub struct ClientOptions {
     pub http_headers: Option<HashMap<String, String>>,
 
     /// Tag to retrieve the origin of the client requests.
+    #[cfg(target_family = "wasm")]
+    #[cfg_attr(target_family = "wasm", serde(default))]
     pub origin_tag: Option<String>,
 
     /// Whether to enable unstable features in the WASM client.
@@ -71,6 +73,7 @@ impl ClientOptions {
     pub fn new(http_headers: Option<HashMap<String, String>>) -> Self {
         Self {
             http_headers,
+            #[cfg(target_family = "wasm")]
             origin_tag: None,
             #[cfg(target_family = "wasm")]
             unstable: false,
@@ -145,6 +148,7 @@ impl Client {
 pub struct ClientBuilder {
     aggregator_endpoint: Option<String>,
     genesis_verification_key: String,
+    origin_tag: Option<String>,
     aggregator_client: Option<Arc<dyn AggregatorClient>>,
     certificate_verifier: Option<Arc<dyn CertificateVerifier>>,
     #[cfg(feature = "fs")]
@@ -163,6 +167,7 @@ impl ClientBuilder {
         Self {
             aggregator_endpoint: Some(endpoint.to_string()),
             genesis_verification_key: genesis_verification_key.to_string(),
+            origin_tag: None,
             aggregator_client: None,
             certificate_verifier: None,
             #[cfg(feature = "fs")]
@@ -183,6 +188,7 @@ impl ClientBuilder {
         Self {
             aggregator_endpoint: None,
             genesis_verification_key: genesis_verification_key.to_string(),
+            origin_tag: None,
             aggregator_client: None,
             certificate_verifier: None,
             #[cfg(feature = "fs")]
@@ -312,7 +318,7 @@ impl ClientBuilder {
 
     fn compute_http_headers(&self) -> HashMap<String, String> {
         let mut headers = self.options.http_headers.clone().unwrap_or_default();
-        if let Some(origin_tag) = self.options.origin_tag.clone() {
+        if let Some(origin_tag) = self.origin_tag.clone() {
             headers.insert(MITHRIL_ORIGIN_TAG_HEADER.to_string(), origin_tag);
         }
 
@@ -368,12 +374,9 @@ impl ClientBuilder {
     }
 
     /// Set the origin tag.
-    pub fn with_origin_tag(self, origin_tag: Option<String>) -> Self {
-        let options = self.options.clone();
-        self.with_options(ClientOptions {
-            origin_tag,
-            ..options
-        })
+    pub fn with_origin_tag(mut self, origin_tag: Option<String>) -> Self {
+        self.origin_tag = origin_tag;
+        self
     }
 
     /// Add a [feedback receiver][FeedbackReceiver] to receive [events][crate::feedback::MithrilEvent]
@@ -400,7 +403,6 @@ mod tests {
         let http_headers = HashMap::from([("Key".to_string(), "Value".to_string())]);
         let client_builder = ClientBuilder::new("").with_options(ClientOptions {
             http_headers: Some(http_headers.clone()),
-            origin_tag: None,
         });
 
         let computed_headers = client_builder.compute_http_headers();
@@ -414,7 +416,6 @@ mod tests {
         let client_builder = ClientBuilder::new("")
             .with_options(ClientOptions {
                 http_headers: Some(http_headers.clone()),
-                origin_tag: None,
             })
             .with_origin_tag(Some("CLIENT_TAG".to_string()));
 
@@ -435,23 +436,19 @@ mod tests {
     #[tokio::test]
     async fn test_with_origin_tag_not_overwrite_other_client_options_attributes() {
         let builder = ClientBuilder::new("")
-            .with_options(ClientOptions {
-                http_headers: None,
-                origin_tag: None,
-            })
+            .with_options(ClientOptions { http_headers: None })
             .with_origin_tag(Some("TEST".to_string()));
         assert_eq!(None, builder.options.http_headers);
-        assert_eq!(Some("TEST".to_string()), builder.options.origin_tag);
+        assert_eq!(Some("TEST".to_string()), builder.origin_tag);
 
         let http_headers = HashMap::from([("Key".to_string(), "Value".to_string())]);
         let builder = ClientBuilder::new("")
             .with_options(ClientOptions {
                 http_headers: Some(http_headers.clone()),
-                origin_tag: None,
             })
             .with_origin_tag(Some("TEST".to_string()));
         assert_eq!(Some(http_headers), builder.options.http_headers);
-        assert_eq!(Some("TEST".to_string()), builder.options.origin_tag);
+        assert_eq!(Some("TEST".to_string()), builder.origin_tag);
     }
 
     #[tokio::test]
@@ -459,13 +456,12 @@ mod tests {
         let http_headers = HashMap::from([("Key".to_string(), "Value".to_string())]);
         let client_options = ClientOptions {
             http_headers: Some(http_headers.clone()),
-            origin_tag: Some("TEST".to_string()),
         };
         let builder = ClientBuilder::new("")
             .with_options(client_options)
             .with_origin_tag(None);
 
         assert_eq!(Some(http_headers), builder.options.http_headers);
-        assert_eq!(None, builder.options.origin_tag);
+        assert_eq!(None, builder.origin_tag);
     }
 }

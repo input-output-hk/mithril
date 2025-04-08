@@ -99,6 +99,7 @@ impl MithrilClient {
         let client = ClientBuilder::aggregator(aggregator_endpoint, genesis_verification_key)
             .add_feedback_receiver(feedback_receiver)
             .with_options(client_options.clone())
+            .with_origin_tag(client_options.origin_tag.clone())
             .with_certificate_verifier_cache(certificate_verifier_cache.clone())
             .build()
             .map_err(|err| format!("{err:?}"))
@@ -542,6 +543,22 @@ mod tests {
         let mut http_headers = HashMap::new();
         http_headers.insert("Authorization".to_string(), "Bearer token".to_string());
         let options = ClientOptions::new(Some(http_headers));
+        let options_js_value = serde_wasm_bindgen::to_value(&options).unwrap();
+
+        MithrilClient::new(
+            &format!(
+                "http://{}:{}/aggregator",
+                FAKE_AGGREGATOR_IP, FAKE_AGGREGATOR_PORT
+            ),
+            GENESIS_VERIFICATION_KEY,
+            options_js_value,
+        );
+    }
+
+    #[wasm_bindgen_test]
+    async fn build_mithril_client_with_origin_tag() {
+        let mut options = ClientOptions::new(None);
+        options.origin_tag = Some("test-origin".to_string());
         let options_js_value = serde_wasm_bindgen::to_value(&options).unwrap();
 
         MithrilClient::new(
