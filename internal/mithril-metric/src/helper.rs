@@ -22,7 +22,7 @@ pub mod re_export {
 ///     use slog::Logger;
 ///     use mithril_common::{entities::Epoch, StdResult};
 ///     use mithril_metric::build_metrics_service;
-///     use mithril_metric::{MetricCollector, MetricCounter, MetricGauge, MetricsServiceExporter};
+///     use mithril_metric::{MetricCollector, MetricCounter, MetricCounterWithLabels, MetricGauge, MetricsServiceExporter};
 ///
 ///     build_metrics_service!(
 ///         MetricsService,
@@ -33,19 +33,25 @@ pub mod re_export {
 ///         gauge_example: MetricGauge(
 ///             "custom_gauge_example_name",
 ///             "Example of a gauge metric"
+///         ),
+///         counter_with_labels_example: MetricCounterWithLabels(
+///             "custom_counter_with_labels_example_name",
+///             "Example of a counter with labels metric",
+///             &["label"]
 ///         )
 ///     );
 ///
 ///     let service = MetricsService::new(Logger::root(slog::Discard, slog::o!())).unwrap();
 ///     service.get_counter_example().increment();
 ///     service.get_gauge_example().record(Epoch(12));
+///     service.get_counter_with_labels_example().increment(&["guest"]);
 /// ```
 #[macro_export]
 macro_rules! build_metrics_service {
-    ($service:ident, $($metric_attribute:ident:$metric_type:ident($name:literal, $help:literal)),*) => {
+
+    ($service:ident, $($metric_attribute:ident:$metric_type:ident ($name:literal, $help:literal $(, $labels:expr)?)),*) => {
         use $crate::helper::re_export::paste;
         use $crate::helper::re_export::prometheus;
-
         paste::item! {
             /// Metrics service which is responsible for recording and exposing metrics.
             pub struct $service {
@@ -68,6 +74,7 @@ macro_rules! build_metrics_service {
                             ),
                             $name,
                             $help,
+                            $($labels,)?
                         )?;
                         registry.register($metric_attribute.collector())?;
                     )*
@@ -125,7 +132,10 @@ pub(crate) mod test_tools {
 mod tests {
     use std::collections::BTreeMap;
 
-    use crate::{MetricCollector, MetricCounter, MetricGauge, MetricsServiceExporter};
+    use crate::{
+        MetricCollector, MetricCounter, MetricCounterWithLabels, MetricGauge,
+        MetricsServiceExporter,
+    };
 
     use super::*;
     use mithril_common::{entities::Epoch, StdResult};
@@ -148,6 +158,7 @@ mod tests {
         registry: Registry,
         counter_example: MetricCounter,
         gauge_example: MetricGauge,
+        counter_with_labels_example: MetricCounterWithLabels,
     }
 
     impl MetricsServiceExample {
@@ -165,10 +176,19 @@ mod tests {
                 MetricGauge::new(logger.clone(), "gauge_example", "Example of a gauge metric")?;
             registry.register(gauge_example.collector())?;
 
+            let counter_with_labels_example = MetricCounterWithLabels::new(
+                logger.clone(),
+                "counter_with_labels_example",
+                "Example of a counter with labels metric",
+                &["label_1", "label_2"],
+            )?;
+            registry.register(counter_with_labels_example.collector())?;
+
             Ok(Self {
                 registry,
                 counter_example,
                 gauge_example,
+                counter_with_labels_example,
             })
         }
 
@@ -180,6 +200,11 @@ mod tests {
         /// Get the `gauge_example` counter.
         pub fn get_gauge_example(&self) -> &MetricGauge {
             &self.gauge_example
+        }
+
+        /// Get the `counter_with_labels_example` counter.
+        pub fn get_counter_with_labels_example(&self) -> &MetricCounterWithLabels {
+            &self.counter_with_labels_example
         }
     }
 
@@ -195,9 +220,16 @@ mod tests {
         service.get_counter_example().increment();
         service.get_counter_example().increment();
         service.get_gauge_example().record(Epoch(12));
+        service
+            .get_counter_with_labels_example()
+            .increment(&["A", "200"]);
 
         assert_eq!(2, service.get_counter_example().get());
         assert_eq!(Epoch(12), Epoch(service.get_gauge_example().get() as u64));
+        assert_eq!(
+            1,
+            service.get_counter_with_labels_example().get(&["A", "200"])
+        );
     }
 
     build_metrics_service!(
@@ -209,6 +241,11 @@ mod tests {
         gauge_example: MetricGauge(
             "custom_gauge_example_name",
             "Example of a gauge metric"
+        ),
+        counter_with_labels_example: MetricCounterWithLabels(
+            "custom_counter_with_labels_example_name",
+            "Example of a counter with labels metric",
+            &["label_1", "label_2"]
         )
     );
 
@@ -218,9 +255,16 @@ mod tests {
         service.get_counter_example().increment();
         service.get_counter_example().increment();
         service.get_gauge_example().record(Epoch(12));
+        service
+            .get_counter_with_labels_example()
+            .increment(&["A", "200"]);
 
         assert_eq!(2, service.get_counter_example().get());
         assert_eq!(Epoch(12), Epoch(service.get_gauge_example().get() as u64));
+        assert_eq!(
+            1,
+            service.get_counter_with_labels_example().get(&["A", "200"])
+        );
     }
 
     #[test]
@@ -234,6 +278,10 @@ mod tests {
             "custom_gauge_example_name",
             service.get_gauge_example().name()
         );
+        assert_eq!(
+            "custom_counter_with_labels_example_name",
+            service.get_counter_with_labels_example().name()
+        );
     }
 
     #[test]
@@ -242,6 +290,7 @@ mod tests {
 
         service.counter_example.increment();
         service.gauge_example.record(Epoch(12));
+        service.counter_with_labels_example.increment(&["A", "200"]);
 
         let exported_metrics = service.export_metrics().unwrap();
 
@@ -250,6 +299,10 @@ mod tests {
         let parsed_metrics_expected = BTreeMap::from([
             (service.counter_example.name(), Value::Counter(1.0)),
             (service.gauge_example.name(), Value::Gauge(12.0)),
+            (
+                service.counter_with_labels_example.name(),
+                Value::Counter(1.0),
+            ),
         ]);
 
         assert_eq!(parsed_metrics_expected, parsed_metrics);

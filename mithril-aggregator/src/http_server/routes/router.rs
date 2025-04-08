@@ -8,10 +8,10 @@ use crate::DependencyContainer;
 
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::entities::SignedEntityTypeDiscriminants;
-use mithril_common::{CardanoNetwork, MITHRIL_API_VERSION_HEADER};
+use mithril_common::{CardanoNetwork, MITHRIL_API_VERSION_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
 
 use slog::{warn, Logger};
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 use warp::http::Method;
@@ -41,6 +41,7 @@ pub struct RouterConfig {
     pub snapshot_directory: PathBuf,
     pub cardano_node_version: String,
     pub allow_http_serve_directory: bool,
+    pub origin_tag_white_list: HashSet<String>,
 }
 
 #[cfg(test)]
@@ -58,6 +59,17 @@ impl RouterConfig {
             snapshot_directory: PathBuf::from("/dummy/snapshot/directory"),
             cardano_node_version: "1.2.3".to_string(),
             allow_http_serve_directory: false,
+            origin_tag_white_list: HashSet::from(["DUMMY_TAG".to_string()]),
+        }
+    }
+
+    pub fn dummy_with_origin_tag_white_list(origin_tag_white_list: &[&str]) -> Self {
+        Self {
+            origin_tag_white_list: origin_tag_white_list
+                .iter()
+                .map(|tag| tag.to_string())
+                .collect(),
+            ..RouterConfig::dummy()
         }
     }
 }
@@ -86,6 +98,16 @@ impl RouterState {
             configuration: RouterConfig::dummy(),
         }
     }
+
+    pub fn new_with_origin_tag_white_list(
+        dependencies: Arc<DependencyContainer>,
+        origin_tag_white_list: &[&str],
+    ) -> Self {
+        Self {
+            dependencies,
+            configuration: RouterConfig::dummy_with_origin_tag_white_list(origin_tag_white_list),
+        }
+    }
 }
 
 /// Routes
@@ -94,7 +116,11 @@ pub fn routes(
 ) -> impl Filter<Extract = (impl Reply,), Error = Rejection> + Clone {
     let cors = warp::cors()
         .allow_any_origin()
-        .allow_headers(vec!["content-type", MITHRIL_API_VERSION_HEADER])
+        .allow_headers(vec![
+            "content-type",
+            MITHRIL_API_VERSION_HEADER,
+            MITHRIL_ORIGIN_TAG_HEADER,
+        ])
         .allow_methods(vec![Method::GET, Method::POST, Method::OPTIONS]);
 
     warp::any()
@@ -184,10 +210,12 @@ pub async fn handle_custom(reject: Rejection) -> Result<impl Reply, Rejection> {
 mod tests {
     use semver::Version;
     use std::collections::HashMap;
+    use warp::test::RequestBuilder;
 
     use mithril_common::{
         entities::Epoch,
         era::{EraChecker, SupportedEra},
+        MITHRIL_ORIGIN_TAG_HEADER,
     };
 
     use crate::initialize_dependencies;
@@ -281,5 +309,38 @@ mod tests {
                 .is_some(),
             "CORS headers should be present, headers: {response_headers:?}",
         );
+    }
+
+    #[tokio::test]
+    async fn test_authorized_request_headers() {
+        fn request_with_access_control_request_headers(headers: String) -> RequestBuilder {
+            warp::test::request()
+                .method("OPTIONS")
+                .path("/aggregator")
+                // We need to set the Origin header to trigger the CORS middleware
+                .header("Origin", "http://localhost")
+                .header("access-control-request-method", "GET")
+                .header("access-control-request-headers", headers)
+        }
+
+        let container = Arc::new(initialize_dependencies!().await);
+        let state = RouterState::new_with_dummy_config(container);
+        let routes = routes(Arc::new(state));
+
+        assert!(
+            !request_with_access_control_request_headers("unauthorized_header".to_string())
+                .reply(&routes)
+                .await
+                .status()
+                .is_success()
+        );
+
+        assert!(request_with_access_control_request_headers(format!(
+            "{MITHRIL_API_VERSION_HEADER},{MITHRIL_ORIGIN_TAG_HEADER}"
+        ))
+        .reply(&routes)
+        .await
+        .status()
+        .is_success());
     }
 }

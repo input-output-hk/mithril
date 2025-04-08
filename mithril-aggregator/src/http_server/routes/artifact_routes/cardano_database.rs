@@ -28,6 +28,7 @@ fn artifact_cardano_database_by_id(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "cardano-database" / String)
         .and(warp::get())
+        .and(middlewares::with_origin_tag(dependency_manager))
         .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_http_message_service(dependency_manager))
         .and(middlewares::with_metrics_service(dependency_manager))
@@ -93,13 +94,14 @@ mod handlers {
     /// Get artifact by signed entity id
     pub async fn get_artifact_by_signed_entity_id(
         signed_entity_id: String,
+        origin_tag: Option<String>,
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_artifact_detail_cardano_database_total_served_since_startup()
-            .increment();
+            .increment(&[origin_tag.as_deref().unwrap_or_default()]);
 
         match http_message_service
             .get_cardano_database_message(&signed_entity_id)
@@ -176,6 +178,7 @@ mod tests {
         CardanoDatabaseSnapshotMessage,
     };
     use mithril_common::test_utils::apispec::APISpec;
+    use mithril_common::MITHRIL_ORIGIN_TAG_HEADER;
     use mithril_persistence::sqlite::HydrationError;
     use serde_json::Value::Null;
     use std::sync::Arc;
@@ -272,13 +275,15 @@ mod tests {
         let initial_counter_value = dependency_manager
             .metrics_service
             .get_artifact_detail_cardano_database_total_served_since_startup()
-            .get();
+            .get(&["TEST"]);
 
         request()
             .method(method)
             .path(path)
-            .reply(&setup_router(RouterState::new_with_dummy_config(
+            .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
+            .reply(&setup_router(RouterState::new_with_origin_tag_white_list(
                 dependency_manager.clone(),
+                &["TEST"],
             )))
             .await;
 
@@ -287,7 +292,7 @@ mod tests {
             dependency_manager
                 .metrics_service
                 .get_artifact_detail_cardano_database_total_served_since_startup()
-                .get()
+                .get(&["TEST"])
         );
     }
 

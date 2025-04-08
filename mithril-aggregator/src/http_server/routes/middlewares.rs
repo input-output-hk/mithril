@@ -4,6 +4,7 @@ use std::sync::Arc;
 use warp::Filter;
 
 use mithril_common::api_version::APIVersionProvider;
+use mithril_common::MITHRIL_ORIGIN_TAG_HEADER;
 
 use crate::database::repository::SignerGetter;
 use crate::dependency_injection::EpochServiceWrapper;
@@ -149,6 +150,18 @@ pub fn with_metrics_service(
     warp::any().map(move || metrics_service.clone())
 }
 
+/// With origin tag of the request
+pub fn with_origin_tag(
+    router_state: &RouterState,
+) -> impl Filter<Extract = (Option<String>,), Error = warp::reject::Rejection> + Clone {
+    let white_list = router_state.configuration.origin_tag_white_list.clone();
+
+    warp::header::optional::<String>(MITHRIL_ORIGIN_TAG_HEADER).map(move |name: Option<String>| {
+        name.filter(|tag| white_list.contains(tag))
+            .or(Some("NA".to_string()))
+    })
+}
+
 pub mod validators {
     use crate::http_server::validators::ProverTransactionsHashValidator;
 
@@ -163,5 +176,105 @@ pub mod validators {
             .cardano_transactions_prover_max_hashes_allowed_by_request;
 
         warp::any().map(move || ProverTransactionsHashValidator::new(max_hashes))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value;
+    use std::convert::Infallible;
+    use warp::{
+        http::{Method, StatusCode},
+        test::request,
+        Filter,
+    };
+
+    use crate::http_server::routes::reply;
+
+    mod origin_tag {
+        use std::{collections::HashSet, path::PathBuf};
+
+        use mithril_common::temp_dir;
+
+        use crate::initialize_dependencies;
+
+        use super::*;
+
+        fn route_with_origin_tag(
+            router_state: &RouterState,
+        ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+            warp::path!("route")
+                .and(warp::get())
+                .and(with_origin_tag(router_state))
+                .and_then(route_handler)
+        }
+
+        async fn router_state_with_origin_whitelist(
+            temp_dir: PathBuf,
+            tags: &[&str],
+        ) -> RouterState {
+            let origin_tag_white_list: HashSet<String> =
+                tags.iter().map(ToString::to_string).collect();
+
+            RouterState::new(
+                Arc::new(initialize_dependencies(temp_dir).await),
+                RouterConfig {
+                    origin_tag_white_list,
+                    ..RouterConfig::dummy()
+                },
+            )
+        }
+
+        async fn route_handler(origin_tag: Option<String>) -> Result<impl warp::Reply, Infallible> {
+            Ok(reply::json(&origin_tag, StatusCode::OK))
+        }
+
+        #[tokio::test]
+        async fn test_origin_tag_with_value_in_white_list_return_the_tag() {
+            let router_state =
+                router_state_with_origin_whitelist(temp_dir!(), &["CLIENT_TAG"]).await;
+
+            let response = request()
+                .header(MITHRIL_ORIGIN_TAG_HEADER, "CLIENT_TAG")
+                .method(Method::GET.as_str())
+                .path("/route")
+                .reply(&route_with_origin_tag(&router_state))
+                .await;
+
+            let result: &Value = &serde_json::from_slice(response.body()).unwrap();
+            assert_eq!(Some("CLIENT_TAG"), result.as_str());
+        }
+
+        #[tokio::test]
+        async fn test_origin_tag_with_value_not_in_white_list_return_na() {
+            let router_state =
+                router_state_with_origin_whitelist(temp_dir!(), &["CLIENT_TAG"]).await;
+
+            let response = request()
+                .header(MITHRIL_ORIGIN_TAG_HEADER, "UNKNOWN_TAG")
+                .method(Method::GET.as_str())
+                .path("/route")
+                .reply(&route_with_origin_tag(&router_state))
+                .await;
+
+            let result: &Value = &serde_json::from_slice(response.body()).unwrap();
+            assert_eq!(Some("NA"), result.as_str());
+        }
+
+        #[tokio::test]
+        async fn test_without_origin_tag() {
+            let router_state =
+                router_state_with_origin_whitelist(temp_dir!(), &["CLIENT_TAG"]).await;
+
+            let response = request()
+                .method(Method::GET.as_str())
+                .path("/route")
+                .reply(&route_with_origin_tag(&router_state))
+                .await;
+
+            let result: &Value = &serde_json::from_slice(response.body()).unwrap();
+            assert_eq!(Some("NA"), result.as_str());
+        }
     }
 }

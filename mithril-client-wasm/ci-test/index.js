@@ -47,6 +47,7 @@ console.log("aggregator_capabilities: ", aggregator_capabilities);
 
 await run_test("constructor", test_number, async () => {
   client = new MithrilClient(aggregator_endpoint, genesis_verification_key, {
+    origin_tag: "CI",
     // The following option activates the unstable features of the client.
     // Unstable features will trigger an error if this option is not set.
     unstable: true,

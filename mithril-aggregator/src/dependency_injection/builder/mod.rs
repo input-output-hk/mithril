@@ -420,6 +420,7 @@ impl DependenciesBuilder {
                 snapshot_directory: snapshot_dir.join(SNAPSHOT_ARTIFACTS_DIR),
                 cardano_node_version: self.configuration.cardano_node_version.clone(),
                 allow_http_serve_directory: self.configuration.allow_http_serve_directory(),
+                origin_tag_white_list: self.configuration.compute_origin_tag_white_list(),
             },
         );
 

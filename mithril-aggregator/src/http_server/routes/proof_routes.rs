@@ -37,6 +37,7 @@ fn proof_cardano_transaction(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("proof" / "cardano-transaction")
         .and(warp::get())
+        .and(middlewares::with_origin_tag(router_state))
         .and(warp::query::<CardanoTransactionProofQueryParams>())
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_signed_entity_service(router_state))
@@ -65,6 +66,7 @@ mod handlers {
     use super::CardanoTransactionProofQueryParams;
 
     pub async fn proof_cardano_transaction(
+        origin_tag: Option<String>,
         transaction_parameters: CardanoTransactionProofQueryParams,
         logger: Logger,
         signed_entity_service: Arc<dyn SignedEntityService>,
@@ -74,7 +76,7 @@ mod handlers {
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_proof_cardano_transaction_total_proofs_served_since_startup()
-            .increment();
+            .increment(&[origin_tag.as_deref().unwrap_or_default()]);
 
         let transaction_hashes = transaction_parameters.split_transactions_hashes();
         debug!(
@@ -92,7 +94,10 @@ mod handlers {
         // Fallback to 0, it should be impossible to have more than u32::MAX transactions.
         metrics_service
             .get_proof_cardano_transaction_total_transactions_served_since_startup()
-            .increment_by(sanitized_hashes.len().try_into().unwrap_or(0));
+            .increment_by(
+                &[origin_tag.as_deref().unwrap_or_default()],
+                sanitized_hashes.len().try_into().unwrap_or(0),
+            );
 
         match unwrap_to_internal_server_error!(
             signed_entity_service
@@ -150,6 +155,7 @@ mod tests {
         entities::{BlockNumber, CardanoTransactionsSetProof, CardanoTransactionsSnapshot},
         signable_builder::SignedEntity,
         test_utils::{apispec::APISpec, assert_equivalent, fake_data},
+        MITHRIL_ORIGIN_TAG_HEADER,
     };
 
     use crate::services::MockProverService;
@@ -206,11 +212,11 @@ mod tests {
         let initial_proofs_counter_value = dependency_manager
             .metrics_service
             .get_proof_cardano_transaction_total_proofs_served_since_startup()
-            .get();
+            .get(&["TEST"]);
         let initial_transactions_counter_value = dependency_manager
             .metrics_service
             .get_proof_cardano_transaction_total_transactions_served_since_startup()
-            .get();
+            .get(&["TEST"]);
 
         request()
             .method(method)
@@ -220,8 +226,10 @@ mod tests {
                 fake_data::transaction_hashes()[1],
                 fake_data::transaction_hashes()[2]
             ))
-            .reply(&setup_router(RouterState::new_with_dummy_config(
+            .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
+            .reply(&setup_router(RouterState::new_with_origin_tag_white_list(
                 dependency_manager.clone(),
+                &["TEST"],
             )))
             .await;
 
@@ -230,14 +238,14 @@ mod tests {
             dependency_manager
                 .metrics_service
                 .get_proof_cardano_transaction_total_proofs_served_since_startup()
-                .get()
+                .get(&["TEST"])
         );
         assert_eq!(
             initial_transactions_counter_value + 3,
             dependency_manager
                 .metrics_service
                 .get_proof_cardano_transaction_total_transactions_served_since_startup()
-                .get()
+                .get(&["TEST"])
         );
     }
 

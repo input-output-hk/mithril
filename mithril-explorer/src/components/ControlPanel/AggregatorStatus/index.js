@@ -9,6 +9,7 @@ import QuestionTooltip from "#/QuestionTooltip";
 import Stake from "#/Stake";
 import { selectedAggregator } from "@/store/settingsSlice";
 import { checkUrl, formatStake, percent } from "@/utils";
+import { fetchAggregator } from "@/aggregator-api";
 
 function InfoGroupCard({ children, title, ...props }) {
   return (
@@ -54,7 +55,7 @@ export default function AggregatorStatus({ showContent = true }) {
 
   useEffect(() => {
     let fetchAggregatorStatus = () => {
-      fetch(aggregatorStatusEndpoint)
+      fetchAggregator(aggregatorStatusEndpoint)
         .then((response) => (response.status === 200 ? response.json() : {}))
         .then((data) => {
           setAggregatorStatus(data);

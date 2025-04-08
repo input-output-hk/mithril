@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context};
 use config::{ConfigError, Map, Source, Value, ValueKind};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -208,6 +208,10 @@ pub struct Configuration {
     /// and store the signer registrations when the aggregator is running in a follower mode.
     /// If this is not set, the aggregator will run in a leader mode.
     pub leader_aggregator_endpoint: Option<String>,
+
+    /// Custom origin tag of client request added to the whitelist (comma
+    /// separated list).
+    pub custom_origin_tag_white_list: Option<String>,
 }
 
 /// Uploader needed to copy the snapshot once computed.
@@ -326,6 +330,7 @@ impl Configuration {
             metrics_server_port: 9090,
             persist_usage_report_interval_in_seconds: 10,
             leader_aggregator_endpoint: None,
+            custom_origin_tag_white_list: None,
         }
     }
 
@@ -422,6 +427,21 @@ impl Configuration {
     /// Check if the aggregator is running in follower mode.
     pub fn is_follower_aggregator(&self) -> bool {
         self.leader_aggregator_endpoint.is_some()
+    }
+
+    /// White list for origin client request.
+    pub fn compute_origin_tag_white_list(&self) -> HashSet<String> {
+        let mut white_list = HashSet::from([
+            "EXPLORER".to_string(),
+            "BENCHMARK".to_string(),
+            "CI".to_string(),
+            "NA".to_string(),
+        ]);
+        if let Some(custom_tags) = &self.custom_origin_tag_white_list {
+            white_list.extend(custom_tags.split(',').map(|tag| tag.trim().to_string()));
+        }
+
+        white_list
     }
 }
 
@@ -810,5 +830,39 @@ mod test {
                 secret_key: "whatever".to_string()
             }
         );
+    }
+
+    mod origin_tag {
+        use super::*;
+
+        #[test]
+        fn default_origin_tag_white_list_is_not_empty() {
+            let config = Configuration {
+                custom_origin_tag_white_list: None,
+                ..Configuration::new_sample(temp_dir!())
+            };
+            assert_ne!(config.compute_origin_tag_white_list().len(), 0,);
+        }
+
+        #[test]
+        fn custom_origin_tag_are_added_to_default_white_list() {
+            let config = Configuration {
+                custom_origin_tag_white_list: Some("TAG_A,TAG_B , TAG_C".to_string()),
+                ..Configuration::new_sample(temp_dir!())
+            };
+
+            let default_white_list = Configuration {
+                custom_origin_tag_white_list: None,
+                ..Configuration::new_sample(temp_dir!())
+            }
+            .compute_origin_tag_white_list();
+
+            let mut expected_white_list = default_white_list.clone();
+            assert!(expected_white_list.insert("TAG_A".to_string()));
+            assert!(expected_white_list.insert("TAG_B".to_string()));
+            assert!(expected_white_list.insert("TAG_C".to_string()));
+
+            assert_eq!(expected_white_list, config.compute_origin_tag_white_list());
+        }
     }
 }

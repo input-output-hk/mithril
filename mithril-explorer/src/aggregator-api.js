@@ -1,7 +1,15 @@
 const { defaultAggregatorCapabilities } = require("./constants");
 
+function fetchAggregator(aggregator) {
+  return fetch(aggregator, {
+    headers: {
+      "mithril-origin-tag": "EXPLORER",
+    },
+  });
+}
+
 function fetchAggregatorCapabilities(aggregator) {
-  return fetch(aggregator)
+  return fetchAggregator(aggregator)
     .then((response) => (response.status === 200 ? response.json() : {}))
     .then((data) => data?.capabilities ?? defaultAggregatorCapabilities)
     .catch((error) => {
@@ -11,7 +19,7 @@ function fetchAggregatorCapabilities(aggregator) {
 }
 
 function fetchSignersTickers(aggregator) {
-  return fetch(`${aggregator}/signers/tickers`)
+  return fetchAggregator(`${aggregator}/signers/tickers`)
     .then((response) => (response.status === 200 ? response.json() : {}))
     .catch((error) => {
       console.error("Fetch signers tickers error:", error);
@@ -19,7 +27,7 @@ function fetchSignersTickers(aggregator) {
 }
 
 function fetchEpochSettings(aggregator) {
-  return fetch(`${aggregator}/epoch-settings`)
+  return fetchAggregator(`${aggregator}/epoch-settings`)
     .then((response) => (response.status === 200 ? response.json() : {}))
     .catch((error) => {
       console.error("Fetch epoch settings error:", error);
@@ -27,7 +35,7 @@ function fetchEpochSettings(aggregator) {
 }
 
 function fetchRegistrations(aggregator, epoch) {
-  return fetch(`${aggregator}/signers/registered/${epoch}`)
+  return fetchAggregator(`${aggregator}/signers/registered/${epoch}`)
     .then((response) => (response.status === 200 ? response.json() : {}))
     .catch((error) => {
       console.error("Fetch registrations error:", error);
@@ -35,6 +43,7 @@ function fetchRegistrations(aggregator, epoch) {
 }
 
 module.exports = {
+  fetchAggregator,
   fetchAggregatorCapabilities,
   fetchSignersTickers,
   fetchEpochSettings,

@@ -13,6 +13,7 @@ import {
   Stack,
 } from "react-bootstrap";
 import { getImmutableUrlFromTemplate } from "@/utils";
+import { fetchAggregator } from "@/aggregator-api";
 
 import styles from "./styles.module.css";
 
@@ -69,7 +70,7 @@ export default function DownloadButton({ artifactUrl, ...props }) {
       return;
     }
 
-    fetch(artifactUrl)
+    fetchAggregator(artifactUrl)
       .then((response) => response.json())
       .then((data) => {
         setArtifact(data);

@@ -19,6 +19,7 @@ fn post_statistics(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("statistics" / "snapshot")
         .and(warp::post())
+        .and(middlewares::with_origin_tag(router_state))
         .and(warp::body::json())
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_event_transmitter(router_state))
@@ -32,6 +33,7 @@ fn post_cardano_database_immutable_files_restored(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("statistics" / "cardano-database" / "immutable-files-restored")
         .and(warp::post())
+        .and(middlewares::with_origin_tag(router_state))
         .and(warp::body::json())
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_metrics_service(router_state))
@@ -44,6 +46,7 @@ fn post_cardano_database_ancillary_files_restored(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("statistics" / "cardano-database" / "ancillary-files-restored")
         .and(warp::post())
+        .and(middlewares::with_origin_tag(router_state))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_metrics_service(router_state))
         .and_then(handlers::post_cardano_database_ancillary_files_restored)
@@ -55,6 +58,7 @@ fn post_cardano_database_complete_restoration(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("statistics" / "cardano-database" / "complete-restoration")
         .and(warp::post())
+        .and(middlewares::with_origin_tag(router_state))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_event_transmitter(router_state))
         .and(middlewares::with_metrics_service(router_state))
@@ -67,6 +71,7 @@ fn post_cardano_database_partial_restoration(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("statistics" / "cardano-database" / "partial-restoration")
         .and(warp::post())
+        .and(middlewares::with_origin_tag(router_state))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_event_transmitter(router_state))
         .and(middlewares::with_metrics_service(router_state))
@@ -87,6 +92,7 @@ mod handlers {
     use crate::MetricsService;
 
     pub async fn post_snapshot_statistics(
+        origin_tag: Option<String>,
         snapshot_download_message: SnapshotDownloadMessage,
         logger: slog::Logger,
         event_transmitter: Arc<TransmitterService<EventMessage>>,
@@ -94,7 +100,7 @@ mod handlers {
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_cardano_immutable_files_full_total_restoration_since_startup()
-            .increment();
+            .increment(&[origin_tag.as_deref().unwrap_or_default()]);
 
         let headers: Vec<(&str, &str)> = Vec::new();
 
@@ -115,36 +121,42 @@ mod handlers {
     }
 
     pub async fn post_cardano_database_immutable_files_restored(
+        origin_tag: Option<String>,
         message: CardanoDatabaseImmutableFilesRestoredMessage,
         _logger: slog::Logger,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_cardano_database_immutable_files_restored_since_startup()
-            .increment_by(message.nb_immutable_files);
+            .increment_by(
+                &[origin_tag.as_deref().unwrap_or_default()],
+                message.nb_immutable_files,
+            );
 
         Ok(reply::empty(StatusCode::CREATED))
     }
 
     pub async fn post_cardano_database_ancillary_files_restored(
+        origin_tag: Option<String>,
         _logger: slog::Logger,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_cardano_database_ancillary_files_restored_since_startup()
-            .increment();
+            .increment(&[origin_tag.as_deref().unwrap_or_default()]);
 
         Ok(reply::empty(StatusCode::CREATED))
     }
 
     pub async fn post_cardano_database_complete_restoration(
+        origin_tag: Option<String>,
         logger: slog::Logger,
         event_transmitter: Arc<TransmitterService<EventMessage>>,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_cardano_database_complete_restoration_since_startup()
-            .increment();
+            .increment(&[origin_tag.as_deref().unwrap_or_default()]);
 
         let headers: Vec<(&str, &str)> = Vec::new();
         let message = EventMessage::new(
@@ -163,13 +175,14 @@ mod handlers {
     }
 
     pub async fn post_cardano_database_partial_restoration(
+        origin_tag: Option<String>,
         logger: slog::Logger,
         event_transmitter: Arc<TransmitterService<EventMessage>>,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_cardano_database_partial_restoration_since_startup()
-            .increment();
+            .increment(&[origin_tag.as_deref().unwrap_or_default()]);
 
         let headers: Vec<(&str, &str)> = Vec::new();
         let message = EventMessage::new(
@@ -195,8 +208,8 @@ mod tests {
     use mithril_common::messages::{
         CardanoDatabaseImmutableFilesRestoredMessage, SnapshotDownloadMessage,
     };
-    use mithril_common::temp_dir;
     use mithril_common::test_utils::apispec::APISpec;
+    use mithril_common::{temp_dir, MITHRIL_ORIGIN_TAG_HEADER};
     use tokio::sync::mpsc::UnboundedReceiver;
 
     use std::path::PathBuf;
@@ -264,14 +277,16 @@ mod tests {
         let initial_counter_value = dependency_manager
             .metrics_service
             .get_cardano_immutable_files_full_total_restoration_since_startup()
-            .get();
+            .get(&["TEST"]);
 
         request()
             .method(method)
             .json(&SnapshotDownloadMessage::dummy())
             .path(path)
-            .reply(&setup_router(RouterState::new_with_dummy_config(
+            .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
+            .reply(&setup_router(RouterState::new_with_origin_tag_white_list(
                 dependency_manager.clone(),
+                &["TEST"],
             )))
             .await;
 
@@ -280,7 +295,7 @@ mod tests {
             dependency_manager
                 .metrics_service
                 .get_cardano_immutable_files_full_total_restoration_since_startup()
-                .get()
+                .get(&["TEST"])
         );
     }
 
@@ -327,18 +342,20 @@ mod tests {
                 nb_immutable_files: 3,
             };
 
-            let initial_counter_value = metric_counter.get();
+            let initial_counter_value = metric_counter.get(&["TEST"]);
 
             request()
                 .method(HTTP_METHOD.as_str())
                 .json(&message)
                 .path(PATH)
-                .reply(&setup_router(RouterState::new_with_dummy_config(
+                .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
+                .reply(&setup_router(RouterState::new_with_origin_tag_white_list(
                     dependency_manager.clone(),
+                    &["TEST"],
                 )))
                 .await;
 
-            assert_eq!(initial_counter_value + 3, metric_counter.get());
+            assert_eq!(initial_counter_value + 3, metric_counter.get(&["TEST"]));
         }
     }
 
@@ -380,18 +397,20 @@ mod tests {
                 .metrics_service
                 .get_cardano_database_ancillary_files_restored_since_startup();
 
-            let initial_counter_value = metric_counter.get();
+            let initial_counter_value = metric_counter.get(&["TEST"]);
 
             request()
                 .method(HTTP_METHOD.as_str())
                 .json(&Value::Null)
                 .path(PATH)
-                .reply(&setup_router(RouterState::new_with_dummy_config(
+                .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
+                .reply(&setup_router(RouterState::new_with_origin_tag_white_list(
                     dependency_manager.clone(),
+                    &["TEST"],
                 )))
                 .await;
 
-            assert_eq!(initial_counter_value + 1, metric_counter.get());
+            assert_eq!(initial_counter_value + 1, metric_counter.get(&["TEST"]));
         }
     }
 
@@ -489,18 +508,20 @@ mod tests {
                 .metrics_service
                 .get_cardano_database_complete_restoration_since_startup();
 
-            let initial_counter_value = metric_counter.get();
+            let initial_counter_value = metric_counter.get(&["TEST"]);
 
             request()
                 .method(HTTP_METHOD.as_str())
                 .json(&Value::Null)
                 .path(PATH)
-                .reply(&setup_router(RouterState::new_with_dummy_config(
+                .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
+                .reply(&setup_router(RouterState::new_with_origin_tag_white_list(
                     dependency_manager.clone(),
+                    &["TEST"],
                 )))
                 .await;
 
-            assert_eq!(initial_counter_value + 1, metric_counter.get());
+            assert_eq!(initial_counter_value + 1, metric_counter.get(&["TEST"]));
         }
     }
 
@@ -587,18 +608,20 @@ mod tests {
                 .metrics_service
                 .get_cardano_database_partial_restoration_since_startup();
 
-            let initial_counter_value = metric_counter.get();
+            let initial_counter_value = metric_counter.get(&["TEST"]);
 
             request()
                 .method(HTTP_METHOD.as_str())
                 .json(&Value::Null)
                 .path(PATH)
-                .reply(&setup_router(RouterState::new_with_dummy_config(
+                .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
+                .reply(&setup_router(RouterState::new_with_origin_tag_white_list(
                     dependency_manager.clone(),
+                    &["TEST"],
                 )))
                 .await;
 
-            assert_eq!(initial_counter_value + 1, metric_counter.get());
+            assert_eq!(initial_counter_value + 1, metric_counter.get(&["TEST"]));
         }
     }
 }

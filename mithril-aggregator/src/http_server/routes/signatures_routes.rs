@@ -14,6 +14,7 @@ fn register_signatures(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("register-signatures")
         .and(warp::post())
+        .and(middlewares::with_origin_tag(router_state))
         .and(warp::body::json())
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_certifier_service(router_state))
@@ -41,6 +42,7 @@ mod handlers {
 
     /// Register Signatures
     pub async fn register_signatures(
+        origin_tag: Option<String>,
         message: RegisterSignatureMessage,
         logger: Logger,
         certifier_service: Arc<dyn CertifierService>,
@@ -51,7 +53,7 @@ mod handlers {
 
         metrics_service
             .get_signature_registration_total_received_since_startup()
-            .increment();
+            .increment(&[origin_tag.as_deref().unwrap_or_default()]);
 
         let signed_entity_type = message.signed_entity_type.clone();
         let signed_message = message.signed_message.clone();
@@ -118,6 +120,7 @@ mod handlers {
 mod tests {
     use anyhow::anyhow;
     use mithril_common::entities::ClientError;
+    use mithril_common::MITHRIL_ORIGIN_TAG_HEADER;
     use std::sync::Arc;
     use warp::http::{Method, StatusCode};
     use warp::test::request;
@@ -155,14 +158,16 @@ mod tests {
         let initial_counter_value = dependency_manager
             .metrics_service
             .get_signature_registration_total_received_since_startup()
-            .get();
+            .get(&["TEST"]);
 
         request()
             .method(method)
             .path(path)
             .json(&RegisterSignatureMessage::dummy())
-            .reply(&setup_router(RouterState::new_with_dummy_config(
+            .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
+            .reply(&setup_router(RouterState::new_with_origin_tag_white_list(
                 dependency_manager.clone(),
+                &["TEST"],
             )))
             .await;
 
@@ -171,7 +176,7 @@ mod tests {
             dependency_manager
                 .metrics_service
                 .get_signature_registration_total_received_since_startup()
-                .get()
+                .get(&["TEST"])
         );
     }
 

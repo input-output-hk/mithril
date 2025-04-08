@@ -25,6 +25,7 @@ fn register_signer(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("register-signer")
         .and(warp::post())
+        .and(middlewares::with_origin_tag(router_state))
         .and(warp::header::optional::<String>(
             MITHRIL_SIGNER_VERSION_HEADER,
         ))
@@ -109,7 +110,9 @@ mod handlers {
     use warp::http::StatusCode;
 
     /// Register Signer
+    #[allow(clippy::too_many_arguments)]
     pub async fn register_signer(
+        origin_tag: Option<String>,
         signer_node_version: Option<String>,
         register_signer_message: RegisterSignerMessage,
         logger: Logger,
@@ -122,7 +125,7 @@ mod handlers {
 
         metrics_service
             .get_signer_registration_total_received_since_startup()
-            .increment();
+            .increment(&[origin_tag.as_deref().unwrap_or_default()]);
 
         let registration_epoch = register_signer_message.epoch;
 
@@ -269,8 +272,8 @@ mod tests {
         crypto_helper::ProtocolRegistrationError,
         entities::Epoch,
         messages::RegisterSignerMessage,
-        test_utils::MithrilFixtureBuilder,
-        test_utils::{apispec::APISpec, fake_data},
+        test_utils::{apispec::APISpec, fake_data, MithrilFixtureBuilder},
+        MITHRIL_ORIGIN_TAG_HEADER,
     };
 
     use crate::{
@@ -341,14 +344,16 @@ mod tests {
         let initial_counter_value = dependency_manager
             .metrics_service
             .get_signer_registration_total_received_since_startup()
-            .get();
+            .get(&["TEST"]);
 
         request()
             .method(method)
             .path(path)
             .json(&RegisterSignerMessage::dummy())
-            .reply(&setup_router(RouterState::new_with_dummy_config(
+            .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
+            .reply(&setup_router(RouterState::new_with_origin_tag_white_list(
                 dependency_manager.clone(),
+                &["TEST"],
             )))
             .await;
 
@@ -357,7 +362,7 @@ mod tests {
             dependency_manager
                 .metrics_service
                 .get_signer_registration_total_received_since_startup()
-                .get()
+                .get(&["TEST"])
         );
     }
 

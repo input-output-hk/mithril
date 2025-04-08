@@ -28,6 +28,7 @@ fn artifact_cardano_full_immutable_snapshot_by_id(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "snapshot" / String)
         .and(warp::get())
+        .and(middlewares::with_origin_tag(dependency_manager))
         .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_http_message_service(dependency_manager))
         .and(middlewares::with_metrics_service(dependency_manager))
@@ -99,13 +100,14 @@ mod handlers {
     /// Get Artifact by signed entity id
     pub async fn get_artifact_by_signed_entity_id(
         signed_entity_id: String,
+        origin_tag: Option<String>,
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_artifact_detail_cardano_immutable_files_full_total_served_since_startup()
-            .increment();
+            .increment(&[origin_tag.as_deref().unwrap_or_default()]);
 
         match http_message_service
             .get_snapshot_message(&signed_entity_id)
@@ -218,6 +220,7 @@ mod tests {
         services::{MockMessageService, MockSignedEntityService},
     };
     use mithril_common::messages::{SnapshotListItemMessage, SnapshotMessage};
+    use mithril_common::MITHRIL_ORIGIN_TAG_HEADER;
     use mithril_common::{
         entities::{CardanoDbBeacon, SignedEntityType, Snapshot},
         test_utils::{apispec::APISpec, fake_data},
@@ -315,13 +318,15 @@ mod tests {
         let initial_counter_value = dependency_manager
             .metrics_service
             .get_artifact_detail_cardano_immutable_files_full_total_served_since_startup()
-            .get();
+            .get(&["TEST"]);
 
         request()
             .method(method)
             .path(path)
-            .reply(&setup_router(RouterState::new_with_dummy_config(
+            .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
+            .reply(&setup_router(RouterState::new_with_origin_tag_white_list(
                 dependency_manager.clone(),
+                &["TEST"],
             )))
             .await;
 
@@ -330,7 +335,7 @@ mod tests {
             dependency_manager
                 .metrics_service
                 .get_artifact_detail_cardano_immutable_files_full_total_served_since_startup()
-                .get()
+                .get(&["TEST"])
         );
     }
 

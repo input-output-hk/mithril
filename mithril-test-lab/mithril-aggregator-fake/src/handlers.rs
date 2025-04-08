@@ -72,7 +72,7 @@ pub async fn aggregator_router() -> Router<SharedState> {
             TraceLayer::new_for_http()
                 .make_span_with(
                     DefaultMakeSpan::new()
-                        .include_headers(false)
+                        .include_headers(true)
                         .level(Level::DEBUG),
                 )
                 .on_request(DefaultOnRequest::new().level(Level::DEBUG))

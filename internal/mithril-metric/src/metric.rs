@@ -1,6 +1,6 @@
 //! This module contains wrapper to prometheus metrics for use in a metrics service.
 
-use prometheus::{core::Collector, Counter, Gauge, Opts};
+use prometheus::{core::Collector, Counter, CounterVec, Gauge, Opts};
 use slog::{debug, Logger};
 
 use mithril_common::StdResult;
@@ -67,6 +67,66 @@ impl MetricCounter {
 }
 
 impl MetricCollector for MetricCounter {
+    fn collector(&self) -> Box<dyn Collector> {
+        self.counter.clone()
+    }
+
+    fn name(&self) -> String {
+        self.name.clone()
+    }
+}
+
+/// Metric counter with labels
+pub struct MetricCounterWithLabels {
+    name: String,
+    logger: Logger,
+    counter: Box<CounterVec>,
+}
+
+impl MetricCounterWithLabels {
+    /// Create a new metric counter.
+    pub fn new(logger: Logger, name: &str, help: &str, labels: &[&str]) -> StdResult<Self> {
+        let counter =
+            MetricCounterWithLabels::create_metric_counter_with_labels(name, help, labels)?;
+        Ok(Self {
+            logger,
+            name: name.to_string(),
+            counter: Box::new(counter),
+        })
+    }
+
+    /// Increment the counter.
+    pub fn increment(&self, labels: &[&str]) {
+        debug!(self.logger, "Incrementing '{}' counter", self.name);
+        self.counter.with_label_values(labels).inc();
+    }
+
+    /// Increment the counter by a value.
+    pub fn increment_by(&self, labels: &[&str], value: CounterValue) {
+        debug!(
+            self.logger,
+            "Incrementing '{}' counter by {}", self.name, value
+        );
+        self.counter.with_label_values(labels).inc_by(value as f64);
+    }
+
+    /// Get the counter value.
+    pub fn get(&self, labels: &[&str]) -> CounterValue {
+        self.counter.with_label_values(labels).get().round() as CounterValue
+    }
+
+    fn create_metric_counter_with_labels(
+        name: &MetricName,
+        help: &str,
+        labels: &[&str],
+    ) -> StdResult<CounterVec> {
+        let counter_opts = Opts::new(name, help);
+        let counter = CounterVec::new(counter_opts, labels)?;
+        Ok(counter)
+    }
+}
+
+impl MetricCollector for MetricCounterWithLabels {
     fn collector(&self) -> Box<dyn Collector> {
         self.counter.clone()
     }
@@ -157,5 +217,21 @@ mod tests {
 
         metric.increment_by(37);
         assert_eq!(metric.get(), 37);
+    }
+
+    #[test]
+    fn test_metric_counter_vec_can_be_recorded() {
+        let metric = MetricCounterWithLabels::new(
+            TestLogger::stdout(),
+            "test_counter_with_labels",
+            "test counter with labels help",
+            &["label_1", "label_2"],
+        )
+        .unwrap();
+
+        metric.increment(&["A", "200"]);
+        metric.increment_by(&["B", "100"], 22);
+        assert_eq!(metric.get(&["A", "200"]), 1);
+        assert_eq!(metric.get(&["B", "100"]), 22);
     }
 }

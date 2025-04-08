@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use mithril_common::api_version::APIVersionProvider;
+use mithril_common::MITHRIL_ORIGIN_TAG_HEADER;
 
 use crate::aggregator_client::{AggregatorClient, AggregatorHTTPClient};
 #[cfg(feature = "unstable")]
@@ -37,6 +38,11 @@ pub struct ClientOptions {
     /// HTTP headers to include in the client requests.
     pub http_headers: Option<HashMap<String, String>>,
 
+    /// Tag to retrieve the origin of the client requests.
+    #[cfg(target_family = "wasm")]
+    #[cfg_attr(target_family = "wasm", serde(default))]
+    pub origin_tag: Option<String>,
+
     /// Whether to enable unstable features in the WASM client.
     #[cfg(target_family = "wasm")]
     #[cfg_attr(target_family = "wasm", serde(default))]
@@ -67,6 +73,8 @@ impl ClientOptions {
     pub fn new(http_headers: Option<HashMap<String, String>>) -> Self {
         Self {
             http_headers,
+            #[cfg(target_family = "wasm")]
+            origin_tag: None,
             #[cfg(target_family = "wasm")]
             unstable: false,
             #[cfg(target_family = "wasm")]
@@ -140,6 +148,7 @@ impl Client {
 pub struct ClientBuilder {
     aggregator_endpoint: Option<String>,
     genesis_verification_key: String,
+    origin_tag: Option<String>,
     aggregator_client: Option<Arc<dyn AggregatorClient>>,
     certificate_verifier: Option<Arc<dyn CertificateVerifier>>,
     #[cfg(feature = "fs")]
@@ -158,6 +167,7 @@ impl ClientBuilder {
         Self {
             aggregator_endpoint: Some(endpoint.to_string()),
             genesis_verification_key: genesis_verification_key.to_string(),
+            origin_tag: None,
             aggregator_client: None,
             certificate_verifier: None,
             #[cfg(feature = "fs")]
@@ -178,6 +188,7 @@ impl ClientBuilder {
         Self {
             aggregator_endpoint: None,
             genesis_verification_key: genesis_verification_key.to_string(),
+            origin_tag: None,
             aggregator_client: None,
             certificate_verifier: None,
             #[cfg(feature = "fs")]
@@ -197,30 +208,13 @@ impl ClientBuilder {
     pub fn build(self) -> MithrilResult<Client> {
         let logger = self
             .logger
+            .clone()
             .unwrap_or_else(|| Logger::root(slog::Discard, o!()));
 
         let feedback_sender = FeedbackSender::new(&self.feedback_receivers);
 
         let aggregator_client = match self.aggregator_client {
-            None => {
-                let endpoint = self
-                    .aggregator_endpoint
-                    .ok_or(anyhow!("No aggregator endpoint set: \
-                    You must either provide an aggregator endpoint or your own AggregatorClient implementation"))?;
-                let endpoint_url = Url::parse(&endpoint)
-                    .with_context(|| format!("Invalid aggregator endpoint, it must be a correctly formed url: '{endpoint}'"))?;
-
-                Arc::new(
-                    AggregatorHTTPClient::new(
-                        endpoint_url,
-                        APIVersionProvider::compute_all_versions_sorted()
-                            .with_context(|| "Could not compute aggregator api versions")?,
-                        logger.clone(),
-                        self.options.http_headers,
-                    )
-                    .with_context(|| "Building aggregator client failed")?,
-                )
-            }
+            None => Arc::new(self.build_aggregator_client(logger.clone())?),
             Some(client) => client,
         };
 
@@ -298,6 +292,39 @@ impl ClientBuilder {
         })
     }
 
+    fn build_aggregator_client(
+        &self,
+        logger: Logger,
+    ) -> Result<AggregatorHTTPClient, anyhow::Error> {
+        let endpoint = self
+            .aggregator_endpoint.as_ref()
+            .ok_or(anyhow!("No aggregator endpoint set: \
+                    You must either provide an aggregator endpoint or your own AggregatorClient implementation"))?;
+        let endpoint_url = Url::parse(endpoint).with_context(|| {
+            format!("Invalid aggregator endpoint, it must be a correctly formed url: '{endpoint}'")
+        })?;
+
+        let headers = self.compute_http_headers();
+
+        AggregatorHTTPClient::new(
+            endpoint_url,
+            APIVersionProvider::compute_all_versions_sorted()
+                .with_context(|| "Could not compute aggregator api versions")?,
+            logger,
+            Some(headers),
+        )
+        .with_context(|| "Building aggregator client failed")
+    }
+
+    fn compute_http_headers(&self) -> HashMap<String, String> {
+        let mut headers = self.options.http_headers.clone().unwrap_or_default();
+        if let Some(origin_tag) = self.origin_tag.clone() {
+            headers.insert(MITHRIL_ORIGIN_TAG_HEADER.to_string(), origin_tag);
+        }
+
+        headers
+    }
+
     /// Set the [AggregatorClient] that will be used to request data to the aggregator.
     pub fn with_aggregator_client(
         mut self,
@@ -346,6 +373,12 @@ impl ClientBuilder {
         self
     }
 
+    /// Set the origin tag.
+    pub fn with_origin_tag(mut self, origin_tag: Option<String>) -> Self {
+        self.origin_tag = origin_tag;
+        self
+    }
+
     /// Add a [feedback receiver][FeedbackReceiver] to receive [events][crate::feedback::MithrilEvent]
     /// for tasks that can have a long duration (ie: snapshot download or a long certificate chain
     /// validation).
@@ -358,5 +391,77 @@ impl ClientBuilder {
     pub fn with_options(mut self, options: ClientOptions) -> Self {
         self.options = options;
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn compute_http_headers_returns_options_http_headers() {
+        let http_headers = HashMap::from([("Key".to_string(), "Value".to_string())]);
+        let client_builder = ClientBuilder::new("").with_options(ClientOptions {
+            http_headers: Some(http_headers.clone()),
+        });
+
+        let computed_headers = client_builder.compute_http_headers();
+
+        assert_eq!(computed_headers, http_headers);
+    }
+
+    #[tokio::test]
+    async fn compute_http_headers_with_origin_tag_returns_options_http_headers_with_origin_tag() {
+        let http_headers = HashMap::from([("Key".to_string(), "Value".to_string())]);
+        let client_builder = ClientBuilder::new("")
+            .with_options(ClientOptions {
+                http_headers: Some(http_headers.clone()),
+            })
+            .with_origin_tag(Some("CLIENT_TAG".to_string()));
+
+        let computed_headers = client_builder.compute_http_headers();
+
+        assert_eq!(
+            computed_headers,
+            HashMap::from([
+                ("Key".to_string(), "Value".to_string()),
+                (
+                    MITHRIL_ORIGIN_TAG_HEADER.to_string(),
+                    "CLIENT_TAG".to_string()
+                )
+            ])
+        );
+    }
+
+    #[tokio::test]
+    async fn test_with_origin_tag_not_overwrite_other_client_options_attributes() {
+        let builder = ClientBuilder::new("")
+            .with_options(ClientOptions { http_headers: None })
+            .with_origin_tag(Some("TEST".to_string()));
+        assert_eq!(None, builder.options.http_headers);
+        assert_eq!(Some("TEST".to_string()), builder.origin_tag);
+
+        let http_headers = HashMap::from([("Key".to_string(), "Value".to_string())]);
+        let builder = ClientBuilder::new("")
+            .with_options(ClientOptions {
+                http_headers: Some(http_headers.clone()),
+            })
+            .with_origin_tag(Some("TEST".to_string()));
+        assert_eq!(Some(http_headers), builder.options.http_headers);
+        assert_eq!(Some("TEST".to_string()), builder.origin_tag);
+    }
+
+    #[tokio::test]
+    async fn test_with_origin_tag_can_be_unset() {
+        let http_headers = HashMap::from([("Key".to_string(), "Value".to_string())]);
+        let client_options = ClientOptions {
+            http_headers: Some(http_headers.clone()),
+        };
+        let builder = ClientBuilder::new("")
+            .with_options(client_options)
+            .with_origin_tag(None);
+
+        assert_eq!(Some(http_headers), builder.options.http_headers);
+        assert_eq!(None, builder.origin_tag);
     }
 }

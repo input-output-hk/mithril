@@ -8,6 +8,7 @@ import CertificateModal from "#/CertificateModal";
 import RawJsonButton from "#/RawJsonButton";
 import LocalDateTime from "#/LocalDateTime";
 import { selectedAggregator } from "@/store/settingsSlice";
+import { fetchAggregator } from "@/aggregator-api";
 
 export default function CardanoStakeDistributionsList(props) {
   const [cardanoStakeDistributions, setCardanoStakeDistributions] = useState([]);
@@ -21,7 +22,7 @@ export default function CardanoStakeDistributionsList(props) {
 
   useEffect(() => {
     let fetchCardanoStakeDistribution = () => {
-      fetch(artifactsEndpoint)
+      fetchAggregator(artifactsEndpoint)
         .then((response) => response.json())
         .then((data) => setCardanoStakeDistributions(data))
         .catch((error) => {
