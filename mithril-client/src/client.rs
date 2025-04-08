@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Context};
-use mithril_common::MITHRIL_ORIGIN_TAG_HEADER;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use slog::{o, Logger};
@@ -7,6 +6,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use mithril_common::api_version::APIVersionProvider;
+use mithril_common::MITHRIL_ORIGIN_TAG_HEADER;
 
 use crate::aggregator_client::{AggregatorClient, AggregatorHTTPClient};
 #[cfg(feature = "unstable")]
