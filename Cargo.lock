@@ -988,7 +988,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-database"
-version = "0.1.28"
+version = "0.1.29"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1001,7 +1001,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-database-v2"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1014,7 +1014,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-stake-distribution"
-version = "0.1.10"
+version = "0.1.11"
 dependencies = [
  "anyhow",
  "clap",
@@ -1027,7 +1027,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-transaction"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "clap",
@@ -1040,7 +1040,7 @@ dependencies = [
 
 [[package]]
 name = "client-mithril-stake-distribution"
-version = "0.2.8"
+version = "0.2.9"
 dependencies = [
  "anyhow",
  "clap",
@@ -3651,7 +3651,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.7.29"
+version = "0.7.30"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3698,7 +3698,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator-fake"
-version = "0.4.4"
+version = "0.4.5"
 dependencies = [
  "anyhow",
  "axum",
@@ -3738,7 +3738,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.11.18"
+version = "0.11.19"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3769,7 +3769,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.11.12"
+version = "0.11.13"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3797,7 +3797,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-wasm"
-version = "0.8.6"
+version = "0.8.7"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3815,7 +3815,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.5.20"
+version = "0.5.21"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3886,7 +3886,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.4.77"
+version = "0.4.78"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3907,7 +3907,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-metric"
-version = "0.1.9"
+version = "0.1.10"
 dependencies = [
  "anyhow",
  "axum",
