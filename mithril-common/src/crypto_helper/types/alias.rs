@@ -5,7 +5,8 @@ use crate::crypto_helper::cardano::{
 
 use mithril_stm::{
     key_reg::ClosedKeyReg,
-    stm::{Index, Stake, StmClerk, StmParameters, StmSigner},
+    participant::StmSigner,
+    stm::{Index, Stake, StmClerk, StmParameters},
     AggregationError,
 };
 
