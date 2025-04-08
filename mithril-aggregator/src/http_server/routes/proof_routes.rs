@@ -76,7 +76,7 @@ mod handlers {
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_proof_cardano_transaction_total_proofs_served_since_startup()
-            .increment(&[origin_tag.clone().unwrap_or_default().as_str()]);
+            .increment(&[origin_tag.as_deref().unwrap_or_default()]);
 
         let transaction_hashes = transaction_parameters.split_transactions_hashes();
         debug!(
@@ -95,7 +95,7 @@ mod handlers {
         metrics_service
             .get_proof_cardano_transaction_total_transactions_served_since_startup()
             .increment_by(
-                &[origin_tag.unwrap_or_default().as_str()],
+                &[origin_tag.as_deref().unwrap_or_default()],
                 sanitized_hashes.len().try_into().unwrap_or(0),
             );
 

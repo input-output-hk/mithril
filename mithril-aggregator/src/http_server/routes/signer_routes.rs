@@ -125,7 +125,7 @@ mod handlers {
 
         metrics_service
             .get_signer_registration_total_received_since_startup()
-            .increment(&[origin_tag.unwrap_or_default().as_str()]);
+            .increment(&[origin_tag.as_deref().unwrap_or_default()]);
 
         let registration_epoch = register_signer_message.epoch;
 

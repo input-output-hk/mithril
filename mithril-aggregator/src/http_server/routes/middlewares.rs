@@ -1,10 +1,10 @@
-use mithril_common::MITHRIL_ORIGIN_TAG_HEADER;
 use slog::{debug, Logger};
 use std::convert::Infallible;
 use std::sync::Arc;
 use warp::Filter;
 
 use mithril_common::api_version::APIVersionProvider;
+use mithril_common::MITHRIL_ORIGIN_TAG_HEADER;
 
 use crate::database::repository::SignerGetter;
 use crate::dependency_injection::EpochServiceWrapper;

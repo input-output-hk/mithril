@@ -100,7 +100,7 @@ mod handlers {
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_cardano_immutable_files_full_total_restoration_since_startup()
-            .increment(&[origin_tag.unwrap_or_default().as_str()]);
+            .increment(&[origin_tag.as_deref().unwrap_or_default()]);
 
         let headers: Vec<(&str, &str)> = Vec::new();
 
@@ -129,7 +129,7 @@ mod handlers {
         metrics_service
             .get_cardano_database_immutable_files_restored_since_startup()
             .increment_by(
-                &[origin_tag.unwrap_or_default().as_str()],
+                &[origin_tag.as_deref().unwrap_or_default()],
                 message.nb_immutable_files,
             );
 
@@ -143,7 +143,7 @@ mod handlers {
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_cardano_database_ancillary_files_restored_since_startup()
-            .increment(&[origin_tag.unwrap_or_default().as_str()]);
+            .increment(&[origin_tag.as_deref().unwrap_or_default()]);
 
         Ok(reply::empty(StatusCode::CREATED))
     }
@@ -156,7 +156,7 @@ mod handlers {
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_cardano_database_complete_restoration_since_startup()
-            .increment(&[origin_tag.unwrap_or_default().as_str()]);
+            .increment(&[origin_tag.as_deref().unwrap_or_default()]);
 
         let headers: Vec<(&str, &str)> = Vec::new();
         let message = EventMessage::new(
@@ -182,7 +182,7 @@ mod handlers {
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_cardano_database_partial_restoration_since_startup()
-            .increment(&[origin_tag.unwrap_or_default().as_str()]);
+            .increment(&[origin_tag.as_deref().unwrap_or_default()]);
 
         let headers: Vec<(&str, &str)> = Vec::new();
         let message = EventMessage::new(

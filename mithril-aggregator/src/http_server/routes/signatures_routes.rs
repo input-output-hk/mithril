@@ -53,7 +53,7 @@ mod handlers {
 
         metrics_service
             .get_signature_registration_total_received_since_startup()
-            .increment(&[origin_tag.unwrap_or_default().as_str()]);
+            .increment(&[origin_tag.as_deref().unwrap_or_default()]);
 
         let signed_entity_type = message.signed_entity_type.clone();
         let signed_message = message.signed_message.clone();

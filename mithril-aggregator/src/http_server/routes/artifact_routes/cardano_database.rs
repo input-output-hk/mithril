@@ -101,7 +101,7 @@ mod handlers {
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_artifact_detail_cardano_database_total_served_since_startup()
-            .increment(&[origin_tag.unwrap_or_default().as_str()]);
+            .increment(&[origin_tag.as_deref().unwrap_or_default()]);
 
         match http_message_service
             .get_cardano_database_message(&signed_entity_id)
