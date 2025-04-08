@@ -389,11 +389,11 @@ impl ClientBuilder {
         }
 
         /// Set the ancillary verification key to use when verifying the downloaded ancillary files.
-        pub fn set_ancillary_verification_key(
+        pub fn set_ancillary_verification_key<T: Into<Option<String>>>(
             mut self,
-            ancillary_verification_key: String,
+            ancillary_verification_key: T,
         ) -> ClientBuilder {
-            self.ancillary_verification_key = Some(ancillary_verification_key);
+            self.ancillary_verification_key = ancillary_verification_key.into();
             self
         }
     }
