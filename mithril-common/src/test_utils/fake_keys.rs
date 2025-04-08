@@ -158,7 +158,7 @@ pub const fn signable_manifest_signature<'a>() -> [&'a str; 2] {
     ]
 }
 
-/// A list of pre json hex encoded [MithrilStm:StmVerificationKeyPoP](type@mithril_stm::stm::StmVerificationKeyPoP)
+/// A list of pre json hex encoded [MithrilStm:StmVerificationKeyPoP](type@mithril_stm::participant::StmVerificationKeyPoP)
 pub const fn signer_verification_key<'a>() -> [&'a str; 4] {
     [
         "7b22766b223a5b3134352c32332c3135382c31322c3138332c3230392c33322c3134302c33372c3132342c3136\
@@ -380,7 +380,8 @@ mod test {
     use super::*;
     use ed25519_dalek::VerifyingKey;
     use kes_summed_ed25519::kes::Sum6KesSig;
-    use mithril_stm::stm::{StmAggrSig, StmAggrVerificationKey, StmSig, StmVerificationKeyPoP};
+    use mithril_stm::stm::{StmAggrSig, StmAggrVerificationKey, StmSig};
+    use mithril_stm::participant::StmVerificationKeyPoP;
     use serde::{de::DeserializeOwned, Serialize};
     use std::any::type_name;
 
