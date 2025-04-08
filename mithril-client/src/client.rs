@@ -68,10 +68,10 @@ pub struct ClientOptions {
 
 impl ClientOptions {
     /// Instantiate a new [ClientOptions].
-    pub fn new(http_headers: Option<HashMap<String, String>>, origin_tag: Option<String>) -> Self {
+    pub fn new(http_headers: Option<HashMap<String, String>>) -> Self {
         Self {
             http_headers,
-            origin_tag,
+            origin_tag: None,
             #[cfg(target_family = "wasm")]
             unstable: false,
             #[cfg(target_family = "wasm")]

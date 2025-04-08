@@ -525,12 +525,12 @@ mod tests {
     }
 
     fn get_mithril_client_stable() -> MithrilClient {
-        let options = ClientOptions::new(None, None).with_unstable_features(false);
+        let options = ClientOptions::new(None).with_unstable_features(false);
         get_mithril_client(options)
     }
 
     fn get_mithril_client_unstable() -> MithrilClient {
-        let options = ClientOptions::new(None, None).with_unstable_features(true);
+        let options = ClientOptions::new(None).with_unstable_features(true);
         get_mithril_client(options)
     }
 
@@ -541,7 +541,7 @@ mod tests {
     fn build_mithril_client_with_custom_http_header() {
         let mut http_headers = HashMap::new();
         http_headers.insert("Authorization".to_string(), "Bearer token".to_string());
-        let options = ClientOptions::new(Some(http_headers), Some("WASM_TEST_TAG".to_string()));
+        let options = ClientOptions::new(Some(http_headers));
         let options_js_value = serde_wasm_bindgen::to_value(&options).unwrap();
 
         MithrilClient::new(
