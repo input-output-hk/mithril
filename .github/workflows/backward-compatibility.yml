@@ -17,7 +17,7 @@ on:
         description: "Signed entity types parameters (discriminants names in an ordered comma separated list)"
         required: true
         type: string
-        default: "CardanoTransactions,CardanoStakeDistribution"
+        default: "CardanoTransactions,CardanoStakeDistribution,CardanoDatabase"
   workflow_call:
     inputs:
       total-releases:
@@ -28,7 +28,7 @@ on:
         default: "10.2.1"
       signed-entity-types:
         type: string
-        default: "CardanoTransactions,CardanoStakeDistribution"
+        default: "CardanoTransactions,CardanoStakeDistribution,CardanoDatabase"
 
 jobs:
   prepare-env-variables:
