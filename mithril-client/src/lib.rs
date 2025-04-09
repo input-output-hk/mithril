@@ -154,6 +154,7 @@ pub(crate) mod test_utils {
 
     pub struct TestLogger;
 
+    #[allow(unused)]
     impl TestLogger {
         fn from_writer<W: io::Write + Send + 'static>(writer: W) -> Logger {
             let decorator = PlainDecorator::new(writer);
