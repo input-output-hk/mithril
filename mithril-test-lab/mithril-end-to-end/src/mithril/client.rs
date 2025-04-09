@@ -35,7 +35,11 @@ impl CardanoDbCommand {
                 vec!["snapshot".to_string(), "show".to_string(), digest.clone()]
             }
             CardanoDbCommand::Download { digest } => {
-                vec!["download".to_string(), digest.clone()]
+                vec![
+                    "download".to_string(),
+                    "--include-ancillary".to_string(),
+                    digest.clone(),
+                ]
             }
         }
     }
