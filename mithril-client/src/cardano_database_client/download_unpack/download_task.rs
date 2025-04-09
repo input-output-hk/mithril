@@ -170,6 +170,23 @@ mod tests {
 
     use super::*;
 
+    fn create_locations_to_download<U>(
+        file_downloader: Arc<dyn FileDownloader>,
+        uris: U,
+    ) -> Vec<LocationToDownload>
+    where
+        U: IntoIterator,
+        U::Item: AsRef<str>,
+    {
+        uris.into_iter()
+            .map(|uri| LocationToDownload {
+                file_downloader: file_downloader.clone(),
+                file_downloader_uri: FileDownloaderUri::FileUri(FileUri(uri.as_ref().to_string())),
+                compression_algorithm: Some(CompressionAlgorithm::default()),
+            })
+            .collect()
+    }
+
     mod download_unpack_immutable_files {
         use super::*;
 
@@ -186,22 +203,13 @@ mod tests {
 
             let download_task = DownloadTask {
                 kind: DownloadKind::Immutable(1),
-                locations_to_try: vec![
-                    LocationToDownload {
-                        file_downloader: file_downloader.clone(),
-                        file_downloader_uri: FileDownloaderUri::FileUri(FileUri(
-                            "http://whatever-1/00001.tar.gz".to_string(),
-                        )),
-                        compression_algorithm: Some(CompressionAlgorithm::default()),
-                    },
-                    LocationToDownload {
-                        file_downloader,
-                        file_downloader_uri: FileDownloaderUri::FileUri(FileUri(
-                            "http://whatever-2/00001.tar.gz".to_string(),
-                        )),
-                        compression_algorithm: Some(CompressionAlgorithm::default()),
-                    },
-                ],
+                locations_to_try: create_locations_to_download(
+                    file_downloader,
+                    [
+                        "http://whatever-1/00001.tar.gz",
+                        "http://whatever-2/00001.tar.gz",
+                    ],
+                ),
                 size_uncompressed: 0,
                 target_dir: target_dir.clone(),
                 download_event: DownloadEvent::Immutable {
@@ -234,22 +242,13 @@ mod tests {
 
             let download_task = DownloadTask {
                 kind: DownloadKind::Immutable(1),
-                locations_to_try: vec![
-                    LocationToDownload {
-                        file_downloader: file_downloader.clone(),
-                        file_downloader_uri: FileDownloaderUri::FileUri(FileUri(
-                            "http://whatever-1/00001.tar.gz".to_string(),
-                        )),
-                        compression_algorithm: Some(CompressionAlgorithm::default()),
-                    },
-                    LocationToDownload {
-                        file_downloader,
-                        file_downloader_uri: FileDownloaderUri::FileUri(FileUri(
-                            "http://whatever-2/00001.tar.gz".to_string(),
-                        )),
-                        compression_algorithm: Some(CompressionAlgorithm::default()),
-                    },
-                ],
+                locations_to_try: create_locations_to_download(
+                    file_downloader,
+                    [
+                        "http://whatever-1/00001.tar.gz",
+                        "http://whatever-2/00001.tar.gz",
+                    ],
+                ),
                 size_uncompressed: 0,
                 target_dir: target_dir.clone(),
                 download_event: DownloadEvent::Immutable {
@@ -287,13 +286,10 @@ mod tests {
                 kind: DownloadKind::Ancillary {
                     verifier: Arc::new(fake_ancillary_verifier()),
                 },
-                locations_to_try: vec![LocationToDownload {
-                    file_downloader: file_downloader.clone(),
-                    file_downloader_uri: FileDownloaderUri::FileUri(FileUri(
-                        "http://whatever/ancillary.tar.gz".to_string(),
-                    )),
-                    compression_algorithm: Some(CompressionAlgorithm::default()),
-                }],
+                locations_to_try: create_locations_to_download(
+                    file_downloader,
+                    ["http://whatever/ancillary.tar.gz"],
+                ),
                 size_uncompressed: 0,
                 target_dir: target_dir.clone(),
                 download_event: DownloadEvent::Ancillary {
@@ -334,22 +330,13 @@ mod tests {
                 kind: DownloadKind::Ancillary {
                     verifier: Arc::new(AncillaryVerifier::new(ancillary_signer.verification_key())),
                 },
-                locations_to_try: vec![
-                    LocationToDownload {
-                        file_downloader: file_downloader.clone(),
-                        file_downloader_uri: FileDownloaderUri::FileUri(FileUri(
-                            "http://whatever-1/ancillary.tar.gz".to_string(),
-                        )),
-                        compression_algorithm: Some(CompressionAlgorithm::default()),
-                    },
-                    LocationToDownload {
-                        file_downloader,
-                        file_downloader_uri: FileDownloaderUri::FileUri(FileUri(
-                            "http://whatever-2/ancillary.tar.gz".to_string(),
-                        )),
-                        compression_algorithm: Some(CompressionAlgorithm::default()),
-                    },
-                ],
+                locations_to_try: create_locations_to_download(
+                    file_downloader,
+                    [
+                        "http://whatever-1/ancillary.tar.gz",
+                        "http://whatever-2/ancillary.tar.gz",
+                    ],
+                ),
                 size_uncompressed: 0,
                 target_dir: target_dir.clone(),
                 download_event: DownloadEvent::Ancillary {
@@ -384,22 +371,13 @@ mod tests {
                 kind: DownloadKind::Ancillary {
                     verifier: Arc::new(AncillaryVerifier::new(ancillary_signer.verification_key())),
                 },
-                locations_to_try: vec![
-                    LocationToDownload {
-                        file_downloader: file_downloader.clone(),
-                        file_downloader_uri: FileDownloaderUri::FileUri(FileUri(
-                            "http://whatever-1/ancillary.tar.gz".to_string(),
-                        )),
-                        compression_algorithm: Some(CompressionAlgorithm::default()),
-                    },
-                    LocationToDownload {
-                        file_downloader,
-                        file_downloader_uri: FileDownloaderUri::FileUri(FileUri(
-                            "http://whatever-2/ancillary.tar.gz".to_string(),
-                        )),
-                        compression_algorithm: Some(CompressionAlgorithm::default()),
-                    },
-                ],
+                locations_to_try: create_locations_to_download(
+                    file_downloader,
+                    [
+                        "http://whatever-1/ancillary.tar.gz",
+                        "http://whatever-2/ancillary.tar.gz",
+                    ],
+                ),
                 size_uncompressed: 0,
                 target_dir: target_dir.clone(),
                 download_event: DownloadEvent::Ancillary {
@@ -432,13 +410,10 @@ mod tests {
                 kind: DownloadKind::Ancillary {
                     verifier: Arc::new(fake_ancillary_verifier()),
                 },
-                locations_to_try: vec![LocationToDownload {
+                locations_to_try: create_locations_to_download(
                     file_downloader,
-                    file_downloader_uri: FileDownloaderUri::FileUri(FileUri(
-                        "http://whatever/ancillary.tar.gz".to_string(),
-                    )),
-                    compression_algorithm: Some(CompressionAlgorithm::default()),
-                }],
+                    ["http://whatever/ancillary.tar.gz"],
+                ),
                 size_uncompressed: 0,
                 target_dir: target_dir.clone(),
                 download_event: DownloadEvent::Ancillary {
@@ -476,13 +451,10 @@ mod tests {
                 kind: DownloadKind::Ancillary {
                     verifier: Arc::new(AncillaryVerifier::new(ancillary_signer.verification_key())),
                 },
-                locations_to_try: vec![LocationToDownload {
+                locations_to_try: create_locations_to_download(
                     file_downloader,
-                    file_downloader_uri: FileDownloaderUri::FileUri(FileUri(
-                        "http://whatever/ancillary.tar.gz".to_string(),
-                    )),
-                    compression_algorithm: Some(CompressionAlgorithm::default()),
-                }],
+                    ["http://whatever/ancillary.tar.gz"],
+                ),
                 size_uncompressed: 0,
                 target_dir: target_dir.clone(),
                 download_event: DownloadEvent::Ancillary {
