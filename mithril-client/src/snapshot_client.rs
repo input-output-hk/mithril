@@ -412,12 +412,10 @@ impl SnapshotClient {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "fs"))]
 mod tests {
-    #[cfg(feature = "fs")]
     use std::path::PathBuf;
 
-    #[cfg(feature = "fs")]
     use crate::{
         aggregator_client::MockAggregatorClient,
         common::CompressionAlgorithm,
@@ -428,10 +426,8 @@ mod tests {
 
     use super::*;
 
-    #[cfg(feature = "fs")]
     use mithril_common::temp_dir_create;
 
-    #[cfg(feature = "fs")]
     fn dummy_download_event() -> DownloadEvent {
         DownloadEvent::Full {
             download_id: MithrilEvent::new_snapshot_download_id(),
@@ -439,7 +435,6 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "fs")]
     fn setup_snapshot_client(
         file_downloader: Arc<dyn FileDownloader>,
         ancillary_verifier: Option<Arc<AncillaryVerifier>>,
@@ -456,7 +451,6 @@ mod tests {
         )
     }
 
-    #[cfg(feature = "fs")]
     mod download_unpack_file {
         use super::*;
 
@@ -587,7 +581,6 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "fs")]
     mod download_unpack_full {
         use super::*;
 
@@ -616,7 +609,6 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "fs")]
     mod download_unpack_ancillary {
         use mithril_common::crypto_helper::ManifestSigner;
         use mithril_common::test_utils::fake_keys;
