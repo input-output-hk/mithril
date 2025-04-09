@@ -420,7 +420,7 @@ mithril_client cardano-db snapshot list
 mithril_client cardano-db snapshot show $CARDANO_DB_DIGEST
 
 # 4- Download the given Cardano db and verify the certificate
-mithril_client cardano-db download $CARDANO_DB_DIGEST
+mithril_client cardano-db download --include-ancillary --ancillary-verification-key $ANCILLARY_VERIFICATION_KEY $CARDANO_DB_DIGEST
 
 # 5- List Mithril stake distributions
 mithril_client mithril-stake-distribution list
@@ -548,7 +548,7 @@ Here is a list of the available parameters:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description                                         | Default value | Example |     Mandatory      |
 | --------- | ------------------- | :------------------: | -------------------- | --------------------------------------------------- | ------------- | ------- | :----------------: |
-| `digest`  | `--digest`          |          -           | `DIGEST`             | Cardano DB digest or `latest` for the latest digest | -             | -       | :heavy_check_mark: |
+| `digest`  | `--digest`          |          -           | -                    | Cardano DB digest or `latest` for the latest digest | -             | -       | :heavy_check_mark: |
 | `json`    | `--json`            |          -           | -                    | Enable JSON output for command results              | -             | -       |         -          |
 
 `cardano-db snapshot list` command:
@@ -559,11 +559,13 @@ Here is a list of the available parameters:
 
 `cardano-db download` command:
 
-| Parameter      | Command line (long) | Command line (short) | Environment variable | Description                                         | Default value | Example |     Mandatory      |
-| -------------- | ------------------- | :------------------: | -------------------- | --------------------------------------------------- | ------------- | ------- | :----------------: |
-| `digest`       | `--digest`          |          -           | `DIGEST`             | Cardano DB digest or `latest` for the latest digest | -             | -       | :heavy_check_mark: |
-| `download_dir` | `--download-dir`    |          -           | -                    | Directory where the Cardano DB will be downloaded   | .             | -       |         -          |
-| `json`         | `--json`            |          -           | -                    | Enable JSON output for progress logs                | -             | -       |         -          |
+| Parameter                    | Command line (long)            | Command line (short) | Environment variable         | Description                                                                                                                                           | Default value | Example |     Mandatory      |
+| ---------------------------- | ------------------------------ | :------------------: | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
+| `digest`                     | -                              |          -           | -                            | Digest of the cardano db to download. Use the `list` command to get that information                                                                  | -             | -       | :heavy_check_mark: |
+| `download_dir`               | `--download-dir`               |          -           | -                            | Directory where the cardano db will be downloaded. By default, a subdirectory will be created in this directory to extract and verify the certificate | -             | -       |         -          |
+| `json`                       | `--json`                       |          -           | -                            | Enable JSON output                                                                                                                                    | `false`       | -       |         -          |
+| `include_ancillary`          | `--include-ancillary`          |          -           | -                            | Include ancillary files in the download                                                                                                               | `false`       | -       |         -          |
+| `ancillary_verification_key` | `--ancillary-verification-key` |          -           | `ANCILLARY_VERIFICATION_KEY` | Ancillary Verification Key to verify the ancillary files                                                                                              | -             | -       |         -          |
 
 `mithril-stake-distribution list` command:
 
@@ -582,7 +584,7 @@ Here is a list of the available parameters:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description                                                                               | Default value | Example |     Mandatory      |
 | --------- | ------------------- | :------------------: | -------------------- | ----------------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
-| `hash`    | `--hash`            |          -           | `HASH`               | Cardano transaction snapshot hash or `latest` for the latest Cardano transaction snapshot | -             | -       | :heavy_check_mark: |
+| `hash`    | `--hash`            |          -           | -                    | Cardano transaction snapshot hash or `latest` for the latest Cardano transaction snapshot | -             | -       | :heavy_check_mark: |
 | `json`    | `--json`            |          -           | -                    | Enable JSON output for command results                                                    | -             | -       |         -          |
 
 `cardano-transaction snapshot list` command:
@@ -626,12 +628,13 @@ Here is a list of the available parameters:
 
 `cardano-db-v2 download` command:
 
-| Parameter           | Command line (long)   | Command line (short) | Environment variable | Description                                                    | Default value | Example |     Mandatory      |
-| ------------------- | --------------------- | :------------------: | -------------------- | -------------------------------------------------------------- | ------------- | ------- | :----------------: |
-| `hash`              | `--hash`              |          -           | -                    | Cardano DB snapshot hash or `latest` for the latest hash       | -             | -       | :heavy_check_mark: |
-| `start`             | `--start`             |          -           | -                    | The first immutable file number to download                    | .             | -       |         -          |
-| `end`               | `--end`               |          -           | -                    | The last immutable file number to download                     | .             | -       |         -          |
-| `include_ancillary` | `--include-ancillary` |          -           | -                    | Include ancillary files in the download                        | .             | -       |         -          |
-| `allow_override`    | `--allow-override`    |          -           | -                    | Allow existing files in the download directory to be overridde | .             | -       |         -          |
-| `download_dir`      | `--download-dir`      |          -           | -                    | Directory where the Cardano DB will be downloaded              | .             | -       |         -          |
-| `json`              | `--json`              |          -           | -                    | Enable JSON output for progress logs                           | -             | -       |         -          |
+| Parameter                    | Command line (long)            | Command line (short) | Environment variable         | Description                                                                                                                                                              | Default value | Example |     Mandatory      |
+| ---------------------------- | ------------------------------ | :------------------: | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- | ------- | :----------------: |
+| `hash`                       | -                              |          -           | -                            | Hash of the cardano db to download. Use the `list` command to get that information                                                                                       | -             | -       | :heavy_check_mark: |
+| `download_dir`               | `--download-dir`               |          -           | -                            | Directory where the immutable and ancillary files will be downloaded. By default, a subdirectory will be created in this directory to extract and verify the certificate | -             | -       |         -          |
+| `start`                      | `--start`                      |          -           | -                            | The first immutable file number to download                                                                                                                              | -             | -       |         -          |
+| `end`                        | `--end`                        |          -           | -                            | The last immutable file number to download                                                                                                                               | -             | -       |         -          |
+| `include_ancillary`          | `--include-ancillary`          |          -           | -                            | Include ancillary files in the download                                                                                                                                  | `false`       | -       |         -          |
+| `ancillary_verification_key` | `--ancillary-verification-key` |          -           | `ANCILLARY_VERIFICATION_KEY` | Ancillary Verification Key to verify the ancillary files                                                                                                                 | -             | -       |         -          |
+| `allow_override`             | `--allow-override`             |          -           | -                            | Allow existing files in the download directory to be overridden                                                                                                          | `false`       | -       |         -          |
+| `json`                       | `--json`                       |          -           | -                            | Enable JSON output                                                                                                                                                       | `false`       | -       |         -          |

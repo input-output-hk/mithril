@@ -3,7 +3,15 @@
 //! In order to do so it defines a [SnapshotClient] which exposes the following features:
 //!  - [get][SnapshotClient::get]: get a single snapshot data from its digest
 //!  - [list][SnapshotClient::list]: get the list of available snapshots
-//!  - [download_unpack][SnapshotClient::download_unpack]: download and unpack the tarball of a snapshot to a directory
+//!  - [download_unpack_full][SnapshotClient::download_unpack_full]: download and unpack the tarball
+//!    of a snapshot and its ancillary files to a directory, use this function if you want to fast bootstrap
+//!    a Cardano node
+//!  - [download_unpack][SnapshotClient::download_unpack]: download and unpack the tarball of a snapshot
+//!    to a directory (immutable files only)
+//!
+//! **Note:** Ancillary files are files that are not part of the snapshot but are needed to enable fast
+//! bootstrapping of the Cardano node.
+//! They include the ledger files and the latest unfinished immutable files.
 //!
 //! # Get a single snapshot
 //!
@@ -14,7 +22,7 @@
 //! use mithril_client::ClientBuilder;
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
-//! let snapshot = client.snapshot().get("SNAPSHOT_DIGEST").await?.unwrap();
+//! let snapshot = client.cardano_database().get("SNAPSHOT_DIGEST").await?.unwrap();
 //!
 //! println!("Snapshot digest={}, size={}", snapshot.digest, snapshot.size);
 //! #    Ok(())
@@ -30,7 +38,7 @@
 //! use mithril_client::ClientBuilder;
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
-//! let snapshots = client.snapshot().list().await?;
+//! let snapshots = client.cardano_database().list().await?;
 //!
 //! for snapshot in snapshots {
 //!     println!("Snapshot digest={}, size={}", snapshot.digest, snapshot.size);
@@ -42,7 +50,8 @@
 //! # Download a snapshot
 //! **Note:** _Available on crate feature_ **fs** _only._
 //!
-//! To download and simultaneously unpack the tarball of a snapshots using the [ClientBuilder][crate::client::ClientBuilder].
+//! To download and simultaneously unpack the tarball of a snapshot using the [ClientBuilder][crate::client::ClientBuilder]
+//! , including its ancillary files, to a directory.
 //!
 //! ```no_run
 //! # #[cfg(feature = "fs")]
@@ -50,14 +59,16 @@
 //! use mithril_client::ClientBuilder;
 //! use std::path::Path;
 //!
-//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
-//! let snapshot = client.snapshot().get("SNAPSHOT_DIGEST").await?.unwrap();
+//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY")
+//!     .set_ancillary_verification_key("YOUR_ANCILLARY_VERIFICATION_KEY".to_string())
+//!     .build()?;
+//! let snapshot = client.cardano_database().get("SNAPSHOT_DIGEST").await?.unwrap();
 //!
 //! // Note: the directory must already exist, and the user running the binary must have read/write access to it.
 //! let target_directory = Path::new("/home/user/download/");
 //! client
-//!    .snapshot()
-//!    .download_unpack(&snapshot, target_directory)
+//!    .cardano_database()
+//!    .download_unpack_full(&snapshot, target_directory)
 //!    .await?;
 //! #
 //! #    Ok(())
@@ -76,12 +87,12 @@
 //! use std::path::Path;
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
-//! let snapshot = client.snapshot().get("SNAPSHOT_DIGEST").await?.unwrap();
+//! let snapshot = client.cardano_database().get("SNAPSHOT_DIGEST").await?.unwrap();
 //!
 //! // Note: the directory must already exist, and the user running the binary must have read/write access to it.
 //! let target_directory = Path::new("/home/user/download/");
 //! client
-//!    .snapshot()
+//!    .cardano_database()
 //!    .download_unpack(&snapshot, target_directory)
 //!    .await?;
 //!
@@ -198,9 +209,13 @@ impl SnapshotClient {
     }
 
     cfg_fs! {
-        /// Download and unpack the given snapshot to the given directory
+        /// Download and unpack the given snapshot, including its ancillary files, to the given directory
         ///
-        /// **NOTE**: The directory should already exist, and the user running the binary
+        /// Ancillary files are files that are not part of the snapshot but are needed to enable fast
+        /// bootstrapping of the Cardano node.
+        /// They include the ledger files and the latest unfinished immutable files.
+        ///
+        /// **NOTE**: The target directory should already exist, and the user running the binary
         /// must have read/write access to it.
         pub async fn download_unpack_full(
             &self,
@@ -223,7 +238,10 @@ impl SnapshotClient {
 
         /// Download and unpack the given immutable files of the snapshot to the given directory
         ///
-        /// **NOTE**: The directory should already exist, and the user running the binary
+        /// Ancillary files are not included in this operation, if they are needed, use
+        /// [download_unpack_full][Self::download_unpack_full] instead.
+        ///
+        /// **NOTE**: The target directory should already exist, and the user running the binary
         /// must have read/write access to it.
         pub async fn download_unpack(
             &self,
