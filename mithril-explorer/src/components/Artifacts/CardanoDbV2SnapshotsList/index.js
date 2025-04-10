@@ -85,9 +85,6 @@ export default function CardanoDbV2SnapshotsList(props) {
                           <ArtifactCol label="Cardano node">
                             {cdb_snapshot.cardano_node_version}
                           </ArtifactCol>
-                          <ArtifactCol label="Compression">
-                            {cdb_snapshot.compression_algorithm}
-                          </ArtifactCol>
                           <ArtifactCol label="Merkle Root">{cdb_snapshot.merkle_root}</ArtifactCol>
                           <ArtifactCol label="Certificate hash">
                             {cdb_snapshot.certificate_hash}
