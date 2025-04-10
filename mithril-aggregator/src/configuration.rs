@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Context};
 use config::{ConfigError, Map, Source, Value, ValueKind};
+use core::panic;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::PathBuf;
@@ -43,6 +44,247 @@ impl FromStr for ExecutionEnvironment {
                 "Unknown execution environment {s}"
             ))),
         }
+    }
+}
+
+/// This trait defines the configuration interface for the aggregator.
+///
+/// By default, each function panics if not overridden, forcing concrete configuration
+/// implementations to explicitly provide the necessary values.
+// TODO: Rename this trait to `Configuration` once specific configurations for all commands are created (removing the `Configuration` struct).
+pub trait ConfigurationTrait {
+    /// What kind of runtime environment the configuration is meant to.
+    fn environment(&self) -> ExecutionEnvironment;
+
+    /// Cardano CLI tool path
+    fn cardano_cli_path(&self) -> PathBuf {
+        panic!("cardano_cli_path is not implemented.");
+    }
+
+    /// Path of the socket used by the Cardano CLI tool
+    /// to communicate with the Cardano node
+    fn cardano_node_socket_path(&self) -> PathBuf {
+        panic!("cardano_node_socket_path is not implemented.");
+    }
+
+    /// Cardano node version.
+    ///
+    /// **NOTE**: This cannot be verified for now (see [this
+    /// issue](https://github.com/input-output-hk/cardano-cli/issues/224)). This
+    /// is why it has to be manually given to the Aggregator
+    fn cardano_node_version(&self) -> String {
+        panic!("cardano_node_version is not implemented.");
+    }
+
+    /// Cardano Network Magic number
+    ///
+    /// useful for TestNet & DevNet
+    fn network_magic(&self) -> Option<u64> {
+        panic!("network_magic is not implemented.");
+    }
+
+    /// Cardano network
+    fn network(&self) -> String {
+        panic!("network is not implemented.");
+    }
+
+    /// Cardano chain observer type
+    fn chain_observer_type(&self) -> ChainObserverType {
+        panic!("chain_observer_type is not implemented.");
+    }
+
+    /// Protocol parameters
+    fn protocol_parameters(&self) -> ProtocolParameters {
+        panic!("protocol_parameters is not implemented.");
+    }
+
+    /// Type of snapshot uploader to use
+    fn snapshot_uploader_type(&self) -> SnapshotUploaderType {
+        panic!("snapshot_uploader_type is not implemented.");
+    }
+
+    /// Bucket name where the snapshots are stored if snapshot_uploader_type is Gcp
+    fn snapshot_bucket_name(&self) -> Option<String> {
+        panic!("snapshot_bucket_name is not implemented.");
+    }
+
+    /// Use CDN domain to construct snapshot urls if snapshot_uploader_type is Gcp
+    fn snapshot_use_cdn_domain(&self) -> bool {
+        panic!("snapshot_use_cdn_domain is not implemented.");
+    }
+
+    /// Server listening IP
+    fn server_ip(&self) -> String {
+        panic!("server_ip is not implemented.");
+    }
+
+    /// Server listening port
+    fn server_port(&self) -> u16 {
+        panic!("server_port is not implemented.");
+    }
+
+    /// Server URL that can be accessed from the outside
+    fn public_server_url(&self) -> Option<String> {
+        panic!("public_server_url is not implemented.");
+    }
+
+    /// Run Interval is the interval between two runtime cycles in ms
+    fn run_interval(&self) -> u64 {
+        panic!("run_interval is not implemented.");
+    }
+
+    /// Directory of the Cardano node store.
+    fn db_directory(&self) -> PathBuf {
+        panic!("db_directory is not implemented.");
+    }
+
+    /// Directory to store snapshot
+    fn snapshot_directory(&self) -> PathBuf {
+        panic!("snapshot_directory is not implemented.");
+    }
+
+    /// Directory to store aggregator data (Certificates, Snapshots, Protocol Parameters, ...)
+    fn data_stores_directory(&self) -> PathBuf {
+        panic!("data_stores_directory is not implemented.");
+    }
+
+    /// Genesis verification key
+    fn genesis_verification_key(&self) -> HexEncodedGenesisVerificationKey {
+        panic!("genesis_verification_key is not implemented.");
+    }
+
+    /// Should the immutable cache be reset or not
+    fn reset_digests_cache(&self) -> bool {
+        panic!("reset_digests_cache is not implemented.");
+    }
+
+    /// Use the digest caching strategy
+    fn disable_digests_cache(&self) -> bool {
+        panic!("disable_digests_cache is not implemented.");
+    }
+
+    /// Max number of records in stores.
+    /// When new records are added, oldest records are automatically deleted so
+    /// there can always be at max the number of records specified by this
+    /// setting.
+    fn store_retention_limit(&self) -> Option<usize> {
+        panic!("store_retention_limit is not implemented.");
+    }
+
+    /// Era reader adapter type
+    fn era_reader_adapter_type(&self) -> EraReaderAdapterType {
+        panic!("era_reader_adapter_type is not implemented.");
+    }
+
+    /// Era reader adapter parameters
+    fn era_reader_adapter_params(&self) -> Option<String> {
+        panic!("era_reader_adapter_params is not implemented.");
+    }
+
+    /// Configuration of the ancillary files signer
+    ///
+    /// **IMPORTANT**: The cryptographic scheme used is ED25519
+    fn ancillary_files_signer_config(&self) -> AncillaryFilesSignerConfig {
+        panic!("ancillary_files_signer_config is not implemented.");
+    }
+
+    /// Signed entity types parameters (discriminants names in an ordered, case-sensitive, comma
+    /// separated list).
+    ///
+    /// The values `MithrilStakeDistribution` and `CardanoImmutableFilesFull` are prepended
+    /// automatically to the list.
+    fn signed_entity_types(&self) -> Option<String> {
+        panic!("signed_entity_types is not implemented.");
+    }
+
+    /// Compression algorithm used for the snapshot archive artifacts.
+    fn snapshot_compression_algorithm(&self) -> CompressionAlgorithm {
+        panic!("snapshot_compression_algorithm is not implemented.");
+    }
+
+    /// Specific parameters when [CompressionAlgorithm] is set to
+    /// [zstandard][CompressionAlgorithm::Zstandard].
+    fn zstandard_parameters(&self) -> Option<ZstandardCompressionParameters> {
+        panic!("zstandard_parameters is not implemented.");
+    }
+
+    /// Url to CExplorer list of pools to import as signer in the database.
+    fn cexplorer_pools_url(&self) -> Option<String> {
+        panic!("cexplorer_pools_url is not implemented.");
+    }
+
+    /// Time interval at which the signers in `cexplorer_pools_url` will be imported (in minutes).
+    fn signer_importer_run_interval(&self) -> u64 {
+        panic!("signer_importer_run_interval is not implemented.");
+    }
+
+    /// If set no error is returned in case of unparsable block and an error log is written instead.
+    ///
+    /// Will be ignored on (pre)production networks.
+    fn allow_unparsable_block(&self) -> bool {
+        panic!("allow_unparsable_block is not implemented.");
+    }
+
+    /// Cardano transactions prover cache pool size
+    fn cardano_transactions_prover_cache_pool_size(&self) -> usize {
+        panic!("cardano_transactions_prover_cache_pool_size is not implemented.");
+    }
+
+    /// Cardano transactions database connection pool size
+    fn cardano_transactions_database_connection_pool_size(&self) -> usize {
+        panic!("cardano_transactions_database_connection_pool_size is not implemented.");
+    }
+
+    /// Cardano transactions signing configuration
+    fn cardano_transactions_signing_config(&self) -> CardanoTransactionsSigningConfig {
+        panic!("cardano_transactions_signing_config is not implemented.");
+    }
+
+    /// Maximum number of transactions hashes allowed by request to the prover of the Cardano transactions
+    fn cardano_transactions_prover_max_hashes_allowed_by_request(&self) -> usize {
+        panic!("cardano_transactions_prover_max_hashes_allowed_by_request is not implemented.");
+    }
+
+    /// The maximum number of roll forwards during a poll of the block streamer when importing transactions.
+    fn cardano_transactions_block_streamer_max_roll_forwards_per_poll(&self) -> usize {
+        panic!(
+            "cardano_transactions_block_streamer_max_roll_forwards_per_poll is not implemented."
+        );
+    }
+
+    /// Enable metrics server (Prometheus endpoint on /metrics).
+    fn enable_metrics_server(&self) -> bool {
+        panic!("enable_metrics_server is not implemented.");
+    }
+
+    /// Metrics HTTP Server IP.
+    fn metrics_server_ip(&self) -> String {
+        panic!("metrics_server_ip is not implemented.");
+    }
+
+    /// Metrics HTTP Server listening port.
+    fn metrics_server_port(&self) -> u16 {
+        panic!("metrics_server_port is not implemented.");
+    }
+
+    /// Time interval at which usage metrics are persisted in event database (in seconds).
+    fn persist_usage_report_interval_in_seconds(&self) -> u64 {
+        panic!("persist_usage_report_interval_in_seconds is not implemented.");
+    }
+
+    /// Leader aggregator endpoint
+    ///
+    /// This is the endpoint of the aggregator that will be used to fetch the latest epoch settings
+    /// and store the signer registrations when the aggregator is running in a follower mode.
+    /// If this is not set, the aggregator will run in a leader mode.
+    fn leader_aggregator_endpoint(&self) -> Option<String> {
+        panic!("leader_aggregator_endpoint is not implemented.");
+    }
+
+    /// Custom origin tag of client request added to the whitelist (comma
+    /// separated list).
+    fn custom_origin_tag_white_list(&self) -> Option<String> {
+        panic!("custom_origin_tag_white_list is not implemented.");
     }
 }
 
