@@ -31,6 +31,13 @@ pub trait Snapshotter: Sync + Send {
         archive_name_without_extension: &str,
     ) -> StdResult<FileArchive>;
 
+    /// Compute the total and average uncompressed size of all immutables up to the given immutable
+    /// file number.
+    async fn compute_immutable_files_total_uncompressed_size(
+        &self,
+        up_to_immutable_file_number: ImmutableFileNumber,
+    ) -> StdResult<u64>;
+
     /// Return the compression algorithm used by the snapshotter.
     fn compression_algorithm(&self) -> CompressionAlgorithm;
 }

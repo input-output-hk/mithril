@@ -15,6 +15,7 @@ use mithril_common::StdResult;
 use crate::dependency_injection::DependenciesBuilderError;
 use crate::tools::file_archiver::appender::{AppenderData, AppenderEntries, TarAppender};
 use crate::tools::file_archiver::{ArchiveParameters, FileArchive, FileArchiver};
+use crate::tools::file_size;
 
 use super::{ancillary_signer::AncillarySigner, Snapshotter};
 
@@ -104,6 +105,28 @@ impl Snapshotter for CompressedArchiveSnapshotter {
 
         self.snapshot(archive_name_without_extension, appender)
             .await
+    }
+
+    async fn compute_immutable_files_total_uncompressed_size(
+        &self,
+        up_to_immutable_file_number: ImmutableFileNumber,
+    ) -> StdResult<u64> {
+        if up_to_immutable_file_number == 0 {
+            return Err(anyhow!(
+                "Could not compute the total size without immutable files"
+            ));
+        }
+        let immutable_directory = self.db_directory.join(IMMUTABLE_DIR);
+
+        tokio::task::spawn_blocking(move || -> StdResult<_> {
+            let immutable_paths = (1..=up_to_immutable_file_number)
+                .flat_map(immutable_trio_names)
+                .map(|filename| immutable_directory.join(filename))
+                .collect();
+
+            file_size::compute_size(immutable_paths)
+        })
+        .await?
     }
 
     fn compression_algorithm(&self) -> CompressionAlgorithm {
@@ -558,6 +581,51 @@ mod tests {
                 ),
                 manifest.signature
             )
+        }
+    }
+
+    mod compute_immutable_total_and_average_uncompressed_size {
+        use mithril_common::current_function;
+
+        use super::*;
+
+        #[tokio::test]
+        async fn should_compute_the_total_size_of_the_immutables() {
+            let test_dir = temp_dir_create!();
+            let immutable_trio_file_size = 777;
+
+            let cardano_db = DummyCardanoDbBuilder::new(current_function!())
+                .with_immutables(&[1, 2, 3])
+                .set_immutable_trio_file_size(immutable_trio_file_size)
+                .with_ledger_files(&["737"])
+                .set_ledger_file_size(6666)
+                .with_volatile_files(&["blocks-0.dat"])
+                .set_volatile_file_size(99)
+                .build();
+
+            let snapshotter =
+                snapshotter_for_test(&test_dir, cardano_db.get_dir(), CompressionAlgorithm::Gzip);
+
+            let sizes = snapshotter
+                .compute_immutable_files_total_uncompressed_size(2)
+                .await
+                .unwrap();
+
+            assert_eq!(immutable_trio_file_size * 2, sizes)
+        }
+
+        #[tokio::test]
+        async fn should_return_an_error_when_compute_up_to_immutable_0() {
+            let test_dir = temp_dir_create!();
+            let cardano_db = DummyCardanoDbBuilder::new(current_function!()).build();
+
+            let snapshotter =
+                snapshotter_for_test(&test_dir, cardano_db.get_dir(), CompressionAlgorithm::Gzip);
+
+            snapshotter
+                .compute_immutable_files_total_uncompressed_size(0)
+                .await
+                .expect_err("Should return an error when no immutable file number");
         }
     }
 }
