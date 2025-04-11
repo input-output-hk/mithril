@@ -21,6 +21,7 @@ digest = { version = "0.10.7", features = ["alloc"] }
 rand_core = "0.6.4"
 rayon = "1.10.0"
 serde = { version = "1.0.219", features = ["rc", "derive"] }
+strum = { version = "0.26.3", features = ["derive"] }
 thiserror = "2.0.12"
 
 [target.'cfg(not(any(target_family = "wasm", windows)))'.dependencies]

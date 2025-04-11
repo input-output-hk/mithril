@@ -4083,6 +4083,7 @@ dependencies = [
  "rayon",
  "rug",
  "serde",
+ "strum 0.26.3",
  "thiserror 2.0.12",
 ]
 
