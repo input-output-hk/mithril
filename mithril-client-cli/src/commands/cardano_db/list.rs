@@ -8,7 +8,7 @@ use crate::{
 };
 use mithril_client::MithrilResult;
 
-/// Clap command to list existing cardano dbs
+/// Clap command to list existing Cardano dbs
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbListCommand {
     #[clap(flatten)]

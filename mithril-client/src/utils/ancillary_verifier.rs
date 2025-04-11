@@ -11,7 +11,7 @@ use mithril_common::{
 
 use crate::{MithrilError, MithrilResult};
 
-/// Verifies the ancillary files contained in a unpacked ancillary archive
+/// Verifies the ancillary files contained in an unpacked ancillary archive
 pub struct AncillaryVerifier {
     verifier: ManifestVerifier,
 }
@@ -160,6 +160,19 @@ mod tests {
             hex::encode(Sha256::digest(data))
         }
 
+        /// Generates a valid, signed, manifest with two files
+        fn valid_manifest(temp_dir: &Path, signer: &ManifestSigner) -> AncillaryFilesManifest {
+            let mut manifest = AncillaryFilesManifest {
+                data: BTreeMap::from([
+                    generate_manifest_item(temp_dir, "file1.txt", "content 1"),
+                    generate_manifest_item(temp_dir, "file2.txt", "content 2"),
+                ]),
+                signature: None,
+            };
+            manifest.signature = Some(signer.sign(&manifest.compute_hash()));
+            manifest
+        }
+
         #[tokio::test]
         async fn fail_if_no_manifest_found() {
             let temp_dir = temp_dir_create!();
@@ -201,21 +214,14 @@ mod tests {
         #[tokio::test]
         async fn fail_if_manifest_is_invalid() {
             let temp_dir = temp_dir_create!();
+            let signer = ManifestSigner::create_deterministic_signer();
             let manifest = AncillaryFilesManifest {
                 data: BTreeMap::from([(PathBuf::from("invalid path"), "invalid sha".to_string())]),
-                signature: Some(
-                    fake_keys::signable_manifest_signature()[0]
-                        .try_into()
-                        .unwrap(),
-                ),
+                ..valid_manifest(&temp_dir, &signer)
             };
             write_manifest(&temp_dir, &manifest);
 
-            let ancillary_verifier = AncillaryVerifier::new(
-                fake_keys::manifest_verification_key()[0]
-                    .try_into()
-                    .unwrap(),
-            );
+            let ancillary_verifier = AncillaryVerifier::new(signer.verification_key());
 
             let err = ancillary_verifier.verify(&temp_dir).await.unwrap_err();
             assert!(
@@ -227,17 +233,14 @@ mod tests {
         #[tokio::test]
         async fn fail_if_signature_is_missing() {
             let temp_dir = temp_dir_create!();
+            let signer = ManifestSigner::create_deterministic_signer();
             let manifest = AncillaryFilesManifest {
-                data: BTreeMap::from([generate_manifest_item(&temp_dir, "file.txt", "content")]),
                 signature: None,
+                ..valid_manifest(&temp_dir, &signer)
             };
             write_manifest(&temp_dir, &manifest);
 
-            let ancillary_verifier = AncillaryVerifier::new(
-                fake_keys::manifest_verification_key()[0]
-                    .try_into()
-                    .unwrap(),
-            );
+            let ancillary_verifier = AncillaryVerifier::new(signer.verification_key());
 
             let err = ancillary_verifier.verify(&temp_dir).await.unwrap_err();
             assert!(
@@ -249,22 +252,19 @@ mod tests {
         #[tokio::test]
         async fn fail_if_signature_is_invalid() {
             let temp_dir = temp_dir_create!();
+            let signer = ManifestSigner::create_deterministic_signer();
             let manifest = AncillaryFilesManifest {
-                data: BTreeMap::from([generate_manifest_item(&temp_dir, "file.txt", "content")]),
-                // Note: This is a valid ECDSA signature, but not for the given data
+                // Note: This is a valid signature, but for different data
                 signature: Some(
                     fake_keys::signable_manifest_signature()[0]
                         .try_into()
                         .unwrap(),
                 ),
+                ..valid_manifest(&temp_dir, &signer)
             };
             write_manifest(&temp_dir, &manifest);
 
-            let ancillary_verifier = AncillaryVerifier::new(
-                fake_keys::manifest_verification_key()[0]
-                    .try_into()
-                    .unwrap(),
-            );
+            let ancillary_verifier = AncillaryVerifier::new(signer.verification_key());
 
             let err = ancillary_verifier.verify(&temp_dir).await.unwrap_err();
             assert!(
@@ -277,16 +277,9 @@ mod tests {
         async fn succeed_if_manifest_is_valid_and_signed() {
             let temp_dir = temp_dir_create!();
             let signer = ManifestSigner::create_deterministic_signer();
-            let mut manifest = AncillaryFilesManifest {
-                data: BTreeMap::from([
-                    generate_manifest_item(&temp_dir, "file1.txt", "content 1"),
-                    generate_manifest_item(&temp_dir, "file2.txt", "content 2"),
-                ]),
-                signature: None,
-            };
-            File::create(temp_dir.join("not_in_manifest.txt")).unwrap();
-            manifest.signature = Some(signer.sign(&manifest.compute_hash()));
+            let manifest = valid_manifest(&temp_dir, &signer);
             write_manifest(&temp_dir, &manifest);
+            File::create(temp_dir.join("not_in_manifest.txt")).unwrap();
 
             let ancillary_verifier = AncillaryVerifier::new(signer.verification_key());
 

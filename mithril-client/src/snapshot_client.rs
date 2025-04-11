@@ -9,9 +9,8 @@
 //!  - [download_unpack][SnapshotClient::download_unpack]: download and unpack the tarball of a snapshot
 //!    to a directory (immutable files only)
 //!
-//! **Note:** Ancillary files are files that are not part of the snapshot but are needed to enable fast
-//! bootstrapping of the Cardano node.
-//! They include the ledger files and the latest unfinished immutable files.
+//! **Note:** Ancillary files are the files that are not signed by Mithril but are needed to enable fast
+//! They include the last ledger state snapshot and the last immutable file.
 //!
 //! # Get a single snapshot
 //!
@@ -105,6 +104,8 @@
 use anyhow::Context;
 #[cfg(feature = "fs")]
 use slog::Logger;
+#[cfg(feature = "fs")]
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use thiserror::Error;
 
@@ -211,16 +212,15 @@ impl SnapshotClient {
     cfg_fs! {
         /// Download and unpack the given snapshot, including its ancillary files, to the given directory
         ///
-        /// Ancillary files are files that are not part of the snapshot but are needed to enable fast
-        /// bootstrapping of the Cardano node.
-        /// They include the ledger files and the latest unfinished immutable files.
+        /// Ancillary files are the files that are not signed by Mithril but are needed to enable fast
+        /// They include the last ledger state snapshot and the last immutable file.
         ///
         /// **NOTE**: The target directory should already exist, and the user running the binary
         /// must have read/write access to it.
         pub async fn download_unpack_full(
             &self,
             snapshot: &Snapshot,
-            target_dir: &std::path::Path,
+            target_dir: &Path,
         ) -> MithrilResult<()> {
             use crate::feedback::MithrilEvent;
             if self.ancillary_verifier.is_none() {
@@ -246,7 +246,7 @@ impl SnapshotClient {
         pub async fn download_unpack(
             &self,
             snapshot: &Snapshot,
-            target_dir: &std::path::Path,
+            target_dir: &Path,
         ) -> MithrilResult<()> {
             use crate::feedback::MithrilEvent;
             let download_id = MithrilEvent::new_snapshot_download_id();
@@ -259,7 +259,7 @@ impl SnapshotClient {
         async fn download_unpack_immutables_files(
             &self,
             snapshot: &Snapshot,
-            target_dir: &std::path::Path,
+            target_dir: &Path,
             download_id: &str,
         ) -> MithrilResult<()> {
             self.download_unpack_file(
@@ -281,10 +281,13 @@ impl SnapshotClient {
         async fn download_unpack_ancillary(
             &self,
             snapshot: &Snapshot,
-            target_dir: &std::path::Path,
+            target_dir: &Path,
             download_id: &str,
         ) -> MithrilResult<()> {
-            slog::info!(self.logger, "Ancillary verification don't use Mithril certification");
+            slog::info!(
+                self.logger,
+                "Ancillary verification doesn't use the Mithril certification: it is done with a signature made with an IOG owned key."
+            );
 
             match &snapshot.ancillary_locations {
                 None => Ok(()),
@@ -327,8 +330,8 @@ impl SnapshotClient {
             snapshot: &Snapshot,
             ancillary_locations: &[String],
             ancillary_size: u64,
-            target_dir: &std::path::Path,
-            temp_ancillary_unpack_dir: &std::path::Path,
+            target_dir: &Path,
+            temp_ancillary_unpack_dir: &Path,
             download_id: &str,
         ) -> MithrilResult<()> {
             self.download_unpack_file(
@@ -361,7 +364,7 @@ impl SnapshotClient {
             digest: &str,
             locations: &[String],
             size: u64,
-            target_dir: &std::path::Path,
+            target_dir: &Path,
             compression_algorithm: CompressionAlgorithm,
             download_event: DownloadEvent,
         ) -> MithrilResult<()> {
@@ -394,7 +397,7 @@ impl SnapshotClient {
             .into())
         }
 
-        fn ancillary_subdir(target_dir: &std::path::Path, download_id: &str) -> std::path::PathBuf {
+        fn ancillary_subdir(target_dir: &Path, download_id: &str) -> PathBuf {
             target_dir.join(format!("ancillary-{download_id}"))
         }
     }
@@ -414,8 +417,6 @@ impl SnapshotClient {
 
 #[cfg(all(test, feature = "fs"))]
 mod tests {
-    use std::path::PathBuf;
-
     use crate::{
         aggregator_client::MockAggregatorClient,
         common::CompressionAlgorithm,
@@ -489,7 +490,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn error_contains_joined_locations_list_when_all_locations_fail() {
+        async fn error_contains_list_of_all_tried_locations_if_all_attempts_fails() {
             let test_locations = vec![
                 "http://example.com/snapshot1".to_string(),
                 "http://example.com/snapshot2".to_string(),
@@ -649,7 +650,10 @@ mod tests {
             }
 
             let logs = std::fs::read_to_string(&log_path).unwrap();
-            assert!(logs.contains("Ancillary verification don't use Mithril certification"));
+            assert!(logs.contains(
+                "Ancillary verification doesn't use the Mithril certification: it is \
+                done with a signature made with an IOG owned key."
+            ));
         }
 
         #[tokio::test]

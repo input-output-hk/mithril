@@ -11,7 +11,7 @@ use clap::Parser;
 use slog::{debug, warn, Logger};
 
 use mithril_client::{
-    cardano_database_client::{DownloadUnpackOptions, ImmutableFileRange},
+    cardano_database_client::{CardanoDatabaseClient, DownloadUnpackOptions, ImmutableFileRange},
     common::{ImmutableFileNumber, MKProof, ProtocolMessage},
     CardanoDatabaseSnapshot, Client, MessageBuilder, MithrilCertificate, MithrilResult,
 };
@@ -41,18 +41,19 @@ pub struct CardanoDbV2DownloadCommand {
     #[clap(flatten)]
     shared_args: SharedArgs,
 
-    /// Hash of the cardano db to download. Use the `list` command to get that information.
+    /// Hash of the Cardano db snapshot to download  or `latest` for the latest artifact
     ///
-    /// If `latest` is specified as hash, the command will return the latest cardano db.
+    /// Use the `list` command to get that information.
     hash: String,
 
-    /// Directory where the immutable and ancillary files will be downloaded. By default, a
-    /// subdirectory will be created in this directory to extract and verify the
+    /// Directory where the immutable and ancillary files will be downloaded.
+    ///
+    /// By default, a subdirectory will be created in this directory to extract and verify the
     /// certificate.
     #[clap(long)]
     download_dir: Option<PathBuf>,
 
-    /// Genesis Verification Key to check the certificate chain.
+    /// Genesis verification key to check the certificate chain.
     #[clap(long, env = "GENESIS_VERIFICATION_KEY")]
     genesis_verification_key: Option<String>,
 
@@ -68,14 +69,16 @@ pub struct CardanoDbV2DownloadCommand {
     #[clap(long)]
     end: Option<ImmutableFileNumber>,
 
-    /// Include ancillary files in the download.
+    /// Include ancillary files in the download, if set the `ancillary_verification_key` is required
+    /// in order to verify the ancillary files.
     ///
-    /// By default, only immutable files are downloaded.
-    /// The ledger files and the latest unfinished immutable files are not taken into account.
+    /// By default, only finalized immutable files are downloaded.
+    /// The last ledger state snapshot and the last immutable file (the ancillary files) can be
+    /// downloaded with this option.
     #[clap(long, requires = "ancillary_verification_key")]
     include_ancillary: bool,
 
-    /// Ancillary Verification Key to verify the ancillary files.
+    /// Ancillary verification key to verify the ancillary files.
     #[clap(long, env = "ANCILLARY_VERIFICATION_KEY")]
     ancillary_verification_key: Option<String>,
 
@@ -174,7 +177,7 @@ impl CardanoDbV2DownloadCommand {
             logger,
             3,
             &progress_printer,
-            &client,
+            client.cardano_database_v2(),
             &cardano_db_message,
             &restoration_options,
         )
@@ -316,7 +319,7 @@ impl CardanoDbV2DownloadCommand {
         logger: &Logger,
         step_number: u16,
         progress_printer: &ProgressPrinter,
-        client: &Client,
+        client: Arc<CardanoDatabaseClient>,
         cardano_database_snapshot: &CardanoDatabaseSnapshot,
         restoration_options: &RestorationOptions,
     ) -> MithrilResult<()> {
@@ -325,7 +328,6 @@ impl CardanoDbV2DownloadCommand {
             "Downloading and unpacking the cardano db snapshot",
         )?;
         client
-            .cardano_database_v2()
             .download_unpack(
                 cardano_database_snapshot,
                 &restoration_options.immutable_file_range,
@@ -344,7 +346,6 @@ impl CardanoDbV2DownloadCommand {
             .immutable_file_range
             .length(cardano_database_snapshot.beacon.immutable_file_number);
         if let Err(e) = client
-            .cardano_database_v2()
             .add_statistics(
                 full_restoration,
                 include_ancillary,

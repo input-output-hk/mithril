@@ -16,25 +16,24 @@ use crate::{
 use mithril_client::MessageBuilder;
 use mithril_client::MithrilResult;
 
-/// Download and verify a Mithril Stake Distribution information. If the
+/// Download and verify a Mithril stake distribution information. If the
 /// verification fails, the file is not persisted.
 #[derive(Parser, Debug, Clone)]
 pub struct MithrilStakeDistributionDownloadCommand {
     #[clap(flatten)]
     shared_args: SharedArgs,
 
-    /// Hash of the Mithril Stake Distribution artifact.
-    ///
-    /// If `latest` is specified as artifact_hash, the command will return the latest stake distribution.
+    /// Hash of the Mithril stake distribution artifact, or `latest` for the latest artifact.
     artifact_hash: String,
 
-    /// Directory where the Mithril Stake Distribution will be downloaded. By default, a
-    /// subdirectory will be created in this directory to extract and verify the
+    /// Directory where the Mithril stake distribution will be downloaded.
+    ///
+    /// By default, a subdirectory will be created in this directory to extract and verify the
     /// certificate.
     #[clap(long)]
     download_dir: Option<PathBuf>,
 
-    /// Genesis Verification Key to check the certificate chain.
+    /// Genesis verification key to check the certificate chain.
     #[clap(long, env = "GENESIS_VERIFICATION_KEY")]
     genesis_verification_key: Option<String>,
 }
@@ -159,7 +158,7 @@ impl MithrilStakeDistributionDownloadCommand {
             );
         } else {
             println!(
-                "Mithril Stake Distribution '{}' has been verified and saved as '{}'.",
+                "Mithril stake distribution '{}' has been verified and saved as '{}'.",
                 mithril_stake_distribution.hash,
                 filepath.display()
             );

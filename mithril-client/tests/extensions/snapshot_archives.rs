@@ -2,7 +2,9 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 
 use mithril_common::crypto_helper::{ManifestSigner, ManifestVerifierSecretKey};
-use mithril_common::digesters::{ComputedImmutablesDigests, DummyCardanoDb, IMMUTABLE_DIR};
+use mithril_common::digesters::{
+    immutable_trio_names, ComputedImmutablesDigests, DummyCardanoDb, IMMUTABLE_DIR,
+};
 use mithril_common::entities::{AncillaryFilesManifest, CompressionAlgorithm, ImmutableFileNumber};
 use mithril_common::messages::CardanoDatabaseDigestListItemMessage;
 
@@ -89,8 +91,7 @@ fn append_immutable_trio<T: std::io::Write>(
     immutable_file_number: ImmutableFileNumber,
     immutables_dir: &Path,
 ) {
-    for extension in &[".chunk", ".primary", ".secondary"] {
-        let file_name = format!("{:05}{}", immutable_file_number, extension);
+    for file_name in immutable_trio_names(immutable_file_number) {
         let file_path = immutables_dir.join(&file_name);
 
         let archive_path = format!("immutable/{file_name}");

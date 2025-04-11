@@ -46,7 +46,7 @@ pub enum AncillaryFilesManifestVerifyError {
 }
 
 impl AncillaryFilesManifest {
-    /// The common name used to serialize and deserialize `AncillaryFilesManifest` files in JSON format
+    /// The file name used to serialize and deserialize `AncillaryFilesManifest` files in JSON format
     pub const ANCILLARY_MANIFEST_FILE_NAME: &str = "ancillary_manifest.json";
 
     cfg_fs! {

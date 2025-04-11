@@ -1,5 +1,5 @@
 use std::ops::RangeInclusive;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use anyhow::anyhow;
 
@@ -49,43 +49,27 @@ impl DownloadUnpackOptions {
 
     /// Verify if the target directory is writable.
     pub fn verify_can_write_to_target_directory(&self, target_dir: &Path) -> MithrilResult<()> {
-        let immutable_files_target_dir = immutable_files_target_dir(target_dir);
-        let volatile_target_dir = volatile_target_dir(target_dir);
-        let ledger_target_dir = ledger_target_dir(target_dir);
-        if !self.allow_override {
-            if immutable_files_target_dir.exists() {
-                return Err(anyhow!(
-                    "Immutable files target directory already exists in: {target_dir:?}"
-                ));
+        fn subdir_should_not_exist(
+            parent: &Path,
+            name_in_error: &str,
+            subdir: &str,
+        ) -> MithrilResult<()> {
+            if parent.join(subdir).exists() {
+                anyhow::bail!("{name_in_error} target directory already exists in: {parent:?}")
             }
+            Ok(())
+        }
+
+        if !self.allow_override {
+            subdir_should_not_exist(target_dir, "Immutable files", IMMUTABLE_DIR)?;
             if self.include_ancillary {
-                if volatile_target_dir.exists() {
-                    return Err(anyhow!(
-                        "Volatile target directory already exists in: {target_dir:?}"
-                    ));
-                }
-                if ledger_target_dir.exists() {
-                    return Err(anyhow!(
-                        "Ledger target directory already exists in: {target_dir:?}"
-                    ));
-                }
+                subdir_should_not_exist(target_dir, "Volatile", VOLATILE_DIR)?;
+                subdir_should_not_exist(target_dir, "Ledger", LEDGER_DIR)?;
             }
         }
 
         Ok(())
     }
-}
-
-fn immutable_files_target_dir(target_dir: &Path) -> PathBuf {
-    target_dir.join(IMMUTABLE_DIR)
-}
-
-fn volatile_target_dir(target_dir: &Path) -> PathBuf {
-    target_dir.join(VOLATILE_DIR)
-}
-
-fn ledger_target_dir(target_dir: &Path) -> PathBuf {
-    target_dir.join(LEDGER_DIR)
 }
 
 #[cfg(test)]
@@ -176,9 +160,9 @@ mod tests {
                 .verify_can_write_to_target_directory(&target_dir)
                 .unwrap();
 
-            fs::create_dir_all(immutable_files_target_dir(&target_dir)).unwrap();
-            fs::create_dir_all(volatile_target_dir(&target_dir)).unwrap();
-            fs::create_dir_all(ledger_target_dir(&target_dir)).unwrap();
+            fs::create_dir_all(target_dir.join(IMMUTABLE_DIR)).unwrap();
+            fs::create_dir_all(target_dir.join(VOLATILE_DIR)).unwrap();
+            fs::create_dir_all(target_dir.join(LEDGER_DIR)).unwrap();
             download_options
                 .verify_can_write_to_target_directory(&target_dir)
                 .unwrap();
@@ -195,7 +179,7 @@ mod tests {
         #[test]
         fn fails_without_allow_overwrite_and_non_empty_immutable_target_dir() {
             let target_dir = temp_dir_create!();
-            fs::create_dir_all(immutable_files_target_dir(&target_dir)).unwrap();
+            fs::create_dir_all(target_dir.join(IMMUTABLE_DIR)).unwrap();
 
             DownloadUnpackOptions {
                 allow_override: false,
@@ -217,7 +201,7 @@ mod tests {
         #[test]
         fn fails_without_allow_overwrite_and_non_empty_ledger_target_dir() {
             let target_dir = temp_dir_create!();
-            fs::create_dir_all(ledger_target_dir(&target_dir)).unwrap();
+            fs::create_dir_all(target_dir.join(LEDGER_DIR)).unwrap();
 
             DownloadUnpackOptions {
                 allow_override: false,
@@ -239,7 +223,7 @@ mod tests {
         #[test]
         fn fails_without_allow_overwrite_and_non_empty_volatile_target_dir() {
             let target_dir = temp_dir_create!();
-            fs::create_dir_all(volatile_target_dir(&target_dir)).unwrap();
+            fs::create_dir_all(target_dir.join(VOLATILE_DIR)).unwrap();
 
             DownloadUnpackOptions {
                 allow_override: false,

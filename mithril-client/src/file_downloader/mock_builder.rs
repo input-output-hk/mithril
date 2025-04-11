@@ -83,7 +83,7 @@ impl MockFileDownloaderBuilder {
     }
 
     /// The MockFileDownloader will succeed and will create ancillary files and a manifest
-    /// in the target directory (⚠️ target directory must exist ⚠️)
+    /// in the target directory (target directory must exist otherwise the function will panic).
     pub fn with_success_and_create_fake_ancillary_files(
         self,
         fake_ancillary_file_builder: FakeAncillaryFileBuilder,
