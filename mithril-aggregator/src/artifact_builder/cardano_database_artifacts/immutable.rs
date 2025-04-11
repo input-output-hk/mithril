@@ -1,8 +1,4 @@
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{fs, path::PathBuf, sync::Arc};
 
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
@@ -10,7 +6,6 @@ use regex::Regex;
 use slog::{error, Logger};
 
 use mithril_common::{
-    digesters::immutable_trio_names,
     entities::{CompressionAlgorithm, ImmutableFileNumber, ImmutablesLocation, MultiFilesUri},
     logging::LoggerExtensions,
     StdResult,
@@ -19,7 +14,6 @@ use mithril_common::{
 use crate::{
     file_uploaders::{GcpUploader, LocalUploader},
     services::Snapshotter,
-    tools::file_size,
     DumbUploader, FileUploader,
 };
 
@@ -179,18 +173,12 @@ impl ImmutableArtifactBuilder {
         let locations = self
             .upload_immutable_archives(&archives_paths, compression_algorithm)
             .await?;
-
-        let (total_size, average_size) = {
-            let db_directory = self.immutables_storage_dir.clone();
-            let immutable_file_number = up_to_immutable_file_number;
-            tokio::task::spawn_blocking(move || -> StdResult<_> {
-                Self::compute_total_and_average_uncompressed_size(
-                    &db_directory,
-                    immutable_file_number,
-                )
-            })
-            .await??
-        };
+        let total_size = self
+            .snapshotter
+            .compute_immutable_files_total_uncompressed_size(up_to_immutable_file_number)
+            .await?;
+        let average_size =
+            Self::compute_average_uncompressed_size(total_size, up_to_immutable_file_number);
 
         Ok(ImmutablesUpload {
             locations,
@@ -277,40 +265,27 @@ impl ImmutableArtifactBuilder {
             .then_some(expected_archive_path)
     }
 
-    /// Computes the total and average size of the immutable files up to the given immutable file number.
-    ///
-    /// Returns a tuple with the total size followed by the average size.
-    fn compute_total_and_average_uncompressed_size(
-        immutable_directory: &Path,
+    fn compute_average_uncompressed_size(
+        total_size: u64,
         up_to_immutable_file_number: ImmutableFileNumber,
-    ) -> StdResult<(u64, u64)> {
-        if up_to_immutable_file_number == 0 {
-            return Err(anyhow!(
-                "Could not compute the total and average size without immutable files"
-            ));
-        }
-
-        let immutable_paths = (1..=up_to_immutable_file_number)
-            .flat_map(immutable_trio_names)
-            .map(|filename| immutable_directory.join(filename))
-            .collect();
-
-        let total_size = file_size::compute_size(immutable_paths)?;
-
-        Ok((total_size, total_size / up_to_immutable_file_number))
+    ) -> u64 {
+        total_size
+            .checked_div(up_to_immutable_file_number)
+            .unwrap_or(0)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::fs::File;
+    use std::io::Write;
+    use std::path::Path;
+
     use mithril_common::{
-        current_function,
         digesters::DummyCardanoDbBuilder,
         entities::TemplateUri,
         test_utils::{assert_equivalent, equivalent_to, TempDir},
     };
-    use std::fs::File;
-    use std::io::Write;
 
     use crate::services::ancillary_signer::MockAncillarySigner;
     use crate::services::{CompressedArchiveSnapshotter, DumbSnapshotter, MockSnapshotter};
@@ -887,9 +862,10 @@ mod tests {
     }
 
     mod batch_upload {
+        use mithril_common::test_utils::TempDir;
+
         use crate::file_uploaders::FileUploadRetryPolicy;
         use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
-        use mithril_common::test_utils::TempDir;
 
         use super::*;
 
@@ -1017,46 +993,20 @@ mod tests {
     }
 
     #[test]
-    fn should_compute_the_total_and_average_size_of_the_immutables() {
-        let test_dir = "should_compute_the_average_size_of_the_immutables/cardano_database";
+    fn compute_average_uncompressed_size() {
+        let total_size = 14;
+        let average_size_up_to_immutable_2 =
+            ImmutableArtifactBuilder::compute_average_uncompressed_size(total_size, 2);
+        assert_eq!(7, average_size_up_to_immutable_2);
 
-        let immutable_trio_file_size = 777;
-        let ledger_file_size = 6666;
-        let volatile_file_size = 99;
+        // Rounding down
+        let average_size_up_to_immutable_5 =
+            ImmutableArtifactBuilder::compute_average_uncompressed_size(total_size, 5);
+        assert_eq!(2, average_size_up_to_immutable_5);
 
-        let cardano_db = DummyCardanoDbBuilder::new(test_dir)
-            .with_immutables(&[1, 2, 3])
-            .set_immutable_trio_file_size(immutable_trio_file_size)
-            .with_ledger_files(&["437", "537", "637", "737"])
-            .set_ledger_file_size(ledger_file_size)
-            .with_volatile_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
-            .set_volatile_file_size(volatile_file_size)
-            .build();
-
-        let (total_size, average_size) =
-            ImmutableArtifactBuilder::compute_total_and_average_uncompressed_size(
-                cardano_db.get_immutable_dir(),
-                2,
-            )
-            .unwrap();
-
-        let expected_average_size = immutable_trio_file_size;
-        let expected_total_size = immutable_trio_file_size * 2;
-        assert_eq!(expected_total_size, total_size);
-        assert_eq!(expected_average_size, average_size);
-    }
-
-    #[test]
-    fn should_return_an_error_when_compute_the_total_and_average_size_of_the_immutables_with_zero()
-    {
-        let test_dir = &format!("{}/cardano_database", current_function!());
-
-        let cardano_db = DummyCardanoDbBuilder::new(test_dir).build();
-
-        ImmutableArtifactBuilder::compute_total_and_average_uncompressed_size(
-            cardano_db.get_immutable_dir(),
-            0,
-        )
-        .expect_err("Should return an error when no immutable file number");
+        // up to 0 return 0
+        let average_size_up_to_immutable_0 =
+            ImmutableArtifactBuilder::compute_average_uncompressed_size(total_size, 0);
+        assert_eq!(0, average_size_up_to_immutable_0);
     }
 }

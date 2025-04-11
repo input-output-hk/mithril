@@ -92,6 +92,13 @@ impl Snapshotter for DumbSnapshotter {
             .await
     }
 
+    async fn compute_immutable_files_total_uncompressed_size(
+        &self,
+        _up_to_immutable_file_number: ImmutableFileNumber,
+    ) -> StdResult<u64> {
+        Ok(0)
+    }
+
     fn compression_algorithm(&self) -> CompressionAlgorithm {
         self.compression_algorithm
     }
@@ -161,6 +168,13 @@ impl Snapshotter for FakeSnapshotter {
     ) -> StdResult<FileArchive> {
         self.snapshot_all_completed_immutables(archive_name_without_extension)
             .await
+    }
+
+    async fn compute_immutable_files_total_uncompressed_size(
+        &self,
+        _up_to_immutable_file_number: ImmutableFileNumber,
+    ) -> StdResult<u64> {
+        Ok(0)
     }
 
     fn compression_algorithm(&self) -> CompressionAlgorithm {
