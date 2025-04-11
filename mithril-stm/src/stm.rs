@@ -122,6 +122,7 @@ use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::convert::{From, TryFrom, TryInto};
 use std::hash::{Hash, Hasher};
+use strum::{Display, EnumDiscriminants};
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
@@ -641,7 +642,7 @@ pub struct StmClerk<D: Clone + Digest> {
     pub(crate) params: StmParameters,
 }
 
-impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
+impl<D: Digest + Clone + FixedOutput + Send + Sync> StmClerk<D> {
     /// Create a new `Clerk` from a closed registration instance.
     pub fn from_registration(params: &StmParameters, closed_reg: &ClosedKeyReg<D>) -> Self {
         Self {
@@ -700,10 +701,12 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
 
         let batch_proof = self.closed_reg.merkle_tree.get_batched_path(mt_index_list);
 
-        Ok(StmAggrSig {
-            signatures: unique_sigs,
-            batch_proof,
-        })
+        Ok(StmAggrSig::StmAggrSigConcatenation(
+            StmAggrSigConcatenationProof {
+                signatures: unique_sigs,
+                batch_proof,
+            },
+        ))
     }
 
     /// Compute the `StmAggrVerificationKey` related to the used registration.
@@ -720,7 +723,125 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
     }
 }
 
-/// `StmMultiSig` uses the "concatenation" proving system (as described in Section 4.3 of the original paper.)
+/// A STM aggregate signature.
+#[derive(Debug, Clone, Serialize, Deserialize, EnumDiscriminants)]
+#[strum(serialize_all = "PascalCase")]
+#[strum_discriminants(derive(Serialize, Hash, Display))]
+#[strum_discriminants(name(StmAggrSigType))]
+#[serde(bound(
+    serialize = "BatchPath<D>: Serialize",
+    deserialize = "BatchPath<D>: Deserialize<'de>"
+))]
+#[serde(untagged)]
+pub enum StmAggrSig<D: Clone + Digest + FixedOutput + Send + Sync> {
+    /// STM aggregate signature with concatenation proving system.
+    StmAggrSigConcatenation(StmAggrSigConcatenationProof<D>),
+}
+
+impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
+    /// Verify aggregate signature, by checking that
+    /// * each signature contains only valid indices,
+    /// * the lottery is indeed won by each one of them,
+    /// * the merkle tree path is valid,
+    /// * the aggregate signature validates with respect to the aggregate verification key
+    ///   (aggregation is computed using functions `MSP.BKey` and `MSP.BSig` as described in Section 2.4 of the paper).
+    pub fn verify(
+        &self,
+        msg: &[u8],
+        avk: &StmAggrVerificationKey<D>,
+        parameters: &StmParameters,
+    ) -> Result<(), StmAggregateSignatureError<D>> {
+        match self {
+            StmAggrSig::StmAggrSigConcatenation(stm_aggr_sig) => {
+                stm_aggr_sig.verify(msg, avk, parameters)
+            }
+        }
+    }
+
+    /// Batch verify a set of signatures, with different messages and avks.
+    #[cfg(feature = "batch-verify-aggregates")]
+    pub fn batch_verify(
+        stm_signatures: &[Self],
+        msgs: &[Vec<u8>],
+        avks: &[StmAggrVerificationKey<D>],
+        parameters: &[StmParameters],
+    ) -> Result<(), StmAggregateSignatureError<D>> {
+        let stm_signatures: HashMap<StmAggrSigType, Vec<Self>> =
+            stm_signatures.iter().fold(HashMap::new(), |mut acc, sig| {
+                acc.entry(sig.into()).or_default().push(sig.clone());
+                acc
+            });
+        stm_signatures
+            .into_iter()
+            .try_for_each(
+                |(stm_aggr_sig_type, stm_aggr_sigs)| match stm_aggr_sig_type {
+                    StmAggrSigType::StmAggrSigConcatenation => {
+                        StmAggrSigConcatenationProof::batch_verify(
+                            &stm_aggr_sigs
+                                .into_iter()
+                                .filter_map(|s| match s {
+                                    Self::StmAggrSigConcatenation(stm_aggr_sig) => {
+                                        Some(stm_aggr_sig)
+                                    }
+                                    _ => None,
+                                })
+                                .collect::<Vec<_>>(),
+                            msgs,
+                            avks,
+                            parameters,
+                        )
+                    }
+                },
+            )
+            .map_err(|_| StmAggregateSignatureError::BatchInvalid)
+    }
+
+    /// Convert multi signature to bytes
+    /// # Layout
+    /// * Number of the pairs of Signatures and Registered Parties (SigRegParty) (as u64)
+    /// * Size of a pair of Signature and Registered Party
+    /// * Pairs of Signatures and Registered Parties
+    /// * Batch proof
+    pub fn to_bytes(&self) -> Vec<u8> {
+        match self {
+            StmAggrSig::StmAggrSigConcatenation(stm_aggr_sig) => stm_aggr_sig.to_bytes(),
+        }
+    }
+
+    ///Extract a `StmAggrSig` from a byte slice.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, StmAggregateSignatureError<D>> {
+        // TODO: How to properly support multiple variants?
+        Ok(Self::StmAggrSigConcatenation(
+            StmAggrSigConcatenationProof::from_bytes(bytes)?,
+        ))
+    }
+
+    /// Extract the list of signatures.
+    pub fn signatures(&self) -> Vec<StmSigRegParty> {
+        match self {
+            StmAggrSig::StmAggrSigConcatenation(stm_aggr_sig) => stm_aggr_sig.signatures.clone(),
+        }
+    }
+
+    /// Extract the list of unique merkle tree nodes that covers path for all signatures.
+    pub fn batch_proof(&self) -> BatchPath<D> {
+        match self {
+            StmAggrSig::StmAggrSigConcatenation(stm_aggr_sig) => stm_aggr_sig.batch_proof.clone(),
+        }
+    }
+
+    /// Extract the list of unique merkle tree nodes that covers path for all signatures. (test only)
+    #[cfg(test)]
+    pub(crate) fn set_batch_proof(&mut self, batch_proof: BatchPath<D>) {
+        match self {
+            StmAggrSig::StmAggrSigConcatenation(ref mut stm_aggr_sig) => {
+                stm_aggr_sig.batch_proof = batch_proof
+            }
+        }
+    }
+}
+
+/// `StmAggrSigConcatenationProof` uses the "concatenation" proving system (as described in Section 4.3 of the original paper.)
 /// This means that the aggregated signature contains a vector with all individual signatures.
 /// BatchPath is also a part of the aggregate signature which covers path for all signatures.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -728,13 +849,13 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
     serialize = "BatchPath<D>: Serialize",
     deserialize = "BatchPath<D>: Deserialize<'de>"
 ))]
-pub struct StmAggrSig<D: Clone + Digest + FixedOutput> {
+pub struct StmAggrSigConcatenationProof<D: Clone + Digest + FixedOutput> {
     pub(crate) signatures: Vec<StmSigRegParty>,
     /// The list of unique merkle tree nodes that covers path for all signatures.
     pub batch_proof: BatchPath<D>,
 }
 
-impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
+impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSigConcatenationProof<D> {
     /// Verify all checks from signatures, except for the signature verification itself.
     ///
     /// Indices and quorum are checked by `CoreVerifier::preliminary_verify` with `msgp`.
@@ -859,7 +980,9 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
     }
 
     ///Extract a `StmAggrSig` from a byte slice.
-    pub fn from_bytes(bytes: &[u8]) -> Result<StmAggrSig<D>, StmAggregateSignatureError<D>> {
+    pub fn from_bytes(
+        bytes: &[u8],
+    ) -> Result<StmAggrSigConcatenationProof<D>, StmAggregateSignatureError<D>> {
         let mut u64_bytes = [0u8; 8];
 
         u64_bytes.copy_from_slice(&bytes[..8]);
@@ -881,7 +1004,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
         let offset = 16 + sig_reg_size * size;
         let batch_proof = BatchPath::from_bytes(&bytes[offset..])?;
 
-        Ok(StmAggrSig {
+        Ok(StmAggrSigConcatenationProof {
             signatures: sig_reg_list,
             batch_proof,
         })
@@ -1526,7 +1649,7 @@ mod tests {
         #[test]
         fn test_invalid_proof_index_unique(tc in arb_proof_setup(10)) {
             with_proof_mod(tc, |aggr, clerk, _msg| {
-                for sig_reg in aggr.signatures.iter_mut() {
+                for sig_reg in aggr.signatures().iter_mut() {
                     for index in sig_reg.sig.indexes.iter_mut() {
                        *index %= clerk.params.k - 1
                     }
@@ -1536,7 +1659,7 @@ mod tests {
         #[test]
         fn test_invalid_proof_path(tc in arb_proof_setup(10)) {
             with_proof_mod(tc, |aggr, _, _msg| {
-                let p = aggr.batch_proof.clone();
+                let p = aggr.batch_proof().clone();
                 let mut index_list = p.indices.clone();
                 let values = p.values;
                 let batch_proof = {
@@ -1547,7 +1670,7 @@ mod tests {
                         hasher: Default::default()
                     }
                 };
-                aggr.batch_proof = batch_proof;
+                aggr.set_batch_proof(batch_proof);
             })
         }
     }
