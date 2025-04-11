@@ -229,7 +229,7 @@ Options:
       --run-mode <RUN_MODE>
           Run Mode [env: RUN_MODE=] [default: dev]
   -v, --verbose...
-          Verbosity level (-v=warning, -vv=info, -vvv=debug)
+          Verbosity level (-v=warning, -vv=info, -vvv=debug, -vvvv=trace)
       --config-directory <CONFIG_DIRECTORY>
           Directory where configuration file is located [default: ./config]
       --aggregator-endpoint <AGGREGATOR_ENDPOINT>
@@ -534,107 +534,115 @@ The configuration parameters can be set in either of the following ways:
 
 Here is a list of the available parameters:
 
-| Parameter                  | Command line (long)     | Command line (short) | Environment variable       | Description                 | Default value | Example                                                                                                                 |     Mandatory      |
-| -------------------------- | ----------------------- | :------------------: | -------------------------- | --------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------- | :----------------: |
-| `verbose`                  | `--verbose`             |         `-v`         | `VERBOSE`                  | Verbosity level             | -             | Parsed from the number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace` | :heavy_check_mark: |
-| `unstable`                 | `--unstable`            |          -           | -                          | Enable unstable commands    | -             | -                                                                                                                       |         -          |
-| `run_mode`                 | `--run-mode`            |          -           | `RUN_MODE`                 | Runtime mode                | `dev`         | -                                                                                                                       | :heavy_check_mark: |
-| `aggregator_endpoint`      | `--aggregator-endpoint` |          -           | `AGGREGATOR_ENDPOINT`      | Aggregator node endpoint    | -             | `https://aggregator.pre-release-preview.api.mithril.network/aggregator`                                                 | :heavy_check_mark: |
-| `genesis_verification_key` | -                       |          -           | `GENESIS_VERIFICATION_KEY` | Genesis verification key    | -             | -                                                                                                                       | :heavy_check_mark: |
-| `log_format_json`          | `--log-format-json`     |          -           | -                          | Enable JSON output for logs | -             | -                                                                                                                       |         -          |
-| `log_output`               | `--log-output`          |         `-o`         | -                          | Redirect the logs to a file | -             | `./mithril-client.log`                                                                                                  |         -          |
+| Parameter             | Command line (long)     | Command line (short) | Environment variable  | Description                                                        | Default value | Example                                                                                                                 |     Mandatory      |
+| --------------------- | ----------------------- | :------------------: | --------------------- | ------------------------------------------------------------------ | ------------- | ----------------------------------------------------------------------------------------------------------------------- | :----------------: |
+| `verbose`             | `--verbose`             |         `-v`         | -                     | Verbosity level                                                    | -             | Parsed from the number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace` | :heavy_check_mark: |
+| `unstable`            | `--unstable`            |          -           | -                     | Enable unstable commands                                           | `false`       | -                                                                                                                       |         -          |
+| `run_mode`            | `--run-mode`            |          -           | `RUN_MODE`            | Run Mode                                                           | `dev`         | -                                                                                                                       | :heavy_check_mark: |
+| `aggregator_endpoint` | `--aggregator-endpoint` |          -           | `AGGREGATOR_ENDPOINT` | Override configuration Aggregator endpoint URL                     | -             | `https://aggregator.pre-release-preview.api.mithril.network/aggregator`                                                 | :heavy_check_mark: |
+| `log_format_json`     | `--log-format-json`     |          -           | -                     | Enable JSON output for logs displayed according to verbosity level | `false`       | -                                                                                                                       |         -          |
+| `log_output`          | `--log-output`          |          -           | -                     | Redirect the logs to a file                                        | -             | -                                                                                                                       |         -          |
+| `origin_tag`          | `--origin-tag`          |          -           | -                     | Request origin tag                                                 | -             | -                                                                                                                       |         -          |
+| `version`             | `--version`             |         `-V`         | -                     | Print version                                                      | -             | `./mithril-client.log`                                                                                                  |         -          |
 
 `cardano-db snapshot show` command:
 
-| Parameter | Command line (long) | Command line (short) | Environment variable | Description                                         | Default value | Example |     Mandatory      |
-| --------- | ------------------- | :------------------: | -------------------- | --------------------------------------------------- | ------------- | ------- | :----------------: |
-| `digest`  | `--digest`          |          -           | -                    | Cardano DB digest or `latest` for the latest digest | -             | -       | :heavy_check_mark: |
-| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results              | -             | -       |         -          |
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description                                                                   | Default value | Example |     Mandatory      |
+| --------- | ------------------- | :------------------: | -------------------- | ----------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
+| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results                                        | `false`       | -       |         -          |
+| `digest`  | -                   |          -           | -                    | Digest of the Cardano db snapshot to show or `latest` for the latest artifact | -             | -       | :heavy_check_mark: |
 
 `cardano-db snapshot list` command:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description                            | Default value | Example | Mandatory |
 | --------- | ------------------- | :------------------: | -------------------- | -------------------------------------- | ------------- | ------- | :-------: |
-| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results | -             | -       |     -     |
+| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results | `false`       | -       |     -     |
 
 `cardano-db download` command:
 
-| Parameter                    | Command line (long)            | Command line (short) | Environment variable         | Description                                                                                                                                           | Default value | Example |     Mandatory      |
-| ---------------------------- | ------------------------------ | :------------------: | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
-| `digest`                     | -                              |          -           | -                            | Digest of the cardano db to download. Use the `list` command to get that information                                                                  | -             | -       | :heavy_check_mark: |
-| `download_dir`               | `--download-dir`               |          -           | -                            | Directory where the cardano db will be downloaded. By default, a subdirectory will be created in this directory to extract and verify the certificate | -             | -       |         -          |
-| `json`                       | `--json`                       |          -           | -                            | Enable JSON output                                                                                                                                    | `false`       | -       |         -          |
-| `include_ancillary`          | `--include-ancillary`          |          -           | -                            | Include ancillary files in the download                                                                                                               | `false`       | -       |         -          |
-| `ancillary_verification_key` | `--ancillary-verification-key` |          -           | `ANCILLARY_VERIFICATION_KEY` | Ancillary Verification Key to verify the ancillary files                                                                                              | -             | -       |         -          |
+| Parameter                    | Command line (long)            | Command line (short) | Environment variable         | Description                                                                                                                         | Default value | Example |     Mandatory      |
+| ---------------------------- | ------------------------------ | :------------------: | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
+| `json`                       | `--json`                       |          -           | -                            | Enable JSON output for command results                                                                                              | `false`       | -       |         -          |
+| `digest`                     | -                              |          -           | -                            | Digest of the Cardano db snapshot to download or `latest` for the latest artifact                                                   | -             | -       | :heavy_check_mark: |
+| `download_dir`               | `--download-dir`               |          -           | -                            | Directory where the immutable and ancillary files will be downloaded                                                                | -             | -       |         -          |
+| `genesis_verification_key`   | `--genesis-verification-key`   |          -           | `GENESIS_VERIFICATION_KEY`   | Genesis verification key to check the certificate chain                                                                             | -             | -       | :heavy_check_mark: |
+| `include_ancillary`          | `--include-ancillary`          |          -           | -                            | Include ancillary files in the download, if set the `ancillary_verification_key` is required in order to verify the ancillary files | `false`       | -       |         -          |
+| `ancillary_verification_key` | `--ancillary-verification-key` |          -           | `ANCILLARY_VERIFICATION_KEY` | Ancillary verification key to verify the ancillary files                                                                            | -             | -       |         -          |
 
 `mithril-stake-distribution list` command:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description                            | Default value | Example | Mandatory |
 | --------- | ------------------- | :------------------: | -------------------- | -------------------------------------- | ------------- | ------- | :-------: |
-| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results | -             | -       |     -     |
+| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results | `false`       | -       |     -     |
 
 `mithril-stake-distribution download` command:
 
-| Parameter       | Command line (long) | Command line (short) | Environment variable | Description                                                                         | Default value | Example |     Mandatory      |
-| --------------- | ------------------- | :------------------: | -------------------- | ----------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
-| `artifact_hash` | `--artifact-hash`   |          -           | -                    | Hash of the Mithril stake distribution artifact or `latest` for the latest artifact | -             | -       | :heavy_check_mark: |
-| `download_dir`  | `--download-dir`    |          -           | -                    | Directory where the Mithril stake distribution will be downloaded                   | .             | -       |         -          |
+| Parameter                  | Command line (long)          | Command line (short) | Environment variable       | Description                                                                          | Default value | Example |     Mandatory      |
+| -------------------------- | ---------------------------- | :------------------: | -------------------------- | ------------------------------------------------------------------------------------ | ------------- | ------- | :----------------: |
+| `json`                     | `--json`                     |          -           | -                          | Enable JSON output for command results                                               | `false`       | -       |         -          |
+| `artifact_hash`            | -                            |          -           | -                          | Hash of the Mithril stake distribution artifact, or `latest` for the latest artifact | -             | -       | :heavy_check_mark: |
+| `download_dir`             | `--download-dir`             |          -           | -                          | Directory where the Mithril stake distribution will be downloaded                    | -             | -       |         -          |
+| `genesis_verification_key` | `--genesis-verification-key` |          -           | `GENESIS_VERIFICATION_KEY` | Genesis verification key to check the certificate chain                              | -             | -       | :heavy_check_mark: |
 
 `cardano-transaction snapshot show` command:
 
-| Parameter | Command line (long) | Command line (short) | Environment variable | Description                                                                               | Default value | Example |     Mandatory      |
-| --------- | ------------------- | :------------------: | -------------------- | ----------------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
-| `hash`    | `--hash`            |          -           | -                    | Cardano transaction snapshot hash or `latest` for the latest Cardano transaction snapshot | -             | -       | :heavy_check_mark: |
-| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results                                                    | -             | -       |         -          |
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description                                                                          | Default value | Example |     Mandatory      |
+| --------- | ------------------- | :------------------: | -------------------- | ------------------------------------------------------------------------------------ | ------------- | ------- | :----------------: |
+| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results                                               | `false`       | -       |         -          |
+| `hash`    | -                   |          -           | -                    | Hash of the Cardano transaction snapshot to show or `latest` for the latest artifact | -             | -       | :heavy_check_mark: |
 
 `cardano-transaction snapshot list` command:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description                            | Default value | Example | Mandatory |
 | --------- | ------------------- | :------------------: | -------------------- | -------------------------------------- | ------------- | ------- | :-------: |
-| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results | -             | -       |     -     |
+| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results | `false`       | -       |     -     |
 
 `cardano-transaction certify` command:
 
-| Parameter             | Command line (long)     | Command line (short) | Environment variable  | Description                                     | Default value | Example |     Mandatory      |
-| --------------------- | ----------------------- | :------------------: | --------------------- | ----------------------------------------------- | ------------- | ------- | :----------------: |
-| `transactions_hashes` | `--transactions_hashes` |          -           | `TRANSACTIONS_HASHES` | Cardano transactions hashes separated by commas | -             | -       | :heavy_check_mark: |
-| `json`                | `--json`                |          -           | -                     | Enable JSON output for progress logs            | -             | -       |         -          |
+| Parameter                  | Command line (long)          | Command line (short) | Environment variable       | Description                                             | Default value | Example |     Mandatory      |
+| -------------------------- | ---------------------------- | :------------------: | -------------------------- | ------------------------------------------------------- | ------------- | ------- | :----------------: |
+| `json`                     | `--json`                     |          -           | -                          | Enable JSON output for command results                  | `false`       | -       |         -          |
+| `genesis_verification_key` | `--genesis-verification-key` |          -           | `GENESIS_VERIFICATION_KEY` | Genesis verification key to check the certificate chain | -             | -       | :heavy_check_mark: |
+| `transactions_hashes`      | -                            |          -           | -                          | Hashes of the transactions to certify                   | -             | -       | :heavy_check_mark: |
 
 `cardano-stake-distribution list` command:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description                            | Default value | Example | Mandatory |
 | --------- | ------------------- | :------------------: | -------------------- | -------------------------------------- | ------------- | ------- | :-------: |
-| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results | -             | -       |     -     |
+| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results | `false`       | -       |     -     |
 
 `cardano-stake-distribution download` command:
 
-| Parameter           | Command line (long)   | Command line (short) | Environment variable | Description                                                                                  | Default value | Example |     Mandatory      |
-| ------------------- | --------------------- | :------------------: | -------------------- | -------------------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
-| `unique_identifier` | `--unique-identifier` |          -           | -                    | Epoch or hash of the Cardano stake distribution artifact or `latest` for the latest artifact | -             | -       | :heavy_check_mark: |
-| `download_dir`      | `--download-dir`      |          -           | -                    | Directory where the Cardano stake distribution will be downloaded                            | .             | -       |         -          |
+| Parameter                  | Command line (long)          | Command line (short) | Environment variable       | Description                                                                                   | Default value | Example |     Mandatory      |
+| -------------------------- | ---------------------------- | :------------------: | -------------------------- | --------------------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
+| `json`                     | `--json`                     |          -           | -                          | Enable JSON output for command results                                                        | `false`       | -       |         -          |
+| `unique_identifier`        | -                            |          -           | -                          | Hash or Epoch of the Cardano stake distribution artifact, or `latest` for the latest artifact | -             | -       | :heavy_check_mark: |
+| `download_dir`             | `--download-dir`             |          -           | -                          | Directory where the Cardano stake distribution will be downloaded                             | -             | -       |         -          |
+| `genesis_verification_key` | `--genesis-verification-key` |          -           | `GENESIS_VERIFICATION_KEY` | Genesis verification key to check the certificate chain                                       | -             | -       | :heavy_check_mark: |
 
 `cardano-db-v2 snapshot show` command:
 
-| Parameter | Command line (long) | Command line (short) | Environment variable | Description                                              | Default value | Example |     Mandatory      |
-| --------- | ------------------- | :------------------: | -------------------- | -------------------------------------------------------- | ------------- | ------- | :----------------: |
-| `hash`    | `--hash`            |          -           | -                    | Cardano DB snapshot hash or `latest` for the latest hash | -             | -       | :heavy_check_mark: |
-| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results                   | -             | -       |         -          |
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description                                                                 | Default value | Example |     Mandatory      |
+| --------- | ------------------- | :------------------: | -------------------- | --------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
+| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results                                      | `false`       | -       |         -          |
+| `hash`    | -                   |          -           | -                    | Hash of the Cardano db snapshot to show or `latest` for the latest artifact | -             | -       | :heavy_check_mark: |
 
 `cardano-db-v2 snapshot list` command:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description                            | Default value | Example | Mandatory |
 | --------- | ------------------- | :------------------: | -------------------- | -------------------------------------- | ------------- | ------- | :-------: |
-| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results | -             | -       |     -     |
+| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results | `false`       | -       |     -     |
 
 `cardano-db-v2 download` command:
 
-| Parameter                    | Command line (long)            | Command line (short) | Environment variable         | Description                                                                                                                                                              | Default value | Example |     Mandatory      |
-| ---------------------------- | ------------------------------ | :------------------: | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- | ------- | :----------------: |
-| `hash`                       | -                              |          -           | -                            | Hash of the cardano db to download. Use the `list` command to get that information                                                                                       | -             | -       | :heavy_check_mark: |
-| `download_dir`               | `--download-dir`               |          -           | -                            | Directory where the immutable and ancillary files will be downloaded. By default, a subdirectory will be created in this directory to extract and verify the certificate | -             | -       |         -          |
-| `start`                      | `--start`                      |          -           | -                            | The first immutable file number to download                                                                                                                              | -             | -       |         -          |
-| `end`                        | `--end`                        |          -           | -                            | The last immutable file number to download                                                                                                                               | -             | -       |         -          |
-| `include_ancillary`          | `--include-ancillary`          |          -           | -                            | Include ancillary files in the download                                                                                                                                  | `false`       | -       |         -          |
-| `ancillary_verification_key` | `--ancillary-verification-key` |          -           | `ANCILLARY_VERIFICATION_KEY` | Ancillary Verification Key to verify the ancillary files                                                                                                                 | -             | -       |         -          |
-| `allow_override`             | `--allow-override`             |          -           | -                            | Allow existing files in the download directory to be overridden                                                                                                          | `false`       | -       |         -          |
-| `json`                       | `--json`                       |          -           | -                            | Enable JSON output                                                                                                                                                       | `false`       | -       |         -          |
+| Parameter                    | Command line (long)            | Command line (short) | Environment variable         | Description                                                                                                                         | Default value | Example |     Mandatory      |
+| ---------------------------- | ------------------------------ | :------------------: | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
+| `json`                       | `--json`                       |          -           | -                            | Enable JSON output for command results                                                                                              | `false`       | -       |         -          |
+| `hash`                       | -                              |          -           | -                            | Hash of the Cardano db snapshot to download or `latest` for the latest artifact                                                     | -             | -       | :heavy_check_mark: |
+| `download_dir`               | `--download-dir`               |          -           | -                            | Directory where the immutable and ancillary files will be downloaded                                                                | -             | -       |         -          |
+| `genesis_verification_key`   | `--genesis-verification-key`   |          -           | `GENESIS_VERIFICATION_KEY`   | Genesis verification key to check the certificate chain                                                                             | -             | -       | :heavy_check_mark: |
+| `start`                      | `--start`                      |          -           | -                            | The first immutable file number to download                                                                                         | -             | -       |         -          |
+| `end`                        | `--end`                        |          -           | -                            | The last immutable file number to download                                                                                          | -             | -       |         -          |
+| `include_ancillary`          | `--include-ancillary`          |          -           | -                            | Include ancillary files in the download, if set the `ancillary_verification_key` is required in order to verify the ancillary files | `false`       | -       |         -          |
+| `ancillary_verification_key` | `--ancillary-verification-key` |          -           | `ANCILLARY_VERIFICATION_KEY` | Ancillary verification key to verify the ancillary files                                                                            | -             | -       |         -          |
+| `allow_override`             | `--allow-override`             |          -           | -                            | Allow existing files in the download directory to be overridden                                                                     | `false`       | -       |         -          |

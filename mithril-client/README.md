@@ -5,7 +5,7 @@
 - `mithril-client` defines all the tooling necessary to manipulate Mithril certified types available from a Mithril aggregator.
 
 - The different types of available data certified by Mithril are:
-  - Snapshot: list, get, download archive and record statistics.
+  - Cardano Database v1 (aka Snapshot): list, get, download archive and record statistics.
   - Cardano Database v2: list, get, download archive and record statistics.
   - Mithril stake distribution: list and get.
   - Cardano transactions: list & get snapshot, get proofs.

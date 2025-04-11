@@ -9,7 +9,7 @@ use crate::{
     CommandContext,
 };
 
-/// Clap command to list existing cardano db snapshots
+/// Clap command to list existing Cardano db snapshots
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbListCommand {
     #[clap(flatten)]

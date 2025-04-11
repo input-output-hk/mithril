@@ -6,11 +6,11 @@
 //!
 //! It handles the different types that can be queried to a Mithril aggregator:
 //!
-//! - [Snapshot][snapshot_client] list, get, download archive and record statistics.
+//! - [Cardano Database v1 (aka Snapshot)][snapshot_client]: list, get, download archive and record statistics.
 //! - [Cardano Database v2][cardano_database_client] list, get, download archive and record statistics.
-//! - [Mithril stake distribution][mithril_stake_distribution_client] list and get.
 //! - [Cardano transactions][cardano_transaction_client] list & get snapshot, get proofs.
 //! - [Cardano stake distribution][cardano_stake_distribution_client] list, get and get by epoch.
+//! - [Mithril stake distribution][mithril_stake_distribution_client] list and get.
 //! - [Certificates][certificate_client] list, get, and chain validation.
 //!
 //! The [Client] aggregates the queries of all of those types.

@@ -28,29 +28,32 @@ pub struct CardanoDbDownloadCommand {
     #[clap(flatten)]
     shared_args: SharedArgs,
 
-    /// Digest of the cardano db to download. Use the `list` command to get that information.
+    /// Digest of the Cardano db snapshot to download  or `latest` for the latest artifact
     ///
-    /// If `latest` is specified as digest, the command will return the latest cardano db.
+    /// Use the `list` command to get that information.
     digest: String,
 
-    /// Directory where the cardano db will be downloaded. By default, a
-    /// subdirectory will be created in this directory to extract and verify the
+    /// Directory where the immutable and ancillary files will be downloaded.
+    ///
+    /// By default, a subdirectory will be created in this directory to extract and verify the
     /// certificate.
     #[clap(long)]
     download_dir: Option<PathBuf>,
 
-    /// Genesis Verification Key to check the certificate chain.
+    /// Genesis verification key to check the certificate chain.
     #[clap(long, env = "GENESIS_VERIFICATION_KEY")]
     genesis_verification_key: Option<String>,
 
-    /// Include ancillary files in the download.
+    /// Include ancillary files in the download, if set the `ancillary_verification_key` is required
+    /// in order to verify the ancillary files.
     ///
-    /// By default, only immutable files are downloaded.
-    /// The ledger files and the latest unfinished immutable files are not taken into account.
+    /// By default, only finalized immutable files are downloaded.
+    /// The last ledger state snapshot and the last immutable file (the ancillary files) can be
+    /// downloaded with this option.
     #[clap(long, requires = "ancillary_verification_key")]
     include_ancillary: bool,
 
-    /// Ancillary Verification Key to verify the ancillary files.
+    /// Ancillary verification key to verify the ancillary files.
     #[clap(long, env = "ANCILLARY_VERIFICATION_KEY")]
     ancillary_verification_key: Option<String>,
 }
@@ -221,7 +224,7 @@ impl CardanoDbDownloadCommand {
                 .await?;
         }
 
-        // The cardano db download does not fail if the statistic call fails.
+        // The Cardano db download does not fail if the statistic call fails.
         // It would be nice to implement tests to verify the behavior of `add_statistics`
         if let Err(e) = client.cardano_database().add_statistics(cardano_db).await {
             warn!(

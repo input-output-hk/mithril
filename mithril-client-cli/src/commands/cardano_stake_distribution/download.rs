@@ -24,18 +24,16 @@ pub struct CardanoStakeDistributionDownloadCommand {
     #[clap(flatten)]
     shared_args: SharedArgs,
 
-    /// Epoch or hash of the Cardano stake distribution artifact.
+    /// Hash or Epoch of the Cardano stake distribution artifact, or `latest` for the latest artifact.
     ///
     /// The epoch represents the epoch at the end of which the Cardano stake distribution is computed by the Cardano node.
-    ///
-    /// If `latest` is specified as unique_identifier, the command will return the latest Cardano stake distribution.
     unique_identifier: String,
 
     /// Directory where the Cardano stake distribution will be downloaded.
     #[clap(long)]
     download_dir: Option<PathBuf>,
 
-    /// Genesis Verification Key to check the certificate chain.
+    /// Genesis verification key to check the certificate chain.
     #[clap(long, env = "GENESIS_VERIFICATION_KEY")]
     genesis_verification_key: Option<String>,
 }

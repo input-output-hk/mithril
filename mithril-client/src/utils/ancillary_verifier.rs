@@ -11,7 +11,7 @@ use mithril_common::{
 
 use crate::{MithrilError, MithrilResult};
 
-/// Verifies the ancillary files contained in a unpacked ancillary archive
+/// Verifies the ancillary files contained in an unpacked ancillary archive
 pub struct AncillaryVerifier {
     verifier: ManifestVerifier,
 }
@@ -251,7 +251,7 @@ mod tests {
             let temp_dir = temp_dir_create!();
             let manifest = AncillaryFilesManifest {
                 data: BTreeMap::from([generate_manifest_item(&temp_dir, "file.txt", "content")]),
-                // Note: This is a valid ECDSA signature, but not for the given data
+                // Note: This is a valid signature, but for different data
                 signature: Some(
                     fake_keys::signable_manifest_signature()[0]
                         .try_into()

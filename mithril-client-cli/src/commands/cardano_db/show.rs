@@ -9,15 +9,13 @@ use crate::{
 };
 use mithril_client::MithrilResult;
 
-/// Clap command to show a given cardano db
+/// Clap command to show a given Cardano db
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbShowCommand {
     #[clap(flatten)]
     shared_args: SharedArgs,
 
-    /// Cardano DB digest.
-    ///
-    /// If `latest` is specified as digest, the command will return the latest cardano db.
+    /// Digest of the Cardano db snapshot to show or `latest` for the latest artifact
     digest: String,
 }
 
