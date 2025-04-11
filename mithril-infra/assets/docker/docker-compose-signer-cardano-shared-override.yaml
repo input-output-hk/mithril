@@ -1,0 +1,7 @@
+services:
+  mithril-signer:
+    environment:
+      - DB_DIRECTORY=/mithril-aggregator/cardano/db
+    volumes:
+      - ../data/${NETWORK}/mithril-aggregator/cardano/db:/mithril-aggregator/cardano/db
+      - ../data/${NETWORK}/mithril-aggregator/cardano/ipc:/ipc

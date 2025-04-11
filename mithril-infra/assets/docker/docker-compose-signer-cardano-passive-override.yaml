@@ -1,7 +1,3 @@
-# Unverified Mithril Signer node running on top of its own Cardano node
-
-version: "3.9"
-
 services:
   cardano-node-signer:
     image: cardano-node/${CARDANO_IMAGE_ID}-modified
@@ -40,43 +36,11 @@ services:
       ]
 
   mithril-signer:
-    image: ghcr.io/input-output-hk/mithril-signer:${MITHRIL_IMAGE_ID}
-    container_name: mithril-signer-${SIGNER_ID}
-    restart: always
-    user: ${CURRENT_UID}
-    profiles:
-      - mithril
-      - all
-    environment:
-      - RUST_BACKTRACE=1
-      - AGGREGATOR_ENDPOINT=http://${AGGREGATOR_CREDENTIALS}mithril-aggregator:8080/aggregator
-      - NETWORK=${NETWORK}
-      - PARTY_ID=${PARTY_ID}
-      - RUN_INTERVAL=120000
-      - DB_DIRECTORY=/mithril-signer-${SIGNER_ID}/cardano/db
-      - DATA_STORES_DIRECTORY=/mithril-signer-${SIGNER_ID}/mithril/stores
-      - STORE_RETENTION_LIMIT=5
-      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
-      - CARDANO_CLI_PATH=/app/bin/cardano-cli
-      - ERA_READER_ADAPTER_TYPE=${ERA_READER_ADAPTER_TYPE}
-      - ERA_READER_ADAPTER_PARAMS=${ERA_READER_ADAPTER_PARAMS}
-      - ENABLE_METRICS_SERVER=${ENABLE_METRICS_SERVER}
-      - METRICS_SERVER_IP=${METRICS_SERVER_IP}
-      - METRICS_SERVER_PORT=${METRICS_SERVER_PORT}
-    volumes:
-      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/mithril:/mithril-signer-${SIGNER_ID}/mithril
-      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/passive:/mithril-signer-${SIGNER_ID}/cardano/db
-      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
-    command: ["-vvv"]
     depends_on:
       cardano-node-signer:
         condition: service_started
-    logging:
-      driver: "${LOGGING_DRIVER}"
-      options:
-        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
-
-networks:
-  default:
-    name: mithril_network
-    external: true
+    environment:
+      - DB_DIRECTORY=/mithril-signer-${SIGNER_ID}/cardano/db
+    volumes:
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/passive:/mithril-signer-${SIGNER_ID}/cardano/db
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
