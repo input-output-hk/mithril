@@ -97,7 +97,7 @@ export default function DownloadButton({ artifactUrl, ...props }) {
     const form = event.target;
 
     if (form.checkValidity() === true) {
-      const location = artifact?.locations.immutables[immutableLocationIndex];
+      const location = artifact?.immutables.locations[immutableLocationIndex];
 
       if (location?.type === "cloud_storage") {
         directDownload(getImmutableUrlFromTemplate(location.uri.Template, immutableFileNumber));
@@ -109,14 +109,14 @@ export default function DownloadButton({ artifactUrl, ...props }) {
   }
 
   function downloadDigest() {
-    const location = artifact?.locations.digests[digestLocationIndex];
+    const location = artifact?.digests.locations[digestLocationIndex];
     if (isDirectDownload(location)) {
       directDownload(location.uri);
     }
   }
 
   function downloadAncillary() {
-    const location = artifact?.locations.ancillary[ancillaryLocationIndex];
+    const location = artifact?.ancillary.locations[ancillaryLocationIndex];
     if (isDirectDownload(location)) {
       directDownload(location.uri);
     }
@@ -176,7 +176,7 @@ export default function DownloadButton({ artifactUrl, ...props }) {
                       />
                       <LocationsSelect
                         ariaLabel="Immutable locations"
-                        locations={artifact?.locations.immutables}
+                        locations={artifact?.immutables.locations}
                         onChange={(e) => setImmutableLocationIndex(e.target.value)}
                         value={immutableLocationIndex}
                       />
@@ -190,7 +190,7 @@ export default function DownloadButton({ artifactUrl, ...props }) {
                   <InputGroup>
                     <LocationsSelect
                       ariaLabel="Digests locations"
-                      locations={artifact?.locations.digests}
+                      locations={artifact?.digests.locations}
                       onChange={(e) => setDigestLocationIndex(e.target.value)}
                       value={digestLocationIndex}
                     />
@@ -203,7 +203,7 @@ export default function DownloadButton({ artifactUrl, ...props }) {
                   <InputGroup>
                     <LocationsSelect
                       ariaLabel="Ancillary locations"
-                      locations={artifact?.locations.ancillary}
+                      locations={artifact?.ancillary.locations}
                       onChange={(e) => setAncillaryLocationIndex(e.target.value)}
                       value={ancillaryLocationIndex}
                     />

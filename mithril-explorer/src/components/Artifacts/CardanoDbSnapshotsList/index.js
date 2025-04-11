@@ -7,6 +7,7 @@ import LatestBadge from "#/Artifacts/LatestBadge";
 import CertificateModal from "#/CertificateModal";
 import RawJsonButton from "#/RawJsonButton";
 import LocalDateTime from "#/LocalDateTime";
+import QuestionTooltip from "#/QuestionTooltip";
 import { selectedAggregator } from "@/store/settingsSlice";
 import { formatBytes } from "@/utils";
 import { fetchAggregator } from "@/aggregator-api";
@@ -78,7 +79,17 @@ export default function CardanoDbSnapshotsList(props) {
                             <LocalDateTime datetime={snapshot.created_at} />
                           </ArtifactCol>
                           <ArtifactCol label="Archive size">
-                            {formatBytes(snapshot.size)}
+                            {formatBytes(snapshot.size + (snapshot.ancillary_size ?? 0))}
+                            <QuestionTooltip
+                              tooltip={
+                                <span>
+                                  Immutable files archive size: {formatBytes(snapshot.size)}
+                                  <hr className="m-1" />
+                                  Ancillary archive size:{" "}
+                                  {formatBytes(snapshot.ancillary_size ?? 0)}
+                                </span>
+                              }
+                            />
                           </ArtifactCol>
                           <ArtifactCol label="Cardano node">
                             {snapshot.cardano_node_version}
