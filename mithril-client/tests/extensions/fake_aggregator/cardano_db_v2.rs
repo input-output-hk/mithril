@@ -11,6 +11,7 @@ use mithril_client::common::{
 use mithril_client::{
     CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem, MithrilCertificate,
 };
+use mithril_common::crypto_helper::ManifestVerifierSecretKey;
 use mithril_common::digesters::{CardanoImmutableDigester, DummyCardanoDb, ImmutableDigester};
 use mithril_common::test_utils::fake_data;
 use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
@@ -19,15 +20,20 @@ use crate::extensions::{routes, snapshot_archives};
 
 use super::FakeAggregator;
 
+pub struct CardanoDatabaseSnapshotV2Fixture<'a> {
+    pub snapshot_hash: &'a str,
+    pub certificate_hash: &'a str,
+    pub range: RangeInclusive<ImmutableFileNumber>,
+    pub ancillary_manifest_signing_key: ManifestVerifierSecretKey,
+}
+
 impl FakeAggregator {
     pub async fn spawn_with_cardano_db_snapshot(
         &self,
-        cardano_db_snapshot_hash: &str,
-        certificate_hash: &str,
+        fixture: CardanoDatabaseSnapshotV2Fixture<'_>,
         cardano_db: &DummyCardanoDb,
         work_dir: &Path,
         digester: CardanoImmutableDigester,
-        range: RangeInclusive<ImmutableFileNumber>,
     ) -> TestHttpServer {
         let beacon = CardanoDbBeacon {
             immutable_file_number: cardano_db.last_immutable_number().unwrap(),
@@ -35,8 +41,8 @@ impl FakeAggregator {
         };
 
         let cardano_db_snapshot = Arc::new(RwLock::new(CardanoDatabaseSnapshot {
-            hash: cardano_db_snapshot_hash.to_string(),
-            certificate_hash: certificate_hash.to_string(),
+            hash: fixture.certificate_hash.to_string(),
+            certificate_hash: fixture.certificate_hash.to_string(),
             beacon: beacon.clone(),
             ..CardanoDatabaseSnapshot::dummy()
         }));
@@ -44,8 +50,8 @@ impl FakeAggregator {
 
         let cardano_db_snapshot_list_json = serde_json::to_string(&vec![
             CardanoDatabaseSnapshotListItem {
-                hash: cardano_db_snapshot_hash.to_string(),
-                certificate_hash: certificate_hash.to_string(),
+                hash: fixture.snapshot_hash.to_string(),
+                certificate_hash: fixture.certificate_hash.to_string(),
                 beacon: beacon.clone(),
                 ..CardanoDatabaseSnapshotListItem::dummy()
             },
@@ -83,7 +89,7 @@ impl FakeAggregator {
         .or(routes::statistics::routes(self.calls.clone()));
 
         let computed_immutables_digests = digester
-            .compute_digests_for_range(cardano_db.get_immutable_dir(), &range)
+            .compute_digests_for_range(cardano_db.get_immutable_dir(), &fixture.range)
             .await
             .unwrap();
         let cardano_db_snapshot_archives_path =
@@ -91,7 +97,9 @@ impl FakeAggregator {
                 cardano_db,
                 work_dir,
                 computed_immutables_digests,
-            );
+                fixture.ancillary_manifest_signing_key,
+            )
+            .await;
 
         let routes = routes.or(routes::cardano_db_snapshot::download_immutables_archive(
             self.calls.clone(),

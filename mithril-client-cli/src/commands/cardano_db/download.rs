@@ -28,20 +28,34 @@ pub struct CardanoDbDownloadCommand {
     #[clap(flatten)]
     shared_args: SharedArgs,
 
-    /// Digest of the cardano db to download. Use the `list` command to get that information.
+    /// Digest of the Cardano db snapshot to download  or `latest` for the latest artifact
     ///
-    /// If `latest` is specified as digest, the command will return the latest cardano db.
+    /// Use the `list` command to get that information.
     digest: String,
 
-    /// Directory where the cardano db will be downloaded. By default, a
-    /// subdirectory will be created in this directory to extract and verify the
+    /// Directory where the immutable and ancillary files will be downloaded.
+    ///
+    /// By default, a subdirectory will be created in this directory to extract and verify the
     /// certificate.
     #[clap(long)]
     download_dir: Option<PathBuf>,
 
-    /// Genesis Verification Key to check the certificate chain.
+    /// Genesis verification key to check the certificate chain.
     #[clap(long, env = "GENESIS_VERIFICATION_KEY")]
     genesis_verification_key: Option<String>,
+
+    /// Include ancillary files in the download, if set the `ancillary_verification_key` is required
+    /// in order to verify the ancillary files.
+    ///
+    /// By default, only finalized immutable files are downloaded.
+    /// The last ledger state snapshot and the last immutable file (the ancillary files) can be
+    /// downloaded with this option.
+    #[clap(long, requires = "ancillary_verification_key")]
+    include_ancillary: bool,
+
+    /// Ancillary verification key to verify the ancillary files.
+    #[clap(long, env = "ANCILLARY_VERIFICATION_KEY")]
+    ancillary_verification_key: Option<String>,
 }
 
 impl CardanoDbDownloadCommand {
@@ -68,6 +82,7 @@ impl CardanoDbDownloadCommand {
                 progress_output_type,
                 logger.clone(),
             )))
+            .set_ancillary_verification_key(self.ancillary_verification_key.clone())
             .with_logger(logger.clone())
             .build()?;
 
@@ -107,6 +122,7 @@ impl CardanoDbDownloadCommand {
             &progress_printer,
             &client,
             &cardano_db_message,
+            self.include_ancillary,
             &db_dir,
         )
         .await
@@ -191,15 +207,24 @@ impl CardanoDbDownloadCommand {
         progress_printer: &ProgressPrinter,
         client: &Client,
         cardano_db: &Snapshot,
+        include_ancillary: bool,
         db_dir: &Path,
     ) -> MithrilResult<()> {
         progress_printer.report_step(step_number, "Downloading and unpacking the cardano db")?;
-        client
-            .cardano_database()
-            .download_unpack(cardano_db, db_dir)
-            .await?;
 
-        // The cardano db download does not fail if the statistic call fails.
+        if include_ancillary {
+            client
+                .cardano_database()
+                .download_unpack_full(cardano_db, db_dir)
+                .await?;
+        } else {
+            client
+                .cardano_database()
+                .download_unpack(cardano_db, db_dir)
+                .await?;
+        }
+
+        // The Cardano db download does not fail if the statistic call fails.
         // It would be nice to implement tests to verify the behavior of `add_statistics`
         if let Err(e) = client.cardano_database().add_statistics(cardano_db).await {
             warn!(
@@ -372,6 +397,16 @@ mod tests {
             multi_signature: String::new(),
             genesis_signature: String::new(),
         }
+    }
+
+    #[test]
+    fn ancillary_verification_key_is_mandatory_when_include_ancillary_is_true() {
+        CardanoDbDownloadCommand::try_parse_from([
+            "cdbv1-command",
+            "--include-ancillary",
+            "whatever_digest",
+        ])
+        .expect_err("The command should fail because ancillary_verification_key is not set");
     }
 
     #[tokio::test]

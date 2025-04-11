@@ -41,18 +41,19 @@ pub struct CardanoDbV2DownloadCommand {
     #[clap(flatten)]
     shared_args: SharedArgs,
 
-    /// Hash of the cardano db to download. Use the `list` command to get that information.
+    /// Hash of the Cardano db snapshot to download  or `latest` for the latest artifact
     ///
-    /// If `latest` is specified as hash, the command will return the latest cardano db.
+    /// Use the `list` command to get that information.
     hash: String,
 
-    /// Directory where the immutable and ancillary files will be downloaded. By default, a
-    /// subdirectory will be created in this directory to extract and verify the
+    /// Directory where the immutable and ancillary files will be downloaded.
+    ///
+    /// By default, a subdirectory will be created in this directory to extract and verify the
     /// certificate.
     #[clap(long)]
     download_dir: Option<PathBuf>,
 
-    /// Genesis Verification Key to check the certificate chain.
+    /// Genesis verification key to check the certificate chain.
     #[clap(long, env = "GENESIS_VERIFICATION_KEY")]
     genesis_verification_key: Option<String>,
 
@@ -68,12 +69,18 @@ pub struct CardanoDbV2DownloadCommand {
     #[clap(long)]
     end: Option<ImmutableFileNumber>,
 
-    /// Include ancillary files in the download.
+    /// Include ancillary files in the download, if set the `ancillary_verification_key` is required
+    /// in order to verify the ancillary files.
     ///
-    /// By default, only immutable files are downloaded.
-    /// The ledger files, volatile files, and the latest unfinished immutable files are not taken into account.
-    #[clap(long)]
+    /// By default, only finalized immutable files are downloaded.
+    /// The last ledger state snapshot and the last immutable file (the ancillary files) can be
+    /// downloaded with this option.
+    #[clap(long, requires = "ancillary_verification_key")]
     include_ancillary: bool,
+
+    /// Ancillary verification key to verify the ancillary files.
+    #[clap(long, env = "ANCILLARY_VERIFICATION_KEY")]
+    ancillary_verification_key: Option<String>,
 
     /// Allow existing files in the download directory to be overridden.
     #[clap(long)]
@@ -125,6 +132,7 @@ impl CardanoDbV2DownloadCommand {
                 progress_output_type,
                 logger.clone(),
             )))
+            .set_ancillary_verification_key(self.ancillary_verification_key.clone())
             .with_logger(logger.clone())
             .build()?;
 
@@ -542,6 +550,16 @@ mod tests {
             multi_signature: String::new(),
             genesis_signature: String::new(),
         }
+    }
+
+    #[test]
+    fn ancillary_verification_key_is_mandatory_when_include_ancillary_is_true() {
+        CardanoDbV2DownloadCommand::try_parse_from([
+            "cdbv2-command",
+            "--include-ancillary",
+            "whatever_hash",
+        ])
+        .expect_err("The command should fail because ancillary_verification_key is not set");
     }
 
     #[tokio::test]

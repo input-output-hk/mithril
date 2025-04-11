@@ -583,6 +583,7 @@ impl FeedbackReceiver for StackFeedbackReceiver {
 mod tests {
     use super::*;
     use crate::feedback::MithrilEvent::{SnapshotDownloadCompleted, SnapshotDownloadStarted};
+    use crate::test_utils::TestLogger;
     use std::time::Duration;
     use tokio::task::JoinSet;
 
@@ -624,7 +625,7 @@ mod tests {
         let receiver = Arc::new(StackFeedbackReceiver::new());
         let sender = FeedbackSender::new(&[
             receiver.clone(),
-            Arc::new(SlogFeedbackReceiver::new(crate::test_utils::test_logger())),
+            Arc::new(SlogFeedbackReceiver::new(TestLogger::stdout())),
         ]);
         let sender2 = sender.clone();
         let mut join_set = JoinSet::new();

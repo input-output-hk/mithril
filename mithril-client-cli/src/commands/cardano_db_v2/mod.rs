@@ -1,4 +1,4 @@
-//! Commands for the cardano db v2 artifact
+//! Commands for the Cardano db v2 artifact
 mod download;
 mod list;
 mod show;
@@ -27,11 +27,11 @@ pub enum CardanoDbV2Commands {
 /// Cardano db v2 snapshots
 #[derive(Subcommand, Debug, Clone)]
 pub enum CardanoDbV2SnapshotCommands {
-    /// List available cardano db v2 snapshots
+    /// List available Cardano db v2 snapshots
     #[clap(arg_required_else_help = false)]
     List(CardanoDbListCommand),
 
-    /// Show detailed information about a cardano db v2 snapshot
+    /// Show detailed information about a Cardano db v2 snapshot
     #[clap(arg_required_else_help = true)]
     Show(CardanoDbShowCommand),
 }
