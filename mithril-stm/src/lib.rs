@@ -20,3 +20,4 @@ pub mod bls_multi_signature;
 
 #[cfg(not(feature = "benchmark-internals"))]
 mod bls_multi_signature;
+mod stm_telescope;
