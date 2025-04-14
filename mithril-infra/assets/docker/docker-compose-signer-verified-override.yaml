@@ -1,0 +1,26 @@
+services:
+  mithril-signer:
+    environment:
+      - KES_SECRET_KEY_PATH=/mithril-signer-${SIGNER_ID}/cardano/pool/kes.skey
+      - OPERATIONAL_CERTIFICATE_PATH=/mithril-signer-${SIGNER_ID}/cardano/pool/opcert.cert
+
+  mithril-signer-www:
+    image: nginx:latest
+    container_name: mithril-signer-www-${SIGNER_ID}
+    restart: always
+    profiles:
+      - mithril
+      - all
+    volumes:
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/www:/usr/share/nginx/html
+    ports:
+      - "${SIGNER_WWW_PORT}:8080"
+    logging:
+      driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mithril-signer-${SIGNER_ID}.rule=Host(`${SIGNER_HOST}`)"
+      - "traefik.http.routers.mithril-signer-${SIGNER_ID}.tls=true"
+      - "traefik.http.routers.mithril-signer-${SIGNER_ID}.tls.certresolver=lets-encrypt"

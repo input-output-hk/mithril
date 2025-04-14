@@ -1,7 +1,3 @@
-# Unverified Mithril Signer node running on top of shared Cardano node (from Mithril Aggregator)
-
-version: "3.9"
-
 services:
   mithril-signer:
     image: ghcr.io/input-output-hk/mithril-signer:${MITHRIL_IMAGE_ID}
@@ -13,9 +9,8 @@ services:
       - all
     environment:
       - RUST_BACKTRACE=1
-      - AGGREGATOR_ENDPOINT=http://${AGGREGATOR_CREDENTIALS}mithril-aggregator:8080/aggregator
+      - AGGREGATOR_ENDPOINT=${AGGREGATOR_ENDPOINT}
       - NETWORK=${NETWORK}
-      - PARTY_ID=${PARTY_ID}
       - RUN_INTERVAL=120000
       - DB_DIRECTORY=/mithril-aggregator/cardano/db
       - DATA_STORES_DIRECTORY=/mithril-signer-${SIGNER_ID}/mithril/stores
@@ -39,5 +34,5 @@ services:
 
 networks:
   default:
-    name: mithril_network
     external: true
+    name: mithril_network

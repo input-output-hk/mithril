@@ -11,6 +11,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Add `with_origin_tag` function to the Mithril client library to record the origin of client requests.
 
+- **UNSTABLE** implement support for leader/follower registration in the infrastructure.
+
 - Crates versions:
 
 | Crate | Version |

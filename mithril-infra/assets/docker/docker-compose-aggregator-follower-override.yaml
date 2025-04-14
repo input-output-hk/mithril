@@ -1,0 +1,4 @@
+services:
+  mithril-aggregator:
+    environment:
+      - LEADER_AGGREGATOR_ENDPOINT=${LEADER_AGGREGATOR_ENDPOINT}

@@ -15,6 +15,7 @@ on:
         type: choice
         options:
           - dev-preview
+          - dev-follower-preview
           - dev-mainnet
       dry_run:
         description: Dry run will not deploy the distribution to the Mithril network
@@ -27,12 +28,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [dev-preview, dev-mainnet]
+        environment: [dev-preview, dev-follower-preview, dev-mainnet]
         include:
           - environment: dev-preview
             environment_prefix: dev
             cardano_network: preview
             mithril_use_p2p_network: true
+            mithril_p2p_signer_relay_signer_registration_mode: passthrough
+            mithril_p2p_signer_relay_signature_registration_mode: p2p
             mithril_api_domain: api.mithril.network
             mithril_era_reader_adapter_type: cardano-chain
             mithril_protocol_parameters: |
@@ -44,22 +47,53 @@ jobs:
             mithril_signers: |
               {
                 "1" = {
-                  type    = "unverified",
+                  type    = "unverified-cardano-passive-norelay",
                   pool_id = "pool1vapqexnsx6hvc588yyysxpjecf3k43hcr5mvhmstutuvy085xpa",
                 },
                 "2" = {
-                  type    = "unverified",
+                  type    = "unverified-cardano-passive-norelay",
                   pool_id = "pool1t9uuagsat8hlr0n0ga4wzge0jxlyjuhl6mugrm8atc285vzkf2e",
                 },
                 "3" = {
-                  type    = "unverified",
+                  type    = "unverified-cardano-passive-norelay",
                   pool_id = "pool1r0tln8nct3mpyvehgy6uu3cdlmjnmtr2fxjcqnfl6v0qg0we42e",
                 },
               }
+            mithril_leader_aggregator_endpoint: ""
             terraform_backend_bucket: hydra-terraform-admin
             google_region: europe-west1
             google_zone: europe-west1-b
             google_machine_type: e2-highmem-4
+            google_compute_instance_boot_disk_size: 200
+            google_compute_instance_boot_disk_type: pd-standard
+            google_compute_instance_data_disk_size: 250
+            google_compute_instance_data_disk_type: pd-standard
+          - environment: dev-follower-preview
+            environment_prefix: dev-follower
+            cardano_network: preview
+            mithril_use_p2p_network: true
+            mithril_p2p_network_bootstrap_peer: "/dns4/aggregator.dev-preview.api.mithril.network/tcp/6060"
+            mithril_p2p_signer_relay_signer_registration_mode: passthrough
+            mithril_p2p_signer_relay_signature_registration_mode: p2p
+            mithril_api_domain: api.mithril.network
+            mithril_era_reader_adapter_type: cardano-chain
+            mithril_protocol_parameters: {
+                k     = 5
+                m     = 100
+                phi_f = 0.65,
+              }
+            mithril_signers: |
+              {
+                "1" = {
+                  type    = "unverified-cardano-passive-norelay",
+                  pool_id = "pool1y0uxkqyplyx6ld25e976t0s35va3ysqcscatwvy2sd2cwcareq7",
+                },
+              }
+            mithril_leader_aggregator_endpoint: https://aggregator.dev-preview.api.mithril.network/aggregator
+            terraform_backend_bucket: hydra-terraform-admin
+            google_region: europe-west1
+            google_zone: europe-west1-b
+            google_machine_type: e2-highmem-2
             google_compute_instance_boot_disk_size: 200
             google_compute_instance_boot_disk_type: pd-standard
             google_compute_instance_data_disk_size: 250
@@ -79,10 +113,11 @@ jobs:
             mithril_signers: |
               {
                 "1" = {
-                  type    = "unverified-alone",
+                  type    = "unverified-cardano-shared",
                   pool_id = "pool1re8cmjt895tpx8dx2veg0cew5yqtxnt82sll03e433a4ugnh9w7",
                 }
               }
+            mithril_leader_aggregator_endpoint: ""
             terraform_backend_bucket: hydra-terraform-admin
             google_region: europe-west1
             google_zone: europe-west1-b
@@ -124,6 +159,7 @@ jobs:
           google_compute_instance_ssh_keys_environment: testing
           google_application_credentials: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
           mithril_use_p2p_network: ${{ matrix.mithril_use_p2p_network }}
+          mithril_p2p_network_bootstrap_peer: ${{ matrix.mithril_p2p_network_bootstrap_peer }}
           mithril_api_domain: ${{ matrix.mithril_api_domain }}
           mithril_image_id: ${{ inputs.mithril_image_id }}
           mithril_protocol_parameters: ${{ toJSON(matrix.mithril_protocol_parameters) }}
@@ -146,6 +182,7 @@ jobs:
           mithril_aggregator_cardano_transactions_database_connection_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE }}
           mithril_aggregator_cardano_transactions_signing_config_security_parameter: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_SIGNING_CONFIG_SECURITY_PARAMETER }}
           mithril_aggregator_cardano_transactions_signing_config_step: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_SIGNING_CONFIG_STEP }}
+          mithril_aggregator_leader_aggregator_endpoint: ${{ matrix.mithril_leader_aggregator_endpoint }}
           prometheus_auth_username: ${{ secrets.PROMETHEUS_AUTH_USERNAME }}
           prometheus_auth_password: ${{ secrets.PROMETHEUS_AUTH_PASSWORD }}
           prometheus_ingest_host: ${{ vars.PROMETHEUS_INGEST_HOST }}

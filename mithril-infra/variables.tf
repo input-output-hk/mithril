@@ -184,16 +184,29 @@ variable "mithril_use_p2p_network" {
   default     = false
 }
 
+variable "mithril_p2p_network_bootstrap_peer" {
+  type        = string
+  description = "The dial to address of a bootstrap peer of the P2P network layer. Useful when setting-up a follower aggregator and signers in a different VM. (experimental, for test only)"
+  default     = ""
+}
+
+variable "mithril_p2p_signer_relay_signer_registration_mode" {
+  type        = string
+  description = "The signer registration mode used by the mithril signer relay. Can be either `p2p` or `passthrough` (defaults to `passthrough`) (experimental, for test only)"
+  default     = "passthrough"
+}
+
+variable "mithril_p2p_signer_relay_signature_registration_mode" {
+  type        = string
+  description = "The signature registration mode used by the mithril signer relay. Can be either `p2p` or `passthrough` (defaults to `p2p`) (experimental, for test only)"
+  default     = "p2p"
+}
+
 variable "mithril_p2p_signer_registration_repeat_delay" {
   type        = number
   description = "The repeat delay in milliseconds for the signer registration when operating in P2P mode (defaults to 1 hour)"
   default     = 3600 * 1000
 }
-
-locals {
-  mithril_network_type_suffix = var.mithril_use_p2p_network ? "-p2p" : ""
-}
-
 
 variable "mithril_aggregator_signed_entity_types" {
   type        = string
@@ -285,6 +298,12 @@ variable "mithril_aggregator_allow_unparsable_block" {
   default     = false
 }
 
+variable "mithril_aggregator_leader_aggregator_endpoint" {
+  type        = string
+  description = "The endpoint of the leader aggregator to use when running in follower mode (optional)"
+  default     = ""
+}
+
 variable "prometheus_auth_username" {
   type        = string
   description = "The username for authentication on local prometheus endpoint"
@@ -346,10 +365,11 @@ variable "loki_ingest_password" {
 }
 
 locals {
-  mithril_aggregator_type        = var.mithril_aggregator_auth_username == "" ? "noauth" : "auth"
-  mithril_aggregator_credentials = var.mithril_aggregator_auth_username == "" ? "" : format("%s:%s@", var.mithril_aggregator_auth_username, var.mithril_aggregator_auth_password)
-  prometheus_credentials         = var.prometheus_auth_username == "" ? "" : format("%s:%s@", var.prometheus_auth_username, var.prometheus_auth_password)
-  loki_credentials               = var.loki_auth_username == "" ? "" : format("%s:%s@", var.loki_auth_username, var.loki_auth_password)
+  mithril_aggregator_use_authentication = var.mithril_aggregator_auth_username == "" ? false : true
+  mithril_aggregator_is_follower        = var.mithril_aggregator_leader_aggregator_endpoint == "" ? false : true
+  mithril_aggregator_credentials        = var.mithril_aggregator_auth_username == "" ? "" : format("%s:%s@", var.mithril_aggregator_auth_username, var.mithril_aggregator_auth_password)
+  prometheus_credentials                = var.prometheus_auth_username == "" ? "" : format("%s:%s@", var.prometheus_auth_username, var.prometheus_auth_password)
+  loki_credentials                      = var.loki_auth_username == "" ? "" : format("%s:%s@", var.loki_auth_username, var.loki_auth_password)
 }
 
 variable "mithril_genesis_verification_key_url" {
@@ -405,7 +425,7 @@ variable "mithril_signers" {
   }))
   default = {
     "1" = {
-      type    = "unverified",
+      type    = "unverified-cardano-passive",
       pool_id = "pool15qde6mnkc0jgycm69ua0grwxmmu0tke54h5uhml0j8ndw3kcu9x",
     }
   }

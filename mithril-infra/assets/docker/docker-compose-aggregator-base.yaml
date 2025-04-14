@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   cardano-node-aggregator:
     image: cardano-node/${CARDANO_IMAGE_ID}-modified

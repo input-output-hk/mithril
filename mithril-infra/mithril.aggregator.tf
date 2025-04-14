@@ -102,15 +102,40 @@ EOT
       "export CARDANO_TRANSACTIONS_SIGNING_CONFIG__SECURITY_PARAMETER=${var.mithril_aggregator_cardano_transactions_signing_config_security_parameter}",
       "export CARDANO_TRANSACTIONS_SIGNING_CONFIG__STEP=${var.mithril_aggregator_cardano_transactions_signing_config_step}",
       "export PUBLIC_SERVER_URL=${local.mithril_aggregator_endpoint_url}",
+      "export AUTH_USER_PASSWORD=$(htpasswd -nb ${var.mithril_aggregator_auth_username} ${var.mithril_aggregator_auth_password})",
+      "export LEADER_AGGREGATOR_ENDPOINT='${var.mithril_aggregator_leader_aggregator_endpoint}'",
+      "export AGGREGATOR_RELAY_LISTEN_PORT='${local.mithril_aggregator_relay_mithril_listen_port}'",
+      "export P2P_BOOTSTRAP_PEER='${var.mithril_p2p_network_bootstrap_peer}'",
       "export ENABLE_METRICS_SERVER=true",
       "export METRICS_SERVER_IP=0.0.0.0",
       "export METRICS_SERVER_PORT=9090",
       "export LOGGING_DRIVER='${var.mithril_container_logging_driver}'",
-      "export AUTH_USER_PASSWORD=$(htpasswd -nb ${var.mithril_aggregator_auth_username} ${var.mithril_aggregator_auth_password})",
-      "export AGGREGATOR_RELAY_LISTEN_PORT='${local.mithril_aggregator_relay_mithril_listen_port}'",
       "export CURRENT_UID=$(id -u)",
       "export DOCKER_GID=$(getent group docker | cut -d: -f3)",
-      "docker compose -f /home/curry/docker/docker-compose-aggregator-${local.mithril_aggregator_type}${local.mithril_network_type_suffix}.yaml --profile all up -d",
+      <<-EOT
+set -e
+# Compute the docker compose files merge sequence for the aggregator
+DOCKER_DIRECTORY=/home/curry/docker
+DOCKER_COMPOSE_FILES="-f $DOCKER_DIRECTORY/docker-compose-aggregator-base.yaml"
+# Support for aggregator authentication
+if [ "${local.mithril_aggregator_use_authentication}" = "true" ]; then
+  DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-aggregator-auth-override.yaml"
+fi
+# Support for aggregator P2P network
+if [ "${var.mithril_use_p2p_network}" = "true" ]; then
+  DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-aggregator-p2p-base-override.yaml"
+
+  if [ "${var.mithril_p2p_network_bootstrap_peer}" != "" ]; then
+    DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-aggregator-p2p-bootstrap-override.yaml"
+  fi
+fi
+# Support for aggregator follower
+if [ "${local.mithril_aggregator_is_follower}" = "true" ]; then
+  DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-aggregator-follower-override.yaml"
+fi
+EOT
+      ,
+      "docker compose $DOCKER_COMPOSE_FILES --profile all up -d",
     ]
   }
 }
