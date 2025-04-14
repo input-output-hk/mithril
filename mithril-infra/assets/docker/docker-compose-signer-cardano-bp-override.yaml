@@ -97,7 +97,8 @@ services:
     environment:
       - DB_DIRECTORY=/mithril-signer-${SIGNER_ID}/cardano/db
     volumes:
-      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/passive:/mithril-signer-${SIGNER_ID}/cardano/db
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/block-producer:/mithril-signer-${SIGNER_ID}/cardano/db
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/pool:/mithril-signer-${SIGNER_ID}/cardano/pool
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
 
 networks:
