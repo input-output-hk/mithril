@@ -310,8 +310,15 @@ impl Aggregator {
 
     pub async fn set_protocol_parameters(
         &self,
-        protocol_parameters: &entities::ProtocolParameters,
+        _protocol_parameters: &entities::ProtocolParameters,
     ) {
+        // We must use full protocol parameters to achieve ALBA aggregation
+        let protocol_parameters = &entities::ProtocolParameters {
+            k: 1865,
+            m: 16144,
+            phi_f: 0.20,
+        };
+
         let mut command = self.command.write().await;
         command.set_env_var(
             "PROTOCOL_PARAMETERS__K",

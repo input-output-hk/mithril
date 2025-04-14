@@ -114,6 +114,8 @@ use crate::error::{
 };
 use crate::key_reg::{ClosedKeyReg, RegParty};
 use crate::merkle_tree::{BatchPath, MTLeaf, MerkleTreeCommitmentBatchCompat};
+use crate::stm_telescope::sterling::{Data, SterlingClerk, SterlingInitializer, SterlingProof};
+use alba::centralized_telescope::Telescope;
 use blake2::digest::{Digest, FixedOutput};
 use rand_core::{CryptoRng, RngCore};
 use serde::ser::SerializeTuple;
@@ -419,8 +421,8 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     deserialize = "BatchPath<D>: Deserialize<'de>"
 ))]
 pub struct StmAggrVerificationKey<D: Clone + Digest + FixedOutput> {
-    mt_commitment: MerkleTreeCommitmentBatchCompat<D>,
-    total_stake: Stake,
+    pub(crate) mt_commitment: MerkleTreeCommitmentBatchCompat<D>,
+    pub(crate) total_stake: Stake,
 }
 
 impl<D: Digest + Clone + FixedOutput> PartialEq for StmAggrVerificationKey<D> {
@@ -664,17 +666,53 @@ impl<D: Digest + Clone + FixedOutput + Send + Sync> StmClerk<D> {
         }
     }
 
+    /// Aggregate a set of signatures.
+    pub fn aggregate(
+        &self,
+        sigs: &[StmSig],
+        msg: &[u8],
+    ) -> Result<StmAggrSig<D>, AggregationError> {
+        let proof_type = StmAggrSigType::StmAggrSigConcatenation;
+        //let proof_type = StmAggrSigType::StmAggrSigCentralizedTelescopeAlba;
+
+        self.aggregate_with_proof_type(sigs, msg, proof_type)
+    }
+
+    /// Aggregate a set of signatures with a given proof type.
+    pub fn aggregate_with_proof_type(
+        &self,
+        sigs: &[StmSig],
+        msg: &[u8],
+        proof_type: StmAggrSigType,
+    ) -> Result<StmAggrSig<D>, AggregationError> {
+        match proof_type {
+            StmAggrSigType::StmAggrSigConcatenation => Ok(StmAggrSig::StmAggrSigConcatenation(
+                self.concatenation_aggregate(sigs, msg)?,
+            )),
+            StmAggrSigType::StmAggrSigCentralizedTelescopeAlba => {
+                let telescope = SterlingInitializer::telescope_from_stm(
+                    &SterlingInitializer::default(),
+                    self.params,
+                );
+
+                Ok(StmAggrSig::StmAggrSigCentralizedTelescopeAlba(
+                    self.telescope_aggregate(sigs, &telescope, msg)?,
+                ))
+            }
+        }
+    }
+
     /// Aggregate a set of signatures for their corresponding indices.
     ///
     /// This function first deduplicates the repeated signatures, and if there are enough signatures, it collects the merkle tree indexes of unique signatures.
     /// The list of merkle tree indexes is used to create a batch proof, to prove that all signatures are from eligible signers.
     ///
     /// It returns an instance of `StmAggrSig`.
-    pub fn aggregate(
+    pub fn concatenation_aggregate(
         &self,
         sigs: &[StmSig],
         msg: &[u8],
-    ) -> Result<StmAggrSig<D>, AggregationError> {
+    ) -> Result<StmAggrSigConcatenationProof<D>, AggregationError> {
         let sig_reg_list = sigs
             .iter()
             .map(|sig| StmSigRegParty {
@@ -701,12 +739,22 @@ impl<D: Digest + Clone + FixedOutput + Send + Sync> StmClerk<D> {
 
         let batch_proof = self.closed_reg.merkle_tree.get_batched_path(mt_index_list);
 
-        Ok(StmAggrSig::StmAggrSigConcatenation(
-            StmAggrSigConcatenationProof {
-                signatures: unique_sigs,
-                batch_proof,
-            },
-        ))
+        Ok(StmAggrSigConcatenationProof {
+            signatures: unique_sigs,
+            batch_proof,
+        })
+    }
+
+    /// Aggregate a set of signatures and create a Telescope proof
+    pub fn telescope_aggregate(
+        &self,
+        sigs: &[StmSig],
+        telescope: &Telescope,
+        msg: &[u8],
+    ) -> Result<SterlingProof<D>, AggregationError> {
+        let clerk = SterlingClerk::new(&self.params, &self.closed_reg, telescope);
+
+        clerk.aggregate::<Data>(sigs, msg)
     }
 
     /// Compute the `StmAggrVerificationKey` related to the used registration.
@@ -732,10 +780,12 @@ impl<D: Digest + Clone + FixedOutput + Send + Sync> StmClerk<D> {
     serialize = "BatchPath<D>: Serialize",
     deserialize = "BatchPath<D>: Deserialize<'de>"
 ))]
-#[serde(untagged)]
+#[serde(tag = "type")]
 pub enum StmAggrSig<D: Clone + Digest + FixedOutput + Send + Sync> {
     /// STM aggregate signature with concatenation proving system.
     StmAggrSigConcatenation(StmAggrSigConcatenationProof<D>),
+    /// STM aggregate signature with centralized Telescope Alba proving system.
+    StmAggrSigCentralizedTelescopeAlba(SterlingProof<D>),
 }
 
 impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
@@ -754,6 +804,16 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
         match self {
             StmAggrSig::StmAggrSigConcatenation(stm_aggr_sig) => {
                 stm_aggr_sig.verify(msg, avk, parameters)
+            }
+            StmAggrSig::StmAggrSigCentralizedTelescopeAlba(alba_aggr_sig) => {
+                let telescope = SterlingInitializer::telescope_from_stm(
+                    &SterlingInitializer::default(),
+                    parameters.to_owned(),
+                );
+
+                alba_aggr_sig
+                    .verify(&telescope, msg, &(avk.to_owned()).into(), parameters)
+                    .map_err(|e| StmAggregateSignatureError::Telescope(e.to_string()))
             }
         }
     }
@@ -791,35 +851,52 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
                             parameters,
                         )
                     }
+                    StmAggrSigType::StmAggrSigCentralizedTelescopeAlba => {
+                        todo!("Implement batch_verify for StmAggrSigCentralizedTelescopeAlba")
+                    }
                 },
             )
             .map_err(|_| StmAggregateSignatureError::BatchInvalid)
     }
 
     /// Convert multi signature to bytes
-    /// # Layout
-    /// * Number of the pairs of Signatures and Registered Parties (SigRegParty) (as u64)
-    /// * Size of a pair of Signature and Registered Party
-    /// * Pairs of Signatures and Registered Parties
-    /// * Batch proof
     pub fn to_bytes(&self) -> Vec<u8> {
         match self {
-            StmAggrSig::StmAggrSigConcatenation(stm_aggr_sig) => stm_aggr_sig.to_bytes(),
+            StmAggrSig::StmAggrSigConcatenation(stm_aggr_sig) => {
+                let mut bytes = stm_aggr_sig.to_bytes();
+                bytes.insert(0, 0);
+
+                bytes
+            }
+            StmAggrSig::StmAggrSigCentralizedTelescopeAlba(alba_aggr_sig) => {
+                let mut bytes = alba_aggr_sig.to_bytes();
+                bytes.insert(0, 1);
+
+                bytes
+            }
         }
     }
 
     ///Extract a `StmAggrSig` from a byte slice.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, StmAggregateSignatureError<D>> {
-        // TODO: How to properly support multiple variants?
-        Ok(Self::StmAggrSigConcatenation(
-            StmAggrSigConcatenationProof::from_bytes(bytes)?,
-        ))
+        match bytes[0] {
+            0 => Ok(StmAggrSig::StmAggrSigConcatenation(
+                StmAggrSigConcatenationProof::from_bytes(&bytes[1..])?,
+            )),
+            1 => Ok(StmAggrSig::StmAggrSigCentralizedTelescopeAlba(
+                SterlingProof::from_bytes(&bytes[1..])?,
+            )),
+            _ => panic!("Unknown StmAggrSig type"),
+        }
     }
 
     /// Extract the list of signatures.
     pub fn signatures(&self) -> Vec<StmSigRegParty> {
         match self {
             StmAggrSig::StmAggrSigConcatenation(stm_aggr_sig) => stm_aggr_sig.signatures.clone(),
+            StmAggrSig::StmAggrSigCentralizedTelescopeAlba(alba_aggr_sig) => {
+                alba_aggr_sig.signatures.clone()
+            }
         }
     }
 
@@ -827,6 +904,9 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
     pub fn batch_proof(&self) -> BatchPath<D> {
         match self {
             StmAggrSig::StmAggrSigConcatenation(stm_aggr_sig) => stm_aggr_sig.batch_proof.clone(),
+            StmAggrSig::StmAggrSigCentralizedTelescopeAlba(alba_aggr_sig) => {
+                alba_aggr_sig.batch_proof.clone()
+            }
         }
     }
 
@@ -836,6 +916,9 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
         match self {
             StmAggrSig::StmAggrSigConcatenation(ref mut stm_aggr_sig) => {
                 stm_aggr_sig.batch_proof = batch_proof
+            }
+            StmAggrSig::StmAggrSigCentralizedTelescopeAlba(ref mut alba_aggr_sig) => {
+                alba_aggr_sig.batch_proof = batch_proof
             }
         }
     }
@@ -1452,7 +1535,8 @@ mod tests {
                 Err(AggregationError::NotEnoughSignatures(n, k)) =>
                     assert!(n < params.k || k == params.k),
                 Err(AggregationError::UsizeConversionInvalid) =>
-                    unreachable!()
+                    unreachable!(),
+                Err(AggregationError::General(_e)) => unreachable!(),
             }
         }
 
@@ -1491,6 +1575,7 @@ mod tests {
                         assert!(sigs.len() < params.k as usize)
                     }
                     Err(AggregationError::UsizeConversionInvalid) => unreachable!(),
+                    Err(AggregationError::General(_e)) => unreachable!(),
                 }
             }
 

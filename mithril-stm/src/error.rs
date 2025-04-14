@@ -116,6 +116,10 @@ pub enum AggregationError {
     /// This error happens when we try to convert a u64 to a usize and it does not fit
     #[error("Invalid usize conversion")]
     UsizeConversionInvalid,
+
+    /// General error
+    #[error("General error: {0}")]
+    General(String),
 }
 
 /// Errors which can be output by `CoreVerifier`.
@@ -143,6 +147,7 @@ impl From<AggregationError> for CoreVerifierError {
         match e {
             AggregationError::NotEnoughSignatures(e, _e) => Self::NoQuorum(e, e),
             AggregationError::UsizeConversionInvalid => unreachable!(),
+            AggregationError::General(_e) => unreachable!(),
         }
     }
 }
@@ -189,6 +194,10 @@ pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
     /// `CoreVerifier` check failed
     #[error("Core verification error: {0}")]
     CoreVerificationError(#[source] CoreVerifierError),
+
+    /// Telescope error
+    #[error("Telescope error: {0}")]
+    Telescope(String),
 }
 
 impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmAggregateSignatureError<D> {

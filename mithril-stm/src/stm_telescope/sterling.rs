@@ -8,7 +8,7 @@ use crate::key_reg::{ClosedKeyReg, RegParty};
 use crate::merkle_tree::{BatchPath, MerkleTreeCommitmentBatchCompat};
 use crate::stm::{Index, Stake, StmAggrVerificationKey, StmParameters, StmSig, StmSigRegParty};
 use crate::stm_telescope::utils::{compute_k_adv, compute_k_hon, compute_m};
-use crate::AggregationError;
+use crate::{AggregationError, StmAggregateSignatureError};
 use alba::centralized_telescope::proof::Proof;
 use alba::centralized_telescope::*;
 use alba::utils::types::Element;
@@ -486,6 +486,57 @@ impl<D: Clone + Digest + FixedOutput> SterlingProof<D> {
             .collect::<Vec<VerificationKey>>();
 
         (sigs, vks)
+    }
+
+    /// Convert multi signature to bytes
+    /// # Layout
+    /// * TBD
+    pub fn to_bytes(&self) -> Vec<u8> {
+        /* let mut out = Vec::new();
+        out.extend_from_slice(&u64::try_from(self.signatures.len()).unwrap().to_be_bytes());
+        out.extend_from_slice(
+            &u64::try_from(self.signatures[0].to_bytes().len())
+                .unwrap()
+                .to_be_bytes(),
+        );
+        for sig_reg in &self.signatures {
+            out.extend_from_slice(&sig_reg.to_bytes());
+        }
+        let proof = &self.batch_proof;
+        out.extend_from_slice(&proof.to_bytes());
+
+        out*/
+        todo!("Implement to_bytes for SterlingProof")
+    }
+
+    ///Extract a `SterlingProof` from a byte slice.
+    pub fn from_bytes(bytes: &[u8]) -> Result<SterlingProof<D>, StmAggregateSignatureError<D>> {
+        /* let mut u64_bytes = [0u8; 8];
+
+        u64_bytes.copy_from_slice(&bytes[..8]);
+        let size = usize::try_from(u64::from_be_bytes(u64_bytes))
+            .map_err(|_| StmAggregateSignatureError::SerializationError)?;
+
+        u64_bytes.copy_from_slice(&bytes[8..16]);
+        let sig_reg_size = usize::try_from(u64::from_be_bytes(u64_bytes))
+            .map_err(|_| StmAggregateSignatureError::SerializationError)?;
+
+        let mut sig_reg_list = Vec::with_capacity(size);
+        for i in 0..size {
+            let sig_reg = StmSigRegParty::from_bytes::<D>(
+                &bytes[16 + (sig_reg_size * i)..16 + (sig_reg_size * (i + 1))],
+            )?;
+            sig_reg_list.push(sig_reg);
+        }
+
+        let offset = 16 + sig_reg_size * size;
+        let batch_proof = BatchPath::from_bytes(&bytes[offset..])?;
+
+        Ok(StmAggrSigConcatenationProof {
+            signatures: sig_reg_list,
+            batch_proof,
+        }) */
+        todo!("Implement from_bytes for SterlingProof")
     }
 }
 

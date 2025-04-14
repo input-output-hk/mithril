@@ -106,6 +106,9 @@ fn test_full_protocol() {
         Err(AggregationError::UsizeConversionInvalid) => {
             println!("Invalid usize conversion");
         }
+        Err(AggregationError::General(e)) => {
+            println!("General error: {}", e);
+        }
     }
 }
 
