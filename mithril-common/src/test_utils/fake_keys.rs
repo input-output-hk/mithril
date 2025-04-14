@@ -380,8 +380,7 @@ mod test {
     use super::*;
     use ed25519_dalek::VerifyingKey;
     use kes_summed_ed25519::kes::Sum6KesSig;
-    use mithril_stm::stm::{StmAggrSig, StmAggrVerificationKey, StmSig};
-    use mithril_stm::participant::StmVerificationKeyPoP;
+    use mithril_stm::{StmAggrSig, StmAggrVerificationKey, StmSig, StmVerificationKeyPoP};
     use serde::{de::DeserializeOwned, Serialize};
     use std::any::type_name;
 

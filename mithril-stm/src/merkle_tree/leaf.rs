@@ -1,7 +1,7 @@
 use crate::bls_multi_signature::VerificationKey;
 use crate::error::MerkleTreeError;
 use crate::participant::StmVerificationKey;
-use crate::stm::Stake;
+use crate::stm_legacy::Stake;
 use blake2::Blake2b;
 use digest::consts::U32;
 use serde::{Deserialize, Serialize};

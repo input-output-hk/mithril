@@ -1,7 +1,7 @@
 use crate::bls_multi_signature::{Signature, SigningKey, VerificationKey};
 use crate::eligibility_check::ev_lt_phi;
 use crate::key_reg::ClosedKeyReg;
-use crate::stm::{Stake, StmParameters, StmSig};
+use crate::stm_legacy::{Stake, StmParameters, StmSig};
 use blake2::digest::{Digest, FixedOutput};
 
 /// Wrapper of the MultiSignature Verification key

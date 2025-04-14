@@ -1,7 +1,6 @@
 use mithril_stm::{
-    key_reg::KeyReg,
-    participant::{StmInitializer, StmSigner, StmVerificationKeyPoP},
-    stm::{Stake, StmAggrSig, StmClerk, StmParameters, StmSig},
+    key_reg::KeyReg, Stake, StmAggrSig, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner,
+    StmVerificationKeyPoP,
 };
 
 use blake2::{digest::consts::U32, Blake2b};

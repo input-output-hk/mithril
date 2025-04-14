@@ -3,7 +3,7 @@ use crate::bls_multi_signature::helper::unsafe_helpers::{
 };
 use crate::bls_multi_signature::verification_key::VerificationKey;
 use crate::error::{blst_err_to_mithril, MultiSignatureError};
-use crate::stm::Index;
+use crate::stm_legacy::Index;
 use blake2::Blake2b;
 use blake2::{Blake2b512, Digest};
 use blst::min_sig::{AggregateSignature, PublicKey as BlstVk, Signature as BlstSig};

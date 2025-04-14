@@ -2,8 +2,10 @@ use blake2::digest::{Digest, FixedOutput};
 use blake2::{digest::consts::U32, Blake2b};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use mithril_stm::key_reg::KeyReg;
-use mithril_stm::participant::{StmInitializer, StmSigner, StmVerificationKey};
-use mithril_stm::stm::{CoreVerifier, Stake, StmAggrSig, StmClerk, StmParameters};
+use mithril_stm::{
+    CoreVerifier, Stake, StmAggrSig, StmClerk, StmInitializer, StmParameters, StmSigner,
+    StmVerificationKey,
+};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;

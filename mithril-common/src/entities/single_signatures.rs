@@ -1,4 +1,4 @@
-use mithril_stm::stm::StmSig;
+use mithril_stm::StmSig;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 

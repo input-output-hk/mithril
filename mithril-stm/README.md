@@ -63,9 +63,7 @@ The following is a simple example of the STM implementation:
 
 ```rust
 use mithril_stm::key_reg::KeyReg;
-use mithril_stm::stm::{StmClerk, StmParameters, StmSig};
-use mithril_stm::participant::{StmInitializer, StmSigner};
-use mithril_stm::AggregationError;
+use mithril_stm::{StmClerk, StmParameters, StmSig,StmInitializer, StmSigner,AggregationError};
 
 use blake2::{digest::consts::U32, Blake2b};
 use rayon::prelude::*;

@@ -1,5 +1,5 @@
 //! Key registration functionality.
-use super::stm::Stake;
+use super::stm_legacy::Stake;
 use crate::bls_multi_signature::{VerificationKey, VerificationKeyPoP};
 use crate::error::RegisterError;
 use crate::merkle_tree::{MTLeaf, MerkleTree};
