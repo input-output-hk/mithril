@@ -1,4 +1,0 @@
-services:
-  mithril-signer:
-    environment:
-      - AGGREGATOR_ENDPOINT=${LEADER_AGGREGATOR_ENDPOINT}

@@ -93,7 +93,6 @@ EOT
       "export CARDANO_IMAGE_ID=${var.cardano_image_id}",
       "export CARDANO_IMAGE_REGISTRY=${var.cardano_image_registry}",
       "export MITHRIL_IMAGE_ID=${var.mithril_image_id}",
-      "export AGGREGATOR_CREDENTIALS=${local.mithril_aggregator_credentials}",
       "export SIGNER_HOST=${local.mithril_signers_host[each.key]}",
       "export SIGNER_WWW_PORT=${local.mithril_signers_www_port[each.key]}",
       "export SIGNER_CARDANO_RELAY_ADDR=0.0.0.0",
@@ -108,7 +107,14 @@ EOT
       "export SIGNER_RELAY_SIGNER_REGISTRATION_MODE='${var.mithril_p2p_signer_relay_signer_registration_mode}'",
       "export SIGNER_RELAY_SIGNATURE_REGISTRATION_MODE='${var.mithril_p2p_signer_relay_signature_registration_mode}'",
       "export SIGNER_RELAY_REGISTRATION_REPEATER_DELAY='${var.mithril_p2p_signer_registration_repeat_delay}'",
-      "export LEADER_AGGREGATOR_ENDPOINT='${var.mithril_aggregator_leader_aggregator_endpoint}'",
+      <<-EOT
+if [ "${local.mithril_aggregator_is_follower}" = "true" ]; then
+  export AGGREGATOR_ENDPOINT='${var.mithril_aggregator_leader_aggregator_endpoint}'
+else
+  export AGGREGATOR_ENDPOINT='http://${local.mithril_aggregator_credentials}mithril-aggregator:8080/aggregator'
+fi
+EOT
+      ,
       "export P2P_BOOTSTRAP_PEER='${var.mithril_p2p_network_bootstrap_peer}'",
       "export ENABLE_METRICS_SERVER=true",
       "export METRICS_SERVER_IP=0.0.0.0",
@@ -158,10 +164,6 @@ if [ "${var.mithril_use_p2p_network}" = "true" ]; then
   if [ "${var.mithril_p2p_network_bootstrap_peer}" != "" ]; then
     DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-p2p-bootstrap-override.yaml"
   fi
-fi
-# Support for aggregator follower
-if [ "${local.mithril_aggregator_is_follower}" = "true" ]; then
-  DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-signer-follower-override.yaml"
 fi
 EOT
       ,
