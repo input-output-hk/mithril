@@ -7,7 +7,7 @@ use mithril_common::{
     StdResult,
 };
 use slog::{debug, Logger};
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 use crate::{
     dependency_injection::{DependenciesBuilder, GenesisTools},
@@ -94,7 +94,7 @@ impl ExportGenesisSubCommand {
             self.target_path.display()
         );
         let mut dependencies_builder =
-            DependenciesBuilder::new(root_logger.clone(), config.clone());
+            DependenciesBuilder::new(root_logger.clone(), Arc::new(config.clone()));
         let dependencies = dependencies_builder
             .create_genesis_container()
             .await
@@ -136,7 +136,7 @@ impl ImportGenesisSubCommand {
             self.signed_payload_path.to_string_lossy()
         );
         let mut dependencies_builder =
-            DependenciesBuilder::new(root_logger.clone(), config.clone());
+            DependenciesBuilder::new(root_logger.clone(), Arc::new(config.clone()));
         let dependencies = dependencies_builder
             .create_genesis_container()
             .await
@@ -215,7 +215,7 @@ impl BootstrapGenesisSubCommand {
         debug!(root_logger, "BOOTSTRAP GENESIS command"; "config" => format!("{config:?}"));
         println!("Genesis bootstrap for test only!");
         let mut dependencies_builder =
-            DependenciesBuilder::new(root_logger.clone(), config.clone());
+            DependenciesBuilder::new(root_logger.clone(), Arc::new(config.clone()));
         let dependencies = dependencies_builder
             .create_genesis_container()
             .await

@@ -74,7 +74,7 @@ impl RecomputeCertificatesHashCommand {
         debug!(root_logger, "RECOMPUTE CERTIFICATES HASH command"; "config" => format!("{config:?}"));
         println!("Recomputing all certificate hash",);
         let mut dependencies_builder =
-            DependenciesBuilder::new(root_logger.clone(), config.clone());
+            DependenciesBuilder::new(root_logger.clone(), Arc::new(config.clone()));
         let connection = dependencies_builder
             .get_sqlite_connection()
             .await

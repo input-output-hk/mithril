@@ -886,7 +886,7 @@ pub mod tests {
             .times(1);
 
         let config = Configuration::new_sample(temp_dir!());
-        let mut deps = DependenciesBuilder::new_with_stdout_logger(config.clone())
+        let mut deps = DependenciesBuilder::new_with_stdout_logger(Arc::new(config.clone()))
             .build_dependency_container()
             .await
             .unwrap();

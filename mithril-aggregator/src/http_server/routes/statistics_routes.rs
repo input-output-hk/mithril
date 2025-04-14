@@ -418,7 +418,7 @@ mod tests {
         snapshot_directory: PathBuf,
     ) -> (Arc<DependencyContainer>, UnboundedReceiver<EventMessage>) {
         let config = Configuration::new_sample(snapshot_directory);
-        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(Arc::new(config));
         let rx = builder.get_event_transmitter_receiver().await.unwrap();
         let dependency_manager = Arc::new(builder.build_dependency_container().await.unwrap());
         (dependency_manager, rx)

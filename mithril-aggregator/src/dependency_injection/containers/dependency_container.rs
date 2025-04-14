@@ -307,7 +307,7 @@ impl DependencyContainer {
 #[cfg(test)]
 pub(crate) mod tests {
 
-    use std::path::PathBuf;
+    use std::{path::PathBuf, sync::Arc};
 
     use crate::{dependency_injection::DependenciesBuilder, Configuration, DependencyContainer};
 
@@ -323,7 +323,7 @@ pub(crate) mod tests {
     pub async fn initialize_dependencies(tmp_path: PathBuf) -> DependencyContainer {
         let config = Configuration::new_sample(tmp_path);
 
-        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(Arc::new(config));
 
         builder.build_dependency_container().await.unwrap()
     }

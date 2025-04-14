@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
@@ -61,7 +61,7 @@ impl MigrateCommand {
             self.stores_directory.to_string_lossy()
         );
         let mut dependencies_builder =
-            DependenciesBuilder::new(root_logger.clone(), config.clone());
+            DependenciesBuilder::new(root_logger.clone(), Arc::new(config));
 
         dependencies_builder
             .get_sqlite_connection()
@@ -105,7 +105,7 @@ impl VacuumCommand {
             self.stores_directory.to_string_lossy()
         );
         let mut dependencies_builder =
-            DependenciesBuilder::new(root_logger.clone(), config.clone());
+            DependenciesBuilder::new(root_logger.clone(), Arc::new(config.clone()));
 
         dependencies_builder
             .get_upkeep_service()

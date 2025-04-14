@@ -19,9 +19,9 @@ impl DependenciesBuilder {
         migrations: Vec<SqlMigration>,
     ) -> Result<SqliteConnection> {
         let logger = self.root_logger();
-        let connection_builder = match self.configuration.environment {
+        let connection_builder = match self.configuration.environment() {
             ExecutionEnvironment::Test
-                if self.configuration.data_stores_directory.to_string_lossy() == ":memory:" =>
+                if self.configuration.data_stores_directory().to_string_lossy() == ":memory:" =>
             {
                 ConnectionBuilder::open_memory()
             }
@@ -92,7 +92,7 @@ impl DependenciesBuilder {
     ) -> Result<Arc<SqliteConnectionPool>> {
         let connection_pool_size = self
             .configuration
-            .cardano_transactions_database_connection_pool_size;
+            .cardano_transactions_database_connection_pool_size();
         // little hack to apply migrations to the cardano transaction database
         // todo: add capacity to create a connection pool to the `ConnectionBuilder`
         let _connection = self.build_sqlite_connection(

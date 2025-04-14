@@ -1,6 +1,7 @@
 use std::{
     net::IpAddr,
     path::{Path, PathBuf},
+    sync::Arc,
     time::Duration,
 };
 
@@ -124,7 +125,7 @@ impl ServeCommand {
             .with_context(|| "configuration deserialize error")?;
         debug!(root_logger, "SERVE command"; "config" => format!("{config:?}"));
         let mut dependencies_builder =
-            DependenciesBuilder::new(root_logger.clone(), config.clone());
+            DependenciesBuilder::new(root_logger.clone(), Arc::new(config.clone()));
 
         // start servers
         println!("Starting server...");

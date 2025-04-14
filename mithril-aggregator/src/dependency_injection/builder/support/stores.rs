@@ -139,7 +139,7 @@ impl DependenciesBuilder {
     ) -> Result<Arc<dyn ImmutableFileDigestCacheProvider>> {
         let cache_provider =
             ImmutableFileDigestRepository::new(self.get_sqlite_connection().await?);
-        if self.configuration.reset_digests_cache {
+        if self.configuration.reset_digests_cache() {
             cache_provider
                 .reset()
                 .await

@@ -36,6 +36,7 @@ use mithril_signed_entity_lock::SignedEntityTypeLock;
 
 use super::{DependenciesBuilderError, EpochServiceWrapper, GenesisToolsDependency, Result};
 use crate::{
+    configuration::ConfigurationTrait,
     database::repository::{
         CertificateRepository, EpochSettingsStore, OpenMessageRepository, SignedEntityStorer,
         SignerStore, StakePoolStore,
@@ -49,7 +50,7 @@ use crate::{
         StakeDistributionService, UpkeepService,
     },
     tools::file_archiver::FileArchiver,
-    AggregatorConfig, AggregatorRunner, AggregatorRuntime, Configuration, DependencyContainer,
+    AggregatorConfig, AggregatorRunner, AggregatorRuntime, DependencyContainer,
     ImmutableFileDigestMapper, MetricsService, MithrilSignerRegistrationLeader, MultiSigner,
     SignerRegisterer, SignerRegistrationRoundOpener, SignerRegistrationVerifier,
     SingleSignatureAuthenticator, VerificationKeyStorer,
@@ -74,7 +75,7 @@ const SNAPSHOT_ARTIFACTS_DIR: &str = "cardano-immutable-files-full";
 /// dependency for all further calls.
 pub struct DependenciesBuilder {
     /// Configuration parameters
-    pub configuration: Configuration,
+    pub configuration: Arc<dyn ConfigurationTrait>,
 
     /// Application root logger
     pub root_logger: Logger,
@@ -245,7 +246,7 @@ pub struct DependenciesBuilder {
 
 impl DependenciesBuilder {
     /// Create a new clean dependency builder
-    pub fn new(root_logger: Logger, configuration: Configuration) -> Self {
+    pub fn new(root_logger: Logger, configuration: Arc<dyn ConfigurationTrait>) -> Self {
         Self {
             configuration,
             root_logger,
@@ -381,7 +382,7 @@ impl DependenciesBuilder {
         let dependency_container = Arc::new(self.build_dependency_container().await?);
 
         let config = AggregatorConfig::new(
-            Duration::from_millis(self.configuration.run_interval),
+            Duration::from_millis(self.configuration.run_interval()),
             self.configuration.is_follower_aggregator(),
         );
         let runtime = AggregatorRuntime::new(
@@ -415,10 +416,10 @@ impl DependenciesBuilder {
                     .compute_allowed_signed_entity_types_discriminants()?,
                 cardano_transactions_prover_max_hashes_allowed_by_request: self
                     .configuration
-                    .cardano_transactions_prover_max_hashes_allowed_by_request,
+                    .cardano_transactions_prover_max_hashes_allowed_by_request(),
                 cardano_db_artifacts_directory: self.get_cardano_db_artifacts_dir()?,
                 snapshot_directory: snapshot_dir.join(SNAPSHOT_ARTIFACTS_DIR),
-                cardano_node_version: self.configuration.cardano_node_version.clone(),
+                cardano_node_version: self.configuration.cardano_node_version().clone(),
                 allow_http_serve_directory: self.configuration.allow_http_serve_directory(),
                 origin_tag_white_list: self.configuration.compute_origin_tag_white_list(),
             },
@@ -434,7 +435,8 @@ impl DependenciesBuilder {
         })?;
 
         // Disable store pruning for genesis commands
-        self.configuration.store_retention_limit = None;
+        // TODO: `store_retention_limit` will be set in the specific configuration implementation of the genesis command.
+        // self.configuration.store_retention_limit = None;
 
         let dependencies = GenesisToolsDependency {
             network,
@@ -457,7 +459,7 @@ impl DependenciesBuilder {
 
 #[cfg(test)]
 impl DependenciesBuilder {
-    pub(crate) fn new_with_stdout_logger(configuration: Configuration) -> Self {
+    pub(crate) fn new_with_stdout_logger(configuration: Arc<dyn ConfigurationTrait>) -> Self {
         Self::new(crate::test_tools::TestLogger::stdout(), configuration)
     }
 }

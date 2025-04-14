@@ -8,7 +8,8 @@ use mithril_aggregator::{
     dependency_injection::DependenciesBuilder,
     event_store::EventMessage,
     services::FakeSnapshotter,
-    AggregatorRuntime, Configuration, DependencyContainer, DumbUploader, SignerRegistrationError,
+    AggregatorRuntime, Configuration, ConfigurationTrait, DependencyContainer, DumbUploader,
+    SignerRegistrationError,
 };
 use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
 use mithril_common::{
@@ -157,7 +158,7 @@ impl RuntimeTester {
                 Some(Epoch(0)),
             )]));
         let block_scanner = Arc::new(DumbBlockScanner::new());
-        let mut deps_builder = DependenciesBuilder::new(logger.clone(), configuration);
+        let mut deps_builder = DependenciesBuilder::new(logger.clone(), Arc::new(configuration));
         deps_builder.snapshot_uploader = Some(snapshot_uploader.clone());
         deps_builder.chain_observer = Some(chain_observer.clone());
         deps_builder.immutable_file_observer = Some(immutable_file_observer.clone());

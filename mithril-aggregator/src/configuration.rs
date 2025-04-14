@@ -286,6 +286,58 @@ pub trait ConfigurationTrait {
     fn custom_origin_tag_white_list(&self) -> Option<String> {
         panic!("custom_origin_tag_white_list is not implemented.");
     }
+
+    /// Get the server URL.
+    fn get_server_url(&self) -> StdResult<SanitizedUrlWithTrailingSlash> {
+        panic!("get_server_url is not implemented.");
+    }
+
+    /// Get a representation of the Cardano network.
+    fn get_network(&self) -> StdResult<CardanoNetwork> {
+        panic!("get_network is not implemented.");
+    }
+
+    /// Get the directory of the SQLite stores.
+    fn get_sqlite_dir(&self) -> PathBuf {
+        panic!("get_sqlite_dir is not implemented.");
+    }
+
+    /// Get the snapshots directory.
+    fn get_snapshot_dir(&self) -> StdResult<PathBuf> {
+        panic!("get_snapshot_dir is not implemented.");
+    }
+
+    /// Get the safe epoch retention limit.
+    fn safe_epoch_retention_limit(&self) -> Option<u64> {
+        panic!("safe_epoch_retention_limit is not implemented.");
+    }
+
+    /// Compute the list of signed entity discriminants that are allowed to be processed.
+    fn compute_allowed_signed_entity_types_discriminants(
+        &self,
+    ) -> StdResult<BTreeSet<SignedEntityTypeDiscriminants>> {
+        panic!("compute_allowed_signed_entity_types_discriminants is not implemented.");
+    }
+
+    /// Check if the HTTP server can serve static directories.
+    fn allow_http_serve_directory(&self) -> bool {
+        panic!("allow_http_serve_directory is not implemented.");
+    }
+
+    /// Infer the [AggregatorEpochSettings] from the configuration.
+    fn get_epoch_settings_configuration(&self) -> AggregatorEpochSettings {
+        panic!("get_epoch_settings_configuration is not implemented.");
+    }
+
+    /// Check if the aggregator is running in follower mode.
+    fn is_follower_aggregator(&self) -> bool {
+        panic!("is_follower_aggregator is not implemented.");
+    }
+
+    /// White list for origin client request.
+    fn compute_origin_tag_white_list(&self) -> HashSet<String> {
+        panic!("compute_origin_tag_white_list is not implemented.");
+    }
 }
 
 /// Aggregator configuration
@@ -583,25 +635,190 @@ impl Configuration {
             self.server_ip, self.server_port
         ))
     }
+}
 
-    /// Get the server URL from the configuration.
-    ///
-    /// Will return the public server URL if it is set, otherwise the local server URL.
-    pub fn get_server_url(&self) -> StdResult<SanitizedUrlWithTrailingSlash> {
+impl ConfigurationTrait for Configuration {
+    fn environment(&self) -> ExecutionEnvironment {
+        self.environment.clone()
+    }
+
+    fn cardano_cli_path(&self) -> PathBuf {
+        self.cardano_cli_path.clone()
+    }
+
+    fn cardano_node_socket_path(&self) -> PathBuf {
+        self.cardano_node_socket_path.clone()
+    }
+
+    fn cardano_node_version(&self) -> String {
+        self.cardano_node_version.clone()
+    }
+
+    fn network_magic(&self) -> Option<u64> {
+        self.network_magic
+    }
+
+    fn network(&self) -> String {
+        self.network.clone()
+    }
+
+    fn chain_observer_type(&self) -> ChainObserverType {
+        self.chain_observer_type.clone()
+    }
+
+    fn protocol_parameters(&self) -> ProtocolParameters {
+        self.protocol_parameters.clone()
+    }
+
+    fn snapshot_uploader_type(&self) -> SnapshotUploaderType {
+        self.snapshot_uploader_type
+    }
+
+    fn snapshot_bucket_name(&self) -> Option<String> {
+        self.snapshot_bucket_name.clone()
+    }
+
+    fn snapshot_use_cdn_domain(&self) -> bool {
+        self.snapshot_use_cdn_domain
+    }
+
+    fn server_ip(&self) -> String {
+        self.server_ip.clone()
+    }
+
+    fn server_port(&self) -> u16 {
+        self.server_port
+    }
+
+    fn public_server_url(&self) -> Option<String> {
+        self.public_server_url.clone()
+    }
+
+    fn run_interval(&self) -> u64 {
+        self.run_interval
+    }
+
+    fn db_directory(&self) -> PathBuf {
+        self.db_directory.clone()
+    }
+
+    fn snapshot_directory(&self) -> PathBuf {
+        self.snapshot_directory.clone()
+    }
+
+    fn data_stores_directory(&self) -> PathBuf {
+        self.data_stores_directory.clone()
+    }
+
+    fn genesis_verification_key(&self) -> HexEncodedGenesisVerificationKey {
+        self.genesis_verification_key.clone()
+    }
+
+    fn reset_digests_cache(&self) -> bool {
+        self.reset_digests_cache
+    }
+
+    fn disable_digests_cache(&self) -> bool {
+        self.disable_digests_cache
+    }
+
+    fn store_retention_limit(&self) -> Option<usize> {
+        self.store_retention_limit
+    }
+
+    fn era_reader_adapter_type(&self) -> EraReaderAdapterType {
+        self.era_reader_adapter_type.clone()
+    }
+
+    fn era_reader_adapter_params(&self) -> Option<String> {
+        self.era_reader_adapter_params.clone()
+    }
+
+    fn ancillary_files_signer_config(&self) -> AncillaryFilesSignerConfig {
+        self.ancillary_files_signer_config.clone()
+    }
+
+    fn signed_entity_types(&self) -> Option<String> {
+        self.signed_entity_types.clone()
+    }
+
+    fn snapshot_compression_algorithm(&self) -> CompressionAlgorithm {
+        self.snapshot_compression_algorithm
+    }
+
+    fn zstandard_parameters(&self) -> Option<ZstandardCompressionParameters> {
+        self.zstandard_parameters
+    }
+
+    fn cexplorer_pools_url(&self) -> Option<String> {
+        self.cexplorer_pools_url.clone()
+    }
+
+    fn signer_importer_run_interval(&self) -> u64 {
+        self.signer_importer_run_interval
+    }
+
+    fn allow_unparsable_block(&self) -> bool {
+        self.allow_unparsable_block
+    }
+
+    fn cardano_transactions_prover_cache_pool_size(&self) -> usize {
+        self.cardano_transactions_prover_cache_pool_size
+    }
+
+    fn cardano_transactions_database_connection_pool_size(&self) -> usize {
+        self.cardano_transactions_database_connection_pool_size
+    }
+
+    fn cardano_transactions_signing_config(&self) -> CardanoTransactionsSigningConfig {
+        self.cardano_transactions_signing_config.clone()
+    }
+
+    fn cardano_transactions_prover_max_hashes_allowed_by_request(&self) -> usize {
+        self.cardano_transactions_prover_max_hashes_allowed_by_request
+    }
+
+    fn cardano_transactions_block_streamer_max_roll_forwards_per_poll(&self) -> usize {
+        self.cardano_transactions_block_streamer_max_roll_forwards_per_poll
+    }
+
+    fn enable_metrics_server(&self) -> bool {
+        self.enable_metrics_server
+    }
+
+    fn metrics_server_ip(&self) -> String {
+        self.metrics_server_ip.clone()
+    }
+
+    fn metrics_server_port(&self) -> u16 {
+        self.metrics_server_port
+    }
+
+    fn persist_usage_report_interval_in_seconds(&self) -> u64 {
+        self.persist_usage_report_interval_in_seconds
+    }
+
+    fn leader_aggregator_endpoint(&self) -> Option<String> {
+        self.leader_aggregator_endpoint.clone()
+    }
+
+    fn custom_origin_tag_white_list(&self) -> Option<String> {
+        self.custom_origin_tag_white_list.clone()
+    }
+
+    fn get_server_url(&self) -> StdResult<SanitizedUrlWithTrailingSlash> {
         match &self.public_server_url {
             Some(url) => SanitizedUrlWithTrailingSlash::parse(url),
             None => self.get_local_server_url(),
         }
     }
 
-    /// Check configuration and return a representation of the Cardano network.
-    pub fn get_network(&self) -> StdResult<CardanoNetwork> {
+    fn get_network(&self) -> StdResult<CardanoNetwork> {
         CardanoNetwork::from_code(self.network.clone(), self.network_magic)
             .map_err(|e| anyhow!(ConfigError::Message(e.to_string())))
     }
 
-    /// Return the directory of the SQLite stores. If the directory does not exist, it is created.
-    pub fn get_sqlite_dir(&self) -> PathBuf {
+    fn get_sqlite_dir(&self) -> PathBuf {
         let store_dir = &self.data_stores_directory;
 
         if !store_dir.exists() {
@@ -611,8 +828,7 @@ impl Configuration {
         self.data_stores_directory.clone()
     }
 
-    /// Return the snapshots directory.
-    pub fn get_snapshot_dir(&self) -> StdResult<PathBuf> {
+    fn get_snapshot_dir(&self) -> StdResult<PathBuf> {
         if !&self.snapshot_directory.exists() {
             std::fs::create_dir_all(&self.snapshot_directory)?;
         }
@@ -620,18 +836,12 @@ impl Configuration {
         Ok(self.snapshot_directory.clone())
     }
 
-    /// Same as the [store retention limit][Configuration::store_retention_limit] but will never
-    /// yield a value lower than 3.
-    ///
-    /// This is in order to avoid pruning data that will be used in future epochs (like the protocol
-    /// parameters).
-    pub fn safe_epoch_retention_limit(&self) -> Option<u64> {
+    fn safe_epoch_retention_limit(&self) -> Option<u64> {
         self.store_retention_limit
             .map(|limit| if limit > 3 { limit as u64 } else { 3 })
     }
 
-    /// Compute the list of signed entity discriminants that are allowed to be processed based on this configuration.
-    pub fn compute_allowed_signed_entity_types_discriminants(
+    fn compute_allowed_signed_entity_types_discriminants(
         &self,
     ) -> StdResult<BTreeSet<SignedEntityTypeDiscriminants>> {
         let allowed_discriminants = self
@@ -649,30 +859,25 @@ impl Configuration {
         Ok(allowed_discriminants)
     }
 
-    /// Check if the HTTP server can serve static directories.
-    // TODO: This function should be completed when the configuration of the uploaders for the Cardano database is done.
-    pub fn allow_http_serve_directory(&self) -> bool {
+    fn allow_http_serve_directory(&self) -> bool {
         match self.snapshot_uploader_type {
             SnapshotUploaderType::Local => true,
             SnapshotUploaderType::Gcp => false,
         }
     }
 
-    /// Infer the [AggregatorEpochSettings] from the configuration.
-    pub fn get_epoch_settings_configuration(&mut self) -> AggregatorEpochSettings {
+    fn get_epoch_settings_configuration(&self) -> AggregatorEpochSettings {
         AggregatorEpochSettings {
             protocol_parameters: self.protocol_parameters.clone(),
             cardano_transactions_signing_config: self.cardano_transactions_signing_config.clone(),
         }
     }
 
-    /// Check if the aggregator is running in follower mode.
-    pub fn is_follower_aggregator(&self) -> bool {
+    fn is_follower_aggregator(&self) -> bool {
         self.leader_aggregator_endpoint.is_some()
     }
 
-    /// White list for origin client request.
-    pub fn compute_origin_tag_white_list(&self) -> HashSet<String> {
+    fn compute_origin_tag_white_list(&self) -> HashSet<String> {
         let mut white_list = HashSet::from([
             "EXPLORER".to_string(),
             "BENCHMARK".to_string(),
