@@ -3,10 +3,10 @@
 #![allow(dead_code)]
 #![allow(clippy::extra_unused_type_parameters)]
 
+use crate::bls_multi_signature::{Signature, VerificationKey};
 use crate::key_reg::{ClosedKeyReg, RegParty};
 use crate::merkle_tree::{BatchPath, MerkleTreeCommitmentBatchCompat};
-use crate::multi_sig::{Signature, VerificationKey};
-use crate::stm::{Index, Stake, StmParameters, StmSig, StmSigRegParty};
+use crate::stm::{Index, Stake, StmAggrVerificationKey, StmParameters, StmSig, StmSigRegParty};
 use crate::stm_telescope::utils::{compute_k_adv, compute_k_hon, compute_m};
 use crate::AggregationError;
 use alba::centralized_telescope::proof::Proof;
@@ -14,23 +14,37 @@ use alba::centralized_telescope::*;
 use alba::utils::types::Element;
 use blake2::digest::{Digest, FixedOutput, Update, VariableOutput};
 use blake2::Blake2bVar;
+use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 const DATA_LENGTH: usize = 48;
-type Data = [u8; DATA_LENGTH];
-type P = Proof<Data, Sha256>;
+pub type Data = [u8; DATA_LENGTH];
+pub type P = Proof<Data, Sha256>;
 
 /// Parameters to initialize STM and Telescope
-struct SterlingInitializer {
-    adv_percentage: f64,
-    hon_percentage: f64,
-    f: f64,
-    soundness_param: f64,
-    completeness_param: f64,
+pub struct SterlingInitializer {
+    pub adv_percentage: f64,
+    pub hon_percentage: f64,
+    pub f: f64,
+    pub soundness_param: f64,
+    pub completeness_param: f64,
 }
+
+impl Default for SterlingInitializer {
+    fn default() -> Self {
+        Self {
+            adv_percentage: 0.05,
+            hon_percentage: 0.95,
+            f: 0.2,
+            soundness_param: 128.0,
+            completeness_param: 32.0,
+        }
+    }
+}
+
 impl SterlingInitializer {
-    fn generate_parameters(&self, constant: f64) -> (StmParameters, Telescope) {
+    pub fn generate_parameters(&self, constant: f64) -> (StmParameters, Telescope) {
         let m = compute_m(self.adv_percentage, self.soundness_param, self.f, constant);
         let khon = compute_k_hon(m, self.hon_percentage, self.f, self.completeness_param);
         let kadv = compute_k_adv(self.soundness_param, m, self.adv_percentage, self.f);
@@ -46,7 +60,7 @@ impl SterlingInitializer {
         (stm_parameters, telescope)
     }
 
-    fn stm_from_telescope(&self, telescope: Telescope, constant: f64) -> StmParameters {
+    pub fn stm_from_telescope(&self, telescope: Telescope, constant: f64) -> StmParameters {
         let m = compute_m(self.adv_percentage, self.soundness_param, self.f, constant);
         StmParameters {
             m: m as u64,
@@ -55,7 +69,7 @@ impl SterlingInitializer {
         }
     }
 
-    fn telescope_from_stm(&self, stm: StmParameters) -> Telescope {
+    pub fn telescope_from_stm(&self, stm: StmParameters) -> Telescope {
         let kadv = compute_k_adv(
             self.soundness_param,
             stm.m as f64,
@@ -68,7 +82,7 @@ impl SterlingInitializer {
 
 /// Aggregator
 #[derive(Debug, Clone)]
-struct SterlingClerk<D: Clone + Digest> {
+pub struct SterlingClerk<D: Clone + Digest> {
     /// Closed key registration
     pub closed_reg: ClosedKeyReg<D>,
     /// Mithril STM parameters
@@ -91,15 +105,27 @@ impl<D: Digest + Clone + FixedOutput> SterlingClerk<D> {
     }
 
     /// Create Sterling Proof
-    pub(crate) fn aggregate<E>(&self, sigs: &[StmSig], msg: &[u8]) -> SterlingProof<D>
+    pub(crate) fn aggregate<E>(
+        &self,
+        sigs: &[StmSig],
+        msg: &[u8],
+    ) -> Result<SterlingProof<D>, AggregationError>
     where
         E: AsRef<[u8]> + Clone,
     {
-        let (unique_signatures, index_count) = self.collect_prover_signatures(sigs, msg);
+        let (unique_signatures, index_count) = self.collect_prover_signatures(sigs, msg)?;
         let (clerk_handler, prover_set) =
             SterlingClerkHandler::new(&unique_signatures, index_count as usize);
 
-        let telescope_proof: P = self.telescope.prove(&prover_set).unwrap();
+        let telescope_proof: P =
+            self.telescope
+                .prove(&prover_set)
+                .map(Ok)
+                .unwrap_or_else(|| {
+                    Err(AggregationError::General(
+                        "Telescope could prove the set".to_string(),
+                    ))
+                })?;
 
         let (proof_index_sequence, proof_signatures) =
             clerk_handler.decode_proof(&telescope_proof.element_sequence);
@@ -108,17 +134,21 @@ impl<D: Digest + Clone + FixedOutput> SterlingClerk<D> {
 
         let batch_proof = self.closed_reg.merkle_tree.get_batched_path(mt_index_list);
 
-        SterlingProof {
+        Ok(SterlingProof {
             signatures: proof_signatures.values().cloned().collect(),
             batch_proof,
             retry_counter: telescope_proof.retry_counter,
             search_counter: telescope_proof.search_counter,
             index_sequence: proof_index_sequence,
-        }
+        })
     }
 
     /// Collect unique signatures
-    fn collect_prover_signatures(&self, sigs: &[StmSig], msg: &[u8]) -> (Vec<StmSigRegParty>, u64) {
+    fn collect_prover_signatures(
+        &self,
+        sigs: &[StmSig],
+        msg: &[u8],
+    ) -> Result<(Vec<StmSigRegParty>, u64), AggregationError> {
         // Collect signatures and their reg party
         let sig_reg_list = sigs
             .iter()
@@ -138,7 +168,6 @@ impl<D: Digest + Clone + FixedOutput> SterlingClerk<D> {
             &msgp,
             &sig_reg_list,
         )
-        .unwrap()
     }
 
     /// Compute the `SterlingAVK` related to the used registration.
@@ -320,11 +349,16 @@ impl SterlingClerkHandler {
 }
 
 /// STM-Telescope proof.
-struct SterlingProof<D: Clone + Digest + FixedOutput> {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound(
+    serialize = "BatchPath<D>: Serialize",
+    deserialize = "BatchPath<D>: Deserialize<'de>"
+))]
+pub struct SterlingProof<D: Clone + Digest + FixedOutput> {
     /// StmSignatures of alba proof
-    signatures: Vec<StmSigRegParty>,
+    pub(crate) signatures: Vec<StmSigRegParty>,
     /// The list of unique merkle tree nodes that covers path for all signatures.
-    batch_proof: BatchPath<D>,
+    pub(crate) batch_proof: BatchPath<D>,
     /// Numbers of retries done to find the proof
     retry_counter: u64,
     /// Index of the searched subtree to find the proof
@@ -400,13 +434,13 @@ impl<D: Clone + Digest + FixedOutput> SterlingProof<D> {
     }
 
     /// Verify
-    fn verify(
+    pub fn verify(
         &self,
         telescope: &Telescope,
         msg: &[u8],
         avk: &SterlingAVK<D>,
         stm_parameters: &StmParameters,
-    ) {
+    ) -> Result<(), AggregationError> {
         let msgp = avk.mt_commitment.concat_with_msg(msg);
 
         if !self.verify_indices(&msgp, avk, stm_parameters) {
@@ -430,8 +464,13 @@ impl<D: Clone + Digest + FixedOutput> SterlingProof<D> {
             .collect();
 
         let proof: P = Proof::from(self.retry_counter, self.search_counter, element_sequence);
+        if !telescope.verify(&proof) {
+            return Err(AggregationError::General(
+                "Telescope proof verification failed".to_string(),
+            ));
+        }
 
-        println!("{}", telescope.verify(&proof));
+        Ok(())
     }
 
     /// Collect and return `Vec<Signature>, Vec<VerificationKey>` which will be used
@@ -451,7 +490,7 @@ impl<D: Clone + Digest + FixedOutput> SterlingProof<D> {
 }
 
 /// Sterling aggregate key, containing the merkle tree commitment and the total stake of the system.
-struct SterlingAVK<D: Clone + Digest + FixedOutput> {
+pub struct SterlingAVK<D: Clone + Digest + FixedOutput> {
     mt_commitment: MerkleTreeCommitmentBatchCompat<D>,
     total_stake: Stake,
 }
@@ -460,6 +499,15 @@ impl<D: Clone + Digest + FixedOutput> From<&ClosedKeyReg<D>> for SterlingAVK<D> 
         Self {
             mt_commitment: reg.merkle_tree.to_commitment_batch_compat(),
             total_stake: reg.total_stake,
+        }
+    }
+}
+
+impl<D: Clone + Digest + FixedOutput> From<StmAggrVerificationKey<D>> for SterlingAVK<D> {
+    fn from(stm_aggr_vk: StmAggrVerificationKey<D>) -> Self {
+        Self {
+            mt_commitment: stm_aggr_vk.mt_commitment,
+            total_stake: stm_aggr_vk.total_stake,
         }
     }
 }
@@ -551,8 +599,10 @@ mod tests {
             .collect::<Vec<StmSig>>();
 
         let clerk = SterlingClerk::new(&stm_parameters, &closed_reg, &telescope);
-        let sterling_proof = clerk.aggregate::<Data>(&sigs, msg);
+        let sterling_proof = clerk.aggregate::<Data>(&sigs, msg).unwrap();
 
-        sterling_proof.verify(&telescope, msg, &clerk.compute_avk(), &stm_parameters);
+        sterling_proof
+            .verify(&telescope, msg, &clerk.compute_avk(), &stm_parameters)
+            .unwrap();
     }
 }
