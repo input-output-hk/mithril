@@ -34,7 +34,10 @@ use mithril_persistence::{
 };
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 
-use super::{DependenciesBuilderError, EpochServiceWrapper, GenesisToolsDependency, Result};
+use super::{
+    DatabaseCommandDependencyContainer, DependenciesBuilderError, EpochServiceWrapper,
+    GenesisToolsDependency, Result,
+};
 use crate::{
     configuration::ConfigurationTrait,
     database::repository::{
@@ -447,6 +450,30 @@ impl DependenciesBuilder {
             epoch_settings_storer: self.get_epoch_settings_store().await?,
             verification_key_store: self.get_verification_key_store().await?,
         };
+
+        Ok(dependencies)
+    }
+
+    /// Create dependencies for database command
+    pub async fn create_database_command_container(
+        &mut self,
+    ) -> Result<DatabaseCommandDependencyContainer> {
+        let main_db_connection = self
+            .get_sqlite_connection()
+            .await
+            .with_context(|| "Dependencies Builder can not get sqlite connection")?;
+
+        self.get_event_store_sqlite_connection()
+            .await
+            .with_context(|| "Dependencies Builder can not get event store sqlite connection")?;
+
+        self.get_sqlite_connection_cardano_transaction_pool()
+            .await
+            .with_context(|| {
+                "Dependencies Builder can not get cardano transaction pool sqlite connection"
+            })?;
+
+        let dependencies = DatabaseCommandDependencyContainer { main_db_connection };
 
         Ok(dependencies)
     }

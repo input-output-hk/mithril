@@ -47,7 +47,7 @@ impl MainCommand {
             Self::Era(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::Serve(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::Tools(cmd) => cmd.execute(root_logger, config_builder).await,
-            Self::Database(cmd) => cmd.execute(root_logger).await,
+            Self::Database(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::GenerateDoc(cmd) => {
                 let config_infos = vec![Configuration::extract(), DefaultConfiguration::extract()];
                 cmd.execute_with_configurations(&mut MainOpts::command(), &config_infos)
