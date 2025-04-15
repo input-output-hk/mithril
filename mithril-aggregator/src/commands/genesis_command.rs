@@ -9,7 +9,10 @@ use mithril_common::{
 use slog::{debug, Logger};
 use std::path::PathBuf;
 
-use crate::{dependency_injection::DependenciesBuilder, tools::GenesisTools, Configuration};
+use crate::{
+    dependency_injection::{DependenciesBuilder, GenesisTools},
+    Configuration,
+};
 
 /// Genesis tools
 #[derive(Parser, Debug, Clone)]

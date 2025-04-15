@@ -20,6 +20,7 @@ use mithril_common::{
 use crate::database::repository::CertificateRepository;
 use crate::{EpochSettingsStorer, VerificationKeyStorer};
 
+/// Dependencies for [GenesisTools]
 pub struct GenesisToolsDependency {
     /// Cardano network
     pub network: CardanoNetwork,
@@ -43,6 +44,7 @@ pub struct GenesisToolsDependency {
     pub certificate_repository: Arc<CertificateRepository>,
 }
 
+/// Tools to manage the genesis certificate
 pub struct GenesisTools {
     network: CardanoNetwork,
     time_point: TimePoint,
@@ -54,6 +56,7 @@ pub struct GenesisTools {
 }
 
 impl GenesisTools {
+    /// Create a new instance of [GenesisTools]
     pub fn new(
         network: CardanoNetwork,
         time_point: TimePoint,
@@ -74,6 +77,7 @@ impl GenesisTools {
         }
     }
 
+    /// Create a new instance of [GenesisTools] from dependencies
     pub async fn from_dependencies(dependencies: GenesisToolsDependency) -> StdResult<Self> {
         let ticker_service = dependencies.ticker_service.clone();
         let time_point = ticker_service.get_current_time_point().await?;

@@ -34,7 +34,7 @@ use mithril_persistence::{
 };
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 
-use super::{DependenciesBuilderError, EpochServiceWrapper, Result};
+use super::{DependenciesBuilderError, EpochServiceWrapper, GenesisToolsDependency, Result};
 use crate::{
     database::repository::{
         CertificateRepository, EpochSettingsStore, OpenMessageRepository, SignedEntityStorer,
@@ -48,7 +48,7 @@ use crate::{
         ProverService, SignedEntityService, SignerSynchronizer, Snapshotter,
         StakeDistributionService, UpkeepService,
     },
-    tools::{file_archiver::FileArchiver, GenesisToolsDependency},
+    tools::file_archiver::FileArchiver,
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, Configuration, DependencyContainer,
     ImmutableFileDigestMapper, MetricsService, MithrilSignerRegistrationLeader, MultiSigner,
     SignerRegisterer, SignerRegistrationRoundOpener, SignerRegistrationVerifier,
