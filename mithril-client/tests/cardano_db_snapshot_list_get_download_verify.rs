@@ -8,15 +8,22 @@ use mithril_client::{
     feedback::SlogFeedbackReceiver,
     ClientBuilder, MessageBuilder,
 };
+use mithril_common::crypto_helper::ManifestSigner;
 use mithril_common::digesters::{CardanoImmutableDigester, DummyCardanoDbBuilder};
 
-use crate::extensions::fake_aggregator::{FakeAggregator, FakeCertificateVerifier};
+use crate::extensions::fake_aggregator::{
+    CardanoDatabaseSnapshotV2Fixture, FakeAggregator, FakeCertificateVerifier,
+};
 
 #[tokio::test]
 async fn cardano_db_snapshot_list_get_download_verify() {
     let work_dir = extensions::get_test_dir("cardano_db_snapshot_list_get_download_verify");
     let genesis_verification_key =
         mithril_common::test_utils::fake_keys::genesis_verification_key()[0];
+    let (ancillary_manifest_signing_key, ancillary_manifest_signer_verification_key) = {
+        let signer = ManifestSigner::create_deterministic_signer();
+        (signer.secret_key(), signer.verification_key())
+    };
     let cardano_db_snapshot_hash = "cardano_db_snapshot_hash";
     let certificate_hash = "certificate_hash";
     let cardano_db = DummyCardanoDbBuilder::new("cardano_db_snapshot_list_get_download_verify_db")
@@ -31,16 +38,24 @@ async fn cardano_db_snapshot_list_get_download_verify() {
     let fake_aggregator = FakeAggregator::new();
     let test_http_server = fake_aggregator
         .spawn_with_cardano_db_snapshot(
-            cardano_db_snapshot_hash,
-            certificate_hash,
+            CardanoDatabaseSnapshotV2Fixture {
+                snapshot_hash: cardano_db_snapshot_hash,
+                certificate_hash,
+                range,
+                ancillary_manifest_signing_key,
+            },
             &cardano_db,
             &work_dir,
             digester,
-            range,
         )
         .await;
     let client = ClientBuilder::aggregator(&test_http_server.url(), genesis_verification_key)
         .with_certificate_verifier(FakeCertificateVerifier::build_that_validate_any_certificate())
+        .set_ancillary_verification_key(
+            ancillary_manifest_signer_verification_key
+                .to_json_hex()
+                .unwrap(),
+        )
         .add_feedback_receiver(Arc::new(SlogFeedbackReceiver::new(
             extensions::test_logger(),
         )))

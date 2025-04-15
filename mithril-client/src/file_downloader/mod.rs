@@ -13,5 +13,5 @@ pub use http::HttpFileDownloader;
 pub use interface::MockFileDownloader;
 pub use interface::{DownloadEvent, FileDownloader, FileDownloaderUri};
 #[cfg(test)]
-pub use mock_builder::MockFileDownloaderBuilder;
+pub use mock_builder::{FakeAncillaryFileBuilder, MockFileDownloaderBuilder};
 pub use retry::{FileDownloadRetryPolicy, RetryDownloader};

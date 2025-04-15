@@ -6,11 +6,11 @@
 //!
 //! It handles the different types that can be queried to a Mithril aggregator:
 //!
-//! - [Snapshot][snapshot_client] list, get, download archive and record statistics.
+//! - [Cardano Database v1 (aka Snapshot)][snapshot_client]: list, get, download archive and record statistics.
 //! - [Cardano Database v2][cardano_database_client] list, get, download archive and record statistics.
-//! - [Mithril stake distribution][mithril_stake_distribution_client] list and get.
 //! - [Cardano transactions][cardano_transaction_client] list & get snapshot, get proofs.
 //! - [Cardano stake distribution][cardano_stake_distribution_client] list, get and get by epoch.
+//! - [Mithril stake distribution][mithril_stake_distribution_client] list and get.
 //! - [Certificates][certificate_client] list, get, and chain validation.
 //!
 //! The [Client] aggregates the queries of all of those types.
@@ -144,13 +144,31 @@ pub use type_alias::*;
 
 #[cfg(test)]
 pub(crate) mod test_utils {
-    use slog::Drain;
+    use std::fs::File;
+    use std::io;
     use std::sync::Arc;
 
-    pub fn test_logger() -> slog::Logger {
-        let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
-        let drain = slog_term::CompactFormat::new(decorator).build().fuse();
-        let drain = slog_async::Async::new(drain).build().fuse();
-        slog::Logger::root(Arc::new(drain), slog::o!())
+    use slog::{Drain, Logger};
+    use slog_async::Async;
+    use slog_term::{CompactFormat, PlainDecorator};
+
+    pub struct TestLogger;
+
+    #[allow(unused)]
+    impl TestLogger {
+        fn from_writer<W: io::Write + Send + 'static>(writer: W) -> Logger {
+            let decorator = PlainDecorator::new(writer);
+            let drain = CompactFormat::new(decorator).build().fuse();
+            let drain = Async::new(drain).build().fuse();
+            Logger::root(Arc::new(drain), slog::o!())
+        }
+
+        pub fn stdout() -> Logger {
+            Self::from_writer(slog_term::TestStdoutWriter)
+        }
+
+        pub fn file(filepath: &std::path::Path) -> Logger {
+            Self::from_writer(File::create(filepath).unwrap())
+        }
     }
 }

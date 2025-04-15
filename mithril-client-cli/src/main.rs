@@ -56,7 +56,7 @@ pub struct Args {
     #[clap(long, env = "RUN_MODE", default_value = "dev")]
     run_mode: String,
 
-    /// Verbosity level (-v=warning, -vv=info, -vvv=debug).
+    /// Verbosity level (-v=warning, -vv=info, -vvv=debug, -vvvv=trace).
     #[clap(short, long, action = clap::ArgAction::Count)]
     #[example = "Parsed from the number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace`"]
     verbose: u8,

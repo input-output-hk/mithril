@@ -332,7 +332,7 @@ mod tests {
         use crate::aggregator_client::MockAggregatorClient;
         use crate::certificate_client::verify_cache::MemoryCertificateVerifierCache;
         use crate::certificate_client::MockCertificateVerifierCache;
-        use crate::test_utils;
+        use crate::test_utils::TestLogger;
 
         use super::*;
 
@@ -350,7 +350,7 @@ mod tests {
                 &genesis_verification_key,
                 FeedbackSender::new(&[]),
                 Some(cache),
-                test_utils::test_logger(),
+                TestLogger::stdout(),
             )
             .unwrap()
         }

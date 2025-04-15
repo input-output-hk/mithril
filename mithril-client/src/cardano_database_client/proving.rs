@@ -183,7 +183,7 @@ mod tests {
 
     use crate::{
         cardano_database_client::CardanoDatabaseClientDependencyInjector,
-        file_downloader::MockFileDownloaderBuilder, test_utils,
+        file_downloader::MockFileDownloaderBuilder, test_utils::TestLogger,
     };
 
     use super::*;
@@ -231,7 +231,7 @@ mod tests {
             let immutable_digester = CardanoImmutableDigester::new(
                 certificate.metadata.network.to_string(),
                 None,
-                test_utils::test_logger(),
+                TestLogger::stdout(),
             );
             let computed_digests = immutable_digester
                 .compute_digests_for_range(database_dir, immutable_file_range)
@@ -358,7 +358,7 @@ mod tests {
                         .with_times(2)
                         .build(),
                 ),
-                test_utils::test_logger(),
+                TestLogger::stdout(),
             );
 
             artifact_prover
@@ -386,7 +386,7 @@ mod tests {
             let target_dir = Path::new(".");
             let artifact_prover = InternalArtifactProver::new(
                 Arc::new(MockFileDownloader::new()),
-                test_utils::test_logger(),
+                TestLogger::stdout(),
             );
 
             artifact_prover
@@ -414,7 +414,7 @@ mod tests {
                         .with_success()
                         .build(),
                 ),
-                test_utils::test_logger(),
+                TestLogger::stdout(),
             );
 
             artifact_prover
@@ -448,7 +448,7 @@ mod tests {
                         .with_success()
                         .build(),
                 ),
-                test_utils::test_logger(),
+                TestLogger::stdout(),
             );
 
             artifact_prover
@@ -482,7 +482,7 @@ mod tests {
                         .with_success()
                         .build(),
                 ),
-                test_utils::test_logger(),
+                TestLogger::stdout(),
             );
 
             artifact_prover
@@ -538,7 +538,7 @@ mod tests {
                         .with_success()
                         .build(),
                 ),
-                test_utils::test_logger(),
+                TestLogger::stdout(),
             );
             artifact_prover
                 .read_digest_file(&target_dir)
@@ -561,7 +561,7 @@ mod tests {
                         .with_success()
                         .build(),
                 ),
-                test_utils::test_logger(),
+                TestLogger::stdout(),
             );
             artifact_prover
                 .read_digest_file(&target_dir)
@@ -583,7 +583,7 @@ mod tests {
                         .with_success()
                         .build(),
                 ),
-                test_utils::test_logger(),
+                TestLogger::stdout(),
             );
             artifact_prover
                 .read_digest_file(&target_dir)
@@ -615,7 +615,7 @@ mod tests {
                         .with_success()
                         .build(),
                 ),
-                test_utils::test_logger(),
+                TestLogger::stdout(),
             );
 
             let digests = artifact_prover.read_digest_file(&target_dir).unwrap();

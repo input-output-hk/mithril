@@ -76,7 +76,7 @@ pub(crate) mod tests_utils {
 
     use crate::aggregator_client::{AggregatorRequest, MockAggregatorClient};
     use crate::feedback::{FeedbackReceiver, FeedbackSender};
-    use crate::test_utils;
+    use crate::test_utils::TestLogger;
 
     use super::*;
 
@@ -128,7 +128,7 @@ pub(crate) mod tests_utils {
         /// If no genesis verification key is provided, a [MockCertificateVerifier] will be used,
         /// else a [MithrilCertificateVerifier] will be used.
         pub fn build(self) -> CertificateClient {
-            let logger = test_utils::test_logger();
+            let logger = TestLogger::stdout();
             let aggregator_client = Arc::new(self.aggregator_client);
 
             let certificate_verifier: Arc<dyn CertificateVerifier> =

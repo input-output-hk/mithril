@@ -6,6 +6,10 @@ mod cardano_transaction;
 mod certificate;
 mod mithril_stake_distribution;
 
+#[cfg(all(feature = "fs", feature = "unstable"))]
+#[allow(unused_imports)]
+pub use cardano_db_v2::CardanoDatabaseSnapshotV2Fixture;
+
 use crate::extensions::mock;
 use mithril_client::certificate_client::CertificateVerifier;
 use std::convert::Infallible;

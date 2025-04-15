@@ -15,10 +15,7 @@ pub struct CardanoTransactionsSnapshotShowCommand {
     #[clap(flatten)]
     shared_args: SharedArgs,
 
-    /// Cardano transaction snapshot hash.
-    ///
-    /// If `latest` is specified as hash, the command will return the latest Cardano transaction
-    /// snapshot.
+    /// Hash of the Cardano transaction snapshot to show or `latest` for the latest artifact
     hash: String,
 }
 

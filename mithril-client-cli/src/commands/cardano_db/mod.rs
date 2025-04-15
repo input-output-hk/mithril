@@ -1,4 +1,4 @@
-//! Commands for the cardano db artifact
+//! Commands for the Cardano db artifact
 mod download;
 mod list;
 mod show;
@@ -26,17 +26,17 @@ pub enum CardanoDbCommands {
 /// Cardano db snapshots
 #[derive(Subcommand, Debug, Clone)]
 pub enum CardanoDbSnapshotCommands {
-    /// List available cardano db snapshots
+    /// List available Cardano db snapshots
     #[clap(arg_required_else_help = false)]
     List(CardanoDbListCommand),
 
-    /// Show detailed information about a cardano db snapshot
+    /// Show detailed information about a Cardano db snapshot
     #[clap(arg_required_else_help = true)]
     Show(CardanoDbShowCommand),
 }
 
 impl CardanoDbCommands {
-    /// Execute cardano db command
+    /// Execute Cardano db command
     pub async fn execute(&self, config_builder: CommandContext) -> MithrilResult<()> {
         match self {
             Self::Download(cmd) => cmd.execute(config_builder).await,

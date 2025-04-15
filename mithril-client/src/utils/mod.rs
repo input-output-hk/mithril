@@ -2,8 +2,10 @@
 //! This module contains tools needed mostly for the snapshot download and unpack.
 
 cfg_fs! {
+    mod ancillary_verifier;
     mod stream_reader;
 
+    pub use ancillary_verifier::AncillaryVerifier;
     pub use stream_reader::*;
 }
 

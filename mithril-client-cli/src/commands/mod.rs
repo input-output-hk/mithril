@@ -20,7 +20,7 @@ use crate::configuration::ConfigParameters;
 /// Shared arguments for all commands
 #[derive(Debug, Clone, Args)]
 pub struct SharedArgs {
-    /// Enable JSON output.
+    /// Enable JSON output for command results
     #[clap(long)]
     json: bool,
 }

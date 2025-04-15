@@ -22,7 +22,7 @@ pub struct CardanoTransactionsCertifyCommand {
     #[clap(flatten)]
     shared_args: SharedArgs,
 
-    /// Genesis Verification Key to check the certificate chain.
+    /// Genesis verification key to check the certificate chain.
     #[clap(long, env = "GENESIS_VERIFICATION_KEY")]
     genesis_verification_key: Option<String>,
 
