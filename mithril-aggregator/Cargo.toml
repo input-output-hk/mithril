@@ -25,6 +25,7 @@ clap = { version = "4.5.32", features = ["derive", "env", "cargo"] }
 cloud-storage = "0.11.1"
 config = "0.15.11"
 flate2 = "1.1.0"
+gcloud-kms = { version = "1.2.0", features = ["auth"] }
 hex = "0.4.3"
 mithril-cli-helper = { path = "../internal/mithril-cli-helper" }
 mithril-common = { path = "../mithril-common", features = ["full"] }
