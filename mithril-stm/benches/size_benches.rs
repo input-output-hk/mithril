@@ -4,10 +4,8 @@ use blake2::{
     Blake2b, Digest,
 };
 use mithril_stm::key_reg::KeyReg;
-use mithril_stm::stm::{
-    CoreVerifier, Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigRegParty,
-    StmSigner, StmVerificationKey,
-};
+use mithril_stm::participant::{StmInitializer, StmSigner, StmVerificationKey};
+use mithril_stm::stm::{CoreVerifier, Stake, StmClerk, StmParameters, StmSig, StmSigRegParty};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::iter::ParallelIterator;
