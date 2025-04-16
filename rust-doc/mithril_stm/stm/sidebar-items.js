@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["CoreVerifier","StmAggrSig","StmAggrVerificationKey","StmClerk","StmInitializer","StmParameters","StmSig","StmSigRegParty","StmSigner"],"type":["Index","Stake","StmVerificationKey","StmVerificationKeyPoP"]};
