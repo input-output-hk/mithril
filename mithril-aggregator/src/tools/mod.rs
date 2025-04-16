@@ -21,6 +21,9 @@ pub use signer_importer::{
 pub use single_signature_authenticator::*;
 pub use vacuum_tracker::VacuumTracker;
 
+/// Default environment variable name where the GCP credentials JSON is stored.
+pub(crate) const DEFAULT_GCP_CREDENTIALS_JSON_ENV_VAR: &str = "GOOGLE_APPLICATION_CREDENTIALS_JSON";
+
 /// Downcast the error to the specified error type and check if the error satisfies the condition.
 pub(crate) fn downcast_check<E>(
     error: &mithril_common::StdError,
