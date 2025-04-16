@@ -43,10 +43,10 @@ async fn send_signer_registration_request(
 
     match response.status() {
         StatusCode::CREATED => Ok(()),
-        StatusCode::SERVICE_UNAVAILABLE if try_register_until_registration_round_is_open => {
+        status if status.as_u16() == 550 && try_register_until_registration_round_is_open => {
             let error_message = response.text().await.unwrap();
             debug!(
-                "Error 503 (SERVICE_UNAVAILABLE) for First signer registration, waiting 250ms before trying again";
+                "Error 550 (REGISTRATION_ROUND_NOT_YET_OPENED) for First signer registration, waiting 250ms before trying again";
                 "error_message" => &error_message
             );
             tokio::time::sleep(Duration::from_millis(250)).await;
