@@ -70,15 +70,14 @@ pub struct AggregatorParameters {
 }
 
 impl AggregatorParameters {
-    pub fn new(opts: &MainOpts, immutable_db_path: &Path) -> StdResult<Self> {
+    pub fn new(opts: &MainOpts, db_path: &Path) -> StdResult<Self> {
         let full_node = FullNode {
-            db_path: immutable_db_path.to_path_buf(),
+            db_path: db_path.to_path_buf(),
             socket_path: PathBuf::new(),
         };
         let tmp_dir = opts
             .temporary_path
-            .as_ref()
-            .cloned()
+            .clone()
             .unwrap_or_else(|| std::env::temp_dir().join("load-aggregator"));
 
         if tmp_dir.exists() {
@@ -91,6 +90,8 @@ impl AggregatorParameters {
         }
         std::fs::create_dir_all(&tmp_dir)
             .with_context(|| format!("Could not create temp directory '{}'.", tmp_dir.display()))?;
+
+        let tmp_dir = tmp_dir.canonicalize().unwrap();
 
         let cardano_cli_path = {
             if !opts.cardano_cli_path.exists() {

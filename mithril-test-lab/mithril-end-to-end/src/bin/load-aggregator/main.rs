@@ -37,11 +37,12 @@ async fn main() -> StdResult<()> {
     // configure a dummy immutable db
     let cardano_db = DummyCardanoDbBuilder::new("load-tester")
         .with_immutables(&[1, 2, 3])
+        .with_ledger_files(&["533"])
         .append_immutable_trio()
         .build();
 
     let _logger_guard = init_logger(&opts);
-    let aggregator_parameters = AggregatorParameters::new(&opts, cardano_db.get_immutable_dir())?;
+    let aggregator_parameters = AggregatorParameters::new(&opts, cardano_db.get_dir())?;
     let mut current_epoch = Epoch(1);
     let protocol_parameters = ProtocolParameters::new(2422, 20973, 0.20);
     info!(">> Starting stress test with options: {opts:?}");
