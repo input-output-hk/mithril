@@ -90,6 +90,16 @@ jobs:
         run: |
           ./bin/load-aggregator ${{ steps.prepare.outputs.debug_level }} \
           --cardano-cli-path ./mithril-test-lab/mithril-end-to-end/script/mock-cardano-cli \
+          --temporary-path ./artifacts \
           --aggregator-dir ./bin \
           --num-signers=${{ inputs.num_signers }} \
           --num-clients=${{ inputs.num_clients }}
+
+      - name: Upload stress test artifacts
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: aggregator-stress-test-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}
+          path: |
+            ./artifacts/*
+          if-no-files-found: error
