@@ -184,7 +184,7 @@ impl Snapshotter for FakeSnapshotter {
 
 #[cfg(test)]
 mod tests {
-    use crate::services::snapshotter::test_tools::*;
+    use mithril_common::temp_dir_create;
 
     use super::*;
 
@@ -318,8 +318,8 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn test_fake_snasphotter() {
-            let test_dir = get_test_directory("test_fake_snasphotter");
+        async fn test_fake_snapshotter() {
+            let test_dir = temp_dir_create!();
             let fake_snapshotter = FakeSnapshotter::new(&test_dir)
                 .with_compression_algorithm(CompressionAlgorithm::Gzip);
 
