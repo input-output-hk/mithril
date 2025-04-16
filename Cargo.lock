@@ -3809,6 +3809,7 @@ dependencies = [
  "mithril-signed-entity-lock",
  "mithril-signed-entity-preloader",
  "mockall",
+ "paste",
  "rayon",
  "regex",
  "reqwest 0.12.15",

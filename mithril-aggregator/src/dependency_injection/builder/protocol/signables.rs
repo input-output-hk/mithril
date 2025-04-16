@@ -9,8 +9,8 @@ use mithril_common::signable_builder::{
 };
 
 use crate::dependency_injection::{DependenciesBuilder, Result};
+use crate::get_dependency;
 use crate::services::{AggregatorSignableSeedBuilder, CardanoTransactionsImporter};
-
 impl DependenciesBuilder {
     async fn build_signable_builder_service(&mut self) -> Result<Arc<dyn SignableBuilderService>> {
         let seed_signable_builder = self.get_signable_seed_builder().await?;
@@ -57,11 +57,7 @@ impl DependenciesBuilder {
     pub async fn get_signable_builder_service(
         &mut self,
     ) -> Result<Arc<dyn SignableBuilderService>> {
-        if self.signable_builder_service.is_none() {
-            self.signable_builder_service = Some(self.build_signable_builder_service().await?);
-        }
-
-        Ok(self.signable_builder_service.as_ref().cloned().unwrap())
+        get_dependency!(self.signable_builder_service)
     }
 
     async fn build_signable_seed_builder(&mut self) -> Result<Arc<dyn SignableSeedBuilder>> {
@@ -74,11 +70,7 @@ impl DependenciesBuilder {
 
     /// [SignableSeedBuilder] service
     pub async fn get_signable_seed_builder(&mut self) -> Result<Arc<dyn SignableSeedBuilder>> {
-        if self.signable_seed_builder.is_none() {
-            self.signable_seed_builder = Some(self.build_signable_seed_builder().await?);
-        }
-
-        Ok(self.signable_seed_builder.as_ref().cloned().unwrap())
+        get_dependency!(self.signable_seed_builder)
     }
 
     async fn build_transactions_importer(&mut self) -> Result<Arc<dyn TransactionsImporter>> {
@@ -93,10 +85,6 @@ impl DependenciesBuilder {
 
     /// Get the [TransactionsImporter] instance
     pub async fn get_transactions_importer(&mut self) -> Result<Arc<dyn TransactionsImporter>> {
-        if self.transactions_importer.is_none() {
-            self.transactions_importer = Some(self.build_transactions_importer().await?);
-        }
-
-        Ok(self.transactions_importer.as_ref().cloned().unwrap())
+        get_dependency!(self.transactions_importer)
     }
 }

@@ -4,9 +4,9 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
 use crate::event_store::{EventMessage, EventStore, TransmitterService};
+use crate::get_dependency;
 use crate::services::UsageReporter;
 use crate::MetricsService;
-
 impl DependenciesBuilder {
     /// Return a copy of the root logger.
     pub fn root_logger(&self) -> Logger {
@@ -33,11 +33,7 @@ impl DependenciesBuilder {
 
     /// [MetricsService] service
     pub async fn get_metrics_service(&mut self) -> Result<Arc<MetricsService>> {
-        if self.metrics_service.is_none() {
-            self.metrics_service = Some(self.build_metrics_service().await?);
-        }
-
-        Ok(self.metrics_service.as_ref().cloned().unwrap())
+        get_dependency!(self.metrics_service)
     }
 
     /// Create dependencies for the [EventStore] task.
@@ -105,10 +101,6 @@ impl DependenciesBuilder {
 
     /// [TransmitterService] service
     pub async fn get_event_transmitter(&mut self) -> Result<Arc<TransmitterService<EventMessage>>> {
-        if self.event_transmitter.is_none() {
-            self.event_transmitter = Some(self.build_event_transmitter().await?);
-        }
-
-        Ok(self.event_transmitter.as_ref().cloned().unwrap())
+        get_dependency!(self.event_transmitter)
     }
 }

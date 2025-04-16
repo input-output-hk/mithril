@@ -59,6 +59,21 @@ use crate::{
     SingleSignatureAuthenticator, VerificationKeyStorer,
 };
 
+/// Retrieve attribute and initialize it if it is None
+#[macro_export]
+macro_rules! get_dependency {
+    ( $self:ident.$attribute:ident ) => {{
+        paste::paste! {
+            if $self.$attribute.is_none() {
+                    $self.$attribute = Some($self.[<build_ $attribute>]().await?);
+            }
+
+            let r:Result<_> = Ok($self.$attribute.as_ref().cloned().unwrap());
+            r
+        }
+    }};
+}
+
 const SQLITE_FILE: &str = "aggregator.sqlite3";
 const SQLITE_FILE_CARDANO_TRANSACTION: &str = "cardano-transaction.sqlite3";
 const SQLITE_MONITORING_FILE: &str = "monitoring.sqlite3";
@@ -229,7 +244,7 @@ pub struct DependenciesBuilder {
     pub prover_service: Option<Arc<dyn ProverService>>,
 
     /// Signed Entity Type Lock
-    pub signed_entity_type_lock: Option<Arc<SignedEntityTypeLock>>,
+    pub signed_entity_lock: Option<Arc<SignedEntityTypeLock>>,
 
     /// Transactions Importer
     pub transactions_importer: Option<Arc<dyn TransactionsImporter>>,
@@ -238,7 +253,7 @@ pub struct DependenciesBuilder {
     pub upkeep_service: Option<Arc<dyn UpkeepService>>,
 
     /// Single signer authenticator
-    pub single_signer_authenticator: Option<Arc<SingleSignatureAuthenticator>>,
+    pub single_signature_authenticator: Option<Arc<SingleSignatureAuthenticator>>,
 
     /// Metrics service
     pub metrics_service: Option<Arc<MetricsService>>,
@@ -300,10 +315,10 @@ impl DependenciesBuilder {
             signed_entity_storer: None,
             message_service: None,
             prover_service: None,
-            signed_entity_type_lock: None,
+            signed_entity_lock: None,
             transactions_importer: None,
             upkeep_service: None,
-            single_signer_authenticator: None,
+            single_signature_authenticator: None,
             metrics_service: None,
             leader_aggregator_client: None,
         }

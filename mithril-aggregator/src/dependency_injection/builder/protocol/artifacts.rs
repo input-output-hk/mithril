@@ -28,7 +28,7 @@ use crate::services::{
 };
 use crate::tools::file_archiver::FileArchiver;
 use crate::{DumbUploader, ExecutionEnvironment, FileUploader, SnapshotUploaderType};
-
+use crate::get_dependency;
 impl DependenciesBuilder {
     async fn build_signed_entity_service(&mut self) -> Result<Arc<dyn SignedEntityService>> {
         let logger = self.root_logger();
@@ -92,11 +92,7 @@ impl DependenciesBuilder {
 
     /// [SignedEntityService] service
     pub async fn get_signed_entity_service(&mut self) -> Result<Arc<dyn SignedEntityService>> {
-        if self.signed_entity_service.is_none() {
-            self.signed_entity_service = Some(self.build_signed_entity_service().await?);
-        }
-
-        Ok(self.signed_entity_service.as_ref().cloned().unwrap())
+        get_dependency!(self.signed_entity_service)
     }
 
     async fn build_file_archiver(&mut self) -> Result<Arc<FileArchiver>> {
@@ -190,11 +186,7 @@ impl DependenciesBuilder {
 
     /// [Snapshotter] service.
     pub async fn get_snapshotter(&mut self) -> Result<Arc<dyn Snapshotter>> {
-        if self.snapshotter.is_none() {
-            self.snapshotter = Some(self.build_snapshotter().await?);
-        }
-
-        Ok(self.snapshotter.as_ref().cloned().unwrap())
+        get_dependency!(self.snapshotter)
     }
 
     async fn build_snapshot_uploader(&mut self) -> Result<Arc<dyn FileUploader>> {
@@ -241,11 +233,7 @@ impl DependenciesBuilder {
 
     /// Get a [FileUploader]
     pub async fn get_snapshot_uploader(&mut self) -> Result<Arc<dyn FileUploader>> {
-        if self.snapshot_uploader.is_none() {
-            self.snapshot_uploader = Some(self.build_snapshot_uploader().await?);
-        }
-
-        Ok(self.snapshot_uploader.as_ref().cloned().unwrap())
+        get_dependency!(self.snapshot_uploader)
     }
 
     fn build_gcp_uploader(

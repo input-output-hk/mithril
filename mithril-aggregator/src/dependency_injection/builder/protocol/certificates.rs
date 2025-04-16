@@ -8,6 +8,7 @@ use mithril_common::crypto_helper::{
 
 use crate::database::repository::{BufferedSingleSignatureRepository, SingleSignatureRepository};
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
+use crate::get_dependency;
 use crate::services::{
     BufferedCertifierService, CertifierService, MithrilCertifierService,
     MithrilSignerRegistrationFollower, SignerSynchronizer,
@@ -56,11 +57,7 @@ impl DependenciesBuilder {
 
     /// [CertifierService] service
     pub async fn get_certifier_service(&mut self) -> Result<Arc<dyn CertifierService>> {
-        if self.certifier_service.is_none() {
-            self.certifier_service = Some(self.build_certifier_service().await?);
-        }
-
-        Ok(self.certifier_service.as_ref().cloned().unwrap())
+        get_dependency!(self.certifier_service)
     }
 
     async fn build_multi_signer(&mut self) -> Result<Arc<dyn MultiSigner>> {
@@ -72,11 +69,7 @@ impl DependenciesBuilder {
 
     /// Get a configured multi signer
     pub async fn get_multi_signer(&mut self) -> Result<Arc<dyn MultiSigner>> {
-        if self.multi_signer.is_none() {
-            self.multi_signer = Some(self.build_multi_signer().await?);
-        }
-
-        Ok(self.multi_signer.as_ref().cloned().unwrap())
+        get_dependency!(self.multi_signer)
     }
 
     async fn build_certificate_verifier(&mut self) -> Result<Arc<dyn CertificateVerifier>> {
@@ -90,11 +83,7 @@ impl DependenciesBuilder {
 
     /// [CertificateVerifier] service.
     pub async fn get_certificate_verifier(&mut self) -> Result<Arc<dyn CertificateVerifier>> {
-        if self.certificate_verifier.is_none() {
-            self.certificate_verifier = Some(self.build_certificate_verifier().await?);
-        }
-
-        Ok(self.certificate_verifier.as_ref().cloned().unwrap())
+        get_dependency!(self.certificate_verifier)
     }
 
     async fn build_genesis_verifier(&mut self) -> Result<Arc<ProtocolGenesisVerifier>> {
@@ -119,11 +108,7 @@ impl DependenciesBuilder {
 
     /// Return a [ProtocolGenesisVerifier]
     pub async fn get_genesis_verifier(&mut self) -> Result<Arc<ProtocolGenesisVerifier>> {
-        if self.genesis_verifier.is_none() {
-            self.genesis_verifier = Some(self.build_genesis_verifier().await?);
-        }
-
-        Ok(self.genesis_verifier.as_ref().cloned().unwrap())
+        get_dependency!(self.genesis_verifier)
     }
 
     /// Return a [MithrilSignerRegistrationLeader] service
@@ -143,16 +128,7 @@ impl DependenciesBuilder {
     pub async fn get_mithril_signer_registration_leader(
         &mut self,
     ) -> Result<Arc<MithrilSignerRegistrationLeader>> {
-        if self.mithril_signer_registration_leader.is_none() {
-            self.mithril_signer_registration_leader =
-                Some(self.build_mithril_signer_registration_leader().await?);
-        }
-
-        Ok(self
-            .mithril_signer_registration_leader
-            .as_ref()
-            .cloned()
-            .unwrap())
+        get_dependency!(self.mithril_signer_registration_leader)
     }
 
     /// Return a [MithrilSignerRegistrationFollower] service
@@ -175,16 +151,7 @@ impl DependenciesBuilder {
     pub async fn get_mithril_signer_registration_follower(
         &mut self,
     ) -> Result<Arc<MithrilSignerRegistrationFollower>> {
-        if self.mithril_signer_registration_follower.is_none() {
-            self.mithril_signer_registration_follower =
-                Some(self.build_mithril_signer_registration_follower().await?);
-        }
-
-        Ok(self
-            .mithril_signer_registration_follower
-            .as_ref()
-            .cloned()
-            .unwrap())
+        get_dependency!(self.mithril_signer_registration_follower)
     }
 
     /// Return a [SignerRegisterer]
@@ -225,12 +192,7 @@ impl DependenciesBuilder {
     pub async fn get_signer_registration_verifier(
         &mut self,
     ) -> Result<Arc<dyn SignerRegistrationVerifier>> {
-        if self.signer_registration_verifier.is_none() {
-            self.signer_registration_verifier =
-                Some(self.build_signer_registration_verifier().await?);
-        }
-
-        Ok(self.signer_registration_verifier.as_ref().cloned().unwrap())
+        get_dependency!(self.signer_registration_verifier)
     }
 
     /// Return a [SignerRegistrationRoundOpener]
@@ -267,11 +229,15 @@ impl DependenciesBuilder {
     pub async fn get_single_signature_authenticator(
         &mut self,
     ) -> Result<Arc<SingleSignatureAuthenticator>> {
-        if self.single_signer_authenticator.is_none() {
-            self.single_signer_authenticator =
+        if self.single_signature_authenticator.is_none() {
+            self.single_signature_authenticator =
                 Some(self.build_single_signature_authenticator().await?);
         }
 
-        Ok(self.single_signer_authenticator.as_ref().cloned().unwrap())
+        Ok(self
+            .single_signature_authenticator
+            .as_ref()
+            .cloned()
+            .unwrap())
     }
 }

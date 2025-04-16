@@ -2,8 +2,8 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::dependency_injection::{DependenciesBuilder, EpochServiceWrapper, Result};
+use crate::get_dependency;
 use crate::services::{EpochServiceDependencies, MithrilEpochService};
-
 impl DependenciesBuilder {
     async fn build_epoch_service(&mut self) -> Result<EpochServiceWrapper> {
         let verification_key_store = self.get_verification_key_store().await?;
@@ -34,10 +34,6 @@ impl DependenciesBuilder {
 
     /// [EpochService][crate::services::EpochService] service
     pub async fn get_epoch_service(&mut self) -> Result<EpochServiceWrapper> {
-        if self.epoch_service.is_none() {
-            self.epoch_service = Some(self.build_epoch_service().await?);
-        }
-
-        Ok(self.epoch_service.as_ref().cloned().unwrap())
+        get_dependency!(self.epoch_service)
     }
 }

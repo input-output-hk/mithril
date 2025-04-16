@@ -7,7 +7,7 @@ use mithril_common::era::{EraChecker, EraMarker, EraReader, EraReaderAdapter, Su
 
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
 use crate::ExecutionEnvironment;
-
+use crate::get_dependency;
 impl DependenciesBuilder {
     async fn build_api_version_provider(&mut self) -> Result<Arc<APIVersionProvider>> {
         let api_version_provider = Arc::new(APIVersionProvider::new(self.get_era_checker().await?));
@@ -17,11 +17,7 @@ impl DependenciesBuilder {
 
     /// [APIVersionProvider] service
     pub async fn get_api_version_provider(&mut self) -> Result<Arc<APIVersionProvider>> {
-        if self.api_version_provider.is_none() {
-            self.api_version_provider = Some(self.build_api_version_provider().await?);
-        }
-
-        Ok(self.api_version_provider.as_ref().cloned().unwrap())
+        get_dependency!(self.api_version_provider)
     }
 
     async fn build_era_reader(&mut self) -> Result<Arc<EraReader>> {
@@ -46,11 +42,7 @@ impl DependenciesBuilder {
 
     /// [EraReader] service
     pub async fn get_era_reader(&mut self) -> Result<Arc<EraReader>> {
-        if self.era_reader.is_none() {
-            self.era_reader = Some(self.build_era_reader().await?);
-        }
-
-        Ok(self.era_reader.as_ref().cloned().unwrap())
+        get_dependency!(self.era_reader)
     }
 
     async fn build_era_checker(&mut self) -> Result<Arc<EraChecker>> {
@@ -87,10 +79,6 @@ impl DependenciesBuilder {
 
     /// [EraReader] service
     pub async fn get_era_checker(&mut self) -> Result<Arc<EraChecker>> {
-        if self.era_checker.is_none() {
-            self.era_checker = Some(self.build_era_checker().await?);
-        }
-
-        Ok(self.era_checker.as_ref().cloned().unwrap())
+        get_dependency!(self.era_checker)
     }
 }

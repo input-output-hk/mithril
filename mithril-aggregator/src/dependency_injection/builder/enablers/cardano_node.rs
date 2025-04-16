@@ -14,9 +14,9 @@ use mithril_signed_entity_preloader::{
 };
 
 use crate::dependency_injection::{DependenciesBuilder, Result};
+use crate::get_dependency;
 use crate::services::{MithrilStakeDistributionService, StakeDistributionService};
 use crate::ExecutionEnvironment;
-
 impl DependenciesBuilder {
     async fn build_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
         let chain_observer: Arc<dyn ChainObserver> = match self.configuration.environment() {
@@ -47,11 +47,7 @@ impl DependenciesBuilder {
 
     /// Return a [ChainObserver]
     pub async fn get_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
-        if self.chain_observer.is_none() {
-            self.chain_observer = Some(self.build_chain_observer().await?);
-        }
-
-        Ok(self.chain_observer.as_ref().cloned().unwrap())
+        get_dependency!(self.chain_observer)
     }
 
     async fn build_cardano_cli_runner(&mut self) -> Result<Box<CardanoCliRunner>> {
@@ -68,11 +64,7 @@ impl DependenciesBuilder {
 
     /// Return a [CardanoCliRunner]
     pub async fn get_cardano_cli_runner(&mut self) -> Result<Box<CardanoCliRunner>> {
-        if self.cardano_cli_runner.is_none() {
-            self.cardano_cli_runner = Some(self.build_cardano_cli_runner().await?);
-        }
-
-        Ok(self.cardano_cli_runner.as_ref().cloned().unwrap())
+        get_dependency!(self.cardano_cli_runner)
     }
 
     async fn build_chain_block_reader(&mut self) -> Result<Arc<Mutex<dyn ChainBlockReader>>> {
@@ -87,11 +79,7 @@ impl DependenciesBuilder {
 
     /// Chain reader
     pub async fn get_chain_block_reader(&mut self) -> Result<Arc<Mutex<dyn ChainBlockReader>>> {
-        if self.chain_block_reader.is_none() {
-            self.chain_block_reader = Some(self.build_chain_block_reader().await?);
-        }
-
-        Ok(self.chain_block_reader.as_ref().cloned().unwrap())
+        get_dependency!(self.chain_block_reader)
     }
 
     async fn build_block_scanner(&mut self) -> Result<Arc<dyn BlockScanner>> {
@@ -107,11 +95,7 @@ impl DependenciesBuilder {
 
     /// Block scanner
     pub async fn get_block_scanner(&mut self) -> Result<Arc<dyn BlockScanner>> {
-        if self.block_scanner.is_none() {
-            self.block_scanner = Some(self.build_block_scanner().await?);
-        }
-
-        Ok(self.block_scanner.as_ref().cloned().unwrap())
+        get_dependency!(self.block_scanner)
     }
 
     async fn build_immutable_digester(&mut self) -> Result<Arc<dyn ImmutableDigester>> {
@@ -130,11 +114,7 @@ impl DependenciesBuilder {
 
     /// Immutable digester.
     pub async fn get_immutable_digester(&mut self) -> Result<Arc<dyn ImmutableDigester>> {
-        if self.immutable_digester.is_none() {
-            self.immutable_digester = Some(self.build_immutable_digester().await?);
-        }
-
-        Ok(self.immutable_digester.as_ref().cloned().unwrap())
+        get_dependency!(self.immutable_digester)
     }
 
     /// Create a [CardanoTransactionsPreloader] instance.
@@ -174,11 +154,7 @@ impl DependenciesBuilder {
     pub async fn get_stake_distribution_service(
         &mut self,
     ) -> Result<Arc<dyn StakeDistributionService>> {
-        if self.stake_distribution_service.is_none() {
-            self.stake_distribution_service = Some(self.build_stake_distribution_service().await?);
-        }
-
-        Ok(self.stake_distribution_service.as_ref().cloned().unwrap())
+        get_dependency!(self.stake_distribution_service)
     }
 }
 
