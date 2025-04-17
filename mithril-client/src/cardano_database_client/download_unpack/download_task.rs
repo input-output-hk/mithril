@@ -163,7 +163,7 @@ pub struct LocationToDownload {
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::FileUri;
-    use mithril_common::test_utils::{fake_keys, temp_dir_create};
+    use mithril_common::test_utils::{assert_dir_eq, fake_keys, temp_dir_create};
 
     use crate::file_downloader::MockFileDownloaderBuilder;
     use crate::test_utils::TestLogger;
@@ -467,9 +467,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            assert!(target_dir.join("dummy_ledger").exists());
-            assert!(!target_dir.join("not_in_ancillary").exists());
-            assert!(!temp_ancillary_target_dir(&target_dir, "download-id").exists());
+            assert_dir_eq!(&target_dir, "* dummy_ledger");
         }
     }
 }

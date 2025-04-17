@@ -313,7 +313,7 @@ mod tests {
 
     use mithril_common::digesters::DummyCardanoDbBuilder;
     use mithril_common::test_utils::assert_equivalent;
-    use mithril_common::{current_function, temp_dir_create};
+    use mithril_common::{assert_dir_eq, current_function, temp_dir_create};
 
     use crate::services::ancillary_signer::MockAncillarySigner;
     use crate::test_tools::TestLogger;
@@ -513,7 +513,6 @@ mod tests {
     }
 
     mod snapshot_ancillary {
-        use mithril_common::digesters::VOLATILE_DIR;
         use mithril_common::test_utils::fake_keys;
 
         use super::*;
@@ -528,20 +527,25 @@ mod tests {
                 .build();
             let snapshotter =
                 snapshotter_for_test(&test_dir, cardano_db.get_dir(), CompressionAlgorithm::Gzip);
+            let ancillary_snapshot_dir = test_dir.join("ancillary_snapshot");
+            fs::create_dir(&ancillary_snapshot_dir).unwrap();
 
             snapshotter
-                .get_files_and_directories_for_ancillary_snapshot(1, &test_dir)
+                .get_files_and_directories_for_ancillary_snapshot(1, &ancillary_snapshot_dir)
                 .await
                 .unwrap();
-            assert!(test_dir.join(IMMUTABLE_DIR).exists());
-            assert!(test_dir.join(IMMUTABLE_DIR).join("00002.chunk").exists());
-            assert!(test_dir.join(IMMUTABLE_DIR).join("00002.primary").exists());
-            assert!(test_dir
-                .join(IMMUTABLE_DIR)
-                .join("00002.secondary")
-                .exists());
-            assert!(test_dir.join(LEDGER_DIR).exists());
-            assert!(test_dir.join(LEDGER_DIR).join("737").exists());
+
+            assert_dir_eq!(
+                &ancillary_snapshot_dir,
+                format!(
+                    "* {IMMUTABLE_DIR}/
+                     ** 00002.chunk
+                     ** 00002.primary
+                     ** 00002.secondary
+                     * {LEDGER_DIR}/
+                     ** 737"
+                )
+            );
         }
 
         #[tokio::test]
@@ -621,22 +625,20 @@ mod tests {
                 .unwrap();
 
             let unpack_dir = snapshot.unpack_gzip(&test_dir);
-
-            let expected_immutable_path = unpack_dir.join(IMMUTABLE_DIR);
-            assert!(expected_immutable_path.join("00003.chunk").exists());
-            assert!(expected_immutable_path.join("00003.primary").exists());
-            assert!(expected_immutable_path.join("00003.secondary").exists());
-            assert_eq!(3, list_files(&expected_immutable_path).len());
-
-            // Only the last ledger file should be included
-            let expected_ledger_path = unpack_dir.join(LEDGER_DIR);
-            assert!(expected_ledger_path.join("737").exists());
-            assert_eq!(1, list_files(&expected_ledger_path).len());
-
-            let expected_volatile_path = unpack_dir.join(VOLATILE_DIR);
-            assert!(!expected_volatile_path.exists());
-
-            assert!(!unpack_dir.join("whatever").exists());
+            assert_dir_eq!(
+                &unpack_dir,
+                // Only the last ledger file should be included
+                format!(
+                    "* {IMMUTABLE_DIR}/
+                     ** 00003.chunk
+                     ** 00003.primary
+                     ** 00003.secondary
+                     * {LEDGER_DIR}/
+                     ** 737
+                     * {}",
+                    AncillaryFilesManifest::ANCILLARY_MANIFEST_FILE_NAME
+                )
+            );
         }
 
         #[tokio::test]
