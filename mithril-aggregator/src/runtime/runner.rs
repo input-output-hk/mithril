@@ -726,7 +726,6 @@ pub mod tests {
             deps.verification_key_store.clone(),
             deps.signer_recorder.clone(),
             deps.signer_registration_verifier.clone(),
-            None,
         ));
         deps.signer_registration_round_opener = signer_registration_round_opener.clone();
         let stake_store = deps.stake_store.clone();
@@ -766,7 +765,6 @@ pub mod tests {
             deps.verification_key_store.clone(),
             deps.signer_recorder.clone(),
             deps.signer_registration_verifier.clone(),
-            None,
         ));
         deps.signer_registration_round_opener = signer_registration_round_opener.clone();
         let deps = Arc::new(deps);

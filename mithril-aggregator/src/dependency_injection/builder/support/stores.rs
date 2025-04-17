@@ -69,6 +69,7 @@ impl DependenciesBuilder {
     async fn build_verification_key_store(&mut self) -> Result<Arc<dyn VerificationKeyStorer>> {
         Ok(Arc::new(SignerRegistrationStore::new(
             self.get_sqlite_connection().await?,
+            self.configuration.safe_epoch_retention_limit(),
         )))
     }
 

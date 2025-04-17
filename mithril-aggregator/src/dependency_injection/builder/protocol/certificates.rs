@@ -134,7 +134,6 @@ impl DependenciesBuilder {
             self.get_verification_key_store().await?,
             self.get_signer_store().await?,
             self.get_signer_registration_verifier().await?,
-            self.configuration.safe_epoch_retention_limit(),
         );
 
         Ok(Arc::new(registerer))
@@ -167,7 +166,6 @@ impl DependenciesBuilder {
             self.get_signer_registration_verifier().await?,
             self.get_leader_aggregator_client().await?,
             self.get_stake_store().await?,
-            self.configuration.safe_epoch_retention_limit(),
         );
 
         Ok(Arc::new(registerer))
