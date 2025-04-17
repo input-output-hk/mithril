@@ -263,7 +263,7 @@ mod tests {
         DummyCardanoDbBuilder, IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR,
     };
     use mithril_common::entities::CompressionAlgorithm;
-    use mithril_common::temp_dir_create;
+    use mithril_common::{assert_dir_eq, temp_dir_create};
 
     use crate::tools::file_archiver::test_tools::*;
     use crate::tools::file_archiver::{ArchiveParameters, FileArchiver};
@@ -280,8 +280,8 @@ mod tests {
 
             let directory_to_archive_path = create_dir(&source, "directory_to_archive");
             let file_to_archive_path = create_file(&source, "file_to_archive.txt");
-            let directory_not_to_archive_path = create_dir(&source, "directory_not_to_archive");
-            let file_not_to_archive_path = create_file(&source, "file_not_to_archive.txt");
+            create_dir(&source, "directory_not_to_archive");
+            create_file(&source, "file_not_to_archive.txt");
 
             let file_archiver = FileArchiver::new_for_test(test_dir.join("verification"));
 
@@ -305,10 +305,11 @@ mod tests {
 
             let unpack_path = archive.unpack_gzip(&test_dir);
 
-            assert!(unpack_path.join(directory_to_archive_path).is_dir());
-            assert!(unpack_path.join(file_to_archive_path).is_file());
-            assert!(!unpack_path.join(directory_not_to_archive_path).exists());
-            assert!(!unpack_path.join(file_not_to_archive_path).exists());
+            assert_dir_eq!(
+                &unpack_path,
+                "* directory_to_archive/
+                 * file_to_archive.txt"
+            );
         }
 
         #[test]
@@ -371,8 +372,11 @@ mod tests {
 
             let unpack_path = archive.unpack_gzip(&test_dir);
 
-            assert!(unpack_path.join(directory_to_archive_path).is_dir());
-            assert!(unpack_path.join(file_to_archive_path).is_file());
+            assert_dir_eq!(
+                &unpack_path,
+                "* directory_to_archive/
+                 ** file_to_archive.txt"
+            );
         }
 
         #[test]
@@ -572,7 +576,7 @@ mod tests {
             let mtime = appended_entry.header().mtime().unwrap();
             assert!(
                 mtime >= start_time_stamp,
-                "entry mtime should be greater than or equal to the timestamp before the archive\
+                "entry mtime should be greater than or equal to the timestamp before the archive \
                 creation:\n {mtime} < {start_time_stamp}"
             );
         }

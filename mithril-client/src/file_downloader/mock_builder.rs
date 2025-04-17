@@ -220,7 +220,7 @@ impl MockFileDownloaderBuilder {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::temp_dir_create;
+    use mithril_common::{assert_dir_eq, temp_dir_create};
 
     use crate::file_downloader::FileDownloader;
 
@@ -261,9 +261,6 @@ mod tests {
         )
         .unwrap();
 
-        assert!(target_dir.join("file1.txt").exists());
-        assert!(target_dir.join("file2.txt").exists());
-        assert!(target_dir.join("not_in_manifest.txt").exists());
         const EMPTY_SHA256_HASH: &str =
             "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
         assert_eq!(
@@ -281,5 +278,16 @@ mod tests {
                     .expect("Manifest should be signed"),
             )
             .expect("Signed manifest should have a valid signature");
+
+        assert_dir_eq!(
+            &target_dir,
+            format!(
+                "* {}
+                 * file1.txt
+                 * file2.txt
+                 * not_in_manifest.txt",
+                AncillaryFilesManifest::ANCILLARY_MANIFEST_FILE_NAME
+            )
+        );
     }
 }
