@@ -15,6 +15,7 @@ pub mod fake_keys;
 
 mod cardano_transactions_builder;
 mod certificate_chain_builder;
+mod dir_eq;
 mod fixture_builder;
 mod mithril_fixture;
 mod precomputed_kes_key;
@@ -28,6 +29,7 @@ pub use cardano_transactions_builder::CardanoTransactionsBuilder;
 pub use certificate_chain_builder::{
     CertificateChainBuilder, CertificateChainBuilderContext, CertificateChainingMethod,
 };
+pub use dir_eq::*;
 pub use fixture_builder::{MithrilFixtureBuilder, StakeDistributionGenerationMethod};
 pub use mithril_fixture::{MithrilFixture, SignerFixture};
 pub use temp_dir::*;
