@@ -1,3 +1,4 @@
+use mithril_stm::StmAggrSigType;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -51,6 +52,9 @@ pub struct AggregatorStatusMessage {
 
     /// The total stake in Cardano
     pub total_cardano_stake: Stake,
+
+    /// The aggregation type
+    pub aggregation_type: StmAggrSigType,
 }
 
 #[cfg(test)]
@@ -71,7 +75,8 @@ mod tests {
         "total_stakes_signers": 123456789,
         "total_next_stakes_signers": 987654321,
         "total_cardano_spo": 7777,
-        "total_cardano_stake": 888888888
+        "total_cardano_stake": 888888888,
+        "aggregation_type": "StmAggrSigConcatenation"
         }"#;
 
     fn golden_current_message() -> AggregatorStatusMessage {
@@ -98,6 +103,7 @@ mod tests {
             total_next_stakes_signers: 987654321,
             total_cardano_spo: 7777,
             total_cardano_stake: 888888888,
+            aggregation_type: StmAggrSigType::StmAggrSigConcatenation,
         }
     }
 

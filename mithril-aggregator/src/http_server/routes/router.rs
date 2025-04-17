@@ -8,7 +8,9 @@ use crate::DependencyContainer;
 
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::entities::SignedEntityTypeDiscriminants;
-use mithril_common::{CardanoNetwork, MITHRIL_API_VERSION_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
+use mithril_common::{
+    CardanoNetwork, StmAggrSigType, MITHRIL_API_VERSION_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
+};
 
 use slog::{warn, Logger};
 use std::collections::{BTreeSet, HashSet};
@@ -42,6 +44,7 @@ pub struct RouterConfig {
     pub cardano_node_version: String,
     pub allow_http_serve_directory: bool,
     pub origin_tag_white_list: HashSet<String>,
+    pub aggregation_type: StmAggrSigType,
 }
 
 #[cfg(test)]
@@ -60,6 +63,7 @@ impl RouterConfig {
             cardano_node_version: "1.2.3".to_string(),
             allow_http_serve_directory: false,
             origin_tag_white_list: HashSet::from(["DUMMY_TAG".to_string()]),
+            aggregation_type: StmAggrSigType::StmAggrSigConcatenation,
         }
     }
 

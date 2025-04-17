@@ -14,7 +14,7 @@ use mithril_common::entities::{
     SignedEntityTypeDiscriminants,
 };
 use mithril_common::era::adapters::EraReaderAdapterType;
-use mithril_common::{CardanoNetwork, StdResult};
+use mithril_common::{CardanoNetwork, StdResult, StmAggrSigType};
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 
 use crate::entities::AggregatorEpochSettings;
@@ -212,6 +212,9 @@ pub struct Configuration {
     /// Custom origin tag of client request added to the whitelist (comma
     /// separated list).
     pub custom_origin_tag_white_list: Option<String>,
+
+    /// Aggregation type used to compute the multi-signature
+    pub aggregation_type: StmAggrSigType,
 }
 
 /// Uploader needed to copy the snapshot once computed.
@@ -331,6 +334,7 @@ impl Configuration {
             persist_usage_report_interval_in_seconds: 10,
             leader_aggregator_endpoint: None,
             custom_origin_tag_white_list: None,
+            aggregation_type: StmAggrSigType::StmAggrSigConcatenation,
         }
     }
 

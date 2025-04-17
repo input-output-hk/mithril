@@ -14,7 +14,7 @@ use mithril_common::entities::{
 };
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder};
-use mithril_common::StdResult;
+use mithril_common::{StdResult, StmAggrSigType};
 use mithril_persistence::store::StakeStorer;
 
 use crate::{entities::AggregatorEpochSettings, EpochSettingsStorer, VerificationKeyStorer};
@@ -145,6 +145,7 @@ struct EpochData {
     signed_entity_config: SignedEntityConfig,
     total_spo: Option<TotalSPOs>,
     total_stake: Option<Stake>,
+    aggregation_type: StmAggrSigType,
 }
 
 struct ComputedEpochData {
@@ -194,6 +195,7 @@ pub struct MithrilEpochService {
     era_checker: Arc<EraChecker>,
     stake_store: Arc<dyn StakeStorer>,
     allowed_signed_entity_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+    aggregation_type: StmAggrSigType,
     logger: Logger,
 }
 
@@ -203,6 +205,7 @@ impl MithrilEpochService {
         future_epoch_settings: AggregatorEpochSettings,
         dependencies: EpochServiceDependencies,
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+        aggregation_type: StmAggrSigType,
         logger: Logger,
     ) -> Self {
         Self {
@@ -215,6 +218,7 @@ impl MithrilEpochService {
             era_checker: dependencies.era_checker,
             stake_store: dependencies.stake_store,
             allowed_signed_entity_discriminants: allowed_discriminants,
+            aggregation_type,
             logger: logger.new_with_component_name::<Self>(),
         }
     }
@@ -350,6 +354,8 @@ impl EpochService for MithrilEpochService {
                 .clone(),
         };
 
+        let aggregation_type = self.aggregation_type;
+
         let (total_spo, total_stake) = self
             .get_total_spo_and_total_stake(signer_retrieval_epoch)
             .await?;
@@ -370,6 +376,7 @@ impl EpochService for MithrilEpochService {
             signed_entity_config,
             total_spo,
             total_stake,
+            aggregation_type,
         });
         self.computed_epoch_data = None;
 
@@ -417,6 +424,7 @@ impl EpochService for MithrilEpochService {
         let protocol_multi_signer = SignerBuilder::new(
             &data.current_signers_with_stake,
             &data.current_epoch_settings.protocol_parameters,
+            data.aggregation_type,
         )
         .with_context(|| "Epoch service failed to build protocol multi signer")?
         .build_multi_signer();
@@ -424,6 +432,7 @@ impl EpochService for MithrilEpochService {
         let next_protocol_multi_signer = SignerBuilder::new(
             &data.next_signers_with_stake,
             &data.next_epoch_settings.protocol_parameters,
+            data.aggregation_type,
         )
         .with_context(|| "Epoch service failed to build next protocol multi signer")?
         .build_multi_signer();
@@ -587,6 +596,7 @@ impl FakeEpochServiceBuilder {
     }
 
     pub fn build(self) -> FakeEpochService {
+        let aggregation_type = StmAggrSigType::StmAggrSigConcatenation;
         let current_signers = Signer::vec_from(self.current_signers_with_stake.clone());
         let next_signers = Signer::vec_from(self.next_signers_with_stake.clone());
         let total_stakes_signers = self
@@ -599,6 +609,7 @@ impl FakeEpochServiceBuilder {
         let protocol_multi_signer = SignerBuilder::new(
             &self.current_signers_with_stake,
             &self.current_epoch_settings.protocol_parameters,
+            aggregation_type,
         )
         .with_context(|| "Could not build protocol_multi_signer for epoch service")
         .unwrap()
@@ -606,6 +617,7 @@ impl FakeEpochServiceBuilder {
         let next_protocol_multi_signer = SignerBuilder::new(
             &self.next_signers_with_stake,
             &self.next_epoch_settings.protocol_parameters,
+            aggregation_type,
         )
         .with_context(|| "Could not build protocol_multi_signer for epoch service")
         .unwrap()
@@ -628,6 +640,7 @@ impl FakeEpochServiceBuilder {
                 signed_entity_config: self.signed_entity_config,
                 total_spo: self.total_spo,
                 total_stake: self.total_stake,
+                aggregation_type,
             }),
             computed_epoch_data: Some(ComputedEpochData {
                 aggregate_verification_key: protocol_multi_signer
@@ -1066,6 +1079,7 @@ mod tests {
                     Arc::new(stake_store),
                 ),
                 self.allowed_discriminants,
+                StmAggrSigType::StmAggrSigConcatenation,
                 TestLogger::stdout(),
             )
         }
@@ -1231,6 +1245,7 @@ mod tests {
         let signer_builder = SignerBuilder::new(
             &fixture.signers_with_stake(),
             &fixture.protocol_parameters(),
+            StmAggrSigType::StmAggrSigConcatenation,
         )
         .unwrap();
         service.computed_epoch_data = Some(ComputedEpochData {

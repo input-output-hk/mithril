@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use crate::{Aggregator, Devnet};
 use mithril_common::entities::{Epoch, ProtocolParameters};
-use mithril_common::StdResult;
+use mithril_common::{StdResult, StmAggrSigType};
 use slog_scope::info;
 
 pub async fn bootstrap_genesis_certificate(aggregator: &Aggregator) -> StdResult<()> {
@@ -82,6 +82,11 @@ pub async fn update_protocol_parameters(aggregator: &Aggregator) -> StdResult<()
     aggregator
         .set_protocol_parameters(&protocol_parameters_new)
         .await;
+
+    aggregator
+        .set_aggregation_type(StmAggrSigType::StmAggrSigCentralizedTelescopeAlba)
+        .await;
+
     info!("> done, restarting aggregator"; "aggregator" => &aggregator.name());
     aggregator.serve().await?;
 

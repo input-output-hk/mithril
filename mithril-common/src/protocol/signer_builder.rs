@@ -1,4 +1,5 @@
 use anyhow::Context;
+use mithril_stm::StmAggrSigType;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 use std::path::Path;
@@ -21,6 +22,7 @@ use super::SingleSigner;
 pub struct SignerBuilder {
     protocol_parameters: ProtocolParameters,
     closed_key_registration: ProtocolClosedKeyRegistration,
+    protocol_aggregation_type: StmAggrSigType,
 }
 
 /// [SignerBuilder] specific errors
@@ -36,6 +38,7 @@ impl SignerBuilder {
     pub fn new(
         registered_signers: &[SignerWithStake],
         protocol_parameters: &ProtocolParameters,
+        protocol_aggregation_type: StmAggrSigType,
     ) -> StdResult<Self> {
         if registered_signers.is_empty() {
             return Err(SignerBuilderError::EmptySigners.into());
@@ -66,6 +69,7 @@ impl SignerBuilder {
         Ok(Self {
             protocol_parameters: protocol_parameters.clone(),
             closed_key_registration: closed_registration,
+            protocol_aggregation_type,
         })
     }
 
@@ -75,7 +79,7 @@ impl SignerBuilder {
         let clerk =
             ProtocolClerk::from_registration(&stm_parameters, &self.closed_key_registration);
 
-        MultiSigner::new(clerk, stm_parameters)
+        MultiSigner::new(clerk, stm_parameters, self.protocol_aggregation_type)
     }
 
     /// Compute aggregate verification key from stake distribution
@@ -197,7 +201,12 @@ mod test {
         let signers = vec![];
         let protocol_parameters = fake_data::protocol_parameters();
 
-        let error = SignerBuilder::new(&signers, &protocol_parameters).expect_err(
+        let error = SignerBuilder::new(
+            &signers,
+            &protocol_parameters,
+            StmAggrSigType::StmAggrSigConcatenation,
+        )
+        .expect_err(
             "We should not be able to construct a signer builder with an empty signers list",
         );
 
@@ -225,7 +234,12 @@ mod test {
         let mut signers = fixture.signers_with_stake();
         signers.append(&mut fixture_with_another_stake_distribution.signers_with_stake());
 
-        let error = SignerBuilder::new(&signers, &fixture.protocol_parameters()).expect_err(
+        let error = SignerBuilder::new(
+            &signers,
+            &fixture.protocol_parameters(),
+            StmAggrSigType::StmAggrSigConcatenation,
+        )
+        .expect_err(
             "We should not be able to construct a signer builder if a signer registration fail",
         );
 
@@ -242,6 +256,7 @@ mod test {
         SignerBuilder::new(
             &fixture.signers_with_stake(),
             &fixture.protocol_parameters(),
+            StmAggrSigType::StmAggrSigConcatenation,
         )
         .expect("We should be able to construct a signer builder with valid signers");
     }
@@ -259,6 +274,7 @@ mod test {
         let error = SignerBuilder::new(
             &fixture.signers_with_stake(),
             &fixture.protocol_parameters(),
+            StmAggrSigType::StmAggrSigConcatenation,
         )
         .unwrap()
         .build_test_single_signer(
@@ -288,6 +304,7 @@ mod test {
         let builder = SignerBuilder::new(
             &fixture.signers_with_stake(),
             &fixture.protocol_parameters(),
+            StmAggrSigType::StmAggrSigConcatenation,
         )
         .unwrap();
 
@@ -308,6 +325,7 @@ mod test {
         let first_builder = SignerBuilder::new(
             &fixture.signers_with_stake(),
             &fixture.protocol_parameters(),
+            StmAggrSigType::StmAggrSigConcatenation,
         )
         .unwrap();
 
@@ -321,6 +339,7 @@ mod test {
         let second_builder = SignerBuilder::new(
             &fixture.signers_with_stake(),
             &fixture.protocol_parameters(),
+            StmAggrSigType::StmAggrSigConcatenation,
         )
         .unwrap();
 

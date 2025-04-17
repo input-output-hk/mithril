@@ -123,6 +123,9 @@ export default function AggregatorStatus({ showContent = true }) {
               <InfoRow label="Mithril Era" className="text-capitalize">
                 {aggregatorStatus.mithril_era}
               </InfoRow>
+              <InfoRow label="Aggreg." className="text-capitalize">
+                {aggregatorStatus.aggregation_type?.replace("StmAggrSig", "")}
+              </InfoRow>
             </InfoGroupCard>
 
             <InfoGroupCard title="SPOs">

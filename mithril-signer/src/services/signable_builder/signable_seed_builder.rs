@@ -44,6 +44,7 @@ impl SignerSignableSeedBuilder {
         let signer_builder = SignerBuilder::new(
             signers_with_stake,
             &protocol_initializer.get_protocol_parameters().into(),
+            mithril_common::StmAggrSigType::StmAggrSigConcatenation,
         )
         .with_context(|| "SignerSignableSeedBuilder can not compute aggregate verification key")?;
 

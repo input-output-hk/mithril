@@ -5,7 +5,7 @@ use crate::{
 };
 use mithril_common::chain_observer::{ChainObserver, PallasChainObserver};
 use mithril_common::entities::{Epoch, PartyId, ProtocolParameters};
-use mithril_common::{CardanoNetwork, StdResult};
+use mithril_common::{CardanoNetwork, StdResult, StmAggrSigType};
 use slog_scope::info;
 use std::fs;
 use std::path::PathBuf;
@@ -223,6 +223,16 @@ impl MithrilInfrastructure {
                     k: 70,
                     m: 105,
                     phi_f: 0.95,
+                })
+                .await;
+
+            aggregator
+                .set_aggregation_type({
+                    if index == 0 {
+                        StmAggrSigType::StmAggrSigConcatenation
+                    } else {
+                        StmAggrSigType::StmAggrSigCentralizedTelescopeAlba
+                    }
                 })
                 .await;
 

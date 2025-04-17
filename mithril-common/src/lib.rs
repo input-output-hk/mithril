@@ -42,6 +42,8 @@ pub mod messages;
 pub mod protocol;
 pub mod signable_builder;
 
+pub use mithril_stm::StmAggrSigType;
+
 cfg_test_tools! {
     pub mod test_utils;
 }

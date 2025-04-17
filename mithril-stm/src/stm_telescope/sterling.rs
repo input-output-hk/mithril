@@ -510,7 +510,7 @@ impl<D: Clone + Digest + FixedOutput> SterlingProof<D> {
     }
 
     ///Extract a `SterlingProof` from a byte slice.
-    pub fn from_bytes(bytes: &[u8]) -> Result<SterlingProof<D>, StmAggregateSignatureError<D>> {
+    pub fn from_bytes(_bytes: &[u8]) -> Result<SterlingProof<D>, StmAggregateSignatureError<D>> {
         /* let mut u64_bytes = [0u8; 8];
 
         u64_bytes.copy_from_slice(&bytes[..8]);

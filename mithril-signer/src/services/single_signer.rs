@@ -100,6 +100,7 @@ impl MithrilSingleSigner {
         let builder = SignerBuilder::new(
             &epoch_service.current_signers_with_stake().await?,
             &protocol_initializer.get_protocol_parameters().into(),
+            mithril_common::StmAggrSigType::StmAggrSigConcatenation,
         )
         .with_context(|| "Mithril Single Signer can not build signer")
         .map_err(SingleSignerError::ProtocolSignerCreationFailure)?;

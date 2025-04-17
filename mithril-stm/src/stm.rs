@@ -686,10 +686,14 @@ impl<D: Digest + Clone + FixedOutput + Send + Sync> StmClerk<D> {
         proof_type: StmAggrSigType,
     ) -> Result<StmAggrSig<D>, AggregationError> {
         match proof_type {
-            StmAggrSigType::StmAggrSigConcatenation => Ok(StmAggrSig::StmAggrSigConcatenation(
-                self.concatenation_aggregate(sigs, msg)?,
-            )),
+            StmAggrSigType::StmAggrSigConcatenation => {
+                //println!("Aggregation proof type: StmAggrSigConcatenation");
+                Ok(StmAggrSig::StmAggrSigConcatenation(
+                    self.concatenation_aggregate(sigs, msg)?,
+                ))
+            }
             StmAggrSigType::StmAggrSigCentralizedTelescopeAlba => {
+                //println!("Aggregation proof type: StmAggrSigCentralizedTelescopeAlba");
                 let telescope = SterlingInitializer::telescope_from_stm(
                     &SterlingInitializer::default(),
                     self.params,
@@ -774,7 +778,7 @@ impl<D: Digest + Clone + FixedOutput + Send + Sync> StmClerk<D> {
 /// A STM aggregate signature.
 #[derive(Debug, Clone, Serialize, Deserialize, EnumDiscriminants)]
 #[strum(serialize_all = "PascalCase")]
-#[strum_discriminants(derive(Serialize, Hash, Display))]
+#[strum_discriminants(derive(Serialize, Deserialize, Hash, Display))]
 #[strum_discriminants(name(StmAggrSigType))]
 #[serde(bound(
     serialize = "BatchPath<D>: Serialize",
@@ -803,9 +807,11 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
     ) -> Result<(), StmAggregateSignatureError<D>> {
         match self {
             StmAggrSig::StmAggrSigConcatenation(stm_aggr_sig) => {
+                //println!("Aggregation proof type: StmAggrSigConcatenation");
                 stm_aggr_sig.verify(msg, avk, parameters)
             }
             StmAggrSig::StmAggrSigCentralizedTelescopeAlba(alba_aggr_sig) => {
+                //println!("Aggregation proof type: StmAggrSigCentralizedTelescopeAlba");
                 let telescope = SterlingInitializer::telescope_from_stm(
                     &SterlingInitializer::default(),
                     parameters.to_owned(),

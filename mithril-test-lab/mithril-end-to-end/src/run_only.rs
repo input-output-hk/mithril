@@ -1,8 +1,8 @@
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 
-use tokio::task::JoinSet;
+use tokio::{fs, task::JoinSet};
 
-use mithril_common::StdResult;
+use mithril_common::{StdResult, StmAggrSigType};
 
 use crate::{assertions, Aggregator, MithrilInfrastructure};
 
@@ -64,6 +64,31 @@ impl RunOnly {
         if aggregator.is_first() {
             // Transfer some funds on the devnet to have some Cardano transactions to sign
             assertions::transfer_funds(infrastructure.devnet()).await?;
+        }
+
+        if aggregator.is_first() {
+            loop {
+                let current_epoch = chain_observer
+                    .get_current_epoch()
+                    .await?
+                    .unwrap_or_default();
+                let target_epoch = current_epoch + 1;
+                assertions::wait_for_aggregator_at_target_epoch(
+                    aggregator,
+                    target_epoch,
+                    "update the aggregation type on leader aggregator".to_string(),
+                )
+                .await?;
+                let trigger_restart_file = "./restart-aggregator.txt";
+                if Path::new(trigger_restart_file).exists() {
+                    fs::remove_file(trigger_restart_file).await?;
+                    aggregator
+                        .set_aggregation_type(StmAggrSigType::StmAggrSigCentralizedTelescopeAlba)
+                        .await;
+                    aggregator.stop().await?;
+                    aggregator.serve().await?;
+                }
+            }
         }
 
         Ok(())

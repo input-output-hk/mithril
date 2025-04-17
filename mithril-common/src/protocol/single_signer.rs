@@ -47,6 +47,8 @@ impl SingleSigner {
 
 #[cfg(test)]
 mod test {
+    use mithril_stm::StmAggrSigType;
+
     use crate::{
         entities::ProtocolMessage, protocol::SignerBuilder, test_utils::MithrilFixtureBuilder,
     };
@@ -60,6 +62,7 @@ mod test {
         let (single_signer, _) = SignerBuilder::new(
             &fixture.signers_with_stake(),
             &fixture.protocol_parameters(),
+            StmAggrSigType::StmAggrSigConcatenation,
         )
         .unwrap()
         .build_test_single_signer(
