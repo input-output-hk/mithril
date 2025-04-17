@@ -1,3 +1,4 @@
+use mithril_stm::StmAggrSigType;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -179,9 +180,13 @@ impl MithrilFixture {
 
     /// Compute the Aggregate Verification Key for this fixture.
     pub fn compute_avk(&self) -> ProtocolAggregateVerificationKey {
-        SignerBuilder::new(&self.signers_with_stake(), &self.protocol_parameters)
-            .unwrap()
-            .compute_aggregate_verification_key()
+        SignerBuilder::new(
+            &self.signers_with_stake(),
+            &self.protocol_parameters,
+            StmAggrSigType::StmAggrSigConcatenation,
+        )
+        .unwrap()
+        .compute_aggregate_verification_key()
     }
 
     /// Compute the Aggregate Verification Key for this fixture and returns it has a [HexEncodedAggregateVerificationKey].

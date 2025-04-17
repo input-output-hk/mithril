@@ -7,7 +7,7 @@ use crate::{
 use anyhow::{anyhow, Context};
 use mithril_common::chain_observer::{ChainObserver, PallasChainObserver};
 use mithril_common::era::SupportedEra;
-use mithril_common::{entities, CardanoNetwork, StdResult};
+use mithril_common::{entities, CardanoNetwork, StdResult, StmAggrSigType};
 use slog_scope::info;
 use std::cmp;
 use std::collections::HashMap;
@@ -332,6 +332,11 @@ impl Aggregator {
             "PROTOCOL_PARAMETERS__PHI_F",
             &format!("{}", protocol_parameters.phi_f),
         );
+    }
+
+    pub async fn set_aggregation_type(&self, aggregation_type: StmAggrSigType) {
+        let mut command = self.command.write().await;
+        command.set_env_var("AGGREGATION_TYPE", &format!("{}", aggregation_type));
     }
 
     pub async fn set_mock_cardano_cli_file_path(

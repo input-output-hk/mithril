@@ -1,6 +1,6 @@
 use warp::Filter;
 
-use mithril_common::{messages::AggregatorStatusMessage, StdResult};
+use mithril_common::{messages::AggregatorStatusMessage, StdResult, StmAggrSigType};
 
 use crate::{
     dependency_injection::EpochServiceWrapper,
@@ -27,6 +27,9 @@ fn status(
         .and(middlewares::extract_config(router_state, |config| {
             config.network.to_string()
         }))
+        .and(middlewares::extract_config(router_state, |config| {
+            config.aggregation_type
+        }))
         .and_then(handlers::status)
 }
 
@@ -34,6 +37,7 @@ async fn get_aggregator_status_message(
     epoch_service: EpochServiceWrapper,
     cardano_node_version: String,
     cardano_network: String,
+    aggregation_type: StmAggrSigType,
 ) -> StdResult<AggregatorStatusMessage> {
     let epoch_service = epoch_service.read().await;
 
@@ -65,6 +69,7 @@ async fn get_aggregator_status_message(
         total_next_stakes_signers,
         total_cardano_spo,
         total_cardano_stake,
+        aggregation_type,
     };
 
     Ok(message)
@@ -73,6 +78,7 @@ async fn get_aggregator_status_message(
 mod handlers {
     use std::convert::Infallible;
 
+    use mithril_common::StmAggrSigType;
     use slog::{warn, Logger};
     use warp::http::StatusCode;
 
@@ -87,10 +93,15 @@ mod handlers {
         epoch_service: EpochServiceWrapper,
         cardano_node_version: String,
         cardano_network: String,
+        aggregation_type: StmAggrSigType,
     ) -> Result<impl warp::Reply, Infallible> {
-        let aggregator_status_message =
-            get_aggregator_status_message(epoch_service, cardano_node_version, cardano_network)
-                .await;
+        let aggregator_status_message = get_aggregator_status_message(
+            epoch_service,
+            cardano_node_version,
+            cardano_network,
+            aggregation_type,
+        )
+        .await;
 
         match aggregator_status_message {
             Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
@@ -217,9 +228,14 @@ mod tests {
         .build();
         let epoch_service = Arc::new(RwLock::new(epoch_service));
 
-        let message = get_aggregator_status_message(epoch_service, String::new(), String::new())
-            .await
-            .unwrap();
+        let message = get_aggregator_status_message(
+            epoch_service,
+            String::new(),
+            String::new(),
+            StmAggrSigType::StmAggrSigConcatenation,
+        )
+        .await
+        .unwrap();
 
         assert_eq!(
             message.protocol_parameters,
@@ -242,9 +258,14 @@ mod tests {
         .build();
         let epoch_service = Arc::new(RwLock::new(epoch_service));
 
-        let message = get_aggregator_status_message(epoch_service, String::new(), String::new())
-            .await
-            .unwrap();
+        let message = get_aggregator_status_message(
+            epoch_service,
+            String::new(),
+            String::new(),
+            StmAggrSigType::StmAggrSigConcatenation,
+        )
+        .await
+        .unwrap();
 
         assert_eq!(message.total_cardano_spo, 0);
         assert_eq!(message.total_cardano_stake, 0);
@@ -262,9 +283,14 @@ mod tests {
         .build();
         let epoch_service = Arc::new(RwLock::new(epoch_service));
 
-        let message = get_aggregator_status_message(epoch_service, String::new(), String::new())
-            .await
-            .unwrap();
+        let message = get_aggregator_status_message(
+            epoch_service,
+            String::new(),
+            String::new(),
+            StmAggrSigType::StmAggrSigConcatenation,
+        )
+        .await
+        .unwrap();
 
         assert_eq!(message.total_signers, total_signers);
         assert_eq!(message.total_next_signers, total_next_signers);
@@ -288,9 +314,14 @@ mod tests {
         .build();
         let epoch_service = Arc::new(RwLock::new(epoch_service));
 
-        let message = get_aggregator_status_message(epoch_service, String::new(), String::new())
-            .await
-            .unwrap();
+        let message = get_aggregator_status_message(
+            epoch_service,
+            String::new(),
+            String::new(),
+            StmAggrSigType::StmAggrSigConcatenation,
+        )
+        .await
+        .unwrap();
 
         assert_eq!(message.total_stakes_signers, total_stakes_signers);
         assert_eq!(message.total_next_stakes_signers, total_next_stakes_signers);
@@ -305,6 +336,7 @@ mod tests {
             epoch_service,
             "1.0.4".to_string(),
             "network".to_string(),
+            StmAggrSigType::StmAggrSigConcatenation,
         )
         .await
         .unwrap();

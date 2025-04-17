@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context};
-use mithril_stm::stm::StmParameters;
+use mithril_stm::{stm::StmParameters, StmAggrSigType};
 
 use crate::{
     crypto_helper::{
@@ -15,13 +15,19 @@ use crate::{
 pub struct MultiSigner {
     protocol_clerk: ProtocolClerk,
     protocol_parameters: StmParameters,
+    protocol_aggregation_type: StmAggrSigType,
 }
 
 impl MultiSigner {
-    pub(super) fn new(protocol_clerk: ProtocolClerk, protocol_parameters: StmParameters) -> Self {
+    pub(super) fn new(
+        protocol_clerk: ProtocolClerk,
+        protocol_parameters: StmParameters,
+        protocol_aggregation_type: StmAggrSigType,
+    ) -> Self {
         Self {
             protocol_clerk,
             protocol_parameters,
+            protocol_aggregation_type,
         }
     }
 
@@ -37,7 +43,11 @@ impl MultiSigner {
             .collect();
 
         self.protocol_clerk
-            .aggregate(&protocol_signatures, message.to_message().as_bytes())
+            .aggregate_with_proof_type(
+                &protocol_signatures,
+                message.to_message().as_bytes(),
+                self.protocol_aggregation_type,
+            )
             .map(|multi_sig| multi_sig.into())
     }
 
@@ -104,6 +114,7 @@ mod test {
         SignerBuilder::new(
             &fixture.signers_with_stake(),
             &fixture.protocol_parameters(),
+            StmAggrSigType::StmAggrSigConcatenation,
         )
         .unwrap()
         .build_multi_signer()

@@ -21,6 +21,9 @@ fn root(
         .and(middlewares::extract_config(router_state, |config| {
             config.cardano_transactions_prover_max_hashes_allowed_by_request
         }))
+        .and(middlewares::extract_config(router_state, |config| {
+            config.aggregation_type
+        }))
         .and_then(handlers::root)
 }
 
@@ -28,6 +31,7 @@ mod handlers {
     use std::collections::BTreeSet;
     use std::{convert::Infallible, sync::Arc};
 
+    use mithril_common::StmAggrSigType;
     use slog::Logger;
     use warp::http::StatusCode;
 
@@ -46,6 +50,7 @@ mod handlers {
         api_version_provider: Arc<APIVersionProvider>,
         allowed_signed_entity_type_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
         max_hashes_allowed_by_request: usize,
+        aggregation_type: StmAggrSigType,
     ) -> Result<impl warp::Reply, Infallible> {
         let open_api_version = unwrap_to_internal_server_error!(
             api_version_provider.compute_current_version(),
@@ -72,6 +77,7 @@ mod handlers {
                 open_api_version: open_api_version.to_string(),
                 documentation_url: env!("CARGO_PKG_HOMEPAGE").to_string(),
                 capabilities,
+                aggregation_type: aggregation_type.to_string(),
             },
             StatusCode::OK,
         ))
@@ -87,6 +93,7 @@ mod tests {
         AggregatorCapabilities, AggregatorFeaturesMessage, CardanoTransactionsProverCapabilities,
     };
     use mithril_common::test_utils::apispec::APISpec;
+    use mithril_common::StmAggrSigType;
     use serde_json::Value::Null;
     use std::collections::BTreeSet;
     use std::sync::Arc;
@@ -156,6 +163,7 @@ mod tests {
                     ]),
                     cardano_transactions_prover: None,
                 },
+                aggregation_type: StmAggrSigType::StmAggrSigConcatenation.to_string(),
             }
         );
 

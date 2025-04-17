@@ -15,6 +15,9 @@ pub struct AggregatorFeaturesMessage {
 
     /// Capabilities of the Aggregator
     pub capabilities: AggregatorCapabilities,
+
+    /// Aggregation type
+    pub aggregation_type: String,
 }
 
 impl AggregatorFeaturesMessage {
@@ -29,6 +32,7 @@ impl AggregatorFeaturesMessage {
                 ]),
                 cardano_transactions_prover: None,
             },
+            aggregation_type: "StmAggrSigConcatenation".to_string(),
         }
     }
 }
@@ -53,6 +57,8 @@ pub struct CardanoTransactionsProverCapabilities {
 
 #[cfg(test)]
 mod tests {
+    use mithril_stm::StmAggrSigType;
+
     use crate::entities::CardanoTransactionsSigningConfig;
 
     use super::*;
@@ -101,6 +107,7 @@ mod tests {
                     max_hashes_allowed_by_request: 100,
                 }),
             },
+            aggregation_type: StmAggrSigType::StmAggrSigConcatenation.to_string(),
         }
     }
 

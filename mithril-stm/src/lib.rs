@@ -15,6 +15,8 @@ pub use crate::error::{
     StmSignatureError,
 };
 
+pub use stm::StmAggrSigType;
+
 #[cfg(feature = "benchmark-internals")]
 pub mod bls_multi_signature;
 

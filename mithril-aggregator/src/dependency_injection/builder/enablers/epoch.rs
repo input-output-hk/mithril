@@ -26,6 +26,7 @@ impl DependenciesBuilder {
                 stake_store,
             ),
             allowed_discriminants,
+            self.configuration.aggregation_type,
             self.root_logger(),
         )));
 
