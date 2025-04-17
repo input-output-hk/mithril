@@ -83,11 +83,13 @@ impl ExportGenesisSubCommand {
         root_logger: Logger,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> StdResult<()> {
-        let config: Configuration = config_builder
+        let mut config: Configuration = config_builder
             .build()
             .with_context(|| "configuration build error")?
             .try_deserialize()
             .with_context(|| "configuration deserialize error")?;
+        // TODO: `store_retention_limit` will be set in the specific configuration implementation of the genesis command.
+        config.store_retention_limit = None;
         debug!(root_logger, "EXPORT GENESIS command"; "config" => format!("{config:?}"));
         println!(
             "Genesis export payload to sign to {}",
@@ -125,11 +127,13 @@ impl ImportGenesisSubCommand {
         root_logger: Logger,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> StdResult<()> {
-        let config: Configuration = config_builder
+        let mut config: Configuration = config_builder
             .build()
             .with_context(|| "configuration build error")?
             .try_deserialize()
             .with_context(|| "configuration deserialize error")?;
+        // TODO: `store_retention_limit` will be set in the specific configuration implementation of the genesis command.
+        config.store_retention_limit = None;
         debug!(root_logger, "IMPORT GENESIS command"; "config" => format!("{config:?}"));
         println!(
             "Genesis import signed payload from {}",
@@ -207,11 +211,13 @@ impl BootstrapGenesisSubCommand {
         root_logger: Logger,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> StdResult<()> {
-        let config: Configuration = config_builder
+        let mut config: Configuration = config_builder
             .build()
             .with_context(|| "configuration build error")?
             .try_deserialize()
             .with_context(|| "configuration deserialize error")?;
+        // TODO: `store_retention_limit` will be set in the specific configuration implementation of the genesis command.
+        config.store_retention_limit = None;
         debug!(root_logger, "BOOTSTRAP GENESIS command"; "config" => format!("{config:?}"));
         println!("Genesis bootstrap for test only!");
         let mut dependencies_builder =
