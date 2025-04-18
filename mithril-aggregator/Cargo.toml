@@ -18,15 +18,15 @@ name = "cardano_transactions_get"
 harness = false
 
 [dependencies]
-anyhow = "1.0.97"
-async-trait = "0.1.88"
-chrono = { version = "0.4.40", features = ["serde"] }
-clap = { version = "4.5.32", features = ["derive", "env", "cargo"] }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+chrono = { workspace = true }
+clap = { workspace = true, features = ["cargo"] }
 cloud-storage = "0.11.1"
-config = "0.15.11"
+config = { workspace = true }
 flate2 = "1.1.0"
 gcloud-kms = { version = "1.2.0", features = ["auth"] }
-hex = "0.4.3"
+hex = { workspace = true }
 mithril-cli-helper = { path = "../internal/mithril-cli-helper" }
 mithril-common = { path = "../mithril-common", features = ["full"] }
 mithril-doc = { path = "../internal/mithril-doc" }
@@ -36,35 +36,35 @@ mithril-resource-pool = { path = "../internal/mithril-resource-pool" }
 mithril-signed-entity-lock = { path = "../internal/signed-entity/mithril-signed-entity-lock" }
 mithril-signed-entity-preloader = { path = "../internal/signed-entity/mithril-signed-entity-preloader" }
 paste = "1.0.15"
-rayon = "1.10.0"
+rayon = { workspace = true }
 regex = "1.11.1"
-reqwest = { version = "0.12.15", features = [
-    "json",
+reqwest = { workspace = true, features = [
+    "default",
     "gzip",
     "zstd",
     "deflate",
     "brotli"
 ] }
-semver = "1.0.26"
-serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.140"
-slog = { version = "2.7.0", features = [
+semver = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+slog = { workspace = true, features = [
     "max_level_trace",
     "release_max_level_debug",
 ] }
-slog-async = "2.8.0"
-slog-bunyan = "2.5.0"
+slog-async = { workspace = true }
+slog-bunyan = { workspace = true }
 sqlite = { version = "0.36.2", features = ["bundled"] }
 tar = "0.4.44"
-thiserror = "2.0.12"
-tokio = { version = "1.44.1", features = ["full"] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal"] }
 tokio-util = { version = "0.7.14", features = ["codec"] }
 uuid = { version = "1.16.0", features = [
     "v4",
     "fast-rng",
     "macro-diagnostics",
 ] }
-warp = "0.3.7"
+warp = { workspace = true }
 zstd = { version = "0.13.3", features = ["zstdmt"] }
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
@@ -78,9 +78,9 @@ mithril-common = { path = "../mithril-common", features = [
     "allow_skip_signer_certification",
     "test_tools",
 ] }
-mockall = "0.13.1"
+mockall = { workspace = true }
 slog-scope = "4.4.0"
-slog-term = "2.9.1"
+slog-term = { workspace = true }
 tempfile = "3.19.1"
 
 [features]
