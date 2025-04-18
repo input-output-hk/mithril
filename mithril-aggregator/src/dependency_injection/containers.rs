@@ -4,11 +4,7 @@ use tokio::sync::RwLock;
 
 use mithril_common::{
     api_version::APIVersionProvider,
-    cardano_block_scanner::BlockScanner,
-    certificate_chain::CertificateVerifier,
     chain_observer::ChainObserver,
-    crypto_helper::ProtocolGenesisVerifier,
-    digesters::{ImmutableDigester, ImmutableFileObserver},
     entities::{
         CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignerWithStake,
         StakeDistribution,
@@ -19,62 +15,38 @@ use mithril_common::{
     TickerService,
 };
 
-use mithril_persistence::{
-    sqlite::{SqliteConnection, SqliteConnectionPool},
-    store::StakeStorer,
-};
+use mithril_persistence::store::StakeStorer;
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 
 use crate::{
     database::repository::{
-        CertificateRepository, OpenMessageRepository, SignedEntityStorer, SignerGetter,
-        StakePoolStore,
+        CertificateRepository, SignedEntityStorer, SignerGetter, StakePoolStore,
     },
     entities::AggregatorEpochSettings,
     event_store::{EventMessage, TransmitterService},
-    file_uploaders::FileUploader,
-    multi_signer::MultiSigner,
     services::{
-        AggregatorClient, CertifierService, EpochService, MessageService, ProverService,
-        SignedEntityService, SignerRecorder, SignerSynchronizer, Snapshotter,
-        StakeDistributionService, TransactionStore, UpkeepService,
+        CertifierService, EpochService, MessageService, ProverService, SignedEntityService,
+        SignerRecorder, SignerSynchronizer, StakeDistributionService, UpkeepService,
     },
     EpochSettingsStorer, MetricsService, SignerRegisterer, SignerRegistrationRoundOpener,
-    SignerRegistrationVerifier, SingleSignatureAuthenticator, VerificationKeyStorer,
+    SingleSignatureAuthenticator, VerificationKeyStorer,
 };
 
-/// EpochServiceWrapper wraps a [EpochService]
+/// EpochServiceWrapper wraps
 pub type EpochServiceWrapper = Arc<RwLock<dyn EpochService>>;
 
 /// DependencyManager handles the dependencies
 pub struct DependencyContainer {
     /// Application root logger
-    pub root_logger: Logger,
-
-    /// SQLite database connection
-    ///
-    /// This is not a real service, but it is needed to instantiate all store
-    /// services. Should be a private dependency.
-    pub sqlite_connection: Arc<SqliteConnection>,
-
-    /// Cardano transactions SQLite database connection pool
-    pub sqlite_connection_cardano_transaction_pool: Arc<SqliteConnectionPool>,
+    pub(crate) root_logger: Logger,
 
     /// Stake Store used by the StakeDistributionService
     /// It shall be a private dependency.
-    pub stake_store: Arc<StakePoolStore>,
+    pub(crate) stake_store: Arc<StakePoolStore>,
 
-    /// Snapshot uploader service.
-    pub snapshot_uploader: Arc<dyn FileUploader>,
-
-    /// Multisigner service.
-    pub multi_signer: Arc<dyn MultiSigner>,
-
+    /// It shall be a private dependency.
     /// Certificate store.
     pub certificate_repository: Arc<CertificateRepository>,
-
-    /// Open message store.
-    pub open_message_repository: Arc<OpenMessageRepository>,
 
     /// Verification key store.
     pub verification_key_store: Arc<dyn VerificationKeyStorer>,
@@ -83,58 +55,34 @@ pub struct DependencyContainer {
     pub epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
 
     /// Chain observer service.
-    pub chain_observer: Arc<dyn ChainObserver>,
-
-    /// Cardano transactions store.
-    pub transaction_store: Arc<dyn TransactionStore>,
-
-    /// Cardano block scanner.
-    pub block_scanner: Arc<dyn BlockScanner>,
-
-    /// Immutable file observer service.
-    pub immutable_file_observer: Arc<dyn ImmutableFileObserver>,
-
-    /// Digester service.
-    pub digester: Arc<dyn ImmutableDigester>,
-
-    /// Snapshotter service.
-    pub snapshotter: Arc<dyn Snapshotter>,
-
-    /// Certificate verifier service.
-    pub certificate_verifier: Arc<dyn CertificateVerifier>,
-
-    /// Genesis signature verifier service.
-    pub genesis_verifier: Arc<ProtocolGenesisVerifier>,
+    pub(crate) chain_observer: Arc<dyn ChainObserver>,
 
     /// Signer registerer service
     pub signer_registerer: Arc<dyn SignerRegisterer>,
 
     /// Signer synchronizer service
-    pub signer_synchronizer: Arc<dyn SignerSynchronizer>,
-
-    /// Signer registration verifier
-    pub signer_registration_verifier: Arc<dyn SignerRegistrationVerifier>,
+    pub(crate) signer_synchronizer: Arc<dyn SignerSynchronizer>,
 
     /// Signer registration round opener service
-    pub signer_registration_round_opener: Arc<dyn SignerRegistrationRoundOpener>,
+    pub(crate) signer_registration_round_opener: Arc<dyn SignerRegistrationRoundOpener>,
 
     /// Era checker service
-    pub era_checker: Arc<EraChecker>,
+    pub(crate) era_checker: Arc<EraChecker>,
 
     /// Era reader service
-    pub era_reader: Arc<EraReader>,
+    pub(crate) era_reader: Arc<EraReader>,
 
     /// Event Transmitter Service
-    pub event_transmitter: Arc<TransmitterService<EventMessage>>,
+    pub(crate) event_transmitter: Arc<TransmitterService<EventMessage>>,
 
     /// API Version provider
-    pub api_version_provider: Arc<APIVersionProvider>,
+    pub(crate) api_version_provider: Arc<APIVersionProvider>,
 
     /// Stake Distribution Service
-    pub stake_distribution_service: Arc<dyn StakeDistributionService>,
+    pub(crate) stake_distribution_service: Arc<dyn StakeDistributionService>,
 
     /// Signer Recorder
-    pub signer_recorder: Arc<dyn SignerRecorder>,
+    pub(crate) signer_recorder: Arc<dyn SignerRecorder>,
 
     /// Signable Builder Service
     pub signable_builder_service: Arc<dyn SignableBuilderService>,
@@ -146,16 +94,16 @@ pub struct DependencyContainer {
     pub certifier_service: Arc<dyn CertifierService>,
 
     /// Epoch service
-    pub epoch_service: EpochServiceWrapper,
+    pub(crate) epoch_service: EpochServiceWrapper,
 
     /// Ticker Service
-    pub ticker_service: Arc<dyn TickerService>,
+    pub(crate) ticker_service: Arc<dyn TickerService>,
 
     /// Signed Entity storer
     pub signed_entity_storer: Arc<dyn SignedEntityStorer>,
 
     /// Signer getter service
-    pub signer_getter: Arc<dyn SignerGetter>,
+    pub(crate) signer_getter: Arc<dyn SignerGetter>,
 
     /// HTTP message service
     pub message_service: Arc<dyn MessageService>,
@@ -167,16 +115,13 @@ pub struct DependencyContainer {
     pub signed_entity_type_lock: Arc<SignedEntityTypeLock>,
 
     /// Upkeep service
-    pub upkeep_service: Arc<dyn UpkeepService>,
+    pub(crate) upkeep_service: Arc<dyn UpkeepService>,
 
     /// Single signer authenticator
-    pub single_signer_authenticator: Arc<SingleSignatureAuthenticator>,
+    pub(crate) single_signer_authenticator: Arc<SingleSignatureAuthenticator>,
 
     /// Metrics service
-    pub metrics_service: Arc<MetricsService>,
-
-    /// Leader aggregator client
-    pub leader_aggregator_client: Arc<dyn AggregatorClient>,
+    pub(crate) metrics_service: Arc<MetricsService>,
 }
 
 #[doc(hidden)]
