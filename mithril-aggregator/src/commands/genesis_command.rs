@@ -10,8 +10,7 @@ use slog::{debug, Logger};
 use std::{path::PathBuf, sync::Arc};
 
 use crate::{
-    dependency_injection::{DependenciesBuilder, GenesisTools},
-    ServeCommandConfiguration,
+    dependency_injection::DependenciesBuilder, tools::GenesisTools, ServeCommandConfiguration,
 };
 
 /// Genesis tools

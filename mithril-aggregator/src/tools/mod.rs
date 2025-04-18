@@ -3,6 +3,7 @@ mod digest_helpers;
 mod era;
 pub mod file_archiver;
 pub mod file_size;
+mod genesis;
 #[cfg(test)]
 pub mod mocks;
 mod signer_importer;
@@ -13,6 +14,7 @@ mod vacuum_tracker;
 pub use certificates_hash_migrator::CertificatesHashMigrator;
 pub use digest_helpers::extract_digest_from_path;
 pub use era::EraTools;
+pub use genesis::GenesisTools;
 pub use signer_importer::{
     CExplorerSignerRetriever, SignersImporter, SignersImporterPersister, SignersImporterRetriever,
 };

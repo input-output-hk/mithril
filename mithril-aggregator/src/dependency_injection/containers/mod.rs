@@ -2,7 +2,7 @@ mod dependency_container;
 mod genesis;
 
 pub use dependency_container::*;
-pub use genesis::{GenesisTools, GenesisToolsDependency};
+pub use genesis::GenesisToolsDependency;
 
 use std::sync::Arc;
 
