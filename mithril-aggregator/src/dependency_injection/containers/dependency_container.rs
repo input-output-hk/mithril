@@ -88,7 +88,7 @@ pub struct DependencyContainer {
     pub signable_builder_service: Arc<dyn SignableBuilderService>,
 
     /// Signed Entity Service
-    pub signed_entity_service: Arc<dyn SignedEntityService>,
+    pub(crate) signed_entity_service: Arc<dyn SignedEntityService>,
 
     /// Certifier Service
     pub certifier_service: Arc<dyn CertifierService>,

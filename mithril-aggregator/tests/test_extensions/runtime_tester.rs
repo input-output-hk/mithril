@@ -6,7 +6,6 @@ use mithril_aggregator::MetricsService;
 use mithril_aggregator::{
     database::{record::SignedEntityRecord, repository::OpenMessageRepository},
     dependency_injection::DependenciesBuilder,
-    event_store::EventMessage,
     services::FakeSnapshotter,
     AggregatorRuntime, ConfigurationSource, DependencyContainer, DumbUploader,
     ServeCommandConfiguration, SignerRegistrationError,
@@ -20,7 +19,7 @@ use mithril_common::{
     entities::{
         BlockNumber, CardanoTransactionsSigningConfig, Certificate, CertificateSignature,
         ChainPoint, Epoch, ImmutableFileNumber, SignedEntityType, SignedEntityTypeDiscriminants,
-        SingleSignatureAuthenticationStatus, SlotNumber, Snapshot, StakeDistribution, TimePoint,
+        SingleSignatureAuthenticationStatus, SlotNumber, StakeDistribution, TimePoint,
     },
     era::{adapters::EraReaderDummyAdapter, EraMarker, EraReader, SupportedEra},
     test_utils::{
@@ -34,7 +33,6 @@ use slog_scope::debug;
 use std::convert::Infallible;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::mpsc::UnboundedReceiver;
 use warp::http::StatusCode;
 use warp::Filter;
 
@@ -114,7 +112,6 @@ pub struct RuntimeTester {
     pub genesis_signer: Arc<ProtocolGenesisSigner>,
     pub dependencies: DependencyContainer,
     pub runtime: AggregatorRuntime,
-    pub receiver: UnboundedReceiver<EventMessage>,
     pub era_reader_adapter: Arc<EraReaderDummyAdapter>,
     pub observer: Arc<AggregatorObserver>,
     pub open_message_repository: Arc<OpenMessageRepository>,
@@ -172,7 +169,6 @@ impl RuntimeTester {
 
         let dependencies = deps_builder.build_dependency_container().await.unwrap();
         let runtime = deps_builder.create_aggregator_runner().await.unwrap();
-        let receiver = deps_builder.get_event_transmitter_receiver().await.unwrap();
         let observer = Arc::new(AggregatorObserver::new(&mut deps_builder).await);
         let open_message_repository = deps_builder.get_open_message_repository().await.unwrap();
         let metrics_service = deps_builder.get_metrics_service().await.unwrap();
@@ -188,7 +184,6 @@ impl RuntimeTester {
             genesis_signer,
             dependencies,
             runtime,
-            receiver,
             era_reader_adapter,
             observer,
             open_message_repository,
@@ -205,34 +200,6 @@ impl RuntimeTester {
             .cycle()
             .await
             .with_context(|| "Ticking the state machine should not fail")
-    }
-
-    /// Check if a message has been sent.
-    pub async fn check_message(&mut self, source: &str, action: &str) -> StdResult<()> {
-        let message = self
-            .receiver
-            .try_recv()
-            .with_context(|| "No message has been sent")?;
-        let mut error_message = String::new();
-
-        if source != message.source {
-            error_message = format!(
-                "The source of the message ({}) is NOT what was expected ({source}).",
-                &message.source
-            );
-        }
-        if action != message.action {
-            error_message.push_str(&format!(
-                "The action of the message ({}) is NOT what was expected ({action}).",
-                &message.action
-            ));
-        }
-
-        if error_message.is_empty() {
-            Ok(())
-        } else {
-            Err(anyhow!(error_message))
-        }
     }
 
     /// Init the aggregator state based on the data in the given fixture
@@ -535,30 +502,6 @@ impl RuntimeTester {
         Ok(())
     }
 
-    /// List the certificates and snapshots from their respective stores.
-    pub async fn get_last_certificates_and_snapshots(
-        &mut self,
-    ) -> StdResult<(Vec<Certificate>, Vec<Snapshot>)> {
-        let certificates = self
-            .dependencies
-            .certificate_repository
-            .get_latest_certificates(1000) // Arbitrary high number to get all of them in store
-            .await
-            .with_context(|| "Querying certificate store should not fail")?;
-        let signed_entities = self
-            .dependencies
-            .signed_entity_service
-            .get_last_signed_snapshots(20)
-            .await
-            .with_context(|| "Querying snapshot store should not fail")?;
-        let snapshots = signed_entities
-            .into_iter()
-            .map(|record| record.artifact)
-            .collect::<Vec<Snapshot>>();
-
-        Ok((certificates, snapshots))
-    }
-
     /// Updates the stake distribution given a vector of signers with stakes
     pub async fn update_stake_distribution(
         &mut self,
@@ -625,11 +568,6 @@ impl RuntimeTester {
             .with_context(|| "Saving open message should not fail")?;
 
         Ok(())
-    }
-
-    /// Update the Era markers
-    pub async fn set_era_markers(&self, markers: Vec<EraMarker>) {
-        self.era_reader_adapter.set_markers(markers)
     }
 
     /// Get the last produced certificate with its signed entity if it's not a genesis certificate
