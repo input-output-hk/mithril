@@ -5,7 +5,7 @@
 
 use crate::key_reg::{ClosedKeyReg, RegParty};
 use crate::merkle_tree::{BatchPath, MerkleTreeCommitmentBatchCompat};
-use crate::multi_sig::{Signature, VerificationKey};
+use crate::bls_multi_signature::{Signature, VerificationKey};
 use crate::stm::{Index, Stake, StmParameters, StmSig, StmSigRegParty};
 use crate::stm_telescope::utils::{compute_k_adv, compute_k_hon, compute_m};
 use crate::AggregationError;
