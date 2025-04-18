@@ -30,18 +30,18 @@ name = "merkle_map"
 harness = false
 
 [dependencies]
-anyhow = "1.0.97"
-async-trait = "0.1.88"
+anyhow = { workspace = true }
+async-trait = { workspace = true }
 bech32 = "0.11.0"
 blake2 = "0.10.6"
-chrono = { version = "0.4.40", features = ["serde"] }
+chrono = { workspace = true }
 ciborium = "0.2.2"
 ckb-merkle-mountain-range = "0.6.1"
-digest = "0.10.7"
+digest = { workspace = true }
 ed25519-dalek = { version = "2.1.1", features = ["rand_core", "serde"] }
 fixed = "1.29.0"
 glob = { version = "0.3.2", optional = true }
-hex = "0.4.3"
+hex = { workspace = true }
 jsonschema = { version = "0.29.0", optional = true }
 kes-summed-ed25519 = { version = "0.2.1", features = [
     "serde_enabled",
@@ -54,36 +54,36 @@ pallas-codec = { version = "0.32.0", optional = true }
 pallas-network = { version = "0.32.0", optional = true }
 pallas-primitives = { version = "0.32.0", optional = true }
 pallas-traverse = { version = "0.32.0", optional = true }
-rand_chacha = "0.3.1"
-rand_core = { version = "0.6.4", features = ["getrandom"] }
-rayon = "1.10.0"
-reqwest = { version = "0.12.15", optional = true }
-semver = "1.0.26"
-serde = { version = "1.0.219", features = ["derive"] }
+rand_chacha = { workspace = true }
+rand_core = { workspace = true }
+rayon = { workspace = true }
+reqwest = { workspace = true, optional = true }
+semver = { workspace = true }
+serde = { workspace = true }
 serde_bytes = "0.11.17"
-serde_json = "1.0.140"
+serde_json = { workspace = true }
 serde_with = "3.12.0"
 serde_yaml = "0.9.34"
 sha2 = "0.10.8"
-slog = "2.7.0"
-strum = { version = "0.27.1", features = ["derive"] }
-thiserror = "2.0.12"
-tokio = { version = "1.44.1", features = ["io-util", "rt", "sync"] }
+slog = { workspace = true }
+strum = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
 typetag = "0.2.20"
 walkdir = "2.5.0"
-warp = { version = "0.3.7", optional = true }
+warp = { workspace = true, optional = true }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 wasm-bindgen = "0.2.100"
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports", "async_tokio"] }
-mockall = "0.13.1"
+mockall = { workspace = true }
 pallas-crypto = "0.32.0"
-reqwest = { version = "0.12.15", features = ["json"] }
-slog-async = "2.8.0"
-slog-term = "2.9.1"
-tokio = { version = "1.44.1", features = ["macros", "rt-multi-thread", "time"] }
+reqwest = { workspace = true }
+slog-async = { workspace = true }
+slog-term = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
 
 [build-dependencies]
 mithril-build-script = { path = "../internal/mithril-build-script", version = "=0.2" }
@@ -95,6 +95,7 @@ default = ["rug-backend"]
 full = ["fs", "test_tools"]
 fs = [
     "tokio/fs",
+    "tokio/io-util",
     "tokio/process",
     "dep:pallas-addresses",
     "dep:pallas-codec",

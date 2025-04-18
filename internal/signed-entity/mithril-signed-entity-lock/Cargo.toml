@@ -13,7 +13,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
 mithril-common = { path = "../../../mithril-common" }
-tokio = { version = "1.44.1" }
+tokio = { workspace = true }
 
 [dev-dependencies]
-tokio = { version = "1.44.1", features = ["macros"] }
+tokio = { workspace = true, features = ["macros"] }

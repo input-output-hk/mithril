@@ -12,16 +12,16 @@ repository = { workspace = true }
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
-anyhow = "1.0.97"
-async-trait = "0.1.88"
+anyhow = { workspace = true }
+async-trait = { workspace = true }
 mithril-common = { path = "../../../mithril-common", features = ["fs"] }
 mithril-signed-entity-lock = { path = "../mithril-signed-entity-lock" }
-slog = "2.7.0"
-tokio = { version = "1.44.1", features = ["sync"] }
+slog = { workspace = true }
+tokio = { workspace = true }
 
 [dev-dependencies]
 mithril-common = { path = "../../../mithril-common", features = ["test_tools"] }
-mockall = "0.13.1"
-slog-async = "2.8.0"
-slog-term = "2.9.1"
-tokio = { version = "1.44.1", features = ["macros"] }
+mockall = { workspace = true }
+slog-async = { workspace = true }
+slog-term = { workspace = true }
+tokio = { workspace = true, features = ["macros"] }
