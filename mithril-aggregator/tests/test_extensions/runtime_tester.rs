@@ -8,7 +8,7 @@ use mithril_aggregator::{
     dependency_injection::DependenciesBuilder,
     event_store::EventMessage,
     services::FakeSnapshotter,
-    AggregatorRuntime, Configuration, ConfigurationTrait, DependencyContainer, DumbUploader,
+    AggregatorRuntime, Configuration, ConfigurationSource, DependencyContainer, DumbUploader,
     SignerRegistrationError,
 };
 use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};

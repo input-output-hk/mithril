@@ -51,8 +51,7 @@ impl FromStr for ExecutionEnvironment {
 ///
 /// By default, each function panics if not overridden, forcing concrete configuration
 /// implementations to explicitly provide the necessary values.
-// TODO: Rename this trait to `Configuration` once specific configurations for all commands are created (removing the `Configuration` struct).
-pub trait ConfigurationTrait {
+pub trait ConfigurationSource {
     /// What kind of runtime environment the configuration is meant to.
     fn environment(&self) -> ExecutionEnvironment;
 
@@ -637,7 +636,7 @@ impl Configuration {
     }
 }
 
-impl ConfigurationTrait for Configuration {
+impl ConfigurationSource for Configuration {
     fn environment(&self) -> ExecutionEnvironment {
         self.environment.clone()
     }

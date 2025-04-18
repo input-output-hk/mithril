@@ -10,7 +10,7 @@ use slog::{debug, Logger};
 use mithril_common::StdResult;
 use mithril_doc::{Documenter, StructDoc};
 
-use crate::{dependency_injection::DependenciesBuilder, ConfigurationTrait, ExecutionEnvironment};
+use crate::{dependency_injection::DependenciesBuilder, ConfigurationSource, ExecutionEnvironment};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Documenter)]
 pub struct DatabaseCommandConfiguration {
@@ -18,7 +18,7 @@ pub struct DatabaseCommandConfiguration {
     pub data_stores_directory: PathBuf,
 }
 
-impl ConfigurationTrait for DatabaseCommandConfiguration {
+impl ConfigurationSource for DatabaseCommandConfiguration {
     fn environment(&self) -> ExecutionEnvironment {
         ExecutionEnvironment::Production
     }

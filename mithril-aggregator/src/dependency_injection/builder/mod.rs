@@ -39,7 +39,7 @@ use super::{
     GenesisToolsDependency, Result,
 };
 use crate::{
-    configuration::ConfigurationTrait,
+    configuration::ConfigurationSource,
     database::repository::{
         CertificateRepository, EpochSettingsStore, OpenMessageRepository, SignedEntityStorer,
         SignerStore, StakePoolStore,
@@ -78,7 +78,7 @@ const SNAPSHOT_ARTIFACTS_DIR: &str = "cardano-immutable-files-full";
 /// dependency for all further calls.
 pub struct DependenciesBuilder {
     /// Configuration parameters
-    pub configuration: Arc<dyn ConfigurationTrait>,
+    pub configuration: Arc<dyn ConfigurationSource>,
 
     /// Application root logger
     pub root_logger: Logger,
@@ -249,7 +249,7 @@ pub struct DependenciesBuilder {
 
 impl DependenciesBuilder {
     /// Create a new clean dependency builder
-    pub fn new(root_logger: Logger, configuration: Arc<dyn ConfigurationTrait>) -> Self {
+    pub fn new(root_logger: Logger, configuration: Arc<dyn ConfigurationSource>) -> Self {
         Self {
             configuration,
             root_logger,
@@ -482,7 +482,7 @@ impl DependenciesBuilder {
 
 #[cfg(test)]
 impl DependenciesBuilder {
-    pub(crate) fn new_with_stdout_logger(configuration: Arc<dyn ConfigurationTrait>) -> Self {
+    pub(crate) fn new_with_stdout_logger(configuration: Arc<dyn ConfigurationSource>) -> Self {
         Self::new(crate::test_tools::TestLogger::stdout(), configuration)
     }
 }
