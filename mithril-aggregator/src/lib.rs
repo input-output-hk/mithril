@@ -31,7 +31,7 @@ mod tools;
 
 pub use crate::artifact_builder::ArtifactBuilder;
 pub use crate::configuration::{
-    Configuration, ConfigurationSource, DefaultConfiguration, ExecutionEnvironment,
+    ConfigurationSource, DefaultConfiguration, ExecutionEnvironment, ServeCommandConfiguration,
     SnapshotUploaderType, ZstandardCompressionParameters,
 };
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl};

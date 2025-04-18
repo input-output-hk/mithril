@@ -529,7 +529,7 @@ pub mod tests {
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
         services::{MithrilStakeDistributionService, MockCertifierService},
-        Configuration, DependencyContainer, MithrilSignerRegistrationLeader,
+        DependencyContainer, MithrilSignerRegistrationLeader, ServeCommandConfiguration,
         SignerRegistrationRound,
     };
     use async_trait::async_trait;
@@ -883,7 +883,7 @@ pub mod tests {
             .returning(|_| Ok(()))
             .times(1);
 
-        let config = Configuration::new_sample(temp_dir!());
+        let config = ServeCommandConfiguration::new_sample(temp_dir!());
         let mut deps = DependenciesBuilder::new_with_stdout_logger(Arc::new(config.clone()))
             .build_dependency_container()
             .await

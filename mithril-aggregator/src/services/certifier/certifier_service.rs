@@ -389,7 +389,7 @@ mod tests {
 
     use crate::{
         dependency_injection::DependenciesBuilder, multi_signer::MockMultiSigner,
-        services::FakeEpochService, test_tools::TestLogger, Configuration,
+        services::FakeEpochService, test_tools::TestLogger, ServeCommandConfiguration,
     };
     use chrono::{DateTime, Days};
     use mithril_common::{
@@ -438,7 +438,7 @@ mod tests {
         epochs_with_signers: &[Epoch],
         current_epoch: Option<Epoch>,
     ) -> MithrilCertifierService {
-        let configuration = Configuration::new_sample(snapshot_directory);
+        let configuration = ServeCommandConfiguration::new_sample(snapshot_directory);
         let cardano_transactions_signing_config =
             configuration.cardano_transactions_signing_config.clone();
         let mut dependency_builder =

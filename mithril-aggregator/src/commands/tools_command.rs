@@ -10,7 +10,7 @@ use crate::{
     database::repository::{CertificateRepository, SignedEntityStore},
     dependency_injection::DependenciesBuilder,
     tools::CertificatesHashMigrator,
-    Configuration,
+    ServeCommandConfiguration,
 };
 
 /// List of tools to upkeep the aggregator
@@ -66,7 +66,7 @@ impl RecomputeCertificatesHashCommand {
         root_logger: Logger,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> StdResult<()> {
-        let config: Configuration = config_builder
+        let config: ServeCommandConfiguration = config_builder
             .build()
             .with_context(|| "configuration build error")?
             .try_deserialize()

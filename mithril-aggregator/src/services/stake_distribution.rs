@@ -233,7 +233,7 @@ mod tests {
 
     async fn get_service(chain_observer: MockChainObserver) -> MithrilStakeDistributionService {
         let mut builder = DependenciesBuilder::new_with_stdout_logger(Arc::new(
-            crate::Configuration::new_sample(temp_dir!()),
+            crate::ServeCommandConfiguration::new_sample(temp_dir!()),
         ));
         let stake_service = MithrilStakeDistributionService::new(
             builder.get_stake_store().await.unwrap(),

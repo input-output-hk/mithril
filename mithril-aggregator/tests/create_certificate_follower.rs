@@ -2,7 +2,7 @@ mod test_extensions;
 
 use std::{collections::HashMap, ops::Range};
 
-use mithril_aggregator::Configuration;
+use mithril_aggregator::ServeCommandConfiguration;
 use mithril_common::{
     entities::{
         BlockNumber, CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolParameters,
@@ -97,20 +97,20 @@ async fn create_certificate_follower() {
             block_hash: "block_hash-100".to_string(),
         },
     };
-    let leader_configuration = Configuration {
+    let leader_configuration = ServeCommandConfiguration {
         protocol_parameters: protocol_parameters.clone(),
         data_stores_directory: get_test_dir("create_certificate_leader"),
         cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
             security_parameter: BlockNumber(0),
             step: BlockNumber(30),
         },
-        ..Configuration::new_sample(temp_dir!())
+        ..ServeCommandConfiguration::new_sample(temp_dir!())
     };
     let mut leader_tester =
         RuntimeTester::build(start_time_point.clone(), leader_configuration.clone()).await;
     let leader_aggregator_http_server = leader_tester.expose_epoch_settings().await.unwrap();
 
-    let follower_configuration = Configuration {
+    let follower_configuration = ServeCommandConfiguration {
         data_stores_directory: get_test_dir("create_certificate_follower"),
         snapshot_directory: TempDir::create(
             "aggregator-integration",

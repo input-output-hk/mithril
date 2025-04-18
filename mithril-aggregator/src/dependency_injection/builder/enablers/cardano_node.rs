@@ -186,7 +186,7 @@ impl DependenciesBuilder {
 mod tests {
     use mithril_common::{entities::SignedEntityTypeDiscriminants, temp_dir};
 
-    use crate::Configuration;
+    use crate::ServeCommandConfiguration;
 
     use super::*;
 
@@ -209,9 +209,9 @@ mod tests {
         signed_entity_types: String,
         expected_activation: bool,
     ) {
-        let configuration = Configuration {
+        let configuration = ServeCommandConfiguration {
             signed_entity_types: Some(signed_entity_types),
-            ..Configuration::new_sample(temp_dir!())
+            ..ServeCommandConfiguration::new_sample(temp_dir!())
         };
         let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(Arc::new(configuration));
 

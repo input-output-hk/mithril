@@ -8,8 +8,8 @@ use mithril_aggregator::{
     dependency_injection::DependenciesBuilder,
     event_store::EventMessage,
     services::FakeSnapshotter,
-    AggregatorRuntime, Configuration, ConfigurationSource, DependencyContainer, DumbUploader,
-    SignerRegistrationError,
+    AggregatorRuntime, ConfigurationSource, DependencyContainer, DumbUploader,
+    ServeCommandConfiguration, SignerRegistrationError,
 };
 use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
 use mithril_common::{
@@ -132,7 +132,10 @@ fn build_logger() -> slog::Logger {
 }
 
 impl RuntimeTester {
-    pub async fn build(start_time_point: TimePoint, configuration: Configuration) -> Self {
+    pub async fn build(
+        start_time_point: TimePoint,
+        configuration: ServeCommandConfiguration,
+    ) -> Self {
         let logger = build_logger();
         let global_logger = slog_scope::set_global_logger(logger.clone());
         let network = configuration.network.clone();

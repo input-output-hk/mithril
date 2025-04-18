@@ -11,7 +11,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use crate::{
     dependency_injection::{DependenciesBuilder, GenesisTools},
-    Configuration,
+    ServeCommandConfiguration,
 };
 
 /// Genesis tools
@@ -83,7 +83,7 @@ impl ExportGenesisSubCommand {
         root_logger: Logger,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> StdResult<()> {
-        let mut config: Configuration = config_builder
+        let mut config: ServeCommandConfiguration = config_builder
             .build()
             .with_context(|| "configuration build error")?
             .try_deserialize()
@@ -127,7 +127,7 @@ impl ImportGenesisSubCommand {
         root_logger: Logger,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> StdResult<()> {
-        let mut config: Configuration = config_builder
+        let mut config: ServeCommandConfiguration = config_builder
             .build()
             .with_context(|| "configuration build error")?
             .try_deserialize()
@@ -211,7 +211,7 @@ impl BootstrapGenesisSubCommand {
         root_logger: Logger,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> StdResult<()> {
-        let mut config: Configuration = config_builder
+        let mut config: ServeCommandConfiguration = config_builder
             .build()
             .with_context(|| "configuration build error")?
             .try_deserialize()

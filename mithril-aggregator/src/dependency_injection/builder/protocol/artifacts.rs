@@ -430,7 +430,7 @@ mod tests {
     use mithril_persistence::sqlite::ConnectionBuilder;
 
     use crate::dependency_injection::builder::CARDANO_DB_ARTIFACTS_DIR;
-    use crate::Configuration;
+    use crate::ServeCommandConfiguration;
 
     use super::*;
 
@@ -443,10 +443,10 @@ mod tests {
         let digests_dir = cdb_dir.join("digests");
 
         let mut dep_builder = {
-            let config = Configuration {
+            let config = ServeCommandConfiguration {
                 // Test environment yield dumb uploaders
                 environment: ExecutionEnvironment::Test,
-                ..Configuration::new_sample(snapshot_directory)
+                ..ServeCommandConfiguration::new_sample(snapshot_directory)
             };
 
             DependenciesBuilder::new_with_stdout_logger(Arc::new(config))
@@ -475,11 +475,11 @@ mod tests {
         let digests_dir = cdb_dir.join("digests");
 
         let mut dep_builder = {
-            let config = Configuration {
+            let config = ServeCommandConfiguration {
                 // Must use production environment to make `snapshot_uploader_type` effective
                 environment: ExecutionEnvironment::Production,
                 snapshot_uploader_type: SnapshotUploaderType::Local,
-                ..Configuration::new_sample(snapshot_directory)
+                ..ServeCommandConfiguration::new_sample(snapshot_directory)
             };
 
             DependenciesBuilder::new_with_stdout_logger(Arc::new(config))

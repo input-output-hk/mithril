@@ -13,7 +13,7 @@ use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use slog::{debug, Level, Logger};
 use std::path::PathBuf;
 
-use crate::{Configuration, DefaultConfiguration};
+use crate::{DefaultConfiguration, ServeCommandConfiguration};
 use mithril_doc::GenerateDocCommands;
 
 /// Main command selector
@@ -49,7 +49,10 @@ impl MainCommand {
             Self::Tools(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::Database(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::GenerateDoc(cmd) => {
-                let config_infos = vec![Configuration::extract(), DefaultConfiguration::extract()];
+                let config_infos = vec![
+                    ServeCommandConfiguration::extract(),
+                    DefaultConfiguration::extract(),
+                ];
                 cmd.execute_with_configurations(&mut MainOpts::command(), &config_infos)
                     .map_err(|message| anyhow!(message))
             }
