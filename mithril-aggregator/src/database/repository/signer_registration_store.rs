@@ -13,17 +13,28 @@ use crate::database::query::{
     InsertOrReplaceSignerRegistrationRecordQuery,
 };
 use crate::database::record::SignerRegistrationRecord;
+use crate::services::EpochPruningTask;
 use crate::VerificationKeyStorer;
 
 /// Service to deal with signer_registration (read & write).
 pub struct SignerRegistrationStore {
     connection: Arc<SqliteConnection>,
+
+    /// Number of epochs before previous records will be deleted at the next registration round
+    /// opening
+    verification_key_epoch_retention_limit: Option<u64>,
 }
 
 impl SignerRegistrationStore {
     /// Create a new [SignerRegistrationStore] service
-    pub fn new(connection: Arc<SqliteConnection>) -> Self {
-        Self { connection }
+    pub fn new(
+        connection: Arc<SqliteConnection>,
+        verification_key_epoch_retention_limit: Option<u64>,
+    ) -> Self {
+        Self {
+            connection,
+            verification_key_epoch_retention_limit,
+        }
     }
 }
 
@@ -102,6 +113,30 @@ impl VerificationKeyStorer for SignerRegistrationStore {
     }
 }
 
+#[async_trait]
+impl EpochPruningTask for SignerRegistrationStore {
+    fn pruned_data(&self) -> &'static str {
+        "Signer registration"
+    }
+
+    async fn prune(&self, epoch: Epoch) -> StdResult<()> {
+        let registration_epoch = epoch.offset_to_recording_epoch();
+
+        if let Some(retention_limit) = self.verification_key_epoch_retention_limit {
+            self.prune_verification_keys(registration_epoch - retention_limit)
+                .await
+                .with_context(|| {
+                    format!(
+                        "VerificationKeyStorer can not prune verification keys below epoch: '{}'",
+                        registration_epoch - retention_limit
+                    )
+                })?;
+        }
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::database::test_helper::{insert_signer_registrations, main_db_connection};
@@ -174,7 +209,7 @@ mod tests {
         let connection = main_db_connection().unwrap();
         insert_golden_signer_registration(&connection);
 
-        let repository = SignerRegistrationStore::new(Arc::new(connection));
+        let repository = SignerRegistrationStore::new(Arc::new(connection), None);
         repository
             .get_verification_keys(Epoch(292))
             .await
@@ -184,19 +219,23 @@ mod tests {
 
     pub fn init_signer_registration_store(
         initial_data: HashMap<Epoch, Vec<SignerWithStake>>,
+        verification_key_epoch_retention_limit: Option<u64>,
     ) -> Arc<SignerRegistrationStore> {
         let connection = main_db_connection().unwrap();
 
         let initial_data = initial_data.into_iter().collect();
         insert_signer_registrations(&connection, initial_data).unwrap();
 
-        Arc::new(SignerRegistrationStore::new(Arc::new(connection)))
+        Arc::new(SignerRegistrationStore::new(
+            Arc::new(connection),
+            verification_key_epoch_retention_limit,
+        ))
     }
 
     #[tokio::test]
     pub async fn save_key_in_empty_store() {
         let signers = build_signers(0, 0);
-        let store = init_signer_registration_store(signers);
+        let store = init_signer_registration_store(signers, None);
         let res = store
             .save_verification_key(
                 Epoch(0),
@@ -221,7 +260,7 @@ mod tests {
         let signers_on_epoch = signers.get(&Epoch(1)).unwrap().clone();
         let first_signer = signers_on_epoch.first().unwrap();
 
-        let store = init_signer_registration_store(signers);
+        let store = init_signer_registration_store(signers, None);
         let res = store
             .save_verification_key(
                 Epoch(1),
@@ -253,7 +292,7 @@ mod tests {
     #[tokio::test]
     pub async fn get_verification_keys_for_empty_epoch() {
         let signers = build_signers(2, 1);
-        let store = init_signer_registration_store(signers);
+        let store = init_signer_registration_store(signers, None);
         let res = store.get_verification_keys(Epoch(0)).await.unwrap();
 
         assert!(res.is_none());
@@ -262,7 +301,7 @@ mod tests {
     #[tokio::test]
     pub async fn get_signers_for_empty_epoch() {
         let signers = build_signers(2, 1);
-        let store = init_signer_registration_store(signers);
+        let store = init_signer_registration_store(signers, None);
         let res = store.get_signers(Epoch(0)).await.unwrap();
 
         assert!(res.is_none());
@@ -271,7 +310,7 @@ mod tests {
     #[tokio::test]
     pub async fn get_verification_keys_for_existing_epoch() {
         let signers = build_signers(2, 2);
-        let store = init_signer_registration_store(signers.clone());
+        let store = init_signer_registration_store(signers.clone(), None);
 
         let epoch = Epoch(1);
         let expected_signers = signers
@@ -289,7 +328,7 @@ mod tests {
     #[tokio::test]
     pub async fn get_signers_for_existing_epoch() {
         let signers = build_signers(2, 2);
-        let store = init_signer_registration_store(signers.clone());
+        let store = init_signer_registration_store(signers.clone(), None);
 
         let epoch = Epoch(1);
         let mut expected_signers = signers.get(&epoch).unwrap().clone();
@@ -304,7 +343,7 @@ mod tests {
     #[tokio::test]
     pub async fn can_prune_keys_from_given_epoch_retention_limit() {
         let signers = build_signers(6, 2);
-        let store = init_signer_registration_store(signers);
+        let store = init_signer_registration_store(signers, None);
 
         for epoch in 1..6 {
             assert!(
@@ -346,9 +385,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn prune_epoch_older_than_threshold() {
+    async fn prune_verification_keys_epoch_older_than_given_epoch() {
         let signers = build_signers(5, 2);
-        let store = init_signer_registration_store(signers);
+        let store = init_signer_registration_store(signers, None);
 
         assert_eq!(
             vec!(Epoch(1), Epoch(2), Epoch(3), Epoch(4), Epoch(5)),
@@ -359,6 +398,43 @@ mod tests {
 
         assert_eq!(
             vec!(Epoch(4), Epoch(5)),
+            get_epochs_in_database_until(&store, Epoch(8)).await
+        );
+    }
+
+    #[tokio::test]
+    async fn prune_older_than_threshold() {
+        let signers = build_signers(6, 2);
+        let verification_key_epoch_retention_limit = Some(4);
+        let store = init_signer_registration_store(signers, verification_key_epoch_retention_limit);
+
+        assert_eq!(
+            vec!(Epoch(1), Epoch(2), Epoch(3), Epoch(4), Epoch(5), Epoch(6)),
+            get_epochs_in_database_until(&store, Epoch(8)).await
+        );
+
+        store.prune(Epoch(5)).await.unwrap();
+
+        assert_eq!(
+            vec!(Epoch(2), Epoch(3), Epoch(4), Epoch(5), Epoch(6)),
+            get_epochs_in_database_until(&store, Epoch(8)).await
+        );
+    }
+
+    #[tokio::test]
+    async fn without_threshold_nothing_is_pruned() {
+        let signers = build_signers(6, 2);
+        let store = init_signer_registration_store(signers, None);
+
+        assert_eq!(
+            vec!(Epoch(1), Epoch(2), Epoch(3), Epoch(4), Epoch(5), Epoch(6)),
+            get_epochs_in_database_until(&store, Epoch(8)).await
+        );
+
+        store.prune(Epoch(100)).await.unwrap();
+
+        assert_eq!(
+            vec!(Epoch(1), Epoch(2), Epoch(3), Epoch(4), Epoch(5), Epoch(6)),
             get_epochs_in_database_until(&store, Epoch(8)).await
         );
     }

@@ -1,6 +1,7 @@
 use std::{
     net::IpAddr,
     path::{Path, PathBuf},
+    sync::Arc,
     time::Duration,
 };
 
@@ -19,7 +20,9 @@ use mithril_cli_helper::{
 use mithril_common::StdResult;
 use mithril_metric::MetricsServer;
 
-use crate::{dependency_injection::DependenciesBuilder, tools::VacuumTracker, Configuration};
+use crate::{
+    dependency_injection::DependenciesBuilder, tools::VacuumTracker, ServeCommandConfiguration,
+};
 
 const VACUUM_MINIMUM_INTERVAL: TimeDelta = TimeDelta::weeks(1);
 
@@ -117,14 +120,14 @@ impl ServeCommand {
         mut config_builder: ConfigBuilder<DefaultState>,
     ) -> StdResult<()> {
         config_builder = config_builder.add_source(self.clone());
-        let config: Configuration = config_builder
+        let config: ServeCommandConfiguration = config_builder
             .build()
             .with_context(|| "configuration build error")?
             .try_deserialize()
             .with_context(|| "configuration deserialize error")?;
         debug!(root_logger, "SERVE command"; "config" => format!("{config:?}"));
         let mut dependencies_builder =
-            DependenciesBuilder::new(root_logger.clone(), config.clone());
+            DependenciesBuilder::new(root_logger.clone(), Arc::new(config.clone()));
 
         // start servers
         println!("Starting server...");

@@ -222,7 +222,8 @@ mod tests {
     use crate::event_store::EventMessage;
     use crate::DependencyContainer;
     use crate::{
-        dependency_injection::DependenciesBuilder, initialize_dependencies, Configuration,
+        dependency_injection::DependenciesBuilder, initialize_dependencies,
+        ServeCommandConfiguration,
     };
 
     use serde_json::Value;
@@ -417,8 +418,8 @@ mod tests {
     async fn setup_dependencies(
         snapshot_directory: PathBuf,
     ) -> (Arc<DependencyContainer>, UnboundedReceiver<EventMessage>) {
-        let config = Configuration::new_sample(snapshot_directory);
-        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
+        let config = ServeCommandConfiguration::new_sample(snapshot_directory);
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(Arc::new(config));
         let rx = builder.get_event_transmitter_receiver().await.unwrap();
         let dependency_manager = Arc::new(builder.build_dependency_container().await.unwrap());
         (dependency_manager, rx)

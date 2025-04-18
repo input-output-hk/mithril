@@ -9,7 +9,7 @@ use mithril_common::{
     StdResult,
 };
 
-use crate::{services::EpochPruningTask, SignerRegistrationVerifier, VerificationKeyStorer};
+use crate::{SignerRegistrationVerifier, VerificationKeyStorer};
 
 use super::{
     SignerRecorder, SignerRegisterer, SignerRegistrationError, SignerRegistrationRound,
@@ -29,10 +29,6 @@ pub struct MithrilSignerRegistrationLeader {
 
     /// Signer registration verifier
     signer_registration_verifier: Arc<dyn SignerRegistrationVerifier>,
-
-    /// Number of epochs before previous records will be deleted at the next registration round
-    /// opening
-    verification_key_epoch_retention_limit: Option<u64>,
 }
 
 impl MithrilSignerRegistrationLeader {
@@ -41,14 +37,12 @@ impl MithrilSignerRegistrationLeader {
         verification_key_store: Arc<dyn VerificationKeyStorer>,
         signer_recorder: Arc<dyn SignerRecorder>,
         signer_registration_verifier: Arc<dyn SignerRegistrationVerifier>,
-        verification_key_epoch_retention_limit: Option<u64>,
     ) -> Self {
         Self {
             current_round: RwLock::new(None),
             verification_key_store,
             signer_recorder,
             signer_registration_verifier,
-            verification_key_epoch_retention_limit,
         }
     }
 
@@ -77,31 +71,6 @@ impl SignerRegistrationRoundOpener for MithrilSignerRegistrationLeader {
     async fn close_registration_round(&self) -> StdResult<()> {
         let mut current_round = self.current_round.write().await;
         *current_round = None;
-
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl EpochPruningTask for MithrilSignerRegistrationLeader {
-    fn pruned_data(&self) -> &'static str {
-        "Signer registration"
-    }
-
-    async fn prune(&self, epoch: Epoch) -> StdResult<()> {
-        let registration_epoch = epoch.offset_to_recording_epoch();
-
-        if let Some(retention_limit) = self.verification_key_epoch_retention_limit {
-            self.verification_key_store
-                .prune_verification_keys(registration_epoch - retention_limit)
-                .await
-                .with_context(|| {
-                    format!(
-                        "VerificationKeyStorer can not prune verification keys below epoch: '{}'",
-                        registration_epoch - retention_limit
-                    )
-                })?;
-        }
 
         Ok(())
     }
@@ -179,8 +148,6 @@ impl SignerSynchronizer for MithrilSignerRegistrationLeader {
 mod tests {
     use std::{collections::HashMap, sync::Arc};
 
-    use mockall::predicate::eq;
-
     use mithril_common::{
         entities::{Epoch, Signer, SignerWithStake},
         test_utils::MithrilFixtureBuilder,
@@ -188,11 +155,7 @@ mod tests {
 
     use crate::{
         database::{repository::SignerRegistrationStore, test_helper::main_db_connection},
-        services::{
-            EpochPruningTask, MockSignerRecorder, MockSignerRegistrationVerifier,
-            SignerSynchronizer,
-        },
-        store::MockVerificationKeyStorer,
+        services::{MockSignerRecorder, MockSignerRegistrationVerifier, SignerSynchronizer},
         MithrilSignerRegistrationLeader, SignerRegisterer, SignerRegistrationRoundOpener,
         VerificationKeyStorer,
     };
@@ -209,7 +172,6 @@ mod tests {
             signer_recorder: Arc<dyn SignerRecorder>,
             signer_registration_verifier: Arc<dyn SignerRegistrationVerifier>,
             verification_key_store: Arc<dyn VerificationKeyStorer>,
-            verification_key_epoch_retention_limit: Option<u64>,
         }
 
         impl Default for MithrilSignerRegistrationLeaderBuilder {
@@ -217,25 +179,15 @@ mod tests {
                 Self {
                     signer_recorder: Arc::new(MockSignerRecorder::new()),
                     signer_registration_verifier: Arc::new(MockSignerRegistrationVerifier::new()),
-                    verification_key_store: Arc::new(SignerRegistrationStore::new(Arc::new(
-                        main_db_connection().unwrap(),
-                    ))),
-                    verification_key_epoch_retention_limit: None,
+                    verification_key_store: Arc::new(SignerRegistrationStore::new(
+                        Arc::new(main_db_connection().unwrap()),
+                        None,
+                    )),
                 }
             }
         }
 
         impl MithrilSignerRegistrationLeaderBuilder {
-            pub fn with_verification_key_store(
-                self,
-                verification_key_store: Arc<dyn VerificationKeyStorer>,
-            ) -> Self {
-                Self {
-                    verification_key_store,
-                    ..self
-                }
-            }
-
             pub fn with_signer_recorder(self, signer_recorder: Arc<dyn SignerRecorder>) -> Self {
                 Self {
                     signer_recorder,
@@ -253,24 +205,12 @@ mod tests {
                 }
             }
 
-            pub fn with_verification_key_epoch_retention_limit(
-                self,
-                verification_key_epoch_retention_limit: Option<u64>,
-            ) -> Self {
-                Self {
-                    verification_key_epoch_retention_limit,
-                    ..self
-                }
-            }
-
             pub fn build(self) -> MithrilSignerRegistrationLeader {
                 MithrilSignerRegistrationLeader {
                     current_round: RwLock::new(None),
                     verification_key_store: self.verification_key_store,
                     signer_recorder: self.signer_recorder,
                     signer_registration_verifier: self.signer_registration_verifier,
-                    verification_key_epoch_retention_limit: self
-                        .verification_key_epoch_retention_limit,
                 }
             }
         }
@@ -404,48 +344,5 @@ mod tests {
             .synchronize_all_signers()
             .await
             .expect_err("synchronize_signers");
-    }
-
-    #[tokio::test]
-    async fn prune_epoch_older_than_threshold() {
-        const PROTOCOL_INITIALIZER_PRUNE_EPOCH_THRESHOLD: u64 = 10;
-        let signer_registration_leader = MithrilSignerRegistrationLeaderBuilder::default()
-            .with_verification_key_store({
-                let mut verification_key_store = MockVerificationKeyStorer::new();
-                verification_key_store
-                    .expect_prune_verification_keys()
-                    .with(eq(Epoch(4).offset_to_recording_epoch()))
-                    .times(1)
-                    .returning(|_| Ok(()));
-
-                Arc::new(verification_key_store)
-            })
-            .with_verification_key_epoch_retention_limit(Some(
-                PROTOCOL_INITIALIZER_PRUNE_EPOCH_THRESHOLD,
-            ))
-            .build();
-
-        let current_epoch = Epoch(4) + PROTOCOL_INITIALIZER_PRUNE_EPOCH_THRESHOLD;
-        signer_registration_leader
-            .prune(current_epoch)
-            .await
-            .unwrap();
-    }
-
-    #[tokio::test]
-    async fn without_threshold_nothing_is_pruned() {
-        let signer_registration_leader = MithrilSignerRegistrationLeaderBuilder::default()
-            .with_verification_key_store({
-                let mut verification_key_store = MockVerificationKeyStorer::new();
-                verification_key_store
-                    .expect_prune_verification_keys()
-                    .never();
-
-                Arc::new(verification_key_store)
-            })
-            .with_verification_key_epoch_retention_limit(None)
-            .build();
-
-        signer_registration_leader.prune(Epoch(100)).await.unwrap();
     }
 }

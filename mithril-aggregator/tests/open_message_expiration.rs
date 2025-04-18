@@ -2,7 +2,7 @@ mod test_extensions;
 
 use std::time::Duration;
 
-use mithril_aggregator::Configuration;
+use mithril_aggregator::ServeCommandConfiguration;
 use mithril_common::{
     entities::{
         BlockNumber, CardanoDbBeacon, ChainPoint, Epoch, ProtocolParameters, SignedEntityType,
@@ -22,10 +22,10 @@ async fn open_message_expiration() {
         m: 150,
         phi_f: 0.95,
     };
-    let configuration = Configuration {
+    let configuration = ServeCommandConfiguration {
         protocol_parameters: protocol_parameters.clone(),
         data_stores_directory: get_test_dir("open_message_expiration"),
-        ..Configuration::new_sample(temp_dir!())
+        ..ServeCommandConfiguration::new_sample(temp_dir!())
     };
     let mut tester = RuntimeTester::build(
         TimePoint::new(

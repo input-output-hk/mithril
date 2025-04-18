@@ -18,7 +18,7 @@ impl DependenciesBuilder {
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let immutable_signable_builder = Arc::new(CardanoImmutableFilesFullSignableBuilder::new(
             self.get_immutable_digester().await?,
-            &self.configuration.db_directory,
+            &self.configuration.db_directory(),
             self.root_logger(),
         ));
         let transactions_importer = self.get_transactions_importer().await?;
@@ -34,7 +34,7 @@ impl DependenciesBuilder {
         );
         let cardano_database_signable_builder = Arc::new(CardanoDatabaseSignableBuilder::new(
             self.get_immutable_digester().await?,
-            &self.configuration.db_directory,
+            &self.configuration.db_directory(),
             self.root_logger(),
         ));
         let signable_builders_dependencies = SignableBuilderServiceDependencies::new(

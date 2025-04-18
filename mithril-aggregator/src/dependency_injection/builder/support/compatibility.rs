@@ -25,10 +25,10 @@ impl DependenciesBuilder {
     }
 
     async fn build_era_reader(&mut self) -> Result<Arc<EraReader>> {
-        let era_adapter: Arc<dyn EraReaderAdapter> = match self.configuration.environment {
+        let era_adapter: Arc<dyn EraReaderAdapter> = match self.configuration.environment() {
             ExecutionEnvironment::Production => EraReaderAdapterBuilder::new(
-                &self.configuration.era_reader_adapter_type,
-                &self.configuration.era_reader_adapter_params,
+                &self.configuration.era_reader_adapter_type(),
+                &self.configuration.era_reader_adapter_params(),
             )
             .build(self.get_chain_observer().await?)
             .map_err(|e| DependenciesBuilderError::Initialization {

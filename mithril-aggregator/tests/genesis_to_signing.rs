@@ -1,6 +1,6 @@
 mod test_extensions;
 
-use mithril_aggregator::Configuration;
+use mithril_aggregator::ServeCommandConfiguration;
 use mithril_common::{
     entities::{BlockNumber, ChainPoint, Epoch, ProtocolParameters, SlotNumber, TimePoint},
     temp_dir,
@@ -15,10 +15,10 @@ async fn genesis_to_signing() {
         m: 100,
         phi_f: 0.65,
     };
-    let configuration = Configuration {
+    let configuration = ServeCommandConfiguration {
         protocol_parameters: protocol_parameters.clone(),
         data_stores_directory: get_test_dir("genesis_to_signing"),
-        ..Configuration::new_sample(temp_dir!())
+        ..ServeCommandConfiguration::new_sample(temp_dir!())
     };
     let mut tester = RuntimeTester::build(
         TimePoint::new(

@@ -1,4 +1,4 @@
-use mithril_aggregator::Configuration;
+use mithril_aggregator::ServeCommandConfiguration;
 use mithril_common::{
     entities::{
         BlockNumber, CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolMessagePartKey,
@@ -22,7 +22,7 @@ async fn prove_transactions() {
         m: 150,
         phi_f: 0.95,
     };
-    let configuration = Configuration {
+    let configuration = ServeCommandConfiguration {
         protocol_parameters: protocol_parameters.clone(),
         signed_entity_types: Some(SignedEntityTypeDiscriminants::CardanoTransactions.to_string()),
         data_stores_directory: get_test_dir("prove_transactions"),
@@ -30,7 +30,7 @@ async fn prove_transactions() {
             security_parameter: BlockNumber(0),
             step: BlockNumber(30),
         },
-        ..Configuration::new_sample(temp_dir!())
+        ..ServeCommandConfiguration::new_sample(temp_dir!())
     };
     let mut tester = RuntimeTester::build(
         TimePoint {

@@ -14,34 +14,12 @@ use mithril_common::{
     },
     entities::{ProtocolParameters, TimePoint},
     protocol::SignerBuilder,
-    CardanoNetwork, StdResult, TickerService,
+    CardanoNetwork, StdResult,
 };
 
-use crate::database::repository::CertificateRepository;
-use crate::{EpochSettingsStorer, VerificationKeyStorer};
-
-pub struct GenesisToolsDependency {
-    /// Cardano network
-    pub network: CardanoNetwork,
-
-    /// Verification key store
-    pub verification_key_store: Arc<dyn VerificationKeyStorer>,
-
-    /// Ticker service.
-    pub ticker_service: Arc<dyn TickerService>,
-
-    /// Genesis signature verifier service.
-    pub genesis_verifier: Arc<ProtocolGenesisVerifier>,
-
-    /// Certificate verifier service.
-    pub certificate_verifier: Arc<dyn CertificateVerifier>,
-
-    /// Epoch settings storer.
-    pub epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
-
-    /// Certificate store.
-    pub certificate_repository: Arc<CertificateRepository>,
-}
+use crate::{
+    database::repository::CertificateRepository, dependency_injection::GenesisToolsDependency,
+};
 
 pub struct GenesisTools {
     network: CardanoNetwork,

@@ -1,6 +1,6 @@
 mod test_extensions;
 
-use mithril_aggregator::Configuration;
+use mithril_aggregator::ServeCommandConfiguration;
 use mithril_common::{
     entities::{
         BlockNumber, CardanoDbBeacon, CardanoTransactionsSigningConfig, ChainPoint, Epoch,
@@ -21,7 +21,7 @@ async fn create_certificate() {
         m: 150,
         phi_f: 0.95,
     };
-    let configuration = Configuration {
+    let configuration = ServeCommandConfiguration {
         protocol_parameters: protocol_parameters.clone(),
         signed_entity_types: Some(
             [
@@ -35,7 +35,7 @@ async fn create_certificate() {
             security_parameter: BlockNumber(0),
             step: BlockNumber(30),
         },
-        ..Configuration::new_sample(temp_dir!())
+        ..ServeCommandConfiguration::new_sample(temp_dir!())
     };
     let mut tester = RuntimeTester::build(
         TimePoint {

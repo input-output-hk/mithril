@@ -98,15 +98,15 @@ impl DependenciesBuilder {
     }
 
     async fn build_genesis_verifier(&mut self) -> Result<Arc<ProtocolGenesisVerifier>> {
-        let genesis_verifier: ProtocolGenesisVerifier = match self.configuration.environment {
+        let genesis_verifier: ProtocolGenesisVerifier = match self.configuration.environment() {
             ExecutionEnvironment::Production => ProtocolGenesisVerifier::from_verification_key(
                 ProtocolGenesisVerificationKey::from_json_hex(
-                    &self.configuration.genesis_verification_key,
+                    &self.configuration.genesis_verification_key(),
                 )
                 .map_err(|e| DependenciesBuilderError::Initialization {
                     message: format!(
                         "Could not decode hex key to build genesis verifier: '{}'",
-                        self.configuration.genesis_verification_key
+                        self.configuration.genesis_verification_key()
                     ),
                     error: Some(e),
                 })?,
@@ -134,7 +134,6 @@ impl DependenciesBuilder {
             self.get_verification_key_store().await?,
             self.get_signer_store().await?,
             self.get_signer_registration_verifier().await?,
-            self.configuration.safe_epoch_retention_limit(),
         );
 
         Ok(Arc::new(registerer))
@@ -167,7 +166,6 @@ impl DependenciesBuilder {
             self.get_signer_registration_verifier().await?,
             self.get_leader_aggregator_client().await?,
             self.get_stake_store().await?,
-            self.configuration.safe_epoch_retention_limit(),
         );
 
         Ok(Arc::new(registerer))
