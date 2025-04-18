@@ -203,7 +203,7 @@ pub fn doc_config_to_markdown(struct_doc: &StructDoc) -> String {
                 config
                     .environment_variable
                     .map_or_else(|| "-".to_string(), |x| format!("`{}`", x)),
-                config.description.replace('\n', "<br>"),
+                config.description.replace('\n', "<br/>"),
                 config
                     .default_value
                     .map(|value| format!("`{}`", value))
@@ -395,6 +395,7 @@ mod tests {
             "Generated doc: {doc}"
         );
     }
+
     #[test]
     fn test_should_not_display_parameter_table_when_only_help_argument() {
         {
@@ -435,7 +436,7 @@ mod tests {
                 let mut s = StructDoc::default();
                 s.add_param(
                     "ConfigA",
-                    "Param A from config",
+                    "Param A from config\nLine break",
                     Some("CONFIGA".to_string()),
                     Some("default config A".to_string()),
                     None,
@@ -448,13 +449,11 @@ mod tests {
             let doc = doc_markdown_with_config(&mut command, Some(&struct_doc));
 
             assert!(
-                doc.contains("| Param A from config |"),
+                doc.contains("| Param A from config<br/>Line break |"),
                 "Generated doc: {doc}"
             );
             assert!(
-                doc.contains(
-                    "| `ConfigA` | - | - | `CONFIGA` | Param A from config | `default config A` |"
-                ),
+                doc.contains("| `ConfigA` | - | - | `CONFIGA` | Param A from config<br/>Line break | `default config A` |"),
                 "Generated doc: {doc}"
             );
         }

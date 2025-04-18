@@ -15,6 +15,7 @@ use tokio_util::codec::{BytesCodec, FramedRead};
 
 use mithril_common::{entities::FileUri, logging::LoggerExtensions, StdResult};
 
+use crate::tools::DEFAULT_GCP_CREDENTIALS_JSON_ENV_VAR;
 use crate::FileUploader;
 
 use super::FileUploadRetryPolicy;
@@ -85,10 +86,10 @@ pub struct GcpBackendUploader {
 impl GcpBackendUploader {
     /// GcpBackendUploader factory
     pub fn try_new(bucket: String, use_cdn_domain: bool, logger: Logger) -> StdResult<Self> {
-        if env::var("GOOGLE_APPLICATION_CREDENTIALS_JSON").is_err() {
-            return Err(anyhow!(
-                "Missing GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable".to_string()
-            ));
+        if env::var(DEFAULT_GCP_CREDENTIALS_JSON_ENV_VAR).is_err() {
+            return Err(anyhow!(format!(
+                "Missing {DEFAULT_GCP_CREDENTIALS_JSON_ENV_VAR} environment variable"
+            )));
         };
 
         Ok(Self {
@@ -458,7 +459,7 @@ mod tests {
 
         #[tokio::test]
         async fn get_location_not_using_cdn_domain_return_google_api_uri() {
-            env::set_var("GOOGLE_APPLICATION_CREDENTIALS_JSON", "credentials");
+            env::set_var(DEFAULT_GCP_CREDENTIALS_JSON_ENV_VAR, "credentials");
             let use_cdn_domain = false;
             let gcp_file_uploader = GcpBackendUploader::try_new(
                 "cdn.mithril.network".to_string(),
@@ -479,7 +480,7 @@ mod tests {
 
         #[tokio::test]
         async fn get_location_using_cdn_domain_return_cdn_in_uri() {
-            env::set_var("GOOGLE_APPLICATION_CREDENTIALS_JSON", "credentials");
+            env::set_var(DEFAULT_GCP_CREDENTIALS_JSON_ENV_VAR, "credentials");
             let use_cdn_domain = true;
             let gcp_file_uploader = GcpBackendUploader::try_new(
                 "cdn.mithril.network".to_string(),

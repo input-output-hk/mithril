@@ -19,7 +19,9 @@ use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 
 use crate::entities::AggregatorEpochSettings;
 use crate::http_server::SERVER_BASE_PATH;
+use crate::services::ancillary_signer::GcpCryptoKeyVersionResourceName;
 use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
+use crate::tools::DEFAULT_GCP_CREDENTIALS_JSON_ENV_VAR;
 
 /// Different kinds of execution environments
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -141,8 +143,13 @@ pub struct Configuration {
 
     /// Configuration of the ancillary files signer
     ///
+    /// Can either be a secret key or a key stored in a Google Cloud Platform KMS account.
+    ///
     /// **IMPORTANT**: The cryptographic scheme used is ED25519
-    #[example = "`{ \"type\": \"secret-key\", \"secret_key\": \"136372c3138312c3138382c3130352c3233312c3135\" }`"]
+    #[example = "\
+    - secret-key:<br/>`{ \"type\": \"secret-key\", \"secret_key\": \"136372c3138312c3138382c3130352c3233312c3135\" }`<br/>\
+    - Gcp kms:<br/>`{ \"type\": \"gcp-kms\", \"resource_name\": \"projects/project_name/locations/_location_name/keyRings/key_ring_name/cryptoKeys/key_name/cryptoKeyVersions/key_version\" }`\
+    "]
     #[serde(deserialize_with = "serde_deserialization::string_or_struct")]
     pub ancillary_files_signer_config: AncillaryFilesSignerConfig,
 
@@ -254,6 +261,18 @@ pub enum AncillaryFilesSignerConfig {
         /// Hex encoded secret key
         secret_key: HexEncodedKey,
     },
+    /// Sign with a key stored in a Google Cloud Platform KMS account
+    GcpKms {
+        /// GCP KMS resource name
+        resource_name: GcpCryptoKeyVersionResourceName,
+        /// Environment variable containing the credentials JSON, if not set `GOOGLE_APPLICATION_CREDENTIALS_JSON` will be used
+        #[serde(default = "default_gcp_kms_credentials_json_env_var")]
+        credentials_json_env_var: String,
+    },
+}
+
+fn default_gcp_kms_credentials_json_env_var() -> String {
+    DEFAULT_GCP_CREDENTIALS_JSON_ENV_VAR.to_string()
 }
 
 impl FromStr for AncillaryFilesSignerConfig {
@@ -830,6 +849,55 @@ mod test {
                 secret_key: "whatever".to_string()
             }
         );
+    }
+
+    #[test]
+    fn deserializing_ancillary_signing_gcp_kms_configuration() {
+        let serialized_json = r#"{
+            "type": "gcp-kms",
+            "resource_name": "projects/123456789/locations/global/keyRings/my-keyring/cryptoKeys/my-key/cryptoKeyVersions/1",
+            "credentials_json_env_var": "CUSTOM_ENV_VAR"
+        }"#;
+
+        let deserialized: AncillaryFilesSignerConfig =
+            serde_json::from_str(serialized_json).unwrap();
+        assert_eq!(
+            deserialized,
+            AncillaryFilesSignerConfig::GcpKms {
+                resource_name: GcpCryptoKeyVersionResourceName {
+                    project: "123456789".to_string(),
+                    location: "global".to_string(),
+                    key_ring: "my-keyring".to_string(),
+                    key_name: "my-key".to_string(),
+                    version: "1".to_string(),
+                },
+                credentials_json_env_var: "CUSTOM_ENV_VAR".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn deserializing_ancillary_signing_gcp_kms_configuration_without_credentials_json_env_var_fallback_to_default(
+    ) {
+        let serialized_json = r#"{
+            "type": "gcp-kms",
+            "resource_name": "projects/123456789/locations/global/keyRings/my-keyring/cryptoKeys/my-key/cryptoKeyVersions/1"
+        }"#;
+
+        let deserialized: AncillaryFilesSignerConfig =
+            serde_json::from_str(serialized_json).unwrap();
+        if let AncillaryFilesSignerConfig::GcpKms {
+            credentials_json_env_var,
+            ..
+        } = deserialized
+        {
+            assert_eq!(
+                credentials_json_env_var,
+                DEFAULT_GCP_CREDENTIALS_JSON_ENV_VAR
+            );
+        } else {
+            panic!("Expected GcpKms variant but got {deserialized:?}");
+        }
     }
 
     mod origin_tag {
