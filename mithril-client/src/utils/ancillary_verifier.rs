@@ -118,7 +118,7 @@ impl ValidatedAncillaryManifest {
 mod tests {
     use std::io::Write;
 
-    use mithril_common::temp_dir_create;
+    use mithril_common::{assert_dir_eq, temp_dir_create};
 
     use super::*;
 
@@ -325,13 +325,17 @@ mod tests {
                 .await
                 .unwrap();
 
-            assert!(!source_dir.join(&file_in_root_dir).exists());
-            assert!(!source_dir.join(&file_in_subdir).exists());
-            assert!(source_dir.join(&not_moved_path).exists());
-
-            assert!(target_dir.join(&file_in_root_dir).exists());
-            assert!(target_dir.join(&file_in_subdir).exists());
-            assert!(!target_dir.join(&not_moved_path).exists());
+            assert_dir_eq!(
+                &source_dir,
+                "* subdir/
+                 * not_moved.txt"
+            );
+            assert_dir_eq!(
+                &target_dir,
+                "* subdir/
+                 ** file2.txt
+                 * file1.txt"
+            );
         }
 
         #[tokio::test]
