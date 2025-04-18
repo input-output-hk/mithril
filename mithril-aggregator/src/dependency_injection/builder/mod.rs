@@ -347,26 +347,13 @@ impl DependenciesBuilder {
         #[allow(deprecated)]
         let dependency_manager = DependencyContainer {
             root_logger: self.root_logger(),
-            sqlite_connection: self.get_sqlite_connection().await?,
-            sqlite_connection_cardano_transaction_pool: self
-                .get_sqlite_connection_cardano_transaction_pool()
-                .await?,
             stake_store: self.get_stake_store().await?,
-            snapshot_uploader: self.get_snapshot_uploader().await?,
-            multi_signer: self.get_multi_signer().await?,
             certificate_repository: self.get_certificate_repository().await?,
-            open_message_repository: self.get_open_message_repository().await?,
             verification_key_store: self.get_verification_key_store().await?,
             epoch_settings_storer: self.get_epoch_settings_store().await?,
             chain_observer: self.get_chain_observer().await?,
-            immutable_file_observer: self.get_immutable_file_observer().await?,
-            digester: self.get_immutable_digester().await?,
-            snapshotter: self.get_snapshotter().await?,
-            certificate_verifier: self.get_certificate_verifier().await?,
-            genesis_verifier: self.get_genesis_verifier().await?,
             signer_registerer: self.get_signer_registerer().await?,
             signer_synchronizer: self.get_signer_synchronizer().await?,
-            signer_registration_verifier: self.get_signer_registration_verifier().await?,
             signer_registration_round_opener: self.get_signer_registration_round_opener().await?,
             era_checker: self.get_era_checker().await?,
             era_reader: self.get_era_reader().await?,
@@ -382,14 +369,11 @@ impl DependenciesBuilder {
             signed_entity_storer: self.get_signed_entity_storer().await?,
             signer_getter: self.get_signer_store().await?,
             message_service: self.get_message_service().await?,
-            block_scanner: self.get_block_scanner().await?,
-            transaction_store: self.get_transaction_repository().await?,
             prover_service: self.get_prover_service().await?,
             signed_entity_type_lock: self.get_signed_entity_lock().await?,
             upkeep_service: self.get_upkeep_service().await?,
             single_signer_authenticator: self.get_single_signature_authenticator().await?,
             metrics_service: self.get_metrics_service().await?,
-            leader_aggregator_client: self.get_leader_aggregator_client().await?,
         };
 
         Ok(dependency_manager)
