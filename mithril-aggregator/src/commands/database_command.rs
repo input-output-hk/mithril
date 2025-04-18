@@ -27,16 +27,6 @@ impl ConfigurationSource for DatabaseCommandConfiguration {
         self.data_stores_directory.clone()
     }
 
-    fn get_sqlite_dir(&self) -> PathBuf {
-        let store_dir = &self.data_stores_directory;
-
-        if !store_dir.exists() {
-            std::fs::create_dir_all(store_dir).unwrap();
-        }
-
-        self.data_stores_directory.clone()
-    }
-
     fn cardano_transactions_database_connection_pool_size(&self) -> usize {
         1
     }

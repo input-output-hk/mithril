@@ -293,49 +293,89 @@ pub trait ConfigurationSource {
 
     /// Get a representation of the Cardano network.
     fn get_network(&self) -> StdResult<CardanoNetwork> {
-        panic!("get_network is not implemented.");
+        CardanoNetwork::from_code(self.network().clone(), self.network_magic())
+            .map_err(|e| anyhow!(ConfigError::Message(e.to_string())))
     }
 
     /// Get the directory of the SQLite stores.
     fn get_sqlite_dir(&self) -> PathBuf {
-        panic!("get_sqlite_dir is not implemented.");
+        let store_dir = &self.data_stores_directory();
+
+        if !store_dir.exists() {
+            std::fs::create_dir_all(store_dir).unwrap();
+        }
+
+        self.data_stores_directory().clone()
     }
 
     /// Get the snapshots directory.
     fn get_snapshot_dir(&self) -> StdResult<PathBuf> {
-        panic!("get_snapshot_dir is not implemented.");
+        if !&self.snapshot_directory().exists() {
+            std::fs::create_dir_all(self.snapshot_directory())?;
+        }
+
+        Ok(self.snapshot_directory().clone())
     }
 
     /// Get the safe epoch retention limit.
     fn safe_epoch_retention_limit(&self) -> Option<u64> {
-        panic!("safe_epoch_retention_limit is not implemented.");
+        self.store_retention_limit()
+            .map(|limit| if limit > 3 { limit as u64 } else { 3 })
     }
 
     /// Compute the list of signed entity discriminants that are allowed to be processed.
     fn compute_allowed_signed_entity_types_discriminants(
         &self,
     ) -> StdResult<BTreeSet<SignedEntityTypeDiscriminants>> {
-        panic!("compute_allowed_signed_entity_types_discriminants is not implemented.");
+        let allowed_discriminants = self
+            .signed_entity_types()
+            .as_ref()
+            .map(SignedEntityTypeDiscriminants::parse_list)
+            .transpose()
+            .with_context(|| "Invalid 'signed_entity_types' configuration")?
+            .unwrap_or_default();
+        let allowed_discriminants =
+            SignedEntityConfig::append_allowed_signed_entity_types_discriminants(
+                allowed_discriminants,
+            );
+
+        Ok(allowed_discriminants)
     }
 
     /// Check if the HTTP server can serve static directories.
     fn allow_http_serve_directory(&self) -> bool {
-        panic!("allow_http_serve_directory is not implemented.");
+        match self.snapshot_uploader_type() {
+            SnapshotUploaderType::Local => true,
+            SnapshotUploaderType::Gcp => false,
+        }
     }
 
     /// Infer the [AggregatorEpochSettings] from the configuration.
     fn get_epoch_settings_configuration(&self) -> AggregatorEpochSettings {
-        panic!("get_epoch_settings_configuration is not implemented.");
+        AggregatorEpochSettings {
+            protocol_parameters: self.protocol_parameters().clone(),
+            cardano_transactions_signing_config: self.cardano_transactions_signing_config().clone(),
+        }
     }
 
     /// Check if the aggregator is running in follower mode.
     fn is_follower_aggregator(&self) -> bool {
-        panic!("is_follower_aggregator is not implemented.");
+        self.leader_aggregator_endpoint().is_some()
     }
 
     /// White list for origin client request.
     fn compute_origin_tag_white_list(&self) -> HashSet<String> {
-        panic!("compute_origin_tag_white_list is not implemented.");
+        let mut white_list = HashSet::from([
+            "EXPLORER".to_string(),
+            "BENCHMARK".to_string(),
+            "CI".to_string(),
+            "NA".to_string(),
+        ]);
+        if let Some(custom_tags) = &self.custom_origin_tag_white_list() {
+            white_list.extend(custom_tags.split(',').map(|tag| tag.trim().to_string()));
+        }
+
+        white_list
     }
 }
 
@@ -810,84 +850,6 @@ impl ConfigurationSource for ServeCommandConfiguration {
             Some(url) => SanitizedUrlWithTrailingSlash::parse(url),
             None => self.get_local_server_url(),
         }
-    }
-
-    fn get_network(&self) -> StdResult<CardanoNetwork> {
-        CardanoNetwork::from_code(self.network.clone(), self.network_magic)
-            .map_err(|e| anyhow!(ConfigError::Message(e.to_string())))
-    }
-
-    fn get_sqlite_dir(&self) -> PathBuf {
-        let store_dir = &self.data_stores_directory;
-
-        if !store_dir.exists() {
-            std::fs::create_dir_all(store_dir).unwrap();
-        }
-
-        self.data_stores_directory.clone()
-    }
-
-    fn get_snapshot_dir(&self) -> StdResult<PathBuf> {
-        if !&self.snapshot_directory.exists() {
-            std::fs::create_dir_all(&self.snapshot_directory)?;
-        }
-
-        Ok(self.snapshot_directory.clone())
-    }
-
-    fn safe_epoch_retention_limit(&self) -> Option<u64> {
-        self.store_retention_limit
-            .map(|limit| if limit > 3 { limit as u64 } else { 3 })
-    }
-
-    fn compute_allowed_signed_entity_types_discriminants(
-        &self,
-    ) -> StdResult<BTreeSet<SignedEntityTypeDiscriminants>> {
-        let allowed_discriminants = self
-            .signed_entity_types
-            .as_ref()
-            .map(SignedEntityTypeDiscriminants::parse_list)
-            .transpose()
-            .with_context(|| "Invalid 'signed_entity_types' configuration")?
-            .unwrap_or_default();
-        let allowed_discriminants =
-            SignedEntityConfig::append_allowed_signed_entity_types_discriminants(
-                allowed_discriminants,
-            );
-
-        Ok(allowed_discriminants)
-    }
-
-    fn allow_http_serve_directory(&self) -> bool {
-        match self.snapshot_uploader_type {
-            SnapshotUploaderType::Local => true,
-            SnapshotUploaderType::Gcp => false,
-        }
-    }
-
-    fn get_epoch_settings_configuration(&self) -> AggregatorEpochSettings {
-        AggregatorEpochSettings {
-            protocol_parameters: self.protocol_parameters.clone(),
-            cardano_transactions_signing_config: self.cardano_transactions_signing_config.clone(),
-        }
-    }
-
-    fn is_follower_aggregator(&self) -> bool {
-        self.leader_aggregator_endpoint.is_some()
-    }
-
-    fn compute_origin_tag_white_list(&self) -> HashSet<String> {
-        let mut white_list = HashSet::from([
-            "EXPLORER".to_string(),
-            "BENCHMARK".to_string(),
-            "CI".to_string(),
-            "NA".to_string(),
-        ]);
-        if let Some(custom_tags) = &self.custom_origin_tag_white_list {
-            white_list.extend(custom_tags.split(',').map(|tag| tag.trim().to_string()));
-        }
-
-        white_list
     }
 }
 
