@@ -62,7 +62,6 @@ impl DependenciesBuilder {
         let leader_aggregator_endpoint = self
             .configuration
             .leader_aggregator_endpoint()
-            .to_owned()
             .unwrap_or_default();
         let aggregator_client = AggregatorHTTPClient::new(
             leader_aggregator_endpoint,

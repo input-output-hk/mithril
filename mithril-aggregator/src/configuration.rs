@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context};
+use anyhow::Context;
 use config::{ConfigError, Map, Source, Value, ValueKind};
 use core::panic;
 use serde::{Deserialize, Serialize};
@@ -293,8 +293,8 @@ pub trait ConfigurationSource {
 
     /// Get a representation of the Cardano network.
     fn get_network(&self) -> StdResult<CardanoNetwork> {
-        CardanoNetwork::from_code(self.network().clone(), self.network_magic())
-            .map_err(|e| anyhow!(ConfigError::Message(e.to_string())))
+        CardanoNetwork::from_code(self.network(), self.network_magic())
+            .with_context(|| "Invalid network configuration")
     }
 
     /// Get the directory of the SQLite stores.
@@ -305,7 +305,7 @@ pub trait ConfigurationSource {
             std::fs::create_dir_all(store_dir).unwrap();
         }
 
-        self.data_stores_directory().clone()
+        self.data_stores_directory()
     }
 
     /// Get the snapshots directory.
@@ -314,7 +314,7 @@ pub trait ConfigurationSource {
             std::fs::create_dir_all(self.snapshot_directory())?;
         }
 
-        Ok(self.snapshot_directory().clone())
+        Ok(self.snapshot_directory())
     }
 
     /// Get the safe epoch retention limit.
@@ -353,8 +353,8 @@ pub trait ConfigurationSource {
     /// Infer the [AggregatorEpochSettings] from the configuration.
     fn get_epoch_settings_configuration(&self) -> AggregatorEpochSettings {
         AggregatorEpochSettings {
-            protocol_parameters: self.protocol_parameters().clone(),
-            cardano_transactions_signing_config: self.cardano_transactions_signing_config().clone(),
+            protocol_parameters: self.protocol_parameters(),
+            cardano_transactions_signing_config: self.cardano_transactions_signing_config(),
         }
     }
 
