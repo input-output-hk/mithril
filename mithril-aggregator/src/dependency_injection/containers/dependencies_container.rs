@@ -36,7 +36,7 @@ use crate::{
 pub type EpochServiceWrapper = Arc<RwLock<dyn EpochService>>;
 
 /// DependencyManager handles the dependencies
-pub struct DependencyContainer {
+pub struct DependenciesContainer {
     /// Application root logger
     pub(crate) root_logger: Logger,
 
@@ -125,7 +125,7 @@ pub struct DependencyContainer {
 }
 
 #[doc(hidden)]
-impl DependencyContainer {
+impl DependenciesContainer {
     /// `TEST METHOD ONLY`
     ///
     /// Get the first two epochs that will be used by a newly started aggregator
@@ -255,7 +255,7 @@ pub(crate) mod tests {
     use std::{path::PathBuf, sync::Arc};
 
     use crate::{
-        dependency_injection::DependenciesBuilder, DependencyContainer, ServeCommandConfiguration,
+        dependency_injection::DependenciesBuilder, DependenciesContainer, ServeCommandConfiguration,
     };
 
     /// Initialize dependency container with a unique temporary snapshot directory build from test path.
@@ -267,7 +267,7 @@ pub(crate) mod tests {
         }};
     }
 
-    pub async fn initialize_dependencies(tmp_path: PathBuf) -> DependencyContainer {
+    pub async fn initialize_dependencies(tmp_path: PathBuf) -> DependenciesContainer {
         let config = ServeCommandConfiguration::new_sample(tmp_path);
 
         let mut builder = DependenciesBuilder::new_with_stdout_logger(Arc::new(config));

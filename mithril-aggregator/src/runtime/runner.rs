@@ -10,7 +10,7 @@ use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
 
 use crate::entities::OpenMessage;
-use crate::DependencyContainer;
+use crate::DependenciesContainer;
 
 /// Configuration structure dedicated to the AggregatorRuntime.
 #[derive(Debug, Clone)]
@@ -136,13 +136,13 @@ pub trait AggregatorRunnerTrait: Sync + Send {
 /// The runner responsibility is to expose a code API for the state machine. It
 /// holds services and configuration.
 pub struct AggregatorRunner {
-    dependencies: Arc<DependencyContainer>,
+    dependencies: Arc<DependenciesContainer>,
     logger: Logger,
 }
 
 impl AggregatorRunner {
     /// Create a new instance of the Aggregator Runner.
-    pub fn new(dependencies: Arc<DependencyContainer>) -> Self {
+    pub fn new(dependencies: Arc<DependenciesContainer>) -> Self {
         let logger = dependencies.root_logger.new_with_component_name::<Self>();
         Self {
             dependencies,
@@ -529,7 +529,7 @@ pub mod tests {
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
         services::{MithrilStakeDistributionService, MockCertifierService},
-        DependencyContainer, MithrilSignerRegistrationLeader, ServeCommandConfiguration,
+        DependenciesContainer, MithrilSignerRegistrationLeader, ServeCommandConfiguration,
         SignerRegistrationRound,
     };
     use async_trait::async_trait;
@@ -569,7 +569,7 @@ pub mod tests {
         }
     }
 
-    async fn build_runner_with_fixture_data(deps: DependencyContainer) -> AggregatorRunner {
+    async fn build_runner_with_fixture_data(deps: DependenciesContainer) -> AggregatorRunner {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let current_epoch = deps
             .chain_observer

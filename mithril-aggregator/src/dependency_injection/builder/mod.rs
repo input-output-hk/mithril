@@ -53,7 +53,7 @@ use crate::{
         StakeDistributionService, UpkeepService,
     },
     tools::file_archiver::FileArchiver,
-    AggregatorConfig, AggregatorRunner, AggregatorRuntime, DependencyContainer,
+    AggregatorConfig, AggregatorRunner, AggregatorRuntime, DependenciesContainer,
     ImmutableFileDigestMapper, MetricsService, MithrilSignerRegistrationLeader, MultiSigner,
     SignerRegisterer, SignerRegistrationRoundOpener, SignerRegistrationVerifier,
     SingleSignatureAuthenticator, VerificationKeyStorer,
@@ -342,10 +342,10 @@ impl DependenciesBuilder {
         Ok(cardano_db_artifacts_dir)
     }
 
-    /// Return an unconfigured [DependencyContainer]
-    pub async fn build_dependency_container(&mut self) -> Result<DependencyContainer> {
+    /// Return an unconfigured [DependenciesContainer]
+    pub async fn build_dependency_container(&mut self) -> Result<DependenciesContainer> {
         #[allow(deprecated)]
-        let dependency_manager = DependencyContainer {
+        let dependencies_manager = DependenciesContainer {
             root_logger: self.root_logger(),
             stake_store: self.get_stake_store().await?,
             certificate_repository: self.get_certificate_repository().await?,
@@ -376,7 +376,7 @@ impl DependenciesBuilder {
             metrics_service: self.get_metrics_service().await?,
         };
 
-        Ok(dependency_manager)
+        Ok(dependencies_manager)
     }
 
     /// Create the AggregatorRunner

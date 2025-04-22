@@ -220,7 +220,7 @@ mod tests {
     };
 
     use crate::event_store::EventMessage;
-    use crate::DependencyContainer;
+    use crate::DependenciesContainer;
     use crate::{
         dependency_injection::DependenciesBuilder, initialize_dependencies,
         ServeCommandConfiguration,
@@ -417,12 +417,12 @@ mod tests {
 
     async fn setup_dependencies(
         snapshot_directory: PathBuf,
-    ) -> (Arc<DependencyContainer>, UnboundedReceiver<EventMessage>) {
+    ) -> (Arc<DependenciesContainer>, UnboundedReceiver<EventMessage>) {
         let config = ServeCommandConfiguration::new_sample(snapshot_directory);
         let mut builder = DependenciesBuilder::new_with_stdout_logger(Arc::new(config));
         let rx = builder.get_event_transmitter_receiver().await.unwrap();
-        let dependency_manager = Arc::new(builder.build_dependency_container().await.unwrap());
-        (dependency_manager, rx)
+        let dependencies_manager = Arc::new(builder.build_dependency_container().await.unwrap());
+        (dependencies_manager, rx)
     }
 
     mod post_cardano_database_complete_restoration {
