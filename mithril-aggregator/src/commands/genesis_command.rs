@@ -62,8 +62,8 @@ impl GenesisSubCommand {
             Self::Bootstrap(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::Export(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::Import(cmd) => cmd.execute(root_logger, config_builder).await,
-            Self::Sign(cmd) => cmd.execute(root_logger, config_builder).await,
-            Self::GenerateKeypair(cmd) => cmd.execute(root_logger, config_builder).await,
+            Self::Sign(cmd) => cmd.execute(root_logger).await,
+            Self::GenerateKeypair(cmd) => cmd.execute(root_logger).await,
         }
     }
 }
@@ -174,11 +174,7 @@ pub struct SignGenesisSubCommand {
 }
 
 impl SignGenesisSubCommand {
-    pub async fn execute(
-        &self,
-        root_logger: Logger,
-        _config_builder: ConfigBuilder<DefaultState>,
-    ) -> StdResult<()> {
+    pub async fn execute(&self, root_logger: Logger) -> StdResult<()> {
         debug!(root_logger, "SIGN GENESIS command");
         println!(
             "Genesis sign payload from {} to {}",
@@ -251,11 +247,7 @@ pub struct GenerateKeypairGenesisSubCommand {
 }
 
 impl GenerateKeypairGenesisSubCommand {
-    pub async fn execute(
-        &self,
-        root_logger: Logger,
-        _config_builder: ConfigBuilder<DefaultState>,
-    ) -> StdResult<()> {
+    pub async fn execute(&self, root_logger: Logger) -> StdResult<()> {
         debug!(root_logger, "GENERATE KEYPAIR GENESIS command");
         println!(
             "Genesis generate keypair to {}",
