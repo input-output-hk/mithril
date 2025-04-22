@@ -95,6 +95,16 @@ EOT
       "export ERA_READER_ADAPTER_PARAMS=$(jq -nc --arg address $(wget -q -O - ${var.mithril_era_reader_address_url}) --arg verification_key $(wget -q -O - ${var.mithril_era_reader_verification_key_url}) '{\"address\": $address, \"verification_key\": $verification_key}')",
       "export ERA_READER_SECRET_KEY='${var.mithril_era_reader_secret_key}'",
       "export ANCILLARY_FILES_SIGNER_CONFIG=$(jq -nc --arg secret_key ${var.mithril_genesis_secret_key} '{\"type\": \"secret-key\", \"secret_key\": $secret_key}')",
+      <<-EOT
+if [ "${var.mithril_aggregator_ancillary_signer_type}" = "secret-key" ]; then
+  export ANCILLARY_FILES_SIGNER_CONFIG=$(jq -nc --arg secret_key ${var.mithril_aggregator_ancillary_signer_secret_key} '{\"type\": \"secret-key\", \"secret_key\": $secret_key}')
+fi
+if [ "${var.mithril_aggregator_ancillary_signer_type}" = "gcp-kms" ]; then
+  export ANCILLARY_FILES_SIGNER_CONFIG=$(jq -nc --arg resource_name ${var.mithril_aggregator_ancillary_signer_gcp_kms_resource_name} '{\"type\": \"secret-key\", \"resource_name\": $resource_name}')
+  export GOOGLE_APPLICATION_CREDENTIALS_GCP_KMS_JSON='${var.mithril_aggregator_ancillary_signer_gcp_kms_credentials}'
+fi
+EOT
+      ,
       "export CEXPLORER_POOLS_URL='${var.mithril_aggregator_cexplorer_pools_url}'",
       "export ALLOW_UNPARSABLE_BLOCK=${var.mithril_aggregator_allow_unparsable_block}",
       "export CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE=${var.mithril_aggregator_cardano_transactions_prover_cache_pool_size}",

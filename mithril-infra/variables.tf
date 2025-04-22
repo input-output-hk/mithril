@@ -304,6 +304,34 @@ variable "mithril_aggregator_leader_aggregator_endpoint" {
   default     = ""
 }
 
+variable "mithril_aggregator_ancillary_signer_type" {
+  type        = string
+  description = "The type of signer used to sign ancillary files"
+
+  validation {
+    condition     = contains(["secret-key", "gcp-kms"], var.mithril_aggregator_ancillary_signer_type)
+    error_message = "Valid values for 'mithril_aggregator_ancillary_signer_type' are 'secret-key' or 'gcp-kms'."
+  }
+}
+
+variable "mithril_aggregator_ancillary_signer_secret_key" {
+  type        = string
+  description = "The secret key used to sign ancillary files (used with mithril_aggregator_ancillary_signer_type='secret-key')"
+  default     = ""
+}
+
+variable "mithril_aggregator_ancillary_signer_gcp_kms_resource_name" {
+  type        = string
+  description = "The GCP KMS resource name used to sign ancillary files (used with mithril_aggregator_ancillary_signer_type='gcp-kms')"
+  default     = ""
+}
+
+variable "mithril_aggregator_ancillary_signer_gcp_kms_credentials" {
+  type        = string
+  description = "The JSON credentials to access GCP KMS (used with mithril_aggregator_ancillary_signer_type='gcp-kms')"
+  default     = ""
+}
+
 variable "prometheus_auth_username" {
   type        = string
   description = "The username for authentication on local prometheus endpoint"
