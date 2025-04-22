@@ -149,6 +149,21 @@ inputs:
     description: Mithril aggregator leader aggregator endpoint to follow.
     required: false
     default: ""
+  mithril_aggregator_ancillary_signer_type:
+    description: Mithril aggregator ancillary signer type ('secret-key' or 'gcp-kms').
+    required: true
+  mithril_aggregator_ancillary_signer_secret_key:
+    description: Mithril aggregator ancillary signer secret key used to sign ancillary files (used with mithril_aggregator_ancillary_signer_type='secret-key').
+    required: false
+    default: ""
+  mithril_aggregator_ancillary_signer_gcp_kms_resource_name:
+    description: Mithril aggregator ancillary signer GCP KMS resource name used to sign ancillary files (used with mithril_aggregator_ancillary_signer_type='gcp-kms').
+    required: false
+    default: ""
+  mithril_aggregator_ancillary_signer_gcp_kms_credentials:
+    description: Mithril aggregator ancillary signer JSON credentials to access GCP KMS (used with mithril_aggregator_ancillary_signer_type='gcp-kms').
+    required: false
+    default: ""
   prometheus_auth_username:
     description: Prometheus metrics endpoint username.
     required: false
@@ -246,6 +261,10 @@ runs:
           mithril_aggregator_cardano_transactions_signing_config_security_parameter = "${{ inputs.mithril_aggregator_cardano_transactions_signing_config_security_parameter }}"
           mithril_aggregator_cardano_transactions_signing_config_step               = "${{ inputs.mithril_aggregator_cardano_transactions_signing_config_step }}"
           mithril_aggregator_leader_aggregator_endpoint                             = "${{ inputs.mithril_aggregator_leader_aggregator_endpoint }}"
+          mithril_aggregator_ancillary_signer_type                                  = "${{ inputs.mithril_aggregator_ancillary_signer_type }}"
+          mithril_aggregator_ancillary_signer_secret_key                            = "${{ inputs.mithril_aggregator_ancillary_signer_secret_key }}"
+          mithril_aggregator_ancillary_signer_gcp_kms_resource_name                 = "${{ inputs.mithril_aggregator_ancillary_signer_gcp_kms_resource_name }}"
+          mithril_aggregator_ancillary_signer_gcp_kms_credentials                   = "${{ inputs.mithril_aggregator_ancillary_signer_gcp_kms_credentials }}"
           prometheus_auth_username                                                  = "${{ inputs.prometheus_auth_username }}"
           prometheus_auth_password                                                  = "${{ inputs.prometheus_auth_password }}"
           prometheus_ingest_host                                                    = "${{ inputs.prometheus_ingest_host }}"
