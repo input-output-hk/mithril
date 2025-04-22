@@ -19,11 +19,11 @@ use crate::ExecutionEnvironment;
 
 impl DependenciesBuilder {
     async fn build_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
-        let chain_observer: Arc<dyn ChainObserver> = match self.configuration.environment {
+        let chain_observer: Arc<dyn ChainObserver> = match self.configuration.environment() {
             ExecutionEnvironment::Production => {
                 let cardano_cli_runner = &self.get_cardano_cli_runner().await?;
-                let chain_observer_type = &self.configuration.chain_observer_type;
-                let cardano_node_socket_path = &self.configuration.cardano_node_socket_path;
+                let chain_observer_type = &self.configuration.chain_observer_type();
+                let cardano_node_socket_path = &self.configuration.cardano_node_socket_path();
                 let cardano_network = &self
                     .configuration
                     .get_network()
@@ -56,8 +56,8 @@ impl DependenciesBuilder {
 
     async fn build_cardano_cli_runner(&mut self) -> Result<Box<CardanoCliRunner>> {
         let cli_runner = CardanoCliRunner::new(
-            self.configuration.cardano_cli_path.clone(),
-            self.configuration.cardano_node_socket_path.clone(),
+            self.configuration.cardano_cli_path(),
+            self.configuration.cardano_node_socket_path(),
             self.configuration.get_network().with_context(|| {
                 "Dependencies Builder can not get Cardano network while building cardano cli runner"
             })?,
@@ -77,7 +77,7 @@ impl DependenciesBuilder {
 
     async fn build_chain_block_reader(&mut self) -> Result<Arc<Mutex<dyn ChainBlockReader>>> {
         let chain_block_reader = PallasChainReader::new(
-            &self.configuration.cardano_node_socket_path,
+            &self.configuration.cardano_node_socket_path(),
             self.configuration.get_network()?,
             self.root_logger(),
         );
@@ -98,7 +98,7 @@ impl DependenciesBuilder {
         let block_scanner = CardanoBlockScanner::new(
             self.get_chain_block_reader().await?,
             self.configuration
-                .cardano_transactions_block_streamer_max_roll_forwards_per_poll,
+                .cardano_transactions_block_streamer_max_roll_forwards_per_poll(),
             self.root_logger(),
         );
 
@@ -115,7 +115,7 @@ impl DependenciesBuilder {
     }
 
     async fn build_immutable_digester(&mut self) -> Result<Arc<dyn ImmutableDigester>> {
-        let immutable_digester_cache = match self.configuration.environment {
+        let immutable_digester_cache = match self.configuration.environment() {
             ExecutionEnvironment::Production => Some(self.get_immutable_cache_provider().await?),
             _ => None,
         };
@@ -149,7 +149,7 @@ impl DependenciesBuilder {
             self.get_signed_entity_lock().await?,
             self.get_transactions_importer().await?,
             self.configuration
-                .cardano_transactions_signing_config
+                .cardano_transactions_signing_config()
                 .security_parameter,
             self.get_chain_observer().await?,
             self.root_logger(),
@@ -186,7 +186,7 @@ impl DependenciesBuilder {
 mod tests {
     use mithril_common::{entities::SignedEntityTypeDiscriminants, temp_dir};
 
-    use crate::Configuration;
+    use crate::ServeCommandConfiguration;
 
     use super::*;
 
@@ -209,11 +209,11 @@ mod tests {
         signed_entity_types: String,
         expected_activation: bool,
     ) {
-        let configuration = Configuration {
+        let configuration = ServeCommandConfiguration {
             signed_entity_types: Some(signed_entity_types),
-            ..Configuration::new_sample(temp_dir!())
+            ..ServeCommandConfiguration::new_sample(temp_dir!())
         };
-        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
+        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(Arc::new(configuration));
 
         let cardano_transactions_preloader = dep_builder
             .create_cardano_transactions_preloader()

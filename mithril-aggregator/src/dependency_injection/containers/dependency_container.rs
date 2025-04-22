@@ -307,9 +307,11 @@ impl DependencyContainer {
 #[cfg(test)]
 pub(crate) mod tests {
 
-    use std::path::PathBuf;
+    use std::{path::PathBuf, sync::Arc};
 
-    use crate::{dependency_injection::DependenciesBuilder, Configuration, DependencyContainer};
+    use crate::{
+        dependency_injection::DependenciesBuilder, DependencyContainer, ServeCommandConfiguration,
+    };
 
     /// Initialize dependency container with a unique temporary snapshot directory build from test path.
     /// This macro should used directly in a function test to be able to retrieve the function name.
@@ -321,9 +323,9 @@ pub(crate) mod tests {
     }
 
     pub async fn initialize_dependencies(tmp_path: PathBuf) -> DependencyContainer {
-        let config = Configuration::new_sample(tmp_path);
+        let config = ServeCommandConfiguration::new_sample(tmp_path);
 
-        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(Arc::new(config));
 
         builder.build_dependency_container().await.unwrap()
     }

@@ -7,9 +7,11 @@ use mithril_common::{
     StdResult,
 };
 use slog::{debug, Logger};
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
-use crate::{dependency_injection::DependenciesBuilder, tools::GenesisTools, Configuration};
+use crate::{
+    dependency_injection::DependenciesBuilder, tools::GenesisTools, ServeCommandConfiguration,
+};
 
 /// Genesis tools
 #[derive(Parser, Debug, Clone)]
@@ -80,18 +82,20 @@ impl ExportGenesisSubCommand {
         root_logger: Logger,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> StdResult<()> {
-        let config: Configuration = config_builder
+        let mut config: ServeCommandConfiguration = config_builder
             .build()
             .with_context(|| "configuration build error")?
             .try_deserialize()
             .with_context(|| "configuration deserialize error")?;
+        // TODO: `store_retention_limit` will be set in the specific configuration implementation of the genesis command.
+        config.store_retention_limit = None;
         debug!(root_logger, "EXPORT GENESIS command"; "config" => format!("{config:?}"));
         println!(
             "Genesis export payload to sign to {}",
             self.target_path.display()
         );
         let mut dependencies_builder =
-            DependenciesBuilder::new(root_logger.clone(), config.clone());
+            DependenciesBuilder::new(root_logger.clone(), Arc::new(config.clone()));
         let dependencies = dependencies_builder
             .create_genesis_container()
             .await
@@ -122,18 +126,20 @@ impl ImportGenesisSubCommand {
         root_logger: Logger,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> StdResult<()> {
-        let config: Configuration = config_builder
+        let mut config: ServeCommandConfiguration = config_builder
             .build()
             .with_context(|| "configuration build error")?
             .try_deserialize()
             .with_context(|| "configuration deserialize error")?;
+        // TODO: `store_retention_limit` will be set in the specific configuration implementation of the genesis command.
+        config.store_retention_limit = None;
         debug!(root_logger, "IMPORT GENESIS command"; "config" => format!("{config:?}"));
         println!(
             "Genesis import signed payload from {}",
             self.signed_payload_path.to_string_lossy()
         );
         let mut dependencies_builder =
-            DependenciesBuilder::new(root_logger.clone(), config.clone());
+            DependenciesBuilder::new(root_logger.clone(), Arc::new(config.clone()));
         let dependencies = dependencies_builder
             .create_genesis_container()
             .await
@@ -204,15 +210,17 @@ impl BootstrapGenesisSubCommand {
         root_logger: Logger,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> StdResult<()> {
-        let config: Configuration = config_builder
+        let mut config: ServeCommandConfiguration = config_builder
             .build()
             .with_context(|| "configuration build error")?
             .try_deserialize()
             .with_context(|| "configuration deserialize error")?;
+        // TODO: `store_retention_limit` will be set in the specific configuration implementation of the genesis command.
+        config.store_retention_limit = None;
         debug!(root_logger, "BOOTSTRAP GENESIS command"; "config" => format!("{config:?}"));
         println!("Genesis bootstrap for test only!");
         let mut dependencies_builder =
-            DependenciesBuilder::new(root_logger.clone(), config.clone());
+            DependenciesBuilder::new(root_logger.clone(), Arc::new(config.clone()));
         let dependencies = dependencies_builder
             .create_genesis_container()
             .await

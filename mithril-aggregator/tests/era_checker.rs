@@ -1,5 +1,5 @@
 mod test_extensions;
-use mithril_aggregator::{Configuration, RuntimeError};
+use mithril_aggregator::{RuntimeError, ServeCommandConfiguration};
 use mithril_common::{
     entities::{BlockNumber, ChainPoint, Epoch, ProtocolParameters, SlotNumber, TimePoint},
     era::{EraMarker, SupportedEra},
@@ -19,10 +19,10 @@ async fn testing_eras() {
         m: 100,
         phi_f: 0.95,
     };
-    let configuration = Configuration {
+    let configuration = ServeCommandConfiguration {
         protocol_parameters: protocol_parameters.clone(),
         data_stores_directory: get_test_dir("testing_eras"),
-        ..Configuration::new_sample(temp_dir!())
+        ..ServeCommandConfiguration::new_sample(temp_dir!())
     };
     let mut tester = RuntimeTester::build(
         TimePoint::new(

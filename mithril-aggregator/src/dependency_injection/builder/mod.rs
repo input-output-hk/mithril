@@ -34,8 +34,12 @@ use mithril_persistence::{
 };
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 
-use super::{DependenciesBuilderError, EpochServiceWrapper, Result};
+use super::{
+    DatabaseCommandDependencyContainer, DependenciesBuilderError, EpochServiceWrapper,
+    GenesisToolsDependency, Result,
+};
 use crate::{
+    configuration::ConfigurationSource,
     database::repository::{
         CertificateRepository, EpochSettingsStore, OpenMessageRepository, SignedEntityStorer,
         SignerStore, StakePoolStore,
@@ -48,8 +52,8 @@ use crate::{
         ProverService, SignedEntityService, SignerSynchronizer, Snapshotter,
         StakeDistributionService, UpkeepService,
     },
-    tools::{file_archiver::FileArchiver, GenesisToolsDependency},
-    AggregatorConfig, AggregatorRunner, AggregatorRuntime, Configuration, DependencyContainer,
+    tools::file_archiver::FileArchiver,
+    AggregatorConfig, AggregatorRunner, AggregatorRuntime, DependencyContainer,
     ImmutableFileDigestMapper, MetricsService, MithrilSignerRegistrationLeader, MultiSigner,
     SignerRegisterer, SignerRegistrationRoundOpener, SignerRegistrationVerifier,
     SingleSignatureAuthenticator, VerificationKeyStorer,
@@ -74,7 +78,7 @@ const SNAPSHOT_ARTIFACTS_DIR: &str = "cardano-immutable-files-full";
 /// dependency for all further calls.
 pub struct DependenciesBuilder {
     /// Configuration parameters
-    pub configuration: Configuration,
+    pub configuration: Arc<dyn ConfigurationSource>,
 
     /// Application root logger
     pub root_logger: Logger,
@@ -245,7 +249,7 @@ pub struct DependenciesBuilder {
 
 impl DependenciesBuilder {
     /// Create a new clean dependency builder
-    pub fn new(root_logger: Logger, configuration: Configuration) -> Self {
+    pub fn new(root_logger: Logger, configuration: Arc<dyn ConfigurationSource>) -> Self {
         Self {
             configuration,
             root_logger,
@@ -381,7 +385,7 @@ impl DependenciesBuilder {
         let dependency_container = Arc::new(self.build_dependency_container().await?);
 
         let config = AggregatorConfig::new(
-            Duration::from_millis(self.configuration.run_interval),
+            Duration::from_millis(self.configuration.run_interval()),
             self.configuration.is_follower_aggregator(),
         );
         let runtime = AggregatorRuntime::new(
@@ -415,10 +419,10 @@ impl DependenciesBuilder {
                     .compute_allowed_signed_entity_types_discriminants()?,
                 cardano_transactions_prover_max_hashes_allowed_by_request: self
                     .configuration
-                    .cardano_transactions_prover_max_hashes_allowed_by_request,
+                    .cardano_transactions_prover_max_hashes_allowed_by_request(),
                 cardano_db_artifacts_directory: self.get_cardano_db_artifacts_dir()?,
                 snapshot_directory: snapshot_dir.join(SNAPSHOT_ARTIFACTS_DIR),
-                cardano_node_version: self.configuration.cardano_node_version.clone(),
+                cardano_node_version: self.configuration.cardano_node_version(),
                 allow_http_serve_directory: self.configuration.allow_http_serve_directory(),
                 origin_tag_white_list: self.configuration.compute_origin_tag_white_list(),
             },
@@ -433,9 +437,6 @@ impl DependenciesBuilder {
             "Dependencies Builder can not get Cardano network while building genesis container"
         })?;
 
-        // Disable store pruning for genesis commands
-        self.configuration.store_retention_limit = None;
-
         let dependencies = GenesisToolsDependency {
             network,
             ticker_service: self.get_ticker_service().await?,
@@ -449,6 +450,30 @@ impl DependenciesBuilder {
         Ok(dependencies)
     }
 
+    /// Create dependencies for database command
+    pub async fn create_database_command_container(
+        &mut self,
+    ) -> Result<DatabaseCommandDependencyContainer> {
+        let main_db_connection = self
+            .get_sqlite_connection()
+            .await
+            .with_context(|| "Dependencies Builder can not get sqlite connection")?;
+
+        self.get_event_store_sqlite_connection()
+            .await
+            .with_context(|| "Dependencies Builder can not get event store sqlite connection")?;
+
+        self.get_sqlite_connection_cardano_transaction_pool()
+            .await
+            .with_context(|| {
+                "Dependencies Builder can not get cardano transaction pool sqlite connection"
+            })?;
+
+        let dependencies = DatabaseCommandDependencyContainer { main_db_connection };
+
+        Ok(dependencies)
+    }
+
     /// Remove the dependencies builder from memory to release Arc instances.
     pub async fn vanish(self) {
         self.drop_sqlite_connections().await;
@@ -457,7 +482,7 @@ impl DependenciesBuilder {
 
 #[cfg(test)]
 impl DependenciesBuilder {
-    pub(crate) fn new_with_stdout_logger(configuration: Configuration) -> Self {
+    pub(crate) fn new_with_stdout_logger(configuration: Arc<dyn ConfigurationSource>) -> Self {
         Self::new(crate::test_tools::TestLogger::stdout(), configuration)
     }
 }

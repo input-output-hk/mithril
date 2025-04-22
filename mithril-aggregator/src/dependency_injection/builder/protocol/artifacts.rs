@@ -37,8 +37,8 @@ impl DependenciesBuilder {
         );
         let snapshotter = self.get_snapshotter().await?;
         let snapshot_uploader = self.get_snapshot_uploader().await?;
-        let cardano_node_version = Version::parse(&self.configuration.cardano_node_version)
-            .map_err(|e| DependenciesBuilderError::Initialization { message: format!("Could not parse configuration setting 'cardano_node_version' value '{}' as Semver.", self.configuration.cardano_node_version), error: Some(e.into()) })?;
+        let cardano_node_version = Version::parse(&self.configuration.cardano_node_version())
+            .map_err(|e| DependenciesBuilderError::Initialization { message: format!("Could not parse configuration setting 'cardano_node_version' value '{}' as Semver.", self.configuration.cardano_node_version()), error: Some(e.into()) })?;
         let cardano_immutable_files_full_artifact_builder =
             Arc::new(CardanoImmutableFilesFullArtifactBuilder::new(
                 self.configuration.get_network()?,
@@ -101,7 +101,9 @@ impl DependenciesBuilder {
         let archive_verification_directory =
             std::env::temp_dir().join("mithril_archiver_verify_archive");
         let file_archiver = Arc::new(FileArchiver::new(
-            self.configuration.zstandard_parameters.unwrap_or_default(),
+            self.configuration
+                .zstandard_parameters()
+                .unwrap_or_default(),
             archive_verification_directory,
             self.root_logger(),
         ));
@@ -118,7 +120,7 @@ impl DependenciesBuilder {
     }
 
     async fn get_ancillary_signer(&self) -> Result<Arc<dyn AncillarySigner>> {
-        match &self.configuration.ancillary_files_signer_config {
+        match &self.configuration.ancillary_files_signer_config() {
             AncillaryFilesSignerConfig::SecretKey { secret_key } => {
                 let manifest_signer = ManifestSigner::from_secret_key(
                     secret_key
@@ -136,7 +138,7 @@ impl DependenciesBuilder {
     }
 
     async fn build_snapshotter(&mut self) -> Result<Arc<dyn Snapshotter>> {
-        let snapshotter: Arc<dyn Snapshotter> = match self.configuration.environment {
+        let snapshotter: Arc<dyn Snapshotter> = match self.configuration.environment() {
             ExecutionEnvironment::Production => {
                 let ongoing_snapshot_directory = self
                     .configuration
@@ -144,16 +146,16 @@ impl DependenciesBuilder {
                     .join("pending_snapshot");
 
                 Arc::new(CompressedArchiveSnapshotter::new(
-                    self.configuration.db_directory.clone(),
+                    self.configuration.db_directory().clone(),
                     ongoing_snapshot_directory,
-                    self.configuration.snapshot_compression_algorithm,
+                    self.configuration.snapshot_compression_algorithm(),
                     self.get_file_archiver().await?,
                     self.get_ancillary_signer().await?,
                     self.root_logger(),
                 )?)
             }
             _ => Arc::new(DumbSnapshotter::new(
-                self.configuration.snapshot_compression_algorithm,
+                self.configuration.snapshot_compression_algorithm(),
             )),
         };
 
@@ -167,7 +169,7 @@ impl DependenciesBuilder {
         Ok(DigestSnapshotter {
             file_archiver: self.get_file_archiver().await?,
             target_location: digests_path,
-            compression_algorithm: self.configuration.snapshot_compression_algorithm,
+            compression_algorithm: self.configuration.snapshot_compression_algorithm(),
         })
     }
 
@@ -182,8 +184,8 @@ impl DependenciesBuilder {
 
     async fn build_snapshot_uploader(&mut self) -> Result<Arc<dyn FileUploader>> {
         let logger = self.root_logger();
-        if self.configuration.environment == ExecutionEnvironment::Production {
-            match self.configuration.snapshot_uploader_type {
+        if self.configuration.environment() == ExecutionEnvironment::Production {
+            match self.configuration.snapshot_uploader_type() {
                 SnapshotUploaderType::Gcp => {
                     let allow_overwrite = true;
                     let remote_folder_path = CloudRemotePath::new("cardano-immutable-files-full");
@@ -239,7 +241,7 @@ impl DependenciesBuilder {
         let logger = self.root_logger();
         let bucket = self
             .configuration
-            .snapshot_bucket_name
+            .snapshot_bucket_name()
             .to_owned()
             .ok_or_else(|| {
                 DependenciesBuilderError::MissingConfiguration("snapshot_bucket_name".to_string())
@@ -248,7 +250,7 @@ impl DependenciesBuilder {
         Ok(GcpUploader::new(
             Arc::new(GcpBackendUploader::try_new(
                 bucket,
-                self.configuration.snapshot_use_cdn_domain,
+                self.configuration.snapshot_use_cdn_domain(),
                 logger.clone(),
             )?),
             remote_folder_path,
@@ -261,8 +263,8 @@ impl DependenciesBuilder {
         &self,
     ) -> Result<Vec<Arc<dyn AncillaryFileUploader>>> {
         let logger = self.root_logger();
-        if self.configuration.environment == ExecutionEnvironment::Production {
-            match self.configuration.snapshot_uploader_type {
+        if self.configuration.environment() == ExecutionEnvironment::Production {
+            match self.configuration.snapshot_uploader_type() {
                 SnapshotUploaderType::Gcp => {
                     let allow_overwrite = true;
                     let remote_folder_path =
@@ -305,8 +307,8 @@ impl DependenciesBuilder {
         &self,
     ) -> Result<Vec<Arc<dyn ImmutableFilesUploader>>> {
         let logger = self.root_logger();
-        if self.configuration.environment == ExecutionEnvironment::Production {
-            match self.configuration.snapshot_uploader_type {
+        if self.configuration.environment() == ExecutionEnvironment::Production {
+            match self.configuration.snapshot_uploader_type() {
                 SnapshotUploaderType::Gcp => {
                     let allow_overwrite = false;
                     let remote_folder_path =
@@ -338,8 +340,8 @@ impl DependenciesBuilder {
 
     fn build_cardano_database_digests_uploaders(&self) -> Result<Vec<Arc<dyn DigestFileUploader>>> {
         let logger = self.root_logger();
-        if self.configuration.environment == ExecutionEnvironment::Production {
-            match self.configuration.snapshot_uploader_type {
+        if self.configuration.environment() == ExecutionEnvironment::Production {
+            match self.configuration.snapshot_uploader_type() {
                 SnapshotUploaderType::Gcp => {
                     let allow_overwrite = false;
                     let remote_folder_path =
@@ -428,7 +430,7 @@ mod tests {
     use mithril_persistence::sqlite::ConnectionBuilder;
 
     use crate::dependency_injection::builder::CARDANO_DB_ARTIFACTS_DIR;
-    use crate::Configuration;
+    use crate::ServeCommandConfiguration;
 
     use super::*;
 
@@ -441,13 +443,13 @@ mod tests {
         let digests_dir = cdb_dir.join("digests");
 
         let mut dep_builder = {
-            let config = Configuration {
+            let config = ServeCommandConfiguration {
                 // Test environment yield dumb uploaders
                 environment: ExecutionEnvironment::Test,
-                ..Configuration::new_sample(snapshot_directory)
+                ..ServeCommandConfiguration::new_sample(snapshot_directory)
             };
 
-            DependenciesBuilder::new_with_stdout_logger(config)
+            DependenciesBuilder::new_with_stdout_logger(Arc::new(config))
         };
 
         assert!(!ancillary_dir.exists());
@@ -473,14 +475,14 @@ mod tests {
         let digests_dir = cdb_dir.join("digests");
 
         let mut dep_builder = {
-            let config = Configuration {
+            let config = ServeCommandConfiguration {
                 // Must use production environment to make `snapshot_uploader_type` effective
                 environment: ExecutionEnvironment::Production,
                 snapshot_uploader_type: SnapshotUploaderType::Local,
-                ..Configuration::new_sample(snapshot_directory)
+                ..ServeCommandConfiguration::new_sample(snapshot_directory)
             };
 
-            DependenciesBuilder::new_with_stdout_logger(config)
+            DependenciesBuilder::new_with_stdout_logger(Arc::new(config))
         };
         // In production environment the builder can't create in-memory SQLite connections, we
         // need to provide it manually to avoid creations of unnecessary files.

@@ -31,9 +31,9 @@ impl DependenciesBuilder {
 
     async fn build_immutable_file_observer(&mut self) -> Result<Arc<dyn ImmutableFileObserver>> {
         let immutable_file_observer: Arc<dyn ImmutableFileObserver> =
-            match self.configuration.environment {
+            match self.configuration.environment() {
                 ExecutionEnvironment::Production => Arc::new(ImmutableFileSystemObserver::new(
-                    &self.configuration.db_directory,
+                    &self.configuration.db_directory(),
                 )),
                 _ => Arc::new(DumbImmutableFileObserver::default()),
             };

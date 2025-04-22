@@ -529,7 +529,7 @@ pub mod tests {
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
         services::{MithrilStakeDistributionService, MockCertifierService},
-        Configuration, DependencyContainer, MithrilSignerRegistrationLeader,
+        DependencyContainer, MithrilSignerRegistrationLeader, ServeCommandConfiguration,
         SignerRegistrationRound,
     };
     use async_trait::async_trait;
@@ -726,7 +726,6 @@ pub mod tests {
             deps.verification_key_store.clone(),
             deps.signer_recorder.clone(),
             deps.signer_registration_verifier.clone(),
-            None,
         ));
         deps.signer_registration_round_opener = signer_registration_round_opener.clone();
         let stake_store = deps.stake_store.clone();
@@ -766,7 +765,6 @@ pub mod tests {
             deps.verification_key_store.clone(),
             deps.signer_recorder.clone(),
             deps.signer_registration_verifier.clone(),
-            None,
         ));
         deps.signer_registration_round_opener = signer_registration_round_opener.clone();
         let deps = Arc::new(deps);
@@ -885,8 +883,8 @@ pub mod tests {
             .returning(|_| Ok(()))
             .times(1);
 
-        let config = Configuration::new_sample(temp_dir!());
-        let mut deps = DependenciesBuilder::new_with_stdout_logger(config.clone())
+        let config = ServeCommandConfiguration::new_sample(temp_dir!());
+        let mut deps = DependenciesBuilder::new_with_stdout_logger(Arc::new(config.clone()))
             .build_dependency_container()
             .await
             .unwrap();

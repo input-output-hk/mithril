@@ -69,6 +69,7 @@ impl DependenciesBuilder {
     async fn build_verification_key_store(&mut self) -> Result<Arc<dyn VerificationKeyStorer>> {
         Ok(Arc::new(SignerRegistrationStore::new(
             self.get_sqlite_connection().await?,
+            self.configuration.safe_epoch_retention_limit(),
         )))
     }
 
@@ -139,7 +140,7 @@ impl DependenciesBuilder {
     ) -> Result<Arc<dyn ImmutableFileDigestCacheProvider>> {
         let cache_provider =
             ImmutableFileDigestRepository::new(self.get_sqlite_connection().await?);
-        if self.configuration.reset_digests_cache {
+        if self.configuration.reset_digests_cache() {
             cache_provider
                 .reset()
                 .await
