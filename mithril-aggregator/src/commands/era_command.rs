@@ -2,7 +2,6 @@ use std::{fs::File, io::Write, path::PathBuf};
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
-use config::{builder::DefaultState, ConfigBuilder};
 use mithril_common::{
     crypto_helper::{EraMarkersSigner, EraMarkersVerifierSecretKey},
     entities::{Epoch, HexEncodedEraMarkersSecretKey},
@@ -21,14 +20,8 @@ pub struct EraCommand {
 }
 
 impl EraCommand {
-    pub async fn execute(
-        &self,
-        root_logger: Logger,
-        config_builder: ConfigBuilder<DefaultState>,
-    ) -> StdResult<()> {
-        self.era_subcommand
-            .execute(root_logger, config_builder)
-            .await
+    pub async fn execute(&self, root_logger: Logger) -> StdResult<()> {
+        self.era_subcommand.execute(root_logger).await
     }
 }
 
@@ -46,15 +39,11 @@ pub enum EraSubCommand {
 }
 
 impl EraSubCommand {
-    pub async fn execute(
-        &self,
-        root_logger: Logger,
-        config_builder: ConfigBuilder<DefaultState>,
-    ) -> StdResult<()> {
+    pub async fn execute(&self, root_logger: Logger) -> StdResult<()> {
         match self {
-            Self::List(cmd) => cmd.execute(root_logger, config_builder).await,
-            Self::GenerateTxDatum(cmd) => cmd.execute(root_logger, config_builder).await,
-            Self::GenerateKeypair(cmd) => cmd.execute(root_logger, config_builder).await,
+            Self::List(cmd) => cmd.execute(root_logger).await,
+            Self::GenerateTxDatum(cmd) => cmd.execute(root_logger).await,
+            Self::GenerateKeypair(cmd) => cmd.execute(root_logger).await,
         }
     }
 }
@@ -68,11 +57,7 @@ pub struct ListEraSubCommand {
 }
 
 impl ListEraSubCommand {
-    pub async fn execute(
-        &self,
-        root_logger: Logger,
-        _config_builder: ConfigBuilder<DefaultState>,
-    ) -> StdResult<()> {
+    pub async fn execute(&self, root_logger: Logger) -> StdResult<()> {
         debug!(root_logger, "LIST ERA command");
         let era_tools = EraTools::new();
         let eras = era_tools.get_supported_eras_list()?;
@@ -109,11 +94,7 @@ pub struct GenerateTxDatumEraSubCommand {
 }
 
 impl GenerateTxDatumEraSubCommand {
-    pub async fn execute(
-        &self,
-        root_logger: Logger,
-        _config_builder: ConfigBuilder<DefaultState>,
-    ) -> StdResult<()> {
+    pub async fn execute(&self, root_logger: Logger) -> StdResult<()> {
         debug!(root_logger, "GENERATETXDATUM ERA command");
         let era_tools = EraTools::new();
 
@@ -143,11 +124,7 @@ pub struct GenerateKeypairEraSubCommand {
 }
 
 impl GenerateKeypairEraSubCommand {
-    pub async fn execute(
-        &self,
-        root_logger: Logger,
-        _config_builder: ConfigBuilder<DefaultState>,
-    ) -> StdResult<()> {
+    pub async fn execute(&self, root_logger: Logger) -> StdResult<()> {
         debug!(root_logger, "GENERATE KEYPAIR ERA command");
         println!(
             "Era generate keypair to {}",

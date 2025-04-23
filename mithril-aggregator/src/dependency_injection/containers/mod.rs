@@ -13,3 +13,9 @@ pub struct DatabaseCommandDependencyContainer {
     /// Main database connection
     pub main_db_connection: Arc<SqliteConnection>,
 }
+
+/// Dependency container for the tools commands
+pub struct ToolsCommandDependenciesContainer {
+    /// Database connection
+    pub db_connection: Arc<SqliteConnection>,
+}

@@ -142,7 +142,7 @@ pub trait ConfigurationSource {
         panic!("snapshot_directory is not implemented.");
     }
 
-    /// Directory to store aggregator data (Certificates, Snapshots, Protocol Parameters, ...)
+    /// Directory to store aggregator databases
     fn data_stores_directory(&self) -> PathBuf {
         panic!("data_stores_directory is not implemented.");
     }
@@ -447,7 +447,7 @@ pub struct ServeCommandConfiguration {
     /// Directory to store snapshot
     pub snapshot_directory: PathBuf,
 
-    /// Directory to store aggregator data (Certificates, Snapshots, Protocol Parameters, ...)
+    /// Directory to store aggregator databases
     #[example = "`./mithril-aggregator/stores`"]
     pub data_stores_directory: PathBuf,
 
