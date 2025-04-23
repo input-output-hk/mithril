@@ -1,7 +1,7 @@
 mod epoch_settings_storer;
 mod verification_key_store;
 
-pub use epoch_settings_storer::EpochSettingsStorer;
+pub use epoch_settings_storer::{EpochSettingsStorer, ProtocolParametersRetriever};
 pub use verification_key_store::VerificationKeyStorer;
 
 #[cfg(test)]

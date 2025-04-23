@@ -55,8 +55,8 @@ use crate::{
     tools::file_archiver::FileArchiver,
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, DependenciesContainer,
     ImmutableFileDigestMapper, MetricsService, MithrilSignerRegistrationLeader, MultiSigner,
-    SignerRegisterer, SignerRegistrationRoundOpener, SignerRegistrationVerifier,
-    SingleSignatureAuthenticator, VerificationKeyStorer,
+    ProtocolParametersRetriever, SignerRegisterer, SignerRegistrationRoundOpener,
+    SignerRegistrationVerifier, SingleSignatureAuthenticator, VerificationKeyStorer,
 };
 
 /// Retrieve attribute stored in the builder.
@@ -270,6 +270,9 @@ pub struct DependenciesBuilder {
 
     /// Leader aggregator client
     pub leader_aggregator_client: Option<Arc<dyn AggregatorClient>>,
+
+    /// Protocol parameters retriever
+    pub protocol_parameters_retriever: Option<Arc<dyn ProtocolParametersRetriever>>,
 }
 
 impl DependenciesBuilder {
@@ -331,6 +334,7 @@ impl DependenciesBuilder {
             single_signature_authenticator: None,
             metrics_service: None,
             leader_aggregator_client: None,
+            protocol_parameters_retriever: None,
         }
     }
 
@@ -452,7 +456,7 @@ impl DependenciesBuilder {
             certificate_repository: self.get_certificate_repository().await?,
             certificate_verifier: self.get_certificate_verifier().await?,
             genesis_verifier: self.get_genesis_verifier().await?,
-            epoch_settings_storer: self.get_epoch_settings_store().await?,
+            protocol_parameters_retriever: self.get_protocol_parameters_retriever().await?,
             verification_key_store: self.get_verification_key_store().await?,
         };
 

@@ -9,10 +9,7 @@ use slog::{debug, Logger};
 use mithril_common::{
     chain_observer::ChainObserverType,
     crypto_helper::{ProtocolGenesisSecretKey, ProtocolGenesisSigner},
-    entities::{
-        CardanoTransactionsSigningConfig, HexEncodedGenesisSecretKey,
-        HexEncodedGenesisVerificationKey, ProtocolParameters,
-    },
+    entities::{HexEncodedGenesisSecretKey, HexEncodedGenesisVerificationKey},
     StdResult,
 };
 use mithril_doc::{Documenter, StructDoc};
@@ -52,14 +49,6 @@ pub struct GenesisCommandConfiguration {
 
     /// Genesis verification key
     pub genesis_verification_key: HexEncodedGenesisVerificationKey,
-
-    /// Protocol parameters
-    #[example = "`{ k: 5, m: 100, phi_f: 0.65 }`"]
-    pub protocol_parameters: ProtocolParameters,
-
-    /// Cardano transactions signing configuration
-    #[example = "`{ security_parameter: 3000, step: 120 }`"]
-    pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
 }
 
 impl ConfigurationSource for GenesisCommandConfiguration {
@@ -97,14 +86,6 @@ impl ConfigurationSource for GenesisCommandConfiguration {
 
     fn store_retention_limit(&self) -> Option<usize> {
         None
-    }
-
-    fn protocol_parameters(&self) -> ProtocolParameters {
-        self.protocol_parameters.clone()
-    }
-
-    fn cardano_transactions_signing_config(&self) -> CardanoTransactionsSigningConfig {
-        self.cardano_transactions_signing_config.clone()
     }
 }
 
@@ -354,7 +335,7 @@ impl GenerateKeypairGenesisSubCommand {
 mod tests {
     use std::sync::Arc;
 
-    use mithril_common::{entities::BlockNumber, temp_dir};
+    use mithril_common::temp_dir;
 
     use crate::test_tools::TestLogger;
 
@@ -374,15 +355,6 @@ mod tests {
             chain_observer_type: ChainObserverType::Fake,
             data_stores_directory: temp_dir!().join("stores"),
             genesis_verification_key: genesis_verification_key.to_json_hex().unwrap(),
-            protocol_parameters: ProtocolParameters {
-                k: 5,
-                m: 100,
-                phi_f: 0.95,
-            },
-            cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
-                security_parameter: BlockNumber(120),
-                step: BlockNumber(15),
-            },
         };
         let mut dependencies_builder =
             DependenciesBuilder::new(TestLogger::stdout(), Arc::new(config));

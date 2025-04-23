@@ -6,7 +6,7 @@ use mithril_common::{
 };
 
 use crate::database::repository::CertificateRepository;
-use crate::{EpochSettingsStorer, VerificationKeyStorer};
+use crate::{ProtocolParametersRetriever, VerificationKeyStorer};
 
 /// Dependency container for the genesis commands
 pub struct GenesisToolsDependency {
@@ -25,8 +25,8 @@ pub struct GenesisToolsDependency {
     /// Certificate verifier service.
     pub certificate_verifier: Arc<dyn CertificateVerifier>,
 
-    /// Epoch settings storer.
-    pub epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
+    /// Protocol parameters retriever service.
+    pub protocol_parameters_retriever: Arc<dyn ProtocolParametersRetriever>,
 
     /// Certificate store.
     pub certificate_repository: Arc<CertificateRepository>,

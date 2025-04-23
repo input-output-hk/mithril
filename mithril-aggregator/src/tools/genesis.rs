@@ -61,9 +61,9 @@ impl GenesisTools {
         let genesis_verifier = dependencies.genesis_verifier.clone();
         let certificate_verifier = dependencies.certificate_verifier.clone();
         let certificate_repository = dependencies.certificate_repository.clone();
-        let epoch_settings_storer = dependencies.epoch_settings_storer.clone();
+        let protocol_parameters_retriever = dependencies.protocol_parameters_retriever.clone();
         let genesis_avk_epoch = epoch.offset_to_next_signer_retrieval_epoch();
-        let genesis_protocol_parameters = epoch_settings_storer
+        let genesis_protocol_parameters = protocol_parameters_retriever
             .get_protocol_parameters(epoch.offset_to_signer_retrieval_epoch()?)
             .await?
             .ok_or_else(|| anyhow!("Missing protocol parameters for epoch {genesis_avk_epoch}"))?;

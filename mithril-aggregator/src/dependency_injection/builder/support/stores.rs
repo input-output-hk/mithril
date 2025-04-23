@@ -14,8 +14,8 @@ use crate::database::repository::{
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
 use crate::get_dependency;
 use crate::{
-    CExplorerSignerRetriever, EpochSettingsStorer, ImmutableFileDigestMapper, SignersImporter,
-    VerificationKeyStorer,
+    CExplorerSignerRetriever, EpochSettingsStorer, ImmutableFileDigestMapper,
+    ProtocolParametersRetriever, SignersImporter, VerificationKeyStorer,
 };
 
 impl DependenciesBuilder {
@@ -65,6 +65,31 @@ impl DependenciesBuilder {
     /// Get a configured [VerificationKeyStorer].
     pub async fn get_verification_key_store(&mut self) -> Result<Arc<dyn VerificationKeyStorer>> {
         get_dependency!(self.verification_key_store)
+    }
+
+    async fn build_protocol_parameters_retriever(
+        &mut self,
+    ) -> Result<Arc<dyn ProtocolParametersRetriever>> {
+        let protocol_parameters_retriever =
+            EpochSettingsStore::new(self.get_sqlite_connection().await?, None);
+
+        Ok(Arc::new(protocol_parameters_retriever))
+    }
+
+    /// Get a configured [ProtocolParametersRetriever].
+    pub async fn get_protocol_parameters_retriever(
+        &mut self,
+    ) -> Result<Arc<dyn ProtocolParametersRetriever>> {
+        if self.protocol_parameters_retriever.is_none() {
+            self.protocol_parameters_retriever =
+                Some(self.build_protocol_parameters_retriever().await?);
+        }
+
+        Ok(self
+            .protocol_parameters_retriever
+            .as_ref()
+            .cloned()
+            .unwrap())
     }
 
     async fn build_epoch_settings_store(&mut self) -> Result<Arc<EpochSettingsStore>> {

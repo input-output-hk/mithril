@@ -8,18 +8,24 @@ use mithril_common::entities::{Epoch, ProtocolParameters};
 
 use crate::{entities::AggregatorEpochSettings, services::EpochPruningTask};
 
+/// Retrieve the [ProtocolParameters] for the given epoch.
+#[async_trait]
+pub trait ProtocolParametersRetriever: Sync + Send {
+    /// Get the saved `ProtocolParameters` for the given [Epoch] if any.
+    async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>>;
+}
+
 /// Store and get [aggregator epoch settings][AggregatorEpochSettings] for given epoch.
 #[async_trait]
-pub trait EpochSettingsStorer: EpochPruningTask + Sync + Send {
+pub trait EpochSettingsStorer:
+    ProtocolParametersRetriever + EpochPruningTask + Sync + Send
+{
     /// Save the given `AggregatorEpochSettings` for the given [Epoch].
     async fn save_epoch_settings(
         &self,
         epoch: Epoch,
         epoch_settings: AggregatorEpochSettings,
     ) -> StdResult<Option<AggregatorEpochSettings>>;
-
-    /// Get the saved `ProtocolParameter` for the given [Epoch] if any.
-    async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>>;
 
     /// Get the saved `AggregatorEpochSettings` for the given [Epoch] if any.
     async fn get_epoch_settings(&self, epoch: Epoch) -> StdResult<Option<AggregatorEpochSettings>>;
@@ -63,6 +69,16 @@ impl FakeEpochSettingsStorer {
 }
 
 #[async_trait]
+impl ProtocolParametersRetriever for FakeEpochSettingsStorer {
+    async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
+        Ok(self
+            .get_epoch_settings(epoch)
+            .await?
+            .map(|epoch_settings| epoch_settings.protocol_parameters.clone()))
+    }
+}
+
+#[async_trait]
 impl EpochSettingsStorer for FakeEpochSettingsStorer {
     async fn save_epoch_settings(
         &self,
@@ -72,13 +88,6 @@ impl EpochSettingsStorer for FakeEpochSettingsStorer {
         let mut epoch_settings_write = self.epoch_settings.write().await;
 
         Ok(epoch_settings_write.insert(epoch, epoch_settings))
-    }
-
-    async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
-        Ok(self
-            .get_epoch_settings(epoch)
-            .await?
-            .map(|epoch_settings| epoch_settings.protocol_parameters.clone()))
     }
 
     async fn get_epoch_settings(&self, epoch: Epoch) -> StdResult<Option<AggregatorEpochSettings>> {
