@@ -448,7 +448,7 @@ impl DependenciesBuilder {
 
         let dependencies = GenesisToolsDependency {
             network,
-            ticker_service: self.get_ticker_service().await?,
+            chain_observer: self.get_chain_observer().await?,
             certificate_repository: self.get_certificate_repository().await?,
             certificate_verifier: self.get_certificate_verifier().await?,
             genesis_verifier: self.get_genesis_verifier().await?,

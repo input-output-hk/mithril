@@ -12,7 +12,7 @@ use mithril_common::{
         ProtocolAggregateVerificationKey, ProtocolGenesisSecretKey, ProtocolGenesisSignature,
         ProtocolGenesisSigner, ProtocolGenesisVerifier,
     },
-    entities::{ProtocolParameters, TimePoint},
+    entities::{Epoch, ProtocolParameters},
     protocol::SignerBuilder,
     CardanoNetwork, StdResult,
 };
@@ -23,7 +23,7 @@ use crate::{
 
 pub struct GenesisTools {
     network: CardanoNetwork,
-    time_point: TimePoint,
+    epoch: Epoch,
     genesis_avk: ProtocolAggregateVerificationKey,
     genesis_protocol_parameters: ProtocolParameters,
     genesis_verifier: Arc<ProtocolGenesisVerifier>,
@@ -34,7 +34,7 @@ pub struct GenesisTools {
 impl GenesisTools {
     pub fn new(
         network: CardanoNetwork,
-        time_point: TimePoint,
+        epoch: Epoch,
         genesis_avk: ProtocolAggregateVerificationKey,
         genesis_protocol_parameters: ProtocolParameters,
         genesis_verifier: Arc<ProtocolGenesisVerifier>,
@@ -43,7 +43,7 @@ impl GenesisTools {
     ) -> Self {
         Self {
             network,
-            time_point,
+            epoch,
             genesis_avk,
             genesis_protocol_parameters,
             genesis_verifier,
@@ -53,15 +53,18 @@ impl GenesisTools {
     }
 
     pub async fn from_dependencies(dependencies: GenesisToolsDependency) -> StdResult<Self> {
-        let ticker_service = dependencies.ticker_service.clone();
-        let time_point = ticker_service.get_current_time_point().await?;
+        let epoch = dependencies
+            .chain_observer
+            .get_current_epoch()
+            .await?
+            .ok_or(anyhow!("Chain observer can not retrieve current epoch"))?;
         let genesis_verifier = dependencies.genesis_verifier.clone();
         let certificate_verifier = dependencies.certificate_verifier.clone();
         let certificate_repository = dependencies.certificate_repository.clone();
         let epoch_settings_storer = dependencies.epoch_settings_storer.clone();
-        let genesis_avk_epoch = time_point.epoch.offset_to_next_signer_retrieval_epoch();
+        let genesis_avk_epoch = epoch.offset_to_next_signer_retrieval_epoch();
         let genesis_protocol_parameters = epoch_settings_storer
-            .get_protocol_parameters(time_point.epoch.offset_to_signer_retrieval_epoch()?)
+            .get_protocol_parameters(epoch.offset_to_signer_retrieval_epoch()?)
             .await?
             .ok_or_else(|| anyhow!("Missing protocol parameters for epoch {genesis_avk_epoch}"))?;
         let genesis_signers = dependencies
@@ -78,7 +81,7 @@ impl GenesisTools {
 
         Ok(Self::new(
             dependencies.network,
-            time_point,
+            epoch,
             genesis_avk,
             genesis_protocol_parameters,
             genesis_verifier,
@@ -93,7 +96,7 @@ impl GenesisTools {
         let protocol_message = CertificateGenesisProducer::create_genesis_protocol_message(
             &self.genesis_protocol_parameters,
             &self.genesis_avk,
-            &self.time_point.epoch,
+            &self.epoch,
         )?;
         target_file.write_all(protocol_message.compute_hash().as_bytes())?;
         Ok(())
@@ -119,7 +122,7 @@ impl GenesisTools {
         let genesis_protocol_message = CertificateGenesisProducer::create_genesis_protocol_message(
             &self.genesis_protocol_parameters,
             &self.genesis_avk,
-            &self.time_point.epoch,
+            &self.epoch,
         )?;
         let genesis_signature =
             genesis_producer.sign_genesis_protocol_message(genesis_protocol_message)?;
@@ -157,7 +160,7 @@ impl GenesisTools {
         let genesis_certificate = CertificateGenesisProducer::create_genesis_certificate(
             self.genesis_protocol_parameters.clone(),
             self.network,
-            self.time_point.epoch,
+            self.epoch,
             self.genesis_avk.clone(),
             genesis_signature,
         )?;
@@ -239,7 +242,7 @@ mod tests {
         let genesis_verifier = Arc::new(genesis_signer.create_verifier());
         let genesis_tools = GenesisTools::new(
             fake_data::network(),
-            TimePoint::dummy(),
+            Epoch(10),
             genesis_avk,
             fake_data::protocol_parameters(),
             genesis_verifier.clone(),

@@ -46,9 +46,6 @@ pub struct GenesisCommandConfiguration {
     /// Cardano chain observer type
     pub chain_observer_type: ChainObserverType,
 
-    /// Directory of the Cardano node store.
-    pub db_directory: PathBuf,
-
     /// Directory to store aggregator data (Certificates, Snapshots, Protocol Parameters, ...)
     #[example = "`./mithril-aggregator/stores`"]
     pub data_stores_directory: PathBuf,
@@ -88,10 +85,6 @@ impl ConfigurationSource for GenesisCommandConfiguration {
 
     fn chain_observer_type(&self) -> ChainObserverType {
         self.chain_observer_type.clone()
-    }
-
-    fn db_directory(&self) -> PathBuf {
-        self.db_directory.clone()
     }
 
     fn data_stores_directory(&self) -> PathBuf {
@@ -379,7 +372,6 @@ mod tests {
             network_magic: Some(42),
             network: "devnet".to_string(),
             chain_observer_type: ChainObserverType::Fake,
-            db_directory: PathBuf::new(),
             data_stores_directory: temp_dir!().join("stores"),
             genesis_verification_key: genesis_verification_key.to_json_hex().unwrap(),
             protocol_parameters: ProtocolParameters {
