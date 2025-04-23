@@ -36,7 +36,7 @@ use mithril_signed_entity_lock::SignedEntityTypeLock;
 
 use super::{
     DatabaseCommandDependencyContainer, DependenciesBuilderError, EpochServiceWrapper,
-    GenesisToolsDependency, Result,
+    GenesisToolsDependency, Result, ToolsCommandDependenciesContainer,
 };
 use crate::{
     configuration::ConfigurationSource,
@@ -470,6 +470,20 @@ impl DependenciesBuilder {
             })?;
 
         let dependencies = DatabaseCommandDependencyContainer { main_db_connection };
+
+        Ok(dependencies)
+    }
+
+    /// Create dependencies for tools command
+    pub async fn create_tools_command_container(
+        &mut self,
+    ) -> Result<ToolsCommandDependenciesContainer> {
+        let db_connection = self
+            .get_sqlite_connection()
+            .await
+            .with_context(|| "Dependencies Builder can not get sqlite connection")?;
+
+        let dependencies = ToolsCommandDependenciesContainer { db_connection };
 
         Ok(dependencies)
     }
