@@ -44,7 +44,7 @@ impl MainCommand {
     ) -> StdResult<()> {
         match self {
             Self::Genesis(cmd) => cmd.execute(root_logger, config_builder).await,
-            Self::Era(cmd) => cmd.execute(root_logger, config_builder).await,
+            Self::Era(cmd) => cmd.execute(root_logger).await,
             Self::Serve(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::Tools(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::Database(cmd) => cmd.execute(root_logger, config_builder).await,
