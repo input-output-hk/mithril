@@ -65,12 +65,6 @@ mkdir -p /home/curry/temp/config
 cd /home/curry/temp
 ```
 
-And download the configuration file for tools:
-
-```bash
-wget https://raw.githubusercontent.com/input-output-hk/mithril/main/docs/runbook/recompute-certificates-hash/config/tools.json -O /home/curry/temp/config/tools.json
-```
-
 ## Download the pre-compiled aggregator binary
 
 Download the mithril pre-compiled binaries package:
@@ -90,7 +84,7 @@ Make sure you are running the expected version of the aggregator:
 Once connected to the aggregator container, recompute the certificates hashes:
 
 ```bash
-DATA_STORES_DIRECTORY=/home/curry/data/$CARDANO_NETWORK/mithril-aggregator/mithril/stores/ ./mithril-aggregator --run-mode tools -vvv tools recompute-certificates-hash
+DATA_STORES_DIRECTORY=/home/curry/data/$CARDANO_NETWORK/mithril-aggregator/mithril/stores/ ./mithril-aggregator -vvv tools recompute-certificates-hash
 ```
 
 ## Restart the aggregator
