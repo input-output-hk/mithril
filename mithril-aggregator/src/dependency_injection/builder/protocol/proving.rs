@@ -3,8 +3,8 @@ use std::sync::Arc;
 use mithril_common::crypto_helper::MKTreeStoreInMemory;
 
 use crate::dependency_injection::{DependenciesBuilder, Result};
-use crate::services::{MithrilProverService, ProverService};
 use crate::get_dependency;
+use crate::services::{MithrilProverService, ProverService};
 impl DependenciesBuilder {
     /// Build Prover service
     pub async fn build_prover_service(&mut self) -> Result<Arc<dyn ProverService>> {

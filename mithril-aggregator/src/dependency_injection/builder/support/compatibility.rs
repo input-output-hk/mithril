@@ -6,8 +6,8 @@ use mithril_common::era::adapters::{EraReaderAdapterBuilder, EraReaderDummyAdapt
 use mithril_common::era::{EraChecker, EraMarker, EraReader, EraReaderAdapter, SupportedEra};
 
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
-use crate::ExecutionEnvironment;
 use crate::get_dependency;
+use crate::ExecutionEnvironment;
 impl DependenciesBuilder {
     async fn build_api_version_provider(&mut self) -> Result<Arc<APIVersionProvider>> {
         let api_version_provider = Arc::new(APIVersionProvider::new(self.get_era_checker().await?));

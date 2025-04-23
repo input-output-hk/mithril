@@ -18,6 +18,7 @@ use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError,
 use crate::file_uploaders::{
     CloudRemotePath, FileUploadRetryPolicy, GcpBackendUploader, GcpUploader, LocalUploader,
 };
+use crate::get_dependency;
 use crate::http_server::{CARDANO_DATABASE_DOWNLOAD_PATH, SNAPSHOT_DOWNLOAD_PATH};
 use crate::services::ancillary_signer::{
     AncillarySigner, AncillarySignerWithGcpKms, AncillarySignerWithSecretKey,
@@ -28,7 +29,6 @@ use crate::services::{
 };
 use crate::tools::file_archiver::FileArchiver;
 use crate::{DumbUploader, ExecutionEnvironment, FileUploader, SnapshotUploaderType};
-use crate::get_dependency;
 impl DependenciesBuilder {
     async fn build_signed_entity_service(&mut self) -> Result<Arc<dyn SignedEntityService>> {
         let logger = self.root_logger();
