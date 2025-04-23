@@ -8,7 +8,9 @@ use slog::{debug, Logger};
 
 use mithril_common::{
     chain_observer::ChainObserverType,
-    crypto_helper::{ProtocolGenesisSecretKey, ProtocolGenesisSigner},
+    crypto_helper::{
+        ProtocolGenesisSecretKey, ProtocolGenesisSigner, ProtocolGenesisVerificationKey,
+    },
     entities::{HexEncodedGenesisSecretKey, HexEncodedGenesisVerificationKey},
     StdResult,
 };
@@ -46,9 +48,6 @@ pub struct GenesisCommandConfiguration {
     /// Directory to store aggregator data (Certificates, Snapshots, Protocol Parameters, ...)
     #[example = "`./mithril-aggregator/stores`"]
     pub data_stores_directory: PathBuf,
-
-    /// Genesis verification key
-    pub genesis_verification_key: HexEncodedGenesisVerificationKey,
 }
 
 impl ConfigurationSource for GenesisCommandConfiguration {
@@ -87,10 +86,6 @@ impl ConfigurationSource for GenesisCommandConfiguration {
 
     fn data_stores_directory(&self) -> PathBuf {
         self.data_stores_directory.clone()
-    }
-
-    fn genesis_verification_key(&self) -> HexEncodedGenesisVerificationKey {
-        self.genesis_verification_key.clone()
     }
 
     fn store_retention_limit(&self) -> Option<usize> {
@@ -201,6 +196,10 @@ pub struct ImportGenesisSubCommand {
     /// Signed Payload Path
     #[clap(long)]
     signed_payload_path: PathBuf,
+
+    /// Genesis Verification Key
+    #[clap(long)]
+    genesis_verification_key: HexEncodedGenesisVerificationKey,
 }
 
 impl ImportGenesisSubCommand {
@@ -232,7 +231,10 @@ impl ImportGenesisSubCommand {
             .await
             .with_context(|| "genesis-tools: initialization error")?;
         genesis_tools
-            .import_payload_signature(&self.signed_payload_path)
+            .import_payload_signature(
+                &self.signed_payload_path,
+                &ProtocolGenesisVerificationKey::from_json_hex(&self.genesis_verification_key)?,
+            )
             .await
             .with_context(|| "genesis-tools: import error")?;
         Ok(())
@@ -352,10 +354,6 @@ mod tests {
 
     #[tokio::test]
     async fn create_container_does_not_panic() {
-        let genesis_verification_key = ProtocolGenesisSigner::create_deterministic_signer()
-            .create_verifier()
-            .to_verification_key();
-
         let config = GenesisCommandConfiguration {
             cardano_cli_path: None,
             cardano_node_socket_path: PathBuf::new(),
@@ -363,7 +361,6 @@ mod tests {
             network: "devnet".to_string(),
             chain_observer_type: ChainObserverType::Fake,
             data_stores_directory: temp_dir!().join("stores"),
-            genesis_verification_key: genesis_verification_key.to_json_hex().unwrap(),
         };
         let mut dependencies_builder =
             DependenciesBuilder::new(TestLogger::stdout(), Arc::new(config));

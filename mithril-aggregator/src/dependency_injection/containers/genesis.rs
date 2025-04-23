@@ -1,9 +1,7 @@
 use std::sync::Arc;
 
 use mithril_common::chain_observer::ChainObserver;
-use mithril_common::{
-    certificate_chain::CertificateVerifier, crypto_helper::ProtocolGenesisVerifier, CardanoNetwork,
-};
+use mithril_common::{certificate_chain::CertificateVerifier, CardanoNetwork};
 
 use crate::database::repository::CertificateRepository;
 use crate::{ProtocolParametersRetriever, VerificationKeyStorer};
@@ -18,9 +16,6 @@ pub struct GenesisToolsDependency {
 
     /// Chain observer
     pub chain_observer: Arc<dyn ChainObserver>,
-
-    /// Genesis signature verifier service.
-    pub genesis_verifier: Arc<ProtocolGenesisVerifier>,
 
     /// Certificate verifier service.
     pub certificate_verifier: Arc<dyn CertificateVerifier>,
