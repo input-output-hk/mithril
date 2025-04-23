@@ -23,7 +23,7 @@ use crate::{
 pub struct GenesisCommandConfiguration {
     /// Cardano CLI tool path
     #[example = "`cardano-cli`"]
-    pub cardano_cli_path: PathBuf,
+    pub cardano_cli_path: Option<PathBuf>,
 
     /// Path of the socket used by the Cardano CLI tool
     /// to communicate with the Cardano node
@@ -57,7 +57,16 @@ impl ConfigurationSource for GenesisCommandConfiguration {
     }
 
     fn cardano_cli_path(&self) -> PathBuf {
-        self.cardano_cli_path.clone()
+        match self.chain_observer_type {
+            ChainObserverType::CardanoCli => {
+                if let Some(path) = &self.cardano_cli_path {
+                    path.clone()
+                } else {
+                    panic!("Cardano CLI path must be set when using Cardano CLI chain observer")
+                }
+            }
+            _ => PathBuf::new(),
+        }
     }
 
     fn cardano_node_socket_path(&self) -> PathBuf {
@@ -348,7 +357,7 @@ mod tests {
             .to_verification_key();
 
         let config = GenesisCommandConfiguration {
-            cardano_cli_path: PathBuf::new(),
+            cardano_cli_path: None,
             cardano_node_socket_path: PathBuf::new(),
             network_magic: Some(42),
             network: "devnet".to_string(),

@@ -4,7 +4,7 @@ use tokio::sync::Mutex;
 
 use mithril_common::cardano_block_scanner::{BlockScanner, CardanoBlockScanner};
 use mithril_common::chain_observer::{
-    CardanoCliRunner, ChainObserver, ChainObserverBuilder, FakeObserver,
+    CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType, FakeObserver,
 };
 use mithril_common::chain_reader::{ChainBlockReader, PallasChainReader};
 use mithril_common::digesters::{CardanoImmutableDigester, ImmutableDigester};
@@ -21,8 +21,11 @@ impl DependenciesBuilder {
     async fn build_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
         let chain_observer: Arc<dyn ChainObserver> = match self.configuration.environment() {
             ExecutionEnvironment::Production => {
-                let cardano_cli_runner = &self.get_cardano_cli_runner().await?;
                 let chain_observer_type = &self.configuration.chain_observer_type();
+                let cardano_cli_runner = match chain_observer_type {
+                    ChainObserverType::CardanoCli => Some(self.get_cardano_cli_runner().await?),
+                    _ => None,
+                };
                 let cardano_node_socket_path = &self.configuration.cardano_node_socket_path();
                 let cardano_network = &self
                     .configuration
@@ -32,7 +35,7 @@ impl DependenciesBuilder {
                     chain_observer_type,
                     cardano_node_socket_path,
                     cardano_network,
-                    Some(cardano_cli_runner),
+                    cardano_cli_runner.as_deref(),
                 );
 
                 chain_observer_builder
