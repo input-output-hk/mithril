@@ -63,7 +63,7 @@ serde = { workspace = true }
 serde_bytes = "0.11.17"
 serde_json = { workspace = true }
 serde_with = "3.12.0"
-serde_yaml = "0.9.34"
+serde_yaml = { version = "0.9.34", optional = true }
 sha2 = "0.10.8"
 slog = { workspace = true }
 strum = { workspace = true }
@@ -114,8 +114,8 @@ num-integer-backend = ["mithril-stm/num-integer-backend"]
 allow_skip_signer_certification = []
 # Enable all tests tools
 test_tools = ["apispec", "test_http_server"]
-# Enable tools to helps validate conformity to an OpenAPI specification
-apispec = ["dep:glob", "dep:jsonschema", "dep:warp", "dep:reqwest"]
+# Enable tools to help validate conformity to an OpenAPI specification
+apispec = ["dep:glob", "dep:jsonschema", "dep:serde_yaml", "dep:reqwest", "dep:warp"]
 test_http_server = ["dep:warp"]
 
 [package.metadata.docs.rs]
