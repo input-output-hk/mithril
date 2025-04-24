@@ -1,5 +1,6 @@
 locals {
-  mithril_aggregator_relay_mithril_listen_port = 6060
+  mithril_aggregator_relay_mithril_listen_port            = 6060
+  mithril_aggregator_ancillary_signer_gcp_kms_credentials = base64decode(var.mithril_aggregator_ancillary_signer_gcp_kms_credentials)
 }
 
 resource "null_resource" "mithril_aggregator" {
@@ -101,7 +102,7 @@ if [ "${var.mithril_aggregator_ancillary_signer_type}" = "secret-key" ]; then
 fi
 if [ "${var.mithril_aggregator_ancillary_signer_type}" = "gcp-kms" ]; then
   export ANCILLARY_FILES_SIGNER_CONFIG=$(jq -nc --arg resource_name ${var.mithril_aggregator_ancillary_signer_gcp_kms_resource_name} '{\"type\": \"secret-key\", \"resource_name\": $resource_name, \"credentials_json_env_var\": \"GOOGLE_APPLICATION_CREDENTIALS_GCP_KMS_JSON\"}')
-  export GOOGLE_APPLICATION_CREDENTIALS_GCP_KMS_JSON='${var.mithril_aggregator_ancillary_signer_gcp_kms_credentials}'
+  export GOOGLE_APPLICATION_CREDENTIALS_GCP_KMS_JSON='${local.mithril_aggregator_ancillary_signer_gcp_kms_credentials}'
 fi
 EOT
       ,

@@ -328,7 +328,7 @@ variable "mithril_aggregator_ancillary_signer_gcp_kms_resource_name" {
 
 variable "mithril_aggregator_ancillary_signer_gcp_kms_credentials" {
   type        = string
-  description = "The JSON credentials to access GCP KMS (used with mithril_aggregator_ancillary_signer_type='gcp-kms')"
+  description = "The JSON credentials to access GCP KMS base64 encoded (used with mithril_aggregator_ancillary_signer_type='gcp-kms')"
   default     = ""
 }
 
