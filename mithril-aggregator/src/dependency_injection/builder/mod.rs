@@ -59,13 +59,23 @@ use crate::{
     SingleSignatureAuthenticator, VerificationKeyStorer,
 };
 
-/// Retrieve attribute and initialize it if it is None
+/// Retrieve attribute stored in the builder.
+/// If not yet initialized, we instantiate it by calling the associated build function (build_<attribute_name>).
+/// If we don't want to to use the default build function, we can pass an expression that build the value.
+/// Usage examples:
+/// get_dependency!(self.signer_registerer)
+/// get_dependency!(self.signer_registerer = self.build_signer_registerer().await?)
 #[macro_export]
 macro_rules! get_dependency {
     ( $self:ident.$attribute:ident ) => {{
         paste::paste! {
+            get_dependency!($self.$attribute = $self.[<build_ $attribute>]().await?)
+        }
+    }};
+    ( $self:ident.$attribute:ident = $builder:expr ) => {{
+        paste::paste! {
             if $self.$attribute.is_none() {
-                    $self.$attribute = Some($self.[<build_ $attribute>]().await?);
+                $self.$attribute = Some($builder);
             }
 
             let r:Result<_> = Ok($self.$attribute.as_ref().cloned().unwrap());
