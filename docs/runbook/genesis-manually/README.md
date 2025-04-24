@@ -27,13 +27,17 @@ ssh curry@$MITHRIL_VM
 Once connected to the aggregator VM, export the environment variables:
 
 ```bash
-export CARDANO_NETWORK=**CARDANO_NETWORK**
+export NETWORK=**CARDANO_NETWORK**
+export NETWORK_MAGIC=**NETWORK_MAGIC**
+export DATA_STORES_DIRECTORY=**DATA_STORES_DIRECTORY**
+export CARDANO_NODE_SOCKET_PATH=**CARDANO_NODE_SOCKET_PATH**
+export CHAIN_OBSERVER_TYPE=**CHAIN_OBSERVER_TYPE**
 ```
 
 And create genesis dir:
 
 ```bash
-mkdir -p /home/curry/data/$CARDANO_NETWORK/mithril-aggregator/mithril/genesis
+mkdir -p /home/curry/data/$NETWORK/mithril-aggregator/mithril/genesis
 ```
 
 And connect to the aggregator container:
@@ -93,7 +97,12 @@ ssh curry@$MITHRIL_VM
 Export the environment variable:
 
 ```bash
-export CARDANO_NETWORK=**CARDANO_NETWORK**
+export NETWORK=**CARDANO_NETWORK**
+export MITHRIL_NETWORK=**MITHRIL_NETWORK**
+export NETWORK_MAGIC=**NETWORK_MAGIC**
+export DATA_STORES_DIRECTORY=**DATA_STORES_DIRECTORY**
+export CARDANO_NODE_SOCKET_PATH=**CARDANO_NODE_SOCKET_PATH**
+export CHAIN_OBSERVER_TYPE=**CHAIN_OBSERVER_TYPE**
 ```
 
 And connect back to the aggregator container:
@@ -105,5 +114,5 @@ docker exec -it mithril-aggregator bash
 Once connected to the aggregator container, import the signed genesis payload:
 
 ```bash
-/app/bin/mithril-aggregator -vvv genesis import --signed-payload-path /mithril-aggregator/mithril/genesis/genesis-payload-signed.txt
+/app/bin/mithril-aggregator -vvv genesis import --signed-payload-path /mithril-aggregator/mithril/genesis/genesis-payload-signed.txt --genesis-verification-key $(curl -s "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/$MITHRIL_NETWORK/genesis.vkey")
 ```
