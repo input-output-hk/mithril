@@ -1,4 +1,4 @@
-use std::{fs::File, io::Write, path::PathBuf};
+use std::{collections::HashMap, fs::File, io::Write, path::PathBuf};
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
@@ -7,9 +7,10 @@ use mithril_common::{
     entities::{Epoch, HexEncodedEraMarkersSecretKey},
     StdResult,
 };
+use mithril_doc::StructDoc;
 use slog::{debug, Logger};
 
-use crate::tools::EraTools;
+use crate::{extract_all, tools::EraTools};
 
 /// Era tools
 #[derive(Parser, Debug, Clone)]
@@ -22,6 +23,16 @@ pub struct EraCommand {
 impl EraCommand {
     pub async fn execute(&self, root_logger: Logger) -> StdResult<()> {
         self.era_subcommand.execute(root_logger).await
+    }
+
+    pub fn extract_config(command_path: String) -> HashMap<String, StructDoc> {
+        extract_all!(
+            command_path,
+            EraSubCommand,
+            List = { ListEraSubCommand },
+            GenerateTxDatum = { GenerateTxDatumEraSubCommand },
+            GenerateKeypair = { GenerateKeypairEraSubCommand },
+        )
     }
 }
 
@@ -71,6 +82,10 @@ impl ListEraSubCommand {
 
         Ok(())
     }
+
+    pub fn extract_config(_parent: String) -> HashMap<String, StructDoc> {
+        HashMap::new()
+    }
 }
 
 /// Era tx datum generate command
@@ -113,6 +128,10 @@ impl GenerateTxDatumEraSubCommand {
 
         Ok(())
     }
+
+    pub fn extract_config(_parent: String) -> HashMap<String, StructDoc> {
+        HashMap::new()
+    }
 }
 
 /// Era keypair generation command.
@@ -135,5 +154,9 @@ impl GenerateKeypairEraSubCommand {
             .with_context(|| "era-tools: keypair generation error")?;
 
         Ok(())
+    }
+
+    pub fn extract_config(_parent: String) -> HashMap<String, StructDoc> {
+        HashMap::new()
     }
 }
