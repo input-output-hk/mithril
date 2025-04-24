@@ -10,7 +10,7 @@ use crate::dependency_injection::builder::{
     SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION, SQLITE_MONITORING_FILE,
 };
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
-use crate::ExecutionEnvironment;
+use crate::{get_dependency, ExecutionEnvironment};
 
 impl DependenciesBuilder {
     fn build_sqlite_connection(
@@ -62,29 +62,21 @@ impl DependenciesBuilder {
 
     /// Get SQLite connection
     pub async fn get_sqlite_connection(&mut self) -> Result<Arc<SqliteConnection>> {
-        if self.sqlite_connection.is_none() {
-            self.sqlite_connection = Some(Arc::new(self.build_sqlite_connection(
+        get_dependency!(
+            self.sqlite_connection = Arc::new(self.build_sqlite_connection(
                 SQLITE_FILE,
                 crate::database::migration::get_migrations(),
-            )?));
-        }
-
-        Ok(self.sqlite_connection.as_ref().cloned().unwrap())
+            )?)
+        )
     }
     /// Get EventStore SQLite connection
     pub async fn get_event_store_sqlite_connection(&mut self) -> Result<Arc<SqliteConnection>> {
-        if self.sqlite_connection_event_store.is_none() {
-            self.sqlite_connection_event_store = Some(Arc::new(self.build_sqlite_connection(
+        get_dependency!(
+            self.sqlite_connection_event_store = Arc::new(self.build_sqlite_connection(
                 SQLITE_MONITORING_FILE,
                 crate::event_store::database::migration::get_migrations(),
-            )?));
-        }
-
-        Ok(self
-            .sqlite_connection_event_store
-            .as_ref()
-            .cloned()
-            .unwrap())
+            )?)
+        )
     }
 
     async fn build_sqlite_connection_cardano_transaction_pool(
@@ -115,17 +107,6 @@ impl DependenciesBuilder {
     pub async fn get_sqlite_connection_cardano_transaction_pool(
         &mut self,
     ) -> Result<Arc<SqliteConnectionPool>> {
-        if self.sqlite_connection_cardano_transaction_pool.is_none() {
-            self.sqlite_connection_cardano_transaction_pool = Some(
-                self.build_sqlite_connection_cardano_transaction_pool()
-                    .await?,
-            );
-        }
-
-        Ok(self
-            .sqlite_connection_cardano_transaction_pool
-            .as_ref()
-            .cloned()
-            .unwrap())
+        get_dependency!(self.sqlite_connection_cardano_transaction_pool)
     }
 }

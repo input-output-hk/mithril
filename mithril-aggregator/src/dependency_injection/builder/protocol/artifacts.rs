@@ -110,11 +110,7 @@ impl DependenciesBuilder {
     }
 
     async fn get_file_archiver(&mut self) -> Result<Arc<FileArchiver>> {
-        if self.file_archiver.is_none() {
-            self.file_archiver = Some(self.build_file_archiver().await?);
-        }
-
-        Ok(self.file_archiver.as_ref().cloned().unwrap())
+        get_dependency!(self.file_archiver)
     }
 
     async fn get_ancillary_signer(&self) -> Result<Arc<dyn AncillarySigner>> {
