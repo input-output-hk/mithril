@@ -19,7 +19,9 @@ use crate::file_uploaders::{
     CloudRemotePath, FileUploadRetryPolicy, GcpBackendUploader, GcpUploader, LocalUploader,
 };
 use crate::http_server::{CARDANO_DATABASE_DOWNLOAD_PATH, SNAPSHOT_DOWNLOAD_PATH};
-use crate::services::ancillary_signer::{AncillarySigner, AncillarySignerWithSecretKey};
+use crate::services::ancillary_signer::{
+    AncillarySigner, AncillarySignerWithGcpKms, AncillarySignerWithSecretKey,
+};
 use crate::services::{
     CompressedArchiveSnapshotter, DumbSnapshotter, MithrilSignedEntityService, SignedEntityService,
     SignedEntityServiceArtifactsDependencies, Snapshotter,
@@ -133,6 +135,19 @@ impl DependenciesBuilder {
                     manifest_signer,
                     self.root_logger(),
                 )))
+            }
+            AncillaryFilesSignerConfig::GcpKms {
+                resource_name,
+                credentials_json_env_var,
+            } => {
+                let service = AncillarySignerWithGcpKms::new(
+                    resource_name.clone(),
+                    credentials_json_env_var.clone(),
+                    self.root_logger(),
+                )
+                .await?;
+
+                Ok(Arc::new(service))
             }
         }
     }
