@@ -16,14 +16,14 @@ use crate::services::{
     AggregatorClient, AggregatorHTTPClient, MessageService, MithrilMessageService,
 };
 impl DependenciesBuilder {
-    async fn build_signed_entity_lock(&mut self) -> Result<Arc<SignedEntityTypeLock>> {
+    async fn build_signed_entity_type_lock(&mut self) -> Result<Arc<SignedEntityTypeLock>> {
         let signed_entity_lock = Arc::new(SignedEntityTypeLock::default());
         Ok(signed_entity_lock)
     }
 
     /// Get the [SignedEntityTypeLock] instance
-    pub async fn get_signed_entity_lock(&mut self) -> Result<Arc<SignedEntityTypeLock>> {
-        get_dependency!(self.signed_entity_lock)
+    pub async fn get_signed_entity_type_lock(&mut self) -> Result<Arc<SignedEntityTypeLock>> {
+        get_dependency!(self.signed_entity_type_lock)
     }
 
     /// build HTTP message service

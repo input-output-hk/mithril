@@ -26,7 +26,7 @@ impl DependenciesBuilder {
             self.get_sqlite_connection_cardano_transaction_pool()
                 .await?,
             self.get_event_store_sqlite_connection().await?,
-            self.get_signed_entity_lock().await?,
+            self.get_signed_entity_type_lock().await?,
             vec![
                 stake_pool_pruning_task,
                 epoch_settings_pruning_task,

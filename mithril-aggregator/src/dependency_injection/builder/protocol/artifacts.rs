@@ -70,7 +70,7 @@ impl DependenciesBuilder {
         let signed_entity_service = Arc::new(MithrilSignedEntityService::new(
             signed_entity_storer,
             dependencies,
-            self.get_signed_entity_lock().await?,
+            self.get_signed_entity_type_lock().await?,
             self.get_metrics_service().await?,
             logger,
         ));

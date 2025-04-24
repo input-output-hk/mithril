@@ -126,7 +126,7 @@ impl DependenciesBuilder {
             .compute_allowed_signed_entity_types_discriminants()?
             .contains(&SignedEntityTypeDiscriminants::CardanoTransactions);
         let cardano_transactions_preloader = CardanoTransactionsPreloader::new(
-            self.get_signed_entity_lock().await?,
+            self.get_signed_entity_type_lock().await?,
             self.get_transactions_importer().await?,
             self.configuration
                 .cardano_transactions_signing_config()

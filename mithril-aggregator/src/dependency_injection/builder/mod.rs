@@ -254,7 +254,7 @@ pub struct DependenciesBuilder {
     pub prover_service: Option<Arc<dyn ProverService>>,
 
     /// Signed Entity Type Lock
-    pub signed_entity_lock: Option<Arc<SignedEntityTypeLock>>,
+    pub signed_entity_type_lock: Option<Arc<SignedEntityTypeLock>>,
 
     /// Transactions Importer
     pub transactions_importer: Option<Arc<dyn TransactionsImporter>>,
@@ -325,7 +325,7 @@ impl DependenciesBuilder {
             signed_entity_storer: None,
             message_service: None,
             prover_service: None,
-            signed_entity_lock: None,
+            signed_entity_type_lock: None,
             transactions_importer: None,
             upkeep_service: None,
             single_signature_authenticator: None,
@@ -380,7 +380,7 @@ impl DependenciesBuilder {
             signer_getter: self.get_signer_store().await?,
             message_service: self.get_message_service().await?,
             prover_service: self.get_prover_service().await?,
-            signed_entity_type_lock: self.get_signed_entity_lock().await?,
+            signed_entity_type_lock: self.get_signed_entity_type_lock().await?,
             upkeep_service: self.get_upkeep_service().await?,
             single_signer_authenticator: self.get_single_signature_authenticator().await?,
             metrics_service: self.get_metrics_service().await?,
