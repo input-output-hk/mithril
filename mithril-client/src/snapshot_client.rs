@@ -427,7 +427,7 @@ mod tests {
 
     use super::*;
 
-    use mithril_common::temp_dir_create;
+    use mithril_common::{assert_dir_eq, temp_dir_create};
 
     fn dummy_download_event() -> DownloadEvent {
         DownloadEvent::Full {
@@ -771,9 +771,7 @@ mod tests {
                 .await
                 .expect("Should succeed when ancillary verification is successful");
 
-            assert!(test_dir.join("dummy_ledger").exists());
-            assert!(!test_dir.join("not_in_ancillary").exists());
-            assert!(!SnapshotClient::ancillary_subdir(&test_dir, "test-download-id").exists());
+            assert_dir_eq!(&test_dir, "* dummy_ledger");
         }
     }
 }

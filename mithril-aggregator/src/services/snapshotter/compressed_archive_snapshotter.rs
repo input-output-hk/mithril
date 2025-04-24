@@ -1,8 +1,8 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use slog::{debug, Logger};
+use slog::{debug, warn, Logger};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use mithril_common::digesters::{
@@ -75,19 +75,30 @@ impl Snapshotter for CompressedArchiveSnapshotter {
             "Snapshotting ancillary archive: '{archive_name_without_extension}'"
         );
 
-        let paths_to_include =
-            self.get_files_and_directories_for_ancillary_snapshot(immutable_file_number)?;
-        let signed_manifest = self
-            .build_and_sign_ancillary_manifest(paths_to_include.clone())
-            .await?;
-        let appender = AppenderEntries::new(paths_to_include, self.db_directory.clone())?.chain(
-            AppenderData::from_json(
-                PathBuf::from(AncillaryFilesManifest::ANCILLARY_MANIFEST_FILE_NAME),
-                &signed_manifest,
-            )?,
-        );
-        self.snapshot(archive_name_without_extension, appender)
-            .await
+        let temp_snapshot_directory =
+            self.temp_ancillary_snapshot_directory(archive_name_without_extension);
+        fs::create_dir(&temp_snapshot_directory).with_context(|| {
+            format!(
+                "Can not create temporary snapshot ancillary directory: '{}'",
+                temp_snapshot_directory.display()
+            )
+        })?;
+
+        let snapshot_result = self
+            .snapshot_ancillary_from_temp_directory(
+                immutable_file_number,
+                &temp_snapshot_directory,
+                archive_name_without_extension,
+            )
+            .await;
+
+        if let Err(e) = fs::remove_dir_all(&temp_snapshot_directory) {
+            warn!(
+                self.logger, "Failed to remove temporary snapshot ancillary directory '{}'", temp_snapshot_directory.display();
+                "error" => ?e
+            );
+        }
+        snapshot_result
     }
 
     async fn snapshot_immutable_trio(
@@ -197,13 +208,48 @@ impl CompressedArchiveSnapshotter {
         Ok(file_archive)
     }
 
+    fn temp_ancillary_snapshot_directory(&self, discriminator: &str) -> PathBuf {
+        self.ongoing_snapshot_directory
+            .join(format!("temp-ancillary-{discriminator}"))
+    }
+
+    async fn snapshot_ancillary_from_temp_directory(
+        &self,
+        immutable_file_number: ImmutableFileNumber,
+        temp_snapshot_directory: &Path,
+        archive_name_without_extension: &str,
+    ) -> StdResult<FileArchive> {
+        let paths_to_include = self
+            .get_files_and_directories_for_ancillary_snapshot(
+                immutable_file_number,
+                temp_snapshot_directory,
+            )
+            .await?;
+        let signed_manifest = self
+            .build_and_sign_ancillary_manifest(paths_to_include.clone(), temp_snapshot_directory)
+            .await?;
+        let appender =
+            AppenderEntries::new(paths_to_include, temp_snapshot_directory.to_path_buf())?.chain(
+                AppenderData::from_json(
+                    PathBuf::from(AncillaryFilesManifest::ANCILLARY_MANIFEST_FILE_NAME),
+                    &signed_manifest,
+                )?,
+            );
+        self.snapshot(archive_name_without_extension, appender)
+            .await
+    }
+
     /// Returns the list of files and directories to include in ancillary snapshot.
+    ///
+    /// Those files will be copied to the target folder in order to have fixed copies that do not
+    /// change during the snapshot process.
     ///
     /// The immutable file included in the ancillary archive corresponds to the last one (and not finalized yet)
     /// when the immutable file number given to the function corresponds to the penultimate.
-    fn get_files_and_directories_for_ancillary_snapshot(
+    async fn get_files_and_directories_for_ancillary_snapshot(
         &self,
         immutable_file_number: u64,
+        target_folder: &Path,
     ) -> StdResult<Vec<PathBuf>> {
         let next_immutable_file_number = immutable_file_number + 1;
         let mut files_to_snapshot: Vec<PathBuf> = immutable_trio_names(next_immutable_file_number)
@@ -219,15 +265,33 @@ impl CompressedArchiveSnapshotter {
         ))?;
         files_to_snapshot.push(PathBuf::from(LEDGER_DIR).join(&last_ledger.filename));
 
+        fs::create_dir(target_folder.join(IMMUTABLE_DIR))
+            .with_context(|| format!("Can not create folder: `{}`", target_folder.display()))?;
+        fs::create_dir(target_folder.join(LEDGER_DIR))
+            .with_context(|| format!("Can not create folder: `{}`", target_folder.display()))?;
+
+        for file in &files_to_snapshot {
+            let source = self.db_directory.join(file);
+            let target = target_folder.join(file);
+            tokio::fs::copy(&source, &target).await.with_context(|| {
+                format!(
+                    "Failed to copy file `{}` to `{}`",
+                    source.display(),
+                    target.display()
+                )
+            })?;
+        }
+
         Ok(files_to_snapshot)
     }
 
     async fn build_and_sign_ancillary_manifest(
         &self,
         paths_to_include: Vec<PathBuf>,
+        temp_snapshot_directory: &Path,
     ) -> StdResult<AncillaryFilesManifest> {
         let manifest =
-            AncillaryFilesManifest::from_paths(&self.db_directory, paths_to_include).await?;
+            AncillaryFilesManifest::from_paths(temp_snapshot_directory, paths_to_include).await?;
         let signature = self
             .ancillary_signer
             .compute_ancillary_manifest_signature(&manifest)
@@ -248,11 +312,10 @@ mod tests {
     use std::sync::Arc;
 
     use mithril_common::digesters::DummyCardanoDbBuilder;
-    use mithril_common::temp_dir_create;
     use mithril_common::test_utils::assert_equivalent;
+    use mithril_common::{assert_dir_eq, current_function, temp_dir_create};
 
     use crate::services::ancillary_signer::MockAncillarySigner;
-    use crate::services::snapshotter::test_tools::*;
     use crate::test_tools::TestLogger;
 
     use super::*;
@@ -284,7 +347,7 @@ mod tests {
 
     #[test]
     fn return_parametrized_compression_algorithm() {
-        let test_dir = get_test_directory("return_parametrized_compression_algorithm");
+        let test_dir = temp_dir_create!();
         let snapshotter = snapshotter_for_test(
             &test_dir,
             Path::new("whatever"),
@@ -299,7 +362,7 @@ mod tests {
 
     #[test]
     fn should_create_directory_if_does_not_exist() {
-        let test_dir = get_test_directory("should_create_directory_if_does_not_exist");
+        let test_dir = temp_dir_create!();
         let ongoing_snapshot_directory = test_dir.join("ongoing_snapshot");
         let db_directory = test_dir.join("whatever");
 
@@ -318,8 +381,7 @@ mod tests {
 
     #[test]
     fn should_clean_ongoing_snapshot_directory_if_already_exists() {
-        let test_dir =
-            get_test_directory("should_clean_ongoing_snapshot_directory_if_already_exists");
+        let test_dir = temp_dir_create!();
         let ongoing_snapshot_directory = test_dir.join("ongoing_snapshot");
         let db_directory = test_dir.join("whatever");
 
@@ -344,11 +406,10 @@ mod tests {
     async fn should_create_snapshots_in_its_ongoing_snapshot_directory() {
         let test_dir = temp_dir_create!();
         let pending_snapshot_directory = test_dir.join("pending_snapshot");
-        let cardano_db =
-            DummyCardanoDbBuilder::new("should_create_snapshots_in_its_ongoing_snapshot_directory")
-                .with_immutables(&[1])
-                .append_immutable_trio()
-                .build();
+        let cardano_db = DummyCardanoDbBuilder::new(current_function!())
+            .with_immutables(&[1])
+            .append_immutable_trio()
+            .build();
 
         let snapshotter = CompressedArchiveSnapshotter::new(
             cardano_db.get_dir().clone(),
@@ -376,15 +437,13 @@ mod tests {
         #[tokio::test]
         async fn include_only_completed_immutables() {
             let test_dir = temp_dir_create!();
-            let cardano_db = DummyCardanoDbBuilder::new(
-                "snapshot_all_immutables_include_only_completed_immutables",
-            )
-            .with_immutables(&[1, 2, 3])
-            .append_immutable_trio()
-            .with_ledger_files(&["437"])
-            .with_volatile_files(&["blocks-0.dat"])
-            .with_non_immutables(&["random_file.txt", "00002.trap"])
-            .build();
+            let cardano_db = DummyCardanoDbBuilder::new(current_function!())
+                .with_immutables(&[1, 2, 3])
+                .append_immutable_trio()
+                .with_ledger_files(&["437"])
+                .with_volatile_files(&["blocks-0.dat"])
+                .with_non_immutables(&["random_file.txt", "00002.trap"])
+                .build();
 
             let snapshotter =
                 snapshotter_for_test(&test_dir, cardano_db.get_dir(), CompressionAlgorithm::Gzip);
@@ -421,8 +480,8 @@ mod tests {
 
         #[tokio::test]
         async fn include_only_immutable_trio() {
-            let test_dir = get_test_directory("include_only_immutable_trio");
-            let cardano_db = DummyCardanoDbBuilder::new("include_only_immutable_trio")
+            let test_dir = temp_dir_create!();
+            let cardano_db = DummyCardanoDbBuilder::new(current_function!())
                 .with_immutables(&[1, 2, 3])
                 .with_ledger_files(&["437"])
                 .with_volatile_files(&["blocks-0.dat"])
@@ -454,30 +513,110 @@ mod tests {
     }
 
     mod snapshot_ancillary {
-        use mithril_common::digesters::VOLATILE_DIR;
         use mithril_common::test_utils::fake_keys;
 
         use super::*;
 
         #[tokio::test]
+        async fn getting_files_to_include_copy_them_to_a_target_directory_while_keeping_source_dir_structure(
+        ) {
+            let test_dir = temp_dir_create!();
+            let cardano_db = DummyCardanoDbBuilder::new(current_function!())
+                .with_immutables(&[1, 2])
+                .with_ledger_files(&["737"])
+                .build();
+            let snapshotter =
+                snapshotter_for_test(&test_dir, cardano_db.get_dir(), CompressionAlgorithm::Gzip);
+            let ancillary_snapshot_dir = test_dir.join("ancillary_snapshot");
+            fs::create_dir(&ancillary_snapshot_dir).unwrap();
+
+            snapshotter
+                .get_files_and_directories_for_ancillary_snapshot(1, &ancillary_snapshot_dir)
+                .await
+                .unwrap();
+
+            assert_dir_eq!(
+                &ancillary_snapshot_dir,
+                format!(
+                    "* {IMMUTABLE_DIR}/
+                     ** 00002.chunk
+                     ** 00002.primary
+                     ** 00002.secondary
+                     * {LEDGER_DIR}/
+                     ** 737"
+                )
+            );
+        }
+
+        #[tokio::test]
+        async fn delete_temporary_working_directory_after_snapshot_is_created() {
+            let test_dir = temp_dir_create!();
+            let cardano_db = DummyCardanoDbBuilder::new(current_function!())
+                .with_immutables(&[1, 2])
+                .with_ledger_files(&["637"])
+                .build();
+            let snapshotter = CompressedArchiveSnapshotter {
+                ancillary_signer: Arc::new(MockAncillarySigner::that_succeeds_with_signature(
+                    fake_keys::signable_manifest_signature()[0],
+                )),
+                ..snapshotter_for_test(&test_dir, cardano_db.get_dir(), CompressionAlgorithm::Gzip)
+            };
+
+            snapshotter
+                .snapshot_ancillary(1, "ancillary")
+                .await
+                .unwrap();
+
+            let temp_ancillary_snapshot_dir =
+                snapshotter.temp_ancillary_snapshot_directory("ancillary");
+            assert!(
+                !temp_ancillary_snapshot_dir.exists(),
+                "Expected temporary ancillary snapshot directory to be deleted, but it still exists: {}",
+                temp_ancillary_snapshot_dir.display()
+            );
+        }
+
+        #[tokio::test]
+        async fn delete_temporary_working_directory_even_if_snapshot_creation_fails() {
+            let test_dir = temp_dir_create!();
+            let cardano_db = DummyCardanoDbBuilder::new(current_function!())
+                .with_immutables(&[1, 2])
+                .with_ledger_files(&["637"])
+                .build();
+            let snapshotter = CompressedArchiveSnapshotter {
+                ancillary_signer: Arc::new(MockAncillarySigner::that_fails_with_message("failure")),
+                ..snapshotter_for_test(&test_dir, cardano_db.get_dir(), CompressionAlgorithm::Gzip)
+            };
+
+            snapshotter
+                .snapshot_ancillary(1, "ancillary")
+                .await
+                .unwrap_err();
+
+            let temp_ancillary_snapshot_dir =
+                snapshotter.temp_ancillary_snapshot_directory("ancillary");
+            assert!(
+                !temp_ancillary_snapshot_dir.exists(),
+                "Expected temporary ancillary snapshot directory to be deleted, but it still exists: {}",
+                temp_ancillary_snapshot_dir.display()
+            );
+        }
+
+        #[tokio::test]
         async fn create_archive_should_embed_only_last_ledger_and_last_immutables() {
             let test_dir = temp_dir_create!();
-            let cardano_db = DummyCardanoDbBuilder::new(
-                "create_archive_should_embed_only_last_ledger_and_last_immutables",
-            )
-            .with_immutables(&[1, 2, 3])
-            .with_ledger_files(&["437", "537", "637", "737", "9not_included"])
-            .with_volatile_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
-            .build();
+            let cardano_db = DummyCardanoDbBuilder::new(current_function!())
+                .with_immutables(&[1, 2, 3])
+                .with_ledger_files(&["437", "537", "637", "737", "9not_included"])
+                .with_volatile_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
+                .build();
             fs::create_dir(cardano_db.get_dir().join("whatever")).unwrap();
-
-            let db_directory = cardano_db.get_dir();
 
             let snapshotter = CompressedArchiveSnapshotter {
                 ancillary_signer: Arc::new(MockAncillarySigner::that_succeeds_with_signature(
                     fake_keys::signable_manifest_signature()[0],
                 )),
-                ..snapshotter_for_test(&test_dir, db_directory, CompressionAlgorithm::Gzip)
+                ..snapshotter_for_test(&test_dir, cardano_db.get_dir(), CompressionAlgorithm::Gzip)
             };
 
             let snapshot = snapshotter
@@ -486,40 +625,35 @@ mod tests {
                 .unwrap();
 
             let unpack_dir = snapshot.unpack_gzip(&test_dir);
-
-            let expected_immutable_path = unpack_dir.join(IMMUTABLE_DIR);
-            assert!(expected_immutable_path.join("00003.chunk").exists());
-            assert!(expected_immutable_path.join("00003.primary").exists());
-            assert!(expected_immutable_path.join("00003.secondary").exists());
-            assert_eq!(3, list_files(&expected_immutable_path).len());
-
-            // Only the last ledger file should be included
-            let expected_ledger_path = unpack_dir.join(LEDGER_DIR);
-            assert!(expected_ledger_path.join("737").exists());
-            assert_eq!(1, list_files(&expected_ledger_path).len());
-
-            let expected_volatile_path = unpack_dir.join(VOLATILE_DIR);
-            assert!(!expected_volatile_path.exists());
-
-            assert!(!unpack_dir.join("whatever").exists());
+            assert_dir_eq!(
+                &unpack_dir,
+                // Only the last ledger file should be included
+                format!(
+                    "* {IMMUTABLE_DIR}/
+                     ** 00003.chunk
+                     ** 00003.primary
+                     ** 00003.secondary
+                     * {LEDGER_DIR}/
+                     ** 737
+                     * {}",
+                    AncillaryFilesManifest::ANCILLARY_MANIFEST_FILE_NAME
+                )
+            );
         }
 
         #[tokio::test]
         async fn create_archive_fail_if_manifest_signing_fail() {
             let test_dir = temp_dir_create!();
-            let cardano_db =
-                DummyCardanoDbBuilder::new("create_archive_fail_if_manifest_signing_fail")
-                    .with_immutables(&[1, 2])
-                    .with_ledger_files(&["737"])
-                    .build();
-
-            let db_directory = cardano_db.get_dir();
+            let cardano_db = DummyCardanoDbBuilder::new(current_function!())
+                .with_immutables(&[1, 2])
+                .with_ledger_files(&["737"])
+                .build();
 
             let snapshotter = CompressedArchiveSnapshotter {
                 ancillary_signer: Arc::new(MockAncillarySigner::that_fails_with_message(
                     "MockAncillarySigner failed",
                 )),
-                ..snapshotter_for_test(&test_dir, db_directory, CompressionAlgorithm::Gzip)
+                ..snapshotter_for_test(&test_dir, cardano_db.get_dir(), CompressionAlgorithm::Gzip)
             };
 
             let err = snapshotter
@@ -535,22 +669,18 @@ mod tests {
         #[tokio::test]
         async fn create_archive_generate_sign_and_include_manifest_file() {
             let test_dir = temp_dir_create!();
-            let cardano_db = DummyCardanoDbBuilder::new(
-                "create_archive_generate_sign_and_include_manifest_file",
-            )
-            .with_immutables(&[1, 2, 3])
-            .with_ledger_files(&["321", "737"])
-            .with_non_immutables(&["not_to_include.txt"])
-            .build();
+            let cardano_db = DummyCardanoDbBuilder::new(current_function!())
+                .with_immutables(&[1, 2, 3])
+                .with_ledger_files(&["321", "737"])
+                .with_non_immutables(&["not_to_include.txt"])
+                .build();
             File::create(cardano_db.get_dir().join("not_to_include_as_well.txt")).unwrap();
-
-            let db_directory = cardano_db.get_dir();
 
             let snapshotter = CompressedArchiveSnapshotter {
                 ancillary_signer: Arc::new(MockAncillarySigner::that_succeeds_with_signature(
                     fake_keys::signable_manifest_signature()[0],
                 )),
-                ..snapshotter_for_test(&test_dir, db_directory, CompressionAlgorithm::Gzip)
+                ..snapshotter_for_test(&test_dir, cardano_db.get_dir(), CompressionAlgorithm::Gzip)
             };
 
             let archive = snapshotter
