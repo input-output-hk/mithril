@@ -100,7 +100,7 @@ if [ "${var.mithril_aggregator_ancillary_signer_type}" = "secret-key" ]; then
   export ANCILLARY_FILES_SIGNER_CONFIG=$(jq -nc --arg secret_key ${var.mithril_aggregator_ancillary_signer_secret_key} '{\"type\": \"secret-key\", \"secret_key\": $secret_key}')
 fi
 if [ "${var.mithril_aggregator_ancillary_signer_type}" = "gcp-kms" ]; then
-  export ANCILLARY_FILES_SIGNER_CONFIG=$(jq -nc --arg resource_name ${var.mithril_aggregator_ancillary_signer_gcp_kms_resource_name} '{\"type\": \"secret-key\", \"resource_name\": $resource_name}')
+  export ANCILLARY_FILES_SIGNER_CONFIG=$(jq -nc --arg resource_name ${var.mithril_aggregator_ancillary_signer_gcp_kms_resource_name} '{\"type\": \"secret-key\", \"resource_name\": $resource_name, \"credentials_json_env_var\": \"GOOGLE_APPLICATION_CREDENTIALS_GCP_KMS_JSON\"}')
   export GOOGLE_APPLICATION_CREDENTIALS_GCP_KMS_JSON='${var.mithril_aggregator_ancillary_signer_gcp_kms_credentials}'
 fi
 EOT
