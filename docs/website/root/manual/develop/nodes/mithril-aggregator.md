@@ -516,21 +516,40 @@ Here is a list of the available parameters:
 
 `genesis bootstrap` command:
 
-| Parameter            | Command line (long) | Command line (short) | Environment variable | Description                                 | Default value | Example | Mandatory |
-| -------------------- | ------------------- | :------------------: | -------------------- | ------------------------------------------- | ------------- | ------- | :-------: |
-| `genesis_secret_key` | -                   |          -           | `GENESIS_SECRET_KEY` | Genesis secret key, :warning: for test only | -             | -       |     -     |
+| Parameter                  | Command line (long) | Command line (short) | Environment variable       | Description                                                                          | Default value | Example                            |     Mandatory      |
+| -------------------------- | ------------------- | :------------------: | -------------------------- | ------------------------------------------------------------------------------------ | ------------- | ---------------------------------- | :----------------: |
+| `genesis_secret_key`       | -                   |          -           | `GENESIS_SECRET_KEY`       | Genesis secret key, :warning: for test only                                          | -             | -                                  | :heavy_check_mark: |
+| `data_stores_directory`    | -                   |          -           | `DATA_STORES_DIRECTORY`    | Directory to store aggregator databases                                              | -             | `./mithril-aggregator/stores`      | :heavy_check_mark: |
+| `cardano_node_socket_path` | -                   |          -           | `CARDANO_NODE_SOCKET_PATH` | Path of the socket used by the Cardano CLI tool to communicate with the Cardano node | -             | `/tmp/cardano.sock`                | :heavy_check_mark: |
+| `cardano_cli_path`         | -                   |          -           | `CARDANO_CLI_PATH`         | Cardano CLI tool path                                                                | -             | `cardano-cli`                      |         -          |
+| `chain_observer_type`      | -                   |          -           | `CHAIN_OBSERVER_TYPE`      | Chain observer type that can be `cardano-cli`, `pallas` or `fake`.                   | `pallas`      | -                                  | :heavy_check_mark: |
+| `network`                  | -                   |          -           | `NETWORK`                  | Cardano network                                                                      | -             | `testnet` or `mainnet` or `devnet` | :heavy_check_mark: |
+| `network_magic`            | -                   |          -           | `NETWORK_MAGIC`            | Cardano network magic number (for `testnet` and `devnet`)                            | -             | `1097911063` or `42`               |         -          |
 
 `genesis export` command:
 
-| Parameter     | Command line (long) | Command line (short) | Environment variable | Description                                | Default value | Example | Mandatory |
-| ------------- | ------------------- | :------------------: | -------------------- | ------------------------------------------ | ------------- | ------- | :-------: |
-| `target_path` | `--target-path`     |          -           | -                    | Path of the file to export the payload to. | -             | -       |     -     |
+| Parameter                  | Command line (long) | Command line (short) | Environment variable       | Description                                                                          | Default value | Example                            |     Mandatory      |
+| -------------------------- | ------------------- | :------------------: | -------------------------- | ------------------------------------------------------------------------------------ | ------------- | ---------------------------------- | :----------------: |
+| `target_path`              | `--target-path`     |          -           | -                          | Path of the file to export the payload to.                                           | -             | -                                  | :heavy_check_mark: |
+| `data_stores_directory`    | -                   |          -           | `DATA_STORES_DIRECTORY`    | Directory to store aggregator databases                                              | -             | `./mithril-aggregator/stores`      | :heavy_check_mark: |
+| `cardano_node_socket_path` | -                   |          -           | `CARDANO_NODE_SOCKET_PATH` | Path of the socket used by the Cardano CLI tool to communicate with the Cardano node | -             | `/tmp/cardano.sock`                | :heavy_check_mark: |
+| `cardano_cli_path`         | -                   |          -           | `CARDANO_CLI_PATH`         | Cardano CLI tool path                                                                | -             | `cardano-cli`                      |         -          |
+| `chain_observer_type`      | -                   |          -           | `CHAIN_OBSERVER_TYPE`      | Chain observer type that can be `cardano-cli`, `pallas` or `fake`.                   | `pallas`      | -                                  | :heavy_check_mark: |
+| `network`                  | -                   |          -           | `NETWORK`                  | Cardano network                                                                      | -             | `testnet` or `mainnet` or `devnet` | :heavy_check_mark: |
+| `network_magic`            | -                   |          -           | `NETWORK_MAGIC`            | Cardano network magic number (for `testnet` and `devnet`)                            | -             | `1097911063` or `42`               |         -          |
 
 `genesis import` command:
 
-| Parameter             | Command line (long)     | Command line (short) | Environment variable | Description                    | Default value | Example | Mandatory |
-| --------------------- | ----------------------- | :------------------: | -------------------- | ------------------------------ | ------------- | ------- | :-------: |
-| `signed_payload_path` | `--signed-payload-path` |          -           | -                    | Path of the payload to import. | -             | -       |     -     |
+| Parameter                  | Command line (long)          | Command line (short) | Environment variable       | Description                                                                          | Default value | Example                            |     Mandatory      |
+| -------------------------- | ---------------------------- | :------------------: | -------------------------- | ------------------------------------------------------------------------------------ | ------------- | ---------------------------------- | :----------------: |
+| `signed_payload_path`      | `--signed-payload-path`      |          -           | -                          | Path of the payload to import.                                                       | -             | -                                  | :heavy_check_mark: |
+| `genesis_verification_key` | `--genesis-verification-key` |          -           | -                          | Genesis verification key                                                             | -             | -                                  | :heavy_check_mark: |
+| `data_stores_directory`    | -                            |          -           | `DATA_STORES_DIRECTORY`    | Directory to store aggregator databases                                              | -             | `./mithril-aggregator/stores`      | :heavy_check_mark: |
+| `cardano_node_socket_path` | -                            |          -           | `CARDANO_NODE_SOCKET_PATH` | Path of the socket used by the Cardano CLI tool to communicate with the Cardano node | -             | `/tmp/cardano.sock`                | :heavy_check_mark: |
+| `cardano_cli_path`         | -                            |          -           | `CARDANO_CLI_PATH`         | Cardano CLI tool path                                                                | -             | `cardano-cli`                      |         -          |
+| `chain_observer_type`      | -                            |          -           | `CHAIN_OBSERVER_TYPE`      | Chain observer type that can be `cardano-cli`, `pallas` or `fake`.                   | `pallas`      | -                                  | :heavy_check_mark: |
+| `network`                  | -                            |          -           | `NETWORK`                  | Cardano network                                                                      | -             | `testnet` or `mainnet` or `devnet` | :heavy_check_mark: |
+| `network_magic`            | -                            |          -           | `NETWORK_MAGIC`            | Cardano network magic number (for `testnet` and `devnet`)                            | -             | `1097911063` or `42`               |         -          |
 
 `genesis sign` command:
 
