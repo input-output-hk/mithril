@@ -214,6 +214,11 @@ runs:
         chmod u+x ./assets/tools/utils/google-credentials-public-key.sh
         ./assets/tools/utils/google-credentials-public-key.sh ./google-application-credentials.json ./assets/ssh_keys-${{ inputs.google_compute_instance_ssh_keys_environment }} curry
 
+    - name: Prepare variables
+      shell: bash
+      id: prepare
+      run: echo "mithril_aggregator_ancillary_signer_gcp_kms_credentials_base64=$(echo '${{ inputs.mithril_aggregator_ancillary_signer_gcp_kms_credentials }}' | base64 -w 0)" >> $GITHUB_OUTPUT
+
     - name: Prepare terraform variables
       shell: bash
       working-directory: mithril-infra
@@ -264,7 +269,7 @@ runs:
           mithril_aggregator_ancillary_signer_type                                  = "${{ inputs.mithril_aggregator_ancillary_signer_type }}"
           mithril_aggregator_ancillary_signer_secret_key                            = "${{ inputs.mithril_aggregator_ancillary_signer_secret_key }}"
           mithril_aggregator_ancillary_signer_gcp_kms_resource_name                 = "${{ inputs.mithril_aggregator_ancillary_signer_gcp_kms_resource_name }}"
-          mithril_aggregator_ancillary_signer_gcp_kms_credentials                   = "${{ inputs.mithril_aggregator_ancillary_signer_gcp_kms_credentials }}"
+          mithril_aggregator_ancillary_signer_gcp_kms_credentials                   = "${{ steps.prepare.outputs.mithril_aggregator_ancillary_signer_gcp_kms_credentials_base64 }}"
           prometheus_auth_username                                                  = "${{ inputs.prometheus_auth_username }}"
           prometheus_auth_password                                                  = "${{ inputs.prometheus_auth_password }}"
           prometheus_ingest_host                                                    = "${{ inputs.prometheus_ingest_host }}"
