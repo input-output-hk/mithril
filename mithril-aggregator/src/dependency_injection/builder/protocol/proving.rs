@@ -3,8 +3,8 @@ use std::sync::Arc;
 use mithril_common::crypto_helper::MKTreeStoreInMemory;
 
 use crate::dependency_injection::{DependenciesBuilder, Result};
+use crate::get_dependency;
 use crate::services::{MithrilProverService, ProverService};
-
 impl DependenciesBuilder {
     /// Build Prover service
     pub async fn build_prover_service(&mut self) -> Result<Arc<dyn ProverService>> {
@@ -26,10 +26,6 @@ impl DependenciesBuilder {
 
     /// [ProverService] service
     pub async fn get_prover_service(&mut self) -> Result<Arc<dyn ProverService>> {
-        if self.prover_service.is_none() {
-            self.prover_service = Some(self.build_prover_service().await?);
-        }
-
-        Ok(self.prover_service.as_ref().cloned().unwrap())
+        get_dependency!(self.prover_service)
     }
 }

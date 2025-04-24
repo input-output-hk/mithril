@@ -6,8 +6,8 @@ use mithril_common::digesters::{
 use mithril_common::{MithrilTickerService, TickerService};
 
 use crate::dependency_injection::{DependenciesBuilder, Result};
+use crate::get_dependency;
 use crate::ExecutionEnvironment;
-
 impl DependenciesBuilder {
     /// Create [TickerService] instance.
     pub async fn build_ticker_service(&mut self) -> Result<Arc<dyn TickerService>> {
@@ -22,11 +22,7 @@ impl DependenciesBuilder {
 
     /// [TickerService] service
     pub async fn get_ticker_service(&mut self) -> Result<Arc<dyn TickerService>> {
-        if self.ticker_service.is_none() {
-            self.ticker_service = Some(self.build_ticker_service().await?);
-        }
-
-        Ok(self.ticker_service.as_ref().cloned().unwrap())
+        get_dependency!(self.ticker_service)
     }
 
     async fn build_immutable_file_observer(&mut self) -> Result<Arc<dyn ImmutableFileObserver>> {
@@ -43,10 +39,6 @@ impl DependenciesBuilder {
 
     /// Return a [ImmutableFileObserver] instance.
     pub async fn get_immutable_file_observer(&mut self) -> Result<Arc<dyn ImmutableFileObserver>> {
-        if self.immutable_file_observer.is_none() {
-            self.immutable_file_observer = Some(self.build_immutable_file_observer().await?);
-        }
-
-        Ok(self.immutable_file_observer.as_ref().cloned().unwrap())
+        get_dependency!(self.immutable_file_observer)
     }
 }

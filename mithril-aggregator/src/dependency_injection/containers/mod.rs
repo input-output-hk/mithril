@@ -1,7 +1,7 @@
-mod dependency_container;
+mod dependencies_container;
 mod genesis;
 
-pub use dependency_container::*;
+pub use dependencies_container::*;
 pub use genesis::GenesisToolsDependency;
 
 use std::sync::Arc;

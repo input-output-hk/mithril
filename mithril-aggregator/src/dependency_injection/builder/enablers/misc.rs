@@ -11,23 +11,19 @@ use mithril_signed_entity_lock::SignedEntityTypeLock;
 
 use crate::database::repository::CertificateRepository;
 use crate::dependency_injection::{DependenciesBuilder, Result};
+use crate::get_dependency;
 use crate::services::{
     AggregatorClient, AggregatorHTTPClient, MessageService, MithrilMessageService,
 };
-
 impl DependenciesBuilder {
-    async fn build_signed_entity_lock(&mut self) -> Result<Arc<SignedEntityTypeLock>> {
-        let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
-        Ok(signed_entity_type_lock)
+    async fn build_signed_entity_type_lock(&mut self) -> Result<Arc<SignedEntityTypeLock>> {
+        let signed_entity_lock = Arc::new(SignedEntityTypeLock::default());
+        Ok(signed_entity_lock)
     }
 
     /// Get the [SignedEntityTypeLock] instance
-    pub async fn get_signed_entity_lock(&mut self) -> Result<Arc<SignedEntityTypeLock>> {
-        if self.signed_entity_type_lock.is_none() {
-            self.signed_entity_type_lock = Some(self.build_signed_entity_lock().await?);
-        }
-
-        Ok(self.signed_entity_type_lock.as_ref().cloned().unwrap())
+    pub async fn get_signed_entity_type_lock(&mut self) -> Result<Arc<SignedEntityTypeLock>> {
+        get_dependency!(self.signed_entity_type_lock)
     }
 
     /// build HTTP message service
@@ -50,11 +46,7 @@ impl DependenciesBuilder {
 
     /// [MessageService] service
     pub async fn get_message_service(&mut self) -> Result<Arc<dyn MessageService>> {
-        if self.message_service.is_none() {
-            self.message_service = Some(self.build_message_service().await?);
-        }
-
-        Ok(self.message_service.as_ref().cloned().unwrap())
+        get_dependency!(self.message_service)
     }
 
     /// build an [AggregatorClient]
@@ -76,10 +68,6 @@ impl DependenciesBuilder {
 
     /// Returns a leader [AggregatorClient]
     pub async fn get_leader_aggregator_client(&mut self) -> Result<Arc<dyn AggregatorClient>> {
-        if self.leader_aggregator_client.is_none() {
-            self.leader_aggregator_client = Some(self.build_leader_aggregator_client().await?);
-        }
-
-        Ok(self.leader_aggregator_client.as_ref().cloned().unwrap())
+        get_dependency!(self.leader_aggregator_client)
     }
 }

@@ -8,6 +8,7 @@ use mithril_common::crypto_helper::{
 
 use crate::database::repository::{BufferedSingleSignatureRepository, SingleSignatureRepository};
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
+use crate::get_dependency;
 use crate::services::{
     BufferedCertifierService, CertifierService, MithrilCertifierService,
     MithrilSignerRegistrationFollower, SignerSynchronizer,
@@ -17,6 +18,18 @@ use crate::{
     MultiSigner, MultiSignerImpl, SignerRegisterer, SignerRegistrationRoundOpener,
     SignerRegistrationVerifier, SingleSignatureAuthenticator,
 };
+
+/// Retrieve the mithril_signer_registration according to the configuration.
+/// The macro is used because we are not able to return different kind of trait using a function.
+macro_rules! get_mithril_signer_registration {
+    ($self:ident) => {{
+        if $self.configuration.is_follower_aggregator() {
+            $self.get_mithril_signer_registration_follower().await?
+        } else {
+            $self.get_mithril_signer_registration_leader().await?
+        }
+    }};
+}
 
 impl DependenciesBuilder {
     /// Create [CertifierService] service
@@ -56,11 +69,7 @@ impl DependenciesBuilder {
 
     /// [CertifierService] service
     pub async fn get_certifier_service(&mut self) -> Result<Arc<dyn CertifierService>> {
-        if self.certifier_service.is_none() {
-            self.certifier_service = Some(self.build_certifier_service().await?);
-        }
-
-        Ok(self.certifier_service.as_ref().cloned().unwrap())
+        get_dependency!(self.certifier_service)
     }
 
     async fn build_multi_signer(&mut self) -> Result<Arc<dyn MultiSigner>> {
@@ -72,11 +81,7 @@ impl DependenciesBuilder {
 
     /// Get a configured multi signer
     pub async fn get_multi_signer(&mut self) -> Result<Arc<dyn MultiSigner>> {
-        if self.multi_signer.is_none() {
-            self.multi_signer = Some(self.build_multi_signer().await?);
-        }
-
-        Ok(self.multi_signer.as_ref().cloned().unwrap())
+        get_dependency!(self.multi_signer)
     }
 
     async fn build_certificate_verifier(&mut self) -> Result<Arc<dyn CertificateVerifier>> {
@@ -90,11 +95,7 @@ impl DependenciesBuilder {
 
     /// [CertificateVerifier] service.
     pub async fn get_certificate_verifier(&mut self) -> Result<Arc<dyn CertificateVerifier>> {
-        if self.certificate_verifier.is_none() {
-            self.certificate_verifier = Some(self.build_certificate_verifier().await?);
-        }
-
-        Ok(self.certificate_verifier.as_ref().cloned().unwrap())
+        get_dependency!(self.certificate_verifier)
     }
 
     async fn build_genesis_verifier(&mut self) -> Result<Arc<ProtocolGenesisVerifier>> {
@@ -119,11 +120,7 @@ impl DependenciesBuilder {
 
     /// Return a [ProtocolGenesisVerifier]
     pub async fn get_genesis_verifier(&mut self) -> Result<Arc<ProtocolGenesisVerifier>> {
-        if self.genesis_verifier.is_none() {
-            self.genesis_verifier = Some(self.build_genesis_verifier().await?);
-        }
-
-        Ok(self.genesis_verifier.as_ref().cloned().unwrap())
+        get_dependency!(self.genesis_verifier)
     }
 
     /// Return a [MithrilSignerRegistrationLeader] service
@@ -143,16 +140,7 @@ impl DependenciesBuilder {
     pub async fn get_mithril_signer_registration_leader(
         &mut self,
     ) -> Result<Arc<MithrilSignerRegistrationLeader>> {
-        if self.mithril_signer_registration_leader.is_none() {
-            self.mithril_signer_registration_leader =
-                Some(self.build_mithril_signer_registration_leader().await?);
-        }
-
-        Ok(self
-            .mithril_signer_registration_leader
-            .as_ref()
-            .cloned()
-            .unwrap())
+        get_dependency!(self.mithril_signer_registration_leader)
     }
 
     /// Return a [MithrilSignerRegistrationFollower] service
@@ -175,42 +163,17 @@ impl DependenciesBuilder {
     pub async fn get_mithril_signer_registration_follower(
         &mut self,
     ) -> Result<Arc<MithrilSignerRegistrationFollower>> {
-        if self.mithril_signer_registration_follower.is_none() {
-            self.mithril_signer_registration_follower =
-                Some(self.build_mithril_signer_registration_follower().await?);
-        }
-
-        Ok(self
-            .mithril_signer_registration_follower
-            .as_ref()
-            .cloned()
-            .unwrap())
+        get_dependency!(self.mithril_signer_registration_follower)
     }
 
     /// Return a [SignerRegisterer]
     pub async fn get_signer_registerer(&mut self) -> Result<Arc<dyn SignerRegisterer>> {
-        if self.signer_registerer.is_none() {
-            self.signer_registerer = Some(if self.configuration.is_follower_aggregator() {
-                self.get_mithril_signer_registration_follower().await?
-            } else {
-                self.get_mithril_signer_registration_leader().await?
-            });
-        }
-
-        Ok(self.signer_registerer.as_ref().cloned().unwrap())
+        get_dependency!(self.signer_registerer = get_mithril_signer_registration!(self))
     }
 
     /// Return a [SignerSynchronizer]
     pub async fn get_signer_synchronizer(&mut self) -> Result<Arc<dyn SignerSynchronizer>> {
-        if self.signer_synchronizer.is_none() {
-            self.signer_synchronizer = Some(if self.configuration.is_follower_aggregator() {
-                self.get_mithril_signer_registration_follower().await?
-            } else {
-                self.get_mithril_signer_registration_leader().await?
-            });
-        }
-
-        Ok(self.signer_synchronizer.as_ref().cloned().unwrap())
+        get_dependency!(self.signer_synchronizer = get_mithril_signer_registration!(self))
     }
 
     async fn build_signer_registration_verifier(
@@ -225,33 +188,16 @@ impl DependenciesBuilder {
     pub async fn get_signer_registration_verifier(
         &mut self,
     ) -> Result<Arc<dyn SignerRegistrationVerifier>> {
-        if self.signer_registration_verifier.is_none() {
-            self.signer_registration_verifier =
-                Some(self.build_signer_registration_verifier().await?);
-        }
-
-        Ok(self.signer_registration_verifier.as_ref().cloned().unwrap())
+        get_dependency!(self.signer_registration_verifier)
     }
 
     /// Return a [SignerRegistrationRoundOpener]
     pub async fn get_signer_registration_round_opener(
         &mut self,
     ) -> Result<Arc<dyn SignerRegistrationRoundOpener>> {
-        if self.signer_registration_round_opener.is_none() {
-            if self.configuration.is_follower_aggregator() {
-                self.signer_registration_round_opener =
-                    Some(self.get_mithril_signer_registration_follower().await?);
-            } else {
-                self.signer_registration_round_opener =
-                    Some(self.get_mithril_signer_registration_leader().await?);
-            }
-        }
-
-        Ok(self
-            .signer_registration_round_opener
-            .as_ref()
-            .cloned()
-            .unwrap())
+        get_dependency!(
+            self.signer_registration_round_opener = get_mithril_signer_registration!(self)
+        )
     }
 
     async fn build_single_signature_authenticator(
@@ -267,11 +213,6 @@ impl DependenciesBuilder {
     pub async fn get_single_signature_authenticator(
         &mut self,
     ) -> Result<Arc<SingleSignatureAuthenticator>> {
-        if self.single_signer_authenticator.is_none() {
-            self.single_signer_authenticator =
-                Some(self.build_single_signature_authenticator().await?);
-        }
-
-        Ok(self.single_signer_authenticator.as_ref().cloned().unwrap())
+        get_dependency!(self.single_signature_authenticator)
     }
 }

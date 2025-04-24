@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crate::database::repository::SignerRegistrationStore;
 use crate::dependency_injection::{DependenciesBuilder, Result};
+use crate::get_dependency;
 use crate::services::{AggregatorUpkeepService, EpochPruningTask, UpkeepService};
 
 impl DependenciesBuilder {
@@ -25,7 +26,7 @@ impl DependenciesBuilder {
             self.get_sqlite_connection_cardano_transaction_pool()
                 .await?,
             self.get_event_store_sqlite_connection().await?,
-            self.get_signed_entity_lock().await?,
+            self.get_signed_entity_type_lock().await?,
             vec![
                 stake_pool_pruning_task,
                 epoch_settings_pruning_task,
@@ -39,10 +40,6 @@ impl DependenciesBuilder {
 
     /// Get the [UpkeepService] instance
     pub async fn get_upkeep_service(&mut self) -> Result<Arc<dyn UpkeepService>> {
-        if self.upkeep_service.is_none() {
-            self.upkeep_service = Some(self.build_upkeep_service().await?);
-        }
-
-        Ok(self.upkeep_service.as_ref().cloned().unwrap())
+        get_dependency!(self.upkeep_service)
     }
 }

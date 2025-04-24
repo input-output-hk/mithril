@@ -10,7 +10,7 @@ use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
 
 use crate::entities::OpenMessage;
-use crate::DependencyContainer;
+use crate::DependenciesContainer;
 
 /// Configuration structure dedicated to the AggregatorRuntime.
 #[derive(Debug, Clone)]
@@ -136,13 +136,13 @@ pub trait AggregatorRunnerTrait: Sync + Send {
 /// The runner responsibility is to expose a code API for the state machine. It
 /// holds services and configuration.
 pub struct AggregatorRunner {
-    dependencies: Arc<DependencyContainer>,
+    dependencies: Arc<DependenciesContainer>,
     logger: Logger,
 }
 
 impl AggregatorRunner {
     /// Create a new instance of the Aggregator Runner.
-    pub fn new(dependencies: Arc<DependencyContainer>) -> Self {
+    pub fn new(dependencies: Arc<DependenciesContainer>) -> Self {
         let logger = dependencies.root_logger.new_with_component_name::<Self>();
         Self {
             dependencies,
@@ -529,7 +529,7 @@ pub mod tests {
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
         services::{MithrilStakeDistributionService, MockCertifierService},
-        DependencyContainer, MithrilSignerRegistrationLeader, ServeCommandConfiguration,
+        DependenciesContainer, MithrilSignerRegistrationLeader, ServeCommandConfiguration,
         SignerRegistrationRound,
     };
     use async_trait::async_trait;
@@ -569,7 +569,7 @@ pub mod tests {
         }
     }
 
-    async fn build_runner_with_fixture_data(deps: DependencyContainer) -> AggregatorRunner {
+    async fn build_runner_with_fixture_data(deps: DependenciesContainer) -> AggregatorRunner {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let current_epoch = deps
             .chain_observer
@@ -683,14 +683,16 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_update_stake_distribution() {
-        let mut deps = initialize_dependencies!().await;
         let chain_observer = Arc::new(FakeObserver::default());
-        deps.chain_observer = chain_observer.clone();
-        deps.stake_distribution_service = Arc::new(MithrilStakeDistributionService::new(
-            deps.stake_store.clone(),
-            chain_observer.clone(),
-        ));
-        let deps = Arc::new(deps);
+        let deps = {
+            let mut deps = initialize_dependencies!().await;
+            deps.chain_observer = chain_observer.clone();
+            deps.stake_distribution_service = Arc::new(MithrilStakeDistributionService::new(
+                deps.stake_store.clone(),
+                chain_observer.clone(),
+            ));
+            Arc::new(deps)
+        };
         let runner = AggregatorRunner::new(deps.clone());
         let time_point = runner.get_time_point_from_chain().await.unwrap();
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
@@ -721,12 +723,15 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_open_signer_registration_round() {
-        let mut deps = initialize_dependencies!().await;
+        let config = ServeCommandConfiguration::new_sample(mithril_common::temp_dir!());
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(Arc::new(config));
+
         let signer_registration_round_opener = Arc::new(MithrilSignerRegistrationLeader::new(
-            deps.verification_key_store.clone(),
-            deps.signer_recorder.clone(),
-            deps.signer_registration_verifier.clone(),
+            builder.get_verification_key_store().await.unwrap(),
+            builder.get_signer_store().await.unwrap(),
+            builder.get_signer_registration_verifier().await.unwrap(),
         ));
+        let mut deps = builder.build_dependency_container().await.unwrap();
         deps.signer_registration_round_opener = signer_registration_round_opener.clone();
         let stake_store = deps.stake_store.clone();
         let deps = Arc::new(deps);
@@ -760,12 +765,15 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_close_signer_registration_round() {
-        let mut deps = initialize_dependencies!().await;
+        let config = ServeCommandConfiguration::new_sample(mithril_common::temp_dir!());
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(Arc::new(config));
+
         let signer_registration_round_opener = Arc::new(MithrilSignerRegistrationLeader::new(
-            deps.verification_key_store.clone(),
-            deps.signer_recorder.clone(),
-            deps.signer_registration_verifier.clone(),
+            builder.get_verification_key_store().await.unwrap(),
+            builder.get_signer_store().await.unwrap(),
+            builder.get_signer_registration_verifier().await.unwrap(),
         ));
+        let mut deps = builder.build_dependency_container().await.unwrap();
         deps.signer_registration_round_opener = signer_registration_round_opener.clone();
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(deps.clone());

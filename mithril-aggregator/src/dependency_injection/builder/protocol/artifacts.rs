@@ -18,6 +18,7 @@ use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError,
 use crate::file_uploaders::{
     CloudRemotePath, FileUploadRetryPolicy, GcpBackendUploader, GcpUploader, LocalUploader,
 };
+use crate::get_dependency;
 use crate::http_server::{CARDANO_DATABASE_DOWNLOAD_PATH, SNAPSHOT_DOWNLOAD_PATH};
 use crate::services::ancillary_signer::{
     AncillarySigner, AncillarySignerWithGcpKms, AncillarySignerWithSecretKey,
@@ -28,7 +29,6 @@ use crate::services::{
 };
 use crate::tools::file_archiver::FileArchiver;
 use crate::{DumbUploader, ExecutionEnvironment, FileUploader, SnapshotUploaderType};
-
 impl DependenciesBuilder {
     async fn build_signed_entity_service(&mut self) -> Result<Arc<dyn SignedEntityService>> {
         let logger = self.root_logger();
@@ -70,7 +70,7 @@ impl DependenciesBuilder {
         let signed_entity_service = Arc::new(MithrilSignedEntityService::new(
             signed_entity_storer,
             dependencies,
-            self.get_signed_entity_lock().await?,
+            self.get_signed_entity_type_lock().await?,
             self.get_metrics_service().await?,
             logger,
         ));
@@ -92,11 +92,7 @@ impl DependenciesBuilder {
 
     /// [SignedEntityService] service
     pub async fn get_signed_entity_service(&mut self) -> Result<Arc<dyn SignedEntityService>> {
-        if self.signed_entity_service.is_none() {
-            self.signed_entity_service = Some(self.build_signed_entity_service().await?);
-        }
-
-        Ok(self.signed_entity_service.as_ref().cloned().unwrap())
+        get_dependency!(self.signed_entity_service)
     }
 
     async fn build_file_archiver(&mut self) -> Result<Arc<FileArchiver>> {
@@ -114,11 +110,7 @@ impl DependenciesBuilder {
     }
 
     async fn get_file_archiver(&mut self) -> Result<Arc<FileArchiver>> {
-        if self.file_archiver.is_none() {
-            self.file_archiver = Some(self.build_file_archiver().await?);
-        }
-
-        Ok(self.file_archiver.as_ref().cloned().unwrap())
+        get_dependency!(self.file_archiver)
     }
 
     async fn get_ancillary_signer(&self) -> Result<Arc<dyn AncillarySigner>> {
@@ -190,11 +182,7 @@ impl DependenciesBuilder {
 
     /// [Snapshotter] service.
     pub async fn get_snapshotter(&mut self) -> Result<Arc<dyn Snapshotter>> {
-        if self.snapshotter.is_none() {
-            self.snapshotter = Some(self.build_snapshotter().await?);
-        }
-
-        Ok(self.snapshotter.as_ref().cloned().unwrap())
+        get_dependency!(self.snapshotter)
     }
 
     async fn build_snapshot_uploader(&mut self) -> Result<Arc<dyn FileUploader>> {
@@ -241,11 +229,7 @@ impl DependenciesBuilder {
 
     /// Get a [FileUploader]
     pub async fn get_snapshot_uploader(&mut self) -> Result<Arc<dyn FileUploader>> {
-        if self.snapshot_uploader.is_none() {
-            self.snapshot_uploader = Some(self.build_snapshot_uploader().await?);
-        }
-
-        Ok(self.snapshot_uploader.as_ref().cloned().unwrap())
+        get_dependency!(self.snapshot_uploader)
     }
 
     fn build_gcp_uploader(
