@@ -10,7 +10,8 @@ const TYPE_ALIAS: &str = r"/// Open API file name
 pub type OpenAPIFileName = String;
 ";
 
-fn list_all_open_api_spec_files(paths: &[&Path]) -> Vec<PathBuf> {
+/// Lists all OpenAPI specification files (YAML format) from the given directories.
+pub fn list_all_open_api_spec_files(paths: &[&Path]) -> Vec<PathBuf> {
     let mut open_api_spec_files = Vec::new();
 
     for path in paths {
@@ -26,19 +27,17 @@ fn list_all_open_api_spec_files(paths: &[&Path]) -> Vec<PathBuf> {
     open_api_spec_files
 }
 
-fn read_version_from_open_api_spec_file(spec_file_path: PathBuf) -> OpenAPIVersionRaw {
+fn read_version_from_open_api_spec_file<P: AsRef<Path>>(spec_file_path: P) -> OpenAPIVersionRaw {
     let yaml_spec = fs::read_to_string(spec_file_path).unwrap();
     let open_api: serde_yaml::Value = serde_yaml::from_str(&yaml_spec).unwrap();
     open_api["info"]["version"].as_str().unwrap().to_owned()
 }
 
-/// Generate the `get_open_api_versions_mapping` function based on the Open API files
-/// in the given folders.
-pub fn generate_open_api_versions_mapping(paths: &[&Path]) -> String {
-    let open_api_spec_files = list_all_open_api_spec_files(paths);
+/// Generate the `get_open_api_versions_mapping` function based on the given Open API files
+pub fn generate_open_api_versions_mapping(open_api_spec_files: &[PathBuf]) -> String {
     // Use a BTreeMap to guarantee the deterministic code generation below
     let open_api_versions: BTreeMap<OpenAPIFileName, Version> = open_api_spec_files
-        .into_iter()
+        .iter()
         .map(|path| (path.clone(), read_version_from_open_api_spec_file(path)))
         .map(|(path, version_raw)| {
             (
@@ -102,14 +101,16 @@ info:
 
     #[test]
     fn generated_code_include_type_aliases() {
-        let generated_code = generate_open_api_versions_mapping(&[Path::new("./")]);
+        let open_api_spec_files = list_all_open_api_spec_files(&[Path::new("./")]);
+        let generated_code = generate_open_api_versions_mapping(&open_api_spec_files);
 
         assert!(generated_code.contains(TYPE_ALIAS));
     }
 
     #[test]
     fn generated_function_returns_an_hashmap_of_open_api_file_name_and_semver_version() {
-        let generated_code = generate_open_api_versions_mapping(&[Path::new("./")]);
+        let open_api_spec_files = list_all_open_api_spec_files(&[Path::new("./")]);
+        let generated_code = generate_open_api_versions_mapping(&open_api_spec_files);
 
         assert!(generated_code.contains("-> HashMap<OpenAPIFileName, semver::Version>"));
     }
@@ -120,7 +121,8 @@ info:
         write_minimal_open_api_file("1.0.0", &dir.join("openapi.yaml"));
 
         let expected = r#"("openapi.yaml".to_string(), semver::Version::new(1, 0, 0))"#;
-        let generated_code = generate_open_api_versions_mapping(&[&dir]);
+        let open_api_spec_files = list_all_open_api_spec_files(&[&dir]);
+        let generated_code = generate_open_api_versions_mapping(&open_api_spec_files);
 
         assert_open_api_content_contains(expected, &generated_code);
     }
@@ -145,7 +147,8 @@ info:
         write_minimal_open_api_file("2.0.0", &sub_folder.join("openapi-thales.yaml"));
 
         let expected = r#"("openapi-thales.yaml".to_string(), semver::Version::new(2, 0, 0)), ("openapi.yaml".to_string(), semver::Version::new(1, 0, 0))"#;
-        let generated_code = generate_open_api_versions_mapping(&[parent_folder, &sub_folder]);
+        let open_api_spec_files = list_all_open_api_spec_files(&[parent_folder, &sub_folder]);
+        let generated_code = generate_open_api_versions_mapping(&open_api_spec_files);
 
         assert_open_api_content_contains(expected, &generated_code);
     }
@@ -162,7 +165,8 @@ info:
         let expected = r#"HashMap::from([
         ("openapi.yaml".to_string(), semver::Version::new(2, 0, 0)), 
     ])"#;
-        let generated_code = generate_open_api_versions_mapping(&[parent_folder, &sub_folder]);
+        let open_api_spec_files = list_all_open_api_spec_files(&[parent_folder, &sub_folder]);
+        let generated_code = generate_open_api_versions_mapping(&open_api_spec_files);
 
         assert_open_api_content_contains(expected, &generated_code);
     }
