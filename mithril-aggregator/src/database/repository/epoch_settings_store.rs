@@ -12,7 +12,7 @@ use crate::database::query::{
 };
 use crate::entities::AggregatorEpochSettings;
 use crate::services::EpochPruningTask;
-use crate::EpochSettingsStorer;
+use crate::{EpochSettingsStorer, ProtocolParametersRetriever};
 
 /// Service to deal with epoch settings (read & write).
 pub struct EpochSettingsStore {
@@ -34,6 +34,16 @@ impl EpochSettingsStore {
 }
 
 #[async_trait]
+impl ProtocolParametersRetriever for EpochSettingsStore {
+    async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
+        Ok(self
+            .get_epoch_settings(epoch)
+            .await?
+            .map(|epoch_settings| epoch_settings.protocol_parameters))
+    }
+}
+
+#[async_trait]
 impl EpochSettingsStorer for EpochSettingsStore {
     async fn save_epoch_settings(
         &self,
@@ -47,13 +57,6 @@ impl EpochSettingsStorer for EpochSettingsStore {
             .unwrap_or_else(|| panic!("No entity returned by the persister, epoch = {epoch:?}"));
 
         Ok(Some(epoch_settings_record.into()))
-    }
-
-    async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
-        Ok(self
-            .get_epoch_settings(epoch)
-            .await?
-            .map(|epoch_settings| epoch_settings.protocol_parameters))
     }
 
     async fn get_epoch_settings(&self, epoch: Epoch) -> StdResult<Option<AggregatorEpochSettings>> {

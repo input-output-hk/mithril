@@ -1,17 +1,97 @@
-use anyhow::Context;
-use clap::{Parser, Subcommand};
-use config::{builder::DefaultState, ConfigBuilder};
-use mithril_common::{
-    crypto_helper::{ProtocolGenesisSecretKey, ProtocolGenesisSigner},
-    entities::HexEncodedGenesisSecretKey,
-    StdResult,
-};
-use slog::{debug, Logger};
 use std::{path::PathBuf, sync::Arc};
 
-use crate::{
-    dependency_injection::DependenciesBuilder, tools::GenesisTools, ServeCommandConfiguration,
+use anyhow::Context;
+use clap::{Parser, Subcommand};
+use config::{builder::DefaultState, ConfigBuilder, Map, Value};
+use serde::{Deserialize, Serialize};
+use slog::{debug, Logger};
+
+use mithril_common::{
+    chain_observer::ChainObserverType,
+    crypto_helper::{
+        ProtocolGenesisSecretKey, ProtocolGenesisSigner, ProtocolGenesisVerificationKey,
+    },
+    entities::{HexEncodedGenesisSecretKey, HexEncodedGenesisVerificationKey},
+    StdResult,
 };
+use mithril_doc::{Documenter, StructDoc};
+
+use crate::{
+    dependency_injection::DependenciesBuilder, tools::GenesisTools, ConfigurationSource,
+    ExecutionEnvironment,
+};
+
+#[derive(Debug, Clone, Serialize, Deserialize, Documenter)]
+pub struct GenesisCommandConfiguration {
+    /// Cardano CLI tool path
+    #[example = "`cardano-cli`"]
+    pub cardano_cli_path: Option<PathBuf>,
+
+    /// Path of the socket used by the Cardano CLI tool
+    /// to communicate with the Cardano node
+    #[example = "`/tmp/cardano.sock`"]
+    pub cardano_node_socket_path: PathBuf,
+
+    /// Cardano Network Magic number
+    ///
+    /// useful for TestNet & DevNet
+    #[example = "`1097911063` or `42`"]
+    pub network_magic: Option<u64>,
+
+    /// Cardano network
+    #[example = "`testnet` or `mainnet` or `devnet`"]
+    network: String,
+
+    /// Cardano chain observer type
+    pub chain_observer_type: ChainObserverType,
+
+    /// Directory to store aggregator data (Certificates, Snapshots, Protocol Parameters, ...)
+    #[example = "`./mithril-aggregator/stores`"]
+    pub data_stores_directory: PathBuf,
+}
+
+impl ConfigurationSource for GenesisCommandConfiguration {
+    fn environment(&self) -> ExecutionEnvironment {
+        ExecutionEnvironment::Production
+    }
+
+    fn cardano_cli_path(&self) -> PathBuf {
+        match self.chain_observer_type {
+            ChainObserverType::CardanoCli => {
+                if let Some(path) = &self.cardano_cli_path {
+                    path.clone()
+                } else {
+                    panic!("Cardano CLI path must be set when using Cardano CLI chain observer")
+                }
+            }
+            _ => PathBuf::new(),
+        }
+    }
+
+    fn cardano_node_socket_path(&self) -> PathBuf {
+        self.cardano_node_socket_path.clone()
+    }
+
+    fn network_magic(&self) -> Option<u64> {
+        self.network_magic
+    }
+
+    fn network(&self) -> String {
+        self.network.clone()
+    }
+
+    fn chain_observer_type(&self) -> ChainObserverType {
+        self.chain_observer_type.clone()
+    }
+
+    fn data_stores_directory(&self) -> PathBuf {
+        self.data_stores_directory.clone()
+    }
+
+    fn store_retention_limit(&self) -> Option<usize> {
+        None
+    }
+}
 
 /// Genesis tools
 #[derive(Parser, Debug, Clone)]
@@ -62,8 +142,8 @@ impl GenesisSubCommand {
             Self::Bootstrap(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::Export(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::Import(cmd) => cmd.execute(root_logger, config_builder).await,
-            Self::Sign(cmd) => cmd.execute(root_logger, config_builder).await,
-            Self::GenerateKeypair(cmd) => cmd.execute(root_logger, config_builder).await,
+            Self::Sign(cmd) => cmd.execute(root_logger).await,
+            Self::GenerateKeypair(cmd) => cmd.execute(root_logger).await,
         }
     }
 }
@@ -82,13 +162,11 @@ impl ExportGenesisSubCommand {
         root_logger: Logger,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> StdResult<()> {
-        let mut config: ServeCommandConfiguration = config_builder
+        let config: GenesisCommandConfiguration = config_builder
             .build()
             .with_context(|| "configuration build error")?
             .try_deserialize()
             .with_context(|| "configuration deserialize error")?;
-        // TODO: `store_retention_limit` will be set in the specific configuration implementation of the genesis command.
-        config.store_retention_limit = None;
         debug!(root_logger, "EXPORT GENESIS command"; "config" => format!("{config:?}"));
         println!(
             "Genesis export payload to sign to {}",
@@ -118,6 +196,10 @@ pub struct ImportGenesisSubCommand {
     /// Signed Payload Path
     #[clap(long)]
     signed_payload_path: PathBuf,
+
+    /// Genesis Verification Key
+    #[clap(long)]
+    genesis_verification_key: HexEncodedGenesisVerificationKey,
 }
 
 impl ImportGenesisSubCommand {
@@ -126,13 +208,11 @@ impl ImportGenesisSubCommand {
         root_logger: Logger,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> StdResult<()> {
-        let mut config: ServeCommandConfiguration = config_builder
+        let config: GenesisCommandConfiguration = config_builder
             .build()
             .with_context(|| "configuration build error")?
             .try_deserialize()
             .with_context(|| "configuration deserialize error")?;
-        // TODO: `store_retention_limit` will be set in the specific configuration implementation of the genesis command.
-        config.store_retention_limit = None;
         debug!(root_logger, "IMPORT GENESIS command"; "config" => format!("{config:?}"));
         println!(
             "Genesis import signed payload from {}",
@@ -151,7 +231,10 @@ impl ImportGenesisSubCommand {
             .await
             .with_context(|| "genesis-tools: initialization error")?;
         genesis_tools
-            .import_payload_signature(&self.signed_payload_path)
+            .import_payload_signature(
+                &self.signed_payload_path,
+                &ProtocolGenesisVerificationKey::from_json_hex(&self.genesis_verification_key)?,
+            )
             .await
             .with_context(|| "genesis-tools: import error")?;
         Ok(())
@@ -174,11 +257,7 @@ pub struct SignGenesisSubCommand {
 }
 
 impl SignGenesisSubCommand {
-    pub async fn execute(
-        &self,
-        root_logger: Logger,
-        _config_builder: ConfigBuilder<DefaultState>,
-    ) -> StdResult<()> {
+    pub async fn execute(&self, root_logger: Logger) -> StdResult<()> {
         debug!(root_logger, "SIGN GENESIS command");
         println!(
             "Genesis sign payload from {} to {}",
@@ -210,13 +289,11 @@ impl BootstrapGenesisSubCommand {
         root_logger: Logger,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> StdResult<()> {
-        let mut config: ServeCommandConfiguration = config_builder
+        let config: GenesisCommandConfiguration = config_builder
             .build()
             .with_context(|| "configuration build error")?
             .try_deserialize()
             .with_context(|| "configuration deserialize error")?;
-        // TODO: `store_retention_limit` will be set in the specific configuration implementation of the genesis command.
-        config.store_retention_limit = None;
         debug!(root_logger, "BOOTSTRAP GENESIS command"; "config" => format!("{config:?}"));
         println!("Genesis bootstrap for test only!");
         let mut dependencies_builder =
@@ -251,11 +328,7 @@ pub struct GenerateKeypairGenesisSubCommand {
 }
 
 impl GenerateKeypairGenesisSubCommand {
-    pub async fn execute(
-        &self,
-        root_logger: Logger,
-        _config_builder: ConfigBuilder<DefaultState>,
-    ) -> StdResult<()> {
+    pub async fn execute(&self, root_logger: Logger) -> StdResult<()> {
         debug!(root_logger, "GENERATE KEYPAIR GENESIS command");
         println!(
             "Genesis generate keypair to {}",
@@ -266,5 +339,35 @@ impl GenerateKeypairGenesisSubCommand {
             .with_context(|| "genesis-tools: keypair generation error")?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use mithril_common::temp_dir;
+
+    use crate::test_tools::TestLogger;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn create_container_does_not_panic() {
+        let config = GenesisCommandConfiguration {
+            cardano_cli_path: None,
+            cardano_node_socket_path: PathBuf::new(),
+            network_magic: Some(42),
+            network: "devnet".to_string(),
+            chain_observer_type: ChainObserverType::Fake,
+            data_stores_directory: temp_dir!().join("stores"),
+        };
+        let mut dependencies_builder =
+            DependenciesBuilder::new(TestLogger::stdout(), Arc::new(config));
+
+        dependencies_builder
+            .create_genesis_container()
+            .await
+            .expect("Expected container creation to succeed without panicking");
     }
 }

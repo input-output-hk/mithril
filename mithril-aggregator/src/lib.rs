@@ -49,7 +49,7 @@ pub use services::{
     SignerRegistrationRound, SignerRegistrationRoundOpener, SignerRegistrationVerifier,
     SignerSynchronizer,
 };
-pub use store::{EpochSettingsStorer, VerificationKeyStorer};
+pub use store::{EpochSettingsStorer, ProtocolParametersRetriever, VerificationKeyStorer};
 pub use tools::{
     CExplorerSignerRetriever, SignersImporter, SignersImporterPersister, SignersImporterRetriever,
     SingleSignatureAuthenticator,
