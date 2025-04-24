@@ -41,9 +41,9 @@ use crate::dependency_injection::SignerDependencyContainer;
 use crate::services::{
     AggregatorHTTPClient, CardanoTransactionsImporter,
     CardanoTransactionsPreloaderActivationSigner, MithrilEpochService, MithrilSingleSigner,
-    SignerCertifierService, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
-    SignerUpkeepService, TransactionsImporterByChunk, TransactionsImporterWithPruner,
-    TransactionsImporterWithVacuum,
+    SignaturePublisher, SignerCertifierService, SignerSignableSeedBuilder,
+    SignerSignedEntityConfigProvider, SignerUpkeepService, TransactionsImporterByChunk,
+    TransactionsImporterWithPruner, TransactionsImporterWithVacuum,
 };
 use crate::store::MKTreeStoreSqlite;
 use crate::{
@@ -385,12 +385,15 @@ impl<'a> DependenciesBuilder<'a> {
             ],
             self.root_logger(),
         ));
+
+        let signature_publisher: Arc<dyn SignaturePublisher> = aggregator_client.clone();
+
         let certifier = Arc::new(SignerCertifierService::new(
             signed_beacon_repository,
             Arc::new(SignerSignedEntityConfigProvider::new(epoch_service.clone())),
             signed_entity_type_lock.clone(),
             single_signer.clone(),
-            aggregator_client.clone(),
+            signature_publisher,
             self.root_logger(),
         ));
 
