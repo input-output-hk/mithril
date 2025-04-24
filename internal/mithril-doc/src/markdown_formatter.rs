@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use clap::{builder::StyledStr, Arg, Command};
 
 use crate::extract_clap_info;
@@ -59,7 +61,10 @@ mod markdown {
     }
 }
 
-pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc>) -> String {
+pub fn doc_markdown_with_config(
+    cmd: &mut Command,
+    struct_doc: HashMap<String, StructDoc>,
+) -> String {
     // See: https://github1s.com/clap-rs/clap/blob/HEAD/clap_builder/src/builder/command.rs#L1989
 
     fn format_parameters(
@@ -110,7 +115,7 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
     fn format_command(
         cmd: &mut Command,
         parent: Option<String>,
-        struct_doc: Option<&StructDoc>,
+        struct_doc: HashMap<String, StructDoc>,
         level: usize,
         parameters_explanation: &str,
     ) -> String {
@@ -137,7 +142,7 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
         cmd: &Command,
         parent: Option<String>,
         help: String,
-        struct_doc: Option<&StructDoc>,
+        struct_doc: HashMap<String, StructDoc>,
         level: usize,
         parameters_explanation: &str,
     ) -> String {
@@ -152,7 +157,7 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
 
         let subcommands_table = format_subcommand(cmd);
 
-        let parameters = format_parameters(cmd, struct_doc, parameters_explanation);
+        let parameters = format_parameters(cmd, struct_doc.get(""), parameters_explanation);
 
         let subcommands = cmd
             .get_subcommands()
@@ -161,7 +166,7 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
                 format_command(
                     &mut sub_command.clone(),
                     Some(format!("{} {}", parent_ancestors, cmd.get_name())),
-                    None,
+                    HashMap::new(), // TODO: we need a struct doc
                     level + 1,
                     "",
                 )
@@ -283,7 +288,7 @@ mod tests {
     #[test]
     fn test_format_arg_without_struct_doc() {
         let mut command = MyCommand::command();
-        let doc = doc_markdown_with_config(&mut command, None);
+        let doc = doc_markdown_with_config(&mut command, HashMap::new());
 
         assert!(
             doc.contains("| `run_mode` | `--run-mode` | `-r` | - | Run Mode | `dev` | - | - |"),
@@ -300,7 +305,7 @@ mod tests {
     #[test]
     fn test_format_parameter_with_env_variable() {
         let mut command = MyCommand::command();
-        let doc = doc_markdown_with_config(&mut command, None);
+        let doc = doc_markdown_with_config(&mut command, HashMap::new());
 
         assert!(
             doc.contains("| `from_env` | `--from-env` | - | `ENV_VARIABLE` | - | - | - | :heavy_check_mark: |"),
@@ -312,7 +317,8 @@ mod tests {
     fn test_format_arg_with_empty_struct_doc() {
         let mut command = MyCommand::command();
         let merged_struct_doc = StructDoc::new();
-        let doc = doc_markdown_with_config(&mut command, Some(&merged_struct_doc));
+        let configs = HashMap::from([("".to_string(), merged_struct_doc)]);
+        let doc = doc_markdown_with_config(&mut command, configs);
 
         assert!(
             doc.contains("| `run_mode` | `--run-mode` | `-r` | - | Run Mode | `dev` | - | - |"),
@@ -329,7 +335,7 @@ mod tests {
     #[test]
     fn test_format_subcommand_inlined() {
         let mut command = MyCommand::command();
-        let doc = doc_markdown_with_config(&mut command, None);
+        let doc = doc_markdown_with_config(&mut command, HashMap::new());
 
         assert!(
             doc.contains("###  mithril-doc sub-command-a"),
@@ -351,7 +357,7 @@ mod tests {
     #[test]
     fn test_format_subcommand_on_separate_struct() {
         let mut command = MyCommand::command();
-        let doc = doc_markdown_with_config(&mut command, None);
+        let doc = doc_markdown_with_config(&mut command, HashMap::new());
 
         assert!(
             doc.contains("###  mithril-doc sub-command-b"),
@@ -384,7 +390,7 @@ mod tests {
     #[test]
     fn test_should_not_create_chapter_for_subcommand_help() {
         let mut command = MyCommand::command();
-        let doc = doc_markdown_with_config(&mut command, None);
+        let doc = doc_markdown_with_config(&mut command, HashMap::new());
 
         assert!(
             doc.contains("###  mithril-doc sub-command-b"),
@@ -400,7 +406,7 @@ mod tests {
     fn test_should_not_display_parameter_table_when_only_help_argument() {
         {
             let mut command = MyCommand::command();
-            let doc = doc_markdown_with_config(&mut command, None);
+            let doc = doc_markdown_with_config(&mut command, HashMap::new());
             assert!(
                 doc.contains("| `help` | `--help` | `-h` |"),
                 "Generated doc: {doc}"
@@ -408,7 +414,7 @@ mod tests {
         }
         {
             let mut command = MyCommandWithOnlySubCommand::command();
-            let doc = doc_markdown_with_config(&mut command, None);
+            let doc = doc_markdown_with_config(&mut command, HashMap::new());
             assert!(
                 !doc.contains("| `help` | `--help` | `-h` |"),
                 "Generated doc: {doc}"
@@ -420,7 +426,7 @@ mod tests {
     fn test_doc_markdown_include_config_parameters() {
         {
             let mut command = MyCommand::command();
-            let doc = doc_markdown_with_config(&mut command, None);
+            let doc = doc_markdown_with_config(&mut command, HashMap::new());
 
             assert!(
                 !doc.contains("| Param A from config |"),
@@ -446,7 +452,8 @@ mod tests {
             };
 
             let mut command = MyCommand::command();
-            let doc = doc_markdown_with_config(&mut command, Some(&struct_doc));
+            let configs = HashMap::from([("".to_string(), struct_doc)]);
+            let doc = doc_markdown_with_config(&mut command, configs);
 
             assert!(
                 doc.contains("| Param A from config<br/>Line break |"),
