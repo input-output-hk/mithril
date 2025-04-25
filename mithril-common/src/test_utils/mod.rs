@@ -17,6 +17,7 @@ mod cardano_transactions_builder;
 mod certificate_chain_builder;
 mod dir_eq;
 mod fixture_builder;
+mod memory_logger;
 mod mithril_fixture;
 mod precomputed_kes_key;
 mod temp_dir;
@@ -31,6 +32,7 @@ pub use certificate_chain_builder::{
 };
 pub use dir_eq::*;
 pub use fixture_builder::{MithrilFixtureBuilder, StakeDistributionGenerationMethod};
+pub use memory_logger::*;
 pub use mithril_fixture::{MithrilFixture, SignerFixture};
 pub use temp_dir::*;
 #[cfg(test)]
