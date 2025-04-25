@@ -220,7 +220,7 @@ mod tests {
     };
 
     use crate::event_store::EventMessage;
-    use crate::DependenciesContainer;
+    use crate::ServeCommandDependenciesContainer;
     use crate::{
         dependency_injection::DependenciesBuilder, initialize_dependencies,
         ServeCommandConfiguration,
@@ -417,7 +417,10 @@ mod tests {
 
     async fn setup_dependencies(
         snapshot_directory: PathBuf,
-    ) -> (Arc<DependenciesContainer>, UnboundedReceiver<EventMessage>) {
+    ) -> (
+        Arc<ServeCommandDependenciesContainer>,
+        UnboundedReceiver<EventMessage>,
+    ) {
         let config = ServeCommandConfiguration::new_sample(snapshot_directory);
         let mut builder = DependenciesBuilder::new_with_stdout_logger(Arc::new(config));
         let rx = builder.get_event_transmitter_receiver().await.unwrap();

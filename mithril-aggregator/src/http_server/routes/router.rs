@@ -4,7 +4,7 @@ use crate::http_server::routes::{
 };
 use crate::http_server::SERVER_BASE_PATH;
 use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
-use crate::DependenciesContainer;
+use crate::ServeCommandDependenciesContainer;
 
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::entities::SignedEntityTypeDiscriminants;
@@ -76,13 +76,16 @@ impl RouterConfig {
 
 /// Shared state for the router
 pub struct RouterState {
-    pub dependencies: Arc<DependenciesContainer>,
+    pub dependencies: Arc<ServeCommandDependenciesContainer>,
     pub configuration: RouterConfig,
 }
 
 impl RouterState {
     /// `RouterState` factory
-    pub fn new(dependencies: Arc<DependenciesContainer>, configuration: RouterConfig) -> Self {
+    pub fn new(
+        dependencies: Arc<ServeCommandDependenciesContainer>,
+        configuration: RouterConfig,
+    ) -> Self {
         Self {
             dependencies,
             configuration,
@@ -92,7 +95,7 @@ impl RouterState {
 
 #[cfg(test)]
 impl RouterState {
-    pub fn new_with_dummy_config(dependencies: Arc<DependenciesContainer>) -> Self {
+    pub fn new_with_dummy_config(dependencies: Arc<ServeCommandDependenciesContainer>) -> Self {
         Self {
             dependencies,
             configuration: RouterConfig::dummy(),
@@ -100,7 +103,7 @@ impl RouterState {
     }
 
     pub fn new_with_origin_tag_white_list(
-        dependencies: Arc<DependenciesContainer>,
+        dependencies: Arc<ServeCommandDependenciesContainer>,
         origin_tag_white_list: &[&str],
     ) -> Self {
         Self {

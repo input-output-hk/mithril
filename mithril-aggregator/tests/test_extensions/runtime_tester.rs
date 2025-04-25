@@ -7,7 +7,7 @@ use mithril_aggregator::{
     database::{record::SignedEntityRecord, repository::OpenMessageRepository},
     dependency_injection::DependenciesBuilder,
     services::FakeSnapshotter,
-    AggregatorRuntime, ConfigurationSource, DependenciesContainer, DumbUploader,
+    AggregatorRuntime, ConfigurationSource, ServeCommandDependenciesContainer, DumbUploader,
     ServeCommandConfiguration, SignerRegistrationError,
 };
 use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
@@ -110,7 +110,7 @@ pub struct RuntimeTester {
     pub immutable_file_observer: Arc<DumbImmutableFileObserver>,
     pub digester: Arc<DumbImmutableDigester>,
     pub genesis_signer: Arc<ProtocolGenesisSigner>,
-    pub dependencies: DependenciesContainer,
+    pub dependencies: ServeCommandDependenciesContainer,
     pub runtime: AggregatorRuntime,
     pub era_reader_adapter: Arc<EraReaderDummyAdapter>,
     pub observer: Arc<AggregatorObserver>,
