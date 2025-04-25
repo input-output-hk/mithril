@@ -126,7 +126,6 @@ pub use current_function_path;
 
 #[cfg(test)]
 mod utils {
-    use std::fs::File;
     use std::io;
     use std::sync::Arc;
     use std::{collections::HashSet, path::Path};
@@ -152,8 +151,9 @@ mod utils {
             Self::from_writer(slog_term::TestStdoutWriter)
         }
 
-        pub fn file(filepath: &std::path::Path) -> Logger {
-            Self::from_writer(File::create(filepath).unwrap())
+        pub fn memory() -> (Logger, MemoryDrainForTestInspector) {
+            let (drain, inspector) = MemoryDrainForTest::new();
+            (Logger::root(drain.fuse(), slog::o!()), inspector)
         }
     }
 

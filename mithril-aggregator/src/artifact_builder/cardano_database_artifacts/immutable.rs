@@ -695,8 +695,6 @@ mod tests {
     }
 
     mod upload {
-        use mithril_common::test_utils::TempDir;
-
         use super::MockImmutableFilesUploader;
 
         use super::*;
@@ -715,36 +713,28 @@ mod tests {
 
         #[tokio::test]
         async fn upload_immutable_archives_should_log_upload_errors() {
-            let log_path = TempDir::create(
-                "immutable",
-                "upload_immutable_archives_should_log_upload_errors",
-            )
-            .join("test.log");
-
+            let (logger, log_inspector) = TestLogger::memory();
             let mut uploader = MockImmutableFilesUploader::new();
             uploader
                 .expect_batch_upload()
                 .return_once(|_, _| Err(anyhow!("Failure while uploading...")));
 
-            {
-                let builder = ImmutableArtifactBuilder::new(
-                    get_builder_work_dir("upload_immutable_archives_should_log_upload_errors"),
-                    vec![Arc::new(uploader)],
-                    Arc::new(MockSnapshotter::new()),
-                    TestLogger::file(&log_path),
+            let builder = ImmutableArtifactBuilder::new(
+                get_builder_work_dir("upload_immutable_archives_should_log_upload_errors"),
+                vec![Arc::new(uploader)],
+                Arc::new(MockSnapshotter::new()),
+                logger,
+            )
+            .unwrap();
+
+            let _ = builder
+                .upload_immutable_archives(
+                    &[PathBuf::from("01.tar.gz"), PathBuf::from("02.tar.gz")],
+                    CompressionAlgorithm::Gzip,
                 )
-                .unwrap();
+                .await;
 
-                let _ = builder
-                    .upload_immutable_archives(
-                        &[PathBuf::from("01.tar.gz"), PathBuf::from("02.tar.gz")],
-                        CompressionAlgorithm::Gzip,
-                    )
-                    .await;
-            }
-
-            let logs = std::fs::read_to_string(&log_path).unwrap();
-            assert!(logs.contains("Failure while uploading..."));
+            assert!(log_inspector.contains_log("Failure while uploading..."));
         }
 
         #[tokio::test]

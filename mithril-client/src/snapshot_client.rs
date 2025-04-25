@@ -461,32 +461,32 @@ mod tests {
 
         #[tokio::test]
         async fn log_warning_if_location_fails() {
-            let log_path = temp_dir_create!().join("test.log");
+            let (logger, log_inspector) = TestLogger::memory();
             let mock_downloader = MockFileDownloaderBuilder::default()
                 .with_file_uri("http://whatever.co/snapshot")
                 .with_failure()
                 .build();
 
-            {
-                let client = SnapshotClient {
-                    logger: TestLogger::file(&log_path),
-                    ..setup_snapshot_client(Arc::new(mock_downloader))
-                };
+            let client = SnapshotClient {
+                logger,
+                ..setup_snapshot_client(Arc::new(mock_downloader))
+            };
 
-                let _result = client
-                    .download_unpack_file(
-                        "test-digest",
-                        &["http://whatever.co/snapshot".to_string()],
-                        19,
-                        &PathBuf::from("/whatever"),
-                        CompressionAlgorithm::Gzip,
-                        dummy_download_event(),
-                    )
-                    .await;
-            }
+            let _result = client
+                .download_unpack_file(
+                    "test-digest",
+                    &["http://whatever.co/snapshot".to_string()],
+                    19,
+                    &PathBuf::from("/whatever"),
+                    CompressionAlgorithm::Gzip,
+                    dummy_download_event(),
+                )
+                .await;
 
-            let logs = std::fs::read_to_string(&log_path).unwrap();
-            assert!(logs.contains("Failed downloading snapshot"));
+            assert!(
+                log_inspector.contains_log("Failed downloading snapshot"),
+                "Expected log message not found, logs: {log_inspector}"
+            );
         }
 
         #[tokio::test]
@@ -620,7 +620,7 @@ mod tests {
 
         #[tokio::test]
         async fn log_a_info_message_telling_that_the_feature_does_not_use_mithril_certification() {
-            let log_path = temp_dir_create!().join("test.log");
+            let (logger, log_inspector) = TestLogger::memory();
             let verification_key = fake_keys::manifest_verification_key()[0]
                 .try_into()
                 .unwrap();
@@ -630,30 +630,30 @@ mod tests {
                 ..Snapshot::dummy()
             };
 
-            {
-                let client = SnapshotClient {
-                    logger: TestLogger::file(&log_path),
-                    ..setup_snapshot_client(
-                        Arc::new(MockFileDownloader::new()),
-                        Some(Arc::new(AncillaryVerifier::new(verification_key))),
-                    )
-                };
+            let client = SnapshotClient {
+                logger,
+                ..setup_snapshot_client(
+                    Arc::new(MockFileDownloader::new()),
+                    Some(Arc::new(AncillaryVerifier::new(verification_key))),
+                )
+            };
 
-                client
-                    .download_unpack_ancillary(
-                        &snapshot,
-                        &PathBuf::from("/whatever"),
-                        "test-download-id",
-                    )
-                    .await
-                    .unwrap()
-            }
+            client
+                .download_unpack_ancillary(
+                    &snapshot,
+                    &PathBuf::from("/whatever"),
+                    "test-download-id",
+                )
+                .await
+                .unwrap();
 
-            let logs = std::fs::read_to_string(&log_path).unwrap();
-            assert!(logs.contains(
-                "Ancillary verification doesn't use the Mithril certification: it is \
+            assert!(
+                log_inspector.contains_log(
+                    "Ancillary verification doesn't use the Mithril certification: it is \
                 done with a signature made with an IOG owned key."
-            ));
+                ),
+                "Expected log message not found, logs: {log_inspector}"
+            );
         }
 
         #[tokio::test]

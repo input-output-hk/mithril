@@ -275,33 +275,25 @@ mod tests {
 
     #[tokio::test]
     async fn upload_ancillary_archive_should_log_upload_errors() {
-        let log_path = TempDir::create(
-            "ancillary",
-            "upload_ancillary_archive_should_log_upload_errors",
-        )
-        .join("test.log");
-
+        let (logger, log_inspector) = TestLogger::memory();
         let mut uploader = MockAncillaryFileUploader::new();
         uploader
             .expect_upload()
             .return_once(|_, _| Err(anyhow!("Failure while uploading...")));
 
-        {
-            let builder = AncillaryArtifactBuilder::new(
-                vec![Arc::new(uploader)],
-                Arc::new(DumbSnapshotter::default()),
-                CardanoNetwork::DevNet(123),
-                TestLogger::file(&log_path),
-            )
-            .unwrap();
+        let builder = AncillaryArtifactBuilder::new(
+            vec![Arc::new(uploader)],
+            Arc::new(DumbSnapshotter::default()),
+            CardanoNetwork::DevNet(123),
+            logger,
+        )
+        .unwrap();
 
-            let _ = builder
-                .upload_ancillary_archive(&FileArchive::dummy())
-                .await;
-        }
+        let _ = builder
+            .upload_ancillary_archive(&FileArchive::dummy())
+            .await;
 
-        let logs = std::fs::read_to_string(&log_path).unwrap();
-        assert!(logs.contains("Failure while uploading..."));
+        assert!(log_inspector.contains_log("Failure while uploading..."));
     }
 
     #[tokio::test]

@@ -225,13 +225,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_cleanup_database() {
-        let (main_db_path, ctx_db_path, event_store_db_path, log_path) = {
+        let (logger, log_inspector) = TestLogger::memory();
+        let (main_db_path, ctx_db_path, event_store_db_path) = {
             let db_dir = temp_dir_create!();
             (
                 db_dir.join("main.db"),
                 db_dir.join("cardano_tx.db"),
                 db_dir.join("event_store.db"),
-                db_dir.join("upkeep.log"),
             )
         };
 
@@ -239,64 +239,52 @@ mod tests {
         let cardano_tx_connection = cardano_tx_db_file_connection(&ctx_db_path).unwrap();
         let event_store_connection = event_store_db_file_connection(&event_store_db_path).unwrap();
 
-        // Separate block to force log flushing by dropping the service that owns the logger
-        {
-            let service = AggregatorUpkeepService::new(
-                Arc::new(main_db_connection),
-                Arc::new(SqliteConnectionPool::build_from_connection(
-                    cardano_tx_connection,
-                )),
-                Arc::new(event_store_connection),
-                Arc::new(SignedEntityTypeLock::default()),
-                vec![],
-                TestLogger::file(&log_path),
-            );
+        let service = AggregatorUpkeepService::new(
+            Arc::new(main_db_connection),
+            Arc::new(SqliteConnectionPool::build_from_connection(
+                cardano_tx_connection,
+            )),
+            Arc::new(event_store_connection),
+            Arc::new(SignedEntityTypeLock::default()),
+            vec![],
+            logger,
+        );
 
-            service.run(Epoch(5)).await.expect("Upkeep service failed");
-        }
-
-        let logs = std::fs::read_to_string(&log_path).unwrap();
+        service.run(Epoch(5)).await.expect("Upkeep service failed");
 
         assert_eq!(
-            logs.matches(SqliteCleaningTask::WalCheckpointTruncate.log_message())
-                .count(),
+            log_inspector.search_logs(SqliteCleaningTask::WalCheckpointTruncate.log_message())
+                .len(),
             3,
             "Should have run three times since the three databases have a `WalCheckpointTruncate` cleanup"
         );
-        assert_eq!(
-            logs.matches(SqliteCleaningTask::Vacuum.log_message())
-                .count(),
-            0,
+        assert!(
+            log_inspector
+                .search_logs(SqliteCleaningTask::Vacuum.log_message())
+                .is_empty(),
             "Upkeep operation should not include Vacuum tasks"
         );
     }
 
     #[tokio::test]
     async fn test_doesnt_cleanup_db_if_any_entity_is_locked() {
-        let log_path = temp_dir_create!().join("upkeep.log");
+        let (logger, log_inspector) = TestLogger::memory();
 
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
         signed_entity_type_lock
             .lock(SignedEntityTypeDiscriminants::CardanoTransactions)
             .await;
 
-        // Separate block to force log flushing by dropping the service that owns the logger
-        {
-            let service = AggregatorUpkeepService {
-                signed_entity_type_lock: signed_entity_type_lock.clone(),
-                logger: TestLogger::file(&log_path),
-                ..default_upkeep_service()
-            };
-            service.run(Epoch(5)).await.expect("Upkeep service failed");
-        }
+        let service = AggregatorUpkeepService {
+            signed_entity_type_lock: signed_entity_type_lock.clone(),
+            logger,
+            ..default_upkeep_service()
+        };
+        service.run(Epoch(5)).await.expect("Upkeep service failed");
 
-        let logs = std::fs::read_to_string(&log_path).unwrap();
-
-        assert_eq!(
-            logs.matches(SqliteCleaningTask::WalCheckpointTruncate.log_message())
-                .count(),
-            0,
-        );
+        assert!(log_inspector
+            .search_logs(SqliteCleaningTask::WalCheckpointTruncate.log_message())
+            .is_empty());
     }
     #[tokio::test]
     async fn test_execute_all_pruning_tasks() {
@@ -323,55 +311,44 @@ mod tests {
 
     #[tokio::test]
     async fn test_doesnt_vacuum_db_if_any_entity_is_locked() {
-        let log_path = temp_dir_create!().join("vacuum.log");
+        let (logger, log_inspector) = TestLogger::memory();
 
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
         signed_entity_type_lock
             .lock(SignedEntityTypeDiscriminants::CardanoTransactions)
             .await;
 
-        // Separate block to force log flushing by dropping the service that owns the logger
-        {
-            let service = AggregatorUpkeepService {
-                signed_entity_type_lock: signed_entity_type_lock.clone(),
-                logger: TestLogger::file(&log_path),
-                ..default_upkeep_service()
-            };
-            service.vacuum().await.expect("Vacuum failed");
-        }
+        let service = AggregatorUpkeepService {
+            signed_entity_type_lock: signed_entity_type_lock.clone(),
+            logger,
+            ..default_upkeep_service()
+        };
+        service.vacuum().await.expect("Vacuum failed");
 
-        let logs = std::fs::read_to_string(&log_path).unwrap();
-
-        assert_eq!(
-            logs.matches(SqliteCleaningTask::Vacuum.log_message())
-                .count(),
-            0,
-        );
+        assert!(log_inspector
+            .search_logs(SqliteCleaningTask::Vacuum.log_message())
+            .is_empty());
     }
 
     #[tokio::test]
     async fn test_vacuum_database() {
-        let log_path = temp_dir_create!().join("vacuum.log");
+        let (logger, log_inspector) = TestLogger::memory();
 
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
         signed_entity_type_lock
             .lock(SignedEntityTypeDiscriminants::CardanoTransactions)
             .await;
 
-        // Separate block to force log flushing by dropping the service that owns the logger
-        {
-            let service = AggregatorUpkeepService {
-                logger: TestLogger::file(&log_path),
-                ..default_upkeep_service()
-            };
-            service.vacuum().await.expect("Vacuum failed");
-        }
-
-        let logs = std::fs::read_to_string(&log_path).unwrap();
+        let service = AggregatorUpkeepService {
+            logger,
+            ..default_upkeep_service()
+        };
+        service.vacuum().await.expect("Vacuum failed");
 
         assert_eq!(
-            logs.matches(SqliteCleaningTask::Vacuum.log_message())
-                .count(),
+            log_inspector
+                .search_logs(SqliteCleaningTask::Vacuum.log_message())
+                .len(),
             1,
         );
     }
