@@ -35,8 +35,8 @@ use mithril_persistence::{
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 
 use super::{
-    DatabaseCommandDependencyContainer, DependenciesBuilderError, EpochServiceWrapper,
-    GenesisToolsDependency, Result, ToolsCommandDependenciesContainer,
+    DatabaseCommandDependenciesContainer, DependenciesBuilderError, EpochServiceWrapper,
+    GenesisCommandDependenciesContainer, Result, ToolsCommandDependenciesContainer,
 };
 use crate::{
     configuration::ConfigurationSource,
@@ -53,9 +53,9 @@ use crate::{
         StakeDistributionService, UpkeepService,
     },
     tools::file_archiver::FileArchiver,
-    AggregatorConfig, AggregatorRunner, AggregatorRuntime, DependenciesContainer,
-    ImmutableFileDigestMapper, MetricsService, MithrilSignerRegistrationLeader, MultiSigner,
-    ProtocolParametersRetriever, SignerRegisterer, SignerRegistrationRoundOpener,
+    AggregatorConfig, AggregatorRunner, AggregatorRuntime, ImmutableFileDigestMapper,
+    MetricsService, MithrilSignerRegistrationLeader, MultiSigner, ProtocolParametersRetriever,
+    ServeCommandDependenciesContainer, SignerRegisterer, SignerRegistrationRoundOpener,
     SignerRegistrationVerifier, SingleSignatureAuthenticator, VerificationKeyStorer,
 };
 
@@ -356,10 +356,12 @@ impl DependenciesBuilder {
         Ok(cardano_db_artifacts_dir)
     }
 
-    /// Return an unconfigured [DependenciesContainer]
-    pub async fn build_dependency_container(&mut self) -> Result<DependenciesContainer> {
+    /// Return an unconfigured [ServeCommandDependenciesContainer]
+    pub async fn build_serve_dependencies_container(
+        &mut self,
+    ) -> Result<ServeCommandDependenciesContainer> {
         #[allow(deprecated)]
-        let dependencies_manager = DependenciesContainer {
+        let dependencies_manager = ServeCommandDependenciesContainer {
             root_logger: self.root_logger(),
             stake_store: self.get_stake_store().await?,
             certificate_repository: self.get_certificate_repository().await?,
@@ -395,7 +397,7 @@ impl DependenciesBuilder {
 
     /// Create the AggregatorRunner
     pub async fn create_aggregator_runner(&mut self) -> Result<AggregatorRuntime> {
-        let dependency_container = Arc::new(self.build_dependency_container().await?);
+        let dependency_container = Arc::new(self.build_serve_dependencies_container().await?);
 
         let config = AggregatorConfig::new(
             Duration::from_millis(self.configuration.run_interval()),
@@ -420,7 +422,7 @@ impl DependenciesBuilder {
     pub async fn create_http_routes(
         &mut self,
     ) -> Result<impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone> {
-        let dependency_container = Arc::new(self.build_dependency_container().await?);
+        let dependency_container = Arc::new(self.build_serve_dependencies_container().await?);
         let snapshot_dir = self.configuration.get_snapshot_dir()?;
         let router_state = RouterState::new(
             dependency_container.clone(),
@@ -445,12 +447,14 @@ impl DependenciesBuilder {
     }
 
     /// Create dependencies for genesis commands
-    pub async fn create_genesis_container(&mut self) -> Result<GenesisToolsDependency> {
+    pub async fn create_genesis_container(
+        &mut self,
+    ) -> Result<GenesisCommandDependenciesContainer> {
         let network = self.configuration.get_network().with_context(|| {
             "Dependencies Builder can not get Cardano network while building genesis container"
         })?;
 
-        let dependencies = GenesisToolsDependency {
+        let dependencies = GenesisCommandDependenciesContainer {
             network,
             chain_observer: self.get_chain_observer().await?,
             certificate_repository: self.get_certificate_repository().await?,
@@ -465,7 +469,7 @@ impl DependenciesBuilder {
     /// Create dependencies for database command
     pub async fn create_database_command_container(
         &mut self,
-    ) -> Result<DatabaseCommandDependencyContainer> {
+    ) -> Result<DatabaseCommandDependenciesContainer> {
         let main_db_connection = self
             .get_sqlite_connection()
             .await
@@ -481,7 +485,7 @@ impl DependenciesBuilder {
                 "Dependencies Builder can not get cardano transaction pool sqlite connection"
             })?;
 
-        let dependencies = DatabaseCommandDependencyContainer { main_db_connection };
+        let dependencies = DatabaseCommandDependenciesContainer { main_db_connection };
 
         Ok(dependencies)
     }

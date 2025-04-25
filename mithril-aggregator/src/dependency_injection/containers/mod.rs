@@ -1,20 +1,20 @@
-mod dependencies_container;
 mod genesis;
+mod serve;
 
-pub use dependencies_container::*;
-pub use genesis::GenesisToolsDependency;
+pub use genesis::GenesisCommandDependenciesContainer;
+pub use serve::*;
 
 use std::sync::Arc;
 
 use mithril_persistence::sqlite::SqliteConnection;
 
-/// Dependency container for the database commands
-pub struct DatabaseCommandDependencyContainer {
+/// Dependencies container for the database commands
+pub struct DatabaseCommandDependenciesContainer {
     /// Main database connection
     pub main_db_connection: Arc<SqliteConnection>,
 }
 
-/// Dependency container for the tools commands
+/// Dependencies container for the tools commands
 pub struct ToolsCommandDependenciesContainer {
     /// Database connection
     pub db_connection: Arc<SqliteConnection>,

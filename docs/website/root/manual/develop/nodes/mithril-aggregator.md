@@ -199,6 +199,18 @@ Options:
 
 You can run the 'genesis bootstrap' command in release mode with the default configuration, but **only in test mode**. This will enable the Mithril aggregator node to bootstrap a `genesis certificate`. After completing this operation, the Mithril aggregator will be able to produce new snapshots and certificates.
 
+First, export the environment variables:
+
+```bash
+export NETWORK=**CARDANO_NETWORK**
+export NETWORK_MAGIC=**NETWORK_MAGIC**
+export DATA_STORES_DIRECTORY=**DATA_STORES_DIRECTORY**
+export CARDANO_NODE_SOCKET_PATH=**CARDANO_NODE_SOCKET_PATH**
+export CHAIN_OBSERVER_TYPE=**CHAIN_OBSERVER_TYPE**
+```
+
+Then, execute the following command:
+
 ```bash
 ./mithril-aggregator genesis bootstrap
 ```
@@ -212,6 +224,18 @@ You can use a specific `genesis secret key` (only in test mode):
 ### Export sub-command
 
 You can run the 'genesis export' command in release mode. This allows the Mithril aggregator node to export the `genesis payload` that needs to be signed (and later reimported) for the `genesis certificate`. The signature of the `genesis payload` must be done manually by the owner of the `genesis secret key`.
+
+First, export the environment variables:
+
+```bash
+export NETWORK=**CARDANO_NETWORK**
+export NETWORK_MAGIC=**NETWORK_MAGIC**
+export DATA_STORES_DIRECTORY=**DATA_STORES_DIRECTORY**
+export CARDANO_NODE_SOCKET_PATH=**CARDANO_NODE_SOCKET_PATH**
+export CHAIN_OBSERVER_TYPE=**CHAIN_OBSERVER_TYPE**
+```
+
+Then, execute the following command:
 
 ```bash
 ./mithril-aggregator genesis export --target-path **YOUR_TARGET_PATH**
@@ -229,14 +253,20 @@ You can run the 'genesis sign' command in release mode. This allows the Mithril 
 
 Run the 'genesis import' command in release mode. This allows the aggregator node to import the signed payload of the `genesis certificate` and store it. After this operation, the aggregator will be able to produce new snapshots and certificates.
 
+First, export the environment variables:
+
 ```bash
-./mithril-aggregator genesis import --signed-payload-path **YOUR_SIGNED_PAYLOAD_PATH**
+export NETWORK=**CARDANO_NETWORK**
+export NETWORK_MAGIC=**NETWORK_MAGIC**
+export DATA_STORES_DIRECTORY=**DATA_STORES_DIRECTORY**
+export CARDANO_NODE_SOCKET_PATH=**CARDANO_NODE_SOCKET_PATH**
+export CHAIN_OBSERVER_TYPE=**CHAIN_OBSERVER_TYPE**
 ```
 
-Run the 'genesis import' command in release mode with a custom configuration using environment variables:
+Then, execute the following command:
 
 ```bash
-GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**) RUN_INTERVAL=60000 NETWORK=**YOUR_CARDANO_NETWORK** ./mithril-aggregator genesis import
+./mithril-aggregator genesis import --signed-payload-path **YOUR_SIGNED_PAYLOAD_PATH** --genesis-verification-key **YOUR_GENESIS_VERIFICATION_KEY**
 ```
 
 ## Building for release and running the binary 'era' command
@@ -463,7 +493,7 @@ The configuration parameters can be set in either of the following ways:
 
 2. The value can be overridden by an environment variable with the parameter name in uppercase.
 
-Here is a list of the available parameters:
+Here is a list of the available parameters for the serve command:
 
 | Parameter                      | Command line (long)  | Command line (short) | Environment variable                                                                 | Description                                                                          | Default value              | Example                                                                                                                 |     Mandatory      |
 | ------------------------------ | -------------------- | :------------------: | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ | -------------------------- | ----------------------------------------------------------------------------------------------------------------------- | :----------------: |

@@ -6,8 +6,8 @@ use mithril_common::{certificate_chain::CertificateVerifier, CardanoNetwork};
 use crate::database::repository::CertificateRepository;
 use crate::{ProtocolParametersRetriever, VerificationKeyStorer};
 
-/// Dependency container for the genesis commands
-pub struct GenesisToolsDependency {
+/// Dependencies container for the genesis commands
+pub struct GenesisCommandDependenciesContainer {
     /// Cardano network
     pub network: CardanoNetwork,
 

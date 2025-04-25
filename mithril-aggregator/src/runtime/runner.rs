@@ -10,7 +10,7 @@ use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
 
 use crate::entities::OpenMessage;
-use crate::DependenciesContainer;
+use crate::ServeCommandDependenciesContainer;
 
 /// Configuration structure dedicated to the AggregatorRuntime.
 #[derive(Debug, Clone)]
@@ -136,13 +136,13 @@ pub trait AggregatorRunnerTrait: Sync + Send {
 /// The runner responsibility is to expose a code API for the state machine. It
 /// holds services and configuration.
 pub struct AggregatorRunner {
-    dependencies: Arc<DependenciesContainer>,
+    dependencies: Arc<ServeCommandDependenciesContainer>,
     logger: Logger,
 }
 
 impl AggregatorRunner {
     /// Create a new instance of the Aggregator Runner.
-    pub fn new(dependencies: Arc<DependenciesContainer>) -> Self {
+    pub fn new(dependencies: Arc<ServeCommandDependenciesContainer>) -> Self {
         let logger = dependencies.root_logger.new_with_component_name::<Self>();
         Self {
             dependencies,
@@ -529,8 +529,8 @@ pub mod tests {
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
         services::{MithrilStakeDistributionService, MockCertifierService},
-        DependenciesContainer, MithrilSignerRegistrationLeader, ServeCommandConfiguration,
-        SignerRegistrationRound,
+        MithrilSignerRegistrationLeader, ServeCommandConfiguration,
+        ServeCommandDependenciesContainer, SignerRegistrationRound,
     };
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
@@ -569,7 +569,9 @@ pub mod tests {
         }
     }
 
-    async fn build_runner_with_fixture_data(deps: DependenciesContainer) -> AggregatorRunner {
+    async fn build_runner_with_fixture_data(
+        deps: ServeCommandDependenciesContainer,
+    ) -> AggregatorRunner {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let current_epoch = deps
             .chain_observer
@@ -731,7 +733,7 @@ pub mod tests {
             builder.get_signer_store().await.unwrap(),
             builder.get_signer_registration_verifier().await.unwrap(),
         ));
-        let mut deps = builder.build_dependency_container().await.unwrap();
+        let mut deps = builder.build_serve_dependencies_container().await.unwrap();
         deps.signer_registration_round_opener = signer_registration_round_opener.clone();
         let stake_store = deps.stake_store.clone();
         let deps = Arc::new(deps);
@@ -773,7 +775,7 @@ pub mod tests {
             builder.get_signer_store().await.unwrap(),
             builder.get_signer_registration_verifier().await.unwrap(),
         ));
-        let mut deps = builder.build_dependency_container().await.unwrap();
+        let mut deps = builder.build_serve_dependencies_container().await.unwrap();
         deps.signer_registration_round_opener = signer_registration_round_opener.clone();
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(deps.clone());
@@ -893,7 +895,7 @@ pub mod tests {
 
         let config = ServeCommandConfiguration::new_sample(temp_dir!());
         let mut deps = DependenciesBuilder::new_with_stdout_logger(Arc::new(config.clone()))
-            .build_dependency_container()
+            .build_serve_dependencies_container()
             .await
             .unwrap();
         deps.certifier_service = Arc::new(mock_certifier_service);

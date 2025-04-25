@@ -450,7 +450,7 @@ mod tests {
         }
 
         let dependency_manager = dependency_builder
-            .build_dependency_container()
+            .build_serve_dependencies_container()
             .await
             .unwrap();
         dependency_manager
