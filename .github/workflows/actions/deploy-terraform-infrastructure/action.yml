@@ -217,7 +217,10 @@ runs:
     - name: Prepare variables
       shell: bash
       id: prepare
-      run: echo "mithril_aggregator_ancillary_signer_gcp_kms_credentials_base64=$(echo '${{ inputs.mithril_aggregator_ancillary_signer_gcp_kms_credentials }}' | base64 -w 0)" >> $GITHUB_OUTPUT
+      run: |
+        MITHRIL_AGGREGATOR_ANCILLARY_SIGNER_GCP_KMS_CREDENTIALS_BASE64=$(echo '${{ inputs.mithril_aggregator_ancillary_signer_gcp_kms_credentials }}' | base64 -w 0)
+        echo "::add-mask::$MITHRIL_AGGREGATOR_ANCILLARY_SIGNER_GCP_KMS_CREDENTIALS_BASE64"
+        echo "mithril_aggregator_ancillary_signer_gcp_kms_credentials_base64=$MITHRIL_AGGREGATOR_ANCILLARY_SIGNER_GCP_KMS_CREDENTIALS_BASE64" >> $GITHUB_OUTPUT
 
     - name: Prepare terraform variables
       shell: bash
