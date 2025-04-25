@@ -36,7 +36,7 @@ use mithril_signed_entity_lock::SignedEntityTypeLock;
 
 use super::{
     DatabaseCommandDependenciesContainer, DependenciesBuilderError, EpochServiceWrapper,
-    GenesisToolsDependency, Result, ToolsCommandDependenciesContainer,
+    GenesisCommandDependenciesContainer, Result, ToolsCommandDependenciesContainer,
 };
 use crate::{
     configuration::ConfigurationSource,
@@ -447,12 +447,14 @@ impl DependenciesBuilder {
     }
 
     /// Create dependencies for genesis commands
-    pub async fn create_genesis_container(&mut self) -> Result<GenesisToolsDependency> {
+    pub async fn create_genesis_container(
+        &mut self,
+    ) -> Result<GenesisCommandDependenciesContainer> {
         let network = self.configuration.get_network().with_context(|| {
             "Dependencies Builder can not get Cardano network while building genesis container"
         })?;
 
-        let dependencies = GenesisToolsDependency {
+        let dependencies = GenesisCommandDependenciesContainer {
             network,
             chain_observer: self.get_chain_observer().await?,
             certificate_repository: self.get_certificate_repository().await?,

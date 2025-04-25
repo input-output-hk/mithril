@@ -18,7 +18,8 @@ use mithril_common::{
 };
 
 use crate::{
-    database::repository::CertificateRepository, dependency_injection::GenesisToolsDependency,
+    database::repository::CertificateRepository,
+    dependency_injection::GenesisCommandDependenciesContainer,
 };
 
 pub struct GenesisTools {
@@ -49,7 +50,9 @@ impl GenesisTools {
         }
     }
 
-    pub async fn from_dependencies(dependencies: GenesisToolsDependency) -> StdResult<Self> {
+    pub async fn from_dependencies(
+        dependencies: GenesisCommandDependenciesContainer,
+    ) -> StdResult<Self> {
         let epoch = dependencies
             .chain_observer
             .get_current_epoch()

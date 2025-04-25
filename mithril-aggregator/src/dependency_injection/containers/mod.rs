@@ -1,7 +1,7 @@
 mod genesis;
 mod serve;
 
-pub use genesis::GenesisToolsDependency;
+pub use genesis::GenesisCommandDependenciesContainer;
 pub use serve::*;
 
 use std::sync::Arc;
