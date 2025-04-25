@@ -529,8 +529,8 @@ pub mod tests {
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
         services::{MithrilStakeDistributionService, MockCertifierService},
-        ServeCommandDependenciesContainer, MithrilSignerRegistrationLeader, ServeCommandConfiguration,
-        SignerRegistrationRound,
+        MithrilSignerRegistrationLeader, ServeCommandConfiguration,
+        ServeCommandDependenciesContainer, SignerRegistrationRound,
     };
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
@@ -569,7 +569,9 @@ pub mod tests {
         }
     }
 
-    async fn build_runner_with_fixture_data(deps: ServeCommandDependenciesContainer) -> AggregatorRunner {
+    async fn build_runner_with_fixture_data(
+        deps: ServeCommandDependenciesContainer,
+    ) -> AggregatorRunner {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let current_epoch = deps
             .chain_observer
@@ -731,7 +733,7 @@ pub mod tests {
             builder.get_signer_store().await.unwrap(),
             builder.get_signer_registration_verifier().await.unwrap(),
         ));
-        let mut deps = builder.build_dependency_container().await.unwrap();
+        let mut deps = builder.build_serve_dependencies_container().await.unwrap();
         deps.signer_registration_round_opener = signer_registration_round_opener.clone();
         let stake_store = deps.stake_store.clone();
         let deps = Arc::new(deps);
@@ -773,7 +775,7 @@ pub mod tests {
             builder.get_signer_store().await.unwrap(),
             builder.get_signer_registration_verifier().await.unwrap(),
         ));
-        let mut deps = builder.build_dependency_container().await.unwrap();
+        let mut deps = builder.build_serve_dependencies_container().await.unwrap();
         deps.signer_registration_round_opener = signer_registration_round_opener.clone();
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(deps.clone());
@@ -893,7 +895,7 @@ pub mod tests {
 
         let config = ServeCommandConfiguration::new_sample(temp_dir!());
         let mut deps = DependenciesBuilder::new_with_stdout_logger(Arc::new(config.clone()))
-            .build_dependency_container()
+            .build_serve_dependencies_container()
             .await
             .unwrap();
         deps.certifier_service = Arc::new(mock_certifier_service);

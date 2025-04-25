@@ -7,8 +7,8 @@ use mithril_aggregator::{
     database::{record::SignedEntityRecord, repository::OpenMessageRepository},
     dependency_injection::DependenciesBuilder,
     services::FakeSnapshotter,
-    AggregatorRuntime, ConfigurationSource, ServeCommandDependenciesContainer, DumbUploader,
-    ServeCommandConfiguration, SignerRegistrationError,
+    AggregatorRuntime, ConfigurationSource, DumbUploader, ServeCommandConfiguration,
+    ServeCommandDependenciesContainer, SignerRegistrationError,
 };
 use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
 use mithril_common::{
@@ -167,7 +167,10 @@ impl RuntimeTester {
         deps_builder.era_reader = Some(Arc::new(EraReader::new(era_reader_adapter.clone())));
         deps_builder.block_scanner = Some(block_scanner.clone());
 
-        let dependencies = deps_builder.build_dependency_container().await.unwrap();
+        let dependencies = deps_builder
+            .build_serve_dependencies_container()
+            .await
+            .unwrap();
         let runtime = deps_builder.create_aggregator_runner().await.unwrap();
         let observer = Arc::new(AggregatorObserver::new(&mut deps_builder).await);
         let open_message_repository = deps_builder.get_open_message_repository().await.unwrap();

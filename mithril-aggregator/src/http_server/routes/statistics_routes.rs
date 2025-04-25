@@ -424,7 +424,8 @@ mod tests {
         let config = ServeCommandConfiguration::new_sample(snapshot_directory);
         let mut builder = DependenciesBuilder::new_with_stdout_logger(Arc::new(config));
         let rx = builder.get_event_transmitter_receiver().await.unwrap();
-        let dependencies_manager = Arc::new(builder.build_dependency_container().await.unwrap());
+        let dependencies_manager =
+            Arc::new(builder.build_serve_dependencies_container().await.unwrap());
         (dependencies_manager, rx)
     }
 

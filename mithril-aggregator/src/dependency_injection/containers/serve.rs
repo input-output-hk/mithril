@@ -273,6 +273,6 @@ pub(crate) mod tests {
 
         let mut builder = DependenciesBuilder::new_with_stdout_logger(Arc::new(config));
 
-        builder.build_dependency_container().await.unwrap()
+        builder.build_serve_dependencies_container().await.unwrap()
     }
 }

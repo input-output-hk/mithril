@@ -357,7 +357,7 @@ impl DependenciesBuilder {
     }
 
     /// Return an unconfigured [ServeCommandDependenciesContainer]
-    pub async fn build_dependency_container(
+    pub async fn build_serve_dependencies_container(
         &mut self,
     ) -> Result<ServeCommandDependenciesContainer> {
         #[allow(deprecated)]
@@ -397,7 +397,7 @@ impl DependenciesBuilder {
 
     /// Create the AggregatorRunner
     pub async fn create_aggregator_runner(&mut self) -> Result<AggregatorRuntime> {
-        let dependency_container = Arc::new(self.build_dependency_container().await?);
+        let dependency_container = Arc::new(self.build_serve_dependencies_container().await?);
 
         let config = AggregatorConfig::new(
             Duration::from_millis(self.configuration.run_interval()),
@@ -422,7 +422,7 @@ impl DependenciesBuilder {
     pub async fn create_http_routes(
         &mut self,
     ) -> Result<impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone> {
-        let dependency_container = Arc::new(self.build_dependency_container().await?);
+        let dependency_container = Arc::new(self.build_serve_dependencies_container().await?);
         let snapshot_dir = self.configuration.get_snapshot_dir()?;
         let router_state = RouterState::new(
             dependency_container.clone(),
