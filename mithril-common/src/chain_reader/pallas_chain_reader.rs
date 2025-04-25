@@ -57,6 +57,21 @@ impl PallasChainReader {
             .with_context(|| "PallasChainReader failed to get a client")
     }
 
+    /// Check if the client already exists.
+    fn has_client(&self) -> bool {
+        self.client.is_some()
+    }
+
+    /// Drops the client by aborting the connection and setting it to `None`.
+    fn drop_client(&mut self) {
+        if let Some(client) = self.client.take() {
+            tokio::spawn(async move {
+                let _ = client.abort().await;
+            });
+        }
+        self.client = None;
+    }
+
     /// Intersects the point of the chain with the given point.
     async fn find_intersect_point(&mut self, point: &RawCardanoPoint) -> StdResult<()> {
         let logger = self.logger.clone();
@@ -99,11 +114,7 @@ impl PallasChainReader {
 
 impl Drop for PallasChainReader {
     fn drop(&mut self) {
-        if let Some(client) = self.client.take() {
-            tokio::spawn(async move {
-                let _ = client.abort().await;
-            });
-        }
+        self.drop_client();
     }
 }
 
@@ -118,11 +129,18 @@ impl ChainBlockReader for PallasChainReader {
         let chainsync = client.chainsync();
 
         let next = match chainsync.has_agency() {
-            true => chainsync.request_next().await?,
-            false => chainsync.recv_while_must_reply().await?,
+            true => chainsync.request_next().await,
+            false => chainsync.recv_while_must_reply().await,
         };
 
-        self.process_chain_block_next_action(next).await
+        match next {
+            Ok(next) => self.process_chain_block_next_action(next).await,
+            Err(err) => {
+                self.drop_client();
+
+                return Err(err.into());
+            }
+        }
     }
 }
 
@@ -374,5 +392,62 @@ mod tests {
             }
             _ => panic!("Unexpected chain block action"),
         }
+    }
+
+    #[tokio::test]
+    async fn get_client_is_dropped_when_error_returned_from_server() {
+        let socket_path = create_temp_dir("get_client_is_dropped_when_error_returned_from_server")
+            .join("node.socket");
+        let known_point = get_fake_specific_point();
+        let known_point_clone = known_point.clone();
+        let server = setup_server(
+            socket_path.clone(),
+            ServerAction::RollForward,
+            HasAgency::No,
+        )
+        .await;
+        let socket_path_clone = socket_path.clone();
+        let client = tokio::spawn(async move {
+            let mut chain_reader = PallasChainReader::new(
+                socket_path_clone.as_path(),
+                CardanoNetwork::TestNet(10),
+                TestLogger::stdout(),
+            );
+
+            chain_reader
+                .set_chain_point(&RawCardanoPoint::from(known_point_clone))
+                .await
+                .unwrap();
+
+            // forces the client to change the chainsync server agency state
+            let client = chain_reader.get_client().await.unwrap();
+            client.chainsync().request_next().await.unwrap();
+
+            chain_reader.get_next_chain_block().await.unwrap().unwrap();
+
+            chain_reader
+        });
+
+        let (_, client_res) = tokio::join!(server, client);
+        let chain_reader = client_res.expect("Client failed to return chain reader");
+        let server = setup_server(
+            socket_path.clone(),
+            ServerAction::RollForward,
+            HasAgency::No,
+        )
+        .await;
+        let client = tokio::spawn(async move {
+            let mut chain_reader = chain_reader;
+
+            println!("RES 123");
+            let res = chain_reader.get_next_chain_block().await;
+            println!("RES 456");
+
+            res
+        });
+        let (_, client_res) = tokio::join!(server, client);
+        let chain_block = client_res
+            .unwrap()
+            .expect_err("Server should have returned an error");
     }
 }
