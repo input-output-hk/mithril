@@ -15,7 +15,7 @@ use crate::{
     },
     entities::{
         Certificate, Epoch, HexEncodedAggregateVerificationKey, PartyId, ProtocolParameters,
-        Signer, SignerWithStake, SingleSignatures, Stake, StakeDistribution,
+        Signer, SignerWithStake, SingleSignature, Stake, StakeDistribution,
         StakeDistributionParty,
     },
     protocol::{SignerBuilder, ToMessage},
@@ -221,7 +221,7 @@ impl MithrilFixture {
 
     /// Make all underlying signers sign the given message, filter the resulting list to remove
     /// the signers that did not sign because they loosed the lottery.
-    pub fn sign_all<T: ToMessage>(&self, message: &T) -> Vec<SingleSignatures> {
+    pub fn sign_all<T: ToMessage>(&self, message: &T) -> Vec<SingleSignature> {
         self.signers
             .par_iter()
             .filter_map(|s| s.sign(message))
@@ -249,14 +249,14 @@ impl From<MithrilFixture> for Vec<SignerFixture> {
 
 impl SignerFixture {
     /// Sign the given protocol message.
-    pub fn sign<T: ToMessage>(&self, message: &T) -> Option<SingleSignatures> {
+    pub fn sign<T: ToMessage>(&self, message: &T) -> Option<SingleSignature> {
         let message = message.to_message();
         self.protocol_signer
             .sign(message.as_bytes())
             .map(|signature| {
                 let won_indexes = signature.indexes.clone();
 
-                SingleSignatures::new(
+                SingleSignature::new(
                     self.signer_with_stake.party_id.to_owned(),
                     signature.into(),
                     won_indexes,

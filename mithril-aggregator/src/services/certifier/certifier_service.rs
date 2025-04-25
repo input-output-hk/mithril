@@ -8,7 +8,7 @@ use mithril_common::certificate_chain::CertificateVerifier;
 use mithril_common::crypto_helper::{ProtocolGenesisVerifier, PROTOCOL_VERSION};
 use mithril_common::entities::{
     Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
-    SignedEntityType, SingleSignatures, StakeDistributionParty,
+    SignedEntityType, SingleSignature, StakeDistributionParty,
 };
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::ToMessage;
@@ -101,7 +101,7 @@ impl CertifierService for MithrilCertifierService {
     async fn register_single_signature(
         &self,
         signed_entity_type: &SignedEntityType,
-        signature: &SingleSignatures,
+        signature: &SingleSignature,
     ) -> StdResult<SignatureRegistrationStatus> {
         debug!(self.logger, ">> register_single_signature(signed_entity_type: {signed_entity_type:?}, single_signatures: {signature:?}");
         trace!(self.logger, ">> register_single_signature"; "complete_single_signatures" => #?signature);

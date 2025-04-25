@@ -2,7 +2,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use std::sync::Arc;
 
-use mithril_common::entities::{SignedEntityTypeDiscriminants, SingleSignatures};
+use mithril_common::entities::{SignedEntityTypeDiscriminants, SingleSignature};
 use mithril_common::{StdError, StdResult};
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
@@ -60,13 +60,13 @@ impl BufferedSingleSignatureStore for BufferedSingleSignatureRepository {
     async fn buffer_signature(
         &self,
         signed_entity_type_discriminant: SignedEntityTypeDiscriminants,
-        signature: &SingleSignatures,
+        signature: &SingleSignature,
     ) -> StdResult<()> {
-        let record = BufferedSingleSignatureRecord::try_from_single_signatures(
+        let record = BufferedSingleSignatureRecord::try_from_single_signature(
             signature,
             signed_entity_type_discriminant,
         )
-        .with_context(|| "Failed to convert SingleSignatures to BufferedSingleSignatureRecord")?;
+        .with_context(|| "Failed to convert SingleSignature to BufferedSingleSignatureRecord")?;
 
         self.connection
             .fetch_first(InsertOrReplaceBufferedSingleSignatureRecordQuery::one(
@@ -79,14 +79,14 @@ impl BufferedSingleSignatureStore for BufferedSingleSignatureRepository {
     async fn get_buffered_signatures(
         &self,
         signed_entity_type_discriminant: SignedEntityTypeDiscriminants,
-    ) -> StdResult<Vec<SingleSignatures>> {
+    ) -> StdResult<Vec<SingleSignature>> {
         self.get_by_discriminant(signed_entity_type_discriminant)
     }
 
     async fn remove_buffered_signatures(
         &self,
         signed_entity_type_discriminant: SignedEntityTypeDiscriminants,
-        single_signatures: Vec<SingleSignatures>,
+        single_signatures: Vec<SingleSignature>,
     ) -> StdResult<()> {
         let signatures_party_ids = single_signatures.into_iter().map(|s| s.party_id).collect();
         self.connection.fetch_first(
@@ -186,7 +186,7 @@ mod tests {
             store
                 .buffer_signature(
                     CardanoTransactions,
-                    &SingleSignatures::new(
+                    &SingleSignature::new(
                         "party1",
                         fake_keys::single_signature()[0].try_into().unwrap(),
                         vec![1],
@@ -197,7 +197,7 @@ mod tests {
             store
                 .buffer_signature(
                     CardanoTransactions,
-                    &SingleSignatures::new(
+                    &SingleSignature::new(
                         "party2",
                         fake_keys::single_signature()[1].try_into().unwrap(),
                         vec![2],
@@ -212,12 +212,12 @@ mod tests {
                 .unwrap();
             assert_eq!(
                 vec![
-                    SingleSignatures::new(
+                    SingleSignature::new(
                         "party2",
                         fake_keys::single_signature()[1].try_into().unwrap(),
                         vec![2],
                     ),
-                    SingleSignatures::new(
+                    SingleSignature::new(
                         "party1",
                         fake_keys::single_signature()[0].try_into().unwrap(),
                         vec![1],
@@ -231,7 +231,7 @@ mod tests {
             store
                 .buffer_signature(
                     MithrilStakeDistribution,
-                    &SingleSignatures::new(
+                    &SingleSignature::new(
                         "party3",
                         fake_keys::single_signature()[2].try_into().unwrap(),
                         vec![3],
@@ -245,7 +245,7 @@ mod tests {
                 .await
                 .unwrap();
             assert_eq!(
-                vec![SingleSignatures::new(
+                vec![SingleSignature::new(
                     "party3",
                     fake_keys::single_signature()[2].try_into().unwrap(),
                     vec![3],

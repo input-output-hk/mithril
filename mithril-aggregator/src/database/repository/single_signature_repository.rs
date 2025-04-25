@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use mithril_common::entities::SingleSignatures;
+use mithril_common::entities::SingleSignature;
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
@@ -21,10 +21,10 @@ impl SingleSignatureRepository {
     /// Create a new Single Signature in database
     pub async fn create_single_signature(
         &self,
-        single_signature: &SingleSignatures,
+        single_signature: &SingleSignature,
         open_message: &OpenMessageRecord,
     ) -> StdResult<SingleSignatureRecord> {
-        let single_signature = SingleSignatureRecord::try_from_single_signatures(
+        let single_signature = SingleSignatureRecord::try_from_single_signature(
             single_signature,
             &open_message.open_message_id,
             open_message.epoch.offset_to_signer_retrieval_epoch()?,

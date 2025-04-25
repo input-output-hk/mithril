@@ -3,7 +3,7 @@ use thiserror::Error;
 
 use mithril_common::entities::{
     Certificate, Epoch, ProtocolMessage, SignedEntityType, SignedEntityTypeDiscriminants,
-    SingleSignatures,
+    SingleSignature,
 };
 use mithril_common::{StdError, StdResult};
 
@@ -79,7 +79,7 @@ pub trait CertifierService: Sync + Send {
     async fn register_single_signature(
         &self,
         signed_entity_type: &SignedEntityType,
-        signature: &SingleSignatures,
+        signature: &SingleSignature,
     ) -> StdResult<SignatureRegistrationStatus>;
 
     /// Create an open message at the given beacon. If the open message does not
@@ -140,19 +140,19 @@ pub trait BufferedSingleSignatureStore: Sync + Send {
     async fn buffer_signature(
         &self,
         signed_entity_type_discriminant: SignedEntityTypeDiscriminants,
-        signature: &SingleSignatures,
+        signature: &SingleSignature,
     ) -> StdResult<()>;
 
     /// Get the buffered single signatures for the given signed entity discriminant.
     async fn get_buffered_signatures(
         &self,
         signed_entity_type_discriminant: SignedEntityTypeDiscriminants,
-    ) -> StdResult<Vec<SingleSignatures>>;
+    ) -> StdResult<Vec<SingleSignature>>;
 
     /// Remove the given single signatures from the buffer.
     async fn remove_buffered_signatures(
         &self,
         signed_entity_type_discriminant: SignedEntityTypeDiscriminants,
-        single_signatures: Vec<SingleSignatures>,
+        single_signatures: Vec<SingleSignature>,
     ) -> StdResult<()>;
 }

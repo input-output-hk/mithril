@@ -6,7 +6,7 @@ use crate::{
         ProtocolAggregateVerificationKey, ProtocolAggregationError, ProtocolClerk,
         ProtocolMultiSignature,
     },
-    entities::SingleSignatures,
+    entities::SingleSignature,
     protocol::ToMessage,
     StdResult,
 };
@@ -28,7 +28,7 @@ impl MultiSigner {
     /// Aggregate the given single signatures into a multi-signature
     pub fn aggregate_single_signatures<T: ToMessage>(
         &self,
-        single_signatures: &[SingleSignatures],
+        single_signatures: &[SingleSignature],
         message: &T,
     ) -> Result<ProtocolMultiSignature, ProtocolAggregationError> {
         let protocol_signatures: Vec<_> = single_signatures
@@ -50,7 +50,7 @@ impl MultiSigner {
     pub fn verify_single_signature<T: ToMessage>(
         &self,
         message: &T,
-        single_signature: &SingleSignatures,
+        single_signature: &SingleSignature,
     ) -> StdResult<()> {
         let protocol_signature = single_signature.to_protocol_signature();
 
@@ -132,7 +132,7 @@ mod test {
         let fixture = MithrilFixtureBuilder::default().with_signers(10).build();
         let multi_signer = build_multi_signer(&fixture);
         let message = ProtocolMessage::default();
-        let signatures: Vec<SingleSignatures> = fixture
+        let signatures: Vec<SingleSignature> = fixture
             .signers_fixture()
             .iter()
             .map(|s| s.sign(&message).unwrap())
@@ -152,7 +152,7 @@ mod test {
             .build();
         let multi_signer = build_multi_signer(&fixture);
         let message = ProtocolMessage::default();
-        let mut signatures: Vec<SingleSignatures> = fixture
+        let mut signatures: Vec<SingleSignature> = fixture
             .signers_fixture()
             .iter()
             .map(|s| s.sign(&message).unwrap())

@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use mithril_common::entities::{ProtocolMessage, SignedEntityType, SingleSignatures};
+use mithril_common::entities::{ProtocolMessage, SignedEntityType, SingleSignature};
 use mithril_common::StdResult;
 
 /// Publishes computed single signature to a third party.
@@ -10,7 +10,7 @@ pub trait SignaturePublisher: Send + Sync {
     async fn publish(
         &self,
         signed_entity_type: &SignedEntityType,
-        signature: &SingleSignatures,
+        signature: &SingleSignature,
         protocol_message: &ProtocolMessage,
     ) -> StdResult<()>;
 }

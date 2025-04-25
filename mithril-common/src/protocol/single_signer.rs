@@ -1,6 +1,6 @@
 use crate::{
     crypto_helper::ProtocolSigner,
-    entities::{PartyId, SingleSignatures},
+    entities::{PartyId, SingleSignature},
     protocol::ToMessage,
     StdResult,
 };
@@ -23,13 +23,13 @@ impl SingleSigner {
     /// Issue a single signature for the given message.
     ///
     /// If no lottery are won None will be returned.
-    pub fn sign<T: ToMessage>(&self, message: &T) -> StdResult<Option<SingleSignatures>> {
+    pub fn sign<T: ToMessage>(&self, message: &T) -> StdResult<Option<SingleSignature>> {
         let signed_message = message.to_message();
         match self.protocol_signer.sign(signed_message.as_bytes()) {
             Some(signature) => {
                 let won_indexes = signature.indexes.clone();
 
-                Ok(Some(SingleSignatures::new(
+                Ok(Some(SingleSignature::new(
                     self.party_id.to_owned(),
                     signature.into(),
                     won_indexes,

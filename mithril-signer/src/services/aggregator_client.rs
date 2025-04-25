@@ -9,8 +9,7 @@ use thiserror::Error;
 use mithril_common::{
     api_version::APIVersionProvider,
     entities::{
-        ClientError, Epoch, ProtocolMessage, ServerError, SignedEntityType, Signer,
-        SingleSignatures,
+        ClientError, Epoch, ProtocolMessage, ServerError, SignedEntityType, Signer, SingleSignature,
     },
     logging::LoggerExtensions,
     messages::{
@@ -157,11 +156,11 @@ pub trait AggregatorClient: Sync + Send {
         signer: &Signer,
     ) -> Result<(), AggregatorClientError>;
 
-    /// Registers single signatures with the aggregator.
-    async fn register_signatures(
+    /// Registers single signature with the aggregator.
+    async fn register_signature(
         &self,
         signed_entity_type: &SignedEntityType,
-        signatures: &SingleSignatures,
+        signature: &SingleSignature,
         protocol_message: &ProtocolMessage,
     ) -> Result<(), AggregatorClientError>;
 
@@ -306,17 +305,17 @@ impl AggregatorClient for AggregatorHTTPClient {
         }
     }
 
-    async fn register_signatures(
+    async fn register_signature(
         &self,
         signed_entity_type: &SignedEntityType,
-        signatures: &SingleSignatures,
+        signature: &SingleSignature,
         protocol_message: &ProtocolMessage,
     ) -> Result<(), AggregatorClientError> {
-        debug!(self.logger, "Register signatures");
+        debug!(self.logger, "Register signature");
         let url = format!("{}/register-signatures", self.aggregator_endpoint);
         let register_single_signature_message = ToRegisterSignatureMessageAdapter::try_adapt((
             signed_entity_type.to_owned(),
-            signatures.to_owned(),
+            signature.to_owned(),
             protocol_message,
         ))
         .map_err(|e| AggregatorClientError::Adapter(anyhow!(e)))?;
@@ -429,11 +428,11 @@ pub(crate) mod dumb {
             Ok(())
         }
 
-        /// Registers single signatures with the aggregator
-        async fn register_signatures(
+        /// Registers single signature with the aggregator
+        async fn register_signature(
             &self,
             _signed_entity_type: &SignedEntityType,
-            _signatures: &SingleSignatures,
+            _signature: &SingleSignature,
             _protocol_message: &ProtocolMessage,
         ) -> Result<(), AggregatorClientError> {
             Ok(())
@@ -775,57 +774,57 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signatures_ok_201() {
-        let single_signatures = fake_data::single_signatures((1..5).collect());
+    async fn test_register_signature_ok_201() {
+        let single_signature = fake_data::single_signature((1..5).collect());
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
             then.status(201);
         });
 
-        let register_signatures = client
-            .register_signatures(
+        let register_signature = client
+            .register_signature(
                 &SignedEntityType::dummy(),
-                &single_signatures,
+                &single_signature,
                 &ProtocolMessage::default(),
             )
             .await;
-        register_signatures.expect("unexpected error");
+        register_signature.expect("unexpected error");
     }
 
     #[tokio::test]
-    async fn test_register_signatures_ok_202() {
-        let single_signatures = fake_data::single_signatures((1..5).collect());
+    async fn test_register_signature_ok_202() {
+        let single_signature = fake_data::single_signature((1..5).collect());
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
             then.status(202);
         });
 
-        let register_signatures = client
-            .register_signatures(
+        let register_signature = client
+            .register_signature(
                 &SignedEntityType::dummy(),
-                &single_signatures,
+                &single_signature,
                 &ProtocolMessage::default(),
             )
             .await;
-        register_signatures.expect("unexpected error");
+        register_signature.expect("unexpected error");
     }
 
     #[tokio::test]
-    async fn test_register_signatures_ko_412() {
+    async fn test_register_signature_ko_412() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
             then.status(412)
                 .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
         });
-        let single_signatures = fake_data::single_signatures((1..5).collect());
+        let single_signature = fake_data::single_signature((1..5).collect());
 
         let error = client
-            .register_signatures(
+            .register_signature(
                 &SignedEntityType::dummy(),
-                &single_signatures,
+                &single_signature,
                 &ProtocolMessage::default(),
             )
             .await
@@ -835,8 +834,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signatures_ko_400() {
-        let single_signatures = fake_data::single_signatures((1..5).collect());
+    async fn test_register_signature_ko_400() {
+        let single_signature = fake_data::single_signature((1..5).collect());
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
@@ -850,9 +849,9 @@ mod tests {
         });
 
         match client
-            .register_signatures(
+            .register_signature(
                 &SignedEntityType::dummy(),
-                &single_signatures,
+                &single_signature,
                 &ProtocolMessage::default(),
             )
             .await
@@ -864,14 +863,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signatures_ok_410_log_response_body() {
+    async fn test_register_signature_ok_410_log_response_body() {
         let log_path = TempDir::create(
             "aggregator_client",
-            "test_register_signatures_ok_410_log_response_body",
+            "test_register_signature_ok_410_log_response_body",
         )
         .join("test.log");
 
-        let single_signatures = fake_data::single_signatures((1..5).collect());
+        let single_signature = fake_data::single_signature((1..5).collect());
         {
             let (server, mut client) = setup_server_and_client();
             client.logger = TestLogger::file(&log_path);
@@ -887,9 +886,9 @@ mod tests {
             });
 
             client
-                .register_signatures(
+                .register_signature(
                     &SignedEntityType::dummy(),
-                    &single_signatures,
+                    &single_signature,
                     &ProtocolMessage::default(),
                 )
                 .await
@@ -902,8 +901,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signatures_ko_409() {
-        let single_signatures = fake_data::single_signatures((1..5).collect());
+    async fn test_register_signature_ko_409() {
+        let single_signature = fake_data::single_signature((1..5).collect());
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
@@ -911,9 +910,9 @@ mod tests {
         });
 
         match client
-            .register_signatures(
+            .register_signature(
                 &SignedEntityType::dummy(),
-                &single_signatures,
+                &single_signature,
                 &ProtocolMessage::default(),
             )
             .await
@@ -925,8 +924,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signatures_ko_500() {
-        let single_signatures = fake_data::single_signatures((1..5).collect());
+    async fn test_register_signature_ko_500() {
+        let single_signature = fake_data::single_signature((1..5).collect());
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
@@ -934,9 +933,9 @@ mod tests {
         });
 
         match client
-            .register_signatures(
+            .register_signature(
                 &SignedEntityType::dummy(),
-                &single_signatures,
+                &single_signature,
                 &ProtocolMessage::default(),
             )
             .await
@@ -948,8 +947,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signatures_timeout() {
-        let single_signatures = fake_data::single_signatures((1..5).collect());
+    async fn test_register_signature_timeout() {
+        let single_signature = fake_data::single_signature((1..5).collect());
         let (server, mut client) = setup_server_and_client();
         client.timeout_duration = Some(Duration::from_millis(10));
         let _server_mock = server.mock(|when, then| {
@@ -958,13 +957,13 @@ mod tests {
         });
 
         let error = client
-            .register_signatures(
+            .register_signature(
                 &SignedEntityType::dummy(),
-                &single_signatures,
+                &single_signature,
                 &ProtocolMessage::default(),
             )
             .await
-            .expect_err("register_signatures should fail");
+            .expect_err("register_signature should fail");
 
         assert!(
             matches!(error, AggregatorClientError::RemoteServerUnreachable(_)),
@@ -1116,9 +1115,9 @@ mod tests {
         });
 
         client
-            .register_signatures(
+            .register_signature(
                 &SignedEntityType::dummy(),
-                &fake_data::single_signatures((1..5).collect()),
+                &fake_data::single_signature((1..5).collect()),
                 &ProtocolMessage::default(),
             )
             .await

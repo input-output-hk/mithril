@@ -7,7 +7,7 @@ use tokio::sync::RwLock;
 use mithril_common::{
     entities::{
         CardanoTransactionsSigningConfig, Epoch, ProtocolMessage, SignedEntityConfig,
-        SignedEntityType, SignedEntityTypeDiscriminants, Signer, SingleSignatures, TimePoint,
+        SignedEntityType, SignedEntityTypeDiscriminants, Signer, SingleSignature, TimePoint,
     },
     messages::AggregatorFeaturesMessage,
     test_utils::fake_data,
@@ -144,10 +144,10 @@ impl AggregatorClient for FakeAggregator {
     }
 
     /// Registers single signatures with the aggregator
-    async fn register_signatures(
+    async fn register_signature(
         &self,
         _signed_entity_type: &SignedEntityType,
-        _signatures: &SingleSignatures,
+        _signature: &SingleSignature,
         _protocol_message: &ProtocolMessage,
     ) -> Result<(), AggregatorClientError> {
         Ok(())

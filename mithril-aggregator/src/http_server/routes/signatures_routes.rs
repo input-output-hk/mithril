@@ -58,7 +58,7 @@ mod handlers {
         let signed_entity_type = message.signed_entity_type.clone();
         let signed_message = message.signed_message.clone();
 
-        let mut signatures = match FromRegisterSingleSignatureAdapter::try_adapt(message) {
+        let mut single_signature = match FromRegisterSingleSignatureAdapter::try_adapt(message) {
             Ok(signature) => signature,
             Err(err) => {
                 warn!(logger,"register_signatures::payload decoding error"; "error" => ?err);
@@ -72,12 +72,12 @@ mod handlers {
 
         unwrap_to_internal_server_error!(
             single_signer_authenticator
-                .authenticate(&mut signatures, &signed_message)
+                .authenticate(&mut single_signature, &signed_message)
                 .await,
             logger => "single_signer_authenticator::error"
         );
 
-        if !signatures.is_authenticated() {
+        if !single_signature.is_authenticated() {
             debug!(logger, "register_signatures::unauthenticated_signature");
             return Ok(reply::bad_request(
                 "Could not authenticate signature".to_string(),
@@ -86,7 +86,7 @@ mod handlers {
         }
 
         match certifier_service
-            .register_single_signature(&signed_entity_type, &signatures)
+            .register_single_signature(&signed_entity_type, &single_signature)
             .await
         {
             Err(err) => match err.downcast_ref::<CertifierServiceError>() {

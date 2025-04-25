@@ -126,16 +126,16 @@ impl CertifierService for SignerCertifierService {
         beacon_to_sign: &BeaconToSign,
         protocol_message: &ProtocolMessage,
     ) -> StdResult<()> {
-        if let Some(single_signatures) = self
+        if let Some(single_signature) = self
             .single_signer
-            .compute_single_signatures(protocol_message)
+            .compute_single_signature(protocol_message)
             .await?
         {
             debug!(self.logger, " > There is a single signature to send");
             self.signature_publisher
                 .publish(
                     &beacon_to_sign.signed_entity_type,
-                    &single_signatures,
+                    &single_signature,
                     protocol_message,
                 )
                 .await?;
@@ -349,9 +349,9 @@ mod tests {
             single_signer: {
                 let mut single_signer = MockSingleSigner::new();
                 single_signer
-                    .expect_compute_single_signatures()
+                    .expect_compute_single_signature()
                     .with(eq(protocol_message.clone()))
-                    .return_once(|_| Ok(Some(fake_data::single_signatures(vec![1, 5, 12]))));
+                    .return_once(|_| Ok(Some(fake_data::single_signature(vec![1, 5, 12]))));
                 Arc::new(single_signer)
             },
             signature_publisher: {
@@ -360,7 +360,7 @@ mod tests {
                     .expect_publish()
                     .with(
                         eq(beacon_to_sign.signed_entity_type.clone()),
-                        eq(fake_data::single_signatures(vec![1, 5, 12])),
+                        eq(fake_data::single_signature(vec![1, 5, 12])),
                         eq(protocol_message.clone()),
                     )
                     .returning(|_, _, _| Ok(()));
@@ -401,7 +401,7 @@ mod tests {
             single_signer: {
                 let mut single_signer = MockSingleSigner::new();
                 single_signer
-                    .expect_compute_single_signatures()
+                    .expect_compute_single_signature()
                     .with(eq(protocol_message.clone()))
                     .return_once(|_| Ok(None));
                 Arc::new(single_signer)
@@ -440,7 +440,7 @@ mod tests {
             single_signer: {
                 let mut single_signer = MockSingleSigner::new();
                 single_signer
-                    .expect_compute_single_signatures()
+                    .expect_compute_single_signature()
                     .return_once(|_| Err(anyhow::anyhow!("error")));
                 Arc::new(single_signer)
             },
@@ -470,8 +470,8 @@ mod tests {
             single_signer: {
                 let mut single_signer = MockSingleSigner::new();
                 single_signer
-                    .expect_compute_single_signatures()
-                    .return_once(|_| Ok(Some(fake_data::single_signatures(vec![1, 5, 12]))));
+                    .expect_compute_single_signature()
+                    .return_once(|_| Ok(Some(fake_data::single_signature(vec![1, 5, 12]))));
                 Arc::new(single_signer)
             },
             signature_publisher: {
