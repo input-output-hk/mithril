@@ -71,7 +71,7 @@ impl MainCommand {
     }
 }
 
-/// Mithril Aggregator Node
+/// Mithril aggregator node
 #[derive(Documenter, Parser, Debug, Clone)]
 #[command(version)]
 pub struct MainOpts {
