@@ -7,6 +7,12 @@ tags: [certification, cardano node database v2]
 
 ### Certification of Cardano node database v2
 
+:::info Update 2025/04/25
+
+We have activated the **Cardano node database v2 certification** on the `release-preprod` network.
+
+:::
+
 With the release of the new distribution [2513](https://github.com/input-output-hk/mithril/releases/tag/2513.0), we have started to roll out the certification of the [**Cardano node database v2**](https://mithril.network/doc/mithril/advanced/mithril-certification/cardano-node-database-v2/) in the Mithril networks.
 
 Initially, Mithril certified entire database snapshots, requiring clients to download and verify the full database to bootstrap a Cardano node. The Mithril network now provides incremental certification of the Cardano node database, allowing clients to download only the specific range of immutable files needed, accelerating the process of bootstrapping a Cardano node. The key features include:
@@ -18,9 +24,9 @@ Initially, Mithril certified entire database snapshots, requiring clients to dow
 
 The roll-out plan of the feature is the following:
 
-- [ ] Distribution [2513](https://github.com/input-output-hk/mithril/releases/tag/2513.0):
+- [x] Distribution [2513](https://github.com/input-output-hk/mithril/releases/tag/2513.0):
   - [x] Activation of the certification of **Cardano node database v2** in the `pre-release-preview` network
-  - [ ] Activation of the certification of **Cardano node database v2** in the `release-preprod` network
+  - [x] Activation of the certification of **Cardano node database v2** in the `release-preprod` network
 - [ ] Next distribution:
   - [ ] Activation of the certification of **Cardano node database v2** in the `release-mainnet` network.
 
