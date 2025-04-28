@@ -120,7 +120,7 @@ impl slog::Serializer for KVSerializer {
 
 #[cfg(test)]
 mod tests {
-    use slog::debug;
+    use slog::info;
 
     use super::*;
 
@@ -130,11 +130,11 @@ mod tests {
         let logger = slog::Logger::root(drain.clone().fuse(), slog::o!("shared" => "shared"));
 
         // Note: keys seem to be logged in invert order
-        debug!(logger, "test format"; "key_3" => "value three", "key_2" => "value two", "key_1" => "value one");
+        info!(logger, "test format"; "key_3" => "value three", "key_2" => "value two", "key_1" => "value one");
 
         let results = log_inspector.search_logs("test format");
         assert_eq!(
-            "DEBUG test format; key_1=value one, key_2=value two, key_3=value three, shared=shared",
+            "INFO test format; key_1=value one, key_2=value two, key_3=value three, shared=shared",
             results[0]
         );
     }
@@ -144,13 +144,13 @@ mod tests {
         let (drain, log_inspector) = MemoryDrainForTest::new();
         let logger = slog::Logger::root(drain.fuse(), slog::o!());
 
-        debug!(logger, "message one"; "key" => "value1");
-        debug!(logger, "message two"; "key" => "value2");
+        info!(logger, "message one"; "key" => "value1");
+        info!(logger, "message two"; "key" => "value2");
 
         let display = format!("{log_inspector}");
         assert_eq!(
             display,
-            "DEBUG message one; key=value1\nDEBUG message two; key=value2"
+            "INFO message one; key=value1\nINFO message two; key=value2"
         );
     }
 
@@ -159,8 +159,8 @@ mod tests {
         let (drain, log_inspector) = MemoryDrainForTest::new();
         let logger = slog::Logger::root(drain.clone().fuse(), slog::o!());
 
-        debug!(logger, "test message"; "key" => "value");
-        debug!(logger, "another message"; "key2" => "value2");
+        info!(logger, "test message"; "key" => "value");
+        info!(logger, "another message"; "key2" => "value2");
 
         let results = log_inspector.search_logs("test");
         assert_eq!(results.len(), 1);
@@ -176,11 +176,11 @@ mod tests {
 
         let handle1 = tokio::spawn(async move {
             let logger = slog::Logger::root(drain_clone1.fuse(), slog::o!());
-            debug!(logger, "async test 1"; "key" => "value");
+            info!(logger, "async test 1"; "key" => "value");
         });
         let handle2 = tokio::spawn(async move {
             let logger = slog::Logger::root(drain_clone2.fuse(), slog::o!());
-            debug!(logger, "async test 2"; "key" => "value");
+            info!(logger, "async test 2"; "key" => "value");
         });
 
         handle1.await.unwrap();
@@ -201,7 +201,7 @@ mod tests {
             let drain_clone = drain.clone();
             join_set.spawn(async move {
                 let logger = slog::Logger::root(drain_clone.fuse(), slog::o!());
-                debug!(logger, "multi thread test {i}"; "thread_id" => i);
+                info!(logger, "multi thread test {i}"; "thread_id" => i);
             });
         }
 

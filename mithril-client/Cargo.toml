@@ -72,10 +72,6 @@ mithril-common = { path = "../mithril-common", version = "=0.5", default-feature
 ] }
 mockall = { workspace = true }
 sha2 = "0.10.8"
-slog = { workspace = true, features = [
-    "max_level_trace",
-    "release_max_level_warn",
-] }
 slog-async = { workspace = true }
 slog-term = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
