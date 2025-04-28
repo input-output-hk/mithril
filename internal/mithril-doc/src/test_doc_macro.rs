@@ -44,7 +44,7 @@ mod tests {
     #[test]
     fn test_extract_struct_of_default_configuration() {
         let doc = MyDefaultConfiguration::extract();
-        let field = doc.get_field("environment");
+        let field = doc.get_field("environment").unwrap();
 
         assert_eq!("environment", field.parameter);
         assert_eq!("ENVIRONMENT", field.environment_variable.as_ref().unwrap());
@@ -55,7 +55,7 @@ mod tests {
     #[test]
     fn test_extract_struct_of_configuration() {
         let doc = MyConfiguration::extract();
-        let field = doc.get_field("environment");
+        let field = doc.get_field("environment").unwrap();
 
         assert_eq!("environment", field.parameter);
         assert_eq!("ENVIRONMENT", field.environment_variable.as_ref().unwrap());
@@ -67,12 +67,12 @@ mod tests {
     fn test_extract_example_of_configuration() {
         {
             let doc_with_example = MyConfiguration::extract();
-            let field = doc_with_example.get_field("environment");
+            let field = doc_with_example.get_field("environment").unwrap();
             assert_eq!(Some("dev".to_string()), field.example);
         }
         {
             let doc_without_example = MyDefaultConfiguration::extract();
-            let field = doc_without_example.get_field("environment");
+            let field = doc_without_example.get_field("environment").unwrap();
             assert_eq!(None, field.example);
         }
     }

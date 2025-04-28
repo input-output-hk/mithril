@@ -81,9 +81,7 @@ pub fn doc_markdown_with_config(
         {
             let mut command_parameters = extract_clap_info::extract_parameters(cmd);
             if let Some(config_doc) = struct_doc {
-                if !config_doc.data.is_empty() {
-                    command_parameters = command_parameters.merge_struct_doc(config_doc);
-                }
+                command_parameters = command_parameters.merge_struct_doc(config_doc);
             }
 
             let parameters_table = doc_config_to_markdown(&command_parameters);
@@ -189,8 +187,8 @@ pub fn doc_markdown_with_config(
 
 pub fn doc_config_to_markdown(struct_doc: &StructDoc) -> String {
     let subcommands_lines = struct_doc
-        .data
-        .iter()
+        .get_ordered_data()
+        .into_iter()
         .map(|config| {
             let config = config.clone();
             vec![
@@ -316,7 +314,7 @@ mod tests {
     #[test]
     fn test_format_arg_with_empty_struct_doc() {
         let mut command = MyCommand::command();
-        let merged_struct_doc = StructDoc::new();
+        let merged_struct_doc = StructDoc::default();
         let configs = HashMap::from([("".to_string(), merged_struct_doc)]);
         let doc = doc_markdown_with_config(&mut command, configs);
 
