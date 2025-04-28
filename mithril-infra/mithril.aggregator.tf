@@ -1,5 +1,6 @@
 locals {
-  mithril_aggregator_relay_mithril_listen_port = 6060
+  mithril_aggregator_relay_mithril_listen_port            = 6060
+  mithril_aggregator_ancillary_signer_gcp_kms_credentials = base64decode(var.mithril_aggregator_ancillary_signer_gcp_kms_credentials)
 }
 
 resource "null_resource" "mithril_aggregator" {
@@ -94,7 +95,18 @@ EOT
       "export ERA_READER_ADAPTER_TYPE='${var.mithril_era_reader_adapter_type}'",
       "export ERA_READER_ADAPTER_PARAMS=$(jq -nc --arg address $(wget -q -O - ${var.mithril_era_reader_address_url}) --arg verification_key $(wget -q -O - ${var.mithril_era_reader_verification_key_url}) '{\"address\": $address, \"verification_key\": $verification_key}')",
       "export ERA_READER_SECRET_KEY='${var.mithril_era_reader_secret_key}'",
-      "export ANCILLARY_FILES_SIGNER_CONFIG=$(jq -nc --arg secret_key ${var.mithril_genesis_secret_key} '{\"type\": \"secret-key\", \"secret_key\": $secret_key}')",
+      <<-EOT
+set -e
+export ANCILLARY_FILES_SIGNER_TYPE=${var.mithril_aggregator_ancillary_signer_type}
+if [ "$ANCILLARY_FILES_SIGNER_TYPE" = "secret-key" ]; then
+  export ANCILLARY_FILES_SIGNER_CONFIG=$(jq -nc --arg secret_key ${var.mithril_aggregator_ancillary_signer_secret_key} '{"type": "secret-key", "secret_key": $secret_key}')
+fi
+if [ "$ANCILLARY_FILES_SIGNER_TYPE" = "gcp-kms" ]; then
+  export ANCILLARY_FILES_SIGNER_CONFIG=$(jq -nc --arg resource_name ${var.mithril_aggregator_ancillary_signer_gcp_kms_resource_name} '{"type": "gcp-kms", "resource_name": $resource_name, "credentials_json_env_var": "GOOGLE_APPLICATION_CREDENTIALS_GCP_KMS_JSON"}')
+  export GOOGLE_APPLICATION_CREDENTIALS_GCP_KMS_JSON='${local.mithril_aggregator_ancillary_signer_gcp_kms_credentials}'
+fi
+EOT
+      ,
       "export CEXPLORER_POOLS_URL='${var.mithril_aggregator_cexplorer_pools_url}'",
       "export ALLOW_UNPARSABLE_BLOCK=${var.mithril_aggregator_allow_unparsable_block}",
       "export CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE=${var.mithril_aggregator_cardano_transactions_prover_cache_pool_size}",

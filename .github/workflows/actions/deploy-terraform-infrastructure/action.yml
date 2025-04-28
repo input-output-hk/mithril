@@ -149,6 +149,21 @@ inputs:
     description: Mithril aggregator leader aggregator endpoint to follow.
     required: false
     default: ""
+  mithril_aggregator_ancillary_signer_type:
+    description: Mithril aggregator ancillary signer type ('secret-key' or 'gcp-kms').
+    required: true
+  mithril_aggregator_ancillary_signer_secret_key:
+    description: Mithril aggregator ancillary signer secret key used to sign ancillary files (used with mithril_aggregator_ancillary_signer_type='secret-key').
+    required: false
+    default: ""
+  mithril_aggregator_ancillary_signer_gcp_kms_resource_name:
+    description: Mithril aggregator ancillary signer GCP KMS resource name used to sign ancillary files (used with mithril_aggregator_ancillary_signer_type='gcp-kms').
+    required: false
+    default: ""
+  mithril_aggregator_ancillary_signer_gcp_kms_credentials:
+    description: Mithril aggregator ancillary signer JSON credentials to access GCP KMS (used with mithril_aggregator_ancillary_signer_type='gcp-kms').
+    required: false
+    default: ""
   prometheus_auth_username:
     description: Prometheus metrics endpoint username.
     required: false
@@ -199,6 +214,14 @@ runs:
         chmod u+x ./assets/tools/utils/google-credentials-public-key.sh
         ./assets/tools/utils/google-credentials-public-key.sh ./google-application-credentials.json ./assets/ssh_keys-${{ inputs.google_compute_instance_ssh_keys_environment }} curry
 
+    - name: Prepare variables
+      shell: bash
+      id: prepare
+      run: |
+        MITHRIL_AGGREGATOR_ANCILLARY_SIGNER_GCP_KMS_CREDENTIALS_BASE64=$(echo '${{ inputs.mithril_aggregator_ancillary_signer_gcp_kms_credentials }}' | base64 -w 0)
+        echo "::add-mask::$MITHRIL_AGGREGATOR_ANCILLARY_SIGNER_GCP_KMS_CREDENTIALS_BASE64"
+        echo "mithril_aggregator_ancillary_signer_gcp_kms_credentials_base64=$MITHRIL_AGGREGATOR_ANCILLARY_SIGNER_GCP_KMS_CREDENTIALS_BASE64" >> $GITHUB_OUTPUT
+
     - name: Prepare terraform variables
       shell: bash
       working-directory: mithril-infra
@@ -246,6 +269,10 @@ runs:
           mithril_aggregator_cardano_transactions_signing_config_security_parameter = "${{ inputs.mithril_aggregator_cardano_transactions_signing_config_security_parameter }}"
           mithril_aggregator_cardano_transactions_signing_config_step               = "${{ inputs.mithril_aggregator_cardano_transactions_signing_config_step }}"
           mithril_aggregator_leader_aggregator_endpoint                             = "${{ inputs.mithril_aggregator_leader_aggregator_endpoint }}"
+          mithril_aggregator_ancillary_signer_type                                  = "${{ inputs.mithril_aggregator_ancillary_signer_type }}"
+          mithril_aggregator_ancillary_signer_secret_key                            = "${{ inputs.mithril_aggregator_ancillary_signer_secret_key }}"
+          mithril_aggregator_ancillary_signer_gcp_kms_resource_name                 = "${{ inputs.mithril_aggregator_ancillary_signer_gcp_kms_resource_name }}"
+          mithril_aggregator_ancillary_signer_gcp_kms_credentials                   = "${{ steps.prepare.outputs.mithril_aggregator_ancillary_signer_gcp_kms_credentials_base64 }}"
           prometheus_auth_username                                                  = "${{ inputs.prometheus_auth_username }}"
           prometheus_auth_password                                                  = "${{ inputs.prometheus_auth_password }}"
           prometheus_ingest_host                                                    = "${{ inputs.prometheus_ingest_host }}"
