@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client"
-version = "0.11.21"
+version = "0.11.22"
 description = "Mithril client library"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -29,28 +29,27 @@ path = "tests/cardano_db_snapshot_list_get_download_verify.rs"
 required-features = ["unstable", "fs"]
 
 [dependencies]
-anyhow = "1.0.97"
-async-recursion = "1.1.1"
-async-trait = "0.1.88"
-chrono = { version = "0.4.40", features = ["serde"] }
+anyhow = { workspace = true }
+async-recursion = { workspace = true }
+async-trait = { workspace = true }
+chrono = { workspace = true }
 flate2 = { version = "1.1.0", optional = true }
 flume = { version = "0.11.1", optional = true }
 futures = "0.3.31"
-reqwest = { version = "0.12.15", default-features = false, features = [
+reqwest = { workspace = true, default-features = false, features = [
     "charset",
     "http2",
     "macos-system-configuration",
-    "json",
     "stream",
 ] }
-semver = "1.0.26"
-serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.140"
-slog = "2.7.0"
-strum = { version = "0.27.1", features = ["derive"] }
+semver = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+slog = { workspace = true }
+strum = { workspace = true }
 tar = { version = "0.4.44", optional = true }
-thiserror = "2.0.12"
-tokio = { version = "1.44.1", features = ["sync"] }
+thiserror = { workspace = true }
+tokio = { workspace = true }
 uuid = { version = "1.16.0", features = ["v4"] }
 zstd = { version = "0.13.3", optional = true }
 
@@ -62,32 +61,25 @@ mithril-common = { path = "../mithril-common", version = "=0.5", default-feature
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.2.15", features = ["js"] }
 mithril-common = { path = "../mithril-common", version = "=0.5", default-features = false }
-reqwest = { version = "0.12.15", default-features = false, features = [
-    "charset",
-    "http2",
-    "macos-system-configuration",
-    "json",
-    "stream",
-] }
 uuid = { version = "1.16.0", features = ["v4", "js"] }
 
 [dev-dependencies]
 bon = "3.5.1"
-hex = "0.4.3"
+hex = { workspace = true }
 httpmock = "0.7.0"
 mithril-common = { path = "../mithril-common", version = "=0.5", default-features = false, features = [
     "test_tools",
 ] }
-mockall = "0.13.1"
+mockall = { workspace = true }
 sha2 = "0.10.8"
-slog = { version = "2.7.0", features = [
+slog = { workspace = true, features = [
     "max_level_trace",
     "release_max_level_warn",
 ] }
-slog-async = "2.8.0"
-slog-term = "2.9.1"
-tokio = { version = "1.44.1", features = ["macros", "rt"] }
-warp = "0.3.7"
+slog-async = { workspace = true }
+slog-term = { workspace = true }
+tokio = { workspace = true, features = ["macros"] }
+warp = { workspace = true }
 
 [features]
 # Include native-tls in reqwest by default

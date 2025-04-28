@@ -1,6 +1,6 @@
 [package]
 name = "mithril-stm"
-version = "0.3.43"
+version = "0.3.44"
 edition = { workspace = true }
 authors = { workspace = true }
 homepage = { workspace = true }
@@ -17,11 +17,11 @@ crate-type = ["lib", "cdylib", "staticlib"]
 blake2 = "0.10.6"
 # Enforce blst portable feature for runtime detection of Intel ADX instruction set.
 blst = { version = "0.3.14", features = ["portable"] }
-digest = { version = "0.10.7", features = ["alloc"] }
-rand_core = "0.6.4"
-rayon = "1.10.0"
-serde = { version = "1.0.219", features = ["rc", "derive"] }
-thiserror = "2.0.12"
+digest = { workspace = true }
+rand_core = { workspace = true }
+rayon = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
 
 [target.'cfg(not(any(target_family = "wasm", windows)))'.dependencies]
 # only unix supports the rug backend
@@ -43,7 +43,7 @@ num-bigint = "0.4.6"
 num-rational = "0.4.2"
 proptest = "1.6.0"
 rand = "0.9.0"
-rand_chacha = "0.3.1"
+rand_chacha = { workspace = true }
 
 [[bench]]
 name = "multi_sig"
@@ -59,10 +59,9 @@ name = "size_benches"
 harness = false
 
 [features]
-default = ["rug-backend"]
+default = ["rug-backend", "batch-verify-aggregates"]
 rug-backend = ["rug/default"]
 num-integer-backend = ["num-bigint", "num-rational", "num-traits"]
 portable = [] # deprecated, will be removed soon
 benchmark-internals = [] # For benchmarking multi_sig
-batch-verify-aggregates = [
-] # For batch verification of multi-signatures (set automatically by build script)
+batch-verify-aggregates = [] # deprecated, will be removed soon

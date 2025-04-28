@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client-cli"
-version = "0.11.14"
+version = "0.11.15"
 description = "A Mithril Client"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -22,12 +22,12 @@ Run `mithril-client --help` to display the available options."""
 assets = [["../target/release/mithril-client", "usr/bin/", "755"]]
 
 [dependencies]
-anyhow = "1.0.97"
-async-trait = "0.1.88"
-chrono = { version = "0.4.40", features = ["serde"] }
-clap = { version = "4.5.32", features = ["derive", "env"] }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+chrono = { workspace = true }
+clap = { workspace = true }
 cli-table = "0.5.0"
-config = "0.15.11"
+config = { workspace = true }
 fs2 = "0.4.3"
 futures = "0.3.31"
 human_bytes = { version = "0.4.3", features = ["fast"] }
@@ -35,17 +35,17 @@ indicatif = { version = "0.17.11", features = ["tokio"] }
 mithril-cli-helper = { path = "../internal/mithril-cli-helper" }
 mithril-client = { path = "../mithril-client", features = ["fs", "unstable"] }
 mithril-doc = { path = "../internal/mithril-doc" }
-serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.140"
-slog = { version = "2.7.0", features = [
+serde = { workspace = true }
+serde_json = { workspace = true }
+slog = { workspace = true, features = [
     "max_level_trace",
     "release_max_level_debug",
 ] }
-slog-async = "2.8.0"
-slog-bunyan = "2.5.0"
-slog-term = "2.9.1"
-thiserror = "2.0.12"
-tokio = { version = "1.44.1", features = ["full"] }
+slog-async = { workspace = true }
+slog-bunyan = { workspace = true }
+slog-term = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [dev-dependencies]
 mithril-common = { path = "../mithril-common", features = ["test_tools"] }

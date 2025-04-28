@@ -1,6 +1,6 @@
 [package]
 name = "mithril-relay"
-version = "0.1.39"
+version = "0.1.40"
 description = "A Mithril relay"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -11,9 +11,9 @@ repository = { workspace = true }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.97"
-clap = { version = "4.5.32", features = ["derive", "env"] }
-config = "0.15.11"
+anyhow = { workspace = true }
+clap = { workspace = true }
+config = { workspace = true }
 libp2p = { version = "0.55.0", features = [
     "tokio",
     "gossipsub",
@@ -33,30 +33,30 @@ libp2p = { version = "0.55.0", features = [
 ] }
 mithril-common = { path = "../mithril-common", features = ["full"] }
 mithril-doc = { path = "../internal/mithril-doc" }
-reqwest = { version = "0.12.15", features = [
-    "json",
+reqwest = { workspace = true, features = [
+    "default",
     "gzip",
     "zstd",
     "deflate",
     "brotli"
 ] }
-serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.140"
-slog = { version = "2.7.0", features = [
+serde = { workspace = true }
+serde_json = { workspace = true }
+slog = { workspace = true, features = [
     "max_level_trace",
     "release_max_level_trace",
 ] }
-slog-async = "2.8.0"
-slog-bunyan = "2.5.0"
-strum = { version = "0.26.3", features = ["derive"] }
-thiserror = "2.0.12"
-tokio = { version = "1.44.1", features = ["full"] }
-warp = "0.3.7"
+slog-async = { workspace = true }
+slog-bunyan = { workspace = true }
+strum = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+warp = { workspace = true }
 
 [dev-dependencies]
 httpmock = "0.7.0"
 slog-scope = "4.4.0"
-slog-term = "2.9.1"
+slog-term = { workspace = true }
 
 [features]
 bundle_tls = ["reqwest/native-tls-vendored"]

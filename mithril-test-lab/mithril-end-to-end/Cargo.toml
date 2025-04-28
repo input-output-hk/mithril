@@ -1,6 +1,6 @@
 [package]
 name = "mithril-end-to-end"
-version = "0.4.80"
+version = "0.4.81"
 authors = { workspace = true }
 edition = { workspace = true }
 documentation = { workspace = true }
@@ -15,24 +15,24 @@ test = false
 bench = false
 
 [dependencies]
-anyhow = "1.0.97"
-async-recursion = "1.1.1"
-clap = { version = "4.5.32", features = ["derive"] }
+anyhow = { workspace = true }
+async-recursion = { workspace = true }
+clap = { workspace = true }
 indicatif = { version = "0.17.11", features = ["tokio"] }
 mithril-common = { path = "../../mithril-common", features = ["full"] }
 mithril-doc = { path = "../../internal/mithril-doc" }
-reqwest = { version = "0.12.15", features = ["json"] }
-serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.140"
-slog = { version = "2.7.0", features = [
+reqwest = { workspace = true, features = ["default"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+slog = { workspace = true, features = [
     "max_level_trace",
     "release_max_level_trace",
 ] }
-slog-async = "2.8.0"
+slog-async = { workspace = true }
 slog-scope = "4.4.0"
-slog-term = "2.9.1"
-thiserror = "2.0.12"
-tokio = { version = "1.44.1", features = ["full"] }
+slog-term = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "process", "signal"] }
 
 [features]
 default = []

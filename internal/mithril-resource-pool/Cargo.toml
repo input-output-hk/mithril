@@ -1,6 +1,6 @@
 [package]
 name = "mithril-resource-pool"
-version = "0.0.2"
+version = "0.0.3"
 description = "Provide a resource pool for Mithril."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -12,12 +12,12 @@ repository = { workspace = true }
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
-anyhow = "1.0.97"
+anyhow = { workspace = true }
 mithril-common = { path = "../../mithril-common", features = ["fs"] }
-thiserror = "2.0.12"
-tokio = { version = "1.44.1", features = ["sync"] }
+thiserror = { workspace = true }
+tokio = { workspace = true }
 
 [dev-dependencies]
 mithril-common = { path = "../../mithril-common", features = ["test_tools"] }
-mockall = "0.13.1"
-tokio = { version = "1.44.1", features = ["macros", "time"] }
+mockall = { workspace = true }
+tokio = { workspace = true, features = ["macros", "time"] }
