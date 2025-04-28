@@ -128,7 +128,7 @@ impl MetricsService {
             .iter()
             .map(|metric_family| {
                 (
-                    metric_family.get_name().to_string(),
+                    metric_family.name().to_string(),
                     self.build_metric_map_per_label(metric_family),
                 )
             })
@@ -138,7 +138,7 @@ impl MetricsService {
     fn build_label_key(&self, labels: &[LabelPair]) -> String {
         labels
             .iter()
-            .map(|p| p.get_value())
+            .map(|p| p.value())
             .collect::<Vec<_>>()
             .join(",")
     }
@@ -150,7 +150,7 @@ impl MetricsService {
             .map(|m| {
                 (
                     self.build_label_key(m.get_label()),
-                    m.get_counter().get_value() as u32,
+                    m.get_counter().as_ref().unwrap_or_default().value() as u32,
                 )
             })
             .collect()
@@ -218,7 +218,7 @@ mod tests {
 
         for metric_family in metrics_service.registry.gather() {
             for metric in metric_family.get_metric() {
-                assert!(metric.has_counter());
+                assert!(metric.get_counter().is_some());
             }
         }
     }
