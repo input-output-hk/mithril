@@ -208,7 +208,9 @@ async fn main() -> mithril_client::MithrilResult<()> {
     const AGGREGATOR_ENDPOINT: &str =
         "https://aggregator.release-preprod.api.mithril.network/aggregator";
     const GENESIS_VERIFICATION_KEY: &str = "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d";
+    const ANCILLARY_VERIFICATION_KEY: &str = "5b3138392c3139322c3231362c3135302c3131342c3231362c3233372c3231302c34352c31382c32312c3139362c3230382c3234362c3134362c322c3235322c3234332c3235312c3139372c32382c3135372c3230342c3134352c33302c31342c3232382c3136382c3132392c38332c3133362c33365d";
     let client = ClientBuilder::aggregator(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY)
+        .set_ancillary_verification_key(ANCILLARY_VERIFICATION_KEY.to_string())
         .with_origin_tag(Some("EXAMPLE".to_string()))
         .build()?;
     let snapshots = client.cardano_database().list().await?;
@@ -225,7 +227,7 @@ async fn main() -> mithril_client::MithrilResult<()> {
     let target_directory = Path::new(".");
     client
         .cardano_database()
-        .download_unpack(&snapshot, target_directory)
+        .download_unpack_full(&snapshot, target_directory)
         .await?;
 
     if let Err(e) = client.cardano_database().add_statistics(&snapshot).await {
@@ -303,7 +305,9 @@ async fn main() -> mithril_client::MithrilResult<()> {
     const AGGREGATOR_ENDPOINT: &str =
         "https://aggregator.testing-preview.api.mithril.network/aggregator";
     const GENESIS_VERIFICATION_KEY: &str = "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d";
+    const ANCILLARY_VERIFICATION_KEY: &str = "5b3138392c3139322c3231362c3135302c3131342c3231362c3233372c3231302c34352c31382c32312c3139362c3230382c3234362c3134362c322c3235322c3234332c3235312c3139372c32382c3135372c3230342c3134352c33302c31342c3232382c3136382c3132392c38332c3133362c33365d";
     let client = ClientBuilder::aggregator(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY)
+        .set_ancillary_verification_key(ANCILLARY_VERIFICATION_KEY.to_string())
         .with_origin_tag(Some("EXAMPLE".to_string()))
         .build()?;
 
