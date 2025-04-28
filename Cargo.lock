@@ -636,11 +636,22 @@ checksum = "d965446196e3b7decd44aa7ee49e31d630118f90ef12f97900f262eb915c951d"
 
 [[package]]
 name = "bincode"
-version = "1.3.3"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
+checksum = "36eaf5d7b090263e8150820482d5d93cd964a81e4019913c972f4edcc6edb740"
 dependencies = [
+ "bincode_derive",
  "serde",
+ "unty",
+]
+
+[[package]]
+name = "bincode_derive"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf95709a440f45e986983918d0e8a1f30a9b1df04918fc828670606804ac3c09"
+dependencies = [
+ "virtue",
 ]
 
 [[package]]
@@ -1013,7 +1024,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-database"
-version = "0.1.30"
+version = "0.1.31"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1026,7 +1037,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-database-v2"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1039,7 +1050,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-stake-distribution"
-version = "0.1.12"
+version = "0.1.13"
 dependencies = [
  "anyhow",
  "clap",
@@ -1052,7 +1063,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-transaction"
-version = "0.1.22"
+version = "0.1.23"
 dependencies = [
  "anyhow",
  "clap",
@@ -1065,7 +1076,7 @@ dependencies = [
 
 [[package]]
 name = "client-mithril-stake-distribution"
-version = "0.2.10"
+version = "0.2.11"
 dependencies = [
  "anyhow",
  "clap",
@@ -3035,9 +3046,9 @@ dependencies = [
 
 [[package]]
 name = "jsonschema"
-version = "0.29.1"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "161c33c3ec738cfea3288c5c53dfcdb32fd4fc2954de86ea06f71b5a1a40bfcd"
+checksum = "f1b46a0365a611fbf1d2143104dcf910aada96fafd295bab16c60b802bf6fa1d"
 dependencies = [
  "ahash",
  "base64 0.22.1",
@@ -3048,9 +3059,11 @@ dependencies = [
  "idna",
  "itoa",
  "num-cmp",
+ "num-traits",
  "once_cell",
  "percent-encoding",
  "referencing",
+ "regex",
  "regex-syntax 0.8.5",
  "reqwest 0.12.15",
  "serde",
@@ -3797,7 +3810,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.7.40"
+version = "0.7.41"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3846,7 +3859,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator-fake"
-version = "0.4.6"
+version = "0.4.7"
 dependencies = [
  "anyhow",
  "axum",
@@ -3868,7 +3881,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-build-script"
-version = "0.2.20"
+version = "0.2.21"
 dependencies = [
  "semver",
  "serde_json",
@@ -3877,7 +3890,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-cli-helper"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "config",
  "serde",
@@ -3886,7 +3899,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.11.22"
+version = "0.11.23"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3920,7 +3933,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.11.15"
+version = "0.11.16"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3948,7 +3961,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-wasm"
-version = "0.8.8"
+version = "0.8.9"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3966,7 +3979,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.5.24"
+version = "0.5.25"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4018,7 +4031,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-doc"
-version = "0.1.21"
+version = "0.1.22"
 dependencies = [
  "clap",
  "config",
@@ -4029,7 +4042,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-doc-derive"
-version = "0.1.16"
+version = "0.1.17"
 dependencies = [
  "quote",
  "syn 2.0.101",
@@ -4037,7 +4050,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.4.81"
+version = "0.4.82"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -4058,7 +4071,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-metric"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "anyhow",
  "axum",
@@ -4075,7 +4088,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-persistence"
-version = "0.2.51"
+version = "0.2.52"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4093,7 +4106,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-relay"
-version = "0.1.40"
+version = "0.1.41"
 dependencies = [
  "anyhow",
  "clap",
@@ -4118,7 +4131,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-resource-pool"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "anyhow",
  "mithril-common",
@@ -4129,7 +4142,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signed-entity-lock"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "mithril-common",
  "tokio",
@@ -4137,7 +4150,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signed-entity-preloader"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4152,7 +4165,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.239"
+version = "0.2.240"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4189,7 +4202,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-stm"
-version = "0.3.44"
+version = "0.3.45"
 dependencies = [
  "bincode",
  "blake2 0.10.6",
@@ -4211,7 +4224,7 @@ dependencies = [
 
 [[package]]
 name = "mithrildemo"
-version = "0.1.49"
+version = "0.1.50"
 dependencies = [
  "blake2 0.10.6",
  "clap",
@@ -5148,9 +5161,9 @@ dependencies = [
 
 [[package]]
 name = "prometheus"
-version = "0.13.4"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d33c28a30771f7f96db69893f78b857f7450d7e0237e9c8fc6427a81bae7ed1"
+checksum = "3ca5326d8d0b950a9acd87e6a3f94745394f62e4dae1b1ee22b2bc0c394af43a"
 dependencies = [
  "cfg-if",
  "fnv",
@@ -5158,7 +5171,7 @@ dependencies = [
  "memchr",
  "parking_lot",
  "protobuf",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -5250,9 +5263,23 @@ dependencies = [
 
 [[package]]
 name = "protobuf"
-version = "2.28.0"
+version = "3.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "106dd99e98437432fed6519dedecfade6a06a73bb7b2a1e019fdd2bee5778d94"
+checksum = "d65a1d4ddae7d8b5de68153b48f6aa3bba8cb002b243dbdbc55a5afbc98f99f4"
+dependencies = [
+ "once_cell",
+ "protobuf-support",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "protobuf-support"
+version = "3.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e36c2f31e0a47f9280fb347ef5e461ffcd2c52dd520d8e216b52f93b0b0d7d6"
+dependencies = [
+ "thiserror 1.0.69",
+]
 
 [[package]]
 name = "quick-error"
@@ -5501,9 +5528,9 @@ dependencies = [
 
 [[package]]
 name = "referencing"
-version = "0.29.1"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40a64b3a635fad9000648b4d8a59c8710c523ab61a23d392a7d91d47683f5adc"
+checksum = "c8eff4fa778b5c2a57e85c5f2fe3a709c52f0e60d23146e2151cbef5893f420e"
 dependencies = [
  "ahash",
  "fluent-uri",
@@ -6433,18 +6460,18 @@ dependencies = [
 
 [[package]]
 name = "sqlite"
-version = "0.36.2"
+version = "0.37.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6843ff5d46230ca95be07e59876757d7c4dd88f5204eeede7271dab03ac4bed3"
+checksum = "f66e9c01a11936154f3910dbba732c01f8b591543bc4d6672bddee79fd9c4783"
 dependencies = [
  "sqlite3-sys",
 ]
 
 [[package]]
 name = "sqlite3-src"
-version = "0.6.1"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "174d4a6df77c27db281fb23de1a6d968f3aaaa4807c2a1afa8056b971f947b4a"
+checksum = "e5b6d3c860886b0a33e69e421796a5f4a27f23597a182c2450f6d7ace5103120"
 dependencies = [
  "cc",
  "pkg-config",
@@ -6452,9 +6479,9 @@ dependencies = [
 
 [[package]]
 name = "sqlite3-sys"
-version = "0.17.0"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3901ada7090c3c3584dc92ec7ef1b7091868d13bfe6d7de9f0bcaffee7d0ade5"
+checksum = "a7781d97adc13a1d5081127a9ee29afad8427f3757bd984daf814d8265267039"
 dependencies = [
  "sqlite3-src",
 ]
@@ -7278,6 +7305,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
 
 [[package]]
+name = "unty"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d49784317cd0d1ee7ec5c716dd598ec5b4483ea832a2dced265471cc0f690ae"
+
+[[package]]
 name = "url"
 version = "2.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7376,6 +7409,12 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
+
+[[package]]
+name = "virtue"
+version = "0.0.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "051eb1abcf10076295e815102942cc58f9d5e3b4560e46e53c21e8ff6f3af7b1"
 
 [[package]]
 name = "vsimd"
