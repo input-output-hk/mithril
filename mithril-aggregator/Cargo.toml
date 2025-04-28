@@ -24,7 +24,7 @@ chrono = { workspace = true }
 clap = { workspace = true, features = ["cargo"] }
 cloud-storage = "0.11.1"
 config = { workspace = true }
-flate2 = "1.1.0"
+flate2 = "1.1.1"
 gcloud-kms = { version = "1.2.0", features = ["auth"] }
 hex = { workspace = true }
 mithril-cli-helper = { path = "../internal/mithril-cli-helper" }
@@ -54,11 +54,11 @@ slog = { workspace = true, features = [
 ] }
 slog-async = { workspace = true }
 slog-bunyan = { workspace = true }
-sqlite = { version = "0.36.2", features = ["bundled"] }
+sqlite = { version = "0.37.0", features = ["bundled"] }
 tar = "0.4.44"
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal"] }
-tokio-util = { version = "0.7.14", features = ["codec"] }
+tokio-util = { version = "0.7.15", features = ["codec"] }
 uuid = { version = "1.16.0", features = [
     "v4",
     "fast-rng",

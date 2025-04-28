@@ -21,7 +21,7 @@ semver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 slog = { workspace = true }
-sqlite = { version = "0.36.2", features = ["bundled"] }
+sqlite = { version = "0.37.0", features = ["bundled"] }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 
