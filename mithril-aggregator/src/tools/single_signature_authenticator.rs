@@ -1,7 +1,7 @@
 use slog::{debug, Logger};
 use std::sync::Arc;
 
-use mithril_common::entities::{SingleSignatureAuthenticationStatus, SingleSignatures};
+use mithril_common::entities::{SingleSignature, SingleSignatureAuthenticationStatus};
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
@@ -25,7 +25,7 @@ impl SingleSignatureAuthenticator {
     /// Authenticates a single signature against a signed message.
     pub async fn authenticate(
         &self,
-        single_signature: &mut SingleSignatures,
+        single_signature: &mut SingleSignature,
         signed_message: &str,
     ) -> StdResult<()> {
         let is_authenticated = match self
@@ -131,9 +131,9 @@ mod tests {
     async fn single_signature_against_valid_signed_message_for_current_stake_distribution_is_authenticated(
     ) {
         let signed_message = "signed_message".to_string();
-        let mut single_signature = SingleSignatures {
+        let mut single_signature = SingleSignature {
             authentication_status: SingleSignatureAuthenticationStatus::Unauthenticated,
-            ..SingleSignatures::fake("party_id", &signed_message)
+            ..SingleSignature::fake("party_id", &signed_message)
         };
 
         let authenticator = SingleSignatureAuthenticator::new(
@@ -160,9 +160,9 @@ mod tests {
     async fn single_signature_against_valid_signed_message_for_next_stake_distribution_is_authenticated(
     ) {
         let signed_message = "signed_message".to_string();
-        let mut single_signature = SingleSignatures {
+        let mut single_signature = SingleSignature {
             authentication_status: SingleSignatureAuthenticationStatus::Unauthenticated,
-            ..SingleSignatures::fake("party_id", &signed_message)
+            ..SingleSignature::fake("party_id", &signed_message)
         };
 
         let authenticator = SingleSignatureAuthenticator::new(
@@ -192,9 +192,9 @@ mod tests {
     async fn single_signature_against_invalid_signed_message_for_current_and_next_stake_distribution_is_not_authenticated(
     ) {
         let signed_message = "signed_message".to_string();
-        let mut single_signature = SingleSignatures {
+        let mut single_signature = SingleSignature {
             authentication_status: SingleSignatureAuthenticationStatus::Unauthenticated,
-            ..SingleSignatures::fake("party_id", &signed_message)
+            ..SingleSignature::fake("party_id", &signed_message)
         };
 
         let authenticator = SingleSignatureAuthenticator::new(
@@ -228,9 +228,9 @@ mod tests {
     async fn single_signature_previously_authenticated_but_fail_new_authentication_is_now_unauthenticated(
     ) {
         let signed_message = "signed_message".to_string();
-        let mut single_signature = SingleSignatures {
+        let mut single_signature = SingleSignature {
             authentication_status: SingleSignatureAuthenticationStatus::Authenticated,
-            ..SingleSignatures::fake("party_id", &signed_message)
+            ..SingleSignature::fake("party_id", &signed_message)
         };
 
         let authenticator = SingleSignatureAuthenticator::new(

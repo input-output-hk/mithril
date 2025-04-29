@@ -19,7 +19,7 @@ pub struct RegisterSignatureMessage {
     /// The single signature of the digest
     pub signature: HexEncodedSingleSignature,
 
-    /// The indexes of the won lotteries that lead to the single signatures
+    /// The indexes of the won lotteries that lead to the single signature
     #[serde(rename = "indexes")]
     pub won_indexes: Vec<LotteryIndex>,
 
@@ -49,7 +49,7 @@ impl RegisterSignatureMessage {
 impl Debug for RegisterSignatureMessage {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let is_pretty_printing = f.alternate();
-        let mut debug = f.debug_struct("SingleSignatures");
+        let mut debug = f.debug_struct("RegisterSignatureMessage");
         debug
             .field(
                 "signed_entity_type",

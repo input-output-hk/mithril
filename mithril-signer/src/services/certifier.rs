@@ -3,15 +3,13 @@ use chrono::Utc;
 use slog::{debug, Logger};
 use std::sync::Arc;
 
-use mithril_common::entities::{
-    ProtocolMessage, SignedEntityConfig, SignedEntityType, SingleSignatures, TimePoint,
-};
+use mithril_common::entities::{ProtocolMessage, SignedEntityConfig, SignedEntityType, TimePoint};
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 
 use crate::entities::BeaconToSign;
-use crate::services::SingleSigner;
+use crate::services::{SignaturePublisher, SingleSigner};
 
 /// Certifier Service
 ///
@@ -52,19 +50,6 @@ pub trait SignedBeaconStore: Sync + Send {
 
     /// Mark a beacon as signed.
     async fn mark_beacon_as_signed(&self, entity: &BeaconToSign) -> StdResult<()>;
-}
-
-/// Publishes computed single signatures to a third party.
-#[cfg_attr(test, mockall::automock)]
-#[async_trait]
-pub trait SignaturePublisher: Send + Sync {
-    /// Publish computed single signatures.
-    async fn publish(
-        &self,
-        signed_entity_type: &SignedEntityType,
-        signatures: &SingleSignatures,
-        protocol_message: &ProtocolMessage,
-    ) -> StdResult<()>;
 }
 
 /// Implementation of the [Certifier Service][CertifierService] for the Mithril Signer.
@@ -141,16 +126,16 @@ impl CertifierService for SignerCertifierService {
         beacon_to_sign: &BeaconToSign,
         protocol_message: &ProtocolMessage,
     ) -> StdResult<()> {
-        if let Some(single_signatures) = self
+        if let Some(single_signature) = self
             .single_signer
-            .compute_single_signatures(protocol_message)
+            .compute_single_signature(protocol_message)
             .await?
         {
             debug!(self.logger, " > There is a single signature to send");
             self.signature_publisher
                 .publish(
                     &beacon_to_sign.signed_entity_type,
-                    &single_signatures,
+                    &single_signature,
                     protocol_message,
                 )
                 .await?;
@@ -177,7 +162,7 @@ mod tests {
     };
     use mithril_common::test_utils::fake_data;
 
-    use crate::services::MockSingleSigner;
+    use crate::services::{MockSignaturePublisher, MockSingleSigner};
 
     use super::{tests::tests_tooling::*, *};
 
@@ -364,9 +349,9 @@ mod tests {
             single_signer: {
                 let mut single_signer = MockSingleSigner::new();
                 single_signer
-                    .expect_compute_single_signatures()
+                    .expect_compute_single_signature()
                     .with(eq(protocol_message.clone()))
-                    .return_once(|_| Ok(Some(fake_data::single_signatures(vec![1, 5, 12]))));
+                    .return_once(|_| Ok(Some(fake_data::single_signature(vec![1, 5, 12]))));
                 Arc::new(single_signer)
             },
             signature_publisher: {
@@ -375,7 +360,7 @@ mod tests {
                     .expect_publish()
                     .with(
                         eq(beacon_to_sign.signed_entity_type.clone()),
-                        eq(fake_data::single_signatures(vec![1, 5, 12])),
+                        eq(fake_data::single_signature(vec![1, 5, 12])),
                         eq(protocol_message.clone()),
                     )
                     .returning(|_, _, _| Ok(()));
@@ -416,7 +401,7 @@ mod tests {
             single_signer: {
                 let mut single_signer = MockSingleSigner::new();
                 single_signer
-                    .expect_compute_single_signatures()
+                    .expect_compute_single_signature()
                     .with(eq(protocol_message.clone()))
                     .return_once(|_| Ok(None));
                 Arc::new(single_signer)
@@ -455,7 +440,7 @@ mod tests {
             single_signer: {
                 let mut single_signer = MockSingleSigner::new();
                 single_signer
-                    .expect_compute_single_signatures()
+                    .expect_compute_single_signature()
                     .return_once(|_| Err(anyhow::anyhow!("error")));
                 Arc::new(single_signer)
             },
@@ -485,8 +470,8 @@ mod tests {
             single_signer: {
                 let mut single_signer = MockSingleSigner::new();
                 single_signer
-                    .expect_compute_single_signatures()
-                    .return_once(|_| Ok(Some(fake_data::single_signatures(vec![1, 5, 12]))));
+                    .expect_compute_single_signature()
+                    .return_once(|_| Ok(Some(fake_data::single_signature(vec![1, 5, 12]))));
                 Arc::new(single_signer)
             },
             signature_publisher: {

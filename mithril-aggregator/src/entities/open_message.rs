@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 
 use mithril_common::entities::{
-    Epoch, PartyId, ProtocolMessage, SignedEntityType, SingleSignatures,
+    Epoch, PartyId, ProtocolMessage, SignedEntityType, SingleSignature,
 };
 
 use crate::database::record::{OpenMessageRecord, OpenMessageWithSingleSignaturesRecord};
@@ -29,7 +29,7 @@ pub struct OpenMessage {
     pub is_expired: bool,
 
     /// associated single signatures
-    pub single_signatures: Vec<SingleSignatures>,
+    pub single_signatures: Vec<SingleSignature>,
 
     /// Message creation datetime
     pub created_at: DateTime<Utc>,
@@ -63,8 +63,8 @@ impl OpenMessage {
             is_certified: false,
             is_expired: false,
             single_signatures: vec![
-                fake_data::single_signatures(vec![1, 4, 5]),
-                fake_data::single_signatures(vec![2, 3, 8]),
+                fake_data::single_signature(vec![1, 4, 5]),
+                fake_data::single_signature(vec![2, 3, 8]),
             ],
             created_at: Utc::now(),
             expires_at: None,
@@ -156,7 +156,7 @@ mod test {
             is_expired: false,
             created_at,
             expires_at: None,
-            single_signatures: vec![fake_data::single_signatures(vec![1, 4, 5])],
+            single_signatures: vec![fake_data::single_signature(vec![1, 4, 5])],
         };
         let expected = OpenMessage {
             epoch: Epoch(1),
@@ -164,7 +164,7 @@ mod test {
             protocol_message: ProtocolMessage::default(),
             is_certified: false,
             is_expired: false,
-            single_signatures: vec![fake_data::single_signatures(vec![1, 4, 5])],
+            single_signatures: vec![fake_data::single_signature(vec![1, 4, 5])],
             created_at,
             expires_at: None,
         };

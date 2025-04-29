@@ -10,7 +10,7 @@ use crate::{
 /// SingleSignatures represent single signatures originating from a participant in the network
 /// for a digest at won lottery indexes
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SingleSignatures {
+pub struct SingleSignature {
     /// The unique identifier of the signer
     pub party_id: PartyId,
 
@@ -36,14 +36,14 @@ pub enum SingleSignatureAuthenticationStatus {
     Unauthenticated,
 }
 
-impl SingleSignatures {
+impl SingleSignature {
     /// `SingleSignatures` factory
     pub fn new<T: Into<PartyId>>(
         party_id: T,
         signature: ProtocolSingleSignature,
         won_indexes: Vec<LotteryIndex>,
-    ) -> SingleSignatures {
-        SingleSignatures {
+    ) -> SingleSignature {
+        SingleSignature {
             party_id: party_id.into(),
             signature,
             won_indexes,
@@ -51,7 +51,7 @@ impl SingleSignatures {
         }
     }
 
-    /// Convert this [SingleSignatures] to its corresponding [MithrilStm Signature][StmSig].
+    /// Convert this [SingleSignature] to its corresponding [MithrilStm Signature][StmSig].
     pub fn to_protocol_signature(&self) -> StmSig {
         self.signature.clone().into()
     }
@@ -63,8 +63,8 @@ impl SingleSignatures {
 }
 
 cfg_test_tools! {
-impl SingleSignatures {
-    /// Create a fake [SingleSignatures] with valid cryptographic data for testing purposes.
+impl SingleSignature {
+    /// Create a fake [SingleSignature] with valid cryptographic data for testing purposes.
     pub fn fake<TPartyId: Into<String>, TMessage: Into<String>>(party_id: TPartyId, message: TMessage) -> Self {
         use crate::entities::{ProtocolParameters};
         use crate::test_utils::{MithrilFixtureBuilder, StakeDistributionGenerationMethod};
@@ -90,7 +90,7 @@ impl SingleSignatures {
 }
 }
 
-impl Debug for SingleSignatures {
+impl Debug for SingleSignature {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let is_pretty_printing = f.alternate();
         let mut debug = f.debug_struct("SingleSignatures");
@@ -122,7 +122,7 @@ mod tests {
             .sign(message.compute_hash().as_bytes())
             .unwrap();
 
-        let signature = SingleSignatures::new(
+        let signature = SingleSignature::new(
             signer.signer_with_stake.party_id.to_owned(),
             protocol_sigs.clone().into(),
             protocol_sigs.indexes.clone(),

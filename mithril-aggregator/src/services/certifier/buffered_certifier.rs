@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use mithril_common::entities::{
     Certificate, Epoch, ProtocolMessage, SignedEntityType, SignedEntityTypeDiscriminants,
-    SingleSignatures,
+    SingleSignature,
 };
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
@@ -91,7 +91,7 @@ impl CertifierService for BufferedCertifierService {
     async fn register_single_signature(
         &self,
         signed_entity_type: &SignedEntityType,
-        signature: &SingleSignatures,
+        signature: &SingleSignature,
     ) -> StdResult<SignatureRegistrationStatus> {
         match self
             .certifier_service
@@ -228,11 +228,8 @@ mod tests {
     /// Return the registration result and the list of buffered signatures after the registration.
     async fn run_register_signature_scenario(
         decorated_certifier_mock_config: impl FnOnce(&mut MockCertifierService),
-        signature_to_register: &SingleSignatures,
-    ) -> (
-        StdResult<SignatureRegistrationStatus>,
-        Vec<SingleSignatures>,
-    ) {
+        signature_to_register: &SingleSignature,
+    ) -> (StdResult<SignatureRegistrationStatus>, Vec<SingleSignature>) {
         let store = Arc::new(BufferedSingleSignatureRepository::new(Arc::new(
             main_db_connection().unwrap(),
         )));
@@ -267,7 +264,7 @@ mod tests {
                         .expect_register_single_signature()
                         .returning(|_, _| Ok(SignatureRegistrationStatus::Registered));
                 },
-                &SingleSignatures::fake("party_1", "a message"),
+                &SingleSignature::fake("party_1", "a message"),
             )
             .await;
 
@@ -275,7 +272,7 @@ mod tests {
         assert_eq!(status, SignatureRegistrationStatus::Registered);
         assert_eq!(
             buffered_signatures_after_registration,
-            Vec::<SingleSignatures>::new()
+            Vec::<SingleSignature>::new()
         );
     }
 
@@ -296,9 +293,9 @@ mod tests {
                                 .into())
                             });
                     },
-                    &SingleSignatures {
+                    &SingleSignature {
                         authentication_status: SingleSignatureAuthenticationStatus::Authenticated,
-                        ..SingleSignatures::fake("party_1", "a message")
+                        ..SingleSignature::fake("party_1", "a message")
                     },
                 )
                 .await;
@@ -307,7 +304,7 @@ mod tests {
             assert_eq!(status, SignatureRegistrationStatus::Buffered);
             assert_eq!(
                 buffered_signatures_after_registration,
-                vec![SingleSignatures::fake("party_1", "a message")]
+                vec![SingleSignature::fake("party_1", "a message")]
             );
         }
 
@@ -325,9 +322,9 @@ mod tests {
                                 .into())
                             });
                     },
-                    &SingleSignatures {
+                    &SingleSignature {
                         authentication_status: SingleSignatureAuthenticationStatus::Unauthenticated,
-                        ..SingleSignatures::fake("party_1", "a message")
+                        ..SingleSignature::fake("party_1", "a message")
                     },
                 )
                 .await;
@@ -335,7 +332,7 @@ mod tests {
             registration_result.expect_err("Registration should have failed");
             assert_eq!(
                 buffered_signatures_after_registration,
-                Vec::<SingleSignatures>::new()
+                Vec::<SingleSignature>::new()
             );
         }
     }
@@ -348,15 +345,15 @@ mod tests {
         for (signed_type, signature) in [
             (
                 MithrilStakeDistribution,
-                SingleSignatures::fake("party_1", "message 1"),
+                SingleSignature::fake("party_1", "message 1"),
             ),
             (
                 MithrilStakeDistribution,
-                SingleSignatures::fake("party_2", "message 2"),
+                SingleSignature::fake("party_2", "message 2"),
             ),
             (
                 CardanoTransactions,
-                SingleSignatures::fake("party_3", "message 3"),
+                SingleSignature::fake("party_3", "message 3"),
             ),
         ] {
             store
@@ -374,14 +371,14 @@ mod tests {
                 mock.expect_register_single_signature()
                     .with(
                         eq(SignedEntityType::MithrilStakeDistribution(Epoch(5))),
-                        eq(SingleSignatures::fake("party_1", "message 1")),
+                        eq(SingleSignature::fake("party_1", "message 1")),
                     )
                     .once()
                     .returning(|_, _| Ok(SignatureRegistrationStatus::Registered));
                 mock.expect_register_single_signature()
                     .with(
                         eq(SignedEntityType::MithrilStakeDistribution(Epoch(5))),
-                        eq(SingleSignatures::fake("party_2", "message 2")),
+                        eq(SingleSignature::fake("party_2", "message 2")),
                     )
                     .once()
                     .returning(|_, _| Ok(SignatureRegistrationStatus::Registered));
@@ -438,11 +435,11 @@ mod tests {
                         .returning(|_, _| Ok(OpenMessage::dummy()));
 
                     mock.expect_register_single_signature()
-                        .with(always(), eq(fake_data::single_signatures(vec![1])))
+                        .with(always(), eq(fake_data::single_signature(vec![1])))
                         .returning(|_, _| Ok(SignatureRegistrationStatus::Registered))
                         .once();
                     mock.expect_register_single_signature()
-                        .with(always(), eq(fake_data::single_signatures(vec![2])))
+                        .with(always(), eq(fake_data::single_signature(vec![2])))
                         .returning(|_, _| {
                             Err(CertifierServiceError::InvalidSingleSignature(
                                 OpenMessage::dummy().signed_entity_type,
@@ -452,16 +449,16 @@ mod tests {
                         })
                         .once();
                     mock.expect_register_single_signature()
-                        .with(always(), eq(fake_data::single_signatures(vec![3])))
+                        .with(always(), eq(fake_data::single_signature(vec![3])))
                         .returning(|_, _| Ok(SignatureRegistrationStatus::Registered))
                         .once();
                 },
                 |mock| {
                     mock.expect_get_buffered_signatures().returning(|_| {
                         Ok(vec![
-                            fake_data::single_signatures(vec![1]),
-                            fake_data::single_signatures(vec![2]),
-                            fake_data::single_signatures(vec![3]),
+                            fake_data::single_signature(vec![1]),
+                            fake_data::single_signature(vec![2]),
+                            fake_data::single_signature(vec![3]),
                         ])
                     });
                     mock.expect_remove_buffered_signatures()
@@ -501,7 +498,7 @@ mod tests {
                 },
                 |mock| {
                     mock.expect_get_buffered_signatures()
-                        .returning(|_| Ok(vec![fake_data::single_signatures(vec![1])]));
+                        .returning(|_| Ok(vec![fake_data::single_signature(vec![1])]));
                 },
             )
             .await;
@@ -518,7 +515,7 @@ mod tests {
                 },
                 |mock| {
                     mock.expect_get_buffered_signatures()
-                        .returning(|_| Ok(vec![fake_data::single_signatures(vec![1])]));
+                        .returning(|_| Ok(vec![fake_data::single_signature(vec![1])]));
                     mock.expect_remove_buffered_signatures()
                         .returning(|_, _| Err(anyhow!("remove_buffered_signatures error")));
                 },

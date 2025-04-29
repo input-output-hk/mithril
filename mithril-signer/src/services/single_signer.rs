@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use mithril_common::crypto_helper::{KESPeriod, ProtocolInitializer};
 use mithril_common::entities::{
-    PartyId, ProtocolMessage, ProtocolParameters, SingleSignatures, Stake,
+    PartyId, ProtocolMessage, ProtocolParameters, SingleSignature, Stake,
 };
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::{SignerBuilder, SingleSigner as ProtocolSingleSigner};
@@ -39,15 +39,15 @@ impl MithrilProtocolInitializerBuilder {
     }
 }
 
-/// The SingleSigner is the structure responsible for issuing SingleSignatures.
+/// The SingleSigner is the structure responsible for issuing [SingleSignature].
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait SingleSigner: Sync + Send {
-    /// Computes single signatures
-    async fn compute_single_signatures(
+    /// Computes single signature
+    async fn compute_single_signature(
         &self,
         protocol_message: &ProtocolMessage,
-    ) -> StdResult<Option<SingleSignatures>>;
+    ) -> StdResult<Option<SingleSignature>>;
 
     /// Get party id
     fn get_party_id(&self) -> PartyId;
@@ -120,10 +120,10 @@ impl MithrilSingleSigner {
 
 #[async_trait]
 impl SingleSigner for MithrilSingleSigner {
-    async fn compute_single_signatures(
+    async fn compute_single_signature(
         &self,
         protocol_message: &ProtocolMessage,
-    ) -> StdResult<Option<SingleSignatures>> {
+    ) -> StdResult<Option<SingleSignature>> {
         let protocol_single_signer = self.build_protocol_single_signer().await?;
 
         info!(
@@ -131,7 +131,7 @@ impl SingleSigner for MithrilSingleSigner {
             "protocol_message" =>  #?protocol_message,
             "signed message" => protocol_message.compute_hash().encode_hex::<String>()
         );
-        let signatures = protocol_single_signer
+        let signature = protocol_single_signer
             .sign(protocol_message)
             .with_context(|| {
                 format!(
@@ -141,7 +141,7 @@ impl SingleSigner for MithrilSingleSigner {
             })
             .map_err(SingleSignerError::SignatureFailed)?;
 
-        match &signatures {
+        match &signature {
             Some(signature) => {
                 trace!(
                     self.logger,
@@ -158,7 +158,7 @@ impl SingleSigner for MithrilSingleSigner {
             }
         };
 
-        Ok(signatures)
+        Ok(signature)
     }
 
     /// Get party id
@@ -222,7 +222,7 @@ mod tests {
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, snapshot_digest);
         let sign_result = single_signer
-            .compute_single_signatures(&protocol_message)
+            .compute_single_signature(&protocol_message)
             .await
             .expect("single signer should not fail")
             .expect("single signer should produce a signature here");

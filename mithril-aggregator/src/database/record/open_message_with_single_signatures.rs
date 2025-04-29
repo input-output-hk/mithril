@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use sqlite::Row;
 use uuid::Uuid;
 
-use mithril_common::entities::{Epoch, ProtocolMessage, SignedEntityType, SingleSignatures};
+use mithril_common::entities::{Epoch, ProtocolMessage, SignedEntityType, SingleSignature};
 use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
 
 use crate::database::record::OpenMessageRecord;
@@ -29,7 +29,7 @@ pub struct OpenMessageWithSingleSignaturesRecord {
     pub is_expired: bool,
 
     /// associated single signatures
-    pub single_signatures: Vec<SingleSignatures>,
+    pub single_signatures: Vec<SingleSignature>,
 
     /// Message creation datetime, it is set by the database.
     pub created_at: DateTime<Utc>,
@@ -59,7 +59,7 @@ impl SqLiteEntity for OpenMessageWithSingleSignaturesRecord {
         Self: Sized,
     {
         let single_signatures = &row.read::<&str, _>(9);
-        let single_signatures: Vec<SingleSignatures> = serde_json::from_str(single_signatures)
+        let single_signatures: Vec<SingleSignature> = serde_json::from_str(single_signatures)
             .map_err(|e| {
                 HydrationError::InvalidData(format!(
                     "Could not parse single signatures JSON: '{single_signatures}'. Error: {e}"

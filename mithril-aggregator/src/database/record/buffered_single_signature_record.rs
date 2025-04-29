@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 
 use mithril_common::entities::{
-    HexEncodedSingleSignature, LotteryIndex, SignedEntityTypeDiscriminants, SingleSignatures,
+    HexEncodedSingleSignature, LotteryIndex, SignedEntityTypeDiscriminants, SingleSignature,
 };
 use mithril_common::{StdError, StdResult};
 use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
@@ -27,8 +27,8 @@ pub struct BufferedSingleSignatureRecord {
 }
 
 impl BufferedSingleSignatureRecord {
-    pub(crate) fn try_from_single_signatures(
-        other: &SingleSignatures,
+    pub(crate) fn try_from_single_signature(
+        other: &SingleSignature,
         signed_entity_id: SignedEntityTypeDiscriminants,
     ) -> StdResult<Self> {
         let record = BufferedSingleSignatureRecord {
@@ -50,10 +50,10 @@ impl BufferedSingleSignatureRecord {
         discriminant: SignedEntityTypeDiscriminants,
     ) -> Self {
         // Note: due to the unique constraint on the signature column, we want to make sure that
-        // the signatures are different for party_id/discriminant pairs.
-        // We can't just reuse fake_data::single_signatures as they are static.
-        Self::try_from_single_signatures(
-            &SingleSignatures::fake(party_id.into(), discriminant.to_string()),
+        // the signature are different for party_id/discriminant pairs.
+        // We can't just reuse fake_data::single_signature as they are static.
+        Self::try_from_single_signature(
+            &SingleSignature::fake(party_id.into(), discriminant.to_string()),
             discriminant,
         )
         .unwrap()
@@ -77,18 +77,18 @@ impl BufferedSingleSignatureRecord {
     }
 }
 
-impl TryFrom<BufferedSingleSignatureRecord> for SingleSignatures {
+impl TryFrom<BufferedSingleSignatureRecord> for SingleSignature {
     type Error = StdError;
 
     fn try_from(value: BufferedSingleSignatureRecord) -> Result<Self, Self::Error> {
-        let signatures = SingleSignatures {
+        let signature = SingleSignature {
             party_id: value.party_id,
             won_indexes: value.lottery_indexes,
             signature: value.signature.try_into()?,
             authentication_status: Default::default(),
         };
 
-        Ok(signatures)
+        Ok(signature)
     }
 }
 
@@ -181,9 +181,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_convert_single_signatures() {
-        let single_signature = fake_data::single_signatures(vec![1, 3, 4, 6, 7, 9]);
-        let single_signature_record = BufferedSingleSignatureRecord::try_from_single_signatures(
+    fn test_convert_single_signature() {
+        let single_signature = fake_data::single_signature(vec![1, 3, 4, 6, 7, 9]);
+        let single_signature_record = BufferedSingleSignatureRecord::try_from_single_signature(
             &single_signature,
             CardanoTransactions,
         )

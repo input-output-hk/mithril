@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use mithril_common::entities::{Epoch, HexEncodedSingleSignature, LotteryIndex, SingleSignatures};
+use mithril_common::entities::{Epoch, HexEncodedSingleSignature, LotteryIndex, SingleSignature};
 use mithril_common::{StdError, StdResult};
 use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
 
@@ -28,8 +28,8 @@ pub struct SingleSignatureRecord {
 }
 
 impl SingleSignatureRecord {
-    pub(crate) fn try_from_single_signatures(
-        other: &SingleSignatures,
+    pub(crate) fn try_from_single_signature(
+        other: &SingleSignature,
         open_message_id: &Uuid,
         registration_epoch_settings_id: Epoch,
     ) -> StdResult<Self> {
@@ -46,18 +46,18 @@ impl SingleSignatureRecord {
     }
 }
 
-impl TryFrom<SingleSignatureRecord> for SingleSignatures {
+impl TryFrom<SingleSignatureRecord> for SingleSignature {
     type Error = StdError;
 
     fn try_from(value: SingleSignatureRecord) -> Result<Self, Self::Error> {
-        let signatures = SingleSignatures {
+        let signature = SingleSignature {
             party_id: value.signer_id,
             won_indexes: value.lottery_indexes,
             signature: value.signature.try_into()?,
             authentication_status: Default::default(),
         };
 
-        Ok(signatures)
+        Ok(signature)
     }
 }
 
@@ -138,10 +138,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_convert_single_signatures() {
-        let single_signature = fake_data::single_signatures(vec![1, 3, 4, 6, 7, 9]);
+    fn test_convert_single_signature() {
+        let single_signature = fake_data::single_signature(vec![1, 3, 4, 6, 7, 9]);
         let open_message_id = Uuid::parse_str("193d1442-e89b-43cf-9519-04d8db9a12ff").unwrap();
-        let single_signature_record = SingleSignatureRecord::try_from_single_signatures(
+        let single_signature_record = SingleSignatureRecord::try_from_single_signature(
             &single_signature,
             &open_message_id,
             Epoch(1),

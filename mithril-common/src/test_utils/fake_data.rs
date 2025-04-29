@@ -8,7 +8,7 @@ use crate::entities::{
     self, AncillaryLocations, BlockNumber, CardanoDatabaseSnapshotArtifactData,
     CertificateMetadata, CertificateSignature, CompressionAlgorithm, DigestsLocations, Epoch,
     ImmutablesLocations, LotteryIndex, ProtocolMessage, ProtocolMessagePartKey, SignedEntityType,
-    SingleSignatures, SlotNumber, StakeDistribution, StakeDistributionParty,
+    SingleSignature, SlotNumber, StakeDistribution, StakeDistributionParty,
 };
 use crate::test_utils::MithrilFixtureBuilder;
 use crate::CardanoNetwork;
@@ -162,12 +162,12 @@ pub fn signers(total: usize) -> Vec<entities::Signer> {
         .collect::<Vec<entities::Signer>>()
 }
 
-/// Fake SingleSignatures
-pub fn single_signatures(won_indexes: Vec<LotteryIndex>) -> SingleSignatures {
+/// Fake SingleSignature
+pub fn single_signature(won_indexes: Vec<LotteryIndex>) -> SingleSignature {
     let party_id = "party_id".to_string();
     let signature = fake_keys::single_signature()[0].try_into().unwrap();
 
-    SingleSignatures::new(party_id, signature, won_indexes)
+    SingleSignature::new(party_id, signature, won_indexes)
 }
 
 /// Fake Snapshots

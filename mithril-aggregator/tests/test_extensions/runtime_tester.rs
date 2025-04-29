@@ -482,14 +482,14 @@ impl RuntimeTester {
             .await?;
 
         for signer_fixture in signers {
-            if let Some(mut single_signatures) = signer_fixture.sign(&message) {
+            if let Some(mut single_signature) = signer_fixture.sign(&message) {
                 if authentication_status == SingleSignatureAuthenticationStatus::Authenticated {
-                    single_signatures.authentication_status =
+                    single_signature.authentication_status =
                         SingleSignatureAuthenticationStatus::Authenticated;
                 }
 
                 certifier_service
-                    .register_single_signature(&signed_entity_type, &single_signatures)
+                    .register_single_signature(&signed_entity_type, &single_signature)
                     .await
                     .with_context(|| "registering a winning lottery signature should not fail")?;
             } else {

@@ -21,14 +21,14 @@ pub trait MultiSigner: Sync + Send {
     async fn verify_single_signature(
         &self,
         message: &str,
-        signatures: &entities::SingleSignatures,
+        signature: &entities::SingleSignature,
     ) -> StdResult<()>;
 
     /// Verify a single signature using the stake distribution of the next epoch
     async fn verify_single_signature_for_next_stake_distribution(
         &self,
         message: &str,
-        signatures: &entities::SingleSignatures,
+        signature: &entities::SingleSignature,
     ) -> StdResult<()>;
 
     /// Creates a multi signature from single signatures
@@ -58,7 +58,7 @@ impl MultiSignerImpl {
     fn run_verify_single_signature(
         &self,
         message: &str,
-        single_signature: &entities::SingleSignatures,
+        single_signature: &entities::SingleSignature,
         protocol_multi_signer: &ProtocolMultiSigner,
     ) -> StdResult<()> {
         debug!(
@@ -83,7 +83,7 @@ impl MultiSigner for MultiSignerImpl {
     async fn verify_single_signature(
         &self,
         message: &str,
-        single_signature: &entities::SingleSignatures,
+        single_signature: &entities::SingleSignature,
     ) -> StdResult<()> {
         let epoch_service = self.epoch_service.read().await;
         let protocol_multi_signer = epoch_service.protocol_multi_signer().with_context(|| {
@@ -96,7 +96,7 @@ impl MultiSigner for MultiSignerImpl {
     async fn verify_single_signature_for_next_stake_distribution(
         &self,
         message: &str,
-        single_signature: &entities::SingleSignatures,
+        single_signature: &entities::SingleSignature,
     ) -> StdResult<()> {
         let epoch_service = self.epoch_service.read().await;
         let next_protocol_multi_signer =
@@ -158,9 +158,9 @@ mod tests {
     use super::*;
 
     fn take_signatures_until_quorum_is_almost_reached(
-        signatures: &mut Vec<entities::SingleSignatures>,
+        signatures: &mut Vec<entities::SingleSignature>,
         quorum: usize,
-    ) -> Vec<entities::SingleSignatures> {
+    ) -> Vec<entities::SingleSignature> {
         signatures.sort_by(|l, r| l.won_indexes.len().cmp(&r.won_indexes.len()));
 
         let mut result = vec![];

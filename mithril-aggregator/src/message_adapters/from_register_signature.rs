@@ -1,19 +1,19 @@
 use anyhow::Context;
 use mithril_common::{
-    entities::{SingleSignatureAuthenticationStatus, SingleSignatures},
+    entities::{SingleSignature, SingleSignatureAuthenticationStatus},
     messages::{RegisterSignatureMessage, TryFromMessageAdapter},
     StdResult,
 };
 
 pub struct FromRegisterSingleSignatureAdapter;
 
-impl TryFromMessageAdapter<RegisterSignatureMessage, SingleSignatures>
+impl TryFromMessageAdapter<RegisterSignatureMessage, SingleSignature>
     for FromRegisterSingleSignatureAdapter
 {
     fn try_adapt(
         register_single_signature_message: RegisterSignatureMessage,
-    ) -> StdResult<SingleSignatures> {
-        let signatures = SingleSignatures {
+    ) -> StdResult<SingleSignature> {
+        let signature = SingleSignature {
             party_id: register_single_signature_message.party_id,
             signature: register_single_signature_message
                 .signature
@@ -25,7 +25,7 @@ impl TryFromMessageAdapter<RegisterSignatureMessage, SingleSignatures>
             authentication_status: SingleSignatureAuthenticationStatus::Unauthenticated,
         };
 
-        Ok(signatures)
+        Ok(signature)
     }
 }
 
@@ -34,14 +34,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn try_adapt_single_signatures_message_to_entity() {
+    fn try_adapt_single_signature_message_to_entity() {
         let message = RegisterSignatureMessage::dummy();
-        let signatures = FromRegisterSingleSignatureAdapter::try_adapt(message.clone()).unwrap();
+        let signature = FromRegisterSingleSignatureAdapter::try_adapt(message.clone()).unwrap();
 
-        assert_eq!(message.party_id, signatures.party_id);
+        assert_eq!(message.party_id, signature.party_id);
         assert_eq!(
             SingleSignatureAuthenticationStatus::Unauthenticated,
-            signatures.authentication_status
+            signature.authentication_status
         );
     }
 }
