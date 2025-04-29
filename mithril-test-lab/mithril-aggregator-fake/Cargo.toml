@@ -1,6 +1,6 @@
 [package]
 name = "mithril-aggregator-fake"
-version = "0.4.6"
+version = "0.4.7"
 description = "Mithril Fake Aggregator for client testing"
 authors = { workspace = true }
 documentation = { workspace = true }
@@ -11,7 +11,7 @@ repository = { workspace = true }
 
 [dependencies]
 anyhow = { workspace = true }
-axum = { version = "0.8.1", features = ["tokio", "http1"] }
+axum = { version = "0.8.3", features = ["tokio", "http1"] }
 clap = { workspace = true }
 futures = "0.3.31"
 serde = { workspace = true }

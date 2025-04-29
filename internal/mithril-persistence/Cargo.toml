@@ -1,6 +1,6 @@
 [package]
 name = "mithril-persistence"
-version = "0.2.51"
+version = "0.2.52"
 description = "Common types, interfaces, and utilities to persist data for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -21,7 +21,7 @@ semver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 slog = { workspace = true }
-sqlite = { version = "0.36.2", features = ["bundled"] }
+sqlite = { version = "0.37.0", features = ["bundled"] }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 

@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client"
-version = "0.11.22"
+version = "0.11.23"
 description = "Mithril client library"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -33,7 +33,7 @@ anyhow = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }
-flate2 = { version = "1.1.0", optional = true }
+flate2 = { version = "1.1.1", optional = true }
 flume = { version = "0.11.1", optional = true }
 futures = "0.3.31"
 reqwest = { workspace = true, default-features = false, features = [
@@ -64,7 +64,7 @@ mithril-common = { path = "../mithril-common", version = "=0.5", default-feature
 uuid = { version = "1.16.0", features = ["v4", "js"] }
 
 [dev-dependencies]
-bon = "3.5.1"
+bon = "3.6.3"
 hex = { workspace = true }
 httpmock = "0.7.0"
 mithril-common = { path = "../mithril-common", version = "=0.5", default-features = false, features = [

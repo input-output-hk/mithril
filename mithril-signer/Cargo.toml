@@ -1,6 +1,6 @@
 [package]
 name = "mithril-signer"
-version = "0.2.239"
+version = "0.2.240"
 description = "A Mithril Signer"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -44,7 +44,7 @@ slog = { workspace = true, features = [
 ] }
 slog-async = { workspace = true }
 slog-bunyan = { workspace = true }
-sqlite = { version = "0.36.2", features = ["bundled"] }
+sqlite = { version = "0.37.0", features = ["bundled"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal"] }
 

@@ -1,6 +1,6 @@
 [package]
 name = "mithril-metric"
-version = "0.1.11"
+version = "0.1.12"
 description = "Common tools to expose metrics."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -13,10 +13,10 @@ crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
 anyhow = { workspace = true }
-axum = "0.8.1"
+axum = "0.8.3"
 mithril-common = { path = "../../mithril-common" }
 paste = "1.0.15"
-prometheus = "0.13.4"
+prometheus = "0.14.0"
 reqwest = { workspace = true, features = ["default", "stream"] }
 slog = { workspace = true }
 tokio = { workspace = true }
