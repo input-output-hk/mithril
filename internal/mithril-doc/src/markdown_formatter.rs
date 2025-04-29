@@ -61,10 +61,11 @@ mod markdown {
     }
 }
 
-pub fn doc_markdown_with_config(
-    cmd: &mut Command,
-    struct_doc: HashMap<String, StructDoc>,
-) -> String {
+fn format_clap_command_name_to_key(clap_command_name: &str) -> String {
+    clap_command_name.replace("-", "")
+}
+
+pub fn doc_markdown_with_config(cmd: &mut Command, configs: HashMap<String, StructDoc>) -> String {
     // See: https://github1s.com/clap-rs/clap/blob/HEAD/clap_builder/src/builder/command.rs#L1989
 
     fn format_parameters(
@@ -140,22 +141,20 @@ pub fn doc_markdown_with_config(
         cmd: &Command,
         parent: Option<String>,
         help: String,
-        struct_doc: HashMap<String, StructDoc>,
+        configs: HashMap<String, StructDoc>,
         level: usize,
         parameters_explanation: &str,
     ) -> String {
-        let parent_ancestors = parent.clone().map_or("".into(), |s| format!("{} ", s));
-        let title = format!(
-            "{} {}{}\n",
-            "#".repeat(level),
-            parent_ancestors,
-            cmd.get_name()
-        );
+        let parent_path = parent.map(|s| format!("{} ", s)).unwrap_or_default();
+        let command_path = format!("{}{}", parent_path, cmd.get_name());
+
+        let title = format!("{} {}\n", "#".repeat(level), command_path);
         let description = cmd.get_about().map_or("".into(), StyledStr::to_string);
 
         let subcommands_table = format_subcommand(cmd);
 
-        let parameters = format_parameters(cmd, struct_doc.get(""), parameters_explanation);
+        let config_key = format_clap_command_name_to_key(&command_path);
+        let parameters = format_parameters(cmd, configs.get(&config_key), parameters_explanation);
 
         let subcommands = cmd
             .get_subcommands()
@@ -163,8 +162,8 @@ pub fn doc_markdown_with_config(
             .map(|sub_command: &Command| {
                 format_command(
                     &mut sub_command.clone(),
-                    Some(format!("{} {}", parent_ancestors, cmd.get_name())),
-                    HashMap::new(), // TODO: we need a struct doc
+                    Some(command_path.clone()),
+                    configs.clone(),
                     level + 1,
                     "",
                 )
@@ -182,7 +181,7 @@ pub fn doc_markdown_with_config(
                 \n\
                 2. The value can be overridden by an environment variable with the parameter name in uppercase.\n\
                 ";
-    format_command(cmd, None, struct_doc, 3, parameters_explanation)
+    format_command(cmd, None, configs, 3, parameters_explanation)
 }
 
 pub fn doc_config_to_markdown(struct_doc: &StructDoc) -> String {
@@ -336,7 +335,7 @@ mod tests {
         let doc = doc_markdown_with_config(&mut command, HashMap::new());
 
         assert!(
-            doc.contains("###  mithril-doc sub-command-a"),
+            doc.contains("### mithril-doc sub-command-a"),
             "Generated doc: {doc}"
         );
         // In `Commands:` part.
@@ -358,7 +357,7 @@ mod tests {
         let doc = doc_markdown_with_config(&mut command, HashMap::new());
 
         assert!(
-            doc.contains("###  mithril-doc sub-command-b"),
+            doc.contains("### mithril-doc sub-command-b"),
             "Generated doc: {doc}"
         );
         // In `Commands:` part.
@@ -391,11 +390,11 @@ mod tests {
         let doc = doc_markdown_with_config(&mut command, HashMap::new());
 
         assert!(
-            doc.contains("###  mithril-doc sub-command-b"),
+            doc.contains("### mithril-doc sub-command-b"),
             "Generated doc: {doc}"
         );
         assert!(
-            !doc.contains("###  mithril-doc help"),
+            !doc.contains("### mithril-doc help"),
             "Generated doc: {doc}"
         );
     }
@@ -450,7 +449,8 @@ mod tests {
             };
 
             let mut command = MyCommand::command();
-            let configs = HashMap::from([("".to_string(), struct_doc)]);
+            let crate_name = format_clap_command_name_to_key(env!("CARGO_PKG_NAME"));
+            let configs = HashMap::from([(crate_name.to_string(), struct_doc)]);
             let doc = doc_markdown_with_config(&mut command, configs);
 
             assert!(
@@ -462,5 +462,63 @@ mod tests {
                 "Generated doc: {doc}"
             );
         }
+    }
+
+    #[test]
+    fn test_doc_markdown_not_include_config_parameters_when_no_configuration_specified_for_command()
+    {
+        {
+            let struct_doc = {
+                let mut s = StructDoc::default();
+                s.add_param(
+                    "ConfigA",
+                    "Param A from config\nLine break",
+                    Some("CONFIGA".to_string()),
+                    Some("default config A".to_string()),
+                    None,
+                );
+                s.add_param("ConfigB", "Param B from config", None, None, None);
+                s
+            };
+
+            let mut command = MyCommand::command();
+            let configs = HashMap::from([("whatever".to_string(), struct_doc)]);
+            let doc = doc_markdown_with_config(&mut command, configs);
+
+            assert!(
+                !doc.contains("| Param A from config |"),
+                "Generated doc: {doc}"
+            );
+            assert!(
+                !doc.contains("| `ConfigA` | - | - |"),
+                "Generated doc: {doc}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_doc_markdown_include_config_parameters_for_subcommands() {
+        let struct_doc = {
+            let mut s = StructDoc::default();
+            s.add_param("ConfigA", "", None, None, None);
+            s.add_param("ConfigB", "", None, None, None);
+            s
+        };
+
+        let mut command = MyCommand::command();
+        let crate_name = format_clap_command_name_to_key(env!("CARGO_PKG_NAME"));
+        let configs = HashMap::from([(format!("{} subcommanda", crate_name), struct_doc)]);
+        let doc = doc_markdown_with_config(&mut command, configs);
+
+        assert!(doc.contains("| `ConfigA` |"), "Generated doc: {doc}");
+    }
+
+    #[test]
+    fn test_format_clap_command_name_to_key() {
+        let clap_command_name = "my-command-a";
+
+        let key = format_clap_command_name_to_key(clap_command_name);
+
+        assert_eq!(key, "mycommanda");
     }
 }

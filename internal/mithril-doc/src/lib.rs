@@ -93,12 +93,8 @@ impl StructDoc {
 
     /// Merge two StructDoc into a third one.
     pub fn merge_struct_doc(&self, s2: &StructDoc) -> StructDoc {
-        let mut struct_doc_merged = StructDoc::new(
-            self.get_ordered_data()
-                .into_iter()
-                .map(|field| field.clone())
-                .collect(),
-        );
+        let mut struct_doc_merged =
+            StructDoc::new(self.get_ordered_data().into_iter().cloned().collect());
         for (key, field_doc) in s2.parameters.iter() {
             if let Some(parameter) = struct_doc_merged.parameters.get_mut(key) {
                 if parameter.default_value.is_none() {
@@ -183,53 +179,28 @@ impl GenerateDocCommands {
         cmd_to_document: &mut Command,
         configs_info: &[StructDoc],
     ) -> Result<(), String> {
+        let mut iter_config = configs_info.iter();
+        let mut merged_struct_doc = StructDoc::default();
+        for next_config in &mut iter_config {
+            merged_struct_doc = merged_struct_doc.merge_struct_doc(next_config);
+        }
+
         let mut map = HashMap::new();
-        map.insert("".to_string(), configs_info);
+        map.insert("".to_string(), merged_struct_doc);
         self.execute_with_configurations_new(cmd_to_document, map)
-        // let mut iter_config = configs_info.iter();
-        // let mut merged_struct_doc = StructDoc::default();
-        // for next_config in &mut iter_config {
-        //     merged_struct_doc = merged_struct_doc.merge_struct_doc(next_config);
-        // }
-
-        // let doc =
-        //     markdown_formatter::doc_markdown_with_config(cmd_to_document, Some(&merged_struct_doc));
-        // let cmd_name = cmd_to_document.get_name();
-
-        // println!("Please note: the documentation generated is not able to indicate the environment variables used by the commands.");
-        // self.save_doc(cmd_name, format!("\n{}", doc).as_str())
     }
 
     /// Generate the command line documentation with config info.
     pub fn execute_with_configurations_new(
         &self,
         cmd_to_document: &mut Command,
-        configs_info: HashMap<String, &[StructDoc]>,
+        configs_info: HashMap<String, StructDoc>,
     ) -> Result<(), String> {
-        let mut iter_config = configs_info.get("").unwrap().iter();
-        let mut merged_struct_doc = StructDoc::default();
-        for next_config in &mut iter_config {
-            merged_struct_doc = merged_struct_doc.merge_struct_doc(next_config);
-        }
-
-        let doc = markdown_formatter::doc_markdown_with_config(
-            cmd_to_document,
-            Self::merge_commands_struct_docs(configs_info),
-        );
-        // let doc =
-        //     markdown_formatter::doc_markdown_with_config(cmd_to_document, Some(&merged_struct_doc));
+        let doc = markdown_formatter::doc_markdown_with_config(cmd_to_document, configs_info);
         let cmd_name = cmd_to_document.get_name();
 
         println!("Please note: the documentation generated is not able to indicate the environment variables used by the commands.");
         self.save_doc(cmd_name, format!("\n{}", doc).as_str())
-    }
-
-    fn merge_commands_struct_docs(
-        configs_info: HashMap<String, &[StructDoc]>,
-    ) -> HashMap<String, StructDoc> {
-        let mut merged_struct_doc = HashMap::new();
-
-        merged_struct_doc
     }
 }
 
@@ -257,27 +228,6 @@ mod tests {
         let retrieved_field = struct_doc.get_field("X");
 
         assert_eq!(retrieved_field, None);
-    }
-
-    #[test]
-    fn test_merge_commands_struct_docs() {
-        let s1 = {
-            let mut s = StructDoc::default();
-            s.add_param("A", "Param first A", None, None, None);
-            s.add_param("B", "Param first B", None, None, None);
-            s.add_param("C", "Param first C", None, None, None);
-            s.add_param("D", "Param first D", None, None, None);
-            s
-        };
-
-        let s2 = {
-            let mut s = StructDoc::default();
-            s.add_param("A", "Param second A", None, None, None);
-            s.add_param("B", "Param second B", None, None, None);
-            s.add_param("E", "Param second E", None, None, None);
-            s.add_param("F", "Param second F", None, None, None);
-            s
-        };
     }
 
     #[test]
