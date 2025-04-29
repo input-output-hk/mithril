@@ -15,6 +15,8 @@ As a minor extension, we have adopted a slightly different versioning convention
   - Without this option, only final immutable files are downloaded and the ledger state must be computed from the genesis block.
   - The `--include-ancillary` option requires the usage of an **ancillary verification key** (`--ancillary-verification-key` or `ANCILLARY_VERIFICATION_KEY`) which is specified in the [Networks configuration](https://mithril.network/doc/manual/getting-started/network-configurations) page.
 
+- Support for `Cardano node` `10.3.1` in the signer and the aggregator.
+
 - Support for ancillary files signature for _Cardano node database_ and _Cardano node database v2_ certification with IOG key.
 
 - Add `with_origin_tag` function to the Mithril client library to record the origin of client requests.
