@@ -164,6 +164,10 @@ inputs:
     description: Mithril aggregator ancillary signer JSON credentials to access GCP KMS (used with mithril_aggregator_ancillary_signer_type='gcp-kms').
     required: false
     default: ""
+  mithril_aggregator_custom_origin_tag_white_list:
+    description: Mithril aggregator origin tags white list used by the mithril aggregator (comma separated list of tags).
+    required: false
+    default: ""
   prometheus_auth_username:
     description: Prometheus metrics endpoint username.
     required: false
@@ -273,6 +277,7 @@ runs:
           mithril_aggregator_ancillary_signer_secret_key                            = "${{ inputs.mithril_aggregator_ancillary_signer_secret_key }}"
           mithril_aggregator_ancillary_signer_gcp_kms_resource_name                 = "${{ inputs.mithril_aggregator_ancillary_signer_gcp_kms_resource_name }}"
           mithril_aggregator_ancillary_signer_gcp_kms_credentials                   = "${{ steps.prepare.outputs.mithril_aggregator_ancillary_signer_gcp_kms_credentials_base64 }}"
+          mithril_aggregator_custom_origin_tag_white_list                           = "${{ inputs.mithril_aggregator_custom_origin_tag_white_list }}"
           prometheus_auth_username                                                  = "${{ inputs.prometheus_auth_username }}"
           prometheus_auth_password                                                  = "${{ inputs.prometheus_auth_password }}"
           prometheus_ingest_host                                                    = "${{ inputs.prometheus_ingest_host }}"
