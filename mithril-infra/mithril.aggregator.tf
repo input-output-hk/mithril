@@ -113,6 +113,7 @@ EOT
       "export CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE=${var.mithril_aggregator_cardano_transactions_database_connection_pool_size}",
       "export CARDANO_TRANSACTIONS_SIGNING_CONFIG__SECURITY_PARAMETER=${var.mithril_aggregator_cardano_transactions_signing_config_security_parameter}",
       "export CARDANO_TRANSACTIONS_SIGNING_CONFIG__STEP=${var.mithril_aggregator_cardano_transactions_signing_config_step}",
+      "export CUSTOM_ORIGIN_TAG_WHITE_LIST='${var.mithril_aggregator_custom_origin_tag_white_list}'",
       "export PUBLIC_SERVER_URL=${local.mithril_aggregator_endpoint_url}",
       "export AUTH_USER_PASSWORD=$(htpasswd -nb ${var.mithril_aggregator_auth_username} ${var.mithril_aggregator_auth_password})",
       "export LEADER_AGGREGATOR_ENDPOINT='${var.mithril_aggregator_leader_aggregator_endpoint}'",

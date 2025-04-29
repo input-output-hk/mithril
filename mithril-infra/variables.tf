@@ -332,6 +332,12 @@ variable "mithril_aggregator_ancillary_signer_gcp_kms_credentials" {
   default     = ""
 }
 
+variable "mithril_aggregator_custom_origin_tag_white_list" {
+  type        = string
+  description = "The custom origin tags white list used by the mithril aggregator (comma separated list of tags)"
+  default     = ""
+}
+
 variable "prometheus_auth_username" {
   type        = string
   description = "The username for authentication on local prometheus endpoint"
