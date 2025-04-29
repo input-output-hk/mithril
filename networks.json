@@ -1,7 +1,7 @@
 {
   "mainnet": {
     "cardano-minimum-version": {
-      "mithril-signer": "10.1.1"
+      "mithril-signer": "10.2.1"
     },
     "mithril-networks": [
       {
@@ -24,6 +24,11 @@
             "verification-key": {
               "url": "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/era.vkey"
             }
+          },
+          "ancillary": {
+            "verification-key": {
+              "url": "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/ancillary.vkey"
+            }
           }
         }
       }
@@ -31,7 +36,7 @@
   },
   "preprod": {
     "cardano-minimum-version": {
-      "mithril-signer": "10.1.1"
+      "mithril-signer": "10.2.1"
     },
     "mithril-networks": [
       {
@@ -54,6 +59,11 @@
             "verification-key": {
               "url": "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/era.vkey"
             }
+          },
+          "ancillary": {
+            "verification-key": {
+              "url": "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/ancillary.vkey"
+            }
           }
         }
       }
@@ -61,7 +71,7 @@
   },
   "preview": {
     "cardano-minimum-version": {
-      "mithril-signer": "10.1.1"
+      "mithril-signer": "10.2.1"
     },
     "mithril-networks": [
       {
@@ -83,6 +93,11 @@
             },
             "verification-key": {
               "url": "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/era.vkey"
+            }
+          },
+          "ancillary": {
+            "verification-key": {
+              "url": "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/ancillary.vkey"
             }
           }
         }
@@ -106,6 +121,11 @@
             },
             "verification-key": {
               "url": "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/era.vkey"
+            }
+          },
+          "ancillary": {
+            "verification-key": {
+              "url": "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/ancillary.vkey"
             }
           }
         }
