@@ -30,6 +30,14 @@ pub struct Args {
     )]
     genesis_verification_key: String,
 
+    /// Ancillary verification key.
+    #[clap(
+        long,
+        env = "ANCILLARY_VERIFICATION_KEY",
+        default_value = "5b3138392c3139322c3231362c3135302c3131342c3231362c3233372c3231302c34352c31382c32312c3139362c3230382c3234362c3134362c322c3235322c3234332c3235312c3139372c32382c3135372c3230342c3134352c33302c31342c3232382c3136382c3132392c38332c3133362c33365d"
+    )]
+    ancillary_verification_key: String,
+
     /// Aggregator endpoint URL.
     #[clap(
         long,
@@ -46,6 +54,7 @@ async fn main() -> MithrilResult<()> {
     let progress_bar = indicatif::MultiProgress::new();
     let client =
         ClientBuilder::aggregator(&args.aggregator_endpoint, &args.genesis_verification_key)
+            .set_ancillary_verification_key(args.ancillary_verification_key)
             .with_origin_tag(Some("EXAMPLE".to_string()))
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(&progress_bar)))
             .build()?;
@@ -81,7 +90,7 @@ async fn main() -> MithrilResult<()> {
     let immutable_file_range = ImmutableFileRange::From(15000);
     let download_unpack_options = DownloadUnpackOptions {
         allow_override: true,
-        include_ancillary: false,
+        include_ancillary: true,
         ..DownloadUnpackOptions::default()
     };
     client
