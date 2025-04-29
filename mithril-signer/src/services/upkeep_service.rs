@@ -164,44 +164,38 @@ mod tests {
 
     #[tokio::test]
     async fn test_cleanup_database() {
-        let (main_db_path, ctx_db_path, log_path) = {
+        let (logger, log_inspector) = TestLogger::memory();
+        let (main_db_path, ctx_db_path) = {
             let db_dir = TempDir::create("signer_upkeep", "test_cleanup_database");
-            (
-                db_dir.join("main.db"),
-                db_dir.join("cardano_tx.db"),
-                db_dir.join("upkeep.log"),
-            )
+            (db_dir.join("main.db"), db_dir.join("cardano_tx.db"))
         };
 
         let main_db_connection = main_db_file_connection(&main_db_path).unwrap();
         let cardano_tx_connection = cardano_tx_db_file_connection(&ctx_db_path).unwrap();
 
-        // Separate block to force log flushing by dropping the service that owns the logger
-        {
-            let service = SignerUpkeepService::new(
-                Arc::new(main_db_connection),
-                Arc::new(SqliteConnectionPool::build_from_connection(
-                    cardano_tx_connection,
-                )),
-                Arc::new(SignedEntityTypeLock::default()),
-                vec![],
-                TestLogger::file(&log_path),
-            );
+        let service = SignerUpkeepService::new(
+            Arc::new(main_db_connection),
+            Arc::new(SqliteConnectionPool::build_from_connection(
+                cardano_tx_connection,
+            )),
+            Arc::new(SignedEntityTypeLock::default()),
+            vec![],
+            logger,
+        );
 
-            service.run(Epoch(13)).await.expect("Upkeep service failed");
-        }
-
-        let logs = std::fs::read_to_string(&log_path).unwrap();
+        service.run(Epoch(13)).await.expect("Upkeep service failed");
 
         assert_eq!(
-            logs.matches(SqliteCleaningTask::Vacuum.log_message())
-                .count(),
+            log_inspector
+                .search_logs(SqliteCleaningTask::Vacuum.log_message())
+                .len(),
             1,
             "Should have run only once since only the main database has a `Vacuum` cleanup"
         );
         assert_eq!(
-            logs.matches(SqliteCleaningTask::WalCheckpointTruncate.log_message())
-                .count(),
+            log_inspector
+                .search_logs(SqliteCleaningTask::WalCheckpointTruncate.log_message())
+                .len(),
             2,
             "Should have run twice since the two databases have a `WalCheckpointTruncate` cleanup"
         );
@@ -209,42 +203,29 @@ mod tests {
 
     #[tokio::test]
     async fn test_doesnt_cleanup_db_if_any_entity_is_locked() {
-        let log_path = TempDir::create(
-            "signer_upkeep",
-            "test_doesnt_cleanup_db_if_any_entity_is_locked",
-        )
-        .join("upkeep.log");
+        let (logger, log_inspector) = TestLogger::memory();
 
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
         signed_entity_type_lock
             .lock(SignedEntityTypeDiscriminants::CardanoTransactions)
             .await;
 
-        // Separate block to force log flushing by dropping the service that owns the logger
-        {
-            let service = SignerUpkeepService::new(
-                Arc::new(main_db_connection().unwrap()),
-                Arc::new(SqliteConnectionPool::build(1, cardano_tx_db_connection).unwrap()),
-                signed_entity_type_lock.clone(),
-                vec![],
-                TestLogger::file(&log_path),
-            );
-
-            service.run(Epoch(13)).await.expect("Upkeep service failed");
-        }
-
-        let logs = std::fs::read_to_string(&log_path).unwrap();
-
-        assert_eq!(
-            logs.matches(SqliteCleaningTask::Vacuum.log_message())
-                .count(),
-            0,
+        let service = SignerUpkeepService::new(
+            Arc::new(main_db_connection().unwrap()),
+            Arc::new(SqliteConnectionPool::build(1, cardano_tx_db_connection).unwrap()),
+            signed_entity_type_lock.clone(),
+            vec![],
+            logger,
         );
-        assert_eq!(
-            logs.matches(SqliteCleaningTask::WalCheckpointTruncate.log_message())
-                .count(),
-            0,
-        );
+
+        service.run(Epoch(13)).await.expect("Upkeep service failed");
+
+        assert!(log_inspector
+            .search_logs(SqliteCleaningTask::Vacuum.log_message())
+            .is_empty());
+        assert!(log_inspector
+            .search_logs(SqliteCleaningTask::WalCheckpointTruncate.log_message())
+            .is_empty());
     }
 
     #[tokio::test]

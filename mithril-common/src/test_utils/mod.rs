@@ -17,6 +17,7 @@ mod cardano_transactions_builder;
 mod certificate_chain_builder;
 mod dir_eq;
 mod fixture_builder;
+mod memory_logger;
 mod mithril_fixture;
 mod precomputed_kes_key;
 mod temp_dir;
@@ -31,6 +32,7 @@ pub use certificate_chain_builder::{
 };
 pub use dir_eq::*;
 pub use fixture_builder::{MithrilFixtureBuilder, StakeDistributionGenerationMethod};
+pub use memory_logger::*;
 pub use mithril_fixture::{MithrilFixture, SignerFixture};
 pub use temp_dir::*;
 #[cfg(test)]
@@ -124,7 +126,6 @@ pub use current_function_path;
 
 #[cfg(test)]
 mod utils {
-    use std::fs::File;
     use std::io;
     use std::sync::Arc;
     use std::{collections::HashSet, path::Path};
@@ -150,8 +151,9 @@ mod utils {
             Self::from_writer(slog_term::TestStdoutWriter)
         }
 
-        pub fn file(filepath: &std::path::Path) -> Logger {
-            Self::from_writer(File::create(filepath).unwrap())
+        pub fn memory() -> (Logger, MemoryDrainForTestInspector) {
+            let (drain, inspector) = MemoryDrainForTest::new();
+            (Logger::root(drain.fuse(), slog::o!()), inspector)
         }
     }
 

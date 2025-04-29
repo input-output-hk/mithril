@@ -92,19 +92,10 @@ impl From<StdError> for RuntimeError {
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
-    use std::path::Path;
-
-    use mithril_common::test_utils::TempDir;
 
     use crate::test_tools::TestLogger;
 
     use super::*;
-
-    /// Separate function so the logger is dropped and flushed before the assertion.
-    fn write_log(log_file: &Path, error: &RuntimeError) {
-        let logger = TestLogger::file(log_file);
-        error.write_to_log(&logger);
-    }
 
     fn nested_error_debug_string(error: &RuntimeError) -> String {
         let error = match error {
@@ -122,28 +113,21 @@ mod tests {
 
     #[test]
     fn log_critical_without_nested_error() {
-        let log_file = TempDir::create(
-            "aggregator_runtime_error",
-            "log_critical_without_nested_error",
-        )
-        .join("file.log");
+        let (logger, log_inspector) = TestLogger::memory();
 
         let error = RuntimeError::Critical {
             message: "Critical error".to_string(),
             nested_error: None,
         };
-        write_log(&log_file, &error);
+        error.write_to_log(&logger);
 
-        let log_content = std::fs::read_to_string(&log_file).unwrap();
-        assert!(log_content.contains(&format!("{error}")));
-        assert!(!log_content.contains("nested_error"));
+        assert!(log_inspector.contains_log(&format!("{error}")));
+        assert!(!log_inspector.contains_log("nested_error"));
     }
 
     #[test]
     fn log_critical_with_nested_error() {
-        let log_file =
-            TempDir::create("aggregator_runtime_error", "log_critical_with_nested_error")
-                .join("file.log");
+        let (logger, log_inspector) = TestLogger::memory();
 
         let error = RuntimeError::Critical {
             message: "Critical error".to_string(),
@@ -153,39 +137,29 @@ mod tests {
                     .context("Critical nested error"),
             ),
         };
-        write_log(&log_file, &error);
+        error.write_to_log(&logger);
 
-        let log_content = std::fs::read_to_string(&log_file).unwrap();
-        assert!(log_content.contains(&format!("{error}")));
-        assert!(log_content.contains(&nested_error_debug_string(&error)));
+        assert!(log_inspector.contains_log(&format!("{error}")));
+        assert!(log_inspector.contains_log(&nested_error_debug_string(&error)));
     }
 
     #[test]
     fn log_keep_state_without_nested_error() {
-        let log_file = TempDir::create(
-            "aggregator_runtime_error",
-            "log_keep_state_without_nested_error",
-        )
-        .join("file.log");
+        let (logger, log_inspector) = TestLogger::memory();
 
         let error = RuntimeError::KeepState {
             message: "KeepState error".to_string(),
             nested_error: None,
         };
-        write_log(&log_file, &error);
+        error.write_to_log(&logger);
 
-        let log_content = std::fs::read_to_string(&log_file).unwrap();
-        assert!(log_content.contains(&format!("{error}")));
-        assert!(!log_content.contains("nested_error"));
+        assert!(log_inspector.contains_log(&format!("{error}")));
+        assert!(!log_inspector.contains_log("nested_error"));
     }
 
     #[test]
     fn log_keep_state_with_nested_error() {
-        let log_file = TempDir::create(
-            "aggregator_runtime_error",
-            "log_keep_state_with_nested_error",
-        )
-        .join("file.log");
+        let (logger, log_inspector) = TestLogger::memory();
 
         let error = RuntimeError::KeepState {
             message: "KeepState error".to_string(),
@@ -195,36 +169,29 @@ mod tests {
                     .context("KeepState nested error"),
             ),
         };
-        write_log(&log_file, &error);
+        error.write_to_log(&logger);
 
-        let log_content = std::fs::read_to_string(&log_file).unwrap();
-        assert!(log_content.contains(&format!("{error}")));
-        assert!(log_content.contains(&nested_error_debug_string(&error)));
+        assert!(log_inspector.contains_log(&format!("{error}")));
+        assert!(log_inspector.contains_log(&nested_error_debug_string(&error)));
     }
 
     #[test]
     fn log_reinit_without_nested_error() {
-        let log_file = TempDir::create(
-            "aggregator_runtime_error",
-            "log_reinit_without_nested_error",
-        )
-        .join("file.log");
+        let (logger, log_inspector) = TestLogger::memory();
 
         let error = RuntimeError::ReInit {
             message: "ReInit error".to_string(),
             nested_error: None,
         };
-        write_log(&log_file, &error);
+        error.write_to_log(&logger);
 
-        let log_content = std::fs::read_to_string(&log_file).unwrap();
-        assert!(log_content.contains(&format!("{error}")));
-        assert!(!log_content.contains("nested_error"));
+        assert!(log_inspector.contains_log(&format!("{error}")));
+        assert!(!log_inspector.contains_log("nested_error"));
     }
 
     #[test]
     fn log_reinit_with_nested_error() {
-        let log_file = TempDir::create("aggregator_runtime_error", "log_reinit_with_nested_error")
-            .join("file.log");
+        let (logger, log_inspector) = TestLogger::memory();
 
         let error = RuntimeError::ReInit {
             message: "ReInit error".to_string(),
@@ -234,10 +201,9 @@ mod tests {
                     .context("ReInit nested error"),
             ),
         };
-        write_log(&log_file, &error);
+        error.write_to_log(&logger);
 
-        let log_content = std::fs::read_to_string(&log_file).unwrap();
-        assert!(log_content.contains(&format!("{error}")));
-        assert!(log_content.contains(&nested_error_debug_string(&error)));
+        assert!(log_inspector.contains_log(&format!("{error}")));
+        assert!(log_inspector.contains_log(&nested_error_debug_string(&error)));
     }
 }

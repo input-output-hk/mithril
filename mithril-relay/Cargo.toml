@@ -1,6 +1,6 @@
 [package]
 name = "mithril-relay"
-version = "0.1.41"
+version = "0.1.42"
 description = "A Mithril relay"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -44,7 +44,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 slog = { workspace = true, features = [
     "max_level_trace",
-    "release_max_level_trace",
+    "release_max_level_debug",
 ] }
 slog-async = { workspace = true }
 slog-bunyan = { workspace = true }

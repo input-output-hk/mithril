@@ -36,7 +36,7 @@ fn component_name<T>() -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::{TempDir, TestLogger};
+    use crate::test_utils::TestLogger;
     use slog::info;
 
     struct TestStruct;
@@ -89,37 +89,26 @@ mod tests {
 
     #[test]
     fn logger_extension_new_with_component_name() {
-        let log_path =
-            TempDir::create("common_logging", "logger_extension_new_with_component_name")
-                .join("test.log");
-        {
-            let root_logger = TestLogger::file(&log_path);
-            let child_logger = root_logger.new_with_component_name::<TestStruct>();
-            info!(child_logger, "Child log");
-        }
+        let (root_logger, log_inspector) = TestLogger::memory();
+        let child_logger = root_logger.new_with_component_name::<TestStruct>();
+        info!(child_logger, "Child log");
 
-        let logs = std::fs::read_to_string(&log_path).unwrap();
         assert!(
-            logs.contains("src") && logs.contains("TestStruct"),
-            "log should contain `src` key for `TestStruct` as component name was provided, logs:\n{logs}"
+            log_inspector.contains_log("src") && log_inspector.contains_log("TestStruct"),
+            "log should contain `src` key for `TestStruct` as component name was provided, logs:\n{log_inspector}"
         );
     }
 
     #[test]
     fn logger_extension_new_with_name() {
         let expected_name = "my name";
-        let log_path =
-            TempDir::create("common_logging", "logger_extension_new_with_name").join("test.log");
-        {
-            let root_logger = TestLogger::file(&log_path);
-            let child_logger = root_logger.new_with_name(expected_name);
-            info!(child_logger, "Child log");
-        }
+        let (root_logger, log_inspector) = TestLogger::memory();
+        let child_logger = root_logger.new_with_name(expected_name);
+        info!(child_logger, "Child log");
 
-        let logs = std::fs::read_to_string(&log_path).unwrap();
         assert!(
-            logs.contains("src") && logs.contains(expected_name),
-            "log should contain `src` key for `{expected_name}` as a name was provided, logs:\n{logs}"
+            log_inspector.contains_log("src") && log_inspector.contains_log(expected_name),
+            "log should contain `src` key for `{expected_name}` as a name was provided, logs:\n{log_inspector}"
         );
     }
 }

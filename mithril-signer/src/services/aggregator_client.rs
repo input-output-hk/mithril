@@ -456,7 +456,7 @@ mod tests {
     use mithril_common::entities::Epoch;
     use mithril_common::era::{EraChecker, SupportedEra};
     use mithril_common::messages::TryFromMessageAdapter;
-    use mithril_common::test_utils::{fake_data, TempDir};
+    use mithril_common::test_utils::fake_data;
 
     use crate::test_tools::TestLogger;
 
@@ -864,40 +864,33 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signature_ok_410_log_response_body() {
-        let log_path = TempDir::create(
-            "aggregator_client",
-            "test_register_signature_ok_410_log_response_body",
-        )
-        .join("test.log");
+        let (logger, log_inspector) = TestLogger::memory();
 
         let single_signature = fake_data::single_signature((1..5).collect());
-        {
-            let (server, mut client) = setup_server_and_client();
-            client.logger = TestLogger::file(&log_path);
-            let _server_mock = server.mock(|when, then| {
-                when.method(POST).path("/register-signatures");
-                then.status(410).body(
-                    serde_json::to_vec(&ClientError::new(
-                        "already_aggregated".to_string(),
-                        "too late".to_string(),
-                    ))
-                    .unwrap(),
-                );
-            });
+        let (server, mut client) = setup_server_and_client();
+        client.logger = logger;
+        let _server_mock = server.mock(|when, then| {
+            when.method(POST).path("/register-signatures");
+            then.status(410).body(
+                serde_json::to_vec(&ClientError::new(
+                    "already_aggregated".to_string(),
+                    "too late".to_string(),
+                ))
+                .unwrap(),
+            );
+        });
 
-            client
-                .register_signature(
-                    &SignedEntityType::dummy(),
-                    &single_signature,
-                    &ProtocolMessage::default(),
-                )
-                .await
-                .expect("Should not fail when status is 410 (GONE)");
-        }
+        client
+            .register_signature(
+                &SignedEntityType::dummy(),
+                &single_signature,
+                &ProtocolMessage::default(),
+            )
+            .await
+            .expect("Should not fail when status is 410 (GONE)");
 
-        let logs = std::fs::read_to_string(&log_path).unwrap();
-        assert!(logs.contains("already_aggregated"));
-        assert!(logs.contains("too late"));
+        assert!(log_inspector.contains_log("already_aggregated"));
+        assert!(log_inspector.contains_log("too late"));
     }
 
     #[tokio::test]

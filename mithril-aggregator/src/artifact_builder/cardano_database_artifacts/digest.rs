@@ -444,36 +444,30 @@ mod tests {
     #[tokio::test]
     async fn upload_digest_file_should_log_upload_errors() {
         let temp_dir = TempDir::create("digest", current_function!());
-        let log_path = temp_dir.join("test.log");
-
+        let (logger, log_inspector) = TestLogger::memory();
         let mut uploader = MockDigestFileUploader::new();
         uploader
             .expect_upload()
             .return_once(|_, _| Err(anyhow!("Failure while uploading...")));
 
-        {
-            let builder = DigestArtifactBuilder::new(
-                SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
-                vec![Arc::new(uploader)],
-                DigestSnapshotter {
-                    file_archiver: Arc::new(FileArchiver::new_for_test(
-                        temp_dir.join("verification"),
-                    )),
-                    target_location: temp_dir.clone(),
-                    compression_algorithm: CompressionAlgorithm::Gzip,
-                },
-                CardanoNetwork::DevNet(123),
-                PathBuf::from("/tmp/whatever"),
-                Arc::new(MockImmutableFileDigestMapper::new()),
-                TestLogger::file(&log_path),
-            )
-            .unwrap();
+        let builder = DigestArtifactBuilder::new(
+            SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
+            vec![Arc::new(uploader)],
+            DigestSnapshotter {
+                file_archiver: Arc::new(FileArchiver::new_for_test(temp_dir.join("verification"))),
+                target_location: temp_dir.clone(),
+                compression_algorithm: CompressionAlgorithm::Gzip,
+            },
+            CardanoNetwork::DevNet(123),
+            PathBuf::from("/tmp/whatever"),
+            Arc::new(MockImmutableFileDigestMapper::new()),
+            logger,
+        )
+        .unwrap();
 
-            let _ = builder.upload_digest_file(&FileArchive::dummy()).await;
-        }
+        let _ = builder.upload_digest_file(&FileArchive::dummy()).await;
 
-        let logs = std::fs::read_to_string(&log_path).unwrap();
-        assert!(logs.contains("Failure while uploading..."));
+        assert!(log_inspector.contains_log("Failure while uploading..."));
     }
 
     #[tokio::test]

@@ -17,7 +17,7 @@ use crate::{
     DumbUploader, FileUploader,
 };
 
-fn immmutable_file_number_extractor(file_uri: &str) -> StdResult<Option<String>> {
+fn immutable_file_number_extractor(file_uri: &str) -> StdResult<Option<String>> {
     let regex = Regex::new(r".*(\d{5})")?;
 
     Ok(regex
@@ -63,7 +63,7 @@ impl ImmutableFilesUploader for DumbUploader {
 
         let template_uri = MultiFilesUri::extract_template_from_uris(
             vec![self.upload(last_file_path).await?.into()],
-            immmutable_file_number_extractor,
+            immutable_file_number_extractor,
         )?
         .ok_or_else(|| {
             anyhow!("No matching template found in the uploaded files with 'DumbUploader'")
@@ -89,7 +89,7 @@ impl ImmutableFilesUploader for LocalUploader {
         }
 
         let template_uri =
-            MultiFilesUri::extract_template_from_uris(file_uris, immmutable_file_number_extractor)?
+            MultiFilesUri::extract_template_from_uris(file_uris, immutable_file_number_extractor)?
                 .ok_or_else(|| {
                     anyhow!("No matching template found in the uploaded files with 'LocalUploader'")
                 })?;
@@ -114,7 +114,7 @@ impl ImmutableFilesUploader for GcpUploader {
         }
 
         let template_uri =
-            MultiFilesUri::extract_template_from_uris(file_uris, immmutable_file_number_extractor)?
+            MultiFilesUri::extract_template_from_uris(file_uris, immutable_file_number_extractor)?
                 .ok_or_else(|| {
                     anyhow!("No matching template found in the uploaded files with 'GcpUploader'")
                 })?;
@@ -695,8 +695,6 @@ mod tests {
     }
 
     mod upload {
-        use mithril_common::test_utils::TempDir;
-
         use super::MockImmutableFilesUploader;
 
         use super::*;
@@ -715,36 +713,28 @@ mod tests {
 
         #[tokio::test]
         async fn upload_immutable_archives_should_log_upload_errors() {
-            let log_path = TempDir::create(
-                "immutable",
-                "upload_immutable_archives_should_log_upload_errors",
-            )
-            .join("test.log");
-
+            let (logger, log_inspector) = TestLogger::memory();
             let mut uploader = MockImmutableFilesUploader::new();
             uploader
                 .expect_batch_upload()
                 .return_once(|_, _| Err(anyhow!("Failure while uploading...")));
 
-            {
-                let builder = ImmutableArtifactBuilder::new(
-                    get_builder_work_dir("upload_immutable_archives_should_log_upload_errors"),
-                    vec![Arc::new(uploader)],
-                    Arc::new(MockSnapshotter::new()),
-                    TestLogger::file(&log_path),
+            let builder = ImmutableArtifactBuilder::new(
+                get_builder_work_dir("upload_immutable_archives_should_log_upload_errors"),
+                vec![Arc::new(uploader)],
+                Arc::new(MockSnapshotter::new()),
+                logger,
+            )
+            .unwrap();
+
+            let _ = builder
+                .upload_immutable_archives(
+                    &[PathBuf::from("01.tar.gz"), PathBuf::from("02.tar.gz")],
+                    CompressionAlgorithm::Gzip,
                 )
-                .unwrap();
+                .await;
 
-                let _ = builder
-                    .upload_immutable_archives(
-                        &[PathBuf::from("01.tar.gz"), PathBuf::from("02.tar.gz")],
-                        CompressionAlgorithm::Gzip,
-                    )
-                    .await;
-            }
-
-            let logs = std::fs::read_to_string(&log_path).unwrap();
-            assert!(logs.contains("Failure while uploading..."));
+            assert!(log_inspector.contains_log("Failure while uploading..."));
         }
 
         #[tokio::test]
@@ -953,15 +943,14 @@ mod tests {
 
         #[test]
         fn returns_none_when_not_templatable_without_5_digits() {
-            let template = immmutable_file_number_extractor("not-templatable.tar.gz").unwrap();
+            let template = immutable_file_number_extractor("not-templatable.tar.gz").unwrap();
 
             assert!(template.is_none());
         }
 
         #[test]
         fn returns_template() {
-            let template =
-                immmutable_file_number_extractor("http://whatever/00001.tar.gz").unwrap();
+            let template = immutable_file_number_extractor("http://whatever/00001.tar.gz").unwrap();
 
             assert_eq!(
                 template,
@@ -972,7 +961,7 @@ mod tests {
         #[test]
         fn replaces_last_occurence_of_5_digits() {
             let template =
-                immmutable_file_number_extractor("http://00001/whatever/00001.tar.gz").unwrap();
+                immutable_file_number_extractor("http://00001/whatever/00001.tar.gz").unwrap();
 
             assert_eq!(
                 template,
@@ -983,7 +972,7 @@ mod tests {
         #[test]
         fn replaces_last_occurence_when_more_than_5_digits() {
             let template =
-                immmutable_file_number_extractor("http://whatever/123456789.tar.gz").unwrap();
+                immutable_file_number_extractor("http://whatever/123456789.tar.gz").unwrap();
 
             assert_eq!(
                 template,

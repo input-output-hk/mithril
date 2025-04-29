@@ -41,7 +41,6 @@ static GLOBAL: Jemalloc = Jemalloc;
 
 #[cfg(test)]
 pub(crate) mod test_tools {
-    use std::fs::File;
     use std::io;
     use std::sync::Arc;
 
@@ -49,6 +48,7 @@ pub(crate) mod test_tools {
     use slog_async::Async;
     use slog_term::{CompactFormat, PlainDecorator};
 
+    use mithril_common::test_utils::{MemoryDrainForTest, MemoryDrainForTestInspector};
     pub struct TestLogger;
 
     impl TestLogger {
@@ -63,8 +63,9 @@ pub(crate) mod test_tools {
             Self::from_writer(slog_term::TestStdoutWriter)
         }
 
-        pub fn file(filepath: &std::path::Path) -> Logger {
-            Self::from_writer(File::create(filepath).unwrap())
+        pub fn memory() -> (Logger, MemoryDrainForTestInspector) {
+            let (drain, inspector) = MemoryDrainForTest::new();
+            (Logger::root(drain.fuse(), slog::o!()), inspector)
         }
     }
 }
