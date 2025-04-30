@@ -74,6 +74,7 @@ EOT
 
   provisioner "remote-exec" {
     inline = [
+      "set -e",
       "export NETWORK=${var.cardano_network}",
       "export CARDANO_IMAGE_ID=${var.cardano_image_id}",
       "export CARDANO_IMAGE_REGISTRY=${var.cardano_image_registry}",
@@ -94,13 +95,11 @@ EOT
       "export CHAIN_OBSERVER_TYPE='${var.mithril_aggregator_chain_observer_type}'",
       "export ERA_READER_ADAPTER_TYPE='${var.mithril_era_reader_adapter_type}'",
       <<-EOT
-set -e
 ERA_READER_ADAPTER_PARAMS=$(jq -nc --arg address $(wget -q -O - ${var.mithril_era_reader_address_url}) --arg verification_key $(wget -q -O - ${var.mithril_era_reader_verification_key_url}) '{"address": $address, "verification_key": $verification_key}')
 EOT
       ,
       "export ERA_READER_SECRET_KEY='${var.mithril_era_reader_secret_key}'",
       <<-EOT
-set -e
 export ANCILLARY_FILES_SIGNER_TYPE=${var.mithril_aggregator_ancillary_signer_type}
 if [ "$ANCILLARY_FILES_SIGNER_TYPE" = "secret-key" ]; then
   export ANCILLARY_FILES_SIGNER_CONFIG=$(jq -nc --arg secret_key ${var.mithril_aggregator_ancillary_signer_secret_key} '{"type": "secret-key", "secret_key": $secret_key}')
@@ -130,7 +129,6 @@ EOT
       "export CURRENT_UID=$(id -u)",
       "export DOCKER_GID=$(getent group docker | cut -d: -f3)",
       <<-EOT
-set -e
 # Compute the docker compose files merge sequence for the aggregator
 DOCKER_DIRECTORY=/home/curry/docker
 DOCKER_COMPOSE_FILES="-f $DOCKER_DIRECTORY/docker-compose-aggregator-base.yaml"
