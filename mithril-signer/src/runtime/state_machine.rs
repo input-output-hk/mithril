@@ -1,4 +1,5 @@
 use anyhow::Error;
+use chrono::Local;
 use slog::{debug, info, Logger};
 use std::{fmt::Display, ops::Deref, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
@@ -9,10 +10,10 @@ use mithril_common::{
     logging::LoggerExtensions,
 };
 
-use crate::MetricsService;
 use crate::{
     entities::{BeaconToSign, SignerEpochSettings},
     services::AggregatorClientError,
+    MetricsService,
 };
 
 use super::{Runner, RuntimeError};
@@ -123,6 +124,9 @@ impl StateMachine {
 
         loop {
             interval.tick().await;
+            // Note: the "time" property in logs produced by our formatter (slog_bunyan) uses local
+            // time, so we must use it as well to avoid confusion.
+            let approximate_next_cycle_time = Local::now() + self.interval;
 
             if let Err(e) = self.cycle().await {
                 e.write_to_log(&self.logger);
@@ -132,9 +136,9 @@ impl StateMachine {
             }
 
             info!(
-                self.logger,
-                "… Cycle finished, Sleeping up to {} ms",
-                self.interval.as_millis()
+                self.logger, "… Cycle finished";
+                "approximate_next_cycle_time" => %approximate_next_cycle_time.time().format("%H:%M:%S%.3f"),
+                "run_interval_in_ms" => self.interval.as_millis(),
             );
         }
     }
