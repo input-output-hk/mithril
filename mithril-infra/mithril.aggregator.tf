@@ -95,7 +95,8 @@ EOT
       "export CHAIN_OBSERVER_TYPE='${var.mithril_aggregator_chain_observer_type}'",
       "export ERA_READER_ADAPTER_TYPE='${var.mithril_era_reader_adapter_type}'",
       <<-EOT
-export ERA_READER_ADAPTER_PARAMS=$(jq -nc --arg address $(wget -q -O - ${var.mithril_era_reader_address_url}) --arg verification_key $(wget -q -O - ${var.mithril_era_reader_verification_key_url}) '{"address": $address, "verification_key": $verification_key}')
+ERA_READER_ADAPTER_PARAMS=$(jq -nc --arg address $(wget -q -O - ${var.mithril_era_reader_address_url}) --arg verification_key $(wget -q -O - ${var.mithril_era_reader_verification_key_url}) '{\"address\": $address, "verification_key": $verification_key}')
+export ERA_READER_ADAPTER_PARAMS=$ERA_READER_ADAPTER_PARAMS
 EOT
       ,
       "export ERA_READER_SECRET_KEY='${var.mithril_era_reader_secret_key}'",
@@ -120,10 +121,11 @@ EOT
       "export PUBLIC_SERVER_URL=${local.mithril_aggregator_endpoint_url}",
       <<-EOT
 if [ "${var.mithril_aggregator_auth_username}" != "" && "${var.mithril_aggregator_auth_password}" != "" ]; then
-  export AUTH_USER_PASSWORD=$(htpasswd -nb ${var.mithril_aggregator_auth_username} ${var.mithril_aggregator_auth_password})
+  AUTH_USER_PASSWORD=$(htpasswd -nb ${var.mithril_aggregator_auth_username} ${var.mithril_aggregator_auth_password})
 else
   AUTH_USER_PASSWORD=""
 fi
+export AUTH_USER_PASSWORD=$AUTH_USER_PASSWORD
 EOT
       ,
       "export LEADER_AGGREGATOR_ENDPOINT='${var.mithril_aggregator_leader_aggregator_endpoint}'",
