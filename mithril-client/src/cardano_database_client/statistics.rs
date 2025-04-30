@@ -5,11 +5,11 @@ use crate::{
     MithrilResult,
 };
 
-pub struct InternalStaticticsSender {
+pub struct InternalStatisticsSender {
     pub(super) aggregator_client: Arc<dyn AggregatorClient>,
 }
 
-impl InternalStaticticsSender {
+impl InternalStatisticsSender {
     /// Constructs a new `InternalStaticticsSender`.
     pub fn new(aggregator_client: Arc<dyn AggregatorClient>) -> Self {
         Self { aggregator_client }
@@ -200,8 +200,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn add_statistics_do_not_increments_immutable_files_restored_when_no_immutable_files_restored(
-    ) {
+    async fn add_statistics_does_not_increment_immutable_files_restored_when_none_restored() {
         let immutable_files_restored = 0;
         let client = CardanoDatabaseClientDependencyInjector::new()
             .with_aggregator_client_mock_config(|http_client| {
