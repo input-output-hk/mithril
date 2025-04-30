@@ -1,7 +1,7 @@
 use anyhow::Error;
 use slog::{debug, info, Logger};
 use std::{fmt::Display, ops::Deref, sync::Arc, time::Duration};
-use tokio::{sync::Mutex, time::sleep};
+use tokio::sync::Mutex;
 
 use mithril_common::{
     crypto_helper::ProtocolInitializerError,
@@ -88,7 +88,7 @@ enum EpochStatus {
 pub struct StateMachine {
     state: Mutex<SignerState>,
     runner: Box<dyn Runner>,
-    state_sleep: Duration,
+    interval: Duration,
     metrics_service: Arc<MetricsService>,
     logger: Logger,
 }
@@ -98,14 +98,14 @@ impl StateMachine {
     pub fn new(
         starting_state: SignerState,
         runner: Box<dyn Runner>,
-        state_sleep: Duration,
+        interval: Duration,
         metrics_service: Arc<MetricsService>,
         logger: Logger,
     ) -> Self {
         Self {
             state: Mutex::new(starting_state),
             runner,
-            state_sleep,
+            interval,
             metrics_service,
             logger: logger.new_with_component_name::<Self>(),
         }
@@ -119,8 +119,11 @@ impl StateMachine {
     /// Launch the state machine until an error occurs or it is interrupted.
     pub async fn run(&self) -> Result<(), RuntimeError> {
         info!(self.logger, "Launching State Machine");
+        let mut interval = tokio::time::interval(self.interval);
 
         loop {
+            interval.tick().await;
+
             if let Err(e) = self.cycle().await {
                 e.write_to_log(&self.logger);
                 if e.is_critical() {
@@ -130,10 +133,9 @@ impl StateMachine {
 
             info!(
                 self.logger,
-                "… Cycle finished, Sleeping for {} ms",
-                self.state_sleep.as_millis()
+                "… Cycle finished, Sleeping up to {} ms",
+                self.interval.as_millis()
             );
-            sleep(self.state_sleep).await;
         }
     }
 
@@ -492,7 +494,7 @@ mod tests {
         StateMachine {
             state: init_state.into(),
             runner: Box::new(runner),
-            state_sleep: Duration::from_millis(100),
+            interval: Duration::from_millis(100),
             metrics_service,
             logger,
         }

@@ -10,7 +10,6 @@ use mithril_common::logging::LoggerExtensions;
 use slog::{info, trace, Logger};
 use std::fmt::Display;
 use std::sync::Arc;
-use tokio::time::sleep;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IdleState {
@@ -105,8 +104,11 @@ impl AggregatorRuntime {
     /// Launches an infinite loop ticking the state machine.
     pub async fn run(&mut self) -> Result<(), RuntimeError> {
         info!(self.logger, "Launching State Machine");
+        let mut interval = tokio::time::interval(self.config.interval);
 
         loop {
+            interval.tick().await;
+
             if let Err(e) = self.cycle().await {
                 e.write_to_log(&self.logger);
                 if e.is_critical() {
@@ -116,10 +118,9 @@ impl AggregatorRuntime {
 
             info!(
                 self.logger,
-                "… Cycle finished, Sleeping for {} ms",
+                "… Cycle finished, Sleeping up to {} ms",
                 self.config.interval.as_millis()
             );
-            sleep(self.config.interval).await;
         }
     }
 
