@@ -78,7 +78,6 @@ impl Aggregator {
             ("SERVER_PORT", &server_port_parameter),
             ("PUBLIC_SERVER_URL", &public_server_url),
             ("SNAPSHOT_READER_TYPE", "local"),
-            ("SNAPSHOT_STORE_TYPE", "local"),
             ("SNAPSHOT_UPLOADER_TYPE", "local"),
             (
                 "SNAPSHOT_DIRECTORY",
