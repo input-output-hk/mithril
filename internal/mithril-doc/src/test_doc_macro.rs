@@ -91,4 +91,14 @@ mod tests {
                 .is_mandatory
         );
     }
+
+    #[test]
+    fn test_extract_configuration_fields_in_declaration_order() {
+        let doc_with_example = MyConfiguration::extract();
+
+        let fields = doc_with_example.get_ordered_data();
+
+        assert_eq!(fields[0].parameter, "version");
+        assert_eq!(fields[1].parameter, "environment");
+    }
 }

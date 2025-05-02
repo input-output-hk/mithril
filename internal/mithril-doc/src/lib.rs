@@ -38,6 +38,21 @@ pub struct FieldDoc {
     pub is_mandatory: bool,
 }
 
+impl FieldDoc {
+    fn merge_field(&mut self, field_doc: &FieldDoc) {
+        if self.default_value.is_none() {
+            self.default_value.clone_from(&field_doc.default_value);
+        }
+        if self.example.is_none() {
+            self.example.clone_from(&field_doc.example);
+        }
+        if self.environment_variable.is_none() {
+            self.environment_variable
+                .clone_from(&field_doc.environment_variable);
+        }
+    }
+}
+
 /// Information about the struct.
 #[derive(Clone, Default, Debug)]
 pub struct StructDoc {
@@ -96,19 +111,10 @@ impl StructDoc {
     pub fn merge_struct_doc(&self, s2: &StructDoc) -> StructDoc {
         let mut struct_doc_merged =
             StructDoc::new(self.get_ordered_data().into_iter().cloned().collect());
-        for (key, field_doc) in s2.parameters.iter() {
-            if let Some(parameter) = struct_doc_merged.parameters.get_mut(key) {
-                if parameter.default_value.is_none() {
-                    parameter.default_value.clone_from(&field_doc.default_value);
-                }
-                if parameter.example.is_none() {
-                    parameter.example.clone_from(&field_doc.example);
-                }
-                if parameter.environment_variable.is_none() {
-                    parameter
-                        .environment_variable
-                        .clone_from(&field_doc.environment_variable);
-                }
+        for field_doc in s2.get_ordered_data().into_iter() {
+            let key = field_doc.parameter.clone();
+            if let Some(parameter) = struct_doc_merged.parameters.get_mut(&key) {
+                parameter.merge_field(field_doc);
             } else {
                 struct_doc_merged.add_field(field_doc.clone());
             }
@@ -350,10 +356,10 @@ mod tests {
             struct_doc
         }
 
-        let values_1 = ["A", "C", "F", "B", "D", "E", "G"];
+        let values_1 = ["A", "E", "C", "B", "D"];
         let s1 = build_struct_doc(&values_1);
 
-        let values_2 = ["G", "C", "E", "F", "A", "D", "B"];
+        let values_2 = ["G", "D", "E", "F", "C"];
         let s2 = build_struct_doc(&values_2);
 
         let result = s1.merge_struct_doc(&s2);
@@ -363,7 +369,7 @@ mod tests {
                 .iter()
                 .map(|data| data.parameter.to_string())
                 .collect::<Vec<_>>(),
-            values_1
+            ["A", "E", "C", "B", "D", "G", "F"]
         );
     }
 }
