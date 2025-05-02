@@ -170,28 +170,11 @@ impl GenerateDocCommands {
 
     /// Generate the command line documentation.
     pub fn execute(&self, cmd_to_document: &mut Command) -> Result<(), String> {
-        self.execute_with_configurations(cmd_to_document, &[])
+        self.execute_with_configurations(cmd_to_document, HashMap::new())
     }
 
     /// Generate the command line documentation with config info.
     pub fn execute_with_configurations(
-        &self,
-        cmd_to_document: &mut Command,
-        configs_info: &[StructDoc],
-    ) -> Result<(), String> {
-        let mut iter_config = configs_info.iter();
-        let mut merged_struct_doc = StructDoc::default();
-        for next_config in &mut iter_config {
-            merged_struct_doc = merged_struct_doc.merge_struct_doc(next_config);
-        }
-
-        let mut map = HashMap::new();
-        map.insert("".to_string(), merged_struct_doc);
-        self.execute_with_configurations_new(cmd_to_document, map)
-    }
-
-    /// Generate the command line documentation with config info.
-    pub fn execute_with_configurations_new(
         &self,
         cmd_to_document: &mut Command,
         configs_info: HashMap<String, StructDoc>,

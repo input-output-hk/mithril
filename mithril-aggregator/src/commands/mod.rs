@@ -52,7 +52,7 @@ impl MainCommand {
                 let commands_configs =
                     Self::extract_config(Self::format_crate_name_to_config_key());
 
-                cmd.execute_with_configurations_new(&mut MainOpts::command(), commands_configs)
+                cmd.execute_with_configurations(&mut MainOpts::command(), commands_configs)
                     .map_err(|message| anyhow!(message))
             }
         }

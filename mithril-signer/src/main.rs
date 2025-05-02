@@ -152,7 +152,7 @@ async fn main() -> StdResult<()> {
                 configs_map.insert(format_crate_name_to_config_key(), merged_struct_doc);
 
                 return cmd
-                    .execute_with_configurations_new(&mut Args::command(), configs_map)
+                    .execute_with_configurations(&mut Args::command(), configs_map)
                     .map_err(|message| anyhow!(message));
             }
         }
