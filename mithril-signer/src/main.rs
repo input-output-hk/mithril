@@ -3,9 +3,9 @@ use clap::{CommandFactory, Parser, Subcommand};
 use config::{Map, Value};
 
 use slog::{crit, debug, info, o, Drain, Level, Logger};
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
+use std::{collections::HashMap, path::PathBuf};
 use tokio::{
     signal::unix::{signal, SignalKind},
     sync::oneshot,
@@ -120,6 +120,10 @@ enum SignerCommands {
     GenerateDoc(GenerateDocCommands),
 }
 
+fn format_crate_name_to_config_key() -> String {
+    env!("CARGO_PKG_NAME").replace("-", "")
+}
+
 #[tokio::main]
 async fn main() -> StdResult<()> {
     // Load args
@@ -132,13 +136,23 @@ async fn main() -> StdResult<()> {
         match cmd {
             SignerCommands::Database(cmd) => return cmd.execute(root_logger).await,
             SignerCommands::GenerateDoc(cmd) => {
-                let config_infos = vec![
+                let config_infos = [
                     Args::extract(),
                     Configuration::extract(),
                     DefaultConfiguration::extract(),
                 ];
+
+                let mut iter_config = config_infos.iter();
+                let mut merged_struct_doc = StructDoc::default();
+                for next_config in &mut iter_config {
+                    merged_struct_doc = merged_struct_doc.merge_struct_doc(next_config);
+                }
+
+                let mut configs_map = HashMap::new();
+                configs_map.insert(format_crate_name_to_config_key(), merged_struct_doc);
+
                 return cmd
-                    .execute_with_configurations(&mut Args::command(), &config_infos)
+                    .execute_with_configurations_new(&mut Args::command(), configs_map)
                     .map_err(|message| anyhow!(message));
             }
         }
