@@ -443,8 +443,9 @@ mod tests {
                     Some("CONFIGA".to_string()),
                     Some("default config A".to_string()),
                     None,
+                    true,
                 );
-                s.add_param("ConfigB", "Param B from config", None, None, None);
+                s.add_param("ConfigB", "Param B from config", None, None, None, true);
                 s
             };
 
@@ -476,8 +477,9 @@ mod tests {
                     Some("CONFIGA".to_string()),
                     Some("default config A".to_string()),
                     None,
+                    true,
                 );
-                s.add_param("ConfigB", "Param B from config", None, None, None);
+                s.add_param("ConfigB", "Param B from config", None, None, None, true);
                 s
             };
 
@@ -500,8 +502,8 @@ mod tests {
     fn test_doc_markdown_include_config_parameters_for_subcommands() {
         let struct_doc = {
             let mut s = StructDoc::default();
-            s.add_param("ConfigA", "", None, None, None);
-            s.add_param("ConfigB", "", None, None, None);
+            s.add_param("ConfigA", "", None, None, None, true);
+            s.add_param("ConfigB", "", None, None, None, true);
             s
         };
 

@@ -69,6 +69,7 @@ impl StructDoc {
         environment_variable: Option<String>,
         default: Option<String>,
         example: Option<String>,
+        is_mandatory: bool,
     ) {
         let field_doc = FieldDoc {
             parameter: name.to_string(),
@@ -78,7 +79,7 @@ impl StructDoc {
             description: description.to_string(),
             default_value: default,
             example,
-            is_mandatory: false,
+            is_mandatory,
         };
         self.parameter_order.push(field_doc.parameter.to_string());
         self.parameters
@@ -194,8 +195,8 @@ mod tests {
     #[test]
     fn test_get_field_must_return_first_field_by_parameter_name() {
         let mut struct_doc = StructDoc::default();
-        struct_doc.add_param("A", "Param first A", None, None, None);
-        struct_doc.add_param("B", "Param first B", None, None, None);
+        struct_doc.add_param("A", "Param first A", None, None, None, true);
+        struct_doc.add_param("B", "Param first B", None, None, None, true);
 
         let retrieved_field = struct_doc.get_field("A").unwrap();
 
@@ -205,8 +206,8 @@ mod tests {
     #[test]
     fn test_get_field_must_return_none_if_parameter_does_not_exist() {
         let mut struct_doc = StructDoc::default();
-        struct_doc.add_param("A", "Param first A", None, None, None);
-        struct_doc.add_param("B", "Param first B", None, None, None);
+        struct_doc.add_param("A", "Param first A", None, None, None, true);
+        struct_doc.add_param("B", "Param first B", None, None, None, true);
 
         let retrieved_field = struct_doc.get_field("X");
 
@@ -223,36 +224,40 @@ mod tests {
                 Some("env A".to_string()),
                 Some("default A".to_string()),
                 Some("example A".to_string()),
+                true,
             );
-            s.add_param("B", "Param first B", None, None, None);
+            s.add_param("B", "Param first B", None, None, None, true);
             s.add_param(
                 "C",
                 "Param first C",
                 Some("env C".to_string()),
                 Some("default C".to_string()),
                 Some("example C".to_string()),
+                true,
             );
-            s.add_param("D", "Param first D", None, None, None);
+            s.add_param("D", "Param first D", None, None, None, true);
             s
         };
 
         let s2 = {
             let mut s = StructDoc::default();
-            s.add_param("A", "Param second A", None, None, None);
+            s.add_param("A", "Param second A", None, None, None, true);
             s.add_param(
                 "B",
                 "Param second B",
                 Some("env B".to_string()),
                 Some("default B".to_string()),
                 Some("example B".to_string()),
+                true,
             );
-            s.add_param("E", "Param second E", None, None, None);
+            s.add_param("E", "Param second E", None, None, None, true);
             s.add_param(
                 "F",
                 "Param second F",
                 Some("env F".to_string()),
                 Some("default F".to_string()),
                 Some("example F".to_string()),
+                true,
             );
             s
         };
@@ -331,7 +336,7 @@ mod tests {
         fn build_struct_doc(values: &[&str]) -> StructDoc {
             let mut struct_doc = StructDoc::default();
             for value in values.iter() {
-                struct_doc.add_param(value, value, None, None, None);
+                struct_doc.add_param(value, value, None, None, None, true);
             }
 
             assert_eq!(

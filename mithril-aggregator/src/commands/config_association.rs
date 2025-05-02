@@ -91,7 +91,7 @@ mod tests {
     impl PseudoCommandA {
         pub fn extract_config(command_path: String) -> HashMap<String, StructDoc> {
             let mut struct_doc = StructDoc::default();
-            struct_doc.add_param("field_command_a", "", None, None, None);
+            struct_doc.add_param("field_command_a", "", None, None, None, true);
             HashMap::from([(command_path, struct_doc)])
         }
     }
@@ -128,7 +128,7 @@ mod tests {
     impl PseudoSubCommandE {
         pub fn extract_config(command_path: String) -> HashMap<String, StructDoc> {
             let mut struct_doc = StructDoc::default();
-            struct_doc.add_param("field_sub_command_e", "", None, None, None);
+            struct_doc.add_param("field_sub_command_e", "", None, None, None, true);
             HashMap::from([(command_path, struct_doc)])
         }
     }
@@ -141,7 +141,7 @@ mod tests {
         impl PseudoCommandB {
             pub fn extract_config(command_path: String) -> HashMap<String, StructDoc> {
                 let mut struct_doc = StructDoc::default();
-                struct_doc.add_param("field_command_b", "", None, None, None);
+                struct_doc.add_param("field_command_b", "", None, None, None, true);
                 HashMap::from([(command_path, struct_doc)])
             }
         }

@@ -7,6 +7,9 @@ mod tests {
     #[allow(dead_code)]
     #[derive(Debug, Clone, mithril_doc_derive::Documenter)]
     struct MyConfiguration {
+        /// Optional parameter
+        version: Option<String>,
+
         /// Execution environment
         #[example = "dev"]
         environment: String,
@@ -75,5 +78,17 @@ mod tests {
             let field = doc_without_example.get_field("environment").unwrap();
             assert_eq!(None, field.example);
         }
+    }
+
+    #[test]
+    fn test_extract_configuration_optional_field() {
+        let doc_with_example = MyConfiguration::extract();
+        assert!(!doc_with_example.get_field("version").unwrap().is_mandatory);
+        assert!(
+            doc_with_example
+                .get_field("environment")
+                .unwrap()
+                .is_mandatory
+        );
     }
 }

@@ -2,7 +2,7 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DeriveInput, Fields};
+use syn::{parse_macro_input, Data, DeriveInput, Fields, Type};
 
 mod doc;
 
@@ -37,8 +37,10 @@ fn extract_struct_info(
                 None
             },
         };
+        let is_mandatory = &field_info.is_mandatory;
+
         quote! {
-            struct_data.add_param(#name, #doc, Some(#name.to_uppercase().to_string()), #default_values_variable_ident.get(#name).map(|v| v.to_string()), #example);
+            struct_data.add_param(#name, #doc, Some(#name.to_uppercase().to_string()), #default_values_variable_ident.get(#name).map(|v| v.to_string()), #example, #is_mandatory);
         }
     }).collect::<Vec<_>>();
 
@@ -85,18 +87,19 @@ struct FieldInfo {
     name: String,
     doc: String,
     example: Option<String>,
+    is_mandatory: bool,
 }
 
-fn format_field(champ: &syn::Field) -> FieldInfo {
-    let _vis_str = match champ.vis {
+fn format_field(field: &syn::Field) -> FieldInfo {
+    let _vis_str = match field.vis {
         syn::Visibility::Public(_) => "public",
         syn::Visibility::Restricted(_) => "restricted",
         syn::Visibility::Inherited => "inherited",
     };
 
-    let doc = doc::extract_doc_comment(&champ.attrs[..]).join("\n");
+    let doc = doc::extract_doc_comment(&field.attrs[..]).join("\n");
 
-    let example = champ
+    let example = field
         .attrs
         .iter()
         .find(|attr| attr.path().is_ident("example"))
@@ -112,10 +115,21 @@ fn format_field(champ: &syn::Field) -> FieldInfo {
             _ => None,
         });
 
+    let is_mandatory = match field.ty.clone() {
+        Type::Path(type_path) => type_path
+            .path
+            .segments
+            .first()
+            .map(|segment| segment.ident != "Option")
+            .unwrap_or(true),
+        _ => true,
+    };
+
     let field_info = FieldInfo {
-        name: champ.ident.as_ref().unwrap().to_string(),
+        name: field.ident.as_ref().unwrap().to_string(),
         doc,
         example,
+        is_mandatory,
     };
 
     field_info
