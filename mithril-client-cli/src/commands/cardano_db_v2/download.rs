@@ -20,8 +20,8 @@ use crate::{
     commands::{client_builder, SharedArgs},
     configuration::{ConfigError, ConfigSource},
     utils::{
-        self, CardanoDbDownloadChecker, CardanoDbUtils, ExpanderUtils, IndicatifFeedbackReceiver,
-        ProgressOutputType, ProgressPrinter,
+        self, AncillaryLogMessage, CardanoDbDownloadChecker, CardanoDbUtils, ExpanderUtils,
+        IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter,
     },
     CommandContext,
 };
@@ -107,6 +107,12 @@ impl CardanoDbV2DownloadCommand {
 
     /// Command execution
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
+        if self.include_ancillary {
+            AncillaryLogMessage::warn_ancillary_not_signed_by_mithril();
+        } else {
+            AncillaryLogMessage::warn_fast_bootstrap_not_available();
+        }
+
         let params = context.config_parameters()?.add_source(self)?;
         let download_dir: &String = &params.require("download_dir")?;
         let restoration_options = RestorationOptions {
