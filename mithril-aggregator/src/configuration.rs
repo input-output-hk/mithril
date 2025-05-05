@@ -889,10 +889,6 @@ pub struct DefaultConfiguration {
     /// Directory to store snapshot
     pub snapshot_directory: String,
 
-    /// Type of snapshot store to use
-    #[example = "`gcp` or `local`"]
-    pub snapshot_store_type: String,
-
     /// Type of snapshot uploader to use
     pub snapshot_uploader_type: String,
 
@@ -958,7 +954,6 @@ impl Default for DefaultConfiguration {
             server_port: "8080".to_string(),
             db_directory: "/db".to_string(),
             snapshot_directory: ".".to_string(),
-            snapshot_store_type: "local".to_string(),
             snapshot_uploader_type: "gcp".to_string(),
             era_reader_adapter_type: "bootstrap".to_string(),
             chain_observer_type: "pallas".to_string(),
@@ -1015,7 +1010,6 @@ impl Source for DefaultConfiguration {
         register_config_value!(result, &namespace, myself.server_port);
         register_config_value!(result, &namespace, myself.db_directory);
         register_config_value!(result, &namespace, myself.snapshot_directory);
-        register_config_value!(result, &namespace, myself.snapshot_store_type);
         register_config_value!(result, &namespace, myself.snapshot_uploader_type);
         register_config_value!(result, &namespace, myself.era_reader_adapter_type);
         register_config_value!(result, &namespace, myself.reset_digests_cache);

@@ -9,7 +9,6 @@
     "m": 100,
     "phi_f": 0.65
   },
-  "snapshot_store_type": "local",
   "snapshot_uploader_type": "gcp",
   "snapshot_bucket_name": "cardano-testnet",
   "stores_directory": "./mithril-aggregator/stores",
