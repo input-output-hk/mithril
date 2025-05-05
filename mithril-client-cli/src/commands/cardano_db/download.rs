@@ -23,6 +23,8 @@ use mithril_client::{
     MithrilCertificate, MithrilResult, Snapshot,
 };
 
+use super::AncillaryLogMessage;
+
 /// Clap command to download a Cardano db and verify its associated certificate.
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbDownloadCommand {
@@ -66,11 +68,23 @@ impl CardanoDbDownloadCommand {
     }
 
     /// Command execution
-    pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
+    pub async fn execute(
+        &self,
+        context: CommandContext,
+        ancillary_log_messenger: Arc<dyn AncillaryLogMessage>,
+    ) -> MithrilResult<()> {
+        let logger = context.logger();
+
+        if !self.include_ancillary {
+            // self.warn_fast_bootstrap_not_available(logger);
+            ancillary_log_messenger.warn_fast_bootstrap_not_available();
+        } else {
+            ancillary_log_messenger.warn_ancillary_signature_not_signed_by_mithril();
+        }
+
         let params = context.config_parameters()?.add_source(self)?;
         let download_dir: &String = &params.require("download_dir")?;
         let db_dir = Path::new(download_dir).join("db");
-        let logger = context.logger();
 
         let progress_output_type = if self.is_json_output_enabled() {
             ProgressOutputType::JsonReporter
@@ -360,6 +374,13 @@ impl ConfigSource for CardanoDbDownloadCommand {
     }
 }
 
+// let mut mock = MockWarnFastBootstrap::new();
+// mock.expect_warn_fast_bootstrap_not_available()
+//     .times(1);
+
+// mock.expect_warn_fast_bootstrap_not_available()
+//     .never();
+
 #[cfg(test)]
 mod tests {
     use mithril_client::{
@@ -367,6 +388,11 @@ mod tests {
         MithrilCertificateMetadata,
     };
     use mithril_common::test_utils::TempDir;
+
+    use crate::{commands::cardano_db::MockAncillaryLogMessage, test_utils::TestLogger};
+
+    use config::builder::DefaultState;
+    use config::ConfigBuilder;
 
     use super::*;
 
@@ -404,6 +430,67 @@ mod tests {
             "whatever_digest",
         ])
         .expect_err("The command should fail because ancillary_verification_key is not set");
+    }
+
+    fn dummy_cardano_db_download_command() -> CardanoDbDownloadCommand {
+        CardanoDbDownloadCommand {
+            shared_args: SharedArgs { json: false },
+            digest: "whatever_digest".to_string(),
+            download_dir: None,
+            genesis_verification_key: None,
+            include_ancillary: false,
+            ancillary_verification_key: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn execute_should_log_warn_that_fast_boostrap_is_not_available_if_ancillary_not_included()
+    {
+        let command = CardanoDbDownloadCommand {
+            include_ancillary: false,
+            ..dummy_cardano_db_download_command()
+        };
+
+        let context = CommandContext::new(
+            ConfigBuilder::<DefaultState>::default(),
+            false,
+            TestLogger::stdout(),
+        );
+
+        let mut mock = MockAncillaryLogMessage::new();
+        mock.expect_warn_fast_bootstrap_not_available()
+            .once()
+            .return_const(());
+        mock.expect_warn_ancillary_signature_not_signed_by_mithril()
+            .never()
+            .return_const(());
+
+        let _ = command.execute(context, Arc::new(mock)).await;
+    }
+
+    #[tokio::test]
+    async fn execute_should_log_warn_that_ancillary_files_are_not_signed_by_mithril_if_ancillary_included(
+    ) {
+        let command = CardanoDbDownloadCommand {
+            include_ancillary: true,
+            ..dummy_cardano_db_download_command()
+        };
+
+        let context = CommandContext::new(
+            ConfigBuilder::<DefaultState>::default(),
+            false,
+            TestLogger::stdout(),
+        );
+
+        let mut mock = MockAncillaryLogMessage::new();
+        mock.expect_warn_fast_bootstrap_not_available()
+            .never()
+            .return_const(());
+        mock.expect_warn_ancillary_signature_not_signed_by_mithril()
+            .once()
+            .return_const(());
+
+        let _ = command.execute(context, Arc::new(mock)).await;
     }
 
     #[tokio::test]

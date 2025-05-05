@@ -35,6 +35,7 @@ indicatif = { version = "0.17.11", features = ["tokio"] }
 mithril-cli-helper = { path = "../internal/mithril-cli-helper" }
 mithril-client = { path = "../mithril-client", features = ["fs", "unstable"] }
 mithril-doc = { path = "../internal/mithril-doc" }
+mockall.workspace = true
 serde = { workspace = true }
 serde_json = { workspace = true }
 slog = { workspace = true, features = [
@@ -49,6 +50,7 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [dev-dependencies]
 mithril-common = { path = "../mithril-common", features = ["test_tools"] }
+mockall = { workspace = true }
 
 [features]
 bundle_tls = ["mithril-client/native-tls-vendored"]
