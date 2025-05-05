@@ -21,6 +21,8 @@ use tokio::sync::RwLock;
 
 use mithril_common::entities::{ClientError, ServerError};
 use mithril_common::logging::LoggerExtensions;
+#[cfg(feature = "unstable")]
+use mithril_common::messages::CardanoDatabaseImmutableFilesRestoredMessage;
 use mithril_common::MITHRIL_API_VERSION_HEADER;
 
 use crate::common::Epoch;
@@ -48,6 +50,7 @@ pub enum AggregatorClientError {
 
 /// What can be read from an [AggregatorClient].
 #[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(test, derive(strum::EnumIter))]
 pub enum AggregatorRequest {
     /// Get a specific [certificate][crate::MithrilCertificate] from the aggregator
     GetCertificate {
@@ -97,7 +100,7 @@ pub enum AggregatorRequest {
     #[cfg(feature = "unstable")]
     IncrementCardanoDatabaseImmutablesRestoredStatistic {
         /// Number of immutable files restored
-        number_of_immutables: String,
+        number_of_immutables: u64,
     },
 
     /// Increments the aggregator Cardano database snapshot ancillary files restored statistics
@@ -218,6 +221,13 @@ impl AggregatorRequest {
             AggregatorRequest::IncrementSnapshotStatistic { snapshot } => {
                 Some(snapshot.to_string())
             }
+            #[cfg(feature = "unstable")]
+            AggregatorRequest::IncrementCardanoDatabaseImmutablesRestoredStatistic {
+                number_of_immutables,
+            } => serde_json::to_string(&CardanoDatabaseImmutableFilesRestoredMessage {
+                nb_immutable_files: *number_of_immutables as u32,
+            })
+            .ok(),
             _ => None,
         }
     }
@@ -500,6 +510,7 @@ mod tests {
     use httpmock::MockServer;
     use reqwest::header::{HeaderName, HeaderValue};
     use std::collections::HashMap;
+    use strum::IntoEnumIterator;
 
     use mithril_common::api_version::APIVersionProvider;
     use mithril_common::entities::{ClientError, ServerError};
@@ -650,7 +661,7 @@ mod tests {
         assert_eq!(
             "statistics/cardano-database/immutable-files-restored".to_string(),
             AggregatorRequest::IncrementCardanoDatabaseImmutablesRestoredStatistic {
-                number_of_immutables: "abc".to_string()
+                number_of_immutables: 58
             }
             .route()
         );
@@ -716,6 +727,48 @@ mod tests {
             "artifact/cardano-stake-distributions".to_string(),
             AggregatorRequest::ListCardanoStakeDistributions.route()
         );
+    }
+
+    #[test]
+    fn deduce_body_from_request() {
+        fn that_should_not_have_body(req: &AggregatorRequest) -> bool {
+            match req {
+                AggregatorRequest::IncrementSnapshotStatistic { .. } => false,
+                #[cfg(feature = "unstable")]
+                AggregatorRequest::IncrementCardanoDatabaseImmutablesRestoredStatistic {
+                    ..
+                } => false,
+                _ => true,
+            }
+        }
+
+        assert_eq!(
+            Some(r#"{"key":"value"}"#.to_string()),
+            AggregatorRequest::IncrementSnapshotStatistic {
+                snapshot: r#"{"key":"value"}"#.to_string()
+            }
+            .get_body()
+        );
+
+        #[cfg(feature = "unstable")]
+        assert_eq!(
+            Some(
+                serde_json::to_string(&CardanoDatabaseImmutableFilesRestoredMessage {
+                    nb_immutable_files: 432,
+                })
+                .unwrap()
+            ),
+            AggregatorRequest::IncrementCardanoDatabaseImmutablesRestoredStatistic {
+                number_of_immutables: 432,
+            }
+            .get_body()
+        );
+
+        for req_that_should_not_have_body in
+            AggregatorRequest::iter().filter(that_should_not_have_body)
+        {
+            assert_eq!(None, req_that_should_not_have_body.get_body());
+        }
     }
 
     #[tokio::test]

@@ -21,7 +21,7 @@ use crate::utils::AncillaryVerifier;
 use crate::{CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem, MithrilResult};
 
 use super::fetch::InternalArtifactRetriever;
-use super::statistics::InternalStaticticsSender;
+use super::statistics::InternalStatisticsSender;
 #[cfg(feature = "fs")]
 use super::{
     download_unpack::InternalArtifactDownloader, proving::InternalArtifactProver,
@@ -35,7 +35,7 @@ pub struct CardanoDatabaseClient {
     pub(super) artifact_downloader: InternalArtifactDownloader,
     #[cfg(feature = "fs")]
     pub(super) artifact_prover: InternalArtifactProver,
-    pub(super) statistics_sender: InternalStaticticsSender,
+    pub(super) statistics_sender: InternalStatisticsSender,
 }
 
 impl CardanoDatabaseClient {
@@ -64,7 +64,7 @@ impl CardanoDatabaseClient {
                 http_file_downloader.clone(),
                 logger.clone(),
             ),
-            statistics_sender: InternalStaticticsSender::new(aggregator_client.clone()),
+            statistics_sender: InternalStatisticsSender::new(aggregator_client.clone()),
         }
     }
 

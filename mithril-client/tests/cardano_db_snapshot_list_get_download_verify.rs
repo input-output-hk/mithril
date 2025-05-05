@@ -127,7 +127,7 @@ async fn cardano_db_snapshot_list_get_download_verify() {
     assert!(last_api_calls.contains(&format!(
         "/{}",
         AggregatorRequest::IncrementCardanoDatabaseImmutablesRestoredStatistic {
-            number_of_immutables: number_of_immutable_files_restored.to_string()
+            number_of_immutables: number_of_immutable_files_restored
         }
         .route()
     )));
