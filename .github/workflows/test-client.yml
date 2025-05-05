@@ -35,6 +35,16 @@ on:
         description: Comma separated list of transactions hashes to test certification on.
         required: false
         type: string
+      ancillary_verification_key:
+        description: The ancillary verification key location to verify the ancillary files.
+        required: false
+        type: string
+        default: https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/ancillary.vkey
+      include_ancillary:
+        description: Include ancillary files in the download.
+        required: true
+        type: boolean
+        default: true
       enable_debug:
         description: Enable debug output ("-vvv") for the mithril-client calls
         required: true
@@ -59,6 +69,12 @@ on:
       transactions_hashes_to_certify:
         type: string
         default: 1f7dbc899a898ceb4274bbc33b31ca5f0de497753c6c6795fa34838fc252de9b,c43e809de628f7c1ba41a44f188ed3872bb1f97aa101271e35424a8e1d95bea9,c61e22ac4a79a02b28ed36217369ff6959465790a4fe9e66738b7a820e174fcd
+      ancillary_verification_key:
+        type: string
+        default: https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/ancillary.vkey
+      include_ancillary:
+        type: boolean
+        default: true
       enable_debug:
         type: boolean
         default: false
@@ -92,6 +108,11 @@ jobs:
           echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" >> $GITHUB_ENV
           echo "GENESIS_VERIFICATION_KEY=$(curl -s ${{ inputs.genesis_verification_key }})" >> $GITHUB_ENV
           echo "TRANSACTIONS_HASHES_TO_CERTIFY=${{ inputs.transactions_hashes_to_certify }}" >> $GITHUB_ENV
+
+          echo "ANCILLARY_VERIFICATION_KEY=$(curl -s ${{ inputs.ancillary_verification_key }})" >> $GITHUB_ENV
+          if [[ "${{ inputs.include_ancillary }}" == "true" ]]; then
+            echo "INCLUDE_ANCILLARY=--include-ancillary" >> $GITHUB_OUTPUT
+          fi
 
       - name: Assessing aggregator capabilities (Unix)
         id: aggregator_capability_unix
@@ -148,7 +169,7 @@ jobs:
       - name: Cardano Database Snapshot / download & restore latest
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST $INCLUDE_ANCILLARY
 
       - name: Mithril Stake Distribution / list and get last hash
         shell: bash
@@ -222,7 +243,7 @@ jobs:
         if: steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --unstable --origin-tag CI cardano-db-v2 download $CARDANO_DATABASE_V2_SNAPSHOT_HASH
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --unstable --origin-tag CI cardano-db-v2 download $CARDANO_DATABASE_V2_SNAPSHOT_HASH $INCLUDE_ANCILLARY
 
   test-docker:
     strategy:
@@ -244,6 +265,11 @@ jobs:
           echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" >> $GITHUB_ENV
           echo "GENESIS_VERIFICATION_KEY=$(curl -s ${{ inputs.genesis_verification_key }})" >> $GITHUB_ENV
           echo "TRANSACTIONS_HASHES_TO_CERTIFY=${{ inputs.transactions_hashes_to_certify }}" >> $GITHUB_ENV
+
+          echo "ANCILLARY_VERIFICATION_KEY=$(curl -s ${{ inputs.ancillary_verification_key }})" >> $GITHUB_ENV
+          if [[ "${{ inputs.include_ancillary }}" == "true" ]]; then
+            echo "INCLUDE_ANCILLARY=--include-ancillary" >> $GITHUB_OUTPUT
+          fi
 
       - name: Assessing aggregator capabilities
         id: aggregator_capability
@@ -274,7 +300,7 @@ jobs:
 
       - name: Cardano Database Snapshot / download & restore latest
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST --download-dir /app
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST --download-dir /app $INCLUDE_ANCILLARY
 
       - name: Mithril Stake Distribution / list and get last hash
         shell: bash
@@ -337,7 +363,7 @@ jobs:
       - name: Cardano Database V2 Snapshot / download & restore latest (Full restoration)
         if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI --unstable cardano-db-v2 download $CARDANO_DATABASE_V2_SNAPSHOT_HASH --download-dir /app
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI --unstable cardano-db-v2 download $CARDANO_DATABASE_V2_SNAPSHOT_HASH --download-dir /app $INCLUDE_ANCILLARY
 
   test-mithril-client-wasm:
     strategy:
