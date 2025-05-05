@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
@@ -10,7 +10,10 @@ use slog::{debug, Logger};
 use mithril_common::StdResult;
 use mithril_doc::{Documenter, StructDoc};
 
-use crate::{dependency_injection::DependenciesBuilder, ConfigurationSource, ExecutionEnvironment};
+use crate::{
+    dependency_injection::DependenciesBuilder, extract_all, ConfigurationSource,
+    ExecutionEnvironment,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Documenter)]
 pub struct DatabaseCommandConfiguration {
@@ -49,6 +52,15 @@ impl DatabaseCommand {
         self.database_subcommand
             .execute(root_logger, config_builder)
             .await
+    }
+
+    pub fn extract_config(command_path: String) -> HashMap<String, StructDoc> {
+        extract_all!(
+            command_path,
+            DatabaseSubCommand,
+            Migrate = { MigrateCommand },
+            Vacuum = { VacuumCommand },
+        )
     }
 }
 
@@ -110,6 +122,10 @@ impl MigrateCommand {
 
         Ok(())
     }
+
+    pub fn extract_config(command_path: String) -> HashMap<String, StructDoc> {
+        HashMap::from([(command_path, DatabaseCommandConfiguration::extract())])
+    }
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -161,6 +177,10 @@ impl VacuumCommand {
             .with_context(|| "Failed to vacuum the main database")?;
 
         Ok(())
+    }
+
+    pub fn extract_config(command_path: String) -> HashMap<String, StructDoc> {
+        HashMap::from([(command_path, DatabaseCommandConfiguration::extract())])
     }
 }
 

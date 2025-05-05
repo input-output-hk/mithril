@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     net::IpAddr,
     path::{Path, PathBuf},
     sync::Arc,
@@ -18,10 +19,12 @@ use mithril_cli_helper::{
     register_config_value, register_config_value_bool, register_config_value_option,
 };
 use mithril_common::StdResult;
+use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use mithril_metric::MetricsServer;
 
 use crate::{
-    dependency_injection::DependenciesBuilder, tools::VacuumTracker, ServeCommandConfiguration,
+    dependency_injection::DependenciesBuilder, tools::VacuumTracker, DefaultConfiguration,
+    ServeCommandConfiguration,
 };
 
 const VACUUM_MINIMUM_INTERVAL: TimeDelta = TimeDelta::weeks(1);
@@ -322,5 +325,12 @@ impl ServeCommand {
         }
 
         Ok(())
+    }
+
+    pub fn extract_config(command_path: String) -> HashMap<String, StructDoc> {
+        HashMap::from([(
+            command_path,
+            ServeCommandConfiguration::extract().merge_struct_doc(&DefaultConfiguration::extract()),
+        )])
     }
 }

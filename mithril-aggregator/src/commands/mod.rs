@@ -1,3 +1,4 @@
+mod config_association;
 mod database_command;
 mod era_command;
 mod genesis_command;
@@ -9,12 +10,11 @@ use clap::{CommandFactory, Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value};
 use mithril_cli_helper::{register_config_value, register_config_value_option};
 use mithril_common::StdResult;
-use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
+use mithril_doc::{Documenter, GenerateDocCommands, StructDoc};
 use slog::{debug, Level, Logger};
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 
-use crate::{DefaultConfiguration, ServeCommandConfiguration};
-use mithril_doc::GenerateDocCommands;
+use crate::{extract_all, DefaultConfiguration};
 
 /// Main command selector
 #[derive(Debug, Clone, Subcommand)]
@@ -49,14 +49,30 @@ impl MainCommand {
             Self::Tools(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::Database(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::GenerateDoc(cmd) => {
-                let config_infos = vec![
-                    ServeCommandConfiguration::extract(),
-                    DefaultConfiguration::extract(),
-                ];
-                cmd.execute_with_configurations(&mut MainOpts::command(), &config_infos)
+                let commands_configs =
+                    Self::extract_config(Self::format_crate_name_to_config_key());
+
+                cmd.execute_with_configurations(&mut MainOpts::command(), commands_configs)
                     .map_err(|message| anyhow!(message))
             }
         }
+    }
+
+    pub fn extract_config(command_path: String) -> HashMap<String, StructDoc> {
+        extract_all!(
+            command_path,
+            MainCommand,
+            Database = { database_command::DatabaseCommand },
+            Era = { era_command::EraCommand },
+            Genesis = { genesis_command::GenesisCommand },
+            Serve = { serve_command::ServeCommand },
+            Tools = { tools_command::ToolsCommand },
+            GenerateDoc = {},
+        )
+    }
+
+    fn format_crate_name_to_config_key() -> String {
+        env!("CARGO_PKG_NAME").replace("-", "")
     }
 
     pub fn command_type(&self) -> CommandType {
@@ -142,5 +158,17 @@ impl MainOpts {
             3 => Level::Debug,
             _ => Level::Trace,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_crate_name_as_config_key() {
+        let crate_name = MainCommand::format_crate_name_to_config_key();
+
+        assert_eq!(crate_name, "mithrilaggregator");
     }
 }

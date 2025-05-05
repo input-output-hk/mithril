@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
@@ -17,8 +17,8 @@ use mithril_common::{
 use mithril_doc::{Documenter, StructDoc};
 
 use crate::{
-    dependency_injection::DependenciesBuilder, tools::GenesisTools, ConfigurationSource,
-    ExecutionEnvironment,
+    dependency_injection::DependenciesBuilder, extract_all, tools::GenesisTools,
+    ConfigurationSource, ExecutionEnvironment,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Documenter)]
@@ -111,6 +111,18 @@ impl GenesisCommand {
             .execute(root_logger, config_builder)
             .await
     }
+
+    pub fn extract_config(command_path: String) -> HashMap<String, StructDoc> {
+        extract_all!(
+            command_path,
+            GenesisSubCommand,
+            Export = { ExportGenesisSubCommand },
+            Import = { ImportGenesisSubCommand },
+            Sign = { SignGenesisSubCommand },
+            Bootstrap = { BootstrapGenesisSubCommand },
+            GenerateKeypair = { GenerateKeypairGenesisSubCommand },
+        )
+    }
 }
 
 /// Genesis tools commands.
@@ -189,6 +201,10 @@ impl ExportGenesisSubCommand {
             .with_context(|| "genesis-tools: export error")?;
         Ok(())
     }
+
+    pub fn extract_config(command_path: String) -> HashMap<String, StructDoc> {
+        HashMap::from([(command_path, GenesisCommandConfiguration::extract())])
+    }
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -239,6 +255,10 @@ impl ImportGenesisSubCommand {
             .with_context(|| "genesis-tools: import error")?;
         Ok(())
     }
+
+    pub fn extract_config(command_path: String) -> HashMap<String, StructDoc> {
+        HashMap::from([(command_path, GenesisCommandConfiguration::extract())])
+    }
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -274,6 +294,10 @@ impl SignGenesisSubCommand {
         .with_context(|| "genesis-tools: sign error")?;
 
         Ok(())
+    }
+
+    pub fn extract_config(_command_path: String) -> HashMap<String, StructDoc> {
+        HashMap::new()
     }
 }
 #[derive(Parser, Debug, Clone)]
@@ -317,6 +341,10 @@ impl BootstrapGenesisSubCommand {
             .with_context(|| "genesis-tools: bootstrap error")?;
         Ok(())
     }
+
+    pub fn extract_config(command_path: String) -> HashMap<String, StructDoc> {
+        HashMap::from([(command_path, GenesisCommandConfiguration::extract())])
+    }
 }
 
 /// Genesis keypair generation command.
@@ -339,6 +367,10 @@ impl GenerateKeypairGenesisSubCommand {
             .with_context(|| "genesis-tools: keypair generation error")?;
 
         Ok(())
+    }
+
+    pub fn extract_config(_parent: String) -> HashMap<String, StructDoc> {
+        HashMap::new()
     }
 }
 

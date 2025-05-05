@@ -7,6 +7,9 @@ mod tests {
     #[allow(dead_code)]
     #[derive(Debug, Clone, mithril_doc_derive::Documenter)]
     struct MyConfiguration {
+        /// Optional parameter
+        version: Option<String>,
+
         /// Execution environment
         #[example = "dev"]
         environment: String,
@@ -44,7 +47,7 @@ mod tests {
     #[test]
     fn test_extract_struct_of_default_configuration() {
         let doc = MyDefaultConfiguration::extract();
-        let field = doc.get_field("environment");
+        let field = doc.get_field("environment").unwrap();
 
         assert_eq!("environment", field.parameter);
         assert_eq!("ENVIRONMENT", field.environment_variable.as_ref().unwrap());
@@ -55,7 +58,7 @@ mod tests {
     #[test]
     fn test_extract_struct_of_configuration() {
         let doc = MyConfiguration::extract();
-        let field = doc.get_field("environment");
+        let field = doc.get_field("environment").unwrap();
 
         assert_eq!("environment", field.parameter);
         assert_eq!("ENVIRONMENT", field.environment_variable.as_ref().unwrap());
@@ -67,13 +70,35 @@ mod tests {
     fn test_extract_example_of_configuration() {
         {
             let doc_with_example = MyConfiguration::extract();
-            let field = doc_with_example.get_field("environment");
+            let field = doc_with_example.get_field("environment").unwrap();
             assert_eq!(Some("dev".to_string()), field.example);
         }
         {
             let doc_without_example = MyDefaultConfiguration::extract();
-            let field = doc_without_example.get_field("environment");
+            let field = doc_without_example.get_field("environment").unwrap();
             assert_eq!(None, field.example);
         }
+    }
+
+    #[test]
+    fn test_extract_configuration_optional_field() {
+        let doc_with_example = MyConfiguration::extract();
+        assert!(!doc_with_example.get_field("version").unwrap().is_mandatory);
+        assert!(
+            doc_with_example
+                .get_field("environment")
+                .unwrap()
+                .is_mandatory
+        );
+    }
+
+    #[test]
+    fn test_extract_configuration_fields_in_declaration_order() {
+        let doc_with_example = MyConfiguration::extract();
+
+        let fields = doc_with_example.get_ordered_data();
+
+        assert_eq!(fields[0].parameter, "version");
+        assert_eq!(fields[1].parameter, "environment");
     }
 }

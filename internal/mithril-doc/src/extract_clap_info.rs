@@ -35,12 +35,8 @@ fn extract_arg(arg: &Arg) -> FieldDoc {
 }
 
 pub fn extract_parameters(cmd: &Command) -> StructDoc {
-    StructDoc {
-        data: cmd
-            .get_arguments()
-            .map(extract_arg)
-            .collect::<Vec<FieldDoc>>(),
-    }
+    let fields = cmd.get_arguments().map(extract_arg).collect();
+    StructDoc::new(fields)
 }
 
 #[cfg(test)]
@@ -95,7 +91,11 @@ mod tests {
         //assert_eq!(1, command_parameters.data.len());
         assert_eq!(
             "run_mode",
-            command_parameters.data.first().unwrap().parameter
+            command_parameters
+                .get_ordered_data()
+                .first()
+                .unwrap()
+                .parameter
         );
         for arg in command.get_arguments() {
             println!("{} {}", arg.get_id(), arg.is_required_set());

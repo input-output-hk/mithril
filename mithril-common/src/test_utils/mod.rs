@@ -74,7 +74,19 @@ where
     assert_eq!(a, b);
 }
 
-fn as_sorted_vec<T: Ord, I: IntoIterator<Item = T> + Clone>(iter: I) -> Vec<T> {
+/// Assert that two iterators are equivalent
+#[macro_export]
+macro_rules! assert_equivalent_macro {
+    ( $expected:expr, $actual:expr ) => {{
+        let expected = $crate::test_utils::as_sorted_vec($expected);
+        let actual = $crate::test_utils::as_sorted_vec($actual);
+        assert_eq!(expected, actual);
+    }};
+}
+pub use assert_equivalent_macro;
+
+/// Create a sorted clone af an iterable.
+pub fn as_sorted_vec<T: Ord, I: IntoIterator<Item = T> + Clone>(iter: I) -> Vec<T> {
     let mut list: Vec<T> = iter.clone().into_iter().collect();
     list.sort();
     list

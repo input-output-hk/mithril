@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use clap::{builder::StyledStr, Arg, Command};
 
 use crate::extract_clap_info;
@@ -59,7 +61,11 @@ mod markdown {
     }
 }
 
-pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc>) -> String {
+fn format_clap_command_name_to_key(clap_command_name: &str) -> String {
+    clap_command_name.replace("-", "")
+}
+
+pub fn doc_markdown_with_config(cmd: &mut Command, configs: HashMap<String, StructDoc>) -> String {
     // See: https://github1s.com/clap-rs/clap/blob/HEAD/clap_builder/src/builder/command.rs#L1989
 
     fn format_parameters(
@@ -76,9 +82,7 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
         {
             let mut command_parameters = extract_clap_info::extract_parameters(cmd);
             if let Some(config_doc) = struct_doc {
-                if !config_doc.data.is_empty() {
-                    command_parameters = command_parameters.merge_struct_doc(config_doc);
-                }
+                command_parameters = command_parameters.merge_struct_doc(config_doc);
             }
 
             let parameters_table = doc_config_to_markdown(&command_parameters);
@@ -110,7 +114,7 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
     fn format_command(
         cmd: &mut Command,
         parent: Option<String>,
-        struct_doc: Option<&StructDoc>,
+        struct_doc: HashMap<String, StructDoc>,
         level: usize,
         parameters_explanation: &str,
     ) -> String {
@@ -137,22 +141,20 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
         cmd: &Command,
         parent: Option<String>,
         help: String,
-        struct_doc: Option<&StructDoc>,
+        configs: HashMap<String, StructDoc>,
         level: usize,
         parameters_explanation: &str,
     ) -> String {
-        let parent_ancestors = parent.clone().map_or("".into(), |s| format!("{} ", s));
-        let title = format!(
-            "{} {}{}\n",
-            "#".repeat(level),
-            parent_ancestors,
-            cmd.get_name()
-        );
+        let parent_path = parent.map(|s| format!("{} ", s)).unwrap_or_default();
+        let command_path = format!("{}{}", parent_path, cmd.get_name());
+
+        let title = format!("{} {}\n", "#".repeat(level), command_path);
         let description = cmd.get_about().map_or("".into(), StyledStr::to_string);
 
         let subcommands_table = format_subcommand(cmd);
 
-        let parameters = format_parameters(cmd, struct_doc, parameters_explanation);
+        let config_key = format_clap_command_name_to_key(&command_path);
+        let parameters = format_parameters(cmd, configs.get(&config_key), parameters_explanation);
 
         let subcommands = cmd
             .get_subcommands()
@@ -160,8 +162,8 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
             .map(|sub_command: &Command| {
                 format_command(
                     &mut sub_command.clone(),
-                    Some(format!("{} {}", parent_ancestors, cmd.get_name())),
-                    None,
+                    Some(command_path.clone()),
+                    configs.clone(),
                     level + 1,
                     "",
                 )
@@ -179,13 +181,13 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
                 \n\
                 2. The value can be overridden by an environment variable with the parameter name in uppercase.\n\
                 ";
-    format_command(cmd, None, struct_doc, 3, parameters_explanation)
+    format_command(cmd, None, configs, 3, parameters_explanation)
 }
 
 pub fn doc_config_to_markdown(struct_doc: &StructDoc) -> String {
     let subcommands_lines = struct_doc
-        .data
-        .iter()
+        .get_ordered_data()
+        .into_iter()
         .map(|config| {
             let config = config.clone();
             vec![
@@ -283,7 +285,7 @@ mod tests {
     #[test]
     fn test_format_arg_without_struct_doc() {
         let mut command = MyCommand::command();
-        let doc = doc_markdown_with_config(&mut command, None);
+        let doc = doc_markdown_with_config(&mut command, HashMap::new());
 
         assert!(
             doc.contains("| `run_mode` | `--run-mode` | `-r` | - | Run Mode | `dev` | - | - |"),
@@ -300,7 +302,7 @@ mod tests {
     #[test]
     fn test_format_parameter_with_env_variable() {
         let mut command = MyCommand::command();
-        let doc = doc_markdown_with_config(&mut command, None);
+        let doc = doc_markdown_with_config(&mut command, HashMap::new());
 
         assert!(
             doc.contains("| `from_env` | `--from-env` | - | `ENV_VARIABLE` | - | - | - | :heavy_check_mark: |"),
@@ -311,8 +313,9 @@ mod tests {
     #[test]
     fn test_format_arg_with_empty_struct_doc() {
         let mut command = MyCommand::command();
-        let merged_struct_doc = StructDoc::new();
-        let doc = doc_markdown_with_config(&mut command, Some(&merged_struct_doc));
+        let merged_struct_doc = StructDoc::default();
+        let configs = HashMap::from([("".to_string(), merged_struct_doc)]);
+        let doc = doc_markdown_with_config(&mut command, configs);
 
         assert!(
             doc.contains("| `run_mode` | `--run-mode` | `-r` | - | Run Mode | `dev` | - | - |"),
@@ -329,10 +332,10 @@ mod tests {
     #[test]
     fn test_format_subcommand_inlined() {
         let mut command = MyCommand::command();
-        let doc = doc_markdown_with_config(&mut command, None);
+        let doc = doc_markdown_with_config(&mut command, HashMap::new());
 
         assert!(
-            doc.contains("###  mithril-doc sub-command-a"),
+            doc.contains("### mithril-doc sub-command-a"),
             "Generated doc: {doc}"
         );
         // In `Commands:` part.
@@ -351,10 +354,10 @@ mod tests {
     #[test]
     fn test_format_subcommand_on_separate_struct() {
         let mut command = MyCommand::command();
-        let doc = doc_markdown_with_config(&mut command, None);
+        let doc = doc_markdown_with_config(&mut command, HashMap::new());
 
         assert!(
-            doc.contains("###  mithril-doc sub-command-b"),
+            doc.contains("### mithril-doc sub-command-b"),
             "Generated doc: {doc}"
         );
         // In `Commands:` part.
@@ -384,14 +387,14 @@ mod tests {
     #[test]
     fn test_should_not_create_chapter_for_subcommand_help() {
         let mut command = MyCommand::command();
-        let doc = doc_markdown_with_config(&mut command, None);
+        let doc = doc_markdown_with_config(&mut command, HashMap::new());
 
         assert!(
-            doc.contains("###  mithril-doc sub-command-b"),
+            doc.contains("### mithril-doc sub-command-b"),
             "Generated doc: {doc}"
         );
         assert!(
-            !doc.contains("###  mithril-doc help"),
+            !doc.contains("### mithril-doc help"),
             "Generated doc: {doc}"
         );
     }
@@ -400,7 +403,7 @@ mod tests {
     fn test_should_not_display_parameter_table_when_only_help_argument() {
         {
             let mut command = MyCommand::command();
-            let doc = doc_markdown_with_config(&mut command, None);
+            let doc = doc_markdown_with_config(&mut command, HashMap::new());
             assert!(
                 doc.contains("| `help` | `--help` | `-h` |"),
                 "Generated doc: {doc}"
@@ -408,7 +411,7 @@ mod tests {
         }
         {
             let mut command = MyCommandWithOnlySubCommand::command();
-            let doc = doc_markdown_with_config(&mut command, None);
+            let doc = doc_markdown_with_config(&mut command, HashMap::new());
             assert!(
                 !doc.contains("| `help` | `--help` | `-h` |"),
                 "Generated doc: {doc}"
@@ -420,7 +423,7 @@ mod tests {
     fn test_doc_markdown_include_config_parameters() {
         {
             let mut command = MyCommand::command();
-            let doc = doc_markdown_with_config(&mut command, None);
+            let doc = doc_markdown_with_config(&mut command, HashMap::new());
 
             assert!(
                 !doc.contains("| Param A from config |"),
@@ -440,13 +443,16 @@ mod tests {
                     Some("CONFIGA".to_string()),
                     Some("default config A".to_string()),
                     None,
+                    true,
                 );
-                s.add_param("ConfigB", "Param B from config", None, None, None);
+                s.add_param("ConfigB", "Param B from config", None, None, None, true);
                 s
             };
 
             let mut command = MyCommand::command();
-            let doc = doc_markdown_with_config(&mut command, Some(&struct_doc));
+            let crate_name = format_clap_command_name_to_key(env!("CARGO_PKG_NAME"));
+            let configs = HashMap::from([(crate_name.to_string(), struct_doc)]);
+            let doc = doc_markdown_with_config(&mut command, configs);
 
             assert!(
                 doc.contains("| Param A from config<br/>Line break |"),
@@ -457,5 +463,64 @@ mod tests {
                 "Generated doc: {doc}"
             );
         }
+    }
+
+    #[test]
+    fn test_doc_markdown_not_include_config_parameters_when_no_configuration_specified_for_command()
+    {
+        {
+            let struct_doc = {
+                let mut s = StructDoc::default();
+                s.add_param(
+                    "ConfigA",
+                    "Param A from config\nLine break",
+                    Some("CONFIGA".to_string()),
+                    Some("default config A".to_string()),
+                    None,
+                    true,
+                );
+                s.add_param("ConfigB", "Param B from config", None, None, None, true);
+                s
+            };
+
+            let mut command = MyCommand::command();
+            let configs = HashMap::from([("whatever".to_string(), struct_doc)]);
+            let doc = doc_markdown_with_config(&mut command, configs);
+
+            assert!(
+                !doc.contains("| Param A from config |"),
+                "Generated doc: {doc}"
+            );
+            assert!(
+                !doc.contains("| `ConfigA` | - | - |"),
+                "Generated doc: {doc}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_doc_markdown_include_config_parameters_for_subcommands() {
+        let struct_doc = {
+            let mut s = StructDoc::default();
+            s.add_param("ConfigA", "", None, None, None, true);
+            s.add_param("ConfigB", "", None, None, None, true);
+            s
+        };
+
+        let mut command = MyCommand::command();
+        let crate_name = format_clap_command_name_to_key(env!("CARGO_PKG_NAME"));
+        let configs = HashMap::from([(format!("{} subcommanda", crate_name), struct_doc)]);
+        let doc = doc_markdown_with_config(&mut command, configs);
+
+        assert!(doc.contains("| `ConfigA` |"), "Generated doc: {doc}");
+    }
+
+    #[test]
+    fn test_format_clap_command_name_to_key() {
+        let clap_command_name = "my-command-a";
+
+        let key = format_clap_command_name_to_key(clap_command_name);
+
+        assert_eq!(key, "mycommanda");
     }
 }

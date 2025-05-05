@@ -9,7 +9,7 @@ mod markdown_formatter;
 mod test_doc_macro;
 
 use clap::{Command, Parser};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs::File;
 use std::io::Write;
 
@@ -18,7 +18,7 @@ pub use mithril_doc_derive::{self, *};
 const DEFAULT_OUTPUT_FILE_TEMPLATE: &str = "[PROGRAM NAME]-command-line.md";
 
 /// Information to document a field
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, Debug, PartialEq)]
 pub struct FieldDoc {
     /// Name of the parameter
     pub parameter: String,
@@ -38,17 +38,42 @@ pub struct FieldDoc {
     pub is_mandatory: bool,
 }
 
+impl FieldDoc {
+    fn merge_field(&mut self, field_doc: &FieldDoc) {
+        if self.default_value.is_none() {
+            self.default_value.clone_from(&field_doc.default_value);
+        }
+        if self.example.is_none() {
+            self.example.clone_from(&field_doc.example);
+        }
+        if self.environment_variable.is_none() {
+            self.environment_variable
+                .clone_from(&field_doc.environment_variable);
+        }
+    }
+}
+
 /// Information about the struct.
 #[derive(Clone, Default, Debug)]
 pub struct StructDoc {
-    /// List of fields
-    pub data: Vec<FieldDoc>,
+    /// Parameter names in the insertion order.
+    parameter_order: Vec<String>,
+
+    /// Parameters description
+    parameters: BTreeMap<String, FieldDoc>,
 }
 
 impl StructDoc {
     /// Create an empty struct.
-    pub fn new() -> StructDoc {
-        StructDoc { data: vec![] }
+    pub fn new(fields: Vec<FieldDoc>) -> StructDoc {
+        let mut struct_doc = StructDoc {
+            parameter_order: vec![],
+            parameters: BTreeMap::new(),
+        };
+        for field in fields {
+            struct_doc.add_field(field);
+        }
+        struct_doc
     }
 
     /// Add information about one parameter.
@@ -59,6 +84,7 @@ impl StructDoc {
         environment_variable: Option<String>,
         default: Option<String>,
         example: Option<String>,
+        is_mandatory: bool,
     ) {
         let field_doc = FieldDoc {
             parameter: name.to_string(),
@@ -68,49 +94,44 @@ impl StructDoc {
             description: description.to_string(),
             default_value: default,
             example,
-            is_mandatory: false,
+            is_mandatory,
         };
-        self.data.push(field_doc);
+        self.parameter_order.push(field_doc.parameter.to_string());
+        self.parameters
+            .insert(field_doc.parameter.to_string(), field_doc);
+    }
+
+    fn add_field(&mut self, field_doc: FieldDoc) {
+        self.parameter_order.push(field_doc.parameter.to_string());
+        self.parameters
+            .insert(field_doc.parameter.to_string(), field_doc);
     }
 
     /// Merge two StructDoc into a third one.
     pub fn merge_struct_doc(&self, s2: &StructDoc) -> StructDoc {
-        let mut data_map1 = self
-            .data
-            .iter()
-            .map(|field_doc| (field_doc.parameter.clone(), field_doc.clone()))
-            .collect::<BTreeMap<_, _>>();
-
-        for field_doc in s2.data.iter() {
-            if !data_map1.contains_key(&field_doc.parameter) {
-                data_map1.insert(field_doc.parameter.clone(), field_doc.clone());
+        let mut struct_doc_merged =
+            StructDoc::new(self.get_ordered_data().into_iter().cloned().collect());
+        for field_doc in s2.get_ordered_data().into_iter() {
+            let key = field_doc.parameter.clone();
+            if let Some(parameter) = struct_doc_merged.parameters.get_mut(&key) {
+                parameter.merge_field(field_doc);
             } else {
-                let mut d = data_map1.get(&field_doc.parameter).unwrap().clone();
-                if d.default_value.is_none() {
-                    d.default_value.clone_from(&field_doc.default_value);
-                }
-                if d.example.is_none() {
-                    d.example.clone_from(&field_doc.example);
-                }
-                if d.environment_variable.is_none() {
-                    d.environment_variable
-                        .clone_from(&field_doc.environment_variable);
-                }
-                data_map1.insert(field_doc.parameter.clone(), d);
+                struct_doc_merged.add_field(field_doc.clone());
             }
         }
-        let result = StructDoc {
-            data: data_map1.values().cloned().collect(),
-        };
-        result
+        struct_doc_merged
     }
 
     /// Get a field by its name.
-    pub fn get_field(&self, name: &str) -> &FieldDoc {
-        let mut fields = self.data.iter().filter(|f| f.parameter == name);
+    pub fn get_field(&self, name: &str) -> Option<&FieldDoc> {
+        self.parameters.get(name)
+    }
 
-        assert_eq!(1, fields.clone().count());
-        fields.next().unwrap()
+    pub fn get_ordered_data(&self) -> Vec<&FieldDoc> {
+        self.parameter_order
+            .iter()
+            .map(|parameter| self.parameters.get(parameter).unwrap())
+            .collect()
     }
 }
 
@@ -156,23 +177,16 @@ impl GenerateDocCommands {
 
     /// Generate the command line documentation.
     pub fn execute(&self, cmd_to_document: &mut Command) -> Result<(), String> {
-        self.execute_with_configurations(cmd_to_document, &[])
+        self.execute_with_configurations(cmd_to_document, HashMap::new())
     }
 
     /// Generate the command line documentation with config info.
     pub fn execute_with_configurations(
         &self,
         cmd_to_document: &mut Command,
-        configs_info: &[StructDoc],
+        configs_info: HashMap<String, StructDoc>,
     ) -> Result<(), String> {
-        let mut iter_config = configs_info.iter();
-        let mut merged_struct_doc = StructDoc::new();
-        for next_config in &mut iter_config {
-            merged_struct_doc = merged_struct_doc.merge_struct_doc(next_config);
-        }
-
-        let doc =
-            markdown_formatter::doc_markdown_with_config(cmd_to_document, Some(&merged_struct_doc));
+        let doc = markdown_formatter::doc_markdown_with_config(cmd_to_document, configs_info);
         let cmd_name = cmd_to_document.get_name();
 
         println!("Please note: the documentation generated is not able to indicate the environment variables used by the commands.");
@@ -182,10 +196,29 @@ impl GenerateDocCommands {
 
 #[cfg(test)]
 mod tests {
-
-    use std::collections::HashMap;
-
     use super::*;
+
+    #[test]
+    fn test_get_field_must_return_first_field_by_parameter_name() {
+        let mut struct_doc = StructDoc::default();
+        struct_doc.add_param("A", "Param first A", None, None, None, true);
+        struct_doc.add_param("B", "Param first B", None, None, None, true);
+
+        let retrieved_field = struct_doc.get_field("A").unwrap();
+
+        assert_eq!(retrieved_field.description, "Param first A");
+    }
+
+    #[test]
+    fn test_get_field_must_return_none_if_parameter_does_not_exist() {
+        let mut struct_doc = StructDoc::default();
+        struct_doc.add_param("A", "Param first A", None, None, None, true);
+        struct_doc.add_param("B", "Param first B", None, None, None, true);
+
+        let retrieved_field = struct_doc.get_field("X");
+
+        assert_eq!(retrieved_field, None);
+    }
 
     #[test]
     fn test_merge_struct_doc() {
@@ -197,47 +230,46 @@ mod tests {
                 Some("env A".to_string()),
                 Some("default A".to_string()),
                 Some("example A".to_string()),
+                true,
             );
-            s.add_param("B", "Param first B", None, None, None);
+            s.add_param("B", "Param first B", None, None, None, true);
             s.add_param(
                 "C",
                 "Param first C",
                 Some("env C".to_string()),
                 Some("default C".to_string()),
                 Some("example C".to_string()),
+                true,
             );
-            s.add_param("D", "Param first D", None, None, None);
+            s.add_param("D", "Param first D", None, None, None, true);
             s
         };
 
         let s2 = {
             let mut s = StructDoc::default();
-            s.add_param("A", "Param second A", None, None, None);
+            s.add_param("A", "Param second A", None, None, None, true);
             s.add_param(
                 "B",
                 "Param second B",
                 Some("env B".to_string()),
                 Some("default B".to_string()),
                 Some("example B".to_string()),
+                true,
             );
-            s.add_param("E", "Param second E", None, None, None);
+            s.add_param("E", "Param second E", None, None, None, true);
             s.add_param(
                 "F",
                 "Param second F",
                 Some("env F".to_string()),
                 Some("default F".to_string()),
                 Some("example F".to_string()),
+                true,
             );
             s
         };
 
         let result = s1.merge_struct_doc(&s2);
-
-        let data = result.data;
-        let data_map = data
-            .into_iter()
-            .map(|field_doc| (field_doc.parameter.clone(), field_doc))
-            .collect::<HashMap<_, _>>();
+        let data_map = result.parameters;
 
         assert_eq!(6, data_map.len());
         assert_eq!("Param first A", data_map.get("A").unwrap().description);
@@ -307,25 +339,37 @@ mod tests {
 
     #[test]
     fn test_merge_struct_doc_should_keep_the_order() {
-        let values = ["A", "B", "C", "D", "E", "F", "G"];
-        let s1 = {
-            let mut s = StructDoc::default();
+        fn build_struct_doc(values: &[&str]) -> StructDoc {
+            let mut struct_doc = StructDoc::default();
             for value in values.iter() {
-                s.add_param(value, value, None, None, None);
+                struct_doc.add_param(value, value, None, None, None, true);
             }
-            s
-        };
 
-        let s2 = s1.clone();
-
-        for (index, value) in values.iter().enumerate() {
-            assert_eq!(value, &s1.data[index].parameter);
-            assert_eq!(value, &s2.data[index].parameter);
+            assert_eq!(
+                struct_doc
+                    .get_ordered_data()
+                    .iter()
+                    .map(|data| data.parameter.to_string())
+                    .collect::<Vec<_>>(),
+                values
+            );
+            struct_doc
         }
+
+        let values_1 = ["A", "E", "C", "B", "D"];
+        let s1 = build_struct_doc(&values_1);
+
+        let values_2 = ["G", "D", "E", "F", "C"];
+        let s2 = build_struct_doc(&values_2);
 
         let result = s1.merge_struct_doc(&s2);
-        for (index, value) in values.iter().enumerate() {
-            assert_eq!(value, &result.data[index].parameter);
-        }
+        assert_eq!(
+            result
+                .get_ordered_data()
+                .iter()
+                .map(|data| data.parameter.to_string())
+                .collect::<Vec<_>>(),
+            ["A", "E", "C", "B", "D", "G", "F"]
+        );
     }
 }
