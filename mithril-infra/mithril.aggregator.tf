@@ -74,6 +74,7 @@ EOT
 
   provisioner "remote-exec" {
     inline = [
+      "set -e",
       "export NETWORK=${var.cardano_network}",
       "export CARDANO_IMAGE_ID=${var.cardano_image_id}",
       "export CARDANO_IMAGE_REGISTRY=${var.cardano_image_registry}",
@@ -93,10 +94,13 @@ EOT
       "export PROTOCOL_PARAMETERS__PHI_F='${var.mithril_protocol_parameters.phi_f}'",
       "export CHAIN_OBSERVER_TYPE='${var.mithril_aggregator_chain_observer_type}'",
       "export ERA_READER_ADAPTER_TYPE='${var.mithril_era_reader_adapter_type}'",
-      "export ERA_READER_ADAPTER_PARAMS=$(jq -nc --arg address $(wget -q -O - ${var.mithril_era_reader_address_url}) --arg verification_key $(wget -q -O - ${var.mithril_era_reader_verification_key_url}) '{\"address\": $address, \"verification_key\": $verification_key}')",
+      <<-EOT
+ERA_READER_ADAPTER_PARAMS=$(jq -nc --arg address $(wget -q -O - ${var.mithril_era_reader_address_url}) --arg verification_key $(wget -q -O - ${var.mithril_era_reader_verification_key_url}) '{"address": $address, "verification_key": $verification_key}')
+export ERA_READER_ADAPTER_PARAMS=$ERA_READER_ADAPTER_PARAMS
+EOT
+      ,
       "export ERA_READER_SECRET_KEY='${var.mithril_era_reader_secret_key}'",
       <<-EOT
-set -e
 export ANCILLARY_FILES_SIGNER_TYPE=${var.mithril_aggregator_ancillary_signer_type}
 if [ "$ANCILLARY_FILES_SIGNER_TYPE" = "secret-key" ]; then
   export ANCILLARY_FILES_SIGNER_CONFIG=$(jq -nc --arg secret_key ${var.mithril_aggregator_ancillary_signer_secret_key} '{"type": "secret-key", "secret_key": $secret_key}')
@@ -115,7 +119,15 @@ EOT
       "export CARDANO_TRANSACTIONS_SIGNING_CONFIG__STEP=${var.mithril_aggregator_cardano_transactions_signing_config_step}",
       "export CUSTOM_ORIGIN_TAG_WHITE_LIST='${var.mithril_aggregator_custom_origin_tag_white_list}'",
       "export PUBLIC_SERVER_URL=${local.mithril_aggregator_endpoint_url}",
-      "export AUTH_USER_PASSWORD=$(htpasswd -nb ${var.mithril_aggregator_auth_username} ${var.mithril_aggregator_auth_password})",
+      <<-EOT
+if [ "${var.mithril_aggregator_auth_username}" != "" && "${var.mithril_aggregator_auth_password}" != "" ]; then
+  AUTH_USER_PASSWORD=$(htpasswd -nb ${var.mithril_aggregator_auth_username} ${var.mithril_aggregator_auth_password})
+else
+  AUTH_USER_PASSWORD=""
+fi
+export AUTH_USER_PASSWORD=$AUTH_USER_PASSWORD
+EOT
+      ,
       "export LEADER_AGGREGATOR_ENDPOINT='${var.mithril_aggregator_leader_aggregator_endpoint}'",
       "export AGGREGATOR_RELAY_LISTEN_PORT='${local.mithril_aggregator_relay_mithril_listen_port}'",
       "export P2P_BOOTSTRAP_PEER='${var.mithril_p2p_network_bootstrap_peer}'",
@@ -126,7 +138,6 @@ EOT
       "export CURRENT_UID=$(id -u)",
       "export DOCKER_GID=$(getent group docker | cut -d: -f3)",
       <<-EOT
-set -e
 # Compute the docker compose files merge sequence for the aggregator
 DOCKER_DIRECTORY=/home/curry/docker
 DOCKER_COMPOSE_FILES="-f $DOCKER_DIRECTORY/docker-compose-aggregator-base.yaml"
