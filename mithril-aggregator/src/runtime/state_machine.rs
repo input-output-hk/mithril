@@ -1,16 +1,15 @@
-use crate::{
-    entities::OpenMessage,
-    runtime::{AggregatorRunnerTrait, RuntimeError},
-    AggregatorConfig,
-};
-
 use anyhow::Context;
-use mithril_common::entities::TimePoint;
-use mithril_common::logging::LoggerExtensions;
+use chrono::Local;
 use slog::{info, trace, Logger};
 use std::fmt::Display;
 use std::sync::Arc;
-use tokio::time::sleep;
+
+use mithril_common::entities::TimePoint;
+use mithril_common::logging::LoggerExtensions;
+
+use crate::entities::OpenMessage;
+use crate::runtime::{AggregatorRunnerTrait, RuntimeError};
+use crate::AggregatorConfig;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IdleState {
@@ -105,8 +104,14 @@ impl AggregatorRuntime {
     /// Launches an infinite loop ticking the state machine.
     pub async fn run(&mut self) -> Result<(), RuntimeError> {
         info!(self.logger, "Launching State Machine");
+        let mut interval = tokio::time::interval(self.config.interval);
 
         loop {
+            interval.tick().await;
+            // Note: the "time" property in logs produced by our formatter (slog_bunyan) uses local
+            // time, so we must use it as well to avoid confusion.
+            let approximate_next_cycle_time = Local::now() + self.config.interval;
+
             if let Err(e) = self.cycle().await {
                 e.write_to_log(&self.logger);
                 if e.is_critical() {
@@ -115,11 +120,10 @@ impl AggregatorRuntime {
             }
 
             info!(
-                self.logger,
-                "… Cycle finished, Sleeping for {} ms",
-                self.config.interval.as_millis()
+                self.logger, "… Cycle finished";
+                "approximate_next_cycle_time" => %approximate_next_cycle_time.time().format("%H:%M:%S%.3f"),
+                "run_interval_in_ms" => self.config.interval.as_millis(),
             );
-            sleep(self.config.interval).await;
         }
     }
 
@@ -129,7 +133,7 @@ impl AggregatorRuntime {
             self.logger,
             "================================================================================"
         );
-        info!(self.logger, "new cycle: {}", self.state);
+        info!(self.logger, "New cycle: {}", self.state);
 
         self.runner
             .increment_runtime_cycle_total_since_startup_counter();
