@@ -4,9 +4,11 @@
 cfg_fs! {
     mod ancillary_verifier;
     mod stream_reader;
+    mod bootstrap_files;
 
     pub use ancillary_verifier::AncillaryVerifier;
     pub use stream_reader::*;
+    pub use bootstrap_files::*;
 }
 
 cfg_fs_unstable! {

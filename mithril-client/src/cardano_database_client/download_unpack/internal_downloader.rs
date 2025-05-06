@@ -14,7 +14,7 @@ use mithril_common::messages::{
 use crate::cardano_database_client::ImmutableFileRange;
 use crate::feedback::{FeedbackSender, MithrilEvent, MithrilEventCardanoDatabase};
 use crate::file_downloader::{DownloadEvent, FileDownloader, FileDownloaderUri};
-use crate::utils::{AncillaryVerifier, VecDequeExtensions};
+use crate::utils::{create_bootstrap_node_files, AncillaryVerifier, VecDequeExtensions};
 use crate::MithrilResult;
 
 use super::download_task::{DownloadKind, DownloadTask, LocationToDownload};
@@ -85,6 +85,8 @@ impl InternalArtifactDownloader {
         }
         self.batch_download_unpack(tasks, download_unpack_options.max_parallel_downloads)
             .await?;
+
+        create_bootstrap_node_files(&self.logger, target_dir, &cardano_database_snapshot.network)?;
 
         self.feedback_sender
             .send_event(MithrilEvent::CardanoDatabase(
