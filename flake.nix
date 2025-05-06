@@ -106,7 +106,9 @@
           default = mithril;
           inherit mithril mithril-stm mithril-common;
           mithril-client = buildPackage ./mithril-client/Cargo.toml mithril.cargoArtifacts { cargoExtraArgs = "-p mithril-client --features full"; };
-          mithril-client-cli = buildPackage ./mithril-client-cli/Cargo.toml mithril.cargoArtifacts {};
+          mithril-client-cli = buildPackage ./mithril-client-cli/Cargo.toml mithril.cargoArtifacts {
+            pname = "mithril-client";
+          };
           mithril-aggregator = buildPackage ./mithril-aggregator/Cargo.toml mithril.cargoArtifacts {};
           mithril-signer = buildPackage ./mithril-signer/Cargo.toml mithril.cargoArtifacts {};
           mithril-persistence = buildPackage ./internal/mithril-persistence/Cargo.toml mithril.cargoArtifacts {};
