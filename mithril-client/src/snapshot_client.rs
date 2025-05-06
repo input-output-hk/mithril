@@ -118,6 +118,8 @@ use crate::feedback::FeedbackSender;
 #[cfg(feature = "fs")]
 use crate::file_downloader::{DownloadEvent, FileDownloader};
 #[cfg(feature = "fs")]
+use crate::utils::create_bootstrap_node_files;
+#[cfg(feature = "fs")]
 use crate::utils::AncillaryVerifier;
 use crate::{MithrilResult, Snapshot, SnapshotListItem};
 
@@ -232,6 +234,11 @@ impl SnapshotClient {
                 .await?;
             self.download_unpack_ancillary(snapshot, target_dir, &download_id)
                 .await?;
+            create_bootstrap_node_files(
+                &self.logger,
+                target_dir,
+                &snapshot.network,
+            )?;
 
             Ok(())
         }
@@ -252,6 +259,11 @@ impl SnapshotClient {
             let download_id = MithrilEvent::new_snapshot_download_id();
             self.download_unpack_immutables_files(snapshot, target_dir, &download_id)
                 .await?;
+            create_bootstrap_node_files(
+                &self.logger,
+                target_dir,
+                &snapshot.network,
+            )?;
 
             Ok(())
         }
