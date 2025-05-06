@@ -41,7 +41,8 @@ use crate::dependency_injection::SignerDependencyContainer;
 use crate::services::{
     AggregatorHTTPClient, CardanoTransactionsImporter,
     CardanoTransactionsPreloaderActivationSigner, MithrilEpochService, MithrilSingleSigner,
-    SignaturePublisher, SignerCertifierService, SignerSignableSeedBuilder,
+    SignaturePublishRetryPolicy, SignaturePublisherDelayer, SignaturePublisherNoop,
+    SignaturePublisherRetrier, SignerCertifierService, SignerSignableSeedBuilder,
     SignerSignedEntityConfigProvider, SignerUpkeepService, TransactionsImporterByChunk,
     TransactionsImporterWithPruner, TransactionsImporterWithVacuum,
 };
@@ -50,6 +51,10 @@ use crate::{
     Configuration, MetricsService, HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE,
     SQLITE_FILE_CARDANO_TRANSACTION,
 };
+
+const SIGNATURE_PUBLISHER_RETRY_ATTEMPTS: u8 = 3;
+const SIGNATURE_PUBLISHER_RETRY_DELAY_MS: u64 = 2_000;
+const SIGNATURE_PUBLISHER_DELAY_MS: u64 = 10_000;
 
 /// The `DependenciesBuilder` is intended to manage Services instance creation.
 ///
@@ -386,7 +391,30 @@ impl<'a> DependenciesBuilder<'a> {
             self.root_logger(),
         ));
 
-        let signature_publisher: Arc<dyn SignaturePublisher> = aggregator_client.clone();
+        let signature_publisher = {
+            // Temporary no-op publisher before a DMQ-based implementation is available.
+            let first_publisher = SignaturePublisherRetrier::new(
+                Arc::new(SignaturePublisherNoop {}),
+                SignaturePublishRetryPolicy::never(),
+            );
+
+            let second_publisher = SignaturePublisherRetrier::new(
+                aggregator_client.clone(),
+                SignaturePublishRetryPolicy {
+                    attempts: SIGNATURE_PUBLISHER_RETRY_ATTEMPTS,
+                    delay_between_attempts: Duration::from_millis(
+                        SIGNATURE_PUBLISHER_RETRY_DELAY_MS,
+                    ),
+                },
+            );
+
+            Arc::new(SignaturePublisherDelayer::new(
+                Arc::new(first_publisher),
+                Arc::new(second_publisher),
+                Duration::from_millis(SIGNATURE_PUBLISHER_DELAY_MS),
+                self.root_logger(),
+            ))
+        };
 
         let certifier = Arc::new(SignerCertifierService::new(
             signed_beacon_repository,
