@@ -1,7 +1,8 @@
 use anyhow::Context;
 use hex::{FromHex, ToHex};
 use kes_summed_ed25519::kes::Sum6KesSig;
-use mithril_stm::stm::{StmAggrSig, StmAggrVerificationKey, StmSig, StmVerificationKeyPoP};
+use mithril_stm::participant::StmVerificationKeyPoP;
+use mithril_stm::stm::{StmAggrSig, StmAggrVerificationKey, StmSig};
 
 use crate::crypto_helper::{MKMapProof, MKProof, OpCert, ProtocolKey, ProtocolKeyCodec, D};
 use crate::entities::BlockRange;

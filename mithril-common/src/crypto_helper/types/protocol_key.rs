@@ -222,7 +222,7 @@ mod test {
         crypto_helper::ProtocolKey,
         test_utils::{fake_keys, TempDir},
     };
-    use mithril_stm::stm::StmVerificationKeyPoP;
+    use mithril_stm::participant::StmVerificationKeyPoP;
     use serde::{Deserialize, Serialize};
 
     static VERIFICATION_KEY: &str = fake_keys::signer_verification_key()[0];
