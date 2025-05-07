@@ -1,14 +1,14 @@
 ---
-title: Breaking Changes in Client Library and CLI
+title: Breaking changes in client library and CLI
 authors:
   - name: Mithril Team
 tags:
   [mithril client, library, cli, breaking-change, Cardano database, ancillary]
 ---
 
-### Breaking Changes in Client Library and CLI
+### Breaking changes in client library and CLI
 
-The release of [`2517`](https://github.com/input-output-hk/mithril/releases/tag/2517.1) introduces breaking changes to the **Mithril client CLI** and **library**.
+The [`2517`](https://github.com/input-output-hk/mithril/releases/tag/2517.1) release introduces breaking changes to the **Mithril client CLI** and **library**.
 
 #### Client CLI
 
@@ -28,11 +28,11 @@ mithril-client cardano-database download latest --include-ancillary --ancillary-
 
 :::info
 
-The new command requires an **ancillary verification key**, which can be provided via the `--ancillary-verification-key` option or the `ANCILLARY_VERIFICATION_KEY` environment variable. Details are available on the [Networks configuration](https://mithril.network/doc/next/manual/getting-started/network-configurations) page.
+The new command requires an **ancillary verification key**. This key can be provided via the `--ancillary-verification-key` option or the `ANCILLARY_VERIFICATION_KEY` environment variable. Details are available on the [Networks configuration](https://mithril.network/doc/next/manual/getting-started/network-configurations) page.
 
 :::
 
-To update the Mithril client CLI, use the following one-line command. By default, it downloads to the current directory, but you can specify a custom folder with the `-p` option:
+To update the Mithril client CLI, use the following one-line command. By default, it downloads to the current directory. To specify a custom folder, use the `-p` option:
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-client -d 2517.1 -p $(pwd)
@@ -42,7 +42,7 @@ For more details, refer to the [Mithril client node](https://mithril.network/doc
 
 #### Client Library
 
-The **Mithril client library** has also been updated. By default, it no longer downloads ancillary files (ledger state snapshot and last immutable file), disabling the fast bootstrap feature. This requires the Cardano node to compute the ledger state from the genesis block during startup.
+The **Mithril client library** has also been updated. By default, it no longer downloads ancillary files (ledger state snapshot and last immutable file), which disables the fast bootstrap feature. Consequently, the Cardano node must compute the ledger state from the genesis block during startup.
 
 To enable fast bootstrap, use the `download_unpack_full` function instead of `download_unpack` and provide the `set_ancillary_verification_key` parameter:
 
@@ -72,4 +72,4 @@ client
 
 For more information and a complete example, refer to the [Mithril client library](https://mithril.network/doc/manual/develop/nodes/mithril-client-library#cardano-database) documentation.
 
-If you have any questions or need assistance, feel free to reach out to the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
+If you have any questions or need assistance, contact the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
