@@ -52,10 +52,6 @@ use crate::{
     SQLITE_FILE_CARDANO_TRANSACTION,
 };
 
-const SIGNATURE_PUBLISHER_RETRY_ATTEMPTS: u8 = 3;
-const SIGNATURE_PUBLISHER_RETRY_DELAY_MS: u64 = 2_000;
-const SIGNATURE_PUBLISHER_DELAY_MS: u64 = 10_000;
-
 /// The `DependenciesBuilder` is intended to manage Services instance creation.
 ///
 /// The goal of this is to put all this code out of the way of business code.
@@ -401,9 +397,9 @@ impl<'a> DependenciesBuilder<'a> {
             let second_publisher = SignaturePublisherRetrier::new(
                 aggregator_client.clone(),
                 SignaturePublishRetryPolicy {
-                    attempts: SIGNATURE_PUBLISHER_RETRY_ATTEMPTS,
+                    attempts: self.config.signature_publisher_retry_attempts,
                     delay_between_attempts: Duration::from_millis(
-                        SIGNATURE_PUBLISHER_RETRY_DELAY_MS,
+                        self.config.signature_publisher_retry_delay_ms,
                     ),
                 },
             );
@@ -411,7 +407,7 @@ impl<'a> DependenciesBuilder<'a> {
             Arc::new(SignaturePublisherDelayer::new(
                 Arc::new(first_publisher),
                 Arc::new(second_publisher),
-                Duration::from_millis(SIGNATURE_PUBLISHER_DELAY_MS),
+                Duration::from_millis(self.config.signature_publisher_delayer_delay_ms),
                 self.root_logger(),
             ))
         };
