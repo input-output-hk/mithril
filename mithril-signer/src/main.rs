@@ -88,6 +88,26 @@ pub struct Args {
         default_value_t = 43200
     )]
     preloading_refresh_interval_in_seconds: u64,
+
+    /// Number of retry attempts when publishing the signature
+    #[clap(long, env = "SIGNATURE_PUBLISHER_RETRY_ATTEMPTS", default_value_t = 3)]
+    signature_publisher_retry_attempts: u64,
+
+    /// Delay (in milliseconds) between two retry attempts when publishing the signature
+    #[clap(
+        long,
+        env = "SIGNATURE_PUBLISHER_RETRY_DELAY_MS",
+        default_value_t = 2_000
+    )]
+    signature_publisher_retry_delay_ms: u64,
+
+    /// Delay (in milliseconds) between two separate publications done by the delayer signature publisher
+    #[clap(
+        long,
+        env = "SIGNATURE_PUBLISHER_DELAYER_DELAY_MS",
+        default_value_t = 10_000
+    )]
+    signature_publisher_delayer_delay_ms: u64,
 }
 
 impl Args {
@@ -175,6 +195,21 @@ async fn main() -> StdResult<()> {
         .with_context(|| {
             "configuration error: could not set `preloading_refresh_interval_in_seconds`"
         })?
+        .set_default(
+            "signature_publisher_retry_attempts",
+            args.signature_publisher_retry_attempts,
+        )
+        .with_context(|| "configuration error: could not set `signature_publisher_retry_attempts`")?
+        .set_default(
+            "signature_publisher_retry_delay_ms",
+            args.signature_publisher_retry_delay_ms,
+        )
+        .with_context(|| "configuration error: could not set `signature_publisher_retry_delay_ms`")?
+        .set_default(
+            "signature_publisher_delay_ms",
+            args.signature_publisher_delayer_delay_ms,
+        )
+        .with_context(|| "configuration error: could not set `signature_publisher_delay_ms`")?
         .add_source(DefaultConfiguration::default())
         .add_source(
             config::File::with_name(&format!(
