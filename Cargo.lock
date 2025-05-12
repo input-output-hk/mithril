@@ -4039,7 +4039,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.4.84"
+version = "0.4.85"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -4154,7 +4154,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.245"
+version = "0.2.246"
 dependencies = [
  "anyhow",
  "async-trait",
