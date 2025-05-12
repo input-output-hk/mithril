@@ -16,7 +16,7 @@ use crate::configuration::AncillaryFilesSignerConfig;
 use crate::dependency_injection::builder::SNAPSHOT_ARTIFACTS_DIR;
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
 use crate::file_uploaders::{
-    CloudRemotePath, FileUploadRetryPolicy, GcpBackendUploaderLegacy, GcpUploader, LocalUploader,
+    CloudRemotePath, FileUploadRetryPolicy, GCloudBackendUploader, GcpUploader, LocalUploader,
 };
 use crate::get_dependency;
 use crate::http_server::{CARDANO_DATABASE_DOWNLOAD_PATH, SNAPSHOT_DOWNLOAD_PATH};
@@ -28,7 +28,9 @@ use crate::services::{
     SignedEntityServiceArtifactsDependencies, Snapshotter,
 };
 use crate::tools::file_archiver::FileArchiver;
+use crate::tools::DEFAULT_GCP_CREDENTIALS_JSON_ENV_VAR;
 use crate::{DumbUploader, ExecutionEnvironment, FileUploader, SnapshotUploaderType};
+
 impl DependenciesBuilder {
     async fn build_signed_entity_service(&mut self) -> Result<Arc<dyn SignedEntityService>> {
         let logger = self.root_logger();
@@ -194,7 +196,8 @@ impl DependenciesBuilder {
                     let remote_folder_path = CloudRemotePath::new("cardano-immutable-files-full");
 
                     Ok(Arc::new(
-                        self.build_gcp_uploader(remote_folder_path, allow_overwrite)?,
+                        self.build_gcp_uploader(remote_folder_path, allow_overwrite)
+                            .await?,
                     ))
                 }
                 SnapshotUploaderType::Local => {
@@ -232,7 +235,7 @@ impl DependenciesBuilder {
         get_dependency!(self.snapshot_uploader)
     }
 
-    fn build_gcp_uploader(
+    async fn build_gcp_uploader(
         &self,
         remote_folder_path: CloudRemotePath,
         allow_overwrite: bool,
@@ -247,18 +250,22 @@ impl DependenciesBuilder {
             })?;
 
         Ok(GcpUploader::new(
-            Arc::new(GcpBackendUploaderLegacy::try_new(
-                bucket,
-                self.configuration.snapshot_use_cdn_domain(),
-                logger.clone(),
-            )?),
+            Arc::new(
+                GCloudBackendUploader::try_new(
+                    bucket,
+                    self.configuration.snapshot_use_cdn_domain(),
+                    DEFAULT_GCP_CREDENTIALS_JSON_ENV_VAR.to_string(),
+                    logger.clone(),
+                )
+                .await?,
+            ),
             remote_folder_path,
             allow_overwrite,
             FileUploadRetryPolicy::default(),
         ))
     }
 
-    fn build_cardano_database_ancillary_uploaders(
+    async fn build_cardano_database_ancillary_uploaders(
         &self,
     ) -> Result<Vec<Arc<dyn AncillaryFileUploader>>> {
         let logger = self.root_logger();
@@ -269,10 +276,10 @@ impl DependenciesBuilder {
                     let remote_folder_path =
                         CloudRemotePath::new("cardano-database").join("ancillary");
 
-                    Ok(vec![Arc::new(self.build_gcp_uploader(
-                        remote_folder_path,
-                        allow_overwrite,
-                    )?)])
+                    Ok(vec![Arc::new(
+                        self.build_gcp_uploader(remote_folder_path, allow_overwrite)
+                            .await?,
+                    )])
                 }
                 SnapshotUploaderType::Local => {
                     let server_url_prefix = self.configuration.get_server_url()?;
@@ -302,7 +309,7 @@ impl DependenciesBuilder {
         }
     }
 
-    fn build_cardano_database_immutable_uploaders(
+    async fn build_cardano_database_immutable_uploaders(
         &self,
     ) -> Result<Vec<Arc<dyn ImmutableFilesUploader>>> {
         let logger = self.root_logger();
@@ -313,10 +320,10 @@ impl DependenciesBuilder {
                     let remote_folder_path =
                         CloudRemotePath::new("cardano-database").join("immutable");
 
-                    Ok(vec![Arc::new(self.build_gcp_uploader(
-                        remote_folder_path,
-                        allow_overwrite,
-                    )?)])
+                    Ok(vec![Arc::new(
+                        self.build_gcp_uploader(remote_folder_path, allow_overwrite)
+                            .await?,
+                    )])
                 }
                 SnapshotUploaderType::Local => {
                     let server_url_prefix = self.configuration.get_server_url()?;
@@ -337,7 +344,9 @@ impl DependenciesBuilder {
         }
     }
 
-    fn build_cardano_database_digests_uploaders(&self) -> Result<Vec<Arc<dyn DigestFileUploader>>> {
+    async fn build_cardano_database_digests_uploaders(
+        &self,
+    ) -> Result<Vec<Arc<dyn DigestFileUploader>>> {
         let logger = self.root_logger();
         if self.configuration.environment() == ExecutionEnvironment::Production {
             match self.configuration.snapshot_uploader_type() {
@@ -346,10 +355,10 @@ impl DependenciesBuilder {
                     let remote_folder_path =
                         CloudRemotePath::new("cardano-database").join("digests");
 
-                    Ok(vec![Arc::new(self.build_gcp_uploader(
-                        remote_folder_path,
-                        allow_overwrite,
-                    )?)])
+                    Ok(vec![Arc::new(
+                        self.build_gcp_uploader(remote_folder_path, allow_overwrite)
+                            .await?,
+                    )])
                 }
                 SnapshotUploaderType::Local => {
                     let server_url_prefix = self.configuration.get_server_url()?;
@@ -387,7 +396,7 @@ impl DependenciesBuilder {
         let immutable_dir = self.get_cardano_db_artifacts_dir()?.join("immutable");
 
         let ancillary_builder = Arc::new(AncillaryArtifactBuilder::new(
-            self.build_cardano_database_ancillary_uploaders()?,
+            self.build_cardano_database_ancillary_uploaders().await?,
             self.get_snapshotter().await?,
             self.configuration.get_network()?,
             self.root_logger(),
@@ -395,7 +404,7 @@ impl DependenciesBuilder {
 
         let immutable_builder = Arc::new(ImmutableArtifactBuilder::new(
             immutable_dir,
-            self.build_cardano_database_immutable_uploaders()?,
+            self.build_cardano_database_immutable_uploaders().await?,
             self.get_snapshotter().await?,
             self.root_logger(),
         )?);
@@ -405,7 +414,7 @@ impl DependenciesBuilder {
 
         let digest_builder = Arc::new(DigestArtifactBuilder::new(
             self.configuration.get_server_url()?,
-            self.build_cardano_database_digests_uploaders()?,
+            self.build_cardano_database_digests_uploaders().await?,
             digests_snapshotter,
             self.configuration.get_network()?,
             digests_path,
