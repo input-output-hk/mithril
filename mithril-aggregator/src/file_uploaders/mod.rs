@@ -4,7 +4,9 @@ mod interface;
 mod local_uploader;
 
 pub use dumb_uploader::*;
-pub use gcp_uploader::{CloudRemotePath, GcpBackendUploaderLegacy, GcpUploader};
+pub use gcp_uploader::{
+    CloudRemotePath, GCloudBackendUploader, GcpBackendUploaderLegacy, GcpUploader,
+};
 pub use interface::{FileUploadRetryPolicy, FileUploader};
 pub use local_uploader::LocalUploader;
 
