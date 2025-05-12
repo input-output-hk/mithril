@@ -43,18 +43,6 @@ impl GcpBackendUploaderLegacy {
             logger: logger.new_with_component_name::<Self>(),
         })
     }
-
-    fn get_location(&self, remote_file_path: &CloudRemotePath) -> FileUri {
-        let mut uri = vec![];
-        if !self.use_cdn_domain {
-            uri.push("storage.googleapis.com");
-        }
-        uri.push(&self.bucket);
-        let file_path = remote_file_path.to_string();
-        uri.push(&file_path);
-
-        FileUri(format!("https://{}", uri.join("/")))
-    }
 }
 
 #[async_trait]
@@ -71,7 +59,7 @@ impl CloudBackendUploader for GcpBackendUploaderLegacy {
             Ok(_) => {
                 info!(self.logger, "Found file metadata {remote_file_path}");
 
-                Some(self.get_location(remote_file_path))
+                Some(remote_file_path.to_gcloud_storage_location(&self.bucket, self.use_cdn_domain))
             }
             Err(_) => {
                 info!(self.logger, "Missing file metadata {remote_file_path}");
@@ -112,7 +100,7 @@ impl CloudBackendUploader for GcpBackendUploaderLegacy {
             local_file_path.display()
         );
 
-        Ok(self.get_location(remote_file_path))
+        Ok(remote_file_path.to_gcloud_storage_location(&self.bucket, self.use_cdn_domain))
     }
 
     async fn make_file_public(&self, remote_file_path: &CloudRemotePath) -> StdResult<()> {
@@ -137,51 +125,5 @@ impl CloudBackendUploader for GcpBackendUploaderLegacy {
         info!(self.logger, "Updated acl for {remote_file_path}");
 
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::test_tools::TestLogger;
-
-    use super::*;
-
-    #[tokio::test]
-    async fn get_location_not_using_cdn_domain_return_google_api_uri() {
-        env::set_var(DEFAULT_GCP_CREDENTIALS_JSON_ENV_VAR, "credentials");
-        let use_cdn_domain = false;
-        let gcp_file_uploader = GcpBackendUploaderLegacy::try_new(
-            "cdn.mithril.network".to_string(),
-            use_cdn_domain,
-            TestLogger::stdout(),
-        )
-        .unwrap();
-        let remote_file_path = CloudRemotePath::new("remote_folder").join("snapshot.xxx.tar.gz");
-        let expected_location =
-            "https://storage.googleapis.com/cdn.mithril.network/remote_folder/snapshot.xxx.tar.gz"
-                .to_string();
-
-        let location = gcp_file_uploader.get_location(&remote_file_path);
-
-        assert_eq!(FileUri(expected_location), location);
-    }
-
-    #[tokio::test]
-    async fn get_location_using_cdn_domain_return_cdn_in_uri() {
-        env::set_var(DEFAULT_GCP_CREDENTIALS_JSON_ENV_VAR, "credentials");
-        let use_cdn_domain = true;
-        let gcp_file_uploader = GcpBackendUploaderLegacy::try_new(
-            "cdn.mithril.network".to_string(),
-            use_cdn_domain,
-            TestLogger::stdout(),
-        )
-        .unwrap();
-        let remote_file_path = CloudRemotePath::new("remote_folder").join("snapshot.xxx.tar.gz");
-        let expected_location =
-            "https://cdn.mithril.network/remote_folder/snapshot.xxx.tar.gz".to_string();
-
-        let location = gcp_file_uploader.get_location(&remote_file_path);
-
-        assert_eq!(FileUri(expected_location), location);
     }
 }
