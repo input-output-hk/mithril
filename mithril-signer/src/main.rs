@@ -196,20 +196,17 @@ async fn main() -> StdResult<()> {
             "configuration error: could not set `preloading_refresh_interval_in_seconds`"
         })?
         .set_default(
-            "signature_publisher_retry_attempts",
+            "signature_publisher_config.retry_attempts",
             args.signature_publisher_retry_attempts,
-        )
-        .with_context(|| "configuration error: could not set `signature_publisher_retry_attempts`")?
+        )?
         .set_default(
-            "signature_publisher_retry_delay_ms",
+            "signature_publisher_config.retry_delay_ms",
             args.signature_publisher_retry_delay_ms,
-        )
-        .with_context(|| "configuration error: could not set `signature_publisher_retry_delay_ms`")?
+        )?
         .set_default(
-            "signature_publisher_delay_ms",
+            "signature_publisher_config.delayer_delay_ms",
             args.signature_publisher_delayer_delay_ms,
-        )
-        .with_context(|| "configuration error: could not set `signature_publisher_delay_ms`")?
+        )?
         .add_source(DefaultConfiguration::default())
         .add_source(
             config::File::with_name(&format!(

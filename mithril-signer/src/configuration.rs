@@ -16,6 +16,18 @@ use mithril_common::{
     CardanoNetwork, StdResult,
 };
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SignaturePublisherConfig {
+    /// Number of retry attempts when publishing the signature
+    pub retry_attempts: u8,
+
+    /// Delay (in milliseconds) between two retry attempts when publishing the signature
+    pub retry_delay_ms: u64,
+
+    /// Delay (in milliseconds) between two separate publications done by the delayer signature publisher
+    pub delayer_delay_ms: u64,
+}
+
 /// Client configuration
 #[derive(Debug, Clone, Serialize, Deserialize, Documenter)]
 pub struct Configuration {
@@ -122,14 +134,9 @@ pub struct Configuration {
     /// Preloading refresh interval in seconds
     pub preloading_refresh_interval_in_seconds: u64,
 
-    /// Number of retry attempts when publishing the signature
-    pub signature_publisher_retry_attempts: u8,
-
-    /// Delay (in milliseconds) between two retry attempts when publishing the signature
-    pub signature_publisher_retry_delay_ms: u64,
-
-    /// Delay (in milliseconds) between two separate publications done by the delayer signature publisher
-    pub signature_publisher_delayer_delay_ms: u64,
+    /// Signature publisher configuration
+    #[example = "`{ retry_attempts: 3, retry_delay_ms: 2000, delayer_delay_ms: 10000 }`"]
+    pub signature_publisher_config: SignaturePublisherConfig,
 }
 
 impl Configuration {
@@ -168,9 +175,11 @@ impl Configuration {
             transactions_import_block_chunk_size: BlockNumber(1000),
             cardano_transactions_block_streamer_max_roll_forwards_per_poll: 1000,
             preloading_refresh_interval_in_seconds: 60,
-            signature_publisher_retry_attempts: 1,
-            signature_publisher_retry_delay_ms: 1,
-            signature_publisher_delayer_delay_ms: 1,
+            signature_publisher_config: SignaturePublisherConfig {
+                retry_attempts: 1,
+                retry_delay_ms: 1,
+                delayer_delay_ms: 1,
+            },
         }
     }
 
