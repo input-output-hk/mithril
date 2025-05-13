@@ -191,6 +191,20 @@ impl ServeCommand {
             Ok(())
         });
 
+        let signature_processor = dependencies_builder
+            .create_signature_processor()
+            .await
+            .with_context(|| "Dependencies Builder can not create signature processor")?;
+        let signature_processor_clone = signature_processor.clone();
+        join_set.spawn(async move {
+            signature_processor_clone
+                .run()
+                .await
+                .map_err(|e| e.to_string())?;
+
+            Ok(())
+        });
+
         // Create a SignersImporter only if the `cexplorer_pools_url` is provided in the config.
         if let Some(cexplorer_pools_url) = config.cexplorer_pools_url {
             match dependencies_builder
@@ -272,6 +286,7 @@ impl ServeCommand {
         if !preload_task.is_finished() {
             preload_task.abort();
         }
+        signature_processor.stop().await?;
 
         info!(root_logger, "Event store is finishing...");
         event_store_thread.await.unwrap();
