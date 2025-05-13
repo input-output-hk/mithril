@@ -41,7 +41,8 @@ use crate::dependency_injection::SignerDependencyContainer;
 use crate::services::{
     AggregatorHTTPClient, CardanoTransactionsImporter,
     CardanoTransactionsPreloaderActivationSigner, MithrilEpochService, MithrilSingleSigner,
-    SignaturePublisher, SignerCertifierService, SignerSignableSeedBuilder,
+    SignaturePublishRetryPolicy, SignaturePublisherDelayer, SignaturePublisherNoop,
+    SignaturePublisherRetrier, SignerCertifierService, SignerSignableSeedBuilder,
     SignerSignedEntityConfigProvider, SignerUpkeepService, TransactionsImporterByChunk,
     TransactionsImporterWithPruner, TransactionsImporterWithVacuum,
 };
@@ -386,7 +387,30 @@ impl<'a> DependenciesBuilder<'a> {
             self.root_logger(),
         ));
 
-        let signature_publisher: Arc<dyn SignaturePublisher> = aggregator_client.clone();
+        let signature_publisher = {
+            // Temporary no-op publisher before a DMQ-based implementation is available.
+            let first_publisher = SignaturePublisherRetrier::new(
+                Arc::new(SignaturePublisherNoop {}),
+                SignaturePublishRetryPolicy::never(),
+            );
+
+            let second_publisher = SignaturePublisherRetrier::new(
+                aggregator_client.clone(),
+                SignaturePublishRetryPolicy {
+                    attempts: self.config.signature_publisher_config.retry_attempts,
+                    delay_between_attempts: Duration::from_millis(
+                        self.config.signature_publisher_config.retry_delay_ms,
+                    ),
+                },
+            );
+
+            Arc::new(SignaturePublisherDelayer::new(
+                Arc::new(first_publisher),
+                Arc::new(second_publisher),
+                Duration::from_millis(self.config.signature_publisher_config.delayer_delay_ms),
+                self.root_logger(),
+            ))
+        };
 
         let certifier = Arc::new(SignerCertifierService::new(
             signed_beacon_repository,
