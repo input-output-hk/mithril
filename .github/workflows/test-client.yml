@@ -40,11 +40,6 @@ on:
         required: false
         type: string
         default: https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/ancillary.vkey
-      include_ancillary:
-        description: Include ancillary files in the download.
-        required: true
-        type: boolean
-        default: true
       enable_debug:
         description: Enable debug output ("-vvv") for the mithril-client calls
         required: true
@@ -72,9 +67,6 @@ on:
       ancillary_verification_key:
         type: string
         default: https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/ancillary.vkey
-      include_ancillary:
-        type: boolean
-        default: true
       enable_debug:
         type: boolean
         default: false
@@ -85,6 +77,8 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-14, windows-latest]
+        extra_args: ["", "--include-ancillary"]
+
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout sources
@@ -110,9 +104,6 @@ jobs:
           echo "TRANSACTIONS_HASHES_TO_CERTIFY=${{ inputs.transactions_hashes_to_certify }}" >> $GITHUB_ENV
 
           echo "ANCILLARY_VERIFICATION_KEY=$(curl -s ${{ inputs.ancillary_verification_key }})" >> $GITHUB_ENV
-          if [[ "${{ inputs.include_ancillary }}" == "true" ]]; then
-            echo "INCLUDE_ANCILLARY=--include-ancillary" >> $GITHUB_OUTPUT
-          fi
 
       - name: Assessing aggregator capabilities (Unix)
         id: aggregator_capability_unix
@@ -169,7 +160,12 @@ jobs:
       - name: Cardano Database Snapshot / download & restore latest
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST $INCLUDE_ANCILLARY
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST ${{ matrix.extra_args }} > cdb-download-output.txt
+
+      - name: Cardano Database Snapshot / verify Cardano node starts successfully
+        if: runner.os == 'Linux'
+        shell: bash
+        run: .github/workflows/scripts/verify-cardano-db-restoration.sh ./bin/cdb-download-output.txt "${{ matrix.extra_args }}"
 
       - name: Mithril Stake Distribution / list and get last hash
         shell: bash
@@ -243,13 +239,19 @@ jobs:
         if: steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --unstable --origin-tag CI cardano-db-v2 download $CARDANO_DATABASE_V2_SNAPSHOT_HASH $INCLUDE_ANCILLARY
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --unstable --origin-tag CI cardano-db-v2 download $CARDANO_DATABASE_V2_SNAPSHOT_HASH ${{ matrix.extra_args }} > cdb-v2-download-output.txt
+
+      - name: Cardano Database V2 Snapshot / verify Cardano node starts successfully
+        if: runner.os == 'Linux' && steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true'
+        shell: bash
+        run: .github/workflows/scripts/verify-cardano-db-restoration.sh ./bin/cdb-v2-download-output.txt "${{ matrix.extra_args }}"
 
   test-docker:
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04]
+        extra_args: ["", "--include-ancillary"]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Prepare environment variables
@@ -267,9 +269,6 @@ jobs:
           echo "TRANSACTIONS_HASHES_TO_CERTIFY=${{ inputs.transactions_hashes_to_certify }}" >> $GITHUB_ENV
 
           echo "ANCILLARY_VERIFICATION_KEY=$(curl -s ${{ inputs.ancillary_verification_key }})" >> $GITHUB_ENV
-          if [[ "${{ inputs.include_ancillary }}" == "true" ]]; then
-            echo "INCLUDE_ANCILLARY=--include-ancillary" >> $GITHUB_OUTPUT
-          fi
 
       - name: Assessing aggregator capabilities
         id: aggregator_capability
@@ -286,7 +285,7 @@ jobs:
         id: command
         shell: bash
         run: |
-          echo "mithril_client=docker run --rm -e NETWORK=$NETWORK -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-client' ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID"  >> $GITHUB_OUTPUT
+          echo "mithril_client=docker run --rm -e NETWORK=$NETWORK -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e ANCILLARY_VERIFICATION_KEY=$ANCILLARY_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-client' ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID"  >> $GITHUB_OUTPUT
 
       - name: Show client version
         shell: bash
@@ -300,7 +299,7 @@ jobs:
 
       - name: Cardano Database Snapshot / download & restore latest
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST --download-dir /app $INCLUDE_ANCILLARY
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST --download-dir /app ${{ matrix.extra_args }}
 
       - name: Mithril Stake Distribution / list and get last hash
         shell: bash
@@ -363,7 +362,7 @@ jobs:
       - name: Cardano Database V2 Snapshot / download & restore latest (Full restoration)
         if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI --unstable cardano-db-v2 download $CARDANO_DATABASE_V2_SNAPSHOT_HASH --download-dir /app $INCLUDE_ANCILLARY
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI --unstable cardano-db-v2 download $CARDANO_DATABASE_V2_SNAPSHOT_HASH --download-dir /app ${{ matrix.extra_args }}
 
   test-mithril-client-wasm:
     strategy:
