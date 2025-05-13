@@ -16,7 +16,7 @@ use crate::configuration::AncillaryFilesSignerConfig;
 use crate::dependency_injection::builder::SNAPSHOT_ARTIFACTS_DIR;
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
 use crate::file_uploaders::{
-    CloudRemotePath, FileUploadRetryPolicy, GCloudBackendUploader, GcpUploader, LocalUploader,
+    CloudRemotePath, CloudUploader, FileUploadRetryPolicy, GCloudBackendUploader, LocalUploader,
 };
 use crate::get_dependency;
 use crate::http_server::{CARDANO_DATABASE_DOWNLOAD_PATH, SNAPSHOT_DOWNLOAD_PATH};
@@ -239,7 +239,7 @@ impl DependenciesBuilder {
         &self,
         remote_folder_path: CloudRemotePath,
         allow_overwrite: bool,
-    ) -> Result<GcpUploader> {
+    ) -> Result<CloudUploader> {
         let logger = self.root_logger();
         let bucket = self
             .configuration
@@ -249,7 +249,7 @@ impl DependenciesBuilder {
                 DependenciesBuilderError::MissingConfiguration("snapshot_bucket_name".to_string())
             })?;
 
-        Ok(GcpUploader::new(
+        Ok(CloudUploader::new(
             Arc::new(
                 GCloudBackendUploader::try_new(
                     bucket,

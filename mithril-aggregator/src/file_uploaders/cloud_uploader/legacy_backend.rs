@@ -14,7 +14,7 @@ use mithril_common::entities::FileUri;
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
-use crate::file_uploaders::gcp_uploader::CloudBackendUploader;
+use crate::file_uploaders::cloud_uploader::CloudBackendUploader;
 use crate::file_uploaders::CloudRemotePath;
 use crate::tools::DEFAULT_GCP_CREDENTIALS_JSON_ENV_VAR;
 

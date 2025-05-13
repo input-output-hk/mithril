@@ -16,7 +16,7 @@ use tokio_util::codec::{BytesCodec, FramedRead};
 use mithril_common::entities::FileUri;
 use mithril_common::StdResult;
 
-use crate::file_uploaders::gcp_uploader::CloudBackendUploader;
+use crate::file_uploaders::cloud_uploader::CloudBackendUploader;
 use crate::file_uploaders::CloudRemotePath;
 
 /// Google Cloud Platform file uploader using `gcloud-storage` crate

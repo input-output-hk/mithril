@@ -17,16 +17,16 @@ fn get_file_name(file_path: &Path) -> StdResult<&str> {
         .ok_or(anyhow!("Could not find the final component of the path"))
 }
 
-/// GcpUploader represents a Google Cloud Platform file uploader interactor
-pub struct GcpUploader {
+/// The `CloudUploader` struct is responsible for managing the upload of files to a cloud storage backend.
+pub struct CloudUploader {
     cloud_backend_uploader: Arc<dyn CloudBackendUploader>,
     remote_folder: CloudRemotePath,
     allow_overwrite: bool,
     retry_policy: FileUploadRetryPolicy,
 }
 
-impl GcpUploader {
-    /// GcpUploader factory
+impl CloudUploader {
+    /// `CloudUploader` factory
     pub fn new(
         cloud_backend_uploader: Arc<dyn CloudBackendUploader>,
         remote_folder: CloudRemotePath,
@@ -43,7 +43,7 @@ impl GcpUploader {
 }
 
 #[async_trait]
-impl FileUploader for GcpUploader {
+impl FileUploader for CloudUploader {
     async fn upload_without_retry(&self, file_path: &Path) -> StdResult<FileUri> {
         let remote_file_path = self.remote_folder.join(get_file_name(file_path)?);
         if !self.allow_overwrite {
@@ -81,7 +81,7 @@ mod tests {
 
     use mockall::predicate::eq;
 
-    use crate::file_uploaders::gcp_uploader::MockCloudBackendUploader;
+    use crate::file_uploaders::cloud_uploader::MockCloudBackendUploader;
     use crate::file_uploaders::FileUploadRetryPolicy;
 
     use super::*;
@@ -116,7 +116,7 @@ mod tests {
 
             mock_cloud_backend_uploader
         };
-        let file_uploader = GcpUploader::new(
+        let file_uploader = CloudUploader::new(
             Arc::new(cloud_backend_uploader),
             remote_folder_path,
             allow_overwrite,
@@ -148,7 +148,7 @@ mod tests {
 
             mock_cloud_backend_uploader
         };
-        let file_uploader = GcpUploader::new(
+        let file_uploader = CloudUploader::new(
             Arc::new(cloud_backend_uploader),
             remote_folder_path,
             allow_overwrite,
@@ -184,7 +184,7 @@ mod tests {
 
             mock_cloud_backend_uploader
         };
-        let file_uploader = GcpUploader::new(
+        let file_uploader = CloudUploader::new(
             Arc::new(cloud_backend_uploader),
             remote_folder_path,
             allow_overwrite,
@@ -207,7 +207,7 @@ mod tests {
 
             mock_cloud_backend_uploader
         };
-        let file_uploader = GcpUploader::new(
+        let file_uploader = CloudUploader::new(
             Arc::new(cloud_backend_uploader),
             CloudRemotePath::new("remote_folder"),
             allow_overwrite,
@@ -232,7 +232,7 @@ mod tests {
 
             mock_cloud_backend_uploader
         };
-        let file_uploader = GcpUploader::new(
+        let file_uploader = CloudUploader::new(
             Arc::new(cloud_backend_uploader),
             CloudRemotePath::new("remote_folder"),
             allow_overwrite,
@@ -259,7 +259,7 @@ mod tests {
 
             mock_cloud_backend_uploader
         };
-        let file_uploader = GcpUploader::new(
+        let file_uploader = CloudUploader::new(
             Arc::new(cloud_backend_uploader),
             CloudRemotePath::new("remote_folder"),
             allow_overwrite,
@@ -279,7 +279,7 @@ mod tests {
             delay_between_attempts: Duration::from_millis(123),
         };
 
-        let file_uploader: Box<dyn FileUploader> = Box::new(GcpUploader::new(
+        let file_uploader: Box<dyn FileUploader> = Box::new(CloudUploader::new(
             Arc::new(MockCloudBackendUploader::new()),
             CloudRemotePath::new("remote_folder"),
             true,

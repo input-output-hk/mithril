@@ -15,7 +15,7 @@ use mithril_common::{
 use slog::{error, Logger};
 
 use crate::{
-    file_uploaders::{GcpUploader, LocalUploader},
+    file_uploaders::{CloudUploader, LocalUploader},
     tools::{
         file_archiver::{appender::AppenderFile, ArchiveParameters, FileArchive, FileArchiver},
         url_sanitizer::SanitizedUrlWithTrailingSlash,
@@ -68,7 +68,7 @@ impl DigestFileUploader for LocalUploader {
 }
 
 #[async_trait]
-impl DigestFileUploader for GcpUploader {
+impl DigestFileUploader for CloudUploader {
     async fn upload(
         &self,
         filepath: &Path,
