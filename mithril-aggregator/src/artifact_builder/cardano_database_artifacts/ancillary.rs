@@ -11,7 +11,7 @@ use mithril_common::{
 };
 
 use crate::{
-    file_uploaders::{GcpUploader, LocalUploader},
+    file_uploaders::{CloudUploader, LocalUploader},
     services::Snapshotter,
     tools::file_archiver::FileArchive,
     DumbUploader, FileUploader,
@@ -62,7 +62,7 @@ impl AncillaryFileUploader for LocalUploader {
 }
 
 #[async_trait]
-impl AncillaryFileUploader for GcpUploader {
+impl AncillaryFileUploader for CloudUploader {
     async fn upload(
         &self,
         filepath: &Path,

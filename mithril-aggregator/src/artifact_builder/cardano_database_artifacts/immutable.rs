@@ -12,7 +12,7 @@ use mithril_common::{
 };
 
 use crate::{
-    file_uploaders::{GcpUploader, LocalUploader},
+    file_uploaders::{CloudUploader, LocalUploader},
     services::Snapshotter,
     DumbUploader, FileUploader,
 };
@@ -102,7 +102,7 @@ impl ImmutableFilesUploader for LocalUploader {
 }
 
 #[async_trait]
-impl ImmutableFilesUploader for GcpUploader {
+impl ImmutableFilesUploader for CloudUploader {
     async fn batch_upload(
         &self,
         filepaths: &[PathBuf],
@@ -116,7 +116,7 @@ impl ImmutableFilesUploader for GcpUploader {
         let template_uri =
             MultiFilesUri::extract_template_from_uris(file_uris, immutable_file_number_extractor)?
                 .ok_or_else(|| {
-                    anyhow!("No matching template found in the uploaded files with 'GcpUploader'")
+                    anyhow!("No matching template found in the uploaded files with 'CloudUploader'")
                 })?;
 
         Ok(ImmutablesLocation::CloudStorage {
