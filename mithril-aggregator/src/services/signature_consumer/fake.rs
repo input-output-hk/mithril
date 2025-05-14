@@ -37,6 +37,9 @@ impl SignatureConsumer for FakeSignatureConsumer {
             }
         }
     }
+    fn get_origin_tag(&self) -> String {
+        "FAKE".to_string()
+    }
 }
 
 #[cfg(test)]
