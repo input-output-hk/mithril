@@ -19,6 +19,10 @@ impl SignatureConsumer for SignatureConsumerNoop {
     > {
         future::pending().await
     }
+
+    fn get_origin_network(&self) -> String {
+        "NOOP".to_string()
+    }
 }
 
 #[cfg(test)]
