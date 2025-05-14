@@ -36,6 +36,7 @@ mithril-resource-pool = { path = "../internal/mithril-resource-pool" }
 mithril-signed-entity-lock = { path = "../internal/signed-entity/mithril-signed-entity-lock" }
 mithril-signed-entity-preloader = { path = "../internal/signed-entity/mithril-signed-entity-preloader" }
 paste = "1.0.15"
+percent-encoding = "2.3.1"
 rayon = { workspace = true }
 regex = "1.11.1"
 reqwest = { workspace = true, features = [

@@ -3793,6 +3793,7 @@ dependencies = [
  "mithril-signed-entity-preloader",
  "mockall",
  "paste",
+ "percent-encoding",
  "rayon",
  "regex",
  "reqwest",
