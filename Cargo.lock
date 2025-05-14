@@ -3769,7 +3769,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.7.48"
+version = "0.7.49"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3793,6 +3793,7 @@ dependencies = [
  "mithril-signed-entity-preloader",
  "mockall",
  "paste",
+ "percent-encoding",
  "rayon",
  "regex",
  "reqwest",
@@ -3858,7 +3859,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.12.3"
+version = "0.12.4"
 dependencies = [
  "anyhow",
  "async-recursion",

@@ -16,7 +16,7 @@ use tokio_util::codec::{BytesCodec, FramedRead};
 use mithril_common::entities::FileUri;
 use mithril_common::StdResult;
 
-use crate::file_uploaders::cloud_uploader::CloudBackendUploader;
+use crate::file_uploaders::cloud_uploader::{gcp_percent_encode, CloudBackendUploader};
 use crate::file_uploaders::CloudRemotePath;
 
 /// Google Cloud Platform file uploader using `gcloud-storage` crate
@@ -133,13 +133,13 @@ impl CloudBackendUploader for GCloudBackendUploader {
             role: ObjectACLRole::READER,
         };
         info!(
-            self.logger,
-            "Updating acl for {remote_file_path}: {new_bucket_access_control:?}"
+            self.logger, "Updating acl for {remote_file_path}";
+            "inserted_acl" => ?new_bucket_access_control
         );
         self.storage_client
             .insert_object_access_control(&InsertObjectAccessControlRequest {
                 bucket: self.bucket.clone(),
-                object: remote_file_path.to_string(),
+                object: gcp_percent_encode(&remote_file_path.to_string()),
                 acl: new_bucket_access_control,
                 ..Default::default()
             })
