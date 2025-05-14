@@ -53,7 +53,7 @@ impl SequentialSignatureProcessor {
 impl SignatureProcessor for SequentialSignatureProcessor {
     async fn process_signatures(&self) -> StdResult<()> {
         if *self.stop.lock().await {
-            warn!(self.logger, "Stoped signature processor");
+            warn!(self.logger, "Stopped signature processor");
             return Ok(());
         }
 

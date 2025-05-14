@@ -74,7 +74,7 @@ impl DependenciesBuilder {
 
     /// Builds a [SignatureConsumer]
     pub async fn build_signature_consumer(&mut self) -> Result<Arc<dyn SignatureConsumer>> {
-        let signature_consumer = SignatureConsumerNoop::default();
+        let signature_consumer = SignatureConsumerNoop;
 
         Ok(Arc::new(signature_consumer))
     }

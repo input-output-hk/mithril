@@ -5,7 +5,6 @@ use async_trait::async_trait;
 use super::SignatureConsumer;
 
 /// A no-op implementation of the [SignatureConsumer] trait that will never return signatures.
-#[derive(Default)]
 pub struct SignatureConsumerNoop;
 
 #[async_trait]
