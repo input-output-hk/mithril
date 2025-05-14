@@ -47,6 +47,24 @@ impl CardanoDbUtils {
     }
 }
 
+pub struct AncillaryLogMessage {}
+
+impl AncillaryLogMessage {
+    /// This method provides guidance on how to enable fast bootstrap by including ancillary files
+    pub fn warn_fast_bootstrap_not_available() {
+        println!("The fast bootstrap of the Cardano node is not available with the current parameters used in this command: this means that the ledger state will be recomputed from genesis at startup of the Cardano node.
+
+    In order to activate the fast bootstrap of the Cardano node, add the following parameters to the command:
+
+        --include-ancillary
+        and --ancillary-verification-key (or environment variable ANCILLARY_VERIFICATION_KEY). Caution: The ancillary files, including the ledger state, are not currently signed by Mithril. As a mitigation, IOG owned keys are used to sign these files. For more information, please refer to the network configuration page of the documentation (https://mithril.network/doc/manual/getting-started/network-configurations).");
+    }
+
+    pub fn warn_ancillary_not_signed_by_mithril() {
+        println!("Ancillary verification does not use the Mithril certification: as a mitigation, IOG owned keys are used to sign these files.");
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

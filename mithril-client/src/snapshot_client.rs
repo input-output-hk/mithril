@@ -121,6 +121,7 @@ use crate::file_downloader::{DownloadEvent, FileDownloader};
 use crate::utils::create_bootstrap_node_files;
 #[cfg(feature = "fs")]
 use crate::utils::AncillaryVerifier;
+use crate::utils::ANCILLARIES_NOT_SIGNED_BY_MITHRIL;
 use crate::{MithrilResult, Snapshot, SnapshotListItem};
 
 /// Error for the Snapshot client
@@ -255,6 +256,10 @@ impl SnapshotClient {
             snapshot: &Snapshot,
             target_dir: &Path,
         ) -> MithrilResult<()> {
+            slog::warn!(
+                self.logger,
+                "The fast bootstrap of the Cardano node is not available with the current parameters used in this command: the ledger state will be recomputed from genesis at startup of the Cardano node. Use the extra function download_unpack_full to allow it."
+            );
             use crate::feedback::MithrilEvent;
             let download_id = MithrilEvent::new_snapshot_download_id();
             self.download_unpack_immutables_files(snapshot, target_dir, &download_id)
@@ -296,10 +301,7 @@ impl SnapshotClient {
             target_dir: &Path,
             download_id: &str,
         ) -> MithrilResult<()> {
-            slog::info!(
-                self.logger,
-                "Ancillary verification doesn't use the Mithril certification: it is done with a signature made with an IOG owned key."
-            );
+            slog::warn!(self.logger, "{}", ANCILLARIES_NOT_SIGNED_BY_MITHRIL);
 
             match &snapshot.ancillary_locations {
                 None => Ok(()),
@@ -622,6 +624,35 @@ mod tests {
         }
     }
 
+    mod download_unpack {
+        use super::*;
+
+        #[tokio::test]
+        async fn warn_that_fast_boostrap_is_not_available_without_ancillary_files() {
+            let (logger, log_inspector) = TestLogger::memory();
+            let snapshot = Snapshot::dummy();
+
+            let mut mock_downloader = MockFileDownloader::new();
+            mock_downloader
+                .expect_download_unpack()
+                .returning(|_, _, _, _, _| Ok(()));
+
+            let client = SnapshotClient {
+                logger,
+                ..setup_snapshot_client(Arc::new(mock_downloader), None)
+            };
+
+            let _result = client
+                .download_unpack(&snapshot, &PathBuf::from("/whatever"))
+                .await;
+
+            assert!(
+                log_inspector.contains_log("WARN The fast bootstrap of the Cardano node is not available with the current parameters used in this command: the ledger state will be recomputed from genesis at startup of the Cardano node. Use the extra function download_unpack_full to allow it."),
+                "Expected log message not found, logs: {log_inspector}"
+            );
+        }
+    }
+
     mod download_unpack_ancillary {
         use mithril_common::crypto_helper::ManifestSigner;
         use mithril_common::test_utils::fake_keys;
@@ -660,10 +691,7 @@ mod tests {
                 .unwrap();
 
             assert!(
-                log_inspector.contains_log(
-                    "Ancillary verification doesn't use the Mithril certification: it is \
-                done with a signature made with an IOG owned key."
-                ),
+                log_inspector.contains_log(&format!("WARN {}", ANCILLARIES_NOT_SIGNED_BY_MITHRIL)),
                 "Expected log message not found, logs: {log_inspector}"
             );
         }

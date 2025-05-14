@@ -14,7 +14,10 @@ use mithril_common::messages::{
 use crate::cardano_database_client::ImmutableFileRange;
 use crate::feedback::{FeedbackSender, MithrilEvent, MithrilEventCardanoDatabase};
 use crate::file_downloader::{DownloadEvent, FileDownloader, FileDownloaderUri};
-use crate::utils::{create_bootstrap_node_files, AncillaryVerifier, VecDequeExtensions};
+use crate::utils::{
+    create_bootstrap_node_files, AncillaryVerifier, VecDequeExtensions,
+    ANCILLARIES_NOT_SIGNED_BY_MITHRIL,
+};
 use crate::MithrilResult;
 
 use super::download_task::{DownloadKind, DownloadTask, LocationToDownload};
@@ -77,11 +80,14 @@ impl InternalArtifactDownloader {
             &download_id,
         )?);
         if download_unpack_options.include_ancillary {
+            slog::warn!(self.logger, "{}", ANCILLARIES_NOT_SIGNED_BY_MITHRIL);
             tasks.push_back(self.new_ancillary_download_task(
                 &cardano_database_snapshot.ancillary,
                 target_dir,
                 &download_id,
             )?);
+        } else {
+            slog::warn!(self.logger, "The fast bootstrap of the Cardano node is not available with the current parameters used in this command: the ledger state will be recomputed from genesis at startup of the Cardano node. Set the include_ancillary entry to true in the DownloadUnpackOptions.");
         }
         self.batch_download_unpack(tasks, download_unpack_options.max_parallel_downloads)
             .await?;
@@ -463,7 +469,7 @@ mod tests {
     }
 
     mod building_download_tasks {
-        use mithril_common::test_utils::fake_keys;
+        use mithril_common::{entities::CompressionAlgorithm, test_utils::fake_keys};
 
         use crate::file_downloader::MockFileDownloader;
 
@@ -504,6 +510,115 @@ mod tests {
             assert!(
                 build_tasks_result.is_err(),
                 "building tasks should fail if all location are unknown"
+            );
+        }
+
+        #[tokio::test]
+        async fn download_unpack_must_warn_that_ancillary_not_signed_by_mithril_when_included() {
+            let (logger, log_inspector) = TestLogger::memory();
+            let total_immutable_files = 2;
+            let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
+            let target_dir = temp_dir_create!();
+            let artifact_downloader = InternalArtifactDownloader::new(
+                Arc::new(MockFileDownloader::new()),
+                None,
+                FeedbackSender::new(&[]),
+                logger,
+            );
+
+            let download_unpack_options = DownloadUnpackOptions {
+                include_ancillary: true,
+                ..DownloadUnpackOptions::default()
+            };
+            let cardano_database_snapshot = CardanoDatabaseSnapshot {
+                hash: "hash-123".to_string(),
+                immutables: ImmutablesMessagePart {
+                    average_size_uncompressed: 512,
+                    locations: vec![ImmutablesLocation::CloudStorage {
+                        uri: MultiFilesUri::Template(TemplateUri(
+                            "http://whatever/{immutable_file_number}.tar.gz".to_string(),
+                        )),
+                        compression_algorithm: Some(CompressionAlgorithm::Gzip),
+                    }],
+                },
+                ancillary: AncillaryMessagePart {
+                    size_uncompressed: 2048,
+                    locations: vec![AncillaryLocation::Unknown {}],
+                },
+                beacon: CardanoDbBeacon {
+                    epoch: Epoch(123),
+                    immutable_file_number: 2,
+                },
+                ..CardanoDatabaseSnapshot::dummy()
+            };
+
+            let _ = artifact_downloader
+                .download_unpack(
+                    &cardano_database_snapshot,
+                    &immutable_file_range,
+                    target_dir.as_path(),
+                    download_unpack_options,
+                )
+                .await;
+
+            assert!(
+                log_inspector.contains_log(&format!("WARN {}", ANCILLARIES_NOT_SIGNED_BY_MITHRIL)),
+                "Expected log message not found, logs: {log_inspector}"
+            );
+        }
+
+        #[tokio::test]
+        async fn download_unpack_without_ancillary_must_warn_that_fast_boostrap_wont_be_available()
+        {
+            let (logger, log_inspector) = TestLogger::memory();
+            let total_immutable_files = 2;
+            let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
+            let target_dir = temp_dir_create!();
+            let artifact_downloader = InternalArtifactDownloader::new(
+                Arc::new(MockFileDownloader::new()),
+                None,
+                FeedbackSender::new(&[]),
+                logger,
+            );
+
+            let download_unpack_options = DownloadUnpackOptions {
+                include_ancillary: false,
+                ..DownloadUnpackOptions::default()
+            };
+            let cardano_database_snapshot = CardanoDatabaseSnapshot {
+                hash: "hash-123".to_string(),
+                immutables: ImmutablesMessagePart {
+                    average_size_uncompressed: 512,
+                    locations: vec![ImmutablesLocation::CloudStorage {
+                        uri: MultiFilesUri::Template(TemplateUri(
+                            "http://whatever/{immutable_file_number}.tar.gz".to_string(),
+                        )),
+                        compression_algorithm: Some(CompressionAlgorithm::Gzip),
+                    }],
+                },
+                ancillary: AncillaryMessagePart {
+                    size_uncompressed: 2048,
+                    locations: vec![AncillaryLocation::Unknown {}],
+                },
+                beacon: CardanoDbBeacon {
+                    epoch: Epoch(123),
+                    immutable_file_number: 2,
+                },
+                ..CardanoDatabaseSnapshot::dummy()
+            };
+
+            let _ = artifact_downloader
+                .download_unpack(
+                    &cardano_database_snapshot,
+                    &immutable_file_range,
+                    target_dir.as_path(),
+                    download_unpack_options,
+                )
+                .await;
+
+            assert!(
+                log_inspector.contains_log("The fast bootstrap of the Cardano node is not available with the current parameters used in this command: the ledger state will be recomputed from genesis at startup of the Cardano node. Set the include_ancillary entry to true in the DownloadUnpackOptions."),
+                "Expected log message not found, logs: {log_inspector}"
             );
         }
 
