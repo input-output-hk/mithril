@@ -40,6 +40,8 @@ mod handlers {
         unwrap_to_internal_server_error, MetricsService, SingleSignatureAuthenticator,
     };
 
+    const METRICS_HTTP_ORIGIN: &str = "HTTP";
+
     /// Register Signatures
     pub async fn register_signatures(
         origin_tag: Option<String>,
@@ -53,7 +55,7 @@ mod handlers {
 
         metrics_service
             .get_signature_registration_total_received_since_startup()
-            .increment(&[origin_tag.as_deref().unwrap_or_default()]);
+            .increment(&[METRICS_HTTP_ORIGIN]);
 
         let signed_entity_type = message.signed_entity_type.clone();
         let signed_message = message.signed_message.clone();
@@ -158,16 +160,14 @@ mod tests {
         let initial_counter_value = dependency_manager
             .metrics_service
             .get_signature_registration_total_received_since_startup()
-            .get(&["TEST"]);
+            .get(&["HTTP"]);
 
         request()
             .method(method)
             .path(path)
             .json(&RegisterSignatureMessage::dummy())
-            .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
-            .reply(&setup_router(RouterState::new_with_origin_tag_white_list(
+            .reply(&setup_router(RouterState::new_with_dummy_config(
                 dependency_manager.clone(),
-                &["TEST"],
             )))
             .await;
 
@@ -176,7 +176,7 @@ mod tests {
             dependency_manager
                 .metrics_service
                 .get_signature_registration_total_received_since_startup()
-                .get(&["TEST"])
+                .get(&["HTTP"])
         );
     }
 
