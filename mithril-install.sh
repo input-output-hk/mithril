@@ -142,5 +142,6 @@ tar -xz -f "$ASSETS_FILE_PATH" -C "$INSTALL_PATH" "$NODE"
 chmod +x "$INSTALL_PATH/$NODE"
 rm -f "$ASSETS_FILE_PATH"
 
-VERSION=$("$INSTALL_PATH/$NODE" --version | awk '{print $NF}')
+VERSION_OUTPUT=$("$INSTALL_PATH/$NODE" --version)
+VERSION=$(echo "$VERSION_OUTPUT" | awk '{print $NF}')
 echo "Congrats! ${NODE} has been upgraded to ${VERSION} from distribution ${DISTRIBUTION} and installed at ${INSTALL_PATH}!"
