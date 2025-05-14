@@ -7,6 +7,12 @@ tags: [certification, cardano node database v2]
 
 ### Certification of Cardano node database v2
 
+:::info Update 2025/05/14
+
+We have activated the **Cardano node database v2 certification** on the `release-mainnet` network.
+
+:::
+
 :::info Update 2025/04/25
 
 We have activated the **Cardano node database v2 certification** on the `release-preprod` network.
@@ -27,7 +33,7 @@ The roll-out plan of the feature is the following:
 - [x] Distribution [2513](https://github.com/input-output-hk/mithril/releases/tag/2513.0):
   - [x] Activation of the certification of **Cardano node database v2** in the `pre-release-preview` network
   - [x] Activation of the certification of **Cardano node database v2** in the `release-preprod` network
-- [ ] Next distribution:
-  - [ ] Activation of the certification of **Cardano node database v2** in the `release-mainnet` network.
+- [x] Distribution [2517](https://github.com/input-output-hk/mithril/releases/tag/2517.1):
+  - [x] Activation of the certification of **Cardano node database v2** in the `release-mainnet` network.
 
 For any inquiries or assistance, don't hesitate to contact the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
