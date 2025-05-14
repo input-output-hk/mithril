@@ -81,12 +81,10 @@ impl FileDownloader for RetryDownloader {
                 .await
             {
                 Ok(result) => return Ok(result),
-                Err(_) if nb_attempts >= retry_policy.attempts => {
-                    return Err(anyhow::anyhow!(
-                        "Download of location {:?} failed after {} attempts",
-                        location,
-                        nb_attempts
-                    ));
+                Err(e) if nb_attempts >= retry_policy.attempts => {
+                    return Err(anyhow::anyhow!(e).context(format!(
+                        "Download of location {location:?} failed after {nb_attempts} attempts",
+                    )));
                 }
                 _ => tokio::time::sleep(retry_policy.delay_between_attempts).await,
             }

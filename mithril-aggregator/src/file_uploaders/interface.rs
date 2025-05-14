@@ -53,11 +53,11 @@ pub trait FileUploader: Sync + Send {
             nb_attempts += 1;
             match self.upload_without_retry(filepath).await {
                 Ok(result) => return Ok(result),
-                Err(_) if nb_attempts >= retry_policy.attempts => {
-                    return Err(anyhow::anyhow!(
-                        "Upload failed after {} attempts",
-                        nb_attempts
-                    ));
+                Err(e) if nb_attempts >= retry_policy.attempts => {
+                    return Err(anyhow::anyhow!(e).context(format!(
+                        "Upload failed after {nb_attempts} attempts. Uploaded file path: {}",
+                        filepath.display()
+                    )));
                 }
                 _ => tokio::time::sleep(retry_policy.delay_between_attempts).await,
             }
