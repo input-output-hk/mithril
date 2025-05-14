@@ -160,7 +160,7 @@ jobs:
       - name: Cardano Database Snapshot / download & restore latest
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST ${{ matrix.extra_args }} > cdb-download-output.txt
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST ${{ matrix.extra_args }} > cdb-download-output.txt 2>&1
 
       - name: Cardano Database Snapshot / verify Cardano node starts successfully
         if: runner.os == 'Linux'
@@ -239,7 +239,7 @@ jobs:
         if: steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --unstable --origin-tag CI cardano-db-v2 download $CARDANO_DATABASE_V2_SNAPSHOT_HASH ${{ matrix.extra_args }} > cdb-v2-download-output.txt
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --unstable --origin-tag CI cardano-db-v2 download $CARDANO_DATABASE_V2_SNAPSHOT_HASH ${{ matrix.extra_args }} > cdb-v2-download-output.txt 2>&1
 
       - name: Cardano Database V2 Snapshot / verify Cardano node starts successfully
         if: runner.os == 'Linux' && steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true'
