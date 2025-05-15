@@ -136,7 +136,7 @@ impl ServeCommand {
         println!("Press Ctrl+C to stop");
 
         // Create the stop signal channel
-        let (stop_tx, _stop_rx) = dependencies_builder
+        let (stop_tx, stop_rx) = dependencies_builder
             .get_stop_signal_channel()
             .await
             .with_context(|| "Dependencies Builder can not create stop signal channel")?;
@@ -175,20 +175,20 @@ impl ServeCommand {
         let preload_task =
             tokio::spawn(async move { cardano_transactions_preloader.preload().await });
 
-        // sStart the HTTP server
-        let (shutdown_tx, shutdown_rx) = oneshot::channel();
+        // Start the HTTP server
         let routes = dependencies_builder
             .create_http_routes()
             .await
             .with_context(|| "Dependencies Builder can not create http routes")?;
+        let mut stop_rx_clone = stop_rx.clone();
         join_set.spawn(async move {
             let (_, server) = warp::serve(routes).bind_with_graceful_shutdown(
                 (
                     config.server_ip.clone().parse::<IpAddr>().unwrap(),
                     config.server_port,
                 ),
-                async {
-                    shutdown_rx.await.ok();
+                async move {
+                    stop_rx_clone.changed().await.ok();
                 },
             );
             server.await;
@@ -286,9 +286,8 @@ impl ServeCommand {
 
         // Stop servers
         join_set.shutdown().await;
-        let _ = shutdown_tx.send(());
 
-        // Send the stop signal to all services
+        // Send the stop signal
         let _ = stop_tx.send(());
 
         if !preload_task.is_finished() {
