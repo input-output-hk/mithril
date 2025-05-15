@@ -3,7 +3,7 @@ use std::sync::Arc;
 use slog::{error, warn, Logger};
 
 use mithril_common::{logging::LoggerExtensions, StdResult};
-use tokio::sync::Mutex;
+use tokio::{select, sync::watch::Receiver};
 
 use super::{CertifierService, SignatureConsumer};
 
@@ -15,22 +15,15 @@ pub trait SignatureProcessor: Sync + Send {
     async fn process_signatures(&self) -> StdResult<()>;
 
     /// Starts the processor, which will run indefinitely, processing signatures as they arrive.
-    async fn run(&self) -> StdResult<()> {
-        loop {
-            self.process_signatures().await?;
-        }
-    }
-
-    /// Stops the processor. This method should be called to gracefully shut down the processor.
-    async fn stop(&self) -> StdResult<()>;
+    async fn run(&self) -> StdResult<()>;
 }
 
 /// A sequential signature processor receives messages and processes them sequentially
 pub struct SequentialSignatureProcessor {
     consumer: Arc<dyn SignatureConsumer>,
     certifier: Arc<dyn CertifierService>,
+    stop_rx: Receiver<()>,
     logger: Logger,
-    stop: Mutex<bool>,
 }
 
 impl SequentialSignatureProcessor {
@@ -38,13 +31,14 @@ impl SequentialSignatureProcessor {
     pub fn new(
         consumer: Arc<dyn SignatureConsumer>,
         certifier: Arc<dyn CertifierService>,
+        stop_rx: Receiver<()>,
         logger: Logger,
     ) -> Self {
         Self {
             consumer,
             certifier,
+            stop_rx,
             logger: logger.new_with_component_name::<Self>(),
-            stop: Mutex::new(false),
         }
     }
 }
@@ -52,11 +46,6 @@ impl SequentialSignatureProcessor {
 #[async_trait::async_trait]
 impl SignatureProcessor for SequentialSignatureProcessor {
     async fn process_signatures(&self) -> StdResult<()> {
-        if *self.stop.lock().await {
-            warn!(self.logger, "Stopped signature processor");
-            return Ok(());
-        }
-
         match self.consumer.get_signatures().await {
             Ok(signatures) => {
                 for (signature, signed_entity_type) in signatures {
@@ -77,11 +66,18 @@ impl SignatureProcessor for SequentialSignatureProcessor {
         Ok(())
     }
 
-    async fn stop(&self) -> StdResult<()> {
-        warn!(self.logger, "Stopping signature processor...");
-        *self.stop.lock().await = true;
+    async fn run(&self) -> StdResult<()> {
+        loop {
+            let mut stop_rx = self.stop_rx.clone();
+            select! {
+                _ = stop_rx.changed() => {
+                    warn!(self.logger, "Stopping signature processor...");
 
-        Ok(())
+                    return Ok(());
+                }
+                _ = self.process_signatures() => {}
+            }
+        }
     }
 }
 
@@ -93,10 +89,16 @@ mod tests {
         test_utils::fake_data,
     };
     use mockall::predicate::eq;
-    use tokio::time::{sleep, Duration};
+    use tokio::{
+        sync::watch::channel,
+        time::{sleep, Duration},
+    };
 
     use crate::{
-        services::{MockCertifierService, MockSignatureConsumer, SignatureRegistrationStatus},
+        services::{
+            FakeSignatureConsumer, MockCertifierService, MockSignatureConsumer,
+            SignatureRegistrationStatus,
+        },
         test_tools::TestLogger,
     };
 
@@ -145,9 +147,11 @@ mod tests {
 
             mock_certifier
         };
+        let (_stop_tx, stop_rx) = channel(());
         let processor = SequentialSignatureProcessor::new(
             Arc::new(mock_consumer),
             Arc::new(mock_certifier),
+            stop_rx,
             logger,
         );
 
@@ -160,26 +164,13 @@ mod tests {
     #[tokio::test]
     async fn processor_run_succeeds() {
         let logger = TestLogger::stdout();
-        let mock_consumer = {
-            let mut mock_consumer = MockSignatureConsumer::new();
-            mock_consumer
-                .expect_get_signatures()
-                .returning(|| Err(anyhow!("Error consuming signatures")))
-                .times(1);
-            mock_consumer
-                .expect_get_signatures()
-                .returning(|| {
-                    Ok(vec![(
-                        fake_data::single_signature(vec![1, 2, 3]),
-                        SignedEntityType::MithrilStakeDistribution(Epoch(1)),
-                    )])
-                })
-                .times(1);
-            mock_consumer
-                .expect_get_signatures()
-                .returning(|| Ok(vec![]));
-            mock_consumer
-        };
+        let fake_consumer = FakeSignatureConsumer::new(vec![
+            Err(anyhow!("Error consuming signatures")),
+            Ok(vec![(
+                fake_data::single_signature(vec![1, 2, 3]),
+                SignedEntityType::MithrilStakeDistribution(Epoch(1)),
+            )]),
+        ]);
         let mock_certifier = {
             let mut mock_certifier = MockCertifierService::new();
             mock_certifier
@@ -193,16 +184,19 @@ mod tests {
 
             mock_certifier
         };
+        let (stop_tx, stop_rx) = channel(());
         let processor = SequentialSignatureProcessor::new(
-            Arc::new(mock_consumer),
+            Arc::new(fake_consumer),
             Arc::new(mock_certifier),
+            stop_rx,
             logger,
         );
 
         tokio::select!(
-            _res =  processor.run()  => {},
+            _res =  processor.run() => {},
             _res = sleep(Duration::from_millis(10)) => {
-                processor.stop().await.expect("Failed to stop processor");
+                println!("Stopping signature processor...");
+                stop_tx.send(()).unwrap();
             },
         );
     }
