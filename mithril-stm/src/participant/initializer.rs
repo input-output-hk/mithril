@@ -1,12 +1,13 @@
+use blake2::digest::Digest;
+use digest::FixedOutput;
+use rand_core::{CryptoRng, RngCore};
+use serde::{Deserialize, Serialize};
+
 use crate::bls_multi_signature::{SigningKey, VerificationKeyPoP};
 use crate::key_reg::{ClosedKeyReg, RegParty};
 use crate::participant::StmSigner;
 use crate::stm::{Stake, StmParameters};
 use crate::RegisterError;
-use blake2::digest::Digest;
-use digest::FixedOutput;
-use rand_core::{CryptoRng, RngCore};
-use serde::{Deserialize, Serialize};
 
 /// Wrapper of the MultiSignature Verification key with proof of possession
 pub type StmVerificationKeyPoP = VerificationKeyPoP;

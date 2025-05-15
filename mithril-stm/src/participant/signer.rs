@@ -135,8 +135,8 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     }
 
     /// Get closed key registration
-    pub fn get_closed_reg(&self) -> ClosedKeyReg<D> {
-        self.closed_reg.clone().unwrap()
+    pub fn get_closed_reg(&self) -> Option<ClosedKeyReg<D>> {
+        self.closed_reg.clone()
     }
 
     /// Get verification key

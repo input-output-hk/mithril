@@ -3,5 +3,5 @@
 mod initializer;
 mod signer;
 
-pub use crate::participant::initializer::{StmInitializer, StmVerificationKeyPoP};
-pub use crate::participant::signer::{StmSigner, StmVerificationKey};
+pub use initializer::{StmInitializer, StmVerificationKeyPoP};
+pub use signer::{StmSigner, StmVerificationKey};

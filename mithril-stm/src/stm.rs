@@ -425,7 +425,7 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
         let closed_reg = signer
             .get_closed_reg()
             .clone()
-            // .expect("Core signer does not include closed registration. StmClerk, and so, the Stm certificate cannot be built without closed registration!")
+            .expect("Core signer does not include closed registration. StmClerk, and so, the Stm certificate cannot be built without closed registration!")
             ;
 
         Self {
