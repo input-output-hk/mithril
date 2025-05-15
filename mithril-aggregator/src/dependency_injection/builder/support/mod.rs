@@ -4,6 +4,7 @@
 
 mod compatibility;
 mod observability;
+mod signal;
 mod sqlite;
 mod stores;
 mod upkeep;

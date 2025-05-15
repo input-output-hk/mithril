@@ -14,6 +14,7 @@ use crate::dependency_injection::{DependenciesBuilder, Result};
 use crate::get_dependency;
 use crate::services::{
     AggregatorClient, AggregatorHTTPClient, MessageService, MithrilMessageService,
+    SequentialSignatureProcessor, SignatureConsumer, SignatureConsumerNoop, SignatureProcessor,
 };
 impl DependenciesBuilder {
     async fn build_signed_entity_type_lock(&mut self) -> Result<Arc<SignedEntityTypeLock>> {
@@ -26,7 +27,7 @@ impl DependenciesBuilder {
         get_dependency!(self.signed_entity_type_lock)
     }
 
-    /// build HTTP message service
+    /// Builds HTTP message service
     pub async fn build_message_service(&mut self) -> Result<Arc<dyn MessageService>> {
         let certificate_repository = Arc::new(CertificateRepository::new(
             self.get_sqlite_connection().await?,
@@ -49,7 +50,7 @@ impl DependenciesBuilder {
         get_dependency!(self.message_service)
     }
 
-    /// build an [AggregatorClient]
+    /// Builds an [AggregatorClient]
     pub async fn build_leader_aggregator_client(&mut self) -> Result<Arc<dyn AggregatorClient>> {
         let leader_aggregator_endpoint = self
             .configuration
@@ -69,5 +70,25 @@ impl DependenciesBuilder {
     /// Returns a leader [AggregatorClient]
     pub async fn get_leader_aggregator_client(&mut self) -> Result<Arc<dyn AggregatorClient>> {
         get_dependency!(self.leader_aggregator_client)
+    }
+
+    /// Builds a [SignatureConsumer]
+    pub async fn build_signature_consumer(&mut self) -> Result<Arc<dyn SignatureConsumer>> {
+        let signature_consumer = SignatureConsumerNoop;
+
+        Ok(Arc::new(signature_consumer))
+    }
+
+    /// Builds a [SignatureProcessor]
+    pub async fn create_signature_processor(&mut self) -> Result<Arc<dyn SignatureProcessor>> {
+        let (_stop_tx, stop_rx) = self.get_stop_signal_channel().await?;
+        let signature_processor = SequentialSignatureProcessor::new(
+            self.build_signature_consumer().await?,
+            self.get_certifier_service().await?,
+            stop_rx,
+            self.root_logger(),
+        );
+
+        Ok(Arc::new(signature_processor))
     }
 }

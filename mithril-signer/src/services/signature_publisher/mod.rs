@@ -1,10 +1,10 @@
+mod delayer;
 mod http;
 mod interface;
-mod signature_publisher_delayer;
-mod signature_publisher_noop;
-mod signature_publisher_retrier;
+mod noop;
+mod retrier;
 
+pub use delayer::*;
 pub use interface::*;
-pub use signature_publisher_delayer::*;
-pub use signature_publisher_noop::*;
-pub use signature_publisher_retrier::*;
+pub use noop::*;
+pub use retrier::*;

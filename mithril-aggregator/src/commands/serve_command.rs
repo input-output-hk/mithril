@@ -13,7 +13,7 @@ use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value};
 
 use slog::{crit, debug, info, warn, Logger};
-use tokio::{sync::oneshot, task::JoinSet};
+use tokio::task::JoinSet;
 
 use mithril_cli_helper::{
     register_config_value, register_config_value_bool, register_config_value_option,
@@ -132,18 +132,23 @@ impl ServeCommand {
         let mut dependencies_builder =
             DependenciesBuilder::new(root_logger.clone(), Arc::new(config.clone()));
 
-        // start servers
         println!("Starting server...");
         println!("Press Ctrl+C to stop");
 
-        // start the monitoring thread
+        // Create the stop signal channel
+        let (stop_tx, stop_rx) = dependencies_builder
+            .get_stop_signal_channel()
+            .await
+            .with_context(|| "Dependencies Builder can not create stop signal channel")?;
+
+        // Start the monitoring thread
         let mut event_store = dependencies_builder
             .create_event_store()
             .await
             .with_context(|| "Dependencies Builder can not create event store")?;
         let event_store_thread = tokio::spawn(async move { event_store.run().await.unwrap() });
 
-        // start the database vacuum operation, if needed
+        // Start the database vacuum operation, if needed
         self.perform_database_vacuum_if_needed(
             &config.data_stores_directory,
             &mut dependencies_builder,
@@ -152,7 +157,7 @@ impl ServeCommand {
         )
         .await?;
 
-        // start the aggregator runtime
+        // Start the aggregator runtime
         let mut runtime = dependencies_builder
             .create_aggregator_runner()
             .await
@@ -160,7 +165,7 @@ impl ServeCommand {
         let mut join_set = JoinSet::new();
         join_set.spawn(async move { runtime.run().await.map_err(|e| e.to_string()) });
 
-        // start the cardano transactions preloader
+        // Start the cardano transactions preloader
         let cardano_transactions_preloader = dependencies_builder
             .create_cardano_transactions_preloader()
             .await
@@ -170,23 +175,37 @@ impl ServeCommand {
         let preload_task =
             tokio::spawn(async move { cardano_transactions_preloader.preload().await });
 
-        // start the HTTP server
-        let (shutdown_tx, shutdown_rx) = oneshot::channel();
+        // Start the HTTP server
         let routes = dependencies_builder
             .create_http_routes()
             .await
             .with_context(|| "Dependencies Builder can not create http routes")?;
+        let mut stop_rx_clone = stop_rx.clone();
         join_set.spawn(async move {
             let (_, server) = warp::serve(routes).bind_with_graceful_shutdown(
                 (
                     config.server_ip.clone().parse::<IpAddr>().unwrap(),
                     config.server_port,
                 ),
-                async {
-                    shutdown_rx.await.ok();
+                async move {
+                    stop_rx_clone.changed().await.ok();
                 },
             );
             server.await;
+
+            Ok(())
+        });
+
+        let signature_processor = dependencies_builder
+            .create_signature_processor()
+            .await
+            .with_context(|| "Dependencies Builder can not create signature processor")?;
+        let signature_processor_clone = signature_processor.clone();
+        join_set.spawn(async move {
+            signature_processor_clone
+                .run()
+                .await
+                .map_err(|e| e.to_string())?;
 
             Ok(())
         });
@@ -236,7 +255,7 @@ impl ServeCommand {
             .get_metrics_service()
             .await
             .with_context(|| "Metrics service initialization error")?;
-        let (metrics_server_shutdown_tx, metrics_server_shutdown_rx) = oneshot::channel();
+        let stop_rx_clone = stop_rx.clone();
         if config.enable_metrics_server {
             let metrics_logger = root_logger.clone();
             join_set.spawn(async move {
@@ -246,7 +265,7 @@ impl ServeCommand {
                     metrics_service,
                     metrics_logger.clone(),
                 )
-                .start(metrics_server_shutdown_rx)
+                .start(stop_rx_clone)
                 .await
                 .map_err(|e| anyhow!(e));
 
@@ -261,13 +280,13 @@ impl ServeCommand {
             crit!(root_logger, "A critical error occurred"; "error" => e);
         }
 
-        metrics_server_shutdown_tx
-            .send(())
-            .map_err(|e| anyhow!("Metrics server shutdown signal could not be sent: {e:?}"))?;
-
-        // stop servers
+        // Stop servers
         join_set.shutdown().await;
-        let _ = shutdown_tx.send(());
+
+        // Send the stop signal
+        stop_tx
+            .send(())
+            .map_err(|e| anyhow!("Stop signal could not be sent: {e:?}"))?;
 
         if !preload_task.is_finished() {
             preload_task.abort();

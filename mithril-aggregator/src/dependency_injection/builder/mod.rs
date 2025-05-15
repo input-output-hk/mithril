@@ -8,7 +8,7 @@ use std::{path::PathBuf, sync::Arc};
 use tokio::{
     sync::{
         mpsc::{UnboundedReceiver, UnboundedSender},
-        Mutex,
+        watch, Mutex,
     },
     time::Duration,
 };
@@ -273,6 +273,9 @@ pub struct DependenciesBuilder {
 
     /// Protocol parameters retriever
     pub protocol_parameters_retriever: Option<Arc<dyn ProtocolParametersRetriever>>,
+
+    /// Stop signal channel
+    pub stop_signal_channel: Option<(watch::Sender<()>, watch::Receiver<()>)>,
 }
 
 impl DependenciesBuilder {
@@ -335,6 +338,7 @@ impl DependenciesBuilder {
             metrics_service: None,
             leader_aggregator_client: None,
             protocol_parameters_retriever: None,
+            stop_signal_channel: None,
         }
     }
 

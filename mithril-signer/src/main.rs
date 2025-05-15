@@ -8,7 +8,7 @@ use std::time::Duration;
 use std::{collections::HashMap, path::PathBuf};
 use tokio::{
     signal::unix::{signal, SignalKind},
-    sync::oneshot,
+    sync::watch,
     task::JoinSet,
 };
 
@@ -244,6 +244,8 @@ async fn main() -> StdResult<()> {
         root_logger.clone(),
     );
 
+    let (stop_tx, stop_rx) = watch::channel(());
+
     let mut join_set = JoinSet::new();
     join_set.spawn(async move {
         state_machine
@@ -269,9 +271,9 @@ async fn main() -> StdResult<()> {
         }
     });
 
-    let (metrics_server_shutdown_tx, metrics_server_shutdown_rx) = oneshot::channel();
     if config.enable_metrics_server {
         let metrics_logger = root_logger.clone();
+        let stop_rx_clone = stop_rx.clone();
         join_set.spawn(async move {
             MetricsServer::new(
                 &config.metrics_server_ip,
@@ -279,7 +281,7 @@ async fn main() -> StdResult<()> {
                 metrics_service,
                 metrics_logger.clone(),
             )
-            .start(metrics_server_shutdown_rx)
+            .start(stop_rx_clone)
             .await
             .map_err(|e| anyhow!(e))
             .map(|_| None)
@@ -320,9 +322,9 @@ async fn main() -> StdResult<()> {
         None => None,
     };
 
-    metrics_server_shutdown_tx
+    stop_tx
         .send(())
-        .map_err(|e| anyhow!("Metrics server shutdown signal could not be sent: {e:?}"))?;
+        .map_err(|e| anyhow!("Stop signal could not be sent: {e:?}"))?;
 
     join_set.shutdown().await;
 

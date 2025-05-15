@@ -8,7 +8,7 @@ use axum::{
 };
 use slog::{error, info, warn, Logger};
 use std::sync::Arc;
-use tokio::sync::oneshot::Receiver;
+use tokio::sync::watch::Receiver;
 
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
@@ -93,9 +93,10 @@ impl<T: MetricsServiceExporter + 'static> MetricsServer<T> {
                 .await?;
 
         let serve_logger = self.logger.clone();
+        let mut shutdown_rx = shutdown_rx;
         axum::serve(listener, app)
             .with_graceful_shutdown(async move {
-                shutdown_rx.await.ok();
+                shutdown_rx.changed().await.ok();
                 warn!(
                     serve_logger,
                     "shutting down HTTP server after receiving signal"
@@ -112,7 +113,7 @@ mod tests {
     use anyhow::anyhow;
     use reqwest::StatusCode;
     use std::time::Duration;
-    use tokio::{sync::oneshot, task::yield_now, time::sleep};
+    use tokio::{sync::watch, task::yield_now, time::sleep};
 
     use crate::helper::test_tools::TestLogger;
 
@@ -135,7 +136,7 @@ mod tests {
     #[tokio::test]
     async fn test_metrics_server() {
         let logger = TestLogger::stdout();
-        let (shutdown_tx, shutdown_rx) = oneshot::channel();
+        let (shutdown_tx, shutdown_rx) = watch::channel(());
         let metrics_service = Arc::new(PseudoMetricsService::new());
         let metrics_server = Arc::new(MetricsServer::new(
             "0.0.0.0",
