@@ -22,7 +22,7 @@ impl IntoResponse for AppError {
             Self::Internal(e) => {
                 error!("{}", e);
 
-                (StatusCode::INTERNAL_SERVER_ERROR, format!("Error: {:?}", e)).into_response()
+                (StatusCode::INTERNAL_SERVER_ERROR, format!("Error: {e:?}")).into_response()
             }
             Self::NotFound => (StatusCode::NOT_FOUND).into_response(),
         }

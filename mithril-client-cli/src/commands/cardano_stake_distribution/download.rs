@@ -130,8 +130,7 @@ impl CardanoStakeDistributionDownloadCommand {
             &filepath,
             serde_json::to_string(&cardano_stake_distribution).with_context(|| {
                 format!(
-                    "Can not serialize Cardano stake distribution artifact '{:?}'",
-                    cardano_stake_distribution
+                    "Can not serialize Cardano stake distribution artifact '{cardano_stake_distribution:?}'"
                 )
             })?,
         )?;
@@ -169,8 +168,7 @@ impl CardanoStakeDistributionDownloadCommand {
                 .await
                 .with_context(|| {
                     format!(
-                        "Can not download and verify the artifact for hash: '{}'",
-                        unique_identifier
+                        "Can not download and verify the artifact for hash: '{unique_identifier}'"
                     )
                 })?
                 .ok_or(anyhow!(
@@ -198,7 +196,7 @@ impl CardanoStakeDistributionDownloadCommand {
 
                 Epoch(
                     epoch.parse().with_context(|| {
-                        format!("Can not convert: '{}' into a valid Epoch", epoch)
+                        format!("Can not convert: '{epoch}' into a valid Epoch")
                     })?,
                 )
             };
@@ -208,10 +206,7 @@ impl CardanoStakeDistributionDownloadCommand {
                 .get_by_epoch(epoch)
                 .await
                 .with_context(|| {
-                    format!(
-                        "Can not download and verify the artifact for epoch: '{}'",
-                        epoch
-                    )
+                    format!("Can not download and verify the artifact for epoch: '{epoch}'")
                 })?
                 .ok_or(anyhow!(
                     "No Cardano stake distribution could be found for epoch: '{}'",

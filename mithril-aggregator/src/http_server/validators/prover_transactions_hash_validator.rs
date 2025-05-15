@@ -104,8 +104,7 @@ mod tests {
                     "invalid_transaction_hashes",
                     "Transaction hash must contain only hexadecimal characters"
                 ),
-                "Invalid hash: {}",
-                hash
+                "Invalid hash: {hash}"
             );
         }
     }

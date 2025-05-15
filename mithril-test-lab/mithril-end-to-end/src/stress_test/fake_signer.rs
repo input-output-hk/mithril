@@ -155,7 +155,7 @@ pub async fn register_signatures_to_aggregator(
     for register in register_messages {
         let endpoint = aggregator.endpoint();
         let http_request = http_client
-            .post(format!("{}/register-signatures", endpoint))
+            .post(format!("{endpoint}/register-signatures"))
             .json(&register);
 
         join_set.spawn(async move {

@@ -313,8 +313,7 @@ impl CardanoDbV2DownloadCommand {
             .await
             .with_context(|| {
                 format!(
-                    "Can not verify the certificate chain from certificate_hash: '{}'",
-                    certificate_hash
+                    "Can not verify the certificate chain from certificate_hash: '{certificate_hash}'"
                 )
             })?;
 

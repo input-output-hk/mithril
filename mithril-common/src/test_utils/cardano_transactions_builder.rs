@@ -139,7 +139,7 @@ impl CardanoTransactionsBuilder {
         block_number: BlockNumber,
     ) -> CardanoTransaction {
         CardanoTransaction::new(
-            format!("tx-hash-{}-{}", block_number, slot_number),
+            format!("tx-hash-{block_number}-{slot_number}"),
             block_number,
             slot_number,
             format!("block-hash-{block_number}"),

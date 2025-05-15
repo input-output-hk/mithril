@@ -158,19 +158,19 @@ pub struct GenerateDocCommands {
 impl GenerateDocCommands {
     fn save_doc(&self, cmd_name: &str, doc: &str) -> Result<(), String> {
         let output = if self.output.as_str() == DEFAULT_OUTPUT_FILE_TEMPLATE {
-            format!("{}-command-line.md", cmd_name)
+            format!("{cmd_name}-command-line.md")
         } else {
             self.output.clone()
         };
 
         match File::create(&output) {
             Ok(mut buffer) => {
-                if write!(buffer, "\n{}", doc).is_err() {
-                    return Err(format!("Error writing in {}", output));
+                if write!(buffer, "\n{doc}").is_err() {
+                    return Err(format!("Error writing in {output}"));
                 }
                 println!("Documentation generated in file `{}`", &output);
             }
-            _ => return Err(format!("Could not create {}", output)),
+            _ => return Err(format!("Could not create {output}")),
         };
         Ok(())
     }
@@ -190,7 +190,7 @@ impl GenerateDocCommands {
         let cmd_name = cmd_to_document.get_name();
 
         println!("Please note: the documentation generated is not able to indicate the environment variables used by the commands.");
-        self.save_doc(cmd_name, format!("\n{}", doc).as_str())
+        self.save_doc(cmd_name, format!("\n{doc}").as_str())
     }
 }
 

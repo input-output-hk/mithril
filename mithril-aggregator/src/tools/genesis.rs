@@ -176,8 +176,7 @@ impl GenesisTools {
             .await
             .with_context(|| {
                 format!(
-                    "Genesis tool can not create certificate with genesis signature: '{:?}'",
-                    genesis_signature
+                    "Genesis tool can not create certificate with genesis signature: '{genesis_signature:?}'"
                 )
             })?;
         Ok(())

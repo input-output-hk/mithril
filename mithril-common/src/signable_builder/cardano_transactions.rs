@@ -148,7 +148,7 @@ mod tests {
         );
         signable_expected.set_message_part(
             ProtocolMessagePartKey::LatestBlockNumber,
-            format!("{}", block_number),
+            format!("{block_number}"),
         );
         assert_eq!(signable_expected, signable);
     }

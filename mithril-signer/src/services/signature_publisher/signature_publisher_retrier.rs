@@ -222,9 +222,7 @@ mod tests {
         let elapsed_time = start_time.elapsed();
         assert!(
             elapsed_time >= delay_between_attempts,
-            "Expected at least {:?} time elapsed, but got {:?}",
-            delay_between_attempts,
-            elapsed_time
+            "Expected at least {delay_between_attempts:?} time elapsed, but got {elapsed_time:?}"
         );
         assert!(
             elapsed_time < delay_between_attempts * 2,

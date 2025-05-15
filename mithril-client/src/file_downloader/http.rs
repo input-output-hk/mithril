@@ -95,8 +95,7 @@ impl HttpFileDownloader {
             buffer.truncate(bytes_read);
             sender.send_async(buffer).await.with_context(|| {
                 format!(
-                    "Local file read: could not write {} bytes to stream.",
-                    bytes_read
+                    "Local file read: could not write {bytes_read} bytes to stream."
                 )
             })?;
             downloaded_bytes += bytes_read as u64;

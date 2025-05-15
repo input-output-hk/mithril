@@ -690,15 +690,13 @@ mod tests {
             let remaining_files = path_content(&digests_dir);
             assert!(
                 remaining_files.is_empty(),
-                "There should be no remaining files in digests folder, but found: {:?}",
-                remaining_files
+                "There should be no remaining files in digests folder, but found: {remaining_files:?}"
             );
 
             let remaining_files = path_content(&digests_archive_dir);
             assert!(
                 remaining_files.is_empty(),
-                "There should be no remaining files in archive folder, but found: {:?}",
-                remaining_files
+                "There should be no remaining files in archive folder, but found: {remaining_files:?}"
             );
         }
     }

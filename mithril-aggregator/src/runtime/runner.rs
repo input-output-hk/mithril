@@ -402,10 +402,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .read_era_epoch_token(epoch)
             .await
             .with_context(|| {
-                format!(
-                    "EraReader can not get era epoch token for current epoch: '{}'",
-                    epoch
-                )
+                format!("EraReader can not get era epoch token for current epoch: '{epoch}'")
             })?;
 
         let current_era = token

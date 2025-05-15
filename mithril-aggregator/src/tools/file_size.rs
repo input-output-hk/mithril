@@ -45,18 +45,18 @@ pub(crate) fn compute_size(paths: Vec<PathBuf>) -> StdResult<u64> {
 pub(crate) fn compute_size_of_path(path: &Path) -> StdResult<u64> {
     if path.is_file() {
         let metadata = std::fs::metadata(path)
-            .with_context(|| format!("Failed to read metadata for file: {:?}", path))?;
+            .with_context(|| format!("Failed to read metadata for file: {path:?}"))?;
 
         return Ok(metadata.len());
     }
 
     if path.is_dir() {
         let entries = std::fs::read_dir(path)
-            .with_context(|| format!("Failed to read directory: {:?}", path))?;
+            .with_context(|| format!("Failed to read directory: {path:?}"))?;
         let mut directory_size = 0;
         for entry in entries {
             let path = entry
-                .with_context(|| format!("Failed to read directory entry in {:?}", path))?
+                .with_context(|| format!("Failed to read directory entry in {path:?}"))?
                 .path();
             directory_size += compute_size_of_path(&path)?;
         }

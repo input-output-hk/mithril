@@ -218,9 +218,7 @@ mod tests {
         let elapsed_time = start_time.elapsed();
         assert!(
             elapsed_time >= delay,
-            "Expected at least {:?} time elapsed, but got {:?}",
-            delay,
-            elapsed_time
+            "Expected at least {delay:?} time elapsed, but got {elapsed_time:?}"
         );
         assert!(
             elapsed_time < delay * 2,

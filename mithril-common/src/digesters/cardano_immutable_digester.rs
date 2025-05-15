@@ -776,7 +776,7 @@ mod tests {
         cache.expect_get().returning(|_| Ok(BTreeMap::new()));
         cache.expect_store().returning(|_| {
             Err(ImmutableDigesterCacheProviderError::Store(
-                ImmutableDigesterCacheStoreError::Io(io::Error::new(io::ErrorKind::Other, "error")),
+                ImmutableDigesterCacheStoreError::Io(io::Error::other("error")),
             ))
         });
         let logger = TestLogger::stdout();
@@ -807,7 +807,7 @@ mod tests {
         let mut cache = MockImmutableFileDigestCacheProvider::new();
         cache.expect_get().returning(|_| {
             Err(ImmutableDigesterCacheProviderError::Get(
-                ImmutableDigesterCacheGetError::Io(io::Error::new(io::ErrorKind::Other, "error")),
+                ImmutableDigesterCacheGetError::Io(io::Error::other("error")),
             ))
         });
         cache.expect_store().returning(|_| Ok(()));

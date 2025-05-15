@@ -159,7 +159,7 @@ impl CertificatesHashMigrator {
                 .await
                 .with_context(||
                     format!(
-                        "Certificates Hash Migrator can not get signed entities by certificates ids with hashes: '{:?}'", old_hashes
+                        "Certificates Hash Migrator can not get signed entities by certificates ids with hashes: '{old_hashes:?}'"
                     )
                 )?;
 

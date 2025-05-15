@@ -535,7 +535,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("{base_path}/{}", asked_epoch))
+            .path(&format!("{base_path}/{asked_epoch}"))
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
             ))))

@@ -32,10 +32,10 @@ fn generate_transactions(nb_transactions: usize) -> Vec<CardanoTransaction> {
     (0..nb_transactions)
         .map(|i| {
             CardanoTransaction::new(
-                format!("tx_hash-{}", i),
+                format!("tx_hash-{i}"),
                 BlockNumber(i as u64),
                 SlotNumber(i as u64 * 100),
-                format!("block_hash-{}", i),
+                format!("block_hash-{i}"),
             )
         })
         .collect()

@@ -131,7 +131,7 @@ async fn main() -> MithrilResult<()> {
         )
         .await
     {
-        println!("Could not send usage statistics to the aggregator: {:?}", e);
+        println!("Could not send usage statistics to the aggregator: {e:?}");
     }
 
     println!(

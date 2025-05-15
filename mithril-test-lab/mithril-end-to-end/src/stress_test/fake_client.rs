@@ -42,7 +42,7 @@ pub async fn download_latest_snasphot(
     http_client: Arc<reqwest::Client>,
     endpoint: &str,
 ) -> StdResult<SnapshotListItemMessage> {
-    let http_request = http_client.get(format!("{}/artifact/snapshots", endpoint));
+    let http_request = http_client.get(format!("{endpoint}/artifact/snapshots"));
     let response = http_request.send().await;
     let snapshots: SnapshotListMessage = match response {
         Ok(response) => match response.status() {
@@ -68,7 +68,7 @@ pub async fn download_latest_snasphot(
     match response {
         Ok(response) => match response.status() {
             StatusCode::OK => {
-                let http_request = http_client.post(format!("{}/statistics/snapshot", endpoint));
+                let http_request = http_client.post(format!("{endpoint}/statistics/snapshot"));
                 let _ = http_request.send().await;
 
                 Ok(last_snapshot.to_owned())
@@ -92,7 +92,7 @@ pub async fn download_certificate_chain(
     endpoint: &str,
     certificate_hash: &str,
 ) -> StdResult<()> {
-    let http_request = http_client.get(format!("{}/certificate/{}", endpoint, certificate_hash));
+    let http_request = http_client.get(format!("{endpoint}/certificate/{certificate_hash}"));
     let response = http_request.send().await;
     let certificate: CertificateMessage = match response {
         Ok(response) => match response.status() {

@@ -31,7 +31,7 @@ impl IntoResponse for MetricsServerError {
     fn into_response(self) -> Response<Body> {
         match self {
             Self::Internal(e) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, format!("Error: {:?}", e)).into_response()
+                (StatusCode::INTERNAL_SERVER_ERROR, format!("Error: {e:?}")).into_response()
             }
         }
     }

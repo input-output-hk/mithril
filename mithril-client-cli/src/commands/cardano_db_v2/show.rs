@@ -109,11 +109,11 @@ impl CardanoDbShowCommand {
 
 fn digest_location_iter(locations: &[DigestLocation]) -> impl Iterator<Item = String> + use<'_> {
     locations.iter().filter_map(|location| match location {
-        DigestLocation::Aggregator { uri } => Some(format!("Aggregator, uri: \"{}\"", uri)),
+        DigestLocation::Aggregator { uri } => Some(format!("Aggregator, uri: \"{uri}\"")),
         DigestLocation::CloudStorage {
             uri,
             compression_algorithm: _,
-        } => Some(format!("CloudStorage, uri: \"{}\"", uri)),
+        } => Some(format!("CloudStorage, uri: \"{uri}\"")),
         DigestLocation::Unknown => None,
     })
 }

@@ -87,7 +87,7 @@ pub fn doc_markdown_with_config(cmd: &mut Command, configs: HashMap<String, Stru
 
             let parameters_table = doc_config_to_markdown(&command_parameters);
 
-            format!("{}\n{}", parameters_explanation, parameters_table)
+            format!("{parameters_explanation}\n{parameters_table}")
         } else {
             "".to_string()
         }
@@ -145,7 +145,7 @@ pub fn doc_markdown_with_config(cmd: &mut Command, configs: HashMap<String, Stru
         level: usize,
         parameters_explanation: &str,
     ) -> String {
-        let parent_path = parent.map(|s| format!("{} ", s)).unwrap_or_default();
+        let parent_path = parent.map(|s| format!("{s} ")).unwrap_or_default();
         let command_path = format!("{}{}", parent_path, cmd.get_name());
 
         let title = format!("{} {}\n", "#".repeat(level), command_path);
@@ -204,11 +204,11 @@ pub fn doc_config_to_markdown(struct_doc: &StructDoc) -> String {
                 },
                 config
                     .environment_variable
-                    .map_or_else(|| "-".to_string(), |x| format!("`{}`", x)),
+                    .map_or_else(|| "-".to_string(), |x| format!("`{x}`")),
                 config.description.replace('\n', "<br/>"),
                 config
                     .default_value
-                    .map(|value| format!("`{}`", value))
+                    .map(|value| format!("`{value}`"))
                     .unwrap_or("-".to_string()),
                 config
                     .example
@@ -509,7 +509,7 @@ mod tests {
 
         let mut command = MyCommand::command();
         let crate_name = format_clap_command_name_to_key(env!("CARGO_PKG_NAME"));
-        let configs = HashMap::from([(format!("{} subcommanda", crate_name), struct_doc)]);
+        let configs = HashMap::from([(format!("{crate_name} subcommanda"), struct_doc)]);
         let doc = doc_markdown_with_config(&mut command, configs);
 
         assert!(doc.contains("| `ConfigA` |"), "Generated doc: {doc}");

@@ -227,8 +227,7 @@ mod test {
                 error.downcast_ref::<CardanoDbDownloadCheckerError>(),
                 Some(CardanoDbDownloadCheckerError::UnpackDirectoryNotEmpty(_))
             ),
-            "Unexpected error: {:?}",
-            error
+            "Unexpected error: {error:?}"
         );
     }
 
@@ -255,8 +254,7 @@ mod test {
                     archive_size: _
                 })
             ),
-            "Unexpected error: {:?}",
-            error
+            "Unexpected error: {error:?}"
         );
     }
 
@@ -300,8 +298,7 @@ mod test {
                     }
                 )
             ),
-            "Unexpected error: {:?}",
-            error
+            "Unexpected error: {error:?}"
         );
     }
 
@@ -338,8 +335,7 @@ mod test {
                 error.downcast_ref::<CardanoDbDownloadCheckerError>(),
                 Some(CardanoDbDownloadCheckerError::UnpackDirectoryNotEmpty(_))
             ),
-            "Unexpected error: {:?}",
-            error
+            "Unexpected error: {error:?}"
         );
     }
 
@@ -385,8 +381,7 @@ mod test {
                         _
                     ))
                 ),
-                "Unexpected error: {:?}",
-                error
+                "Unexpected error: {error:?}"
             );
         }
 
@@ -410,8 +405,7 @@ mod test {
                         _
                     ))
                 ),
-                "Unexpected error: {:?}",
-                error
+                "Unexpected error: {error:?}"
             );
         }
     }

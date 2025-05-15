@@ -71,7 +71,7 @@ impl Application {
             debug!("binding on {connection_string}");
             tokio::net::TcpListener::bind(&connection_string)
                 .await
-                .with_context(|| format!("Could not listen on '{}'.", connection_string))?
+                .with_context(|| format!("Could not listen on '{connection_string}'."))?
         };
 
         trace!("starting server…");

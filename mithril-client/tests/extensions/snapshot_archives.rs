@@ -125,9 +125,9 @@ pub async fn build_ancillary_files_archive(
             "ledger/{}",
             last_ledger_file_path.file_name().unwrap().to_string_lossy()
         )),
-        PathBuf::from(IMMUTABLE_DIR).join(format!("{:05}.chunk", ancillary_immutable_number)),
-        PathBuf::from(IMMUTABLE_DIR).join(format!("{:05}.primary", ancillary_immutable_number)),
-        PathBuf::from(IMMUTABLE_DIR).join(format!("{:05}.secondary", ancillary_immutable_number)),
+        PathBuf::from(IMMUTABLE_DIR).join(format!("{ancillary_immutable_number:05}.chunk")),
+        PathBuf::from(IMMUTABLE_DIR).join(format!("{ancillary_immutable_number:05}.primary")),
+        PathBuf::from(IMMUTABLE_DIR).join(format!("{ancillary_immutable_number:05}.secondary")),
     ];
     let ancillary_manifest = build_ancillary_manifest(
         db_dir,

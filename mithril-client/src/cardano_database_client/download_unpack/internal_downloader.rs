@@ -562,7 +562,7 @@ mod tests {
                 .await;
 
             assert!(
-                log_inspector.contains_log(&format!("WARN {}", ANCILLARIES_NOT_SIGNED_BY_MITHRIL)),
+                log_inspector.contains_log(&format!("WARN {ANCILLARIES_NOT_SIGNED_BY_MITHRIL}")),
                 "Expected log message not found, logs: {log_inspector}"
             );
         }

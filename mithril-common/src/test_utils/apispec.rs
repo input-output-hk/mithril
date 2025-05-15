@@ -109,7 +109,7 @@ impl<'a> APISpec<'a> {
         operation_object: &Value,
     ) -> Result<&'a APISpec<'a>, String> {
         let fake_base_url = "http://0.0.0.1";
-        let url = Url::parse(&format!("{}{}", fake_base_url, path)).unwrap();
+        let url = Url::parse(&format!("{fake_base_url}{path}")).unwrap();
 
         check_query_parameter_limitations(&url, operation_object);
 
@@ -250,7 +250,7 @@ impl<'a> APISpec<'a> {
 
     /// Get spec file for era
     pub fn get_era_spec_file(era: SupportedEra) -> String {
-        format!("../openapi-{}", era)
+        format!("../openapi-{era}")
     }
 
     /// Get all spec files
@@ -261,7 +261,7 @@ impl<'a> APISpec<'a> {
     /// Get all spec files in the directory
     pub fn get_all_spec_files_from(root_path: &str) -> Vec<String> {
         let mut open_api_spec_files = Vec::new();
-        for entry in glob(&format!("{}/openapi*.yaml", root_path)).unwrap() {
+        for entry in glob(&format!("{root_path}/openapi*.yaml")).unwrap() {
             let entry_path = entry.unwrap().to_str().unwrap().to_string();
             open_api_spec_files.push(entry_path.clone());
             open_api_spec_files.push(entry_path);
@@ -307,7 +307,7 @@ impl<'a> APISpec<'a> {
         ) {
             let result = apispec.validate_conformity(example, component_definition);
             if let Err(e) = result {
-                errors.push(format!("    {}\n    Example: {}\n", e, example));
+                errors.push(format!("    {e}\n    Example: {example}\n"));
             }
         }
 
@@ -325,8 +325,7 @@ impl<'a> APISpec<'a> {
                 }
             } else {
                 errors.push(format!(
-                    "    Examples should be an array\n    Examples: {}\n",
-                    examples
+                    "    Examples should be an array\n    Examples: {examples}\n"
                 ));
             }
         }
@@ -447,9 +446,7 @@ components:
         for expected_message in expected_error_messages {
             assert!(
                 error_message.contains(expected_message),
-                "Error message: {:?}\nshould contains: {}\n",
-                errors,
-                expected_message
+                "Error message: {errors:?}\nshould contains: {expected_message}\n"
             );
         }
     }
@@ -824,7 +821,7 @@ components:
         let errors: Vec<String> = api_spec.verify_examples();
 
         let error_messages = errors.join("\n");
-        assert_eq!(0, errors.len(), "Error messages: {}", error_messages);
+        assert_eq!(0, errors.len(), "Error messages: {error_messages}");
     }
 
     #[test]

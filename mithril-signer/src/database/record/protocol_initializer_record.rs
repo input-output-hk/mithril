@@ -28,8 +28,7 @@ impl SqLiteEntity for ProtocolInitializerRecord {
         let record = Self {
             protocol_initializer: serde_json::from_str(protocol).map_err(|e| {
                 HydrationError::InvalidData(format!(
-                    "Could not cast string ({}) to ProtocolInitializer. Error: '{e}'",
-                    protocol
+                    "Could not cast string ({protocol}) to ProtocolInitializer. Error: '{e}'"
                 ))
             })?,
             epoch: Epoch(epoch_int.try_into().map_err(|e| {

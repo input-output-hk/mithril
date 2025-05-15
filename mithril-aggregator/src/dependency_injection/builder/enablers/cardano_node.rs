@@ -202,8 +202,7 @@ mod tests {
         let is_activated = cardano_transactions_preloader.is_activated().await.unwrap();
         assert_eq!(
             expected_activation, is_activated,
-            "'is_activated' expected {}, but was {}",
-            expected_activation, is_activated
+            "'is_activated' expected {expected_activation}, but was {is_activated}"
         );
     }
 }

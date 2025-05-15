@@ -291,8 +291,7 @@ impl MithrilSignedEntityService {
             .await
             .with_context(|| {
                 format!(
-                    "Signed Entity Service can not get last signed entities with type: '{:?}'",
-                    discriminants
+                    "Signed Entity Service can not get last signed entities with type: '{discriminants:?}'"
                 )
             })
     }
@@ -1082,8 +1081,7 @@ mod tests {
         let error = join_handle.await.unwrap().unwrap_err();
         assert!(
             error.to_string().contains("CardanoImmutableFilesFull"),
-            "Error should contains CardanoImmutableFilesFull but was: {}",
-            error
+            "Error should contains CardanoImmutableFilesFull but was: {error}"
         );
 
         assert!(
@@ -1111,8 +1109,7 @@ mod tests {
         let error = join_handle.await.unwrap().unwrap_err();
         assert!(
             error.to_string().contains("CardanoImmutableFilesFull"),
-            "Error should contains CardanoImmutableFilesFull but was: {}",
-            error
+            "Error should contains CardanoImmutableFilesFull but was: {error}"
         );
 
         assert!(

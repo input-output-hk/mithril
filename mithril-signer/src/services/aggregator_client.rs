@@ -131,11 +131,11 @@ impl AggregatorClientError {
             } else if json_value.is_null() {
                 canonical_reason.to_string()
             } else {
-                format!("{}: {}", canonical_reason, json_value)
+                format!("{canonical_reason}: {json_value}")
             }
         } else {
             let response_text = response.text().await.unwrap_or_default();
-            format!("{}: {}", canonical_reason, response_text)
+            format!("{canonical_reason}: {response_text}")
         }
     }
 }

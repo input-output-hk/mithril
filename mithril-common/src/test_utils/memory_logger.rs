@@ -113,7 +113,7 @@ impl slog::Serializer for KVSerializer {
 
         let prefix = if self.content.is_empty() { "" } else { ", " };
         write!(self.content, "{prefix}{key}={val:?}")
-            .map_err(|_| io::Error::new(io::ErrorKind::Other, "Failed to serialize log"))?;
+            .map_err(|_| io::Error::other("Failed to serialize log"))?;
         Ok(())
     }
 }

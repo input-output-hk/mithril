@@ -28,7 +28,7 @@ impl RelayPassive {
         let args = vec!["-vvv", "passive"];
 
         let mut command = MithrilCommand::new("mithril-relay", work_dir, bin_dir, env, &args)?;
-        command.set_log_name(&format!("mithril-relay-passive-{}", relay_id));
+        command.set_log_name(&format!("mithril-relay-passive-{relay_id}"));
 
         Ok(Self {
             listen_port,
