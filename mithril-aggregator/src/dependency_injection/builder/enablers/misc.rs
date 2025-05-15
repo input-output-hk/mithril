@@ -81,9 +81,11 @@ impl DependenciesBuilder {
 
     /// Builds a [SignatureProcessor]
     pub async fn create_signature_processor(&mut self) -> Result<Arc<dyn SignatureProcessor>> {
+        let (_stop_tx, stop_rx) = self.get_stop_signal_channel().await?;
         let signature_processor = SequentialSignatureProcessor::new(
             self.build_signature_consumer().await?,
             self.get_certifier_service().await?,
+            stop_rx,
             self.root_logger(),
         );
 
