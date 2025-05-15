@@ -13,7 +13,7 @@ use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value};
 
 use slog::{crit, debug, info, warn, Logger};
-use tokio::{sync::oneshot, task::JoinSet};
+use tokio::task::JoinSet;
 
 use mithril_cli_helper::{
     register_config_value, register_config_value_bool, register_config_value_option,
@@ -255,7 +255,7 @@ impl ServeCommand {
             .get_metrics_service()
             .await
             .with_context(|| "Metrics service initialization error")?;
-        let (metrics_server_shutdown_tx, metrics_server_shutdown_rx) = oneshot::channel();
+        let stop_rx_clone = stop_rx.clone();
         if config.enable_metrics_server {
             let metrics_logger = root_logger.clone();
             join_set.spawn(async move {
@@ -265,7 +265,7 @@ impl ServeCommand {
                     metrics_service,
                     metrics_logger.clone(),
                 )
-                .start(metrics_server_shutdown_rx)
+                .start(stop_rx_clone)
                 .await
                 .map_err(|e| anyhow!(e));
 
@@ -280,15 +280,13 @@ impl ServeCommand {
             crit!(root_logger, "A critical error occurred"; "error" => e);
         }
 
-        metrics_server_shutdown_tx
-            .send(())
-            .map_err(|e| anyhow!("Metrics server shutdown signal could not be sent: {e:?}"))?;
-
         // Stop servers
         join_set.shutdown().await;
 
         // Send the stop signal
-        let _ = stop_tx.send(());
+        stop_tx
+            .send(())
+            .map_err(|e| anyhow!("Stop signal could not be sent: {e:?}"))?;
 
         if !preload_task.is_finished() {
             preload_task.abort();
