@@ -7,8 +7,10 @@ cfg_fs! {
     mod ancillary_verifier;
     mod stream_reader;
     mod bootstrap_files;
+    mod unexpected_downloaded_file_verifier;
 
     pub use ancillary_verifier::AncillaryVerifier;
+    pub(crate) use unexpected_downloaded_file_verifier::*;
     pub use stream_reader::*;
     pub use bootstrap_files::*;
 }
