@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context};
-use mithril_stm::stm::StmParameters;
+use mithril_stm::StmParameters;
 
 use crate::{
     crypto_helper::{

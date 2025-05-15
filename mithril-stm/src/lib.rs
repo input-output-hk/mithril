@@ -1,24 +1,28 @@
-#![warn(missing_docs)]
 #![doc = include_str!("../README.md")]
 //! Implementation of Stake-based Threshold Multisignatures
 
-extern crate core;
+mod bls_multi_signature;
 
 mod eligibility_check;
 mod error;
-pub mod key_reg;
+mod key_reg;
 mod merkle_tree;
-pub mod stm;
+mod participant;
+mod stm;
 
 pub use crate::error::{
     AggregationError, CoreVerifierError, RegisterError, StmAggregateSignatureError,
     StmSignatureError,
 };
+pub use participant::{StmInitializer, StmSigner, StmVerificationKey, StmVerificationKeyPoP};
+pub use stm::{
+    CoreVerifier, Index, Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmParameters,
+    StmSig, StmSigRegParty,
+};
 
 #[cfg(feature = "benchmark-internals")]
-pub mod bls_multi_signature;
+pub use crate::bls_multi_signature::{
+    ProofOfPossession, Signature, SigningKey, VerificationKey, VerificationKeyPoP,
+};
 
-#[cfg(not(feature = "benchmark-internals"))]
-mod bls_multi_signature;
-
-pub mod participant;
+pub use key_reg::{ClosedKeyReg, KeyReg};

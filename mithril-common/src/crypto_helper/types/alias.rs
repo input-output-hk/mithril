@@ -4,10 +4,7 @@ use crate::crypto_helper::cardano::{
 };
 
 use mithril_stm::{
-    key_reg::ClosedKeyReg,
-    participant::StmSigner,
-    stm::{Index, Stake, StmClerk, StmParameters},
-    AggregationError,
+    AggregationError, ClosedKeyReg, Index, Stake, StmClerk, StmParameters, StmSigner,
 };
 
 use blake2::{digest::consts::U32, Blake2b};
@@ -21,31 +18,31 @@ pub(crate) type D = Blake2b<U32>;
 /// The id of a mithril party.
 pub type ProtocolPartyId = String;
 
-/// Alias of [MithrilStm:Stake](type@mithril_stm::stm::Stake).
+/// Alias of [MithrilStm:Stake](type@mithril_stm::Stake).
 pub type ProtocolStake = Stake;
 
 /// A list of [Party Id][ProtocolPartyId] associated with its [Stake][ProtocolStake].
 pub type ProtocolStakeDistribution = Vec<(ProtocolPartyId, ProtocolStake)>;
 
-/// Alias of [MithrilStm::StmParameters](struct@mithril_stm::stm::StmParameters).
+/// Alias of [MithrilStm::StmParameters](struct@mithril_stm::StmParameters).
 pub type ProtocolParameters = StmParameters;
 
-/// Alias of [MithrilStm::Index](type@mithril_stm::stm::Index).
+/// Alias of [MithrilStm::Index](type@mithril_stm::Index).
 pub type ProtocolLotteryIndex = Index;
 
-/// Alias of [MithrilStm:StmSigner](struct@mithril_stm::participant::StmSigner).
+/// Alias of [MithrilStm:StmSigner](struct@mithril_stm::StmSigner).
 pub type ProtocolSigner = StmSigner<D>;
 
-/// Alias of a wrapper of [MithrilStm:StmInitializer](struct@mithril_stm::participant::StmInitializer).
+/// Alias of a wrapper of [MithrilStm:StmInitializer](struct@mithril_stm::StmInitializer).
 pub type ProtocolInitializer = StmInitializerWrapper;
 
-/// Alias of [MithrilStm:StmClerk](struct@mithril_stm::stm::StmClerk).
+/// Alias of [MithrilStm:StmClerk](struct@mithril_stm::StmClerk).
 pub type ProtocolClerk = StmClerk<D>;
 
-/// Alias of a wrapper of [MithrilStm:KeyReg](struct@mithril_stm::key_reg::KeyReg).
+/// Alias of a wrapper of [MithrilStm:KeyReg](struct@mithril_stm::KeyReg).
 pub type ProtocolKeyRegistration = KeyRegWrapper;
 
-/// Alias of a wrapper of [MithrilStm:ClosedKeyReg](struct@mithril_stm::key_reg::KeyReg).
+/// Alias of a wrapper of [MithrilStm:ClosedKeyReg](struct@mithril_stm::KeyReg).
 pub type ProtocolClosedKeyRegistration = ClosedKeyReg<D>;
 
 // Error alias

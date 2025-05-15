@@ -16,10 +16,8 @@ use crate::{
 };
 
 use mithril_stm::{
-    key_reg::{ClosedKeyReg, KeyReg},
-    participant::{StmInitializer, StmSigner, StmVerificationKeyPoP},
-    stm::{Stake, StmParameters},
-    RegisterError,
+    ClosedKeyReg, KeyReg, RegisterError, Stake, StmInitializer, StmParameters, StmSigner,
+    StmVerificationKeyPoP,
 };
 
 use crate::crypto_helper::cardano::Sum6KesBytes;

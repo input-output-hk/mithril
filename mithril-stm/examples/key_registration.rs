@@ -2,9 +2,9 @@
 //! but instead by all the participants in the signature process. Contrarily to the full protocol
 //! run presented in `tests/integration.rs`, we explicitly treat each party individually.
 use blake2::{digest::consts::U32, Blake2b};
-use mithril_stm::key_reg::{ClosedKeyReg, KeyReg};
-use mithril_stm::participant::{StmInitializer, StmVerificationKeyPoP};
-use mithril_stm::stm::{Stake, StmClerk, StmParameters};
+use mithril_stm::{
+    ClosedKeyReg, KeyReg, Stake, StmClerk, StmInitializer, StmParameters, StmVerificationKeyPoP,
+};
 
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};

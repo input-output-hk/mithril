@@ -7,9 +7,7 @@
 //! ```rust
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! use blake2::{Blake2b, digest::consts::U32};
-//! use mithril_stm::key_reg::KeyReg; // Import key registration functionality
-//! use mithril_stm::stm::{StmClerk, StmParameters, StmSig};
-//! use mithril_stm::participant::{StmInitializer, StmSigner};
+//! use mithril_stm::{StmClerk, StmParameters, StmSig, KeyReg, StmInitializer, StmSigner};
 //! use mithril_stm::AggregationError;
 //! use rayon::prelude::*; // We use par_iter to speed things up
 //!
@@ -864,7 +862,6 @@ impl CoreVerifier {
 mod tests {
     use super::*;
     use crate::key_reg::*;
-    use bincode;
     use blake2::{digest::consts::U32, Blake2b};
     use proptest::collection::{hash_map, vec};
     use proptest::prelude::*;
