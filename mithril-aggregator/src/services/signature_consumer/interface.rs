@@ -3,7 +3,7 @@ use mithril_common::{
     StdResult,
 };
 
-/// A signature consumer which blocks until a messages are available.
+/// A signature consumer which blocks until messages are available.
 #[cfg_attr(test, mockall::automock)]
 #[async_trait::async_trait]
 pub trait SignatureConsumer: Sync + Send {
