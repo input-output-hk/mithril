@@ -15,7 +15,7 @@ impl CardanoDbUtils {
         match error.downcast_ref::<CardanoDbDownloadCheckerError>() {
             Some(CardanoDbDownloadCheckerError::NotEnoughSpaceForArchive { .. })
             | Some(CardanoDbDownloadCheckerError::NotEnoughSpaceForUncompressedData { .. }) => {
-                Ok(format!("Warning: {}", error))
+                Ok(format!("Warning: {error}"))
             }
             _ => Err(error),
         }
@@ -43,7 +43,7 @@ impl CardanoDbUtils {
     pub fn format_bytes_to_gigabytes(bytes: u64) -> String {
         let size_in_giga = bytes as f64 / (1024.0 * 1024.0 * 1024.0);
 
-        format!("{:.2} GiB", size_in_giga)
+        format!("{size_in_giga:.2} GiB")
     }
 }
 
@@ -78,7 +78,7 @@ mod test {
             pathdir: PathBuf::new(),
             archive_size: 2_f64,
         };
-        let expected = format!("Warning: {}", not_enough_space_error);
+        let expected = format!("Warning: {not_enough_space_error}");
 
         let result = CardanoDbUtils::check_disk_space_error(anyhow!(not_enough_space_error))
             .expect("check_disk_space_error should not error");
@@ -95,7 +95,7 @@ mod test {
                 pathdir: PathBuf::new(),
                 db_size: 2_f64,
             };
-        let expected = format!("Warning: {}", not_enough_space_error);
+        let expected = format!("Warning: {not_enough_space_error}");
 
         let result = CardanoDbUtils::check_disk_space_error(anyhow!(not_enough_space_error))
             .expect("check_disk_space_error should not error");
@@ -115,8 +115,7 @@ mod test {
                 error.downcast_ref::<CardanoDbDownloadCheckerError>(),
                 Some(CardanoDbDownloadCheckerError::UnpackDirectoryNotEmpty(_))
             ),
-            "Unexpected error: {:?}",
-            error
+            "Unexpected error: {error:?}"
         );
     }
 

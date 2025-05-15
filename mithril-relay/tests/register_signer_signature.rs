@@ -121,7 +121,7 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
     let mut signer_message_sent = RegisterSignerMessage::dummy();
     signer_message_sent.party_id = format!("{}-new", signer_message_sent.party_id);
     let response = reqwest::Client::new()
-        .post(format!("http://{}/register-signer", relay_address))
+        .post(format!("http://{relay_address}/register-signer"))
         .json(&signer_message_sent)
         .send()
         .await;
@@ -168,7 +168,7 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
     let mut signature_message_sent = RegisterSignatureMessage::dummy();
     signature_message_sent.party_id = format!("{}-new", signature_message_sent.party_id);
     let response = reqwest::Client::new()
-        .post(format!("http://{}/register-signatures", relay_address))
+        .post(format!("http://{relay_address}/register-signatures"))
         .json(&signature_message_sent)
         .send()
         .await;

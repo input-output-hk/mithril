@@ -286,17 +286,14 @@ pub fn extract_cardano_stake_distribution_epochs(
         .map(|content| {
             let json_value: serde_json::Value =
                 serde_json::from_str(content).unwrap_or_else(|err| {
-                    panic!(
-                        "Failed to parse JSON in csd content: {}\nError: {}",
-                        content, err
-                    );
+                    panic!("Failed to parse JSON in csd content: {content}\nError: {err}");
                 });
 
             json_value
                 .get("epoch")
                 .and_then(|epoch| epoch.as_u64().map(|s| s.to_string()))
                 .unwrap_or_else(|| {
-                    panic!("Epoch not found or invalid in csd content: {}", content);
+                    panic!("Epoch not found or invalid in csd content: {content}");
                 })
         })
         .collect()
@@ -327,33 +324,30 @@ pub fn generate_artifact_getter(
             artifacts_list,
             r###"
         (
-            "{}",
-            r#"{}"#
-        ),"###,
-            artifact_id, file_content
+            "{artifact_id}",
+            r#"{file_content}"#
+        ),"###
         )
         .unwrap();
     }
 
     format!(
-        r###"pub(crate) fn {}() -> BTreeMap<String, String> {{
-    [{}
+        r###"pub(crate) fn {fun_name}() -> BTreeMap<String, String> {{
+    [{artifacts_list}
     ]
     .into_iter()
     .map(|(k, v)| (k.to_owned(), v.to_owned()))
     .collect()
-}}"###,
-        fun_name, artifacts_list
+}}"###
     )
 }
 
 /// pub(crate) fn $fun_name() -> &'static str
 pub fn generate_list_getter(fun_name: &str, source_json: FileContent) -> String {
     format!(
-        r###"pub(crate) fn {}() -> &'static str {{
-    r#"{}"#
-}}"###,
-        fun_name, source_json
+        r###"pub(crate) fn {fun_name}() -> &'static str {{
+    r#"{source_json}"#
+}}"###
     )
 }
 
@@ -365,8 +359,7 @@ pub fn generate_ids_array(array_name: &str, ids: BTreeSet<ArtifactId>) -> String
         write!(
             ids_list,
             r#"
-        "{}","#,
-            id
+        "{id}","#
         )
         .unwrap();
     }

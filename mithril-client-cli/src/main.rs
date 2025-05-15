@@ -32,7 +32,7 @@ impl LogOutputType {
             LogOutputType::StdErr => Box::new(std::io::stderr()),
             LogOutputType::File(filepath) => Box::new(
                 File::create(filepath)
-                    .with_context(|| format!("Can not create output log file: {}", filepath))?,
+                    .with_context(|| format!("Can not create output log file: {filepath}"))?,
             ),
         };
 
@@ -236,9 +236,8 @@ impl ArtifactCommands {
 
     fn unstable_flag_missing_message(sub_command: &str, command_example: &str) -> String {
         format!(
-            "The \"{}\" subcommand is only accepted using the --unstable flag.\n\n\
-                ie: \"mithril-client --unstable {} {}\"",
-            sub_command, sub_command, command_example
+            "The \"{sub_command}\" subcommand is only accepted using the --unstable flag.\n\n\
+                ie: \"mithril-client --unstable {sub_command} {command_example}\""
         )
     }
 }

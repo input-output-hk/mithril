@@ -121,10 +121,7 @@ where
         size_sigs += sig.to_bytes().len();
     }
 
-    println!(
-        "k = {} | m = {} | nr parties = {}; {} bytes",
-        k, m, nparties, size_sigs,
-    );
+    println!("k = {k} | m = {m} | nr parties = {nparties}; {size_sigs} bytes",);
 }
 
 fn main() {

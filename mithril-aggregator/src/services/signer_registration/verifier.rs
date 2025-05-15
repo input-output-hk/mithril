@@ -62,8 +62,7 @@ impl SignerRegistrationVerifier for MithrilSignerRegistrationVerifier {
             )
             .with_context(|| {
                 format!(
-                    "KeyRegwrapper can not register signer with party_id: '{:?}'",
-                    party_id_register
+                    "KeyRegwrapper can not register signer with party_id: '{party_id_register:?}'"
                 )
             })
             .map_err(|e| anyhow!(e))?;

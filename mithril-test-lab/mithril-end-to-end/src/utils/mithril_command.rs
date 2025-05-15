@@ -148,7 +148,7 @@ impl MithrilCommand {
             ));
         }
 
-        self.print_header(name, &format!("LAST {} LINES", number_of_line));
+        self.print_header(name, &format!("LAST {number_of_line} LINES"));
 
         println!(
             "{}",
@@ -174,7 +174,7 @@ impl MithrilCommand {
             ));
         }
 
-        self.print_header(name, &format!("LAST {} ERROR(S)", number_of_error));
+        self.print_header(name, &format!("LAST {number_of_error} ERROR(S)"));
 
         println!(
             "{}",

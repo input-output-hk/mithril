@@ -156,8 +156,7 @@ impl MithrilFixtureBuilder {
             (kes_bytes, kes_verification_key)
         } else {
             println!(
-                "KES key not found in test cache, generating a new one for the seed {:?}.",
-                kes_key_seed
+                "KES key not found in test cache, generating a new one for the seed {kes_key_seed:?}."
             );
             MithrilFixtureBuilder::generate_kes_key(kes_key_seed)
         }
@@ -370,15 +369,13 @@ mod tests {
 
         assert_eq!(
             computed_keys_key, cached_kes_key,
-            "Precomputed KES keys should be:\n{}\nbut seems to be:\n{}",
-            expected_code, actual_code
+            "Precomputed KES keys should be:\n{expected_code}\nbut seems to be:\n{actual_code}"
         );
 
         let kes_key_seed = fixture.generate_cold_key_seed(precomputed_number);
         assert!(
             MithrilFixtureBuilder::cached_kes_key(kes_key_seed.as_slice()).is_none(),
-            "We checked precomputed KES keys up to {} but it seems to be more.",
-            precomputed_number
+            "We checked precomputed KES keys up to {precomputed_number} but it seems to be more."
         );
     }
 }

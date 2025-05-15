@@ -300,7 +300,7 @@ mod tests {
         #[tokio::test]
         async fn move_only_files_in_structure_to_final_location() {
             let temp_dir = temp_dir_create!();
-            println!("temp_dir: {:?}", temp_dir);
+            println!("temp_dir: {temp_dir:?}");
             let source_dir = temp_dir.join("source");
             let target_dir = temp_dir.join("target");
             for dir in &[&source_dir.join("subdir"), &target_dir] {

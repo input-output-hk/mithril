@@ -355,13 +355,11 @@ mod tests {
 
         assert!(
             json_string.contains(r#""seconds_left": 7.006"#),
-            "Not expected value in json output: {}",
-            json_string
+            "Not expected value in json output: {json_string}"
         );
         assert!(
             json_string.contains(r#""seconds_elapsed": 5.004"#),
-            "Not expected value in json output: {}",
-            json_string
+            "Not expected value in json output: {json_string}"
         );
     }
 
@@ -379,13 +377,11 @@ mod tests {
 
         assert!(
             json_string.contains(r#""seconds_left": 7.200"#),
-            "Not expected value in json output: {}",
-            json_string
+            "Not expected value in json output: {json_string}"
         );
         assert!(
             json_string.contains(r#""seconds_elapsed": 5.100"#),
-            "Not expected value in json output: {}",
-            json_string
+            "Not expected value in json output: {json_string}"
         );
     }
 

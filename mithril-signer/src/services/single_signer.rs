@@ -135,8 +135,7 @@ impl SingleSigner for MithrilSingleSigner {
             .sign(protocol_message)
             .with_context(|| {
                 format!(
-                    "Mithril Single Signer can not sign protocol_message: '{:?}'",
-                    protocol_message
+                    "Mithril Single Signer can not sign protocol_message: '{protocol_message:?}'"
                 )
             })
             .map_err(SingleSignerError::SignatureFailed)?;

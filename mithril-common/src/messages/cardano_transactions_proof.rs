@@ -205,8 +205,7 @@ mod tests {
                 error,
                 VerifyCardanoTransactionsProofsError::MalformedData(_)
             ),
-            "Expected 'MalformedData' error but got '{:?}'",
-            error
+            "Expected 'MalformedData' error but got '{error:?}'"
         );
     }
 
@@ -223,8 +222,7 @@ mod tests {
                 error,
                 VerifyCardanoTransactionsProofsError::NoCertifiedTransaction
             ),
-            "Expected 'NoCertifiedTransactions' error but got '{:?}'",
-            error
+            "Expected 'NoCertifiedTransactions' error but got '{error:?}'"
         );
     }
 
@@ -273,8 +271,7 @@ mod tests {
                 error,
                 VerifyCardanoTransactionsProofsError::InvalidSetProof { .. },
             ),
-            "Expected 'InvalidSetProof' error but got '{:?}'",
-            error
+            "Expected 'InvalidSetProof' error but got '{error:?}'"
         );
     }
 
@@ -309,8 +306,7 @@ mod tests {
                 error,
                 VerifyCardanoTransactionsProofsError::NonMatchingMerkleRoot,
             ),
-            "Expected 'NonMatchingMerkleRoot' error but got '{:?}'",
-            error
+            "Expected 'NonMatchingMerkleRoot' error but got '{error:?}'"
         );
     }
 

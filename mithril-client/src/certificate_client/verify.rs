@@ -124,7 +124,7 @@ impl MithrilCertificateVerifier {
             }))
         } else {
             let certificate = match certificate {
-                CertificateToVerify::Downloaded { certificate } => certificate,
+                CertificateToVerify::Downloaded { certificate } => *certificate,
                 CertificateToVerify::ToDownload { hash } => {
                     self.retriever.get_certificate_details(&hash).await?
                 }
@@ -170,7 +170,7 @@ impl MithrilCertificateVerifier {
 
 enum CertificateToVerify {
     /// The certificate is already downloaded.
-    Downloaded { certificate: Certificate },
+    Downloaded { certificate: Box<Certificate> },
     /// The certificate is not downloaded yet (since its parent was cached).
     ToDownload { hash: String },
 }
@@ -186,7 +186,9 @@ impl CertificateToVerify {
 
 impl From<Certificate> for CertificateToVerify {
     fn from(value: Certificate) -> Self {
-        Self::Downloaded { certificate: value }
+        Self::Downloaded {
+            certificate: Box::new(value),
+        }
     }
 }
 
@@ -375,7 +377,7 @@ mod tests {
                 .verify_with_cache_enabled(
                     "certificate_chain_validation_id",
                     CertificateToVerify::Downloaded {
-                        certificate: genesis_certificate.clone(),
+                        certificate: Box::new(genesis_certificate.clone()),
                     },
                 )
                 .await
@@ -411,7 +413,7 @@ mod tests {
                 .verify_with_cache_enabled(
                     "certificate_chain_validation_id",
                     CertificateToVerify::Downloaded {
-                        certificate: certificate.clone(),
+                        certificate: Box::new(certificate.clone()),
                     },
                 )
                 .await

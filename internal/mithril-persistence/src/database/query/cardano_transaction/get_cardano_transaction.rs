@@ -125,10 +125,10 @@ mod tests {
         slot_number: SlotNumber,
     ) -> CardanoTransactionRecord {
         CardanoTransactionRecord::new(
-            format!("tx-hash-{}", slot_number),
+            format!("tx-hash-{slot_number}"),
             block_number,
             slot_number,
-            format!("block-hash-{}", block_number),
+            format!("block-hash-{block_number}"),
         )
     }
 

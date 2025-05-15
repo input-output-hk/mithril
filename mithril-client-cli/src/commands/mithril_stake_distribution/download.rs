@@ -144,8 +144,7 @@ impl MithrilStakeDistributionDownloadCommand {
             &filepath,
             serde_json::to_string(&mithril_stake_distribution).with_context(|| {
                 format!(
-                    "Can not serialize stake distribution artifact '{:?}'",
-                    mithril_stake_distribution
+                    "Can not serialize stake distribution artifact '{mithril_stake_distribution:?}'"
                 )
             })?,
         )?;

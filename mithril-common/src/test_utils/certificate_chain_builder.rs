@@ -958,7 +958,7 @@ mod test {
         let total_certificates = 5;
         let expected_signed_messages = (1..total_certificates)
             .rev()
-            .map(|i| format!("altered-msg-{}", i))
+            .map(|i| format!("altered-msg-{i}"))
             .collect::<Vec<_>>();
 
         let (certificates, _) = CertificateChainBuilder::new()

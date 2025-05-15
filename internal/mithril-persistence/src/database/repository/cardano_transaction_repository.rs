@@ -1253,7 +1253,7 @@ mod tests {
                 tx_hash,
                 block_number,
                 slot_number,
-                format!("block-hash-{}", block_number),
+                format!("block-hash-{block_number}"),
             )
         }
 

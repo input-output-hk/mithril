@@ -200,8 +200,7 @@ impl CardanoDbDownloadCommand {
             .await
             .with_context(|| {
                 format!(
-                    "Can not verify the certificate chain from certificate_hash: '{}'",
-                    certificate_hash
+                    "Can not verify the certificate chain from certificate_hash: '{certificate_hash}'"
                 )
             })?;
 
@@ -260,10 +259,7 @@ impl CardanoDbDownloadCommand {
         )
         .await
         .with_context(|| {
-            format!(
-                "Can not compute the cardano db message from the directory: '{:?}'",
-                db_dir
-            )
+            format!("Can not compute the cardano db message from the directory: '{db_dir:?}'")
         })?;
 
         Ok(message)

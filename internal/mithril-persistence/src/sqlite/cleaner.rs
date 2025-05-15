@@ -115,7 +115,7 @@ mod tests {
         connection
             .execute(format!(
                 "INSERT INTO test (id, text) VALUES {}",
-                ids.map(|i| format!("({}, 'some text to fill the db')", i))
+                ids.map(|i| format!("({i}, 'some text to fill the db')"))
                     .collect::<Vec<String>>()
                     .join(", ")
             ))

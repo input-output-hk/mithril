@@ -309,7 +309,7 @@ impl StateMachine {
         self.runner.update_stake_distribution(epoch)
             .await
             .map_err(|e| RuntimeError::KeepState {
-                message: format!("Could not update stake distribution in 'unregistered → registered' phase for epoch {:?}.", epoch),
+                message: format!("Could not update stake distribution in 'unregistered → registered' phase for epoch {epoch:?}."),
                 nested_error: Some(e),
             })?;
 
@@ -318,8 +318,7 @@ impl StateMachine {
             .await
             .map_err(|e| RuntimeError::KeepState {
                 message: format!(
-                    "Could not register epoch information in 'unregistered → registered' phase for epoch {:?}.",
-                    epoch
+                    "Could not register epoch information in 'unregistered → registered' phase for epoch {epoch:?}."
                 ),
                 nested_error: Some(e),
             })?;
@@ -334,9 +333,9 @@ impl StateMachine {
                 {
                     Ok(Some(SignerState::Unregistered { epoch }))
                 } else if e.downcast_ref::<ProtocolInitializerError>().is_some() {
-                    Err(RuntimeError::Critical { message: format!("Could not register to aggregator in 'unregistered → registered' phase for epoch {:?}.", epoch), nested_error: Some(e) })
+                    Err(RuntimeError::Critical { message: format!("Could not register to aggregator in 'unregistered → registered' phase for epoch {epoch:?}."), nested_error: Some(e) })
                 } else {
-                    Err(RuntimeError::KeepState { message: format!("Could not register to aggregator in 'unregistered → registered' phase for epoch {:?}.", epoch), nested_error: Some(e) })
+                    Err(RuntimeError::KeepState { message: format!("Could not register to aggregator in 'unregistered → registered' phase for epoch {epoch:?}."), nested_error: Some(e) })
                 }
             } else {
                 Ok(None)

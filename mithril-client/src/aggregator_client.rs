@@ -161,7 +161,7 @@ impl AggregatorRequest {
                 "artifact/mithril-stake-distributions".to_string()
             }
             AggregatorRequest::GetSnapshot { digest } => {
-                format!("artifact/snapshot/{}", digest)
+                format!("artifact/snapshot/{digest}")
             }
             AggregatorRequest::ListSnapshots => "artifact/snapshots".to_string(),
             AggregatorRequest::IncrementSnapshotStatistic { snapshot: _ } => {
@@ -169,7 +169,7 @@ impl AggregatorRequest {
             }
             #[cfg(feature = "unstable")]
             AggregatorRequest::GetCardanoDatabaseSnapshot { hash } => {
-                format!("artifact/cardano-database/{}", hash)
+                format!("artifact/cardano-database/{hash}")
             }
             #[cfg(feature = "unstable")]
             AggregatorRequest::ListCardanoDatabaseSnapshots => {

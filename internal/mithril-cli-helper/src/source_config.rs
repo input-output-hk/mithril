@@ -142,7 +142,7 @@ mod tests {
             map,
             &"namespace".to_string(),
             fake.string_value,
-            |v: String| { format!("mapped_value from {}", v) }
+            |v: String| { format!("mapped_value from {v}") }
         );
 
         let expected = HashMap::from([(
@@ -200,7 +200,7 @@ mod tests {
             map,
             &"namespace".to_string(),
             fake.option_with_value,
-            |v: String| format!("mapped_value from {}", v)
+            |v: String| format!("mapped_value from {v}")
         );
         register_config_value_option!(map, &"namespace".to_string(), fake.option_none);
 

@@ -5,8 +5,8 @@ use super::{FieldDoc, StructDoc};
 /// Extract information of an command line argument.
 fn extract_arg(arg: &Arg) -> FieldDoc {
     let parameter = arg.get_id().to_string();
-    let short_option = arg.get_short().map_or("".into(), |c| format!("-{}", c));
-    let long_option = arg.get_long().map_or("".into(), |c| format!("--{}", c));
+    let short_option = arg.get_short().map_or("".into(), |c| format!("-{c}"));
+    let long_option = arg.get_long().map_or("".into(), |c| format!("--{c}"));
     let env_variable = arg.get_env().map(|s| format!("{}", s.to_string_lossy()));
     let description = arg.get_help().map_or("-".into(), StyledStr::to_string);
     let default_value = if arg.get_default_values().iter().count() == 0 {

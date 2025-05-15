@@ -78,7 +78,7 @@ impl MultiFilesUri {
             MultiFilesUri::Template(template) => {
                 let mut file_uri = template.0.clone();
                 for (key, value) in variable {
-                    file_uri = file_uri.replace(&format!("{{{}}}", key), &value);
+                    file_uri = file_uri.replace(&format!("{{{key}}}"), &value);
                 }
 
                 FileUri(file_uri)
@@ -95,7 +95,7 @@ impl MultiFilesUri {
     ) -> FileUri {
         self.expand_to_file_uri(HashMap::from([(
             "immutable_file_number".to_string(),
-            format!("{:05}", immutable_file_number),
+            format!("{immutable_file_number:05}"),
         )]))
     }
 }

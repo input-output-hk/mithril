@@ -111,8 +111,7 @@ mod tests {
 
             assert!(
                 format!("{res:?}").contains("Invalid block range"),
-                "Expected 'Invalid block range' error, got {:?}",
-                res
+                "Expected 'Invalid block range' error, got {res:?}"
             );
         }
     }

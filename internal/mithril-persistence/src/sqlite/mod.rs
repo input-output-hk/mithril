@@ -56,8 +56,7 @@ mod test {
 
         assert!(
             requirement.matches(&version),
-            "Sqlite version {} is lower than 3.42.0",
-            version
+            "Sqlite version {version} is lower than 3.42.0"
         )
     }
 }

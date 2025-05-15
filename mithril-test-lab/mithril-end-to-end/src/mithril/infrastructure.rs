@@ -424,7 +424,7 @@ impl MithrilInfrastructure {
                 .join(format!("mithril-client-aggregator-{}", aggregator.name()));
             if self.use_era_specific_work_dir {
                 let current_era = self.current_era.read().await;
-                artifacts_dir = artifacts_dir.join(format!("era.{}", current_era));
+                artifacts_dir = artifacts_dir.join(format!("era.{current_era}"));
             }
             if !artifacts_dir.exists() {
                 fs::create_dir_all(&artifacts_dir)?;

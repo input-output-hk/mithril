@@ -47,7 +47,7 @@ impl Query for GetProtocolInitializerQuery {
         let projection = Self::Entity::get_projection().expand(aliases);
         let limit = self
             .limit
-            .map_or("".to_string(), |limit| format!(" limit {}", limit));
+            .map_or("".to_string(), |limit| format!(" limit {limit}"));
         format!("select {projection} from protocol_initializer where {condition} order by rowid desc{limit}")
     }
 }

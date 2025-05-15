@@ -89,7 +89,7 @@ async fn main() -> MithrilResult<()> {
         .await?;
 
     if let Err(e) = client.cardano_database().add_statistics(&snapshot).await {
-        println!("Could not increment snapshot download statistics: {:?}", e);
+        println!("Could not increment snapshot download statistics: {e:?}");
     }
 
     println!("Computing snapshot '{}' message ...", snapshot.digest);
@@ -234,7 +234,7 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                 }
                 *certificate_validation_pb = None;
             }
-            _ => panic!("Unexpected event: {:?}", event),
+            _ => panic!("Unexpected event: {event:?}"),
         }
     }
 }

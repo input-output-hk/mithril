@@ -99,7 +99,7 @@ mod tests {
             .execute(format!(
                 "INSERT INTO test (id, text) VALUES {}",
                 (0..10_000)
-                    .map(|i| format!("({}, 'some text to fill the db')", i))
+                    .map(|i| format!("({i}, 'some text to fill the db')"))
                     .collect::<Vec<String>>()
                     .join(", ")
             ))

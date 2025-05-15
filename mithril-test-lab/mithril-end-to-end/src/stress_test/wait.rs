@@ -39,10 +39,8 @@ where
                 Err(err) => Err(anyhow!("Invalid list body : {err}")),
             },
             s if s.is_server_error() => {
-                let message = format!(
-                    "Server error while waiting for the Aggregator, http code: {}",
-                    s
-                );
+                let message =
+                    format!("Server error while waiting for the Aggregator, http code: {s}");
                 warn!("{message}");
                 Err(anyhow!(message))
             }

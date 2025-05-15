@@ -266,7 +266,7 @@ mod tests {
         (*start_block_number..*(start_block_number + number_of_consecutive_block))
             .map(|block_number| {
                 ScannedBlock::new(
-                    format!("block_hash-{}", block_number),
+                    format!("block_hash-{block_number}"),
                     BlockNumber(block_number),
                     SlotNumber(block_number * 100),
                     vec![format!("tx_hash-{}", block_number)],

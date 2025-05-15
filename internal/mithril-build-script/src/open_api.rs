@@ -60,11 +60,10 @@ pub fn generate_open_api_versions_mapping(open_api_spec_files: &[PathBuf]) -> St
 /// Build Open API versions mapping
 pub fn get_open_api_versions_mapping() -> HashMap<OpenAPIFileName, semver::Version> {{
     HashMap::from([
-        {}
+        {open_api_versions_hashmap}
     ])
 }}
-        "#,
-        open_api_versions_hashmap
+        "#
     )
 }
 

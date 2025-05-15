@@ -32,7 +32,7 @@ impl RelayAggregator {
         let args = vec!["-vvv", "aggregator"];
 
         let mut command = MithrilCommand::new("mithril-relay", work_dir, bin_dir, env, &args)?;
-        command.set_log_name(&format!("mithril-relay-aggregator-{}", name,));
+        command.set_log_name(&format!("mithril-relay-aggregator-{name}",));
 
         Ok(Self {
             name_suffix: name,
