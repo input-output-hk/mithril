@@ -259,11 +259,19 @@ impl CompressedArchiveSnapshotter {
 
         let db_ledger_dir = self.db_directory.join(LEDGER_DIR);
         let ledger_files = LedgerFile::list_all_in_dir(&db_ledger_dir)?;
-        let last_ledger = ledger_files.last().ok_or(anyhow!(
-            "No ledger file found in directory: `{}`",
-            db_ledger_dir.display()
-        ))?;
-        files_to_snapshot.push(PathBuf::from(LEDGER_DIR).join(&last_ledger.filename));
+        let latest_ledger_files: Vec<PathBuf> = ledger_files
+            .iter()
+            .rev()
+            .take(2)
+            .map(|ledger_file| PathBuf::from(LEDGER_DIR).join(&ledger_file.filename))
+            .collect();
+        if latest_ledger_files.is_empty() {
+            return Err(anyhow!(
+                "No ledger state snapshot found in the ledger directory: '{}'",
+                db_ledger_dir.display()
+            ));
+        }
+        files_to_snapshot.extend(latest_ledger_files);
 
         fs::create_dir(target_folder.join(IMMUTABLE_DIR))
             .with_context(|| format!("Can not create folder: `{}`", target_folder.display()))?;
@@ -549,6 +557,23 @@ mod tests {
         }
 
         #[tokio::test]
+        async fn getting_files_to_include_fails_when_no_ledger_file_found() {
+            let test_dir = temp_dir_create!();
+            let cardano_db = DummyCardanoDbBuilder::new(current_function!())
+                .with_immutables(&[1, 2])
+                .build();
+            let snapshotter =
+                snapshotter_for_test(&test_dir, cardano_db.get_dir(), CompressionAlgorithm::Gzip);
+            let ancillary_snapshot_dir = test_dir.join("ancillary_snapshot");
+            fs::create_dir(&ancillary_snapshot_dir).unwrap();
+
+            snapshotter
+                .get_files_and_directories_for_ancillary_snapshot(1, &ancillary_snapshot_dir)
+                .await
+                .expect_err("Should fail if no ledger file found");
+        }
+
+        #[tokio::test]
         async fn delete_temporary_working_directory_after_snapshot_is_created() {
             let test_dir = temp_dir_create!();
             let cardano_db = DummyCardanoDbBuilder::new(current_function!())
@@ -603,7 +628,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn create_archive_should_embed_only_last_ledger_and_last_immutables() {
+        async fn create_archive_should_embed_only_two_last_ledgers_and_last_immutables() {
             let test_dir = temp_dir_create!();
             let cardano_db = DummyCardanoDbBuilder::new(current_function!())
                 .with_immutables(&[1, 2, 3])
@@ -627,13 +652,14 @@ mod tests {
             let unpack_dir = snapshot.unpack_gzip(&test_dir);
             assert_dir_eq!(
                 &unpack_dir,
-                // Only the last ledger file should be included
+                // Only the two last ledger files should be included
                 format!(
                     "* {IMMUTABLE_DIR}/
                      ** 00003.chunk
                      ** 00003.primary
                      ** 00003.secondary
                      * {LEDGER_DIR}/
+                     ** 637
                      ** 737
                      * {}",
                     AncillaryFilesManifest::ANCILLARY_MANIFEST_FILE_NAME
@@ -671,7 +697,7 @@ mod tests {
             let test_dir = temp_dir_create!();
             let cardano_db = DummyCardanoDbBuilder::new(current_function!())
                 .with_immutables(&[1, 2, 3])
-                .with_ledger_files(&["321", "737"])
+                .with_ledger_files(&["537", "637", "737"])
                 .with_non_immutables(&["not_to_include.txt"])
                 .build();
             File::create(cardano_db.get_dir().join("not_to_include_as_well.txt")).unwrap();
@@ -702,6 +728,7 @@ mod tests {
                     &PathBuf::from(IMMUTABLE_DIR).join("00003.chunk"),
                     &PathBuf::from(IMMUTABLE_DIR).join("00003.primary"),
                     &PathBuf::from(IMMUTABLE_DIR).join("00003.secondary"),
+                    &PathBuf::from(LEDGER_DIR).join("637"),
                     &PathBuf::from(LEDGER_DIR).join("737"),
                 ],
                 manifest.data.keys().collect::<Vec<_>>()
