@@ -132,18 +132,23 @@ impl ServeCommand {
         let mut dependencies_builder =
             DependenciesBuilder::new(root_logger.clone(), Arc::new(config.clone()));
 
-        // start servers
         println!("Starting server...");
         println!("Press Ctrl+C to stop");
 
-        // start the monitoring thread
+        // Create the stop signal channel
+        let (stop_tx, _stop_rx) = dependencies_builder
+            .get_stop_signal_channel()
+            .await
+            .with_context(|| "Dependencies Builder can not create stop signal channel")?;
+
+        // Start the monitoring thread
         let mut event_store = dependencies_builder
             .create_event_store()
             .await
             .with_context(|| "Dependencies Builder can not create event store")?;
         let event_store_thread = tokio::spawn(async move { event_store.run().await.unwrap() });
 
-        // start the database vacuum operation, if needed
+        // Start the database vacuum operation, if needed
         self.perform_database_vacuum_if_needed(
             &config.data_stores_directory,
             &mut dependencies_builder,
@@ -152,7 +157,7 @@ impl ServeCommand {
         )
         .await?;
 
-        // start the aggregator runtime
+        // Start the aggregator runtime
         let mut runtime = dependencies_builder
             .create_aggregator_runner()
             .await
@@ -160,7 +165,7 @@ impl ServeCommand {
         let mut join_set = JoinSet::new();
         join_set.spawn(async move { runtime.run().await.map_err(|e| e.to_string()) });
 
-        // start the cardano transactions preloader
+        // Start the cardano transactions preloader
         let cardano_transactions_preloader = dependencies_builder
             .create_cardano_transactions_preloader()
             .await
@@ -170,7 +175,7 @@ impl ServeCommand {
         let preload_task =
             tokio::spawn(async move { cardano_transactions_preloader.preload().await });
 
-        // start the HTTP server
+        // sStart the HTTP server
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let routes = dependencies_builder
             .create_http_routes()
@@ -279,14 +284,16 @@ impl ServeCommand {
             .send(())
             .map_err(|e| anyhow!("Metrics server shutdown signal could not be sent: {e:?}"))?;
 
-        // stop servers
+        // Stop servers
         join_set.shutdown().await;
         let _ = shutdown_tx.send(());
+
+        // Send the stop signal to all services
+        let _ = stop_tx.send(());
 
         if !preload_task.is_finished() {
             preload_task.abort();
         }
-        signature_processor.stop().await?;
 
         info!(root_logger, "Event store is finishing...");
         event_store_thread.await.unwrap();
