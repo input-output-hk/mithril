@@ -178,11 +178,31 @@ jobs:
         include:
           - os: ubuntu-24.04
             test-args: --features full,unstable --workspace
-          # Only test client on windows & mac (since its the only binaries supported for those os for now)
+          # Exclude nodes not officially supported on Windows and macOS (only mithril-client is supported)
           - os: macos-14
-            test-args: --package mithril-client --package mithril-client-cli --features full,unstable
+            test-args: >
+              --features full,unstable --workspace
+              --exclude mithril-aggregator
+              --exclude mithril-signer
+              --exclude mithril-relay
+              --exclude mithril-client-wasm
+              --exclude mithril-aggregator-fake
+          # Windows has a larger list of exclusion because some tests are too slow (ie: mithril-stm) or can't compile (ie: mithril-common)
           - os: windows-latest
-            test-args: --package mithril-client --package mithril-client-cli --features full,unstable
+            test-args: >
+              --features full,unstable --workspace
+              --exclude mithril-aggregator
+              --exclude mithril-signer
+              --exclude mithril-relay
+              --exclude mithril-client-wasm
+              --exclude mithril-aggregator-fake
+              --exclude mithril-common
+              --exclude mithril-stm
+              --exclude mithril-metric
+              --exclude mithril-end-to-end
+              --exclude mithril-persistence
+              --exclude mithril-resource-pool
+              --exclude mithril-build-script
 
     runs-on: ${{ matrix.os }}
 
