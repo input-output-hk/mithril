@@ -14,7 +14,6 @@ fn register_signatures(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("register-signatures")
         .and(warp::post())
-        .and(middlewares::with_origin_tag(router_state))
         .and(warp::body::json())
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_certifier_service(router_state))
@@ -44,7 +43,6 @@ mod handlers {
 
     /// Register Signatures
     pub async fn register_signatures(
-        origin_tag: Option<String>,
         message: RegisterSignatureMessage,
         logger: Logger,
         certifier_service: Arc<dyn CertifierService>,
@@ -122,7 +120,6 @@ mod handlers {
 mod tests {
     use anyhow::anyhow;
     use mithril_common::entities::ClientError;
-    use mithril_common::MITHRIL_ORIGIN_TAG_HEADER;
     use std::sync::Arc;
     use warp::http::{Method, StatusCode};
     use warp::test::request;
