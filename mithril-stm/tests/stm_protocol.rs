@@ -1,11 +1,8 @@
-use mithril_stm::key_reg::KeyReg;
-use mithril_stm::stm::{
-    Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmInitializer, StmParameters, StmSig,
-    StmSigner, StmVerificationKey,
-};
-use mithril_stm::AggregationError;
-
 use blake2::{digest::consts::U32, Blake2b};
+use mithril_stm::{
+    AggregationError, KeyReg, Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmInitializer,
+    StmParameters, StmSig, StmSigner, StmVerificationKey,
+};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;

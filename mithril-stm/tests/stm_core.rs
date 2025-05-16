@@ -1,9 +1,9 @@
 use blake2::Blake2b;
 use digest::consts::U32;
-use mithril_stm::stm::{
-    CoreVerifier, Stake, StmInitializer, StmParameters, StmSig, StmSigner, StmVerificationKey,
+use mithril_stm::{
+    CoreVerifier, CoreVerifierError, Stake, StmInitializer, StmParameters, StmSig, StmSigner,
+    StmVerificationKey,
 };
-use mithril_stm::CoreVerifierError;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 type D = Blake2b<U32>;

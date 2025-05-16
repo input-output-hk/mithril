@@ -1,6 +1,5 @@
-use mithril_stm::key_reg::KeyReg;
-use mithril_stm::stm::{
-    Stake, StmAggrSig, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner,
+use mithril_stm::{
+    KeyReg, Stake, StmAggrSig, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner,
     StmVerificationKeyPoP,
 };
 

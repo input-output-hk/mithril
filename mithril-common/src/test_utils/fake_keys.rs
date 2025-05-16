@@ -1,6 +1,6 @@
 //! Pre hex encoded StmTypes for testing.
 
-/// A list of pre json hex encoded [MithrilStm:StmSig](type@mithril_stm::stm::StmSig)
+/// A list of pre json hex encoded [MithrilStm:StmSig](type@mithril_stm::StmSig)
 pub const fn single_signature<'a>() -> [&'a str; 4] {
     [
         "7b227369676d61223a5b3133302c3137372c31352c3232392c32342c3235312c3234372c3137312c3139362c32\
@@ -52,7 +52,7 @@ pub const fn single_signature<'a>() -> [&'a str; 4] {
     ]
 }
 
-/// A list of pre json hex encoded [MithrilStm:StmAggrSig](struct@mithril_stm::stm::StmAggrSig)
+/// A list of pre json hex encoded [MithrilStm:StmAggrSig](struct@mithril_stm::StmAggrSig)
 pub const fn multi_signature<'a>() -> [&'a str; 2] {
     [
         "7b227369676e617475726573223a5b5b7b227369676d61223a5b3137312c3136312c3232352c3139342c32382c\
@@ -158,7 +158,7 @@ pub const fn signable_manifest_signature<'a>() -> [&'a str; 2] {
     ]
 }
 
-/// A list of pre json hex encoded [MithrilStm:StmVerificationKeyPoP](type@mithril_stm::stm::StmVerificationKeyPoP)
+/// A list of pre json hex encoded [MithrilStm:StmVerificationKeyPoP](type@mithril_stm::StmVerificationKeyPoP)
 pub const fn signer_verification_key<'a>() -> [&'a str; 4] {
     [
         "7b22766b223a5b3134352c32332c3135382c31322c3138332c3230392c33322c3134302c33372c3132342c3136\
@@ -366,7 +366,7 @@ pub const fn operational_certificate<'a>() -> [&'a str; 2] {
     ]
 }
 
-/// A list of pre json hex encoded [MithrilStm:StmAggrVerificationKey](struct@mithril_stm::stm::StmAggrVerificationKey)
+/// A list of pre json hex encoded [MithrilStm:StmAggrVerificationKey](struct@mithril_stm::StmAggrVerificationKey)
 pub const fn aggregate_verification_key<'a>() -> [&'a str; 3] {
     [
         "7b226d745f636f6d6d69746d656e74223a7b22726f6f74223a5b3134302c31332c3135352c3134312c3136332c\
@@ -392,7 +392,7 @@ mod test {
     use super::*;
     use ed25519_dalek::VerifyingKey;
     use kes_summed_ed25519::kes::Sum6KesSig;
-    use mithril_stm::stm::{StmAggrSig, StmAggrVerificationKey, StmSig, StmVerificationKeyPoP};
+    use mithril_stm::{StmAggrSig, StmAggrVerificationKey, StmSig, StmVerificationKeyPoP};
     use serde::{de::DeserializeOwned, Serialize};
     use std::any::type_name;
 

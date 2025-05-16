@@ -3,9 +3,8 @@ use blake2::{
     digest::consts::{U32, U64},
     Blake2b, Digest,
 };
-use mithril_stm::key_reg::KeyReg;
-use mithril_stm::stm::{
-    CoreVerifier, Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigRegParty,
+use mithril_stm::{
+    CoreVerifier, KeyReg, Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigRegParty,
     StmSigner, StmVerificationKey,
 };
 use rand_chacha::ChaCha20Rng;

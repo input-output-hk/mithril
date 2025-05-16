@@ -1,9 +1,8 @@
 use blake2::digest::{Digest, FixedOutput};
 use blake2::{digest::consts::U32, Blake2b};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use mithril_stm::key_reg::KeyReg;
-use mithril_stm::stm::{
-    CoreVerifier, Stake, StmAggrSig, StmClerk, StmInitializer, StmParameters, StmSigner,
+use mithril_stm::{
+    CoreVerifier, KeyReg, Stake, StmAggrSig, StmClerk, StmInitializer, StmParameters, StmSigner,
     StmVerificationKey,
 };
 use rand_chacha::ChaCha20Rng;

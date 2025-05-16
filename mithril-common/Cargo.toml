@@ -1,6 +1,6 @@
 [package]
 name = "mithril-common"
-version = "0.5.29"
+version = "0.5.30"
 description = "Common types, interfaces, and utilities for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -47,7 +47,9 @@ kes-summed-ed25519 = { version = "0.2.1", features = [
     "serde_enabled",
     "sk_clone_enabled",
 ] }
-mithril-stm = { path = "../mithril-stm", version = "0.3", default-features = false, features = ["batch-verify-aggregates"] }
+mithril-stm = { path = "../mithril-stm", version = ">=0.3", default-features = false, features = [
+    "batch-verify-aggregates"
+] }
 nom = "8.0.0"
 pallas-addresses = { version = "0.32.0", optional = true }
 pallas-codec = { version = "0.32.0", optional = true }
