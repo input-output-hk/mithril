@@ -17,7 +17,7 @@ pub trait Snapshotter: Sync + Send {
 
     /// Create a new snapshot of ancillary files.
     ///
-    /// Ancillary files include the last, uncompleted, immutable trio and the last ledger file.
+    /// Ancillary files include the last, uncompleted, immutable trio and the two last ledger files.
     async fn snapshot_ancillary(
         &self,
         immutable_file_number: ImmutableFileNumber,
