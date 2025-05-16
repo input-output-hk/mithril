@@ -9,4 +9,7 @@ use mithril_common::{
 pub trait SignatureConsumer: Sync + Send {
     /// Returns signatures when available
     async fn get_signatures(&self) -> StdResult<Vec<(SingleSignature, SignedEntityType)>>;
+
+    /// Returns the origin metric of the consumer (for example HTTP or DMQ)
+    fn get_origin_network(&self) -> String;
 }
