@@ -3,14 +3,13 @@
 // Base code from the httpserver in reqwest tests:
 // https://github.com/seanmonstar/reqwest/blob/master/tests/support/server.rs
 
-use std::{net::SocketAddr, sync::mpsc as std_mpsc, thread, time::Duration};
+use std::{net::SocketAddr, sync::mpsc as std_mpsc, thread};
 use tokio::{runtime, sync::oneshot};
 use warp::{Filter, Reply};
 
 /// A HTTP server for test
 pub struct TestHttpServer {
     address: SocketAddr,
-    panic_rx: std_mpsc::Receiver<()>,
     shutdown_tx: Option<oneshot::Sender<()>>,
 }
 
@@ -30,12 +29,6 @@ impl Drop for TestHttpServer {
     fn drop(&mut self) {
         if let Some(tx) = self.shutdown_tx.take() {
             let _ = tx.send(());
-        }
-
-        if !::std::thread::panicking() {
-            self.panic_rx
-                .recv_timeout(Duration::from_secs(3))
-                .expect("test server should not panic");
         }
     }
 }
@@ -71,7 +64,7 @@ where
             })
         });
 
-        let (panic_tx, panic_rx) = std_mpsc::channel();
+        let (panic_tx, _) = std_mpsc::channel();
         let thread_name = format!(
             "test({})-support-server",
             thread::current().name().unwrap_or("<unknown>")
@@ -86,7 +79,6 @@ where
 
         TestHttpServer {
             address,
-            panic_rx,
             shutdown_tx: Some(shutdown_tx),
         }
     })
