@@ -408,7 +408,7 @@ You will see a list of snapshots:
 
 :::warning
 
-If you restore a Cardano node with a version not included in the advertised range of compatible versions, it may take extra time due to ledger computations or even crash the node.
+If you restore a Cardano node with a version not included in the [advertised range of compatible versions](network-configurations.md), it may take extra time due to ledger computations or even crash the node.
 
 :::
 
