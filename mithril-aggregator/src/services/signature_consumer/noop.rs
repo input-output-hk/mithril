@@ -19,6 +19,10 @@ impl SignatureConsumer for SignatureConsumerNoop {
     > {
         future::pending().await
     }
+
+    fn get_origin_tag(&self) -> String {
+        "NOOP".to_string()
+    }
 }
 
 #[cfg(test)]
