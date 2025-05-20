@@ -9,6 +9,7 @@ pub mod cardano_stake_distribution;
 pub mod cardano_transaction;
 mod deprecation;
 pub mod mithril_stake_distribution;
+pub mod tools;
 
 pub use deprecation::{DeprecatedCommand, Deprecation};
 
