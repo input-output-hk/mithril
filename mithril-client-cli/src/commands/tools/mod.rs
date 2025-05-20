@@ -3,12 +3,15 @@
 //! Provides utility subcommands such as converting restored InMemory UTxO-HD ledger snapshot
 //! to different flavors (Legacy, LMDB).
 
+mod github_api_client;
+mod github_release;
+mod http_downloader;
 mod snapshot_converter;
 
-use mithril_client::MithrilResult;
 pub use snapshot_converter::*;
 
 use clap::Subcommand;
+use mithril_client::MithrilResult;
 
 /// Tools commands
 #[derive(Subcommand, Debug, Clone)]
