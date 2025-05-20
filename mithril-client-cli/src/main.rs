@@ -298,8 +298,6 @@ mod tests {
             "snapshot-converter",
             "--db-directory",
             "whatever",
-            "--cardano-network",
-            "preview",
             "--cardano-node-version",
             "1.2.3",
             "--utxo-hd-flavor",

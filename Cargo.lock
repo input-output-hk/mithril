@@ -3878,6 +3878,8 @@ dependencies = [
  "mithril-client",
  "mithril-common",
  "mithril-doc",
+ "mockall",
+ "reqwest",
  "serde",
  "serde_json",
  "slog",

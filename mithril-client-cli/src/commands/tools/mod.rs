@@ -5,10 +5,10 @@
 
 mod snapshot_converter;
 
-use mithril_client::MithrilResult;
 pub use snapshot_converter::*;
 
 use clap::Subcommand;
+use mithril_client::MithrilResult;
 
 /// Tools commands
 #[derive(Subcommand, Debug, Clone)]
