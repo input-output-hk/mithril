@@ -120,8 +120,7 @@ use crate::file_downloader::{DownloadEvent, FileDownloader};
 #[cfg(feature = "fs")]
 use crate::utils::create_bootstrap_node_files;
 #[cfg(feature = "fs")]
-use crate::utils::AncillaryVerifier;
-use crate::utils::ANCILLARIES_NOT_SIGNED_BY_MITHRIL;
+use crate::utils::{AncillaryVerifier, ANCILLARIES_NOT_SIGNED_BY_MITHRIL};
 use crate::{MithrilResult, Snapshot, SnapshotListItem};
 
 /// Error for the Snapshot client
