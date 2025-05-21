@@ -165,6 +165,7 @@ mod tests {
     use super::*;
 
     use crate::test_utils::TestLogger;
+    use crate::*;
     use crate::{entities::BlockNumber, test_utils::TempDir};
 
     /// Enum representing the action to be performed by the server.
@@ -280,8 +281,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_next_chain_block_rolls_backward() {
-        let socket_path =
-            create_temp_dir("get_next_chain_block_rolls_backward").join("node.socket");
+        let socket_path = create_temp_dir(current_function!()).join("node.socket");
         let known_point = get_fake_specific_point();
         let server = setup_server(
             socket_path.clone(),
@@ -316,7 +316,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_next_chain_block_rolls_forward() {
-        let socket_path = create_temp_dir("get_next_chain_block_rolls_forward").join("node.socket");
+        let socket_path = create_temp_dir(current_function!()).join("node.socket");
         let known_point = get_fake_specific_point();
         let server = setup_server(
             socket_path.clone(),
@@ -351,7 +351,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_next_chain_block_has_no_agency() {
-        let socket_path = create_temp_dir("get_next_chain_block_has_no_agency").join("node.socket");
+        let socket_path = create_temp_dir(current_function!()).join("node.socket");
         let known_point = get_fake_specific_point();
         let server = setup_server(
             socket_path.clone(),
@@ -403,8 +403,7 @@ mod tests {
 
     #[tokio::test]
     async fn cached_client_is_dropped_when_returning_error() {
-        let socket_path =
-            create_temp_dir("cached_client_is_dropped_when_returning_error").join("node.socket");
+        let socket_path = create_temp_dir(current_function!()).join("node.socket");
         let socket_path_clone = socket_path.clone();
         let known_point = get_fake_specific_point();
         let server = setup_server(
