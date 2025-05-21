@@ -120,8 +120,9 @@ impl ExpectedFilesAfterDownload {
     /// *Note: removed directories names are suffixed with a "/"*
     pub async fn remove_unexpected_files(self) -> StdResult<Option<Vec<String>>> {
         tokio::task::spawn_blocking(move || {
-            let unexpected_entries_in_immutable_dir: Vec<_> =
-                std::fs::read_dir(self.target_cardano_db_dir.join(IMMUTABLE_DIR))
+            let immutable_files_dir = self.target_cardano_db_dir.join(IMMUTABLE_DIR);
+            let unexpected_entries_in_immutable_dir = if immutable_files_dir.exists() {
+                std::fs::read_dir(&immutable_files_dir)
                     .with_context(|| BASE_ERROR)?
                     .flatten()
                     .filter(|entry| {
@@ -129,7 +130,11 @@ impl ExpectedFilesAfterDownload {
                             .expected_filenames_in_immutable_dir
                             .contains(&entry.file_name())
                     })
-                    .collect();
+                    .collect()
+            } else {
+                // The immutable dir can be missing if the download was interrupted
+                Vec::new()
+            };
             let mut removed_entries = Vec::new();
 
             for unexpected_entry in &unexpected_entries_in_immutable_dir {
@@ -370,6 +375,21 @@ mod tests {
         use mithril_common::assert_dir_eq;
 
         use super::*;
+
+        #[tokio::test]
+        async fn when_immutable_dir_does_not_exist_do_nothing_and_return_none() {
+            let temp_dir = temp_dir_create!();
+
+            let existing_before = ExpectedFilesAfterDownload {
+                target_cardano_db_dir: temp_dir.clone(),
+                expected_filenames_in_immutable_dir: HashSet::new(),
+                logger: TestLogger::stdout(),
+            };
+
+            let removed_entries = existing_before.remove_unexpected_files().await.unwrap();
+            assert_eq!(removed_entries, None);
+            assert_dir_eq!(&temp_dir, "");
+        }
 
         #[tokio::test]
         async fn when_dir_empty_do_nothing_and_return_none() {
