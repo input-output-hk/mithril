@@ -2,6 +2,7 @@
 // - Add logs.
 // - Remove the temporary directory in all cases (error or success).
 use std::path::Path;
+use std::process::Command;
 use std::{env, fmt, path::PathBuf};
 
 use anyhow::{anyhow, Context};
@@ -21,6 +22,14 @@ const PRERELEASE_DISTRIBUTION_TAG: &str = "prerelease";
 
 const CARDANO_DISTRIBUTION_TEMP_DIR: &str = "cardano-node-distribution-tmp";
 
+const SNAPSHOT_CONVERTER_BIN_DIR: &str = "bin";
+const SNAPSHOT_CONVERTER_BIN_NAME_UNIX: &str = "snapshot-converter";
+const SNAPSHOT_CONVERTER_BIN_NAME_WINDOWS: &str = "snapshot-converter.exe";
+const SNAPSHOT_CONVERTER_CONFIG_DIR: &str = "share";
+const SNAPSHOT_CONVERTER_CONFIG_FILE: &str = "config.json";
+
+const LEDGER_DIR: &str = "ledger";
+
 #[derive(Debug, Clone, ValueEnum)]
 enum UTxOHDFlavor {
     #[clap(name = "Legacy")]
@@ -38,6 +47,23 @@ impl fmt::Display for UTxOHDFlavor {
     }
 }
 
+#[derive(Debug, Clone, ValueEnum)]
+enum CardanoNetwork {
+    Preview,
+    Preprod,
+    Mainnet,
+}
+
+impl fmt::Display for CardanoNetwork {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Preview => write!(f, "preview"),
+            Self::Preprod => write!(f, "preprod"),
+            Self::Mainnet => write!(f, "mainnet"),
+        }
+    }
+}
+
 /// Clap command to convert a restored `InMemory` Mithril snapshot to another flavor.
 #[derive(Parser, Debug, Clone)]
 pub struct SnapshotConverterCommand {
@@ -50,6 +76,10 @@ pub struct SnapshotConverterCommand {
     /// `latest` and `prerelease` are also supported to download the latest or preprelease distribution.
     #[clap(long)]
     cardano_node_version: String,
+
+    /// Cardano network.
+    #[clap(long)]
+    cardano_network: CardanoNetwork,
 
     /// UTxO-HD flavor to convert the ledger snapshot to.
     #[clap(long)]
@@ -85,6 +115,19 @@ impl SnapshotConverterCommand {
                     distribution_temp_dir.display()
                 )
             })?;
+
+        Self::convert_ledger_snapshot(
+            &self.db_directory,
+            &self.cardano_network,
+            &distribution_temp_dir,
+            &self.utxo_hd_flavor,
+        )
+        .with_context(|| {
+            format!(
+                "Failed to convert ledger snapshot to flavor: {}",
+                self.utxo_hd_flavor
+            )
+        })?;
 
         Ok(())
     }
@@ -137,6 +180,120 @@ impl SnapshotConverterCommand {
         })?;
 
         Ok(())
+    }
+
+    // 1. Find the `snapshot-converter` binary
+    // 2. Find the configuration file
+    // 3. Find the less recent ledger snapshot in the db directory
+    // 4. Copy the ledger snapshot to the distribution directory (backup)
+    // 5. Run the `snapshot-converter` command with the appropriate arguments
+    // - Legacy: snapshot-converter Mem <PATH-IN> Legacy <PATH-OUT> cardano --config <CONFIG>
+    // - LMDB: snapshot-converter Mem <PATH-IN> LMDB <PATH-OUT> cardano --config <CONFIG>
+    fn convert_ledger_snapshot(
+        db_dir: &Path,
+        cardano_network: &CardanoNetwork,
+        distribution_dir: &Path,
+        utxo_hd_flavor: &UTxOHDFlavor,
+    ) -> MithrilResult<()> {
+        let snapshot_converter_bin_path =
+            Self::get_snapshot_converter_binary_path(distribution_dir, env::consts::OS)?;
+        // TODO: check if this configuration file is enough to convert the snapshot.
+        let config_path =
+            Self::get_snapshot_converter_config_path(distribution_dir, cardano_network);
+
+        let (slot_number, ledger_snapshot_path) = Self::find_less_recent_ledger_snapshot(db_dir)?;
+        let snapshot_backup_path = distribution_dir.join(ledger_snapshot_path.file_name().unwrap());
+        std::fs::copy(ledger_snapshot_path.clone(), snapshot_backup_path.clone())?;
+
+        let snapshot_converted_output_path = distribution_dir
+            .join(slot_number.to_string())
+            .join(utxo_hd_flavor.to_string().to_lowercase());
+
+        // TODO: verify if the paths are correct, the command needs relative path.
+        Command::new(snapshot_converter_bin_path.clone())
+            .arg("Mem")
+            .arg(snapshot_backup_path)
+            .arg(utxo_hd_flavor.to_string())
+            .arg(snapshot_converted_output_path)
+            .arg("cardano")
+            .arg("--config")
+            .arg(config_path)
+            .status()
+            .with_context(|| {
+                format!(
+                    "Failed to get help of snapshot-converter: {}",
+                    snapshot_converter_bin_path.display()
+                )
+            })?;
+
+        println!(
+            "Snapshot converter executed successfully. The ledger snapshot has been converted to {} flavor in {}.",
+            utxo_hd_flavor,
+            distribution_dir.display()
+        );
+        Ok(())
+    }
+
+    fn get_snapshot_converter_binary_path(
+        distribution_dir: &Path,
+        target_os: &str,
+    ) -> MithrilResult<PathBuf> {
+        let base_path = distribution_dir.join(SNAPSHOT_CONVERTER_BIN_DIR);
+
+        let binary_name = match target_os {
+            "linux" | "macos" => SNAPSHOT_CONVERTER_BIN_NAME_UNIX,
+            "windows" => SNAPSHOT_CONVERTER_BIN_NAME_WINDOWS,
+            _ => return Err(anyhow!("Unsupported platform: {}", target_os)),
+        };
+
+        Ok(base_path.join(binary_name))
+    }
+
+    fn get_snapshot_converter_config_path(
+        distribution_dir: &Path,
+        network: &CardanoNetwork,
+    ) -> PathBuf {
+        distribution_dir
+            .join(SNAPSHOT_CONVERTER_CONFIG_DIR)
+            .join(network.to_string())
+            .join(SNAPSHOT_CONVERTER_CONFIG_FILE)
+    }
+
+    // TODO: quick dirty code to go further in `convert_ledger_snapshot` function, must be enhanced and tested.
+    fn find_less_recent_ledger_snapshot(db_dir: &Path) -> MithrilResult<(u64, PathBuf)> {
+        let ledger_dir = db_dir.join(LEDGER_DIR);
+
+        let entries = std::fs::read_dir(&ledger_dir).with_context(|| {
+            format!("Failed to read ledger directory: {}", ledger_dir.display())
+        })?;
+
+        let mut min_slot: Option<(u64, PathBuf)> = None;
+
+        for entry in entries {
+            let entry = entry?;
+            let file_name = entry.file_name();
+            let file_name_str = file_name.to_str().unwrap();
+
+            let slot = match file_name_str.parse::<u64>() {
+                Ok(n) => n,
+                Err(_) => continue,
+            };
+
+            let path = entry.path();
+            if path.is_dir() {
+                match &min_slot {
+                    Some((current_min, _)) if *current_min <= slot => {}
+                    _ => min_slot = Some((slot, path)),
+                }
+            }
+        }
+
+        min_slot.ok_or_else(|| {
+            anyhow!(
+                "No valid ledger snapshot found in: {}",
+                ledger_dir.display()
+            )
+        })
     }
 }
 
@@ -256,5 +413,116 @@ mod tests {
         )
         .await
         .unwrap();
+    }
+
+    #[test]
+    fn get_snapshot_converter_binary_path_linux() {
+        let distribution_dir = PathBuf::from("/path/to/distribution");
+
+        let binary_path = SnapshotConverterCommand::get_snapshot_converter_binary_path(
+            &distribution_dir,
+            "linux",
+        )
+        .unwrap();
+
+        assert_eq!(
+            binary_path,
+            distribution_dir
+                .join(SNAPSHOT_CONVERTER_BIN_DIR)
+                .join(SNAPSHOT_CONVERTER_BIN_NAME_UNIX)
+        );
+    }
+
+    #[test]
+    fn get_snapshot_converter_binary_path_macos() {
+        let distribution_dir = PathBuf::from("/path/to/distribution");
+
+        let binary_path = SnapshotConverterCommand::get_snapshot_converter_binary_path(
+            &distribution_dir,
+            "macos",
+        )
+        .unwrap();
+
+        assert_eq!(
+            binary_path,
+            distribution_dir
+                .join(SNAPSHOT_CONVERTER_BIN_DIR)
+                .join(SNAPSHOT_CONVERTER_BIN_NAME_UNIX)
+        );
+    }
+
+    #[test]
+    fn get_snapshot_converter_binary_path_windows() {
+        let distribution_dir = PathBuf::from("/path/to/distribution");
+
+        let binary_path = SnapshotConverterCommand::get_snapshot_converter_binary_path(
+            &distribution_dir,
+            "windows",
+        )
+        .unwrap();
+
+        assert_eq!(
+            binary_path,
+            distribution_dir
+                .join(SNAPSHOT_CONVERTER_BIN_DIR)
+                .join(SNAPSHOT_CONVERTER_BIN_NAME_WINDOWS)
+        );
+    }
+
+    #[test]
+    fn get_snapshot_converter_config_path_mainnet() {
+        let distribution_dir = PathBuf::from("/path/to/distribution");
+        let network = CardanoNetwork::Mainnet;
+
+        let config_path = SnapshotConverterCommand::get_snapshot_converter_config_path(
+            &distribution_dir,
+            &network,
+        );
+
+        assert_eq!(
+            config_path,
+            distribution_dir
+                .join(SNAPSHOT_CONVERTER_CONFIG_DIR)
+                .join(network.to_string())
+                .join(SNAPSHOT_CONVERTER_CONFIG_FILE)
+        );
+    }
+
+    #[test]
+    fn get_snapshot_converter_config_path_preprod() {
+        let distribution_dir = PathBuf::from("/path/to/distribution");
+        let network = CardanoNetwork::Preprod;
+
+        let config_path = SnapshotConverterCommand::get_snapshot_converter_config_path(
+            &distribution_dir,
+            &network,
+        );
+
+        assert_eq!(
+            config_path,
+            distribution_dir
+                .join(SNAPSHOT_CONVERTER_CONFIG_DIR)
+                .join(network.to_string())
+                .join(SNAPSHOT_CONVERTER_CONFIG_FILE)
+        );
+    }
+
+    #[test]
+    fn get_snapshot_converter_config_path_preview() {
+        let distribution_dir = PathBuf::from("/path/to/distribution");
+        let network = CardanoNetwork::Preview;
+
+        let config_path = SnapshotConverterCommand::get_snapshot_converter_config_path(
+            &distribution_dir,
+            &network,
+        );
+
+        assert_eq!(
+            config_path,
+            distribution_dir
+                .join(SNAPSHOT_CONVERTER_CONFIG_DIR)
+                .join(network.to_string())
+                .join(SNAPSHOT_CONVERTER_CONFIG_FILE)
+        );
     }
 }
