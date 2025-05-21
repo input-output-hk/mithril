@@ -120,7 +120,9 @@ use crate::file_downloader::{DownloadEvent, FileDownloader};
 #[cfg(feature = "fs")]
 use crate::utils::create_bootstrap_node_files;
 #[cfg(feature = "fs")]
-use crate::utils::{AncillaryVerifier, ANCILLARIES_NOT_SIGNED_BY_MITHRIL};
+use crate::utils::{
+    AncillaryVerifier, UnexpectedDownloadedFileVerifier, ANCILLARIES_NOT_SIGNED_BY_MITHRIL,
+};
 use crate::{MithrilResult, Snapshot, SnapshotListItem};
 
 /// Error for the Snapshot client
@@ -224,23 +226,29 @@ impl SnapshotClient {
             snapshot: &Snapshot,
             target_dir: &Path,
         ) -> MithrilResult<()> {
-            use crate::feedback::MithrilEvent;
             if self.ancillary_verifier.is_none() {
                 return Err(SnapshotClientError::MissingAncillaryVerifier.into());
             }
 
-            let download_id = MithrilEvent::new_snapshot_download_id();
-            self.download_unpack_immutables_files(snapshot, target_dir, &download_id)
-                .await?;
-            self.download_unpack_ancillary(snapshot, target_dir, &download_id)
-                .await?;
-            create_bootstrap_node_files(
-                &self.logger,
+            let include_ancillary = true;
+            let expected_files_after_download = UnexpectedDownloadedFileVerifier::new(
                 target_dir,
                 &snapshot.network,
-            )?;
+                include_ancillary,
+                snapshot.beacon.immutable_file_number,
+                &self.logger
+            )
+            .compute_expected_state_after_download()
+            .await?;
 
-            Ok(())
+            // Return the result later so unexpected file removal is always run
+            let result = self.run_download_unpack(snapshot, target_dir, include_ancillary).await;
+
+            expected_files_after_download
+                .remove_unexpected_files()
+                .await?;
+
+            result
         }
 
         /// Download and unpack the given immutable files of the snapshot to the given directory
@@ -259,16 +267,48 @@ impl SnapshotClient {
                 self.logger,
                 "The fast bootstrap of the Cardano node is not available with the current parameters used in this command: the ledger state will be recomputed from genesis at startup of the Cardano node. Use the extra function download_unpack_full to allow it."
             );
+
+            let include_ancillary = false;
+            let expected_files_after_download = UnexpectedDownloadedFileVerifier::new(
+                target_dir,
+                &snapshot.network,
+                include_ancillary,
+                snapshot.beacon.immutable_file_number,
+                &self.logger
+            )
+            .compute_expected_state_after_download()
+            .await?;
+
+            // Return the result later so unexpected file removal is always run
+            let result = self.run_download_unpack(snapshot, target_dir, include_ancillary).await;
+
+            expected_files_after_download
+                .remove_unexpected_files()
+                .await?;
+
+            result
+        }
+
+        async fn run_download_unpack(
+            &self,
+            snapshot: &Snapshot,
+            target_dir: &Path,
+            include_ancillary: bool,
+        ) -> MithrilResult<()> {
             use crate::feedback::MithrilEvent;
+
             let download_id = MithrilEvent::new_snapshot_download_id();
             self.download_unpack_immutables_files(snapshot, target_dir, &download_id)
                 .await?;
+            if include_ancillary {
+                self.download_unpack_ancillary(snapshot, target_dir, &download_id)
+                    .await?;
+            }
             create_bootstrap_node_files(
                 &self.logger,
                 target_dir,
                 &snapshot.network,
             )?;
-
             Ok(())
         }
 
@@ -438,9 +478,12 @@ mod tests {
         test_utils::TestLogger,
     };
 
-    use super::*;
+    use mithril_common::{
+        assert_dir_eq, crypto_helper::ManifestSigner, digesters::IMMUTABLE_DIR, temp_dir_create,
+        test_utils::fake_keys,
+    };
 
-    use mithril_common::{assert_dir_eq, temp_dir_create};
+    use super::*;
 
     fn dummy_download_event() -> DownloadEvent {
         DownloadEvent::Full {
@@ -621,6 +664,38 @@ mod tests {
                 "Expected SnapshotClientError::MissingAncillaryVerifier, but got: {error:#?}"
             );
         }
+
+        #[tokio::test]
+        async fn remove_unexpected_downloaded_files_even_if_failing_to_verify_ancillary() {
+            let test_dir = temp_dir_create!();
+            let immutable_dir = test_dir.join(IMMUTABLE_DIR);
+            std::fs::create_dir(&immutable_dir).unwrap();
+            let snapshot = Snapshot::dummy();
+
+            let mut mock_downloader = MockFileDownloader::new();
+            mock_downloader
+                .expect_download_unpack()
+                .returning(move |_, _, _, _, _| {
+                    // Simulate an additional file written mid-download
+                    std::fs::File::create(immutable_dir.join("unexpected.md")).unwrap();
+                    Ok(())
+                });
+
+            let client = setup_snapshot_client(
+                Arc::new(mock_downloader),
+                Some(Arc::new(AncillaryVerifier::new(
+                    fake_keys::manifest_verification_key()[0]
+                        .try_into()
+                        .unwrap(),
+                ))),
+            );
+
+            client
+                .download_unpack_full(&snapshot, &test_dir)
+                .await
+                .unwrap_err();
+            assert_dir_eq!(&test_dir, format!("* {IMMUTABLE_DIR}/"));
+        }
     }
 
     mod download_unpack {
@@ -650,12 +725,34 @@ mod tests {
                 "Expected log message not found, logs: {log_inspector}"
             );
         }
+
+        #[tokio::test]
+        async fn remove_unexpected_downloaded_files() {
+            let test_dir = temp_dir_create!();
+            let immutable_dir = test_dir.join(IMMUTABLE_DIR);
+            std::fs::create_dir(&immutable_dir).unwrap();
+            let snapshot = Snapshot::dummy();
+
+            let mut mock_downloader = MockFileDownloader::new();
+            mock_downloader
+                .expect_download_unpack()
+                .returning(move |_, _, _, _, _| {
+                    // Simulate an additional file written mid-download
+                    std::fs::File::create(immutable_dir.join("unexpected.md")).unwrap();
+                    Ok(())
+                });
+
+            let client = setup_snapshot_client(Arc::new(mock_downloader), None);
+
+            client.download_unpack(&snapshot, &test_dir).await.unwrap();
+            assert_dir_eq!(
+                &test_dir,
+                format!("* {IMMUTABLE_DIR}/\n* clean\n * protocolMagicId")
+            );
+        }
     }
 
     mod download_unpack_ancillary {
-        use mithril_common::crypto_helper::ManifestSigner;
-        use mithril_common::test_utils::fake_keys;
-
         use crate::file_downloader::FakeAncillaryFileBuilder;
 
         use super::*;
