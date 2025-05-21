@@ -57,6 +57,21 @@ impl PallasChainReader {
             .with_context(|| "PallasChainReader failed to get a client")
     }
 
+    #[cfg(test)]
+    /// Check if the client already exists (test only).
+    fn has_client(&self) -> bool {
+        self.client.is_some()
+    }
+
+    /// Drops the client by aborting the connection and setting it to `None`.
+    fn drop_client(&mut self) {
+        if let Some(client) = self.client.take() {
+            tokio::spawn(async move {
+                let _ = client.abort().await;
+            });
+        }
+    }
+
     /// Intersects the point of the chain with the given point.
     async fn find_intersect_point(&mut self, point: &RawCardanoPoint) -> StdResult<()> {
         let logger = self.logger.clone();
@@ -99,30 +114,38 @@ impl PallasChainReader {
 
 impl Drop for PallasChainReader {
     fn drop(&mut self) {
-        if let Some(client) = self.client.take() {
-            tokio::spawn(async move {
-                let _ = client.abort().await;
-            });
-        }
+        self.drop_client();
     }
 }
 
 #[async_trait]
 impl ChainBlockReader for PallasChainReader {
     async fn set_chain_point(&mut self, point: &RawCardanoPoint) -> StdResult<()> {
-        self.find_intersect_point(point).await
+        match self.find_intersect_point(point).await {
+            Ok(()) => Ok(()),
+            Err(err) => {
+                self.drop_client();
+
+                return Err(err);
+            }
+        }
     }
 
     async fn get_next_chain_block(&mut self) -> StdResult<Option<ChainBlockNextAction>> {
         let client = self.get_client().await?;
         let chainsync = client.chainsync();
-
         let next = match chainsync.has_agency() {
-            true => chainsync.request_next().await?,
-            false => chainsync.recv_while_must_reply().await?,
+            true => chainsync.request_next().await,
+            false => chainsync.recv_while_must_reply().await,
         };
+        match next {
+            Ok(next) => self.process_chain_block_next_action(next).await,
+            Err(err) => {
+                self.drop_client();
 
-        self.process_chain_block_next_action(next).await
+                return Err(err.into());
+            }
+        }
     }
 }
 
@@ -142,6 +165,7 @@ mod tests {
     use super::*;
 
     use crate::test_utils::TestLogger;
+    use crate::*;
     use crate::{entities::BlockNumber, test_utils::TempDir};
 
     /// Enum representing the action to be performed by the server.
@@ -201,7 +225,7 @@ mod tests {
         socket_path: PathBuf,
         action: ServerAction,
         has_agency: HasAgency,
-    ) -> tokio::task::JoinHandle<()> {
+    ) -> tokio::task::JoinHandle<NodeServer> {
         tokio::spawn({
             async move {
                 if socket_path.exists() {
@@ -249,14 +273,15 @@ mod tests {
                             .unwrap();
                     }
                 }
+
+                server
             }
         })
     }
 
     #[tokio::test]
     async fn get_next_chain_block_rolls_backward() {
-        let socket_path =
-            create_temp_dir("get_next_chain_block_rolls_backward").join("node.socket");
+        let socket_path = create_temp_dir(current_function!()).join("node.socket");
         let known_point = get_fake_specific_point();
         let server = setup_server(
             socket_path.clone(),
@@ -291,7 +316,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_next_chain_block_rolls_forward() {
-        let socket_path = create_temp_dir("get_next_chain_block_rolls_forward").join("node.socket");
+        let socket_path = create_temp_dir(current_function!()).join("node.socket");
         let known_point = get_fake_specific_point();
         let server = setup_server(
             socket_path.clone(),
@@ -326,7 +351,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_next_chain_block_has_no_agency() {
-        let socket_path = create_temp_dir("get_next_chain_block_has_no_agency").join("node.socket");
+        let socket_path = create_temp_dir(current_function!()).join("node.socket");
         let known_point = get_fake_specific_point();
         let server = setup_server(
             socket_path.clone(),
@@ -374,5 +399,58 @@ mod tests {
             }
             _ => panic!("Unexpected chain block action"),
         }
+    }
+
+    #[tokio::test]
+    async fn cached_client_is_dropped_when_returning_error() {
+        let socket_path = create_temp_dir(current_function!()).join("node.socket");
+        let socket_path_clone = socket_path.clone();
+        let known_point = get_fake_specific_point();
+        let server = setup_server(
+            socket_path.clone(),
+            ServerAction::RollForward,
+            HasAgency::Yes,
+        )
+        .await;
+        let client = tokio::spawn(async move {
+            let mut chain_reader = PallasChainReader::new(
+                socket_path_clone.as_path(),
+                CardanoNetwork::TestNet(10),
+                TestLogger::stdout(),
+            );
+
+            chain_reader
+                .set_chain_point(&RawCardanoPoint::from(known_point.clone()))
+                .await
+                .unwrap();
+
+            chain_reader.get_next_chain_block().await.unwrap().unwrap();
+
+            chain_reader
+        });
+
+        let (server_res, client_res) = tokio::join!(server, client);
+        let chain_reader = client_res.expect("Client failed to get chain reader");
+        let server = server_res.expect("Server failed to get server");
+        server.abort().await;
+
+        let client = tokio::spawn(async move {
+            let mut chain_reader = chain_reader;
+
+            assert!(chain_reader.has_client(), "Client should exist");
+
+            chain_reader
+                .get_next_chain_block()
+                .await
+                .expect_err("Chain reader get_next_chain_block should fail");
+
+            assert!(
+                !chain_reader.has_client(),
+                "Client should have been dropped after error"
+            );
+
+            chain_reader
+        });
+        client.await.unwrap();
     }
 }
