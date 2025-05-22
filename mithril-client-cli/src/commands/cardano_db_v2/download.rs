@@ -18,7 +18,7 @@ use mithril_client::{
 
 use crate::{
     commands::{client_builder, SharedArgs},
-    configuration::{ConfigError, ConfigSource},
+    configuration::{ConfigError, ConfigParameters, ConfigSource},
     utils::{
         self, AncillaryLogMessage, CardanoDbDownloadChecker, CardanoDbUtils, ExpanderUtils,
         IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter,
@@ -75,7 +75,7 @@ pub struct CardanoDbV2DownloadCommand {
     /// By default, only finalized immutable files are downloaded.
     /// The last ledger state snapshot and the last immutable file (the ancillary files) can be
     /// downloaded with this option.
-    #[clap(long, requires = "ancillary_verification_key")]
+    #[clap(long)]
     include_ancillary: bool,
 
     /// Ancillary verification key to verify the ancillary files.
@@ -88,35 +88,52 @@ pub struct CardanoDbV2DownloadCommand {
 }
 
 impl CardanoDbV2DownloadCommand {
-    /// Is JSON output enabled
-    pub fn is_json_output_enabled(&self) -> bool {
-        self.shared_args.json
-    }
-
-    fn immutable_file_range(
-        start: Option<ImmutableFileNumber>,
-        end: Option<ImmutableFileNumber>,
-    ) -> ImmutableFileRange {
-        match (start, end) {
-            (None, None) => ImmutableFileRange::Full,
-            (Some(start), None) => ImmutableFileRange::From(start),
-            (Some(start), Some(end)) => ImmutableFileRange::Range(start, end),
-            (None, Some(end)) => ImmutableFileRange::UpTo(end),
-        }
-    }
-
     /// Command execution
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
-        if self.include_ancillary {
+        let params = context.config_parameters()?.add_source(self)?;
+        let prepared_command = self.prepare(&params)?;
+
+        prepared_command.execute(context.logger(), params).await
+    }
+
+    fn prepare(&self, params: &ConfigParameters) -> MithrilResult<PreparedCardanoDbV2Download> {
+        let ancillary_verification_key = if self.include_ancillary {
             AncillaryLogMessage::warn_ancillary_not_signed_by_mithril();
+            Some(params.require("ancillary_verification_key")?)
         } else {
             AncillaryLogMessage::warn_fast_bootstrap_not_available();
-        }
+            None
+        };
 
-        let params = context.config_parameters()?.add_source(self)?;
-        let download_dir: &String = &params.require("download_dir")?;
+        Ok(PreparedCardanoDbV2Download {
+            shared_args: self.shared_args.clone(),
+            hash: self.hash.clone(),
+            download_dir: params.require("download_dir")?,
+            start: self.start,
+            end: self.end,
+            include_ancillary: self.include_ancillary,
+            ancillary_verification_key,
+            allow_override: self.allow_override,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+struct PreparedCardanoDbV2Download {
+    shared_args: SharedArgs,
+    hash: String,
+    download_dir: String,
+    start: Option<ImmutableFileNumber>,
+    end: Option<ImmutableFileNumber>,
+    include_ancillary: bool,
+    ancillary_verification_key: Option<String>,
+    allow_override: bool,
+}
+
+impl PreparedCardanoDbV2Download {
+    pub async fn execute(&self, logger: &Logger, params: ConfigParameters) -> MithrilResult<()> {
         let restoration_options = RestorationOptions {
-            db_dir: Path::new(download_dir).join("db_v2"),
+            db_dir: Path::new(&self.download_dir).join("db_v2"),
             immutable_file_range: Self::immutable_file_range(self.start, self.end),
             download_unpack_options: DownloadUnpackOptions {
                 allow_override: self.allow_override,
@@ -125,7 +142,6 @@ impl CardanoDbV2DownloadCommand {
             },
             disk_space_safety_margin_ratio: DISK_SPACE_SAFETY_MARGIN_RATIO,
         };
-        let logger = context.logger();
 
         let progress_output_type = if self.is_json_output_enabled() {
             ProgressOutputType::JsonReporter
@@ -232,6 +248,23 @@ impl CardanoDbV2DownloadCommand {
         )?;
 
         Ok(())
+    }
+
+    /// Is JSON output enabled
+    pub fn is_json_output_enabled(&self) -> bool {
+        self.shared_args.json
+    }
+
+    fn immutable_file_range(
+        start: Option<ImmutableFileNumber>,
+        end: Option<ImmutableFileNumber>,
+    ) -> ImmutableFileRange {
+        match (start, end) {
+            (None, None) => ImmutableFileRange::Full,
+            (Some(start), None) => ImmutableFileRange::From(start),
+            (Some(start), Some(end)) => ImmutableFileRange::Range(start, end),
+            (None, Some(end)) => ImmutableFileRange::UpTo(end),
+        }
     }
 
     fn compute_total_immutables_restored_size(
@@ -512,12 +545,20 @@ impl ConfigSource for CardanoDbV2DownloadCommand {
             );
         }
 
+        if let Some(ancillary_verification_key) = self.ancillary_verification_key.clone() {
+            map.insert(
+                "ancillary_verification_key".to_string(),
+                ancillary_verification_key,
+            );
+        }
+
         Ok(map)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use config::ConfigBuilder;
     use mithril_client::{
         common::{
             AncillaryMessagePart, CardanoDbBeacon, DigestsMessagePart, ImmutablesMessagePart,
@@ -555,14 +596,88 @@ mod tests {
         }
     }
 
+    fn dummy_command() -> CardanoDbV2DownloadCommand {
+        CardanoDbV2DownloadCommand {
+            shared_args: SharedArgs { json: false },
+            hash: "whatever_hash".to_string(),
+            download_dir: Some(std::path::PathBuf::from("whatever_dir")),
+            genesis_verification_key: Some("whatever".to_string()),
+            start: None,
+            end: None,
+            include_ancillary: true,
+            ancillary_verification_key: Some("whatever".to_string()),
+            allow_override: false,
+        }
+    }
+
+    #[tokio::test]
+    async fn ancillary_verification_key_is_mandatory_when_include_ancillary_is_true() {
+        let command = CardanoDbV2DownloadCommand {
+            include_ancillary: true,
+            ancillary_verification_key: None,
+            ..dummy_command()
+        };
+        let command_context = CommandContext::new(
+            ConfigBuilder::default(),
+            false,
+            Logger::root(slog::Discard, slog::o!()),
+        );
+
+        let result = command.execute(command_context).await;
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Parameter 'ancillary_verification_key' is mandatory."
+        );
+    }
+
     #[test]
-    fn ancillary_verification_key_is_mandatory_when_include_ancillary_is_true() {
-        CardanoDbV2DownloadCommand::try_parse_from([
-            "cdbv2-command",
-            "--include-ancillary",
-            "whatever_hash",
-        ])
-        .expect_err("The command should fail because ancillary_verification_key is not set");
+    fn ancillary_verification_key_can_be_read_through_configuration_file() {
+        let command = CardanoDbV2DownloadCommand {
+            ancillary_verification_key: None,
+            ..dummy_command()
+        };
+        let config = config::Config::builder()
+            .set_default("ancillary_verification_key", "value from config")
+            .expect("Failed to build config builder");
+        let command_context =
+            CommandContext::new(config, false, Logger::root(slog::Discard, slog::o!()));
+        let config_parameters = command_context
+            .config_parameters()
+            .unwrap()
+            .add_source(&command)
+            .unwrap();
+
+        let result = command.prepare(&config_parameters);
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn db_download_dir_is_mandatory_to_execute_command() {
+        let command = CardanoDbV2DownloadCommand {
+            download_dir: None,
+            ..dummy_command()
+        };
+        let command_context = CommandContext::new(
+            ConfigBuilder::default(),
+            false,
+            Logger::root(slog::Discard, slog::o!()),
+        );
+        let config_parameters = command_context
+            .config_parameters()
+            .unwrap()
+            .add_source(&command)
+            .unwrap();
+
+        let result = command.prepare(&config_parameters);
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Parameter 'download_dir' is mandatory."
+        );
     }
 
     #[tokio::test]
@@ -584,7 +699,7 @@ mod tests {
             "verify_cardano_db_snapshot_signature_should_remove_db_dir_if_messages_mismatch",
         );
 
-        let result = CardanoDbV2DownloadCommand::verify_cardano_db_snapshot_signature(
+        let result = PreparedCardanoDbV2Download::verify_cardano_db_snapshot_signature(
             &Logger::root(slog::Discard, slog::o!()),
             1,
             &progress_printer,
@@ -604,7 +719,7 @@ mod tests {
 
     #[test]
     fn immutable_file_range_without_start_without_end_returns_variant_full() {
-        let range = CardanoDbV2DownloadCommand::immutable_file_range(None, None);
+        let range = PreparedCardanoDbV2Download::immutable_file_range(None, None);
 
         assert_eq!(range, ImmutableFileRange::Full);
     }
@@ -613,7 +728,7 @@ mod tests {
     fn immutable_file_range_with_start_without_end_returns_variant_from() {
         let start = Some(12);
 
-        let range = CardanoDbV2DownloadCommand::immutable_file_range(start, None);
+        let range = PreparedCardanoDbV2Download::immutable_file_range(start, None);
 
         assert_eq!(range, ImmutableFileRange::From(12));
     }
@@ -623,7 +738,7 @@ mod tests {
         let start = Some(12);
         let end = Some(345);
 
-        let range = CardanoDbV2DownloadCommand::immutable_file_range(start, end);
+        let range = PreparedCardanoDbV2Download::immutable_file_range(start, end);
 
         assert_eq!(range, ImmutableFileRange::Range(12, 345));
     }
@@ -632,7 +747,7 @@ mod tests {
     fn immutable_file_range_without_start_with_end_returns_variant_up_to() {
         let end = Some(345);
 
-        let range = CardanoDbV2DownloadCommand::immutable_file_range(None, end);
+        let range = PreparedCardanoDbV2Download::immutable_file_range(None, end);
 
         assert_eq!(range, ImmutableFileRange::UpTo(345));
     }
@@ -650,7 +765,7 @@ mod tests {
             disk_space_safety_margin_ratio: 0.0,
         };
 
-        let required_size = CardanoDbV2DownloadCommand::compute_required_disk_space_for_snapshot(
+        let required_size = PreparedCardanoDbV2Download::compute_required_disk_space_for_snapshot(
             &cardano_db_snapshot,
             &restoration_options,
         );
@@ -685,7 +800,7 @@ mod tests {
             disk_space_safety_margin_ratio: 0.0,
         };
 
-        let required_size = CardanoDbV2DownloadCommand::compute_required_disk_space_for_snapshot(
+        let required_size = PreparedCardanoDbV2Download::compute_required_disk_space_for_snapshot(
             &cardano_db_snapshot,
             &restoration_options,
         );
@@ -725,7 +840,7 @@ mod tests {
             disk_space_safety_margin_ratio: 0.0,
         };
 
-        let required_size = CardanoDbV2DownloadCommand::compute_required_disk_space_for_snapshot(
+        let required_size = PreparedCardanoDbV2Download::compute_required_disk_space_for_snapshot(
             &cardano_db_snapshot,
             &restoration_options,
         );
@@ -741,12 +856,24 @@ mod tests {
 
     #[test]
     fn add_safety_margin_apply_margin_with_ratio() {
-        assert_eq!(CardanoDbV2DownloadCommand::add_safety_margin(100, 0.1), 110);
-        assert_eq!(CardanoDbV2DownloadCommand::add_safety_margin(100, 0.5), 150);
-        assert_eq!(CardanoDbV2DownloadCommand::add_safety_margin(100, 1.5), 250);
+        assert_eq!(
+            PreparedCardanoDbV2Download::add_safety_margin(100, 0.1),
+            110
+        );
+        assert_eq!(
+            PreparedCardanoDbV2Download::add_safety_margin(100, 0.5),
+            150
+        );
+        assert_eq!(
+            PreparedCardanoDbV2Download::add_safety_margin(100, 1.5),
+            250
+        );
 
-        assert_eq!(CardanoDbV2DownloadCommand::add_safety_margin(0, 0.1), 0);
+        assert_eq!(PreparedCardanoDbV2Download::add_safety_margin(0, 0.1), 0);
 
-        assert_eq!(CardanoDbV2DownloadCommand::add_safety_margin(100, 0.0), 100);
+        assert_eq!(
+            PreparedCardanoDbV2Download::add_safety_margin(100, 0.0),
+            100
+        );
     }
 }
