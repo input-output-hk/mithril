@@ -1,5 +1,6 @@
 use std::{
     cmp::Ordering,
+    ffi::OsString,
     path::{Path, PathBuf},
 };
 use thiserror::Error;
@@ -20,15 +21,16 @@ fn find_ledger_dir(path_to_walk: &Path) -> Option<PathBuf> {
 
 /// Represent an ledger file in a Cardano node database directory
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct LedgerStateSnapshot {
-    /// The path to the ledger file
-    pub path: PathBuf,
-
-    /// The ledger file slot number
-    pub slot_number: SlotNumber,
-
-    /// The filename
-    pub filename: String,
+pub enum LedgerStateSnapshot {
+    /// Snapshot of a legacy ledger state (before UTxO-HD)
+    Legacy {
+        /// The path to the ledger file
+        path: PathBuf,
+        /// The ledger file slot number
+        slot_number: SlotNumber,
+        /// The filename
+        filename: OsString,
+    },
 }
 
 /// [LedgerStateSnapshot::list_all_in_dir] related errors.
@@ -40,28 +42,34 @@ pub enum LedgerStateSnapshotListingError {
 }
 
 impl LedgerStateSnapshot {
-    /// `LedgerStateSnapshot` factory
-    pub fn new<T: Into<String>>(path: PathBuf, slot_number: SlotNumber, filename: T) -> Self {
-        Self {
+    /// `LedgerStateSnapshot::Legacy` factory
+    pub fn legacy(path: PathBuf, slot_number: SlotNumber, filename: OsString) -> Self {
+        Self::Legacy {
             path,
             slot_number,
-            filename: filename.into(),
+            filename,
         }
     }
 
     /// Convert a path to a [LedgerStateSnapshot] if it satisfies the constraints.
     ///
-    /// The constraints are: the path must be a file, the filename should only contain a number (no
-    /// extension).
+    /// The constraints are:
+    /// - legacy state snapshot: the path must be a file, the filename should only contain a number (no
+    ///   extension).
     pub fn from_path(path: &Path) -> Option<LedgerStateSnapshot> {
-        path.file_name()
-            .map(|name| name.to_string_lossy())
-            .and_then(|filename| {
-                filename
-                    .parse::<u64>()
-                    .map(|number| Self::new(path.to_path_buf(), SlotNumber(number), filename))
-                    .ok()
-            })
+        path.file_name().and_then(|filename| {
+            filename
+                .to_string_lossy()
+                .parse::<u64>()
+                .map(|number| {
+                    Self::legacy(
+                        path.to_path_buf(),
+                        SlotNumber(number),
+                        filename.to_os_string(),
+                    )
+                })
+                .ok()
+        })
     }
 
     /// List all [`LedgerStateSnapshot`] in a given directory.
@@ -88,6 +96,22 @@ impl LedgerStateSnapshot {
 
         Ok(files)
     }
+
+    /// Return paths to all files that constitute this snapshot
+    ///
+    /// Returned path are relative to the cardano node database ledger dir
+    pub fn get_files_relative_path(&self) -> Vec<PathBuf> {
+        match self {
+            LedgerStateSnapshot::Legacy { filename, .. } => vec![PathBuf::from(filename)],
+        }
+    }
+
+    /// Return the slot number when this snapshot was taken
+    pub fn slot_number(&self) -> SlotNumber {
+        match self {
+            LedgerStateSnapshot::Legacy { slot_number, .. } => *slot_number,
+        }
+    }
 }
 
 impl PartialOrd for LedgerStateSnapshot {
@@ -98,24 +122,23 @@ impl PartialOrd for LedgerStateSnapshot {
 
 impl Ord for LedgerStateSnapshot {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.slot_number
-            .cmp(&other.slot_number)
-            .then(self.path.cmp(&other.path))
+        self.slot_number().cmp(&other.slot_number())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::fs::File;
+    use std::fs::{create_dir, File};
     use std::io::prelude::*;
-    use std::path::{Path, PathBuf};
 
-    use crate::test_utils::TempDir;
+    use crate::test_utils::temp_dir_create;
 
-    use super::LedgerStateSnapshot;
+    use super::*;
 
-    fn get_test_dir(subdir_name: &str) -> PathBuf {
-        TempDir::create("ledger_file", subdir_name)
+    fn create_ledger_dir(parent_dir: &Path) -> PathBuf {
+        let ledger_dir = parent_dir.join(LEDGER_DIR);
+        create_dir(&ledger_dir).unwrap();
+        ledger_dir
     }
 
     fn create_fake_files(parent_dir: &Path, child_filenames: &[&str]) {
@@ -129,52 +152,57 @@ mod tests {
     fn extract_filenames(ledger_files: &[LedgerStateSnapshot]) -> Vec<String> {
         ledger_files
             .iter()
-            .map(|i| i.path.file_name().unwrap().to_str().unwrap().to_owned())
+            .flat_map(|i| i.get_files_relative_path())
+            .map(|p| p.file_name().unwrap().to_string_lossy().to_string())
             .collect()
     }
 
     #[test]
     fn list_all_ledger_file_fail_if_not_in_ledger_dir() {
-        let target_dir = get_test_dir("list_all_ledger_file_fail_if_not_in_ledger_dir/invalid");
-        let entries = vec![];
-        create_fake_files(&target_dir, &entries);
+        let target_dir = temp_dir_create!();
 
-        LedgerStateSnapshot::list_all_in_dir(target_dir.parent().unwrap())
+        LedgerStateSnapshot::list_all_in_dir(&target_dir)
             .expect_err("LedgerStateSnapshot::list_all_in_dir should have Failed");
     }
 
     #[test]
     fn list_all_ledger_file_should_works_in_a_empty_folder() {
-        let target_dir = get_test_dir("list_all_ledger_file_should_works_in_a_empty_folder/ledger");
-        let result = LedgerStateSnapshot::list_all_in_dir(target_dir.parent().unwrap())
+        let target_dir = temp_dir_create!();
+        create_ledger_dir(&target_dir);
+        let result = LedgerStateSnapshot::list_all_in_dir(&target_dir)
             .expect("LedgerStateSnapshot::list_all_in_dir should work in a empty folder");
 
-        assert!(result.is_empty());
+        assert_eq!(Vec::<LedgerStateSnapshot>::new(), result);
     }
 
-    #[test]
-    fn list_all_ledger_file_order_should_be_deterministic() {
-        let target_dir = get_test_dir("list_all_ledger_file_order_should_be_deterministic/ledger");
-        let entries = vec!["424", "123", "124", "00125", "21", "223", "0423"];
-        create_fake_files(&target_dir, &entries);
-        let ledger_files = LedgerStateSnapshot::list_all_in_dir(target_dir.parent().unwrap())
-            .expect("LedgerStateSnapshot::list_all_in_dir Failed");
+    mod legacy_ledger_state {
+        use super::*;
 
-        assert_eq!(
-            vec!["21", "123", "124", "00125", "223", "0423", "424"],
-            extract_filenames(&ledger_files)
-        );
-    }
+        #[test]
+        fn list_all_ledger_file_order_should_be_deterministic() {
+            let target_dir = temp_dir_create!();
+            let ledger_dir = create_ledger_dir(&target_dir);
+            let entries = vec!["424", "123", "124", "00125", "21", "223", "0423"];
+            create_fake_files(&ledger_dir, &entries);
+            let ledger_files = LedgerStateSnapshot::list_all_in_dir(&target_dir)
+                .expect("LedgerStateSnapshot::list_all_in_dir Failed");
 
-    #[test]
-    fn list_all_ledger_file_should_work_with_non_ledger_files() {
-        let target_dir =
-            get_test_dir("list_all_ledger_file_should_work_with_non_ledger_files/ledger");
-        let entries = vec!["123", "124", "README.md", "124.back"];
-        create_fake_files(&target_dir, &entries);
-        let ledger_files = LedgerStateSnapshot::list_all_in_dir(target_dir.parent().unwrap())
-            .expect("LedgerStateSnapshot::list_all_in_dir Failed");
+            assert_eq!(
+                vec!["21", "123", "124", "00125", "223", "0423", "424"],
+                extract_filenames(&ledger_files)
+            );
+        }
 
-        assert_eq!(vec!["123", "124"], extract_filenames(&ledger_files));
+        #[test]
+        fn list_all_ledger_file_should_work_with_non_ledger_files() {
+            let target_dir = temp_dir_create!();
+            let ledger_dir = create_ledger_dir(&target_dir);
+            let entries = vec!["123", "124", "README.md", "124.back"];
+            create_fake_files(&ledger_dir, &entries);
+            let ledger_files = LedgerStateSnapshot::list_all_in_dir(&target_dir)
+                .expect("LedgerStateSnapshot::list_all_in_dir Failed");
+
+            assert_eq!(vec!["123", "124"], extract_filenames(&ledger_files));
+        }
     }
 }
