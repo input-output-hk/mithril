@@ -6,7 +6,7 @@ mod dumb_immutable_digester;
 mod immutable_digester;
 mod immutable_file;
 mod immutable_file_observer;
-mod ledger_file;
+mod ledger_state_snapshot;
 
 pub use cardano_immutable_digester::CardanoImmutableDigester;
 pub use immutable_digester::{
@@ -17,7 +17,7 @@ pub use immutable_file_observer::{
     DumbImmutableFileObserver, ImmutableFileObserver, ImmutableFileObserverError,
     ImmutableFileSystemObserver,
 };
-pub use ledger_file::{LedgerFile, LedgerFileListingError};
+pub use ledger_state_snapshot::{LedgerStateSnapshot, LedgerStateSnapshotListingError};
 
 pub use dumb_immutable_digester::DumbImmutableDigester;
 

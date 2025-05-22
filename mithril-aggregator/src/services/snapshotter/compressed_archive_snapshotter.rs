@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use mithril_common::digesters::{
-    immutable_trio_names, ImmutableFile, LedgerFile, IMMUTABLE_DIR, LEDGER_DIR,
+    immutable_trio_names, ImmutableFile, LedgerStateSnapshot, IMMUTABLE_DIR, LEDGER_DIR,
 };
 use mithril_common::entities::{AncillaryFilesManifest, CompressionAlgorithm, ImmutableFileNumber};
 use mithril_common::logging::LoggerExtensions;
@@ -258,7 +258,7 @@ impl CompressedArchiveSnapshotter {
             .collect();
 
         let db_ledger_dir = self.db_directory.join(LEDGER_DIR);
-        let ledger_files = LedgerFile::list_all_in_dir(&db_ledger_dir)?;
+        let ledger_files = LedgerStateSnapshot::list_all_in_dir(&db_ledger_dir)?;
         let latest_ledger_files: Vec<PathBuf> = ledger_files
             .iter()
             .rev()
