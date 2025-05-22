@@ -15,8 +15,8 @@ use crate::cardano_database_client::ImmutableFileRange;
 use crate::feedback::{FeedbackSender, MithrilEvent, MithrilEventCardanoDatabase};
 use crate::file_downloader::{DownloadEvent, FileDownloader, FileDownloaderUri};
 use crate::utils::{
-    create_bootstrap_node_files, AncillaryVerifier, VecDequeExtensions,
-    ANCILLARIES_NOT_SIGNED_BY_MITHRIL,
+    create_bootstrap_node_files, AncillaryVerifier, UnexpectedDownloadedFileVerifier,
+    VecDequeExtensions, ANCILLARIES_NOT_SIGNED_BY_MITHRIL,
 };
 use crate::MithrilResult;
 
@@ -73,6 +73,16 @@ impl InternalArtifactDownloader {
             .verify_compatibility(&immutable_file_number_range, last_immutable_file_number)?;
         download_unpack_options.verify_can_write_to_target_directory(target_dir)?;
 
+        let expected_files_after_download = UnexpectedDownloadedFileVerifier::new(
+            target_dir,
+            &cardano_database_snapshot.network,
+            download_unpack_options.include_ancillary,
+            last_immutable_file_number,
+            &self.logger,
+        )
+        .compute_expected_state_after_download()
+        .await?;
+
         let mut tasks = VecDeque::from(self.build_download_tasks_for_immutables(
             &cardano_database_snapshot.immutables,
             immutable_file_number_range,
@@ -89,8 +99,15 @@ impl InternalArtifactDownloader {
         } else {
             slog::warn!(self.logger, "The fast bootstrap of the Cardano node is not available with the current parameters used in this command: the ledger state will be recomputed from genesis at startup of the Cardano node. Set the include_ancillary entry to true in the DownloadUnpackOptions.");
         }
-        self.batch_download_unpack(tasks, download_unpack_options.max_parallel_downloads)
+
+        // Return the result later so unexpected file removal is always run
+        let download_result = self
+            .batch_download_unpack(tasks, download_unpack_options.max_parallel_downloads)
+            .await;
+        expected_files_after_download
+            .remove_unexpected_files()
             .await?;
+        download_result?;
 
         create_bootstrap_node_files(&self.logger, target_dir, &cardano_database_snapshot.network)?;
 
@@ -268,11 +285,13 @@ mod tests {
     use super::*;
 
     mod download_unpack {
+        use mithril_common::assert_dir_eq;
         use mithril_common::crypto_helper::ManifestSigner;
+        use mithril_common::digesters::IMMUTABLE_DIR;
         use mithril_common::entities::CompressionAlgorithm;
         use mithril_common::messages::DigestsMessagePart;
 
-        use crate::file_downloader::FakeAncillaryFileBuilder;
+        use crate::file_downloader::{FakeAncillaryFileBuilder, MockFileDownloader};
 
         use super::*;
 
@@ -349,7 +368,7 @@ mod tests {
                 ..CardanoDatabaseSnapshot::dummy()
             };
             let target_dir = temp_dir_create!();
-            fs::create_dir_all(target_dir.join("immutable")).unwrap();
+            fs::create_dir_all(target_dir.join(IMMUTABLE_DIR)).unwrap();
             let client =
                 CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
 
@@ -434,6 +453,50 @@ mod tests {
                 )
                 .await
                 .unwrap();
+        }
+
+        #[tokio::test]
+        async fn download_unpack_remove_unexpected_downloaded_files() {
+            let target_dir = temp_dir_create!();
+            let immutable_dir = target_dir.join(IMMUTABLE_DIR);
+
+            let immutable_file_range = ImmutableFileRange::UpTo(1);
+            let download_unpack_options = DownloadUnpackOptions {
+                include_ancillary: false,
+                ..DownloadUnpackOptions::default()
+            };
+            let cardano_db_snapshot = CardanoDatabaseSnapshot::dummy();
+            let client = CardanoDatabaseClientDependencyInjector::new()
+                .with_http_file_downloader(Arc::new({
+                    let mut mock_downloader = MockFileDownloader::new();
+                    mock_downloader
+                        .expect_download_unpack()
+                        .returning(move |_, _, _, _, _| {
+                            // Simulate an additional file written mid-download
+                            if !immutable_dir.exists() {
+                                fs::create_dir(&immutable_dir).unwrap();
+                            }
+                            fs::File::create(immutable_dir.join("unexpected.md")).unwrap();
+                            Ok(())
+                        });
+                    mock_downloader
+                }))
+                .build_cardano_database_client();
+
+            client
+                .download_unpack(
+                    &cardano_db_snapshot,
+                    &immutable_file_range,
+                    &target_dir,
+                    download_unpack_options,
+                )
+                .await
+                .unwrap();
+
+            assert_dir_eq!(
+                &target_dir,
+                format!("* {IMMUTABLE_DIR}/\n* clean\n * protocolMagicId")
+            );
         }
 
         #[tokio::test]
