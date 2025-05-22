@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use mithril_common::api_version::APIVersionProvider;
-use mithril_common::MITHRIL_ORIGIN_TAG_HEADER;
+use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
 
 use crate::aggregator_client::{AggregatorClient, AggregatorHTTPClient};
 #[cfg(feature = "unstable")]
@@ -151,6 +151,7 @@ pub struct ClientBuilder {
     aggregator_endpoint: Option<String>,
     genesis_verification_key: String,
     origin_tag: Option<String>,
+    client_type: Option<String>,
     #[cfg(feature = "fs")]
     ancillary_verification_key: Option<String>,
     aggregator_client: Option<Arc<dyn AggregatorClient>>,
@@ -172,6 +173,7 @@ impl ClientBuilder {
             aggregator_endpoint: Some(endpoint.to_string()),
             genesis_verification_key: genesis_verification_key.to_string(),
             origin_tag: None,
+            client_type: None,
             #[cfg(feature = "fs")]
             ancillary_verification_key: None,
             aggregator_client: None,
@@ -195,6 +197,7 @@ impl ClientBuilder {
             aggregator_endpoint: None,
             genesis_verification_key: genesis_verification_key.to_string(),
             origin_tag: None,
+            client_type: None,
             #[cfg(feature = "fs")]
             ancillary_verification_key: None,
             aggregator_client: None,
@@ -343,6 +346,14 @@ impl ClientBuilder {
         if let Some(origin_tag) = self.origin_tag.clone() {
             headers.insert(MITHRIL_ORIGIN_TAG_HEADER.to_string(), origin_tag);
         }
+        if let Some(client_type) = self.client_type.clone() {
+            headers.insert(MITHRIL_CLIENT_TYPE_HEADER.to_string(), client_type);
+        } else if !headers.contains_key(MITHRIL_CLIENT_TYPE_HEADER) {
+            headers.insert(
+                MITHRIL_CLIENT_TYPE_HEADER.to_string(),
+                "LIBRARY".to_string(),
+            );
+        }
 
         headers
     }
@@ -410,6 +421,12 @@ impl ClientBuilder {
         self
     }
 
+    /// Set the client type.
+    pub fn with_client_type(mut self, client_type: Option<String>) -> Self {
+        self.client_type = client_type;
+        self
+    }
+
     /// Add a [feedback receiver][FeedbackReceiver] to receive [events][crate::feedback::MithrilEvent]
     /// for tasks that can have a long duration (ie: snapshot download or a long certificate chain
     /// validation).
@@ -429,9 +446,16 @@ impl ClientBuilder {
 mod tests {
     use super::*;
 
+    fn default_headers() -> HashMap<String, String> {
+        HashMap::from([(
+            MITHRIL_CLIENT_TYPE_HEADER.to_string(),
+            "LIBRARY".to_string(),
+        )])
+    }
+
     #[tokio::test]
     async fn compute_http_headers_returns_options_http_headers() {
-        let http_headers = HashMap::from([("Key".to_string(), "Value".to_string())]);
+        let http_headers = default_headers();
         let client_builder = ClientBuilder::new("").with_options(ClientOptions {
             http_headers: Some(http_headers.clone()),
         });
@@ -443,25 +467,20 @@ mod tests {
 
     #[tokio::test]
     async fn compute_http_headers_with_origin_tag_returns_options_http_headers_with_origin_tag() {
-        let http_headers = HashMap::from([("Key".to_string(), "Value".to_string())]);
+        let http_headers = default_headers();
         let client_builder = ClientBuilder::new("")
             .with_options(ClientOptions {
                 http_headers: Some(http_headers.clone()),
             })
             .with_origin_tag(Some("CLIENT_TAG".to_string()));
+        let mut expected_headers = http_headers.clone();
+        expected_headers.insert(
+            MITHRIL_ORIGIN_TAG_HEADER.to_string(),
+            "CLIENT_TAG".to_string(),
+        );
 
         let computed_headers = client_builder.compute_http_headers();
-
-        assert_eq!(
-            computed_headers,
-            HashMap::from([
-                ("Key".to_string(), "Value".to_string()),
-                (
-                    MITHRIL_ORIGIN_TAG_HEADER.to_string(),
-                    "CLIENT_TAG".to_string()
-                )
-            ])
-        );
+        assert_eq!(computed_headers, expected_headers);
     }
 
     #[tokio::test]
@@ -494,5 +513,112 @@ mod tests {
 
         assert_eq!(Some(http_headers), builder.options.http_headers);
         assert_eq!(None, builder.origin_tag);
+    }
+
+    #[tokio::test]
+    async fn compute_http_headers_with_client_type_returns_options_http_headers_with_client_type() {
+        let http_headers = HashMap::from([("Key".to_string(), "Value".to_string())]);
+        let client_builder = ClientBuilder::new("")
+            .with_options(ClientOptions {
+                http_headers: Some(http_headers.clone()),
+            })
+            .with_client_type(Some("CLIENT_TYPE".to_string()));
+
+        let computed_headers = client_builder.compute_http_headers();
+
+        assert_eq!(
+            computed_headers,
+            HashMap::from([
+                ("Key".to_string(), "Value".to_string()),
+                (
+                    MITHRIL_CLIENT_TYPE_HEADER.to_string(),
+                    "CLIENT_TYPE".to_string()
+                )
+            ])
+        );
+    }
+
+    //TODO FIX THIS BEHAVIOUR
+    #[tokio::test]
+    async fn compute_http_headers_with_options_containing_client_type_returns_client_type() {
+        let http_headers = HashMap::from([(
+            MITHRIL_CLIENT_TYPE_HEADER.to_string(),
+            "client type from options".to_string(),
+        )]);
+        let client_builder = ClientBuilder::new("").with_options(ClientOptions {
+            http_headers: Some(http_headers.clone()),
+        });
+
+        let computed_headers = client_builder.compute_http_headers();
+
+        assert_eq!(computed_headers, http_headers);
+    }
+
+    #[tokio::test]
+    async fn test_with_client_type_not_overwrite_other_client_options_attributes() {
+        let builder = ClientBuilder::new("")
+            .with_options(ClientOptions { http_headers: None })
+            .with_client_type(Some("TEST".to_string()));
+        assert_eq!(None, builder.options.http_headers);
+        assert_eq!(Some("TEST".to_string()), builder.client_type);
+
+        let http_headers = HashMap::from([("Key".to_string(), "Value".to_string())]);
+        let builder = ClientBuilder::new("")
+            .with_options(ClientOptions {
+                http_headers: Some(http_headers.clone()),
+            })
+            .with_client_type(Some("TEST".to_string()));
+        assert_eq!(Some(http_headers), builder.options.http_headers);
+        assert_eq!(Some("TEST".to_string()), builder.client_type);
+    }
+
+    #[tokio::test]
+    async fn test_given_a_none_client_type_compute_http_headers_will_set_client_type_to_default_value(
+    ) {
+        let builder_without_client_type = ClientBuilder::new("");
+        let computed_headers = builder_without_client_type.compute_http_headers();
+
+        assert_eq!(
+            computed_headers,
+            HashMap::from([(
+                MITHRIL_CLIENT_TYPE_HEADER.to_string(),
+                "LIBRARY".to_string()
+            )])
+        );
+
+        let builder_with_none_client_type = ClientBuilder::new("").with_client_type(None);
+        let computed_headers = builder_with_none_client_type.compute_http_headers();
+
+        assert_eq!(
+            computed_headers,
+            HashMap::from([(
+                MITHRIL_CLIENT_TYPE_HEADER.to_string(),
+                "LIBRARY".to_string()
+            )])
+        );
+    }
+
+    #[tokio::test]
+    async fn test_compute_http_headers_will_compute_client_type_header_from_struct_attribute_over_options(
+    ) {
+        let http_headers = HashMap::from([(
+            MITHRIL_CLIENT_TYPE_HEADER.to_string(),
+            "client type from options".to_string(),
+        )]);
+        let client_builder = ClientBuilder::new("")
+            .with_options(ClientOptions {
+                http_headers: Some(http_headers.clone()),
+            })
+            .with_client_type(Some("client type".to_string()));
+
+        let computed_headers = client_builder.compute_http_headers();
+
+        assert_eq!(
+            computed_headers,
+            HashMap::from([(
+                MITHRIL_CLIENT_TYPE_HEADER.to_string(),
+                "client type".to_string()
+            )])
+        );
     }
 }

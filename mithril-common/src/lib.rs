@@ -75,6 +75,9 @@ pub const MITHRIL_AGGREGATOR_VERSION_HEADER: &str = "aggregator-node-version";
 /// Mithril origin of the request
 pub const MITHRIL_ORIGIN_TAG_HEADER: &str = "mithril-origin-tag";
 
+/// Mithril client type of the request
+pub const MITHRIL_CLIENT_TYPE_HEADER: &str = "mithril-client-type";
+
 #[cfg(test)]
 mod tests {
     #[cfg(feature = "apispec")]
