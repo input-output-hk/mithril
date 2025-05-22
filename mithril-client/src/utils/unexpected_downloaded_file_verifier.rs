@@ -6,7 +6,15 @@
 //!
 //! Requirements:
 //! * Existing extra files added by users should be kept
+//! * Directories may not exist: it can be run without any existing files or against an existing database
+//! * Should avoid blocking the main thread: watched directories can be quite large on mainnet and
+//!   library users may be downloading archives in a multithreaded context
 //! * Found offenders should be reported
+//!   * Users should be able to easily distinct folders or directories from reported offenders
+//!   * Reported list should be ordered so running twice with the same offenders yield the same message
+//! * Should take in particularities:
+//!   * networks: immutables file numbers start at 1 on most network, but 0 on devnet
+//!   * ancillaries' inclusion: it adds another immutables trio to the downloaded files
 //!
 use std::collections::HashSet;
 use std::ffi::OsString;
@@ -56,13 +64,12 @@ impl UnexpectedDownloadedFileVerifier {
         }
     }
 
-    /// Compute the expected state of the folder after download finish
+    /// Compute the expected state of the folder after download completed
     pub async fn compute_expected_state_after_download(
         &self,
     ) -> StdResult<ExpectedFilesAfterDownload> {
         let immutable_files_dir = self.target_cardano_db_dir.join(IMMUTABLE_DIR);
         let immutable_files_range_to_expect = self.immutable_files_range_to_expect.clone();
-        // target databases can be quite large, avoid blocking the main thread
         let expected_files =
             tokio::task::spawn_blocking(move || -> StdResult<HashSet<OsString>> {
                 let mut files: HashSet<OsString> = if immutable_files_dir.exists() {
@@ -132,7 +139,6 @@ impl ExpectedFilesAfterDownload {
                     })
                     .collect()
             } else {
-                // The immutable dir can be missing if the download was interrupted
                 Vec::new()
             };
             let mut removed_entries = Vec::new();
@@ -172,7 +178,6 @@ impl ExpectedFilesAfterDownload {
             if removed_entries.is_empty() {
                 Ok(None)
             } else {
-                // Sort removed entries to ensure consistent output when reporting to users
                 removed_entries.sort();
 
                 slog::warn!(
