@@ -9,6 +9,7 @@ use clap::{Parser, ValueEnum};
 
 use mithril_client::MithrilResult;
 
+use super::archive_unpacker_selector::ArchiveUnpackerSelector;
 use super::github_api_client::{GitHubApiClient, ReqwestGitHubApiClient};
 use super::http_downloader::{HttpDownloader, ReqwestHttpDownloader};
 
@@ -77,6 +78,14 @@ impl SnapshotConverterCommand {
             "Failed to download 'snapshot-converter' binary from Cardano node distribution"
         })?;
 
+        Self::unpack_cardano_node_distribution(&archive_path, &distribution_temp_dir)
+            .with_context(|| {
+                format!(
+                    "Failed to unpack 'snapshot-converter' binary to directory: {}",
+                    distribution_temp_dir.display()
+                )
+            })?;
+
         Ok(())
     }
 
@@ -116,6 +125,18 @@ impl SnapshotConverterCommand {
             .await?;
 
         Ok(archive_path)
+    }
+
+    fn unpack_cardano_node_distribution(
+        archive_path: &Path,
+        target_dir: &Path,
+    ) -> MithrilResult<()> {
+        let unpacker = ArchiveUnpackerSelector::select_unpacker(archive_path)?;
+        unpacker.unpack(archive_path, target_dir).with_context(|| {
+            format!("Failed to unpack distribution: {}", archive_path.display())
+        })?;
+
+        Ok(())
     }
 }
 

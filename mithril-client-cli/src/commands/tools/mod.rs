@@ -3,6 +3,8 @@
 //! Provides utility subcommands such as converting restored InMemory UTxO-HD ledger snapshot
 //! to different flavors (Legacy, LMDB).
 
+mod archive_unpacker;
+mod archive_unpacker_selector;
 mod github_api_client;
 mod github_release;
 mod http_downloader;
