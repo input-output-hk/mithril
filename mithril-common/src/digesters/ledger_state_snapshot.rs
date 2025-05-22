@@ -20,7 +20,7 @@ fn find_ledger_dir(path_to_walk: &Path) -> Option<PathBuf> {
 
 /// Represent an ledger file in a Cardano node database directory
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct LedgerFile {
+pub struct LedgerStateSnapshot {
     /// The path to the ledger file
     pub path: PathBuf,
 
@@ -31,16 +31,16 @@ pub struct LedgerFile {
     pub filename: String,
 }
 
-/// [LedgerFile::list_all_in_dir] related errors.
+/// [LedgerStateSnapshot::list_all_in_dir] related errors.
 #[derive(Error, Debug)]
-pub enum LedgerFileListingError {
+pub enum LedgerStateSnapshotListingError {
     /// Raised when the "ledger" folder could not be found in a file structure.
     #[error("Couldn't find the 'ledger' folder in '{0:?}'")]
     MissingLedgerFolder(PathBuf),
 }
 
-impl LedgerFile {
-    /// LedgerFile factory
+impl LedgerStateSnapshot {
+    /// `LedgerStateSnapshot` factory
     pub fn new<T: Into<String>>(path: PathBuf, slot_number: SlotNumber, filename: T) -> Self {
         Self {
             path,
@@ -49,11 +49,11 @@ impl LedgerFile {
         }
     }
 
-    /// Convert a path to a LedgerFile if it satisfies the LedgerFile constraints.
+    /// Convert a path to a [LedgerStateSnapshot] if it satisfies the constraints.
     ///
     /// The constraints are: the path must be a file, the filename should only contain a number (no
     /// extension).
-    pub fn from_path(path: &Path) -> Option<LedgerFile> {
+    pub fn from_path(path: &Path) -> Option<LedgerStateSnapshot> {
         path.file_name()
             .map(|name| name.to_string_lossy())
             .and_then(|filename| {
@@ -64,12 +64,14 @@ impl LedgerFile {
             })
     }
 
-    /// List all [`LedgerFile`] in a given directory.
-    pub fn list_all_in_dir(dir: &Path) -> Result<Vec<LedgerFile>, LedgerFileListingError> {
+    /// List all [`LedgerStateSnapshot`] in a given directory.
+    pub fn list_all_in_dir(
+        dir: &Path,
+    ) -> Result<Vec<LedgerStateSnapshot>, LedgerStateSnapshotListingError> {
         let ledger_dir = find_ledger_dir(dir).ok_or(
-            LedgerFileListingError::MissingLedgerFolder(dir.to_path_buf()),
+            LedgerStateSnapshotListingError::MissingLedgerFolder(dir.to_path_buf()),
         )?;
-        let mut files: Vec<LedgerFile> = vec![];
+        let mut files: Vec<LedgerStateSnapshot> = vec![];
 
         for path in WalkDir::new(ledger_dir)
             .min_depth(1)
@@ -78,7 +80,7 @@ impl LedgerFile {
             .filter_entry(|e| e.file_type().is_file())
             .filter_map(|file| file.ok())
         {
-            if let Some(ledger_file) = LedgerFile::from_path(path.path()) {
+            if let Some(ledger_file) = LedgerStateSnapshot::from_path(path.path()) {
                 files.push(ledger_file);
             }
         }
@@ -88,13 +90,13 @@ impl LedgerFile {
     }
 }
 
-impl PartialOrd for LedgerFile {
+impl PartialOrd for LedgerStateSnapshot {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for LedgerFile {
+impl Ord for LedgerStateSnapshot {
     fn cmp(&self, other: &Self) -> Ordering {
         self.slot_number
             .cmp(&other.slot_number)
@@ -110,7 +112,7 @@ mod tests {
 
     use crate::test_utils::TempDir;
 
-    use super::LedgerFile;
+    use super::LedgerStateSnapshot;
 
     fn get_test_dir(subdir_name: &str) -> PathBuf {
         TempDir::create("ledger_file", subdir_name)
@@ -124,7 +126,7 @@ mod tests {
         }
     }
 
-    fn extract_filenames(ledger_files: &[LedgerFile]) -> Vec<String> {
+    fn extract_filenames(ledger_files: &[LedgerStateSnapshot]) -> Vec<String> {
         ledger_files
             .iter()
             .map(|i| i.path.file_name().unwrap().to_str().unwrap().to_owned())
@@ -137,15 +139,15 @@ mod tests {
         let entries = vec![];
         create_fake_files(&target_dir, &entries);
 
-        LedgerFile::list_all_in_dir(target_dir.parent().unwrap())
-            .expect_err("LedgerFile::list_all_in_dir should have Failed");
+        LedgerStateSnapshot::list_all_in_dir(target_dir.parent().unwrap())
+            .expect_err("LedgerStateSnapshot::list_all_in_dir should have Failed");
     }
 
     #[test]
     fn list_all_ledger_file_should_works_in_a_empty_folder() {
         let target_dir = get_test_dir("list_all_ledger_file_should_works_in_a_empty_folder/ledger");
-        let result = LedgerFile::list_all_in_dir(target_dir.parent().unwrap())
-            .expect("LedgerFile::list_all_in_dir should work in a empty folder");
+        let result = LedgerStateSnapshot::list_all_in_dir(target_dir.parent().unwrap())
+            .expect("LedgerStateSnapshot::list_all_in_dir should work in a empty folder");
 
         assert!(result.is_empty());
     }
@@ -155,8 +157,8 @@ mod tests {
         let target_dir = get_test_dir("list_all_ledger_file_order_should_be_deterministic/ledger");
         let entries = vec!["424", "123", "124", "00125", "21", "223", "0423"];
         create_fake_files(&target_dir, &entries);
-        let ledger_files = LedgerFile::list_all_in_dir(target_dir.parent().unwrap())
-            .expect("LedgerFile::list_all_in_dir Failed");
+        let ledger_files = LedgerStateSnapshot::list_all_in_dir(target_dir.parent().unwrap())
+            .expect("LedgerStateSnapshot::list_all_in_dir Failed");
 
         assert_eq!(
             vec!["21", "123", "124", "00125", "223", "0423", "424"],
@@ -170,8 +172,8 @@ mod tests {
             get_test_dir("list_all_ledger_file_should_work_with_non_ledger_files/ledger");
         let entries = vec!["123", "124", "README.md", "124.back"];
         create_fake_files(&target_dir, &entries);
-        let ledger_files = LedgerFile::list_all_in_dir(target_dir.parent().unwrap())
-            .expect("LedgerFile::list_all_in_dir Failed");
+        let ledger_files = LedgerStateSnapshot::list_all_in_dir(target_dir.parent().unwrap())
+            .expect("LedgerStateSnapshot::list_all_in_dir Failed");
 
         assert_eq!(vec!["123", "124"], extract_filenames(&ledger_files));
     }
