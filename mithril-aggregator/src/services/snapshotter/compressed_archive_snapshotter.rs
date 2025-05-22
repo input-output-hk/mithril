@@ -263,7 +263,8 @@ impl CompressedArchiveSnapshotter {
             .iter()
             .rev()
             .take(2)
-            .map(|ledger_file| PathBuf::from(LEDGER_DIR).join(&ledger_file.filename))
+            .flat_map(|ledger_state_snapshot| ledger_state_snapshot.get_files_relative_path())
+            .map(|path| PathBuf::from(LEDGER_DIR).join(path))
             .collect();
         if latest_ledger_files.is_empty() {
             return Err(anyhow!(
