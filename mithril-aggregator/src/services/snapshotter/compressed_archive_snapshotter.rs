@@ -449,7 +449,7 @@ mod tests {
             let cardano_db = DummyCardanoDbBuilder::new(current_function!())
                 .with_immutables(&[1, 2, 3])
                 .append_immutable_trio()
-                .with_ledger_files(&["437"])
+                .with_legacy_ledger_snapshots(&[437])
                 .with_volatile_files(&["blocks-0.dat"])
                 .with_non_immutables(&["random_file.txt", "00002.trap"])
                 .build();
@@ -492,7 +492,7 @@ mod tests {
             let test_dir = temp_dir_create!();
             let cardano_db = DummyCardanoDbBuilder::new(current_function!())
                 .with_immutables(&[1, 2, 3])
-                .with_ledger_files(&["437"])
+                .with_legacy_ledger_snapshots(&[437])
                 .with_volatile_files(&["blocks-0.dat"])
                 .with_non_immutables(&["random_file.txt", "00002.trap"])
                 .build();
@@ -532,7 +532,7 @@ mod tests {
             let test_dir = temp_dir_create!();
             let cardano_db = DummyCardanoDbBuilder::new(current_function!())
                 .with_immutables(&[1, 2])
-                .with_ledger_files(&["737"])
+                .with_legacy_ledger_snapshots(&[737])
                 .build();
             let snapshotter =
                 snapshotter_for_test(&test_dir, cardano_db.get_dir(), CompressionAlgorithm::Gzip);
@@ -579,7 +579,7 @@ mod tests {
             let test_dir = temp_dir_create!();
             let cardano_db = DummyCardanoDbBuilder::new(current_function!())
                 .with_immutables(&[1, 2])
-                .with_ledger_files(&["637"])
+                .with_legacy_ledger_snapshots(&[637])
                 .build();
             let snapshotter = CompressedArchiveSnapshotter {
                 ancillary_signer: Arc::new(MockAncillarySigner::that_succeeds_with_signature(
@@ -607,7 +607,7 @@ mod tests {
             let test_dir = temp_dir_create!();
             let cardano_db = DummyCardanoDbBuilder::new(current_function!())
                 .with_immutables(&[1, 2])
-                .with_ledger_files(&["637"])
+                .with_legacy_ledger_snapshots(&[637])
                 .build();
             let snapshotter = CompressedArchiveSnapshotter {
                 ancillary_signer: Arc::new(MockAncillarySigner::that_fails_with_message("failure")),
@@ -633,7 +633,8 @@ mod tests {
             let test_dir = temp_dir_create!();
             let cardano_db = DummyCardanoDbBuilder::new(current_function!())
                 .with_immutables(&[1, 2, 3])
-                .with_ledger_files(&["437", "537", "637", "737", "9not_included"])
+                .with_legacy_ledger_snapshots(&[437, 537, 637, 737])
+                .with_non_ledger_files(&["9not_included"])
                 .with_volatile_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
                 .build();
             fs::create_dir(cardano_db.get_dir().join("whatever")).unwrap();
@@ -673,7 +674,7 @@ mod tests {
             let test_dir = temp_dir_create!();
             let cardano_db = DummyCardanoDbBuilder::new(current_function!())
                 .with_immutables(&[1, 2])
-                .with_ledger_files(&["737"])
+                .with_legacy_ledger_snapshots(&[737])
                 .build();
 
             let snapshotter = CompressedArchiveSnapshotter {
@@ -698,7 +699,7 @@ mod tests {
             let test_dir = temp_dir_create!();
             let cardano_db = DummyCardanoDbBuilder::new(current_function!())
                 .with_immutables(&[1, 2, 3])
-                .with_ledger_files(&["537", "637", "737"])
+                .with_legacy_ledger_snapshots(&[537, 637, 737])
                 .with_non_immutables(&["not_to_include.txt"])
                 .build();
             File::create(cardano_db.get_dir().join("not_to_include_as_well.txt")).unwrap();
@@ -758,7 +759,7 @@ mod tests {
             let cardano_db = DummyCardanoDbBuilder::new(current_function!())
                 .with_immutables(&[1, 2, 3])
                 .set_immutable_trio_file_size(immutable_trio_file_size)
-                .with_ledger_files(&["737"])
+                .with_legacy_ledger_snapshots(&[737])
                 .set_ledger_file_size(6666)
                 .with_volatile_files(&["blocks-0.dat"])
                 .set_volatile_file_size(99)

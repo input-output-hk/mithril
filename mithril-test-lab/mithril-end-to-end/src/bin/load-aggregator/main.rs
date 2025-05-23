@@ -37,7 +37,7 @@ async fn main() -> StdResult<()> {
     // configure a dummy immutable db
     let cardano_db = DummyCardanoDbBuilder::new("load-tester")
         .with_immutables(&[1, 2, 3])
-        .with_ledger_files(&["533"])
+        .with_legacy_ledger_snapshots(&[533])
         .append_immutable_trio()
         .build();
 
