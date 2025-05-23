@@ -1,3 +1,4 @@
+use crate::digesters::{ledger_state_snapshot, LedgerStateSnapshot};
 use crate::test_utils::TempDir;
 use crate::{
     digesters::{ImmutableFile, IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR},
@@ -102,7 +103,8 @@ pub struct DummyCardanoDbBuilder {
     non_immutables_to_write: Vec<String>,
     append_uncompleted_trio: bool,
     immutable_file_size: Option<u64>,
-    ledger_files_to_write: Vec<String>,
+    ledger_snapshot_to_write: Vec<LedgerStateSnapshot>,
+    non_ledger_snapshot_to_write: Vec<String>,
     ledger_file_size: Option<u64>,
     volatile_files_to_write: Vec<String>,
     volatile_file_size: Option<u64>,
@@ -118,7 +120,8 @@ impl DummyCardanoDbBuilder {
             non_immutables_to_write: vec![],
             append_uncompleted_trio: false,
             immutable_file_size: None,
-            ledger_files_to_write: vec![],
+            non_ledger_snapshot_to_write: vec![],
+            ledger_snapshot_to_write: vec![],
             ledger_file_size: None,
             volatile_files_to_write: vec![],
             volatile_file_size: None,
@@ -139,8 +142,22 @@ impl DummyCardanoDbBuilder {
     }
 
     /// Set ledger files to write to the db in the 'ledger' subdirectory.
-    pub fn with_ledger_files(&mut self, files: &[&str]) -> &mut Self {
-        self.ledger_files_to_write = files.iter().map(|name| name.to_string()).collect();
+    pub fn with_legacy_ledger_snapshots(&mut self, snapshot_name: &[&str]) -> &mut Self {
+        self.non_ledger_snapshot_to_write =
+            snapshot_name.iter().map(|name| name.to_string()).collect();
+        self
+    }
+
+    /// Set the name of utxo-hd in-memory snapshot folders to write to the db in the 'ledger' subdirectory.
+    pub fn with_in_memory_ledger_snapshots(&mut self, snapshot_name: &[&str]) -> &mut Self {
+        self.non_ledger_snapshot_to_write =
+            snapshot_name.iter().map(|name| name.to_string()).collect();
+        self
+    }
+
+    /// Set filenames to write to the 'ledger' subdirectory that are not ledger snapshots.
+    pub fn with_non_ledger_files(&mut self, files: &[&str]) -> &mut Self {
+        self.non_ledger_snapshot_to_write = files.iter().map(|name| name.to_string()).collect();
         self
     }
 
@@ -211,9 +228,21 @@ impl DummyCardanoDbBuilder {
             ));
         }
 
-        for filename in &self.ledger_files_to_write {
+        for filename in &self.non_ledger_snapshot_to_write {
             let ledger_file_path =
                 write_dummy_file(self.ledger_file_size, &dir.join(LEDGER_DIR), filename);
+            ledger_files.push(ledger_file_path);
+        }
+
+        for in_memory_ledger_snapshot_name in &self.ledger_snapshot_to_write {
+            let ledger_state_dir = dir.join(LEDGER_DIR).join(in_memory_ledger_snapshot_name);
+            std::fs::create_dir_all(ledger_state_dir.join(ledger_state_snapshot::IN_MEMORY_TABLES))
+                .unwrap();
+            let ledger_file_path = write_dummy_file(
+                self.ledger_file_size,
+                &ledger_state_dir,
+                ledger_state_snapshot::IN_MEMORY_STATE,
+            );
             ledger_files.push(ledger_file_path);
         }
 

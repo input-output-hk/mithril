@@ -9,10 +9,10 @@ use walkdir::WalkDir;
 use crate::digesters::LEDGER_DIR;
 use crate::entities::SlotNumber;
 
-const IN_MEMORY_META: &str = "meta";
-const IN_MEMORY_STATE: &str = "state";
-const IN_MEMORY_TABLES: &str = "tables";
-const IN_MEMORY_TVAR: &str = "tvar";
+pub(crate) const IN_MEMORY_META: &str = "meta";
+pub(crate) const IN_MEMORY_STATE: &str = "state";
+pub(crate) const IN_MEMORY_TABLES: &str = "tables";
+pub(crate) const IN_MEMORY_TVAR: &str = "tvar";
 
 /// Walk the given path and return the first directory named "ledger" it finds
 fn find_ledger_dir(path_to_walk: &Path) -> Option<PathBuf> {
