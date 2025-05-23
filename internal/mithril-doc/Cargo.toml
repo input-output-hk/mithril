@@ -9,6 +9,9 @@ license = { workspace = true }
 repository = { workspace = true }
 include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 
+[features]
+default = []
+
 [dependencies]
 clap = { workspace = true }
 config = { workspace = true }
@@ -17,6 +20,3 @@ mithril-doc-derive = { path = "../mithril-doc-derive" }
 [dev-dependencies]
 mithril-cli-helper = { path = "../mithril-cli-helper" }
 regex = "1.11.1"
-
-[features]
-default = []

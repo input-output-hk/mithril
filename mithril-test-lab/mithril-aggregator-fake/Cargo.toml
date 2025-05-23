@@ -23,12 +23,12 @@ tower-http = { version = "0.6.2", features = ["trace", "cors"] }
 tracing = { workspace = true }
 tracing-subscriber = "0.3.19"
 
+[build-dependencies]
+mithril-build-script = { path = "../../internal/mithril-build-script" }
+
 [dev-dependencies]
 mithril-common = { "path" = "../../mithril-common", features = [
     "test_tools",
 ] }
 reqwest = { workspace = true }
 warp = { workspace = true }
-
-[build-dependencies]
-mithril-build-script = { path = "../../internal/mithril-build-script" }

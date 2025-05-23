@@ -9,8 +9,22 @@ license = { workspace = true }
 repository = { workspace = true }
 categories = ["cryptography"]
 
+[package.metadata.docs.rs]
+all-features = true
+# enable unstable features in the documentation
+rustdoc-args = ["--cfg", "docsrs"]
+
+[package.metadata.cargo-machete]
+# wasm-bindgen-futures is required to build the project, but it's not used in the code
+ignored = ["wasm-bindgen-futures"]
+
 [lib]
 crate-type = ["cdylib"]
+
+[features]
+# Include nothing by default
+default = []
+test-node = []
 
 [dependencies]
 anyhow = { workspace = true }
@@ -24,22 +38,8 @@ wasm-bindgen = "0.2.100"
 wasm-bindgen-futures = "0.4.50"
 web-sys = { version = "0.3.77", features = ["BroadcastChannel", "console", "Storage", "Window"] }
 
-[dev-dependencies]
-wasm-bindgen-test = "0.3.50"
-
 [build-dependencies]
 mithril-build-script = { path = "../internal/mithril-build-script" }
 
-[features]
-# Include nothing by default
-default = []
-test-node = []
-
-[package.metadata.docs.rs]
-all-features = true
-# enable unstable features in the documentation
-rustdoc-args = ["--cfg", "docsrs"]
-
-[package.metadata.cargo-machete]
-# wasm-bindgen-futures is required to build the project, but it's not used in the code
-ignored = ["wasm-bindgen-futures"]
+[dev-dependencies]
+wasm-bindgen-test = "0.3.50"

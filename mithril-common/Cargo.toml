@@ -9,25 +9,47 @@ license = { workspace = true }
 repository = { workspace = true }
 include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore", "openapi.yaml"]
 
+[package.metadata.docs.rs]
+all-features = true
+# enable unstable features in the documentation
+rustdoc-args = ["--cfg", "docsrs"]
+
+[package.metadata.cargo-machete]
+# `serde_bytes` is used for OpCert serialization
+ignored = ["serde_bytes"]
+
 [lib]
 crate-type = ["lib", "cdylib", "staticlib"]
 
-[[bench]]
-name = "block_range"
-harness = false
+[features]
+default = ["rug-backend"]
 
-[[bench]]
-name = "digester"
-harness = false
-required-features = ["fs"]
+# Full feature set
+full = ["fs", "test_tools"]
+fs = [
+    "tokio/fs",
+    "tokio/io-util",
+    "tokio/process",
+    "dep:pallas-addresses",
+    "dep:pallas-codec",
+    "dep:pallas-network",
+    "dep:pallas-primitives",
+    "dep:pallas-traverse",
+]
 
-[[bench]]
-name = "merkle_tree"
-harness = false
+# Enables `rug-backend` features for `mithril-stm` dependency
+rug-backend = ["mithril-stm/rug-backend"]
+# Enables `num-integer-backend` features for `mithril-stm` dependency
+# by default it's `rug-backend`
+num-integer-backend = ["mithril-stm/num-integer-backend"]
 
-[[bench]]
-name = "merkle_map"
-harness = false
+# Disable signer certification, to be used only for tests
+allow_skip_signer_certification = []
+# Enable all tests tools
+test_tools = ["apispec", "test_http_server"]
+# Enable tools to help validate conformity to an OpenAPI specification
+apispec = ["dep:glob", "dep:jsonschema", "dep:serde_yaml", "dep:reqwest", "dep:warp"]
+test_http_server = ["dep:warp"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -78,6 +100,9 @@ warp = { workspace = true, optional = true }
 [target.'cfg(target_family = "wasm")'.dependencies]
 wasm-bindgen = "0.2.100"
 
+[build-dependencies]
+mithril-build-script = { path = "../internal/mithril-build-script", version = "=0.2" }
+
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports", "async_tokio"] }
 mockall = { workspace = true }
@@ -87,44 +112,19 @@ slog-async = { workspace = true }
 slog-term = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
 
-[build-dependencies]
-mithril-build-script = { path = "../internal/mithril-build-script", version = "=0.2" }
+[[bench]]
+name = "block_range"
+harness = false
 
-[features]
-default = ["rug-backend"]
+[[bench]]
+name = "digester"
+harness = false
+required-features = ["fs"]
 
-# Full feature set
-full = ["fs", "test_tools"]
-fs = [
-    "tokio/fs",
-    "tokio/io-util",
-    "tokio/process",
-    "dep:pallas-addresses",
-    "dep:pallas-codec",
-    "dep:pallas-network",
-    "dep:pallas-primitives",
-    "dep:pallas-traverse",
-]
+[[bench]]
+name = "merkle_tree"
+harness = false
 
-# Enables `rug-backend` features for `mithril-stm` dependency
-rug-backend = ["mithril-stm/rug-backend"]
-# Enables `num-integer-backend` features for `mithril-stm` dependency
-# by default it's `rug-backend`
-num-integer-backend = ["mithril-stm/num-integer-backend"]
-
-# Disable signer certification, to be used only for tests
-allow_skip_signer_certification = []
-# Enable all tests tools
-test_tools = ["apispec", "test_http_server"]
-# Enable tools to help validate conformity to an OpenAPI specification
-apispec = ["dep:glob", "dep:jsonschema", "dep:serde_yaml", "dep:reqwest", "dep:warp"]
-test_http_server = ["dep:warp"]
-
-[package.metadata.docs.rs]
-all-features = true
-# enable unstable features in the documentation
-rustdoc-args = ["--cfg", "docsrs"]
-
-[package.metadata.cargo-machete]
-# `serde_bytes` is used for OpCert serialization
-ignored = ["serde_bytes"]
+[[bench]]
+name = "merkle_map"
+harness = false

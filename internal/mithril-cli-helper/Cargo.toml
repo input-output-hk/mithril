@@ -9,12 +9,12 @@ license = { workspace = true }
 repository = { workspace = true }
 include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 
+[features]
+default = []
+
 [dependencies]
 config = { workspace = true }
 serde = { workspace = true }
 
 #[dev-dependencies]
 serde_json = { workspace = true }
-
-[features]
-default = []

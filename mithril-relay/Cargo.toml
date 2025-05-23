@@ -8,6 +8,9 @@ documentation = { workspace = true }
 homepage = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
+
+[features]
+bundle_tls = ["reqwest/native-tls-vendored"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -57,6 +60,3 @@ warp = { workspace = true }
 httpmock = "0.7.0"
 slog-scope = "4.4.0"
 slog-term = { workspace = true }
-
-[features]
-bundle_tls = ["reqwest/native-tls-vendored"]

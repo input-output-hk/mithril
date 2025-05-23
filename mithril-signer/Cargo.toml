@@ -9,9 +9,11 @@ homepage = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
 
-[[bench]]
-name = "mktree_store_sqlite"
-harness = false
+[features]
+default = ["jemallocator"]
+
+bundle_tls = ["reqwest/native-tls-vendored"]
+jemallocator = ["dep:tikv-jemallocator"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -61,8 +63,6 @@ prometheus-parse = "0.2.5"
 slog-scope = "4.4.0"
 slog-term = { workspace = true }
 
-[features]
-default = ["jemallocator"]
-
-bundle_tls = ["reqwest/native-tls-vendored"]
-jemallocator = ["dep:tikv-jemallocator"]
+[[bench]]
+name = "mktree_store_sqlite"
+harness = false

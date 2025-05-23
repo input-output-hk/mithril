@@ -14,6 +14,11 @@ name = "load-aggregator"
 test = false
 bench = false
 
+[features]
+default = []
+allow_skip_signer_certification = []
+bundle_tls = ["reqwest/native-tls-vendored"]
+
 [dependencies]
 anyhow = { workspace = true }
 async-recursion = { workspace = true }
@@ -33,8 +38,3 @@ slog-scope = "4.4.0"
 slog-term = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "process", "signal"] }
-
-[features]
-default = []
-allow_skip_signer_certification = []
-bundle_tls = ["reqwest/native-tls-vendored"]

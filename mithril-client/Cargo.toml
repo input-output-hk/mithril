@@ -10,23 +10,45 @@ repository = { workspace = true }
 categories = ["cryptography"]
 include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 
+[package.metadata.docs.rs]
+all-features = true
+# enable unstable features in the documentation
+rustdoc-args = ["--cfg", "docsrs"]
+
 [lib]
 crate-type = ["lib", "cdylib", "staticlib"]
 
-[[test]]
-name = "snapshot_list_get_show_download_verify"
-path = "tests/snapshot_list_get_show_download_verify.rs"
-required-features = ["fs"]
+[features]
+# Include native-tls in reqwest by default
+default = ["native-tls", "rug-backend", "enable-http-compression"]
 
-[[test]]
-name = "cardano_transaction_proof"
-path = "tests/cardano_transaction_proof.rs"
-required-features = ["unstable"]
+# Full feature set
+full = ["fs"]
 
-[[test]]
-name = "cardano_db_snapshot_list_get_download_verify"
-path = "tests/cardano_db_snapshot_list_get_download_verify.rs"
-required-features = ["unstable", "fs"]
+# Enable file system related functionality, right now that mean only snapshot download
+fs = ["flate2", "flume", "tar", "tokio/rt", "zstd"]
+portable = []                                       # deprecated, will be removed soon
+unstable = []
+
+# These features are for support of dependent crates only.
+# They do not change the operation of the main crate.
+native-tls = ["reqwest/native-tls"]
+native-tls-alpn = ["reqwest/native-tls-alpn"]
+native-tls-vendored = ["reqwest/native-tls-vendored"]
+
+rustls-tls = ["reqwest/rustls-tls"]
+rustls-tls-manual-roots = ["reqwest/rustls-tls-manual-roots"]
+rustls-tls-webpki-roots = ["reqwest/rustls-tls-webpki-roots"]
+rustls-tls-native-roots = ["reqwest/rustls-tls-native-roots"]
+
+# Support compressed traffic with `reqwest`
+enable-http-compression = ["reqwest/gzip", "reqwest/zstd", "reqwest/deflate", "reqwest/brotli"]
+
+# Enables usage of `rug` numerical backend in `mithril-stm` (dependency of `mithril-common`).
+rug-backend = ["mithril-common/rug-backend"]
+# Enables usage of `num-integer` numerical backend in `mithril-stm` (dependency of `mithril-common`)
+# by default it's `rug-backend`
+num-integer-backend = ["mithril-common/num-integer-backend"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -77,39 +99,17 @@ slog-term = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
 warp = { workspace = true }
 
-[features]
-# Include native-tls in reqwest by default
-default = ["native-tls", "rug-backend", "enable-http-compression"]
+[[test]]
+name = "snapshot_list_get_show_download_verify"
+path = "tests/snapshot_list_get_show_download_verify.rs"
+required-features = ["fs"]
 
-# Full feature set
-full = ["fs"]
+[[test]]
+name = "cardano_transaction_proof"
+path = "tests/cardano_transaction_proof.rs"
+required-features = ["unstable"]
 
-# Enable file system related functionality, right now that mean only snapshot download
-fs = ["flate2", "flume", "tar", "tokio/rt", "zstd"]
-portable = []                                       # deprecated, will be removed soon
-unstable = []
-
-# These features are for support of dependent crates only.
-# They do not change the operation of the main crate.
-native-tls = ["reqwest/native-tls"]
-native-tls-alpn = ["reqwest/native-tls-alpn"]
-native-tls-vendored = ["reqwest/native-tls-vendored"]
-
-rustls-tls = ["reqwest/rustls-tls"]
-rustls-tls-manual-roots = ["reqwest/rustls-tls-manual-roots"]
-rustls-tls-webpki-roots = ["reqwest/rustls-tls-webpki-roots"]
-rustls-tls-native-roots = ["reqwest/rustls-tls-native-roots"]
-
-# Support compressed traffic with `reqwest`
-enable-http-compression = ["reqwest/gzip", "reqwest/zstd", "reqwest/deflate", "reqwest/brotli"]
-
-# Enables usage of `rug` numerical backend in `mithril-stm` (dependency of `mithril-common`).
-rug-backend = ["mithril-common/rug-backend"]
-# Enables usage of `num-integer` numerical backend in `mithril-stm` (dependency of `mithril-common`)
-# by default it's `rug-backend`
-num-integer-backend = ["mithril-common/num-integer-backend"]
-
-[package.metadata.docs.rs]
-all-features = true
-# enable unstable features in the documentation
-rustdoc-args = ["--cfg", "docsrs"]
+[[test]]
+name = "cardano_db_snapshot_list_get_download_verify"
+path = "tests/cardano_db_snapshot_list_get_download_verify.rs"
+required-features = ["unstable", "fs"]
