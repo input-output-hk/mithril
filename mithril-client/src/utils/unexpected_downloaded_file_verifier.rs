@@ -13,7 +13,6 @@
 //!   * Users should be able to easily distinct folders or directories from reported offenders
 //!   * Reported list should be ordered so running twice with the same offenders yield the same message
 //! * Should take in particularities:
-//!   * networks: immutables file numbers start at 1 on most network, but 0 on devnet
 //!   * ancillaries' inclusion: it adds another immutables trio to the downloaded files
 //!
 use std::collections::HashSet;
@@ -48,7 +47,6 @@ impl UnexpectedDownloadedFileVerifier {
     /// `UnexpectedDownloadedFileVerifier` factory
     pub fn new<P: AsRef<Path>>(
         target_cardano_db_dir: P,
-        network_kind: &str,
         include_ancillary: bool,
         last_downloaded_immutable_file_number: ImmutableFileNumber,
         logger: &Logger,
@@ -56,7 +54,6 @@ impl UnexpectedDownloadedFileVerifier {
         Self {
             target_cardano_db_dir: target_cardano_db_dir.as_ref().to_path_buf(),
             immutable_files_range_to_expect: compute_immutable_files_range_to_expect(
-                network_kind,
                 include_ancillary,
                 last_downloaded_immutable_file_number,
             ),
@@ -103,19 +100,16 @@ impl UnexpectedDownloadedFileVerifier {
 }
 
 fn compute_immutable_files_range_to_expect(
-    network_kind: &str,
     include_ancillary: bool,
     last_downloaded_immutable_file_number: ImmutableFileNumber,
 ) -> RangeInclusive<ImmutableFileNumber> {
-    let is_devnet_network = network_kind.contains("devnet");
-    let lower_bound = if is_devnet_network { 0 } else { 1 };
     let upper_bound = if include_ancillary {
         last_downloaded_immutable_file_number + 1
     } else {
         last_downloaded_immutable_file_number
     };
 
-    lower_bound..=upper_bound
+    0..=upper_bound
 }
 
 impl ExpectedFilesAfterDownload {
@@ -218,128 +212,56 @@ mod tests {
     #[test]
     fn test_compute_immutable_files_range_to_expect() {
         // Specs:
-        // - start at 1 on all networks except 0 for devnet
         // - if ancillaries are included, the end bound must be increased by one (to take in an
         // account the additional immutable trio downloaded with them)
 
-        // Without ancillaries, network is not devnet
-        assert_eq!(
-            compute_immutable_files_range_to_expect("network", false, 143),
-            1..=143
-        );
+        // Without ancillaries
+        assert_eq!(compute_immutable_files_range_to_expect(false, 143), 0..=143);
 
-        // Without ancillaries, network is devnet
-        assert_eq!(
-            compute_immutable_files_range_to_expect("devnet", false, 143),
-            0..=143
-        );
-
-        // With ancillaries, network is not devnet
-        assert_eq!(
-            compute_immutable_files_range_to_expect("network", true, 143),
-            1..=144
-        );
-
-        // With ancillaries, network is devnet
-        assert_eq!(
-            compute_immutable_files_range_to_expect("devnet", true, 143),
-            0..=144
-        );
+        // With ancillaries
+        assert_eq!(compute_immutable_files_range_to_expect(true, 143), 0..=144);
     }
 
     mod compute_expected_state_after_download {
         use super::*;
 
+        /// Minimal set, containing the immutable files trios for number 0
+        fn minimal_expected_set() -> HashSet<OsString> {
+            HashSet::from([
+                OsString::from("00000.chunk"),
+                OsString::from("00000.primary"),
+                OsString::from("00000.secondary"),
+            ])
+        }
+
         #[tokio::test]
-        async fn when_dir_empty_return_empty_if_immutable_files_dir_does_not_exist_and_range_is_empty(
-        ) {
+        async fn when_db_dir_empty_return_minimal_set() {
+            let temp_dir = temp_dir_create!();
+            let existing_files =
+                UnexpectedDownloadedFileVerifier::new(&temp_dir, false, 0, &TestLogger::stdout())
+                    .compute_expected_state_after_download()
+                    .await
+                    .unwrap();
+
+            assert_eq!(
+                existing_files.expected_filenames_in_immutable_dir,
+                minimal_expected_set()
+            );
+        }
+
+        #[tokio::test]
+        async fn when_db_dir_contains_empty_immutable_dir_return_minimal_set() {
             let temp_dir = temp_dir_create!();
             create_immutable_files_dir(&temp_dir);
-            let existing_files = UnexpectedDownloadedFileVerifier::new(
-                &temp_dir,
-                "network",
-                false,
-                0,
-                &TestLogger::stdout(),
-            )
-            .compute_expected_state_after_download()
-            .await
-            .unwrap();
+            let existing_files =
+                UnexpectedDownloadedFileVerifier::new(&temp_dir, false, 0, &TestLogger::stdout())
+                    .compute_expected_state_after_download()
+                    .await
+                    .unwrap();
 
             assert_eq!(
                 existing_files.expected_filenames_in_immutable_dir,
-                HashSet::<OsString>::new()
-            );
-        }
-
-        #[tokio::test]
-        async fn when_dir_empty_return_empty_if_immutable_files_dir_exist_and_range_is_empty() {
-            let temp_dir = temp_dir_create!();
-            let existing_files = UnexpectedDownloadedFileVerifier::new(
-                &temp_dir,
-                "network",
-                false,
-                0,
-                &TestLogger::stdout(),
-            )
-            .compute_expected_state_after_download()
-            .await
-            .unwrap();
-
-            assert_eq!(
-                existing_files.expected_filenames_in_immutable_dir,
-                HashSet::<OsString>::new()
-            );
-        }
-
-        #[tokio::test]
-        async fn when_immutable_files_dir_does_not_exist_return_immutables_trios_if_immutable_files_range_is_not_empty(
-        ) {
-            let temp_dir = temp_dir_create!();
-            let existing_files = UnexpectedDownloadedFileVerifier::new(
-                &temp_dir,
-                "network",
-                false,
-                1,
-                &TestLogger::stdout(),
-            )
-            .compute_expected_state_after_download()
-            .await
-            .unwrap();
-
-            assert_eq!(
-                existing_files.expected_filenames_in_immutable_dir,
-                HashSet::from([
-                    OsString::from("00001.chunk"),
-                    OsString::from("00001.primary"),
-                    OsString::from("00001.secondary"),
-                ])
-            );
-        }
-
-        #[tokio::test]
-        async fn when_immutable_files_dir_empty_return_immutables_trios_if_immutable_files_range_is_not_empty(
-        ) {
-            let temp_dir = temp_dir_create!();
-            create_immutable_files_dir(&temp_dir);
-            let existing_files = UnexpectedDownloadedFileVerifier::new(
-                &temp_dir,
-                "network",
-                false,
-                1,
-                &TestLogger::stdout(),
-            )
-            .compute_expected_state_after_download()
-            .await
-            .unwrap();
-
-            assert_eq!(
-                existing_files.expected_filenames_in_immutable_dir,
-                HashSet::from([
-                    OsString::from("00001.chunk"),
-                    OsString::from("00001.primary"),
-                    OsString::from("00001.secondary"),
-                ])
+                minimal_expected_set()
             );
         }
 
@@ -353,25 +275,25 @@ mod tests {
             File::create(immutable_files_dir.join("file_2.txt")).unwrap();
             File::create(immutable_files_dir.join("dir_2").join("file_3.txt")).unwrap();
 
-            let existing_files = UnexpectedDownloadedFileVerifier::new(
-                &temp_dir,
-                "network",
-                false,
-                0,
-                &TestLogger::stdout(),
-            )
-            .compute_expected_state_after_download()
-            .await
-            .unwrap();
+            let existing_files =
+                UnexpectedDownloadedFileVerifier::new(&temp_dir, false, 0, &TestLogger::stdout())
+                    .compute_expected_state_after_download()
+                    .await
+                    .unwrap();
 
-            assert_eq!(
-                existing_files.expected_filenames_in_immutable_dir,
-                HashSet::from([
+            let expected_set = {
+                let mut set = minimal_expected_set();
+                set.extend([
                     OsString::from("dir_1"),
                     OsString::from("dir_2"),
                     OsString::from("file_1.txt"),
                     OsString::from("file_2.txt"),
-                ])
+                ]);
+                set
+            };
+            assert_eq!(
+                existing_files.expected_filenames_in_immutable_dir,
+                expected_set
             );
         }
     }
@@ -483,13 +405,8 @@ mod tests {
     #[tokio::test]
     async fn checking_unexpected_file_against_a_large_immutable_directory() {
         let temp_dir = temp_dir_create!();
-        let verifier = UnexpectedDownloadedFileVerifier::new(
-            &temp_dir,
-            "network",
-            false,
-            19999,
-            &TestLogger::stdout(),
-        );
+        let verifier =
+            UnexpectedDownloadedFileVerifier::new(&temp_dir, false, 19999, &TestLogger::stdout());
 
         let immutable_files_dir = create_immutable_files_dir(&temp_dir);
         for immutable_file_number in 0..=30000 {
