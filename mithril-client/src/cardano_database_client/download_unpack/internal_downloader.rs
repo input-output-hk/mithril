@@ -75,7 +75,6 @@ impl InternalArtifactDownloader {
 
         let expected_files_after_download = UnexpectedDownloadedFileVerifier::new(
             target_dir,
-            &cardano_database_snapshot.network,
             download_unpack_options.include_ancillary,
             last_immutable_file_number,
             &self.logger,

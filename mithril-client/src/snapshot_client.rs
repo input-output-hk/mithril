@@ -233,7 +233,6 @@ impl SnapshotClient {
             let include_ancillary = true;
             let expected_files_after_download = UnexpectedDownloadedFileVerifier::new(
                 target_dir,
-                &snapshot.network,
                 include_ancillary,
                 snapshot.beacon.immutable_file_number,
                 &self.logger
@@ -271,7 +270,6 @@ impl SnapshotClient {
             let include_ancillary = false;
             let expected_files_after_download = UnexpectedDownloadedFileVerifier::new(
                 target_dir,
-                &snapshot.network,
                 include_ancillary,
                 snapshot.beacon.immutable_file_number,
                 &self.logger
