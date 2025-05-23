@@ -9,10 +9,6 @@ homepage = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
 
-[[bin]]
-name = "mithril-client"
-path = "src/main.rs"
-
 [package.metadata.deb]
 depends = "$auto"
 section = "utility"
@@ -20,6 +16,13 @@ extended-description = """Shows, downloads and verifies certified blockchain art
 
 Run `mithril-client --help` to display the available options."""
 assets = [["../target/release/mithril-client", "usr/bin/", "755"]]
+
+[[bin]]
+name = "mithril-client"
+path = "src/main.rs"
+
+[features]
+bundle_tls = ["mithril-client/native-tls-vendored"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -49,6 +52,3 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [dev-dependencies]
 mithril-common = { path = "../mithril-common", features = ["test_tools"] }
-
-[features]
-bundle_tls = ["mithril-client/native-tls-vendored"]

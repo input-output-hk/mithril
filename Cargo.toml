@@ -3,31 +3,31 @@
 resolver = "2"
 
 members = [
-  "demo/protocol-demo",
-  "examples/client-cardano-database",
-  "examples/client-cardano-database-v2",
-  "examples/client-cardano-stake-distribution",
-  "examples/client-cardano-transaction",
-  "examples/client-mithril-stake-distribution",
-  "internal/mithril-build-script",
-  "internal/mithril-cli-helper",
-  "internal/mithril-doc",
-  "internal/mithril-doc-derive",
-  "internal/mithril-metric",
-  "internal/mithril-persistence",
-  "internal/mithril-resource-pool",
-  "internal/signed-entity/mithril-signed-entity-lock",
-  "internal/signed-entity/mithril-signed-entity-preloader",
-  "mithril-aggregator",
-  "mithril-client",
-  "mithril-client-cli",
-  "mithril-client-wasm",
-  "mithril-common",
-  "mithril-relay",
-  "mithril-signer",
-  "mithril-stm",
-  "mithril-test-lab/mithril-aggregator-fake",
-  "mithril-test-lab/mithril-end-to-end",
+    "demo/protocol-demo",
+    "examples/client-cardano-database",
+    "examples/client-cardano-database-v2",
+    "examples/client-cardano-stake-distribution",
+    "examples/client-cardano-transaction",
+    "examples/client-mithril-stake-distribution",
+    "internal/mithril-build-script",
+    "internal/mithril-cli-helper",
+    "internal/mithril-doc",
+    "internal/mithril-doc-derive",
+    "internal/mithril-metric",
+    "internal/mithril-persistence",
+    "internal/mithril-resource-pool",
+    "internal/signed-entity/mithril-signed-entity-lock",
+    "internal/signed-entity/mithril-signed-entity-preloader",
+    "mithril-aggregator",
+    "mithril-client",
+    "mithril-client-cli",
+    "mithril-client-wasm",
+    "mithril-common",
+    "mithril-relay",
+    "mithril-signer",
+    "mithril-stm",
+    "mithril-test-lab/mithril-aggregator-fake",
+    "mithril-test-lab/mithril-end-to-end",
 ]
 
 [workspace.package]
@@ -48,9 +48,9 @@ config = "0.15.11"
 digest = { version = "0.10.7", features = ["alloc"] }
 hex = "0.4.3"
 mockall = "0.13.1"
-rayon = "1.10.0"
-rand_core = { version = "0.6.4", features = ["std"] }
 rand_chacha = "0.3.1"
+rand_core = { version = "0.6.4", features = ["std"] }
+rayon = "1.10.0"
 reqwest = { version = "0.12.15", default-features = false, features = ["json"] }
 semver = "1.0.26"
 serde = { version = "1.0.219", features = ["derive", "rc"] }
@@ -61,6 +61,6 @@ slog-bunyan = "2.5.0"
 slog-term = "2.9.1"
 strum = { version = "0.27.1", features = ["derive"] }
 thiserror = "2.0.12"
-tracing = "0.1.41"
 tokio = { version = "1.44.2", features = ["rt", "sync", "time"] }
+tracing = "0.1.41"
 warp = "0.3.7"
