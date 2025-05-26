@@ -15,6 +15,8 @@ use mithril_client::{
 use crate::certificate_verification_cache::LocalStorageCertificateVerifierCache;
 use crate::WasmResult;
 
+const CLIENT_TYPE_WASM: &str = "WASM";
+
 #[wasm_bindgen]
 struct JSBroadcastChannelFeedbackReceiver {
     channel: String,
@@ -100,6 +102,7 @@ impl MithrilClient {
             .add_feedback_receiver(feedback_receiver)
             .with_options(client_options.clone())
             .with_origin_tag(client_options.origin_tag.clone())
+            .with_client_type(Some(CLIENT_TYPE_WASM.to_string()))
             .with_certificate_verifier_cache(certificate_verifier_cache.clone())
             .build()
             .map_err(|err| format!("{err:?}"))
