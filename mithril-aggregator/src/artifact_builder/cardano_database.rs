@@ -166,7 +166,7 @@ mod tests {
         let ledger_file_size = 6666;
         let volatile_file_size = 99;
         let cardano_db = DummyCardanoDbBuilder::new("cdb-should_compute_valid_artifact")
-            .with_immutables(&[1, 2, 3])
+            .with_immutables(&[0, 1, 2, 3])
             .append_immutable_trio()
             .set_immutable_trio_file_size(immutable_trio_file_size)
             .with_ledger_files(&["437"])
@@ -227,7 +227,8 @@ mod tests {
         }
 
         let immutable_artifact_builder = {
-            let number_of_immutable_file_loaded = beacon.immutable_file_number;
+            // We upload the immutable files in the [0,beacon.immutable_file_number] range
+            let number_of_immutable_file_loaded = beacon.immutable_file_number + 1;
             let mut immutable_uploader = MockImmutableFilesUploader::new();
             immutable_uploader
                 .expect_batch_upload()

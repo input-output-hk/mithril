@@ -26,10 +26,7 @@ impl ImmutableFileRange {
         &self,
         last_immutable_file_number: ImmutableFileNumber,
     ) -> StdResult<RangeInclusive<ImmutableFileNumber>> {
-        // The immutable file numbers start from 1 on all the networks except the 'devnet'
-        // when it is configured with aggressive protocol parameters for fast epochs (used in the e2e tests).
-        // We have taken the choice to consider that the file numbers start from 1 for all the networks.
-        const FIRST_IMMUTABLE_FILE_NUMBER: ImmutableFileNumber = 1;
+        const FIRST_IMMUTABLE_FILE_NUMBER: ImmutableFileNumber = 0;
         let full_range = FIRST_IMMUTABLE_FILE_NUMBER..=last_immutable_file_number;
 
         match self {
@@ -74,7 +71,7 @@ mod tests {
         let result = immutable_file_range
             .to_range_inclusive(last_immutable_file_number)
             .unwrap();
-        assert_eq!(1..=10, result);
+        assert_eq!(0..=10, result);
     }
 
     #[test]
@@ -124,7 +121,7 @@ mod tests {
         let result = immutable_file_range
             .to_range_inclusive(last_immutable_file_number)
             .unwrap();
-        assert_eq!(1..=8, result);
+        assert_eq!(0..=8, result);
 
         let last_immutable_file_number = 7;
         immutable_file_range
