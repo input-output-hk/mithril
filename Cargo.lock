@@ -3773,6 +3773,7 @@ version = "0.7.53"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bytes",
  "chrono",
  "clap",
  "config",
