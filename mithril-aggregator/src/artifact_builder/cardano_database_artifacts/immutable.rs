@@ -193,8 +193,9 @@ impl ImmutableArtifactBuilder {
     ) -> StdResult<(Vec<PathBuf>, CompressionAlgorithm)> {
         let mut archive_paths = vec![];
         let compression_algorithm = self.snapshotter.compression_algorithm();
+        const FIRST_IMMUTABLE_FILE_NUMBER: ImmutableFileNumber = 0;
 
-        for immutable_file_number in 1..=up_to_immutable_file_number {
+        for immutable_file_number in FIRST_IMMUTABLE_FILE_NUMBER..=up_to_immutable_file_number {
             let archive_name_without_extension = format!("{immutable_file_number:05}");
             let archive_name = format!(
                 "{archive_name_without_extension}.{}",
@@ -352,7 +353,7 @@ mod tests {
         let work_dir = get_builder_work_dir("upload_call_archive_creation_and_upload");
         let test_dir = "upload_call_archive_creation_and_upload/cardano_database";
         let cardano_db = DummyCardanoDbBuilder::new(test_dir)
-            .with_immutables(&[1, 2])
+            .with_immutables(&[0, 1, 2])
             .build();
 
         let db_directory = cardano_db.get_dir().to_path_buf();
@@ -368,6 +369,7 @@ mod tests {
 
         let uploader = fake_uploader(
             vec![
+                work_dir.join("00000.tar.gz").to_str().unwrap(),
                 work_dir.join("00001.tar.gz").to_str().unwrap(),
                 work_dir.join("00002.tar.gz").to_str().unwrap(),
             ],
@@ -444,7 +446,7 @@ mod tests {
             let test_dir =
                 "snapshot_immutables_files_up_to_the_given_immutable_file_number/cardano_database";
             let cardano_db = DummyCardanoDbBuilder::new(test_dir)
-                .with_immutables(&[1, 2])
+                .with_immutables(&[0, 1, 2])
                 .build();
 
             let db_directory = cardano_db.get_dir().to_path_buf();
@@ -473,7 +475,11 @@ mod tests {
 
             assert_equivalent(
                 archive_paths,
-                vec![work_dir.join("00001.tar.gz"), work_dir.join("00002.tar.gz")],
+                vec![
+                    work_dir.join("00000.tar.gz"),
+                    work_dir.join("00001.tar.gz"),
+                    work_dir.join("00002.tar.gz"),
+                ],
             )
         }
 
@@ -614,7 +620,7 @@ mod tests {
             let work_dir = get_builder_work_dir("return_all_archives_but_not_rebuild_archives");
             let test_dir = "return_all_archives_but_not_rebuild_archives/cardano_database";
             let cardano_db = DummyCardanoDbBuilder::new(test_dir)
-                .with_immutables(&[1, 2, 3])
+                .with_immutables(&[0, 1, 2, 3])
                 .build();
 
             let db_directory = cardano_db.get_dir().to_path_buf();
@@ -628,6 +634,7 @@ mod tests {
             )
             .unwrap();
 
+            create_fake_file(&work_dir.join("00000.tar.gz"), "00000 content");
             create_fake_file(&work_dir.join("00001.tar.gz"), "00001 content");
             create_fake_file(&work_dir.join("00002.tar.gz"), "00002 content");
 
@@ -647,12 +654,14 @@ mod tests {
             assert_equivalent(
                 archive_paths,
                 vec![
+                    work_dir.join("00000.tar.gz"),
                     work_dir.join("00001.tar.gz"),
                     work_dir.join("00002.tar.gz"),
                     work_dir.join("00003.tar.gz"),
                 ],
             );
             // Check that the existing archives content have not changed
+            assert_file_content!(work_dir.join("00000.tar.gz"), "00000 content");
             assert_file_content!(work_dir.join("00001.tar.gz"), "00001 content");
             assert_file_content!(work_dir.join("00002.tar.gz"), "00002 content");
         }
@@ -666,6 +675,7 @@ mod tests {
                 .expect_compression_algorithm()
                 .returning(|| CompressionAlgorithm::Gzip);
 
+            create_fake_file(&work_dir.join("00000.tar.gz"), "00000 content");
             create_fake_file(&work_dir.join("00001.tar.gz"), "00001 content");
             create_fake_file(&work_dir.join("00002.tar.gz"), "00002 content");
             create_fake_file(&work_dir.join("00003.tar.gz"), "00003 content");
@@ -686,6 +696,7 @@ mod tests {
             assert_equivalent(
                 archive_paths,
                 vec![
+                    work_dir.join("00000.tar.gz"),
                     work_dir.join("00001.tar.gz"),
                     work_dir.join("00002.tar.gz"),
                     work_dir.join("00003.tar.gz"),
