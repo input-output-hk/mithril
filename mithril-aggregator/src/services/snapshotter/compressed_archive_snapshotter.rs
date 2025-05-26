@@ -280,6 +280,16 @@ impl CompressedArchiveSnapshotter {
             .with_context(|| format!("Can not create folder: `{}`", target_folder.display()))?;
 
         for file in &files_to_snapshot {
+            // Some files to snapshot are in subfolders (i.e.: in-memory ledger snapshots files)
+            if let Some(parent_dir) = file.parent() {
+                let target_parent_dir = target_folder.join(parent_dir);
+                if !target_parent_dir.exists() {
+                    fs::create_dir_all(&target_parent_dir).with_context(|| {
+                        format!("Can not create folder: `{}`", target_parent_dir.display())
+                    })?;
+                }
+            }
+
             let source = self.db_directory.join(file);
             let target = target_folder.join(file);
             tokio::fs::copy(&source, &target).await.with_context(|| {
@@ -527,7 +537,7 @@ mod tests {
         use super::*;
 
         #[tokio::test]
-        async fn getting_files_to_include_copy_them_to_a_target_directory_while_keeping_source_dir_structure(
+        async fn getting_files_to_include_for_legacy_ledger_snapshot_copy_them_to_a_target_directory_while_keeping_source_dir_structure(
         ) {
             let test_dir = temp_dir_create!();
             let cardano_db = DummyCardanoDbBuilder::new(current_function!())
@@ -553,6 +563,45 @@ mod tests {
                      ** 00002.secondary
                      * {LEDGER_DIR}/
                      ** 737"
+                )
+            );
+        }
+
+        #[tokio::test]
+        async fn getting_files_to_include_for_in_memory_ledger_snapshot_copy_them_to_a_target_directory_while_keeping_source_dir_structure(
+        ) {
+            let test_dir = temp_dir_create!();
+            let cardano_db = DummyCardanoDbBuilder::new(current_function!())
+                .with_immutables(&[1, 2])
+                .with_in_memory_ledger_snapshots(&[737])
+                .build();
+            let snapshotter =
+                snapshotter_for_test(&test_dir, cardano_db.get_dir(), CompressionAlgorithm::Gzip);
+            let ancillary_snapshot_dir = test_dir.join("ancillary_snapshot");
+            fs::create_dir(&ancillary_snapshot_dir).unwrap();
+
+            snapshotter
+                .get_files_and_directories_for_ancillary_snapshot(1, &ancillary_snapshot_dir)
+                .await
+                .unwrap();
+
+            assert_dir_eq!(
+                &ancillary_snapshot_dir,
+                format!(
+                    "* {IMMUTABLE_DIR}/
+                     ** 00002.chunk
+                     ** 00002.primary
+                     ** 00002.secondary
+                     * {LEDGER_DIR}/
+                     ** 737/
+                     *** {}/
+                     **** {}
+                     *** {}
+                     *** {}",
+                    LedgerStateSnapshot::IN_MEMORY_TABLES,
+                    LedgerStateSnapshot::IN_MEMORY_TVAR,
+                    LedgerStateSnapshot::IN_MEMORY_META,
+                    LedgerStateSnapshot::IN_MEMORY_STATE,
                 )
             );
         }
@@ -695,7 +744,8 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn create_archive_generate_sign_and_include_manifest_file() {
+        async fn create_archive_of_legacy_ledger_snapshot_generate_sign_and_include_manifest_file()
+        {
             let test_dir = temp_dir_create!();
             let cardano_db = DummyCardanoDbBuilder::new(current_function!())
                 .with_immutables(&[1, 2, 3])
@@ -732,6 +782,76 @@ mod tests {
                     &PathBuf::from(IMMUTABLE_DIR).join("00003.secondary"),
                     &PathBuf::from(LEDGER_DIR).join("637"),
                     &PathBuf::from(LEDGER_DIR).join("737"),
+                ],
+                manifest.data.keys().collect::<Vec<_>>()
+            );
+            assert_eq!(
+                Some(
+                    fake_keys::signable_manifest_signature()[0]
+                        .try_into()
+                        .unwrap()
+                ),
+                manifest.signature
+            )
+        }
+
+        #[tokio::test]
+        async fn create_archive_of_in_memory_ledger_snapshot_generate_sign_and_include_manifest_file(
+        ) {
+            let test_dir = temp_dir_create!();
+            let cardano_db = DummyCardanoDbBuilder::new(current_function!())
+                .with_immutables(&[1, 2, 3])
+                .with_in_memory_ledger_snapshots(&[537, 637, 737])
+                .with_non_immutables(&["not_to_include.txt"])
+                .build();
+            File::create(cardano_db.get_dir().join("not_to_include_as_well.txt")).unwrap();
+
+            let snapshotter = CompressedArchiveSnapshotter {
+                ancillary_signer: Arc::new(MockAncillarySigner::that_succeeds_with_signature(
+                    fake_keys::signable_manifest_signature()[0],
+                )),
+                ..snapshotter_for_test(&test_dir, cardano_db.get_dir(), CompressionAlgorithm::Gzip)
+            };
+
+            let archive = snapshotter
+                .snapshot_ancillary(2, "ancillary")
+                .await
+                .unwrap();
+            let unpacked = archive.unpack_gzip(test_dir);
+            let manifest_path = unpacked.join(AncillaryFilesManifest::ANCILLARY_MANIFEST_FILE_NAME);
+
+            assert!(manifest_path.exists());
+
+            let manifest = serde_json::from_reader::<_, AncillaryFilesManifest>(
+                File::open(&manifest_path).unwrap(),
+            )
+            .unwrap();
+
+            assert_eq!(
+                vec![
+                    &PathBuf::from(IMMUTABLE_DIR).join("00003.chunk"),
+                    &PathBuf::from(IMMUTABLE_DIR).join("00003.primary"),
+                    &PathBuf::from(IMMUTABLE_DIR).join("00003.secondary"),
+                    &PathBuf::from(LEDGER_DIR)
+                        .join("637")
+                        .join(LedgerStateSnapshot::IN_MEMORY_META),
+                    &PathBuf::from(LEDGER_DIR)
+                        .join("637")
+                        .join(LedgerStateSnapshot::IN_MEMORY_STATE),
+                    &PathBuf::from(LEDGER_DIR)
+                        .join("637")
+                        .join(LedgerStateSnapshot::IN_MEMORY_TABLES)
+                        .join(LedgerStateSnapshot::IN_MEMORY_TVAR),
+                    &PathBuf::from(LEDGER_DIR)
+                        .join("737")
+                        .join(LedgerStateSnapshot::IN_MEMORY_META),
+                    &PathBuf::from(LEDGER_DIR)
+                        .join("737")
+                        .join(LedgerStateSnapshot::IN_MEMORY_STATE),
+                    &PathBuf::from(LEDGER_DIR)
+                        .join("737")
+                        .join(LedgerStateSnapshot::IN_MEMORY_TABLES)
+                        .join(LedgerStateSnapshot::IN_MEMORY_TVAR),
                 ],
                 manifest.data.keys().collect::<Vec<_>>()
             );
