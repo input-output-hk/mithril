@@ -19,6 +19,7 @@ use mithril_client::{ClientBuilder, MithrilResult};
 use crate::configuration::ConfigParameters;
 
 const CLIENT_TYPE_CLI: &str = "CLI";
+
 /// Shared arguments for all commands
 #[derive(Debug, Clone, Args)]
 pub struct SharedArgs {

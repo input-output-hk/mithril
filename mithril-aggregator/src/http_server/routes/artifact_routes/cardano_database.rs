@@ -28,7 +28,7 @@ fn artifact_cardano_database_by_id(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "cardano-database" / String)
         .and(warp::get())
-        .and(middlewares::with_origin_tag(dependency_manager))
+        .and(middlewares::with_client_metadata(dependency_manager))
         .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_http_message_service(dependency_manager))
         .and(middlewares::with_metrics_service(dependency_manager))
@@ -64,13 +64,15 @@ fn serve_cardano_database_dir(
 }
 
 mod handlers {
-    use crate::http_server::routes::reply;
-    use crate::services::MessageService;
-    use crate::MetricsService;
     use slog::{debug, warn, Logger};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
+
+    use crate::http_server::routes::middlewares::ClientMetadata;
+    use crate::http_server::routes::reply;
+    use crate::services::MessageService;
+    use crate::MetricsService;
 
     pub const LIST_MAX_ITEMS: usize = 20;
 
@@ -94,14 +96,17 @@ mod handlers {
     /// Get artifact by signed entity id
     pub async fn get_artifact_by_signed_entity_id(
         signed_entity_id: String,
-        origin_tag: Option<String>,
+        client_metadata: ClientMetadata,
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_artifact_detail_cardano_database_total_served_since_startup()
-            .increment(&[origin_tag.as_deref().unwrap_or_default()]);
+            .increment(&[
+                client_metadata.origin_tag.as_deref().unwrap_or_default(),
+                client_metadata.client_type.as_deref().unwrap_or_default(),
+            ]);
 
         match http_message_service
             .get_cardano_database_message(&signed_entity_id)
@@ -178,7 +183,7 @@ mod tests {
         CardanoDatabaseSnapshotMessage,
     };
     use mithril_common::test_utils::apispec::APISpec;
-    use mithril_common::MITHRIL_ORIGIN_TAG_HEADER;
+    use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
     use mithril_persistence::sqlite::HydrationError;
     use serde_json::Value::Null;
     use std::sync::Arc;
@@ -275,12 +280,13 @@ mod tests {
         let initial_counter_value = dependency_manager
             .metrics_service
             .get_artifact_detail_cardano_database_total_served_since_startup()
-            .get(&["TEST"]);
+            .get(&["TEST", "CLI"]);
 
         request()
             .method(method)
             .path(path)
             .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
+            .header(MITHRIL_CLIENT_TYPE_HEADER, "CLI")
             .reply(&setup_router(RouterState::new_with_origin_tag_white_list(
                 dependency_manager.clone(),
                 &["TEST"],
@@ -292,7 +298,7 @@ mod tests {
             dependency_manager
                 .metrics_service
                 .get_artifact_detail_cardano_database_total_served_since_startup()
-                .get(&["TEST"])
+                .get(&["TEST", "CLI"]),
         );
     }
 
