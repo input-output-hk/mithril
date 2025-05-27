@@ -11,6 +11,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for DMQ signature consumer and processor in the aggregator.
 
+- Support for `Cardano node` `10.4.1` in the signer and the aggregator.
+
 - Crates versions:
 
 | Crate | Version |
