@@ -169,7 +169,7 @@ mod tests {
             .with_immutables(&[0, 1, 2, 3])
             .append_immutable_trio()
             .set_immutable_trio_file_size(immutable_trio_file_size)
-            .with_ledger_files(&["437"])
+            .with_legacy_ledger_snapshots(&[437])
             .set_ledger_file_size(ledger_file_size)
             .with_volatile_files(&["blocks-0.dat"])
             .set_volatile_file_size(volatile_file_size)

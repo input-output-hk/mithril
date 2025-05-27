@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use mithril_common::crypto_helper::{ManifestSigner, ManifestVerifierSecretKey};
 use mithril_common::digesters::{
-    immutable_trio_names, ComputedImmutablesDigests, DummyCardanoDb, IMMUTABLE_DIR,
+    immutable_trio_names, ComputedImmutablesDigests, DummyCardanoDb, IMMUTABLE_DIR, LEDGER_DIR,
 };
 use mithril_common::entities::{AncillaryFilesManifest, CompressionAlgorithm, ImmutableFileNumber};
 use mithril_common::messages::CardanoDatabaseDigestListItemMessage;
@@ -107,8 +107,8 @@ pub async fn build_ancillary_files_archive(
 ) {
     let db_dir = cardano_db.get_dir();
     let ancillary_immutable_number = cardano_db.last_immutable_number().unwrap() + 1;
-    let last_ledger_file_path = cardano_db
-        .get_ledger_files()
+    let last_ledger_state_snapshot = cardano_db
+        .get_ledger_state_snapshots()
         .last()
         .expect("Given db should have at least one ledger file");
     let archive_name = format!(
@@ -120,15 +120,18 @@ pub async fn build_ancillary_files_archive(
     let enc = zstd::Encoder::new(tar_file, 3).unwrap();
     let mut tar = tar::Builder::new(enc);
 
-    let files_to_include = vec![
-        PathBuf::from(format!(
-            "ledger/{}",
-            last_ledger_file_path.file_name().unwrap().to_string_lossy()
-        )),
+    let mut files_to_include = vec![
         PathBuf::from(IMMUTABLE_DIR).join(format!("{ancillary_immutable_number:05}.chunk")),
         PathBuf::from(IMMUTABLE_DIR).join(format!("{ancillary_immutable_number:05}.primary")),
         PathBuf::from(IMMUTABLE_DIR).join(format!("{ancillary_immutable_number:05}.secondary")),
     ];
+    files_to_include.extend(
+        last_ledger_state_snapshot
+            .get_files_relative_path()
+            .into_iter()
+            .map(|p| PathBuf::from(LEDGER_DIR).join(p)),
+    );
+
     let ancillary_manifest = build_ancillary_manifest(
         db_dir,
         files_to_include.clone(),

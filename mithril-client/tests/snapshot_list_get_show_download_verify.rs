@@ -22,7 +22,7 @@ async fn snapshot_list_get_show_download_verify() {
     let cardano_db = DummyCardanoDbBuilder::new("snapshot_list_get_show_download_verify_db")
         .with_immutables(&[1, 2, 3])
         .append_immutable_trio()
-        .with_ledger_files(&["506", "562"])
+        .with_legacy_ledger_snapshots(&[506, 562])
         .build();
     let fake_aggregator = FakeAggregator::new();
     let test_http_server = fake_aggregator

@@ -29,7 +29,7 @@ async fn cardano_db_snapshot_list_get_download_verify() {
     let cardano_db = DummyCardanoDbBuilder::new("cardano_db_snapshot_list_get_download_verify_db")
         .with_immutables(&[1, 2, 3, 4])
         .append_immutable_trio()
-        .with_ledger_files(&["437", "537", "637"])
+        .with_legacy_ledger_snapshots(&[437, 537, 637])
         .with_volatile_files(&["blocks-0.dat", "blocks-1.dat"])
         .build();
     let digester =
