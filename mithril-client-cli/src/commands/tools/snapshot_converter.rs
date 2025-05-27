@@ -1,0 +1,528 @@
+// TODO:
+// - Add logs.
+// - Remove the temporary directory in all cases (error or success).
+use std::path::Path;
+use std::process::Command;
+use std::{env, fmt, path::PathBuf};
+
+use anyhow::{anyhow, Context};
+use clap::{Parser, ValueEnum};
+
+use mithril_client::MithrilResult;
+
+use super::archive_unpacker_selector::ArchiveUnpackerSelector;
+use super::github_api_client::{GitHubApiClient, ReqwestGitHubApiClient};
+use super::http_downloader::{HttpDownloader, ReqwestHttpDownloader};
+
+const GITHUB_ORGANIZATION: &str = "IntersectMBO";
+const GITHUB_REPOSITORY: &str = "cardano-node";
+
+const LATEST_DISTRIBUTION_TAG: &str = "latest";
+const PRERELEASE_DISTRIBUTION_TAG: &str = "prerelease";
+
+const CARDANO_DISTRIBUTION_TEMP_DIR: &str = "cardano-node-distribution-tmp";
+
+const SNAPSHOT_CONVERTER_BIN_DIR: &str = "bin";
+const SNAPSHOT_CONVERTER_BIN_NAME_UNIX: &str = "snapshot-converter";
+const SNAPSHOT_CONVERTER_BIN_NAME_WINDOWS: &str = "snapshot-converter.exe";
+const SNAPSHOT_CONVERTER_CONFIG_DIR: &str = "share";
+const SNAPSHOT_CONVERTER_CONFIG_FILE: &str = "config.json";
+
+const LEDGER_DIR: &str = "ledger";
+
+#[derive(Debug, Clone, ValueEnum)]
+enum UTxOHDFlavor {
+    #[clap(name = "Legacy")]
+    Legacy,
+    #[clap(name = "LMDB")]
+    Lmdb,
+}
+
+impl fmt::Display for UTxOHDFlavor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Legacy => write!(f, "Legacy"),
+            Self::Lmdb => write!(f, "LMDB"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+enum CardanoNetwork {
+    Preview,
+    Preprod,
+    Mainnet,
+}
+
+impl fmt::Display for CardanoNetwork {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Preview => write!(f, "preview"),
+            Self::Preprod => write!(f, "preprod"),
+            Self::Mainnet => write!(f, "mainnet"),
+        }
+    }
+}
+
+/// Clap command to convert a restored `InMemory` Mithril snapshot to another flavor.
+#[derive(Parser, Debug, Clone)]
+pub struct SnapshotConverterCommand {
+    /// Path to the Cardano node database directory.
+    #[clap(long)]
+    db_directory: PathBuf,
+
+    /// Cardano node version of the Mithril signed snapshot.
+    ///
+    /// `latest` and `prerelease` are also supported to download the latest or preprelease distribution.
+    #[clap(long)]
+    cardano_node_version: String,
+
+    /// Cardano network.
+    #[clap(long)]
+    cardano_network: CardanoNetwork,
+
+    /// UTxO-HD flavor to convert the ledger snapshot to.
+    #[clap(long)]
+    utxo_hd_flavor: UTxOHDFlavor,
+}
+
+impl SnapshotConverterCommand {
+    /// Main command execution
+    pub async fn execute(&self) -> MithrilResult<()> {
+        let distribution_temp_dir = self.db_directory.join(CARDANO_DISTRIBUTION_TEMP_DIR);
+        std::fs::create_dir(distribution_temp_dir.clone()).with_context(|| {
+            format!(
+                "Failed to create directory: {}",
+                distribution_temp_dir.display()
+            )
+        })?;
+
+        let archive_path = Self::download_cardano_node_distribution(
+            ReqwestGitHubApiClient::new()?,
+            ReqwestHttpDownloader::new()?,
+            &self.cardano_node_version,
+            &distribution_temp_dir,
+        )
+        .await
+        .with_context(|| {
+            "Failed to download 'snapshot-converter' binary from Cardano node distribution"
+        })?;
+
+        Self::unpack_cardano_node_distribution(&archive_path, &distribution_temp_dir)
+            .with_context(|| {
+                format!(
+                    "Failed to unpack 'snapshot-converter' binary to directory: {}",
+                    distribution_temp_dir.display()
+                )
+            })?;
+
+        Self::convert_ledger_snapshot(
+            &self.db_directory,
+            &self.cardano_network,
+            &distribution_temp_dir,
+            &self.utxo_hd_flavor,
+        )
+        .with_context(|| {
+            format!(
+                "Failed to convert ledger snapshot to flavor: {}",
+                self.utxo_hd_flavor
+            )
+        })?;
+
+        Ok(())
+    }
+
+    async fn download_cardano_node_distribution(
+        github_api_client: impl GitHubApiClient,
+        http_downloader: impl HttpDownloader,
+        tag: &str,
+        target_dir: &Path,
+    ) -> MithrilResult<PathBuf> {
+        let release = match tag {
+            LATEST_DISTRIBUTION_TAG => github_api_client
+                .get_latest_release(GITHUB_ORGANIZATION, GITHUB_REPOSITORY)
+                .await
+                .with_context(|| "Failed to get latest release")?,
+            PRERELEASE_DISTRIBUTION_TAG => github_api_client
+                .get_prerelease(GITHUB_ORGANIZATION, GITHUB_REPOSITORY)
+                .await
+                .with_context(|| "Failed to get prerelease")?,
+            _ => github_api_client
+                .get_release_by_tag(GITHUB_ORGANIZATION, GITHUB_REPOSITORY, tag)
+                .await
+                .with_context(|| format!("Failed to get release by tag: {}", tag))?,
+        };
+
+        let asset = release
+            .get_asset_for_os(env::consts::OS)?
+            .ok_or_else(|| anyhow!("No asset found for platform: {}", env::consts::OS))
+            .with_context(|| {
+                format!(
+                    "Failed to find asset for current platform: {}",
+                    env::consts::OS
+                )
+            })?;
+
+        let archive_path = http_downloader
+            .download(asset.browser_download_url.parse()?, target_dir, &asset.name)
+            .await?;
+
+        Ok(archive_path)
+    }
+
+    fn unpack_cardano_node_distribution(
+        archive_path: &Path,
+        target_dir: &Path,
+    ) -> MithrilResult<()> {
+        let unpacker = ArchiveUnpackerSelector::select_unpacker(archive_path)?;
+        unpacker.unpack(archive_path, target_dir).with_context(|| {
+            format!("Failed to unpack distribution: {}", archive_path.display())
+        })?;
+
+        Ok(())
+    }
+
+    // 1. Find the `snapshot-converter` binary
+    // 2. Find the configuration file
+    // 3. Find the less recent ledger snapshot in the db directory
+    // 4. Copy the ledger snapshot to the distribution directory (backup)
+    // 5. Run the `snapshot-converter` command with the appropriate arguments
+    // - Legacy: snapshot-converter Mem <PATH-IN> Legacy <PATH-OUT> cardano --config <CONFIG>
+    // - LMDB: snapshot-converter Mem <PATH-IN> LMDB <PATH-OUT> cardano --config <CONFIG>
+    fn convert_ledger_snapshot(
+        db_dir: &Path,
+        cardano_network: &CardanoNetwork,
+        distribution_dir: &Path,
+        utxo_hd_flavor: &UTxOHDFlavor,
+    ) -> MithrilResult<()> {
+        let snapshot_converter_bin_path =
+            Self::get_snapshot_converter_binary_path(distribution_dir, env::consts::OS)?;
+        // TODO: check if this configuration file is enough to convert the snapshot.
+        let config_path =
+            Self::get_snapshot_converter_config_path(distribution_dir, cardano_network);
+
+        let (slot_number, ledger_snapshot_path) = Self::find_less_recent_ledger_snapshot(db_dir)?;
+        let snapshot_backup_path = distribution_dir.join(ledger_snapshot_path.file_name().unwrap());
+        std::fs::copy(ledger_snapshot_path.clone(), snapshot_backup_path.clone())?;
+
+        let snapshot_converted_output_path = distribution_dir
+            .join(slot_number.to_string())
+            .join(utxo_hd_flavor.to_string().to_lowercase());
+
+        // TODO: verify if the paths are correct, the command needs relative path.
+        Command::new(snapshot_converter_bin_path.clone())
+            .arg("Mem")
+            .arg(snapshot_backup_path)
+            .arg(utxo_hd_flavor.to_string())
+            .arg(snapshot_converted_output_path)
+            .arg("cardano")
+            .arg("--config")
+            .arg(config_path)
+            .status()
+            .with_context(|| {
+                format!(
+                    "Failed to get help of snapshot-converter: {}",
+                    snapshot_converter_bin_path.display()
+                )
+            })?;
+
+        println!(
+            "Snapshot converter executed successfully. The ledger snapshot has been converted to {} flavor in {}.",
+            utxo_hd_flavor,
+            distribution_dir.display()
+        );
+        Ok(())
+    }
+
+    fn get_snapshot_converter_binary_path(
+        distribution_dir: &Path,
+        target_os: &str,
+    ) -> MithrilResult<PathBuf> {
+        let base_path = distribution_dir.join(SNAPSHOT_CONVERTER_BIN_DIR);
+
+        let binary_name = match target_os {
+            "linux" | "macos" => SNAPSHOT_CONVERTER_BIN_NAME_UNIX,
+            "windows" => SNAPSHOT_CONVERTER_BIN_NAME_WINDOWS,
+            _ => return Err(anyhow!("Unsupported platform: {}", target_os)),
+        };
+
+        Ok(base_path.join(binary_name))
+    }
+
+    fn get_snapshot_converter_config_path(
+        distribution_dir: &Path,
+        network: &CardanoNetwork,
+    ) -> PathBuf {
+        distribution_dir
+            .join(SNAPSHOT_CONVERTER_CONFIG_DIR)
+            .join(network.to_string())
+            .join(SNAPSHOT_CONVERTER_CONFIG_FILE)
+    }
+
+    // TODO: quick dirty code to go further in `convert_ledger_snapshot` function, must be enhanced and tested.
+    fn find_less_recent_ledger_snapshot(db_dir: &Path) -> MithrilResult<(u64, PathBuf)> {
+        let ledger_dir = db_dir.join(LEDGER_DIR);
+
+        let entries = std::fs::read_dir(&ledger_dir).with_context(|| {
+            format!("Failed to read ledger directory: {}", ledger_dir.display())
+        })?;
+
+        let mut min_slot: Option<(u64, PathBuf)> = None;
+
+        for entry in entries {
+            let entry = entry?;
+            let file_name = entry.file_name();
+            let file_name_str = file_name.to_str().unwrap();
+
+            let slot = match file_name_str.parse::<u64>() {
+                Ok(n) => n,
+                Err(_) => continue,
+            };
+
+            let path = entry.path();
+            if path.is_dir() {
+                match &min_slot {
+                    Some((current_min, _)) if *current_min <= slot => {}
+                    _ => min_slot = Some((slot, path)),
+                }
+            }
+        }
+
+        min_slot.ok_or_else(|| {
+            anyhow!(
+                "No valid ledger snapshot found in: {}",
+                ledger_dir.display()
+            )
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use mockall::predicate::eq;
+    use reqwest::Url;
+
+    use mithril_common::temp_dir_create;
+
+    use crate::commands::tools::{
+        github_api_client::MockGitHubApiClient, github_release::GitHubRelease,
+        http_downloader::MockHttpDownloader,
+    };
+
+    use super::*;
+
+    #[tokio::test]
+    async fn call_get_latest_release_with_latest_tag() {
+        let temp_dir = temp_dir_create!();
+        let release = GitHubRelease::dummy_with_all_supported_assets();
+        let asset = release.get_asset_for_os(env::consts::OS).unwrap().unwrap();
+
+        let cloned_release = release.clone();
+        let mut github_api_client = MockGitHubApiClient::new();
+        github_api_client
+            .expect_get_latest_release()
+            .with(eq(GITHUB_ORGANIZATION), eq(GITHUB_REPOSITORY))
+            .returning(move |_, _| Ok(cloned_release.clone()));
+
+        let mut http_downloader = MockHttpDownloader::new();
+        http_downloader
+            .expect_download()
+            .with(
+                eq(Url::parse(&asset.browser_download_url).unwrap()),
+                eq(temp_dir.clone()),
+                eq(asset.name.clone()),
+            )
+            .returning(|_, _, _| Ok(PathBuf::new()));
+
+        SnapshotConverterCommand::download_cardano_node_distribution(
+            github_api_client,
+            http_downloader,
+            LATEST_DISTRIBUTION_TAG,
+            &temp_dir,
+        )
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn call_get_prerelease_with_prerelease_tag() {
+        let temp_dir = temp_dir_create!();
+        let release = GitHubRelease::dummy_with_all_supported_assets();
+        let asset = release.get_asset_for_os(env::consts::OS).unwrap().unwrap();
+
+        let cloned_release = release.clone();
+        let mut github_api_client = MockGitHubApiClient::new();
+        github_api_client
+            .expect_get_prerelease()
+            .with(eq(GITHUB_ORGANIZATION), eq(GITHUB_REPOSITORY))
+            .returning(move |_, _| Ok(cloned_release.clone()));
+
+        let mut http_downloader = MockHttpDownloader::new();
+        http_downloader
+            .expect_download()
+            .with(
+                eq(Url::parse(&asset.browser_download_url).unwrap()),
+                eq(temp_dir.clone()),
+                eq(asset.name.clone()),
+            )
+            .returning(|_, _, _| Ok(PathBuf::new()));
+
+        SnapshotConverterCommand::download_cardano_node_distribution(
+            github_api_client,
+            http_downloader,
+            PRERELEASE_DISTRIBUTION_TAG,
+            &temp_dir,
+        )
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn call_get_release_by_tag_with_specific_cardano_node_version() {
+        let cardano_node_version = "10.3.1";
+        let temp_dir = temp_dir_create!();
+        let release = GitHubRelease::dummy_with_all_supported_assets();
+        let asset = release.get_asset_for_os(env::consts::OS).unwrap().unwrap();
+
+        let cloned_release = release.clone();
+        let mut github_api_client = MockGitHubApiClient::new();
+        github_api_client
+            .expect_get_release_by_tag()
+            .with(
+                eq(GITHUB_ORGANIZATION),
+                eq(GITHUB_REPOSITORY),
+                eq(cardano_node_version),
+            )
+            .returning(move |_, _, _| Ok(cloned_release.clone()));
+
+        let mut http_downloader = MockHttpDownloader::new();
+        http_downloader
+            .expect_download()
+            .with(
+                eq(Url::parse(&asset.browser_download_url).unwrap()),
+                eq(temp_dir.clone()),
+                eq(asset.name.clone()),
+            )
+            .returning(|_, _, _| Ok(PathBuf::new()));
+
+        SnapshotConverterCommand::download_cardano_node_distribution(
+            github_api_client,
+            http_downloader,
+            cardano_node_version,
+            &temp_dir,
+        )
+        .await
+        .unwrap();
+    }
+
+    #[test]
+    fn get_snapshot_converter_binary_path_linux() {
+        let distribution_dir = PathBuf::from("/path/to/distribution");
+
+        let binary_path = SnapshotConverterCommand::get_snapshot_converter_binary_path(
+            &distribution_dir,
+            "linux",
+        )
+        .unwrap();
+
+        assert_eq!(
+            binary_path,
+            distribution_dir
+                .join(SNAPSHOT_CONVERTER_BIN_DIR)
+                .join(SNAPSHOT_CONVERTER_BIN_NAME_UNIX)
+        );
+    }
+
+    #[test]
+    fn get_snapshot_converter_binary_path_macos() {
+        let distribution_dir = PathBuf::from("/path/to/distribution");
+
+        let binary_path = SnapshotConverterCommand::get_snapshot_converter_binary_path(
+            &distribution_dir,
+            "macos",
+        )
+        .unwrap();
+
+        assert_eq!(
+            binary_path,
+            distribution_dir
+                .join(SNAPSHOT_CONVERTER_BIN_DIR)
+                .join(SNAPSHOT_CONVERTER_BIN_NAME_UNIX)
+        );
+    }
+
+    #[test]
+    fn get_snapshot_converter_binary_path_windows() {
+        let distribution_dir = PathBuf::from("/path/to/distribution");
+
+        let binary_path = SnapshotConverterCommand::get_snapshot_converter_binary_path(
+            &distribution_dir,
+            "windows",
+        )
+        .unwrap();
+
+        assert_eq!(
+            binary_path,
+            distribution_dir
+                .join(SNAPSHOT_CONVERTER_BIN_DIR)
+                .join(SNAPSHOT_CONVERTER_BIN_NAME_WINDOWS)
+        );
+    }
+
+    #[test]
+    fn get_snapshot_converter_config_path_mainnet() {
+        let distribution_dir = PathBuf::from("/path/to/distribution");
+        let network = CardanoNetwork::Mainnet;
+
+        let config_path = SnapshotConverterCommand::get_snapshot_converter_config_path(
+            &distribution_dir,
+            &network,
+        );
+
+        assert_eq!(
+            config_path,
+            distribution_dir
+                .join(SNAPSHOT_CONVERTER_CONFIG_DIR)
+                .join(network.to_string())
+                .join(SNAPSHOT_CONVERTER_CONFIG_FILE)
+        );
+    }
+
+    #[test]
+    fn get_snapshot_converter_config_path_preprod() {
+        let distribution_dir = PathBuf::from("/path/to/distribution");
+        let network = CardanoNetwork::Preprod;
+
+        let config_path = SnapshotConverterCommand::get_snapshot_converter_config_path(
+            &distribution_dir,
+            &network,
+        );
+
+        assert_eq!(
+            config_path,
+            distribution_dir
+                .join(SNAPSHOT_CONVERTER_CONFIG_DIR)
+                .join(network.to_string())
+                .join(SNAPSHOT_CONVERTER_CONFIG_FILE)
+        );
+    }
+
+    #[test]
+    fn get_snapshot_converter_config_path_preview() {
+        let distribution_dir = PathBuf::from("/path/to/distribution");
+        let network = CardanoNetwork::Preview;
+
+        let config_path = SnapshotConverterCommand::get_snapshot_converter_config_path(
+            &distribution_dir,
+            &network,
+        );
+
+        assert_eq!(
+            config_path,
+            distribution_dir
+                .join(SNAPSHOT_CONVERTER_CONFIG_DIR)
+                .join(network.to_string())
+                .join(SNAPSHOT_CONVERTER_CONFIG_FILE)
+        );
+    }
+}

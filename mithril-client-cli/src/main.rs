@@ -17,7 +17,8 @@ use mithril_client_cli::commands::{
     cardano_db::CardanoDbCommands, cardano_db_v2::CardanoDbV2Commands,
     cardano_stake_distribution::CardanoStakeDistributionCommands,
     cardano_transaction::CardanoTransactionCommands,
-    mithril_stake_distribution::MithrilStakeDistributionCommands, DeprecatedCommand, Deprecation,
+    mithril_stake_distribution::MithrilStakeDistributionCommands, tools::ToolsCommands,
+    DeprecatedCommand, Deprecation,
 };
 use mithril_client_cli::{ClapError, CommandContext};
 
@@ -209,6 +210,9 @@ enum ArtifactCommands {
 
     #[clap(alias("doc"), hide(true))]
     GenerateDoc(GenerateDocCommands),
+
+    #[clap(subcommand)]
+    Tools(ToolsCommands),
 }
 
 impl ArtifactCommands {
@@ -231,6 +235,7 @@ impl ArtifactCommands {
             Self::GenerateDoc(cmd) => cmd
                 .execute(&mut Args::command())
                 .map_err(|message| anyhow!(message)),
+            Self::Tools(cmd) => cmd.execute().await,
         }
     }
 
