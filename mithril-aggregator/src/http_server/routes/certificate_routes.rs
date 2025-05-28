@@ -27,6 +27,7 @@ fn certificate_certificate_hash(
     warp::path!("certificate" / String)
         .and(warp::get())
         .and(middlewares::with_origin_tag(router_state))
+        .and(middlewares::with_client_type())
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_http_message_service(router_state))
         .and(middlewares::with_metrics_service(router_state))
@@ -65,13 +66,17 @@ mod handlers {
     pub async fn certificate_certificate_hash(
         certificate_hash: String,
         origin_tag: Option<String>,
+        client_type: Option<String>,
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_certificate_detail_total_served_since_startup()
-            .increment(&[origin_tag.as_deref().unwrap_or_default()]);
+            .increment(&[
+                origin_tag.as_deref().unwrap_or_default(),
+                client_type.as_deref().unwrap_or_default(),
+            ]);
 
         match http_message_service
             .get_certificate_message(&certificate_hash)

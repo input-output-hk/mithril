@@ -3,4 +3,5 @@
 
 mod service;
 
+pub use service::MetricMap;
 pub use service::MetricsService;

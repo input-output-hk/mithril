@@ -3,12 +3,13 @@ use std::collections::HashMap;
 use mithril_metric::{build_metrics_service, MetricCounterWithLabels, MetricsServiceExporter};
 
 use mithril_metric::metric::{MetricCollector, MetricCounter};
-use prometheus::proto::{LabelPair, MetricFamily};
+use prometheus::proto::{LabelPair, Metric, MetricFamily};
 
 // Those are three differents dimensions, they use the same value to simplify usage in Grafana
 static CLIENT_ORIGIN_TAG_LABEL: &str = "origin_tag";
 static SIGNER_REGISTRATION_ORIGIN_TAG_LABEL: &str = "origin_tag";
 static SIGNER_SIGNATURE_ORIGIN_TAG_LABEL: &str = "origin_tag";
+static CLIENT_TYPE_LABEL: &str = "client_type";
 
 build_metrics_service!(
     MetricsService,
@@ -16,7 +17,7 @@ build_metrics_service!(
     certificate_detail_total_served_since_startup:MetricCounterWithLabels(
         "certificate_detail_total_served_since_startup",
         "Number of certificate details served since startup on a Mithril aggregator node",
-        &[CLIENT_ORIGIN_TAG_LABEL]
+        &[CLIENT_ORIGIN_TAG_LABEL, CLIENT_TYPE_LABEL]
     ),
     artifact_detail_cardano_immutable_files_full_total_served_since_startup:MetricCounterWithLabels(
         "mithril_aggregator_artifact_detail_cardano_db_total_served_since_startup",
@@ -151,12 +152,74 @@ impl MetricsService {
             .get_metric()
             .iter()
             .map(|m| {
+                println!(
+                    "VVVVVV Exporting metric: {} with labels: {:?}, builded label key: {}",
+                    m.get_counter().as_ref().unwrap().value(),
+                    m.get_label(),
+                    m.get_counter().as_ref().unwrap_or_default().value()
+                );
                 (
                     self.build_label_key(m.get_label()),
                     m.get_counter().as_ref().unwrap_or_default().value() as u32,
                 )
             })
             .collect()
+    }
+
+    pub fn export_metrics_map2(&self) -> HashMap<String, HashMap<String, MetricMap>> {
+        self.registry
+            .gather()
+            .iter()
+            .map(|metric_family| {
+                (
+                    metric_family.name().to_string(),
+                    self.build_metric_map(metric_family),
+                )
+            })
+            .collect()
+    }
+
+    fn build_metric_map(&self, metric_family: &MetricFamily) -> HashMap<String, MetricMap> {
+        metric_family
+            .get_metric()
+            .iter()
+            .map(|m| {
+                println!(
+                    "VVVVVV Exporting metric: {} with labels: {:?}, builded label key: {}",
+                    m.get_counter().as_ref().unwrap().value(),
+                    m.get_label(),
+                    self.build_label_key(m.get_label()),
+                );
+                (
+                    self.build_label_key(m.get_label()),
+                    MetricMap::new(m.clone()),
+                )
+            })
+            .collect()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MetricMap {
+    //key (labels) and value
+    pub key_value: HashMap<String, String>,
+    // metric counter
+    pub counter: u32,
+}
+
+impl MetricMap {
+    pub fn new(metric: Metric) -> Self {
+        Self {
+            key_value: metric
+                .get_label()
+                .iter()
+                .map(|label| (label.name().to_string(), label.value().to_string()))
+                .collect(),
+            counter: metric.get_counter().as_ref().unwrap_or_default().value() as u32,
+        }
+    }
+    fn new(key_value: HashMap<String, String>, counter: u32) -> Self {
+        Self { key_value, counter }
     }
 }
 
@@ -183,12 +246,33 @@ mod tests {
     fn should_export_counter_metrics_with_label_in_a_map() {
         let metrics_service = MetricsService::new(TestLogger::stdout()).unwrap();
         let metric_a = metrics_service.get_certificate_detail_total_served_since_startup();
-        metric_a.increment_by(&["TOKEN_A"], 5);
-        metric_a.increment_by(&["TOKEN_B"], 12);
+        metric_a.increment_by(&["TOKEN_A", "TOKEN_B"], 5);
+        metric_a.increment_by(&["TOKEN_1", "TOKEN_2"], 12);
 
         let export = metrics_service.export_metrics_map();
-        assert_eq!(5, export[&metric_a.name()]["TOKEN_A"]);
-        assert_eq!(12, export[&metric_a.name()]["TOKEN_B"]);
+        assert_eq!(5, export[&metric_a.name()]["TOKEN_B,TOKEN_A"]);
+        assert_eq!(12, export[&metric_a.name()]["TOKEN_2,TOKEN_1"]);
+    }
+
+    #[test]
+    fn should_export_counter_metrics_with_label_in_a_map2() {
+        let metrics_service = MetricsService::new(TestLogger::stdout()).unwrap();
+        let metric_a = metrics_service.get_certificate_detail_total_served_since_startup();
+        metric_a.increment_by(&["A", "B"], 5);
+        metric_a.increment_by(&["1", "2"], 12);
+
+        let export = metrics_service.export_metrics_map2();
+
+        let metric_a_token_a_b = export[&metric_a.name()]["B,A"].clone();
+        let metric_a_token_1_2 = export[&metric_a.name()]["2,1"].clone();
+
+        assert_eq!(5, metric_a_token_a_b.to_owned().counter);
+        assert_eq!("A", metric_a_token_a_b.to_owned().key_value["origin_tag"]);
+        assert_eq!("B", metric_a_token_a_b.to_owned().key_value["client_type"]);
+
+        assert_eq!(12, metric_a_token_1_2.to_owned().counter);
+        assert_eq!("1", metric_a_token_1_2.to_owned().key_value["origin_tag"]);
+        assert_eq!("2", metric_a_token_1_2.to_owned().key_value["client_type"]);
     }
 
     #[test]

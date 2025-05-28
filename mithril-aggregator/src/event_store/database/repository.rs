@@ -129,6 +129,7 @@ mod tests {
                 value,
                 Duration::from_secs(5),
                 origin.to_string(),
+                "client type".to_string(), //TODO change this test value
                 metric_date.into(),
             );
 

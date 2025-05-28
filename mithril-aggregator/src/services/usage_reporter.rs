@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
+use crate::metrics::MetricMap;
 use crate::{
     event_store::{EventMessage, TransmitterService},
     MetricsService,
@@ -20,6 +21,8 @@ struct MetricEventMessage {
     period: Duration,
     /// Identify the origin of the metric.
     origin: String,
+    /// Identify the client type that collected the metric.
+    client_type: String,
     /// Date at which the metric was collected.
     date: DateTime<Utc>,
 }
@@ -27,7 +30,7 @@ struct MetricEventMessage {
 pub struct UsageReporter {
     transmitter_service: Arc<TransmitterService<EventMessage>>,
     metrics_service: Arc<MetricsService>,
-    last_reported_metrics: HashMap<String, HashMap<String, u32>>,
+    last_reported_metrics: HashMap<String, HashMap<String, MetricMap>>,
     logger: Logger,
 }
 
@@ -47,24 +50,29 @@ impl UsageReporter {
     }
 
     fn compute_metrics_delta(
-        metrics_before: Option<&HashMap<String, u32>>,
-        metrics_after: &HashMap<String, u32>,
-    ) -> HashMap<String, i64> {
+        metrics_before: Option<&HashMap<String, MetricMap>>,
+        metrics_after: &HashMap<String, MetricMap>,
+    ) -> HashMap<String, MetricMap> {
         metrics_after
             .iter()
-            .map(|(name, value)| {
-                let last_value = metrics_before.and_then(|m| m.get(name)).unwrap_or(&0);
-                let delta: i64 = (*value as i64) - (*last_value as i64);
-                (name.clone(), delta)
+            .filter_map(|(name, value)| {
+                let last_value = metrics_before.and_then(|m| m.get(name));
+                let delta = (value.counter as i64) - (last_value.unwrap().counter as i64);
+                if delta != 0 {
+                    let mut delta_metric = value.clone();
+                    delta_metric.counter = delta as u32; // Or use i64 if you want to support negative deltas
+                    Some((name.clone(), delta_metric))
+                } else {
+                    None
+                }
             })
-            .filter(|(_name, value)| *value != 0)
             .collect()
     }
 
     fn compute_metrics_delta_with_label(
-        metrics_before: &HashMap<String, HashMap<String, u32>>,
-        metrics_after: &HashMap<String, HashMap<String, u32>>,
-    ) -> HashMap<String, HashMap<String, i64>> {
+        metrics_before: &HashMap<String, HashMap<String, MetricMap>>,
+        metrics_after: &HashMap<String, HashMap<String, MetricMap>>,
+    ) -> HashMap<String, HashMap<String, MetricMap>> {
         metrics_after
             .iter()
             .map(|(name, label_values)| {
@@ -78,19 +86,24 @@ impl UsageReporter {
     }
 
     fn send_metrics(&mut self, duration: &Duration) {
-        let metrics = self.metrics_service.export_metrics_map();
+        let metrics = self.metrics_service.export_metrics_map2();
         let delta = Self::compute_metrics_delta_with_label(&self.last_reported_metrics, &metrics);
         let date = Utc::now();
 
         self.last_reported_metrics = metrics;
 
-        for (name, origin_values) in delta {
-            for (origin, value) in origin_values {
+        for (name, metrics_map) in delta {
+            for (origin, metric_map) in metrics_map {
+                println!(
+                    "VVV Sending metric name : {} with value: {} for origin: {}",
+                    name, metric_map.counter, origin
+                );
                 let message = Self::create_metrics_event_message(
                     name.clone(),
-                    value,
+                    metric_map.counter as i64,
                     *duration,
-                    origin,
+                    metric_map.key_value["origin_tag"].to_string(),
+                    metric_map.key_value["client_type"].to_string(),
                     date,
                 );
                 self.transmitter_service.send(message);
@@ -120,6 +133,7 @@ impl UsageReporter {
         value: i64,
         period: Duration,
         origin: String,
+        client_type: String,
         date: DateTime<Utc>,
     ) -> EventMessage {
         EventMessage::new(
@@ -130,6 +144,7 @@ impl UsageReporter {
                 value,
                 period,
                 origin,
+                client_type,
                 date,
             },
             vec![],
@@ -212,7 +227,7 @@ mod tests {
         let (mut usage_reporter, metrics_service, mut rx) = build_usage_reporter();
 
         let metric = metrics_service.get_certificate_detail_total_served_since_startup();
-        metric.increment_by(&["ORIGIN_A"], 3);
+        metric.increment_by(&["ORIGIN_A", "CLIENT_TYPE"], 3);
         usage_reporter.send_metrics(&Duration::from_secs(10));
 
         let received_messages = received_messages(&mut rx);
@@ -223,7 +238,7 @@ mod tests {
             serde_json::from_value(message.content.clone()).unwrap();
         assert_eq!(3, message_content.value);
         assert_eq!(Duration::from_secs(10), message_content.period);
-        assert_eq!("ORIGIN_A", message_content.origin);
+        assert_eq!("CLIENT_TYPE,ORIGIN_A", message_content.origin);
     }
 
     #[test]
@@ -231,8 +246,8 @@ mod tests {
         let (mut usage_reporter, metrics_service, mut rx) = build_usage_reporter();
 
         let metric = metrics_service.get_certificate_detail_total_served_since_startup();
-        metric.increment_by(&["ORIGIN_A"], 3);
-        metric.increment_by(&["ORIGIN_B"], 7);
+        metric.increment_by(&["ORIGIN_A", "CLIENT_TYPE"], 3);
+        metric.increment_by(&["ORIGIN_B", "CLIENT_TYPE"], 7);
         usage_reporter.send_metrics(&Duration::from_secs(10));
 
         let received_messages = received_messages(&mut rx);
@@ -245,8 +260,8 @@ mod tests {
                 (event.origin, event.value)
             })
             .collect();
-        assert_eq!(Some(&3), received_messages.get("ORIGIN_A"));
-        assert_eq!(Some(&7), received_messages.get("ORIGIN_B"));
+        assert_eq!(Some(&3), received_messages.get("CLIENT_TYPE,ORIGIN_A"));
+        assert_eq!(Some(&7), received_messages.get("CLIENT_TYPE,ORIGIN_B"));
     }
 
     #[test]
@@ -256,7 +271,7 @@ mod tests {
         let metric_1 = metrics_service.get_certificate_total_produced_since_startup();
         let metric_2 = metrics_service.get_certificate_detail_total_served_since_startup();
         metric_1.increment();
-        metric_2.increment(&["ORIGIN"]);
+        metric_2.increment(&["ORIGIN", "CLIENT_TYPE"]);
 
         usage_reporter.send_metrics(&Duration::from_secs(10));
 
@@ -277,15 +292,15 @@ mod tests {
 
         {
             metric_1.increment_by(12);
-            metric_2.increment_by(&["ORIGIN"], 5);
+            metric_2.increment_by(&["ORIGIN", "CLIENT_TYPE"], 5);
             usage_reporter.send_metrics(&Duration::from_secs(10));
 
             let received_messages = received_messages(&mut rx);
             assert_eq!(2, received_messages.len());
         }
         {
-            metric_2.increment_by(&["ORIGIN"], 20);
-            metric_2.increment_by(&["ORIGIN"], 33);
+            metric_2.increment_by(&["ORIGIN", "CLIENT_TYPE"], 20);
+            metric_2.increment_by(&["ORIGIN", "CLIENT_TYPE"], 33);
             usage_reporter.send_metrics(&Duration::from_secs(10));
 
             let received_messages = received_messages(&mut rx);
@@ -297,7 +312,7 @@ mod tests {
             );
         }
         {
-            metric_2.increment_by(&["ORIGIN"], 15);
+            metric_2.increment_by(&["ORIGIN", "CLIENT_TYPE"], 15);
             usage_reporter.send_metrics(&Duration::from_secs(10));
 
             let received_messages = received_messages(&mut rx);
@@ -330,6 +345,7 @@ mod tests {
 
         #[test]
         fn should_not_contain_metric_that_not_change() {
+            //TODO modify build_hashmap to construct a HashMap<String, HashMap<String, T>> with a MetricMap
             let metrics_before = build_hashmap(&[("metric_a", &[("origin_1", 1)])]);
 
             let metrics_after = build_hashmap(&[("metric_a", &[("origin_1", 1)])]);
