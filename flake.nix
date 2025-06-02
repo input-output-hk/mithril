@@ -94,6 +94,9 @@
             // {
               cargoArtifacts = buildDeps cargoToml baseCargoArtifacts;
             }
+            // {
+              cargoTestCommand = "cargo test";
+            }
             // args);
 
         mithril-stm = buildPackage ./mithril-stm/Cargo.toml null {};
