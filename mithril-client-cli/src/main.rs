@@ -223,36 +223,17 @@ impl ArtifactCommands {
             Self::CardanoTransaction(cmd) => cmd.execute(context).await,
             Self::CardanoStakeDistribution(cmd) => cmd.execute(context).await,
             Self::CardanoDbV2(cmd) => {
-                if !context.is_unstable_enabled() {
-                    Err(anyhow!(Self::unstable_flag_missing_message(
-                        "cardano-db-v2",
-                        "list"
-                    )))
-                } else {
-                    cmd.execute(context).await
-                }
+                context.require_unstable("cardano-db-v2", Some("list"))?;
+                cmd.execute(context).await
             }
             Self::GenerateDoc(cmd) => cmd
                 .execute(&mut Args::command())
                 .map_err(|message| anyhow!(message)),
             Self::Tools(cmd) => {
-                if !context.is_unstable_enabled() {
-                    Err(anyhow!(Self::unstable_flag_missing_message(
-                        "tools",
-                        "utxo-hd snapshot-converter"
-                    )))
-                } else {
-                    cmd.execute().await
-                }
+                context.require_unstable("tools", Some("utxo-hd snapshot-converter"))?;
+                cmd.execute().await
             }
         }
-    }
-
-    fn unstable_flag_missing_message(sub_command: &str, command_example: &str) -> String {
-        format!(
-            "The \"{sub_command}\" subcommand is only accepted using the --unstable flag.\n\n\
-                ie: \"mithril-client --unstable {sub_command} {command_example}\""
-        )
     }
 }
 
