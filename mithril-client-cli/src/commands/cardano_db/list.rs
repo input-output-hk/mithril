@@ -21,6 +21,14 @@ pub struct CardanoDbListCommand {
 }
 
 impl CardanoDbListCommand {
+    /// Temporary constructor to allow the `cardano-db-v2 list` command to reuse this code
+    pub(crate) fn new_v2(shared_args: SharedArgs) -> Self {
+        Self {
+            backend: CardanoDbCommandsBackend::V2,
+            shared_args,
+        }
+    }
+
     /// Is JSON output enabled
     pub fn is_json_output_enabled(&self) -> bool {
         self.shared_args.json
