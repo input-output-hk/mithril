@@ -7,11 +7,11 @@ use v2::PreparedCardanoDbV2Download;
 use clap::Parser;
 use std::{collections::HashMap, path::PathBuf};
 
-use crate::commands::cardano_db::CardanoDbCommandsBackend;
 use crate::{
+    commands::cardano_db::CardanoDbCommandsBackend,
     commands::SharedArgs,
     configuration::{ConfigError, ConfigParameters, ConfigSource},
-    utils::{self, AncillaryLogMessage},
+    utils::{self, JSON_CAUTION_KEY},
     CommandContext,
 };
 use mithril_client::{common::ImmutableFileNumber, MithrilResult};
@@ -99,6 +99,10 @@ impl CardanoDbDownloadCommand {
         }
     }
 
+    fn is_json_output_enabled(&self) -> bool {
+        self.shared_args.json
+    }
+
     /// Command execution
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         if self.backend.is_v2() {
@@ -120,10 +124,10 @@ impl CardanoDbDownloadCommand {
 
     fn prepare_v1(&self, params: &ConfigParameters) -> MithrilResult<PreparedCardanoDbV1Download> {
         let ancillary_verification_key = if self.include_ancillary {
-            AncillaryLogMessage::warn_ancillary_not_signed_by_mithril();
+            self.warn_ancillary_not_signed_by_mithril();
             Some(params.require("ancillary_verification_key")?)
         } else {
-            AncillaryLogMessage::warn_fast_bootstrap_not_available();
+            self.warn_fast_bootstrap_not_available();
             None
         };
 
@@ -138,10 +142,10 @@ impl CardanoDbDownloadCommand {
 
     fn prepare_v2(&self, params: &ConfigParameters) -> MithrilResult<PreparedCardanoDbV2Download> {
         let ancillary_verification_key = if self.include_ancillary {
-            AncillaryLogMessage::warn_ancillary_not_signed_by_mithril();
+            self.warn_ancillary_not_signed_by_mithril();
             Some(params.require("ancillary_verification_key")?)
         } else {
-            AncillaryLogMessage::warn_fast_bootstrap_not_available();
+            self.warn_fast_bootstrap_not_available();
             None
         };
 
@@ -155,6 +159,43 @@ impl CardanoDbDownloadCommand {
             ancillary_verification_key,
             allow_override: self.allow_override,
         })
+    }
+
+    /// Provides guidance on how to enable fast bootstrap by including ancillary files
+    fn warn_fast_bootstrap_not_available(&self) {
+        if self.is_json_output_enabled() {
+            let json = serde_json::json!({
+                JSON_CAUTION_KEY: "The fast bootstrap of the Cardano node is not available with the current parameters used in this command",
+                "impact": "The ledger state will be recomputed from genesis at startup of the Cardano node",
+                "solution": {
+                    "description": "To activate the fast bootstrap of the Cardano node, add the following parameters to the command:",
+                    "parameters": [
+                        "--include-ancillary",
+                        "--ancillary-verification-key (or environment variable ANCILLARY_VERIFICATION_KEY)"
+                    ]
+                },
+            });
+            eprintln!("{json}");
+        } else {
+            eprintln!("The fast bootstrap of the Cardano node is not available with the current parameters used in this command.
+This means that the ledger state will be recomputed from genesis at startup of the Cardano node.
+
+In order to activate the fast bootstrap of the Cardano node, add the following parameters to the command:
+--include-ancillary and --ancillary-verification-key (or environment variable ANCILLARY_VERIFICATION_KEY).
+
+Caution: The ancillary files, including the ledger state, are not currently signed by Mithril.
+As a mitigation, IOG owned keys are used to sign these files.
+For more information, please refer to the network configuration page of the documentation (https://mithril.network/doc/manual/getting-started/network-configurations).");
+        }
+    }
+
+    fn warn_ancillary_not_signed_by_mithril(&self) {
+        let message = "Ancillary verification does not use the Mithril certification: as a mitigation, IOG owned keys are used to sign these files.";
+        if self.is_json_output_enabled() {
+            eprintln!(r#"{{"{JSON_CAUTION_KEY}":"{message}"}}"#);
+        } else {
+            eprintln!("{message}");
+        }
     }
 }
 
