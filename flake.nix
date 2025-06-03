@@ -9,7 +9,7 @@
 
   outputs = inputs:
     inputs.flake-parts.lib.mkFlake {inherit inputs;} {
-      systems = ["x86_64-linux" "aarch64-linux" "aarch64-darwin"];
+      systems = ["x86_64-linux" "aarch64-linux" "aarch64-darwin" "x86_64-darwin"];
 
       imports = [inputs.treefmt-nix.flakeModule];
 
@@ -94,6 +94,9 @@
             // {
               cargoArtifacts = buildDeps cargoToml baseCargoArtifacts;
             }
+            // {
+              cargoTestCommand = "cargo test";
+            }
             // args);
 
         mithril-stm = buildPackage ./mithril-stm/Cargo.toml null {};
@@ -109,8 +112,8 @@
           mithril-client-cli = buildPackage ./mithril-client-cli/Cargo.toml mithril.cargoArtifacts {
             pname = "mithril-client";
           };
-          mithril-aggregator = buildPackage ./mithril-aggregator/Cargo.toml mithril.cargoArtifacts {};
-          mithril-signer = buildPackage ./mithril-signer/Cargo.toml mithril.cargoArtifacts {};
+          mithril-aggregator = buildPackage ./mithril-aggregator/Cargo.toml mithril.cargoArtifacts { cargoTestCommand = "cargo test --no-default-features"; };
+          mithril-signer = buildPackage ./mithril-signer/Cargo.toml mithril.cargoArtifacts { cargoTestCommand = "cargo test --no-default-features"; };
           mithril-persistence = buildPackage ./internal/mithril-persistence/Cargo.toml mithril.cargoArtifacts {};
           mithrildemo = buildPackage ./demo/protocol-demo/Cargo.toml mithril.cargoArtifacts {};
           mithril-end-to-end = buildPackage ./mithril-test-lab/mithril-end-to-end/Cargo.toml null {};
