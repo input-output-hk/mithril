@@ -3908,7 +3908,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.5.33"
+version = "0.5.34"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4131,7 +4131,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-stm"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "bincode",
  "blake2 0.10.6",
@@ -4153,7 +4153,7 @@ dependencies = [
 
 [[package]]
 name = "mithrildemo"
-version = "0.1.51"
+version = "0.1.52"
 dependencies = [
  "blake2 0.10.6",
  "clap",
