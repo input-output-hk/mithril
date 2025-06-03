@@ -1,3 +1,5 @@
 mod signature;
+mod signature_registered_party;
 
-pub use crate::single_signature::signature::StmSig;
+pub use signature::*;
+pub use signature_registered_party::*;

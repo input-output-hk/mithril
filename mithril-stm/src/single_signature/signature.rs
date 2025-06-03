@@ -1,12 +1,14 @@
+use std::cmp::Ordering;
+use std::hash::{Hash, Hasher};
+
+use blake2::digest::{Digest, FixedOutput};
+use serde::{Deserialize, Serialize};
+
 use crate::bls_multi_signature::Signature;
 use crate::eligibility_check::ev_lt_phi;
 use crate::{
     Index, Stake, StmAggrVerificationKey, StmParameters, StmSignatureError, StmVerificationKey,
 };
-use blake2::digest::{Digest, FixedOutput};
-use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
-use std::hash::{Hash, Hasher};
 
 /// Signature created by a single party who has won the lottery.
 #[derive(Debug, Clone, Serialize, Deserialize)]

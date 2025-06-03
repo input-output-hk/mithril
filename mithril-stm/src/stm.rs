@@ -105,21 +105,20 @@
 //! # }
 //! ```
 
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::convert::{From, TryFrom, TryInto};
+
+use blake2::digest::{Digest, FixedOutput};
+use serde::{Deserialize, Serialize};
+
 use crate::bls_multi_signature::{Signature, VerificationKey};
 use crate::error::{
     AggregationError, CoreVerifierError, RegisterError, StmAggregateSignatureError,
-    StmSignatureError,
 };
 use crate::key_reg::{ClosedKeyReg, RegParty};
 use crate::merkle_tree::{BatchPath, MTLeaf, MerkleTreeCommitmentBatchCompat};
 use crate::participant::{StmSigner, StmVerificationKey};
-use crate::single_signature::StmSig;
-use blake2::digest::{Digest, FixedOutput};
-use serde::ser::SerializeTuple;
-use serde::{Deserialize, Serialize, Serializer};
-use std::collections::{BTreeMap, HashMap, HashSet};
-use std::convert::{From, TryFrom, TryInto};
-use std::hash::Hash;
+use crate::single_signature::{StmSig, StmSigRegParty};
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
@@ -215,50 +214,6 @@ impl<D: Clone + Digest + FixedOutput> From<&ClosedKeyReg<D>> for StmAggrVerifica
             mt_commitment: reg.merkle_tree.to_commitment_batch_compat(),
             total_stake: reg.total_stake,
         }
-    }
-}
-
-/// Signature with its registered party.
-#[derive(Debug, Clone, Hash, Deserialize, Eq, PartialEq, Ord, PartialOrd)]
-pub struct StmSigRegParty {
-    /// Stm signature
-    pub sig: StmSig,
-    /// Registered party
-    pub reg_party: RegParty,
-}
-
-impl StmSigRegParty {
-    /// Convert StmSigRegParty to bytes
-    /// # Layout
-    /// * RegParty
-    /// * Signature
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut out = Vec::new();
-        out.extend_from_slice(&self.reg_party.to_bytes());
-        out.extend_from_slice(&self.sig.to_bytes());
-
-        out
-    }
-    ///Extract a `StmSigRegParty` from a byte slice.
-    pub fn from_bytes<D: Digest + Clone + FixedOutput>(
-        bytes: &[u8],
-    ) -> Result<StmSigRegParty, StmSignatureError> {
-        let reg_party = RegParty::from_bytes(&bytes[0..104])?;
-        let sig = StmSig::from_bytes::<D>(&bytes[104..])?;
-
-        Ok(StmSigRegParty { sig, reg_party })
-    }
-}
-
-impl Serialize for StmSigRegParty {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut tuple = serializer.serialize_tuple(2)?;
-        tuple.serialize_element(&self.sig)?;
-        tuple.serialize_element(&self.reg_party)?;
-        tuple.end()
     }
 }
 
