@@ -88,7 +88,7 @@ serde_bytes = "0.11.17"
 serde_json = { workspace = true }
 serde_with = "3.12.0"
 serde_yaml = { version = "0.9.34", optional = true }
-sha2 = "0.10.8"
+sha2 = "0.10.9"
 slog = { workspace = true }
 strum = { workspace = true }
 thiserror = { workspace = true }
@@ -104,7 +104,7 @@ wasm-bindgen = "0.2.100"
 mithril-build-script = { path = "../internal/mithril-build-script", version = "=0.2" }
 
 [dev-dependencies]
-criterion = { version = "0.5.1", features = ["html_reports", "async_tokio"] }
+criterion = { version = "0.6.0", features = ["html_reports", "async_tokio"] }
 mockall = { workspace = true }
 pallas-crypto = "0.32.0"
 reqwest = { workspace = true }
