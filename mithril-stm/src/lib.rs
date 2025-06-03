@@ -7,6 +7,7 @@ mod error;
 mod key_reg;
 mod merkle_tree;
 mod participant;
+mod single_signature;
 mod stm;
 
 pub use error::{
@@ -15,9 +16,10 @@ pub use error::{
 };
 pub use key_reg::{ClosedKeyReg, KeyReg};
 pub use participant::{StmInitializer, StmSigner, StmVerificationKey, StmVerificationKeyPoP};
+pub use single_signature::StmSig;
 pub use stm::{
     CoreVerifier, Index, Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmParameters,
-    StmSig, StmSigRegParty,
+    StmSigRegParty,
 };
 
 #[cfg(feature = "benchmark-internals")]

@@ -106,7 +106,6 @@
 //! ```
 
 use crate::bls_multi_signature::{Signature, VerificationKey};
-use crate::eligibility_check::ev_lt_phi;
 use crate::error::{
     AggregationError, CoreVerifierError, RegisterError, StmAggregateSignatureError,
     StmSignatureError,
@@ -114,13 +113,13 @@ use crate::error::{
 use crate::key_reg::{ClosedKeyReg, RegParty};
 use crate::merkle_tree::{BatchPath, MTLeaf, MerkleTreeCommitmentBatchCompat};
 use crate::participant::{StmSigner, StmVerificationKey};
+use crate::single_signature::StmSig;
 use blake2::digest::{Digest, FixedOutput};
 use serde::ser::SerializeTuple;
 use serde::{Deserialize, Serialize, Serializer};
-use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::convert::{From, TryFrom, TryInto};
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
@@ -192,6 +191,16 @@ pub struct StmAggrVerificationKey<D: Clone + Digest + FixedOutput> {
     total_stake: Stake,
 }
 
+impl<D: Digest + Clone + FixedOutput> StmAggrVerificationKey<D> {
+    pub fn get_mt_commitment(&self) -> MerkleTreeCommitmentBatchCompat<D> {
+        self.mt_commitment.clone()
+    }
+
+    pub fn get_total_stake(&self) -> Stake {
+        self.total_stake
+    }
+}
+
 impl<D: Digest + Clone + FixedOutput> PartialEq for StmAggrVerificationKey<D> {
     fn eq(&self, other: &Self) -> bool {
         self.mt_commitment == other.mt_commitment && self.total_stake == other.total_stake
@@ -206,155 +215,6 @@ impl<D: Clone + Digest + FixedOutput> From<&ClosedKeyReg<D>> for StmAggrVerifica
             mt_commitment: reg.merkle_tree.to_commitment_batch_compat(),
             total_stake: reg.total_stake,
         }
-    }
-}
-
-/// Signature created by a single party who has won the lottery.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StmSig {
-    /// The signature from the underlying MSP scheme.
-    pub sigma: Signature,
-    /// The index(es) for which the signature is valid
-    pub indexes: Vec<Index>,
-    /// Merkle tree index of the signer.
-    pub signer_index: Index,
-}
-
-impl StmSig {
-    /// Verify an stm signature by checking that the lottery was won, the merkle path is correct,
-    /// the indexes are in the desired range and the underlying multi signature validates.
-    pub fn verify<D: Clone + Digest + FixedOutput>(
-        &self,
-        params: &StmParameters,
-        pk: &StmVerificationKey,
-        stake: &Stake,
-        avk: &StmAggrVerificationKey<D>,
-        msg: &[u8],
-    ) -> Result<(), StmSignatureError> {
-        let msgp = avk.mt_commitment.concat_with_msg(msg);
-        self.verify_core(params, pk, stake, &msgp, &avk.total_stake)?;
-        Ok(())
-    }
-
-    /// Verify that all indices of a signature are valid.
-    pub(crate) fn check_indices(
-        &self,
-        params: &StmParameters,
-        stake: &Stake,
-        msg: &[u8],
-        total_stake: &Stake,
-    ) -> Result<(), StmSignatureError> {
-        for &index in &self.indexes {
-            if index > params.m {
-                return Err(StmSignatureError::IndexBoundFailed(index, params.m));
-            }
-
-            let ev = self.sigma.eval(msg, index);
-
-            if !ev_lt_phi(params.phi_f, ev, *stake, *total_stake) {
-                return Err(StmSignatureError::LotteryLost);
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Convert an `StmSig` into bytes
-    ///
-    /// # Layout
-    /// * Stake
-    /// * Number of valid indexes (as u64)
-    /// * Indexes of the signature
-    /// * Public Key
-    /// * Signature
-    /// * Merkle index of the signer.
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut output = Vec::new();
-        output.extend_from_slice(&(self.indexes.len() as u64).to_be_bytes());
-
-        for index in &self.indexes {
-            output.extend_from_slice(&index.to_be_bytes());
-        }
-
-        output.extend_from_slice(&self.sigma.to_bytes());
-
-        output.extend_from_slice(&self.signer_index.to_be_bytes());
-        output
-    }
-
-    /// Extract a batch compatible `StmSig` from a byte slice.
-    pub fn from_bytes<D: Clone + Digest + FixedOutput>(
-        bytes: &[u8],
-    ) -> Result<StmSig, StmSignatureError> {
-        let mut u64_bytes = [0u8; 8];
-
-        u64_bytes.copy_from_slice(&bytes[0..8]);
-        let nr_indexes = u64::from_be_bytes(u64_bytes) as usize;
-
-        let mut indexes = Vec::new();
-        for i in 0..nr_indexes {
-            u64_bytes.copy_from_slice(&bytes[8 + i * 8..16 + i * 8]);
-            indexes.push(u64::from_be_bytes(u64_bytes));
-        }
-
-        let offset = 8 + nr_indexes * 8;
-        let sigma = Signature::from_bytes(&bytes[offset..offset + 48])?;
-
-        u64_bytes.copy_from_slice(&bytes[offset + 48..offset + 56]);
-        let signer_index = u64::from_be_bytes(u64_bytes);
-
-        Ok(StmSig {
-            sigma,
-            indexes,
-            signer_index,
-        })
-    }
-
-    /// Compare two `StmSig` by their signers' merkle tree indexes.
-    pub fn cmp_stm_sig(&self, other: &Self) -> Ordering {
-        self.signer_index.cmp(&other.signer_index)
-    }
-
-    /// Verify a core signature by checking that the lottery was won,
-    /// the indexes are in the desired range and the underlying multi signature validates.
-    pub fn verify_core(
-        &self,
-        params: &StmParameters,
-        pk: &StmVerificationKey,
-        stake: &Stake,
-        msg: &[u8],
-        total_stake: &Stake,
-    ) -> Result<(), StmSignatureError> {
-        self.sigma.verify(msg, pk)?;
-        self.check_indices(params, stake, msg, total_stake)?;
-
-        Ok(())
-    }
-}
-
-impl Hash for StmSig {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        Hash::hash_slice(&self.sigma.to_bytes(), state)
-    }
-}
-
-impl PartialEq for StmSig {
-    fn eq(&self, other: &Self) -> bool {
-        self.sigma == other.sigma
-    }
-}
-
-impl Eq for StmSig {}
-
-impl PartialOrd for StmSig {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(std::cmp::Ord::cmp(self, other))
-    }
-}
-
-impl Ord for StmSig {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.cmp_stm_sig(other)
     }
 }
 
