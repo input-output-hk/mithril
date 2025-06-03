@@ -1,21 +1,27 @@
 mod v1;
+mod v2;
 
 use v1::PreparedCardanoDbV1Download;
+use v2::PreparedCardanoDbV2Download;
 
 use clap::Parser;
 use std::{collections::HashMap, path::PathBuf};
 
+use crate::commands::cardano_db::CardanoDbCommandsBackend;
 use crate::{
     commands::SharedArgs,
     configuration::{ConfigError, ConfigParameters, ConfigSource},
     utils::{self, AncillaryLogMessage},
     CommandContext,
 };
-use mithril_client::MithrilResult;
+use mithril_client::{common::ImmutableFileNumber, MithrilResult};
 
 /// Clap command to download a Cardano db and verify its associated certificate.
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbDownloadCommand {
+    #[arg(short, long, value_enum, default_value_t)]
+    backend: CardanoDbCommandsBackend,
+
     #[clap(flatten)]
     shared_args: SharedArgs,
 
@@ -47,15 +53,69 @@ pub struct CardanoDbDownloadCommand {
     /// Ancillary verification key to verify the ancillary files.
     #[clap(long, env = "ANCILLARY_VERIFICATION_KEY")]
     ancillary_verification_key: Option<String>,
+
+    /// [backend `v2` only] The first immutable file number to download.
+    ///
+    /// If not set, the download process will start from the first immutable file.
+    #[clap(long)]
+    start: Option<ImmutableFileNumber>,
+
+    /// [backend `v2` only] The last immutable file number to download.
+    ///
+    /// If not set, the download will continue until the last certified immutable file.
+    #[clap(long)]
+    end: Option<ImmutableFileNumber>,
+
+    /// [backend `v2` only] Allow existing files in the download directory to be overridden.
+    #[clap(long)]
+    allow_override: bool,
 }
 
 impl CardanoDbDownloadCommand {
+    /// Temporary constructor to allow the `cardano-db-v2 download` command to reuse this code
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn new_v2(
+        shared_args: SharedArgs,
+        digest: String,
+        download_dir: Option<PathBuf>,
+        genesis_verification_key: Option<String>,
+        include_ancillary: bool,
+        ancillary_verification_key: Option<String>,
+        start: Option<ImmutableFileNumber>,
+        end: Option<ImmutableFileNumber>,
+        allow_override: bool,
+    ) -> Self {
+        Self {
+            backend: CardanoDbCommandsBackend::V2,
+            shared_args,
+            digest,
+            download_dir,
+            genesis_verification_key,
+            include_ancillary,
+            ancillary_verification_key,
+            start,
+            end,
+            allow_override,
+        }
+    }
+
     /// Command execution
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
+        if self.backend.is_v2() {
+            context.require_unstable("cardano-db download --backend v2", None)?;
+        }
         let params = context.config_parameters()?.add_source(self)?;
-        let prepared_command = self.prepare_v1(&params)?;
 
-        prepared_command.execute(context.logger(), params).await
+        match self.backend {
+            CardanoDbCommandsBackend::V1 => {
+                let prepared_command = self.prepare_v1(&params)?;
+                prepared_command.execute(context.logger(), params).await
+            }
+            CardanoDbCommandsBackend::V2 => {
+                let prepared_command = self.prepare_v2(&params)?;
+                prepared_command.execute(context.logger(), params).await
+            }
+        }
     }
 
     fn prepare_v1(&self, params: &ConfigParameters) -> MithrilResult<PreparedCardanoDbV1Download> {
@@ -73,6 +133,27 @@ impl CardanoDbDownloadCommand {
             download_dir: params.require("download_dir")?,
             include_ancillary: self.include_ancillary,
             ancillary_verification_key,
+        })
+    }
+
+    fn prepare_v2(&self, params: &ConfigParameters) -> MithrilResult<PreparedCardanoDbV2Download> {
+        let ancillary_verification_key = if self.include_ancillary {
+            AncillaryLogMessage::warn_ancillary_not_signed_by_mithril();
+            Some(params.require("ancillary_verification_key")?)
+        } else {
+            AncillaryLogMessage::warn_fast_bootstrap_not_available();
+            None
+        };
+
+        Ok(PreparedCardanoDbV2Download {
+            shared_args: self.shared_args.clone(),
+            hash: self.digest.clone(),
+            download_dir: params.require("download_dir")?,
+            start: self.start,
+            end: self.end,
+            include_ancillary: self.include_ancillary,
+            ancillary_verification_key,
+            allow_override: self.allow_override,
         })
     }
 }
@@ -117,12 +198,16 @@ mod tests {
 
     fn dummy_command() -> CardanoDbDownloadCommand {
         CardanoDbDownloadCommand {
+            backend: Default::default(),
             shared_args: SharedArgs { json: false },
             digest: "whatever_digest".to_string(),
             download_dir: Some(std::path::PathBuf::from("whatever_dir")),
             genesis_verification_key: "whatever".to_string().into(),
             include_ancillary: true,
             ancillary_verification_key: "whatever".to_string().into(),
+            start: None,
+            end: None,
+            allow_override: false,
         }
     }
 
@@ -148,51 +233,107 @@ mod tests {
         );
     }
 
-    #[test]
-    fn ancillary_verification_key_can_be_read_through_configuration_file() {
-        let command = CardanoDbDownloadCommand {
-            ancillary_verification_key: None,
-            ..dummy_command()
-        };
-        let config = config::Config::builder()
-            .set_default("ancillary_verification_key", "value from config")
-            .expect("Failed to build config builder");
-        let command_context =
-            CommandContext::new(config, false, Logger::root(slog::Discard, slog::o!()));
-        let config_parameters = command_context
-            .config_parameters()
-            .unwrap()
-            .add_source(&command)
-            .unwrap();
+    mod prepare_v1 {
+        use super::*;
 
-        let result = command.prepare_v1(&config_parameters);
+        #[test]
+        fn ancillary_verification_key_can_be_read_through_configuration_file() {
+            let command = CardanoDbDownloadCommand {
+                ancillary_verification_key: None,
+                ..dummy_command()
+            };
+            let config = config::Config::builder()
+                .set_default("ancillary_verification_key", "value from config")
+                .expect("Failed to build config builder");
+            let command_context =
+                CommandContext::new(config, false, Logger::root(slog::Discard, slog::o!()));
+            let config_parameters = command_context
+                .config_parameters()
+                .unwrap()
+                .add_source(&command)
+                .unwrap();
 
-        assert!(result.is_ok());
+            let result = command.prepare_v1(&config_parameters);
+
+            assert!(result.is_ok());
+        }
+
+        #[test]
+        fn db_download_dir_is_mandatory_to_execute_command() {
+            let command = CardanoDbDownloadCommand {
+                download_dir: None,
+                ..dummy_command()
+            };
+            let command_context = CommandContext::new(
+                ConfigBuilder::default(),
+                false,
+                Logger::root(slog::Discard, slog::o!()),
+            );
+            let config_parameters = command_context
+                .config_parameters()
+                .unwrap()
+                .add_source(&command)
+                .unwrap();
+
+            let result = command.prepare_v1(&config_parameters);
+
+            assert!(result.is_err());
+            assert_eq!(
+                result.unwrap_err().to_string(),
+                "Parameter 'download_dir' is mandatory."
+            );
+        }
     }
 
-    #[test]
-    fn db_download_dir_is_mandatory_to_execute_command() {
-        let command = CardanoDbDownloadCommand {
-            download_dir: None,
-            ..dummy_command()
-        };
-        let command_context = CommandContext::new(
-            ConfigBuilder::default(),
-            false,
-            Logger::root(slog::Discard, slog::o!()),
-        );
-        let config_parameters = command_context
-            .config_parameters()
-            .unwrap()
-            .add_source(&command)
-            .unwrap();
+    mod prepare_v2 {
+        use super::*;
 
-        let result = command.prepare_v1(&config_parameters);
+        #[test]
+        fn ancillary_verification_key_can_be_read_through_configuration_file() {
+            let command = CardanoDbDownloadCommand {
+                ancillary_verification_key: None,
+                ..dummy_command()
+            };
+            let config = config::Config::builder()
+                .set_default("ancillary_verification_key", "value from config")
+                .expect("Failed to build config builder");
+            let command_context =
+                CommandContext::new(config, false, Logger::root(slog::Discard, slog::o!()));
+            let config_parameters = command_context
+                .config_parameters()
+                .unwrap()
+                .add_source(&command)
+                .unwrap();
 
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            "Parameter 'download_dir' is mandatory."
-        );
+            let result = command.prepare_v2(&config_parameters);
+
+            assert!(result.is_ok());
+        }
+
+        #[test]
+        fn db_download_dir_is_mandatory_to_execute_command() {
+            let command = CardanoDbDownloadCommand {
+                download_dir: None,
+                ..dummy_command()
+            };
+            let command_context = CommandContext::new(
+                ConfigBuilder::default(),
+                false,
+                Logger::root(slog::Discard, slog::o!()),
+            );
+            let config_parameters = command_context
+                .config_parameters()
+                .unwrap()
+                .add_source(&command)
+                .unwrap();
+
+            let result = command.prepare_v2(&config_parameters);
+
+            assert!(result.is_err());
+            assert_eq!(
+                result.unwrap_err().to_string(),
+                "Parameter 'download_dir' is mandatory."
+            );
+        }
     }
 }
