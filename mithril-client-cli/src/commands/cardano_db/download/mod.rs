@@ -1,27 +1,17 @@
-use anyhow::{anyhow, Context};
-use chrono::Utc;
+mod v1;
+
+use v1::PreparedCardanoDbV1Download;
+
 use clap::Parser;
-use slog::{debug, warn, Logger};
-use std::{
-    collections::HashMap,
-    fs::File,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
-    commands::{client_builder, SharedArgs},
+    commands::SharedArgs,
     configuration::{ConfigError, ConfigParameters, ConfigSource},
-    utils::{
-        self, AncillaryLogMessage, CardanoDbDownloadChecker, CardanoDbUtils, ExpanderUtils,
-        IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter,
-    },
+    utils::{self, AncillaryLogMessage},
     CommandContext,
 };
-use mithril_client::{
-    common::ProtocolMessage, snapshot_client::SnapshotClient, Client, MessageBuilder,
-    MithrilCertificate, MithrilResult, Snapshot,
-};
+use mithril_client::MithrilResult;
 
 /// Clap command to download a Cardano db and verify its associated certificate.
 #[derive(Parser, Debug, Clone)]
@@ -63,12 +53,12 @@ impl CardanoDbDownloadCommand {
     /// Command execution
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         let params = context.config_parameters()?.add_source(self)?;
-        let prepared_command = self.prepare(&params)?;
+        let prepared_command = self.prepare_v1(&params)?;
 
         prepared_command.execute(context.logger(), params).await
     }
 
-    fn prepare(&self, params: &ConfigParameters) -> MithrilResult<PreparedCardanoDbDownload> {
+    fn prepare_v1(&self, params: &ConfigParameters) -> MithrilResult<PreparedCardanoDbV1Download> {
         let ancillary_verification_key = if self.include_ancillary {
             AncillaryLogMessage::warn_ancillary_not_signed_by_mithril();
             Some(params.require("ancillary_verification_key")?)
@@ -77,337 +67,13 @@ impl CardanoDbDownloadCommand {
             None
         };
 
-        Ok(PreparedCardanoDbDownload {
+        Ok(PreparedCardanoDbV1Download {
             shared_args: self.shared_args.clone(),
             digest: self.digest.clone(),
             download_dir: params.require("download_dir")?,
             include_ancillary: self.include_ancillary,
             ancillary_verification_key,
         })
-    }
-}
-
-#[derive(Debug, Clone)]
-struct PreparedCardanoDbDownload {
-    shared_args: SharedArgs,
-    digest: String,
-    download_dir: String,
-    include_ancillary: bool,
-    ancillary_verification_key: Option<String>,
-}
-
-impl PreparedCardanoDbDownload {
-    fn is_json_output_enabled(&self) -> bool {
-        self.shared_args.json
-    }
-
-    /// Command execution
-    pub async fn execute(&self, logger: &Logger, params: ConfigParameters) -> MithrilResult<()> {
-        let db_dir = Path::new(&self.download_dir).join("db");
-
-        let progress_output_type = if self.is_json_output_enabled() {
-            ProgressOutputType::JsonReporter
-        } else {
-            ProgressOutputType::Tty
-        };
-        let progress_printer = ProgressPrinter::new(progress_output_type, 5);
-        let client = client_builder(&params)?
-            .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
-                progress_output_type,
-                logger.clone(),
-            )))
-            .set_ancillary_verification_key(self.ancillary_verification_key.clone())
-            .with_logger(logger.clone())
-            .build()?;
-
-        let get_list_of_artifact_ids = || async {
-            let cardano_dbs = client.cardano_database().list().await.with_context(|| {
-                "Can not get the list of artifacts while retrieving the latest cardano db digest"
-            })?;
-
-            Ok(cardano_dbs
-                .iter()
-                .map(|cardano_db| cardano_db.digest.to_owned())
-                .collect::<Vec<String>>())
-        };
-
-        let cardano_db_message = client
-            .cardano_database()
-            .get(
-                &ExpanderUtils::expand_eventual_id_alias(&self.digest, get_list_of_artifact_ids())
-                    .await?,
-            )
-            .await?
-            .with_context(|| format!("Can not get the cardano db for digest: '{}'", self.digest))?;
-
-        Self::check_local_disk_info(1, &progress_printer, &db_dir, &cardano_db_message)?;
-
-        let certificate = Self::fetch_certificate_and_verifying_chain(
-            2,
-            &progress_printer,
-            &client,
-            &cardano_db_message.certificate_hash,
-        )
-        .await?;
-
-        Self::download_and_unpack_cardano_db(
-            logger,
-            3,
-            &progress_printer,
-            client.cardano_database(),
-            &cardano_db_message,
-            self.include_ancillary,
-            &db_dir,
-        )
-        .await
-        .with_context(|| {
-            format!(
-                "Can not get download and unpack cardano db for digest: '{}'",
-                self.digest
-            )
-        })?;
-
-        let message =
-            Self::compute_cardano_db_message(4, &progress_printer, &certificate, &db_dir).await?;
-
-        Self::verify_cardano_db_signature(
-            logger,
-            5,
-            &progress_printer,
-            &certificate,
-            &message,
-            &cardano_db_message,
-            &db_dir,
-        )
-        .await?;
-
-        Self::log_download_information(
-            &db_dir,
-            &cardano_db_message,
-            self.is_json_output_enabled(),
-            self.include_ancillary,
-        )?;
-
-        Ok(())
-    }
-
-    fn check_local_disk_info(
-        step_number: u16,
-        progress_printer: &ProgressPrinter,
-        db_dir: &Path,
-        cardano_db: &Snapshot,
-    ) -> MithrilResult<()> {
-        progress_printer.report_step(step_number, "Checking local disk info…")?;
-
-        CardanoDbDownloadChecker::ensure_dir_exist(db_dir)?;
-        if let Err(e) = CardanoDbDownloadChecker::check_prerequisites_for_archive(
-            db_dir,
-            cardano_db.compute_total_size(),
-            cardano_db.compression_algorithm,
-        ) {
-            progress_printer
-                .report_step(step_number, &CardanoDbUtils::check_disk_space_error(e)?)?;
-        }
-
-        Ok(())
-    }
-
-    async fn fetch_certificate_and_verifying_chain(
-        step_number: u16,
-        progress_printer: &ProgressPrinter,
-        client: &Client,
-        certificate_hash: &str,
-    ) -> MithrilResult<MithrilCertificate> {
-        progress_printer.report_step(
-            step_number,
-            "Fetching the certificate and verifying the certificate chain…",
-        )?;
-        let certificate = client
-            .certificate()
-            .verify_chain(certificate_hash)
-            .await
-            .with_context(|| {
-                format!(
-                    "Can not verify the certificate chain from certificate_hash: '{certificate_hash}'"
-                )
-            })?;
-
-        Ok(certificate)
-    }
-
-    async fn download_and_unpack_cardano_db(
-        logger: &Logger,
-        step_number: u16,
-        progress_printer: &ProgressPrinter,
-        snapshot_client: Arc<SnapshotClient>,
-        cardano_db: &Snapshot,
-        include_ancillary: bool,
-        db_dir: &Path,
-    ) -> MithrilResult<()> {
-        progress_printer.report_step(step_number, "Downloading and unpacking the cardano db")?;
-
-        if include_ancillary {
-            snapshot_client
-                .download_unpack_full(cardano_db, db_dir)
-                .await?;
-        } else {
-            snapshot_client.download_unpack(cardano_db, db_dir).await?;
-        }
-
-        // The Cardano db download does not fail if the statistic call fails.
-        // It would be nice to implement tests to verify the behavior of `add_statistics`
-        if let Err(e) = snapshot_client.add_statistics(cardano_db).await {
-            warn!(
-                logger, "Could not increment cardano db download statistics";
-                "error" => ?e
-            );
-        }
-
-        // Append 'clean' file to speedup node bootstrap
-        if let Err(error) = File::create(db_dir.join("clean")) {
-            warn!(
-                logger, "Could not create clean shutdown marker file in directory '{}'", db_dir.display();
-                "error" => error.to_string()
-            );
-        };
-
-        Ok(())
-    }
-
-    async fn compute_cardano_db_message(
-        step_number: u16,
-        progress_printer: &ProgressPrinter,
-        certificate: &MithrilCertificate,
-        db_dir: &Path,
-    ) -> MithrilResult<ProtocolMessage> {
-        progress_printer.report_step(step_number, "Computing the cardano db message")?;
-        let message = CardanoDbUtils::wait_spinner(
-            progress_printer,
-            MessageBuilder::new().compute_snapshot_message(certificate, db_dir),
-        )
-        .await
-        .with_context(|| {
-            format!("Can not compute the cardano db message from the directory: '{db_dir:?}'")
-        })?;
-
-        Ok(message)
-    }
-
-    async fn verify_cardano_db_signature(
-        logger: &Logger,
-        step_number: u16,
-        progress_printer: &ProgressPrinter,
-        certificate: &MithrilCertificate,
-        message: &ProtocolMessage,
-        cardano_db: &Snapshot,
-        db_dir: &Path,
-    ) -> MithrilResult<()> {
-        progress_printer.report_step(step_number, "Verifying the cardano db signature…")?;
-        if !certificate.match_message(message) {
-            debug!(
-                logger,
-                "Digest verification failed, removing unpacked files & directory."
-            );
-
-            if let Err(error) = std::fs::remove_dir_all(db_dir) {
-                warn!(
-                    logger, "Error while removing unpacked files & directory";
-                    "error" => error.to_string()
-                );
-            }
-
-            return Err(anyhow!(
-                "Certificate verification failed (cardano db digest = '{}').",
-                cardano_db.digest.clone()
-            ));
-        }
-
-        Ok(())
-    }
-
-    fn log_download_information(
-        db_dir: &Path,
-        cardano_db: &Snapshot,
-        json_output: bool,
-        include_ancillary: bool,
-    ) -> MithrilResult<()> {
-        let canonicalized_filepath = &db_dir.canonicalize().with_context(|| {
-            format!(
-                "Could not get canonicalized filepath of '{}'",
-                db_dir.display()
-            )
-        })?;
-
-        let docker_cmd = format!(
-            "docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source=\"{}\",target=/data/db/ -e NETWORK={} ghcr.io/intersectmbo/cardano-node:{}",
-            canonicalized_filepath.display(),
-            cardano_db.network,
-            cardano_db.cardano_node_version
-        );
-
-        let snapshot_converter_cmd = |flavor| {
-            format!(
-                "mithril-client --unstable tools utxo-hd snapshot-converter --db-directory {} --cardano-node-version {} --utxo-hd-flavor {} --cardano-network {} --commit",
-                db_dir.display(),
-                cardano_db.cardano_node_version,
-                flavor,
-                cardano_db.network
-            )
-        };
-
-        if json_output {
-            let json = if include_ancillary {
-                serde_json::json!({
-                    "timestamp": Utc::now().to_rfc3339(),
-                    "db_directory": canonicalized_filepath,
-                    "run_docker_cmd": docker_cmd,
-                    "snapshot_converter_cmd_to_lmdb": snapshot_converter_cmd("LMDB"),
-                    "snapshot_converter_cmd_to_legacy": snapshot_converter_cmd("Legacy")
-                })
-            } else {
-                serde_json::json!({
-                    "timestamp": Utc::now().to_rfc3339(),
-                    "db_directory": canonicalized_filepath,
-                    "run_docker_cmd": docker_cmd,
-                })
-            };
-
-            println!("{}", json);
-        } else {
-            let cardano_node_version = &cardano_db.cardano_node_version;
-            println!(
-                r###"Cardano db '{}' has been unpacked and successfully checked against Mithril multi-signature contained in the certificate.
-                    
-    Files in the directory '{}' can be used to run a Cardano node with version >= {cardano_node_version}.
-    
-    If you are using Cardano Docker image, you can restore a Cardano Node with:
-    
-    {}
-    
-    "###,
-                cardano_db.digest,
-                db_dir.display(),
-                docker_cmd,
-            );
-
-            if include_ancillary {
-                println!(
-                    r###"Upgrade and replace the restored ledger state snapshot to 'LMDB' flavor by running the command:
-
-    {}
-
-    Or to 'Legacy' flavor by running the command:
-
-    {}
-    
-    "###,
-                    snapshot_converter_cmd("LMDB"),
-                    snapshot_converter_cmd("Legacy"),
-                );
-            }
-        }
-
-        Ok(())
     }
 }
 
@@ -441,42 +107,13 @@ impl ConfigSource for CardanoDbDownloadCommand {
         Ok(map)
     }
 }
+
 #[cfg(test)]
 mod tests {
     use config::ConfigBuilder;
-    use mithril_client::{
-        common::{CardanoDbBeacon, ProtocolMessagePartKey, SignedEntityType},
-        MithrilCertificateMetadata,
-    };
-    use mithril_common::test_utils::TempDir;
+    use slog::Logger;
 
     use super::*;
-
-    fn dummy_certificate() -> MithrilCertificate {
-        let mut protocol_message = ProtocolMessage::new();
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::SnapshotDigest,
-            Snapshot::dummy().digest.to_string(),
-        );
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            "whatever".to_string(),
-        );
-        let beacon = CardanoDbBeacon::new(10, 100);
-
-        MithrilCertificate {
-            hash: "hash".to_string(),
-            previous_hash: "previous_hash".to_string(),
-            epoch: beacon.epoch,
-            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(beacon),
-            metadata: MithrilCertificateMetadata::dummy(),
-            protocol_message: protocol_message.clone(),
-            signed_message: "signed_message".to_string(),
-            aggregate_verification_key: String::new(),
-            multi_signature: String::new(),
-            genesis_signature: String::new(),
-        }
-    }
 
     fn dummy_command() -> CardanoDbDownloadCommand {
         CardanoDbDownloadCommand {
@@ -528,7 +165,7 @@ mod tests {
             .add_source(&command)
             .unwrap();
 
-        let result = command.prepare(&config_parameters);
+        let result = command.prepare_v1(&config_parameters);
 
         assert!(result.is_ok());
     }
@@ -550,46 +187,12 @@ mod tests {
             .add_source(&command)
             .unwrap();
 
-        let result = command.prepare(&config_parameters);
+        let result = command.prepare_v1(&config_parameters);
 
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
             "Parameter 'download_dir' is mandatory."
-        );
-    }
-
-    #[tokio::test]
-    async fn verify_cardano_db_signature_should_remove_db_dir_if_messages_mismatch() {
-        let progress_printer = ProgressPrinter::new(ProgressOutputType::Tty, 1);
-        let certificate = dummy_certificate();
-        let mut message = ProtocolMessage::new();
-        message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, "digest".to_string());
-        message.set_message_part(
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            "avk".to_string(),
-        );
-        let cardano_db = Snapshot::dummy();
-        let db_dir = TempDir::create(
-            "client-cli",
-            "verify_cardano_db_signature_should_remove_db_dir_if_messages_mismatch",
-        );
-
-        let result = PreparedCardanoDbDownload::verify_cardano_db_signature(
-            &Logger::root(slog::Discard, slog::o!()),
-            1,
-            &progress_printer,
-            &certificate,
-            &message,
-            &cardano_db,
-            &db_dir,
-        )
-        .await;
-
-        assert!(result.is_err());
-        assert!(
-            !db_dir.exists(),
-            "The db directory should have been removed but it still exists"
         );
     }
 }
