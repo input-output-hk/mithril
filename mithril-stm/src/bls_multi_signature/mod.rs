@@ -223,12 +223,12 @@ mod tests {
             assert_eq!(vkpop, vkpop2);
 
             // Now we test serde
-            let encoded = bincode::serialize(&vk).unwrap();
+            let encoded = bincode::serde::encode_to_vec(vk, bincode::config::legacy()).unwrap();
             assert_eq!(encoded, vk_bytes);
-            let decoded: VerificationKey = bincode::deserialize(&encoded).unwrap();
+            let (decoded,_) = bincode::serde::decode_from_slice::<VerificationKey,_>(&encoded, bincode::config::legacy()).unwrap();
             assert_eq!(vk, decoded);
-            let encoded = bincode::serialize(&vkpop).unwrap();
-            let decoded: VerificationKeyPoP = bincode::deserialize(&encoded).unwrap();
+            let encoded = bincode::serde::encode_to_vec(vkpop, bincode::config::legacy()).unwrap();
+            let (decoded,_) = bincode::serde::decode_from_slice::<VerificationKeyPoP,_>(&encoded, bincode::config::legacy()).unwrap();
             assert_eq!(vkpop, decoded);
         }
 
@@ -241,12 +241,12 @@ mod tests {
             assert_eq!(sk, sk2);
 
             // Now we test serde
-            let encoded = bincode::serialize(&sk).unwrap();
-            let decoded: SigningKey = bincode::deserialize(&encoded).unwrap();
+            let encoded = bincode::serde::encode_to_vec(&sk, bincode::config::legacy()).unwrap();
+            let (decoded,_) = bincode::serde::decode_from_slice::<SigningKey,_>(&encoded, bincode::config::legacy()).unwrap();
             assert_eq!(sk, decoded);
 
             // See that it is consistent with raw serialisation
-            let decoded_bytes: SigningKey = bincode::deserialize(&sk_bytes).unwrap();
+            let (decoded_bytes,_) = bincode::serde::decode_from_slice::<SigningKey,_>(&sk_bytes, bincode::config::legacy()).unwrap();
             assert_eq!(sk, decoded_bytes);
         }
 
