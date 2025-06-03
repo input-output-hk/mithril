@@ -9,7 +9,8 @@ use clap::{Parser, ValueEnum};
 use mithril_client::MithrilResult;
 
 use crate::utils::{
-    GitHubReleaseRetriever, HttpDownloader, ReqwestGitHubApiClient, ReqwestHttpDownloader,
+    ArchiveUnpacker, GitHubReleaseRetriever, HttpDownloader, ReqwestGitHubApiClient,
+    ReqwestHttpDownloader,
 };
 
 const GITHUB_ORGANIZATION: &str = "IntersectMBO";
@@ -76,6 +77,15 @@ impl SnapshotConverterCommand {
         .with_context(|| {
             "Failed to download 'snapshot-converter' binary from Cardano node distribution"
         })?;
+
+        ArchiveUnpacker::default()
+            .unpack(&archive_path, &distribution_temp_dir)
+            .with_context(|| {
+                format!(
+                    "Failed to unpack 'snapshot-converter' binary to directory: {}",
+                    distribution_temp_dir.display()
+                )
+            })?;
 
         Ok(())
     }

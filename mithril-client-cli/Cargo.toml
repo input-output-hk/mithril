@@ -31,6 +31,7 @@ chrono = { workspace = true }
 clap = { workspace = true }
 cli-table = "0.5.0"
 config = { workspace = true }
+flate2 = "1.1.1"
 fs2 = "0.4.3"
 futures = "0.3.31"
 human_bytes = { version = "0.4.3", features = ["fast"] }
@@ -54,8 +55,10 @@ slog = { workspace = true, features = [
 slog-async = { workspace = true }
 slog-bunyan = { workspace = true }
 slog-term = { workspace = true }
+tar = "0.4.44"
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+zip = "4.0.0"
 
 [dev-dependencies]
 mithril-common = { path = "../mithril-common", features = ["test_tools"] }

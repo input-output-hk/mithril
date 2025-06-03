@@ -1,6 +1,7 @@
 //! Utilities module
 //! This module contains tools needed for the commands layer.
 
+mod archive_unpacker;
 mod cardano_db;
 mod cardano_db_download_checker;
 mod expander;
@@ -10,6 +11,7 @@ mod http_downloader;
 mod multi_download_progress_reporter;
 mod progress_reporter;
 
+pub use archive_unpacker::*;
 pub use cardano_db::*;
 pub use cardano_db_download_checker::*;
 pub use expander::*;
