@@ -112,7 +112,6 @@ impl SnapshotConverterCommand {
                     distribution_dir.display()
                 )
             })?;
-
             let archive_path = Self::download_cardano_node_distribution(
                 ReqwestGitHubApiClient::new()?,
                 ReqwestHttpDownloader::new()?,
@@ -120,18 +119,24 @@ impl SnapshotConverterCommand {
                 &distribution_dir,
             )
             .await
-            .with_context(|| {
-                "Failed to download 'snapshot-converter' binary from Cardano node distribution"
-            })?;
+            .with_context(|| "Failed to download Cardano node distribution")?;
 
+            println!(
+                "Unpacking distribution from archive: {}",
+                archive_path.display()
+            );
             ArchiveUnpacker::default()
                 .unpack(&archive_path, &distribution_dir)
                 .with_context(|| {
                     format!(
-                        "Failed to unpack 'snapshot-converter' binary to directory: {}",
+                        "Failed to unpack distribution to directory: {}",
                         distribution_dir.display()
                     )
                 })?;
+            println!(
+                "Distribution unpacked successfully to: {}",
+                distribution_dir.display()
+            );
 
             Self::convert_ledger_state_snapshot(
                 &work_dir,
@@ -186,7 +191,6 @@ impl SnapshotConverterCommand {
                 .await
                 .with_context(|| format!("Failed to get release by tag: {}", tag))?,
         };
-
         let asset = release
             .get_asset_for_os(env::consts::OS)?
             .ok_or_else(|| anyhow!("No asset found for platform: {}", env::consts::OS))
@@ -196,7 +200,6 @@ impl SnapshotConverterCommand {
                     env::consts::OS
                 )
             })?;
-
         let archive_path = http_downloader
             .download_file(asset.browser_download_url.parse()?, target_dir, &asset.name)
             .await?;
@@ -229,7 +232,6 @@ impl SnapshotConverterCommand {
             &copied_snapshot_path,
             utxo_hd_flavor,
         )?;
-
         let converter_bin =
             Self::get_snapshot_converter_binary_path(distribution_dir, env::consts::OS)?;
         let config_path =
@@ -284,7 +286,6 @@ impl SnapshotConverterCommand {
         target_os: &str,
     ) -> MithrilResult<PathBuf> {
         let base_path = distribution_dir.join(SNAPSHOT_CONVERTER_BIN_DIR);
-
         let binary_name = match target_os {
             "linux" | "macos" => SNAPSHOT_CONVERTER_BIN_NAME_UNIX,
             "windows" => SNAPSHOT_CONVERTER_BIN_NAME_WINDOWS,
@@ -307,19 +308,16 @@ impl SnapshotConverterCommand {
     /// Finds the oldest ledger snapshot (by slot number) in the `ledger/` directory of a Cardano node database.
     fn find_oldest_ledger_state_snapshot(db_dir: &Path) -> MithrilResult<PathBuf> {
         let ledger_dir = db_dir.join(LEDGER_DIR);
-
         let entries = read_dir(&ledger_dir).with_context(|| {
             format!(
                 "Failed to read ledger state snapshots directory: {}",
                 ledger_dir.display()
             )
         })?;
-
         let mut min_slot: Option<(u64, PathBuf)> = None;
 
         for entry in entries {
             let entry = entry?;
-
             let slot = match Self::extract_slot_number(&entry.path()) {
                 Ok(number) => number,
                 Err(_) => continue,
@@ -365,7 +363,6 @@ impl SnapshotConverterCommand {
                 input_snapshot.display()
             )
         })?;
-
         let converted_snapshot_path = snapshots_dir.join(format!(
             "{}_{}",
             slot_number,
@@ -379,7 +376,6 @@ impl SnapshotConverterCommand {
         let file_name = path
             .file_name()
             .ok_or_else(|| anyhow!("No filename in path: {}", path.display()))?;
-
         let file_name_str = file_name
             .to_str()
             .ok_or_else(|| anyhow!("Invalid UTF-8 in path filename: {:?}", file_name))?;
@@ -400,30 +396,25 @@ impl SnapshotConverterCommand {
             ledger_dir.display(),
             converted_snapshot_path.display()
         );
-
         let filename = converted_snapshot_path
             .file_name()
             .ok_or_else(|| anyhow!("Missing filename in converted snapshot path"))?
             .to_string_lossy();
-
         let (slot_number, _) = filename
             .split_once('_')
             .ok_or_else(|| anyhow!("Invalid converted snapshot name format: {}", filename))?;
-
         remove_dir_all(&ledger_dir).with_context(|| {
             format!(
                 "Failed to remove old ledger state snapshot directory: {}",
                 ledger_dir.display()
             )
         })?;
-
         create_dir(&ledger_dir).with_context(|| {
             format!(
                 "Failed to recreate ledger state snapshot directory: {}",
                 ledger_dir.display()
             )
         })?;
-
         let destination = ledger_dir.join(slot_number);
         rename(converted_snapshot_path, &destination).with_context(|| {
             format!(
