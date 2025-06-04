@@ -94,5 +94,17 @@ create view if not exists metrics_per_day_and_origin as select metric_date as da
 group by action, origin, date;
           "#,
         ),
+        SqlMigration::new(
+            5,
+            r#"
+create view if not exists metrics_per_day_and_client_type as select metric_date as date, action as counter_name, client_type, sum(counter) value from 
+  (
+      select action, json_extract(content, '$.content.client_type') client_type, json_extract(content, '$.content.value') counter, date(json_extract(content, '$.content.date')) metric_date 
+      from event 
+      where source='Metrics'
+  ) 
+group by action, client_type, date;
+          "#,
+        ),
     ]
 }
