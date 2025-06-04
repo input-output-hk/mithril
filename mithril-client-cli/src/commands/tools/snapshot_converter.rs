@@ -104,49 +104,62 @@ impl SnapshotConverterCommand {
             )
         })?;
         let distribution_dir = work_dir.join(CARDANO_DISTRIBUTION_DIR);
-        create_dir(&distribution_dir).with_context(|| {
-            format!(
-                "Failed to create distribution directory: {}",
-                distribution_dir.display()
-            )
-        })?;
 
-        let archive_path = Self::download_cardano_node_distribution(
-            ReqwestGitHubApiClient::new()?,
-            ReqwestHttpDownloader::new()?,
-            &self.cardano_node_version,
-            &distribution_dir,
-        )
-        .await
-        .with_context(|| {
-            "Failed to download 'snapshot-converter' binary from Cardano node distribution"
-        })?;
-
-        ArchiveUnpacker::default()
-            .unpack(&archive_path, &distribution_dir)
-            .with_context(|| {
+        let result = {
+            create_dir(&distribution_dir).with_context(|| {
                 format!(
-                    "Failed to unpack 'snapshot-converter' binary to directory: {}",
+                    "Failed to create distribution directory: {}",
                     distribution_dir.display()
                 )
             })?;
 
-        Self::convert_ledger_state_snapshot(
-            &work_dir,
-            &self.db_directory,
-            &distribution_dir,
-            &self.cardano_network,
-            &self.utxo_hd_flavor,
-            self.commit,
-        )
-        .with_context(|| {
-            format!(
-                "Failed to convert ledger snapshot to flavor: {}",
-                self.utxo_hd_flavor
+            let archive_path = Self::download_cardano_node_distribution(
+                ReqwestGitHubApiClient::new()?,
+                ReqwestHttpDownloader::new()?,
+                &self.cardano_node_version,
+                &distribution_dir,
             )
-        })?;
+            .await
+            .with_context(|| {
+                "Failed to download 'snapshot-converter' binary from Cardano node distribution"
+            })?;
 
-        Ok(())
+            ArchiveUnpacker::default()
+                .unpack(&archive_path, &distribution_dir)
+                .with_context(|| {
+                    format!(
+                        "Failed to unpack 'snapshot-converter' binary to directory: {}",
+                        distribution_dir.display()
+                    )
+                })?;
+
+            Self::convert_ledger_state_snapshot(
+                &work_dir,
+                &self.db_directory,
+                &distribution_dir,
+                &self.cardano_network,
+                &self.utxo_hd_flavor,
+                self.commit,
+            )
+            .with_context(|| {
+                format!(
+                    "Failed to convert ledger snapshot to flavor: {}",
+                    self.utxo_hd_flavor
+                )
+            })?;
+
+            Ok(())
+        };
+
+        if let Err(e) = Self::cleanup(&work_dir, &distribution_dir, self.commit, result.is_ok()) {
+            eprintln!(
+                "Failed to clean up temporary directory {} after execution: {}",
+                distribution_dir.display(),
+                e
+            );
+        }
+
+        result
     }
 
     async fn download_cardano_node_distribution(
@@ -418,6 +431,29 @@ impl SnapshotConverterCommand {
                 destination.display()
             )
         })?;
+
+        Ok(())
+    }
+
+    fn cleanup(
+        work_dir: &Path,
+        distribution_dir: &Path,
+        commit: bool,
+        success: bool,
+    ) -> MithrilResult<()> {
+        match (success, commit) {
+            (true, true) => {
+                remove_dir_all(distribution_dir)?;
+                remove_dir_all(work_dir)?;
+            }
+            (true, false) => {
+                remove_dir_all(distribution_dir)?;
+            }
+            (false, _) => {
+                remove_dir_all(distribution_dir)?;
+                remove_dir_all(work_dir)?;
+            }
+        }
 
         Ok(())
     }
@@ -842,6 +878,80 @@ mod tests {
                 .expect_err("Should fail if converted snapshot has invalid filename");
 
             assert!(previous_snapshot.exists());
+        }
+    }
+
+    mod cleanup {
+        use super::*;
+
+        #[test]
+        fn removes_both_dirs_on_success_when_commit_is_true() {
+            let tmp = temp_dir_create!();
+            let work_dir = tmp.join("workdir_dir");
+            let distribution_dir = tmp.join("distribution_dir");
+            create_dir(&work_dir).unwrap();
+            create_dir(&distribution_dir).unwrap();
+
+            SnapshotConverterCommand::cleanup(&work_dir, &distribution_dir, true, true).unwrap();
+
+            assert!(!distribution_dir.exists());
+            assert!(!work_dir.exists());
+        }
+
+        #[test]
+        fn removes_only_distribution_on_success_when_commit_is_false() {
+            let tmp = temp_dir_create!();
+            let work_dir = tmp.join("workdir_dir");
+            let distribution_dir = tmp.join("distribution_dir");
+            create_dir(&work_dir).unwrap();
+            create_dir(&distribution_dir).unwrap();
+
+            SnapshotConverterCommand::cleanup(&work_dir, &distribution_dir, false, true).unwrap();
+
+            assert!(!distribution_dir.exists());
+            assert!(work_dir.exists());
+        }
+
+        #[test]
+        fn removes_both_dirs_on_success_when_commit_is_true_and_distribution_is_nested() {
+            let tmp = temp_dir_create!();
+            let work_dir = tmp.join("workdir_dir");
+            let distribution_dir = work_dir.join("distribution_dir");
+            create_dir(&work_dir).unwrap();
+            create_dir(&distribution_dir).unwrap();
+
+            SnapshotConverterCommand::cleanup(&work_dir, &distribution_dir, true, true).unwrap();
+
+            assert!(!distribution_dir.exists());
+            assert!(!work_dir.exists());
+        }
+
+        #[test]
+        fn removes_only_distribution_on_success_when_commit_is_false_and_distribution_is_nested() {
+            let tmp = temp_dir_create!();
+            let work_dir = tmp.join("workdir_dir");
+            let distribution_dir = work_dir.join("distribution_dir");
+            create_dir(&work_dir).unwrap();
+            create_dir(&distribution_dir).unwrap();
+
+            SnapshotConverterCommand::cleanup(&work_dir, &distribution_dir, false, true).unwrap();
+
+            assert!(!distribution_dir.exists());
+            assert!(work_dir.exists());
+        }
+
+        #[test]
+        fn removes_both_dirs_on_failure() {
+            let tmp = temp_dir_create!();
+            let work_dir = tmp.join("workdir_dir");
+            let distribution_dir = tmp.join("distribution_dir");
+            create_dir(&work_dir).unwrap();
+            create_dir(&distribution_dir).unwrap();
+
+            SnapshotConverterCommand::cleanup(&work_dir, &distribution_dir, false, false).unwrap();
+
+            assert!(!distribution_dir.exists());
+            assert!(!work_dir.exists());
         }
     }
 }
