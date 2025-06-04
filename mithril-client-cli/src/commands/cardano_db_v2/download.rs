@@ -245,6 +245,9 @@ impl PreparedCardanoDbV2Download {
             &restoration_options.db_dir,
             &cardano_db_message,
             self.is_json_output_enabled(),
+            restoration_options
+                .download_unpack_options
+                .include_ancillary,
         )?;
 
         Ok(())
@@ -488,6 +491,7 @@ impl PreparedCardanoDbV2Download {
         db_dir: &Path,
         cardano_db_snapshot: &CardanoDatabaseSnapshot,
         json_output: bool,
+        include_ancillary: bool,
     ) -> MithrilResult<()> {
         let canonicalized_filepath = &db_dir.canonicalize().with_context(|| {
             format!(
@@ -496,12 +500,41 @@ impl PreparedCardanoDbV2Download {
             )
         })?;
 
+        let docker_cmd = format!(
+            "docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source=\"{}\",target=/data/db/ -e NETWORK={} ghcr.io/intersectmbo/cardano-node:{}",
+            canonicalized_filepath.display(),
+            cardano_db_snapshot.network,
+            cardano_db_snapshot.cardano_node_version
+        );
+
+        let snapshot_converter_cmd = |flavor| {
+            format!(
+                "mithril-client --unstable tools utxo-hd snapshot-converter --db-directory {} --cardano-node-version {} --utxo-hd-flavor {} --cardano-network {} --commit",
+                db_dir.display(),
+                cardano_db_snapshot.cardano_node_version,
+                flavor,
+                cardano_db_snapshot.network
+            )
+        };
+
         if json_output {
-            println!(
-                r#"{{"timestamp": "{}", "db_directory": "{}"}}"#,
-                Utc::now().to_rfc3339(),
-                canonicalized_filepath.display()
-            );
+            let json = if include_ancillary {
+                serde_json::json!({
+                    "timestamp": Utc::now().to_rfc3339(),
+                    "db_directory": canonicalized_filepath,
+                    "run_docker_cmd": docker_cmd,
+                    "snapshot_converter_cmd_to_lmdb": snapshot_converter_cmd("LMDB"),
+                    "snapshot_converter_cmd_to_legacy": snapshot_converter_cmd("Legacy")
+                })
+            } else {
+                serde_json::json!({
+                    "timestamp": Utc::now().to_rfc3339(),
+                    "db_directory": canonicalized_filepath,
+                    "run_docker_cmd": docker_cmd
+                })
+            };
+
+            println!("{}", json);
         } else {
             let cardano_node_version = &cardano_db_snapshot.cardano_node_version;
             println!(
@@ -511,14 +544,29 @@ impl PreparedCardanoDbV2Download {
 
     If you are using Cardano Docker image, you can restore a Cardano Node with:
     
-    docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="{}",target=/data/db/ -e NETWORK={} ghcr.io/intersectmbo/cardano-node:{cardano_node_version}
+    {}
     
     "###,
                 cardano_db_snapshot.hash,
                 db_dir.display(),
-                canonicalized_filepath.display(),
-                cardano_db_snapshot.network,
+                docker_cmd
             );
+
+            if include_ancillary {
+                println!(
+                    r###"Upgrade and replace the restored ledger state snapshot to 'LMDB' flavor by running the command:
+
+    {}
+
+    Or to 'Legacy' flavor by running the command:
+
+    {}
+    
+    "###,
+                    snapshot_converter_cmd("LMDB"),
+                    snapshot_converter_cmd("Legacy"),
+                );
+            }
         }
 
         Ok(())
