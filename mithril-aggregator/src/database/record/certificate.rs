@@ -131,7 +131,9 @@ impl From<Certificate> for CertificateRecord {
     fn from(other: Certificate) -> Self {
         let signed_entity_type = other.signed_entity_type();
         let (signature, parent_certificate_id) = match other.signature {
-            CertificateSignature::GenesisSignature(signature) => (signature.to_bytes_hex(), None),
+            CertificateSignature::GenesisSignature(signature) => {
+                (signature.to_bytes_hex().unwrap(), None)
+            }
             CertificateSignature::MultiSignature(_, signature) => {
                 (signature.to_json_hex().unwrap(), Some(other.previous_hash))
             }
