@@ -44,6 +44,14 @@ impl CardanoDbV2Commands {
             Self::Download(cmd) => cmd.execute(config_builder).await,
         }
     }
+
+    /// Is JSON output enabled
+    pub fn is_json_output_enabled(&self) -> bool {
+        match self {
+            Self::Download(cmd) => cmd.is_json_output_enabled(),
+            Self::Snapshot(cmd) => cmd.is_json_output_enabled(),
+        }
+    }
 }
 
 impl CardanoDbV2SnapshotCommands {
@@ -52,6 +60,14 @@ impl CardanoDbV2SnapshotCommands {
         match self {
             Self::List(cmd) => cmd.execute(config_builder).await,
             Self::Show(cmd) => cmd.execute(config_builder).await,
+        }
+    }
+
+    /// Is JSON output enabled
+    pub fn is_json_output_enabled(&self) -> bool {
+        match self {
+            CardanoDbV2SnapshotCommands::List(cmd) => cmd.is_json_output_enabled(),
+            CardanoDbV2SnapshotCommands::Show(cmd) => cmd.is_json_output_enabled(),
         }
     }
 }

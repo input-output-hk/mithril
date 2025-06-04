@@ -63,6 +63,11 @@ pub struct CardanoDbV2DownloadCommand {
 }
 
 impl CardanoDbV2DownloadCommand {
+    /// Is JSON output enabled
+    pub fn is_json_output_enabled(&self) -> bool {
+        self.shared_args.json
+    }
+
     /// Command execution
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         // *Important*: All parameters also available in the collected config source below MUST be
