@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.4.1 (04-06-2025)
+
+### Added
+
+- Added a `single_signature` module and `StmSig` and `StmSigRegParty` functionality covered by its submodules.
+
 ## 0.4.0 (15-05-2025)
 
 ### Added
