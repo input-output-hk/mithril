@@ -1,6 +1,6 @@
 use std::{
     env, fmt,
-    fs::{create_dir, read_dir},
+    fs::{create_dir, read_dir, remove_dir_all, rename},
     path::{Path, PathBuf},
     process::Command,
 };
@@ -87,6 +87,10 @@ pub struct SnapshotConverterCommand {
     /// UTxO-HD flavor to convert the ledger snapshot to.
     #[clap(long)]
     utxo_hd_flavor: UTxOHDFlavor,
+
+    /// If set, the converted snapshot replaces the current ledger state in the `db_directory`.
+    #[clap(long)]
+    commit: bool,
 }
 
 impl SnapshotConverterCommand {
@@ -133,6 +137,7 @@ impl SnapshotConverterCommand {
             &distribution_dir,
             &self.cardano_network,
             &self.utxo_hd_flavor,
+            self.commit,
         )
         .with_context(|| {
             format!(
@@ -197,6 +202,7 @@ impl SnapshotConverterCommand {
         distribution_dir: &Path,
         cardano_network: &CardanoNetwork,
         utxo_hd_flavor: &UTxOHDFlavor,
+        commit: bool,
     ) -> MithrilResult<()> {
         println!(
             "Converting ledger state snapshot to '{}' flavor",
@@ -222,6 +228,14 @@ impl SnapshotConverterCommand {
             &config_path,
             utxo_hd_flavor,
         )?;
+
+        if commit {
+            Self::commit_converted_snapshot(db_dir, &converted_snapshot_path).with_context(
+                || "Failed to overwrite the ledger state with the converted snapshot.",
+            )?;
+        } else {
+            println!("Snapshot location: {}", converted_snapshot_path.display());
+        }
 
         Ok(())
     }
@@ -361,17 +375,63 @@ impl SnapshotConverterCommand {
             .parse::<u64>()
             .with_context(|| format!("Invalid slot number in path filename: {}", file_name_str))
     }
+
+    /// Commits the converted snapshot by replacing the current ledger state snapshots in the database directory.
+    fn commit_converted_snapshot(
+        db_dir: &Path,
+        converted_snapshot_path: &Path,
+    ) -> MithrilResult<()> {
+        let ledger_dir = db_dir.join(LEDGER_DIR);
+        println!(
+            "Upgrading and replacing ledger state in {} with converted snapshot: {}",
+            ledger_dir.display(),
+            converted_snapshot_path.display()
+        );
+
+        let filename = converted_snapshot_path
+            .file_name()
+            .ok_or_else(|| anyhow!("Missing filename in converted snapshot path"))?
+            .to_string_lossy();
+
+        let (slot_number, _) = filename
+            .split_once('_')
+            .ok_or_else(|| anyhow!("Invalid converted snapshot name format: {}", filename))?;
+
+        remove_dir_all(&ledger_dir).with_context(|| {
+            format!(
+                "Failed to remove old ledger state snapshot directory: {}",
+                ledger_dir.display()
+            )
+        })?;
+
+        create_dir(&ledger_dir).with_context(|| {
+            format!(
+                "Failed to recreate ledger state snapshot directory: {}",
+                ledger_dir.display()
+            )
+        })?;
+
+        let destination = ledger_dir.join(slot_number);
+        rename(converted_snapshot_path, &destination).with_context(|| {
+            format!(
+                "Failed to move converted snapshot to ledger directory: {}",
+                destination.display()
+            )
+        })?;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::temp_dir_create;
+
     use super::*;
 
     mod download_cardano_node_distribution {
         use mockall::predicate::eq;
         use reqwest::Url;
-
-        use mithril_common::temp_dir_create;
 
         use crate::utils::{GitHubRelease, MockGitHubReleaseRetriever, MockHttpDownloader};
 
@@ -740,6 +800,48 @@ mod tests {
 
             SnapshotConverterCommand::find_oldest_ledger_state_snapshot(&temp_dir)
                 .expect_err("Should return error if no valid ledger snapshot directory found");
+        }
+    }
+
+    mod commit_converted_snapshot {
+        use std::fs::File;
+
+        use super::*;
+
+        #[test]
+        fn moves_converted_snapshot_to_ledger_directory() {
+            let tmp_dir = temp_dir_create!();
+            let ledger_dir = tmp_dir.join(LEDGER_DIR);
+            create_dir(&ledger_dir).unwrap();
+            let previous_snapshot = ledger_dir.join("123");
+            File::create(&previous_snapshot).unwrap();
+
+            let converted_snapshot = tmp_dir.join("456_lmdb");
+            File::create(&converted_snapshot).unwrap();
+
+            assert!(previous_snapshot.exists());
+            SnapshotConverterCommand::commit_converted_snapshot(&tmp_dir, &converted_snapshot)
+                .unwrap();
+
+            assert!(!previous_snapshot.exists());
+            assert!(ledger_dir.join("456").exists());
+        }
+
+        #[test]
+        fn fails_if_converted_snapshot_has_invalid_filename() {
+            let tmp_dir = temp_dir_create!();
+            let ledger_dir = tmp_dir.join(LEDGER_DIR);
+            create_dir(&ledger_dir).unwrap();
+            let previous_snapshot = ledger_dir.join("123");
+            File::create(&previous_snapshot).unwrap();
+
+            let converted_snapshot = tmp_dir.join("456");
+            File::create(&converted_snapshot).unwrap();
+
+            SnapshotConverterCommand::commit_converted_snapshot(&tmp_dir, &converted_snapshot)
+                .expect_err("Should fail if converted snapshot has invalid filename");
+
+            assert!(previous_snapshot.exists());
         }
     }
 }
