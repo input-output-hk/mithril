@@ -1,3 +1,5 @@
+use crate::StdResult;
+
 /// Traits for serializing to bytes
 pub trait IntoBytes {
     /// Convert into a bytes vector.
@@ -5,23 +7,26 @@ pub trait IntoBytes {
 }
 
 /// Traits for deserializing from bytes
-pub trait TryFromBytes<D, E>: Sized {
+pub trait TryFromBytes: Sized {
     /// Try to convert from a bytes slice.
-    fn try_from_bytes(bytes: &[u8]) -> Result<Self, E>;
+    fn try_from_bytes(bytes: &[u8]) -> StdResult<Self>;
 }
 
 mod binary_mithril_stm {
-    use blake2::digest::{Digest, FixedOutput};
+    use anyhow::anyhow;
+    use blake2::Blake2b;
 
+    use digest::consts::U32;
     use mithril_stm::{
-        MultiSignatureError, ProofOfPossession, RegisterError, Signature, SigningKey, StmAggrSig,
-        StmAggrVerificationKey, StmAggregateSignatureError, StmInitializer, StmParameters, StmSig,
-        StmSigRegParty, StmSignatureError, VerificationKey, VerificationKeyPoP,
+        ProofOfPossession, Signature, SigningKey, StmAggrSig, StmAggrVerificationKey,
+        StmInitializer, StmParameters, StmSig, StmSigRegParty, VerificationKey, VerificationKeyPoP,
     };
 
-    use crate::crypto_helper::{key_decode_hex, key_encode_hex, CodecError};
+    use crate::crypto_helper::{key_decode_hex, key_encode_hex};
 
     use super::*;
+
+    type D = Blake2b<U32>;
 
     impl IntoBytes for StmParameters {
         fn into_bytes(&self) -> Vec<u8> {
@@ -29,9 +34,9 @@ mod binary_mithril_stm {
         }
     }
 
-    impl TryFromBytes<(), RegisterError> for StmParameters {
-        fn try_from_bytes(bytes: &[u8]) -> Result<Self, RegisterError> {
-            Self::from_bytes(bytes)
+    impl TryFromBytes for StmParameters {
+        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
+            Self::from_bytes(bytes).map_err(|e| e.into())
         }
     }
 
@@ -41,9 +46,9 @@ mod binary_mithril_stm {
         }
     }
 
-    impl<D: Clone + Digest + FixedOutput> TryFromBytes<D, StmSignatureError> for StmSig {
-        fn try_from_bytes(bytes: &[u8]) -> Result<Self, StmSignatureError> {
-            Self::from_bytes::<D>(bytes)
+    impl TryFromBytes for StmSig {
+        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
+            Self::from_bytes::<D>(bytes).map_err(|e| e.into())
         }
     }
 
@@ -53,23 +58,21 @@ mod binary_mithril_stm {
         }
     }
 
-    impl<D: Digest + Clone + FixedOutput> TryFromBytes<D, StmSignatureError> for StmSigRegParty {
-        fn try_from_bytes(bytes: &[u8]) -> Result<Self, StmSignatureError> {
-            Self::from_bytes::<D>(bytes)
+    impl TryFromBytes for StmSigRegParty {
+        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
+            Self::from_bytes::<D>(bytes).map_err(|e| e.into())
         }
     }
 
-    impl<D: Clone + Digest + FixedOutput + Send + Sync> IntoBytes for StmAggrSig<D> {
+    impl IntoBytes for StmAggrSig<D> {
         fn into_bytes(&self) -> Vec<u8> {
             self.to_bytes().to_vec()
         }
     }
 
-    impl<D: Clone + Digest + FixedOutput + Send + Sync>
-        TryFromBytes<D, StmAggregateSignatureError<D>> for StmAggrSig<D>
-    {
-        fn try_from_bytes(bytes: &[u8]) -> Result<Self, StmAggregateSignatureError<D>> {
-            Self::from_bytes(bytes)
+    impl TryFromBytes for StmAggrSig<D> {
+        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
+            Self::from_bytes(bytes).map_err(|e| anyhow!("{e}"))
         }
     }
 
@@ -79,9 +82,9 @@ mod binary_mithril_stm {
         }
     }
 
-    impl TryFromBytes<(), MultiSignatureError> for ProofOfPossession {
-        fn try_from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
-            Self::from_bytes(bytes)
+    impl TryFromBytes for ProofOfPossession {
+        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
+            Self::from_bytes(bytes).map_err(|e| e.into())
         }
     }
 
@@ -91,9 +94,9 @@ mod binary_mithril_stm {
         }
     }
 
-    impl TryFromBytes<(), MultiSignatureError> for Signature {
-        fn try_from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
-            Self::from_bytes(bytes)
+    impl TryFromBytes for Signature {
+        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
+            Self::from_bytes(bytes).map_err(|e| e.into())
         }
     }
 
@@ -103,9 +106,9 @@ mod binary_mithril_stm {
         }
     }
 
-    impl TryFromBytes<(), MultiSignatureError> for SigningKey {
-        fn try_from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
-            Self::from_bytes(bytes)
+    impl TryFromBytes for SigningKey {
+        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
+            Self::from_bytes(bytes).map_err(|e| e.into())
         }
     }
 
@@ -115,9 +118,9 @@ mod binary_mithril_stm {
         }
     }
 
-    impl TryFromBytes<(), MultiSignatureError> for VerificationKey {
-        fn try_from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
-            Self::from_bytes(bytes)
+    impl TryFromBytes for VerificationKey {
+        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
+            Self::from_bytes(bytes).map_err(|e| e.into())
         }
     }
 
@@ -127,25 +130,23 @@ mod binary_mithril_stm {
         }
     }
 
-    impl TryFromBytes<(), MultiSignatureError> for VerificationKeyPoP {
-        fn try_from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
-            Self::from_bytes(bytes)
+    impl TryFromBytes for VerificationKeyPoP {
+        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
+            Self::from_bytes(bytes).map_err(|e| e.into())
         }
     }
 
-    impl<D: Clone + Digest + FixedOutput + Send + Sync> IntoBytes for StmAggrVerificationKey<D> {
+    impl IntoBytes for StmAggrVerificationKey<D> {
         fn into_bytes(&self) -> Vec<u8> {
             // TODO: Use a more efficient serialization method
             key_encode_hex(self).unwrap().into_bytes()
         }
     }
 
-    impl<D: Clone + Digest + FixedOutput + Send + Sync> TryFromBytes<D, CodecError>
-        for StmAggrVerificationKey<D>
-    {
-        fn try_from_bytes(bytes: &[u8]) -> Result<Self, CodecError> {
+    impl TryFromBytes for StmAggrVerificationKey<D> {
+        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
             // TODO: Use a more efficient deserialization method
-            key_decode_hex(std::str::from_utf8(bytes).unwrap())
+            key_decode_hex(std::str::from_utf8(bytes).unwrap()).map_err(|e| e.into())
         }
     }
 
@@ -155,15 +156,15 @@ mod binary_mithril_stm {
         }
     }
 
-    impl TryFromBytes<(), RegisterError> for StmInitializer {
-        fn try_from_bytes(bytes: &[u8]) -> Result<Self, RegisterError> {
-            Self::from_bytes(bytes)
+    impl TryFromBytes for StmInitializer {
+        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
+            Self::from_bytes(bytes).map_err(|e| e.into())
         }
     }
 }
 
 mod binary_ed25519 {
-    use ed25519_dalek::{ed25519::Error, Signature, SigningKey, VerifyingKey};
+    use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
 
     use super::*;
 
@@ -173,9 +174,9 @@ mod binary_ed25519 {
         }
     }
 
-    impl TryFromBytes<(), Error> for Signature {
-        fn try_from_bytes(bytes: &[u8]) -> Result<Self, Error> {
-            Self::try_from(bytes)
+    impl TryFromBytes for Signature {
+        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
+            Self::try_from(bytes).map_err(|e| e.into())
         }
     }
 
@@ -185,9 +186,9 @@ mod binary_ed25519 {
         }
     }
 
-    impl TryFromBytes<(), Error> for SigningKey {
-        fn try_from_bytes(bytes: &[u8]) -> Result<Self, Error> {
-            Self::try_from(bytes)
+    impl TryFromBytes for SigningKey {
+        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
+            Self::try_from(bytes).map_err(|e| e.into())
         }
     }
 
@@ -197,15 +198,15 @@ mod binary_ed25519 {
         }
     }
 
-    impl TryFromBytes<(), Error> for VerifyingKey {
-        fn try_from_bytes(bytes: &[u8]) -> Result<Self, Error> {
-            Self::try_from(bytes)
+    impl TryFromBytes for VerifyingKey {
+        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
+            Self::try_from(bytes).map_err(|e| e.into())
         }
     }
 }
 
 mod binary_kes_sig {
-    use anyhow::{anyhow, Error};
+    use anyhow::anyhow;
     use kes_summed_ed25519::kes::Sum6KesSig;
 
     use super::*;
@@ -216,15 +217,15 @@ mod binary_kes_sig {
         }
     }
 
-    impl TryFromBytes<(), Error> for Sum6KesSig {
-        fn try_from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+    impl TryFromBytes for Sum6KesSig {
+        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
             Self::from_bytes(bytes).map_err(|e| anyhow!(format!("{e:?}")))
         }
     }
 }
 
 mod binary_opcert {
-    use crate::crypto_helper::{key_decode_hex, key_encode_hex, CodecError, OpCert};
+    use crate::crypto_helper::{key_decode_hex, key_encode_hex, OpCert};
 
     use super::*;
 
@@ -235,18 +236,18 @@ mod binary_opcert {
         }
     }
 
-    impl TryFromBytes<(), CodecError> for OpCert {
-        fn try_from_bytes(bytes: &[u8]) -> Result<Self, CodecError> {
+    impl TryFromBytes for OpCert {
+        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
             // TODO: Use a more efficient deserialization method
-            key_decode_hex(std::str::from_utf8(bytes).unwrap())
+            key_decode_hex(std::str::from_utf8(bytes).unwrap()).map_err(|e| e.into())
         }
     }
 }
 
-mod binary_mkmap_proof {
+mod binary_mk_proof {
     use serde::{de::DeserializeOwned, Serialize};
 
-    use crate::crypto_helper::{key_decode_hex, key_encode_hex, CodecError, MKMapKey, MKMapProof};
+    use crate::crypto_helper::{key_decode_hex, key_encode_hex, MKMapKey, MKMapProof, MKProof};
 
     use super::*;
 
@@ -257,10 +258,24 @@ mod binary_mkmap_proof {
         }
     }
 
-    impl<T: MKMapKey + DeserializeOwned> TryFromBytes<(), CodecError> for MKMapProof<T> {
-        fn try_from_bytes(bytes: &[u8]) -> Result<Self, CodecError> {
+    impl<T: MKMapKey + DeserializeOwned> TryFromBytes for MKMapProof<T> {
+        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
             // TODO: Use a more efficient deserialization method
-            key_decode_hex(std::str::from_utf8(bytes).unwrap())
+            key_decode_hex(std::str::from_utf8(bytes).unwrap()).map_err(|e| e.into())
+        }
+    }
+
+    impl IntoBytes for MKProof {
+        fn into_bytes(&self) -> Vec<u8> {
+            // TODO: Use a more efficient serialization method
+            key_encode_hex(self).unwrap().into_bytes()
+        }
+    }
+
+    impl TryFromBytes for MKProof {
+        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
+            // TODO: Use a more efficient deserialization method
+            key_decode_hex(std::str::from_utf8(bytes).unwrap()).map_err(|e| e.into())
         }
     }
 }
