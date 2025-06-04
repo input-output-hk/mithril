@@ -72,7 +72,7 @@ strum = { workspace = true }
 tar = { version = "0.4.44", optional = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
-uuid = { version = "1.16.0", features = ["v4"] }
+uuid = { version = "1.17.0", features = ["v4"] }
 zstd = { version = "0.13.3", optional = true }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
@@ -83,7 +83,7 @@ mithril-common = { path = "../mithril-common", version = "=0.5", default-feature
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.2.15", features = ["js"] }
 mithril-common = { path = "../mithril-common", version = "=0.5", default-features = false }
-uuid = { version = "1.16.0", features = ["v4", "js"] }
+uuid = { version = "1.17.0", features = ["v4", "js"] }
 
 [dev-dependencies]
 bon = "3.6.3"
@@ -93,7 +93,7 @@ mithril-common = { path = "../mithril-common", version = "=0.5", default-feature
     "test_tools",
 ] }
 mockall = { workspace = true }
-sha2 = "0.10.8"
+sha2 = "0.10.9"
 slog-async = { workspace = true }
 slog-term = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }

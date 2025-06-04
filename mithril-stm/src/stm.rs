@@ -1195,8 +1195,8 @@ mod tests {
             let bytes = initializer.to_bytes();
             assert!(StmInitializer::from_bytes(&bytes).is_ok());
 
-            let bytes = bincode::serialize(&initializer).unwrap();
-            assert!(bincode::deserialize::<StmInitializer>(&bytes).is_ok())
+            let bytes = bincode::serde::encode_to_vec(&initializer, bincode::config::legacy()).unwrap();
+            assert!(bincode::serde::decode_from_slice::<StmInitializer,_>(&bytes, bincode::config::legacy()).is_ok())
         }
 
         #[test]
@@ -1211,8 +1211,8 @@ mod tests {
                 let sig_deser = StmSig::from_bytes::<D>(&bytes).unwrap();
                 assert!(sig_deser.verify(&params, &ps[0].get_vk(), &ps[0].get_stake(), &avk, &msg).is_ok());
 
-                let encoded = bincode::serialize(&sig).unwrap();
-                let decoded: StmSig = bincode::deserialize(&encoded).unwrap();
+                let encoded = bincode::serde::encode_to_vec(&sig, bincode::config::legacy()).unwrap();
+                let (decoded,_) = bincode::serde::decode_from_slice::<StmSig,_>(&encoded, bincode::config::legacy()).unwrap();
                 assert!(decoded.verify(&params, &ps[0].get_vk(), &ps[0].get_stake(), &avk, &msg).is_ok());
             }
         }
@@ -1232,8 +1232,8 @@ mod tests {
                     let aggr2 = StmAggrSig::from_bytes(&bytes).unwrap();
                     assert!(aggr2.verify(&msg, &clerk.compute_avk(), &params).is_ok());
 
-                    let encoded = bincode::serialize(&aggr).unwrap();
-                    let decoded: StmAggrSig::<D> = bincode::deserialize(&encoded).unwrap();
+                    let encoded = bincode::serde::encode_to_vec(&aggr, bincode::config::legacy()).unwrap();
+                    let (decoded,_) = bincode::serde::decode_from_slice::<StmAggrSig<D>,_>(&encoded, bincode::config::legacy()).unwrap();
                     assert!(decoded.verify(&msg, &clerk.compute_avk(), &params).is_ok());
             }
         }
