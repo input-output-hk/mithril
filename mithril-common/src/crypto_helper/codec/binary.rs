@@ -1,15 +1,34 @@
+use hex::{FromHex, ToHex};
+
 use crate::StdResult;
 
 /// Traits for serializing to bytes
 pub trait IntoBytes {
     /// Convert into a bytes vector.
     fn into_bytes(&self) -> Vec<u8>;
+
+    /// Convert to hex bytes representation
+    fn into_bytes_hex(&self) -> String {
+        self.into_bytes().encode_hex::<String>()
+    }
 }
 
 /// Traits for deserializing from bytes
 pub trait TryFromBytes: Sized {
     /// Try to convert from a bytes slice.
     fn try_from_bytes(bytes: &[u8]) -> StdResult<Self>;
+
+    /// Try to convert from hex string encoded bytes.
+    fn try_from_bytes_hex(hex_string: &str) -> StdResult<Self> {
+        let bytes = Vec::from_hex(hex_string).map_err(|e| {
+            anyhow::anyhow!(
+                "Could not deserialize binary from hex string: {}",
+                e.to_string()
+            )
+        })?;
+
+        Self::try_from_bytes(&bytes)
+    }
 }
 
 mod binary_mithril_stm {
@@ -18,8 +37,8 @@ mod binary_mithril_stm {
 
     use digest::consts::U32;
     use mithril_stm::{
-        ProofOfPossession, Signature, SigningKey, StmAggrSig, StmAggrVerificationKey,
-        StmInitializer, StmParameters, StmSig, StmSigRegParty, VerificationKey, VerificationKeyPoP,
+        StmAggrSig, StmAggrVerificationKey, StmInitializer, StmParameters, StmSig, StmSigRegParty,
+        StmVerificationKey, StmVerificationKeyPoP,
     };
 
     use crate::crypto_helper::{key_decode_hex, key_encode_hex};
@@ -76,61 +95,25 @@ mod binary_mithril_stm {
         }
     }
 
-    impl IntoBytes for ProofOfPossession {
+    impl IntoBytes for StmVerificationKey {
         fn into_bytes(&self) -> Vec<u8> {
             self.to_bytes().to_vec()
         }
     }
 
-    impl TryFromBytes for ProofOfPossession {
+    impl TryFromBytes for StmVerificationKey {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
             Self::from_bytes(bytes).map_err(|e| e.into())
         }
     }
 
-    impl IntoBytes for Signature {
+    impl IntoBytes for StmVerificationKeyPoP {
         fn into_bytes(&self) -> Vec<u8> {
             self.to_bytes().to_vec()
         }
     }
 
-    impl TryFromBytes for Signature {
-        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
-            Self::from_bytes(bytes).map_err(|e| e.into())
-        }
-    }
-
-    impl IntoBytes for SigningKey {
-        fn into_bytes(&self) -> Vec<u8> {
-            self.to_bytes().to_vec()
-        }
-    }
-
-    impl TryFromBytes for SigningKey {
-        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
-            Self::from_bytes(bytes).map_err(|e| e.into())
-        }
-    }
-
-    impl IntoBytes for VerificationKey {
-        fn into_bytes(&self) -> Vec<u8> {
-            self.to_bytes().to_vec()
-        }
-    }
-
-    impl TryFromBytes for VerificationKey {
-        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
-            Self::from_bytes(bytes).map_err(|e| e.into())
-        }
-    }
-
-    impl IntoBytes for VerificationKeyPoP {
-        fn into_bytes(&self) -> Vec<u8> {
-            self.to_bytes().to_vec()
-        }
-    }
-
-    impl TryFromBytes for VerificationKeyPoP {
+    impl TryFromBytes for StmVerificationKeyPoP {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
             Self::from_bytes(bytes).map_err(|e| e.into())
         }
