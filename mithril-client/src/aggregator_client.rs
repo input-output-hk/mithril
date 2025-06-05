@@ -21,7 +21,6 @@ use tokio::sync::RwLock;
 
 use mithril_common::entities::{ClientError, ServerError};
 use mithril_common::logging::LoggerExtensions;
-#[cfg(feature = "unstable")]
 use mithril_common::messages::CardanoDatabaseImmutableFilesRestoredMessage;
 use mithril_common::MITHRIL_API_VERSION_HEADER;
 
@@ -86,33 +85,27 @@ pub enum AggregatorRequest {
     },
 
     /// Get a specific [Cardano database snapshot][crate::CardanoDatabaseSnapshot] from the aggregator
-    #[cfg(feature = "unstable")]
     GetCardanoDatabaseSnapshot {
         /// Hash of the snapshot to retrieve
         hash: String,
     },
 
     /// Lists the aggregator [Cardano database snapshots][crate::CardanoDatabaseSnapshot]
-    #[cfg(feature = "unstable")]
     ListCardanoDatabaseSnapshots,
 
     /// Increments the aggregator Cardano database snapshot immutable files restored statistics
-    #[cfg(feature = "unstable")]
     IncrementCardanoDatabaseImmutablesRestoredStatistic {
         /// Number of immutable files restored
         number_of_immutables: u64,
     },
 
     /// Increments the aggregator Cardano database snapshot ancillary files restored statistics
-    #[cfg(feature = "unstable")]
     IncrementCardanoDatabaseAncillaryStatistic,
 
     /// Increments the aggregator Cardano database snapshot complete restoration statistics
-    #[cfg(feature = "unstable")]
     IncrementCardanoDatabaseCompleteRestorationStatistic,
 
     /// Increments the aggregator Cardano database snapshot partial restoration statistics
-    #[cfg(feature = "unstable")]
     IncrementCardanoDatabasePartialRestorationStatistic,
 
     /// Get proofs that the given set of Cardano transactions is included in the global Cardano transactions set
@@ -167,27 +160,21 @@ impl AggregatorRequest {
             AggregatorRequest::IncrementSnapshotStatistic { snapshot: _ } => {
                 "statistics/snapshot".to_string()
             }
-            #[cfg(feature = "unstable")]
             AggregatorRequest::GetCardanoDatabaseSnapshot { hash } => {
                 format!("artifact/cardano-database/{hash}")
             }
-            #[cfg(feature = "unstable")]
             AggregatorRequest::ListCardanoDatabaseSnapshots => {
                 "artifact/cardano-database".to_string()
             }
-            #[cfg(feature = "unstable")]
             AggregatorRequest::IncrementCardanoDatabaseImmutablesRestoredStatistic {
                 number_of_immutables: _,
             } => "statistics/cardano-database/immutable-files-restored".to_string(),
-            #[cfg(feature = "unstable")]
             AggregatorRequest::IncrementCardanoDatabaseAncillaryStatistic => {
                 "statistics/cardano-database/ancillary-files-restored".to_string()
             }
-            #[cfg(feature = "unstable")]
             AggregatorRequest::IncrementCardanoDatabaseCompleteRestorationStatistic => {
                 "statistics/cardano-database/complete-restoration".to_string()
             }
-            #[cfg(feature = "unstable")]
             AggregatorRequest::IncrementCardanoDatabasePartialRestorationStatistic => {
                 "statistics/cardano-database/partial-restoration".to_string()
             }
@@ -221,7 +208,6 @@ impl AggregatorRequest {
             AggregatorRequest::IncrementSnapshotStatistic { snapshot } => {
                 Some(snapshot.to_string())
             }
-            #[cfg(feature = "unstable")]
             AggregatorRequest::IncrementCardanoDatabaseImmutablesRestoredStatistic {
                 number_of_immutables,
             } => serde_json::to_string(&CardanoDatabaseImmutableFilesRestoredMessage {
@@ -642,7 +628,6 @@ mod tests {
             .route()
         );
 
-        #[cfg(feature = "unstable")]
         assert_eq!(
             "artifact/cardano-database/abc".to_string(),
             AggregatorRequest::GetCardanoDatabaseSnapshot {
@@ -651,13 +636,11 @@ mod tests {
             .route()
         );
 
-        #[cfg(feature = "unstable")]
         assert_eq!(
             "artifact/cardano-database".to_string(),
             AggregatorRequest::ListCardanoDatabaseSnapshots.route()
         );
 
-        #[cfg(feature = "unstable")]
         assert_eq!(
             "statistics/cardano-database/immutable-files-restored".to_string(),
             AggregatorRequest::IncrementCardanoDatabaseImmutablesRestoredStatistic {
@@ -666,19 +649,16 @@ mod tests {
             .route()
         );
 
-        #[cfg(feature = "unstable")]
         assert_eq!(
             "statistics/cardano-database/ancillary-files-restored".to_string(),
             AggregatorRequest::IncrementCardanoDatabaseAncillaryStatistic.route()
         );
 
-        #[cfg(feature = "unstable")]
         assert_eq!(
             "statistics/cardano-database/complete-restoration".to_string(),
             AggregatorRequest::IncrementCardanoDatabaseCompleteRestorationStatistic.route()
         );
 
-        #[cfg(feature = "unstable")]
         assert_eq!(
             "statistics/cardano-database/partial-restoration".to_string(),
             AggregatorRequest::IncrementCardanoDatabasePartialRestorationStatistic.route()
@@ -732,14 +712,11 @@ mod tests {
     #[test]
     fn deduce_body_from_request() {
         fn that_should_not_have_body(req: &AggregatorRequest) -> bool {
-            match req {
-                AggregatorRequest::IncrementSnapshotStatistic { .. } => false,
-                #[cfg(feature = "unstable")]
-                AggregatorRequest::IncrementCardanoDatabaseImmutablesRestoredStatistic {
-                    ..
-                } => false,
-                _ => true,
-            }
+            !matches!(
+                req,
+                AggregatorRequest::IncrementSnapshotStatistic { .. }
+                    | AggregatorRequest::IncrementCardanoDatabaseImmutablesRestoredStatistic { .. }
+            )
         }
 
         assert_eq!(
@@ -750,7 +727,6 @@ mod tests {
             .get_body()
         );
 
-        #[cfg(feature = "unstable")]
         assert_eq!(
             Some(
                 serde_json::to_string(&CardanoDatabaseImmutableFilesRestoredMessage {

@@ -12,15 +12,14 @@ pub use mithril_common::messages::SnapshotMessage as Snapshot;
 ///
 pub use mithril_common::messages::SnapshotListItemMessage as SnapshotListItem;
 
-cfg_unstable! {
-    /// A Cardano node database snapshot
-    ///
-    pub use mithril_common::messages::CardanoDatabaseSnapshotMessage as CardanoDatabaseSnapshot;
+/// A Cardano node database snapshot
+///
+pub use mithril_common::messages::CardanoDatabaseSnapshotMessage as CardanoDatabaseSnapshot;
 
-    /// List items of Cardano node database snapshot
-    ///
-    pub use mithril_common::messages::CardanoDatabaseSnapshotListItemMessage as CardanoDatabaseSnapshotListItem;
-}
+/// List items of Cardano node database snapshot
+///
+pub use mithril_common::messages::CardanoDatabaseSnapshotListItemMessage as CardanoDatabaseSnapshotListItem;
+
 /// A Mithril stake distribution.
 ///
 pub use mithril_common::messages::MithrilStakeDistributionMessage as MithrilStakeDistribution;
@@ -67,16 +66,14 @@ pub use mithril_common::messages::CardanoStakeDistributionListItemMessage as Car
 
 /// `mithril-common` re-exports
 pub mod common {
+    pub use mithril_common::crypto_helper::MKProof;
     pub use mithril_common::entities::{
-        BlockHash, BlockNumber, CardanoDbBeacon, ChainPoint, CompressionAlgorithm, Epoch,
-        ImmutableFileNumber, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
-        SignedEntityType, SlotNumber, StakeDistribution, TransactionHash,
+        AncillaryLocation, BlockHash, BlockNumber, CardanoDbBeacon, ChainPoint,
+        CompressionAlgorithm, DigestLocation, Epoch, ImmutableFileNumber, ImmutablesLocation,
+        MultiFilesUri, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
+        SignedEntityType, SlotNumber, StakeDistribution, TemplateUri, TransactionHash,
     };
-    cfg_unstable! {
-        pub use mithril_common::entities::{
-            AncillaryLocation, DigestLocation, ImmutablesLocation, MultiFilesUri, TemplateUri,
-        };
-        pub use mithril_common::crypto_helper::MKProof;
-        pub use mithril_common::messages::{DigestsMessagePart, ImmutablesMessagePart, AncillaryMessagePart};
-    }
+    pub use mithril_common::messages::{
+        AncillaryMessagePart, DigestsMessagePart, ImmutablesMessagePart,
+    };
 }
