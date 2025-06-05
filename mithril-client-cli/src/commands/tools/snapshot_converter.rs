@@ -305,41 +305,48 @@ impl SnapshotConverterCommand {
             .join(SNAPSHOT_CONVERTER_CONFIG_FILE)
     }
 
-    /// Finds the oldest ledger snapshot (by slot number) in the `ledger/` directory of a Cardano node database.
-    fn find_oldest_ledger_state_snapshot(db_dir: &Path) -> MithrilResult<PathBuf> {
-        let ledger_dir = db_dir.join(LEDGER_DIR);
-        let entries = read_dir(&ledger_dir).with_context(|| {
+    /// Returns the list of valid ledger snapshot directories sorted in ascending order of slot number.
+    ///
+    /// Only directories with numeric names are considered valid snapshots.
+    fn get_sorted_snapshot_dirs(ledger_dir: &Path) -> MithrilResult<Vec<(u64, PathBuf)>> {
+        let entries = read_dir(ledger_dir).with_context(|| {
             format!(
                 "Failed to read ledger state snapshots directory: {}",
                 ledger_dir.display()
             )
         })?;
-        let mut min_slot: Option<(u64, PathBuf)> = None;
 
-        for entry in entries {
-            let entry = entry?;
-            let slot = match Self::extract_slot_number(&entry.path()) {
-                Ok(number) => number,
-                Err(_) => continue,
-            };
+        let mut snapshots = entries
+            .filter_map(|entry| {
+                let path = entry.ok()?.path();
+                if !path.is_dir() {
+                    return None;
+                }
+                SnapshotConverterCommand::extract_slot_number(&path)
+                    .ok()
+                    .map(|slot| (slot, path))
+            })
+            .collect::<Vec<_>>();
 
-            let path = entry.path();
-            if path.is_dir()
-                && (min_slot
-                    .as_ref()
-                    .map(|(min, _)| slot < *min)
-                    .unwrap_or(true))
-            {
-                min_slot = Some((slot, path));
-            }
-        }
+        snapshots.sort_by_key(|(slot, _)| *slot);
 
-        min_slot.map(|(_, path)| path).ok_or_else(|| {
-            anyhow!(
-                "No valid ledger state snapshot found in directory: {}",
-                ledger_dir.display()
-            )
-        })
+        Ok(snapshots)
+    }
+
+    /// Finds the oldest ledger snapshot (by slot number) in the `ledger/` directory of a Cardano node database.
+    fn find_oldest_ledger_state_snapshot(db_dir: &Path) -> MithrilResult<PathBuf> {
+        let ledger_dir = db_dir.join(LEDGER_DIR);
+        let snapshots_by_slot = Self::get_sorted_snapshot_dirs(&ledger_dir)?;
+        snapshots_by_slot
+            .into_iter()
+            .map(|(_, path)| path)
+            .next()
+            .ok_or_else(|| {
+                anyhow!(
+                    "No valid ledger state snapshot found in directory: {}",
+                    ledger_dir.display()
+                )
+            })
     }
 
     fn copy_oldest_ledger_state_snapshot(
@@ -821,6 +828,31 @@ mod tests {
 
             SnapshotConverterCommand::find_oldest_ledger_state_snapshot(&temp_dir)
                 .expect_err("Should return error if no valid ledger snapshot directory found");
+        }
+
+        #[test]
+        fn get_sorted_snapshot_dirs_returns_sorted_valid_directories() {
+            let temp_dir = temp_dir_create!();
+            let ledger_dir = temp_dir.join(LEDGER_DIR);
+            create_dir(&ledger_dir).unwrap();
+
+            create_dir(ledger_dir.join("1500")).unwrap();
+            create_dir(ledger_dir.join("1000")).unwrap();
+            create_dir(ledger_dir.join("2000")).unwrap();
+            File::create(ledger_dir.join("500")).unwrap();
+            create_dir(ledger_dir.join("notanumber")).unwrap();
+
+            let snapshots =
+                SnapshotConverterCommand::get_sorted_snapshot_dirs(&ledger_dir).unwrap();
+
+            assert_eq!(
+                snapshots,
+                vec![
+                    (1000, ledger_dir.join("1000")),
+                    (1500, ledger_dir.join("1500")),
+                    (2000, ledger_dir.join("2000")),
+                ]
+            );
         }
     }
 
