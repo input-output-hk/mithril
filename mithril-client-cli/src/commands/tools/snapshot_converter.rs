@@ -76,7 +76,7 @@ pub struct SnapshotConverterCommand {
 
     /// Cardano node version of the Mithril signed snapshot.
     ///
-    /// `latest` and `prerelease` are also supported to download the latest or preprelease distribution.
+    /// `latest` and `prerelease` are also supported to download the latest or prerelease distribution.
     #[clap(long)]
     cardano_node_version: String,
 
