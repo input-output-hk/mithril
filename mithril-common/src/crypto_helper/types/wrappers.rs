@@ -28,7 +28,11 @@ pub type ProtocolAggregateVerificationKey = ProtocolKey<StmAggrVerificationKey<D
 pub type ProtocolMkProof = ProtocolKey<MKMapProof<BlockRange>>;
 
 impl_codec_and_type_conversions_for_protocol_key!(
-    json_hex_codec => StmVerificationKeyPoP, Sum6KesSig, StmSig, StmAggrSig<D>, OpCert,
+    json_hex_codec => StmAggrSig<D>,
         ed25519_dalek::VerifyingKey, ed25519_dalek::SigningKey, StmAggrVerificationKey<D>,
-        MKProof,ed25519_dalek::Signature
+        MKProof,ed25519_dalek::Signature, StmVerificationKeyPoP, Sum6KesSig, OpCert
+);
+
+impl_codec_and_type_conversions_for_protocol_key!(
+    bytes_hex_codec => StmSig
 );
