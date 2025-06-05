@@ -167,6 +167,12 @@ jobs:
         shell: bash
         run: .github/workflows/scripts/verify-cardano-db-restoration.sh ./bin/cdb-download-output.txt "${{ matrix.extra_args }}"
 
+      - name: Ledger state snapshot conversion from InMemory to LMDB
+        if: matrix.extra_args == '--include-ancillary'
+        shell: bash
+        working-directory: ./bin
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --unstable tools utxo-hd snapshot-converter --db-directory db --cardano-node-version latest --utxo-hd-flavor LMDB --cardano-network $NETWORK
+
       - name: Mithril Stake Distribution / list and get last hash
         shell: bash
         working-directory: ./bin
@@ -300,6 +306,11 @@ jobs:
       - name: Cardano Database Snapshot / download & restore latest
         shell: bash
         run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST --download-dir /app ${{ matrix.extra_args }}
+
+      - name: Ledger state snapshot conversion from InMemory to LMDB
+        if: matrix.extra_args == '--include-ancillary'
+        shell: bash
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --unstable tools utxo-hd snapshot-converter --db-directory /app --cardano-node-version latest --utxo-hd-flavor LMDB --cardano-network $NETWORK
 
       - name: Mithril Stake Distribution / list and get last hash
         shell: bash
