@@ -3,5 +3,5 @@
 mod initializer;
 mod signer;
 
-pub use initializer::{StmInitializer, StmVerificationKeyPoP};
-pub use signer::{StmSigner, StmVerificationKey};
+pub use initializer::*;
+pub use signer::*;

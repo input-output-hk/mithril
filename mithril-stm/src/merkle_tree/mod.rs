@@ -5,10 +5,10 @@ mod leaf;
 mod path;
 mod tree;
 
-pub use commitment::{MerkleTreeCommitment, MerkleTreeCommitmentBatchCompat};
-pub use leaf::MTLeaf;
-pub use path::{BatchPath, Path};
-pub use tree::MerkleTree;
+pub use commitment::*;
+pub use leaf::*;
+pub use path::*;
+pub use tree::*;
 
 // ---------------------------------------------------------------------
 // Heap Helpers
