@@ -3954,6 +3954,7 @@ dependencies = [
  "flate2",
  "fs2",
  "futures",
+ "httpmock",
  "human_bytes",
  "indicatif",
  "mithril-cli-helper",

@@ -31,6 +31,15 @@ impl ReqwestGitHubApiClient {
             .send()
             .await
             .with_context(|| format!("Failed to send request to GitHub API: {}", url))?;
+        match response.status() {
+            reqwest::StatusCode::OK => {}
+            status => {
+                return Err(anyhow!(
+                    "GitHub API request failed with status code: {}",
+                    status
+                ));
+            }
+        }
         let body = response.text().await?;
         let parsed_body = serde_json::from_str::<T>(&body)
             .with_context(|| format!("Failed to parse response from GitHub API: {:?}", body))?;
@@ -89,5 +98,88 @@ impl GitHubReleaseRetriever for ReqwestGitHubApiClient {
         let releases = self.download(url).await?;
 
         Ok(releases)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use httpmock::{Method::GET, MockServer};
+    use reqwest::StatusCode;
+    use serde::Deserialize;
+
+    use super::*;
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct FakeApiResponse {
+        key: String,
+    }
+
+    #[tokio::test]
+    async fn download_succeeds_with_valid_json() {
+        let server = MockServer::start();
+        let _mock = server.mock(|when, then| {
+            when.method(GET).path("/endpoint");
+            then.status(200).body(r#"{ "key": "value" }"#);
+        });
+        let client = ReqwestGitHubApiClient::new().unwrap();
+
+        let result: FakeApiResponse = client
+            .download(format!("{}/endpoint", server.base_url()))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            result,
+            FakeApiResponse {
+                key: "value".into()
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn download_fails_on_invalid_json() {
+        let server = MockServer::start();
+        let _mock = server.mock(|when, then| {
+            when.method(GET).path("/endpoint");
+            then.status(200).body("this is not json");
+        });
+        let client = ReqwestGitHubApiClient::new().unwrap();
+
+        let result: MithrilResult<FakeApiResponse> = client
+            .download(format!("{}/endpoint", server.base_url()))
+            .await;
+
+        assert!(
+            result.is_err(),
+            "Expected an error with invalid JSON response"
+        );
+    }
+
+    #[tokio::test]
+    async fn download_fails_on_invalid_url() {
+        let client = ReqwestGitHubApiClient::new().unwrap();
+
+        let result: MithrilResult<FakeApiResponse> = client.download("not a valid url").await;
+
+        assert!(result.is_err(), "Expected an error for an invalid URL");
+    }
+
+    #[tokio::test]
+    async fn download_fails_when_server_returns_error_and_includes_status_in_error() {
+        let server = MockServer::start();
+        let _mock = server.mock(|when, then| {
+            when.method(GET).path("/endpoint");
+            then.status(StatusCode::INTERNAL_SERVER_ERROR.into());
+        });
+        let client = ReqwestGitHubApiClient::new().unwrap();
+
+        let result: MithrilResult<FakeApiResponse> = client
+            .download(format!("{}/endpoint", server.base_url()))
+            .await;
+        let error = result.expect_err("Expected an error due to 500 status");
+
+        assert!(error
+            .to_string()
+            .contains(&StatusCode::INTERNAL_SERVER_ERROR.to_string()));
     }
 }
