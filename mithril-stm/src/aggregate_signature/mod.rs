@@ -3,9 +3,9 @@ mod clerk;
 mod core_verifier;
 mod signature;
 
-pub use aggregate_key::*;
-pub use clerk::*;
-pub use core_verifier::*;
+pub use aggregate_key::StmAggrVerificationKey;
+pub use clerk::StmClerk;
+pub use core_verifier::CoreVerifier;
 pub use signature::*;
 
 #[cfg(test)]
@@ -13,9 +13,11 @@ mod tests {
     use std::collections::{HashMap, HashSet};
 
     use blake2::{digest::consts::U32, Blake2b};
-    use proptest::collection::{hash_map, vec};
-    use proptest::prelude::*;
-    use proptest::test_runner::{RngAlgorithm::ChaCha, TestRng};
+    use proptest::{
+        collection::{hash_map, vec},
+        prelude::*,
+        test_runner::{RngAlgorithm::ChaCha, TestRng},
+    };
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 

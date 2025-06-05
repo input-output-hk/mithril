@@ -1,14 +1,14 @@
 pub(crate) mod unsafe_helpers {
-    use crate::bls_multi_signature::{ProofOfPossession, VerificationKey};
-    use crate::error::MultiSignatureError;
-    use crate::error::MultiSignatureError::SerializationError;
-    use blst::min_sig::{PublicKey as BlstVk, SecretKey as BlstSk, Signature as BlstSig};
     use blst::{
         blst_fp12, blst_fp12_finalverify, blst_p1, blst_p1_affine, blst_p1_affine_generator,
         blst_p1_compress, blst_p1_from_affine, blst_p1_to_affine, blst_p1_uncompress, blst_p2,
         blst_p2_affine, blst_p2_affine_generator, blst_p2_from_affine, blst_p2_to_affine,
         blst_scalar, blst_sk_to_pk_in_g1,
+        min_sig::{PublicKey as BlstVk, SecretKey as BlstSk, Signature as BlstSig},
     };
+
+    use crate::bls_multi_signature::{ProofOfPossession, VerificationKey};
+    use crate::error::{MultiSignatureError, MultiSignatureError::SerializationError};
 
     /// Check manually if the pairing `e(g1,mvk) = e(k2,g2)` holds.
     pub(crate) fn verify_pairing(vk: &VerificationKey, pop: &ProofOfPossession) -> bool {

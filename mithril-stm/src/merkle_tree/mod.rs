@@ -5,9 +5,9 @@ mod leaf;
 mod path;
 mod tree;
 
-pub use commitment::{MerkleTreeCommitment, MerkleTreeCommitmentBatchCompat};
+pub use commitment::*;
 pub use leaf::MTLeaf;
-pub use path::{BatchPath, Path};
+pub use path::*;
 pub use tree::MerkleTree;
 
 // ---------------------------------------------------------------------

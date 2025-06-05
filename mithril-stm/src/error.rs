@@ -1,11 +1,9 @@
 //! Crate specific errors
-
-use crate::merkle_tree::{BatchPath, Path};
 use blake2::digest::{Digest, FixedOutput};
-use {
-    crate::bls_multi_signature::{Signature, VerificationKey, VerificationKeyPoP},
-    blst::BLST_ERROR,
-};
+use blst::BLST_ERROR;
+
+use crate::bls_multi_signature::{Signature, VerificationKey, VerificationKeyPoP};
+use crate::merkle_tree::{BatchPath, Path};
 
 /// Error types for multi signatures.
 #[derive(Debug, thiserror::Error, Eq, PartialEq)]
