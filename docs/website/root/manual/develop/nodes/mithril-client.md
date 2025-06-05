@@ -223,6 +223,7 @@ Commands:
   cardano-transaction         Cardano transactions management (alias: ctx)
   cardano-stake-distribution  Cardano stake distribution management (alias: csd)
   cardano-db-v2               Deprecated, use `cardano-db` instead
+  tools                       [unstable] Tools commands
   help                        Print this message or the help of the given subcommand(s)
 
 Options:
@@ -523,6 +524,13 @@ Here are the subcommands available:
 | **snapshot list** | Lists available cardano-db v2 snapshots                     |
 | **snapshot show** | Shows information about a cardano-db v2 snapshot            |
 
+### Tools (`unstable`)
+
+| Subcommand  | Performed action                                                                      |
+| ----------- | ------------------------------------------------------------------------------------- |
+| **utxo-hd** | UTxO-HD related commands (e.g., converting a ledger state snapshot to another flavor) |
+| **help**    | Prints this message or the help for the given subcommand(s)                           |
+
 ## Configuration parameters
 
 The configuration parameters can be set in either of the following ways:
@@ -670,3 +678,14 @@ Deprecated, use `cardano-db download` with option `--backend v2` instead
 | `include_ancillary`          | `--include-ancillary`          |          -           | -                            | Include ancillary files in the download, if set the `ancillary_verification_key` is required in order to verify the ancillary files | `false`       | -       |         -          |
 | `ancillary_verification_key` | `--ancillary-verification-key` |          -           | `ANCILLARY_VERIFICATION_KEY` | Ancillary verification key to verify the ancillary files                                                                            | -             | -       |         -          |
 | `allow_override`             | `--allow-override`             |          -           | -                            | Allow existing files in the download directory to be overridden                                                                     | `false`       | -       |         -          |
+
+`tools utxo-hd snapshot-converter` command:
+
+| Parameter              | Command line (long)      | Command line (short) | Environment variable | Description                                                                                                                                             | Default value | Example  |     Mandatory      |
+| ---------------------- | ------------------------ | :------------------: | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | -------- | :----------------: |
+| `db_directory`         | `--db-directory`         |          -           | -                    | Path to the Cardano node database directory                                                                                                             | -             | -        | :heavy_check_mark: |
+| `cardano_node_version` | `--cardano-node-version` |          -           | -                    | Cardano node version of the Mithril signed snapshot (`latest` and `pre-release` are also supported to download the latest or pre-release distribution.) | -             | `10.4.1` | :heavy_check_mark: |
+| `cardano_network`      | `--cardano-network`      |          -           | -                    | Cardano network                                                                                                                                         | -             | -        | :heavy_check_mark: |
+| `utxo_hd_flavor`       | `--utxo-hd-flavor`       |          -           | -                    | UTxO-HD flavor to convert the ledger snapshot to (`Legacy` or `LMDB`)                                                                                   | -             | `LMDB`   | :heavy_check_mark: |
+| `commit`               | `--commit`               |          -           | -                    | Replaces the current ledger state in the `db_directory`                                                                                                 | `false`       | -        |         -          |
+| `github_token`         | `--github-token`         |          -           | `GITHUB_TOKEN`       | GitHub token for authenticated API calls                                                                                                                | -             | -        |         -          |
