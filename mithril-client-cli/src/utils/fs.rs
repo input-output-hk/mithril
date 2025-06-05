@@ -48,6 +48,26 @@ fn copy_dir_contents(source_dir: &Path, target_dir: &Path) -> MithrilResult<()> 
     Ok(())
 }
 
+/// Removes all contents inside the given directory.
+pub fn remove_dir_contents(dir: &Path) -> MithrilResult<()> {
+    if !dir.exists() {
+        return Ok(());
+    }
+
+    for entry in fs::read_dir(dir)? {
+        let path = entry?.path();
+        if path.is_dir() {
+            fs::remove_dir_all(&path)
+                .with_context(|| format!("Failed to remove subdirectory: {}", path.display()))?;
+        } else {
+            fs::remove_file(&path)
+                .with_context(|| format!("Failed to remove file: {}", path.display()))?;
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs::File;
@@ -105,5 +125,21 @@ mod tests {
             *** subdir2.txt
             ** root.txt"
         );
+    }
+
+    #[test]
+    fn cleans_directory_without_deleting_it() {
+        let dir = temp_dir_create!().join("dir_to_clean");
+        fs::create_dir(&dir).unwrap();
+
+        File::create(dir.join("file1.txt")).unwrap();
+        let sub_dir = dir.join("subdir");
+        fs::create_dir(&sub_dir).unwrap();
+        File::create(sub_dir.join("file2.txt")).unwrap();
+
+        remove_dir_contents(&dir).unwrap();
+
+        assert!(dir.exists());
+        assert!(fs::read_dir(&dir).unwrap().next().is_none());
     }
 }

@@ -11,8 +11,8 @@ use clap::{Parser, ValueEnum};
 use mithril_client::MithrilResult;
 
 use crate::utils::{
-    copy_dir, ArchiveUnpacker, GitHubReleaseRetriever, HttpDownloader, ReqwestGitHubApiClient,
-    ReqwestHttpDownloader,
+    copy_dir, remove_dir_contents, ArchiveUnpacker, GitHubReleaseRetriever, HttpDownloader,
+    ReqwestGitHubApiClient, ReqwestHttpDownloader,
 };
 
 const GITHUB_ORGANIZATION: &str = "IntersectMBO";
@@ -403,15 +403,9 @@ impl SnapshotConverterCommand {
         let (slot_number, _) = filename
             .split_once('_')
             .ok_or_else(|| anyhow!("Invalid converted snapshot name format: {}", filename))?;
-        remove_dir_all(&ledger_dir).with_context(|| {
+        remove_dir_contents(&ledger_dir).with_context(|| {
             format!(
-                "Failed to remove old ledger state snapshot directory: {}",
-                ledger_dir.display()
-            )
-        })?;
-        create_dir(&ledger_dir).with_context(|| {
-            format!(
-                "Failed to recreate ledger state snapshot directory: {}",
+                "Failed to remove contents of ledger directory: {}",
                 ledger_dir.display()
             )
         })?;
