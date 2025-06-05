@@ -26,7 +26,7 @@ where
 
 /// The codec used to serialize/deserialize a [ProtocolKey].
 ///
-/// Default to json hex.
+/// Encodes to json hex and decodes from json hex or bytes hex.
 pub trait ProtocolKeyCodec<T: Serialize + DeserializeOwned + IntoBytes + TryFromBytes>:
     Sized
 {
@@ -41,7 +41,6 @@ pub trait ProtocolKeyCodec<T: Serialize + DeserializeOwned + IntoBytes + TryFrom
     /// Do the encoding of the given key
     fn encode_key(key: &T) -> StdResult<String> {
         ProtocolKey::key_to_json_hex(key)
-        /* Ok(key.into_bytes_hex()) */
     }
 }
 
@@ -225,6 +224,34 @@ macro_rules! impl_codec_and_type_conversions_for_protocol_key {
     (json_hex_codec => $($key_type:ty),+) => {
         $(
             impl crate::crypto_helper::ProtocolKeyCodec<$key_type> for $key_type {}
+
+            impl From<ProtocolKey<$key_type >> for $key_type {
+                fn from(value: ProtocolKey<$key_type>) -> Self {
+                    value.key
+                }
+            }
+
+            impl From<$key_type> for ProtocolKey<$key_type> {
+                fn from(value: $key_type) -> Self {
+                    Self::new(value)
+                }
+            }
+        )*
+    };
+    (bytes_hex_codec => $($key_type:ty),+) => {
+        $(
+            impl crate::crypto_helper::ProtocolKeyCodec<$key_type> for $key_type {
+                fn decode_key(encoded: &str) -> crate::StdResult<ProtocolKey<$key_type>> {
+                    match ProtocolKey::from_bytes_hex(encoded) {
+                        Ok(res) => Ok(res),
+                        Err(_) => ProtocolKey::from_json_hex(encoded),
+                    }
+                }
+
+                fn encode_key(key: &$key_type) -> crate::StdResult<String> {
+                    ProtocolKey::key_to_bytes_hex(key)
+                }
+            }
 
             impl From<ProtocolKey<$key_type >> for $key_type {
                 fn from(value: ProtocolKey<$key_type>) -> Self {
