@@ -1,7 +1,7 @@
-mod github_release;
 mod interface;
+mod model;
 mod reqwest;
 
-pub use github_release::*;
 pub use interface::*;
+pub use model::*;
 pub use reqwest::*;

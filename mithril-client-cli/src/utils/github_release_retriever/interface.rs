@@ -2,7 +2,7 @@ use async_trait::async_trait;
 
 use mithril_client::MithrilResult;
 
-use super::github_release::GitHubRelease;
+use super::model::GitHubRelease;
 
 /// Trait for interacting with the GitHub API to retrieve Cardano node release.
 #[cfg_attr(test, mockall::automock)]
