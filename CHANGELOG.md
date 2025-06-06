@@ -15,6 +15,14 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for recording client types in Mithril client library, CLI and WASM in the aggregator metrics.
 
+- **UNSTABLE** New api for client-cli partial cardano database restoration:
+
+  - Allow switching of backend with parameter `--backend [v1,v2]` to `cardano-database` snapshot list, snapshot show and download subcommands
+    - backend `v1` (default): support full database restoration only
+    - backend `v2` (require `--unstable`): support full and partial database restoration
+  - Add `--start`, `--end`, `--allow-override` to `cardano-database download` subcommand, supported only with `--backend v2`
+  - Deprecated `cardano-database-v2` subcommand
+
 - Crates versions:
 
 | Crate | Version |

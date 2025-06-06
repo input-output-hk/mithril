@@ -8,8 +8,26 @@ pub use list::*;
 pub use show::*;
 
 use crate::CommandContext;
-use clap::Subcommand;
+use clap::{Subcommand, ValueEnum};
 use mithril_client::MithrilResult;
+
+/// Backend to use for Cardano Database commands
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, ValueEnum)]
+pub enum CardanoDbCommandsBackend {
+    /// Legacy backend
+    #[default]
+    #[clap(help = "[default] Legacy backend, full database restoration only")]
+    V1,
+    /// V2 backend
+    #[clap(help = "[unstable] V2 backend, full or partial database restoration")]
+    V2,
+}
+
+impl CardanoDbCommandsBackend {
+    fn is_v2(&self) -> bool {
+        matches!(self, Self::V2)
+    }
+}
 
 /// Cardano db management (alias: cdb)
 #[derive(Subcommand, Debug, Clone)]

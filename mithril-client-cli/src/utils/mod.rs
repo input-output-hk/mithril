@@ -27,6 +27,9 @@ use anyhow::anyhow;
 use mithril_client::MithrilResult;
 use std::path::Path;
 
+/// The key used to store the caution message when printing a JSON directly to stderr
+pub(crate) const JSON_CAUTION_KEY: &str = "caution";
+
 /// Converts a [Path] to a [String], returning an error if the path is not valid UTF-8.
 pub(crate) fn path_to_string(path: &Path) -> MithrilResult<String> {
     let path = path
