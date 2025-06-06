@@ -13,6 +13,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for `Cardano node` `10.4.1` in the signer and the aggregator.
 
+- Support for recording client types in Mithril client library, CLI and WASM in the aggregator metrics.
+
 - Crates versions:
 
 | Crate | Version |
