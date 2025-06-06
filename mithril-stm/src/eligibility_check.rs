@@ -1,4 +1,4 @@
-use crate::stm::Stake;
+use crate::Stake;
 #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
 use {
     num_bigint::{BigInt, Sign},

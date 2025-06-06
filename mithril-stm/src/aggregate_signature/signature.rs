@@ -2,12 +2,12 @@ use blake2::digest::{Digest, FixedOutput};
 
 use serde::{Deserialize, Serialize};
 
-use crate::aggregate_signature::core_verifier::CoreVerifier;
-use crate::aggregate_signature::StmAggrVerificationKey;
 use crate::bls_multi_signature::{Signature, VerificationKey};
 use crate::key_reg::RegParty;
 use crate::merkle_tree::BatchPath;
-use crate::{StmAggregateSignatureError, StmParameters, StmSigRegParty};
+use crate::{
+    CoreVerifier, StmAggrVerificationKey, StmAggregateSignatureError, StmParameters, StmSigRegParty,
+};
 
 /// `StmMultiSig` uses the "concatenation" proving system (as described in Section 4.3 of the original paper.)
 /// This means that the aggregated signature contains a vector with all individual signatures.

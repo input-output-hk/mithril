@@ -1,11 +1,12 @@
-use crate::bls_multi_signature::VerificationKey;
-use crate::error::MerkleTreeError;
-use crate::participant::StmVerificationKey;
-use crate::stm::Stake;
+use std::cmp::Ordering;
+
 use blake2::Blake2b;
 use digest::consts::U32;
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
+
+use crate::bls_multi_signature::VerificationKey;
+use crate::error::MerkleTreeError;
+use crate::{Stake, StmVerificationKey};
 
 /// The values that are committed in the Merkle Tree.
 /// Namely, a verified `VerificationKey` and its corresponding stake.

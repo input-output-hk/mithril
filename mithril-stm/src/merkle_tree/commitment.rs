@@ -1,9 +1,10 @@
-use crate::error::MerkleTreeError;
-use crate::merkle_tree::{parent, sibling};
-use crate::merkle_tree::{BatchPath, MTLeaf, Path};
+use std::marker::PhantomData;
+
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
+
+use crate::error::MerkleTreeError;
+use crate::merkle_tree::{parent, sibling, BatchPath, MTLeaf, Path};
 
 /// `MerkleTree` commitment.
 /// This structure differs from `MerkleTree` in that it does not contain all elements, which are not always necessary.

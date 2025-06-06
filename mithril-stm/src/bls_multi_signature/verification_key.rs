@@ -1,17 +1,20 @@
-use crate::bls_multi_signature::helper::unsafe_helpers::verify_pairing;
-use crate::bls_multi_signature::proof_of_possession::ProofOfPossession;
-use crate::bls_multi_signature::signing_key::SigningKey;
-use crate::bls_multi_signature::POP;
-use crate::error::{blst_err_to_mithril, MultiSignatureError};
-use blst::min_sig::{AggregatePublicKey, PublicKey as BlstVk};
-use blst::BLST_ERROR;
-use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
     fmt::{Display, Formatter},
     hash::{Hash, Hasher},
     iter::Sum,
 };
+
+use blst::{
+    min_sig::{AggregatePublicKey, PublicKey as BlstVk},
+    BLST_ERROR,
+};
+use serde::{Deserialize, Serialize};
+
+use crate::bls_multi_signature::{
+    helper::unsafe_helpers::verify_pairing, ProofOfPossession, SigningKey, POP,
+};
+use crate::error::{blst_err_to_mithril, MultiSignatureError};
 
 /// MultiSig verification key, which is a wrapper over the BlstVk (element in G2)
 /// from the blst library.
