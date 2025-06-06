@@ -6,7 +6,9 @@ use rand_core::{RngCore, SeedableRng};
 
 use mithril_stm::{StmAggrSig, StmInitializer, StmParameters, StmSig, StmVerificationKey};
 
-use test_extensions::protocol_phase::{initialization_phase, operation_phase};
+use test_extensions::protocol_phase::{
+    initialization_phase, operation_phase, InitializationPhaseResult, OperationPhaseResult,
+};
 
 #[test]
 fn test_stm_parameters_serialization() {
@@ -33,7 +35,11 @@ fn test_binary_conversions() {
         m: 200,
         phi_f: 0.9,
     };
-    let (signers, reg_parties, initializers) = initialization_phase(nparties, rng.clone(), params);
+    let InitializationPhaseResult {
+        signers,
+        reg_parties,
+        initializers,
+    } = initialization_phase(nparties, rng.clone(), params);
 
     let encoded = params.to_bytes();
     StmParameters::from_bytes(&encoded[1..]).expect_err("Decoding should fail with invalid bytes");
@@ -54,7 +60,8 @@ fn test_binary_conversions() {
     let decoded = StmInitializer::from_bytes(&encoded).unwrap();
     assert_eq!(initializer.to_bytes(), decoded.to_bytes());
 
-    let (msig, _avk, sigs) = operation_phase(params, signers, reg_parties, msg);
+    let OperationPhaseResult { msig, avk: _, sigs } =
+        operation_phase(params, signers, reg_parties, msg);
 
     let sig = &sigs[0];
     let encoded = sig.to_bytes();
