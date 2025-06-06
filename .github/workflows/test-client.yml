@@ -310,7 +310,7 @@ jobs:
       - name: Ledger state snapshot conversion from InMemory to LMDB
         if: matrix.extra_args == '--include-ancillary'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --unstable tools utxo-hd snapshot-converter --db-directory /app --cardano-node-version latest --utxo-hd-flavor LMDB --cardano-network $NETWORK
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --unstable tools utxo-hd snapshot-converter --db-directory /app/db --cardano-node-version latest --utxo-hd-flavor LMDB --cardano-network $NETWORK
 
       - name: Mithril Stake Distribution / list and get last hash
         shell: bash
