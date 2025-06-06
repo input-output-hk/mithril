@@ -4,7 +4,7 @@ use std::sync::Arc;
 use warp::Filter;
 
 use mithril_common::api_version::APIVersionProvider;
-use mithril_common::MITHRIL_ORIGIN_TAG_HEADER;
+use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
 
 use crate::database::repository::SignerGetter;
 use crate::dependency_injection::EpochServiceWrapper;
@@ -162,6 +162,35 @@ pub fn with_origin_tag(
     })
 }
 
+pub fn with_client_type(
+) -> impl Filter<Extract = (Option<String>,), Error = warp::reject::Rejection> + Clone {
+    let authorized_client_types = ["CLI", "WASM", "LIBRARY", "NA"];
+
+    warp::header::optional::<String>(MITHRIL_CLIENT_TYPE_HEADER).map(
+        move |client_type: Option<String>| {
+            client_type
+                .filter(|ct| authorized_client_types.contains(&ct.as_str()))
+                .or(Some("NA".to_string()))
+        },
+    )
+}
+
+pub fn with_client_metadata(
+    router_state: &RouterState,
+) -> impl Filter<Extract = (ClientMetadata,), Error = warp::reject::Rejection> + Clone {
+    with_origin_tag(router_state).and(with_client_type()).map(
+        |origin_tag: Option<String>, client_type: Option<String>| ClientMetadata {
+            origin_tag,
+            client_type,
+        },
+    )
+}
+
+pub struct ClientMetadata {
+    pub origin_tag: Option<String>,
+    pub client_type: Option<String>,
+}
+
 pub mod validators {
     use crate::http_server::validators::ProverTransactionsHashValidator;
 
@@ -185,21 +214,29 @@ mod tests {
     use serde_json::Value;
     use std::convert::Infallible;
     use warp::{
-        http::{Method, StatusCode},
+        http::{Method, Response, StatusCode},
+        hyper::body::Bytes,
         test::request,
         Filter,
     };
 
     use crate::http_server::routes::reply;
+    use crate::initialize_dependencies;
+
+    async fn route_handler(value: Option<String>) -> Result<impl warp::Reply, Infallible> {
+        Ok(reply::json(&value, StatusCode::OK))
+    }
+
+    fn get_body(response: Response<Bytes>) -> Option<String> {
+        let result: &Value = &serde_json::from_slice(response.body()).unwrap();
+        result.as_str().map(|s| s.to_string())
+    }
 
     mod origin_tag {
+        use super::*;
         use std::{collections::HashSet, path::PathBuf};
 
         use mithril_common::temp_dir;
-
-        use crate::initialize_dependencies;
-
-        use super::*;
 
         fn route_with_origin_tag(
             router_state: &RouterState,
@@ -226,10 +263,6 @@ mod tests {
             )
         }
 
-        async fn route_handler(origin_tag: Option<String>) -> Result<impl warp::Reply, Infallible> {
-            Ok(reply::json(&origin_tag, StatusCode::OK))
-        }
-
         #[tokio::test]
         async fn test_origin_tag_with_value_in_white_list_return_the_tag() {
             let router_state =
@@ -242,8 +275,7 @@ mod tests {
                 .reply(&route_with_origin_tag(&router_state))
                 .await;
 
-            let result: &Value = &serde_json::from_slice(response.body()).unwrap();
-            assert_eq!(Some("CLIENT_TAG"), result.as_str());
+            assert_eq!(Some("CLIENT_TAG".to_string()), get_body(response));
         }
 
         #[tokio::test]
@@ -258,8 +290,7 @@ mod tests {
                 .reply(&route_with_origin_tag(&router_state))
                 .await;
 
-            let result: &Value = &serde_json::from_slice(response.body()).unwrap();
-            assert_eq!(Some("NA"), result.as_str());
+            assert_eq!(Some("NA".to_string()), get_body(response));
         }
 
         #[tokio::test]
@@ -273,8 +304,57 @@ mod tests {
                 .reply(&route_with_origin_tag(&router_state))
                 .await;
 
-            let result: &Value = &serde_json::from_slice(response.body()).unwrap();
-            assert_eq!(Some("NA"), result.as_str());
+            assert_eq!(Some("NA".to_string()), get_body(response));
+        }
+    }
+
+    mod client_type {
+        use super::*;
+
+        async fn request_with_client_type(client_type_header_value: &str) -> Response<Bytes> {
+            request()
+                .method(Method::GET.as_str())
+                .header(MITHRIL_CLIENT_TYPE_HEADER, client_type_header_value)
+                .path("/route")
+                .reply(&route_with_client_type())
+                .await
+        }
+
+        fn route_with_client_type(
+        ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+            warp::path!("route")
+                .and(warp::get())
+                .and(with_client_type())
+                .and_then(route_handler)
+        }
+
+        #[tokio::test]
+        async fn test_with_client_type_use_na_as_default_value_if_header_not_set() {
+            let response = request()
+                .method(Method::GET.as_str())
+                .path("/route")
+                .reply(&route_with_client_type())
+                .await;
+
+            assert_eq!(Some("NA".to_string()), get_body(response));
+        }
+
+        #[tokio::test]
+        async fn test_with_client_type_only_authorize_specific_values() {
+            let response: Response<Bytes> = request_with_client_type("CLI").await;
+            assert_eq!(Some("CLI".to_string()), get_body(response));
+
+            let response: Response<Bytes> = request_with_client_type("WASM").await;
+            assert_eq!(Some("WASM".to_string()), get_body(response));
+
+            let response: Response<Bytes> = request_with_client_type("LIBRARY").await;
+            assert_eq!(Some("LIBRARY".to_string()), get_body(response));
+
+            let response: Response<Bytes> = request_with_client_type("NA").await;
+            assert_eq!(Some("NA".to_string()), get_body(response));
+
+            let response: Response<Bytes> = request_with_client_type("UNKNOWN").await;
+            assert_eq!(Some("NA".to_string()), get_body(response));
         }
     }
 }

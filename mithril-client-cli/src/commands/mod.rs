@@ -18,6 +18,8 @@ use mithril_client::{ClientBuilder, MithrilResult};
 
 use crate::configuration::ConfigParameters;
 
+const CLIENT_TYPE_CLI: &str = "CLI";
+
 /// Shared arguments for all commands
 #[derive(Debug, Clone, Args)]
 pub struct SharedArgs {
@@ -31,7 +33,8 @@ pub(crate) fn client_builder(params: &ConfigParameters) -> MithrilResult<ClientB
         &params.require("aggregator_endpoint")?,
         &params.require("genesis_verification_key")?,
     )
-    .with_origin_tag(params.get("origin_tag"));
+    .with_origin_tag(params.get("origin_tag"))
+    .with_client_type(Some(CLIENT_TYPE_CLI.to_string()));
 
     Ok(builder)
 }
@@ -52,7 +55,8 @@ pub(crate) fn client_builder_with_fallback_genesis_key(
             fallback_genesis_verification_key,
         ),
     )
-    .with_origin_tag(params.get("origin_tag"));
+    .with_origin_tag(params.get("origin_tag"))
+    .with_client_type(Some(CLIENT_TYPE_CLI.to_string()));
 
     Ok(builder)
 }

@@ -112,6 +112,26 @@ mod tests {
             Ok(result)
         }
 
+        fn get_all_metrics_by_client_type(
+            connection: Arc<ConnectionThreadSafe>,
+        ) -> StdResult<Vec<(String, String, String, i64)>> {
+            let query = "select date, counter_name, client_type, value from metrics_per_day_and_client_type";
+            let mut statement = connection.prepare(query)?;
+            let mut result = Vec::new();
+            while let Ok(sqlite::State::Row) = statement.next() {
+                result.push((
+                    statement.read::<String, _>("date")?,
+                    statement.read::<String, _>("counter_name")?,
+                    statement
+                        .read::<Option<String>, _>("client_type")?
+                        .unwrap_or_default(),
+                    statement.read::<i64, _>("value")?,
+                ));
+            }
+
+            Ok(result)
+        }
+
         /// Insert a metric event in the database.
         /// date format is "%Y-%m-%d %H:%M:%S %z", example: "2015-09-05 23:56:04 +0000"
         fn insert_metric_event_with_origin(
@@ -129,6 +149,30 @@ mod tests {
                 value,
                 Duration::from_secs(5),
                 origin.to_string(),
+                "CLIENT_TYPE_A".to_string(),
+                metric_date.into(),
+            );
+
+            let _event = persister.persist(message).unwrap();
+        }
+
+        fn insert_metric_event_message(
+            persister: &EventPersister,
+            date: &str,
+            metric_name: &str,
+            origin: &str,
+            client_type: &str,
+            value: i64,
+        ) {
+            let metric_date =
+                DateTime::parse_from_str(&format!("{date} +0000"), "%Y-%m-%d %H:%M:%S %z").unwrap();
+
+            let message = UsageReporter::create_metrics_event_message(
+                metric_name.to_string(),
+                value,
+                Duration::from_secs(5),
+                origin.to_string(),
+                client_type.to_string(),
                 metric_date.into(),
             );
 
@@ -298,6 +342,30 @@ mod tests {
             assert!(result.contains(&("2024-10-29", "metric_2", "ORIGIN", 100)));
             assert!(result.contains(&("2024-10-30", "metric_1", "ORIGIN_A", 27)));
             assert!(result.contains(&("2024-10-30", "metric_1", "ORIGIN_B", 7)));
+        }
+
+        #[test]
+        fn vue_metrics_per_day_and_client_type() {
+            fn tuple_with_str(t: &(String, String, String, i64)) -> (&str, &str, &str, i64) {
+                (t.0.as_str(), t.1.as_str(), t.2.as_str(), t.3)
+            }
+
+            let connection = Arc::new(event_store_db_connection().unwrap());
+            let persister = EventPersister::new(connection.clone());
+
+            insert_metric_event_message(
+                &persister,
+                "2024-10-29 21:00:00",
+                "metric_1",
+                "ORIGIN_A",
+                "CLIENT_TYPE_A",
+                15,
+            );
+
+            let result = get_all_metrics_by_client_type(connection).unwrap();
+            let result: Vec<_> = result.iter().map(tuple_with_str).collect();
+
+            assert!(result.contains(&("2024-10-29", "metric_1", "CLIENT_TYPE_A", 15)));
         }
 
         #[test]

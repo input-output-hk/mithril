@@ -37,7 +37,7 @@ fn proof_cardano_transaction(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("proof" / "cardano-transaction")
         .and(warp::get())
-        .and(middlewares::with_origin_tag(router_state))
+        .and(middlewares::with_client_metadata(router_state))
         .and(warp::query::<CardanoTransactionProofQueryParams>())
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_signed_entity_service(router_state))
@@ -48,16 +48,20 @@ fn proof_cardano_transaction(
 }
 
 mod handlers {
-    use mithril_common::{
-        entities::CardanoTransactionsSnapshot, messages::CardanoTransactionsProofsMessage,
-        signable_builder::SignedEntity, StdResult,
-    };
     use slog::{debug, warn, Logger};
     use std::{convert::Infallible, sync::Arc};
     use warp::http::StatusCode;
 
+    use mithril_common::{
+        entities::CardanoTransactionsSnapshot, messages::CardanoTransactionsProofsMessage,
+        signable_builder::SignedEntity, StdResult,
+    };
+
     use crate::{
-        http_server::{routes::reply, validators::ProverTransactionsHashValidator},
+        http_server::{
+            routes::{middlewares::ClientMetadata, reply},
+            validators::ProverTransactionsHashValidator,
+        },
         message_adapters::ToCardanoTransactionsProofsMessageAdapter,
         services::{ProverService, SignedEntityService},
         unwrap_to_internal_server_error, MetricsService,
@@ -66,7 +70,7 @@ mod handlers {
     use super::CardanoTransactionProofQueryParams;
 
     pub async fn proof_cardano_transaction(
-        origin_tag: Option<String>,
+        client_metadata: ClientMetadata,
         transaction_parameters: CardanoTransactionProofQueryParams,
         logger: Logger,
         signed_entity_service: Arc<dyn SignedEntityService>,
@@ -76,7 +80,10 @@ mod handlers {
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_proof_cardano_transaction_total_proofs_served_since_startup()
-            .increment(&[origin_tag.as_deref().unwrap_or_default()]);
+            .increment(&[
+                client_metadata.origin_tag.as_deref().unwrap_or_default(),
+                client_metadata.client_type.as_deref().unwrap_or_default(),
+            ]);
 
         let transaction_hashes = transaction_parameters.split_transactions_hashes();
         debug!(
@@ -95,7 +102,10 @@ mod handlers {
         metrics_service
             .get_proof_cardano_transaction_total_transactions_served_since_startup()
             .increment_by(
-                &[origin_tag.as_deref().unwrap_or_default()],
+                &[
+                    client_metadata.origin_tag.as_deref().unwrap_or_default(),
+                    client_metadata.client_type.as_deref().unwrap_or_default(),
+                ],
                 sanitized_hashes.len().try_into().unwrap_or(0),
             );
 
@@ -155,7 +165,7 @@ mod tests {
         entities::{BlockNumber, CardanoTransactionsSetProof, CardanoTransactionsSnapshot},
         signable_builder::SignedEntity,
         test_utils::{apispec::APISpec, assert_equivalent, fake_data},
-        MITHRIL_ORIGIN_TAG_HEADER,
+        MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
     };
 
     use crate::services::MockProverService;
@@ -212,11 +222,11 @@ mod tests {
         let initial_proofs_counter_value = dependency_manager
             .metrics_service
             .get_proof_cardano_transaction_total_proofs_served_since_startup()
-            .get(&["TEST"]);
+            .get(&["TEST", "CLI"]);
         let initial_transactions_counter_value = dependency_manager
             .metrics_service
             .get_proof_cardano_transaction_total_transactions_served_since_startup()
-            .get(&["TEST"]);
+            .get(&["TEST", "CLI"]);
 
         request()
             .method(method)
@@ -227,6 +237,7 @@ mod tests {
                 fake_data::transaction_hashes()[2]
             ))
             .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
+            .header(MITHRIL_CLIENT_TYPE_HEADER, "CLI")
             .reply(&setup_router(RouterState::new_with_origin_tag_white_list(
                 dependency_manager.clone(),
                 &["TEST"],
@@ -238,14 +249,14 @@ mod tests {
             dependency_manager
                 .metrics_service
                 .get_proof_cardano_transaction_total_proofs_served_since_startup()
-                .get(&["TEST"])
+                .get(&["TEST", "CLI"])
         );
         assert_eq!(
             initial_transactions_counter_value + 3,
             dependency_manager
                 .metrics_service
                 .get_proof_cardano_transaction_total_transactions_served_since_startup()
-                .get(&["TEST"])
+                .get(&["TEST", "CLI"])
         );
     }
 

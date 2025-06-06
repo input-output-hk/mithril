@@ -26,7 +26,7 @@ fn certificate_certificate_hash(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("certificate" / String)
         .and(warp::get())
-        .and(middlewares::with_origin_tag(router_state))
+        .and(middlewares::with_client_metadata(router_state))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_http_message_service(router_state))
         .and(middlewares::with_metrics_service(router_state))
@@ -34,13 +34,14 @@ fn certificate_certificate_hash(
 }
 
 mod handlers {
-    use crate::MetricsService;
-    use crate::{http_server::routes::reply, services::MessageService};
-
     use slog::{warn, Logger};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
+
+    use crate::http_server::routes::middlewares::ClientMetadata;
+    use crate::MetricsService;
+    use crate::{http_server::routes::reply, services::MessageService};
 
     pub const LIST_MAX_ITEMS: usize = 20;
 
@@ -64,14 +65,17 @@ mod handlers {
     /// Certificate by certificate hash
     pub async fn certificate_certificate_hash(
         certificate_hash: String,
-        origin_tag: Option<String>,
+        client_metadata: ClientMetadata,
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_certificate_detail_total_served_since_startup()
-            .increment(&[origin_tag.as_deref().unwrap_or_default()]);
+            .increment(&[
+                client_metadata.origin_tag.as_deref().unwrap_or_default(),
+                client_metadata.client_type.as_deref().unwrap_or_default(),
+            ]);
 
         match http_message_service
             .get_certificate_message(&certificate_hash)
@@ -92,7 +96,7 @@ mod tests {
     use anyhow::anyhow;
     use mithril_common::{
         test_utils::{apispec::APISpec, fake_data},
-        MITHRIL_ORIGIN_TAG_HEADER,
+        MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
     };
     use serde_json::Value::Null;
     use std::sync::Arc;
@@ -190,23 +194,28 @@ mod tests {
         let metric = dependency_manager
             .metrics_service
             .get_certificate_detail_total_served_since_startup();
-        let initial_counter_value_with_tag = metric.get(&["TEST"]);
-        let initial_counter_value_with_unknown_tag = metric.get(&["UNKNOWN"]);
+        let initial_counter_value_with_tag = metric.get(&["TEST", "CLI"]);
+        let initial_counter_value_with_unknown_tags =
+            metric.get(&["UNKNOWN_ORIGIN", "UNKNOWN_CLIENT_TYPE"]);
 
         request()
             .method(method)
             .path(path)
             .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
+            .header(MITHRIL_CLIENT_TYPE_HEADER, "CLI")
             .reply(&setup_router(RouterState::new_with_origin_tag_white_list(
                 dependency_manager.clone(),
                 &["TEST"],
             )))
             .await;
 
-        assert_eq!(initial_counter_value_with_tag + 1, metric.get(&["TEST"]));
         assert_eq!(
-            initial_counter_value_with_unknown_tag,
-            metric.get(&["UNKNOWN"])
+            initial_counter_value_with_tag + 1,
+            metric.get(&["TEST", "CLI"])
+        );
+        assert_eq!(
+            initial_counter_value_with_unknown_tags,
+            metric.get(&["UNKNOWN_ORIGIN", "UNKNOWN_CLIENT_TYPE"])
         );
     }
 
