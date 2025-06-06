@@ -17,7 +17,8 @@ use mithril_client_cli::commands::{
     cardano_db::CardanoDbCommands, cardano_db_v2::CardanoDbV2Commands,
     cardano_stake_distribution::CardanoStakeDistributionCommands,
     cardano_transaction::CardanoTransactionCommands,
-    mithril_stake_distribution::MithrilStakeDistributionCommands, DeprecatedCommand, Deprecation,
+    mithril_stake_distribution::MithrilStakeDistributionCommands, tools::ToolsCommands,
+    DeprecatedCommand, Deprecation,
 };
 use mithril_client_cli::{ClapError, CommandContext};
 
@@ -209,6 +210,9 @@ enum ArtifactCommands {
 
     #[clap(alias("doc"), hide(true))]
     GenerateDoc(GenerateDocCommands),
+
+    #[clap(subcommand)]
+    Tools(ToolsCommands),
 }
 
 impl ArtifactCommands {
@@ -231,6 +235,16 @@ impl ArtifactCommands {
             Self::GenerateDoc(cmd) => cmd
                 .execute(&mut Args::command())
                 .map_err(|message| anyhow!(message)),
+            Self::Tools(cmd) => {
+                if !context.is_unstable_enabled() {
+                    Err(anyhow!(Self::unstable_flag_missing_message(
+                        "tools",
+                        "utxo-hd snapshot-converter"
+                    )))
+                } else {
+                    cmd.execute().await
+                }
+            }
         }
     }
 
@@ -264,6 +278,34 @@ mod tests {
     async fn fail_if_cardano_database_v2_command_is_used_without_unstable_flag() {
         let args =
             Args::try_parse_from(["mithril-client", "cardano-db-v2", "snapshot", "list"]).unwrap();
+
+        let error = args
+            .execute(Logger::root(slog::Discard, slog::o!()))
+            .await
+            .expect_err("Should fail if unstable flag missing");
+
+        assert!(error
+            .to_string()
+            .contains("subcommand is only accepted using the --unstable flag."));
+    }
+
+    #[tokio::test]
+    async fn fail_if_tools_command_is_used_without_unstable_flag() {
+        let args = Args::try_parse_from([
+            "mithril-client",
+            "tools",
+            "utxo-hd",
+            "snapshot-converter",
+            "--db-directory",
+            "whatever",
+            "--cardano-network",
+            "preview",
+            "--cardano-node-version",
+            "1.2.3",
+            "--utxo-hd-flavor",
+            "Legacy",
+        ])
+        .unwrap();
 
         let error = args
             .execute(Logger::root(slog::Discard, slog::o!()))

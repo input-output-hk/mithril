@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client-cli"
-version = "0.12.6"
+version = "0.12.7"
 description = "A Mithril Client"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -31,6 +31,7 @@ chrono = { workspace = true }
 clap = { workspace = true }
 cli-table = "0.5.0"
 config = { workspace = true }
+flate2 = "1.1.1"
 fs2 = "0.4.3"
 futures = "0.3.31"
 human_bytes = { version = "0.4.3", features = ["fast"] }
@@ -38,6 +39,13 @@ indicatif = { version = "0.17.11", features = ["tokio"] }
 mithril-cli-helper = { path = "../internal/mithril-cli-helper" }
 mithril-client = { path = "../mithril-client", features = ["fs", "unstable"] }
 mithril-doc = { path = "../internal/mithril-doc" }
+reqwest = { workspace = true, features = [
+    "default",
+    "gzip",
+    "zstd",
+    "deflate",
+    "brotli"
+] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 slog = { workspace = true, features = [
@@ -47,8 +55,12 @@ slog = { workspace = true, features = [
 slog-async = { workspace = true }
 slog-bunyan = { workspace = true }
 slog-term = { workspace = true }
+tar = "0.4.44"
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+zip = "4.0.0"
 
 [dev-dependencies]
+httpmock = "0.7.0"
 mithril-common = { path = "../mithril-common", features = ["test_tools"] }
+mockall = { workspace = true }
