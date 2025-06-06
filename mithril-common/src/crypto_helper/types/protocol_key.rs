@@ -9,7 +9,7 @@ use std::{
 use anyhow::Context;
 use serde::{de::DeserializeOwned, Deserialize, Serialize, Serializer};
 
-use crate::crypto_helper::{key_decode_hex, key_encode_hex, IntoBytes, TryFromBytes};
+use crate::crypto_helper::{key_decode_hex, key_encode_hex, ToBytes, TryFromBytes};
 use crate::StdResult;
 
 /// A ProtocolKey is a wrapped that add Serialization capabilities.
@@ -27,7 +27,7 @@ where
 /// The codec used to serialize/deserialize a [ProtocolKey].
 ///
 /// Encodes to json hex and decodes from json hex or bytes hex.
-pub trait ProtocolKeyCodec<T: Serialize + DeserializeOwned + IntoBytes + TryFromBytes>:
+pub trait ProtocolKeyCodec<T: Serialize + DeserializeOwned + ToBytes + TryFromBytes>:
     Sized
 {
     /// Do the decoding of the given key
@@ -46,7 +46,7 @@ pub trait ProtocolKeyCodec<T: Serialize + DeserializeOwned + IntoBytes + TryFrom
 
 impl<T> ProtocolKey<T>
 where
-    T: Serialize + DeserializeOwned + IntoBytes + TryFromBytes,
+    T: Serialize + DeserializeOwned + ToBytes + TryFromBytes,
 {
     /// Create a ProtocolKey from the given key
     pub fn new(key: T) -> Self {
@@ -127,7 +127,7 @@ where
 
     /// Create a bytes hex representation of the given key
     pub fn key_to_bytes_hex(key: &T) -> StdResult<String> {
-        Ok(key.into_bytes_hex())
+        Ok(key.to_bytes_hex())
     }
 }
 
@@ -146,7 +146,7 @@ impl<T> Copy for ProtocolKey<T> where T: Copy + Serialize + DeserializeOwned {}
 
 impl<T> Serialize for ProtocolKey<T>
 where
-    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned + IntoBytes + TryFromBytes,
+    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned + ToBytes + TryFromBytes,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -161,7 +161,7 @@ where
 
 impl<'de, T> Deserialize<'de> for ProtocolKey<T>
 where
-    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned + IntoBytes + TryFromBytes,
+    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned + ToBytes + TryFromBytes,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -176,7 +176,7 @@ where
 
 impl<T> TryFrom<String> for ProtocolKey<T>
 where
-    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned + IntoBytes + TryFromBytes,
+    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned + ToBytes + TryFromBytes,
 {
     type Error = anyhow::Error;
 
@@ -187,7 +187,7 @@ where
 
 impl<T> TryFrom<&str> for ProtocolKey<T>
 where
-    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned + IntoBytes + TryFromBytes,
+    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned + ToBytes + TryFromBytes,
 {
     type Error = anyhow::Error;
 
@@ -198,7 +198,7 @@ where
 
 impl<T> TryFrom<ProtocolKey<T>> for String
 where
-    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned + IntoBytes + TryFromBytes,
+    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned + ToBytes + TryFromBytes,
 {
     type Error = anyhow::Error;
 
@@ -209,7 +209,7 @@ where
 
 impl<T> TryFrom<&ProtocolKey<T>> for String
 where
-    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned + IntoBytes + TryFromBytes,
+    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned + ToBytes + TryFromBytes,
 {
     type Error = anyhow::Error;
 
@@ -351,7 +351,7 @@ mod test {
             .to_bytes_hex()
             .expect("Failed to convert verification key to bytes hex");
         let expected = Container {
-            protocol_key: verification_key.clone(),
+            protocol_key: verification_key,
         };
         let serialized = format!(r#"{{"protocol_key":"{verification_key_bytes_hex}"}}"#);
 
