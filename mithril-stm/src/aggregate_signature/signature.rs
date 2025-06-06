@@ -156,24 +156,38 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
     pub fn from_bytes(bytes: &[u8]) -> Result<StmAggrSig<D>, StmAggregateSignatureError<D>> {
         let mut u64_bytes = [0u8; 8];
 
-        u64_bytes.copy_from_slice(&bytes[..8]);
+        u64_bytes.copy_from_slice(
+            bytes
+                .get(..8)
+                .ok_or(StmAggregateSignatureError::SerializationError)?,
+        );
         let size = usize::try_from(u64::from_be_bytes(u64_bytes))
             .map_err(|_| StmAggregateSignatureError::SerializationError)?;
 
-        u64_bytes.copy_from_slice(&bytes[8..16]);
+        u64_bytes.copy_from_slice(
+            bytes
+                .get(8..16)
+                .ok_or(StmAggregateSignatureError::SerializationError)?,
+        );
         let sig_reg_size = usize::try_from(u64::from_be_bytes(u64_bytes))
             .map_err(|_| StmAggregateSignatureError::SerializationError)?;
 
         let mut sig_reg_list = Vec::with_capacity(size);
         for i in 0..size {
             let sig_reg = StmSigRegParty::from_bytes::<D>(
-                &bytes[16 + (sig_reg_size * i)..16 + (sig_reg_size * (i + 1))],
+                bytes
+                    .get(16 + (sig_reg_size * i)..16 + (sig_reg_size * (i + 1)))
+                    .ok_or(StmAggregateSignatureError::SerializationError)?,
             )?;
             sig_reg_list.push(sig_reg);
         }
 
         let offset = 16 + sig_reg_size * size;
-        let batch_proof = BatchPath::from_bytes(&bytes[offset..])?;
+        let batch_proof = BatchPath::from_bytes(
+            bytes
+                .get(offset..)
+                .ok_or(StmAggregateSignatureError::SerializationError)?,
+        )?;
 
         Ok(StmAggrSig {
             signatures: sig_reg_list,
