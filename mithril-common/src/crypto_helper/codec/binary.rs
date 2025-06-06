@@ -3,13 +3,13 @@ use hex::{FromHex, ToHex};
 use crate::StdResult;
 
 /// Traits for serializing to bytes
-pub trait IntoBytes {
-    /// Convert into a bytes vector.
-    fn into_bytes(&self) -> Vec<u8>;
+pub trait ToBytes {
+    /// Convert to a bytes vector.
+    fn to_bytes_vec(&self) -> Vec<u8>;
 
     /// Convert to hex bytes representation
-    fn into_bytes_hex(&self) -> String {
-        self.into_bytes().encode_hex::<String>()
+    fn to_bytes_hex(&self) -> String {
+        self.to_bytes_vec().encode_hex::<String>()
     }
 }
 
@@ -47,8 +47,8 @@ mod binary_mithril_stm {
 
     type D = Blake2b<U32>;
 
-    impl IntoBytes for StmParameters {
-        fn into_bytes(&self) -> Vec<u8> {
+    impl ToBytes for StmParameters {
+        fn to_bytes_vec(&self) -> Vec<u8> {
             self.to_bytes().to_vec()
         }
     }
@@ -59,8 +59,8 @@ mod binary_mithril_stm {
         }
     }
 
-    impl IntoBytes for StmSig {
-        fn into_bytes(&self) -> Vec<u8> {
+    impl ToBytes for StmSig {
+        fn to_bytes_vec(&self) -> Vec<u8> {
             self.to_bytes().to_vec()
         }
     }
@@ -71,8 +71,8 @@ mod binary_mithril_stm {
         }
     }
 
-    impl IntoBytes for StmSigRegParty {
-        fn into_bytes(&self) -> Vec<u8> {
+    impl ToBytes for StmSigRegParty {
+        fn to_bytes_vec(&self) -> Vec<u8> {
             self.to_bytes().to_vec()
         }
     }
@@ -83,8 +83,8 @@ mod binary_mithril_stm {
         }
     }
 
-    impl IntoBytes for StmAggrSig<D> {
-        fn into_bytes(&self) -> Vec<u8> {
+    impl ToBytes for StmAggrSig<D> {
+        fn to_bytes_vec(&self) -> Vec<u8> {
             self.to_bytes().to_vec()
         }
     }
@@ -95,8 +95,8 @@ mod binary_mithril_stm {
         }
     }
 
-    impl IntoBytes for StmVerificationKey {
-        fn into_bytes(&self) -> Vec<u8> {
+    impl ToBytes for StmVerificationKey {
+        fn to_bytes_vec(&self) -> Vec<u8> {
             self.to_bytes().to_vec()
         }
     }
@@ -107,8 +107,8 @@ mod binary_mithril_stm {
         }
     }
 
-    impl IntoBytes for StmVerificationKeyPoP {
-        fn into_bytes(&self) -> Vec<u8> {
+    impl ToBytes for StmVerificationKeyPoP {
+        fn to_bytes_vec(&self) -> Vec<u8> {
             self.to_bytes().to_vec()
         }
     }
@@ -119,8 +119,8 @@ mod binary_mithril_stm {
         }
     }
 
-    impl IntoBytes for StmAggrVerificationKey<D> {
-        fn into_bytes(&self) -> Vec<u8> {
+    impl ToBytes for StmAggrVerificationKey<D> {
+        fn to_bytes_vec(&self) -> Vec<u8> {
             // TODO: Use a more efficient serialization method
             key_encode_hex(self).unwrap().into_bytes()
         }
@@ -133,8 +133,8 @@ mod binary_mithril_stm {
         }
     }
 
-    impl IntoBytes for StmInitializer {
-        fn into_bytes(&self) -> Vec<u8> {
+    impl ToBytes for StmInitializer {
+        fn to_bytes_vec(&self) -> Vec<u8> {
             self.to_bytes().to_vec()
         }
     }
@@ -151,8 +151,8 @@ mod binary_ed25519 {
 
     use super::*;
 
-    impl IntoBytes for Signature {
-        fn into_bytes(&self) -> Vec<u8> {
+    impl ToBytes for Signature {
+        fn to_bytes_vec(&self) -> Vec<u8> {
             self.to_bytes().to_vec()
         }
     }
@@ -163,8 +163,8 @@ mod binary_ed25519 {
         }
     }
 
-    impl IntoBytes for SigningKey {
-        fn into_bytes(&self) -> Vec<u8> {
+    impl ToBytes for SigningKey {
+        fn to_bytes_vec(&self) -> Vec<u8> {
             self.to_bytes().to_vec()
         }
     }
@@ -175,8 +175,8 @@ mod binary_ed25519 {
         }
     }
 
-    impl IntoBytes for VerifyingKey {
-        fn into_bytes(&self) -> Vec<u8> {
+    impl ToBytes for VerifyingKey {
+        fn to_bytes_vec(&self) -> Vec<u8> {
             self.to_bytes().to_vec()
         }
     }
@@ -194,8 +194,8 @@ mod binary_kes_sig {
 
     use super::*;
 
-    impl IntoBytes for Sum6KesSig {
-        fn into_bytes(&self) -> Vec<u8> {
+    impl ToBytes for Sum6KesSig {
+        fn to_bytes_vec(&self) -> Vec<u8> {
             self.to_bytes().to_vec()
         }
     }
@@ -212,8 +212,8 @@ mod binary_opcert {
 
     use super::*;
 
-    impl IntoBytes for OpCert {
-        fn into_bytes(&self) -> Vec<u8> {
+    impl ToBytes for OpCert {
+        fn to_bytes_vec(&self) -> Vec<u8> {
             // TODO: Use a more efficient serialization method
             key_encode_hex(self).unwrap().into_bytes()
         }
@@ -234,8 +234,8 @@ mod binary_mk_proof {
 
     use super::*;
 
-    impl<T: MKMapKey + Serialize> IntoBytes for MKMapProof<T> {
-        fn into_bytes(&self) -> Vec<u8> {
+    impl<T: MKMapKey + Serialize> ToBytes for MKMapProof<T> {
+        fn to_bytes_vec(&self) -> Vec<u8> {
             // TODO: Use a more efficient serialization method
             key_encode_hex(self).unwrap().into_bytes()
         }
@@ -248,8 +248,8 @@ mod binary_mk_proof {
         }
     }
 
-    impl IntoBytes for MKProof {
-        fn into_bytes(&self) -> Vec<u8> {
+    impl ToBytes for MKProof {
+        fn to_bytes_vec(&self) -> Vec<u8> {
             // TODO: Use a more efficient serialization method
             key_encode_hex(self).unwrap().into_bytes()
         }

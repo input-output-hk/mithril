@@ -1,5 +1,5 @@
 use crate::crypto_helper::{
-    IntoBytes, ProtocolAggregateVerificationKey, ProtocolGenesisSignature, ProtocolMultiSignature,
+    ProtocolAggregateVerificationKey, ProtocolGenesisSignature, ProtocolMultiSignature,
 };
 use crate::entities::{CertificateMetadata, Epoch, ProtocolMessage, SignedEntityType};
 use std::fmt::{Debug, Formatter};
@@ -97,7 +97,7 @@ impl Certificate {
         );
         match &self.signature {
             CertificateSignature::GenesisSignature(signature) => {
-                hasher.update(signature.into_bytes_hex());
+                hasher.update(signature.to_bytes_hex().unwrap());
             }
             CertificateSignature::MultiSignature(signed_entity_type, signature) => {
                 signed_entity_type.feed_hash(&mut hasher);
