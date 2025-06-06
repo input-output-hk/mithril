@@ -168,15 +168,19 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
     /// It returns error if conversion fails.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MerkleTreeError<D>> {
         let mut u64_bytes = [0u8; 8];
-        u64_bytes.copy_from_slice(&bytes[..8]);
+        u64_bytes.copy_from_slice(bytes.get(..8).ok_or(MerkleTreeError::SerializationError)?);
         let n = usize::try_from(u64::from_be_bytes(u64_bytes))
             .map_err(|_| MerkleTreeError::SerializationError)?;
         let num_nodes = n + n.next_power_of_two() - 1;
         let mut nodes = Vec::with_capacity(num_nodes);
         for i in 0..num_nodes {
             nodes.push(
-                bytes[8 + i * <D as Digest>::output_size()
-                    ..8 + (i + 1) * <D as Digest>::output_size()]
+                bytes
+                    .get(
+                        8 + i * <D as Digest>::output_size()
+                            ..8 + (i + 1) * <D as Digest>::output_size(),
+                    )
+                    .ok_or(MerkleTreeError::SerializationError)?
                     .to_vec(),
             );
         }

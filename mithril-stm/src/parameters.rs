@@ -37,16 +37,12 @@ impl StmParameters {
     /// # Error
     /// The function fails if the given string of bytes is not of required size.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, RegisterError> {
-        if bytes.len() != 24 {
-            return Err(RegisterError::SerializationError);
-        }
-
         let mut u64_bytes = [0u8; 8];
-        u64_bytes.copy_from_slice(&bytes[..8]);
+        u64_bytes.copy_from_slice(bytes.get(..8).ok_or(RegisterError::SerializationError)?);
         let m = u64::from_be_bytes(u64_bytes);
-        u64_bytes.copy_from_slice(&bytes[8..16]);
+        u64_bytes.copy_from_slice(bytes.get(8..16).ok_or(RegisterError::SerializationError)?);
         let k = u64::from_be_bytes(u64_bytes);
-        u64_bytes.copy_from_slice(&bytes[16..]);
+        u64_bytes.copy_from_slice(bytes.get(16..24).ok_or(RegisterError::SerializationError)?);
         let phi_f = f64::from_be_bytes(u64_bytes);
 
         Ok(Self { m, k, phi_f })

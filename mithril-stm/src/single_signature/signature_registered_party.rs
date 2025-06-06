@@ -29,8 +29,16 @@ impl StmSigRegParty {
     pub fn from_bytes<D: Digest + Clone + FixedOutput>(
         bytes: &[u8],
     ) -> Result<StmSigRegParty, StmSignatureError> {
-        let reg_party = RegParty::from_bytes(&bytes[0..104])?;
-        let sig = StmSig::from_bytes::<D>(&bytes[104..])?;
+        let reg_party = RegParty::from_bytes(
+            bytes
+                .get(0..104)
+                .ok_or(StmSignatureError::SerializationError)?,
+        )?;
+        let sig = StmSig::from_bytes::<D>(
+            bytes
+                .get(104..)
+                .ok_or(StmSignatureError::SerializationError)?,
+        )?;
 
         Ok(StmSigRegParty { sig, reg_party })
     }

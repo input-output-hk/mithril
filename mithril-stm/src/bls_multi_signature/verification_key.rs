@@ -33,7 +33,10 @@ impl VerificationKey {
     /// This function fails if the bytes do not represent a compressed point of the prime
     /// order subgroup of the curve Bls12-381.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
-        match BlstVk::key_validate(&bytes[..96]) {
+        let bytes = bytes
+            .get(..96)
+            .ok_or(MultiSignatureError::SerializationError)?;
+        match BlstVk::key_validate(bytes) {
             Ok(vk) => Ok(Self(vk)),
             Err(e) => Err(blst_err_to_mithril(e, None, None)
                 .expect_err("If deserialization is not successful, blst returns and error different to SUCCESS."))
@@ -169,9 +172,17 @@ impl VerificationKeyPoP {
 
     /// Deserialize a byte string to a `PublicKeyPoP`.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
-        let mvk = VerificationKey::from_bytes(&bytes[..96])?;
+        let mvk = VerificationKey::from_bytes(
+            bytes
+                .get(..96)
+                .ok_or(MultiSignatureError::SerializationError)?,
+        )?;
 
-        let pop = ProofOfPossession::from_bytes(&bytes[96..])?;
+        let pop = ProofOfPossession::from_bytes(
+            bytes
+                .get(96..)
+                .ok_or(MultiSignatureError::SerializationError)?,
+        )?;
 
         Ok(Self { vk: mvk, pop })
     }

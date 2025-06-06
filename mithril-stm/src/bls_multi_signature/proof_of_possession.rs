@@ -34,7 +34,11 @@ impl ProofOfPossession {
 
     /// Deserialize a byte string to a `PublicKeyPoP`.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
-        let k1 = match BlstSig::from_bytes(&bytes[..48]) {
+        let k1 = match BlstSig::from_bytes(
+            bytes
+                .get(..48)
+                .ok_or(MultiSignatureError::SerializationError)?,
+        ) {
             Ok(key) => key,
             Err(e) => {
                 return Err(blst_err_to_mithril(e, None, None)
@@ -42,7 +46,11 @@ impl ProofOfPossession {
             }
         };
 
-        let k2 = uncompress_p1(&bytes[48..96])?;
+        let k2 = uncompress_p1(
+            bytes
+                .get(48..96)
+                .ok_or(MultiSignatureError::SerializationError)?,
+        )?;
 
         Ok(Self { k1, k2 })
     }

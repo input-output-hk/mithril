@@ -131,11 +131,14 @@ impl StmInitializer {
     /// The function fails if the given string of bytes is not of required size.
     pub fn from_bytes(bytes: &[u8]) -> Result<StmInitializer, RegisterError> {
         let mut u64_bytes = [0u8; 8];
-        u64_bytes.copy_from_slice(&bytes[..8]);
+        u64_bytes.copy_from_slice(bytes.get(..8).ok_or(RegisterError::SerializationError)?);
         let stake = u64::from_be_bytes(u64_bytes);
-        let params = StmParameters::from_bytes(&bytes[8..32])?;
-        let sk = SigningKey::from_bytes(&bytes[32..])?;
-        let pk = StmVerificationKeyPoP::from_bytes(&bytes[64..])?;
+        let params =
+            StmParameters::from_bytes(bytes.get(8..32).ok_or(RegisterError::SerializationError)?)?;
+        let sk = SigningKey::from_bytes(bytes.get(32..).ok_or(RegisterError::SerializationError)?)?;
+        let pk = StmVerificationKeyPoP::from_bytes(
+            bytes.get(64..).ok_or(RegisterError::SerializationError)?,
+        )?;
 
         Ok(Self {
             stake,
