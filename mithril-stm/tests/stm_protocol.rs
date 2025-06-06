@@ -4,7 +4,9 @@ use mithril_stm::{AggregationError, StmAggrSig, StmParameters};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
-use test_extensions::protocol_phase::{initialization_phase, operation_phase};
+use test_extensions::protocol_phase::{
+    initialization_phase, operation_phase, InitializationPhaseResult, OperationPhaseResult,
+};
 
 #[test]
 fn test_full_protocol() {
@@ -13,18 +15,19 @@ fn test_full_protocol() {
     let mut msg = [0u8; 32];
     rng.fill_bytes(&mut msg);
 
-    //////////////////////////
-    // initialization phase //
-    //////////////////////////
-
     let params = StmParameters {
         k: 357,
         m: 2642,
         phi_f: 0.2,
     };
 
-    let (signers, reg_parties, _initializers) = initialization_phase(nparties, rng.clone(), params);
-    let (msig, avk, _sigs) = operation_phase(params, signers, reg_parties, msg);
+    let InitializationPhaseResult {
+        signers,
+        reg_parties,
+        initializers: _,
+    } = initialization_phase(nparties, rng.clone(), params);
+    let OperationPhaseResult { msig, avk, sigs: _ } =
+        operation_phase(params, signers, reg_parties, msg);
 
     match msig {
         Ok(aggr) => {
@@ -61,12 +64,16 @@ fn test_full_protocol_batch_verify() {
         let mut msg = [0u8; 32];
         rng.fill_bytes(&mut msg);
         let nparties = rng.next_u64() % 33;
-        let (signers, reg_parties, _initializers) =
-            initialization_phase(nparties as usize, rng.clone(), params);
-        let operation = operation_phase(params, signers, reg_parties, msg);
+        let InitializationPhaseResult {
+            signers,
+            reg_parties,
+            initializers: _,
+        } = initialization_phase(nparties as usize, rng.clone(), params);
+        let OperationPhaseResult { msig, avk, sigs: _ } =
+            operation_phase(params, signers, reg_parties, msg);
 
-        aggr_avks.push(operation.1);
-        aggr_stms.push(operation.0.unwrap());
+        aggr_avks.push(avk);
+        aggr_stms.push(msig.unwrap());
         batch_msgs.push(msg.to_vec());
         batch_params.push(params);
     }
