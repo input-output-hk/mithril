@@ -304,13 +304,26 @@ jobs:
           echo "CDB_SNAPSHOT_DIGEST=$(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --json | jq -r '.[0].digest')" >> $GITHUB_ENV
 
       - name: Cardano Database Snapshot / download & restore latest
+        if: matrix.extra_args != '--include-ancillary'
         shell: bash
         run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST --download-dir /app ${{ matrix.extra_args }}
 
-      - name: Ledger state snapshot conversion from InMemory to LMDB
+      - name: Cardano Database Snapshot / download & restore latest and run conversion from InMemory to LMDB
         if: matrix.extra_args == '--include-ancillary'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --unstable tools utxo-hd snapshot-converter --db-directory /app/db --cardano-node-version latest --utxo-hd-flavor LMDB --cardano-network $NETWORK
+        run: |
+          docker run --rm \
+            --entrypoint bash \
+            -e NETWORK=$NETWORK \
+            -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY \
+            -e ANCILLARY_VERIFICATION_KEY=$ANCILLARY_VERIFICATION_KEY \
+            -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT \
+            --name='mithril-client' \
+            ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID \
+            -c "
+              /app/bin/mithril-client --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST --download-dir /app --include-ancillary &&
+              /app/bin/mithril-client --unstable tools utxo-hd snapshot-converter --db-directory /app/db --cardano-node-version latest --utxo-hd-flavor LMDB --cardano-network \$NETWORK
+            "
 
       - name: Mithril Stake Distribution / list and get last hash
         shell: bash
