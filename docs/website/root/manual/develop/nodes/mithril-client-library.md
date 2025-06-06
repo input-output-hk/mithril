@@ -263,18 +263,6 @@ cargo run
 
 ### Cardano database v2
 
-:::danger
-
-This feature is still unstable.
-
-To use it, you need to add the `unstable` feature in your project's `Cargo.toml` file.
-
-```
-mithril-client = { version = "0.11.X", features = ["fs", "unstable"] }
-```
-
-:::
-
 Below is a basic example using the new `CardanoDatabase` functions. Make sure the target aggregator signs `CardanoDatabase` incremental snapshot.
 
 :::tip
