@@ -1,75 +1,12 @@
-use blake2::{digest::consts::U32, Blake2b};
-use mithril_stm::{
-    AggregationError, KeyReg, Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmInitializer,
-    StmParameters, StmSig, StmSigner, StmVerificationKey,
-};
+mod test_extensions;
+
+use mithril_stm::{AggregationError, StmAggrSig, StmParameters};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
-use rayon::prelude::*;
 
-type H = Blake2b<U32>;
-
-fn initialization_phase(
-    nparties: usize,
-    mut rng: ChaCha20Rng,
-    params: StmParameters,
-) -> (Vec<StmSigner<H>>, Vec<(StmVerificationKey, Stake)>) {
-    let parties = (0..nparties)
-        .map(|_| 1 + (rng.next_u64() % 9999))
-        .collect::<Vec<_>>();
-
-    let mut key_reg = KeyReg::init();
-
-    let mut initializers: Vec<StmInitializer> = Vec::with_capacity(nparties);
-
-    let mut reg_parties: Vec<(StmVerificationKey, Stake)> = Vec::with_capacity(nparties);
-
-    for stake in parties {
-        let p = StmInitializer::setup(params, stake, &mut rng);
-        key_reg.register(stake, p.verification_key()).unwrap();
-        reg_parties.push((p.verification_key().vk, stake));
-        initializers.push(p);
-    }
-
-    let closed_reg = key_reg.close();
-
-    let signers = initializers
-        .into_par_iter()
-        .map(|p| p.new_signer(closed_reg.clone()).unwrap())
-        .collect::<Vec<StmSigner<H>>>();
-
-    (signers, reg_parties)
-}
-
-fn operation_phase(
-    params: StmParameters,
-    signers: Vec<StmSigner<H>>,
-    reg_parties: Vec<(StmVerificationKey, Stake)>,
-    msg: [u8; 32],
-) -> (
-    Result<StmAggrSig<H>, AggregationError>,
-    StmAggrVerificationKey<H>,
-) {
-    let sigs = signers
-        .par_iter()
-        .filter_map(|p| p.sign(&msg))
-        .collect::<Vec<StmSig>>();
-
-    let clerk = StmClerk::from_signer(&signers[0]);
-    let avk = clerk.compute_avk();
-
-    // Check all parties can verify every sig
-    for (s, (vk, stake)) in sigs.iter().zip(reg_parties.iter()) {
-        assert!(
-            s.verify(&params, vk, stake, &avk, &msg).is_ok(),
-            "Verification failed"
-        );
-    }
-
-    let msig = clerk.aggregate(&sigs, &msg);
-
-    (msig, avk)
-}
+use test_extensions::protocol_phase::{
+    initialization_phase, operation_phase, InitializationPhaseResult, OperationPhaseResult,
+};
 
 #[test]
 fn test_full_protocol() {
@@ -78,18 +15,19 @@ fn test_full_protocol() {
     let mut msg = [0u8; 32];
     rng.fill_bytes(&mut msg);
 
-    //////////////////////////
-    // initialization phase //
-    //////////////////////////
-
     let params = StmParameters {
         k: 357,
         m: 2642,
         phi_f: 0.2,
     };
 
-    let (signers, reg_parties) = initialization_phase(nparties, rng.clone(), params);
-    let (msig, avk) = operation_phase(params, signers, reg_parties, msg);
+    let InitializationPhaseResult {
+        signers,
+        reg_parties,
+        initializers: _,
+    } = initialization_phase(nparties, rng.clone(), params);
+    let OperationPhaseResult { msig, avk, sigs: _ } =
+        operation_phase(params, signers, reg_parties, msg);
 
     match msig {
         Ok(aggr) => {
@@ -126,11 +64,16 @@ fn test_full_protocol_batch_verify() {
         let mut msg = [0u8; 32];
         rng.fill_bytes(&mut msg);
         let nparties = rng.next_u64() % 33;
-        let (signers, reg_parties) = initialization_phase(nparties as usize, rng.clone(), params);
-        let operation = operation_phase(params, signers, reg_parties, msg);
+        let InitializationPhaseResult {
+            signers,
+            reg_parties,
+            initializers: _,
+        } = initialization_phase(nparties as usize, rng.clone(), params);
+        let OperationPhaseResult { msig, avk, sigs: _ } =
+            operation_phase(params, signers, reg_parties, msg);
 
-        aggr_avks.push(operation.1);
-        aggr_stms.push(operation.0.unwrap());
+        aggr_avks.push(avk);
+        aggr_stms.push(msig.unwrap());
         batch_msgs.push(msg.to_vec());
         batch_params.push(params);
     }
