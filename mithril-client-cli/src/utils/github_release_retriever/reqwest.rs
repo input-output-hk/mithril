@@ -35,8 +35,9 @@ impl ReqwestGitHubApiClient {
             reqwest::StatusCode::OK => {}
             status => {
                 return Err(anyhow!(
-                    "GitHub API request failed with status code: {}",
-                    status
+                    "GitHub API request failed with status code '{}': {}",
+                    status,
+                    response.text().await.unwrap()
                 ));
             }
         }
