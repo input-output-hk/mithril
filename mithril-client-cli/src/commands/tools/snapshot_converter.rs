@@ -91,6 +91,10 @@ pub struct SnapshotConverterCommand {
     /// If set, the converted snapshot replaces the current ledger state in the `db_directory`.
     #[clap(long)]
     commit: bool,
+
+    /// GitHub token for authenticated API calls.
+    #[clap(long, env = "GITHUB_TOKEN")]
+    github_token: Option<String>,
 }
 
 impl SnapshotConverterCommand {
@@ -113,7 +117,7 @@ impl SnapshotConverterCommand {
                 )
             })?;
             let archive_path = Self::download_cardano_node_distribution(
-                ReqwestGitHubApiClient::new()?,
+                ReqwestGitHubApiClient::new(self.github_token.clone())?,
                 ReqwestHttpDownloader::new()?,
                 &self.cardano_node_version,
                 &distribution_dir,
