@@ -169,6 +169,8 @@ jobs:
 
       - name: Ledger state snapshot conversion from InMemory to LMDB
         if: matrix.extra_args == '--include-ancillary'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         working-directory: ./bin
         run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --unstable tools utxo-hd snapshot-converter --db-directory db --cardano-node-version latest --utxo-hd-flavor LMDB --cardano-network $NETWORK
@@ -310,6 +312,8 @@ jobs:
 
       - name: Cardano Database Snapshot / download & restore latest and run conversion from InMemory to LMDB
         if: matrix.extra_args == '--include-ancillary'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           docker run --rm \
@@ -318,6 +322,7 @@ jobs:
             -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY \
             -e ANCILLARY_VERIFICATION_KEY=$ANCILLARY_VERIFICATION_KEY \
             -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT \
+            -e GITHUB_TOKEN=$GITHUB_TOKEN \
             --name='mithril-client' \
             ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID \
             -c "
