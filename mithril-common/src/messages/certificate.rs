@@ -195,9 +195,12 @@ impl TryFrom<Certificate> for CertificateMessage {
         };
 
         let (multi_signature, genesis_signature) = match certificate.signature {
-            CertificateSignature::GenesisSignature(signature) => {
-                (String::new(), signature.to_bytes_hex())
-            }
+            CertificateSignature::GenesisSignature(signature) => (
+                String::new(),
+                signature.to_bytes_hex().with_context(|| {
+                    "Can not convert certificate to message: can not encode the genesis signature"
+                })?,
+            ),
             CertificateSignature::MultiSignature(_, signature) => (
                 signature.to_json_hex().with_context(|| {
                     "Can not convert certificate to message: can not encode the multi-signature"

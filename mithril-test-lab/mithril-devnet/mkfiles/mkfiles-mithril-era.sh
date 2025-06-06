@@ -14,7 +14,7 @@ $CARDANO_CLI $CARDANO_CLI_ERA address build \
 
 ## Write datums for Mithril era address
 N=1
-SCRIPT_TX_VALUE=2000000
+SCRIPT_TX_VALUE=4000000
 AMOUNT_TRANSFERRED=$(( SCRIPT_TX_VALUE * 10 ))
 MITHRIL_ERA_ERROR_FILE=./era-mithril-error
 cat >> era-mithril.sh <<EOF
@@ -106,7 +106,7 @@ function send_funds_to_era_address {
         TOTAL_UTXOS_FOR_TX_ID=\$(CARDANO_NODE_SOCKET_PATH=node-pool\${i}/ipc/node.sock $CARDANO_CLI \${CURRENT_CARDANO_ERA} query utxo \\
         --testnet-magic ${NETWORK_MAGIC} --address \$(cat addresses/${ADDR}.addr) --out-file /dev/stdout \\
         | jq '. | with_entries(select(.key | startswith("${TX_ID_SUBMITTED}"))) | length')
-        echo ">>>>>> Era address funds retrieved on node-pool\${i}: \${AMOUNT_RETRIEVED}"
+        echo ">>>>>> Era address funds retrieved on node-pool\${i}"
         if [ "\${TOTAL_UTXOS_FOR_TX_ID}" == "0" ]; then
             touch ${MITHRIL_ERA_ERROR_FILE}
             break

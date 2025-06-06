@@ -97,7 +97,7 @@ impl Certificate {
         );
         match &self.signature {
             CertificateSignature::GenesisSignature(signature) => {
-                hasher.update(signature.to_bytes_hex());
+                hasher.update(signature.to_bytes_hex().unwrap());
             }
             CertificateSignature::MultiSignature(signed_entity_type, signature) => {
                 signed_entity_type.feed_hash(&mut hasher);
