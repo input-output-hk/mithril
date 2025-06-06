@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Context};
-use chrono::Utc;
 use slog::{debug, warn, Logger};
 use std::{
     fs::File,
@@ -21,6 +20,8 @@ use crate::{
         ProgressOutputType, ProgressPrinter,
     },
 };
+
+use super::shared_steps;
 
 const DISK_SPACE_SAFETY_MARGIN_RATIO: f64 = 0.1;
 
@@ -100,7 +101,7 @@ impl PreparedCardanoDbV2Download {
             self.allow_override,
         )?;
 
-        let certificate = Self::fetch_certificate_and_verifying_chain(
+        let certificate = shared_steps::fetch_certificate_and_verifying_chain(
             2,
             &progress_printer,
             &client,
@@ -154,9 +155,11 @@ impl PreparedCardanoDbV2Download {
         )
         .await?;
 
-        Self::log_download_information(
+        shared_steps::log_download_information(
             &restoration_options.db_dir,
-            &cardano_db_message,
+            &cardano_db_message.hash,
+            &cardano_db_message.network,
+            &cardano_db_message.cardano_node_version,
             self.is_json_output_enabled(),
             restoration_options
                 .download_unpack_options
@@ -244,29 +247,6 @@ impl PreparedCardanoDbV2Download {
         }
 
         Ok(())
-    }
-
-    async fn fetch_certificate_and_verifying_chain(
-        step_number: u16,
-        progress_printer: &ProgressPrinter,
-        client: &Client,
-        certificate_hash: &str,
-    ) -> MithrilResult<MithrilCertificate> {
-        progress_printer.report_step(
-            step_number,
-            "Fetching the certificate and verifying the certificate chain…",
-        )?;
-        let certificate = client
-            .certificate()
-            .verify_chain(certificate_hash)
-            .await
-            .with_context(|| {
-                format!(
-                    "Can not verify the certificate chain from certificate_hash: '{certificate_hash}'"
-                )
-            })?;
-
-        Ok(certificate)
     }
 
     async fn download_and_unpack_cardano_database_snapshot(
@@ -395,91 +375,6 @@ impl PreparedCardanoDbV2Download {
                 "Certificate verification failed (cardano db snapshot hash = '{}').",
                 cardano_db_snapshot.hash.clone()
             ));
-        }
-
-        Ok(())
-    }
-
-    fn log_download_information(
-        db_dir: &Path,
-        cardano_db_snapshot: &CardanoDatabaseSnapshot,
-        json_output: bool,
-        include_ancillary: bool,
-    ) -> MithrilResult<()> {
-        let canonicalized_filepath = &db_dir.canonicalize().with_context(|| {
-            format!(
-                "Could not get canonicalized filepath of '{}'",
-                db_dir.display()
-            )
-        })?;
-
-        let docker_cmd = format!(
-            "docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source=\"{}\",target=/data/db/ -e NETWORK={} ghcr.io/intersectmbo/cardano-node:{}",
-            canonicalized_filepath.display(),
-            cardano_db_snapshot.network,
-            cardano_db_snapshot.cardano_node_version
-        );
-
-        let snapshot_converter_cmd = |flavor| {
-            format!(
-                "mithril-client --unstable tools utxo-hd snapshot-converter --db-directory {} --cardano-node-version {} --utxo-hd-flavor {} --cardano-network {} --commit",
-                db_dir.display(),
-                cardano_db_snapshot.cardano_node_version,
-                flavor,
-                cardano_db_snapshot.network
-            )
-        };
-
-        if json_output {
-            let json = if include_ancillary {
-                serde_json::json!({
-                    "timestamp": Utc::now().to_rfc3339(),
-                    "db_directory": canonicalized_filepath,
-                    "run_docker_cmd": docker_cmd,
-                    "snapshot_converter_cmd_to_lmdb": snapshot_converter_cmd("LMDB"),
-                    "snapshot_converter_cmd_to_legacy": snapshot_converter_cmd("Legacy")
-                })
-            } else {
-                serde_json::json!({
-                    "timestamp": Utc::now().to_rfc3339(),
-                    "db_directory": canonicalized_filepath,
-                    "run_docker_cmd": docker_cmd
-                })
-            };
-
-            println!("{}", json);
-        } else {
-            let cardano_node_version = &cardano_db_snapshot.cardano_node_version;
-            println!(
-                r###"Cardano database snapshot '{}' archives have been successfully unpacked. Immutable files have been successfully checked against Mithril multi-signature contained in the certificate.
-                    
-    Files in the directory '{}' can be used to run a Cardano node with version >= {cardano_node_version}.
-
-    If you are using Cardano Docker image, you can restore a Cardano Node with:
-    
-    {}
-    
-    "###,
-                cardano_db_snapshot.hash,
-                db_dir.display(),
-                docker_cmd
-            );
-
-            if include_ancillary {
-                println!(
-                    r###"Upgrade and replace the restored ledger state snapshot to 'LMDB' flavor by running the command:
-
-    {}
-
-    Or to 'Legacy' flavor by running the command:
-
-    {}
-    
-    "###,
-                    snapshot_converter_cmd("LMDB"),
-                    snapshot_converter_cmd("Legacy"),
-                );
-            }
         }
 
         Ok(())
