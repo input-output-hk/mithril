@@ -26,13 +26,13 @@ use mithril_common::{
     },
     era::{EraChecker, EraReader, EraReaderAdapter},
     signable_builder::{SignableBuilderService, SignableSeedBuilder, TransactionsImporter},
-    TickerService,
 };
 use mithril_persistence::{
     database::repository::CardanoTransactionRepository,
     sqlite::{SqliteConnection, SqliteConnectionPool},
 };
 use mithril_signed_entity_lock::SignedEntityTypeLock;
+use mithril_ticker::TickerService;
 
 use super::{
     DatabaseCommandDependenciesContainer, DependenciesBuilderError, EpochServiceWrapper,

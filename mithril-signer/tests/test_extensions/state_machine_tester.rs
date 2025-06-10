@@ -31,7 +31,7 @@ use mithril_common::{
         MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
         SignableBuilderServiceDependencies,
     },
-    MithrilTickerService, StdError, TickerService,
+    StdError,
 };
 use mithril_persistence::{
     database::repository::CardanoTransactionRepository, sqlite::SqliteConnectionPool,
@@ -41,6 +41,7 @@ use mithril_signed_entity_lock::SignedEntityTypeLock;
 use mithril_signed_entity_preloader::{
     CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
 };
+use mithril_ticker::{MithrilTickerService, TickerService};
 
 use mithril_signer::{
     database::repository::{ProtocolInitializerRepository, SignedBeaconRepository, StakePoolStore},

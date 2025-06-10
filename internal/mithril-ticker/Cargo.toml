@@ -12,3 +12,10 @@ repository.workspace = true
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+mithril-common = { path = "../../mithril-common", features = ["fs"] }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros"] }

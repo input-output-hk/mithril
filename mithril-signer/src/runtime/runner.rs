@@ -351,12 +351,12 @@ mod tests {
             MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
         },
         test_utils::{fake_data, MithrilFixtureBuilder},
-        MithrilTickerService, TickerService,
     };
     use mithril_signed_entity_lock::SignedEntityTypeLock;
     use mithril_signed_entity_preloader::{
         CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
     };
+    use mithril_ticker::{MithrilTickerService, TickerService};
 
     use crate::database::repository::{
         ProtocolInitializerRepository, SignedBeaconRepository, StakePoolStore,

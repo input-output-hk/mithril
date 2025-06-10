@@ -3841,6 +3841,7 @@ dependencies = [
  "mithril-resource-pool",
  "mithril-signed-entity-lock",
  "mithril-signed-entity-preloader",
+ "mithril-ticker",
  "mockall",
  "paste",
  "percent-encoding",
@@ -4199,6 +4200,7 @@ dependencies = [
  "mithril-persistence",
  "mithril-signed-entity-lock",
  "mithril-signed-entity-preloader",
+ "mithril-ticker",
  "mockall",
  "prometheus-parse",
  "rand_core 0.6.4",
@@ -4241,6 +4243,13 @@ dependencies = [
 [[package]]
 name = "mithril-ticker"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "mithril-common",
+ "thiserror 2.0.12",
+ "tokio",
+]
 
 [[package]]
 name = "mithrildemo"

@@ -89,6 +89,8 @@ This repository consists of the following parts:
 
   - [**Mithril persistence**](./internal/mithril-persistence): the **persistence** library that is used by the **Mithril network** nodes.
 
+  - [**Mithril ticker**](./internal/mithril-ticker): a **ticker** mechanism that reads time information from the chain and is used by the **Mithril network** nodes.
+
 - [**Mithril test lab**](./mithril-test-lab): the suite of tools that allow us to test and stress the **Mithril** protocol implementations.
 
   - [**Mithril devnet**](./mithril-test-lab/mithril-devnet): the private **Mithril/Cardano network** used to scaffold a **Mithril network** on top of a **Cardano network**.
