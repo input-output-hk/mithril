@@ -9,19 +9,34 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
-- Support for DMQ signature consumer and processor in the aggregator.
+- Crates versions:
+
+| Crate | Version |
+| ----- | ------- |
+| N/A   | `-`     |
+
+## Mithril Distribution [2524.0] - UNRELEASED
 
 - Support for `Cardano node` `10.4.1` in the signer and the aggregator.
 
-- Support for recording client types in Mithril client library, CLI and WASM in the aggregator metrics.
+- Support for recording client types origin (library, CLI and WASM) in the aggregator metrics.
 
-- **UNSTABLE** New api for client-cli partial cardano database restoration:
+- **UNSTABLE** :
 
-  - Allow switching of backend with parameter `--backend [v1,v2]` to `cardano-database` snapshot list, snapshot show and download subcommands
-    - backend `v1` (default): support full database restoration only
-    - backend `v2` (require `--unstable`): support full and partial database restoration
-  - Add `--start`, `--end`, `--allow-override` to `cardano-database download` subcommand, supported only with `--backend v2`
-  - Deprecated `cardano-database-v2` subcommand
+  - New UTxO-HD snapshot converter command for client CLI:
+
+    - Added the `tools utxo-hd snapshot-converter` command to the client CLI that converts a restored UTxO-HD snapshot to another flavor.
+    - Support for converting to `LMDB` on-disk and `Legacy` in-memory flavors.
+
+  - New api for client CLI partial cardano database restoration (aka Cardano DB V2):
+
+    - Support for switching the backend with parameter `--backend [v1,v2]` to `cardano-database` snapshot list, snapshot show and download subcommands:
+      - backend `v1` (default): support full database restoration only.
+      - backend `v2` (require `--unstable`): support full and partial database restoration.
+    - Added `--start`, `--end`, `--allow-override` to `cardano-database download` subcommand, supported only with `--backend v2`.
+    - Deprecated `cardano-database-v2` subcommand.
+
+  - Support for DMQ signature consumer and processor in the aggregator.
 
 - Crates versions:
 
