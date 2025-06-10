@@ -91,7 +91,7 @@ impl GitHubReleaseRetriever for ReqwestGitHubApiClient {
         let prerelease = releases
             .into_iter()
             .find(|release| release.prerelease)
-            .ok_or_else(|| anyhow!("No prerelease found"))?;
+            .ok_or_else(|| anyhow!("No pre-release found"))?;
 
         Ok(prerelease)
     }
