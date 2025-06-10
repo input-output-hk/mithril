@@ -312,4 +312,28 @@ mod tests {
             .to_string()
             .contains("subcommand is only accepted using the --unstable flag."));
     }
+
+    #[tokio::test]
+    async fn verify_subcommand_should_fail_with_cardano_db_v1() {
+        let args = Args::try_parse_from([
+            "mithril-client",
+            "cardano-db",
+            "verify",
+            "my_digest",
+            "--db-dir",
+            "my_db_dir",
+            "--genesis-verification-key",
+            "my_genesis_key",
+        ])
+        .unwrap();
+
+        let error = args
+            .execute(Logger::root(slog::Discard, slog::o!()))
+            .await
+            .expect_err("Should fail if verify subcommand is used after cardano-db");
+
+        assert!(error.to_string().contains(
+            "The \"verify\" subcommand is not available for the v1, use --backend v2 instead"
+        ));
+    }
 }

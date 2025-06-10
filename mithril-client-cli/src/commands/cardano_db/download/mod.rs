@@ -1,4 +1,5 @@
-mod shared_steps;
+pub(crate) mod shared_steps;
+
 mod v1;
 mod v2;
 
