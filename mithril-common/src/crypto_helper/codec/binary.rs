@@ -41,8 +41,6 @@ mod binary_mithril_stm {
         StmVerificationKey, StmVerificationKeyPoP,
     };
 
-    use crate::crypto_helper::{key_decode_hex, key_encode_hex};
-
     use super::*;
 
     type D = Blake2b<U32>;
@@ -121,15 +119,19 @@ mod binary_mithril_stm {
 
     impl TryToBytes for StmAggrVerificationKey<D> {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
-            // TODO: Use a more efficient serialization method
-            Ok(key_encode_hex(self)?.into_bytes())
+            bincode::serde::encode_to_vec(self, bincode::config::standard()).map_err(|e| e.into())
         }
     }
 
     impl TryFromBytes for StmAggrVerificationKey<D> {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
-            // TODO: Use a more efficient deserialization method
-            key_decode_hex(std::str::from_utf8(bytes)?).map_err(|e| e.into())
+            let (res, _) = bincode::serde::decode_from_slice::<StmAggrVerificationKey<D>, _>(
+                bytes,
+                bincode::config::standard(),
+            )
+            .map_err(|e| anyhow!(e))?;
+
+            Ok(res)
         }
     }
 
@@ -250,15 +252,13 @@ mod binary_mk_proof {
 
     impl TryToBytes for MKProof {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
-            // TODO: Use a more efficient serialization method
-            Ok(key_encode_hex(self)?.into_bytes())
+            self.to_bytes()
         }
     }
 
     impl TryFromBytes for MKProof {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
-            // TODO: Use a more efficient deserialization method
-            key_decode_hex(std::str::from_utf8(bytes)?).map_err(|e| e.into())
+            Self::from_bytes(bytes)
         }
     }
 }
