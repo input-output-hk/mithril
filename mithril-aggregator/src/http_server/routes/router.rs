@@ -8,7 +8,10 @@ use crate::ServeCommandDependenciesContainer;
 
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::entities::SignedEntityTypeDiscriminants;
-use mithril_common::{CardanoNetwork, MITHRIL_API_VERSION_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
+use mithril_common::{
+    CardanoNetwork, MITHRIL_API_VERSION_HEADER, MITHRIL_CLIENT_TYPE_HEADER,
+    MITHRIL_ORIGIN_TAG_HEADER,
+};
 
 use slog::{warn, Logger};
 use std::collections::{BTreeSet, HashSet};
@@ -123,6 +126,7 @@ pub fn routes(
             "content-type",
             MITHRIL_API_VERSION_HEADER,
             MITHRIL_ORIGIN_TAG_HEADER,
+            MITHRIL_CLIENT_TYPE_HEADER,
         ])
         .allow_methods(vec![Method::GET, Method::POST, Method::OPTIONS]);
 
@@ -218,7 +222,7 @@ mod tests {
     use mithril_common::{
         entities::Epoch,
         era::{EraChecker, SupportedEra},
-        MITHRIL_ORIGIN_TAG_HEADER,
+        MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
     };
 
     use crate::initialize_dependencies;
@@ -339,7 +343,7 @@ mod tests {
         );
 
         assert!(request_with_access_control_request_headers(format!(
-            "{MITHRIL_API_VERSION_HEADER},{MITHRIL_ORIGIN_TAG_HEADER}"
+            "{MITHRIL_API_VERSION_HEADER},{MITHRIL_ORIGIN_TAG_HEADER},{MITHRIL_CLIENT_TYPE_HEADER}"
         ))
         .reply(&routes)
         .await
