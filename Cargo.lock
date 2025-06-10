@@ -4239,6 +4239,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "mithril-ticker"
+version = "0.1.0"
+
+[[package]]
 name = "mithrildemo"
 version = "0.1.52"
 dependencies = [
