@@ -26,7 +26,7 @@ impl Default for DownloadUnpackOptions {
         Self {
             allow_override: false,
             include_ancillary: false,
-            max_parallel_downloads: 100,
+            max_parallel_downloads: 20,
         }
     }
 }
