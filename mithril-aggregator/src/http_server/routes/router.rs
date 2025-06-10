@@ -1,6 +1,6 @@
 use crate::http_server::routes::{
-    artifact_routes, certificate_routes, epoch_routes, http_server_child_logger, root_routes,
-    signatures_routes, signer_routes, statistics_routes, status,
+    artifact_routes, certificate_routes, epoch_routes, root_routes, signatures_routes,
+    signer_routes, statistics_routes, status,
 };
 use crate::http_server::SERVER_BASE_PATH;
 use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
@@ -13,26 +13,14 @@ use mithril_common::{
     MITHRIL_ORIGIN_TAG_HEADER,
 };
 
-use slog::{warn, Logger};
 use std::collections::{BTreeSet, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 use warp::http::Method;
 use warp::http::StatusCode;
-use warp::reject::Reject;
 use warp::{Filter, Rejection, Reply};
 
 use super::{middlewares, proof_routes};
-
-#[derive(Debug)]
-pub struct VersionMismatchError;
-
-impl Reject for VersionMismatchError {}
-
-#[derive(Debug)]
-pub struct VersionParseError;
-
-impl Reject for VersionParseError {}
 
 /// HTTP Server configuration
 pub struct RouterConfig {
@@ -131,10 +119,6 @@ pub fn routes(
         .allow_methods(vec![Method::GET, Method::POST, Method::OPTIONS]);
 
     warp::any()
-        .and(header_must_be(
-            state.dependencies.api_version_provider.clone(),
-            http_server_child_logger(&state.dependencies.root_logger),
-        ))
         .and(warp::path(SERVER_BASE_PATH))
         .and(
             certificate_routes::routes(&state)
@@ -167,46 +151,8 @@ pub fn routes(
         .with(middlewares::log_route_call(&state))
 }
 
-/// API Version verification
-fn header_must_be(
-    api_version_provider: Arc<APIVersionProvider>,
-    logger: Logger,
-) -> impl Filter<Extract = (), Error = Rejection> + Clone {
-    warp::header::optional(MITHRIL_API_VERSION_HEADER)
-        .and(warp::any().map(move || api_version_provider.clone()))
-        .and(warp::any().map(move || logger.clone()))
-        .and_then(
-            move |maybe_header: Option<String>,
-                  api_version_provider: Arc<APIVersionProvider>,
-                  logger: Logger| async move {
-                match maybe_header {
-                    None => Ok(()),
-                    Some(version) => match semver::Version::parse(&version) {
-                        Ok(version)
-                            if api_version_provider
-                                .compute_current_version_requirement()
-                                .unwrap()
-                                .matches(&version)
-                                .to_owned() =>
-                        {
-                            Ok(())
-                        }
-                        Ok(_version) => Err(warp::reject::custom(VersionMismatchError)),
-                        Err(err) => {
-                            warn!(logger, "api_version_check::parse_error"; "error" => ?err);
-                            Err(warp::reject::custom(VersionParseError))
-                        }
-                    },
-                }
-            },
-        )
-        .untuple_one()
-}
-
 pub async fn handle_custom(reject: Rejection) -> Result<impl Reply, Rejection> {
-    if reject.find::<VersionMismatchError>().is_some() {
-        Ok(StatusCode::PRECONDITION_FAILED)
-    } else if reject.is_not_found() {
+    if reject.is_not_found() {
         Ok(StatusCode::NOT_FOUND)
     } else {
         Err(reject)
@@ -215,78 +161,13 @@ pub async fn handle_custom(reject: Rejection) -> Result<impl Reply, Rejection> {
 
 #[cfg(test)]
 mod tests {
-    use semver::Version;
-    use std::collections::HashMap;
     use warp::test::RequestBuilder;
 
-    use mithril_common::api_version::DummyApiVersionDiscriminantSource;
     use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
 
     use crate::initialize_dependencies;
-    use crate::test_tools::TestLogger;
 
     use super::*;
-
-    #[tokio::test]
-    async fn test_no_version() {
-        let discriminant_source = DummyApiVersionDiscriminantSource::default();
-        let api_version_provider = Arc::new(APIVersionProvider::new(Arc::new(discriminant_source)));
-        let filters = header_must_be(api_version_provider, TestLogger::stdout());
-        warp::test::request()
-            .path("/aggregator/whatever")
-            .filter(&filters)
-            .await
-            .expect("request without a version in headers should not be rejected");
-    }
-
-    #[tokio::test]
-    async fn test_parse_version_error() {
-        let discriminant_source = DummyApiVersionDiscriminantSource::default();
-        let api_version_provider = Arc::new(APIVersionProvider::new(Arc::new(discriminant_source)));
-        let filters = header_must_be(api_version_provider, TestLogger::stdout());
-        warp::test::request()
-            .header(MITHRIL_API_VERSION_HEADER, "not_a_version")
-            .path("/aggregator/whatever")
-            .filter(&filters)
-            .await
-            .expect_err(
-                r#"request with an unparsable version should be rejected with a version parse error"#,
-            );
-    }
-
-    #[tokio::test]
-    async fn test_bad_version() {
-        let discriminant_source = DummyApiVersionDiscriminantSource::default();
-        let mut version_provider = APIVersionProvider::new(Arc::new(discriminant_source));
-        let mut open_api_versions = HashMap::new();
-        open_api_versions.insert("openapi.yaml".to_string(), Version::new(1, 0, 0));
-        version_provider.update_open_api_versions(open_api_versions);
-        let api_version_provider = Arc::new(version_provider);
-        let filters = header_must_be(api_version_provider, TestLogger::stdout());
-        warp::test::request()
-            .header(MITHRIL_API_VERSION_HEADER, "0.0.999")
-            .path("/aggregator/whatever")
-            .filter(&filters)
-            .await
-            .expect_err(r#"request with bad version "0.0.999" should be rejected with a version mismatch error"#);
-    }
-
-    #[tokio::test]
-    async fn test_good_version() {
-        let discriminant_source = DummyApiVersionDiscriminantSource::default();
-        let mut version_provider = APIVersionProvider::new(Arc::new(discriminant_source));
-        let mut open_api_versions = HashMap::new();
-        open_api_versions.insert("openapi.yaml".to_string(), Version::new(0, 1, 0));
-        version_provider.update_open_api_versions(open_api_versions);
-        let api_version_provider = Arc::new(version_provider);
-        let filters = header_must_be(api_version_provider, TestLogger::stdout());
-        warp::test::request()
-            .header(MITHRIL_API_VERSION_HEADER, "0.1.2")
-            .path("/aggregator/whatever")
-            .filter(&filters)
-            .await
-            .expect(r#"request with the good version "0.1.2" should not be rejected"#);
-    }
 
     #[tokio::test]
     async fn test_404_response_should_include_status_code_and_headers() {
