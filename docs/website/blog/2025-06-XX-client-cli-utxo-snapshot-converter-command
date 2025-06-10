@@ -1,0 +1,39 @@
+---
+title: Mithril client CLI new UTxO snapshot converter command
+authors:
+  - name: Mithril Team
+tags: [mithril client, cli, command, utxo-hd, conversion]
+---
+
+### Introducing UTxO snapshot converter command in client CLI
+
+With the release of the new distribution [2524](https://github.com/input-output-hk/mithril/releases/tag/2524.0), we have added the **tools** command in the **client CLI**.
+
+Since the release of the Cardano node [10.1.4](https://github.com/IntersectMBO/cardano-node/releases/tag/10.4.1), the Mithril aggregator node produces snapshots of the Cardano database with `InMemory` UTxO-HD flavor.
+
+When restoring a Cardano database snapshot, if your Cardano node is configured for an on-disk format (`LMDB`) or the `legacy` format (Cardano node `10.3` and previous versions), you will need to convert that snapshot before restarting your Cardano node.
+
+The new `utxo-hd snapshot-converter` subcommand streamlines the Cardano node bootstrapping process by converting the restored ledger state snapshot into the expected flavor (on-disk `LMDB` or `Legacy`).
+
+This conversion tool is `unstable` and is available for Linux, macOS and Windows.
+
+It uses the `snapshot-converter` binary under the hood, bundled with the Cardano node distribution.
+
+Usage:
+
+```bash
+mithril-client --unstable tools utxo-hd snapshot-converter --db-directory $DB_DIRECTORY --cardano-node-version 10.1.4 --utxo-hd-flavor $UTXO_HD_FLAVOR --cardano-network $CARDANO_NETWORK
+```
+
+Parameters:
+
+- `--db-directory`: Path to the Cardano database directory.
+- `--cardano-node-version`: Version used to download the `snapshot-converter` binary (specific version eg. `10.1.4`, `latest` or `prerelease`).
+- `--utxo-hd-flavor`: Target UTxO-HD flavor (`LMDB` or `Legacy`).
+- `--cardano-network`: Cardano network (`preview`, `preprod` or `mainnet`)
+
+A new optional [step](https://mithril.network/doc/manual/getting-started/bootstrap-cardano-node#step-5-optional-convert-the-ledger-state-snapshot-to-another-flavor) has been added to the 'Bootstrap a Cardano node' guide, describing how to use the command.
+
+The documentation of the **client CLI** has been updated accordingly and can be found [here](https://mithril.network/doc/manual/developer-docs/nodes/mithril-client#tools-unstable).
+
+For any inquiries or assistance, don't hesitate to reach out to the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
