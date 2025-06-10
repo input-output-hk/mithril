@@ -83,6 +83,8 @@ This repository consists of the following parts:
 
   - [**Mithril build script**](./internal/mithril-build-script): a toolbox for Mithril crates that uses a build script phase.
 
+  - [**Mithril cardano-node-chain**](./internal/cardano-node/mithril-cardano-node-chain): mechanisms to read and interact with the **Cardano chain** through a Cardano node, used by **Mithril network** nodes.
+
   - [**Mithril cli helper**](./internal/mithril-cli-helper): **CLI** tools for **Mithril** binaries.
 
   - [**Mithril doc**](./internal/mithril-doc): an API that generates Markdown documentation for crate command line arguments.

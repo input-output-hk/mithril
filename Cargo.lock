@@ -3901,6 +3901,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "mithril-cardano-node-chain"
+version = "0.1.0"
+dependencies = [
+ "mithril-common",
+]
+
+[[package]]
 name = "mithril-cli-helper"
 version = "0.0.6"
 dependencies = [
