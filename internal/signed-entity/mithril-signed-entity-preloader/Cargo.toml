@@ -14,6 +14,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+mithril-cardano-node-chain = { path = "../../cardano-node/mithril-cardano-node-chain" }
 mithril-common = { path = "../../../mithril-common", features = ["fs"] }
 mithril-signed-entity-lock = { path = "../mithril-signed-entity-lock" }
 slog = { workspace = true }

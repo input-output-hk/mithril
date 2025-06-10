@@ -2,10 +2,12 @@ use serde::{Deserialize, Serialize};
 use std::{fmt::Display, path::PathBuf, sync::Arc};
 use thiserror::Error;
 
-use crate::{chain_observer::ChainObserver, CardanoNetwork, StdResult};
+use mithril_common::entities::CardanoNetwork;
+use mithril_common::StdResult;
 
-#[cfg(any(test, feature = "test_tools"))]
-use super::FakeObserver;
+use crate::chain_observer::ChainObserver;
+use crate::test::double::FakeObserver;
+
 use super::{CardanoCliChainObserver, CardanoCliRunner, PallasChainObserver};
 
 /// Type of chain observers available
@@ -17,8 +19,7 @@ pub enum ChainObserverType {
     CardanoCli,
     /// Pallas chain observer.
     Pallas,
-    /// Fake chain observer.
-    #[cfg(any(test, feature = "test_tools"))]
+    /// `TEST ONLY` Fake chain observer
     Fake,
 }
 
@@ -27,7 +28,6 @@ impl Display for ChainObserverType {
         match self {
             Self::CardanoCli => write!(f, "cardano-cli"),
             Self::Pallas => write!(f, "pallas"),
-            #[cfg(any(test, feature = "test_tools"))]
             Self::Fake => write!(f, "fake"),
         }
     }
@@ -79,7 +79,6 @@ impl ChainObserverBuilder {
                     PallasChainObserver::new(&self.cardano_node_socket_path, self.cardano_network);
                 Ok(Arc::new(observer))
             }
-            #[cfg(any(test, feature = "test_tools"))]
             ChainObserverType::Fake => Ok(Arc::new(FakeObserver::default())),
         }
     }

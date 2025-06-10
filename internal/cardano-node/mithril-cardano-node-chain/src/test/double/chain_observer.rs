@@ -1,10 +1,13 @@
 use async_trait::async_trait;
 use tokio::sync::RwLock;
 
-use crate::chain_observer::interface::*;
-use crate::chain_observer::{ChainAddress, TxDatum};
-use crate::crypto_helper::{KESPeriod, OpCert};
-use crate::{entities::*, test_utils::fake_data};
+use mithril_common::crypto_helper::{KESPeriod, OpCert};
+use mithril_common::entities::{
+    BlockNumber, ChainPoint, Epoch, SignerWithStake, SlotNumber, StakeDistribution, TimePoint,
+};
+
+use crate::chain_observer::{ChainObserver, ChainObserverError};
+use crate::entities::{ChainAddress, TxDatum};
 
 /// A Fake [ChainObserver] for testing purpose using fixed data.
 pub struct FakeObserver {
@@ -147,8 +150,12 @@ impl FakeObserver {
 
 impl Default for FakeObserver {
     fn default() -> Self {
-        let mut observer = Self::new(Some(TimePoint::dummy()));
-        observer.signers = RwLock::new(fake_data::signers_with_stakes(2));
+        let mut observer = Self::new(Some(TimePoint::new(
+            10,
+            100,
+            ChainPoint::new(SlotNumber(1000), BlockNumber(100), "hash"),
+        )));
+        observer.signers = RwLock::new(Vec::new());
 
         observer
     }
@@ -194,7 +201,7 @@ impl ChainObserver for FakeObserver {
                 .read()
                 .await
                 .iter()
-                .map(|signer| (signer.party_id.clone() as PartyId, signer.stake as Stake))
+                .map(|signer| (signer.party_id.clone(), signer.stake))
                 .collect::<StakeDistribution>(),
         ))
     }
@@ -209,7 +216,7 @@ impl ChainObserver for FakeObserver {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils::fake_data;
+    use mithril_common::test_utils::fake_data;
 
     use super::*;
 

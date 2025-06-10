@@ -14,12 +14,14 @@ use tokio::{
 };
 use warp::Filter;
 
-use mithril_common::{
-    api_version::APIVersionProvider,
-    cardano_block_scanner::BlockScanner,
-    certificate_chain::CertificateVerifier,
+use mithril_cardano_node_chain::{
     chain_observer::{CardanoCliRunner, ChainObserver},
     chain_reader::ChainBlockReader,
+    chain_scanner::BlockScanner,
+};
+use mithril_common::{
+    api_version::APIVersionProvider,
+    certificate_chain::CertificateVerifier,
     crypto_helper::ProtocolGenesisVerifier,
     digesters::{
         cache::ImmutableFileDigestCacheProvider, ImmutableDigester, ImmutableFileObserver,

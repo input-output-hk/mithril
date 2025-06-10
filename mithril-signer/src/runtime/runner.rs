@@ -336,10 +336,9 @@ mod tests {
     use std::{path::Path, sync::Arc};
     use tokio::sync::RwLock;
 
+    use mithril_cardano_node_chain::test::double::{DumbBlockScanner, FakeObserver};
     use mithril_common::{
         api_version::APIVersionProvider,
-        cardano_block_scanner::DumbBlockScanner,
-        chain_observer::FakeObserver,
         crypto_helper::{MKMap, MKMapNode, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer},
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
         entities::{BlockNumber, BlockRange, Epoch, SignedEntityTypeDiscriminants},

@@ -1,9 +1,9 @@
-#[cfg(feature = "fs")]
 use pallas_network::miniprotocols::Point as PallasPoint;
 use std::fmt::{Debug, Formatter};
 
-use crate::cardano_block_scanner::ScannedBlock;
-use crate::entities::{ChainPoint, SlotNumber};
+use mithril_common::entities::{ChainPoint, SlotNumber};
+
+use crate::entities::ScannedBlock;
 
 /// Point internal representation in the Cardano chain.
 #[derive(Clone, PartialEq)]
@@ -63,28 +63,23 @@ impl Debug for RawCardanoPoint {
     }
 }
 
-cfg_fs! {
-    impl From<RawCardanoPoint> for PallasPoint {
-        fn from(raw_point: RawCardanoPoint) -> Self {
-            match raw_point.is_origin() {
-                true => Self::Origin,
-                false => Self::Specific(
-                    *raw_point.slot_number,
-                    raw_point.block_hash
-                ),
-            }
+impl From<RawCardanoPoint> for PallasPoint {
+    fn from(raw_point: RawCardanoPoint) -> Self {
+        match raw_point.is_origin() {
+            true => Self::Origin,
+            false => Self::Specific(*raw_point.slot_number, raw_point.block_hash),
         }
     }
+}
 
-    impl From<PallasPoint> for RawCardanoPoint {
-        fn from(point: PallasPoint) -> Self {
-            match point {
-                PallasPoint::Specific(slot_number, block_hash) => Self {
-                    slot_number: SlotNumber(slot_number),
-                    block_hash,
-                },
-                PallasPoint::Origin => Self::origin(),
-            }
+impl From<PallasPoint> for RawCardanoPoint {
+    fn from(point: PallasPoint) -> Self {
+        match point {
+            PallasPoint::Specific(slot_number, block_hash) => Self {
+                slot_number: SlotNumber(slot_number),
+                block_hash,
+            },
+            PallasPoint::Origin => Self::origin(),
         }
     }
 }
@@ -106,7 +101,7 @@ impl From<ScannedBlock> for RawCardanoPoint {
 
 #[cfg(test)]
 mod tests {
-    use crate::entities::BlockNumber;
+    use mithril_common::entities::BlockNumber;
 
     use super::*;
 

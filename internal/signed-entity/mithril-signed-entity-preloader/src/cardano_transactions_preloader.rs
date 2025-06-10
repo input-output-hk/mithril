@@ -10,8 +10,8 @@ use async_trait::async_trait;
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 use slog::{debug, info, Logger};
 
+use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_common::{
-    chain_observer::ChainObserver,
     entities::{BlockNumber, SignedEntityTypeDiscriminants},
     logging::LoggerExtensions,
     signable_builder::TransactionsImporter,
@@ -130,9 +130,10 @@ mod tests {
     use mockall::mock;
     use mockall::predicate::eq;
 
-    use crate::test_tools::TestLogger;
-    use mithril_common::chain_observer::FakeObserver;
+    use mithril_cardano_node_chain::test::double::FakeObserver;
     use mithril_common::entities::{BlockNumber, ChainPoint, TimePoint};
+
+    use crate::test_tools::TestLogger;
 
     use super::*;
 

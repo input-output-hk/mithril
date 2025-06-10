@@ -3833,6 +3833,7 @@ dependencies = [
  "hex",
  "http 1.3.1",
  "httpmock",
+ "mithril-cardano-node-chain",
  "mithril-cli-helper",
  "mithril-common",
  "mithril-doc",
@@ -3904,7 +3905,28 @@ dependencies = [
 name = "mithril-cardano-node-chain"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "async-trait",
+ "hex",
+ "kes-summed-ed25519",
  "mithril-common",
+ "mockall",
+ "nom 8.0.0",
+ "pallas-addresses",
+ "pallas-codec",
+ "pallas-crypto",
+ "pallas-network",
+ "pallas-primitives",
+ "pallas-traverse",
+ "rand_core 0.6.4",
+ "serde",
+ "serde_json",
+ "slog",
+ "slog-async",
+ "slog-term",
+ "strum",
+ "thiserror 2.0.12",
+ "tokio",
 ]
 
 [[package]]
@@ -4027,7 +4049,6 @@ dependencies = [
  "nom 8.0.0",
  "pallas-addresses",
  "pallas-codec",
- "pallas-crypto",
  "pallas-network",
  "pallas-primitives",
  "pallas-traverse",
@@ -4081,6 +4102,7 @@ dependencies = [
  "async-recursion",
  "clap",
  "indicatif",
+ "mithril-cardano-node-chain",
  "mithril-common",
  "mithril-doc",
  "reqwest",
@@ -4100,6 +4122,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "mithril-cardano-node-chain",
  "mithril-common",
  "serde",
  "serde_json",
@@ -4192,6 +4215,7 @@ version = "0.0.4"
 dependencies = [
  "anyhow",
  "async-trait",
+ "mithril-cardano-node-chain",
  "mithril-common",
  "mithril-signed-entity-lock",
  "mockall",
@@ -4214,6 +4238,7 @@ dependencies = [
  "hex",
  "http 1.3.1",
  "httpmock",
+ "mithril-cardano-node-chain",
  "mithril-cli-helper",
  "mithril-common",
  "mithril-doc",
@@ -4268,6 +4293,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "mithril-cardano-node-chain",
  "mithril-common",
  "thiserror 2.0.12",
  "tokio",

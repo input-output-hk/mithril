@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 
-use mithril_common::chain_observer::{ChainAddress, ChainObserver, ChainObserverError, TxDatum};
+use mithril_cardano_node_chain::chain_observer::{ChainObserver, ChainObserverError};
+use mithril_cardano_node_chain::entities::{ChainAddress, TxDatum};
 use mithril_common::crypto_helper::{KESPeriod, OpCert};
 use mithril_common::entities::{ChainPoint, Epoch, StakeDistribution};
 use mithril_persistence::store::StakeStorer;

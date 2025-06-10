@@ -15,10 +15,13 @@ use std::{
 use thiserror::Error;
 use tokio::sync::RwLock;
 
+use mithril_cardano_node_chain::{
+    chain_observer::ChainObserver,
+    entities::ScannedBlock,
+    test::double::{DumbBlockScanner, FakeObserver},
+};
 use mithril_common::{
     api_version::APIVersionProvider,
-    cardano_block_scanner::{DumbBlockScanner, ScannedBlock},
-    chain_observer::{ChainObserver, FakeObserver},
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
     entities::{
         BlockNumber, CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,

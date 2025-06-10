@@ -106,7 +106,6 @@ mithril-build-script = { path = "../internal/mithril-build-script", version = "=
 [dev-dependencies]
 criterion = { version = "0.6.0", features = ["html_reports", "async_tokio"] }
 mockall = { workspace = true }
-pallas-crypto = "0.32.0"
 reqwest = { workspace = true }
 slog-async = { workspace = true }
 slog-term = { workspace = true }

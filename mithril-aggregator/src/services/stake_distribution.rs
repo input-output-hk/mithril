@@ -8,8 +8,8 @@ use std::{
 };
 use tokio::sync::{Mutex, MutexGuard};
 
+use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_common::{
-    chain_observer::ChainObserver,
     entities::{Epoch, StakeDistribution},
     StdError, StdResult,
 };

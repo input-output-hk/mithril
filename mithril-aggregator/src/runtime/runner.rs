@@ -518,40 +518,43 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::dependency_injection::DependenciesBuilder;
-    use crate::entities::AggregatorEpochSettings;
-    use crate::services::{FakeEpochService, FakeEpochServiceBuilder, MockUpkeepService};
-    use crate::{
-        entities::OpenMessage,
-        initialize_dependencies,
-        runtime::{AggregatorRunner, AggregatorRunnerTrait},
-        services::{MithrilStakeDistributionService, MockCertifierService},
-        MithrilSignerRegistrationLeader, ServeCommandConfiguration,
-        ServeCommandDependenciesContainer, SignerRegistrationRound,
-    };
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
-    use mithril_common::entities::{
-        CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,
-        SignedEntityTypeDiscriminants,
-    };
-    use mithril_common::temp_dir;
+    use mockall::predicate::eq;
+    use mockall::{mock, Sequence};
+    use std::path::PathBuf;
+    use std::sync::Arc;
+    use tokio::sync::RwLock;
+
+    use mithril_cardano_node_chain::test::double::FakeObserver;
     use mithril_common::{
-        chain_observer::FakeObserver,
         digesters::DumbImmutableFileObserver,
-        entities::{ProtocolMessage, SignedEntityType, StakeDistribution, TimePoint},
+        entities::{
+            CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolMessage,
+            SignedEntityConfig, SignedEntityType, SignedEntityTypeDiscriminants, StakeDistribution,
+            TimePoint,
+        },
         signable_builder::SignableBuilderService,
+        temp_dir,
         test_utils::{fake_data, MithrilFixtureBuilder},
         StdResult,
     };
     use mithril_persistence::store::StakeStorer;
     use mithril_signed_entity_lock::SignedEntityTypeLock;
     use mithril_ticker::MithrilTickerService;
-    use mockall::predicate::eq;
-    use mockall::{mock, Sequence};
-    use std::path::PathBuf;
-    use std::sync::Arc;
-    use tokio::sync::RwLock;
+
+    use crate::{
+        dependency_injection::DependenciesBuilder,
+        entities::{AggregatorEpochSettings, OpenMessage},
+        initialize_dependencies,
+        runtime::{AggregatorRunner, AggregatorRunnerTrait},
+        services::{
+            FakeEpochService, FakeEpochServiceBuilder, MithrilStakeDistributionService,
+            MockCertifierService, MockUpkeepService,
+        },
+        MithrilSignerRegistrationLeader, ServeCommandConfiguration,
+        ServeCommandDependenciesContainer, SignerRegistrationRound,
+    };
 
     mock! {
         SignableBuilderServiceImpl { }

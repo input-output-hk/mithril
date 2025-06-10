@@ -1,16 +1,18 @@
-use crate::mithril::relay_signer::RelaySignerConfiguration;
-use crate::{
-    assertions, Aggregator, AggregatorConfig, Client, Devnet, FullNode, PoolNode, RelayAggregator,
-    RelayPassive, RelaySigner, Signer, DEVNET_MAGIC_ID,
-};
-use mithril_common::chain_observer::{ChainObserver, PallasChainObserver};
-use mithril_common::entities::{Epoch, PartyId, ProtocolParameters};
-use mithril_common::{CardanoNetwork, StdResult};
 use slog_scope::info;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+
+use mithril_cardano_node_chain::chain_observer::{ChainObserver, PallasChainObserver};
+use mithril_common::entities::{Epoch, PartyId, ProtocolParameters};
+use mithril_common::{CardanoNetwork, StdResult};
+
+use crate::mithril::relay_signer::RelaySignerConfiguration;
+use crate::{
+    assertions, Aggregator, AggregatorConfig, Client, Devnet, FullNode, PoolNode, RelayAggregator,
+    RelayPassive, RelaySigner, Signer, DEVNET_MAGIC_ID,
+};
 
 use super::signer::SignerConfig;
 

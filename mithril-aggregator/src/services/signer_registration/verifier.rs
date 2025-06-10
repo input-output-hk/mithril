@@ -3,8 +3,8 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 
+use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_common::{
-    chain_observer::ChainObserver,
     crypto_helper::{KESPeriod, ProtocolKeyRegistration},
     entities::{Signer, SignerWithStake, StakeDistribution},
     StdResult,
@@ -79,9 +79,8 @@ impl SignerRegistrationVerifier for MithrilSignerRegistrationVerifier {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::{
-        chain_observer::FakeObserver, entities::TimePoint, test_utils::MithrilFixtureBuilder,
-    };
+    use mithril_cardano_node_chain::test::double::FakeObserver;
+    use mithril_common::{entities::TimePoint, test_utils::MithrilFixtureBuilder};
 
     use super::*;
 

@@ -24,6 +24,7 @@ anyhow = { workspace = true }
 async-recursion = { workspace = true }
 clap = { workspace = true }
 indicatif = { version = "0.17.11", features = ["tokio"] }
+mithril-cardano-node-chain = { path = "../../internal/cardano-node/mithril-cardano-node-chain" }
 mithril-common = { path = "../../mithril-common", features = ["full"] }
 mithril-doc = { path = "../../internal/mithril-doc" }
 reqwest = { workspace = true, features = ["default"] }

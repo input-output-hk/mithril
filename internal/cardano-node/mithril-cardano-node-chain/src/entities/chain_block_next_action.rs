@@ -1,5 +1,5 @@
-use crate::cardano_block_scanner::RawCardanoPoint;
-use crate::cardano_block_scanner::ScannedBlock;
+use crate::entities::RawCardanoPoint;
+use crate::entities::ScannedBlock;
 
 /// The action that indicates what to do next when scanning the chain
 #[derive(Debug, Clone, PartialEq)]

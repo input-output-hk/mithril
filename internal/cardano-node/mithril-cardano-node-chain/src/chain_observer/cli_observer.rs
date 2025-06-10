@@ -9,11 +9,13 @@ use std::fs;
 use std::path::PathBuf;
 use tokio::process::Command;
 
-use crate::chain_observer::interface::{ChainObserver, ChainObserverError};
-use crate::chain_observer::{ChainAddress, TxDatum};
-use crate::crypto_helper::{encode_bech32, KESPeriod, OpCert, SerDeShelleyFileFormat};
-use crate::entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, StakeDistribution};
-use crate::{CardanoNetwork, StdResult};
+use mithril_common::crypto_helper::{encode_bech32, KESPeriod, OpCert, SerDeShelleyFileFormat};
+use mithril_common::entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, StakeDistribution};
+use mithril_common::{CardanoNetwork, StdResult};
+
+use crate::entities::{ChainAddress, TxDatum};
+
+use super::interface::{ChainObserver, ChainObserverError};
 
 const CARDANO_ERA: &str = "latest";
 
@@ -569,15 +571,14 @@ impl ChainObserver for CardanoCliChainObserver {
 
 #[cfg(test)]
 mod tests {
+    use kes_summed_ed25519::{kes::Sum6Kes, traits::KesSk};
     use std::collections::BTreeMap;
 
-    use super::*;
-    use crate::{
-        chain_observer::test_cli_runner::{test_expected, TestCliRunner},
-        crypto_helper::ColdKeyGenerator,
-    };
+    use mithril_common::crypto_helper::ColdKeyGenerator;
 
-    use kes_summed_ed25519::{kes::Sum6Kes, traits::KesSk};
+    use crate::test::test_cli_runner::{test_expected, TestCliRunner};
+
+    use super::*;
 
     #[tokio::test]
     async fn test_get_current_era() {

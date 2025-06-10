@@ -6,12 +6,12 @@ use anyhow::{anyhow, Context};
 use slog::Logger;
 use tokio::sync::{Mutex, RwLock};
 
-use mithril_common::api_version::APIVersionProvider;
-use mithril_common::cardano_block_scanner::CardanoBlockScanner;
-use mithril_common::chain_observer::{
-    CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType,
+use mithril_cardano_node_chain::{
+    chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType},
+    chain_reader::PallasChainReader,
+    chain_scanner::CardanoBlockScanner,
 };
-use mithril_common::chain_reader::PallasChainReader;
+use mithril_common::api_version::APIVersionProvider;
 use mithril_common::crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat};
 use mithril_common::digesters::cache::{
     ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder,
@@ -451,9 +451,9 @@ impl<'a> DependenciesBuilder<'a> {
 mod tests {
     use std::path::PathBuf;
 
+    use mithril_cardano_node_chain::test::double::FakeObserver;
     use mithril_common::{
-        chain_observer::FakeObserver, digesters::DumbImmutableFileObserver, entities::TimePoint,
-        test_utils::TempDir,
+        digesters::DumbImmutableFileObserver, entities::TimePoint, test_utils::TempDir,
     };
 
     use crate::test_tools::TestLogger;

@@ -1,8 +1,9 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::anyhow;
+
+use mithril_cardano_node_chain::entities::{TxDatumBuilder, TxDatumFieldValue};
 use mithril_common::{
-    chain_observer::{TxDatumBuilder, TxDatumFieldValue},
     crypto_helper::EraMarkersSigner,
     entities::{Epoch, SupportedEra},
     StdResult,

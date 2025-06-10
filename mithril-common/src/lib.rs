@@ -32,7 +32,6 @@ macro_rules! cfg_test_tools {
 
 pub mod api_version;
 pub mod certificate_chain;
-pub mod chain_observer;
 pub mod crypto_helper;
 pub mod entities;
 pub mod logging;
@@ -46,8 +45,6 @@ cfg_test_tools! {
 
 cfg_fs! {
     pub mod digesters;
-    pub mod cardano_block_scanner;
-    pub mod chain_reader;
 }
 
 pub use entities::{CardanoNetwork, MagicId};

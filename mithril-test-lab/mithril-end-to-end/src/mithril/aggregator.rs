@@ -1,21 +1,24 @@
-use crate::utils::MithrilCommand;
-use crate::{
-    FullNode, RetryableDevnetError, ANCILLARY_MANIFEST_SECRET_KEY, DEVNET_MAGIC_ID,
-    ERA_MARKERS_SECRET_KEY, ERA_MARKERS_VERIFICATION_KEY, GENESIS_SECRET_KEY,
-    GENESIS_VERIFICATION_KEY,
-};
-use anyhow::{anyhow, Context};
-use mithril_common::chain_observer::{ChainObserver, PallasChainObserver};
-use mithril_common::{entities, CardanoNetwork, StdResult};
-use slog_scope::info;
 use std::cmp;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
+
+use anyhow::{anyhow, Context};
+use slog_scope::info;
 use tokio::process::Child;
 use tokio::sync::RwLock;
+
+use mithril_cardano_node_chain::chain_observer::{ChainObserver, PallasChainObserver};
+use mithril_common::{entities, CardanoNetwork, StdResult};
+
+use crate::utils::MithrilCommand;
+use crate::{
+    FullNode, RetryableDevnetError, ANCILLARY_MANIFEST_SECRET_KEY, DEVNET_MAGIC_ID,
+    ERA_MARKERS_SECRET_KEY, ERA_MARKERS_VERIFICATION_KEY, GENESIS_SECRET_KEY,
+    GENESIS_VERIFICATION_KEY,
+};
 
 #[derive(Debug)]
 pub struct AggregatorConfig<'a> {

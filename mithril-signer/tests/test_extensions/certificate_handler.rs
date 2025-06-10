@@ -168,7 +168,8 @@ impl AggregatorClient for FakeAggregator {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::chain_observer::{ChainObserver, FakeObserver};
+    use mithril_cardano_node_chain::chain_observer::ChainObserver;
+    use mithril_cardano_node_chain::test::double::FakeObserver;
     use mithril_common::digesters::DumbImmutableFileObserver;
     use mithril_common::entities::{BlockNumber, ChainPoint};
     use mithril_common::test_utils::fake_data;

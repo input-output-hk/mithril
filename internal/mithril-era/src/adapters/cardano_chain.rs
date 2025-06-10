@@ -4,7 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use thiserror::Error;
 
-use mithril_common::chain_observer::{ChainAddress, ChainObserver, TxDatumFieldTypeName};
+use mithril_cardano_node_chain::chain_observer::ChainObserver;
+use mithril_cardano_node_chain::entities::{ChainAddress, TxDatumFieldTypeName};
 use mithril_common::crypto_helper::{
     key_decode_hex, key_encode_hex, EraMarkersSigner, EraMarkersVerifier,
     EraMarkersVerifierSignature, EraMarkersVerifierVerificationKey,
@@ -153,9 +154,8 @@ impl EraReaderAdapter for CardanoChainAdapter {
 
 #[cfg(test)]
 mod test {
-    use mithril_common::chain_observer::{
-        FakeObserver, TxDatum, TxDatumBuilder, TxDatumFieldValue,
-    };
+    use mithril_cardano_node_chain::entities::{TxDatum, TxDatumBuilder, TxDatumFieldValue};
+    use mithril_cardano_node_chain::test::double::FakeObserver;
     use mithril_common::entities::Epoch;
 
     use super::*;

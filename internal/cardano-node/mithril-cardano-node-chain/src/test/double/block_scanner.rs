@@ -3,10 +3,11 @@ use std::sync::RwLock;
 
 use async_trait::async_trait;
 
-use crate::cardano_block_scanner::{BlockScanner, BlockStreamer, ScannedBlock};
-use crate::cardano_block_scanner::{ChainScannedBlocks, RawCardanoPoint};
-use crate::entities::{BlockNumber, ChainPoint};
-use crate::StdResult;
+use mithril_common::entities::{BlockNumber, ChainPoint};
+use mithril_common::StdResult;
+
+use crate::chain_scanner::{BlockScanner, BlockStreamer, ChainScannedBlocks};
+use crate::entities::{RawCardanoPoint, ScannedBlock};
 
 /// Dumb block scanner
 pub struct DumbBlockScanner {
@@ -139,11 +140,11 @@ impl BlockStreamer for DumbBlockStreamer {
 
 #[cfg(test)]
 mod tests {
-    use crate::cardano_block_scanner::BlockStreamerTestExtensions;
+    use mithril_common::entities::SlotNumber;
+
+    use crate::chain_scanner::BlockStreamerTestExtensions;
 
     use super::*;
-
-    use crate::entities::SlotNumber;
 
     #[tokio::test]
     async fn polling_without_set_of_block_return_none() {

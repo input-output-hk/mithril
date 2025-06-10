@@ -3,7 +3,9 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
 
-use crate::{chain_observer::CliRunner, StdResult};
+use mithril_common::StdResult;
+
+use crate::chain_observer::CliRunner;
 
 pub(crate) mod test_expected {
 
@@ -11,12 +13,12 @@ pub(crate) mod test_expected {
         pub(crate) const ERA: &str = "Conway";
     }
     pub(crate) mod launch_epoch {
-        use crate::entities::Epoch;
+        use mithril_common::entities::Epoch;
 
         pub(crate) const EPOCH: Epoch = Epoch(120);
     }
     pub(crate) mod launch_chain_point {
-        use crate::entities::{BlockNumber, SlotNumber};
+        use mithril_common::entities::{BlockNumber, SlotNumber};
 
         pub(crate) const SLOT_NUMBER: SlotNumber = SlotNumber(25886617);
         pub(crate) const BLOCK_NUMBER: BlockNumber = BlockNumber(1270276);

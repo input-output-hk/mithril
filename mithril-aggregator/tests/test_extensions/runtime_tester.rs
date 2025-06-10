@@ -1,19 +1,27 @@
-use crate::test_extensions::utilities::tx_hash;
-use crate::test_extensions::{AggregatorObserver, ExpectedCertificate, MetricsVerifier};
 use anyhow::{anyhow, Context};
 use chrono::Utc;
-use mithril_aggregator::MetricsService;
+use serde_json::json;
+use slog::Drain;
+use slog_scope::debug;
+use std::convert::Infallible;
+use std::sync::Arc;
+use std::time::Duration;
+use warp::http::StatusCode;
+use warp::Filter;
+
 use mithril_aggregator::{
     database::{record::SignedEntityRecord, repository::OpenMessageRepository},
     dependency_injection::DependenciesBuilder,
     services::FakeSnapshotter,
-    AggregatorRuntime, ConfigurationSource, DumbUploader, ServeCommandConfiguration,
-    ServeCommandDependenciesContainer, SignerRegistrationError,
+    AggregatorRuntime, ConfigurationSource, DumbUploader, MetricsService,
+    ServeCommandConfiguration, ServeCommandDependenciesContainer, SignerRegistrationError,
 };
-use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
+use mithril_cardano_node_chain::{
+    chain_observer::ChainObserver,
+    entities::ScannedBlock,
+    test::double::{DumbBlockScanner, FakeObserver},
+};
 use mithril_common::{
-    cardano_block_scanner::{DumbBlockScanner, ScannedBlock},
-    chain_observer::{ChainObserver, FakeObserver},
     crypto_helper::ProtocolGenesisSigner,
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
     entities::{
@@ -23,19 +31,15 @@ use mithril_common::{
         TimePoint,
     },
     test_utils::{
+        test_http_server::{test_http_server, TestHttpServer},
         MithrilFixture, MithrilFixtureBuilder, SignerFixture, StakeDistributionGenerationMethod,
     },
     StdResult,
 };
 use mithril_era::{adapters::EraReaderDummyAdapter, EraMarker, EraReader};
-use serde_json::json;
-use slog::Drain;
-use slog_scope::debug;
-use std::convert::Infallible;
-use std::sync::Arc;
-use std::time::Duration;
-use warp::http::StatusCode;
-use warp::Filter;
+
+use crate::test_extensions::utilities::tx_hash;
+use crate::test_extensions::{AggregatorObserver, ExpectedCertificate, MetricsVerifier};
 
 #[macro_export]
 macro_rules! cycle {
