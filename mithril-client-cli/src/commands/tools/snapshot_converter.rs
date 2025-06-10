@@ -19,7 +19,7 @@ const GITHUB_ORGANIZATION: &str = "IntersectMBO";
 const GITHUB_REPOSITORY: &str = "cardano-node";
 
 const LATEST_DISTRIBUTION_TAG: &str = "latest";
-const PRERELEASE_DISTRIBUTION_TAG: &str = "prerelease";
+const PRERELEASE_DISTRIBUTION_TAG: &str = "pre-release";
 
 const WORK_DIR: &str = "tmp";
 const CARDANO_DISTRIBUTION_DIR: &str = "cardano-node-distribution";
@@ -76,7 +76,7 @@ pub struct SnapshotConverterCommand {
 
     /// Cardano node version of the Mithril signed snapshot.
     ///
-    /// `latest` and `prerelease` are also supported to download the latest or prerelease distribution.
+    /// `latest` and `pre-release` are also supported to download the latest or pre-release distribution.
     #[clap(long)]
     cardano_node_version: String,
 
@@ -91,6 +91,10 @@ pub struct SnapshotConverterCommand {
     /// If set, the converted snapshot replaces the current ledger state in the `db_directory`.
     #[clap(long)]
     commit: bool,
+
+    /// GitHub token for authenticated API calls.
+    #[clap(long, env = "GITHUB_TOKEN")]
+    github_token: Option<String>,
 }
 
 impl SnapshotConverterCommand {
@@ -113,7 +117,7 @@ impl SnapshotConverterCommand {
                 )
             })?;
             let archive_path = Self::download_cardano_node_distribution(
-                ReqwestGitHubApiClient::new()?,
+                ReqwestGitHubApiClient::new(self.github_token.clone())?,
                 ReqwestHttpDownloader::new()?,
                 &self.cardano_node_version,
                 &distribution_dir,
@@ -185,7 +189,7 @@ impl SnapshotConverterCommand {
             PRERELEASE_DISTRIBUTION_TAG => github_api_client
                 .get_prerelease(GITHUB_ORGANIZATION, GITHUB_REPOSITORY)
                 .await
-                .with_context(|| "Failed to get prerelease")?,
+                .with_context(|| "Failed to get pre-release")?,
             _ => github_api_client
                 .get_release_by_tag(GITHUB_ORGANIZATION, GITHUB_REPOSITORY, tag)
                 .await

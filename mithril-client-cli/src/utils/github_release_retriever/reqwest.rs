@@ -9,25 +9,31 @@ use super::{GitHubRelease, GitHubReleaseRetriever};
 
 pub struct ReqwestGitHubApiClient {
     client: Client,
+    github_token: Option<String>,
 }
 
 impl ReqwestGitHubApiClient {
-    pub fn new() -> MithrilResult<Self> {
+    pub fn new(github_token: Option<String>) -> MithrilResult<Self> {
         let client = Client::builder()
             .user_agent("mithril-client")
             .build()
             .context("Failed to build Reqwest GitHub API client")?;
 
-        Ok(Self { client })
+        Ok(Self {
+            client,
+            github_token,
+        })
     }
 
     async fn download<U: IntoUrl, T: DeserializeOwned>(&self, source_url: U) -> MithrilResult<T> {
         let url = source_url
             .into_url()
             .with_context(|| "Given `source_url` is not a valid Url")?;
-        let response = self
-            .client
-            .get(url.clone())
+        let mut request = self.client.get(url.clone());
+        if let Some(token) = &self.github_token {
+            request = request.bearer_auth(token);
+        }
+        let response = request
             .send()
             .await
             .with_context(|| format!("Failed to send request to GitHub API: {}", url))?;
@@ -35,8 +41,9 @@ impl ReqwestGitHubApiClient {
             reqwest::StatusCode::OK => {}
             status => {
                 return Err(anyhow!(
-                    "GitHub API request failed with status code: {}",
-                    status
+                    "GitHub API request failed with status code '{}': {}",
+                    status,
+                    response.text().await.unwrap()
                 ));
             }
         }
@@ -84,7 +91,7 @@ impl GitHubReleaseRetriever for ReqwestGitHubApiClient {
         let prerelease = releases
             .into_iter()
             .find(|release| release.prerelease)
-            .ok_or_else(|| anyhow!("No prerelease found"))?;
+            .ok_or_else(|| anyhow!("No pre-release found"))?;
 
         Ok(prerelease)
     }
@@ -121,7 +128,7 @@ mod tests {
             when.method(GET).path("/endpoint");
             then.status(200).body(r#"{ "key": "value" }"#);
         });
-        let client = ReqwestGitHubApiClient::new().unwrap();
+        let client = ReqwestGitHubApiClient::new(None).unwrap();
 
         let result: FakeApiResponse = client
             .download(format!("{}/endpoint", server.base_url()))
@@ -143,7 +150,7 @@ mod tests {
             when.method(GET).path("/endpoint");
             then.status(200).body("this is not json");
         });
-        let client = ReqwestGitHubApiClient::new().unwrap();
+        let client = ReqwestGitHubApiClient::new(None).unwrap();
 
         let result: MithrilResult<FakeApiResponse> = client
             .download(format!("{}/endpoint", server.base_url()))
@@ -157,7 +164,7 @@ mod tests {
 
     #[tokio::test]
     async fn download_fails_on_invalid_url() {
-        let client = ReqwestGitHubApiClient::new().unwrap();
+        let client = ReqwestGitHubApiClient::new(None).unwrap();
 
         let result: MithrilResult<FakeApiResponse> = client.download("not a valid url").await;
 
@@ -171,7 +178,7 @@ mod tests {
             when.method(GET).path("/endpoint");
             then.status(StatusCode::INTERNAL_SERVER_ERROR.into());
         });
-        let client = ReqwestGitHubApiClient::new().unwrap();
+        let client = ReqwestGitHubApiClient::new(None).unwrap();
 
         let result: MithrilResult<FakeApiResponse> = client
             .download(format!("{}/endpoint", server.base_url()))

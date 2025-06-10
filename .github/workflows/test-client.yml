@@ -167,6 +167,14 @@ jobs:
         shell: bash
         run: .github/workflows/scripts/verify-cardano-db-restoration.sh ./bin/cdb-download-output.txt "${{ matrix.extra_args }}"
 
+      - name: Ledger state snapshot conversion from InMemory to LMDB
+        if: matrix.extra_args == '--include-ancillary'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        working-directory: ./bin
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --unstable tools utxo-hd snapshot-converter --db-directory db --cardano-node-version latest --utxo-hd-flavor LMDB --cardano-network $NETWORK --commit
+
       - name: Remove downloaded artifacts to free up disk space (Linux, Windows)
         if: runner.os != 'macOS'
         shell: bash
@@ -310,12 +318,29 @@ jobs:
           echo "CDB_SNAPSHOT_DIGEST=$(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --json | jq -r '.[0].digest')" >> $GITHUB_ENV
 
       - name: Cardano Database Snapshot / download & restore latest
+        if: matrix.extra_args != '--include-ancillary'
         shell: bash
         run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST --download-dir /app ${{ matrix.extra_args }}
 
-      - name: Remove downloaded artifacts to free up disk space
+      - name: Cardano Database Snapshot / download & restore latest and run conversion from InMemory to LMDB
+        if: matrix.extra_args == '--include-ancillary'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
-        run: rm --force /app/db/immutable/*.{chunk,primary,secondary}
+        run: |
+          docker run --rm \
+            --entrypoint bash \
+            -e NETWORK=$NETWORK \
+            -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY \
+            -e ANCILLARY_VERIFICATION_KEY=$ANCILLARY_VERIFICATION_KEY \
+            -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT \
+            -e GITHUB_TOKEN=$GITHUB_TOKEN \
+            --name='mithril-client' \
+            ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID \
+            -c "
+              /app/bin/mithril-client --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST --download-dir /app --include-ancillary &&
+              /app/bin/mithril-client --unstable tools utxo-hd snapshot-converter --db-directory /app/db --cardano-node-version latest --utxo-hd-flavor LMDB --cardano-network \$NETWORK --commit
+            "
 
       - name: Mithril Stake Distribution / list and get last hash
         shell: bash
@@ -454,3 +479,13 @@ jobs:
         run: |
           python3 ./.github/workflows/scripts/run-wasm-tests-browser-headless.py firefox
           ./.github/workflows/scripts/parse-wasm-headless-tests-results.sh firefox-results.html
+
+      - name: Upload Results Artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mithril-e2e-tests-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}-run_id_${{ matrix.run_id }}
+          path: |
+            chrome-results.html
+            firefox-results.html
+          if-no-files-found: error

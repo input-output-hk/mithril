@@ -19,7 +19,7 @@ pub trait GitHubReleaseRetriever {
     /// Retrieves the latest release.
     async fn get_latest_release(&self, owner: &str, repo: &str) -> MithrilResult<GitHubRelease>;
 
-    /// Retrieves the prerelease.
+    /// Retrieves the pre-release.
     async fn get_prerelease(&self, owner: &str, repo: &str) -> MithrilResult<GitHubRelease>;
 
     /// Retrieves all available releases.
