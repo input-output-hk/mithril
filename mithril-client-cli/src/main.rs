@@ -205,7 +205,9 @@ enum ArtifactCommands {
     #[clap(subcommand, alias("csd"))]
     CardanoStakeDistribution(CardanoStakeDistributionCommands),
 
+    /// Deprecated, use `cardano-db` instead
     #[clap(subcommand, alias("cdbv2"))]
+    #[deprecated(since = "0.12.9", note = "use `CardanoDb` commands instead")]
     CardanoDbV2(CardanoDbV2Commands),
 
     #[clap(alias("doc"), hide(true))]
@@ -222,37 +224,26 @@ impl ArtifactCommands {
             Self::MithrilStakeDistribution(cmd) => cmd.execute(context).await,
             Self::CardanoTransaction(cmd) => cmd.execute(context).await,
             Self::CardanoStakeDistribution(cmd) => cmd.execute(context).await,
+            #[allow(deprecated)]
             Self::CardanoDbV2(cmd) => {
-                if !context.is_unstable_enabled() {
-                    Err(anyhow!(Self::unstable_flag_missing_message(
-                        "cardano-db-v2",
-                        "list"
-                    )))
+                let message = "`cardano-db-v2` command is deprecated, use `cardano-db` with option `--backend v2` instead";
+                if cmd.is_json_output_enabled() {
+                    eprintln!(r#"{{"warning": "{}", "type": "deprecation"}}"#, message);
                 } else {
-                    cmd.execute(context).await
-                }
+                    eprintln!("{}", message);
+                };
+
+                context.require_unstable("cardano-db-v2", Some("list"))?;
+                cmd.execute(context).await
             }
             Self::GenerateDoc(cmd) => cmd
                 .execute(&mut Args::command())
                 .map_err(|message| anyhow!(message)),
             Self::Tools(cmd) => {
-                if !context.is_unstable_enabled() {
-                    Err(anyhow!(Self::unstable_flag_missing_message(
-                        "tools",
-                        "utxo-hd snapshot-converter"
-                    )))
-                } else {
-                    cmd.execute().await
-                }
+                context.require_unstable("tools", Some("utxo-hd snapshot-converter"))?;
+                cmd.execute().await
             }
         }
-    }
-
-    fn unstable_flag_missing_message(sub_command: &str, command_example: &str) -> String {
-        format!(
-            "The \"{sub_command}\" subcommand is only accepted using the --unstable flag.\n\n\
-                ie: \"mithril-client --unstable {sub_command} {command_example}\""
-        )
     }
 }
 
@@ -262,7 +253,12 @@ async fn main() -> MithrilResult<()> {
     let args = Args::parse_with_decorator(&|result: Result<Args, ClapError>| {
         Args::handle_deprecated_decorator(
             result,
-            vec![DeprecatedCommand::new("snapshot", "cardano-db")],
+            vec![
+                DeprecatedCommand::new("snapshot", "cardano-db"),
+                DeprecatedCommand::new("cardano-db-v2", "cardano-db")
+                    .with_alias("cdbv2")
+                    .with_additional_message("with option `--backend v2`"),
+            ],
         )
     });
     let logger = args.build_logger()?;

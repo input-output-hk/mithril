@@ -10,15 +10,31 @@ use crate::ClapError;
 pub struct DeprecatedCommand {
     command: String,
     new_command: String,
+    additional_message: Option<String>,
+    alias: Option<String>,
 }
 
 impl DeprecatedCommand {
     /// Create information about a deprecated command
-    pub fn new<S: ToString>(command: S, new_command: S) -> Self {
+    pub fn new<S1: Into<String>, S2: Into<String>>(command: S1, new_command: S2) -> Self {
         Self {
-            command: command.to_string(),
-            new_command: new_command.to_string(),
+            command: command.into(),
+            new_command: new_command.into(),
+            additional_message: None,
+            alias: None,
         }
+    }
+
+    /// Add an additional message to the deprecation warning. i.e. `with option '--option'`
+    pub fn with_additional_message<S: Into<String>>(mut self, additional_message: S) -> Self {
+        self.additional_message = Some(additional_message.into());
+        self
+    }
+
+    /// Matches the deprecated command with an alias.
+    pub fn with_alias<S: Into<String>>(mut self, alias: S) -> Self {
+        self.alias = Some(alias.into());
+        self
     }
 }
 
@@ -32,15 +48,15 @@ impl Deprecation {
     ) -> Option<DeprecatedCommand> {
         if let Some(context_value) = error.get(ContextKind::InvalidSubcommand) {
             let command_name = context_value.to_string();
-            deprecated_commands
-                .into_iter()
-                .find(|dc| command_name == dc.command)
+            deprecated_commands.into_iter().find(|dc| {
+                command_name == dc.command || dc.alias.as_ref().is_some_and(|a| &command_name == a)
+            })
         } else {
             None
         }
     }
 
-    /// Modify result to add information on deprecated commands.
+    /// Modify the result to add information on deprecated commands.
     pub fn handle_deprecated_commands<A>(
         matches_result: Result<A, ClapError>,
         styles: Styles,
@@ -49,8 +65,12 @@ impl Deprecation {
         matches_result.map_err(|mut e: ClapError| {
             if let Some(deprecated_command) = Self::find_deprecated_command(&e, deprecated_commands)
             {
+                let additional_message = deprecated_command
+                    .additional_message
+                    .map(|m| format!(" {}", m))
+                    .unwrap_or_default();
                 let message = format!(
-                    "'{}{}{}' command is deprecated, use '{}{}{}' command instead",
+                    "'{}{}{}' command is deprecated, use '{}{}{}' command instead{additional_message}",
                     styles.get_error().render(),
                     deprecated_command.command,
                     styles.get_error().render_reset(),
@@ -83,24 +103,22 @@ mod tests {
     #[derive(Subcommand, Debug, Clone)]
     enum MySubCommands {}
 
+    fn build_error(invalid_subcommand_name: &str) -> ClapError {
+        let mut e = ClapError::new(ErrorKind::InvalidSubcommand).with_cmd(&MyCommand::command());
+        e.insert(
+            ContextKind::InvalidSubcommand,
+            ContextValue::String(invalid_subcommand_name.to_string()),
+        );
+        e
+    }
+
     #[test]
     fn invalid_sub_command_message_for_a_non_deprecated_command_is_not_modified() {
-        fn build_error() -> Result<MyCommand, ClapError> {
-            let mut e =
-                ClapError::new(ErrorKind::InvalidSubcommand).with_cmd(&MyCommand::command());
-
-            e.insert(
-                ContextKind::InvalidSubcommand,
-                ContextValue::String("invalid_command".to_string()),
-            );
-
-            Err(e)
-        }
-
-        let default_error_message = build_error().err().unwrap().to_string();
+        let error = build_error("invalid_command");
+        let default_error_message = error.to_string();
 
         let result = Deprecation::handle_deprecated_commands(
-            build_error(),
+            Err(error) as Result<MyCommand, ClapError>,
             Styles::plain(),
             vec![DeprecatedCommand::new("old_command", "new_command")],
         );
@@ -110,22 +128,58 @@ mod tests {
     }
 
     #[test]
-    fn replace_error_message_on_deprecated_commands_and_show_the_new_command() {
-        let mut e = ClapError::new(ErrorKind::InvalidSubcommand).with_cmd(&MyCommand::command());
-        e.insert(
-            ContextKind::InvalidSubcommand,
-            ContextValue::String("old_command".to_string()),
-        );
+    fn replace_error_message_on_deprecated_commands_and_show_the_new_command_without_additional_message(
+    ) {
+        let error = build_error("old_command");
 
         let result = Deprecation::handle_deprecated_commands(
-            Err(e) as Result<MyCommand, ClapError>,
+            Err(error) as Result<MyCommand, ClapError>,
             Styles::plain(),
             vec![DeprecatedCommand::new("old_command", "new_command")],
         );
         assert!(result.is_err());
         let message = result.err().unwrap().to_string();
-        assert!(message.contains("'old_command'"));
-        assert!(message.contains("deprecated"));
-        assert!(message.contains("'new_command'"));
+        assert!(
+            message
+                .contains("'old_command' command is deprecated, use 'new_command' command instead"),
+            "Unexpected 'tip:' error message:\n{message}"
+        );
+    }
+
+    #[test]
+    fn replace_error_message_on_deprecated_commands_and_show_the_new_command_when_using_alias() {
+        let error = build_error("old_alias");
+
+        let result = Deprecation::handle_deprecated_commands(
+            Err(error) as Result<MyCommand, ClapError>,
+            Styles::plain(),
+            vec![DeprecatedCommand::new("old_command", "new_command").with_alias("old_alias")],
+        );
+        assert!(result.is_err());
+        let message = result.err().unwrap().to_string();
+        assert!(
+            message
+                .contains("'old_command' command is deprecated, use 'new_command' command instead"),
+            "Unexpected 'tip:' error message:\n{message}"
+        );
+    }
+
+    #[test]
+    fn replace_error_message_on_deprecated_commands_and_show_the_new_command_with_additional_message(
+    ) {
+        let error = build_error("old_command");
+
+        let result = Deprecation::handle_deprecated_commands(
+            Err(error) as Result<MyCommand, ClapError>,
+            Styles::plain(),
+            vec![DeprecatedCommand::new("old_command", "new_command")
+                .with_additional_message("'additional message'")],
+        );
+        assert!(result.is_err());
+        let message = result.err().unwrap().to_string();
+        assert!(
+            message.contains("'old_command' command is deprecated, use 'new_command' command instead 'additional message'"),
+            "Unexpected 'tip:' in error message:\n{message}"
+        );
     }
 }
