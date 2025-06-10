@@ -230,23 +230,21 @@ mod binary_opcert {
 }
 
 mod binary_mk_proof {
-    use serde::{de::DeserializeOwned, Serialize};
+    use serde::{Deserialize, Serialize};
 
-    use crate::crypto_helper::{key_decode_hex, key_encode_hex, MKMapKey, MKMapProof, MKProof};
+    use crate::crypto_helper::{MKMapKey, MKMapProof, MKProof};
 
     use super::*;
 
-    impl<T: MKMapKey + Serialize> TryToBytes for MKMapProof<T> {
+    impl<T: MKMapKey + Serialize + for<'de> Deserialize<'de>> TryToBytes for MKMapProof<T> {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
-            // TODO: Use a more efficient serialization method
-            Ok(key_encode_hex(self)?.into_bytes())
+            self.to_bytes()
         }
     }
 
-    impl<T: MKMapKey + DeserializeOwned> TryFromBytes for MKMapProof<T> {
+    impl<T: MKMapKey + Serialize + for<'de> Deserialize<'de>> TryFromBytes for MKMapProof<T> {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
-            // TODO: Use a more efficient deserialization method
-            key_decode_hex(std::str::from_utf8(bytes)?).map_err(|e| e.into())
+            Self::from_bytes(bytes)
         }
     }
 
