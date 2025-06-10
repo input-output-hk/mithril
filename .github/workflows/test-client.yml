@@ -342,10 +342,6 @@ jobs:
               /app/bin/mithril-client --unstable tools utxo-hd snapshot-converter --db-directory /app/db --cardano-node-version latest --utxo-hd-flavor LMDB --cardano-network \$NETWORK --commit
             "
 
-      - name: Remove downloaded artifacts to free up disk space
-        shell: bash
-        run: rm --force /app/db/immutable/*.{chunk,primary,secondary}
-
       - name: Mithril Stake Distribution / list and get last hash
         shell: bash
         run: |
