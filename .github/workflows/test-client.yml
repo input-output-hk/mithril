@@ -479,3 +479,13 @@ jobs:
         run: |
           python3 ./.github/workflows/scripts/run-wasm-tests-browser-headless.py firefox
           ./.github/workflows/scripts/parse-wasm-headless-tests-results.sh firefox-results.html
+
+      - name: Upload Results Artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mithril-e2e-tests-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}-run_id_${{ matrix.run_id }}
+          path: |
+            chrome-results.html
+            firefox-results.html
+          if-no-files-found: error
