@@ -195,6 +195,20 @@ impl MKProof {
             hashes.iter().map(|h| h.clone().into()).collect()
         }
     }
+
+    /// Convert the proof to bytes
+    pub fn to_bytes(&self) -> StdResult<Bytes> {
+        bincode::serde::encode_to_vec(self, bincode::config::standard()).map_err(|e| e.into())
+    }
+
+    /// Convert the proof from bytes
+    pub fn from_bytes(bytes: &[u8]) -> StdResult<Self> {
+        let (res, _) =
+            bincode::serde::decode_from_slice::<Self, _>(bytes, bincode::config::standard())
+                .map_err(|e| anyhow!(e))?;
+
+        Ok(res)
+    }
 }
 
 impl From<MKProof> for MKTreeNode {
@@ -482,6 +496,22 @@ mod tests {
         let proof =
             MKProof::from_leaves(leaves_to_verify).expect("MKProof generation should not fail");
         proof.verify().expect("The MKProof should be valid");
+    }
+
+    #[test]
+    fn test_should_serialize_deserialize_proof() {
+        let leaves = generate_leaves(10);
+        let leaves_to_verify = &[leaves[0].to_owned(), leaves[3].to_owned()];
+        let proof =
+            MKProof::from_leaves(leaves_to_verify).expect("MKProof generation should not fail");
+
+        let serialized_proof = proof.to_bytes().expect("Serialization should not fail");
+        let deserialized_proof =
+            MKProof::from_bytes(&serialized_proof).expect("Deserialization should not fail");
+        assert_eq!(
+            proof, deserialized_proof,
+            "Deserialized proof should match the original"
+        );
     }
 
     #[test]

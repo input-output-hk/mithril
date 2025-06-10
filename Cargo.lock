@@ -4032,6 +4032,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "bech32 0.11.0",
+ "bincode",
  "blake2 0.10.6",
  "chrono",
  "ciborium",
