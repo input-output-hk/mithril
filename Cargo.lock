@@ -4087,6 +4087,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "mithril-era"
+version = "0.1.0"
+
+[[package]]
 name = "mithril-metric"
 version = "0.1.14"
 dependencies = [

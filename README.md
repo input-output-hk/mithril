@@ -89,6 +89,8 @@ This repository consists of the following parts:
 
   - [**Mithril doc derive**](./internal/mithril-doc-derive): a macro implementation used by **Mithril doc**.
 
+  - [**Mithril era**](./internal/mithril-era): mechanisms to read and check **Mithril Era markers**, used by **Mithril network** nodes.
+
   - [**Mithril metric**](./internal/mithril-metric): materials to expose **metrics** in **Mithril network** nodes.
 
   - [**Mithril persistence**](./internal/mithril-persistence): the **persistence** library that is used by **Mithril network** nodes.
