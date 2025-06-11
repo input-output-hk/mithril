@@ -34,7 +34,7 @@ clean:
 	${CARGO} clean
 
 doc:
-	${CARGO} doc --no-deps --open --features full
+	${CARGO} doc --no-deps --open --target wasm32-unknown-unknown
 
 ci-test-install:
 	npm --prefix ci-test install
