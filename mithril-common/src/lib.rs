@@ -75,6 +75,12 @@ pub const MITHRIL_ORIGIN_TAG_HEADER: &str = "mithril-origin-tag";
 /// Mithril client type of the request
 pub const MITHRIL_CLIENT_TYPE_HEADER: &str = "mithril-client-type";
 
+/// Macro used to mark the code that should be cleaned up when the new era is activated
+#[macro_export]
+macro_rules! era_deprecate {
+    ( $comment:literal ) => {};
+}
+
 #[cfg(test)]
 mod tests {
     #[cfg(feature = "apispec")]
