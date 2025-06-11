@@ -54,10 +54,10 @@ impl APIVersionProvider {
     }
 
     /// Compute all the sorted list of all versions
-    pub fn compute_all_versions_sorted() -> StdResult<Vec<Version>> {
+    pub fn compute_all_versions_sorted() -> Vec<Version> {
         let mut versions: Vec<Version> = get_open_api_versions_mapping().into_values().collect();
         versions.sort();
-        Ok(versions)
+        versions
     }
 
     /// Update open api versions. Test only
@@ -158,8 +158,7 @@ mod test {
 
     #[test]
     fn test_compute_all_versions_sorted() {
-        let all_versions_sorted = APIVersionProvider::compute_all_versions_sorted()
-            .expect("Computing the list of all sorted versions should not fail");
+        let all_versions_sorted = APIVersionProvider::compute_all_versions_sorted();
 
         assert!(!all_versions_sorted.is_empty());
     }

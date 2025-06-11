@@ -529,7 +529,7 @@ mod tests {
         let server = MockServer::start();
         let client = setup_client(
             &server.url(""),
-            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+            APIVersionProvider::compute_all_versions_sorted(),
             None,
         );
         (server, client)
@@ -541,7 +541,7 @@ mod tests {
         let server = MockServer::start();
         let client = setup_client(
             &server.url(""),
-            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+            APIVersionProvider::compute_all_versions_sorted(),
             Some(custom_headers),
         );
         (server, client)
