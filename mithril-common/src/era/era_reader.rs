@@ -4,10 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::{str::FromStr, sync::Arc};
 use thiserror::Error;
 
-use crate::entities::Epoch;
+use crate::entities::{Epoch, SupportedEra};
 use crate::{StdError, StdResult};
-
-use super::SupportedEra;
 
 /// Value object that represents a tag of Era change.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

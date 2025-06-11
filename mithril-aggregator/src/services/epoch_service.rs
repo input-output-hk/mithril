@@ -1,17 +1,17 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use mithril_common::chain_observer::ChainObserver;
-use mithril_common::era::{EraChecker, SupportedEra};
 use slog::{debug, Logger};
 use std::collections::BTreeSet;
 use std::sync::Arc;
 use thiserror::Error;
 
+use mithril_common::chain_observer::ChainObserver;
 use mithril_common::crypto_helper::ProtocolAggregateVerificationKey;
 use mithril_common::entities::{
     CardanoEra, CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityConfig,
-    SignedEntityTypeDiscriminants, Signer, SignerWithStake, Stake, TotalSPOs,
+    SignedEntityTypeDiscriminants, Signer, SignerWithStake, Stake, SupportedEra, TotalSPOs,
 };
+use mithril_common::era::EraChecker;
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder};
 use mithril_common::StdResult;
@@ -854,9 +854,8 @@ impl EpochService for FakeEpochService {
 mod tests {
     use mithril_common::chain_observer::FakeObserver;
     use mithril_common::entities::{
-        BlockNumber, CardanoTransactionsSigningConfig, Stake, StakeDistribution,
+        BlockNumber, CardanoTransactionsSigningConfig, Stake, StakeDistribution, SupportedEra,
     };
-    use mithril_common::era::SupportedEra;
     use mithril_common::test_utils::{
         fake_data, MithrilFixture, MithrilFixtureBuilder, StakeDistributionGenerationMethod,
     };

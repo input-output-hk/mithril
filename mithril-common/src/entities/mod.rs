@@ -27,6 +27,7 @@ mod signer;
 mod single_signature;
 mod slot_number;
 mod snapshot;
+mod supported_era;
 mod time_point;
 mod type_alias;
 
@@ -60,5 +61,6 @@ pub use signer::{Signer, SignerWithStake};
 pub use single_signature::*;
 pub use slot_number::SlotNumber;
 pub use snapshot::Snapshot;
+pub use supported_era::*;
 pub use time_point::*;
 pub use type_alias::*;

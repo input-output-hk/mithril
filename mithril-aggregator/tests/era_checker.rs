@@ -1,8 +1,10 @@
 mod test_extensions;
 use mithril_aggregator::{RuntimeError, ServeCommandConfiguration};
 use mithril_common::{
-    entities::{BlockNumber, ChainPoint, Epoch, ProtocolParameters, SlotNumber, TimePoint},
-    era::{EraMarker, SupportedEra},
+    entities::{
+        BlockNumber, ChainPoint, Epoch, ProtocolParameters, SlotNumber, SupportedEra, TimePoint,
+    },
+    era::EraMarker,
     temp_dir,
     test_utils::MithrilFixtureBuilder,
 };

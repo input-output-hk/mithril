@@ -38,9 +38,8 @@ impl EraReaderAdapter for DummyAdapter {
 
 #[cfg(test)]
 mod tests {
-    use crate::entities::Epoch;
+    use crate::entities::{Epoch, SupportedEra};
 
-    use super::super::super::SupportedEra;
     use super::*;
 
     #[tokio::test]

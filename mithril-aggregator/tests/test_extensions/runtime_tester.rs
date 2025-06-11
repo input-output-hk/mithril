@@ -19,9 +19,10 @@ use mithril_common::{
     entities::{
         BlockNumber, CardanoTransactionsSigningConfig, Certificate, CertificateSignature,
         ChainPoint, Epoch, ImmutableFileNumber, SignedEntityType, SignedEntityTypeDiscriminants,
-        SingleSignatureAuthenticationStatus, SlotNumber, StakeDistribution, TimePoint,
+        SingleSignatureAuthenticationStatus, SlotNumber, StakeDistribution, SupportedEra,
+        TimePoint,
     },
-    era::{adapters::EraReaderDummyAdapter, EraMarker, EraReader, SupportedEra},
+    era::{adapters::EraReaderDummyAdapter, EraMarker, EraReader},
     test_utils::{
         MithrilFixture, MithrilFixtureBuilder, SignerFixture, StakeDistributionGenerationMethod,
     },

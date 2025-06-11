@@ -22,9 +22,10 @@ use mithril_common::{
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
     entities::{
         BlockNumber, CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,
-        SignedEntityType, SignedEntityTypeDiscriminants, SignerWithStake, SlotNumber, TimePoint,
+        SignedEntityType, SignedEntityTypeDiscriminants, SignerWithStake, SlotNumber, SupportedEra,
+        TimePoint,
     },
-    era::{adapters::EraReaderDummyAdapter, EraChecker, EraMarker, EraReader, SupportedEra},
+    era::{adapters::EraReaderDummyAdapter, EraChecker, EraMarker, EraReader},
     signable_builder::{
         CardanoDatabaseSignableBuilder, CardanoImmutableFilesFullSignableBuilder,
         CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,

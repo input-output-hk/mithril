@@ -10,7 +10,7 @@ use warp::http::Response;
 use warp::http::StatusCode;
 use warp::hyper::body::Bytes;
 
-use crate::era::SupportedEra;
+use crate::entities::SupportedEra;
 
 /// APISpec helps validate conformity to an OpenAPI specification
 pub struct APISpec<'a> {

@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use mithril_common::api_version::APIVersionProvider;
-use mithril_common::entities::Epoch;
+use mithril_common::entities::{Epoch, SupportedEra};
 use mithril_common::era::adapters::{EraReaderAdapterBuilder, EraReaderDummyAdapter};
-use mithril_common::era::{EraChecker, EraMarker, EraReader, EraReaderAdapter, SupportedEra};
+use mithril_common::era::{EraChecker, EraMarker, EraReader, EraReaderAdapter};
 
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
 use crate::get_dependency;

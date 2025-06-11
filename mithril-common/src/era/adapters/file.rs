@@ -28,8 +28,7 @@ impl EraReaderAdapter for FileAdapter {
 
 #[cfg(test)]
 mod tests {
-    use crate::entities::Epoch;
-    use crate::era::SupportedEra;
+    use crate::entities::{Epoch, SupportedEra};
     use crate::test_utils::TempDir;
 
     use super::*;

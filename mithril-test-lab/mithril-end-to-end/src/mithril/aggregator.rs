@@ -6,7 +6,6 @@ use crate::{
 };
 use anyhow::{anyhow, Context};
 use mithril_common::chain_observer::{ChainObserver, PallasChainObserver};
-use mithril_common::era::SupportedEra;
 use mithril_common::{entities, CardanoNetwork, StdResult};
 use slog_scope::info;
 use std::cmp;
@@ -258,8 +257,10 @@ impl Aggregator {
         mithril_era: &str,
         next_era_activation_epoch: entities::Epoch,
     ) -> StdResult<()> {
-        let is_not_first_era =
-            SupportedEra::eras().first().map(|e| e.to_string()) != Some(mithril_era.to_string());
+        let is_not_first_era = entities::SupportedEra::eras()
+            .first()
+            .map(|e| e.to_string())
+            != Some(mithril_era.to_string());
         let current_era_epoch = if is_not_first_era {
             entities::Epoch(0)
         } else {

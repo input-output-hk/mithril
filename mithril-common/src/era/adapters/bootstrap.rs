@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
-use crate::entities::Epoch;
-use crate::era::{EraMarker, EraReaderAdapter, SupportedEra};
+use crate::entities::{Epoch, SupportedEra};
+use crate::era::{EraMarker, EraReaderAdapter};
 use crate::StdResult;
 
 /// The goal of the bootstrap adapter is to advertise for the first existing Era
@@ -21,7 +21,7 @@ impl EraReaderAdapter for BootstrapAdapter {
 
 #[cfg(test)]
 mod tests {
-    use crate::era::SupportedEra;
+    use crate::entities::SupportedEra;
 
     use super::*;
 
