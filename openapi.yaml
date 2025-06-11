@@ -39,8 +39,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AggregatorFeaturesMessage"
-        "412":
-          description: API version mismatch
         default:
           description: root error
           content:
@@ -73,8 +71,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AggregatorStatusMessage"
-        "412":
-          description: API version mismatch
         default:
           description: root error
           content:
@@ -100,8 +96,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EpochSettingsMessage"
-        "412":
-          description: API version mismatch
         default:
           description: epoch settings error
           content:
@@ -121,8 +115,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CertificateListMessage"
-        "412":
-          description: API version mismatch
         default:
           description: certificates retrieval error
           content:
@@ -154,8 +146,6 @@ paths:
                 $ref: "#/components/schemas/CertificateMessage"
         "404":
           description: certificate not found
-        "412":
-          description: API version mismatch
         default:
           description: get certificate error
           content:
@@ -175,8 +165,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SnapshotListMessage"
-        "412":
-          description: API version mismatch
         default:
           description: snapshots retrieval error
           content:
@@ -208,8 +196,6 @@ paths:
                 $ref: "#/components/schemas/SnapshotMessage"
         "404":
           description: snapshot not found
-        "412":
-          description: API version mismatch
         default:
           description: snapshot retrieval error
           content:
@@ -242,8 +228,6 @@ paths:
                 format: binary
         "404":
           description: snapshot not found
-        "412":
-          description: API version mismatch
         default:
           description: snapshot retrieval error
           content:
@@ -263,8 +247,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CardanoDatabaseSnapshotListMessage"
-        "412":
-          description: API version mismatch
         default:
           description: Cardano database snapshots retrieval error
           content:
@@ -284,8 +266,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CardanoDatabaseDigestListMessage"
-        "412":
-          description: API version mismatch
         default:
           description: Cardano database immutable files digest retrieval error
           content:
@@ -317,8 +297,6 @@ paths:
                 $ref: "#/components/schemas/CardanoDatabaseSnapshotMessage"
         "404":
           description: Cardano database snapshot not found
-        "412":
-          description: API version mismatch
         default:
           description: Cardano database snapshot retrieval error
           content:
@@ -338,8 +316,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MithrilStakeDistributionListMessage"
-        "412":
-          description: API version mismatch
         default:
           description: Mithril stake distribution retrieval error
           content:
@@ -371,8 +347,6 @@ paths:
                 $ref: "#/components/schemas/MithrilStakeDistributionMessage"
         "404":
           description: Mithril stake distribution not found
-        "412":
-          description: API version mismatch
         default:
           description: Mithril stake distribution retrieval error
           content:
@@ -392,8 +366,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CardanoStakeDistributionListMessage"
-        "412":
-          description: API version mismatch
         default:
           description: Cardano stake distribution retrieval error
           content:
@@ -425,8 +397,6 @@ paths:
                 $ref: "#/components/schemas/CardanoStakeDistributionMessage"
         "404":
           description: Cardano stake distribution not found
-        "412":
-          description: API version mismatch
         default:
           description: Cardano stake distribution retrieval error
           content:
@@ -458,8 +428,6 @@ paths:
                 $ref: "#/components/schemas/CardanoStakeDistributionMessage"
         "404":
           description: Cardano stake distribution not found
-        "412":
-          description: API version mismatch
         default:
           description: Cardano stake distribution retrieval error
           content:
@@ -479,8 +447,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CardanoTransactionSnapshotListMessage"
-        "412":
-          description: API version mismatch
         default:
           description: Cardano transactions set snapshots retrieval error
           content:
@@ -512,8 +478,6 @@ paths:
                 $ref: "#/components/schemas/CardanoTransactionSnapshotMessage"
         "404":
           description: Cardano transactions set snapshot not found
-        "412":
-          description: API version mismatch
         default:
           description: Cardano transactions set snapshot retrieval error
           content:
@@ -548,8 +512,6 @@ paths:
                 $ref: "#/components/schemas/CardanoTransactionProofMessage"
         "404":
           description: No Cardano transactions were ever signed
-        "412":
-          description: API version mismatch
         default:
           description: Cardano transaction proofs retrieval error
           content:
@@ -584,8 +546,6 @@ paths:
                 $ref: "#/components/schemas/SignerRegistrationsMessage"
         "404":
           description: Registered Signers not found
-        "412":
-          description: API version mismatch
         default:
           description: Registered Signers retrieval error
           content:
@@ -605,8 +565,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SignersTickersMessage"
-        "412":
-          description: API version mismatch
         default:
           description: Signers retrieval error
           content:
@@ -635,8 +593,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-        "412":
-          description: API version mismatch
         "550":
           description: signer registration is unavailable
           content:
@@ -681,8 +637,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-        "412":
-          description: API version mismatch
         default:
           description: signatures registration error
           content:
@@ -709,8 +663,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-        "412":
-          description: API version mismatch
         default:
           description: Record event error
           content:
