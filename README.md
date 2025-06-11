@@ -83,13 +83,23 @@ This repository consists of the following parts:
 
   - [**Mithril build script**](./internal/mithril-build-script): a toolbox for Mithril crates using a build scripts phase.
 
+  - [**Mithril cli helper**](./internal/mithril-cli-helper): **CLI** tools for **Mithril** binaries.
+
   - [**Mithril doc**](./internal/mithril-doc): an API that generates markdown documentation for a crate command lines arguments.
 
   - [**Mithril doc derive**](./internal/mithril-doc-derive): a macro implementation used by **Mithril doc**.
 
+  - [**Mithril metric**](./internal/mithril-metric): materials to expose **metrics** in the **Mithril network** nodes.
+
   - [**Mithril persistence**](./internal/mithril-persistence): the **persistence** library that is used by the **Mithril network** nodes.
 
+  - [**Mithril resource pool**](./internal/mithril-resource-pool): a **resource pool** mechanism that is used by the **Mithril network** nodes.
+
   - [**Mithril ticker**](./internal/mithril-ticker): a **ticker** mechanism that reads time information from the chain and is used by the **Mithril network** nodes.
+
+  - [**Mithril signed entity lock**](./internal/signed-entity/mithril-signed-entity-lock): a non-blocking **lock** mechanism for signed entity types, used by the **Mithril network** nodes.
+
+  - [**Mithril signed entity prealoader**](./internal/signed-entity/mithril-signed-entity-preloader): a **preload** mechanism for Cardano Transaction signed entity, used by the **Mithril network** nodes.
 
 - [**Mithril test lab**](./mithril-test-lab): the suite of tools that allow us to test and stress the **Mithril** protocol implementations.
 
