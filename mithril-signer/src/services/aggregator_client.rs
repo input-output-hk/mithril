@@ -2,7 +2,8 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use reqwest::header::{self, HeaderValue};
 use reqwest::{self, Client, Proxy, RequestBuilder, Response, StatusCode};
-use slog::{debug, error, Logger};
+use semver::Version;
+use slog::{debug, error, warn, Logger};
 use std::{io, sync::Arc, time::Duration};
 use thiserror::Error;
 
@@ -24,6 +25,9 @@ use crate::message_adapters::{
 };
 
 const JSON_CONTENT_TYPE: HeaderValue = HeaderValue::from_static("application/json");
+
+const API_VERSION_MISMATCH_WARNING_MESSAGE: &str =
+    "OpenAPI API version mismatch, please update your Mithril signer node.";
 
 /// Error structure for the Aggregator Client.
 #[derive(Error, Debug)]
@@ -248,6 +252,32 @@ impl AggregatorHTTPClient {
             ))
         }
     }
+
+    /// Check API version mismatch and log a warning if the aggregator's version is more recent.
+    fn warn_if_api_version_mismatch(&self, response: &Response) {
+        let aggregator_version_in_header = response
+            .headers()
+            .get(MITHRIL_API_VERSION_HEADER)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| Version::parse(s).ok());
+
+        if let Some(aggregator_version) = aggregator_version_in_header {
+            let signer_version = match self.api_version_provider.compute_current_version() {
+                Ok(version) => version,
+                Err(error) => {
+                    error!(self.logger, "Failed to compute the current signer API version"; "error" => error.to_string());
+                    return;
+                }
+            };
+
+            if signer_version.lt(&aggregator_version) {
+                warn!(self.logger, "{}", API_VERSION_MISMATCH_WARNING_MESSAGE;
+                    "aggregator version" => aggregator_version.to_string(),
+                    "signer version" => signer_version.to_string()
+                );
+            }
+        };
+    }
 }
 
 #[async_trait]
@@ -264,14 +294,17 @@ impl AggregatorClient for AggregatorHTTPClient {
 
         match response {
             Ok(response) => match response.status() {
-                StatusCode::OK => match response.json::<EpochSettingsMessage>().await {
-                    Ok(message) => {
-                        let epoch_settings = FromEpochSettingsAdapter::try_adapt(message)
-                            .map_err(|e| AggregatorClientError::Adapter(anyhow!(e)))?;
-                        Ok(Some(epoch_settings))
+                StatusCode::OK => {
+                    self.warn_if_api_version_mismatch(&response);
+                    match response.json::<EpochSettingsMessage>().await {
+                        Ok(message) => {
+                            let epoch_settings = FromEpochSettingsAdapter::try_adapt(message)
+                                .map_err(|e| AggregatorClientError::Adapter(anyhow!(e)))?;
+                            Ok(Some(epoch_settings))
+                        }
+                        Err(err) => Err(AggregatorClientError::JsonParseFailed(anyhow!(err))),
                     }
-                    Err(err) => Err(AggregatorClientError::JsonParseFailed(anyhow!(err))),
-                },
+                }
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
                 _ => Err(AggregatorClientError::from_response(response).await),
             },
@@ -297,7 +330,11 @@ impl AggregatorClient for AggregatorHTTPClient {
 
         match response {
             Ok(response) => match response.status() {
-                StatusCode::CREATED => Ok(()),
+                StatusCode::CREATED => {
+                    self.warn_if_api_version_mismatch(&response);
+
+                    Ok(())
+                }
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
                 _ => Err(AggregatorClientError::from_response(response).await),
             },
@@ -327,8 +364,13 @@ impl AggregatorClient for AggregatorHTTPClient {
 
         match response {
             Ok(response) => match response.status() {
-                StatusCode::CREATED | StatusCode::ACCEPTED => Ok(()),
+                StatusCode::CREATED | StatusCode::ACCEPTED => {
+                    self.warn_if_api_version_mismatch(&response);
+
+                    Ok(())
+                }
                 StatusCode::GONE => {
+                    self.warn_if_api_version_mismatch(&response);
                     let root_cause = AggregatorClientError::get_root_cause(response).await;
                     debug!(self.logger, "Message already certified or expired"; "details" => &root_cause);
 
@@ -353,10 +395,14 @@ impl AggregatorClient for AggregatorHTTPClient {
 
         match response {
             Ok(response) => match response.status() {
-                StatusCode::OK => Ok(response
-                    .json::<AggregatorFeaturesMessage>()
-                    .await
-                    .map_err(|e| AggregatorClientError::JsonParseFailed(anyhow!(e)))?),
+                StatusCode::OK => {
+                    self.warn_if_api_version_mismatch(&response);
+
+                    Ok(response
+                        .json::<AggregatorFeaturesMessage>()
+                        .await
+                        .map_err(|e| AggregatorClientError::JsonParseFailed(anyhow!(e)))?)
+                }
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
                 _ => Err(AggregatorClientError::from_response(response).await),
             },
@@ -449,14 +495,17 @@ pub(crate) mod dumb {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use http::response::Builder as HttpResponseBuilder;
     use httpmock::prelude::*;
+    use semver::Version;
     use serde_json::json;
 
     use mithril_common::api_version::DummyApiVersionDiscriminantSource;
     use mithril_common::entities::Epoch;
     use mithril_common::messages::TryFromMessageAdapter;
-    use mithril_common::test_utils::fake_data;
+    use mithril_common::test_utils::{fake_data, MemoryDrainForTestInspector};
 
     use crate::test_tools::TestLogger;
 
@@ -473,23 +522,25 @@ mod tests {
         };
     }
 
-    fn setup_server_and_client() -> (MockServer, AggregatorHTTPClient) {
-        let server = MockServer::start();
-        let aggregator_endpoint = server.url("");
-        let relay_endpoint = None;
+    fn setup_client<U: Into<String>>(server_url: U) -> AggregatorHTTPClient {
         let discriminant_source = DummyApiVersionDiscriminantSource::new("dummy");
         let api_version_provider = APIVersionProvider::new(Arc::new(discriminant_source));
 
-        (
-            server,
-            AggregatorHTTPClient::new(
-                aggregator_endpoint,
-                relay_endpoint,
-                Arc::new(api_version_provider),
-                None,
-                TestLogger::stdout(),
-            ),
+        AggregatorHTTPClient::new(
+            server_url.into(),
+            None,
+            Arc::new(api_version_provider),
+            None,
+            TestLogger::stdout(),
         )
+    }
+
+    fn setup_server_and_client() -> (MockServer, AggregatorHTTPClient) {
+        let server = MockServer::start();
+        let aggregator_endpoint = server.url("");
+        let client = setup_client(&aggregator_endpoint);
+
+        (server, client)
     }
 
     fn set_returning_412(server: &MockServer) {
@@ -1115,5 +1166,306 @@ mod tests {
             )
             .await
             .expect("Should succeed with Accept-Encoding header");
+    }
+
+    mod warn_if_api_version_mismatch {
+        use super::*;
+
+        fn version_provider_with_open_api_version<V: Into<String>>(
+            version: V,
+        ) -> APIVersionProvider {
+            let mut version_provider =
+                APIVersionProvider::new(Arc::new(DummyApiVersionDiscriminantSource::new("dummy")));
+            let mut open_api_versions = HashMap::new();
+            open_api_versions.insert(
+                "openapi.yaml".to_string(),
+                Version::parse(&version.into()).unwrap(),
+            );
+            version_provider.update_open_api_versions(open_api_versions);
+
+            version_provider
+        }
+
+        fn version_provider_without_open_api_version() -> APIVersionProvider {
+            let mut version_provider =
+                APIVersionProvider::new(Arc::new(DummyApiVersionDiscriminantSource::new("dummy")));
+            version_provider.update_open_api_versions(HashMap::new());
+
+            version_provider
+        }
+
+        fn build_fake_response_with_header<K: Into<String>, V: Into<String>>(
+            key: K,
+            value: V,
+        ) -> Response {
+            HttpResponseBuilder::new()
+                .header(key.into(), value.into())
+                .body("whatever")
+                .unwrap()
+                .into()
+        }
+
+        fn assert_api_version_warning_logged<A: Into<String>, S: Into<String>>(
+            log_inspector: &MemoryDrainForTestInspector,
+            aggregator_version: A,
+            signer_version: S,
+        ) {
+            assert!(log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
+            assert!(log_inspector
+                .contains_log(&format!("aggregator version={}", aggregator_version.into())));
+            assert!(
+                log_inspector.contains_log(&format!("signer version={}", signer_version.into()))
+            );
+        }
+
+        #[test]
+        fn test_logs_warning_when_aggregator_api_version_is_newer() {
+            let aggregator_version = "1.0.0";
+            let signer_version = "0.0.999";
+            let (logger, log_inspector) = TestLogger::memory();
+            let version_provider = version_provider_with_open_api_version(signer_version);
+            let mut client = setup_client("whatever");
+            client.api_version_provider = Arc::new(version_provider);
+            client.logger = logger;
+            let response =
+                build_fake_response_with_header(MITHRIL_API_VERSION_HEADER, aggregator_version);
+
+            client.warn_if_api_version_mismatch(&response);
+
+            assert_api_version_warning_logged(&log_inspector, aggregator_version, signer_version);
+        }
+
+        #[test]
+        fn test_no_warning_logged_when_versions_match() {
+            let version = "1.0.0";
+            let (logger, log_inspector) = TestLogger::memory();
+            let version_provider = version_provider_with_open_api_version(version);
+            let mut client = setup_client("whatever");
+            client.api_version_provider = Arc::new(version_provider);
+            client.logger = logger;
+            let response = build_fake_response_with_header(MITHRIL_API_VERSION_HEADER, version);
+
+            client.warn_if_api_version_mismatch(&response);
+
+            assert!(!log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
+        }
+
+        // TODO: Not sure about this test, it doesn't make much sense from a business perspective.
+        #[test]
+        fn test_no_warning_logged_when_aggregator_api_version_is_older() {
+            let aggregator_version = "0.0.999";
+            let signer_version = "1.0.0";
+            let (logger, log_inspector) = TestLogger::memory();
+            let version_provider = version_provider_with_open_api_version(signer_version);
+            let mut client = setup_client("whatever");
+            client.api_version_provider = Arc::new(version_provider);
+            client.logger = logger;
+            let response =
+                build_fake_response_with_header(MITHRIL_API_VERSION_HEADER, aggregator_version);
+
+            client.warn_if_api_version_mismatch(&response);
+
+            assert!(!log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
+        }
+
+        #[test]
+        fn test_does_not_log_or_fail_when_header_is_missing() {
+            let (logger, log_inspector) = TestLogger::memory();
+            let mut client = setup_client("whatever");
+            client.logger = logger;
+            let response =
+                build_fake_response_with_header("NotMithrilAPIVersionHeader", "whatever");
+
+            client.warn_if_api_version_mismatch(&response);
+
+            assert!(!log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
+        }
+
+        #[test]
+        fn test_does_not_log_or_fail_when_header_is_not_a_version() {
+            let (logger, log_inspector) = TestLogger::memory();
+            let mut client = setup_client("whatever");
+            client.logger = logger;
+            let response =
+                build_fake_response_with_header(MITHRIL_API_VERSION_HEADER, "not_a_version");
+
+            client.warn_if_api_version_mismatch(&response);
+
+            assert!(!log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
+        }
+
+        #[test]
+        fn test_logs_error_when_signer_version_cannot_be_computed() {
+            let (logger, log_inspector) = TestLogger::memory();
+            let version_provider = version_provider_without_open_api_version();
+            let mut client = setup_client("whatever");
+            client.api_version_provider = Arc::new(version_provider);
+            client.logger = logger;
+            let response = build_fake_response_with_header(MITHRIL_API_VERSION_HEADER, "1.0.0");
+
+            client.warn_if_api_version_mismatch(&response);
+
+            assert!(!log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
+        }
+
+        #[tokio::test]
+        async fn test_aggregator_features_ok_200_log_warning_if_api_version_mismatch() {
+            let aggregator_version = "1.0.0";
+            let signer_version = "0.0.999";
+            let (server, mut client) = setup_server_and_client();
+            let (logger, log_inspector) = TestLogger::memory();
+            let version_provider = version_provider_with_open_api_version(signer_version);
+            client.api_version_provider = Arc::new(version_provider);
+            client.logger = logger;
+
+            let message_expected = AggregatorFeaturesMessage::dummy();
+            let _server_mock = server.mock(|when, then| {
+                when.path("/");
+                then.status(200)
+                    .header(MITHRIL_API_VERSION_HEADER, aggregator_version)
+                    .body(json!(message_expected).to_string());
+            });
+
+            client.retrieve_aggregator_features().await.unwrap();
+
+            assert_api_version_warning_logged(&log_inspector, aggregator_version, signer_version);
+        }
+
+        #[tokio::test]
+        async fn test_epoch_settings_ok_200_log_warning_if_api_version_mismatch() {
+            let aggregator_version = "1.0.0";
+            let signer_version = "0.0.999";
+            let (server, mut client) = setup_server_and_client();
+            let (logger, log_inspector) = TestLogger::memory();
+            let version_provider = version_provider_with_open_api_version(signer_version);
+            client.api_version_provider = Arc::new(version_provider);
+            client.logger = logger;
+
+            let epoch_settings_expected = EpochSettingsMessage::dummy();
+            let _server_mock = server.mock(|when, then| {
+                when.path("/epoch-settings");
+                then.status(200)
+                    .header(MITHRIL_API_VERSION_HEADER, aggregator_version)
+                    .body(json!(epoch_settings_expected).to_string());
+            });
+
+            client.retrieve_epoch_settings().await.unwrap();
+
+            assert_api_version_warning_logged(&log_inspector, aggregator_version, signer_version);
+        }
+
+        #[tokio::test]
+        async fn test_register_signer_ok_201_log_warning_if_api_version_mismatch() {
+            let aggregator_version = "1.0.0";
+            let signer_version = "0.0.999";
+            let epoch = Epoch(1);
+            let single_signers = fake_data::signers(1);
+            let single_signer = single_signers.first().unwrap();
+            let (server, mut client) = setup_server_and_client();
+            let (logger, log_inspector) = TestLogger::memory();
+            let version_provider = version_provider_with_open_api_version(signer_version);
+            client.api_version_provider = Arc::new(version_provider);
+            client.logger = logger;
+            let _server_mock = server.mock(|when, then| {
+                when.method(POST).path("/register-signer");
+                then.status(201)
+                    .header(MITHRIL_API_VERSION_HEADER, aggregator_version);
+            });
+
+            client.register_signer(epoch, single_signer).await.unwrap();
+
+            assert_api_version_warning_logged(&log_inspector, aggregator_version, signer_version);
+        }
+
+        #[tokio::test]
+        async fn test_register_signature_ok_201_log_warning_if_api_version_mismatch() {
+            let aggregator_version = "1.0.0";
+            let signer_version = "0.0.999";
+            let single_signature = fake_data::single_signature((1..5).collect());
+            let (server, mut client) = setup_server_and_client();
+            let (logger, log_inspector) = TestLogger::memory();
+            let version_provider = version_provider_with_open_api_version(signer_version);
+            client.api_version_provider = Arc::new(version_provider);
+            client.logger = logger;
+            let _server_mock = server.mock(|when, then| {
+                when.method(POST).path("/register-signatures");
+                then.status(201)
+                    .header(MITHRIL_API_VERSION_HEADER, aggregator_version);
+            });
+
+            client
+                .register_signature(
+                    &SignedEntityType::dummy(),
+                    &single_signature,
+                    &ProtocolMessage::default(),
+                )
+                .await
+                .expect("Should not fail");
+
+            assert_api_version_warning_logged(&log_inspector, aggregator_version, signer_version);
+        }
+
+        #[tokio::test]
+        async fn test_register_signature_ok_202_log_warning_if_api_version_mismatch() {
+            let aggregator_version = "1.0.0";
+            let signer_version = "0.0.999";
+            let single_signature = fake_data::single_signature((1..5).collect());
+            let (server, mut client) = setup_server_and_client();
+            let (logger, log_inspector) = TestLogger::memory();
+            let version_provider = version_provider_with_open_api_version(signer_version);
+            client.api_version_provider = Arc::new(version_provider);
+            client.logger = logger;
+            let _server_mock = server.mock(|when, then| {
+                when.method(POST).path("/register-signatures");
+                then.status(202)
+                    .header(MITHRIL_API_VERSION_HEADER, aggregator_version);
+            });
+
+            client
+                .register_signature(
+                    &SignedEntityType::dummy(),
+                    &single_signature,
+                    &ProtocolMessage::default(),
+                )
+                .await
+                .unwrap();
+
+            assert_api_version_warning_logged(&log_inspector, aggregator_version, signer_version);
+        }
+
+        #[tokio::test]
+        async fn test_register_signature_ok_410_log_warning_if_api_version_mismatch() {
+            let aggregator_version = "1.0.0";
+            let signer_version = "0.0.999";
+            let single_signature = fake_data::single_signature((1..5).collect());
+            let (server, mut client) = setup_server_and_client();
+            let (logger, log_inspector) = TestLogger::memory();
+            let version_provider = version_provider_with_open_api_version(signer_version);
+            client.api_version_provider = Arc::new(version_provider);
+            client.logger = logger;
+            let _server_mock = server.mock(|when, then| {
+                when.method(POST).path("/register-signatures");
+                then.status(410)
+                    .body(
+                        serde_json::to_vec(&ClientError::new(
+                            "already_aggregated".to_string(),
+                            "too late".to_string(),
+                        ))
+                        .unwrap(),
+                    )
+                    .header(MITHRIL_API_VERSION_HEADER, aggregator_version);
+            });
+
+            client
+                .register_signature(
+                    &SignedEntityType::dummy(),
+                    &single_signature,
+                    &ProtocolMessage::default(),
+                )
+                .await
+                .unwrap();
+
+            assert_api_version_warning_logged(&log_inspector, aggregator_version, signer_version);
+        }
     }
 }

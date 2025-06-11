@@ -4247,6 +4247,7 @@ dependencies = [
  "prometheus-parse",
  "rand_core 0.6.4",
  "reqwest",
+ "semver",
  "serde",
  "serde_json",
  "slog",
