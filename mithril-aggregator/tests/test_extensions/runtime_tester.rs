@@ -22,12 +22,12 @@ use mithril_common::{
         SingleSignatureAuthenticationStatus, SlotNumber, StakeDistribution, SupportedEra,
         TimePoint,
     },
-    era::{adapters::EraReaderDummyAdapter, EraMarker, EraReader},
     test_utils::{
         MithrilFixture, MithrilFixtureBuilder, SignerFixture, StakeDistributionGenerationMethod,
     },
     StdResult,
 };
+use mithril_era::{adapters::EraReaderDummyAdapter, EraMarker, EraReader};
 use serde_json::json;
 use slog::Drain;
 use slog_scope::debug;

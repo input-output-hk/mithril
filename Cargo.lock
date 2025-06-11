@@ -3836,6 +3836,7 @@ dependencies = [
  "mithril-cli-helper",
  "mithril-common",
  "mithril-doc",
+ "mithril-era",
  "mithril-metric",
  "mithril-persistence",
  "mithril-resource-pool",
@@ -4089,6 +4090,15 @@ dependencies = [
 [[package]]
 name = "mithril-era"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "mithril-common",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.12",
+ "tokio",
+]
 
 [[package]]
 name = "mithril-metric"
@@ -4200,6 +4210,7 @@ dependencies = [
  "mithril-cli-helper",
  "mithril-common",
  "mithril-doc",
+ "mithril-era",
  "mithril-metric",
  "mithril-persistence",
  "mithril-signed-entity-lock",

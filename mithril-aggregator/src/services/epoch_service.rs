@@ -11,10 +11,10 @@ use mithril_common::entities::{
     CardanoEra, CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityConfig,
     SignedEntityTypeDiscriminants, Signer, SignerWithStake, Stake, SupportedEra, TotalSPOs,
 };
-use mithril_common::era::EraChecker;
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder};
 use mithril_common::StdResult;
+use mithril_era::EraChecker;
 use mithril_persistence::store::StakeStorer;
 
 use crate::{entities::AggregatorEpochSettings, EpochSettingsStorer, VerificationKeyStorer};

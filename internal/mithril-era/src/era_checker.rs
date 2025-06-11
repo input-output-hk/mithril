@@ -1,8 +1,7 @@
 use std::sync::RwLock;
 
-use crate::api_version::ApiVersionDiscriminantSource;
-
-use crate::entities::{Epoch, SupportedEra};
+use mithril_common::api_version::ApiVersionDiscriminantSource;
+use mithril_common::entities::{Epoch, SupportedEra};
 
 struct SupportedEraStamp {
     era: SupportedEra,

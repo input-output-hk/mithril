@@ -9,11 +9,11 @@ use mithril_common::{
     chain_observer::ChainObserver,
     crypto_helper::tests_setup,
     entities::{BlockNumber, PartyId},
-    era::{
-        adapters::{EraReaderAdapterBuilder, EraReaderAdapterType},
-        EraReaderAdapter,
-    },
     CardanoNetwork, StdResult,
+};
+use mithril_era::{
+    adapters::{EraReaderAdapterBuilder, EraReaderAdapterType},
+    EraReaderAdapter,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

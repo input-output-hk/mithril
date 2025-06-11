@@ -5,9 +5,9 @@ use mithril_common::{
     chain_observer::{TxDatumBuilder, TxDatumFieldValue},
     crypto_helper::EraMarkersSigner,
     entities::{Epoch, SupportedEra},
-    era::{adapters::EraMarkersPayloadCardanoChain, EraMarker},
     StdResult,
 };
+use mithril_era::{adapters::EraMarkersPayloadCardanoChain, EraMarker};
 
 type EraToolsResult<R> = StdResult<R>;
 

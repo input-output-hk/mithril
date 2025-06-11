@@ -1,17 +1,17 @@
-use crate::{
-    chain_observer::{ChainAddress, ChainObserver, TxDatumFieldTypeName},
-    crypto_helper::{
-        key_decode_hex, key_encode_hex, EraMarkersSigner, EraMarkersVerifier,
-        EraMarkersVerifierSignature, EraMarkersVerifierVerificationKey,
-    },
-    era::{EraMarker, EraReaderAdapter},
-    StdError, StdResult,
-};
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use thiserror::Error;
+
+use mithril_common::chain_observer::{ChainAddress, ChainObserver, TxDatumFieldTypeName};
+use mithril_common::crypto_helper::{
+    key_decode_hex, key_encode_hex, EraMarkersSigner, EraMarkersVerifier,
+    EraMarkersVerifierSignature, EraMarkersVerifierVerificationKey,
+};
+use mithril_common::{StdError, StdResult};
+
+use crate::{EraMarker, EraReaderAdapter};
 
 /// [EraMarkersPayload] related errors.
 #[derive(Debug, Error)]
@@ -153,9 +153,10 @@ impl EraReaderAdapter for CardanoChainAdapter {
 
 #[cfg(test)]
 mod test {
-    use crate::chain_observer::{FakeObserver, TxDatum, TxDatumBuilder, TxDatumFieldValue};
-    use crate::crypto_helper::EraMarkersSigner;
-    use crate::entities::Epoch;
+    use mithril_common::chain_observer::{
+        FakeObserver, TxDatum, TxDatumBuilder, TxDatumFieldValue,
+    };
+    use mithril_common::entities::Epoch;
 
     use super::*;
 

@@ -1,8 +1,9 @@
 use async_trait::async_trait;
 
-use crate::entities::{Epoch, SupportedEra};
-use crate::era::{EraMarker, EraReaderAdapter};
-use crate::StdResult;
+use mithril_common::entities::{Epoch, SupportedEra};
+use mithril_common::StdResult;
+
+use crate::{EraMarker, EraReaderAdapter};
 
 /// The goal of the bootstrap adapter is to advertise for the first existing Era
 /// while it does not exist yet on any backend. This adapter is intended to be
@@ -21,8 +22,6 @@ impl EraReaderAdapter for BootstrapAdapter {
 
 #[cfg(test)]
 mod tests {
-    use crate::entities::SupportedEra;
-
     use super::*;
 
     #[tokio::test]

@@ -13,9 +13,9 @@ use mithril_common::entities::{
     HexEncodedGenesisVerificationKey, HexEncodedKey, ProtocolParameters, SignedEntityConfig,
     SignedEntityTypeDiscriminants,
 };
-use mithril_common::era::adapters::EraReaderAdapterType;
 use mithril_common::{CardanoNetwork, StdResult};
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
+use mithril_era::adapters::EraReaderAdapterType;
 
 use crate::entities::AggregatorEpochSettings;
 use crate::http_server::SERVER_BASE_PATH;

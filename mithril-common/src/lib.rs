@@ -35,8 +35,6 @@ pub mod certificate_chain;
 pub mod chain_observer;
 pub mod crypto_helper;
 pub mod entities;
-#[macro_use]
-pub mod era;
 pub mod logging;
 pub mod messages;
 pub mod protocol;

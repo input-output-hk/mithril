@@ -1,8 +1,9 @@
 use async_trait::async_trait;
 use std::sync::RwLock;
 
-use crate::era::{EraMarker, EraReaderAdapter};
-use crate::StdResult;
+use mithril_common::StdResult;
+
+use crate::{EraMarker, EraReaderAdapter};
 
 /// Dummy adapter is intended to be used in a test environment (end to end test)
 /// to simulate not yet activated Eras.
@@ -38,7 +39,7 @@ impl EraReaderAdapter for DummyAdapter {
 
 #[cfg(test)]
 mod tests {
-    use crate::entities::{Epoch, SupportedEra};
+    use mithril_common::entities::{Epoch, SupportedEra};
 
     use super::*;
 
