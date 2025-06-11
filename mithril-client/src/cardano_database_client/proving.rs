@@ -48,16 +48,14 @@ impl InternalArtifactProver {
         immutable_file_range: &ImmutableFileRange,
         database_dir: &Path,
     ) -> MithrilResult<MKProof> {
-        self.download_unpack_digest_file(
-            &cardano_database_snapshot.digests,
-            &Self::digest_target_dir(database_dir),
-        )
-        .await?;
+        let digest_target_dir = Self::digest_target_dir();
+        self.download_unpack_digest_file(&cardano_database_snapshot.digests, &digest_target_dir)
+            .await?;
         let network = certificate.metadata.network.clone();
         let last_immutable_file_number = cardano_database_snapshot.beacon.immutable_file_number;
         let immutable_file_number_range =
             immutable_file_range.to_range_inclusive(last_immutable_file_number)?;
-        let downloaded_digests = self.read_digest_file(&Self::digest_target_dir(database_dir))?;
+        let downloaded_digests = self.read_digest_file(&digest_target_dir)?;
         let downloaded_digests_values = downloaded_digests
             .into_iter()
             .filter(|(immutable_file_name, _)| {
@@ -77,7 +75,7 @@ impl InternalArtifactProver {
             .values()
             .map(MKTreeNode::from)
             .collect::<Vec<_>>();
-        delete_directory(&Self::digest_target_dir(database_dir))?;
+        delete_directory(&digest_target_dir)?;
 
         merkle_tree.compute_proof(&computed_digests)
     }
@@ -161,8 +159,8 @@ impl InternalArtifactProver {
         Ok(digest_map)
     }
 
-    fn digest_target_dir(target_dir: &Path) -> PathBuf {
-        target_dir.join("digest")
+    fn digest_target_dir() -> PathBuf {
+        std::env::temp_dir().join("mithril_digest")
     }
 }
 
@@ -237,7 +235,11 @@ mod tests {
                 .compute_digests_for_range(database_dir, immutable_file_range)
                 .await
                 .unwrap();
-            write_digest_file(&database_dir.join("digest"), &computed_digests.entries).await;
+            write_digest_file(
+                std::env::temp_dir().join("mithril_digest").as_path(),
+                &computed_digests.entries,
+            )
+            .await;
 
             // We remove the last digests_offset digests to simulate receiving
             // a digest file with more immutable files than downloaded
@@ -314,7 +316,7 @@ mod tests {
                 .with_http_file_downloader(Arc::new(
                     MockFileDownloaderBuilder::default()
                         .with_file_uri("http://whatever/digests.json")
-                        .with_target_dir(database_dir.join("digest"))
+                        .with_target_dir(PathBuf::from("/tmp/mithril_digest"))
                         .with_compression(None)
                         .with_success()
                         .build(),
