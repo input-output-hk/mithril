@@ -62,12 +62,12 @@ cargo bench
 The following is a simple example of the STM implementation:
 
 ```rust
-use mithril_stm::{StmClerk, StmParameters, StmSig, KeyReg, StmInitializer, StmSigner, AggregationError};
-
 use blake2::{digest::consts::U32, Blake2b};
-use rayon::prelude::*;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
+use rayon::prelude::*;
+
+use mithril_stm::{StmClerk, StmParameters, StmSig, KeyReg, StmInitializer, StmSigner, AggregationError};
 
 type H = Blake2b<U32>;
 

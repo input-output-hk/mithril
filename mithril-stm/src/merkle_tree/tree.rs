@@ -1,11 +1,13 @@
+use std::marker::PhantomData;
+
+use blake2::digest::{Digest, FixedOutput};
+use serde::{Deserialize, Serialize};
+
 use crate::error::MerkleTreeError;
 use crate::merkle_tree::{
     left_child, parent, right_child, sibling, BatchPath, MTLeaf, MerkleTreeCommitment,
     MerkleTreeCommitmentBatchCompat, Path,
 };
-use blake2::digest::{Digest, FixedOutput};
-use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
 
 /// Tree of hashes, providing a commitment of data and its ordering.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

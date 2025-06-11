@@ -1,12 +1,15 @@
 //! Key registration functionality.
-use super::stm::Stake;
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    sync::Arc,
+};
+
+use blake2::digest::{Digest, FixedOutput};
+
 use crate::bls_multi_signature::{VerificationKey, VerificationKeyPoP};
 use crate::error::RegisterError;
 use crate::merkle_tree::{MTLeaf, MerkleTree};
-use blake2::digest::{Digest, FixedOutput};
-use std::collections::hash_map::Entry;
-use std::collections::HashMap;
-use std::sync::Arc;
+use crate::Stake;
 
 /// Stores a registered party with its public key and the associated stake.
 pub type RegParty = MTLeaf;
@@ -80,13 +83,14 @@ pub struct ClosedKeyReg<D: Digest> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::bls_multi_signature::SigningKey;
     use blake2::{digest::consts::U32, Blake2b};
-    use proptest::collection::vec;
-    use proptest::prelude::*;
+    use proptest::{collection::vec, prelude::*};
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
+
+    use crate::bls_multi_signature::SigningKey;
+
+    use super::*;
 
     proptest! {
         #[test]

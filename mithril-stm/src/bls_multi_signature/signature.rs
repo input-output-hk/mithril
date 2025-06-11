@@ -1,16 +1,21 @@
-use crate::bls_multi_signature::helper::unsafe_helpers::{
-    p1_affine_to_sig, p2_affine_to_vk, sig_to_p1, vk_from_p2_affine,
+use std::{cmp::Ordering, iter::Sum};
+
+use blake2::{Blake2b, Blake2b512, Digest};
+use blst::{
+    blst_p1, blst_p2,
+    min_sig::{AggregateSignature, PublicKey as BlstVk, Signature as BlstSig},
+    p1_affines, p2_affines,
 };
-use crate::bls_multi_signature::verification_key::VerificationKey;
-use crate::error::{blst_err_to_mithril, MultiSignatureError};
-use crate::stm::Index;
-use blake2::Blake2b;
-use blake2::{Blake2b512, Digest};
-use blst::min_sig::{AggregateSignature, PublicKey as BlstVk, Signature as BlstSig};
-use blst::{blst_p1, blst_p2, p1_affines, p2_affines};
 use digest::consts::U16;
-use std::cmp::Ordering;
-use std::iter::Sum;
+
+use crate::bls_multi_signature::{
+    helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk, sig_to_p1, vk_from_p2_affine},
+    VerificationKey,
+};
+use crate::{
+    error::{blst_err_to_mithril, MultiSignatureError},
+    Index,
+};
 
 /// MultiSig signature, which is a wrapper over the `BlstSig` type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

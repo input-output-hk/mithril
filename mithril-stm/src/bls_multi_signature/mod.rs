@@ -6,13 +6,15 @@ mod signature;
 mod signing_key;
 mod verification_key;
 
-pub use crate::bls_multi_signature::proof_of_possession::ProofOfPossession;
-pub use crate::bls_multi_signature::signature::Signature;
-pub use crate::bls_multi_signature::signing_key::SigningKey;
-pub use crate::bls_multi_signature::verification_key::{VerificationKey, VerificationKeyPoP};
+pub use proof_of_possession::*;
+pub use signature::*;
+pub use signing_key::*;
+pub use verification_key::*;
 
-use serde::de::Visitor;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{
+    de::Visitor,
+    {Deserialize, Deserializer, Serialize, Serializer},
+};
 
 /// String used to generate the proofs of possession.
 pub(crate) const POP: &[u8] = b"PoP";
@@ -87,14 +89,16 @@ impl_serde!(Signature, SignatureVisitor, 48);
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::bls_multi_signature::helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk};
-    use crate::error::{MultiSignatureError, RegisterError};
-    use crate::key_reg::KeyReg;
     use blst::{blst_p1, blst_p2};
     use proptest::prelude::*;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
+
+    use crate::bls_multi_signature::helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk};
+    use crate::error::{MultiSignatureError, RegisterError};
+    use crate::key_reg::KeyReg;
+
+    use super::*;
 
     impl PartialEq for SigningKey {
         fn eq(&self, other: &Self) -> bool {

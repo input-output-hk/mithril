@@ -1,5 +1,7 @@
-use std::cmp::Ordering;
-use std::hash::{Hash, Hasher};
+use std::{
+    cmp::Ordering,
+    hash::{Hash, Hasher},
+};
 
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};

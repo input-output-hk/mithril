@@ -4,10 +4,8 @@ use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 
 use crate::bls_multi_signature::{SigningKey, VerificationKeyPoP};
-use crate::key_reg::{ClosedKeyReg, RegParty};
-use crate::participant::StmSigner;
-use crate::stm::{Stake, StmParameters};
-use crate::RegisterError;
+use crate::key_reg::*;
+use crate::{RegisterError, Stake, StmParameters, StmSigner};
 
 /// Wrapper of the MultiSignature Verification key with proof of possession
 pub type StmVerificationKeyPoP = VerificationKeyPoP;
