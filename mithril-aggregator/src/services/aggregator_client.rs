@@ -287,8 +287,7 @@ mod tests {
     use httpmock::prelude::*;
     use serde_json::json;
 
-    use mithril_common::entities::Epoch;
-    use mithril_common::era::{EraChecker, SupportedEra};
+    use mithril_common::api_version::DummyApiVersionDiscriminantSource;
 
     use crate::test_tools::TestLogger;
 
@@ -298,8 +297,8 @@ mod tests {
         let server = MockServer::start();
         let aggregator_endpoint = server.url("");
         let relay_endpoint = None;
-        let era_checker = EraChecker::new(SupportedEra::dummy(), Epoch(1));
-        let api_version_provider = APIVersionProvider::new(Arc::new(era_checker));
+        let discriminant_source = DummyApiVersionDiscriminantSource::default();
+        let api_version_provider = APIVersionProvider::new(Arc::new(discriminant_source));
 
         (
             server,
