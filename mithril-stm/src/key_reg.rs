@@ -89,7 +89,7 @@ mod tests {
     use rand_core::SeedableRng;
 
     use crate::bls_multi_signature::SigningKey;
-    
+
     use super::*;
 
     proptest! {
