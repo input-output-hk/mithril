@@ -51,10 +51,6 @@ pub enum AggregatorClientError {
     #[error("Input/Output error")]
     IOError(#[from] io::Error),
 
-    /// Incompatible API version error
-    #[error("HTTP API version mismatch")]
-    ApiVersionMismatch(#[source] StdError),
-
     /// HTTP client creation error
     #[error("HTTP client creation failed")]
     HTTPClientCreation(#[source] StdError),
@@ -66,14 +62,6 @@ pub enum AggregatorClientError {
     /// Adapter error
     #[error("adapter failed")]
     Adapter(#[source] StdError),
-}
-
-#[cfg(test)]
-/// convenient methods to error enum
-impl AggregatorClientError {
-    pub(crate) fn is_api_version_mismatch(&self) -> bool {
-        matches!(self, Self::ApiVersionMismatch(_))
-    }
 }
 
 impl AggregatorClientError {
@@ -205,22 +193,6 @@ impl AggregatorHTTPClient {
         }
     }
 
-    /// API version error handling
-    fn handle_api_error(&self, response: &Response) -> AggregatorClientError {
-        if let Some(version) = response.headers().get(MITHRIL_API_VERSION_HEADER) {
-            AggregatorClientError::ApiVersionMismatch(anyhow!(
-                "server version: '{}', signer version: '{}'",
-                version.to_str().unwrap(),
-                self.api_version_provider.compute_current_version().unwrap()
-            ))
-        } else {
-            AggregatorClientError::ApiVersionMismatch(anyhow!(
-                "version precondition failed, sent version '{}'.",
-                self.api_version_provider.compute_current_version().unwrap()
-            ))
-        }
-    }
-
     /// Check API version mismatch and log a warning if the leader aggregator's version is more recent.
     fn warn_if_api_version_mismatch(&self, response: &Response) {
         let leader_aggregator_version_in_header = response
@@ -273,7 +245,6 @@ impl AggregatorClient for AggregatorHTTPClient {
                         Err(err) => Err(AggregatorClientError::JsonParseFailed(anyhow!(err))),
                     }
                 }
-                StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
                 _ => Err(AggregatorClientError::from_response(response).await),
             },
             Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
@@ -391,20 +362,6 @@ mod tests {
             FromEpochSettingsAdapter::try_adapt(epoch_settings_expected).unwrap(),
             epoch_settings.unwrap().unwrap()
         );
-    }
-
-    #[tokio::test]
-    async fn test_epoch_settings_ko_412() {
-        let (server, client) = setup_server_and_client();
-        let _server_mock = server.mock(|when, then| {
-            when.path("/epoch-settings");
-            then.status(412)
-                .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
-        });
-
-        let epoch_settings = client.retrieve_epoch_settings().await.unwrap_err();
-
-        assert!(epoch_settings.is_api_version_mismatch());
     }
 
     #[tokio::test]
