@@ -3,7 +3,7 @@ use std::sync::Arc;
 use mithril_common::digesters::{
     DumbImmutableFileObserver, ImmutableFileObserver, ImmutableFileSystemObserver,
 };
-use mithril_common::{MithrilTickerService, TickerService};
+use mithril_ticker::{MithrilTickerService, TickerService};
 
 use crate::dependency_injection::{DependenciesBuilder, Result};
 use crate::get_dependency;

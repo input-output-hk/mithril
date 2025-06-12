@@ -26,9 +26,11 @@ use mithril_common::signable_builder::{
     MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
     SignableBuilderServiceDependencies,
 };
-use mithril_common::{MithrilTickerService, StdResult, TickerService};
+use mithril_common::StdResult;
+
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 use mithril_signed_entity_preloader::CardanoTransactionsPreloader;
+use mithril_ticker::{MithrilTickerService, TickerService};
 
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 use mithril_persistence::database::{ApplicationNodeType, SqlMigration};

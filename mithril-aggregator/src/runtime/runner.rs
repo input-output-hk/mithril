@@ -542,10 +542,11 @@ pub mod tests {
         entities::{ProtocolMessage, SignedEntityType, StakeDistribution, TimePoint},
         signable_builder::SignableBuilderService,
         test_utils::{fake_data, MithrilFixtureBuilder},
-        MithrilTickerService, StdResult,
+        StdResult,
     };
     use mithril_persistence::store::StakeStorer;
     use mithril_signed_entity_lock::SignedEntityTypeLock;
+    use mithril_ticker::MithrilTickerService;
     use mockall::predicate::eq;
     use mockall::{mock, Sequence};
     use std::path::PathBuf;

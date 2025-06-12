@@ -12,11 +12,11 @@ use mithril_common::{
     era::{EraChecker, EraReader},
     signable_builder::SignableBuilderService,
     test_utils::MithrilFixture,
-    TickerService,
 };
 
 use mithril_persistence::store::StakeStorer;
 use mithril_signed_entity_lock::SignedEntityTypeLock;
+use mithril_ticker::TickerService;
 
 use crate::{
     database::repository::{

@@ -11,8 +11,8 @@ use mithril_common::{
     },
     messages::AggregatorFeaturesMessage,
     test_utils::fake_data,
-    MithrilTickerService, TickerService,
 };
+use mithril_ticker::{MithrilTickerService, TickerService};
 
 use mithril_signer::{
     entities::SignerEpochSettings,

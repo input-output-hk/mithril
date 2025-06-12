@@ -1,0 +1,21 @@
+[package]
+name = "mithril-ticker"
+version = "0.1.0"
+authors.workspace = true
+documentation.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+mithril-common = { path = "../../mithril-common", features = ["fs"] }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros"] }

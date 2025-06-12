@@ -8,10 +8,10 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use thiserror::Error;
 
-use crate::chain_observer::ChainObserver;
-use crate::digesters::ImmutableFileObserver;
-use crate::entities::{Epoch, TimePoint};
-use crate::StdResult;
+use mithril_common::chain_observer::ChainObserver;
+use mithril_common::digesters::ImmutableFileObserver;
+use mithril_common::entities::{Epoch, TimePoint};
+use mithril_common::StdResult;
 
 /// ## TickerService
 ///
@@ -104,10 +104,13 @@ impl TickerService for MithrilTickerService {
 
 #[cfg(test)]
 mod tests {
-    use crate::chain_observer::{ChainAddress, ChainObserver, ChainObserverError, TxDatum};
-    use crate::digesters::DumbImmutableFileObserver;
-    use crate::entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, StakeDistribution};
     use anyhow::anyhow;
+
+    use mithril_common::chain_observer::{
+        ChainAddress, ChainObserver, ChainObserverError, TxDatum,
+    };
+    use mithril_common::digesters::DumbImmutableFileObserver;
+    use mithril_common::entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, StakeDistribution};
 
     use super::*;
 

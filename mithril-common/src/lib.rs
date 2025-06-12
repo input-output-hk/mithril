@@ -47,12 +47,9 @@ cfg_test_tools! {
 }
 
 cfg_fs! {
-    mod ticker_service;
     pub mod digesters;
     pub mod cardano_block_scanner;
     pub mod chain_reader;
-
-    pub use ticker_service::{TickerService, MithrilTickerService};
 }
 
 pub use entities::{CardanoNetwork, MagicId};

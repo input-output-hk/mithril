@@ -1,4 +1,6 @@
 use anyhow::{anyhow, Context};
+use std::{collections::BTreeSet, sync::Arc};
+
 use mithril_aggregator::{
     dependency_injection::{DependenciesBuilder, EpochServiceWrapper},
     entities::OpenMessage,
@@ -11,9 +13,9 @@ use mithril_common::{
     },
     messages::EpochSettingsMessage,
     signable_builder::SignedEntity,
-    StdResult, TickerService,
+    StdResult,
 };
-use std::{collections::BTreeSet, sync::Arc};
+use mithril_ticker::TickerService;
 
 // An observer that allow to inspect currently available open messages.
 pub struct AggregatorObserver {
