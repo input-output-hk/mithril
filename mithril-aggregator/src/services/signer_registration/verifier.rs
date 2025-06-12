@@ -79,7 +79,7 @@ impl SignerRegistrationVerifier for MithrilSignerRegistrationVerifier {
 
 #[cfg(test)]
 mod tests {
-    use mithril_cardano_node_chain::test::double::FakeObserver;
+    use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_common::{entities::TimePoint, test_utils::MithrilFixtureBuilder};
 
     use super::*;
@@ -89,7 +89,7 @@ mod tests {
         let fixture = MithrilFixtureBuilder::default().with_signers(1).build();
         let signer_to_register: Signer = fixture.signers()[0].to_owned();
         let signer_registration_verifier = MithrilSignerRegistrationVerifier::new(Arc::new(
-            FakeObserver::new(Some(TimePoint::dummy())),
+            FakeChainObserver::new(Some(TimePoint::dummy())),
         ));
 
         signer_registration_verifier
@@ -106,7 +106,7 @@ mod tests {
             ..fixture.signers()[0].to_owned()
         };
         let signer_registration_verifier = MithrilSignerRegistrationVerifier::new(Arc::new(
-            FakeObserver::new(Some(TimePoint::dummy())),
+            FakeChainObserver::new(Some(TimePoint::dummy())),
         ));
 
         signer_registration_verifier

@@ -526,7 +526,7 @@ pub mod tests {
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
-    use mithril_cardano_node_chain::test::double::FakeObserver;
+    use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_common::{
         digesters::DumbImmutableFileObserver,
         entities::{
@@ -673,7 +673,7 @@ pub mod tests {
             .shall_return(Some(expected.immutable_file_number))
             .await;
         let ticker_service = Arc::new(MithrilTickerService::new(
-            Arc::new(FakeObserver::new(Some(expected.clone()))),
+            Arc::new(FakeChainObserver::new(Some(expected.clone()))),
             immutable_file_observer,
         ));
         dependencies.ticker_service = ticker_service;
@@ -686,7 +686,7 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_update_stake_distribution() {
-        let chain_observer = Arc::new(FakeObserver::default());
+        let chain_observer = Arc::new(FakeChainObserver::default());
         let deps = {
             let mut deps = initialize_dependencies!().await;
             deps.chain_observer = chain_observer.clone();

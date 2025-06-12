@@ -130,7 +130,7 @@ mod tests {
     use mockall::mock;
     use mockall::predicate::eq;
 
-    use mithril_cardano_node_chain::test::double::FakeObserver;
+    use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_common::entities::{BlockNumber, ChainPoint, TimePoint};
 
     use crate::test_tools::TestLogger;
@@ -161,10 +161,10 @@ mod tests {
         }
     }
 
-    fn build_chain_observer() -> (FakeObserver, BlockNumber, BlockNumber) {
+    fn build_chain_observer() -> (FakeChainObserver, BlockNumber, BlockNumber) {
         let chain_block_number = BlockNumber(5000);
         let security_parameter = BlockNumber(542);
-        let chain_observer = FakeObserver::new(Some(TimePoint {
+        let chain_observer = FakeChainObserver::new(Some(TimePoint {
             chain_point: ChainPoint {
                 block_number: chain_block_number,
                 ..ChainPoint::dummy()
@@ -244,7 +244,7 @@ mod tests {
 
     #[tokio::test]
     async fn fail_if_chain_point_is_not_available() {
-        let chain_observer = FakeObserver::new(None);
+        let chain_observer = FakeChainObserver::new(None);
         let mut importer = MockTransactionsImporterImpl::new();
         importer.expect_import().never();
 
@@ -273,7 +273,7 @@ mod tests {
                 signed_entity_type_lock: signed_entity_type_lock.clone(),
             }),
             BlockNumber(0),
-            Arc::new(FakeObserver::new(Some(TimePoint::dummy()))),
+            Arc::new(FakeChainObserver::new(Some(TimePoint::dummy()))),
             TestLogger::stdout(),
             Arc::new(CardanoTransactionsPreloaderActivation::new(true)),
         );
@@ -296,7 +296,7 @@ mod tests {
     #[tokio::test]
     async fn should_release_locked_entity_type_when_preloading_fail() {
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
-        let chain_observer = FakeObserver::new(None);
+        let chain_observer = FakeChainObserver::new(None);
 
         let preloader = CardanoTransactionsPreloader::new(
             signed_entity_type_lock.clone(),

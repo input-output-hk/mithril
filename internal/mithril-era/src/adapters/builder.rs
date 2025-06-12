@@ -138,7 +138,7 @@ impl AdapterBuilder {
 
 #[cfg(test)]
 mod test {
-    use mithril_cardano_node_chain::test::double::FakeObserver;
+    use mithril_cardano_node_chain::test::double::FakeChainObserver;
 
     use super::*;
 
@@ -153,7 +153,7 @@ mod test {
             &AdapterType::CardanoChain,
             &Some(GOLDEN_ADAPTER_PARAMS.to_owned()),
         )
-        .build(Arc::new(FakeObserver::new(None)))
+        .build(Arc::new(FakeChainObserver::new(None)))
         .expect("building an cardano chain era reader with golden params should not fail");
     }
 }

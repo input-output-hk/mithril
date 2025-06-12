@@ -6,7 +6,7 @@ use mithril_cardano_node_chain::{
     chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType},
     chain_reader::{ChainBlockReader, PallasChainReader},
     chain_scanner::{BlockScanner, CardanoBlockScanner},
-    test::double::FakeObserver,
+    test::double::FakeChainObserver,
 };
 use mithril_common::digesters::{CardanoImmutableDigester, ImmutableDigester};
 use mithril_common::entities::SignedEntityTypeDiscriminants;
@@ -43,7 +43,7 @@ impl DependenciesBuilder {
                     .build()
                     .with_context(|| "Dependencies Builder can not build chain observer")?
             }
-            _ => Arc::new(FakeObserver::default()),
+            _ => Arc::new(FakeChainObserver::default()),
         };
 
         Ok(chain_observer)

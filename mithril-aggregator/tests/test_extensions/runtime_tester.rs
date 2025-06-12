@@ -19,7 +19,7 @@ use mithril_aggregator::{
 use mithril_cardano_node_chain::{
     chain_observer::ChainObserver,
     entities::ScannedBlock,
-    test::double::{DumbBlockScanner, FakeObserver},
+    test::double::{DumbBlockScanner, FakeChainObserver},
 };
 use mithril_common::{
     crypto_helper::ProtocolGenesisSigner,
@@ -111,7 +111,7 @@ pub struct RuntimeTester {
     pub network: String,
     pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
     pub snapshot_uploader: Arc<DumbUploader>,
-    pub chain_observer: Arc<FakeObserver>,
+    pub chain_observer: Arc<FakeChainObserver>,
     pub immutable_file_observer: Arc<DumbImmutableFileObserver>,
     pub digester: Arc<DumbImmutableDigester>,
     pub genesis_signer: Arc<ProtocolGenesisSigner>,
@@ -148,7 +148,7 @@ impl RuntimeTester {
         immutable_file_observer
             .shall_return(Some(start_time_point.immutable_file_number))
             .await;
-        let chain_observer = Arc::new(FakeObserver::new(Some(start_time_point)));
+        let chain_observer = Arc::new(FakeChainObserver::new(Some(start_time_point)));
         let digester = Arc::new(DumbImmutableDigester::default());
         let snapshotter = Arc::new(FakeSnapshotter::new(
             configuration

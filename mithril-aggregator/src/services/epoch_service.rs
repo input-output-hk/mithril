@@ -852,7 +852,7 @@ impl EpochService for FakeEpochService {
 
 #[cfg(test)]
 mod tests {
-    use mithril_cardano_node_chain::test::double::FakeObserver;
+    use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_common::entities::{
         BlockNumber, CardanoTransactionsSigningConfig, Stake, StakeDistribution, SupportedEra,
     };
@@ -1029,7 +1029,7 @@ mod tests {
                 store
             };
 
-            let chain_observer = FakeObserver::default();
+            let chain_observer = FakeChainObserver::default();
             chain_observer.set_current_era(self.cardano_era).await;
             let era_checker = EraChecker::new(self.mithril_era, Epoch::default());
 

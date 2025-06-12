@@ -451,7 +451,7 @@ impl<'a> DependenciesBuilder<'a> {
 mod tests {
     use std::path::PathBuf;
 
-    use mithril_cardano_node_chain::test::double::FakeObserver;
+    use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_common::{
         digesters::DumbImmutableFileObserver, entities::TimePoint, test_utils::TempDir,
     };
@@ -474,7 +474,7 @@ mod tests {
 
         assert!(!stores_dir.exists());
         let chain_observer_builder: fn(&Configuration) -> StdResult<Arc<dyn ChainObserver>> =
-            |_config| Ok(Arc::new(FakeObserver::new(Some(TimePoint::dummy()))));
+            |_config| Ok(Arc::new(FakeChainObserver::new(Some(TimePoint::dummy()))));
         let immutable_file_observer_builder: fn(
             &Configuration,
         )

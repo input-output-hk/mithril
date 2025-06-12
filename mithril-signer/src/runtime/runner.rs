@@ -336,7 +336,7 @@ mod tests {
     use std::{path::Path, sync::Arc};
     use tokio::sync::RwLock;
 
-    use mithril_cardano_node_chain::test::double::{DumbBlockScanner, FakeObserver};
+    use mithril_cardano_node_chain::test::double::{DumbBlockScanner, FakeChainObserver};
     use mithril_common::{
         api_version::APIVersionProvider,
         crypto_helper::{MKMap, MKMapNode, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer},
@@ -404,7 +404,7 @@ mod tests {
         let sqlite_connection = Arc::new(main_db_connection().unwrap());
         let stake_distribution_signers = fake_data::signers_with_stakes(2);
         let party_id = stake_distribution_signers[1].party_id.clone();
-        let fake_observer = FakeObserver::default();
+        let fake_observer = FakeChainObserver::default();
         fake_observer.set_signers(stake_distribution_signers).await;
         let chain_observer = Arc::new(fake_observer);
         let ticker_service = Arc::new(MithrilTickerService::new(

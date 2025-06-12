@@ -155,7 +155,7 @@ impl EraReaderAdapter for CardanoChainAdapter {
 #[cfg(test)]
 mod test {
     use mithril_cardano_node_chain::entities::{TxDatum, TxDatumBuilder, TxDatumFieldValue};
-    use mithril_cardano_node_chain::test::double::FakeObserver;
+    use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_common::entities::Epoch;
 
     use super::*;
@@ -211,7 +211,7 @@ mod test {
                 .unwrap(),
         ]);
         fake_datums.push(TxDatum("not_valid_datum".to_string()));
-        let chain_observer = FakeObserver::default();
+        let chain_observer = FakeChainObserver::default();
         chain_observer.set_datums(fake_datums.clone()).await;
         let cardano_chain_adapter = CardanoChainAdapter::new(
             fake_address,

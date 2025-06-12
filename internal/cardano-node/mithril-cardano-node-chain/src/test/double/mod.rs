@@ -7,5 +7,5 @@ mod chain_observer;
 mod chain_reader;
 
 pub use block_scanner::{DumbBlockScanner, DumbBlockStreamer};
-pub use chain_observer::FakeObserver;
+pub use chain_observer::FakeChainObserver;
 pub use chain_reader::FakeChainReader;

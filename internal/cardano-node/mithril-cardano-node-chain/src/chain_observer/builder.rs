@@ -6,7 +6,7 @@ use mithril_common::entities::CardanoNetwork;
 use mithril_common::StdResult;
 
 use crate::chain_observer::ChainObserver;
-use crate::test::double::FakeObserver;
+use crate::test::double::FakeChainObserver;
 
 use super::{CardanoCliChainObserver, CardanoCliRunner, PallasChainObserver};
 
@@ -79,7 +79,7 @@ impl ChainObserverBuilder {
                     PallasChainObserver::new(&self.cardano_node_socket_path, self.cardano_network);
                 Ok(Arc::new(observer))
             }
-            ChainObserverType::Fake => Ok(Arc::new(FakeObserver::default())),
+            ChainObserverType::Fake => Ok(Arc::new(FakeChainObserver::default())),
         }
     }
 }
