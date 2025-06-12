@@ -3,7 +3,8 @@ use async_trait::async_trait;
 use mithril_common::messages::TryFromMessageAdapter;
 use reqwest::header::{self, HeaderValue};
 use reqwest::{self, Client, Proxy, RequestBuilder, Response, StatusCode};
-use slog::{debug, error, Logger};
+use semver::Version;
+use slog::{debug, error, warn, Logger};
 use std::{io, sync::Arc, time::Duration};
 use thiserror::Error;
 
@@ -19,6 +20,9 @@ use crate::entities::LeaderAggregatorEpochSettings;
 use crate::message_adapters::FromEpochSettingsAdapter;
 
 const JSON_CONTENT_TYPE: HeaderValue = HeaderValue::from_static("application/json");
+
+const API_VERSION_MISMATCH_WARNING_MESSAGE: &str =
+    "OpenAPI API version mismatch, please update your Mithril aggregator node.";
 
 /// Error structure for the Aggregator Client.
 #[derive(Error, Debug)]
@@ -216,6 +220,32 @@ impl AggregatorHTTPClient {
             ))
         }
     }
+
+    /// Check API version mismatch and log a warning if the leader aggregator's version is more recent.
+    fn warn_if_api_version_mismatch(&self, response: &Response) {
+        let leader_aggregator_version_in_header = response
+            .headers()
+            .get(MITHRIL_API_VERSION_HEADER)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| Version::parse(s).ok());
+
+        if let Some(leader_aggregator_version) = leader_aggregator_version_in_header {
+            let aggregator_version = match self.api_version_provider.compute_current_version() {
+                Ok(version) => version,
+                Err(error) => {
+                    error!(self.logger, "Failed to compute the current aggregator API version"; "error" => error.to_string());
+                    return;
+                }
+            };
+
+            if aggregator_version.lt(&leader_aggregator_version) {
+                warn!(self.logger, "{}", API_VERSION_MISMATCH_WARNING_MESSAGE;
+                    "leader aggregator version" => leader_aggregator_version.to_string(),
+                    "aggregator version" => aggregator_version.to_string()
+                );
+            }
+        };
+    }
 }
 
 #[async_trait]
@@ -232,14 +262,17 @@ impl AggregatorClient for AggregatorHTTPClient {
 
         match response {
             Ok(response) => match response.status() {
-                StatusCode::OK => match response.json::<EpochSettingsMessage>().await {
-                    Ok(message) => {
-                        let epoch_settings = FromEpochSettingsAdapter::try_adapt(message)
-                            .map_err(|e| AggregatorClientError::Adapter(anyhow!(e)))?;
-                        Ok(Some(epoch_settings))
+                StatusCode::OK => {
+                    self.warn_if_api_version_mismatch(&response);
+                    match response.json::<EpochSettingsMessage>().await {
+                        Ok(message) => {
+                            let epoch_settings = FromEpochSettingsAdapter::try_adapt(message)
+                                .map_err(|e| AggregatorClientError::Adapter(anyhow!(e)))?;
+                            Ok(Some(epoch_settings))
+                        }
+                        Err(err) => Err(AggregatorClientError::JsonParseFailed(anyhow!(err))),
                     }
-                    Err(err) => Err(AggregatorClientError::JsonParseFailed(anyhow!(err))),
-                },
+                }
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
                 _ => Err(AggregatorClientError::from_response(response).await),
             },
@@ -293,23 +326,25 @@ mod tests {
 
     use super::*;
 
-    fn setup_server_and_client() -> (MockServer, AggregatorHTTPClient) {
-        let server = MockServer::start();
-        let aggregator_endpoint = server.url("");
-        let relay_endpoint = None;
+    fn setup_client<U: Into<String>>(server_url: U) -> AggregatorHTTPClient {
         let discriminant_source = DummyApiVersionDiscriminantSource::default();
         let api_version_provider = APIVersionProvider::new(Arc::new(discriminant_source));
 
-        (
-            server,
-            AggregatorHTTPClient::new(
-                aggregator_endpoint,
-                relay_endpoint,
-                Arc::new(api_version_provider),
-                None,
-                TestLogger::stdout(),
-            ),
+        AggregatorHTTPClient::new(
+            server_url.into(),
+            None,
+            Arc::new(api_version_provider),
+            None,
+            TestLogger::stdout(),
         )
+    }
+
+    fn setup_server_and_client() -> (MockServer, AggregatorHTTPClient) {
+        let server = MockServer::start();
+        let aggregator_endpoint = server.url("");
+        let client = setup_client(&aggregator_endpoint);
+
+        (server, client)
     }
 
     fn build_text_response<T: Into<String>>(status_code: StatusCode, body: T) -> Response {
@@ -513,5 +548,185 @@ mod tests {
             !root_cause.contains("bad request: "),
             "Expected error message should not contain additional information \ngot '{root_cause:?}'"
         );
+    }
+
+    mod warn_if_api_version_mismatch {
+        use std::collections::HashMap;
+
+        use mithril_common::test_utils::MemoryDrainForTestInspector;
+
+        use super::*;
+
+        fn version_provider_with_open_api_version<V: Into<String>>(
+            version: V,
+        ) -> APIVersionProvider {
+            let mut version_provider =
+                APIVersionProvider::new(Arc::new(DummyApiVersionDiscriminantSource::default()));
+            let mut open_api_versions = HashMap::new();
+            open_api_versions.insert(
+                "openapi.yaml".to_string(),
+                Version::parse(&version.into()).unwrap(),
+            );
+            version_provider.update_open_api_versions(open_api_versions);
+
+            version_provider
+        }
+
+        fn version_provider_without_open_api_version() -> APIVersionProvider {
+            let mut version_provider =
+                APIVersionProvider::new(Arc::new(DummyApiVersionDiscriminantSource::default()));
+            version_provider.update_open_api_versions(HashMap::new());
+
+            version_provider
+        }
+
+        fn build_fake_response_with_header<K: Into<String>, V: Into<String>>(
+            key: K,
+            value: V,
+        ) -> Response {
+            HttpResponseBuilder::new()
+                .header(key.into(), value.into())
+                .body("whatever")
+                .unwrap()
+                .into()
+        }
+
+        fn assert_api_version_warning_logged<L: Into<String>, A: Into<String>>(
+            log_inspector: &MemoryDrainForTestInspector,
+            leader_aggregator_version: L,
+            aggregator_version: A,
+        ) {
+            assert!(log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
+            assert!(log_inspector.contains_log(&format!(
+                "leader aggregator version={}",
+                leader_aggregator_version.into()
+            )));
+            assert!(log_inspector
+                .contains_log(&format!("aggregator version={}", aggregator_version.into())));
+        }
+
+        #[test]
+        fn test_logs_warning_when_leader_aggregator_api_version_is_newer() {
+            let leader_aggregator_version = "1.0.0";
+            let aggregator_version = "0.0.999";
+            let (logger, log_inspector) = TestLogger::memory();
+            let version_provider = version_provider_with_open_api_version(aggregator_version);
+            let mut client = setup_client("whatever");
+            client.api_version_provider = Arc::new(version_provider);
+            client.logger = logger;
+            let response = build_fake_response_with_header(
+                MITHRIL_API_VERSION_HEADER,
+                leader_aggregator_version,
+            );
+
+            client.warn_if_api_version_mismatch(&response);
+
+            assert_api_version_warning_logged(
+                &log_inspector,
+                leader_aggregator_version,
+                aggregator_version,
+            );
+        }
+
+        #[test]
+        fn test_no_warning_logged_when_versions_match() {
+            let version = "1.0.0";
+            let (logger, log_inspector) = TestLogger::memory();
+            let version_provider = version_provider_with_open_api_version(version);
+            let mut client = setup_client("whatever");
+            client.api_version_provider = Arc::new(version_provider);
+            client.logger = logger;
+            let response = build_fake_response_with_header(MITHRIL_API_VERSION_HEADER, version);
+
+            client.warn_if_api_version_mismatch(&response);
+
+            assert!(!log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
+        }
+
+        // TODO: Not sure about this test, it doesn't make much sense from a business perspective.
+        #[test]
+        fn test_no_warning_logged_when_leader_aggregator_api_version_is_older() {
+            let leader_aggregator_version = "0.0.999";
+            let aggregator_version = "1.0.0";
+            let (logger, log_inspector) = TestLogger::memory();
+            let version_provider = version_provider_with_open_api_version(aggregator_version);
+            let mut client = setup_client("whatever");
+            client.api_version_provider = Arc::new(version_provider);
+            client.logger = logger;
+            let response = build_fake_response_with_header(
+                MITHRIL_API_VERSION_HEADER,
+                leader_aggregator_version,
+            );
+
+            client.warn_if_api_version_mismatch(&response);
+
+            assert!(!log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
+        }
+
+        #[test]
+        fn test_does_not_log_or_fail_when_header_is_missing() {
+            let (logger, log_inspector) = TestLogger::memory();
+            let mut client = setup_client("whatever");
+            client.logger = logger;
+            let response =
+                build_fake_response_with_header("NotMithrilAPIVersionHeader", "whatever");
+
+            client.warn_if_api_version_mismatch(&response);
+
+            assert!(!log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
+        }
+
+        #[test]
+        fn test_does_not_log_or_fail_when_header_is_not_a_version() {
+            let (logger, log_inspector) = TestLogger::memory();
+            let mut client = setup_client("whatever");
+            client.logger = logger;
+            let response =
+                build_fake_response_with_header(MITHRIL_API_VERSION_HEADER, "not_a_version");
+
+            client.warn_if_api_version_mismatch(&response);
+
+            assert!(!log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
+        }
+
+        #[test]
+        fn test_logs_error_when_aggregator_version_cannot_be_computed() {
+            let (logger, log_inspector) = TestLogger::memory();
+            let version_provider = version_provider_without_open_api_version();
+            let mut client = setup_client("whatever");
+            client.api_version_provider = Arc::new(version_provider);
+            client.logger = logger;
+            let response = build_fake_response_with_header(MITHRIL_API_VERSION_HEADER, "1.0.0");
+
+            client.warn_if_api_version_mismatch(&response);
+
+            assert!(!log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
+        }
+
+        #[tokio::test]
+        async fn test_epoch_settings_ok_200_log_warning_if_api_version_mismatch() {
+            let leader_aggregator_version = "1.0.0";
+            let aggregator_version = "0.0.999";
+            let (server, mut client) = setup_server_and_client();
+            let (logger, log_inspector) = TestLogger::memory();
+            let version_provider = version_provider_with_open_api_version(aggregator_version);
+            client.api_version_provider = Arc::new(version_provider);
+            client.logger = logger;
+            let epoch_settings_expected = EpochSettingsMessage::dummy();
+            let _server_mock = server.mock(|when, then| {
+                when.path("/epoch-settings");
+                then.status(200)
+                    .body(json!(epoch_settings_expected).to_string())
+                    .header(MITHRIL_API_VERSION_HEADER, leader_aggregator_version);
+            });
+
+            client.retrieve_epoch_settings().await.unwrap();
+
+            assert_api_version_warning_logged(
+                &log_inspector,
+                leader_aggregator_version,
+                aggregator_version,
+            );
+        }
     }
 }
