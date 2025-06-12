@@ -18,6 +18,7 @@ jemallocator = ["dep:tikv-jemallocator"]
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+blake2 = "0.10.6"
 chrono = { workspace = true }
 clap = { workspace = true }
 config = { workspace = true }
@@ -30,6 +31,7 @@ mithril-persistence = { path = "../internal/mithril-persistence" }
 mithril-signed-entity-lock = { path = "../internal/signed-entity/mithril-signed-entity-lock" }
 mithril-signed-entity-preloader = { path = "../internal/signed-entity/mithril-signed-entity-preloader" }
 mithril-ticker = { path = "../internal/mithril-ticker" }
+pallas-network = { git = "https://github.com/txpipe/pallas.git", branch = "main", optional = true }
 rand_core = { workspace = true }
 reqwest = { workspace = true, features = [
     "default",
