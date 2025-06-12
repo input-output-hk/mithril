@@ -72,31 +72,3 @@ pub trait BlockStreamer: Sync + Send {
     /// Get the last polled point of the chain
     fn last_polled_point(&self) -> Option<RawCardanoPoint>;
 }
-
-// todo: remove this trait (nearly unused right now)
-/// Tests extensions methods for the [BlockStreamer] trait.
-#[async_trait]
-#[cfg(test)]
-pub trait BlockStreamerTestExtensions {
-    /// Stream all the available blocks, may be very memory intensive
-    async fn poll_all(&mut self) -> StdResult<Vec<ScannedBlock>>;
-}
-
-#[async_trait]
-#[cfg(test)]
-impl<S: BlockStreamer + ?Sized> BlockStreamerTestExtensions for S {
-    async fn poll_all(&mut self) -> StdResult<Vec<ScannedBlock>> {
-        let mut all_blocks = Vec::new();
-        while let Some(next_blocks) = self.poll_next().await? {
-            match next_blocks {
-                ChainScannedBlocks::RollForwards(mut forward_blocks) => {
-                    all_blocks.append(&mut forward_blocks);
-                }
-                ChainScannedBlocks::RollBackward(_) => {
-                    return Err(anyhow::anyhow!("poll_all: RollBackward not supported"));
-                }
-            };
-        }
-        Ok(all_blocks)
-    }
-}

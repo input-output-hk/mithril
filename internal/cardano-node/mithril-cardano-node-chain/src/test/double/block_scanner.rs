@@ -142,8 +142,6 @@ impl BlockStreamer for DumbBlockStreamer {
 mod tests {
     use mithril_common::entities::SlotNumber;
 
-    use crate::chain_scanner::BlockStreamerTestExtensions;
-
     use super::*;
 
     #[tokio::test]
@@ -229,8 +227,14 @@ mod tests {
         let scanner = DumbBlockScanner::new().forwards(vec![expected_blocks.clone()]);
         let mut streamer = scanner.scan(None, BlockNumber(5)).await.unwrap();
 
-        let blocks = streamer.poll_all().await.unwrap();
-        assert_eq!(blocks, expected_blocks);
+        let blocks = streamer.poll_next().await.unwrap();
+        assert_eq!(
+            blocks,
+            Some(ChainScannedBlocks::RollForwards(expected_blocks))
+        );
+
+        let blocks = streamer.poll_next().await.unwrap();
+        assert_eq!(blocks, None);
     }
 
     #[tokio::test]
