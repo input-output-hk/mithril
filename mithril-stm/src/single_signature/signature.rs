@@ -91,19 +91,35 @@ impl StmSig {
     ) -> Result<StmSig, StmSignatureError> {
         let mut u64_bytes = [0u8; 8];
 
-        u64_bytes.copy_from_slice(&bytes[0..8]);
+        u64_bytes.copy_from_slice(
+            bytes
+                .get(0..8)
+                .ok_or(StmSignatureError::SerializationError)?,
+        );
         let nr_indexes = u64::from_be_bytes(u64_bytes) as usize;
 
         let mut indexes = Vec::new();
         for i in 0..nr_indexes {
-            u64_bytes.copy_from_slice(&bytes[8 + i * 8..16 + i * 8]);
+            u64_bytes.copy_from_slice(
+                bytes
+                    .get(8 + i * 8..16 + i * 8)
+                    .ok_or(StmSignatureError::SerializationError)?,
+            );
             indexes.push(u64::from_be_bytes(u64_bytes));
         }
 
         let offset = 8 + nr_indexes * 8;
-        let sigma = Signature::from_bytes(&bytes[offset..offset + 48])?;
+        let sigma = Signature::from_bytes(
+            bytes
+                .get(offset..offset + 48)
+                .ok_or(StmSignatureError::SerializationError)?,
+        )?;
 
-        u64_bytes.copy_from_slice(&bytes[offset + 48..offset + 56]);
+        u64_bytes.copy_from_slice(
+            bytes
+                .get(offset + 48..offset + 56)
+                .ok_or(StmSignatureError::SerializationError)?,
+        );
         let signer_index = u64::from_be_bytes(u64_bytes);
 
         Ok(StmSig {

@@ -35,7 +35,10 @@ impl SigningKey {
     /// # Error
     /// Fails if the byte string represents a scalar larger than the group order.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
-        match BlstSk::from_bytes(&bytes[..32]) {
+        let bytes = bytes
+            .get(..32)
+            .ok_or(MultiSignatureError::SerializationError)?;
+        match BlstSk::from_bytes(bytes) {
             Ok(sk) => Ok(Self(sk)),
             Err(e) => Err(blst_err_to_mithril(e, None, None)
                 .expect_err("If deserialization is not successful, blst returns and error different to SUCCESS."))

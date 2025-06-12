@@ -65,7 +65,10 @@ impl Signature {
     /// # Error
     /// Returns an error if the byte string does not represent a point in the curve.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
-        match BlstSig::sig_validate(&bytes[..48], true) {
+        let bytes = bytes
+            .get(..48)
+            .ok_or(MultiSignatureError::SerializationError)?;
+        match BlstSig::sig_validate(bytes, true) {
             Ok(sig) => Ok(Self(sig)),
             Err(e) => Err(blst_err_to_mithril(e, None, None)
                 .expect_err("If deserialization is not successful, blst returns and error different to SUCCESS."))

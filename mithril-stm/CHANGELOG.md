@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.4.4 (12-06-2025)
+
+### Changed
+
+- Fixed the `from_bytes` implementations to avoid panics with safe slice range gets.
+- Fixed the `to_bytes`/`from_bytes` implementations of the `StmAggrSig` to support variable length signatures.
+
+### Added
+
+- Integration tests for to ensure correct serialization and deserialization to bytes.
+
 ## 0.4.3 (11-06-2025)
 
 ### Added
