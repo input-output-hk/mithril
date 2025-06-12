@@ -56,10 +56,6 @@ pub enum AggregatorClientError {
     #[error("Input/Output error")]
     IOError(#[from] io::Error),
 
-    /// Incompatible API version error
-    #[error("HTTP API version mismatch")]
-    ApiVersionMismatch(#[source] StdError),
-
     /// HTTP client creation error
     #[error("HTTP client creation failed")]
     HTTPClientCreation(#[source] StdError),
@@ -75,14 +71,6 @@ pub enum AggregatorClientError {
     /// No signer registration round opened yet
     #[error("a signer registration round is not opened yet, please try again later")]
     RegistrationRoundNotYetOpened(#[source] StdError),
-}
-
-#[cfg(test)]
-/// convenient methods to error enum
-impl AggregatorClientError {
-    pub(crate) fn is_api_version_mismatch(&self) -> bool {
-        matches!(self, Self::ApiVersionMismatch(_))
-    }
 }
 
 impl AggregatorClientError {
@@ -237,22 +225,6 @@ impl AggregatorHTTPClient {
         }
     }
 
-    /// API version error handling
-    fn handle_api_error(&self, response: &Response) -> AggregatorClientError {
-        if let Some(version) = response.headers().get(MITHRIL_API_VERSION_HEADER) {
-            AggregatorClientError::ApiVersionMismatch(anyhow!(
-                "server version: '{}', signer version: '{}'",
-                version.to_str().unwrap(),
-                self.api_version_provider.compute_current_version().unwrap()
-            ))
-        } else {
-            AggregatorClientError::ApiVersionMismatch(anyhow!(
-                "version precondition failed, sent version '{}'.",
-                self.api_version_provider.compute_current_version().unwrap()
-            ))
-        }
-    }
-
     /// Check API version mismatch and log a warning if the aggregator's version is more recent.
     fn warn_if_api_version_mismatch(&self, response: &Response) {
         let aggregator_version_in_header = response
@@ -305,7 +277,6 @@ impl AggregatorClient for AggregatorHTTPClient {
                         Err(err) => Err(AggregatorClientError::JsonParseFailed(anyhow!(err))),
                     }
                 }
-                StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
                 _ => Err(AggregatorClientError::from_response(response).await),
             },
             Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
@@ -335,7 +306,6 @@ impl AggregatorClient for AggregatorHTTPClient {
 
                     Ok(())
                 }
-                StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
                 _ => Err(AggregatorClientError::from_response(response).await),
             },
             Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
@@ -376,7 +346,6 @@ impl AggregatorClient for AggregatorHTTPClient {
 
                     Ok(())
                 }
-                StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
                 _ => Err(AggregatorClientError::from_response(response).await),
             },
             Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
@@ -403,7 +372,6 @@ impl AggregatorClient for AggregatorHTTPClient {
                         .await
                         .map_err(|e| AggregatorClientError::JsonParseFailed(anyhow!(e)))?)
                 }
-                StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
                 _ => Err(AggregatorClientError::from_response(response).await),
             },
             Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
@@ -543,13 +511,6 @@ mod tests {
         (server, client)
     }
 
-    fn set_returning_412(server: &MockServer) {
-        server.mock(|_, then| {
-            then.status(412)
-                .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
-        });
-    }
-
     fn set_returning_500(server: &MockServer) {
         server.mock(|_, then| {
             then.status(500).body("an error occurred");
@@ -605,16 +566,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_aggregator_features_ko_412() {
-        let (server, client) = setup_server_and_client();
-        set_returning_412(&server);
-
-        let error = client.retrieve_aggregator_features().await.unwrap_err();
-
-        assert_is_error!(error, AggregatorClientError::ApiVersionMismatch(_));
-    }
-
-    #[tokio::test]
     async fn test_aggregator_features_ko_500() {
         let (server, client) = setup_server_and_client();
         set_returning_500(&server);
@@ -667,20 +618,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_epoch_settings_ko_412() {
-        let (server, client) = setup_server_and_client();
-        let _server_mock = server.mock(|when, then| {
-            when.path("/epoch-settings");
-            then.status(412)
-                .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
-        });
-
-        let epoch_settings = client.retrieve_epoch_settings().await.unwrap_err();
-
-        assert!(epoch_settings.is_api_version_mismatch());
-    }
-
-    #[tokio::test]
     async fn test_epoch_settings_ko_500() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
@@ -727,26 +664,6 @@ mod tests {
 
         let register_signer = client.register_signer(epoch, single_signer).await;
         register_signer.expect("unexpected error");
-    }
-
-    #[tokio::test]
-    async fn test_register_signer_ko_412() {
-        let epoch = Epoch(1);
-        let (server, client) = setup_server_and_client();
-        let _server_mock = server.mock(|when, then| {
-            when.method(POST).path("/register-signer");
-            then.status(412)
-                .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
-        });
-        let single_signers = fake_data::signers(1);
-        let single_signer = single_signers.first().unwrap();
-
-        let error = client
-            .register_signer(epoch, single_signer)
-            .await
-            .unwrap_err();
-
-        assert!(error.is_api_version_mismatch());
     }
 
     #[tokio::test]
@@ -860,28 +777,6 @@ mod tests {
             )
             .await;
         register_signature.expect("unexpected error");
-    }
-
-    #[tokio::test]
-    async fn test_register_signature_ko_412() {
-        let (server, client) = setup_server_and_client();
-        let _server_mock = server.mock(|when, then| {
-            when.method(POST).path("/register-signatures");
-            then.status(412)
-                .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
-        });
-        let single_signature = fake_data::single_signature((1..5).collect());
-
-        let error = client
-            .register_signature(
-                &SignedEntityType::dummy(),
-                &single_signature,
-                &ProtocolMessage::default(),
-            )
-            .await
-            .unwrap_err();
-
-        assert!(error.is_api_version_mismatch());
     }
 
     #[tokio::test]
