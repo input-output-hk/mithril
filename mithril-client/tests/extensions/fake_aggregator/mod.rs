@@ -1,12 +1,12 @@
 #[cfg(feature = "fs")]
 mod cardano_db_v1;
-#[cfg(all(feature = "fs", feature = "unstable"))]
+#[cfg(feature = "fs")]
 mod cardano_db_v2;
 mod cardano_transaction;
 mod certificate;
 mod mithril_stake_distribution;
 
-#[cfg(all(feature = "fs", feature = "unstable"))]
+#[cfg(feature = "fs")]
 #[allow(unused_imports)]
 pub use cardano_db_v2::CardanoDatabaseSnapshotV2Fixture;
 

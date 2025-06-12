@@ -9,6 +9,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
+- `cardano_database_v2` in the `mithril-client` library is now stable
+
 - Crates versions:
 
 | Crate | Version |

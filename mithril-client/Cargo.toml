@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client"
-version = "0.12.11"
+version = "0.12.12"
 description = "Mithril client library"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -107,9 +107,8 @@ required-features = ["fs"]
 [[test]]
 name = "cardano_transaction_proof"
 path = "tests/cardano_transaction_proof.rs"
-required-features = ["unstable"]
 
 [[test]]
 name = "cardano_db_snapshot_list_get_download_verify"
 path = "tests/cardano_db_snapshot_list_get_download_verify.rs"
-required-features = ["unstable", "fs"]
+required-features = ["fs"]
