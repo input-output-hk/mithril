@@ -13,7 +13,7 @@ use async_trait::async_trait;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::{Response, StatusCode, Url};
 use semver::Version;
-use slog::{debug, Logger};
+use slog::{debug, error, warn, Logger};
 use std::collections::HashMap;
 use std::sync::Arc;
 use thiserror::Error;
@@ -26,6 +26,9 @@ use mithril_common::MITHRIL_API_VERSION_HEADER;
 
 use crate::common::Epoch;
 use crate::{MithrilError, MithrilResult};
+
+const API_VERSION_MISMATCH_WARNING_MESSAGE: &str =
+    "OpenAPI API version mismatch, please update Mithril client.";
 
 /// Error tied with the Aggregator client
 #[derive(Error, Debug)]
@@ -338,7 +341,11 @@ impl AggregatorHTTPClient {
         })?;
 
         match response.status() {
-            StatusCode::OK => Ok(response),
+            StatusCode::OK => {
+                self.warn_if_api_version_mismatch(&response).await;
+
+                Ok(response)
+            }
             StatusCode::PRECONDITION_FAILED => {
                 if self.discard_current_api_version().await.is_some()
                     && !self.api_versions.read().await.is_empty()
@@ -381,7 +388,11 @@ impl AggregatorHTTPClient {
         })?;
 
         match response.status() {
-            StatusCode::OK | StatusCode::CREATED => Ok(response),
+            StatusCode::OK | StatusCode::CREATED => {
+                self.warn_if_api_version_mismatch(&response).await;
+
+                Ok(response)
+            }
             StatusCode::PRECONDITION_FAILED => {
                 if self.discard_current_api_version().await.is_some()
                     && !self.api_versions.read().await.is_empty()
@@ -452,6 +463,35 @@ impl AggregatorHTTPClient {
             .unwrap_or(ServerError::new(format!("Unhandled error {status_code}")));
 
         AggregatorClientError::RemoteServerTechnical(anyhow!("{server_error}"))
+    }
+
+    /// Check API version mismatch and log a warning if the aggregator's version is more recent.
+    async fn warn_if_api_version_mismatch(&self, response: &Response) {
+        let aggregator_version_in_header = response
+            .headers()
+            .get(MITHRIL_API_VERSION_HEADER)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| Version::parse(s).ok());
+
+        if let Some(aggregator_version) = aggregator_version_in_header {
+            let client_version = match self.compute_current_api_version().await {
+                Some(version) => version,
+                None => {
+                    error!(
+                        self.logger,
+                        "Failed to compute the current client API version"
+                    );
+                    return;
+                }
+            };
+
+            if client_version.lt(&aggregator_version) {
+                warn!(self.logger, "{}", API_VERSION_MISMATCH_WARNING_MESSAGE;
+                    "aggregator version" => aggregator_version.to_string(),
+                    "client version" => client_version.to_string()
+                );
+            }
+        };
     }
 }
 
@@ -995,5 +1035,183 @@ mod tests {
             .get_content(AggregatorRequest::ListCertificates)
             .await
             .expect("GET request should succeed with Accept-Encoding header");
+    }
+
+    mod warn_if_api_version_mismatch {
+        use http::response::Builder as HttpResponseBuilder;
+
+        use mithril_common::test_utils::MemoryDrainForTestInspector;
+
+        use super::*;
+
+        fn build_fake_response_with_header<K: Into<String>, V: Into<String>>(
+            key: K,
+            value: V,
+        ) -> Response {
+            HttpResponseBuilder::new()
+                .header(key.into(), value.into())
+                .body("whatever")
+                .unwrap()
+                .into()
+        }
+
+        fn assert_api_version_warning_logged<A: Into<String>, S: Into<String>>(
+            log_inspector: &MemoryDrainForTestInspector,
+            aggregator_version: A,
+            client_version: S,
+        ) {
+            assert!(log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
+            assert!(log_inspector
+                .contains_log(&format!("aggregator version={}", aggregator_version.into())));
+            assert!(
+                log_inspector.contains_log(&format!("client version={}", client_version.into()))
+            );
+        }
+
+        #[tokio::test]
+        async fn test_logs_warning_when_aggregator_api_version_is_newer() {
+            let aggregator_version = "1.0.0";
+            let client_version = "0.0.999";
+            let (logger, log_inspector) = TestLogger::memory();
+            let mut client = setup_client(
+                "http://whatever",
+                vec![Version::parse(client_version).unwrap()],
+                None,
+            );
+            client.logger = logger;
+            let response =
+                build_fake_response_with_header(MITHRIL_API_VERSION_HEADER, aggregator_version);
+
+            client.warn_if_api_version_mismatch(&response).await;
+
+            assert_api_version_warning_logged(&log_inspector, aggregator_version, client_version);
+        }
+
+        #[tokio::test]
+        async fn test_no_warning_logged_when_versions_match() {
+            let version = "1.0.0";
+            let (logger, log_inspector) = TestLogger::memory();
+            let mut client = setup_client(
+                "http://whatever",
+                vec![Version::parse(version).unwrap()],
+                None,
+            );
+            client.logger = logger;
+            let response = build_fake_response_with_header(MITHRIL_API_VERSION_HEADER, version);
+
+            client.warn_if_api_version_mismatch(&response).await;
+
+            assert!(!log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
+        }
+
+        // TODO: Not sure about this test, it doesn't make much sense from a business perspective.
+        #[tokio::test]
+        async fn test_no_warning_logged_when_aggregator_api_version_is_older() {
+            let aggregator_version = "0.0.999";
+            let client_version = "1.0.0";
+            let (logger, log_inspector) = TestLogger::memory();
+            let mut client = setup_client(
+                "http://whatever",
+                vec![Version::parse(client_version).unwrap()],
+                None,
+            );
+            client.logger = logger;
+            let response =
+                build_fake_response_with_header(MITHRIL_API_VERSION_HEADER, aggregator_version);
+
+            client.warn_if_api_version_mismatch(&response).await;
+
+            assert!(!log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
+        }
+
+        #[tokio::test]
+        async fn test_does_not_log_or_fail_when_header_is_missing() {
+            let (logger, log_inspector) = TestLogger::memory();
+            let mut client = setup_client(
+                "http://whatever",
+                APIVersionProvider::compute_all_versions_sorted(),
+                None,
+            );
+            client.logger = logger;
+            let response =
+                build_fake_response_with_header("NotMithrilAPIVersionHeader", "whatever");
+
+            client.warn_if_api_version_mismatch(&response).await;
+
+            assert!(!log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
+        }
+
+        #[tokio::test]
+        async fn test_does_not_log_or_fail_when_header_is_not_a_version() {
+            let (logger, log_inspector) = TestLogger::memory();
+            let mut client = setup_client(
+                "http://whatever",
+                APIVersionProvider::compute_all_versions_sorted(),
+                None,
+            );
+            client.logger = logger;
+            let response =
+                build_fake_response_with_header(MITHRIL_API_VERSION_HEADER, "not_a_version");
+
+            client.warn_if_api_version_mismatch(&response).await;
+
+            assert!(!log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
+        }
+
+        #[tokio::test]
+        async fn test_logs_error_when_client_version_cannot_be_computed() {
+            let (logger, log_inspector) = TestLogger::memory();
+            let mut client = setup_client("http://whatever", vec![], None);
+            client.logger = logger;
+            let response = build_fake_response_with_header(MITHRIL_API_VERSION_HEADER, "1.0.0");
+
+            client.warn_if_api_version_mismatch(&response).await;
+
+            assert!(!log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
+        }
+
+        #[tokio::test]
+        async fn test_client_get_log_warning_if_api_version_mismatch() {
+            let aggregator_version = "1.0.0";
+            let client_version = "0.0.999";
+            let (server, mut client) = setup_server_and_client();
+            let (logger, log_inspector) = TestLogger::memory();
+            client.api_versions =
+                Arc::new(RwLock::new(vec![Version::parse(client_version).unwrap()]));
+            client.logger = logger;
+            server.mock(|_, then| {
+                then.status(StatusCode::OK.as_u16())
+                    .header(MITHRIL_API_VERSION_HEADER, aggregator_version);
+            });
+
+            client
+                .get(Url::parse(&server.base_url()).unwrap())
+                .await
+                .unwrap();
+
+            assert_api_version_warning_logged(&log_inspector, aggregator_version, client_version);
+        }
+
+        #[tokio::test]
+        async fn test_client_post_log_warning_if_api_version_mismatch() {
+            let aggregator_version = "1.0.0";
+            let client_version = "0.0.999";
+            let (server, mut client) = setup_server_and_client();
+            let (logger, log_inspector) = TestLogger::memory();
+            client.api_versions =
+                Arc::new(RwLock::new(vec![Version::parse(client_version).unwrap()]));
+            client.logger = logger;
+            server.mock(|_, then| {
+                then.status(StatusCode::OK.as_u16())
+                    .header(MITHRIL_API_VERSION_HEADER, aggregator_version);
+            });
+
+            client
+                .post(Url::parse(&server.base_url()).unwrap(), "whatever")
+                .await
+                .unwrap();
+
+            assert_api_version_warning_logged(&log_inspector, aggregator_version, client_version);
+        }
     }
 }
