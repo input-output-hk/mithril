@@ -508,13 +508,15 @@ impl ChainObserver for PallasChainObserver {
     }
 }
 
-#[cfg(test)]
+// Windows does not support Unix sockets, nor pallas_network::facades::NodeServer
+#[cfg(all(test, unix))]
 mod tests {
     use std::fs;
 
     use kes_summed_ed25519::{kes::Sum6Kes, traits::KesSk};
     use pallas_codec::utils::{AnyCbor, AnyUInt, KeyValuePairs, TagWrap};
     use pallas_crypto::hash::Hash;
+    use pallas_network::facades::NodeServer;
     use pallas_network::miniprotocols::{
         localstate::{
             queries_v16::{
@@ -645,7 +647,7 @@ mod tests {
     }
 
     /// pallas responses mock server.
-    async fn mock_server(server: &mut pallas_network::facades::NodeServer) -> AnyCbor {
+    async fn mock_server(server: &mut NodeServer) -> AnyCbor {
         let query: queries_v16::Request =
             match server.statequery().recv_while_acquired().await.unwrap() {
                 ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
@@ -697,9 +699,7 @@ mod tests {
                 }
 
                 let unix_listener = UnixListener::bind(socket_path.as_path()).unwrap();
-                let mut server = pallas_network::facades::NodeServer::accept(&unix_listener, 10)
-                    .await
-                    .unwrap();
+                let mut server = NodeServer::accept(&unix_listener, 10).await.unwrap();
 
                 server.statequery().recv_while_idle().await.unwrap();
                 server.statequery().send_acquired().await.unwrap();

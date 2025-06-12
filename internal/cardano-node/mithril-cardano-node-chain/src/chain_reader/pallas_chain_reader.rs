@@ -57,7 +57,7 @@ impl PallasChainReader {
             .with_context(|| "PallasChainReader failed to get a client")
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, unix))]
     /// Check if the client already exists (test only).
     fn has_client(&self) -> bool {
         self.client.is_some()
@@ -149,7 +149,8 @@ impl ChainBlockReader for PallasChainReader {
     }
 }
 
-#[cfg(test)]
+// Windows does not support Unix sockets, nor pallas_network::facades::NodeServer
+#[cfg(all(test, unix))]
 mod tests {
     use pallas_network::{
         facades::NodeServer,
