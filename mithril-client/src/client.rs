@@ -330,8 +330,7 @@ impl ClientBuilder {
 
         AggregatorHTTPClient::new(
             endpoint_url,
-            APIVersionProvider::compute_all_versions_sorted()
-                .with_context(|| "Could not compute aggregator api versions")?,
+            APIVersionProvider::compute_all_versions_sorted(),
             logger,
             Some(headers),
         )

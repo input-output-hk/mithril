@@ -19,7 +19,6 @@ use mithril_common::digesters::cache::{
 use mithril_common::digesters::{
     CardanoImmutableDigester, ImmutableFileObserver, ImmutableFileSystemObserver,
 };
-use mithril_common::era::{EraChecker, EraReader};
 use mithril_common::signable_builder::{
     CardanoDatabaseSignableBuilder, CardanoImmutableFilesFullSignableBuilder,
     CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,
@@ -28,6 +27,7 @@ use mithril_common::signable_builder::{
 };
 use mithril_common::StdResult;
 
+use mithril_era::{EraChecker, EraReader};
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 use mithril_signed_entity_preloader::CardanoTransactionsPreloader;
 use mithril_ticker::{MithrilTickerService, TickerService};

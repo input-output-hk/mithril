@@ -219,11 +219,8 @@ mod tests {
     use std::collections::HashMap;
     use warp::test::RequestBuilder;
 
-    use mithril_common::{
-        entities::Epoch,
-        era::{EraChecker, SupportedEra},
-        MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
-    };
+    use mithril_common::api_version::DummyApiVersionDiscriminantSource;
+    use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
 
     use crate::initialize_dependencies;
     use crate::test_tools::TestLogger;
@@ -232,8 +229,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_no_version() {
-        let era_checker = EraChecker::new(SupportedEra::dummy(), Epoch(1));
-        let api_version_provider = Arc::new(APIVersionProvider::new(Arc::new(era_checker)));
+        let discriminant_source = DummyApiVersionDiscriminantSource::default();
+        let api_version_provider = Arc::new(APIVersionProvider::new(Arc::new(discriminant_source)));
         let filters = header_must_be(api_version_provider, TestLogger::stdout());
         warp::test::request()
             .path("/aggregator/whatever")
@@ -244,8 +241,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_parse_version_error() {
-        let era_checker = EraChecker::new(SupportedEra::dummy(), Epoch(1));
-        let api_version_provider = Arc::new(APIVersionProvider::new(Arc::new(era_checker)));
+        let discriminant_source = DummyApiVersionDiscriminantSource::default();
+        let api_version_provider = Arc::new(APIVersionProvider::new(Arc::new(discriminant_source)));
         let filters = header_must_be(api_version_provider, TestLogger::stdout());
         warp::test::request()
             .header(MITHRIL_API_VERSION_HEADER, "not_a_version")
@@ -259,8 +256,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_bad_version() {
-        let era_checker = EraChecker::new(SupportedEra::dummy(), Epoch(1));
-        let mut version_provider = APIVersionProvider::new(Arc::new(era_checker));
+        let discriminant_source = DummyApiVersionDiscriminantSource::default();
+        let mut version_provider = APIVersionProvider::new(Arc::new(discriminant_source));
         let mut open_api_versions = HashMap::new();
         open_api_versions.insert("openapi.yaml".to_string(), Version::new(1, 0, 0));
         version_provider.update_open_api_versions(open_api_versions);
@@ -276,8 +273,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_good_version() {
-        let era_checker = EraChecker::new(SupportedEra::dummy(), Epoch(1));
-        let mut version_provider = APIVersionProvider::new(Arc::new(era_checker));
+        let discriminant_source = DummyApiVersionDiscriminantSource::default();
+        let mut version_provider = APIVersionProvider::new(Arc::new(discriminant_source));
         let mut open_api_versions = HashMap::new();
         open_api_versions.insert("openapi.yaml".to_string(), Version::new(0, 1, 0));
         version_provider.update_open_api_versions(open_api_versions);

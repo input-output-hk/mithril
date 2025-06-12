@@ -1,8 +1,9 @@
 use async_trait::async_trait;
 use std::{fs, path::PathBuf};
 
-use crate::era::{EraMarker, EraReaderAdapter};
-use crate::StdResult;
+use mithril_common::StdResult;
+
+use crate::{EraMarker, EraReaderAdapter};
 
 /// File adapter is intended to be used in a test environment
 /// to simulate eras transitions.
@@ -28,9 +29,8 @@ impl EraReaderAdapter for FileAdapter {
 
 #[cfg(test)]
 mod tests {
-    use crate::entities::Epoch;
-    use crate::era::SupportedEra;
-    use crate::test_utils::TempDir;
+    use mithril_common::entities::{Epoch, SupportedEra};
+    use mithril_common::test_utils::TempDir;
 
     use super::*;
 

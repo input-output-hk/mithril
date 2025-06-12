@@ -1,0 +1,21 @@
+[package]
+name = "mithril-era"
+version = "0.1.0"
+authors.workspace = true
+documentation.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+mithril-common = { path = "../../mithril-common" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+mithril-common = { path = "../../mithril-common", features = ["test_tools"] }
+tokio = { workspace = true, features = ["macros"] }

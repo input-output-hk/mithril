@@ -16,4 +16,4 @@ check:
 	${CARGO} fmt --check
 
 doc:
-	${CARGO} doc --no-deps --open --features full
+	${CARGO} doc --no-deps --open

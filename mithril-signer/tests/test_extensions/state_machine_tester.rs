@@ -22,9 +22,9 @@ use mithril_common::{
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
     entities::{
         BlockNumber, CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,
-        SignedEntityType, SignedEntityTypeDiscriminants, SignerWithStake, SlotNumber, TimePoint,
+        SignedEntityType, SignedEntityTypeDiscriminants, SignerWithStake, SlotNumber, SupportedEra,
+        TimePoint,
     },
-    era::{adapters::EraReaderDummyAdapter, EraChecker, EraMarker, EraReader, SupportedEra},
     signable_builder::{
         CardanoDatabaseSignableBuilder, CardanoImmutableFilesFullSignableBuilder,
         CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,
@@ -33,6 +33,7 @@ use mithril_common::{
     },
     StdError,
 };
+use mithril_era::{adapters::EraReaderDummyAdapter, EraChecker, EraMarker, EraReader};
 use mithril_persistence::{
     database::repository::CardanoTransactionRepository, sqlite::SqliteConnectionPool,
     store::StakeStorer,

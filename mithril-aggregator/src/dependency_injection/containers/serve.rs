@@ -9,11 +9,11 @@ use mithril_common::{
         CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignerWithStake,
         StakeDistribution,
     },
-    era::{EraChecker, EraReader},
     signable_builder::SignableBuilderService,
     test_utils::MithrilFixture,
 };
 
+use mithril_era::{EraChecker, EraReader};
 use mithril_persistence::store::StakeStorer;
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 use mithril_ticker::TickerService;

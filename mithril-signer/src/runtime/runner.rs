@@ -343,7 +343,6 @@ mod tests {
         crypto_helper::{MKMap, MKMapNode, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer},
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
         entities::{BlockNumber, BlockRange, Epoch, SignedEntityTypeDiscriminants},
-        era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
         messages::{AggregatorCapabilities, AggregatorFeaturesMessage},
         signable_builder::{
             BlockRangeRootRetriever, CardanoImmutableFilesFullSignableBuilder,
@@ -352,6 +351,7 @@ mod tests {
         },
         test_utils::{fake_data, MithrilFixtureBuilder},
     };
+    use mithril_era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader};
     use mithril_signed_entity_lock::SignedEntityTypeLock;
     use mithril_signed_entity_preloader::{
         CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,

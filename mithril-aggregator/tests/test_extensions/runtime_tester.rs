@@ -19,14 +19,15 @@ use mithril_common::{
     entities::{
         BlockNumber, CardanoTransactionsSigningConfig, Certificate, CertificateSignature,
         ChainPoint, Epoch, ImmutableFileNumber, SignedEntityType, SignedEntityTypeDiscriminants,
-        SingleSignatureAuthenticationStatus, SlotNumber, StakeDistribution, TimePoint,
+        SingleSignatureAuthenticationStatus, SlotNumber, StakeDistribution, SupportedEra,
+        TimePoint,
     },
-    era::{adapters::EraReaderDummyAdapter, EraMarker, EraReader, SupportedEra},
     test_utils::{
         MithrilFixture, MithrilFixtureBuilder, SignerFixture, StakeDistributionGenerationMethod,
     },
     StdResult,
 };
+use mithril_era::{adapters::EraReaderDummyAdapter, EraMarker, EraReader};
 use serde_json::json;
 use slog::Drain;
 use slog_scope::debug;

@@ -1,8 +1,7 @@
 use std::sync::RwLock;
 
-use crate::entities::Epoch;
-
-use super::SupportedEra;
+use mithril_common::api_version::ApiVersionDiscriminantSource;
+use mithril_common::entities::{Epoch, SupportedEra};
 
 struct SupportedEraStamp {
     era: SupportedEra,
@@ -48,6 +47,12 @@ impl EraChecker {
     }
 }
 
+impl ApiVersionDiscriminantSource for EraChecker {
+    fn get_discriminant(&self) -> String {
+        self.current_era().to_string()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -61,5 +66,13 @@ mod tests {
         assert_eq!(expected_era, era_checker.current_era());
         assert_eq!(Epoch(2), era_checker.current_epoch());
         assert!(era_checker.is_era_active(expected_era));
+    }
+
+    #[test]
+    fn get_discriminant_return_current_era_string() {
+        let expected_era = SupportedEra::dummy();
+        let era_checker = EraChecker::new(expected_era, Epoch(1));
+
+        assert_eq!(expected_era.to_string(), era_checker.get_discriminant());
     }
 }

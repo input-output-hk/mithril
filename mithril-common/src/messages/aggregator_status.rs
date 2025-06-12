@@ -1,9 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    entities::{CardanoEra, Epoch, ProtocolParameters, Stake, TotalSPOs},
-    era::SupportedEra,
-};
+use crate::entities::{CardanoEra, Epoch, ProtocolParameters, Stake, SupportedEra, TotalSPOs};
 
 /// Message advertised by an aggregator to inform about its status
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

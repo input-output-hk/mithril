@@ -1,11 +1,13 @@
 mod test_extensions;
 use mithril_aggregator::{RuntimeError, ServeCommandConfiguration};
 use mithril_common::{
-    entities::{BlockNumber, ChainPoint, Epoch, ProtocolParameters, SlotNumber, TimePoint},
-    era::{EraMarker, SupportedEra},
+    entities::{
+        BlockNumber, ChainPoint, Epoch, ProtocolParameters, SlotNumber, SupportedEra, TimePoint,
+    },
     temp_dir,
     test_utils::MithrilFixtureBuilder,
 };
+use mithril_era::EraMarker;
 
 use test_extensions::{utilities::get_test_dir, RuntimeTester};
 

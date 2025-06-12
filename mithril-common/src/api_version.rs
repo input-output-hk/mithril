@@ -5,30 +5,37 @@ use semver::{Version, VersionReq};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::era::EraChecker;
 use crate::StdResult;
 
 /// API Version provider
 #[derive(Clone)]
 pub struct APIVersionProvider {
-    era_checker: Arc<EraChecker>,
+    alternate_file_discriminator: Arc<dyn ApiVersionDiscriminantSource>,
     open_api_versions: HashMap<OpenAPIFileName, Version>,
+}
+
+/// Trait to get the discriminant that identifies the alternate `openapi` file to use first if found,
+/// in place of the default `openapi.yml` file.
+#[cfg_attr(test, mockall::automock)]
+pub trait ApiVersionDiscriminantSource: Send + Sync {
+    /// Get the discriminant that identifies the alternate `openapi` file
+    fn get_discriminant(&self) -> String;
 }
 
 impl APIVersionProvider {
     /// Version provider factory
-    pub fn new(era_checker: Arc<EraChecker>) -> Self {
+    pub fn new(era_checker: Arc<dyn ApiVersionDiscriminantSource>) -> Self {
         Self {
-            era_checker,
+            alternate_file_discriminator: era_checker,
             open_api_versions: get_open_api_versions_mapping(),
         }
     }
 
     /// Compute the current api version
     pub fn compute_current_version(&self) -> StdResult<Version> {
-        let current_era = self.era_checker.current_era();
+        let discriminant = self.alternate_file_discriminator.get_discriminant();
         let open_api_spec_file_name_default = "openapi.yaml";
-        let open_api_spec_file_name_era = &format!("openapi-{current_era}.yaml");
+        let open_api_spec_file_name_era = &format!("openapi-{discriminant}.yaml");
         let open_api_version = self
             .open_api_versions
             .get(open_api_spec_file_name_era)
@@ -54,10 +61,10 @@ impl APIVersionProvider {
     }
 
     /// Compute all the sorted list of all versions
-    pub fn compute_all_versions_sorted() -> StdResult<Vec<Version>> {
+    pub fn compute_all_versions_sorted() -> Vec<Version> {
         let mut versions: Vec<Version> = get_open_api_versions_mapping().into_values().collect();
         versions.sort();
-        Ok(versions)
+        versions
     }
 
     /// Update open api versions. Test only
@@ -69,21 +76,44 @@ impl APIVersionProvider {
     }
 }
 
+cfg_test_tools! {
+    /// A dummy implementation of the `ApiVersionDiscriminantSource` trait for testing purposes.
+    pub struct DummyApiVersionDiscriminantSource {
+        discriminant: String,
+    }
+
+    impl DummyApiVersionDiscriminantSource {
+        /// Create a new instance of `DummyApiVersionDiscriminantSource` with the given discriminant.
+        pub fn new<T: Into<String>>(discrimant: T) -> Self {
+            Self {
+                discriminant: discrimant.into(),
+            }
+        }
+    }
+
+    impl Default for DummyApiVersionDiscriminantSource {
+        fn default() -> Self {
+            Self {
+                discriminant: "dummy".to_string(),
+            }
+        }
+    }
+
+    impl ApiVersionDiscriminantSource for DummyApiVersionDiscriminantSource {
+        fn get_discriminant(&self) -> String {
+            self.discriminant.clone()
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use semver::Version;
-    use std::{collections::HashMap, sync::Arc};
-
-    use crate::{
-        api_version::APIVersionProvider,
-        entities::Epoch,
-        era::{EraChecker, SupportedEra},
-    };
+    use super::*;
 
     #[test]
     fn test_compute_current_version_default() {
-        let era_checker = EraChecker::new(SupportedEra::dummy(), Epoch(1));
-        let mut version_provider = APIVersionProvider::new(Arc::new(era_checker));
+        let discriminant_source = DummyApiVersionDiscriminantSource::default();
+        let mut version_provider = APIVersionProvider::new(Arc::new(discriminant_source));
         let mut open_api_versions = HashMap::new();
         open_api_versions.insert("openapi.yaml".to_string(), Version::new(1, 2, 3));
         version_provider.update_open_api_versions(open_api_versions);
@@ -100,14 +130,11 @@ mod test {
 
     #[test]
     fn test_compute_current_version_era_specific() {
-        let era_checker = EraChecker::new(SupportedEra::dummy(), Epoch(1));
-        let mut version_provider = APIVersionProvider::new(Arc::new(era_checker));
+        let discriminant_source = DummyApiVersionDiscriminantSource::new("dummy");
+        let mut version_provider = APIVersionProvider::new(Arc::new(discriminant_source));
         let mut open_api_versions = HashMap::new();
         open_api_versions.insert("openapi.yaml".to_string(), Version::new(1, 2, 3));
-        open_api_versions.insert(
-            format!("openapi-{}.yaml", SupportedEra::dummy()),
-            Version::new(2, 1, 0),
-        );
+        open_api_versions.insert("openapi-dummy.yaml".to_string(), Version::new(2, 1, 0));
         version_provider.update_open_api_versions(open_api_versions);
         let api_version_provider = Arc::new(version_provider);
 
@@ -122,8 +149,8 @@ mod test {
 
     #[test]
     fn test_compute_current_version_requirement_beta() {
-        let era_checker = EraChecker::new(SupportedEra::dummy(), Epoch(1));
-        let mut version_provider = APIVersionProvider::new(Arc::new(era_checker));
+        let discriminant_source = DummyApiVersionDiscriminantSource::default();
+        let mut version_provider = APIVersionProvider::new(Arc::new(discriminant_source));
         let mut open_api_versions = HashMap::new();
         open_api_versions.insert("openapi.yaml".to_string(), Version::new(0, 2, 3));
         version_provider.update_open_api_versions(open_api_versions);
@@ -140,8 +167,8 @@ mod test {
 
     #[test]
     fn test_compute_current_version_requirement_stable() {
-        let era_checker = EraChecker::new(SupportedEra::dummy(), Epoch(1));
-        let mut version_provider = APIVersionProvider::new(Arc::new(era_checker));
+        let discriminant_source = DummyApiVersionDiscriminantSource::default();
+        let mut version_provider = APIVersionProvider::new(Arc::new(discriminant_source));
         let mut open_api_versions = HashMap::new();
         open_api_versions.insert("openapi.yaml".to_string(), Version::new(3, 2, 1));
         version_provider.update_open_api_versions(open_api_versions);
@@ -158,8 +185,7 @@ mod test {
 
     #[test]
     fn test_compute_all_versions_sorted() {
-        let all_versions_sorted = APIVersionProvider::compute_all_versions_sorted()
-            .expect("Computing the list of all sorted versions should not fail");
+        let all_versions_sorted = APIVersionProvider::compute_all_versions_sorted();
 
         assert!(!all_versions_sorted.is_empty());
     }

@@ -4,10 +4,10 @@ use anyhow::anyhow;
 use mithril_common::{
     chain_observer::{TxDatumBuilder, TxDatumFieldValue},
     crypto_helper::EraMarkersSigner,
-    entities::Epoch,
-    era::{adapters::EraMarkersPayloadCardanoChain, EraMarker, SupportedEra},
+    entities::{Epoch, SupportedEra},
     StdResult,
 };
+use mithril_era::{adapters::EraMarkersPayloadCardanoChain, EraMarker};
 
 type EraToolsResult<R> = StdResult<R>;
 

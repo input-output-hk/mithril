@@ -1,13 +1,14 @@
 use std::sync::Arc;
 
 use mithril_common::api_version::APIVersionProvider;
-use mithril_common::entities::Epoch;
-use mithril_common::era::adapters::{EraReaderAdapterBuilder, EraReaderDummyAdapter};
-use mithril_common::era::{EraChecker, EraMarker, EraReader, EraReaderAdapter, SupportedEra};
+use mithril_common::entities::{Epoch, SupportedEra};
+use mithril_era::adapters::{EraReaderAdapterBuilder, EraReaderDummyAdapter};
+use mithril_era::{EraChecker, EraMarker, EraReader, EraReaderAdapter};
 
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
 use crate::get_dependency;
 use crate::ExecutionEnvironment;
+
 impl DependenciesBuilder {
     async fn build_api_version_provider(&mut self) -> Result<Arc<APIVersionProvider>> {
         let api_version_provider = Arc::new(APIVersionProvider::new(self.get_era_checker().await?));

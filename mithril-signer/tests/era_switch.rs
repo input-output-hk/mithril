@@ -2,10 +2,10 @@ mod test_extensions;
 
 use mithril_common::{
     crypto_helper::tests_setup,
-    entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, TimePoint},
-    era::{EraMarker, SupportedEra},
+    entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, SupportedEra, TimePoint},
     test_utils::MithrilFixtureBuilder,
 };
+use mithril_era::EraMarker;
 use test_extensions::StateMachineTester;
 
 #[rustfmt::skip]
