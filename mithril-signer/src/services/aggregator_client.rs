@@ -27,7 +27,7 @@ use crate::message_adapters::{
 const JSON_CONTENT_TYPE: HeaderValue = HeaderValue::from_static("application/json");
 
 const API_VERSION_MISMATCH_WARNING_MESSAGE: &str =
-    "OpenAPI API version mismatch, please update your Mithril signer node.";
+    "OpenAPI version may be incompatible, please update your Mithril node to the latest version.";
 
 /// Error structure for the Aggregator Client.
 #[derive(Error, Debug)]
@@ -227,28 +227,30 @@ impl AggregatorHTTPClient {
 
     /// Check API version mismatch and log a warning if the aggregator's version is more recent.
     fn warn_if_api_version_mismatch(&self, response: &Response) {
-        let aggregator_version_in_header = response
+        let aggregator_version = response
             .headers()
             .get(MITHRIL_API_VERSION_HEADER)
             .and_then(|v| v.to_str().ok())
             .and_then(|s| Version::parse(s).ok());
 
-        if let Some(aggregator_version) = aggregator_version_in_header {
-            let signer_version = match self.api_version_provider.compute_current_version() {
-                Ok(version) => version,
-                Err(error) => {
-                    error!(self.logger, "Failed to compute the current signer API version"; "error" => error.to_string());
-                    return;
-                }
-            };
+        let signer_version = self.api_version_provider.compute_current_version();
 
-            if signer_version.lt(&aggregator_version) {
+        match (aggregator_version, signer_version) {
+            (Some(aggregator), Ok(signer)) if signer < aggregator => {
                 warn!(self.logger, "{}", API_VERSION_MISMATCH_WARNING_MESSAGE;
-                    "aggregator version" => aggregator_version.to_string(),
-                    "signer version" => signer_version.to_string()
+                    "aggregator_version" => %aggregator,
+                    "signer_version" => %signer,
                 );
             }
-        };
+            (Some(_), Err(error)) => {
+                error!(
+                    self.logger,
+                    "Failed to compute the current signer API version";
+                    "error" => error.to_string()
+                );
+            }
+            _ => {}
+        }
     }
 }
 
@@ -1069,8 +1071,7 @@ mod tests {
         fn version_provider_with_open_api_version<V: Into<String>>(
             version: V,
         ) -> APIVersionProvider {
-            let mut version_provider =
-                APIVersionProvider::new(Arc::new(DummyApiVersionDiscriminantSource::new("dummy")));
+            let mut version_provider = version_provider_without_open_api_version();
             let mut open_api_versions = HashMap::new();
             open_api_versions.insert(
                 "openapi.yaml".to_string(),
@@ -1107,16 +1108,16 @@ mod tests {
         ) {
             assert!(log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
             assert!(log_inspector
-                .contains_log(&format!("aggregator version={}", aggregator_version.into())));
+                .contains_log(&format!("aggregator_version={}", aggregator_version.into())));
             assert!(
-                log_inspector.contains_log(&format!("signer version={}", signer_version.into()))
+                log_inspector.contains_log(&format!("signer_version={}", signer_version.into()))
             );
         }
 
         #[test]
         fn test_logs_warning_when_aggregator_api_version_is_newer() {
-            let aggregator_version = "1.0.0";
-            let signer_version = "0.0.999";
+            let aggregator_version = "2.0.0";
+            let signer_version = "1.0.0";
             let (logger, log_inspector) = TestLogger::memory();
             let version_provider = version_provider_with_open_api_version(signer_version);
             let mut client = setup_client("whatever");
@@ -1145,11 +1146,10 @@ mod tests {
             assert!(!log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
         }
 
-        // TODO: Not sure about this test, it doesn't make much sense from a business perspective.
         #[test]
         fn test_no_warning_logged_when_aggregator_api_version_is_older() {
-            let aggregator_version = "0.0.999";
-            let signer_version = "1.0.0";
+            let aggregator_version = "1.0.0";
+            let signer_version = "2.0.0";
             let (logger, log_inspector) = TestLogger::memory();
             let version_provider = version_provider_with_open_api_version(signer_version);
             let mut client = setup_client("whatever");
@@ -1205,8 +1205,8 @@ mod tests {
 
         #[tokio::test]
         async fn test_aggregator_features_ok_200_log_warning_if_api_version_mismatch() {
-            let aggregator_version = "1.0.0";
-            let signer_version = "0.0.999";
+            let aggregator_version = "2.0.0";
+            let signer_version = "1.0.0";
             let (server, mut client) = setup_server_and_client();
             let (logger, log_inspector) = TestLogger::memory();
             let version_provider = version_provider_with_open_api_version(signer_version);
@@ -1228,8 +1228,8 @@ mod tests {
 
         #[tokio::test]
         async fn test_epoch_settings_ok_200_log_warning_if_api_version_mismatch() {
-            let aggregator_version = "1.0.0";
-            let signer_version = "0.0.999";
+            let aggregator_version = "2.0.0";
+            let signer_version = "1.0.0";
             let (server, mut client) = setup_server_and_client();
             let (logger, log_inspector) = TestLogger::memory();
             let version_provider = version_provider_with_open_api_version(signer_version);
@@ -1251,8 +1251,8 @@ mod tests {
 
         #[tokio::test]
         async fn test_register_signer_ok_201_log_warning_if_api_version_mismatch() {
-            let aggregator_version = "1.0.0";
-            let signer_version = "0.0.999";
+            let aggregator_version = "2.0.0";
+            let signer_version = "1.0.0";
             let epoch = Epoch(1);
             let single_signers = fake_data::signers(1);
             let single_signer = single_signers.first().unwrap();
@@ -1274,8 +1274,8 @@ mod tests {
 
         #[tokio::test]
         async fn test_register_signature_ok_201_log_warning_if_api_version_mismatch() {
-            let aggregator_version = "1.0.0";
-            let signer_version = "0.0.999";
+            let aggregator_version = "2.0.0";
+            let signer_version = "1.0.0";
             let single_signature = fake_data::single_signature((1..5).collect());
             let (server, mut client) = setup_server_and_client();
             let (logger, log_inspector) = TestLogger::memory();
@@ -1302,8 +1302,8 @@ mod tests {
 
         #[tokio::test]
         async fn test_register_signature_ok_202_log_warning_if_api_version_mismatch() {
-            let aggregator_version = "1.0.0";
-            let signer_version = "0.0.999";
+            let aggregator_version = "2.0.0";
+            let signer_version = "1.0.0";
             let single_signature = fake_data::single_signature((1..5).collect());
             let (server, mut client) = setup_server_and_client();
             let (logger, log_inspector) = TestLogger::memory();
@@ -1330,8 +1330,8 @@ mod tests {
 
         #[tokio::test]
         async fn test_register_signature_ok_410_log_warning_if_api_version_mismatch() {
-            let aggregator_version = "1.0.0";
-            let signer_version = "0.0.999";
+            let aggregator_version = "2.0.0";
+            let signer_version = "1.0.0";
             let single_signature = fake_data::single_signature((1..5).collect());
             let (server, mut client) = setup_server_and_client();
             let (logger, log_inspector) = TestLogger::memory();
