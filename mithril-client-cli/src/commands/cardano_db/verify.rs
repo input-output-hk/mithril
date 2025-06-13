@@ -89,6 +89,10 @@ impl CardanoDbVerifyCommand {
             .with_logger(logger.clone())
             .build()?;
 
+        client
+            .cardano_database_v2()
+            .check_presence_of_immutables(db_dir)?;
+
         let get_list_of_artifact_ids = || async {
             let cardano_db_snapshots =
                 client.cardano_database_v2().list().await.with_context(|| {

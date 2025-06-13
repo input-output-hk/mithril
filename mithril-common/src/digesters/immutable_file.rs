@@ -1,6 +1,6 @@
 use crate::entities::{ImmutableFileName, ImmutableFileNumber};
 
-use crate::digesters::ImmutableFileListingError::MissingImmutableFolder;
+use crate::digesters::ImmutableFileListingError::{MissingImmutableFiles, MissingImmutableFolder};
 use digest::{Digest, Output};
 use std::{
     cmp::Ordering,
@@ -10,7 +10,7 @@ use std::{
     path::{Path, PathBuf},
 };
 use thiserror::Error;
-use walkdir::WalkDir;
+use walkdir::{DirEntry, WalkDir};
 
 const IMMUTABLE_FILE_EXTENSIONS: [&str; 3] = ["chunk", "primary", "secondary"];
 
@@ -80,6 +80,10 @@ pub enum ImmutableFileListingError {
     /// Raised when the "immutable" folder could not be found in a file structure.
     #[error("Couldn't find the 'immutable' folder in '{0:?}'")]
     MissingImmutableFolder(PathBuf),
+
+    /// Raised when no immutable files could be found in the "immutable" folder.
+    #[error("Couldn't find the immutable files in '{0:?}'")]
+    MissingImmutableFiles(PathBuf),
 }
 
 impl ImmutableFile {
@@ -134,13 +138,7 @@ impl ImmutableFile {
             find_immutables_dir(dir).ok_or(MissingImmutableFolder(dir.to_path_buf()))?;
         let mut files: Vec<ImmutableFile> = vec![];
 
-        for path in WalkDir::new(immutable_dir)
-            .min_depth(1)
-            .max_depth(1)
-            .into_iter()
-            .filter_entry(is_immutable)
-            .filter_map(|file| file.ok())
-        {
+        for path in Self::walk_immutables_in_dir(&immutable_dir) {
             let immutable_file = ImmutableFile::new(path.into_path())?;
             files.push(immutable_file);
         }
@@ -171,6 +169,28 @@ impl ImmutableFile {
             }
         }
     }
+
+    /// Check if at least one immutable file exists in the given directory
+    pub fn at_least_one_immutable_files_exist_in_dir(
+        dir: &Path,
+    ) -> Result<bool, ImmutableFileListingError> {
+        let immutable_dir =
+            find_immutables_dir(dir).ok_or(MissingImmutableFolder(dir.to_path_buf()))?;
+        if Self::walk_immutables_in_dir(immutable_dir).next().is_some() {
+            Ok(true)
+        } else {
+            Err(MissingImmutableFiles(dir.to_path_buf()))
+        }
+    }
+
+    fn walk_immutables_in_dir<P: AsRef<Path>>(immutable_dir: P) -> impl Iterator<Item = DirEntry> {
+        WalkDir::new(immutable_dir)
+            .min_depth(1)
+            .max_depth(1)
+            .into_iter()
+            .filter_entry(is_immutable)
+            .filter_map(|file| file.ok())
+    }
 }
 
 impl PartialOrd for ImmutableFile {
@@ -190,8 +210,8 @@ impl Ord for ImmutableFile {
 #[cfg(test)]
 mod tests {
     use super::ImmutableFile;
-    use crate::test_utils::TempDir;
-    use std::fs::File;
+    use crate::test_utils::{temp_dir_create, TempDir};
+    use std::fs::{self, File};
     use std::io::prelude::*;
     use std::path::{Path, PathBuf};
 
@@ -402,5 +422,48 @@ mod tests {
 
         let expected: Vec<&str> = entries.into_iter().rev().skip(1).rev().collect();
         assert_eq!(expected, immutables_names);
+    }
+
+    #[test]
+    fn at_least_one_immutable_files_exist_in_dir_throw_error_if_immutable_dir_does_not_exist() {
+        let database_dir = temp_dir_create!();
+        let database_path = database_dir.as_path();
+
+        let error = ImmutableFile::at_least_one_immutable_files_exist_in_dir(database_path)
+            .expect_err("check_presence_of_immutables should fail");
+        assert_eq!(
+            error.to_string(),
+            format!(
+                "Couldn't find the 'immutable' folder in '{:?}'",
+                database_path
+            )
+        );
+    }
+
+    #[test]
+    fn at_least_one_immutable_files_exist_in_dir_throw_error_if_immutable_dir_is_empty() {
+        let database_dir = temp_dir_create!();
+        let database_path = database_dir.as_path();
+        fs::create_dir(database_path.join("immutable")).unwrap();
+
+        let error = ImmutableFile::at_least_one_immutable_files_exist_in_dir(database_path)
+            .expect_err("check_presence_of_immutables should fail");
+        assert_eq!(
+            error.to_string(),
+            format!("Couldn't find the immutable files in '{:?}'", database_path)
+        );
+    }
+
+    #[test]
+    fn at_least_one_immutable_files_exist_in_dir_is_ok_if_immutable_dir_contains_at_least_one_file()
+    {
+        let database_dir = temp_dir_create!();
+        let database_path = database_dir.as_path();
+        let immutable_file_path = database_dir.join("immutable").join("00001.chunk");
+        fs::create_dir(database_dir.join("immutable")).unwrap();
+        fs::File::create(immutable_file_path).unwrap();
+
+        ImmutableFile::at_least_one_immutable_files_exist_in_dir(database_path)
+            .expect("check_presence_of_immutables should succeed");
     }
 }
