@@ -327,9 +327,6 @@ impl Runner for SignerRunner {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::signable_builder::{
-        CardanoDatabaseSignableBuilder, SignableBuilderServiceDependencies,
-    };
     use mockall::mock;
     use mockall::predicate::eq;
     use std::collections::BTreeSet;
@@ -337,16 +334,21 @@ mod tests {
     use tokio::sync::RwLock;
 
     use mithril_cardano_node_chain::test::double::{DumbBlockScanner, FakeChainObserver};
+    use mithril_cardano_node_internal_database::{
+        signable_builder::{
+            CardanoDatabaseSignableBuilder, CardanoImmutableFilesFullSignableBuilder,
+        },
+        test::double::{DumbImmutableDigester, DumbImmutableFileObserver},
+    };
     use mithril_common::{
         api_version::APIVersionProvider,
         crypto_helper::{MKMap, MKMapNode, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer},
-        digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
         entities::{BlockNumber, BlockRange, Epoch, SignedEntityTypeDiscriminants},
         messages::{AggregatorCapabilities, AggregatorFeaturesMessage},
         signable_builder::{
-            BlockRangeRootRetriever, CardanoImmutableFilesFullSignableBuilder,
-            CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,
-            MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
+            BlockRangeRootRetriever, CardanoStakeDistributionSignableBuilder,
+            CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
+            MithrilStakeDistributionSignableBuilder, SignableBuilderServiceDependencies,
         },
         test_utils::{fake_data, MithrilFixtureBuilder},
     };

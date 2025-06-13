@@ -103,8 +103,9 @@ mod tests {
     use std::path::Path;
     use std::{collections::BTreeMap, path::PathBuf};
 
+    use mithril_cardano_node_internal_database::test::DummyCardanoDbBuilder;
+    use mithril_cardano_node_internal_database::{immutable_trio_names, IMMUTABLE_DIR, LEDGER_DIR};
     use mithril_common::{
-        digesters::{immutable_trio_names, DummyCardanoDbBuilder, IMMUTABLE_DIR, LEDGER_DIR},
         entities::{
             AncillaryFilesManifest, AncillaryLocation, CompressionAlgorithm, DigestLocation,
             ImmutableFileNumber, ImmutablesLocation, MultiFilesUri, ProtocolMessage,

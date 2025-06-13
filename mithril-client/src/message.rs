@@ -5,15 +5,15 @@ use std::path::Path;
 #[cfg(feature = "fs")]
 use std::sync::Arc;
 
+#[cfg(feature = "fs")]
+use mithril_cardano_node_internal_database::digesters::{
+    CardanoImmutableDigester, ImmutableDigester,
+};
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::SignerBuilder;
 use mithril_common::signable_builder::CardanoStakeDistributionSignableBuilder;
 #[cfg(feature = "fs")]
-use mithril_common::{
-    crypto_helper::MKProof,
-    digesters::{CardanoImmutableDigester, ImmutableDigester},
-    entities::SignedEntityType,
-};
+use mithril_common::{crypto_helper::MKProof, entities::SignedEntityType};
 
 use crate::{
     common::{ProtocolMessage, ProtocolMessagePartKey},

@@ -170,7 +170,7 @@ impl AggregatorClient for FakeAggregator {
 mod tests {
     use mithril_cardano_node_chain::chain_observer::ChainObserver;
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
-    use mithril_common::digesters::DumbImmutableFileObserver;
+    use mithril_cardano_node_internal_database::test::double::DumbImmutableFileObserver;
     use mithril_common::entities::{BlockNumber, ChainPoint};
     use mithril_common::test_utils::fake_data;
 

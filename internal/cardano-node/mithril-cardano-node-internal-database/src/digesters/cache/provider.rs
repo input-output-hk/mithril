@@ -4,9 +4,10 @@ use std::io;
 use async_trait::async_trait;
 use thiserror::Error;
 
-use crate::digesters::ImmutableFile;
-use crate::entities::{HexEncodedDigest, ImmutableFileName};
-use crate::StdError;
+use mithril_common::entities::{HexEncodedDigest, ImmutableFileName};
+use mithril_common::StdError;
+
+use crate::entities::ImmutableFile;
 
 /// A specialized result type for [ImmutableFileDigestCacheProvider].
 pub type CacheProviderResult<T> = Result<T, ImmutableDigesterCacheProviderError>;

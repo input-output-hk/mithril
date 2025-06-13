@@ -476,9 +476,9 @@ mod tests {
         test_utils::TestLogger,
     };
 
+    use mithril_cardano_node_internal_database::IMMUTABLE_DIR;
     use mithril_common::{
-        assert_dir_eq, crypto_helper::ManifestSigner, digesters::IMMUTABLE_DIR, temp_dir_create,
-        test_utils::fake_keys,
+        assert_dir_eq, crypto_helper::ManifestSigner, temp_dir_create, test_utils::fake_keys,
     };
 
     use super::*;

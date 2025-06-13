@@ -527,8 +527,8 @@ pub mod tests {
     use tokio::sync::RwLock;
 
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
+    use mithril_cardano_node_internal_database::test::double::DumbImmutableFileObserver;
     use mithril_common::{
-        digesters::DumbImmutableFileObserver,
         entities::{
             CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolMessage,
             SignedEntityConfig, SignedEntityType, SignedEntityTypeDiscriminants, StakeDistribution,

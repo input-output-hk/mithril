@@ -20,16 +20,19 @@ use mithril_cardano_node_chain::{
     entities::ScannedBlock,
     test::double::{DumbBlockScanner, FakeChainObserver},
 };
+use mithril_cardano_node_internal_database::{
+    signable_builder::{CardanoDatabaseSignableBuilder, CardanoImmutableFilesFullSignableBuilder},
+    test::double::{DumbImmutableDigester, DumbImmutableFileObserver},
+    ImmutableFileObserver,
+};
 use mithril_common::{
     api_version::APIVersionProvider,
-    digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
     entities::{
         BlockNumber, CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,
         SignedEntityType, SignedEntityTypeDiscriminants, SignerWithStake, SlotNumber, SupportedEra,
         TimePoint,
     },
     signable_builder::{
-        CardanoDatabaseSignableBuilder, CardanoImmutableFilesFullSignableBuilder,
         CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,
         MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
         SignableBuilderServiceDependencies,

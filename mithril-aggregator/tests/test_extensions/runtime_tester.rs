@@ -21,9 +21,11 @@ use mithril_cardano_node_chain::{
     entities::ScannedBlock,
     test::double::{DumbBlockScanner, FakeChainObserver},
 };
+use mithril_cardano_node_internal_database::test::double::{
+    DumbImmutableDigester, DumbImmutableFileObserver,
+};
 use mithril_common::{
     crypto_helper::ProtocolGenesisSigner,
-    digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
     entities::{
         BlockNumber, CardanoTransactionsSigningConfig, Certificate, CertificateSignature,
         ChainPoint, Epoch, ImmutableFileNumber, SignedEntityType, SignedEntityTypeDiscriminants,

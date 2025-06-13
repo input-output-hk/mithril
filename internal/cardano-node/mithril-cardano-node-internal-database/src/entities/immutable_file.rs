@@ -1,6 +1,3 @@
-use crate::entities::{ImmutableFileName, ImmutableFileNumber};
-
-use crate::digesters::ImmutableFileListingError::MissingImmutableFolder;
 use digest::{Digest, Output};
 use std::{
     cmp::Ordering,
@@ -11,6 +8,8 @@ use std::{
 };
 use thiserror::Error;
 use walkdir::WalkDir;
+
+use mithril_common::entities::{ImmutableFileName, ImmutableFileNumber};
 
 const IMMUTABLE_FILE_EXTENSIONS: [&str; 3] = ["chunk", "primary", "secondary"];
 
@@ -106,14 +105,13 @@ impl ImmutableFile {
         })
     }
 
-    cfg_test_tools! {
-        /// ImmutableFile factory, TEST ONLY as it bypass the checks done by [ImmutableFile::new].
-        pub fn dummy<T: Into<String>>(path: PathBuf, number: ImmutableFileNumber, filename: T) -> Self {
-            Self {
-                path,
-                number,
-                filename: filename.into(),
-            }
+    // Todo: how to handle dummies functions ?
+    /// ImmutableFile factory, TEST ONLY as it bypass the checks done by [ImmutableFile::new].
+    pub fn dummy<T: Into<String>>(path: PathBuf, number: ImmutableFileNumber, filename: T) -> Self {
+        Self {
+            path,
+            number,
+            filename: filename.into(),
         }
     }
 
@@ -130,8 +128,9 @@ impl ImmutableFile {
 
     /// List all [`ImmutableFile`] in a given directory.
     pub fn list_all_in_dir(dir: &Path) -> Result<Vec<ImmutableFile>, ImmutableFileListingError> {
-        let immutable_dir =
-            find_immutables_dir(dir).ok_or(MissingImmutableFolder(dir.to_path_buf()))?;
+        let immutable_dir = find_immutables_dir(dir).ok_or(
+            ImmutableFileListingError::MissingImmutableFolder(dir.to_path_buf()),
+        )?;
         let mut files: Vec<ImmutableFile> = vec![];
 
         for path in WalkDir::new(immutable_dir)
@@ -189,11 +188,11 @@ impl Ord for ImmutableFile {
 
 #[cfg(test)]
 mod tests {
-    use super::ImmutableFile;
-    use crate::test_utils::TempDir;
-    use std::fs::File;
     use std::io::prelude::*;
-    use std::path::{Path, PathBuf};
+
+    use mithril_common::test_utils::TempDir;
+
+    use super::*;
 
     fn get_test_dir(subdir_name: &str) -> PathBuf {
         TempDir::create("immutable_file", subdir_name)

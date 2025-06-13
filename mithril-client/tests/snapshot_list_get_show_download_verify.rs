@@ -1,12 +1,14 @@
 mod extensions;
 
-use crate::extensions::fake_aggregator::{FakeAggregator, FakeCertificateVerifier};
+use std::sync::Arc;
+
+use mithril_cardano_node_internal_database::test::DummyCardanoDbBuilder;
 use mithril_client::aggregator_client::AggregatorRequest;
 use mithril_client::feedback::SlogFeedbackReceiver;
 use mithril_client::{ClientBuilder, MessageBuilder};
 use mithril_common::crypto_helper::ManifestSigner;
-use mithril_common::digesters::DummyCardanoDbBuilder;
-use std::sync::Arc;
+
+use crate::extensions::fake_aggregator::{FakeAggregator, FakeCertificateVerifier};
 
 #[tokio::test]
 async fn snapshot_list_get_show_download_verify() {

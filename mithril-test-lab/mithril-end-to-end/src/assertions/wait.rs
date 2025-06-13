@@ -1,11 +1,12 @@
-use crate::{attempt, utils::AttemptResult, Aggregator};
 use anyhow::{anyhow, Context};
-use mithril_common::{
-    digesters::ImmutableFile, entities::Epoch, messages::EpochSettingsMessage, StdResult,
-};
 use reqwest::StatusCode;
 use slog_scope::{info, warn};
 use std::time::Duration;
+
+use mithril_cardano_node_internal_database::entities::ImmutableFile;
+use mithril_common::{entities::Epoch, messages::EpochSettingsMessage, StdResult};
+
+use crate::{attempt, utils::AttemptResult, Aggregator};
 
 pub async fn wait_for_enough_immutable(aggregator: &Aggregator) -> StdResult<()> {
     info!("Waiting that enough immutable have been written in the devnet"; "aggregator" => aggregator.name());

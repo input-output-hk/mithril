@@ -2,6 +2,9 @@ mod extensions;
 
 use std::sync::Arc;
 
+use mithril_cardano_node_internal_database::{
+    digesters::CardanoImmutableDigester, test::DummyCardanoDbBuilder,
+};
 use mithril_client::{
     aggregator_client::AggregatorRequest,
     cardano_database_client::{DownloadUnpackOptions, ImmutableFileRange},
@@ -9,7 +12,6 @@ use mithril_client::{
     ClientBuilder, MessageBuilder,
 };
 use mithril_common::crypto_helper::ManifestSigner;
-use mithril_common::digesters::{CardanoImmutableDigester, DummyCardanoDbBuilder};
 
 use crate::extensions::fake_aggregator::{
     CardanoDatabaseSnapshotV2Fixture, FakeAggregator, FakeCertificateVerifier,

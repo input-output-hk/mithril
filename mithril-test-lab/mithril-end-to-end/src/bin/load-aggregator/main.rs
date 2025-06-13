@@ -3,8 +3,8 @@ use slog_scope::info;
 use std::{sync::Arc, time::Duration};
 use tokio::sync::oneshot;
 
+use mithril_cardano_node_internal_database::test::{DummyCardanoDb, DummyCardanoDbBuilder};
 use mithril_common::{
-    digesters::{DummyCardanoDb, DummyCardanoDbBuilder},
     entities::{Epoch, ProtocolParameters},
     test_utils::MithrilFixture,
     StdResult,

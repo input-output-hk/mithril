@@ -3,6 +3,10 @@ use std::path::Path;
 use std::sync::{Arc, RwLock};
 use warp::Filter;
 
+use mithril_cardano_node_internal_database::digesters::{
+    CardanoImmutableDigester, ImmutableDigester,
+};
+use mithril_cardano_node_internal_database::test::DummyCardanoDb;
 use mithril_client::common::{
     AncillaryLocation, AncillaryMessagePart, CardanoDbBeacon, CompressionAlgorithm, DigestLocation,
     DigestsMessagePart, ImmutableFileNumber, ImmutablesLocation, ImmutablesMessagePart,
@@ -12,7 +16,6 @@ use mithril_client::{
     CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem, MithrilCertificate,
 };
 use mithril_common::crypto_helper::ManifestVerifierSecretKey;
-use mithril_common::digesters::{CardanoImmutableDigester, DummyCardanoDb, ImmutableDigester};
 use mithril_common::test_utils::fake_data;
 use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
 

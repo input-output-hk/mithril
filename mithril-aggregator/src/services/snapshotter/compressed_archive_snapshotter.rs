@@ -5,9 +5,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use mithril_common::digesters::{
-    immutable_trio_names, ImmutableFile, LedgerStateSnapshot, IMMUTABLE_DIR, LEDGER_DIR,
-};
+use mithril_cardano_node_internal_database::entities::{ImmutableFile, LedgerStateSnapshot};
+use mithril_cardano_node_internal_database::{immutable_trio_names, IMMUTABLE_DIR, LEDGER_DIR};
 use mithril_common::entities::{AncillaryFilesManifest, CompressionAlgorithm, ImmutableFileNumber};
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
@@ -330,7 +329,7 @@ mod tests {
     use std::path::Path;
     use std::sync::Arc;
 
-    use mithril_common::digesters::DummyCardanoDbBuilder;
+    use mithril_cardano_node_internal_database::test::DummyCardanoDbBuilder;
     use mithril_common::test_utils::assert_equivalent;
     use mithril_common::{assert_dir_eq, current_function, temp_dir_create};
 

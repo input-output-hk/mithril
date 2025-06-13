@@ -3,7 +3,7 @@ use slog::debug;
 use std::sync::Arc;
 use std::time::Duration;
 
-use mithril_common::digesters::cache::ImmutableFileDigestCacheProvider;
+use mithril_cardano_node_internal_database::digesters::cache::ImmutableFileDigestCacheProvider;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 
 use crate::database::repository::{

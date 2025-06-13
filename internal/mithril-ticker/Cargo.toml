@@ -15,6 +15,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 mithril-cardano-node-chain = { path = "../cardano-node/mithril-cardano-node-chain" }
+mithril-cardano-node-internal-database = { path = "../cardano-node/mithril-cardano-node-internal-database" }
 mithril-common = { path = "../../mithril-common", features = ["fs"] }
 thiserror = { workspace = true }
 

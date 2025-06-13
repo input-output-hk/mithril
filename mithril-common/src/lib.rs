@@ -43,10 +43,6 @@ cfg_test_tools! {
     pub mod test_utils;
 }
 
-cfg_fs! {
-    pub mod digesters;
-}
-
 pub use entities::{CardanoNetwork, MagicId};
 
 /// Generic error type

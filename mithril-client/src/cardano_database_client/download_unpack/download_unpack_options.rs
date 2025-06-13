@@ -3,7 +3,7 @@ use std::path::Path;
 
 use anyhow::anyhow;
 
-use mithril_common::digesters::{IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR};
+use mithril_cardano_node_internal_database::{IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR};
 
 use crate::common::ImmutableFileNumber;
 use crate::MithrilResult;

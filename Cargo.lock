@@ -3834,6 +3834,7 @@ dependencies = [
  "http 1.3.1",
  "httpmock",
  "mithril-cardano-node-chain",
+ "mithril-cardano-node-internal-database",
  "mithril-cli-helper",
  "mithril-common",
  "mithril-doc",
@@ -3933,7 +3934,21 @@ dependencies = [
 name = "mithril-cardano-node-internal-database"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "async-trait",
+ "criterion",
+ "digest 0.10.7",
+ "hex",
  "mithril-common",
+ "mockall",
+ "serde_json",
+ "sha2",
+ "slog",
+ "slog-async",
+ "slog-term",
+ "thiserror 2.0.12",
+ "tokio",
+ "walkdir",
 ]
 
 [[package]]
@@ -3960,6 +3975,7 @@ dependencies = [
  "getrandom 0.2.16",
  "hex",
  "httpmock",
+ "mithril-cardano-node-internal-database",
  "mithril-common",
  "mockall",
  "reqwest",
@@ -4105,6 +4121,7 @@ dependencies = [
  "clap",
  "indicatif",
  "mithril-cardano-node-chain",
+ "mithril-cardano-node-internal-database",
  "mithril-common",
  "mithril-doc",
  "reqwest",
@@ -4241,6 +4258,7 @@ dependencies = [
  "http 1.3.1",
  "httpmock",
  "mithril-cardano-node-chain",
+ "mithril-cardano-node-internal-database",
  "mithril-cli-helper",
  "mithril-common",
  "mithril-doc",
@@ -4296,6 +4314,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "mithril-cardano-node-chain",
+ "mithril-cardano-node-internal-database",
  "mithril-common",
  "thiserror 2.0.12",
  "tokio",

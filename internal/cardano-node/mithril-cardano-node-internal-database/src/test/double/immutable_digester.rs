@@ -1,14 +1,15 @@
 use std::{collections::BTreeMap, ops::RangeInclusive, path::Path};
 
-use crate::{
-    crypto_helper::{MKTree, MKTreeStoreInMemory},
-    digesters::{ImmutableDigester, ImmutableDigesterError},
-    entities::{CardanoDbBeacon, ImmutableFileNumber},
-};
 use async_trait::async_trait;
 use tokio::sync::RwLock;
 
-use super::{immutable_digester::ComputedImmutablesDigests, ImmutableFile};
+use mithril_common::{
+    crypto_helper::{MKTree, MKTreeStoreInMemory},
+    entities::{CardanoDbBeacon, ImmutableFileNumber},
+};
+
+use crate::digesters::{ComputedImmutablesDigests, ImmutableDigester, ImmutableDigesterError};
+use crate::entities::ImmutableFile;
 
 /// A [ImmutableDigester] returning configurable result for testing purpose.
 pub struct DumbImmutableDigester {

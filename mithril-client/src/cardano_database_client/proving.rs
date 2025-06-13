@@ -7,9 +7,12 @@ use std::{
 
 use anyhow::{anyhow, Context};
 
+use mithril_cardano_node_internal_database::{
+    digesters::{CardanoImmutableDigester, ImmutableDigester},
+    entities::ImmutableFile,
+};
 use mithril_common::{
     crypto_helper::{MKProof, MKTree, MKTreeNode, MKTreeStoreInMemory},
-    digesters::{CardanoImmutableDigester, ImmutableDigester, ImmutableFile},
     entities::{DigestLocation, HexEncodedDigest, ImmutableFileName},
     messages::{
         CardanoDatabaseDigestListItemMessage, CardanoDatabaseSnapshotMessage, CertificateMessage,
@@ -174,8 +177,8 @@ mod tests {
     use std::path::Path;
     use std::sync::Arc;
 
+    use mithril_cardano_node_internal_database::test::DummyCardanoDbBuilder;
     use mithril_common::{
-        digesters::{DummyCardanoDbBuilder, ImmutableDigester, ImmutableFile},
         entities::{CardanoDbBeacon, Epoch, HexEncodedDigest},
         messages::CardanoDatabaseDigestListItemMessage,
         test_utils::TempDir,

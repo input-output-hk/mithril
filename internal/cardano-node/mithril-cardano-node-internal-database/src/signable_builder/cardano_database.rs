@@ -1,19 +1,18 @@
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
 use slog::{info, Logger};
 
-use crate::{
-    digesters::ImmutableDigester,
+use mithril_common::{
     entities::{CardanoDbBeacon, ProtocolMessage, ProtocolMessagePartKey},
     logging::LoggerExtensions,
     signable_builder::SignableBuilder,
     StdResult,
 };
+
+use crate::digesters::ImmutableDigester;
 
 /// This structure is responsible for calculating the message for incremental Cardano database.
 pub struct CardanoDatabaseSignableBuilder {
@@ -68,14 +67,10 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoDatabaseSignableBuilder {
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
+    use mithril_common::crypto_helper::{MKTree, MKTreeStoreInMemory};
 
-    use crate::{
-        crypto_helper::{MKTree, MKTreeStoreInMemory},
-        digesters::DumbImmutableDigester,
-        entities::{CardanoDbBeacon, ProtocolMessagePartKey},
-        test_utils::TestLogger,
-    };
+    use crate::test::double::DumbImmutableDigester;
+    use crate::test::TestLogger;
 
     use super::*;
 
