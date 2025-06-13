@@ -230,14 +230,13 @@ impl StmInitializerWrapper {
     /// # Error
     /// The function fails if the given string of bytes is not of required size.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, RegisterError> {
-        let stm_initializer = StmInitializer::from_bytes(&bytes[..256])?;
-        let kes_signature = if bytes[256..].is_empty() {
+        let stm_initializer =
+            StmInitializer::from_bytes(bytes.get(..256).ok_or(RegisterError::SerializationError)?)?;
+        let bytes = bytes.get(256..).ok_or(RegisterError::SerializationError)?;
+        let kes_signature = if bytes.is_empty() {
             None
         } else {
-            Some(
-                Sum6KesSig::from_bytes(&bytes[256..])
-                    .map_err(|_| RegisterError::SerializationError)?,
-            )
+            Some(Sum6KesSig::from_bytes(bytes).map_err(|_| RegisterError::SerializationError)?)
         };
 
         Ok(Self {

@@ -351,6 +351,22 @@ impl<K: MKMapKey> MKMapProof<K> {
     }
 }
 
+impl<K: MKMapKey + Serialize + for<'de> Deserialize<'de>> MKMapProof<K> {
+    /// Convert the proof to bytes
+    pub fn to_bytes(&self) -> StdResult<Vec<u8>> {
+        bincode::serde::encode_to_vec(self, bincode::config::standard()).map_err(|e| e.into())
+    }
+
+    /// Convert the proof from bytes
+    pub fn from_bytes(bytes: &[u8]) -> StdResult<Self> {
+        let (res, _) =
+            bincode::serde::decode_from_slice::<Self, _>(bytes, bincode::config::standard())
+                .map_err(|e| anyhow!(e))?;
+
+        Ok(res)
+    }
+}
+
 impl<K: MKMapKey> From<MKProof> for MKMapProof<K> {
     fn from(other: MKProof) -> Self {
         MKMapProof::new(other, BTreeMap::default())
@@ -819,6 +835,31 @@ mod tests {
 
         let mk_proof_leaves = mk_map_proof.leaves();
         assert_eq!(mktree_nodes_to_certify.to_vec(), mk_proof_leaves);
+    }
+
+    #[test]
+    fn test_mk_map_should_serialize_deserialize_proof() {
+        let entries = generate_merkle_trees(10, 3);
+        let mktree_nodes_to_certify = [
+            entries[0].1.leaves()[0].clone(),
+            entries[1].1.leaves()[0].clone(),
+            entries[1].1.leaves()[1].clone(),
+            entries[2].1.leaves()[1].clone(),
+        ];
+        let mk_map_full =
+            MKMap::<_, _, MKTreeStoreInMemory>::new(&into_mkmap_tree_entries(entries)).unwrap();
+        let mk_map_proof = mk_map_full.compute_proof(&mktree_nodes_to_certify).unwrap();
+
+        let serialized_mk_map_proof = mk_map_proof
+            .to_bytes()
+            .expect("Serialization should not fail");
+        let deserialized_mk_map_proof =
+            MKMapProof::<BlockRange>::from_bytes(&serialized_mk_map_proof)
+                .expect("Deserialization should not fail");
+        assert_eq!(
+            mk_map_proof, deserialized_mk_map_proof,
+            "Deserialized proof should match the original"
+        );
     }
 
     #[test]
