@@ -49,6 +49,7 @@ impl InternalArtifactProver {
         database_dir: &Path,
     ) -> MithrilResult<MKProof> {
         let digest_target_dir = Self::digest_target_dir();
+        delete_directory(&digest_target_dir)?;
         self.download_unpack_digest_file(&cardano_database_snapshot.digests, &digest_target_dir)
             .await?;
         let network = certificate.metadata.network.clone();
@@ -191,12 +192,15 @@ mod tests {
         use std::ops::RangeInclusive;
 
         use mithril_common::{
-            digesters::IMMUTABLE_DIR, entities::ImmutableFileNumber, messages::DigestsMessagePart,
+            digesters::{ComputedImmutablesDigests, IMMUTABLE_DIR},
+            entities::ImmutableFileNumber,
+            messages::DigestsMessagePart,
+            StdResult,
         };
 
         use super::*;
 
-        async fn create_fake_digest_artifact(
+        async fn prepare_fake_digests(
             dir_name: &str,
             beacon: &CardanoDbBeacon,
             immutable_file_range: &RangeInclusive<ImmutableFileNumber>,
@@ -206,6 +210,7 @@ mod tests {
             CardanoDatabaseSnapshotMessage,
             CertificateMessage,
             MKTree<MKTreeStoreInMemory>,
+            ComputedImmutablesDigests,
         ) {
             let cardano_database_snapshot = CardanoDatabaseSnapshotMessage {
                 hash: "hash-123".to_string(),
@@ -237,12 +242,6 @@ mod tests {
                 .compute_digests_for_range(database_dir, immutable_file_range)
                 .await
                 .unwrap();
-            write_digest_file(
-                std::env::temp_dir().join("mithril_digest").as_path(),
-                &computed_digests.entries,
-            )
-            .await;
-
             // We remove the last digests_offset digests to simulate receiving
             // a digest file with more immutable files than downloaded
             for (immutable_file, _digest) in
@@ -268,13 +267,14 @@ mod tests {
                 cardano_database_snapshot,
                 certificate,
                 merkle_tree,
+                computed_digests,
             )
         }
 
-        async fn write_digest_file(
+        fn write_digest_file(
             digest_dir: &Path,
             digests: &BTreeMap<ImmutableFile, HexEncodedDigest>,
-        ) {
+        ) -> StdResult<()> {
             let digest_file_path = digest_dir.join("digests.json");
             if !digest_dir.exists() {
                 fs::create_dir_all(digest_dir).unwrap();
@@ -292,8 +292,9 @@ mod tests {
             serde_json::to_writer(
                 fs::File::create(digest_file_path).unwrap(),
                 &immutable_digest_messages,
-            )
-            .unwrap();
+            )?;
+
+            Ok(())
         }
 
         #[tokio::test]
@@ -305,8 +306,8 @@ mod tests {
             let immutable_file_range = 1..=15;
             let immutable_file_range_to_prove = ImmutableFileRange::Range(2, 4);
             let digests_offset = 3;
-            let (database_dir, cardano_database_snapshot, certificate, merkle_tree) =
-                create_fake_digest_artifact(
+            let (database_dir, cardano_database_snapshot, certificate, merkle_tree, digests) =
+                prepare_fake_digests(
                     "compute_merkle_proof_succeeds",
                     &beacon,
                     &immutable_file_range,
@@ -320,7 +321,13 @@ mod tests {
                         .with_file_uri("http://whatever/digests.json")
                         .with_target_dir(InternalArtifactProver::digest_target_dir())
                         .with_compression(None)
-                        .with_success()
+                        .with_returning(Box::new(move |_, _, _, _, _| {
+                            let digests = digests.entries.clone();
+                            let digest_dir = InternalArtifactProver::digest_target_dir();
+                            write_digest_file(digest_dir.as_path(), &digests)?;
+
+                            Ok(())
+                        }))
                         .build(),
                 ))
                 .build_cardano_database_client();

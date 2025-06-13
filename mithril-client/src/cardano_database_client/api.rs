@@ -2,6 +2,7 @@
 use std::path::Path;
 use std::sync::Arc;
 
+#[cfg(feature = "fs")]
 use slog::Logger;
 
 #[cfg(feature = "fs")]
