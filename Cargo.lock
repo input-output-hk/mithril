@@ -3819,7 +3819,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.7.61"
+version = "0.7.62"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3940,7 +3940,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.12.13"
+version = "0.12.14"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3952,6 +3952,7 @@ dependencies = [
  "futures",
  "getrandom 0.2.16",
  "hex",
+ "http 1.3.1",
  "httpmock",
  "mithril-common",
  "mockall",
@@ -4222,7 +4223,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.252"
+version = "0.2.253"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4247,6 +4248,7 @@ dependencies = [
  "prometheus-parse",
  "rand_core 0.6.4",
  "reqwest",
+ "semver",
  "serde",
  "serde_json",
  "slog",
