@@ -85,6 +85,8 @@ This repository consists of the following parts:
 
   - [**Mithril cardano-node-chain**](./internal/cardano-node/mithril-cardano-node-chain): mechanisms to read and interact with the **Cardano chain** through a Cardano node, used by **Mithril network** nodes.
 
+  - [**Mithril cardano-node-internal-database**](./internal/cardano-node/mithril-cardano-node-internal-database): mechanisms to read the files of a **Cardano node** internal database and compute digests from them, used by **Mithril network** nodes.
+
   - [**Mithril cli helper**](./internal/mithril-cli-helper): **CLI** tools for **Mithril** binaries.
 
   - [**Mithril doc**](./internal/mithril-doc): an API that generates Markdown documentation for crate command line arguments.
