@@ -259,6 +259,13 @@ jobs:
         shell: bash
         run: npm install -g prettier
 
+      - name: Ensure Cargo.lock is up to date
+        if: success() || failure()
+        # Notes:
+        # - this step MUST run before any other cargo steps to avoid them updating the `Cargo.lock` file
+        # - `mithril-build-script` is targeted as it's the project with the fewest dependencies in the workspace
+        run: cargo check --locked -p mithril-build-script
+
       - name: Clippy Check
         if: success() || failure()
         run: |
