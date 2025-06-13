@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en" dir="ltr" class="docs-wrapper plugin-docs plugin-id-default docs-version-maintained docs-doc-page docs-doc-id-mithril/advanced/threat-model" data-has-hydrated="false">
+<head>
+<meta charset="UTF-8">
+<meta name="generator" content="Docusaurus v3.8.0">
+<title data-rh="true">Threat model analysis | Mithril. A complete guide.</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:url" content="https://mithril.network/doc/mithril/advanced/threat-model"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" name="og:image" content="https://mithril.network/doc/img/logo.png"><meta data-rh="true" name="docusaurus_version" content="maintained"><meta data-rh="true" name="docusaurus_tag" content="docs-default-maintained"><meta data-rh="true" name="docsearch:version" content="maintained"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-maintained"><meta data-rh="true" property="og:title" content="Threat model analysis | Mithril. A complete guide."><meta data-rh="true" name="description" content="This is a draft version of the Mithril threat model, prepared by the Mithril core team. It is open for external feedback and contributions before being finalized."><meta data-rh="true" property="og:description" content="This is a draft version of the Mithril threat model, prepared by the Mithril core team. It is open for external feedback and contributions before being finalized."><link data-rh="true" rel="icon" href="/doc/img/logo.svg"><link data-rh="true" rel="canonical" href="https://mithril.network/doc/mithril/advanced/threat-model"><link data-rh="true" rel="alternate" href="https://mithril.network/doc/mithril/advanced/threat-model" hreflang="en"><link data-rh="true" rel="alternate" href="https://mithril.network/doc/mithril/advanced/threat-model" hreflang="x-default"><script data-rh="true" type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Advanced","item":"https://mithril.network/doc/mithril/advanced/"},{"@type":"ListItem","position":2,"name":"Threat model analysis","item":"https://mithril.network/doc/mithril/advanced/threat-model"}]}</script><link rel="alternate" type="application/rss+xml" href="/doc/dev-blog/rss.xml" title="Mithril. A complete guide. RSS Feed">
+<link rel="alternate" type="application/atom+xml" href="/doc/dev-blog/atom.xml" title="Mithril. A complete guide. Atom Feed">
+
+<link rel="preconnect" href="https://www.google-analytics.com">
+<link rel="preconnect" href="https://www.googletagmanager.com">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-4MB41WL2Z2"></script>
+<script>function gtag(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],gtag("js",new Date),gtag("config","G-4MB41WL2Z2",{anonymize_ip:!0})</script>
+
+
+
+
+
+<link rel="alternate" type="application/rss+xml" href="/doc/adr/rss.xml" title="Mithril. A complete guide. RSS Feed">
+<link rel="alternate" type="application/atom+xml" href="/doc/adr/atom.xml" title="Mithril. A complete guide. Atom Feed">
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.13.24/dist/katex.min.css" integrity="sha384-odtC+0UGzzFL/6PNoE8rX/SPcQDXBJ+uRepguP4QkPCm2LBxH3FA3y+fKSiJ+AmM" crossorigin="anonymous">
+<script src="https://plausible.io/js/script.js" defer="defer" data-domain="mithril.network"></script><link rel="stylesheet" href="/doc/assets/css/styles.43aa2d2f.css">
+<script src="/doc/assets/js/runtime~main.5c59b77c.js" defer="defer"></script>
+<script src="/doc/assets/js/main.2aaafd14.js" defer="defer"></script>
+</head>
+<body class="navigation-with-keyboard">
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;"><defs>
+<symbol id="theme-svg-external-link" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t="light";var e=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme")}catch(t){}}();document.documentElement.setAttribute("data-theme",e||t),document.documentElement.setAttribute("data-theme-choice",e||t)}(),function(){try{const n=new URLSearchParams(window.location.search).entries();for(var[t,e]of n)if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}(),document.documentElement.setAttribute("data-announcement-bar-initially-dismissed",function(){try{return"true"===localStorage.getItem("docusaurus.announcement.dismiss")}catch(t){}return!1}())</script><div id="__docusaurus"><div role="region" aria-label="Skip to main content"><a class="skipToContent_fXgn" href="#__docusaurus_skipToContent_fallback">Skip to main content</a></div><div class="theme-announcement-bar announcementBar_mb4j" style="background-color:#2e8555;color:#f1f1f1" role="banner"><div class="announcementBarPlaceholder_vyr4"></div><div class="content_knG7 announcementBarContent_xLdY">Participate in Mithril Protocol’s Mainnet Beta! Follow our SPO on-boarding guide  <a rel="noopener noreferrer" href="https://mithril.network/doc/manual/operate/become-mithril-spo">here</a>!</div><button type="button" aria-label="Close" class="clean-btn close closeButton_CVFx announcementBarClose_gvF7"><svg viewBox="0 0 15 15" width="14" height="14"><g stroke="currentColor" stroke-width="3.1"><path d="M.75.75l13.5 13.5M14.25.75L.75 14.25"></path></g></svg></button></div><nav aria-label="Main" class="theme-layout-navbar navbar navbar--fixed-top"><div class="navbar__inner"><div class="theme-layout-navbar-left navbar__items"><button aria-label="Toggle navigation bar" aria-expanded="false" class="navbar__toggle clean-btn" type="button"><svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><path stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="2" d="M4 7h22M4 15h22M4 23h22"></path></svg></button><a class="navbar__brand" href="/doc/"><div class="navbar__logo"><img src="/doc/img/logo.svg" alt="Mithril. A complete guide." class="themedComponent_mlkZ themedComponent--light_NVdE"><img src="/doc/img/logo.svg" alt="Mithril. A complete guide." class="themedComponent_mlkZ themedComponent--dark_xIcU"></div><b class="navbar__title text--truncate">Mithril</b></a><a class="navbar__item navbar__link" href="/doc/manual/welcome">User manual</a><a aria-current="page" class="navbar__item navbar__link navbar__link--active" href="/doc/mithril/intro">About Mithril</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="navbar__item dropdown dropdown--hoverable dropdown--right"><a class="navbar__link" aria-haspopup="true" aria-expanded="false" role="button" href="/doc/mithril/advanced/threat-model">Current</a><ul class="dropdown__menu"><li><a class="dropdown__link" href="/doc/next/mithril/advanced/threat-model">Next 🚧</a></li><li><a aria-current="page" class="dropdown__link dropdown__link--active" href="/doc/mithril/advanced/threat-model">Current</a></li></ul></div><a href="https://mithril.network/explorer" target="_blank" rel="noopener noreferrer" class="navbar__item navbar__link">Explorer</a><a class="navbar__item navbar__link" href="/doc/glossary">Glossary</a><a class="navbar__item navbar__link" href="/doc/dev-blog">Dev blog</a><a class="navbar__item navbar__link" href="/doc/adr">ADRs</a><a href="https://github.com/input-output-hk/mithril/" target="_blank" rel="noopener noreferrer" class="navbar__item navbar__link header-github-link"></a><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type="button" disabled="" title="system mode" aria-label="Switch between dark and light mode (currently system mode)"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill="currentColor" d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"></path></svg><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill="currentColor" d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"></path></svg><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill="currentColor" d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"></path></svg></button></div><div class="navbarSearchContainer_Bca1"></div></div></div><div role="presentation" class="navbar-sidebar__backdrop"></div></nav><div id="__docusaurus_skipToContent_fallback" class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class="docsWrapper_hBAB"><button aria-label="Scroll back to top" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type="button"></button><div class="docRoot_UBD9"><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class="sidebarViewport_aRkj"><div class="sidebar_njMd"><nav aria-label="Docs sidebar" class="menu thin-scrollbar menu_SIkG menuWithAnnouncementBar_GW3s"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-1 menu__list-item"><a class="menu__link" href="/doc/mithril/intro">Introduction</a></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class="menu__list-item-collapsible"><a class="menu__link menu__link--sublist" href="/doc/mithril/beginner/">Beginner</a><button aria-label="Collapse sidebar category &#x27;Beginner&#x27;" aria-expanded="true" type="button" class="clean-btn menu__caret"></button></div><ul class="menu__list"><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link" tabindex="0" href="/doc/mithril/beginner/mithril-in-a-nutshell">Mithril in a nutshell</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link" tabindex="0" href="/doc/mithril/beginner/why-use-mithril">Why should you use Mithril?</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link" tabindex="0" href="/doc/mithril/beginner/how-it-works">How it works</a></li></ul></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class="menu__list-item-collapsible"><a class="menu__link menu__link--sublist menu__link--active" href="/doc/mithril/advanced/">Advanced</a><button aria-label="Collapse sidebar category &#x27;Advanced&#x27;" aria-expanded="true" type="button" class="clean-btn menu__caret"></button></div><ul class="menu__list"><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item"><div class="menu__list-item-collapsible"><a class="menu__link menu__link--sublist" tabindex="0" href="/doc/mithril/advanced/mithril-protocol/">Mithril protocol</a><button aria-label="Collapse sidebar category &#x27;Mithril protocol&#x27;" aria-expanded="true" type="button" class="clean-btn menu__caret"></button></div><ul class="menu__list"><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/doc/mithril/advanced/mithril-protocol/protocol">Protocol phases</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/doc/mithril/advanced/mithril-protocol/certificates">Certificate chain design</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/doc/mithril/advanced/mithril-protocol/security">Protocol security</a></li></ul></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item"><div class="menu__list-item-collapsible"><a class="menu__link menu__link--sublist" tabindex="0" href="/doc/mithril/advanced/mithril-certification/">Mithril certification</a><button aria-label="Collapse sidebar category &#x27;Mithril certification&#x27;" aria-expanded="true" type="button" class="clean-btn menu__caret"></button></div><ul class="menu__list"><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/doc/mithril/advanced/mithril-certification/cardano-transactions">Cardano transactions</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/doc/mithril/advanced/mithril-certification/cardano-stake-distribution">Cardano stake distribution</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/doc/mithril/advanced/mithril-certification/cardano-node-database">Cardano node database</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/doc/mithril/advanced/mithril-certification/cardano-node-database-v2">Cardano node database v2</a></li></ul></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-2 menu__list-item"><div class="menu__list-item-collapsible"><a class="menu__link menu__link--sublist" tabindex="0" href="/doc/mithril/advanced/mithril-network/">Mithril network</a><button aria-label="Collapse sidebar category &#x27;Mithril network&#x27;" aria-expanded="true" type="button" class="clean-btn menu__caret"></button></div><ul class="menu__list"><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/doc/mithril/advanced/mithril-network/architecture">Architecture</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/doc/mithril/advanced/mithril-network/aggregator">Mithril aggregator</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/doc/mithril/advanced/mithril-network/signer">Mithril signer</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-3 menu__list-item"><a class="menu__link" tabindex="0" href="/doc/mithril/advanced/mithril-network/client">Mithril client</a></li></ul></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current="page" tabindex="0" href="/doc/mithril/advanced/threat-model">Threat model analysis</a></li></ul></li></ul></nav></div></div></aside><main class="docMainContainer_TBSr"><div class="container padding-top--md padding-bottom--lg"><div class="row"><div class="col docItemCol_VOVn"><div class="docItemContainer_Djhp"><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Z_bl" aria-label="Breadcrumbs"><ul class="breadcrumbs"><li class="breadcrumbs__item"><a aria-label="Home page" class="breadcrumbs__link" href="/doc/"><svg viewBox="0 0 24 24" class="breadcrumbHomeIcon_YNFT"><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill="currentColor"></path></svg></a></li><li class="breadcrumbs__item"><a class="breadcrumbs__link" href="/doc/mithril/advanced/"><span>Advanced</span></a></li><li class="breadcrumbs__item breadcrumbs__item--active"><span class="breadcrumbs__link">Threat model analysis</span></li></ul></nav><span class="theme-doc-version-badge badge badge--secondary">Version: Current</span><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type="button" class="clean-btn tocCollapsibleButton_TO0P">On this page</button></div><div class="theme-doc-markdown markdown"><header><h1>Threat model analysis</h1></header>
+<div class="theme-admonition theme-admonition-danger admonition_xJq3 alert alert--danger"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewBox="0 0 12 16"><path fill-rule="evenodd" d="M5.05.31c.81 2.17.41 3.38-.52 4.31C3.55 5.67 1.98 6.45.9 7.98c-1.45 2.05-1.7 6.53 3.53 7.7-2.2-1.16-2.67-4.52-.3-6.61-.61 2.03.53 3.33 1.94 2.86 1.39-.47 2.3.53 2.27 1.67-.02.78-.31 1.44-1.13 1.81 3.42-.59 4.78-3.42 4.78-5.56 0-2.84-2.53-3.22-1.25-5.61-1.52.13-2.03 1.13-1.89 2.75.09 1.08-1.02 1.8-1.86 1.33-.67-.41-.66-1.19-.06-1.78C8.18 5.31 8.68 2.45 5.05.32L5.03.3l.02.01z"></path></svg></span>danger</div><div class="admonitionContent_BuS1"><p>This is a draft version of the <strong>Mithril threat model</strong>, prepared by the <strong>Mithril core team</strong>. It is open for external feedback and contributions before being finalized.</p><ul>
+<li>To contribute, use the <strong>Edit this page</strong> option at the bottom of the page.</li>
+<li>If you discover a security vulnerability, report it responsibly by following the <a href="https://github.com/input-output-hk/mithril/blob/main/SECURITY.md" target="_blank" rel="noopener noreferrer">security vulnerability disclosure policy</a>.</li>
+</ul></div></div>
+<p>This document provides an analysis of various security threats and possible mitigations affecting the Mithril network and its participants. It adopts an adversarial mindset, analyzing the system from an attacker&#x27;s perspective.</p>
+<p>The threat model is a living document, updated to reflect the <a href="https://github.com/input-output-hk/mithril/releases/latest" target="_blank" rel="noopener noreferrer">latest Mithril version</a>.</p>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="system-analysis">System analysis<a href="#system-analysis" class="hash-link" aria-label="Direct link to System analysis" title="Direct link to System analysis">​</a></h2>
+<h3 class="anchor anchorWithStickyNavbar_LWe7" id="system-description">System description<a href="#system-description" class="hash-link" aria-label="Direct link to System description" title="Direct link to System description">​</a></h3>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewBox="0 0 14 16"><path fill-rule="evenodd" d="M7 2.3c3.14 0 5.7 2.56 5.7 5.7s-2.56 5.7-5.7 5.7A5.71 5.71 0 0 1 1.3 8c0-3.14 2.56-5.7 5.7-5.7zM7 1C3.14 1 0 4.14 0 8s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm1 3H6v5h2V4zm0 6H6v2h2v-2z"></path></svg></span>To do</div><div class="admonitionContent_BuS1"><ul>
+<li>Consider reducing these details and moving them into the <a href="https://mithril.network/doc/mithril/mithril-network/architecture" target="_blank" rel="noopener noreferrer">architecture page</a>.</li>
+<li>Also consider updating the <a href="https://mithril.network/doc/mithril/mithril-protocol/protocol" target="_blank" rel="noopener noreferrer">protocol page</a>.</li>
+</ul></div></div>
+<p>The system consists of three main components: signers, aggregators, and clients.</p>
+<ul>
+<li><strong>Mithril signers</strong> certify Cardano chain data by using a Mithril signing key. They must have access to both a trusted <code>cardano-node</code> and the Mithril signing key to operate.</li>
+<li><strong>Mithril signing keys</strong> are rotated every epoch and require certification by the Cardano KES key. Therefore, Mithril signers must have access to the KES key to register a signing key for each epoch.</li>
+<li><strong>Cardano KES keys</strong> are also used by the block-producing <code>cardano-node</code> and are typically located on the same machine that produces blocks. These keys must be evolved every 36 hours, although they can be rotated from a root key when needed. For more details, see <a href="https://github.com/input-output-hk/cardano-node-wiki/blob/main/docs/stake-pool-operations/7_KES_period.md" target="_blank" rel="noopener noreferrer">KES period documentation</a>.</li>
+</ul>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewBox="0 0 14 16"><path fill-rule="evenodd" d="M7 2.3c3.14 0 5.7 2.56 5.7 5.7s-2.56 5.7-5.7 5.7A5.71 5.71 0 0 1 1.3 8c0-3.14 2.56-5.7 5.7-5.7zM7 1C3.14 1 0 4.14 0 8s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm1 3H6v5h2V4zm0 6H6v2h2v-2z"></path></svg></span>To do</div><div class="admonitionContent_BuS1"><p>Is there a Cardano threat model available for this?</p></div></div>
+<p>All Mithril signers and Mithril clients connect to a single aggregator using HTTP over TLS.</p>
+<p>Registering a Mithril signing key means that a signer sends its corresponding verification key to the aggregator, for the purpose of distribution to all other Mithril signers.</p>
+<p>Each Mithril signer checks if there is something that can be signed independently, produces a signature of what&#x27;s needed to sign and submits that to the aggregator (which verifies the signature being correct upon receiving).</p>
+<p>The aggregator repeatedly checks whether enough valid signatures (to reach the quorum) are available to aggregate a Mithril stake-based multi-signature into a certificate.</p>
+<p>Mithril certificates certify some chain data using an aggregated multi-signature verification key and are chained up to some genesis certificate, which is signed by a genesis signing key.</p>
+<p>Mithril clients do connect to an aggregator using HTTP over TLS to query Mithril certificates for certified chain data and locate artifacts.</p>
+<p>A Mithril client can verify the received Mithril certificate is linked to other certificates up to the genesis certificate and can be verified using the Mithril genesis verification key (see <a href="https://mithril.network/doc/mithril/mithril-protocol/certificates/" target="_blank" rel="noopener noreferrer">details</a>).</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewBox="0 0 14 16"><path fill-rule="evenodd" d="M7 2.3c3.14 0 5.7 2.56 5.7 5.7s-2.56 5.7-5.7 5.7A5.71 5.71 0 0 1 1.3 8c0-3.14 2.56-5.7 5.7-5.7zM7 1C3.14 1 0 4.14 0 8s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm1 3H6v5h2V4zm0 6H6v2h2v-2z"></path></svg></span>To do</div><div class="admonitionContent_BuS1"><p>Missing: the currently recommended relay (reverse proxy)</p></div></div>
+<h4 class="anchor anchorWithStickyNavbar_LWe7" id="deployment-architecture">Deployment architecture<a href="#deployment-architecture" class="hash-link" aria-label="Direct link to Deployment architecture" title="Direct link to Deployment architecture">​</a></h4>
+<p>This document focuses on the standard deployment architecture, where a Mithril signer runs alongside the block-producing node, and the aggregator is accessed only through a relay.</p>
+<p><a href="/doc/assets/files/architecture-e6fad1720a863c9a3986400cb5ac1287.svg" target="_blank"><img decoding="async" loading="lazy" alt="Mithril - Architecture" src="/doc/assets/images/architecture-e6fad1720a863c9a3986400cb5ac1287.svg" width="1635" height="1341" class="img_ev3q"></a></p>
+<p>Additional information is available in:</p>
+<ul>
+<li><a href="https://mithril.network/doc/mithril/mithril-network/architecture" target="_blank" rel="noopener noreferrer">Mithril network architecture</a></li>
+<li><a href="https://mithril.network/doc/manual/getting-started/run-signer-node" target="_blank" rel="noopener noreferrer">Run a Mithril signer as a stake pool operator (SPO)</a>.</li>
+</ul>
+<h3 class="anchor anchorWithStickyNavbar_LWe7" id="external-dependencies">External dependencies<a href="#external-dependencies" class="hash-link" aria-label="Direct link to External dependencies" title="Direct link to External dependencies">​</a></h3>
+<p>Below is an example of listing dependencies for the <code>mithril-signer</code> component:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#393A34"><span class="token plain">% cargo-deps-list -e normal -p mithril-signer</span><br></span><span class="token-line" style="color:#393A34"><span class="token plain">...</span><br></span><span class="token-line" style="color:#393A34"><span class="token plain">slog-json v2.6.1 {default}</span><br></span><span class="token-line" style="color:#393A34"><span class="token plain">slog-scope v4.4.0</span><br></span><span class="token-line" style="color:#393A34"><span class="token plain">arc-swap v1.6.0</span><br></span><span class="token-line" style="color:#393A34"><span class="token plain" style="display:inline-block"></span><br></span><span class="token-line" style="color:#393A34"><span class="token plain">Total dependencies: 267</span><br></span></code></pre></div></div>
+<ul>
+<li>SPO infrastructure:<!-- -->
+<ul>
+<li>Block-producing host configuration</li>
+<li>Relay hosts configuration</li>
+<li>Firewall/private network.</li>
+</ul>
+</li>
+</ul>
+<h3 class="anchor anchorWithStickyNavbar_LWe7" id="entry-points">Entry points<a href="#entry-points" class="hash-link" aria-label="Direct link to Entry points" title="Direct link to Entry points">​</a></h3>
+<ul>
+<li><code>mithril-aggregator</code> HTTP port</li>
+<li><code>mithril-relay</code> HTTP port.</li>
+</ul>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="assumptions">Assumptions<a href="#assumptions" class="hash-link" aria-label="Direct link to Assumptions" title="Direct link to Assumptions">​</a></h2>
+<p>The core Mithril protocol is considered safe, and its analysis is out of scope for this document. It is computationally infeasible to:</p>
+<ul>
+<li>Forge a valid aggregate signature from forged signing keys</li>
+<li>Forge individual signatures to impersonate a legitimate signer.</li>
+</ul>
+<p>More information about the core Mithril protocol and its security is available in the <a href="https://iohk.io/en/research/library/papers/mithril-stake-based-threshold-multisignatures/" target="_blank" rel="noopener noreferrer">research paper</a>.</p>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="assets">Assets<a href="#assets" class="hash-link" aria-label="Direct link to Assets" title="Direct link to Assets">​</a></h2>
+<p>For each asset, we first identify which part of the <strong>CIA triad</strong> (Confidentiality, Integrity, Availability) it requires. An asset may be a resource, a piece of data (for example, keys), or a process that may be affected. We then identify threats and possible countermeasures.</p>
+<h4 class="anchor anchorWithStickyNavbar_LWe7" id="kes-private-keys">KES private keys<a href="#kes-private-keys" class="hash-link" aria-label="Direct link to KES private keys" title="Direct link to KES private keys">​</a></h4>
+<ul>
+<li>
+<p>The KES key is present only on the block-producing (BP) node but needs to be shared with both the <code>cardano-node</code> process and the <code>mithril-signer</code> process.</p>
+</li>
+<li>
+<p>KES keys are needed by <code>mithril-signer</code> to sign a verification key along with an operational certificate that authenticates the key for this stake pool ID.</p>
+</li>
+<li>
+<p>This signing happens at every epoch.</p>
+<ul>
+<li>
+<p><strong>Confidentiality</strong>: Yes<br>
+<!-- -->Capturing KES private keys allows an attacker to impersonate a registered SPO on-chain and produce blocks on its behalf until the keys are rotated.</p>
+</li>
+<li>
+<p><strong>Integrity</strong>: Yes<br>
+<!-- -->Rotating a compromised KES key is a time-consuming process that can be carried out even if the associated KES period has not fully passed. See <a href="https://github.com/input-output-hk/cardano-node-wiki/blob/main/docs/stake-pool-operations/7_KES_period.md" target="_blank" rel="noopener noreferrer">KES period docs</a>.</p>
+</li>
+<li>
+<p><strong>Availability</strong>: Yes<br>
+<!-- -->If the KES key is unavailable, signing cannot proceed.</p>
+</li>
+</ul>
+</li>
+</ul>
+<h4 class="anchor anchorWithStickyNavbar_LWe7" id="block-diffusion">Block diffusion<a href="#block-diffusion" class="hash-link" aria-label="Direct link to Block diffusion" title="Direct link to Block diffusion">​</a></h4>
+<p>Block diffusion ensures the timely propagation of blocks that are produced locally or received from upstream peers.</p>
+<ul>
+<li><strong>Confidentiality</strong>: No (block diffusion happens openly on the network)</li>
+<li><strong>Integrity</strong>: Yes (partially — if data is corrupted in transit, it can affect network consistency)</li>
+<li><strong>Availability</strong>: Yes (failure to diffuse blocks harms a block producer’s economic viability and can disrupt the network).</li>
+</ul>
+<h4 class="anchor anchorWithStickyNavbar_LWe7" id="block-production">Block production<a href="#block-production" class="hash-link" aria-label="Direct link to Block production" title="Direct link to Block production">​</a></h4>
+<p>Block production is the process of minting new blocks by block producers, using a stake-based random lottery. The <code>mithril-signer</code> must run on the same host as a block producer, as it requires access to the KES signing key.</p>
+<ul>
+<li>
+<p><strong>Confidentiality</strong>: Yes?<br>
+<!-- -->A block producer’s schedule is private information; if leaked, adversaries might carry out <strong>grinding attacks</strong> to manipulate the nonce to the producer’s disadvantage.</p>
+</li>
+<li>
+<p><strong>Integrity</strong>: Yes<br>
+<!-- -->Incorrect or invalid data can hamper block production.</p>
+</li>
+<li>
+<p><strong>Availability</strong>: Yes<br>
+<!-- -->Block production is critical for SPO revenue; preventing a producer from creating blocks can harm the SPO’s operational capabilities.</p>
+</li>
+</ul>
+<h4 class="anchor anchorWithStickyNavbar_LWe7" id="cardano-chain-database">Cardano chain database<a href="#cardano-chain-database" class="hash-link" aria-label="Direct link to Cardano chain database" title="Direct link to Cardano chain database">​</a></h4>
+<p>A <code>cardano-node</code> maintains an on-disk database containing the chain’s history. This database is updated by the node when new blocks are diffused across the network or minted, and it contains a cache of the ledger state.</p>
+<p>The <code>mithril-signer</code> needs access to a <em>trusted</em> and <em>current</em> chain database to sign snapshots.</p>
+<ul>
+<li><strong>Confidentiality</strong>: No (block data is publicly replicated)</li>
+<li><strong>Integrity</strong>: Yes</li>
+<li><strong>Availability</strong>: Yes.</li>
+</ul>
+<h4 class="anchor anchorWithStickyNavbar_LWe7" id="cardano-ledger-state">Cardano ledger state<a href="#cardano-ledger-state" class="hash-link" aria-label="Direct link to Cardano ledger state" title="Direct link to Cardano ledger state">​</a></h4>
+<p>The Mihril signer requires access to an accurate ledger state is needed by the <code>mithril-signer</code> to retrieve a reliable <em>stake distribution</em>. This currently involves a local connection (direct with Pallas or indirect with <code>cardano-cli</code>) to a trusted <code>cardano-node</code>. The ledger state and stake distribution are also used by the node to determine leader schedules, meaning any corruption here affects block production.</p>
+<ul>
+<li><strong>Confidentiality</strong>: No</li>
+<li><strong>Integrity</strong>: Yes (same, inaccurate SD will make key registration and signing process invalid)</li>
+<li><strong>Availability</strong>: Yes (without SD, signer cannot register keys nor validly use other signers&#x27; keys).</li>
+</ul>
+<h4 class="anchor anchorWithStickyNavbar_LWe7" id="mithril-signing-keys">Mithril signing keys<a href="#mithril-signing-keys" class="hash-link" aria-label="Direct link to Mithril signing keys" title="Direct link to Mithril signing keys">​</a></h4>
+<p>SPOs generate their Mithril signing keys for each epoch to sign snapshots. If attackers obtain these keys, they can impersonate the SPO and produce invalid snapshots. Currently, the signing keys are stored temporarily on disk; they are used for two epochs after creation and are deleted two epochs later. Additionally, these keys are not encrypted.</p>
+<ul>
+<li><strong>Confidentiality</strong>: Yes (compromise allows an attacker to impersonate the signer)</li>
+<li><strong>Integrity</strong>: Yes (an invalid key is useless)</li>
+<li><strong>Availability</strong>: Yes (the signer needs the key at every signing round; unavailability prevents signing).</li>
+</ul>
+<h4 class="anchor anchorWithStickyNavbar_LWe7" id="mithril-signers-registration">Mithril signers registration<a href="#mithril-signers-registration" class="hash-link" aria-label="Direct link to Mithril signers registration" title="Direct link to Mithril signers registration">​</a></h4>
+<p>A <code>mithril-signer</code> must register a new verification key each epoch with the aggregator (and ultimately other signers).</p>
+<ul>
+<li><strong>Confidentiality</strong>: No (only public verification keys and proofs of possession are exchanged)</li>
+<li><strong>Integrity</strong>: Yes (the key registration must be correct and timely for a given epoch)</li>
+<li><strong>Availability</strong>: Yes (the signer needs aggregator access to register its key).</li>
+</ul>
+<h4 class="anchor anchorWithStickyNavbar_LWe7" id="mithril-signature-diffusion">Mithril signature diffusion<a href="#mithril-signature-diffusion" class="hash-link" aria-label="Direct link to Mithril signature diffusion" title="Direct link to Mithril signature diffusion">​</a></h4>
+<p>Mithril signers produce signatures for new immutable files or other relevant data in the chain database. These signatures are derived from a random lottery based on the signer’s stake and protocol parameters.<br>
+<!-- -->Preventing signers from submitting signatures reduces the overall number of signatures, which could allow an attacker a greater influence over snapshot production.</p>
+<ul>
+<li><strong>Confidentiality</strong>: No</li>
+<li><strong>Integrity</strong>: No (signatures are effectively tamper-proof)</li>
+<li><strong>Availability</strong>: Yes.</li>
+</ul>
+<h4 class="anchor anchorWithStickyNavbar_LWe7" id="mithril-protocol-parameters">Mithril protocol parameters<a href="#mithril-protocol-parameters" class="hash-link" aria-label="Direct link to Mithril protocol parameters" title="Direct link to Mithril protocol parameters">​</a></h4>
+<p>Protocol parameters coordinate valid multi-signature production and are served by the aggregator.</p>
+<ul>
+<li><strong>Confidentiality</strong>: No (these parameters must be public)</li>
+<li><strong>Integrity</strong>: Yes (tampering with them could lead to invalid signatures)</li>
+<li><strong>Availability</strong>: Yes.</li>
+</ul>
+<h4 class="anchor anchorWithStickyNavbar_LWe7" id="mithril-genesis-signing-key">Mithril genesis signing key<a href="#mithril-genesis-signing-key" class="hash-link" aria-label="Direct link to Mithril genesis signing key" title="Direct link to Mithril genesis signing key">​</a></h4>
+<p>The genesis signing key is stored in IOG’s VaultWarden and used only once to generate the genesis certificate.</p>
+<ul>
+<li><strong>Confidentiality</strong>: Yes</li>
+<li><strong>Integrity</strong>: Yes (?)</li>
+<li><strong>Availability</strong>: No (not needed unless a re-genesis process is required; a new key could be used in that case).</li>
+</ul>
+<h4 class="anchor anchorWithStickyNavbar_LWe7" id="era-configuration-files">Era configuration files<a href="#era-configuration-files" class="hash-link" aria-label="Direct link to Era configuration files" title="Direct link to Era configuration files">​</a></h4>
+<p>The <a href="https://mithril.network/doc/adr/4" target="_blank" rel="noopener noreferrer">Mithril network upgrade strategy</a> describes how Mithril eras activate features on all nodes at specific epoch boundaries.</p>
+<p>An era address is used by signers to identify the current Mithril era, which defines the structure of snapshots and signatures. It is stored in <a href="https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/era.addr" target="_blank" rel="noopener noreferrer">GitHub</a> and is only modifiable via a merged PR.</p>
+<ul>
+<li><strong>Confidentiality</strong>: No (these are public files)</li>
+<li><strong>Integrity</strong>: Yes (tampering could disrupt multi-signature generation)</li>
+<li><strong>Availability</strong>: Yes.</li>
+</ul>
+<h4 class="anchor anchorWithStickyNavbar_LWe7" id="era-activation">Era activation<a href="#era-activation" class="hash-link" aria-label="Direct link to Era activation" title="Direct link to Era activation">​</a></h4>
+<p>The current and next (if any) eras are announced on-chain with an era activation marker. (See <a href="https://mithril.network/doc/adr/4#era-activation-marker" target="_blank" rel="noopener noreferrer">ADR</a>.)</p>
+<ul>
+<li><strong>Confidentiality</strong>: No (public)</li>
+<li><strong>Integrity</strong>: Yes (tampering with the marker could break multi-signature generation)</li>
+<li><strong>Availability</strong>: Yes (the marker is on-chain).</li>
+</ul>
+<h4 class="anchor anchorWithStickyNavbar_LWe7" id="era-verification-key">Era verification key<a href="#era-verification-key" class="hash-link" aria-label="Direct link to Era verification key" title="Direct link to Era verification key">​</a></h4>
+<p>The era verification key is in <a href="https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/era.vkey" target="_blank" rel="noopener noreferrer">GitHub</a> and is only modifiable through a merged PR.</p>
+<ul>
+<li><strong>Confidentiality</strong>: No</li>
+<li><strong>Integrity</strong>: No (the protocol enforces integrity checks)</li>
+<li><strong>Availability</strong>: Yes (needed to verify the certificate chain).</li>
+</ul>
+<h4 class="anchor anchorWithStickyNavbar_LWe7" id="era-signing-key">Era signing key<a href="#era-signing-key" class="hash-link" aria-label="Direct link to Era signing key" title="Direct link to Era signing key">​</a></h4>
+<p>This key is stored in IOG’s VaultWarden and used only when a new era is announced or activated.</p>
+<ul>
+<li><strong>Confidentiality</strong>: Yes</li>
+<li><strong>Integrity</strong>: Yes (?)</li>
+<li><strong>Availability</strong>: No.</li>
+</ul>
+<h3 class="anchor anchorWithStickyNavbar_LWe7" id="client-side-only-assets">Client-side only assets<a href="#client-side-only-assets" class="hash-link" aria-label="Direct link to Client-side only assets" title="Direct link to Client-side only assets">​</a></h3>
+<p>These assets matter only when downloading and verifying certificates and artifacts (for example, snapshots).</p>
+<h4 class="anchor anchorWithStickyNavbar_LWe7" id="mithril-certificate-verification-process">Mithril certificate verification process<a href="#mithril-certificate-verification-process" class="hash-link" aria-label="Direct link to Mithril certificate verification process" title="Direct link to Mithril certificate verification process">​</a></h4>
+<p>Mithril clients, such as a CLI tool or the <a href="https://mithril.network/explorer/" target="_blank" rel="noopener noreferrer">web-based explorer</a>, download snapshots and verify their certificates using the <code>mithril-client</code> library.</p>
+<ul>
+<li><strong>Confidentiality</strong>: No</li>
+<li><strong>Integrity</strong>: No (snapshots and certificates are assumed to be secure by protocol design)</li>
+<li><strong>Availability</strong>: Yes (?).</li>
+</ul>
+<h4 class="anchor anchorWithStickyNavbar_LWe7" id="mithril-certificates">Mithril certificates<a href="#mithril-certificates" class="hash-link" aria-label="Direct link to Mithril certificates" title="Direct link to Mithril certificates">​</a></h4>
+<p>These are produced by the aggregator from individual signatures. Their security depends on a chain of trust that ultimately references a genesis certificate.</p>
+<ul>
+<li><strong>Confidentiality</strong>: No</li>
+<li><strong>Integrity</strong>: No (the protocol design ensures integrity)</li>
+<li><strong>Availability</strong>: No (certificates are a fallback; a Cardano node client can retrieve data from the network, albeit more slowly).</li>
+</ul>
+<h4 class="anchor anchorWithStickyNavbar_LWe7" id="mithril-artifacts">Mithril artifacts<a href="#mithril-artifacts" class="hash-link" aria-label="Direct link to Mithril artifacts" title="Direct link to Mithril artifacts">​</a></h4>
+<p>Mithril artifacts are generated by the aggregator for specific data types (for example, a compressed snapshot of a Cardano node database). The aggregator hosts these artifacts for client retrieval.</p>
+<ul>
+<li><strong>Confidentiality</strong>: No</li>
+<li><strong>Integrity</strong>: No (they are verified against their certificate)</li>
+<li><strong>Availability</strong>: No (a fallback exists via the original Cardano network).</li>
+</ul>
+<h4 class="anchor anchorWithStickyNavbar_LWe7" id="mithril-genesis-verification-key">Mithril genesis verification key<a href="#mithril-genesis-verification-key" class="hash-link" aria-label="Direct link to Mithril genesis verification key" title="Direct link to Mithril genesis verification key">​</a></h4>
+<p>The genesis verification key is stored in <a href="https://github.com/input-output-hk/mithril/blob/main/mithril-infra/configuration/release-mainnet/genesis.vkey" target="_blank" rel="noopener noreferrer">GitHub</a> and is only modifiable through an approved PR.</p>
+<ul>
+<li><strong>Confidentiality</strong>: No</li>
+<li><strong>Integrity</strong>: No (the protocol enforces integrity)</li>
+<li><strong>Availability</strong>: Yes (needed to verify the entire certificate chain).</li>
+</ul>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="threats-and-mitigations">Threats and mitigations<a href="#threats-and-mitigations" class="hash-link" aria-label="Direct link to Threats and mitigations" title="Direct link to Threats and mitigations">​</a></h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewBox="0 0 14 16"><path fill-rule="evenodd" d="M7 2.3c3.14 0 5.7 2.56 5.7 5.7s-2.56 5.7-5.7 5.7A5.71 5.71 0 0 1 1.3 8c0-3.14 2.56-5.7 5.7-5.7zM7 1C3.14 1 0 4.14 0 8s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm1 3H6v5h2V4zm0 6H6v2h2v-2z"></path></svg></span>info</div><div class="admonitionContent_BuS1"><ul>
+<li>This list of threats and mitigations is not exhaustive.</li>
+<li><a href="https://developers.cardano.org/docs/operate-a-stake-pool/hardening-server" target="_blank" rel="noopener noreferrer">Developer Portal</a> already provides thorough documentation on hardening a Linux-based host to run <code>cardano-node</code>.</li>
+</ul></div></div>
+<h3 class="anchor anchorWithStickyNavbar_LWe7" id="resource-exhaustion-on-cardano-relay">Resource exhaustion on Cardano relay<a href="#resource-exhaustion-on-cardano-relay" class="hash-link" aria-label="Direct link to Resource exhaustion on Cardano relay" title="Direct link to Resource exhaustion on Cardano relay">​</a></h3>
+<p>A denial-of-service (DoS) attack targeting a <code>mithril-signer</code> running alongside a <code>cardano-node</code> acting as a relay.</p>
+<ul>
+<li><strong>Assets at risk</strong>:<!-- -->
+<ul>
+<li><a href="#block-diffusion">Block diffusion</a></li>
+<li><a href="#mithril-signatures-diffusion">Mithril signatures diffusion</a>.</li>
+</ul>
+</li>
+</ul>
+<h4 class="anchor anchorWithStickyNavbar_LWe7" id="block-diffusion-exhaustion">Block diffusion exhaustion<a href="#block-diffusion-exhaustion" class="hash-link" aria-label="Direct link to Block diffusion exhaustion" title="Direct link to Block diffusion exhaustion">​</a></h4>
+<ul>
+<li>Diffusion is ensured through the connection between BPs, local relays, and downstream/upstream relays</li>
+<li>Preventing them from operating can harm the Cardano network</li>
+<li>Relay hosts connect the BP to the network</li>
+<li>Starving relay hosts prevents Mithril signatures and key registration from being shared</li>
+<li>Starving a <code>cardano-node</code> running on a relay host would prevent or delay the diffusion of new blocks, thus harming</li>
+<li>Compromising relay hosts would be an extreme form of starving resources.</li>
+</ul>
+<h3 class="anchor anchorWithStickyNavbar_LWe7" id="resource-exhaustion-on-cardano-block-producer">Resource exhaustion on Cardano block producer<a href="#resource-exhaustion-on-cardano-block-producer" class="hash-link" aria-label="Direct link to Resource exhaustion on Cardano block producer" title="Direct link to Resource exhaustion on Cardano block producer">​</a></h3>
+<ul>
+<li>Assets at risk:<!-- -->
+<ul>
+<li><a href="#block-production">Block production</a></li>
+</ul>
+</li>
+</ul>
+<h4 class="anchor anchorWithStickyNavbar_LWe7" id="block-production-exhaustion">Block production exhaustion<a href="#block-production-exhaustion" class="hash-link" aria-label="Direct link to Block production exhaustion" title="Direct link to Block production exhaustion">​</a></h4>
+<ul>
+<li>A malfunctioning or malicious <code>mithril-signer</code> could starve a <code>cardano-node</code> of resources, preventing it from producing and diffusing blocks in time</li>
+<li>Compromising a block-producing node severely harms an SPO’s economic viability.</li>
+</ul>
+<h3 class="anchor anchorWithStickyNavbar_LWe7" id="resource-exhaustion-on-mithril-aggregator">Resource exhaustion on Mithril aggregator<a href="#resource-exhaustion-on-mithril-aggregator" class="hash-link" aria-label="Direct link to Resource exhaustion on Mithril aggregator" title="Direct link to Resource exhaustion on Mithril aggregator">​</a></h3>
+<p>A DoS on the <code>mithril-aggregator</code>.</p>
+<ul>
+<li><strong>Assets at risk</strong>:<!-- -->
+<ul>
+<li><a href="#mithril-signers-registration">Mithril signers registration</a></li>
+<li><a href="#mithril-signatures-diffusion">Mithril signatures diffusion</a></li>
+<li><a href="#mithril-certificates">Mithril certificates</a></li>
+<li><a href="#mithril-artifacts">Mithril artifacts</a>.</li>
+</ul>
+</li>
+</ul>
+<h3 class="anchor anchorWithStickyNavbar_LWe7" id="integrity-of-the-cardano-block-producer-database">Integrity of the Cardano block producer database<a href="#integrity-of-the-cardano-block-producer-database" class="hash-link" aria-label="Direct link to Integrity of the Cardano block producer database" title="Direct link to Integrity of the Cardano block producer database">​</a></h3>
+<p>Data integrity of the Cardano block producer’s on-disk database could be compromised either by the action of the Mithril signer or by an attacker with access to the signer.</p>
+<ul>
+<li>
+<p><strong>Assets at risk</strong>:</p>
+<ul>
+<li><a href="#block-production">Block production</a></li>
+<li><a href="#cardano-chain-database">Cardano chain database</a>.</li>
+</ul>
+</li>
+<li>
+<p><strong>Mitigation</strong>: assign the Mithril signer only <em>read-only</em> permissions to the Cardano block producer’s database folder.</p>
+</li>
+</ul>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="references">References<a href="#references" class="hash-link" aria-label="Direct link to References" title="Direct link to References">​</a></h2>
+<ul>
+<li><a href="https://developers.cardano.org/docs/operate-a-stake-pool/" target="_blank" rel="noopener noreferrer">SPO guide</a></li>
+<li><a href="https://mithril.network/doc/mithril/mithril-network/architecture" target="_blank" rel="noopener noreferrer">Mithril network architecture</a></li>
+<li><a href="https://mithril.network/doc/manual/getting-started/run-signer-node" target="_blank" rel="noopener noreferrer">Run a Mithril signer as an SPO</a></li>
+<li><a href="https://iohk.io/en/research/library/papers/mithril-stake-based-threshold-multisignatures/" target="_blank" rel="noopener noreferrer">Mithril: Stake-based Threshold Multisignatures</a></li>
+<li><a href="https://mithril.network/doc/adr/4" target="_blank" rel="noopener noreferrer">Mithril network upgrade strategy</a></li>
+<li><a href="https://owasp.org/www-community/Threat_Modeling_Process" target="_blank" rel="noopener noreferrer">OWASP threat modeling process</a></li>
+<li><a href="https://github.com/lnbook/lnbook/blob/develop/16_security_privacy_ln.asciidoc" target="_blank" rel="noopener noreferrer">Lightning book security chapter</a></li>
+<li><a href="https://github.com/lnbook/lnbook/blob/develop/11_gossip_channel_graph.asciidoc" target="_blank" rel="noopener noreferrer">Lightning gossip protocol</a></li>
+<li><a href="https://developer.hashicorp.com/consul/docs/security/security-models/core" target="_blank" rel="noopener noreferrer">Consul security model</a></li>
+<li><a href="https://parallaxsecond.github.io/parsec-book/parsec_security/parsec_threat_model/threat_model.html" target="_blank" rel="noopener noreferrer">Parsec threat model</a></li>
+<li>A list of <a href="https://github.com/hysnsec/awesome-threat-modelling#threat-model-examples" target="_blank" rel="noopener noreferrer">threat models</a></li>
+<li>There is even a <a href="https://www.threatmodelingmanifesto.org" target="_blank" rel="noopener noreferrer">threat model manifesto</a> <!-- -->😮<!-- --> !</li>
+</ul></div><footer class="theme-doc-footer docusaurus-mt-lg"><div class="row margin-top--sm theme-doc-footer-edit-meta-row"><div class="col"><a href="https://github.com/input-output-hk/mithril/edit/main/docs/website/root/mithril/advanced/threat-model.md" target="_blank" rel="noopener noreferrer" class="theme-edit-this-page"><svg fill="currentColor" height="20" width="20" viewBox="0 0 40 40" class="iconEdit_Z9Sw" aria-hidden="true"><g><path d="m34.5 11.7l-3 3.1-6.3-6.3 3.1-3q0.5-0.5 1.2-0.5t1.1 0.5l3.9 3.9q0.5 0.4 0.5 1.1t-0.5 1.2z m-29.5 17.1l18.4-18.5 6.3 6.3-18.4 18.4h-6.3v-6.2z"></path></g></svg>Edit this page</a></div><div class="col lastUpdated_JAkA"></div></div></footer></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Docs pages"><a class="pagination-nav__link pagination-nav__link--prev" href="/doc/mithril/advanced/mithril-network/client"><div class="pagination-nav__sublabel">Previous</div><div class="pagination-nav__label">Mithril client</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href="#system-analysis" class="table-of-contents__link toc-highlight">System analysis</a><ul><li><a href="#system-description" class="table-of-contents__link toc-highlight">System description</a></li><li><a href="#external-dependencies" class="table-of-contents__link toc-highlight">External dependencies</a></li><li><a href="#entry-points" class="table-of-contents__link toc-highlight">Entry points</a></li></ul></li><li><a href="#assumptions" class="table-of-contents__link toc-highlight">Assumptions</a></li><li><a href="#assets" class="table-of-contents__link toc-highlight">Assets</a><ul><li><a href="#client-side-only-assets" class="table-of-contents__link toc-highlight">Client-side only assets</a></li></ul></li><li><a href="#threats-and-mitigations" class="table-of-contents__link toc-highlight">Threats and mitigations</a><ul><li><a href="#resource-exhaustion-on-cardano-relay" class="table-of-contents__link toc-highlight">Resource exhaustion on Cardano relay</a></li><li><a href="#resource-exhaustion-on-cardano-block-producer" class="table-of-contents__link toc-highlight">Resource exhaustion on Cardano block producer</a></li><li><a href="#resource-exhaustion-on-mithril-aggregator" class="table-of-contents__link toc-highlight">Resource exhaustion on Mithril aggregator</a></li><li><a href="#integrity-of-the-cardano-block-producer-database" class="table-of-contents__link toc-highlight">Integrity of the Cardano block producer database</a></li></ul></li><li><a href="#references" class="table-of-contents__link toc-highlight">References</a></li></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class="footer__title">Contributing</div><ul class="footer__items clean-list"><li class="footer__item"><a href="https://github.com/input-output-hk/mithril/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer" class="footer__link-item">Contributing Guidelines<svg width="13.5" height="13.5" aria-hidden="true" class="iconExternalLink_nPIU"><use href="#theme-svg-external-link"></use></svg></a></li><li class="footer__item"><a class="footer__link-item" href="/doc/adr">Architectural Decision Records</a></li></ul></div><div class="theme-layout-footer-column col footer__col"><div class="footer__title">Community</div><ul class="footer__items clean-list"><li class="footer__item"><a href="https://discord.gg/5kaErDKDRq" target="_blank" rel="noopener noreferrer" class="footer__link-item">Discord (#ask-mithril)<svg width="13.5" height="13.5" aria-hidden="true" class="iconExternalLink_nPIU"><use href="#theme-svg-external-link"></use></svg></a></li><li class="footer__item"><a href="https://github.com/input-output-hk/mithril/discussions" target="_blank" rel="noopener noreferrer" class="footer__link-item">GitHub Discussions<svg width="13.5" height="13.5" aria-hidden="true" class="iconExternalLink_nPIU"><use href="#theme-svg-external-link"></use></svg></a></li><li class="footer__item"><a href="https://cardano.stackexchange.com/search?q=mithril" target="_blank" rel="noopener noreferrer" class="footer__link-item">Stack Exchange<svg width="13.5" height="13.5" aria-hidden="true" class="iconExternalLink_nPIU"><use href="#theme-svg-external-link"></use></svg></a></li></ul></div><div class="theme-layout-footer-column col footer__col"><div class="footer__title">More</div><ul class="footer__items clean-list"><li class="footer__item"><a href="https://mithril.cronitorstatus.com/" target="_blank" rel="noopener noreferrer" class="footer__link-item">Mithril Networks Status<svg width="13.5" height="13.5" aria-hidden="true" class="iconExternalLink_nPIU"><use href="#theme-svg-external-link"></use></svg></a></li><li class="footer__item"><a href="https://lookerstudio.google.com/s/mbL23-8gibI" target="_blank" rel="noopener noreferrer" class="footer__link-item">Mithril Protocol Insights<svg width="13.5" height="13.5" aria-hidden="true" class="iconExternalLink_nPIU"><use href="#theme-svg-external-link"></use></svg></a></li><li class="footer__item"><a href="https://github.com/input-output-hk/mithril/wiki/Logbook" target="_blank" rel="noopener noreferrer" class="footer__link-item">Logbook<svg width="13.5" height="13.5" aria-hidden="true" class="iconExternalLink_nPIU"><use href="#theme-svg-external-link"></use></svg></a></li><li class="footer__item"><a href="https://iohk.io/en/blog" target="_blank" rel="noopener noreferrer" class="footer__link-item">Input Output (Blog)<svg width="13.5" height="13.5" aria-hidden="true" class="iconExternalLink_nPIU"><use href="#theme-svg-external-link"></use></svg></a></li></ul></div></div><div class="footer__bottom text--center"><div class="footer__copyright">Copyright © 2025 <strong>Input Output Global</strong> <br> <a href="https://static.iohk.io/terms/iog-privacy-policy.pdf" target="_blank" class="footer__link-item">Privacy Policy</a> | <a href="https://static.iohk.io/terms/iohktermsandconditions.pdf" target="_blank" class="footer__link-item">Terms & Conditions</a> <br> <small>Built with Docusaurus</small></div></div></div></footer></div>
+</body>
+</html>
