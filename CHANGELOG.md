@@ -11,6 +11,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - `cardano_database_v2` in the `mithril-client` library is now stable
 
+- Support for loose enforcement of OpenAPI compatibility: a warning is displayed when a call to an aggregator may be incompatible.
+
 - Crates versions:
 
 | Crate | Version |
