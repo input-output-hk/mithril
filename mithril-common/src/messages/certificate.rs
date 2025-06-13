@@ -239,7 +239,61 @@ mod tests {
 
     use super::*;
 
-    const CURRENT_JSON: &str = r#"{
+    fn golden_certificate_message() -> CertificateMessage {
+        CertificateMessage {
+            hash: "hash".to_string(),
+            previous_hash: "previous_hash".to_string(),
+            epoch: Epoch(10),
+            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
+                *Epoch(10),
+                1728,
+            )),
+            metadata: CertificateMetadataMessagePart {
+                network: "testnet".to_string(),
+                protocol_version: "0.1.0".to_string(),
+                protocol_parameters: ProtocolParameters::new(1000, 100, 0.123),
+                initiated_at: DateTime::parse_from_rfc3339("2024-02-12T13:11:47Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+                sealed_at: DateTime::parse_from_rfc3339("2024-02-12T13:12:57Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+                signers: vec![
+                    StakeDistributionParty {
+                        party_id: "1".to_string(),
+                        stake: 10,
+                    },
+                    StakeDistributionParty {
+                        party_id: "2".to_string(),
+                        stake: 20,
+                    },
+                ],
+            },
+            protocol_message: {
+                let mut protocol_message = ProtocolMessage::new();
+                protocol_message.set_message_part(
+                    ProtocolMessagePartKey::SnapshotDigest,
+                    "snapshot-digest-123".to_string(),
+                );
+                protocol_message.set_message_part(
+                    ProtocolMessagePartKey::NextAggregateVerificationKey,
+                    "next-avk-123".to_string(),
+                );
+
+                protocol_message
+            },
+            signed_message: "signed_message".to_string(),
+            aggregate_verification_key: "aggregate_verification_key".to_string(),
+            multi_signature: "multi_signature".to_string(),
+            genesis_signature: "genesis_signature".to_string(),
+        }
+    }
+
+    mod golden_json_serialization {
+
+        use super::*;
+
+        const CURRENT_JSON: &str = r#"{
             "hash": "hash",
             "previous_hash": "previous_hash",
             "epoch": 10,
@@ -284,59 +338,71 @@ mod tests {
             "genesis_signature": "genesis_signature"
         }"#;
 
-    fn golden_current_message() -> CertificateMessage {
-        let mut protocol_message = ProtocolMessage::new();
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::SnapshotDigest,
-            "snapshot-digest-123".to_string(),
-        );
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            "next-avk-123".to_string(),
-        );
-        let epoch = Epoch(10);
+        fn golden_current_message() -> CertificateMessage {
+            golden_certificate_message()
+        }
 
-        CertificateMessage {
-            hash: "hash".to_string(),
-            previous_hash: "previous_hash".to_string(),
-            epoch,
-            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
-                *epoch, 1728,
-            )),
-            metadata: CertificateMetadataMessagePart {
-                network: "testnet".to_string(),
-                protocol_version: "0.1.0".to_string(),
-                protocol_parameters: ProtocolParameters::new(1000, 100, 0.123),
-                initiated_at: DateTime::parse_from_rfc3339("2024-02-12T13:11:47Z")
-                    .unwrap()
-                    .with_timezone(&Utc),
-                sealed_at: DateTime::parse_from_rfc3339("2024-02-12T13:12:57Z")
-                    .unwrap()
-                    .with_timezone(&Utc),
-                signers: vec![
-                    StakeDistributionParty {
-                        party_id: "1".to_string(),
-                        stake: 10,
-                    },
-                    StakeDistributionParty {
-                        party_id: "2".to_string(),
-                        stake: 20,
-                    },
-                ],
-            },
-            protocol_message: protocol_message.clone(),
-            signed_message: "signed_message".to_string(),
-            aggregate_verification_key: "aggregate_verification_key".to_string(),
-            multi_signature: "multi_signature".to_string(),
-            genesis_signature: "genesis_signature".to_string(),
+        #[test]
+        fn test_current_json_deserialized_into_current_message() {
+            let json = CURRENT_JSON;
+            let message: CertificateMessage = serde_json::from_str(json).unwrap();
+
+            assert_eq!(golden_current_message(), message);
         }
     }
 
-    #[test]
-    fn test_current_json_deserialized_into_current_message() {
-        let json = CURRENT_JSON;
-        let message: CertificateMessage = serde_json::from_str(json).unwrap();
+    mod golden_protocol_key_encodings {
+        use super::*;
 
-        assert_eq!(golden_current_message(), message);
+        mod standard_certificate {
+            use super::*;
+
+            fn golden_message_with_json_hex_encoding() -> CertificateMessage {
+                CertificateMessage {
+                    aggregate_verification_key: "7b226d745f636f6d6d69746d656e74223a7b22726f6f74223a5b3234312c3235352c35332c3133352c3231322c3134322c33372c3131342c3133302c3131372c3135342c3230382c34392c3134352c31362c3132382c3230392c37352c3137392c32392c35392c3136352c3134352c3235302c34372c332c3233312c3134302c3137382c35302c3231322c3131345d2c226e725f6c6561766573223a342c22686173686572223a6e756c6c7d2c22746f74616c5f7374616b65223a33303337393438363730323339327d".to_string(),
+                    multi_signature: "7b227369676e617475726573223a5b5b7b227369676d61223a5b3135302c3132312c3230322c3133322c33362c34392c3230342c3137332c35392c3130322c3130382c36362c32322c3230342c3130372c3235302c36352c3136372c3230302c3233372c32312c31372c37382c3233382c34332c3232372c3234382c38392c3136362c3232322c3134352c36382c33312c3134322c3231302c3232342c3139322c3233342c38362c3134372c36362c37302c3132332c33332c39382c37372c3138382c3136375d2c22696e6465786573223a5b352c31332c32322c33312c37312c37355d2c227369676e65725f696e646578223a307d2c5b5b3135302c37362c3234362c3133302c3130352c3136372c3138372c3230372c39382c3132332c3134382c3133322c3132342c3234372c33372c3133342c32332c3137322c312c3138352c3133302c3235312c3138312c38302c36382c3137342c3131362c3139302c3231372c37312c33342c33372c3134302c3139342c3234342c3138342c3136322c3136392c3137302c37322c3139312c3138372c3232392c3136362c34372c3139362c3133392c3233332c372c38372c3232352c392c3139332c37332c3138312c3233352c35342c3135322c312c3133382c34382c3130332c36392c3230392c35322c34302c31372c32312c3134372c37332c3232352c37302c392c3233342c3233362c342c37312c33382c38392c3232352c32342c3131362c392c3133302c3139352c3139362c3233312c3133312c3230332c37372c39372c3230322c36332c3132382c3132332c3230335d2c313030393439373632393034365d5d5d2c2262617463685f70726f6f66223a7b2276616c756573223a5b5b3130312c3230302c3136392c3231322c3135312c3133352c35362c35312c3232312c3138392c3138352c3230322c3232362c3132312c3138332c36382c3135372c3132352c32342c3232332c3135312c38392c3235342c32372c32332c372c3230392c32312c3136372c3234332c322c3131345d2c5b3138352c3134312c3139392c362c3131342c3134342c3235352c37312c3138302c36342c3135332c33322c37362c372c3234392c3137342c3134312c3230302c3131382c3231312c302c31392c3232352c3134392c3133372c33362c3134312c35302c3134382c38312c3137322c3139325d5d2c22696e6469636573223a5b305d2c22686173686572223a6e756c6c7d7d".to_string(),
+                    genesis_signature: "".to_string(),
+                    ..golden_certificate_message()
+                }
+            }
+
+            fn golden_message_with_bytes_hex_encoding() -> CertificateMessage {
+                CertificateMessage {
+                    aggregate_verification_key: "20f1ff3587d48e257282759ad031911080d14bb31d3ba591fa2f03e78cb232d47204fd386b8346a11b0000".to_string(),
+                    multi_signature: "00000000000000000100000000000000d8964cf68269a7bbcf627b94847cf7258617ac01b982fbb55044ae74bed94722258cc2f4b8a2a9aa48bfbbe5a62fc48be90757e109c149b5eb3698018a306745d1342811159349e14609eaec04472659e118740982c3c4e783cb4d61ca3f807bcb000000eb0abf617600000000000000060000000000000005000000000000000d0000000000000016000000000000001f0000000000000047000000000000004b9679ca842431ccad3b666c4216cc6bfa41a7c8ed15114eee2be3f859a6de91441f8ed2e0c0ea569342467b21624dbca700000000000000000000000000000002000000000000000165c8a9d497873833ddbdb9cae279b7449d7d18df9759fe1b1707d115a7f30272b98dc7067290ff47b44099204c07f9ae8dc876d30013e19589248d329451acc00000000000000000".to_string(),
+                    genesis_signature: "".to_string(),
+                    ..golden_certificate_message()
+                }
+            }
+
+            #[test]
+            fn restorations_from_json_hex_and_bytes_hex_give_same_certificate() {
+                let certificate_from_json_hex: Certificate =
+                    golden_message_with_json_hex_encoding().try_into().unwrap();
+                let certificate_from_bytes_hex: Certificate =
+                    golden_message_with_bytes_hex_encoding().try_into().unwrap();
+
+                assert_eq!(certificate_from_json_hex, certificate_from_bytes_hex);
+            }
+        }
+
+        mod genesis_certificate {
+            use super::*;
+
+            fn golden_message_with_bytes_hex_encoding() -> CertificateMessage {
+                CertificateMessage {
+                    aggregate_verification_key: "20f1ff3587d48e257282759ad031911080d14bb31d3ba591fa2f03e78cb232d47204fd386b8346a11b0000".to_string(),
+                    multi_signature: "".to_string(),
+                    genesis_signature: "c21f77fb812a8111b547c2145d765f854ca224b17e883d6483b668a8c4d095fd893efd2a2ba1d41da9f49d82bf02d8ee603791998b64436000e49184c000170b".to_string(),
+                    ..golden_certificate_message()
+                }
+            }
+
+            #[test]
+            fn restorations_from_bytes_hex_succeeds() {
+                let _certificate_from_bytes_hex: Certificate =
+                    golden_message_with_bytes_hex_encoding().try_into().unwrap();
+            }
+        }
     }
 }
