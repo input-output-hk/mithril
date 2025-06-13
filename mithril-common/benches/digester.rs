@@ -1,8 +1,11 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use mithril_common::{
-    digesters::cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProvider},
     digesters::{
-        cache::MemoryImmutableFileDigestCacheProvider, CardanoImmutableDigester, ImmutableDigester,
+        cache::{
+            ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProvider,
+            MemoryImmutableFileDigestCacheProvider,
+        },
+        CardanoImmutableDigester, ImmutableDigester, IMMUTABLE_DIR,
     },
     entities::{CardanoDbBeacon, ImmutableFileNumber},
 };
@@ -22,7 +25,7 @@ fn temp_dir() -> PathBuf {
 }
 
 fn db_dir() -> PathBuf {
-    temp_dir().join("db").join("immutable")
+    temp_dir().join("db").join(IMMUTABLE_DIR)
 }
 
 fn create_db(dir: &Path, number_of_immutables: ImmutableFileNumber, file_size: u64) {

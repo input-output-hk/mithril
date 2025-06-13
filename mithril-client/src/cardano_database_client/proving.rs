@@ -190,7 +190,9 @@ mod tests {
 
         use std::ops::RangeInclusive;
 
-        use mithril_common::{entities::ImmutableFileNumber, messages::DigestsMessagePart};
+        use mithril_common::{
+            digesters::IMMUTABLE_DIR, entities::ImmutableFileNumber, messages::DigestsMessagePart,
+        };
 
         use super::*;
 
@@ -249,7 +251,7 @@ mod tests {
                 fs::remove_file(
                     database_dir.join(
                         database_dir
-                            .join("immutable")
+                            .join(IMMUTABLE_DIR)
                             .join(immutable_file.filename.clone()),
                     ),
                 )
@@ -316,7 +318,7 @@ mod tests {
                 .with_http_file_downloader(Arc::new(
                     MockFileDownloaderBuilder::default()
                         .with_file_uri("http://whatever/digests.json")
-                        .with_target_dir(PathBuf::from("/tmp/mithril_digest"))
+                        .with_target_dir(InternalArtifactProver::digest_target_dir())
                         .with_compression(None)
                         .with_success()
                         .build(),
