@@ -49,6 +49,7 @@ impl InternalArtifactProver {
         database_dir: &Path,
     ) -> MithrilResult<MKProof> {
         let digest_target_dir = Self::digest_target_dir();
+        delete_directory(&digest_target_dir)?;
         self.download_unpack_digest_file(&cardano_database_snapshot.digests, &digest_target_dir)
             .await?;
         let network = certificate.metadata.network.clone();
