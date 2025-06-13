@@ -22,7 +22,7 @@ use crate::message_adapters::FromEpochSettingsAdapter;
 const JSON_CONTENT_TYPE: HeaderValue = HeaderValue::from_static("application/json");
 
 const API_VERSION_MISMATCH_WARNING_MESSAGE: &str =
-    "OpenAPI API version mismatch, please update your Mithril aggregator node.";
+    "OpenAPI version may be incompatible, please update your Mithril node to the latest version.";
 
 /// Error structure for the Aggregator Client.
 #[derive(Error, Debug)]
@@ -195,28 +195,30 @@ impl AggregatorHTTPClient {
 
     /// Check API version mismatch and log a warning if the leader aggregator's version is more recent.
     fn warn_if_api_version_mismatch(&self, response: &Response) {
-        let leader_aggregator_version_in_header = response
+        let leader_version = response
             .headers()
             .get(MITHRIL_API_VERSION_HEADER)
             .and_then(|v| v.to_str().ok())
             .and_then(|s| Version::parse(s).ok());
 
-        if let Some(leader_aggregator_version) = leader_aggregator_version_in_header {
-            let aggregator_version = match self.api_version_provider.compute_current_version() {
-                Ok(version) => version,
-                Err(error) => {
-                    error!(self.logger, "Failed to compute the current aggregator API version"; "error" => error.to_string());
-                    return;
-                }
-            };
+        let follower_version = self.api_version_provider.compute_current_version();
 
-            if aggregator_version.lt(&leader_aggregator_version) {
+        match (leader_version, follower_version) {
+            (Some(leader), Ok(follower)) if follower < leader => {
                 warn!(self.logger, "{}", API_VERSION_MISMATCH_WARNING_MESSAGE;
-                    "leader aggregator version" => leader_aggregator_version.to_string(),
-                    "aggregator version" => aggregator_version.to_string()
+                    "leader_aggregator_version" => %leader,
+                    "aggregator_version" => %follower,
                 );
             }
-        };
+            (Some(_), Err(error)) => {
+                error!(
+                    self.logger,
+                    "Failed to compute the current aggregator API version";
+                    "error" => error.to_string()
+                );
+            }
+            _ => {}
+        }
     }
 }
 
@@ -517,8 +519,7 @@ mod tests {
         fn version_provider_with_open_api_version<V: Into<String>>(
             version: V,
         ) -> APIVersionProvider {
-            let mut version_provider =
-                APIVersionProvider::new(Arc::new(DummyApiVersionDiscriminantSource::default()));
+            let mut version_provider = version_provider_without_open_api_version();
             let mut open_api_versions = HashMap::new();
             open_api_versions.insert(
                 "openapi.yaml".to_string(),
@@ -555,17 +556,17 @@ mod tests {
         ) {
             assert!(log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
             assert!(log_inspector.contains_log(&format!(
-                "leader aggregator version={}",
+                "leader_aggregator_version={}",
                 leader_aggregator_version.into()
             )));
             assert!(log_inspector
-                .contains_log(&format!("aggregator version={}", aggregator_version.into())));
+                .contains_log(&format!("aggregator_version={}", aggregator_version.into())));
         }
 
         #[test]
         fn test_logs_warning_when_leader_aggregator_api_version_is_newer() {
-            let leader_aggregator_version = "1.0.0";
-            let aggregator_version = "0.0.999";
+            let leader_aggregator_version = "2.0.0";
+            let aggregator_version = "1.0.0";
             let (logger, log_inspector) = TestLogger::memory();
             let version_provider = version_provider_with_open_api_version(aggregator_version);
             let mut client = setup_client("whatever");
@@ -600,11 +601,10 @@ mod tests {
             assert!(!log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
         }
 
-        // TODO: Not sure about this test, it doesn't make much sense from a business perspective.
         #[test]
         fn test_no_warning_logged_when_leader_aggregator_api_version_is_older() {
-            let leader_aggregator_version = "0.0.999";
-            let aggregator_version = "1.0.0";
+            let leader_aggregator_version = "1.0.0";
+            let aggregator_version = "2.0.0";
             let (logger, log_inspector) = TestLogger::memory();
             let version_provider = version_provider_with_open_api_version(aggregator_version);
             let mut client = setup_client("whatever");
@@ -662,8 +662,8 @@ mod tests {
 
         #[tokio::test]
         async fn test_epoch_settings_ok_200_log_warning_if_api_version_mismatch() {
-            let leader_aggregator_version = "1.0.0";
-            let aggregator_version = "0.0.999";
+            let leader_aggregator_version = "2.0.0";
+            let aggregator_version = "1.0.0";
             let (server, mut client) = setup_server_and_client();
             let (logger, log_inspector) = TestLogger::memory();
             let version_provider = version_provider_with_open_api_version(aggregator_version);

@@ -28,7 +28,7 @@ use crate::common::Epoch;
 use crate::{MithrilError, MithrilResult};
 
 const API_VERSION_MISMATCH_WARNING_MESSAGE: &str =
-    "OpenAPI API version mismatch, please update Mithril client.";
+    "OpenAPI version may be incompatible, please update Mithril client library to the latest version.";
 
 /// Error tied with the Aggregator client
 #[derive(Error, Debug)]
@@ -410,31 +410,29 @@ impl AggregatorHTTPClient {
 
     /// Check API version mismatch and log a warning if the aggregator's version is more recent.
     async fn warn_if_api_version_mismatch(&self, response: &Response) {
-        let aggregator_version_in_header = response
+        let aggregator_version = response
             .headers()
             .get(MITHRIL_API_VERSION_HEADER)
             .and_then(|v| v.to_str().ok())
             .and_then(|s| Version::parse(s).ok());
 
-        if let Some(aggregator_version) = aggregator_version_in_header {
-            let client_version = match self.compute_current_api_version().await {
-                Some(version) => version,
-                None => {
-                    error!(
-                        self.logger,
-                        "Failed to compute the current client API version"
-                    );
-                    return;
-                }
-            };
+        let client_version = self.compute_current_api_version().await;
 
-            if client_version.lt(&aggregator_version) {
+        match (aggregator_version, client_version) {
+            (Some(aggregator), Some(client)) if client < aggregator => {
                 warn!(self.logger, "{}", API_VERSION_MISMATCH_WARNING_MESSAGE;
-                    "aggregator version" => aggregator_version.to_string(),
-                    "client version" => client_version.to_string()
+                    "aggregator_version" => %aggregator,
+                    "client_version" => %client,
                 );
             }
-        };
+            (Some(_), None) => {
+                error!(
+                    self.logger,
+                    "Failed to compute the current client API version"
+                );
+            }
+            _ => {}
+        }
     }
 }
 
@@ -907,16 +905,16 @@ mod tests {
         ) {
             assert!(log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
             assert!(log_inspector
-                .contains_log(&format!("aggregator version={}", aggregator_version.into())));
+                .contains_log(&format!("aggregator_version={}", aggregator_version.into())));
             assert!(
-                log_inspector.contains_log(&format!("client version={}", client_version.into()))
+                log_inspector.contains_log(&format!("client_version={}", client_version.into()))
             );
         }
 
         #[tokio::test]
         async fn test_logs_warning_when_aggregator_api_version_is_newer() {
-            let aggregator_version = "1.0.0";
-            let client_version = "0.0.999";
+            let aggregator_version = "2.0.0";
+            let client_version = "1.0.0";
             let (logger, log_inspector) = TestLogger::memory();
             let mut client = setup_client(
                 "http://whatever",
@@ -949,11 +947,10 @@ mod tests {
             assert!(!log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
         }
 
-        // TODO: Not sure about this test, it doesn't make much sense from a business perspective.
         #[tokio::test]
         async fn test_no_warning_logged_when_aggregator_api_version_is_older() {
-            let aggregator_version = "0.0.999";
-            let client_version = "1.0.0";
+            let aggregator_version = "1.0.0";
+            let client_version = "2.0.0";
             let (logger, log_inspector) = TestLogger::memory();
             let mut client = setup_client(
                 "http://whatever",
@@ -1017,8 +1014,8 @@ mod tests {
 
         #[tokio::test]
         async fn test_client_get_log_warning_if_api_version_mismatch() {
-            let aggregator_version = "1.0.0";
-            let client_version = "0.0.999";
+            let aggregator_version = "2.0.0";
+            let client_version = "1.0.0";
             let (server, mut client) = setup_server_and_client();
             let (logger, log_inspector) = TestLogger::memory();
             client.api_versions =
@@ -1039,8 +1036,8 @@ mod tests {
 
         #[tokio::test]
         async fn test_client_post_log_warning_if_api_version_mismatch() {
-            let aggregator_version = "1.0.0";
-            let client_version = "0.0.999";
+            let aggregator_version = "2.0.0";
+            let client_version = "1.0.0";
             let (server, mut client) = setup_server_and_client();
             let (logger, log_inspector) = TestLogger::memory();
             client.api_versions =
