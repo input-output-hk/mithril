@@ -1,6 +1,6 @@
 [package]
 name = "mithril-ticker"
-version = "0.1.0"
+version = "0.1.1"
 authors.workspace = true
 documentation.workspace = true
 edition.workspace = true
@@ -14,6 +14,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+mithril-cardano-node-chain = { path = "../cardano-node/mithril-cardano-node-chain" }
 mithril-common = { path = "../../mithril-common", features = ["fs"] }
 thiserror = { workspace = true }
 

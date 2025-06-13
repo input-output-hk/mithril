@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::{fmt::Display, path::PathBuf, sync::Arc};
 use thiserror::Error;
 
-use mithril_common::chain_observer::{ChainAddress, ChainObserver};
+use mithril_cardano_node_chain::chain_observer::ChainObserver;
+use mithril_cardano_node_chain::entities::ChainAddress;
 use mithril_common::crypto_helper::EraMarkersVerifierVerificationKey;
 use mithril_common::StdError;
 
@@ -137,7 +138,7 @@ impl AdapterBuilder {
 
 #[cfg(test)]
 mod test {
-    use mithril_common::chain_observer::FakeObserver;
+    use mithril_cardano_node_chain::test::double::FakeChainObserver;
 
     use super::*;
 
@@ -152,7 +153,7 @@ mod test {
             &AdapterType::CardanoChain,
             &Some(GOLDEN_ADAPTER_PARAMS.to_owned()),
         )
-        .build(Arc::new(FakeObserver::new(None)))
+        .build(Arc::new(FakeChainObserver::new(None)))
         .expect("building an cardano chain era reader with golden params should not fail");
     }
 }

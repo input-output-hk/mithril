@@ -7,7 +7,8 @@ use async_trait::async_trait;
 use slog::{debug, Logger};
 use tokio::{runtime::Handle, sync::Mutex, task};
 
-use mithril_common::cardano_block_scanner::{BlockScanner, ChainScannedBlocks, RawCardanoPoint};
+use mithril_cardano_node_chain::chain_scanner::{BlockScanner, ChainScannedBlocks};
+use mithril_cardano_node_chain::entities::RawCardanoPoint;
 use mithril_common::crypto_helper::{MKTree, MKTreeNode, MKTreeStoreInMemory};
 use mithril_common::entities::{
     BlockNumber, BlockRange, CardanoTransaction, ChainPoint, SlotNumber,
@@ -224,9 +225,9 @@ mod tests {
 
     use mockall::mock;
 
-    use mithril_common::cardano_block_scanner::{
-        BlockStreamer, DumbBlockScanner, DumbBlockStreamer, ScannedBlock,
-    };
+    use mithril_cardano_node_chain::chain_scanner::BlockStreamer;
+    use mithril_cardano_node_chain::entities::ScannedBlock;
+    use mithril_cardano_node_chain::test::double::{DumbBlockScanner, DumbBlockStreamer};
     use mithril_common::crypto_helper::MKTree;
     use mithril_common::entities::{BlockNumber, BlockRangesSequence};
     use mithril_persistence::database::repository::CardanoTransactionRepository;

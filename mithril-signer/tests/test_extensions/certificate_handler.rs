@@ -168,17 +168,18 @@ impl AggregatorClient for FakeAggregator {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::chain_observer::{ChainObserver, FakeObserver};
+    use mithril_cardano_node_chain::chain_observer::ChainObserver;
+    use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_common::digesters::DumbImmutableFileObserver;
     use mithril_common::entities::{BlockNumber, ChainPoint};
     use mithril_common::test_utils::fake_data;
 
     use super::*;
 
-    async fn init() -> (Arc<FakeObserver>, FakeAggregator) {
+    async fn init() -> (Arc<FakeChainObserver>, FakeAggregator) {
         let immutable_observer = Arc::new(DumbImmutableFileObserver::new());
         immutable_observer.shall_return(Some(1)).await;
-        let chain_observer = Arc::new(FakeObserver::new(Some(TimePoint {
+        let chain_observer = Arc::new(FakeChainObserver::new(Some(TimePoint {
             epoch: Epoch(1),
             immutable_file_number: 1,
             chain_point: ChainPoint::dummy(),

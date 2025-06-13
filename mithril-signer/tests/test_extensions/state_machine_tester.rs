@@ -15,10 +15,13 @@ use std::{
 use thiserror::Error;
 use tokio::sync::RwLock;
 
+use mithril_cardano_node_chain::{
+    chain_observer::ChainObserver,
+    entities::ScannedBlock,
+    test::double::{DumbBlockScanner, FakeChainObserver},
+};
 use mithril_common::{
     api_version::APIVersionProvider,
-    cardano_block_scanner::{DumbBlockScanner, ScannedBlock},
-    chain_observer::{ChainObserver, FakeObserver},
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
     entities::{
         BlockNumber, CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,
@@ -79,7 +82,7 @@ impl From<RuntimeError> for TestError {
 pub struct StateMachineTester {
     state_machine: StateMachine,
     immutable_observer: Arc<DumbImmutableFileObserver>,
-    chain_observer: Arc<FakeObserver>,
+    chain_observer: Arc<FakeChainObserver>,
     certificate_handler: Arc<FakeAggregator>,
     protocol_initializer_store: Arc<dyn ProtocolInitializerStorer>,
     stake_store: Arc<dyn StakeStorer>,
@@ -145,7 +148,7 @@ impl StateMachineTester {
         let immutable_observer = Arc::new(DumbImmutableFileObserver::new());
         immutable_observer.shall_return(Some(1)).await;
 
-        let chain_observer = Arc::new(FakeObserver::new(Some(initial_time_point.clone())));
+        let chain_observer = Arc::new(FakeChainObserver::new(Some(initial_time_point.clone())));
         let ticker_service = Arc::new(MithrilTickerService::new(
             chain_observer.clone(),
             immutable_observer.clone(),

@@ -4,11 +4,13 @@ use async_trait::async_trait;
 use slog::{debug, trace, Logger};
 use tokio::sync::Mutex;
 
-use crate::cardano_block_scanner::{BlockStreamer, ChainScannedBlocks, RawCardanoPoint};
-use crate::chain_reader::{ChainBlockNextAction, ChainBlockReader};
-use crate::entities::BlockNumber;
-use crate::logging::LoggerExtensions;
-use crate::StdResult;
+use mithril_common::entities::BlockNumber;
+use mithril_common::logging::LoggerExtensions;
+use mithril_common::StdResult;
+
+use crate::chain_reader::ChainBlockReader;
+use crate::chain_scanner::{BlockStreamer, ChainScannedBlocks};
+use crate::entities::{ChainBlockNextAction, RawCardanoPoint};
 
 /// The action that indicates what to do next with the streamer
 #[derive(Debug, Clone, PartialEq)]
@@ -169,10 +171,11 @@ impl ChainReaderBlockStreamer {
 
 #[cfg(test)]
 mod tests {
-    use crate::cardano_block_scanner::ScannedBlock;
-    use crate::chain_reader::FakeChainReader;
-    use crate::entities::SlotNumber;
-    use crate::test_utils::TestLogger;
+    use mithril_common::entities::SlotNumber;
+
+    use crate::entities::ScannedBlock;
+    use crate::test::double::FakeChainReader;
+    use crate::test::TestLogger;
 
     use super::*;
 

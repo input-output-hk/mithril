@@ -1,8 +1,9 @@
 use async_trait::async_trait;
 
-use crate::cardano_block_scanner::{RawCardanoPoint, ScannedBlock};
-use crate::entities::{BlockNumber, SlotNumber};
-use crate::StdResult;
+use mithril_common::entities::{BlockNumber, SlotNumber};
+use mithril_common::StdResult;
+
+use crate::entities::{RawCardanoPoint, ScannedBlock};
 
 /// A scanner that can read cardano transactions in a cardano database
 ///
@@ -15,9 +16,11 @@ use crate::StdResult;
 ///     use async_trait::async_trait;
 ///     use mockall::mock;
 ///
-///     use mithril_common::cardano_block_scanner::{BlockScanner, BlockStreamer, RawCardanoPoint};
 ///     use mithril_common::entities::{BlockNumber};
 ///     use mithril_common::StdResult;
+///
+///     use mithril_cardano_node_chain::chain_scanner::{BlockScanner, BlockStreamer};
+///     use mithril_cardano_node_chain::entities::{RawCardanoPoint};
 ///
 ///     mock! {
 ///         pub BlockScannerImpl { }
@@ -68,32 +71,4 @@ pub trait BlockStreamer: Sync + Send {
 
     /// Get the last polled point of the chain
     fn last_polled_point(&self) -> Option<RawCardanoPoint>;
-}
-
-cfg_test_tools! {
-    /// Tests extensions methods for the [BlockStreamer] trait.
-    #[async_trait]
-    pub trait BlockStreamerTestExtensions{
-        /// Stream all the available blocks, may be very memory intensive
-        async fn poll_all(&mut self) -> StdResult<Vec<ScannedBlock>>;
-    }
-
-    #[async_trait]
-    impl <S: BlockStreamer + ?Sized> BlockStreamerTestExtensions for S {
-        async fn poll_all(&mut self) -> StdResult<Vec<ScannedBlock>> {
-            let mut all_blocks = Vec::new();
-            while let Some(next_blocks) = self.poll_next().await? {
-                match next_blocks {
-                    ChainScannedBlocks::RollForwards(mut forward_blocks) => {
-                        all_blocks.append(&mut forward_blocks);
-                    }
-                    ChainScannedBlocks::RollBackward(_) => {
-                        return Err(anyhow::anyhow!("poll_all: RollBackward not supported"));
-                    }
-                };
-            }
-            Ok(all_blocks)
-        }
-    }
-
 }

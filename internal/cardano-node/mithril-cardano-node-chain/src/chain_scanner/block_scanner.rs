@@ -4,10 +4,12 @@ use async_trait::async_trait;
 use slog::Logger;
 use tokio::sync::Mutex;
 
-use crate::cardano_block_scanner::{BlockScanner, BlockStreamer, RawCardanoPoint};
+use mithril_common::entities::BlockNumber;
+use mithril_common::StdResult;
+
 use crate::chain_reader::ChainBlockReader;
-use crate::entities::BlockNumber;
-use crate::StdResult;
+use crate::chain_scanner::{BlockScanner, BlockStreamer};
+use crate::entities::RawCardanoPoint;
 
 use super::ChainReaderBlockStreamer;
 

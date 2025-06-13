@@ -6,8 +6,8 @@ use config::{builder::DefaultState, ConfigBuilder, Map, Value};
 use serde::{Deserialize, Serialize};
 use slog::{debug, Logger};
 
+use mithril_cardano_node_chain::chain_observer::ChainObserverType;
 use mithril_common::{
-    chain_observer::ChainObserverType,
     crypto_helper::{
         ProtocolGenesisSecretKey, ProtocolGenesisSigner, ProtocolGenesisVerificationKey,
     },

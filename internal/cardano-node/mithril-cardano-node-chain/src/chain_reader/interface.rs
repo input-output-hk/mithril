@@ -1,9 +1,8 @@
 use async_trait::async_trait;
 
-use crate::cardano_block_scanner::RawCardanoPoint;
-use crate::StdResult;
+use mithril_common::StdResult;
 
-use super::ChainBlockNextAction;
+use crate::entities::{ChainBlockNextAction, RawCardanoPoint};
 
 /// The trait that reads events to either:
 /// - read next block on the chain

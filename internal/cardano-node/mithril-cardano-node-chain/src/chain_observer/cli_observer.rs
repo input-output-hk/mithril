@@ -9,11 +9,13 @@ use std::fs;
 use std::path::PathBuf;
 use tokio::process::Command;
 
-use crate::chain_observer::interface::{ChainObserver, ChainObserverError};
-use crate::chain_observer::{ChainAddress, TxDatum};
-use crate::crypto_helper::{encode_bech32, KESPeriod, OpCert, SerDeShelleyFileFormat};
-use crate::entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, StakeDistribution};
-use crate::{CardanoNetwork, StdResult};
+use mithril_common::crypto_helper::{encode_bech32, KESPeriod, OpCert, SerDeShelleyFileFormat};
+use mithril_common::entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, StakeDistribution};
+use mithril_common::{CardanoNetwork, StdResult};
+
+use crate::entities::{ChainAddress, TxDatum};
+
+use super::interface::{ChainObserver, ChainObserverError};
 
 const CARDANO_ERA: &str = "latest";
 
@@ -569,15 +571,30 @@ impl ChainObserver for CardanoCliChainObserver {
 
 #[cfg(test)]
 mod tests {
+    use kes_summed_ed25519::{kes::Sum6Kes, traits::KesSk};
     use std::collections::BTreeMap;
+    use std::ffi::OsStr;
+
+    use mithril_common::crypto_helper::ColdKeyGenerator;
+
+    use crate::test::test_cli_runner::{test_expected, TestCliRunner};
 
     use super::*;
-    use crate::{
-        chain_observer::test_cli_runner::{test_expected, TestCliRunner},
-        crypto_helper::ColdKeyGenerator,
-    };
 
-    use kes_summed_ed25519::{kes::Sum6Kes, traits::KesSk};
+    macro_rules! assert_cli_command {
+        ($command:expr, $expected_shell:expr, envs: $envs:expr) => {
+            let cmd = $command;
+            let std_cmd = cmd.as_std();
+            let cmd_display = format!("{std_cmd:?}");
+            assert!(
+                cmd_display.contains($expected_shell),
+                "Command shell does not contains expected content\n  full command shell: '{cmd_display}'\n  expect to contains: {}'",
+                $expected_shell
+            );
+            let cmd_envs: Vec<(&OsStr, Option<&OsStr>)> = std_cmd.get_envs().collect();
+            assert_eq!(cmd_envs, $envs);
+        };
+    }
 
     #[tokio::test]
     async fn test_get_current_era() {
@@ -618,8 +635,16 @@ mod tests {
             CardanoNetwork::TestNet(10),
         );
 
-        assert_eq!("Command { std: CARDANO_NODE_SOCKET_PATH=\"/tmp/whatever.sock\" \"cardano-cli\" \"latest\" \"query\" \"tip\" \"--testnet-magic\" \"10\", kill_on_drop: false }", format!("{:?}", runner.command_for_epoch()));
-        assert_eq!("Command { std: CARDANO_NODE_SOCKET_PATH=\"/tmp/whatever.sock\" \"cardano-cli\" \"latest\" \"query\" \"stake-distribution\" \"--testnet-magic\" \"10\", kill_on_drop: false }", format!("{:?}", runner.command_for_stake_distribution()));
+        assert_cli_command!(
+            runner.command_for_epoch(),
+            r#""cardano-cli" "latest" "query" "tip" "--testnet-magic" "10""#,
+            envs: vec![(OsStr::new("CARDANO_NODE_SOCKET_PATH"), Some(OsStr::new("/tmp/whatever.sock")))]
+        );
+        assert_cli_command!(
+            runner.command_for_stake_distribution(),
+            r#""cardano-cli" "latest" "query" "stake-distribution" "--testnet-magic" "10""#,
+            envs: vec![(OsStr::new("CARDANO_NODE_SOCKET_PATH"), Some(OsStr::new("/tmp/whatever.sock")))]
+        );
     }
 
     #[tokio::test]
@@ -630,8 +655,16 @@ mod tests {
             CardanoNetwork::DevNet(25),
         );
 
-        assert_eq!("Command { std: CARDANO_NODE_SOCKET_PATH=\"/tmp/whatever.sock\" \"cardano-cli\" \"latest\" \"query\" \"tip\" \"--cardano-mode\" \"--testnet-magic\" \"25\", kill_on_drop: false }", format!("{:?}", runner.command_for_epoch()));
-        assert_eq!("Command { std: CARDANO_NODE_SOCKET_PATH=\"/tmp/whatever.sock\" \"cardano-cli\" \"latest\" \"query\" \"stake-distribution\" \"--cardano-mode\" \"--testnet-magic\" \"25\", kill_on_drop: false }", format!("{:?}", runner.command_for_stake_distribution()));
+        assert_cli_command!(
+            runner.command_for_epoch(),
+            r#""cardano-cli" "latest" "query" "tip" "--cardano-mode" "--testnet-magic" "25""#,
+            envs: vec![(OsStr::new("CARDANO_NODE_SOCKET_PATH"), Some(OsStr::new("/tmp/whatever.sock")))]
+        );
+        assert_cli_command!(
+            runner.command_for_stake_distribution(),
+            r#""cardano-cli" "latest" "query" "stake-distribution" "--cardano-mode" "--testnet-magic" "25""#,
+            envs: vec![(OsStr::new("CARDANO_NODE_SOCKET_PATH"), Some(OsStr::new("/tmp/whatever.sock")))]
+        );
     }
 
     #[tokio::test]
@@ -642,13 +675,15 @@ mod tests {
             CardanoNetwork::MainNet,
         );
 
-        assert_eq!(
-            "Command { std: CARDANO_NODE_SOCKET_PATH=\"/tmp/whatever.sock\" \"cardano-cli\" \"latest\" \"query\" \"tip\" \"--mainnet\", kill_on_drop: false }",
-            format!("{:?}", runner.command_for_epoch())
+        assert_cli_command!(
+            runner.command_for_epoch(),
+            r#""cardano-cli" "latest" "query" "tip" "--mainnet""#,
+            envs: vec![(OsStr::new("CARDANO_NODE_SOCKET_PATH"), Some(OsStr::new("/tmp/whatever.sock")))]
         );
-        assert_eq!(
-            "Command { std: CARDANO_NODE_SOCKET_PATH=\"/tmp/whatever.sock\" \"cardano-cli\" \"latest\" \"query\" \"stake-distribution\" \"--mainnet\", kill_on_drop: false }",
-            format!("{:?}", runner.command_for_stake_distribution())
+        assert_cli_command!(
+            runner.command_for_stake_distribution(),
+            r#""cardano-cli" "latest" "query" "stake-distribution" "--mainnet"#,
+            envs: vec![(OsStr::new("CARDANO_NODE_SOCKET_PATH"), Some(OsStr::new("/tmp/whatever.sock")))]
         );
     }
 

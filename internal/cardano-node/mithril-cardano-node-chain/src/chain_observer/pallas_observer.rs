@@ -21,14 +21,13 @@ use pallas_network::{
 use pallas_primitives::ToCanonicalJson;
 use pallas_traverse::Era;
 
-use crate::{
-    chain_observer::{interface::*, ChainAddress, TxDatum},
-    crypto_helper::{encode_bech32, KESPeriod, OpCert},
-    entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, StakeDistribution},
-    CardanoNetwork, StdResult,
-};
+use mithril_common::crypto_helper::{encode_bech32, KESPeriod, OpCert};
+use mithril_common::entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, StakeDistribution};
+use mithril_common::{CardanoNetwork, StdResult};
 
-use super::model::{try_inspect, Datum, Datums};
+use crate::entities::{try_inspect, ChainAddress, Datum, Datums, TxDatum};
+
+use super::{ChainObserver, ChainObserverError};
 
 // The era value returned from the queries_v16::get_current_era has an offset of -1 with the era value of the pallas_traverse::Era due to Cardano node implementation.
 // It needs to be compensated to get the correct era display name.
@@ -509,13 +508,15 @@ impl ChainObserver for PallasChainObserver {
     }
 }
 
-#[cfg(test)]
+// Windows does not support Unix sockets, nor pallas_network::facades::NodeServer
+#[cfg(all(test, unix))]
 mod tests {
     use std::fs;
 
     use kes_summed_ed25519::{kes::Sum6Kes, traits::KesSk};
     use pallas_codec::utils::{AnyCbor, AnyUInt, KeyValuePairs, TagWrap};
     use pallas_crypto::hash::Hash;
+    use pallas_network::facades::NodeServer;
     use pallas_network::miniprotocols::{
         localstate::{
             queries_v16::{
@@ -528,8 +529,8 @@ mod tests {
     };
     use tokio::net::UnixListener;
 
-    use crate::test_utils::TempDir;
-    use crate::{crypto_helper::ColdKeyGenerator, CardanoNetwork};
+    use mithril_common::crypto_helper::ColdKeyGenerator;
+    use mithril_common::test_utils::TempDir;
 
     use super::*;
 
@@ -646,7 +647,7 @@ mod tests {
     }
 
     /// pallas responses mock server.
-    async fn mock_server(server: &mut pallas_network::facades::NodeServer) -> AnyCbor {
+    async fn mock_server(server: &mut NodeServer) -> AnyCbor {
         let query: queries_v16::Request =
             match server.statequery().recv_while_acquired().await.unwrap() {
                 ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
@@ -698,9 +699,7 @@ mod tests {
                 }
 
                 let unix_listener = UnixListener::bind(socket_path.as_path()).unwrap();
-                let mut server = pallas_network::facades::NodeServer::accept(&unix_listener, 10)
-                    .await
-                    .unwrap();
+                let mut server = NodeServer::accept(&unix_listener, 10).await.unwrap();
 
                 server.statequery().recv_while_idle().await.unwrap();
                 server.statequery().send_acquired().await.unwrap();
@@ -801,7 +800,7 @@ mod tests {
 
     #[tokio::test]
     async fn calculate_kes_period() {
-        let socket_path = create_temp_dir("get_current_kes_period").join("node.socket");
+        let socket_path = create_temp_dir("calculate_kes_period").join("node.socket");
         let observer = PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
         let current_kes_period = observer
             .calculate_kes_period(Point::Specific(53536042, vec![1, 2, 3]), 129600)

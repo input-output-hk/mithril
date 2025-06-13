@@ -2,9 +2,9 @@ use slog::Logger;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_common::{
     api_version::APIVersionProvider,
-    chain_observer::ChainObserver,
     entities::{
         CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignerWithStake,
         StakeDistribution,

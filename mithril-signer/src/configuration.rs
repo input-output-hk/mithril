@@ -4,9 +4,9 @@ use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};
 
+use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_cli_helper::register_config_value;
 use mithril_common::{
-    chain_observer::ChainObserver,
     crypto_helper::tests_setup,
     entities::{BlockNumber, PartyId},
     CardanoNetwork, StdResult,

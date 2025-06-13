@@ -1,19 +1,27 @@
-use crate::test_extensions::utilities::tx_hash;
-use crate::test_extensions::{AggregatorObserver, ExpectedCertificate, MetricsVerifier};
 use anyhow::{anyhow, Context};
 use chrono::Utc;
-use mithril_aggregator::MetricsService;
+use serde_json::json;
+use slog::Drain;
+use slog_scope::debug;
+use std::convert::Infallible;
+use std::sync::Arc;
+use std::time::Duration;
+use warp::http::StatusCode;
+use warp::Filter;
+
 use mithril_aggregator::{
     database::{record::SignedEntityRecord, repository::OpenMessageRepository},
     dependency_injection::DependenciesBuilder,
     services::FakeSnapshotter,
-    AggregatorRuntime, ConfigurationSource, DumbUploader, ServeCommandConfiguration,
-    ServeCommandDependenciesContainer, SignerRegistrationError,
+    AggregatorRuntime, ConfigurationSource, DumbUploader, MetricsService,
+    ServeCommandConfiguration, ServeCommandDependenciesContainer, SignerRegistrationError,
 };
-use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
+use mithril_cardano_node_chain::{
+    chain_observer::ChainObserver,
+    entities::ScannedBlock,
+    test::double::{DumbBlockScanner, FakeChainObserver},
+};
 use mithril_common::{
-    cardano_block_scanner::{DumbBlockScanner, ScannedBlock},
-    chain_observer::{ChainObserver, FakeObserver},
     crypto_helper::ProtocolGenesisSigner,
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
     entities::{
@@ -23,19 +31,15 @@ use mithril_common::{
         TimePoint,
     },
     test_utils::{
+        test_http_server::{test_http_server, TestHttpServer},
         MithrilFixture, MithrilFixtureBuilder, SignerFixture, StakeDistributionGenerationMethod,
     },
     StdResult,
 };
 use mithril_era::{adapters::EraReaderDummyAdapter, EraMarker, EraReader};
-use serde_json::json;
-use slog::Drain;
-use slog_scope::debug;
-use std::convert::Infallible;
-use std::sync::Arc;
-use std::time::Duration;
-use warp::http::StatusCode;
-use warp::Filter;
+
+use crate::test_extensions::utilities::tx_hash;
+use crate::test_extensions::{AggregatorObserver, ExpectedCertificate, MetricsVerifier};
 
 #[macro_export]
 macro_rules! cycle {
@@ -107,7 +111,7 @@ pub struct RuntimeTester {
     pub network: String,
     pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
     pub snapshot_uploader: Arc<DumbUploader>,
-    pub chain_observer: Arc<FakeObserver>,
+    pub chain_observer: Arc<FakeChainObserver>,
     pub immutable_file_observer: Arc<DumbImmutableFileObserver>,
     pub digester: Arc<DumbImmutableDigester>,
     pub genesis_signer: Arc<ProtocolGenesisSigner>,
@@ -144,7 +148,7 @@ impl RuntimeTester {
         immutable_file_observer
             .shall_return(Some(start_time_point.immutable_file_number))
             .await;
-        let chain_observer = Arc::new(FakeObserver::new(Some(start_time_point)));
+        let chain_observer = Arc::new(FakeChainObserver::new(Some(start_time_point)));
         let digester = Arc::new(DumbImmutableDigester::default());
         let snapshotter = Arc::new(FakeSnapshotter::new(
             configuration

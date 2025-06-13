@@ -5,7 +5,7 @@ use mithril_common::{
     StdError,
 };
 
-use mithril_common::chain_observer::ChainObserverError;
+use mithril_cardano_node_chain::chain_observer::ChainObserverError;
 
 /// Error type for signer registerer service.
 #[derive(Error, Debug)]

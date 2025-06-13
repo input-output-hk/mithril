@@ -1,15 +1,11 @@
-use crate::{
-    crypto_helper::{KESPeriod, OpCert},
-    entities::*,
-    StdError,
-};
 use async_trait::async_trait;
 use thiserror::Error;
 
-#[cfg(test)]
-use mockall::automock;
+use mithril_common::crypto_helper::{KESPeriod, OpCert};
+use mithril_common::entities::{ChainPoint, Epoch, StakeDistribution};
+use mithril_common::StdError;
 
-use super::{ChainAddress, TxDatum};
+use crate::entities::{ChainAddress, TxDatum};
 
 /// [ChainObserver] related errors.
 #[derive(Debug, Error)]
@@ -24,7 +20,7 @@ pub enum ChainObserverError {
 }
 
 /// Retrieve data from the cardano network
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait ChainObserver: Sync + Send {
     /// Retrieve the datums associated to an address

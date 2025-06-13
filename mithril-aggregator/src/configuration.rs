@@ -5,8 +5,8 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use mithril_cardano_node_chain::chain_observer::ChainObserverType;
 use mithril_cli_helper::{register_config_value, serde_deserialization};
-use mithril_common::chain_observer::ChainObserverType;
 use mithril_common::crypto_helper::{ManifestSigner, ProtocolGenesisSigner};
 use mithril_common::entities::{
     BlockNumber, CardanoTransactionsSigningConfig, CompressionAlgorithm,

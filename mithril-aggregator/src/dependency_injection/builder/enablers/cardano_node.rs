@@ -2,11 +2,12 @@ use anyhow::Context;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use mithril_common::cardano_block_scanner::{BlockScanner, CardanoBlockScanner};
-use mithril_common::chain_observer::{
-    CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType, FakeObserver,
+use mithril_cardano_node_chain::{
+    chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType},
+    chain_reader::{ChainBlockReader, PallasChainReader},
+    chain_scanner::{BlockScanner, CardanoBlockScanner},
+    test::double::FakeChainObserver,
 };
-use mithril_common::chain_reader::{ChainBlockReader, PallasChainReader};
 use mithril_common::digesters::{CardanoImmutableDigester, ImmutableDigester};
 use mithril_common::entities::SignedEntityTypeDiscriminants;
 use mithril_signed_entity_preloader::{
@@ -42,7 +43,7 @@ impl DependenciesBuilder {
                     .build()
                     .with_context(|| "Dependencies Builder can not build chain observer")?
             }
-            _ => Arc::new(FakeObserver::default()),
+            _ => Arc::new(FakeChainObserver::default()),
         };
 
         Ok(chain_observer)

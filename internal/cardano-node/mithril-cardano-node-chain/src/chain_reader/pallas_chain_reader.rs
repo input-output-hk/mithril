@@ -9,13 +9,13 @@ use pallas_network::{
 use pallas_traverse::MultiEraBlock;
 use slog::{debug, Logger};
 
-use crate::logging::LoggerExtensions;
-use crate::{
-    cardano_block_scanner::{RawCardanoPoint, ScannedBlock},
-    CardanoNetwork, StdResult,
-};
+use mithril_common::entities::CardanoNetwork;
+use mithril_common::logging::LoggerExtensions;
+use mithril_common::StdResult;
 
-use super::{ChainBlockNextAction, ChainBlockReader};
+use crate::entities::{ChainBlockNextAction, RawCardanoPoint, ScannedBlock};
+
+use super::ChainBlockReader;
 
 /// [PallasChainReader] reads blocks with 'chainsync' mini-protocol
 pub struct PallasChainReader {
@@ -57,7 +57,7 @@ impl PallasChainReader {
             .with_context(|| "PallasChainReader failed to get a client")
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, unix))]
     /// Check if the client already exists (test only).
     fn has_client(&self) -> bool {
         self.client.is_some()
@@ -149,10 +149,9 @@ impl ChainBlockReader for PallasChainReader {
     }
 }
 
-#[cfg(test)]
+// Windows does not support Unix sockets, nor pallas_network::facades::NodeServer
+#[cfg(all(test, unix))]
 mod tests {
-    use std::fs;
-
     use pallas_network::{
         facades::NodeServer,
         miniprotocols::{
@@ -160,13 +159,14 @@ mod tests {
             Point,
         },
     };
+    use std::fs;
     use tokio::net::UnixListener;
 
-    use super::*;
+    use mithril_common::{current_function, entities::BlockNumber, test_utils::TempDir};
 
-    use crate::test_utils::TestLogger;
-    use crate::*;
-    use crate::{entities::BlockNumber, test_utils::TempDir};
+    use crate::test::TestLogger;
+
+    use super::*;
 
     /// Enum representing the action to be performed by the server.
     enum ServerAction {
@@ -206,7 +206,8 @@ mod tests {
     }
 
     fn get_fake_raw_block() -> Vec<u8> {
-        let raw_block = include_str!("../../../mithril-test-lab/test_data/blocks/shelley1.block");
+        let raw_block =
+            include_str!("../../../../../mithril-test-lab/test_data/blocks/shelley1.block");
 
         hex::decode(raw_block).unwrap()
     }
