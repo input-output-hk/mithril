@@ -76,7 +76,7 @@ uuid = { version = "1.17.0", features = ["v4"] }
 zstd = { version = "0.13.3", optional = true }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-mithril-cardano-node-internal-database = { path = "../internal/cardano-node/mithril-cardano-node-internal-database" }
+mithril-cardano-node-internal-database = { path = "../internal/cardano-node/mithril-cardano-node-internal-database", version = "=0.1" }
 mithril-common = { path = "../mithril-common", version = "=0.5", default-features = false, features = [
     "fs",
 ] }

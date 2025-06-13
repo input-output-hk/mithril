@@ -16,7 +16,7 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 digest = { workspace = true }
 hex = { workspace = true }
-mithril-common = { path = "../../../mithril-common" }
+mithril-common = { path = "../../../mithril-common", version = "=0.5" }
 serde_json = { workspace = true }
 sha2 = "0.10.9"
 slog = { workspace = true }
@@ -26,7 +26,7 @@ walkdir = "2.5.0"
 
 [dev-dependencies]
 criterion = { version = "0.6.0", features = ["html_reports", "async_tokio"] }
-mithril-common = { path = "../../../mithril-common", features = ["test_tools"] }
+mithril-common = { path = "../../../mithril-common", version = "=0.5", features = ["test_tools"] }
 mockall = { workspace = true }
 slog-async = { workspace = true }
 slog-term = { workspace = true }

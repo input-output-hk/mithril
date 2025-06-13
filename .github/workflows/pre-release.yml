@@ -252,7 +252,13 @@ jobs:
       max-parallel: 1
       matrix:
         package:
-          [mithril-stm, mithril-build-script, mithril-common, mithril-client]
+          [
+            mithril-stm,
+            mithril-build-script,
+            mithril-common,
+            mithril-cardano-node-internal-database,
+            mithril-client,
+          ]
 
     runs-on: ubuntu-24.04
     steps:
