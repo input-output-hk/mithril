@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::{anyhow, Context};
 use pallas_network::{facades::DmqClient, miniprotocols::localtxsubmission::Response};
-use slog::{debug, Logger};
+use slog::{debug, error, Logger};
 
 use mithril_common::{
     crypto_helper::TryToBytes,
@@ -207,7 +207,9 @@ impl SignaturePublisher for PallasDMQSignaturePublisher {
             .await
             .map_err(|err| anyhow!("Failed to submit DMQ message: {}", err))?;
         let response = client.msg_submission().recv_submit_tx_response().await?;
-        client.msg_submission().terminate_gracefully().await?;
+        if let Err(e) = client.msg_submission().terminate_gracefully().await {
+            error!(self.logger, "Failed to send Done"; "error" => ?e);
+        }
 
         if response != Response::Accepted {
             return Err(anyhow!("Failed to publish DMQ message: {:?}", response));
