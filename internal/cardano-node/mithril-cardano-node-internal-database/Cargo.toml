@@ -12,7 +12,26 @@ repository.workspace = true
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+digest = { workspace = true }
+hex = { workspace = true }
 mithril-common = { path = "../../../mithril-common" }
+serde_json = { workspace = true }
+sha2 = "0.10.9"
+slog = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["fs", "io-util"] }
+walkdir = "2.5.0"
 
 [dev-dependencies]
+criterion = { version = "0.6.0", features = ["html_reports", "async_tokio"] }
 mithril-common = { path = "../../../mithril-common", features = ["test_tools"] }
+mockall = { workspace = true }
+slog-async = { workspace = true }
+slog-term = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[[bench]]
+name = "digester"
+harness = false

@@ -1,13 +1,14 @@
-use crate::{
-    digesters::cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProvider},
-    logging::LoggerExtensions,
-    StdResult,
-};
 use anyhow::Context;
 use slog::{info, Logger};
 use std::path::Path;
-#[cfg(feature = "fs")]
 use tokio::fs;
+
+use mithril_common::logging::LoggerExtensions;
+use mithril_common::StdResult;
+
+use crate::digesters::cache::{
+    ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProvider,
+};
 
 /// A [JsonImmutableFileDigestCacheProvider] builder.
 pub struct JsonImmutableFileDigestCacheProviderBuilder<'a> {
@@ -83,9 +84,11 @@ impl<'a> JsonImmutableFileDigestCacheProviderBuilder<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::digesters::cache::JsonImmutableFileDigestCacheProviderBuilder;
-    use crate::test_utils::TempDir;
     use std::path::PathBuf;
+
+    use mithril_common::test_utils::TempDir;
+
+    use crate::digesters::cache::JsonImmutableFileDigestCacheProviderBuilder;
 
     fn get_test_dir(subdir_name: &str) -> PathBuf {
         TempDir::new("json_provider_builder", subdir_name).build_path()

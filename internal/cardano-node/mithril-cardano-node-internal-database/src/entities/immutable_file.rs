@@ -1,7 +1,3 @@
-use crate::digesters::IMMUTABLE_DIR;
-use crate::entities::{ImmutableFileName, ImmutableFileNumber};
-
-use crate::digesters::ImmutableFileListingError::{MissingImmutableFiles, MissingImmutableFolder};
 use digest::{Digest, Output};
 use std::{
     cmp::Ordering,
@@ -12,6 +8,11 @@ use std::{
 };
 use thiserror::Error;
 use walkdir::{DirEntry, WalkDir};
+
+use mithril_common::entities::{ImmutableFileName, ImmutableFileNumber};
+
+use crate::entities::ImmutableFileListingError::{MissingImmutableFiles, MissingImmutableFolder};
+use crate::IMMUTABLE_DIR;
 
 const IMMUTABLE_FILE_EXTENSIONS: [&str; 3] = ["chunk", "primary", "secondary"];
 
@@ -121,14 +122,13 @@ impl ImmutableFile {
         })
     }
 
-    cfg_test_tools! {
-        /// ImmutableFile factory, TEST ONLY as it bypass the checks done by [ImmutableFile::new].
-        pub fn dummy<T: Into<String>>(path: PathBuf, number: ImmutableFileNumber, filename: T) -> Self {
-            Self {
-                path,
-                number,
-                filename: filename.into(),
-            }
+    // Todo: how to handle dummies functions ?
+    /// ImmutableFile factory, TEST ONLY as it bypass the checks done by [ImmutableFile::new].
+    pub fn dummy<T: Into<String>>(path: PathBuf, number: ImmutableFileNumber, filename: T) -> Self {
+        Self {
+            path,
+            number,
+            filename: filename.into(),
         }
     }
 
@@ -145,8 +145,9 @@ impl ImmutableFile {
 
     /// List all [`ImmutableFile`] in a given directory.
     pub fn list_all_in_dir(dir: &Path) -> Result<Vec<ImmutableFile>, ImmutableFileListingError> {
-        let immutable_dir =
-            find_immutables_dir(dir).ok_or(MissingImmutableFolder(dir.to_path_buf()))?;
+        let immutable_dir = find_immutables_dir(dir).ok_or(
+            ImmutableFileListingError::MissingImmutableFolder(dir.to_path_buf()),
+        )?;
         let mut files: Vec<ImmutableFile> = vec![];
 
         for path in walk_immutables_in_dir(&immutable_dir) {
@@ -211,12 +212,13 @@ impl Ord for ImmutableFile {
 
 #[cfg(test)]
 mod tests {
-    use super::ImmutableFile;
-    use crate::digesters::IMMUTABLE_DIR;
-    use crate::test_utils::{temp_dir_create, TempDir};
-    use std::fs::{self, File};
+    use std::fs;
     use std::io::prelude::*;
-    use std::path::{Path, PathBuf};
+
+    use mithril_common::temp_dir_create;
+    use mithril_common::test_utils::TempDir;
+
+    use super::*;
 
     fn get_test_dir(subdir_name: &str) -> PathBuf {
         TempDir::create("immutable_file", subdir_name)
@@ -462,7 +464,7 @@ mod tests {
         let database_path = database_dir.as_path();
         let immutable_file_path = database_dir.join(IMMUTABLE_DIR).join("00001.chunk");
         fs::create_dir(database_dir.join(IMMUTABLE_DIR)).unwrap();
-        fs::File::create(immutable_file_path).unwrap();
+        File::create(immutable_file_path).unwrap();
 
         ImmutableFile::at_least_one_immutable_files_exist_in_dir(database_path)
             .expect("check_presence_of_immutables should succeed");

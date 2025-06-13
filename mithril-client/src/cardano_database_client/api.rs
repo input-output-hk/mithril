@@ -12,7 +12,7 @@ use mithril_common::{
 };
 
 #[cfg(feature = "fs")]
-use mithril_common::digesters::ImmutableFile;
+use mithril_cardano_node_internal_database::entities::ImmutableFile;
 
 use crate::aggregator_client::AggregatorClient;
 #[cfg(feature = "fs")]

@@ -1,16 +1,18 @@
-use crate::{
-    crypto_helper::{MKTree, MKTreeStoreInMemory},
-    digesters::{
-        cache::ImmutableFileDigestCacheProvider, ImmutableDigester, ImmutableDigesterError,
-        ImmutableFile,
-    },
-    entities::{CardanoDbBeacon, HexEncodedDigest, ImmutableFileNumber},
-    logging::LoggerExtensions,
-};
 use async_trait::async_trait;
 use sha2::{Digest, Sha256};
 use slog::{debug, info, warn, Logger};
 use std::{collections::BTreeMap, io, ops::RangeInclusive, path::Path, sync::Arc};
+
+use mithril_common::crypto_helper::{MKTree, MKTreeStoreInMemory};
+use mithril_common::entities::{CardanoDbBeacon, HexEncodedDigest, ImmutableFileNumber};
+use mithril_common::logging::LoggerExtensions;
+
+use crate::{
+    digesters::{
+        cache::ImmutableFileDigestCacheProvider, ImmutableDigester, ImmutableDigesterError,
+    },
+    entities::ImmutableFile,
+};
 
 use super::immutable_digester::ComputedImmutablesDigests;
 
@@ -224,18 +226,12 @@ mod tests {
     use std::{collections::BTreeMap, io, sync::Arc};
     use tokio::time::Instant;
 
-    use crate::{
-        digesters::{
-            cache::{
-                ImmutableDigesterCacheGetError, ImmutableDigesterCacheProviderError,
-                ImmutableDigesterCacheStoreError, MemoryImmutableFileDigestCacheProvider,
-                MockImmutableFileDigestCacheProvider,
-            },
-            DummyCardanoDbBuilder,
-        },
-        entities::ImmutableFileNumber,
-        test_utils::TestLogger,
+    use crate::digesters::cache::{
+        ImmutableDigesterCacheGetError, ImmutableDigesterCacheProviderError,
+        ImmutableDigesterCacheStoreError, MemoryImmutableFileDigestCacheProvider,
+        MockImmutableFileDigestCacheProvider,
     };
+    use crate::test::{DummyCardanoDbBuilder, TestLogger};
 
     use super::*;
 

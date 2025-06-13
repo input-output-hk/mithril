@@ -259,9 +259,8 @@ impl<L: TarAppender, R: TarAppender> TarAppender for ChainAppender<L, R> {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::digesters::{
-        DummyCardanoDbBuilder, IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR,
-    };
+    use mithril_cardano_node_internal_database::test::DummyCardanoDbBuilder;
+    use mithril_cardano_node_internal_database::{IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR};
     use mithril_common::entities::CompressionAlgorithm;
     use mithril_common::{assert_dir_eq, temp_dir_create};
 

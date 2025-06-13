@@ -103,11 +103,6 @@ name = "block_range"
 harness = false
 
 [[bench]]
-name = "digester"
-harness = false
-required-features = ["fs"]
-
-[[bench]]
 name = "merkle_tree"
 harness = false
 

@@ -1,8 +1,12 @@
 use std::time::Duration;
 
 use anyhow::Context;
+
+use mithril_cardano_node_internal_database::{
+    digesters::{CardanoImmutableDigester, ImmutableDigester},
+    test::DummyCardanoDb,
+};
 use mithril_common::{
-    digesters::{CardanoImmutableDigester, DummyCardanoDb, ImmutableDigester},
     entities::{
         CardanoDbBeacon, Epoch, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
         SignedEntityType, Signer,

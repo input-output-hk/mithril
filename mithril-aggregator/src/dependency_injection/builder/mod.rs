@@ -19,13 +19,14 @@ use mithril_cardano_node_chain::{
     chain_reader::ChainBlockReader,
     chain_scanner::BlockScanner,
 };
+use mithril_cardano_node_internal_database::{
+    digesters::{cache::ImmutableFileDigestCacheProvider, ImmutableDigester},
+    ImmutableFileObserver,
+};
 use mithril_common::{
     api_version::APIVersionProvider,
     certificate_chain::CertificateVerifier,
     crypto_helper::ProtocolGenesisVerifier,
-    digesters::{
-        cache::ImmutableFileDigestCacheProvider, ImmutableDigester, ImmutableFileObserver,
-    },
     signable_builder::{SignableBuilderService, SignableSeedBuilder, TransactionsImporter},
 };
 use mithril_era::{EraChecker, EraReader, EraReaderAdapter};

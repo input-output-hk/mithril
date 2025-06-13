@@ -2,9 +2,9 @@ use std::path::Path;
 use std::sync::{Arc, RwLock};
 use warp::Filter;
 
+use mithril_cardano_node_internal_database::test::DummyCardanoDb;
 use mithril_client::{MessageBuilder, MithrilCertificate, Snapshot, SnapshotListItem};
 use mithril_common::crypto_helper::ManifestVerifierSecretKey;
-use mithril_common::digesters::DummyCardanoDb;
 use mithril_common::entities::{CardanoDbBeacon, CompressionAlgorithm, SignedEntityType};
 use mithril_common::test_utils::fake_data;
 use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};

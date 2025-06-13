@@ -9,7 +9,7 @@ use std::sync::Arc;
 use thiserror::Error;
 
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
-use mithril_common::digesters::ImmutableFileObserver;
+use mithril_cardano_node_internal_database::ImmutableFileObserver;
 use mithril_common::entities::{Epoch, TimePoint};
 use mithril_common::StdResult;
 
@@ -108,7 +108,7 @@ mod tests {
 
     use mithril_cardano_node_chain::chain_observer::{ChainObserver, ChainObserverError};
     use mithril_cardano_node_chain::entities::{ChainAddress, TxDatum};
-    use mithril_common::digesters::DumbImmutableFileObserver;
+    use mithril_cardano_node_internal_database::test::double::DumbImmutableFileObserver;
     use mithril_common::entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, StakeDistribution};
 
     use super::*;

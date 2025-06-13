@@ -23,7 +23,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Context;
 use slog::Logger;
 
-use mithril_common::digesters::{immutable_trio_names, IMMUTABLE_DIR};
+use mithril_cardano_node_internal_database::{immutable_trio_names, IMMUTABLE_DIR};
 use mithril_common::entities::ImmutableFileNumber;
 use mithril_common::StdResult;
 

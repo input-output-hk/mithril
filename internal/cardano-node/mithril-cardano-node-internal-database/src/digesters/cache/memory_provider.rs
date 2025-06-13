@@ -1,13 +1,13 @@
-use crate::{
-    digesters::cache::CacheProviderResult,
-    digesters::cache::ImmutableFileDigestCacheProvider,
-    digesters::ImmutableFile,
-    entities::{HexEncodedDigest, ImmutableFileName},
-};
-
 use async_trait::async_trait;
 use std::collections::{BTreeMap, HashMap};
 use tokio::sync::RwLock;
+
+use mithril_common::entities::{HexEncodedDigest, ImmutableFileName};
+
+use crate::entities::ImmutableFile;
+use crate::{
+    digesters::cache::CacheProviderResult, digesters::cache::ImmutableFileDigestCacheProvider,
+};
 
 /// A in memory [ImmutableFileDigestCacheProvider].
 pub struct MemoryImmutableFileDigestCacheProvider {
@@ -69,14 +69,13 @@ impl ImmutableFileDigestCacheProvider for MemoryImmutableFileDigestCacheProvider
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        digesters::cache::{
-            ImmutableFileDigestCacheProvider, MemoryImmutableFileDigestCacheProvider,
-        },
-        digesters::ImmutableFile,
-    };
     use std::collections::{BTreeMap, HashMap};
     use std::path::PathBuf;
+
+    use crate::digesters::cache::{
+        ImmutableFileDigestCacheProvider, MemoryImmutableFileDigestCacheProvider,
+    };
+    use crate::entities::ImmutableFile;
 
     #[tokio::test]
     async fn can_store_values() {

@@ -9,28 +9,28 @@ use std::{
 };
 use thiserror::Error;
 
-use crate::{
+use mithril_common::{
     crypto_helper::{MKTree, MKTreeStoreInMemory},
-    digesters::ImmutableFileListingError,
     entities::{CardanoDbBeacon, HexEncodedDigest, ImmutableFileName, ImmutableFileNumber},
     StdError,
 };
 
-use super::ImmutableFile;
+use crate::entities::{ImmutableFile, ImmutableFileListingError};
 
 /// A digester than can compute the digest used for mithril signatures
 ///
 /// If you want to mock it using mockall:
 /// ```
 /// mod test {
-///     use async_trait::async_trait;
-///     use mithril_common::digesters::{ComputedImmutablesDigests, ImmutableDigester, ImmutableDigesterError};
-///     use mithril_common::entities::{CardanoDbBeacon, ImmutableFileNumber};
-///     use mithril_common::crypto_helper::{MKTree, MKTreeStoreInMemory};
 ///     use anyhow::anyhow;
+///     use async_trait::async_trait;
 ///     use mockall::mock;
 ///     use std::ops::RangeInclusive;
 ///     use std::path::Path;
+///
+///     use mithril_cardano_node_internal_database::digesters::{ComputedImmutablesDigests, ImmutableDigester, ImmutableDigesterError};
+///     use mithril_common::entities::{CardanoDbBeacon, ImmutableFileNumber};
+///     use mithril_common::crypto_helper::{MKTree, MKTreeStoreInMemory};
 ///
 ///     mock! {
 ///         pub ImmutableDigesterImpl { }
@@ -110,7 +110,7 @@ pub enum ImmutableDigesterError {
     NotEnoughImmutable {
         /// Expected last [ImmutableFileNumber].
         expected_number: ImmutableFileNumber,
-        /// Last [ImmutableFileNumber] found when listing [ImmutableFiles][crate::digesters::ImmutableFile].
+        /// Last [ImmutableFileNumber] found when listing [ImmutableFiles][crate::entities::ImmutableFile].
         found_number: Option<ImmutableFileNumber>,
         /// A cardano node DB directory
         db_dir: PathBuf,
@@ -133,7 +133,7 @@ pub struct ComputedImmutablesDigests {
 }
 
 impl ComputedImmutablesDigests {
-    pub(super) fn compute_immutables_digests(
+    pub(crate) fn compute_immutables_digests(
         entries: BTreeMap<ImmutableFile, Option<HexEncodedDigest>>,
         logger: Logger,
     ) -> Result<ComputedImmutablesDigests, io::Error> {
@@ -191,7 +191,6 @@ impl std::fmt::Display for Progress {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
 
     #[test]

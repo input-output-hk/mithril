@@ -1,24 +1,22 @@
-use crate::{
-    digesters::{
-        cache::provider::{ImmutableDigesterCacheGetError, ImmutableDigesterCacheStoreError},
-        cache::CacheProviderResult,
-        cache::ImmutableFileDigestCacheProvider,
-        ImmutableFile,
-    },
-    entities::{HexEncodedDigest, ImmutableFileName},
-};
-
 use async_trait::async_trait;
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
 };
-#[cfg(feature = "fs")]
 use tokio::{
     fs,
     fs::File,
     io::{AsyncReadExt, AsyncWriteExt},
 };
+
+use mithril_common::entities::{HexEncodedDigest, ImmutableFileName};
+
+use crate::digesters::{
+    cache::provider::{ImmutableDigesterCacheGetError, ImmutableDigesterCacheStoreError},
+    cache::CacheProviderResult,
+    cache::ImmutableFileDigestCacheProvider,
+};
+use crate::entities::ImmutableFile;
 
 type InnerStructure = BTreeMap<ImmutableFileName, HexEncodedDigest>;
 
@@ -109,12 +107,14 @@ impl ImmutableFileDigestCacheProvider for JsonImmutableFileDigestCacheProvider {
 
 #[cfg(test)]
 mod tests {
+    use std::{collections::BTreeMap, path::PathBuf};
+
+    use mithril_common::test_utils::TempDir;
+
     use crate::digesters::cache::{
         ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProvider,
     };
-    use crate::digesters::ImmutableFile;
-    use crate::test_utils::TempDir;
-    use std::{collections::BTreeMap, path::PathBuf};
+    use crate::entities::ImmutableFile;
 
     fn get_test_dir(subdir_name: &str) -> PathBuf {
         TempDir::create("json_digester_cache_provider", subdir_name)

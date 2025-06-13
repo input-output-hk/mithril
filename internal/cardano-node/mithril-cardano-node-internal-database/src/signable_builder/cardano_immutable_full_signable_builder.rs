@@ -1,18 +1,18 @@
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-use crate::{
-    digesters::ImmutableDigester,
+use anyhow::Context;
+use async_trait::async_trait;
+use slog::{info, Logger};
+
+use mithril_common::{
     entities::{CardanoDbBeacon, ProtocolMessage, ProtocolMessagePartKey},
     logging::LoggerExtensions,
     signable_builder::SignableBuilder,
     StdResult,
 };
-use anyhow::Context;
-use async_trait::async_trait;
-use slog::{info, Logger};
+
+use crate::digesters::ImmutableDigester;
 
 /// This structure is responsible for calculating the message for Cardano immutable files snapshots.
 pub struct CardanoImmutableFilesFullSignableBuilder {
@@ -64,9 +64,8 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoImmutableFilesFullSignableBuild
 mod tests {
     use std::path::Path;
 
-    use crate::digesters::DumbImmutableDigester;
-    use crate::entities::CardanoDbBeacon;
-    use crate::test_utils::TestLogger;
+    use crate::test::double::DumbImmutableDigester;
+    use crate::test::TestLogger;
 
     use super::*;
 

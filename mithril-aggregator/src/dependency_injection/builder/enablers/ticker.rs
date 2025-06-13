@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
-use mithril_common::digesters::{
-    DumbImmutableFileObserver, ImmutableFileObserver, ImmutableFileSystemObserver,
-};
+use mithril_cardano_node_internal_database::test::double::DumbImmutableFileObserver;
+use mithril_cardano_node_internal_database::{ImmutableFileObserver, ImmutableFileSystemObserver};
 use mithril_ticker::{MithrilTickerService, TickerService};
 
 use crate::dependency_injection::{DependenciesBuilder, Result};
 use crate::get_dependency;
 use crate::ExecutionEnvironment;
+
 impl DependenciesBuilder {
     /// Create [TickerService] instance.
     pub async fn build_ticker_service(&mut self) -> Result<Arc<dyn TickerService>> {

@@ -13,11 +13,7 @@ pub use signable_builder_service::*;
 pub use signed_entity::*;
 
 cfg_fs! {
-    mod cardano_database;
-    mod cardano_immutable_full_signable_builder;
     mod cardano_transactions;
 
-    pub use cardano_database::*;
-    pub use cardano_immutable_full_signable_builder::*;
     pub use cardano_transactions::*;
 }

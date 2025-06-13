@@ -284,9 +284,9 @@ mod tests {
     use super::*;
 
     mod download_unpack {
+        use mithril_cardano_node_internal_database::IMMUTABLE_DIR;
         use mithril_common::assert_dir_eq;
         use mithril_common::crypto_helper::ManifestSigner;
-        use mithril_common::digesters::IMMUTABLE_DIR;
         use mithril_common::entities::CompressionAlgorithm;
         use mithril_common::messages::DigestsMessagePart;
 

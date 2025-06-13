@@ -3,11 +3,11 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use mithril_common::digesters::cache::{
+use mithril_cardano_node_internal_database::digesters::cache::{
     CacheProviderResult, ImmutableDigesterCacheGetError, ImmutableDigesterCacheStoreError,
     ImmutableFileDigestCacheProvider,
 };
-use mithril_common::digesters::ImmutableFile;
+use mithril_cardano_node_internal_database::entities::ImmutableFile;
 use mithril_common::entities::{HexEncodedDigest, ImmutableFileName};
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
@@ -420,7 +420,7 @@ mod tests {
     #[cfg(test)]
     mod digest_mapper {
 
-        use mithril_common::digesters::cache::ImmutableFileDigestCacheProvider;
+        use mithril_cardano_node_internal_database::digesters::cache::ImmutableFileDigestCacheProvider;
 
         use super::*;
 
