@@ -32,6 +32,11 @@ const SNAPSHOT_CONVERTER_CONFIG_DIR: &str = "share";
 const SNAPSHOT_CONVERTER_CONFIG_FILE: &str = "config.json";
 
 const LEDGER_DIR: &str = "ledger";
+const PROTOCOL_MAGIC_ID_FILE: &str = "protocolMagicId";
+
+const MAINNET_MAGIC_ID: u32 = 764824073;
+const PREPROD_MAGIC_ID: u32 = 1;
+const PREVIEW_MAGIC_ID: u32 = 2;
 
 #[derive(Debug, Clone, ValueEnum)]
 enum UTxOHDFlavor {
@@ -50,7 +55,7 @@ impl fmt::Display for UTxOHDFlavor {
     }
 }
 
-#[derive(Debug, Clone, ValueEnum)]
+#[derive(Debug, Clone, ValueEnum, Eq, PartialEq)]
 enum CardanoNetwork {
     Preview,
     Preprod,
@@ -82,7 +87,11 @@ pub struct SnapshotConverterCommand {
 
     /// Cardano network.
     #[clap(long)]
-    cardano_network: CardanoNetwork,
+    #[deprecated(
+        since = "0.12.12",
+        note = "optional: automatically detected from the protocolMagicId file"
+    )]
+    cardano_network: Option<CardanoNetwork>,
 
     /// UTxO-HD flavor to convert the ledger snapshot to.
     #[clap(long)]
@@ -142,11 +151,22 @@ impl SnapshotConverterCommand {
                 distribution_dir.display()
             );
 
+            #[allow(deprecated)]
+            let cardano_network = if let Some(network) = &self.cardano_network {
+                network.clone()
+            } else {
+                Self::detect_cardano_network(&self.db_directory).with_context(|| {
+                    format!(
+                        "Could not detect Cardano network from the database directory: {}",
+                        self.db_directory.display()
+                    )
+                })?
+            };
             Self::convert_ledger_state_snapshot(
                 &work_dir,
                 &self.db_directory,
                 &distribution_dir,
-                &self.cardano_network,
+                &cardano_network,
                 &self.utxo_hd_flavor,
                 self.commit,
             )
@@ -462,10 +482,33 @@ impl SnapshotConverterCommand {
 
         Ok(())
     }
+
+    fn detect_cardano_network(db_dir: &Path) -> MithrilResult<CardanoNetwork> {
+        let magic_id_path = db_dir.join(PROTOCOL_MAGIC_ID_FILE);
+        let content = std::fs::read_to_string(&magic_id_path).with_context(|| {
+            format!(
+                "Failed to read protocolMagicId file: {}",
+                magic_id_path.display()
+            )
+        })?;
+        let id: u32 = content
+            .trim()
+            .parse()
+            .with_context(|| format!("Invalid protocolMagicId value: '{}'", content.trim()))?;
+
+        match id {
+            MAINNET_MAGIC_ID => Ok(CardanoNetwork::Mainnet),
+            PREPROD_MAGIC_ID => Ok(CardanoNetwork::Preprod),
+            PREVIEW_MAGIC_ID => Ok(CardanoNetwork::Preview),
+            _ => Err(anyhow!("Unknown protocolMagicId value: '{}'", id)),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::fs::File;
+
     use mithril_common::temp_dir_create;
 
     use super::*;
@@ -779,8 +822,6 @@ mod tests {
     }
 
     mod find_oldest_ledger_state_snapshot {
-        use std::fs::File;
-
         use mithril_common::temp_dir_create;
 
         use super::*;
@@ -870,8 +911,6 @@ mod tests {
     }
 
     mod commit_converted_snapshot {
-        use std::fs::File;
-
         use super::*;
 
         #[test]
@@ -982,6 +1021,76 @@ mod tests {
 
             assert!(!distribution_dir.exists());
             assert!(!work_dir.exists());
+        }
+    }
+
+    mod detect_cardano_network {
+        use super::*;
+
+        fn create_protocol_magic_id_file(db_dir: &Path, magic_id: u32) -> PathBuf {
+            let file_path = db_dir.join(PROTOCOL_MAGIC_ID_FILE);
+            std::fs::write(&file_path, magic_id.to_string()).unwrap();
+
+            file_path
+        }
+
+        #[test]
+        fn detects_mainnet() {
+            let db_dir = temp_dir_create!();
+            create_protocol_magic_id_file(&db_dir, MAINNET_MAGIC_ID);
+
+            let network = SnapshotConverterCommand::detect_cardano_network(&db_dir).unwrap();
+
+            assert_eq!(network, CardanoNetwork::Mainnet);
+        }
+
+        #[test]
+        fn detects_preprod() {
+            let db_dir = temp_dir_create!();
+            create_protocol_magic_id_file(&db_dir, PREPROD_MAGIC_ID);
+
+            let network = SnapshotConverterCommand::detect_cardano_network(&db_dir).unwrap();
+
+            assert_eq!(network, CardanoNetwork::Preprod);
+        }
+
+        #[test]
+        fn detects_preview() {
+            let db_dir = temp_dir_create!();
+            create_protocol_magic_id_file(&db_dir, PREVIEW_MAGIC_ID);
+
+            let network = SnapshotConverterCommand::detect_cardano_network(&db_dir).unwrap();
+
+            assert_eq!(network, CardanoNetwork::Preview);
+        }
+
+        #[test]
+        fn fails_on_invalid_network() {
+            let db_dir = temp_dir_create!();
+            let invalid_magic_id = 999999;
+            create_protocol_magic_id_file(&db_dir, invalid_magic_id);
+
+            SnapshotConverterCommand::detect_cardano_network(&db_dir)
+                .expect_err("Should fail with invalid network magic ID");
+        }
+
+        #[test]
+        fn fails_when_protocol_magic_id_file_is_empty() {
+            let db_dir = temp_dir_create!();
+            File::create(db_dir.join(PROTOCOL_MAGIC_ID_FILE)).unwrap();
+
+            SnapshotConverterCommand::detect_cardano_network(&db_dir)
+                .expect_err("Should fail when protocol magic ID file is empty");
+        }
+
+        #[test]
+        fn fails_when_protocol_magic_id_file_is_missing() {
+            let db_dir = temp_dir_create!();
+
+            assert!(!db_dir.join(PROTOCOL_MAGIC_ID_FILE).exists());
+
+            SnapshotConverterCommand::detect_cardano_network(&db_dir)
+                .expect_err("Should fail when protocol magic ID file is missing");
         }
     }
 }
