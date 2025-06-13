@@ -2,6 +2,7 @@
 use std::path::Path;
 use std::sync::Arc;
 
+use mithril_common::digesters::ImmutableFile;
 #[cfg(feature = "fs")]
 use slog::Logger;
 
@@ -114,6 +115,13 @@ impl CardanoDatabaseClient {
                 database_dir,
             )
             .await
+    }
+
+    /// Checks if immutable directory exist with at least one immutable in it
+    #[cfg(feature = "fs")]
+    pub fn check_presence_of_immutables(&self, database_dir: &Path) -> MithrilResult<()> {
+        ImmutableFile::at_least_one_immutable_files_exist_in_dir(database_dir)?;
+        Ok(())
     }
 
     /// Increments the aggregator Cardano database snapshot download statistics
