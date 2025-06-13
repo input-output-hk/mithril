@@ -577,6 +577,11 @@ mod tests {
                 leader_aggregator_version,
             );
 
+            assert!(
+                Version::parse(leader_aggregator_version).unwrap()
+                    > Version::parse(aggregator_version).unwrap()
+            );
+
             client.warn_if_api_version_mismatch(&response);
 
             assert_api_version_warning_logged(
@@ -613,6 +618,11 @@ mod tests {
             let response = build_fake_response_with_header(
                 MITHRIL_API_VERSION_HEADER,
                 leader_aggregator_version,
+            );
+
+            assert!(
+                Version::parse(leader_aggregator_version).unwrap()
+                    < Version::parse(aggregator_version).unwrap()
             );
 
             client.warn_if_api_version_mismatch(&response);
@@ -676,6 +686,11 @@ mod tests {
                     .body(json!(epoch_settings_expected).to_string())
                     .header(MITHRIL_API_VERSION_HEADER, leader_aggregator_version);
             });
+
+            assert!(
+                Version::parse(leader_aggregator_version).unwrap()
+                    > Version::parse(aggregator_version).unwrap()
+            );
 
             client.retrieve_epoch_settings().await.unwrap();
 

@@ -1126,6 +1126,11 @@ mod tests {
             let response =
                 build_fake_response_with_header(MITHRIL_API_VERSION_HEADER, aggregator_version);
 
+            assert!(
+                Version::parse(aggregator_version).unwrap()
+                    > Version::parse(signer_version).unwrap()
+            );
+
             client.warn_if_api_version_mismatch(&response);
 
             assert_api_version_warning_logged(&log_inspector, aggregator_version, signer_version);
@@ -1157,6 +1162,11 @@ mod tests {
             client.logger = logger;
             let response =
                 build_fake_response_with_header(MITHRIL_API_VERSION_HEADER, aggregator_version);
+
+            assert!(
+                Version::parse(aggregator_version).unwrap()
+                    < Version::parse(signer_version).unwrap()
+            );
 
             client.warn_if_api_version_mismatch(&response);
 
@@ -1221,6 +1231,11 @@ mod tests {
                     .body(json!(message_expected).to_string());
             });
 
+            assert!(
+                Version::parse(aggregator_version).unwrap()
+                    > Version::parse(signer_version).unwrap()
+            );
+
             client.retrieve_aggregator_features().await.unwrap();
 
             assert_api_version_warning_logged(&log_inspector, aggregator_version, signer_version);
@@ -1243,6 +1258,11 @@ mod tests {
                     .header(MITHRIL_API_VERSION_HEADER, aggregator_version)
                     .body(json!(epoch_settings_expected).to_string());
             });
+
+            assert!(
+                Version::parse(aggregator_version).unwrap()
+                    > Version::parse(signer_version).unwrap()
+            );
 
             client.retrieve_epoch_settings().await.unwrap();
 
@@ -1267,6 +1287,11 @@ mod tests {
                     .header(MITHRIL_API_VERSION_HEADER, aggregator_version);
             });
 
+            assert!(
+                Version::parse(aggregator_version).unwrap()
+                    > Version::parse(signer_version).unwrap()
+            );
+
             client.register_signer(epoch, single_signer).await.unwrap();
 
             assert_api_version_warning_logged(&log_inspector, aggregator_version, signer_version);
@@ -1287,6 +1312,11 @@ mod tests {
                 then.status(201)
                     .header(MITHRIL_API_VERSION_HEADER, aggregator_version);
             });
+
+            assert!(
+                Version::parse(aggregator_version).unwrap()
+                    > Version::parse(signer_version).unwrap()
+            );
 
             client
                 .register_signature(
@@ -1315,6 +1345,11 @@ mod tests {
                 then.status(202)
                     .header(MITHRIL_API_VERSION_HEADER, aggregator_version);
             });
+
+            assert!(
+                Version::parse(aggregator_version).unwrap()
+                    > Version::parse(signer_version).unwrap()
+            );
 
             client
                 .register_signature(
@@ -1350,6 +1385,11 @@ mod tests {
                     )
                     .header(MITHRIL_API_VERSION_HEADER, aggregator_version);
             });
+
+            assert!(
+                Version::parse(aggregator_version).unwrap()
+                    > Version::parse(signer_version).unwrap()
+            );
 
             client
                 .register_signature(

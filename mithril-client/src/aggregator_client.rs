@@ -925,6 +925,11 @@ mod tests {
             let response =
                 build_fake_response_with_header(MITHRIL_API_VERSION_HEADER, aggregator_version);
 
+            assert!(
+                Version::parse(aggregator_version).unwrap()
+                    > Version::parse(client_version).unwrap()
+            );
+
             client.warn_if_api_version_mismatch(&response).await;
 
             assert_api_version_warning_logged(&log_inspector, aggregator_version, client_version);
@@ -960,6 +965,11 @@ mod tests {
             client.logger = logger;
             let response =
                 build_fake_response_with_header(MITHRIL_API_VERSION_HEADER, aggregator_version);
+
+            assert!(
+                Version::parse(aggregator_version).unwrap()
+                    < Version::parse(client_version).unwrap()
+            );
 
             client.warn_if_api_version_mismatch(&response).await;
 
@@ -1026,6 +1036,11 @@ mod tests {
                     .header(MITHRIL_API_VERSION_HEADER, aggregator_version);
             });
 
+            assert!(
+                Version::parse(aggregator_version).unwrap()
+                    > Version::parse(client_version).unwrap()
+            );
+
             client
                 .get(Url::parse(&server.base_url()).unwrap())
                 .await
@@ -1047,6 +1062,11 @@ mod tests {
                 then.status(StatusCode::OK.as_u16())
                     .header(MITHRIL_API_VERSION_HEADER, aggregator_version);
             });
+
+            assert!(
+                Version::parse(aggregator_version).unwrap()
+                    > Version::parse(client_version).unwrap()
+            );
 
             client
                 .post(Url::parse(&server.base_url()).unwrap(), "whatever")
