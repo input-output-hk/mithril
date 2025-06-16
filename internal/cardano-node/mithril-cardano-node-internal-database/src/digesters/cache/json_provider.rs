@@ -114,7 +114,7 @@ mod tests {
     use crate::digesters::cache::{
         ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProvider,
     };
-    use crate::entities::ImmutableFile;
+    use crate::test::fake_data;
 
     fn get_test_dir(subdir_name: &str) -> PathBuf {
         TempDir::create("json_digester_cache_provider", subdir_name)
@@ -130,11 +130,11 @@ mod tests {
         ];
         let expected: BTreeMap<_, _> = BTreeMap::from([
             (
-                ImmutableFile::dummy(PathBuf::default(), 0, "0.chunk"),
+                fake_data::immutable_file(PathBuf::default(), 0, "0.chunk"),
                 Some("digest 0".to_string()),
             ),
             (
-                ImmutableFile::dummy(PathBuf::default(), 1, "1.chunk"),
+                fake_data::immutable_file(PathBuf::default(), 1, "1.chunk"),
                 Some("digest 1".to_string()),
             ),
         ]);
@@ -165,7 +165,7 @@ mod tests {
         )
         .await;
         let expected: BTreeMap<_, _> = BTreeMap::from([(
-            ImmutableFile::dummy(PathBuf::default(), 0, "0.chunk"),
+            fake_data::immutable_file(PathBuf::default(), 0, "0.chunk"),
             Some("digest 0".to_string()),
         )]);
         let immutables = expected.keys().cloned().collect();
@@ -187,8 +187,10 @@ mod tests {
             BTreeMap::from([("0.chunk".to_string(), "digest 0".to_string())]),
         )
         .await;
-        let expected: BTreeMap<_, _> =
-            BTreeMap::from([(ImmutableFile::dummy(PathBuf::default(), 2, "2.chunk"), None)]);
+        let expected: BTreeMap<_, _> = BTreeMap::from([(
+            fake_data::immutable_file(PathBuf::default(), 2, "2.chunk"),
+            None,
+        )]);
         let immutables = expected.keys().cloned().collect();
 
         let result = provider
@@ -217,18 +219,21 @@ mod tests {
         ];
         let expected: BTreeMap<_, _> = BTreeMap::from([
             (
-                ImmutableFile::dummy(PathBuf::default(), 0, "0.chunk"),
+                fake_data::immutable_file(PathBuf::default(), 0, "0.chunk"),
                 Some("updated".to_string()),
             ),
             (
-                ImmutableFile::dummy(PathBuf::default(), 1, "1.chunk"),
+                fake_data::immutable_file(PathBuf::default(), 1, "1.chunk"),
                 Some("keep me".to_string()),
             ),
             (
-                ImmutableFile::dummy(PathBuf::default(), 2, "2.chunk"),
+                fake_data::immutable_file(PathBuf::default(), 2, "2.chunk"),
                 Some("keep me too".to_string()),
             ),
-            (ImmutableFile::dummy(PathBuf::default(), 3, "3.chunk"), None),
+            (
+                fake_data::immutable_file(PathBuf::default(), 3, "3.chunk"),
+                None,
+            ),
         ]);
         let immutables = expected.keys().cloned().collect();
 
@@ -254,11 +259,11 @@ mod tests {
         ];
         let expected: BTreeMap<_, _> = BTreeMap::from([
             (
-                ImmutableFile::dummy(PathBuf::default(), 0, "0.chunk"),
+                fake_data::immutable_file(PathBuf::default(), 0, "0.chunk"),
                 Some("digest 0".to_string()),
             ),
             (
-                ImmutableFile::dummy(PathBuf::default(), 1, "1.chunk"),
+                fake_data::immutable_file(PathBuf::default(), 1, "1.chunk"),
                 Some("digest 1".to_string()),
             ),
         ]);

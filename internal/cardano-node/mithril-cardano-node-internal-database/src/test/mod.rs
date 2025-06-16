@@ -6,6 +6,7 @@
 
 pub mod double;
 mod dummy_cardano_db;
+pub mod fake_data;
 
 pub use dummy_cardano_db::{DummyCardanoDb, DummyCardanoDbBuilder};
 

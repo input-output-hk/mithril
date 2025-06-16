@@ -122,16 +122,6 @@ impl ImmutableFile {
         })
     }
 
-    // Todo: how to handle dummies functions ?
-    /// ImmutableFile factory, TEST ONLY as it bypass the checks done by [ImmutableFile::new].
-    pub fn dummy<T: Into<String>>(path: PathBuf, number: ImmutableFileNumber, filename: T) -> Self {
-        Self {
-            path,
-            number,
-            filename: filename.into(),
-        }
-    }
-
     /// Compute the hash of this immutable file.
     pub fn compute_raw_hash<D>(&self) -> Result<Output<D>, io::Error>
     where
