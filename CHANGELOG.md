@@ -17,7 +17,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 | ----- | ------- |
 | N/A   | `-`     |
 
-## Mithril Distribution [2524.0] - UNRELEASED
+## Mithril Distribution [2524.0] - 2025-06-16
 
 - Support for `Cardano node` `10.4.1` in the signer and the aggregator.
 
@@ -42,9 +42,15 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Crates versions:
 
-| Crate | Version |
-| ----- | ------- |
-| N/A   | `-`     |
+| Crate               | Version   |
+| ------------------- | --------- |
+| mithril-aggregator  | `0.7.58`  |
+| mithril-client      | `0.12.11` |
+| mithril-client-cli  | `0.12.11` |
+| mithril-client-wasm | `0.9.1`   |
+| mithril-common      | `0.5.35`  |
+| mithril-signer      | `0.2.249` |
+| mithril-stm         | `0.4.2`   |
 
 ## Mithril Distribution [2517.0] - 2025-05-05
 
