@@ -1,6 +1,6 @@
 [package]
 name = "mithril-signer"
-version = "0.2.252"
+version = "0.2.253"
 description = "A Mithril Signer"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -41,6 +41,7 @@ reqwest = { workspace = true, features = [
     "deflate",
     "brotli"
 ] }
+semver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 slog = { workspace = true, features = [
