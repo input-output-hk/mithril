@@ -22,9 +22,9 @@ runs:
       id: check_version
       shell: bash
       run: |
-        echo "Check crate latest published version for '${{ inputs.package}}' package"
-        LATEST_REMOTE_VERSION=$(curl -sL https://crates.io/api/v1/crates/${{ inputs.package}} | jq -r '.crate.newest_version')
-        LOCAL_VERSION=$(cargo metadata --quiet --no-deps | jq -r '.packages[] | select(.name=="${{ inputs.package}}") | .version')
+        echo "Check crate latest published version for '${{ inputs.package }}' package"
+        LATEST_REMOTE_VERSION=$(curl -sL https://crates.io/api/v1/crates/${{ inputs.package }} | jq -r '.crate.newest_version')
+        LOCAL_VERSION=$(cargo metadata --quiet --no-deps | jq -r '.packages[] | select(.name=="${{ inputs.package }}") | .version')
         echo "Latest crate.io version: $LATEST_REMOTE_VERSION"
         echo "Local version: $LOCAL_VERSION"
 
@@ -41,7 +41,7 @@ runs:
       shell: bash
       run: |
         echo "Copy OpenAPI specs files"
-        cp openapi*.yaml ./${{ inputs.package}}
+        cp openapi*.yaml ./${{ inputs.package }}
 
     - name: Cargo publish dry run
       shell: bash
