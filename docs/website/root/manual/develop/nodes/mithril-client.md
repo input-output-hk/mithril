@@ -486,6 +486,7 @@ Here are the subcommands available:
 | Subcommand        | Performed action                                            |
 | ----------------- | ----------------------------------------------------------- |
 | **download**      | Downloads and restores a cardano-db snapshot                |
+| **verify**        | Verifies an existing Cardano database (`v2` backend only)   |
 | **help**          | Prints this message or the help for the given subcommand(s) |
 | **snapshot list** | Lists available cardano-db snapshots                        |
 | **snapshot show** | Shows information about a cardano-db snapshot               |
@@ -582,6 +583,16 @@ Here is a list of the available parameters:
 | `start`                      | `--start`                      |          -           | -                            | [backend `v2` only] The first immutable file number to download                                                                     | -             | -       |         -          |
 | `end`                        | `--end`                        |          -           | -                            | [backend `v2` only] The last immutable file number to download                                                                      | -             | -       |         -          |
 | `allow_override`             | `--allow-override`             |          -           | -                            | [backend `v2` only] Allow existing files in the download directory to be overridden                                                 | `false`       | -       |         -          |
+
+`cardano-db verify` command (`v2` backend only):
+
+| Parameter                  | Command line (long)          | Command line (short) | Environment variable       | Description                                                                     | Default value | Example |     Mandatory      |
+| -------------------------- | ---------------------------- | :------------------: | -------------------------- | ------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
+| `backend`                  | `--backend`                  |         `-b`         | -                          | -                                                                               | `v1`          | -       |         -          |
+| `json`                     | `--json`                     |          -           | -                          | Enable JSON output for command results                                          | `false`       | -       |         -          |
+| `digest`                   | -                            |          -           | -                          | Digest of the Cardano db snapshot to verify or `latest` for the latest artifact | -             | -       | :heavy_check_mark: |
+| `db_dir`                   | `--db-dir`                   |          -           | -                          | Directory from where the immutable will be verified                             | -             | -       |         -          |
+| `genesis_verification_key` | `--genesis-verification-key` |          -           | `GENESIS_VERIFICATION_KEY` | Genesis verification key to check the certificate chain                         | -             | -       |         -          |
 
 `mithril-stake-distribution list` command:
 
