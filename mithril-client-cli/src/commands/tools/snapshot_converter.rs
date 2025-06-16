@@ -382,6 +382,25 @@ impl SnapshotConverterCommand {
             })
     }
 
+    fn find_most_recent_snapshots(db_dir: &Path, count: usize) -> MithrilResult<Vec<PathBuf>> {
+        let ledger_dir = db_dir.join(LEDGER_DIR);
+        let snapshots = Self::get_sorted_snapshot_dirs(&ledger_dir)?
+            .into_iter()
+            .rev()
+            .take(count)
+            .map(|(_, path)| path)
+            .collect::<Vec<_>>();
+
+        if snapshots.is_empty() {
+            return Err(anyhow!(
+                "No valid ledger state snapshots found in directory: {}",
+                ledger_dir.display()
+            ));
+        }
+
+        Ok(snapshots)
+    }
+
     fn copy_oldest_ledger_state_snapshot(
         db_dir: &Path,
         target_dir: &Path,
@@ -1091,6 +1110,112 @@ mod tests {
 
             SnapshotConverterCommand::detect_cardano_network(&db_dir)
                 .expect_err("Should fail when protocol magic ID file is missing");
+        }
+    }
+
+    mod snapshots_indexing {
+        use mithril_common::temp_dir_create;
+
+        use super::*;
+
+        #[test]
+        fn returns_the_two_most_recent_snapshots() {
+            let db_dir = temp_dir_create!();
+            let ledger_dir = db_dir.join(LEDGER_DIR);
+            create_dir(&ledger_dir).unwrap();
+
+            create_dir(ledger_dir.join("1500")).unwrap();
+            create_dir(ledger_dir.join("500")).unwrap();
+            create_dir(ledger_dir.join("1000")).unwrap();
+
+            let found = SnapshotConverterCommand::find_most_recent_snapshots(&db_dir, 2).unwrap();
+
+            assert_eq!(
+                found,
+                vec![ledger_dir.join("1500"), ledger_dir.join("1000")]
+            );
+        }
+
+        #[test]
+        fn returns_list_with_one_entry_if_only_one_valid_snapshot() {
+            let db_dir = temp_dir_create!();
+            let ledger_dir = db_dir.join(LEDGER_DIR);
+            create_dir(&ledger_dir).unwrap();
+
+            create_dir(ledger_dir.join("500")).unwrap();
+
+            let found = SnapshotConverterCommand::find_most_recent_snapshots(&db_dir, 2).unwrap();
+
+            assert_eq!(found, vec![ledger_dir.join("500")]);
+        }
+
+        #[test]
+        fn ignores_non_numeric_and_non_directory_entries() {
+            let temp_dir = temp_dir_create!();
+            let ledger_dir = temp_dir.join(LEDGER_DIR);
+            create_dir(&ledger_dir).unwrap();
+
+            create_dir(ledger_dir.join("1000")).unwrap();
+            File::create(ledger_dir.join("500")).unwrap();
+            create_dir(ledger_dir.join("invalid")).unwrap();
+
+            let found = SnapshotConverterCommand::find_most_recent_snapshots(&temp_dir, 2).unwrap();
+
+            assert_eq!(found, vec![ledger_dir.join("1000")]);
+        }
+
+        #[test]
+        fn returns_all_available_snapshots_when_count_exceeds_available() {
+            let db_dir = temp_dir_create!();
+            let ledger_dir = db_dir.join(LEDGER_DIR);
+            create_dir(&ledger_dir).unwrap();
+
+            create_dir(ledger_dir.join("1000")).unwrap();
+            create_dir(ledger_dir.join("1500")).unwrap();
+
+            let found = SnapshotConverterCommand::find_most_recent_snapshots(&db_dir, 99).unwrap();
+
+            assert_eq!(
+                found,
+                vec![ledger_dir.join("1500"), ledger_dir.join("1000")]
+            );
+        }
+
+        #[test]
+        fn returns_error_if_no_valid_snapshot_found() {
+            let temp_dir = temp_dir_create!();
+            let ledger_dir = temp_dir.join(LEDGER_DIR);
+            create_dir(&ledger_dir).unwrap();
+
+            File::create(ledger_dir.join("invalid")).unwrap();
+
+            SnapshotConverterCommand::find_most_recent_snapshots(&temp_dir, 2)
+                .expect_err("Should return error if no valid ledger snapshot directory found");
+        }
+
+        #[test]
+        fn get_sorted_snapshot_dirs_returns_sorted_valid_directories() {
+            let temp_dir = temp_dir_create!();
+            let ledger_dir = temp_dir.join(LEDGER_DIR);
+            create_dir(&ledger_dir).unwrap();
+
+            create_dir(ledger_dir.join("1500")).unwrap();
+            create_dir(ledger_dir.join("1000")).unwrap();
+            create_dir(ledger_dir.join("2000")).unwrap();
+            File::create(ledger_dir.join("500")).unwrap();
+            create_dir(ledger_dir.join("notanumber")).unwrap();
+
+            let snapshots =
+                SnapshotConverterCommand::get_sorted_snapshot_dirs(&ledger_dir).unwrap();
+
+            assert_eq!(
+                snapshots,
+                vec![
+                    (1000, ledger_dir.join("1000")),
+                    (1500, ledger_dir.join("1500")),
+                    (2000, ledger_dir.join("2000")),
+                ]
+            );
         }
     }
 }
