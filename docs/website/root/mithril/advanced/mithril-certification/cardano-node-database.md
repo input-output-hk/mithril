@@ -5,6 +5,13 @@ sidebar_label: Cardano node database
 
 # Cardano node database
 
+:::info
+
+- This certification will be superseded by a new incremental [certification](./cardano-node-database-v2.md) process for the Cardano node internal database.
+- The rollout of this new certification is detailed in this [blog post](https://mithril.network/doc/dev-blog/2025/06/17/client-cli-cardano-database-backends).
+
+:::
+
 The Mithril protocol supports the certification of the **Cardano node internal database**, enabling fast bootstrapping of a Cardano node. This is particularly useful for full-node wallets, SPOs, and layer 2 protocols that need to operate full Cardano nodes.
 
 To achieve this, Mithril signers and aggregators independently compute a message representing the immutable files of the Cardano node internal database and apply the Mithril protocol to jointly sign it.
