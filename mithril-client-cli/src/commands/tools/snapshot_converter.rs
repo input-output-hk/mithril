@@ -76,34 +76,43 @@ impl fmt::Display for CardanoNetwork {
 
 #[cfg_attr(test, mockall::automock)]
 trait SnapshotConverter {
-    fn convert(
-        &self,
-        converter_bin: &Path,
-        input_path: &Path,
-        output_path: &Path,
-        config_path: &Path,
-        flavor: &UTxOHDFlavor,
-    ) -> MithrilResult<()>;
+    fn convert(&self, input_path: &Path, output_path: &Path) -> MithrilResult<()>;
 }
 
-struct SnapshotConverterBin;
+struct SnapshotConverterBin {
+    pub converter_bin: PathBuf,
+    pub config_path: PathBuf,
+    pub utxo_hd_flavor: UTxOHDFlavor,
+}
 
 impl SnapshotConverter for SnapshotConverterBin {
-    fn convert(
-        &self,
-        converter_bin: &Path,
-        input_path: &Path,
-        output_path: &Path,
-        config_path: &Path,
-        utxo_hd_flavor: &UTxOHDFlavor,
-    ) -> MithrilResult<()> {
-        SnapshotConverterCommand::execute_snapshot_converter(
-            converter_bin,
-            input_path,
-            output_path,
-            config_path,
-            utxo_hd_flavor,
-        )
+    fn convert(&self, input_path: &Path, output_path: &Path) -> MithrilResult<()> {
+        let status = Command::new(self.converter_bin.clone())
+            .arg("Mem")
+            .arg(input_path)
+            .arg(self.utxo_hd_flavor.to_string())
+            .arg(output_path)
+            .arg("cardano")
+            .arg("--config")
+            .arg(self.config_path.clone())
+            .status()
+            .with_context(|| {
+                format!(
+                    "Failed to execute snapshot-converter binary at {}",
+                    self.converter_bin.display()
+                )
+            })?;
+
+        if !status.success() {
+            return Err(anyhow!(
+                "Failure while running snapshot-converter binary, exited with status code: {:?}",
+                status
+                    .code()
+                    .map_or(String::from("unknown"), |c| c.to_string())
+            ));
+        }
+
+        Ok(())
     }
 }
 
@@ -288,13 +297,16 @@ impl SnapshotConverterCommand {
         let config_path =
             Self::get_snapshot_converter_config_path(distribution_dir, cardano_network);
         let snapshots = Self::find_most_recent_snapshots(db_dir, CONVERSION_FALLBACK_LIMIT)?;
+        let converter_bin = SnapshotConverterBin {
+            converter_bin,
+            config_path,
+            utxo_hd_flavor: utxo_hd_flavor.clone(),
+        };
         let converted_snapshot_path = Self::try_convert(
             work_dir,
-            &converter_bin,
-            &config_path,
             utxo_hd_flavor,
             &snapshots,
-            Box::new(SnapshotConverterBin),
+            Box::new(converter_bin),
         )?;
 
         if commit {
@@ -310,8 +322,6 @@ impl SnapshotConverterCommand {
 
     fn try_convert(
         work_dir: &Path,
-        converter_bin: &Path,
-        config_path: &Path,
         utxo_hd_flavor: &UTxOHDFlavor,
         snapshots: &[PathBuf],
         converter: Box<dyn SnapshotConverter>,
@@ -329,13 +339,7 @@ impl SnapshotConverterCommand {
                 utxo_hd_flavor,
             )?;
 
-            match converter.convert(
-                converter_bin,
-                &input_path,
-                &output_path,
-                config_path,
-                utxo_hd_flavor,
-            ) {
+            match converter.convert(&input_path, &output_path) {
                 Ok(()) => {
                     return {
                         println!(
@@ -360,41 +364,6 @@ impl SnapshotConverterCommand {
             "Failed to convert any of the provided ledger state snapshots to the desired flavor: {}",
             utxo_hd_flavor
         ))
-    }
-
-    fn execute_snapshot_converter(
-        bin_path: &Path,
-        input_path: &Path,
-        output_path: &Path,
-        config_path: &Path,
-        flavor: &UTxOHDFlavor,
-    ) -> MithrilResult<()> {
-        let status = Command::new(bin_path)
-            .arg("Mem")
-            .arg(input_path)
-            .arg(flavor.to_string())
-            .arg(output_path)
-            .arg("cardano")
-            .arg("--config")
-            .arg(config_path)
-            .status()
-            .with_context(|| {
-                format!(
-                    "Failed to execute snapshot-converter binary at {}",
-                    bin_path.display()
-                )
-            })?;
-
-        if !status.success() {
-            return Err(anyhow!(
-                "Failure while running snapshot-converter binary, exited with status code: {:?}",
-                status
-                    .code()
-                    .map_or(String::from("unknown"), |c| c.to_string())
-            ));
-        }
-
-        Ok(())
     }
 
     fn get_snapshot_converter_binary_path(
@@ -1217,18 +1186,13 @@ mod tests {
             converter
                 .expect_convert()
                 .with(
-                    always(),
                     predicate::function(contains_filename(&snapshots[0])),
                     always(),
-                    always(),
-                    always(),
                 )
-                .return_once(|_, _, _, _, _| Ok(()))
+                .return_once(|_, _| Ok(()))
                 .once();
 
             SnapshotConverterCommand::try_convert(
-                Path::new(""),
-                Path::new(""),
                 Path::new(""),
                 &UTxOHDFlavor::Lmdb,
                 &snapshots,
@@ -1246,29 +1210,21 @@ mod tests {
             converter
                 .expect_convert()
                 .with(
-                    always(),
                     predicate::function(contains_filename(&snapshots[0])),
                     always(),
-                    always(),
-                    always(),
                 )
-                .return_once(|_, _, _, _, _| Err(anyhow!("Error during conversion")))
+                .return_once(|_, _| Err(anyhow!("Error during conversion")))
                 .once();
             converter
                 .expect_convert()
                 .with(
-                    always(),
                     predicate::function(contains_filename(&snapshots[1])),
                     always(),
-                    always(),
-                    always(),
                 )
-                .return_once(|_, _, _, _, _| Ok(()))
+                .return_once(|_, _| Ok(()))
                 .once();
 
             SnapshotConverterCommand::try_convert(
-                Path::new(""),
-                Path::new(""),
                 Path::new(""),
                 &UTxOHDFlavor::Lmdb,
                 &snapshots,
@@ -1284,12 +1240,10 @@ mod tests {
             let mut converter = MockSnapshotConverter::new();
             converter
                 .expect_convert()
-                .returning(|_, _, _, _, _| Err(anyhow!("Conversion failed")))
+                .returning(|_, _| Err(anyhow!("Conversion failed")))
                 .times(2);
 
             SnapshotConverterCommand::try_convert(
-                Path::new(""),
-                Path::new(""),
                 Path::new(""),
                 &UTxOHDFlavor::Lmdb,
                 &snapshots,
