@@ -29,7 +29,7 @@ use super::download::shared_steps;
 /// Clap command to verify a Cardano db and its associated certificate.
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbVerifyCommand {
-    #[arg(short, long, value_enum, default_value_t)]
+    #[arg(short, long, value_enum, default_value_t = CardanoDbCommandsBackend::V2)]
     backend: CardanoDbCommandsBackend,
 
     #[clap(flatten)]
@@ -59,7 +59,7 @@ impl CardanoDbVerifyCommand {
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         match self.backend {
             CardanoDbCommandsBackend::V1 => Err(anyhow::anyhow!(
-                "The \"verify\" subcommand is not available for the v1, use --backend v2 instead",
+                r#"The "verify" subcommand is not available for the v1, use --backend v2 instead"#,
             )),
             CardanoDbCommandsBackend::V2 => {
                 // *Important*: All parameters also available in the collected config source below MUST be

@@ -322,6 +322,8 @@ mod tests {
             "my_digest",
             "--db-dir",
             "my_db_dir",
+            "--backend",
+            "v1",
             "--genesis-verification-key",
             "my_genesis_key",
         ])
@@ -333,7 +335,7 @@ mod tests {
             .expect_err("Should fail if verify subcommand is used after cardano-db");
 
         assert!(error.to_string().contains(
-            "The \"verify\" subcommand is not available for the v1, use --backend v2 instead"
+            r#"The "verify" subcommand is not available for the v1, use --backend v2 instead"#
         ));
     }
 }
