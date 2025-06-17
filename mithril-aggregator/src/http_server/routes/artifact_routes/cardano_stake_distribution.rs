@@ -166,9 +166,9 @@ pub mod tests {
         test::request,
     };
 
+    use mithril_api_spec::APISpec;
     use mithril_common::{
         messages::{CardanoStakeDistributionListItemMessage, CardanoStakeDistributionMessage},
-        test_utils::apispec::APISpec,
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
     };
 

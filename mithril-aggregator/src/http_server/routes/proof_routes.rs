@@ -161,10 +161,11 @@ mod tests {
         test::request,
     };
 
+    use mithril_api_spec::APISpec;
     use mithril_common::{
         entities::{BlockNumber, CardanoTransactionsSetProof, CardanoTransactionsSnapshot},
         signable_builder::SignedEntity,
-        test_utils::{apispec::APISpec, assert_equivalent, fake_data},
+        test_utils::{assert_equivalent, fake_data},
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
     };
 

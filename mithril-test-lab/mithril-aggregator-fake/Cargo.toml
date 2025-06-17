@@ -27,8 +27,6 @@ tracing-subscriber = "0.3.19"
 mithril-build-script = { path = "../../internal/mithril-build-script" }
 
 [dev-dependencies]
-mithril-common = { "path" = "../../mithril-common", features = [
-    "test_tools",
-] }
+mithril-api-spec = { path = "../../internal/tests/mithril-api-spec" }
 reqwest = { workspace = true }
 warp = { workspace = true }

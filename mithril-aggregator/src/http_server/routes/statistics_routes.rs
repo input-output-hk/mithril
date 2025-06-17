@@ -219,21 +219,20 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    use mithril_common::messages::{
-        CardanoDatabaseImmutableFilesRestoredMessage, SnapshotDownloadMessage,
-    };
-    use mithril_common::test_utils::apispec::APISpec;
-    use mithril_common::{temp_dir, MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
-    use tokio::sync::mpsc::UnboundedReceiver;
-
+    use serde_json::Value;
     use std::path::PathBuf;
     use std::sync::Arc;
+    use tokio::sync::mpsc::UnboundedReceiver;
     use warp::{
         http::{Method, StatusCode},
         test::request,
     };
+
+    use mithril_api_spec::APISpec;
+    use mithril_common::messages::{
+        CardanoDatabaseImmutableFilesRestoredMessage, SnapshotDownloadMessage,
+    };
+    use mithril_common::{temp_dir, MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
 
     use crate::event_store::EventMessage;
     use crate::ServeCommandDependenciesContainer;
@@ -242,7 +241,7 @@ mod tests {
         ServeCommandConfiguration,
     };
 
-    use serde_json::Value;
+    use super::*;
 
     fn setup_router(
         state: RouterState,

@@ -3833,6 +3833,7 @@ dependencies = [
  "hex",
  "http 1.3.1",
  "httpmock",
+ "mithril-api-spec",
  "mithril-cardano-node-chain",
  "mithril-cardano-node-internal-database",
  "mithril-cli-helper",
@@ -3879,8 +3880,8 @@ dependencies = [
  "axum",
  "clap",
  "futures",
+ "mithril-api-spec",
  "mithril-build-script",
- "mithril-common",
  "reqwest",
  "serde",
  "serde_json",
@@ -3896,6 +3897,15 @@ dependencies = [
 [[package]]
 name = "mithril-api-spec"
 version = "0.1.0"
+dependencies = [
+ "jsonschema",
+ "mithril-common",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "warp",
+]
 
 [[package]]
 name = "mithril-build-script"

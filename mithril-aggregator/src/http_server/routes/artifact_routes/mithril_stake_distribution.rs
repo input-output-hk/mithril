@@ -104,11 +104,11 @@ pub mod tests {
         test::request,
     };
 
+    use mithril_api_spec::APISpec;
     use mithril_common::{
         messages::{MithrilStakeDistributionListItemMessage, MithrilStakeDistributionMessage},
-        MITHRIL_ORIGIN_TAG_HEADER,
+        MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
     };
-    use mithril_common::{test_utils::apispec::APISpec, MITHRIL_CLIENT_TYPE_HEADER};
     use mithril_persistence::sqlite::HydrationError;
 
     use crate::{initialize_dependencies, services::MockMessageService};

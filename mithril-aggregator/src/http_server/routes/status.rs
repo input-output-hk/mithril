@@ -104,18 +104,18 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use serde_json::Value::Null;
+    use std::sync::Arc;
     use tokio::sync::RwLock;
     use warp::{
         http::{Method, StatusCode},
         test::request,
     };
 
+    use mithril_api_spec::APISpec;
     use mithril_common::{
         entities::{Epoch, ProtocolParameters, Stake},
-        test_utils::{apispec::APISpec, fake_data, MithrilFixtureBuilder},
+        test_utils::{fake_data, MithrilFixtureBuilder},
     };
 
     use crate::{

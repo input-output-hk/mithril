@@ -124,10 +124,8 @@ mod tests {
     use warp::http::{Method, StatusCode};
     use warp::test::request;
 
-    use mithril_common::{
-        entities::SignedEntityType, messages::RegisterSignatureMessage,
-        test_utils::apispec::APISpec,
-    };
+    use mithril_api_spec::APISpec;
+    use mithril_common::{entities::SignedEntityType, messages::RegisterSignatureMessage};
 
     use crate::{
         initialize_dependencies,

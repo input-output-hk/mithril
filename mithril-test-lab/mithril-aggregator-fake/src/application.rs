@@ -98,7 +98,7 @@ mod tests {
     use warp::http::{Response, StatusCode};
     use warp::hyper::body::Bytes;
 
-    use mithril_common::test_utils::apispec::APISpec;
+    use mithril_api_spec::APISpec;
 
     use crate::{default_values, CliArguments};
 

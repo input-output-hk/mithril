@@ -6,10 +6,6 @@
 //! * A builder of [MithrilFixture] to generate signers alongside a stake distribution
 //!
 
-#[cfg(feature = "apispec")]
-#[cfg_attr(docsrs, doc(cfg(feature = "apispec")))]
-pub mod apispec;
-
 pub mod fake_data;
 pub mod fake_keys;
 

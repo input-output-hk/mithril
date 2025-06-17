@@ -268,11 +268,12 @@ mod tests {
         test::request,
     };
 
+    use mithril_api_spec::APISpec;
     use mithril_common::{
         crypto_helper::ProtocolRegistrationError,
         entities::Epoch,
         messages::RegisterSignerMessage,
-        test_utils::{apispec::APISpec, fake_data, MithrilFixtureBuilder},
+        test_utils::{fake_data, MithrilFixtureBuilder},
         MITHRIL_ORIGIN_TAG_HEADER,
     };
 

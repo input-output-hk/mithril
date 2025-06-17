@@ -10,7 +10,7 @@ use warp::http::StatusCode;
 use warp::hyper::body::Bytes;
 
 #[cfg(test)]
-pub(crate) const DEFAULT_SPEC_FILE: &str = "../openapi.yaml";
+pub(crate) const DEFAULT_SPEC_FILE: &str = "../../../openapi.yaml";
 
 /// APISpec helps validate conformity to an OpenAPI specification
 pub struct APISpec<'a> {
@@ -344,12 +344,12 @@ mod tests {
     use std::fs;
     use std::path::{Path, PathBuf};
     use warp::http::Method;
-    use warp::http::StatusCode;
+
+    use mithril_common::entities;
+    use mithril_common::messages::{AggregatorFeaturesMessage, SignerMessagePart};
+    use mithril_common::test_utils::{fake_data, TempDir};
 
     use super::*;
-    use crate::entities;
-    use crate::messages::{AggregatorFeaturesMessage, SignerMessagePart};
-    use crate::test_utils::{fake_data, TempDir};
 
     fn build_empty_response(status_code: u16) -> Response<Bytes> {
         Response::builder()
@@ -786,7 +786,6 @@ components:
             "OpenAPI needs a spec file to validate conformity. None were given."
         );
     }
-
     fn check_example_detect_no_error(id: u32, paths: &str, components: &str) {
         let file = get_temp_openapi_filename("example", id);
 

@@ -9,3 +9,12 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+jsonschema = { version = "0.30.0" }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { version = "0.9.34" }
+warp = { workspace = true }
+
+[dev-dependencies]
+mithril-common = { path = "../../../mithril-common", features = ["test_tools"] }
