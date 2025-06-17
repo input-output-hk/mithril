@@ -311,6 +311,20 @@ jobs:
         if: success() || failure()
         run: jq . networks.json
 
+      - name: Check `mithril-client-wasm` Cargo.toml and package.json versions matches
+        if: success() || failure()
+        shell: bash
+        run: |
+          WASM_PACKAGE_JSON_VERSION=$(cat mithril-client-wasm/package.json | jq -r '.version')
+          WASM_CRATE_VERSION=$(cargo metadata --quiet --no-deps | jq -r '.packages[] | select(.name=="mithril-client-wasm") | .version')
+
+          if [[ $WASM_CRATE_VERSION != $WASM_PACKAGE_JSON_VERSION ]]; then
+            echo "::error ::Version mismatch detected for mithril-client-wasm!"
+            echo "Cargo.toml version: $WASM_CRATE_VERSION"
+            echo "package.json version: $WASM_PACKAGE_JSON_VERSION"
+            exit 1
+          fi
+
       - name: Check code formatting
         if: success() || failure()
         run: make check-format
