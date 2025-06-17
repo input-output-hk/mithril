@@ -266,7 +266,7 @@ impl SnapshotConverterCommand {
         config_path: &Path,
         flavor: &UTxOHDFlavor,
     ) -> MithrilResult<()> {
-        Command::new(bin_path)
+        let status = Command::new(bin_path)
             .arg("Mem")
             .arg(input_path)
             .arg(flavor.to_string())
@@ -281,6 +281,15 @@ impl SnapshotConverterCommand {
                     bin_path.display()
                 )
             })?;
+
+        if !status.success() {
+            return Err(anyhow!(
+                "Failure while running snapshot-converter binary, exited with status code: {:?}",
+                status
+                    .code()
+                    .map_or(String::from("unknown"), |c| c.to_string())
+            ));
+        }
 
         Ok(())
     }
