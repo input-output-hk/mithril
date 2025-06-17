@@ -38,7 +38,9 @@ const MAINNET_MAGIC_ID: u32 = 764824073;
 const PREPROD_MAGIC_ID: u32 = 1;
 const PREVIEW_MAGIC_ID: u32 = 2;
 
-#[derive(Debug, Clone, ValueEnum)]
+const CONVERSION_FALLBACK_LIMIT: usize = 2;
+
+#[derive(Debug, Clone, ValueEnum, Eq, PartialEq)]
 enum UTxOHDFlavor {
     #[clap(name = "Legacy")]
     Legacy,
@@ -69,6 +71,39 @@ impl fmt::Display for CardanoNetwork {
             Self::Preprod => write!(f, "preprod"),
             Self::Mainnet => write!(f, "mainnet"),
         }
+    }
+}
+
+#[cfg_attr(test, mockall::automock)]
+trait SnapshotConverter {
+    fn convert(
+        &self,
+        converter_bin: &Path,
+        input_path: &Path,
+        output_path: &Path,
+        config_path: &Path,
+        flavor: &UTxOHDFlavor,
+    ) -> MithrilResult<()>;
+}
+
+struct SnapshotConverterBin;
+
+impl SnapshotConverter for SnapshotConverterBin {
+    fn convert(
+        &self,
+        converter_bin: &Path,
+        input_path: &Path,
+        output_path: &Path,
+        config_path: &Path,
+        utxo_hd_flavor: &UTxOHDFlavor,
+    ) -> MithrilResult<()> {
+        SnapshotConverterCommand::execute_snapshot_converter(
+            converter_bin,
+            input_path,
+            output_path,
+            config_path,
+            utxo_hd_flavor,
+        )
     }
 }
 
@@ -248,24 +283,18 @@ impl SnapshotConverterCommand {
             "Converting ledger state snapshot to '{}' flavor",
             utxo_hd_flavor
         );
-        let snapshots_path = work_dir.join(SNAPSHOTS_DIR);
-        let copied_snapshot_path =
-            Self::copy_oldest_ledger_state_snapshot(db_dir, &snapshots_path)?;
-        let converted_snapshot_path = Self::compute_converted_snapshot_output_path(
-            &snapshots_path,
-            &copied_snapshot_path,
-            utxo_hd_flavor,
-        )?;
         let converter_bin =
             Self::get_snapshot_converter_binary_path(distribution_dir, env::consts::OS)?;
         let config_path =
             Self::get_snapshot_converter_config_path(distribution_dir, cardano_network);
-        Self::execute_snapshot_converter(
+        let snapshots = Self::find_most_recent_snapshots(db_dir, CONVERSION_FALLBACK_LIMIT)?;
+        let converted_snapshot_path = Self::try_convert(
+            work_dir,
             &converter_bin,
-            &copied_snapshot_path,
-            &converted_snapshot_path,
             &config_path,
             utxo_hd_flavor,
+            &snapshots,
+            Box::new(SnapshotConverterBin),
         )?;
 
         if commit {
@@ -277,6 +306,60 @@ impl SnapshotConverterCommand {
         }
 
         Ok(())
+    }
+
+    fn try_convert(
+        work_dir: &Path,
+        converter_bin: &Path,
+        config_path: &Path,
+        utxo_hd_flavor: &UTxOHDFlavor,
+        snapshots: &[PathBuf],
+        converter: Box<dyn SnapshotConverter>,
+    ) -> MithrilResult<PathBuf> {
+        let snapshots_dir = work_dir.join(SNAPSHOTS_DIR);
+
+        for (i, snapshot) in snapshots.iter().enumerate() {
+            let attempt = i + 1;
+            println!("Converting '{}' (attempt #{})", snapshot.display(), attempt);
+
+            let input_path = copy_dir(snapshot, &snapshots_dir)?;
+            let output_path = Self::compute_converted_snapshot_output_path(
+                &snapshots_dir,
+                &input_path,
+                utxo_hd_flavor,
+            )?;
+
+            match converter.convert(
+                converter_bin,
+                &input_path,
+                &output_path,
+                config_path,
+                utxo_hd_flavor,
+            ) {
+                Ok(()) => {
+                    return {
+                        println!(
+                            "Successfully converted ledger state snapshot: '{}'",
+                            snapshot.display()
+                        );
+
+                        Ok(output_path)
+                    }
+                }
+                Err(e) => {
+                    eprintln!(
+                        "Failed to convert ledger state snapshot '{}': {e}",
+                        snapshot.display()
+                    );
+                    continue;
+                }
+            };
+        }
+
+        Err(anyhow!(
+            "Failed to convert any of the provided ledger state snapshots to the desired flavor: {}",
+            utxo_hd_flavor
+        ))
     }
 
     fn execute_snapshot_converter(
@@ -366,22 +449,6 @@ impl SnapshotConverterCommand {
         Ok(snapshots)
     }
 
-    /// Finds the oldest ledger snapshot (by slot number) in the `ledger/` directory of a Cardano node database.
-    fn find_oldest_ledger_state_snapshot(db_dir: &Path) -> MithrilResult<PathBuf> {
-        let ledger_dir = db_dir.join(LEDGER_DIR);
-        let snapshots_by_slot = Self::get_sorted_snapshot_dirs(&ledger_dir)?;
-        snapshots_by_slot
-            .into_iter()
-            .map(|(_, path)| path)
-            .next()
-            .ok_or_else(|| {
-                anyhow!(
-                    "No valid ledger state snapshot found in directory: {}",
-                    ledger_dir.display()
-                )
-            })
-    }
-
     fn find_most_recent_snapshots(db_dir: &Path, count: usize) -> MithrilResult<Vec<PathBuf>> {
         let ledger_dir = db_dir.join(LEDGER_DIR);
         let snapshots = Self::get_sorted_snapshot_dirs(&ledger_dir)?
@@ -399,16 +466,6 @@ impl SnapshotConverterCommand {
         }
 
         Ok(snapshots)
-    }
-
-    fn copy_oldest_ledger_state_snapshot(
-        db_dir: &Path,
-        target_dir: &Path,
-    ) -> MithrilResult<PathBuf> {
-        let snapshot_path = Self::find_oldest_ledger_state_snapshot(db_dir)?;
-        let copied_snapshot_path = copy_dir(&snapshot_path, target_dir)?;
-
-        Ok(copied_snapshot_path)
     }
 
     fn compute_converted_snapshot_output_path(
@@ -840,95 +897,6 @@ mod tests {
         }
     }
 
-    mod find_oldest_ledger_state_snapshot {
-        use mithril_common::temp_dir_create;
-
-        use super::*;
-
-        #[test]
-        fn finds_ledger_state_snapshot_with_lowest_slot_number() {
-            let db_dir = temp_dir_create!();
-            let ledger_dir = db_dir.join(LEDGER_DIR);
-            create_dir(&ledger_dir).unwrap();
-
-            create_dir(ledger_dir.join("500")).unwrap();
-            create_dir(ledger_dir.join("1000")).unwrap();
-            create_dir(ledger_dir.join("1500")).unwrap();
-
-            let found =
-                SnapshotConverterCommand::find_oldest_ledger_state_snapshot(&db_dir).unwrap();
-
-            assert_eq!(found, ledger_dir.join("500"));
-        }
-
-        #[test]
-        fn returns_snapshot_when_only_one_valid_directory() {
-            let db_dir = temp_dir_create!();
-            let ledger_dir = db_dir.join(LEDGER_DIR);
-            create_dir(&ledger_dir).unwrap();
-
-            create_dir(ledger_dir.join("500")).unwrap();
-
-            let found =
-                SnapshotConverterCommand::find_oldest_ledger_state_snapshot(&db_dir).unwrap();
-
-            assert_eq!(found, ledger_dir.join("500"));
-        }
-
-        #[test]
-        fn ignores_non_numeric_and_non_directory_entries() {
-            let temp_dir = temp_dir_create!();
-            let ledger_dir = temp_dir.join(LEDGER_DIR);
-            create_dir(&ledger_dir).unwrap();
-
-            create_dir(ledger_dir.join("1000")).unwrap();
-            File::create(ledger_dir.join("500")).unwrap();
-            create_dir(ledger_dir.join("notanumber")).unwrap();
-
-            let found =
-                SnapshotConverterCommand::find_oldest_ledger_state_snapshot(&temp_dir).unwrap();
-
-            assert_eq!(found, ledger_dir.join("1000"));
-        }
-
-        #[test]
-        fn returns_error_if_no_valid_snapshot_found() {
-            let temp_dir = temp_dir_create!();
-            let ledger_dir = temp_dir.join(LEDGER_DIR);
-            create_dir(&ledger_dir).unwrap();
-
-            File::create(ledger_dir.join("invalid")).unwrap();
-
-            SnapshotConverterCommand::find_oldest_ledger_state_snapshot(&temp_dir)
-                .expect_err("Should return error if no valid ledger snapshot directory found");
-        }
-
-        #[test]
-        fn get_sorted_snapshot_dirs_returns_sorted_valid_directories() {
-            let temp_dir = temp_dir_create!();
-            let ledger_dir = temp_dir.join(LEDGER_DIR);
-            create_dir(&ledger_dir).unwrap();
-
-            create_dir(ledger_dir.join("1500")).unwrap();
-            create_dir(ledger_dir.join("1000")).unwrap();
-            create_dir(ledger_dir.join("2000")).unwrap();
-            File::create(ledger_dir.join("500")).unwrap();
-            create_dir(ledger_dir.join("notanumber")).unwrap();
-
-            let snapshots =
-                SnapshotConverterCommand::get_sorted_snapshot_dirs(&ledger_dir).unwrap();
-
-            assert_eq!(
-                snapshots,
-                vec![
-                    (1000, ledger_dir.join("1000")),
-                    (1500, ledger_dir.join("1500")),
-                    (2000, ledger_dir.join("2000")),
-                ]
-            );
-        }
-    }
-
     mod commit_converted_snapshot {
         use super::*;
 
@@ -1216,6 +1184,118 @@ mod tests {
                     (2000, ledger_dir.join("2000")),
                 ]
             );
+        }
+    }
+
+    mod snapshot_conversion_fallback {
+        use mockall::predicate::{self, always};
+
+        use super::*;
+
+        fn create_dummy_snapshots(dir: &Path, count: usize) -> Vec<PathBuf> {
+            (1..=count)
+                .map(|i| {
+                    let snapshot_path = dir.join(format!("{i}"));
+                    create_dir(&snapshot_path).unwrap();
+                    snapshot_path
+                })
+                .collect()
+        }
+
+        fn contains_filename(expected: &Path) -> impl Fn(&Path) -> bool {
+            let filename = expected.file_name().unwrap().to_string_lossy().to_string();
+
+            move |p: &Path| p.to_string_lossy().contains(&filename)
+        }
+
+        #[test]
+        fn conversion_succeed_and_is_called_once_if_first_conversion_succeeds() {
+            let temp_dir = temp_dir_create!();
+            let snapshots = create_dummy_snapshots(&temp_dir, 2);
+
+            let mut converter = MockSnapshotConverter::new();
+            converter
+                .expect_convert()
+                .with(
+                    always(),
+                    predicate::function(contains_filename(&snapshots[0])),
+                    always(),
+                    always(),
+                    always(),
+                )
+                .return_once(|_, _, _, _, _| Ok(()))
+                .once();
+
+            SnapshotConverterCommand::try_convert(
+                Path::new(""),
+                Path::new(""),
+                Path::new(""),
+                &UTxOHDFlavor::Lmdb,
+                &snapshots,
+                Box::new(converter),
+            )
+            .unwrap();
+        }
+
+        #[test]
+        fn conversion_falls_back_if_first_conversion_fails() {
+            let temp_dir = temp_dir_create!();
+            let snapshots = create_dummy_snapshots(&temp_dir, 2);
+
+            let mut converter = MockSnapshotConverter::new();
+            converter
+                .expect_convert()
+                .with(
+                    always(),
+                    predicate::function(contains_filename(&snapshots[0])),
+                    always(),
+                    always(),
+                    always(),
+                )
+                .return_once(|_, _, _, _, _| Err(anyhow!("Error during conversion")))
+                .once();
+            converter
+                .expect_convert()
+                .with(
+                    always(),
+                    predicate::function(contains_filename(&snapshots[1])),
+                    always(),
+                    always(),
+                    always(),
+                )
+                .return_once(|_, _, _, _, _| Ok(()))
+                .once();
+
+            SnapshotConverterCommand::try_convert(
+                Path::new(""),
+                Path::new(""),
+                Path::new(""),
+                &UTxOHDFlavor::Lmdb,
+                &snapshots,
+                Box::new(converter),
+            )
+            .expect("Should succeed even if the first conversion fails");
+        }
+
+        #[test]
+        fn conversion_fails_if_all_attempts_fail() {
+            let temp_dir = temp_dir_create!();
+            let snapshots = create_dummy_snapshots(&temp_dir, 2);
+            let mut converter = MockSnapshotConverter::new();
+            converter
+                .expect_convert()
+                .returning(|_, _, _, _, _| Err(anyhow!("Conversion failed")))
+                .times(2);
+
+            SnapshotConverterCommand::try_convert(
+                Path::new(""),
+                Path::new(""),
+                Path::new(""),
+                &UTxOHDFlavor::Lmdb,
+                &snapshots,
+                Box::new(converter),
+            )
+            .expect_err("Should fail if all conversion attempts fail");
         }
     }
 }
