@@ -47,10 +47,10 @@ mod tests {
 
     #[tokio::test]
     async fn computed_signature_signs_manifest_hash() {
-        let manifest = AncillaryFilesManifest {
-            data: BTreeMap::from([(PathBuf::from("path/whatever"), "whatever_hash".to_string())]),
-            signature: None,
-        };
+        let manifest = AncillaryFilesManifest::new_without_signature(BTreeMap::from([(
+            PathBuf::from("path/whatever"),
+            "whatever_hash".to_string(),
+        )]));
 
         let signer = ManifestSigner::create_deterministic_signer();
         let verifier = signer.create_verifier();

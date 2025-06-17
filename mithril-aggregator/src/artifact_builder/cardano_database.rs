@@ -152,7 +152,7 @@ mod tests {
         )
         .await
         .unwrap();
-        manifest_dummy.signature = Some(ancillary_manifest_signature.try_into().unwrap());
+        manifest_dummy.set_signature(ancillary_manifest_signature.try_into().unwrap());
 
         serde_json::to_string(&manifest_dummy).unwrap().len() as u64
     }

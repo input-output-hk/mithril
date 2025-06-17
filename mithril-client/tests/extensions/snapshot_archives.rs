@@ -187,7 +187,7 @@ async fn build_ancillary_manifest(
     let mut manifest = AncillaryFilesManifest::from_paths(cardano_db_dir, files_in_manifest)
         .await
         .unwrap();
-    manifest.signature = Some(signer.sign(&manifest.compute_hash()));
+    manifest.set_signature(signer.sign(&manifest.compute_hash()));
 
     let target_file = cardano_db_dir.join(AncillaryFilesManifest::ANCILLARY_MANIFEST_FILE_NAME);
     serde_json::to_writer(File::create(&target_file).unwrap(), &manifest).unwrap();

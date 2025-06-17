@@ -308,18 +308,15 @@ impl CompressedArchiveSnapshotter {
         paths_to_include: Vec<PathBuf>,
         temp_snapshot_directory: &Path,
     ) -> StdResult<AncillaryFilesManifest> {
-        let manifest =
+        let mut manifest =
             AncillaryFilesManifest::from_paths(temp_snapshot_directory, paths_to_include).await?;
         let signature = self
             .ancillary_signer
             .compute_ancillary_manifest_signature(&manifest)
             .await?;
-        let signed_manifest = AncillaryFilesManifest {
-            signature: Some(signature),
-            ..manifest
-        };
+        manifest.set_signature(signature);
 
-        Ok(signed_manifest)
+        Ok(manifest)
     }
 }
 
@@ -776,13 +773,13 @@ mod tests {
 
             assert_eq!(
                 vec![
-                    &PathBuf::from(IMMUTABLE_DIR).join("00003.chunk"),
-                    &PathBuf::from(IMMUTABLE_DIR).join("00003.primary"),
-                    &PathBuf::from(IMMUTABLE_DIR).join("00003.secondary"),
-                    &PathBuf::from(LEDGER_DIR).join("637"),
-                    &PathBuf::from(LEDGER_DIR).join("737"),
+                    PathBuf::from(IMMUTABLE_DIR).join("00003.chunk"),
+                    PathBuf::from(IMMUTABLE_DIR).join("00003.primary"),
+                    PathBuf::from(IMMUTABLE_DIR).join("00003.secondary"),
+                    PathBuf::from(LEDGER_DIR).join("637"),
+                    PathBuf::from(LEDGER_DIR).join("737"),
                 ],
-                manifest.data.keys().collect::<Vec<_>>()
+                manifest.files()
             );
             assert_eq!(
                 Some(
@@ -790,7 +787,7 @@ mod tests {
                         .try_into()
                         .unwrap()
                 ),
-                manifest.signature
+                manifest.signature()
             )
         }
 
@@ -828,31 +825,31 @@ mod tests {
 
             assert_eq!(
                 vec![
-                    &PathBuf::from(IMMUTABLE_DIR).join("00003.chunk"),
-                    &PathBuf::from(IMMUTABLE_DIR).join("00003.primary"),
-                    &PathBuf::from(IMMUTABLE_DIR).join("00003.secondary"),
-                    &PathBuf::from(LEDGER_DIR)
+                    PathBuf::from(IMMUTABLE_DIR).join("00003.chunk"),
+                    PathBuf::from(IMMUTABLE_DIR).join("00003.primary"),
+                    PathBuf::from(IMMUTABLE_DIR).join("00003.secondary"),
+                    PathBuf::from(LEDGER_DIR)
                         .join("637")
                         .join(LedgerStateSnapshot::IN_MEMORY_META),
-                    &PathBuf::from(LEDGER_DIR)
+                    PathBuf::from(LEDGER_DIR)
                         .join("637")
                         .join(LedgerStateSnapshot::IN_MEMORY_STATE),
-                    &PathBuf::from(LEDGER_DIR)
+                    PathBuf::from(LEDGER_DIR)
                         .join("637")
                         .join(LedgerStateSnapshot::IN_MEMORY_TABLES)
                         .join(LedgerStateSnapshot::IN_MEMORY_TVAR),
-                    &PathBuf::from(LEDGER_DIR)
+                    PathBuf::from(LEDGER_DIR)
                         .join("737")
                         .join(LedgerStateSnapshot::IN_MEMORY_META),
-                    &PathBuf::from(LEDGER_DIR)
+                    PathBuf::from(LEDGER_DIR)
                         .join("737")
                         .join(LedgerStateSnapshot::IN_MEMORY_STATE),
-                    &PathBuf::from(LEDGER_DIR)
+                    PathBuf::from(LEDGER_DIR)
                         .join("737")
                         .join(LedgerStateSnapshot::IN_MEMORY_TABLES)
                         .join(LedgerStateSnapshot::IN_MEMORY_TVAR),
                 ],
-                manifest.data.keys().collect::<Vec<_>>()
+                manifest.files()
             );
             assert_eq!(
                 Some(
@@ -860,7 +857,7 @@ mod tests {
                         .try_into()
                         .unwrap()
                 ),
-                manifest.signature
+                manifest.signature()
             )
         }
     }
