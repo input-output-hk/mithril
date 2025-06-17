@@ -1,6 +1,5 @@
 //! Tools to helps validate conformity to an OpenAPI specification
 
-use glob::glob;
 use jsonschema::Validator;
 use reqwest::Url;
 use serde::Serialize;
@@ -10,7 +9,8 @@ use warp::http::Response;
 use warp::http::StatusCode;
 use warp::hyper::body::Bytes;
 
-use crate::entities::SupportedEra;
+#[cfg(test)]
+pub(crate) const DEFAULT_SPEC_FILE: &str = "../openapi.yaml";
 
 /// APISpec helps validate conformity to an OpenAPI specification
 pub struct APISpec<'a> {
@@ -22,8 +22,8 @@ pub struct APISpec<'a> {
 
 impl<'a> APISpec<'a> {
     /// Verify conformity helper of API Specs
-    pub fn verify_conformity(
-        spec_files: Vec<String>,
+    pub fn verify_conformity<F: AsRef<str>>(
+        spec_file: F,
         method: &str,
         path: &str,
         content_type: &str,
@@ -31,25 +31,24 @@ impl<'a> APISpec<'a> {
         response: &Response<Bytes>,
         status_code: &StatusCode,
     ) -> Result<(), String> {
-        if spec_files.is_empty() {
+        let spec_file = spec_file.as_ref();
+        if spec_file.is_empty() {
             return Err(
-                "OpenAPI need a spec file to validate conformity. None were given.".to_string(),
+                "OpenAPI needs a spec file to validate conformity. None were given.".to_string(),
             );
         }
 
-        for spec_file in spec_files {
-            if let Err(e) = APISpec::from_file(&spec_file)
-                .method(method)
-                .path(path)
-                .content_type(content_type)
-                .validate_request(request_body)
-                .and_then(|api| api.validate_response(response))
-                .and_then(|api| api.validate_status(response, status_code))
-            {
-                return Err(format!(
+        if let Err(e) = APISpec::from_file(spec_file)
+            .method(method)
+            .path(path)
+            .content_type(content_type)
+            .validate_request(request_body)
+            .and_then(|api| api.validate_response(response))
+            .and_then(|api| api.validate_status(response, status_code))
+        {
+            return Err(format!(
                     "OpenAPI invalid response in {spec_file} on route {path}, reason: {e}\nresponse: {response:#?}"
                 ));
-            }
         }
         Ok(())
     }
@@ -243,31 +242,14 @@ impl<'a> APISpec<'a> {
         }
     }
 
-    /// Get default spec file
-    pub fn get_default_spec_file() -> String {
-        "../openapi.yaml".to_string()
+    /// Get the path to the default spec file in the given directory
+    pub fn get_default_spec_file_from(root_path: &str) -> String {
+        format!("{root_path}/openapi.yaml")
     }
 
-    /// Get spec file for era
-    pub fn get_era_spec_file(era: SupportedEra) -> String {
-        format!("../openapi-{era}")
-    }
-
-    /// Get all spec files
-    pub fn get_all_spec_files() -> Vec<String> {
-        APISpec::get_all_spec_files_from("..")
-    }
-
-    /// Get all spec files in the directory
-    pub fn get_all_spec_files_from(root_path: &str) -> Vec<String> {
-        let mut open_api_spec_files = Vec::new();
-        for entry in glob(&format!("{root_path}/openapi*.yaml")).unwrap() {
-            let entry_path = entry.unwrap().to_str().unwrap().to_string();
-            open_api_spec_files.push(entry_path.clone());
-            open_api_spec_files.push(entry_path);
-        }
-
-        open_api_spec_files
+    /// Get the path to the spec file for an era in the given directory
+    pub fn get_era_spec_file_from<E: AsRef<str>>(root_path: &str, era_name: E) -> String {
+        format!("{root_path}/openapi-{}.yaml", era_name.as_ref())
     }
 
     /// Verify that examples are conform to the type definition.
@@ -474,7 +456,7 @@ components:
 
     #[test]
     fn test_validate_ok_when_request_without_body_and_expects_response() {
-        APISpec::from_file(&APISpec::get_default_spec_file())
+        APISpec::from_file(DEFAULT_SPEC_FILE)
             .method(Method::GET.as_str())
             .path("/")
             .validate_request(&Null)
@@ -488,7 +470,7 @@ components:
 
     #[test]
     fn test_validate_ok_when_request_with_body_and_expects_no_response() {
-        assert!(APISpec::from_file(&APISpec::get_default_spec_file())
+        assert!(APISpec::from_file(DEFAULT_SPEC_FILE)
             .method(Method::POST.as_str())
             .path("/register-signer")
             .validate_request(&SignerMessagePart::dummy())
@@ -506,7 +488,7 @@ components:
             entities::ServerError::new("an error occurred".to_string()),
         );
 
-        APISpec::from_file(&APISpec::get_default_spec_file())
+        APISpec::from_file(DEFAULT_SPEC_FILE)
             .method(Method::POST.as_str())
             .path("/register-signer")
             .validate_response(&response)
@@ -520,7 +502,7 @@ components:
             entities::ServerError::new("an error occurred".to_string()),
         );
 
-        let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+        let mut api_spec = APISpec::from_file(DEFAULT_SPEC_FILE);
         let result = api_spec
             .method(Method::GET.as_str())
             .path("/")
@@ -546,7 +528,7 @@ components:
             entities::ServerError::new("an error occurred".to_string()),
         );
 
-        APISpec::from_file(&APISpec::get_default_spec_file())
+        APISpec::from_file(DEFAULT_SPEC_FILE)
             .method(Method::GET.as_str())
             .path("/")
             .validate_request(&Null)
@@ -557,7 +539,7 @@ components:
 
     #[test]
     fn test_validate_returns_error_when_route_does_not_exist() {
-        let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+        let mut api_spec = APISpec::from_file(DEFAULT_SPEC_FILE);
         let result = api_spec
             .method(Method::GET.as_str())
             .path("/route-not-existing-in-openapi-spec")
@@ -572,7 +554,7 @@ components:
 
     #[test]
     fn test_validate_returns_error_when_route_exists_but_method_does_not() {
-        let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+        let mut api_spec = APISpec::from_file(DEFAULT_SPEC_FILE);
         let result = api_spec
             .method(Method::OPTIONS.as_str())
             .path("/certificates")
@@ -586,7 +568,7 @@ components:
     }
     #[test]
     fn test_validate_returns_error_when_route_exists_but_expects_non_empty_response() {
-        let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+        let mut api_spec = APISpec::from_file(DEFAULT_SPEC_FILE);
         let result = api_spec
             .method(Method::GET.as_str())
             .path("/certificates")
@@ -599,7 +581,7 @@ components:
     #[test]
     fn test_validate_returns_error_when_route_exists_but_expects_empty_response() {
         {
-            let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+            let mut api_spec = APISpec::from_file(DEFAULT_SPEC_FILE);
             let result = api_spec
                 .method(Method::POST.as_str())
                 .path("/register-signer")
@@ -612,7 +594,7 @@ components:
             );
         }
         {
-            let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+            let mut api_spec = APISpec::from_file(DEFAULT_SPEC_FILE);
             let result = api_spec
                 .method(Method::POST.as_str())
                 .path("/register-signer")
@@ -628,7 +610,7 @@ components:
 
     #[test]
     fn test_validate_returns_error_when_json_is_not_valid() {
-        let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+        let mut api_spec = APISpec::from_file(DEFAULT_SPEC_FILE);
         let result = api_spec
             .method(Method::GET.as_str())
             .path("/certificates")
@@ -643,7 +625,7 @@ components:
 
     #[test]
     fn test_validate_returns_errors_when_route_exists_but_does_not_expect_request_body() {
-        assert!(APISpec::from_file(&APISpec::get_default_spec_file())
+        assert!(APISpec::from_file(DEFAULT_SPEC_FILE)
             .method(Method::GET.as_str())
             .path("/certificates")
             .validate_request(&fake_data::beacon())
@@ -651,7 +633,7 @@ components:
     }
     #[test]
     fn test_validate_returns_error_when_route_exists_but_expects_non_empty_request_body() {
-        assert!(APISpec::from_file(&APISpec::get_default_spec_file())
+        assert!(APISpec::from_file(DEFAULT_SPEC_FILE)
             .method(Method::POST.as_str())
             .path("/register-signer")
             .validate_request(&Null)
@@ -660,7 +642,7 @@ components:
 
     #[test]
     fn test_validate_returns_error_when_content_type_does_not_exist() {
-        let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+        let mut api_spec = APISpec::from_file(DEFAULT_SPEC_FILE);
         let result = api_spec
             .method(Method::GET.as_str())
             .path("/certificates")
@@ -678,7 +660,7 @@ components:
 
     #[test]
     fn test_validate_a_response_with_query_parameters() {
-        APISpec::from_file(&APISpec::get_default_spec_file())
+        APISpec::from_file(DEFAULT_SPEC_FILE)
             .method(Method::GET.as_str())
             .path("/proof/cardano-transaction?transaction_hashes={hash}")
             .validate_request(&Null)
@@ -690,7 +672,7 @@ components:
 
     #[test]
     fn test_validate_a_request_with_wrong_query_parameter_name() {
-        let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+        let mut api_spec = APISpec::from_file(DEFAULT_SPEC_FILE);
         let result = api_spec
             .method(Method::GET.as_str())
             .path("/proof/cardano-transaction?whatever=123")
@@ -705,7 +687,7 @@ components:
 
     #[test]
     fn test_validate_a_request_should_failed_when_query_parameter_is_in_path() {
-        let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+        let mut api_spec = APISpec::from_file(DEFAULT_SPEC_FILE);
         let result = api_spec
             .method(Method::GET.as_str())
             .path("/artifact/cardano-transaction/{hash}?hash=456")
@@ -720,7 +702,7 @@ components:
 
     #[test]
     fn test_validate_query_parameters_with_correct_parameter_name() {
-        let api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+        let api_spec = APISpec::from_file(DEFAULT_SPEC_FILE);
         api_spec
             .validate_query_parameters(
                 "/proof/cardano-transaction?transaction_hashes=a123,b456",
@@ -732,7 +714,7 @@ components:
 
     #[test]
     fn test_validate_query_parameters_with_wrong_query_parameter_name() {
-        let api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+        let api_spec = APISpec::from_file(DEFAULT_SPEC_FILE);
         let result = api_spec.validate_query_parameters(
             "/proof/cardano-transaction?whatever=123",
             &api_spec.openapi["paths"]["/proof/cardano-transaction"]["get"],
@@ -748,7 +730,7 @@ components:
     #[test]
     fn test_verify_conformity_with_expected_status() {
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            DEFAULT_SPEC_FILE,
             Method::GET.as_str(),
             "/",
             "application/json",
@@ -763,9 +745,9 @@ components:
     fn test_verify_conformity_with_non_expected_status_returns_error() {
         let response = build_json_response(200, AggregatorFeaturesMessage::dummy());
 
-        let spec_file = APISpec::get_default_spec_file();
+        let spec_file = DEFAULT_SPEC_FILE;
         let result = APISpec::verify_conformity(
-            vec![spec_file.clone()],
+            spec_file,
             Method::GET.as_str(),
             "/",
             "application/json",
@@ -789,7 +771,7 @@ components:
     #[test]
     fn test_verify_conformity_when_no_spec_file_returns_error() {
         let result = APISpec::verify_conformity(
-            vec![],
+            "",
             Method::GET.as_str(),
             "/",
             "application/json",
@@ -801,15 +783,8 @@ components:
         assert!(result.is_err());
         assert_eq!(
             result.err().unwrap().to_string(),
-            "OpenAPI need a spec file to validate conformity. None were given."
+            "OpenAPI needs a spec file to validate conformity. None were given."
         );
-    }
-
-    #[test]
-    fn test_get_all_spec_files_not_empty() {
-        let spec_files = APISpec::get_all_spec_files();
-        assert!(!spec_files.is_empty());
-        assert!(spec_files.contains(&APISpec::get_default_spec_file()))
     }
 
     fn check_example_detect_no_error(id: u32, paths: &str, components: &str) {

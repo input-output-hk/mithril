@@ -67,7 +67,7 @@ mod tests {
     #[test]
     fn test_openapi_examples_conformity() {
         use crate::test_utils::apispec::APISpec;
-        let api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+        let api_spec = APISpec::from_file(crate::test_utils::apispec::DEFAULT_SPEC_FILE);
 
         let errors: Vec<String> = api_spec.verify_examples();
 

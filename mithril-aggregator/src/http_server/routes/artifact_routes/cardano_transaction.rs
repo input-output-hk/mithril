@@ -148,7 +148,7 @@ pub mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
@@ -181,7 +181,7 @@ pub mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
@@ -245,7 +245,7 @@ pub mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
@@ -278,7 +278,7 @@ pub mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
@@ -311,7 +311,7 @@ pub mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
