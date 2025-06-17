@@ -5,10 +5,10 @@ sidebar_label: Cardano node database v2
 
 # Cardano node database v2
 
-:::danger
+:::info
 
-- This feature is **experimental** and not yet available on the mainnet
-- It will supersede the current certification process for the Cardano node internal database.
+- This new incremental certification will supersede the current [certification](./cardano-node-database.md) process for the Cardano node internal database.
+- The rollout of this new certification is detailed in this [blog post](https://mithril.network/doc/dev-blog/2025/06/17/client-cli-cardano-database-backends).
 
 :::
 
