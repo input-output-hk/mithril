@@ -2,11 +2,12 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 
 use mithril_cardano_node_internal_database::digesters::ComputedImmutablesDigests;
+use mithril_cardano_node_internal_database::entities::AncillaryFilesManifest;
 use mithril_cardano_node_internal_database::test::DummyCardanoDb;
 use mithril_cardano_node_internal_database::{immutable_trio_names, IMMUTABLE_DIR, LEDGER_DIR};
 
 use mithril_common::crypto_helper::{ManifestSigner, ManifestVerifierSecretKey};
-use mithril_common::entities::{AncillaryFilesManifest, CompressionAlgorithm, ImmutableFileNumber};
+use mithril_common::entities::{CompressionAlgorithm, ImmutableFileNumber};
 use mithril_common::messages::CardanoDatabaseDigestListItemMessage;
 
 pub async fn build_cardano_db_v1_snapshot_archives(

@@ -4,10 +4,10 @@ use std::path::{Path, PathBuf};
 use anyhow::Context;
 use thiserror::Error;
 
-use mithril_common::{
-    crypto_helper::{ManifestVerifier, ManifestVerifierVerificationKey},
-    entities::{AncillaryFilesManifest, AncillaryFilesManifestVerifyError},
+use mithril_cardano_node_internal_database::entities::{
+    AncillaryFilesManifest, AncillaryFilesManifestVerifyError,
 };
+use mithril_common::crypto_helper::{ManifestVerifier, ManifestVerifierVerificationKey};
 
 use crate::{MithrilError, MithrilResult};
 
@@ -127,8 +127,8 @@ mod tests {
     }
 
     mod ancillary_verifier {
-        use std::collections::BTreeMap;
         use sha2::{Digest, Sha256};
+        use std::collections::BTreeMap;
 
         use mithril_common::entities::SignableManifest;
         use mithril_common::{crypto_helper::ManifestSigner, test_utils::fake_keys};

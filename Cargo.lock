@@ -3941,6 +3941,7 @@ dependencies = [
  "hex",
  "mithril-common",
  "mockall",
+ "serde",
  "serde_json",
  "sha2",
  "slog",

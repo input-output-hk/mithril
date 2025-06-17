@@ -6,9 +6,10 @@ use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 
+use mithril_cardano_node_internal_database::entities::AncillaryFilesManifest;
 use mithril_common::{
     crypto_helper::ManifestSigner,
-    entities::{AncillaryFilesManifest, CompressionAlgorithm, FileUri},
+    entities::{CompressionAlgorithm, FileUri},
     StdResult,
 };
 
