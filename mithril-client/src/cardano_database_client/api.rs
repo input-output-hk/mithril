@@ -119,9 +119,9 @@ impl CardanoDatabaseClient {
             .await
     }
 
-    /// Checks if immutable directory exist with at least one immutable in it
+    /// Checks if immutable directory exists with at least one immutable in it
     #[cfg(feature = "fs")]
-    pub fn check_presence_of_immutables(&self, database_dir: &Path) -> MithrilResult<()> {
+    pub fn check_has_immutables(&self, database_dir: &Path) -> MithrilResult<()> {
         ImmutableFile::at_least_one_immutable_files_exist_in_dir(database_dir)?;
         Ok(())
     }

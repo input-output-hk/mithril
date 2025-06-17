@@ -13,15 +13,13 @@ use mithril_client::{
 };
 
 use crate::{
-    commands::{cardano_db::verify, client_builder, SharedArgs},
+    commands::{cardano_db::shared_steps, client_builder, SharedArgs},
     configuration::ConfigParameters,
     utils::{
         CardanoDbDownloadChecker, CardanoDbUtils, ExpanderUtils, IndicatifFeedbackReceiver,
         ProgressOutputType, ProgressPrinter,
     },
 };
-
-use super::shared_steps;
 
 const DISK_SPACE_SAFETY_MARGIN_RATIO: f64 = 0.1;
 
@@ -48,7 +46,7 @@ impl PreparedCardanoDbV2Download {
     pub async fn execute(&self, logger: &Logger, params: ConfigParameters) -> MithrilResult<()> {
         let restoration_options = RestorationOptions {
             db_dir: Path::new(&self.download_dir).join("db_v2"),
-            immutable_file_range: verify::immutable_file_range(self.start, self.end),
+            immutable_file_range: shared_steps::immutable_file_range(self.start, self.end),
             download_unpack_options: DownloadUnpackOptions {
                 allow_override: self.allow_override,
                 include_ancillary: self.include_ancillary,
@@ -125,7 +123,7 @@ impl PreparedCardanoDbV2Download {
             )
         })?;
 
-        let merkle_proof = verify::compute_verify_merkle_proof(
+        let merkle_proof = shared_steps::compute_verify_merkle_proof(
             4,
             &progress_printer,
             &client,
@@ -136,7 +134,7 @@ impl PreparedCardanoDbV2Download {
         )
         .await?;
 
-        let message = verify::compute_cardano_db_snapshot_message(
+        let message = shared_steps::compute_cardano_db_snapshot_message(
             5,
             &progress_printer,
             &certificate,
@@ -144,7 +142,7 @@ impl PreparedCardanoDbV2Download {
         )
         .await?;
 
-        verify::verify_cardano_db_snapshot_signature(
+        shared_steps::verify_message_matches_certificate(
             logger,
             6,
             &progress_printer,

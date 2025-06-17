@@ -8,15 +8,13 @@ use mithril_client::{
 };
 
 use crate::{
-    commands::{client_builder, SharedArgs},
+    commands::{cardano_db::shared_steps, client_builder, SharedArgs},
     configuration::ConfigParameters,
     utils::{
         CardanoDbDownloadChecker, CardanoDbUtils, ExpanderUtils, IndicatifFeedbackReceiver,
         ProgressOutputType, ProgressPrinter,
     },
 };
-
-use super::shared_steps;
 
 #[derive(Debug, Clone)]
 pub(super) struct PreparedCardanoDbV1Download {

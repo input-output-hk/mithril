@@ -1,6 +1,7 @@
 //! Commands for the Cardano db artifact
 mod download;
 mod list;
+mod shared_steps;
 mod show;
 mod verify;
 
@@ -42,7 +43,7 @@ pub enum CardanoDbCommands {
     #[clap(arg_required_else_help = true)]
     Download(CardanoDbDownloadCommand),
 
-    /// Verify a Cardano db and its associated certificate
+    /// Verify a Cardano database content
     #[clap(arg_required_else_help = true)]
     Verify(CardanoDbVerifyCommand),
 }
