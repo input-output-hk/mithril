@@ -210,21 +210,20 @@ mod binary_kes_sig {
 }
 
 mod binary_opcert {
-    use crate::crypto_helper::{key_decode_hex, key_encode_hex, OpCert};
+    use crate::crypto_helper::{OpCert, SerDeShelleyFileFormat};
+    use anyhow::anyhow;
 
     use super::*;
 
     impl TryToBytes for OpCert {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
-            // TODO: Use a more efficient serialization method
-            Ok(key_encode_hex(self)?.into_bytes())
+            self.to_cbor_bytes().map_err(|e| anyhow!(format!("{e:?}")))
         }
     }
 
     impl TryFromBytes for OpCert {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
-            // TODO: Use a more efficient deserialization method
-            key_decode_hex(std::str::from_utf8(bytes)?).map_err(|e| e.into())
+            Self::from_cbor_bytes(bytes).map_err(|e| anyhow!(format!("{e:?}")))
         }
     }
 }
