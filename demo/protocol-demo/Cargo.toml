@@ -12,7 +12,7 @@ repository = { workspace = true }
 blake2 = "0.10.6"
 clap = { workspace = true }
 hex = { workspace = true }
-mithril-common = { path = "../../mithril-common", features = ["fs"] }
+mithril-common = { path = "../../mithril-common" }
 mithril-doc = { path = "../../internal/mithril-doc" }
 rand_chacha = { workspace = true }
 rand_core = { workspace = true }

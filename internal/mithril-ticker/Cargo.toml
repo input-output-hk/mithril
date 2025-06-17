@@ -16,7 +16,7 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 mithril-cardano-node-chain = { path = "../cardano-node/mithril-cardano-node-chain" }
 mithril-cardano-node-internal-database = { path = "../cardano-node/mithril-cardano-node-internal-database" }
-mithril-common = { path = "../../mithril-common", features = ["fs"] }
+mithril-common = { path = "../../mithril-common" }
 thiserror = { workspace = true }
 
 [dev-dependencies]

@@ -15,7 +15,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }
-mithril-common = { path = "../../mithril-common", features = ["fs"] }
+mithril-common = { path = "../../mithril-common" }
 mithril-resource-pool = { path = "../mithril-resource-pool" }
 semver = { workspace = true }
 serde = { workspace = true }
