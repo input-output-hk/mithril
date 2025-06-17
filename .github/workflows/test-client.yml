@@ -303,9 +303,13 @@ jobs:
 
       - name: Prepare Mithril client command
         id: command
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          echo "mithril_client=docker run --rm -e NETWORK=$NETWORK -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e ANCILLARY_VERIFICATION_KEY=$ANCILLARY_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-client' ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID"  >> $GITHUB_OUTPUT
+          mkdir -p $PWD/data
+          chmod -R a+w $PWD/data
+          echo "mithril_client=docker run --rm -e NETWORK=$NETWORK -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e ANCILLARY_VERIFICATION_KEY=$ANCILLARY_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT -e GITHUB_TOKEN=$GITHUB_TOKEN --name='mithril-client' -v $PWD/data:/app/data ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID"  >> $GITHUB_OUTPUT
 
       - name: Show client version
         shell: bash
@@ -318,29 +322,17 @@ jobs:
           echo "CDB_SNAPSHOT_DIGEST=$(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --json | jq -r '.[0].digest')" >> $GITHUB_ENV
 
       - name: Cardano Database Snapshot / download & restore latest
-        if: matrix.extra_args != '--include-ancillary'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST --download-dir /app ${{ matrix.extra_args }}
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST --download-dir /app/data ${{ matrix.extra_args }}
 
-      - name: Cardano Database Snapshot / download & restore latest and run conversion from InMemory to LMDB
+      - name: Ledger state snapshot conversion from InMemory to LMDB
         if: matrix.extra_args == '--include-ancillary'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
-        run: |
-          docker run --rm \
-            --entrypoint bash \
-            -e NETWORK=$NETWORK \
-            -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY \
-            -e ANCILLARY_VERIFICATION_KEY=$ANCILLARY_VERIFICATION_KEY \
-            -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT \
-            -e GITHUB_TOKEN=$GITHUB_TOKEN \
-            --name='mithril-client' \
-            ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID \
-            -c "
-              /app/bin/mithril-client --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST --download-dir /app --include-ancillary &&
-              /app/bin/mithril-client --unstable tools utxo-hd snapshot-converter --db-directory /app/db --cardano-node-version latest --utxo-hd-flavor LMDB --commit
-            "
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }}  --unstable tools utxo-hd snapshot-converter --db-directory /app/data/db --cardano-node-version latest --utxo-hd-flavor LMDB --commit
+
+      - name: Remove downloaded artifacts to free up disk space
+        shell: bash
+        run: sudo rm -rf $PWD/data/db/
 
       - name: Mithril Stake Distribution / list and get last hash
         shell: bash
@@ -350,7 +342,7 @@ jobs:
 
       - name: Mithril Stake Distribution / download & restore latest
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }}  ${{ steps.prepare.outputs.debug_level }} --origin-tag CI mithril-stake-distribution download $MITHRIL_STAKE_DISTRIBUTION_HASH --download-dir /app
+        run: ${{ steps.command.outputs.mithril_client }}  ${{ steps.prepare.outputs.debug_level }} --origin-tag CI mithril-stake-distribution download $MITHRIL_STAKE_DISTRIBUTION_HASH --download-dir /app/data
 
       - name: Cardano transaction / list and get last snapshot
         if: steps.aggregator_capability.outputs.cardano_transactions_enabled == 'true'
@@ -381,12 +373,12 @@ jobs:
       - name: Cardano Stake Distribution / download & restore latest by epoch
         if: steps.aggregator_capability.outputs.cardano_stake_distribution_enabled == 'true'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_EPOCH --download-dir /app
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_EPOCH --download-dir /app/data
 
       - name: Cardano Stake Distribution / download & restore latest by hash
         if: steps.aggregator_capability.outputs.cardano_stake_distribution_enabled == 'true'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_HASH --download-dir /app
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_HASH --download-dir /app/data
 
       - name: Cardano Database V2 Snapshot / list and get last digest
         if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
@@ -403,7 +395,7 @@ jobs:
       - name: Cardano Database V2 Snapshot / download & restore latest (Full restoration)
         if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI --unstable cardano-db download --backend v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH --download-dir /app ${{ matrix.extra_args }}
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI --unstable cardano-db download --backend v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH --download-dir /app/data ${{ matrix.extra_args }}
 
   test-mithril-client-wasm:
     strategy:
