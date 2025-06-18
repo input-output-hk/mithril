@@ -82,6 +82,7 @@ mithril-common = { path = "../mithril-common", features = [
     "allow_skip_signer_certification",
     "test_tools",
 ] }
+mithril-test-http-server = { path = "../internal/tests/mithril-test-http-server" }
 mockall = { workspace = true }
 slog-scope = "4.4.0"
 slog-term = { workspace = true }

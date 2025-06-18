@@ -36,6 +36,7 @@ libp2p = { version = "0.55.0", features = [
 ] }
 mithril-common = { path = "../mithril-common", features = ["full"] }
 mithril-doc = { path = "../internal/mithril-doc" }
+mithril-test-http-server = { path = "../internal/tests/mithril-test-http-server" }
 reqwest = { workspace = true, features = [
     "default",
     "gzip",

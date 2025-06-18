@@ -7,7 +7,7 @@ use mithril_client::{MessageBuilder, MithrilCertificate, Snapshot, SnapshotListI
 use mithril_common::crypto_helper::ManifestVerifierSecretKey;
 use mithril_common::entities::{CardanoDbBeacon, CompressionAlgorithm, SignedEntityType};
 use mithril_common::test_utils::fake_data;
-use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
+use mithril_test_http_server::{test_http_server, TestHttpServer};
 
 use crate::extensions::{routes, snapshot_archives};
 

@@ -3845,6 +3845,7 @@ dependencies = [
  "mithril-resource-pool",
  "mithril-signed-entity-lock",
  "mithril-signed-entity-preloader",
+ "mithril-test-http-server",
  "mithril-ticker",
  "mockall",
  "paste",
@@ -3993,6 +3994,7 @@ dependencies = [
  "httpmock",
  "mithril-cardano-node-internal-database",
  "mithril-common",
+ "mithril-test-http-server",
  "mockall",
  "reqwest",
  "semver",
@@ -4209,6 +4211,7 @@ dependencies = [
  "libp2p",
  "mithril-common",
  "mithril-doc",
+ "mithril-test-http-server",
  "reqwest",
  "serde",
  "serde_json",
@@ -4325,6 +4328,12 @@ dependencies = [
 [[package]]
 name = "mithril-test-http-server"
 version = "0.1.0"
+dependencies = [
+ "reqwest",
+ "serde",
+ "tokio",
+ "warp",
+]
 
 [[package]]
 name = "mithril-ticker"

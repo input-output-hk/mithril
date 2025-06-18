@@ -91,6 +91,7 @@ httpmock = "0.7.0"
 mithril-common = { path = "../mithril-common", version = "=0.5", default-features = false, features = [
     "test_tools",
 ] }
+mithril-test-http-server = { path = "../internal/tests/mithril-test-http-server" }
 mockall = { workspace = true }
 sha2 = "0.10.9"
 slog-async = { workspace = true }

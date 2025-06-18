@@ -1,5 +1,5 @@
 use mithril_client::{MithrilCertificate, MithrilCertificateListItem};
-use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
+use mithril_test_http_server::{test_http_server, TestHttpServer};
 
 use crate::extensions::routes;
 

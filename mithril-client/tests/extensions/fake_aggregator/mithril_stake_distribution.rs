@@ -3,7 +3,7 @@ use warp::Filter;
 use mithril_client::{
     MessageBuilder, MithrilCertificate, MithrilStakeDistribution, MithrilStakeDistributionListItem,
 };
-use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
+use mithril_test_http_server::{test_http_server, TestHttpServer};
 
 use crate::extensions::routes;
 
