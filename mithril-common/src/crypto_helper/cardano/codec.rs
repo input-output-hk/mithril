@@ -67,25 +67,17 @@ pub trait SerDeShelleyFileFormat: Serialize + DeserializeOwned {
         let file: ShelleyFileFormat = serde_json::from_str(&data)
             .with_context(|| "SerDeShelleyFileFormat can not unserialize json data")
             .map_err(|e| CodecParseError(anyhow!(e)))?;
-        let hex_vector = Vec::from_hex(file.cbor_hex)
-            .with_context(|| "SerDeShelleyFileFormat can not unserialize hex data")
-            .map_err(|e| CodecParseError(anyhow!(e)))?;
-        let mut cursor = std::io::Cursor::new(&hex_vector);
-        let a: Self = ciborium::de::from_reader(&mut cursor)
-            .with_context(|| "SerDeShelleyFileFormat can not unserialize cbor data")
-            .map_err(|e| CodecParseError(anyhow!(e)))?;
 
-        Ok(a)
+        Self::from_cbor_hex(&file.cbor_hex)
     }
 
     /// Serialize a type `T: Serialize + DeserializeOwned` to file following Cardano
     /// Shelley file format.
     fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), CodecParseError> {
-        let mut cursor = std::io::Cursor::new(Vec::new());
-        ciborium::ser::into_writer(&self, &mut cursor)
+        let cbor_string = self
+            .to_cbor_hex()
             .with_context(|| "SerDeShelleyFileFormat can not serialize data to cbor")
             .map_err(|e| CodecParseError(anyhow!(e)))?;
-        let cbor_string = hex::encode(cursor.into_inner());
 
         let file_format = ShelleyFileFormat {
             file_type: Self::TYPE.to_string(),
@@ -104,6 +96,42 @@ pub trait SerDeShelleyFileFormat: Serialize + DeserializeOwned {
             .with_context(|| "SerDeShelleyFileFormat can not write data to file")
             .map_err(|e| CodecParseError(anyhow!(e)))?;
         Ok(())
+    }
+
+    /// Serialize the structure to a CBOR bytes representation.
+    fn to_cbor_bytes(&self) -> Result<Vec<u8>, CodecParseError> {
+        let mut cursor = std::io::Cursor::new(Vec::new());
+        ciborium::ser::into_writer(&self, &mut cursor)
+            .with_context(|| "SerDeShelleyFileFormat can not serialize data to cbor")
+            .map_err(|e| CodecParseError(anyhow!(e)))?;
+
+        Ok(cursor.into_inner())
+    }
+
+    /// Serialize the structure to a CBOR hex representation.
+    fn to_cbor_hex(&self) -> Result<String, CodecParseError> {
+        Ok(hex::encode(self.to_cbor_bytes()?))
+    }
+
+    /// Deserialize a type `T: Serialize + DeserializeOwned` from CBOR bytes representation.
+    fn from_cbor_bytes(bytes: &[u8]) -> Result<Self, CodecParseError> {
+        let mut cursor = std::io::Cursor::new(&bytes);
+        let a: Self = ciborium::de::from_reader(&mut cursor)
+            .with_context(|| "SerDeShelleyFileFormat can not unserialize cbor data")
+            .map_err(|e| CodecParseError(anyhow!(e)))?;
+
+        Ok(a)
+    }
+
+    /// Deserialize a type `T: Serialize + DeserializeOwned` from CBOR hex representation.
+    fn from_cbor_hex(hex: &str) -> Result<Self, CodecParseError> {
+        let hex_vector = Vec::from_hex(hex)
+            .with_context(|| "SerDeShelleyFileFormat can not unserialize hex data")
+            .map_err(|e| CodecParseError(anyhow!(e)))?;
+
+        Self::from_cbor_bytes(&hex_vector)
+            .with_context(|| "SerDeShelleyFileFormat can not unserialize cbor data")
+            .map_err(|e| CodecParseError(anyhow!(e)))
     }
 }
 

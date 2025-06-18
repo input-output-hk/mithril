@@ -9,7 +9,7 @@ use std::{
 use anyhow::Context;
 use serde::{de::DeserializeOwned, Deserialize, Serialize, Serializer};
 
-use crate::crypto_helper::{key_decode_hex, key_encode_hex};
+use crate::crypto_helper::{key_decode_hex, key_encode_hex, TryFromBytes, TryToBytes};
 use crate::StdResult;
 
 /// A ProtocolKey is a wrapped that add Serialization capabilities.
@@ -26,11 +26,16 @@ where
 
 /// The codec used to serialize/deserialize a [ProtocolKey].
 ///
-/// Default to json hex.
-pub trait ProtocolKeyCodec<T: Serialize + DeserializeOwned>: Sized {
+/// Encodes to json hex and decodes from json hex or bytes hex.
+pub trait ProtocolKeyCodec<T: Serialize + DeserializeOwned + TryToBytes + TryFromBytes>:
+    Sized
+{
     /// Do the decoding of the given key
     fn decode_key(encoded: &str) -> StdResult<ProtocolKey<T>> {
-        ProtocolKey::from_json_hex(encoded)
+        match ProtocolKey::from_json_hex(encoded) {
+            Ok(res) => Ok(res),
+            Err(_) => ProtocolKey::from_bytes_hex(encoded),
+        }
     }
 
     /// Do the encoding of the given key
@@ -41,7 +46,7 @@ pub trait ProtocolKeyCodec<T: Serialize + DeserializeOwned>: Sized {
 
 impl<T> ProtocolKey<T>
 where
-    T: Serialize + DeserializeOwned,
+    T: Serialize + DeserializeOwned + TryToBytes + TryFromBytes,
 {
     /// Create a ProtocolKey from the given key
     pub fn new(key: T) -> Self {
@@ -60,7 +65,7 @@ where
         Ok(Self { key })
     }
 
-    /// Create a JSON hash representation of the key
+    /// Create a JSON hex representation of the key
     pub fn to_json_hex(&self) -> StdResult<String> {
         Self::key_to_json_hex(&self.key)
     }
@@ -90,6 +95,40 @@ where
 
         Self::from_json_hex(&key_bytes)
     }
+
+    /// Create an instance from bytes
+    pub fn from_bytes(bytes: &[u8]) -> StdResult<Self> {
+        let key = T::try_from_bytes(bytes).with_context(|| {
+            format!(
+                "Could not deserialize a ProtocolKey from bytes. Inner key type: {}",
+                type_name::<T>()
+            )
+        })?;
+
+        Ok(Self { key })
+    }
+
+    /// Create an instance from a bytes hex representation
+    pub fn from_bytes_hex(hex_string: &str) -> StdResult<Self> {
+        let key = T::try_from_bytes_hex(hex_string).with_context(|| {
+            format!(
+                "Could not deserialize a ProtocolKey from bytes hex string. Inner key type: {}",
+                type_name::<T>()
+            )
+        })?;
+
+        Ok(Self { key })
+    }
+
+    /// Create a bytes hex representation of the key
+    pub fn to_bytes_hex(&self) -> StdResult<String> {
+        Self::key_to_bytes_hex(&self.key)
+    }
+
+    /// Create a bytes hex representation of the given key
+    pub fn key_to_bytes_hex(key: &T) -> StdResult<String> {
+        key.to_bytes_hex()
+    }
 }
 
 impl<T> Deref for ProtocolKey<T>
@@ -107,7 +146,7 @@ impl<T> Copy for ProtocolKey<T> where T: Copy + Serialize + DeserializeOwned {}
 
 impl<T> Serialize for ProtocolKey<T>
 where
-    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned,
+    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned + TryToBytes + TryFromBytes,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -122,7 +161,7 @@ where
 
 impl<'de, T> Deserialize<'de> for ProtocolKey<T>
 where
-    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned,
+    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned + TryToBytes + TryFromBytes,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -137,7 +176,7 @@ where
 
 impl<T> TryFrom<String> for ProtocolKey<T>
 where
-    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned,
+    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned + TryToBytes + TryFromBytes,
 {
     type Error = anyhow::Error;
 
@@ -148,7 +187,7 @@ where
 
 impl<T> TryFrom<&str> for ProtocolKey<T>
 where
-    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned,
+    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned + TryToBytes + TryFromBytes,
 {
     type Error = anyhow::Error;
 
@@ -159,7 +198,7 @@ where
 
 impl<T> TryFrom<ProtocolKey<T>> for String
 where
-    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned,
+    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned + TryToBytes + TryFromBytes,
 {
     type Error = anyhow::Error;
 
@@ -170,7 +209,7 @@ where
 
 impl<T> TryFrom<&ProtocolKey<T>> for String
 where
-    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned,
+    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned + TryToBytes + TryFromBytes,
 {
     type Error = anyhow::Error;
 
@@ -185,6 +224,34 @@ macro_rules! impl_codec_and_type_conversions_for_protocol_key {
     (json_hex_codec => $($key_type:ty),+) => {
         $(
             impl crate::crypto_helper::ProtocolKeyCodec<$key_type> for $key_type {}
+
+            impl From<ProtocolKey<$key_type >> for $key_type {
+                fn from(value: ProtocolKey<$key_type>) -> Self {
+                    value.key
+                }
+            }
+
+            impl From<$key_type> for ProtocolKey<$key_type> {
+                fn from(value: $key_type) -> Self {
+                    Self::new(value)
+                }
+            }
+        )*
+    };
+    (bytes_hex_codec => $($key_type:ty),+) => {
+        $(
+            impl crate::crypto_helper::ProtocolKeyCodec<$key_type> for $key_type {
+                fn decode_key(encoded: &str) -> crate::StdResult<ProtocolKey<$key_type>> {
+                    match ProtocolKey::from_bytes_hex(encoded) {
+                        Ok(res) => Ok(res),
+                        Err(_) => ProtocolKey::from_json_hex(encoded),
+                    }
+                }
+
+                fn encode_key(key: &$key_type) -> crate::StdResult<String> {
+                    ProtocolKey::key_to_bytes_hex(key)
+                }
+            }
 
             impl From<ProtocolKey<$key_type >> for $key_type {
                 fn from(value: ProtocolKey<$key_type>) -> Self {
@@ -225,7 +292,7 @@ mod test {
     use mithril_stm::StmVerificationKeyPoP;
     use serde::{Deserialize, Serialize};
 
-    static VERIFICATION_KEY: &str = fake_keys::signer_verification_key()[0];
+    static VERIFICATION_KEY_JSON_HEX: &str = fake_keys::signer_verification_key()[0];
 
     #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
     struct Container {
@@ -234,17 +301,17 @@ mod test {
 
     #[test]
     fn serializing_directly_does_not_change_the_string() {
-        let key: ProtocolKey<StmVerificationKeyPoP> = VERIFICATION_KEY.try_into().unwrap();
+        let key: ProtocolKey<StmVerificationKeyPoP> = VERIFICATION_KEY_JSON_HEX.try_into().unwrap();
         let serialized = serde_json::to_string(&key).expect("Serialization should not fail");
 
         // Note: in json strings are enclosed in quotes
-        assert_eq!(format!("\"{VERIFICATION_KEY}\""), serialized);
+        assert_eq!(format!("\"{VERIFICATION_KEY_JSON_HEX}\""), serialized);
     }
 
     #[test]
     fn serialize_deserialize_are_the_same_object() {
         let container = Container {
-            protocol_key: VERIFICATION_KEY.try_into().unwrap(),
+            protocol_key: VERIFICATION_KEY_JSON_HEX.try_into().unwrap(),
         };
         let serialized = serde_json::to_string(&container).expect("Serialization should not fail");
         let deserialized: Container = serde_json::from_str(&serialized).unwrap();
@@ -255,20 +322,38 @@ mod test {
     #[test]
     fn can_serialize_a_struct_containing_a_verification_key() {
         let container = Container {
-            protocol_key: VERIFICATION_KEY.try_into().unwrap(),
+            protocol_key: VERIFICATION_KEY_JSON_HEX.try_into().unwrap(),
         };
-        let expected = format!(r#"{{"protocol_key":"{VERIFICATION_KEY}"}}"#);
+        let expected = format!(r#"{{"protocol_key":"{VERIFICATION_KEY_JSON_HEX}"}}"#);
 
         let serialized = serde_json::to_string(&container).expect("Serialization should not fail");
         assert_eq!(expected, serialized);
     }
 
     #[test]
-    fn can_deserialize_a_struct_containing_a_verification_key() {
+    fn can_deserialize_a_struct_containing_a_json_hex_verification_key() {
         let expected = Container {
-            protocol_key: VERIFICATION_KEY.try_into().unwrap(),
+            protocol_key: VERIFICATION_KEY_JSON_HEX.try_into().unwrap(),
         };
-        let serialized = format!(r#"{{"protocol_key":"{VERIFICATION_KEY}"}}"#);
+        let serialized = format!(r#"{{"protocol_key":"{VERIFICATION_KEY_JSON_HEX}"}}"#);
+
+        let deserialized: Container =
+            serde_json::from_str(&serialized).expect("Deserialization should not fail");
+        assert_eq!(expected, deserialized);
+    }
+
+    #[test]
+    fn can_deserialize_a_struct_containing_a_bytes_hex_verification_key() {
+        let verification_key: ProtocolKey<StmVerificationKeyPoP> = VERIFICATION_KEY_JSON_HEX
+            .try_into()
+            .expect("Failed to convert verification key");
+        let verification_key_bytes_hex = verification_key
+            .to_bytes_hex()
+            .expect("Failed to convert verification key to bytes hex");
+        let expected = Container {
+            protocol_key: verification_key,
+        };
+        let serialized = format!(r#"{{"protocol_key":"{verification_key_bytes_hex}"}}"#);
 
         let deserialized: Container =
             serde_json::from_str(&serialized).expect("Deserialization should not fail");
@@ -277,7 +362,8 @@ mod test {
 
     #[test]
     fn can_read_and_write_to_file_a_verification_key() {
-        let expected_key: ProtocolKey<StmVerificationKeyPoP> = VERIFICATION_KEY.try_into().unwrap();
+        let expected_key: ProtocolKey<StmVerificationKeyPoP> =
+            VERIFICATION_KEY_JSON_HEX.try_into().unwrap();
         let key_path = TempDir::create(
             "protocol_key",
             "can_read_and_write_to_file_a_verification_key",

@@ -13,6 +13,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for loose enforcement of OpenAPI compatibility: a warning is displayed when a call to an aggregator may be incompatible.
 
+- Support for binary hex codec in the protocol keys and signatures.
+
 - Crates versions:
 
 | Crate | Version |

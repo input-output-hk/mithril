@@ -398,7 +398,7 @@ mod test {
 
     use crate::crypto_helper::{
         key_decode_hex, ManifestSignature, OpCert, ProtocolGenesisSignature, ProtocolKey,
-        ProtocolKeyCodec, D,
+        ProtocolKeyCodec, TryFromBytes, TryToBytes, D,
     };
 
     fn assert_decode_all<T: Fn(&str) -> Result<(), String>>(encoded_types: &[&str], decode_fun: T) {
@@ -436,7 +436,9 @@ mod test {
         })
     }
 
-    fn assert_can_convert_to_protocol_key<T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned>(
+    fn assert_can_convert_to_protocol_key<
+        T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned + TryToBytes + TryFromBytes,
+    >(
         encoded_types: &[&str],
     ) {
         assert_decode_all(
