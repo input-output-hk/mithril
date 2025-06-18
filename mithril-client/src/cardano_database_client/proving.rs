@@ -48,16 +48,15 @@ impl InternalArtifactProver {
         immutable_file_range: &ImmutableFileRange,
         database_dir: &Path,
     ) -> MithrilResult<MKProof> {
-        self.download_unpack_digest_file(
-            &cardano_database_snapshot.digests,
-            &Self::digest_target_dir(database_dir),
-        )
-        .await?;
+        let digest_target_dir = Self::digest_target_dir();
+        delete_directory(&digest_target_dir)?;
+        self.download_unpack_digest_file(&cardano_database_snapshot.digests, &digest_target_dir)
+            .await?;
         let network = certificate.metadata.network.clone();
         let last_immutable_file_number = cardano_database_snapshot.beacon.immutable_file_number;
         let immutable_file_number_range =
             immutable_file_range.to_range_inclusive(last_immutable_file_number)?;
-        let downloaded_digests = self.read_digest_file(&Self::digest_target_dir(database_dir))?;
+        let downloaded_digests = self.read_digest_file(&digest_target_dir)?;
         let downloaded_digests_values = downloaded_digests
             .into_iter()
             .filter(|(immutable_file_name, _)| {
@@ -77,7 +76,7 @@ impl InternalArtifactProver {
             .values()
             .map(MKTreeNode::from)
             .collect::<Vec<_>>();
-        delete_directory(&Self::digest_target_dir(database_dir))?;
+        delete_directory(&digest_target_dir)?;
 
         merkle_tree.compute_proof(&computed_digests)
     }
@@ -161,8 +160,8 @@ impl InternalArtifactProver {
         Ok(digest_map)
     }
 
-    fn digest_target_dir(target_dir: &Path) -> PathBuf {
-        target_dir.join("digest")
+    fn digest_target_dir() -> PathBuf {
+        std::env::temp_dir().join("mithril_digest")
     }
 }
 
@@ -192,11 +191,16 @@ mod tests {
 
         use std::ops::RangeInclusive;
 
-        use mithril_common::{entities::ImmutableFileNumber, messages::DigestsMessagePart};
+        use mithril_common::{
+            digesters::{ComputedImmutablesDigests, IMMUTABLE_DIR},
+            entities::ImmutableFileNumber,
+            messages::DigestsMessagePart,
+            StdResult,
+        };
 
         use super::*;
 
-        async fn create_fake_digest_artifact(
+        async fn prepare_fake_digests(
             dir_name: &str,
             beacon: &CardanoDbBeacon,
             immutable_file_range: &RangeInclusive<ImmutableFileNumber>,
@@ -206,6 +210,7 @@ mod tests {
             CardanoDatabaseSnapshotMessage,
             CertificateMessage,
             MKTree<MKTreeStoreInMemory>,
+            ComputedImmutablesDigests,
         ) {
             let cardano_database_snapshot = CardanoDatabaseSnapshotMessage {
                 hash: "hash-123".to_string(),
@@ -237,8 +242,6 @@ mod tests {
                 .compute_digests_for_range(database_dir, immutable_file_range)
                 .await
                 .unwrap();
-            write_digest_file(&database_dir.join("digest"), &computed_digests.entries).await;
-
             // We remove the last digests_offset digests to simulate receiving
             // a digest file with more immutable files than downloaded
             for (immutable_file, _digest) in
@@ -247,7 +250,7 @@ mod tests {
                 fs::remove_file(
                     database_dir.join(
                         database_dir
-                            .join("immutable")
+                            .join(IMMUTABLE_DIR)
                             .join(immutable_file.filename.clone()),
                     ),
                 )
@@ -264,13 +267,14 @@ mod tests {
                 cardano_database_snapshot,
                 certificate,
                 merkle_tree,
+                computed_digests,
             )
         }
 
-        async fn write_digest_file(
+        fn write_digest_file(
             digest_dir: &Path,
             digests: &BTreeMap<ImmutableFile, HexEncodedDigest>,
-        ) {
+        ) -> StdResult<()> {
             let digest_file_path = digest_dir.join("digests.json");
             if !digest_dir.exists() {
                 fs::create_dir_all(digest_dir).unwrap();
@@ -288,8 +292,9 @@ mod tests {
             serde_json::to_writer(
                 fs::File::create(digest_file_path).unwrap(),
                 &immutable_digest_messages,
-            )
-            .unwrap();
+            )?;
+
+            Ok(())
         }
 
         #[tokio::test]
@@ -301,8 +306,8 @@ mod tests {
             let immutable_file_range = 1..=15;
             let immutable_file_range_to_prove = ImmutableFileRange::Range(2, 4);
             let digests_offset = 3;
-            let (database_dir, cardano_database_snapshot, certificate, merkle_tree) =
-                create_fake_digest_artifact(
+            let (database_dir, cardano_database_snapshot, certificate, merkle_tree, digests) =
+                prepare_fake_digests(
                     "compute_merkle_proof_succeeds",
                     &beacon,
                     &immutable_file_range,
@@ -314,9 +319,15 @@ mod tests {
                 .with_http_file_downloader(Arc::new(
                     MockFileDownloaderBuilder::default()
                         .with_file_uri("http://whatever/digests.json")
-                        .with_target_dir(database_dir.join("digest"))
+                        .with_target_dir(InternalArtifactProver::digest_target_dir())
                         .with_compression(None)
-                        .with_success()
+                        .with_returning(Box::new(move |_, _, _, _, _| {
+                            let digests = digests.entries.clone();
+                            let digest_dir = InternalArtifactProver::digest_target_dir();
+                            write_digest_file(digest_dir.as_path(), &digests)?;
+
+                            Ok(())
+                        }))
                         .build(),
                 ))
                 .build_cardano_database_client();

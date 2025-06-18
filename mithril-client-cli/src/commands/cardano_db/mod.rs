@@ -1,11 +1,14 @@
 //! Commands for the Cardano db artifact
 mod download;
 mod list;
+mod shared_steps;
 mod show;
+mod verify;
 
 pub use download::*;
 pub use list::*;
 pub use show::*;
+pub use verify::*;
 
 use crate::CommandContext;
 use clap::{Subcommand, ValueEnum};
@@ -39,6 +42,10 @@ pub enum CardanoDbCommands {
     /// Download a Cardano db snapshot and verify its associated certificate
     #[clap(arg_required_else_help = true)]
     Download(CardanoDbDownloadCommand),
+
+    /// Verify a Cardano database content
+    #[clap(arg_required_else_help = true)]
+    Verify(CardanoDbVerifyCommand),
 }
 
 /// Cardano db snapshots
@@ -59,6 +66,7 @@ impl CardanoDbCommands {
         match self {
             Self::Download(cmd) => cmd.execute(config_builder).await,
             Self::Snapshot(cmd) => cmd.execute(config_builder).await,
+            Self::Verify(cmd) => cmd.execute(config_builder).await,
         }
     }
 }

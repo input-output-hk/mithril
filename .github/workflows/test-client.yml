@@ -261,6 +261,12 @@ jobs:
         working-directory: ./bin
         run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --unstable --origin-tag CI cardano-db download --backend v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH ${{ matrix.extra_args }} 2>&1 | tee cdb-v2-download-output.txt
 
+      - name: Cardano Database V2 Snapshot / verify immutables
+        if: steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_database_v2_enabled == 'true'
+        shell: bash
+        working-directory: ./bin
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --unstable --origin-tag CI cardano-db verify --backend v2 --db-dir db_v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH | tee cdb-v2-verify-output.txt
+
       - name: Cardano Database V2 Snapshot / verify Cardano node starts successfully
         if: runner.os == 'Linux' && steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
@@ -396,6 +402,11 @@ jobs:
         if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
         run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI --unstable cardano-db download --backend v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH --download-dir /app/data ${{ matrix.extra_args }}
+
+      - name: Cardano Database V2 Snapshot / verify immutables
+        if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
+        shell: bash
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI --unstable cardano-db verify --backend v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH --db-dir /app/data/db_v2
 
   test-mithril-client-wasm:
     strategy:

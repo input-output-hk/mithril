@@ -11,6 +11,9 @@ use mithril_common::{
     messages::{CardanoDatabaseSnapshotMessage, CertificateMessage},
 };
 
+#[cfg(feature = "fs")]
+use mithril_common::digesters::ImmutableFile;
+
 use crate::aggregator_client::AggregatorClient;
 #[cfg(feature = "fs")]
 use crate::feedback::FeedbackSender;
@@ -114,6 +117,13 @@ impl CardanoDatabaseClient {
                 database_dir,
             )
             .await
+    }
+
+    /// Checks if immutable directory exists with at least one immutable in it
+    #[cfg(feature = "fs")]
+    pub fn check_has_immutables(&self, database_dir: &Path) -> MithrilResult<()> {
+        ImmutableFile::at_least_one_immutable_files_exist_in_dir(database_dir)?;
+        Ok(())
     }
 
     /// Increments the aggregator Cardano database snapshot download statistics

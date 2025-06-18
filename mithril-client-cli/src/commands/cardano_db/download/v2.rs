@@ -1,5 +1,5 @@
-use anyhow::{anyhow, Context};
-use slog::{debug, warn, Logger};
+use anyhow::Context;
+use slog::{warn, Logger};
 use std::{
     fs::File,
     path::{Path, PathBuf},
@@ -8,20 +8,18 @@ use std::{
 
 use mithril_client::{
     cardano_database_client::{CardanoDatabaseClient, DownloadUnpackOptions, ImmutableFileRange},
-    common::{ImmutableFileNumber, MKProof, ProtocolMessage},
-    CardanoDatabaseSnapshot, Client, MessageBuilder, MithrilCertificate, MithrilResult,
+    common::ImmutableFileNumber,
+    CardanoDatabaseSnapshot, MithrilResult,
 };
 
 use crate::{
-    commands::{client_builder, SharedArgs},
+    commands::{cardano_db::shared_steps, client_builder, SharedArgs},
     configuration::ConfigParameters,
     utils::{
         CardanoDbDownloadChecker, CardanoDbUtils, ExpanderUtils, IndicatifFeedbackReceiver,
         ProgressOutputType, ProgressPrinter,
     },
 };
-
-use super::shared_steps;
 
 const DISK_SPACE_SAFETY_MARGIN_RATIO: f64 = 0.1;
 
@@ -48,7 +46,7 @@ impl PreparedCardanoDbV2Download {
     pub async fn execute(&self, logger: &Logger, params: ConfigParameters) -> MithrilResult<()> {
         let restoration_options = RestorationOptions {
             db_dir: Path::new(&self.download_dir).join("db_v2"),
-            immutable_file_range: Self::immutable_file_range(self.start, self.end),
+            immutable_file_range: shared_steps::immutable_file_range(self.start, self.end),
             download_unpack_options: DownloadUnpackOptions {
                 allow_override: self.allow_override,
                 include_ancillary: self.include_ancillary,
@@ -125,7 +123,7 @@ impl PreparedCardanoDbV2Download {
             )
         })?;
 
-        let merkle_proof = Self::compute_verify_merkle_proof(
+        let merkle_proof = shared_steps::compute_verify_merkle_proof(
             4,
             &progress_printer,
             &client,
@@ -136,7 +134,7 @@ impl PreparedCardanoDbV2Download {
         )
         .await?;
 
-        let message = Self::compute_cardano_db_snapshot_message(
+        let message = shared_steps::compute_cardano_db_snapshot_message(
             5,
             &progress_printer,
             &certificate,
@@ -144,7 +142,7 @@ impl PreparedCardanoDbV2Download {
         )
         .await?;
 
-        Self::verify_cardano_db_snapshot_signature(
+        shared_steps::verify_message_matches_certificate(
             logger,
             6,
             &progress_printer,
@@ -172,18 +170,6 @@ impl PreparedCardanoDbV2Download {
     /// Is JSON output enabled
     pub fn is_json_output_enabled(&self) -> bool {
         self.shared_args.json
-    }
-
-    fn immutable_file_range(
-        start: Option<ImmutableFileNumber>,
-        end: Option<ImmutableFileNumber>,
-    ) -> ImmutableFileRange {
-        match (start, end) {
-            (None, None) => ImmutableFileRange::Full,
-            (Some(start), None) => ImmutableFileRange::From(start),
-            (Some(start), Some(end)) => ImmutableFileRange::Range(start, end),
-            (None, Some(end)) => ImmutableFileRange::UpTo(end),
-        }
     }
 
     fn compute_total_immutables_restored_size(
@@ -303,194 +289,13 @@ impl PreparedCardanoDbV2Download {
 
         Ok(())
     }
-
-    async fn compute_verify_merkle_proof(
-        step_number: u16,
-        progress_printer: &ProgressPrinter,
-        client: &Client,
-        certificate: &MithrilCertificate,
-        cardano_database_snapshot: &CardanoDatabaseSnapshot,
-        immutable_file_range: &ImmutableFileRange,
-        unpacked_dir: &Path,
-    ) -> MithrilResult<MKProof> {
-        progress_printer.report_step(step_number, "Computing and verifying the Merkle proof…")?;
-        let merkle_proof = client
-            .cardano_database_v2()
-            .compute_merkle_proof(
-                certificate,
-                cardano_database_snapshot,
-                immutable_file_range,
-                unpacked_dir,
-            )
-            .await?;
-
-        merkle_proof
-            .verify()
-            .with_context(|| "Merkle proof verification failed")?;
-
-        Ok(merkle_proof)
-    }
-
-    async fn compute_cardano_db_snapshot_message(
-        step_number: u16,
-        progress_printer: &ProgressPrinter,
-        certificate: &MithrilCertificate,
-        merkle_proof: &MKProof,
-    ) -> MithrilResult<ProtocolMessage> {
-        progress_printer.report_step(step_number, "Computing the cardano db snapshot message")?;
-        let message = CardanoDbUtils::wait_spinner(
-            progress_printer,
-            MessageBuilder::new().compute_cardano_database_message(certificate, merkle_proof),
-        )
-        .await
-        .with_context(|| "Can not compute the cardano db snapshot message")?;
-
-        Ok(message)
-    }
-
-    async fn verify_cardano_db_snapshot_signature(
-        logger: &Logger,
-        step_number: u16,
-        progress_printer: &ProgressPrinter,
-        certificate: &MithrilCertificate,
-        message: &ProtocolMessage,
-        cardano_db_snapshot: &CardanoDatabaseSnapshot,
-        db_dir: &Path,
-    ) -> MithrilResult<()> {
-        progress_printer.report_step(step_number, "Verifying the cardano db signature…")?;
-        if !certificate.match_message(message) {
-            debug!(
-                logger,
-                "Merkle root verification failed, removing unpacked files & directory."
-            );
-
-            if let Err(error) = std::fs::remove_dir_all(db_dir) {
-                warn!(
-                    logger, "Error while removing unpacked files & directory";
-                    "error" => error.to_string()
-                );
-            }
-
-            return Err(anyhow!(
-                "Certificate verification failed (cardano db snapshot hash = '{}').",
-                cardano_db_snapshot.hash.clone()
-            ));
-        }
-
-        Ok(())
-    }
 }
 
 #[cfg(test)]
 mod tests {
-    use mithril_client::{
-        common::{
-            AncillaryMessagePart, CardanoDbBeacon, DigestsMessagePart, ImmutablesMessagePart,
-            ProtocolMessagePartKey, SignedEntityType,
-        },
-        MithrilCertificateMetadata,
-    };
-    use mithril_common::test_utils::TempDir;
+    use mithril_client::common::{AncillaryMessagePart, DigestsMessagePart, ImmutablesMessagePart};
 
     use super::*;
-
-    fn dummy_certificate() -> MithrilCertificate {
-        let mut protocol_message = ProtocolMessage::new();
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::CardanoDatabaseMerkleRoot,
-            CardanoDatabaseSnapshot::dummy().hash.to_string(),
-        );
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            "whatever".to_string(),
-        );
-        let beacon = CardanoDbBeacon::new(10, 100);
-
-        MithrilCertificate {
-            hash: "hash".to_string(),
-            previous_hash: "previous_hash".to_string(),
-            epoch: beacon.epoch,
-            signed_entity_type: SignedEntityType::CardanoDatabase(beacon),
-            metadata: MithrilCertificateMetadata::dummy(),
-            protocol_message: protocol_message.clone(),
-            signed_message: "signed_message".to_string(),
-            aggregate_verification_key: String::new(),
-            multi_signature: String::new(),
-            genesis_signature: String::new(),
-        }
-    }
-
-    #[tokio::test]
-    async fn verify_cardano_db_snapshot_signature_should_remove_db_dir_if_messages_mismatch() {
-        let progress_printer = ProgressPrinter::new(ProgressOutputType::Tty, 1);
-        let certificate = dummy_certificate();
-        let mut message = ProtocolMessage::new();
-        message.set_message_part(
-            ProtocolMessagePartKey::CardanoDatabaseMerkleRoot,
-            "merkle-root-123456".to_string(),
-        );
-        message.set_message_part(
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            "avk-123456".to_string(),
-        );
-        let cardano_db = CardanoDatabaseSnapshot::dummy();
-        let db_dir = TempDir::create(
-            "client-cli",
-            "verify_cardano_db_snapshot_signature_should_remove_db_dir_if_messages_mismatch",
-        );
-
-        let result = PreparedCardanoDbV2Download::verify_cardano_db_snapshot_signature(
-            &Logger::root(slog::Discard, slog::o!()),
-            1,
-            &progress_printer,
-            &certificate,
-            &message,
-            &cardano_db,
-            &db_dir,
-        )
-        .await;
-
-        assert!(result.is_err());
-        assert!(
-            !db_dir.exists(),
-            "The db directory should have been removed but it still exists"
-        );
-    }
-
-    #[test]
-    fn immutable_file_range_without_start_without_end_returns_variant_full() {
-        let range = PreparedCardanoDbV2Download::immutable_file_range(None, None);
-
-        assert_eq!(range, ImmutableFileRange::Full);
-    }
-
-    #[test]
-    fn immutable_file_range_with_start_without_end_returns_variant_from() {
-        let start = Some(12);
-
-        let range = PreparedCardanoDbV2Download::immutable_file_range(start, None);
-
-        assert_eq!(range, ImmutableFileRange::From(12));
-    }
-
-    #[test]
-    fn immutable_file_range_with_start_with_end_returns_variant_range() {
-        let start = Some(12);
-        let end = Some(345);
-
-        let range = PreparedCardanoDbV2Download::immutable_file_range(start, end);
-
-        assert_eq!(range, ImmutableFileRange::Range(12, 345));
-    }
-
-    #[test]
-    fn immutable_file_range_without_start_with_end_returns_variant_up_to() {
-        let end = Some(345);
-
-        let range = PreparedCardanoDbV2Download::immutable_file_range(None, end);
-
-        assert_eq!(range, ImmutableFileRange::UpTo(345));
-    }
 
     #[test]
     fn compute_required_disk_space_for_snapshot_when_full_restoration() {
