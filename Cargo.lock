@@ -4203,9 +4203,15 @@ dependencies = [
 name = "mithril-dmq-node"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "blake2 0.10.6",
+ "mithril-cardano-node-chain",
  "mithril-common",
  "pallas-network 1.0.0-alpha.2",
+ "slog",
+ "slog-async",
+ "slog-term",
+ "tokio",
 ]
 
 [[package]]
