@@ -1,5 +1,6 @@
 [package]
 name = "mithril-dmq-node"
+description = "Mechanisms to publish and consume messages of a 'Decentralized Message Queue network' through a DMQ node"
 version = "0.1.0"
 authors.workspace = true
 documentation.workspace = true
@@ -13,6 +14,15 @@ include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
+anyhow = { workspace = true }
 blake2 = "0.10.6"
+mithril-cardano-node-chain = { path = "../cardano-node/mithril-cardano-node-chain" }
 mithril-common = { path = "../../mithril-common" }
-pallas-network = { git = "https://github.com/txpipe/pallas.git", branch = "main", optional = true }
+pallas-network = { git = "https://github.com/txpipe/pallas.git", branch = "main" }
+slog = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+mithril-common = { path = "../../mithril-common", features = ["test_tools"] }
+slog-async = { workspace = true }
+slog-term = { workspace = true }
