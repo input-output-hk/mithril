@@ -13,6 +13,7 @@ members = [
     "internal/cardano-node/mithril-cardano-node-internal-database",
     "internal/mithril-build-script",
     "internal/mithril-cli-helper",
+    "internal/mithril-dmq-node",
     "internal/mithril-doc",
     "internal/mithril-doc-derive",
     "internal/mithril-era",
