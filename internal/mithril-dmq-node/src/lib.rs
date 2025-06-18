@@ -2,6 +2,7 @@
 //! This crate provides mechanisms to publish and consume messages of a Decentralized Message Queue network through a DMQ node.
 
 mod message;
+pub mod test;
 
 pub use message::DmqMessageBuilder;
 
