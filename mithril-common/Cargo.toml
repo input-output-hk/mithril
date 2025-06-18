@@ -37,9 +37,8 @@ num-integer-backend = ["mithril-stm/num-integer-backend"]
 # Disable signer certification, to be used only for tests
 allow_skip_signer_certification = []
 # Enable all tests tools
-test_tools = ["apispec", "test_http_server"]
-# Enable tools to help validate conformity to an OpenAPI specification
-apispec = ["dep:glob", "dep:jsonschema", "dep:serde_yaml", "dep:reqwest", "dep:warp"]
+test_tools = ["test_http_server"]
+apispec = [] # deprecated, will be removed soon
 test_http_server = ["dep:warp"]
 
 [dependencies]
@@ -54,9 +53,7 @@ ckb-merkle-mountain-range = "0.6.1"
 digest = { workspace = true }
 ed25519-dalek = { version = "2.1.1", features = ["rand_core", "serde"] }
 fixed = "1.29.0"
-glob = { version = "0.3.2", optional = true }
 hex = { workspace = true }
-jsonschema = { version = "0.30.0", optional = true }
 kes-summed-ed25519 = { version = "0.2.1", features = [
     "serde_enabled",
     "sk_clone_enabled",
@@ -68,13 +65,11 @@ nom = "8.0.0"
 rand_chacha = { workspace = true }
 rand_core = { workspace = true }
 rayon = { workspace = true }
-reqwest = { workspace = true, optional = true }
 semver = { workspace = true }
 serde = { workspace = true }
 serde_bytes = "0.11.17"
 serde_json = { workspace = true }
 serde_with = "3.12.0"
-serde_yaml = { version = "0.9.34", optional = true }
 sha2 = "0.10.9"
 slog = { workspace = true }
 strum = { workspace = true }
