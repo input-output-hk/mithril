@@ -4155,7 +4155,6 @@ dependencies = [
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
  "rayon",
- "reqwest",
  "semver",
  "serde",
  "serde_bytes",
@@ -4170,7 +4169,6 @@ dependencies = [
  "tokio",
  "typetag",
  "walkdir",
- "warp",
  "wasm-bindgen",
 ]
 
@@ -4297,7 +4295,6 @@ version = "0.0.5"
 dependencies = [
  "anyhow",
  "mithril-common",
- "mockall",
  "thiserror 2.0.12",
  "tokio",
 ]

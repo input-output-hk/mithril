@@ -19,5 +19,4 @@ tokio = { workspace = true }
 
 [dev-dependencies]
 mithril-common = { path = "../../mithril-common", features = ["test_tools"] }
-mockall = { workspace = true }
 tokio = { workspace = true, features = ["macros", "time"] }
