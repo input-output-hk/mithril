@@ -1,17 +1,17 @@
 ---
-title: Introducing the UTXO snapshot converter command in the Mithril client CLI
+title: UTXO-HD ledger state snapshot converter command in client CLI
 authors:
   - name: Mithril Team
 tags: [mithril client, cli, command, utxo-hd, conversion]
 ---
 
-### Introducing the UTXO snapshot converter command in the Mithril client CLI
+### Introducing the UTXO-HD ledger state snapshot converter command in the Mithril client CLI
 
 With the release of the new [2524](https://github.com/input-output-hk/mithril/releases/tag/2524.0) distribution, the **tools** command has been added to the **Mithril client CLI**.
 
 Since the release of Cardano node [v.10.4.1](https://github.com/IntersectMBO/cardano-node/releases/tag/10.4.1), the Mithril aggregator node has been producing snapshots of the Cardano database using the `InMemory` UTXO-HD flavor.
 
-When restoring a Cardano database snapshot, if the Cardano node is configured to use the on-disk (LMDB) or `Legacy` format (as in Cardano node v.10.3 and earlier), the snapshot must be converted before restarting the node.
+When restoring a Cardano database snapshot, if the Cardano node is configured to use the on-disk (LMDB) or `Legacy` format (as in Cardano node v.10.3 and earlier), the ledger state snapshot must be converted before restarting the node.
 
 The new `utxo-hd snapshot-converter` subcommand simplifies node bootstrapping by converting the restored ledger state snapshot into the required format (`LMDB` or `Legacy`).
 
