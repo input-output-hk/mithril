@@ -23,6 +23,7 @@ members = [
     "internal/signed-entity/mithril-signed-entity-lock",
     "internal/signed-entity/mithril-signed-entity-preloader",
     "internal/tests/mithril-api-spec",
+    "internal/tests/mithril-test-http-server",
     "mithril-aggregator",
     "mithril-client",
     "mithril-client-cli",

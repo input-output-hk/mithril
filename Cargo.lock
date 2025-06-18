@@ -4323,6 +4323,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "mithril-test-http-server"
+version = "0.1.0"
+
+[[package]]
 name = "mithril-ticker"
 version = "0.1.2"
 dependencies = [
