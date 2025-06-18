@@ -1,39 +1,49 @@
-use super::middleware::with_calls_middleware;
-use crate::extensions::fake_aggregator::{FakeAggregator, FakeAggregatorCalls};
-use warp::Filter;
+use axum::extract::{Path, State};
+use axum::routing::get;
+use axum::{Json, Router};
+
+use mithril_common::messages::{
+    MithrilStakeDistributionListItemMessage, MithrilStakeDistributionMessage,
+};
+
+#[derive(Debug, Clone)]
+struct MithrilStakeDistributionRoutesState {
+    mithril_stake_distribution_list: Vec<MithrilStakeDistributionListItemMessage>,
+    mithril_stake_distribution: MithrilStakeDistributionMessage,
+}
 
 pub fn routes(
-    calls: FakeAggregatorCalls,
-    stake_distributions_returned_value: String,
-    stake_distribution_by_id_returned_value: String,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    mithril_stake_distributions(calls.clone(), stake_distributions_returned_value).or(
-        mithril_stake_distribution_by_id(calls, stake_distribution_by_id_returned_value),
-    )
+    mithril_stake_distribution_list: Vec<MithrilStakeDistributionListItemMessage>,
+    mithril_stake_distribution: MithrilStakeDistributionMessage,
+) -> Router {
+    let state = MithrilStakeDistributionRoutesState {
+        mithril_stake_distribution_list,
+        mithril_stake_distribution,
+    };
+
+    Router::new()
+        .route(
+            "/artifact/mithril-stake-distributions",
+            get(mithril_stake_distributions),
+        )
+        .route(
+            "/artifact/mithril-stake-distribution/{hash}",
+            get(mithril_stake_distribution_by_hash),
+        )
+        .with_state(state)
 }
 
 /// Route: /artifact/mithril-stake-distributions
-fn mithril_stake_distributions(
-    calls: FakeAggregatorCalls,
-    returned_value: String,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    warp::path!("artifact" / "mithril-stake-distributions")
-        .and(warp::path::full().map(move |p| p))
-        .and(with_calls_middleware(calls.clone()))
-        .and_then(move |fullpath, calls| {
-            FakeAggregator::store_call_and_return_value(fullpath, calls, returned_value.clone())
-        })
+async fn mithril_stake_distributions(
+    state: State<MithrilStakeDistributionRoutesState>,
+) -> Json<Vec<MithrilStakeDistributionListItemMessage>> {
+    Json(state.mithril_stake_distribution_list.clone())
 }
 
-/// Route: /artifact/mithril-stake-distribution/:id
-fn mithril_stake_distribution_by_id(
-    calls: FakeAggregatorCalls,
-    returned_value: String,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    warp::path!("artifact" / "mithril-stake-distribution" / String)
-        .and(warp::path::full().map(move |p| p))
-        .and(with_calls_middleware(calls.clone()))
-        .and_then(move |_param, fullpath, calls| {
-            FakeAggregator::store_call_and_return_value(fullpath, calls, returned_value.clone())
-        })
+/// Route: /artifact/mithril-stake-distribution/{hash}
+async fn mithril_stake_distribution_by_hash(
+    Path(_hash): Path<String>,
+    state: State<MithrilStakeDistributionRoutesState>,
+) -> Json<MithrilStakeDistributionMessage> {
+    Json(state.mithril_stake_distribution.clone())
 }

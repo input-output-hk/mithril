@@ -1,7 +1,8 @@
 use std::ops::RangeInclusive;
 use std::path::Path;
-use std::sync::{Arc, RwLock};
-use warp::Filter;
+use std::sync::Arc;
+
+use tokio::sync::RwLock;
 
 use mithril_cardano_node_internal_database::digesters::{
     CardanoImmutableDigester, ImmutableDigester,
@@ -17,7 +18,6 @@ use mithril_client::{
 };
 use mithril_common::crypto_helper::ManifestVerifierSecretKey;
 use mithril_common::test_utils::fake_data;
-use mithril_test_http_server::{test_http_server, TestHttpServer};
 
 use crate::extensions::{routes, snapshot_archives};
 
@@ -32,12 +32,11 @@ pub struct CardanoDatabaseSnapshotV2Fixture<'a> {
 
 impl FakeAggregator {
     pub async fn spawn_with_cardano_db_snapshot(
-        &self,
         fixture: CardanoDatabaseSnapshotV2Fixture<'_>,
         cardano_db: &DummyCardanoDb,
         work_dir: &Path,
         digester: CardanoImmutableDigester,
-    ) -> TestHttpServer {
+    ) -> Self {
         let beacon = CardanoDbBeacon {
             immutable_file_number: cardano_db.last_immutable_number().unwrap(),
             ..fake_data::beacon()
@@ -51,7 +50,7 @@ impl FakeAggregator {
         }));
         let cardano_db_snapshot_clone = cardano_db_snapshot.clone();
 
-        let cardano_db_snapshot_list_json = serde_json::to_string(&vec![
+        let cardano_db_snapshot_list = vec![
             CardanoDatabaseSnapshotListItem {
                 hash: fixture.snapshot_hash.to_string(),
                 certificate_hash: fixture.certificate_hash.to_string(),
@@ -59,8 +58,7 @@ impl FakeAggregator {
                 ..CardanoDatabaseSnapshotListItem::dummy()
             },
             CardanoDatabaseSnapshotListItem::dummy(),
-        ])
-        .unwrap();
+        ];
 
         let certificate = {
             let mut cert = MithrilCertificate::dummy();
@@ -78,18 +76,6 @@ impl FakeAggregator {
 
             cert
         };
-        let certificate_json = serde_json::to_string(&certificate).unwrap();
-
-        let routes = routes::cardano_db_snapshot::routes(
-            cardano_db_snapshot_list_json,
-            cardano_db_snapshot_clone,
-        )
-        .or(routes::certificate::routes(
-            self.calls.clone(),
-            None,
-            certificate_json,
-        ))
-        .or(routes::statistics::routes(self.calls.clone()));
 
         let computed_immutables_digests = digester
             .compute_digests_for_range(cardano_db.get_immutable_dir(), &fixture.range)
@@ -104,37 +90,43 @@ impl FakeAggregator {
             )
             .await;
 
-        let routes = routes.or(routes::cardano_db_snapshot::download_immutables_archive(
-            self.calls.clone(),
-            cardano_db_snapshot_archives_path,
-        ));
-        let server = test_http_server(routes);
+        let routes = routes::cardano_db_snapshot::routes(
+            cardano_db_snapshot_list,
+            cardano_db_snapshot_clone,
+            &cardano_db_snapshot_archives_path,
+        )
+        .merge(routes::certificate::routes(Vec::new(), certificate))
+        .merge(routes::statistics::routes());
 
-        Self::update_cardano_db_snapshot_locations(&server.url(), cardano_db_snapshot);
+        let fake_aggregator = Self::spawn_test_server_on_random_port(routes);
+        fake_aggregator
+            .update_cardano_db_snapshot_locations(cardano_db_snapshot)
+            .await;
 
-        server
+        fake_aggregator
     }
 
-    fn update_cardano_db_snapshot_locations(
-        aggregator_url: &str,
+    async fn update_cardano_db_snapshot_locations(
+        &self,
         cardano_db_snapshot: Arc<RwLock<CardanoDatabaseSnapshot>>,
     ) {
+        let base_url = self.server_url("/cardano-database-download");
         let immutables_locations = vec![ImmutablesLocation::CloudStorage {
             uri: MultiFilesUri::Template(TemplateUri(format!(
-                "{aggregator_url}/cardano-database-download/{{immutable_file_number}}.tar.zst"
+                "{base_url}/{{immutable_file_number}}.tar.zst"
             ))),
             compression_algorithm: Some(CompressionAlgorithm::Zstandard),
         }];
         let ancillary_locations = vec![AncillaryLocation::CloudStorage {
-            uri: format!("{aggregator_url}/cardano-database-download/ancillary.tar.zst"),
+            uri: format!("{base_url}/ancillary.tar.zst"),
             compression_algorithm: Some(CompressionAlgorithm::Zstandard),
         }];
         let digest_locations = vec![DigestLocation::CloudStorage {
-            uri: format!("{aggregator_url}/cardano-database-download/digests.json"),
+            uri: format!("{base_url}/digests.json"),
             compression_algorithm: None,
         }];
 
-        let mut cardano_db_snapshot_to_update = cardano_db_snapshot.write().unwrap();
+        let mut cardano_db_snapshot_to_update = cardano_db_snapshot.write().await;
         *cardano_db_snapshot_to_update = CardanoDatabaseSnapshot {
             immutables: ImmutablesMessagePart {
                 locations: immutables_locations,

@@ -37,32 +37,33 @@ async fn cardano_db_snapshot_list_get_download_verify() {
     let digester =
         CardanoImmutableDigester::new("whatever".to_string(), None, extensions::test_logger());
     let range = 1..=4;
-    let fake_aggregator = FakeAggregator::new();
-    let test_http_server = fake_aggregator
-        .spawn_with_cardano_db_snapshot(
-            CardanoDatabaseSnapshotV2Fixture {
-                snapshot_hash: cardano_db_snapshot_hash,
-                certificate_hash,
-                range,
-                ancillary_manifest_signing_key,
-            },
-            &cardano_db,
-            &work_dir,
-            digester,
-        )
-        .await;
-    let client = ClientBuilder::aggregator(&test_http_server.url(), genesis_verification_key)
-        .with_certificate_verifier(FakeCertificateVerifier::build_that_validate_any_certificate())
-        .set_ancillary_verification_key(
-            ancillary_manifest_signer_verification_key
-                .to_json_hex()
-                .unwrap(),
-        )
-        .add_feedback_receiver(Arc::new(SlogFeedbackReceiver::new(
-            extensions::test_logger(),
-        )))
-        .build()
-        .expect("Should be able to create a Client");
+    let fake_aggregator = FakeAggregator::spawn_with_cardano_db_snapshot(
+        CardanoDatabaseSnapshotV2Fixture {
+            snapshot_hash: cardano_db_snapshot_hash,
+            certificate_hash,
+            range,
+            ancillary_manifest_signing_key,
+        },
+        &cardano_db,
+        &work_dir,
+        digester,
+    )
+    .await;
+    let client =
+        ClientBuilder::aggregator(&fake_aggregator.server_root_url(), genesis_verification_key)
+            .with_certificate_verifier(
+                FakeCertificateVerifier::build_that_validate_any_certificate(),
+            )
+            .set_ancillary_verification_key(
+                ancillary_manifest_signer_verification_key
+                    .to_json_hex()
+                    .unwrap(),
+            )
+            .add_feedback_receiver(Arc::new(SlogFeedbackReceiver::new(
+                extensions::test_logger(),
+            )))
+            .build()
+            .expect("Should be able to create a Client");
 
     let cardano_db_snapshots = client
         .cardano_database_v2()

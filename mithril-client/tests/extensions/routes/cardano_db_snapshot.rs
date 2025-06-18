@@ -1,68 +1,53 @@
-use std::{
-    convert::Infallible,
-    path::PathBuf,
-    sync::{Arc, RwLock},
-};
+use std::sync::Arc;
 
-use warp::{filters::path::FullPath, Filter};
+use axum::extract::{Path, State};
+use axum::routing::get;
+use axum::{Json, Router};
+use tokio::sync::RwLock;
+use tower_http::services::fs::ServeDir;
 
-use mithril_client::CardanoDatabaseSnapshot;
+use mithril_client::{CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem};
 
-use crate::extensions::fake_aggregator::FakeAggregatorCalls;
-
-use super::middleware::with_calls_middleware;
+#[derive(Debug, Clone)]
+struct CardanoDbSnapshotRoutesState {
+    cardano_db_snapshot_list: Vec<CardanoDatabaseSnapshotListItem>,
+    cardano_db_snapshot: Arc<RwLock<CardanoDatabaseSnapshot>>,
+}
 
 pub fn routes(
-    cardano_db_snapshots_returned_value: String,
-    cardano_db_snapshot_by_id_returned_value: Arc<RwLock<CardanoDatabaseSnapshot>>,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    cardano_db_snapshots(cardano_db_snapshots_returned_value).or(cardano_db_snapshot_by_id(
-        cardano_db_snapshot_by_id_returned_value,
-    ))
+    cardano_db_snapshot_list: Vec<CardanoDatabaseSnapshotListItem>,
+    cardano_db_snapshot: Arc<RwLock<CardanoDatabaseSnapshot>>,
+    cardano_db_snapshot_archives_path: &std::path::Path,
+) -> Router {
+    let state = CardanoDbSnapshotRoutesState {
+        cardano_db_snapshot_list,
+        cardano_db_snapshot,
+    };
+
+    Router::new()
+        .route("/artifact/cardano-database", get(cardano_db_snapshots))
+        .route(
+            "/artifact/cardano-database/{hash}",
+            get(cardano_db_snapshot_by_hash),
+        )
+        .nest_service(
+            "/cardano-database-download",
+            ServeDir::new(cardano_db_snapshot_archives_path),
+        )
+        .with_state(state)
 }
 
 /// Route: /artifact/cardano-database
-fn cardano_db_snapshots(
-    returned_value: String,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    warp::path!("artifact" / "cardano-database").map(move || returned_value.clone())
+async fn cardano_db_snapshots(
+    State(state): State<CardanoDbSnapshotRoutesState>,
+) -> Json<Vec<CardanoDatabaseSnapshotListItem>> {
+    Json(state.cardano_db_snapshot_list)
 }
 
 /// Route: /artifact/cardano-database/:hash
-fn cardano_db_snapshot_by_id(
-    returned_value: Arc<RwLock<CardanoDatabaseSnapshot>>,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    warp::path!("artifact" / "cardano-database" / String)
-        .map(move |_| serde_json::to_string(&returned_value.clone()).unwrap())
-}
-
-/// Route: /cardano-database-download
-pub fn download_immutables_archive(
-    calls: FakeAggregatorCalls,
-    immutable_archives_path: PathBuf,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    warp::path("cardano-database-download")
-        .and(warp::fs::dir(immutable_archives_path))
-        .and(warp::path::full().map(move |p| p))
-        .and(with_calls_middleware(calls.clone()))
-        .and_then(store_call_and_download_return)
-}
-
-async fn store_call_and_download_return(
-    reply: warp::fs::File,
-    full_path: FullPath,
-    calls: FakeAggregatorCalls,
-) -> Result<impl warp::Reply, Infallible> {
-    let mut call_list = calls.lock().await;
-    call_list.push(full_path.as_str().to_string());
-
-    let filepath = reply.path().to_path_buf();
-    Ok(Box::new(warp::reply::with_header(
-        reply,
-        "Content-Disposition",
-        format!(
-            "attachment; filename=\"{}\"",
-            filepath.file_name().unwrap().to_str().unwrap()
-        ),
-    )) as Box<dyn warp::Reply>)
+async fn cardano_db_snapshot_by_hash(
+    Path(_hash): Path<String>,
+    State(state): State<CardanoDbSnapshotRoutesState>,
+) -> Json<CardanoDatabaseSnapshot> {
+    Json(state.cardano_db_snapshot.read().await.clone())
 }

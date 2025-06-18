@@ -1,30 +1,25 @@
-use crate::extensions::fake_aggregator::{FakeAggregator, FakeAggregatorCalls};
-use crate::extensions::routes::middleware::with_calls_middleware;
-use warp::Filter;
+use axum::extract::State;
+use axum::routing::get;
+use axum::{Json, Router};
 
-pub fn routes(
-    calls: FakeAggregatorCalls,
-    returned_value: String,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    proof_cardano_transaction(calls.clone(), returned_value)
+use mithril_client::CardanoTransactionsProofs;
+
+#[derive(Debug, Clone)]
+struct ProofRoutesState {
+    proof: CardanoTransactionsProofs,
+}
+
+pub fn routes(proof: CardanoTransactionsProofs) -> Router {
+    let state = ProofRoutesState { proof };
+
+    Router::new()
+        .route("/proof/cardano-transaction", get(proof_cardano_transaction))
+        .with_state(state)
 }
 
 /// Route: /proof/cardano-transaction
-fn proof_cardano_transaction(
-    calls: FakeAggregatorCalls,
-    returned_value: String,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    warp::path!("proof" / "cardano-transaction")
-        .and(warp::get())
-        .and(warp::path::full().map(move |p| p))
-        .and(warp::query::raw())
-        .and(with_calls_middleware(calls.clone()))
-        .and_then(move |fullpath, query, calls| {
-            FakeAggregator::store_call_with_query_and_return_value(
-                fullpath,
-                query,
-                calls,
-                returned_value.clone(),
-            )
-        })
+async fn proof_cardano_transaction(
+    state: State<ProofRoutesState>,
+) -> Json<CardanoTransactionsProofs> {
+    Json(state.proof.clone())
 }
