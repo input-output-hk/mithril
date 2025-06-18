@@ -173,7 +173,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --unstable tools utxo-hd snapshot-converter --db-directory db --cardano-node-version latest --utxo-hd-flavor LMDB --cardano-network $NETWORK --commit
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --unstable tools utxo-hd snapshot-converter --db-directory db --cardano-node-version latest --utxo-hd-flavor LMDB --commit
 
       - name: Remove downloaded artifacts to free up disk space (Linux, Windows)
         if: runner.os != 'macOS'
@@ -339,7 +339,7 @@ jobs:
             ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID \
             -c "
               /app/bin/mithril-client --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST --download-dir /app --include-ancillary &&
-              /app/bin/mithril-client --unstable tools utxo-hd snapshot-converter --db-directory /app/db --cardano-node-version latest --utxo-hd-flavor LMDB --cardano-network \$NETWORK --commit
+              /app/bin/mithril-client --unstable tools utxo-hd snapshot-converter --db-directory /app/db --cardano-node-version latest --utxo-hd-flavor LMDB --commit
             "
 
       - name: Mithril Stake Distribution / list and get last hash

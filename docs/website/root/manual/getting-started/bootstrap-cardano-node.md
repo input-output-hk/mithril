@@ -486,11 +486,11 @@ Cardano db 'a1b5e6f43521fd9c5f55e3d6bf27dc4a62f43980681cb67e28cc40582a0d1974' ha
 
 Upgrade and replace the restored ledger state snapshot to 'LMDB' flavor by running the command:
 
-    mithril-client --unstable tools utxo-hd snapshot-converter --db-directory db --cardano-node-version 10.4.1 --utxo-hd-flavor LMDB --cardano-network preview --commit
+    mithril-client --unstable tools utxo-hd snapshot-converter --db-directory db --cardano-node-version 10.4.1 --utxo-hd-flavor LMDB --commit
 
     Or to 'Legacy' flavor by running the command:
 
-    mithril-client --unstable tools utxo-hd snapshot-converter --db-directory db --cardano-node-version 10.4.1 --utxo-hd-flavor Legacy --cardano-network preview --commit
+    mithril-client --unstable tools utxo-hd snapshot-converter --db-directory db --cardano-node-version 10.4.1 --utxo-hd-flavor Legacy --commit
 ```
 
 ### Step 5 (optional): Convert the ledger state snapshot to another flavor
@@ -500,13 +500,13 @@ After restoring a snapshot with the `--include-ancillary` option, the ledger sta
 To do so, run the following command with the `--unstable` flag:
 
 ```
-mithril-client --unstable tools utxo-hd snapshot-converter --db-directory db --cardano-node-version latest --utxo-hd-flavor LMDB --cardano-network $CARDANO_NETWORK
+mithril-client --unstable tools utxo-hd snapshot-converter --db-directory db --cardano-node-version latest --utxo-hd-flavor LMDB
 ```
 
 Or, to convert it to the `Legacy` flavor:
 
 ```
-mithril-client --unstable tools utxo-hd snapshot-converter --db-directory db --cardano-node-version latest --utxo-hd-flavor Legacy --cardano-network $CARDANO_NETWORK
+mithril-client --unstable tools utxo-hd snapshot-converter --db-directory db --cardano-node-version latest --utxo-hd-flavor Legacy
 ```
 
 Use the `--commit` option to replace the current ledger state with the converted snapshot.
