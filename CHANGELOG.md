@@ -15,6 +15,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for binary hex codec in the protocol keys and signatures.
 
+- Support for a `verify` command to verify an existing Cardano database in the client CLI.
+
 - Crates versions:
 
 | Crate | Version |
