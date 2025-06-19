@@ -4199,9 +4199,11 @@ name = "mithril-dmq-node"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "blake2 0.10.6",
  "mithril-cardano-node-chain",
  "mithril-common",
+ "mockall",
  "pallas-network 1.0.0-alpha.2",
  "slog",
  "slog-async",
