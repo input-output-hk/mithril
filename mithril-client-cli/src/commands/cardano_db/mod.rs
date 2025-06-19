@@ -26,12 +26,6 @@ pub enum CardanoDbCommandsBackend {
     V2,
 }
 
-impl CardanoDbCommandsBackend {
-    fn is_v2(&self) -> bool {
-        matches!(self, Self::V2)
-    }
-}
-
 /// Cardano db management (alias: cdb)
 #[derive(Subcommand, Debug, Clone)]
 pub enum CardanoDbCommands {

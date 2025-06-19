@@ -36,9 +36,6 @@ impl CardanoDbShowCommand {
 
     /// Cardano DB Show command
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
-        if self.backend.is_v2() {
-            context.require_unstable("cardano-db snapshot show v2", Some("<SNAPSHOT_HASH>"))?;
-        }
         let params = context.config_parameters()?;
         let client = client_builder_with_fallback_genesis_key(&params)?
             .with_logger(context.logger().clone())

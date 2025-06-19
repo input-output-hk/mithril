@@ -28,9 +28,6 @@ impl CardanoDbListCommand {
 
     /// Main command execution
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
-        if self.backend.is_v2() {
-            context.require_unstable("cardano-db snapshot list v2", None)?;
-        }
         let params = context.config_parameters()?;
         let client = client_builder_with_fallback_genesis_key(&params)?
             .with_logger(context.logger().clone())

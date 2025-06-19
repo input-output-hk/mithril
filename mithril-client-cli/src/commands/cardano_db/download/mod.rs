@@ -78,9 +78,6 @@ impl CardanoDbDownloadCommand {
 
     /// Command execution
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
-        if self.backend.is_v2() {
-            context.require_unstable("cardano-db download --backend v2", None)?;
-        }
         let params = context.config_parameters()?.add_source(self)?;
 
         match self.backend {

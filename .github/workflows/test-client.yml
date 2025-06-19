@@ -154,13 +154,13 @@ jobs:
         shell: bash
         working-directory: ./bin
         run: |
-          ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db snapshot list
+          ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db snapshot list --backend v1
           echo "CDB_SNAPSHOT_DIGEST=$(./mithril-client --origin-tag CI cardano-db snapshot list --json | jq -r '.[0].digest')" >> $GITHUB_ENV
 
       - name: Cardano Database Snapshot / download & restore latest
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST ${{ matrix.extra_args }} 2>&1 | tee cdb-download-output.txt
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST --backend v1 ${{ matrix.extra_args }} 2>&1 | tee cdb-download-output.txt
 
       - name: Cardano Database Snapshot / verify Cardano node starts successfully
         if: runner.os == 'Linux'
@@ -246,26 +246,26 @@ jobs:
         shell: bash
         working-directory: ./bin
         run: |
-          ./mithril-client ${{ steps.prepare.outputs.debug_level }} --unstable --origin-tag CI cardano-db snapshot list --backend v2
-          echo "CARDANO_DATABASE_V2_SNAPSHOT_HASH=$(./mithril-client --unstable --origin-tag CI cardano-db snapshot list --backend v2 --json | jq -r '.[0].hash')" >> $GITHUB_ENV
+          ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db snapshot list --backend v2
+          echo "CARDANO_DATABASE_V2_SNAPSHOT_HASH=$(./mithril-client --origin-tag CI cardano-db snapshot list --backend v2 --json | jq -r '.[0].hash')" >> $GITHUB_ENV
 
       - name: Cardano Database V2 Snapshot / show snapshot
         if: steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client --unstable --origin-tag CI cardano-db snapshot show --backend v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH
+        run: ./mithril-client --origin-tag CI cardano-db snapshot show --backend v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH
 
       - name: Cardano Database V2 Snapshot / download & restore latest (Full restoration)
         if: steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --unstable --origin-tag CI cardano-db download --backend v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH ${{ matrix.extra_args }} 2>&1 | tee cdb-v2-download-output.txt
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download --backend v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH ${{ matrix.extra_args }} 2>&1 | tee cdb-v2-download-output.txt
 
       - name: Cardano Database V2 Snapshot / verify immutables
         if: steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --unstable --origin-tag CI cardano-db verify --backend v2 --db-dir db_v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH | tee cdb-v2-verify-output.txt
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db verify --backend v2 --db-dir db_v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH | tee cdb-v2-verify-output.txt
 
       - name: Cardano Database V2 Snapshot / verify Cardano node starts successfully
         if: runner.os == 'Linux' && steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true'
@@ -324,12 +324,12 @@ jobs:
       - name: Cardano Database Snapshot / list and get last digest
         shell: bash
         run: |
-          ${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list
-          echo "CDB_SNAPSHOT_DIGEST=$(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --json | jq -r '.[0].digest')" >> $GITHUB_ENV
+          ${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --backend v1
+          echo "CDB_SNAPSHOT_DIGEST=$(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --backend v1 --json | jq -r '.[0].digest')" >> $GITHUB_ENV
 
       - name: Cardano Database Snapshot / download & restore latest
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST --download-dir /app/data ${{ matrix.extra_args }}
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST --backend v1 --download-dir /app/data ${{ matrix.extra_args }}
 
       - name: Ledger state snapshot conversion from InMemory to LMDB
         if: matrix.extra_args == '--include-ancillary'
@@ -390,23 +390,23 @@ jobs:
         if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
         run: |
-          ${{ steps.command.outputs.mithril_client }} --unstable --origin-tag CI cardano-db snapshot list --backend v2
-          echo "CARDANO_DATABASE_V2_SNAPSHOT_HASH=$(${{ steps.command.outputs.mithril_client }} --unstable --origin-tag CI cardano-db snapshot list --backend v2 --json | jq -r '.[0].hash')" >> $GITHUB_ENV
+          ${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --backend v2
+          echo "CARDANO_DATABASE_V2_SNAPSHOT_HASH=$(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --backend v2 --json | jq -r '.[0].hash')" >> $GITHUB_ENV
 
       - name: Cardano Database V2 Snapshot / show snapshot
         if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} --unstable --origin-tag CI cardano-db snapshot show --backend v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH
+        run: ${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot show --backend v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH
 
       - name: Cardano Database V2 Snapshot / download & restore latest (Full restoration)
         if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI --unstable cardano-db download --backend v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH --download-dir /app/data ${{ matrix.extra_args }}
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download --backend v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH --download-dir /app/data ${{ matrix.extra_args }}
 
       - name: Cardano Database V2 Snapshot / verify immutables
         if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI --unstable cardano-db verify --backend v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH --db-dir /app/data/db_v2
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db verify --backend v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH --db-dir /app/data/db_v2
 
   test-mithril-client-wasm:
     strategy:

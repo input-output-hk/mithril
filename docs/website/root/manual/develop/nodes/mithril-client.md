@@ -546,25 +546,25 @@ Here is a list of the available parameters:
 
 `cardano-db snapshot show` command:
 
-| Parameter | Command line (long) | Command line (short) | Environment variable | Description                                                                                                                     | Default value | Example |     Mandatory      |
-| --------- | ------------------- | :------------------: | -------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
-| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results                                                                                          | `false`       | -       |         -          |
-| `backend` | `--backend`         |         `-b`         | -                    | Backend to use, either: `v1` (default, full database restoration only) or `v2` (unstable, full or partial database restoration) | `v1`          | -       |         -          |
-| `digest`  | -                   |          -           | -                    | Digest of the Cardano db snapshot to show or `latest` for the latest artifact                                                   | -             | -       | :heavy_check_mark: |
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description                                                                                                           | Default value | Example |     Mandatory      |
+| --------- | ------------------- | :------------------: | -------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
+| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results                                                                                | `false`       | -       |         -          |
+| `backend` | `--backend`         |         `-b`         | -                    | Backend to use, either: `v1` (default, full database restoration only) or `v2` (full or partial database restoration) | `v1`          | -       |         -          |
+| `digest`  | -                   |          -           | -                    | Digest of the Cardano db snapshot to show or `latest` for the latest artifact                                         | -             | -       | :heavy_check_mark: |
 
 `cardano-db snapshot list` command:
 
-| Parameter | Command line (long) | Command line (short) | Environment variable | Description                                                                                                                     | Default value | Example | Mandatory |
-| --------- | ------------------- | :------------------: | -------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------- | :-------: |
-| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results                                                                                          | `false`       | -       |     -     |
-| `backend` | `--backend`         |         `-b`         | -                    | Backend to use, either: `v1` (default, full database restoration only) or `v2` (unstable, full or partial database restoration) | `v1`          | -       |     -     |
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description                                                                                                           | Default value | Example | Mandatory |
+| --------- | ------------------- | :------------------: | -------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------- | ------- | :-------: |
+| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results                                                                                | `false`       | -       |     -     |
+| `backend` | `--backend`         |         `-b`         | -                    | Backend to use, either: `v1` (default, full database restoration only) or `v2` (full or partial database restoration) | `v1`          | -       |     -     |
 
 `cardano-db download` command:
 
 | Parameter                    | Command line (long)            | Command line (short) | Environment variable         | Description                                                                                                                         | Default value | Example |     Mandatory      |
 | ---------------------------- | ------------------------------ | :------------------: | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
 | `json`                       | `--json`                       |          -           | -                            | Enable JSON output for command results                                                                                              | `false`       | -       |         -          |
-| `backend`                    | `--backend`                    |         `-b`         | -                            | Backend to use, either: `v1` (default, full database restoration only) or `v2` (unstable, full or partial database restoration)     | `v1`          | -       |         -          |
+| `backend`                    | `--backend`                    |         `-b`         | -                            | Backend to use, either: `v1` (default, full database restoration only) or `v2` (full or partial database restoration)               | `v1`          | -       |         -          |
 | `digest`                     | -                              |          -           | -                            | Digest of the Cardano db snapshot to download or `latest` for the latest artifact                                                   | -             | -       | :heavy_check_mark: |
 | `download_dir`               | `--download-dir`               |          -           | -                            | Directory where the immutable and ancillary files will be downloaded                                                                | -             | -       |         -          |
 | `genesis_verification_key`   | `--genesis-verification-key`   |          -           | `GENESIS_VERIFICATION_KEY`   | Genesis verification key to check the certificate chain                                                                             | -             | -       | :heavy_check_mark: |
