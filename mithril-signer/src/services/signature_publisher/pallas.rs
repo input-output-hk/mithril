@@ -6,7 +6,7 @@ use mithril_common::{
     messages::RegisterSignatureMessageDmq,
     StdResult,
 };
-use mithril_dmq_node::DmqPublisherPallas;
+use mithril_dmq_node::{DmqPublisher, DmqPublisherPallas};
 
 use super::SignaturePublisher;
 
