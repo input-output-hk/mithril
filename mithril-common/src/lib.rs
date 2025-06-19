@@ -4,21 +4,10 @@
 //! Shared datatypes and traits used by Mithril rust projects
 //!
 //! Provide:
-//! - [Digester][digesters] to compute mithril digest from a Cardano database
 //! - Helpers for the [Mithril STM](https://mithril.network/rust-doc/mithril_stm/index.html)
 //!   lib with the [crypto_helper].
 //! - [certificate chain][certificate_chain] used to validate the Certificate Chain created by an aggregator
 //! - The [entities] used by, and exchanged between, the aggregator, signers and client.
-
-macro_rules! cfg_fs {
-    ($($item:item)*) => {
-        $(
-            #[cfg(feature = "fs")]
-            #[cfg_attr(docsrs, doc(cfg(feature = "fs")))]
-            $item
-        )*
-    }
-}
 
 macro_rules! cfg_test_tools {
     ($($item:item)*) => {
@@ -41,10 +30,6 @@ pub mod signable_builder;
 
 cfg_test_tools! {
     pub mod test_utils;
-}
-
-cfg_fs! {
-    pub mod digesters;
 }
 
 pub use entities::{CardanoNetwork, MagicId};

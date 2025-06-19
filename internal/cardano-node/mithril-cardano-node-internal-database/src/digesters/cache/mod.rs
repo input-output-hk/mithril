@@ -1,5 +1,5 @@
 //! Cache provider to accelerate [super::CardanoImmutableDigester] computation by storing and
-//! reusing [super::ImmutableFile] digests.
+//! reusing [crate::entities::ImmutableFile] digests.
 
 mod json_provider;
 mod json_provider_builder;

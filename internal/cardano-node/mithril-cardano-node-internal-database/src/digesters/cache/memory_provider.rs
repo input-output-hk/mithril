@@ -1,13 +1,13 @@
-use crate::{
-    digesters::cache::CacheProviderResult,
-    digesters::cache::ImmutableFileDigestCacheProvider,
-    digesters::ImmutableFile,
-    entities::{HexEncodedDigest, ImmutableFileName},
-};
-
 use async_trait::async_trait;
 use std::collections::{BTreeMap, HashMap};
 use tokio::sync::RwLock;
+
+use mithril_common::entities::{HexEncodedDigest, ImmutableFileName};
+
+use crate::entities::ImmutableFile;
+use crate::{
+    digesters::cache::CacheProviderResult, digesters::cache::ImmutableFileDigestCacheProvider,
+};
 
 /// A in memory [ImmutableFileDigestCacheProvider].
 pub struct MemoryImmutableFileDigestCacheProvider {
@@ -69,14 +69,13 @@ impl ImmutableFileDigestCacheProvider for MemoryImmutableFileDigestCacheProvider
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        digesters::cache::{
-            ImmutableFileDigestCacheProvider, MemoryImmutableFileDigestCacheProvider,
-        },
-        digesters::ImmutableFile,
-    };
     use std::collections::{BTreeMap, HashMap};
     use std::path::PathBuf;
+
+    use crate::digesters::cache::{
+        ImmutableFileDigestCacheProvider, MemoryImmutableFileDigestCacheProvider,
+    };
+    use crate::test::fake_data;
 
     #[tokio::test]
     async fn can_store_values() {
@@ -87,11 +86,11 @@ mod tests {
         ];
         let expected: BTreeMap<_, _> = BTreeMap::from([
             (
-                ImmutableFile::dummy(PathBuf::default(), 0, "0.chunk"),
+                fake_data::immutable_file(PathBuf::default(), 0, "0.chunk"),
                 Some("digest 0".to_string()),
             ),
             (
-                ImmutableFile::dummy(PathBuf::default(), 1, "1.chunk"),
+                fake_data::immutable_file(PathBuf::default(), 1, "1.chunk"),
                 Some("digest 1".to_string()),
             ),
         ]);
@@ -116,7 +115,7 @@ mod tests {
             ("1.chunk".to_string(), "digest 1".to_string()),
         ]));
         let expected: BTreeMap<_, _> = BTreeMap::from([(
-            ImmutableFile::dummy(PathBuf::default(), 0, "0.chunk"),
+            fake_data::immutable_file(PathBuf::default(), 0, "0.chunk"),
             Some("digest 0".to_string()),
         )]);
         let immutables = expected.keys().cloned().collect();
@@ -135,8 +134,10 @@ mod tests {
             "0.chunk".to_string(),
             "digest 0".to_string(),
         )]));
-        let expected: BTreeMap<_, _> =
-            BTreeMap::from([(ImmutableFile::dummy(PathBuf::default(), 2, "2.chunk"), None)]);
+        let expected: BTreeMap<_, _> = BTreeMap::from([(
+            fake_data::immutable_file(PathBuf::default(), 2, "2.chunk"),
+            None,
+        )]);
         let immutables = expected.keys().cloned().collect();
 
         let result = provider
@@ -160,18 +161,21 @@ mod tests {
         ];
         let expected: BTreeMap<_, _> = BTreeMap::from([
             (
-                ImmutableFile::dummy(PathBuf::default(), 0, "0.chunk"),
+                fake_data::immutable_file(PathBuf::default(), 0, "0.chunk"),
                 Some("updated".to_string()),
             ),
             (
-                ImmutableFile::dummy(PathBuf::default(), 1, "1.chunk"),
+                fake_data::immutable_file(PathBuf::default(), 1, "1.chunk"),
                 Some("keep me".to_string()),
             ),
             (
-                ImmutableFile::dummy(PathBuf::default(), 2, "2.chunk"),
+                fake_data::immutable_file(PathBuf::default(), 2, "2.chunk"),
                 Some("keep me too".to_string()),
             ),
-            (ImmutableFile::dummy(PathBuf::default(), 3, "3.chunk"), None),
+            (
+                fake_data::immutable_file(PathBuf::default(), 3, "3.chunk"),
+                None,
+            ),
         ]);
         let immutables = expected.keys().cloned().collect();
 
@@ -196,11 +200,11 @@ mod tests {
         ];
         let expected: BTreeMap<_, _> = BTreeMap::from([
             (
-                ImmutableFile::dummy(PathBuf::default(), 0, "0.chunk"),
+                fake_data::immutable_file(PathBuf::default(), 0, "0.chunk"),
                 Some("digest 0".to_string()),
             ),
             (
-                ImmutableFile::dummy(PathBuf::default(), 1, "1.chunk"),
+                fake_data::immutable_file(PathBuf::default(), 1, "1.chunk"),
                 Some("digest 1".to_string()),
             ),
         ]);

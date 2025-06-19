@@ -181,7 +181,13 @@ impl CardanoTransactionsProofsMessage {
 
 #[cfg(test)]
 mod tests {
-    use crate::crypto_helper::MKProof;
+    use crate::crypto_helper::{MKMap, MKMapNode, MKProof, MKTreeStoreInMemory};
+    use crate::entities::{BlockNumber, BlockRange, CardanoTransaction, SlotNumber};
+    use crate::signable_builder::{
+        CardanoTransactionsSignableBuilder, MockBlockRangeRootRetriever, MockTransactionsImporter,
+        SignableBuilder,
+    };
+    use std::sync::Arc;
 
     use super::*;
 
@@ -310,92 +316,70 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "fs")]
-    mod fs_only {
-        use crate::crypto_helper::{MKMap, MKMapNode, MKTreeStoreInMemory};
-        use crate::entities::{BlockNumber, BlockRange, CardanoTransaction, SlotNumber};
-        use crate::signable_builder::{
-            CardanoTransactionsSignableBuilder, MockBlockRangeRootRetriever,
-            MockTransactionsImporter, SignableBuilder,
+    #[tokio::test]
+    async fn verify_hashes_from_verified_cardano_transaction_and_from_signable_builder_are_equals()
+    {
+        let transactions = vec![
+            CardanoTransaction::new("tx-hash-123", BlockNumber(10), SlotNumber(1), "block_hash"),
+            CardanoTransaction::new("tx-hash-456", BlockNumber(20), SlotNumber(2), "block_hash"),
+        ];
+
+        assert_eq!(
+            from_verified_cardano_transaction(&transactions, 99999).compute_hash(),
+            from_signable_builder(&transactions, BlockNumber(99999))
+                .await
+                .compute_hash()
+        );
+
+        assert_ne!(
+            from_verified_cardano_transaction(&transactions, 99999).compute_hash(),
+            from_signable_builder(&transactions, BlockNumber(123456))
+                .await
+                .compute_hash()
+        );
+    }
+
+    fn from_verified_cardano_transaction(
+        transactions: &[CardanoTransaction],
+        block_number: u64,
+    ) -> ProtocolMessage {
+        let set_proof = CardanoTransactionsSetProof::from_leaves::<MKTreeStoreInMemory>(
+            transactions
+                .iter()
+                .map(|t| (t.block_number, t.transaction_hash.clone()))
+                .collect::<Vec<_>>()
+                .as_slice(),
+        )
+        .unwrap();
+
+        let verified_transactions_fake = VerifiedCardanoTransactions {
+            certificate_hash: "whatever".to_string(),
+            merkle_root: set_proof.merkle_root(),
+            certified_transactions: set_proof.transactions_hashes().to_vec(),
+            latest_block_number: BlockNumber(block_number),
         };
-        use std::sync::Arc;
 
-        use super::*;
+        let mut message = ProtocolMessage::new();
+        verified_transactions_fake.fill_protocol_message(&mut message);
 
-        #[tokio::test]
-        async fn verify_hashes_from_verified_cardano_transaction_and_from_signable_builder_are_equals(
-        ) {
-            let transactions = vec![
-                CardanoTransaction::new(
-                    "tx-hash-123",
-                    BlockNumber(10),
-                    SlotNumber(1),
-                    "block_hash",
-                ),
-                CardanoTransaction::new(
-                    "tx-hash-456",
-                    BlockNumber(20),
-                    SlotNumber(2),
-                    "block_hash",
-                ),
-            ];
+        message
+    }
 
-            assert_eq!(
-                from_verified_cardano_transaction(&transactions, 99999).compute_hash(),
-                from_signable_builder(&transactions, BlockNumber(99999))
-                    .await
-                    .compute_hash()
-            );
+    async fn from_signable_builder(
+        transactions: &[CardanoTransaction],
+        block_number: BlockNumber,
+    ) -> ProtocolMessage {
+        let mut transaction_importer = MockTransactionsImporter::new();
+        transaction_importer
+            .expect_import()
+            .return_once(move |_| Ok(()));
+        let mut block_range_root_retriever = MockBlockRangeRootRetriever::new();
 
-            assert_ne!(
-                from_verified_cardano_transaction(&transactions, 99999).compute_hash(),
-                from_signable_builder(&transactions, BlockNumber(123456))
-                    .await
-                    .compute_hash()
-            );
-        }
-
-        fn from_verified_cardano_transaction(
-            transactions: &[CardanoTransaction],
-            block_number: u64,
-        ) -> ProtocolMessage {
-            let set_proof = CardanoTransactionsSetProof::from_leaves::<MKTreeStoreInMemory>(
-                transactions
-                    .iter()
-                    .map(|t| (t.block_number, t.transaction_hash.clone()))
-                    .collect::<Vec<_>>()
-                    .as_slice(),
-            )
-            .unwrap();
-
-            let verified_transactions_fake = VerifiedCardanoTransactions {
-                certificate_hash: "whatever".to_string(),
-                merkle_root: set_proof.merkle_root(),
-                certified_transactions: set_proof.transactions_hashes().to_vec(),
-                latest_block_number: BlockNumber(block_number),
-            };
-
-            let mut message = ProtocolMessage::new();
-            verified_transactions_fake.fill_protocol_message(&mut message);
-
-            message
-        }
-
-        async fn from_signable_builder(
-            transactions: &[CardanoTransaction],
-            block_number: BlockNumber,
-        ) -> ProtocolMessage {
-            let mut transaction_importer = MockTransactionsImporter::new();
-            transaction_importer
-                .expect_import()
-                .return_once(move |_| Ok(()));
-            let mut block_range_root_retriever = MockBlockRangeRootRetriever::new();
-
-            let transactions_imported = transactions.to_vec();
-            block_range_root_retriever
-                .expect_compute_merkle_map_from_block_range_roots()
-                .return_once(move |_| {
-                    MKMap::<
+        let transactions_imported = transactions.to_vec();
+        block_range_root_retriever
+            .expect_compute_merkle_map_from_block_range_roots()
+            .return_once(move |_| {
+                MKMap::<
                         BlockRange,
                         MKMapNode<BlockRange, MKTreeStoreInMemory>,
                         MKTreeStoreInMemory,
@@ -407,15 +391,14 @@ mod tests {
                             )
                         },
                     ))
-                });
-            let cardano_transaction_signable_builder = CardanoTransactionsSignableBuilder::new(
-                Arc::new(transaction_importer),
-                Arc::new(block_range_root_retriever),
-            );
-            cardano_transaction_signable_builder
-                .compute_protocol_message(block_number)
-                .await
-                .unwrap()
-        }
+            });
+        let cardano_transaction_signable_builder = CardanoTransactionsSignableBuilder::new(
+            Arc::new(transaction_importer),
+            Arc::new(block_range_root_retriever),
+        );
+        cardano_transaction_signable_builder
+            .compute_protocol_message(block_number)
+            .await
+            .unwrap()
     }
 }

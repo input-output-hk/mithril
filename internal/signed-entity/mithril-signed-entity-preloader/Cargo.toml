@@ -1,6 +1,6 @@
 [package]
 name = "mithril-signed-entity-preloader"
-version = "0.0.5"
+version = "0.0.6"
 description = "A preload mechanism for Cardano Transaction signed entity."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -15,7 +15,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 mithril-cardano-node-chain = { path = "../../cardano-node/mithril-cardano-node-chain" }
-mithril-common = { path = "../../../mithril-common", features = ["fs"] }
+mithril-common = { path = "../../../mithril-common" }
 mithril-signed-entity-lock = { path = "../mithril-signed-entity-lock" }
 slog = { workspace = true }
 tokio = { workspace = true }

@@ -1,11 +1,13 @@
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
+use mithril_cardano_node_internal_database::digesters::ComputedImmutablesDigests;
+use mithril_cardano_node_internal_database::entities::AncillaryFilesManifest;
+use mithril_cardano_node_internal_database::test::DummyCardanoDb;
+use mithril_cardano_node_internal_database::{immutable_trio_names, IMMUTABLE_DIR, LEDGER_DIR};
+
 use mithril_common::crypto_helper::{ManifestSigner, ManifestVerifierSecretKey};
-use mithril_common::digesters::{
-    immutable_trio_names, ComputedImmutablesDigests, DummyCardanoDb, IMMUTABLE_DIR, LEDGER_DIR,
-};
-use mithril_common::entities::{AncillaryFilesManifest, CompressionAlgorithm, ImmutableFileNumber};
+use mithril_common::entities::{CompressionAlgorithm, ImmutableFileNumber};
 use mithril_common::messages::CardanoDatabaseDigestListItemMessage;
 
 pub async fn build_cardano_db_v1_snapshot_archives(
@@ -186,7 +188,7 @@ async fn build_ancillary_manifest(
     let mut manifest = AncillaryFilesManifest::from_paths(cardano_db_dir, files_in_manifest)
         .await
         .unwrap();
-    manifest.signature = Some(signer.sign(&manifest.compute_hash()));
+    manifest.set_signature(signer.sign(&manifest.compute_hash()));
 
     let target_file = cardano_db_dir.join(AncillaryFilesManifest::ANCILLARY_MANIFEST_FILE_NAME);
     serde_json::to_writer(File::create(&target_file).unwrap(), &manifest).unwrap();

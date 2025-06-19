@@ -2,13 +2,10 @@ use std::fs::File;
 use std::io::prelude::Write;
 use std::path::{Path, PathBuf};
 
-use crate::digesters::LedgerStateSnapshot;
-use crate::entities::SlotNumber;
-use crate::test_utils::TempDir;
-use crate::{
-    digesters::{ImmutableFile, IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR},
-    entities::ImmutableFileNumber,
-};
+use mithril_common::entities::{ImmutableFileNumber, SlotNumber};
+
+use crate::entities::{ImmutableFile, LedgerStateSnapshot};
+use crate::{IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR};
 
 /// Dummy cardano db 'immutables' subdirectory content
 struct DummyImmutableDb {
@@ -378,7 +375,19 @@ fn write_dummy_file(optional_size: Option<u64>, dir: &Path, filename: &str) -> P
 }
 
 fn get_test_dir(subdir_name: &str) -> PathBuf {
-    let db_dir = TempDir::create("test_cardano_db", subdir_name);
+    // Note: used the common `TestDir` api before, but as the DummyCardanoDb is public, `test_tools` can't be used.
+    let db_dir = std::env::temp_dir()
+        .join("mithril_test")
+        .join("test_cardano_db")
+        .join(subdir_name);
+
+    if db_dir.exists() {
+        std::fs::remove_dir_all(&db_dir)
+            .unwrap_or_else(|e| panic!("Could not remove dir {db_dir:?}: {e}"));
+    }
+    std::fs::create_dir_all(&db_dir)
+        .unwrap_or_else(|e| panic!("Could not create dir {db_dir:?}: {e}"));
+
     for subdir_name in [LEDGER_DIR, IMMUTABLE_DIR, VOLATILE_DIR] {
         std::fs::create_dir(db_dir.join(subdir_name)).unwrap();
     }
@@ -388,7 +397,7 @@ fn get_test_dir(subdir_name: &str) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils::{assert_dir_eq, current_function};
+    use mithril_common::{assert_dir_eq, current_function};
 
     use super::*;
 

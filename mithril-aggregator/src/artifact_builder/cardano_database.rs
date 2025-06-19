@@ -100,20 +100,23 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
 
 #[cfg(test)]
 mod tests {
+    use mockall::{predicate, Predicate};
     use std::path::Path;
     use std::{collections::BTreeMap, path::PathBuf};
 
+    use mithril_cardano_node_internal_database::entities::AncillaryFilesManifest;
+    use mithril_cardano_node_internal_database::test::DummyCardanoDbBuilder;
+    use mithril_cardano_node_internal_database::{immutable_trio_names, IMMUTABLE_DIR, LEDGER_DIR};
+
     use mithril_common::{
-        digesters::{immutable_trio_names, DummyCardanoDbBuilder, IMMUTABLE_DIR, LEDGER_DIR},
         entities::{
-            AncillaryFilesManifest, AncillaryLocation, CompressionAlgorithm, DigestLocation,
-            ImmutableFileNumber, ImmutablesLocation, MultiFilesUri, ProtocolMessage,
-            ProtocolMessagePartKey, TemplateUri,
+            AncillaryLocation, CompressionAlgorithm, DigestLocation, ImmutableFileNumber,
+            ImmutablesLocation, MultiFilesUri, ProtocolMessage, ProtocolMessagePartKey,
+            TemplateUri,
         },
         test_utils::{fake_data, fake_keys, TempDir},
         CardanoNetwork,
     };
-    use mockall::{predicate, Predicate};
 
     use crate::{
         artifact_builder::{
@@ -151,7 +154,7 @@ mod tests {
         )
         .await
         .unwrap();
-        manifest_dummy.signature = Some(ancillary_manifest_signature.try_into().unwrap());
+        manifest_dummy.set_signature(ancillary_manifest_signature.try_into().unwrap());
 
         serde_json::to_string(&manifest_dummy).unwrap().len() as u64
     }

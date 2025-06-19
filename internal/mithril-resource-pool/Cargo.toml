@@ -1,6 +1,6 @@
 [package]
 name = "mithril-resource-pool"
-version = "0.0.4"
+version = "0.0.5"
 description = "Provide a resource pool for Mithril."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -13,7 +13,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
 anyhow = { workspace = true }
-mithril-common = { path = "../../mithril-common", features = ["fs"] }
+mithril-common = { path = "../../mithril-common" }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 

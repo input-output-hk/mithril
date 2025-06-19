@@ -282,8 +282,8 @@ mod tests {
     use std::io::Write;
     use std::path::Path;
 
+    use mithril_cardano_node_internal_database::test::DummyCardanoDbBuilder;
     use mithril_common::{
-        digesters::DummyCardanoDbBuilder,
         entities::TemplateUri,
         test_utils::{assert_equivalent, equivalent_to, TempDir},
     };

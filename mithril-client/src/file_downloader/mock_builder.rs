@@ -6,9 +6,10 @@ use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 
+use mithril_cardano_node_internal_database::entities::AncillaryFilesManifest;
 use mithril_common::{
     crypto_helper::ManifestSigner,
-    entities::{AncillaryFilesManifest, CompressionAlgorithm, FileUri},
+    entities::{CompressionAlgorithm, FileUri},
     StdResult,
 };
 
@@ -105,20 +106,18 @@ impl MockFileDownloaderBuilder {
             }
 
             let empty_file_sha256 = hex::encode(Sha256::digest(""));
-            let mut ancillary_manifest = AncillaryFilesManifest {
-                data: BTreeMap::from_iter(
+            let mut ancillary_manifest =
+                AncillaryFilesManifest::new_without_signature(BTreeMap::from_iter(
                     fake_ancillary_file_builder
                         .files_in_manifest_to_create
                         .iter()
                         .map(|filename| (PathBuf::from(filename), empty_file_sha256.clone())),
-                ),
-                signature: None,
-            };
+                ));
 
-            ancillary_manifest.signature = fake_ancillary_file_builder
-                .sign_manifest
-                .as_ref()
-                .map(|signer| signer.sign(&ancillary_manifest.compute_hash()));
+            if let Some(manifest_signer) = &fake_ancillary_file_builder.sign_manifest {
+                ancillary_manifest
+                    .set_signature(manifest_signer.sign(&ancillary_manifest.compute_hash()));
+            }
 
             let ancillary_file =
                 File::create(target_dir.join(AncillaryFilesManifest::ANCILLARY_MANIFEST_FILE_NAME))
@@ -264,7 +263,7 @@ mod tests {
         const EMPTY_SHA256_HASH: &str =
             "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
         assert_eq!(
-            ancillary_manifest.data,
+            ancillary_manifest.signable_manifest.data,
             BTreeMap::from([
                 (PathBuf::from("file1.txt"), EMPTY_SHA256_HASH.to_string()),
                 (PathBuf::from("file2.txt"), EMPTY_SHA256_HASH.to_string()),
@@ -274,7 +273,7 @@ mod tests {
             .verify(
                 &ancillary_manifest.compute_hash(),
                 &ancillary_manifest
-                    .signature
+                    .signature()
                     .expect("Manifest should be signed"),
             )
             .expect("Signed manifest should have a valid signature");

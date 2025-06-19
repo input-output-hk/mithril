@@ -1,6 +1,6 @@
 [package]
 name = "mithril-common"
-version = "0.5.41"
+version = "0.5.42"
 description = "Common types, interfaces, and utilities for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -25,8 +25,8 @@ crate-type = ["lib", "cdylib", "staticlib"]
 default = ["rug-backend"]
 
 # Full feature set
-full = ["fs", "test_tools"]
-fs = ["tokio/fs", "tokio/io-util", "tokio/process"]
+full = ["test_tools"]
+fs = [] # deprecated, will be removed soon
 
 # Enables `rug-backend` features for `mithril-stm` dependency
 rug-backend = ["mithril-stm/rug-backend"]
@@ -101,11 +101,6 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
 [[bench]]
 name = "block_range"
 harness = false
-
-[[bench]]
-name = "digester"
-harness = false
-required-features = ["fs"]
 
 [[bench]]
 name = "merkle_tree"

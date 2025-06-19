@@ -11,16 +11,17 @@ use mithril_cardano_node_chain::{
     chain_reader::PallasChainReader,
     chain_scanner::CardanoBlockScanner,
 };
+use mithril_cardano_node_internal_database::{
+    digesters::cache::{
+        ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder,
+    },
+    digesters::CardanoImmutableDigester,
+    signable_builder::{CardanoDatabaseSignableBuilder, CardanoImmutableFilesFullSignableBuilder},
+    ImmutableFileObserver, ImmutableFileSystemObserver,
+};
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat};
-use mithril_common::digesters::cache::{
-    ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder,
-};
-use mithril_common::digesters::{
-    CardanoImmutableDigester, ImmutableFileObserver, ImmutableFileSystemObserver,
-};
 use mithril_common::signable_builder::{
-    CardanoDatabaseSignableBuilder, CardanoImmutableFilesFullSignableBuilder,
     CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,
     MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
     SignableBuilderServiceDependencies,
@@ -452,9 +453,8 @@ mod tests {
     use std::path::PathBuf;
 
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
-    use mithril_common::{
-        digesters::DumbImmutableFileObserver, entities::TimePoint, test_utils::TempDir,
-    };
+    use mithril_cardano_node_internal_database::test::double::DumbImmutableFileObserver;
+    use mithril_common::{entities::TimePoint, test_utils::TempDir};
 
     use crate::test_tools::TestLogger;
 

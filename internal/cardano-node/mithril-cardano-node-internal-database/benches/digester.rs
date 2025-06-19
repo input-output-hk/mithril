@@ -1,14 +1,4 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use mithril_common::{
-    digesters::{
-        cache::{
-            ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProvider,
-            MemoryImmutableFileDigestCacheProvider,
-        },
-        CardanoImmutableDigester, ImmutableDigester, IMMUTABLE_DIR,
-    },
-    entities::{CardanoDbBeacon, ImmutableFileNumber},
-};
 use slog::Drain;
 use std::{
     fs,
@@ -17,6 +7,16 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
+
+use mithril_cardano_node_internal_database::digesters::cache::{
+    ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProvider,
+    MemoryImmutableFileDigestCacheProvider,
+};
+use mithril_cardano_node_internal_database::digesters::{
+    CardanoImmutableDigester, ImmutableDigester,
+};
+use mithril_cardano_node_internal_database::IMMUTABLE_DIR;
+use mithril_common::entities::{CardanoDbBeacon, ImmutableFileNumber};
 
 fn temp_dir() -> PathBuf {
     std::env::temp_dir()

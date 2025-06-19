@@ -535,7 +535,13 @@ jobs:
       max-parallel: 1
       matrix:
         package:
-          [mithril-stm, mithril-build-script, mithril-common, mithril-client]
+          [
+            mithril-stm,
+            mithril-build-script,
+            mithril-common,
+            mithril-cardano-node-internal-database,
+            mithril-client,
+          ]
 
     runs-on: ubuntu-24.04
     needs:
@@ -802,8 +808,11 @@ jobs:
         run: |
           # Force `--lib` to avoid a collision between the client lib and the client cli binary who share
           # the same name (we only want to document those anyway)
-          cargo doc --no-deps --lib -p mithril-stm -p mithril-common -p mithril-persistence \
-                    -p mithril-build-script -p mithril-doc -p mithril-doc-derive \
+          cargo doc --no-deps --lib -p mithril-stm -p mithril-common \
+                    -p mithril-cardano-node-chain -p mithril-cardano-node-internal-database \
+                    -p mithril-build-script -p mithril-cli-helper -p mithril-doc -p mithril-doc-derive \
+                    -p mithril-era -p mithril-metric -p mithril-persistence -p mithril-resource-pool \
+                    -p mithril-ticker -p mithril-signed-entity-lock -p mithril-signed-entity-preloader \
                     -p mithril-aggregator -p mithril-signer -p mithril-client -p mithril-client-cli \
                     --all-features --message-format=json \
                     | clippy-sarif | tee rust-cargo-doc-results.sarif | sarif-fmt

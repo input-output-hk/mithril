@@ -6,8 +6,9 @@ use std::{
 use thiserror::Error;
 use walkdir::WalkDir;
 
-use crate::digesters::LEDGER_DIR;
-use crate::entities::SlotNumber;
+use mithril_common::entities::SlotNumber;
+
+use crate::LEDGER_DIR;
 
 /// Walk the given path and return the first directory named "ledger" it finds
 fn find_ledger_dir(path_to_walk: &Path) -> Option<PathBuf> {
@@ -190,7 +191,7 @@ mod tests {
     use std::fs::{create_dir, File};
     use std::io::prelude::*;
 
-    use crate::test_utils::temp_dir_create;
+    use mithril_common::test_utils::temp_dir_create;
 
     use super::*;
 

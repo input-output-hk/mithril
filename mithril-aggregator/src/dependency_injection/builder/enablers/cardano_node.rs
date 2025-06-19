@@ -8,7 +8,9 @@ use mithril_cardano_node_chain::{
     chain_scanner::{BlockScanner, CardanoBlockScanner},
     test::double::FakeChainObserver,
 };
-use mithril_common::digesters::{CardanoImmutableDigester, ImmutableDigester};
+use mithril_cardano_node_internal_database::digesters::{
+    CardanoImmutableDigester, ImmutableDigester,
+};
 use mithril_common::entities::SignedEntityTypeDiscriminants;
 use mithril_signed_entity_preloader::{
     CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,

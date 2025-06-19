@@ -3819,7 +3819,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.7.63"
+version = "0.7.64"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3834,6 +3834,7 @@ dependencies = [
  "http 1.3.1",
  "httpmock",
  "mithril-cardano-node-chain",
+ "mithril-cardano-node-internal-database",
  "mithril-cli-helper",
  "mithril-common",
  "mithril-doc",
@@ -3930,6 +3931,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "mithril-cardano-node-internal-database"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "criterion",
+ "digest 0.10.7",
+ "hex",
+ "mithril-common",
+ "mockall",
+ "serde",
+ "serde_json",
+ "sha2",
+ "slog",
+ "slog-async",
+ "slog-term",
+ "thiserror 2.0.12",
+ "tokio",
+ "walkdir",
+]
+
+[[package]]
 name = "mithril-cli-helper"
 version = "0.0.6"
 dependencies = [
@@ -3940,7 +3963,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.12.15"
+version = "0.12.16"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3954,6 +3977,7 @@ dependencies = [
  "hex",
  "http 1.3.1",
  "httpmock",
+ "mithril-cardano-node-internal-database",
  "mithril-common",
  "mockall",
  "reqwest",
@@ -4027,7 +4051,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.5.41"
+version = "0.5.42"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4093,13 +4117,14 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.4.90"
+version = "0.4.91"
 dependencies = [
  "anyhow",
  "async-recursion",
  "clap",
  "indicatif",
  "mithril-cardano-node-chain",
+ "mithril-cardano-node-internal-database",
  "mithril-common",
  "mithril-doc",
  "reqwest",
@@ -4146,7 +4171,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-persistence"
-version = "0.2.53"
+version = "0.2.54"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4189,7 +4214,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-resource-pool"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "anyhow",
  "mithril-common",
@@ -4208,7 +4233,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signed-entity-preloader"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4224,7 +4249,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.253"
+version = "0.2.254"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4236,6 +4261,7 @@ dependencies = [
  "http 1.3.1",
  "httpmock",
  "mithril-cardano-node-chain",
+ "mithril-cardano-node-internal-database",
  "mithril-cli-helper",
  "mithril-common",
  "mithril-doc",
@@ -4287,11 +4313,12 @@ dependencies = [
 
 [[package]]
 name = "mithril-ticker"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "async-trait",
  "mithril-cardano-node-chain",
+ "mithril-cardano-node-internal-database",
  "mithril-common",
  "thiserror 2.0.12",
  "tokio",

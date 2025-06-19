@@ -260,7 +260,8 @@ else
 
   if [ true = $COMMIT ]
   then
-    git add --update $OPEN_API_FILE Cargo.lock ./*/Cargo.toml ./internal/*/Cargo.toml ./mithril-test-lab/*/Cargo.toml examples/*/Cargo.toml
+    git add --update $OPEN_API_FILE Cargo.lock ./*/Cargo.toml ./mithril-test-lab/*/Cargo.toml examples/*/Cargo.toml
+    git add --update ./internal/*/Cargo.toml ./internal/cardano-node/*/Cargo.toml ./internal/signed-entity/*/Cargo.toml
     git add --update ./*/package.json ./*/package-lock.json mithril-client-wasm/ci-test/package-lock.json examples/*/package.json examples/*/package-lock.json
     git add --update $INFRA_VERSION_FILE $DEVNET_VERSION_FILE $BENCHMARK_VERSION_FILE
     git commit -m "$COMMIT_MESSAGE"

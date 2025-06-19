@@ -4,10 +4,10 @@ use std::path::{Path, PathBuf};
 use anyhow::Context;
 use thiserror::Error;
 
-use mithril_common::{
-    crypto_helper::{ManifestVerifier, ManifestVerifierVerificationKey},
-    entities::{AncillaryFilesManifest, AncillaryFilesManifestVerifyError},
+use mithril_cardano_node_internal_database::entities::{
+    AncillaryFilesManifest, AncillaryFilesManifestVerifyError,
 };
+use mithril_common::crypto_helper::{ManifestVerifier, ManifestVerifierVerificationKey};
 
 use crate::{MithrilError, MithrilResult};
 
@@ -65,16 +65,15 @@ impl AncillaryVerifier {
         manifest.verify_data(temp_ancillary_dir).await?;
 
         let signature = manifest
-            .signature
-            .as_ref()
+            .signature()
             .ok_or(AncillaryVerificationError::SignatureMissing)?;
         self.verifier
-            .verify(&manifest.compute_hash(), signature)
+            .verify(&manifest.compute_hash(), &signature)
             .map_err(AncillaryVerificationError::SignatureInvalid)?;
 
         Ok(ValidatedAncillaryManifest {
             base_directory: temp_ancillary_dir.to_path_buf(),
-            ancillary_files: manifest.data.keys().cloned().collect(),
+            ancillary_files: manifest.files(),
         })
     }
 }
@@ -128,10 +127,11 @@ mod tests {
     }
 
     mod ancillary_verifier {
+        use sha2::{Digest, Sha256};
         use std::collections::BTreeMap;
 
+        use mithril_common::entities::SignableManifest;
         use mithril_common::{crypto_helper::ManifestSigner, test_utils::fake_keys};
-        use sha2::{Digest, Sha256};
 
         use super::*;
 
@@ -162,14 +162,11 @@ mod tests {
 
         /// Generates a valid, signed, manifest with two files
         fn valid_manifest(temp_dir: &Path, signer: &ManifestSigner) -> AncillaryFilesManifest {
-            let mut manifest = AncillaryFilesManifest {
-                data: BTreeMap::from([
-                    generate_manifest_item(temp_dir, "file1.txt", "content 1"),
-                    generate_manifest_item(temp_dir, "file2.txt", "content 2"),
-                ]),
-                signature: None,
-            };
-            manifest.signature = Some(signer.sign(&manifest.compute_hash()));
+            let mut manifest = AncillaryFilesManifest::new_without_signature(BTreeMap::from([
+                generate_manifest_item(temp_dir, "file1.txt", "content 1"),
+                generate_manifest_item(temp_dir, "file2.txt", "content 2"),
+            ]));
+            manifest.set_signature(signer.sign(&manifest.compute_hash()));
             manifest
         }
 
@@ -216,8 +213,13 @@ mod tests {
             let temp_dir = temp_dir_create!();
             let signer = ManifestSigner::create_deterministic_signer();
             let manifest = AncillaryFilesManifest {
-                data: BTreeMap::from([(PathBuf::from("invalid path"), "invalid sha".to_string())]),
-                ..valid_manifest(&temp_dir, &signer)
+                signable_manifest: SignableManifest {
+                    data: BTreeMap::from([(
+                        PathBuf::from("invalid path"),
+                        "invalid sha".to_string(),
+                    )]),
+                    ..valid_manifest(&temp_dir, &signer).signable_manifest
+                },
             };
             write_manifest(&temp_dir, &manifest);
 
@@ -235,8 +237,10 @@ mod tests {
             let temp_dir = temp_dir_create!();
             let signer = ManifestSigner::create_deterministic_signer();
             let manifest = AncillaryFilesManifest {
-                signature: None,
-                ..valid_manifest(&temp_dir, &signer)
+                signable_manifest: SignableManifest {
+                    signature: None,
+                    ..valid_manifest(&temp_dir, &signer).signable_manifest
+                },
             };
             write_manifest(&temp_dir, &manifest);
 
@@ -254,13 +258,15 @@ mod tests {
             let temp_dir = temp_dir_create!();
             let signer = ManifestSigner::create_deterministic_signer();
             let manifest = AncillaryFilesManifest {
-                // Note: This is a valid signature, but for different data
-                signature: Some(
-                    fake_keys::signable_manifest_signature()[0]
-                        .try_into()
-                        .unwrap(),
-                ),
-                ..valid_manifest(&temp_dir, &signer)
+                signable_manifest: SignableManifest {
+                    // Note: This is a valid signature, but for different data
+                    signature: Some(
+                        fake_keys::signable_manifest_signature()[0]
+                            .try_into()
+                            .unwrap(),
+                    ),
+                    ..valid_manifest(&temp_dir, &signer).signable_manifest
+                },
             };
             write_manifest(&temp_dir, &manifest);
 

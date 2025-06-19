@@ -1,6 +1,6 @@
 [package]
 name = "mithril-persistence"
-version = "0.2.53"
+version = "0.2.54"
 description = "Common types, interfaces, and utilities to persist data for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -15,7 +15,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }
-mithril-common = { path = "../../mithril-common", features = ["fs"] }
+mithril-common = { path = "../../mithril-common" }
 mithril-resource-pool = { path = "../mithril-resource-pool" }
 semver = { workspace = true }
 serde = { workspace = true }

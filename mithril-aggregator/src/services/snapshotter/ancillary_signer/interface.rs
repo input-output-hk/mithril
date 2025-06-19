@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
+use mithril_cardano_node_internal_database::entities::AncillaryFilesManifest;
 use mithril_common::crypto_helper::ManifestSignature;
-use mithril_common::entities::AncillaryFilesManifest;
 use mithril_common::StdResult;
 
 #[cfg_attr(test, mockall::automock)]
