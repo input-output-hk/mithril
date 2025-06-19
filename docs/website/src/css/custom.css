@@ -11,19 +11,76 @@
  * https://docusaurus.io/docs/styling-layout#styling-your-site-with-infima
  */
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Lexend";
+  font-weight: 400;
+  src: url("/fonts/Lexend-VariableFont.ttf");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Lexend";
+  font-weight: 500;
+  src: url("/fonts/Lexend-VariableFont.ttf");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Lexend";
+  font-weight: 600;
+  src: url("/fonts/Lexend-VariableFont.ttf");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  font-weight: 400;
+  src: url("/fonts/Inter-VariableFont.ttf");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  font-weight: 400;
+  font-style: italic;
+  src: url("/fonts/Inter-Italic-VariableFont.ttf");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  font-weight: 700;
+  src: url("/fonts/Inter-VariableFont.ttf");
+  font-display: swap;
+}
+
 :root {
-  --ifm-color-primary: #0969da;
-  --ifm-color-primary-dark: #085ec4;
-  --ifm-color-primary-darker: #0859b9;
-  --ifm-color-primary-darkest: #064999;
-  --ifm-color-primary-light: #0a73f0;
-  --ifm-color-primary-lighter: #1079f5;
-  --ifm-color-primary-lightest: #318cf6;
+  --ifm-color-primary: #397589;
+  --ifm-color-primary-dark: #397589;
+  --ifm-color-primary-darker: #397589;
+  --ifm-color-primary-darkest: #397589;
+  --ifm-color-primary-light: #65cfe1;
+  --ifm-color-primary-lighter: #65cfe1;
+  --ifm-color-primary-lightest: #65cfe1;
   --ifm-code-font-size: 95%;
+
+  --ifm-navbar-height: 60px;
+
+  font-family: "Inter";
+}
+
+@media (min-width: 768px) {
+  :root {
+    --ifm-navbar-height: 96px;
+  }
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
-[data-theme="dark"] {
+/* [data-theme="dark"] {
   --ifm-color-primary: #669fe1;
   --ifm-color-primary-dark: #4b8edc;
   --ifm-color-primary-darker: #3d85d9;
@@ -31,6 +88,79 @@
   --ifm-color-primary-light: #81b0e6;
   --ifm-color-primary-lighter: #8fb9e9;
   --ifm-color-primary-lightest: #b8d2f1;
+} */
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: "Lexend";
+}
+
+h5,
+h6 {
+  font-family: "Inter";
+}
+
+h1 {
+  font-size: 2.5rem;
+  font-weight: 500;
+}
+
+h2 {
+  font-size: 2rem;
+}
+
+h3 {
+  font-size: 1.5rem;
+}
+
+.pageContainer {
+  max-width: 1280px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+@media (min-width: 768px) {
+  .pageContainer {
+    padding-left: 48px;
+    padding-right: 48px;
+  }
+}
+
+.component {
+  padding-top: 72px;
+  padding-bottom: 72px;
+}
+
+.teal-gradient {
+  background: linear-gradient(to right, #397589, #65cfe1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+.use-case-text {
+  background: #01193c;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+.navbar__item {
+  font-weight: 600;
+  font-size: 1rem;
+  line-height: 2rem;
+}
+
+.navbar__items {
+  display: flex !important;
+  font-family: "Lexend";
 }
 
 .docusaurus-highlight-code-line {
@@ -74,4 +204,98 @@ div[role="banner"] {
 
 div[role="banner"] div {
   font-size: 90%;
+}
+
+@media (min-width: 768px) {
+  .theme-doc-version-badge {
+    margin-bottom: 16px !important;
+  }
+}
+
+.col--7 .markdown {
+  padding: 0 !important;
+}
+
+.breadcrumbHomeIcon_src-theme-DocBreadcrumbs-Items-Home-styles-module {
+  height: 100% !important;
+  width: 100% !important;
+}
+
+.breadcrumbs__link {
+  margin-bottom: -8px !important;
+}
+
+.menu__link--active {
+  font-weight: 700;
+}
+
+a.menu__link {
+  text-decoration: none !important;
+  -webkit-text-decoration: none !important;
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 2rem;
+  margin: 1rem 0;
+}
+
+.markdown ul {
+  list-style-type: disc;
+}
+
+.markdown ol {
+  list-style-type: decimal;
+}
+
+.markdown li {
+  margin: 0.25rem 0;
+}
+
+.markdown p {
+  margin-bottom: 1.5rem;
+}
+
+.markdown a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  margin-bottom: 1rem;
+  font-weight: 700;
+}
+
+.title_f1Hy {
+  font-weight: 700;
+}
+
+.markdown h3 {
+  font-size: 1.5rem !important;
+}
+
+.admonitionHeading_Gvgb {
+  display: flex;
+  align-items: center;
+}
+
+.card {
+  text-decoration: none !important;
+}
+
+.markdown table a {
+  text-decoration: none !important;
+}
+
+.theme-edit-this-page {
+  display: flex;
+  align-items: center;
+}
+
+.stuck-grid {
+  perspective: 500px;
+  transform-style: preserve-3d;
 }
