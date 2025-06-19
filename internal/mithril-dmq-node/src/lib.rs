@@ -8,7 +8,7 @@ pub mod test;
 
 pub use consumer::{DmqConsumer, DmqConsumerPallas};
 pub use message::DmqMessageBuilder;
-pub use publisher::DmqPublisherPallas;
+pub use publisher::{DmqPublisher, DmqPublisherPallas};
 
 #[cfg(test)]
 pub(crate) mod test_tools {
