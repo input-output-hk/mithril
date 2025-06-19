@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use libp2p::{gossipsub, Multiaddr};
-use mithril_common::messages::{RegisterSignatureMessage, RegisterSignerMessage};
+use mithril_common::messages::{RegisterSignatureMessageHttp, RegisterSignerMessage};
 use mithril_relay::{
     p2p::{BroadcastMessage, PeerBehaviourEvent, PeerEvent},
     PassiveRelay, SignerRelay, SignerRelayMode,
@@ -165,7 +165,7 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
     }
 
     info!("Test: send a signature to the relay via HTTP gateway");
-    let mut signature_message_sent = RegisterSignatureMessage::dummy();
+    let mut signature_message_sent = RegisterSignatureMessageHttp::dummy();
     signature_message_sent.party_id = format!("{}-new", signature_message_sent.party_id);
     let response = reqwest::Client::new()
         .post(format!("http://{relay_address}/register-signatures"))

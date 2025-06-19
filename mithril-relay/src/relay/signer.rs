@@ -8,7 +8,7 @@ use warp::Filter;
 
 use mithril_common::{
     logging::LoggerExtensions,
-    messages::{RegisterSignatureMessage, RegisterSignerMessage},
+    messages::{RegisterSignatureMessageHttp, RegisterSignerMessage},
     StdResult,
 };
 use mithril_test_http_server::{test_http_server_with_socket_address, TestHttpServer};
@@ -40,7 +40,7 @@ struct HTTPServerConfiguration<'a> {
     signature_registration_mode: SignerRelayMode,
     aggregator_endpoint: &'a str,
     signer_tx: UnboundedSender<RegisterSignerMessage>,
-    signature_tx: UnboundedSender<RegisterSignatureMessage>,
+    signature_tx: UnboundedSender<RegisterSignatureMessageHttp>,
     signer_repeater: Arc<MessageRepeater<RegisterSignerMessage>>,
     logger: &'a Logger,
 }
@@ -49,7 +49,7 @@ struct HTTPServerConfiguration<'a> {
 pub struct SignerRelay {
     server: TestHttpServer,
     peer: Peer,
-    signature_rx: UnboundedReceiver<RegisterSignatureMessage>,
+    signature_rx: UnboundedReceiver<RegisterSignatureMessageHttp>,
     signer_rx: UnboundedReceiver<RegisterSignerMessage>,
     signer_repeater: Arc<MessageRepeater<RegisterSignerMessage>>,
     logger: Logger,
@@ -68,7 +68,7 @@ impl SignerRelay {
     ) -> StdResult<Self> {
         let relay_logger = logger.new_with_component_name::<Self>();
         debug!(relay_logger, "Starting..."; "signer_registration_mode" => ?signer_registration_mode, "signature_registration_mode" => ?signature_registration_mode);
-        let (signature_tx, signature_rx) = unbounded_channel::<RegisterSignatureMessage>();
+        let (signature_tx, signature_rx) = unbounded_channel::<RegisterSignatureMessageHttp>();
         let (signer_tx, signer_rx) = unbounded_channel::<RegisterSignerMessage>();
         let signer_repeater = Arc::new(MessageRepeater::new(
             signer_tx.clone(),
@@ -187,7 +187,7 @@ impl SignerRelay {
 
     /// Receive signature from the underlying channel
     #[allow(dead_code)]
-    pub async fn receive_signature(&mut self) -> Option<RegisterSignatureMessage> {
+    pub async fn receive_signature(&mut self) -> Option<RegisterSignatureMessageHttp> {
         self.signature_rx.recv().await
     }
 
@@ -254,7 +254,7 @@ mod middlewares {
 }
 
 mod handlers {
-    use mithril_common::messages::{RegisterSignatureMessage, RegisterSignerMessage};
+    use mithril_common::messages::{RegisterSignatureMessageHttp, RegisterSignerMessage};
     use reqwest::{Error, Response};
     use slog::{debug, Logger};
     use std::{convert::Infallible, sync::Arc};
@@ -303,11 +303,11 @@ mod handlers {
     }
 
     pub async fn register_signatures_handler(
-        register_signature_message: RegisterSignatureMessage,
+        register_signature_message: RegisterSignatureMessageHttp,
         signer_relay_mode: SignerRelayMode,
         aggregator_endpoint: String,
         logger: Logger,
-        tx: UnboundedSender<RegisterSignatureMessage>,
+        tx: UnboundedSender<RegisterSignatureMessageHttp>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!(logger, "Serve HTTP route /register-signatures"; "signer_relay_mode" => ?signer_relay_mode, "register_signature_message" => #?register_signature_message);
 
@@ -503,8 +503,8 @@ mod tests {
     #[tokio::test]
     async fn register_signatures_handler_with_passthrough() {
         let test_logger = TestLogger::stdout();
-        let (tx, mut rx) = unbounded_channel::<RegisterSignatureMessage>();
-        let message = RegisterSignatureMessage::dummy();
+        let (tx, mut rx) = unbounded_channel::<RegisterSignatureMessageHttp>();
+        let message = RegisterSignatureMessageHttp::dummy();
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
             when.method(POST)
@@ -530,8 +530,8 @@ mod tests {
     #[tokio::test]
     async fn register_signatures_handler_with_p2p() {
         let test_logger = TestLogger::stdout();
-        let (tx, mut rx) = unbounded_channel::<RegisterSignatureMessage>();
-        let message = RegisterSignatureMessage::dummy();
+        let (tx, mut rx) = unbounded_channel::<RegisterSignatureMessageHttp>();
+        let message = RegisterSignatureMessageHttp::dummy();
 
         handlers::register_signatures_handler(
             message.clone(),

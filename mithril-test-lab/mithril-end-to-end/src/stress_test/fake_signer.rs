@@ -8,7 +8,7 @@ use tokio::task::JoinSet;
 
 use mithril_common::{
     entities::{Epoch, PartyId, Signer},
-    messages::RegisterSignatureMessage,
+    messages::RegisterSignatureMessageHttp,
     StdResult,
 };
 
@@ -142,7 +142,7 @@ pub async fn register_signers_to_aggregator(
 
 pub async fn register_signatures_to_aggregator(
     aggregator: &Aggregator,
-    register_messages: Vec<RegisterSignatureMessage>,
+    register_messages: Vec<RegisterSignatureMessageHttp>,
 ) -> StdResult<usize> {
     let mut join_set: JoinSet<StdResult<()>> = JoinSet::new();
     let progress_bar = ProgressBar::with_draw_target(
