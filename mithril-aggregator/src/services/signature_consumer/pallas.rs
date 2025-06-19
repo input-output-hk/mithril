@@ -7,7 +7,7 @@ use mithril_common::{
     StdResult,
 };
 
-use mithril_dmq_node::DmqConsumerPallas;
+use mithril_dmq_node::{DmqConsumer, DmqConsumerPallas};
 
 use super::SignatureConsumer;
 
