@@ -1,12 +1,14 @@
 [package]
 name = "mithril-cardano-node-internal-database"
 version = "0.1.0"
+description = "Mechanisms that allow Mithril nodes to read the files of a Cardano node internal database and compute digests from them"
 authors.workspace = true
 documentation.workspace = true
 edition.workspace = true
 homepage.workspace = true
 license.workspace = true
 repository.workspace = true
+include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 
 [lib]
 crate-type = ["lib", "cdylib", "staticlib"]
