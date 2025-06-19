@@ -3869,7 +3869,7 @@ checksum = "a9882ef5c56df184b8ffc107fc6c61e33ee3a654b021961d790a78571bb9d67a"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.101",
+ "syn 2.0.104",
 ]
 
 [[package]]
@@ -4021,9 +4021,9 @@ dependencies = [
  "mockall",
  "nom 8.0.0",
  "pallas-addresses",
- "pallas-codec 0.32.0",
- "pallas-crypto 0.32.0",
- "pallas-network 0.32.0",
+ "pallas-codec 0.32.1",
+ "pallas-crypto 0.32.1",
+ "pallas-network 0.32.1",
  "pallas-primitives",
  "pallas-traverse",
  "rand_core 0.6.4",
@@ -4205,9 +4205,11 @@ name = "mithril-dmq-node"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "blake2 0.10.6",
  "mithril-cardano-node-chain",
  "mithril-common",
+ "mockall",
  "pallas-network 1.0.0-alpha.2",
  "slog",
  "slog-async",
@@ -4968,8 +4970,8 @@ dependencies = [
  "crc",
  "cryptoxide",
  "hex",
- "pallas-codec 0.32.0",
- "pallas-crypto 0.32.0",
+ "pallas-codec 0.32.1",
+ "pallas-crypto 0.32.1",
  "thiserror 1.0.69",
 ]
 
@@ -5004,7 +5006,7 @@ checksum = "59c89ea16190a87a1d8bd36923093740a2b659ed6129f4636329319a70cc4db3"
 dependencies = [
  "cryptoxide",
  "hex",
- "pallas-codec 0.32.0",
+ "pallas-codec 0.32.1",
  "rand_core 0.6.4",
  "serde",
  "thiserror 1.0.69",
@@ -5033,8 +5035,8 @@ dependencies = [
  "byteorder",
  "hex",
  "itertools 0.13.0",
- "pallas-codec 0.32.0",
- "pallas-crypto 0.32.0",
+ "pallas-codec 0.32.1",
+ "pallas-crypto 0.32.1",
  "rand 0.8.5",
  "socket2",
  "thiserror 1.0.69",
@@ -5069,8 +5071,8 @@ dependencies = [
  "bech32 0.9.1",
  "hex",
  "log",
- "pallas-codec 0.32.0",
- "pallas-crypto 0.32.0",
+ "pallas-codec 0.32.1",
+ "pallas-crypto 0.32.1",
  "serde",
  "serde_json",
 ]
@@ -5084,8 +5086,8 @@ dependencies = [
  "hex",
  "itertools 0.13.0",
  "pallas-addresses",
- "pallas-codec 0.32.0",
- "pallas-crypto 0.32.0",
+ "pallas-codec 0.32.1",
+ "pallas-crypto 0.32.1",
  "pallas-primitives",
  "paste",
  "serde",
