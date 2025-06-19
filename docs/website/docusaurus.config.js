@@ -88,6 +88,17 @@ const config = {
   ],
 
   plugins: [
+    async function myPlugin(context, options) {
+      return {
+        name: "docusaurus-tailwindcss",
+        configurePostCss(postcssOptions) {
+          // Appends TailwindCSS and AutoPrefixer.
+          postcssOptions.plugins.push(require("tailwindcss"));
+          postcssOptions.plugins.push(require("autoprefixer"));
+          return postcssOptions;
+        },
+      };
+    },
     [
       "@docusaurus/plugin-content-blog",
       {
@@ -200,15 +211,20 @@ const config = {
         id: "announcement",
         content:
           'Participate in Mithril Protocol’s Mainnet Beta! Follow our SPO on-boarding guide  <a rel="noopener noreferrer" href="https://mithril.network/doc/manual/operate/become-mithril-spo">here</a>!',
-        backgroundColor: "#2e8555",
+        backgroundColor: "#2A598E",
         textColor: "#f1f1f1",
         isCloseable: true,
       },
+      colorMode: {
+        defaultMode: "light",
+        disableSwitch: true,
+        respectPrefersColorScheme: false,
+      },
       navbar: {
-        title: "Mithril",
         logo: {
           alt: "Mithril. A complete guide.",
-          src: "img/logo.svg",
+
+          src: "img/logo-text.svg",
         },
         items: [
           {
@@ -238,7 +254,7 @@ const config = {
             label: "Glossary",
             position: "right",
           },
-          { to: "/dev-blog", label: "Dev blog", position: "right" },
+          { to: "/dev-blog", label: "Blog", position: "right" },
           { to: "/adr", label: "ADRs", position: "right" },
           {
             className: "header-github-link",
@@ -248,13 +264,16 @@ const config = {
         ],
       },
       footer: {
-        style: "dark",
+        logo: {
+          alt: "Mithril. A complete guide.",
+          src: "img/logo-dark.svg",
+        },
         links: [
           {
             title: "Contributing",
             items: [
               {
-                label: "Contributing Guidelines",
+                label: "Contributing guidelines",
                 href: "https://github.com/input-output-hk/mithril/blob/main/CONTRIBUTING.md",
               },
               {
@@ -271,7 +290,7 @@ const config = {
                 href: "https://discord.gg/5kaErDKDRq",
               },
               {
-                label: "GitHub Discussions",
+                label: "GitHub discussions",
                 href: "https://github.com/input-output-hk/mithril/discussions",
               },
               {
@@ -284,11 +303,11 @@ const config = {
             title: "More",
             items: [
               {
-                label: "Mithril Networks Status",
+                label: "Mithril networks status",
                 href: "https://mithril.cronitorstatus.com/",
               },
               {
-                label: "Mithril Protocol Insights",
+                label: "Mithril protocol insights",
                 href: "https://lookerstudio.google.com/s/mbL23-8gibI",
               },
               {
@@ -301,8 +320,21 @@ const config = {
               },
             ],
           },
+          {
+            title: "Legal",
+            items: [
+              {
+                label: "Privacy policy",
+                href: "https://static.iohk.io/terms/iog-privacy-policy.pdf",
+              },
+              {
+                label: "Terms and conditions",
+                href: "https://static.iohk.io/terms/iog-terms-and-conditions.pdf",
+              },
+            ],
+          },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} <strong>Input Output Global</strong> <br/> <a href="https://static.iohk.io/terms/iog-privacy-policy.pdf" target="_blank" class="footer__link-item">Privacy Policy</a> | <a href="https://static.iohk.io/terms/iohktermsandconditions.pdf" target="_blank" class="footer__link-item">Terms & Conditions</a> <br/> <small>Built with Docusaurus</small>`,
+        copyright: `Copyright © ${new Date().getFullYear()} IOG, Inc.`,
       },
       prism: {
         theme: lightCodeTheme,
@@ -323,6 +355,10 @@ const config = {
       type: "text/css",
       integrity: "sha384-odtC+0UGzzFL/6PNoE8rX/SPcQDXBJ+uRepguP4QkPCm2LBxH3FA3y+fKSiJ+AmM",
       crossorigin: "anonymous",
+    },
+    {
+      href: "/css/custom.css",
+      type: "text/css",
     },
   ],
 };
