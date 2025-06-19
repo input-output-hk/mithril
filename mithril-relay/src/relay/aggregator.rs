@@ -3,7 +3,7 @@ use anyhow::anyhow;
 use libp2p::Multiaddr;
 use mithril_common::{
     logging::LoggerExtensions,
-    messages::{RegisterSignatureMessage, RegisterSignerMessage},
+    messages::{RegisterSignatureMessageHttp, RegisterSignerMessage},
     StdResult,
 };
 use reqwest::StatusCode;
@@ -32,7 +32,7 @@ impl AggregatorRelay {
 
     async fn notify_signature_to_aggregator(
         &self,
-        signature_message: &RegisterSignatureMessage,
+        signature_message: &RegisterSignatureMessageHttp,
     ) -> StdResult<()> {
         let response = reqwest::Client::new()
             .post(format!("{}/register-signatures", self.aggregator_endpoint))
@@ -176,7 +176,7 @@ mod tests {
             .unwrap();
 
         relay
-            .notify_signature_to_aggregator(&RegisterSignatureMessage::dummy())
+            .notify_signature_to_aggregator(&RegisterSignatureMessageHttp::dummy())
             .await
             .expect("Should succeed with Accept-Encoding header");
 

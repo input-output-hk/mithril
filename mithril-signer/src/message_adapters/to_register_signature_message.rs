@@ -1,7 +1,7 @@
 use anyhow::Context;
 
 use mithril_common::entities::{ProtocolMessage, SignedEntityType, SingleSignature};
-use mithril_common::messages::{RegisterSignatureMessage, TryToMessageAdapter};
+use mithril_common::messages::{RegisterSignatureMessageHttp, TryToMessageAdapter};
 use mithril_common::protocol::ToMessage;
 use mithril_common::StdResult;
 
@@ -10,7 +10,7 @@ pub struct ToRegisterSignatureMessageAdapter;
 impl
     TryToMessageAdapter<
         (SignedEntityType, SingleSignature, &ProtocolMessage),
-        RegisterSignatureMessage,
+        RegisterSignatureMessageHttp,
     > for ToRegisterSignatureMessageAdapter
 {
     fn try_adapt(
@@ -19,8 +19,8 @@ impl
             SingleSignature,
             &ProtocolMessage,
         ),
-    ) -> StdResult<RegisterSignatureMessage> {
-        let message = RegisterSignatureMessage {
+    ) -> StdResult<RegisterSignatureMessageHttp> {
+        let message = RegisterSignatureMessageHttp {
             signed_entity_type,
             party_id: single_signature.party_id,
             signature: single_signature.signature.try_into().with_context(|| {
@@ -43,7 +43,7 @@ mod tests {
 
     #[test]
     fn adapt_ok() {
-        let message: RegisterSignatureMessage = ToRegisterSignatureMessageAdapter::try_adapt((
+        let message: RegisterSignatureMessageHttp = ToRegisterSignatureMessageAdapter::try_adapt((
             SignedEntityType::MithrilStakeDistribution(Epoch(6)),
             fake_data::single_signature([1, 3].to_vec()),
             &ProtocolMessage::default(),
@@ -65,7 +65,7 @@ mod tests {
     fn adapt_cardano_immutable_files_full_message() {
         let signed_entity_type =
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(6, 54));
-        let message: RegisterSignatureMessage = ToRegisterSignatureMessageAdapter::try_adapt((
+        let message: RegisterSignatureMessageHttp = ToRegisterSignatureMessageAdapter::try_adapt((
             signed_entity_type.clone(),
             fake_data::single_signature([1, 3].to_vec()),
             &ProtocolMessage::default(),
