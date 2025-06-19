@@ -7,7 +7,9 @@ use axum::{
     Router,
 };
 use slog::{error, info, warn, Logger};
+use std::net::SocketAddr;
 use std::sync::Arc;
+use tokio::net::TcpListener;
 use tokio::sync::watch::Receiver;
 
 use mithril_common::logging::LoggerExtensions;
@@ -38,7 +40,15 @@ impl IntoResponse for MetricsServerError {
 }
 
 /// The MetricsServer is responsible for exposing the metrics of the signer.
-pub struct MetricsServer<T: MetricsServiceExporter> {
+pub struct MetricsServer {
+    tcp_listener: TcpListener,
+    axum_app: Router,
+    address: SocketAddr,
+    logger: Logger,
+}
+
+/// Builder for the [MetricsServer].
+pub struct MetricsServerBuilder<T: MetricsServiceExporter> {
     server_port: u16,
     server_ip: String,
     metrics_service: Arc<T>,
@@ -50,51 +60,27 @@ struct RouterState<T: MetricsServiceExporter> {
     logger: Logger,
 }
 
-impl<T: MetricsServiceExporter + 'static> MetricsServer<T> {
-    /// Create a new MetricsServer instance.
-    pub fn new(server_ip: &str, server_port: u16, metrics_service: Arc<T>, logger: Logger) -> Self {
-        Self {
-            server_port,
-            server_ip: server_ip.to_string(),
-            metrics_service,
-            logger: logger.new_with_component_name::<Self>(),
-        }
+impl MetricsServer {
+    /// Start building a new `MetricsServer` instance.
+    pub fn build<T: MetricsServiceExporter + 'static>(
+        server_ip: &str,
+        server_port: u16,
+        metrics_service: Arc<T>,
+        logger: Logger,
+    ) -> MetricsServerBuilder<T> {
+        MetricsServerBuilder::new(server_ip, server_port, metrics_service, logger)
     }
 
     /// Metrics server endpoint.
-    pub fn endpoint(&self) -> String {
-        format!("http://{}:{}", self.server_ip, self.server_port)
+    pub fn address(&self) -> SocketAddr {
+        self.address
     }
 
-    /// Serve the metrics on an HTTP server.
-    pub async fn start(&self, shutdown_rx: Receiver<()>) -> StdResult<()> {
-        info!(
-            self.logger,
-            "Starting HTTP server for metrics on port {}", self.server_port
-        );
-
-        let router_state = Arc::new(RouterState {
-            metrics_service: self.metrics_service.clone(),
-            logger: self.logger.clone(),
-        });
-        let app = Router::new()
-            .route(
-                "/metrics",
-                get(|State(state): State<Arc<RouterState<T>>>| async move {
-                    state.metrics_service.export_metrics().map_err(|e| {
-                        error!(state.logger, "Error exporting metrics"; "error" => ?e);
-                        MetricsServerError::Internal(e)
-                    })
-                }),
-            )
-            .with_state(router_state);
-        let listener =
-            tokio::net::TcpListener::bind(format!("{}:{}", self.server_ip, self.server_port))
-                .await?;
-
-        let serve_logger = self.logger.clone();
+    /// Serve the metrics server.
+    pub async fn serve(self, shutdown_rx: Receiver<()>) -> StdResult<()> {
+        let serve_logger = self.logger;
         let mut shutdown_rx = shutdown_rx;
-        axum::serve(listener, app)
+        axum::serve(self.tcp_listener, self.axum_app)
             .with_graceful_shutdown(async move {
                 shutdown_rx.changed().await.ok();
                 warn!(
@@ -105,6 +91,58 @@ impl<T: MetricsServiceExporter + 'static> MetricsServer<T> {
             .await?;
 
         Ok(())
+    }
+}
+
+impl<T: MetricsServiceExporter + 'static> MetricsServerBuilder<T> {
+    /// Create a new MetricsServer instance.
+    pub fn new(server_ip: &str, server_port: u16, metrics_service: Arc<T>, logger: Logger) -> Self {
+        Self {
+            server_port,
+            server_ip: server_ip.to_string(),
+            metrics_service,
+            logger: logger.new_with_component_name::<Self>(),
+        }
+    }
+
+    /// Prepare the metrics server
+    pub async fn bind(self) -> StdResult<MetricsServer> {
+        info!(
+            self.logger,
+            "Starting HTTP server for metrics on port {}", self.server_port
+        );
+
+        let router_state = Arc::new(RouterState {
+            metrics_service: self.metrics_service,
+            logger: self.logger.clone(),
+        });
+        let axum_app = Router::new()
+            .route(
+                "/metrics",
+                get(|State(state): State<Arc<RouterState<T>>>| async move {
+                    state.metrics_service.export_metrics().map_err(|e| {
+                        error!(state.logger, "Error exporting metrics"; "error" => ?e);
+                        MetricsServerError::Internal(e)
+                    })
+                }),
+            )
+            .with_state(router_state);
+        let tcp_listener =
+            TcpListener::bind(format!("{}:{}", self.server_ip, self.server_port)).await?;
+        let address = tcp_listener.local_addr()?;
+
+        Ok(MetricsServer {
+            tcp_listener,
+            axum_app,
+            address,
+            logger: self.logger,
+        })
+    }
+
+    /// Prepare and serve the metrics server.
+    pub async fn serve(self, shutdown_rx: Receiver<()>) -> StdResult<()> {
+        let server = self.bind().await?;
+        server.serve(shutdown_rx).await
     }
 }
 
@@ -138,19 +176,22 @@ mod tests {
         let logger = TestLogger::stdout();
         let (shutdown_tx, shutdown_rx) = watch::channel(());
         let metrics_service = Arc::new(PseudoMetricsService::new());
-        let metrics_server = Arc::new(MetricsServer::new(
-            "0.0.0.0",
-            9090,
+        let metrics_server = MetricsServer::build(
+            "127.0.0.1",
+            0, // Let the OS pick a free port.
             metrics_service.clone(),
             logger,
-        ));
-        let metrics_server_endpoint = metrics_server.endpoint();
+        )
+        .bind()
+        .await
+        .unwrap();
+        let metrics_server_address = metrics_server.address();
 
         let exported_metrics_test = tokio::spawn(async move {
             // Yield to make sure the web server starts first.
             yield_now().await;
 
-            let response = reqwest::get(format!("{metrics_server_endpoint}/metrics"))
+            let response = reqwest::get(format!("http://{metrics_server_address}/metrics"))
                 .await
                 .unwrap();
 
@@ -158,13 +199,13 @@ mod tests {
             assert_eq!("pseudo metrics", response.text().await.unwrap());
         });
 
-        tokio::select!(
-            res =  metrics_server.start(shutdown_rx)  => Err(anyhow!("Metrics server exited with value '{res:?}'")),
+        let res = tokio::select!(
+            res =  metrics_server.serve(shutdown_rx)  => Err(anyhow!("Metrics server exited with value '{res:?}'")),
             _res = sleep(Duration::from_secs(1)) => Err(anyhow!("Timeout: The test should have already completed.")),
             res = exported_metrics_test => res.map_err(|e| e.into()),
-        )
-        .unwrap();
+        );
 
         shutdown_tx.send(()).unwrap();
+        res.unwrap();
     }
 }

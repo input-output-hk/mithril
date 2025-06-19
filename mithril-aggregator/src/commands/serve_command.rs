@@ -259,15 +259,20 @@ impl ServeCommand {
         if config.enable_metrics_server {
             let metrics_logger = root_logger.clone();
             join_set.spawn(async move {
-                let _ = MetricsServer::new(
+                if let Err(serve_err) = MetricsServer::build(
                     &config.metrics_server_ip,
                     config.metrics_server_port,
                     metrics_service,
                     metrics_logger.clone(),
                 )
-                .start(stop_rx_clone)
+                .serve(stop_rx_clone)
                 .await
-                .map_err(|e| anyhow!(e));
+                {
+                    warn!(
+                        metrics_logger, "Could not start Metrics server";
+                        "error" => ?serve_err, "ip" => &config.metrics_server_ip, "port" => &config.metrics_server_port
+                    );
+                };
 
                 Ok(())
             });
