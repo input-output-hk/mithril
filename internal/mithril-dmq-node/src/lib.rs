@@ -6,7 +6,7 @@ mod message;
 mod publisher;
 pub mod test;
 
-pub use consumer::DmqConsumerPallas;
+pub use consumer::{DmqConsumer, DmqConsumerPallas};
 pub use message::DmqMessageBuilder;
 pub use publisher::DmqPublisherPallas;
 

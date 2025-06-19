@@ -11,7 +11,10 @@ use mithril_common::{
     CardanoNetwork, StdResult,
 };
 
+use crate::DmqConsumer;
+
 /// A DMQ consumer implementation.
+///
 /// This implementation is built upon the n2c mini-protocols DMQ implementation in Pallas.
 pub struct DmqConsumerPallas<M: TryFromBytes + Debug> {
     socket: PathBuf,
@@ -39,9 +42,11 @@ impl<M: TryFromBytes + Debug> DmqConsumerPallas<M> {
             .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainReader failed to create a new client")
     }
+}
 
-    /// Consume messages from the DMQ node.
-    pub async fn consume_messages(&self) -> StdResult<Vec<(M, PartyId)>> {
+#[async_trait::async_trait]
+impl<M: TryFromBytes + Debug + Sync + Send> DmqConsumer<M> for DmqConsumerPallas<M> {
+    async fn consume_messages(&self) -> StdResult<Vec<(M, PartyId)>> {
         debug!(self.logger, "Waiting for messages from DMQ...");
         let mut client = self.new_client().await?; // TODO: add client cache
         client
