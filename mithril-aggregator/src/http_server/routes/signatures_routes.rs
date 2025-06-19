@@ -30,7 +30,7 @@ mod handlers {
     use std::sync::Arc;
     use warp::http::StatusCode;
 
-    use mithril_common::messages::{RegisterSignatureMessage, TryFromMessageAdapter};
+    use mithril_common::messages::{RegisterSignatureMessageHttp, TryFromMessageAdapter};
 
     use crate::{
         http_server::routes::reply,
@@ -43,7 +43,7 @@ mod handlers {
 
     /// Register Signatures
     pub async fn register_signatures(
-        message: RegisterSignatureMessage,
+        message: RegisterSignatureMessageHttp,
         logger: Logger,
         certifier_service: Arc<dyn CertifierService>,
         single_signer_authenticator: Arc<SingleSignatureAuthenticator>,
@@ -125,7 +125,7 @@ mod tests {
     use warp::test::request;
 
     use mithril_api_spec::APISpec;
-    use mithril_common::{entities::SignedEntityType, messages::RegisterSignatureMessage};
+    use mithril_common::{entities::SignedEntityType, messages::RegisterSignatureMessageHttp};
 
     use crate::{
         initialize_dependencies,
@@ -160,7 +160,7 @@ mod tests {
         request()
             .method(method)
             .path(path)
-            .json(&RegisterSignatureMessage::dummy())
+            .json(&RegisterSignatureMessageHttp::dummy())
             .reply(&setup_router(RouterState::new_with_dummy_config(
                 dependency_manager.clone(),
             )))
@@ -188,9 +188,9 @@ mod tests {
         dependency_manager.single_signer_authenticator =
             Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());
 
-        let message = RegisterSignatureMessage {
+        let message = RegisterSignatureMessageHttp {
             signed_message: "message".to_string(),
-            ..RegisterSignatureMessage::dummy()
+            ..RegisterSignatureMessageHttp::dummy()
         };
 
         let method = Method::POST.as_str();
@@ -217,9 +217,9 @@ mod tests {
         dependency_manager.single_signer_authenticator =
             Arc::new(SingleSignatureAuthenticator::new_that_reject_everything());
 
-        let message = RegisterSignatureMessage {
+        let message = RegisterSignatureMessageHttp {
             signed_message: "message".to_string(),
-            ..RegisterSignatureMessage::dummy()
+            ..RegisterSignatureMessageHttp::dummy()
         };
 
         let method = Method::POST.as_str();
@@ -257,7 +257,7 @@ mod tests {
         dependency_manager.single_signer_authenticator =
             Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());
 
-        let message = RegisterSignatureMessage::dummy();
+        let message = RegisterSignatureMessageHttp::dummy();
 
         let method = Method::POST.as_str();
         let path = "/register-signatures";
@@ -294,7 +294,7 @@ mod tests {
         dependency_manager.single_signer_authenticator =
             Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());
 
-        let message = RegisterSignatureMessage::dummy();
+        let message = RegisterSignatureMessageHttp::dummy();
 
         let method = Method::POST.as_str();
         let path = "/register-signatures";
@@ -331,7 +331,7 @@ mod tests {
         dependency_manager.single_signer_authenticator =
             Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());
 
-        let mut message = RegisterSignatureMessage::dummy();
+        let mut message = RegisterSignatureMessageHttp::dummy();
         message.signature = "invalid-signature".to_string();
 
         let method = Method::POST.as_str();
@@ -361,7 +361,7 @@ mod tests {
     #[tokio::test]
     async fn test_register_signatures_post_ko_404() {
         let signed_entity_type = SignedEntityType::dummy();
-        let message = RegisterSignatureMessage::dummy();
+        let message = RegisterSignatureMessageHttp::dummy();
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_register_single_signature()
@@ -400,7 +400,7 @@ mod tests {
     #[tokio::test]
     async fn test_register_signatures_post_ko_410_when_already_certified() {
         let signed_entity_type = SignedEntityType::dummy();
-        let message = RegisterSignatureMessage::dummy();
+        let message = RegisterSignatureMessageHttp::dummy();
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_register_single_signature()
@@ -447,7 +447,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signatures_post_ko_410_when_expired() {
-        let message = RegisterSignatureMessage::dummy();
+        let message = RegisterSignatureMessageHttp::dummy();
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_register_single_signature()
@@ -503,7 +503,7 @@ mod tests {
         dependency_manager.single_signer_authenticator =
             Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());
 
-        let message = RegisterSignatureMessage::dummy();
+        let message = RegisterSignatureMessageHttp::dummy();
 
         let method = Method::POST.as_str();
         let path = "/register-signatures";

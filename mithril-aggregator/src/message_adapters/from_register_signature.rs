@@ -1,17 +1,17 @@
 use anyhow::Context;
 use mithril_common::{
     entities::{SingleSignature, SingleSignatureAuthenticationStatus},
-    messages::{RegisterSignatureMessage, TryFromMessageAdapter},
+    messages::{RegisterSignatureMessageHttp, TryFromMessageAdapter},
     StdResult,
 };
 
 pub struct FromRegisterSingleSignatureAdapter;
 
-impl TryFromMessageAdapter<RegisterSignatureMessage, SingleSignature>
+impl TryFromMessageAdapter<RegisterSignatureMessageHttp, SingleSignature>
     for FromRegisterSingleSignatureAdapter
 {
     fn try_adapt(
-        register_single_signature_message: RegisterSignatureMessage,
+        register_single_signature_message: RegisterSignatureMessageHttp,
     ) -> StdResult<SingleSignature> {
         let signature = SingleSignature {
             party_id: register_single_signature_message.party_id,
@@ -35,7 +35,7 @@ mod tests {
 
     #[test]
     fn try_adapt_single_signature_message_to_entity() {
-        let message = RegisterSignatureMessage::dummy();
+        let message = RegisterSignatureMessageHttp::dummy();
         let signature = FromRegisterSingleSignatureAdapter::try_adapt(message.clone()).unwrap();
 
         assert_eq!(message.party_id, signature.party_id);
@@ -50,8 +50,8 @@ mod tests {
 
         use super::*;
 
-        fn golden_message_with_json_hex_encoding() -> RegisterSignatureMessage {
-            RegisterSignatureMessage {
+        fn golden_message_with_json_hex_encoding() -> RegisterSignatureMessageHttp {
+            RegisterSignatureMessageHttp {
                 signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
                     CardanoDbBeacon::new(*Epoch(10), 1728),
                 ),
@@ -62,8 +62,8 @@ mod tests {
             }
         }
 
-        fn golden_message_with_bytes_hex_encoding() -> RegisterSignatureMessage {
-            RegisterSignatureMessage {
+        fn golden_message_with_bytes_hex_encoding() -> RegisterSignatureMessageHttp {
+            RegisterSignatureMessageHttp {
                 signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
                     CardanoDbBeacon::new(*Epoch(10), 1728),
                 ),

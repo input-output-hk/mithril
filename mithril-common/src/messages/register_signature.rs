@@ -6,9 +6,9 @@ use crate::entities::{HexEncodedSingleSignature, LotteryIndex, PartyId, SignedEn
 #[cfg(any(test, feature = "test_tools"))]
 use crate::test_utils::fake_keys;
 
-/// Message structure to register single signature.
+/// Message structure to register single signature through HTTP.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RegisterSignatureMessage {
+pub struct RegisterSignatureMessageHttp {
     /// Signed entity type
     #[serde(rename = "entity_type")]
     pub signed_entity_type: SignedEntityType,
@@ -30,7 +30,7 @@ pub struct RegisterSignatureMessage {
     pub signed_message: String,
 }
 
-impl RegisterSignatureMessage {
+impl RegisterSignatureMessageHttp {
     cfg_test_tools! {
         /// Return a dummy test entity (test-only).
         pub fn dummy() -> Self {
@@ -46,10 +46,10 @@ impl RegisterSignatureMessage {
     }
 }
 
-impl Debug for RegisterSignatureMessage {
+impl Debug for RegisterSignatureMessageHttp {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let is_pretty_printing = f.alternate();
-        let mut debug = f.debug_struct("RegisterSignatureMessage");
+        let mut debug = f.debug_struct("RegisterSignatureMessageHttp");
         debug
             .field(
                 "signed_entity_type",
@@ -67,11 +67,14 @@ impl Debug for RegisterSignatureMessage {
 
 #[cfg(test)]
 mod tests {
-    use crate::entities::{CardanoDbBeacon, Epoch};
-
     use super::*;
 
-    const CURRENT_JSON: &str = r#"{
+    mod http_message {
+        use crate::entities::{CardanoDbBeacon, Epoch};
+
+        use super::*;
+
+        const CURRENT_JSON: &str = r#"{
         "entity_type": {
             "CardanoImmutableFilesFull": {
                 "epoch": 10,
@@ -84,8 +87,8 @@ mod tests {
         "signed_message": "6a7e737c312972d2346b65ac3075696e04286d046dddaf8004121e3d5e27cc0d"
     }"#;
 
-    fn golden_message_current() -> RegisterSignatureMessage {
-        RegisterSignatureMessage {
+        fn golden_message_current() -> RegisterSignatureMessageHttp {
+            RegisterSignatureMessageHttp {
             signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
                 CardanoDbBeacon::new(*Epoch(10), 1728),
             ),
@@ -94,19 +97,19 @@ mod tests {
             won_indexes: vec![1, 3],
             signed_message: "6a7e737c312972d2346b65ac3075696e04286d046dddaf8004121e3d5e27cc0d".to_string(),
         }
-    }
+        }
 
-    #[test]
-    fn test_current_json_deserialized_into_current_message() {
-        let json = CURRENT_JSON;
-        let message: RegisterSignatureMessage = serde_json::from_str(json).unwrap();
+        #[test]
+        fn test_current_json_deserialized_into_current_message() {
+            let json = CURRENT_JSON;
+            let message: RegisterSignatureMessageHttp = serde_json::from_str(json).unwrap();
 
-        assert_eq!(golden_message_current(), message);
-    }
+            assert_eq!(golden_message_current(), message);
+        }
 
-    #[test]
-    fn test_json_until_open_api_0_1_45_deserialized_into_current_message() {
-        let json = r#"{
+        #[test]
+        fn test_json_until_open_api_0_1_45_deserialized_into_current_message() {
+            let json = r#"{
             "entity_type": {
                 "CardanoImmutableFilesFull": {
                     "network": "testnet",
@@ -119,8 +122,9 @@ mod tests {
             "indexes": [1, 3],
             "signed_message": "6a7e737c312972d2346b65ac3075696e04286d046dddaf8004121e3d5e27cc0d"
         }"#;
-        let message: RegisterSignatureMessage = serde_json::from_str(json).unwrap();
+            let message: RegisterSignatureMessageHttp = serde_json::from_str(json).unwrap();
 
-        assert_eq!(golden_message_current(), message);
+            assert_eq!(golden_message_current(), message);
+        }
     }
 }
