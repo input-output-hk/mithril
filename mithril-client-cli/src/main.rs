@@ -14,8 +14,7 @@ use mithril_client::MithrilResult;
 use mithril_doc::{Documenter, GenerateDocCommands, StructDoc};
 
 use mithril_client_cli::commands::{
-    cardano_db::CardanoDbCommands, cardano_db_v2::CardanoDbV2Commands,
-    cardano_stake_distribution::CardanoStakeDistributionCommands,
+    cardano_db::CardanoDbCommands, cardano_stake_distribution::CardanoStakeDistributionCommands,
     cardano_transaction::CardanoTransactionCommands,
     mithril_stake_distribution::MithrilStakeDistributionCommands, tools::ToolsCommands,
     DeprecatedCommand, Deprecation,
@@ -205,11 +204,6 @@ enum ArtifactCommands {
     #[clap(subcommand, alias("csd"))]
     CardanoStakeDistribution(CardanoStakeDistributionCommands),
 
-    /// Deprecated, use `cardano-db` instead
-    #[clap(subcommand, alias("cdbv2"))]
-    #[deprecated(since = "0.12.9", note = "use `CardanoDb` commands instead")]
-    CardanoDbV2(CardanoDbV2Commands),
-
     #[clap(alias("doc"), hide(true))]
     GenerateDoc(GenerateDocCommands),
 
@@ -224,18 +218,6 @@ impl ArtifactCommands {
             Self::MithrilStakeDistribution(cmd) => cmd.execute(context).await,
             Self::CardanoTransaction(cmd) => cmd.execute(context).await,
             Self::CardanoStakeDistribution(cmd) => cmd.execute(context).await,
-            #[allow(deprecated)]
-            Self::CardanoDbV2(cmd) => {
-                let message = "`cardano-db-v2` command is deprecated, use `cardano-db` with option `--backend v2` instead";
-                if cmd.is_json_output_enabled() {
-                    eprintln!(r#"{{"warning": "{}", "type": "deprecation"}}"#, message);
-                } else {
-                    eprintln!("{}", message);
-                };
-
-                context.require_unstable("cardano-db-v2", Some("list"))?;
-                cmd.execute(context).await
-            }
             Self::GenerateDoc(cmd) => cmd
                 .execute(&mut Args::command())
                 .map_err(|message| anyhow!(message)),
@@ -269,21 +251,6 @@ async fn main() -> MithrilResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[tokio::test]
-    async fn fail_if_cardano_database_v2_command_is_used_without_unstable_flag() {
-        let args =
-            Args::try_parse_from(["mithril-client", "cardano-db-v2", "snapshot", "list"]).unwrap();
-
-        let error = args
-            .execute(Logger::root(slog::Discard, slog::o!()))
-            .await
-            .expect_err("Should fail if unstable flag missing");
-
-        assert!(error
-            .to_string()
-            .contains("subcommand is only accepted using the --unstable flag."));
-    }
 
     #[tokio::test]
     async fn fail_if_tools_command_is_used_without_unstable_flag() {

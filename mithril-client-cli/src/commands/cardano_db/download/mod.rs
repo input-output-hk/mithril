@@ -72,33 +72,6 @@ pub struct CardanoDbDownloadCommand {
 }
 
 impl CardanoDbDownloadCommand {
-    /// Temporary constructor to allow the `cardano-db-v2 download` command to reuse this code
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) fn new_v2(
-        shared_args: SharedArgs,
-        digest: String,
-        download_dir: Option<PathBuf>,
-        genesis_verification_key: Option<String>,
-        include_ancillary: bool,
-        ancillary_verification_key: Option<String>,
-        start: Option<ImmutableFileNumber>,
-        end: Option<ImmutableFileNumber>,
-        allow_override: bool,
-    ) -> Self {
-        Self {
-            backend: CardanoDbCommandsBackend::V2,
-            shared_args,
-            digest,
-            download_dir,
-            genesis_verification_key,
-            include_ancillary,
-            ancillary_verification_key,
-            start,
-            end,
-            allow_override,
-        }
-    }
-
     fn is_json_output_enabled(&self) -> bool {
         self.shared_args.json
     }
