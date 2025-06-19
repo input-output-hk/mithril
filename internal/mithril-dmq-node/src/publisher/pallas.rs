@@ -8,9 +8,10 @@ use mithril_common::{
     crypto_helper::TryToBytes, logging::LoggerExtensions, CardanoNetwork, StdResult,
 };
 
-use crate::DmqMessageBuilder;
+use crate::{DmqMessageBuilder, DmqPublisher};
 
 /// A DMQ publisher implementation.
+///
 /// This implementation is built upon the n2c mini-protocols DMQ implementation in Pallas.
 pub struct DmqPublisherPallas<M: TryToBytes + Debug> {
     socket: PathBuf,
@@ -45,9 +46,11 @@ impl<M: TryToBytes + Debug> DmqPublisherPallas<M> {
             .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainReader failed to create a new client")
     }
+}
 
-    /// Publishes a message to the DMQ node.
-    pub async fn publish_message(&self, message: M) -> StdResult<()> {
+#[async_trait::async_trait]
+impl<M: TryToBytes + Debug + Sync + Send> DmqPublisher<M> for DmqPublisherPallas<M> {
+    async fn publish_message(&self, message: M) -> StdResult<()> {
         debug!(
             self.logger,
             "Publish message to DMQ";
@@ -78,7 +81,7 @@ impl<M: TryToBytes + Debug> DmqPublisherPallas<M> {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
 
     use std::{fs, sync::Arc};
