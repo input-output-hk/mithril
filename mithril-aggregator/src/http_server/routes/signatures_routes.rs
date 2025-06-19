@@ -124,10 +124,8 @@ mod tests {
     use warp::http::{Method, StatusCode};
     use warp::test::request;
 
-    use mithril_common::{
-        entities::SignedEntityType, messages::RegisterSignatureMessage,
-        test_utils::apispec::APISpec,
-    };
+    use mithril_api_spec::APISpec;
+    use mithril_common::{entities::SignedEntityType, messages::RegisterSignatureMessage};
 
     use crate::{
         initialize_dependencies,
@@ -237,7 +235,7 @@ mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
@@ -274,7 +272,7 @@ mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
@@ -311,7 +309,7 @@ mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
@@ -349,7 +347,7 @@ mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
@@ -388,7 +386,7 @@ mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
@@ -436,7 +434,7 @@ mod tests {
         );
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
@@ -483,7 +481,7 @@ mod tests {
         );
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
@@ -520,7 +518,7 @@ mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",

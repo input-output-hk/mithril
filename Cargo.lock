@@ -3819,7 +3819,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.7.64"
+version = "0.7.65"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3833,6 +3833,7 @@ dependencies = [
  "hex",
  "http 1.3.1",
  "httpmock",
+ "mithril-api-spec",
  "mithril-cardano-node-chain",
  "mithril-cardano-node-internal-database",
  "mithril-cli-helper",
@@ -3873,14 +3874,14 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator-fake"
-version = "0.4.8"
+version = "0.4.9"
 dependencies = [
  "anyhow",
  "axum",
  "clap",
  "futures",
+ "mithril-api-spec",
  "mithril-build-script",
- "mithril-common",
  "reqwest",
  "serde",
  "serde_json",
@@ -3890,6 +3891,19 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "warp",
+]
+
+[[package]]
+name = "mithril-api-spec"
+version = "0.1.0"
+dependencies = [
+ "jsonschema",
+ "mithril-common",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_yaml",
  "warp",
 ]
 
@@ -4051,7 +4065,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.5.42"
+version = "0.5.43"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4065,9 +4079,7 @@ dependencies = [
  "digest 0.10.7",
  "ed25519-dalek",
  "fixed",
- "glob",
  "hex",
- "jsonschema",
  "kes-summed-ed25519",
  "mithril-build-script",
  "mithril-stm",
@@ -4082,7 +4094,6 @@ dependencies = [
  "serde_bytes",
  "serde_json",
  "serde_with 3.12.0",
- "serde_yaml",
  "sha2",
  "slog",
  "slog-async",

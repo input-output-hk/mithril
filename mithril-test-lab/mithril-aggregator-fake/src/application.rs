@@ -98,7 +98,7 @@ mod tests {
     use warp::http::{Response, StatusCode};
     use warp::hyper::body::Bytes;
 
-    use mithril_common::test_utils::apispec::APISpec;
+    use mithril_api_spec::APISpec;
 
     use crate::{default_values, CliArguments};
 
@@ -138,8 +138,8 @@ mod tests {
         into_response(response).await
     }
 
-    fn get_spec_files() -> Vec<String> {
-        APISpec::get_all_spec_files_from("../..")
+    fn get_spec_file() -> String {
+        APISpec::get_default_spec_file_from("../..")
     }
 
     #[tokio::test]
@@ -153,7 +153,7 @@ mod tests {
             let response = http_request(PORT, path).await;
 
             APISpec::verify_conformity(
-                get_spec_files(),
+                get_spec_file(),
                 "GET",
                 path,
                 "application/json",
@@ -178,7 +178,7 @@ mod tests {
             let response = http_request(PORT, path).await;
 
             APISpec::verify_conformity(
-                get_spec_files(),
+                get_spec_file(),
                 "GET",
                 path,
                 "application/json",
@@ -203,7 +203,7 @@ mod tests {
             let response = http_request(PORT, path).await;
 
             APISpec::verify_conformity(
-                get_spec_files(),
+                get_spec_file(),
                 "GET",
                 path,
                 "application/json",
@@ -230,7 +230,7 @@ mod tests {
                 http_request(PORT, &path.replace("{certificate_hash}", certificate_hash)).await;
 
             APISpec::verify_conformity(
-                get_spec_files(),
+                get_spec_file(),
                 "GET",
                 path,
                 "application/json",
@@ -256,7 +256,7 @@ mod tests {
                 http_request(PORT, &path.replace("{certificate_hash}", "whatever")).await;
 
             APISpec::verify_conformity(
-                get_spec_files(),
+                get_spec_file(),
                 "GET",
                 path,
                 "application/json",
@@ -282,7 +282,7 @@ mod tests {
             let response = http_request(PORT, path.replace("{digest}", digest).as_str()).await;
 
             APISpec::verify_conformity(
-                get_spec_files(),
+                get_spec_file(),
                 "GET",
                 path,
                 "application/json",
@@ -308,7 +308,7 @@ mod tests {
             let response = http_request(PORT, &path.replace("{digest}", digest)).await;
 
             APISpec::verify_conformity(
-                get_spec_files(),
+                get_spec_file(),
                 "GET",
                 path,
                 "application/json",
@@ -334,7 +334,7 @@ mod tests {
             let response = http_request(PORT, &path.replace("{hash}", hash)).await;
 
             APISpec::verify_conformity(
-                get_spec_files(),
+                get_spec_file(),
                 "GET",
                 path,
                 "application/json",
@@ -359,7 +359,7 @@ mod tests {
             let response = http_request(PORT, &path.replace("{hash}", "whatever")).await;
 
             APISpec::verify_conformity(
-                get_spec_files(),
+                get_spec_file(),
                 "GET",
                 path,
                 "application/json",
@@ -384,7 +384,7 @@ mod tests {
             let response = http_request(PORT, path).await;
 
             APISpec::verify_conformity(
-                get_spec_files(),
+                get_spec_file(),
                 "GET",
                 path,
                 "application/json",
@@ -410,7 +410,7 @@ mod tests {
             let response = http_request(PORT, &path.replace("{hash}", hash)).await;
 
             APISpec::verify_conformity(
-                get_spec_files(),
+                get_spec_file(),
                 "GET",
                 path,
                 "application/json",
@@ -436,7 +436,7 @@ mod tests {
             let response = http_request(PORT, &path.replace("{hash}", hash)).await;
 
             APISpec::verify_conformity(
-                get_spec_files(),
+                get_spec_file(),
                 "GET",
                 path,
                 "application/json",
@@ -462,7 +462,7 @@ mod tests {
             let response = http_request(PORT, &path.replace("{hash}", hash)).await;
 
             APISpec::verify_conformity(
-                get_spec_files(),
+                get_spec_file(),
                 "GET",
                 path,
                 "application/json",
@@ -487,7 +487,7 @@ mod tests {
             let response = http_request(PORT, path).await;
 
             APISpec::verify_conformity(
-                get_spec_files(),
+                get_spec_file(),
                 "GET",
                 path,
                 "application/json",
@@ -513,7 +513,7 @@ mod tests {
             let response = http_request(PORT, &path.replace("{hash}", hash)).await;
 
             APISpec::verify_conformity(
-                get_spec_files(),
+                get_spec_file(),
                 "GET",
                 path,
                 "application/json",
@@ -538,7 +538,7 @@ mod tests {
             let response = http_request(PORT, &path.replace("{hash}", "whatever")).await;
 
             APISpec::verify_conformity(
-                get_spec_files(),
+                get_spec_file(),
                 "GET",
                 path,
                 "application/json",
@@ -563,7 +563,7 @@ mod tests {
             let response = http_request(PORT, path).await;
 
             APISpec::verify_conformity(
-                get_spec_files(),
+                get_spec_file(),
                 "GET",
                 path,
                 "application/json",
@@ -589,7 +589,7 @@ mod tests {
             let response = http_request(PORT, &path.replace("{epoch}", epoch)).await;
 
             APISpec::verify_conformity(
-                get_spec_files(),
+                get_spec_file(),
                 "GET",
                 path,
                 "application/json",
@@ -615,7 +615,7 @@ mod tests {
             let response = http_request(PORT, &path.replace("{epoch}", epoch)).await;
 
             APISpec::verify_conformity(
-                get_spec_files(),
+                get_spec_file(),
                 "GET",
                 path,
                 "application/json",
@@ -641,7 +641,7 @@ mod tests {
             let response = http_request(PORT, &path.replace("{hash}", hash)).await;
 
             APISpec::verify_conformity(
-                get_spec_files(),
+                get_spec_file(),
                 "GET",
                 path,
                 "application/json",
@@ -666,7 +666,7 @@ mod tests {
             let response = http_request(PORT, &path.replace("{hash}", "whatever")).await;
 
             APISpec::verify_conformity(
-                get_spec_files(),
+                get_spec_file(),
                 "GET",
                 path,
                 "application/json",
@@ -691,7 +691,7 @@ mod tests {
             let response = http_request(PORT, path).await;
 
             APISpec::verify_conformity(
-                get_spec_files(),
+                get_spec_file(),
                 "GET",
                 path,
                 "application/json",

@@ -104,11 +104,11 @@ pub mod tests {
         test::request,
     };
 
+    use mithril_api_spec::APISpec;
     use mithril_common::{
         messages::{CardanoTransactionSnapshotListItemMessage, CardanoTransactionSnapshotMessage},
-        MITHRIL_ORIGIN_TAG_HEADER,
+        MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
     };
-    use mithril_common::{test_utils::apispec::APISpec, MITHRIL_CLIENT_TYPE_HEADER};
     use mithril_persistence::sqlite::HydrationError;
 
     use crate::{initialize_dependencies, services::MockMessageService};
@@ -148,7 +148,7 @@ pub mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
@@ -181,7 +181,7 @@ pub mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
@@ -245,7 +245,7 @@ pub mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
@@ -278,7 +278,7 @@ pub mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
@@ -311,7 +311,7 @@ pub mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",

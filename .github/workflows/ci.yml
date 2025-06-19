@@ -814,6 +814,7 @@ jobs:
                     -p mithril-era -p mithril-metric -p mithril-persistence -p mithril-resource-pool \
                     -p mithril-ticker -p mithril-signed-entity-lock -p mithril-signed-entity-preloader \
                     -p mithril-aggregator -p mithril-signer -p mithril-client -p mithril-client-cli \
+                    -p mithril-api-spec \
                     --all-features --message-format=json \
                     | clippy-sarif | tee rust-cargo-doc-results.sarif | sarif-fmt
 

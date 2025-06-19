@@ -80,20 +80,20 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    use crate::http_server::routes::router::RouterConfig;
-    use crate::initialize_dependencies;
+    use serde_json::Value::Null;
+    use std::collections::BTreeSet;
+    use std::sync::Arc;
+    use warp::http::{Method, StatusCode};
+    use warp::test::request;
+
+    use mithril_api_spec::APISpec;
     use mithril_common::entities::SignedEntityTypeDiscriminants;
     use mithril_common::messages::{
         AggregatorCapabilities, AggregatorFeaturesMessage, CardanoTransactionsProverCapabilities,
     };
-    use mithril_common::test_utils::apispec::APISpec;
-    use serde_json::Value::Null;
-    use std::collections::BTreeSet;
-    use std::sync::Arc;
-    use warp::http::Method;
-    use warp::http::StatusCode;
-    use warp::test::request;
-    use warp::Filter;
+
+    use crate::http_server::routes::router::RouterConfig;
+    use crate::initialize_dependencies;
 
     use super::*;
 
@@ -160,7 +160,7 @@ mod tests {
         );
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
@@ -206,7 +206,7 @@ mod tests {
         );
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",

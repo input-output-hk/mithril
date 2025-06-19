@@ -65,7 +65,8 @@ mod tests {
         test::request,
     };
 
-    use mithril_common::{messages::EpochSettingsMessage, test_utils::apispec::APISpec};
+    use mithril_api_spec::APISpec;
+    use mithril_common::messages::EpochSettingsMessage;
 
     use crate::{initialize_dependencies, services::MockMessageService};
 
@@ -103,7 +104,7 @@ mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
@@ -135,7 +136,7 @@ mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",

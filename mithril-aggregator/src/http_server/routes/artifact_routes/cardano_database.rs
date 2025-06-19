@@ -176,21 +176,24 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{initialize_dependencies, services::MockMessageService};
-    use mithril_common::messages::{
-        CardanoDatabaseDigestListItemMessage, CardanoDatabaseSnapshotListItemMessage,
-        CardanoDatabaseSnapshotMessage,
-    };
-    use mithril_common::test_utils::apispec::APISpec;
-    use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
-    use mithril_persistence::sqlite::HydrationError;
     use serde_json::Value::Null;
     use std::sync::Arc;
     use warp::{
         http::{Method, StatusCode},
         test::request,
     };
+
+    use mithril_api_spec::APISpec;
+    use mithril_common::messages::{
+        CardanoDatabaseDigestListItemMessage, CardanoDatabaseSnapshotListItemMessage,
+        CardanoDatabaseSnapshotMessage,
+    };
+    use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
+    use mithril_persistence::sqlite::HydrationError;
+
+    use crate::{initialize_dependencies, services::MockMessageService};
+
+    use super::*;
 
     fn setup_router(
         state: RouterState,
@@ -227,7 +230,7 @@ mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
@@ -260,7 +263,7 @@ mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
@@ -324,7 +327,7 @@ mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
@@ -358,7 +361,7 @@ mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
@@ -391,7 +394,7 @@ mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
@@ -424,7 +427,7 @@ mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
@@ -457,7 +460,7 @@ mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
             "application/json",
