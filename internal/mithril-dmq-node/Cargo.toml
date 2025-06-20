@@ -21,7 +21,7 @@ mithril-cardano-node-chain = { path = "../cardano-node/mithril-cardano-node-chai
 mithril-common = { path = "../../mithril-common" }
 pallas-network = { git = "https://github.com/txpipe/pallas.git", branch = "main" }
 slog = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]
 mithril-common = { path = "../../mithril-common", features = ["test_tools"] }
