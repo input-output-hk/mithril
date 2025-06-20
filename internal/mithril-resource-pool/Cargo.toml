@@ -1,6 +1,6 @@
 [package]
 name = "mithril-resource-pool"
-version = "0.0.5"
+version = "0.0.6"
 description = "Provide a resource pool for Mithril."
 authors = { workspace = true }
 edition = { workspace = true }
