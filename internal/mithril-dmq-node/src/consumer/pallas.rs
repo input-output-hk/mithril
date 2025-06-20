@@ -3,6 +3,7 @@ use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
 use anyhow::{anyhow, Context};
 use pallas_network::facades::DmqClient;
 use slog::{debug, error, Logger};
+use tokio::sync::{Mutex, MutexGuard};
 
 use mithril_common::{
     crypto_helper::{OpCert, TryFromBytes},
@@ -19,6 +20,7 @@ use crate::DmqConsumer;
 pub struct DmqConsumerPallas<M: TryFromBytes + Debug> {
     socket: PathBuf,
     network: CardanoNetwork,
+    client: Mutex<Option<DmqClient>>,
     logger: Logger,
     phantom: PhantomData<M>,
 }
@@ -29,6 +31,7 @@ impl<M: TryFromBytes + Debug> DmqConsumerPallas<M> {
         Self {
             socket,
             network,
+            client: Mutex::new(None),
             logger: logger.new_with_component_name::<Self>(),
             phantom: PhantomData,
         }
@@ -36,19 +39,64 @@ impl<M: TryFromBytes + Debug> DmqConsumerPallas<M> {
 
     /// Creates and returns a new `DmqClient` connected to the specified socket.
     async fn new_client(&self) -> StdResult<DmqClient> {
-        let magic = self.network.code();
-        DmqClient::connect(&self.socket, magic)
+        debug!(
+            self.logger,
+            "Create new DMQ client";
+            "socket" => ?self.socket,
+            "network" => ?self.network
+        );
+        DmqClient::connect(&self.socket, self.network.code())
             .await
             .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainReader failed to create a new client")
     }
-}
 
-#[async_trait::async_trait]
-impl<M: TryFromBytes + Debug + Sync + Send> DmqConsumer<M> for DmqConsumerPallas<M> {
-    async fn consume_messages(&self) -> StdResult<Vec<(M, PartyId)>> {
+    /// Gets the cached `DmqClient`, creating a new one if it does not exist.
+    async fn get_client(&self) -> StdResult<MutexGuard<Option<DmqClient>>> {
+        {
+            // Run this in a separate block to avoid dead lock on the Mutex
+            let client_lock = self.client.lock().await;
+            if client_lock.as_ref().is_some() {
+                return Ok(client_lock);
+            }
+        }
+
+        let mut client_lock = self.client.lock().await;
+        *client_lock = Some(self.new_client().await?);
+
+        Ok(client_lock)
+    }
+
+    /// Drops the current `DmqClient`, if it exists.
+    async fn drop_client(&self) -> StdResult<()> {
+        debug!(
+            self.logger,
+            "Drop exsiting DMQ client";
+            "socket" => ?self.socket,
+            "network" => ?self.network
+        );
+        let mut client_lock = self.client.lock().await;
+        if let Some(client) = client_lock.take() {
+            client.abort().await;
+        }
+
+        Ok(())
+    }
+
+    #[cfg(test)]
+    /// Check if the client already exists (test only).
+    async fn has_client(&self) -> bool {
+        let client_lock = self.client.lock().await;
+
+        client_lock.as_ref().is_some()
+    }
+
+    async fn consume_messages_internal(&self) -> StdResult<Vec<(M, PartyId)>> {
         debug!(self.logger, "Waiting for messages from DMQ...");
-        let mut client = self.new_client().await?; // TODO: add client cache
+        let mut client_guard = self.get_client().await?;
+        let client = client_guard
+            .as_mut()
+            .ok_or(anyhow!("DMQ client does not exist"))?;
         client
             .msg_notification()
             .send_request_messages_blocking()
@@ -78,13 +126,28 @@ impl<M: TryFromBytes + Debug + Sync + Send> DmqConsumer<M> for DmqConsumerPallas
     }
 }
 
-#[cfg(test)]
+#[async_trait::async_trait]
+impl<M: TryFromBytes + Debug + Sync + Send> DmqConsumer<M> for DmqConsumerPallas<M> {
+    async fn consume_messages(&self) -> StdResult<Vec<(M, PartyId)>> {
+        let messages = self.consume_messages_internal().await;
+        if messages.is_err() {
+            self.drop_client().await?;
+        }
+
+        messages
+    }
+}
+
+#[cfg(all(test, unix))]
 mod tests {
 
     use std::{fs, future, time::Duration, vec};
 
     use mithril_common::{crypto_helper::TryToBytes, current_function, test_utils::TempDir};
-    use pallas_network::miniprotocols::{localmsgnotification, localmsgsubmission::DmqMsg};
+    use pallas_network::{
+        facades::DmqServer,
+        miniprotocols::{localmsgnotification, localmsgsubmission::DmqMsg},
+    };
     use tokio::{net::UnixListener, task::JoinHandle, time::sleep};
 
     use crate::{test::payload::DmqMessageTestPayload, test_tools::TestLogger};
@@ -135,7 +198,10 @@ mod tests {
         ]
     }
 
-    fn setup_dmq_server(socket_path: PathBuf, reply_messages: Vec<DmqMsg>) -> JoinHandle<()> {
+    fn setup_dmq_server(
+        socket_path: PathBuf,
+        reply_messages: Vec<DmqMsg>,
+    ) -> JoinHandle<DmqServer> {
         tokio::spawn({
             async move {
                 // server setup
@@ -169,6 +235,8 @@ mod tests {
                     // server waits if no message available
                     future::pending().await
                 }
+
+                server
             }
         })
     }
@@ -188,7 +256,8 @@ mod tests {
             consumer.consume_messages().await.unwrap()
         });
 
-        let (_, messages) = tokio::join!(server, client);
+        let (_, client_res) = tokio::join!(server, client);
+        let messages = client_res.unwrap();
 
         assert_eq!(
             vec![
@@ -201,7 +270,7 @@ mod tests {
                     "pool17sln0evyk5tfj6zh2qrlk9vttgy6264sfe2fkec5mheasnlx3yd".to_string()
                 ),
             ],
-            messages.unwrap()
+            messages
         );
     }
 
@@ -227,5 +296,45 @@ mod tests {
         );
 
         result.expect_err("Should have timed out");
+    }
+
+    #[tokio::test]
+    async fn pallas_dmq_consumer_client_is_dropped_when_returning_error() {
+        let socket_path = create_temp_dir(current_function!()).join("node.socket");
+        let reply_messages = fake_msgs();
+        let server = setup_dmq_server(socket_path.clone(), reply_messages);
+        let client = tokio::spawn(async move {
+            let consumer = DmqConsumerPallas::<DmqMessageTestPayload>::new(
+                socket_path,
+                CardanoNetwork::TestNet(0),
+                TestLogger::stdout(),
+            );
+
+            consumer.consume_messages().await.unwrap();
+
+            consumer
+        });
+
+        let (server_res, client_res) = tokio::join!(server, client);
+        let consumer = client_res.unwrap();
+        let server = server_res.unwrap();
+        server.abort().await;
+
+        let client = tokio::spawn(async move {
+            assert!(consumer.has_client().await, "Client should exist");
+
+            consumer
+                .consume_messages()
+                .await
+                .expect_err("Consuming messages should fail");
+
+            assert!(
+                !consumer.has_client().await,
+                "Client should have been dropped after error"
+            );
+
+            consumer
+        });
+        client.await.unwrap();
     }
 }
