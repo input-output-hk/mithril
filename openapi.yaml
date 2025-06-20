@@ -122,6 +122,27 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /certificate/genesis:
+    get:
+      summary: Get latest genesis certificate
+      description: |
+        Returns the latest genesis certificate
+      responses:
+        "200":
+          description: genesis certificate found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CertificateMessage"
+        "404":
+          description: genesis certificate not found
+        default:
+          description: get genesis certificate error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /certificate/{certificate_hash}:
     get:
       summary: Get certificate by hash
