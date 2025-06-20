@@ -41,6 +41,11 @@ pub trait MessageService: Sync + Send {
         certificate_hash: &str,
     ) -> StdResult<Option<CertificateMessage>>;
 
+    /// Return the message representation of the lastest genesis certificate.
+    async fn get_lastest_genesis_certificate_message(
+        &self,
+    ) -> StdResult<Option<CertificateMessage>>;
+
     /// Return the message representation of the last N certificates.
     async fn get_certificate_list_message(&self, limit: usize)
         -> StdResult<CertificateListMessage>;
@@ -186,6 +191,16 @@ impl MessageService for MithrilMessageService {
         self.certificate_repository
             .get_certificate(certificate_hash)
             .await
+    }
+
+    async fn get_lastest_genesis_certificate_message(
+        &self,
+    ) -> StdResult<Option<CertificateMessage>> {
+        let mut genesis_certificates = self
+            .certificate_repository
+            .get_latest_genesis_certificates(1)
+            .await?;
+        Ok(genesis_certificates.pop())
     }
 
     async fn get_certificate_list_message(
@@ -650,6 +665,38 @@ mod tests {
                 .unwrap()
                 .expect("There should be a certificate.");
             assert_eq!(genesis_certificate.hash, certificate_message.hash);
+        }
+
+        #[tokio::test]
+        async fn get_no_latest_genesis_certificate() {
+            let service = MessageServiceBuilder::new().build().await;
+
+            let certificate_message = service
+                .get_lastest_genesis_certificate_message()
+                .await
+                .unwrap();
+            assert_eq!(None, certificate_message);
+        }
+
+        #[tokio::test]
+        async fn get_latest_genesis_certificate() {
+            let certificates = [
+                fake_data::genesis_certificate("certificate_1"),
+                fake_data::genesis_certificate("certificate_2"),
+                fake_data::certificate("certificate_3"),
+            ];
+            let last_genesis_hash = certificates[1].hash.clone();
+            let service = MessageServiceBuilder::new()
+                .with_certificates(&certificates)
+                .build()
+                .await;
+
+            let certificate_message = service
+                .get_lastest_genesis_certificate_message()
+                .await
+                .unwrap()
+                .expect("There should be a genesis certificate.");
+            assert_eq!(last_genesis_hash, certificate_message.hash);
         }
 
         #[tokio::test]
