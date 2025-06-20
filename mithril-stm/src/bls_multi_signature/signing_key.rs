@@ -11,7 +11,7 @@ pub struct SigningKey(pub BlstSk);
 
 impl SigningKey {
     /// Generate a secret key
-    pub fn gen(rng: &mut (impl RngCore + CryptoRng)) -> Self {
+    pub fn generate(rng: &mut (impl RngCore + CryptoRng)) -> Self {
         let mut ikm = [0u8; 32];
         rng.fill_bytes(&mut ikm);
         SigningKey(

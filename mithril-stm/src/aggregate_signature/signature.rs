@@ -74,61 +74,6 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
         Ok(())
     }
 
-    /// Batch verify a set of signatures, with different messages and avks.
-    #[cfg(feature = "batch-verify-aggregates")]
-    pub fn batch_verify(
-        stm_signatures: &[Self],
-        msgs: &[Vec<u8>],
-        avks: &[StmAggrVerificationKey<D>],
-        parameters: &[StmParameters],
-    ) -> Result<(), StmAggregateSignatureError<D>> {
-        let batch_size = stm_signatures.len();
-        assert_eq!(
-            batch_size,
-            msgs.len(),
-            "Number of messages should correspond to size of the batch"
-        );
-        assert_eq!(
-            batch_size,
-            avks.len(),
-            "Number of avks should correspond to size of the batch"
-        );
-        assert_eq!(
-            batch_size,
-            parameters.len(),
-            "Number of parameters should correspond to size of the batch"
-        );
-
-        let mut aggr_sigs = Vec::with_capacity(batch_size);
-        let mut aggr_vks = Vec::with_capacity(batch_size);
-        for (idx, sig_group) in stm_signatures.iter().enumerate() {
-            sig_group.preliminary_verify(&msgs[idx], &avks[idx], &parameters[idx])?;
-            let grouped_sigs: Vec<Signature> = sig_group
-                .signatures
-                .iter()
-                .map(|sig_reg| sig_reg.sig.sigma)
-                .collect();
-            let grouped_vks: Vec<VerificationKey> = sig_group
-                .signatures
-                .iter()
-                .map(|sig_reg| sig_reg.reg_party.0)
-                .collect();
-
-            let (aggr_vk, aggr_sig) = Signature::aggregate(&grouped_vks, &grouped_sigs).unwrap();
-            aggr_sigs.push(aggr_sig);
-            aggr_vks.push(aggr_vk);
-        }
-
-        let concat_msgs: Vec<Vec<u8>> = msgs
-            .iter()
-            .zip(avks.iter())
-            .map(|(msg, avk)| avk.get_mt_commitment().concat_with_msg(msg))
-            .collect();
-
-        Signature::batch_verify_aggregates(&concat_msgs, &aggr_vks, &aggr_sigs)?;
-        Ok(())
-    }
-
     /// Convert multi signature to bytes
     /// # Layout
     /// * Aggregate signature type (u8)
