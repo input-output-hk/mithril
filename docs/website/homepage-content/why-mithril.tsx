@@ -3,11 +3,11 @@ import { translate } from "@docusaurus/Translate";
 
 export const WhyMithrilContents = {
   title: translate({
-    id: "homepage.whyMthril.title",
+    id: "homepage.whyMithril.title",
     message: "WHY MITHRIL?",
   }),
   descriptionParagraph: {
-    id: "homepage.whyMthril.paragraphs",
+    id: "homepage.whyMithril.paragraphs",
     message: (
       <div className="flex flex-col gap-6">
         <p>

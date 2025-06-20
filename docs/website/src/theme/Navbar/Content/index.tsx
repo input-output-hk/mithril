@@ -68,14 +68,6 @@ export default function NavbarContent() {
               <SearchBar />
             </NavbarSearch>
           )}
-          {/* <a
-            href="https://github.com/cardano-scaling/hydra"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-blue-light mx-3 py-1"
-          >
-            <GithubSmall />
-          </a> */}
           <a
             href="https://discord.com/invite/Qq5vNTg9PT"
             target="_blank"

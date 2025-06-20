@@ -15,7 +15,7 @@ const config = {
   baseUrl: "/doc/",
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "warn",
-  favicon: "img/logo.svg",
+  favicon: "img/mithril-logo.svg",
   organizationName: "Input Output Global",
   projectName: "Mithril",
 
@@ -224,7 +224,7 @@ const config = {
         logo: {
           alt: "Mithril. A complete guide.",
 
-          src: "img/logo-text.svg",
+          src: "img/mithril-logo-text.svg",
         },
         items: [
           {
@@ -266,7 +266,7 @@ const config = {
       footer: {
         logo: {
           alt: "Mithril. A complete guide.",
-          src: "img/logo-dark.svg",
+          src: "img/mithril-logo-dark.svg",
         },
         links: [
           {
@@ -355,10 +355,6 @@ const config = {
       type: "text/css",
       integrity: "sha384-odtC+0UGzzFL/6PNoE8rX/SPcQDXBJ+uRepguP4QkPCm2LBxH3FA3y+fKSiJ+AmM",
       crossorigin: "anonymous",
-    },
-    {
-      href: "/css/custom.css",
-      type: "text/css",
     },
   ],
 };

@@ -206,6 +206,10 @@ div[role="banner"] div {
   font-size: 90%;
 }
 
+.announcementBarClose_gvF7 {
+  color: var(--ifm-color-white);
+}
+
 @media (min-width: 768px) {
   .theme-doc-version-badge {
     margin-bottom: 16px !important;

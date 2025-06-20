@@ -6,7 +6,7 @@ import {
   useSpring,
   useMotionTemplate,
 } from "framer-motion";
-import { WhyMithrilContents } from "../../homepage-content/why-mirthil";
+import { WhyMithrilContents } from "../../homepage-content/why-mithril";
 import { cx } from "cva";
 import Link from "@docusaurus/Link";
 
@@ -47,7 +47,7 @@ const WhyMithril: FC = () => {
               const z = useTransform(
                 scrollYProgress,
                 [start, (start + end) / 2, end],
-                [-500, 0, 500],
+                [-200, 0, 200],
               );
               const opacity = useTransform(
                 scrollYProgress,

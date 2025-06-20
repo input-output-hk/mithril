@@ -35,7 +35,7 @@ const processItems = (items: string[]): React.ReactNode => {
             duration: 0.1,
           },
         }}
-        className="absolute pageContainer tablet:p-0 tablet:ml-2.5 tablet:left-auto left-0 tablet:mt-0 mt-[4rem] use-case-text text-[2.5rem]"
+        className="absolute pageContainer tablet:max-w-96 tablet:p-0 tablet:ml-2.5 tablet:left-auto left-0 tablet:mt-0 mt-[4rem] use-case-text text-[2.5rem]"
       >
         {items[index]}
       </motion.span>
