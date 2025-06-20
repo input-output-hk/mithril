@@ -1,6 +1,5 @@
-use blake2::{digest::consts::U64, Blake2b, Digest};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use mithril_stm::{Signature, SigningKey, VerificationKey};
+use mithril_stm::{SigningKey, VerificationKey};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
@@ -13,7 +12,7 @@ fn aggregate_and_verify(c: &mut Criterion, nr_sigs: usize) {
     let mut mvks = Vec::new();
     let mut sigs = Vec::new();
     for _ in 0..nr_sigs {
-        let sk = SigningKey::gen(&mut rng);
+        let sk = SigningKey::generate(&mut rng);
         let vk = VerificationKey::from(&sk);
         let sig = sk.sign(&msg);
         sigs.push(sig);
@@ -27,23 +26,8 @@ fn aggregate_and_verify(c: &mut Criterion, nr_sigs: usize) {
             }
         })
     });
-
-    group.bench_function(BenchmarkId::new("Batch Verification", nr_sigs), |b| {
-        b.iter(|| {
-            for sig in sigs.iter() {
-                let mut hasher = Blake2b::<U64>::new();
-                hasher.update(sig.to_bytes());
-                hasher.finalize();
-            }
-            let (agg_vk, agg_sig) = Signature::aggregate(&mvks, &sigs).unwrap();
-            assert!(agg_sig.verify(&msg, &agg_vk).is_ok())
-        })
-    });
 }
 
-fn batch_multi_sig_benches(c: &mut Criterion) {
-    batch_benches(c, &[1, 10, 20, 50, 100], 300);
-}
 fn batch_bls_benches(c: &mut Criterion) {
     aggregate_and_verify(c, 856);
 }
@@ -51,7 +35,6 @@ fn batch_bls_benches(c: &mut Criterion) {
 criterion_group!(name = benches;
                  config = Criterion::default().nresamples(1000);
                  targets =
-    batch_multi_sig_benches,
     batch_bls_benches
 );
 criterion_main!(benches);
