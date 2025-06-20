@@ -475,7 +475,7 @@ You will see that the selected snapshot archive has been downloaded locally unpa
    [00:00:01] [###########################################################################################] 165.88 MiB/165.88 MiB (0.0s)
 4/5 - Computing the cardano db message
 5/5 - Verifying the cardano db signature…
-Cardano db 'a1b5e6f43521fd9c5f55e3d6bf27dc4a62f43980681cb67e28cc40582a0d1974' has been unpacked and successfully checked against Mithril multi-signature contained in the certificate.
+Cardano db 'a1b5e6f43521fd9c5f55e3d6bf27dc4a62f43980681cb67e28cc40582a0d1974' has been unpacked and successfully verified with Mithril.
 
     Files in the directory 'db' can be used to run a Cardano node with version >= 10.4.1.
 

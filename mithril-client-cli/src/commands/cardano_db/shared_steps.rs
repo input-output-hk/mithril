@@ -174,7 +174,7 @@ pub fn log_download_information(
         println!("{}", json);
     } else {
         println!(
-            r###"Cardano database snapshot '{}' archives have been successfully unpacked. Immutable files have been successfully checked against Mithril multi-signature contained in the certificate.
+            r###"Cardano database snapshot '{}' archives have been successfully unpacked. Immutable files have been successfully verified with Mithril.
 
     Files in the directory '{}' can be used to run a Cardano node with version >= {cardano_node_version}.
 
