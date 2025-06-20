@@ -10,7 +10,7 @@ use libp2p::{
 };
 use mithril_common::{
     logging::LoggerExtensions,
-    messages::{RegisterSignatureMessage, RegisterSignerMessage},
+    messages::{RegisterSignatureMessageHttp, RegisterSignerMessage},
     StdResult,
 };
 use serde::{Deserialize, Serialize};
@@ -66,7 +66,7 @@ pub enum BroadcastMessage {
     RegisterSigner(RegisterSignerMessage),
 
     /// A signature registration message received from the Gossip sub
-    RegisterSignature(RegisterSignatureMessage),
+    RegisterSignature(RegisterSignatureMessageHttp),
 }
 
 /// A peer in the P2P network
@@ -219,7 +219,7 @@ impl Peer {
     /// Publish a signature on the P2P pubsub
     pub fn publish_signature(
         &mut self,
-        message: &RegisterSignatureMessage,
+        message: &RegisterSignatureMessageHttp,
     ) -> StdResult<gossipsub::MessageId> {
         self.publish_broadcast_message(
             &BroadcastMessage::RegisterSignature(message.to_owned()),
