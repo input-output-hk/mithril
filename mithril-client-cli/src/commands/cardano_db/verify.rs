@@ -167,7 +167,7 @@ impl CardanoDbVerifyCommand {
             });
             println!("{}", json);
         } else {
-            println!("Cardano database snapshot '{snapshot_hash}' archives have been successfully verified. Immutable files have been successfully checked against Mithril multi-signature contained in the certificate.");
+            println!("Cardano database snapshot '{snapshot_hash}' archives have been successfully verified. Immutable files have been successfully verified with Mithril.");
         }
         Ok(())
     }

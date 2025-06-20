@@ -590,7 +590,7 @@ You will see that the certificate chain is validated to ensure the issued certif
 3/5 - Downloading and unpacking the Cardano db
 4/5 - Computing the Cardano db message
 5/5 - Verifying the cardano db signature…
-Cardano db 'db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667' has been unpacked and successfully checked against Mithril multi-signature contained in the certificate.
+Cardano db 'db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667' has been unpacked and successfully verified with Mithril.
 
     Files in the directory '/home/mithril/data/testnet/db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667/db' can be used to run a Cardano node with version >= 10.4.1.
 

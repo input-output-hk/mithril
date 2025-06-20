@@ -21,14 +21,6 @@ pub struct CardanoDbListCommand {
 }
 
 impl CardanoDbListCommand {
-    /// Temporary constructor to allow the `cardano-db-v2 list` command to reuse this code
-    pub(crate) fn new_v2(shared_args: SharedArgs) -> Self {
-        Self {
-            backend: CardanoDbCommandsBackend::V2,
-            shared_args,
-        }
-    }
-
     /// Is JSON output enabled
     pub fn is_json_output_enabled(&self) -> bool {
         self.shared_args.json
@@ -36,9 +28,6 @@ impl CardanoDbListCommand {
 
     /// Main command execution
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
-        if self.backend.is_v2() {
-            context.require_unstable("cardano-db snapshot list v2", None)?;
-        }
         let params = context.config_parameters()?;
         let client = client_builder_with_fallback_genesis_key(&params)?
             .with_logger(context.logger().clone())

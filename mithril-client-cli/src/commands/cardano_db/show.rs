@@ -29,15 +29,6 @@ pub struct CardanoDbShowCommand {
 }
 
 impl CardanoDbShowCommand {
-    /// Temporary constructor to allow the `cardano-db-v2 show` command to reuse this code
-    pub(crate) fn new_v2(shared_args: SharedArgs, digest: String) -> Self {
-        Self {
-            backend: CardanoDbCommandsBackend::V2,
-            shared_args,
-            digest,
-        }
-    }
-
     /// Is JSON output enabled
     pub fn is_json_output_enabled(&self) -> bool {
         self.shared_args.json
@@ -45,9 +36,6 @@ impl CardanoDbShowCommand {
 
     /// Cardano DB Show command
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
-        if self.backend.is_v2() {
-            context.require_unstable("cardano-db snapshot show v2", Some("<SNAPSHOT_HASH>"))?;
-        }
         let params = context.config_parameters()?;
         let client = client_builder_with_fallback_genesis_key(&params)?
             .with_logger(context.logger().clone())

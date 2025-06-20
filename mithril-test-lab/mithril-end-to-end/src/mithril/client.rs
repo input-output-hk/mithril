@@ -201,9 +201,12 @@ impl ClientCommand {
 
     fn cli_arg(&self) -> Vec<String> {
         let mut args = match self {
-            ClientCommand::CardanoDb(cmd) => {
-                [vec!["cardano-db".to_string()], cmd.cli_arg()].concat()
-            }
+            ClientCommand::CardanoDb(cmd) => [
+                vec!["cardano-db".to_string()],
+                cmd.cli_arg(),
+                vec!["--backend".to_string(), "v1".to_string()],
+            ]
+            .concat(),
             ClientCommand::MithrilStakeDistribution(cmd) => [
                 vec!["mithril-stake-distribution".to_string()],
                 cmd.cli_arg(),
@@ -218,8 +221,9 @@ impl ClientCommand {
             ]
             .concat(),
             ClientCommand::CardanoDbV2(cmd) => [
-                vec!["--unstable".to_string(), "cardano-db-v2".to_string()],
+                vec!["cardano-db".to_string()],
                 cmd.cli_arg(),
+                vec!["--backend".to_string(), "v2".to_string()],
             ]
             .concat(),
         };
