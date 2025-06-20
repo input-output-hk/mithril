@@ -275,13 +275,13 @@ async fn main() -> StdResult<()> {
         let metrics_logger = root_logger.clone();
         let stop_rx_clone = stop_rx.clone();
         join_set.spawn(async move {
-            MetricsServer::new(
+            MetricsServer::build(
                 &config.metrics_server_ip,
                 config.metrics_server_port,
                 metrics_service,
                 metrics_logger.clone(),
             )
-            .start(stop_rx_clone)
+            .serve(stop_rx_clone)
             .await
             .map_err(|e| anyhow!(e))
             .map(|_| None)

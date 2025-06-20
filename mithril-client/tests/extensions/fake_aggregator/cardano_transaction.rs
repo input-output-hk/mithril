@@ -1,22 +1,16 @@
-use warp::Filter;
-
 use mithril_client::common::{BlockNumber, ProtocolMessagePartKey};
 use mithril_client::{CardanoTransactionsProofs, CardanoTransactionsSetProof, MithrilCertificate};
 use mithril_common::crypto_helper::{MKProof, ProtocolMkProof};
-use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
 
-use super::FakeAggregator;
 use crate::extensions::routes;
 
+use super::FakeAggregator;
+
 impl FakeAggregator {
-    pub fn spawn_with_transactions_proofs(
-        &self,
-        tx_hashes: &[&str],
-        certificate_hash: &str,
-    ) -> TestHttpServer {
+    pub fn spawn_with_transactions_proofs(tx_hashes: &[&str], certificate_hash: &str) -> Self {
         let proof = MKProof::from_leaves(tx_hashes).unwrap();
 
-        let proofs_json = serde_json::to_string(&CardanoTransactionsProofs {
+        let proofs = CardanoTransactionsProofs {
             certificate_hash: certificate_hash.to_string(),
             certified_transactions: vec![CardanoTransactionsSetProof {
                 transactions_hashes: tx_hashes.iter().map(|h| h.to_string()).collect(),
@@ -26,8 +20,7 @@ impl FakeAggregator {
             }],
             non_certified_transactions: vec![],
             latest_block_number: BlockNumber(9999),
-        })
-        .unwrap();
+        };
 
         let certificate = {
             let mut cert = MithrilCertificate {
@@ -43,10 +36,10 @@ impl FakeAggregator {
             cert.signed_message = cert.protocol_message.compute_hash();
             cert
         };
-        let certificate_json = serde_json::to_string(&certificate).unwrap();
 
-        test_http_server(routes::proof::routes(self.calls.clone(), proofs_json).or(
-            routes::certificate::routes(self.calls.clone(), None, certificate_json),
-        ))
+        let router = routes::proof::routes(proofs)
+            .merge(routes::certificate::routes(Vec::new(), certificate));
+
+        Self::spawn_test_server_on_random_port(router)
     }
 }

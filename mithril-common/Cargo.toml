@@ -1,6 +1,6 @@
 [package]
 name = "mithril-common"
-version = "0.5.43"
+version = "0.6.0"
 description = "Common types, interfaces, and utilities for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -26,7 +26,6 @@ default = ["rug-backend"]
 
 # Full feature set
 full = ["test_tools"]
-fs = [] # deprecated, will be removed soon
 
 # Enables `rug-backend` features for `mithril-stm` dependency
 rug-backend = ["mithril-stm/rug-backend"]
@@ -37,9 +36,7 @@ num-integer-backend = ["mithril-stm/num-integer-backend"]
 # Disable signer certification, to be used only for tests
 allow_skip_signer_certification = []
 # Enable all tests tools
-test_tools = ["test_http_server"]
-apispec = [] # deprecated, will be removed soon
-test_http_server = ["dep:warp"]
+test_tools = []
 
 [dependencies]
 anyhow = { workspace = true }
@@ -77,7 +74,6 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 typetag = "0.2.20"
 walkdir = "2.5.0"
-warp = { workspace = true, optional = true }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 wasm-bindgen = "0.2.100"
@@ -88,7 +84,6 @@ mithril-build-script = { path = "../internal/mithril-build-script", version = "=
 [dev-dependencies]
 criterion = { version = "0.6.0", features = ["html_reports", "async_tokio"] }
 mockall = { workspace = true }
-reqwest = { workspace = true }
 slog-async = { workspace = true }
 slog-term = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }

@@ -88,9 +88,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use reqwest::StatusCode;
     use serde::Deserialize;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_server_simple_http() {

@@ -10,12 +10,20 @@ mod mithril_stake_distribution;
 #[allow(unused_imports)]
 pub use cardano_db_v2::CardanoDatabaseSnapshotV2Fixture;
 
-use crate::extensions::mock;
-use mithril_client::certificate_client::CertificateVerifier;
-use std::convert::Infallible;
 use std::sync::Arc;
+
+use axum::{
+    extract::{Request, State},
+    middleware::{from_fn_with_state, Next},
+    response::Response,
+    Router,
+};
+use axum_test::TestServer;
 use tokio::sync::Mutex;
-use warp::filters::path::FullPath;
+
+use mithril_client::certificate_client::CertificateVerifier;
+
+use crate::extensions::mock;
 
 pub type FakeAggregatorCalls = Arc<Mutex<Vec<String>>>;
 
@@ -32,13 +40,30 @@ impl FakeCertificateVerifier {
 
 pub struct FakeAggregator {
     calls: FakeAggregatorCalls,
+    test_server: TestServer,
 }
 
 impl FakeAggregator {
-    pub fn new() -> Self {
-        FakeAggregator {
-            calls: Arc::new(Mutex::new(vec![])),
-        }
+    fn spawn_test_server_on_random_port(router: Router) -> Self {
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let test_server = TestServer::builder()
+            .http_transport()
+            .build(router.route_layer(from_fn_with_state(calls.clone(), log_route_call)))
+            .unwrap();
+
+        Self { calls, test_server }
+    }
+
+    pub fn test_server(&self) -> &TestServer {
+        &self.test_server
+    }
+
+    pub fn server_root_url(&self) -> String {
+        self.test_server.server_address().unwrap().to_string()
+    }
+
+    pub fn server_url(&self, path: &str) -> String {
+        self.test_server.server_url(path).unwrap().to_string()
     }
 
     async fn get_calls(&self) -> Vec<String> {
@@ -59,27 +84,18 @@ impl FakeAggregator {
             .take(count)
             .collect()
     }
+}
 
-    pub async fn store_call_and_return_value(
-        full_path: FullPath,
-        calls: FakeAggregatorCalls,
-        returned_value: String,
-    ) -> Result<impl warp::Reply, Infallible> {
-        let mut call_list = calls.lock().await;
-        call_list.push(full_path.as_str().to_string());
-
-        Ok(returned_value)
-    }
-
-    pub async fn store_call_with_query_and_return_value(
-        full_path: FullPath,
-        query: String,
-        calls: FakeAggregatorCalls,
-        returned_value: String,
-    ) -> Result<impl warp::Reply, Infallible> {
-        let mut call_list = calls.lock().await;
-        call_list.push(format!("{}?{}", full_path.as_str(), query));
-
-        Ok(returned_value)
-    }
+async fn log_route_call(
+    State(calls): State<FakeAggregatorCalls>,
+    request: Request,
+    next: Next,
+) -> Response {
+    let called_path = if let Some(query) = request.uri().query() {
+        format!("{}?{query}", request.uri().path())
+    } else {
+        request.uri().path().to_string()
+    };
+    calls.lock().await.push(called_path);
+    next.run(request).await
 }

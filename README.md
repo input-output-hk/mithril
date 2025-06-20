@@ -111,6 +111,8 @@ This repository consists of the following parts:
 
     - [**Mithril api spec**](./internal/tests/mithril-api-spec): toolset to verify conformity of http routes against an Open Api specification, used by **Mithril network** nodes.
 
+    - [**Mithril test http server**](internal/tests/mithril-test-http-server): provides a test http server, used by **Mithril network** nodes.
+
 - [**Mithril test lab**](./mithril-test-lab): the suite of tools that allow us to test and stress the **Mithril** protocol implementations.
 
   - [**Mithril devnet**](./mithril-test-lab/mithril-devnet): the private **Mithril/Cardano network** used to scaffold a **Mithril network** on top of a **Cardano network**.

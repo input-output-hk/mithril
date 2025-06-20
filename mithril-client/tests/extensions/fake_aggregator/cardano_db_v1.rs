@@ -1,13 +1,13 @@
 use std::path::Path;
-use std::sync::{Arc, RwLock};
-use warp::Filter;
+use std::sync::Arc;
+
+use tokio::sync::RwLock;
 
 use mithril_cardano_node_internal_database::test::DummyCardanoDb;
 use mithril_client::{MessageBuilder, MithrilCertificate, Snapshot, SnapshotListItem};
 use mithril_common::crypto_helper::ManifestVerifierSecretKey;
 use mithril_common::entities::{CardanoDbBeacon, CompressionAlgorithm, SignedEntityType};
 use mithril_common::test_utils::fake_data;
-use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
 
 use crate::extensions::{routes, snapshot_archives};
 
@@ -15,13 +15,12 @@ use super::FakeAggregator;
 
 impl FakeAggregator {
     pub async fn spawn_with_snapshot(
-        &self,
         snapshot_digest: &str,
         certificate_hash: &str,
         cardano_db: &DummyCardanoDb,
         work_dir: &Path,
         ancillary_manifest_signing_key: ManifestVerifierSecretKey,
-    ) -> TestHttpServer {
+    ) -> Self {
         let beacon = CardanoDbBeacon {
             immutable_file_number: cardano_db.last_immutable_number().unwrap(),
             ..fake_data::beacon()
@@ -36,7 +35,7 @@ impl FakeAggregator {
         }));
         let snapshot_clone = snapshot.clone();
 
-        let snapshot_list_json = serde_json::to_string(&vec![
+        let snapshot_list = vec![
             SnapshotListItem {
                 digest: snapshot_digest.to_string(),
                 certificate_hash: certificate_hash.to_string(),
@@ -45,8 +44,7 @@ impl FakeAggregator {
                 ..SnapshotListItem::dummy()
             },
             SnapshotListItem::dummy(),
-        ])
-        .unwrap();
+        ];
 
         let mut certificate = MithrilCertificate {
             hash: certificate_hash.to_string(),
@@ -59,45 +57,31 @@ impl FakeAggregator {
             .await
             .expect("Computing snapshot message should not fail")
             .compute_hash();
-        let certificate_json = serde_json::to_string(&certificate).unwrap();
 
-        let routes =
-            routes::snapshot::routes(self.calls.clone(), snapshot_list_json, snapshot_clone)
-                .or(routes::certificate::routes(
-                    self.calls.clone(),
-                    None,
-                    certificate_json,
-                ))
-                .or(routes::statistics::routes(self.calls.clone()));
-
-        let cardano_db_archives = snapshot_archives::build_cardano_db_v1_snapshot_archives(
+        let snapshots_dir = snapshot_archives::build_cardano_db_v1_snapshot_archives(
             cardano_db,
             work_dir,
             ancillary_manifest_signing_key,
         )
         .await;
 
-        let routes = routes.or(routes::snapshot::download(
-            self.calls.clone(),
-            cardano_db_archives,
-        ));
-        let server = test_http_server(routes);
+        let routes = routes::snapshot::routes(snapshot_list, snapshot_clone, &snapshots_dir)
+            .merge(routes::certificate::routes(Vec::new(), certificate))
+            .merge(routes::statistics::routes());
+        let fake_aggregator = Self::spawn_test_server_on_random_port(routes);
+        fake_aggregator.update_snapshot_location(snapshot).await;
 
-        update_snapshot_location(&server.url(), snapshot);
-
-        server
+        fake_aggregator
     }
-}
 
-fn update_snapshot_location(aggregator_url: &str, snapshot: Arc<RwLock<Snapshot>>) {
-    let mut snapshot_to_update = snapshot.write().unwrap();
-    *snapshot_to_update = Snapshot {
-        locations: vec![format!(
-            "{aggregator_url}/snapshot_download/completed_immutables.tar.zst"
-        )],
-        ancillary_locations: Some(vec![format!(
-            "{aggregator_url}/snapshot_download/ancillary.tar.zst"
-        )]),
-        ..snapshot_to_update.clone()
-    };
+    async fn update_snapshot_location(&self, snapshot: Arc<RwLock<Snapshot>>) {
+        let mut snapshot_to_update = snapshot.write().await;
+        *snapshot_to_update = Snapshot {
+            locations: vec![self.server_url("/snapshot_download/completed_immutables.tar.zst")],
+            ancillary_locations: Some(
+                vec![self.server_url("/snapshot_download/ancillary.tar.zst")],
+            ),
+            ..snapshot_to_update.clone()
+        };
+    }
 }

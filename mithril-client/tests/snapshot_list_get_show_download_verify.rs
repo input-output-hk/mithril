@@ -26,29 +26,30 @@ async fn snapshot_list_get_show_download_verify() {
         .append_immutable_trio()
         .with_legacy_ledger_snapshots(&[506, 562])
         .build();
-    let fake_aggregator = FakeAggregator::new();
-    let test_http_server = fake_aggregator
-        .spawn_with_snapshot(
-            digest,
-            certificate_hash,
-            &cardano_db,
-            &work_dir,
-            ancillary_manifest_signing_key,
-        )
-        .await;
-    let client = ClientBuilder::aggregator(&test_http_server.url(), genesis_verification_key)
-        .set_ancillary_verification_key(
-            ancillary_manifest_signer_verification_key
-                .to_json_hex()
-                .unwrap(),
-        )
-        .with_certificate_verifier(FakeCertificateVerifier::build_that_validate_any_certificate())
-        .add_feedback_receiver(Arc::new(SlogFeedbackReceiver::new(
-            extensions::test_logger(),
-        )))
-        .with_logger(extensions::test_logger())
-        .build()
-        .expect("Should be able to create a Client");
+    let fake_aggregator = FakeAggregator::spawn_with_snapshot(
+        digest,
+        certificate_hash,
+        &cardano_db,
+        &work_dir,
+        ancillary_manifest_signing_key,
+    )
+    .await;
+    let client =
+        ClientBuilder::aggregator(&fake_aggregator.server_root_url(), genesis_verification_key)
+            .set_ancillary_verification_key(
+                ancillary_manifest_signer_verification_key
+                    .to_json_hex()
+                    .unwrap(),
+            )
+            .with_certificate_verifier(
+                FakeCertificateVerifier::build_that_validate_any_certificate(),
+            )
+            .add_feedback_receiver(Arc::new(SlogFeedbackReceiver::new(
+                extensions::test_logger(),
+            )))
+            .with_logger(extensions::test_logger())
+            .build()
+            .expect("Should be able to create a Client");
 
     let snapshots = client
         .cardano_database()

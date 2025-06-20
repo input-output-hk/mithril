@@ -187,7 +187,7 @@ jobs:
               --exclude mithril-relay
               --exclude mithril-client-wasm
               --exclude mithril-aggregator-fake
-          # Windows has a larger list of exclusion because some tests are too slow (ie: mithril-stm) or can't compile (ie: mithril-common)
+          # Windows has a larger list of exclusion because some tests are too slow (ie: mithril-stm) or can't compile (ie: mithril-end-to-end)
           - os: windows-latest
             test-args: >
               --features full,unstable --workspace
@@ -196,13 +196,8 @@ jobs:
               --exclude mithril-relay
               --exclude mithril-client-wasm
               --exclude mithril-aggregator-fake
-              --exclude mithril-common
               --exclude mithril-stm
-              --exclude mithril-metric
               --exclude mithril-end-to-end
-              --exclude mithril-persistence
-              --exclude mithril-resource-pool
-              --exclude mithril-build-script
 
     runs-on: ${{ matrix.os }}
 
@@ -814,7 +809,7 @@ jobs:
                     -p mithril-era -p mithril-metric -p mithril-persistence -p mithril-resource-pool \
                     -p mithril-ticker -p mithril-signed-entity-lock -p mithril-signed-entity-preloader \
                     -p mithril-aggregator -p mithril-signer -p mithril-client -p mithril-client-cli \
-                    -p mithril-api-spec \
+                    -p mithril-api-spec -p mithril-test-http-server \
                     --all-features --message-format=json \
                     | clippy-sarif | tee rust-cargo-doc-results.sarif | sarif-fmt
 

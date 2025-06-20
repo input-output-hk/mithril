@@ -18,10 +18,6 @@ mod mithril_fixture;
 mod precomputed_kes_key;
 mod temp_dir;
 
-#[cfg(feature = "test_http_server")]
-#[cfg_attr(docsrs, doc(cfg(feature = "test_http_server")))]
-pub mod test_http_server;
-
 pub use cardano_transactions_builder::CardanoTransactionsBuilder;
 pub use certificate_chain_builder::{
     CertificateChainBuilder, CertificateChainBuilderContext, CertificateChainingMethod,

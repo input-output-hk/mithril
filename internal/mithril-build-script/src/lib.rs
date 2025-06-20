@@ -83,6 +83,10 @@ pub(crate) fn get_temp_dir(dir_name: &str) -> PathBuf {
 mod tests {
     use super::*;
 
+    // Comparing absolute paths on Windows is tricky because it may add `\\?\` prefix:
+    //   left:  "/C:/a/mithril/mithril/mithril-aggregator"
+    //   right: "\\\\?\\C:\\a\\mithril\\mithril\\mithril-aggregator"
+    #[cfg(not(target_os = "windows"))]
     #[test]
     fn get_package_path_should_return_path_of_existing_package() {
         let expected = PathBuf::from("./../../mithril-aggregator/")

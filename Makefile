@@ -5,7 +5,7 @@ COMPONENTS = mithril-aggregator mithril-client mithril-client-cli mithril-client
 			 internal/mithril-resource-pool internal/mithril-ticker \
 			 internal/cardano-node/mithril-cardano-node-chain internal/cardano-node/mithril-cardano-node-internal-database \
 			 internal/signed-entity/mithril-signed-entity-lock internal/signed-entity/mithril-signed-entity-preloader \
-			 internal/tests/mithril-api-spec \
+			 internal/tests/mithril-api-spec internal/tests/mithril-test-http-server \
 			 demo/protocol-demo \
 			 mithril-test-lab/mithril-aggregator-fake mithril-test-lab/mithril-end-to-end
 GOALS := $(or $(MAKECMDGOALS),all)

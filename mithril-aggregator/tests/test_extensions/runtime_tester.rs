@@ -33,12 +33,12 @@ use mithril_common::{
         TimePoint,
     },
     test_utils::{
-        test_http_server::{test_http_server, TestHttpServer},
         MithrilFixture, MithrilFixtureBuilder, SignerFixture, StakeDistributionGenerationMethod,
     },
     StdResult,
 };
 use mithril_era::{adapters::EraReaderDummyAdapter, EraMarker, EraReader};
+use mithril_test_http_server::{test_http_server, TestHttpServer};
 
 use crate::test_extensions::utilities::tx_hash;
 use crate::test_extensions::{AggregatorObserver, ExpectedCertificate, MetricsVerifier};

@@ -1,20 +1,22 @@
-use crate::{
-    p2p::{Peer, PeerEvent},
-    repeater::MessageRepeater,
-};
 use clap::ValueEnum;
 use libp2p::Multiaddr;
-use mithril_common::{
-    logging::LoggerExtensions,
-    messages::{RegisterSignatureMessage, RegisterSignerMessage},
-    test_utils::test_http_server::{test_http_server_with_socket_address, TestHttpServer},
-    StdResult,
-};
 use slog::{debug, info, Logger};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 use strum::Display;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use warp::Filter;
+
+use mithril_common::{
+    logging::LoggerExtensions,
+    messages::{RegisterSignatureMessage, RegisterSignerMessage},
+    StdResult,
+};
+use mithril_test_http_server::{test_http_server_with_socket_address, TestHttpServer};
+
+use crate::{
+    p2p::{Peer, PeerEvent},
+    repeater::MessageRepeater,
+};
 
 /// Signer relay mode
 ///

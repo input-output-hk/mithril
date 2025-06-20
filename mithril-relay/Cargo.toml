@@ -1,6 +1,6 @@
 [package]
 name = "mithril-relay"
-version = "0.1.43"
+version = "0.1.44"
 description = "A Mithril relay"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -36,6 +36,7 @@ libp2p = { version = "0.55.0", features = [
 ] }
 mithril-common = { path = "../mithril-common", features = ["full"] }
 mithril-doc = { path = "../internal/mithril-doc" }
+mithril-test-http-server = { path = "../internal/tests/mithril-test-http-server" }
 reqwest = { workspace = true, features = [
     "default",
     "gzip",

@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client"
-version = "0.12.16"
+version = "0.12.17"
 description = "Mithril client library"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -58,7 +58,7 @@ chrono = { workspace = true }
 flate2 = { version = "1.1.1", optional = true }
 flume = { version = "0.11.1", optional = true }
 futures = "0.3.31"
-mithril-common = { path = "../mithril-common", version = "=0.5", default-features = false }
+mithril-common = { path = "../mithril-common", version = ">=0.5", default-features = false }
 reqwest = { workspace = true, default-features = false, features = [
     "charset",
     "http2",
@@ -84,11 +84,13 @@ getrandom = { version = "0.2.15", features = ["js"] }
 uuid = { version = "1.17.0", features = ["v4", "js"] }
 
 [dev-dependencies]
+axum = { version = "0.8.4", features = ["json"] }
+axum-test = "17.3.0"
 bon = "3.6.3"
 hex = { workspace = true }
 http = "1.3.1"
 httpmock = "0.7.0"
-mithril-common = { path = "../mithril-common", version = "=0.5", default-features = false, features = [
+mithril-common = { path = "../mithril-common", version = ">=0.5", default-features = false, features = [
     "test_tools",
 ] }
 mockall = { workspace = true }
@@ -96,7 +98,7 @@ sha2 = "0.10.9"
 slog-async = { workspace = true }
 slog-term = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
-warp = { workspace = true }
+tower-http = { version = "0.6.6", features = ["fs"] }
 
 [[test]]
 name = "snapshot_list_get_show_download_verify"

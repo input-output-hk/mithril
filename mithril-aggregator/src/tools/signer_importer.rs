@@ -198,9 +198,9 @@ mod tests {
     use std::sync::Arc;
     use warp::Filter;
 
-    use mithril_common::test_utils::test_http_server::test_http_server;
     use mithril_common::StdResult;
     use mithril_persistence::sqlite::SqliteConnection;
+    use mithril_test_http_server::test_http_server;
 
     use crate::database::repository::{SignerGetter, SignerStore};
     use crate::database::test_helper::main_db_connection;

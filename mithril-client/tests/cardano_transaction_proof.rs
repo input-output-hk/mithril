@@ -10,13 +10,15 @@ async fn cardano_transaction_proof_get_validate() {
 
     let transactions_hashes = ["abc", "def"];
     let certificate_hash = "certificate_hash";
-    let fake_aggregator = FakeAggregator::new();
-    let test_http_server =
-        fake_aggregator.spawn_with_transactions_proofs(&transactions_hashes, certificate_hash);
-    let client = ClientBuilder::aggregator(&test_http_server.url(), genesis_verification_key)
-        .with_certificate_verifier(FakeCertificateVerifier::build_that_validate_any_certificate())
-        .build()
-        .expect("Should be able to create a Client");
+    let fake_aggregator =
+        FakeAggregator::spawn_with_transactions_proofs(&transactions_hashes, certificate_hash);
+    let client =
+        ClientBuilder::aggregator(&fake_aggregator.server_root_url(), genesis_verification_key)
+            .with_certificate_verifier(
+                FakeCertificateVerifier::build_that_validate_any_certificate(),
+            )
+            .build()
+            .expect("Should be able to create a Client");
     let cardano_transaction_client = client.cardano_transaction();
 
     // 1 - get list of set proofs for wanted tx & associated certificate hash
