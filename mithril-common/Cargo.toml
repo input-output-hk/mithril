@@ -55,9 +55,7 @@ kes-summed-ed25519 = { version = "0.2.1", features = [
     "serde_enabled",
     "sk_clone_enabled",
 ] }
-mithril-stm = { path = "../mithril-stm", version = "=0.4", default-features = false, features = [
-    "batch-verify-aggregates"
-] }
+mithril-stm = { path = "../mithril-stm", version = "=0.4", default-features = false }
 nom = "8.0.0"
 rand_chacha = { workspace = true }
 rand_core = { workspace = true }
