@@ -26,7 +26,7 @@ export default function NavbarLayout({ children }) {
   const y = useTransform(
     scrollY,
     [0, 70],
-    ["rgba(255, 255, 255, 0)", "rgba(255, 255, 255, 1)"],
+    ["rgba(255, 255, 255, 0)", "rgba(255, 255, 255, 0.96)"],
   );
   const isLandingPage = useIsLandingPage();
   const {

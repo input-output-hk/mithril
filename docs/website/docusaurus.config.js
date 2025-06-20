@@ -256,11 +256,6 @@ const config = {
           },
           { to: "/dev-blog", label: "Blog", position: "right" },
           { to: "/adr", label: "ADRs", position: "right" },
-          {
-            className: "header-github-link",
-            href: "https://github.com/input-output-hk/mithril/",
-            position: "right",
-          },
         ],
       },
       footer: {

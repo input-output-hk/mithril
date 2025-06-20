@@ -12,6 +12,7 @@ import NavbarLogo from "@theme/Navbar/Logo";
 import NavbarSearch from "@theme/Navbar/Search";
 import styles from "./styles.module.css";
 import Discord from "../../../components/icons/Discord";
+import Github from "../../../components/icons/Github";
 
 function useNavbarItems() {
   // TODO temporary casting until ThemeConfig type is improved
@@ -69,10 +70,18 @@ export default function NavbarContent() {
             </NavbarSearch>
           )}
           <a
-            href="https://discord.com/invite/Qq5vNTg9PT"
+            href="https://github.com/input-output-hk/mithril/"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-blue-light mx-3 py-1 laptop:flex hidden"
+            className="hover:text-[var(--ifm-navbar-link-hover-color)] mx-3 py-1 laptop:flex hidden"
+          >
+            <Github />
+          </a>
+          <a
+            href="https://discord.gg/5kaErDKDRq"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-[var(--ifm-navbar-link-hover-color)] mx-3 py-1 laptop:flex hidden"
           >
             <Discord />
           </a>

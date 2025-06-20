@@ -174,19 +174,6 @@ h3 {
   background-color: rgba(0, 0, 0, 0.3);
 }
 
-.header-github-link:before {
-  background: url("/static/img/GitHub-Mark-32px.png") no-repeat;
-  background-size: cover;
-  display: flex;
-  content: "";
-  height: 24px;
-  width: 24px;
-}
-
-[data-theme="dark"] .header-github-link {
-  filter: invert(1);
-}
-
 @media screen and (max-width: 996px) {
   .footer {
     text-align: center;
@@ -208,6 +195,18 @@ div[role="banner"] div {
 
 .announcementBarClose_gvF7 {
   color: var(--ifm-color-white);
+}
+
+.announcementBarClose_gvF7 > svg {
+  width: 12px;
+}
+
+.announcementBarClose_gvF7 > svg > g {
+  stroke-width: 2;
+}
+
+.announcementBar_mb4j {
+  border-bottom: 0px !important;
 }
 
 @media (min-width: 768px) {

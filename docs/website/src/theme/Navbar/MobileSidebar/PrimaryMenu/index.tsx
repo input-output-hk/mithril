@@ -3,6 +3,7 @@ import { useThemeConfig } from "@docusaurus/theme-common";
 import { useNavbarMobileSidebar } from "@docusaurus/theme-common/internal";
 import NavbarItem, { type Props as NavbarItemConfig } from "@theme/NavbarItem";
 import Discord from "../../../../components/icons/Discord";
+import Github from "../../../../components/icons/Github";
 
 function useNavbarItems() {
   // TODO temporary casting until ThemeConfig type is improved
@@ -28,10 +29,18 @@ export default function NavbarMobilePrimaryMenu(): ReactNode {
         />
       ))}
       <a
-        href="https://discord.com/invite/Qq5vNTg9PT"
+        href="https://github.com/input-output-hk/mithril/"
         target="_blank"
         rel="noopener noreferrer"
-        className="hover:text-blue-light mx-3 my-2 py-1 flex"
+        className="hover:text-[var(--ifm-navbar-link-hover-color)] mx-3 py-1 laptop:flex hidden"
+      >
+        <Github />
+      </a>
+      <a
+        href="https://discord.gg/5kaErDKDRq"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="hover:text-[var(--ifm-navbar-link-hover-color)] mx-3 py-1 laptop:flex hidden"
       >
         <Discord />
       </a>

@@ -51,7 +51,7 @@ const config: Config = {
       black: "#000000",
       gray: {
         DEFAULT: "#7C8080",
-        dark: "#7E8384",
+        dark: "#99a3b1",
         light: "#808C9D",
         "extra-light": "#F3F4F4",
         border: "#B3BAC5",
