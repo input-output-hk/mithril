@@ -17,6 +17,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for a `verify` command to verify an existing Cardano database in the client CLI.
 
+- Support for stable `v2` backend of `cardano-db` command and decommission of the `cardano-db-v2` command in client CLI.
+
 - Crates versions:
 
 | Crate | Version |
