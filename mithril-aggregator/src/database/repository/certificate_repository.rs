@@ -48,6 +48,18 @@ impl CertificateRepository {
         Ok(cursor.take(last_n).map(|v| v.into()).collect())
     }
 
+    /// Return the latest genesis certificate.
+    pub async fn get_latest_genesis_certificate<T>(&self) -> StdResult<Option<T>>
+    where
+        T: From<CertificateRecord>,
+    {
+        let record = self
+            .connection
+            .fetch_first(GetCertificateRecordQuery::all_genesis())?;
+
+        Ok(record.map(|c| c.into()))
+    }
+
     /// Return the first certificate signed per epoch as the reference
     /// certificate for this Epoch. This will be the parent certificate for all
     /// other certificates issued within this Epoch.
@@ -266,6 +278,19 @@ mod tests {
             .await
             .unwrap();
         let expected: Vec<Certificate> = certificates.into_iter().rev().collect();
+
+        assert_eq!(expected, latest_certificates);
+    }
+
+    #[tokio::test]
+    async fn repository_get_latest_genesis_certificate() {
+        let (certificates, _) = setup_certificate_chain(5, 2);
+        let connection = Arc::new(main_db_connection().unwrap());
+        insert_certificate_records(&connection, certificates.clone());
+
+        let repository = CertificateRepository::new(connection);
+        let latest_certificates = repository.get_latest_genesis_certificate().await.unwrap();
+        let expected = Some(certificates.last().unwrap().clone());
 
         assert_eq!(expected, latest_certificates);
     }
