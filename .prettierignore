@@ -13,3 +13,7 @@ mithril-test-lab/mithril-devnet/configuration/
 flake.lock
 **/dist/
 **/pkg/
+.jlv.jsonc
+
+# CI
+rust-clippy-results.sarif

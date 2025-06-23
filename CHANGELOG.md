@@ -32,14 +32,11 @@ As a minor extension, we have adopted a slightly different versioning convention
 - Support for recording client types origin (library, CLI and WASM) in the aggregator metrics.
 
 - **UNSTABLE** :
-
   - New UTxO-HD snapshot converter command for client CLI:
-
     - Added the `tools utxo-hd snapshot-converter` command to the client CLI that converts a restored UTxO-HD snapshot to another flavor.
     - Support for converting to `LMDB` on-disk and `Legacy` in-memory flavors.
 
   - New api for client CLI partial cardano database restoration (aka Cardano DB V2):
-
     - Support for switching the backend with parameter `--backend [v1,v2]` to `cardano-database` snapshot list, snapshot show and download subcommands:
       - backend `v1` (default): support full database restoration only.
       - backend `v2` (require `--unstable`): support full and partial database restoration.
@@ -63,7 +60,6 @@ As a minor extension, we have adopted a slightly different versioning convention
 ## Mithril Distribution [2517.0] - 2025-05-05
 
 - **BREAKING** changes in Mithril client CLI and library:
-
   - To fast bootstrap a Cardano node, the new `--include-ancillary` option has been added to the _Cardano node database_ command in the Mithril client CLI.
   - Without this option, only final immutable files are downloaded, and the ledger state must be computed from the genesis block when the Cardano node starts.
   - The `--include-ancillary` option requires the usage of an **ancillary verification key** (`--ancillary-verification-key` or `ANCILLARY_VERIFICATION_KEY`) which is specified in the [Networks configuration](https://mithril.network/doc/manual/getting-started/network-configurations) page.
@@ -92,7 +88,6 @@ As a minor extension, we have adopted a slightly different versioning convention
 ## Mithril Distribution [2513.0] - 2025-03-28
 
 - **BREAKING** changes in Mithril nodes:
-
   - Upgraded the minimum required `glibc` version from `2.31` to `2.35` for the pre-built Linux binaries
   - Mithril signer with versions `<=0.2.200` **must be updated** following the cleanup of `Thales` era legacy code
   - Mithril client library `with_snapshot_uploader` function has been renamed to `with_file_uploader`.
@@ -102,7 +97,6 @@ As a minor extension, we have adopted a slightly different versioning convention
 - End support for **macOS x64 pre-built binaries** for the client CLI.
 
 - Cardano database full certification:
-
   - Creation of two separate archives for the immutable files and for the ancillary files.
   - Added a signed manifest file to the ancillary archive (contains the list of all files in the archive and their sha256 hashes).
   - Added client validation of the signature of the manifest file and the integrity of the files in the archive after downloading an ancillary archive.
@@ -110,7 +104,6 @@ As a minor extension, we have adopted a slightly different versioning convention
 - **UNSTABLE** Implement a follower signer registration mode in the aggregator.
 
 - **UNSTABLE** Cardano database incremental certification:
-
   - Implement the client library for the signed entity type `CardanoDatabase` (download and prove snapshot).
   - Implement the client CLI commands for the signed entity type `CardanoDatabase` (snapshot list, snapshot show and download commands).
   - Implement an example crate for the signed entity type `CardanoDatabase`.
@@ -145,7 +138,6 @@ As a minor extension, we have adopted a slightly different versioning convention
 - Support certification of the protocol parameters and epoch in the certificate chain.
 
 - **UNSTABLE** Cardano database incremental certification:
-
   - Implement the artifact routes of the aggregator for the signed entity type `CardanoDatabase`.
   - Implement the immutable file digests route in the aggregator.
   - Implement the artifact ancillary builder in the aggregator.
@@ -169,7 +161,6 @@ As a minor extension, we have adopted a slightly different versioning convention
 ## Mithril Distribution [2450.0] - 2024-12-17
 
 - **BREAKING** changes in Mithril client library, CLI, and WASM:
-
   - Remove deprecated `network` field from the internal `CardanoDbBeacon`.
   - The Mithril certificates of type `CardanoImmutableFilesFull` can't be verified anymore with the previous clients.
   - Clients from distribution [`2445`](#mithril-distribution-24450---2024-11-07) and earlier must be updated.
@@ -188,7 +179,6 @@ As a minor extension, we have adopted a slightly different versioning convention
 - Update to Rust `1.83`.
 
 - **UNSTABLE** Cardano database incremental certification:
-
   - Implement the new signed entity type `CardanoDatabase`.
   - Implement the signable builder for the signed entity type `CardanoDatabase`.
 
@@ -207,7 +197,6 @@ As a minor extension, we have adopted a slightly different versioning convention
 ## Mithril Distribution [2445.0] - 2024-11-07
 
 - **BREAKING** changes in Mithril client library, CLI, and WASM:
-
   - Remove deprecated `beacon` field from Mithril certificates.
   - Clients from distribution [`2430`](#mithril-distribution-24300---2024-07-30) and above are compatible with this change.
 
@@ -236,7 +225,6 @@ As a minor extension, we have adopted a slightly different versioning convention
 ## Mithril Distribution [2442.0] - 2024-10-21
 
 - Decentralization of the signature orchestration:
-
   - Optimizations of the state machine used by the signer to create individual signatures.
 
   - Support for buffering of incoming single signatures by the aggregator if it can not aggregate them yet.
@@ -272,7 +260,6 @@ As a minor extension, we have adopted a slightly different versioning convention
 ## Mithril Distribution [2437.1] - 2024-09-23
 
 - **BREAKING** changes in Mithril client WASM:
-
   - Implementation of seamless transition from **unstable** to **stable** features.
   - A new `unstable` option in the client allows the usage of unstable features.
   - The previous `client.unstable` implementation is not supported anymore and must be replaced with `client`.
@@ -288,13 +275,11 @@ As a minor extension, we have adopted a slightly different versioning convention
 - Post `Chang` hard fork cleanup of the CI, devnet and infrastructure.
 
 - Cardano transactions certification (stable for signer and aggregator):
-
   - Support for Mithril signer memory optimization when signing Cardano transactions with multiple Merkle tree storage backends.
   - Support infinite preloading of Cardano transactions in signer.
   - Fix Cardano transactions rollbacks creating panics in signer and aggregator.
 
 - Cardano stake distribution certification (stable for signer and aggregator):
-
   - Implement the signable and artifact builders for the signed entity type `CardanoStakeDistribution`.
   - Implement the HTTP routes related to the signed entity type `CardanoStakeDistribution` on the aggregator REST API.
   - Added support in the `mithril-client` library for retrieving `CardanoStakeDistribution` by epoch or by hash, and for listing all available `CardanoStakeDistribution`.
@@ -325,7 +310,6 @@ As a minor extension, we have adopted a slightly different versioning convention
 - Support better disk configuration in terraform deployments with the CI/CD workflows.
 
 - **UNSTABLE** Cardano transactions certification:
-
   - Make Cardano transaction signing settings configurable via the CD.
 
 - Crates versions:
@@ -361,7 +345,6 @@ As a minor extension, we have adopted a slightly different versioning convention
 - Field `beacon` becomes optional in `CertificatePendingMessage` response of `/certificate-pending` route.
 
 - **UNSTABLE** Cardano transactions certification:
-
   - Optimize the performances of the computation of the proof with a Merkle map.
   - Handle rollback events from the Cardano chain by removing stale data.
   - Preload Cardano transactions and Block Range Roots at signer & aggregator startup.
@@ -385,14 +368,12 @@ As a minor extension, we have adopted a slightly different versioning convention
 ## Mithril Distribution [2423.0] - 2024-06-12
 
 - **BREAKING** changes in Mithril client CLI:
-
   - The deprecated `snapshot` command is removed from the Mithril client CLI
   - Use the `cardano-db snapshot` command instead.
 
 - Update website and explorer user interface to use the new mithril logo.
 
 - **UNSTABLE** Cardano transactions certification:
-
   - Support computation of the Cardano Transactions signature and proving with the pre-computed Block Range Merkle Roots retrieved from the database.
   - Prune Cardano Transactions from the signer database after the Block Range Merkle Roots have been computed.
   - Implement a Chain Reader which retrieves blocks from the Cardano chain with Pallas through the `chainsync` mini-protocol.
@@ -414,7 +395,6 @@ As a minor extension, we have adopted a slightly different versioning convention
 ## Mithril Distribution [2418.1] - 2024-05-13
 
 - **BREAKING** changes in Mithril client CLI:
-
   - Certificate chain structure has been modified to remove coupling with immutable file number.
   - Client needs to be updated to verify certificate chain.
 
@@ -423,7 +403,6 @@ As a minor extension, we have adopted a slightly different versioning convention
 - Chain observers support the retrieval of the current Cardano chain point.
 
 - Deprecate `portable` feature of `mithril-stm` and `mithril-client`:
-
   - Instead, always enable BLST `portable` feature in `mithril-stm` for runtime check of intel ADX instruction set.
   - `portable` feature now has no effect and should be removed from crate dependencies.
   - Removed it from all other crates (including `mithril-common`).
@@ -447,7 +426,6 @@ As a minor extension, we have adopted a slightly different versioning convention
 - **GitHub release**: <https://github.com/input-output-hk/mithril/releases/tag/2412.0>
 
 - _DEPRECATED_ the `snapshot` command in the Mithril client CLI:
-
   - Renamed to `cardano-db snapshot`.
   - Will be **removed** in **2** distributions.
 
