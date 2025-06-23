@@ -1,7 +1,7 @@
 use blake2::{digest::consts::U32, Blake2b};
 use mithril_stm::{
-    AggregationError, KeyRegistration, Parameters, Stake, StmAggrSig, StmAggrVerificationKey,
-    StmClerk, StmInitializer, StmSig, StmSigner, StmVerificationKey,
+    AggregationError, KeyRegistration, Parameters, SingleSignature, Stake, StmAggrSig,
+    StmAggrVerificationKey, StmClerk, StmInitializer, StmSigner, StmVerificationKey,
 };
 use rand_chacha::ChaCha20Rng;
 use rand_core::RngCore;
@@ -20,7 +20,7 @@ pub struct InitializationPhaseResult {
 pub struct OperationPhaseResult {
     pub msig: Result<StmAggrSig<H>, AggregationError>,
     pub avk: StmAggrVerificationKey<H>,
-    pub sigs: Vec<StmSig>,
+    pub sigs: Vec<SingleSignature>,
 }
 
 pub fn initialization_phase(
@@ -69,7 +69,7 @@ pub fn operation_phase(
     let sigs = signers
         .par_iter()
         .filter_map(|p| p.sign(&msg))
-        .collect::<Vec<StmSig>>();
+        .collect::<Vec<SingleSignature>>();
 
     let clerk = StmClerk::from_signer(&signers[0]);
     let avk = clerk.compute_avk();

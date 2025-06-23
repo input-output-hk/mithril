@@ -67,7 +67,7 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;
 
-use mithril_stm::{StmClerk, Parameters, StmSig, KeyRegistration, StmInitializer, StmSigner, AggregationError};
+use mithril_stm::{StmClerk, Parameters, SingleSignature, KeyRegistration, StmInitializer, StmSigner, AggregationError};
 
 type H = Blake2b<U32>;
 
@@ -115,7 +115,7 @@ fn main() {
     let sigs = ps
         .par_iter()
         .filter_map(|p| p.sign(&msg))
-        .collect::<Vec<StmSig>>();
+        .collect::<Vec<SingleSignature>>();
 
     let clerk = StmClerk::from_signer(&ps[0]);
     let avk = clerk.compute_avk();

@@ -1,5 +1,5 @@
 use kes_summed_ed25519::kes::Sum6KesSig;
-use mithril_stm::{StmAggrSig, StmAggrVerificationKey, StmSig, StmVerificationKeyPoP};
+use mithril_stm::{SingleSignature, StmAggrSig, StmAggrVerificationKey, StmVerificationKeyPoP};
 
 use crate::crypto_helper::{MKMapProof, MKProof, OpCert, ProtocolKey, D};
 use crate::entities::BlockRange;
@@ -13,7 +13,7 @@ pub type ProtocolSignerVerificationKey = ProtocolKey<StmVerificationKeyPoP>;
 pub type ProtocolSignerVerificationKeySignature = ProtocolKey<Sum6KesSig>;
 
 /// Wrapper of [MithrilStm:StmSig](type@StmSig) to add serialization utilities.
-pub type ProtocolSingleSignature = ProtocolKey<StmSig>;
+pub type ProtocolSingleSignature = ProtocolKey<SingleSignature>;
 
 /// Wrapper of [MithrilStm:StmAggrSig](struct@StmAggrSig) to add serialization utilities.
 pub type ProtocolMultiSignature = ProtocolKey<StmAggrSig<D>>;
@@ -33,5 +33,5 @@ impl_codec_and_type_conversions_for_protocol_key!(
 );
 
 impl_codec_and_type_conversions_for_protocol_key!(
-    bytes_hex_codec => StmSig, ed25519_dalek::Signature
+    bytes_hex_codec => SingleSignature, ed25519_dalek::Signature
 );

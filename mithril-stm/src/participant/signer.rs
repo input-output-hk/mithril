@@ -3,7 +3,7 @@ use blake2::digest::{Digest, FixedOutput};
 use crate::bls_multi_signature::{Signature, SigningKey, VerificationKey};
 use crate::eligibility_check::ev_lt_phi;
 use crate::key_reg::ClosedKeyRegistration;
-use crate::{Parameters, Stake, StmSig};
+use crate::{Parameters, SingleSignature, Stake};
 
 /// Wrapper of the MultiSignature Verification key
 pub type StmVerificationKey = VerificationKey;
@@ -69,7 +69,7 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     /// It records all the winning indexes in `Self.indexes`.
     /// If it wins at least one lottery, it stores the signer's merkle tree index. The proof of membership
     /// will be handled by the aggregator.
-    pub fn sign(&self, msg: &[u8]) -> Option<StmSig> {
+    pub fn sign(&self, msg: &[u8]) -> Option<SingleSignature> {
         let closed_reg = self.closed_reg.as_ref().expect("Closed registration not found! Cannot produce StmSignatures. Use core_sign to produce core signatures (not valid for an StmCertificate).");
         let msgp = closed_reg
             .merkle_tree
@@ -77,7 +77,7 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
             .concat_with_msg(msg);
         let signature = self.core_sign(&msgp, closed_reg.total_stake)?;
 
-        Some(StmSig {
+        Some(SingleSignature {
             sigma: signature.sigma,
             signer_index: self.signer_index,
             indexes: signature.indexes,
@@ -99,12 +99,12 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
     /// wins the lottery by evaluating the dense mapping.
     /// It records all the winning indexes in `Self.indexes`.
-    pub fn core_sign(&self, msg: &[u8], total_stake: Stake) -> Option<StmSig> {
+    pub fn core_sign(&self, msg: &[u8], total_stake: Stake) -> Option<SingleSignature> {
         let sigma = self.sk.sign(msg);
 
         let indexes = self.check_lottery(msg, &sigma, total_stake);
         if !indexes.is_empty() {
-            Some(StmSig {
+            Some(SingleSignature {
                 sigma,
                 indexes,
                 signer_index: self.signer_index,

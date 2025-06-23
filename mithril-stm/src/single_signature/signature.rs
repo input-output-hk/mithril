@@ -14,7 +14,7 @@ use crate::{
 
 /// Signature created by a single party who has won the lottery.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StmSig {
+pub struct SingleSignature {
     /// The signature from the underlying MSP scheme.
     pub sigma: Signature,
     /// The index(es) for which the signature is valid
@@ -23,7 +23,7 @@ pub struct StmSig {
     pub signer_index: Index,
 }
 
-impl StmSig {
+impl SingleSignature {
     /// Verify an stm signature by checking that the lottery was won, the merkle path is correct,
     /// the indexes are in the desired range and the underlying multi signature validates.
     pub fn verify<D: Clone + Digest + FixedOutput>(
@@ -88,7 +88,7 @@ impl StmSig {
     /// Extract a batch compatible `StmSig` from a byte slice.
     pub fn from_bytes<D: Clone + Digest + FixedOutput>(
         bytes: &[u8],
-    ) -> Result<StmSig, StmSignatureError> {
+    ) -> Result<SingleSignature, StmSignatureError> {
         let mut u64_bytes = [0u8; 8];
 
         u64_bytes.copy_from_slice(
@@ -122,7 +122,7 @@ impl StmSig {
         );
         let signer_index = u64::from_be_bytes(u64_bytes);
 
-        Ok(StmSig {
+        Ok(SingleSignature {
             sigma,
             indexes,
             signer_index,
@@ -151,27 +151,27 @@ impl StmSig {
     }
 }
 
-impl Hash for StmSig {
+impl Hash for SingleSignature {
     fn hash<H: Hasher>(&self, state: &mut H) {
         Hash::hash_slice(&self.sigma.to_bytes(), state)
     }
 }
 
-impl PartialEq for StmSig {
+impl PartialEq for SingleSignature {
     fn eq(&self, other: &Self) -> bool {
         self.sigma == other.sigma
     }
 }
 
-impl Eq for StmSig {}
+impl Eq for SingleSignature {}
 
-impl PartialOrd for StmSig {
+impl PartialOrd for SingleSignature {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(std::cmp::Ord::cmp(self, other))
     }
 }
 
-impl Ord for StmSig {
+impl Ord for SingleSignature {
     fn cmp(&self, other: &Self) -> Ordering {
         self.cmp_stm_sig(other)
     }

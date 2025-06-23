@@ -13,7 +13,7 @@
 //! use rand_core::{RngCore, SeedableRng};
 //! use rayon::prelude::*; // We use par_iter to speed things up
 //!
-//! use mithril_stm::{StmClerk, Parameters, StmSig, KeyRegistration, StmInitializer, StmSigner, AggregationError};
+//! use mithril_stm::{StmClerk, Parameters, SingleSignature, KeyRegistration, StmInitializer, StmSigner, AggregationError};
 //!
 //! let nparties = 4; // Use a small number of parties for this example
 //! type D = Blake2b<U32>; // Setting the hash function for convenience
@@ -82,7 +82,7 @@
 //!     .filter_map(|p| {
 //!         return p.sign(&msg);
 //!     })
-//!     .collect::<Vec<StmSig>>();
+//!     .collect::<Vec<SingleSignature>>();
 //!
 //! // StmClerk can aggregate and verify signatures.
 //! let clerk = StmClerk::from_signer(&ps[0]);
@@ -124,7 +124,7 @@ pub use error::{
 pub use key_reg::{ClosedKeyRegistration, KeyRegistration};
 pub use parameters::Parameters;
 pub use participant::{StmInitializer, StmSigner, StmVerificationKey, StmVerificationKeyPoP};
-pub use single_signature::{StmSig, StmSigRegParty};
+pub use single_signature::{SingleSignature, SingleSignatureWithRegisteredParty};
 
 #[cfg(feature = "benchmark-internals")]
 pub use bls_multi_signature::{
@@ -142,3 +142,5 @@ pub type Index = u64;
 pub use key_reg::ClosedKeyRegistration as ClosedKeyReg;
 pub use key_reg::KeyRegistration as KeyReg;
 pub use parameters::Parameters as StmParameters;
+pub use single_signature::SingleSignature as StmSig;
+pub use single_signature::SingleSignatureWithRegisteredParty as StmSigRegParty; // Only used within `mithril-stm`

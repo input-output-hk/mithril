@@ -6,7 +6,8 @@ use crate::bls_multi_signature::{Signature, VerificationKey};
 use crate::key_reg::RegisteredParty;
 use crate::merkle_tree::BatchPath;
 use crate::{
-    CoreVerifier, Parameters, StmAggrVerificationKey, StmAggregateSignatureError, StmSigRegParty,
+    CoreVerifier, Parameters, SingleSignatureWithRegisteredParty, StmAggrVerificationKey,
+    StmAggregateSignatureError,
 };
 
 /// `StmMultiSig` uses the "concatenation" proving system (as described in Section 4.3 of the original paper.)
@@ -18,7 +19,7 @@ use crate::{
     deserialize = "BatchPath<D>: Deserialize<'de>"
 ))]
 pub struct StmAggrSig<D: Clone + Digest + FixedOutput> {
-    pub(crate) signatures: Vec<StmSigRegParty>,
+    pub(crate) signatures: Vec<SingleSignatureWithRegisteredParty>,
     /// The list of unique merkle tree nodes that covers path for all signatures.
     pub batch_proof: BatchPath<D>,
 }
@@ -191,7 +192,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
             );
             let sig_reg_size = usize::try_from(u64::from_be_bytes(u64_bytes))
                 .map_err(|_| StmAggregateSignatureError::SerializationError)?;
-            let sig_reg = StmSigRegParty::from_bytes::<D>(
+            let sig_reg = SingleSignatureWithRegisteredParty::from_bytes::<D>(
                 bytes
                     .get(bytes_index + 8..bytes_index + 8 + sig_reg_size)
                     .ok_or(StmAggregateSignatureError::SerializationError)?,

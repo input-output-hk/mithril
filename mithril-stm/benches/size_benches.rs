@@ -4,8 +4,8 @@ use blake2::{
     Blake2b, Digest,
 };
 use mithril_stm::{
-    CoreVerifier, KeyRegistration, Parameters, Stake, StmClerk, StmInitializer, StmSig,
-    StmSigRegParty, StmSigner, StmVerificationKey,
+    CoreVerifier, KeyRegistration, Parameters, SingleSignature, SingleSignatureWithRegisteredParty,
+    Stake, StmClerk, StmInitializer, StmSigner, StmVerificationKey,
 };
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
@@ -47,7 +47,7 @@ where
     let sigs = ps
         .par_iter()
         .filter_map(|p| p.sign(&msg))
-        .collect::<Vec<StmSig>>();
+        .collect::<Vec<SingleSignature>>();
     let clerk = StmClerk::from_signer(&ps[0]);
 
     // Aggregate with random parties
@@ -92,7 +92,7 @@ where
         .filter_map(|s| s.new_core_signer(&core_verifier.eligible_parties))
         .collect();
 
-    let mut signatures: Vec<StmSig> = Vec::with_capacity(nparties);
+    let mut signatures: Vec<SingleSignature> = Vec::with_capacity(nparties);
     for s in signers {
         if let Some(sig) = s.core_sign(&msg, core_verifier.total_stake) {
             signatures.push(sig);
@@ -101,11 +101,11 @@ where
 
     let sig_reg_list = signatures
         .iter()
-        .map(|sig| StmSigRegParty {
+        .map(|sig| SingleSignatureWithRegisteredParty {
             sig: sig.clone(),
             reg_party: core_verifier.eligible_parties[sig.signer_index as usize],
         })
-        .collect::<Vec<StmSigRegParty>>();
+        .collect::<Vec<SingleSignatureWithRegisteredParty>>();
 
     let dedup_sigs = CoreVerifier::dedup_sigs_for_indices(
         &core_verifier.total_stake,

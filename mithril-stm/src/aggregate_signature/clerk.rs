@@ -1,8 +1,9 @@
 use blake2::digest::{Digest, FixedOutput};
 
 use crate::{
-    AggregationError, ClosedKeyRegistration, CoreVerifier, Index, Parameters, Stake, StmAggrSig,
-    StmAggrVerificationKey, StmSig, StmSigRegParty, StmSigner, StmVerificationKey,
+    AggregationError, ClosedKeyRegistration, CoreVerifier, Index, Parameters, SingleSignature,
+    SingleSignatureWithRegisteredParty, Stake, StmAggrSig, StmAggrVerificationKey, StmSigner,
+    StmVerificationKey,
 };
 
 /// `StmClerk` can verify and aggregate `StmSig`s and verify `StmMultiSig`s.
@@ -45,16 +46,16 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
     /// It returns an instance of `StmAggrSig`.
     pub fn aggregate(
         &self,
-        sigs: &[StmSig],
+        sigs: &[SingleSignature],
         msg: &[u8],
     ) -> Result<StmAggrSig<D>, AggregationError> {
         let sig_reg_list = sigs
             .iter()
-            .map(|sig| StmSigRegParty {
+            .map(|sig| SingleSignatureWithRegisteredParty {
                 sig: sig.clone(),
                 reg_party: self.closed_reg.reg_parties[sig.signer_index as usize],
             })
-            .collect::<Vec<StmSigRegParty>>();
+            .collect::<Vec<SingleSignatureWithRegisteredParty>>();
 
         let avk = StmAggrVerificationKey::from(&self.closed_reg);
         let msgp = avk.get_mt_commitment().concat_with_msg(msg);

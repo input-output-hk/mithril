@@ -24,8 +24,9 @@ mod tests {
     use crate::bls_multi_signature::VerificationKey;
     use crate::merkle_tree::BatchPath;
     use crate::{
-        AggregationError, CoreVerifier, CoreVerifierError, KeyRegistration, Parameters, Stake,
-        StmAggrSig, StmClerk, StmInitializer, StmSig, StmSigRegParty, StmSigner,
+        AggregationError, CoreVerifier, CoreVerifierError, KeyRegistration, Parameters,
+        SingleSignature, SingleSignatureWithRegisteredParty, Stake, StmAggrSig, StmClerk,
+        StmInitializer, StmSigner,
     };
 
     type Sig = StmAggrSig<D>;
@@ -116,7 +117,7 @@ mod tests {
         )
     }
 
-    fn find_signatures(msg: &[u8], ps: &[StmSigner<D>], is: &[usize]) -> Vec<StmSig> {
+    fn find_signatures(msg: &[u8], ps: &[StmSigner<D>], is: &[usize]) -> Vec<SingleSignature> {
         let mut sigs = Vec::new();
         for i in is {
             if let Some(sig) = ps[*i].sign(msg) {
@@ -209,11 +210,11 @@ mod tests {
 
             let sig_reg_list = sigs
             .iter()
-            .map(|sig| StmSigRegParty {
+            .map(|sig| SingleSignatureWithRegisteredParty {
                 sig: sig.clone(),
                 reg_party: clerk.closed_reg.reg_parties[sig.signer_index as usize],
             })
-            .collect::<Vec<StmSigRegParty>>();
+            .collect::<Vec<SingleSignatureWithRegisteredParty>>();
 
             let msgp = avk.get_mt_commitment().concat_with_msg(&msg);
             let dedup_result = CoreVerifier::dedup_sigs_for_indices(
@@ -364,11 +365,11 @@ mod tests {
 
             if let Some(sig) = ps[0].sign(&msg) {
                 let bytes = sig.to_bytes();
-                let sig_deser = StmSig::from_bytes::<D>(&bytes).unwrap();
+                let sig_deser = SingleSignature::from_bytes::<D>(&bytes).unwrap();
                 assert!(sig_deser.verify(&params, &ps[0].get_vk(), &ps[0].get_stake(), &avk, &msg).is_ok());
 
                 let encoded = bincode::serde::encode_to_vec(&sig, bincode::config::legacy()).unwrap();
-                let (decoded,_) = bincode::serde::decode_from_slice::<StmSig,_>(&encoded, bincode::config::legacy()).unwrap();
+                let (decoded,_) = bincode::serde::decode_from_slice::<SingleSignature,_>(&encoded, bincode::config::legacy()).unwrap();
                 assert!(decoded.verify(&params, &ps[0].get_vk(), &ps[0].get_stake(), &avk, &msg).is_ok());
             }
         }
@@ -515,7 +516,7 @@ mod tests {
         ps: &[StmSigner<D>],
         total_stake: Stake,
         is: &[usize],
-    ) -> Vec<StmSig> {
+    ) -> Vec<SingleSignature> {
         let mut sigs = Vec::new();
         for i in is {
             if let Some(sig) = ps[*i].core_sign(msg, total_stake) {
