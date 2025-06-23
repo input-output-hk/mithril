@@ -151,6 +151,35 @@ impl Signature {
             None,
         )
     }
+
+    /// Batch verify several sets of signatures with their corresponding verification keys.
+    pub fn batch_verify_aggregates(
+        msgs: &[Vec<u8>],
+        vks: &[VerificationKey],
+        sigs: &[Signature],
+    ) -> Result<(), MultiSignatureError> {
+        let batched_sig: BlstSig = match AggregateSignature::aggregate(
+            &(sigs.iter().map(|sig| &sig.0).collect::<Vec<&BlstSig>>()),
+            false,
+        ) {
+            Ok(sig) => BlstSig::from_aggregate(&sig),
+            Err(e) => return blst_err_to_mithril(e, None, None),
+        };
+
+        let p2_vks: Vec<BlstVk> = vks.iter().map(|vk| vk.to_blst_vk()).collect();
+        let p2_vks_ref: Vec<&BlstVk> = p2_vks.iter().collect();
+        let slice_msgs = msgs
+            .iter()
+            .map(|msg| msg.as_slice())
+            .collect::<Vec<&[u8]>>();
+
+        blst_err_to_mithril(
+            batched_sig.aggregate_verify(false, &slice_msgs, &[], &p2_vks_ref, false),
+            None,
+            None,
+        )
+        .map_err(|_| MultiSignatureError::BatchInvalid)
+    }
 }
 
 impl<'a> Sum<&'a Self> for Signature {

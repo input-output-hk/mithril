@@ -253,5 +253,45 @@ mod tests {
             let (decoded_bytes,_) = bincode::serde::decode_from_slice::<SigningKey,_>(&sk_bytes, bincode::config::legacy()).unwrap();
             assert_eq!(sk, decoded_bytes);
         }
+
+        #[test]
+        fn batch_verify(num_batches in 2..10usize,
+                              seed in any::<[u8;32]>(),
+        ) {
+            let mut rng = ChaCha20Rng::from_seed(seed);
+            let num_sigs = 10;
+            let mut batch_msgs = Vec::new();
+            let mut batch_vk = Vec::new();
+            let mut batch_sig = Vec::new();
+            for _ in 0..num_batches {
+                let mut msg = [0u8; 32];
+                rng.fill_bytes(&mut msg);
+                let mut mvks = Vec::new();
+                let mut sigs = Vec::new();
+                for _ in 0..num_sigs {
+                    let sk = SigningKey::generate(&mut rng);
+                    let vk = VerificationKey::from(&sk);
+                    let sig = sk.sign(&msg);
+                    sigs.push(sig);
+                    mvks.push(vk);
+                }
+                assert!(Signature::verify_aggregate(&msg, &mvks, &sigs).is_ok());
+                let (agg_vk, agg_sig) = Signature::aggregate(&mvks, &sigs).unwrap();
+                batch_msgs.push(msg.to_vec());
+                batch_vk.push(agg_vk);
+                batch_sig.push(agg_sig);
+            }
+            assert!(Signature::batch_verify_aggregates(&batch_msgs, &batch_vk, &batch_sig).is_ok());
+
+            // If we have an invalid signature, the batch verification will fail
+            let mut msg = [0u8; 32];
+            rng.fill_bytes(&mut msg);
+            let sk = SigningKey::generate(&mut rng);
+            let fake_sig = sk.sign(&msg);
+            batch_sig[0] = fake_sig;
+
+            let batch_result = Signature::batch_verify_aggregates(&batch_msgs, &batch_vk, &batch_sig);
+            assert_eq!(batch_result, Err(MultiSignatureError::BatchInvalid));
+        }
     }
 }

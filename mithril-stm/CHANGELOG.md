@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.4.5 (23-06-2025)
+
+### Changed
+
+- `gen` will become a keyword of the language with Rust 2024 so, `SigningKey::gen` is renamed as `SigningKey::generate`.
+
+### Removed
+
+- Deprecated `batch-verify-aggregates` feature is removed.
+
 ## 0.4.4 (12-06-2025)
 
 ### Changed

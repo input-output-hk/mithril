@@ -2,7 +2,7 @@ use blake2::digest::{Digest, FixedOutput};
 use blake2::{digest::consts::U32, Blake2b};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use mithril_stm::{
-    CoreVerifier, KeyReg, Stake, StmClerk, StmInitializer, StmParameters, StmSigner,
+    CoreVerifier, KeyReg, Stake, StmAggrSig, StmClerk, StmInitializer, StmParameters, StmSigner,
     StmVerificationKey,
 };
 use rand_chacha::ChaCha20Rng;
@@ -74,6 +74,78 @@ where
     });
 }
 
+fn batch_benches<H>(
+    c: &mut Criterion,
+    array_batches: &[usize],
+    nr_parties: usize,
+    params: StmParameters,
+    hashing_alg: &str,
+) where
+    H: Clone + Debug + Digest + FixedOutput + Send + Sync,
+{
+    let mut group = c.benchmark_group(format!("STM/{hashing_alg}"));
+    let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+
+    let param_string = format!(
+        "k: {}, m: {}, nr_parties: {}",
+        params.k, params.m, nr_parties
+    );
+
+    for &nr_batches in array_batches {
+        let batch_string = format!("{param_string}/batch size: {nr_batches}");
+
+        let mut batch_msgs = Vec::with_capacity(nr_batches);
+        let mut batch_params = Vec::with_capacity(nr_batches);
+        let mut batch_stms = Vec::with_capacity(nr_batches);
+        let mut batch_avks = Vec::with_capacity(nr_batches);
+
+        for _ in 0..nr_batches {
+            let mut msg = [0u8; 32];
+            rng.fill_bytes(&mut msg);
+            batch_msgs.push(msg.to_vec());
+            batch_params.push(params);
+
+            let stakes = (0..nr_parties)
+                .map(|_| 1 + (rng.next_u64() % 9999))
+                .collect::<Vec<_>>();
+
+            let mut initializers: Vec<StmInitializer> = Vec::with_capacity(nr_parties);
+            for stake in stakes {
+                initializers.push(StmInitializer::setup(params, stake, &mut rng));
+            }
+            let mut key_reg = KeyReg::init();
+            for p in initializers.iter() {
+                key_reg.register(p.stake, p.verification_key()).unwrap();
+            }
+
+            let closed_reg = key_reg.close();
+
+            let signers = initializers
+                .into_par_iter()
+                .map(|p| p.new_signer(closed_reg.clone()).unwrap())
+                .collect::<Vec<StmSigner<H>>>();
+
+            let sigs = signers
+                .par_iter()
+                .filter_map(|p| p.sign(&msg))
+                .collect::<Vec<_>>();
+
+            let clerk = StmClerk::from_signer(&signers[0]);
+            let msig = clerk.aggregate(&sigs, &msg).unwrap();
+
+            batch_avks.push(clerk.compute_avk());
+            batch_stms.push(msig);
+        }
+
+        group.bench_function(BenchmarkId::new("Batch Verification", batch_string), |b| {
+            b.iter(|| {
+                StmAggrSig::batch_verify(&batch_stms, &batch_msgs, &batch_avks, &batch_params)
+                    .is_ok()
+            })
+        });
+    }
+}
+
 fn core_verifier_benches<H>(c: &mut Criterion, nr_parties: usize, params: StmParameters)
 where
     H: Clone + Debug + Digest + Send + Sync + FixedOutput + Default,
@@ -124,6 +196,20 @@ where
     });
 }
 
+fn batch_stm_benches_blake_300(c: &mut Criterion) {
+    batch_benches::<Blake2b<U32>>(
+        c,
+        &[1, 10, 20, 100],
+        300,
+        StmParameters {
+            m: 150,
+            k: 25,
+            phi_f: 0.4,
+        },
+        "Blake2b",
+    );
+}
+
 fn stm_benches_blake_300(c: &mut Criterion) {
     stm_benches::<Blake2b<U32>>(
         c,
@@ -146,6 +232,20 @@ fn core_verifier_benches_blake_300(c: &mut Criterion) {
             k: 25,
             phi_f: 0.2,
         },
+    );
+}
+
+fn batch_stm_benches_blake_2000(c: &mut Criterion) {
+    batch_benches::<Blake2b<U32>>(
+        c,
+        &[1, 10, 20, 100],
+        2000,
+        StmParameters {
+            m: 1523,
+            k: 250,
+            phi_f: 0.4,
+        },
+        "Blake2b",
     );
 }
 
@@ -181,5 +281,7 @@ criterion_group!(name = benches;
     core_verifier_benches_blake_2000,
     stm_benches_blake_300,
     stm_benches_blake_2000,
+    batch_stm_benches_blake_300,
+    batch_stm_benches_blake_2000,
 );
 criterion_main!(benches);

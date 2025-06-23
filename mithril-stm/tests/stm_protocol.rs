@@ -1,6 +1,6 @@
 mod test_extensions;
 
-use mithril_stm::{AggregationError, StmParameters};
+use mithril_stm::{AggregationError, StmAggrSig, StmParameters};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
@@ -42,4 +42,40 @@ fn test_full_protocol() {
             println!("Invalid usize conversion");
         }
     }
+}
+
+#[test]
+fn test_full_protocol_batch_verify() {
+    let batch_size = 5;
+    let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+
+    let mut aggr_avks = Vec::new();
+    let mut aggr_stms = Vec::new();
+    let mut batch_msgs = Vec::new();
+    let mut batch_params = Vec::new();
+
+    let params = StmParameters {
+        k: 357,
+        m: 2642,
+        phi_f: 0.2,
+    };
+
+    for _ in 0..batch_size {
+        let mut msg = [0u8; 32];
+        rng.fill_bytes(&mut msg);
+        let nparties = rng.next_u64() % 33;
+        let InitializationPhaseResult {
+            signers,
+            reg_parties,
+            initializers: _,
+        } = initialization_phase(nparties as usize, rng.clone(), params);
+        let OperationPhaseResult { msig, avk, sigs: _ } =
+            operation_phase(params, signers, reg_parties, msg);
+
+        aggr_avks.push(avk);
+        aggr_stms.push(msig.unwrap());
+        batch_msgs.push(msg.to_vec());
+        batch_params.push(params);
+    }
+    assert!(StmAggrSig::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params).is_ok());
 }
