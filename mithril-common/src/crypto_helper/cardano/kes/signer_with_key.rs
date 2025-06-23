@@ -15,12 +15,12 @@ use crate::{
 };
 
 /// Standard KES Signer implementation which uses a KES secret key.
-pub struct StandardKesSigner {
+pub struct KesSignerStandard {
     kes_sk_path: PathBuf,
     operational_certificate_path: PathBuf,
 }
 
-impl StandardKesSigner {
+impl KesSignerStandard {
     /// Create a new instance of `StandardKesSigner`.
     pub fn new(kes_sk_path: PathBuf, operational_certificate_path: PathBuf) -> Self {
         Self {
@@ -30,7 +30,7 @@ impl StandardKesSigner {
     }
 }
 
-impl KesSigner for StandardKesSigner {
+impl KesSigner for KesSignerStandard {
     fn sign(&self, message: &[u8], kes_period: KESPeriod) -> StdResult<(Sum6KesSig, OpCert)> {
         let mut kes_sk_bytes = Sum6KesBytes::from_file(&self.kes_sk_path)
             .map_err(|e| anyhow!(e))
@@ -61,7 +61,7 @@ mod tests {
     use super::*;
 
     use crate::crypto_helper::cardano::{
-        kes::test_utils::create_kes_cryptographic_material, KesVerifier, KesVerifierStandard,
+        kes::tests_setup::create_kes_cryptographic_material, KesVerifier, KesVerifierStandard,
     };
 
     #[test]
@@ -73,7 +73,7 @@ mod tests {
                 "create_valid_signature_for_message",
             );
         let message = b"Test message for KES signing";
-        let kes_signer = StandardKesSigner::new(kes_secret_key_file, operational_certificate_file);
+        let kes_signer = KesSignerStandard::new(kes_secret_key_file, operational_certificate_file);
         let kes_signing_period = 1;
 
         let (signature, op_cert) = kes_signer
@@ -94,7 +94,7 @@ mod tests {
                 "create_invalid_signature_for_different_message",
             );
         let message = b"Test message for KES signing";
-        let kes_signer = StandardKesSigner::new(kes_secret_key_file, operational_certificate_file);
+        let kes_signer = KesSignerStandard::new(kes_secret_key_file, operational_certificate_file);
         let kes_signing_period = 1;
 
         let (signature, op_cert) = kes_signer
@@ -121,7 +121,7 @@ mod tests {
                 "create_invalid_signature_for_invalid_kes_period",
             );
         let message = b"Test message for KES signing";
-        let kes_signer = StandardKesSigner::new(kes_secret_key_file, operational_certificate_file);
+        let kes_signer = KesSignerStandard::new(kes_secret_key_file, operational_certificate_file);
         let kes_signing_period = 2;
         assert!(
             kes_signing_period < kes_period_start,

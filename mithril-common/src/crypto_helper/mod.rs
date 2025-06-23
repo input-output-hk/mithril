@@ -16,7 +16,7 @@ cfg_test_tools! {
 pub use cardano::ColdKeyGenerator;
 
 pub use cardano::{
-    KESPeriod, KesError, KesSigner, KesVerifier, KesVerifierStandard, OpCert,
+    KESPeriod, KesError, KesSigner, KesSignerStandard, KesVerifier, KesVerifierStandard, OpCert,
     ProtocolInitializerErrorWrapper, ProtocolRegistrationErrorWrapper, SerDeShelleyFileFormat,
     Sum6KesBytes,
 };

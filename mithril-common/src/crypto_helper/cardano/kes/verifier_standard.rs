@@ -9,6 +9,7 @@ use crate::{
 };
 
 /// A standard KES signature verifier.
+#[derive(Debug)]
 pub struct KesVerifierStandard;
 
 impl KesVerifier for KesVerifierStandard {
@@ -46,7 +47,7 @@ impl KesVerifier for KesVerifierStandard {
 #[cfg(test)]
 mod tests {
     use crate::crypto_helper::cardano::{
-        kes::test_utils::create_kes_cryptographic_material, KesSigner, StandardKesSigner,
+        kes::tests_setup::create_kes_cryptographic_material, KesSigner, KesSignerStandard,
     };
 
     use super::*;
@@ -56,7 +57,7 @@ mod tests {
         let (_party_id, operational_certificate_file, kes_secret_key_file) =
             create_kes_cryptographic_material(1, 0 as KESPeriod, "verify_valid_signature_succeeds");
         let message = b"Test message for KES signing";
-        let kes_signer = StandardKesSigner::new(kes_secret_key_file, operational_certificate_file);
+        let kes_signer = KesSignerStandard::new(kes_secret_key_file, operational_certificate_file);
         let kes_signing_period = 1;
         let (signature, op_cert) = kes_signer
             .sign(message, kes_signing_period)
@@ -72,7 +73,7 @@ mod tests {
         let (_party_id, operational_certificate_file, kes_secret_key_file) =
             create_kes_cryptographic_material(1, 0 as KESPeriod, "verify_invalid_signature_fails");
         let message = b"Test message for KES signing";
-        let kes_signer = StandardKesSigner::new(kes_secret_key_file, operational_certificate_file);
+        let kes_signer = KesSignerStandard::new(kes_secret_key_file, operational_certificate_file);
         let kes_signing_period = 1;
         let (signature, op_cert) = kes_signer
             .sign(message, kes_signing_period)
