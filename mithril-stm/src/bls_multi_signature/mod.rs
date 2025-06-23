@@ -96,7 +96,7 @@ mod tests {
 
     use crate::bls_multi_signature::helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk};
     use crate::error::{MultiSignatureError, RegisterError};
-    use crate::key_reg::KeyReg;
+    use crate::key_reg::KeyRegistration;
 
     use super::*;
 
@@ -165,7 +165,7 @@ mod tests {
         #[test]
         fn test_keyreg_with_infinity_vk(num_sigs in 2..16usize, seed in any::<[u8;32]>()) {
             let mut rng = ChaCha20Rng::from_seed(seed);
-            let mut kr = KeyReg::init();
+            let mut kr = KeyRegistration::init();
 
             let sk = SigningKey::generate(&mut rng);
             let pop = ProofOfPossession::from(&sk);

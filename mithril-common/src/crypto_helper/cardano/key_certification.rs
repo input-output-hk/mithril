@@ -16,8 +16,8 @@ use crate::{
 };
 
 use mithril_stm::{
-    ClosedKeyReg, KeyReg, RegisterError, Stake, StmInitializer, StmParameters, StmSigner,
-    StmVerificationKeyPoP,
+    ClosedKeyRegistration, KeyRegistration, Parameters, RegisterError, Stake, StmInitializer,
+    StmSigner, StmVerificationKeyPoP,
 };
 
 use crate::crypto_helper::cardano::Sum6KesBytes;
@@ -120,7 +120,7 @@ pub struct StmInitializerWrapper {
 /// is valid with respect to the PoolID.
 #[derive(Debug, Clone)]
 pub struct KeyRegWrapper {
-    stm_key_reg: KeyReg,
+    stm_key_reg: KeyRegistration,
     stake_distribution: HashMap<ProtocolPartyId, Stake>,
 }
 
@@ -129,7 +129,7 @@ impl StmInitializerWrapper {
     /// This function generates the signing and verification key with a PoP, signs the verification
     /// key with a provided KES signing key, and initializes the structure.
     pub fn setup<R: RngCore + CryptoRng, P: AsRef<Path>>(
-        params: StmParameters,
+        params: Parameters,
         kes_sk_path: Option<P>,
         kes_period: Option<KESPeriod>,
         stake: Stake,
@@ -205,7 +205,7 @@ impl StmInitializerWrapper {
     /// This function fails if the initializer is not registered.
     pub fn new_signer(
         self,
-        closed_reg: ClosedKeyReg<D>,
+        closed_reg: ClosedKeyRegistration<D>,
     ) -> Result<StmSigner<D>, ProtocolRegistrationErrorWrapper> {
         self.stm_initializer
             .new_signer(closed_reg)
@@ -258,7 +258,7 @@ impl KeyRegWrapper {
     /// but we should eventually transition to only use this one.
     pub fn init(stake_dist: &ProtocolStakeDistribution) -> Self {
         Self {
-            stm_key_reg: KeyReg::init(),
+            stm_key_reg: KeyRegistration::init(),
             stake_distribution: HashMap::from_iter(stake_dist.to_vec()),
         }
     }
@@ -319,7 +319,7 @@ impl KeyRegWrapper {
 
     /// Finalize the key registration.
     /// This function disables `KeyReg::register`, consumes the instance of `self`, and returns a `ClosedKeyReg`.
-    pub fn close<D: Digest + FixedOutput>(self) -> ClosedKeyReg<D> {
+    pub fn close<D: Digest + FixedOutput>(self) -> ClosedKeyRegistration<D> {
         self.stm_key_reg.close()
     }
 }
@@ -364,7 +364,7 @@ mod test {
 
     #[test]
     fn test_vector_key_reg() {
-        let params = StmParameters {
+        let params = Parameters {
             m: 5,
             k: 5,
             phi_f: 1.0,

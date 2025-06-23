@@ -2,8 +2,8 @@ use blake2::digest::{Digest, FixedOutput};
 
 use crate::bls_multi_signature::{Signature, SigningKey, VerificationKey};
 use crate::eligibility_check::ev_lt_phi;
-use crate::key_reg::ClosedKeyReg;
-use crate::{Stake, StmParameters, StmSig};
+use crate::key_reg::ClosedKeyRegistration;
+use crate::{Parameters, Stake, StmSig};
 
 /// Wrapper of the MultiSignature Verification key
 pub type StmVerificationKey = VerificationKey;
@@ -19,10 +19,10 @@ pub type StmVerificationKey = VerificationKey;
 pub struct StmSigner<D: Digest> {
     signer_index: u64,
     stake: Stake,
-    params: StmParameters,
+    params: Parameters,
     sk: SigningKey,
     vk: StmVerificationKey,
-    closed_reg: Option<ClosedKeyReg<D>>,
+    closed_reg: Option<ClosedKeyRegistration<D>>,
 }
 
 impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
@@ -30,10 +30,10 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     pub fn set_stm_signer(
         signer_index: u64,
         stake: Stake,
-        params: StmParameters,
+        params: Parameters,
         sk: SigningKey,
         vk: StmVerificationKey,
-        closed_reg: ClosedKeyReg<D>,
+        closed_reg: ClosedKeyRegistration<D>,
     ) -> StmSigner<D> {
         Self {
             signer_index,
@@ -49,7 +49,7 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     pub fn set_core_signer(
         signer_index: u64,
         stake: Stake,
-        params: StmParameters,
+        params: Parameters,
         sk: SigningKey,
         vk: StmVerificationKey,
     ) -> StmSigner<D> {
@@ -131,12 +131,12 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     }
 
     /// Get StmParameters
-    pub fn get_params(&self) -> StmParameters {
+    pub fn get_params(&self) -> Parameters {
         self.params
     }
 
     /// Get closed key registration
-    pub fn get_closed_reg(&self) -> Option<ClosedKeyReg<D>> {
+    pub fn get_closed_reg(&self) -> Option<ClosedKeyRegistration<D>> {
         self.closed_reg.clone()
     }
 

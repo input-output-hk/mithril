@@ -1,7 +1,7 @@
 use blake2::digest::{Digest, FixedOutput};
 use serde::{ser::SerializeTuple, Deserialize, Serialize, Serializer};
 
-use crate::key_reg::RegParty;
+use crate::key_reg::RegisteredParty;
 use crate::{StmSig, StmSignatureError};
 
 /// Signature with its registered party.
@@ -10,7 +10,7 @@ pub struct StmSigRegParty {
     /// Stm signature
     pub sig: StmSig,
     /// Registered party
-    pub reg_party: RegParty,
+    pub reg_party: RegisteredParty,
 }
 
 impl StmSigRegParty {
@@ -29,7 +29,7 @@ impl StmSigRegParty {
     pub fn from_bytes<D: Digest + Clone + FixedOutput>(
         bytes: &[u8],
     ) -> Result<StmSigRegParty, StmSignatureError> {
-        let reg_party = RegParty::from_bytes(
+        let reg_party = RegisteredParty::from_bytes(
             bytes
                 .get(0..104)
                 .ok_or(StmSignatureError::SerializationError)?,

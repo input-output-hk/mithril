@@ -2,8 +2,8 @@ use blake2::digest::{Digest, FixedOutput};
 use blake2::{digest::consts::U32, Blake2b};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use mithril_stm::{
-    CoreVerifier, KeyReg, Stake, StmAggrSig, StmClerk, StmInitializer, StmParameters, StmSigner,
-    StmVerificationKey,
+    CoreVerifier, KeyRegistration, Parameters, Stake, StmAggrSig, StmClerk, StmInitializer,
+    StmSigner, StmVerificationKey,
 };
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
@@ -15,7 +15,7 @@ use std::fmt::Debug;
 /// * Registration depends on the number of parties (should be constant, as it is a lookup table)
 /// * Signing depends on the parameter `m`, as it defines the number of lotteries a user can play
 /// * Aggregation depends on `k`.
-fn stm_benches<H>(c: &mut Criterion, nr_parties: usize, params: StmParameters, hashing_alg: &str)
+fn stm_benches<H>(c: &mut Criterion, nr_parties: usize, params: Parameters, hashing_alg: &str)
 where
     H: Clone + Debug + Digest + Send + Sync + FixedOutput + Default,
 {
@@ -37,12 +37,12 @@ where
     for stake in stakes {
         initializers.push(StmInitializer::setup(params, stake, &mut rng));
     }
-    let mut key_reg = KeyReg::init();
+    let mut key_reg = KeyRegistration::init();
 
     group.bench_function(BenchmarkId::new("Key registration", &param_string), |b| {
         b.iter(|| {
             // We need to initialise the key_reg at each iteration
-            key_reg = KeyReg::init();
+            key_reg = KeyRegistration::init();
             for p in initializers.iter() {
                 key_reg.register(p.stake, p.verification_key()).unwrap();
             }
@@ -78,7 +78,7 @@ fn batch_benches<H>(
     c: &mut Criterion,
     array_batches: &[usize],
     nr_parties: usize,
-    params: StmParameters,
+    params: Parameters,
     hashing_alg: &str,
 ) where
     H: Clone + Debug + Digest + FixedOutput + Send + Sync,
@@ -113,7 +113,7 @@ fn batch_benches<H>(
             for stake in stakes {
                 initializers.push(StmInitializer::setup(params, stake, &mut rng));
             }
-            let mut key_reg = KeyReg::init();
+            let mut key_reg = KeyRegistration::init();
             for p in initializers.iter() {
                 key_reg.register(p.stake, p.verification_key()).unwrap();
             }
@@ -146,7 +146,7 @@ fn batch_benches<H>(
     }
 }
 
-fn core_verifier_benches<H>(c: &mut Criterion, nr_parties: usize, params: StmParameters)
+fn core_verifier_benches<H>(c: &mut Criterion, nr_parties: usize, params: Parameters)
 where
     H: Clone + Debug + Digest + Send + Sync + FixedOutput + Default,
 {
@@ -201,7 +201,7 @@ fn batch_stm_benches_blake_300(c: &mut Criterion) {
         c,
         &[1, 10, 20, 100],
         300,
-        StmParameters {
+        Parameters {
             m: 150,
             k: 25,
             phi_f: 0.4,
@@ -214,7 +214,7 @@ fn stm_benches_blake_300(c: &mut Criterion) {
     stm_benches::<Blake2b<U32>>(
         c,
         300,
-        StmParameters {
+        Parameters {
             m: 150,
             k: 25,
             phi_f: 0.2,
@@ -227,7 +227,7 @@ fn core_verifier_benches_blake_300(c: &mut Criterion) {
     core_verifier_benches::<Blake2b<U32>>(
         c,
         300,
-        StmParameters {
+        Parameters {
             m: 150,
             k: 25,
             phi_f: 0.2,
@@ -240,7 +240,7 @@ fn batch_stm_benches_blake_2000(c: &mut Criterion) {
         c,
         &[1, 10, 20, 100],
         2000,
-        StmParameters {
+        Parameters {
             m: 1523,
             k: 250,
             phi_f: 0.4,
@@ -253,7 +253,7 @@ fn stm_benches_blake_2000(c: &mut Criterion) {
     stm_benches::<Blake2b<U32>>(
         c,
         2000,
-        StmParameters {
+        Parameters {
             m: 1523,
             k: 250,
             phi_f: 0.2,
@@ -266,7 +266,7 @@ fn core_verifier_benches_blake_2000(c: &mut Criterion) {
     core_verifier_benches::<Blake2b<U32>>(
         c,
         2000,
-        StmParameters {
+        Parameters {
             m: 1523,
             k: 250,
             phi_f: 0.2,

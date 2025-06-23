@@ -24,20 +24,20 @@ mod tests {
     use crate::bls_multi_signature::VerificationKey;
     use crate::merkle_tree::BatchPath;
     use crate::{
-        AggregationError, CoreVerifier, CoreVerifierError, KeyReg, Stake, StmAggrSig, StmClerk,
-        StmInitializer, StmParameters, StmSig, StmSigRegParty, StmSigner,
+        AggregationError, CoreVerifier, CoreVerifierError, KeyRegistration, Parameters, Stake,
+        StmAggrSig, StmClerk, StmInitializer, StmSig, StmSigRegParty, StmSigner,
     };
 
     type Sig = StmAggrSig<D>;
     type D = Blake2b<U32>;
 
-    fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner<D>> {
+    fn setup_equal_parties(params: Parameters, nparties: usize) -> Vec<StmSigner<D>> {
         let stake = vec![1; nparties];
         setup_parties(params, stake)
     }
 
-    fn setup_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmSigner<D>> {
-        let mut kr = KeyReg::init();
+    fn setup_parties(params: Parameters, stake: Vec<Stake>) -> Vec<StmSigner<D>> {
+        let mut kr = KeyRegistration::init();
         let mut trng = TestRng::deterministic_rng(ChaCha);
         let mut rng = ChaCha20Rng::from_seed(trng.gen());
 
@@ -154,7 +154,7 @@ mod tests {
     fn arb_proof_setup(max_parties: usize) -> impl Strategy<Value = ProofTest> {
         any::<[u8; 16]>().prop_flat_map(move |msg| {
             (2..max_parties).prop_map(move |n| {
-                let params = StmParameters {
+                let params = Parameters {
                     m: 5,
                     k: 5,
                     phi_f: 1.0,
@@ -193,7 +193,7 @@ mod tests {
         /// Test that `dedup_sigs_for_indices` only takes valid signatures.
         fn test_dedup(msg in any::<[u8; 16]>()) {
             let false_msg = [1u8; 20];
-            let params = StmParameters { m: 1, k: 1, phi_f: 1.0 };
+            let params = Parameters { m: 1, k: 1, phi_f: 1.0 };
             let ps = setup_equal_parties(params, 1);
             let clerk = StmClerk::from_signer(&ps[0]);
             let avk = clerk.compute_avk();
@@ -240,7 +240,7 @@ mod tests {
                               m in 10_u64..20,
                               k in 1_u64..5,
                               msg in any::<[u8;16]>()) {
-            let params = StmParameters { m, k, phi_f: 0.2 };
+            let params = Parameters { m, k, phi_f: 0.2 };
             let ps = setup_equal_parties(params, nparties);
             let clerk = StmClerk::from_signer(&ps[0]);
 
@@ -276,7 +276,7 @@ mod tests {
             for _ in 0..batch_size {
                 let mut msg = [0u8; 32];
                 rng.fill_bytes(&mut msg);
-                let params = StmParameters { m, k, phi_f: 0.95 };
+                let params = Parameters { m, k, phi_f: 0.95 };
                 let ps = setup_equal_parties(params, nparties);
                 let clerk = StmClerk::from_signer(&ps[0]);
 
@@ -302,7 +302,7 @@ mod tests {
 
             let mut msg = [0u8; 32];
             rng.fill_bytes(&mut msg);
-            let params = StmParameters { m, k, phi_f: 0.8 };
+            let params = Parameters { m, k, phi_f: 0.8 };
             let ps = setup_equal_parties(params, nparties);
             let clerk = StmClerk::from_signer(&ps[0]);
 
@@ -319,7 +319,7 @@ mod tests {
         #[test]
         /// Test that when a party creates a signature it can be verified
         fn test_sig(msg in any::<[u8;16]>()) {
-            let params = StmParameters { m: 1, k: 1, phi_f: 0.2 };
+            let params = Parameters { m: 1, k: 1, phi_f: 0.2 };
             let ps = setup_equal_parties(params, 1);
             let clerk = StmClerk::from_signer(&ps[0]);
             let avk = clerk.compute_avk();
@@ -334,17 +334,17 @@ mod tests {
         #![proptest_config(ProptestConfig::with_cases(10))]
         #[test]
         fn test_parameters_serialize_deserialize(m in any::<u64>(), k in any::<u64>(), phi_f in any::<f64>()) {
-            let params = StmParameters { m, k, phi_f };
+            let params = Parameters { m, k, phi_f };
 
             let bytes = params.to_bytes();
-            let deserialised = StmParameters::from_bytes(&bytes);
+            let deserialised = Parameters::from_bytes(&bytes);
             assert!(deserialised.is_ok())
         }
 
         #[test]
         fn test_initializer_serialize_deserialize(seed in any::<[u8;32]>()) {
             let mut rng = ChaCha20Rng::from_seed(seed);
-            let params = StmParameters { m: 1, k: 1, phi_f: 1.0 };
+            let params = Parameters { m: 1, k: 1, phi_f: 1.0 };
             let stake = rng.next_u64();
             let initializer = StmInitializer::setup(params, stake, &mut rng);
 
@@ -357,7 +357,7 @@ mod tests {
 
         #[test]
         fn test_sig_serialize_deserialize(msg in any::<[u8;16]>()) {
-            let params = StmParameters { m: 1, k: 1, phi_f: 0.2 };
+            let params = Parameters { m: 1, k: 1, phi_f: 0.2 };
             let ps = setup_equal_parties(params, 1);
             let clerk = StmClerk::from_signer(&ps[0]);
             let avk = clerk.compute_avk();
@@ -376,7 +376,7 @@ mod tests {
         #[test]
         fn test_multisig_serialize_deserialize(nparties in 2_usize..10,
                                           msg in any::<[u8;16]>()) {
-            let params = StmParameters { m: 10, k: 5, phi_f: 1.0 };
+            let params = Parameters { m: 10, k: 5, phi_f: 1.0 };
             let ps = setup_equal_parties(params, nparties);
             let clerk = StmClerk::from_signer(&ps[0]);
 
@@ -415,7 +415,7 @@ mod tests {
             });
             assert!(bad as f64 / ((good + bad) as f64) < 0.4);
 
-            let params = StmParameters { m: 2642, k: 357, phi_f: 0.2 }; // From Table 1
+            let params = Parameters { m: 2642, k: 357, phi_f: 0.2 }; // From Table 1
             let ps = setup_parties(params, parties);
 
             let sigs =  find_signatures(&msg, &ps, &adversaries.into_iter().collect::<Vec<_>>());
@@ -483,7 +483,7 @@ mod tests {
     // Core verifier
     // ---------------------------------------------------------------------
     fn setup_equal_core_parties(
-        params: StmParameters,
+        params: Parameters,
         nparties: usize,
     ) -> (Vec<StmInitializer>, Vec<(VerificationKey, Stake)>) {
         let stake = vec![1; nparties];
@@ -491,7 +491,7 @@ mod tests {
     }
 
     fn setup_core_parties(
-        params: StmParameters,
+        params: Parameters,
         stake: Vec<Stake>,
     ) -> (Vec<StmInitializer>, Vec<(VerificationKey, Stake)>) {
         let mut trng = TestRng::deterministic_rng(ChaCha);
@@ -534,7 +534,7 @@ mod tests {
                               k in 1_u64..5,
                               msg in any::<[u8;16]>()) {
 
-            let params = StmParameters { m, k, phi_f: 0.2 };
+            let params = Parameters { m, k, phi_f: 0.2 };
             let (initializers, public_signers) = setup_equal_core_parties(params, nparties);
             let all_ps: Vec<usize> = (0..nparties).collect();
 
@@ -565,7 +565,7 @@ mod tests {
         fn test_total_stake_core_verifier(nparties in 2_usize..30,
                               m in 10_u64..20,
                               k in 1_u64..5,) {
-            let params = StmParameters { m, k, phi_f: 0.2 };
+            let params = Parameters { m, k, phi_f: 0.2 };
             let (_initializers, public_signers) = setup_equal_core_parties(params, nparties);
             let core_verifier = CoreVerifier::setup(&public_signers);
             assert_eq!(nparties as u64, core_verifier.total_stake, "Total stake expected: {}, got: {}.", nparties, core_verifier.total_stake);

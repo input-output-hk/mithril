@@ -1,8 +1,8 @@
 use blake2::digest::{Digest, FixedOutput};
 
 use crate::{
-    AggregationError, ClosedKeyReg, CoreVerifier, Index, Stake, StmAggrSig, StmAggrVerificationKey,
-    StmParameters, StmSig, StmSigRegParty, StmSigner, StmVerificationKey,
+    AggregationError, ClosedKeyRegistration, CoreVerifier, Index, Parameters, Stake, StmAggrSig,
+    StmAggrVerificationKey, StmSig, StmSigRegParty, StmSigner, StmVerificationKey,
 };
 
 /// `StmClerk` can verify and aggregate `StmSig`s and verify `StmMultiSig`s.
@@ -10,13 +10,13 @@ use crate::{
 /// This avoids that a Merkle Tree is computed before all parties have registered.
 #[derive(Debug, Clone)]
 pub struct StmClerk<D: Clone + Digest> {
-    pub(crate) closed_reg: ClosedKeyReg<D>,
-    pub(crate) params: StmParameters,
+    pub(crate) closed_reg: ClosedKeyRegistration<D>,
+    pub(crate) params: Parameters,
 }
 
 impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
     /// Create a new `Clerk` from a closed registration instance.
-    pub fn from_registration(params: &StmParameters, closed_reg: &ClosedKeyReg<D>) -> Self {
+    pub fn from_registration(params: &Parameters, closed_reg: &ClosedKeyRegistration<D>) -> Self {
         Self {
             params: *params,
             closed_reg: closed_reg.clone(),

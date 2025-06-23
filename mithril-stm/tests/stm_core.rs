@@ -1,7 +1,7 @@
 use blake2::Blake2b;
 use digest::consts::U32;
 use mithril_stm::{
-    CoreVerifier, CoreVerifierError, Stake, StmInitializer, StmParameters, StmSig, StmSigner,
+    CoreVerifier, CoreVerifierError, Parameters, Stake, StmInitializer, StmSig, StmSigner,
     StmVerificationKey,
 };
 use rand_chacha::ChaCha20Rng;
@@ -21,7 +21,7 @@ fn test_core_verifier() {
     // initialization phase //
     //////////////////////////
 
-    let params = StmParameters {
+    let params = Parameters {
         k: 357,
         m: 2642,
         phi_f: 0.2,

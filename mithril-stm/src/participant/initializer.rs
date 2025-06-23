@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::bls_multi_signature::{SigningKey, VerificationKeyPoP};
 use crate::key_reg::*;
-use crate::{RegisterError, Stake, StmParameters, StmSigner};
+use crate::{Parameters, RegisterError, Stake, StmSigner};
 
 /// Wrapper of the MultiSignature Verification key with proof of possession
 pub type StmVerificationKeyPoP = VerificationKeyPoP;
@@ -18,7 +18,7 @@ pub struct StmInitializer {
     /// This participant's stake.
     pub stake: Stake,
     /// Current protocol instantiation parameters.
-    pub params: StmParameters,
+    pub params: Parameters,
     /// Secret key.
     pub(crate) sk: SigningKey,
     /// Verification (public) key + proof of possession.
@@ -28,7 +28,7 @@ pub struct StmInitializer {
 impl StmInitializer {
     /// Builds an `StmInitializer` that is ready to register with the key registration service.
     /// This function generates the signing and verification key with a PoP, and initialises the structure.
-    pub fn setup<R: RngCore + CryptoRng>(params: StmParameters, stake: Stake, rng: &mut R) -> Self {
+    pub fn setup<R: RngCore + CryptoRng>(params: Parameters, stake: Stake, rng: &mut R) -> Self {
         let sk = SigningKey::generate(rng);
         let pk = StmVerificationKeyPoP::from(&sk);
         Self {
@@ -58,7 +58,7 @@ impl StmInitializer {
     /// This function fails if the initializer is not registered.
     pub fn new_signer<D: Digest + Clone + FixedOutput>(
         self,
-        closed_reg: ClosedKeyReg<D>,
+        closed_reg: ClosedKeyRegistration<D>,
     ) -> Result<StmSigner<D>, RegisterError> {
         let mut my_index = None;
         for (i, rp) in closed_reg.reg_parties.iter().enumerate() {
@@ -87,7 +87,7 @@ impl StmInitializer {
     /// that has already verified the parties.
     pub fn new_core_signer<D: Digest + Clone + FixedOutput>(
         self,
-        eligible_parties: &[RegParty],
+        eligible_parties: &[RegisteredParty],
     ) -> Option<StmSigner<D>> {
         let mut parties = eligible_parties.to_vec();
         parties.sort_unstable();
@@ -134,7 +134,7 @@ impl StmInitializer {
         u64_bytes.copy_from_slice(bytes.get(..8).ok_or(RegisterError::SerializationError)?);
         let stake = u64::from_be_bytes(u64_bytes);
         let params =
-            StmParameters::from_bytes(bytes.get(8..32).ok_or(RegisterError::SerializationError)?)?;
+            Parameters::from_bytes(bytes.get(8..32).ok_or(RegisterError::SerializationError)?)?;
         let sk = SigningKey::from_bytes(bytes.get(32..).ok_or(RegisterError::SerializationError)?)?;
         let pk = StmVerificationKeyPoP::from_bytes(
             bytes.get(64..).ok_or(RegisterError::SerializationError)?,

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::bls_multi_signature::Signature;
 use crate::eligibility_check::ev_lt_phi;
 use crate::{
-    Index, Stake, StmAggrVerificationKey, StmParameters, StmSignatureError, StmVerificationKey,
+    Index, Parameters, Stake, StmAggrVerificationKey, StmSignatureError, StmVerificationKey,
 };
 
 /// Signature created by a single party who has won the lottery.
@@ -28,7 +28,7 @@ impl StmSig {
     /// the indexes are in the desired range and the underlying multi signature validates.
     pub fn verify<D: Clone + Digest + FixedOutput>(
         &self,
-        params: &StmParameters,
+        params: &Parameters,
         pk: &StmVerificationKey,
         stake: &Stake,
         avk: &StmAggrVerificationKey<D>,
@@ -42,7 +42,7 @@ impl StmSig {
     /// Verify that all indices of a signature are valid.
     pub(crate) fn check_indices(
         &self,
-        params: &StmParameters,
+        params: &Parameters,
         stake: &Stake,
         msg: &[u8],
         total_stake: &Stake,
@@ -138,7 +138,7 @@ impl StmSig {
     /// the indexes are in the desired range and the underlying multi signature validates.
     pub fn verify_core(
         &self,
-        params: &StmParameters,
+        params: &Parameters,
         pk: &StmVerificationKey,
         stake: &Stake,
         msg: &[u8],

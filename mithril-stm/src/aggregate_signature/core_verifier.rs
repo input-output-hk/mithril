@@ -1,16 +1,16 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::bls_multi_signature::{Signature, VerificationKey};
-use crate::key_reg::RegParty;
+use crate::key_reg::RegisteredParty;
 use crate::merkle_tree::MTLeaf;
 use crate::{
-    AggregationError, CoreVerifierError, Index, Stake, StmParameters, StmSig, StmSigRegParty,
+    AggregationError, CoreVerifierError, Index, Parameters, Stake, StmSig, StmSigRegParty,
 };
 
 /// Full node verifier including the list of eligible signers and the total stake of the system.
 pub struct CoreVerifier {
     /// List of registered parties.
-    pub eligible_parties: Vec<RegParty>,
+    pub eligible_parties: Vec<RegisteredParty>,
     /// Total stake of registered parties.
     pub total_stake: Stake,
 }
@@ -44,7 +44,7 @@ impl CoreVerifier {
     pub(crate) fn preliminary_verify(
         total_stake: &Stake,
         signatures: &[StmSigRegParty],
-        parameters: &StmParameters,
+        parameters: &Parameters,
         msg: &[u8],
     ) -> Result<(), CoreVerifierError> {
         let mut nr_indices = 0;
@@ -80,7 +80,7 @@ impl CoreVerifier {
     // todo: not good, because it only removes index if there is a conflict (see benches)
     pub fn dedup_sigs_for_indices(
         total_stake: &Stake,
-        params: &StmParameters,
+        params: &Parameters,
         msg: &[u8],
         sigs: &[StmSigRegParty],
     ) -> Result<Vec<StmSigRegParty>, AggregationError> {
@@ -184,7 +184,7 @@ impl CoreVerifier {
     pub fn verify(
         &self,
         signatures: &[StmSig],
-        parameters: &StmParameters,
+        parameters: &Parameters,
         msg: &[u8],
     ) -> Result<(), CoreVerifierError> {
         let sig_reg_list = signatures

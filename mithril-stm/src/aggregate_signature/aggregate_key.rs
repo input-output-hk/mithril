@@ -2,7 +2,7 @@ use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
 use crate::merkle_tree::{BatchPath, MerkleTreeCommitmentBatchCompat};
-use crate::{ClosedKeyReg, Stake};
+use crate::{ClosedKeyRegistration, Stake};
 
 /// Stm aggregate key (batch compatible), which contains the merkle tree commitment and the total stake of the system.
 /// Batch Compat Merkle tree commitment includes the number of leaves in the tree in order to obtain batch path.
@@ -34,8 +34,10 @@ impl<D: Digest + Clone + FixedOutput> PartialEq for StmAggrVerificationKey<D> {
 
 impl<D: Digest + Clone + FixedOutput> Eq for StmAggrVerificationKey<D> {}
 
-impl<D: Clone + Digest + FixedOutput> From<&ClosedKeyReg<D>> for StmAggrVerificationKey<D> {
-    fn from(reg: &ClosedKeyReg<D>) -> Self {
+impl<D: Clone + Digest + FixedOutput> From<&ClosedKeyRegistration<D>>
+    for StmAggrVerificationKey<D>
+{
+    fn from(reg: &ClosedKeyRegistration<D>) -> Self {
         Self {
             mt_commitment: reg.merkle_tree.to_commitment_batch_compat(),
             total_stake: reg.total_stake,

@@ -4,8 +4,8 @@ use blake2::{
     Blake2b, Digest,
 };
 use mithril_stm::{
-    CoreVerifier, KeyReg, Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigRegParty,
-    StmSigner, StmVerificationKey,
+    CoreVerifier, KeyRegistration, Parameters, Stake, StmClerk, StmInitializer, StmSig,
+    StmSigRegParty, StmSigner, StmVerificationKey,
 };
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
@@ -28,9 +28,9 @@ where
         .collect::<Vec<_>>();
 
     let mut ps: Vec<StmInitializer> = Vec::with_capacity(nparties);
-    let params = StmParameters { k, m, phi_f: 0.2 };
+    let params = Parameters { k, m, phi_f: 0.2 };
 
-    let mut key_reg = KeyReg::init();
+    let mut key_reg = KeyRegistration::init();
     for stake in parties {
         let p = StmInitializer::setup(params, stake, &mut rng);
         key_reg.register(stake, p.verification_key()).unwrap();
@@ -77,7 +77,7 @@ where
         .map(|_| 1 + (rng.next_u64() % 9999))
         .collect::<Vec<_>>();
 
-    let params = StmParameters { k, m, phi_f: 0.2 };
+    let params = Parameters { k, m, phi_f: 0.2 };
 
     for stake in parties {
         let initializer = StmInitializer::setup(params, stake, &mut rng);

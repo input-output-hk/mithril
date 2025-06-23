@@ -1,7 +1,7 @@
 use blake2::{digest::consts::U32, Blake2b};
 use mithril_stm::{
-    AggregationError, KeyReg, Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmInitializer,
-    StmParameters, StmSig, StmSigner, StmVerificationKey,
+    AggregationError, KeyRegistration, Parameters, Stake, StmAggrSig, StmAggrVerificationKey,
+    StmClerk, StmInitializer, StmSig, StmSigner, StmVerificationKey,
 };
 use rand_chacha::ChaCha20Rng;
 use rand_core::RngCore;
@@ -26,13 +26,13 @@ pub struct OperationPhaseResult {
 pub fn initialization_phase(
     nparties: usize,
     mut rng: ChaCha20Rng,
-    params: StmParameters,
+    params: Parameters,
 ) -> InitializationPhaseResult {
     let parties = (0..nparties)
         .map(|_| 1 + (rng.next_u64() % 9999))
         .collect::<Vec<_>>();
 
-    let mut key_reg = KeyReg::init();
+    let mut key_reg = KeyRegistration::init();
 
     let mut initializers: Vec<StmInitializer> = Vec::with_capacity(nparties);
 
@@ -61,7 +61,7 @@ pub fn initialization_phase(
 }
 
 pub fn operation_phase(
-    params: StmParameters,
+    params: Parameters,
     signers: Vec<StmSigner<H>>,
     reg_parties: Vec<(StmVerificationKey, Stake)>,
     msg: [u8; 32],

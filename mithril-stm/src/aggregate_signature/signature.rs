@@ -3,10 +3,10 @@ use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
 use crate::bls_multi_signature::{Signature, VerificationKey};
-use crate::key_reg::RegParty;
+use crate::key_reg::RegisteredParty;
 use crate::merkle_tree::BatchPath;
 use crate::{
-    CoreVerifier, StmAggrVerificationKey, StmAggregateSignatureError, StmParameters, StmSigRegParty,
+    CoreVerifier, Parameters, StmAggrVerificationKey, StmAggregateSignatureError, StmSigRegParty,
 };
 
 /// `StmMultiSig` uses the "concatenation" proving system (as described in Section 4.3 of the original paper.)
@@ -34,7 +34,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
         &self,
         msg: &[u8],
         avk: &StmAggrVerificationKey<D>,
-        parameters: &StmParameters,
+        parameters: &Parameters,
     ) -> Result<(Vec<Signature>, Vec<VerificationKey>), StmAggregateSignatureError<D>> {
         let msgp = avk.get_mt_commitment().concat_with_msg(msg);
         CoreVerifier::preliminary_verify(
@@ -48,7 +48,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
             .signatures
             .iter()
             .map(|r| r.reg_party)
-            .collect::<Vec<RegParty>>();
+            .collect::<Vec<RegisteredParty>>();
 
         avk.get_mt_commitment().check(&leaves, &self.batch_proof)?;
 
@@ -65,7 +65,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
         &self,
         msg: &[u8],
         avk: &StmAggrVerificationKey<D>,
-        parameters: &StmParameters,
+        parameters: &Parameters,
     ) -> Result<(), StmAggregateSignatureError<D>> {
         let msgp = avk.get_mt_commitment().concat_with_msg(msg);
         let (sigs, vks) = self.preliminary_verify(msg, avk, parameters)?;
@@ -79,7 +79,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
         stm_signatures: &[Self],
         msgs: &[Vec<u8>],
         avks: &[StmAggrVerificationKey<D>],
-        parameters: &[StmParameters],
+        parameters: &[Parameters],
     ) -> Result<(), StmAggregateSignatureError<D>> {
         let batch_size = stm_signatures.len();
         assert_eq!(

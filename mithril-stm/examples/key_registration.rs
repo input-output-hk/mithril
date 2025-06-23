@@ -3,7 +3,8 @@
 //! run presented in `tests/integration.rs`, we explicitly treat each party individually.
 use blake2::{digest::consts::U32, Blake2b};
 use mithril_stm::{
-    ClosedKeyReg, KeyReg, Stake, StmClerk, StmInitializer, StmParameters, StmVerificationKeyPoP,
+    ClosedKeyRegistration, KeyRegistration, Parameters, Stake, StmClerk, StmInitializer,
+    StmVerificationKeyPoP,
 };
 
 use rand_chacha::ChaCha20Rng;
@@ -19,7 +20,7 @@ fn main() {
 
     // Parameter and parties initialisation. This information is broadcast (or known) to all
     // participants.
-    let params = StmParameters {
+    let params = Parameters {
         // Let's try with three signatures
         k: 3,
         m: 10,
@@ -132,8 +133,8 @@ fn main() {
     assert!(msig_3.is_err());
 }
 
-fn local_reg(ids: &[u64], pks: &[StmVerificationKeyPoP]) -> ClosedKeyReg<H> {
-    let mut local_keyreg = KeyReg::init();
+fn local_reg(ids: &[u64], pks: &[StmVerificationKeyPoP]) -> ClosedKeyRegistration<H> {
+    let mut local_keyreg = KeyRegistration::init();
     // data, such as the public key, stake and id.
     for (&pk, id) in pks.iter().zip(ids.iter()) {
         local_keyreg.register(*id, pk).unwrap();

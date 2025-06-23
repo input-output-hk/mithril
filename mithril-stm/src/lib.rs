@@ -13,7 +13,7 @@
 //! use rand_core::{RngCore, SeedableRng};
 //! use rayon::prelude::*; // We use par_iter to speed things up
 //!
-//! use mithril_stm::{StmClerk, StmParameters, StmSig, KeyReg, StmInitializer, StmSigner, AggregationError};
+//! use mithril_stm::{StmClerk, Parameters, StmSig, KeyRegistration, StmInitializer, StmSigner, AggregationError};
 //!
 //! let nparties = 4; // Use a small number of parties for this example
 //! type D = Blake2b<U32>; // Setting the hash function for convenience
@@ -31,7 +31,7 @@
 //!
 //! // Set low parameters for testing
 //! // XXX: not for production
-//! let params = StmParameters {
+//! let params = Parameters {
 //!     m: 100, // Security parameter XXX: not for production
 //!     k: 2, // Quorum parameter XXX: not for production
 //!     phi_f: 0.2, // Lottery parameter XXX: not for production
@@ -46,7 +46,7 @@
 //!     .collect::<Vec<_>>();
 //!
 //! // Create a new key registry from the parties and their stake
-//! let mut key_reg = KeyReg::init();
+//! let mut key_reg = KeyRegistration::init();
 //!
 //! // For each party, crate a StmInitializer.
 //! // This struct can create keys for the party.
@@ -121,8 +121,8 @@ pub use error::{
     AggregationError, CoreVerifierError, RegisterError, StmAggregateSignatureError,
     StmSignatureError,
 };
-pub use key_reg::{ClosedKeyReg, KeyReg};
-pub use parameters::StmParameters;
+pub use key_reg::{ClosedKeyRegistration, KeyRegistration};
+pub use parameters::Parameters;
 pub use participant::{StmInitializer, StmSigner, StmVerificationKey, StmVerificationKeyPoP};
 pub use single_signature::{StmSig, StmSigRegParty};
 
@@ -137,3 +137,8 @@ pub type Stake = u64;
 /// Quorum index for signatures.
 /// An aggregate signature (`StmMultiSig`) must have at least `k` unique indices.
 pub type Index = u64;
+
+// Aliases
+pub use key_reg::ClosedKeyRegistration as ClosedKeyReg;
+pub use key_reg::KeyRegistration as KeyReg;
+pub use parameters::Parameters as StmParameters;

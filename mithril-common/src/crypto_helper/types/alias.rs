@@ -4,7 +4,7 @@ use crate::crypto_helper::cardano::{
 };
 
 use mithril_stm::{
-    AggregationError, ClosedKeyReg, Index, Stake, StmClerk, StmParameters, StmSigner,
+    AggregationError, ClosedKeyRegistration, Index, Parameters, Stake, StmClerk, StmSigner,
 };
 
 use blake2::{digest::consts::U32, Blake2b};
@@ -25,7 +25,7 @@ pub type ProtocolStake = Stake;
 pub type ProtocolStakeDistribution = Vec<(ProtocolPartyId, ProtocolStake)>;
 
 /// Alias of [MithrilStm::StmParameters](struct@mithril_stm::StmParameters).
-pub type ProtocolParameters = StmParameters;
+pub type ProtocolParameters = Parameters;
 
 /// Alias of [MithrilStm::Index](type@mithril_stm::Index).
 pub type ProtocolLotteryIndex = Index;
@@ -43,7 +43,7 @@ pub type ProtocolClerk = StmClerk<D>;
 pub type ProtocolKeyRegistration = KeyRegWrapper;
 
 /// Alias of a wrapper of [MithrilStm:ClosedKeyReg](struct@mithril_stm::KeyReg).
-pub type ProtocolClosedKeyRegistration = ClosedKeyReg<D>;
+pub type ProtocolClosedKeyRegistration = ClosedKeyRegistration<D>;
 
 // Error alias
 /// Alias of a wrapper of [MithrilCommon:ProtocolRegistrationErrorWrapper](enum@ProtocolRegistrationErrorWrapper).
