@@ -91,11 +91,13 @@ impl SignerBuilder {
         &self,
         signer_with_stake: SignerWithStake,
         kes_secret_key_path: Option<&Path>,
+        operational_certificate_path: Option<&Path>,
         rng: &mut R,
     ) -> StdResult<(SingleSigner, ProtocolInitializer)> {
         let protocol_initializer = ProtocolInitializer::setup(
             self.protocol_parameters.clone().into(),
             kes_secret_key_path,
+            operational_certificate_path,
             signer_with_stake.kes_period,
             signer_with_stake.stake,
             rng,
@@ -128,10 +130,12 @@ impl SignerBuilder {
         &self,
         signer_with_stake: SignerWithStake,
         kes_secret_key_path: Option<&Path>,
+        operational_certificate_path: Option<&Path>,
     ) -> StdResult<(SingleSigner, ProtocolInitializer)> {
         self.build_single_signer_with_rng(
             signer_with_stake,
             kes_secret_key_path,
+            operational_certificate_path,
             &mut rand_core::OsRng,
         )
     }
@@ -143,6 +147,7 @@ impl SignerBuilder {
         &self,
         signer_with_stake: SignerWithStake,
         kes_secret_key_path: Option<&Path>,
+        operational_certificate_path: Option<&Path>,
     ) -> StdResult<(SingleSigner, ProtocolInitializer)> {
         let protocol_initializer_seed: [u8; 32] = signer_with_stake.party_id.as_bytes()[..32]
             .try_into()
@@ -151,6 +156,7 @@ impl SignerBuilder {
         self.build_single_signer_with_rng(
             signer_with_stake,
             kes_secret_key_path,
+            operational_certificate_path,
             &mut ChaCha20Rng::from_seed(protocol_initializer_seed),
         )
     }
@@ -264,6 +270,7 @@ mod test {
         .build_test_single_signer(
             non_registered_signer.signer_with_stake.clone(),
             non_registered_signer.kes_secret_key_path(),
+            non_registered_signer.operational_certificate_path(),
         )
         .expect_err(
             "We should not be able to construct a single signer from a not registered party",
@@ -295,6 +302,7 @@ mod test {
             .build_test_single_signer(
                 signer.signer_with_stake.clone(),
                 signer.kes_secret_key_path(),
+                signer.operational_certificate_path(),
             )
             .expect("Should be able to build test single signer for a registered party");
     }
@@ -315,6 +323,7 @@ mod test {
             .build_test_single_signer(
                 signer.signer_with_stake.clone(),
                 signer.kes_secret_key_path(),
+                signer.operational_certificate_path(),
             )
             .unwrap();
 

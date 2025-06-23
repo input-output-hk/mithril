@@ -65,6 +65,7 @@ mod test {
         .build_test_single_signer(
             signer.signer_with_stake.clone(),
             signer.kes_secret_key_path(),
+            signer.operational_certificate_path(),
         )
         .unwrap();
 

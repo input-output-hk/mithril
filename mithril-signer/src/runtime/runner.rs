@@ -186,6 +186,7 @@ impl Runner for SignerRunner {
             stake,
             &protocol_parameters,
             self.config.kes_secret_key_path.clone(),
+            self.config.operational_certificate_path.clone(),
             kes_period,
         )?;
         let signer = Signer::new(
