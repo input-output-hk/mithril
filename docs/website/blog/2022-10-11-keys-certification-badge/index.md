@@ -50,13 +50,11 @@ sqlite3 ${DATA_STORES_DIRECTORY}/signer.sqlite3 "UPDATE protocol_initializer SET
 From now, SPOs can either run their node by:
 
 - **Declaring their Cardano `PoolId`**:
-
   - This is the mode that all nodes were running prior to this release
   - This mode is still the **stable** mode
   - We intend to deprecate this mode in the near future
 
 - **Certifying their Cardano `PoolId`**:
-
   - The certification is done by providing the Mithril Signer node with `KES Secret Key Path` and `Operational Certificate Path`
   - This is an **experimental** mode
   - We intend to make this mode the only way of providing a `PoolId` in the near future
