@@ -93,7 +93,7 @@ impl DmqMessageBuilder {
 mod tests {
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_common::{
-        crypto_helper::{FakeKesSigner, TryToBytes},
+        crypto_helper::{KesSignerFake, TryToBytes},
         entities::{BlockNumber, ChainPoint, TimePoint},
     };
 
@@ -115,8 +115,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_build_dmq_message() {
-        let (kes_signature, operational_certificate) = FakeKesSigner::dummy_signature();
-        let kes_signer = Arc::new(FakeKesSigner::new(vec![Ok((
+        let (kes_signature, operational_certificate) = KesSignerFake::dummy_signature();
+        let kes_signer = Arc::new(KesSignerFake::new(vec![Ok((
             kes_signature,
             operational_certificate.clone(),
         ))]));

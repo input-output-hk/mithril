@@ -92,7 +92,7 @@ mod tests {
     use tokio::{net::UnixListener, task::JoinHandle};
 
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
-    use mithril_common::{crypto_helper::FakeKesSigner, current_function, test_utils::TempDir};
+    use mithril_common::{crypto_helper::KesSignerFake, current_function, test_utils::TempDir};
 
     use crate::{test::payload::DmqMessageTestPayload, test_tools::TestLogger};
 
@@ -151,8 +151,8 @@ mod tests {
                 DmqMessageBuilder::new(
                     {
                         let (kes_signature, operational_certificate) =
-                            FakeKesSigner::dummy_signature();
-                        let kes_signer = FakeKesSigner::new(vec![Ok((
+                            KesSignerFake::dummy_signature();
+                        let kes_signer = KesSignerFake::new(vec![Ok((
                             kes_signature,
                             operational_certificate.clone(),
                         ))]);
@@ -187,8 +187,8 @@ mod tests {
                 DmqMessageBuilder::new(
                     {
                         let (kes_signature, operational_certificate) =
-                            FakeKesSigner::dummy_signature();
-                        let kes_signer = FakeKesSigner::new(vec![Ok((
+                            KesSignerFake::dummy_signature();
+                        let kes_signer = KesSignerFake::new(vec![Ok((
                             kes_signature,
                             operational_certificate.clone(),
                         ))]);
