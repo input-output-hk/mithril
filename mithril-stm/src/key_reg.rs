@@ -8,11 +8,11 @@ use blake2::digest::{Digest, FixedOutput};
 
 use crate::bls_multi_signature::{VerificationKey, VerificationKeyPoP};
 use crate::error::RegisterError;
-use crate::merkle_tree::{MTLeaf, MerkleTree};
+use crate::merkle_tree::{MerkleTree, MerkleTreeLeaf};
 use crate::Stake;
 
 /// Stores a registered party with its public key and the associated stake.
-pub type RegisteredParty = MTLeaf;
+pub type RegisteredParty = MerkleTreeLeaf;
 
 /// Struct that collects public keys and stakes of parties.
 /// Each participant (both the signers and the clerks) need to run their own instance of the key registration.
@@ -56,7 +56,7 @@ impl KeyRegistration {
                     panic!("Total stake overflow");
                 }
                 total_stake = res;
-                MTLeaf(vk, stake)
+                MerkleTreeLeaf(vk, stake)
             })
             .collect::<Vec<RegisteredParty>>();
         reg_parties.sort();

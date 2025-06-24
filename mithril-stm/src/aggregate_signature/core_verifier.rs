@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::bls_multi_signature::{Signature, VerificationKey};
 use crate::key_reg::RegisteredParty;
-use crate::merkle_tree::MTLeaf;
+use crate::merkle_tree::MerkleTreeLeaf;
 use crate::{
     AggregationError, CoreVerifierError, Index, Parameters, SingleSignature,
     SingleSignatureWithRegisteredParty, Stake,
@@ -30,7 +30,7 @@ impl CoreVerifier {
                 panic!("Total stake overflow");
             }
             total_stake = res;
-            unique_parties.insert(MTLeaf(signer.0, signer.1));
+            unique_parties.insert(MerkleTreeLeaf(signer.0, signer.1));
         }
 
         let mut eligible_parties: Vec<_> = unique_parties.into_iter().collect();

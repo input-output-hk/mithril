@@ -11,16 +11,16 @@ use crate::{Stake, StmVerificationKey};
 /// The values that are committed in the Merkle Tree.
 /// Namely, a verified `VerificationKey` and its corresponding stake.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Hash)]
-pub struct MTLeaf(pub VerificationKey, pub Stake);
+pub struct MerkleTreeLeaf(pub VerificationKey, pub Stake);
 
-impl MTLeaf {
+impl MerkleTreeLeaf {
     pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self, MerkleTreeError<Blake2b<U32>>> {
         let pk = StmVerificationKey::from_bytes(bytes)
             .map_err(|_| MerkleTreeError::SerializationError)?;
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[96..]);
         let stake = Stake::from_be_bytes(u64_bytes);
-        Ok(MTLeaf(pk, stake))
+        Ok(MerkleTreeLeaf(pk, stake))
     }
     pub(crate) fn to_bytes(self) -> [u8; 104] {
         let mut result = [0u8; 104];
@@ -30,13 +30,13 @@ impl MTLeaf {
     }
 }
 
-impl From<MTLeaf> for (StmVerificationKey, Stake) {
-    fn from(leaf: MTLeaf) -> (StmVerificationKey, Stake) {
+impl From<MerkleTreeLeaf> for (StmVerificationKey, Stake) {
+    fn from(leaf: MerkleTreeLeaf) -> (StmVerificationKey, Stake) {
         (leaf.0, leaf.1)
     }
 }
 
-impl PartialOrd for MTLeaf {
+impl PartialOrd for MerkleTreeLeaf {
     /// Ordering of MT Values.
     ///
     /// First we order by stake, then by key. By having this ordering,
@@ -48,7 +48,7 @@ impl PartialOrd for MTLeaf {
     }
 }
 
-impl Ord for MTLeaf {
+impl Ord for MerkleTreeLeaf {
     fn cmp(&self, other: &Self) -> Ordering {
         self.1.cmp(&other.1).then(self.0.cmp(&other.0))
     }

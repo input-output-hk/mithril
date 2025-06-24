@@ -1,4 +1,4 @@
-use mithril_stm::SingleSignature as StmSingleSignature;
+use mithril_stm::StmSig;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 
@@ -52,7 +52,7 @@ impl SingleSignature {
     }
 
     /// Convert this [SingleSignature] to its corresponding [MithrilStm Signature][StmSig].
-    pub fn to_protocol_signature(&self) -> StmSingleSignature {
+    pub fn to_protocol_signature(&self) -> StmSig {
         self.signature.clone().into()
     }
 

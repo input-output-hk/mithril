@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context};
-use mithril_stm::Parameters;
+use mithril_stm::StmParameters;
 
 use crate::{
     crypto_helper::{
@@ -14,11 +14,11 @@ use crate::{
 /// MultiSigner is the cryptographic engine in charge of producing multi-signatures from individual signatures
 pub struct MultiSigner {
     protocol_clerk: ProtocolClerk,
-    protocol_parameters: Parameters,
+    protocol_parameters: StmParameters,
 }
 
 impl MultiSigner {
-    pub(super) fn new(protocol_clerk: ProtocolClerk, protocol_parameters: Parameters) -> Self {
+    pub(super) fn new(protocol_clerk: ProtocolClerk, protocol_parameters: StmParameters) -> Self {
         Self {
             protocol_clerk,
             protocol_parameters,

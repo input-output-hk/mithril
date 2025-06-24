@@ -392,7 +392,7 @@ mod test {
     use super::*;
     use ed25519_dalek::VerifyingKey;
     use kes_summed_ed25519::kes::Sum6KesSig;
-    use mithril_stm::{StmAggrSig, StmAggrVerificationKey, SingleSignature, StmVerificationKeyPoP};
+    use mithril_stm::{StmAggrSig, StmAggrVerificationKey, StmSig, StmVerificationKeyPoP};
     use serde::{de::DeserializeOwned, Serialize};
     use std::any::type_name;
 
@@ -452,9 +452,9 @@ mod test {
 
     #[test]
     fn assert_encoded_single_signatures_are_still_matching_concrete_type() {
-        assert_can_deserialize_using_key_decode_hex::<SingleSignature>(&single_signature());
+        assert_can_deserialize_using_key_decode_hex::<StmSig>(&single_signature());
 
-        assert_can_convert_to_protocol_key::<SingleSignature>(&single_signature());
+        assert_can_convert_to_protocol_key::<StmSig>(&single_signature());
     }
 
     #[test]

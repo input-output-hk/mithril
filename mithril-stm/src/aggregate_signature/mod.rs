@@ -22,7 +22,7 @@ mod tests {
     use rand_core::SeedableRng;
 
     use crate::bls_multi_signature::VerificationKey;
-    use crate::merkle_tree::BatchPath;
+    use crate::merkle_tree::MerkleBatchPath;
     use crate::{
         AggregationError, CoreVerifier, CoreVerifierError, Initializer, KeyRegistration,
         Parameters, Signer, SingleSignature, SingleSignatureWithRegisteredParty, Stake, StmAggrSig,
@@ -469,7 +469,7 @@ mod tests {
                 let values = p.values;
                 let batch_proof = {
                     index_list[0] += 1;
-                    BatchPath {
+                    MerkleBatchPath {
                         values,
                         indices: index_list,
                         hasher: Default::default()

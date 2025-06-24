@@ -3,7 +3,7 @@ use blake2::digest::{Digest, FixedOutput};
 use blst::BLST_ERROR;
 
 use crate::bls_multi_signature::{Signature, VerificationKey, VerificationKeyPoP};
-use crate::merkle_tree::{BatchPath, Path};
+use crate::merkle_tree::{MerkleBatchPath, MerklePath};
 
 /// Error types for multi signatures.
 #[derive(Debug, thiserror::Error, Eq, PartialEq)]
@@ -46,11 +46,11 @@ pub enum MerkleTreeError<D: Digest + FixedOutput> {
 
     /// Invalid merkle path
     #[error("Path does not verify against root")]
-    PathInvalid(Path<D>),
+    PathInvalid(MerklePath<D>),
 
     /// Invalid merkle batch path
     #[error("Batch path does not verify against root")]
-    BatchPathInvalid(BatchPath<D>),
+    BatchPathInvalid(MerkleBatchPath<D>),
 }
 
 /// Errors which can be output by Mithril single signature verification.
@@ -178,7 +178,7 @@ pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
 
     /// Invalid merkle batch path
     #[error("Batch path does not verify against root")]
-    PathInvalid(BatchPath<D>),
+    PathInvalid(MerkleBatchPath<D>),
 
     /// Batch verification of STM aggregate signatures failed
     #[error("Batch verification of STM aggregate signatures failed")]

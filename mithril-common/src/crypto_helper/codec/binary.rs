@@ -37,45 +37,45 @@ mod binary_mithril_stm {
 
     use digest::consts::U32;
     use mithril_stm::{
-        Initializer, Parameters, SingleSignature, SingleSignatureWithRegisteredParty, StmAggrSig,
-        StmAggrVerificationKey, StmVerificationKey, StmVerificationKeyPoP,
+        StmAggrSig, StmAggrVerificationKey, StmInitializer, StmParameters, StmSig, StmSigRegParty,
+        StmVerificationKey, StmVerificationKeyPoP,
     };
 
     use super::*;
 
     type D = Blake2b<U32>;
 
-    impl TryToBytes for Parameters {
+    impl TryToBytes for StmParameters {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
             Ok(self.to_bytes().to_vec())
         }
     }
 
-    impl TryFromBytes for Parameters {
+    impl TryFromBytes for StmParameters {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
             Self::from_bytes(bytes).map_err(|e| e.into())
         }
     }
 
-    impl TryToBytes for SingleSignature {
+    impl TryToBytes for StmSig {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
             Ok(self.to_bytes().to_vec())
         }
     }
 
-    impl TryFromBytes for SingleSignature {
+    impl TryFromBytes for StmSig {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
             Self::from_bytes::<D>(bytes).map_err(|e| e.into())
         }
     }
 
-    impl TryToBytes for SingleSignatureWithRegisteredParty {
+    impl TryToBytes for StmSigRegParty {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
             Ok(self.to_bytes().to_vec())
         }
     }
 
-    impl TryFromBytes for SingleSignatureWithRegisteredParty {
+    impl TryFromBytes for StmSigRegParty {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
             Self::from_bytes::<D>(bytes).map_err(|e| e.into())
         }
@@ -135,13 +135,13 @@ mod binary_mithril_stm {
         }
     }
 
-    impl TryToBytes for Initializer {
+    impl TryToBytes for StmInitializer {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
             Ok(self.to_bytes().to_vec())
         }
     }
 
-    impl TryFromBytes for Initializer {
+    impl TryFromBytes for StmInitializer {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
             Self::from_bytes(bytes).map_err(|e| e.into())
         }

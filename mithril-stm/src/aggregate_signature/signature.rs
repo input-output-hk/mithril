@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::bls_multi_signature::{Signature, VerificationKey};
 use crate::key_reg::RegisteredParty;
-use crate::merkle_tree::BatchPath;
+use crate::merkle_tree::MerkleBatchPath;
 use crate::{
     CoreVerifier, Parameters, SingleSignatureWithRegisteredParty, StmAggrVerificationKey,
     StmAggregateSignatureError,
@@ -15,13 +15,13 @@ use crate::{
 /// BatchPath is also a part of the aggregate signature which covers path for all signatures.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(
-    serialize = "BatchPath<D>: Serialize",
-    deserialize = "BatchPath<D>: Deserialize<'de>"
+    serialize = "MerkleBatchPath<D>: Serialize",
+    deserialize = "MerkleBatchPath<D>: Deserialize<'de>"
 ))]
 pub struct StmAggrSig<D: Clone + Digest + FixedOutput> {
     pub(crate) signatures: Vec<SingleSignatureWithRegisteredParty>,
     /// The list of unique merkle tree nodes that covers path for all signatures.
-    pub batch_proof: BatchPath<D>,
+    pub batch_proof: MerkleBatchPath<D>,
 }
 
 impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
@@ -201,7 +201,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
             sig_reg_list.push(sig_reg);
         }
 
-        let batch_proof = BatchPath::from_bytes(
+        let batch_proof = MerkleBatchPath::from_bytes(
             bytes
                 .get(bytes_index..)
                 .ok_or(StmAggregateSignatureError::SerializationError)?,

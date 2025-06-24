@@ -9,13 +9,13 @@ use crate::error::MerkleTreeError;
 /// Contains all hashes on the path, and the index of the leaf.
 /// Used to verify that signatures come from eligible signers.
 #[derive(Default, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Path<D: Digest> {
+pub struct MerklePath<D: Digest> {
     pub(crate) values: Vec<Vec<u8>>,
     pub(crate) index: usize,
     hasher: PhantomData<D>,
 }
 
-impl<D: Digest + FixedOutput> Path<D> {
+impl<D: Digest + FixedOutput> MerklePath<D> {
     pub(crate) fn new(values: Vec<Vec<u8>>, index: usize) -> Self {
         Self {
             values,
@@ -43,7 +43,7 @@ impl<D: Digest + FixedOutput> Path<D> {
     /// Extract a `Path` from a byte slice.
     /// # Error
     /// This function fails if the bytes cannot retrieve path.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Path<D>, MerkleTreeError<D>> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<MerklePath<D>, MerkleTreeError<D>> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(bytes.get(..8).ok_or(MerkleTreeError::SerializationError)?);
         let index = usize::try_from(u64::from_be_bytes(u64_bytes))
@@ -68,7 +68,7 @@ impl<D: Digest + FixedOutput> Path<D> {
             );
         }
 
-        Ok(Path {
+        Ok(MerklePath {
             values,
             index,
             hasher: PhantomData,
@@ -80,14 +80,14 @@ impl<D: Digest + FixedOutput> Path<D> {
 /// Contains the hashes and the corresponding merkle tree indices of given batch.
 /// Used to verify the signatures are issued by the registered signers.
 #[derive(Default, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BatchPath<D: Digest + FixedOutput> {
+pub struct MerkleBatchPath<D: Digest + FixedOutput> {
     pub(crate) values: Vec<Vec<u8>>,
     pub(crate) indices: Vec<usize>,
     pub(crate) hasher: PhantomData<D>,
 }
 
-impl<D: Digest + FixedOutput> BatchPath<D> {
-    pub(crate) fn new(values: Vec<Vec<u8>>, indices: Vec<usize>) -> BatchPath<D> {
+impl<D: Digest + FixedOutput> MerkleBatchPath<D> {
+    pub(crate) fn new(values: Vec<Vec<u8>>, indices: Vec<usize>) -> MerkleBatchPath<D> {
         Self {
             values,
             indices,
@@ -151,7 +151,7 @@ impl<D: Digest + FixedOutput> BatchPath<D> {
             );
         }
 
-        Ok(BatchPath {
+        Ok(MerkleBatchPath {
             values,
             indices,
             hasher: PhantomData,

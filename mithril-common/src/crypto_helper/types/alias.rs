@@ -4,7 +4,7 @@ use crate::crypto_helper::cardano::{
 };
 
 use mithril_stm::{
-    AggregationError, ClosedKeyRegistration, Index, Parameters, Signer, Stake, StmClerk,
+    AggregationError, ClosedKeyReg, Index, Stake, StmClerk, StmParameters, StmSigner,
 };
 
 use blake2::{digest::consts::U32, Blake2b};
@@ -25,13 +25,13 @@ pub type ProtocolStake = Stake;
 pub type ProtocolStakeDistribution = Vec<(ProtocolPartyId, ProtocolStake)>;
 
 /// Alias of [MithrilStm::StmParameters](struct@mithril_stm::StmParameters).
-pub type ProtocolParameters = Parameters;
+pub type ProtocolParameters = StmParameters;
 
 /// Alias of [MithrilStm::Index](type@mithril_stm::Index).
 pub type ProtocolLotteryIndex = Index;
 
 /// Alias of [MithrilStm:StmSigner](struct@mithril_stm::StmSigner).
-pub type ProtocolSigner = Signer<D>;
+pub type ProtocolSigner = StmSigner<D>;
 
 /// Alias of a wrapper of [MithrilStm:StmInitializer](struct@mithril_stm::StmInitializer).
 pub type ProtocolInitializer = StmInitializerWrapper;
@@ -43,7 +43,7 @@ pub type ProtocolClerk = StmClerk<D>;
 pub type ProtocolKeyRegistration = KeyRegWrapper;
 
 /// Alias of a wrapper of [MithrilStm:ClosedKeyReg](struct@mithril_stm::KeyReg).
-pub type ProtocolClosedKeyRegistration = ClosedKeyRegistration<D>;
+pub type ProtocolClosedKeyRegistration = ClosedKeyReg<D>;
 
 // Error alias
 /// Alias of a wrapper of [MithrilCommon:ProtocolRegistrationErrorWrapper](enum@ProtocolRegistrationErrorWrapper).

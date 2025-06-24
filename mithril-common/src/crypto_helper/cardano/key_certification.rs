@@ -16,7 +16,7 @@ use crate::{
 };
 
 use mithril_stm::{
-    ClosedKeyRegistration, Initializer, KeyRegistration, Parameters, RegisterError, Signer, Stake,
+    ClosedKeyReg, KeyReg, RegisterError, Stake, StmInitializer, StmParameters, StmSigner,
     StmVerificationKeyPoP,
 };
 
@@ -104,7 +104,7 @@ pub enum ProtocolInitializerErrorWrapper {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StmInitializerWrapper {
     /// The StmInitializer
-    stm_initializer: Initializer,
+    stm_initializer: StmInitializer,
 
     /// The KES signature over the Mithril key
     ///
@@ -120,7 +120,7 @@ pub struct StmInitializerWrapper {
 /// is valid with respect to the PoolID.
 #[derive(Debug, Clone)]
 pub struct KeyRegWrapper {
-    stm_key_reg: KeyRegistration,
+    stm_key_reg: KeyReg,
     stake_distribution: HashMap<ProtocolPartyId, Stake>,
 }
 
@@ -129,13 +129,13 @@ impl StmInitializerWrapper {
     /// This function generates the signing and verification key with a PoP, signs the verification
     /// key with a provided KES signing key, and initializes the structure.
     pub fn setup<R: RngCore + CryptoRng, P: AsRef<Path>>(
-        params: Parameters,
+        params: StmParameters,
         kes_sk_path: Option<P>,
         kes_period: Option<KESPeriod>,
         stake: Stake,
         rng: &mut R,
     ) -> StdResult<Self> {
-        let stm_initializer = Initializer::setup(params, stake, rng);
+        let stm_initializer = StmInitializer::setup(params, stake, rng);
         let kes_signature = if let Some(kes_sk_path) = kes_sk_path {
             let mut kes_sk_bytes = Sum6KesBytes::from_file(kes_sk_path)
                 .map_err(|e| anyhow!(e))
@@ -205,8 +205,8 @@ impl StmInitializerWrapper {
     /// This function fails if the initializer is not registered.
     pub fn new_signer(
         self,
-        closed_reg: ClosedKeyRegistration<D>,
-    ) -> Result<Signer<D>, ProtocolRegistrationErrorWrapper> {
+        closed_reg: ClosedKeyReg<D>,
+    ) -> Result<StmSigner<D>, ProtocolRegistrationErrorWrapper> {
         self.stm_initializer
             .new_signer(closed_reg)
             .map_err(ProtocolRegistrationErrorWrapper::CoreRegister)
@@ -231,7 +231,7 @@ impl StmInitializerWrapper {
     /// The function fails if the given string of bytes is not of required size.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, RegisterError> {
         let stm_initializer =
-            Initializer::from_bytes(bytes.get(..256).ok_or(RegisterError::SerializationError)?)?;
+            StmInitializer::from_bytes(bytes.get(..256).ok_or(RegisterError::SerializationError)?)?;
         let bytes = bytes.get(256..).ok_or(RegisterError::SerializationError)?;
         let kes_signature = if bytes.is_empty() {
             None
@@ -258,7 +258,7 @@ impl KeyRegWrapper {
     /// but we should eventually transition to only use this one.
     pub fn init(stake_dist: &ProtocolStakeDistribution) -> Self {
         Self {
-            stm_key_reg: KeyRegistration::init(),
+            stm_key_reg: KeyReg::init(),
             stake_distribution: HashMap::from_iter(stake_dist.to_vec()),
         }
     }
@@ -319,7 +319,7 @@ impl KeyRegWrapper {
 
     /// Finalize the key registration.
     /// This function disables `KeyReg::register`, consumes the instance of `self`, and returns a `ClosedKeyReg`.
-    pub fn close<D: Digest + FixedOutput>(self) -> ClosedKeyRegistration<D> {
+    pub fn close<D: Digest + FixedOutput>(self) -> ClosedKeyReg<D> {
         self.stm_key_reg.close()
     }
 }
@@ -364,7 +364,7 @@ mod test {
 
     #[test]
     fn test_vector_key_reg() {
-        let params = Parameters {
+        let params = StmParameters {
             m: 5,
             k: 5,
             phi_f: 1.0,

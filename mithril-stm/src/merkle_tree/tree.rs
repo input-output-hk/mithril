@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::MerkleTreeError;
 use crate::merkle_tree::{
-    left_child, parent, right_child, sibling, BatchPath, MTLeaf, MerkleTreeCommitment,
-    MerkleTreeCommitmentBatchCompat, Path,
+    left_child, parent, right_child, sibling, MerkleBatchPath, MerklePath,
+    MerkleTreeBatchCommitment, MerkleTreeCommitment, MerkleTreeLeaf,
 };
 
 /// Tree of hashes, providing a commitment of data and its ordering.
@@ -28,7 +28,7 @@ pub struct MerkleTree<D: Digest> {
 
 impl<D: Digest + FixedOutput> MerkleTree<D> {
     /// Provided a non-empty list of leaves, `create` generates its corresponding `MerkleTree`.
-    pub fn create(leaves: &[MTLeaf]) -> MerkleTree<D> {
+    pub fn create(leaves: &[MerkleTreeLeaf]) -> MerkleTree<D> {
         let n = leaves.len();
         assert!(n > 0, "MerkleTree::create() called with no leaves");
 
@@ -79,8 +79,8 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
 
     /// Convert merkle tree to a batch compatible commitment.
     /// This function simply returns the root and the number of leaves in the tree.
-    pub fn to_commitment_batch_compat(&self) -> MerkleTreeCommitmentBatchCompat<D> {
-        MerkleTreeCommitmentBatchCompat::new(self.nodes[0].clone(), self.n)
+    pub fn to_commitment_batch_compat(&self) -> MerkleTreeBatchCommitment<D> {
+        MerkleTreeBatchCommitment::new(self.nodes[0].clone(), self.n)
     }
 
     /// Get a path for a batch of leaves. The indices must be ordered. We use the Octopus algorithm to
@@ -99,7 +99,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
     /// If the indices provided are out of bounds (higher than the number of elements
     /// committed in the `MerkleTree`) or are not ordered, the function fails.
     // todo: Update doc.
-    pub fn get_batched_path(&self, indices: Vec<usize>) -> BatchPath<D>
+    pub fn get_batched_path(&self, indices: Vec<usize>) -> MerkleBatchPath<D>
     where
         D: FixedOutput,
     {
@@ -146,7 +146,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
             ordered_indices.clone_from(&new_indices);
         }
 
-        BatchPath::new(proof, indices)
+        MerkleBatchPath::new(proof, indices)
     }
 
     /// Convert a `MerkleTree` into a byte string, containing $4 + n * S$ bytes where $n$ is the
@@ -200,7 +200,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
     /// Get a path (hashes of siblings of the path to the root node)
     /// for the `i`th value stored in the tree.
     /// Requires `i < self.n`
-    pub fn get_path(&self, i: usize) -> Path<D> {
+    pub fn get_path(&self, i: usize) -> MerklePath<D> {
         assert!(
             i < self.n,
             "Proof index out of bounds: asked for {} out of {}",
@@ -220,7 +220,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
             idx = parent(idx);
         }
 
-        Path::new(proof, i)
+        MerklePath::new(proof, i)
     }
 }
 
@@ -239,9 +239,9 @@ mod tests {
 
     prop_compose! {
         fn arb_tree(max_size: u32)
-                   (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<Blake2b<U32>>, Vec<MTLeaf>) {
+                   (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<Blake2b<U32>>, Vec<MerkleTreeLeaf>) {
             let pks = vec![VerificationKey::default(); v.len()];
-            let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MTLeaf(key, stake)).collect::<Vec<MTLeaf>>();
+            let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeLeaf(key, stake)).collect::<Vec<MerkleTreeLeaf>>();
              (MerkleTree::<Blake2b<U32>>::create(&leaves), leaves)
         }
     }
@@ -263,11 +263,11 @@ mod tests {
             values.iter().enumerate().for_each(|(i, _v)| {
                 let pf = t.get_path(i);
                 let bytes = pf.to_bytes();
-                let deserialised = Path::from_bytes(&bytes).unwrap();
+                let deserialised = MerklePath::from_bytes(&bytes).unwrap();
                 assert!(t.to_commitment().check(&values[i], &deserialised).is_ok());
 
                 let encoded = bincode::serde::encode_to_vec(&pf, bincode::config::legacy()).unwrap();
-                let (decoded,_) = bincode::serde::decode_from_slice::<Path<Blake2b<U32>>,_>(&encoded, bincode::config::legacy()).unwrap();
+                let (decoded,_) = bincode::serde::decode_from_slice::<MerklePath<Blake2b<U32>>,_>(&encoded, bincode::config::legacy()).unwrap();
                 assert!(t.to_commitment().check(&values[i], &decoded).is_ok());
             })
         }
@@ -296,7 +296,7 @@ mod tests {
         #[test]
         fn test_bytes_tree_commitment_batch_compat((t, values) in arb_tree(5)) {
             let encoded = bincode::serde::encode_to_vec(t.to_commitment_batch_compat(), bincode::config::legacy()).unwrap();
-            let (decoded,_) = bincode::serde::decode_from_slice::<MerkleTreeCommitmentBatchCompat<Blake2b<U32>>,_>(&encoded, bincode::config::legacy()).unwrap();
+            let (decoded,_) = bincode::serde::decode_from_slice::<MerkleTreeBatchCommitment<Blake2b<U32>>,_>(&encoded, bincode::config::legacy()).unwrap();
             let tree_commitment = MerkleTree::<Blake2b<U32>>::create(&values).to_commitment_batch_compat();
             assert_eq!(tree_commitment.root, decoded.root);
             assert_eq!(tree_commitment.get_nr_leaves(), decoded.get_nr_leaves());
@@ -310,9 +310,9 @@ mod tests {
         fn values_with_invalid_proof(max_height: usize)
                                     (h in 1..max_height)
                                     (v in vec(any::<u64>(), 2..pow2_plus1(h)),
-                                     proof in vec(vec(any::<u8>(), 16), h)) -> (Vec<MTLeaf>, Vec<Vec<u8>>) {
+                                     proof in vec(vec(any::<u8>(), 16), h)) -> (Vec<MerkleTreeLeaf>, Vec<Vec<u8>>) {
             let pks = vec![VerificationKey::default(); v.len()];
-            let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MTLeaf(key, stake)).collect::<Vec<MTLeaf>>();
+            let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeLeaf(key, stake)).collect::<Vec<MerkleTreeLeaf>>();
             (leaves, proof)
         }
     }
@@ -326,7 +326,7 @@ mod tests {
             let t = MerkleTree::<Blake2b<U32>>::create(&values[1..]);
             let index = i % (values.len() - 1);
             let path_values = proof. iter().map(|x|  Blake2b::<U32>::digest(x).to_vec()).collect();
-            let path = Path::new(path_values, index);
+            let path = MerklePath::new(path_values, index);
             assert!(t.to_commitment().check(&values[0], &path).is_err());
         }
 
@@ -338,7 +338,7 @@ mod tests {
             let t = MerkleTree::<Blake2b<U32>>::create(&values[1..]);
             let indices = vec![i % (values.len() - 1); values.len() / 2];
             let batch_values = vec![values[i % (values.len() - 1)]; values.len() / 2];
-            let path = BatchPath{values: proof
+            let path = MerkleBatchPath{values: proof
                             .iter()
                             .map(|x|  Blake2b::<U32>::digest(x).to_vec())
                             .collect(),
@@ -351,17 +351,17 @@ mod tests {
 
     prop_compose! {
         fn arb_tree_arb_batch(max_size: u32)
-                   (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<Blake2b<U32>>, Vec<MTLeaf>, Vec<usize>) {
+                   (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<Blake2b<U32>>, Vec<MerkleTreeLeaf>, Vec<usize>) {
             let mut rng = rng();
             let size = v.len();
             let pks = vec![VerificationKey::default(); size];
-            let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MTLeaf(key, stake)).collect::<Vec<MTLeaf>>();
+            let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeLeaf(key, stake)).collect::<Vec<MerkleTreeLeaf>>();
 
             let indices: Vec<usize> = (0..size).collect();
             let mut mt_list: Vec<usize> = indices.into_iter().choose_multiple(&mut rng, size * 2 / 10 + 1);
             mt_list.sort_unstable();
 
-            let mut batch_values: Vec<MTLeaf> = Vec::with_capacity(mt_list.len());
+            let mut batch_values: Vec<MerkleTreeLeaf> = Vec::with_capacity(mt_list.len());
             for i in mt_list.iter() {
                 batch_values.push(leaves[*i]);
             }
@@ -383,11 +383,11 @@ mod tests {
             let bp = t.get_batched_path(indices);
 
             let bytes = &bp.to_bytes();
-            let deserialized = BatchPath::from_bytes(bytes).unwrap();
+            let deserialized = MerkleBatchPath::from_bytes(bytes).unwrap();
             assert!(t.to_commitment_batch_compat().check(&batch_values, &deserialized).is_ok());
 
             let encoded = bincode::serde::encode_to_vec(&bp, bincode::config::legacy()).unwrap();
-            let (decoded,_) = bincode::serde::decode_from_slice::<BatchPath<Blake2b<U32>>,_>(&encoded, bincode::config::legacy()).unwrap();
+            let (decoded,_) = bincode::serde::decode_from_slice::<MerkleBatchPath<Blake2b<U32>>,_>(&encoded, bincode::config::legacy()).unwrap();
             assert!(t.to_commitment_batch_compat().check(&batch_values, &decoded).is_ok());
         }
     }
