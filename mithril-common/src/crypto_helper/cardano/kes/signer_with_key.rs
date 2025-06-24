@@ -66,11 +66,9 @@ mod tests {
     use super::*;
 
     use crate::crypto_helper::cardano::{
-        kes::tests_setup::create_kes_cryptographic_material,
-        tests_setup::KesCryptographicMaterialForTest, KesVerifier, KesVerifierStandard,
+        kes::tests_setup::{create_kes_cryptographic_material, KesCryptographicMaterialForTest},
+        KesPartyIndexForTest, KesVerifier, KesVerifierStandard,
     };
-
-    type PartyIndex = u64;
 
     #[test]
     fn create_valid_signature_for_message() {
@@ -79,7 +77,7 @@ mod tests {
             operational_certificate_file,
             kes_secret_key_file,
         } = create_kes_cryptographic_material(
-            1 as PartyIndex,
+            1 as KesPartyIndexForTest,
             0 as KesPeriod,
             "create_valid_signature_for_message",
         );
@@ -103,7 +101,7 @@ mod tests {
             operational_certificate_file,
             kes_secret_key_file,
         } = create_kes_cryptographic_material(
-            1 as PartyIndex,
+            1 as KesPartyIndexForTest,
             0 as KesPeriod,
             "create_invalid_signature_for_different_message",
         );
@@ -133,7 +131,7 @@ mod tests {
             operational_certificate_file,
             kes_secret_key_file,
         } = create_kes_cryptographic_material(
-            1 as PartyIndex,
+            1 as KesPartyIndexForTest,
             kes_period_start,
             "create_invalid_signature_for_invalid_kes_period",
         );
