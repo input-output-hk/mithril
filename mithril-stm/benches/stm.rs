@@ -2,8 +2,8 @@ use blake2::digest::{Digest, FixedOutput};
 use blake2::{digest::consts::U32, Blake2b};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use mithril_stm::{
-    CoreVerifier, KeyRegistration, Parameters, Stake, StmAggrSig, StmClerk, StmInitializer,
-    StmSigner, StmVerificationKey,
+    CoreVerifier, Initializer, KeyRegistration, Parameters, Signer, Stake, StmAggrSig, StmClerk,
+    StmVerificationKey,
 };
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
@@ -33,9 +33,9 @@ where
         .map(|_| 1 + (rng.next_u64() % 9999))
         .collect::<Vec<_>>();
 
-    let mut initializers: Vec<StmInitializer> = Vec::with_capacity(nr_parties);
+    let mut initializers: Vec<Initializer> = Vec::with_capacity(nr_parties);
     for stake in stakes {
-        initializers.push(StmInitializer::setup(params, stake, &mut rng));
+        initializers.push(Initializer::setup(params, stake, &mut rng));
     }
     let mut key_reg = KeyRegistration::init();
 
@@ -54,7 +54,7 @@ where
     let signers = initializers
         .into_par_iter()
         .map(|p| p.new_signer(closed_reg.clone()).unwrap())
-        .collect::<Vec<StmSigner<H>>>();
+        .collect::<Vec<Signer<H>>>();
 
     group.bench_function(BenchmarkId::new("Play all lotteries", &param_string), |b| {
         b.iter(|| {
@@ -109,9 +109,9 @@ fn batch_benches<H>(
                 .map(|_| 1 + (rng.next_u64() % 9999))
                 .collect::<Vec<_>>();
 
-            let mut initializers: Vec<StmInitializer> = Vec::with_capacity(nr_parties);
+            let mut initializers: Vec<Initializer> = Vec::with_capacity(nr_parties);
             for stake in stakes {
-                initializers.push(StmInitializer::setup(params, stake, &mut rng));
+                initializers.push(Initializer::setup(params, stake, &mut rng));
             }
             let mut key_reg = KeyRegistration::init();
             for p in initializers.iter() {
@@ -123,7 +123,7 @@ fn batch_benches<H>(
             let signers = initializers
                 .into_par_iter()
                 .map(|p| p.new_signer(closed_reg.clone()).unwrap())
-                .collect::<Vec<StmSigner<H>>>();
+                .collect::<Vec<Signer<H>>>();
 
             let sigs = signers
                 .par_iter()
@@ -156,7 +156,7 @@ where
     rng.fill_bytes(&mut msg);
 
     let mut public_signers: Vec<(StmVerificationKey, Stake)> = Vec::with_capacity(nr_parties);
-    let mut initializers: Vec<StmInitializer> = Vec::with_capacity(nr_parties);
+    let mut initializers: Vec<Initializer> = Vec::with_capacity(nr_parties);
 
     let param_string = format!(
         "k: {}, m: {}, nr_parties: {}",
@@ -168,14 +168,14 @@ where
         .collect::<Vec<_>>();
 
     for stake in stakes {
-        let initializer = StmInitializer::setup(params, stake, &mut rng);
+        let initializer = Initializer::setup(params, stake, &mut rng);
         initializers.push(initializer.clone());
         public_signers.push((initializer.verification_key().vk, initializer.stake));
     }
 
     let core_verifier = CoreVerifier::setup(&public_signers);
 
-    let signers: Vec<StmSigner<H>> = initializers
+    let signers: Vec<Signer<H>> = initializers
         .into_iter()
         .filter_map(|s| s.new_core_signer(&core_verifier.eligible_parties))
         .collect();

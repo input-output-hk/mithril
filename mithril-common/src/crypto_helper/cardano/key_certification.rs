@@ -16,8 +16,8 @@ use crate::{
 };
 
 use mithril_stm::{
-    ClosedKeyRegistration, KeyRegistration, Parameters, RegisterError, Stake, StmInitializer,
-    StmSigner, StmVerificationKeyPoP,
+    ClosedKeyRegistration, Initializer, KeyRegistration, Parameters, RegisterError, Signer, Stake,
+    StmVerificationKeyPoP,
 };
 
 use crate::crypto_helper::cardano::Sum6KesBytes;
@@ -104,7 +104,7 @@ pub enum ProtocolInitializerErrorWrapper {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StmInitializerWrapper {
     /// The StmInitializer
-    stm_initializer: StmInitializer,
+    stm_initializer: Initializer,
 
     /// The KES signature over the Mithril key
     ///
@@ -135,7 +135,7 @@ impl StmInitializerWrapper {
         stake: Stake,
         rng: &mut R,
     ) -> StdResult<Self> {
-        let stm_initializer = StmInitializer::setup(params, stake, rng);
+        let stm_initializer = Initializer::setup(params, stake, rng);
         let kes_signature = if let Some(kes_sk_path) = kes_sk_path {
             let mut kes_sk_bytes = Sum6KesBytes::from_file(kes_sk_path)
                 .map_err(|e| anyhow!(e))
@@ -206,7 +206,7 @@ impl StmInitializerWrapper {
     pub fn new_signer(
         self,
         closed_reg: ClosedKeyRegistration<D>,
-    ) -> Result<StmSigner<D>, ProtocolRegistrationErrorWrapper> {
+    ) -> Result<Signer<D>, ProtocolRegistrationErrorWrapper> {
         self.stm_initializer
             .new_signer(closed_reg)
             .map_err(ProtocolRegistrationErrorWrapper::CoreRegister)
@@ -231,7 +231,7 @@ impl StmInitializerWrapper {
     /// The function fails if the given string of bytes is not of required size.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, RegisterError> {
         let stm_initializer =
-            StmInitializer::from_bytes(bytes.get(..256).ok_or(RegisterError::SerializationError)?)?;
+            Initializer::from_bytes(bytes.get(..256).ok_or(RegisterError::SerializationError)?)?;
         let bytes = bytes.get(256..).ok_or(RegisterError::SerializationError)?;
         let kes_signature = if bytes.is_empty() {
             None

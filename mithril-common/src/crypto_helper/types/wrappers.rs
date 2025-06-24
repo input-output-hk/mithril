@@ -12,7 +12,7 @@ pub type ProtocolSignerVerificationKey = ProtocolKey<StmVerificationKeyPoP>;
 /// serialization utilities.
 pub type ProtocolSignerVerificationKeySignature = ProtocolKey<Sum6KesSig>;
 
-/// Wrapper of [MithrilStm:StmSig](type@StmSig) to add serialization utilities.
+/// Wrapper of [MithrilStm:SingleSignature](type@SingleSignature) to add serialization utilities.
 pub type ProtocolSingleSignature = ProtocolKey<SingleSignature>;
 
 /// Wrapper of [MithrilStm:StmAggrSig](struct@StmAggrSig) to add serialization utilities.

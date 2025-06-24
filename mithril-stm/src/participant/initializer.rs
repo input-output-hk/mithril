@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::bls_multi_signature::{SigningKey, VerificationKeyPoP};
 use crate::key_reg::*;
-use crate::{Parameters, RegisterError, Stake, StmSigner};
+use crate::{Parameters, RegisterError, Signer, Stake};
 
 /// Wrapper of the MultiSignature Verification key with proof of possession
 pub type StmVerificationKeyPoP = VerificationKeyPoP;
@@ -14,7 +14,7 @@ pub type StmVerificationKeyPoP = VerificationKeyPoP;
 /// This is the data that is used during the key registration procedure.
 /// Once the latter is finished, this instance is consumed into an `StmSigner`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StmInitializer {
+pub struct Initializer {
     /// This participant's stake.
     pub stake: Stake,
     /// Current protocol instantiation parameters.
@@ -25,7 +25,7 @@ pub struct StmInitializer {
     pub(crate) pk: StmVerificationKeyPoP,
 }
 
-impl StmInitializer {
+impl Initializer {
     /// Builds an `StmInitializer` that is ready to register with the key registration service.
     /// This function generates the signing and verification key with a PoP, and initialises the structure.
     pub fn setup<R: RngCore + CryptoRng>(params: Parameters, stake: Stake, rng: &mut R) -> Self {
@@ -59,7 +59,7 @@ impl StmInitializer {
     pub fn new_signer<D: Digest + Clone + FixedOutput>(
         self,
         closed_reg: ClosedKeyRegistration<D>,
-    ) -> Result<StmSigner<D>, RegisterError> {
+    ) -> Result<Signer<D>, RegisterError> {
         let mut my_index = None;
         for (i, rp) in closed_reg.reg_parties.iter().enumerate() {
             if rp.0 == self.pk.vk {
@@ -71,7 +71,7 @@ impl StmInitializer {
             return Err(RegisterError::UnregisteredInitializer);
         }
 
-        Ok(StmSigner::set_stm_signer(
+        Ok(Signer::set_stm_signer(
             my_index.unwrap(),
             self.stake,
             self.params,
@@ -88,7 +88,7 @@ impl StmInitializer {
     pub fn new_core_signer<D: Digest + Clone + FixedOutput>(
         self,
         eligible_parties: &[RegisteredParty],
-    ) -> Option<StmSigner<D>> {
+    ) -> Option<Signer<D>> {
         let mut parties = eligible_parties.to_vec();
         parties.sort_unstable();
         let mut my_index = None;
@@ -99,7 +99,7 @@ impl StmInitializer {
             }
         }
         if let Some(index) = my_index {
-            Some(StmSigner::set_core_signer(
+            Some(Signer::set_core_signer(
                 index,
                 self.stake,
                 self.params,
@@ -129,7 +129,7 @@ impl StmInitializer {
     /// Convert a slice of bytes to an `StmInitializer`
     /// # Error
     /// The function fails if the given string of bytes is not of required size.
-    pub fn from_bytes(bytes: &[u8]) -> Result<StmInitializer, RegisterError> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Initializer, RegisterError> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(bytes.get(..8).ok_or(RegisterError::SerializationError)?);
         let stake = u64::from_be_bytes(u64_bytes);

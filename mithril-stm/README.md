@@ -67,7 +67,7 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;
 
-use mithril_stm::{StmClerk, Parameters, SingleSignature, KeyRegistration, StmInitializer, StmSigner, AggregationError};
+use mithril_stm::{StmClerk, Parameters, SingleSignature, KeyRegistration, Initializer, Signer, AggregationError};
 
 type H = Blake2b<U32>;
 
@@ -94,9 +94,9 @@ fn main() {
 
     let mut key_reg = KeyRegistration::init();
 
-    let mut ps: Vec<StmInitializer> = Vec::with_capacity(nparties as usize);
+    let mut ps: Vec<Initializer> = Vec::with_capacity(nparties as usize);
     for stake in parties {
-        let p = StmInitializer::setup(params, stake, &mut rng);
+        let p = Initializer::setup(params, stake, &mut rng);
         key_reg.register(stake, p.verification_key()).unwrap();
         ps.push(p);
     }
@@ -106,7 +106,7 @@ fn main() {
     let ps = ps
         .into_par_iter()
         .map(|p| p.new_signer(closed_reg.clone()).unwrap())
-        .collect::<Vec<StmSigner<H>>>();
+        .collect::<Vec<Signer<H>>>();
 
     /////////////////////
     // operation phase //

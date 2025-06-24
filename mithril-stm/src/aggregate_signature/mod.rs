@@ -24,20 +24,20 @@ mod tests {
     use crate::bls_multi_signature::VerificationKey;
     use crate::merkle_tree::BatchPath;
     use crate::{
-        AggregationError, CoreVerifier, CoreVerifierError, KeyRegistration, Parameters,
-        SingleSignature, SingleSignatureWithRegisteredParty, Stake, StmAggrSig, StmClerk,
-        StmInitializer, StmSigner,
+        AggregationError, CoreVerifier, CoreVerifierError, Initializer, KeyRegistration,
+        Parameters, Signer, SingleSignature, SingleSignatureWithRegisteredParty, Stake, StmAggrSig,
+        StmClerk,
     };
 
     type Sig = StmAggrSig<D>;
     type D = Blake2b<U32>;
 
-    fn setup_equal_parties(params: Parameters, nparties: usize) -> Vec<StmSigner<D>> {
+    fn setup_equal_parties(params: Parameters, nparties: usize) -> Vec<Signer<D>> {
         let stake = vec![1; nparties];
         setup_parties(params, stake)
     }
 
-    fn setup_parties(params: Parameters, stake: Vec<Stake>) -> Vec<StmSigner<D>> {
+    fn setup_parties(params: Parameters, stake: Vec<Stake>) -> Vec<Signer<D>> {
         let mut kr = KeyRegistration::init();
         let mut trng = TestRng::deterministic_rng(ChaCha);
         let mut rng = ChaCha20Rng::from_seed(trng.gen());
@@ -46,7 +46,7 @@ mod tests {
         let ps = stake
             .into_iter()
             .map(|stake| {
-                let p = StmInitializer::setup(params, stake, &mut rng);
+                let p = Initializer::setup(params, stake, &mut rng);
                 kr.register(stake, p.pk).unwrap();
                 p
             })
@@ -117,7 +117,7 @@ mod tests {
         )
     }
 
-    fn find_signatures(msg: &[u8], ps: &[StmSigner<D>], is: &[usize]) -> Vec<SingleSignature> {
+    fn find_signatures(msg: &[u8], ps: &[Signer<D>], is: &[usize]) -> Vec<SingleSignature> {
         let mut sigs = Vec::new();
         for i in is {
             if let Some(sig) = ps[*i].sign(msg) {
@@ -347,13 +347,13 @@ mod tests {
             let mut rng = ChaCha20Rng::from_seed(seed);
             let params = Parameters { m: 1, k: 1, phi_f: 1.0 };
             let stake = rng.next_u64();
-            let initializer = StmInitializer::setup(params, stake, &mut rng);
+            let initializer = Initializer::setup(params, stake, &mut rng);
 
             let bytes = initializer.to_bytes();
-            assert!(StmInitializer::from_bytes(&bytes).is_ok());
+            assert!(Initializer::from_bytes(&bytes).is_ok());
 
             let bytes = bincode::serde::encode_to_vec(&initializer, bincode::config::legacy()).unwrap();
-            assert!(bincode::serde::decode_from_slice::<StmInitializer,_>(&bytes, bincode::config::legacy()).is_ok())
+            assert!(bincode::serde::decode_from_slice::<Initializer,_>(&bytes, bincode::config::legacy()).is_ok())
         }
 
         #[test]
@@ -486,7 +486,7 @@ mod tests {
     fn setup_equal_core_parties(
         params: Parameters,
         nparties: usize,
-    ) -> (Vec<StmInitializer>, Vec<(VerificationKey, Stake)>) {
+    ) -> (Vec<Initializer>, Vec<(VerificationKey, Stake)>) {
         let stake = vec![1; nparties];
         setup_core_parties(params, stake)
     }
@@ -494,14 +494,14 @@ mod tests {
     fn setup_core_parties(
         params: Parameters,
         stake: Vec<Stake>,
-    ) -> (Vec<StmInitializer>, Vec<(VerificationKey, Stake)>) {
+    ) -> (Vec<Initializer>, Vec<(VerificationKey, Stake)>) {
         let mut trng = TestRng::deterministic_rng(ChaCha);
         let mut rng = ChaCha20Rng::from_seed(trng.gen());
 
         let ps = stake
             .into_iter()
-            .map(|stake| StmInitializer::setup(params, stake, &mut rng))
-            .collect::<Vec<StmInitializer>>();
+            .map(|stake| Initializer::setup(params, stake, &mut rng))
+            .collect::<Vec<Initializer>>();
 
         let public_signers = ps
             .iter()
@@ -513,7 +513,7 @@ mod tests {
 
     fn find_core_signatures(
         msg: &[u8],
-        ps: &[StmSigner<D>],
+        ps: &[Signer<D>],
         total_stake: Stake,
         is: &[usize],
     ) -> Vec<SingleSignature> {
@@ -544,7 +544,7 @@ mod tests {
             let signers = initializers
                 .into_iter()
                 .filter_map(|s| s.new_core_signer(&core_verifier.eligible_parties))
-                .collect::<Vec<StmSigner<D>>>();
+                .collect::<Vec<Signer<D>>>();
 
             let signatures = find_core_signatures(&msg, &signers, core_verifier.total_stake, &all_ps);
 

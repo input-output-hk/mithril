@@ -1,7 +1,7 @@
 use blake2::Blake2b;
 use digest::consts::U32;
 use mithril_stm::{
-    CoreVerifier, CoreVerifierError, Parameters, SingleSignature, Stake, StmInitializer, StmSigner,
+    CoreVerifier, CoreVerifierError, Initializer, Parameters, Signer, SingleSignature, Stake,
     StmVerificationKey,
 };
 use rand_chacha::ChaCha20Rng;
@@ -15,7 +15,7 @@ fn test_core_verifier() {
     let mut msg = [0u8; 32];
     rng.fill_bytes(&mut msg);
     let mut public_signers: Vec<(StmVerificationKey, Stake)> = Vec::with_capacity(nparties);
-    let mut initializers: Vec<StmInitializer> = Vec::with_capacity(nparties);
+    let mut initializers: Vec<Initializer> = Vec::with_capacity(nparties);
 
     //////////////////////////
     // initialization phase //
@@ -32,14 +32,14 @@ fn test_core_verifier() {
         .collect::<Vec<_>>();
 
     for stake in parties {
-        let initializer = StmInitializer::setup(params, stake, &mut rng);
+        let initializer = Initializer::setup(params, stake, &mut rng);
         initializers.push(initializer.clone());
         public_signers.push((initializer.verification_key().vk, initializer.stake));
     }
 
     let core_verifier = CoreVerifier::setup(&public_signers);
 
-    let signers: Vec<StmSigner<D>> = initializers
+    let signers: Vec<Signer<D>> = initializers
         .into_iter()
         .filter_map(|s| s.new_core_signer(&core_verifier.eligible_parties))
         .collect();

@@ -1,6 +1,6 @@
 use mithril_stm::{
-    KeyRegistration, Parameters, SingleSignature, Stake, StmAggrSig, StmClerk, StmInitializer,
-    StmSigner, StmVerificationKeyPoP,
+    Initializer, KeyRegistration, Parameters, Signer, SingleSignature, Stake, StmAggrSig, StmClerk,
+    StmVerificationKeyPoP,
 };
 
 use blake2::{digest::consts::U32, Blake2b};
@@ -18,13 +18,13 @@ pub type ProtocolStake = Stake;
 pub type ProtocolParameters = Parameters;
 
 /// Alias of [MithrilStm:StmSigner](struct@mithril_stm::stm::StmSigner).
-pub type ProtocolSigner = StmSigner<D>;
+pub type ProtocolSigner = Signer<D>;
 
 /// Alias of [MithrilStm:StmClerk](struct@mithril_stm::stm::StmClerk).
 pub type ProtocolClerk = StmClerk<D>;
 
 /// Alias of [MithrilStm:StmInitializer](struct@mithril_stm::stm::StmInitializer).
-pub type ProtocolInitializerNotCertified = StmInitializer;
+pub type ProtocolInitializerNotCertified = Initializer;
 
 /// Alias of [MithrilStm:KeyReg](struct@mithril_stm::key_reg::KeyReg). (Test only)
 pub type ProtocolKeyRegistrationNotCertified = KeyRegistration;

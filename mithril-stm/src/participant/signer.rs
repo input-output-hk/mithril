@@ -16,7 +16,7 @@ pub type StmVerificationKey = VerificationKey;
 ///     * This kind of signer cannot participate certificate generation.
 ///     * Signature generated can be verified by a full node verifier (core verifier).
 #[derive(Debug, Clone)]
-pub struct StmSigner<D: Digest> {
+pub struct Signer<D: Digest> {
     signer_index: u64,
     stake: Stake,
     params: Parameters,
@@ -25,7 +25,7 @@ pub struct StmSigner<D: Digest> {
     closed_reg: Option<ClosedKeyRegistration<D>>,
 }
 
-impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
+impl<D: Clone + Digest + FixedOutput> Signer<D> {
     /// Create an StmSigner for given input
     pub fn set_stm_signer(
         signer_index: u64,
@@ -34,7 +34,7 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
         sk: SigningKey,
         vk: StmVerificationKey,
         closed_reg: ClosedKeyRegistration<D>,
-    ) -> StmSigner<D> {
+    ) -> Signer<D> {
         Self {
             signer_index,
             stake,
@@ -52,7 +52,7 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
         params: Parameters,
         sk: SigningKey,
         vk: StmVerificationKey,
-    ) -> StmSigner<D> {
+    ) -> Signer<D> {
         Self {
             signer_index,
             stake,

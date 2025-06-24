@@ -3,7 +3,7 @@
 //! run presented in `tests/integration.rs`, we explicitly treat each party individually.
 use blake2::{digest::consts::U32, Blake2b};
 use mithril_stm::{
-    ClosedKeyRegistration, KeyRegistration, Parameters, Stake, StmClerk, StmInitializer,
+    ClosedKeyRegistration, Initializer, KeyRegistration, Parameters, Stake, StmClerk,
     StmVerificationKeyPoP,
 };
 
@@ -38,10 +38,10 @@ fn main() {
         .collect::<Vec<_>>();
 
     // Each party generates their Stm keys
-    let party_0_init = StmInitializer::setup(params, stakes[0], &mut rng);
-    let party_1_init = StmInitializer::setup(params, stakes[1], &mut rng);
-    let party_2_init = StmInitializer::setup(params, stakes[2], &mut rng);
-    let party_3_init = StmInitializer::setup(params, stakes[3], &mut rng);
+    let party_0_init = Initializer::setup(params, stakes[0], &mut rng);
+    let party_1_init = Initializer::setup(params, stakes[1], &mut rng);
+    let party_2_init = Initializer::setup(params, stakes[2], &mut rng);
+    let party_3_init = Initializer::setup(params, stakes[3], &mut rng);
 
     // The public keys are broadcast. All participants will have the same keys.
     let parties_pks: Vec<StmVerificationKeyPoP> = vec![

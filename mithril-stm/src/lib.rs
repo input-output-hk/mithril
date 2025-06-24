@@ -13,7 +13,7 @@
 //! use rand_core::{RngCore, SeedableRng};
 //! use rayon::prelude::*; // We use par_iter to speed things up
 //!
-//! use mithril_stm::{StmClerk, Parameters, SingleSignature, KeyRegistration, StmInitializer, StmSigner, AggregationError};
+//! use mithril_stm::{StmClerk, Parameters, SingleSignature, KeyRegistration, Initializer, Signer, AggregationError};
 //!
 //! let nparties = 4; // Use a small number of parties for this example
 //! type D = Blake2b<U32>; // Setting the hash function for convenience
@@ -48,12 +48,12 @@
 //! // Create a new key registry from the parties and their stake
 //! let mut key_reg = KeyRegistration::init();
 //!
-//! // For each party, crate a StmInitializer.
+//! // For each party, crate a Initializer.
 //! // This struct can create keys for the party.
-//! let mut ps: Vec<StmInitializer> = Vec::with_capacity(nparties);
+//! let mut ps: Vec<Initializer> = Vec::with_capacity(nparties);
 //! for stake in stakes {
 //!     // Create keys for this party
-//!     let p = StmInitializer::setup(params, stake, &mut rng);
+//!     let p = Initializer::setup(params, stake, &mut rng);
 //!     // Register keys with the KeyReg service
 //!     key_reg
 //!         .register(p.stake, p.verification_key())
@@ -64,12 +64,12 @@
 //! // Close the key registration.
 //! let closed_reg = key_reg.close();
 //!
-//! // Finalize the StmInitializer and turn it into a StmSigner, which can execute the
+//! // Finalize the StmInitializer and turn it into a Signer, which can execute the
 //! // rest of the protocol.
 //! let ps = ps
 //!     .into_par_iter()
 //!     .map(|p| p.new_signer(closed_reg.clone()).unwrap())
-//!     .collect::<Vec<StmSigner<D>>>();
+//!     .collect::<Vec<Signer<D>>>();
 //!
 //! /////////////////////
 //! // operation phase //
@@ -123,7 +123,7 @@ pub use error::{
 };
 pub use key_reg::{ClosedKeyRegistration, KeyRegistration};
 pub use parameters::Parameters;
-pub use participant::{StmInitializer, StmSigner, StmVerificationKey, StmVerificationKeyPoP};
+pub use participant::{Initializer, Signer, StmVerificationKey, StmVerificationKeyPoP};
 pub use single_signature::{SingleSignature, SingleSignatureWithRegisteredParty};
 
 #[cfg(feature = "benchmark-internals")]
@@ -142,5 +142,7 @@ pub type Index = u64;
 pub use key_reg::ClosedKeyRegistration as ClosedKeyReg;
 pub use key_reg::KeyRegistration as KeyReg;
 pub use parameters::Parameters as StmParameters;
+pub use participant::Initializer as StmInitializer;
+pub use participant::Signer as StmSigner;
 pub use single_signature::SingleSignature as StmSig;
 pub use single_signature::SingleSignatureWithRegisteredParty as StmSigRegParty; // Only used within `mithril-stm`

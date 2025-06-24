@@ -1,8 +1,8 @@
 use blake2::digest::{Digest, FixedOutput};
 
 use crate::{
-    AggregationError, ClosedKeyRegistration, CoreVerifier, Index, Parameters, SingleSignature,
-    SingleSignatureWithRegisteredParty, Stake, StmAggrSig, StmAggrVerificationKey, StmSigner,
+    AggregationError, ClosedKeyRegistration, CoreVerifier, Index, Parameters, Signer,
+    SingleSignature, SingleSignatureWithRegisteredParty, Stake, StmAggrSig, StmAggrVerificationKey,
     StmVerificationKey,
 };
 
@@ -25,7 +25,7 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
     }
 
     /// Create a Clerk from a signer.
-    pub fn from_signer(signer: &StmSigner<D>) -> Self {
+    pub fn from_signer(signer: &Signer<D>) -> Self {
         let closed_reg = signer
             .get_closed_reg()
             .clone()

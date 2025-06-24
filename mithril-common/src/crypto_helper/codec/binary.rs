@@ -37,8 +37,8 @@ mod binary_mithril_stm {
 
     use digest::consts::U32;
     use mithril_stm::{
-        Parameters, SingleSignature, SingleSignatureWithRegisteredParty, StmAggrSig,
-        StmAggrVerificationKey, StmInitializer, StmVerificationKey, StmVerificationKeyPoP,
+        Initializer, Parameters, SingleSignature, SingleSignatureWithRegisteredParty, StmAggrSig,
+        StmAggrVerificationKey, StmVerificationKey, StmVerificationKeyPoP,
     };
 
     use super::*;
@@ -135,13 +135,13 @@ mod binary_mithril_stm {
         }
     }
 
-    impl TryToBytes for StmInitializer {
+    impl TryToBytes for Initializer {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
             Ok(self.to_bytes().to_vec())
         }
     }
 
-    impl TryFromBytes for StmInitializer {
+    impl TryFromBytes for Initializer {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
             Self::from_bytes(bytes).map_err(|e| e.into())
         }

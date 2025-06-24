@@ -4,7 +4,7 @@ use blake2::{digest::consts::U32, Blake2b};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
-use mithril_stm::{Parameters, SingleSignature, StmAggrSig, StmInitializer, StmVerificationKey};
+use mithril_stm::{Initializer, Parameters, SingleSignature, StmAggrSig, StmVerificationKey};
 
 use test_extensions::protocol_phase::{
     initialization_phase, operation_phase, InitializationPhaseResult, OperationPhaseResult,
@@ -55,9 +55,9 @@ fn test_binary_conversions() {
 
     let initializer = &initializers[0];
     let encoded = initializer.to_bytes();
-    StmInitializer::from_bytes(&encoded[1..])
+    Initializer::from_bytes(&encoded[1..])
         .expect_err("StmInitializer decoding should fail with invalid bytes");
-    let decoded = StmInitializer::from_bytes(&encoded).unwrap();
+    let decoded = Initializer::from_bytes(&encoded).unwrap();
     assert_eq!(initializer.to_bytes(), decoded.to_bytes());
 
     let OperationPhaseResult { msig, avk: _, sigs } =
