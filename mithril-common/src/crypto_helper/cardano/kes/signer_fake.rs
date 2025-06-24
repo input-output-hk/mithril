@@ -5,8 +5,11 @@ use std::sync::Mutex;
 
 use crate::{
     crypto_helper::{
-        cardano::{create_kes_cryptographic_material, KesSignerStandard},
-        KESPeriod, KesSigner, OpCert,
+        cardano::{
+            create_kes_cryptographic_material, KesCryptographicMaterialForTest,
+            KesPartyIndexForTest, KesSignerStandard,
+        },
+        KesPeriod, KesSigner, OpCert,
     },
     StdResult,
 };
@@ -28,12 +31,15 @@ impl KesSignerFake {
 
     /// Returns a dummy signature result that is always successful.
     pub fn dummy_signature() -> (Sum6KesSig, OpCert) {
-        let (_party_id, operational_certificate_file, kes_secret_key_file) =
-            create_kes_cryptographic_material(
-                1,
-                0 as KESPeriod,
-                "fake_kes_signer_returns_signature_batches_in_expected_order",
-            );
+        let KesCryptographicMaterialForTest {
+            party_id: _,
+            operational_certificate_file,
+            kes_secret_key_file,
+        } = create_kes_cryptographic_material(
+            1 as KesPartyIndexForTest,
+            0 as KesPeriod,
+            "fake_kes_signer_returns_signature_batches_in_expected_order",
+        );
         let message = b"Test message for KES signing";
         let kes_signer = KesSignerStandard::new(kes_secret_key_file, operational_certificate_file);
         let kes_signing_period = 1;
@@ -51,7 +57,7 @@ impl KesSignerFake {
 }
 
 impl KesSigner for KesSignerFake {
-    fn sign(&self, _message: &[u8], _kes_period: KESPeriod) -> KesSignatureResult {
+    fn sign(&self, _message: &[u8], _kes_period: KesPeriod) -> KesSignatureResult {
         let mut results = self.results.lock().unwrap();
 
         results.pop_front().unwrap()
@@ -64,12 +70,15 @@ mod tests {
 
     #[test]
     fn fake_kes_signer_returns_signature_batches_in_expected_order() {
-        let (_party_id, operational_certificate_file, kes_secret_key_file) =
-            create_kes_cryptographic_material(
-                1,
-                0 as KESPeriod,
-                "fake_kes_signer_returns_signature_batches_in_expected_order",
-            );
+        let KesCryptographicMaterialForTest {
+            party_id: _,
+            operational_certificate_file,
+            kes_secret_key_file,
+        } = create_kes_cryptographic_material(
+            1 as KesPartyIndexForTest,
+            0 as KesPeriod,
+            "fake_kes_signer_returns_signature_batches_in_expected_order",
+        );
         let message = b"Test message for KES signing";
         let kes_signer = KesSignerStandard::new(kes_secret_key_file, operational_certificate_file);
         let kes_signing_period = 1;
