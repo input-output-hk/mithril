@@ -20,6 +20,12 @@ impl GetCertificateRecordQuery {
         }
     }
 
+    pub fn all_genesis() -> Self {
+        Self {
+            condition: WhereCondition::new("parent_certificate_id is null", vec![]),
+        }
+    }
+
     pub fn by_certificate_id(certificate_id: &str) -> Self {
         Self {
             condition: WhereCondition::new(
@@ -54,6 +60,9 @@ impl Query for GetCertificateRecordQuery {
 #[cfg(test)]
 mod tests {
     use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
+    use mithril_common::crypto_helper::ProtocolParameters;
+    use mithril_common::test_utils::CertificateChainBuilder;
+
     use mithril_persistence::sqlite::ConnectionExtensions;
 
     use crate::database::test_helper::{insert_certificate_records, main_db_connection};
@@ -109,5 +118,54 @@ mod tests {
             .fetch_collect(GetCertificateRecordQuery::all())
             .unwrap();
         assert_eq!(expected_certificate_records, certificate_records);
+    }
+
+    #[test]
+    fn test_get_all_genesis_certificate_records() {
+        // Two chains with different protocol parameters so generated certificates are different.
+        let (first_certificates_chain, _) = CertificateChainBuilder::new()
+            .with_total_certificates(2)
+            .with_protocol_parameters(ProtocolParameters {
+                m: 90,
+                k: 4,
+                phi_f: 0.65,
+            })
+            .build();
+        let first_chain_genesis: CertificateRecord =
+            first_certificates_chain.last().unwrap().clone().into();
+        let (second_certificates_chain, _) = CertificateChainBuilder::new()
+            .with_total_certificates(2)
+            .with_protocol_parameters(ProtocolParameters {
+                m: 100,
+                k: 5,
+                phi_f: 0.65,
+            })
+            .build();
+        let second_chain_genesis: CertificateRecord =
+            second_certificates_chain.last().unwrap().clone().into();
+        assert_ne!(first_chain_genesis, second_chain_genesis);
+
+        let connection = main_db_connection().unwrap();
+        let certificate_records: Vec<CertificateRecord> = connection
+            .fetch_collect(GetCertificateRecordQuery::all_genesis())
+            .unwrap();
+        assert_eq!(Vec::<CertificateRecord>::new(), certificate_records);
+
+        insert_certificate_records(&connection, first_certificates_chain);
+
+        let certificate_records: Vec<CertificateRecord> = connection
+            .fetch_collect(GetCertificateRecordQuery::all_genesis())
+            .unwrap();
+        assert_eq!(vec![first_chain_genesis.to_owned()], certificate_records);
+
+        insert_certificate_records(&connection, second_certificates_chain);
+
+        let certificate_records: Vec<CertificateRecord> = connection
+            .fetch_collect(GetCertificateRecordQuery::all_genesis())
+            .unwrap();
+        assert_eq!(
+            vec![second_chain_genesis, first_chain_genesis],
+            certificate_records
+        );
     }
 }

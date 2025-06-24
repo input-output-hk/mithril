@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.50
+  version: 0.1.51
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -117,6 +117,27 @@ paths:
                 $ref: "#/components/schemas/CertificateListMessage"
         default:
           description: certificates retrieval error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /certificate/genesis:
+    get:
+      summary: Get latest genesis certificate
+      description: |
+        Returns the latest genesis certificate
+      responses:
+        "200":
+          description: genesis certificate found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CertificateMessage"
+        "404":
+          description: genesis certificate not found
+        default:
+          description: get genesis certificate error
           content:
             application/json:
               schema:
