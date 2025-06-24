@@ -300,7 +300,9 @@ impl KeyRegWrapper {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::crypto_helper::cardano::{create_kes_cryptographic_material, KesSignerStandard};
+    use crate::crypto_helper::cardano::{
+        tests_setup::create_kes_cryptographic_material, KesSignerStandard,
+    };
     use crate::crypto_helper::{OpCert, SerDeShelleyFileFormat};
 
     use rand_chacha::ChaCha20Rng;

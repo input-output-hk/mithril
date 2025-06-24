@@ -7,6 +7,7 @@ use crate::crypto_helper::{cardano::ColdKeyGenerator, OpCert};
 use crate::crypto_helper::{KESPeriod, ProtocolPartyId, SerDeShelleyFileFormat, Sum6KesBytes};
 
 /// Create KES cryptographic material for testing purposes.
+#[allow(dead_code)]
 pub(crate) fn create_kes_cryptographic_material(
     party_idx: u64,
     kes_period: KESPeriod,
