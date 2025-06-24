@@ -76,7 +76,7 @@ jobs:
           compatibility-table: '{ "release-mainnet": "⛔", "release-preprod": "⛔", "pre-release-preview": "✔", "testing-preview": "⛔" }'
 
       - name: Create pre-release ${{ github.ref_name }}
-        uses: softprops/action-gh-release@v2.2.2
+        uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ github.ref_name }}
