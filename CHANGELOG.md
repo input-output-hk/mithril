@@ -19,6 +19,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for stable `v2` backend of `cardano-db` command and decommission of the `cardano-db-v2` command in client CLI.
 
+- Add a new `/certificate/genesis` route to the aggregator that fetches the latest genesis certificate
+
 - Crates versions:
 
 | Crate | Version |
