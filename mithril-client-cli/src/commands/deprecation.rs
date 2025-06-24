@@ -67,7 +67,7 @@ impl Deprecation {
             {
                 let additional_message = deprecated_command
                     .additional_message
-                    .map(|m| format!(" {}", m))
+                    .map(|m| format!(" {m}"))
                     .unwrap_or_default();
                 let message = format!(
                     "'{}{}{}' command is deprecated, use '{}{}{}' command instead{additional_message}",

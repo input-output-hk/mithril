@@ -241,10 +241,7 @@ impl SnapshotConverterCommand {
         tag: &str,
         target_dir: &Path,
     ) -> MithrilResult<PathBuf> {
-        println!(
-            "Downloading Cardano node distribution for tag: '{}'...",
-            tag
-        );
+        println!("Downloading Cardano node distribution for tag: '{tag}'...");
         let release = match tag {
             LATEST_DISTRIBUTION_TAG => github_api_client
                 .get_latest_release(GITHUB_ORGANIZATION, GITHUB_REPOSITORY)
@@ -257,7 +254,7 @@ impl SnapshotConverterCommand {
             _ => github_api_client
                 .get_release_by_tag(GITHUB_ORGANIZATION, GITHUB_REPOSITORY, tag)
                 .await
-                .with_context(|| format!("Failed to get release by tag: {}", tag))?,
+                .with_context(|| format!("Failed to get release by tag: {tag}"))?,
         };
         let asset = release
             .get_asset_for_os(env::consts::OS)?
@@ -288,10 +285,7 @@ impl SnapshotConverterCommand {
         utxo_hd_flavor: &UTxOHDFlavor,
         commit: bool,
     ) -> MithrilResult<()> {
-        println!(
-            "Converting ledger state snapshot to '{}' flavor",
-            utxo_hd_flavor
-        );
+        println!("Converting ledger state snapshot to '{utxo_hd_flavor}' flavor");
         let converter_bin =
             Self::get_snapshot_converter_binary_path(distribution_dir, env::consts::OS)?;
         let config_path =
@@ -467,7 +461,7 @@ impl SnapshotConverterCommand {
 
         file_name_str
             .parse::<u64>()
-            .with_context(|| format!("Invalid slot number in path filename: {}", file_name_str))
+            .with_context(|| format!("Invalid slot number in path filename: {file_name_str}"))
     }
 
     /// Commits the converted snapshot by replacing the current ledger state snapshots in the database directory.

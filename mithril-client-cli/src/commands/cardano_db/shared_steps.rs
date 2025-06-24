@@ -171,7 +171,7 @@ pub fn log_download_information(
             })
         };
 
-        println!("{}", json);
+        println!("{json}");
     } else {
         println!(
             r###"Cardano database snapshot '{}' archives have been successfully unpacked. Immutable files have been successfully verified with Mithril.
