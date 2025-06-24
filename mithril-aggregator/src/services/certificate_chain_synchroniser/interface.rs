@@ -1,0 +1,53 @@
+use async_trait::async_trait;
+
+use mithril_common::StdResult;
+use mithril_common::certificate_chain::CertificateRetriever;
+#[cfg(test)]
+use mithril_common::certificate_chain::CertificateRetrieverError;
+use mithril_common::entities::Certificate;
+
+/// Define how to synchronize the certificate chain with a remote source
+#[cfg_attr(test, mockall::automock)]
+#[async_trait::async_trait]
+pub trait CertificateChainSynchronizer: Send + Sync {
+    /// Synchronize the certificate chain with a remote source
+    ///
+    /// If `force` is true, the chain will always be synchronized, else it will only synchronize
+    /// if the remote source has started a new chain with a new Genesis.
+    async fn synchronize_certificate_chain(&self, force: bool) -> StdResult<()>;
+}
+
+/// Define how to retrieve remote certificate details
+#[async_trait]
+pub trait RemoteCertificateRetriever: CertificateRetriever + Sync + Send {
+    /// Get latest certificate
+    async fn get_latest_certificate_details(&self) -> StdResult<Option<Certificate>>;
+
+    /// Get genesis certificate
+    async fn get_genesis_certificate_details(&self) -> StdResult<Option<Certificate>>;
+}
+
+// Note: we can't use mockall::automock here because RemoteCertificateRetriever have a supertrait
+#[cfg(test)]
+mockall::mock! {
+    pub(crate) RemoteCertificateRetriever {}
+    #[async_trait]
+    impl RemoteCertificateRetriever for RemoteCertificateRetriever {
+        async fn get_latest_certificate_details(&self) -> StdResult<Option<Certificate>>;
+        async fn get_genesis_certificate_details(&self) -> StdResult<Option<Certificate>>;
+    }
+    #[async_trait]
+    impl CertificateRetriever for RemoteCertificateRetriever {
+        async fn get_certificate_details(&self, certificate_hash: &str, ) -> Result<Certificate, CertificateRetrieverError>;
+    }
+}
+
+/// Define how to store the synchronized certificate and retrieve details about the actual local chain
+#[cfg_attr(test, mockall::automock)]
+#[async_trait]
+pub trait SynchronizedCertificateStorer: Send + Sync {
+    /// Insert a Certificate in the database, if it already exists, it will be deleted before inserting
+    async fn insert_or_replace(&self, certificate: &Certificate) -> StdResult<()>;
+    /// Get the latest genesis Certificate
+    async fn get_latest_genesis(&self) -> StdResult<Option<Certificate>>;
+}
