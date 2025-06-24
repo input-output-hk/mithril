@@ -14,12 +14,12 @@ use crate::{
 type KesSignatureResult = StdResult<(Sum6KesSig, OpCert)>;
 
 /// Fake KES Signer implementation.
-pub struct FakeKesSigner {
+pub struct KesSignerFake {
     results: Mutex<VecDeque<KesSignatureResult>>,
 }
 
-impl FakeKesSigner {
-    /// Creates a new `FakeSignatureConsumer` instance.
+impl KesSignerFake {
+    /// Creates a new `KesSignerFake` instance.
     pub fn new(results: Vec<KesSignatureResult>) -> Self {
         Self {
             results: Mutex::new(results.into()),
@@ -50,7 +50,7 @@ impl FakeKesSigner {
     }
 }
 
-impl KesSigner for FakeKesSigner {
+impl KesSigner for KesSignerFake {
     fn sign(&self, _message: &[u8], _kes_period: KESPeriod) -> KesSignatureResult {
         let mut results = self.results.lock().unwrap();
 
@@ -76,7 +76,7 @@ mod tests {
         let (kes_signature, op_cert) = kes_signer
             .sign(message, kes_signing_period)
             .expect("Signing should not fail");
-        let fake_kes_signer = FakeKesSigner::new(vec![
+        let fake_kes_signer = KesSignerFake::new(vec![
             Ok((kes_signature, op_cert.clone())),
             Err(anyhow::anyhow!("Fake error")),
         ]);
