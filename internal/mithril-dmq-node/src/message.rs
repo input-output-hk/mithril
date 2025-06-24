@@ -5,29 +5,42 @@ use blake2::{digest::consts::U64, Blake2b, Digest};
 use pallas_network::miniprotocols::localmsgsubmission::DmqMsg;
 
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
-use mithril_common::StdResult;
+use mithril_common::{
+    crypto_helper::{KesSigner, TryToBytes},
+    StdResult,
+};
 
 /// The TTL (Time To Live) for DMQ messages in blocks.
 const DMQ_MESSAGE_TTL_IN_BLOCKS: u16 = 100;
 
 /// A builder for creating DMQ messages.
 pub struct DmqMessageBuilder {
+    kes_signer: Arc<dyn KesSigner>,
     chain_observer: Arc<dyn ChainObserver>,
     ttl_blocks: u16,
 }
 
 impl DmqMessageBuilder {
     /// Creates a new instance of `DmqMessageBuilder`.
-    pub fn new(chain_observer: Arc<dyn ChainObserver>, ttl_blocks: u16) -> Self {
+    pub fn new(
+        kes_signer: Arc<dyn KesSigner>,
+        chain_observer: Arc<dyn ChainObserver>,
+        ttl_blocks: u16,
+    ) -> Self {
         Self {
+            kes_signer,
             chain_observer,
             ttl_blocks,
         }
     }
 
     /// Creates a new instance of `DmqMessageBuilder` with default TTL.
-    pub fn new_with_default_ttl(chain_observer: Arc<dyn ChainObserver>) -> Self {
+    pub fn new_with_default_ttl(
+        kes_signer: Arc<dyn KesSigner>,
+        chain_observer: Arc<dyn ChainObserver>,
+    ) -> Self {
         Self {
+            kes_signer,
             chain_observer,
             ttl_blocks: DMQ_MESSAGE_TTL_IN_BLOCKS,
         }
@@ -58,15 +71,17 @@ impl DmqMessageBuilder {
         let block_number = (*block_number)
             .try_into()
             .map_err(|_| anyhow!("Failed to convert block number to u32"))?;
-        let kes_signature = vec![]; // TO DO: create a KES signature
-        let operational_certificate = vec![]; // TO DO: create an operational certificate
+        let (kes_signature, operational_certificate) = self
+            .kes_signer
+            .sign(message_bytes, block_number)
+            .with_context(|| "Failed to KES sign message while building DMQ message")?;
         let mut dmq_message = DmqMsg {
             msg_id: vec![],
             msg_body: message_bytes.to_vec(),
             block_number,
             ttl: self.ttl_blocks,
-            kes_signature,
-            operational_certificate,
+            kes_signature: kes_signature.to_bytes_vec()?,
+            operational_certificate: operational_certificate.to_bytes_vec()?,
         };
         dmq_message.msg_id = compute_msg_id(&dmq_message);
 
@@ -78,7 +93,7 @@ impl DmqMessageBuilder {
 mod tests {
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_common::{
-        crypto_helper::TryToBytes,
+        crypto_helper::{FakeKesSigner, TryToBytes},
         entities::{BlockNumber, ChainPoint, TimePoint},
     };
 
@@ -100,6 +115,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_build_dmq_message() {
+        let (kes_signature, operational_certificate) = FakeKesSigner::dummy_signature();
+        let kes_signer = Arc::new(FakeKesSigner::new(vec![Ok((
+            kes_signature,
+            operational_certificate.clone(),
+        ))]));
         let chain_observer = Arc::new(FakeChainObserver::new(Some(TimePoint {
             chain_point: ChainPoint {
                 block_number: BlockNumber(123),
@@ -107,7 +127,7 @@ mod tests {
             },
             ..TimePoint::dummy()
         })));
-        let builder = DmqMessageBuilder::new(chain_observer, 100);
+        let builder = DmqMessageBuilder::new(kes_signer, chain_observer, 100);
         let message = test_utils::TestMessage {
             content: b"test".to_vec(),
         };
@@ -117,21 +137,20 @@ mod tests {
             .await
             .unwrap();
 
+        assert!(!dmq_message.msg_id.is_empty());
         assert_eq!(
             DmqMsg {
-                msg_id: vec![
-                    26, 113, 171, 177, 174, 241, 244, 241, 209, 92, 210, 7, 119, 105, 94, 133, 93,
-                    62, 82, 95, 91, 221, 146, 174, 201, 190, 140, 1, 217, 240, 228, 203, 14, 50,
-                    104, 59, 252, 216, 26, 84, 231, 142, 163, 140, 11, 95, 17, 234, 242, 39, 230,
-                    160, 194, 219, 128, 42, 53, 125, 218, 48, 209, 3, 210, 154
-                ],
-                msg_body: vec![116, 101, 115, 116],
+                msg_id: vec![],
+                msg_body: b"test".to_vec(),
                 block_number: 123,
                 ttl: 100,
-                kes_signature: vec![],
-                operational_certificate: vec![],
+                kes_signature: kes_signature.to_bytes_vec().unwrap(),
+                operational_certificate: operational_certificate.to_bytes_vec().unwrap(),
             },
-            dmq_message
+            DmqMsg {
+                msg_id: vec![],
+                ..dmq_message
+            }
         );
     }
 }

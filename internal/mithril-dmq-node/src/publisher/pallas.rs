@@ -92,7 +92,7 @@ mod tests {
     use tokio::{net::UnixListener, task::JoinHandle};
 
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
-    use mithril_common::{current_function, test_utils::TempDir};
+    use mithril_common::{crypto_helper::FakeKesSigner, current_function, test_utils::TempDir};
 
     use crate::{test::payload::DmqMessageTestPayload, test_tools::TestLogger};
 
@@ -148,7 +148,20 @@ mod tests {
             let publisher = DmqPublisherPallas::new(
                 socket_path,
                 CardanoNetwork::TestNet(0),
-                DmqMessageBuilder::new(Arc::new(FakeChainObserver::default()), 100),
+                DmqMessageBuilder::new(
+                    {
+                        let (kes_signature, operational_certificate) =
+                            FakeKesSigner::dummy_signature();
+                        let kes_signer = FakeKesSigner::new(vec![Ok((
+                            kes_signature,
+                            operational_certificate.clone(),
+                        ))]);
+
+                        Arc::new(kes_signer)
+                    },
+                    Arc::new(FakeChainObserver::default()),
+                    100,
+                ),
                 TestLogger::stdout(),
             );
 
@@ -171,7 +184,20 @@ mod tests {
             let publisher = DmqPublisherPallas::new(
                 socket_path,
                 CardanoNetwork::TestNet(0),
-                DmqMessageBuilder::new(Arc::new(FakeChainObserver::default()), 100),
+                DmqMessageBuilder::new(
+                    {
+                        let (kes_signature, operational_certificate) =
+                            FakeKesSigner::dummy_signature();
+                        let kes_signer = FakeKesSigner::new(vec![Ok((
+                            kes_signature,
+                            operational_certificate.clone(),
+                        ))]);
+
+                        Arc::new(kes_signer)
+                    },
+                    Arc::new(FakeChainObserver::default()),
+                    100,
+                ),
                 TestLogger::stdout(),
             );
 
