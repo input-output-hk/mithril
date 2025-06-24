@@ -296,7 +296,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_certificate_certificate_hash_get_ok_404() {
+    async fn test_certificate_certificate_hash_get_ko_404() {
         let dependency_manager = initialize_dependencies!().await;
 
         let method = Method::GET.as_str();
@@ -355,7 +355,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_certificate_certificate_genesis_increments_certificate_detail_total_served_since_startup_metric(
+    async fn test_certificate_genesis_increments_certificate_detail_total_served_since_startup_metric(
     ) {
         let method = Method::GET.as_str();
         let path = "/certificate/genesis";
@@ -390,7 +390,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_certificate_certificate_genesis_get_ok() {
+    async fn test_certificate_genesis_get_ok() {
         let dependency_manager = initialize_dependencies!().await;
         dependency_manager
             .certificate_repository
@@ -430,7 +430,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_certificate_certificate_genesis_get_ok_404() {
+    async fn test_certificate_genesis_get_ko_404() {
         let dependency_manager = initialize_dependencies!().await;
 
         let method = Method::GET.as_str();
