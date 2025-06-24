@@ -1,13 +1,17 @@
 //! Test data builders for Mithril STM types, for testing purpose.
-use super::{ed25519_alias::genesis::*, types::*, OpCert, SerDeShelleyFileFormat};
+//! use std::{fs, path::PathBuf, sync::Arc};
+use std::{fs, path::PathBuf, sync::Arc};
+
+use rand_chacha::ChaCha20Rng;
+use rand_core::SeedableRng;
+
 use crate::{
+    crypto_helper::{cardano::KesSignerStandard, KesSigner},
     entities::{Certificate, ProtocolMessage, ProtocolMessagePartKey, SignerWithStake, Stake},
     test_utils::{CertificateChainBuilder, SignerFixture, TempDir},
 };
 
-use rand_chacha::ChaCha20Rng;
-use rand_core::SeedableRng;
-use std::{fs, path::PathBuf};
+use super::{ed25519_alias::genesis::*, types::*, OpCert, SerDeShelleyFileFormat};
 
 /// Create or retrieve a temporary directory for storing cryptographic material for a signer, use this for tests only.
 pub fn setup_temp_directory_for_signer(
@@ -59,10 +63,15 @@ fn setup_protocol_initializer(
         .unwrap();
     let mut protocol_initializer_rng = ChaCha20Rng::from_seed(protocol_initializer_seed);
     let kes_period = kes_secret_key_path.as_ref().map(|_| 0);
+    let kes_signer = kes_secret_key_path.map(|kes_secret_key_path| {
+        Arc::new(KesSignerStandard::new(
+            kes_secret_key_path,
+            operational_certificate_path.unwrap(),
+        )) as Arc<dyn KesSigner>
+    });
     let protocol_initializer: ProtocolInitializer = ProtocolInitializer::setup(
         *protocol_parameters,
-        kes_secret_key_path,
-        operational_certificate_path,
+        kes_signer,
         kes_period,
         stake,
         &mut protocol_initializer_rng,

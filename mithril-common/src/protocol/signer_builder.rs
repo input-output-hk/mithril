@@ -1,13 +1,15 @@
+use std::{path::Path, sync::Arc};
+
 use anyhow::Context;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
-use std::path::Path;
 use thiserror::Error;
 
 use crate::{
     crypto_helper::{
-        ProtocolAggregateVerificationKey, ProtocolClerk, ProtocolClosedKeyRegistration,
-        ProtocolInitializer, ProtocolKeyRegistration, ProtocolStakeDistribution,
+        KesSigner, KesSignerStandard, ProtocolAggregateVerificationKey, ProtocolClerk,
+        ProtocolClosedKeyRegistration, ProtocolInitializer, ProtocolKeyRegistration,
+        ProtocolStakeDistribution,
     },
     entities::{PartyId, ProtocolParameters, SignerWithStake},
     protocol::MultiSigner,
@@ -94,10 +96,15 @@ impl SignerBuilder {
         operational_certificate_path: Option<&Path>,
         rng: &mut R,
     ) -> StdResult<(SingleSigner, ProtocolInitializer)> {
+        let kes_signer = kes_secret_key_path.map(|kes_secret_key_path| {
+            Arc::new(KesSignerStandard::new(
+                kes_secret_key_path.to_path_buf(),
+                operational_certificate_path.unwrap().to_path_buf(),
+            )) as Arc<dyn KesSigner>
+        });
         let protocol_initializer = ProtocolInitializer::setup(
             self.protocol_parameters.clone().into(),
-            kes_secret_key_path,
-            operational_certificate_path,
+            kes_signer,
             signer_with_stake.kes_period,
             signer_with_stake.stake,
             rng,

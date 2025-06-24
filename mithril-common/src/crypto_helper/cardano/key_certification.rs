@@ -3,9 +3,25 @@
 //! These wrappers allows keeping mithril-stm agnostic to Cardano, while providing some
 //! guarantees that mithril-stm will not be misused in the context of Cardano.  
 
+use std::{collections::HashMap, sync::Arc};
+
+use blake2::{
+    digest::{consts::U32, FixedOutput},
+    Blake2b, Digest,
+};
+use kes_summed_ed25519::kes::Sum6KesSig;
+use rand_core::{CryptoRng, RngCore};
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
+
+use mithril_stm::{
+    ClosedKeyReg, KeyReg, RegisterError, Stake, StmInitializer, StmParameters, StmSigner,
+    StmVerificationKeyPoP,
+};
+
 use crate::{
     crypto_helper::{
-        cardano::{KesSigner, KesVerifier, KesVerifierStandard, StandardKesSigner},
+        cardano::{KesSigner, KesVerifier, KesVerifierStandard},
         types::{
             ProtocolParameters, ProtocolPartyId, ProtocolSignerVerificationKey,
             ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
@@ -14,23 +30,6 @@ use crate::{
     },
     StdError, StdResult,
 };
-
-use mithril_stm::{
-    ClosedKeyReg, KeyReg, RegisterError, Stake, StmInitializer, StmParameters, StmSigner,
-    StmVerificationKeyPoP,
-};
-
-use anyhow::anyhow;
-use blake2::{
-    digest::{consts::U32, FixedOutput},
-    Blake2b, Digest,
-};
-use kes_summed_ed25519::kes::Sum6KesSig;
-use rand_core::{CryptoRng, RngCore};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::path::Path;
-use thiserror::Error;
 
 // Protocol types alias
 type D = Blake2b<U32>;
@@ -110,42 +109,19 @@ pub struct StmInitializerWrapper {
     kes_signature: Option<Sum6KesSig>,
 }
 
-/// Wrapper structure for [MithrilStm:KeyReg](mithril_stm::key_reg::KeyReg).
-/// The wrapper not only contains a map between `Mithril vkey <-> Stake`, but also
-/// a map `PoolID <-> Stake`. This information is recovered from the node state, and
-/// is used to verify the identity of a Mithril signer. Furthermore, the `register` function
-/// of the wrapper forces the registrar to check that the KES signature over the Mithril key
-/// is valid with respect to the PoolID.
-#[derive(Debug, Clone)]
-pub struct KeyRegWrapper {
-    stm_key_reg: KeyReg,
-    stake_distribution: HashMap<ProtocolPartyId, Stake>,
-}
-
 impl StmInitializerWrapper {
     /// Builds an `StmInitializer` that is ready to register with the key registration service.
     /// This function generates the signing and verification key with a PoP, signs the verification
-    /// key with a provided KES signing key, and initializes the structure.
-    pub fn setup<R: RngCore + CryptoRng, P: AsRef<Path>>(
+    /// key with a provided KES signer implementation, and initializes the structure.
+    pub fn setup<R: RngCore + CryptoRng>(
         params: StmParameters,
-        kes_sk_path: Option<P>,
-        opcert_path: Option<P>,
+        kes_signer: Option<Arc<dyn KesSigner>>,
         kes_period: Option<KESPeriod>,
         stake: Stake,
         rng: &mut R,
     ) -> StdResult<Self> {
         let stm_initializer = StmInitializer::setup(params, stake, rng);
-        let kes_signature = if let Some(kes_sk_path) = kes_sk_path {
-            let kes_signer = StandardKesSigner::new(
-                kes_sk_path.as_ref().to_path_buf(),
-                opcert_path
-                    .as_ref()
-                    .ok_or(ProtocolInitializerErrorWrapper::ProtocolInitializer(
-                        anyhow!("Operational certificate path is required for KES signing"),
-                    ))?
-                    .as_ref()
-                    .to_path_buf(),
-            );
+        let kes_signature = if let Some(kes_signer) = kes_signer {
             let (signature, _op_cert) = kes_signer.sign(
                 &stm_initializer.verification_key().to_bytes(),
                 kes_period.unwrap_or_default(),
@@ -245,11 +221,25 @@ impl StmInitializerWrapper {
     }
 }
 
+/// Wrapper structure for [MithrilStm:KeyReg](mithril_stm::key_reg::KeyReg).
+/// The wrapper not only contains a map between `Mithril vkey <-> Stake`, but also
+/// a map `PoolID <-> Stake`. This information is recovered from the node state, and
+/// is used to verify the identity of a Mithril signer. Furthermore, the `register` function
+/// of the wrapper forces the registrar to check that the KES signature over the Mithril key
+/// is valid with respect to the PoolID.
+#[derive(Debug, Clone)]
+pub struct KeyRegWrapper {
+    kes_verifier: Arc<dyn KesVerifier>,
+    stm_key_reg: KeyReg,
+    stake_distribution: HashMap<ProtocolPartyId, Stake>,
+}
+
 impl KeyRegWrapper {
     /// New Initialisation function. We temporarily keep the other init function,
     /// but we should eventually transition to only use this one.
     pub fn init(stake_dist: &ProtocolStakeDistribution) -> Self {
         Self {
+            kes_verifier: Arc::new(KesVerifierStandard),
             stm_key_reg: KeyReg::init(),
             stake_distribution: HashMap::from_iter(stake_dist.to_vec()),
         }
@@ -270,7 +260,8 @@ impl KeyRegWrapper {
             let signature = kes_sig.ok_or(ProtocolRegistrationErrorWrapper::KesSignatureMissing)?;
             let kes_period =
                 kes_period.ok_or(ProtocolRegistrationErrorWrapper::KesPeriodMissing)?;
-            if KesVerifierStandard
+            if self
+                .kes_verifier
                 .verify(&pk.to_bytes(), &signature, &opcert, kes_period)
                 .is_ok()
             {
@@ -309,7 +300,7 @@ impl KeyRegWrapper {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::crypto_helper::cardano::create_kes_cryptographic_material;
+    use crate::crypto_helper::cardano::{create_kes_cryptographic_material, KesSignerStandard};
     use crate::crypto_helper::{OpCert, SerDeShelleyFileFormat};
 
     use rand_chacha::ChaCha20Rng;
@@ -333,8 +324,10 @@ mod test {
 
         let initializer_1 = StmInitializerWrapper::setup(
             params,
-            Some(kes_secret_key_file_1),
-            Some(operational_certificate_file_1.clone()),
+            Some(Arc::new(KesSignerStandard::new(
+                kes_secret_key_file_1,
+                operational_certificate_file_1.clone(),
+            ))),
             Some(0),
             10,
             &mut rng,
@@ -356,8 +349,10 @@ mod test {
 
         let initializer_2 = StmInitializerWrapper::setup(
             params,
-            Some(kes_secret_key_file_2),
-            Some(operational_certificate_file_2.clone()),
+            Some(Arc::new(KesSignerStandard::new(
+                kes_secret_key_file_2,
+                operational_certificate_file_2.clone(),
+            ))),
             Some(0),
             10,
             &mut rng,
