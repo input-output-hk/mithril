@@ -1,11 +1,12 @@
+use std::sync::Arc;
+
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use hex::ToHex;
 use slog::{info, trace, warn, Logger};
-use std::path::PathBuf;
 use thiserror::Error;
 
-use mithril_common::crypto_helper::{KESPeriod, ProtocolInitializer};
+use mithril_common::crypto_helper::{KESPeriod, KesSigner, ProtocolInitializer};
 use mithril_common::entities::{
     PartyId, ProtocolMessage, ProtocolParameters, SingleSignature, Stake,
 };
@@ -23,15 +24,13 @@ impl MithrilProtocolInitializerBuilder {
     pub fn build(
         stake: &Stake,
         protocol_parameters: &ProtocolParameters,
-        kes_secret_key_path: Option<PathBuf>,
-        operational_certificate_path: Option<PathBuf>,
+        kes_signer: Option<Arc<dyn KesSigner>>,
         kes_period: Option<KESPeriod>,
     ) -> StdResult<ProtocolInitializer> {
         let mut rng = rand_core::OsRng;
         let protocol_initializer = ProtocolInitializer::setup(
             protocol_parameters.to_owned().into(),
-            kes_secret_key_path,
-            operational_certificate_path,
+            kes_signer,
             kes_period,
             stake.to_owned(),
             &mut rng,

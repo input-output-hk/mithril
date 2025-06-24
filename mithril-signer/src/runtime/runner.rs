@@ -1,10 +1,14 @@
+use std::sync::Arc;
+
 use anyhow::Context;
 use async_trait::async_trait;
 use slog::{debug, warn, Logger};
 use thiserror::Error;
 use tokio::sync::RwLockReadGuard;
 
-use mithril_common::crypto_helper::{KESPeriod, OpCert, ProtocolOpCert, SerDeShelleyFileFormat};
+use mithril_common::crypto_helper::{
+    KESPeriod, KesSigner, KesSignerStandard, OpCert, ProtocolOpCert, SerDeShelleyFileFormat,
+};
 use mithril_common::entities::{
     Epoch, PartyId, ProtocolMessage, SignedEntityType, Signer, TimePoint,
 };
@@ -182,11 +186,24 @@ impl Runner for SignerRunner {
             ),
             None => None,
         };
+        let kes_signer = if let Some(kes_secret_key_path) = &self.config.kes_secret_key_path {
+            let operational_certificate_path = self
+                .config
+                .operational_certificate_path
+                .as_ref()
+                .ok_or_else(|| RunnerError::FileParse("operational_certificate_path".to_string()))?
+                .to_path_buf();
+            Some(Arc::new(KesSignerStandard::new(
+                kes_secret_key_path.to_owned(),
+                operational_certificate_path,
+            )) as Arc<dyn KesSigner>)
+        } else {
+            None
+        };
         let protocol_initializer = MithrilProtocolInitializerBuilder::build(
             stake,
             &protocol_parameters,
-            self.config.kes_secret_key_path.clone(),
-            self.config.operational_certificate_path.clone(),
+            kes_signer,
             kes_period,
         )?;
         let signer = Signer::new(
