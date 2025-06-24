@@ -153,7 +153,6 @@ impl Signature {
     }
 
     /// Batch verify several sets of signatures with their corresponding verification keys.
-    #[cfg(feature = "batch-verify-aggregates")]
     pub fn batch_verify_aggregates(
         msgs: &[Vec<u8>],
         vks: &[VerificationKey],

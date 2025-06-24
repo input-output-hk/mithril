@@ -102,12 +102,12 @@ mod tests {
             let mut kr = KeyReg::init();
 
             let gen_keys = (1..nkeys).map(|_| {
-                let sk = SigningKey::gen(&mut rng);
+                let sk = SigningKey::generate(&mut rng);
                 VerificationKeyPoP::from(&sk)
             }).collect::<Vec<_>>();
 
             let fake_key = {
-                let sk = SigningKey::gen(&mut rng);
+                let sk = SigningKey::generate(&mut rng);
                 VerificationKeyPoP::from(&sk)
             };
 

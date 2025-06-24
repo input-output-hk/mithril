@@ -20,7 +20,7 @@ fn batch_benches(c: &mut Criterion, array_batches: &[usize], nr_sigs: usize) {
             let mut mvks = Vec::new();
             let mut sigs = Vec::new();
             for _ in 0..nr_sigs {
-                let sk = SigningKey::gen(&mut rng);
+                let sk = SigningKey::generate(&mut rng);
                 let vk = VerificationKey::from(&sk);
                 let sig = sk.sign(&msg);
                 sigs.push(sig);
@@ -49,7 +49,7 @@ fn aggregate_and_verify(c: &mut Criterion, nr_sigs: usize) {
     let mut mvks = Vec::new();
     let mut sigs = Vec::new();
     for _ in 0..nr_sigs {
-        let sk = SigningKey::gen(&mut rng);
+        let sk = SigningKey::generate(&mut rng);
         let vk = VerificationKey::from(&sk);
         let sig = sk.sign(&msg);
         sigs.push(sig);
