@@ -41,15 +41,15 @@ impl GitHubRelease {
         GitHubRelease {
             assets: vec![
                 GitHubAsset {
-                    name: format!("asset-name-{}.tar.gz", ASSET_PLATFORM_LINUX),
+                    name: format!("asset-name-{ASSET_PLATFORM_LINUX}.tar.gz"),
                     browser_download_url: "https://release-assets.com/linux".to_string(),
                 },
                 GitHubAsset {
-                    name: format!("asset-name-{}.tar.gz", ASSET_PLATFORM_MACOS),
+                    name: format!("asset-name-{ASSET_PLATFORM_MACOS}.tar.gz"),
                     browser_download_url: "https://release-assets.com/macos".to_string(),
                 },
                 GitHubAsset {
-                    name: format!("asset-name-{}.zip", ASSET_PLATFORM_WINDOWS),
+                    name: format!("asset-name-{ASSET_PLATFORM_WINDOWS}.zip"),
                     browser_download_url: "https://release-assets.com/windows".to_string(),
                 },
             ],
@@ -65,8 +65,8 @@ mod tests {
 
     fn dummy_asset(os: &str) -> GitHubAsset {
         GitHubAsset {
-            name: format!("asset-name-{}.whatever", os),
-            browser_download_url: format!("https://release-assets.com/{}", os),
+            name: format!("asset-name-{os}.whatever"),
+            browser_download_url: format!("https://release-assets.com/{os}"),
         }
     }
 

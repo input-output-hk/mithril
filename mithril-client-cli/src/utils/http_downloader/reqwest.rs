@@ -41,7 +41,7 @@ impl HttpDownloader for ReqwestHttpDownloader {
             .get(url.clone())
             .send()
             .await
-            .with_context(|| format!("Failed to download file from URL: {}", url))?;
+            .with_context(|| format!("Failed to download file from URL: {url}"))?;
 
         let bytes = response.bytes().await?;
         let download_filepath = download_dir.join(filename);

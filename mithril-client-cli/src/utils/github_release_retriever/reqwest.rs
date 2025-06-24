@@ -36,7 +36,7 @@ impl ReqwestGitHubApiClient {
         let response = request
             .send()
             .await
-            .with_context(|| format!("Failed to send request to GitHub API: {}", url))?;
+            .with_context(|| format!("Failed to send request to GitHub API: {url}"))?;
         match response.status() {
             reqwest::StatusCode::OK => {}
             status => {
@@ -49,7 +49,7 @@ impl ReqwestGitHubApiClient {
         }
         let body = response.text().await?;
         let parsed_body = serde_json::from_str::<T>(&body)
-            .with_context(|| format!("Failed to parse response from GitHub API: {:?}", body))?;
+            .with_context(|| format!("Failed to parse response from GitHub API: {body:?}"))?;
 
         Ok(parsed_body)
     }

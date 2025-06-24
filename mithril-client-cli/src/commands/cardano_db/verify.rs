@@ -165,7 +165,7 @@ impl CardanoDbVerifyCommand {
                 "timestamp": Utc::now().to_rfc3339(),
                 "verified_db_directory": canonical_filepath
             });
-            println!("{}", json);
+            println!("{json}");
         } else {
             println!("Cardano database snapshot '{snapshot_hash}' archives have been successfully verified. Immutable files have been successfully verified with Mithril.");
         }
