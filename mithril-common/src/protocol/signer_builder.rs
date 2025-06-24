@@ -31,6 +31,10 @@ pub enum SignerBuilderError {
     /// Error raised when the list of signers given to the builder is empty
     #[error("The list of signers must not be empty to create a signer builder.")]
     EmptySigners,
+
+    /// Error raised when the operational certificate file is not found
+    #[error("The operational certificate file is not found.")]
+    OperationalCertificateFileNotFound,
 }
 
 impl SignerBuilder {
@@ -96,12 +100,17 @@ impl SignerBuilder {
         operational_certificate_path: Option<&Path>,
         rng: &mut R,
     ) -> StdResult<(SingleSigner, ProtocolInitializer)> {
-        let kes_signer = kes_secret_key_path.map(|kes_secret_key_path| {
-            Arc::new(KesSignerStandard::new(
-                kes_secret_key_path.to_path_buf(),
-                operational_certificate_path.unwrap().to_path_buf(),
-            )) as Arc<dyn KesSigner>
-        });
+        let kes_signer = if let Some(kes_secret_key_path) = &kes_secret_key_path {
+            let operational_certificate_path = operational_certificate_path
+                .ok_or(SignerBuilderError::OperationalCertificateFileNotFound)?
+                .to_path_buf();
+            Some(Arc::new(KesSignerStandard::new(
+                kes_secret_key_path.to_owned().to_path_buf(),
+                operational_certificate_path,
+            )) as Arc<dyn KesSigner>)
+        } else {
+            None
+        };
         let protocol_initializer = ProtocolInitializer::setup(
             self.protocol_parameters.clone().into(),
             kes_signer,

@@ -66,7 +66,9 @@ fn setup_protocol_initializer(
     let kes_signer = kes_secret_key_path.map(|kes_secret_key_path| {
         Arc::new(KesSignerStandard::new(
             kes_secret_key_path,
-            operational_certificate_path.unwrap(),
+            operational_certificate_path.expect(
+                "Operational certificate path must be provided when a KES secret key exists",
+            ),
         )) as Arc<dyn KesSigner>
     });
     let protocol_initializer: ProtocolInitializer = ProtocolInitializer::setup(
