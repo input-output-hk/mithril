@@ -449,7 +449,6 @@ mod tests {
             &fake_data::protocol_parameters(),
             None,
             None,
-            None,
         )
         .unwrap();
         let connection = Arc::new(main_db_connection().unwrap());
