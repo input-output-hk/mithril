@@ -19,7 +19,7 @@ mod tests {
         test_runner::{RngAlgorithm::ChaCha, TestRng},
     };
     use rand_chacha::ChaCha20Rng;
-    use rand_core::SeedableRng;
+    use rand_core::{RngCore, SeedableRng};
 
     use crate::bls_multi_signature::VerificationKey;
     use crate::merkle_tree::BatchPath;
@@ -39,7 +39,7 @@ mod tests {
     fn setup_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmSigner<D>> {
         let mut kr = KeyReg::init();
         let mut trng = TestRng::deterministic_rng(ChaCha);
-        let mut rng = ChaCha20Rng::from_seed(trng.gen());
+        let mut rng = ChaCha20Rng::from_seed(trng.random());
 
         #[allow(clippy::needless_collect)]
         let ps = stake
@@ -495,7 +495,7 @@ mod tests {
         stake: Vec<Stake>,
     ) -> (Vec<StmInitializer>, Vec<(VerificationKey, Stake)>) {
         let mut trng = TestRng::deterministic_rng(ChaCha);
-        let mut rng = ChaCha20Rng::from_seed(trng.gen());
+        let mut rng = ChaCha20Rng::from_seed(trng.random());
 
         let ps = stake
             .into_iter()
