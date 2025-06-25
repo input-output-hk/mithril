@@ -19,7 +19,7 @@ mod tests {
         test_runner::{RngAlgorithm::ChaCha, TestRng},
     };
     use rand_chacha::ChaCha20Rng;
-    use rand_core::SeedableRng;
+    use rand_core::{RngCore, SeedableRng};
 
     use crate::bls_multi_signature::VerificationKey;
     use crate::merkle_tree::BatchPath;
