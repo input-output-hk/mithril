@@ -161,7 +161,7 @@ impl CardanoStakeDistributionDownloadCommand {
         client: &Client,
         unique_identifier: &str,
     ) -> MithrilResult<CardanoStakeDistribution> {
-        let cardano_stake_distribution = if Self::is_sha256_hash(unique_identifier) {
+        if Self::is_sha256_hash(unique_identifier) {
             client
                 .cardano_stake_distribution()
                 .get(unique_identifier)
@@ -212,9 +212,7 @@ impl CardanoStakeDistributionDownloadCommand {
                     "No Cardano stake distribution could be found for epoch: '{}'",
                     epoch
                 ))
-        };
-
-        cardano_stake_distribution
+        }
     }
 }
 
