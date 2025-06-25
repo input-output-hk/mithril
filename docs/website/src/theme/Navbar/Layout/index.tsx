@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import clsx from "clsx";
 import { useThemeConfig } from "@docusaurus/theme-common";
 import {
@@ -9,7 +9,7 @@ import { translate } from "@docusaurus/Translate";
 import NavbarMobileSidebar from "@theme/Navbar/MobileSidebar";
 import styles from "./styles.module.css";
 
-import { useScroll, motion, useTransform } from "framer-motion";
+import { useScroll, motion, useTransform, MotionValue } from "framer-motion";
 import { useIsLandingPage } from "../../../hooks/useIsLandingPage";
 
 function NavbarBackdrop(props) {
@@ -22,23 +22,30 @@ function NavbarBackdrop(props) {
   );
 }
 export default function NavbarLayout({ children }) {
-  const { scrollY } = useScroll();
-  const y = useTransform(
-    scrollY,
-    [0, 70],
-    ["rgba(255, 255, 255, 0)", "rgba(255, 255, 255, 0.96)"],
-  );
   const isLandingPage = useIsLandingPage();
   const {
     navbar: { hideOnScroll },
   } = useThemeConfig();
   const mobileSidebar = useNavbarMobileSidebar();
   const { navbarRef, isNavbarVisible } = useHideableNavbar(hideOnScroll);
+
+  const { scrollY } = useScroll();
+  const y = useTransform(
+    scrollY,
+    [0, 70],
+    ["rgba(255, 255, 255, 0)", "rgba(255, 255, 255, 0.96)"],
+  );
+
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
   return (
     <motion.header
       //@ts-ignore
       style={
-        isLandingPage && {
+        isLandingPage &&
+        isMounted && {
           backgroundColor: y,
         }
       }
