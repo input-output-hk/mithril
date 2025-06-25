@@ -1,5 +1,4 @@
 //! Test data builders for Mithril STM types, for testing purpose.
-//! use std::{fs, path::PathBuf, sync::Arc};
 use std::{fs, path::PathBuf, sync::Arc};
 
 use rand_chacha::ChaCha20Rng;

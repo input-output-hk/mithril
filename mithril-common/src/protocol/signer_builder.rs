@@ -1,4 +1,4 @@
-use std::{path::Path, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::Context;
 use rand_chacha::ChaCha20Rng;
@@ -7,9 +7,8 @@ use thiserror::Error;
 
 use crate::{
     crypto_helper::{
-        KesSigner, KesSignerStandard, ProtocolAggregateVerificationKey, ProtocolClerk,
-        ProtocolClosedKeyRegistration, ProtocolInitializer, ProtocolKeyRegistration,
-        ProtocolStakeDistribution,
+        KesSigner, ProtocolAggregateVerificationKey, ProtocolClerk, ProtocolClosedKeyRegistration,
+        ProtocolInitializer, ProtocolKeyRegistration, ProtocolStakeDistribution,
     },
     entities::{PartyId, ProtocolParameters, SignerWithStake},
     protocol::MultiSigner,
@@ -32,9 +31,9 @@ pub enum SignerBuilderError {
     #[error("The list of signers must not be empty to create a signer builder.")]
     EmptySigners,
 
-    /// Error raised when the operational certificate file is not found
-    #[error("The operational certificate file is not found.")]
-    OperationalCertificateFileNotFound,
+    /// Error raised when the secret key file or the operational certificate file is not found
+    #[error("The secret key file or the operational certificate file is not found.")]
+    FileNotFound,
 }
 
 impl SignerBuilder {
@@ -96,21 +95,9 @@ impl SignerBuilder {
     fn build_single_signer_with_rng<R: RngCore + CryptoRng>(
         &self,
         signer_with_stake: SignerWithStake,
-        kes_secret_key_path: Option<&Path>,
-        operational_certificate_path: Option<&Path>,
+        kes_signer: Option<Arc<dyn KesSigner>>,
         rng: &mut R,
     ) -> StdResult<(SingleSigner, ProtocolInitializer)> {
-        let kes_signer = if let Some(kes_secret_key_path) = &kes_secret_key_path {
-            let operational_certificate_path = operational_certificate_path
-                .ok_or(SignerBuilderError::OperationalCertificateFileNotFound)?
-                .to_path_buf();
-            Some(Arc::new(KesSignerStandard::new(
-                kes_secret_key_path.to_owned().to_path_buf(),
-                operational_certificate_path,
-            )) as Arc<dyn KesSigner>)
-        } else {
-            None
-        };
         let protocol_initializer = ProtocolInitializer::setup(
             self.protocol_parameters.clone().into(),
             kes_signer,
@@ -141,29 +128,13 @@ impl SignerBuilder {
         ))
     }
 
-    /// Build non deterministic [SingleSigner] and [ProtocolInitializer] based on the registered parties.
-    pub fn build_single_signer(
-        &self,
-        signer_with_stake: SignerWithStake,
-        kes_secret_key_path: Option<&Path>,
-        operational_certificate_path: Option<&Path>,
-    ) -> StdResult<(SingleSigner, ProtocolInitializer)> {
-        self.build_single_signer_with_rng(
-            signer_with_stake,
-            kes_secret_key_path,
-            operational_certificate_path,
-            &mut rand_core::OsRng,
-        )
-    }
-
     /// Build deterministic [SingleSigner] and [ProtocolInitializer] based on the registered parties.
     ///
     /// Use for **TEST ONLY**.
     pub fn build_test_single_signer(
         &self,
         signer_with_stake: SignerWithStake,
-        kes_secret_key_path: Option<&Path>,
-        operational_certificate_path: Option<&Path>,
+        kes_signer: Option<Arc<dyn KesSigner>>,
     ) -> StdResult<(SingleSigner, ProtocolInitializer)> {
         let protocol_initializer_seed: [u8; 32] = signer_with_stake.party_id.as_bytes()[..32]
             .try_into()
@@ -171,8 +142,7 @@ impl SignerBuilder {
 
         self.build_single_signer_with_rng(
             signer_with_stake,
-            kes_secret_key_path,
-            operational_certificate_path,
+            kes_signer,
             &mut ChaCha20Rng::from_seed(protocol_initializer_seed),
         )
     }
@@ -208,7 +178,7 @@ mod test {
     use mithril_stm::RegisterError;
 
     use crate::{
-        crypto_helper::ProtocolRegistrationErrorWrapper,
+        crypto_helper::{KesSignerStandard, ProtocolRegistrationErrorWrapper},
         test_utils::{fake_data, MithrilFixtureBuilder},
     };
 
@@ -277,17 +247,23 @@ mod test {
             .build()
             .signers_fixture();
         let non_registered_signer = signers_from_another_fixture.first().unwrap();
+        let kes_signer = Some(Arc::new(KesSignerStandard::new(
+            non_registered_signer
+                .kes_secret_key_path()
+                .unwrap()
+                .to_path_buf(),
+            non_registered_signer
+                .operational_certificate_path()
+                .unwrap()
+                .to_path_buf(),
+        )) as Arc<dyn KesSigner>);
 
         let error = SignerBuilder::new(
             &fixture.signers_with_stake(),
             &fixture.protocol_parameters(),
         )
         .unwrap()
-        .build_test_single_signer(
-            non_registered_signer.signer_with_stake.clone(),
-            non_registered_signer.kes_secret_key_path(),
-            non_registered_signer.operational_certificate_path(),
-        )
+        .build_test_single_signer(non_registered_signer.signer_with_stake.clone(), kes_signer)
         .expect_err(
             "We should not be able to construct a single signer from a not registered party",
         );
@@ -307,6 +283,10 @@ mod test {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
         let signers = fixture.signers_fixture();
         let signer = signers.first().unwrap();
+        let kes_signer = Some(Arc::new(KesSignerStandard::new(
+            signer.kes_secret_key_path().unwrap().to_path_buf(),
+            signer.operational_certificate_path().unwrap().to_path_buf(),
+        )) as Arc<dyn KesSigner>);
 
         let builder = SignerBuilder::new(
             &fixture.signers_with_stake(),
@@ -315,11 +295,7 @@ mod test {
         .unwrap();
 
         builder
-            .build_test_single_signer(
-                signer.signer_with_stake.clone(),
-                signer.kes_secret_key_path(),
-                signer.operational_certificate_path(),
-            )
+            .build_test_single_signer(signer.signer_with_stake.clone(), kes_signer)
             .expect("Should be able to build test single signer for a registered party");
     }
 
@@ -328,6 +304,10 @@ mod test {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
         let signers = fixture.signers_fixture();
         let signer = signers.first().unwrap();
+        let kes_signer = Some(Arc::new(KesSignerStandard::new(
+            signer.kes_secret_key_path().unwrap().to_path_buf(),
+            signer.operational_certificate_path().unwrap().to_path_buf(),
+        )) as Arc<dyn KesSigner>);
 
         let first_builder = SignerBuilder::new(
             &fixture.signers_with_stake(),
@@ -336,11 +316,7 @@ mod test {
         .unwrap();
 
         let (_, initializer) = first_builder
-            .build_test_single_signer(
-                signer.signer_with_stake.clone(),
-                signer.kes_secret_key_path(),
-                signer.operational_certificate_path(),
-            )
+            .build_test_single_signer(signer.signer_with_stake.clone(), kes_signer)
             .unwrap();
 
         let second_builder = SignerBuilder::new(
