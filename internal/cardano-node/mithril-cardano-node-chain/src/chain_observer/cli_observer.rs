@@ -9,7 +9,7 @@ use std::fs;
 use std::path::PathBuf;
 use tokio::process::Command;
 
-use mithril_common::crypto_helper::{encode_bech32, KESPeriod, OpCert, SerDeShelleyFileFormat};
+use mithril_common::crypto_helper::{encode_bech32, KesPeriod, OpCert, SerDeShelleyFileFormat};
 use mithril_common::entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, StakeDistribution};
 use mithril_common::{CardanoNetwork, StdResult};
 
@@ -543,7 +543,7 @@ impl ChainObserver for CardanoCliChainObserver {
     async fn get_current_kes_period(
         &self,
         opcert: &OpCert,
-    ) -> Result<Option<KESPeriod>, ChainObserverError> {
+    ) -> Result<Option<KesPeriod>, ChainObserverError> {
         let dir = std::env::temp_dir().join("mithril_kes_period");
         fs::create_dir_all(&dir).map_err(|e| ChainObserverError::General(e.into()))?;
         let opcert_file = dir.join(format!("opcert_kes_period-{}", opcert.compute_hash()));
@@ -562,7 +562,7 @@ impl ChainObserver for CardanoCliChainObserver {
             .map_err(ChainObserverError::InvalidContent)?;
 
         if let Value::Number(kes_period) = &v["qKesCurrentKesPeriod"] {
-            Ok(kes_period.as_u64().map(|p| p as KESPeriod))
+            Ok(kes_period.as_u64().map(|p| p as KesPeriod))
         } else {
             Ok(None)
         }

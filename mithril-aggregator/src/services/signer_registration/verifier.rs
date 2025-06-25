@@ -5,7 +5,7 @@ use async_trait::async_trait;
 
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_common::{
-    crypto_helper::{KESPeriod, ProtocolKeyRegistration},
+    crypto_helper::{KesPeriod, ProtocolKeyRegistration},
     entities::{Signer, SignerWithStake, StakeDistribution},
     StdResult,
 };
@@ -48,7 +48,7 @@ impl SignerRegistrationVerifier for MithrilSignerRegistrationVerifier {
                     .get_current_kes_period(operational_certificate)
                     .await?
                     .unwrap_or_default()
-                    - operational_certificate.start_kes_period as KESPeriod,
+                    - operational_certificate.start_kes_period as KesPeriod,
             ),
             None => None,
         };

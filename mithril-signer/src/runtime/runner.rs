@@ -1,10 +1,14 @@
+use std::sync::Arc;
+
 use anyhow::Context;
 use async_trait::async_trait;
 use slog::{debug, warn, Logger};
 use thiserror::Error;
 use tokio::sync::RwLockReadGuard;
 
-use mithril_common::crypto_helper::{KESPeriod, OpCert, ProtocolOpCert, SerDeShelleyFileFormat};
+use mithril_common::crypto_helper::{
+    KesPeriod, KesSigner, KesSignerStandard, OpCert, ProtocolOpCert, SerDeShelleyFileFormat,
+};
 use mithril_common::entities::{
     Epoch, PartyId, ProtocolMessage, SignedEntityType, Signer, TimePoint,
 };
@@ -178,14 +182,32 @@ impl Runner for SignerRunner {
                     .get_current_kes_period(&operational_certificate)
                     .await?
                     .unwrap_or_default()
-                    - operational_certificate.start_kes_period as KESPeriod,
+                    - operational_certificate.start_kes_period as KesPeriod,
             ),
             None => None,
+        };
+        let kes_signer = match (
+            &self.config.kes_secret_key_path,
+            &self.config.operational_certificate_path,
+        ) {
+            (Some(kes_secret_key_path), Some(operational_certificate_path)) => {
+                Some(Arc::new(KesSignerStandard::new(
+                    kes_secret_key_path.clone(),
+                    operational_certificate_path.clone(),
+                )) as Arc<dyn KesSigner>)
+            }
+            (Some(_), None) | (None, Some(_)) => {
+                return Err(RunnerError::NoValueError(
+                    "kes_secret_key and operational_certificate are both mandatory".to_string(),
+                )
+                .into())
+            }
+            _ => None,
         };
         let protocol_initializer = MithrilProtocolInitializerBuilder::build(
             stake,
             &protocol_parameters,
-            self.config.kes_secret_key_path.clone(),
+            kes_signer,
             kes_period,
         )?;
         let signer = Signer::new(

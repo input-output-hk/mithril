@@ -15,8 +15,7 @@ use crate::{
     },
     entities::{
         Certificate, Epoch, HexEncodedAggregateVerificationKey, PartyId, ProtocolParameters,
-        Signer, SignerWithStake, SingleSignature, Stake, StakeDistribution,
-        StakeDistributionParty,
+        Signer, SignerWithStake, SingleSignature, Stake, StakeDistribution, StakeDistributionParty,
     },
     protocol::{SignerBuilder, ToMessage},
     StdResult,
@@ -45,6 +44,8 @@ pub struct SignerFixture {
     pub protocol_closed_key_registration: ProtocolClosedKeyRegistration,
     /// The path to this signer kes secret key file
     pub kes_secret_key_path: Option<PathBuf>,
+    /// The path to this signer operational certificate file
+    pub operational_certificate_path: Option<PathBuf>,
 }
 
 impl SignerFixture {
@@ -296,5 +297,10 @@ impl SignerFixture {
     /// Get the path to this signer kes secret key
     pub fn kes_secret_key_path(&self) -> Option<&Path> {
         self.kes_secret_key_path.as_deref()
+    }
+
+    /// Get the path to this signer operational certificate
+    pub fn operational_certificate_path(&self) -> Option<&Path> {
+        self.operational_certificate_path.as_deref()
     }
 }

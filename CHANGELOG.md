@@ -21,6 +21,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Add a new `/certificate/genesis` route to the aggregator that fetches the latest genesis certificate
 
+- Abstracted the implementation of KES signature and verification to allow multiple and reusable implementations.
+
 - Crates versions:
 
 | Crate | Version |

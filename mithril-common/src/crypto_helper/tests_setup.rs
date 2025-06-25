@@ -1,13 +1,16 @@
 //! Test data builders for Mithril STM types, for testing purpose.
-use super::{ed25519_alias::genesis::*, types::*, OpCert, SerDeShelleyFileFormat};
+use std::{fs, path::PathBuf, sync::Arc};
+
+use rand_chacha::ChaCha20Rng;
+use rand_core::SeedableRng;
+
 use crate::{
+    crypto_helper::{cardano::KesSignerStandard, KesSigner},
     entities::{Certificate, ProtocolMessage, ProtocolMessagePartKey, SignerWithStake, Stake},
     test_utils::{CertificateChainBuilder, SignerFixture, TempDir},
 };
 
-use rand_chacha::ChaCha20Rng;
-use rand_core::SeedableRng;
-use std::{fs, path::PathBuf};
+use super::{ed25519_alias::genesis::*, types::*, OpCert, SerDeShelleyFileFormat};
 
 /// Create or retrieve a temporary directory for storing cryptographic material for a signer, use this for tests only.
 pub fn setup_temp_directory_for_signer(
@@ -50,6 +53,7 @@ pub fn setup_protocol_parameters() -> ProtocolParameters {
 fn setup_protocol_initializer(
     party_id: &str,
     kes_secret_key_path: Option<PathBuf>,
+    operational_certificate_path: Option<PathBuf>,
     stake: Stake,
     protocol_parameters: &ProtocolParameters,
 ) -> ProtocolInitializer {
@@ -58,9 +62,17 @@ fn setup_protocol_initializer(
         .unwrap();
     let mut protocol_initializer_rng = ChaCha20Rng::from_seed(protocol_initializer_seed);
     let kes_period = kes_secret_key_path.as_ref().map(|_| 0);
+    let kes_signer = kes_secret_key_path.map(|kes_secret_key_path| {
+        Arc::new(KesSignerStandard::new(
+            kes_secret_key_path,
+            operational_certificate_path.expect(
+                "Operational certificate path must be provided when a KES secret key exists",
+            ),
+        )) as Arc<dyn KesSigner>
+    });
     let protocol_initializer: ProtocolInitializer = ProtocolInitializer::setup(
         *protocol_parameters,
-        kes_secret_key_path,
+        kes_signer,
         kes_period,
         stake,
         &mut protocol_initializer_rng,
@@ -103,15 +115,22 @@ pub fn setup_signers_from_stake_distribution(
     protocol_parameters: &ProtocolParameters,
 ) -> Vec<SignerFixture> {
     let mut key_registration = ProtocolKeyRegistration::init(stake_distribution);
-    let mut signers: Vec<(SignerWithStake, ProtocolInitializer, Option<PathBuf>)> = vec![];
+    let mut signers: Vec<(
+        SignerWithStake,
+        ProtocolInitializer,
+        Option<PathBuf>,
+        Option<PathBuf>,
+    )> = vec![];
 
     for (party_id, stake) in stake_distribution {
         let kes_period = 0;
         let temp_dir = setup_temp_directory_for_signer(party_id, false);
         let kes_secret_key_path: Option<PathBuf> = temp_dir.as_ref().map(|dir| dir.join("kes.sk"));
+        let operational_certificate_path = temp_dir.as_ref().map(|dir| dir.join("opcert.cert"));
         let protocol_initializer = setup_protocol_initializer(
             party_id,
             kes_secret_key_path.clone(),
+            operational_certificate_path.clone(),
             *stake,
             protocol_parameters,
         );
@@ -134,7 +153,12 @@ pub fn setup_signers_from_stake_distribution(
             )
             .expect("key registration should have succeeded");
 
-        signers.push((signer_with_stake, protocol_initializer, kes_secret_key_path));
+        signers.push((
+            signer_with_stake,
+            protocol_initializer,
+            kes_secret_key_path,
+            operational_certificate_path,
+        ));
     }
 
     let closed_key_registration = key_registration.close();
@@ -142,7 +166,12 @@ pub fn setup_signers_from_stake_distribution(
     signers
         .into_iter()
         .map(
-            |(signer_with_stake, protocol_initializer, kes_secret_key_path)| {
+            |(
+                signer_with_stake,
+                protocol_initializer,
+                kes_secret_key_path,
+                operational_certificate_path,
+            )| {
                 let protocol_closed_key_registration = closed_key_registration.clone();
                 let protocol_signer = protocol_initializer
                     .clone()
@@ -155,6 +184,7 @@ pub fn setup_signers_from_stake_distribution(
                     protocol_initializer,
                     protocol_closed_key_registration,
                     kes_secret_key_path,
+                    operational_certificate_path,
                 }
             },
         )

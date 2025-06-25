@@ -1,6 +1,6 @@
 use crate::{
     crypto_helper::{
-        KESPeriod, ProtocolOpCert, ProtocolSignerVerificationKey,
+        KesPeriod, ProtocolOpCert, ProtocolSignerVerificationKey,
         ProtocolSignerVerificationKeySignature,
     },
     entities::{PartyId, Stake},
@@ -36,7 +36,7 @@ pub struct Signer {
     /// The kes period used to compute the verification key signature
     // TODO: This kes period should not be used as is and should probably be within an allowed range of kes period for the epoch
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub kes_period: Option<KESPeriod>,
+    pub kes_period: Option<KesPeriod>,
 }
 
 impl PartialEq for Signer {
@@ -64,7 +64,7 @@ impl Signer {
         verification_key: ProtocolSignerVerificationKey,
         verification_key_signature: Option<ProtocolSignerVerificationKeySignature>,
         operational_certificate: Option<ProtocolOpCert>,
-        kes_period: Option<KESPeriod>,
+        kes_period: Option<KesPeriod>,
     ) -> Signer {
         Signer {
             party_id,
@@ -161,7 +161,7 @@ pub struct SignerWithStake {
     /// The kes period used to compute the verification key signature
     // TODO: This kes period should not be used as is and should probably be within an allowed range of kes period for the epoch
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub kes_period: Option<KESPeriod>,
+    pub kes_period: Option<KesPeriod>,
 
     /// The signer stake
     pub stake: Stake,
@@ -192,7 +192,7 @@ impl SignerWithStake {
         verification_key: ProtocolSignerVerificationKey,
         verification_key_signature: Option<ProtocolSignerVerificationKeySignature>,
         operational_certificate: Option<ProtocolOpCert>,
-        kes_period: Option<KESPeriod>,
+        kes_period: Option<KesPeriod>,
         stake: Stake,
     ) -> SignerWithStake {
         SignerWithStake {

@@ -11,7 +11,7 @@ use mithril_common::{
         CardanoDbBeacon, Epoch, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
         SignedEntityType, Signer,
     },
-    messages::{RegisterSignatureMessage, RegisterSignerMessage},
+    messages::{RegisterSignatureMessageHttp, RegisterSignerMessage},
     protocol::ToMessage,
     test_utils::{MithrilFixture, MithrilFixtureBuilder},
     StdResult,
@@ -56,7 +56,7 @@ pub async fn compute_mithril_stake_distribution_signatures(
     epoch: Epoch,
     signers_fixture: &MithrilFixture,
     timeout: Duration,
-) -> StdResult<Vec<RegisterSignatureMessage>> {
+) -> StdResult<Vec<RegisterSignatureMessageHttp>> {
     spin_while_waiting!(
         {
             let signers_fixture = signers_fixture.clone();
@@ -81,7 +81,7 @@ pub async fn compute_mithril_stake_distribution_signatures(
                 signers_fixture
                     .sign_all(&mithril_stake_distribution_message)
                     .into_iter()
-                    .map(|s| RegisterSignatureMessage {
+                    .map(|s| RegisterSignatureMessageHttp {
                         signed_entity_type: SignedEntityType::MithrilStakeDistribution(epoch),
                         party_id: s.party_id.clone(),
                         signature: s.signature.clone().to_json_hex().unwrap(),
@@ -106,7 +106,7 @@ pub async fn compute_immutable_files_signatures(
     epoch: Epoch,
     signers_fixture: &MithrilFixture,
     timeout: Duration,
-) -> StdResult<(CardanoDbBeacon, Vec<RegisterSignatureMessage>)> {
+) -> StdResult<(CardanoDbBeacon, Vec<RegisterSignatureMessageHttp>)> {
     spin_while_waiting!(
         {
             // Minus one because the last immutable isn't "finished"
@@ -147,7 +147,7 @@ pub async fn compute_immutable_files_signatures(
                 signers_fixture
                     .sign_all(&cardano_immutable_files_full_message)
                     .into_iter()
-                    .map(|s| RegisterSignatureMessage {
+                    .map(|s| RegisterSignatureMessageHttp {
                         signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
                             CardanoDbBeacon::new(*epoch, immutable_file_number),
                         ),

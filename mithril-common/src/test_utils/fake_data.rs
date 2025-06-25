@@ -56,12 +56,10 @@ pub fn protocol_initializer<S: Into<String>>(
         .try_into()
         .unwrap();
     let mut rng = ChaCha20Rng::from_seed(seed);
-    let kes_secret_key_path: Option<std::path::PathBuf> = None;
     let kes_period = Some(0);
-
     crypto_helper::ProtocolInitializer::setup(
         protocol_parameters.into(),
-        kes_secret_key_path,
+        None,
         kes_period,
         stake,
         &mut rng,

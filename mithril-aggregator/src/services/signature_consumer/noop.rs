@@ -2,6 +2,11 @@ use std::future;
 
 use async_trait::async_trait;
 
+use mithril_common::{
+    entities::{SignedEntityType, SingleSignature},
+    StdResult,
+};
+
 use super::SignatureConsumer;
 
 /// A no-op implementation of the [SignatureConsumer] trait that will never return signatures.
@@ -9,14 +14,7 @@ pub struct SignatureConsumerNoop;
 
 #[async_trait]
 impl SignatureConsumer for SignatureConsumerNoop {
-    async fn get_signatures(
-        &self,
-    ) -> mithril_common::StdResult<
-        Vec<(
-            mithril_common::entities::SingleSignature,
-            mithril_common::entities::SignedEntityType,
-        )>,
-    > {
+    async fn get_signatures(&self) -> StdResult<Vec<(SingleSignature, SignedEntityType)>> {
         future::pending().await
     }
 

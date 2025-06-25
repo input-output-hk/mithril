@@ -47,8 +47,13 @@ impl SingleSigner {
 
 #[cfg(test)]
 mod test {
+    use std::sync::Arc;
+
     use crate::{
-        entities::ProtocolMessage, protocol::SignerBuilder, test_utils::MithrilFixtureBuilder,
+        crypto_helper::{KesSigner, KesSignerStandard},
+        entities::ProtocolMessage,
+        protocol::SignerBuilder,
+        test_utils::MithrilFixtureBuilder,
     };
 
     #[test]
@@ -56,16 +61,17 @@ mod test {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
         let signers = fixture.signers_fixture();
         let signer = signers.first().unwrap();
+        let kes_signer = Some(Arc::new(KesSignerStandard::new(
+            signer.kes_secret_key_path().unwrap().to_path_buf(),
+            signer.operational_certificate_path().unwrap().to_path_buf(),
+        )) as Arc<dyn KesSigner>);
 
         let (single_signer, _) = SignerBuilder::new(
             &fixture.signers_with_stake(),
             &fixture.protocol_parameters(),
         )
         .unwrap()
-        .build_test_single_signer(
-            signer.signer_with_stake.clone(),
-            signer.kes_secret_key_path(),
-        )
+        .build_test_single_signer(signer.signer_with_stake.clone(), kes_signer)
         .unwrap();
 
         let signature = single_signer

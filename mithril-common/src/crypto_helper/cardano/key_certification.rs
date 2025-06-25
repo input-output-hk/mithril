@@ -3,9 +3,25 @@
 //! These wrappers allows keeping mithril-stm agnostic to Cardano, while providing some
 //! guarantees that mithril-stm will not be misused in the context of Cardano.  
 
+use std::{collections::HashMap, sync::Arc};
+
+use blake2::{
+    digest::{consts::U32, FixedOutput},
+    Blake2b, Digest,
+};
+use kes_summed_ed25519::kes::Sum6KesSig;
+use rand_core::{CryptoRng, RngCore};
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
+
+use mithril_stm::{
+    ClosedKeyReg, KeyReg, RegisterError, Stake, StmInitializer, StmParameters, StmSigner,
+    StmVerificationKeyPoP,
+};
+
 use crate::{
     crypto_helper::{
-        cardano::SerDeShelleyFileFormat,
+        cardano::{KesSigner, KesVerifier, KesVerifierStandard},
         types::{
             ProtocolParameters, ProtocolPartyId, ProtocolSignerVerificationKey,
             ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
@@ -15,30 +31,11 @@ use crate::{
     StdError, StdResult,
 };
 
-use mithril_stm::{
-    ClosedKeyReg, KeyReg, RegisterError, Stake, StmInitializer, StmParameters, StmSigner,
-    StmVerificationKeyPoP,
-};
-
-use crate::crypto_helper::cardano::Sum6KesBytes;
-use anyhow::{anyhow, Context};
-use blake2::{
-    digest::{consts::U32, FixedOutput},
-    Blake2b, Digest,
-};
-use kes_summed_ed25519::kes::{Sum6Kes, Sum6KesSig};
-use kes_summed_ed25519::traits::{KesSig, KesSk};
-use rand_core::{CryptoRng, RngCore};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::path::Path;
-use thiserror::Error;
-
 // Protocol types alias
 type D = Blake2b<U32>;
 
 /// The KES period that is used to check if the KES keys is expired
-pub type KESPeriod = u32;
+pub type KesPeriod = u32;
 
 /// New registration error
 #[derive(Error, Debug)]
@@ -91,11 +88,11 @@ pub enum ProtocolInitializerErrorWrapper {
 
     /// Error raised when a KES update error occurs
     #[error("KES key cannot be updated for period {0}")]
-    KesUpdate(KESPeriod),
+    KesUpdate(KesPeriod),
 
     /// Period of key file does not match with period provided by user
     #[error("Period of key file, {0}, does not match with period provided by user, {1}")]
-    KesMismatch(KESPeriod, KESPeriod),
+    KesMismatch(KesPeriod, KesPeriod),
 }
 
 /// Wrapper structure for [MithrilStm:StmInitializer](mithril_stm::stm::StmInitializer).
@@ -112,54 +109,25 @@ pub struct StmInitializerWrapper {
     kes_signature: Option<Sum6KesSig>,
 }
 
-/// Wrapper structure for [MithrilStm:KeyReg](mithril_stm::key_reg::KeyReg).
-/// The wrapper not only contains a map between `Mithril vkey <-> Stake`, but also
-/// a map `PoolID <-> Stake`. This information is recovered from the node state, and
-/// is used to verify the identity of a Mithril signer. Furthermore, the `register` function
-/// of the wrapper forces the registrar to check that the KES signature over the Mithril key
-/// is valid with respect to the PoolID.
-#[derive(Debug, Clone)]
-pub struct KeyRegWrapper {
-    stm_key_reg: KeyReg,
-    stake_distribution: HashMap<ProtocolPartyId, Stake>,
-}
-
 impl StmInitializerWrapper {
     /// Builds an `StmInitializer` that is ready to register with the key registration service.
     /// This function generates the signing and verification key with a PoP, signs the verification
-    /// key with a provided KES signing key, and initializes the structure.
-    pub fn setup<R: RngCore + CryptoRng, P: AsRef<Path>>(
+    /// key with a provided KES signer implementation, and initializes the structure.
+    pub fn setup<R: RngCore + CryptoRng>(
         params: StmParameters,
-        kes_sk_path: Option<P>,
-        kes_period: Option<KESPeriod>,
+        kes_signer: Option<Arc<dyn KesSigner>>,
+        kes_period: Option<KesPeriod>,
         stake: Stake,
         rng: &mut R,
     ) -> StdResult<Self> {
         let stm_initializer = StmInitializer::setup(params, stake, rng);
-        let kes_signature = if let Some(kes_sk_path) = kes_sk_path {
-            let mut kes_sk_bytes = Sum6KesBytes::from_file(kes_sk_path)
-                .map_err(|e| anyhow!(e))
-                .with_context(|| "StmInitializerWrapper can not read KES secret key from file")?;
-            let mut kes_sk = Sum6Kes::try_from(&mut kes_sk_bytes)
-                .map_err(|e| ProtocolInitializerErrorWrapper::ProtocolInitializer(anyhow!(e)))
-                .with_context(|| "StmInitializerWrapper can not use KES secret key")?;
-            let kes_sk_period = kes_sk.get_period();
-            let provided_period = kes_period.unwrap_or_default();
-            if kes_sk_period > provided_period {
-                return Err(anyhow!(ProtocolInitializerErrorWrapper::KesMismatch(
-                    kes_sk_period,
-                    provided_period,
-                )));
-            }
+        let kes_signature = if let Some(kes_signer) = kes_signer {
+            let (signature, _op_cert) = kes_signer.sign(
+                &stm_initializer.verification_key().to_bytes(),
+                kes_period.unwrap_or_default(),
+            )?;
 
-            // We need to perform the evolutions
-            for period in kes_sk_period..provided_period {
-                kes_sk
-                    .update()
-                    .map_err(|_| ProtocolInitializerErrorWrapper::KesUpdate(period))?;
-            }
-
-            Some(kes_sk.sign(&stm_initializer.verification_key().to_bytes()))
+            Some(signature)
         } else {
             println!("WARNING: Non certified signer registration by providing only a Pool Id is decommissioned and must be used for tests only!");
             None
@@ -253,11 +221,25 @@ impl StmInitializerWrapper {
     }
 }
 
+/// Wrapper structure for [MithrilStm:KeyReg](mithril_stm::key_reg::KeyReg).
+/// The wrapper not only contains a map between `Mithril vkey <-> Stake`, but also
+/// a map `PoolID <-> Stake`. This information is recovered from the node state, and
+/// is used to verify the identity of a Mithril signer. Furthermore, the `register` function
+/// of the wrapper forces the registrar to check that the KES signature over the Mithril key
+/// is valid with respect to the PoolID.
+#[derive(Debug, Clone)]
+pub struct KeyRegWrapper {
+    kes_verifier: Arc<dyn KesVerifier>,
+    stm_key_reg: KeyReg,
+    stake_distribution: HashMap<ProtocolPartyId, Stake>,
+}
+
 impl KeyRegWrapper {
     /// New Initialisation function. We temporarily keep the other init function,
     /// but we should eventually transition to only use this one.
     pub fn init(stake_dist: &ProtocolStakeDistribution) -> Self {
         Self {
+            kes_verifier: Arc::new(KesVerifierStandard),
             stm_key_reg: KeyReg::init(),
             stake_distribution: HashMap::from_iter(stake_dist.to_vec()),
         }
@@ -271,36 +253,27 @@ impl KeyRegWrapper {
         party_id: Option<ProtocolPartyId>, // Used for only for testing when SPO pool id is not certified
         opcert: Option<ProtocolOpCert>, // Used for only for testing when SPO pool id is not certified
         kes_sig: Option<ProtocolSignerVerificationKeySignature>, // Used for only for testing when SPO pool id is not certified
-        kes_period: Option<KESPeriod>,
+        kes_period: Option<KesPeriod>,
         pk: ProtocolSignerVerificationKey,
     ) -> Result<ProtocolPartyId, ProtocolRegistrationErrorWrapper> {
         let pool_id_bech32: ProtocolPartyId = if let Some(opcert) = opcert {
-            opcert
-                .validate()
-                .map_err(|_| ProtocolRegistrationErrorWrapper::OpCertInvalid)?;
-            let mut pool_id = None;
-            let sig = kes_sig.ok_or(ProtocolRegistrationErrorWrapper::KesSignatureMissing)?;
+            let signature = kes_sig.ok_or(ProtocolRegistrationErrorWrapper::KesSignatureMissing)?;
             let kes_period =
                 kes_period.ok_or(ProtocolRegistrationErrorWrapper::KesPeriodMissing)?;
-            let kes_period_try_min = std::cmp::max(0, kes_period.saturating_sub(1));
-            let kes_period_try_max = std::cmp::min(64, kes_period.saturating_add(1));
-            for kes_period_try in kes_period_try_min..kes_period_try_max {
-                if sig
-                    .verify(kes_period_try, &opcert.kes_vk, &pk.to_bytes())
-                    .is_ok()
-                {
-                    pool_id = Some(
-                        opcert
-                            .compute_protocol_party_id()
-                            .map_err(|_| ProtocolRegistrationErrorWrapper::PoolAddressEncoding)?,
-                    );
-                    break;
-                }
+            if self
+                .kes_verifier
+                .verify(&pk.to_bytes(), &signature, &opcert, kes_period)
+                .is_ok()
+            {
+                opcert
+                    .compute_protocol_party_id()
+                    .map_err(|_| ProtocolRegistrationErrorWrapper::PoolAddressEncoding)?
+            } else {
+                return Err(ProtocolRegistrationErrorWrapper::KesSignatureInvalid(
+                    kes_period,
+                    opcert.start_kes_period,
+                ));
             }
-            pool_id.ok_or(ProtocolRegistrationErrorWrapper::KesSignatureInvalid(
-                kes_period,
-                opcert.start_kes_period,
-            ))?
         } else {
             if cfg!(not(feature = "allow_skip_signer_certification")) {
                 Err(ProtocolRegistrationErrorWrapper::OpCertMissing)?
@@ -327,40 +300,14 @@ impl KeyRegWrapper {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::crypto_helper::{cardano::ColdKeyGenerator, OpCert};
+    use crate::crypto_helper::cardano::tests_setup::KesCryptographicMaterialForTest;
+    use crate::crypto_helper::cardano::{
+        tests_setup::create_kes_cryptographic_material, KesSignerStandard,
+    };
+    use crate::crypto_helper::{OpCert, SerDeShelleyFileFormat};
 
-    use crate::test_utils::TempDir;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
-    use std::path::PathBuf;
-
-    fn setup_temp_directory(test_name: &str) -> PathBuf {
-        TempDir::create("mithril_cardano_key_certification", test_name)
-    }
-
-    fn create_cryptographic_material(party_idx: u64) -> (ProtocolPartyId, PathBuf, PathBuf) {
-        let temp_dir = setup_temp_directory(&format!("create_cryptographic_material_{party_idx}"));
-        let keypair = ColdKeyGenerator::create_deterministic_keypair([party_idx as u8; 32]);
-        let mut dummy_buffer = [0u8; Sum6Kes::SIZE + 4];
-        let mut dummy_seed = [party_idx as u8; 32];
-        let (kes_secret_key, kes_verification_key) =
-            Sum6Kes::keygen(&mut dummy_buffer, &mut dummy_seed);
-        let mut kes_bytes = Sum6KesBytes([0u8; Sum6Kes::SIZE + 4]);
-        kes_bytes.0.copy_from_slice(&kes_secret_key.clone_sk());
-        let operational_certificate = OpCert::new(kes_verification_key, 0, 0, keypair);
-        let kes_secret_key_file = temp_dir.join(format!("kes{party_idx}.skey"));
-        kes_bytes
-            .to_file(&kes_secret_key_file)
-            .expect("KES secret key file export should not fail");
-        let operational_certificate_file = temp_dir.join(format!("pool{party_idx}.cert"));
-        operational_certificate
-            .to_file(&operational_certificate_file)
-            .expect("operational certificate file export should not fail");
-        let party_id = operational_certificate
-            .compute_protocol_party_id()
-            .expect("compute protocol party id should not fail");
-        (party_id, operational_certificate_file, kes_secret_key_file)
-    }
 
     #[test]
     fn test_vector_key_reg() {
@@ -370,17 +317,25 @@ mod test {
             phi_f: 1.0,
         };
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-
-        let (party_id_1, operational_certificate_file_1, kes_secret_key_file_1) =
-            create_cryptographic_material(1);
-        let (party_id_2, operational_certificate_file_2, kes_secret_key_file_2) =
-            create_cryptographic_material(2);
+        let KesCryptographicMaterialForTest {
+            party_id: party_id_1,
+            operational_certificate_file: operational_certificate_file_1,
+            kes_secret_key_file: kes_secret_key_file_1,
+        } = create_kes_cryptographic_material(1, 0 as KesPeriod, "test_vector_key_reg");
+        let KesCryptographicMaterialForTest {
+            party_id: party_id_2,
+            operational_certificate_file: operational_certificate_file_2,
+            kes_secret_key_file: kes_secret_key_file_2,
+        } = create_kes_cryptographic_material(2, 0 as KesPeriod, "test_vector_key_reg");
 
         let mut key_reg = KeyRegWrapper::init(&vec![(party_id_1, 10), (party_id_2, 3)]);
 
         let initializer_1 = StmInitializerWrapper::setup(
             params,
-            Some(kes_secret_key_file_1),
+            Some(Arc::new(KesSignerStandard::new(
+                kes_secret_key_file_1,
+                operational_certificate_file_1.clone(),
+            ))),
             Some(0),
             10,
             &mut rng,
@@ -402,7 +357,10 @@ mod test {
 
         let initializer_2 = StmInitializerWrapper::setup(
             params,
-            Some(kes_secret_key_file_2),
+            Some(Arc::new(KesSignerStandard::new(
+                kes_secret_key_file_2,
+                operational_certificate_file_2.clone(),
+            ))),
             Some(0),
             10,
             &mut rng,
