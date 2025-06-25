@@ -45,7 +45,7 @@ use crate::test_extensions::{AggregatorObserver, ExpectedCertificate, MetricsVer
 
 #[macro_export]
 macro_rules! cycle {
-    ( $tester:expr_2021, $expected_state:expr_2021 ) => {{
+    ( $tester:expr, $expected_state:expr ) => {{
         use $crate::test_extensions::ExpectedMetrics;
 
         let (runtime_cycle_success, runtime_cycle_total) =
@@ -65,7 +65,7 @@ macro_rules! cycle {
 
 #[macro_export]
 macro_rules! cycle_err {
-    ( $tester:expr_2021, $expected_state:expr_2021 ) => {{
+    ( $tester:expr, $expected_state:expr ) => {{
         use $crate::test_extensions::ExpectedMetrics;
 
         let (runtime_cycle_success, runtime_cycle_total) =
@@ -87,7 +87,7 @@ macro_rules! cycle_err {
 
 #[macro_export]
 macro_rules! assert_last_certificate_eq {
-    ( $tester:expr_2021, $expected_certificate:expr_2021 ) => {{
+    ( $tester:expr, $expected_certificate:expr ) => {{
         if let Some(signed_type) = $expected_certificate.get_signed_type() {
             $tester
                 .wait_until_signed_entity(&signed_type)
@@ -104,7 +104,7 @@ macro_rules! assert_last_certificate_eq {
 
 #[macro_export]
 macro_rules! assert_metrics_eq {
-    ( $tester:expr_2021, $expected_metrics:expr_2021 ) => {{
+    ( $tester:expr, $expected_metrics:expr ) => {{
         $tester.verify($expected_metrics);
     }};
 }
