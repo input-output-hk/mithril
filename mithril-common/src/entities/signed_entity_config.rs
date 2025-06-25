@@ -32,10 +32,8 @@ impl SignedEntityConfig {
     /// Default allowed discriminants
     ///
     /// Appended to the allowed discriminants in the configuration.
-    pub const DEFAULT_ALLOWED_DISCRIMINANTS: [SignedEntityTypeDiscriminants; 2] = [
-        SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-        SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-    ];
+    pub const DEFAULT_ALLOWED_DISCRIMINANTS: [SignedEntityTypeDiscriminants; 1] =
+        [SignedEntityTypeDiscriminants::MithrilStakeDistribution];
 
     /// Append to the given list of allowed signed entity types discriminants the [Self::DEFAULT_ALLOWED_DISCRIMINANTS]
     /// if not already present.
@@ -466,7 +464,6 @@ mod tests {
             vec![
                 SignedEntityType::MithrilStakeDistribution(beacon.epoch),
                 SignedEntityType::CardanoStakeDistribution(beacon.epoch - 1),
-                SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
                 SignedEntityType::CardanoTransactions(beacon.epoch, chain_point.block_number - 1),
             ],
             signed_entity_types

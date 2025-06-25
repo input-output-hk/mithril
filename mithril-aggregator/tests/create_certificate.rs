@@ -25,6 +25,7 @@ async fn create_certificate() {
         protocol_parameters: protocol_parameters.clone(),
         signed_entity_types: Some(
             [
+                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull.to_string(),
                 SignedEntityTypeDiscriminants::CardanoTransactions.to_string(),
                 SignedEntityTypeDiscriminants::CardanoDatabase.to_string(),
             ]

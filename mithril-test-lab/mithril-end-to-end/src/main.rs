@@ -99,7 +99,7 @@ pub struct Args {
     #[clap(
         long,
         value_delimiter = ',',
-        default_value = "CardanoTransactions,CardanoStakeDistribution,CardanoDatabase"
+        default_value = "CardanoTransactions,CardanoImmutableFilesFull,CardanoStakeDistribution,CardanoDatabase"
     )]
     signed_entity_types: Vec<String>,
 
