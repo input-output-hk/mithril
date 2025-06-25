@@ -24,12 +24,12 @@ mod tests {
     use crate::bls_multi_signature::BlsVerificationKey;
     use crate::merkle_tree::MerkleBatchPath;
     use crate::{
-        AggregationError, CoreVerifier, CoreVerifierError, Initializer, KeyRegistration,
-        Parameters, Signer, SingleSignature, SingleSignatureWithRegisteredParty, Stake, StmAggrSig,
-        StmClerk,
+        AggregateSignature, AggregationError, BasicVerifier, Clerk, CoreVerifierError, Initializer,
+        KeyRegistration, Parameters, Signer, SingleSignature, SingleSignatureWithRegisteredParty,
+        Stake,
     };
 
-    type Sig = StmAggrSig<D>;
+    type Sig = AggregateSignature<D>;
     type D = Blake2b<U32>;
 
     fn setup_equal_parties(params: Parameters, nparties: usize) -> Vec<Signer<D>> {
@@ -147,7 +147,7 @@ mod tests {
     #[derive(Debug)]
     struct ProofTest {
         msig: Result<Sig, AggregationError>,
-        clerk: StmClerk<D>,
+        clerk: Clerk<D>,
         msg: [u8; 16],
     }
     /// Run the protocol up to aggregation. This will produce a valid aggregation of signatures.
@@ -161,7 +161,7 @@ mod tests {
                     phi_f: 1.0,
                 };
                 let ps = setup_equal_parties(params, n);
-                let clerk = StmClerk::from_signer(&ps[0]);
+                let clerk = Clerk::from_signer(&ps[0]);
 
                 let all_ps: Vec<usize> = (0..n).collect();
                 let sigs = find_signatures(&msg, &ps, &all_ps);
@@ -174,7 +174,7 @@ mod tests {
 
     fn with_proof_mod<F>(mut tc: ProofTest, f: F)
     where
-        F: Fn(&mut Sig, &mut StmClerk<D>, &mut [u8; 16]),
+        F: Fn(&mut Sig, &mut Clerk<D>, &mut [u8; 16]),
     {
         match tc.msig {
             Ok(mut aggr) => {
@@ -196,7 +196,7 @@ mod tests {
             let false_msg = [1u8; 20];
             let params = Parameters { m: 1, k: 1, phi_f: 1.0 };
             let ps = setup_equal_parties(params, 1);
-            let clerk = StmClerk::from_signer(&ps[0]);
+            let clerk = Clerk::from_signer(&ps[0]);
             let avk = clerk.compute_avk();
             let mut sigs = Vec::with_capacity(2);
 
@@ -217,7 +217,7 @@ mod tests {
             .collect::<Vec<SingleSignatureWithRegisteredParty>>();
 
             let msgp = avk.get_mt_commitment().concat_with_msg(&msg);
-            let dedup_result = CoreVerifier::dedup_sigs_for_indices(
+            let dedup_result = BasicVerifier::dedup_sigs_for_indices(
                 &clerk.closed_reg.total_stake,
                 &params,
                 &msgp,
@@ -243,7 +243,7 @@ mod tests {
                               msg in any::<[u8;16]>()) {
             let params = Parameters { m, k, phi_f: 0.2 };
             let ps = setup_equal_parties(params, nparties);
-            let clerk = StmClerk::from_signer(&ps[0]);
+            let clerk = Clerk::from_signer(&ps[0]);
 
             let all_ps: Vec<usize> = (0..nparties).collect();
             let sigs = find_signatures(&msg, &ps, &all_ps);
@@ -279,7 +279,7 @@ mod tests {
                 rng.fill_bytes(&mut msg);
                 let params = Parameters { m, k, phi_f: 0.95 };
                 let ps = setup_equal_parties(params, nparties);
-                let clerk = StmClerk::from_signer(&ps[0]);
+                let clerk = Clerk::from_signer(&ps[0]);
 
                 let all_ps: Vec<usize> = (0..nparties).collect();
                 let sigs = find_signatures(&msg, &ps, &all_ps);
@@ -299,20 +299,20 @@ mod tests {
                 }
             }
 
-            assert!(StmAggrSig::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params).is_ok());
+            assert!(AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params).is_ok());
 
             let mut msg = [0u8; 32];
             rng.fill_bytes(&mut msg);
             let params = Parameters { m, k, phi_f: 0.8 };
             let ps = setup_equal_parties(params, nparties);
-            let clerk = StmClerk::from_signer(&ps[0]);
+            let clerk = Clerk::from_signer(&ps[0]);
 
             let all_ps: Vec<usize> = (0..nparties).collect();
             let sigs = find_signatures(&msg, &ps, &all_ps);
             let fake_msig = clerk.aggregate(&sigs, &msg);
 
             aggr_stms[0] = fake_msig.unwrap();
-            assert!(StmAggrSig::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params).is_err());
+            assert!(AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params).is_err());
         }
     }
 
@@ -322,7 +322,7 @@ mod tests {
         fn test_sig(msg in any::<[u8;16]>()) {
             let params = Parameters { m: 1, k: 1, phi_f: 0.2 };
             let ps = setup_equal_parties(params, 1);
-            let clerk = StmClerk::from_signer(&ps[0]);
+            let clerk = Clerk::from_signer(&ps[0]);
             let avk = clerk.compute_avk();
 
             if let Some(sig) = ps[0].sign(&msg) {
@@ -360,7 +360,7 @@ mod tests {
         fn test_sig_serialize_deserialize(msg in any::<[u8;16]>()) {
             let params = Parameters { m: 1, k: 1, phi_f: 0.2 };
             let ps = setup_equal_parties(params, 1);
-            let clerk = StmClerk::from_signer(&ps[0]);
+            let clerk = Clerk::from_signer(&ps[0]);
             let avk = clerk.compute_avk();
 
             if let Some(sig) = ps[0].sign(&msg) {
@@ -379,18 +379,18 @@ mod tests {
                                           msg in any::<[u8;16]>()) {
             let params = Parameters { m: 10, k: 5, phi_f: 1.0 };
             let ps = setup_equal_parties(params, nparties);
-            let clerk = StmClerk::from_signer(&ps[0]);
+            let clerk = Clerk::from_signer(&ps[0]);
 
             let all_ps: Vec<usize> = (0..nparties).collect();
             let sigs = find_signatures(&msg, &ps, &all_ps);
             let msig = clerk.aggregate(&sigs, &msg);
             if let Ok(aggr) = msig {
                     let bytes: Vec<u8> = aggr.to_bytes();
-                    let aggr2 = StmAggrSig::from_bytes(&bytes).unwrap();
+                    let aggr2 = AggregateSignature::from_bytes(&bytes).unwrap();
                     assert!(aggr2.verify(&msg, &clerk.compute_avk(), &params).is_ok());
 
                     let encoded = bincode::serde::encode_to_vec(&aggr, bincode::config::legacy()).unwrap();
-                    let (decoded,_) = bincode::serde::decode_from_slice::<StmAggrSig<D>,_>(&encoded, bincode::config::legacy()).unwrap();
+                    let (decoded,_) = bincode::serde::decode_from_slice::<AggregateSignature<D>,_>(&encoded, bincode::config::legacy()).unwrap();
                     assert!(decoded.verify(&msg, &clerk.compute_avk(), &params).is_ok());
             }
         }
@@ -423,7 +423,7 @@ mod tests {
 
             assert!(sigs.len() < params.k as usize);
 
-            let clerk = StmClerk::from_signer(&ps[0]);
+            let clerk = Clerk::from_signer(&ps[0]);
 
             let msig = clerk.aggregate(&sigs, &msg);
             match msig {
@@ -539,7 +539,7 @@ mod tests {
             let (initializers, public_signers) = setup_equal_core_parties(params, nparties);
             let all_ps: Vec<usize> = (0..nparties).collect();
 
-            let core_verifier = CoreVerifier::setup(&public_signers);
+            let core_verifier = BasicVerifier::setup(&public_signers);
 
             let signers = initializers
                 .into_iter()
@@ -568,7 +568,7 @@ mod tests {
                               k in 1_u64..5,) {
             let params = Parameters { m, k, phi_f: 0.2 };
             let (_initializers, public_signers) = setup_equal_core_parties(params, nparties);
-            let core_verifier = CoreVerifier::setup(&public_signers);
+            let core_verifier = BasicVerifier::setup(&public_signers);
             assert_eq!(nparties as u64, core_verifier.total_stake, "Total stake expected: {}, got: {}.", nparties, core_verifier.total_stake);
         }
     }

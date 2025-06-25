@@ -116,7 +116,7 @@ mod parameters;
 mod participant;
 mod single_signature;
 
-pub use aggregate_signature::{CoreVerifier, StmAggrSig, StmAggrVerificationKey, StmClerk};
+pub use aggregate_signature::{AggregateSignature, AggregateVerificationKey, BasicVerifier, Clerk};
 pub use error::{
     AggregationError, CoreVerifierError, RegisterError, StmAggregateSignatureError,
     StmSignatureError,
@@ -140,10 +140,14 @@ pub type Stake = u64;
 pub type Index = u64;
 
 // Aliases
+pub use aggregate_signature::AggregateSignature as StmAggrSig;
+pub use aggregate_signature::AggregateVerificationKey as StmAggrVerificationKey;
+pub use aggregate_signature::BasicVerifier as CoreVerifier;
+pub use aggregate_signature::Clerk as StmClerk;
 pub use key_reg::ClosedKeyRegistration as ClosedKeyReg;
 pub use key_reg::KeyRegistration as KeyReg;
 pub use parameters::Parameters as StmParameters;
 pub use participant::Initializer as StmInitializer;
 pub use participant::Signer as StmSigner;
 pub use single_signature::SingleSignature as StmSig;
-pub use single_signature::SingleSignatureWithRegisteredParty as StmSigRegParty; // Only used within `mithril-stm`
+pub use single_signature::SingleSignatureWithRegisteredParty as StmSigRegParty; // Only used within `mithril-stm` // Only used within `mithril-stm`

@@ -6,7 +6,7 @@ use crate::bls_multi_signature::{BlsSignature, BlsVerificationKey};
 use crate::key_reg::RegisteredParty;
 use crate::merkle_tree::MerkleBatchPath;
 use crate::{
-    CoreVerifier, Parameters, SingleSignatureWithRegisteredParty, StmAggrVerificationKey,
+    AggregateVerificationKey, BasicVerifier, Parameters, SingleSignatureWithRegisteredParty,
     StmAggregateSignatureError,
 };
 
@@ -18,13 +18,13 @@ use crate::{
     serialize = "MerkleBatchPath<D>: Serialize",
     deserialize = "MerkleBatchPath<D>: Deserialize<'de>"
 ))]
-pub struct StmAggrSig<D: Clone + Digest + FixedOutput> {
+pub struct AggregateSignature<D: Clone + Digest + FixedOutput> {
     pub(crate) signatures: Vec<SingleSignatureWithRegisteredParty>,
     /// The list of unique merkle tree nodes that covers path for all signatures.
     pub batch_proof: MerkleBatchPath<D>,
 }
 
-impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
+impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
     /// Verify all checks from signatures, except for the signature verification itself.
     ///
     /// Indices and quorum are checked by `CoreVerifier::preliminary_verify` with `msgp`.
@@ -34,11 +34,11 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
     fn preliminary_verify(
         &self,
         msg: &[u8],
-        avk: &StmAggrVerificationKey<D>,
+        avk: &AggregateVerificationKey<D>,
         parameters: &Parameters,
     ) -> Result<(Vec<BlsSignature>, Vec<BlsVerificationKey>), StmAggregateSignatureError<D>> {
         let msgp = avk.get_mt_commitment().concat_with_msg(msg);
-        CoreVerifier::preliminary_verify(
+        BasicVerifier::preliminary_verify(
             &avk.get_total_stake(),
             &self.signatures,
             parameters,
@@ -53,7 +53,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
 
         avk.get_mt_commitment().check(&leaves, &self.batch_proof)?;
 
-        Ok(CoreVerifier::collect_sigs_vks(&self.signatures))
+        Ok(BasicVerifier::collect_sigs_vks(&self.signatures))
     }
 
     /// Verify aggregate signature, by checking that
@@ -65,7 +65,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
     pub fn verify(
         &self,
         msg: &[u8],
-        avk: &StmAggrVerificationKey<D>,
+        avk: &AggregateVerificationKey<D>,
         parameters: &Parameters,
     ) -> Result<(), StmAggregateSignatureError<D>> {
         let msgp = avk.get_mt_commitment().concat_with_msg(msg);
@@ -79,7 +79,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
     pub fn batch_verify(
         stm_signatures: &[Self],
         msgs: &[Vec<u8>],
-        avks: &[StmAggrVerificationKey<D>],
+        avks: &[AggregateVerificationKey<D>],
         parameters: &[Parameters],
     ) -> Result<(), StmAggregateSignatureError<D>> {
         let batch_size = stm_signatures.len();
@@ -158,7 +158,9 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
     }
 
     ///Extract a `StmAggrSig` from a byte slice.
-    pub fn from_bytes(bytes: &[u8]) -> Result<StmAggrSig<D>, StmAggregateSignatureError<D>> {
+    pub fn from_bytes(
+        bytes: &[u8],
+    ) -> Result<AggregateSignature<D>, StmAggregateSignatureError<D>> {
         let mut u8_bytes = [0u8; 1];
         let mut bytes_index = 0;
 
@@ -207,7 +209,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
                 .ok_or(StmAggregateSignatureError::SerializationError)?,
         )?;
 
-        Ok(StmAggrSig {
+        Ok(AggregateSignature {
             signatures: sig_reg_list,
             batch_proof,
         })

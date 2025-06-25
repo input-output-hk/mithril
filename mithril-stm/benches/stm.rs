@@ -2,8 +2,8 @@ use blake2::digest::{Digest, FixedOutput};
 use blake2::{digest::consts::U32, Blake2b};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use mithril_stm::{
-    CoreVerifier, Initializer, KeyRegistration, Parameters, Signer, Stake, StmAggrSig, StmClerk,
-    StmVerificationKey,
+    AggregateSignature, BasicVerifier, Clerk, Initializer, KeyRegistration, Parameters, Signer,
+    Stake, StmVerificationKey,
 };
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
@@ -67,7 +67,7 @@ where
         .filter_map(|p| p.sign(&msg))
         .collect::<Vec<_>>();
 
-    let clerk = StmClerk::from_signer(&signers[0]);
+    let clerk = Clerk::from_signer(&signers[0]);
 
     group.bench_function(BenchmarkId::new("Aggregation", &param_string), |b| {
         b.iter(|| clerk.aggregate(&sigs, &msg))
@@ -130,7 +130,7 @@ fn batch_benches<H>(
                 .filter_map(|p| p.sign(&msg))
                 .collect::<Vec<_>>();
 
-            let clerk = StmClerk::from_signer(&signers[0]);
+            let clerk = Clerk::from_signer(&signers[0]);
             let msig = clerk.aggregate(&sigs, &msg).unwrap();
 
             batch_avks.push(clerk.compute_avk());
@@ -139,8 +139,13 @@ fn batch_benches<H>(
 
         group.bench_function(BenchmarkId::new("Batch Verification", batch_string), |b| {
             b.iter(|| {
-                StmAggrSig::batch_verify(&batch_stms, &batch_msgs, &batch_avks, &batch_params)
-                    .is_ok()
+                AggregateSignature::batch_verify(
+                    &batch_stms,
+                    &batch_msgs,
+                    &batch_avks,
+                    &batch_params,
+                )
+                .is_ok()
             })
         });
     }
@@ -173,7 +178,7 @@ where
         public_signers.push((initializer.verification_key().vk, initializer.stake));
     }
 
-    let core_verifier = CoreVerifier::setup(&public_signers);
+    let core_verifier = BasicVerifier::setup(&public_signers);
 
     let signers: Vec<Signer<H>> = initializers
         .into_iter()

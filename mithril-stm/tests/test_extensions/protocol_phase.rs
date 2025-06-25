@@ -1,7 +1,7 @@
 use blake2::{digest::consts::U32, Blake2b};
 use mithril_stm::{
-    AggregationError, Initializer, KeyRegistration, Parameters, Signer, SingleSignature, Stake,
-    StmAggrSig, StmAggrVerificationKey, StmClerk, StmVerificationKey,
+    AggregateSignature, AggregateVerificationKey, AggregationError, Clerk, Initializer,
+    KeyRegistration, Parameters, Signer, SingleSignature, Stake, StmVerificationKey,
 };
 use rand_chacha::ChaCha20Rng;
 use rand_core::RngCore;
@@ -18,8 +18,8 @@ pub struct InitializationPhaseResult {
 
 /// The result of the operation phase of the STM protocol.
 pub struct OperationPhaseResult {
-    pub msig: Result<StmAggrSig<H>, AggregationError>,
-    pub avk: StmAggrVerificationKey<H>,
+    pub msig: Result<AggregateSignature<H>, AggregationError>,
+    pub avk: AggregateVerificationKey<H>,
     pub sigs: Vec<SingleSignature>,
 }
 
@@ -71,7 +71,7 @@ pub fn operation_phase(
         .filter_map(|p| p.sign(&msg))
         .collect::<Vec<SingleSignature>>();
 
-    let clerk = StmClerk::from_signer(&signers[0]);
+    let clerk = Clerk::from_signer(&signers[0]);
     let avk = clerk.compute_avk();
 
     // Check all parties can verify every sig

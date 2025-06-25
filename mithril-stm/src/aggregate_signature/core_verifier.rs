@@ -9,14 +9,14 @@ use crate::{
 };
 
 /// Full node verifier including the list of eligible signers and the total stake of the system.
-pub struct CoreVerifier {
+pub struct BasicVerifier {
     /// List of registered parties.
     pub eligible_parties: Vec<RegisteredParty>,
     /// Total stake of registered parties.
     pub total_stake: Stake,
 }
 
-impl CoreVerifier {
+impl BasicVerifier {
     /// Setup a core verifier for given list of signers.
     ///     * Collect the unique signers in a hash set,
     ///     * Calculate the total stake of the eligible signers,
@@ -35,7 +35,7 @@ impl CoreVerifier {
 
         let mut eligible_parties: Vec<_> = unique_parties.into_iter().collect();
         eligible_parties.sort_unstable();
-        CoreVerifier {
+        BasicVerifier {
             eligible_parties,
             total_stake,
         }

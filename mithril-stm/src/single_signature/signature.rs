@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::bls_multi_signature::BlsSignature;
 use crate::eligibility_check::ev_lt_phi;
 use crate::{
-    Index, Parameters, Stake, StmAggrVerificationKey, StmSignatureError, StmVerificationKey,
+    AggregateVerificationKey, Index, Parameters, Stake, StmSignatureError, StmVerificationKey,
 };
 
 /// Signature created by a single party who has won the lottery.
@@ -31,7 +31,7 @@ impl SingleSignature {
         params: &Parameters,
         pk: &StmVerificationKey,
         stake: &Stake,
-        avk: &StmAggrVerificationKey<D>,
+        avk: &AggregateVerificationKey<D>,
         msg: &[u8],
     ) -> Result<(), StmSignatureError> {
         let msgp = avk.get_mt_commitment().concat_with_msg(msg);

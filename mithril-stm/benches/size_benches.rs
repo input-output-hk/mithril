@@ -4,8 +4,8 @@ use blake2::{
     Blake2b, Digest,
 };
 use mithril_stm::{
-    CoreVerifier, Initializer, KeyRegistration, Parameters, Signer, SingleSignature,
-    SingleSignatureWithRegisteredParty, Stake, StmClerk, StmVerificationKey,
+    BasicVerifier, Clerk, Initializer, KeyRegistration, Parameters, Signer, SingleSignature,
+    SingleSignatureWithRegisteredParty, Stake, StmVerificationKey,
 };
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
@@ -48,7 +48,7 @@ where
         .par_iter()
         .filter_map(|p| p.sign(&msg))
         .collect::<Vec<SingleSignature>>();
-    let clerk = StmClerk::from_signer(&ps[0]);
+    let clerk = Clerk::from_signer(&ps[0]);
 
     // Aggregate with random parties
     let aggr = clerk.aggregate(&sigs, &msg).unwrap();
@@ -85,7 +85,7 @@ where
         public_signers.push((initializer.verification_key().vk, initializer.stake));
     }
 
-    let core_verifier = CoreVerifier::setup(&public_signers);
+    let core_verifier = BasicVerifier::setup(&public_signers);
 
     let signers: Vec<Signer<H>> = initializers
         .into_iter()
@@ -107,7 +107,7 @@ where
         })
         .collect::<Vec<SingleSignatureWithRegisteredParty>>();
 
-    let dedup_sigs = CoreVerifier::dedup_sigs_for_indices(
+    let dedup_sigs = BasicVerifier::dedup_sigs_for_indices(
         &core_verifier.total_stake,
         &params,
         &msg,

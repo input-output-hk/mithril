@@ -11,12 +11,12 @@ use crate::{ClosedKeyRegistration, Stake};
     serialize = "MerkleBatchPath<D>: Serialize",
     deserialize = "MerkleBatchPath<D>: Deserialize<'de>"
 ))]
-pub struct StmAggrVerificationKey<D: Clone + Digest + FixedOutput> {
+pub struct AggregateVerificationKey<D: Clone + Digest + FixedOutput> {
     mt_commitment: MerkleTreeBatchCommitment<D>,
     total_stake: Stake,
 }
 
-impl<D: Digest + Clone + FixedOutput> StmAggrVerificationKey<D> {
+impl<D: Digest + Clone + FixedOutput> AggregateVerificationKey<D> {
     pub fn get_mt_commitment(&self) -> MerkleTreeBatchCommitment<D> {
         self.mt_commitment.clone()
     }
@@ -26,16 +26,16 @@ impl<D: Digest + Clone + FixedOutput> StmAggrVerificationKey<D> {
     }
 }
 
-impl<D: Digest + Clone + FixedOutput> PartialEq for StmAggrVerificationKey<D> {
+impl<D: Digest + Clone + FixedOutput> PartialEq for AggregateVerificationKey<D> {
     fn eq(&self, other: &Self) -> bool {
         self.mt_commitment == other.mt_commitment && self.total_stake == other.total_stake
     }
 }
 
-impl<D: Digest + Clone + FixedOutput> Eq for StmAggrVerificationKey<D> {}
+impl<D: Digest + Clone + FixedOutput> Eq for AggregateVerificationKey<D> {}
 
 impl<D: Clone + Digest + FixedOutput> From<&ClosedKeyRegistration<D>>
-    for StmAggrVerificationKey<D>
+    for AggregateVerificationKey<D>
 {
     fn from(reg: &ClosedKeyRegistration<D>) -> Self {
         Self {

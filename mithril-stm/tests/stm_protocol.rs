@@ -1,6 +1,6 @@
 mod test_extensions;
 
-use mithril_stm::{AggregationError, Parameters, StmAggrSig};
+use mithril_stm::{AggregateSignature, AggregationError, Parameters};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
@@ -77,5 +77,8 @@ fn test_full_protocol_batch_verify() {
         batch_msgs.push(msg.to_vec());
         batch_params.push(params);
     }
-    assert!(StmAggrSig::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params).is_ok());
+    assert!(
+        AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params)
+            .is_ok()
+    );
 }

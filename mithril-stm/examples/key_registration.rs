@@ -3,7 +3,7 @@
 //! run presented in `tests/integration.rs`, we explicitly treat each party individually.
 use blake2::{digest::consts::U32, Blake2b};
 use mithril_stm::{
-    ClosedKeyRegistration, Initializer, KeyRegistration, Parameters, Stake, StmClerk,
+    Clerk, ClosedKeyRegistration, Initializer, KeyRegistration, Parameters, Stake,
     StmVerificationKeyPoP,
 };
 
@@ -110,7 +110,7 @@ fn main() {
     let incomplete_sigs_3 = vec![party_0_sigs, party_1_sigs, party_2_sigs, party_3_sigs];
 
     let closed_registration = local_reg(&stakes, &parties_pks);
-    let clerk = StmClerk::from_registration(&params, &closed_registration);
+    let clerk = Clerk::from_registration(&params, &closed_registration);
 
     // Now we aggregate the signatures
     let msig_1 = match clerk.aggregate(&complete_sigs_1, &msg) {

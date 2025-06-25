@@ -4,7 +4,9 @@ use blake2::{digest::consts::U32, Blake2b};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
-use mithril_stm::{Initializer, Parameters, SingleSignature, StmAggrSig, StmVerificationKey};
+use mithril_stm::{
+    AggregateSignature, Initializer, Parameters, SingleSignature, StmVerificationKey,
+};
 
 use test_extensions::protocol_phase::{
     initialization_phase, operation_phase, InitializationPhaseResult, OperationPhaseResult,
@@ -72,8 +74,8 @@ fn test_binary_conversions() {
 
     let msig = msig.unwrap();
     let encoded = msig.to_bytes();
-    StmAggrSig::<Blake2b<U32>>::from_bytes(&encoded[1..])
+    AggregateSignature::<Blake2b<U32>>::from_bytes(&encoded[1..])
         .expect_err("StmAggrSig decoding should fail with invalid bytes");
-    let decoded = StmAggrSig::<Blake2b<U32>>::from_bytes(&encoded).unwrap();
+    let decoded = AggregateSignature::<Blake2b<U32>>::from_bytes(&encoded).unwrap();
     assert_eq!(msig.to_bytes(), decoded.to_bytes());
 }
