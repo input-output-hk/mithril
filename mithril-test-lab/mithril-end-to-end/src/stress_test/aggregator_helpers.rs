@@ -15,7 +15,7 @@ pub async fn bootstrap_aggregator(
     current_epoch: &mut Epoch,
 ) -> StdResult<Aggregator> {
     info!(">> Launch Aggregator");
-    let signed_entity_types = vec![];
+    let signed_entity_types = vec!["CardanoImmutableFilesFull".to_string()];
     let chain_observer_type = "cardano-cli";
 
     let mut aggregator = Aggregator::new(&AggregatorConfig {

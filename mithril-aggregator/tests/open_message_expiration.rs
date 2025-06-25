@@ -25,6 +25,9 @@ async fn open_message_expiration() {
     let configuration = ServeCommandConfiguration {
         protocol_parameters: protocol_parameters.clone(),
         data_stores_directory: get_test_dir("open_message_expiration"),
+        signed_entity_types: Some(
+            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull.to_string(),
+        ),
         ..ServeCommandConfiguration::new_sample(temp_dir!())
     };
     let mut tester = RuntimeTester::build(

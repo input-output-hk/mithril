@@ -42,7 +42,10 @@ async fn test_create_cardano_transaction_single_signature() {
     tester
         .comment("state machine starts in Init and transit to Unregistered state.")
         .is_init().await.unwrap()
-        .aggregator_allow_signed_entities(&[SignedEntityTypeDiscriminants::CardanoTransactions]).await
+        .aggregator_allow_signed_entities(&[
+            SignedEntityTypeDiscriminants::CardanoTransactions, 
+            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull
+        ]).await
         .cycle_unregistered().await.unwrap()
 
         .comment("getting an epoch settings changes the state → RegisteredNotAbleToSign")
