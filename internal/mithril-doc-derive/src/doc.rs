@@ -36,15 +36,13 @@ pub fn extract_doc_comment(attrs: &[syn::Attribute]) -> Vec<String> {
         })
         .skip_while(|s| is_blank(s))
         .flat_map(|s| {
-            let lines = s
-                .split('\n')
+            s.split('\n')
                 .map(|s| {
                     // remove one leading space no matter what
                     let s = s.strip_prefix(' ').unwrap_or(s);
                     s.to_owned()
                 })
-                .collect::<Vec<_>>();
-            lines
+                .collect::<Vec<_>>()
         })
         .collect();
 

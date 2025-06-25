@@ -125,14 +125,12 @@ fn format_field(field: &syn::Field) -> FieldInfo {
         _ => true,
     };
 
-    let field_info = FieldInfo {
+    FieldInfo {
         name: field.ident.as_ref().unwrap().to_string(),
         doc,
         example,
         is_mandatory,
-    };
-
-    field_info
+    }
 }
 
 /// To extract doc from a struct.

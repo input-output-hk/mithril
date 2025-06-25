@@ -306,16 +306,15 @@ mod tests {
 
     fn get_table_whatever_column_count(connection: &SqliteConnection) -> i64 {
         let sql = "select count(*) as column_count from pragma_table_info('whatever');";
-        let column_count = connection
+
+        connection
             .prepare(sql)
             .unwrap()
             .iter()
             .next()
             .unwrap()
             .unwrap()
-            .read::<i64, _>(0);
-
-        column_count
+            .read::<i64, _>(0)
     }
 
     fn create_db_checker(connection: &ConnectionThreadSafe) -> DatabaseVersionChecker {

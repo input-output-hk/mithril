@@ -1104,9 +1104,8 @@ mod tests {
                         .to_owned()
                         .try_new_with_protocol_parameters(forged_protocol_parameters.clone())
                         .unwrap();
-                    let signature = s_adversary.protocol_signer.sign(signed_message.as_bytes());
 
-                    signature
+                    s_adversary.protocol_signer.sign(signed_message.as_bytes())
                 })
                 .collect::<Vec<_>>();
             let forged_clerk = ProtocolClerk::from_registration(
