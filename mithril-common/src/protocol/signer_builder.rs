@@ -30,10 +30,6 @@ pub enum SignerBuilderError {
     /// Error raised when the list of signers given to the builder is empty
     #[error("The list of signers must not be empty to create a signer builder.")]
     EmptySigners,
-
-    /// Error raised when the secret key file or the operational certificate file is not found
-    #[error("The secret key file or the operational certificate file is not found.")]
-    FileNotFound,
 }
 
 impl SignerBuilder {
