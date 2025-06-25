@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::bls_multi_signature::BlsVerificationKey;
 use crate::error::MerkleTreeError;
-use crate::{Stake, StmVerificationKey};
+use crate::{Stake, VerificationKey};
 
 /// The values that are committed in the Merkle Tree.
 /// Namely, a verified `VerificationKey` and its corresponding stake.
@@ -15,8 +15,8 @@ pub struct MerkleTreeLeaf(pub BlsVerificationKey, pub Stake);
 
 impl MerkleTreeLeaf {
     pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self, MerkleTreeError<Blake2b<U32>>> {
-        let pk = StmVerificationKey::from_bytes(bytes)
-            .map_err(|_| MerkleTreeError::SerializationError)?;
+        let pk =
+            VerificationKey::from_bytes(bytes).map_err(|_| MerkleTreeError::SerializationError)?;
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[96..]);
         let stake = Stake::from_be_bytes(u64_bytes);
@@ -30,8 +30,8 @@ impl MerkleTreeLeaf {
     }
 }
 
-impl From<MerkleTreeLeaf> for (StmVerificationKey, Stake) {
-    fn from(leaf: MerkleTreeLeaf) -> (StmVerificationKey, Stake) {
+impl From<MerkleTreeLeaf> for (VerificationKey, Stake) {
+    fn from(leaf: MerkleTreeLeaf) -> (VerificationKey, Stake) {
         (leaf.0, leaf.1)
     }
 }

@@ -5,7 +5,7 @@ use blake2::{
 };
 use mithril_stm::{
     BasicVerifier, Clerk, Initializer, KeyRegistration, Parameters, Signer, SingleSignature,
-    SingleSignatureWithRegisteredParty, Stake, StmVerificationKey,
+    SingleSignatureWithRegisteredParty, Stake, VerificationKey,
 };
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
@@ -70,7 +70,7 @@ where
     let mut msg = [0u8; 16];
     rng.fill_bytes(&mut msg);
 
-    let mut public_signers: Vec<(StmVerificationKey, Stake)> = Vec::with_capacity(nparties);
+    let mut public_signers: Vec<(VerificationKey, Stake)> = Vec::with_capacity(nparties);
     let mut initializers: Vec<Initializer> = Vec::with_capacity(nparties);
 
     let parties = (0..nparties)

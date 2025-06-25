@@ -3,14 +3,14 @@ use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
 use crate::bls_multi_signature::{BlsSignature, BlsVerificationKey};
-use crate::key_reg::RegisteredParty;
+use crate::key_registration::RegisteredParty;
 use crate::merkle_tree::MerkleBatchPath;
 use crate::{
     AggregateVerificationKey, BasicVerifier, Parameters, SingleSignatureWithRegisteredParty,
     StmAggregateSignatureError,
 };
 
-/// `StmMultiSig` uses the "concatenation" proving system (as described in Section 4.3 of the original paper.)
+/// `AggregateSignature` uses the "concatenation" proving system (as described in Section 4.3 of the original paper.)
 /// This means that the aggregated signature contains a vector with all individual signatures.
 /// BatchPath is also a part of the aggregate signature which covers path for all signatures.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -27,7 +27,7 @@ pub struct AggregateSignature<D: Clone + Digest + FixedOutput> {
 impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
     /// Verify all checks from signatures, except for the signature verification itself.
     ///
-    /// Indices and quorum are checked by `CoreVerifier::preliminary_verify` with `msgp`.
+    /// Indices and quorum are checked by `BasicVerifier::preliminary_verify` with `msgp`.
     /// It collects leaves from signatures and checks the batch proof.
     /// After batch proof is checked, it collects and returns the signatures and
     /// verification keys to be used by aggregate verification.
@@ -157,7 +157,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
         out
     }
 
-    ///Extract a `StmAggrSig` from a byte slice.
+    ///Extract a `AggregateSignature` from a byte slice.
     pub fn from_bytes(
         bytes: &[u8],
     ) -> Result<AggregateSignature<D>, StmAggregateSignatureError<D>> {

@@ -6,7 +6,7 @@ use std::{
 
 use blake2::digest::{Digest, FixedOutput};
 
-use crate::bls_multi_signature::{BlsVerificationKey, BlsVerificationKeyProofOfPossesion};
+use crate::bls_multi_signature::{BlsVerificationKey, BlsVerificationKeyProofOfPossession};
 use crate::error::RegisterError;
 use crate::merkle_tree::{MerkleTree, MerkleTreeLeaf};
 use crate::Stake;
@@ -34,7 +34,7 @@ impl KeyRegistration {
     pub fn register(
         &mut self,
         stake: Stake,
-        pk: BlsVerificationKeyProofOfPossesion,
+        pk: BlsVerificationKeyProofOfPossession,
     ) -> Result<(), RegisterError> {
         if let Entry::Vacant(e) = self.keys.entry(pk.vk) {
             pk.check()?;
@@ -107,12 +107,12 @@ mod tests {
 
             let gen_keys = (1..nkeys).map(|_| {
                 let sk = BlsSigningKey::generate(&mut rng);
-                BlsVerificationKeyProofOfPossesion::from(&sk)
+                BlsVerificationKeyProofOfPossession::from(&sk)
             }).collect::<Vec<_>>();
 
             let fake_key = {
                 let sk = BlsSigningKey::generate(&mut rng);
-                BlsVerificationKeyProofOfPossesion::from(&sk)
+                BlsVerificationKeyProofOfPossession::from(&sk)
             };
 
             // Record successful registrations

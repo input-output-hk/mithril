@@ -96,7 +96,7 @@ mod tests {
 
     use crate::bls_multi_signature::helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk};
     use crate::error::{MultiSignatureError, RegisterError};
-    use crate::key_reg::KeyRegistration;
+    use crate::key_registration::KeyRegistration;
 
     use super::*;
 
@@ -156,7 +156,7 @@ mod tests {
 
             let p2 = blst_p2::default();
             let vk_infinity = BlsVerificationKey(p2_affine_to_vk(&p2));
-            let vkpop_infinity = BlsVerificationKeyProofOfPossesion { vk: vk_infinity, pop };
+            let vkpop_infinity = BlsVerificationKeyProofOfPossession { vk: vk_infinity, pop };
 
             let result = vkpop_infinity.check();
             assert_eq!(result, Err(MultiSignatureError::VerificationKeyInfinity(Box::new(vkpop_infinity.vk))));
@@ -171,11 +171,11 @@ mod tests {
             let pop = BlsProofOfPossession::from(&sk);
             let p2 = blst_p2::default();
             let vk_infinity = BlsVerificationKey(p2_affine_to_vk(&p2));
-            let vkpop_infinity = BlsVerificationKeyProofOfPossesion { vk: vk_infinity, pop };
+            let vkpop_infinity = BlsVerificationKeyProofOfPossession { vk: vk_infinity, pop };
 
             for _ in 0..num_sigs {
                 let sk = BlsSigningKey::generate(&mut rng);
-                let vkpop = BlsVerificationKeyProofOfPossesion::from(&sk);
+                let vkpop = BlsVerificationKeyProofOfPossession::from(&sk);
                 let _ = kr.register(1, vkpop);
             }
 
@@ -221,9 +221,9 @@ mod tests {
             let vk_bytes = vk.to_bytes();
             let vk2 = BlsVerificationKey::from_bytes(&vk_bytes).unwrap();
             assert_eq!(vk, vk2);
-            let vkpop = BlsVerificationKeyProofOfPossesion::from(&sk);
+            let vkpop = BlsVerificationKeyProofOfPossession::from(&sk);
             let vkpop_bytes = vkpop.to_bytes();
-            let vkpop2: BlsVerificationKeyProofOfPossesion = BlsVerificationKeyProofOfPossesion::from_bytes(&vkpop_bytes).unwrap();
+            let vkpop2: BlsVerificationKeyProofOfPossession = BlsVerificationKeyProofOfPossession::from_bytes(&vkpop_bytes).unwrap();
             assert_eq!(vkpop, vkpop2);
 
             // Now we test serde
@@ -232,7 +232,7 @@ mod tests {
             let (decoded,_) = bincode::serde::decode_from_slice::<BlsVerificationKey,_>(&encoded, bincode::config::legacy()).unwrap();
             assert_eq!(vk, decoded);
             let encoded = bincode::serde::encode_to_vec(vkpop, bincode::config::legacy()).unwrap();
-            let (decoded,_) = bincode::serde::decode_from_slice::<BlsVerificationKeyProofOfPossesion,_>(&encoded, bincode::config::legacy()).unwrap();
+            let (decoded,_) = bincode::serde::decode_from_slice::<BlsVerificationKeyProofOfPossession,_>(&encoded, bincode::config::legacy()).unwrap();
             assert_eq!(vkpop, decoded);
         }
 

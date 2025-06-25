@@ -3,7 +3,7 @@ use blake2::{digest::consts::U32, Blake2b};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use mithril_stm::{
     AggregateSignature, BasicVerifier, Clerk, Initializer, KeyRegistration, Parameters, Signer,
-    Stake, StmVerificationKey,
+    Stake, VerificationKey,
 };
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
@@ -151,7 +151,7 @@ fn batch_benches<H>(
     }
 }
 
-fn core_verifier_benches<H>(c: &mut Criterion, nr_parties: usize, params: Parameters)
+fn basic_verifier_benches<H>(c: &mut Criterion, nr_parties: usize, params: Parameters)
 where
     H: Clone + Debug + Digest + Send + Sync + FixedOutput + Default,
 {
@@ -160,7 +160,7 @@ where
     let mut msg = [0u8; 16];
     rng.fill_bytes(&mut msg);
 
-    let mut public_signers: Vec<(StmVerificationKey, Stake)> = Vec::with_capacity(nr_parties);
+    let mut public_signers: Vec<(VerificationKey, Stake)> = Vec::with_capacity(nr_parties);
     let mut initializers: Vec<Initializer> = Vec::with_capacity(nr_parties);
 
     let param_string = format!(
@@ -229,7 +229,7 @@ fn stm_benches_blake_300(c: &mut Criterion) {
 }
 
 fn core_verifier_benches_blake_300(c: &mut Criterion) {
-    core_verifier_benches::<Blake2b<U32>>(
+    basic_verifier_benches::<Blake2b<U32>>(
         c,
         300,
         Parameters {
@@ -268,7 +268,7 @@ fn stm_benches_blake_2000(c: &mut Criterion) {
 }
 
 fn core_verifier_benches_blake_2000(c: &mut Criterion) {
-    core_verifier_benches::<Blake2b<U32>>(
+    basic_verifier_benches::<Blake2b<U32>>(
         c,
         2000,
         Parameters {

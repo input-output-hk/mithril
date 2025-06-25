@@ -2,11 +2,11 @@ use blake2::digest::{Digest, FixedOutput};
 
 use crate::bls_multi_signature::{BlsSignature, BlsSigningKey, BlsVerificationKey};
 use crate::eligibility_check::ev_lt_phi;
-use crate::key_reg::ClosedKeyRegistration;
+use crate::key_registration::ClosedKeyRegistration;
 use crate::{Parameters, SingleSignature, Stake};
 
 /// Wrapper of the MultiSignature Verification key
-pub type StmVerificationKey = BlsVerificationKey;
+pub type VerificationKey = BlsVerificationKey;
 
 /// Participant in the protocol can sign messages.
 /// * If the signer has `closed_reg`, then it can generate Stm certificate.
@@ -21,7 +21,7 @@ pub struct Signer<D: Digest> {
     stake: Stake,
     params: Parameters,
     sk: BlsSigningKey,
-    vk: StmVerificationKey,
+    vk: VerificationKey,
     closed_reg: Option<ClosedKeyRegistration<D>>,
 }
 
@@ -32,7 +32,7 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
         stake: Stake,
         params: Parameters,
         sk: BlsSigningKey,
-        vk: StmVerificationKey,
+        vk: VerificationKey,
         closed_reg: ClosedKeyRegistration<D>,
     ) -> Signer<D> {
         Self {
@@ -51,7 +51,7 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
         stake: Stake,
         params: Parameters,
         sk: BlsSigningKey,
-        vk: StmVerificationKey,
+        vk: VerificationKey,
     ) -> Signer<D> {
         Self {
             signer_index,
@@ -85,7 +85,7 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
     }
 
     /// Extract the verification key.
-    pub fn verification_key(&self) -> StmVerificationKey {
+    pub fn verification_key(&self) -> VerificationKey {
         self.vk
     }
 
@@ -141,7 +141,7 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
     }
 
     /// Get verification key
-    pub fn get_vk(&self) -> StmVerificationKey {
+    pub fn get_vk(&self) -> VerificationKey {
         self.vk
     }
 }

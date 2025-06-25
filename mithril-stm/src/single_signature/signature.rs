@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::bls_multi_signature::BlsSignature;
 use crate::eligibility_check::ev_lt_phi;
 use crate::{
-    AggregateVerificationKey, Index, Parameters, Stake, StmSignatureError, StmVerificationKey,
+    AggregateVerificationKey, Index, Parameters, Stake, StmSignatureError, VerificationKey,
 };
 
 /// Signature created by a single party who has won the lottery.
@@ -29,7 +29,7 @@ impl SingleSignature {
     pub fn verify<D: Clone + Digest + FixedOutput>(
         &self,
         params: &Parameters,
-        pk: &StmVerificationKey,
+        pk: &VerificationKey,
         stake: &Stake,
         avk: &AggregateVerificationKey<D>,
         msg: &[u8],
@@ -85,7 +85,7 @@ impl SingleSignature {
         output
     }
 
-    /// Extract a batch compatible `StmSig` from a byte slice.
+    /// Extract a batch compatible `SingleSignature` from a byte slice.
     pub fn from_bytes<D: Clone + Digest + FixedOutput>(
         bytes: &[u8],
     ) -> Result<SingleSignature, StmSignatureError> {
@@ -139,7 +139,7 @@ impl SingleSignature {
     pub fn verify_core(
         &self,
         params: &Parameters,
-        pk: &StmVerificationKey,
+        pk: &VerificationKey,
         stake: &Stake,
         msg: &[u8],
         total_stake: &Stake,

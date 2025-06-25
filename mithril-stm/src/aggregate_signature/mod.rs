@@ -1,11 +1,11 @@
 mod aggregate_key;
+mod basic_verifier;
 mod clerk;
-mod core_verifier;
 mod signature;
 
 pub use aggregate_key::*;
+pub use basic_verifier::*;
 pub use clerk::*;
-pub use core_verifier::*;
 pub use signature::*;
 
 #[cfg(test)]
@@ -481,7 +481,7 @@ mod tests {
     }
 
     // ---------------------------------------------------------------------
-    // Core verifier
+    // Basic verifier
     // ---------------------------------------------------------------------
     fn setup_equal_core_parties(
         params: Parameters,

@@ -1,7 +1,7 @@
 use blake2::{digest::consts::U32, Blake2b};
 use mithril_stm::{
     AggregateSignature, AggregateVerificationKey, AggregationError, Clerk, Initializer,
-    KeyRegistration, Parameters, Signer, SingleSignature, Stake, StmVerificationKey,
+    KeyRegistration, Parameters, Signer, SingleSignature, Stake, VerificationKey,
 };
 use rand_chacha::ChaCha20Rng;
 use rand_core::RngCore;
@@ -12,7 +12,7 @@ type H = Blake2b<U32>;
 /// The result of the initialization phase of the STM protocol.
 pub struct InitializationPhaseResult {
     pub signers: Vec<Signer<H>>,
-    pub reg_parties: Vec<(StmVerificationKey, Stake)>,
+    pub reg_parties: Vec<(VerificationKey, Stake)>,
     pub initializers: Vec<Initializer>,
 }
 
@@ -36,7 +36,7 @@ pub fn initialization_phase(
 
     let mut initializers: Vec<Initializer> = Vec::with_capacity(nparties);
 
-    let mut reg_parties: Vec<(StmVerificationKey, Stake)> = Vec::with_capacity(nparties);
+    let mut reg_parties: Vec<(VerificationKey, Stake)> = Vec::with_capacity(nparties);
 
     for stake in parties {
         let p = Initializer::setup(params, stake, &mut rng);
@@ -63,7 +63,7 @@ pub fn initialization_phase(
 pub fn operation_phase(
     params: Parameters,
     signers: Vec<Signer<H>>,
-    reg_parties: Vec<(StmVerificationKey, Stake)>,
+    reg_parties: Vec<(VerificationKey, Stake)>,
     msg: [u8; 32],
 ) -> OperationPhaseResult {
     let sigs = signers

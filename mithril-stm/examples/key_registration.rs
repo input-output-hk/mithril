@@ -4,7 +4,7 @@
 use blake2::{digest::consts::U32, Blake2b};
 use mithril_stm::{
     Clerk, ClosedKeyRegistration, Initializer, KeyRegistration, Parameters, Stake,
-    StmVerificationKeyPoP,
+    VerificationKeyProofOfPossession,
 };
 
 use rand_chacha::ChaCha20Rng;
@@ -44,7 +44,7 @@ fn main() {
     let party_3_init = Initializer::setup(params, stakes[3], &mut rng);
 
     // The public keys are broadcast. All participants will have the same keys.
-    let parties_pks: Vec<StmVerificationKeyPoP> = vec![
+    let parties_pks: Vec<VerificationKeyProofOfPossession> = vec![
         party_0_init.verification_key(),
         party_1_init.verification_key(),
         party_2_init.verification_key(),
@@ -133,7 +133,7 @@ fn main() {
     assert!(msig_3.is_err());
 }
 
-fn local_reg(ids: &[u64], pks: &[StmVerificationKeyPoP]) -> ClosedKeyRegistration<H> {
+fn local_reg(ids: &[u64], pks: &[VerificationKeyProofOfPossession]) -> ClosedKeyRegistration<H> {
     let mut local_keyreg = KeyRegistration::init();
     // data, such as the public key, stake and id.
     for (&pk, id) in pks.iter().zip(ids.iter()) {

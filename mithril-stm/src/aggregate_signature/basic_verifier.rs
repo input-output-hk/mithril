@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::bls_multi_signature::{BlsSignature, BlsVerificationKey};
-use crate::key_reg::RegisteredParty;
+use crate::key_registration::RegisteredParty;
 use crate::merkle_tree::MerkleTreeLeaf;
 use crate::{
     AggregationError, CoreVerifierError, Index, Parameters, SingleSignature,
@@ -17,7 +17,7 @@ pub struct BasicVerifier {
 }
 
 impl BasicVerifier {
-    /// Setup a core verifier for given list of signers.
+    /// Setup a basic verifier for given list of signers.
     ///     * Collect the unique signers in a hash set,
     ///     * Calculate the total stake of the eligible signers,
     ///     * Sort the eligible signers.
@@ -164,7 +164,7 @@ impl BasicVerifier {
         Err(AggregationError::NotEnoughSignatures(count, params.k))
     }
 
-    /// Collect and return `Vec<Signature>, Vec<VerificationKey>` which will be used
+    /// Collect and return `Vec<BlsSignature>, Vec<BlsVerificationKey>` which will be used
     /// by the aggregate verification.
     pub(crate) fn collect_sigs_vks(
         sig_reg_list: &[SingleSignatureWithRegisteredParty],

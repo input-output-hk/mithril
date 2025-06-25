@@ -3,12 +3,12 @@ use digest::FixedOutput;
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 
-use crate::bls_multi_signature::{BlsSigningKey, BlsVerificationKeyProofOfPossesion};
-use crate::key_reg::*;
+use crate::bls_multi_signature::{BlsSigningKey, BlsVerificationKeyProofOfPossession};
+use crate::key_registration::*;
 use crate::{Parameters, RegisterError, Signer, Stake};
 
 /// Wrapper of the MultiSignature Verification key with proof of possession
-pub type StmVerificationKeyPoP = BlsVerificationKeyProofOfPossesion;
+pub type VerificationKeyProofOfPossession = BlsVerificationKeyProofOfPossession;
 
 /// Initializer for `StmSigner`.
 /// This is the data that is used during the key registration procedure.
@@ -22,15 +22,15 @@ pub struct Initializer {
     /// Secret key.
     pub(crate) sk: BlsSigningKey,
     /// Verification (public) key + proof of possession.
-    pub(crate) pk: StmVerificationKeyPoP,
+    pub(crate) pk: VerificationKeyProofOfPossession,
 }
 
 impl Initializer {
-    /// Builds an `StmInitializer` that is ready to register with the key registration service.
+    /// Builds an `Initializer` that is ready to register with the key registration service.
     /// This function generates the signing and verification key with a PoP, and initialises the structure.
     pub fn setup<R: RngCore + CryptoRng>(params: Parameters, stake: Stake, rng: &mut R) -> Self {
         let sk = BlsSigningKey::generate(rng);
-        let pk = StmVerificationKeyPoP::from(&sk);
+        let pk = VerificationKeyProofOfPossession::from(&sk);
         Self {
             stake,
             params,
@@ -40,7 +40,7 @@ impl Initializer {
     }
 
     /// Extract the verification key.
-    pub fn verification_key(&self) -> StmVerificationKeyPoP {
+    pub fn verification_key(&self) -> VerificationKeyProofOfPossession {
         self.pk
     }
 
@@ -126,7 +126,7 @@ impl Initializer {
         out
     }
 
-    /// Convert a slice of bytes to an `StmInitializer`
+    /// Convert a slice of bytes to an `Initializer`
     /// # Error
     /// The function fails if the given string of bytes is not of required size.
     pub fn from_bytes(bytes: &[u8]) -> Result<Initializer, RegisterError> {
@@ -137,7 +137,7 @@ impl Initializer {
             Parameters::from_bytes(bytes.get(8..32).ok_or(RegisterError::SerializationError)?)?;
         let sk =
             BlsSigningKey::from_bytes(bytes.get(32..).ok_or(RegisterError::SerializationError)?)?;
-        let pk = StmVerificationKeyPoP::from_bytes(
+        let pk = VerificationKeyProofOfPossession::from_bytes(
             bytes.get(64..).ok_or(RegisterError::SerializationError)?,
         )?;
 

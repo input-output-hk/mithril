@@ -110,7 +110,7 @@ mod aggregate_signature;
 mod bls_multi_signature;
 mod eligibility_check;
 mod error;
-mod key_reg;
+mod key_registration;
 mod merkle_tree;
 mod parameters;
 mod participant;
@@ -121,15 +121,15 @@ pub use error::{
     AggregationError, CoreVerifierError, RegisterError, StmAggregateSignatureError,
     StmSignatureError,
 };
-pub use key_reg::{ClosedKeyRegistration, KeyRegistration};
+pub use key_registration::{ClosedKeyRegistration, KeyRegistration};
 pub use parameters::Parameters;
-pub use participant::{Initializer, Signer, StmVerificationKey, StmVerificationKeyPoP};
+pub use participant::{Initializer, Signer, VerificationKey, VerificationKeyProofOfPossession};
 pub use single_signature::{SingleSignature, SingleSignatureWithRegisteredParty};
 
 #[cfg(feature = "benchmark-internals")]
 pub use bls_multi_signature::{
     BlsProofOfPossession, BlsSignature, BlsSigningKey, BlsVerificationKey,
-    BlsVerificationKeyProofOfPossesion,
+    BlsVerificationKeyProofOfPossession,
 };
 
 /// The quantity of stake held by a party, represented as a `u64`.
@@ -142,12 +142,22 @@ pub type Index = u64;
 // Aliases
 pub use aggregate_signature::AggregateSignature as StmAggrSig;
 pub use aggregate_signature::AggregateVerificationKey as StmAggrVerificationKey;
-pub use aggregate_signature::BasicVerifier as CoreVerifier;
+
 pub use aggregate_signature::Clerk as StmClerk;
-pub use key_reg::ClosedKeyRegistration as ClosedKeyReg;
-pub use key_reg::KeyRegistration as KeyReg;
+pub use key_registration::ClosedKeyRegistration as ClosedKeyReg;
+pub use key_registration::KeyRegistration as KeyReg;
 pub use parameters::Parameters as StmParameters;
 pub use participant::Initializer as StmInitializer;
 pub use participant::Signer as StmSigner;
+pub use participant::VerificationKey as StmVerificationKey;
+pub use participant::VerificationKeyProofOfPossession as StmVerificationKeyPoP;
 pub use single_signature::SingleSignature as StmSig;
-pub use single_signature::SingleSignatureWithRegisteredParty as StmSigRegParty; // Only used within `mithril-stm` // Only used within `mithril-stm`
+
+#[deprecated(since = "0.4.6", note = "Use `BasicVerifier` instead")]
+pub use aggregate_signature::BasicVerifier as CoreVerifier;
+
+#[deprecated(
+    since = "0.4.6",
+    note = "Use `SingleSignatureWithRegisteredParty` instead"
+)]
+pub use single_signature::SingleSignatureWithRegisteredParty as StmSigRegParty;

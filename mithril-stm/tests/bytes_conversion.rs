@@ -4,9 +4,7 @@ use blake2::{digest::consts::U32, Blake2b};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
-use mithril_stm::{
-    AggregateSignature, Initializer, Parameters, SingleSignature, StmVerificationKey,
-};
+use mithril_stm::{AggregateSignature, Initializer, Parameters, SingleSignature, VerificationKey};
 
 use test_extensions::protocol_phase::{
     initialization_phase, operation_phase, InitializationPhaseResult, OperationPhaseResult,
@@ -50,9 +48,9 @@ fn test_binary_conversions() {
 
     let verification_key = reg_parties[0].0;
     let encoded = verification_key.to_bytes();
-    StmVerificationKey::from_bytes(&encoded[1..])
+    VerificationKey::from_bytes(&encoded[1..])
         .expect_err("StmVerificationKey decoding should fail with invalid bytes");
-    let decoded = StmVerificationKey::from_bytes(&encoded).unwrap();
+    let decoded = VerificationKey::from_bytes(&encoded).unwrap();
     assert_eq!(verification_key, decoded);
 
     let initializer = &initializers[0];

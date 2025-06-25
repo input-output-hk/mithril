@@ -3,10 +3,10 @@ use blake2::digest::{Digest, FixedOutput};
 use crate::{
     AggregateSignature, AggregateVerificationKey, AggregationError, BasicVerifier,
     ClosedKeyRegistration, Index, Parameters, Signer, SingleSignature,
-    SingleSignatureWithRegisteredParty, Stake, StmVerificationKey,
+    SingleSignatureWithRegisteredParty, Stake, VerificationKey,
 };
 
-/// `StmClerk` can verify and aggregate `StmSig`s and verify `StmMultiSig`s.
+/// `Clerk` can verify and aggregate `SingleSignature`s and verify `AggregateSignature`s.
 /// Clerks can only be generated with the registration closed.
 /// This avoids that a Merkle Tree is computed before all parties have registered.
 #[derive(Debug, Clone)]
@@ -43,7 +43,7 @@ impl<D: Digest + Clone + FixedOutput> Clerk<D> {
     /// This function first deduplicates the repeated signatures, and if there are enough signatures, it collects the merkle tree indexes of unique signatures.
     /// The list of merkle tree indexes is used to create a batch proof, to prove that all signatures are from eligible signers.
     ///
-    /// It returns an instance of `StmAggrSig`.
+    /// It returns an instance of `AggregateSignature`.
     pub fn aggregate(
         &self,
         sigs: &[SingleSignature],
@@ -87,7 +87,7 @@ impl<D: Digest + Clone + FixedOutput> Clerk<D> {
     }
 
     /// Get the (VK, stake) of a party given its index.
-    pub fn get_reg_party(&self, party_index: &Index) -> Option<(StmVerificationKey, Stake)> {
+    pub fn get_reg_party(&self, party_index: &Index) -> Option<(VerificationKey, Stake)> {
         self.closed_reg
             .reg_parties
             .get(*party_index as usize)

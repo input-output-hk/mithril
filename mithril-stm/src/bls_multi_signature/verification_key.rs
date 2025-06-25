@@ -124,14 +124,14 @@ impl From<&BlsSigningKey> for BlsVerificationKey {
 
 /// MultiSig public key, contains the verification key and the proof of possession.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BlsVerificationKeyProofOfPossesion {
+pub struct BlsVerificationKeyProofOfPossession {
     /// The verification key.
     pub vk: BlsVerificationKey,
     /// Proof of Possession.
     pub pop: BlsProofOfPossession,
 }
 
-impl BlsVerificationKeyProofOfPossesion {
+impl BlsVerificationKeyProofOfPossession {
     /// if `e(k1,g2) = e(H_G1("PoP" || mvk),mvk)` and `e(g1,mvk) = e(k2,g2)`
     /// are both true, return 1. The first part is a signature verification
     /// of message "PoP", while the second we need to compute the pairing
@@ -170,7 +170,7 @@ impl BlsVerificationKeyProofOfPossesion {
         vkpop_bytes
     }
 
-    /// Deserialize a byte string to a `PublicKeyPoP`.
+    /// Deserialize a byte string to a `BlsVerificationKeyProofOfPossession`.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         let mvk = BlsVerificationKey::from_bytes(
             bytes
@@ -188,8 +188,8 @@ impl BlsVerificationKeyProofOfPossesion {
     }
 }
 
-impl From<&BlsSigningKey> for BlsVerificationKeyProofOfPossesion {
-    /// Convert a secret key into a `VerificationKeyPoP` by simply converting to a
+impl From<&BlsSigningKey> for BlsVerificationKeyProofOfPossession {
+    /// Convert a secret key into a `BlsVerificationKeyProofOfPossession` by simply converting to a
     /// `MspMvk` and `MspPoP`.
     fn from(sk: &BlsSigningKey) -> Self {
         Self {

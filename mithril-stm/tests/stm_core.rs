@@ -2,7 +2,7 @@ use blake2::Blake2b;
 use digest::consts::U32;
 use mithril_stm::{
     BasicVerifier, CoreVerifierError, Initializer, Parameters, Signer, SingleSignature, Stake,
-    StmVerificationKey,
+    VerificationKey,
 };
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
@@ -14,7 +14,7 @@ fn test_core_verifier() {
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let mut msg = [0u8; 32];
     rng.fill_bytes(&mut msg);
-    let mut public_signers: Vec<(StmVerificationKey, Stake)> = Vec::with_capacity(nparties);
+    let mut public_signers: Vec<(VerificationKey, Stake)> = Vec::with_capacity(nparties);
     let mut initializers: Vec<Initializer> = Vec::with_capacity(nparties);
 
     //////////////////////////

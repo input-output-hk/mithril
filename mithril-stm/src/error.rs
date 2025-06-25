@@ -3,7 +3,7 @@ use blake2::digest::{Digest, FixedOutput};
 use blst::BLST_ERROR;
 
 use crate::bls_multi_signature::{
-    BlsSignature, BlsVerificationKey, BlsVerificationKeyProofOfPossesion,
+    BlsSignature, BlsVerificationKey, BlsVerificationKeyProofOfPossession,
 };
 use crate::merkle_tree::{MerkleBatchPath, MerklePath};
 
@@ -24,7 +24,7 @@ pub enum MultiSignatureError {
 
     /// Incorrect proof of possession
     #[error("Key with invalid PoP")]
-    KeyInvalid(Box<BlsVerificationKeyProofOfPossesion>),
+    KeyInvalid(Box<BlsVerificationKeyProofOfPossession>),
 
     /// At least one signature in the batch is invalid
     #[error("One signature in the batch is invalid")]
@@ -251,7 +251,7 @@ pub enum RegisterError {
 
     /// The supplied key is not valid
     #[error("The verification of correctness of the supplied key is invalid.")]
-    KeyInvalid(Box<BlsVerificationKeyProofOfPossesion>),
+    KeyInvalid(Box<BlsVerificationKeyProofOfPossession>),
 
     /// Serialization error
     #[error("Serialization error")]
