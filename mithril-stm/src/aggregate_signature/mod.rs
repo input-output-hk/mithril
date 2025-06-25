@@ -39,7 +39,7 @@ mod tests {
     fn setup_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmSigner<D>> {
         let mut kr = KeyReg::init();
         let mut trng = TestRng::deterministic_rng(ChaCha);
-        let mut rng = ChaCha20Rng::from_seed(trng.r#gen());
+        let mut rng = ChaCha20Rng::from_seed(trng.random());
 
         #[allow(clippy::needless_collect)]
         let ps = stake
@@ -496,7 +496,7 @@ mod tests {
         stake: Vec<Stake>,
     ) -> (Vec<StmInitializer>, Vec<(VerificationKey, Stake)>) {
         let mut trng = TestRng::deterministic_rng(ChaCha);
-        let mut rng = ChaCha20Rng::from_seed(trng.r#gen());
+        let mut rng = ChaCha20Rng::from_seed(trng.random());
 
         let ps = stake
             .into_iter()
