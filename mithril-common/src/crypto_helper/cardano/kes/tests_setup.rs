@@ -6,12 +6,19 @@ use kes_summed_ed25519::traits::KesSk;
 use crate::crypto_helper::{cardano::ColdKeyGenerator, OpCert};
 use crate::crypto_helper::{KESPeriod, ProtocolPartyId, SerDeShelleyFileFormat, Sum6KesBytes};
 
+/// A struct to hold KES cryptographic material for testing purposes.
+pub(crate) struct KesCryptographicMaterialForTest {
+    pub party_id: ProtocolPartyId,
+    pub operational_certificate_file: PathBuf,
+    pub kes_secret_key_file: PathBuf,
+}
+
 /// Create KES cryptographic material for testing purposes.
 pub(crate) fn create_kes_cryptographic_material(
     party_idx: u64,
     kes_period: KESPeriod,
     test_directory: &str,
-) -> (ProtocolPartyId, PathBuf, PathBuf) {
+) -> KesCryptographicMaterialForTest {
     let temp_dir = std::env::temp_dir()
         .join("create_kes_cryptographic_material")
         .join(format!("{test_directory}_{party_idx}"));
@@ -41,5 +48,9 @@ pub(crate) fn create_kes_cryptographic_material(
         .compute_protocol_party_id()
         .expect("compute protocol party id should not fail");
 
-    (party_id, operational_certificate_file, kes_secret_key_file)
+    KesCryptographicMaterialForTest {
+        party_id,
+        operational_certificate_file,
+        kes_secret_key_file,
+    }
 }

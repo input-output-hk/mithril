@@ -2,7 +2,7 @@ use kes_summed_ed25519::{kes::Sum6KesSig, traits::KesSig};
 
 use crate::{
     crypto_helper::{
-        cardano::{KesVerifyError, KesVerifier},
+        cardano::{KesVerifier, KesVerifyError},
         KESPeriod, OpCert,
     },
     StdResult,
@@ -37,25 +37,30 @@ impl KesVerifier for KesVerifierStandard {
             }
         }
 
-        Err(
-            KesVerifyError::SignatureInvalid(kes_period, operational_certificate.start_kes_period as u32)
-                .into(),
+        Err(KesVerifyError::SignatureInvalid(
+            kes_period,
+            operational_certificate.start_kes_period as u32,
         )
+        .into())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::crypto_helper::cardano::{
-        kes::tests_setup::create_kes_cryptographic_material, KesSigner, KesSignerStandard,
+        kes::tests_setup::create_kes_cryptographic_material,
+        tests_setup::KesCryptographicMaterialForTest, KesSigner, KesSignerStandard,
     };
 
     use super::*;
 
     #[test]
     fn verify_valid_signature_succeeds() {
-        let (_party_id, operational_certificate_file, kes_secret_key_file) =
-            create_kes_cryptographic_material(1, 0 as KESPeriod, "verify_valid_signature_succeeds");
+        let KesCryptographicMaterialForTest {
+            party_id: _,
+            operational_certificate_file,
+            kes_secret_key_file,
+        } = create_kes_cryptographic_material(1, 0 as KESPeriod, "verify_valid_signature_succeeds");
         let message = b"Test message for KES signing";
         let kes_signer = KesSignerStandard::new(kes_secret_key_file, operational_certificate_file);
         let kes_signing_period = 1;
@@ -70,8 +75,11 @@ mod tests {
 
     #[test]
     fn verify_invalid_signature_fails() {
-        let (_party_id, operational_certificate_file, kes_secret_key_file) =
-            create_kes_cryptographic_material(1, 0 as KESPeriod, "verify_invalid_signature_fails");
+        let KesCryptographicMaterialForTest {
+            party_id: _,
+            operational_certificate_file,
+            kes_secret_key_file,
+        } = create_kes_cryptographic_material(1, 0 as KESPeriod, "verify_invalid_signature_fails");
         let message = b"Test message for KES signing";
         let kes_signer = KesSignerStandard::new(kes_secret_key_file, operational_certificate_file);
         let kes_signing_period = 1;

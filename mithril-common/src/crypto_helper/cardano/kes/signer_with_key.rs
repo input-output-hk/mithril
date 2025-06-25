@@ -66,19 +66,23 @@ mod tests {
     use super::*;
 
     use crate::crypto_helper::cardano::{
-        kes::tests_setup::create_kes_cryptographic_material, KesVerifier, KesVerifierStandard,
+        kes::tests_setup::create_kes_cryptographic_material,
+        tests_setup::KesCryptographicMaterialForTest, KesVerifier, KesVerifierStandard,
     };
 
     type PartyIndex = u64;
 
     #[test]
     fn create_valid_signature_for_message() {
-        let (_party_id, operational_certificate_file, kes_secret_key_file) =
-            create_kes_cryptographic_material(
-                1 as PartyIndex,
-                0 as KESPeriod,
-                "create_valid_signature_for_message",
-            );
+        let KesCryptographicMaterialForTest {
+            party_id: _,
+            operational_certificate_file,
+            kes_secret_key_file,
+        } = create_kes_cryptographic_material(
+            1 as PartyIndex,
+            0 as KESPeriod,
+            "create_valid_signature_for_message",
+        );
         let message = b"Test message for KES signing";
         let kes_signer = KesSignerStandard::new(kes_secret_key_file, operational_certificate_file);
         let kes_signing_period = 1;
@@ -94,12 +98,15 @@ mod tests {
 
     #[test]
     fn create_invalid_signature_for_different_message() {
-        let (_party_id, operational_certificate_file, kes_secret_key_file) =
-            create_kes_cryptographic_material(
-                1 as PartyIndex,
-                0 as KESPeriod,
-                "create_invalid_signature_for_different_message",
-            );
+        let KesCryptographicMaterialForTest {
+            party_id: _,
+            operational_certificate_file,
+            kes_secret_key_file,
+        } = create_kes_cryptographic_material(
+            1 as PartyIndex,
+            0 as KESPeriod,
+            "create_invalid_signature_for_different_message",
+        );
         let message = b"Test message for KES signing";
         let kes_signer = KesSignerStandard::new(kes_secret_key_file, operational_certificate_file);
         let kes_signing_period = 1;
@@ -121,12 +128,15 @@ mod tests {
     #[test]
     fn create_invalid_signature_for_invalid_kes_period() {
         let kes_period_start = 5 as KESPeriod;
-        let (_party_id, operational_certificate_file, kes_secret_key_file) =
-            create_kes_cryptographic_material(
-                1 as PartyIndex,
-                kes_period_start,
-                "create_invalid_signature_for_invalid_kes_period",
-            );
+        let KesCryptographicMaterialForTest {
+            party_id: _,
+            operational_certificate_file,
+            kes_secret_key_file,
+        } = create_kes_cryptographic_material(
+            1 as PartyIndex,
+            kes_period_start,
+            "create_invalid_signature_for_invalid_kes_period",
+        );
         let message = b"Test message for KES signing";
         let kes_signer = KesSignerStandard::new(kes_secret_key_file, operational_certificate_file);
         let kes_signing_period = 2;
