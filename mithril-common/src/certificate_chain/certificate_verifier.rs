@@ -1,13 +1,14 @@
 //! A module used to validate the Certificate Chain created by an aggregator
 //!
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use hex::ToHex;
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 use std::sync::Arc;
 use thiserror::Error;
 
 use super::CertificateRetriever;
+use crate::StdResult;
 use crate::crypto_helper::{
     ProtocolAggregateVerificationKey, ProtocolGenesisError, ProtocolGenesisVerificationKey,
     ProtocolMultiSignature,
@@ -16,7 +17,6 @@ use crate::entities::{
     Certificate, CertificateSignature, ProtocolMessagePartKey, ProtocolParameters,
 };
 use crate::logging::LoggerExtensions;
-use crate::StdResult;
 
 #[cfg(test)]
 use mockall::automock;
@@ -428,7 +428,7 @@ mod tests {
     use super::*;
 
     use crate::certificate_chain::{CertificateRetrieverError, FakeCertificaterRetriever};
-    use crate::crypto_helper::{tests_setup::*, ProtocolClerk};
+    use crate::crypto_helper::{ProtocolClerk, tests_setup::*};
     use crate::test_utils::{
         CertificateChainBuilder, CertificateChainBuilderContext, MithrilFixtureBuilder, TestLogger,
     };
@@ -1075,8 +1075,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn verify_certificate_chain_fails_when_adversarial_with_registered_signer_forgery_through_protocol_parameters(
-    ) {
+    async fn verify_certificate_chain_fails_when_adversarial_with_registered_signer_forgery_through_protocol_parameters()
+     {
         // Create an adversarial certificate with a forged multi signature:
         // - with the valid signed message
         // - with the valid aggregate verification key (valid stake distribution)

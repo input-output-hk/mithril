@@ -8,7 +8,7 @@ use anyhow::Context;
 use human_bytes::human_bytes;
 use thiserror::Error;
 
-use mithril_client::{common::CompressionAlgorithm, MithrilError, MithrilResult};
+use mithril_client::{MithrilError, MithrilResult, common::CompressionAlgorithm};
 
 /// Checks to apply before downloading a Cardano Db archive to a given directory.
 pub struct CardanoDbDownloadChecker;
@@ -51,7 +51,9 @@ pub enum CardanoDbDownloadCheckerError {
     UnpackDirectoryNotEmpty(PathBuf),
 
     /// Cannot write in the given directory.
-    #[error("Unpack directory '{0}' is not writable, please check own or parents' permissions and ownership.")]
+    #[error(
+        "Unpack directory '{0}' is not writable, please check own or parents' permissions and ownership."
+    )]
     UnpackDirectoryIsNotWritable(PathBuf, #[source] MithrilError),
 }
 
@@ -318,8 +320,8 @@ mod test {
     }
 
     #[test]
-    fn check_prerequisites_for_uncompressed_data_return_error_without_allow_override_and_directory_not_empty(
-    ) {
+    fn check_prerequisites_for_uncompressed_data_return_error_without_allow_override_and_directory_not_empty()
+     {
         let pathdir = create_temporary_empty_directory(
             "return_error_without_allow_override_and_directory_not_empty",
         );
@@ -340,8 +342,8 @@ mod test {
     }
 
     #[test]
-    fn check_prerequisites_for_uncompressed_data_do_not_return_error_without_allow_override_and_directory_not_empty(
-    ) {
+    fn check_prerequisites_for_uncompressed_data_do_not_return_error_without_allow_override_and_directory_not_empty()
+     {
         let pathdir = create_temporary_empty_directory(
             "do_not_return_error_without_allow_override_and_directory_not_empty",
         );

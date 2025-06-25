@@ -5,13 +5,13 @@ use std::path::Path;
 use thiserror::Error;
 
 use crate::{
+    StdResult,
     crypto_helper::{
         ProtocolAggregateVerificationKey, ProtocolClerk, ProtocolClosedKeyRegistration,
         ProtocolInitializer, ProtocolKeyRegistration, ProtocolStakeDistribution,
     },
     entities::{PartyId, ProtocolParameters, SignerWithStake},
     protocol::MultiSigner,
-    StdResult,
 };
 
 use super::SingleSigner;
@@ -187,7 +187,7 @@ mod test {
 
     use crate::{
         crypto_helper::ProtocolRegistrationErrorWrapper,
-        test_utils::{fake_data, MithrilFixtureBuilder},
+        test_utils::{MithrilFixtureBuilder, fake_data},
     };
 
     use super::*;

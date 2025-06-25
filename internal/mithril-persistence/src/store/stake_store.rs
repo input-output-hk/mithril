@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use mithril_common::{
-    entities::{Epoch, StakeDistribution},
     StdResult,
+    entities::{Epoch, StakeDistribution},
 };
 
 /// Represent a way to store the stake of mithril party members.

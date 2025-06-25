@@ -4,8 +4,8 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 
-use mithril_common::entities::{CompressionAlgorithm, ImmutableFileNumber};
 use mithril_common::StdResult;
+use mithril_common::entities::{CompressionAlgorithm, ImmutableFileNumber};
 
 use crate::services::Snapshotter;
 use crate::tools::file_archiver::FileArchive;
@@ -201,8 +201,8 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn test_dumb_snapshotter_snapshot_return_archive_named_with_compression_algorithm_and_size_of_0(
-        ) {
+        async fn test_dumb_snapshotter_snapshot_return_archive_named_with_compression_algorithm_and_size_of_0()
+         {
             let snapshotter = DumbSnapshotter::new(CompressionAlgorithm::Gzip);
 
             let snapshot = snapshotter
@@ -239,12 +239,14 @@ mod tests {
         #[tokio::test]
         async fn test_dumb_snapshotter() {
             let snapshotter = DumbSnapshotter::new(CompressionAlgorithm::Zstandard);
-            assert!(snapshotter
-                .get_last_snapshot()
-                .expect(
-                    "Dumb snapshotter::get_last_snapshot should not fail when no last snapshot."
-                )
-                .is_none());
+            assert!(
+                snapshotter
+                    .get_last_snapshot()
+                    .expect(
+                        "Dumb snapshotter::get_last_snapshot should not fail when no last snapshot."
+                    )
+                    .is_none()
+            );
 
             {
                 let full_immutables_snapshot = snapshotter

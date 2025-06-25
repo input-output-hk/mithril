@@ -11,7 +11,7 @@ use mithril_common::{
     test_utils::MithrilFixtureBuilder,
 };
 use test_extensions::{
-    utilities::get_test_dir, ExpectedCertificate, ExpectedMetrics, RuntimeTester,
+    ExpectedCertificate, ExpectedMetrics, RuntimeTester, utilities::get_test_dir,
 };
 
 #[tokio::test]
@@ -103,7 +103,9 @@ async fn create_certificate() {
         )
     );
 
-    comment!("The state machine should get back to signing to sign CardanoImmutableFilesFull when a new immutable file exists");
+    comment!(
+        "The state machine should get back to signing to sign CardanoImmutableFilesFull when a new immutable file exists"
+    );
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "signing");
     let signers_for_immutables = &fixture.signers_fixture()[0..=6];
@@ -131,7 +133,9 @@ async fn create_certificate() {
         )
     );
 
-    comment!("The state machine should get back to signing to sign CardanoDatabase with the previously created immutable file");
+    comment!(
+        "The state machine should get back to signing to sign CardanoDatabase with the previously created immutable file"
+    );
     cycle!(tester, "signing");
     let signers_for_cardano_database = &fixture.signers_fixture()[1..=6];
     tester

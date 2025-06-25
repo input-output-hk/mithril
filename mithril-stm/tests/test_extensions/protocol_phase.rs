@@ -1,4 +1,4 @@
-use blake2::{digest::consts::U32, Blake2b};
+use blake2::{Blake2b, digest::consts::U32};
 use mithril_stm::{
     AggregationError, KeyReg, Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmInitializer,
     StmParameters, StmSig, StmSigner, StmVerificationKey,

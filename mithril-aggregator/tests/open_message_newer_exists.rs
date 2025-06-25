@@ -10,7 +10,7 @@ use mithril_common::{
     test_utils::MithrilFixtureBuilder,
 };
 use test_extensions::{
-    utilities::get_test_dir, ExpectedCertificate, ExpectedMetrics, RuntimeTester,
+    ExpectedCertificate, ExpectedMetrics, RuntimeTester, utilities::get_test_dir,
 };
 
 #[tokio::test]
@@ -87,11 +87,15 @@ async fn open_message_newer_exists() {
         )
     );
 
-    comment!("The state machine should get back to signing to sign CardanoImmutableFilesFull when a new immutable file exists");
+    comment!(
+        "The state machine should get back to signing to sign CardanoImmutableFilesFull when a new immutable file exists"
+    );
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "signing");
 
-    comment!("The state machine should stay there as it is not able to create a certificate for the CardanoImmutableFilesFull");
+    comment!(
+        "The state machine should stay there as it is not able to create a certificate for the CardanoImmutableFilesFull"
+    );
     cycle_err!(tester, "signing");
 
     comment!("Increase the immutable file number");

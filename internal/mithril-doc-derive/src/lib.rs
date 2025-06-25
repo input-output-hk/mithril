@@ -2,7 +2,7 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DeriveInput, Fields, Type};
+use syn::{Data, DeriveInput, Fields, Type, parse_macro_input};
 
 mod doc;
 
@@ -64,7 +64,7 @@ fn extract_fields_info(ast: &DeriveInput) -> Result<Vec<FieldInfo>, String> {
         Data::Enum(_) => {
             return Err("compile_error!(\"Enum types are not supported\")"
                 .parse()
-                .unwrap())
+                .unwrap());
         }
         Data::Struct(data_struct) => {
             match &data_struct.fields {

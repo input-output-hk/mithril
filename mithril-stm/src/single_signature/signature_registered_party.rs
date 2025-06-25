@@ -1,5 +1,5 @@
 use blake2::digest::{Digest, FixedOutput};
-use serde::{ser::SerializeTuple, Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Serialize, Serializer, ser::SerializeTuple};
 
 use crate::key_reg::RegParty;
 use crate::{StmSig, StmSignatureError};

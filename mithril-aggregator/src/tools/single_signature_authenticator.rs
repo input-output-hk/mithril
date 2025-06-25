@@ -1,9 +1,9 @@
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 use std::sync::Arc;
 
+use mithril_common::StdResult;
 use mithril_common::entities::{SingleSignature, SingleSignatureAuthenticationStatus};
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::StdResult;
 
 use crate::MultiSigner;
 
@@ -128,8 +128,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn single_signature_against_valid_signed_message_for_current_stake_distribution_is_authenticated(
-    ) {
+    async fn single_signature_against_valid_signed_message_for_current_stake_distribution_is_authenticated()
+     {
         let signed_message = "signed_message".to_string();
         let mut single_signature = SingleSignature {
             authentication_status: SingleSignatureAuthenticationStatus::Unauthenticated,
@@ -157,8 +157,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn single_signature_against_valid_signed_message_for_next_stake_distribution_is_authenticated(
-    ) {
+    async fn single_signature_against_valid_signed_message_for_next_stake_distribution_is_authenticated()
+     {
         let signed_message = "signed_message".to_string();
         let mut single_signature = SingleSignature {
             authentication_status: SingleSignatureAuthenticationStatus::Unauthenticated,
@@ -189,8 +189,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn single_signature_against_invalid_signed_message_for_current_and_next_stake_distribution_is_not_authenticated(
-    ) {
+    async fn single_signature_against_invalid_signed_message_for_current_and_next_stake_distribution_is_not_authenticated()
+     {
         let signed_message = "signed_message".to_string();
         let mut single_signature = SingleSignature {
             authentication_status: SingleSignatureAuthenticationStatus::Unauthenticated,
@@ -225,8 +225,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn single_signature_previously_authenticated_but_fail_new_authentication_is_now_unauthenticated(
-    ) {
+    async fn single_signature_previously_authenticated_but_fail_new_authentication_is_now_unauthenticated()
+     {
         let signed_message = "signed_message".to_string();
         let mut single_signature = SingleSignature {
             authentication_status: SingleSignatureAuthenticationStatus::Authenticated,

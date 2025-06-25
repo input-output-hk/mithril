@@ -40,7 +40,9 @@ impl Query for GetBufferedSingleSignatureQuery {
     fn get_definition(&self, condition: &str) -> String {
         let aliases = SourceAlias::new(&[("{:buffered_single_signature:}", "b")]);
         let projection = Self::Entity::get_projection().expand(aliases);
-        format!("select {projection} from buffered_single_signature as b where {condition} order by ROWID desc")
+        format!(
+            "select {projection} from buffered_single_signature as b where {condition} order by ROWID desc"
+        )
     }
 }
 

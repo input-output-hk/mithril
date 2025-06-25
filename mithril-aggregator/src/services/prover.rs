@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use rayon::prelude::*;
-use slog::{debug, info, Logger};
+use slog::{Logger, debug, info};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     sync::Arc,
@@ -8,13 +8,13 @@ use std::{
 };
 
 use mithril_common::{
+    StdResult,
     crypto_helper::{MKMap, MKMapNode, MKTree, MKTreeStorer},
     entities::{
         BlockNumber, BlockRange, CardanoTransaction, CardanoTransactionsSetProof, TransactionHash,
     },
     logging::LoggerExtensions,
     signable_builder::BlockRangeRootRetriever,
-    StdResult,
 };
 use mithril_resource_pool::ResourcePool;
 
@@ -146,22 +146,23 @@ impl<S: MKTreeStorer> ProverService for MithrilProverService<S> {
         }
 
         // 5 - Compute the proof for all transactions
-        match mk_map.compute_proof(transaction_hashes) { Ok(mk_proof) => {
-            self.mk_map_pool.give_back_resource_pool_item(mk_map)?;
-            let mk_proof_leaves = mk_proof.leaves();
-            let transaction_hashes_certified: Vec<TransactionHash> = transaction_hashes
-                .iter()
-                .filter(|hash| mk_proof_leaves.contains(&hash.as_str().into()))
-                .cloned()
-                .collect();
+        match mk_map.compute_proof(transaction_hashes) {
+            Ok(mk_proof) => {
+                self.mk_map_pool.give_back_resource_pool_item(mk_map)?;
+                let mk_proof_leaves = mk_proof.leaves();
+                let transaction_hashes_certified: Vec<TransactionHash> = transaction_hashes
+                    .iter()
+                    .filter(|hash| mk_proof_leaves.contains(&hash.as_str().into()))
+                    .cloned()
+                    .collect();
 
-            Ok(vec![CardanoTransactionsSetProof::new(
-                transaction_hashes_certified,
-                mk_proof,
-            )])
-        } _ => {
-            Ok(vec![])
-        }}
+                Ok(vec![CardanoTransactionsSetProof::new(
+                    transaction_hashes_certified,
+                    mk_proof,
+                )])
+            }
+            _ => Ok(vec![]),
+        }
     }
 
     async fn compute_cache(&self, up_to: BlockNumber) -> StdResult<()> {

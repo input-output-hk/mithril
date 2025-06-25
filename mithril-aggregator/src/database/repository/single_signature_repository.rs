@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use mithril_common::entities::SingleSignature;
 use mithril_common::StdResult;
+use mithril_common::entities::SingleSignature;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
 use crate::database::query::UpdateSingleSignatureRecordQuery;

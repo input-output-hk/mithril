@@ -1,5 +1,5 @@
-use blake2::{digest::consts::U64, Blake2b, Digest};
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use blake2::{Blake2b, Digest, digest::consts::U64};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use mithril_stm::{Signature, SigningKey, VerificationKey};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};

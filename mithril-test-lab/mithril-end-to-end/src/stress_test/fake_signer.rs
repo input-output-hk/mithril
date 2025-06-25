@@ -7,24 +7,28 @@ use thiserror::Error;
 use tokio::task::JoinSet;
 
 use mithril_common::{
+    StdResult,
     entities::{Epoch, PartyId, Signer},
     messages::RegisterSignatureMessage,
-    StdResult,
 };
 
-use crate::stress_test::payload_builder;
 use crate::Aggregator;
+use crate::stress_test::payload_builder;
 
 #[derive(Debug, Error)]
 pub enum LoadError {
-    #[error("Registering signer party_id={party_id}, expected HTTP code {expected_http_code} got {got_http_code} with the message: {error_message}.")]
+    #[error(
+        "Registering signer party_id={party_id}, expected HTTP code {expected_http_code} got {got_http_code} with the message: {error_message}."
+    )]
     SignerRegistrationError {
         party_id: PartyId,
         expected_http_code: u32,
         got_http_code: u32,
         error_message: String,
     },
-    #[error("Registering signatures for party_id={party_id}, expected HTTP code {expected_http_code} got {got_http_code} with the message: {error_message}.")]
+    #[error(
+        "Registering signatures for party_id={party_id}, expected HTTP code {expected_http_code} got {got_http_code} with the message: {error_message}."
+    )]
     SignaturesRegistrationError {
         party_id: PartyId,
         expected_http_code: u32,
@@ -86,7 +90,9 @@ pub async fn try_register_signer_until_registration_round_is_open(
                     info!("Signer registration succeeded, sending the other registrations...");
                 }
                 Err(err) => {
-                    warn!("Signer Registration error for first signer caught, other registrations will be skipped: {err:?}");
+                    warn!(
+                        "Signer Registration error for first signer caught, other registrations will be skipped: {err:?}"
+                    );
                 }
             }
 

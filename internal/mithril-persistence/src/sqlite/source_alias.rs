@@ -1,4 +1,4 @@
-use std::collections::{hash_map::Iter, HashMap};
+use std::collections::{HashMap, hash_map::Iter};
 
 /// Handful tool to store SQL source aliases.
 /// ```

@@ -172,8 +172,8 @@ mod tests {
     use crate::entities::SignedEntityType::CardanoStakeDistribution;
     use crate::{
         entities::{
-            certificate_metadata::StakeDistributionParty, ProtocolMessagePartKey,
-            ProtocolParameters,
+            ProtocolMessagePartKey, ProtocolParameters,
+            certificate_metadata::StakeDistributionParty,
         },
         test_utils::fake_keys,
     };

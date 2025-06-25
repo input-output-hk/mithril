@@ -12,7 +12,7 @@ mod handlers;
 mod shared_state;
 
 use clap::Parser;
-use tracing::{debug, error, Level};
+use tracing::{Level, debug, error};
 
 use crate::application::Application;
 use crate::error::*;

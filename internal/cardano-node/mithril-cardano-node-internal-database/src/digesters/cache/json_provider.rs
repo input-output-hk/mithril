@@ -12,9 +12,9 @@ use tokio::{
 use mithril_common::entities::{HexEncodedDigest, ImmutableFileName};
 
 use crate::digesters::{
-    cache::provider::{ImmutableDigesterCacheGetError, ImmutableDigesterCacheStoreError},
     cache::CacheProviderResult,
     cache::ImmutableFileDigestCacheProvider,
+    cache::provider::{ImmutableDigesterCacheGetError, ImmutableDigesterCacheStoreError},
 };
 use crate::entities::ImmutableFile;
 

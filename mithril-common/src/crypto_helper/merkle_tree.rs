@@ -1,8 +1,8 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use blake2::{Blake2s256, Digest};
 use ckb_merkle_mountain_range::{
-    Error as MMRError, MMRStoreReadOps, MMRStoreWriteOps, Merge, MerkleProof, Result as MMRResult,
-    MMR,
+    Error as MMRError, MMR, MMRStoreReadOps, MMRStoreWriteOps, Merge, MerkleProof,
+    Result as MMRResult,
 };
 use serde::{Deserialize, Serialize};
 use std::{

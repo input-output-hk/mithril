@@ -1,7 +1,7 @@
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 
-use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
+use mithril_common::logging::LoggerExtensions;
 
 use crate::sqlite::SqliteConnection;
 

@@ -1,17 +1,17 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use pallas_network::{
     facades::NodeClient,
     miniprotocols::chainsync::{BlockContent, NextResponse},
 };
 use pallas_traverse::MultiEraBlock;
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 
+use mithril_common::StdResult;
 use mithril_common::entities::CardanoNetwork;
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::StdResult;
 
 use crate::entities::{ChainBlockNextAction, RawCardanoPoint, ScannedBlock};
 
@@ -155,8 +155,8 @@ mod tests {
     use pallas_network::{
         facades::NodeServer,
         miniprotocols::{
-            chainsync::{BlockContent, Tip},
             Point,
+            chainsync::{BlockContent, Tip},
         },
     };
     use std::fs;

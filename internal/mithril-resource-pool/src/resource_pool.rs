@@ -10,8 +10,8 @@ use std::{
 use thiserror::Error;
 
 use mithril_common::{
-    crypto_helper::{MKMap, MKMapKey, MKMapValue, MKTreeStorer},
     StdResult,
+    crypto_helper::{MKMap, MKMapKey, MKMapValue, MKTreeStorer},
 };
 
 /// [ResourcePool] related errors.

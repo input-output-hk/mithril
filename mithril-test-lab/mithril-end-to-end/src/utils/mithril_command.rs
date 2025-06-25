@@ -1,5 +1,5 @@
 use crate::utils::file_utils;
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use mithril_common::StdResult;
 use slog_scope::info;
 use std::collections::HashMap;

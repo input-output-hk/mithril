@@ -54,7 +54,7 @@
 use async_trait::async_trait;
 use mithril_common::entities::ImmutableFileNumber;
 use serde::Serialize;
-use slog::{info, Logger};
+use slog::{Logger, info};
 use std::sync::{Arc, RwLock};
 use strum::Display;
 use uuid::Uuid;

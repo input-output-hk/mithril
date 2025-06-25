@@ -1,10 +1,10 @@
 use std::{collections::HashMap, sync::Arc};
 
-use anyhow::{anyhow, Context};
-use slog::{debug, info, trace, Logger};
+use anyhow::{Context, anyhow};
+use slog::{Logger, debug, info, trace};
 
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::{entities::Certificate, StdResult};
+use mithril_common::{StdResult, entities::Certificate};
 
 use crate::database::repository::{CertificateRepository, SignedEntityStorer};
 
@@ -203,9 +203,9 @@ impl CertificatesHashMigrator {
             self.certificate_repository
                 .delete_certificates(&old_certificates_chunk.iter().collect::<Vec<_>>())
                 .await
-                .with_context(|| {
-                    "Certificates Hash Migrator can not delete old certificates in the database"
-                })?;
+                .with_context(
+                    || "Certificates Hash Migrator can not delete old certificates in the database",
+                )?;
         }
 
         Ok(())
@@ -533,8 +533,8 @@ mod test {
     }
 
     #[tokio::test]
-    async fn migrate_a_chain_with_one_genesis_spanning_multiple_epochs_and_multiple_signed_entities(
-    ) {
+    async fn migrate_a_chain_with_one_genesis_spanning_multiple_epochs_and_multiple_signed_entities()
+     {
         let connection = Arc::new(connection_with_foreign_key_support());
         run_migration_test(
             connection,

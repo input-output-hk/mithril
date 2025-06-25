@@ -93,7 +93,7 @@ fn taylor_comparison(bound: usize, cmp: Ratio<BigInt>, x: Ratio<BigInt>) -> bool
 /// decimal digits (in order to represent the 4.5e16 ada without any rounding errors, we need
 /// double that precision).
 pub(crate) fn ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> bool {
-    use rug::{integer::Order, ops::Pow, Float};
+    use rug::{Float, integer::Order, ops::Pow};
 
     // If phi_f = 1, then we automatically break with true
     if (phi_f - 1.0).abs() < f64::EPSILON {

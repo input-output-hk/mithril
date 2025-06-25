@@ -10,7 +10,7 @@ use crate::dependency_injection::builder::{
     SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION, SQLITE_MONITORING_FILE,
 };
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
-use crate::{get_dependency, ExecutionEnvironment};
+use crate::{ExecutionEnvironment, get_dependency};
 
 impl DependenciesBuilder {
     fn build_sqlite_connection(

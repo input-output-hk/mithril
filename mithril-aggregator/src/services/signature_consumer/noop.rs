@@ -28,7 +28,7 @@ impl SignatureConsumer for SignatureConsumerNoop {
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
-    use tokio::time::{sleep, Duration};
+    use tokio::time::{Duration, sleep};
 
     use super::*;
 

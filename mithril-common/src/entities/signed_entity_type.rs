@@ -243,8 +243,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn get_epoch_when_signed_entity_type_is_signed_for_cardano_stake_distribution_return_epoch_with_offset(
-    ) {
+    fn get_epoch_when_signed_entity_type_is_signed_for_cardano_stake_distribution_return_epoch_with_offset()
+     {
         let signed_entity_type = SignedEntityType::CardanoStakeDistribution(Epoch(3));
 
         assert_eq!(
@@ -254,8 +254,8 @@ mod tests {
     }
 
     #[test]
-    fn get_epoch_when_signed_entity_type_is_signed_for_mithril_stake_distribution_return_epoch_stored_in_signed_entity_type(
-    ) {
+    fn get_epoch_when_signed_entity_type_is_signed_for_mithril_stake_distribution_return_epoch_stored_in_signed_entity_type()
+     {
         let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(3));
         assert_eq!(
             signed_entity_type.get_epoch_when_signed_entity_type_is_signed(),
@@ -264,8 +264,8 @@ mod tests {
     }
 
     #[test]
-    fn get_epoch_when_signed_entity_type_is_signed_for_cardano_immutable_files_full_return_epoch_stored_in_signed_entity_type(
-    ) {
+    fn get_epoch_when_signed_entity_type_is_signed_for_cardano_immutable_files_full_return_epoch_stored_in_signed_entity_type()
+     {
         let signed_entity_type =
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(3, 100));
         assert_eq!(
@@ -275,8 +275,8 @@ mod tests {
     }
 
     #[test]
-    fn get_epoch_when_signed_entity_type_is_signed_for_cardano_transactions_return_epoch_stored_in_signed_entity_type(
-    ) {
+    fn get_epoch_when_signed_entity_type_is_signed_for_cardano_transactions_return_epoch_stored_in_signed_entity_type()
+     {
         let signed_entity_type = SignedEntityType::CardanoTransactions(Epoch(3), BlockNumber(77));
         assert_eq!(
             signed_entity_type.get_epoch_when_signed_entity_type_is_signed(),
@@ -285,8 +285,8 @@ mod tests {
     }
 
     #[test]
-    fn get_epoch_when_signed_entity_type_is_signed_for_cardano_database_return_epoch_stored_in_signed_entity_type(
-    ) {
+    fn get_epoch_when_signed_entity_type_is_signed_for_cardano_database_return_epoch_stored_in_signed_entity_type()
+     {
         let signed_entity_type = SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(12, 987));
         assert_eq!(
             signed_entity_type.get_epoch_when_signed_entity_type_is_signed(),

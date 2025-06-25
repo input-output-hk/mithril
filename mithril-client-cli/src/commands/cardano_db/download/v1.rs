@@ -1,14 +1,14 @@
-use anyhow::{anyhow, Context};
-use slog::{debug, warn, Logger};
+use anyhow::{Context, anyhow};
+use slog::{Logger, debug, warn};
 use std::{fs::File, path::Path, sync::Arc};
 
 use mithril_client::{
-    common::ProtocolMessage, snapshot_client::SnapshotClient, MessageBuilder, MithrilCertificate,
-    MithrilResult, Snapshot,
+    MessageBuilder, MithrilCertificate, MithrilResult, Snapshot, common::ProtocolMessage,
+    snapshot_client::SnapshotClient,
 };
 
 use crate::{
-    commands::{cardano_db::shared_steps, client_builder, SharedArgs},
+    commands::{SharedArgs, cardano_db::shared_steps, client_builder},
     configuration::ConfigParameters,
     utils::{
         CardanoDbDownloadChecker, CardanoDbUtils, ExpanderUtils, IndicatifFeedbackReceiver,
@@ -237,8 +237,8 @@ impl PreparedCardanoDbV1Download {
 #[cfg(test)]
 mod tests {
     use mithril_client::{
-        common::{CardanoDbBeacon, ProtocolMessagePartKey, SignedEntityType},
         MithrilCertificateMetadata,
+        common::{CardanoDbBeacon, ProtocolMessagePartKey, SignedEntityType},
     };
     use mithril_common::test_utils::TempDir;
 

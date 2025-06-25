@@ -4,18 +4,18 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 use tokio::{runtime::Handle, sync::Mutex, task};
 
 use mithril_cardano_node_chain::chain_scanner::{BlockScanner, ChainScannedBlocks};
 use mithril_cardano_node_chain::entities::RawCardanoPoint;
+use mithril_common::StdResult;
 use mithril_common::crypto_helper::{MKTree, MKTreeNode, MKTreeStoreInMemory};
 use mithril_common::entities::{
     BlockNumber, BlockRange, CardanoTransaction, ChainPoint, SlotNumber,
 };
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::signable_builder::TransactionsImporter;
-use mithril_common::StdResult;
 
 /// Cardano transactions store
 #[cfg_attr(test, mockall::automock)]
@@ -771,8 +771,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn importing_twice_starting_with_nothing_in_a_real_db_should_yield_transactions_in_same_order(
-    ) {
+    async fn importing_twice_starting_with_nothing_in_a_real_db_should_yield_transactions_in_same_order()
+     {
         let blocks = vec![
             ScannedBlock::new(
                 "block_hash-1",

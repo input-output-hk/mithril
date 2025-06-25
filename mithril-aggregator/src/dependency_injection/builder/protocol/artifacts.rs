@@ -27,8 +27,8 @@ use crate::services::{
     CompressedArchiveSnapshotter, DumbSnapshotter, MithrilSignedEntityService, SignedEntityService,
     SignedEntityServiceArtifactsDependencies, Snapshotter,
 };
-use crate::tools::file_archiver::FileArchiver;
 use crate::tools::DEFAULT_GCP_CREDENTIALS_JSON_ENV_VAR;
+use crate::tools::file_archiver::FileArchiver;
 use crate::{DumbUploader, ExecutionEnvironment, FileUploader, SnapshotUploaderType};
 
 impl DependenciesBuilder {
@@ -437,8 +437,8 @@ mod tests {
     use mithril_common::temp_dir_create;
     use mithril_persistence::sqlite::ConnectionBuilder;
 
-    use crate::dependency_injection::builder::CARDANO_DB_ARTIFACTS_DIR;
     use crate::ServeCommandConfiguration;
+    use crate::dependency_injection::builder::CARDANO_DB_ARTIFACTS_DIR;
 
     use super::*;
 

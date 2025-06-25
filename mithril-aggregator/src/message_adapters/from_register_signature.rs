@@ -1,8 +1,8 @@
 use anyhow::Context;
 use mithril_common::{
+    StdResult,
     entities::{SingleSignature, SingleSignatureAuthenticationStatus},
     messages::{RegisterSignatureMessage, TryFromMessageAdapter},
-    StdResult,
 };
 
 pub struct FromRegisterSingleSignatureAdapter;
@@ -18,9 +18,9 @@ impl TryFromMessageAdapter<RegisterSignatureMessage, SingleSignature>
             signature: register_single_signature_message
                 .signature
                 .try_into()
-                .with_context(|| {
-                    "'FromRegisterSingleSignatureAdapter' can not convert the single signature"
-                })?,
+                .with_context(
+                    || "'FromRegisterSingleSignatureAdapter' can not convert the single signature",
+                )?,
             won_indexes: register_single_signature_message.won_indexes,
             authentication_status: SingleSignatureAuthenticationStatus::Unauthenticated,
         };

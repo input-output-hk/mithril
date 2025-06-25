@@ -1,4 +1,4 @@
-use clap::{builder::StyledStr, Arg, Command};
+use clap::{Arg, Command, builder::StyledStr};
 
 use super::{FieldDoc, StructDoc};
 

@@ -1,4 +1,4 @@
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 use std::convert::Infallible;
 use std::sync::Arc;
 use warp::Filter;
@@ -70,7 +70,8 @@ pub fn with_signer_getter(
 /// With Event transmitter middleware
 pub fn with_event_transmitter(
     router_state: &RouterState,
-) -> impl Filter<Extract = (Arc<TransmitterService<EventMessage>>,), Error = Infallible> + Clone + use<> {
+) -> impl Filter<Extract = (Arc<TransmitterService<EventMessage>>,), Error = Infallible> + Clone + use<>
+{
     let event_transmitter = router_state.dependencies.event_transmitter.clone();
     warp::any().map(move || event_transmitter.clone())
 }
@@ -134,7 +135,8 @@ pub fn with_prover_service(
 /// With Single Signature Authenticator
 pub fn with_single_signature_authenticator(
     router_state: &RouterState,
-) -> impl Filter<Extract = (Arc<SingleSignatureAuthenticator>,), Error = Infallible> + Clone + use<> {
+) -> impl Filter<Extract = (Arc<SingleSignatureAuthenticator>,), Error = Infallible> + Clone + use<>
+{
     let single_signer_authenticator = router_state
         .dependencies
         .single_signer_authenticator
@@ -162,8 +164,8 @@ pub fn with_origin_tag(
     })
 }
 
-pub fn with_client_type(
-) -> impl Filter<Extract = (Option<String>,), Error = warp::reject::Rejection> + Clone {
+pub fn with_client_type()
+-> impl Filter<Extract = (Option<String>,), Error = warp::reject::Rejection> + Clone {
     let authorized_client_types = ["CLI", "WASM", "LIBRARY", "NA"];
 
     warp::header::optional::<String>(MITHRIL_CLIENT_TYPE_HEADER).map(
@@ -199,7 +201,8 @@ pub mod validators {
     /// With Prover Transactions Hash Validator
     pub fn with_prover_transactions_hash_validator(
         router_state: &RouterState,
-    ) -> impl Filter<Extract = (ProverTransactionsHashValidator,), Error = Infallible> + Clone + use<> {
+    ) -> impl Filter<Extract = (ProverTransactionsHashValidator,), Error = Infallible> + Clone + use<>
+    {
         let max_hashes = router_state
             .configuration
             .cardano_transactions_prover_max_hashes_allowed_by_request;
@@ -214,10 +217,10 @@ mod tests {
     use serde_json::Value;
     use std::convert::Infallible;
     use warp::{
+        Filter,
         http::{Method, Response, StatusCode},
         hyper::body::Bytes,
         test::request,
-        Filter,
     };
 
     use crate::http_server::routes::reply;
@@ -240,7 +243,8 @@ mod tests {
 
         fn route_with_origin_tag(
             router_state: &RouterState,
-        ) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
+        ) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<>
+        {
             warp::path!("route")
                 .and(warp::get())
                 .and(with_origin_tag(router_state))
@@ -320,8 +324,8 @@ mod tests {
                 .await
         }
 
-        fn route_with_client_type(
-        ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+        fn route_with_client_type()
+        -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
             warp::path!("route")
                 .and(warp::get())
                 .and(with_client_type())

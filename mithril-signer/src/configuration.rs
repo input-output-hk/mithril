@@ -7,13 +7,13 @@ use std::{path::PathBuf, sync::Arc};
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_cli_helper::register_config_value;
 use mithril_common::{
+    CardanoNetwork, StdResult,
     crypto_helper::tests_setup,
     entities::{BlockNumber, PartyId},
-    CardanoNetwork, StdResult,
 };
 use mithril_era::{
-    adapters::{EraReaderAdapterBuilder, EraReaderAdapterType},
     EraReaderAdapter,
+    adapters::{EraReaderAdapterBuilder, EraReaderAdapterType},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

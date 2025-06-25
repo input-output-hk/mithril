@@ -6,7 +6,7 @@ use uuid::Uuid;
 use mithril_common::entities::{
     BlockNumber, CardanoTransactionsSigningConfig, ProtocolParameters, SignerWithStake,
 };
-use mithril_common::{entities::Epoch, test_utils::fake_keys, StdError, StdResult};
+use mithril_common::{StdError, StdResult, entities::Epoch, test_utils::fake_keys};
 use mithril_persistence::sqlite::{
     ConnectionBuilder, ConnectionExtensions, ConnectionOptions, Query, SqliteConnection,
 };

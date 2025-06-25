@@ -1,8 +1,8 @@
 use anyhow::Context;
 use mithril_common::{
+    StdResult,
     entities::Signer,
     messages::{RegisterSignerMessage, TryFromMessageAdapter},
-    StdResult,
 };
 
 /// Adapter to convert [RegisterSignerMessage] to [Signer] instances.

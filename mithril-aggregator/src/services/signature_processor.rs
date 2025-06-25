@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use slog::{error, warn, Logger};
+use slog::{Logger, error, warn};
 
-use mithril_common::{logging::LoggerExtensions, StdResult};
+use mithril_common::{StdResult, logging::LoggerExtensions};
 use tokio::{select, sync::watch::Receiver};
 
 use crate::MetricsService;
@@ -58,14 +58,17 @@ impl SignatureProcessor for SequentialSignatureProcessor {
                         .certifier
                         .register_single_signature(&signed_entity_type, &signature)
                         .await
-                    { Err(e) => {
-                        error!(self.logger, "Error dispatching single signature"; "error" => ?e);
-                    } _ => {
-                        let origin_network = self.consumer.get_origin_tag();
-                        self.metrics_service
-                            .get_signature_registration_total_received_since_startup()
-                            .increment(&[&origin_network]);
-                    }}
+                    {
+                        Err(e) => {
+                            error!(self.logger, "Error dispatching single signature"; "error" => ?e);
+                        }
+                        _ => {
+                            let origin_network = self.consumer.get_origin_tag();
+                            self.metrics_service
+                                .get_signature_registration_total_received_since_startup()
+                                .increment(&[&origin_network]);
+                        }
+                    }
                 }
             }
             Err(e) => {
@@ -101,7 +104,7 @@ mod tests {
     use mockall::predicate::eq;
     use tokio::{
         sync::watch::channel,
-        time::{sleep, Duration},
+        time::{Duration, sleep},
     };
 
     use crate::{

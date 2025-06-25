@@ -2,17 +2,17 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
-use config::{builder::DefaultState, ConfigBuilder, Map, Value};
+use config::{ConfigBuilder, Map, Value, builder::DefaultState};
 use mithril_persistence::sqlite::{SqliteCleaner, SqliteCleaningTask, SqliteConnection};
 use serde::{Deserialize, Serialize};
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 
 use mithril_common::StdResult;
 use mithril_doc::{Documenter, StructDoc};
 
 use crate::{
-    dependency_injection::DependenciesBuilder, extract_all, ConfigurationSource,
-    ExecutionEnvironment,
+    ConfigurationSource, ExecutionEnvironment, dependency_injection::DependenciesBuilder,
+    extract_all,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Documenter)]

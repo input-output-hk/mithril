@@ -65,7 +65,7 @@ fn serve_snapshots_dir(
 }
 
 mod handlers {
-    use slog::{debug, warn, Logger};
+    use slog::{Logger, debug, warn};
     use std::convert::Infallible;
     use std::str::FromStr;
     use std::sync::Arc;
@@ -77,7 +77,7 @@ mod handlers {
     use crate::http_server::routes::reply;
     use crate::services::{MessageService, SignedEntityService};
     use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
-    use crate::{unwrap_to_internal_server_error, MetricsService};
+    use crate::{MetricsService, unwrap_to_internal_server_error};
 
     pub const LIST_MAX_ITEMS: usize = 20;
 
@@ -224,10 +224,10 @@ mod tests {
 
     use mithril_api_spec::APISpec;
     use mithril_common::{
+        MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
         entities::{CardanoDbBeacon, SignedEntityType, Snapshot},
         messages::{SnapshotListItemMessage, SnapshotMessage},
         test_utils::fake_data,
-        MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
     };
     use mithril_persistence::sqlite::HydrationError;
 

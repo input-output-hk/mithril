@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use mithril_common::{entities::FileUri, StdResult};
+use mithril_common::{StdResult, entities::FileUri};
 use std::{path::Path, time::Duration};
 
 /// Policy for retrying file uploads.

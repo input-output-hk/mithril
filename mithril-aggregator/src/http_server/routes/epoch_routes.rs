@@ -24,7 +24,7 @@ fn epoch_settings(
 }
 
 mod handlers {
-    use slog::{warn, Logger};
+    use slog::{Logger, warn};
     use std::collections::BTreeSet;
     use std::convert::Infallible;
     use std::sync::Arc;

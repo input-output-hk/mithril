@@ -1,14 +1,14 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use mithril_stm::StmParameters;
 
 use crate::{
+    StdResult,
     crypto_helper::{
         ProtocolAggregateVerificationKey, ProtocolAggregationError, ProtocolClerk,
         ProtocolMultiSignature,
     },
     entities::SingleSignature,
     protocol::ToMessage,
-    StdResult,
 };
 
 /// MultiSigner is the cryptographic engine in charge of producing multi-signatures from individual signatures

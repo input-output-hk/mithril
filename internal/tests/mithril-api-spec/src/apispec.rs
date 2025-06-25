@@ -3,7 +3,7 @@
 use jsonschema::Validator;
 use reqwest::Url;
 use serde::Serialize;
-use serde_json::{json, Value, Value::Null};
+use serde_json::{Value, Value::Null, json};
 
 use warp::http::Response;
 use warp::http::StatusCode;
@@ -47,8 +47,8 @@ impl<'a> APISpec<'a> {
             .and_then(|api| api.validate_status(response, status_code))
         {
             return Err(format!(
-                    "OpenAPI invalid response in {spec_file} on route {path}, reason: {e}\nresponse: {response:#?}"
-                ));
+                "OpenAPI invalid response in {spec_file} on route {path}, reason: {e}\nresponse: {response:#?}"
+            ));
         }
         Ok(())
     }
@@ -347,7 +347,7 @@ mod tests {
 
     use mithril_common::entities;
     use mithril_common::messages::{AggregatorFeaturesMessage, SignerMessagePart};
-    use mithril_common::test_utils::{fake_data, TempDir};
+    use mithril_common::test_utils::{TempDir, fake_data};
 
     use super::*;
 
@@ -470,13 +470,15 @@ components:
 
     #[test]
     fn test_validate_ok_when_request_with_body_and_expects_no_response() {
-        assert!(APISpec::from_file(DEFAULT_SPEC_FILE)
-            .method(Method::POST.as_str())
-            .path("/register-signer")
-            .validate_request(&SignerMessagePart::dummy())
-            .unwrap()
-            .validate_response(&Response::<Bytes>::new(Bytes::new()))
-            .is_err());
+        assert!(
+            APISpec::from_file(DEFAULT_SPEC_FILE)
+                .method(Method::POST.as_str())
+                .path("/register-signer")
+                .validate_request(&SignerMessagePart::dummy())
+                .unwrap()
+                .validate_response(&Response::<Bytes>::new(Bytes::new()))
+                .is_err()
+        );
     }
 
     #[test]
@@ -625,19 +627,23 @@ components:
 
     #[test]
     fn test_validate_returns_errors_when_route_exists_but_does_not_expect_request_body() {
-        assert!(APISpec::from_file(DEFAULT_SPEC_FILE)
-            .method(Method::GET.as_str())
-            .path("/certificates")
-            .validate_request(&fake_data::beacon())
-            .is_err());
+        assert!(
+            APISpec::from_file(DEFAULT_SPEC_FILE)
+                .method(Method::GET.as_str())
+                .path("/certificates")
+                .validate_request(&fake_data::beacon())
+                .is_err()
+        );
     }
     #[test]
     fn test_validate_returns_error_when_route_exists_but_expects_non_empty_request_body() {
-        assert!(APISpec::from_file(DEFAULT_SPEC_FILE)
-            .method(Method::POST.as_str())
-            .path("/register-signer")
-            .validate_request(&Null)
-            .is_err());
+        assert!(
+            APISpec::from_file(DEFAULT_SPEC_FILE)
+                .method(Method::POST.as_str())
+                .path("/register-signer")
+                .validate_request(&Null)
+                .is_err()
+        );
     }
 
     #[test]

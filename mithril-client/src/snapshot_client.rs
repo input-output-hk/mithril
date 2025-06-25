@@ -121,7 +121,7 @@ use crate::file_downloader::{DownloadEvent, FileDownloader};
 use crate::utils::create_bootstrap_node_files;
 #[cfg(feature = "fs")]
 use crate::utils::{
-    AncillaryVerifier, UnexpectedDownloadedFileVerifier, ANCILLARIES_NOT_SIGNED_BY_MITHRIL,
+    ANCILLARIES_NOT_SIGNED_BY_MITHRIL, AncillaryVerifier, UnexpectedDownloadedFileVerifier,
 };
 use crate::{MithrilResult, Snapshot, SnapshotListItem};
 
@@ -129,7 +129,9 @@ use crate::{MithrilResult, Snapshot, SnapshotListItem};
 #[derive(Error, Debug)]
 pub enum SnapshotClientError {
     /// Download location does not work
-    #[error("Could not find a working download location for the snapshot digest '{digest}', tried location: {{'{locations}'}}.")]
+    #[error(
+        "Could not find a working download location for the snapshot digest '{digest}', tried location: {{'{locations}'}}."
+    )]
     NoWorkingLocation {
         /// given digest
         digest: String,
@@ -138,7 +140,9 @@ pub enum SnapshotClientError {
         locations: String,
     },
     /// Missing ancillary verifier
-    #[error("Ancillary verifier is not set, please use `set_ancillary_verification_key` when creating the client")]
+    #[error(
+        "Ancillary verifier is not set, please use `set_ancillary_verification_key` when creating the client"
+    )]
     MissingAncillaryVerifier,
 }
 

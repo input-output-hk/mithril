@@ -4,15 +4,15 @@
 //! guarantees that mithril-stm will not be misused in the context of Cardano.  
 
 use crate::{
+    StdError, StdResult,
     crypto_helper::{
+        ProtocolOpCert,
         cardano::SerDeShelleyFileFormat,
         types::{
             ProtocolParameters, ProtocolPartyId, ProtocolSignerVerificationKey,
             ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
         },
-        ProtocolOpCert,
     },
-    StdError, StdResult,
 };
 
 use mithril_stm::{
@@ -21,10 +21,10 @@ use mithril_stm::{
 };
 
 use crate::crypto_helper::cardano::Sum6KesBytes;
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use blake2::{
-    digest::{consts::U32, FixedOutput},
     Blake2b, Digest,
+    digest::{FixedOutput, consts::U32},
 };
 use kes_summed_ed25519::kes::{Sum6Kes, Sum6KesSig};
 use kes_summed_ed25519::traits::{KesSig, KesSk};
@@ -161,7 +161,9 @@ impl StmInitializerWrapper {
 
             Some(kes_sk.sign(&stm_initializer.verification_key().to_bytes()))
         } else {
-            println!("WARNING: Non certified signer registration by providing only a Pool Id is decommissioned and must be used for tests only!");
+            println!(
+                "WARNING: Non certified signer registration by providing only a Pool Id is decommissioned and must be used for tests only!"
+            );
             None
         };
 
@@ -327,7 +329,7 @@ impl KeyRegWrapper {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::crypto_helper::{cardano::ColdKeyGenerator, OpCert};
+    use crate::crypto_helper::{OpCert, cardano::ColdKeyGenerator};
 
     use crate::test_utils::TempDir;
     use rand_chacha::ChaCha20Rng;

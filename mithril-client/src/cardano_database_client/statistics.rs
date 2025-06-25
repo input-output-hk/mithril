@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use crate::{
-    aggregator_client::{AggregatorClient, AggregatorRequest},
     MithrilResult,
+    aggregator_client::{AggregatorClient, AggregatorRequest},
 };
 
 pub struct InternalStatisticsSender {

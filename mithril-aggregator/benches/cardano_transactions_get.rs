@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use sqlite::ConnectionThreadSafe;
 
 use mithril_aggregator::services::TransactionStore;

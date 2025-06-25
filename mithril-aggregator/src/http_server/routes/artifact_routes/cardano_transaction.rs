@@ -33,15 +33,15 @@ fn artifact_cardano_transaction_by_id(
 }
 
 pub mod handlers {
-    use slog::{warn, Logger};
+    use slog::{Logger, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
 
+    use crate::MetricsService;
     use crate::http_server::routes::middlewares::ClientMetadata;
     use crate::http_server::routes::reply;
     use crate::services::MessageService;
-    use crate::MetricsService;
 
     pub const LIST_MAX_ITEMS: usize = 20;
 
@@ -106,8 +106,8 @@ pub mod tests {
 
     use mithril_api_spec::APISpec;
     use mithril_common::{
-        messages::{CardanoTransactionSnapshotListItemMessage, CardanoTransactionSnapshotMessage},
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
+        messages::{CardanoTransactionSnapshotListItemMessage, CardanoTransactionSnapshotMessage},
     };
     use mithril_persistence::sqlite::HydrationError;
 

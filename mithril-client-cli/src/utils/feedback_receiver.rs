@@ -429,11 +429,13 @@ mod tests {
             send_event!(cardano_db_v1, ancillary_dl, started =>  sender, size:456);
 
             assert!(receiver.download_progress_reporter.read().await.is_some());
-            assert!(receiver
-                .ancillary_download_progress_reporter
-                .read()
-                .await
-                .is_some());
+            assert!(
+                receiver
+                    .ancillary_download_progress_reporter
+                    .read()
+                    .await
+                    .is_some()
+            );
         }
 
         #[tokio::test]
@@ -444,11 +446,13 @@ mod tests {
             send_event!(cardano_db_v1, ancillary_dl, started => sender, size:0);
             send_event!(cardano_db_v1, ancillary_dl, progress => sender, bytes:124, size:0);
 
-            assert!(receiver
-                .ancillary_download_progress_reporter
-                .read()
-                .await
-                .is_some());
+            assert!(
+                receiver
+                    .ancillary_download_progress_reporter
+                    .read()
+                    .await
+                    .is_some()
+            );
         }
 
         #[tokio::test]
@@ -470,11 +474,13 @@ mod tests {
             send_event!(cardano_db_v1, ancillary_dl, started =>  sender, size:456);
             send_event!(cardano_db_v1, ancillary_dl, completed =>  sender);
 
-            assert!(receiver
-                .ancillary_download_progress_reporter
-                .read()
-                .await
-                .is_none());
+            assert!(
+                receiver
+                    .ancillary_download_progress_reporter
+                    .read()
+                    .await
+                    .is_none()
+            );
         }
     }
 

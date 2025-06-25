@@ -16,7 +16,10 @@ impl InsertOrReplaceSignerRegistrationRecordQuery {
             vec![
                 Value::String(signer_registration_record.signer_id),
                 Value::Integer(
-                    signer_registration_record.epoch_settings_id.try_into().unwrap(),
+                    signer_registration_record
+                        .epoch_settings_id
+                        .try_into()
+                        .unwrap(),
                 ),
                 Value::String(signer_registration_record.verification_key),
                 signer_registration_record

@@ -34,9 +34,9 @@ macro_rules! get_mithril_signer_registration {
 impl DependenciesBuilder {
     /// Create [CertifierService] service
     pub async fn build_certifier_service(&mut self) -> Result<Arc<dyn CertifierService>> {
-        let cardano_network = self.configuration.get_network().with_context(|| {
-            "Dependencies Builder can not get Cardano network while building the chain observer"
-        })?;
+        let cardano_network = self.configuration.get_network().with_context(
+            || "Dependencies Builder can not get Cardano network while building the chain observer",
+        )?;
         let sqlite_connection = self.get_sqlite_connection().await?;
         let open_message_repository = self.get_open_message_repository().await?;
         let single_signature_repository =

@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use mithril_common::{
+    StdResult,
     entities::{
         BlockNumber, CardanoTransactionsSnapshot, Certificate, ProtocolMessagePartKey,
         SignedEntityType,
     },
-    StdResult,
 };
 
 use crate::services::ProverService;

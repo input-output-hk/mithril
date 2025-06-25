@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use sha2::Sha256;
-use slog::{info, Logger};
+use slog::{Logger, info};
 use std::{
     collections::BTreeMap,
     io,
@@ -10,9 +10,9 @@ use std::{
 use thiserror::Error;
 
 use mithril_common::{
+    StdError,
     crypto_helper::{MKTree, MKTreeStoreInMemory},
     entities::{CardanoDbBeacon, HexEncodedDigest, ImmutableFileName, ImmutableFileNumber},
-    StdError,
 };
 
 use crate::entities::{ImmutableFile, ImmutableFileListingError};
@@ -106,7 +106,9 @@ pub enum ImmutableDigesterError {
 
     /// Error raised when there's less than the required number of completed immutables in
     /// the cardano database or even no immutable at all.
-    #[error("At least two immutable chunks should exist in directory '{db_dir}': expected {expected_number} but found {found_number:?}.")]
+    #[error(
+        "At least two immutable chunks should exist in directory '{db_dir}': expected {expected_number} but found {found_number:?}."
+    )]
     NotEnoughImmutable {
         /// Expected last [ImmutableFileNumber].
         expected_number: ImmutableFileNumber,

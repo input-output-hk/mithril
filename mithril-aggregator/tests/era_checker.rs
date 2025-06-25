@@ -9,7 +9,7 @@ use mithril_common::{
 };
 use mithril_era::EraMarker;
 
-use test_extensions::{utilities::get_test_dir, RuntimeTester};
+use test_extensions::{RuntimeTester, utilities::get_test_dir};
 
 // NOTE: Due to the shared nature of the Logger, there cannot be two methods in
 // the same test file. Because the logger is wiped of memory when the first
@@ -40,17 +40,18 @@ async fn testing_eras() {
         EraMarker::new(&SupportedEra::dummy().to_string(), Some(Epoch(12))),
     ]);
     comment!("Starting the runtime at unsupported Era.");
-    match tester.runtime.cycle().await { Err(e) => {
-        match e {
+    match tester.runtime.cycle().await {
+        Err(e) => match e {
             RuntimeError::Critical {
                 message: _,
                 nested_error: _,
             } => {}
             _ => panic!("Expected a Critical Error, got {e:?}."),
+        },
+        _ => {
+            panic!("Expected an error, got Ok().")
         }
-    } _ => {
-        panic!("Expected an error, got Ok().")
-    }}
+    }
 
     // Testing the Era changes during the process
     let protocol_parameters = ProtocolParameters {
@@ -82,15 +83,16 @@ async fn testing_eras() {
     assert_eq!(2, current_epoch, "Epoch was expected to be 2.");
     cycle!(tester, "idle");
 
-    match tester.runtime.cycle().await { Err(e) => {
-        match e {
+    match tester.runtime.cycle().await {
+        Err(e) => match e {
             RuntimeError::Critical {
                 message: _,
                 nested_error: _,
             } => {}
             _ => panic!("Expected a Critical Error, got {e:?}."),
+        },
+        _ => {
+            panic!("Expected an error, got Ok().")
         }
-    } _ => {
-        panic!("Expected an error, got Ok().")
-    }}
+    }
 }

@@ -2,8 +2,8 @@ use std::path::Path;
 use std::sync::Arc;
 
 use chrono::Utc;
-use mithril_common::entities::Epoch;
 use mithril_common::StdResult;
+use mithril_common::entities::Epoch;
 use mithril_persistence::sqlite::{
     ConnectionBuilder, ConnectionExtensions, ConnectionOptions, Query, SqliteConnection,
 };

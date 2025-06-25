@@ -2,11 +2,11 @@ use slog::Logger;
 use std::sync::Arc;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
+use crate::MetricsService;
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
 use crate::event_store::{EventMessage, EventStore, TransmitterService};
 use crate::get_dependency;
 use crate::services::UsageReporter;
-use crate::MetricsService;
 impl DependenciesBuilder {
     /// Return a copy of the root logger.
     pub fn root_logger(&self) -> Logger {

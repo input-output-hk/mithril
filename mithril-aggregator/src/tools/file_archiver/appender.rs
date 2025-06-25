@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use serde::Serialize;
 use std::fs::File;
 use std::io::Write;
@@ -675,8 +675,8 @@ mod tests {
         }
 
         #[test]
-        fn compute_uncompressed_size_cant_discriminate_overlaps_and_return_aggregated_appenders_sizes(
-        ) {
+        fn compute_uncompressed_size_cant_discriminate_overlaps_and_return_aggregated_appenders_sizes()
+         {
             let overlapping_path = PathBuf::from("whatever.json");
             let left_appender =
                 AppenderData::from_json(overlapping_path.clone(), &"overwritten data").unwrap();

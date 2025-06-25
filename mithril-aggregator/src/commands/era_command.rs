@@ -3,12 +3,12 @@ use std::{collections::HashMap, fs::File, io::Write, path::PathBuf};
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use mithril_common::{
+    StdResult,
     crypto_helper::{EraMarkersSigner, EraMarkersVerifierSecretKey},
     entities::{Epoch, HexEncodedEraMarkersSecretKey},
-    StdResult,
 };
 use mithril_doc::StructDoc;
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 
 use crate::{extract_all, tools::EraTools};
 

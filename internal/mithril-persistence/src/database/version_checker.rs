@@ -1,9 +1,9 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use chrono::Utc;
-use slog::{debug, error, info, Logger};
+use slog::{Logger, debug, error, info};
 use std::{cmp::Ordering, collections::BTreeSet};
 
-use mithril_common::{logging::LoggerExtensions, StdError, StdResult};
+use mithril_common::{StdError, StdResult, logging::LoggerExtensions};
 
 use super::{
     ApplicationNodeType, DatabaseVersion, DbVersion, GetDatabaseVersionQuery,
@@ -74,7 +74,8 @@ impl<'conn> DatabaseVersionChecker<'conn> {
                 debug!(
                     &self.logger,
                     "Database needs upgrade from version '{}' to version '{}', applying new migrations…",
-                    db_version.version, migration_version
+                    db_version.version,
+                    migration_version
                 );
                 self.apply_migrations(&db_version, self.connection)?;
                 info!(
@@ -90,7 +91,9 @@ impl<'conn> DatabaseVersionChecker<'conn> {
                     migration_version,
                 );
 
-                Err(anyhow!("This software version is older than the database structure. Aborting launch to prevent possible data corruption."))?;
+                Err(anyhow!(
+                    "This software version is older than the database structure. Aborting launch to prevent possible data corruption."
+                ))?;
             }
             Ordering::Equal => {
                 debug!(&self.logger, "database up to date");
@@ -267,7 +270,7 @@ impl Eq for SqlMigration {}
 mod tests {
     use anyhow::Context;
     use mithril_common::test_utils::TempDir;
-    use mithril_common::{current_function, StdResult};
+    use mithril_common::{StdResult, current_function};
     use sqlite::{Connection, ConnectionThreadSafe};
     use std::path::PathBuf;
 
@@ -502,8 +505,8 @@ mod tests {
     }
 
     #[test]
-    fn check_minimum_required_version_does_not_fail_when_fallback_distribution_version_with_fresh_database(
-    ) {
+    fn check_minimum_required_version_does_not_fail_when_fallback_distribution_version_with_fresh_database()
+     {
         let (_filepath, connection) = create_sqlite_file(current_function!()).unwrap();
         let db_checker = create_db_checker(&connection);
 
@@ -520,8 +523,8 @@ mod tests {
     }
 
     #[test]
-    fn check_minimum_required_version_does_not_fail_when_no_gap_between_db_version_and_migration_version(
-    ) {
+    fn check_minimum_required_version_does_not_fail_when_no_gap_between_db_version_and_migration_version()
+     {
         let (_filepath, connection) = create_sqlite_file(current_function!()).unwrap();
         let db_checker = create_db_checker(&connection);
 

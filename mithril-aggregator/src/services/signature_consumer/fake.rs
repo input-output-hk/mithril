@@ -4,8 +4,8 @@ use async_trait::async_trait;
 use tokio::sync::Mutex;
 
 use mithril_common::{
-    entities::{SignedEntityType, SingleSignature},
     StdResult,
+    entities::{SignedEntityType, SingleSignature},
 };
 
 use super::SignatureConsumer;

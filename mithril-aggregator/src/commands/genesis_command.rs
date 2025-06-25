@@ -2,23 +2,23 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
-use config::{builder::DefaultState, ConfigBuilder, Map, Value};
+use config::{ConfigBuilder, Map, Value, builder::DefaultState};
 use serde::{Deserialize, Serialize};
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 
 use mithril_cardano_node_chain::chain_observer::ChainObserverType;
 use mithril_common::{
+    StdResult,
     crypto_helper::{
         ProtocolGenesisSecretKey, ProtocolGenesisSigner, ProtocolGenesisVerificationKey,
     },
     entities::{HexEncodedGenesisSecretKey, HexEncodedGenesisVerificationKey},
-    StdResult,
 };
 use mithril_doc::{Documenter, StructDoc};
 
 use crate::{
-    dependency_injection::DependenciesBuilder, extract_all, tools::GenesisTools,
-    ConfigurationSource, ExecutionEnvironment,
+    ConfigurationSource, ExecutionEnvironment, dependency_injection::DependenciesBuilder,
+    extract_all, tools::GenesisTools,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Documenter)]
@@ -189,9 +189,9 @@ impl ExportGenesisSubCommand {
         let dependencies = dependencies_builder
             .create_genesis_container()
             .await
-            .with_context(|| {
-                "Dependencies Builder can not create genesis command dependencies container"
-            })?;
+            .with_context(
+                || "Dependencies Builder can not create genesis command dependencies container",
+            )?;
 
         let genesis_tools = GenesisTools::from_dependencies(dependencies)
             .await
@@ -239,9 +239,9 @@ impl ImportGenesisSubCommand {
         let dependencies = dependencies_builder
             .create_genesis_container()
             .await
-            .with_context(|| {
-                "Dependencies Builder can not create genesis command dependencies container"
-            })?;
+            .with_context(
+                || "Dependencies Builder can not create genesis command dependencies container",
+            )?;
 
         let genesis_tools = GenesisTools::from_dependencies(dependencies)
             .await
@@ -325,9 +325,9 @@ impl BootstrapGenesisSubCommand {
         let dependencies = dependencies_builder
             .create_genesis_container()
             .await
-            .with_context(|| {
-                "Dependencies Builder can not create genesis command dependencies container"
-            })?;
+            .with_context(
+                || "Dependencies Builder can not create genesis command dependencies container",
+            )?;
 
         let genesis_tools = GenesisTools::from_dependencies(dependencies)
             .await

@@ -13,16 +13,21 @@ impl InsertSignedEntityRecordQuery {
     pub fn one(signed_entity_record: SignedEntityRecord) -> Self {
         Self {
             condition: WhereCondition::new(
-            "(signed_entity_id, signed_entity_type_id, certificate_id, beacon, artifact, created_at) values (?*, ?*, ?*, ?*, ?*, ?*)",
-            vec![
-                Value::String(signed_entity_record.signed_entity_id),
-                Value::Integer(signed_entity_record.signed_entity_type.index() as i64),
-                Value::String(signed_entity_record.certificate_id),
-                Value::String(signed_entity_record.signed_entity_type.get_json_beacon().unwrap()),
-                Value::String(signed_entity_record.artifact),
-                Value::String(signed_entity_record.created_at.to_rfc3339()),
-            ],
-        )
+                "(signed_entity_id, signed_entity_type_id, certificate_id, beacon, artifact, created_at) values (?*, ?*, ?*, ?*, ?*, ?*)",
+                vec![
+                    Value::String(signed_entity_record.signed_entity_id),
+                    Value::Integer(signed_entity_record.signed_entity_type.index() as i64),
+                    Value::String(signed_entity_record.certificate_id),
+                    Value::String(
+                        signed_entity_record
+                            .signed_entity_type
+                            .get_json_beacon()
+                            .unwrap(),
+                    ),
+                    Value::String(signed_entity_record.artifact),
+                    Value::String(signed_entity_record.created_at.to_rfc3339()),
+                ],
+            ),
         }
     }
 }

@@ -12,11 +12,11 @@ use mithril_signed_entity_lock::SignedEntityTypeLock;
 use mithril_signed_entity_preloader::CardanoTransactionsPreloader;
 use mithril_ticker::TickerService;
 
+use crate::MetricsService;
 use crate::services::{
     AggregatorClient, CertifierService, EpochService, SingleSigner, UpkeepService,
 };
 use crate::store::ProtocolInitializerStorer;
-use crate::MetricsService;
 
 type StakeStoreService = Arc<dyn StakeStorer>;
 type CertificateHandlerService = Arc<dyn AggregatorClient>;

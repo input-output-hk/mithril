@@ -4,17 +4,17 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 
-use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake};
 use mithril_common::StdResult;
+use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake};
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
+use crate::VerificationKeyStorer;
 use crate::database::query::{
     DeleteSignerRegistrationRecordQuery, GetSignerRegistrationRecordQuery,
     InsertOrReplaceSignerRegistrationRecordQuery,
 };
 use crate::database::record::SignerRegistrationRecord;
 use crate::services::EpochPruningTask;
-use crate::VerificationKeyStorer;
 
 /// Service to deal with signer_registration (read & write).
 pub struct SignerRegistrationStore {

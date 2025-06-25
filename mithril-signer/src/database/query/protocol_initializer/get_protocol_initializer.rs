@@ -48,6 +48,8 @@ impl Query for GetProtocolInitializerQuery {
         let limit = self
             .limit
             .map_or("".to_string(), |limit| format!(" limit {limit}"));
-        format!("select {projection} from protocol_initializer where {condition} order by rowid desc{limit}")
+        format!(
+            "select {projection} from protocol_initializer where {condition} order by rowid desc{limit}"
+        )
     }
 }

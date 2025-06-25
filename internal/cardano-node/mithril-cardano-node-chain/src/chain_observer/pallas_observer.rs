@@ -1,31 +1,31 @@
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use pallas_addresses::Address;
 use pallas_codec::utils::{Bytes, CborWrap, TagWrap};
 use pallas_network::{
     facades::NodeClient,
     miniprotocols::{
+        Point,
         localstate::{
+            Client,
             queries_v16::{
                 self, Addr, Addrs, ChainBlockNumber, GenesisConfig, PostAlonsoTransactionOutput,
                 StakeSnapshot, Stakes, TransactionOutput, UTxOByAddress,
             },
-            Client,
         },
-        Point,
     },
 };
 use pallas_primitives::ToCanonicalJson;
 use pallas_traverse::Era;
 
-use mithril_common::crypto_helper::{encode_bech32, KESPeriod, OpCert};
+use mithril_common::crypto_helper::{KESPeriod, OpCert, encode_bech32};
 use mithril_common::entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, StakeDistribution};
 use mithril_common::{CardanoNetwork, StdResult};
 
-use crate::entities::{try_inspect, ChainAddress, Datum, Datums, TxDatum};
+use crate::entities::{ChainAddress, Datum, Datums, TxDatum, try_inspect};
 
 use super::{ChainObserver, ChainObserverError};
 
@@ -518,14 +518,14 @@ mod tests {
     use pallas_crypto::hash::Hash;
     use pallas_network::facades::NodeServer;
     use pallas_network::miniprotocols::{
+        Point,
         localstate::{
+            ClientQueryRequest,
             queries_v16::{
                 BlockQuery, ChainBlockNumber, Fraction, GenesisConfig, HardForkQuery, LedgerQuery,
                 Request, Snapshots, StakeSnapshot, SystemStart, Value,
             },
-            ClientQueryRequest,
         },
-        Point,
     };
     use tokio::net::UnixListener;
 

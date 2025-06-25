@@ -1,7 +1,7 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use hex::ToHex;
-use slog::{info, trace, warn, Logger};
+use slog::{Logger, info, trace, warn};
 use std::path::PathBuf;
 use thiserror::Error;
 
@@ -144,9 +144,7 @@ impl SingleSigner for MithrilSingleSigner {
             Some(signature) => {
                 trace!(
                     self.logger,
-                    "Party #{}: lottery #{:?} won",
-                    signature.party_id,
-                    &signature.won_indexes
+                    "Party #{}: lottery #{:?} won", signature.party_id, &signature.won_indexes
                 );
             }
             None => {

@@ -1,7 +1,7 @@
 use crate::{
+    StdError,
     crypto_helper::ProtocolMkProof,
     entities::{CardanoTransactionsSetProof, HexEncodedKey, TransactionHash},
-    StdError,
 };
 use serde::{Deserialize, Serialize};
 

@@ -6,7 +6,7 @@ use mithril_persistence::sqlite::ConnectionBuilder;
 use mithril_persistence::store::StakeStorer;
 
 use crate::database::repository::StakePoolStore;
-use crate::database::test_helper::{insert_stake_pool, main_db_connection, FakeStoreAdapter};
+use crate::database::test_helper::{FakeStoreAdapter, insert_stake_pool, main_db_connection};
 use crate::services::EpochPruningTask;
 
 mod request {

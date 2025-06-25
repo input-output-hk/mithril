@@ -128,8 +128,8 @@ mod tests {
     }
 
     #[test]
-    fn replace_error_message_on_deprecated_commands_and_show_the_new_command_without_additional_message(
-    ) {
+    fn replace_error_message_on_deprecated_commands_and_show_the_new_command_without_additional_message()
+     {
         let error = build_error("old_command");
 
         let result = Deprecation::handle_deprecated_commands(
@@ -165,15 +165,17 @@ mod tests {
     }
 
     #[test]
-    fn replace_error_message_on_deprecated_commands_and_show_the_new_command_with_additional_message(
-    ) {
+    fn replace_error_message_on_deprecated_commands_and_show_the_new_command_with_additional_message()
+     {
         let error = build_error("old_command");
 
         let result = Deprecation::handle_deprecated_commands(
             Err(error) as Result<MyCommand, ClapError>,
             Styles::plain(),
-            vec![DeprecatedCommand::new("old_command", "new_command")
-                .with_additional_message("'additional message'")],
+            vec![
+                DeprecatedCommand::new("old_command", "new_command")
+                    .with_additional_message("'additional message'"),
+            ],
         );
         assert!(result.is_err());
         let message = result.err().unwrap().to_string();

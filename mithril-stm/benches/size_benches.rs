@@ -1,7 +1,7 @@
 use blake2::digest::FixedOutput;
 use blake2::{
-    digest::consts::{U32, U64},
     Blake2b, Digest,
+    digest::consts::{U32, U64},
 };
 use mithril_stm::{
     CoreVerifier, KeyReg, Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigRegParty,

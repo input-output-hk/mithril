@@ -188,7 +188,7 @@ impl Ord for LedgerStateSnapshot {
 
 #[cfg(test)]
 mod tests {
-    use std::fs::{create_dir, File};
+    use std::fs::{File, create_dir};
     use std::io::prelude::*;
 
     use mithril_common::test_utils::temp_dir_create;
@@ -279,8 +279,8 @@ mod tests {
         use super::*;
 
         #[test]
-        fn list_all_ledger_state_should_not_include_utxo_hd_folder_that_does_not_contains_meta_state_or_tvar_files(
-        ) {
+        fn list_all_ledger_state_should_not_include_utxo_hd_folder_that_does_not_contains_meta_state_or_tvar_files()
+         {
             let target_dir = temp_dir_create!();
             let ledger_dir = create_ledger_dir(&target_dir);
 
@@ -375,8 +375,8 @@ mod tests {
         }
 
         #[test]
-        fn get_relative_path_only_list_meta_state_and_tvar_files_even_if_there_are_other_files_in_the_folder(
-        ) {
+        fn get_relative_path_only_list_meta_state_and_tvar_files_even_if_there_are_other_files_in_the_folder()
+         {
             let target_dir = temp_dir_create!();
             create_dir_all(
                 target_dir

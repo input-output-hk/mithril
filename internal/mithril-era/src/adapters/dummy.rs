@@ -47,11 +47,13 @@ mod tests {
     async fn empty_dummy_adapter() {
         let adapter = DummyAdapter::default();
 
-        assert!(adapter
-            .read()
-            .await
-            .expect("dummy adapter shall not fail reading")
-            .is_empty());
+        assert!(
+            adapter
+                .read()
+                .await
+                .expect("dummy adapter shall not fail reading")
+                .is_empty()
+        );
     }
 
     #[tokio::test]

@@ -79,10 +79,10 @@ impl MithrilStakeDistributionClient {
             .await
         {
             Ok(content) => {
-                let stake_distribution_entity: MithrilStakeDistribution =
-                    serde_json::from_str(&content).with_context(|| {
-                        "MithrilStakeDistribution Client can not deserialize artifact"
-                    })?;
+                let stake_distribution_entity: MithrilStakeDistribution = serde_json::from_str(
+                    &content,
+                )
+                .with_context(|| "MithrilStakeDistribution Client can not deserialize artifact")?;
 
                 Ok(Some(stake_distribution_entity))
             }
@@ -97,9 +97,9 @@ mod tests {
     use chrono::{DateTime, Utc};
     use mithril_common::test_utils::fake_data;
 
+    use crate::MithrilSigner;
     use crate::aggregator_client::MockAggregatorClient;
     use crate::common::Epoch;
-    use crate::MithrilSigner;
 
     use super::*;
 

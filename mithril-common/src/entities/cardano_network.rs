@@ -181,8 +181,8 @@ mod tests {
     }
 
     #[test]
-    fn compute_allow_unparsable_block_should_return_value_passed_in_parameter_on_all_networks_other_than_mainnet_and_preprod(
-    ) {
+    fn compute_allow_unparsable_block_should_return_value_passed_in_parameter_on_all_networks_other_than_mainnet_and_preprod()
+     {
         let allow_unparsable_block = CardanoNetwork::TestNet(PREVIEW_MAGIC_ID)
             .compute_allow_unparsable_block(false)
             .unwrap();

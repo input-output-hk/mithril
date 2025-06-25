@@ -3,8 +3,8 @@ use std::collections::BTreeMap;
 use async_trait::async_trait;
 
 use mithril_common::{
-    entities::{HexEncodedDigest, ImmutableFileName},
     StdResult,
+    entities::{HexEncodedDigest, ImmutableFileName},
 };
 
 /// A trait for mapping [ImmutableFileName]s to their digests.

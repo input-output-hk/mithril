@@ -3,8 +3,8 @@ use std::sync::RwLock;
 
 use async_trait::async_trait;
 
-use mithril_common::entities::{BlockNumber, ChainPoint};
 use mithril_common::StdResult;
+use mithril_common::entities::{BlockNumber, ChainPoint};
 
 use crate::chain_scanner::{BlockScanner, BlockStreamer, ChainScannedBlocks};
 use crate::entities::{RawCardanoPoint, ScannedBlock};

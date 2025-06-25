@@ -4,12 +4,12 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 
+use mithril_common::StdResult;
 use mithril_common::crypto_helper::{MKTreeNode, MKTreeStorer};
 use mithril_common::entities::{
     BlockHash, BlockNumber, BlockRange, CardanoTransaction, ChainPoint, SlotNumber, TransactionHash,
 };
 use mithril_common::signable_builder::BlockRangeRootRetriever;
-use mithril_common::StdResult;
 
 use crate::database::query::{
     DeleteBlockRangeRootQuery, DeleteCardanoTransactionQuery, GetBlockRangeRootQuery,
@@ -721,8 +721,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn repository_get_transaction_highest_chain_point_with_transactions_with_same_block_number_in_db(
-    ) {
+    async fn repository_get_transaction_highest_chain_point_with_transactions_with_same_block_number_in_db()
+     {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::build_from_connection(connection),

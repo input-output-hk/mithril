@@ -8,14 +8,14 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 use mithril_signed_entity_lock::SignedEntityTypeLock;
-use slog::{debug, info, Logger};
+use slog::{Logger, debug, info};
 
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_common::{
+    StdResult,
     entities::{BlockNumber, SignedEntityTypeDiscriminants},
     logging::LoggerExtensions,
     signable_builder::TransactionsImporter,
-    StdResult,
 };
 
 #[cfg(test)]
@@ -114,9 +114,9 @@ impl CardanoTransactionsPreloader {
             .chain_observer
             .get_current_chain_point()
             .await?
-            .with_context(|| {
-                "No chain point yielded by the chain observer, is your cardano node ready?"
-            })?;
+            .with_context(
+                || "No chain point yielded by the chain observer, is your cardano node ready?",
+            )?;
         let up_to_block_number = chain_point.block_number - self.security_parameter;
         self.importer.import(up_to_block_number).await?;
 

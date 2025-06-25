@@ -1,16 +1,16 @@
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use semver::Version;
 
 use mithril_common::{
+    CardanoNetwork, StdResult,
     entities::{
         AncillaryLocations, CardanoDatabaseSnapshot, CardanoDatabaseSnapshotArtifactData,
         CardanoDbBeacon, Certificate, DigestsLocations, ImmutablesLocations,
         ProtocolMessagePartKey, SignedEntityType,
     },
-    CardanoNetwork, StdResult,
 };
 
 use crate::artifact_builder::{AncillaryArtifactBuilder, ArtifactBuilder};
@@ -100,22 +100,22 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
 
 #[cfg(test)]
 mod tests {
-    use mockall::{predicate, Predicate};
+    use mockall::{Predicate, predicate};
     use std::path::Path;
     use std::{collections::BTreeMap, path::PathBuf};
 
     use mithril_cardano_node_internal_database::entities::AncillaryFilesManifest;
     use mithril_cardano_node_internal_database::test::DummyCardanoDbBuilder;
-    use mithril_cardano_node_internal_database::{immutable_trio_names, IMMUTABLE_DIR, LEDGER_DIR};
+    use mithril_cardano_node_internal_database::{IMMUTABLE_DIR, LEDGER_DIR, immutable_trio_names};
 
     use mithril_common::{
+        CardanoNetwork,
         entities::{
             AncillaryLocation, CompressionAlgorithm, DigestLocation, ImmutableFileNumber,
             ImmutablesLocation, MultiFilesUri, ProtocolMessage, ProtocolMessagePartKey,
             TemplateUri,
         },
-        test_utils::{fake_data, fake_keys, TempDir},
-        CardanoNetwork,
+        test_utils::{TempDir, fake_data, fake_keys},
     };
 
     use crate::{
@@ -123,8 +123,8 @@ mod tests {
             DigestSnapshotter, MockAncillaryFileUploader, MockImmutableFilesUploader,
         },
         immutable_file_digest_mapper::MockImmutableFileDigestMapper,
-        services::ancillary_signer::MockAncillarySigner,
         services::CompressedArchiveSnapshotter,
+        services::ancillary_signer::MockAncillarySigner,
         test_tools::TestLogger,
         tools::{file_archiver::FileArchiver, url_sanitizer::SanitizedUrlWithTrailingSlash},
     };

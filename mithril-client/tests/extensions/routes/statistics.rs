@@ -1,6 +1,6 @@
+use axum::Router;
 use axum::response::IntoResponse;
 use axum::routing::post;
-use axum::Router;
 
 pub fn routes() -> Router {
     Router::new()

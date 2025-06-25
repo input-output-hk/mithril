@@ -1,17 +1,17 @@
 use clap::ValueEnum;
 use libp2p::Multiaddr;
-use slog::{debug, info, Logger};
+use slog::{Logger, debug, info};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 use strum::Display;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 use warp::Filter;
 
 use mithril_common::{
+    StdResult,
     logging::LoggerExtensions,
     messages::{RegisterSignatureMessage, RegisterSignerMessage},
-    StdResult,
 };
-use mithril_test_http_server::{test_http_server_with_socket_address, TestHttpServer};
+use mithril_test_http_server::{TestHttpServer, test_http_server_with_socket_address};
 
 use crate::{
     p2p::{Peer, PeerEvent},
@@ -256,9 +256,9 @@ mod middlewares {
 mod handlers {
     use mithril_common::messages::{RegisterSignatureMessage, RegisterSignerMessage};
     use reqwest::{Error, Response};
-    use slog::{debug, Logger};
+    use slog::{Logger, debug};
     use std::{convert::Infallible, sync::Arc};
-    use tokio::sync::mpsc::{error::SendError, UnboundedSender};
+    use tokio::sync::mpsc::{UnboundedSender, error::SendError};
     use warp::{http::StatusCode, reply::WithStatus};
 
     use crate::repeater;
