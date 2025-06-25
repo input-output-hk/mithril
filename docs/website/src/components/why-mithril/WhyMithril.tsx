@@ -1,21 +1,14 @@
-import React, { FC, useRef, useEffect, useState } from "react";
+import React, { FC, useState, useEffect } from "react";
 import { motion, useScroll } from "framer-motion";
 import Link from "@docusaurus/Link";
 import AnimatedTimelineItem from "./AnimatedTimelineItem";
 import { WhyMithrilContents } from "../../../homepage-content/why-mithril";
 
 const WhyMithril: FC = () => {
-  const containerRef = useRef(null);
-  const [isMounted, setIsMounted] = useState(false);
+  const { scrollYProgress } = useScroll();
+  const [mounted, setIsMounted] = useState(false);
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  const { scrollYProgress } = useScroll({
-    target: containerRef,
-    offset: ["start end", "end start"],
-  });
+  useEffect(() => setIsMounted(true), []);
 
   return (
     <section className="component bg-blue-light">
@@ -35,11 +28,8 @@ const WhyMithril: FC = () => {
         </motion.h5>
 
         <div className="flex tablet:flex-row flex-col justify-between gap-[1.625rem] text-primary">
-          <div
-            ref={containerRef}
-            className="text-3xl text-center flex justify-center text-blue items-center basis-1/2 stuck-grid flex-col gap-4"
-          >
-            {isMounted &&
+          <div className="text-3xl text-center flex justify-center text-blue items-center basis-1/2 stuck-grid flex-col gap-4">
+            {mounted &&
               WhyMithrilContents.timeline.map((item, index) => (
                 <AnimatedTimelineItem
                   key={index}

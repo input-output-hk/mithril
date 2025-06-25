@@ -7,6 +7,8 @@ import {
   MotionValue,
 } from "framer-motion";
 import { cx } from "cva";
+import { forTablet } from "../../../helpers/media-queries";
+import useMediaQuery from "../../hooks/useMediaQuery";
 
 interface Props {
   scrollYProgress: MotionValue<number>;
@@ -19,7 +21,8 @@ const AnimatedTimelineItem: React.FC<Props> = ({
   index,
   item,
 }) => {
-  const start = 0.07 + index * 0.07;
+  const isTabletUp = useMediaQuery(forTablet);
+  const start = isTabletUp ? 0.02 + index * 0.06 : 0.02 + index * 0.025;
   const end = start + 0.3;
 
   const z = useTransform(
