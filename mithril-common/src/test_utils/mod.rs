@@ -33,7 +33,7 @@ pub(crate) use utils::*;
 /// Compare two json strings ignoring keys order
 #[macro_export]
 macro_rules! assert_same_json {
-    ( $expected:expr, $actual:expr ) => {
+    ( $expected:expr_2021, $actual:expr_2021 ) => {
         assert_eq!(
             serde_json::from_str::<serde_json::Value>($expected).unwrap(),
             serde_json::from_str::<serde_json::Value>($actual).unwrap()
@@ -69,7 +69,7 @@ where
 /// Assert that two iterators are equivalent
 #[macro_export]
 macro_rules! assert_equivalent_macro {
-    ( $expected:expr, $actual:expr ) => {{
+    ( $expected:expr_2021, $actual:expr_2021 ) => {{
         let expected = $crate::test_utils::as_sorted_vec($expected);
         let actual = $crate::test_utils::as_sorted_vec($actual);
         assert_eq!(expected, actual);

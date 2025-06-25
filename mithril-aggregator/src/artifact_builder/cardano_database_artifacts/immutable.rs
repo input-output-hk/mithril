@@ -337,7 +337,7 @@ mod tests {
     }
 
     macro_rules! assert_file_content {
-        ($path:expr, $expected_content:expr) => {
+        ($path:expr_2021, $expected_content:expr_2021) => {
             assert!($path.exists());
             let content = std::fs::read_to_string(&$path).unwrap();
             assert_eq!(content, $expected_content);

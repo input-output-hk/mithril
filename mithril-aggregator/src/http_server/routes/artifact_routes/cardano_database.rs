@@ -4,7 +4,7 @@ use warp::Filter;
 
 pub fn routes(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     artifact_cardano_database_list(router_state)
         .or(artifact_cardano_database_digest_list(router_state))
         .or(artifact_cardano_database_by_id(router_state))
@@ -14,7 +14,7 @@ pub fn routes(
 /// GET /artifact/cardano-database
 fn artifact_cardano_database_list(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "cardano-database")
         .and(warp::get())
         .and(middlewares::with_logger(router_state))
@@ -25,7 +25,7 @@ fn artifact_cardano_database_list(
 /// GET /artifact/cardano-database/:id
 fn artifact_cardano_database_by_id(
     dependency_manager: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "cardano-database" / String)
         .and(warp::get())
         .and(middlewares::with_client_metadata(dependency_manager))
@@ -38,7 +38,7 @@ fn artifact_cardano_database_by_id(
 /// GET /artifact/cardano-database/digests
 fn artifact_cardano_database_digest_list(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "cardano-database" / "digests")
         .and(warp::get())
         .and(middlewares::with_logger(router_state))
@@ -48,7 +48,7 @@ fn artifact_cardano_database_digest_list(
 
 fn serve_cardano_database_dir(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path(crate::http_server::CARDANO_DATABASE_DOWNLOAD_PATH)
         .and(warp::fs::dir(
             router_state

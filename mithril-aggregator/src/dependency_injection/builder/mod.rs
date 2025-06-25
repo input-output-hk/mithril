@@ -75,7 +75,7 @@ macro_rules! get_dependency {
             get_dependency!($self.$attribute = $self.[<build_ $attribute>]().await?)
         }
     }};
-    ( $self:ident.$attribute:ident = $builder:expr ) => {{
+    ( $self:ident.$attribute:ident = $builder:expr_2021 ) => {{
         paste::paste! {
             if $self.$attribute.is_none() {
                 $self.$attribute = Some($builder);
@@ -428,7 +428,7 @@ impl DependenciesBuilder {
     /// Create the HTTP route instance
     pub async fn create_http_routes(
         &mut self,
-    ) -> Result<impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone> {
+    ) -> Result<impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<>> {
         let dependency_container = Arc::new(self.build_serve_dependencies_container().await?);
         let snapshot_dir = self.configuration.get_snapshot_dir()?;
         let router_state = RouterState::new(

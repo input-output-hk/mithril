@@ -13,7 +13,7 @@ const MITHRIL_SIGNER_VERSION_HEADER: &str = "signer-node-version";
 
 pub fn routes(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     register_signer(router_state)
         .or(registered_signers(router_state))
         .or(signers_tickers(router_state))
@@ -22,7 +22,7 @@ pub fn routes(
 /// POST /register-signer
 fn register_signer(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("register-signer")
         .and(warp::post())
         .and(middlewares::with_origin_tag(router_state))
@@ -41,7 +41,7 @@ fn register_signer(
 /// Get /signers/tickers
 fn signers_tickers(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("signers" / "tickers")
         .and(warp::get())
         .and(middlewares::with_logger(router_state))
@@ -55,7 +55,7 @@ fn signers_tickers(
 /// Get /signers/registered/:epoch
 fn registered_signers(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("signers" / "registered" / String)
         .and(warp::get())
         .and(middlewares::with_logger(router_state))

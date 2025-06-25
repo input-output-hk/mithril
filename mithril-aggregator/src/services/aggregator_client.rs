@@ -338,7 +338,7 @@ mod tests {
     }
 
     macro_rules! assert_error_text_contains {
-        ($error: expr, $expect_contains: expr) => {
+        ($error: expr_2021, $expect_contains: expr_2021) => {
             let error = &$error;
             assert!(
                 error.contains($expect_contains),

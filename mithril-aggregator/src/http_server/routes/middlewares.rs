@@ -20,7 +20,7 @@ use crate::{
 pub fn extract_config<D: Clone + Send>(
     state: &RouterState,
     extract: fn(&RouterConfig) -> D,
-) -> impl Filter<Extract = (D,), Error = Infallible> + Clone {
+) -> impl Filter<Extract = (D,), Error = Infallible> + Clone + use<D> {
     let config_value = extract(&state.configuration);
     warp::any().map(move || config_value.clone())
 }
@@ -28,7 +28,7 @@ pub fn extract_config<D: Clone + Send>(
 /// With logger middleware
 pub(crate) fn with_logger(
     router_state: &RouterState,
-) -> impl Filter<Extract = (Logger,), Error = Infallible> + Clone {
+) -> impl Filter<Extract = (Logger,), Error = Infallible> + Clone + use<> {
     let logger = http_server_child_logger(&router_state.dependencies.root_logger);
     warp::any().map(move || logger.clone())
 }
@@ -38,7 +38,7 @@ pub(crate) fn with_logger(
 /// Example of log produced: `POST /aggregator/register-signatures 202 Accepted`
 pub(crate) fn log_route_call(
     router_state: &RouterState,
-) -> warp::log::Log<impl Fn(warp::log::Info<'_>) + Clone> {
+) -> warp::log::Log<impl Fn(warp::log::Info<'_>) + Clone + use<>> {
     let logger = http_server_child_logger(&router_state.dependencies.root_logger);
     warp::log::custom(move |info| {
         debug!(
@@ -54,7 +54,7 @@ pub(crate) fn log_route_call(
 /// With signer registerer middleware
 pub fn with_signer_registerer(
     router_state: &RouterState,
-) -> impl Filter<Extract = (Arc<dyn SignerRegisterer>,), Error = Infallible> + Clone {
+) -> impl Filter<Extract = (Arc<dyn SignerRegisterer>,), Error = Infallible> + Clone + use<> {
     let signer_register = router_state.dependencies.signer_registerer.clone();
     warp::any().map(move || signer_register.clone())
 }
@@ -62,7 +62,7 @@ pub fn with_signer_registerer(
 /// With signer getter middleware
 pub fn with_signer_getter(
     router_state: &RouterState,
-) -> impl Filter<Extract = (Arc<dyn SignerGetter>,), Error = Infallible> + Clone {
+) -> impl Filter<Extract = (Arc<dyn SignerGetter>,), Error = Infallible> + Clone + use<> {
     let signer_getter = router_state.dependencies.signer_getter.clone();
     warp::any().map(move || signer_getter.clone())
 }
@@ -70,7 +70,7 @@ pub fn with_signer_getter(
 /// With Event transmitter middleware
 pub fn with_event_transmitter(
     router_state: &RouterState,
-) -> impl Filter<Extract = (Arc<TransmitterService<EventMessage>>,), Error = Infallible> + Clone {
+) -> impl Filter<Extract = (Arc<TransmitterService<EventMessage>>,), Error = Infallible> + Clone + use<> {
     let event_transmitter = router_state.dependencies.event_transmitter.clone();
     warp::any().map(move || event_transmitter.clone())
 }
@@ -78,7 +78,7 @@ pub fn with_event_transmitter(
 /// With certifier service middleware
 pub fn with_certifier_service(
     router_state: &RouterState,
-) -> impl Filter<Extract = (Arc<dyn CertifierService>,), Error = Infallible> + Clone {
+) -> impl Filter<Extract = (Arc<dyn CertifierService>,), Error = Infallible> + Clone + use<> {
     let certifier_service = router_state.dependencies.certifier_service.clone();
     warp::any().map(move || certifier_service.clone())
 }
@@ -86,7 +86,7 @@ pub fn with_certifier_service(
 /// With epoch service middleware
 pub fn with_epoch_service(
     router_state: &RouterState,
-) -> impl Filter<Extract = (EpochServiceWrapper,), Error = Infallible> + Clone {
+) -> impl Filter<Extract = (EpochServiceWrapper,), Error = Infallible> + Clone + use<> {
     let epoch_service = router_state.dependencies.epoch_service.clone();
     warp::any().map(move || epoch_service.clone())
 }
@@ -94,7 +94,7 @@ pub fn with_epoch_service(
 /// With signed entity service
 pub fn with_signed_entity_service(
     router_state: &RouterState,
-) -> impl Filter<Extract = (Arc<dyn SignedEntityService>,), Error = Infallible> + Clone {
+) -> impl Filter<Extract = (Arc<dyn SignedEntityService>,), Error = Infallible> + Clone + use<> {
     let signed_entity_service = router_state.dependencies.signed_entity_service.clone();
     warp::any().map(move || signed_entity_service.clone())
 }
@@ -102,7 +102,7 @@ pub fn with_signed_entity_service(
 /// With verification key store
 pub fn with_verification_key_store(
     router_state: &RouterState,
-) -> impl Filter<Extract = (Arc<dyn VerificationKeyStorer>,), Error = Infallible> + Clone {
+) -> impl Filter<Extract = (Arc<dyn VerificationKeyStorer>,), Error = Infallible> + Clone + use<> {
     let verification_key_store = router_state.dependencies.verification_key_store.clone();
     warp::any().map(move || verification_key_store.clone())
 }
@@ -110,7 +110,7 @@ pub fn with_verification_key_store(
 /// With API version provider
 pub fn with_api_version_provider(
     router_state: &RouterState,
-) -> impl Filter<Extract = (Arc<APIVersionProvider>,), Error = Infallible> + Clone {
+) -> impl Filter<Extract = (Arc<APIVersionProvider>,), Error = Infallible> + Clone + use<> {
     let api_version_provider = router_state.dependencies.api_version_provider.clone();
     warp::any().map(move || api_version_provider.clone())
 }
@@ -118,7 +118,7 @@ pub fn with_api_version_provider(
 /// With Message service
 pub fn with_http_message_service(
     router_state: &RouterState,
-) -> impl Filter<Extract = (Arc<dyn MessageService>,), Error = Infallible> + Clone {
+) -> impl Filter<Extract = (Arc<dyn MessageService>,), Error = Infallible> + Clone + use<> {
     let message_service = router_state.dependencies.message_service.clone();
     warp::any().map(move || message_service.clone())
 }
@@ -126,7 +126,7 @@ pub fn with_http_message_service(
 /// With Prover service
 pub fn with_prover_service(
     router_state: &RouterState,
-) -> impl Filter<Extract = (Arc<dyn ProverService>,), Error = Infallible> + Clone {
+) -> impl Filter<Extract = (Arc<dyn ProverService>,), Error = Infallible> + Clone + use<> {
     let prover_service = router_state.dependencies.prover_service.clone();
     warp::any().map(move || prover_service.clone())
 }
@@ -134,7 +134,7 @@ pub fn with_prover_service(
 /// With Single Signature Authenticator
 pub fn with_single_signature_authenticator(
     router_state: &RouterState,
-) -> impl Filter<Extract = (Arc<SingleSignatureAuthenticator>,), Error = Infallible> + Clone {
+) -> impl Filter<Extract = (Arc<SingleSignatureAuthenticator>,), Error = Infallible> + Clone + use<> {
     let single_signer_authenticator = router_state
         .dependencies
         .single_signer_authenticator
@@ -145,7 +145,7 @@ pub fn with_single_signature_authenticator(
 /// With Metrics service
 pub fn with_metrics_service(
     router_state: &RouterState,
-) -> impl Filter<Extract = (Arc<MetricsService>,), Error = Infallible> + Clone {
+) -> impl Filter<Extract = (Arc<MetricsService>,), Error = Infallible> + Clone + use<> {
     let metrics_service = router_state.dependencies.metrics_service.clone();
     warp::any().map(move || metrics_service.clone())
 }
@@ -153,7 +153,7 @@ pub fn with_metrics_service(
 /// With origin tag of the request
 pub fn with_origin_tag(
     router_state: &RouterState,
-) -> impl Filter<Extract = (Option<String>,), Error = warp::reject::Rejection> + Clone {
+) -> impl Filter<Extract = (Option<String>,), Error = warp::reject::Rejection> + Clone + use<> {
     let white_list = router_state.configuration.origin_tag_white_list.clone();
 
     warp::header::optional::<String>(MITHRIL_ORIGIN_TAG_HEADER).map(move |name: Option<String>| {
@@ -177,7 +177,7 @@ pub fn with_client_type(
 
 pub fn with_client_metadata(
     router_state: &RouterState,
-) -> impl Filter<Extract = (ClientMetadata,), Error = warp::reject::Rejection> + Clone {
+) -> impl Filter<Extract = (ClientMetadata,), Error = warp::reject::Rejection> + Clone + use<> {
     with_origin_tag(router_state).and(with_client_type()).map(
         |origin_tag: Option<String>, client_type: Option<String>| ClientMetadata {
             origin_tag,
@@ -199,7 +199,7 @@ pub mod validators {
     /// With Prover Transactions Hash Validator
     pub fn with_prover_transactions_hash_validator(
         router_state: &RouterState,
-    ) -> impl Filter<Extract = (ProverTransactionsHashValidator,), Error = Infallible> + Clone {
+    ) -> impl Filter<Extract = (ProverTransactionsHashValidator,), Error = Infallible> + Clone + use<> {
         let max_hashes = router_state
             .configuration
             .cardano_transactions_prover_max_hashes_allowed_by_request;
@@ -240,7 +240,7 @@ mod tests {
 
         fn route_with_origin_tag(
             router_state: &RouterState,
-        ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+        ) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
             warp::path!("route")
                 .and(warp::get())
                 .and(with_origin_tag(router_state))

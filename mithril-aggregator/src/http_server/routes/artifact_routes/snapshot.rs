@@ -4,7 +4,7 @@ use warp::Filter;
 
 pub fn routes(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     artifact_cardano_full_immutable_snapshots(router_state)
         .or(artifact_cardano_full_immutable_snapshot_by_id(router_state))
         .or(serve_snapshots_dir(router_state))
@@ -14,7 +14,7 @@ pub fn routes(
 /// GET /artifact/snapshots
 fn artifact_cardano_full_immutable_snapshots(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "snapshots")
         .and(warp::get())
         .and(middlewares::with_logger(router_state))
@@ -25,7 +25,7 @@ fn artifact_cardano_full_immutable_snapshots(
 /// GET /artifact/snapshot/:id
 fn artifact_cardano_full_immutable_snapshot_by_id(
     dependency_manager: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "snapshot" / String)
         .and(warp::get())
         .and(middlewares::with_client_metadata(dependency_manager))
@@ -38,7 +38,7 @@ fn artifact_cardano_full_immutable_snapshot_by_id(
 /// GET /artifact/snapshots/{digest}/download
 fn snapshot_download(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "snapshot" / String / "download")
         .and(warp::get().or(warp::head()).unify())
         .and(middlewares::with_logger(router_state))
@@ -51,7 +51,7 @@ fn snapshot_download(
 
 fn serve_snapshots_dir(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path(crate::http_server::SNAPSHOT_DOWNLOAD_PATH)
         .and(warp::fs::dir(
             router_state.configuration.snapshot_directory.clone(),

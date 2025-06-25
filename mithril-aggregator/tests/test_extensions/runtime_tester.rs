@@ -45,7 +45,7 @@ use crate::test_extensions::{AggregatorObserver, ExpectedCertificate, MetricsVer
 
 #[macro_export]
 macro_rules! cycle {
-    ( $tester:expr, $expected_state:expr ) => {{
+    ( $tester:expr_2021, $expected_state:expr_2021 ) => {{
         use $crate::test_extensions::ExpectedMetrics;
 
         let (runtime_cycle_success, runtime_cycle_total) =
@@ -65,7 +65,7 @@ macro_rules! cycle {
 
 #[macro_export]
 macro_rules! cycle_err {
-    ( $tester:expr, $expected_state:expr ) => {{
+    ( $tester:expr_2021, $expected_state:expr_2021 ) => {{
         use $crate::test_extensions::ExpectedMetrics;
 
         let (runtime_cycle_success, runtime_cycle_total) =
@@ -87,7 +87,7 @@ macro_rules! cycle_err {
 
 #[macro_export]
 macro_rules! assert_last_certificate_eq {
-    ( $tester:expr, $expected_certificate:expr ) => {{
+    ( $tester:expr_2021, $expected_certificate:expr_2021 ) => {{
         if let Some(signed_type) = $expected_certificate.get_signed_type() {
             $tester
                 .wait_until_signed_entity(&signed_type)
@@ -104,7 +104,7 @@ macro_rules! assert_last_certificate_eq {
 
 #[macro_export]
 macro_rules! assert_metrics_eq {
-    ( $tester:expr, $expected_metrics:expr ) => {{
+    ( $tester:expr_2021, $expected_metrics:expr_2021 ) => {{
         $tester.verify($expected_metrics);
     }};
 }
@@ -254,7 +254,7 @@ impl RuntimeTester {
     pub async fn expose_epoch_settings(&mut self) -> StdResult<TestHttpServer> {
         fn with_observer(
             runtime_tester: &RuntimeTester,
-        ) -> impl Filter<Extract = (Arc<AggregatorObserver>,), Error = Infallible> + Clone {
+        ) -> impl Filter<Extract = (Arc<AggregatorObserver>,), Error = Infallible> + Clone + use<> {
             let observer = runtime_tester.observer.clone();
             warp::any().map(move || observer.clone())
         }

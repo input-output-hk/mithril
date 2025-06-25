@@ -486,7 +486,7 @@ mod tests {
     use super::*;
 
     macro_rules! assert_error_eq {
-        ($left:expr, $right:expr) => {
+        ($left:expr_2021, $right:expr_2021) => {
             assert_eq!(format!("{:?}", &$left), format!("{:?}", &$right),);
         };
     }
