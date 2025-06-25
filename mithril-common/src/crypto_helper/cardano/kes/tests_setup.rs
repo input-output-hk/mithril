@@ -4,7 +4,7 @@ use kes_summed_ed25519::kes::Sum6Kes;
 use kes_summed_ed25519::traits::KesSk;
 
 use crate::crypto_helper::{cardano::ColdKeyGenerator, OpCert};
-use crate::crypto_helper::{KESPeriod, ProtocolPartyId, SerDeShelleyFileFormat, Sum6KesBytes};
+use crate::crypto_helper::{KesPeriod, ProtocolPartyId, SerDeShelleyFileFormat, Sum6KesBytes};
 
 /// A struct to hold KES cryptographic material for testing purposes.
 pub(crate) struct KesCryptographicMaterialForTest {
@@ -16,7 +16,7 @@ pub(crate) struct KesCryptographicMaterialForTest {
 /// Create KES cryptographic material for testing purposes.
 pub(crate) fn create_kes_cryptographic_material(
     party_idx: u64,
-    kes_period: KESPeriod,
+    kes_period: KesPeriod,
     test_directory: &str,
 ) -> KesCryptographicMaterialForTest {
     let temp_dir = std::env::temp_dir()

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use thiserror::Error;
 
-use mithril_common::crypto_helper::{KESPeriod, OpCert};
+use mithril_common::crypto_helper::{KesPeriod, OpCert};
 use mithril_common::entities::{ChainPoint, Epoch, StakeDistribution};
 use mithril_common::StdError;
 
@@ -47,7 +47,7 @@ pub trait ChainObserver: Sync + Send {
     async fn get_current_kes_period(
         &self,
         _opcert: &OpCert,
-    ) -> Result<Option<KESPeriod>, ChainObserverError> {
+    ) -> Result<Option<KesPeriod>, ChainObserverError> {
         Ok(None)
     }
 }

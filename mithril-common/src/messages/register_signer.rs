@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 
-use crate::crypto_helper::KESPeriod;
+use crate::crypto_helper::KesPeriod;
 use crate::entities::{
     Epoch, HexEncodedOpCert, HexEncodedVerificationKey, HexEncodedVerificationKeySignature, PartyId,
 };
@@ -38,7 +38,7 @@ pub struct RegisterSignerMessage {
     // TODO: This KES period should not be used as is and should probably be
     //       within an allowed range of KES periods for the epoch.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub kes_period: Option<KESPeriod>,
+    pub kes_period: Option<KesPeriod>,
 }
 
 impl RegisterSignerMessage {

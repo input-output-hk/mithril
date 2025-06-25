@@ -21,7 +21,7 @@ use pallas_network::{
 use pallas_primitives::ToCanonicalJson;
 use pallas_traverse::Era;
 
-use mithril_common::crypto_helper::{encode_bech32, KESPeriod, OpCert};
+use mithril_common::crypto_helper::{encode_bech32, KesPeriod, OpCert};
 use mithril_common::entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, StakeDistribution};
 use mithril_common::{CardanoNetwork, StdResult};
 
@@ -275,7 +275,7 @@ impl PallasChainObserver {
         &self,
         chain_point: Point,
         slots_per_kes_period: u64,
-    ) -> Result<KESPeriod, ChainObserverError> {
+    ) -> Result<KesPeriod, ChainObserverError> {
         if slots_per_kes_period == 0 {
             return Err(anyhow!("slots_per_kes_period must be greater than 0"))
                 .with_context(|| "PallasChainObserver failed to calculate kes period")?;
@@ -360,7 +360,7 @@ impl PallasChainObserver {
     async fn get_kes_period(
         &self,
         client: &mut NodeClient,
-    ) -> Result<Option<KESPeriod>, ChainObserverError> {
+    ) -> Result<Option<KesPeriod>, ChainObserverError> {
         let statequery = client.statequery();
 
         statequery
@@ -495,7 +495,7 @@ impl ChainObserver for PallasChainObserver {
     async fn get_current_kes_period(
         &self,
         _opcert: &OpCert,
-    ) -> Result<Option<KESPeriod>, ChainObserverError> {
+    ) -> Result<Option<KesPeriod>, ChainObserverError> {
         let mut client = self.get_client().await?;
 
         let current_kes_period = self.get_kes_period(&mut client).await?;

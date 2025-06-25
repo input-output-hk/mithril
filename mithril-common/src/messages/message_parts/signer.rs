@@ -1,7 +1,7 @@
 #[cfg(any(test, feature = "test_tools"))]
 use crate::test_utils::fake_keys;
 use crate::{
-    crypto_helper::{KESPeriod, ProtocolOpCert, ProtocolSignerVerificationKeySignature},
+    crypto_helper::{KesPeriod, ProtocolOpCert, ProtocolSignerVerificationKeySignature},
     entities::{
         HexEncodedOpCert, HexEncodedVerificationKey, HexEncodedVerificationKeySignature, PartyId,
         Signer, SignerWithStake, Stake,
@@ -41,7 +41,7 @@ pub struct SignerWithStakeMessagePart {
     // TODO: This KES period should not be used as is and should probably be
     //       within an allowed range of KES periods for the epoch.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub kes_period: Option<KESPeriod>,
+    pub kes_period: Option<KesPeriod>,
 
     /// The signer stake
     pub stake: Stake,
@@ -189,7 +189,7 @@ pub struct SignerMessagePart {
     // TODO: This KES period should not be used as is and should probably be
     //       within an allowed range of KES periods for the epoch.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub kes_period: Option<KESPeriod>,
+    pub kes_period: Option<KesPeriod>,
 }
 
 impl SignerMessagePart {

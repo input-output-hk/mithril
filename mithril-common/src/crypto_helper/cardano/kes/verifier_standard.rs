@@ -3,7 +3,7 @@ use kes_summed_ed25519::{kes::Sum6KesSig, traits::KesSig};
 use crate::{
     crypto_helper::{
         cardano::{KesVerifier, KesVerifyError},
-        KESPeriod, OpCert,
+        KesPeriod, OpCert,
     },
     StdResult,
 };
@@ -19,7 +19,7 @@ impl KesVerifier for KesVerifierStandard {
         message: &[u8],
         signature: &Sum6KesSig,
         operational_certificate: &OpCert,
-        kes_period: KESPeriod,
+        kes_period: KesPeriod,
     ) -> StdResult<()> {
         operational_certificate
             .validate()
@@ -60,7 +60,7 @@ mod tests {
             party_id: _,
             operational_certificate_file,
             kes_secret_key_file,
-        } = create_kes_cryptographic_material(1, 0 as KESPeriod, "verify_valid_signature_succeeds");
+        } = create_kes_cryptographic_material(1, 0 as KesPeriod, "verify_valid_signature_succeeds");
         let message = b"Test message for KES signing";
         let kes_signer = KesSignerStandard::new(kes_secret_key_file, operational_certificate_file);
         let kes_signing_period = 1;
@@ -79,7 +79,7 @@ mod tests {
             party_id: _,
             operational_certificate_file,
             kes_secret_key_file,
-        } = create_kes_cryptographic_material(1, 0 as KESPeriod, "verify_invalid_signature_fails");
+        } = create_kes_cryptographic_material(1, 0 as KesPeriod, "verify_invalid_signature_fails");
         let message = b"Test message for KES signing";
         let kes_signer = KesSignerStandard::new(kes_secret_key_file, operational_certificate_file);
         let kes_signing_period = 1;
