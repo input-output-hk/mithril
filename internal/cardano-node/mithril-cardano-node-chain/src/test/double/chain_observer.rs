@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use tokio::sync::RwLock;
 
-use mithril_common::crypto_helper::{KESPeriod, OpCert};
+use mithril_common::crypto_helper::{KesPeriod, OpCert};
 use mithril_common::entities::{
     BlockNumber, ChainPoint, Epoch, SignerWithStake, SlotNumber, StakeDistribution, TimePoint,
 };
@@ -209,7 +209,7 @@ impl ChainObserver for FakeChainObserver {
     async fn get_current_kes_period(
         &self,
         _opcert: &OpCert,
-    ) -> Result<Option<KESPeriod>, ChainObserverError> {
+    ) -> Result<Option<KesPeriod>, ChainObserverError> {
         Ok(Some(0))
     }
 }

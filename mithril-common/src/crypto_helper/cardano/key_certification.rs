@@ -35,7 +35,7 @@ use crate::{
 type D = Blake2b<U32>;
 
 /// The KES period that is used to check if the KES keys is expired
-pub type KESPeriod = u32;
+pub type KesPeriod = u32;
 
 /// New registration error
 #[derive(Error, Debug)]
@@ -88,11 +88,11 @@ pub enum ProtocolInitializerErrorWrapper {
 
     /// Error raised when a KES update error occurs
     #[error("KES key cannot be updated for period {0}")]
-    KesUpdate(KESPeriod),
+    KesUpdate(KesPeriod),
 
     /// Period of key file does not match with period provided by user
     #[error("Period of key file, {0}, does not match with period provided by user, {1}")]
-    KesMismatch(KESPeriod, KESPeriod),
+    KesMismatch(KesPeriod, KesPeriod),
 }
 
 /// Wrapper structure for [MithrilStm:StmInitializer](mithril_stm::stm::StmInitializer).
@@ -116,7 +116,7 @@ impl StmInitializerWrapper {
     pub fn setup<R: RngCore + CryptoRng>(
         params: StmParameters,
         kes_signer: Option<Arc<dyn KesSigner>>,
-        kes_period: Option<KESPeriod>,
+        kes_period: Option<KesPeriod>,
         stake: Stake,
         rng: &mut R,
     ) -> StdResult<Self> {
@@ -253,7 +253,7 @@ impl KeyRegWrapper {
         party_id: Option<ProtocolPartyId>, // Used for only for testing when SPO pool id is not certified
         opcert: Option<ProtocolOpCert>, // Used for only for testing when SPO pool id is not certified
         kes_sig: Option<ProtocolSignerVerificationKeySignature>, // Used for only for testing when SPO pool id is not certified
-        kes_period: Option<KESPeriod>,
+        kes_period: Option<KesPeriod>,
         pk: ProtocolSignerVerificationKey,
     ) -> Result<ProtocolPartyId, ProtocolRegistrationErrorWrapper> {
         let pool_id_bech32: ProtocolPartyId = if let Some(opcert) = opcert {
@@ -321,12 +321,12 @@ mod test {
             party_id: party_id_1,
             operational_certificate_file: operational_certificate_file_1,
             kes_secret_key_file: kes_secret_key_file_1,
-        } = create_kes_cryptographic_material(1, 0 as KESPeriod, "test_vector_key_reg");
+        } = create_kes_cryptographic_material(1, 0 as KesPeriod, "test_vector_key_reg");
         let KesCryptographicMaterialForTest {
             party_id: party_id_2,
             operational_certificate_file: operational_certificate_file_2,
             kes_secret_key_file: kes_secret_key_file_2,
-        } = create_kes_cryptographic_material(2, 0 as KESPeriod, "test_vector_key_reg");
+        } = create_kes_cryptographic_material(2, 0 as KesPeriod, "test_vector_key_reg");
 
         let mut key_reg = KeyRegWrapper::init(&vec![(party_id_1, 10), (party_id_2, 3)]);
 

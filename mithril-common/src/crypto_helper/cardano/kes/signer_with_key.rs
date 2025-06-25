@@ -9,7 +9,7 @@ use kes_summed_ed25519::{
 use crate::{
     crypto_helper::{
         cardano::{KesSignError, KesSigner},
-        KESPeriod, OpCert, SerDeShelleyFileFormat, Sum6KesBytes,
+        KesPeriod, OpCert, SerDeShelleyFileFormat, Sum6KesBytes,
     },
     StdResult,
 };
@@ -31,7 +31,7 @@ impl KesSignerStandard {
 }
 
 impl KesSigner for KesSignerStandard {
-    fn sign(&self, message: &[u8], kes_period: KESPeriod) -> StdResult<(Sum6KesSig, OpCert)> {
+    fn sign(&self, message: &[u8], kes_period: KesPeriod) -> StdResult<(Sum6KesSig, OpCert)> {
         let mut kes_sk_bytes = Sum6KesBytes::from_file(&self.kes_sk_path)
             .map_err(|e| anyhow!(e))
             .with_context(|| "StandardKesSigner can not read KES secret key from file")?;
@@ -80,7 +80,7 @@ mod tests {
             kes_secret_key_file,
         } = create_kes_cryptographic_material(
             1 as PartyIndex,
-            0 as KESPeriod,
+            0 as KesPeriod,
             "create_valid_signature_for_message",
         );
         let message = b"Test message for KES signing";
@@ -104,7 +104,7 @@ mod tests {
             kes_secret_key_file,
         } = create_kes_cryptographic_material(
             1 as PartyIndex,
-            0 as KESPeriod,
+            0 as KesPeriod,
             "create_invalid_signature_for_different_message",
         );
         let message = b"Test message for KES signing";
@@ -127,7 +127,7 @@ mod tests {
 
     #[test]
     fn create_invalid_signature_for_invalid_kes_period() {
-        let kes_period_start = 5 as KESPeriod;
+        let kes_period_start = 5 as KesPeriod;
         let KesCryptographicMaterialForTest {
             party_id: _,
             operational_certificate_file,

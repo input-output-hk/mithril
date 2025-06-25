@@ -6,7 +6,7 @@ use hex::ToHex;
 use slog::{info, trace, warn, Logger};
 use thiserror::Error;
 
-use mithril_common::crypto_helper::{KESPeriod, KesSigner, ProtocolInitializer};
+use mithril_common::crypto_helper::{KesPeriod, KesSigner, ProtocolInitializer};
 use mithril_common::entities::{
     PartyId, ProtocolMessage, ProtocolParameters, SingleSignature, Stake,
 };
@@ -25,7 +25,7 @@ impl MithrilProtocolInitializerBuilder {
         stake: &Stake,
         protocol_parameters: &ProtocolParameters,
         kes_signer: Option<Arc<dyn KesSigner>>,
-        kes_period: Option<KESPeriod>,
+        kes_period: Option<KesPeriod>,
     ) -> StdResult<ProtocolInitializer> {
         let mut rng = rand_core::OsRng;
         let protocol_initializer = ProtocolInitializer::setup(
