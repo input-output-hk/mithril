@@ -128,7 +128,8 @@ pub use single_signature::{SingleSignature, SingleSignatureWithRegisteredParty};
 
 #[cfg(feature = "benchmark-internals")]
 pub use bls_multi_signature::{
-    ProofOfPossession, Signature, SigningKey, VerificationKey, VerificationKeyPoP,
+    BlsProofOfPossession, BlsSignature, BlsSigningKey, BlsVerificationKey,
+    BlsVerificationKeyProofOfPossesion,
 };
 
 /// The quantity of stake held by a party, represented as a `u64`.

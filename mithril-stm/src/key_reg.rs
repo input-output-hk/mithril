@@ -6,7 +6,7 @@ use std::{
 
 use blake2::digest::{Digest, FixedOutput};
 
-use crate::bls_multi_signature::{VerificationKey, VerificationKeyPoP};
+use crate::bls_multi_signature::{BlsVerificationKey, BlsVerificationKeyProofOfPossesion};
 use crate::error::RegisterError;
 use crate::merkle_tree::{MerkleTree, MerkleTreeLeaf};
 use crate::Stake;
@@ -19,7 +19,7 @@ pub type RegisteredParty = MerkleTreeLeaf;
 // todo: replace with KeyReg
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct KeyRegistration {
-    keys: HashMap<VerificationKey, Stake>,
+    keys: HashMap<BlsVerificationKey, Stake>,
 }
 
 impl KeyRegistration {
@@ -31,7 +31,11 @@ impl KeyRegistration {
     /// Verify and register a public key and stake for a particular party.
     /// # Error
     /// The function fails when the proof of possession is invalid or when the key is already registered.
-    pub fn register(&mut self, stake: Stake, pk: VerificationKeyPoP) -> Result<(), RegisterError> {
+    pub fn register(
+        &mut self,
+        stake: Stake,
+        pk: BlsVerificationKeyProofOfPossesion,
+    ) -> Result<(), RegisterError> {
         if let Entry::Vacant(e) = self.keys.entry(pk.vk) {
             pk.check()?;
             e.insert(stake);
@@ -88,7 +92,7 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use crate::bls_multi_signature::SigningKey;
+    use crate::bls_multi_signature::BlsSigningKey;
 
     use super::*;
 
@@ -102,13 +106,13 @@ mod tests {
             let mut kr = KeyRegistration::init();
 
             let gen_keys = (1..nkeys).map(|_| {
-                let sk = SigningKey::generate(&mut rng);
-                VerificationKeyPoP::from(&sk)
+                let sk = BlsSigningKey::generate(&mut rng);
+                BlsVerificationKeyProofOfPossesion::from(&sk)
             }).collect::<Vec<_>>();
 
             let fake_key = {
-                let sk = SigningKey::generate(&mut rng);
-                VerificationKeyPoP::from(&sk)
+                let sk = BlsSigningKey::generate(&mut rng);
+                BlsVerificationKeyProofOfPossesion::from(&sk)
             };
 
             // Record successful registrations

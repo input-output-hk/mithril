@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::bls_multi_signature::{Signature, VerificationKey};
+use crate::bls_multi_signature::{BlsSignature, BlsVerificationKey};
 use crate::key_reg::RegisteredParty;
 use crate::merkle_tree::MerkleTreeLeaf;
 use crate::{
@@ -21,7 +21,7 @@ impl CoreVerifier {
     ///     * Collect the unique signers in a hash set,
     ///     * Calculate the total stake of the eligible signers,
     ///     * Sort the eligible signers.
-    pub fn setup(public_signers: &[(VerificationKey, Stake)]) -> Self {
+    pub fn setup(public_signers: &[(BlsVerificationKey, Stake)]) -> Self {
         let mut total_stake: Stake = 0;
         let mut unique_parties = HashSet::new();
         for signer in public_signers.iter() {
@@ -168,15 +168,15 @@ impl CoreVerifier {
     /// by the aggregate verification.
     pub(crate) fn collect_sigs_vks(
         sig_reg_list: &[SingleSignatureWithRegisteredParty],
-    ) -> (Vec<Signature>, Vec<VerificationKey>) {
+    ) -> (Vec<BlsSignature>, Vec<BlsVerificationKey>) {
         let sigs = sig_reg_list
             .iter()
             .map(|sig_reg| sig_reg.sig.sigma)
-            .collect::<Vec<Signature>>();
+            .collect::<Vec<BlsSignature>>();
         let vks = sig_reg_list
             .iter()
             .map(|sig_reg| sig_reg.reg_party.0)
-            .collect::<Vec<VerificationKey>>();
+            .collect::<Vec<BlsVerificationKey>>();
 
         (sigs, vks)
     }
@@ -205,7 +205,7 @@ impl CoreVerifier {
 
         let (sigs, vks) = Self::collect_sigs_vks(&unique_sigs);
 
-        Signature::verify_aggregate(msg.to_vec().as_slice(), &vks, &sigs)?;
+        BlsSignature::verify_aggregate(msg.to_vec().as_slice(), &vks, &sigs)?;
 
         Ok(())
     }

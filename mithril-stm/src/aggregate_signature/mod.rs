@@ -21,7 +21,7 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use crate::bls_multi_signature::VerificationKey;
+    use crate::bls_multi_signature::BlsVerificationKey;
     use crate::merkle_tree::MerkleBatchPath;
     use crate::{
         AggregationError, CoreVerifier, CoreVerifierError, Initializer, KeyRegistration,
@@ -486,7 +486,7 @@ mod tests {
     fn setup_equal_core_parties(
         params: Parameters,
         nparties: usize,
-    ) -> (Vec<Initializer>, Vec<(VerificationKey, Stake)>) {
+    ) -> (Vec<Initializer>, Vec<(BlsVerificationKey, Stake)>) {
         let stake = vec![1; nparties];
         setup_core_parties(params, stake)
     }
@@ -494,7 +494,7 @@ mod tests {
     fn setup_core_parties(
         params: Parameters,
         stake: Vec<Stake>,
-    ) -> (Vec<Initializer>, Vec<(VerificationKey, Stake)>) {
+    ) -> (Vec<Initializer>, Vec<(BlsVerificationKey, Stake)>) {
         let mut trng = TestRng::deterministic_rng(ChaCha);
         let mut rng = ChaCha20Rng::from_seed(trng.gen());
 
@@ -506,7 +506,7 @@ mod tests {
         let public_signers = ps
             .iter()
             .map(|s| (s.pk.vk, s.stake))
-            .collect::<Vec<(VerificationKey, Stake)>>();
+            .collect::<Vec<(BlsVerificationKey, Stake)>>();
 
         (ps, public_signers)
     }

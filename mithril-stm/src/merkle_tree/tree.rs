@@ -227,7 +227,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bls_multi_signature::VerificationKey;
+    use crate::bls_multi_signature::BlsVerificationKey;
     use blake2::{digest::consts::U32, Blake2b};
     use proptest::collection::vec;
     use proptest::prelude::*;
@@ -240,7 +240,7 @@ mod tests {
     prop_compose! {
         fn arb_tree(max_size: u32)
                    (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<Blake2b<U32>>, Vec<MerkleTreeLeaf>) {
-            let pks = vec![VerificationKey::default(); v.len()];
+            let pks = vec![BlsVerificationKey::default(); v.len()];
             let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeLeaf(key, stake)).collect::<Vec<MerkleTreeLeaf>>();
              (MerkleTree::<Blake2b<U32>>::create(&leaves), leaves)
         }
@@ -311,7 +311,7 @@ mod tests {
                                     (h in 1..max_height)
                                     (v in vec(any::<u64>(), 2..pow2_plus1(h)),
                                      proof in vec(vec(any::<u8>(), 16), h)) -> (Vec<MerkleTreeLeaf>, Vec<Vec<u8>>) {
-            let pks = vec![VerificationKey::default(); v.len()];
+            let pks = vec![BlsVerificationKey::default(); v.len()];
             let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeLeaf(key, stake)).collect::<Vec<MerkleTreeLeaf>>();
             (leaves, proof)
         }
@@ -354,7 +354,7 @@ mod tests {
                    (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<Blake2b<U32>>, Vec<MerkleTreeLeaf>, Vec<usize>) {
             let mut rng = rng();
             let size = v.len();
-            let pks = vec![VerificationKey::default(); size];
+            let pks = vec![BlsVerificationKey::default(); size];
             let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MerkleTreeLeaf(key, stake)).collect::<Vec<MerkleTreeLeaf>>();
 
             let indices: Vec<usize> = (0..size).collect();

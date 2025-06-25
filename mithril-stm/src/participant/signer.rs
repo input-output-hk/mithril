@@ -1,12 +1,12 @@
 use blake2::digest::{Digest, FixedOutput};
 
-use crate::bls_multi_signature::{Signature, SigningKey, VerificationKey};
+use crate::bls_multi_signature::{BlsSignature, BlsSigningKey, BlsVerificationKey};
 use crate::eligibility_check::ev_lt_phi;
 use crate::key_reg::ClosedKeyRegistration;
 use crate::{Parameters, SingleSignature, Stake};
 
 /// Wrapper of the MultiSignature Verification key
-pub type StmVerificationKey = VerificationKey;
+pub type StmVerificationKey = BlsVerificationKey;
 
 /// Participant in the protocol can sign messages.
 /// * If the signer has `closed_reg`, then it can generate Stm certificate.
@@ -20,7 +20,7 @@ pub struct Signer<D: Digest> {
     signer_index: u64,
     stake: Stake,
     params: Parameters,
-    sk: SigningKey,
+    sk: BlsSigningKey,
     vk: StmVerificationKey,
     closed_reg: Option<ClosedKeyRegistration<D>>,
 }
@@ -31,7 +31,7 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
         signer_index: u64,
         stake: Stake,
         params: Parameters,
-        sk: SigningKey,
+        sk: BlsSigningKey,
         vk: StmVerificationKey,
         closed_reg: ClosedKeyRegistration<D>,
     ) -> Signer<D> {
@@ -50,7 +50,7 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
         signer_index: u64,
         stake: Stake,
         params: Parameters,
-        sk: SigningKey,
+        sk: BlsSigningKey,
         vk: StmVerificationKey,
     ) -> Signer<D> {
         Self {
@@ -115,7 +115,7 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
     }
 
     /// Collects and returns the winning indices.
-    pub fn check_lottery(&self, msg: &[u8], sigma: &Signature, total_stake: Stake) -> Vec<u64> {
+    pub fn check_lottery(&self, msg: &[u8], sigma: &BlsSignature, total_stake: Stake) -> Vec<u64> {
         let mut indexes = Vec::new();
         for index in 0..self.params.m {
             if ev_lt_phi(

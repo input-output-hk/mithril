@@ -6,7 +6,7 @@ use std::{
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
-use crate::bls_multi_signature::Signature;
+use crate::bls_multi_signature::BlsSignature;
 use crate::eligibility_check::ev_lt_phi;
 use crate::{
     Index, Parameters, Stake, StmAggrVerificationKey, StmSignatureError, StmVerificationKey,
@@ -16,7 +16,7 @@ use crate::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SingleSignature {
     /// The signature from the underlying MSP scheme.
-    pub sigma: Signature,
+    pub sigma: BlsSignature,
     /// The index(es) for which the signature is valid
     pub indexes: Vec<Index>,
     /// Merkle tree index of the signer.
@@ -109,7 +109,7 @@ impl SingleSignature {
         }
 
         let offset = 8 + nr_indexes * 8;
-        let sigma = Signature::from_bytes(
+        let sigma = BlsSignature::from_bytes(
             bytes
                 .get(offset..offset + 48)
                 .ok_or(StmSignatureError::SerializationError)?,

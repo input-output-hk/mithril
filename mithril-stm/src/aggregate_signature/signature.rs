@@ -2,7 +2,7 @@ use blake2::digest::{Digest, FixedOutput};
 
 use serde::{Deserialize, Serialize};
 
-use crate::bls_multi_signature::{Signature, VerificationKey};
+use crate::bls_multi_signature::{BlsSignature, BlsVerificationKey};
 use crate::key_reg::RegisteredParty;
 use crate::merkle_tree::MerkleBatchPath;
 use crate::{
@@ -36,7 +36,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
         msg: &[u8],
         avk: &StmAggrVerificationKey<D>,
         parameters: &Parameters,
-    ) -> Result<(Vec<Signature>, Vec<VerificationKey>), StmAggregateSignatureError<D>> {
+    ) -> Result<(Vec<BlsSignature>, Vec<BlsVerificationKey>), StmAggregateSignatureError<D>> {
         let msgp = avk.get_mt_commitment().concat_with_msg(msg);
         CoreVerifier::preliminary_verify(
             &avk.get_total_stake(),
@@ -71,7 +71,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
         let msgp = avk.get_mt_commitment().concat_with_msg(msg);
         let (sigs, vks) = self.preliminary_verify(msg, avk, parameters)?;
 
-        Signature::verify_aggregate(msgp.as_slice(), &vks, &sigs)?;
+        BlsSignature::verify_aggregate(msgp.as_slice(), &vks, &sigs)?;
         Ok(())
     }
 
@@ -103,18 +103,18 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
         let mut aggr_vks = Vec::with_capacity(batch_size);
         for (idx, sig_group) in stm_signatures.iter().enumerate() {
             sig_group.preliminary_verify(&msgs[idx], &avks[idx], &parameters[idx])?;
-            let grouped_sigs: Vec<Signature> = sig_group
+            let grouped_sigs: Vec<BlsSignature> = sig_group
                 .signatures
                 .iter()
                 .map(|sig_reg| sig_reg.sig.sigma)
                 .collect();
-            let grouped_vks: Vec<VerificationKey> = sig_group
+            let grouped_vks: Vec<BlsVerificationKey> = sig_group
                 .signatures
                 .iter()
                 .map(|sig_reg| sig_reg.reg_party.0)
                 .collect();
 
-            let (aggr_vk, aggr_sig) = Signature::aggregate(&grouped_vks, &grouped_sigs).unwrap();
+            let (aggr_vk, aggr_sig) = BlsSignature::aggregate(&grouped_vks, &grouped_sigs).unwrap();
             aggr_sigs.push(aggr_sig);
             aggr_vks.push(aggr_vk);
         }
@@ -125,7 +125,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
             .map(|(msg, avk)| avk.get_mt_commitment().concat_with_msg(msg))
             .collect();
 
-        Signature::batch_verify_aggregates(&concat_msgs, &aggr_vks, &aggr_sigs)?;
+        BlsSignature::batch_verify_aggregates(&concat_msgs, &aggr_vks, &aggr_sigs)?;
         Ok(())
     }
 

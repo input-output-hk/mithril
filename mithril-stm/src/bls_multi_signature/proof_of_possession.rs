@@ -2,7 +2,7 @@ use blst::{blst_p1, min_sig::Signature as BlstSig};
 
 use crate::bls_multi_signature::{
     helper::unsafe_helpers::{compress_p1, scalar_to_pk_in_g1, uncompress_p1},
-    SigningKey, POP,
+    BlsSigningKey, POP,
 };
 use crate::error::{blst_err_to_mithril, MultiSignatureError};
 
@@ -12,12 +12,12 @@ use crate::error::{blst_err_to_mithril, MultiSignatureError};
 /// the other hand, `k2` is a G1 point, as it does not share structure with
 /// the BLS signature, and we need to have an ad-hoc verification mechanism.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ProofOfPossession {
+pub struct BlsProofOfPossession {
     k1: BlstSig,
     k2: blst_p1,
 }
 
-impl ProofOfPossession {
+impl BlsProofOfPossession {
     /// Convert to a 96 byte string.
     ///
     /// # Layout
@@ -64,11 +64,11 @@ impl ProofOfPossession {
     }
 }
 
-impl From<&SigningKey> for ProofOfPossession {
+impl From<&BlsSigningKey> for BlsProofOfPossession {
     /// Convert a secret key into an `MspPoP`. This is performed by computing
     /// `k1 =  H_G1(b"PoP" || mvk)` and `k2 = g1 * sk` where `H_G1` hashes into
     /// `G1` and `g1` is the generator in `G1`.
-    fn from(sk: &SigningKey) -> Self {
+    fn from(sk: &BlsSigningKey) -> Self {
         let k1 = sk.to_blst_sk().sign(POP, &[], &[]);
         let k2 = scalar_to_pk_in_g1(&sk.to_blst_sk());
         Self { k1, k2 }

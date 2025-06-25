@@ -3,12 +3,12 @@ use digest::FixedOutput;
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 
-use crate::bls_multi_signature::{SigningKey, VerificationKeyPoP};
+use crate::bls_multi_signature::{BlsSigningKey, BlsVerificationKeyProofOfPossesion};
 use crate::key_reg::*;
 use crate::{Parameters, RegisterError, Signer, Stake};
 
 /// Wrapper of the MultiSignature Verification key with proof of possession
-pub type StmVerificationKeyPoP = VerificationKeyPoP;
+pub type StmVerificationKeyPoP = BlsVerificationKeyProofOfPossesion;
 
 /// Initializer for `StmSigner`.
 /// This is the data that is used during the key registration procedure.
@@ -20,7 +20,7 @@ pub struct Initializer {
     /// Current protocol instantiation parameters.
     pub params: Parameters,
     /// Secret key.
-    pub(crate) sk: SigningKey,
+    pub(crate) sk: BlsSigningKey,
     /// Verification (public) key + proof of possession.
     pub(crate) pk: StmVerificationKeyPoP,
 }
@@ -29,7 +29,7 @@ impl Initializer {
     /// Builds an `StmInitializer` that is ready to register with the key registration service.
     /// This function generates the signing and verification key with a PoP, and initialises the structure.
     pub fn setup<R: RngCore + CryptoRng>(params: Parameters, stake: Stake, rng: &mut R) -> Self {
-        let sk = SigningKey::generate(rng);
+        let sk = BlsSigningKey::generate(rng);
         let pk = StmVerificationKeyPoP::from(&sk);
         Self {
             stake,
@@ -135,7 +135,8 @@ impl Initializer {
         let stake = u64::from_be_bytes(u64_bytes);
         let params =
             Parameters::from_bytes(bytes.get(8..32).ok_or(RegisterError::SerializationError)?)?;
-        let sk = SigningKey::from_bytes(bytes.get(32..).ok_or(RegisterError::SerializationError)?)?;
+        let sk =
+            BlsSigningKey::from_bytes(bytes.get(32..).ok_or(RegisterError::SerializationError)?)?;
         let pk = StmVerificationKeyPoP::from_bytes(
             bytes.get(64..).ok_or(RegisterError::SerializationError)?,
         )?;
