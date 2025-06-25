@@ -64,11 +64,13 @@ mod tests {
         kes::tests_setup::create_kes_cryptographic_material, KesVerifier, KesVerifierStandard,
     };
 
+    type PartyIndex = u64;
+
     #[test]
     fn create_valid_signature_for_message() {
         let (_party_id, operational_certificate_file, kes_secret_key_file) =
             create_kes_cryptographic_material(
-                1,
+                1 as PartyIndex,
                 0 as KESPeriod,
                 "create_valid_signature_for_message",
             );
@@ -89,7 +91,7 @@ mod tests {
     fn create_invalid_signature_for_different_message() {
         let (_party_id, operational_certificate_file, kes_secret_key_file) =
             create_kes_cryptographic_material(
-                1,
+                1 as PartyIndex,
                 0 as KESPeriod,
                 "create_invalid_signature_for_different_message",
             );
@@ -116,7 +118,7 @@ mod tests {
         let kes_period_start = 5 as KESPeriod;
         let (_party_id, operational_certificate_file, kes_secret_key_file) =
             create_kes_cryptographic_material(
-                1,
+                1 as PartyIndex,
                 kes_period_start,
                 "create_invalid_signature_for_invalid_kes_period",
             );

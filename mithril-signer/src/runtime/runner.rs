@@ -186,19 +186,23 @@ impl Runner for SignerRunner {
             ),
             None => None,
         };
-        let kes_signer = if let Some(kes_secret_key_path) = &self.config.kes_secret_key_path {
-            let operational_certificate_path = self
-                .config
-                .operational_certificate_path
-                .as_ref()
-                .ok_or_else(|| RunnerError::FileParse("operational_certificate_path".to_string()))?
-                .to_path_buf();
-            Some(Arc::new(KesSignerStandard::new(
-                kes_secret_key_path.to_owned(),
-                operational_certificate_path,
-            )) as Arc<dyn KesSigner>)
-        } else {
-            None
+        let kes_signer = match (
+            &self.config.kes_secret_key_path,
+            &self.config.operational_certificate_path,
+        ) {
+            (Some(kes_secret_key_path), Some(operational_certificate_path)) => {
+                Some(Arc::new(KesSignerStandard::new(
+                    kes_secret_key_path.clone(),
+                    operational_certificate_path.clone(),
+                )) as Arc<dyn KesSigner>)
+            }
+            (Some(_), None) | (None, Some(_)) => {
+                return Err(RunnerError::NoValueError(
+                    "kes_secret_key and operational_certificate are both mandatory".to_string(),
+                )
+                .into())
+            }
+            _ => None,
         };
         let protocol_initializer = MithrilProtocolInitializerBuilder::build(
             stake,
