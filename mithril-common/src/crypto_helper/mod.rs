@@ -16,9 +16,9 @@ cfg_test_tools! {
 pub use cardano::ColdKeyGenerator;
 
 pub use cardano::{
-    KESPeriod, KesError, KesSigner, KesSignerStandard, KesVerifier, KesVerifierStandard, OpCert,
-    ProtocolInitializerErrorWrapper, ProtocolRegistrationErrorWrapper, SerDeShelleyFileFormat,
-    Sum6KesBytes,
+    KESPeriod, KesSigner, KesSignerStandard, KesVerifier, KesVerifierStandard, KesVerifyError,
+    OpCert, ProtocolInitializerErrorWrapper, ProtocolRegistrationErrorWrapper,
+    SerDeShelleyFileFormat, Sum6KesBytes,
 };
 pub use codec::*;
 pub use ed25519_alias::{era::*, genesis::*, manifest::*};

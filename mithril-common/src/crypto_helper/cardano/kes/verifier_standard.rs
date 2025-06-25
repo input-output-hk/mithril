@@ -2,7 +2,7 @@ use kes_summed_ed25519::{kes::Sum6KesSig, traits::KesSig};
 
 use crate::{
     crypto_helper::{
-        cardano::{KesError, KesVerifier},
+        cardano::{KesVerifyError, KesVerifier},
         KESPeriod, OpCert,
     },
     StdResult,
@@ -23,7 +23,7 @@ impl KesVerifier for KesVerifierStandard {
     ) -> StdResult<()> {
         operational_certificate
             .validate()
-            .map_err(|_| KesError::OpCertInvalid)?;
+            .map_err(|_| KesVerifyError::OpCertInvalid)?;
 
         // Check if the KES period in the operational certificate matches the provided KES period +/- 1
         let kes_period_try_min = std::cmp::max(0, kes_period.saturating_sub(1));
@@ -38,7 +38,7 @@ impl KesVerifier for KesVerifierStandard {
         }
 
         Err(
-            KesError::SignatureInvalid(kes_period, operational_certificate.start_kes_period as u32)
+            KesVerifyError::SignatureInvalid(kes_period, operational_certificate.start_kes_period as u32)
                 .into(),
         )
     }

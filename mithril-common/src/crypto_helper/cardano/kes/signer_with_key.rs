@@ -8,7 +8,7 @@ use kes_summed_ed25519::{
 
 use crate::{
     crypto_helper::{
-        cardano::{KesError, KesSigner},
+        cardano::{KesSignError, KesSigner},
         KESPeriod, OpCert, SerDeShelleyFileFormat, Sum6KesBytes,
     },
     StdResult,
@@ -40,12 +40,17 @@ impl KesSigner for KesSignerStandard {
             .with_context(|| "StandardKesSigner can not use KES secret key")?;
         let kes_sk_period = kes_sk.get_period();
         if kes_sk_period > kes_period {
-            return Err(anyhow!(KesError::PeriodMismatch(kes_sk_period, kes_period)));
+            return Err(anyhow!(KesSignError::PeriodMismatch(
+                kes_sk_period,
+                kes_period
+            )));
         }
 
         // We need to perform the evolutions
         for period in kes_sk_period..kes_period {
-            kes_sk.update().map_err(|_| KesError::UpdateKey(period))?;
+            kes_sk
+                .update()
+                .map_err(|_| KesSignError::UpdateKey(period))?;
         }
 
         let operational_certificate = OpCert::from_file(&self.operational_certificate_path)
