@@ -323,11 +323,7 @@ mod tests {
             let fake_snapshotter = FakeSnapshotter::new(&test_dir)
                 .with_compression_algorithm(CompressionAlgorithm::Gzip);
 
-            for filename in [
-                "direct_child",
-                "one_level_subdir/child",
-                "two_levels/subdir/child",
-            ] {
+            for filename in ["direct_child", "one_level_subdir/child", "two_levels/subdir/child"] {
                 {
                     let full_immutables_snapshot = fake_snapshotter
                         .snapshot_all_completed_immutables(filename)

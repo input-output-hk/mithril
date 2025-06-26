@@ -262,10 +262,8 @@ mod tests {
     #[tokio::test]
     async fn test_get_current_datums() {
         let fake_address = "addr_test_123456".to_string();
-        let fake_datums = vec![
-            TxDatum("tx_datum_1".to_string()),
-            TxDatum("tx_datum_2".to_string()),
-        ];
+        let fake_datums =
+            vec![TxDatum("tx_datum_1".to_string()), TxDatum("tx_datum_2".to_string())];
         let fake_observer = FakeChainObserver::new(None);
         fake_observer.set_datums(fake_datums.clone()).await;
         let datums = fake_observer

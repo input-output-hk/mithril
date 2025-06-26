@@ -195,10 +195,9 @@ impl ServeCommandDependenciesContainer {
         .await;
 
         let (work_epoch, epoch_to_sign) = self.get_genesis_epochs().await;
-        for (epoch, signers) in [
-            (work_epoch, genesis_signers),
-            (epoch_to_sign, second_epoch_signers),
-        ] {
+        for (epoch, signers) in
+            [(work_epoch, genesis_signers), (epoch_to_sign, second_epoch_signers)]
+        {
             self.fill_verification_key_store(epoch, &signers).await;
             self.fill_stakes_store(epoch, signers).await;
         }
