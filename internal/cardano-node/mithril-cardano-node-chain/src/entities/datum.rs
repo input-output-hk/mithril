@@ -178,7 +178,8 @@ mod test {
 
     fn dummy_tx_datum() -> TxDatum {
         let mut tx_datum_builder = TxDatumBuilder::new();
-        let tx_datum = tx_datum_builder
+
+        tx_datum_builder
             .add_field(TxDatumFieldValue::Bytes("bytes0".to_string()))
             .add_field(TxDatumFieldValue::Int(0))
             .add_field(TxDatumFieldValue::Int(1))
@@ -187,8 +188,7 @@ mod test {
             .add_field(TxDatumFieldValue::Int(2))
             .add_field(TxDatumFieldValue::Bytes("012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789".to_string()))
             .build()
-            .expect("tx_datum build should not fail");
-        tx_datum
+            .expect("tx_datum build should not fail")
     }
 
     #[test]
