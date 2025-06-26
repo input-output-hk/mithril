@@ -29,10 +29,7 @@ mod tests {
         let adapter = BootstrapAdapter;
 
         assert_eq!(
-            vec![EraMarker::new(
-                &SupportedEra::dummy().to_string(),
-                Some(Epoch(0))
-            )],
+            vec![EraMarker::new(&SupportedEra::dummy().to_string(), Some(Epoch(0)))],
             adapter
                 .read()
                 .await

@@ -403,10 +403,7 @@ mod tests {
         let remaining_files: Vec<String> = list_remaining_files(&test_dir);
 
         assert_equivalent(
-            vec![
-                "other-process.file".to_string(),
-                "archive.tar.gz".to_string(),
-            ],
+            vec!["other-process.file".to_string(), "archive.tar.gz".to_string()],
             remaining_files,
         );
     }

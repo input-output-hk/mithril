@@ -22,9 +22,7 @@ impl GetBufferedSingleSignatureQuery {
         Self {
             condition: WhereCondition::new(
                 "signed_entity_type_id = ?*",
-                vec![Value::Integer(
-                    signed_entity_type_discriminant.index() as i64
-                )],
+                vec![Value::Integer(signed_entity_type_discriminant.index() as i64)],
             ),
         }
     }

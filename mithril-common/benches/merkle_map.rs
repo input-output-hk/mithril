@@ -8,18 +8,8 @@ use mithril_common::{
 const K: u64 = 1_000;
 const M: u64 = 1_000 * K;
 const B: u64 = 1_000 * M;
-const TOTAL_TRANSACTIONS_BENCHES: &[u64] = &[
-    K,
-    10 * K,
-    100 * K,
-    M,
-    10 * M,
-    50 * M,
-    100 * M,
-    250 * M,
-    500 * M,
-    B,
-];
+const TOTAL_TRANSACTIONS_BENCHES: &[u64] =
+    &[K, 10 * K, 100 * K, M, 10 * M, 50 * M, 100 * M, 250 * M, 500 * M, B];
 const BLOCK_RANGE_LENGTH_BENCH: u64 = 15;
 const TOTAL_TRANSACTIONS_PER_BLOCK: u64 = 15;
 const MAX_TRANSACTIONS_PER_PROOF_BENCH: u64 = 100;

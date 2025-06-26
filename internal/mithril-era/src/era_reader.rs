@@ -329,10 +329,7 @@ mod tests {
 
     #[tokio::test]
     async fn epoch_0_should_work() {
-        let markers = vec![EraMarker::new(
-            &SupportedEra::dummy().to_string(),
-            Some(Epoch(0)),
-        )];
+        let markers = vec![EraMarker::new(&SupportedEra::dummy().to_string(), Some(Epoch(0)))];
         let adapter = DummyAdapter::default();
         adapter.set_markers(markers);
         let reader = EraReader::new(Arc::new(adapter));

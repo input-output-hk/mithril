@@ -182,9 +182,7 @@ mod tests {
             &connection,
             SignedBeaconRecord::fakes(&[(
                 Epoch(1941),
-                vec![SignedEntityType::MithrilStakeDistribution(
-                    time_point.epoch - 2,
-                )],
+                vec![SignedEntityType::MithrilStakeDistribution(time_point.epoch - 2)],
             )]),
         );
         let to_filter = all_signed_entity_type_for(&time_point);

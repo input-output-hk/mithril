@@ -20,9 +20,7 @@ impl DeleteBufferedSingleSignatureQuery {
         Self {
             condition: WhereCondition::new(
                 "signed_entity_type_id = ?*",
-                vec![Value::Integer(
-                    signed_entity_type_discriminant.index() as i64
-                )],
+                vec![Value::Integer(signed_entity_type_discriminant.index() as i64)],
             )
             .and_where(WhereCondition::where_in("party_id", ids_values)),
         }

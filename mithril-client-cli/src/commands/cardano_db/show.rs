@@ -74,10 +74,7 @@ impl CardanoDbShowCommand {
             println!("{}", serde_json::to_string(&cardano_db_message)?);
         } else {
             let cardano_db_table = vec![
-                vec![
-                    "Epoch".cell(),
-                    format!("{}", &cardano_db_message.beacon.epoch).cell(),
-                ],
+                vec!["Epoch".cell(), format!("{}", &cardano_db_message.beacon.epoch).cell()],
                 vec![
                     "Immutable File Number".cell(),
                     format!("{}", &cardano_db_message.beacon.immutable_file_number).cell(),
@@ -92,14 +89,8 @@ impl CardanoDbShowCommand {
                     "Cardano node version".cell(),
                     cardano_db_message.cardano_node_version.cell(),
                 ],
-                vec![
-                    "Location".cell(),
-                    cardano_db_message.locations.join(",").cell(),
-                ],
-                vec![
-                    "Created".cell(),
-                    cardano_db_message.created_at.to_string().cell(),
-                ],
+                vec!["Location".cell(), cardano_db_message.locations.join(",").cell()],
+                vec!["Created".cell(), cardano_db_message.created_at.to_string().cell()],
                 vec![
                     "Compression Algorithm".cell(),
                     format!("{}", &cardano_db_message.compression_algorithm).cell(),
@@ -138,10 +129,7 @@ impl CardanoDbShowCommand {
             println!("{}", serde_json::to_string(&cardano_db_message)?);
         } else {
             let mut cardano_db_table = vec![
-                vec![
-                    "Epoch".cell(),
-                    format!("{}", &cardano_db_message.beacon.epoch).cell(),
-                ],
+                vec!["Epoch".cell(), format!("{}", &cardano_db_message.beacon.epoch).cell()],
                 vec![
                     "Immutable File Number".cell(),
                     format!("{}", &cardano_db_message.beacon.immutable_file_number).cell(),
@@ -244,10 +232,7 @@ fn format_location_rows(
     locations
         .enumerate()
         .map(|(index, cell_content)| {
-            vec![
-                format!("{location_name} ({})", index + 1).cell(),
-                cell_content.cell(),
-            ]
+            vec![format!("{location_name} ({})", index + 1).cell(), cell_content.cell()]
         })
         .collect()
 }

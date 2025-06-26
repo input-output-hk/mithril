@@ -216,10 +216,7 @@ mod tests {
                 SignedBeaconRecord::fakes(&[
                     (
                         Epoch(331),
-                        vec![SignedEntityType::CardanoTransactions(
-                            Epoch(5),
-                            BlockNumber(133)
-                        ),],
+                        vec![SignedEntityType::CardanoTransactions(Epoch(5), BlockNumber(133)),],
                     ),
                     (
                         Epoch(330),
