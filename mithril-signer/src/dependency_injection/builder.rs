@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
+use mithril_dmq_node::{DmqMessageBuilder, DmqPublisherPallas};
 use slog::Logger;
 use tokio::sync::{Mutex, RwLock};
 
@@ -19,14 +20,16 @@ use mithril_cardano_node_internal_database::{
     signable_builder::{CardanoDatabaseSignableBuilder, CardanoImmutableFilesFullSignableBuilder},
     ImmutableFileObserver, ImmutableFileSystemObserver,
 };
-use mithril_common::api_version::APIVersionProvider;
-use mithril_common::crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat};
+use mithril_common::crypto_helper::{
+    KesSigner, KesSignerStandard, OpCert, ProtocolPartyId, SerDeShelleyFileFormat,
+};
 use mithril_common::signable_builder::{
     CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,
     MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
     SignableBuilderServiceDependencies,
 };
 use mithril_common::StdResult;
+use mithril_common::{api_version::APIVersionProvider, messages::RegisterSignatureMessageDmq};
 
 use mithril_era::{EraChecker, EraReader};
 use mithril_signed_entity_lock::SignedEntityTypeLock;
@@ -37,10 +40,6 @@ use mithril_persistence::database::repository::CardanoTransactionRepository;
 use mithril_persistence::database::{ApplicationNodeType, SqlMigration};
 use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnection, SqliteConnectionPool};
 
-use crate::database::repository::{
-    ProtocolInitializerRepository, SignedBeaconRepository, StakePoolStore,
-};
-use crate::dependency_injection::SignerDependencyContainer;
 use crate::services::{
     AggregatorHTTPClient, CardanoTransactionsImporter,
     CardanoTransactionsPreloaderActivationSigner, MithrilEpochService, MithrilSingleSigner,
@@ -50,6 +49,11 @@ use crate::services::{
     TransactionsImporterWithPruner, TransactionsImporterWithVacuum,
 };
 use crate::store::MKTreeStoreSqlite;
+use crate::{
+    database::repository::{ProtocolInitializerRepository, SignedBeaconRepository, StakePoolStore},
+    services::SignaturePublisher,
+};
+use crate::{dependency_injection::SignerDependencyContainer, services::SignaturePublisherDmq};
 use crate::{
     Configuration, MetricsService, HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE,
     SQLITE_FILE_CARDANO_TRANSACTION,
@@ -390,10 +394,46 @@ impl<'a> DependenciesBuilder<'a> {
             self.root_logger(),
         ));
 
+        let kes_signer = match (
+            &self.config.kes_secret_key_path,
+            &self.config.operational_certificate_path,
+        ) {
+            (Some(kes_secret_key_path), Some(operational_certificate_path)) => {
+                Some(Arc::new(KesSignerStandard::new(
+                    kes_secret_key_path.clone(),
+                    operational_certificate_path.clone(),
+                )) as Arc<dyn KesSigner>)
+            }
+            (Some(_), None) | (None, Some(_)) => {
+                return Err(anyhow!(
+                    "kes_secret_key and operational_certificate are both mandatory".to_string(),
+                ))
+            }
+            _ => None,
+        };
+
+        let cardano_network = &self.config.get_network()?;
+
         let signature_publisher = {
-            // Temporary no-op publisher before a DMQ-based implementation is available.
             let first_publisher = SignaturePublisherRetrier::new(
-                Arc::new(SignaturePublisherNoop {}),
+                if let Some(dmq_node_socket_path) = &self.config.dmq_node_socket_path {
+                    let dmq_message_builder = DmqMessageBuilder::new_with_default_ttl(
+                        kes_signer
+                            .clone()
+                            .ok_or(anyhow!("A KES signer is mandatory to sign DMQ messages"))?,
+                        chain_observer.clone(),
+                    );
+                    Arc::new(SignaturePublisherDmq::new(Arc::new(DmqPublisherPallas::<
+                        RegisterSignatureMessageDmq,
+                    >::new(
+                        dmq_node_socket_path.to_owned(),
+                        *cardano_network,
+                        dmq_message_builder,
+                        self.root_logger(),
+                    )))) as Arc<dyn SignaturePublisher>
+                } else {
+                    Arc::new(SignaturePublisherNoop) as Arc<dyn SignaturePublisher>
+                },
                 SignaturePublishRetryPolicy::never(),
             );
 
@@ -442,6 +482,7 @@ impl<'a> DependenciesBuilder<'a> {
             upkeep_service,
             epoch_service,
             certifier,
+            kes_signer,
         };
 
         Ok(services)

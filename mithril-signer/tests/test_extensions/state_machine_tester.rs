@@ -27,6 +27,7 @@ use mithril_cardano_node_internal_database::{
 };
 use mithril_common::{
     api_version::APIVersionProvider,
+    crypto_helper::{KesSigner, KesSignerStandard},
     entities::{
         BlockNumber, CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,
         SignedEntityType, SignedEntityTypeDiscriminants, SignerWithStake, SlotNumber, SupportedEra,
@@ -287,6 +288,10 @@ impl StateMachineTester {
             certificate_handler.clone(),
             logger.clone(),
         ));
+        let kes_signer = Some(Arc::new(KesSignerStandard::new(
+            config.kes_secret_key_path.clone().unwrap(),
+            config.operational_certificate_path.clone().unwrap(),
+        )) as Arc<dyn KesSigner>);
 
         let services = SignerDependencyContainer {
             certificate_handler: certificate_handler.clone(),
@@ -306,6 +311,7 @@ impl StateMachineTester {
             upkeep_service,
             epoch_service,
             certifier,
+            kes_signer,
         };
         // set up stake distribution
         chain_observer
