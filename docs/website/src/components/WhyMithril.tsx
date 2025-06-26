@@ -2,10 +2,13 @@ import React, { useEffect, useRef } from "react";
 import Link from "@docusaurus/Link";
 import { WhyMithrilContents } from "../../homepage-content/why-mithril";
 import { cx } from "cva";
+import useMediaQuery from "../hooks/useMediaQuery";
+import { forLargeScreen } from "../../helpers/media-queries";
 
 const WhyMithril = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const isLargeScreen = useMediaQuery(forLargeScreen);
 
   useEffect(() => {
     let animationFrameId: number;
@@ -26,8 +29,8 @@ const WhyMithril = () => {
       itemRefs.current.forEach((el, index) => {
         if (!el) return;
 
-        const start = 0.07 + index * 0.07;
-        const end = start + 0.5;
+        const start = 0.07 + index * 0.08;
+        const end = start + 0.75;
 
         let localProgress = (scrollProgress - start) / (end - start);
         localProgress = Math.min(Math.max(localProgress, 0), 1);
@@ -70,7 +73,7 @@ const WhyMithril = () => {
                 key={index}
                 ref={(el) => (itemRefs.current[index] = el)}
                 className={cx(
-                  "grid-item",
+                  "timeline-grid-item",
                   item === "Basho" && "text-blue-highlight",
                 )}
                 style={{

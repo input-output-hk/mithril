@@ -303,7 +303,7 @@ a.menu__link {
   transform-style: preserve-3d;
 }
 
-.grid-item {
+.timeline-grid-item {
   will-change: transform, opacity, filter;
   transition:
     opacity 0.1s ease,
