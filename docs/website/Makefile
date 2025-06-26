@@ -11,6 +11,15 @@ build: package-lock.json
 serve: build
 	npm run serve
 
+serve-static: build
+	if [ -d "serve_static/" ]; then rm -rf serve_static/; fi
+	mkdir serve_static
+	mv build/ serve_static/doc
+
+	@echo "=========================================================================="
+	@echo "\033[1mServing static production build at: \033[34m http://localhost:3002/doc \033[0m"
+	python3 -m http.server --bind 127.0.0.1 3002 --directory serve_static
+
 dev:
 	npm run start
 
