@@ -16,6 +16,8 @@ use crate::{
 };
 use mithril_client::{common::ImmutableFileNumber, MithrilResult};
 
+const DB_DIRECTORY_NAME: &str = "db";
+
 /// Clap command to download a Cardano db and verify its associated certificate.
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbDownloadCommand {

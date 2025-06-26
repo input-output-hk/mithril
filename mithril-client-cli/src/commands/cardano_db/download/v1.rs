@@ -8,7 +8,10 @@ use mithril_client::{
 };
 
 use crate::{
-    commands::{cardano_db::shared_steps, client_builder, SharedArgs},
+    commands::{
+        cardano_db::{download::DB_DIRECTORY_NAME, shared_steps},
+        client_builder, SharedArgs,
+    },
     configuration::ConfigParameters,
     utils::{
         CardanoDbDownloadChecker, CardanoDbUtils, ExpanderUtils, IndicatifFeedbackReceiver,
@@ -32,7 +35,7 @@ impl PreparedCardanoDbV1Download {
 
     /// Command execution
     pub async fn execute(&self, logger: &Logger, params: ConfigParameters) -> MithrilResult<()> {
-        let db_dir = Path::new(&self.download_dir).join("db");
+        let db_dir = Path::new(&self.download_dir).join(DB_DIRECTORY_NAME);
 
         let progress_output_type = if self.is_json_output_enabled() {
             ProgressOutputType::JsonReporter

@@ -38,6 +38,8 @@ impl CardanoDbCommand {
                 vec![
                     "download".to_string(),
                     "--include-ancillary".to_string(),
+                    "--download-dir".to_string(),
+                    "v1".to_string(),
                     digest.clone(),
                 ]
             }
@@ -73,6 +75,8 @@ impl CardanoDbV2Command {
                 vec![
                     "download".to_string(),
                     "--include-ancillary".to_string(),
+                    "--download-dir".to_string(),
+                    "v2".to_string(),
                     hash.clone(),
                 ]
             }
