@@ -85,7 +85,28 @@ impl MithrilCertificateChainSynchronizer {
         &self,
         starting_point: Certificate,
     ) -> StdResult<Vec<Certificate>> {
-        Ok(Vec::new())
+        let mut validated_certificates = Vec::new();
+        let mut certificate = starting_point;
+
+        loop {
+            let parent_certificate = self
+                .certificate_verifier
+                .verify_certificate(&certificate, &self.genesis_verifier.to_verification_key())
+                .await
+                .with_context(
+                    || format!("Failed to verify certificate: `{}`", certificate.hash,),
+                )?;
+            validated_certificates.push(certificate);
+
+            match parent_certificate {
+                None => break,
+                Some(parent) => {
+                    certificate = parent;
+                }
+            }
+        }
+
+        Ok(validated_certificates)
     }
 
     async fn store_certificate_chain(&self, certificate_chain: Vec<Certificate>) -> StdResult<()> {
@@ -339,15 +360,54 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn succeed_if_the_remote_chain_only_contains_a_genesis_certificate() {}
+        async fn succeed_if_the_remote_chain_only_contains_a_genesis_certificate() {
+            let chain = CertificateChainBuilder::new().with_total_certificates(1).build();
+            let synchroniser = MithrilCertificateChainSynchronizer {
+                certificate_verifier: fake_verifier(&chain),
+                genesis_verifier: Arc::new(chain.genesis_verifier.clone()),
+                ..MithrilCertificateChainSynchronizer::default_for_test()
+            };
+
+            let starting_point = chain[0].clone();
+            let remote_certificate_chain = synchroniser
+                .retrieve_and_validate_remote_certificate_chain(starting_point)
+                .await
+                .unwrap();
+
+            assert_eq!(remote_certificate_chain, chain.certificates_chained);
+        }
 
         #[tokio::test]
-        async fn abort_with_error_if_a_certificate_is_invalid() {}
+        async fn abort_with_error_if_a_certificate_is_invalid() {
+            let synchroniser = mocked_synchroniser!(with_verify_certificate_result: Err(anyhow!("invalid certificate")));
+
+            let starting_point = fake_data::certificate("certificate");
+            synchroniser
+                .retrieve_and_validate_remote_certificate_chain(starting_point)
+                .await
+                .expect_err("Expected an error but was:");
+        }
 
         #[tokio::test]
-        async fn abort_with_error_if_remote_retrieval_fails() {}
+        async fn succeed_with_a_valid_certificate_chain() {
+            let chain = CertificateChainBuilder::new()
+                .with_total_certificates(10)
+                .with_certificates_per_epoch(3)
+                .build();
+            let synchroniser = MithrilCertificateChainSynchronizer {
+                certificate_verifier: fake_verifier(&chain),
+                genesis_verifier: Arc::new(chain.genesis_verifier.clone()),
+                ..MithrilCertificateChainSynchronizer::default_for_test()
+            };
 
-        #[tokio::test]
-        async fn succeed_with_a_valid_certificate_chain() {}
+            let starting_point = chain[0].clone();
+            let remote_certificate_chain = synchroniser
+                .retrieve_and_validate_remote_certificate_chain(starting_point.clone())
+                .await
+                .unwrap();
+
+            let expected = chain.certificate_path_to_genesis(&starting_point.hash);
+            assert_eq!(remote_certificate_chain, expected);
+        }
     }
 }
