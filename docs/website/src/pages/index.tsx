@@ -4,7 +4,7 @@ import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import { PageContext, PageType } from "../context/PageContext";
 import HomepageHero from "../components/HomepageHero";
 import Features from "../components/Features";
-import WhyMithril from "../components/why-mithril/WhyMithril";
+import WhyMithril from "../components/WhyMithril";
 import AnimatedText from "../components/AnimatedText";
 import UseCases from "../components/UseCases";
 

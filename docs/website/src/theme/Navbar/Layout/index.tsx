@@ -8,8 +8,6 @@ import {
 import { translate } from "@docusaurus/Translate";
 import NavbarMobileSidebar from "@theme/Navbar/MobileSidebar";
 import styles from "./styles.module.css";
-
-import { useScroll, motion, useTransform, MotionValue } from "framer-motion";
 import { useIsLandingPage } from "../../../hooks/useIsLandingPage";
 
 function NavbarBackdrop(props) {
@@ -21,6 +19,7 @@ function NavbarBackdrop(props) {
     />
   );
 }
+
 export default function NavbarLayout({ children }) {
   const isLandingPage = useIsLandingPage();
   const {
@@ -29,26 +28,19 @@ export default function NavbarLayout({ children }) {
   const mobileSidebar = useNavbarMobileSidebar();
   const { navbarRef, isNavbarVisible } = useHideableNavbar(hideOnScroll);
 
-  const { scrollY } = useScroll();
-  const y = useTransform(
-    scrollY,
-    [0, 70],
-    ["rgba(255, 255, 255, 0)", "rgba(255, 255, 255, 0.96)"],
-  );
+  const [scrolled, setScrolled] = useState(false);
 
-  const [isMounted, setIsMounted] = useState(false);
   useEffect(() => {
-    setIsMounted(true);
+    const onScroll = () => {
+      setScrolled(window.scrollY > 70);
+    };
+
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
   return (
-    <motion.header
-      //@ts-ignore
-      style={
-        isLandingPage &&
-        isMounted && {
-          backgroundColor: y,
-        }
-      }
+    <header
       ref={navbarRef}
       aria-label={translate({
         id: "theme.NavBar.navAriaLabel",
@@ -61,12 +53,11 @@ export default function NavbarLayout({ children }) {
           ? "border-none pt-3"
           : "border-b border-[#EAEAEB] pt-3 pb-4 tablet:px-2",
         "navbar--fixed-top",
-        hideOnScroll && [
-          // styles.navbarHideable,
-          !isNavbarVisible && styles.navbarHidden,
-        ],
+        hideOnScroll && !isNavbarVisible && styles.navbarHidden,
         {
           "navbar-sidebar--show": mobileSidebar.shown,
+          "landing-navbar--scrolled": isLandingPage && scrolled,
+          "landing-navbar--top": isLandingPage && !scrolled,
         },
       )}
     >
@@ -79,6 +70,6 @@ export default function NavbarLayout({ children }) {
       </div>
       <NavbarBackdrop onClick={mobileSidebar.toggle} />
       <NavbarMobileSidebar />
-    </motion.header>
+    </header>
   );
 }

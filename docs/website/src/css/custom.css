@@ -302,3 +302,26 @@ a.menu__link {
   perspective: 500px;
   transform-style: preserve-3d;
 }
+
+.landing-navbar--top {
+  background-color: rgba(255, 255, 255, 0);
+  transition: background-color 0.3s ease;
+}
+
+.landing-navbar--scrolled {
+  background-color: rgba(255, 255, 255, 0.96);
+  transition: background-color 0.3s ease;
+}
+
+.stuck-grid {
+  perspective: 500px;
+  transform-style: preserve-3d;
+}
+
+.grid-item {
+  will-change: transform, opacity, filter;
+  transition:
+    opacity 0.1s ease,
+    transform 0.1s ease,
+    filter 0.1s ease;
+}
