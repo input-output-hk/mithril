@@ -27,9 +27,8 @@ pub struct GenesisCommandConfiguration {
     #[example = "`cardano-cli`"]
     pub cardano_cli_path: Option<PathBuf>,
 
-    /// Path of the socket used by the Cardano CLI tool
-    /// to communicate with the Cardano node
-    #[example = "`/tmp/cardano.sock`"]
+    /// Path of the socket opened by the Cardano node
+    #[example = "`/ipc/node.socket`"]
     pub cardano_node_socket_path: PathBuf,
 
     /// Cardano Network Magic number
