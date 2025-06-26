@@ -70,19 +70,12 @@ async fn prove_transactions() {
         .into_iter()
         .filter(|e| e != &SignedEntityTypeDiscriminants::CardanoTransactions)
     {
-        tester
-            .dependencies
-            .signed_entity_type_lock
-            .lock(entity)
-            .await;
+        tester.dependencies.signed_entity_type_lock.lock(entity).await;
     }
 
     comment!("register signers");
     cycle!(tester, "ready");
-    tester
-        .register_signers(&fixture.signers_fixture())
-        .await
-        .unwrap();
+    tester.register_signers(&fixture.signers_fixture()).await.unwrap();
 
     comment!(
         "Increase cardano chain block number to 185, 
@@ -118,10 +111,7 @@ async fn prove_transactions() {
 
     comment!("Get the proof for the last transaction, BlockNumber(179), and verify it");
     let last_transaction_hash = tx_hash(179, 1);
-    let last_tx_snapshot = observer
-        .get_last_cardano_transactions_snapshot()
-        .await
-        .unwrap();
+    let last_tx_snapshot = observer.get_last_cardano_transactions_snapshot().await.unwrap();
     let proof_for_last_transaction = prover
         .compute_transactions_proofs(
             last_tx_snapshot.artifact.block_number,

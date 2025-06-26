@@ -25,9 +25,7 @@ where
 {
     /// Get the current [Epoch] of the cardano node.
     async fn get_current_epoch(&self) -> StdResult<Epoch> {
-        self.get_current_time_point()
-            .await
-            .map(|time_point| time_point.epoch)
+        self.get_current_time_point().await.map(|time_point| time_point.epoch)
     }
 
     /// Get the current [TimePoint] of the cardano node.

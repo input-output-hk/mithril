@@ -168,8 +168,7 @@ impl ServeCommandDependenciesContainer {
                 .expect("save_epoch_settings should not fail");
             self.fill_verification_key_store(*epoch, &fixture.signers_with_stake())
                 .await;
-            self.fill_stakes_store(*epoch, fixture.signers_with_stake())
-                .await;
+            self.fill_stakes_store(*epoch, fixture.signers_with_stake()).await;
         }
     }
 
@@ -238,10 +237,7 @@ impl ServeCommandDependenciesContainer {
             .stake_store
             .save_stakes(
                 target_epoch,
-                signers
-                    .iter()
-                    .map(|s| s.into())
-                    .collect::<StakeDistribution>(),
+                signers.iter().map(|s| s.into()).collect::<StakeDistribution>(),
             )
             .await
             .expect("save_stakes should not fail");

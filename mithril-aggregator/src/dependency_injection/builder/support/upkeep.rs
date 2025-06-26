@@ -23,8 +23,7 @@ impl DependenciesBuilder {
 
         let upkeep_service = Arc::new(AggregatorUpkeepService::new(
             self.get_sqlite_connection().await?,
-            self.get_sqlite_connection_cardano_transaction_pool()
-                .await?,
+            self.get_sqlite_connection_cardano_transaction_pool().await?,
             self.get_event_store_sqlite_connection().await?,
             self.get_signed_entity_type_lock().await?,
             vec![

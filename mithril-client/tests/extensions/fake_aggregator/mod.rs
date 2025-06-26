@@ -77,12 +77,7 @@ impl FakeAggregator {
     }
 
     pub async fn get_latest_calls(&self, count: usize) -> Vec<String> {
-        self.get_calls()
-            .await
-            .into_iter()
-            .rev()
-            .take(count)
-            .collect()
+        self.get_calls().await.into_iter().rev().take(count).collect()
     }
 }
 

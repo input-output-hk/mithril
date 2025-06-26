@@ -298,11 +298,7 @@ impl AggregatorHTTPClient {
     async fn get(&self, url: Url) -> Result<Response, AggregatorClientError> {
         debug!(self.logger, "GET url='{url}'.");
         let request_builder = self.http_client.get(url.clone());
-        let current_api_version = self
-            .compute_current_api_version()
-            .await
-            .unwrap()
-            .to_string();
+        let current_api_version = self.compute_current_api_version().await.unwrap().to_string();
         debug!(
             self.logger,
             "Prepare request with version: {current_api_version}"
@@ -336,11 +332,7 @@ impl AggregatorHTTPClient {
     async fn post(&self, url: Url, json: &str) -> Result<Response, AggregatorClientError> {
         debug!(self.logger, "POST url='{url}'"; "json" => json);
         let request_builder = self.http_client.post(url.to_owned()).body(json.to_owned());
-        let current_api_version = self
-            .compute_current_api_version()
-            .await
-            .unwrap()
-            .to_string();
+        let current_api_version = self.compute_current_api_version().await.unwrap().to_string();
         debug!(
             self.logger,
             "Prepare request with version: {current_api_version}"
@@ -387,13 +379,10 @@ impl AggregatorHTTPClient {
 
     async fn remote_logical_error(response: Response) -> AggregatorClientError {
         let status_code = response.status();
-        let client_error = response
-            .json::<ClientError>()
-            .await
-            .unwrap_or(ClientError::new(
-                format!("Unhandled error {status_code}"),
-                "",
-            ));
+        let client_error = response.json::<ClientError>().await.unwrap_or(ClientError::new(
+            format!("Unhandled error {status_code}"),
+            "",
+        ));
 
         AggregatorClientError::RemoteServerLogical(anyhow!("{client_error}"))
     }
@@ -1041,10 +1030,7 @@ mod tests {
                     > Version::parse(client_version).unwrap()
             );
 
-            client
-                .get(Url::parse(&server.base_url()).unwrap())
-                .await
-                .unwrap();
+            client.get(Url::parse(&server.base_url()).unwrap()).await.unwrap();
 
             assert_api_version_warning_logged(&log_inspector, aggregator_version, client_version);
         }

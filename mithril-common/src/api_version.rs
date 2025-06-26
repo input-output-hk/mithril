@@ -36,14 +36,11 @@ impl APIVersionProvider {
         let discriminant = self.alternate_file_discriminator.get_discriminant();
         let open_api_spec_file_name_default = "openapi.yaml";
         let open_api_spec_file_name_era = &format!("openapi-{discriminant}.yaml");
-        let open_api_version = self
-            .open_api_versions
-            .get(open_api_spec_file_name_era)
-            .unwrap_or(
-                self.open_api_versions
-                    .get(open_api_spec_file_name_default)
-                    .ok_or_else(|| anyhow!("Missing default API version"))?,
-            );
+        let open_api_version = self.open_api_versions.get(open_api_spec_file_name_era).unwrap_or(
+            self.open_api_versions
+                .get(open_api_spec_file_name_default)
+                .ok_or_else(|| anyhow!("Missing default API version"))?,
+        );
 
         Ok(open_api_version.clone())
     }
@@ -121,10 +118,7 @@ mod test {
 
         assert_eq!(
             "1.2.3".to_string(),
-            api_version_provider
-                .compute_current_version()
-                .unwrap()
-                .to_string()
+            api_version_provider.compute_current_version().unwrap().to_string()
         )
     }
 
@@ -140,10 +134,7 @@ mod test {
 
         assert_eq!(
             "2.1.0".to_string(),
-            api_version_provider
-                .compute_current_version()
-                .unwrap()
-                .to_string()
+            api_version_provider.compute_current_version().unwrap().to_string()
         )
     }
 

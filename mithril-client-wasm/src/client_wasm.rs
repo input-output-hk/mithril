@@ -353,9 +353,8 @@ impl MithrilClient {
     ) -> WasmResult {
         let certificate: MithrilCertificate =
             serde_wasm_bindgen::from_value(certificate).map_err(|err| format!("{err:?}"))?;
-        let verified_proof = cardano_transaction_proof
-            .verify()
-            .map_err(|err| format!("{err:?}"))?;
+        let verified_proof =
+            cardano_transaction_proof.verify().map_err(|err| format!("{err:?}"))?;
         let result = MessageBuilder::new()
             .compute_cardano_transactions_proofs_message(&certificate, &verified_proof);
 
@@ -724,10 +723,8 @@ mod tests {
             .unwrap();
         let msd = serde_wasm_bindgen::from_value::<MithrilStakeDistribution>(msd_js_value.clone())
             .unwrap();
-        let certificate_js_value = client
-            .get_mithril_certificate(&msd.certificate_hash)
-            .await
-            .unwrap();
+        let certificate_js_value =
+            client.get_mithril_certificate(&msd.certificate_hash).await.unwrap();
 
         let message_js_value = client
             .compute_mithril_stake_distribution_message(msd_js_value, certificate_js_value)
@@ -763,10 +760,8 @@ mod tests {
             .unwrap();
         let msd = serde_wasm_bindgen::from_value::<MithrilStakeDistribution>(msd_js_value.clone())
             .unwrap();
-        let last_certificate_js_value = client
-            .verify_certificate_chain(&msd.certificate_hash)
-            .await
-            .unwrap();
+        let last_certificate_js_value =
+            client.verify_certificate_chain(&msd.certificate_hash).await.unwrap();
         let message_js_value = client
             .compute_mithril_stake_distribution_message(
                 msd_js_value,
@@ -795,9 +790,7 @@ mod tests {
         assert_eq!(
             cardano_tx_sets.len(),
             // Aggregator return up to 20 items for a list route
-            test_data::cardano_transaction_snapshot_hashes()
-                .len()
-                .min(20)
+            test_data::cardano_transaction_snapshot_hashes().len().min(20)
         );
     }
 
@@ -887,9 +880,7 @@ mod tests {
     #[wasm_bindgen_test]
     async fn get_cardano_stake_distribution_by_epoch_should_return_value_convertible_in_rust_type()
     {
-        let epoch: u64 = test_data::cardano_stake_distribution_epochs()[0]
-            .parse()
-            .unwrap();
+        let epoch: u64 = test_data::cardano_stake_distribution_epochs()[0].parse().unwrap();
         let csd_js_value = get_mithril_client_stable()
             .get_cardano_stake_distribution_by_epoch(epoch)
             .await
@@ -919,10 +910,8 @@ mod tests {
             .unwrap();
         let csd = serde_wasm_bindgen::from_value::<CardanoStakeDistribution>(csd_js_value.clone())
             .unwrap();
-        let certificate_js_value = client
-            .get_mithril_certificate(&csd.certificate_hash)
-            .await
-            .unwrap();
+        let certificate_js_value =
+            client.get_mithril_certificate(&csd.certificate_hash).await.unwrap();
 
         let message_js_value = client
             .compute_cardano_stake_distribution_message(certificate_js_value, csd_js_value)

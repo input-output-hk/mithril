@@ -27,9 +27,7 @@ fn test_core_verifier() {
         phi_f: 0.2,
     };
 
-    let parties = (0..nparties)
-        .map(|_| 1 + (rng.next_u64() % 9999))
-        .collect::<Vec<_>>();
+    let parties = (0..nparties).map(|_| 1 + (rng.next_u64() % 9999)).collect::<Vec<_>>();
 
     for stake in parties {
         let initializer = StmInitializer::setup(params, stake, &mut rng);

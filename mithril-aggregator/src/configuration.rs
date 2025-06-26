@@ -1123,9 +1123,7 @@ mod test {
         };
 
         assert_eq!(
-            config
-                .compute_allowed_signed_entity_types_discriminants()
-                .unwrap(),
+            config.compute_allowed_signed_entity_types_discriminants().unwrap(),
             BTreeSet::from(SignedEntityConfig::DEFAULT_ALLOWED_DISCRIMINANTS)
         );
     }
@@ -1186,11 +1184,7 @@ mod test {
             ..ServeCommandConfiguration::new_sample(temp_dir!())
         };
 
-        let joined_url = config
-            .get_local_server_url()
-            .unwrap()
-            .join("some/path")
-            .unwrap();
+        let joined_url = config.get_local_server_url().unwrap().join("some/path").unwrap();
         assert!(
             joined_url.as_str().contains(SERVER_BASE_PATH),
             "Joined URL `{joined_url}`, does not contain base path `{SERVER_BASE_PATH}`"

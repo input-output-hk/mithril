@@ -28,8 +28,7 @@ impl BufferedSingleSignatureRepository {
 
     #[cfg(test)]
     fn get_all(&self) -> StdResult<Vec<BufferedSingleSignatureRecord>> {
-        self.connection
-            .fetch_collect(GetBufferedSingleSignatureQuery::all())
+        self.connection.fetch_collect(GetBufferedSingleSignatureQuery::all())
     }
 
     fn get_by_discriminant<T>(
@@ -206,10 +205,8 @@ mod tests {
                 .await
                 .unwrap();
 
-            let buffered_signatures = store
-                .get_buffered_signatures(CardanoTransactions)
-                .await
-                .unwrap();
+            let buffered_signatures =
+                store.get_buffered_signatures(CardanoTransactions).await.unwrap();
             assert_eq!(
                 vec![
                     SingleSignature::new(
@@ -240,10 +237,8 @@ mod tests {
                 .await
                 .unwrap();
 
-            let buffered_signatures = store
-                .get_buffered_signatures(MithrilStakeDistribution)
-                .await
-                .unwrap();
+            let buffered_signatures =
+                store.get_buffered_signatures(MithrilStakeDistribution).await.unwrap();
             assert_eq!(
                 vec![SingleSignature::new(
                     "party3",

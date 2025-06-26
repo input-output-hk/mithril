@@ -145,10 +145,8 @@ impl MithrilSignableBuilderService {
             next_aggregate_verification_key,
         );
 
-        let next_protocol_parameters = self
-            .seed_signable_builder
-            .compute_next_protocol_parameters()
-            .await?;
+        let next_protocol_parameters =
+            self.seed_signable_builder.compute_next_protocol_parameters().await?;
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextProtocolParameters,
             next_protocol_parameters,
@@ -169,9 +167,7 @@ impl SignableBuilderService for MithrilSignableBuilderService {
         let protocol_message = self
             .compute_signed_entity_protocol_message(signed_entity_type)
             .await?;
-        let protocol_message = self
-            .compute_seeded_protocol_message(protocol_message)
-            .await?;
+        let protocol_message = self.compute_seeded_protocol_message(protocol_message).await?;
 
         Ok(protocol_message)
     }

@@ -166,9 +166,7 @@ impl StateMachine {
                         self.logger,
                         "→ Epoch has changed, transiting to Unregistered"
                     );
-                    *state = self
-                        .transition_from_unregistered_to_unregistered(new_epoch)
-                        .await?;
+                    *state = self.transition_from_unregistered_to_unregistered(new_epoch).await?;
                 } else if let Some(epoch_settings) = self
                     .runner
                     .get_epoch_settings()
@@ -218,19 +216,16 @@ impl StateMachine {
                         self.logger,
                         "→ Epoch has changed, transiting to Unregistered"
                     );
-                    *state = self
-                        .transition_from_ready_to_sign_to_unregistered(new_epoch)
-                        .await?;
+                    *state = self.transition_from_ready_to_sign_to_unregistered(new_epoch).await?;
                 }
                 EpochStatus::Unchanged(timepoint) => {
                     let beacon_to_sign =
-                        self.runner
-                            .get_beacon_to_sign(timepoint)
-                            .await
-                            .map_err(|e| RuntimeError::KeepState {
+                        self.runner.get_beacon_to_sign(timepoint).await.map_err(|e| {
+                            RuntimeError::KeepState {
                                 message: "could not fetch the beacon to sign".to_string(),
                                 nested_error: Some(e),
-                            })?;
+                            }
+                        })?;
 
                     match beacon_to_sign {
                         Some(beacon) => {
@@ -259,9 +254,8 @@ impl StateMachine {
 
     /// Return the new epoch if the epoch is different than the given one, otherwise return the current time point.
     async fn has_epoch_changed(&self, epoch: Epoch) -> Result<EpochStatus, RuntimeError> {
-        let current_time_point = self
-            .get_current_time_point("checking if epoch has changed")
-            .await?;
+        let current_time_point =
+            self.get_current_time_point("checking if epoch has changed").await?;
 
         if current_time_point.epoch > epoch {
             Ok(EpochStatus::NewEpoch(current_time_point.epoch))
@@ -281,12 +275,8 @@ impl StateMachine {
     }
 
     async fn transition_from_init_to_unregistered(&self) -> Result<SignerState, RuntimeError> {
-        let current_epoch = self
-            .get_current_time_point("init → unregistered")
-            .await?
-            .epoch;
-        self.update_era_checker(current_epoch, "init → unregistered")
-            .await?;
+        let current_epoch = self.get_current_time_point("init → unregistered").await?.epoch;
+        self.update_era_checker(current_epoch, "init → unregistered").await?;
 
         Ok(SignerState::Unregistered {
             epoch: current_epoch,
@@ -302,9 +292,7 @@ impl StateMachine {
             .get_signer_registration_total_since_startup_counter()
             .increment();
 
-        let time_point = self
-            .get_current_time_point("unregistered → registered")
-            .await?;
+        let time_point = self.get_current_time_point("unregistered → registered").await?;
         let epoch = time_point.epoch;
         self.runner.update_stake_distribution(epoch)
             .await
@@ -357,13 +345,10 @@ impl StateMachine {
             .get_signer_registration_success_last_epoch_gauge()
             .record(epoch);
 
-        self.runner
-            .upkeep(epoch)
-            .await
-            .map_err(|e| RuntimeError::KeepState {
-                message: "Failed to upkeep signer in 'unregistered → registered' phase".to_string(),
-                nested_error: Some(e),
-            })?;
+        self.runner.upkeep(epoch).await.map_err(|e| RuntimeError::KeepState {
+            message: "Failed to upkeep signer in 'unregistered → registered' phase".to_string(),
+            nested_error: Some(e),
+        })?;
 
         match self
             .runner
@@ -392,8 +377,7 @@ impl StateMachine {
         &self,
         epoch: Epoch,
     ) -> Result<SignerState, RuntimeError> {
-        self.update_era_checker(epoch, "ready to sign → unregistered")
-            .await?;
+        self.update_era_checker(epoch, "ready to sign → unregistered").await?;
 
         Ok(SignerState::Unregistered { epoch })
     }
@@ -506,10 +490,7 @@ mod tests {
     #[tokio::test]
     async fn unregistered_epoch_settings_not_found() {
         let mut runner = MockSignerRunner::new();
-        runner
-            .expect_get_epoch_settings()
-            .once()
-            .returning(|| Ok(None));
+        runner.expect_get_epoch_settings().once().returning(|| Ok(None));
         runner
             .expect_get_current_time_point()
             .once()
@@ -587,19 +568,13 @@ mod tests {
             .expect_get_current_time_point()
             .times(2)
             .returning(|| Ok(TimePoint::dummy()));
-        runner
-            .expect_update_stake_distribution()
-            .once()
-            .returning(|_| Ok(()));
+        runner.expect_update_stake_distribution().once().returning(|_| Ok(()));
         runner
             .expect_register_signer_to_aggregator()
             .once()
             .returning(|| Ok(()));
 
-        runner
-            .expect_can_sign_current_epoch()
-            .once()
-            .returning(|| Ok(false));
+        runner.expect_can_sign_current_epoch().once().returning(|| Ok(false));
 
         let state_machine = init_state_machine(
             SignerState::Unregistered {
@@ -641,19 +616,13 @@ mod tests {
             .expect_get_current_time_point()
             .times(2)
             .returning(|| Ok(TimePoint::dummy()));
-        runner
-            .expect_update_stake_distribution()
-            .once()
-            .returning(|_| Ok(()));
+        runner.expect_update_stake_distribution().once().returning(|_| Ok(()));
         runner
             .expect_register_signer_to_aggregator()
             .once()
             .returning(|| Ok(()));
 
-        runner
-            .expect_can_sign_current_epoch()
-            .once()
-            .returning(|| Ok(true));
+        runner.expect_can_sign_current_epoch().once().returning(|| Ok(true));
 
         let state_machine = init_state_machine(
             SignerState::Unregistered {
@@ -699,18 +668,12 @@ mod tests {
             .expect_get_current_time_point()
             .times(2)
             .returning(|| Ok(TimePoint::dummy()));
-        runner
-            .expect_update_stake_distribution()
-            .once()
-            .returning(|_| Ok(()));
-        runner
-            .expect_register_signer_to_aggregator()
-            .once()
-            .returning(|| {
-                Err(AggregatorClientError::RegistrationRoundNotYetOpened(
-                    anyhow!("Not yet opened"),
-                ))?
-            });
+        runner.expect_update_stake_distribution().once().returning(|_| Ok(()));
+        runner.expect_register_signer_to_aggregator().once().returning(|| {
+            Err(AggregatorClientError::RegistrationRoundNotYetOpened(
+                anyhow!("Not yet opened"),
+            ))?
+        });
 
         runner.expect_upkeep().never();
         runner.expect_can_sign_current_epoch().never();
@@ -751,9 +714,7 @@ mod tests {
 
         assert_eq!(
             1,
-            metrics_service
-                .get_runtime_cycle_total_since_startup_counter()
-                .get()
+            metrics_service.get_runtime_cycle_total_since_startup_counter().get()
         );
     }
 
@@ -892,10 +853,7 @@ mod tests {
             .expect_get_current_time_point()
             .once()
             .returning(move || Ok(time_point.to_owned()));
-        runner
-            .expect_get_beacon_to_sign()
-            .once()
-            .returning(move |_| Ok(None));
+        runner.expect_get_beacon_to_sign().once().returning(move |_| Ok(None));
 
         let state_machine = init_state_machine(
             SignerState::ReadyToSign {

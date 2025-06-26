@@ -121,10 +121,9 @@ impl MKTreeStorer for MKTreeStoreSqlite {
     }
 
     fn append(&self, pos: u64, elems: Vec<Arc<MKTreeNode>>) -> StdResult<()> {
-        self.insert_elements_from_position(pos, elems)
-            .with_context(|| {
-                format!("MKTreeStoreSqlite failed to insert elements from position {pos}")
-            })
+        self.insert_elements_from_position(pos, elems).with_context(|| {
+            format!("MKTreeStoreSqlite failed to insert elements from position {pos}")
+        })
     }
 }
 
@@ -139,9 +138,7 @@ mod tests {
         let leaves = vec!["golden-1", "golden-2", "golden-3", "golden-4", "golden-5"];
         let mktree =
             MKTree::<MKTreeStoreSqlite>::new(&leaves).expect("MKTree creation should not fail");
-        let mkroot = mktree
-            .compute_root()
-            .expect("MKRoot generation should not fail");
+        let mkroot = mktree.compute_root().expect("MKRoot generation should not fail");
 
         assert_eq!(
             "3bbced153528697ecde7345a22e50115306478353619411523e804f2323fd921",

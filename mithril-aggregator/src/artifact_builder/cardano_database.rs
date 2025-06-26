@@ -64,10 +64,7 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
             })?;
 
         let ancillary_upload = self.ancillary_builder.upload(&beacon).await?;
-        let immutables_upload = self
-            .immutable_builder
-            .upload(beacon.immutable_file_number)
-            .await?;
+        let immutables_upload = self.immutable_builder.upload(beacon.immutable_file_number).await?;
         let digest_upload = self.digest_builder.upload(&beacon).await?;
 
         let content = CardanoDatabaseSnapshotArtifactData {

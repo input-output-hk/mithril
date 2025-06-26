@@ -55,9 +55,7 @@ async fn cardano_db_snapshot_list_get_download_verify() {
                 FakeCertificateVerifier::build_that_validate_any_certificate(),
             )
             .set_ancillary_verification_key(
-                ancillary_manifest_signer_verification_key
-                    .to_json_hex()
-                    .unwrap(),
+                ancillary_manifest_signer_verification_key.to_json_hex().unwrap(),
             )
             .add_feedback_receiver(Arc::new(SlogFeedbackReceiver::new(
                 extensions::test_logger(),

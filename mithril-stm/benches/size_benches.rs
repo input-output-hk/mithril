@@ -23,9 +23,7 @@ where
     let mut msg = [0u8; 16];
     rng.fill_bytes(&mut msg);
 
-    let parties = (0..nparties)
-        .map(|_| 1 + (rng.next_u64() % 9999))
-        .collect::<Vec<_>>();
+    let parties = (0..nparties).map(|_| 1 + (rng.next_u64() % 9999)).collect::<Vec<_>>();
 
     let mut ps: Vec<StmInitializer> = Vec::with_capacity(nparties);
     let params = StmParameters { k, m, phi_f: 0.2 };
@@ -44,10 +42,7 @@ where
         .map(|p| p.new_signer(closed_reg.clone()).unwrap())
         .collect::<Vec<StmSigner<H>>>();
 
-    let sigs = ps
-        .par_iter()
-        .filter_map(|p| p.sign(&msg))
-        .collect::<Vec<StmSig>>();
+    let sigs = ps.par_iter().filter_map(|p| p.sign(&msg)).collect::<Vec<StmSig>>();
     let clerk = StmClerk::from_signer(&ps[0]);
 
     // Aggregate with random parties
@@ -73,9 +68,7 @@ where
     let mut public_signers: Vec<(StmVerificationKey, Stake)> = Vec::with_capacity(nparties);
     let mut initializers: Vec<StmInitializer> = Vec::with_capacity(nparties);
 
-    let parties = (0..nparties)
-        .map(|_| 1 + (rng.next_u64() % 9999))
-        .collect::<Vec<_>>();
+    let parties = (0..nparties).map(|_| 1 + (rng.next_u64() % 9999)).collect::<Vec<_>>();
 
     let params = StmParameters { k, m, phi_f: 0.2 };
 

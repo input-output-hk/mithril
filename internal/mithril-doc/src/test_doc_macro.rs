@@ -84,12 +84,7 @@ mod tests {
     fn test_extract_configuration_optional_field() {
         let doc_with_example = MyConfiguration::extract();
         assert!(!doc_with_example.get_field("version").unwrap().is_mandatory);
-        assert!(
-            doc_with_example
-                .get_field("environment")
-                .unwrap()
-                .is_mandatory
-        );
+        assert!(doc_with_example.get_field("environment").unwrap().is_mandatory);
     }
 
     #[test]

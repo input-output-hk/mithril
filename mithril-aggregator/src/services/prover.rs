@@ -194,10 +194,7 @@ impl<S: MKTreeStorer> ProverService for MithrilProverService<S> {
         );
         mk_maps_new
             .into_iter()
-            .map(|mk_map| {
-                self.mk_map_pool
-                    .give_back_resource(mk_map, discriminant_new)
-            })
+            .map(|mk_map| self.mk_map_pool.give_back_resource(mk_map, discriminant_new))
             .collect::<StdResult<Vec<_>>>()?;
         info!(
             self.logger,
@@ -260,10 +257,7 @@ mod tests {
         pub fn map_to_transaction_hashes(
             transactions: &[CardanoTransaction],
         ) -> Vec<TransactionHash> {
-            transactions
-                .iter()
-                .map(|t| t.transaction_hash.clone())
-                .collect()
+            transactions.iter().map(|t| t.transaction_hash.clone()).collect()
         }
 
         pub fn transactions_group_by_block_range(
@@ -296,20 +290,18 @@ mod tests {
         ) -> MKMap<BlockRange, MKMapNode<BlockRange, MKTreeStoreInMemory>, MKTreeStoreInMemory>
         {
             MKMap::new_from_iter(
-                block_ranges_map
-                    .into_iter()
-                    .map(|(block_range, transactions)| {
-                        (
-                            block_range,
-                            MKMapNode::TreeNode(
-                                MKTree::<MKTreeStoreInMemory>::new(&transactions)
-                                    .unwrap()
-                                    .compute_root()
-                                    .unwrap()
-                                    .clone(),
-                            ),
-                        )
-                    }),
+                block_ranges_map.into_iter().map(|(block_range, transactions)| {
+                    (
+                        block_range,
+                        MKMapNode::TreeNode(
+                            MKTree::<MKTreeStoreInMemory>::new(&transactions)
+                                .unwrap()
+                                .compute_root()
+                                .unwrap()
+                                .clone(),
+                        ),
+                    )
+                }),
             )
             .unwrap()
         }
@@ -337,10 +329,8 @@ mod tests {
             let block_ranges_map = transactions_group_by_block_range(transactions);
             let block_ranges_map_to_prove =
                 transactions_group_by_block_range(transactions_to_prove);
-            let block_ranges_to_prove = block_ranges_map_to_prove
-                .keys()
-                .cloned()
-                .collect::<Vec<_>>();
+            let block_ranges_to_prove =
+                block_ranges_map_to_prove.keys().cloned().collect::<Vec<_>>();
             let all_transactions_in_block_ranges_to_prove =
                 filter_transactions_for_block_ranges(&block_ranges_to_prove, transactions);
             let beacon = compute_beacon_from_transactions(transactions);

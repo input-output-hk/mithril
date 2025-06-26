@@ -127,9 +127,8 @@ impl SignerSynchronizer for MithrilSignerRegistrationFollower {
                     anyhow::anyhow!("Leader aggregator did not return any epoch settings"),
                 ),
             )?;
-        let registration_epoch = leader_epoch_settings
-            .epoch
-            .offset_to_leader_synchronization_epoch();
+        let registration_epoch =
+            leader_epoch_settings.epoch.offset_to_leader_synchronization_epoch();
         let next_signers = leader_epoch_settings.next_signers;
         let stake_distribution = self
             .stake_store
@@ -379,10 +378,7 @@ mod tests {
             })
             .build();
 
-        signer_registration_follower
-            .synchronize_all_signers()
-            .await
-            .unwrap();
+        signer_registration_follower.synchronize_all_signers().await.unwrap();
     }
 
     #[tokio::test]

@@ -107,9 +107,7 @@ impl GenesisCommand {
         root_logger: Logger,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> StdResult<()> {
-        self.genesis_subcommand
-            .execute(root_logger, config_builder)
-            .await
+        self.genesis_subcommand.execute(root_logger, config_builder).await
     }
 
     pub fn extract_config(command_path: String) -> HashMap<String, StructDoc> {
@@ -186,12 +184,13 @@ impl ExportGenesisSubCommand {
         );
         let mut dependencies_builder =
             DependenciesBuilder::new(root_logger.clone(), Arc::new(config.clone()));
-        let dependencies = dependencies_builder
-            .create_genesis_container()
-            .await
-            .with_context(|| {
-                "Dependencies Builder can not create genesis command dependencies container"
-            })?;
+        let dependencies =
+            dependencies_builder
+                .create_genesis_container()
+                .await
+                .with_context(|| {
+                    "Dependencies Builder can not create genesis command dependencies container"
+                })?;
 
         let genesis_tools = GenesisTools::from_dependencies(dependencies)
             .await
@@ -236,12 +235,13 @@ impl ImportGenesisSubCommand {
         );
         let mut dependencies_builder =
             DependenciesBuilder::new(root_logger.clone(), Arc::new(config.clone()));
-        let dependencies = dependencies_builder
-            .create_genesis_container()
-            .await
-            .with_context(|| {
-                "Dependencies Builder can not create genesis command dependencies container"
-            })?;
+        let dependencies =
+            dependencies_builder
+                .create_genesis_container()
+                .await
+                .with_context(|| {
+                    "Dependencies Builder can not create genesis command dependencies container"
+                })?;
 
         let genesis_tools = GenesisTools::from_dependencies(dependencies)
             .await
@@ -322,12 +322,13 @@ impl BootstrapGenesisSubCommand {
         println!("Genesis bootstrap for test only!");
         let mut dependencies_builder =
             DependenciesBuilder::new(root_logger.clone(), Arc::new(config.clone()));
-        let dependencies = dependencies_builder
-            .create_genesis_container()
-            .await
-            .with_context(|| {
-                "Dependencies Builder can not create genesis command dependencies container"
-            })?;
+        let dependencies =
+            dependencies_builder
+                .create_genesis_container()
+                .await
+                .with_context(|| {
+                    "Dependencies Builder can not create genesis command dependencies container"
+                })?;
 
         let genesis_tools = GenesisTools::from_dependencies(dependencies)
             .await

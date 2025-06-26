@@ -145,10 +145,7 @@ pub(crate) mod test_tools {
             expire_at: DateTime<Utc>,
         ) {
             let mut cache = self.cache.write().await;
-            cache
-                .get_mut(certificate_hash)
-                .expect("Key not found")
-                .expire_at = expire_at;
+            cache.get_mut(certificate_hash).expect("Key not found").expire_at = expire_at;
         }
 
         /// `Test only` Get the cached value for the given certificate hash
@@ -214,10 +211,7 @@ mod tests {
             let expiration_delay = TimeDelta::hours(1);
             let start_time = Utc::now();
             let cache = MemoryCertificateVerifierCache::new(expiration_delay);
-            cache
-                .store_validated_certificate("hash", "parent")
-                .await
-                .unwrap();
+            cache.store_validated_certificate("hash", "parent").await.unwrap();
 
             let cached = cache
                 .get_cached_value("hash")

@@ -227,10 +227,7 @@ Accepted values are (case-sensitive): {}."#,
     }
 
     fn accepted_discriminants() -> String {
-        Self::iter()
-            .map(|d| d.to_string())
-            .collect::<Vec<_>>()
-            .join(", ")
+        Self::iter().map(|d| d.to_string()).collect::<Vec<_>>().join(", ")
     }
 }
 

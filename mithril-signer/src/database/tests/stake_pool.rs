@@ -74,10 +74,7 @@ mod request {
                 ("pool-B".to_string(), 1200),
             ]);
 
-            let save_result = store
-                .save_stakes(epoch, stake_distribution.clone())
-                .await
-                .unwrap();
+            let save_result = store.save_stakes(epoch, stake_distribution.clone()).await.unwrap();
 
             assert_eq!(stake_distribution, save_result.unwrap());
         }
@@ -88,10 +85,7 @@ mod request {
                 ("pool-C".to_string(), 2300),
             ]);
 
-            let save_result = store
-                .save_stakes(epoch, stake_distribution.clone())
-                .await
-                .unwrap();
+            let save_result = store.save_stakes(epoch, stake_distribution.clone()).await.unwrap();
 
             assert_eq!(stake_distribution, save_result.unwrap());
         }
@@ -109,10 +103,7 @@ mod request {
                 ("pool-A".to_string(), 1000),
                 ("pool-B".to_string(), 1200),
             ]);
-            store
-                .save_stakes(epoch, stake_distribution.clone())
-                .await
-                .unwrap();
+            store.save_stakes(epoch, stake_distribution.clone()).await.unwrap();
 
             let stake_distribution_in_database = store.retrieve(epoch).await.unwrap().unwrap();
 
@@ -126,10 +117,7 @@ mod request {
                 ("pool-B".to_string(), 2000),
                 ("pool-C".to_string(), 2300),
             ]);
-            store
-                .save_stakes(epoch, stake_distribution.clone())
-                .await
-                .unwrap();
+            store.save_stakes(epoch, stake_distribution.clone()).await.unwrap();
 
             let stake_distribution_in_database = store.retrieve(epoch).await.unwrap().unwrap();
 

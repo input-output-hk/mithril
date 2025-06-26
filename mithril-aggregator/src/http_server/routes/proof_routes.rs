@@ -11,10 +11,7 @@ struct CardanoTransactionProofQueryParams {
 
 impl CardanoTransactionProofQueryParams {
     pub fn split_transactions_hashes(&self) -> Vec<String> {
-        self.transaction_hashes
-            .split(',')
-            .map(|s| s.to_string())
-            .collect()
+        self.transaction_hashes.split(',').map(|s| s.to_string()).collect()
     }
 
     pub fn sanitize(&self) -> Vec<String> {

@@ -53,9 +53,7 @@ impl SignedBeaconRecord {
         records
             .iter()
             .flat_map(|(epoch, signed_entity_types)| {
-                signed_entity_types
-                    .iter()
-                    .map(|se| Self::fake(*epoch, se.clone()))
+                signed_entity_types.iter().map(|se| Self::fake(*epoch, se.clone()))
             })
             .collect()
     }

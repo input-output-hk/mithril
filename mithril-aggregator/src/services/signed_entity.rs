@@ -190,10 +190,7 @@ impl MithrilSignedEntityService {
         let artifact = loop {
             remaining_retries -= 1;
 
-            match self
-                .compute_artifact(signed_entity_type.clone(), certificate)
-                .await
-            {
+            match self.compute_artifact(signed_entity_type.clone(), certificate).await {
                 Err(error) if remaining_retries == 0 => break Err(error),
                 Err(_error) => (),
                 Ok(artifact) => break Ok(artifact),
@@ -330,11 +327,7 @@ impl SignedEntityService for MithrilSignedEntityService {
         signed_entity_type: SignedEntityType,
         certificate: &Certificate,
     ) -> StdResult<JoinHandle<StdResult<()>>> {
-        if self
-            .signed_entity_type_lock
-            .is_locked(&signed_entity_type)
-            .await
-        {
+        if self.signed_entity_type_lock.is_locked(&signed_entity_type).await {
             return Err(anyhow!(
                 "Signed entity type '{:?}' is already locked",
                 signed_entity_type
@@ -343,10 +336,7 @@ impl SignedEntityService for MithrilSignedEntityService {
 
         let service = self.clone();
         let certificate_cloned = certificate.clone();
-        service
-            .signed_entity_type_lock
-            .lock(&signed_entity_type)
-            .await;
+        service.signed_entity_type_lock.lock(&signed_entity_type).await;
 
         Ok(tokio::task::spawn(async move {
             let signed_entity_type_clone = signed_entity_type.clone();
@@ -886,20 +876,15 @@ mod tests {
     async fn build_cardano_database_artifact_when_given_cardano_database_entity_type() {
         let mut mock_container = MockDependencyInjector::new();
 
-        let cardano_database_expected = fake_data::cardano_database_snapshots(1)
-            .first()
-            .unwrap()
-            .to_owned();
+        let cardano_database_expected =
+            fake_data::cardano_database_snapshots(1).first().unwrap().to_owned();
 
         mock_container
             .mock_cardano_database_artifact_builder
             .expect_compute_artifact()
             .times(1)
             .returning(|_, _| {
-                Ok(fake_data::cardano_database_snapshots(1)
-                    .first()
-                    .unwrap()
-                    .to_owned())
+                Ok(fake_data::cardano_database_snapshots(1).first().unwrap().to_owned())
             });
 
         let artifact_builder_service = mock_container.build_artifact_builder_service();
@@ -918,10 +903,7 @@ mod tests {
     async fn should_store_the_artifact_when_creating_artifact_for_a_cardano_database() {
         generic_test_that_the_artifact_is_stored(
             SignedEntityType::CardanoDatabase(CardanoDbBeacon::default()),
-            fake_data::cardano_database_snapshots(1)
-                .first()
-                .unwrap()
-                .to_owned(),
+            fake_data::cardano_database_snapshots(1).first().unwrap().to_owned(),
             &|mock_injector| &mut mock_injector.mock_cardano_database_artifact_builder,
         )
         .await;

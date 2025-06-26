@@ -100,11 +100,9 @@ impl MultiSigner for MultiSignerImpl {
     ) -> StdResult<()> {
         let epoch_service = self.epoch_service.read().await;
         let next_protocol_multi_signer =
-            epoch_service
-                .next_protocol_multi_signer()
-                .with_context(|| {
-                    "Multi Signer could not get next protocol multi-signer from epoch service"
-                })?;
+            epoch_service.next_protocol_multi_signer().with_context(|| {
+                "Multi Signer could not get next protocol multi-signer from epoch service"
+            })?;
 
         self.run_verify_single_signature(message, single_signature, next_protocol_multi_signer)
     }

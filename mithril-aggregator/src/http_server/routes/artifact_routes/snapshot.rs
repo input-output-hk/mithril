@@ -86,10 +86,7 @@ mod handlers {
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        match http_message_service
-            .get_snapshot_list_message(LIST_MAX_ITEMS)
-            .await
-        {
+        match http_message_service.get_snapshot_list_message(LIST_MAX_ITEMS).await {
             Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
             Err(err) => {
                 warn!(logger,"list_artifacts_snapshot"; "error" => ?err);
@@ -113,10 +110,7 @@ mod handlers {
                 client_metadata.client_type.as_deref().unwrap_or_default(),
             ]);
 
-        match http_message_service
-            .get_snapshot_message(&signed_entity_id)
-            .await
-        {
+        match http_message_service.get_snapshot_message(&signed_entity_id).await {
             Ok(Some(signed_entity)) => Ok(reply::json(&signed_entity, StatusCode::OK)),
             Ok(None) => {
                 warn!(logger, "snapshot_details::not_found");
@@ -149,10 +143,7 @@ mod handlers {
         }
 
         match crate::tools::extract_digest_from_path(&filepath) {
-            Ok(digest) => match signed_entity_service
-                .get_signed_snapshot_by_id(&digest)
-                .await
-            {
+            Ok(digest) => match signed_entity_service.get_signed_snapshot_by_id(&digest).await {
                 Ok(Some(_)) => Ok(reply::add_content_disposition_header(reply, &filepath)),
                 _ => Ok(reply::empty(StatusCode::NOT_FOUND)),
             },
@@ -170,10 +161,7 @@ mod handlers {
         server_url: SanitizedUrlWithTrailingSlash,
         signed_entity_service: Arc<dyn SignedEntityService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        match signed_entity_service
-            .get_signed_snapshot_by_id(&digest)
-            .await
-        {
+        match signed_entity_service.get_signed_snapshot_by_id(&digest).await {
             Ok(Some(signed_entity)) => {
                 let snapshot = signed_entity.artifact;
                 let filename = format!(

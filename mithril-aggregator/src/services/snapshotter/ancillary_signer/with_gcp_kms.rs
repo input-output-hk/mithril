@@ -40,9 +40,7 @@ impl AncillarySignerWithGcpKms {
             .with_credentials(credentials_file)
             .await
             .with_context(|| BASE_ERROR_CONTEXT)?;
-        let kms_client = GcpKmsClient::new(config)
-            .await
-            .with_context(|| BASE_ERROR_CONTEXT)?;
+        let kms_client = GcpKmsClient::new(config).await.with_context(|| BASE_ERROR_CONTEXT)?;
 
         Ok(AncillarySignerWithGcpKms {
             kms_client,

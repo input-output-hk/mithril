@@ -102,9 +102,7 @@ mod tests {
                 result.push((
                     statement.read::<String, _>("date")?,
                     statement.read::<String, _>("counter_name")?,
-                    statement
-                        .read::<Option<String>, _>("origin")?
-                        .unwrap_or_default(),
+                    statement.read::<Option<String>, _>("origin")?.unwrap_or_default(),
                     statement.read::<i64, _>("value")?,
                 ));
             }

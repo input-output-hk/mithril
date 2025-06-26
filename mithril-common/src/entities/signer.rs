@@ -239,9 +239,7 @@ impl Debug for SignerWithStake {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let should_be_exhaustive = f.alternate();
         let mut debug = f.debug_struct("SignerWithStake");
-        debug
-            .field("party_id", &self.party_id)
-            .field("stake", &self.stake);
+        debug.field("party_id", &self.party_id).field("stake", &self.stake);
 
         match should_be_exhaustive {
             true => debug

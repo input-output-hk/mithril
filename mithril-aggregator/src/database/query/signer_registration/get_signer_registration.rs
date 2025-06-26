@@ -80,9 +80,8 @@ mod tests {
     fn test_get_signer_registration_records() {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let signer_with_stakes = fixture.signers_with_stake();
-        let signer_with_stakes_by_epoch: Vec<(Epoch, Vec<SignerWithStake>)> = (0..=3)
-            .map(|e| (Epoch(e), signer_with_stakes.clone()))
-            .collect();
+        let signer_with_stakes_by_epoch: Vec<(Epoch, Vec<SignerWithStake>)> =
+            (0..=3).map(|e| (Epoch(e), signer_with_stakes.clone())).collect();
 
         let connection = main_db_connection().unwrap();
         insert_signer_registrations(&connection, signer_with_stakes_by_epoch.clone()).unwrap();

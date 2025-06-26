@@ -37,11 +37,8 @@ impl Spec {
                     .as_ref()
                     .to_string(),
             ),
-            is_signing_cardano_database: signed_entity_types.contains(
-                &SignedEntityTypeDiscriminants::CardanoDatabase
-                    .as_ref()
-                    .to_string(),
-            ),
+            is_signing_cardano_database: signed_entity_types
+                .contains(&SignedEntityTypeDiscriminants::CardanoDatabase.as_ref().to_string()),
             next_era,
             regenesis_on_era_switch,
         }
@@ -82,10 +79,7 @@ impl Spec {
     ) -> StdResult<()> {
         assertions::wait_for_enough_immutable(aggregator).await?;
         let chain_observer = aggregator.chain_observer();
-        let start_epoch = chain_observer
-            .get_current_epoch()
-            .await?
-            .unwrap_or_default();
+        let start_epoch = chain_observer.get_current_epoch().await?.unwrap_or_default();
 
         // Wait 4 epochs after start epoch for the aggregator to be able to bootstrap a genesis certificate
         let mut target_epoch = start_epoch + 4;
@@ -262,9 +256,8 @@ impl Spec {
             )
             .await?;
 
-            let transaction_hashes = infrastructure
-                .devnet()
-                .mithril_payments_transaction_hashes()?;
+            let transaction_hashes =
+                infrastructure.devnet().mithril_payments_transaction_hashes()?;
             let mut client = infrastructure.build_client(aggregator).await?;
             assertions::assert_client_can_verify_transactions(&mut client, transaction_hashes)
                 .await?;

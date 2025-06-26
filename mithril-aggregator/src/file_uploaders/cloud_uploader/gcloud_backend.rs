@@ -100,11 +100,9 @@ impl CloudBackendUploader for GCloudBackendUploader {
             "Uploading {} to {remote_file_path}",
             local_file_path.display()
         );
-        let file = tokio::fs::File::open(local_file_path)
-            .await
-            .with_context(|| {
-                format!("Opening file failure, path: {}", local_file_path.display())
-            })?;
+        let file = tokio::fs::File::open(local_file_path).await.with_context(|| {
+            format!("Opening file failure, path: {}", local_file_path.display())
+        })?;
         let stream = FramedRead::new(file, BytesCodec::new());
 
         self.storage_client

@@ -84,11 +84,7 @@ fn generate_merkle_map(
         } else {
             panic!("Expected MKMapNode::Tree");
         };
-        let leaves_to_prove = mktree_to_prove
-            .leaves()
-            .into_iter()
-            .take(1)
-            .collect::<Vec<_>>();
+        let leaves_to_prove = mktree_to_prove.leaves().into_iter().take(1).collect::<Vec<_>>();
         leaves_to_prove_all.extend(leaves_to_prove);
         mk_map
             .insert(

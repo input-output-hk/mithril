@@ -152,9 +152,8 @@ mod tests {
         });
         let client = ReqwestGitHubApiClient::new(None).unwrap();
 
-        let result: MithrilResult<FakeApiResponse> = client
-            .download(format!("{}/endpoint", server.base_url()))
-            .await;
+        let result: MithrilResult<FakeApiResponse> =
+            client.download(format!("{}/endpoint", server.base_url())).await;
 
         assert!(
             result.is_err(),
@@ -180,9 +179,8 @@ mod tests {
         });
         let client = ReqwestGitHubApiClient::new(None).unwrap();
 
-        let result: MithrilResult<FakeApiResponse> = client
-            .download(format!("{}/endpoint", server.base_url()))
-            .await;
+        let result: MithrilResult<FakeApiResponse> =
+            client.download(format!("{}/endpoint", server.base_url())).await;
         let error = result.expect_err("Expected an error due to 500 status");
 
         assert!(error
