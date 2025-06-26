@@ -17,17 +17,18 @@ build: package-lock.json
 	cp out/registrations-in-out.html out/registrations-in-out/index.html
 	cp out/registrations-in-out.txt out/registrations-in-out/index.txt
 
-serve: build
-	if [ -d "explorer/" ]; then rm -rf explorer/; fi
-	mv out explorer/
+serve-static: build
+	if [ -d "serve_static/" ]; then rm -rf serve_static/; fi
+	mkdir serve_static
+	mv out serve_static/explorer/
 
 	@echo "=========================================================================="
-	@echo "\033[1mServing production build at: http://localhost:3001/explorer \033[0m"
-	python3 -m http.server --bind 127.0.0.1 3001
+	@echo "\033[1mServing static production build at: \033[34m http://localhost:3001/explorer \033[0m"
+	python3 -m http.server --bind 127.0.0.1 3001 --directory serve_static
 
 dev:
 	@echo "=========================================================================="
-	@echo "\033[1mServing dev build at: http://localhost:3000/explorer \033[0m"
+	@echo "\033[1mServing dev build at: \033[34m http://localhost:3000/explorer \033[0m"
 	npm run dev
 
 icons-font:
