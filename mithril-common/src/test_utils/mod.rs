@@ -8,6 +8,7 @@
 
 pub mod fake_data;
 pub mod fake_keys;
+pub mod mock_extensions;
 
 mod cardano_transactions_builder;
 mod certificate_chain_builder;
