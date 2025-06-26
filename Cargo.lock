@@ -3989,7 +3989,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-cardano-node-chain"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4086,7 +4086,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.12.15"
+version = "0.12.16"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4138,7 +4138,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4191,7 +4191,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-doc-derive"
-version = "0.1.18"
+version = "0.1.19"
 dependencies = [
  "quote",
  "syn 2.0.104",
@@ -4253,7 +4253,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-persistence"
-version = "0.2.54"
+version = "0.2.55"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4373,7 +4373,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-stm"
-version = "0.4.5"
+version = "0.4.6"
 dependencies = [
  "bincode",
  "blake2 0.10.6",
