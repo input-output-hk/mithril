@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use mithril_common::certificate_chain::{CertificateRetriever, CertificateRetrieverError};
+use mithril_common::certificate_chain::CertificateRetrieverError;
 use mithril_common::entities::Certificate;
 use mithril_common::StdResult;
 
@@ -16,8 +16,9 @@ pub trait CertificateChainSynchronizer: Send + Sync {
 }
 
 /// Define how to retrieve remote certificate details
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
-pub trait RemoteCertificateRetriever: CertificateRetriever + Sync + Send {
+pub trait RemoteCertificateRetriever: Sync + Send {
     /// Get latest certificate
     async fn get_latest_certificate_details(
         &self,
@@ -27,21 +28,6 @@ pub trait RemoteCertificateRetriever: CertificateRetriever + Sync + Send {
     async fn get_genesis_certificate_details(
         &self,
     ) -> Result<Option<Certificate>, CertificateRetrieverError>;
-}
-
-// Note: we can't use mockall::automock here because RemoteCertificateRetriever have a supertrait
-#[cfg(test)]
-mockall::mock! {
-    pub(crate) RemoteCertificateRetriever {}
-    #[async_trait]
-    impl RemoteCertificateRetriever for RemoteCertificateRetriever {
-        async fn get_latest_certificate_details(&self) -> Result<Option<Certificate>, CertificateRetrieverError>;
-        async fn get_genesis_certificate_details(&self) -> Result<Option<Certificate>, CertificateRetrieverError>;
-    }
-    #[async_trait]
-    impl CertificateRetriever for RemoteCertificateRetriever {
-        async fn get_certificate_details(&self, certificate_hash: &str, ) -> Result<Certificate, CertificateRetrieverError>;
-    }
 }
 
 /// Define how to store the synchronized certificate and retrieve details about the actual local chain
