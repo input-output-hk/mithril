@@ -61,8 +61,7 @@ impl Snapshotter for CompressedArchiveSnapshotter {
             })
             .collect();
         let appender = AppenderEntries::new(paths_to_include, self.db_directory.clone())?;
-        self.snapshot(archive_name_without_extension, appender)
-            .await
+        self.snapshot(archive_name_without_extension, appender).await
     }
 
     async fn snapshot_ancillary(
@@ -117,8 +116,7 @@ impl Snapshotter for CompressedArchiveSnapshotter {
             .collect();
         let appender = AppenderEntries::new(files_to_archive, self.db_directory.clone())?;
 
-        self.snapshot(archive_name_without_extension, appender)
-            .await
+        self.snapshot(archive_name_without_extension, appender).await
     }
 
     async fn compute_immutable_files_total_uncompressed_size(
@@ -235,8 +233,7 @@ impl CompressedArchiveSnapshotter {
                     &signed_manifest,
                 )?,
             );
-        self.snapshot(archive_name_without_extension, appender)
-            .await
+        self.snapshot(archive_name_without_extension, appender).await
     }
 
     /// Returns the list of files and directories to include in ancillary snapshot.
@@ -507,10 +504,7 @@ mod tests {
             let snapshotter =
                 snapshotter_for_test(&test_dir, cardano_db.get_dir(), CompressionAlgorithm::Gzip);
 
-            let snapshot = snapshotter
-                .snapshot_immutable_trio(2, "immutable-2")
-                .await
-                .unwrap();
+            let snapshot = snapshotter.snapshot_immutable_trio(2, "immutable-2").await.unwrap();
 
             let unpack_dir = snapshot.unpack_gzip(&test_dir);
             let unpacked_files = list_files(&unpack_dir);
@@ -634,10 +628,7 @@ mod tests {
                 ..snapshotter_for_test(&test_dir, cardano_db.get_dir(), CompressionAlgorithm::Gzip)
             };
 
-            snapshotter
-                .snapshot_ancillary(1, "ancillary")
-                .await
-                .unwrap();
+            snapshotter.snapshot_ancillary(1, "ancillary").await.unwrap();
 
             let temp_ancillary_snapshot_dir =
                 snapshotter.temp_ancillary_snapshot_directory("ancillary");
@@ -660,10 +651,7 @@ mod tests {
                 ..snapshotter_for_test(&test_dir, cardano_db.get_dir(), CompressionAlgorithm::Gzip)
             };
 
-            snapshotter
-                .snapshot_ancillary(1, "ancillary")
-                .await
-                .unwrap_err();
+            snapshotter.snapshot_ancillary(1, "ancillary").await.unwrap_err();
 
             let temp_ancillary_snapshot_dir =
                 snapshotter.temp_ancillary_snapshot_directory("ancillary");
@@ -692,10 +680,7 @@ mod tests {
                 ..snapshotter_for_test(&test_dir, cardano_db.get_dir(), CompressionAlgorithm::Gzip)
             };
 
-            let snapshot = snapshotter
-                .snapshot_ancillary(2, "ancillary")
-                .await
-                .unwrap();
+            let snapshot = snapshotter.snapshot_ancillary(2, "ancillary").await.unwrap();
 
             let unpack_dir = snapshot.unpack_gzip(&test_dir);
             assert_dir_eq!(
@@ -758,10 +743,7 @@ mod tests {
                 ..snapshotter_for_test(&test_dir, cardano_db.get_dir(), CompressionAlgorithm::Gzip)
             };
 
-            let archive = snapshotter
-                .snapshot_ancillary(2, "ancillary")
-                .await
-                .unwrap();
+            let archive = snapshotter.snapshot_ancillary(2, "ancillary").await.unwrap();
             let unpacked = archive.unpack_gzip(test_dir);
             let manifest_path = unpacked.join(AncillaryFilesManifest::ANCILLARY_MANIFEST_FILE_NAME);
 
@@ -783,11 +765,7 @@ mod tests {
                 manifest.files()
             );
             assert_eq!(
-                Some(
-                    fake_keys::signable_manifest_signature()[0]
-                        .try_into()
-                        .unwrap()
-                ),
+                Some(fake_keys::signable_manifest_signature()[0].try_into().unwrap()),
                 manifest.signature()
             )
         }
@@ -810,10 +788,7 @@ mod tests {
                 ..snapshotter_for_test(&test_dir, cardano_db.get_dir(), CompressionAlgorithm::Gzip)
             };
 
-            let archive = snapshotter
-                .snapshot_ancillary(2, "ancillary")
-                .await
-                .unwrap();
+            let archive = snapshotter.snapshot_ancillary(2, "ancillary").await.unwrap();
             let unpacked = archive.unpack_gzip(test_dir);
             let manifest_path = unpacked.join(AncillaryFilesManifest::ANCILLARY_MANIFEST_FILE_NAME);
 
@@ -853,11 +828,7 @@ mod tests {
                 manifest.files()
             );
             assert_eq!(
-                Some(
-                    fake_keys::signable_manifest_signature()[0]
-                        .try_into()
-                        .unwrap()
-                ),
+                Some(fake_keys::signable_manifest_signature()[0].try_into().unwrap()),
                 manifest.signature()
             )
         }

@@ -149,9 +149,8 @@ impl SignedEntityStorer for SignedEntityStore {
 
         for record in signed_entities {
             let id = record.signed_entity_id.clone();
-            let updated_record = self
-                .connection
-                .fetch_first(UpdateSignedEntityQuery::one(record)?)?;
+            let updated_record =
+                self.connection.fetch_first(UpdateSignedEntityQuery::one(record)?)?;
 
             updated_records.push(updated_record.unwrap_or_else(|| {
                 panic!("Updating a signed_entity should not return nothing, id = {id:?}",)
@@ -275,10 +274,8 @@ mod tests {
         let connection = main_db_connection().unwrap();
         insert_signed_entities(&connection, expected_records.clone()).unwrap();
         let store = SignedEntityStore::new(Arc::new(connection));
-        let certificates_ids: Vec<&str> = expected_records
-            .iter()
-            .map(|r| r.certificate_id.as_str())
-            .collect();
+        let certificates_ids: Vec<&str> =
+            expected_records.iter().map(|r| r.certificate_id.as_str()).collect();
 
         let queried_records = store
             .get_signed_entities_by_certificates_ids(&certificates_ids)

@@ -91,10 +91,7 @@ mod handlers {
                 client_metadata.client_type.as_deref().unwrap_or_default(),
             ]);
 
-        match http_message_service
-            .get_latest_genesis_certificate_message()
-            .await
-        {
+        match http_message_service.get_latest_genesis_certificate_message().await {
             Ok(Some(certificate)) => Ok(reply::json(&certificate, StatusCode::OK)),
             Ok(None) => Ok(reply::empty(StatusCode::NOT_FOUND)),
             Err(err) => {
@@ -119,10 +116,7 @@ mod handlers {
                 client_metadata.client_type.as_deref().unwrap_or_default(),
             ]);
 
-        match http_message_service
-            .get_certificate_message(&certificate_hash)
-            .await
-        {
+        match http_message_service.get_certificate_message(&certificate_hash).await {
             Ok(Some(certificate)) => Ok(reply::json(&certificate, StatusCode::OK)),
             Ok(None) => Ok(reply::empty(StatusCode::NOT_FOUND)),
             Err(err) => {

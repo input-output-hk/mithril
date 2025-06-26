@@ -78,10 +78,7 @@ async fn create_certificate_with_buffered_signatures() {
     cycle!(tester, "signing");
 
     comment!("register signers");
-    tester
-        .register_signers(&fixture.signers_fixture())
-        .await
-        .unwrap();
+    tester.register_signers(&fixture.signers_fixture()).await.unwrap();
 
     comment!("Using buffered signatures, the state machine should issue a certificate for the MithrilStakeDistribution");
     cycle!(tester, "ready");

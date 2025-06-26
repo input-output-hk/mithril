@@ -55,9 +55,7 @@ impl TransactionsImporter for TransactionsImporterWithPruner {
                 "Transaction Import finished - Pruning transactions included in block range roots";
                 "number_of_blocks_to_keep" => *number_of_blocks_to_keep,
             );
-            self.transaction_pruner
-                .prune(number_of_blocks_to_keep)
-                .await?;
+            self.transaction_pruner.prune(number_of_blocks_to_keep).await?;
         }
 
         Ok(())

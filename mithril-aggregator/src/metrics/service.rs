@@ -140,11 +140,7 @@ impl MetricsService {
     }
 
     fn build_label_key(&self, labels: &[LabelPair]) -> String {
-        labels
-            .iter()
-            .map(|p| p.value())
-            .collect::<Vec<_>>()
-            .join(",")
+        labels.iter().map(|p| p.value()).collect::<Vec<_>>().join(",")
     }
 
     fn build_metric_map(

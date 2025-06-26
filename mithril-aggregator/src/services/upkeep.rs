@@ -289,16 +289,10 @@ mod tests {
     #[tokio::test]
     async fn test_execute_all_pruning_tasks() {
         let task1 = mock_epoch_pruning_task(|mock| {
-            mock.expect_prune()
-                .once()
-                .with(eq(Epoch(14)))
-                .returning(|_| Ok(()));
+            mock.expect_prune().once().with(eq(Epoch(14))).returning(|_| Ok(()));
         });
         let task2 = mock_epoch_pruning_task(|mock| {
-            mock.expect_prune()
-                .once()
-                .with(eq(Epoch(14)))
-                .returning(|_| Ok(()));
+            mock.expect_prune().once().with(eq(Epoch(14))).returning(|_| Ok(()));
         });
 
         let service = AggregatorUpkeepService {

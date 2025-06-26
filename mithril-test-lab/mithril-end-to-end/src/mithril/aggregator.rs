@@ -260,9 +260,7 @@ impl Aggregator {
         mithril_era: &str,
         next_era_activation_epoch: entities::Epoch,
     ) -> StdResult<()> {
-        let is_not_first_era = entities::SupportedEra::eras()
-            .first()
-            .map(|e| e.to_string())
+        let is_not_first_era = entities::SupportedEra::eras().first().map(|e| e.to_string())
             != Some(mithril_era.to_string());
         let current_era_epoch = if is_not_first_era {
             entities::Epoch(0)
@@ -356,8 +354,6 @@ impl Aggregator {
 
     pub async fn last_error_in_logs(&self, number_of_error: u64) -> StdResult<()> {
         let command = self.command.write().await;
-        command
-            .last_error_in_logs(Some(&self.name()), number_of_error)
-            .await
+        command.last_error_in_logs(Some(&self.name()), number_of_error).await
     }
 }

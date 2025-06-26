@@ -179,9 +179,7 @@ async fn main_exec() -> StdResult<()> {
     let _guard = slog_scope::set_global_logger(build_logger(&args));
 
     if let Some(EndToEndCommands::GenerateDoc(cmd)) = &args.command {
-        return cmd
-            .execute(&mut Args::command())
-            .map_err(|message| anyhow!(message));
+        return cmd.execute(&mut Args::command()).map_err(|message| anyhow!(message));
     }
 
     let work_dir = match &args.work_directory {

@@ -215,10 +215,7 @@ mod tests {
             );
             assert_eq!(0, snapshot.get_archive_size());
 
-            let snapshot = snapshotter
-                .snapshot_ancillary(3, "archive_ancillary")
-                .await
-                .unwrap();
+            let snapshot = snapshotter.snapshot_ancillary(3, "archive_ancillary").await.unwrap();
             assert_eq!(
                 PathBuf::from("archive_ancillary.tar.gz"),
                 *snapshot.get_file_path()
@@ -337,10 +334,8 @@ mod tests {
                     assert!(full_immutables_snapshot.get_file_path().is_file());
                 }
                 {
-                    let ancillary_snapshot = fake_snapshotter
-                        .snapshot_ancillary(3, filename)
-                        .await
-                        .unwrap();
+                    let ancillary_snapshot =
+                        fake_snapshotter.snapshot_ancillary(3, filename).await.unwrap();
 
                     assert_eq!(
                         ancillary_snapshot.get_file_path(),
@@ -349,10 +344,8 @@ mod tests {
                     assert!(ancillary_snapshot.get_file_path().is_file());
                 }
                 {
-                    let immutable_snapshot = fake_snapshotter
-                        .snapshot_immutable_trio(5, filename)
-                        .await
-                        .unwrap();
+                    let immutable_snapshot =
+                        fake_snapshotter.snapshot_immutable_trio(5, filename).await.unwrap();
 
                     assert_eq!(
                         immutable_snapshot.get_file_path(),

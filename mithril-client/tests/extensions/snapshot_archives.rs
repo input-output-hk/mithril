@@ -97,8 +97,7 @@ fn append_immutable_trio<T: std::io::Write>(
         let file_path = immutables_dir.join(&file_name);
 
         let archive_path = format!("immutable/{file_name}");
-        tar.append_path_with_name(&file_path, &archive_path)
-            .unwrap();
+        tar.append_path_with_name(&file_path, &archive_path).unwrap();
     }
 }
 

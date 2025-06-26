@@ -469,9 +469,7 @@ mod tests {
     use super::*;
 
     fn generate_leaves(total_leaves: usize) -> Vec<MKTreeNode> {
-        (0..total_leaves)
-            .map(|i| format!("test-{i}").into())
-            .collect()
+        (0..total_leaves).map(|i| format!("test-{i}").into()).collect()
     }
 
     #[test]
@@ -479,9 +477,7 @@ mod tests {
         let leaves = vec!["golden-1", "golden-2", "golden-3", "golden-4", "golden-5"];
         let mktree =
             MKTree::<MKTreeStoreInMemory>::new(&leaves).expect("MKTree creation should not fail");
-        let mkroot = mktree
-            .compute_root()
-            .expect("MKRoot generation should not fail");
+        let mkroot = mktree.compute_root().expect("MKRoot generation should not fail");
 
         assert_eq!(
             "3bbced153528697ecde7345a22e50115306478353619411523e804f2323fd921",

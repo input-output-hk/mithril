@@ -54,10 +54,7 @@ impl MultiDownloadProgressReporter {
     #[cfg(test)]
     /// Get the total number of downloads.
     pub fn total_downloads(&self) -> u64 {
-        self.main_reporter
-            .inner_progress_bar()
-            .length()
-            .unwrap_or(0)
+        self.main_reporter.inner_progress_bar().length().unwrap_or(0)
     }
 
     #[cfg(test)]
@@ -102,8 +99,7 @@ impl MultiDownloadProgressReporter {
         let name = name.into();
         if let Some(child_reporter) = self.get_child_bar(&name).await {
             child_reporter.finish_and_clear();
-            self.parent_container
-                .remove(child_reporter.inner_progress_bar());
+            self.parent_container.remove(child_reporter.inner_progress_bar());
 
             let mut reporters = self.dl_reporters.write().await;
             reporters.remove(&name);
@@ -181,20 +177,14 @@ mod tests {
             .await;
 
         assert_eq!(
-            multi_dl_reporter
-                .main_reporter
-                .inner_progress_bar()
-                .position(),
+            multi_dl_reporter.main_reporter.inner_progress_bar().position(),
             0
         );
 
         multi_dl_reporter.finish_child_bar("name").await;
 
         assert_eq!(
-            multi_dl_reporter
-                .main_reporter
-                .inner_progress_bar()
-                .position(),
+            multi_dl_reporter.main_reporter.inner_progress_bar().position(),
             1
         );
         assert!(multi_dl_reporter.get_child_bar("name").await.is_none());
@@ -213,10 +203,7 @@ mod tests {
         multi_dl_reporter.finish_child_bar("name").await;
 
         assert_eq!(
-            multi_dl_reporter
-                .main_reporter
-                .inner_progress_bar()
-                .position(),
+            multi_dl_reporter.main_reporter.inner_progress_bar().position(),
             0
         );
     }
@@ -242,16 +229,10 @@ mod tests {
 
         assert_eq!(multi_dl_reporter.dl_reporters.read().await.len(), 0);
         assert_eq!(
-            multi_dl_reporter
-                .main_reporter
-                .inner_progress_bar()
-                .position(),
+            multi_dl_reporter.main_reporter.inner_progress_bar().position(),
             total_files
         );
-        assert!(multi_dl_reporter
-            .main_reporter
-            .inner_progress_bar()
-            .is_finished());
+        assert!(multi_dl_reporter.main_reporter.inner_progress_bar().is_finished());
     }
 
     #[tokio::test]
@@ -310,20 +291,14 @@ mod tests {
 
         assert_eq!(
             0,
-            multi_dl_reporter
-                .main_reporter
-                .inner_progress_bar()
-                .position()
+            multi_dl_reporter.main_reporter.inner_progress_bar().position()
         );
 
         multi_dl_reporter.bump_main_bar_progress();
 
         assert_eq!(
             1,
-            multi_dl_reporter
-                .main_reporter
-                .inner_progress_bar()
-                .position()
+            multi_dl_reporter.main_reporter.inner_progress_bar().position()
         );
     }
 }

@@ -38,11 +38,9 @@ where
 impl TransmitterService<EventMessage> {
     /// Send an [EventMessage].
     pub fn try_send(&self, message: EventMessage) -> StdResult<()> {
-        self.get_transmitter()
-            .send(message.clone())
-            .with_context(|| {
-                format!("An error occurred when sending message {message:?} to monitoring.")
-            })
+        self.get_transmitter().send(message.clone()).with_context(|| {
+            format!("An error occurred when sending message {message:?} to monitoring.")
+        })
     }
 
     /// Send an [EventMessage].

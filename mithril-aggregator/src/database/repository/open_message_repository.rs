@@ -190,10 +190,8 @@ mod tests {
                 .create_open_message(epoch, &signed_entity_type, &ProtocolMessage::new())
                 .await
                 .unwrap();
-            let open_message_result = repository
-                .get_open_message(&signed_entity_type)
-                .await
-                .unwrap();
+            let open_message_result =
+                repository.get_open_message(&signed_entity_type).await.unwrap();
             assert!(open_message_result.is_some());
         }
     }
@@ -279,10 +277,8 @@ mod tests {
 
         let mut open_message_updated = open_message;
         open_message_updated.is_certified = true;
-        let open_message_saved = repository
-            .update_open_message(&open_message_updated)
-            .await
-            .unwrap();
+        let open_message_saved =
+            repository.update_open_message(&open_message_updated).await.unwrap();
 
         assert_eq!(open_message_updated, open_message_saved);
     }
@@ -375,8 +371,6 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        assert!(open_message_with_single_signatures
-            .single_signatures
-            .is_empty())
+        assert!(open_message_with_single_signatures.single_signatures.is_empty())
     }
 }

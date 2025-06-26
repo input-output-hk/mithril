@@ -63,25 +63,21 @@ impl TransactionsRetriever for CardanoTransactionRepository {
         hashes: Vec<TransactionHash>,
         up_to: BlockNumber,
     ) -> StdResult<Vec<CardanoTransaction>> {
-        self.get_transaction_by_hashes(hashes, up_to)
-            .await
-            .map(|v| {
-                v.into_iter()
-                    .map(|record| record.into())
-                    .collect::<Vec<CardanoTransaction>>()
-            })
+        self.get_transaction_by_hashes(hashes, up_to).await.map(|v| {
+            v.into_iter()
+                .map(|record| record.into())
+                .collect::<Vec<CardanoTransaction>>()
+        })
     }
 
     async fn get_by_block_ranges(
         &self,
         block_ranges: Vec<BlockRange>,
     ) -> StdResult<Vec<CardanoTransaction>> {
-        self.get_transaction_by_block_ranges(block_ranges)
-            .await
-            .map(|v| {
-                v.into_iter()
-                    .map(|record| record.into())
-                    .collect::<Vec<CardanoTransaction>>()
-            })
+        self.get_transaction_by_block_ranges(block_ranges).await.map(|v| {
+            v.into_iter()
+                .map(|record| record.into())
+                .collect::<Vec<CardanoTransaction>>()
+        })
     }
 }

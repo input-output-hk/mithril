@@ -28,10 +28,7 @@ impl GitHubRelease {
             _ => return Err(anyhow!("Unsupported platform: {}", target_os)),
         };
 
-        let asset = self
-            .assets
-            .iter()
-            .find(|asset| asset.name.contains(os_in_asset_name));
+        let asset = self.assets.iter().find(|asset| asset.name.contains(os_in_asset_name));
 
         Ok(asset)
     }

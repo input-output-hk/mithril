@@ -70,14 +70,9 @@ async fn main() -> MithrilResult<()> {
         .hash
         .as_ref();
 
-    let cardano_database_snapshot =
-        client
-            .cardano_database_v2()
-            .get(latest_hash)
-            .await?
-            .ok_or(anyhow!(
-                "A Cardano database should exist for hash '{latest_hash}'"
-            ))?;
+    let cardano_database_snapshot = client.cardano_database_v2().get(latest_hash).await?.ok_or(
+        anyhow!("A Cardano database should exist for hash '{latest_hash}'"),
+    )?;
 
     let unpacked_dir = work_dir.join("unpack");
     std::fs::create_dir(&unpacked_dir).unwrap();

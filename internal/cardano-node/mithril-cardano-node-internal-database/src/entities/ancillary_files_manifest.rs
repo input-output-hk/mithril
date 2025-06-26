@@ -110,12 +110,12 @@ impl AncillaryFilesManifest {
     ) -> Result<(), AncillaryFilesManifestVerifyError> {
         for (file_path, expected_hash) in &self.signable_manifest.data {
             let file_path = base_directory.join(file_path);
-            let actual_hash = Self::compute_file_hash(&file_path)
-                .await
-                .map_err(|source| AncillaryFilesManifestVerifyError::HashCompute {
+            let actual_hash = Self::compute_file_hash(&file_path).await.map_err(|source| {
+                AncillaryFilesManifestVerifyError::HashCompute {
                     file_path: file_path.clone(),
                     source,
-                })?;
+                }
+            })?;
 
             if actual_hash != *expected_hash {
                 return Err(AncillaryFilesManifestVerifyError::FileHashMismatch {

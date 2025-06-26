@@ -106,9 +106,7 @@ impl SnapshotConverter for SnapshotConverterBin {
         if !status.success() {
             return Err(anyhow!(
                 "Failure while running snapshot-converter binary, exited with status code: {:?}",
-                status
-                    .code()
-                    .map_or(String::from("unknown"), |c| c.to_string())
+                status.code().map_or(String::from("unknown"), |c| c.to_string())
             ));
         }
 

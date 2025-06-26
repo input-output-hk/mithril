@@ -121,10 +121,7 @@ mod tests {
 
         let store = SignerStore::new(Arc::new(connection));
 
-        let stored_signers = store
-            .get_all()
-            .await
-            .expect("getting all signers should not fail");
+        let stored_signers = store.get_all().await.expect("getting all signers should not fail");
 
         assert_eq!(expected, stored_signers);
     }
@@ -201,9 +198,7 @@ mod tests {
             .collect();
         assert_eq!(signers_fake, signers_stored);
         assert!(
-            signer_records_stored
-                .iter()
-                .all(|s| s.last_registered_at.is_none()),
+            signer_records_stored.iter().all(|s| s.last_registered_at.is_none()),
             "imported signer should not have a registration date"
         );
     }

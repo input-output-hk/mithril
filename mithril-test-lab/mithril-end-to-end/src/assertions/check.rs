@@ -132,10 +132,7 @@ pub async fn assert_node_producing_snapshot(aggregator: &Aggregator) -> StdResul
     info!("Waiting for the aggregator to produce a snapshot"; "aggregator" => &aggregator.name());
 
     async fn fetch_last_snapshot_digest(url: String) -> StdResult<Option<String>> {
-        match get_json_response::<Vec<SnapshotMessage>>(url)
-            .await?
-            .as_deref()
-        {
+        match get_json_response::<Vec<SnapshotMessage>>(url).await?.as_deref() {
             Ok([snapshot, ..]) => Ok(Some(snapshot.digest.clone())),
             Ok(&[]) => Ok(None),
             Err(err) => Err(anyhow!("Invalid snapshot body: {err}",)),
@@ -634,10 +631,7 @@ pub async fn assert_client_can_verify_transactions(
     })?;
 
     info!("Asserting that all Cardano transactions where verified by the Client...");
-    if tx_hashes
-        .iter()
-        .all(|tx| result.certified_transactions.contains(tx))
-    {
+    if tx_hashes.iter().all(|tx| result.certified_transactions.contains(tx)) {
         Ok(())
     } else {
         Err(anyhow!(

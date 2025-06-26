@@ -81,9 +81,7 @@ impl SingleSignatureAuthenticator {
 impl SingleSignatureAuthenticator {
     pub(crate) fn new_that_authenticate_everything() -> Self {
         let mut multi_signer = crate::multi_signer::MockMultiSigner::new();
-        multi_signer
-            .expect_verify_single_signature()
-            .returning(|_, _| Ok(()));
+        multi_signer.expect_verify_single_signature().returning(|_, _| Ok(()));
         multi_signer
             .expect_verify_single_signature_for_next_stake_distribution()
             .returning(|_, _| Ok(()));
@@ -138,9 +136,7 @@ mod tests {
 
         let authenticator = SingleSignatureAuthenticator::new(
             mock_multi_signer(|mock_config| {
-                mock_config
-                    .expect_verify_single_signature()
-                    .returning(|_, _| Ok(()));
+                mock_config.expect_verify_single_signature().returning(|_, _| Ok(()));
             }),
             TestLogger::stdout(),
         );

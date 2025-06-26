@@ -208,9 +208,7 @@ mod migration {
         assert!(connection
             .prepare("select key_hash from protocol_initializer;")
             .is_err());
-        assert!(connection
-            .prepare("select * from protocol_initializer;")
-            .is_ok());
+        assert!(connection.prepare("select * from protocol_initializer;").is_ok());
 
         let value: i64 = connection
             .query_single_cell("select count(*) from protocol_initializer", &[])

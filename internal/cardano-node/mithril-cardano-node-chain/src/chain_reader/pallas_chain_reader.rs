@@ -80,9 +80,7 @@ impl PallasChainReader {
 
         if chainsync.has_agency() {
             debug!(logger, "Has agency, finding intersect point..."; "point" => ?point);
-            chainsync
-                .find_intersect(vec![point.to_owned().into()])
-                .await?;
+            chainsync.find_intersect(vec![point.to_owned().into()]).await?;
         } else {
             debug!(logger, "Doesn't have agency, no need to find intersect point";);
         }

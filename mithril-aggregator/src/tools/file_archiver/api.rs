@@ -274,9 +274,7 @@ impl FileArchiver {
     ) -> StdResult<()> {
         if entry.header().entry_type() != EntryType::Directory {
             let mut file = entry;
-            let _ = file
-                .unpack(unpack_file_path)
-                .with_context(|| "can't unpack entry")?;
+            let _ = file.unpack(unpack_file_path).with_context(|| "can't unpack entry")?;
 
             fs::remove_file(unpack_file_path).with_context(|| {
                 format!(

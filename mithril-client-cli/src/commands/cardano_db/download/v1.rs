@@ -155,9 +155,7 @@ impl PreparedCardanoDbV1Download {
         progress_printer.report_step(step_number, "Downloading and unpacking the cardano db")?;
 
         if include_ancillary {
-            snapshot_client
-                .download_unpack_full(cardano_db, db_dir)
-                .await?;
+            snapshot_client.download_unpack_full(cardano_db, db_dir).await?;
         } else {
             snapshot_client.download_unpack(cardano_db, db_dir).await?;
         }

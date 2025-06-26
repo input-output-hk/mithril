@@ -142,10 +142,8 @@ impl CertificatesHashMigrator {
         old_and_new_certificate_hashes: HashMap<String, String>,
     ) -> StdResult<()> {
         info!(self.logger, "Updating signed entities certificate ids");
-        let old_hashes: Vec<&str> = old_and_new_certificate_hashes
-            .keys()
-            .map(|k| k.as_str())
-            .collect();
+        let old_hashes: Vec<&str> =
+            old_and_new_certificate_hashes.keys().map(|k| k.as_str()).collect();
 
         debug!(
             self.logger,
@@ -466,10 +464,8 @@ mod test {
 
         // Note: data retrieved from the database will be in the earliest to the oldest order, the
         // reverse of our insert order.
-        let expected_certificates_and_signed_entities = recompute_hashes(old_certificates)
-            .into_iter()
-            .rev()
-            .collect();
+        let expected_certificates_and_signed_entities =
+            recompute_hashes(old_certificates).into_iter().rev().collect();
 
         // Act
         let migrator = CertificatesHashMigrator::new(
@@ -484,9 +480,7 @@ mod test {
 
         // Assert
         let migrated_certificates_and_signed_entities =
-            get_certificates_and_signed_entities(sqlite_connection)
-                .await
-                .unwrap();
+            get_certificates_and_signed_entities(sqlite_connection).await.unwrap();
 
         let extract_human_readable_data =
             |entries: Vec<(Certificate, Option<SignedEntityRecord>)>| {

@@ -142,10 +142,7 @@ mod handlers {
 
         let epoch_str = fetch_epoch_header_value(epoch_service, &logger).await;
 
-        match signer_registerer
-            .register_signer(registration_epoch, &signer)
-            .await
-        {
+        match signer_registerer.register_signer(registration_epoch, &signer).await {
             Ok(signer_with_stake) => {
                 event_transmitter.send(EventMessage::signer_registration(
                     "HTTP::signer_register",
@@ -371,13 +368,11 @@ mod tests {
     async fn test_register_signer_post_ok_existing() {
         let signer_with_stake = fake_data::signers_with_stakes(1).pop().unwrap();
         let mut mock_signer_registerer = MockSignerRegisterer::new();
-        mock_signer_registerer
-            .expect_register_signer()
-            .return_once(|_, _| {
-                Err(SignerRegistrationError::ExistingSigner(Box::new(
-                    signer_with_stake,
-                )))
-            });
+        mock_signer_registerer.expect_register_signer().return_once(|_, _| {
+            Err(SignerRegistrationError::ExistingSigner(Box::new(
+                signer_with_stake,
+            )))
+        });
         let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
@@ -410,13 +405,11 @@ mod tests {
     #[tokio::test]
     async fn test_register_signer_post_ko_400() {
         let mut mock_signer_registerer = MockSignerRegisterer::new();
-        mock_signer_registerer
-            .expect_register_signer()
-            .return_once(|_, _| {
-                Err(SignerRegistrationError::FailedSignerRegistration(anyhow!(
-                    ProtocolRegistrationError::OpCertInvalid
-                )))
-            });
+        mock_signer_registerer.expect_register_signer().return_once(|_, _| {
+            Err(SignerRegistrationError::FailedSignerRegistration(anyhow!(
+                ProtocolRegistrationError::OpCertInvalid
+            )))
+        });
         let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
@@ -449,13 +442,11 @@ mod tests {
     #[tokio::test]
     async fn test_register_signer_post_ko_500() {
         let mut mock_signer_registerer = MockSignerRegisterer::new();
-        mock_signer_registerer
-            .expect_register_signer()
-            .return_once(|_, _| {
-                Err(SignerRegistrationError::FailedSignerRecorder(
-                    "an error occurred".to_string(),
-                ))
-            });
+        mock_signer_registerer.expect_register_signer().return_once(|_, _| {
+            Err(SignerRegistrationError::FailedSignerRecorder(
+                "an error occurred".to_string(),
+            ))
+        });
         let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
@@ -761,9 +752,7 @@ mod tests {
             let epoch_service = Arc::new(RwLock::new(
                 FakeEpochServiceBuilder::dummy(Epoch(89)).build(),
             ));
-            let epoch = compute_registration_epoch("456", epoch_service)
-                .await
-                .unwrap();
+            let epoch = compute_registration_epoch("456", epoch_service).await.unwrap();
 
             assert_eq!(epoch, Epoch(456));
         }
@@ -773,9 +762,7 @@ mod tests {
             let epoch_service = Arc::new(RwLock::new(
                 FakeEpochServiceBuilder::dummy(Epoch(89)).build(),
             ));
-            let epoch = compute_registration_epoch("latest", epoch_service)
-                .await
-                .unwrap();
+            let epoch = compute_registration_epoch("latest", epoch_service).await.unwrap();
 
             assert_eq!(epoch, Epoch(89));
         }

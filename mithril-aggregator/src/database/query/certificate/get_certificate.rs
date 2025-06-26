@@ -105,18 +105,14 @@ mod tests {
     #[test]
     fn test_get_all_certificate_records() {
         let (certificates, _) = setup_certificate_chain(5, 2);
-        let expected_certificate_records: Vec<CertificateRecord> = certificates
-            .iter()
-            .map(|c| c.to_owned().into())
-            .rev()
-            .collect();
+        let expected_certificate_records: Vec<CertificateRecord> =
+            certificates.iter().map(|c| c.to_owned().into()).rev().collect();
 
         let connection = main_db_connection().unwrap();
         insert_certificate_records(&connection, certificates.clone());
 
-        let certificate_records: Vec<CertificateRecord> = connection
-            .fetch_collect(GetCertificateRecordQuery::all())
-            .unwrap();
+        let certificate_records: Vec<CertificateRecord> =
+            connection.fetch_collect(GetCertificateRecordQuery::all()).unwrap();
         assert_eq!(expected_certificate_records, certificate_records);
     }
 

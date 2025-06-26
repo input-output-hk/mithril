@@ -80,9 +80,8 @@ impl DependenciesBuilder {
         // Compute the cache pool for prover service
         // This is done here to avoid circular dependencies between the prover service and the signed entity service
         // TODO: Make this part of a warmup phase of the aggregator?
-        if let Some(signed_entity) = signed_entity_service
-            .get_last_cardano_transaction_snapshot()
-            .await?
+        if let Some(signed_entity) =
+            signed_entity_service.get_last_cardano_transaction_snapshot().await?
         {
             prover_service
                 .compute_cache(signed_entity.artifact.block_number)
@@ -101,9 +100,7 @@ impl DependenciesBuilder {
         let archive_verification_directory =
             std::env::temp_dir().join("mithril_archiver_verify_archive");
         let file_archiver = Arc::new(FileArchiver::new(
-            self.configuration
-                .zstandard_parameters()
-                .unwrap_or_default(),
+            self.configuration.zstandard_parameters().unwrap_or_default(),
             archive_verification_directory,
             self.root_logger(),
         ));
@@ -149,10 +146,8 @@ impl DependenciesBuilder {
     async fn build_snapshotter(&mut self) -> Result<Arc<dyn Snapshotter>> {
         let snapshotter: Arc<dyn Snapshotter> = match self.configuration.environment() {
             ExecutionEnvironment::Production => {
-                let ongoing_snapshot_directory = self
-                    .configuration
-                    .get_snapshot_dir()?
-                    .join("pending_snapshot");
+                let ongoing_snapshot_directory =
+                    self.configuration.get_snapshot_dir()?.join("pending_snapshot");
 
                 Arc::new(CompressedArchiveSnapshotter::new(
                     self.configuration.db_directory().clone(),
@@ -196,18 +191,15 @@ impl DependenciesBuilder {
                     let remote_folder_path = CloudRemotePath::new("cardano-immutable-files-full");
 
                     Ok(Arc::new(
-                        self.build_gcp_uploader(remote_folder_path, allow_overwrite)
-                            .await?,
+                        self.build_gcp_uploader(remote_folder_path, allow_overwrite).await?,
                     ))
                 }
                 SnapshotUploaderType::Local => {
                     let server_url_prefix = self.configuration.get_server_url()?;
                     let snapshot_url_prefix =
                         server_url_prefix.sanitize_join(SNAPSHOT_DOWNLOAD_PATH)?;
-                    let snapshot_artifacts_dir = self
-                        .configuration
-                        .get_snapshot_dir()?
-                        .join(SNAPSHOT_ARTIFACTS_DIR);
+                    let snapshot_artifacts_dir =
+                        self.configuration.get_snapshot_dir()?.join(SNAPSHOT_ARTIFACTS_DIR);
                     std::fs::create_dir_all(&snapshot_artifacts_dir).map_err(|e| {
                         DependenciesBuilderError::Initialization {
                             message: format!(
@@ -241,13 +233,9 @@ impl DependenciesBuilder {
         allow_overwrite: bool,
     ) -> Result<CloudUploader> {
         let logger = self.root_logger();
-        let bucket = self
-            .configuration
-            .snapshot_bucket_name()
-            .to_owned()
-            .ok_or_else(|| {
-                DependenciesBuilderError::MissingConfiguration("snapshot_bucket_name".to_string())
-            })?;
+        let bucket = self.configuration.snapshot_bucket_name().to_owned().ok_or_else(|| {
+            DependenciesBuilderError::MissingConfiguration("snapshot_bucket_name".to_string())
+        })?;
 
         Ok(CloudUploader::new(
             Arc::new(
@@ -277,8 +265,7 @@ impl DependenciesBuilder {
                         CloudRemotePath::new("cardano-database").join("ancillary");
 
                     Ok(vec![Arc::new(
-                        self.build_gcp_uploader(remote_folder_path, allow_overwrite)
-                            .await?,
+                        self.build_gcp_uploader(remote_folder_path, allow_overwrite).await?,
                     )])
                 }
                 SnapshotUploaderType::Local => {
@@ -321,8 +308,7 @@ impl DependenciesBuilder {
                         CloudRemotePath::new("cardano-database").join("immutable");
 
                     Ok(vec![Arc::new(
-                        self.build_gcp_uploader(remote_folder_path, allow_overwrite)
-                            .await?,
+                        self.build_gcp_uploader(remote_folder_path, allow_overwrite).await?,
                     )])
                 }
                 SnapshotUploaderType::Local => {
@@ -356,8 +342,7 @@ impl DependenciesBuilder {
                         CloudRemotePath::new("cardano-database").join("digests");
 
                     Ok(vec![Arc::new(
-                        self.build_gcp_uploader(remote_folder_path, allow_overwrite)
-                            .await?,
+                        self.build_gcp_uploader(remote_folder_path, allow_overwrite).await?,
                     )])
                 }
                 SnapshotUploaderType::Local => {

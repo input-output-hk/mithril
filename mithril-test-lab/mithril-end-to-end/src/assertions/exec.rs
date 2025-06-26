@@ -79,9 +79,7 @@ pub async fn update_protocol_parameters(aggregator: &Aggregator) -> StdResult<()
     info!(
         "> updating protocol parameters to {protocol_parameters_new:?}..."; "aggregator" => &aggregator.name()
     );
-    aggregator
-        .set_protocol_parameters(&protocol_parameters_new)
-        .await;
+    aggregator.set_protocol_parameters(&protocol_parameters_new).await;
     info!("> done, restarting aggregator"; "aggregator" => &aggregator.name());
     aggregator.serve().await?;
 

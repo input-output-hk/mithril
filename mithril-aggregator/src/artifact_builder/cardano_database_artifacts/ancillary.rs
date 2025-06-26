@@ -289,9 +289,7 @@ mod tests {
         )
         .unwrap();
 
-        let _ = builder
-            .upload_ancillary_archive(&FileArchive::dummy())
-            .await;
+        let _ = builder.upload_ancillary_archive(&FileArchive::dummy()).await;
 
         assert!(log_inspector.contains_log("Failure while uploading..."));
     }
@@ -308,9 +306,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = builder
-            .upload_ancillary_archive(&FileArchive::dummy())
-            .await;
+        let result = builder.upload_ancillary_archive(&FileArchive::dummy()).await;
 
         assert!(
             result.is_err(),
@@ -453,10 +449,7 @@ mod tests {
 
         assert!(archive_path.exists());
 
-        builder
-            .upload_ancillary_archive(&archive)
-            .await
-            .unwrap_err();
+        builder.upload_ancillary_archive(&archive).await.unwrap_err();
 
         assert!(!archive_path.exists());
     }

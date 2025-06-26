@@ -99,23 +99,17 @@ impl CertificateRepository {
 
         let records: Vec<CertificateRecord> =
             certificates.into_iter().map(|cert| cert.into()).collect();
-        let new_certificates = self
-            .connection
-            .fetch(InsertCertificateRecordQuery::many(records))?;
+        let new_certificates =
+            self.connection.fetch(InsertCertificateRecordQuery::many(records))?;
 
         Ok(new_certificates.map(|cert| cert.into()).collect())
     }
 
     /// Delete all the given certificates from the database
     pub async fn delete_certificates(&self, certificates: &[&Certificate]) -> StdResult<()> {
-        let ids = certificates
-            .iter()
-            .map(|c| c.hash.as_str())
-            .collect::<Vec<_>>();
+        let ids = certificates.iter().map(|c| c.hash.as_str()).collect::<Vec<_>>();
 
-        let _ = self
-            .connection
-            .fetch_first(DeleteCertificateQuery::by_ids(&ids))?;
+        let _ = self.connection.fetch_first(DeleteCertificateQuery::by_ids(&ids))?;
 
         Ok(())
     }
@@ -251,10 +245,7 @@ mod tests {
         insert_certificate_records(&connection, certificates.clone());
 
         let repository: CertificateRepository = CertificateRepository::new(connection);
-        let certificate = repository
-            .get_certificate::<Certificate>("whatever")
-            .await
-            .unwrap();
+        let certificate = repository.get_certificate::<Certificate>("whatever").await.unwrap();
         assert!(certificate.is_none());
 
         let certificate = repository
@@ -273,10 +264,8 @@ mod tests {
         insert_certificate_records(&connection, certificates.clone());
 
         let repository = CertificateRepository::new(connection);
-        let latest_certificates = repository
-            .get_latest_certificates(certificates.len())
-            .await
-            .unwrap();
+        let latest_certificates =
+            repository.get_latest_certificates(certificates.len()).await.unwrap();
         let expected: Vec<Certificate> = certificates.into_iter().rev().collect();
 
         assert_eq!(expected, latest_certificates);
@@ -530,10 +519,7 @@ mod tests {
         let (certificates, _) = setup_certificate_chain(5, 3);
         let connection = Arc::new(main_db_connection().unwrap());
         let repository: CertificateRepository = CertificateRepository::new(connection.clone());
-        let certificate = repository
-            .create_certificate(certificates[4].clone())
-            .await
-            .unwrap();
+        let certificate = repository.create_certificate(certificates[4].clone()).await.unwrap();
 
         assert_eq!(certificates[4].hash, certificate.hash);
         {
@@ -562,20 +548,12 @@ mod tests {
 
         // Delete all records except the first
         repository
-            .delete_certificates(
-                &certificates
-                    .iter()
-                    .filter(|r| r.hash != "1")
-                    .collect::<Vec<_>>(),
-            )
+            .delete_certificates(&certificates.iter().filter(|r| r.hash != "1").collect::<Vec<_>>())
             .await
             .unwrap();
 
         let expected_remaining_certificate = certificates.first().unwrap().clone();
-        let remaining_certificates = repository
-            .get_latest_certificates(usize::MAX)
-            .await
-            .unwrap();
+        let remaining_certificates = repository.get_latest_certificates(usize::MAX).await.unwrap();
 
         assert_eq!(vec![expected_remaining_certificate], remaining_certificates)
     }

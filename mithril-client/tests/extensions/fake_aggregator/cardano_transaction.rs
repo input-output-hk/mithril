@@ -14,9 +14,7 @@ impl FakeAggregator {
             certificate_hash: certificate_hash.to_string(),
             certified_transactions: vec![CardanoTransactionsSetProof {
                 transactions_hashes: tx_hashes.iter().map(|h| h.to_string()).collect(),
-                proof: ProtocolMkProof::new(proof.to_owned().into())
-                    .to_json_hex()
-                    .unwrap(),
+                proof: ProtocolMkProof::new(proof.to_owned().into()).to_json_hex().unwrap(),
             }],
             non_certified_transactions: vec![],
             latest_block_number: BlockNumber(9999),

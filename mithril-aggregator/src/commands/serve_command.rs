@@ -202,10 +202,7 @@ impl ServeCommand {
             .with_context(|| "Dependencies Builder can not create signature processor")?;
         let signature_processor_clone = signature_processor.clone();
         join_set.spawn(async move {
-            signature_processor_clone
-                .run()
-                .await
-                .map_err(|e| e.to_string())?;
+            signature_processor_clone.run().await.map_err(|e| e.to_string())?;
 
             Ok(())
         });

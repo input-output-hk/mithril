@@ -135,8 +135,7 @@ impl AggregatorRuntime {
         );
         info!(self.logger, "New cycle: {}", self.state);
 
-        self.runner
-            .increment_runtime_cycle_total_since_startup_counter();
+        self.runner.increment_runtime_cycle_total_since_startup_counter();
 
         match self.state.clone() {
             AggregatorState::Idle(state) => {
@@ -227,23 +226,20 @@ impl AggregatorRuntime {
                         self.logger,
                         "→ Open message changed, transitioning to READY"
                     );
-                    let new_state = self
-                        .transition_from_signing_to_ready_new_open_message(state)
-                        .await?;
+                    let new_state =
+                        self.transition_from_signing_to_ready_new_open_message(state).await?;
                     self.state = AggregatorState::Ready(new_state);
                 } else {
                     // SIGNING > READY
-                    let new_state = self
-                        .transition_from_signing_to_ready_multisignature(state)
-                        .await?;
+                    let new_state =
+                        self.transition_from_signing_to_ready_multisignature(state).await?;
                     info!(self.logger, "→ A multi-signature has been created, build an artifact & a certificate and transitioning back to READY");
                     self.state = AggregatorState::Ready(new_state);
                 }
             }
         }
 
-        self.runner
-            .increment_runtime_cycle_success_since_startup_counter();
+        self.runner.increment_runtime_cycle_success_since_startup_counter();
 
         Ok(())
     }
@@ -265,14 +261,10 @@ impl AggregatorRuntime {
                 .update_era_checker(new_time_point.epoch)
                 .await
                 .map_err(|e| RuntimeError::critical("transiting IDLE → READY", Some(e)))?;
-            self.runner
-                .update_stake_distribution(&new_time_point)
-                .await?;
+            self.runner.update_stake_distribution(&new_time_point).await?;
             self.runner.inform_new_epoch(new_time_point.epoch).await?;
             self.runner.upkeep(new_time_point.epoch).await?;
-            self.runner
-                .open_signer_registration_round(&new_time_point)
-                .await?;
+            self.runner.open_signer_registration_round(&new_time_point).await?;
             self.runner.update_epoch_settings().await?;
             if self.config.is_follower {
                 self.runner
@@ -444,14 +436,8 @@ mod tests {
                 .with(predicate::eq(TimePoint::dummy().epoch))
                 .once()
                 .returning(|_| Ok(()));
-            runner
-                .expect_update_epoch_settings()
-                .once()
-                .returning(|| Ok(()));
-            runner
-                .expect_precompute_epoch_data()
-                .once()
-                .returning(|| Ok(()));
+            runner.expect_update_epoch_settings().once().returning(|| Ok(()));
+            runner.expect_precompute_epoch_data().once().returning(|| Ok(()));
             runner
                 .expect_upkeep()
                 .with(predicate::eq(TimePoint::dummy().epoch))
@@ -513,14 +499,8 @@ mod tests {
                 .with(predicate::eq(TimePoint::dummy().epoch))
                 .once()
                 .returning(|_| Ok(()));
-            runner
-                .expect_update_epoch_settings()
-                .once()
-                .returning(|| Ok(()));
-            runner
-                .expect_precompute_epoch_data()
-                .once()
-                .returning(|| Ok(()));
+            runner.expect_update_epoch_settings().once().returning(|| Ok(()));
+            runner.expect_precompute_epoch_data().once().returning(|| Ok(()));
             runner
                 .expect_upkeep()
                 .with(predicate::eq(TimePoint::dummy().epoch))
@@ -706,10 +686,7 @@ mod tests {
                 .expect_is_open_message_outdated()
                 .once()
                 .returning(|_, _| Ok(false));
-            runner
-                .expect_create_certificate()
-                .once()
-                .returning(|_| Ok(None));
+            runner.expect_create_certificate().once().returning(|_| Ok(None));
             runner
                 .expect_increment_runtime_cycle_total_since_startup_counter()
                 .once()
@@ -794,10 +771,7 @@ mod tests {
             runner
                 .expect_create_certificate()
                 .return_once(move |_| Ok(Some(fake_data::certificate("whatever".to_string()))));
-            runner
-                .expect_create_artifact()
-                .once()
-                .returning(|_, _| Ok(()));
+            runner.expect_create_artifact().once().returning(|_, _| Ok(()));
             runner
                 .expect_increment_runtime_cycle_total_since_startup_counter()
                 .once()
@@ -944,14 +918,8 @@ mod tests {
                 .with(predicate::eq(new_time_point_clone.clone().epoch))
                 .once()
                 .returning(|_| Ok(()));
-            runner
-                .expect_update_epoch_settings()
-                .once()
-                .returning(|| Ok(()));
-            runner
-                .expect_precompute_epoch_data()
-                .once()
-                .returning(|| Ok(()));
+            runner.expect_update_epoch_settings().once().returning(|| Ok(()));
+            runner.expect_precompute_epoch_data().once().returning(|| Ok(()));
             runner
                 .expect_upkeep()
                 .with(predicate::eq(new_time_point_clone.clone().epoch))

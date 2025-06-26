@@ -166,9 +166,7 @@ impl MithrilEpochService {
     }
 
     fn unwrap_data(&self) -> Result<&EpochData, EpochServiceError> {
-        self.epoch_data
-            .as_ref()
-            .ok_or(EpochServiceError::NotYetInitialized)
+        self.epoch_data.as_ref().ok_or(EpochServiceError::NotYetInitialized)
     }
 }
 
@@ -470,9 +468,7 @@ mod tests {
     async fn test_is_signer_included_in_current_stake_distribution_returns_true_when_signer_verification_key_and_pool_id_found(
     ) {
         let fixtures = MithrilFixtureBuilder::default().with_signers(10).build();
-        let protocol_initializer = fixtures.signers_fixture()[0]
-            .protocol_initializer
-            .to_owned();
+        let protocol_initializer = fixtures.signers_fixture()[0].protocol_initializer.to_owned();
         let epoch = Epoch(12);
         let signers = fixtures.signers();
 
@@ -513,9 +509,8 @@ mod tests {
             )
             .unwrap());
 
-        let protocol_initializer_not_included = fixtures.signers_fixture()[6]
-            .protocol_initializer
-            .to_owned();
+        let protocol_initializer_not_included =
+            fixtures.signers_fixture()[6].protocol_initializer.to_owned();
         assert!(!service
             .is_signer_included_in_current_stake_distribution(
                 party_id,

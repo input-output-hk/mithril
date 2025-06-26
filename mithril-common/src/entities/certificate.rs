@@ -89,12 +89,7 @@ impl Certificate {
         hasher.update(self.metadata.compute_hash().as_bytes());
         hasher.update(self.protocol_message.compute_hash().as_bytes());
         hasher.update(self.signed_message.as_bytes());
-        hasher.update(
-            self.aggregate_verification_key
-                .to_json_hex()
-                .unwrap()
-                .as_bytes(),
-        );
+        hasher.update(self.aggregate_verification_key.to_json_hex().unwrap().as_bytes());
         match &self.signature {
             CertificateSignature::GenesisSignature(signature) => {
                 hasher.update(signature.to_bytes_hex().unwrap());
@@ -229,9 +224,7 @@ mod tests {
                 get_parties(),
             ),
             get_protocol_message(),
-            fake_keys::aggregate_verification_key()[0]
-                .try_into()
-                .unwrap(),
+            fake_keys::aggregate_verification_key()[0].try_into().unwrap(),
             CertificateSignature::MultiSignature(
                 signed_entity_type.clone(),
                 fake_keys::multi_signature()[0].try_into().unwrap(),
@@ -345,9 +338,7 @@ mod tests {
                 get_parties(),
             ),
             get_protocol_message(),
-            fake_keys::aggregate_verification_key()[1]
-                .try_into()
-                .unwrap(),
+            fake_keys::aggregate_verification_key()[1].try_into().unwrap(),
             CertificateSignature::GenesisSignature(
                 fake_keys::genesis_signature()[0].try_into().unwrap(),
             ),

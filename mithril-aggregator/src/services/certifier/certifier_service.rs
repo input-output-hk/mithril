@@ -256,11 +256,7 @@ impl CertifierService for MithrilCertifierService {
             return Err(CertifierServiceError::Expired(signed_entity_type.clone()).into());
         }
 
-        let multi_signature = match self
-            .multi_signer
-            .create_multi_signature(&open_message)
-            .await?
-        {
+        let multi_signature = match self.multi_signer.create_multi_signature(&open_message).await? {
             None => {
                 debug!(self.logger, "create_certificate: No multi-signature could be created for open message {signed_entity_type:?}");
                 return Ok(None);
@@ -449,10 +445,8 @@ mod tests {
             )));
         }
 
-        let dependency_manager = dependency_builder
-            .build_serve_dependencies_container()
-            .await
-            .unwrap();
+        let dependency_manager =
+            dependency_builder.build_serve_dependencies_container().await.unwrap();
         dependency_manager
             .init_state_from_fixture(
                 fixture,
@@ -495,10 +489,7 @@ mod tests {
             .await
             .unwrap();
         certifier_service.inform_epoch(epoch + 1).await.unwrap();
-        let open_message = certifier_service
-            .get_open_message(&signed_entity_type)
-            .await
-            .unwrap();
+        let open_message = certifier_service.get_open_message(&signed_entity_type).await.unwrap();
         assert!(open_message.is_none());
     }
 
@@ -889,10 +880,7 @@ mod tests {
             .create_certificate(certificate)
             .await
             .unwrap();
-        let error = certifier_service
-            .verify_certificate_chain(epoch)
-            .await
-            .unwrap_err();
+        let error = certifier_service.verify_certificate_chain(epoch).await.unwrap_err();
 
         if let Some(err) = error.downcast_ref::<CertifierServiceError>() {
             assert!(
@@ -915,10 +903,7 @@ mod tests {
             .create_certificate(certificate)
             .await
             .unwrap();
-        let error = certifier_service
-            .verify_certificate_chain(epoch)
-            .await
-            .unwrap_err();
+        let error = certifier_service.verify_certificate_chain(epoch).await.unwrap_err();
 
         if let Some(err) = error.downcast_ref::<CertifierServiceError>() {
             assert!(!matches!(

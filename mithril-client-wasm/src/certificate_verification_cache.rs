@@ -286,10 +286,7 @@ mod tests {
                 "store_in_empty_cache_add_new_item_that_expire_after_parametrized_delay",
                 expiration_delay,
             );
-            cache
-                .store_validated_certificate("hash", "parent")
-                .await
-                .unwrap();
+            cache.store_validated_certificate("hash", "parent").await.unwrap();
 
             let cached = cache
                 .get_cached_value("hash")

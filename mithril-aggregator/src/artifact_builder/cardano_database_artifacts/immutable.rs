@@ -261,18 +261,14 @@ impl ImmutableArtifactBuilder {
 
     fn retrieve_existing_snapshot_archive(&self, expected_archive_name: &str) -> Option<PathBuf> {
         let expected_archive_path = self.immutables_storage_dir.join(expected_archive_name);
-        expected_archive_path
-            .exists()
-            .then_some(expected_archive_path)
+        expected_archive_path.exists().then_some(expected_archive_path)
     }
 
     fn compute_average_uncompressed_size(
         total_size: u64,
         up_to_immutable_file_number: ImmutableFileNumber,
     ) -> u64 {
-        total_size
-            .checked_div(up_to_immutable_file_number)
-            .unwrap_or(0)
+        total_size.checked_div(up_to_immutable_file_number).unwrap_or(0)
     }
 }
 
@@ -490,9 +486,7 @@ mod tests {
             );
             let test_dir =
                 "error_when_one_of_the_three_immutable_files_is_missing/cardano_database";
-            let cardano_db = DummyCardanoDbBuilder::new(test_dir)
-                .with_immutables(&[1, 2])
-                .build();
+            let cardano_db = DummyCardanoDbBuilder::new(test_dir).with_immutables(&[1, 2]).build();
 
             let file_to_remove = cardano_db.get_immutable_dir().join("00002.chunk");
             std::fs::remove_file(file_to_remove).unwrap();
@@ -529,9 +523,7 @@ mod tests {
             let work_dir =
                 get_builder_work_dir("return_error_when_an_immutable_file_trio_is_missing");
             let test_dir = "error_when_an_immutable_file_trio_is_missing/cardano_database";
-            let cardano_db = DummyCardanoDbBuilder::new(test_dir)
-                .with_immutables(&[1, 3])
-                .build();
+            let cardano_db = DummyCardanoDbBuilder::new(test_dir).with_immutables(&[1, 3]).build();
 
             let db_directory = cardano_db.get_dir().to_path_buf();
             let snapshotter = CompressedArchiveSnapshotter::new(
@@ -563,9 +555,7 @@ mod tests {
             let work_dir =
                 get_builder_work_dir("return_error_when_immutable_file_number_is_not_produced_yet");
             let test_dir = "error_when_up_to_immutable_file_number_is_missing/cardano_database";
-            let cardano_db = DummyCardanoDbBuilder::new(test_dir)
-                .with_immutables(&[1, 2])
-                .build();
+            let cardano_db = DummyCardanoDbBuilder::new(test_dir).with_immutables(&[1, 2]).build();
 
             let db_directory = cardano_db.get_dir().to_path_buf();
             let snapshotter = CompressedArchiveSnapshotter::new(

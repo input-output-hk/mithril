@@ -74,10 +74,7 @@ impl StakeStorer for StakePoolStore {
             stake_distribution.insert(stake_pool.stake_pool_id, stake_pool.stake);
         }
 
-        Ok(stake_distribution
-            .is_empty()
-            .not()
-            .then_some(stake_distribution))
+        Ok(stake_distribution.is_empty().not().then_some(stake_distribution))
     }
 }
 
@@ -96,10 +93,9 @@ impl EpochPruningTask for StakePoolStore {
 
     async fn prune(&self, epoch: Epoch) -> StdResult<()> {
         if let Some(threshold) = self.retention_limit {
-            self.connection
-                .apply(DeleteStakePoolQuery::below_epoch_threshold(
-                    epoch - threshold,
-                ))?;
+            self.connection.apply(DeleteStakePoolQuery::below_epoch_threshold(
+                epoch - threshold,
+            ))?;
         }
         Ok(())
     }

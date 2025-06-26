@@ -93,9 +93,8 @@ mod tests {
         let connection = main_db_connection().unwrap();
         insert_signers(&connection, signer_records_fake.clone()).unwrap();
 
-        let signer_records: Vec<SignerRecord> = connection
-            .fetch_collect(GetSignerRecordQuery::all())
-            .unwrap();
+        let signer_records: Vec<SignerRecord> =
+            connection.fetch_collect(GetSignerRecordQuery::all()).unwrap();
         let expected_signer_records: Vec<SignerRecord> =
             signer_records_fake.into_iter().rev().collect();
         assert_eq!(expected_signer_records, signer_records);

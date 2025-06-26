@@ -51,10 +51,7 @@ fn serve_cardano_database_dir(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path(crate::http_server::CARDANO_DATABASE_DOWNLOAD_PATH)
         .and(warp::fs::dir(
-            router_state
-                .configuration
-                .cardano_db_artifacts_directory
-                .clone(),
+            router_state.configuration.cardano_db_artifacts_directory.clone(),
         ))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::extract_config(router_state, |config| {
@@ -161,10 +158,7 @@ mod handlers {
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        match http_message_service
-            .get_cardano_database_digest_list_message()
-            .await
-        {
+        match http_message_service.get_cardano_database_digest_list_message().await {
             Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
             Err(err) => {
                 warn!(logger,"list_digests_cardano_database"; "error" => ?err);

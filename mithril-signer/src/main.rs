@@ -247,13 +247,7 @@ async fn main() -> StdResult<()> {
     let (stop_tx, stop_rx) = watch::channel(());
 
     let mut join_set = JoinSet::new();
-    join_set.spawn(async move {
-        state_machine
-            .run()
-            .await
-            .map_err(|e| anyhow!(e))
-            .map(|_| None)
-    });
+    join_set.spawn(async move { state_machine.run().await.map_err(|e| anyhow!(e)).map(|_| None) });
 
     let preload_logger = root_logger.clone();
     join_set.spawn(async move {

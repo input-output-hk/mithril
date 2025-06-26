@@ -228,9 +228,7 @@ mod tests {
         let token = reader.read_era_epoch_token(Epoch(10)).await.unwrap();
         assert_eq!(
             SupportedEra::dummy(),
-            token
-                .get_current_supported_era()
-                .expect("the given era is supported")
+            token.get_current_supported_era().expect("the given era is supported")
         );
         assert!(token.get_next_era_marker().is_none());
         assert!(token

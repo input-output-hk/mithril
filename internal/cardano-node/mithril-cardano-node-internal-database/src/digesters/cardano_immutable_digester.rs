@@ -311,10 +311,7 @@ mod tests {
                 "00001.primary".to_string(),
                 "00001.secondary".to_string()
             ],
-            processable_files
-                .into_iter()
-                .map(|f| f.filename)
-                .collect::<Vec<_>>()
+            processable_files.into_iter().map(|f| f.filename).collect::<Vec<_>>()
         );
     }
 
@@ -398,11 +395,7 @@ mod tests {
         let immutable_range = 1..=100;
         let cardano_db =
             db_builder("can_compute_digests_for_range_of_a_hundred_immutable_file_trio")
-                .with_immutables(
-                    &immutable_range
-                        .clone()
-                        .collect::<Vec<ImmutableFileNumber>>(),
-                )
+                .with_immutables(&immutable_range.clone().collect::<Vec<ImmutableFileNumber>>())
                 .append_immutable_trio()
                 .build();
         let logger = TestLogger::stdout();
@@ -424,11 +417,7 @@ mod tests {
     async fn can_compute_consistent_digests_for_range() {
         let immutable_range = 1..=1;
         let cardano_db = db_builder("can_compute_digests_for_range_consistently")
-            .with_immutables(
-                &immutable_range
-                    .clone()
-                    .collect::<Vec<ImmutableFileNumber>>(),
-            )
+            .with_immutables(&immutable_range.clone().collect::<Vec<ImmutableFileNumber>>())
             .append_immutable_trio()
             .build();
         let logger = TestLogger::stdout();

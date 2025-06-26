@@ -70,11 +70,7 @@ pub async fn aggregator_router() -> Router<SharedState> {
         .layer(from_fn(set_json_app_header))
         .layer(
             TraceLayer::new_for_http()
-                .make_span_with(
-                    DefaultMakeSpan::new()
-                        .include_headers(true)
-                        .level(Level::DEBUG),
-                )
+                .make_span_with(DefaultMakeSpan::new().include_headers(true).level(Level::DEBUG))
                 .on_request(DefaultOnRequest::new().level(Level::DEBUG))
                 .on_response(
                     DefaultOnResponse::new()

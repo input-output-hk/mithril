@@ -217,9 +217,8 @@ mod tests {
             .collect();
         assert_eq!(expected_signed_entity_records, signed_entity_records);
 
-        let signed_entity_records: Vec<SignedEntityRecord> = connection
-            .fetch_collect(GetSignedEntityRecordQuery::all())
-            .unwrap();
+        let signed_entity_records: Vec<SignedEntityRecord> =
+            connection.fetch_collect(GetSignedEntityRecordQuery::all()).unwrap();
         let expected_signed_entity_records: Vec<SignedEntityRecord> =
             signed_entity_records.iter().map(|c| c.to_owned()).collect();
         assert_eq!(expected_signed_entity_records, signed_entity_records);

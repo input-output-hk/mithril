@@ -64,9 +64,7 @@ impl EraTools {
     pub fn create_and_save_era_keypair(keypair_path: &Path) -> StdResult<(PathBuf, PathBuf)> {
         let era_signer = EraMarkersSigner::create_non_deterministic_signer();
         let era_secret_key_path = keypair_path.join("era.sk");
-        era_signer
-            .secret_key()
-            .write_json_hex_to_file(&era_secret_key_path)?;
+        era_signer.secret_key().write_json_hex_to_file(&era_secret_key_path)?;
         let era_verification_key_path = keypair_path.join("era.vk");
         era_signer
             .verification_key()

@@ -86,9 +86,8 @@ mod tests {
         ]);
         insert_signed_beacons(&connection, records.clone());
 
-        let stored_records: Vec<SignedBeaconRecord> = connection
-            .fetch_collect(GetSignedBeaconQuery::all())
-            .unwrap();
+        let stored_records: Vec<SignedBeaconRecord> =
+            connection.fetch_collect(GetSignedBeaconQuery::all()).unwrap();
 
         assert_eq!(
             records.into_iter().rev().collect::<Vec<_>>(),

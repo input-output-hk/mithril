@@ -30,10 +30,7 @@ mod tests {
 
         assert_eq!(
             vec![EraMarker::new(&SupportedEra::dummy().to_string(), Some(Epoch(0)))],
-            adapter
-                .read()
-                .await
-                .expect("bootstrap adapter shall never fail")
+            adapter.read().await.expect("bootstrap adapter shall never fail")
         );
     }
 }

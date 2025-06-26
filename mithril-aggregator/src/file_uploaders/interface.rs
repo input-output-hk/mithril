@@ -125,12 +125,10 @@ mod tests {
     async fn should_retry_if_fail() {
         let mut uploader = MockTestFileUploader::new();
 
-        uploader
-            .expect_retry_policy()
-            .returning(|| FileUploadRetryPolicy {
-                attempts: 50,
-                delay_between_attempts: Duration::ZERO,
-            });
+        uploader.expect_retry_policy().returning(|| FileUploadRetryPolicy {
+            attempts: 50,
+            delay_between_attempts: Duration::ZERO,
+        });
 
         uploader
             .expect_upload_without_retry()
@@ -151,12 +149,10 @@ mod tests {
     async fn should_recall_a_failing_inner_uploader_up_to_the_limit() {
         let mut uploader = MockTestFileUploader::new();
 
-        uploader
-            .expect_retry_policy()
-            .returning(|| FileUploadRetryPolicy {
-                attempts: 4,
-                delay_between_attempts: Duration::ZERO,
-            });
+        uploader.expect_retry_policy().returning(|| FileUploadRetryPolicy {
+            attempts: 4,
+            delay_between_attempts: Duration::ZERO,
+        });
 
         uploader
             .expect_upload_without_retry()

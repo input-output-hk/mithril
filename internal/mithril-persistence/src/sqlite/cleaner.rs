@@ -75,17 +75,13 @@ impl<'a> SqliteCleaner<'a> {
         // Important: If WAL is enabled Vacuuming the database will not shrink until a
         // checkpoint is run, so it must be done after vacuuming.
         // Note: running a checkpoint when the WAL is disabled is harmless.
-        if self
-            .tasks
-            .contains(&SqliteCleaningTask::WalCheckpointTruncate)
-        {
+        if self.tasks.contains(&SqliteCleaningTask::WalCheckpointTruncate) {
             debug!(
                 self.logger,
                 "{}",
                 SqliteCleaningTask::WalCheckpointTruncate.log_message()
             );
-            self.connection
-                .execute("PRAGMA wal_checkpoint(TRUNCATE);")?;
+            self.connection.execute("PRAGMA wal_checkpoint(TRUNCATE);")?;
         } else {
             self.connection.execute("PRAGMA wal_checkpoint(PASSIVE);")?;
         }
@@ -135,20 +131,14 @@ mod tests {
     /// for the vacuum to reclaim
     fn prepare_db_for_vacuum(connection: &SqliteConnection) {
         // Disable Auto vacuum to allow the test to check if the vacuum was run
-        connection
-            .execute("pragma auto_vacuum = none; vacuum;")
-            .unwrap();
+        connection.execute("pragma auto_vacuum = none; vacuum;").unwrap();
         add_test_table(connection);
         fill_test_table(connection, 0..10_000);
         // Checkpoint before deletion so entries are transferred from the WAL file to the main db
-        connection
-            .execute("PRAGMA wal_checkpoint(PASSIVE)")
-            .unwrap();
+        connection.execute("PRAGMA wal_checkpoint(PASSIVE)").unwrap();
         delete_test_rows(connection, 0..5_000);
         // Checkpoint after deletion to create free pages in the main db
-        connection
-            .execute("PRAGMA wal_checkpoint(PASSIVE)")
-            .unwrap();
+        connection.execute("PRAGMA wal_checkpoint(PASSIVE)").unwrap();
     }
 
     fn file_size(path: &Path) -> u64 {

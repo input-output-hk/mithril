@@ -25,17 +25,15 @@ impl InsertCardanoTransactionQuery {
             repeat_n("(?*, ?*, ?*, ?*)", transactions_records.len()).collect();
 
         let values: StdResult<Vec<Value>> =
-            transactions_records
-                .into_iter()
-                .try_fold(vec![], |mut vec, record| {
-                    vec.append(&mut vec![
-                        Value::String(record.transaction_hash),
-                        Value::Integer(record.block_number.try_into()?),
-                        Value::Integer(record.slot_number.try_into()?),
-                        Value::String(record.block_hash.clone()),
-                    ]);
-                    Ok(vec)
-                });
+            transactions_records.into_iter().try_fold(vec![], |mut vec, record| {
+                vec.append(&mut vec![
+                    Value::String(record.transaction_hash),
+                    Value::Integer(record.block_number.try_into()?),
+                    Value::Integer(record.slot_number.try_into()?),
+                    Value::String(record.block_hash.clone()),
+                ]);
+                Ok(vec)
+            });
         let condition = WhereCondition::new(
             format!("{columns} values {}", values_columns.join(", ")).as_str(),
             values?,

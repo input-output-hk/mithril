@@ -12,9 +12,7 @@ pub fn get_package_path(package_name: &str) -> PathBuf {
 
     match cargo_pkgid_output.status.success() {
         true => {
-            let output_string = std::str::from_utf8(&cargo_pkgid_output.stdout)
-                .unwrap()
-                .trim();
+            let output_string = std::str::from_utf8(&cargo_pkgid_output.stdout).unwrap().trim();
             let package_path = extract_package_path(output_string);
 
             PathBuf::from(package_path)
@@ -22,9 +20,7 @@ pub fn get_package_path(package_name: &str) -> PathBuf {
         false => {
             panic!(
                 "cargo pkgid failed: stderr: {}",
-                std::str::from_utf8(&cargo_pkgid_output.stderr)
-                    .unwrap()
-                    .trim()
+                std::str::from_utf8(&cargo_pkgid_output.stderr).unwrap().trim()
             )
         }
     }
@@ -33,9 +29,7 @@ pub fn get_package_path(package_name: &str) -> PathBuf {
 const PKGID_OUTPUT_PREFIX: &str = "file://";
 
 fn extract_package_path<'a>(pkgid_output: &'a str) -> &'a str {
-    let output_without_prefix = pkgid_output
-        .split(PKGID_OUTPUT_PREFIX)
-        .collect::<Vec<&'a str>>();
+    let output_without_prefix = pkgid_output.split(PKGID_OUTPUT_PREFIX).collect::<Vec<&'a str>>();
 
     output_without_prefix
         .last()
@@ -89,9 +83,7 @@ mod tests {
     #[cfg(not(target_os = "windows"))]
     #[test]
     fn get_package_path_should_return_path_of_existing_package() {
-        let expected = PathBuf::from("./../../mithril-aggregator/")
-            .canonicalize()
-            .unwrap();
+        let expected = PathBuf::from("./../../mithril-aggregator/").canonicalize().unwrap();
 
         let package_path = get_package_path("mithril-aggregator");
 

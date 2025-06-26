@@ -44,9 +44,7 @@ pub async fn bootstrap_aggregator(
 
     // Extremely large interval since, for the two following starts, only the http_server part
     // of the aggregator is relevant as we need to send signer registrations.
-    aggregator
-        .change_run_interval(Duration::from_secs(20000))
-        .await;
+    aggregator.change_run_interval(Duration::from_secs(20000)).await;
     aggregator
         .set_mock_cardano_cli_file_path(
             &args.mock_stake_distribution_file_path(),

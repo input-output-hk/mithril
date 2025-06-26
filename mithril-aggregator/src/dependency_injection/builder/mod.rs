@@ -346,10 +346,8 @@ impl DependenciesBuilder {
     }
 
     fn get_cardano_db_artifacts_dir(&self) -> Result<PathBuf> {
-        let cardano_db_artifacts_dir = self
-            .configuration
-            .get_snapshot_dir()?
-            .join(CARDANO_DB_ARTIFACTS_DIR);
+        let cardano_db_artifacts_dir =
+            self.configuration.get_snapshot_dir()?.join(CARDANO_DB_ARTIFACTS_DIR);
 
         if !cardano_db_artifacts_dir.exists() {
             std::fs::create_dir(&cardano_db_artifacts_dir).map_err(|e| {

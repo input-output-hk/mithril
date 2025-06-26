@@ -197,9 +197,8 @@ impl MithrilInfrastructure {
             let aggregator_artifacts_dir = config
                 .artifacts_dir
                 .join(format!("mithril-aggregator-{aggregator_name}"));
-            let aggregator_store_dir = config
-                .store_dir
-                .join(format!("aggregator-{aggregator_name}"));
+            let aggregator_store_dir =
+                config.store_dir.join(format!("aggregator-{aggregator_name}"));
             let aggregator = Aggregator::new(&AggregatorConfig {
                 index,
                 name: &aggregator_name,
@@ -355,9 +354,7 @@ impl MithrilInfrastructure {
                 pool_node,
                 cardano_cli_path: &config.devnet.cardano_cli_path(),
                 work_dir: &config.work_dir,
-                store_dir: &config
-                    .store_dir
-                    .join(format!("signer-{}", pool_node.party_id()?)),
+                store_dir: &config.store_dir.join(format!("signer-{}", pool_node.party_id()?)),
                 bin_dir: &config.bin_dir,
                 mithril_run_interval: config.mithril_run_interval,
                 mithril_era: &config.mithril_era,
