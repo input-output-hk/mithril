@@ -23,6 +23,8 @@ use slog::Logger;
 use std::sync::Arc;
 
 use mithril_common::StdResult;
+use mithril_common::certificate_chain::CertificateVerifier;
+use mithril_common::crypto_helper::ProtocolGenesisVerifier;
 use mithril_common::entities::Certificate;
 use mithril_common::logging::LoggerExtensions;
 
@@ -34,6 +36,8 @@ use super::{
 pub struct MithrilCertificateChainSynchronizer {
     remote_certificate_retriever: Arc<dyn RemoteCertificateRetriever>,
     certificate_storer: Arc<dyn SynchronizedCertificateStorer>,
+    certificate_verifier: Arc<dyn CertificateVerifier>,
+    genesis_verifier: Arc<ProtocolGenesisVerifier>,
     logger: Logger,
 }
 
@@ -42,11 +46,15 @@ impl MithrilCertificateChainSynchronizer {
     pub fn new(
         remote_certificate_retriever: Arc<dyn RemoteCertificateRetriever>,
         certificate_storer: Arc<dyn SynchronizedCertificateStorer>,
+        certificate_verifier: Arc<dyn CertificateVerifier>,
+        genesis_verifier: Arc<ProtocolGenesisVerifier>,
         logger: Logger,
     ) -> Self {
         Self {
             remote_certificate_retriever,
             certificate_storer,
+            certificate_verifier,
+            genesis_verifier,
             logger: logger.new_with_component_name::<Self>(),
         }
     }
@@ -73,7 +81,10 @@ impl MithrilCertificateChainSynchronizer {
         }
     }
 
-    async fn retrieve_remote_certificate_chain(&self) -> StdResult<Vec<Certificate>> {
+    async fn retrieve_and_validate_remote_certificate_chain(
+        &self,
+        starting_point: Certificate,
+    ) -> StdResult<Vec<Certificate>> {
         Ok(Vec::new())
     }
 
@@ -89,7 +100,14 @@ impl CertificateChainSynchronizer for MithrilCertificateChainSynchronizer {
             return Ok(());
         }
 
-        let remote_certificate_chain = self.retrieve_remote_certificate_chain().await?;
+        let starting_point = self
+            .remote_certificate_retriever
+            .get_latest_certificate_details()
+            .await?
+            .ok_or(anyhow!("Remote aggregator doesn't have a chain yet"))?;
+        let remote_certificate_chain = self
+            .retrieve_and_validate_remote_certificate_chain(starting_point)
+            .await?;
         self.store_certificate_chain(remote_certificate_chain).await?;
 
         Ok(())
@@ -100,69 +118,113 @@ impl CertificateChainSynchronizer for MithrilCertificateChainSynchronizer {
 mod tests {
     use anyhow::anyhow;
 
-    use mithril_common::test_utils::fake_data;
+    use mithril_common::crypto_helper::ProtocolGenesisVerificationKey;
+    use mithril_common::test_utils::{fake_data, fake_keys, mock_extensions::MockBuilder};
 
     use crate::services::{MockRemoteCertificateRetriever, MockSynchronizedCertificateStorer};
     use crate::test_tools::TestLogger;
 
     use super::*;
 
+    mockall::mock! {
+        CertificateVerifier {}
+        #[async_trait]
+        impl CertificateVerifier for CertificateVerifier {
+            async fn verify_genesis_certificate(
+                &self,
+                genesis_certificate: &Certificate,
+                genesis_verification_key: &ProtocolGenesisVerificationKey,
+            ) -> StdResult<()>;
+
+            async fn verify_standard_certificate(
+                &self,
+                certificate: &Certificate,
+                previous_certificate: &Certificate,
+            ) -> StdResult<()>;
+
+            async fn verify_certificate(
+                &self,
+                certificate: &Certificate,
+                genesis_verification_key: &ProtocolGenesisVerificationKey,
+            ) -> StdResult<Option<Certificate>>;
+
+            async fn verify_certificate_chain(
+                &self,
+                certificate: Certificate,
+                genesis_verification_key: &ProtocolGenesisVerificationKey,
+            ) -> StdResult<()>;
+        }
+    }
+
     impl MithrilCertificateChainSynchronizer {
-        fn new_for_test(
-            remote_certificate_retriever_mock_config: impl FnOnce(&mut MockRemoteCertificateRetriever),
-            certificate_storer_mock_config: impl FnOnce(&mut MockSynchronizedCertificateStorer),
-        ) -> Self {
-            let mut remote_certificate_retriever_mock = MockRemoteCertificateRetriever::new();
-            remote_certificate_retriever_mock_config(&mut remote_certificate_retriever_mock);
-
-            let mut certificate_storer_mock = MockSynchronizedCertificateStorer::new();
-            certificate_storer_mock_config(&mut certificate_storer_mock);
-
-            Self {
-                remote_certificate_retriever: Arc::new(remote_certificate_retriever_mock),
-                certificate_storer: Arc::new(certificate_storer_mock),
-                logger: TestLogger::stdout(),
-            }
+        fn default_for_test() -> Self {
+            let genesis_verification_key =
+                fake_keys::genesis_verification_key()[0].try_into().unwrap();
+            Self::new(
+                Arc::new(MockRemoteCertificateRetriever::new()),
+                Arc::new(MockSynchronizedCertificateStorer::new()),
+                Arc::new(MockCertificateVerifier::new()),
+                Arc::new(ProtocolGenesisVerifier::from_verification_key(
+                    genesis_verification_key,
+                )),
+                TestLogger::stdout(),
+            )
         }
     }
 
     macro_rules! mocked_synchroniser {
-        () => {
-            MithrilCertificateChainSynchronizer::new_for_test(|_| {}, |_| {})
-        };
         (with_remote_genesis: $remote_genesis_result:expr) => {
-            MithrilCertificateChainSynchronizer::new_for_test(
-                move |retriever| {
-                    retriever
-                        .expect_get_genesis_certificate_details()
-                        .return_once(move || $remote_genesis_result);
-                },
-                |_| {},
-            )
+            MithrilCertificateChainSynchronizer {
+                remote_certificate_retriever:
+                    MockBuilder::<MockRemoteCertificateRetriever>::configure(|retriever| {
+                        retriever
+                            .expect_get_genesis_certificate_details()
+                            .return_once(move || $remote_genesis_result);
+                    }),
+                ..MithrilCertificateChainSynchronizer::default_for_test()
+            }
         };
         (with_local_genesis: $local_genesis_result:expr) => {
-            MithrilCertificateChainSynchronizer::new_for_test(
-                |_| {},
-                move |storer| {
-                    storer
-                        .expect_get_latest_genesis()
-                        .return_once(move || $local_genesis_result);
-                },
-            )
+            MithrilCertificateChainSynchronizer {
+                certificate_storer: MockBuilder::<MockSynchronizedCertificateStorer>::configure(
+                    |storer| {
+                        storer
+                            .expect_get_latest_genesis()
+                            .return_once(move || $local_genesis_result);
+                    },
+                ),
+                ..MithrilCertificateChainSynchronizer::default_for_test()
+            }
         };
         (with_remote_genesis: $remote_genesis_result:expr, with_local_genesis: $local_genesis_result:expr) => {
-            MithrilCertificateChainSynchronizer::new_for_test(
-                move |retriever| {
-                    retriever
-                        .expect_get_genesis_certificate_details()
-                        .return_once(move || $remote_genesis_result);
-                },
-                move |storer| {
-                    storer
-                        .expect_get_latest_genesis()
-                        .return_once(move || $local_genesis_result);
-                },
-            )
+            MithrilCertificateChainSynchronizer {
+                remote_certificate_retriever:
+                    MockBuilder::<MockRemoteCertificateRetriever>::configure(|retriever| {
+                        retriever
+                            .expect_get_genesis_certificate_details()
+                            .return_once(move || $remote_genesis_result);
+                    }),
+                certificate_storer: MockBuilder::<MockSynchronizedCertificateStorer>::configure(
+                    |storer| {
+                        storer
+                            .expect_get_latest_genesis()
+                            .return_once(move || $local_genesis_result);
+                    },
+                ),
+                ..MithrilCertificateChainSynchronizer::default_for_test()
+            }
+        };
+        (with_verify_certificate_result: $verify_certificate_result:expr) => {
+            MithrilCertificateChainSynchronizer {
+                certificate_verifier: MockBuilder::<MockCertificateVerifier>::configure(
+                    |verifier| {
+                        verifier
+                            .expect_verify_certificate()
+                            .return_once(move |_, _| $verify_certificate_result);
+                    },
+                ),
+                ..MithrilCertificateChainSynchronizer::default_for_test()
+            }
         };
     }
 
@@ -171,7 +233,7 @@ mod tests {
 
         #[tokio::test]
         async fn should_sync_if_force_true() {
-            let synchroniser = mocked_synchroniser!();
+            let synchroniser = MithrilCertificateChainSynchronizer::default_for_test();
 
             let should_sync = synchroniser.should_sync(true).await.unwrap();
             assert!(should_sync);
@@ -258,5 +320,34 @@ mod tests {
             let should_sync = synchroniser.should_sync(false).await.unwrap();
             assert!(!should_sync);
         }
+    }
+
+    mod retrieve_validate_remote_certificate_chain {
+        use super::*;
+        use mithril_common::certificate_chain::{
+            FakeCertificaterRetriever, MithrilCertificateVerifier,
+        };
+
+        fn fake_verifier(remote_certificate_chain: &[Certificate]) -> Arc<dyn CertificateVerifier> {
+            let verifier = MithrilCertificateVerifier::new(
+                TestLogger::stdout(),
+                Arc::new(FakeCertificaterRetriever::from_certificates(
+                    remote_certificate_chain,
+                )),
+            );
+            Arc::new(verifier)
+        }
+
+        #[tokio::test]
+        async fn succeed_if_the_remote_chain_only_contains_a_genesis_certificate() {}
+
+        #[tokio::test]
+        async fn abort_with_error_if_a_certificate_is_invalid() {}
+
+        #[tokio::test]
+        async fn abort_with_error_if_remote_retrieval_fails() {}
+
+        #[tokio::test]
+        async fn succeed_with_a_valid_certificate_chain() {}
     }
 }
