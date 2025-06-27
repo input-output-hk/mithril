@@ -39,7 +39,7 @@ members = [
 [workspace.package]
 authors = ["dev@iohk.io", "mithril-dev@iohk.io"]
 documentation = "https://mithril.network/doc"
-edition = "2021"
+edition = "2024"
 homepage = "https://mithril.network"
 license = "Apache-2.0"
 repository = "https://github.com/input-output-hk/mithril/"
