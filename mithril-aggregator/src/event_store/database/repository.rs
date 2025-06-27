@@ -7,7 +7,7 @@ use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 use std::sync::Arc;
 
 use crate::event_store::database::query::InsertEventQuery;
-use crate::event_store::{event::Event, EventMessage};
+use crate::event_store::{EventMessage, event::Event};
 /// The EventPersister is the adapter to persist EventMessage turning them into
 /// Event.
 pub struct EventPersister {
@@ -102,9 +102,7 @@ mod tests {
                 result.push((
                     statement.read::<String, _>("date")?,
                     statement.read::<String, _>("counter_name")?,
-                    statement
-                        .read::<Option<String>, _>("origin")?
-                        .unwrap_or_default(),
+                    statement.read::<Option<String>, _>("origin")?.unwrap_or_default(),
                     statement.read::<i64, _>("value")?,
                 ));
             }
@@ -439,7 +437,7 @@ mod tests {
 
         use crate::event_store::database::test_helper::event_store_db_connection;
         use mithril_common::entities::{SignerWithStake, Stake};
-        use mithril_common::{test_utils::fake_data, StdResult};
+        use mithril_common::{StdResult, test_utils::fake_data};
         use sqlite::ConnectionThreadSafe;
 
         use super::{EventMessage, EventPersister};

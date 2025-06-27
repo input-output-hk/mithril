@@ -4,8 +4,8 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 
-use mithril_common::entities::{CompressionAlgorithm, ImmutableFileNumber};
 use mithril_common::StdResult;
+use mithril_common::entities::{CompressionAlgorithm, ImmutableFileNumber};
 
 use crate::services::Snapshotter;
 use crate::tools::file_archiver::FileArchive;
@@ -201,8 +201,8 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn test_dumb_snapshotter_snapshot_return_archive_named_with_compression_algorithm_and_size_of_0(
-        ) {
+        async fn test_dumb_snapshotter_snapshot_return_archive_named_with_compression_algorithm_and_size_of_0()
+         {
             let snapshotter = DumbSnapshotter::new(CompressionAlgorithm::Gzip);
 
             let snapshot = snapshotter
@@ -215,10 +215,7 @@ mod tests {
             );
             assert_eq!(0, snapshot.get_archive_size());
 
-            let snapshot = snapshotter
-                .snapshot_ancillary(3, "archive_ancillary")
-                .await
-                .unwrap();
+            let snapshot = snapshotter.snapshot_ancillary(3, "archive_ancillary").await.unwrap();
             assert_eq!(
                 PathBuf::from("archive_ancillary.tar.gz"),
                 *snapshot.get_file_path()
@@ -239,12 +236,14 @@ mod tests {
         #[tokio::test]
         async fn test_dumb_snapshotter() {
             let snapshotter = DumbSnapshotter::new(CompressionAlgorithm::Zstandard);
-            assert!(snapshotter
-                .get_last_snapshot()
-                .expect(
-                    "Dumb snapshotter::get_last_snapshot should not fail when no last snapshot."
-                )
-                .is_none());
+            assert!(
+                snapshotter
+                    .get_last_snapshot()
+                    .expect(
+                        "Dumb snapshotter::get_last_snapshot should not fail when no last snapshot."
+                    )
+                    .is_none()
+            );
 
             {
                 let full_immutables_snapshot = snapshotter
@@ -323,11 +322,7 @@ mod tests {
             let fake_snapshotter = FakeSnapshotter::new(&test_dir)
                 .with_compression_algorithm(CompressionAlgorithm::Gzip);
 
-            for filename in [
-                "direct_child",
-                "one_level_subdir/child",
-                "two_levels/subdir/child",
-            ] {
+            for filename in ["direct_child", "one_level_subdir/child", "two_levels/subdir/child"] {
                 {
                     let full_immutables_snapshot = fake_snapshotter
                         .snapshot_all_completed_immutables(filename)
@@ -341,10 +336,8 @@ mod tests {
                     assert!(full_immutables_snapshot.get_file_path().is_file());
                 }
                 {
-                    let ancillary_snapshot = fake_snapshotter
-                        .snapshot_ancillary(3, filename)
-                        .await
-                        .unwrap();
+                    let ancillary_snapshot =
+                        fake_snapshotter.snapshot_ancillary(3, filename).await.unwrap();
 
                     assert_eq!(
                         ancillary_snapshot.get_file_path(),
@@ -353,10 +346,8 @@ mod tests {
                     assert!(ancillary_snapshot.get_file_path().is_file());
                 }
                 {
-                    let immutable_snapshot = fake_snapshotter
-                        .snapshot_immutable_trio(5, filename)
-                        .await
-                        .unwrap();
+                    let immutable_snapshot =
+                        fake_snapshotter.snapshot_immutable_trio(5, filename).await.unwrap();
 
                     assert_eq!(
                         immutable_snapshot.get_file_path(),

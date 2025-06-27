@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use clap::{CommandFactory, Parser, Subcommand};
 use slog::{Drain, Level, Logger};
 use slog_scope::{error, info};
@@ -11,7 +11,7 @@ use std::{
 };
 use thiserror::Error;
 use tokio::{
-    signal::unix::{signal, SignalKind},
+    signal::unix::{SignalKind, signal},
     sync::Mutex,
     task::JoinSet,
 };
@@ -179,9 +179,7 @@ async fn main_exec() -> StdResult<()> {
     let _guard = slog_scope::set_global_logger(build_logger(&args));
 
     if let Some(EndToEndCommands::GenerateDoc(cmd)) = &args.command {
-        return cmd
-            .execute(&mut Args::command())
-            .map_err(|message| anyhow!(message));
+        return cmd.execute(&mut Args::command()).map_err(|message| anyhow!(message));
     }
 
     let work_dir = match &args.work_directory {
@@ -388,7 +386,9 @@ impl App {
 
         match runner.with_context(|| "Mithril End to End test failed") {
             Ok(()) if run_only_mode => loop {
-                info!("Mithril end to end is running and will remain active until manually stopped...");
+                info!(
+                    "Mithril end to end is running and will remain active until manually stopped..."
+                );
                 tokio::time::sleep(Duration::from_secs(5)).await;
             },
             Ok(()) => Ok(()),

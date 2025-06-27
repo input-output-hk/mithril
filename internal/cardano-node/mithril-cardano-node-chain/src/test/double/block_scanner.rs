@@ -3,8 +3,8 @@ use std::sync::RwLock;
 
 use async_trait::async_trait;
 
-use mithril_common::entities::{BlockNumber, ChainPoint};
 use mithril_common::StdResult;
+use mithril_common::entities::{BlockNumber, ChainPoint};
 
 use crate::chain_scanner::{BlockScanner, BlockStreamer, ChainScannedBlocks};
 use crate::entities::{RawCardanoPoint, ScannedBlock};
@@ -104,10 +104,8 @@ impl DumbBlockStreamer {
     /// Add to the streamer several [ChainScannedBlocks::RollForwards] responses at the end of
     /// its queue.
     pub fn forwards(mut self, blocks: Vec<Vec<ScannedBlock>>) -> Self {
-        let mut source: VecDeque<_> = blocks
-            .into_iter()
-            .map(ChainScannedBlocks::RollForwards)
-            .collect();
+        let mut source: VecDeque<_> =
+            blocks.into_iter().map(ChainScannedBlocks::RollForwards).collect();
         self.streamer_responses.append(&mut source);
 
         self

@@ -1,6 +1,6 @@
 use std::future::IntoFuture;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use axum::Router;
 use futures::stream::StreamExt;
 use signal_hook::consts::*;
@@ -8,7 +8,7 @@ use signal_hook_tokio::Signals;
 use tracing::{debug, info, trace, warn};
 
 use crate::shared_state::{AppState, SharedState};
-use crate::{handlers, CliArguments, StdResult};
+use crate::{CliArguments, StdResult, handlers};
 
 /// Structure to hold signal listener
 pub struct OsSignalHandler;
@@ -92,7 +92,7 @@ mod tests {
     use serde_json::Value::Null;
     use std::time::Duration;
     use tokio::{
-        task::{yield_now, JoinHandle},
+        task::{JoinHandle, yield_now},
         time::sleep,
     };
     use warp::http::{Response, StatusCode};
@@ -100,7 +100,7 @@ mod tests {
 
     use mithril_api_spec::APISpec;
 
-    use crate::{default_values, CliArguments};
+    use crate::{CliArguments, default_values};
 
     use super::*;
 

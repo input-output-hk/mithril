@@ -4,10 +4,10 @@ use anyhow::Context;
 use async_trait::async_trait;
 
 use crate::{
+    StdResult,
     crypto_helper::{MKMap, MKMapNode, MKTreeNode, MKTreeStorer},
     entities::{BlockNumber, BlockRange, ProtocolMessage, ProtocolMessagePartKey},
     signable_builder::SignableBuilder,
-    StdResult,
 };
 
 #[cfg(test)]
@@ -120,9 +120,7 @@ mod tests {
         let transactions = CardanoTransactionsBuilder::new().build_transactions(3);
         let mk_map = compute_mk_map_from_transactions(transactions.clone());
         let mut transaction_importer = MockTransactionsImporter::new();
-        transaction_importer
-            .expect_import()
-            .return_once(move |_| Ok(()));
+        transaction_importer.expect_import().return_once(move |_| Ok(()));
         let retrieved_transactions = transactions.clone();
         let mut block_range_root_retriever = MockBlockRangeRootRetriever::new();
         block_range_root_retriever

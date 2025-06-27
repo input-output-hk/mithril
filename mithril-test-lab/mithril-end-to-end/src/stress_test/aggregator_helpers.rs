@@ -1,11 +1,11 @@
 use slog_scope::info;
 use std::time::Duration;
 
-use mithril_common::{entities::Epoch, test_utils::MithrilFixture, StdResult};
+use mithril_common::{StdResult, entities::Epoch, test_utils::MithrilFixture};
 
 use crate::{
-    stress_test::{entities::AggregatorParameters, fake_chain, fake_signer, wait},
     Aggregator, AggregatorConfig,
+    stress_test::{entities::AggregatorParameters, fake_chain, fake_signer, wait},
 };
 
 /// Bootstrap an aggregator and make it compute its genesis certificate
@@ -44,9 +44,7 @@ pub async fn bootstrap_aggregator(
 
     // Extremely large interval since, for the two following starts, only the http_server part
     // of the aggregator is relevant as we need to send signer registrations.
-    aggregator
-        .change_run_interval(Duration::from_secs(20000))
-        .await;
+    aggregator.change_run_interval(Duration::from_secs(20000)).await;
     aggregator
         .set_mock_cardano_cli_file_path(
             &args.mock_stake_distribution_file_path(),

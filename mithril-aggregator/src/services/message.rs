@@ -6,6 +6,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use mithril_common::{
+    StdResult,
     entities::{Epoch, SignedEntityTypeDiscriminants},
     messages::{
         CardanoDatabaseDigestListItemMessage, CardanoDatabaseDigestListMessage,
@@ -16,13 +17,12 @@ use mithril_common::{
         MithrilStakeDistributionListMessage, MithrilStakeDistributionMessage, SignerMessagePart,
         SnapshotListMessage, SnapshotMessage,
     },
-    StdResult,
 };
 
 use crate::{
+    ImmutableFileDigestMapper,
     database::repository::{CertificateRepository, SignedEntityStorer},
     dependency_injection::EpochServiceWrapper,
-    ImmutableFileDigestMapper,
 };
 
 /// HTTP Message service trait.
@@ -43,11 +43,11 @@ pub trait MessageService: Sync + Send {
 
     /// Return the message representation of the latest genesis certificate.
     async fn get_latest_genesis_certificate_message(&self)
-        -> StdResult<Option<CertificateMessage>>;
+    -> StdResult<Option<CertificateMessage>>;
 
     /// Return the message representation of the last N certificates.
     async fn get_certificate_list_message(&self, limit: usize)
-        -> StdResult<CertificateListMessage>;
+    -> StdResult<CertificateListMessage>;
 
     /// Return the information regarding the given snapshot.
     async fn get_snapshot_message(
@@ -153,9 +153,8 @@ impl MessageService for MithrilMessageService {
         let epoch_service = self.epoch_service.read().await;
 
         let epoch = epoch_service.epoch_of_current_data()?;
-        let signer_registration_protocol_parameters = epoch_service
-            .signer_registration_protocol_parameters()?
-            .clone();
+        let signer_registration_protocol_parameters =
+            epoch_service.signer_registration_protocol_parameters()?.clone();
         let current_signers = epoch_service.current_signers()?;
         let next_signers = epoch_service.next_signers()?;
 
@@ -187,36 +186,27 @@ impl MessageService for MithrilMessageService {
         &self,
         certificate_hash: &str,
     ) -> StdResult<Option<CertificateMessage>> {
-        self.certificate_repository
-            .get_certificate(certificate_hash)
-            .await
+        self.certificate_repository.get_certificate(certificate_hash).await
     }
 
     async fn get_latest_genesis_certificate_message(
         &self,
     ) -> StdResult<Option<CertificateMessage>> {
-        self.certificate_repository
-            .get_latest_genesis_certificate()
-            .await
+        self.certificate_repository.get_latest_genesis_certificate().await
     }
 
     async fn get_certificate_list_message(
         &self,
         limit: usize,
     ) -> StdResult<CertificateListMessage> {
-        self.certificate_repository
-            .get_latest_certificates(limit)
-            .await
+        self.certificate_repository.get_latest_certificates(limit).await
     }
 
     async fn get_snapshot_message(
         &self,
         signed_entity_id: &str,
     ) -> StdResult<Option<SnapshotMessage>> {
-        let signed_entity = self
-            .signed_entity_storer
-            .get_signed_entity(signed_entity_id)
-            .await?;
+        let signed_entity = self.signed_entity_storer.get_signed_entity(signed_entity_id).await?;
 
         signed_entity.map(|s| s.try_into()).transpose()
     }
@@ -235,10 +225,7 @@ impl MessageService for MithrilMessageService {
         &self,
         signed_entity_id: &str,
     ) -> StdResult<Option<CardanoDatabaseSnapshotMessage>> {
-        let signed_entity = self
-            .signed_entity_storer
-            .get_signed_entity(signed_entity_id)
-            .await?;
+        let signed_entity = self.signed_entity_storer.get_signed_entity(signed_entity_id).await?;
 
         signed_entity.map(|v| v.try_into()).transpose()
     }
@@ -277,10 +264,7 @@ impl MessageService for MithrilMessageService {
         &self,
         signed_entity_id: &str,
     ) -> StdResult<Option<MithrilStakeDistributionMessage>> {
-        let signed_entity = self
-            .signed_entity_storer
-            .get_signed_entity(signed_entity_id)
-            .await?;
+        let signed_entity = self.signed_entity_storer.get_signed_entity(signed_entity_id).await?;
 
         signed_entity.map(|v| v.try_into()).transpose()
     }
@@ -302,10 +286,7 @@ impl MessageService for MithrilMessageService {
         &self,
         signed_entity_id: &str,
     ) -> StdResult<Option<CardanoTransactionSnapshotMessage>> {
-        let signed_entity = self
-            .signed_entity_storer
-            .get_signed_entity(signed_entity_id)
-            .await?;
+        let signed_entity = self.signed_entity_storer.get_signed_entity(signed_entity_id).await?;
 
         signed_entity.map(|v| v.try_into()).transpose()
     }
@@ -327,10 +308,7 @@ impl MessageService for MithrilMessageService {
         &self,
         signed_entity_id: &str,
     ) -> StdResult<Option<CardanoStakeDistributionMessage>> {
-        let signed_entity = self
-            .signed_entity_storer
-            .get_signed_entity(signed_entity_id)
-            .await?;
+        let signed_entity = self.signed_entity_storer.get_signed_entity(signed_entity_id).await?;
 
         signed_entity.map(|v| v.try_into()).transpose()
     }
@@ -401,8 +379,7 @@ mod tests {
             mut self,
             signed_entity_record: &[SignedEntityRecord],
         ) -> Self {
-            self.signed_entity_records
-                .extend_from_slice(signed_entity_record);
+            self.signed_entity_records.extend_from_slice(signed_entity_record);
 
             self
         }
@@ -411,8 +388,7 @@ mod tests {
             mut self,
             digests: &[CardanoDatabaseDigestListItemMessage],
         ) -> Self {
-            self.immutable_file_digest_messages
-                .extend_from_slice(digests);
+            self.immutable_file_digest_messages.extend_from_slice(digests);
 
             self
         }
@@ -429,19 +405,14 @@ mod tests {
             let signed_entity_store = SignedEntityStore::new(connection.clone());
             let immutable_file_digest_mapper =
                 ImmutableFileDigestRepository::new(connection.clone());
-            let epoch_service = self
-                .epoch_service
-                .unwrap_or(FakeEpochService::without_data());
+            let epoch_service = self.epoch_service.unwrap_or(FakeEpochService::without_data());
 
             certificate_repository
                 .create_many_certificates(self.certificates)
                 .await
                 .unwrap();
             for record in self.signed_entity_records {
-                signed_entity_store
-                    .store_signed_entity(&record)
-                    .await
-                    .unwrap();
+                signed_entity_store.store_signed_entity(&record).await.unwrap();
             }
 
             for digest_message in self.immutable_file_digest_messages {
@@ -641,10 +612,8 @@ mod tests {
             let service = MessageServiceBuilder::new().build().await;
 
             let certificate_hash = "whatever";
-            let certificate_message = service
-                .get_certificate_message(certificate_hash)
-                .await
-                .unwrap();
+            let certificate_message =
+                service.get_certificate_message(certificate_hash).await.unwrap();
             assert!(certificate_message.is_none());
         }
 
@@ -668,10 +637,8 @@ mod tests {
         async fn get_no_latest_genesis_certificate() {
             let service = MessageServiceBuilder::new().build().await;
 
-            let certificate_message = service
-                .get_latest_genesis_certificate_message()
-                .await
-                .unwrap();
+            let certificate_message =
+                service.get_latest_genesis_certificate_message().await.unwrap();
             assert_eq!(None, certificate_message);
         }
 
@@ -793,10 +760,7 @@ mod tests {
         #[tokio::test]
         async fn get_cardano_database_when_record_does_not_exist() {
             let service = MessageServiceBuilder::new().build().await;
-            let snapshot = service
-                .get_cardano_database_message("whatever")
-                .await
-                .unwrap();
+            let snapshot = service.get_cardano_database_message("whatever").await.unwrap();
 
             assert!(snapshot.is_none());
         }
@@ -883,10 +847,7 @@ mod tests {
                 .build()
                 .await;
 
-            let response = service
-                .get_cardano_database_digest_list_message()
-                .await
-                .unwrap();
+            let response = service.get_cardano_database_digest_list_message().await.unwrap();
 
             assert_eq!(messages, response);
         }
@@ -961,16 +922,10 @@ mod tests {
                 .build()
                 .await;
 
-            let response = service
-                .get_mithril_stake_distribution_list_message(0)
-                .await
-                .unwrap();
+            let response = service.get_mithril_stake_distribution_list_message(0).await.unwrap();
             assert!(response.is_empty());
 
-            let response = service
-                .get_mithril_stake_distribution_list_message(3)
-                .await
-                .unwrap();
+            let response = service.get_mithril_stake_distribution_list_message(3).await.unwrap();
             assert_eq!(message, response);
         }
     }
@@ -1011,10 +966,7 @@ mod tests {
         async fn get_cardano_transaction_not_exist() {
             let service = MessageServiceBuilder::new().build().await;
 
-            let response = service
-                .get_cardano_transaction_message("whatever")
-                .await
-                .unwrap();
+            let response = service.get_cardano_transaction_message("whatever").await.unwrap();
 
             assert!(response.is_none());
         }
@@ -1052,16 +1004,10 @@ mod tests {
                 .build()
                 .await;
 
-            let response = service
-                .get_cardano_transaction_list_message(0)
-                .await
-                .unwrap();
+            let response = service.get_cardano_transaction_list_message(0).await.unwrap();
             assert!(response.is_empty());
 
-            let response = service
-                .get_cardano_transaction_list_message(3)
-                .await
-                .unwrap();
+            let response = service.get_cardano_transaction_list_message(3).await.unwrap();
             assert_eq!(message, response);
         }
     }
@@ -1175,16 +1121,10 @@ mod tests {
                 .build()
                 .await;
 
-            let response = service
-                .get_cardano_stake_distribution_list_message(0)
-                .await
-                .unwrap();
+            let response = service.get_cardano_stake_distribution_list_message(0).await.unwrap();
             assert!(response.is_empty());
 
-            let response = service
-                .get_cardano_stake_distribution_list_message(3)
-                .await
-                .unwrap();
+            let response = service.get_cardano_stake_distribution_list_message(3).await.unwrap();
             assert_eq!(message, response);
         }
     }

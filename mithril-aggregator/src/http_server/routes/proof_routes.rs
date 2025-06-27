@@ -11,10 +11,7 @@ struct CardanoTransactionProofQueryParams {
 
 impl CardanoTransactionProofQueryParams {
     pub fn split_transactions_hashes(&self) -> Vec<String> {
-        self.transaction_hashes
-            .split(',')
-            .map(|s| s.to_string())
-            .collect()
+        self.transaction_hashes.split(',').map(|s| s.to_string()).collect()
     }
 
     pub fn sanitize(&self) -> Vec<String> {
@@ -27,14 +24,14 @@ impl CardanoTransactionProofQueryParams {
 
 pub fn routes(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     proof_cardano_transaction(router_state)
 }
 
 /// GET /proof/cardano-transaction
 fn proof_cardano_transaction(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("proof" / "cardano-transaction")
         .and(warp::get())
         .and(middlewares::with_client_metadata(router_state))
@@ -48,23 +45,24 @@ fn proof_cardano_transaction(
 }
 
 mod handlers {
-    use slog::{debug, warn, Logger};
+    use slog::{Logger, debug, warn};
     use std::{convert::Infallible, sync::Arc};
     use warp::http::StatusCode;
 
     use mithril_common::{
-        entities::CardanoTransactionsSnapshot, messages::CardanoTransactionsProofsMessage,
-        signable_builder::SignedEntity, StdResult,
+        StdResult, entities::CardanoTransactionsSnapshot,
+        messages::CardanoTransactionsProofsMessage, signable_builder::SignedEntity,
     };
 
     use crate::{
+        MetricsService,
         http_server::{
             routes::{middlewares::ClientMetadata, reply},
             validators::ProverTransactionsHashValidator,
         },
         message_adapters::ToCardanoTransactionsProofsMessageAdapter,
         services::{ProverService, SignedEntityService},
-        unwrap_to_internal_server_error, MetricsService,
+        unwrap_to_internal_server_error,
     };
 
     use super::CardanoTransactionProofQueryParams;
@@ -163,10 +161,10 @@ mod tests {
 
     use mithril_api_spec::APISpec;
     use mithril_common::{
+        MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
         entities::{BlockNumber, CardanoTransactionsSetProof, CardanoTransactionsSnapshot},
         signable_builder::SignedEntity,
         test_utils::{assert_equivalent, fake_data},
-        MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
     };
 
     use crate::services::MockProverService;

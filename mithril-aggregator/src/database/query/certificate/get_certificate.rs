@@ -1,9 +1,9 @@
 use sqlite::Value;
 
 #[cfg(test)]
-use mithril_common::entities::Epoch;
-#[cfg(test)]
 use mithril_common::StdResult;
+#[cfg(test)]
+use mithril_common::entities::Epoch;
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::CertificateRecord;
@@ -59,8 +59,8 @@ impl Query for GetCertificateRecordQuery {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
     use mithril_common::crypto_helper::ProtocolParameters;
+    use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
     use mithril_common::test_utils::CertificateChainBuilder;
 
     use mithril_persistence::sqlite::ConnectionExtensions;
@@ -105,18 +105,14 @@ mod tests {
     #[test]
     fn test_get_all_certificate_records() {
         let (certificates, _) = setup_certificate_chain(5, 2);
-        let expected_certificate_records: Vec<CertificateRecord> = certificates
-            .iter()
-            .map(|c| c.to_owned().into())
-            .rev()
-            .collect();
+        let expected_certificate_records: Vec<CertificateRecord> =
+            certificates.iter().map(|c| c.to_owned().into()).rev().collect();
 
         let connection = main_db_connection().unwrap();
         insert_certificate_records(&connection, certificates.clone());
 
-        let certificate_records: Vec<CertificateRecord> = connection
-            .fetch_collect(GetCertificateRecordQuery::all())
-            .unwrap();
+        let certificate_records: Vec<CertificateRecord> =
+            connection.fetch_collect(GetCertificateRecordQuery::all()).unwrap();
         assert_eq!(expected_certificate_records, certificate_records);
     }
 

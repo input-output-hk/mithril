@@ -1,8 +1,8 @@
-use anyhow::{anyhow, Context};
-use mithril_common::entities::{PartyId, TransactionHash};
+use anyhow::{Context, anyhow};
 use mithril_common::StdResult;
+use mithril_common::entities::{PartyId, TransactionHash};
 use slog_scope::info;
-use std::fs::{self, read_to_string, File};
+use std::fs::{self, File, read_to_string};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -119,9 +119,7 @@ impl Devnet {
         bootstrap_command.env("CARDANO_NODE_VERSION", &bootstrap_args.cardano_node_version);
         bootstrap_command.env(
             "CARDANO_HARD_FORK_LATEST_ERA_AT_EPOCH",
-            bootstrap_args
-                .cardano_hard_fork_latest_era_at_epoch
-                .to_string(),
+            bootstrap_args.cardano_hard_fork_latest_era_at_epoch.to_string(),
         );
 
         bootstrap_command
@@ -165,9 +163,7 @@ impl Devnet {
     }
 
     pub fn mithril_era_marker_address_path(&self) -> PathBuf {
-        self.artifacts_dir
-            .join("addresses")
-            .join("mithril-era.addr")
+        self.artifacts_dir.join("addresses").join("mithril-era.addr")
     }
 
     pub fn mithril_era_marker_address(&self) -> StdResult<String> {
@@ -201,9 +197,7 @@ impl Devnet {
         let pool_nodes = (1..=self.number_of_pool_nodes)
             .map(|n| PoolNode {
                 db_path: self.artifacts_dir.join(format!("node-pool{n}/db")),
-                socket_path: self
-                    .artifacts_dir
-                    .join(format!("node-pool{n}/ipc/node.sock")),
+                socket_path: self.artifacts_dir.join(format!("node-pool{n}/ipc/node.sock")),
                 pool_env_path: self.artifacts_dir.join(format!("node-pool{n}/pool.env")),
                 kes_secret_key_path: self
                     .artifacts_dir
@@ -216,9 +210,7 @@ impl Devnet {
         let full_nodes = (1..=self.number_of_full_nodes)
             .map(|n| FullNode {
                 db_path: self.artifacts_dir.join(format!("node-full{n}/db")),
-                socket_path: self
-                    .artifacts_dir
-                    .join(format!("node-full{n}/ipc/node.sock")),
+                socket_path: self.artifacts_dir.join(format!("node-full{n}/ipc/node.sock")),
             })
             .collect::<Vec<_>>();
 
@@ -232,9 +224,7 @@ impl Devnet {
         let run_script = "start-cardano.sh";
         let run_script_path = self.artifacts_dir.join(run_script);
         let mut run_command = Command::new(&run_script_path);
-        run_command
-            .current_dir(&self.artifacts_dir)
-            .kill_on_drop(true);
+        run_command.current_dir(&self.artifacts_dir).kill_on_drop(true);
 
         info!("Starting the Devnet"; "script" => &run_script_path.display());
 
@@ -257,9 +247,7 @@ impl Devnet {
         let stop_script = "stop.sh";
         let stop_script_path = self.artifacts_dir.join(stop_script);
         let mut stop_command = Command::new(&stop_script_path);
-        stop_command
-            .current_dir(&self.artifacts_dir)
-            .kill_on_drop(true);
+        stop_command.current_dir(&self.artifacts_dir).kill_on_drop(true);
 
         info!("Stopping the Devnet"; "script" => &stop_script_path.display());
 
@@ -280,9 +268,7 @@ impl Devnet {
         let run_script = "delegate.sh";
         let run_script_path = self.artifacts_dir.join(run_script);
         let mut run_command = Command::new(&run_script_path);
-        run_command
-            .current_dir(&self.artifacts_dir)
-            .kill_on_drop(true);
+        run_command.current_dir(&self.artifacts_dir).kill_on_drop(true);
         run_command.env("DELEGATION_ROUND", delegation_round.to_string());
 
         info!("Delegating stakes to the pools"; "script" => &run_script_path.display());
@@ -306,9 +292,7 @@ impl Devnet {
         let run_script = "era-mithril.sh";
         let run_script_path = self.artifacts_dir.join(run_script);
         let mut run_command = Command::new(&run_script_path);
-        run_command
-            .current_dir(&self.artifacts_dir)
-            .kill_on_drop(true);
+        run_command.current_dir(&self.artifacts_dir).kill_on_drop(true);
         run_command.env("DATUM_FILE", target_path.to_str().unwrap());
 
         info!("Writing era marker on chain"; "script" => &run_script_path.display());
@@ -332,9 +316,7 @@ impl Devnet {
         let run_script = "payment-mithril.sh";
         let run_script_path = self.artifacts_dir.join(run_script);
         let mut run_command = Command::new(&run_script_path);
-        run_command
-            .current_dir(&self.artifacts_dir)
-            .kill_on_drop(true);
+        run_command.current_dir(&self.artifacts_dir).kill_on_drop(true);
         run_command.env("PAYMENT_ITERATIONS", "5");
 
         info!("Transferring some funds on chain"; "script" => &run_script_path.display());
@@ -357,8 +339,8 @@ impl Devnet {
 
 #[cfg(test)]
 mod tests {
-    use crate::devnet::runner::{Devnet, FullNode, PoolNode};
     use crate::devnet::DevnetTopology;
+    use crate::devnet::runner::{Devnet, FullNode, PoolNode};
     use std::path::PathBuf;
 
     #[test]

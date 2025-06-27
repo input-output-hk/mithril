@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use mithril_common::{
+    StdResult,
     entities::Certificate,
     signable_builder::{Artifact, Beacon},
-    StdResult,
 };
 
 /// ArtifactBuilder is trait for building an artifact

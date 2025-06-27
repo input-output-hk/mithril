@@ -1,11 +1,12 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 use std::collections::BTreeSet;
 use std::sync::Arc;
 use thiserror::Error;
 
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
+use mithril_common::StdResult;
 use mithril_common::crypto_helper::ProtocolAggregateVerificationKey;
 use mithril_common::entities::{
     CardanoEra, CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityConfig,
@@ -13,11 +14,10 @@ use mithril_common::entities::{
 };
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder};
-use mithril_common::StdResult;
 use mithril_era::EraChecker;
 use mithril_persistence::store::StakeStorer;
 
-use crate::{entities::AggregatorEpochSettings, EpochSettingsStorer, VerificationKeyStorer};
+use crate::{EpochSettingsStorer, VerificationKeyStorer, entities::AggregatorEpochSettings};
 
 /// Errors dedicated to the CertifierService.
 #[derive(Debug, Error)]
@@ -220,11 +220,10 @@ impl MithrilEpochService {
     }
 
     async fn get_cardano_era(&self) -> StdResult<CardanoEra> {
-        let cardano_era = self
-            .chain_observer
-            .get_current_era()
-            .await?
-            .ok_or_else(|| anyhow!("No Cardano era returned by the chain observer".to_string()))?;
+        let cardano_era =
+            self.chain_observer.get_current_era().await?.ok_or_else(|| {
+                anyhow!("No Cardano era returned by the chain observer".to_string())
+            })?;
 
         Ok(cardano_era)
     }
@@ -288,9 +287,7 @@ impl MithrilEpochService {
     }
 
     fn unwrap_data(&self) -> Result<&EpochData, EpochServiceError> {
-        self.epoch_data
-            .as_ref()
-            .ok_or(EpochServiceError::NotYetInitialized)
+        self.epoch_data.as_ref().ok_or(EpochServiceError::NotYetInitialized)
     }
 
     fn unwrap_computed_data(&self) -> Result<&ComputedEpochData, EpochServiceError> {
@@ -332,9 +329,8 @@ impl EpochService for MithrilEpochService {
             )
             .await?;
 
-        let current_signers_with_stake = self
-            .get_signers_with_stake_at_epoch(signer_retrieval_epoch)
-            .await?;
+        let current_signers_with_stake =
+            self.get_signers_with_stake_at_epoch(signer_retrieval_epoch).await?;
         let next_signers_with_stake = self
             .get_signers_with_stake_at_epoch(next_signer_retrieval_epoch)
             .await?;
@@ -350,9 +346,8 @@ impl EpochService for MithrilEpochService {
                 .clone(),
         };
 
-        let (total_spo, total_stake) = self
-            .get_total_spo_and_total_stake(signer_retrieval_epoch)
-            .await?;
+        let (total_spo, total_stake) =
+            self.get_total_spo_and_total_stake(signer_retrieval_epoch).await?;
 
         self.epoch_data = Some(EpochData {
             cardano_era,
@@ -379,9 +374,9 @@ impl EpochService for MithrilEpochService {
     async fn update_epoch_settings(&mut self) -> StdResult<()> {
         debug!(self.logger, ">> update_epoch_settings");
 
-        let data = self.unwrap_data().with_context(|| {
-            "can't update epoch settings if inform_epoch has not been called first"
-        })?;
+        let data = self.unwrap_data().with_context(
+            || "can't update epoch settings if inform_epoch has not been called first",
+        )?;
 
         self.insert_future_epoch_settings(data.epoch).await
     }
@@ -389,9 +384,9 @@ impl EpochService for MithrilEpochService {
     async fn update_next_signers_with_stake(&mut self) -> StdResult<()> {
         debug!(self.logger, ">> update_next_signers_with_stake");
 
-        let data = self.unwrap_data().with_context(|| {
-            "can't update next signers with stake if inform_epoch has not been called first"
-        })?;
+        let data = self.unwrap_data().with_context(
+            || "can't update next signers with stake if inform_epoch has not been called first",
+        )?;
 
         let next_signer_retrieval_epoch = data.epoch.offset_to_next_signer_retrieval_epoch();
         let next_signers_with_stake = self
@@ -410,9 +405,9 @@ impl EpochService for MithrilEpochService {
     async fn precompute_epoch_data(&mut self) -> StdResult<()> {
         debug!(self.logger, ">> precompute_epoch_data");
 
-        let data = self.unwrap_data().with_context(|| {
-            "can't precompute epoch data if inform_epoch has not been called first"
-        })?;
+        let data = self.unwrap_data().with_context(
+            || "can't precompute epoch data if inform_epoch has not been called first",
+        )?;
 
         let protocol_multi_signer = SignerBuilder::new(
             &data.current_signers_with_stake,
@@ -452,10 +447,7 @@ impl EpochService for MithrilEpochService {
     }
 
     fn current_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
-        Ok(&self
-            .unwrap_data()?
-            .current_epoch_settings
-            .protocol_parameters)
+        Ok(&self.unwrap_data()?.current_epoch_settings.protocol_parameters)
     }
 
     fn next_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
@@ -589,11 +581,7 @@ impl FakeEpochServiceBuilder {
     pub fn build(self) -> FakeEpochService {
         let current_signers = Signer::vec_from(self.current_signers_with_stake.clone());
         let next_signers = Signer::vec_from(self.next_signers_with_stake.clone());
-        let total_stakes_signers = self
-            .current_signers_with_stake
-            .iter()
-            .map(|s| s.stake)
-            .sum();
+        let total_stakes_signers = self.current_signers_with_stake.iter().map(|s| s.stake).sum();
         let total_next_stakes_signers = self.next_signers_with_stake.iter().map(|s| s.stake).sum();
 
         let protocol_multi_signer = SignerBuilder::new(
@@ -704,9 +692,7 @@ impl FakeEpochService {
     }
 
     fn unwrap_data(&self) -> Result<&EpochData, EpochServiceError> {
-        self.epoch_data
-            .as_ref()
-            .ok_or(EpochServiceError::NotYetInitialized)
+        self.epoch_data.as_ref().ok_or(EpochServiceError::NotYetInitialized)
     }
 
     fn unwrap_computed_data(&self) -> Result<&ComputedEpochData, EpochServiceError> {
@@ -762,10 +748,7 @@ impl EpochService for FakeEpochService {
     }
 
     fn current_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
-        Ok(&self
-            .unwrap_data()?
-            .current_epoch_settings
-            .protocol_parameters)
+        Ok(&self.unwrap_data()?.current_epoch_settings.protocol_parameters)
     }
 
     fn next_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
@@ -857,7 +840,7 @@ mod tests {
         BlockNumber, CardanoTransactionsSigningConfig, Stake, StakeDistribution, SupportedEra,
     };
     use mithril_common::test_utils::{
-        fake_data, MithrilFixture, MithrilFixtureBuilder, StakeDistributionGenerationMethod,
+        MithrilFixture, MithrilFixtureBuilder, StakeDistributionGenerationMethod, fake_data,
     };
     use mockall::predicate::eq;
 
@@ -994,10 +977,8 @@ mod tests {
         }
 
         async fn build(self) -> MithrilEpochService {
-            let signer_retrieval_epoch = self
-                .current_epoch
-                .offset_to_signer_retrieval_epoch()
-                .unwrap();
+            let signer_retrieval_epoch =
+                self.current_epoch.offset_to_signer_retrieval_epoch().unwrap();
             let next_signer_retrieval_epoch =
                 self.current_epoch.offset_to_next_signer_retrieval_epoch();
 
@@ -1224,9 +1205,7 @@ mod tests {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
         let avk = fixture.compute_avk();
         let epoch = Epoch(4);
-        let mut service = EpochServiceBuilder::new(epoch, fixture.clone())
-            .build()
-            .await;
+        let mut service = EpochServiceBuilder::new(epoch, fixture.clone()).build().await;
         let signer_builder = SignerBuilder::new(
             &fixture.signers_with_stake(),
             &fixture.protocol_parameters(),
@@ -1282,10 +1261,7 @@ mod tests {
 
         assert_eq!(
             next_avk,
-            service
-                .computed_epoch_data
-                .unwrap()
-                .next_aggregate_verification_key
+            service.computed_epoch_data.unwrap().next_aggregate_verification_key
         );
     }
 
@@ -1330,9 +1306,7 @@ mod tests {
     #[tokio::test]
     async fn cant_get_data_if_inform_epoch_has_not_been_called() {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
-        let service = EpochServiceBuilder::new(Epoch(4), fixture.clone())
-            .build()
-            .await;
+        let service = EpochServiceBuilder::new(Epoch(4), fixture.clone()).build().await;
 
         for (name, res) in [
             ("cardano_era", service.cardano_era().err()),
@@ -1402,12 +1376,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn can_only_get_non_computed_data_if_inform_epoch_has_been_called_but_not_precompute_epoch_data(
-    ) {
+    async fn can_only_get_non_computed_data_if_inform_epoch_has_been_called_but_not_precompute_epoch_data()
+     {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
-        let mut service = EpochServiceBuilder::new(Epoch(4), fixture.clone())
-            .build()
-            .await;
+        let mut service = EpochServiceBuilder::new(Epoch(4), fixture.clone()).build().await;
         service.inform_epoch(Epoch(4)).await.unwrap();
 
         assert!(service.cardano_era().is_ok());
@@ -1416,9 +1388,7 @@ mod tests {
         assert!(service.current_protocol_parameters().is_ok());
         assert!(service.next_protocol_parameters().is_ok());
         assert!(service.signer_registration_protocol_parameters().is_ok());
-        assert!(service
-            .current_cardano_transactions_signing_config()
-            .is_ok());
+        assert!(service.current_cardano_transactions_signing_config().is_ok());
         assert!(service.next_cardano_transactions_signing_config().is_ok());
         assert!(service.current_signers_with_stake().is_ok());
         assert!(service.next_signers_with_stake().is_ok());

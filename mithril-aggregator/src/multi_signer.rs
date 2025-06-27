@@ -1,13 +1,13 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
-use slog::{debug, warn, Logger};
+use slog::{Logger, debug, warn};
 
 use mithril_common::{
+    StdResult,
     crypto_helper::{ProtocolAggregationError, ProtocolMultiSignature},
     entities::{self},
     logging::LoggerExtensions,
     protocol::MultiSigner as ProtocolMultiSigner,
-    StdResult,
 };
 
 use crate::dependency_injection::EpochServiceWrapper;
@@ -86,9 +86,9 @@ impl MultiSigner for MultiSignerImpl {
         single_signature: &entities::SingleSignature,
     ) -> StdResult<()> {
         let epoch_service = self.epoch_service.read().await;
-        let protocol_multi_signer = epoch_service.protocol_multi_signer().with_context(|| {
-            "Multi Signer could not get protocol multi-signer from epoch service"
-        })?;
+        let protocol_multi_signer = epoch_service.protocol_multi_signer().with_context(
+            || "Multi Signer could not get protocol multi-signer from epoch service",
+        )?;
 
         self.run_verify_single_signature(message, single_signature, protocol_multi_signer)
     }
@@ -99,12 +99,9 @@ impl MultiSigner for MultiSignerImpl {
         single_signature: &entities::SingleSignature,
     ) -> StdResult<()> {
         let epoch_service = self.epoch_service.read().await;
-        let next_protocol_multi_signer =
-            epoch_service
-                .next_protocol_multi_signer()
-                .with_context(|| {
-                    "Multi Signer could not get next protocol multi-signer from epoch service"
-                })?;
+        let next_protocol_multi_signer = epoch_service.next_protocol_multi_signer().with_context(
+            || "Multi Signer could not get next protocol multi-signer from epoch service",
+        )?;
 
         self.run_verify_single_signature(message, single_signature, next_protocol_multi_signer)
     }
@@ -117,9 +114,9 @@ impl MultiSigner for MultiSignerImpl {
         debug!(self.logger, ">> create_multi_signature"; "open_message" => ?open_message);
 
         let epoch_service = self.epoch_service.read().await;
-        let protocol_multi_signer = epoch_service.protocol_multi_signer().with_context(|| {
-            "Multi Signer could not get protocol multi-signer from epoch service"
-        })?;
+        let protocol_multi_signer = epoch_service.protocol_multi_signer().with_context(
+            || "Multi Signer could not get protocol multi-signer from epoch service",
+        )?;
 
         match protocol_multi_signer.aggregate_single_signatures(
             &open_message.single_signatures,
@@ -149,7 +146,7 @@ mod tests {
     use mithril_common::crypto_helper::tests_setup::*;
     use mithril_common::entities::{CardanoDbBeacon, Epoch, SignedEntityType, SignerWithStake};
     use mithril_common::protocol::ToMessage;
-    use mithril_common::test_utils::{fake_data, MithrilFixtureBuilder};
+    use mithril_common::test_utils::{MithrilFixtureBuilder, fake_data};
 
     use crate::entities::AggregatorEpochSettings;
     use crate::services::{FakeEpochService, FakeEpochServiceBuilder};
@@ -288,20 +285,24 @@ mod tests {
         };
 
         // No signatures registered: multi-signer can't create the multi-signature
-        assert!(multi_signer
-            .create_multi_signature(&open_message)
-            .await
-            .expect("create multi signature should not fail")
-            .is_none());
+        assert!(
+            multi_signer
+                .create_multi_signature(&open_message)
+                .await
+                .expect("create multi signature should not fail")
+                .is_none()
+        );
 
         // Add some signatures but not enough to reach the quorum: multi-signer should not create the multi-signature
         open_message.single_signatures = signatures_to_almost_reach_quorum;
 
-        assert!(multi_signer
-            .create_multi_signature(&open_message)
-            .await
-            .expect("create multi signature should not fail")
-            .is_none());
+        assert!(
+            multi_signer
+                .create_multi_signature(&open_message)
+                .await
+                .expect("create multi signature should not fail")
+                .is_none()
+        );
 
         // Add the remaining signatures to reach the quorum: multi-signer should create a multi-signature
         open_message.single_signatures.append(&mut signatures);

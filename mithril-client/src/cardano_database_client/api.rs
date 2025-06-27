@@ -27,8 +27,8 @@ use super::fetch::InternalArtifactRetriever;
 use super::statistics::InternalStatisticsSender;
 #[cfg(feature = "fs")]
 use super::{
-    download_unpack::InternalArtifactDownloader, proving::InternalArtifactProver,
-    DownloadUnpackOptions, ImmutableFileRange,
+    DownloadUnpackOptions, ImmutableFileRange, download_unpack::InternalArtifactDownloader,
+    proving::InternalArtifactProver,
 };
 
 /// HTTP client for CardanoDatabase API from the Aggregator

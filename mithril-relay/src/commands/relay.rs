@@ -32,9 +32,9 @@ impl RelayCommands {
             Self::Aggregator(cmd) => cmd.execute(context).await,
             Self::Signer(cmd) => cmd.execute(context).await,
             Self::Passive(cmd) => cmd.execute(context).await,
-            Self::GenerateDoc(cmd) => cmd
-                .execute(&mut Args::command())
-                .map_err(|message| anyhow!(message)),
+            Self::GenerateDoc(cmd) => {
+                cmd.execute(&mut Args::command()).map_err(|message| anyhow!(message))
+            }
         }
     }
 }

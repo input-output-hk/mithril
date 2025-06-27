@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use mithril_metric::{build_metrics_service, MetricCounterWithLabels, MetricsServiceExporter};
+use mithril_metric::{MetricCounterWithLabels, MetricsServiceExporter, build_metrics_service};
 
 use mithril_metric::metric::{MetricCollector, MetricCounter};
 use prometheus::proto::{LabelPair, Metric, MetricFamily};
@@ -140,11 +140,7 @@ impl MetricsService {
     }
 
     fn build_label_key(&self, labels: &[LabelPair]) -> String {
-        labels
-            .iter()
-            .map(|p| p.value())
-            .collect::<Vec<_>>()
-            .join(",")
+        labels.iter().map(|p| p.value()).collect::<Vec<_>>().join(",")
     }
 
     fn build_metric_map(
@@ -276,8 +272,8 @@ mod tests {
     }
 
     #[test]
-    fn metric_service_should_only_contain_counters_as_export_metrics_map_does_not_yet_support_other_types(
-    ) {
+    fn metric_service_should_only_contain_counters_as_export_metrics_map_does_not_yet_support_other_types()
+     {
         let metrics_service = MetricsService::new(TestLogger::stdout()).unwrap();
 
         for metric_family in metrics_service.registry.gather() {

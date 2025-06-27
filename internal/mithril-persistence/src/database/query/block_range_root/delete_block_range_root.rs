@@ -1,8 +1,8 @@
 use anyhow::Context;
 use sqlite::Value;
 
-use mithril_common::entities::{BlockNumber, BlockRange};
 use mithril_common::StdResult;
+use mithril_common::entities::{BlockNumber, BlockRange};
 
 use crate::database::record::BlockRangeRootRecord;
 use crate::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
@@ -49,8 +49,8 @@ mod tests {
     use mithril_common::crypto_helper::MKTreeNode;
     use mithril_common::entities::BlockRange;
 
-    use crate::database::query::block_range_root::test_helper::insert_block_range_roots;
     use crate::database::query::GetBlockRangeRootQuery;
+    use crate::database::query::block_range_root::test_helper::insert_block_range_roots;
     use crate::database::test_helper::cardano_tx_db_connection;
     use crate::sqlite::ConnectionExtensions;
 
@@ -97,8 +97,8 @@ mod tests {
     }
 
     #[test]
-    fn test_prune_keep_all_block_range_root_if_given_number_of_block_is_greater_than_the_highest_one(
-    ) {
+    fn test_prune_keep_all_block_range_root_if_given_number_of_block_is_greater_than_the_highest_one()
+     {
         parameterized_test_prune_block_range(BlockNumber(100_000), 0);
     }
 

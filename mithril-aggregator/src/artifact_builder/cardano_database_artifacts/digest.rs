@@ -7,20 +7,20 @@ use std::{
 use anyhow::Context;
 use async_trait::async_trait;
 use mithril_common::{
+    CardanoNetwork, StdResult,
     entities::{CardanoDbBeacon, CompressionAlgorithm, DigestLocation},
     logging::LoggerExtensions,
     messages::CardanoDatabaseDigestListItemMessage,
-    CardanoNetwork, StdResult,
 };
-use slog::{error, Logger};
+use slog::{Logger, error};
 
 use crate::{
+    DumbUploader, FileUploader, ImmutableFileDigestMapper,
     file_uploaders::{CloudUploader, LocalUploader},
     tools::{
-        file_archiver::{appender::AppenderFile, ArchiveParameters, FileArchive, FileArchiver},
+        file_archiver::{ArchiveParameters, FileArchive, FileArchiver, appender::AppenderFile},
         url_sanitizer::SanitizedUrlWithTrailingSlash,
     },
-    DumbUploader, FileUploader, ImmutableFileDigestMapper,
 };
 
 /// The [DigestFileUploader] trait allows identifying uploaders that return locations for digest files.
@@ -165,9 +165,7 @@ impl DigestArtifactBuilder {
     pub async fn upload(&self, beacon: &CardanoDbBeacon) -> StdResult<DigestUpload> {
         let filename_without_extensions =
             Self::get_digests_file_name_without_extension(&self.network, beacon);
-        let digest_path = self
-            .create_digest_file(&filename_without_extensions)
-            .await?;
+        let digest_path = self.create_digest_file(&filename_without_extensions).await?;
         let digest_archive = self
             .digest_snapshotter
             .create_archive_file(&filename_without_extensions, &digest_path)?;
@@ -217,9 +215,8 @@ impl DigestArtifactBuilder {
             )
             .collect::<Vec<_>>();
 
-        let digests_file_path = self
-            .digests_dir
-            .join(format!("{filename_without_extensions}.json"));
+        let digests_file_path =
+            self.digests_dir.join(format!("{filename_without_extensions}.json"));
 
         if let Some(digests_dir) = digests_file_path.parent() {
             fs::create_dir_all(digests_dir).with_context(|| {
@@ -294,7 +291,7 @@ mod tests {
     use flate2::read::GzDecoder;
     use std::{
         collections::BTreeMap,
-        fs::{read_to_string, File},
+        fs::{File, read_to_string},
     };
     use tar::Archive;
 
@@ -302,7 +299,7 @@ mod tests {
         current_function,
         entities::{CardanoDbBeacon, CompressionAlgorithm},
         messages::{CardanoDatabaseDigestListItemMessage, CardanoDatabaseDigestListMessage},
-        test_utils::{assert_equivalent, TempDir},
+        test_utils::{TempDir, assert_equivalent},
     };
 
     use crate::{
@@ -490,10 +487,7 @@ mod tests {
         )
         .unwrap();
 
-        let locations = builder
-            .upload_digest_file(&FileArchive::dummy())
-            .await
-            .unwrap();
+        let locations = builder.upload_digest_file(&FileArchive::dummy()).await.unwrap();
 
         assert!(!locations.is_empty());
     }
@@ -526,10 +520,7 @@ mod tests {
         )
         .unwrap();
 
-        let locations = builder
-            .upload_digest_file(&FileArchive::dummy())
-            .await
-            .unwrap();
+        let locations = builder.upload_digest_file(&FileArchive::dummy()).await.unwrap();
 
         assert_equivalent(
             locations,
@@ -569,10 +560,7 @@ mod tests {
         )
         .unwrap();
 
-        let locations = builder
-            .upload_digest_file(&FileArchive::dummy())
-            .await
-            .unwrap();
+        let locations = builder.upload_digest_file(&FileArchive::dummy()).await.unwrap();
 
         assert_equivalent(
             locations,

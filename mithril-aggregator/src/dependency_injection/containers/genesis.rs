@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
-use mithril_common::{certificate_chain::CertificateVerifier, CardanoNetwork};
+use mithril_common::{CardanoNetwork, certificate_chain::CertificateVerifier};
 
 use crate::database::repository::CertificateRepository;
 use crate::{ProtocolParametersRetriever, VerificationKeyStorer};

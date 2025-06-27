@@ -23,7 +23,9 @@ pub struct AncillaryFilesManifest {
 #[derive(Error, Debug)]
 pub enum AncillaryFilesManifestVerifyError {
     /// The hash of a file does not match the hash in the manifest
-    #[error("File `{file_path}` hash does not match expected hash, expected: '{expected_hash}', actual: '{actual_hash}'")]
+    #[error(
+        "File `{file_path}` hash does not match expected hash, expected: '{expected_hash}', actual: '{actual_hash}'"
+    )]
     FileHashMismatch {
         /// Path of the file that has a hash mismatch
         file_path: PathBuf,
@@ -110,12 +112,12 @@ impl AncillaryFilesManifest {
     ) -> Result<(), AncillaryFilesManifestVerifyError> {
         for (file_path, expected_hash) in &self.signable_manifest.data {
             let file_path = base_directory.join(file_path);
-            let actual_hash = Self::compute_file_hash(&file_path)
-                .await
-                .map_err(|source| AncillaryFilesManifestVerifyError::HashCompute {
+            let actual_hash = Self::compute_file_hash(&file_path).await.map_err(|source| {
+                AncillaryFilesManifestVerifyError::HashCompute {
                     file_path: file_path.clone(),
                     source,
-                })?;
+                }
+            })?;
 
             if actual_hash != *expected_hash {
                 return Err(AncillaryFilesManifestVerifyError::FileHashMismatch {
@@ -173,8 +175,7 @@ mod tests {
     mod ancillary_files_manifest {
         use super::*;
 
-        const TEST_SIGNATURE: &str =
-            "b5690fe641ee240248d1335092392fefe2399fb11a4bfaddffc790676f4d48a9c34ec648699a3e3b0ba0de8c8bcde5855f16b88eb644d12a9ba1044b5ba91b07";
+        const TEST_SIGNATURE: &str = "b5690fe641ee240248d1335092392fefe2399fb11a4bfaddffc790676f4d48a9c34ec648699a3e3b0ba0de8c8bcde5855f16b88eb644d12a9ba1044b5ba91b07";
 
         #[test]
         fn can_deserialize_signed_manifest_into_ancillary_files_manifest() {

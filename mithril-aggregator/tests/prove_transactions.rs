@@ -8,7 +8,7 @@ use mithril_common::{
     test_utils::MithrilFixtureBuilder,
 };
 use test_extensions::{
-    utilities::get_test_dir, ExpectedCertificate, ExpectedMetrics, RuntimeTester,
+    ExpectedCertificate, ExpectedMetrics, RuntimeTester, utilities::get_test_dir,
 };
 
 use crate::test_extensions::utilities::tx_hash;
@@ -70,19 +70,12 @@ async fn prove_transactions() {
         .into_iter()
         .filter(|e| e != &SignedEntityTypeDiscriminants::CardanoTransactions)
     {
-        tester
-            .dependencies
-            .signed_entity_type_lock
-            .lock(entity)
-            .await;
+        tester.dependencies.signed_entity_type_lock.lock(entity).await;
     }
 
     comment!("register signers");
     cycle!(tester, "ready");
-    tester
-        .register_signers(&fixture.signers_fixture())
-        .await
-        .unwrap();
+    tester.register_signers(&fixture.signers_fixture()).await.unwrap();
 
     comment!(
         "Increase cardano chain block number to 185, 
@@ -118,10 +111,7 @@ async fn prove_transactions() {
 
     comment!("Get the proof for the last transaction, BlockNumber(179), and verify it");
     let last_transaction_hash = tx_hash(179, 1);
-    let last_tx_snapshot = observer
-        .get_last_cardano_transactions_snapshot()
-        .await
-        .unwrap();
+    let last_tx_snapshot = observer.get_last_cardano_transactions_snapshot().await.unwrap();
     let proof_for_last_transaction = prover
         .compute_transactions_proofs(
             last_tx_snapshot.artifact.block_number,
@@ -131,13 +121,17 @@ async fn prove_transactions() {
         .unwrap()
         .pop()
         .unwrap();
-    assert!(proof_for_last_transaction
-        .transactions_hashes()
-        .contains(&last_transaction_hash));
+    assert!(
+        proof_for_last_transaction
+            .transactions_hashes()
+            .contains(&last_transaction_hash)
+    );
 
     proof_for_last_transaction.verify().unwrap();
 
-    comment!("Get the certificate associated with the last transaction and check that it matches the proof");
+    comment!(
+        "Get the certificate associated with the last transaction and check that it matches the proof"
+    );
     let proof_merkle_root = proof_for_last_transaction.merkle_root();
     let proof_certificate = observer.get_last_certificate().await.unwrap();
     assert_eq!(&last_tx_snapshot.certificate_id, &proof_certificate.hash);

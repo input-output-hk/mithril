@@ -10,8 +10,8 @@ use tokio::sync::{Mutex, MutexGuard};
 
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_common::{
-    entities::{Epoch, StakeDistribution},
     StdError, StdResult,
+    entities::{Epoch, StakeDistribution},
 };
 use mithril_persistence::store::StakeStorer;
 
@@ -97,7 +97,7 @@ pub trait StakeDistributionService: Sync + Send {
 
     /// This launches the stake distribution computation if not already started.
     async fn update_stake_distribution(&self)
-        -> Result<(), Box<StakePoolDistributionServiceError>>;
+    -> Result<(), Box<StakePoolDistributionServiceError>>;
 }
 
 /// Token to manage stake distribution update

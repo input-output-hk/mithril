@@ -1,19 +1,19 @@
 use axum::{
+    Router,
     body::Body,
     extract::State,
     http::{Response, StatusCode},
     response::IntoResponse,
     routing::get,
-    Router,
 };
-use slog::{error, info, warn, Logger};
+use slog::{Logger, error, info, warn};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::watch::Receiver;
 
-use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
+use mithril_common::logging::LoggerExtensions;
 
 /// Metrics service exporter gives the possibility of exporting metrics.
 pub trait MetricsServiceExporter: Send + Sync {

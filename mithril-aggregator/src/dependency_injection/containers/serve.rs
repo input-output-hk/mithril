@@ -19,6 +19,8 @@ use mithril_signed_entity_lock::SignedEntityTypeLock;
 use mithril_ticker::TickerService;
 
 use crate::{
+    EpochSettingsStorer, MetricsService, SignerRegisterer, SignerRegistrationRoundOpener,
+    SingleSignatureAuthenticator, VerificationKeyStorer,
     database::repository::{
         CertificateRepository, SignedEntityStorer, SignerGetter, StakePoolStore,
     },
@@ -28,8 +30,6 @@ use crate::{
         CertifierService, EpochService, MessageService, ProverService, SignedEntityService,
         SignerRecorder, SignerSynchronizer, StakeDistributionService, UpkeepService,
     },
-    EpochSettingsStorer, MetricsService, SignerRegisterer, SignerRegistrationRoundOpener,
-    SingleSignatureAuthenticator, VerificationKeyStorer,
 };
 
 /// EpochServiceWrapper wraps
@@ -168,8 +168,7 @@ impl ServeCommandDependenciesContainer {
                 .expect("save_epoch_settings should not fail");
             self.fill_verification_key_store(*epoch, &fixture.signers_with_stake())
                 .await;
-            self.fill_stakes_store(*epoch, fixture.signers_with_stake())
-                .await;
+            self.fill_stakes_store(*epoch, fixture.signers_with_stake()).await;
         }
     }
 
@@ -195,10 +194,9 @@ impl ServeCommandDependenciesContainer {
         .await;
 
         let (work_epoch, epoch_to_sign) = self.get_genesis_epochs().await;
-        for (epoch, signers) in [
-            (work_epoch, genesis_signers),
-            (epoch_to_sign, second_epoch_signers),
-        ] {
+        for (epoch, signers) in
+            [(work_epoch, genesis_signers), (epoch_to_sign, second_epoch_signers)]
+        {
             self.fill_verification_key_store(epoch, &signers).await;
             self.fill_stakes_store(epoch, signers).await;
         }
@@ -239,10 +237,7 @@ impl ServeCommandDependenciesContainer {
             .stake_store
             .save_stakes(
                 target_epoch,
-                signers
-                    .iter()
-                    .map(|s| s.into())
-                    .collect::<StakeDistribution>(),
+                signers.iter().map(|s| s.into()).collect::<StakeDistribution>(),
             )
             .await
             .expect("save_stakes should not fail");
@@ -255,17 +250,15 @@ pub(crate) mod tests {
     use std::{path::PathBuf, sync::Arc};
 
     use crate::{
-        dependency_injection::DependenciesBuilder, ServeCommandConfiguration,
-        ServeCommandDependenciesContainer,
+        ServeCommandConfiguration, ServeCommandDependenciesContainer,
+        dependency_injection::DependenciesBuilder,
     };
 
     /// Initialize dependency container with a unique temporary snapshot directory build from test path.
     /// This macro should used directly in a function test to be able to retrieve the function name.
     #[macro_export]
     macro_rules! initialize_dependencies {
-        () => {{
-            initialize_dependencies(mithril_common::temp_dir!())
-        }};
+        () => {{ initialize_dependencies(mithril_common::temp_dir!()) }};
     }
 
     pub async fn initialize_dependencies(tmp_path: PathBuf) -> ServeCommandDependenciesContainer {

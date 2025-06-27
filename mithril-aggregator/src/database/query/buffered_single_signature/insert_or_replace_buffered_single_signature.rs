@@ -11,8 +11,7 @@ pub struct InsertOrReplaceBufferedSingleSignatureRecordQuery {
 
 impl InsertOrReplaceBufferedSingleSignatureRecordQuery {
     pub fn one(record: BufferedSingleSignatureRecord) -> Self {
-        let condition =
-        WhereCondition::new(
+        let condition = WhereCondition::new(
             "(signed_entity_type_id, party_id, lottery_indexes, signature, created_at) values (?*, ?*, ?*, ?*, ?*)",
             vec![
                 Value::Integer(record.signed_entity_type_id.index() as i64),

@@ -11,16 +11,20 @@ pub struct UpdateSingleSignatureRecordQuery {
 
 impl UpdateSingleSignatureRecordQuery {
     pub fn one(single_signature_record: SingleSignatureRecord) -> Self {
-        let condition =
-        WhereCondition::new(
+        let condition = WhereCondition::new(
             "(open_message_id, signer_id, registration_epoch_setting_id, lottery_indexes, signature, created_at) values (?*, ?*, ?*, ?*, ?*, ?*)",
             vec![
                 Value::String(single_signature_record.open_message_id.to_string()),
                 Value::String(single_signature_record.signer_id),
                 Value::Integer(
-                    single_signature_record.registration_epoch_settings_id.try_into().unwrap(),
+                    single_signature_record
+                        .registration_epoch_settings_id
+                        .try_into()
+                        .unwrap(),
                 ),
-                Value::String(serde_json::to_string(&single_signature_record.lottery_indexes).unwrap()),
+                Value::String(
+                    serde_json::to_string(&single_signature_record.lottery_indexes).unwrap(),
+                ),
                 Value::String(single_signature_record.signature),
                 Value::String(single_signature_record.created_at.to_rfc3339()),
             ],

@@ -2,12 +2,12 @@ use crate::p2p::{BroadcastMessage, Peer, PeerEvent};
 use anyhow::anyhow;
 use libp2p::Multiaddr;
 use mithril_common::{
+    StdResult,
     logging::LoggerExtensions,
     messages::{RegisterSignatureMessageHttp, RegisterSignerMessage},
-    StdResult,
 };
 use reqwest::StatusCode;
-use slog::{error, info, Logger};
+use slog::{Logger, error, info};
 
 /// A relay for a Mithril aggregator
 pub struct AggregatorRelay {
@@ -47,8 +47,13 @@ impl AggregatorRelay {
                     Ok(())
                 }
                 status => {
-                    error!(self.logger, "Post `/register-signatures` should have returned a 201 or 202 status code, got: {status}");
-                    Err(anyhow!("Post `/register-signatures` should have returned a 201 or 202 status code, got: {status}"))
+                    error!(
+                        self.logger,
+                        "Post `/register-signatures` should have returned a 201 or 202 status code, got: {status}"
+                    );
+                    Err(anyhow!(
+                        "Post `/register-signatures` should have returned a 201 or 202 status code, got: {status}"
+                    ))
                 }
             },
             Err(err) => {
@@ -75,8 +80,13 @@ impl AggregatorRelay {
                     Ok(())
                 }
                 status => {
-                    error!(self.logger, "Post `/register-signer` should have returned a 201 status code, got: {status}");
-                    Err(anyhow!("Post `/register-signer` should have returned a 201 status code, got: {status}"))
+                    error!(
+                        self.logger,
+                        "Post `/register-signer` should have returned a 201 status code, got: {status}"
+                    );
+                    Err(anyhow!(
+                        "Post `/register-signer` should have returned a 201 status code, got: {status}"
+                    ))
                 }
             },
             Err(err) => {
@@ -93,9 +103,8 @@ impl AggregatorRelay {
                 Ok(Some(BroadcastMessage::RegisterSigner(signer_message_received))) => {
                     let retry_max = 3;
                     let mut retry_count = 0;
-                    while let Err(e) = self
-                        .notify_signer_to_aggregator(&signer_message_received)
-                        .await
+                    while let Err(e) =
+                        self.notify_signer_to_aggregator(&signer_message_received).await
                     {
                         retry_count += 1;
                         if retry_count >= retry_max {
@@ -107,9 +116,8 @@ impl AggregatorRelay {
                 Ok(Some(BroadcastMessage::RegisterSignature(signature_message_received))) => {
                     let retry_max = 3;
                     let mut retry_count = 0;
-                    while let Err(e) = self
-                        .notify_signature_to_aggregator(&signature_message_received)
-                        .await
+                    while let Err(e) =
+                        self.notify_signature_to_aggregator(&signature_message_received).await
                     {
                         retry_count += 1;
                         if retry_count >= retry_max {

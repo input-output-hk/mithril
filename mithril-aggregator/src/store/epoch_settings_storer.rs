@@ -120,10 +120,8 @@ mod tests {
         let epoch_settings = AggregatorEpochSettings::dummy();
         let epoch = Epoch(1);
         let store = FakeEpochSettingsStorer::new(vec![]);
-        let epoch_settings_previous = store
-            .save_epoch_settings(epoch, epoch_settings)
-            .await
-            .unwrap();
+        let epoch_settings_previous =
+            store.save_epoch_settings(epoch, epoch_settings).await.unwrap();
 
         assert!(epoch_settings_previous.is_none());
     }

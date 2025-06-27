@@ -55,10 +55,7 @@ mod tests {
 
         assert_eq!(
             markers,
-            adapter
-                .read()
-                .await
-                .expect("file adapter shall not fail reading")
+            adapter.read().await.expect("file adapter shall not fail reading")
         );
     }
 }

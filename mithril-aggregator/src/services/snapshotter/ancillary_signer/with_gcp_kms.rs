@@ -3,11 +3,11 @@ use async_trait::async_trait;
 use gcloud_kms::client::google_cloud_auth::credentials::CredentialsFile;
 use gcloud_kms::client::{Client as GcpKmsClient, ClientConfig};
 use gcloud_kms::grpc::kms::v1::AsymmetricSignRequest;
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 
 use mithril_cardano_node_internal_database::entities::AncillaryFilesManifest;
-use mithril_common::crypto_helper::ManifestSignature;
 use mithril_common::StdResult;
+use mithril_common::crypto_helper::ManifestSignature;
 
 use crate::services::ancillary_signer::{AncillarySigner, GcpCryptoKeyVersionResourceName};
 
@@ -40,9 +40,7 @@ impl AncillarySignerWithGcpKms {
             .with_credentials(credentials_file)
             .await
             .with_context(|| BASE_ERROR_CONTEXT)?;
-        let kms_client = GcpKmsClient::new(config)
-            .await
-            .with_context(|| BASE_ERROR_CONTEXT)?;
+        let kms_client = GcpKmsClient::new(config).await.with_context(|| BASE_ERROR_CONTEXT)?;
 
         Ok(AncillarySignerWithGcpKms {
             kms_client,

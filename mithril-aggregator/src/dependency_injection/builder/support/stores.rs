@@ -85,11 +85,7 @@ impl DependenciesBuilder {
                 Some(self.build_protocol_parameters_retriever().await?);
         }
 
-        Ok(self
-            .protocol_parameters_retriever
-            .as_ref()
-            .cloned()
-            .unwrap())
+        Ok(self.protocol_parameters_retriever.as_ref().cloned().unwrap())
     }
 
     async fn build_epoch_settings_store(&mut self) -> Result<Arc<EpochSettingsStore>> {
@@ -165,8 +161,7 @@ impl DependenciesBuilder {
 
     async fn build_transaction_repository(&mut self) -> Result<Arc<CardanoTransactionRepository>> {
         let transaction_store = CardanoTransactionRepository::new(
-            self.get_sqlite_connection_cardano_transaction_pool()
-                .await?,
+            self.get_sqlite_connection_cardano_transaction_pool().await?,
         );
 
         Ok(Arc::new(transaction_store))

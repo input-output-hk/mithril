@@ -12,7 +12,7 @@ pub use signature::*;
 mod tests {
     use std::collections::{HashMap, HashSet};
 
-    use blake2::{digest::consts::U32, Blake2b};
+    use blake2::{Blake2b, digest::consts::U32};
     use proptest::{
         collection::{hash_map, vec},
         prelude::*,
@@ -178,9 +178,10 @@ mod tests {
         match tc.msig {
             Ok(mut aggr) => {
                 f(&mut aggr, &mut tc.clerk, &mut tc.msg);
-                assert!(aggr
-                    .verify(&tc.msg, &tc.clerk.compute_avk(), &tc.clerk.params)
-                    .is_err())
+                assert!(
+                    aggr.verify(&tc.msg, &tc.clerk.compute_avk(), &tc.clerk.params)
+                        .is_err()
+                )
             }
             Err(e) => unreachable!("Reached an unexpected error: {:?}", e),
         }

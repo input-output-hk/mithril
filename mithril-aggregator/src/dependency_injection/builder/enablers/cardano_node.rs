@@ -16,10 +16,10 @@ use mithril_signed_entity_preloader::{
     CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
 };
 
+use crate::ExecutionEnvironment;
 use crate::dependency_injection::{DependenciesBuilder, Result};
 use crate::get_dependency;
 use crate::services::{MithrilStakeDistributionService, StakeDistributionService};
-use crate::ExecutionEnvironment;
 impl DependenciesBuilder {
     async fn build_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
         let chain_observer: Arc<dyn ChainObserver> = match self.configuration.environment() {
@@ -173,8 +173,8 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn cardano_transactions_preloader_activated_with_cardano_transactions_signed_entity_type_in_configuration(
-    ) {
+    async fn cardano_transactions_preloader_activated_with_cardano_transactions_signed_entity_type_in_configuration()
+     {
         assert_cardano_transactions_preloader_activation(
             SignedEntityTypeDiscriminants::CardanoTransactions.to_string(),
             true,
@@ -197,10 +197,8 @@ mod tests {
         };
         let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(Arc::new(configuration));
 
-        let cardano_transactions_preloader = dep_builder
-            .create_cardano_transactions_preloader()
-            .await
-            .unwrap();
+        let cardano_transactions_preloader =
+            dep_builder.create_cardano_transactions_preloader().await.unwrap();
 
         let is_activated = cardano_transactions_preloader.is_activated().await.unwrap();
         assert_eq!(

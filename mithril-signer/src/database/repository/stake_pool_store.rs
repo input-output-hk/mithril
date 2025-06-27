@@ -4,9 +4,9 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 
+use mithril_common::StdResult;
 use mithril_common::entities::{Epoch, StakeDistribution};
 use mithril_common::signable_builder::StakeDistributionRetriever;
-use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 use mithril_persistence::store::StakeStorer;
 
@@ -74,10 +74,7 @@ impl StakeStorer for StakePoolStore {
             stake_distribution.insert(stake_pool.stake_pool_id, stake_pool.stake);
         }
 
-        Ok(stake_distribution
-            .is_empty()
-            .not()
-            .then_some(stake_distribution))
+        Ok(stake_distribution.is_empty().not().then_some(stake_distribution))
     }
 }
 
@@ -96,10 +93,9 @@ impl EpochPruningTask for StakePoolStore {
 
     async fn prune(&self, epoch: Epoch) -> StdResult<()> {
         if let Some(threshold) = self.retention_limit {
-            self.connection
-                .apply(DeleteStakePoolQuery::below_epoch_threshold(
-                    epoch - threshold,
-                ))?;
+            self.connection.apply(DeleteStakePoolQuery::below_epoch_threshold(
+                epoch - threshold,
+            ))?;
         }
         Ok(())
     }

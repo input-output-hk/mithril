@@ -228,15 +228,15 @@ mod tests {
         let token = reader.read_era_epoch_token(Epoch(10)).await.unwrap();
         assert_eq!(
             SupportedEra::dummy(),
-            token
-                .get_current_supported_era()
-                .expect("the given era is supported")
+            token.get_current_supported_era().expect("the given era is supported")
         );
         assert!(token.get_next_era_marker().is_none());
-        assert!(token
-            .get_next_supported_era()
-            .expect("None era shall not fail when asked.")
-            .is_none());
+        assert!(
+            token
+                .get_next_supported_era()
+                .expect("None era shall not fail when asked.")
+                .is_none()
+        );
     }
 
     #[tokio::test]
@@ -329,10 +329,7 @@ mod tests {
 
     #[tokio::test]
     async fn epoch_0_should_work() {
-        let markers = vec![EraMarker::new(
-            &SupportedEra::dummy().to_string(),
-            Some(Epoch(0)),
-        )];
+        let markers = vec![EraMarker::new(&SupportedEra::dummy().to_string(), Some(Epoch(0)))];
         let adapter = DummyAdapter::default();
         adapter.set_markers(markers);
         let reader = EraReader::new(Arc::new(adapter));

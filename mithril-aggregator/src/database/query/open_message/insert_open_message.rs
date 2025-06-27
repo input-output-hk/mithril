@@ -2,8 +2,8 @@ use chrono::Utc;
 use sqlite::Value;
 use uuid::Uuid;
 
-use mithril_common::entities::{Epoch, ProtocolMessage, SignedEntityType};
 use mithril_common::StdResult;
+use mithril_common::entities::{Epoch, ProtocolMessage, SignedEntityType};
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::OpenMessageRecord;

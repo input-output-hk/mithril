@@ -1,12 +1,12 @@
 use clap::Parser;
-use cli_table::{format::Justify, print_stdout, Cell, Table};
+use cli_table::{Cell, Table, format::Justify, print_stdout};
 
 use crate::{
+    CommandContext,
     commands::{
-        cardano_db::CardanoDbCommandsBackend, client_builder_with_fallback_genesis_key, SharedArgs,
+        SharedArgs, cardano_db::CardanoDbCommandsBackend, client_builder_with_fallback_genesis_key,
     },
     utils::CardanoDbUtils,
-    CommandContext,
 };
 use mithril_client::{Client, MithrilResult};
 

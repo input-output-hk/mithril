@@ -11,13 +11,14 @@ use mithril_client::MithrilResult;
 use slog::Logger;
 
 use crate::{
+    CommandContext,
     commands::{
-        cardano_db::{shared_steps, CardanoDbCommandsBackend},
-        client_builder, SharedArgs,
+        SharedArgs,
+        cardano_db::{CardanoDbCommandsBackend, shared_steps},
+        client_builder,
     },
     configuration::{ConfigError, ConfigParameters, ConfigSource},
     utils::{self, ExpanderUtils, IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter},
-    CommandContext,
 };
 
 /// Clap command to verify a Cardano db and its associated certificate.
@@ -83,10 +84,9 @@ impl CardanoDbVerifyCommand {
         client.cardano_database_v2().check_has_immutables(db_dir)?;
 
         let get_list_of_artifact_ids = || async {
-            let cardano_db_snapshots =
-                client.cardano_database_v2().list().await.with_context(|| {
-                    "Can not get the list of artifacts while retrieving the latest cardano db hash"
-                })?;
+            let cardano_db_snapshots = client.cardano_database_v2().list().await.with_context(
+                || "Can not get the list of artifacts while retrieving the latest cardano db hash",
+            )?;
 
             Ok(cardano_db_snapshots
                 .iter()
@@ -167,7 +167,9 @@ impl CardanoDbVerifyCommand {
             });
             println!("{json}");
         } else {
-            println!("Cardano database snapshot '{snapshot_hash}' archives have been successfully verified. Immutable files have been successfully verified with Mithril.");
+            println!(
+                "Cardano database snapshot '{snapshot_hash}' archives have been successfully verified. Immutable files have been successfully verified with Mithril."
+            );
         }
         Ok(())
     }

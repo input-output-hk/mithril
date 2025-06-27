@@ -9,11 +9,11 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use slog::{info, Logger};
+use slog::{Logger, info};
 
+use mithril_common::StdResult;
 use mithril_common::entities::Epoch;
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::StdResult;
 use mithril_persistence::sqlite::{
     SqliteCleaner, SqliteCleaningTask, SqliteConnection, SqliteConnectionPool,
 };
@@ -220,27 +220,25 @@ mod tests {
 
         service.run(Epoch(13)).await.expect("Upkeep service failed");
 
-        assert!(log_inspector
-            .search_logs(SqliteCleaningTask::Vacuum.log_message())
-            .is_empty());
-        assert!(log_inspector
-            .search_logs(SqliteCleaningTask::WalCheckpointTruncate.log_message())
-            .is_empty());
+        assert!(
+            log_inspector
+                .search_logs(SqliteCleaningTask::Vacuum.log_message())
+                .is_empty()
+        );
+        assert!(
+            log_inspector
+                .search_logs(SqliteCleaningTask::WalCheckpointTruncate.log_message())
+                .is_empty()
+        );
     }
 
     #[tokio::test]
     async fn test_execute_all_pruning_tasks() {
         let task1 = mock_epoch_pruning_task(|mock| {
-            mock.expect_prune()
-                .once()
-                .with(eq(Epoch(14)))
-                .returning(|_| Ok(()));
+            mock.expect_prune().once().with(eq(Epoch(14))).returning(|_| Ok(()));
         });
         let task2 = mock_epoch_pruning_task(|mock| {
-            mock.expect_prune()
-                .once()
-                .with(eq(Epoch(14)))
-                .returning(|_| Ok(()));
+            mock.expect_prune().once().with(eq(Epoch(14))).returning(|_| Ok(()));
         });
 
         let service = SignerUpkeepService::new(

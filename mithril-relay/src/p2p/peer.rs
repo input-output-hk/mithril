@@ -1,20 +1,21 @@
 #![allow(missing_docs)]
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use libp2p::{
+    Multiaddr, PeerId, Swarm, SwarmBuilder,
     core::{muxing::StreamMuxerBox, transport::dummy::DummyTransport},
     futures::StreamExt,
     gossipsub::{self, ValidationMode},
     noise, ping,
     swarm::{self, DialError, NetworkBehaviour},
-    tls, yamux, Multiaddr, PeerId, Swarm, SwarmBuilder,
+    tls, yamux,
 };
 use mithril_common::{
+    StdResult,
     logging::LoggerExtensions,
     messages::{RegisterSignatureMessageHttp, RegisterSignerMessage},
-    StdResult,
 };
 use serde::{Deserialize, Serialize};
-use slog::{debug, info, Logger};
+use slog::{Logger, debug, info};
 use std::{collections::HashMap, time::Duration};
 
 use crate::{mithril_p2p_topic, p2p::PeerError};

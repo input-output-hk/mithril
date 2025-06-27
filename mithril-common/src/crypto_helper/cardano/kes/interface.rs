@@ -3,8 +3,8 @@ use std::fmt::Debug;
 use kes_summed_ed25519::kes::Sum6KesSig;
 
 use crate::{
-    crypto_helper::{KesPeriod, OpCert},
     StdResult,
+    crypto_helper::{KesPeriod, OpCert},
 };
 
 /// Trait for KES (Key Evolving Signature) signing operation.

@@ -4,7 +4,7 @@ use tokio::task::JoinSet;
 
 use mithril_common::StdResult;
 
-use crate::{assertions, Aggregator, MithrilInfrastructure};
+use crate::{Aggregator, MithrilInfrastructure, assertions};
 
 pub struct RunOnly {
     pub infrastructure: Arc<MithrilInfrastructure>,
@@ -44,10 +44,7 @@ impl RunOnly {
     ) -> StdResult<()> {
         assertions::wait_for_enough_immutable(aggregator).await?;
         let chain_observer = aggregator.chain_observer();
-        let start_epoch = chain_observer
-            .get_current_epoch()
-            .await?
-            .unwrap_or_default();
+        let start_epoch = chain_observer.get_current_epoch().await?.unwrap_or_default();
 
         // Wait 3 epochs after start epoch for the aggregator to be able to bootstrap a genesis certificate
         let target_epoch = start_epoch + 3;

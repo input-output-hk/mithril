@@ -1,31 +1,31 @@
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use pallas_addresses::Address;
 use pallas_codec::utils::{Bytes, CborWrap, TagWrap};
 use pallas_network::{
     facades::NodeClient,
     miniprotocols::{
+        Point,
         localstate::{
+            Client,
             queries_v16::{
                 self, Addr, Addrs, ChainBlockNumber, GenesisConfig, PostAlonsoTransactionOutput,
                 StakeSnapshot, Stakes, TransactionOutput, UTxOByAddress,
             },
-            Client,
         },
-        Point,
     },
 };
 use pallas_primitives::ToCanonicalJson;
 use pallas_traverse::Era;
 
-use mithril_common::crypto_helper::{encode_bech32, KesPeriod, OpCert};
+use mithril_common::crypto_helper::{KesPeriod, OpCert, encode_bech32};
 use mithril_common::entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, StakeDistribution};
 use mithril_common::{CardanoNetwork, StdResult};
 
-use crate::entities::{try_inspect, ChainAddress, Datum, Datums, TxDatum};
+use crate::entities::{ChainAddress, Datum, Datums, TxDatum, try_inspect};
 
 use super::{ChainObserver, ChainObserverError};
 
@@ -141,10 +141,9 @@ impl PallasChainObserver {
             .utxo
             .iter()
             .filter_map(|(_, utxo)| match utxo {
-                TransactionOutput::Current(output) => output
-                    .inline_datum
-                    .as_ref()
-                    .map(|_| self.serialize_datum(output)),
+                TransactionOutput::Current(output) => {
+                    output.inline_datum.as_ref().map(|_| self.serialize_datum(output))
+                }
                 _ => None,
             })
             .collect::<StdResult<Datums>>()
@@ -518,14 +517,14 @@ mod tests {
     use pallas_crypto::hash::Hash;
     use pallas_network::facades::NodeServer;
     use pallas_network::miniprotocols::{
+        Point,
         localstate::{
+            ClientQueryRequest,
             queries_v16::{
                 BlockQuery, ChainBlockNumber, Fraction, GenesisConfig, HardForkQuery, LedgerQuery,
                 Request, Snapshots, StakeSnapshot, SystemStart, Value,
             },
-            ClientQueryRequest,
         },
-        Point,
     };
     use tokio::net::UnixListener;
 
@@ -834,10 +833,7 @@ mod tests {
             let mut client = observer.get_client().await.unwrap();
             let statequery = client.statequery();
             statequery.acquire(None).await.unwrap();
-            let chain_point = observer
-                .do_get_chain_point_state_query(statequery)
-                .await
-                .unwrap();
+            let chain_point = observer.do_get_chain_point_state_query(statequery).await.unwrap();
             observer.post_process_statequery(&mut client).await.unwrap();
             client.abort().await;
             chain_point
@@ -858,10 +854,8 @@ mod tests {
             let mut client = observer.get_client().await.unwrap();
             let statequery = client.statequery();
             statequery.acquire(None).await.unwrap();
-            let genesis_config = observer
-                .do_get_genesis_config_state_query(statequery)
-                .await
-                .unwrap();
+            let genesis_config =
+                observer.do_get_genesis_config_state_query(statequery).await.unwrap();
             observer.post_process_statequery(&mut client).await.unwrap();
             client.abort().await;
             genesis_config
@@ -882,10 +876,7 @@ mod tests {
             let mut client = observer.get_client().await.unwrap();
             let statequery = client.statequery();
             statequery.acquire(None).await.unwrap();
-            let era = observer
-                .do_get_current_era_state_query(statequery)
-                .await
-                .unwrap();
+            let era = observer.do_get_current_era_state_query(statequery).await.unwrap();
             observer.post_process_statequery(&mut client).await.unwrap();
             client.abort().await;
             era

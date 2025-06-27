@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use reqwest::Url;
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;

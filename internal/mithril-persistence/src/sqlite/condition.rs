@@ -338,11 +338,7 @@ mod tests {
             .or_where(WhereCondition::new("B", Vec::new()))
             .and_where(WhereCondition::where_in(
                 "C",
-                vec![
-                    Value::Integer(100),
-                    Value::Integer(101),
-                    Value::Integer(102),
-                ],
+                vec![Value::Integer(100), Value::Integer(101), Value::Integer(102)],
             ));
 
         let (sql, params) = expression.expand();

@@ -1,6 +1,6 @@
+use crate::StdResult;
 use crate::crypto_helper::{MKMapProof, ProtocolMkProof};
 use crate::entities::TransactionHash;
-use crate::StdResult;
 
 use super::BlockRange;
 

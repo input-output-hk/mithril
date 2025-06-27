@@ -3,11 +3,12 @@ use async_trait::async_trait;
 use reqwest::header::{self, HeaderValue};
 use reqwest::{self, Client, Proxy, RequestBuilder, Response, StatusCode};
 use semver::Version;
-use slog::{debug, error, warn, Logger};
+use slog::{Logger, debug, error, warn};
 use std::{io, sync::Arc, time::Duration};
 use thiserror::Error;
 
 use mithril_common::{
+    MITHRIL_API_VERSION_HEADER, MITHRIL_SIGNER_VERSION_HEADER, StdError,
     api_version::APIVersionProvider,
     entities::{
         ClientError, Epoch, ProtocolMessage, ServerError, SignedEntityType, Signer, SingleSignature,
@@ -16,7 +17,6 @@ use mithril_common::{
     messages::{
         AggregatorFeaturesMessage, EpochSettingsMessage, TryFromMessageAdapter, TryToMessageAdapter,
     },
-    StdError, MITHRIL_API_VERSION_HEADER, MITHRIL_SIGNER_VERSION_HEADER,
 };
 
 use crate::entities::SignerEpochSettings;
@@ -99,10 +99,7 @@ impl AggregatorClientError {
 
     async fn get_root_cause(response: Response) -> String {
         let error_code = response.status();
-        let canonical_reason = error_code
-            .canonical_reason()
-            .unwrap_or_default()
-            .to_lowercase();
+        let canonical_reason = error_code.canonical_reason().unwrap_or_default().to_lowercase();
         let is_json = response
             .headers()
             .get(header::CONTENT_TYPE)
@@ -475,7 +472,7 @@ mod tests {
     use mithril_common::api_version::DummyApiVersionDiscriminantSource;
     use mithril_common::entities::Epoch;
     use mithril_common::messages::TryFromMessageAdapter;
-    use mithril_common::test_utils::{fake_data, MemoryDrainForTestInspector};
+    use mithril_common::test_utils::{MemoryDrainForTestInspector, fake_data};
 
     use crate::test_tools::TestLogger;
 
@@ -607,8 +604,7 @@ mod tests {
         let epoch_settings_expected = EpochSettingsMessage::dummy();
         let _server_mock = server.mock(|when, then| {
             when.path("/epoch-settings");
-            then.status(200)
-                .body(json!(epoch_settings_expected).to_string());
+            then.status(200).body(json!(epoch_settings_expected).to_string());
         });
 
         let epoch_settings = client.retrieve_epoch_settings().await;
@@ -685,11 +681,7 @@ mod tests {
             );
         });
 
-        match client
-            .register_signer(epoch, single_signer)
-            .await
-            .unwrap_err()
-        {
+        match client.register_signer(epoch, single_signer).await.unwrap_err() {
             AggregatorClientError::RemoteServerLogical(_) => (),
             err => {
                 panic!(
@@ -710,11 +702,7 @@ mod tests {
             then.status(500).body("an error occurred");
         });
 
-        match client
-            .register_signer(epoch, single_signer)
-            .await
-            .unwrap_err()
-        {
+        match client.register_signer(epoch, single_signer).await.unwrap_err() {
             AggregatorClientError::RemoteServerTechnical(_) => (),
             e => panic!("Expected Aggregator::RemoteServerTechnical error, got '{e:?}'."),
         };
@@ -955,8 +943,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_non_4xx_or_5xx_errors_are_handled_as_unhandled_status_code_and_contains_response_text(
-    ) {
+    async fn test_non_4xx_or_5xx_errors_are_handled_as_unhandled_status_code_and_contains_response_text()
+     {
         let response = build_text_response(StatusCode::OK, "ok text");
         let handled_error = AggregatorClientError::from_response(response).await;
 
@@ -981,8 +969,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_root_cause_of_json_formatted_client_error_response_contains_error_label_and_message(
-    ) {
+    async fn test_root_cause_of_json_formatted_client_error_response_contains_error_label_and_message()
+     {
         let client_error = ClientError::new("label", "message");
         let response = build_json_response(StatusCode::BAD_REQUEST, &client_error);
 
@@ -993,8 +981,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_root_cause_of_json_formatted_server_error_response_contains_error_label_and_message(
-    ) {
+    async fn test_root_cause_of_json_formatted_server_error_response_contains_error_label_and_message()
+     {
         let server_error = ServerError::new("message");
         let response = build_json_response(StatusCode::BAD_REQUEST, &server_error);
 
@@ -1107,8 +1095,10 @@ mod tests {
             signer_version: S,
         ) {
             assert!(log_inspector.contains_log(API_VERSION_MISMATCH_WARNING_MESSAGE));
-            assert!(log_inspector
-                .contains_log(&format!("aggregator_version={}", aggregator_version.into())));
+            assert!(
+                log_inspector
+                    .contains_log(&format!("aggregator_version={}", aggregator_version.into()))
+            );
             assert!(
                 log_inspector.contains_log(&format!("signer_version={}", signer_version.into()))
             );

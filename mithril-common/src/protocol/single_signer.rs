@@ -1,8 +1,8 @@
 use crate::{
+    StdResult,
     crypto_helper::ProtocolSigner,
     entities::{PartyId, SingleSignature},
     protocol::ToMessage,
-    StdResult,
 };
 
 /// The SingleSigner is the structure responsible for issuing SingleSignatures.

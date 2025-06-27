@@ -2,11 +2,11 @@ use std::ops::Range;
 
 use async_trait::async_trait;
 
+use mithril_common::StdResult;
 use mithril_common::crypto_helper::MKTreeNode;
 use mithril_common::entities::{
     BlockNumber, BlockRange, CardanoTransaction, ChainPoint, SlotNumber, TransactionHash,
 };
-use mithril_common::StdResult;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 
 use crate::services::{TransactionStore, TransactionsRetriever};
@@ -63,25 +63,21 @@ impl TransactionsRetriever for CardanoTransactionRepository {
         hashes: Vec<TransactionHash>,
         up_to: BlockNumber,
     ) -> StdResult<Vec<CardanoTransaction>> {
-        self.get_transaction_by_hashes(hashes, up_to)
-            .await
-            .map(|v| {
-                v.into_iter()
-                    .map(|record| record.into())
-                    .collect::<Vec<CardanoTransaction>>()
-            })
+        self.get_transaction_by_hashes(hashes, up_to).await.map(|v| {
+            v.into_iter()
+                .map(|record| record.into())
+                .collect::<Vec<CardanoTransaction>>()
+        })
     }
 
     async fn get_by_block_ranges(
         &self,
         block_ranges: Vec<BlockRange>,
     ) -> StdResult<Vec<CardanoTransaction>> {
-        self.get_transaction_by_block_ranges(block_ranges)
-            .await
-            .map(|v| {
-                v.into_iter()
-                    .map(|record| record.into())
-                    .collect::<Vec<CardanoTransaction>>()
-            })
+        self.get_transaction_by_block_ranges(block_ranges).await.map(|v| {
+            v.into_iter()
+                .map(|record| record.into())
+                .collect::<Vec<CardanoTransaction>>()
+        })
     }
 }

@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 
 use crate::{
+    StdResult,
     entities::{Epoch, ProtocolMessage},
     signable_builder::SignableBuilder,
-    StdResult,
 };
 
 /// A [MithrilStakeDistributionSignableBuilder] builder

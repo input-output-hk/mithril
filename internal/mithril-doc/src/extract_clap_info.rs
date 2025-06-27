@@ -1,4 +1,4 @@
-use clap::{builder::StyledStr, Arg, Command};
+use clap::{Arg, Command, builder::StyledStr};
 
 use super::{FieldDoc, StructDoc};
 
@@ -91,11 +91,7 @@ mod tests {
         //assert_eq!(1, command_parameters.data.len());
         assert_eq!(
             "run_mode",
-            command_parameters
-                .get_ordered_data()
-                .first()
-                .unwrap()
-                .parameter
+            command_parameters.get_ordered_data().first().unwrap().parameter
         );
         for arg in command.get_arguments() {
             println!("{} {}", arg.get_id(), arg.is_required_set());

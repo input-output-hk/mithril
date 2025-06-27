@@ -31,9 +31,5 @@ fn sibling(i: usize) -> usize {
     // In the heap representation, the left sibling is always odd
     // And the right sibling is the next node
     // We're assuming that the heap is complete
-    if i % 2 == 1 {
-        i + 1
-    } else {
-        i - 1
-    }
+    if i % 2 == 1 { i + 1 } else { i - 1 }
 }

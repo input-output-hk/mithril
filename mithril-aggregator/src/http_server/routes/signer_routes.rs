@@ -2,8 +2,8 @@ use anyhow::Context;
 use slog::warn;
 use warp::Filter;
 
-use mithril_common::entities::Epoch;
 use mithril_common::StdResult;
+use mithril_common::entities::Epoch;
 
 use crate::dependency_injection::EpochServiceWrapper;
 use crate::http_server::routes::middlewares;
@@ -13,7 +13,7 @@ const MITHRIL_SIGNER_VERSION_HEADER: &str = "signer-node-version";
 
 pub fn routes(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     register_signer(router_state)
         .or(registered_signers(router_state))
         .or(signers_tickers(router_state))
@@ -22,7 +22,7 @@ pub fn routes(
 /// POST /register-signer
 fn register_signer(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("register-signer")
         .and(warp::post())
         .and(middlewares::with_origin_tag(router_state))
@@ -41,7 +41,7 @@ fn register_signer(
 /// Get /signers/tickers
 fn signers_tickers(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("signers" / "tickers")
         .and(warp::get())
         .and(middlewares::with_logger(router_state))
@@ -55,7 +55,7 @@ fn signers_tickers(
 /// Get /signers/registered/:epoch
 fn registered_signers(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("signers" / "registered" / String)
         .and(warp::get())
         .and(middlewares::with_logger(router_state))
@@ -101,10 +101,10 @@ mod handlers {
     use crate::http_server::routes::signer_routes::{
         compute_registration_epoch, fetch_epoch_header_value,
     };
-    use crate::{http_server::routes::reply, SignerRegisterer, SignerRegistrationError};
     use crate::{FromRegisterSignerAdapter, MetricsService, VerificationKeyStorer};
+    use crate::{SignerRegisterer, SignerRegistrationError, http_server::routes::reply};
     use mithril_common::messages::{RegisterSignerMessage, TryFromMessageAdapter};
-    use slog::{debug, warn, Logger};
+    use slog::{Logger, debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
@@ -142,10 +142,7 @@ mod handlers {
 
         let epoch_str = fetch_epoch_header_value(epoch_service, &logger).await;
 
-        match signer_registerer
-            .register_signer(registration_epoch, &signer)
-            .await
-        {
+        match signer_registerer.register_signer(registration_epoch, &signer).await {
             Ok(signer_with_stake) => {
                 event_transmitter.send(EventMessage::signer_registration(
                     "HTTP::signer_register",
@@ -270,21 +267,21 @@ mod tests {
 
     use mithril_api_spec::APISpec;
     use mithril_common::{
+        MITHRIL_ORIGIN_TAG_HEADER,
         crypto_helper::ProtocolRegistrationError,
         entities::Epoch,
         messages::RegisterSignerMessage,
-        test_utils::{fake_data, MithrilFixtureBuilder},
-        MITHRIL_ORIGIN_TAG_HEADER,
+        test_utils::{MithrilFixtureBuilder, fake_data},
     };
 
     use crate::{
+        SignerRegistrationError,
         database::{record::SignerRecord, repository::MockSignerGetter},
         http_server::routes::reply::MithrilStatusCode,
         initialize_dependencies,
         services::{FakeEpochService, MockSignerRegisterer},
         store::MockVerificationKeyStorer,
         test_tools::TestLogger,
-        SignerRegistrationError,
     };
 
     use super::*;
@@ -337,8 +334,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signer_post_increments_signer_registration_total_received_since_startup_metric(
-    ) {
+    async fn test_register_signer_post_increments_signer_registration_total_received_since_startup_metric()
+     {
         let method = Method::POST.as_str();
         let path = "/register-signer";
         let dependency_manager = Arc::new(initialize_dependencies!().await);
@@ -371,13 +368,11 @@ mod tests {
     async fn test_register_signer_post_ok_existing() {
         let signer_with_stake = fake_data::signers_with_stakes(1).pop().unwrap();
         let mut mock_signer_registerer = MockSignerRegisterer::new();
-        mock_signer_registerer
-            .expect_register_signer()
-            .return_once(|_, _| {
-                Err(SignerRegistrationError::ExistingSigner(Box::new(
-                    signer_with_stake,
-                )))
-            });
+        mock_signer_registerer.expect_register_signer().return_once(|_, _| {
+            Err(SignerRegistrationError::ExistingSigner(Box::new(
+                signer_with_stake,
+            )))
+        });
         let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
@@ -410,13 +405,11 @@ mod tests {
     #[tokio::test]
     async fn test_register_signer_post_ko_400() {
         let mut mock_signer_registerer = MockSignerRegisterer::new();
-        mock_signer_registerer
-            .expect_register_signer()
-            .return_once(|_, _| {
-                Err(SignerRegistrationError::FailedSignerRegistration(anyhow!(
-                    ProtocolRegistrationError::OpCertInvalid
-                )))
-            });
+        mock_signer_registerer.expect_register_signer().return_once(|_, _| {
+            Err(SignerRegistrationError::FailedSignerRegistration(anyhow!(
+                ProtocolRegistrationError::OpCertInvalid
+            )))
+        });
         let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
@@ -449,13 +442,11 @@ mod tests {
     #[tokio::test]
     async fn test_register_signer_post_ko_500() {
         let mut mock_signer_registerer = MockSignerRegisterer::new();
-        mock_signer_registerer
-            .expect_register_signer()
-            .return_once(|_, _| {
-                Err(SignerRegistrationError::FailedSignerRecorder(
-                    "an error occurred".to_string(),
-                ))
-            });
+        mock_signer_registerer.expect_register_signer().return_once(|_, _| {
+            Err(SignerRegistrationError::FailedSignerRecorder(
+                "an error occurred".to_string(),
+            ))
+        });
         let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
@@ -761,9 +752,7 @@ mod tests {
             let epoch_service = Arc::new(RwLock::new(
                 FakeEpochServiceBuilder::dummy(Epoch(89)).build(),
             ));
-            let epoch = compute_registration_epoch("456", epoch_service)
-                .await
-                .unwrap();
+            let epoch = compute_registration_epoch("456", epoch_service).await.unwrap();
 
             assert_eq!(epoch, Epoch(456));
         }
@@ -773,9 +762,7 @@ mod tests {
             let epoch_service = Arc::new(RwLock::new(
                 FakeEpochServiceBuilder::dummy(Epoch(89)).build(),
             ));
-            let epoch = compute_registration_epoch("latest", epoch_service)
-                .await
-                .unwrap();
+            let epoch = compute_registration_epoch("latest", epoch_service).await.unwrap();
 
             assert_eq!(epoch, Epoch(89));
         }

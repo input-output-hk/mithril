@@ -125,10 +125,10 @@ impl CardanoStakeDistributionClient {
     ) -> MithrilResult<Option<CardanoStakeDistribution>> {
         match self.aggregator_client.get_content(request).await {
             Ok(content) => {
-                let cardano_stake_distribution: CardanoStakeDistribution =
-                    serde_json::from_str(&content).with_context(|| {
-                        "CardanoStakeDistribution client can not deserialize artifact"
-                    })?;
+                let cardano_stake_distribution: CardanoStakeDistribution = serde_json::from_str(
+                    &content,
+                )
+                .with_context(|| "CardanoStakeDistribution client can not deserialize artifact")?;
 
                 Ok(Some(cardano_stake_distribution))
             }
@@ -188,8 +188,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn list_cardano_stake_distributions_returns_error_when_invalid_json_structure_in_response(
-    ) {
+    async fn list_cardano_stake_distributions_returns_error_when_invalid_json_structure_in_response()
+     {
         let mut http_client = MockAggregatorClient::new();
         http_client
             .expect_get_content()
@@ -251,8 +251,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_cardano_stake_distribution_returns_none_when_not_found_or_remote_server_logical_error(
-    ) {
+    async fn get_cardano_stake_distribution_returns_none_when_not_found_or_remote_server_logical_error()
+     {
         let mut http_client = MockAggregatorClient::new();
         http_client.expect_get_content().return_once(move |_| {
             Err(AggregatorClientError::RemoteServerLogical(anyhow!(
@@ -314,8 +314,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_cardano_stake_distribution_by_epoch_returns_error_when_invalid_json_structure_in_response(
-    ) {
+    async fn get_cardano_stake_distribution_by_epoch_returns_error_when_invalid_json_structure_in_response()
+     {
         let mut http_client = MockAggregatorClient::new();
         http_client
             .expect_get_content()
@@ -329,8 +329,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_cardano_stake_distribution_by_epoch_returns_none_when_not_found_or_remote_server_logical_error(
-    ) {
+    async fn get_cardano_stake_distribution_by_epoch_returns_none_when_not_found_or_remote_server_logical_error()
+     {
         let mut http_client = MockAggregatorClient::new();
         http_client.expect_get_content().return_once(move |_| {
             Err(AggregatorClientError::RemoteServerLogical(anyhow!(

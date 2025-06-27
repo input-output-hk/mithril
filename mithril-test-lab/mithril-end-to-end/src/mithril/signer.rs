@@ -2,8 +2,8 @@ use crate::devnet::PoolNode;
 use crate::utils::MithrilCommand;
 use crate::{DEVNET_MAGIC_ID, ERA_MARKERS_VERIFICATION_KEY};
 use anyhow::Context;
-use mithril_common::entities::PartyId;
 use mithril_common::StdResult;
+use mithril_common::entities::PartyId;
 use slog_scope::info;
 use std::collections::HashMap;
 use std::path::Path;
@@ -87,19 +87,11 @@ impl Signer {
         if signer_config.enable_certification {
             env.insert(
                 "KES_SECRET_KEY_PATH",
-                signer_config
-                    .pool_node
-                    .kes_secret_key_path
-                    .to_str()
-                    .unwrap(),
+                signer_config.pool_node.kes_secret_key_path.to_str().unwrap(),
             );
             env.insert(
                 "OPERATIONAL_CERTIFICATE_PATH",
-                signer_config
-                    .pool_node
-                    .operational_certificate_path
-                    .to_str()
-                    .unwrap(),
+                signer_config.pool_node.operational_certificate_path.to_str().unwrap(),
             );
         } else {
             env.insert("PARTY_ID", &party_id);
@@ -136,10 +128,7 @@ impl Signer {
         if let Some(process) = process_option.as_mut() {
             let name = self.name.as_str();
             info!("Stopping {name}");
-            process
-                .kill()
-                .await
-                .with_context(|| "Could not kill signer")?;
+            process.kill().await.with_context(|| "Could not kill signer")?;
             *process_option = None;
         }
         Ok(())

@@ -1,8 +1,8 @@
 use anyhow::Context;
 use clap::{Parser, Subcommand};
-use config::{builder::DefaultState, ConfigBuilder, Map, Value};
+use config::{ConfigBuilder, Map, Value, builder::DefaultState};
 use serde::{Deserialize, Serialize};
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use mithril_common::StdResult;
@@ -10,11 +10,11 @@ use mithril_doc::{Documenter, StructDoc};
 use mithril_persistence::sqlite::{SqliteCleaner, SqliteCleaningTask};
 
 use crate::{
+    ConfigurationSource, ExecutionEnvironment,
     database::repository::{CertificateRepository, SignedEntityStore},
     dependency_injection::DependenciesBuilder,
     extract_all,
     tools::CertificatesHashMigrator,
-    ConfigurationSource, ExecutionEnvironment,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Documenter)]
@@ -48,9 +48,7 @@ impl ToolsCommand {
         root_logger: Logger,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> StdResult<()> {
-        self.genesis_subcommand
-            .execute(root_logger, config_builder)
-            .await
+        self.genesis_subcommand.execute(root_logger, config_builder).await
     }
 
     pub fn extract_config(command_path: String) -> HashMap<String, StructDoc> {

@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use reqwest::{Client, IntoUrl};
 use serde::de::DeserializeOwned;
@@ -152,9 +152,8 @@ mod tests {
         });
         let client = ReqwestGitHubApiClient::new(None).unwrap();
 
-        let result: MithrilResult<FakeApiResponse> = client
-            .download(format!("{}/endpoint", server.base_url()))
-            .await;
+        let result: MithrilResult<FakeApiResponse> =
+            client.download(format!("{}/endpoint", server.base_url())).await;
 
         assert!(
             result.is_err(),
@@ -180,13 +179,14 @@ mod tests {
         });
         let client = ReqwestGitHubApiClient::new(None).unwrap();
 
-        let result: MithrilResult<FakeApiResponse> = client
-            .download(format!("{}/endpoint", server.base_url()))
-            .await;
+        let result: MithrilResult<FakeApiResponse> =
+            client.download(format!("{}/endpoint", server.base_url())).await;
         let error = result.expect_err("Expected an error due to 500 status");
 
-        assert!(error
-            .to_string()
-            .contains(&StatusCode::INTERNAL_SERVER_ERROR.to_string()));
+        assert!(
+            error
+                .to_string()
+                .contains(&StatusCode::INTERNAL_SERVER_ERROR.to_string())
+        );
     }
 }

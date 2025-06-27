@@ -78,10 +78,7 @@ async fn main() -> MithrilResult<()> {
     let unpacked_dir = work_dir.join("unpack");
     std::fs::create_dir(&unpacked_dir).unwrap();
 
-    let certificate = client
-        .certificate()
-        .verify_chain(&snapshot.certificate_hash)
-        .await?;
+    let certificate = client.certificate().verify_chain(&snapshot.certificate_hash).await?;
 
     client
         .cardano_database()
@@ -240,9 +237,7 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
 }
 
 fn get_temp_dir() -> MithrilResult<PathBuf> {
-    let dir = std::env::temp_dir()
-        .join("mithril_examples")
-        .join("client_snapshot");
+    let dir = std::env::temp_dir().join("mithril_examples").join("client_snapshot");
 
     if dir.exists() {
         std::fs::remove_dir_all(&dir).with_context(|| format!("Could not remove dir {dir:?}"))?;

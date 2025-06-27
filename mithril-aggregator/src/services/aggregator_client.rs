@@ -4,16 +4,16 @@ use mithril_common::messages::TryFromMessageAdapter;
 use reqwest::header::{self, HeaderValue};
 use reqwest::{self, Client, Proxy, RequestBuilder, Response, StatusCode};
 use semver::Version;
-use slog::{debug, error, warn, Logger};
+use slog::{Logger, debug, error, warn};
 use std::{io, sync::Arc, time::Duration};
 use thiserror::Error;
 
 use mithril_common::{
+    MITHRIL_AGGREGATOR_VERSION_HEADER, MITHRIL_API_VERSION_HEADER, StdError,
     api_version::APIVersionProvider,
     entities::{ClientError, ServerError},
     logging::LoggerExtensions,
     messages::EpochSettingsMessage,
-    StdError, MITHRIL_AGGREGATOR_VERSION_HEADER, MITHRIL_API_VERSION_HEADER,
 };
 
 use crate::entities::LeaderAggregatorEpochSettings;
@@ -87,10 +87,7 @@ impl AggregatorClientError {
 
     async fn get_root_cause(response: Response) -> String {
         let error_code = response.status();
-        let canonical_reason = error_code
-            .canonical_reason()
-            .unwrap_or_default()
-            .to_lowercase();
+        let canonical_reason = error_code.canonical_reason().unwrap_or_default().to_lowercase();
         let is_json = response
             .headers()
             .get(header::CONTENT_TYPE)
@@ -354,8 +351,7 @@ mod tests {
         let epoch_settings_expected = EpochSettingsMessage::dummy();
         let _server_mock = server.mock(|when, then| {
             when.path("/epoch-settings");
-            then.status(200)
-                .body(json!(epoch_settings_expected).to_string());
+            then.status(200).body(json!(epoch_settings_expected).to_string());
         });
 
         let epoch_settings = client.retrieve_epoch_settings().await;
@@ -429,8 +425,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_non_4xx_or_5xx_errors_are_handled_as_unhandled_status_code_and_contains_response_text(
-    ) {
+    async fn test_non_4xx_or_5xx_errors_are_handled_as_unhandled_status_code_and_contains_response_text()
+     {
         let response = build_text_response(StatusCode::OK, "ok text");
         let handled_error = AggregatorClientError::from_response(response).await;
 
@@ -455,8 +451,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_root_cause_of_json_formatted_client_error_response_contains_error_label_and_message(
-    ) {
+    async fn test_root_cause_of_json_formatted_client_error_response_contains_error_label_and_message()
+     {
         let client_error = ClientError::new("label", "message");
         let response = build_json_response(StatusCode::BAD_REQUEST, &client_error);
 
@@ -467,8 +463,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_root_cause_of_json_formatted_server_error_response_contains_error_label_and_message(
-    ) {
+    async fn test_root_cause_of_json_formatted_server_error_response_contains_error_label_and_message()
+     {
         let server_error = ServerError::new("message");
         let response = build_json_response(StatusCode::BAD_REQUEST, &server_error);
 
@@ -559,8 +555,10 @@ mod tests {
                 "leader_aggregator_version={}",
                 leader_aggregator_version.into()
             )));
-            assert!(log_inspector
-                .contains_log(&format!("aggregator_version={}", aggregator_version.into())));
+            assert!(
+                log_inspector
+                    .contains_log(&format!("aggregator_version={}", aggregator_version.into()))
+            );
         }
 
         #[test]

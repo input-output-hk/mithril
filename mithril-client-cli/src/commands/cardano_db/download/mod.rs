@@ -8,13 +8,13 @@ use clap::Parser;
 use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
-    commands::cardano_db::CardanoDbCommandsBackend,
+    CommandContext,
     commands::SharedArgs,
+    commands::cardano_db::CardanoDbCommandsBackend,
     configuration::{ConfigError, ConfigParameters, ConfigSource},
     utils::{self, JSON_CAUTION_KEY},
-    CommandContext,
 };
-use mithril_client::{common::ImmutableFileNumber, MithrilResult};
+use mithril_client::{MithrilResult, common::ImmutableFileNumber};
 
 /// Clap command to download a Cardano db and verify its associated certificate.
 #[derive(Parser, Debug, Clone)]

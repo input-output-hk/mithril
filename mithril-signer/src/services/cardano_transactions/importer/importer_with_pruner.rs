@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 
+use mithril_common::StdResult;
 use mithril_common::entities::BlockNumber;
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::signable_builder::TransactionsImporter;
-use mithril_common::StdResult;
 
 /// Cardano transactions pruner
 #[cfg_attr(test, mockall::automock)]
@@ -55,9 +55,7 @@ impl TransactionsImporter for TransactionsImporterWithPruner {
                 "Transaction Import finished - Pruning transactions included in block range roots";
                 "number_of_blocks_to_keep" => *number_of_blocks_to_keep,
             );
-            self.transaction_pruner
-                .prune(number_of_blocks_to_keep)
-                .await?;
+            self.transaction_pruner.prune(number_of_blocks_to_keep).await?;
         }
 
         Ok(())

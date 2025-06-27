@@ -51,17 +51,13 @@ impl ConnectionExtensions for SqliteConnection {
         let mut statement = prepare_statement(self, sql.as_ref())?;
         statement.bind(params)?;
         statement.next()?;
-        statement
-            .read::<T, _>(0)
-            .with_context(|| "Read query error")
+        statement.read::<T, _>(0).with_context(|| "Read query error")
     }
 
     fn fetch<Q: Query>(&self, query: Q) -> StdResult<EntityCursor<Q::Entity>> {
         let (condition, params) = query.filters().expand();
         let sql = query.get_definition(&condition);
-        let cursor = prepare_statement(self, &sql)?
-            .into_iter()
-            .bind(&params[..])?;
+        let cursor = prepare_statement(self, &sql)?.into_iter().bind(&params[..])?;
 
         let iterator = EntityCursor::new(cursor);
 
@@ -156,9 +152,7 @@ mod tests {
         }
 
         let connection = Connection::open_thread_safe(":memory:").unwrap();
-        connection
-            .execute("create table query_test(text_data);")
-            .unwrap();
+        connection.execute("create table query_test(text_data);").unwrap();
 
         let value: i64 = connection
             .query_single_cell("select count(*) from query_test", &[])

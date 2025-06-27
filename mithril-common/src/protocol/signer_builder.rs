@@ -6,13 +6,13 @@ use rand_core::{CryptoRng, RngCore, SeedableRng};
 use thiserror::Error;
 
 use crate::{
+    StdResult,
     crypto_helper::{
         KesSigner, ProtocolAggregateVerificationKey, ProtocolClerk, ProtocolClosedKeyRegistration,
         ProtocolInitializer, ProtocolKeyRegistration, ProtocolStakeDistribution,
     },
     entities::{PartyId, ProtocolParameters, SignerWithStake},
     protocol::MultiSigner,
-    StdResult,
 };
 
 use super::SingleSigner;
@@ -132,9 +132,8 @@ impl SignerBuilder {
         signer_with_stake: SignerWithStake,
         kes_signer: Option<Arc<dyn KesSigner>>,
     ) -> StdResult<(SingleSigner, ProtocolInitializer)> {
-        let protocol_initializer_seed: [u8; 32] = signer_with_stake.party_id.as_bytes()[..32]
-            .try_into()
-            .unwrap();
+        let protocol_initializer_seed: [u8; 32] =
+            signer_with_stake.party_id.as_bytes()[..32].try_into().unwrap();
 
         self.build_single_signer_with_rng(
             signer_with_stake,
@@ -175,7 +174,7 @@ mod test {
 
     use crate::{
         crypto_helper::{KesSignerStandard, ProtocolRegistrationErrorWrapper},
-        test_utils::{fake_data, MithrilFixtureBuilder},
+        test_utils::{MithrilFixtureBuilder, fake_data},
     };
 
     use super::*;
@@ -244,10 +243,7 @@ mod test {
             .signers_fixture();
         let non_registered_signer = signers_from_another_fixture.first().unwrap();
         let kes_signer = Some(Arc::new(KesSignerStandard::new(
-            non_registered_signer
-                .kes_secret_key_path()
-                .unwrap()
-                .to_path_buf(),
+            non_registered_signer.kes_secret_key_path().unwrap().to_path_buf(),
             non_registered_signer
                 .operational_certificate_path()
                 .unwrap()

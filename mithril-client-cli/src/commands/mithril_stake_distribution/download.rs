@@ -8,10 +8,10 @@ use std::{
 
 use crate::utils::{self, IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter};
 use crate::{
-    commands::{client_builder, SharedArgs},
+    CommandContext,
+    commands::{SharedArgs, client_builder},
     configuration::{ConfigError, ConfigSource},
     utils::ExpanderUtils,
-    CommandContext,
 };
 use mithril_client::MessageBuilder;
 use mithril_client::MithrilResult;
@@ -120,16 +120,16 @@ impl MithrilStakeDistributionDownloadCommand {
         )?;
         let message = MessageBuilder::new()
             .compute_mithril_stake_distribution_message(&certificate, &mithril_stake_distribution)
-            .with_context(|| {
-                "Can not compute the message for the given Mithril stake distribution"
-            })?;
+            .with_context(
+                || "Can not compute the message for the given Mithril stake distribution",
+            )?;
 
         if !certificate.match_message(&message) {
             return Err(anyhow::anyhow!(
-                    "Certificate and message did not match:\ncertificate_message: '{}'\n computed_message: '{}'",
-                    certificate.signed_message,
-                    message.compute_hash()
-                ));
+                "Certificate and message did not match:\ncertificate_message: '{}'\n computed_message: '{}'",
+                certificate.signed_message,
+                message.compute_hash()
+            ));
         }
 
         progress_printer.report_step(4, "Writing fetched Mithril stake distribution to a file")?;

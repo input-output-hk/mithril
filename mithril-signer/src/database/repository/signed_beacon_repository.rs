@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use std::sync::Arc;
 
-use mithril_common::entities::{Epoch, SignedEntityType};
 use mithril_common::StdResult;
+use mithril_common::entities::{Epoch, SignedEntityType};
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
 use crate::database::query::{
@@ -76,10 +76,7 @@ impl EpochPruningTask for SignedBeaconRepository {
     }
 
     async fn prune(&self, current_epoch: Epoch) -> StdResult<()> {
-        match self
-            .store_retention_limit
-            .map(|limit| current_epoch - limit)
-        {
+        match self.store_retention_limit.map(|limit| current_epoch - limit) {
             Some(threshold) if *threshold > 0 => self.prune_below_epoch(threshold),
             _ => Ok(()),
         }
@@ -182,9 +179,7 @@ mod tests {
             &connection,
             SignedBeaconRecord::fakes(&[(
                 Epoch(1941),
-                vec![SignedEntityType::MithrilStakeDistribution(
-                    time_point.epoch - 2,
-                )],
+                vec![SignedEntityType::MithrilStakeDistribution(time_point.epoch - 2)],
             )]),
         );
         let to_filter = all_signed_entity_type_for(&time_point);
@@ -271,15 +266,11 @@ mod tests {
             initiated_at: Utc::now(),
         };
 
-        let signed_beacons: Vec<SignedBeaconRecord> = connection
-            .fetch_collect(GetSignedBeaconQuery::all())
-            .unwrap();
+        let signed_beacons: Vec<SignedBeaconRecord> =
+            connection.fetch_collect(GetSignedBeaconQuery::all()).unwrap();
         assert_eq!(Vec::<SignedBeaconRecord>::new(), signed_beacons);
 
-        repository
-            .mark_beacon_as_signed(&beacon_to_sign)
-            .await
-            .unwrap();
+        repository.mark_beacon_as_signed(&beacon_to_sign).await.unwrap();
 
         let signed_beacon = connection
             .fetch_first(GetSignedBeaconQuery::all())
@@ -300,9 +291,7 @@ mod tests {
             )]),
         );
 
-        EpochPruningTask::prune(&repository, Epoch(1000))
-            .await
-            .unwrap();
+        EpochPruningTask::prune(&repository, Epoch(1000)).await.unwrap();
 
         let cursor = connection.fetch(GetSignedBeaconQuery::all()).unwrap();
         assert_eq!(1, cursor.count(),);
@@ -320,9 +309,7 @@ mod tests {
             )]),
         );
 
-        EpochPruningTask::prune(&repository, Epoch(9))
-            .await
-            .unwrap();
+        EpochPruningTask::prune(&repository, Epoch(9)).await.unwrap();
 
         let cursor = connection.fetch(GetSignedBeaconQuery::all()).unwrap();
         assert_eq!(1, cursor.count(),);
@@ -349,13 +336,10 @@ mod tests {
             ]),
         );
 
-        EpochPruningTask::prune(&repository, Epoch(18))
-            .await
-            .unwrap();
+        EpochPruningTask::prune(&repository, Epoch(18)).await.unwrap();
 
-        let signed_beacons: Vec<SignedBeaconRecord> = connection
-            .fetch_collect(GetSignedBeaconQuery::all())
-            .unwrap();
+        let signed_beacons: Vec<SignedBeaconRecord> =
+            connection.fetch_collect(GetSignedBeaconQuery::all()).unwrap();
         assert_eq!(
             vec![SignedBeaconRecord::fake(
                 Epoch(8),

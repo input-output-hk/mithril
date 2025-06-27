@@ -1,7 +1,7 @@
 use sqlite::Value;
 
-use mithril_common::entities::{Epoch, SignedEntityTypeDiscriminants};
 use mithril_common::StdResult;
+use mithril_common::entities::{Epoch, SignedEntityTypeDiscriminants};
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::SignedEntityRecord;
@@ -144,8 +144,8 @@ mod tests {
     }
 
     #[test]
-    fn cardano_stake_distribution_by_epoch_returns_records_returns_only_cardano_stake_distribution_records(
-    ) {
+    fn cardano_stake_distribution_by_epoch_returns_records_returns_only_cardano_stake_distribution_records()
+     {
         let cardano_stake_distributions_record: SignedEntityRecord = {
             let mut cardano_stake_distribution = fake_data::cardano_stake_distribution(Epoch(4));
             cardano_stake_distribution.hash = "hash-123".to_string();
@@ -217,9 +217,8 @@ mod tests {
             .collect();
         assert_eq!(expected_signed_entity_records, signed_entity_records);
 
-        let signed_entity_records: Vec<SignedEntityRecord> = connection
-            .fetch_collect(GetSignedEntityRecordQuery::all())
-            .unwrap();
+        let signed_entity_records: Vec<SignedEntityRecord> =
+            connection.fetch_collect(GetSignedEntityRecordQuery::all()).unwrap();
         let expected_signed_entity_records: Vec<SignedEntityRecord> =
             signed_entity_records.iter().map(|c| c.to_owned()).collect();
         assert_eq!(expected_signed_entity_records, signed_entity_records);

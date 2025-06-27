@@ -4,7 +4,7 @@ use warp::Filter;
 
 pub fn routes(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     artifact_cardano_full_immutable_snapshots(router_state)
         .or(artifact_cardano_full_immutable_snapshot_by_id(router_state))
         .or(serve_snapshots_dir(router_state))
@@ -14,7 +14,7 @@ pub fn routes(
 /// GET /artifact/snapshots
 fn artifact_cardano_full_immutable_snapshots(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "snapshots")
         .and(warp::get())
         .and(middlewares::with_logger(router_state))
@@ -25,7 +25,7 @@ fn artifact_cardano_full_immutable_snapshots(
 /// GET /artifact/snapshot/:id
 fn artifact_cardano_full_immutable_snapshot_by_id(
     dependency_manager: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "snapshot" / String)
         .and(warp::get())
         .and(middlewares::with_client_metadata(dependency_manager))
@@ -38,7 +38,7 @@ fn artifact_cardano_full_immutable_snapshot_by_id(
 /// GET /artifact/snapshots/{digest}/download
 fn snapshot_download(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "snapshot" / String / "download")
         .and(warp::get().or(warp::head()).unify())
         .and(middlewares::with_logger(router_state))
@@ -51,7 +51,7 @@ fn snapshot_download(
 
 fn serve_snapshots_dir(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path(crate::http_server::SNAPSHOT_DOWNLOAD_PATH)
         .and(warp::fs::dir(
             router_state.configuration.snapshot_directory.clone(),
@@ -65,7 +65,7 @@ fn serve_snapshots_dir(
 }
 
 mod handlers {
-    use slog::{debug, warn, Logger};
+    use slog::{Logger, debug, warn};
     use std::convert::Infallible;
     use std::str::FromStr;
     use std::sync::Arc;
@@ -77,7 +77,7 @@ mod handlers {
     use crate::http_server::routes::reply;
     use crate::services::{MessageService, SignedEntityService};
     use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
-    use crate::{unwrap_to_internal_server_error, MetricsService};
+    use crate::{MetricsService, unwrap_to_internal_server_error};
 
     pub const LIST_MAX_ITEMS: usize = 20;
 
@@ -86,10 +86,7 @@ mod handlers {
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        match http_message_service
-            .get_snapshot_list_message(LIST_MAX_ITEMS)
-            .await
-        {
+        match http_message_service.get_snapshot_list_message(LIST_MAX_ITEMS).await {
             Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
             Err(err) => {
                 warn!(logger,"list_artifacts_snapshot"; "error" => ?err);
@@ -113,10 +110,7 @@ mod handlers {
                 client_metadata.client_type.as_deref().unwrap_or_default(),
             ]);
 
-        match http_message_service
-            .get_snapshot_message(&signed_entity_id)
-            .await
-        {
+        match http_message_service.get_snapshot_message(&signed_entity_id).await {
             Ok(Some(signed_entity)) => Ok(reply::json(&signed_entity, StatusCode::OK)),
             Ok(None) => {
                 warn!(logger, "snapshot_details::not_found");
@@ -149,10 +143,7 @@ mod handlers {
         }
 
         match crate::tools::extract_digest_from_path(&filepath) {
-            Ok(digest) => match signed_entity_service
-                .get_signed_snapshot_by_id(&digest)
-                .await
-            {
+            Ok(digest) => match signed_entity_service.get_signed_snapshot_by_id(&digest).await {
                 Ok(Some(_)) => Ok(reply::add_content_disposition_header(reply, &filepath)),
                 _ => Ok(reply::empty(StatusCode::NOT_FOUND)),
             },
@@ -170,10 +161,7 @@ mod handlers {
         server_url: SanitizedUrlWithTrailingSlash,
         signed_entity_service: Arc<dyn SignedEntityService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        match signed_entity_service
-            .get_signed_snapshot_by_id(&digest)
-            .await
-        {
+        match signed_entity_service.get_signed_snapshot_by_id(&digest).await {
             Ok(Some(signed_entity)) => {
                 let snapshot = signed_entity.artifact;
                 let filename = format!(
@@ -224,10 +212,10 @@ mod tests {
 
     use mithril_api_spec::APISpec;
     use mithril_common::{
+        MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
         entities::{CardanoDbBeacon, SignedEntityType, Snapshot},
         messages::{SnapshotListItemMessage, SnapshotMessage},
         test_utils::fake_data,
-        MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
     };
     use mithril_persistence::sqlite::HydrationError;
 

@@ -2,18 +2,18 @@ use anyhow::Context;
 use async_trait::async_trait;
 use mithril_common::entities::{FileUri, ImmutableFileNumber};
 use semver::Version;
-use slog::{debug, warn, Logger};
+use slog::{Logger, debug, warn};
 use std::sync::Arc;
 use thiserror::Error;
 
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::{
-    entities::{CardanoDbBeacon, Certificate, ProtocolMessagePartKey, Snapshot},
     CardanoNetwork, StdResult,
+    entities::{CardanoDbBeacon, Certificate, ProtocolMessagePartKey, Snapshot},
 };
 
 use super::ArtifactBuilder;
-use crate::{services::Snapshotter, tools::file_archiver::FileArchive, FileUploader};
+use crate::{FileUploader, services::Snapshotter, tools::file_archiver::FileArchive};
 
 /// [CardanoImmutableFilesFullArtifact] error
 #[derive(Debug, Error)]
@@ -58,9 +58,8 @@ impl CardanoImmutableFilesFullArtifactBuilder {
 
         let snapshotter = self.snapshotter.clone();
         let snapshot_name = base_file_name_without_extension.to_owned();
-        let ongoing_snapshot = snapshotter
-            .snapshot_all_completed_immutables(&snapshot_name)
-            .await?;
+        let ongoing_snapshot =
+            snapshotter.snapshot_all_completed_immutables(&snapshot_name).await?;
 
         debug!(
             self.logger,
@@ -96,10 +95,7 @@ impl CardanoImmutableFilesFullArtifactBuilder {
         ongoing_snapshot: &FileArchive,
     ) -> StdResult<Vec<FileUri>> {
         debug!(self.logger, ">> upload_snapshot_archive");
-        let location = self
-            .snapshot_uploader
-            .upload(ongoing_snapshot.get_file_path())
-            .await;
+        let location = self.snapshot_uploader.upload(ongoing_snapshot.get_file_path()).await;
 
         if let Err(error) = tokio::fs::remove_file(ongoing_snapshot.get_file_path()).await {
             warn!(
@@ -213,8 +209,8 @@ mod tests {
     use mithril_common::{entities::CompressionAlgorithm, test_utils::fake_data};
 
     use crate::{
-        file_uploaders::MockFileUploader, services::DumbSnapshotter, test_tools::TestLogger,
-        DumbUploader,
+        DumbUploader, file_uploaders::MockFileUploader, services::DumbSnapshotter,
+        test_tools::TestLogger,
     };
 
     use super::*;

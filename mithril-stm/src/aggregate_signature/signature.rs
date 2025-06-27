@@ -44,11 +44,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
             &msgp,
         )?;
 
-        let leaves = self
-            .signatures
-            .iter()
-            .map(|r| r.reg_party)
-            .collect::<Vec<RegParty>>();
+        let leaves = self.signatures.iter().map(|r| r.reg_party).collect::<Vec<RegParty>>();
 
         avk.get_mt_commitment().check(&leaves, &self.batch_proof)?;
 
@@ -102,11 +98,8 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
         let mut aggr_vks = Vec::with_capacity(batch_size);
         for (idx, sig_group) in stm_signatures.iter().enumerate() {
             sig_group.preliminary_verify(&msgs[idx], &avks[idx], &parameters[idx])?;
-            let grouped_sigs: Vec<Signature> = sig_group
-                .signatures
-                .iter()
-                .map(|sig_reg| sig_reg.sig.sigma)
-                .collect();
+            let grouped_sigs: Vec<Signature> =
+                sig_group.signatures.iter().map(|sig_reg| sig_reg.sig.sigma).collect();
             let grouped_vks: Vec<VerificationKey> = sig_group
                 .signatures
                 .iter()
@@ -143,11 +136,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
         out.extend_from_slice(&proof_type.to_be_bytes());
         out.extend_from_slice(&u64::try_from(self.signatures.len()).unwrap().to_be_bytes());
         for sig_reg in &self.signatures {
-            out.extend_from_slice(
-                &u64::try_from(sig_reg.to_bytes().len())
-                    .unwrap()
-                    .to_be_bytes(),
-            );
+            out.extend_from_slice(&u64::try_from(sig_reg.to_bytes().len()).unwrap().to_be_bytes());
             out.extend_from_slice(&sig_reg.to_bytes());
         }
         let proof = &self.batch_proof;
@@ -161,11 +150,8 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
         let mut u8_bytes = [0u8; 1];
         let mut bytes_index = 0;
 
-        u8_bytes.copy_from_slice(
-            bytes
-                .get(..1)
-                .ok_or(StmAggregateSignatureError::SerializationError)?,
-        );
+        u8_bytes
+            .copy_from_slice(bytes.get(..1).ok_or(StmAggregateSignatureError::SerializationError)?);
         bytes_index += 1;
         let proof_type = u8::from_be_bytes(u8_bytes);
         if proof_type != 0 {

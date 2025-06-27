@@ -5,9 +5,9 @@ use mithril_common::entities::{Epoch, SupportedEra};
 use mithril_era::adapters::{EraReaderAdapterBuilder, EraReaderDummyAdapter};
 use mithril_era::{EraChecker, EraMarker, EraReader, EraReaderAdapter};
 
+use crate::ExecutionEnvironment;
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
 use crate::get_dependency;
-use crate::ExecutionEnvironment;
 
 impl DependenciesBuilder {
     async fn build_api_version_provider(&mut self) -> Result<Arc<APIVersionProvider>> {
@@ -47,15 +47,15 @@ impl DependenciesBuilder {
     }
 
     async fn build_era_checker(&mut self) -> Result<Arc<EraChecker>> {
-        let current_epoch = self
-            .get_ticker_service()
-            .await?
-            .get_current_epoch()
-            .await
-            .map_err(|e| DependenciesBuilderError::Initialization {
-                message: "Error while building EraChecker".to_string(),
-                error: Some(e),
-            })?;
+        let current_epoch =
+            self.get_ticker_service()
+                .await?
+                .get_current_epoch()
+                .await
+                .map_err(|e| DependenciesBuilderError::Initialization {
+                    message: "Error while building EraChecker".to_string(),
+                    error: Some(e),
+                })?;
         let era_epoch_token = self
             .get_era_reader()
             .await?

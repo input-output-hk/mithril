@@ -1,5 +1,5 @@
 use blake2::digest::{Digest, FixedOutput};
-use serde::{ser::SerializeTuple, Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Serialize, Serializer, ser::SerializeTuple};
 
 use crate::key_reg::RegParty;
 use crate::{StmSig, StmSignatureError};
@@ -29,15 +29,10 @@ impl StmSigRegParty {
     pub fn from_bytes<D: Digest + Clone + FixedOutput>(
         bytes: &[u8],
     ) -> Result<StmSigRegParty, StmSignatureError> {
-        let reg_party = RegParty::from_bytes(
-            bytes
-                .get(0..104)
-                .ok_or(StmSignatureError::SerializationError)?,
-        )?;
+        let reg_party =
+            RegParty::from_bytes(bytes.get(0..104).ok_or(StmSignatureError::SerializationError)?)?;
         let sig = StmSig::from_bytes::<D>(
-            bytes
-                .get(104..)
-                .ok_or(StmSignatureError::SerializationError)?,
+            bytes.get(104..).ok_or(StmSignatureError::SerializationError)?,
         )?;
 
         Ok(StmSigRegParty { sig, reg_party })

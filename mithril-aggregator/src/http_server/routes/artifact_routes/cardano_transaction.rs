@@ -4,14 +4,14 @@ use warp::Filter;
 
 pub fn routes(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     artifact_cardano_transactions(router_state).or(artifact_cardano_transaction_by_id(router_state))
 }
 
 /// GET /artifact/cardano-transactions
 fn artifact_cardano_transactions(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "cardano-transactions")
         .and(warp::get())
         .and(middlewares::with_logger(router_state))
@@ -22,7 +22,7 @@ fn artifact_cardano_transactions(
 /// GET /artifact/cardano-transaction/:id
 fn artifact_cardano_transaction_by_id(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "cardano-transaction" / String)
         .and(warp::get())
         .and(middlewares::with_client_metadata(router_state))
@@ -33,15 +33,15 @@ fn artifact_cardano_transaction_by_id(
 }
 
 pub mod handlers {
-    use slog::{warn, Logger};
+    use slog::{Logger, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
 
+    use crate::MetricsService;
     use crate::http_server::routes::middlewares::ClientMetadata;
     use crate::http_server::routes::reply;
     use crate::services::MessageService;
-    use crate::MetricsService;
 
     pub const LIST_MAX_ITEMS: usize = 20;
 
@@ -106,8 +106,8 @@ pub mod tests {
 
     use mithril_api_spec::APISpec;
     use mithril_common::{
-        messages::{CardanoTransactionSnapshotListItemMessage, CardanoTransactionSnapshotMessage},
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
+        messages::{CardanoTransactionSnapshotListItemMessage, CardanoTransactionSnapshotMessage},
     };
     use mithril_persistence::sqlite::HydrationError;
 

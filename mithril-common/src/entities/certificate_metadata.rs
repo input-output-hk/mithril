@@ -112,12 +112,7 @@ impl CertificateMetadata {
                 .unwrap_or_default()
                 .to_be_bytes(),
         );
-        hasher.update(
-            self.sealed_at
-                .timestamp_nanos_opt()
-                .unwrap_or_default()
-                .to_be_bytes(),
-        );
+        hasher.update(self.sealed_at.timestamp_nanos_opt().unwrap_or_default().to_be_bytes());
 
         for party in &self.signers {
             hasher.update(party.compute_hash().as_bytes());

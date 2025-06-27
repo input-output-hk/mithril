@@ -173,9 +173,7 @@ mod tests {
 
             // Commiting make the transaction inactive thus make next operation fail
             connection.execute(Transaction::COMMIT_TRANSACTION).unwrap();
-            transaction
-                .rollback()
-                .expect_err("Rollback should have fail");
+            transaction.rollback().expect_err("Rollback should have fail");
 
             // When going out of scope, drop is called and should not panic
         }

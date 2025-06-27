@@ -1,6 +1,6 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
-use slog::{crit, Logger};
+use slog::{Logger, crit};
 use std::sync::Arc;
 
 use mithril_common::certificate_chain::{CertificateRetriever, CertificateRetrieverError};
@@ -191,11 +191,7 @@ mod tests {
             })
             .build();
 
-        assert!(certificate_client
-            .get("cert-hash-123")
-            .await
-            .unwrap()
-            .is_none());
+        assert!(certificate_client.get("cert-hash-123").await.unwrap().is_none());
     }
 
     #[tokio::test]

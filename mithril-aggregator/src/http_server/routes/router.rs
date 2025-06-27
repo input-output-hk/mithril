@@ -1,10 +1,10 @@
+use crate::ServeCommandDependenciesContainer;
+use crate::http_server::SERVER_BASE_PATH;
 use crate::http_server::routes::{
     artifact_routes, certificate_routes, epoch_routes, root_routes, signatures_routes,
     signer_routes, statistics_routes, status,
 };
-use crate::http_server::SERVER_BASE_PATH;
 use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
-use crate::ServeCommandDependenciesContainer;
 
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::entities::SignedEntityTypeDiscriminants;
@@ -141,10 +141,7 @@ pub fn routes(
             warp::reply::with_header(
                 reply,
                 MITHRIL_API_VERSION_HEADER,
-                &api_version_provider
-                    .compute_current_version()
-                    .unwrap()
-                    .to_string(),
+                &api_version_provider.compute_current_version().unwrap().to_string(),
             )
         })
         .with(cors)
@@ -189,9 +186,7 @@ mod tests {
             "API version header should be present, headers: {response_headers:?}",
         );
         assert!(
-            response_headers
-                .get("access-control-allow-origin")
-                .is_some(),
+            response_headers.get("access-control-allow-origin").is_some(),
             "CORS headers should be present, headers: {response_headers:?}",
         );
     }

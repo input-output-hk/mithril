@@ -1,6 +1,6 @@
 use anyhow::Context;
-use mithril_common::entities::Epoch;
 use mithril_common::StdResult;
+use mithril_common::entities::Epoch;
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 use sqlite::Value;
 
@@ -36,7 +36,9 @@ impl Query for GetEpochSettingsQuery {
     fn get_definition(&self, condition: &str) -> String {
         let aliases = SourceAlias::new(&[("{:epoch_setting:}", "es")]);
         let projection = Self::Entity::get_projection().expand(aliases);
-        format!("select {projection} from epoch_setting as es where {condition} order by epoch_setting_id desc")
+        format!(
+            "select {projection} from epoch_setting as es where {condition} order by epoch_setting_id desc"
+        )
     }
 }
 

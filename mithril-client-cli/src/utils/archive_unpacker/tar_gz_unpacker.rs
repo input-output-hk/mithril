@@ -37,7 +37,7 @@ impl ArchiveFormat for TarGzUnpacker {
 mod tests {
     use std::fs::{self, File};
 
-    use flate2::{write::GzEncoder, Compression};
+    use flate2::{Compression, write::GzEncoder};
     use tar::{Builder, Header};
 
     use mithril_common::{assert_dir_eq, temp_dir_create};

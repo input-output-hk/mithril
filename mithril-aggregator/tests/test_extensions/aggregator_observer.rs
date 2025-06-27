@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use std::{collections::BTreeSet, sync::Arc};
 
 use mithril_aggregator::{
@@ -7,13 +7,13 @@ use mithril_aggregator::{
     services::{CertifierService, MessageService, SignedEntityService},
 };
 use mithril_common::{
+    StdResult,
     entities::{
         CardanoTransactionsSnapshot, Certificate, Epoch, SignedEntityType,
         SignedEntityTypeDiscriminants, TimePoint,
     },
     messages::EpochSettingsMessage,
     signable_builder::SignedEntity,
-    StdResult,
 };
 use mithril_ticker::TickerService;
 

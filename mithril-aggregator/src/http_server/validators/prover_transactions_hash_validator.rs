@@ -91,8 +91,8 @@ mod tests {
     }
 
     #[test]
-    fn prover_transactions_hash_validator_return_error_when_hash_contains_non_hexadecimal_characters(
-    ) {
+    fn prover_transactions_hash_validator_return_error_when_hash_contains_non_hexadecimal_characters()
+     {
         for invalid_char in ["g", "x", ";", " ", "à"].iter() {
             let hash = format!("{}{}", "a".repeat(63), invalid_char);
             let error = ProverTransactionsHashValidator::default()

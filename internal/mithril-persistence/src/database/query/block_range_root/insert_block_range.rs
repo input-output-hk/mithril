@@ -20,16 +20,14 @@ impl InsertBlockRangeRootQuery {
             repeat_n("(?*, ?*, ?*)", block_range_records.len()).collect();
 
         let values: StdResult<Vec<Value>> =
-            block_range_records
-                .into_iter()
-                .try_fold(vec![], |mut vec, record| {
-                    vec.append(&mut vec![
-                        Value::Integer(record.range.start.try_into()?),
-                        Value::Integer(record.range.end.try_into()?),
-                        Value::String(record.merkle_root.to_hex()),
-                    ]);
-                    Ok(vec)
-                });
+            block_range_records.into_iter().try_fold(vec![], |mut vec, record| {
+                vec.append(&mut vec![
+                    Value::Integer(record.range.start.try_into()?),
+                    Value::Integer(record.range.end.try_into()?),
+                    Value::String(record.merkle_root.to_hex()),
+                ]);
+                Ok(vec)
+            });
         let condition = WhereCondition::new(
             format!("{columns} values {}", values_columns.join(", ")).as_str(),
             values?,

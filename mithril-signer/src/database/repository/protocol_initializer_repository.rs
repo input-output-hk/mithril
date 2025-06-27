@@ -11,7 +11,7 @@ use crate::{
     database::query::GetProtocolInitializerQuery, services::EpochPruningTask,
     store::ProtocolInitializerStorer,
 };
-use mithril_common::{crypto_helper::ProtocolInitializer, entities::Epoch, StdResult};
+use mithril_common::{StdResult, crypto_helper::ProtocolInitializer, entities::Epoch};
 use mithril_persistence::sqlite::ConnectionExtensions;
 use mithril_persistence::{sqlite::SqliteConnection /*store::adapter::StoreAdapter*/};
 

@@ -5,14 +5,14 @@ use std::{
     process::Command,
 };
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use clap::{Parser, ValueEnum};
 
 use mithril_client::MithrilResult;
 
 use crate::utils::{
-    copy_dir, remove_dir_contents, ArchiveUnpacker, GitHubReleaseRetriever, HttpDownloader,
-    ReqwestGitHubApiClient, ReqwestHttpDownloader,
+    ArchiveUnpacker, GitHubReleaseRetriever, HttpDownloader, ReqwestGitHubApiClient,
+    ReqwestHttpDownloader, copy_dir, remove_dir_contents,
 };
 
 const GITHUB_ORGANIZATION: &str = "IntersectMBO";
@@ -106,9 +106,7 @@ impl SnapshotConverter for SnapshotConverterBin {
         if !status.success() {
             return Err(anyhow!(
                 "Failure while running snapshot-converter binary, exited with status code: {:?}",
-                status
-                    .code()
-                    .map_or(String::from("unknown"), |c| c.to_string())
+                status.code().map_or(String::from("unknown"), |c| c.to_string())
             ));
         }
 
@@ -342,7 +340,7 @@ impl SnapshotConverterCommand {
                         );
 
                         Ok(output_path)
-                    }
+                    };
                 }
                 Err(e) => {
                     eprintln!(
@@ -1165,7 +1163,7 @@ mod tests {
                 .collect()
         }
 
-        fn contains_filename(expected: &Path) -> impl Fn(&Path) -> bool {
+        fn contains_filename(expected: &Path) -> impl Fn(&Path) -> bool + use<> {
             let filename = expected.file_name().unwrap().to_string_lossy().to_string();
 
             move |p: &Path| p.to_string_lossy().contains(&filename)

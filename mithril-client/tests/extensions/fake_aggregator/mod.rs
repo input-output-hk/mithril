@@ -13,10 +13,10 @@ pub use cardano_db_v2::CardanoDatabaseSnapshotV2Fixture;
 use std::sync::Arc;
 
 use axum::{
-    extract::{Request, State},
-    middleware::{from_fn_with_state, Next},
-    response::Response,
     Router,
+    extract::{Request, State},
+    middleware::{Next, from_fn_with_state},
+    response::Response,
 };
 use axum_test::TestServer;
 use tokio::sync::Mutex;
@@ -77,12 +77,7 @@ impl FakeAggregator {
     }
 
     pub async fn get_latest_calls(&self, count: usize) -> Vec<String> {
-        self.get_calls()
-            .await
-            .into_iter()
-            .rev()
-            .take(count)
-            .collect()
+        self.get_calls().await.into_iter().rev().take(count).collect()
     }
 }
 

@@ -103,9 +103,7 @@ mod tests {
         Eu mi bibendum neque egestas congue quisque egestas diam.",
         );
 
-        let tail_result = file_utils::tail(&file_path, 2)
-            .await
-            .expect("failed to tail file");
+        let tail_result = file_utils::tail(&file_path, 2).await.expect("failed to tail file");
 
         assert_eq!(
             r"        Aliquam malesuada bibendum arcu vitae elementum curabitur.

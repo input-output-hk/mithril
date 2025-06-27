@@ -4,14 +4,14 @@ use warp::Filter;
 
 pub fn routes(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     register_signatures(router_state)
 }
 
 /// POST /register-signatures
 fn register_signatures(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("register-signatures")
         .and(warp::post())
         .and(warp::body::json())
@@ -25,7 +25,7 @@ fn register_signatures(
 }
 
 mod handlers {
-    use slog::{debug, warn, Logger};
+    use slog::{Logger, debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
@@ -33,10 +33,11 @@ mod handlers {
     use mithril_common::messages::{RegisterSignatureMessageHttp, TryFromMessageAdapter};
 
     use crate::{
+        MetricsService, SingleSignatureAuthenticator,
         http_server::routes::reply,
         message_adapters::FromRegisterSingleSignatureAdapter,
         services::{CertifierService, CertifierServiceError, SignatureRegistrationStatus},
-        unwrap_to_internal_server_error, MetricsService, SingleSignatureAuthenticator,
+        unwrap_to_internal_server_error,
     };
 
     const METRICS_HTTP_ORIGIN: &str = "HTTP";
@@ -128,9 +129,8 @@ mod tests {
     use mithril_common::{entities::SignedEntityType, messages::RegisterSignatureMessageHttp};
 
     use crate::{
-        initialize_dependencies,
+        SingleSignatureAuthenticator, initialize_dependencies,
         services::{CertifierServiceError, MockCertifierService, SignatureRegistrationStatus},
-        SingleSignatureAuthenticator,
     };
 
     use super::*;
@@ -147,8 +147,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signatures_increments_signature_registration_total_received_since_startup_metric(
-    ) {
+    async fn test_register_signatures_increments_signature_registration_total_received_since_startup_metric()
+     {
         let method = Method::POST.as_str();
         let path = "/register-signatures";
         let dependency_manager = Arc::new(initialize_dependencies!().await);
@@ -209,9 +209,7 @@ mod tests {
     #[tokio::test]
     async fn test_register_signatures_return_400_if_authentication_fail() {
         let mut mock_certifier_service = MockCertifierService::new();
-        mock_certifier_service
-            .expect_register_single_signature()
-            .never();
+        mock_certifier_service.expect_register_single_signature().never();
         let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
         dependency_manager.single_signer_authenticator =

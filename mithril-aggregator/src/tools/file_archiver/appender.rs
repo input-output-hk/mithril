@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use serde::Serialize;
 use std::fs::File;
 use std::io::Write;
@@ -38,13 +38,12 @@ impl AppenderDirAll {
 
 impl TarAppender for AppenderDirAll {
     fn append<T: Write>(&self, tar: &mut tar::Builder<T>) -> StdResult<()> {
-        tar.append_dir_all(".", &self.target_directory)
-            .with_context(|| {
-                format!(
-                    "Create archive error:  Can not add directory: '{}' to the archive",
-                    self.target_directory.display()
-                )
-            })?;
+        tar.append_dir_all(".", &self.target_directory).with_context(|| {
+            format!(
+                "Create archive error:  Can not add directory: '{}' to the archive",
+                self.target_directory.display()
+            )
+        })?;
         Ok(())
     }
 
@@ -132,13 +131,12 @@ impl TarAppender for AppenderEntries {
         for entry in &self.entries {
             let entry_path = self.base_directory.join(entry);
             if entry_path.is_dir() {
-                tar.append_dir_all(entry, entry_path.clone())
-                    .with_context(|| {
-                        format!(
-                            "Can not add directory: '{}' to the archive",
-                            entry_path.display()
-                        )
-                    })?;
+                tar.append_dir_all(entry, entry_path.clone()).with_context(|| {
+                    format!(
+                        "Can not add directory: '{}' to the archive",
+                        entry_path.display()
+                    )
+                })?;
             } else if entry_path.is_file() {
                 let mut file = File::open(entry_path.clone())?;
                 tar.append_file(entry, &mut file).with_context(|| {
@@ -292,10 +290,7 @@ mod tests {
                         compression_algorithm: CompressionAlgorithm::Gzip,
                     },
                     AppenderEntries::new(
-                        vec![
-                            directory_to_archive_path.clone(),
-                            file_to_archive_path.clone(),
-                        ],
+                        vec![directory_to_archive_path.clone(), file_to_archive_path.clone()],
                         source,
                     )
                     .unwrap(),
@@ -675,8 +670,8 @@ mod tests {
         }
 
         #[test]
-        fn compute_uncompressed_size_cant_discriminate_overlaps_and_return_aggregated_appenders_sizes(
-        ) {
+        fn compute_uncompressed_size_cant_discriminate_overlaps_and_return_aggregated_appenders_sizes()
+         {
             let overlapping_path = PathBuf::from("whatever.json");
             let left_appender =
                 AppenderData::from_json(overlapping_path.clone(), &"overwritten data").unwrap();

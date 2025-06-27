@@ -1,10 +1,10 @@
 #![doc = include_str!("../README.md")]
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use clap::{CommandFactory, Parser, Subcommand};
-use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value};
+use config::{ConfigBuilder, Map, Source, Value, builder::DefaultState};
 use mithril_cli_helper::{register_config_value, register_config_value_option};
-use slog::{debug, Drain, Fuse, Level, Logger};
+use slog::{Drain, Fuse, Level, Logger, debug};
 use slog_term::Decorator;
 use std::io::Write;
 use std::sync::Arc;
@@ -14,10 +14,10 @@ use mithril_client::MithrilResult;
 use mithril_doc::{Documenter, GenerateDocCommands, StructDoc};
 
 use mithril_client_cli::commands::{
-    cardano_db::CardanoDbCommands, cardano_stake_distribution::CardanoStakeDistributionCommands,
+    DeprecatedCommand, Deprecation, cardano_db::CardanoDbCommands,
+    cardano_stake_distribution::CardanoStakeDistributionCommands,
     cardano_transaction::CardanoTransactionCommands,
     mithril_stake_distribution::MithrilStakeDistributionCommands, tools::ToolsCommands,
-    DeprecatedCommand, Deprecation,
 };
 use mithril_client_cli::{ClapError, CommandContext};
 
@@ -218,9 +218,9 @@ impl ArtifactCommands {
             Self::MithrilStakeDistribution(cmd) => cmd.execute(context).await,
             Self::CardanoTransaction(cmd) => cmd.execute(context).await,
             Self::CardanoStakeDistribution(cmd) => cmd.execute(context).await,
-            Self::GenerateDoc(cmd) => cmd
-                .execute(&mut Args::command())
-                .map_err(|message| anyhow!(message)),
+            Self::GenerateDoc(cmd) => {
+                cmd.execute(&mut Args::command()).map_err(|message| anyhow!(message))
+            }
             Self::Tools(cmd) => {
                 context.require_unstable("tools", Some("utxo-hd snapshot-converter"))?;
                 cmd.execute().await
@@ -275,9 +275,11 @@ mod tests {
             .await
             .expect_err("Should fail if unstable flag missing");
 
-        assert!(error
-            .to_string()
-            .contains("subcommand is only accepted using the --unstable flag."));
+        assert!(
+            error
+                .to_string()
+                .contains("subcommand is only accepted using the --unstable flag.")
+        );
     }
 
     #[tokio::test]

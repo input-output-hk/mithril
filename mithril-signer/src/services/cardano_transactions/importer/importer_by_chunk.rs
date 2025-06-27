@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 
+use mithril_common::StdResult;
 use mithril_common::entities::BlockNumber;
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::signable_builder::TransactionsImporter;
-use mithril_common::StdResult;
 
 /// Trait to get the highest transaction block number
 #[cfg_attr(test, mockall::automock)]
@@ -67,7 +67,7 @@ impl TransactionsImporter for TransactionsImporterByChunk {
 #[cfg(test)]
 mod tests {
     use mockall::predicate::eq;
-    use mockall::{mock, Sequence};
+    use mockall::{Sequence, mock};
 
     use crate::test_tools::TestLogger;
 
@@ -87,8 +87,7 @@ mod tests {
     ) -> Arc<dyn HighestTransactionBlockNumberGetter> {
         Arc::new({
             let mut mock = MockHighestTransactionBlockNumberGetter::new();
-            mock.expect_get()
-                .returning(move || Ok(Some(highest_block_number)));
+            mock.expect_get().returning(move || Ok(Some(highest_block_number)));
             mock
         })
     }
@@ -141,8 +140,7 @@ mod tests {
 
         let highest_transaction_block_number_getter = Arc::new({
             let mut mock = MockHighestTransactionBlockNumberGetter::new();
-            mock.expect_get()
-                .returning(move || Ok(highest_block_number));
+            mock.expect_get().returning(move || Ok(highest_block_number));
             mock
         });
         let wrapped_importer = create_transaction_importer_mock(vec![up_to_beacon]);

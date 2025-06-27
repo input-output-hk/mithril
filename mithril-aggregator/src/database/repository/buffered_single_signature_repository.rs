@@ -28,8 +28,7 @@ impl BufferedSingleSignatureRepository {
 
     #[cfg(test)]
     fn get_all(&self) -> StdResult<Vec<BufferedSingleSignatureRecord>> {
-        self.connection
-            .fetch_collect(GetBufferedSingleSignatureQuery::all())
+        self.connection.fetch_collect(GetBufferedSingleSignatureQuery::all())
     }
 
     fn get_by_discriminant<T>(
@@ -107,7 +106,7 @@ mod tests {
     };
     use mithril_common::test_utils::fake_keys;
 
-    use crate::database::record::{strip_buffered_sigs_date, BufferedSingleSignatureRecord};
+    use crate::database::record::{BufferedSingleSignatureRecord, strip_buffered_sigs_date};
     use crate::database::test_helper::{insert_buffered_single_signatures, main_db_connection};
 
     use super::*;
@@ -206,10 +205,8 @@ mod tests {
                 .await
                 .unwrap();
 
-            let buffered_signatures = store
-                .get_buffered_signatures(CardanoTransactions)
-                .await
-                .unwrap();
+            let buffered_signatures =
+                store.get_buffered_signatures(CardanoTransactions).await.unwrap();
             assert_eq!(
                 vec![
                     SingleSignature::new(
@@ -240,10 +237,8 @@ mod tests {
                 .await
                 .unwrap();
 
-            let buffered_signatures = store
-                .get_buffered_signatures(MithrilStakeDistribution)
-                .await
-                .unwrap();
+            let buffered_signatures =
+                store.get_buffered_signatures(MithrilStakeDistribution).await.unwrap();
             assert_eq!(
                 vec![SingleSignature::new(
                     "party3",

@@ -3,8 +3,8 @@ use std::collections::{HashMap, HashSet};
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
-use crate::entities::ImmutableFileNumber;
 use crate::StdResult;
+use crate::entities::ImmutableFileNumber;
 
 /// FileUri represents a file URI used to identify the file's location
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]

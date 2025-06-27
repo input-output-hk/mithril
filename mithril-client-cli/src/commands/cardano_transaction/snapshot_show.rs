@@ -1,11 +1,11 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use clap::Parser;
-use cli_table::{print_stdout, Cell, Table};
+use cli_table::{Cell, Table, print_stdout};
 
 use crate::{
-    commands::{client_builder_with_fallback_genesis_key, SharedArgs},
-    utils::ExpanderUtils,
     CommandContext,
+    commands::{SharedArgs, client_builder_with_fallback_genesis_key},
+    utils::ExpanderUtils,
 };
 use mithril_client::MithrilResult;
 
@@ -62,15 +62,9 @@ impl CardanoTransactionsSnapshotShowCommand {
         } else {
             let transaction_sets_table = vec![
                 vec!["Epoch".cell(), format!("{}", &tx_sets.epoch).cell()],
-                vec![
-                    "Block Number".cell(),
-                    format!("{}", &tx_sets.block_number).cell(),
-                ],
+                vec!["Block Number".cell(), format!("{}", &tx_sets.block_number).cell()],
                 vec!["Merkle Root".cell(), tx_sets.merkle_root.to_string().cell()],
-                vec![
-                    "Certificate Hash".cell(),
-                    tx_sets.certificate_hash.to_string().cell(),
-                ],
+                vec!["Certificate Hash".cell(), tx_sets.certificate_hash.to_string().cell()],
                 vec!["Hash".cell(), tx_sets.hash.cell()],
                 vec!["Created".cell(), tx_sets.created_at.to_string().cell()],
             ]
