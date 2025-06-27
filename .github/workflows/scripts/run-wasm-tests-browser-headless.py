@@ -19,7 +19,8 @@ def run_headless_test():
     elif args.browser_type.lower() == 'firefox':
         options = webdriver.FirefoxOptions()
         options.add_argument("--headless")
-        driver = webdriver.Firefox(options=options)
+        service = webdriver.FirefoxService(log_output="firefox-driver.log", service_args=['--log', 'debug'])
+        driver = webdriver.Firefox(options=options, service=service)
     else:
         logging.error("Invalid browser type. Supported types are 'chrome' and 'firefox'.")
         return
@@ -44,6 +45,8 @@ def run_headless_test():
             with open("chrome-console.log", "w", encoding="utf-8") as f:
                 for entry in logs:
                     f.write(f"[{entry['level']}] {entry['message']}\n")
+        elif args.browser_type.lower() == 'firefox':
+            print("Console logs cannot be retrieved from Firefox via get_log('browser'). This feature is only supported in Chrome.")
 
     finally:
         driver.quit()
