@@ -93,7 +93,7 @@ impl RegisterSignatureMessageDmq {
         }
     }
 
-    /// Convert an `RegisterSignatureMessageDmq` into bytes
+    /// Convert a `RegisterSignatureMessageDmq` into bytes
     ///
     /// # Layout
     /// * Signed entity type length (u16)

@@ -48,7 +48,7 @@ impl<M: TryFromBytes + Debug> DmqConsumerPallas<M> {
         DmqClient::connect(&self.socket, self.network.code())
             .await
             .map_err(|err| anyhow!(err))
-            .with_context(|| "PallasChainReader failed to create a new client")
+            .with_context(|| "DmqConsumerPallas failed to create a new client")
     }
 
     /// Gets the cached `DmqClient`, creating a new one if it does not exist.
@@ -71,7 +71,7 @@ impl<M: TryFromBytes + Debug> DmqConsumerPallas<M> {
     async fn drop_client(&self) -> StdResult<()> {
         debug!(
             self.logger,
-            "Drop exsiting DMQ client";
+            "Drop existing DMQ client";
             "socket" => ?self.socket,
             "network" => ?self.network
         );
@@ -103,7 +103,11 @@ impl<M: TryFromBytes + Debug> DmqConsumerPallas<M> {
             .await
             .map_err(|err| anyhow!("Failed to request notifications from DMQ server: {}", err))?;
 
-        let reply = client.msg_notification().recv_next_reply().await.unwrap();
+        let reply = client
+            .msg_notification()
+            .recv_next_reply()
+            .await
+            .map_err(|err| anyhow!("Failed to receive notifications from DMQ server: {}", err))?;
         debug!(self.logger, "Received single signatures from DMQ"; "messages" => ?reply);
         if let Err(e) = client.msg_notification().send_done().await {
             error!(self.logger, "Failed to send Done"; "error" => ?e);
