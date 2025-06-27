@@ -1,12 +1,12 @@
 use blake2::digest::{Digest, FixedOutput};
 
-use crate::bls_multi_signature::{Signature, SigningKey, VerificationKey};
+use crate::bls_multi_signature::{BlsSignature, BlsSigningKey, BlsVerificationKey};
 use crate::eligibility_check::ev_lt_phi;
-use crate::key_reg::ClosedKeyReg;
-use crate::{Stake, StmParameters, StmSig};
+use crate::key_registration::ClosedKeyRegistration;
+use crate::{Parameters, SingleSignature, Stake};
 
 /// Wrapper of the MultiSignature Verification key
-pub type StmVerificationKey = VerificationKey;
+pub type VerificationKey = BlsVerificationKey;
 
 /// Participant in the protocol can sign messages.
 /// * If the signer has `closed_reg`, then it can generate Stm certificate.
@@ -16,25 +16,25 @@ pub type StmVerificationKey = VerificationKey;
 ///     * This kind of signer cannot participate certificate generation.
 ///     * Signature generated can be verified by a full node verifier (core verifier).
 #[derive(Debug, Clone)]
-pub struct StmSigner<D: Digest> {
+pub struct Signer<D: Digest> {
     signer_index: u64,
     stake: Stake,
-    params: StmParameters,
-    sk: SigningKey,
-    vk: StmVerificationKey,
-    closed_reg: Option<ClosedKeyReg<D>>,
+    params: Parameters,
+    sk: BlsSigningKey,
+    vk: VerificationKey,
+    closed_reg: Option<ClosedKeyRegistration<D>>,
 }
 
-impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
+impl<D: Clone + Digest + FixedOutput> Signer<D> {
     /// Create an StmSigner for given input
     pub fn set_stm_signer(
         signer_index: u64,
         stake: Stake,
-        params: StmParameters,
-        sk: SigningKey,
-        vk: StmVerificationKey,
-        closed_reg: ClosedKeyReg<D>,
-    ) -> StmSigner<D> {
+        params: Parameters,
+        sk: BlsSigningKey,
+        vk: VerificationKey,
+        closed_reg: ClosedKeyRegistration<D>,
+    ) -> Signer<D> {
         Self {
             signer_index,
             stake,
@@ -49,10 +49,10 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     pub fn set_core_signer(
         signer_index: u64,
         stake: Stake,
-        params: StmParameters,
-        sk: SigningKey,
-        vk: StmVerificationKey,
-    ) -> StmSigner<D> {
+        params: Parameters,
+        sk: BlsSigningKey,
+        vk: VerificationKey,
+    ) -> Signer<D> {
         Self {
             signer_index,
             stake,
@@ -69,7 +69,7 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     /// It records all the winning indexes in `Self.indexes`.
     /// If it wins at least one lottery, it stores the signer's merkle tree index. The proof of membership
     /// will be handled by the aggregator.
-    pub fn sign(&self, msg: &[u8]) -> Option<StmSig> {
+    pub fn sign(&self, msg: &[u8]) -> Option<SingleSignature> {
         let closed_reg = self.closed_reg.as_ref().expect("Closed registration not found! Cannot produce StmSignatures. Use core_sign to produce core signatures (not valid for an StmCertificate).");
         let msgp = closed_reg
             .merkle_tree
@@ -77,7 +77,7 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
             .concat_with_msg(msg);
         let signature = self.core_sign(&msgp, closed_reg.total_stake)?;
 
-        Some(StmSig {
+        Some(SingleSignature {
             sigma: signature.sigma,
             signer_index: self.signer_index,
             indexes: signature.indexes,
@@ -85,7 +85,7 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     }
 
     /// Extract the verification key.
-    pub fn verification_key(&self) -> StmVerificationKey {
+    pub fn verification_key(&self) -> VerificationKey {
         self.vk
     }
 
@@ -99,12 +99,12 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
     /// wins the lottery by evaluating the dense mapping.
     /// It records all the winning indexes in `Self.indexes`.
-    pub fn core_sign(&self, msg: &[u8], total_stake: Stake) -> Option<StmSig> {
+    pub fn core_sign(&self, msg: &[u8], total_stake: Stake) -> Option<SingleSignature> {
         let sigma = self.sk.sign(msg);
 
         let indexes = self.check_lottery(msg, &sigma, total_stake);
         if !indexes.is_empty() {
-            Some(StmSig {
+            Some(SingleSignature {
                 sigma,
                 indexes,
                 signer_index: self.signer_index,
@@ -115,7 +115,7 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     }
 
     /// Collects and returns the winning indices.
-    pub fn check_lottery(&self, msg: &[u8], sigma: &Signature, total_stake: Stake) -> Vec<u64> {
+    pub fn check_lottery(&self, msg: &[u8], sigma: &BlsSignature, total_stake: Stake) -> Vec<u64> {
         let mut indexes = Vec::new();
         for index in 0..self.params.m {
             if ev_lt_phi(
@@ -131,17 +131,17 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     }
 
     /// Get StmParameters
-    pub fn get_params(&self) -> StmParameters {
+    pub fn get_params(&self) -> Parameters {
         self.params
     }
 
     /// Get closed key registration
-    pub fn get_closed_reg(&self) -> Option<ClosedKeyReg<D>> {
+    pub fn get_closed_reg(&self) -> Option<ClosedKeyRegistration<D>> {
         self.closed_reg.clone()
     }
 
     /// Get verification key
-    pub fn get_vk(&self) -> StmVerificationKey {
+    pub fn get_vk(&self) -> VerificationKey {
         self.vk
     }
 }

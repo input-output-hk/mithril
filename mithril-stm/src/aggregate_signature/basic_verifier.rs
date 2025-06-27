@@ -1,26 +1,27 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::bls_multi_signature::{Signature, VerificationKey};
-use crate::key_reg::RegParty;
-use crate::merkle_tree::MTLeaf;
+use crate::bls_multi_signature::{BlsSignature, BlsVerificationKey};
+use crate::key_registration::RegisteredParty;
+use crate::merkle_tree::MerkleTreeLeaf;
 use crate::{
-    AggregationError, CoreVerifierError, Index, Stake, StmParameters, StmSig, StmSigRegParty,
+    AggregationError, CoreVerifierError, Index, Parameters, SingleSignature,
+    SingleSignatureWithRegisteredParty, Stake,
 };
 
 /// Full node verifier including the list of eligible signers and the total stake of the system.
-pub struct CoreVerifier {
+pub struct BasicVerifier {
     /// List of registered parties.
-    pub eligible_parties: Vec<RegParty>,
+    pub eligible_parties: Vec<RegisteredParty>,
     /// Total stake of registered parties.
     pub total_stake: Stake,
 }
 
-impl CoreVerifier {
-    /// Setup a core verifier for given list of signers.
+impl BasicVerifier {
+    /// Setup a basic verifier for given list of signers.
     ///     * Collect the unique signers in a hash set,
     ///     * Calculate the total stake of the eligible signers,
     ///     * Sort the eligible signers.
-    pub fn setup(public_signers: &[(VerificationKey, Stake)]) -> Self {
+    pub fn setup(public_signers: &[(BlsVerificationKey, Stake)]) -> Self {
         let mut total_stake: Stake = 0;
         let mut unique_parties = HashSet::new();
         for signer in public_signers.iter() {
@@ -29,12 +30,12 @@ impl CoreVerifier {
                 panic!("Total stake overflow");
             }
             total_stake = res;
-            unique_parties.insert(MTLeaf(signer.0, signer.1));
+            unique_parties.insert(MerkleTreeLeaf(signer.0, signer.1));
         }
 
         let mut eligible_parties: Vec<_> = unique_parties.into_iter().collect();
         eligible_parties.sort_unstable();
-        CoreVerifier {
+        BasicVerifier {
             eligible_parties,
             total_stake,
         }
@@ -43,8 +44,8 @@ impl CoreVerifier {
     /// Preliminary verification that checks whether indices are unique and the quorum is achieved.
     pub(crate) fn preliminary_verify(
         total_stake: &Stake,
-        signatures: &[StmSigRegParty],
-        parameters: &StmParameters,
+        signatures: &[SingleSignatureWithRegisteredParty],
+        parameters: &Parameters,
         msg: &[u8],
     ) -> Result<(), CoreVerifierError> {
         let mut nr_indices = 0;
@@ -80,12 +81,14 @@ impl CoreVerifier {
     // todo: not good, because it only removes index if there is a conflict (see benches)
     pub fn dedup_sigs_for_indices(
         total_stake: &Stake,
-        params: &StmParameters,
+        params: &Parameters,
         msg: &[u8],
-        sigs: &[StmSigRegParty],
-    ) -> Result<Vec<StmSigRegParty>, AggregationError> {
-        let mut sig_by_index: BTreeMap<Index, &StmSigRegParty> = BTreeMap::new();
-        let mut removal_idx_by_vk: HashMap<&StmSigRegParty, Vec<Index>> = HashMap::new();
+        sigs: &[SingleSignatureWithRegisteredParty],
+    ) -> Result<Vec<SingleSignatureWithRegisteredParty>, AggregationError> {
+        let mut sig_by_index: BTreeMap<Index, &SingleSignatureWithRegisteredParty> =
+            BTreeMap::new();
+        let mut removal_idx_by_vk: HashMap<&SingleSignatureWithRegisteredParty, Vec<Index>> =
+            HashMap::new();
 
         for sig_reg in sigs.iter() {
             if sig_reg
@@ -126,7 +129,7 @@ impl CoreVerifier {
             }
         }
 
-        let mut dedup_sigs: HashSet<StmSigRegParty> = HashSet::new();
+        let mut dedup_sigs: HashSet<SingleSignatureWithRegisteredParty> = HashSet::new();
         let mut count: u64 = 0;
 
         for (_, &sig_reg) in sig_by_index.iter() {
@@ -161,19 +164,19 @@ impl CoreVerifier {
         Err(AggregationError::NotEnoughSignatures(count, params.k))
     }
 
-    /// Collect and return `Vec<Signature>, Vec<VerificationKey>` which will be used
+    /// Collect and return `Vec<BlsSignature>, Vec<BlsVerificationKey>` which will be used
     /// by the aggregate verification.
     pub(crate) fn collect_sigs_vks(
-        sig_reg_list: &[StmSigRegParty],
-    ) -> (Vec<Signature>, Vec<VerificationKey>) {
+        sig_reg_list: &[SingleSignatureWithRegisteredParty],
+    ) -> (Vec<BlsSignature>, Vec<BlsVerificationKey>) {
         let sigs = sig_reg_list
             .iter()
             .map(|sig_reg| sig_reg.sig.sigma)
-            .collect::<Vec<Signature>>();
+            .collect::<Vec<BlsSignature>>();
         let vks = sig_reg_list
             .iter()
             .map(|sig_reg| sig_reg.reg_party.0)
-            .collect::<Vec<VerificationKey>>();
+            .collect::<Vec<BlsVerificationKey>>();
 
         (sigs, vks)
     }
@@ -183,17 +186,17 @@ impl CoreVerifier {
     /// Verify a list of signatures with respect to given message with given parameters.
     pub fn verify(
         &self,
-        signatures: &[StmSig],
-        parameters: &StmParameters,
+        signatures: &[SingleSignature],
+        parameters: &Parameters,
         msg: &[u8],
     ) -> Result<(), CoreVerifierError> {
         let sig_reg_list = signatures
             .iter()
-            .map(|sig| StmSigRegParty {
+            .map(|sig| SingleSignatureWithRegisteredParty {
                 sig: sig.clone(),
                 reg_party: self.eligible_parties[sig.signer_index as usize],
             })
-            .collect::<Vec<StmSigRegParty>>();
+            .collect::<Vec<SingleSignatureWithRegisteredParty>>();
 
         let unique_sigs =
             Self::dedup_sigs_for_indices(&self.total_stake, parameters, msg, &sig_reg_list)?;
@@ -202,7 +205,7 @@ impl CoreVerifier {
 
         let (sigs, vks) = Self::collect_sigs_vks(&unique_sigs);
 
-        Signature::verify_aggregate(msg.to_vec().as_slice(), &vks, &sigs)?;
+        BlsSignature::verify_aggregate(msg.to_vec().as_slice(), &vks, &sigs)?;
 
         Ok(())
     }

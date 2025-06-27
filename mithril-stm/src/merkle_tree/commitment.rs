@@ -4,7 +4,7 @@ use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
 use crate::error::MerkleTreeError;
-use crate::merkle_tree::{parent, sibling, BatchPath, MTLeaf, Path};
+use crate::merkle_tree::{parent, sibling, MerkleBatchPath, MerklePath, MerkleTreeLeaf};
 
 /// `MerkleTree` commitment.
 /// This structure differs from `MerkleTree` in that it does not contain all elements, which are not always necessary.
@@ -27,7 +27,11 @@ impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
     /// Check an inclusion proof that `val` is part of the tree by traveling the whole path until the root.
     /// # Error
     /// If the merkle tree path is invalid, then the function fails.
-    pub fn check(&self, val: &MTLeaf, proof: &Path<D>) -> Result<(), MerkleTreeError<D>>
+    pub fn check(
+        &self,
+        val: &MerkleTreeLeaf,
+        proof: &MerklePath<D>,
+    ) -> Result<(), MerkleTreeError<D>>
     where
         D: FixedOutput + Clone,
     {
@@ -68,14 +72,14 @@ impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
 /// as well as the root of the tree.
 /// Number of leaves is required by the batch path generation/verification.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MerkleTreeCommitmentBatchCompat<D: Digest> {
+pub struct MerkleTreeBatchCommitment<D: Digest> {
     /// Root of the merkle commitment.
     pub root: Vec<u8>,
     nr_leaves: usize,
     hasher: PhantomData<D>,
 }
 
-impl<D: Digest> MerkleTreeCommitmentBatchCompat<D> {
+impl<D: Digest> MerkleTreeBatchCommitment<D> {
     pub(crate) fn new(root: Vec<u8>, nr_leaves: usize) -> Self {
         Self {
             root,
@@ -110,8 +114,8 @@ impl<D: Digest> MerkleTreeCommitmentBatchCompat<D> {
     // todo: Maybe we want more granular errors, rather than only `BatchPathInvalid`
     pub fn check(
         &self,
-        batch_val: &[MTLeaf],
-        proof: &BatchPath<D>,
+        batch_val: &[MerkleTreeLeaf],
+        proof: &MerkleBatchPath<D>,
     ) -> Result<(), MerkleTreeError<D>>
     where
         D: FixedOutput + Clone,
@@ -202,10 +206,10 @@ impl<D: Digest> MerkleTreeCommitmentBatchCompat<D> {
     }
 }
 
-impl<D: Digest> PartialEq for MerkleTreeCommitmentBatchCompat<D> {
+impl<D: Digest> PartialEq for MerkleTreeBatchCommitment<D> {
     fn eq(&self, other: &Self) -> bool {
         self.root == other.root && self.nr_leaves == other.nr_leaves
     }
 }
 
-impl<D: Digest> Eq for MerkleTreeCommitmentBatchCompat<D> {}
+impl<D: Digest> Eq for MerkleTreeBatchCommitment<D> {}

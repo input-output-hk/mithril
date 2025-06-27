@@ -82,10 +82,10 @@ macro_rules! impl_serde {
         }
     };
 }
-impl_serde!(SigningKey, SigningKeyVisitor, 32);
-impl_serde!(VerificationKey, VerificationKeyVisitor, 96);
-impl_serde!(ProofOfPossession, ProofOfPossessionVisitor, 96);
-impl_serde!(Signature, SignatureVisitor, 48);
+impl_serde!(BlsSigningKey, SigningKeyVisitor, 32);
+impl_serde!(BlsVerificationKey, VerificationKeyVisitor, 96);
+impl_serde!(BlsProofOfPossession, ProofOfPossessionVisitor, 96);
+impl_serde!(BlsSignature, SignatureVisitor, 48);
 
 #[cfg(test)]
 mod tests {
@@ -96,17 +96,17 @@ mod tests {
 
     use crate::bls_multi_signature::helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk};
     use crate::error::{MultiSignatureError, RegisterError};
-    use crate::key_reg::KeyReg;
+    use crate::key_registration::KeyRegistration;
 
     use super::*;
 
-    impl PartialEq for SigningKey {
+    impl PartialEq for BlsSigningKey {
         fn eq(&self, other: &Self) -> bool {
             self.to_blst_sk().to_bytes() == other.to_blst_sk().to_bytes()
         }
     }
 
-    impl Eq for SigningKey {}
+    impl Eq for BlsSigningKey {}
 
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(1000))]
@@ -116,8 +116,8 @@ mod tests {
             msg in prop::collection::vec(any::<u8>(), 1..128),
             seed in any::<[u8;32]>(),
         ) {
-            let sk = SigningKey::generate(&mut ChaCha20Rng::from_seed(seed));
-            let vk = VerificationKey::from(&sk);
+            let sk = BlsSigningKey::generate(&mut ChaCha20Rng::from_seed(seed));
+            let vk = BlsVerificationKey::from(&sk);
             let sig = sk.sign(&msg);
 
             sig.verify(&msg, &vk).unwrap();
@@ -126,9 +126,9 @@ mod tests {
         #[test]
         fn test_invalid_sig(msg in prop::collection::vec(any::<u8>(), 1..128), seed in any::<[u8;32]>()) {
             let mut rng = ChaCha20Rng::from_seed(seed);
-            let sk1 = SigningKey::generate(&mut rng);
-            let vk1 = VerificationKey::from(&sk1);
-            let sk2 = SigningKey::generate(&mut rng);
+            let sk1 = BlsSigningKey::generate(&mut rng);
+            let vk1 = BlsVerificationKey::from(&sk1);
+            let sk2 = BlsSigningKey::generate(&mut rng);
             let fake_sig = sk2.sign(&msg);
 
             let result = fake_sig.verify(&msg, &vk1);
@@ -138,11 +138,11 @@ mod tests {
         #[test]
         fn test_infinity_sig(msg in prop::collection::vec(any::<u8>(), 1..128), seed in any::<[u8;32]>()) {
             let mut rng = ChaCha20Rng::from_seed(seed);
-            let sk = SigningKey::generate(&mut rng);
-            let vk = VerificationKey::from(&sk);
+            let sk = BlsSigningKey::generate(&mut rng);
+            let vk = BlsVerificationKey::from(&sk);
 
             let p1 = blst_p1::default();
-            let sig_infinity = Signature(p1_affine_to_sig(&p1));
+            let sig_infinity = BlsSignature(p1_affine_to_sig(&p1));
 
             let result = sig_infinity.verify(&msg, &vk);
             assert_eq!(result, Err(MultiSignatureError::SignatureInfinity(sig_infinity)));
@@ -151,12 +151,12 @@ mod tests {
         #[test]
         fn test_infinity_vk(seed in any::<[u8;32]>()) {
             let mut rng = ChaCha20Rng::from_seed(seed);
-            let sk = SigningKey::generate(&mut rng);
-            let pop = ProofOfPossession::from(&sk);
+            let sk = BlsSigningKey::generate(&mut rng);
+            let pop = BlsProofOfPossession::from(&sk);
 
             let p2 = blst_p2::default();
-            let vk_infinity = VerificationKey(p2_affine_to_vk(&p2));
-            let vkpop_infinity = VerificationKeyPoP { vk: vk_infinity, pop };
+            let vk_infinity = BlsVerificationKey(p2_affine_to_vk(&p2));
+            let vkpop_infinity = BlsVerificationKeyProofOfPossession { vk: vk_infinity, pop };
 
             let result = vkpop_infinity.check();
             assert_eq!(result, Err(MultiSignatureError::VerificationKeyInfinity(Box::new(vkpop_infinity.vk))));
@@ -165,17 +165,17 @@ mod tests {
         #[test]
         fn test_keyreg_with_infinity_vk(num_sigs in 2..16usize, seed in any::<[u8;32]>()) {
             let mut rng = ChaCha20Rng::from_seed(seed);
-            let mut kr = KeyReg::init();
+            let mut kr = KeyRegistration::init();
 
-            let sk = SigningKey::generate(&mut rng);
-            let pop = ProofOfPossession::from(&sk);
+            let sk = BlsSigningKey::generate(&mut rng);
+            let pop = BlsProofOfPossession::from(&sk);
             let p2 = blst_p2::default();
-            let vk_infinity = VerificationKey(p2_affine_to_vk(&p2));
-            let vkpop_infinity = VerificationKeyPoP { vk: vk_infinity, pop };
+            let vk_infinity = BlsVerificationKey(p2_affine_to_vk(&p2));
+            let vkpop_infinity = BlsVerificationKeyProofOfPossession { vk: vk_infinity, pop };
 
             for _ in 0..num_sigs {
-                let sk = SigningKey::generate(&mut rng);
-                let vkpop = VerificationKeyPoP::from(&sk);
+                let sk = BlsSigningKey::generate(&mut rng);
+                let vkpop = BlsVerificationKeyProofOfPossession::from(&sk);
                 let _ = kr.register(1, vkpop);
             }
 
@@ -192,15 +192,15 @@ mod tests {
             let mut mvks = Vec::new();
             let mut sigs = Vec::new();
             for _ in 0..num_sigs {
-                let sk = SigningKey::generate(&mut rng);
-                let vk = VerificationKey::from(&sk);
+                let sk = BlsSigningKey::generate(&mut rng);
+                let vk = BlsVerificationKey::from(&sk);
                 let sig = sk.sign(&msg);
                 assert!(sig.verify(&msg, &vk).is_ok());
                 sigs.push(sig);
                 mvks.push(vk);
             }
 
-            let result = Signature::verify_aggregate(&msg, &mvks, &sigs);
+            let result = BlsSignature::verify_aggregate(&msg, &mvks, &sigs);
             assert!(result.is_ok(), "Aggregate verification failed {result:?}");
         }
 
@@ -208,7 +208,7 @@ mod tests {
         fn test_eval_sanity_check(msg in prop::collection::vec(any::<u8>(), 1..128),
                                   idx in any::<u64>(),
                                   seed in any::<[u8;32]>()) {
-            let sk = SigningKey::generate(&mut ChaCha20Rng::from_seed(seed));
+            let sk = BlsSigningKey::generate(&mut ChaCha20Rng::from_seed(seed));
             let sig = sk.sign(&msg);
             sig.eval(&msg, idx);
         }
@@ -216,41 +216,41 @@ mod tests {
         #[test]
         fn serialize_deserialize_vk(seed in any::<u64>()) {
             let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
-            let sk = SigningKey::generate(&mut rng);
-            let vk = VerificationKey::from(&sk);
+            let sk = BlsSigningKey::generate(&mut rng);
+            let vk = BlsVerificationKey::from(&sk);
             let vk_bytes = vk.to_bytes();
-            let vk2 = VerificationKey::from_bytes(&vk_bytes).unwrap();
+            let vk2 = BlsVerificationKey::from_bytes(&vk_bytes).unwrap();
             assert_eq!(vk, vk2);
-            let vkpop = VerificationKeyPoP::from(&sk);
+            let vkpop = BlsVerificationKeyProofOfPossession::from(&sk);
             let vkpop_bytes = vkpop.to_bytes();
-            let vkpop2: VerificationKeyPoP = VerificationKeyPoP::from_bytes(&vkpop_bytes).unwrap();
+            let vkpop2: BlsVerificationKeyProofOfPossession = BlsVerificationKeyProofOfPossession::from_bytes(&vkpop_bytes).unwrap();
             assert_eq!(vkpop, vkpop2);
 
             // Now we test serde
             let encoded = bincode::serde::encode_to_vec(vk, bincode::config::legacy()).unwrap();
             assert_eq!(encoded, vk_bytes);
-            let (decoded,_) = bincode::serde::decode_from_slice::<VerificationKey,_>(&encoded, bincode::config::legacy()).unwrap();
+            let (decoded,_) = bincode::serde::decode_from_slice::<BlsVerificationKey,_>(&encoded, bincode::config::legacy()).unwrap();
             assert_eq!(vk, decoded);
             let encoded = bincode::serde::encode_to_vec(vkpop, bincode::config::legacy()).unwrap();
-            let (decoded,_) = bincode::serde::decode_from_slice::<VerificationKeyPoP,_>(&encoded, bincode::config::legacy()).unwrap();
+            let (decoded,_) = bincode::serde::decode_from_slice::<BlsVerificationKeyProofOfPossession,_>(&encoded, bincode::config::legacy()).unwrap();
             assert_eq!(vkpop, decoded);
         }
 
         #[test]
         fn serialize_deserialize_sk(seed in any::<u64>()) {
             let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
-            let sk = SigningKey::generate(&mut rng);
+            let sk = BlsSigningKey::generate(&mut rng);
             let sk_bytes: [u8; 32] = sk.to_bytes();
-            let sk2 = SigningKey::from_bytes(&sk_bytes).unwrap();
+            let sk2 = BlsSigningKey::from_bytes(&sk_bytes).unwrap();
             assert_eq!(sk, sk2);
 
             // Now we test serde
             let encoded = bincode::serde::encode_to_vec(&sk, bincode::config::legacy()).unwrap();
-            let (decoded,_) = bincode::serde::decode_from_slice::<SigningKey,_>(&encoded, bincode::config::legacy()).unwrap();
+            let (decoded,_) = bincode::serde::decode_from_slice::<BlsSigningKey,_>(&encoded, bincode::config::legacy()).unwrap();
             assert_eq!(sk, decoded);
 
             // See that it is consistent with raw serialisation
-            let (decoded_bytes,_) = bincode::serde::decode_from_slice::<SigningKey,_>(&sk_bytes, bincode::config::legacy()).unwrap();
+            let (decoded_bytes,_) = bincode::serde::decode_from_slice::<BlsSigningKey,_>(&sk_bytes, bincode::config::legacy()).unwrap();
             assert_eq!(sk, decoded_bytes);
         }
 
@@ -269,28 +269,28 @@ mod tests {
                 let mut mvks = Vec::new();
                 let mut sigs = Vec::new();
                 for _ in 0..num_sigs {
-                    let sk = SigningKey::generate(&mut rng);
-                    let vk = VerificationKey::from(&sk);
+                    let sk = BlsSigningKey::generate(&mut rng);
+                    let vk = BlsVerificationKey::from(&sk);
                     let sig = sk.sign(&msg);
                     sigs.push(sig);
                     mvks.push(vk);
                 }
-                assert!(Signature::verify_aggregate(&msg, &mvks, &sigs).is_ok());
-                let (agg_vk, agg_sig) = Signature::aggregate(&mvks, &sigs).unwrap();
+                assert!(BlsSignature::verify_aggregate(&msg, &mvks, &sigs).is_ok());
+                let (agg_vk, agg_sig) = BlsSignature::aggregate(&mvks, &sigs).unwrap();
                 batch_msgs.push(msg.to_vec());
                 batch_vk.push(agg_vk);
                 batch_sig.push(agg_sig);
             }
-            assert!(Signature::batch_verify_aggregates(&batch_msgs, &batch_vk, &batch_sig).is_ok());
+            assert!(BlsSignature::batch_verify_aggregates(&batch_msgs, &batch_vk, &batch_sig).is_ok());
 
             // If we have an invalid signature, the batch verification will fail
             let mut msg = [0u8; 32];
             rng.fill_bytes(&mut msg);
-            let sk = SigningKey::generate(&mut rng);
+            let sk = BlsSigningKey::generate(&mut rng);
             let fake_sig = sk.sign(&msg);
             batch_sig[0] = fake_sig;
 
-            let batch_result = Signature::batch_verify_aggregates(&batch_msgs, &batch_vk, &batch_sig);
+            let batch_result = BlsSignature::batch_verify_aggregates(&batch_msgs, &batch_vk, &batch_sig);
             assert_eq!(batch_result, Err(MultiSignatureError::BatchInvalid));
         }
     }

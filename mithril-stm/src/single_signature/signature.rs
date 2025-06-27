@@ -6,32 +6,32 @@ use std::{
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
-use crate::bls_multi_signature::Signature;
+use crate::bls_multi_signature::BlsSignature;
 use crate::eligibility_check::ev_lt_phi;
 use crate::{
-    Index, Stake, StmAggrVerificationKey, StmParameters, StmSignatureError, StmVerificationKey,
+    AggregateVerificationKey, Index, Parameters, Stake, StmSignatureError, VerificationKey,
 };
 
 /// Signature created by a single party who has won the lottery.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StmSig {
+pub struct SingleSignature {
     /// The signature from the underlying MSP scheme.
-    pub sigma: Signature,
+    pub sigma: BlsSignature,
     /// The index(es) for which the signature is valid
     pub indexes: Vec<Index>,
     /// Merkle tree index of the signer.
     pub signer_index: Index,
 }
 
-impl StmSig {
+impl SingleSignature {
     /// Verify an stm signature by checking that the lottery was won, the merkle path is correct,
     /// the indexes are in the desired range and the underlying multi signature validates.
     pub fn verify<D: Clone + Digest + FixedOutput>(
         &self,
-        params: &StmParameters,
-        pk: &StmVerificationKey,
+        params: &Parameters,
+        pk: &VerificationKey,
         stake: &Stake,
-        avk: &StmAggrVerificationKey<D>,
+        avk: &AggregateVerificationKey<D>,
         msg: &[u8],
     ) -> Result<(), StmSignatureError> {
         let msgp = avk.get_mt_commitment().concat_with_msg(msg);
@@ -42,7 +42,7 @@ impl StmSig {
     /// Verify that all indices of a signature are valid.
     pub(crate) fn check_indices(
         &self,
-        params: &StmParameters,
+        params: &Parameters,
         stake: &Stake,
         msg: &[u8],
         total_stake: &Stake,
@@ -85,10 +85,10 @@ impl StmSig {
         output
     }
 
-    /// Extract a batch compatible `StmSig` from a byte slice.
+    /// Extract a batch compatible `SingleSignature` from a byte slice.
     pub fn from_bytes<D: Clone + Digest + FixedOutput>(
         bytes: &[u8],
-    ) -> Result<StmSig, StmSignatureError> {
+    ) -> Result<SingleSignature, StmSignatureError> {
         let mut u64_bytes = [0u8; 8];
 
         u64_bytes.copy_from_slice(
@@ -109,7 +109,7 @@ impl StmSig {
         }
 
         let offset = 8 + nr_indexes * 8;
-        let sigma = Signature::from_bytes(
+        let sigma = BlsSignature::from_bytes(
             bytes
                 .get(offset..offset + 48)
                 .ok_or(StmSignatureError::SerializationError)?,
@@ -122,7 +122,7 @@ impl StmSig {
         );
         let signer_index = u64::from_be_bytes(u64_bytes);
 
-        Ok(StmSig {
+        Ok(SingleSignature {
             sigma,
             indexes,
             signer_index,
@@ -138,8 +138,8 @@ impl StmSig {
     /// the indexes are in the desired range and the underlying multi signature validates.
     pub fn verify_core(
         &self,
-        params: &StmParameters,
-        pk: &StmVerificationKey,
+        params: &Parameters,
+        pk: &VerificationKey,
         stake: &Stake,
         msg: &[u8],
         total_stake: &Stake,
@@ -151,27 +151,27 @@ impl StmSig {
     }
 }
 
-impl Hash for StmSig {
+impl Hash for SingleSignature {
     fn hash<H: Hasher>(&self, state: &mut H) {
         Hash::hash_slice(&self.sigma.to_bytes(), state)
     }
 }
 
-impl PartialEq for StmSig {
+impl PartialEq for SingleSignature {
     fn eq(&self, other: &Self) -> bool {
         self.sigma == other.sigma
     }
 }
 
-impl Eq for StmSig {}
+impl Eq for SingleSignature {}
 
-impl PartialOrd for StmSig {
+impl PartialOrd for SingleSignature {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(std::cmp::Ord::cmp(self, other))
     }
 }
 
-impl Ord for StmSig {
+impl Ord for SingleSignature {
     fn cmp(&self, other: &Self) -> Ordering {
         self.cmp_stm_sig(other)
     }

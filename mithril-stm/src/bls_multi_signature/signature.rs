@@ -10,7 +10,7 @@ use digest::consts::U16;
 
 use crate::bls_multi_signature::{
     helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk, sig_to_p1, vk_from_p2_affine},
-    VerificationKey,
+    BlsVerificationKey,
 };
 use crate::{
     error::{blst_err_to_mithril, MultiSignatureError},
@@ -19,11 +19,11 @@ use crate::{
 
 /// MultiSig signature, which is a wrapper over the `BlstSig` type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Signature(pub BlstSig);
+pub struct BlsSignature(pub BlstSig);
 
-impl Signature {
+impl BlsSignature {
     /// Verify a signature against a verification key.
-    pub fn verify(&self, msg: &[u8], mvk: &VerificationKey) -> Result<(), MultiSignatureError> {
+    pub fn verify(&self, msg: &[u8], mvk: &BlsVerificationKey) -> Result<(), MultiSignatureError> {
         blst_err_to_mithril(
             self.0.validate(true).map_or_else(
                 |e| e,
@@ -96,9 +96,9 @@ impl Signature {
     /// key with the resulting value. This follows the steps defined in Figure 6,
     /// `Aggregate` step.
     pub fn aggregate(
-        vks: &[VerificationKey],
-        sigs: &[Signature],
-    ) -> Result<(VerificationKey, Signature), MultiSignatureError> {
+        vks: &[BlsVerificationKey],
+        sigs: &[BlsSignature],
+    ) -> Result<(BlsVerificationKey, BlsSignature), MultiSignatureError> {
         if vks.len() != sigs.len() || vks.is_empty() {
             return Err(MultiSignatureError::AggregateSignatureInvalid);
         }
@@ -131,15 +131,15 @@ impl Signature {
         let aggr_vk: BlstVk = p2_affine_to_vk(&grouped_vks.mult(&scalars, 128));
         let aggr_sig: BlstSig = p1_affine_to_sig(&grouped_sigs.mult(&scalars, 128));
 
-        Ok((VerificationKey(aggr_vk), Signature(aggr_sig)))
+        Ok((BlsVerificationKey(aggr_vk), BlsSignature(aggr_sig)))
     }
 
     /// Verify a set of signatures with their corresponding verification keys using the
     /// aggregation mechanism of Figure 6.
     pub fn verify_aggregate(
         msg: &[u8],
-        vks: &[VerificationKey],
-        sigs: &[Signature],
+        vks: &[BlsVerificationKey],
+        sigs: &[BlsSignature],
     ) -> Result<(), MultiSignatureError> {
         let (aggr_vk, aggr_sig) = Self::aggregate(vks, sigs)?;
 
@@ -155,8 +155,8 @@ impl Signature {
     /// Batch verify several sets of signatures with their corresponding verification keys.
     pub fn batch_verify_aggregates(
         msgs: &[Vec<u8>],
-        vks: &[VerificationKey],
-        sigs: &[Signature],
+        vks: &[BlsVerificationKey],
+        sigs: &[BlsSignature],
     ) -> Result<(), MultiSignatureError> {
         let batched_sig: BlstSig = match AggregateSignature::aggregate(
             &(sigs.iter().map(|sig| &sig.0).collect::<Vec<&BlstSig>>()),
@@ -182,7 +182,7 @@ impl Signature {
     }
 }
 
-impl<'a> Sum<&'a Self> for Signature {
+impl<'a> Sum<&'a Self> for BlsSignature {
     fn sum<I>(iter: I) -> Self
     where
         I: Iterator<Item = &'a Self>,
@@ -197,13 +197,13 @@ impl<'a> Sum<&'a Self> for Signature {
     }
 }
 
-impl PartialOrd for Signature {
+impl PartialOrd for BlsSignature {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(std::cmp::Ord::cmp(self, other))
     }
 }
 
-impl Ord for Signature {
+impl Ord for BlsSignature {
     fn cmp(&self, other: &Self) -> Ordering {
         self.cmp_msp_sig(other)
     }

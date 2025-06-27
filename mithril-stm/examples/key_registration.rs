@@ -3,7 +3,8 @@
 //! run presented in `tests/integration.rs`, we explicitly treat each party individually.
 use blake2::{digest::consts::U32, Blake2b};
 use mithril_stm::{
-    ClosedKeyReg, KeyReg, Stake, StmClerk, StmInitializer, StmParameters, StmVerificationKeyPoP,
+    Clerk, ClosedKeyRegistration, Initializer, KeyRegistration, Parameters, Stake,
+    VerificationKeyProofOfPossession,
 };
 
 use rand_chacha::ChaCha20Rng;
@@ -19,7 +20,7 @@ fn main() {
 
     // Parameter and parties initialisation. This information is broadcast (or known) to all
     // participants.
-    let params = StmParameters {
+    let params = Parameters {
         // Let's try with three signatures
         k: 3,
         m: 10,
@@ -37,13 +38,13 @@ fn main() {
         .collect::<Vec<_>>();
 
     // Each party generates their Stm keys
-    let party_0_init = StmInitializer::setup(params, stakes[0], &mut rng);
-    let party_1_init = StmInitializer::setup(params, stakes[1], &mut rng);
-    let party_2_init = StmInitializer::setup(params, stakes[2], &mut rng);
-    let party_3_init = StmInitializer::setup(params, stakes[3], &mut rng);
+    let party_0_init = Initializer::setup(params, stakes[0], &mut rng);
+    let party_1_init = Initializer::setup(params, stakes[1], &mut rng);
+    let party_2_init = Initializer::setup(params, stakes[2], &mut rng);
+    let party_3_init = Initializer::setup(params, stakes[3], &mut rng);
 
     // The public keys are broadcast. All participants will have the same keys.
-    let parties_pks: Vec<StmVerificationKeyPoP> = vec![
+    let parties_pks: Vec<VerificationKeyProofOfPossession> = vec![
         party_0_init.verification_key(),
         party_1_init.verification_key(),
         party_2_init.verification_key(),
@@ -109,7 +110,7 @@ fn main() {
     let incomplete_sigs_3 = vec![party_0_sigs, party_1_sigs, party_2_sigs, party_3_sigs];
 
     let closed_registration = local_reg(&stakes, &parties_pks);
-    let clerk = StmClerk::from_registration(&params, &closed_registration);
+    let clerk = Clerk::from_registration(&params, &closed_registration);
 
     // Now we aggregate the signatures
     let msig_1 = match clerk.aggregate(&complete_sigs_1, &msg) {
@@ -132,8 +133,8 @@ fn main() {
     assert!(msig_3.is_err());
 }
 
-fn local_reg(ids: &[u64], pks: &[StmVerificationKeyPoP]) -> ClosedKeyReg<H> {
-    let mut local_keyreg = KeyReg::init();
+fn local_reg(ids: &[u64], pks: &[VerificationKeyProofOfPossession]) -> ClosedKeyRegistration<H> {
+    let mut local_keyreg = KeyRegistration::init();
     // data, such as the public key, stake and id.
     for (&pk, id) in pks.iter().zip(ids.iter()) {
         local_keyreg.register(*id, pk).unwrap();

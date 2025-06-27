@@ -3,34 +3,34 @@ use digest::FixedOutput;
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 
-use crate::bls_multi_signature::{SigningKey, VerificationKeyPoP};
-use crate::key_reg::*;
-use crate::{RegisterError, Stake, StmParameters, StmSigner};
+use crate::bls_multi_signature::{BlsSigningKey, BlsVerificationKeyProofOfPossession};
+use crate::key_registration::*;
+use crate::{Parameters, RegisterError, Signer, Stake};
 
 /// Wrapper of the MultiSignature Verification key with proof of possession
-pub type StmVerificationKeyPoP = VerificationKeyPoP;
+pub type VerificationKeyProofOfPossession = BlsVerificationKeyProofOfPossession;
 
 /// Initializer for `StmSigner`.
 /// This is the data that is used during the key registration procedure.
 /// Once the latter is finished, this instance is consumed into an `StmSigner`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StmInitializer {
+pub struct Initializer {
     /// This participant's stake.
     pub stake: Stake,
     /// Current protocol instantiation parameters.
-    pub params: StmParameters,
+    pub params: Parameters,
     /// Secret key.
-    pub(crate) sk: SigningKey,
+    pub(crate) sk: BlsSigningKey,
     /// Verification (public) key + proof of possession.
-    pub(crate) pk: StmVerificationKeyPoP,
+    pub(crate) pk: VerificationKeyProofOfPossession,
 }
 
-impl StmInitializer {
-    /// Builds an `StmInitializer` that is ready to register with the key registration service.
+impl Initializer {
+    /// Builds an `Initializer` that is ready to register with the key registration service.
     /// This function generates the signing and verification key with a PoP, and initialises the structure.
-    pub fn setup<R: RngCore + CryptoRng>(params: StmParameters, stake: Stake, rng: &mut R) -> Self {
-        let sk = SigningKey::generate(rng);
-        let pk = StmVerificationKeyPoP::from(&sk);
+    pub fn setup<R: RngCore + CryptoRng>(params: Parameters, stake: Stake, rng: &mut R) -> Self {
+        let sk = BlsSigningKey::generate(rng);
+        let pk = VerificationKeyProofOfPossession::from(&sk);
         Self {
             stake,
             params,
@@ -40,7 +40,7 @@ impl StmInitializer {
     }
 
     /// Extract the verification key.
-    pub fn verification_key(&self) -> StmVerificationKeyPoP {
+    pub fn verification_key(&self) -> VerificationKeyProofOfPossession {
         self.pk
     }
 
@@ -58,8 +58,8 @@ impl StmInitializer {
     /// This function fails if the initializer is not registered.
     pub fn new_signer<D: Digest + Clone + FixedOutput>(
         self,
-        closed_reg: ClosedKeyReg<D>,
-    ) -> Result<StmSigner<D>, RegisterError> {
+        closed_reg: ClosedKeyRegistration<D>,
+    ) -> Result<Signer<D>, RegisterError> {
         let mut my_index = None;
         for (i, rp) in closed_reg.reg_parties.iter().enumerate() {
             if rp.0 == self.pk.vk {
@@ -71,7 +71,7 @@ impl StmInitializer {
             return Err(RegisterError::UnregisteredInitializer);
         }
 
-        Ok(StmSigner::set_stm_signer(
+        Ok(Signer::set_stm_signer(
             my_index.unwrap(),
             self.stake,
             self.params,
@@ -87,8 +87,8 @@ impl StmInitializer {
     /// that has already verified the parties.
     pub fn new_core_signer<D: Digest + Clone + FixedOutput>(
         self,
-        eligible_parties: &[RegParty],
-    ) -> Option<StmSigner<D>> {
+        eligible_parties: &[RegisteredParty],
+    ) -> Option<Signer<D>> {
         let mut parties = eligible_parties.to_vec();
         parties.sort_unstable();
         let mut my_index = None;
@@ -99,7 +99,7 @@ impl StmInitializer {
             }
         }
         if let Some(index) = my_index {
-            Some(StmSigner::set_core_signer(
+            Some(Signer::set_core_signer(
                 index,
                 self.stake,
                 self.params,
@@ -126,17 +126,18 @@ impl StmInitializer {
         out
     }
 
-    /// Convert a slice of bytes to an `StmInitializer`
+    /// Convert a slice of bytes to an `Initializer`
     /// # Error
     /// The function fails if the given string of bytes is not of required size.
-    pub fn from_bytes(bytes: &[u8]) -> Result<StmInitializer, RegisterError> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Initializer, RegisterError> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(bytes.get(..8).ok_or(RegisterError::SerializationError)?);
         let stake = u64::from_be_bytes(u64_bytes);
         let params =
-            StmParameters::from_bytes(bytes.get(8..32).ok_or(RegisterError::SerializationError)?)?;
-        let sk = SigningKey::from_bytes(bytes.get(32..).ok_or(RegisterError::SerializationError)?)?;
-        let pk = StmVerificationKeyPoP::from_bytes(
+            Parameters::from_bytes(bytes.get(8..32).ok_or(RegisterError::SerializationError)?)?;
+        let sk =
+            BlsSigningKey::from_bytes(bytes.get(32..).ok_or(RegisterError::SerializationError)?)?;
+        let pk = VerificationKeyProofOfPossession::from_bytes(
             bytes.get(64..).ok_or(RegisterError::SerializationError)?,
         )?;
 

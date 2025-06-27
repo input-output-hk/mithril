@@ -1,6 +1,6 @@
 use blake2::{digest::consts::U64, Blake2b, Digest};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use mithril_stm::{Signature, SigningKey, VerificationKey};
+use mithril_stm::{BlsSignature, BlsSigningKey, BlsVerificationKey};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
@@ -20,13 +20,13 @@ fn batch_benches(c: &mut Criterion, array_batches: &[usize], nr_sigs: usize) {
             let mut mvks = Vec::new();
             let mut sigs = Vec::new();
             for _ in 0..nr_sigs {
-                let sk = SigningKey::generate(&mut rng);
-                let vk = VerificationKey::from(&sk);
+                let sk = BlsSigningKey::generate(&mut rng);
+                let vk = BlsVerificationKey::from(&sk);
                 let sig = sk.sign(&msg);
                 sigs.push(sig);
                 mvks.push(vk);
             }
-            let (agg_vk, agg_sig) = Signature::aggregate(&mvks, &sigs).unwrap();
+            let (agg_vk, agg_sig) = BlsSignature::aggregate(&mvks, &sigs).unwrap();
             batch_msgs.push(msg.to_vec());
             batch_vk.push(agg_vk);
             batch_sig.push(agg_sig);
@@ -34,7 +34,7 @@ fn batch_benches(c: &mut Criterion, array_batches: &[usize], nr_sigs: usize) {
 
         group.bench_function(BenchmarkId::new("Batch Verification", batch_string), |b| {
             b.iter(|| {
-                Signature::batch_verify_aggregates(&batch_msgs, &batch_vk, &batch_sig).is_ok()
+                BlsSignature::batch_verify_aggregates(&batch_msgs, &batch_vk, &batch_sig).is_ok()
             })
         });
     }
@@ -49,8 +49,8 @@ fn aggregate_and_verify(c: &mut Criterion, nr_sigs: usize) {
     let mut mvks = Vec::new();
     let mut sigs = Vec::new();
     for _ in 0..nr_sigs {
-        let sk = SigningKey::generate(&mut rng);
-        let vk = VerificationKey::from(&sk);
+        let sk = BlsSigningKey::generate(&mut rng);
+        let vk = BlsVerificationKey::from(&sk);
         let sig = sk.sign(&msg);
         sigs.push(sig);
         mvks.push(vk);
@@ -71,7 +71,7 @@ fn aggregate_and_verify(c: &mut Criterion, nr_sigs: usize) {
                 hasher.update(sig.to_bytes());
                 hasher.finalize();
             }
-            let (agg_vk, agg_sig) = Signature::aggregate(&mvks, &sigs).unwrap();
+            let (agg_vk, agg_sig) = BlsSignature::aggregate(&mvks, &sigs).unwrap();
             assert!(agg_sig.verify(&msg, &agg_vk).is_ok())
         })
     });

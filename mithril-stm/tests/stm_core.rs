@@ -1,8 +1,8 @@
 use blake2::Blake2b;
 use digest::consts::U32;
 use mithril_stm::{
-    CoreVerifier, CoreVerifierError, Stake, StmInitializer, StmParameters, StmSig, StmSigner,
-    StmVerificationKey,
+    BasicVerifier, CoreVerifierError, Initializer, Parameters, Signer, SingleSignature, Stake,
+    VerificationKey,
 };
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
@@ -14,14 +14,14 @@ fn test_core_verifier() {
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let mut msg = [0u8; 32];
     rng.fill_bytes(&mut msg);
-    let mut public_signers: Vec<(StmVerificationKey, Stake)> = Vec::with_capacity(nparties);
-    let mut initializers: Vec<StmInitializer> = Vec::with_capacity(nparties);
+    let mut public_signers: Vec<(VerificationKey, Stake)> = Vec::with_capacity(nparties);
+    let mut initializers: Vec<Initializer> = Vec::with_capacity(nparties);
 
     //////////////////////////
     // initialization phase //
     //////////////////////////
 
-    let params = StmParameters {
+    let params = Parameters {
         k: 357,
         m: 2642,
         phi_f: 0.2,
@@ -32,14 +32,14 @@ fn test_core_verifier() {
         .collect::<Vec<_>>();
 
     for stake in parties {
-        let initializer = StmInitializer::setup(params, stake, &mut rng);
+        let initializer = Initializer::setup(params, stake, &mut rng);
         initializers.push(initializer.clone());
         public_signers.push((initializer.verification_key().vk, initializer.stake));
     }
 
-    let core_verifier = CoreVerifier::setup(&public_signers);
+    let core_verifier = BasicVerifier::setup(&public_signers);
 
-    let signers: Vec<StmSigner<D>> = initializers
+    let signers: Vec<Signer<D>> = initializers
         .into_iter()
         .filter_map(|s| s.new_core_signer(&core_verifier.eligible_parties))
         .collect();
@@ -48,7 +48,7 @@ fn test_core_verifier() {
     ///// operation phase ////
     //////////////////////////
 
-    let mut signatures: Vec<StmSig> = Vec::with_capacity(nparties);
+    let mut signatures: Vec<SingleSignature> = Vec::with_capacity(nparties);
     for s in signers {
         if let Some(sig) = s.core_sign(&msg, core_verifier.total_stake) {
             signatures.push(sig);

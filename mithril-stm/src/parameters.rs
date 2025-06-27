@@ -10,7 +10,7 @@ use crate::error::RegisterError;
 // Then, we're secure if SUM[from i=k to i=m] Binomial(i successes, m experiments, p chance of success) <= 2^-100 or thereabouts.
 // The latter turns to 1 - BinomialCDF(k-1,m,p)
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct StmParameters {
+pub struct Parameters {
     /// Security parameter, upper bound on indices.
     pub m: u64,
     /// Quorum parameter.
@@ -19,7 +19,7 @@ pub struct StmParameters {
     pub phi_f: f64,
 }
 
-impl StmParameters {
+impl Parameters {
     /// Convert to bytes
     /// # Layout
     /// * Security parameter, `m` (as u64)
