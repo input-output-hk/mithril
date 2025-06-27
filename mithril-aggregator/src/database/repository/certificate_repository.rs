@@ -245,10 +245,10 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_certificate() {
-        let (certificates, _) = setup_certificate_chain(5, 2);
+        let certificates = setup_certificate_chain(5, 2);
         let expected_hash = certificates[0].hash.clone();
         let connection = Arc::new(main_db_connection().unwrap());
-        insert_certificate_records(&connection, certificates.clone());
+        insert_certificate_records(&connection, certificates.certificates_chained.clone());
 
         let repository: CertificateRepository = CertificateRepository::new(connection);
         let certificate = repository
@@ -268,29 +268,28 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_latest_certificates() {
-        let (certificates, _) = setup_certificate_chain(5, 2);
+        let certificates = setup_certificate_chain(5, 2);
         let connection = Arc::new(main_db_connection().unwrap());
-        insert_certificate_records(&connection, certificates.clone());
+        insert_certificate_records(&connection, certificates.certificates_chained.clone());
 
         let repository = CertificateRepository::new(connection);
         let latest_certificates = repository
             .get_latest_certificates(certificates.len())
             .await
             .unwrap();
-        let expected: Vec<Certificate> = certificates.into_iter().rev().collect();
 
-        assert_eq!(expected, latest_certificates);
+        assert_eq!(certificates.reversed_chain(), latest_certificates);
     }
 
     #[tokio::test]
     async fn repository_get_latest_genesis_certificate() {
-        let (certificates, _) = setup_certificate_chain(5, 2);
+        let certificates = setup_certificate_chain(5, 2);
         let connection = Arc::new(main_db_connection().unwrap());
-        insert_certificate_records(&connection, certificates.clone());
+        insert_certificate_records(&connection, certificates.certificates_chained.clone());
 
         let repository = CertificateRepository::new(connection);
         let latest_certificates = repository.get_latest_genesis_certificate().await.unwrap();
-        let expected = Some(certificates.last().unwrap().clone());
+        let expected = Some(certificates.genesis_certificate().clone());
 
         assert_eq!(expected, latest_certificates);
     }
@@ -509,11 +508,11 @@ mod tests {
 
     #[tokio::test]
     async fn get_master_certificate_for_epoch() {
-        let (certificates, _) = setup_certificate_chain(3, 1);
+        let certificates = setup_certificate_chain(3, 1);
         let expected_certificate_id = &certificates[2].hash;
         let epoch = &certificates[2].epoch;
         let connection = Arc::new(main_db_connection().unwrap());
-        insert_certificate_records(&connection, certificates.clone());
+        insert_certificate_records(&connection, certificates.certificates_chained.clone());
 
         let repository: CertificateRepository = CertificateRepository::new(connection);
         let certificate = repository
@@ -527,7 +526,7 @@ mod tests {
 
     #[tokio::test]
     async fn save_certificate() {
-        let (certificates, _) = setup_certificate_chain(5, 3);
+        let certificates = setup_certificate_chain(5, 3);
         let connection = Arc::new(main_db_connection().unwrap());
         let repository: CertificateRepository = CertificateRepository::new(connection.clone());
         let certificate = repository

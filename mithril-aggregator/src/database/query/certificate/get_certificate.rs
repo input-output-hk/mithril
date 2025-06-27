@@ -71,18 +71,18 @@ mod tests {
 
     #[test]
     fn test_get_certificate_records_by_epoch() {
-        let (certificates, _) = setup_certificate_chain(20, 7);
+        let certificates = setup_certificate_chain(20, 7);
 
         let connection = main_db_connection().unwrap();
-        insert_certificate_records(&connection, certificates.clone());
+        insert_certificate_records(&connection, certificates.certificates_chained.clone());
 
         let certificate_records: Vec<CertificateRecord> = connection
             .fetch_collect(GetCertificateRecordQuery::by_epoch(Epoch(1)).unwrap())
             .unwrap();
         let expected_certificate_records: Vec<CertificateRecord> = certificates
-            .iter()
+            .reversed_chain()
+            .into_iter()
             .filter_map(|c| (c.epoch == Epoch(1)).then_some(c.to_owned().into()))
-            .rev()
             .collect();
         assert_eq!(expected_certificate_records, certificate_records);
 
@@ -90,9 +90,9 @@ mod tests {
             .fetch_collect(GetCertificateRecordQuery::by_epoch(Epoch(3)).unwrap())
             .unwrap();
         let expected_certificate_records: Vec<CertificateRecord> = certificates
-            .iter()
+            .reversed_chain()
+            .into_iter()
             .filter_map(|c| (c.epoch == Epoch(3)).then_some(c.to_owned().into()))
-            .rev()
             .collect();
         assert_eq!(expected_certificate_records, certificate_records);
 
@@ -104,15 +104,15 @@ mod tests {
 
     #[test]
     fn test_get_all_certificate_records() {
-        let (certificates, _) = setup_certificate_chain(5, 2);
+        let certificates = setup_certificate_chain(5, 2);
         let expected_certificate_records: Vec<CertificateRecord> = certificates
-            .iter()
-            .map(|c| c.to_owned().into())
-            .rev()
+            .reversed_chain()
+            .into_iter()
+            .map(Into::into)
             .collect();
 
         let connection = main_db_connection().unwrap();
-        insert_certificate_records(&connection, certificates.clone());
+        insert_certificate_records(&connection, certificates.certificates_chained.clone());
 
         let certificate_records: Vec<CertificateRecord> = connection
             .fetch_collect(GetCertificateRecordQuery::all())

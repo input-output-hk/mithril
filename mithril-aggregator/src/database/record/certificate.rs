@@ -390,16 +390,16 @@ mod tests {
 
     #[test]
     fn test_convert_certificates() {
-        let (certificates, _) = setup_certificate_chain(20, 3);
+        let certificates = setup_certificate_chain(20, 3);
         let mut certificate_records: Vec<CertificateRecord> = Vec::new();
-        for certificate in certificates.clone() {
+        for certificate in certificates.certificates_chained.clone() {
             certificate_records.push(certificate.into());
         }
         let mut certificates_new: Vec<Certificate> = Vec::new();
         for certificate_record in certificate_records {
             certificates_new.push(certificate_record.into());
         }
-        assert_eq!(certificates, certificates_new);
+        assert_eq!(certificates.certificates_chained, certificates_new);
     }
 
     #[test]
