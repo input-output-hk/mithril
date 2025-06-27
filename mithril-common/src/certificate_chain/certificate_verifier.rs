@@ -434,7 +434,7 @@ mod tests {
     };
 
     macro_rules! assert_error_matches {
-        ( $expected_error:path, $error:expr_2021 ) => {{
+        ( $expected_error:path, $error:expr ) => {{
             let error = $error
                 .downcast_ref::<CertificateVerifierError>()
                 .expect("Can not downcast to `CertificateVerifierError`.");

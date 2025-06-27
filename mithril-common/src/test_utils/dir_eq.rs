@@ -154,10 +154,10 @@ impl From<&str> for DirStructure {
 /// ```
 #[macro_export]
 macro_rules! assert_dir_eq {
-    ($dir: expr_2021, $expected_structure: expr_2021) => {
+    ($dir: expr, $expected_structure: expr) => {
         $crate::test_utils::assert_dir_eq!($dir, $expected_structure, "");
     };
-    ($dir: expr_2021, $expected_structure: expr_2021, $($arg:tt)+) => {
+    ($dir: expr, $expected_structure: expr, $($arg:tt)+) => {
         let actual = $crate::test_utils::DirStructure::from_path($dir);
         let expected = $crate::test_utils::DirStructure::from($expected_structure);
         let comment = format!($($arg)+);

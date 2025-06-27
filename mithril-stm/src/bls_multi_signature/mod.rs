@@ -24,7 +24,7 @@ pub(crate) const POP: &[u8] = b"PoP";
 // ---------------------------------------------------------------------
 
 macro_rules! impl_serde {
-    ($st:ty,$visitor:ident,$size:expr_2021) => {
+    ($st:ty,$visitor:ident,$size:expr) => {
         impl Serialize for $st {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
             where

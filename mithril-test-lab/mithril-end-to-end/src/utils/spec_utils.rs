@@ -7,7 +7,7 @@ pub enum AttemptResult<T, E> {
 
 #[macro_export]
 macro_rules! attempt {
-    ( $remaining_attempts:expr_2021, $sleep_duration:expr_2021, $block:block ) => {{
+    ( $remaining_attempts:expr, $sleep_duration:expr, $block:block ) => {{
         let mut remaining_attempts = $remaining_attempts;
         loop {
             let res = $block;
