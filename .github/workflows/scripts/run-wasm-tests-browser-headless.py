@@ -1,6 +1,5 @@
 import logging
 import argparse
-import sys
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -14,11 +13,14 @@ def run_headless_test():
     if args.browser_type.lower() == 'chrome':
         options = webdriver.ChromeOptions()
         options.add_argument("--headless=new")
-        driver = webdriver.Chrome(options=options)
+        options.set_capability("goog:loggingPrefs", {"browser": "ALL"})
+        service = webdriver.ChromeService(log_output="chrome-driver.log")
+        driver = webdriver.Chrome(options=options, service=service)
     elif args.browser_type.lower() == 'firefox':
         options = webdriver.FirefoxOptions()
         options.add_argument("--headless")
-        driver = webdriver.Firefox(options=options)
+        service = webdriver.FirefoxService(log_output="firefox-driver.log", service_args=['--log', 'debug'])
+        driver = webdriver.Firefox(options=options, service=service)
     else:
         logging.error("Invalid browser type. Supported types are 'chrome' and 'firefox'.")
         return
@@ -36,6 +38,15 @@ def run_headless_test():
         result_file = f"{args.browser_type.lower()}-results.html"
         with open(result_file, "w", encoding="utf-8") as file:
             file.write(html)
+
+        if args.browser_type.lower() == 'chrome':
+            logs = driver.get_log('browser')
+            # Save console logs to a file for easier debugging
+            with open("chrome-console.log", "w", encoding="utf-8") as f:
+                for entry in logs:
+                    f.write(f"[{entry['level']}] {entry['message']}\n")
+        elif args.browser_type.lower() == 'firefox':
+            print("Console logs cannot be retrieved from Firefox via get_log('browser'). This feature is only supported in Chrome.")
 
     finally:
         driver.quit()
