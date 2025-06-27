@@ -111,11 +111,11 @@ mod tests {
 
     #[test]
     fn test_insert_certificate_record() {
-        let (certificates, _) = setup_certificate_chain(5, 2);
+        let certificates = setup_certificate_chain(5, 2);
 
         let connection = main_db_connection().unwrap();
 
-        for certificate in certificates {
+        for certificate in certificates.certificates_chained {
             let certificate_record: CertificateRecord = certificate.into();
             let certificate_record_saved = connection
                 .fetch_first(InsertCertificateRecordQuery::one(
@@ -128,9 +128,8 @@ mod tests {
 
     #[test]
     fn test_insert_many_certificates_records() {
-        let (certificates, _) = setup_certificate_chain(5, 2);
-        let certificates_records: Vec<CertificateRecord> =
-            certificates.into_iter().map(|cert| cert.into()).collect();
+        let certificates = setup_certificate_chain(5, 2);
+        let certificates_records: Vec<CertificateRecord> = certificates.into();
 
         let connection = main_db_connection().unwrap();
 

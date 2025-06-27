@@ -8,6 +8,7 @@
 
 pub mod fake_data;
 pub mod fake_keys;
+pub mod mock_extensions;
 
 mod cardano_transactions_builder;
 mod certificate_chain_builder;
@@ -20,7 +21,8 @@ mod temp_dir;
 
 pub use cardano_transactions_builder::CardanoTransactionsBuilder;
 pub use certificate_chain_builder::{
-    CertificateChainBuilder, CertificateChainBuilderContext, CertificateChainingMethod,
+    CertificateChainBuilder, CertificateChainBuilderContext, CertificateChainFixture,
+    CertificateChainingMethod,
 };
 pub use dir_eq::*;
 pub use fixture_builder::{MithrilFixtureBuilder, StakeDistributionGenerationMethod};
