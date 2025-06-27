@@ -44,7 +44,7 @@ impl<M: TryToBytes + Debug> DmqPublisherPallas<M> {
         DmqClient::connect(&self.socket, magic)
             .await
             .map_err(|err| anyhow!(err))
-            .with_context(|| "PallasChainReader failed to create a new client")
+            .with_context(|| "DmqPublisherPallas failed to create a new client")
     }
 }
 
@@ -119,9 +119,9 @@ mod tests {
 
                 // server waits for request from client and replies to it
                 let request = server_msg.recv_next_request().await.unwrap();
-                if let localtxsubmission::Request::Submit(_) = &request {
-                } else {
-                    panic!("Expected a submit request, but got: {:?}", request);
+                match &request {
+                    localtxsubmission::Request::Submit(_) => (),
+                    request => panic!("Expected a Submit request, but received: {request:?}"),
                 }
                 let response = if reply_success {
                     localtxsubmission::Response::Accepted
