@@ -813,7 +813,7 @@ mod tests {
         }
 
         let (total_certificates, certificates_per_epoch) = (5, 1);
-        let (fake_certificates, _) = CertificateChainBuilder::new()
+        let fake_certificates = CertificateChainBuilder::new()
             .with_total_certificates(total_certificates)
             .with_certificates_per_epoch(certificates_per_epoch)
             .with_standard_certificate_processor(&|certificate, context| {
@@ -1125,7 +1125,7 @@ mod tests {
         }
 
         let (total_certificates, certificates_per_epoch) = (7, 2);
-        let (fake_certificates, genesis_verifier) = CertificateChainBuilder::new()
+        let fake_certificates = CertificateChainBuilder::new()
             .with_total_certificates(total_certificates)
             .with_certificates_per_epoch(certificates_per_epoch)
             .with_standard_certificate_processor(&|certificate, context| {
@@ -1146,7 +1146,7 @@ mod tests {
         let error = verifier
             .verify_certificate(
                 &certificate_to_verify,
-                &genesis_verifier.to_verification_key(),
+                &fake_certificates.genesis_verifier.to_verification_key(),
             )
             .await
             .expect_err("verify_certificate_chain should fail");
