@@ -192,14 +192,19 @@ pub fn setup_signers_from_stake_distribution(
 }
 
 /// Instantiate a certificate chain, use this for tests only.
+/// Todo: update to CertificateChainFixture
 pub fn setup_certificate_chain(
     total_certificates: u64,
     certificates_per_epoch: u64,
 ) -> (Vec<Certificate>, ProtocolGenesisVerifier) {
-    let certificate_chain_builder = CertificateChainBuilder::new()
+    let certificate_chain_fixture = CertificateChainBuilder::new()
         .with_total_certificates(total_certificates)
         .with_certificates_per_epoch(certificates_per_epoch)
-        .with_protocol_parameters(setup_protocol_parameters());
+        .with_protocol_parameters(setup_protocol_parameters())
+        .build();
 
-    certificate_chain_builder.build()
+    (
+        certificate_chain_fixture.certificates_chained,
+        certificate_chain_fixture.genesis_verifier,
+    )
 }

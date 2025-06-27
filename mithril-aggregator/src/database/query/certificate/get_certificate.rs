@@ -123,7 +123,7 @@ mod tests {
     #[test]
     fn test_get_all_genesis_certificate_records() {
         // Two chains with different protocol parameters so generated certificates are different.
-        let (first_certificates_chain, _) = CertificateChainBuilder::new()
+        let first_certificates_chain = CertificateChainBuilder::new()
             .with_total_certificates(2)
             .with_protocol_parameters(ProtocolParameters {
                 m: 90,
@@ -133,7 +133,7 @@ mod tests {
             .build();
         let first_chain_genesis: CertificateRecord =
             first_certificates_chain.last().unwrap().clone().into();
-        let (second_certificates_chain, _) = CertificateChainBuilder::new()
+        let second_certificates_chain = CertificateChainBuilder::new()
             .with_total_certificates(2)
             .with_protocol_parameters(ProtocolParameters {
                 m: 100,
@@ -151,14 +151,14 @@ mod tests {
             .unwrap();
         assert_eq!(Vec::<CertificateRecord>::new(), certificate_records);
 
-        insert_certificate_records(&connection, first_certificates_chain);
+        insert_certificate_records(&connection, first_certificates_chain.certificates_chained);
 
         let certificate_records: Vec<CertificateRecord> = connection
             .fetch_collect(GetCertificateRecordQuery::all_genesis())
             .unwrap();
         assert_eq!(vec![first_chain_genesis.to_owned()], certificate_records);
 
-        insert_certificate_records(&connection, second_certificates_chain);
+        insert_certificate_records(&connection, second_certificates_chain.certificates_chained);
 
         let certificate_records: Vec<CertificateRecord> = connection
             .fetch_collect(GetCertificateRecordQuery::all_genesis())
