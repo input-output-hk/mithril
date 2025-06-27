@@ -1,7 +1,7 @@
 use sqlite::Value;
 
-use mithril_common::entities::Epoch;
 use mithril_common::StdResult;
+use mithril_common::entities::Epoch;
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::StakePool;
@@ -38,7 +38,9 @@ impl Query for GetStakePoolQuery {
         let aliases = SourceAlias::new(&[("{:stake_pool:}", "sp")]);
         let projection = Self::Entity::get_projection().expand(aliases);
 
-        format!("select {projection} from stake_pool as sp where {condition} order by epoch asc, stake desc, stake_pool_id asc")
+        format!(
+            "select {projection} from stake_pool as sp where {condition} order by epoch asc, stake desc, stake_pool_id asc"
+        )
     }
 }
 

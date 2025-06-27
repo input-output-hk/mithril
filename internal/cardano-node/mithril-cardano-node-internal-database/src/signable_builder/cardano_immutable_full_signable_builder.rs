@@ -3,13 +3,13 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use slog::{info, Logger};
+use slog::{Logger, info};
 
 use mithril_common::{
+    StdResult,
     entities::{CardanoDbBeacon, ProtocolMessage, ProtocolMessagePartKey},
     logging::LoggerExtensions,
     signable_builder::SignableBuilder,
-    StdResult,
 };
 
 use crate::digesters::ImmutableDigester;
@@ -64,8 +64,8 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoImmutableFilesFullSignableBuild
 mod tests {
     use std::path::Path;
 
-    use crate::test::double::DumbImmutableDigester;
     use crate::test::TestLogger;
+    use crate::test::double::DumbImmutableDigester;
 
     use super::*;
 

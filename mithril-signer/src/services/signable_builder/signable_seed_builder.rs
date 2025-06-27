@@ -3,17 +3,17 @@
 //! This service is responsible for computing the seed protocol message
 //! that is used by the [SignableBuilder] to compute the final protocol message.
 //!
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use mithril_common::{
+    StdResult,
     crypto_helper::ProtocolInitializer,
     entities::{ProtocolMessagePartValue, ProtocolParameters, SignerWithStake},
     protocol::SignerBuilder,
     signable_builder::SignableSeedBuilder,
-    StdResult,
 };
 
 use crate::{services::EpochService, store::ProtocolInitializerStorer};
@@ -50,9 +50,9 @@ impl SignerSignableSeedBuilder {
         let encoded_avk = signer_builder
             .compute_aggregate_verification_key()
             .to_json_hex()
-            .with_context(|| {
-                "SignerSignableSeedBuilder can not serialize aggregate verification key"
-            })?;
+            .with_context(
+                || "SignerSignableSeedBuilder can not serialize aggregate verification key",
+            )?;
 
         Ok(encoded_avk)
     }

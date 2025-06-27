@@ -2,13 +2,13 @@ use std::path::PathBuf;
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 
 use mithril_common::StdResult;
 
 use crate::{
-    dependency_injection::DependenciesBuilder, Configuration, SQLITE_FILE,
-    SQLITE_FILE_CARDANO_TRANSACTION,
+    Configuration, SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,
+    dependency_injection::DependenciesBuilder,
 };
 
 /// Database tools
@@ -76,9 +76,9 @@ impl MigrateCommand {
                 mithril_persistence::database::cardano_transaction_migration::get_migrations(),
             )
             .await
-            .with_context(|| {
-                "Dependencies Builder can not get cardano transaction pool sqlite connection"
-            })?;
+            .with_context(
+                || "Dependencies Builder can not get cardano transaction pool sqlite connection",
+            )?;
 
         Ok(())
     }

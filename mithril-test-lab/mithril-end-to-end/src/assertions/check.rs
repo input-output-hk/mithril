@@ -1,11 +1,12 @@
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use reqwest::StatusCode;
 use serde::de::DeserializeOwned;
 use slog_scope::info;
 
 use mithril_common::{
+    StdResult,
     entities::{Epoch, TransactionHash},
     messages::{
         CardanoDatabaseDigestListMessage, CardanoDatabaseSnapshotListMessage,
@@ -14,13 +15,12 @@ use mithril_common::{
         CardanoTransactionSnapshotMessage, CertificateMessage, MithrilStakeDistributionListMessage,
         MithrilStakeDistributionMessage, SnapshotMessage,
     },
-    StdResult,
 };
 
 use crate::{
-    attempt, utils::AttemptResult, Aggregator, CardanoDbCommand, CardanoDbV2Command,
-    CardanoStakeDistributionCommand, CardanoTransactionCommand, Client, ClientCommand,
-    MithrilStakeDistributionCommand,
+    Aggregator, CardanoDbCommand, CardanoDbV2Command, CardanoStakeDistributionCommand,
+    CardanoTransactionCommand, Client, ClientCommand, MithrilStakeDistributionCommand, attempt,
+    utils::AttemptResult,
 };
 
 async fn get_json_response<T: DeserializeOwned>(url: String) -> StdResult<reqwest::Result<T>> {
@@ -95,17 +95,15 @@ pub async fn assert_signer_is_signing_mithril_stake_distribution(
         url: String,
         expected_epoch_min: Epoch,
     ) -> StdResult<Option<MithrilStakeDistributionMessage>> {
-        match get_json_response::<MithrilStakeDistributionMessage>(url.clone())
-            .await?
-            {
-                Ok(stake_distribution) => match stake_distribution.epoch {
-                    epoch if epoch >= expected_epoch_min => Ok(Some(stake_distribution)),
-                    epoch => Err(anyhow!(
-                        "Minimum expected mithril stake distribution epoch not reached: {epoch} < {expected_epoch_min}"
-                    )),
-                },
-                Err(err) => Err(anyhow!("Invalid mithril stake distribution body: {err}",)),
-            }
+        match get_json_response::<MithrilStakeDistributionMessage>(url.clone()).await? {
+            Ok(stake_distribution) => match stake_distribution.epoch {
+                epoch if epoch >= expected_epoch_min => Ok(Some(stake_distribution)),
+                epoch => Err(anyhow!(
+                    "Minimum expected mithril stake distribution epoch not reached: {epoch} < {expected_epoch_min}"
+                )),
+            },
+            Err(err) => Err(anyhow!("Invalid mithril stake distribution body: {err}",)),
+        }
     }
 
     match attempt!(10, Duration::from_millis(1000), {
@@ -248,17 +246,15 @@ pub async fn assert_signer_is_signing_cardano_database_snapshot(
         url: String,
         expected_epoch_min: Epoch,
     ) -> StdResult<Option<CardanoDatabaseSnapshotMessage>> {
-        match get_json_response::<CardanoDatabaseSnapshotMessage>(url)
-            .await?
-            {
-                Ok(cardano_database_snapshot) => match cardano_database_snapshot.beacon.epoch {
-                    epoch if epoch >= expected_epoch_min => Ok(Some(cardano_database_snapshot)),
-                    epoch => Err(anyhow!(
-                        "Minimum expected Cardano database snapshot epoch not reached: {epoch} < {expected_epoch_min}"
-                    )),
-                },
-                Err(err) => Err(anyhow!(err).context("Invalid Cardano database snapshot body")),
-            }
+        match get_json_response::<CardanoDatabaseSnapshotMessage>(url).await? {
+            Ok(cardano_database_snapshot) => match cardano_database_snapshot.beacon.epoch {
+                epoch if epoch >= expected_epoch_min => Ok(Some(cardano_database_snapshot)),
+                epoch => Err(anyhow!(
+                    "Minimum expected Cardano database snapshot epoch not reached: {epoch} < {expected_epoch_min}"
+                )),
+            },
+            Err(err) => Err(anyhow!(err).context("Invalid Cardano database snapshot body")),
+        }
     }
 
     match attempt!(10, Duration::from_millis(1000), {
@@ -470,16 +466,14 @@ pub async fn assert_signer_is_signing_cardano_stake_distribution(
         url: String,
         expected_epoch_min: Epoch,
     ) -> StdResult<Option<CardanoStakeDistributionMessage>> {
-        match get_json_response::<CardanoStakeDistributionMessage>(url)
-        .await?
-        {
+        match get_json_response::<CardanoStakeDistributionMessage>(url).await? {
             Ok(stake_distribution) => match stake_distribution.epoch {
                 epoch if epoch >= expected_epoch_min => Ok(Some(stake_distribution)),
                 epoch => Err(anyhow!(
                     "Minimum expected Cardano stake distribution epoch not reached: {epoch} < {expected_epoch_min}"
                 )),
             },
-            Err(err) => Err(anyhow!(err).context("Invalid Cardano stake distribution body",)),
+            Err(err) => Err(anyhow!(err).context("Invalid Cardano stake distribution body")),
         }
     }
 

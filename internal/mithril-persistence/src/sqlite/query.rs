@@ -24,7 +24,7 @@ mod tests {
         ConnectionExtensions, GetAllCondition, Projection, SourceAlias, SqliteConnection,
     };
 
-    use super::super::{entity::HydrationError, SqLiteEntity};
+    use super::super::{SqLiteEntity, entity::HydrationError};
     use super::*;
 
     #[derive(Debug, PartialEq)]

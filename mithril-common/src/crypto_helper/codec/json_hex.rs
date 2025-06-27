@@ -1,8 +1,8 @@
 use crate::entities::{HexEncodedKey, HexEncodedKeySlice};
 
 use hex::{FromHex, ToHex};
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use thiserror::Error;
 
 /// Error raised when the encoding or decoding fails

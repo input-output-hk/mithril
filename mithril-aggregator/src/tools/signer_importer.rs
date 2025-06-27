@@ -2,14 +2,14 @@ use anyhow::Context;
 use async_trait::async_trait;
 use reqwest::{IntoUrl, Url};
 use serde::{Deserialize, Serialize};
-use slog::{info, warn, Logger};
+use slog::{Logger, info, warn};
 use std::collections::HashMap;
 use std::ops::Not;
 use std::sync::Arc;
 use std::time::Duration;
 
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::{entities::PartyId, StdResult};
+use mithril_common::{StdResult, entities::PartyId};
 
 use crate::database::repository::SignerStore;
 

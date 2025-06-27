@@ -1,12 +1,12 @@
 #[cfg(any(test, feature = "test_tools"))]
 use crate::test_utils::fake_keys;
 use crate::{
+    StdError, StdResult,
     crypto_helper::{KesPeriod, ProtocolOpCert, ProtocolSignerVerificationKeySignature},
     entities::{
         HexEncodedOpCert, HexEncodedVerificationKey, HexEncodedVerificationKeySignature, PartyId,
         Signer, SignerWithStake, Stake,
     },
-    StdError, StdResult,
 };
 use anyhow::Context;
 use serde::{Deserialize, Serialize};

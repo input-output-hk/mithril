@@ -12,8 +12,7 @@ pub struct InsertSignedBeaconRecordQuery {
 
 impl InsertSignedBeaconRecordQuery {
     pub fn one(record: SignedBeaconRecord) -> StdResult<Self> {
-        let condition =
-        WhereCondition::new(
+        let condition = WhereCondition::new(
             "(epoch, beacon, signed_entity_type_id, initiated_at, signed_at) values (?*, ?*, ?*, ?*, ?*)",
             vec![
                 Value::Integer(record.epoch.try_into()?),

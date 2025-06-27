@@ -4,10 +4,10 @@ use anyhow::Context;
 use async_trait::async_trait;
 
 use crate::{
+    StdResult,
     crypto_helper::{MKMap, MKMapNode, MKTreeNode, MKTreeStorer},
     entities::{BlockNumber, BlockRange, ProtocolMessage, ProtocolMessagePartKey},
     signable_builder::SignableBuilder,
-    StdResult,
 };
 
 #[cfg(test)]

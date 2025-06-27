@@ -1,10 +1,10 @@
 use anyhow::anyhow;
-use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
-use slog::{debug, Logger};
+use mithril_common::logging::LoggerExtensions;
+use slog::{Logger, debug};
 use std::{fmt::Debug, sync::Arc, time::Duration};
 use tokio::{
-    sync::{mpsc::UnboundedSender, Mutex},
+    sync::{Mutex, mpsc::UnboundedSender},
     time::Instant,
 };
 

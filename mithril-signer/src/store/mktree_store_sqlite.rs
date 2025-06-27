@@ -2,8 +2,8 @@ use std::{iter::repeat_n, sync::Arc};
 
 use anyhow::Context;
 use mithril_common::{
-    crypto_helper::{Bytes, MKTreeLeafIndexer, MKTreeLeafPosition, MKTreeNode, MKTreeStorer},
     StdResult,
+    crypto_helper::{Bytes, MKTreeLeafIndexer, MKTreeLeafPosition, MKTreeNode, MKTreeStorer},
 };
 
 /// A Merkle tree store with Sqlite backend

@@ -7,11 +7,11 @@ use chrono::Utc;
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
+use crate::SignerRecorder;
 use crate::database::query::{
     GetSignerRecordQuery, ImportSignerRecordQuery, RegisterSignerRecordQuery,
 };
 use crate::database::record::SignerRecord;
-use crate::SignerRecorder;
 
 /// Service to get [SignerRecord].
 #[cfg_attr(test, mockall::automock)]

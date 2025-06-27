@@ -7,7 +7,7 @@ use mithril_stm::{
     AggregationError, ClosedKeyReg, Index, Stake, StmClerk, StmParameters, StmSigner,
 };
 
-use blake2::{digest::consts::U32, Blake2b};
+use blake2::{Blake2b, digest::consts::U32};
 
 /// A protocol version
 pub type ProtocolVersion<'a> = &'a str;

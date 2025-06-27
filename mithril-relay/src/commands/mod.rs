@@ -10,10 +10,10 @@ pub use relay::RelayCommands;
 pub use signer::SignerCommand;
 
 use clap::Parser;
-use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value};
+use config::{ConfigBuilder, Map, Source, Value, builder::DefaultState};
 use context::CommandContext;
 use mithril_common::StdResult;
-use slog::{debug, Level, Logger};
+use slog::{Level, Logger, debug};
 use std::path::PathBuf;
 
 /// Relay for Mithril Node

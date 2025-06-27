@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
-use mithril_common::entities::{CompressionAlgorithm, ImmutableFileNumber};
 use mithril_common::StdResult;
+use mithril_common::entities::{CompressionAlgorithm, ImmutableFileNumber};
 
 use crate::tools::file_archiver::FileArchive;
 

@@ -1,15 +1,15 @@
 use anyhow::Context;
 use chrono::Local;
-use slog::{info, trace, Logger};
+use slog::{Logger, info, trace};
 use std::fmt::Display;
 use std::sync::Arc;
 
 use mithril_common::entities::TimePoint;
 use mithril_common::logging::LoggerExtensions;
 
+use crate::AggregatorConfig;
 use crate::entities::OpenMessage;
 use crate::runtime::{AggregatorRunnerTrait, RuntimeError};
-use crate::AggregatorConfig;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IdleState {
@@ -233,7 +233,10 @@ impl AggregatorRuntime {
                     // SIGNING > READY
                     let new_state =
                         self.transition_from_signing_to_ready_multisignature(state).await?;
-                    info!(self.logger, "→ A multi-signature has been created, build an artifact & a certificate and transitioning back to READY");
+                    info!(
+                        self.logger,
+                        "→ A multi-signature has been created, build an artifact & a certificate and transitioning back to READY"
+                    );
                     self.state = AggregatorState::Ready(new_state);
                 }
             }

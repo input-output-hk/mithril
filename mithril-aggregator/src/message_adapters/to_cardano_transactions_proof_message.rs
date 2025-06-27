@@ -1,8 +1,8 @@
 use mithril_common::{
+    StdResult,
     entities::{CardanoTransactionsSetProof, CardanoTransactionsSnapshot, TransactionHash},
     messages::{CardanoTransactionsProofsMessage, CardanoTransactionsSetProofMessagePart},
     signable_builder::SignedEntity,
-    StdResult,
 };
 
 /// Adapter to spawn [CardanoTransactionsProofsMessage] from [CardanoTransactionsProofs] instances.

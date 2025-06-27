@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use mithril_common::{crypto_helper::ProtocolInitializer, entities::Epoch, StdResult};
+use mithril_common::{StdResult, crypto_helper::ProtocolInitializer, entities::Epoch};
 
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]

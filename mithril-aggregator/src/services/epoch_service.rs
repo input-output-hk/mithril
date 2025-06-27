@@ -1,11 +1,12 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 use std::collections::BTreeSet;
 use std::sync::Arc;
 use thiserror::Error;
 
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
+use mithril_common::StdResult;
 use mithril_common::crypto_helper::ProtocolAggregateVerificationKey;
 use mithril_common::entities::{
     CardanoEra, CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityConfig,
@@ -13,11 +14,10 @@ use mithril_common::entities::{
 };
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder};
-use mithril_common::StdResult;
 use mithril_era::EraChecker;
 use mithril_persistence::store::StakeStorer;
 
-use crate::{entities::AggregatorEpochSettings, EpochSettingsStorer, VerificationKeyStorer};
+use crate::{EpochSettingsStorer, VerificationKeyStorer, entities::AggregatorEpochSettings};
 
 /// Errors dedicated to the CertifierService.
 #[derive(Debug, Error)]
@@ -374,9 +374,9 @@ impl EpochService for MithrilEpochService {
     async fn update_epoch_settings(&mut self) -> StdResult<()> {
         debug!(self.logger, ">> update_epoch_settings");
 
-        let data = self.unwrap_data().with_context(|| {
-            "can't update epoch settings if inform_epoch has not been called first"
-        })?;
+        let data = self.unwrap_data().with_context(
+            || "can't update epoch settings if inform_epoch has not been called first",
+        )?;
 
         self.insert_future_epoch_settings(data.epoch).await
     }
@@ -384,9 +384,9 @@ impl EpochService for MithrilEpochService {
     async fn update_next_signers_with_stake(&mut self) -> StdResult<()> {
         debug!(self.logger, ">> update_next_signers_with_stake");
 
-        let data = self.unwrap_data().with_context(|| {
-            "can't update next signers with stake if inform_epoch has not been called first"
-        })?;
+        let data = self.unwrap_data().with_context(
+            || "can't update next signers with stake if inform_epoch has not been called first",
+        )?;
 
         let next_signer_retrieval_epoch = data.epoch.offset_to_next_signer_retrieval_epoch();
         let next_signers_with_stake = self
@@ -405,9 +405,9 @@ impl EpochService for MithrilEpochService {
     async fn precompute_epoch_data(&mut self) -> StdResult<()> {
         debug!(self.logger, ">> precompute_epoch_data");
 
-        let data = self.unwrap_data().with_context(|| {
-            "can't precompute epoch data if inform_epoch has not been called first"
-        })?;
+        let data = self.unwrap_data().with_context(
+            || "can't precompute epoch data if inform_epoch has not been called first",
+        )?;
 
         let protocol_multi_signer = SignerBuilder::new(
             &data.current_signers_with_stake,
@@ -840,7 +840,7 @@ mod tests {
         BlockNumber, CardanoTransactionsSigningConfig, Stake, StakeDistribution, SupportedEra,
     };
     use mithril_common::test_utils::{
-        fake_data, MithrilFixture, MithrilFixtureBuilder, StakeDistributionGenerationMethod,
+        MithrilFixture, MithrilFixtureBuilder, StakeDistributionGenerationMethod, fake_data,
     };
     use mockall::predicate::eq;
 
@@ -1376,8 +1376,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn can_only_get_non_computed_data_if_inform_epoch_has_been_called_but_not_precompute_epoch_data(
-    ) {
+    async fn can_only_get_non_computed_data_if_inform_epoch_has_been_called_but_not_precompute_epoch_data()
+     {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
         let mut service = EpochServiceBuilder::new(Epoch(4), fixture.clone()).build().await;
         service.inform_epoch(Epoch(4)).await.unwrap();

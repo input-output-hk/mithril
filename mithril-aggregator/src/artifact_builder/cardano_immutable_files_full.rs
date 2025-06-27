@@ -2,18 +2,18 @@ use anyhow::Context;
 use async_trait::async_trait;
 use mithril_common::entities::{FileUri, ImmutableFileNumber};
 use semver::Version;
-use slog::{debug, warn, Logger};
+use slog::{Logger, debug, warn};
 use std::sync::Arc;
 use thiserror::Error;
 
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::{
-    entities::{CardanoDbBeacon, Certificate, ProtocolMessagePartKey, Snapshot},
     CardanoNetwork, StdResult,
+    entities::{CardanoDbBeacon, Certificate, ProtocolMessagePartKey, Snapshot},
 };
 
 use super::ArtifactBuilder;
-use crate::{services::Snapshotter, tools::file_archiver::FileArchive, FileUploader};
+use crate::{FileUploader, services::Snapshotter, tools::file_archiver::FileArchive};
 
 /// [CardanoImmutableFilesFullArtifact] error
 #[derive(Debug, Error)]
@@ -209,8 +209,8 @@ mod tests {
     use mithril_common::{entities::CompressionAlgorithm, test_utils::fake_data};
 
     use crate::{
-        file_uploaders::MockFileUploader, services::DumbSnapshotter, test_tools::TestLogger,
-        DumbUploader,
+        DumbUploader, file_uploaders::MockFileUploader, services::DumbSnapshotter,
+        test_tools::TestLogger,
     };
 
     use super::*;

@@ -107,9 +107,9 @@ impl CardanoTransactionClient {
         {
             Ok(content) => {
                 let transactions_proofs: CardanoTransactionsProofs = serde_json::from_str(&content)
-                    .with_context(|| {
-                        "CardanoTransactionProof Client can not deserialize transactions proofs"
-                    })?;
+                    .with_context(
+                        || "CardanoTransactionProof Client can not deserialize transactions proofs",
+                    )?;
 
                 Ok(transactions_proofs)
             }
@@ -144,9 +144,9 @@ impl CardanoTransactionClient {
         {
             Ok(content) => {
                 let cardano_transaction_snapshot: CardanoTransactionSnapshot =
-                    serde_json::from_str(&content).with_context(|| {
-                        "CardanoTransactionClient Client can not deserialize artifact"
-                    })?;
+                    serde_json::from_str(&content).with_context(
+                        || "CardanoTransactionClient Client can not deserialize artifact",
+                    )?;
 
                 Ok(Some(cardano_transaction_snapshot))
             }

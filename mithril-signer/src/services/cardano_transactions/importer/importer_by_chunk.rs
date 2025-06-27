@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 
+use mithril_common::StdResult;
 use mithril_common::entities::BlockNumber;
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::signable_builder::TransactionsImporter;
-use mithril_common::StdResult;
 
 /// Trait to get the highest transaction block number
 #[cfg_attr(test, mockall::automock)]
@@ -67,7 +67,7 @@ impl TransactionsImporter for TransactionsImporterByChunk {
 #[cfg(test)]
 mod tests {
     use mockall::predicate::eq;
-    use mockall::{mock, Sequence};
+    use mockall::{Sequence, mock};
 
     use crate::test_tools::TestLogger;
 

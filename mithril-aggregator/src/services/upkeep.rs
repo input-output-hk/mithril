@@ -9,14 +9,14 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use mithril_common::StdResult;
 use mithril_common::entities::Epoch;
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::StdResult;
 use mithril_persistence::sqlite::{
     SqliteCleaner, SqliteCleaningTask, SqliteConnection, SqliteConnectionPool,
 };
 use mithril_signed_entity_lock::SignedEntityTypeLock;
-use slog::{info, Logger};
+use slog::{Logger, info};
 
 /// Define the service responsible for the upkeep of the application.
 #[cfg_attr(test, mockall::automock)]
@@ -253,7 +253,8 @@ mod tests {
         service.run(Epoch(5)).await.expect("Upkeep service failed");
 
         assert_eq!(
-            log_inspector.search_logs(SqliteCleaningTask::WalCheckpointTruncate.log_message())
+            log_inspector
+                .search_logs(SqliteCleaningTask::WalCheckpointTruncate.log_message())
                 .len(),
             3,
             "Should have run three times since the three databases have a `WalCheckpointTruncate` cleanup"
@@ -282,9 +283,11 @@ mod tests {
         };
         service.run(Epoch(5)).await.expect("Upkeep service failed");
 
-        assert!(log_inspector
-            .search_logs(SqliteCleaningTask::WalCheckpointTruncate.log_message())
-            .is_empty());
+        assert!(
+            log_inspector
+                .search_logs(SqliteCleaningTask::WalCheckpointTruncate.log_message())
+                .is_empty()
+        );
     }
     #[tokio::test]
     async fn test_execute_all_pruning_tasks() {
@@ -319,9 +322,11 @@ mod tests {
         };
         service.vacuum().await.expect("Vacuum failed");
 
-        assert!(log_inspector
-            .search_logs(SqliteCleaningTask::Vacuum.log_message())
-            .is_empty());
+        assert!(
+            log_inspector
+                .search_logs(SqliteCleaningTask::Vacuum.log_message())
+                .is_empty()
+        );
     }
 
     #[tokio::test]

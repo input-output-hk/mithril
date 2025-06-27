@@ -158,10 +158,12 @@ mod tests {
             .add_child_bar("name", ProgressBarKind::Bytes, 1000)
             .await;
 
-        assert!(multi_dl_reporter
-            .get_child_bar("name")
-            .await
-            .is_some_and(|dl_reporter| dl_reporter.kind() == ProgressBarKind::Bytes));
+        assert!(
+            multi_dl_reporter
+                .get_child_bar("name")
+                .await
+                .is_some_and(|dl_reporter| dl_reporter.kind() == ProgressBarKind::Bytes)
+        );
     }
 
     #[tokio::test]

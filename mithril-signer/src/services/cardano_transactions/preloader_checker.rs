@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 
-use mithril_common::{entities::SignedEntityTypeDiscriminants, StdResult};
+use mithril_common::{StdResult, entities::SignedEntityTypeDiscriminants};
 use mithril_signed_entity_preloader::CardanoTransactionsPreloaderChecker;
 
 use crate::services::AggregatorClient;
@@ -50,8 +50,8 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn preloader_activation_state_activate_preloader_when_cardano_transactions_not_in_aggregator_capabilities(
-    ) {
+    async fn preloader_activation_state_activate_preloader_when_cardano_transactions_not_in_aggregator_capabilities()
+     {
         let mut aggregator_client = MockAggregatorClient::new();
         aggregator_client
             .expect_retrieve_aggregator_features()
@@ -71,8 +71,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn preloader_activation_state_activate_preloader_when_cardano_transactions_in_aggregator_capabilities(
-    ) {
+    async fn preloader_activation_state_activate_preloader_when_cardano_transactions_in_aggregator_capabilities()
+     {
         let mut aggregator_client = MockAggregatorClient::new();
         aggregator_client
             .expect_retrieve_aggregator_features()

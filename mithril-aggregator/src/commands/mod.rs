@@ -7,14 +7,14 @@ mod tools_command;
 
 use anyhow::anyhow;
 use clap::{CommandFactory, Parser, Subcommand};
-use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value};
+use config::{ConfigBuilder, Map, Source, Value, builder::DefaultState};
 use mithril_cli_helper::{register_config_value, register_config_value_option};
 use mithril_common::StdResult;
 use mithril_doc::{Documenter, GenerateDocCommands, StructDoc};
-use slog::{debug, Level, Logger};
+use slog::{Level, Logger, debug};
 use std::{collections::HashMap, path::PathBuf};
 
-use crate::{extract_all, DefaultConfiguration};
+use crate::{DefaultConfiguration, extract_all};
 
 /// Main command selector
 #[derive(Debug, Clone, Subcommand)]

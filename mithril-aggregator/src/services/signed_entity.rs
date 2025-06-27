@@ -2,14 +2,15 @@
 //!
 //! This service is responsible for dealing with [SignedEntity] type.
 //! It creates [Artifact] that can be accessed by clients.
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use chrono::Utc;
-use slog::{info, warn, Logger};
+use slog::{Logger, info, warn};
 use std::sync::Arc;
 use tokio::task::JoinHandle;
 
 use mithril_common::{
+    StdResult,
     entities::{
         BlockNumber, CardanoDatabaseSnapshot, CardanoDbBeacon, CardanoStakeDistribution,
         CardanoTransactionsSnapshot, Certificate, Epoch, MithrilStakeDistribution,
@@ -17,13 +18,12 @@ use mithril_common::{
     },
     logging::LoggerExtensions,
     signable_builder::{Artifact, SignedEntity},
-    StdResult,
 };
 
 use crate::{
+    MetricsService,
     artifact_builder::ArtifactBuilder,
     database::{record::SignedEntityRecord, repository::SignedEntityStorer},
-    MetricsService,
 };
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 
@@ -507,7 +507,7 @@ mod tests {
         test_utils::fake_data,
     };
     use mithril_metric::CounterValue;
-    use serde::{de::DeserializeOwned, Serialize};
+    use serde::{Serialize, de::DeserializeOwned};
     use std::sync::atomic::AtomicBool;
 
     use crate::artifact_builder::MockArtifactBuilder;
@@ -716,8 +716,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn build_mithril_stake_distribution_artifact_when_given_mithril_stake_distribution_entity_type(
-    ) {
+    async fn build_mithril_stake_distribution_artifact_when_given_mithril_stake_distribution_entity_type()
+     {
         let mut mock_container = MockDependencyInjector::new();
 
         let mithril_stake_distribution_expected = create_stake_distribution(Epoch(1), 5);
@@ -751,8 +751,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn build_cardano_stake_distribution_artifact_when_given_cardano_stake_distribution_entity_type(
-    ) {
+    async fn build_cardano_stake_distribution_artifact_when_given_cardano_stake_distribution_entity_type()
+     {
         let mut mock_container = MockDependencyInjector::new();
 
         let cardano_stake_distribution_expected = create_cardano_stake_distribution(

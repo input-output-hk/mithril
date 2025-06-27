@@ -1,11 +1,11 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use clap::Parser;
-use cli_table::{print_stdout, Cell, Table};
+use cli_table::{Cell, Table, print_stdout};
 
 use crate::{
-    commands::{client_builder_with_fallback_genesis_key, SharedArgs},
-    utils::ExpanderUtils,
     CommandContext,
+    commands::{SharedArgs, client_builder_with_fallback_genesis_key},
+    utils::ExpanderUtils,
 };
 use mithril_client::MithrilResult;
 

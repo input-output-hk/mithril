@@ -37,7 +37,9 @@ pub enum CertifierServiceError {
     NoParentCertificateFound,
 
     /// No certificate for this epoch
-    #[error("There is an epoch gap between the last certificate epoch ({certificate_epoch:?}) and current epoch ({current_epoch:?})")]
+    #[error(
+        "There is an epoch gap between the last certificate epoch ({certificate_epoch:?}) and current epoch ({current_epoch:?})"
+    )]
     CertificateEpochGap {
         /// Epoch of the last issued certificate
         certificate_epoch: Epoch,

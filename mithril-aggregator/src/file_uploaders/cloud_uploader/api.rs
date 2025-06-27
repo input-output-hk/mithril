@@ -1,11 +1,11 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use std::{path::Path, sync::Arc};
 
-use mithril_common::{entities::FileUri, StdResult};
+use mithril_common::{StdResult, entities::FileUri};
 
-use crate::file_uploaders::{CloudRemotePath, FileUploadRetryPolicy};
 use crate::FileUploader;
+use crate::file_uploaders::{CloudRemotePath, FileUploadRetryPolicy};
 
 use super::CloudBackendUploader;
 
@@ -81,14 +81,14 @@ mod tests {
 
     use mockall::predicate::eq;
 
-    use crate::file_uploaders::cloud_uploader::MockCloudBackendUploader;
     use crate::file_uploaders::FileUploadRetryPolicy;
+    use crate::file_uploaders::cloud_uploader::MockCloudBackendUploader;
 
     use super::*;
 
     #[tokio::test]
-    async fn upload_public_file_succeeds_when_file_does_not_exist_remotely_and_without_overwriting_allowed(
-    ) {
+    async fn upload_public_file_succeeds_when_file_does_not_exist_remotely_and_without_overwriting_allowed()
+     {
         let allow_overwrite = false;
         let local_file_path = Path::new("local_folder").join("snapshot.xxx.tar.gz");
         let remote_folder_path = CloudRemotePath::new("remote_folder");

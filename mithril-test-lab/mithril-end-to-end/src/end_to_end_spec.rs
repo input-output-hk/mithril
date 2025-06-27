@@ -3,11 +3,11 @@ use std::sync::Arc;
 use tokio::task::JoinSet;
 
 use mithril_common::{
-    entities::{Epoch, SignedEntityTypeDiscriminants},
     StdResult,
+    entities::{Epoch, SignedEntityTypeDiscriminants},
 };
 
-use crate::{assertions, Aggregator, MithrilInfrastructure};
+use crate::{Aggregator, MithrilInfrastructure, assertions};
 
 pub struct Spec {
     pub infrastructure: Arc<MithrilInfrastructure>,

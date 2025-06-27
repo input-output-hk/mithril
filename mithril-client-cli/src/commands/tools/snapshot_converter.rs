@@ -5,14 +5,14 @@ use std::{
     process::Command,
 };
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use clap::{Parser, ValueEnum};
 
 use mithril_client::MithrilResult;
 
 use crate::utils::{
-    copy_dir, remove_dir_contents, ArchiveUnpacker, GitHubReleaseRetriever, HttpDownloader,
-    ReqwestGitHubApiClient, ReqwestHttpDownloader,
+    ArchiveUnpacker, GitHubReleaseRetriever, HttpDownloader, ReqwestGitHubApiClient,
+    ReqwestHttpDownloader, copy_dir, remove_dir_contents,
 };
 
 const GITHUB_ORGANIZATION: &str = "IntersectMBO";
@@ -340,7 +340,7 @@ impl SnapshotConverterCommand {
                         );
 
                         Ok(output_path)
-                    }
+                    };
                 }
                 Err(e) => {
                     eprintln!(

@@ -1,4 +1,4 @@
-use mithril_metric::{build_metrics_service, MetricsServiceExporter};
+use mithril_metric::{MetricsServiceExporter, build_metrics_service};
 
 use mithril_metric::metric::{MetricCollector, MetricCounter, MetricGauge};
 

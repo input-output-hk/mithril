@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use chrono::Utc;
 
-use mithril_common::entities::{Epoch, ProtocolMessage, SignedEntityType};
 use mithril_common::StdResult;
+use mithril_common::entities::{Epoch, ProtocolMessage, SignedEntityType};
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
 use crate::database::query::{

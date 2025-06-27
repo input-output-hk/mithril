@@ -11,8 +11,8 @@ use walkdir::{DirEntry, WalkDir};
 
 use mithril_common::entities::{ImmutableFileName, ImmutableFileNumber};
 
-use crate::entities::ImmutableFileListingError::{MissingImmutableFiles, MissingImmutableFolder};
 use crate::IMMUTABLE_DIR;
+use crate::entities::ImmutableFileListingError::{MissingImmutableFiles, MissingImmutableFolder};
 
 const IMMUTABLE_FILE_EXTENSIONS: [&str; 3] = ["chunk", "primary", "secondary"];
 

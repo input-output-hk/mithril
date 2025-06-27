@@ -10,8 +10,8 @@ use mithril_common::{CardanoNetwork, StdResult};
 
 use crate::mithril::relay_signer::RelaySignerConfiguration;
 use crate::{
-    assertions, Aggregator, AggregatorConfig, Client, Devnet, FullNode, PoolNode, RelayAggregator,
-    RelayPassive, RelaySigner, Signer, DEVNET_MAGIC_ID,
+    Aggregator, AggregatorConfig, Client, DEVNET_MAGIC_ID, Devnet, FullNode, PoolNode,
+    RelayAggregator, RelayPassive, RelaySigner, Signer, assertions,
 };
 
 use super::signer::SignerConfig;

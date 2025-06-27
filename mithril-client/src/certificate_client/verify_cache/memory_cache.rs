@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::ops::Add;
 use tokio::sync::RwLock;
 
-use crate::certificate_client::CertificateVerifierCache;
 use crate::MithrilResult;
+use crate::certificate_client::CertificateVerifierCache;
 
 pub type CertificateHash = str;
 pub type PreviousCertificateHash = str;

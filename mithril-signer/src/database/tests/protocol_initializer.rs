@@ -5,7 +5,7 @@ use mithril_common::{crypto_helper::ProtocolInitializer, entities::Epoch};
 use mithril_persistence::sqlite::{ConnectionBuilder, ConnectionExtensions};
 
 use crate::database::repository::ProtocolInitializerRepository;
-use crate::database::test_helper::{main_db_connection, FakeStoreAdapter};
+use crate::database::test_helper::{FakeStoreAdapter, main_db_connection};
 use crate::services::EpochPruningTask;
 use crate::store::ProtocolInitializerStorer;
 
@@ -185,9 +185,11 @@ mod migration {
             FakeStoreAdapter::new(connection.clone(), "protocol_initializer");
         protocol_initializer_adapter.create_table();
 
-        assert!(connection
-            .prepare("select key_hash from protocol_initializer;")
-            .is_ok());
+        assert!(
+            connection
+                .prepare("select key_hash from protocol_initializer;")
+                .is_ok()
+        );
 
         // Here we can add some data with the old schema.
         let (_, protocol_initializer_to_retrieve) = &setup_protocol_initializers(1)[0];
@@ -205,9 +207,11 @@ mod migration {
             .apply_migrations(&connection, migrations)
             .unwrap();
 
-        assert!(connection
-            .prepare("select key_hash from protocol_initializer;")
-            .is_err());
+        assert!(
+            connection
+                .prepare("select key_hash from protocol_initializer;")
+                .is_err()
+        );
         assert!(connection.prepare("select * from protocol_initializer;").is_ok());
 
         let value: i64 = connection

@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use std::str::FromStr;
 
 use serde::de::{Error, MapAccess, Visitor};
-use serde::{de, Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, de};
 
 /// Deserialize a value that can be either a string or a struct if it implements `FromStr`.
 ///

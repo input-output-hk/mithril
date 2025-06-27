@@ -1,20 +1,20 @@
 use std::{path::Path, sync::Arc};
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
-use slog::{debug, error, warn, Logger};
+use slog::{Logger, debug, error, warn};
 
 use mithril_common::{
+    CardanoNetwork, StdResult,
     entities::{AncillaryLocation, CardanoDbBeacon, CompressionAlgorithm},
     logging::LoggerExtensions,
-    CardanoNetwork, StdResult,
 };
 
 use crate::{
+    DumbUploader, FileUploader,
     file_uploaders::{CloudUploader, LocalUploader},
     services::Snapshotter,
     tools::file_archiver::FileArchive,
-    DumbUploader, FileUploader,
 };
 
 /// The [AncillaryFileUploader] trait allows identifying uploaders that return locations for ancillary archive files.
@@ -206,7 +206,7 @@ impl AncillaryArtifactBuilder {
 mod tests {
     use std::path::PathBuf;
 
-    use mithril_common::test_utils::{assert_equivalent, TempDir};
+    use mithril_common::test_utils::{TempDir, assert_equivalent};
 
     use crate::services::{DumbSnapshotter, MockSnapshotter};
     use crate::test_tools::TestLogger;

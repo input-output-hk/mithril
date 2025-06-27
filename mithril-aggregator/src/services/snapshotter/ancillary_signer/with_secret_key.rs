@@ -1,10 +1,10 @@
 use async_trait::async_trait;
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 
 use mithril_cardano_node_internal_database::entities::AncillaryFilesManifest;
+use mithril_common::StdResult;
 use mithril_common::crypto_helper::{ManifestSignature, ManifestSigner};
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::StdResult;
 
 use super::AncillarySigner;
 

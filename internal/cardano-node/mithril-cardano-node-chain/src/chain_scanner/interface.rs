@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
-use mithril_common::entities::{BlockNumber, SlotNumber};
 use mithril_common::StdResult;
+use mithril_common::entities::{BlockNumber, SlotNumber};
 
 use crate::entities::{RawCardanoPoint, ScannedBlock};
 

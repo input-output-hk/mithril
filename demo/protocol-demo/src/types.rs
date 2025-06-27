@@ -3,7 +3,7 @@ use mithril_stm::{
     StmVerificationKeyPoP,
 };
 
-use blake2::{digest::consts::U32, Blake2b};
+use blake2::{Blake2b, digest::consts::U32};
 
 // Protocol types alias
 type D = Blake2b<U32>;

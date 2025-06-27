@@ -21,11 +21,12 @@ use mithril_cardano_node_chain::{
     test::double::{DumbBlockScanner, FakeChainObserver},
 };
 use mithril_cardano_node_internal_database::{
+    ImmutableFileObserver,
     signable_builder::{CardanoDatabaseSignableBuilder, CardanoImmutableFilesFullSignableBuilder},
     test::double::{DumbImmutableDigester, DumbImmutableFileObserver},
-    ImmutableFileObserver,
 };
 use mithril_common::{
+    StdError,
     api_version::APIVersionProvider,
     entities::{
         BlockNumber, CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,
@@ -37,9 +38,8 @@ use mithril_common::{
         MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
         SignableBuilderServiceDependencies,
     },
-    StdError,
 };
-use mithril_era::{adapters::EraReaderDummyAdapter, EraChecker, EraMarker, EraReader};
+use mithril_era::{EraChecker, EraMarker, EraReader, adapters::EraReaderDummyAdapter};
 use mithril_persistence::{
     database::repository::CardanoTransactionRepository, sqlite::SqliteConnectionPool,
     store::StakeStorer,
@@ -51,6 +51,7 @@ use mithril_signed_entity_preloader::{
 use mithril_ticker::{MithrilTickerService, TickerService};
 
 use mithril_signer::{
+    Configuration, MetricsService, RuntimeError, SignerRunner, SignerState, StateMachine,
     database::repository::{ProtocolInitializerRepository, SignedBeaconRepository, StakePoolStore},
     dependency_injection::{DependenciesBuilder, SignerDependencyContainer},
     services::{
@@ -59,7 +60,6 @@ use mithril_signer::{
         SignerUpkeepService,
     },
     store::{MKTreeStoreSqlite, ProtocolInitializerStorer},
-    Configuration, MetricsService, RuntimeError, SignerRunner, SignerState, StateMachine,
 };
 
 use super::FakeAggregator;

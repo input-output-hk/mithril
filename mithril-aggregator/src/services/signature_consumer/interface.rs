@@ -1,6 +1,6 @@
 use mithril_common::{
-    entities::{SignedEntityType, SingleSignature},
     StdResult,
+    entities::{SignedEntityType, SingleSignature},
 };
 
 /// A signature consumer which blocks until messages are available.

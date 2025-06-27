@@ -186,7 +186,9 @@ impl GenerateDocCommands {
         let doc = markdown_formatter::doc_markdown_with_config(cmd_to_document, configs_info);
         let cmd_name = cmd_to_document.get_name();
 
-        println!("Please note: the documentation generated is not able to indicate the environment variables used by the commands.");
+        println!(
+            "Please note: the documentation generated is not able to indicate the environment variables used by the commands."
+        );
         self.save_doc(cmd_name, format!("\n{doc}").as_str())
     }
 }

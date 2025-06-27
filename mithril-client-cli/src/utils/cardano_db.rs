@@ -53,8 +53,8 @@ mod test {
     use std::path::PathBuf;
 
     #[test]
-    fn check_disk_space_error_should_return_warning_message_if_error_is_not_enough_space_for_archive(
-    ) {
+    fn check_disk_space_error_should_return_warning_message_if_error_is_not_enough_space_for_archive()
+     {
         let not_enough_space_error = CardanoDbDownloadCheckerError::NotEnoughSpaceForArchive {
             left_space: 1_f64,
             pathdir: PathBuf::new(),
@@ -69,8 +69,8 @@ mod test {
     }
 
     #[test]
-    fn check_disk_space_error_should_return_warning_message_if_error_is_not_enough_space_for_uncompressed_data(
-    ) {
+    fn check_disk_space_error_should_return_warning_message_if_error_is_not_enough_space_for_uncompressed_data()
+     {
         let not_enough_space_error =
             CardanoDbDownloadCheckerError::NotEnoughSpaceForUncompressedData {
                 left_space: 1_f64,

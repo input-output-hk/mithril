@@ -53,8 +53,8 @@ mod tests {
     use mithril_common::crypto_helper::MKTreeNode;
     use mithril_common::entities::BlockRange;
 
-    use crate::database::query::block_range_root::test_helper::insert_block_range_roots;
     use crate::database::query::GetBlockRangeRootQuery;
+    use crate::database::query::block_range_root::test_helper::insert_block_range_roots;
     use crate::database::test_helper::cardano_tx_db_connection;
     use crate::sqlite::ConnectionExtensions;
 

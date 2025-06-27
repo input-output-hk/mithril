@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use std::sync::Arc;
 
-use mithril_common::entities::{Epoch, SignedEntityType};
 use mithril_common::StdResult;
+use mithril_common::entities::{Epoch, SignedEntityType};
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
 use crate::database::query::{

@@ -1,10 +1,10 @@
 use std::{sync::Arc, time::Duration};
 
-use libp2p::{gossipsub, Multiaddr};
+use libp2p::{Multiaddr, gossipsub};
 use mithril_common::messages::{RegisterSignatureMessageHttp, RegisterSignerMessage};
 use mithril_relay::{
-    p2p::{BroadcastMessage, PeerBehaviourEvent, PeerEvent},
     PassiveRelay, SignerRelay, SignerRelayMode,
+    p2p::{BroadcastMessage, PeerBehaviourEvent, PeerEvent},
 };
 use reqwest::StatusCode;
 use slog::{Drain, Level, Logger};
@@ -126,14 +126,14 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
         .send()
         .await;
     match response {
-        Ok(response) => {
-            match response.status() {
-                StatusCode::CREATED => {}
-                status => {
-                    panic!("Post `/register-signer` should have returned a 201 status code, got: {status}")
-                }
+        Ok(response) => match response.status() {
+            StatusCode::CREATED => {}
+            status => {
+                panic!(
+                    "Post `/register-signer` should have returned a 201 status code, got: {status}"
+                )
             }
-        }
+        },
         Err(err) => panic!("Post `/register-signer` failed: {err:?}"),
     }
 
@@ -176,7 +176,9 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
         Ok(response) => match response.status() {
             StatusCode::CREATED => {}
             status => {
-                panic!("Post `/register-signatures` should have returned a 201 status code, got: {status}")
+                panic!(
+                    "Post `/register-signatures` should have returned a 201 status code, got: {status}"
+                )
             }
         },
         Err(err) => panic!("Post `/register-signatures` failed: {err:?}"),

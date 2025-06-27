@@ -1,8 +1,8 @@
 use anyhow::Context;
 use sqlite::Value;
 
-use mithril_common::entities::BlockNumber;
 use mithril_common::StdResult;
+use mithril_common::entities::BlockNumber;
 
 use crate::database::record::CardanoTransactionRecord;
 use crate::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
@@ -200,8 +200,8 @@ mod tests {
         }
 
         #[test]
-        fn test_prune_keep_all_tx_of_last_block_if_given_number_of_block_is_greater_than_the_highest_one(
-        ) {
+        fn test_prune_keep_all_tx_of_last_block_if_given_number_of_block_is_greater_than_the_highest_one()
+         {
             let connection = cardano_tx_db_connection().unwrap();
             insert_transactions(&connection, test_transaction_set());
 

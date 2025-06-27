@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use sha2::{Digest, Sha256};
-use slog::{debug, info, warn, Logger};
+use slog::{Logger, debug, info, warn};
 use std::{collections::BTreeMap, io, ops::RangeInclusive, path::Path, sync::Arc};
 
 use mithril_common::crypto_helper::{MKTree, MKTreeStoreInMemory};
@@ -9,7 +9,7 @@ use mithril_common::logging::LoggerExtensions;
 
 use crate::{
     digesters::{
-        cache::ImmutableFileDigestCacheProvider, ImmutableDigester, ImmutableDigesterError,
+        ImmutableDigester, ImmutableDigesterError, cache::ImmutableFileDigestCacheProvider,
     },
     entities::ImmutableFile,
 };

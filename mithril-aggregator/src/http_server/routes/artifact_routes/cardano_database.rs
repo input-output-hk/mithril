@@ -61,15 +61,15 @@ fn serve_cardano_database_dir(
 }
 
 mod handlers {
-    use slog::{debug, warn, Logger};
+    use slog::{Logger, debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
 
+    use crate::MetricsService;
     use crate::http_server::routes::middlewares::ClientMetadata;
     use crate::http_server::routes::reply;
     use crate::services::MessageService;
-    use crate::MetricsService;
 
     pub const LIST_MAX_ITEMS: usize = 20;
 
@@ -269,8 +269,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_cardano_database_detail_increments_artifact_detail_total_served_since_startup_metric(
-    ) {
+    async fn test_cardano_database_detail_increments_artifact_detail_total_served_since_startup_metric()
+     {
         let method = Method::GET.as_str();
         let path = "/artifact/cardano-database/{hash}";
         let dependency_manager = Arc::new(initialize_dependencies!().await);

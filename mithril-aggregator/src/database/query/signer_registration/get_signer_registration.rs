@@ -1,6 +1,6 @@
 use sqlite::Value;
 
-use mithril_common::{entities::Epoch, StdResult};
+use mithril_common::{StdResult, entities::Epoch};
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::SignerRegistrationRecord;
@@ -48,7 +48,9 @@ impl Query for GetSignerRegistrationRecordQuery {
     fn get_definition(&self, condition: &str) -> String {
         let aliases = SourceAlias::new(&[("{:signer_registration:}", "sr")]);
         let projection = Self::Entity::get_projection().expand(aliases);
-        format!("select {projection} from signer_registration as sr where {condition} order by ROWID desc")
+        format!(
+            "select {projection} from signer_registration as sr where {condition} order by ROWID desc"
+        )
     }
 }
 

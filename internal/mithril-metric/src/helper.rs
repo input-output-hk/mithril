@@ -138,7 +138,7 @@ mod tests {
     };
 
     use super::*;
-    use mithril_common::{entities::Epoch, StdResult};
+    use mithril_common::{StdResult, entities::Epoch};
     use prometheus::{Registry, TextEncoder};
     use prometheus_parse::Value;
     use slog::Logger;

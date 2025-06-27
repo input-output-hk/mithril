@@ -8,15 +8,15 @@ use mithril_cardano_node_internal_database::digesters::cache::{
     ImmutableFileDigestCacheProvider,
 };
 use mithril_cardano_node_internal_database::entities::ImmutableFile;
-use mithril_common::entities::{HexEncodedDigest, ImmutableFileName};
 use mithril_common::StdResult;
+use mithril_common::entities::{HexEncodedDigest, ImmutableFileName};
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
+use crate::ImmutableFileDigestMapper;
 use crate::database::query::{
     DeleteImmutableFileDigestQuery, GetImmutableFileDigestQuery, UpsertImmutableFileDigestQuery,
 };
 use crate::database::record::ImmutableFileDigestRecord;
-use crate::ImmutableFileDigestMapper;
 
 /// ImmutableFileDigestRepository store for the immutable file digests.
 pub struct ImmutableFileDigestRepository {

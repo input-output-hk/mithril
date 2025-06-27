@@ -4,15 +4,15 @@ use thiserror::Error;
 
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_cardano_node_chain::entities::ChainAddress;
-use mithril_common::crypto_helper::EraMarkersVerifierVerificationKey;
 use mithril_common::StdError;
+use mithril_common::crypto_helper::EraMarkersVerifierVerificationKey;
 
 use crate::{
+    EraMarker, EraReaderAdapter,
     adapters::{
         EraReaderBootstrapAdapter, EraReaderCardanoChainAdapter, EraReaderDummyAdapter,
         EraReaderFileAdapter,
     },
-    EraMarker, EraReaderAdapter,
 };
 
 /// Type of era reader adapters available

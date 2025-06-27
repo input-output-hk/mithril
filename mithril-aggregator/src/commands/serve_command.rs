@@ -6,13 +6,13 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use chrono::TimeDelta;
 use clap::Parser;
 
-use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value};
+use config::{ConfigBuilder, Map, Source, Value, builder::DefaultState};
 
-use slog::{crit, debug, info, warn, Logger};
+use slog::{Logger, crit, debug, info, warn};
 use tokio::task::JoinSet;
 
 use mithril_cli_helper::{
@@ -23,8 +23,8 @@ use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use mithril_metric::MetricsServer;
 
 use crate::{
-    dependency_injection::DependenciesBuilder, tools::VacuumTracker, DefaultConfiguration,
-    ServeCommandConfiguration,
+    DefaultConfiguration, ServeCommandConfiguration, dependency_injection::DependenciesBuilder,
+    tools::VacuumTracker,
 };
 
 const VACUUM_MINIMUM_INTERVAL: TimeDelta = TimeDelta::weeks(1);
@@ -169,9 +169,9 @@ impl ServeCommand {
         let cardano_transactions_preloader = dependencies_builder
             .create_cardano_transactions_preloader()
             .await
-            .with_context(|| {
-                "Dependencies Builder can not create cardano transactions preloader"
-            })?;
+            .with_context(
+                || "Dependencies Builder can not create cardano transactions preloader",
+            )?;
         let preload_task =
             tokio::spawn(async move { cardano_transactions_preloader.preload().await });
 

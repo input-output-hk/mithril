@@ -231,10 +231,12 @@ mod tests {
             token.get_current_supported_era().expect("the given era is supported")
         );
         assert!(token.get_next_era_marker().is_none());
-        assert!(token
-            .get_next_supported_era()
-            .expect("None era shall not fail when asked.")
-            .is_none());
+        assert!(
+            token
+                .get_next_supported_era()
+                .expect("None era shall not fail when asked.")
+                .is_none()
+        );
     }
 
     #[tokio::test]

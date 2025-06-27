@@ -1,13 +1,13 @@
 mod test_extensions;
 
-use blake2::{digest::consts::U32, Blake2b};
+use blake2::{Blake2b, digest::consts::U32};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
 use mithril_stm::{StmAggrSig, StmInitializer, StmParameters, StmSig, StmVerificationKey};
 
 use test_extensions::protocol_phase::{
-    initialization_phase, operation_phase, InitializationPhaseResult, OperationPhaseResult,
+    InitializationPhaseResult, OperationPhaseResult, initialization_phase, operation_phase,
 };
 
 #[test]

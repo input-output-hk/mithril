@@ -5,15 +5,15 @@ use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 
 use mithril_client::{
+    CardanoTransactionsProofs, Client, ClientBuilder, ClientOptions, MessageBuilder,
+    MithrilCertificate,
     certificate_client::CertificateVerifierCache,
     common::Epoch,
     feedback::{FeedbackReceiver, MithrilEvent},
-    CardanoTransactionsProofs, Client, ClientBuilder, ClientOptions, MessageBuilder,
-    MithrilCertificate,
 };
 
-use crate::certificate_verification_cache::LocalStorageCertificateVerifierCache;
 use crate::WasmResult;
+use crate::certificate_verification_cache::LocalStorageCertificateVerifierCache;
 
 const CLIENT_TYPE_WASM: &str = "WASM";
 
@@ -431,7 +431,9 @@ impl MithrilClient {
 impl MithrilClient {
     fn guard_unstable(&self) -> Result<(), wasm_bindgen::JsValue> {
         if !self.unstable {
-            return Err(JsValue::from_str("Unstable functions are not enabled. Set the 'unstable' client option field to 'true' to enable them."));
+            return Err(JsValue::from_str(
+                "Unstable functions are not enabled. Set the 'unstable' client option field to 'true' to enable them.",
+            ));
         }
 
         Ok(())
@@ -501,10 +503,10 @@ mod tests {
     use wasm_bindgen_test::*;
 
     use mithril_client::{
-        common::ProtocolMessage, CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem,
-        CardanoStakeDistribution, CardanoStakeDistributionListItem, CardanoTransactionSnapshot,
-        MithrilCertificateListItem, MithrilStakeDistribution, MithrilStakeDistributionListItem,
-        Snapshot, SnapshotListItem,
+        CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem, CardanoStakeDistribution,
+        CardanoStakeDistributionListItem, CardanoTransactionSnapshot, MithrilCertificateListItem,
+        MithrilStakeDistribution, MithrilStakeDistributionListItem, Snapshot, SnapshotListItem,
+        common::ProtocolMessage,
     };
 
     use crate::test_data;
@@ -714,8 +716,8 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    async fn compute_mithril_stake_distribution_message_should_return_value_convertible_in_rust_type(
-    ) {
+    async fn compute_mithril_stake_distribution_message_should_return_value_convertible_in_rust_type()
+     {
         let client = get_mithril_client_stable();
         let msd_js_value = client
             .get_mithril_stake_distribution(test_data::mithril_stake_distribution_hashes()[0])
@@ -901,8 +903,8 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    async fn compute_cardano_stake_distribution_message_should_return_value_convertible_in_rust_type(
-    ) {
+    async fn compute_cardano_stake_distribution_message_should_return_value_convertible_in_rust_type()
+     {
         let client = get_mithril_client_stable();
         let csd_js_value = client
             .get_cardano_stake_distribution(test_data::cardano_stake_distribution_hashes()[0])

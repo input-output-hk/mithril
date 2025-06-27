@@ -1,23 +1,23 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
-use slog::{debug, warn, Logger};
+use slog::{Logger, debug, warn};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use mithril_cardano_node_internal_database::entities::AncillaryFilesManifest;
 use mithril_cardano_node_internal_database::entities::{ImmutableFile, LedgerStateSnapshot};
-use mithril_cardano_node_internal_database::{immutable_trio_names, IMMUTABLE_DIR, LEDGER_DIR};
+use mithril_cardano_node_internal_database::{IMMUTABLE_DIR, LEDGER_DIR, immutable_trio_names};
+use mithril_common::StdResult;
 use mithril_common::entities::{CompressionAlgorithm, ImmutableFileNumber};
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::StdResult;
 
 use crate::dependency_injection::DependenciesBuilderError;
 use crate::tools::file_archiver::appender::{AppenderData, AppenderEntries, TarAppender};
 use crate::tools::file_archiver::{ArchiveParameters, FileArchive, FileArchiver};
 use crate::tools::file_size;
 
-use super::{ancillary_signer::AncillarySigner, Snapshotter};
+use super::{Snapshotter, ancillary_signer::AncillarySigner};
 
 /// Compressed Archive Snapshotter create a compressed file.
 pub struct CompressedArchiveSnapshotter {
@@ -528,8 +528,8 @@ mod tests {
         use super::*;
 
         #[tokio::test]
-        async fn getting_files_to_include_for_legacy_ledger_snapshot_copy_them_to_a_target_directory_while_keeping_source_dir_structure(
-        ) {
+        async fn getting_files_to_include_for_legacy_ledger_snapshot_copy_them_to_a_target_directory_while_keeping_source_dir_structure()
+         {
             let test_dir = temp_dir_create!();
             let cardano_db = DummyCardanoDbBuilder::new(current_function!())
                 .with_immutables(&[1, 2])
@@ -559,8 +559,8 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn getting_files_to_include_for_in_memory_ledger_snapshot_copy_them_to_a_target_directory_while_keeping_source_dir_structure(
-        ) {
+        async fn getting_files_to_include_for_in_memory_ledger_snapshot_copy_them_to_a_target_directory_while_keeping_source_dir_structure()
+         {
             let test_dir = temp_dir_create!();
             let cardano_db = DummyCardanoDbBuilder::new(current_function!())
                 .with_immutables(&[1, 2])
@@ -771,8 +771,8 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn create_archive_of_in_memory_ledger_snapshot_generate_sign_and_include_manifest_file(
-        ) {
+        async fn create_archive_of_in_memory_ledger_snapshot_generate_sign_and_include_manifest_file()
+         {
             let test_dir = temp_dir_create!();
             let cardano_db = DummyCardanoDbBuilder::new(current_function!())
                 .with_immutables(&[1, 2, 3])

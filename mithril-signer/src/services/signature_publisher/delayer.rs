@@ -1,11 +1,11 @@
 use std::{sync::Arc, time::Duration};
 
 use mithril_common::{
+    StdResult,
     entities::{ProtocolMessage, SignedEntityType, SingleSignature},
     logging::LoggerExtensions,
-    StdResult,
 };
-use slog::{error, Logger};
+use slog::{Logger, error};
 
 use super::SignaturePublisher;
 

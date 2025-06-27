@@ -4,7 +4,7 @@ use anyhow::anyhow;
 
 use mithril_client::MithrilResult;
 
-use super::{tar_gz_unpacker::TarGzUnpacker, zip_unpacker::ZipUnpacker, ArchiveFormat};
+use super::{ArchiveFormat, tar_gz_unpacker::TarGzUnpacker, zip_unpacker::ZipUnpacker};
 
 pub struct ArchiveUnpacker {
     supported_formats: Vec<Box<dyn ArchiveFormat>>,
@@ -37,9 +37,9 @@ impl ArchiveUnpacker {
 mod tests {
     use std::{fs::File, io::Write, path::Path};
 
-    use flate2::{write::GzEncoder, Compression};
+    use flate2::{Compression, write::GzEncoder};
     use tar::{Builder, Header};
-    use zip::{write::FileOptions, ZipWriter};
+    use zip::{ZipWriter, write::FileOptions};
 
     use mithril_common::temp_dir_create;
 

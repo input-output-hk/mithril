@@ -9,7 +9,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use mithril_common::{
-    entities::ProtocolMessagePartValue, signable_builder::SignableSeedBuilder, StdResult,
+    StdResult, entities::ProtocolMessagePartValue, signable_builder::SignableSeedBuilder,
 };
 
 use crate::services::EpochService;

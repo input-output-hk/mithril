@@ -20,9 +20,12 @@ impl UpdateEpochSettingsQuery {
                 "(epoch_setting_id, protocol_parameters, cardano_transactions_signing_config) values (?1, ?2, ?3)",
                 vec![
                     Value::Integer(epoch_settings_id),
-                    Value::String(serde_json::to_string(&epoch_settings.protocol_parameters).unwrap()),
                     Value::String(
-                        serde_json::to_string(&epoch_settings.cardano_transactions_signing_config).unwrap(),
+                        serde_json::to_string(&epoch_settings.protocol_parameters).unwrap(),
+                    ),
+                    Value::String(
+                        serde_json::to_string(&epoch_settings.cardano_transactions_signing_config)
+                            .unwrap(),
                     ),
                 ],
             ),

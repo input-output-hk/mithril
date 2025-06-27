@@ -1,11 +1,11 @@
 use async_trait::async_trait;
 use chrono::Utc;
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 use std::sync::Arc;
 
+use mithril_common::StdResult;
 use mithril_common::entities::{ProtocolMessage, SignedEntityConfig, SignedEntityType, TimePoint};
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::StdResult;
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 
 use crate::entities::BeaconToSign;

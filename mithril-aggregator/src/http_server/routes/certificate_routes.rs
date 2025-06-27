@@ -49,13 +49,13 @@ fn certificate_certificate_hash(
 }
 
 mod handlers {
-    use slog::{warn, Logger};
+    use slog::{Logger, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
 
-    use crate::http_server::routes::middlewares::ClientMetadata;
     use crate::MetricsService;
+    use crate::http_server::routes::middlewares::ClientMetadata;
     use crate::{http_server::routes::reply, services::MessageService};
 
     pub const LIST_MAX_ITEMS: usize = 20;
@@ -139,8 +139,8 @@ mod tests {
 
     use mithril_api_spec::APISpec;
     use mithril_common::{
-        messages::CertificateMessage, test_utils::fake_data, MITHRIL_CLIENT_TYPE_HEADER,
-        MITHRIL_ORIGIN_TAG_HEADER,
+        MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER, messages::CertificateMessage,
+        test_utils::fake_data,
     };
 
     use crate::{initialize_dependencies, services::MockMessageService};
@@ -223,8 +223,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_certificate_certificate_hash_increments_certificate_detail_total_served_since_startup_metric(
-    ) {
+    async fn test_certificate_certificate_hash_increments_certificate_detail_total_served_since_startup_metric()
+     {
         let method = Method::GET.as_str();
         let path = "/certificate/{certificate_hash}";
 
@@ -349,8 +349,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_certificate_genesis_increments_certificate_detail_total_served_since_startup_metric(
-    ) {
+    async fn test_certificate_genesis_increments_certificate_detail_total_served_since_startup_metric()
+     {
         let method = Method::GET.as_str();
         let path = "/certificate/genesis";
 

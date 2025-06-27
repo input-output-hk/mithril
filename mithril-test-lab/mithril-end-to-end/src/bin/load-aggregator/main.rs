@@ -5,17 +5,17 @@ use tokio::sync::oneshot;
 
 use mithril_cardano_node_internal_database::test::{DummyCardanoDb, DummyCardanoDbBuilder};
 use mithril_common::{
+    StdResult,
     entities::{Epoch, ProtocolParameters},
     test_utils::MithrilFixture,
-    StdResult,
 };
 
 use mithril_end_to_end::{
+    Aggregator,
     stress_test::{
         aggregator_helpers, entities::*, fake_chain, fake_client::clients_scenario, fake_signer,
         payload_builder, wait,
     },
-    Aggregator,
 };
 
 fn init_logger(opts: &MainOpts) -> slog_scope::GlobalLoggerGuard {

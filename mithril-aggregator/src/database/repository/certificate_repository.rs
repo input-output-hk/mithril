@@ -4,9 +4,9 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use sqlite::ConnectionThreadSafe;
 
+use mithril_common::StdResult;
 use mithril_common::certificate_chain::{CertificateRetriever, CertificateRetrieverError};
 use mithril_common::entities::{Certificate, Epoch};
-use mithril_common::StdResult;
 use mithril_persistence::sqlite::ConnectionExtensions;
 
 use crate::database::query::{
@@ -337,8 +337,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_master_certificate_multiple_cert_in_previous_epoch_none_in_the_current_returns_first_of_previous_epoch(
-    ) {
+    async fn get_master_certificate_multiple_cert_in_previous_epoch_none_in_the_current_returns_first_of_previous_epoch()
+     {
         let connection = Arc::new(main_db_connection().unwrap());
         let certificates = vec![
             CertificateRecord::dummy_genesis("1", Epoch(1)),
@@ -359,8 +359,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_master_certificate_multiple_cert_in_previous_one_cert_in_current_epoch_returns_one_in_current_epoch(
-    ) {
+    async fn get_master_certificate_multiple_cert_in_previous_one_cert_in_current_epoch_returns_one_in_current_epoch()
+     {
         let connection = Arc::new(main_db_connection().unwrap());
         let certificates = vec![
             CertificateRecord::dummy_genesis("1", Epoch(1)),
@@ -382,8 +382,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_master_certificate_multiple_cert_in_previous_multiple_in_current_epoch_returns_first_of_current_epoch(
-    ) {
+    async fn get_master_certificate_multiple_cert_in_previous_multiple_in_current_epoch_returns_first_of_current_epoch()
+     {
         let connection = Arc::new(main_db_connection().unwrap());
         let certificates = vec![
             CertificateRecord::dummy_genesis("1", Epoch(1)),
@@ -406,8 +406,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_master_certificate_multiple_cert_in_penultimate_epoch_none_in_previous_returns_none(
-    ) {
+    async fn get_master_certificate_multiple_cert_in_penultimate_epoch_none_in_previous_returns_none()
+     {
         let connection = Arc::new(main_db_connection().unwrap());
         let certificates = vec![
             CertificateRecord::dummy_genesis("1", Epoch(1)),
@@ -426,8 +426,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_master_certificate_second_genesis_after_multiple_cert_in_current_epoch_returns_last_genesis(
-    ) {
+    async fn get_master_certificate_second_genesis_after_multiple_cert_in_current_epoch_returns_last_genesis()
+     {
         let connection = Arc::new(main_db_connection().unwrap());
         let certificates = vec![
             CertificateRecord::dummy_genesis("1", Epoch(1)),
@@ -449,8 +449,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_master_certificate_second_genesis_after_multiple_cert_in_multiple_epochs_returns_last_genesis(
-    ) {
+    async fn get_master_certificate_second_genesis_after_multiple_cert_in_multiple_epochs_returns_last_genesis()
+     {
         let connection = Arc::new(main_db_connection().unwrap());
         let certificates = vec![
             CertificateRecord::dummy_genesis("1", Epoch(1)),
@@ -474,8 +474,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_master_certificate_new_genesis_after_multiple_cert_in_previous_epoch_returns_last_genesis(
-    ) {
+    async fn get_master_certificate_new_genesis_after_multiple_cert_in_previous_epoch_returns_last_genesis()
+     {
         let connection = Arc::new(main_db_connection().unwrap());
         let certificates = vec![
             CertificateRecord::dummy_genesis("1", Epoch(1)),

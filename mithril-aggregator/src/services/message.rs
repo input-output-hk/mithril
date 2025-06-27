@@ -6,6 +6,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use mithril_common::{
+    StdResult,
     entities::{Epoch, SignedEntityTypeDiscriminants},
     messages::{
         CardanoDatabaseDigestListItemMessage, CardanoDatabaseDigestListMessage,
@@ -16,13 +17,12 @@ use mithril_common::{
         MithrilStakeDistributionListMessage, MithrilStakeDistributionMessage, SignerMessagePart,
         SnapshotListMessage, SnapshotMessage,
     },
-    StdResult,
 };
 
 use crate::{
+    ImmutableFileDigestMapper,
     database::repository::{CertificateRepository, SignedEntityStorer},
     dependency_injection::EpochServiceWrapper,
-    ImmutableFileDigestMapper,
 };
 
 /// HTTP Message service trait.
@@ -43,11 +43,11 @@ pub trait MessageService: Sync + Send {
 
     /// Return the message representation of the latest genesis certificate.
     async fn get_latest_genesis_certificate_message(&self)
-        -> StdResult<Option<CertificateMessage>>;
+    -> StdResult<Option<CertificateMessage>>;
 
     /// Return the message representation of the last N certificates.
     async fn get_certificate_list_message(&self, limit: usize)
-        -> StdResult<CertificateListMessage>;
+    -> StdResult<CertificateListMessage>;
 
     /// Return the information regarding the given snapshot.
     async fn get_snapshot_message(

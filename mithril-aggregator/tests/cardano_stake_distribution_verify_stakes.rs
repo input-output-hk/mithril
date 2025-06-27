@@ -12,7 +12,7 @@ use mithril_common::{
     test_utils::MithrilFixtureBuilder,
 };
 use test_extensions::ExpectedMetrics;
-use test_extensions::{utilities::get_test_dir, ExpectedCertificate, RuntimeTester};
+use test_extensions::{ExpectedCertificate, RuntimeTester, utilities::get_test_dir};
 
 #[tokio::test]
 async fn cardano_stake_distribution_verify_stakes() {

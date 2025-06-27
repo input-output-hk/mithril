@@ -11,7 +11,7 @@
 //! The trait `SerDeShelleyFileFormat` can be implemented for any structure that implements
 //! `Serialize` and `Deserialize`.
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use hex::FromHex;
 use kes_summed_ed25519::kes::Sum6Kes;
 use kes_summed_ed25519::traits::KesSk;

@@ -3,8 +3,8 @@ use std::future;
 use async_trait::async_trait;
 
 use mithril_common::{
-    entities::{SignedEntityType, SingleSignature},
     StdResult,
+    entities::{SignedEntityType, SingleSignature},
 };
 
 use super::SignatureConsumer;
@@ -26,7 +26,7 @@ impl SignatureConsumer for SignatureConsumerNoop {
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
-    use tokio::time::{sleep, Duration};
+    use tokio::time::{Duration, sleep};
 
     use super::*;
 

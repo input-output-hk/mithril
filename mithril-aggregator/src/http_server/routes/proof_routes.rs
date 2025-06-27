@@ -45,23 +45,24 @@ fn proof_cardano_transaction(
 }
 
 mod handlers {
-    use slog::{debug, warn, Logger};
+    use slog::{Logger, debug, warn};
     use std::{convert::Infallible, sync::Arc};
     use warp::http::StatusCode;
 
     use mithril_common::{
-        entities::CardanoTransactionsSnapshot, messages::CardanoTransactionsProofsMessage,
-        signable_builder::SignedEntity, StdResult,
+        StdResult, entities::CardanoTransactionsSnapshot,
+        messages::CardanoTransactionsProofsMessage, signable_builder::SignedEntity,
     };
 
     use crate::{
+        MetricsService,
         http_server::{
             routes::{middlewares::ClientMetadata, reply},
             validators::ProverTransactionsHashValidator,
         },
         message_adapters::ToCardanoTransactionsProofsMessageAdapter,
         services::{ProverService, SignedEntityService},
-        unwrap_to_internal_server_error, MetricsService,
+        unwrap_to_internal_server_error,
     };
 
     use super::CardanoTransactionProofQueryParams;
@@ -160,10 +161,10 @@ mod tests {
 
     use mithril_api_spec::APISpec;
     use mithril_common::{
+        MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
         entities::{BlockNumber, CardanoTransactionsSetProof, CardanoTransactionsSnapshot},
         signable_builder::SignedEntity,
         test_utils::{assert_equivalent, fake_data},
-        MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
     };
 
     use crate::services::MockProverService;

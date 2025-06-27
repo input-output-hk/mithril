@@ -110,8 +110,9 @@ mod tests {
 
         #[test]
         fn with_correctly_formatted_str_retrieve_all_keys() {
-            let resource_name_string =
-                format!("{PROJECT_KEY}/my_project/{LOCATION_KEY}/my_location/{KEY_RING_KEY}/my_key_ring/{KEY_NAME_KEY}/my_key/{VERSION_KEY}/1");
+            let resource_name_string = format!(
+                "{PROJECT_KEY}/my_project/{LOCATION_KEY}/my_location/{KEY_RING_KEY}/my_key_ring/{KEY_NAME_KEY}/my_key/{VERSION_KEY}/1"
+            );
 
             for parsed_resource_name in [
                 GcpCryptoKeyVersionResourceName::from_str(&resource_name_string).unwrap(),

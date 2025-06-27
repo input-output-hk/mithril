@@ -1,4 +1,4 @@
-use slog::{crit, error, Logger};
+use slog::{Logger, crit, error};
 use thiserror::Error;
 
 use mithril_common::StdError;

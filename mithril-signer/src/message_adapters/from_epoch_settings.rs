@@ -1,7 +1,7 @@
 use anyhow::Context;
 use mithril_common::{
-    messages::{EpochSettingsMessage, SignerMessagePart, TryFromMessageAdapter},
     StdResult,
+    messages::{EpochSettingsMessage, SignerMessagePart, TryFromMessageAdapter},
 };
 
 use crate::entities::SignerEpochSettings;

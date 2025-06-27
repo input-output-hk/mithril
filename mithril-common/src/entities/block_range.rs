@@ -8,9 +8,9 @@ use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    StdResult,
     crypto_helper::{MKMapKey, MKTreeNode},
     entities::BlockNumber,
-    StdResult,
 };
 
 /// BlockRangeLength is the length of a block range.

@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 
 use mithril_common::{
-    entities::{Epoch, Signer, SignerWithStake, StakeDistribution},
     StdResult,
+    entities::{Epoch, Signer, SignerWithStake, StakeDistribution},
 };
 
 use super::SignerRegistrationError;

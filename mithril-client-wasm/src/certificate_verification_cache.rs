@@ -1,11 +1,11 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use chrono::{DateTime, TimeDelta, Utc};
 use std::ops::Add;
-use web_sys::{window, Storage};
+use web_sys::{Storage, window};
 
-use mithril_client::certificate_client::CertificateVerifierCache;
 use mithril_client::MithrilResult;
+use mithril_client::certificate_client::CertificateVerifierCache;
 
 pub type CertificateHash = str;
 pub type PreviousCertificateHash = str;
@@ -346,7 +346,8 @@ mod tests {
                 Some("another_parent".to_string()),
                 cache.get_previous_hash("another_hash").await.unwrap(),
                 "Existing but not updated value should not have been altered, content: {:#?}, start_time: {:?}",
-                local_storage_content(), start_time,
+                local_storage_content(),
+                start_time,
             );
             assert_eq!("updated_parent", updated_value.previous_hash);
             assert_ne!(initial_value, updated_value);

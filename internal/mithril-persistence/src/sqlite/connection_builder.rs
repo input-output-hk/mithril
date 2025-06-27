@@ -2,11 +2,11 @@ use std::ops::Not;
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 use sqlite::{Connection, ConnectionThreadSafe};
 
-use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
+use mithril_common::logging::LoggerExtensions;
 
 use crate::database::{ApplicationNodeType, DatabaseVersionChecker, SqlMigration};
 

@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::{fmt::Display, path::PathBuf, sync::Arc};
 use thiserror::Error;
 
-use mithril_common::entities::CardanoNetwork;
 use mithril_common::StdResult;
+use mithril_common::entities::CardanoNetwork;
 
 use crate::chain_observer::ChainObserver;
 use crate::test::double::FakeChainObserver;
