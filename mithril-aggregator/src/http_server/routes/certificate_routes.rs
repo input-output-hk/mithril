@@ -5,7 +5,7 @@ use crate::http_server::routes::router::RouterState;
 
 pub fn routes(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     certificate_certificates(router_state)
         .or(certificate_genesis(router_state))
         .or(certificate_certificate_hash(router_state))
@@ -14,7 +14,7 @@ pub fn routes(
 /// GET /certificates
 fn certificate_certificates(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("certificates")
         .and(warp::get())
         .and(middlewares::with_logger(router_state))
@@ -25,7 +25,7 @@ fn certificate_certificates(
 /// GET /certificate/genesis
 fn certificate_genesis(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("certificate" / "genesis")
         .and(warp::get())
         .and(middlewares::with_client_metadata(router_state))
@@ -38,7 +38,7 @@ fn certificate_genesis(
 /// GET /certificate/{certificate_hash}
 fn certificate_certificate_hash(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("certificate" / String)
         .and(warp::get())
         .and(middlewares::with_client_metadata(router_state))

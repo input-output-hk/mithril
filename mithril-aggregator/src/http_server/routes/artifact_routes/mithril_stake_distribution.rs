@@ -4,7 +4,7 @@ use warp::Filter;
 
 pub fn routes(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     artifact_mithril_stake_distributions(router_state)
         .or(artifact_mithril_stake_distribution_by_id(router_state))
 }
@@ -12,7 +12,7 @@ pub fn routes(
 /// GET /artifact/mithril-stake-distributions
 fn artifact_mithril_stake_distributions(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "mithril-stake-distributions")
         .and(warp::get())
         .and(middlewares::with_logger(router_state))
@@ -23,7 +23,7 @@ fn artifact_mithril_stake_distributions(
 /// GET /artifact/mithril-stake-distribution/:id
 fn artifact_mithril_stake_distribution_by_id(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "mithril-stake-distribution" / String)
         .and(warp::get())
         .and(middlewares::with_client_metadata(router_state))

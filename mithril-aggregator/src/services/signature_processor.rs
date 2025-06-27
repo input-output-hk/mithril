@@ -54,18 +54,18 @@ impl SignatureProcessor for SequentialSignatureProcessor {
         match self.consumer.get_signatures().await {
             Ok(signatures) => {
                 for (signature, signed_entity_type) in signatures {
-                    if let Err(e) = self
+                    match self
                         .certifier
                         .register_single_signature(&signed_entity_type, &signature)
                         .await
-                    {
+                    { Err(e) => {
                         error!(self.logger, "Error dispatching single signature"; "error" => ?e);
-                    } else {
+                    } _ => {
                         let origin_network = self.consumer.get_origin_tag();
                         self.metrics_service
                             .get_signature_registration_total_received_since_startup()
                             .increment(&[&origin_network]);
-                    }
+                    }}
                 }
             }
             Err(e) => {

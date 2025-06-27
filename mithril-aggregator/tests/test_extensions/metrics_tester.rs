@@ -87,7 +87,7 @@ impl MetricsVerifier {
 
     pub fn verify(&self, expected_metrics: ExpectedMetrics) {
         macro_rules! verify_metric {
-            ($expected_metric:expr, $metric:expr) => {
+            ($expected_metric:expr_2021, $metric:expr_2021) => {
                 if let Some(expected) = $expected_metric {
                     assert_eq!(
                         expected,

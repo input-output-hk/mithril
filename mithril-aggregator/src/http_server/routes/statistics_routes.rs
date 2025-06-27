@@ -5,7 +5,7 @@ use crate::http_server::routes::router::RouterState;
 
 pub fn routes(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     post_statistics(router_state)
         .or(post_cardano_database_immutable_files_restored(router_state))
         .or(post_cardano_database_ancillary_files_restored(router_state))
@@ -16,7 +16,7 @@ pub fn routes(
 /// POST /statistics/snapshot
 fn post_statistics(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("statistics" / "snapshot")
         .and(warp::post())
         .and(middlewares::with_client_metadata(router_state))
@@ -30,7 +30,7 @@ fn post_statistics(
 /// POST /statistics/cardano-database/immutable-files-restored
 fn post_cardano_database_immutable_files_restored(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("statistics" / "cardano-database" / "immutable-files-restored")
         .and(warp::post())
         .and(middlewares::with_client_metadata(router_state))
@@ -43,7 +43,7 @@ fn post_cardano_database_immutable_files_restored(
 /// POST /statistics/cardano-database/ancillary-files-restored
 fn post_cardano_database_ancillary_files_restored(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("statistics" / "cardano-database" / "ancillary-files-restored")
         .and(warp::post())
         .and(middlewares::with_client_metadata(router_state))
@@ -55,7 +55,7 @@ fn post_cardano_database_ancillary_files_restored(
 /// POST /statistics/cardano-database/complete-restoration
 fn post_cardano_database_complete_restoration(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("statistics" / "cardano-database" / "complete-restoration")
         .and(warp::post())
         .and(middlewares::with_client_metadata(router_state))
@@ -68,7 +68,7 @@ fn post_cardano_database_complete_restoration(
 /// POST /statistics/cardano-database/partial-restoration
 fn post_cardano_database_partial_restoration(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("statistics" / "cardano-database" / "partial-restoration")
         .and(warp::post())
         .and(middlewares::with_client_metadata(router_state))

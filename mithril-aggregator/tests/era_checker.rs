@@ -40,7 +40,7 @@ async fn testing_eras() {
         EraMarker::new(&SupportedEra::dummy().to_string(), Some(Epoch(12))),
     ]);
     comment!("Starting the runtime at unsupported Era.");
-    if let Err(e) = tester.runtime.cycle().await {
+    match tester.runtime.cycle().await { Err(e) => {
         match e {
             RuntimeError::Critical {
                 message: _,
@@ -48,9 +48,9 @@ async fn testing_eras() {
             } => {}
             _ => panic!("Expected a Critical Error, got {e:?}."),
         }
-    } else {
+    } _ => {
         panic!("Expected an error, got Ok().")
-    }
+    }}
 
     // Testing the Era changes during the process
     let protocol_parameters = ProtocolParameters {
@@ -82,7 +82,7 @@ async fn testing_eras() {
     assert_eq!(2, current_epoch, "Epoch was expected to be 2.");
     cycle!(tester, "idle");
 
-    if let Err(e) = tester.runtime.cycle().await {
+    match tester.runtime.cycle().await { Err(e) => {
         match e {
             RuntimeError::Critical {
                 message: _,
@@ -90,7 +90,7 @@ async fn testing_eras() {
             } => {}
             _ => panic!("Expected a Critical Error, got {e:?}."),
         }
-    } else {
+    } _ => {
         panic!("Expected an error, got Ok().")
-    }
+    }}
 }

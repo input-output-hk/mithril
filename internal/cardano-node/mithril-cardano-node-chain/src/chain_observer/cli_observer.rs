@@ -573,7 +573,7 @@ mod tests {
     use super::*;
 
     macro_rules! assert_cli_command {
-        ($command:expr, $expected_shell:expr, envs: $envs:expr) => {
+        ($command:expr_2021, $expected_shell:expr_2021, envs: $envs:expr_2021) => {
             let cmd = $command;
             let std_cmd = cmd.as_std();
             let cmd_display = format!("{std_cmd:?}");

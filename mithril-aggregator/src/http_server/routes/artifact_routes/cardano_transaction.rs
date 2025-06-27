@@ -4,14 +4,14 @@ use warp::Filter;
 
 pub fn routes(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     artifact_cardano_transactions(router_state).or(artifact_cardano_transaction_by_id(router_state))
 }
 
 /// GET /artifact/cardano-transactions
 fn artifact_cardano_transactions(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "cardano-transactions")
         .and(warp::get())
         .and(middlewares::with_logger(router_state))
@@ -22,7 +22,7 @@ fn artifact_cardano_transactions(
 /// GET /artifact/cardano-transaction/:id
 fn artifact_cardano_transaction_by_id(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "cardano-transaction" / String)
         .and(warp::get())
         .and(middlewares::with_client_metadata(router_state))

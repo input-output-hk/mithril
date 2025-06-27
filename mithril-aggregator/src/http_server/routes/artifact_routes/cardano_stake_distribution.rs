@@ -4,7 +4,7 @@ use warp::Filter;
 
 pub fn routes(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     artifact_cardano_stake_distributions(router_state)
         .or(artifact_cardano_stake_distribution_by_id(router_state))
         .or(artifact_cardano_stake_distribution_by_epoch(router_state))
@@ -13,7 +13,7 @@ pub fn routes(
 /// GET /artifact/cardano-stake-distributions
 fn artifact_cardano_stake_distributions(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "cardano-stake-distributions")
         .and(warp::get())
         .and(middlewares::with_logger(router_state))
@@ -24,7 +24,7 @@ fn artifact_cardano_stake_distributions(
 /// GET /artifact/cardano-stake-distribution/:id
 fn artifact_cardano_stake_distribution_by_id(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "cardano-stake-distribution" / String)
         .and(warp::get())
         .and(middlewares::with_client_metadata(router_state))
@@ -37,7 +37,7 @@ fn artifact_cardano_stake_distribution_by_id(
 /// GET /artifact/cardano-stake-distribution/epoch/:epoch
 fn artifact_cardano_stake_distribution_by_epoch(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "cardano-stake-distribution" / "epoch" / String)
         .and(warp::get())
         .and(middlewares::with_client_metadata(router_state))

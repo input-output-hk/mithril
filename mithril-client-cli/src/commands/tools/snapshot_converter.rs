@@ -1163,7 +1163,7 @@ mod tests {
                 .collect()
         }
 
-        fn contains_filename(expected: &Path) -> impl Fn(&Path) -> bool {
+        fn contains_filename(expected: &Path) -> impl Fn(&Path) -> bool + use<> {
             let filename = expected.file_name().unwrap().to_string_lossy().to_string();
 
             move |p: &Path| p.to_string_lossy().contains(&filename)

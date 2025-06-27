@@ -146,7 +146,7 @@ impl<S: MKTreeStorer> ProverService for MithrilProverService<S> {
         }
 
         // 5 - Compute the proof for all transactions
-        if let Ok(mk_proof) = mk_map.compute_proof(transaction_hashes) {
+        match mk_map.compute_proof(transaction_hashes) { Ok(mk_proof) => {
             self.mk_map_pool.give_back_resource_pool_item(mk_map)?;
             let mk_proof_leaves = mk_proof.leaves();
             let transaction_hashes_certified: Vec<TransactionHash> = transaction_hashes
@@ -159,9 +159,9 @@ impl<S: MKTreeStorer> ProverService for MithrilProverService<S> {
                 transaction_hashes_certified,
                 mk_proof,
             )])
-        } else {
+        } _ => {
             Ok(vec![])
-        }
+        }}
     }
 
     async fn compute_cache(&self, up_to: BlockNumber) -> StdResult<()> {
