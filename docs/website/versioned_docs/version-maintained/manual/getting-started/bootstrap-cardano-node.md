@@ -446,7 +446,9 @@ You will see more information about the snapshot:
 
 ### Step 4: Download the selected Cardano DB snapshot
 
-To download the selected snapshot from the remote location to your remote location, run:
+#### Step 4.1 : Download the full Cardano node database
+
+To download the full selected snapshot from the remote location to your local location, run:
 
 ```bash
 ./mithril-client cardano-db download --include-ancillary $SNAPSHOT_DIGEST
@@ -491,6 +493,21 @@ Upgrade and replace the restored ledger state snapshot to 'LMDB' flavor by runni
     Or to 'Legacy' flavor by running the command:
 
     mithril-client --unstable tools utxo-hd snapshot-converter --db-directory db --cardano-node-version 10.4.1 --utxo-hd-flavor Legacy --cardano-network preview --commit
+```
+
+#### Step 4.2 : Download a partial range of immutable files
+
+To download a range of immutable files (e.g. from 17,000 to 18,000) from the remote location to your local location, prepare the following environment variables:
+
+```bash
+export IMMUTABLE_START=17000
+export IMMUTABLE_END=18000
+```
+
+And run the command:
+
+```bash
+./mithril-client cardano-db download $SNAPSHOT_DIGEST --include-ancillary --backend v2 --start $IMMUTABLE_START --end $IMMUTABLE_END
 ```
 
 ### Step 5 (optional): Convert the ledger state snapshot to another flavor
