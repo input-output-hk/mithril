@@ -35,10 +35,13 @@ pub struct Configuration {
     #[example = "`cardano-cli`"]
     pub cardano_cli_path: PathBuf,
 
-    /// Path of the socket used by the Cardano CLI tool
-    /// to communicate with the Cardano node
-    #[example = "`/tmp/cardano.sock`"]
+    /// Path of the socket opened by the Cardano node
+    #[example = "`/ipc/node.socket`"]
     pub cardano_node_socket_path: PathBuf,
+
+    /// Path of the socket opened by the DMQ node
+    #[example = "`/ipc/dmq.socket`"]
+    pub dmq_node_socket_path: Option<PathBuf>,
 
     /// Cardano network
     #[example = "`testnet` or `mainnet` or `devnet`"]
@@ -150,6 +153,7 @@ impl Configuration {
             relay_endpoint: None,
             cardano_cli_path: PathBuf::new(),
             cardano_node_socket_path: PathBuf::new(),
+            dmq_node_socket_path: None,
             db_directory: PathBuf::new(),
             network: "devnet".to_string(),
             network_magic: Some(42),

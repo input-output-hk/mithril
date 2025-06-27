@@ -6,16 +6,20 @@ use kes_summed_ed25519::traits::KesSk;
 use crate::crypto_helper::{cardano::ColdKeyGenerator, OpCert};
 use crate::crypto_helper::{KesPeriod, ProtocolPartyId, SerDeShelleyFileFormat, Sum6KesBytes};
 
+/// A type alias for the party index used in KES cryptographic material.
+pub type KesPartyIndexForTest = u64;
+
 /// A struct to hold KES cryptographic material for testing purposes.
 pub(crate) struct KesCryptographicMaterialForTest {
+    #[allow(dead_code)]
     pub party_id: ProtocolPartyId,
     pub operational_certificate_file: PathBuf,
     pub kes_secret_key_file: PathBuf,
 }
 
 /// Create KES cryptographic material for testing purposes.
-pub(crate) fn create_kes_cryptographic_material(
-    party_idx: u64,
+pub fn create_kes_cryptographic_material(
+    party_idx: KesPartyIndexForTest,
     kes_period: KesPeriod,
     test_directory: &str,
 ) -> KesCryptographicMaterialForTest {
