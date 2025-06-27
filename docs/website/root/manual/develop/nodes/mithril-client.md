@@ -578,7 +578,7 @@ Here is a list of the available parameters:
 
 | Parameter                  | Command line (long)          | Command line (short) | Environment variable       | Description                                                                     | Default value | Example |     Mandatory      |
 | -------------------------- | ---------------------------- | :------------------: | -------------------------- | ------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
-| `backend`                  | `--backend`                  |         `-b`         | -                          | -                                                                               | `v1`          | -       |         -          |
+| `backend`                  | `--backend`                  |         `-b`         | -                          | -                                                                               | `v2`          | -       |         -          |
 | `json`                     | `--json`                     |          -           | -                          | Enable JSON output for command results                                          | `false`       | -       |         -          |
 | `digest`                   | -                            |          -           | -                          | Digest of the Cardano db snapshot to verify or `latest` for the latest artifact | -             | -       | :heavy_check_mark: |
 | `db_dir`                   | `--db-dir`                   |          -           | -                          | Directory from where the immutable will be verified                             | -             | -       |         -          |

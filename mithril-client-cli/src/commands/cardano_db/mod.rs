@@ -22,7 +22,7 @@ pub enum CardanoDbCommandsBackend {
     #[clap(help = "[default] Legacy backend, full database restoration only")]
     V1,
     /// V2 backend
-    #[clap(help = "[unstable] V2 backend, full or partial database restoration")]
+    #[clap(help = "V2 backend, full or partial database restoration")]
     V2,
 }
 
