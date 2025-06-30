@@ -116,16 +116,18 @@ impl RegisterSignatureMessageDmq {
 
     /// Extract a `RegisterSignatureMessageDmq` from bytes.
     pub fn try_from_bytes_vec(bytes: &[u8]) -> StdResult<Self> {
+        const SIGNED_ENTITY_TYPE_LENGTH_BYTES_SIZE: usize = 2;
+        const SIGNATURE_LENGTH_BYTES_SIZE: usize = 4;
         let mut bytes_index = 0;
 
-        let mut u16_bytes = [0u8; 2];
+        let mut u16_bytes = [0u8; SIGNED_ENTITY_TYPE_LENGTH_BYTES_SIZE];
         u16_bytes.copy_from_slice(
             bytes
-                .get(bytes_index..bytes_index + 2)
+                .get(bytes_index..bytes_index + SIGNED_ENTITY_TYPE_LENGTH_BYTES_SIZE)
                 .ok_or(anyhow!("Failed to read `Signed entity type length` bytes"))?,
         );
         let signed_entity_bytes_length = u16::from_be_bytes(u16_bytes) as usize;
-        bytes_index += 2;
+        bytes_index += SIGNED_ENTITY_TYPE_LENGTH_BYTES_SIZE;
 
         let signed_entity_bytes = bytes
             .get(bytes_index..bytes_index + signed_entity_bytes_length)
@@ -133,14 +135,14 @@ impl RegisterSignatureMessageDmq {
         let signed_entity_type = SignedEntityType::try_from_bytes(signed_entity_bytes)?;
         bytes_index += signed_entity_bytes_length;
 
-        let mut u32_bytes = [0u8; 4];
+        let mut u32_bytes = [0u8; SIGNATURE_LENGTH_BYTES_SIZE];
         u32_bytes.copy_from_slice(
             bytes
-                .get(bytes_index..bytes_index + 4)
+                .get(bytes_index..bytes_index + SIGNATURE_LENGTH_BYTES_SIZE)
                 .ok_or(anyhow!("Failed to read `Signature length` bytes"))?,
         );
         let signature_bytes_length = u32::from_be_bytes(u32_bytes) as usize;
-        bytes_index += 4;
+        bytes_index += SIGNATURE_LENGTH_BYTES_SIZE;
 
         let signature_bytes = bytes
             .get(bytes_index..bytes_index + signature_bytes_length)
