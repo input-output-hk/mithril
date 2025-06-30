@@ -1,6 +1,6 @@
 use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
 
-use anyhow::{anyhow, Context};
+use anyhow::Context;
 use pallas_network::{facades::DmqClient, miniprotocols::localtxsubmission::Response};
 use slog::{debug, error, Logger};
 
@@ -43,7 +43,6 @@ impl<M: TryToBytes + Debug> DmqPublisherPallas<M> {
         let magic = self.network.code();
         DmqClient::connect(&self.socket, magic)
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "DmqPublisherPallas failed to create a new client")
     }
 }
@@ -67,14 +66,14 @@ impl<M: TryToBytes + Debug + Sync + Send> DmqPublisher<M> for DmqPublisherPallas
             .msg_submission()
             .send_submit_tx(dmq_message)
             .await
-            .map_err(|err| anyhow!("Failed to submit DMQ message: {}", err))?;
+            .with_context(|| "Failed to submit DMQ message")?;
         let response = client.msg_submission().recv_submit_tx_response().await?;
         if let Err(e) = client.msg_submission().terminate_gracefully().await {
             error!(self.logger, "Failed to send Done"; "error" => ?e);
         }
 
         if response != Response::Accepted {
-            return Err(anyhow!("Failed to publish DMQ message: {:?}", response));
+            anyhow::bail!("Failed to publish DMQ message: {:?}", response);
         }
 
         Ok(())

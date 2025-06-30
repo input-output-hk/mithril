@@ -70,7 +70,7 @@ impl DmqMessageBuilder {
             .block_number;
         let block_number = (*block_number)
             .try_into()
-            .map_err(|_| anyhow!("Failed to convert block number to u32"))?;
+            .with_context(|| "Failed to convert block number to u32")?;
         let (kes_signature, operational_certificate) = self
             .kes_signer
             .sign(message_bytes, block_number)

@@ -47,7 +47,6 @@ impl<M: TryFromBytes + Debug> DmqConsumerPallas<M> {
         );
         DmqClient::connect(&self.socket, self.network.code())
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "DmqConsumerPallas failed to create a new client")
     }
 
@@ -101,13 +100,13 @@ impl<M: TryFromBytes + Debug> DmqConsumerPallas<M> {
             .msg_notification()
             .send_request_messages_blocking()
             .await
-            .map_err(|err| anyhow!("Failed to request notifications from DMQ server: {}", err))?;
+            .with_context(|| "Failed to request notifications from DMQ server: {}")?;
 
         let reply = client
             .msg_notification()
             .recv_next_reply()
             .await
-            .map_err(|err| anyhow!("Failed to receive notifications from DMQ server: {}", err))?;
+            .with_context(|| "Failed to receive notifications from DMQ server")?;
         debug!(self.logger, "Received single signatures from DMQ"; "messages" => ?reply);
         if let Err(e) = client.msg_notification().send_done().await {
             error!(self.logger, "Failed to send Done"; "error" => ?e);
@@ -118,10 +117,10 @@ impl<M: TryFromBytes + Debug> DmqConsumerPallas<M> {
             .into_iter()
             .map(|dmq_message| {
                 let opcert = OpCert::try_from_bytes(&dmq_message.operational_certificate)
-                    .map_err(|e| anyhow!("Failed to parse operational certificate: {}", e))?;
+                    .with_context(|| "Failed to parse operational certificate")?;
                 let party_id = opcert.compute_protocol_party_id()?;
                 let payload = M::try_from_bytes(&dmq_message.msg_body)
-                    .map_err(|e| anyhow!("Failed to parse DMQ message body: {}", e))?;
+                    .with_context(|| "Failed to parse DMQ message body")?;
 
                 Ok((payload, party_id))
             })
