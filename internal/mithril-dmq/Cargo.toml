@@ -1,5 +1,5 @@
 [package]
-name = "mithril-dmq-node"
+name = "mithril-dmq"
 description = "Mechanisms to publish and consume messages of a 'Decentralized Message Queue network' through a DMQ node"
 version = "0.1.0"
 authors.workspace = true

@@ -10,7 +10,7 @@ use std::time::Duration;
 #[cfg(feature = "future_dmq")]
 use mithril_common::messages::RegisterSignatureMessageDmq;
 #[cfg(feature = "future_dmq")]
-use mithril_dmq_node::DmqConsumerPallas;
+use mithril_dmq::DmqConsumerPallas;
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 
 use crate::database::repository::CertificateRepository;

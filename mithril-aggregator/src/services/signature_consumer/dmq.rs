@@ -9,7 +9,7 @@ use mithril_common::{
     StdResult,
 };
 
-use mithril_dmq_node::DmqConsumer;
+use mithril_dmq::DmqConsumer;
 
 use super::SignatureConsumer;
 
@@ -56,7 +56,7 @@ impl SignatureConsumer for SignatureConsumerDmq {
 #[cfg(test)]
 mod tests {
     use mithril_common::{crypto_helper::ProtocolSingleSignature, test_utils::fake_keys};
-    use mithril_dmq_node::test::double::DmqConsumerFake;
+    use mithril_dmq::test::double::DmqConsumerFake;
 
     use super::*;
 

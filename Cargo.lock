@@ -3929,7 +3929,7 @@ dependencies = [
  "mithril-cardano-node-internal-database",
  "mithril-cli-helper",
  "mithril-common",
- "mithril-dmq-node",
+ "mithril-dmq",
  "mithril-doc",
  "mithril-era",
  "mithril-metric",
@@ -4201,7 +4201,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mithril-dmq-node"
+name = "mithril-dmq"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -4385,7 +4385,7 @@ dependencies = [
  "mithril-cardano-node-internal-database",
  "mithril-cli-helper",
  "mithril-common",
- "mithril-dmq-node",
+ "mithril-dmq",
  "mithril-doc",
  "mithril-era",
  "mithril-metric",

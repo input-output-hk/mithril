@@ -42,7 +42,7 @@ use mithril_persistence::database::{ApplicationNodeType, SqlMigration};
 use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnection, SqliteConnectionPool};
 
 #[cfg(feature = "future_dmq")]
-use mithril_dmq_node::{DmqMessageBuilder, DmqPublisherPallas};
+use mithril_dmq::{DmqMessageBuilder, DmqPublisherPallas};
 
 use crate::dependency_injection::SignerDependencyContainer;
 #[cfg(feature = "future_dmq")]

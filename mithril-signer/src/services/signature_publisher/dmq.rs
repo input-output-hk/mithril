@@ -8,7 +8,7 @@ use mithril_common::{
     messages::RegisterSignatureMessageDmq,
     StdResult,
 };
-use mithril_dmq_node::DmqPublisher;
+use mithril_dmq::DmqPublisher;
 
 use super::SignaturePublisher;
 
@@ -47,7 +47,7 @@ impl SignaturePublisher for SignaturePublisherDmq {
 #[cfg(test)]
 mod tests {
     use mithril_common::test_utils::fake_data;
-    use mithril_dmq_node::test::double::DmqPublisherFake;
+    use mithril_dmq::test::double::DmqPublisherFake;
 
     use super::*;
 
