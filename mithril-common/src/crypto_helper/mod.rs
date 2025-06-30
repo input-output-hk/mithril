@@ -16,10 +16,13 @@ cfg_test_tools! {
 pub use cardano::ColdKeyGenerator;
 
 pub use cardano::{
-    KesPeriod, KesSigner, KesSignerFake, KesSignerStandard, KesVerifier, KesVerifierStandard,
-    KesVerifyError, OpCert, ProtocolInitializerErrorWrapper, ProtocolRegistrationErrorWrapper,
+    KesPeriod, KesSigner, KesSignerStandard, KesVerifier, KesVerifierStandard, KesVerifyError,
+    OpCert, ProtocolInitializerErrorWrapper, ProtocolRegistrationErrorWrapper,
     SerDeShelleyFileFormat, Sum6KesBytes,
 };
+cfg_test_tools! {
+    pub use cardano::KesSignerFake;
+}
 pub use codec::*;
 pub use ed25519_alias::{era::*, genesis::*, manifest::*};
 pub use merkle_map::{MKMap, MKMapKey, MKMapNode, MKMapProof, MKMapValue};

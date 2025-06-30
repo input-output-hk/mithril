@@ -299,15 +299,19 @@ impl KeyRegWrapper {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::crypto_helper::cardano::{
-        kes::tests_setup::{create_kes_cryptographic_material, KesCryptographicMaterialForTest},
-        KesPartyIndexForTest, KesSignerStandard,
+    use crate::crypto_helper::cardano::kes::{
+        tests_setup::{
+            create_kes_cryptographic_material, KesCryptographicMaterialForTest,
+            KesPartyIndexForTest,
+        },
+        KesSignerStandard,
     };
     use crate::crypto_helper::{OpCert, SerDeShelleyFileFormat};
 
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
+
+    use super::*;
 
     #[test]
     fn test_vector_key_reg() {
