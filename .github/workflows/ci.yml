@@ -180,10 +180,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-14, windows-latest]
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-14, windows-latest]
 
         include:
           - os: ubuntu-24.04
+            test-args: --features full,unstable,future_dmq --workspace
+          - os: ubuntu-24.04-arm
             test-args: --features full,unstable,future_dmq --workspace
           # Exclude nodes not officially supported on Windows and macOS (only mithril-client is supported)
           - os: macos-14
