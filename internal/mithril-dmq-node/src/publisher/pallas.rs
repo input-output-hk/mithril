@@ -159,8 +159,8 @@ mod tests {
                         Arc::new(kes_signer)
                     },
                     Arc::new(FakeChainObserver::default()),
-                    100,
-                ),
+                )
+                .set_ttl(100),
                 TestLogger::stdout(),
             );
 
@@ -195,8 +195,8 @@ mod tests {
                         Arc::new(kes_signer)
                     },
                     Arc::new(FakeChainObserver::default()),
-                    100,
-                ),
+                )
+                .set_ttl(100),
                 TestLogger::stdout(),
             );
 

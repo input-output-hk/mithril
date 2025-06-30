@@ -425,7 +425,7 @@ impl<'a> DependenciesBuilder<'a> {
                     let publisher = match &self.config.dmq_node_socket_path {
                         Some(dmq_node_socket_path) => {
                             let cardano_network = &self.config.get_network()?;
-                            let dmq_message_builder = DmqMessageBuilder::new_with_default_ttl(
+                            let dmq_message_builder = DmqMessageBuilder::new(
                                 kes_signer.clone().ok_or(anyhow!(
                                     "A KES signer is mandatory to sign DMQ messages"
                                 ))?,

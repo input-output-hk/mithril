@@ -22,28 +22,19 @@ pub struct DmqMessageBuilder {
 
 impl DmqMessageBuilder {
     /// Creates a new instance of `DmqMessageBuilder`.
-    pub fn new(
-        kes_signer: Arc<dyn KesSigner>,
-        chain_observer: Arc<dyn ChainObserver>,
-        ttl_blocks: u16,
-    ) -> Self {
-        Self {
-            kes_signer,
-            chain_observer,
-            ttl_blocks,
-        }
-    }
-
-    /// Creates a new instance of `DmqMessageBuilder` with default TTL.
-    pub fn new_with_default_ttl(
-        kes_signer: Arc<dyn KesSigner>,
-        chain_observer: Arc<dyn ChainObserver>,
-    ) -> Self {
+    pub fn new(kes_signer: Arc<dyn KesSigner>, chain_observer: Arc<dyn ChainObserver>) -> Self {
         Self {
             kes_signer,
             chain_observer,
             ttl_blocks: DMQ_MESSAGE_TTL_IN_BLOCKS,
         }
+    }
+
+    /// Set the TTL (Time To Live) for DMQ messages in blocks.
+    pub fn set_ttl(mut self, ttl_blocks: u16) -> Self {
+        self.ttl_blocks = ttl_blocks;
+
+        self
     }
 
     /// Builds a DMQ message from the provided message bytes.
@@ -127,7 +118,7 @@ mod tests {
             },
             ..TimePoint::dummy()
         })));
-        let builder = DmqMessageBuilder::new(kes_signer, chain_observer, 100);
+        let builder = DmqMessageBuilder::new(kes_signer, chain_observer).set_ttl(100);
         let message = test_utils::TestMessage {
             content: b"test".to_vec(),
         };
