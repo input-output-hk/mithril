@@ -637,6 +637,18 @@ jobs:
           name: mithril-deb-packages-Linux-X64
           path: ./package
 
+      - name: Download built artifacts (Linux-ARM64)
+        uses: actions/download-artifact@v4
+        with:
+          name: mithril-distribution-Linux-ARM64
+          path: ./package-Linux-ARM64
+
+      - name: Download Debian packages (Linux-ARM64)
+        uses: actions/download-artifact@v4
+        with:
+          name: mithril-deb-packages-Linux-ARM64
+          path: ./package
+
       - name: Download built artifacts (macOS-ARM64)
         uses: actions/download-artifact@v4
         with:
