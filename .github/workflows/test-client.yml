@@ -490,5 +490,8 @@ jobs:
           name: mithril-client-wasm-tests-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}-os_${{ matrix.os }}
           path: |
             chrome-results.html
+            chrome-driver.log
+            chrome-console.log
             firefox-results.html
+            firefox-driver.log
           if-no-files-found: error
