@@ -1,7 +1,7 @@
 use blake2::{digest::consts::U32, Blake2b};
 use mithril_stm::{
-    AggregationError, KeyReg, Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmInitializer,
-    StmParameters, StmSig, StmSigner, StmVerificationKey,
+    AggregateSignature, AggregateVerificationKey, AggregationError, Clerk, Initializer,
+    KeyRegistration, Parameters, Signer, SingleSignature, Stake, VerificationKey,
 };
 use rand_chacha::ChaCha20Rng;
 use rand_core::RngCore;
@@ -11,35 +11,35 @@ type H = Blake2b<U32>;
 
 /// The result of the initialization phase of the STM protocol.
 pub struct InitializationPhaseResult {
-    pub signers: Vec<StmSigner<H>>,
-    pub reg_parties: Vec<(StmVerificationKey, Stake)>,
-    pub initializers: Vec<StmInitializer>,
+    pub signers: Vec<Signer<H>>,
+    pub reg_parties: Vec<(VerificationKey, Stake)>,
+    pub initializers: Vec<Initializer>,
 }
 
 /// The result of the operation phase of the STM protocol.
 pub struct OperationPhaseResult {
-    pub msig: Result<StmAggrSig<H>, AggregationError>,
-    pub avk: StmAggrVerificationKey<H>,
-    pub sigs: Vec<StmSig>,
+    pub msig: Result<AggregateSignature<H>, AggregationError>,
+    pub avk: AggregateVerificationKey<H>,
+    pub sigs: Vec<SingleSignature>,
 }
 
 pub fn initialization_phase(
     nparties: usize,
     mut rng: ChaCha20Rng,
-    params: StmParameters,
+    params: Parameters,
 ) -> InitializationPhaseResult {
     let parties = (0..nparties)
         .map(|_| 1 + (rng.next_u64() % 9999))
         .collect::<Vec<_>>();
 
-    let mut key_reg = KeyReg::init();
+    let mut key_reg = KeyRegistration::init();
 
-    let mut initializers: Vec<StmInitializer> = Vec::with_capacity(nparties);
+    let mut initializers: Vec<Initializer> = Vec::with_capacity(nparties);
 
-    let mut reg_parties: Vec<(StmVerificationKey, Stake)> = Vec::with_capacity(nparties);
+    let mut reg_parties: Vec<(VerificationKey, Stake)> = Vec::with_capacity(nparties);
 
     for stake in parties {
-        let p = StmInitializer::setup(params, stake, &mut rng);
+        let p = Initializer::setup(params, stake, &mut rng);
         key_reg.register(stake, p.verification_key()).unwrap();
         reg_parties.push((p.verification_key().vk, stake));
         initializers.push(p);
@@ -51,7 +51,7 @@ pub fn initialization_phase(
         .clone()
         .into_par_iter()
         .map(|p| p.new_signer(closed_reg.clone()).unwrap())
-        .collect::<Vec<StmSigner<H>>>();
+        .collect::<Vec<Signer<H>>>();
 
     InitializationPhaseResult {
         signers,
@@ -61,17 +61,17 @@ pub fn initialization_phase(
 }
 
 pub fn operation_phase(
-    params: StmParameters,
-    signers: Vec<StmSigner<H>>,
-    reg_parties: Vec<(StmVerificationKey, Stake)>,
+    params: Parameters,
+    signers: Vec<Signer<H>>,
+    reg_parties: Vec<(VerificationKey, Stake)>,
     msg: [u8; 32],
 ) -> OperationPhaseResult {
     let sigs = signers
         .par_iter()
         .filter_map(|p| p.sign(&msg))
-        .collect::<Vec<StmSig>>();
+        .collect::<Vec<SingleSignature>>();
 
-    let clerk = StmClerk::from_signer(&signers[0]);
+    let clerk = Clerk::from_signer(&signers[0]);
     let avk = clerk.compute_avk();
 
     // Check all parties can verify every sig

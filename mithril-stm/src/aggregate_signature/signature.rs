@@ -2,42 +2,43 @@ use blake2::digest::{Digest, FixedOutput};
 
 use serde::{Deserialize, Serialize};
 
-use crate::bls_multi_signature::{Signature, VerificationKey};
-use crate::key_reg::RegParty;
-use crate::merkle_tree::BatchPath;
+use crate::bls_multi_signature::{BlsSignature, BlsVerificationKey};
+use crate::key_registration::RegisteredParty;
+use crate::merkle_tree::MerkleBatchPath;
 use crate::{
-    CoreVerifier, StmAggrVerificationKey, StmAggregateSignatureError, StmParameters, StmSigRegParty,
+    AggregateVerificationKey, BasicVerifier, Parameters, SingleSignatureWithRegisteredParty,
+    StmAggregateSignatureError,
 };
 
-/// `StmMultiSig` uses the "concatenation" proving system (as described in Section 4.3 of the original paper.)
+/// `AggregateSignature` uses the "concatenation" proving system (as described in Section 4.3 of the original paper.)
 /// This means that the aggregated signature contains a vector with all individual signatures.
 /// BatchPath is also a part of the aggregate signature which covers path for all signatures.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(
-    serialize = "BatchPath<D>: Serialize",
-    deserialize = "BatchPath<D>: Deserialize<'de>"
+    serialize = "MerkleBatchPath<D>: Serialize",
+    deserialize = "MerkleBatchPath<D>: Deserialize<'de>"
 ))]
-pub struct StmAggrSig<D: Clone + Digest + FixedOutput> {
-    pub(crate) signatures: Vec<StmSigRegParty>,
+pub struct AggregateSignature<D: Clone + Digest + FixedOutput> {
+    pub(crate) signatures: Vec<SingleSignatureWithRegisteredParty>,
     /// The list of unique merkle tree nodes that covers path for all signatures.
-    pub batch_proof: BatchPath<D>,
+    pub batch_proof: MerkleBatchPath<D>,
 }
 
-impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
+impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
     /// Verify all checks from signatures, except for the signature verification itself.
     ///
-    /// Indices and quorum are checked by `CoreVerifier::preliminary_verify` with `msgp`.
+    /// Indices and quorum are checked by `BasicVerifier::preliminary_verify` with `msgp`.
     /// It collects leaves from signatures and checks the batch proof.
     /// After batch proof is checked, it collects and returns the signatures and
     /// verification keys to be used by aggregate verification.
     fn preliminary_verify(
         &self,
         msg: &[u8],
-        avk: &StmAggrVerificationKey<D>,
-        parameters: &StmParameters,
-    ) -> Result<(Vec<Signature>, Vec<VerificationKey>), StmAggregateSignatureError<D>> {
+        avk: &AggregateVerificationKey<D>,
+        parameters: &Parameters,
+    ) -> Result<(Vec<BlsSignature>, Vec<BlsVerificationKey>), StmAggregateSignatureError<D>> {
         let msgp = avk.get_mt_commitment().concat_with_msg(msg);
-        CoreVerifier::preliminary_verify(
+        BasicVerifier::preliminary_verify(
             &avk.get_total_stake(),
             &self.signatures,
             parameters,
@@ -48,11 +49,11 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
             .signatures
             .iter()
             .map(|r| r.reg_party)
-            .collect::<Vec<RegParty>>();
+            .collect::<Vec<RegisteredParty>>();
 
         avk.get_mt_commitment().check(&leaves, &self.batch_proof)?;
 
-        Ok(CoreVerifier::collect_sigs_vks(&self.signatures))
+        Ok(BasicVerifier::collect_sigs_vks(&self.signatures))
     }
 
     /// Verify aggregate signature, by checking that
@@ -64,13 +65,13 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
     pub fn verify(
         &self,
         msg: &[u8],
-        avk: &StmAggrVerificationKey<D>,
-        parameters: &StmParameters,
+        avk: &AggregateVerificationKey<D>,
+        parameters: &Parameters,
     ) -> Result<(), StmAggregateSignatureError<D>> {
         let msgp = avk.get_mt_commitment().concat_with_msg(msg);
         let (sigs, vks) = self.preliminary_verify(msg, avk, parameters)?;
 
-        Signature::verify_aggregate(msgp.as_slice(), &vks, &sigs)?;
+        BlsSignature::verify_aggregate(msgp.as_slice(), &vks, &sigs)?;
         Ok(())
     }
 
@@ -78,8 +79,8 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
     pub fn batch_verify(
         stm_signatures: &[Self],
         msgs: &[Vec<u8>],
-        avks: &[StmAggrVerificationKey<D>],
-        parameters: &[StmParameters],
+        avks: &[AggregateVerificationKey<D>],
+        parameters: &[Parameters],
     ) -> Result<(), StmAggregateSignatureError<D>> {
         let batch_size = stm_signatures.len();
         assert_eq!(
@@ -102,18 +103,18 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
         let mut aggr_vks = Vec::with_capacity(batch_size);
         for (idx, sig_group) in stm_signatures.iter().enumerate() {
             sig_group.preliminary_verify(&msgs[idx], &avks[idx], &parameters[idx])?;
-            let grouped_sigs: Vec<Signature> = sig_group
+            let grouped_sigs: Vec<BlsSignature> = sig_group
                 .signatures
                 .iter()
                 .map(|sig_reg| sig_reg.sig.sigma)
                 .collect();
-            let grouped_vks: Vec<VerificationKey> = sig_group
+            let grouped_vks: Vec<BlsVerificationKey> = sig_group
                 .signatures
                 .iter()
                 .map(|sig_reg| sig_reg.reg_party.0)
                 .collect();
 
-            let (aggr_vk, aggr_sig) = Signature::aggregate(&grouped_vks, &grouped_sigs).unwrap();
+            let (aggr_vk, aggr_sig) = BlsSignature::aggregate(&grouped_vks, &grouped_sigs).unwrap();
             aggr_sigs.push(aggr_sig);
             aggr_vks.push(aggr_vk);
         }
@@ -124,7 +125,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
             .map(|(msg, avk)| avk.get_mt_commitment().concat_with_msg(msg))
             .collect();
 
-        Signature::batch_verify_aggregates(&concat_msgs, &aggr_vks, &aggr_sigs)?;
+        BlsSignature::batch_verify_aggregates(&concat_msgs, &aggr_vks, &aggr_sigs)?;
         Ok(())
     }
 
@@ -156,8 +157,10 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
         out
     }
 
-    ///Extract a `StmAggrSig` from a byte slice.
-    pub fn from_bytes(bytes: &[u8]) -> Result<StmAggrSig<D>, StmAggregateSignatureError<D>> {
+    ///Extract a `AggregateSignature` from a byte slice.
+    pub fn from_bytes(
+        bytes: &[u8],
+    ) -> Result<AggregateSignature<D>, StmAggregateSignatureError<D>> {
         let mut u8_bytes = [0u8; 1];
         let mut bytes_index = 0;
 
@@ -191,7 +194,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
             );
             let sig_reg_size = usize::try_from(u64::from_be_bytes(u64_bytes))
                 .map_err(|_| StmAggregateSignatureError::SerializationError)?;
-            let sig_reg = StmSigRegParty::from_bytes::<D>(
+            let sig_reg = SingleSignatureWithRegisteredParty::from_bytes::<D>(
                 bytes
                     .get(bytes_index + 8..bytes_index + 8 + sig_reg_size)
                     .ok_or(StmAggregateSignatureError::SerializationError)?,
@@ -200,13 +203,13 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
             sig_reg_list.push(sig_reg);
         }
 
-        let batch_proof = BatchPath::from_bytes(
+        let batch_proof = MerkleBatchPath::from_bytes(
             bytes
                 .get(bytes_index..)
                 .ok_or(StmAggregateSignatureError::SerializationError)?,
         )?;
 
-        Ok(StmAggrSig {
+        Ok(AggregateSignature {
             signatures: sig_reg_list,
             batch_proof,
         })

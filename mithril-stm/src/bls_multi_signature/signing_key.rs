@@ -1,28 +1,28 @@
 use blst::min_sig::SecretKey as BlstSk;
 use rand_core::{CryptoRng, RngCore};
 
-use crate::bls_multi_signature::signature::Signature;
+use crate::bls_multi_signature::signature::BlsSignature;
 use crate::error::{blst_err_to_mithril, MultiSignatureError};
 
 /// MultiSig secret key, which is a wrapper over the BlstSk type from the blst
 /// library.
 #[derive(Debug, Clone)]
-pub struct SigningKey(pub BlstSk);
+pub struct BlsSigningKey(pub BlstSk);
 
-impl SigningKey {
+impl BlsSigningKey {
     /// Generate a secret key
     pub fn generate(rng: &mut (impl RngCore + CryptoRng)) -> Self {
         let mut ikm = [0u8; 32];
         rng.fill_bytes(&mut ikm);
-        SigningKey(
+        BlsSigningKey(
             BlstSk::key_gen(&ikm, &[])
                 .expect("Error occurs when the length of ikm < 32. This will not happen here."),
         )
     }
 
     /// Sign a message with the given secret key
-    pub fn sign(&self, msg: &[u8]) -> Signature {
-        Signature(self.0.sign(msg, &[], &[]))
+    pub fn sign(&self, msg: &[u8]) -> BlsSignature {
+        BlsSignature(self.0.sign(msg, &[], &[]))
     }
 
     /// Convert the secret key into byte string.

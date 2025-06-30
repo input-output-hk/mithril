@@ -2,15 +2,17 @@
 use blake2::digest::{Digest, FixedOutput};
 use blst::BLST_ERROR;
 
-use crate::bls_multi_signature::{Signature, VerificationKey, VerificationKeyPoP};
-use crate::merkle_tree::{BatchPath, Path};
+use crate::bls_multi_signature::{
+    BlsSignature, BlsVerificationKey, BlsVerificationKeyProofOfPossession,
+};
+use crate::merkle_tree::{MerkleBatchPath, MerklePath};
 
 /// Error types for multi signatures.
 #[derive(Debug, thiserror::Error, Eq, PartialEq)]
 pub enum MultiSignatureError {
     /// Invalid Single signature
     #[error("Invalid single signature")]
-    SignatureInvalid(Signature),
+    SignatureInvalid(BlsSignature),
 
     /// Invalid aggregate signature
     #[error("Invalid aggregated signature")]
@@ -22,7 +24,7 @@ pub enum MultiSignatureError {
 
     /// Incorrect proof of possession
     #[error("Key with invalid PoP")]
-    KeyInvalid(Box<VerificationKeyPoP>),
+    KeyInvalid(Box<BlsVerificationKeyProofOfPossession>),
 
     /// At least one signature in the batch is invalid
     #[error("One signature in the batch is invalid")]
@@ -30,11 +32,11 @@ pub enum MultiSignatureError {
 
     /// Single signature is the infinity
     #[error("Single signature is the infinity")]
-    SignatureInfinity(Signature),
+    SignatureInfinity(BlsSignature),
 
     /// Verification key is the infinity
     #[error("Verification key is the infinity")]
-    VerificationKeyInfinity(Box<VerificationKey>),
+    VerificationKeyInfinity(Box<BlsVerificationKey>),
 }
 
 /// Error types related to merkle trees.
@@ -46,11 +48,11 @@ pub enum MerkleTreeError<D: Digest + FixedOutput> {
 
     /// Invalid merkle path
     #[error("Path does not verify against root")]
-    PathInvalid(Path<D>),
+    PathInvalid(MerklePath<D>),
 
     /// Invalid merkle batch path
     #[error("Batch path does not verify against root")]
-    BatchPathInvalid(BatchPath<D>),
+    BatchPathInvalid(MerkleBatchPath<D>),
 }
 
 /// Errors which can be output by Mithril single signature verification.
@@ -70,7 +72,7 @@ pub enum StmSignatureError {
 
     /// A party submitted an invalid signature
     #[error("A provided signature is invalid")]
-    SignatureInvalid(Signature),
+    SignatureInvalid(BlsSignature),
 
     /// Batch verification of STM signatures failed
     #[error("Batch verification of STM signatures failed")]
@@ -170,7 +172,7 @@ impl From<StmSignatureError> for CoreVerifierError {
 pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
     /// The IVK is invalid after aggregating the keys
     #[error("Aggregated key does not correspond to the expected key.")]
-    IvkInvalid(Box<VerificationKey>),
+    IvkInvalid(Box<BlsVerificationKey>),
 
     /// This error occurs when the the serialization of the raw bytes failed
     #[error("Invalid bytes")]
@@ -178,7 +180,7 @@ pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
 
     /// Invalid merkle batch path
     #[error("Batch path does not verify against root")]
-    PathInvalid(BatchPath<D>),
+    PathInvalid(MerkleBatchPath<D>),
 
     /// Batch verification of STM aggregate signatures failed
     #[error("Batch verification of STM aggregate signatures failed")]
@@ -241,15 +243,15 @@ impl<D: Digest + FixedOutput> From<StmSignatureError> for StmAggregateSignatureE
 pub enum RegisterError {
     /// This key has already been registered by a participant
     #[error("This key has already been registered.")]
-    KeyRegistered(Box<VerificationKey>),
+    KeyRegistered(Box<BlsVerificationKey>),
 
     /// Verification key is the infinity
     #[error("Verification key is the infinity")]
-    VerificationKeyInfinity(Box<VerificationKey>),
+    VerificationKeyInfinity(Box<BlsVerificationKey>),
 
     /// The supplied key is not valid
     #[error("The verification of correctness of the supplied key is invalid.")]
-    KeyInvalid(Box<VerificationKeyPoP>),
+    KeyInvalid(Box<BlsVerificationKeyProofOfPossession>),
 
     /// Serialization error
     #[error("Serialization error")]
@@ -275,8 +277,8 @@ impl From<MultiSignatureError> for RegisterError {
 /// no need to provide the signature
 pub(crate) fn blst_err_to_mithril(
     e: BLST_ERROR,
-    sig: Option<Signature>,
-    key: Option<VerificationKey>,
+    sig: Option<BlsSignature>,
+    key: Option<BlsVerificationKey>,
 ) -> Result<(), MultiSignatureError> {
     match e {
         BLST_ERROR::BLST_SUCCESS => Ok(()),

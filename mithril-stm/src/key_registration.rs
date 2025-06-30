@@ -6,23 +6,23 @@ use std::{
 
 use blake2::digest::{Digest, FixedOutput};
 
-use crate::bls_multi_signature::{VerificationKey, VerificationKeyPoP};
+use crate::bls_multi_signature::{BlsVerificationKey, BlsVerificationKeyProofOfPossession};
 use crate::error::RegisterError;
-use crate::merkle_tree::{MTLeaf, MerkleTree};
+use crate::merkle_tree::{MerkleTree, MerkleTreeLeaf};
 use crate::Stake;
 
 /// Stores a registered party with its public key and the associated stake.
-pub type RegParty = MTLeaf;
+pub type RegisteredParty = MerkleTreeLeaf;
 
 /// Struct that collects public keys and stakes of parties.
 /// Each participant (both the signers and the clerks) need to run their own instance of the key registration.
 // todo: replace with KeyReg
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct KeyReg {
-    keys: HashMap<VerificationKey, Stake>,
+pub struct KeyRegistration {
+    keys: HashMap<BlsVerificationKey, Stake>,
 }
 
-impl KeyReg {
+impl KeyRegistration {
     /// Initialize an empty `KeyReg`.
     pub fn init() -> Self {
         Self::default()
@@ -31,7 +31,11 @@ impl KeyReg {
     /// Verify and register a public key and stake for a particular party.
     /// # Error
     /// The function fails when the proof of possession is invalid or when the key is already registered.
-    pub fn register(&mut self, stake: Stake, pk: VerificationKeyPoP) -> Result<(), RegisterError> {
+    pub fn register(
+        &mut self,
+        stake: Stake,
+        pk: BlsVerificationKeyProofOfPossession,
+    ) -> Result<(), RegisterError> {
         if let Entry::Vacant(e) = self.keys.entry(pk.vk) {
             pk.check()?;
             e.insert(stake);
@@ -42,7 +46,7 @@ impl KeyReg {
 
     /// Finalize the key registration.
     /// This function disables `KeyReg::register`, consumes the instance of `self`, and returns a `ClosedKeyReg`.
-    pub fn close<D>(self) -> ClosedKeyReg<D>
+    pub fn close<D>(self) -> ClosedKeyRegistration<D>
     where
         D: Digest + FixedOutput,
     {
@@ -56,12 +60,12 @@ impl KeyReg {
                     panic!("Total stake overflow");
                 }
                 total_stake = res;
-                MTLeaf(vk, stake)
+                MerkleTreeLeaf(vk, stake)
             })
-            .collect::<Vec<RegParty>>();
+            .collect::<Vec<RegisteredParty>>();
         reg_parties.sort();
 
-        ClosedKeyReg {
+        ClosedKeyRegistration {
             merkle_tree: Arc::new(MerkleTree::create(&reg_parties)),
             reg_parties,
             total_stake,
@@ -72,9 +76,9 @@ impl KeyReg {
 /// Structure generated out of a closed registration containing the registered parties, total stake, and the merkle tree.
 /// One can only get a global `avk` out of a closed key registration.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ClosedKeyReg<D: Digest> {
+pub struct ClosedKeyRegistration<D: Digest> {
     /// Ordered list of registered parties.
-    pub reg_parties: Vec<RegParty>,
+    pub reg_parties: Vec<RegisteredParty>,
     /// Total stake of the registered parties.
     pub total_stake: Stake,
     /// Unique public key out of the key registration instance.
@@ -88,7 +92,7 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use crate::bls_multi_signature::SigningKey;
+    use crate::bls_multi_signature::BlsSigningKey;
 
     use super::*;
 
@@ -99,16 +103,16 @@ mod tests {
                        fake_it in 0..4usize,
                        seed in any::<[u8;32]>()) {
             let mut rng = ChaCha20Rng::from_seed(seed);
-            let mut kr = KeyReg::init();
+            let mut kr = KeyRegistration::init();
 
             let gen_keys = (1..nkeys).map(|_| {
-                let sk = SigningKey::generate(&mut rng);
-                VerificationKeyPoP::from(&sk)
+                let sk = BlsSigningKey::generate(&mut rng);
+                BlsVerificationKeyProofOfPossession::from(&sk)
             }).collect::<Vec<_>>();
 
             let fake_key = {
-                let sk = SigningKey::generate(&mut rng);
-                VerificationKeyPoP::from(&sk)
+                let sk = BlsSigningKey::generate(&mut rng);
+                BlsVerificationKeyProofOfPossession::from(&sk)
             };
 
             // Record successful registrations

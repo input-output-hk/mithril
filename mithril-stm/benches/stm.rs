@@ -2,8 +2,8 @@ use blake2::digest::{Digest, FixedOutput};
 use blake2::{digest::consts::U32, Blake2b};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use mithril_stm::{
-    CoreVerifier, KeyReg, Stake, StmAggrSig, StmClerk, StmInitializer, StmParameters, StmSigner,
-    StmVerificationKey,
+    AggregateSignature, BasicVerifier, Clerk, Initializer, KeyRegistration, Parameters, Signer,
+    Stake, VerificationKey,
 };
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
@@ -15,7 +15,7 @@ use std::fmt::Debug;
 /// * Registration depends on the number of parties (should be constant, as it is a lookup table)
 /// * Signing depends on the parameter `m`, as it defines the number of lotteries a user can play
 /// * Aggregation depends on `k`.
-fn stm_benches<H>(c: &mut Criterion, nr_parties: usize, params: StmParameters, hashing_alg: &str)
+fn stm_benches<H>(c: &mut Criterion, nr_parties: usize, params: Parameters, hashing_alg: &str)
 where
     H: Clone + Debug + Digest + Send + Sync + FixedOutput + Default,
 {
@@ -33,16 +33,16 @@ where
         .map(|_| 1 + (rng.next_u64() % 9999))
         .collect::<Vec<_>>();
 
-    let mut initializers: Vec<StmInitializer> = Vec::with_capacity(nr_parties);
+    let mut initializers: Vec<Initializer> = Vec::with_capacity(nr_parties);
     for stake in stakes {
-        initializers.push(StmInitializer::setup(params, stake, &mut rng));
+        initializers.push(Initializer::setup(params, stake, &mut rng));
     }
-    let mut key_reg = KeyReg::init();
+    let mut key_reg = KeyRegistration::init();
 
     group.bench_function(BenchmarkId::new("Key registration", &param_string), |b| {
         b.iter(|| {
             // We need to initialise the key_reg at each iteration
-            key_reg = KeyReg::init();
+            key_reg = KeyRegistration::init();
             for p in initializers.iter() {
                 key_reg.register(p.stake, p.verification_key()).unwrap();
             }
@@ -54,7 +54,7 @@ where
     let signers = initializers
         .into_par_iter()
         .map(|p| p.new_signer(closed_reg.clone()).unwrap())
-        .collect::<Vec<StmSigner<H>>>();
+        .collect::<Vec<Signer<H>>>();
 
     group.bench_function(BenchmarkId::new("Play all lotteries", &param_string), |b| {
         b.iter(|| {
@@ -67,7 +67,7 @@ where
         .filter_map(|p| p.sign(&msg))
         .collect::<Vec<_>>();
 
-    let clerk = StmClerk::from_signer(&signers[0]);
+    let clerk = Clerk::from_signer(&signers[0]);
 
     group.bench_function(BenchmarkId::new("Aggregation", &param_string), |b| {
         b.iter(|| clerk.aggregate(&sigs, &msg))
@@ -78,7 +78,7 @@ fn batch_benches<H>(
     c: &mut Criterion,
     array_batches: &[usize],
     nr_parties: usize,
-    params: StmParameters,
+    params: Parameters,
     hashing_alg: &str,
 ) where
     H: Clone + Debug + Digest + FixedOutput + Send + Sync,
@@ -109,11 +109,11 @@ fn batch_benches<H>(
                 .map(|_| 1 + (rng.next_u64() % 9999))
                 .collect::<Vec<_>>();
 
-            let mut initializers: Vec<StmInitializer> = Vec::with_capacity(nr_parties);
+            let mut initializers: Vec<Initializer> = Vec::with_capacity(nr_parties);
             for stake in stakes {
-                initializers.push(StmInitializer::setup(params, stake, &mut rng));
+                initializers.push(Initializer::setup(params, stake, &mut rng));
             }
-            let mut key_reg = KeyReg::init();
+            let mut key_reg = KeyRegistration::init();
             for p in initializers.iter() {
                 key_reg.register(p.stake, p.verification_key()).unwrap();
             }
@@ -123,14 +123,14 @@ fn batch_benches<H>(
             let signers = initializers
                 .into_par_iter()
                 .map(|p| p.new_signer(closed_reg.clone()).unwrap())
-                .collect::<Vec<StmSigner<H>>>();
+                .collect::<Vec<Signer<H>>>();
 
             let sigs = signers
                 .par_iter()
                 .filter_map(|p| p.sign(&msg))
                 .collect::<Vec<_>>();
 
-            let clerk = StmClerk::from_signer(&signers[0]);
+            let clerk = Clerk::from_signer(&signers[0]);
             let msig = clerk.aggregate(&sigs, &msg).unwrap();
 
             batch_avks.push(clerk.compute_avk());
@@ -139,14 +139,19 @@ fn batch_benches<H>(
 
         group.bench_function(BenchmarkId::new("Batch Verification", batch_string), |b| {
             b.iter(|| {
-                StmAggrSig::batch_verify(&batch_stms, &batch_msgs, &batch_avks, &batch_params)
-                    .is_ok()
+                AggregateSignature::batch_verify(
+                    &batch_stms,
+                    &batch_msgs,
+                    &batch_avks,
+                    &batch_params,
+                )
+                .is_ok()
             })
         });
     }
 }
 
-fn core_verifier_benches<H>(c: &mut Criterion, nr_parties: usize, params: StmParameters)
+fn basic_verifier_benches<H>(c: &mut Criterion, nr_parties: usize, params: Parameters)
 where
     H: Clone + Debug + Digest + Send + Sync + FixedOutput + Default,
 {
@@ -155,8 +160,8 @@ where
     let mut msg = [0u8; 16];
     rng.fill_bytes(&mut msg);
 
-    let mut public_signers: Vec<(StmVerificationKey, Stake)> = Vec::with_capacity(nr_parties);
-    let mut initializers: Vec<StmInitializer> = Vec::with_capacity(nr_parties);
+    let mut public_signers: Vec<(VerificationKey, Stake)> = Vec::with_capacity(nr_parties);
+    let mut initializers: Vec<Initializer> = Vec::with_capacity(nr_parties);
 
     let param_string = format!(
         "k: {}, m: {}, nr_parties: {}",
@@ -168,14 +173,14 @@ where
         .collect::<Vec<_>>();
 
     for stake in stakes {
-        let initializer = StmInitializer::setup(params, stake, &mut rng);
+        let initializer = Initializer::setup(params, stake, &mut rng);
         initializers.push(initializer.clone());
         public_signers.push((initializer.verification_key().vk, initializer.stake));
     }
 
-    let core_verifier = CoreVerifier::setup(&public_signers);
+    let core_verifier = BasicVerifier::setup(&public_signers);
 
-    let signers: Vec<StmSigner<H>> = initializers
+    let signers: Vec<Signer<H>> = initializers
         .into_iter()
         .filter_map(|s| s.new_core_signer(&core_verifier.eligible_parties))
         .collect();
@@ -201,7 +206,7 @@ fn batch_stm_benches_blake_300(c: &mut Criterion) {
         c,
         &[1, 10, 20, 100],
         300,
-        StmParameters {
+        Parameters {
             m: 150,
             k: 25,
             phi_f: 0.4,
@@ -214,7 +219,7 @@ fn stm_benches_blake_300(c: &mut Criterion) {
     stm_benches::<Blake2b<U32>>(
         c,
         300,
-        StmParameters {
+        Parameters {
             m: 150,
             k: 25,
             phi_f: 0.2,
@@ -224,10 +229,10 @@ fn stm_benches_blake_300(c: &mut Criterion) {
 }
 
 fn core_verifier_benches_blake_300(c: &mut Criterion) {
-    core_verifier_benches::<Blake2b<U32>>(
+    basic_verifier_benches::<Blake2b<U32>>(
         c,
         300,
-        StmParameters {
+        Parameters {
             m: 150,
             k: 25,
             phi_f: 0.2,
@@ -240,7 +245,7 @@ fn batch_stm_benches_blake_2000(c: &mut Criterion) {
         c,
         &[1, 10, 20, 100],
         2000,
-        StmParameters {
+        Parameters {
             m: 1523,
             k: 250,
             phi_f: 0.4,
@@ -253,7 +258,7 @@ fn stm_benches_blake_2000(c: &mut Criterion) {
     stm_benches::<Blake2b<U32>>(
         c,
         2000,
-        StmParameters {
+        Parameters {
             m: 1523,
             k: 250,
             phi_f: 0.2,
@@ -263,10 +268,10 @@ fn stm_benches_blake_2000(c: &mut Criterion) {
 }
 
 fn core_verifier_benches_blake_2000(c: &mut Criterion) {
-    core_verifier_benches::<Blake2b<U32>>(
+    basic_verifier_benches::<Blake2b<U32>>(
         c,
         2000,
-        StmParameters {
+        Parameters {
             m: 1523,
             k: 250,
             phi_f: 0.2,

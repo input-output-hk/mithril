@@ -7,11 +7,11 @@ pub(crate) mod unsafe_helpers {
         min_sig::{PublicKey as BlstVk, SecretKey as BlstSk, Signature as BlstSig},
     };
 
-    use crate::bls_multi_signature::{ProofOfPossession, VerificationKey};
+    use crate::bls_multi_signature::{BlsProofOfPossession, BlsVerificationKey};
     use crate::error::{MultiSignatureError, MultiSignatureError::SerializationError};
 
     /// Check manually if the pairing `e(g1,mvk) = e(k2,g2)` holds.
-    pub(crate) fn verify_pairing(vk: &VerificationKey, pop: &ProofOfPossession) -> bool {
+    pub(crate) fn verify_pairing(vk: &BlsVerificationKey, pop: &BlsProofOfPossession) -> bool {
         unsafe {
             let g1_p = *blst_p1_affine_generator();
             let mvk_p = std::mem::transmute::<BlstVk, blst_p2_affine>(vk.to_blst_vk());
@@ -55,7 +55,7 @@ pub(crate) mod unsafe_helpers {
         }
     }
 
-    pub(crate) fn vk_from_p2_affine(vk: &VerificationKey) -> blst_p2 {
+    pub(crate) fn vk_from_p2_affine(vk: &BlsVerificationKey) -> blst_p2 {
         unsafe {
             let mut projective_p2 = blst_p2::default();
             blst_p2_from_affine(

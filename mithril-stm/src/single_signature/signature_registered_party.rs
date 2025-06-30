@@ -1,20 +1,20 @@
 use blake2::digest::{Digest, FixedOutput};
 use serde::{ser::SerializeTuple, Deserialize, Serialize, Serializer};
 
-use crate::key_reg::RegParty;
-use crate::{StmSig, StmSignatureError};
+use crate::key_registration::RegisteredParty;
+use crate::{SingleSignature, StmSignatureError};
 
 /// Signature with its registered party.
 #[derive(Debug, Clone, Hash, Deserialize, Eq, PartialEq, Ord, PartialOrd)]
-pub struct StmSigRegParty {
+pub struct SingleSignatureWithRegisteredParty {
     /// Stm signature
-    pub sig: StmSig,
+    pub sig: SingleSignature,
     /// Registered party
-    pub reg_party: RegParty,
+    pub reg_party: RegisteredParty,
 }
 
-impl StmSigRegParty {
-    /// Convert StmSigRegParty to bytes
+impl SingleSignatureWithRegisteredParty {
+    /// Convert `SingleSignatureWithRegisteredParty` to bytes
     /// # Layout
     /// * RegParty
     /// * Signature
@@ -25,26 +25,26 @@ impl StmSigRegParty {
 
         out
     }
-    ///Extract a `StmSigRegParty` from a byte slice.
+    ///Extract a `SingleSignatureWithRegisteredParty` from a byte slice.
     pub fn from_bytes<D: Digest + Clone + FixedOutput>(
         bytes: &[u8],
-    ) -> Result<StmSigRegParty, StmSignatureError> {
-        let reg_party = RegParty::from_bytes(
+    ) -> Result<SingleSignatureWithRegisteredParty, StmSignatureError> {
+        let reg_party = RegisteredParty::from_bytes(
             bytes
                 .get(0..104)
                 .ok_or(StmSignatureError::SerializationError)?,
         )?;
-        let sig = StmSig::from_bytes::<D>(
+        let sig = SingleSignature::from_bytes::<D>(
             bytes
                 .get(104..)
                 .ok_or(StmSignatureError::SerializationError)?,
         )?;
 
-        Ok(StmSigRegParty { sig, reg_party })
+        Ok(SingleSignatureWithRegisteredParty { sig, reg_party })
     }
 }
 
-impl Serialize for StmSigRegParty {
+impl Serialize for SingleSignatureWithRegisteredParty {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,

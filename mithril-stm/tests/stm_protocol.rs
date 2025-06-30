@@ -1,6 +1,6 @@
 mod test_extensions;
 
-use mithril_stm::{AggregationError, StmAggrSig, StmParameters};
+use mithril_stm::{AggregateSignature, AggregationError, Parameters};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
@@ -15,7 +15,7 @@ fn test_full_protocol() {
     let mut msg = [0u8; 32];
     rng.fill_bytes(&mut msg);
 
-    let params = StmParameters {
+    let params = Parameters {
         k: 357,
         m: 2642,
         phi_f: 0.2,
@@ -54,7 +54,7 @@ fn test_full_protocol_batch_verify() {
     let mut batch_msgs = Vec::new();
     let mut batch_params = Vec::new();
 
-    let params = StmParameters {
+    let params = Parameters {
         k: 357,
         m: 2642,
         phi_f: 0.2,
@@ -77,5 +77,8 @@ fn test_full_protocol_batch_verify() {
         batch_msgs.push(msg.to_vec());
         batch_params.push(params);
     }
-    assert!(StmAggrSig::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params).is_ok());
+    assert!(
+        AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params)
+            .is_ok()
+    );
 }

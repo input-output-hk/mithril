@@ -4,8 +4,8 @@ use blake2::{
     Blake2b, Digest,
 };
 use mithril_stm::{
-    CoreVerifier, KeyReg, Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigRegParty,
-    StmSigner, StmVerificationKey,
+    BasicVerifier, Clerk, Initializer, KeyRegistration, Parameters, Signer, SingleSignature,
+    SingleSignatureWithRegisteredParty, Stake, VerificationKey,
 };
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
@@ -27,12 +27,12 @@ where
         .map(|_| 1 + (rng.next_u64() % 9999))
         .collect::<Vec<_>>();
 
-    let mut ps: Vec<StmInitializer> = Vec::with_capacity(nparties);
-    let params = StmParameters { k, m, phi_f: 0.2 };
+    let mut ps: Vec<Initializer> = Vec::with_capacity(nparties);
+    let params = Parameters { k, m, phi_f: 0.2 };
 
-    let mut key_reg = KeyReg::init();
+    let mut key_reg = KeyRegistration::init();
     for stake in parties {
-        let p = StmInitializer::setup(params, stake, &mut rng);
+        let p = Initializer::setup(params, stake, &mut rng);
         key_reg.register(stake, p.verification_key()).unwrap();
         ps.push(p);
     }
@@ -42,13 +42,13 @@ where
     let ps = ps
         .into_par_iter()
         .map(|p| p.new_signer(closed_reg.clone()).unwrap())
-        .collect::<Vec<StmSigner<H>>>();
+        .collect::<Vec<Signer<H>>>();
 
     let sigs = ps
         .par_iter()
         .filter_map(|p| p.sign(&msg))
-        .collect::<Vec<StmSig>>();
-    let clerk = StmClerk::from_signer(&ps[0]);
+        .collect::<Vec<SingleSignature>>();
+    let clerk = Clerk::from_signer(&ps[0]);
 
     // Aggregate with random parties
     let aggr = clerk.aggregate(&sigs, &msg).unwrap();
@@ -70,29 +70,29 @@ where
     let mut msg = [0u8; 16];
     rng.fill_bytes(&mut msg);
 
-    let mut public_signers: Vec<(StmVerificationKey, Stake)> = Vec::with_capacity(nparties);
-    let mut initializers: Vec<StmInitializer> = Vec::with_capacity(nparties);
+    let mut public_signers: Vec<(VerificationKey, Stake)> = Vec::with_capacity(nparties);
+    let mut initializers: Vec<Initializer> = Vec::with_capacity(nparties);
 
     let parties = (0..nparties)
         .map(|_| 1 + (rng.next_u64() % 9999))
         .collect::<Vec<_>>();
 
-    let params = StmParameters { k, m, phi_f: 0.2 };
+    let params = Parameters { k, m, phi_f: 0.2 };
 
     for stake in parties {
-        let initializer = StmInitializer::setup(params, stake, &mut rng);
+        let initializer = Initializer::setup(params, stake, &mut rng);
         initializers.push(initializer.clone());
         public_signers.push((initializer.verification_key().vk, initializer.stake));
     }
 
-    let core_verifier = CoreVerifier::setup(&public_signers);
+    let core_verifier = BasicVerifier::setup(&public_signers);
 
-    let signers: Vec<StmSigner<H>> = initializers
+    let signers: Vec<Signer<H>> = initializers
         .into_iter()
         .filter_map(|s| s.new_core_signer(&core_verifier.eligible_parties))
         .collect();
 
-    let mut signatures: Vec<StmSig> = Vec::with_capacity(nparties);
+    let mut signatures: Vec<SingleSignature> = Vec::with_capacity(nparties);
     for s in signers {
         if let Some(sig) = s.core_sign(&msg, core_verifier.total_stake) {
             signatures.push(sig);
@@ -101,13 +101,13 @@ where
 
     let sig_reg_list = signatures
         .iter()
-        .map(|sig| StmSigRegParty {
+        .map(|sig| SingleSignatureWithRegisteredParty {
             sig: sig.clone(),
             reg_party: core_verifier.eligible_parties[sig.signer_index as usize],
         })
-        .collect::<Vec<StmSigRegParty>>();
+        .collect::<Vec<SingleSignatureWithRegisteredParty>>();
 
-    let dedup_sigs = CoreVerifier::dedup_sigs_for_indices(
+    let dedup_sigs = BasicVerifier::dedup_sigs_for_indices(
         &core_verifier.total_stake,
         &params,
         &msg,
