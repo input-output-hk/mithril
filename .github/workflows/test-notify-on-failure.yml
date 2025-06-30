@@ -11,15 +11,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Make script executable
-        shell: bash
+      - name: Write HTML body to file
         run: |
-          chmod +x ./.github/workflows/scripts/notify-nightly-failure.js
+          cat > ./email-body.html <<EOF
+          <h3>Nightly Trigger workflow has failed, see details:</h3>
+          <ul>
+            <li><strong>Workflow :</strong> ${{ github.workflow }}</li>
+            <li><strong>Repository :</strong> ${{ github.repository }}</li>
+            <li><strong>Run Number :</strong> #${{ github.run_number }}</li>
+            <li><strong>Logs :</strong> <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">Check logs</a></li>
+          </ul>
+          EOF
 
-      - name: Send failure notification by email
-        uses: peter-evans/sendgrid-action@v1
-        env:
-          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
-          SCRIPT_FILEPATH: ./.github/workflows/scripts/notify-nightly-failure.js
-          SENDGRID_MAIL_FROM: ${{ secrets.CI_NOTIFICATION_EMAIL_FROM }}
-          SENDGRID_MAIL_TO: ${{ secrets.CI_NOTIFICATION_EMAIL_TO }}
+      - name: Send failure notification via Mailgun
+        uses: dawidd6/action-send-mail@v6
+        with:
+          server_address: ${{ vars.CI_NOTIFICATION_SMTP_SERVER }}
+          server_port: ${{ vars.CI_NOTIFICATION_SMTP_PORT }}
+          username: ${{ secrets.CI_NOTIFICATION_SMTP_LOGIN }}
+          password: ${{ secrets.CI_NOTIFICATION_SMTP_PASSWORD }}
+          subject: "🚨 Nightly Workflow Failed"
+          to: ${{ secrets.CI_NOTIFICATION_EMAIL_TO }}
+          from: ${{ secrets.CI_NOTIFICATION_EMAIL_FROM }}
+          html_body: file://email-body.html
