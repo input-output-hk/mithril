@@ -1,19 +1,20 @@
+use std::cmp::min;
+use std::collections::{BTreeSet, HashMap};
+use std::iter::repeat_n;
+use std::ops::{Deref, DerefMut};
+use std::sync::Arc;
+
 use crate::{
     certificate_chain::CertificateGenesisProducer,
     crypto_helper::{
         ProtocolAggregateVerificationKey, ProtocolClerk, ProtocolGenesisSigner,
         ProtocolGenesisVerifier, ProtocolParameters,
     },
-    entities::{Certificate, CertificateSignature, Epoch, ProtocolMessage, ProtocolMessagePartKey},
+    entities::{
+        CardanoDbBeacon, Certificate, CertificateMetadata, CertificateSignature, Epoch,
+        ProtocolMessage, ProtocolMessagePartKey, SignedEntityType,
+    },
     test_utils::{fake_data, MithrilFixture, MithrilFixtureBuilder, SignerFixture},
-};
-
-use crate::entities::CertificateMetadata;
-use std::{
-    cmp::min,
-    collections::{BTreeSet, HashMap},
-    iter::repeat_n,
-    sync::Arc,
 };
 
 /// Genesis certificate processor function type. For tests only.
@@ -96,6 +97,71 @@ pub enum CertificateChainingMethod {
     Sequential,
 }
 
+/// Fixture built from a [CertificateChainBuilder], certificates are ordered from latest to genesis
+#[derive(Debug, Clone)]
+pub struct CertificateChainFixture {
+    /// The full certificates list, ordered from latest to genesis
+    pub certificates_chained: Vec<Certificate>,
+    /// The genesis verifier associated with this chain genesis certificate
+    pub genesis_verifier: ProtocolGenesisVerifier,
+}
+
+impl Deref for CertificateChainFixture {
+    type Target = [Certificate];
+
+    fn deref(&self) -> &Self::Target {
+        &self.certificates_chained
+    }
+}
+
+impl DerefMut for CertificateChainFixture {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.certificates_chained
+    }
+}
+
+impl<C: From<Certificate>> From<CertificateChainFixture> for Vec<C> {
+    fn from(fixture: CertificateChainFixture) -> Self {
+        fixture
+            .certificates_chained
+            .into_iter()
+            .map(C::from)
+            .collect()
+    }
+}
+
+impl CertificateChainFixture {
+    /// Return the genesis certificate of this chain
+    pub fn genesis_certificate(&self) -> &Certificate {
+        &self.certificates_chained[self.certificates_chained.len() - 1]
+    }
+
+    /// Return a copy of the chain but with reversed order (from genesis to last)
+    pub fn reversed_chain(&self) -> Vec<Certificate> {
+        self.certificates_chained.iter().rev().cloned().collect()
+    }
+
+    /// Extract the chain starting from the certificate with the given hash and all its parents
+    /// until the genesis certificate.
+    pub fn certificate_path_to_genesis<H: AsRef<str>>(
+        &self,
+        certificate_hash: H,
+    ) -> Vec<Certificate> {
+        let mut subchain = Vec::new();
+        let mut hash_to_search = certificate_hash.as_ref().to_string();
+
+        // takes advantage of the fact that chained certificates are ordered from last to genesis
+        for certificate in &self.certificates_chained {
+            if certificate.hash == hash_to_search {
+                subchain.push(certificate.clone());
+                hash_to_search = certificate.previous_hash.clone();
+            }
+        }
+
+        subchain
+    }
+}
+
 /// A builder for creating a certificate chain. For tests only.
 ///
 /// # Simple example usage for building a fully valid certificate chain
@@ -104,12 +170,12 @@ pub enum CertificateChainingMethod {
 ///     use mithril_common::crypto_helper::ProtocolParameters;
 ///     use mithril_common::test_utils::CertificateChainBuilder;
 ///
-///     let (certificate_chain, _protocol_genesis_verifier) = CertificateChainBuilder::new()
+///     let certificate_chain_fixture = CertificateChainBuilder::new()
 ///         .with_total_certificates(5)
 ///         .with_certificates_per_epoch(2)
 ///         .build();
 ///
-///     assert_eq!(5, certificate_chain.len());
+///     assert_eq!(5, certificate_chain_fixture.len());
 /// ```
 ///
 /// # More complex example usage for building a fully valid certificate chain
@@ -119,7 +185,7 @@ pub enum CertificateChainingMethod {
 ///     use mithril_common::crypto_helper::ProtocolParameters;
 ///     use mithril_common::test_utils::CertificateChainBuilder;
 ///
-///     let (certificate_chain, _protocol_genesis_verifier) = CertificateChainBuilder::new()
+///     let certificate_chain_fixture = CertificateChainBuilder::new()
 ///         .with_total_certificates(5)
 ///         .with_certificates_per_epoch(2)
 ///         .with_protocol_parameters(ProtocolParameters {
@@ -130,7 +196,7 @@ pub enum CertificateChainingMethod {
 ///         .with_total_signers_per_epoch_processor(&|epoch| min(1 + *epoch as usize, 10))
 ///         .build();
 ///
-///     assert_eq!(5, certificate_chain.len());
+///     assert_eq!(5, certificate_chain_fixture.len());
 /// ```
 ///
 /// # Advanced example usage for building an adversarial certificate chain
@@ -140,7 +206,7 @@ pub enum CertificateChainingMethod {
 ///     use mithril_common::crypto_helper::ProtocolParameters;
 ///     use mithril_common::test_utils::CertificateChainBuilder;
 ///
-///     let (certificate_chain, _protocol_genesis_verifier) = CertificateChainBuilder::new()
+///     let certificate_chain_fixture = CertificateChainBuilder::new()
 ///         .with_total_certificates(5)
 ///         .with_certificates_per_epoch(2)
 ///         .with_standard_certificate_processor(&|certificate, context| {
@@ -154,7 +220,7 @@ pub enum CertificateChainingMethod {
 ///        })
 ///        .build();
 ///
-///     assert_eq!(5, certificate_chain.len());
+///     assert_eq!(5, certificate_chain_fixture.len());
 /// ```
 pub struct CertificateChainBuilder<'a> {
     total_certificates: u64,
@@ -247,7 +313,7 @@ impl<'a> CertificateChainBuilder<'a> {
     }
 
     /// Build the certificate chain.
-    pub fn build(self) -> (Vec<Certificate>, ProtocolGenesisVerifier) {
+    pub fn build(self) -> CertificateChainFixture {
         let (genesis_signer, genesis_verifier) = CertificateChainBuilder::setup_genesis();
         let genesis_certificate_processor = self.genesis_certificate_processor;
         let standard_certificate_processor = self.standard_certificate_processor;
@@ -279,7 +345,10 @@ impl<'a> CertificateChainBuilder<'a> {
             .collect::<Vec<Certificate>>();
         let certificates_chained = self.compute_chained_certificates(certificates);
 
-        (certificates_chained, genesis_verifier)
+        CertificateChainFixture {
+            certificates_chained,
+            genesis_verifier,
+        }
     }
 
     fn compute_clerk_for_signers(signers: &[SignerFixture]) -> ProtocolClerk {
@@ -438,7 +507,10 @@ impl<'a> CertificateChainBuilder<'a> {
             .aggregate(&single_signatures, certificate.signed_message.as_bytes())
             .unwrap();
         certificate.signature = CertificateSignature::MultiSignature(
-            certificate.signed_entity_type(),
+            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(
+                *context.epoch,
+                context.index_certificate as u64,
+            )),
             multi_signature.into(),
         );
 
@@ -565,12 +637,12 @@ mod test {
         total_certificates: u64,
         certificates_per_epoch: u64,
     ) -> Vec<Certificate> {
-        let (certificate_chain, _) = CertificateChainBuilder::default()
+        let certificate_chain_fixture = CertificateChainBuilder::default()
             .with_total_certificates(total_certificates)
             .with_certificates_per_epoch(certificates_per_epoch)
             .build();
 
-        certificate_chain
+        certificate_chain_fixture.certificates_chained
     }
 
     #[test]
@@ -750,6 +822,10 @@ mod test {
             .build_genesis_certificate(&context, &protocol_genesis_signer);
 
         assert!(genesis_certificate.is_genesis());
+        assert_eq!(
+            SignedEntityType::genesis(Epoch(1)),
+            genesis_certificate.signed_entity_type()
+        );
         assert_eq!(Epoch(1), genesis_certificate.epoch);
         assert_eq!(
             expected_protocol_parameters,
@@ -798,6 +874,10 @@ mod test {
             .build_standard_certificate(&context);
 
         assert!(!standard_certificate.is_genesis());
+        assert_eq!(
+            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(1, 2)),
+            standard_certificate.signed_entity_type()
+        );
         assert_eq!(Epoch(1), standard_certificate.epoch);
         assert_eq!(
             expected_protocol_parameters,
@@ -937,7 +1017,7 @@ mod test {
 
     #[test]
     fn builds_certificate_chain_with_alteration_on_genesis_certificate() {
-        let (certificates, _) = CertificateChainBuilder::new()
+        let certificate_chain_fixture = CertificateChainBuilder::new()
             .with_total_certificates(5)
             .with_genesis_certificate_processor(&|certificate, _, _| {
                 let mut certificate = certificate;
@@ -949,7 +1029,7 @@ mod test {
 
         assert_eq!(
             "altered_msg".to_string(),
-            certificates.last().unwrap().signed_message
+            certificate_chain_fixture.last().unwrap().signed_message
         );
     }
 
@@ -961,7 +1041,7 @@ mod test {
             .map(|i| format!("altered-msg-{i}"))
             .collect::<Vec<_>>();
 
-        let (certificates, _) = CertificateChainBuilder::new()
+        let certificate_chain_fixture = CertificateChainBuilder::new()
             .with_total_certificates(total_certificates)
             .with_standard_certificate_processor(&|certificate, context| {
                 let mut certificate = certificate;
@@ -971,11 +1051,79 @@ mod test {
             })
             .build();
 
-        let signed_message = certificates
+        let signed_message = certificate_chain_fixture
+            .certificates_chained
             .into_iter()
             .take(total_certificates as usize - 1)
             .map(|certificate| certificate.signed_message)
             .collect::<Vec<_>>();
         assert_eq!(expected_signed_messages, signed_message);
+    }
+
+    mod certificate_chain_fixture {
+        use super::*;
+
+        #[test]
+        fn get_genesis_certificate() {
+            let chain_with_only_a_genesis = CertificateChainBuilder::new()
+                .with_total_certificates(1)
+                .build();
+            assert!(chain_with_only_a_genesis.genesis_certificate().is_genesis());
+
+            let chain_with_multiple_certificates = CertificateChainBuilder::new()
+                .with_total_certificates(10)
+                .build();
+            assert!(chain_with_multiple_certificates
+                .genesis_certificate()
+                .is_genesis());
+        }
+
+        #[test]
+        fn path_to_genesis_from_a_chain_with_one_certificate_per_epoch() {
+            let chain = CertificateChainBuilder::new()
+                .with_total_certificates(5)
+                .with_certificates_per_epoch(1)
+                .build();
+
+            assert_eq!(
+                chain.certificate_path_to_genesis(&chain[0].hash),
+                chain.certificates_chained
+            );
+        }
+
+        #[test]
+        fn path_to_genesis_from_a_chain_with_multiple_certificates_per_epoch() {
+            let chain = CertificateChainBuilder::new()
+                .with_total_certificates(9)
+                .with_certificates_per_epoch(3)
+                .build();
+
+            let expected_subchain = vec![
+                chain[1].clone(),
+                chain[4].clone(),
+                chain[7].clone(),
+                chain[8].clone(),
+            ];
+            assert_eq!(
+                chain.certificate_path_to_genesis(&chain[1].hash),
+                expected_subchain
+            );
+        }
+
+        #[test]
+        fn reversed_chain() {
+            let chain = CertificateChainBuilder::new()
+                .with_total_certificates(5)
+                .with_certificates_per_epoch(2)
+                .build();
+
+            let expected: Vec<Certificate> = chain
+                .certificates_chained
+                .clone()
+                .into_iter()
+                .rev()
+                .collect();
+            assert_eq!(chain.reversed_chain(), expected);
+        }
     }
 }

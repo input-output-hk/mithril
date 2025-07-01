@@ -6,11 +6,11 @@ use rand_core::SeedableRng;
 
 use crate::{
     crypto_helper::{cardano::KesSignerStandard, KesSigner},
-    entities::{Certificate, ProtocolMessage, ProtocolMessagePartKey, SignerWithStake, Stake},
-    test_utils::{CertificateChainBuilder, SignerFixture, TempDir},
+    entities::{ProtocolMessage, ProtocolMessagePartKey, SignerWithStake, Stake},
+    test_utils::{CertificateChainBuilder, CertificateChainFixture, SignerFixture, TempDir},
 };
 
-use super::{ed25519_alias::genesis::*, types::*, OpCert, SerDeShelleyFileFormat};
+use super::{types::*, OpCert, SerDeShelleyFileFormat};
 
 /// Create or retrieve a temporary directory for storing cryptographic material for a signer, use this for tests only.
 pub fn setup_temp_directory_for_signer(
@@ -195,11 +195,10 @@ pub fn setup_signers_from_stake_distribution(
 pub fn setup_certificate_chain(
     total_certificates: u64,
     certificates_per_epoch: u64,
-) -> (Vec<Certificate>, ProtocolGenesisVerifier) {
-    let certificate_chain_builder = CertificateChainBuilder::new()
+) -> CertificateChainFixture {
+    CertificateChainBuilder::new()
         .with_total_certificates(total_certificates)
         .with_certificates_per_epoch(certificates_per_epoch)
-        .with_protocol_parameters(setup_protocol_parameters());
-
-    certificate_chain_builder.build()
+        .with_protocol_parameters(setup_protocol_parameters())
+        .build()
 }
