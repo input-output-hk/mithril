@@ -180,10 +180,15 @@ impl CertificateChainSynchronizer for MithrilCertificateChainSynchronizer {
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
+    use std::sync::RwLock;
 
+    use mithril_common::certificate_chain::{
+        FakeCertificaterRetriever, MithrilCertificateVerifier,
+    };
     use mithril_common::crypto_helper::ProtocolGenesisVerificationKey;
     use mithril_common::test_utils::{
-        CertificateChainBuilder, fake_data, fake_keys, mock_extensions::MockBuilder,
+        CertificateChainBuilder, CertificateChainFixture, fake_data, fake_keys,
+        mock_extensions::MockBuilder,
     };
 
     use crate::services::{MockRemoteCertificateRetriever, MockSynchronizedCertificateStorer};
@@ -293,6 +298,51 @@ mod tests {
         };
     }
 
+    fn fake_verifier(remote_certificate_chain: &[Certificate]) -> Arc<dyn CertificateVerifier> {
+        let verifier = MithrilCertificateVerifier::new(
+            TestLogger::stdout(),
+            Arc::new(FakeCertificaterRetriever::from_certificates(
+                remote_certificate_chain,
+            )),
+        );
+        Arc::new(verifier)
+    }
+
+    #[derive(Default)]
+    struct DumbCertificateStorer {
+        certificates: RwLock<Vec<Certificate>>,
+        genesis_certificate: Option<Certificate>,
+    }
+
+    impl DumbCertificateStorer {
+        fn new(genesis: Certificate, already_stored: Vec<Certificate>) -> Self {
+            Self {
+                certificates: RwLock::new(already_stored),
+                genesis_certificate: Some(genesis),
+            }
+        }
+
+        fn stored_certificates(&self) -> Vec<Certificate> {
+            self.certificates.read().unwrap().clone()
+        }
+    }
+
+    #[async_trait]
+    impl SynchronizedCertificateStorer for DumbCertificateStorer {
+        async fn insert_or_replace_many(
+            &self,
+            certificates_chain: Vec<Certificate>,
+        ) -> StdResult<()> {
+            let mut certificates = self.certificates.write().unwrap();
+            *certificates = certificates_chain;
+            Ok(())
+        }
+
+        async fn get_latest_genesis(&self) -> StdResult<Option<Certificate>> {
+            Ok(self.genesis_certificate.clone())
+        }
+    }
+
     mod check_sync_state {
         use super::*;
 
@@ -395,21 +445,7 @@ mod tests {
     }
 
     mod retrieve_validate_remote_certificate_chain {
-        use mithril_common::certificate_chain::{
-            FakeCertificaterRetriever, MithrilCertificateVerifier,
-        };
-
         use super::*;
-
-        fn fake_verifier(remote_certificate_chain: &[Certificate]) -> Arc<dyn CertificateVerifier> {
-            let verifier = MithrilCertificateVerifier::new(
-                TestLogger::stdout(),
-                Arc::new(FakeCertificaterRetriever::from_certificates(
-                    remote_certificate_chain,
-                )),
-            );
-            Arc::new(verifier)
-        }
 
         #[tokio::test]
         async fn succeed_if_the_remote_chain_only_contains_a_genesis_certificate() {
@@ -464,36 +500,7 @@ mod tests {
     }
 
     mod store_remote_certificate_chain {
-        use std::sync::RwLock;
-
         use super::*;
-
-        #[derive(Default)]
-        struct DumbCertificateStorer {
-            certificates: RwLock<Vec<Certificate>>,
-        }
-
-        impl DumbCertificateStorer {
-            fn stored_certificates(&self) -> Vec<Certificate> {
-                self.certificates.read().unwrap().clone()
-            }
-        }
-
-        #[async_trait]
-        impl SynchronizedCertificateStorer for DumbCertificateStorer {
-            async fn insert_or_replace_many(
-                &self,
-                certificates_chain: Vec<Certificate>,
-            ) -> StdResult<()> {
-                let mut certificates = self.certificates.write().unwrap();
-                *certificates = certificates_chain;
-                Ok(())
-            }
-
-            async fn get_latest_genesis(&self) -> StdResult<Option<Certificate>> {
-                unimplemented!("not needed in store_remote_certificate_chain tests")
-            }
-        }
 
         #[tokio::test]
         async fn do_store_given_certificates() {
@@ -534,6 +541,76 @@ mod tests {
                 .store_certificate_chain(vec![fake_data::certificate("certificate")])
                 .await
                 .unwrap_err();
+        }
+    }
+
+    mod synchronize_certificate_chain {
+        use super::*;
+
+        fn build_synchroniser(
+            remote_chain: &CertificateChainFixture,
+            storer: Arc<dyn SynchronizedCertificateStorer>,
+        ) -> MithrilCertificateChainSynchronizer {
+            MithrilCertificateChainSynchronizer {
+                certificate_storer: storer.clone(),
+                remote_certificate_retriever:
+                    MockBuilder::<MockRemoteCertificateRetriever>::configure(|mock| {
+                        let genesis = remote_chain.genesis_certificate().clone();
+                        mock.expect_get_genesis_certificate_details()
+                            .return_once(move || Ok(Some(genesis)));
+                        let latest = remote_chain.latest_certificate().clone();
+                        mock.expect_get_latest_certificate_details()
+                            .return_once(move || Ok(Some(latest)));
+                    }),
+                certificate_verifier: fake_verifier(remote_chain),
+                ..MithrilCertificateChainSynchronizer::default_for_test()
+            }
+        }
+
+        #[tokio::test]
+        async fn store_all() {
+            let remote_chain = CertificateChainBuilder::default()
+                .with_certificates_per_epoch(3)
+                .with_total_certificates(8)
+                .build();
+            let storer = Arc::new(DumbCertificateStorer::default());
+            let synchroniser = build_synchroniser(&remote_chain, storer.clone());
+
+            // Will sync even if force is false
+            synchroniser.synchronize_certificate_chain(false).await.unwrap();
+
+            assert_eq!(
+                remote_chain.certificate_path_to_genesis(&remote_chain.latest_certificate().hash),
+                storer.stored_certificates()
+            );
+        }
+
+        #[tokio::test]
+        async fn store_partial() {
+            let remote_chain = CertificateChainBuilder::default()
+                .with_certificates_per_epoch(1)
+                .with_total_certificates(8)
+                .build();
+            let existing_certificates =
+                remote_chain.certificate_path_to_genesis(&remote_chain[5].hash);
+            let storer = Arc::new(DumbCertificateStorer::new(
+                remote_chain.genesis_certificate().clone(),
+                existing_certificates.clone(),
+            ));
+            let synchroniser = build_synchroniser(&remote_chain, storer.clone());
+
+            // Force false - won't sync
+            synchroniser.synchronize_certificate_chain(false).await.unwrap();
+
+            assert_eq!(&existing_certificates, &storer.stored_certificates());
+
+            // Force true - will sync
+            synchroniser.synchronize_certificate_chain(true).await.unwrap();
+
+            assert_eq!(
+                remote_chain.certificate_path_to_genesis(&remote_chain.latest_certificate().hash),
+                storer.stored_certificates()
+            );
         }
     }
 }
