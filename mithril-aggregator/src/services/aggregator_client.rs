@@ -1,6 +1,5 @@
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
-use mithril_common::messages::TryFromMessageAdapter;
 use reqwest::header::{self, HeaderValue};
 use reqwest::{self, Client, Proxy, RequestBuilder, Response, StatusCode, Url};
 
@@ -12,14 +11,16 @@ use thiserror::Error;
 use mithril_common::{
     MITHRIL_AGGREGATOR_VERSION_HEADER, MITHRIL_API_VERSION_HEADER, StdError, StdResult,
     api_version::APIVersionProvider,
-    entities::{ClientError, ServerError},
+    entities::{Certificate, ClientError, ServerError},
     logging::LoggerExtensions,
-    messages::EpochSettingsMessage,
+    messages::{
+        CertificateListMessage, CertificateMessage, EpochSettingsMessage, TryFromMessageAdapter,
+    },
 };
 
 use crate::entities::LeaderAggregatorEpochSettings;
 use crate::message_adapters::FromEpochSettingsAdapter;
-use crate::services::LeaderAggregatorClient;
+use crate::services::{LeaderAggregatorClient, RemoteCertificateRetriever};
 
 const JSON_CONTENT_TYPE: HeaderValue = HeaderValue::from_static("application/json");
 
@@ -265,6 +266,64 @@ impl AggregatorHTTPClient {
             Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
         }
     }
+
+    async fn latest_certificates_list(
+        &self,
+    ) -> Result<CertificateListMessage, AggregatorClientError> {
+        debug!(self.logger, "Retrieve latest certificates list");
+        let url = self.join_aggregator_endpoint("certificates")?;
+        let response = self
+            .prepare_request_builder(self.prepare_http_client()?.get(url))
+            .send()
+            .await;
+
+        match response {
+            Ok(response) => match response.status() {
+                StatusCode::OK => {
+                    self.warn_if_api_version_mismatch(&response);
+                    match response.json::<CertificateListMessage>().await {
+                        Ok(message) => Ok(message),
+                        Err(err) => Err(AggregatorClientError::JsonParseFailed(anyhow!(err))),
+                    }
+                }
+                _ => Err(AggregatorClientError::from_response(response).await),
+            },
+            Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
+        }
+    }
+
+    async fn certificates_details(
+        &self,
+        certificate_hash: &str,
+    ) -> Result<Option<CertificateMessage>, AggregatorClientError> {
+        debug!(self.logger, "Retrieve certificate details"; "certificate_hash" => %certificate_hash);
+        let url = self.join_aggregator_endpoint(&format!("certificate/{certificate_hash}"))?;
+        let response = self
+            .prepare_request_builder(self.prepare_http_client()?.get(url))
+            .send()
+            .await;
+
+        match response {
+            Ok(response) => match response.status() {
+                StatusCode::OK => {
+                    self.warn_if_api_version_mismatch(&response);
+                    match response.json::<CertificateMessage>().await {
+                        Ok(message) => Ok(Some(message)),
+                        Err(err) => Err(AggregatorClientError::JsonParseFailed(anyhow!(err))),
+                    }
+                }
+                StatusCode::NOT_FOUND => Ok(None),
+                _ => Err(AggregatorClientError::from_response(response).await),
+            },
+            Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
+        }
+    }
+
+    async fn latest_genesis_certificate(
+        &self,
+    ) -> Result<Option<CertificateMessage>, AggregatorClientError> {
+        self.certificates_details("genesis").await
+    }
 }
 
 #[async_trait]
@@ -272,6 +331,29 @@ impl LeaderAggregatorClient for AggregatorHTTPClient {
     async fn retrieve_epoch_settings(&self) -> StdResult<Option<LeaderAggregatorEpochSettings>> {
         let epoch_settings = self.epoch_settings().await?;
         Ok(epoch_settings)
+    }
+}
+
+#[async_trait]
+impl RemoteCertificateRetriever for AggregatorHTTPClient {
+    async fn get_latest_certificate_details(&self) -> StdResult<Option<Certificate>> {
+        let latest_certificates_list = self.latest_certificates_list().await?;
+
+        match latest_certificates_list.first() {
+            None => Ok(None),
+            Some(latest_certificate_list_item) => {
+                let latest_certificate_message =
+                    self.certificates_details(&latest_certificate_list_item.hash).await?;
+                latest_certificate_message.map(TryInto::try_into).transpose()
+            }
+        }
+    }
+
+    async fn get_genesis_certificate_details(&self) -> StdResult<Option<Certificate>> {
+        match self.latest_genesis_certificate().await? {
+            Some(message) => Ok(Some(message.try_into()?)),
+            None => Ok(None),
+        }
     }
 }
 
@@ -316,6 +398,7 @@ mod tests {
     use serde_json::json;
 
     use mithril_common::api_version::DummyApiVersionDiscriminantSource;
+    use mithril_common::messages::CertificateListItemMessage;
 
     use crate::test_tools::TestLogger;
 
@@ -414,6 +497,178 @@ mod tests {
             .epoch_settings()
             .await
             .expect_err("retrieve_epoch_settings should fail");
+
+        assert!(
+            matches!(error, AggregatorClientError::RemoteServerUnreachable(_)),
+            "unexpected error type: {error:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_latest_certificates_list_ok_200() {
+        let (server, client) = setup_server_and_client();
+        let expected_list = vec![
+            CertificateListItemMessage::dummy(),
+            CertificateListItemMessage::dummy(),
+        ];
+        let _server_mock = server.mock(|when, then| {
+            when.path("/certificates");
+            then.status(200).body(json!(expected_list).to_string());
+        });
+
+        let fetched_list = client.latest_certificates_list().await.unwrap();
+
+        assert_eq!(expected_list, fetched_list);
+    }
+
+    #[tokio::test]
+    async fn test_latest_certificates_list_ko_500() {
+        let (server, client) = setup_server_and_client();
+        let _server_mock = server.mock(|when, then| {
+            when.path("/certificates");
+            then.status(500).body("an error occurred");
+        });
+
+        match client.latest_certificates_list().await.unwrap_err() {
+            AggregatorClientError::RemoteServerTechnical(_) => (),
+            e => panic!("Expected Aggregator::RemoteServerTechnical error, got '{e:?}'."),
+        };
+    }
+
+    #[tokio::test]
+    async fn test_latest_certificates_list_timeout() {
+        let (server, mut client) = setup_server_and_client();
+        client.timeout_duration = Some(Duration::from_millis(10));
+        let _server_mock = server.mock(|when, then| {
+            when.path("/certificates");
+            then.delay(Duration::from_millis(100));
+        });
+
+        let error = client
+            .latest_certificates_list()
+            .await
+            .expect_err("retrieve_epoch_settings should fail");
+
+        assert!(
+            matches!(error, AggregatorClientError::RemoteServerUnreachable(_)),
+            "unexpected error type: {error:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_certificates_details_ok_200() {
+        let (server, client) = setup_server_and_client();
+        let expected_message = CertificateMessage::dummy();
+        let _server_mock = server.mock(|when, then| {
+            when.path(format!("/certificate/{}", expected_message.hash));
+            then.status(200).body(json!(expected_message).to_string());
+        });
+
+        let fetched_message = client.certificates_details(&expected_message.hash).await.unwrap();
+
+        assert_eq!(Some(expected_message), fetched_message);
+    }
+
+    #[tokio::test]
+    async fn test_certificates_details_ok_404() {
+        let (server, client) = setup_server_and_client();
+        let _server_mock = server.mock(|when, then| {
+            when.path("/certificate/not-found");
+            then.status(404);
+        });
+
+        let fetched_message = client.latest_genesis_certificate().await.unwrap();
+
+        assert_eq!(None, fetched_message);
+    }
+
+    #[tokio::test]
+    async fn test_certificates_details_ko_500() {
+        let (server, client) = setup_server_and_client();
+        let _server_mock = server.mock(|when, then| {
+            when.path("/certificate/whatever");
+            then.status(500).body("an error occurred");
+        });
+
+        match client.certificates_details("whatever").await.unwrap_err() {
+            AggregatorClientError::RemoteServerTechnical(_) => (),
+            e => panic!("Expected Aggregator::RemoteServerTechnical error, got '{e:?}'."),
+        };
+    }
+
+    #[tokio::test]
+    async fn test_certificates_details_timeout() {
+        let (server, mut client) = setup_server_and_client();
+        client.timeout_duration = Some(Duration::from_millis(10));
+        let _server_mock = server.mock(|when, then| {
+            when.path("/certificate/whatever");
+            then.delay(Duration::from_millis(100));
+        });
+
+        let error = client
+            .certificates_details("whatever")
+            .await
+            .expect_err("retrieve_epoch_settings should fail");
+
+        assert!(
+            matches!(error, AggregatorClientError::RemoteServerUnreachable(_)),
+            "unexpected error type: {error:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_latest_genesis_ok_200() {
+        let (server, client) = setup_server_and_client();
+        let genesis_message = CertificateMessage::dummy();
+        let _server_mock = server.mock(|when, then| {
+            when.path("/certificate/genesis");
+            then.status(200).body(json!(genesis_message).to_string());
+        });
+
+        let fetched = client.latest_genesis_certificate().await.unwrap();
+
+        assert_eq!(Some(genesis_message), fetched);
+    }
+
+    #[tokio::test]
+    async fn test_latest_genesis_ok_404() {
+        let (server, client) = setup_server_and_client();
+        let _server_mock = server.mock(|when, then| {
+            when.path("/certificate/genesis");
+            then.status(404);
+        });
+
+        let fetched = client.latest_genesis_certificate().await.unwrap();
+
+        assert_eq!(None, fetched);
+    }
+
+    #[tokio::test]
+    async fn test_latest_genesis_ko_500() {
+        let (server, client) = setup_server_and_client();
+        let _server_mock = server.mock(|when, then| {
+            when.path("/certificate/genesis");
+            then.status(500).body("an error occurred");
+        });
+
+        let error = client.latest_genesis_certificate().await.unwrap_err();
+
+        assert!(
+            matches!(error, AggregatorClientError::RemoteServerTechnical(_)),
+            "Expected Aggregator::RemoteServerTechnical error, got {error:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_latest_genesis_timeout() {
+        let (server, mut client) = setup_server_and_client();
+        client.timeout_duration = Some(Duration::from_millis(10));
+        let _server_mock = server.mock(|when, then| {
+            when.path("/certificate/genesis");
+            then.delay(Duration::from_millis(100));
+        });
+
+        let error = client.latest_genesis_certificate().await.unwrap_err();
 
         assert!(
             matches!(error, AggregatorClientError::RemoteServerUnreachable(_)),
@@ -722,6 +977,55 @@ mod tests {
                 leader_aggregator_version,
                 aggregator_version,
             );
+        }
+    }
+
+    mod remote_certificate_retriever {
+        use mithril_common::test_utils::fake_data;
+
+        use super::*;
+
+        #[tokio::test]
+        async fn test_get_latest_certificate_details() {
+            let (server, client) = setup_server_and_client();
+            let expected_certificate = fake_data::certificate("expected");
+            let latest_message: CertificateMessage =
+                expected_certificate.clone().try_into().unwrap();
+            let latest_certificates = vec![
+                CertificateListItemMessage {
+                    hash: expected_certificate.hash.clone(),
+                    ..CertificateListItemMessage::dummy()
+                },
+                CertificateListItemMessage::dummy(),
+                CertificateListItemMessage::dummy(),
+            ];
+            let _server_mock = server.mock(|when, then| {
+                when.path("/certificates");
+                then.status(200).body(json!(latest_certificates).to_string());
+            });
+            let _server_mock = server.mock(|when, then| {
+                when.path(format!("/certificate/{}", latest_message.hash));
+                then.status(200).body(json!(latest_message).to_string());
+            });
+
+            let fetched_certificate = client.get_latest_certificate_details().await.unwrap();
+
+            assert_eq!(Some(expected_certificate), fetched_certificate);
+        }
+
+        #[tokio::test]
+        async fn test_get_latest_genesis_certificate() {
+            let (server, client) = setup_server_and_client();
+            let genesis_message = CertificateMessage::dummy();
+            let expected_genesis: Certificate = genesis_message.clone().try_into().unwrap();
+            let _server_mock = server.mock(|when, then| {
+                when.path("/certificate/genesis");
+                then.status(200).body(json!(genesis_message).to_string());
+            });
+
+            let fetched = client.get_genesis_certificate_details().await.unwrap();
+
+            assert_eq!(Some(expected_genesis), fetched);
         }
     }
 }
