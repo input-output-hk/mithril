@@ -23,9 +23,7 @@ async fn open_message_newer_exists() {
     let configuration = ServeCommandConfiguration {
         protocol_parameters: protocol_parameters.clone(),
         data_stores_directory: get_test_dir("open_message_newer_exists"),
-        signed_entity_types: Some(
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull.to_string(),
-        ),
+        signed_entity_types: Some(SignedEntityTypeDiscriminants::CardanoDatabase.to_string()),
         ..ServeCommandConfiguration::new_sample(temp_dir!())
     };
     let mut tester = RuntimeTester::build(
@@ -90,29 +88,29 @@ async fn open_message_newer_exists() {
         )
     );
 
-    comment!("The state machine should get back to signing to sign CardanoImmutableFilesFull when a new immutable file exists");
+    comment!("The state machine should get back to signing to sign CardanoDatabase when a new immutable file exists");
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "signing");
 
-    comment!("The state machine should stay there as it is not able to create a certificate for the CardanoImmutableFilesFull");
+    comment!("The state machine should stay there as it is not able to create a certificate for the CardanoDatabase");
     cycle_err!(tester, "signing");
 
     comment!("Increase the immutable file number");
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "ready");
 
-    comment!("The state machine should get back to signing to sign CardanoImmutableFilesFull");
+    comment!("The state machine should get back to signing to sign CardanoDatabase");
     cycle!(tester, "signing");
     let signers_for_immutables = &fixture.signers_fixture()[0..=6];
     tester
         .send_single_signatures(
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            SignedEntityTypeDiscriminants::CardanoDatabase,
             signers_for_immutables,
         )
         .await
         .unwrap();
 
-    comment!("The state machine should issue a certificate for the CardanoImmutableFilesFull");
+    comment!("The state machine should issue a certificate for the CardanoDatabase");
     cycle!(tester, "ready");
     assert_last_certificate_eq!(
         tester,
@@ -123,7 +121,7 @@ async fn open_message_newer_exists() {
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_avk(),
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(1, 4)),
+            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(1, 4)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );
@@ -133,6 +131,6 @@ async fn open_message_newer_exists() {
         ExpectedMetrics::new()
             .certificate_total(2)
             .artifact_mithril_stake_distribution_total(1)
-            .artifact_cardano_immutable_files_full_total(1)
+            .artifact_cardano_database_total(1)
     );
 }

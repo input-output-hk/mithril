@@ -24,9 +24,7 @@ async fn certificate_chain() {
     let configuration = ServeCommandConfiguration {
         protocol_parameters: protocol_parameters.clone(),
         data_stores_directory: get_test_dir("certificate_chain"),
-        signed_entity_types: Some(
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull.to_string(),
-        ),
+        signed_entity_types: Some(SignedEntityTypeDiscriminants::CardanoDatabase.to_string()),
         ..ServeCommandConfiguration::new_sample(temp_dir!())
     };
     let mut tester = RuntimeTester::build(
@@ -92,17 +90,14 @@ async fn certificate_chain() {
         )
     );
 
-    comment!("The state machine should get back to signing to sign CardanoImmutableFilesFull");
+    comment!("The state machine should get back to signing to sign CardanoDatabase");
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "signing");
     tester
-        .send_single_signatures(
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            &signers,
-        )
+        .send_single_signatures(SignedEntityTypeDiscriminants::CardanoDatabase, &signers)
         .await
         .unwrap();
-    comment!("The state machine should issue a certificate for the CardanoImmutableFilesFull");
+    comment!("The state machine should issue a certificate for the CardanoDatabase");
     cycle!(tester, "ready");
     assert_last_certificate_eq!(
         tester,
@@ -110,32 +105,30 @@ async fn certificate_chain() {
             Epoch(1),
             StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
             initial_fixture.compute_and_encode_avk(),
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(1, 3)),
+            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(1, 3)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );
 
     comment!(
-        "Increase immutable number to do a second CardanoImmutableFilesFull certificate for this epoch, {:?}",
+        "Increase immutable number to do a second CardanoDatabase certificate for this epoch, {:?}",
         current_epoch
     );
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "signing");
     tester
-        .send_single_signatures(
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            &signers,
-        )
+        .send_single_signatures(SignedEntityTypeDiscriminants::CardanoDatabase, &signers)
         .await
         .unwrap();
     cycle!(tester, "ready");
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
             Epoch(1),
             StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
             initial_fixture.compute_and_encode_avk(),
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(1, 4)),
+            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(1, 4)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );
@@ -267,7 +260,7 @@ async fn certificate_chain() {
     );
 
     comment!(
-        "Increase immutable number to do a CardanoImmutableFilesFull certificate for this epoch, {:?}",
+        "Increase immutable number to do a CardanoDatabase certificate for this epoch, {:?}",
         current_epoch
     );
     tester.increase_immutable_number().await.unwrap();
@@ -275,7 +268,7 @@ async fn certificate_chain() {
 
     tester
         .send_single_signatures(
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            SignedEntityTypeDiscriminants::CardanoDatabase,
             &next_signers,
         )
         .await
@@ -283,7 +276,7 @@ async fn certificate_chain() {
     cycle!(tester, "ready");
 
     comment!(
-        "A CardanoImmutableFilesFull, linked to the MithrilStakeDistribution of the current epoch, should have been created, {:?}",
+        "A CardanoDatabase, linked to the MithrilStakeDistribution of the current epoch, should have been created, {:?}",
         current_epoch
     );
     assert_last_certificate_eq!(
@@ -292,7 +285,7 @@ async fn certificate_chain() {
             Epoch(4),
             StakeDistributionParty::from_signers(next_fixture.signers_with_stake()).as_slice(),
             next_fixture.compute_and_encode_avk(),
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(4, 7)),
+            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(4, 7)),
             ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(4))),
         )
     );
@@ -301,7 +294,7 @@ async fn certificate_chain() {
         tester.metrics_verifier,
         ExpectedMetrics::new()
             .certificate_total(7)
-            .artifact_cardano_immutable_files_full_total(3)
+            .artifact_cardano_database_total(3)
             .artifact_mithril_stake_distribution_total(4)
     );
 }

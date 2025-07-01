@@ -287,6 +287,7 @@ impl RuntimeTester {
     pub async fn increase_immutable_number(&mut self) -> StdResult<ImmutableFileNumber> {
         let new_immutable_number = self.immutable_file_observer.increase().await.unwrap();
         self.update_digester_digest().await;
+        self.update_digester_merkle_tree().await;
 
         let updated_number = self
             .observer
@@ -549,6 +550,14 @@ impl RuntimeTester {
                 "n{}-e{}-i{}",
                 self.network, time_point.epoch, time_point.immutable_file_number
             ))
+            .await;
+    }
+
+    pub async fn update_digester_merkle_tree(&mut self) {
+        let time_point = self.observer.current_time_point().await;
+
+        self.digester
+            .update_merkle_tree(vec![time_point.immutable_file_number.to_string()])
             .await;
     }
 

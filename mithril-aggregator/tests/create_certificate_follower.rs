@@ -104,9 +104,7 @@ async fn create_certificate_follower() {
             security_parameter: BlockNumber(0),
             step: BlockNumber(30),
         },
-        signed_entity_types: Some(
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull.to_string(),
-        ),
+        signed_entity_types: Some(SignedEntityTypeDiscriminants::CardanoDatabase.to_string()),
         ..ServeCommandConfiguration::new_sample(temp_dir!())
     };
     let mut leader_tester =

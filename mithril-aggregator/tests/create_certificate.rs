@@ -25,7 +25,6 @@ async fn create_certificate() {
         protocol_parameters: protocol_parameters.clone(),
         signed_entity_types: Some(
             [
-                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull.to_string(),
                 SignedEntityTypeDiscriminants::CardanoTransactions.to_string(),
                 SignedEntityTypeDiscriminants::CardanoDatabase.to_string(),
             ]
@@ -104,35 +103,8 @@ async fn create_certificate() {
         )
     );
 
-    comment!("The state machine should get back to signing to sign CardanoImmutableFilesFull when a new immutable file exists");
-    tester.increase_immutable_number().await.unwrap();
-    cycle!(tester, "signing");
-    let signers_for_immutables = &fixture.signers_fixture()[0..=6];
-    tester
-        .send_single_signatures(
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            signers_for_immutables,
-        )
-        .await
-        .unwrap();
-
-    comment!("The state machine should issue a certificate for the CardanoImmutableFilesFull");
-    cycle!(tester, "ready");
-    assert_last_certificate_eq!(
-        tester,
-        ExpectedCertificate::new(
-            Epoch(1),
-            &signers_for_immutables
-                .iter()
-                .map(|s| s.signer_with_stake.clone().into())
-                .collect::<Vec<_>>(),
-            fixture.compute_and_encode_avk(),
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(1, 3)),
-            ExpectedCertificate::genesis_identifier(Epoch(1)),
-        )
-    );
-
     comment!("The state machine should get back to signing to sign CardanoDatabase with the previously created immutable file");
+    tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "signing");
     let signers_for_cardano_database = &fixture.signers_fixture()[1..=6];
     tester
@@ -238,8 +210,7 @@ async fn create_certificate() {
     assert_metrics_eq!(
         tester.metrics_verifier,
         ExpectedMetrics::new()
-            .certificate_total(5)
-            .artifact_cardano_immutable_files_full_total(1)
+            .certificate_total(4)
             .artifact_cardano_database_total(1)
             .artifact_mithril_stake_distribution_total(1)
             .artifact_cardano_transaction_total(2)

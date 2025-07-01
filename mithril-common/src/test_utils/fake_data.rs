@@ -26,6 +26,12 @@ pub fn beacon() -> entities::CardanoDbBeacon {
     entities::CardanoDbBeacon::new(*time_point.epoch, time_point.immutable_file_number)
 }
 
+/// Fake Epoch
+pub fn epoch() -> Epoch {
+    let time_point = entities::TimePoint::dummy();
+    time_point.epoch
+}
+
 /// Fake ChainPoint
 pub fn chain_point() -> entities::ChainPoint {
     entities::ChainPoint {

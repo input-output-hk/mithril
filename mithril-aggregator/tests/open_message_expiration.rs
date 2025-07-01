@@ -25,9 +25,7 @@ async fn open_message_expiration() {
     let configuration = ServeCommandConfiguration {
         protocol_parameters: protocol_parameters.clone(),
         data_stores_directory: get_test_dir("open_message_expiration"),
-        signed_entity_types: Some(
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull.to_string(),
-        ),
+        signed_entity_types: Some(SignedEntityTypeDiscriminants::CardanoDatabase.to_string()),
         ..ServeCommandConfiguration::new_sample(temp_dir!())
     };
     let mut tester = RuntimeTester::build(
@@ -103,17 +101,17 @@ async fn open_message_expiration() {
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "signing");
 
-    comment!("The state machine should get back to signing to sign CardanoImmutableFilesFull");
+    comment!("The state machine should get back to signing to sign CardanoDatabase");
     let signers_for_immutables = &fixture.signers_fixture()[0..=6];
     tester
         .send_single_signatures(
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            SignedEntityTypeDiscriminants::CardanoDatabase,
             signers_for_immutables,
         )
         .await
         .unwrap();
 
-    comment!("The state machine should issue a certificate for the CardanoImmutableFilesFull");
+    comment!("The state machine should issue a certificate for the CardanoDatabase");
     cycle!(tester, "ready");
     assert_last_certificate_eq!(
         tester,
@@ -124,7 +122,7 @@ async fn open_message_expiration() {
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_avk(),
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(1, 3)),
+            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(1, 3)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );
@@ -133,6 +131,6 @@ async fn open_message_expiration() {
         tester.metrics_verifier,
         ExpectedMetrics::new()
             .certificate_total(1)
-            .artifact_cardano_immutable_files_full_total(1)
+            .artifact_cardano_database_total(1)
     );
 }
