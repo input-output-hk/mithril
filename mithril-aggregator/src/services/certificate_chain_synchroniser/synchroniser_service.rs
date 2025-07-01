@@ -131,9 +131,9 @@ impl MithrilCertificateChainSynchronizer {
     }
 
     async fn store_certificate_chain(&self, certificate_chain: Vec<Certificate>) -> StdResult<()> {
-        for certificate in certificate_chain {
-            self.certificate_storer.insert_or_replace(&certificate).await?;
-        }
+        self.certificate_storer
+            .insert_or_replace_many(certificate_chain)
+            .await?;
         Ok(())
     }
 }
@@ -481,9 +481,12 @@ mod tests {
 
         #[async_trait]
         impl SynchronizedCertificateStorer for DumbCertificateStorer {
-            async fn insert_or_replace(&self, certificate: &Certificate) -> StdResult<()> {
+            async fn insert_or_replace_many(
+                &self,
+                certificates_chain: Vec<Certificate>,
+            ) -> StdResult<()> {
                 let mut certificates = self.certificates.write().unwrap();
-                certificates.push(certificate.clone());
+                *certificates = certificates_chain;
                 Ok(())
             }
 
@@ -520,7 +523,7 @@ mod tests {
             let synchroniser = MithrilCertificateChainSynchronizer {
                 certificate_storer: MockBuilder::<MockSynchronizedCertificateStorer>::configure(
                     |mock| {
-                        mock.expect_insert_or_replace()
+                        mock.expect_insert_or_replace_many()
                             .return_once(move |_| Err(anyhow!("failure")));
                     },
                 ),
