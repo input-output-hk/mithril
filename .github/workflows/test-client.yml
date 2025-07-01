@@ -76,7 +76,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-14, windows-latest]
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-14, windows-latest]
         extra_args: ["", "--include-ancillary"]
 
     runs-on: ${{ matrix.os }}
@@ -163,12 +163,13 @@ jobs:
         run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST --backend v1 --download-dir v1 ${{ matrix.extra_args }} 2>&1 | tee cdb-download-output.txt
 
       - name: Cardano Database Snapshot / verify Cardano node starts successfully
-        if: runner.os == 'Linux'
+        if: matrix.os == 'ubuntu-24.04'
         shell: bash
         run: .github/workflows/scripts/verify-cardano-db-restoration.sh ./bin/cdb-download-output.txt "${{ matrix.extra_args }}"
 
+      # The 'snapshot-converter' binary is not currently supported on Linux ARM64 platforms.
       - name: Ledger state snapshot conversion from InMemory to LMDB
-        if: matrix.extra_args == '--include-ancillary'
+        if: matrix.os != 'ubuntu-24.04-arm' && matrix.extra_args == '--include-ancillary'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
@@ -268,7 +269,7 @@ jobs:
         run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db verify --backend v2 --db-dir v2/db $CARDANO_DATABASE_V2_SNAPSHOT_HASH | tee cdb-v2-verify-output.txt
 
       - name: Cardano Database V2 Snapshot / verify Cardano node starts successfully
-        if: runner.os == 'Linux' && steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true'
+        if: matrix.os == 'ubuntu-24.04' && steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
         run: .github/workflows/scripts/verify-cardano-db-restoration.sh ./bin/cdb-v2-download-output.txt "${{ matrix.extra_args }}"
 
