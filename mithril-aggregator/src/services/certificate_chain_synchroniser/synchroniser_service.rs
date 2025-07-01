@@ -41,6 +41,25 @@ pub struct MithrilCertificateChainSynchronizer {
     logger: Logger,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum SyncStatus {
+    Forced,
+    NoLocalGenesis,
+    RemoteGenesisMatchesLocalGenesis,
+    RemoteGenesisDontMatchesLocalGenesis,
+}
+
+impl SyncStatus {
+    fn should_sync(&self) -> bool {
+        match self {
+            SyncStatus::Forced => true,
+            SyncStatus::NoLocalGenesis => true,
+            SyncStatus::RemoteGenesisMatchesLocalGenesis => false,
+            SyncStatus::RemoteGenesisDontMatchesLocalGenesis => true,
+        }
+    }
+}
+
 impl MithrilCertificateChainSynchronizer {
     /// Create a new `MithrilCertificateChainSynchronizer` instance
     pub fn new(
@@ -59,9 +78,9 @@ impl MithrilCertificateChainSynchronizer {
         }
     }
 
-    async fn should_sync(&self, force: bool) -> StdResult<bool> {
+    async fn check_sync_state(&self, force: bool) -> StdResult<SyncStatus> {
         if force {
-            return Ok(true);
+            return Ok(SyncStatus::Forced);
         }
 
         match self.certificate_storer.get_latest_genesis().await? {
@@ -71,13 +90,15 @@ impl MithrilCertificateChainSynchronizer {
                     .get_genesis_certificate_details()
                     .await?
                 {
-                    Some(remote_genesis) => Ok(local_genesis != remote_genesis),
+                    Some(remote_genesis) if (local_genesis == remote_genesis) => {
+                        Ok(SyncStatus::RemoteGenesisMatchesLocalGenesis)
+                    }
+                    Some(_) => Ok(SyncStatus::RemoteGenesisDontMatchesLocalGenesis),
                     // The remote aggregator doesn't have a chain yet, we can't sync
                     None => Err(anyhow!("Remote aggregator doesn't have a chain yet")),
                 }
             }
-            // No local genesis certificate found, always sync
-            None => Ok(true),
+            None => Ok(SyncStatus::NoLocalGenesis),
         }
     }
 
@@ -121,12 +142,16 @@ impl MithrilCertificateChainSynchronizer {
 impl CertificateChainSynchronizer for MithrilCertificateChainSynchronizer {
     async fn synchronize_certificate_chain(&self, force: bool) -> StdResult<()> {
         debug!(self.logger, ">> synchronize_certificate_chain"; "force" => force);
-        if !self.should_sync(force).await.with_context(|| {
+
+        let sync_state = self.check_sync_state(force).await.with_context(|| {
             format!("Failed to check if certificate chain should be sync (force: `{force}`)")
-        })? {
+        })?;
+        if sync_state.should_sync() {
+            info!(self.logger, "Start synchronizing certificate chain"; "sync_state" => ?sync_state);
+        } else {
+            info!(self.logger, "No need to synchronize certificate chain"; "sync_state" => ?sync_state);
             return Ok(());
         }
-        info!(self.logger, "Start synchronizing certificate chain");
 
         let starting_point = self
             .remote_certificate_retriever
@@ -268,40 +293,71 @@ mod tests {
         };
     }
 
-    mod should_sync {
+    mod check_sync_state {
         use super::*;
 
-        #[tokio::test]
-        async fn should_sync_if_force_true() {
-            let synchroniser = MithrilCertificateChainSynchronizer::default_for_test();
-
-            let should_sync = synchroniser.should_sync(true).await.unwrap();
-            assert!(should_sync);
+        #[test]
+        fn sync_state_should_sync() {
+            assert!(SyncStatus::Forced.should_sync());
+            assert!(!SyncStatus::RemoteGenesisMatchesLocalGenesis.should_sync());
+            assert!(SyncStatus::RemoteGenesisDontMatchesLocalGenesis.should_sync());
+            assert!(SyncStatus::NoLocalGenesis.should_sync());
         }
 
         #[tokio::test]
-        async fn should_sync_if_force_true_without_checking_genesis_certificate() {
+        async fn state_when_force_true() {
+            let synchroniser = MithrilCertificateChainSynchronizer::default_for_test();
+
+            let sync_state = synchroniser.check_sync_state(true).await.unwrap();
+            assert_eq!(SyncStatus::Forced, sync_state);
+        }
+
+        #[tokio::test]
+        async fn state_when_force_false_and_no_local_genesis_certificate_found() {
+            let synchroniser = mocked_synchroniser!(with_local_genesis: Ok(None));
+
+            let sync_state = synchroniser.check_sync_state(false).await.unwrap();
+            assert_eq!(SyncStatus::NoLocalGenesis, sync_state);
+        }
+
+        #[tokio::test]
+        async fn state_when_force_false_and_remote_genesis_dont_matches_local_genesis() {
+            let synchroniser = mocked_synchroniser!(
+                with_remote_genesis: Ok(Some(fake_data::genesis_certificate("remote_genesis"))),
+                with_local_genesis: Ok(Some(fake_data::genesis_certificate("local_genesis")))
+            );
+
+            let sync_state = synchroniser.check_sync_state(false).await.unwrap();
+            assert_eq!(SyncStatus::RemoteGenesisDontMatchesLocalGenesis, sync_state);
+        }
+
+        #[tokio::test]
+        async fn state_when_force_false_and_remote_genesis_matches_local_genesis() {
+            let remote_genesis = fake_data::genesis_certificate("genesis");
+            let local_genesis = remote_genesis.clone();
+            let synchroniser = mocked_synchroniser!(
+                with_remote_genesis: Ok(Some(remote_genesis)),
+                with_local_genesis: Ok(Some(local_genesis))
+            );
+
+            let sync_state = synchroniser.check_sync_state(false).await.unwrap();
+            assert_eq!(SyncStatus::RemoteGenesisMatchesLocalGenesis, sync_state);
+        }
+
+        #[tokio::test]
+        async fn if_force_true_it_should_not_fetch_remote_genesis_certificate() {
             let synchroniser = mocked_synchroniser!(with_remote_genesis: Err(anyhow!(
                 "should not fetch genesis"
             )));
 
-            let should_sync = synchroniser.should_sync(true).await.unwrap();
-            assert!(should_sync);
-        }
-
-        #[tokio::test]
-        async fn should_sync_if_false_and_no_local_genesis_certificate_found() {
-            let synchroniser = mocked_synchroniser!(with_local_genesis: Ok(None));
-
-            let should_sync = synchroniser.should_sync(false).await.unwrap();
-            assert!(should_sync);
+            synchroniser.check_sync_state(true).await.unwrap();
         }
 
         #[tokio::test]
         async fn should_abort_with_error_if_force_false_and_fails_to_retrieve_local_genesis() {
             let synchroniser = mocked_synchroniser!(with_local_genesis: Err(anyhow!("failure")));
             synchroniser
-                .should_sync(false)
+                .check_sync_state(false)
                 .await
                 .expect_err("Expected an error but was:");
         }
@@ -313,7 +369,7 @@ mod tests {
                 with_local_genesis: Ok(Some(fake_data::genesis_certificate("local_genesis")))
             );
             synchroniser
-                .should_sync(false)
+                .check_sync_state(false)
                 .await
                 .expect_err("Expected an error but was:");
         }
@@ -325,7 +381,7 @@ mod tests {
                 with_local_genesis: Ok(Some(fake_data::genesis_certificate("local_genesis")))
             );
             let error = synchroniser
-                .should_sync(false)
+                .check_sync_state(false)
                 .await
                 .expect_err("Expected an error but was:");
 
@@ -335,30 +391,6 @@ mod tests {
                     .contains("Remote aggregator doesn't have a chain yet"),
                 "Unexpected error:\n{error:?}"
             );
-        }
-
-        #[tokio::test]
-        async fn should_sync_if_force_false_and_remote_genesis_dont_matches_local_genesis() {
-            let synchroniser = mocked_synchroniser!(
-                with_remote_genesis: Ok(Some(fake_data::genesis_certificate("remote_genesis"))),
-                with_local_genesis: Ok(Some(fake_data::genesis_certificate("local_genesis")))
-            );
-
-            let should_sync = synchroniser.should_sync(false).await.unwrap();
-            assert!(should_sync);
-        }
-
-        #[tokio::test]
-        async fn should_not_sync_if_force_false_and_remote_genesis_matches_local_genesis() {
-            let remote_genesis = fake_data::genesis_certificate("genesis");
-            let local_genesis = remote_genesis.clone();
-            let synchroniser = mocked_synchroniser!(
-                with_remote_genesis: Ok(Some(remote_genesis)),
-                with_local_genesis: Ok(Some(local_genesis))
-            );
-
-            let should_sync = synchroniser.should_sync(false).await.unwrap();
-            assert!(!should_sync);
         }
     }
 
