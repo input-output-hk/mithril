@@ -17,9 +17,9 @@
 //!    - if it doesn't exist, it is inserted
 //! 5. End
 //!
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
-use slog::Logger;
+use slog::{Logger, debug, info};
 use std::sync::Arc;
 
 use mithril_common::StdResult;
@@ -111,9 +111,7 @@ impl MithrilCertificateChainSynchronizer {
 
     async fn store_certificate_chain(&self, certificate_chain: Vec<Certificate>) -> StdResult<()> {
         for certificate in certificate_chain {
-            self.certificate_storer
-                .insert_or_replace(&certificate)
-                .await?;
+            self.certificate_storer.insert_or_replace(&certificate).await?;
         }
         Ok(())
     }
@@ -122,20 +120,34 @@ impl MithrilCertificateChainSynchronizer {
 #[async_trait]
 impl CertificateChainSynchronizer for MithrilCertificateChainSynchronizer {
     async fn synchronize_certificate_chain(&self, force: bool) -> StdResult<()> {
-        if !self.should_sync(force).await? {
+        debug!(self.logger, ">> synchronize_certificate_chain"; "force" => force);
+        if !self.should_sync(force).await.with_context(|| {
+            format!("Failed to check if certificate chain should be sync (force: `{force}`)")
+        })? {
             return Ok(());
         }
+        info!(self.logger, "Start synchronizing certificate chain");
 
         let starting_point = self
             .remote_certificate_retriever
             .get_latest_certificate_details()
             .await?
-            .ok_or(anyhow!("Remote aggregator doesn't have a chain yet"))?;
+            .ok_or(
+                anyhow!("Remote aggregator doesn't have a chain yet")
+                    .context("Failed to retrieve latest remote certificate details"),
+            )?;
         let remote_certificate_chain = self
             .retrieve_and_validate_remote_certificate_chain(starting_point)
-            .await?;
-        self.store_certificate_chain(remote_certificate_chain).await?;
+            .await
+            .with_context(|| "Failed to retrieve and validate remote certificate chain")?;
+        self.store_certificate_chain(remote_certificate_chain)
+            .await
+            .with_context(|| "Failed to store remote retrieved certificate chain")?;
 
+        info!(
+            self.logger,
+            "Certificate chain synchronized with remote source"
+        );
         Ok(())
     }
 }
@@ -145,7 +157,9 @@ mod tests {
     use anyhow::anyhow;
 
     use mithril_common::crypto_helper::ProtocolGenesisVerificationKey;
-    use mithril_common::test_utils::{fake_data, fake_keys, mock_extensions::MockBuilder};
+    use mithril_common::test_utils::{
+        CertificateChainBuilder, fake_data, fake_keys, mock_extensions::MockBuilder,
+    };
 
     use crate::services::{MockRemoteCertificateRetriever, MockSynchronizedCertificateStorer};
     use crate::test_tools::TestLogger;
@@ -349,10 +363,11 @@ mod tests {
     }
 
     mod retrieve_validate_remote_certificate_chain {
-        use super::*;
         use mithril_common::certificate_chain::{
             FakeCertificaterRetriever, MithrilCertificateVerifier,
         };
+
+        use super::*;
 
         fn fake_verifier(remote_certificate_chain: &[Certificate]) -> Arc<dyn CertificateVerifier> {
             let verifier = MithrilCertificateVerifier::new(
