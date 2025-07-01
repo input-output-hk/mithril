@@ -110,6 +110,11 @@ impl MithrilCertificateChainSynchronizer {
     }
 
     async fn store_certificate_chain(&self, certificate_chain: Vec<Certificate>) -> StdResult<()> {
+        for certificate in certificate_chain {
+            self.certificate_storer
+                .insert_or_replace(&certificate)
+                .await?;
+        }
         Ok(())
     }
 }
@@ -408,6 +413,77 @@ mod tests {
 
             let expected = chain.certificate_path_to_genesis(&starting_point.hash);
             assert_eq!(remote_certificate_chain, expected);
+        }
+    }
+
+    mod store_remote_certificate_chain {
+        use std::sync::RwLock;
+
+        use super::*;
+
+        #[derive(Default)]
+        struct DumbCertificateStorer {
+            certificates: RwLock<Vec<Certificate>>,
+        }
+
+        impl DumbCertificateStorer {
+            fn stored_certificates(&self) -> Vec<Certificate> {
+                self.certificates.read().unwrap().clone()
+            }
+        }
+
+        #[async_trait]
+        impl SynchronizedCertificateStorer for DumbCertificateStorer {
+            async fn insert_or_replace(&self, certificate: &Certificate) -> StdResult<()> {
+                let mut certificates = self.certificates.write().unwrap();
+                certificates.push(certificate.clone());
+                Ok(())
+            }
+
+            async fn get_latest_genesis(&self) -> StdResult<Option<Certificate>> {
+                unimplemented!("not needed in store_remote_certificate_chain tests")
+            }
+        }
+
+        #[tokio::test]
+        async fn do_store_given_certificates() {
+            let certificates_chain = vec![
+                fake_data::genesis_certificate("genesis"),
+                fake_data::certificate("certificate1"),
+                fake_data::certificate("certificate2"),
+            ];
+            let storer = Arc::new(DumbCertificateStorer::default());
+            let synchroniser = MithrilCertificateChainSynchronizer {
+                certificate_storer: storer.clone(),
+                ..MithrilCertificateChainSynchronizer::default_for_test()
+            };
+
+            assert_eq!(Vec::<Certificate>::new(), storer.stored_certificates());
+
+            synchroniser
+                .store_certificate_chain(certificates_chain.clone())
+                .await
+                .unwrap();
+
+            assert_eq!(certificates_chain, storer.stored_certificates());
+        }
+
+        #[tokio::test]
+        async fn fail_on_storer_error() {
+            let synchroniser = MithrilCertificateChainSynchronizer {
+                certificate_storer: MockBuilder::<MockSynchronizedCertificateStorer>::configure(
+                    |mock| {
+                        mock.expect_insert_or_replace()
+                            .return_once(move |_| Err(anyhow!("failure")));
+                    },
+                ),
+                ..MithrilCertificateChainSynchronizer::default_for_test()
+            };
+
+            synchroniser
+                .store_certificate_chain(vec![fake_data::certificate("certificate")])
+                .await
+                .unwrap_err();
         }
     }
 }
