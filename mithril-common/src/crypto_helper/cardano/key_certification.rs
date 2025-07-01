@@ -299,15 +299,19 @@ impl KeyRegWrapper {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::crypto_helper::cardano::tests_setup::KesCryptographicMaterialForTest;
-    use crate::crypto_helper::cardano::{
-        tests_setup::create_kes_cryptographic_material, KesSignerStandard,
+    use crate::crypto_helper::cardano::kes::{
+        tests_setup::{
+            create_kes_cryptographic_material, KesCryptographicMaterialForTest,
+            KesPartyIndexForTest,
+        },
+        KesSignerStandard,
     };
     use crate::crypto_helper::{OpCert, SerDeShelleyFileFormat};
 
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
+
+    use super::*;
 
     #[test]
     fn test_vector_key_reg() {
@@ -321,12 +325,20 @@ mod test {
             party_id: party_id_1,
             operational_certificate_file: operational_certificate_file_1,
             kes_secret_key_file: kes_secret_key_file_1,
-        } = create_kes_cryptographic_material(1, 0 as KesPeriod, "test_vector_key_reg");
+        } = create_kes_cryptographic_material(
+            1 as KesPartyIndexForTest,
+            0 as KesPeriod,
+            "test_vector_key_reg",
+        );
         let KesCryptographicMaterialForTest {
             party_id: party_id_2,
             operational_certificate_file: operational_certificate_file_2,
             kes_secret_key_file: kes_secret_key_file_2,
-        } = create_kes_cryptographic_material(2, 0 as KesPeriod, "test_vector_key_reg");
+        } = create_kes_cryptographic_material(
+            2 as KesPartyIndexForTest,
+            0 as KesPeriod,
+            "test_vector_key_reg",
+        );
 
         let mut key_reg = KeyRegWrapper::init(&vec![(party_id_1, 10), (party_id_2, 3)]);
 

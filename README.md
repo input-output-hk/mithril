@@ -88,6 +88,8 @@ This repository consists of the following parts:
 
   - [**Mithril cli helper**](./internal/mithril-cli-helper): **CLI** tools for **Mithril** binaries.
 
+  - [**Mithril DMQ node**](./internal/mithril-dmq): mechanisms to publish and consume messages of a **Decentralized Message Queue network** through a DMQ node, used by Mithril network nodes.
+
   - [**Mithril doc**](./internal/mithril-doc): an API that generates Markdown documentation for crate command line arguments.
 
   - [**Mithril doc derive**](./internal/mithril-doc-derive): a macro implementation used by **Mithril doc**.

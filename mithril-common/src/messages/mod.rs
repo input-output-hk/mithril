@@ -61,7 +61,7 @@ pub use mithril_stake_distribution::MithrilStakeDistributionMessage;
 pub use mithril_stake_distribution_list::{
     MithrilStakeDistributionListItemMessage, MithrilStakeDistributionListMessage,
 };
-pub use register_signature::RegisterSignatureMessageHttp;
+pub use register_signature::{RegisterSignatureMessageDmq, RegisterSignatureMessageHttp};
 pub use register_signer::RegisterSignerMessage;
 pub use snapshot::SnapshotMessage;
 pub use snapshot_download::SnapshotDownloadMessage;

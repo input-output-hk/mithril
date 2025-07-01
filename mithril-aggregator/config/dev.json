@@ -1,7 +1,7 @@
 {
   "environment": "Production",
   "cardano_cli_path": "cardano-cli",
-  "cardano_node_socket_path": "/tmp/cardano.sock",
+  "cardano_node_socket_path": "/ipc/node.socket",
   "network": "devnet",
   "network_magic": 42,
   "run_interval": 30000,

@@ -3837,7 +3837,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0452a60c1863c1f50b5f77cd295e8d2786849f35883f0b9e18e7e6e1b5691b0"
 dependencies = [
  "half",
- "minicbor-derive",
+ "minicbor-derive 0.15.3",
+]
+
+[[package]]
+name = "minicbor"
+version = "0.26.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a309f581ade7597820083bc275075c4c6986e57e53f8d26f88507cfefc8c987"
+dependencies = [
+ "half",
+ "minicbor-derive 0.16.2",
 ]
 
 [[package]]
@@ -3845,6 +3855,17 @@ name = "minicbor-derive"
 version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd2209fff77f705b00c737016a48e73733d7fbccb8b007194db148f03561fb70"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.104",
+]
+
+[[package]]
+name = "minicbor-derive"
+version = "0.16.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9882ef5c56df184b8ffc107fc6c61e33ee3a654b021961d790a78571bb9d67a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3889,7 +3910,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.7.69"
+version = "0.7.70"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3908,6 +3929,7 @@ dependencies = [
  "mithril-cardano-node-internal-database",
  "mithril-cli-helper",
  "mithril-common",
+ "mithril-dmq",
  "mithril-doc",
  "mithril-era",
  "mithril-metric",
@@ -3999,9 +4021,9 @@ dependencies = [
  "mockall",
  "nom 8.0.0",
  "pallas-addresses",
- "pallas-codec",
- "pallas-crypto",
- "pallas-network",
+ "pallas-codec 0.32.1",
+ "pallas-crypto 0.32.1",
+ "pallas-network 0.32.1",
  "pallas-primitives",
  "pallas-traverse",
  "rand_core 0.6.4",
@@ -4138,7 +4160,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.6.3"
+version = "0.6.4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4176,6 +4198,23 @@ dependencies = [
  "typetag",
  "walkdir",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "mithril-dmq"
+version = "0.1.1"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "blake2 0.10.6",
+ "mithril-cardano-node-chain",
+ "mithril-common",
+ "mockall",
+ "pallas-network 1.0.0-alpha.2",
+ "slog",
+ "slog-async",
+ "slog-term",
+ "tokio",
 ]
 
 [[package]]
@@ -4331,7 +4370,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.256"
+version = "0.2.257"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4346,6 +4385,7 @@ dependencies = [
  "mithril-cardano-node-internal-database",
  "mithril-cli-helper",
  "mithril-common",
+ "mithril-dmq",
  "mithril-doc",
  "mithril-era",
  "mithril-metric",
@@ -4930,8 +4970,8 @@ dependencies = [
  "crc",
  "cryptoxide",
  "hex",
- "pallas-codec",
- "pallas-crypto",
+ "pallas-codec 0.32.1",
+ "pallas-crypto 0.32.1",
  "thiserror 1.0.69",
 ]
 
@@ -4942,7 +4982,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e344b3e39ca3bd79bb7547b65b980869c3c377a00c48ece70430f4611c32a18b"
 dependencies = [
  "hex",
- "minicbor",
+ "minicbor 0.25.1",
+ "serde",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "pallas-codec"
+version = "1.0.0-alpha.2"
+source = "git+https://github.com/txpipe/pallas.git?branch=main#a97bd93cdc55fa2b061a6ad5fd572f5528a912b8"
+dependencies = [
+ "hex",
+ "minicbor 0.26.5",
  "serde",
  "thiserror 1.0.69",
 ]
@@ -4955,11 +5006,24 @@ checksum = "59c89ea16190a87a1d8bd36923093740a2b659ed6129f4636329319a70cc4db3"
 dependencies = [
  "cryptoxide",
  "hex",
- "pallas-codec",
+ "pallas-codec 0.32.1",
  "rand_core 0.6.4",
  "serde",
  "thiserror 1.0.69",
  "zeroize",
+]
+
+[[package]]
+name = "pallas-crypto"
+version = "1.0.0-alpha.2"
+source = "git+https://github.com/txpipe/pallas.git?branch=main#a97bd93cdc55fa2b061a6ad5fd572f5528a912b8"
+dependencies = [
+ "cryptoxide",
+ "hex",
+ "pallas-codec 1.0.0-alpha.2",
+ "rand_core 0.6.4",
+ "serde",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -4971,8 +5035,25 @@ dependencies = [
  "byteorder",
  "hex",
  "itertools 0.13.0",
- "pallas-codec",
- "pallas-crypto",
+ "pallas-codec 0.32.1",
+ "pallas-crypto 0.32.1",
+ "rand 0.8.5",
+ "socket2",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "pallas-network"
+version = "1.0.0-alpha.2"
+source = "git+https://github.com/txpipe/pallas.git?branch=main#a97bd93cdc55fa2b061a6ad5fd572f5528a912b8"
+dependencies = [
+ "byteorder",
+ "hex",
+ "itertools 0.13.0",
+ "pallas-codec 1.0.0-alpha.2",
+ "pallas-crypto 1.0.0-alpha.2",
  "rand 0.8.5",
  "socket2",
  "thiserror 1.0.69",
@@ -4990,8 +5071,8 @@ dependencies = [
  "bech32 0.9.1",
  "hex",
  "log",
- "pallas-codec",
- "pallas-crypto",
+ "pallas-codec 0.32.1",
+ "pallas-crypto 0.32.1",
  "serde",
  "serde_json",
 ]
@@ -5005,8 +5086,8 @@ dependencies = [
  "hex",
  "itertools 0.13.0",
  "pallas-addresses",
- "pallas-codec",
- "pallas-crypto",
+ "pallas-codec 0.32.1",
+ "pallas-crypto 0.32.1",
  "pallas-primitives",
  "paste",
  "serde",

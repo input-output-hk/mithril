@@ -8,7 +8,10 @@ use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use strum::{AsRefStr, Display, EnumDiscriminants, EnumIter, EnumString, IntoEnumIterator};
 
-use crate::StdResult;
+use crate::{
+    crypto_helper::{TryFromBytes, TryToBytes},
+    StdResult,
+};
 
 use super::{BlockNumber, CardanoDbBeacon, Epoch};
 
@@ -151,6 +154,21 @@ impl SignedEntityType {
                 hasher.update(&block_number.to_be_bytes())
             }
         }
+    }
+}
+
+impl TryFromBytes for SignedEntityType {
+    fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
+        let (res, _) =
+            bincode::serde::decode_from_slice::<Self, _>(bytes, bincode::config::standard())?;
+
+        Ok(res)
+    }
+}
+
+impl TryToBytes for SignedEntityType {
+    fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
+        bincode::serde::encode_to_vec(self, bincode::config::standard()).map_err(|e| e.into())
     }
 }
 
@@ -403,6 +421,19 @@ mod tests {
         assert_same_json!(
             r#"{"epoch":12,"immutable_file_number":987}"#,
             &cardano_database_full_json
+        );
+    }
+
+    #[test]
+    fn bytes_encoding() {
+        let cardano_stake_distribution = SignedEntityType::CardanoStakeDistribution(Epoch(25));
+        let cardano_stake_distribution_bytes = cardano_stake_distribution.to_bytes_vec().unwrap();
+        let cardano_stake_distribution_from_bytes =
+            SignedEntityType::try_from_bytes(&cardano_stake_distribution_bytes).unwrap();
+
+        assert_eq!(
+            cardano_stake_distribution,
+            cardano_stake_distribution_from_bytes
         );
     }
 

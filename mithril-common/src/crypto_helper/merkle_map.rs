@@ -360,8 +360,7 @@ impl<K: MKMapKey + Serialize + for<'de> Deserialize<'de>> MKMapProof<K> {
     /// Convert the proof from bytes
     pub fn from_bytes(bytes: &[u8]) -> StdResult<Self> {
         let (res, _) =
-            bincode::serde::decode_from_slice::<Self, _>(bytes, bincode::config::standard())
-                .map_err(|e| anyhow!(e))?;
+            bincode::serde::decode_from_slice::<Self, _>(bytes, bincode::config::standard())?;
 
         Ok(res)
     }

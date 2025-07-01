@@ -1,3 +1,4 @@
+use mithril_common::crypto_helper::KesSigner;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -81,4 +82,7 @@ pub struct SignerDependencyContainer {
 
     /// Certifier service
     pub certifier: Arc<dyn CertifierService>,
+
+    /// Kes signer service
+    pub kes_signer: Option<Arc<dyn KesSigner>>,
 }

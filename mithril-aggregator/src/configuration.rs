@@ -61,10 +61,14 @@ pub trait ConfigurationSource {
         panic!("cardano_cli_path is not implemented.");
     }
 
-    /// Path of the socket used by the Cardano CLI tool
-    /// to communicate with the Cardano node
+    /// Path of the socket opened by the Cardano node
     fn cardano_node_socket_path(&self) -> PathBuf {
         panic!("cardano_node_socket_path is not implemented.");
+    }
+
+    /// Path of the socket opened by the DMQ node
+    fn dmq_node_socket_path(&self) -> Option<PathBuf> {
+        panic!("dmq_node_socket_path is not implemented.");
     }
 
     /// Cardano node version.
@@ -390,10 +394,13 @@ pub struct ServeCommandConfiguration {
     #[example = "`cardano-cli`"]
     pub cardano_cli_path: PathBuf,
 
-    /// Path of the socket used by the Cardano CLI tool
-    /// to communicate with the Cardano node
-    #[example = "`/tmp/cardano.sock`"]
+    /// Path of the socket opened by the Cardano node
+    #[example = "`/ipc/node.socket`"]
     pub cardano_node_socket_path: PathBuf,
+
+    /// Path of the socket opened by the DMQ node
+    #[example = "`/ipc/dmq.socket`"]
+    pub dmq_node_socket_path: Option<PathBuf>,
 
     /// Cardano node version.
     ///
@@ -628,6 +635,7 @@ impl ServeCommandConfiguration {
             environment: ExecutionEnvironment::Test,
             cardano_cli_path: PathBuf::new(),
             cardano_node_socket_path: PathBuf::new(),
+            dmq_node_socket_path: None,
             cardano_node_version: "0.0.1".to_string(),
             network_magic: Some(42),
             network: "devnet".to_string(),
@@ -705,6 +713,10 @@ impl ConfigurationSource for ServeCommandConfiguration {
 
     fn cardano_node_socket_path(&self) -> PathBuf {
         self.cardano_node_socket_path.clone()
+    }
+
+    fn dmq_node_socket_path(&self) -> Option<PathBuf> {
+        self.dmq_node_socket_path.clone()
     }
 
     fn cardano_node_version(&self) -> String {
