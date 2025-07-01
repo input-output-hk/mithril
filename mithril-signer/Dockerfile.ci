@@ -1,8 +1,11 @@
 # Creates a docker image to run an executable built outside of the image
 # This relies on the fact the mithril-signer executable has been built
-# on a debian-compatible x86-64 environment
+# on a debian-compatible environment
 ARG DOCKER_IMAGE_FROM=debian:12-slim
 FROM $DOCKER_IMAGE_FROM
+
+# Build-time platform architecture
+ARG TARGETARCH
 
 # Create appuser
 RUN adduser --no-create-home --disabled-password appuser
@@ -18,7 +21,7 @@ ARG CARDANO_NODE_VERSION=10.4.1
 ARG CARDANO_BIN_URL=https://github.com/input-output-hk/cardano-node/releases/download/$CARDANO_NODE_VERSION/cardano-node-$CARDANO_NODE_VERSION-linux.tar.gz
 ARG EMBED-CARDANO-CLI=0
 # Install cardano-cli
-RUN if [ "$EMBED-CARDANO-CLI" = 1 ] ; then \
+RUN if [ "$EMBED-CARDANO-CLI" = 1 ] && [ "$TARGETARCH" = "amd64" ] ; then \
     wget -nv -O cardano-bin.tar.gz $CARDANO_BIN_URL \
     && mkdir -p /app/bin \
     && (tar xzf cardano-bin.tar.gz ./bin/cardano-cli && mv /bin/cardano-cli /app/bin) || (tar xzf cardano-bin.tar.gz ./cardano-cli && mv cardano-cli /app/bin) \ 
@@ -28,7 +31,7 @@ RUN if [ "$EMBED-CARDANO-CLI" = 1 ] ; then \
     fi
 
 # Copy the executable
-COPY mithril-signer/mithril-signer /app/bin/mithril-signer
+COPY mithril-signer/bin-linux-$TARGETARCH/mithril-signer /app/bin/mithril-signer
 
 # Copy the config files
 COPY mithril-signer/config /app/config

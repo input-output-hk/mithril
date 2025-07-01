@@ -503,6 +503,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Log in to the Container registry
         uses: docker/login-action@v3
         with:
@@ -519,11 +525,17 @@ jobs:
             unstable
             type=raw,value=${{ github.base_ref || github.ref_name }}-{{sha}}
 
-      - name: Download built artifacts
+      - name: Download built artifacts (Linux-X64)
         uses: actions/download-artifact@v4
         with:
-          name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
-          path: ${{ matrix.project }}
+          name: mithril-distribution-Linux-X64
+          path: ${{ matrix.project }}/bin-linux-amd64
+
+      - name: Download built artifacts (Linux-ARM64)
+        uses: actions/download-artifact@v4
+        with:
+          name: mithril-distribution-Linux-ARM64
+          path: ${{ matrix.project }}/bin-linux-arm64
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
@@ -532,6 +544,8 @@ jobs:
           file: ${{ env.DOCKER_FILE }}
           push: ${{ env.PUSH_PACKAGES }}
           tags: ${{ steps.meta.outputs.tags }}
+          platforms: linux/amd64,linux/arm64
+          provenance: false
 
   publish-crate-test:
     strategy:
