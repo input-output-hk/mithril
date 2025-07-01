@@ -132,6 +132,11 @@ impl CertificateChainFixture {
         &self.certificates_chained[self.certificates_chained.len() - 1]
     }
 
+    /// Return the latest certificate of this chain
+    pub fn latest_certificate(&self) -> &Certificate {
+        &self.certificates_chained[0]
+    }
+
     /// Return a copy of the chain but with reversed order (from genesis to last)
     pub fn reversed_chain(&self) -> Vec<Certificate> {
         self.certificates_chained.iter().rev().cloned().collect()
@@ -1063,6 +1068,22 @@ mod test {
             let chain_with_multiple_certificates =
                 CertificateChainBuilder::new().with_total_certificates(10).build();
             assert!(chain_with_multiple_certificates.genesis_certificate().is_genesis());
+        }
+
+        #[test]
+        fn get_latest_certificate() {
+            let chain_with_only_a_genesis = CertificateChainBuilder::new()
+                .with_total_certificates(1)
+                .build();
+            assert!(chain_with_only_a_genesis.latest_certificate().is_genesis());
+
+            let chain_with_multiple_certificates = CertificateChainBuilder::new()
+                .with_total_certificates(10)
+                .build();
+            assert_eq!(
+                chain_with_multiple_certificates.latest_certificate(),
+                chain_with_multiple_certificates.first().unwrap()
+            );
         }
 
         #[test]
