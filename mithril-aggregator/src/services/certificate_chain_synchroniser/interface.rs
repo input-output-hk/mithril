@@ -29,8 +29,9 @@ pub trait RemoteCertificateRetriever: Sync + Send {
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait SynchronizedCertificateStorer: Send + Sync {
-    /// Insert a Certificate in the database, if it already exists, it will be deleted before inserting
-    async fn insert_or_replace(&self, certificate: &Certificate) -> StdResult<()>;
+    /// Insert a list of Certificates in the database, if some already exists, they will be deleted before inserting
+    async fn insert_or_replace_many(&self, certificates: Vec<Certificate>) -> StdResult<()>;
+
     /// Get the latest genesis Certificate
     async fn get_latest_genesis(&self) -> StdResult<Option<Certificate>>;
 }
