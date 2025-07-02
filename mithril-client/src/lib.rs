@@ -125,6 +125,7 @@ pub mod cardano_stake_distribution_client;
 pub mod cardano_transaction_client;
 pub mod certificate_client;
 mod client;
+pub mod era_fetcher;
 pub mod feedback;
 mod message;
 pub mod mithril_stake_distribution_client;
@@ -137,6 +138,7 @@ mod type_alias;
 mod utils;
 
 pub use client::*;
+pub use era_fetcher::{EraFetcher, FetchedEra};
 pub use message::*;
 pub use type_alias::*;
 
