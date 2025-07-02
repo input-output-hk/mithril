@@ -41,11 +41,11 @@ impl KesSignerFake {
         } = create_kes_cryptographic_material(
             1 as KesPartyIndexForTest,
             0 as KesPeriod,
-            "fake_kes_signer_returns_signature_batches_in_expected_order",
+            "kes_signer_fake",
         );
         let message = b"Test message for KES signing";
         let kes_signer = KesSignerStandard::new(kes_secret_key_file, operational_certificate_file);
-        let kes_signing_period = 1;
+        let kes_signing_period = 0;
         let (kes_signature, op_cert) = kes_signer
             .sign(message, kes_signing_period)
             .expect("Signing should not fail");

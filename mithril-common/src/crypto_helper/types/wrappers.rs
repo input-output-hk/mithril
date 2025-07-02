@@ -6,13 +6,17 @@ use mithril_stm::{
 use crate::crypto_helper::{D, MKMapProof, MKProof, OpCert, ProtocolKey};
 use crate::entities::BlockRange;
 
+/// Wrapper of [KES:Sum6KesSig](https://github.com/input-output-hk/kes/blob/master/src/kes.rs) to add
+/// serialization utilities.
+pub type ProtocolKesSignature = ProtocolKey<Sum6KesSig>;
+
 /// Wrapper of [MithrilStm:VerificationKeyProofOfPossession](type@VerificationKeyProofOfPossession) to add serialization
 /// utilities.
 pub type ProtocolSignerVerificationKey = ProtocolKey<VerificationKeyProofOfPossession>;
 
 /// Wrapper of [KES:Sum6KesSig](https://github.com/input-output-hk/kes/blob/master/src/kes.rs) to add
 /// serialization utilities.
-pub type ProtocolSignerVerificationKeySignature = ProtocolKey<Sum6KesSig>;
+pub type ProtocolSignerVerificationKeySignature = ProtocolKesSignature;
 
 /// Wrapper of [MithrilStm:SingleSignature](type@SingleSignature) to add serialization utilities.
 pub type ProtocolSingleSignature = ProtocolKey<SingleSignature>;

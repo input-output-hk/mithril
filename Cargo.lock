@@ -4206,11 +4206,14 @@ version = "0.1.2"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bincode",
  "blake2 0.10.6",
  "mithril-cardano-node-chain",
  "mithril-common",
  "mockall",
  "pallas-network 1.0.0-alpha.2",
+ "serde",
+ "serde_bytes",
  "slog",
  "slog-async",
  "slog-term",
@@ -4318,6 +4321,7 @@ dependencies = [
  "httpmock",
  "libp2p",
  "mithril-common",
+ "mithril-dmq",
  "mithril-doc",
  "mithril-test-http-server",
  "reqwest",
@@ -4990,7 +4994,7 @@ dependencies = [
 [[package]]
 name = "pallas-codec"
 version = "1.0.0-alpha.2"
-source = "git+https://github.com/txpipe/pallas.git?branch=main#a97bd93cdc55fa2b061a6ad5fd572f5528a912b8"
+source = "git+https://github.com/cardano-scaling/pallas.git?branch=jpraynaud%2Fdmq-message-add-missing-kes-period#3df78fe98110d327d2ea8822cf5bce76587cd1eb"
 dependencies = [
  "hex",
  "minicbor 0.26.5",
@@ -5016,7 +5020,7 @@ dependencies = [
 [[package]]
 name = "pallas-crypto"
 version = "1.0.0-alpha.2"
-source = "git+https://github.com/txpipe/pallas.git?branch=main#a97bd93cdc55fa2b061a6ad5fd572f5528a912b8"
+source = "git+https://github.com/cardano-scaling/pallas.git?branch=jpraynaud%2Fdmq-message-add-missing-kes-period#3df78fe98110d327d2ea8822cf5bce76587cd1eb"
 dependencies = [
  "cryptoxide",
  "hex",
@@ -5047,7 +5051,7 @@ dependencies = [
 [[package]]
 name = "pallas-network"
 version = "1.0.0-alpha.2"
-source = "git+https://github.com/txpipe/pallas.git?branch=main#a97bd93cdc55fa2b061a6ad5fd572f5528a912b8"
+source = "git+https://github.com/cardano-scaling/pallas.git?branch=jpraynaud%2Fdmq-message-add-missing-kes-period#3df78fe98110d327d2ea8822cf5bce76587cd1eb"
 dependencies = [
  "byteorder",
  "hex",
