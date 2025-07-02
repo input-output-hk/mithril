@@ -73,16 +73,16 @@ Party #1: party created with 741 stakes
 Party #2: party created with 144 stakes
 Party #3: party created with 734 stakes
 Party #4: party created with 41 stakes
-Protocol established to StmParameters { m: 100, k: 5, phi_f: 0.2 }
+Protocol established to Parameters { m: 100, k: 5, phi_f: 0.2 }
 
 >> Protocol initialize phase:
 Verifier: verifier created
-Verifier: protocol params updated to StmParameters { m: 100, k: 5, phi_f: 0.2 }
-Party #0: protocol params updated to StmParameters { m: 100, k: 5, phi_f: 0.2 }
-Party #1: protocol params updated to StmParameters { m: 100, k: 5, phi_f: 0.2 }
-Party #2: protocol params updated to StmParameters { m: 100, k: 5, phi_f: 0.2 }
-Party #3: protocol params updated to StmParameters { m: 100, k: 5, phi_f: 0.2 }
-Party #4: protocol params updated to StmParameters { m: 100, k: 5, phi_f: 0.2 }
+Verifier: protocol params updated to Parameters { m: 100, k: 5, phi_f: 0.2 }
+Party #0: protocol params updated to Parameters { m: 100, k: 5, phi_f: 0.2 }
+Party #1: protocol params updated to Parameters { m: 100, k: 5, phi_f: 0.2 }
+Party #2: protocol params updated to Parameters { m: 100, k: 5, phi_f: 0.2 }
+Party #3: protocol params updated to Parameters { m: 100, k: 5, phi_f: 0.2 }
+Party #4: protocol params updated to Parameters { m: 100, k: 5, phi_f: 0.2 }
 Verifier: protocol keys registration from [(0, 826), (1, 741), (2, 144), (3, 734), (4, 41)]
 Party #0: protocol keys registration from [(0, 826), (1, 741), (2, 144), (3, 734), (4, 41)]
 Party #1: protocol keys registration from [(0, 826), (1, 741), (2, 144), (3, 734), (4, 41)]
