@@ -2,9 +2,9 @@
 
 use super::SerDeShelleyFileFormat;
 use crate::crypto_helper::cardano::ProtocolRegistrationErrorWrapper;
-use crate::crypto_helper::{encode_bech32, ProtocolPartyId};
+use crate::crypto_helper::{ProtocolPartyId, encode_bech32};
 
-use blake2::{digest::consts::U28, Blake2b, Digest};
+use blake2::{Blake2b, Digest, digest::consts::U28};
 use ed25519_dalek::{
     Signature as EdSignature, Signer, SigningKey as EdSecretKey, Verifier,
     VerifyingKey as EdVerificationKey,
@@ -164,11 +164,11 @@ impl<'de> Deserialize<'de> for OpCert {
     {
         let raw_cert = RawOpCert::deserialize(deserializer)?;
         Ok(Self {
-            kes_vk: KesPublicKey::from_bytes(&raw_cert.0 .0)
+            kes_vk: KesPublicKey::from_bytes(&raw_cert.0.0)
                 .map_err(|_| Error::custom("KES vk serialisation error"))?,
-            issue_number: raw_cert.0 .1,
-            start_kes_period: raw_cert.0 .2,
-            cert_sig: EdSignature::from_slice(&raw_cert.0 .3)
+            issue_number: raw_cert.0.1,
+            start_kes_period: raw_cert.0.2,
+            cert_sig: EdSignature::from_slice(&raw_cert.0.3)
                 .map_err(|_| Error::custom("ed25519 signature serialisation error"))?,
             cold_vk: raw_cert.1,
         })

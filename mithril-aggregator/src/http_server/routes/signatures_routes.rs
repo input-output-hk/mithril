@@ -25,7 +25,7 @@ fn register_signatures(
 }
 
 mod handlers {
-    use slog::{debug, warn, Logger};
+    use slog::{Logger, debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
@@ -33,10 +33,11 @@ mod handlers {
     use mithril_common::messages::{RegisterSignatureMessageHttp, TryFromMessageAdapter};
 
     use crate::{
+        MetricsService, SingleSignatureAuthenticator,
         http_server::routes::reply,
         message_adapters::FromRegisterSingleSignatureAdapter,
         services::{CertifierService, CertifierServiceError, SignatureRegistrationStatus},
-        unwrap_to_internal_server_error, MetricsService, SingleSignatureAuthenticator,
+        unwrap_to_internal_server_error,
     };
 
     const METRICS_HTTP_ORIGIN: &str = "HTTP";
@@ -128,9 +129,8 @@ mod tests {
     use mithril_common::{entities::SignedEntityType, messages::RegisterSignatureMessageHttp};
 
     use crate::{
-        initialize_dependencies,
+        SingleSignatureAuthenticator, initialize_dependencies,
         services::{CertifierServiceError, MockCertifierService, SignatureRegistrationStatus},
-        SingleSignatureAuthenticator,
     };
 
     use super::*;
@@ -147,8 +147,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signatures_increments_signature_registration_total_received_since_startup_metric(
-    ) {
+    async fn test_register_signatures_increments_signature_registration_total_received_since_startup_metric()
+     {
         let method = Method::POST.as_str();
         let path = "/register-signatures";
         let dependency_manager = Arc::new(initialize_dependencies!().await);

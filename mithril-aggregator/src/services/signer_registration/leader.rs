@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use tokio::sync::RwLock;
 
 use mithril_common::{
-    entities::{Epoch, Signer, SignerWithStake, StakeDistribution},
     StdResult,
+    entities::{Epoch, Signer, SignerWithStake, StakeDistribution},
 };
 
 use crate::{SignerRegistrationVerifier, VerificationKeyStorer};
@@ -154,10 +154,10 @@ mod tests {
     };
 
     use crate::{
-        database::{repository::SignerRegistrationStore, test_helper::main_db_connection},
-        services::{MockSignerRecorder, MockSignerRegistrationVerifier, SignerSynchronizer},
         MithrilSignerRegistrationLeader, SignerRegisterer, SignerRegistrationRoundOpener,
         VerificationKeyStorer,
+        database::{repository::SignerRegistrationStore, test_helper::main_db_connection},
+        services::{MockSignerRecorder, MockSignerRegistrationVerifier, SignerSynchronizer},
     };
 
     use test_utils::*;

@@ -2,12 +2,12 @@ use async_trait::async_trait;
 use std::fmt::Debug;
 
 use crate::{
+    StdResult,
     entities::{
         BlockNumber, CardanoDatabaseSnapshot, CardanoDbBeacon, CardanoStakeDistribution,
         CardanoTransactionsSnapshot, Epoch, MithrilStakeDistribution, ProtocolMessage,
         ProtocolMessagePartValue, Snapshot,
     },
-    StdResult,
 };
 
 #[cfg(test)]

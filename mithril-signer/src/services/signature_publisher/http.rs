@@ -1,6 +1,6 @@
 use async_trait::async_trait;
-use mithril_common::entities::{ProtocolMessage, SignedEntityType, SingleSignature};
 use mithril_common::StdResult;
+use mithril_common::entities::{ProtocolMessage, SignedEntityType, SingleSignature};
 
 use crate::services::AggregatorClient;
 

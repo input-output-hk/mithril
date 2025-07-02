@@ -1,8 +1,8 @@
 use thiserror::Error;
 
 use mithril_common::{
-    entities::{Epoch, SignerWithStake},
     StdError,
+    entities::{Epoch, SignerWithStake},
 };
 
 use mithril_cardano_node_chain::chain_observer::ChainObserverError;
@@ -15,7 +15,9 @@ pub enum SignerRegistrationError {
     RegistrationRoundNotYetOpened,
 
     /// Registration round for unexpected epoch
-    #[error("unexpected signer registration round epoch: current_round_epoch: {current_round_epoch}, received_epoch: {received_epoch}")]
+    #[error(
+        "unexpected signer registration round epoch: current_round_epoch: {current_round_epoch}, received_epoch: {received_epoch}"
+    )]
     RegistrationRoundUnexpectedEpoch {
         /// Epoch of the current round
         current_round_epoch: Epoch,

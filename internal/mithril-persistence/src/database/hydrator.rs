@@ -80,8 +80,8 @@ impl Hydrator {
                 let beacon: CardanoTransactionsBeacon =
                     serde_json::from_str(beacon_str).map_err(|e| {
                         HydrationError::InvalidData(format!(
-                        "Invalid Beacon JSON in open_message.beacon: '{beacon_str}'. Error: {e}"
-                    ))
+                            "Invalid Beacon JSON in open_message.beacon: '{beacon_str}'. Error: {e}"
+                        ))
                     })?;
                 SignedEntityType::CardanoTransactions(beacon.epoch, beacon.block_number)
             }

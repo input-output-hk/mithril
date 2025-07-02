@@ -1,6 +1,6 @@
 use mithril_common::{
-    entities::{ProtocolMessage, SignedEntityType, SingleSignature},
     StdResult,
+    entities::{ProtocolMessage, SignedEntityType, SingleSignature},
 };
 
 use super::SignaturePublisher;

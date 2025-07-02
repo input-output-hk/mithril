@@ -1,5 +1,5 @@
 use anyhow::Context;
-use slog::{warn, Logger};
+use slog::{Logger, warn};
 use std::{
     fs::File,
     path::{Path, PathBuf},
@@ -7,15 +7,16 @@ use std::{
 };
 
 use mithril_client::{
+    CardanoDatabaseSnapshot, MithrilResult,
     cardano_database_client::{CardanoDatabaseClient, DownloadUnpackOptions, ImmutableFileRange},
     common::ImmutableFileNumber,
-    CardanoDatabaseSnapshot, MithrilResult,
 };
 
 use crate::{
     commands::{
+        SharedArgs,
         cardano_db::{download::DB_DIRECTORY_NAME, shared_steps},
-        client_builder, SharedArgs,
+        client_builder,
     },
     configuration::ConfigParameters,
     utils::{
@@ -74,10 +75,9 @@ impl PreparedCardanoDbV2Download {
             .build()?;
 
         let get_list_of_artifact_ids = || async {
-            let cardano_db_snapshots =
-                client.cardano_database_v2().list().await.with_context(|| {
-                    "Can not get the list of artifacts while retrieving the latest cardano db hash"
-                })?;
+            let cardano_db_snapshots = client.cardano_database_v2().list().await.with_context(
+                || "Can not get the list of artifacts while retrieving the latest cardano db hash",
+            )?;
 
             Ok(cardano_db_snapshots
                 .iter()

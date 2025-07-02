@@ -14,7 +14,7 @@ use mithril_common::{
         MithrilFixture, MithrilFixtureBuilder, StakeDistributionGenerationMethod, TempDir,
     },
 };
-use test_extensions::{utilities::get_test_dir, ExpectedCertificate, RuntimeTester};
+use test_extensions::{ExpectedCertificate, RuntimeTester, utilities::get_test_dir};
 
 /// Epoch fixtures helps using the fixtures in the tests
 struct EpochFixtures<'a> {

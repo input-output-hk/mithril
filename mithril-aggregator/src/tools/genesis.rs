@@ -1,12 +1,13 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use std::{
     fs::File,
-    io::{prelude::*, Write},
+    io::{Write, prelude::*},
     path::{Path, PathBuf},
     sync::Arc,
 };
 
 use mithril_common::{
+    CardanoNetwork, StdResult,
     certificate_chain::{CertificateGenesisProducer, CertificateVerifier},
     crypto_helper::{
         ProtocolAggregateVerificationKey, ProtocolGenesisSecretKey, ProtocolGenesisSignature,
@@ -14,7 +15,6 @@ use mithril_common::{
     },
     entities::{Epoch, ProtocolParameters},
     protocol::SignerBuilder,
-    CardanoNetwork, StdResult,
 };
 
 use crate::{
@@ -206,7 +206,7 @@ mod tests {
             ProtocolGenesisSecretKey, ProtocolGenesisSigner, ProtocolGenesisVerificationKey,
             ProtocolGenesisVerifier,
         },
-        test_utils::{fake_data, MithrilFixtureBuilder, TempDir},
+        test_utils::{MithrilFixtureBuilder, TempDir, fake_data},
     };
     use std::{fs::read_to_string, path::PathBuf};
 

@@ -1,8 +1,8 @@
-use slog::{crit, error, Logger};
+use slog::{Logger, crit, error};
 use thiserror::Error;
 
-use mithril_common::entities::EpochError;
 use mithril_common::StdError;
+use mithril_common::entities::EpochError;
 
 use crate::RunnerError;
 

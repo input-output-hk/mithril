@@ -1,16 +1,16 @@
 use anyhow::Context;
 use async_trait::async_trait;
-use slog::{debug, warn, Logger};
+use slog::{Logger, debug, warn};
 use std::sync::Arc;
 use std::time::Duration;
 
+use mithril_common::StdResult;
 use mithril_common::entities::{Certificate, Epoch, ProtocolMessage, SignedEntityType, TimePoint};
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
 
-use crate::entities::OpenMessage;
 use crate::ServeCommandDependenciesContainer;
+use crate::entities::OpenMessage;
 
 /// Configuration structure dedicated to the AggregatorRuntime.
 #[derive(Debug, Clone)]
@@ -413,7 +413,10 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
         if token.get_next_supported_era().is_err() {
             let era_name = &token.get_next_era_marker().unwrap().name;
-            warn!(self.logger,"Upcoming Era '{era_name}' is not supported by this version of the software. Please update!");
+            warn!(
+                self.logger,
+                "Upcoming Era '{era_name}' is not supported by this version of the software. Please update!"
+            );
         }
 
         Ok(())
@@ -518,6 +521,7 @@ pub mod tests {
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_cardano_node_internal_database::test::double::DumbImmutableFileObserver;
     use mithril_common::{
+        StdResult,
         entities::{
             CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolMessage,
             SignedEntityConfig, SignedEntityType, SignedEntityTypeDiscriminants, StakeDistribution,
@@ -525,14 +529,15 @@ pub mod tests {
         },
         signable_builder::SignableBuilderService,
         temp_dir,
-        test_utils::{fake_data, MithrilFixtureBuilder},
-        StdResult,
+        test_utils::{MithrilFixtureBuilder, fake_data},
     };
     use mithril_persistence::store::StakeStorer;
     use mithril_signed_entity_lock::SignedEntityTypeLock;
     use mithril_ticker::MithrilTickerService;
 
     use crate::{
+        MithrilSignerRegistrationLeader, ServeCommandConfiguration,
+        ServeCommandDependenciesContainer, SignerRegistrationRound,
         dependency_injection::DependenciesBuilder,
         entities::{AggregatorEpochSettings, OpenMessage},
         initialize_dependencies,
@@ -541,8 +546,6 @@ pub mod tests {
             FakeEpochService, FakeEpochServiceBuilder, MithrilStakeDistributionService,
             MockCertifierService, MockUpkeepService,
         },
-        MithrilSignerRegistrationLeader, ServeCommandConfiguration,
-        ServeCommandDependenciesContainer, SignerRegistrationRound,
     };
 
     mock! {
@@ -940,8 +943,8 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_current_non_certified_open_message_should_create_new_open_message_if_none_exists(
-    ) {
+    async fn test_get_current_non_certified_open_message_should_create_new_open_message_if_none_exists()
+     {
         let open_message_created = create_open_message(
             IsCertified::No,
             IsExpired::No,
@@ -968,8 +971,8 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_current_non_certified_open_message_should_return_existing_open_message_if_already_exists_and_not_expired(
-    ) {
+    async fn test_get_current_non_certified_open_message_should_return_existing_open_message_if_already_exists_and_not_expired()
+     {
         let not_certified_and_not_expired = create_open_message(
             IsCertified::No,
             IsExpired::No,
@@ -998,8 +1001,8 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_current_non_certified_open_message_should_return_existing_open_message_if_already_exists_and_open_message_already_certified(
-    ) {
+    async fn test_get_current_non_certified_open_message_should_return_existing_open_message_if_already_exists_and_open_message_already_certified()
+     {
         let certified_and_not_expired = create_open_message(
             IsCertified::Yes,
             IsExpired::No,
@@ -1041,8 +1044,8 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_current_non_certified_open_message_should_create_open_message_if_none_exists_and_open_message_already_certified(
-    ) {
+    async fn test_get_current_non_certified_open_message_should_create_open_message_if_none_exists_and_open_message_already_certified()
+     {
         let certified_and_not_expired = create_open_message(
             IsCertified::Yes,
             IsExpired::No,
@@ -1086,8 +1089,8 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_current_non_certified_open_message_should_return_none_if_all_open_message_already_certified(
-    ) {
+    async fn test_get_current_non_certified_open_message_should_return_none_if_all_open_message_already_certified()
+     {
         let certified_and_not_expired_1 = create_open_message(
             IsCertified::Yes,
             IsExpired::No,
@@ -1127,8 +1130,8 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_current_non_certified_open_message_should_return_first_not_certified_and_not_expired_open_message(
-    ) {
+    async fn test_get_current_non_certified_open_message_should_return_first_not_certified_and_not_expired_open_message()
+     {
         let not_certified_and_expired = create_open_message(
             IsCertified::No,
             IsExpired::Yes,
@@ -1271,26 +1274,26 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn is_open_message_outdated_return_false_when_message_is_not_expired_and_no_newer_open_message(
-    ) {
+    async fn is_open_message_outdated_return_false_when_message_is_not_expired_and_no_newer_open_message()
+     {
         assert!(!is_outdated_returned_when(temp_dir!(), IsExpired::No, false).await);
     }
 
     #[tokio::test]
-    async fn is_open_message_outdated_return_true_when_message_is_expired_and_no_newer_open_message(
-    ) {
+    async fn is_open_message_outdated_return_true_when_message_is_expired_and_no_newer_open_message()
+     {
         assert!(is_outdated_returned_when(temp_dir!(), IsExpired::Yes, false).await);
     }
 
     #[tokio::test]
-    async fn is_open_message_outdated_return_true_when_message_is_not_expired_and_exists_newer_open_message(
-    ) {
+    async fn is_open_message_outdated_return_true_when_message_is_not_expired_and_exists_newer_open_message()
+     {
         assert!(is_outdated_returned_when(temp_dir!(), IsExpired::No, true).await);
     }
 
     #[tokio::test]
-    async fn is_open_message_outdated_return_true_when_message_is_expired_and_exists_newer_open_message(
-    ) {
+    async fn is_open_message_outdated_return_true_when_message_is_expired_and_exists_newer_open_message()
+     {
         assert!(is_outdated_returned_when(temp_dir!(), IsExpired::Yes, true).await);
     }
 

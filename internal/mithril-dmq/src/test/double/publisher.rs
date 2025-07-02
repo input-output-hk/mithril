@@ -2,7 +2,7 @@ use std::{collections::VecDeque, fmt::Debug, marker::PhantomData};
 
 use tokio::sync::Mutex;
 
-use mithril_common::{crypto_helper::TryToBytes, StdResult};
+use mithril_common::{StdResult, crypto_helper::TryToBytes};
 
 use crate::DmqPublisher;
 

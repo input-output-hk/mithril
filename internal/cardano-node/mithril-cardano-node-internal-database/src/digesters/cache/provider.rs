@@ -4,8 +4,8 @@ use std::io;
 use async_trait::async_trait;
 use thiserror::Error;
 
-use mithril_common::entities::{HexEncodedDigest, ImmutableFileName};
 use mithril_common::StdError;
+use mithril_common::entities::{HexEncodedDigest, ImmutableFileName};
 
 use crate::entities::ImmutableFile;
 

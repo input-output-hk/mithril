@@ -4,8 +4,8 @@ use async_trait::async_trait;
 use slog::Logger;
 use tokio::sync::Mutex;
 
-use mithril_common::entities::BlockNumber;
 use mithril_common::StdResult;
+use mithril_common::entities::BlockNumber;
 
 use crate::chain_reader::ChainBlockReader;
 use crate::chain_scanner::{BlockScanner, BlockStreamer};

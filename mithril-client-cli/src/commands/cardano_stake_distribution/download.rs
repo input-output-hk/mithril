@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use clap::Parser;
 use std::sync::Arc;
 use std::{
@@ -10,12 +10,12 @@ use crate::utils::{
     self, ExpanderUtils, IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter,
 };
 use crate::{
-    commands::{client_builder, SharedArgs},
-    configuration::{ConfigError, ConfigSource},
     CommandContext,
+    commands::{SharedArgs, client_builder},
+    configuration::{ConfigError, ConfigSource},
 };
-use mithril_client::common::Epoch;
 use mithril_client::Client;
+use mithril_client::common::Epoch;
 use mithril_client::{CardanoStakeDistribution, MessageBuilder, MithrilResult};
 
 /// Download and verify a Cardano stake distribution information.
@@ -106,16 +106,16 @@ impl CardanoStakeDistributionDownloadCommand {
         )?;
         let message = MessageBuilder::new()
             .compute_cardano_stake_distribution_message(&certificate, &cardano_stake_distribution)
-            .with_context(|| {
-                "Can not compute the message for the given Cardano stake distribution"
-            })?;
+            .with_context(
+                || "Can not compute the message for the given Cardano stake distribution",
+            )?;
 
         if !certificate.match_message(&message) {
             return Err(anyhow!(
-                    "Certificate and message did not match:\ncertificate_message: '{}'\n computed_message: '{}'",
-                    certificate.signed_message,
-                    message.compute_hash()
-                ));
+                "Certificate and message did not match:\ncertificate_message: '{}'\n computed_message: '{}'",
+                certificate.signed_message,
+                message.compute_hash()
+            ));
         }
 
         progress_printer.report_step(4, "Writing fetched Cardano stake distribution to a file")?;

@@ -1,12 +1,12 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use chrono::Utc;
-use slog::{debug, warn, Logger};
+use slog::{Logger, debug, warn};
 use std::path::Path;
 
 use mithril_client::{
+    CardanoDatabaseSnapshot, Client, MessageBuilder, MithrilCertificate, MithrilResult,
     cardano_database_client::ImmutableFileRange,
     common::{ImmutableFileNumber, MKProof, ProtocolMessage},
-    CardanoDatabaseSnapshot, Client, MessageBuilder, MithrilCertificate, MithrilResult,
 };
 
 use crate::utils::{CardanoDbUtils, ProgressPrinter};
@@ -211,8 +211,8 @@ pub fn log_download_information(
 #[cfg(test)]
 mod tests {
     use mithril_client::{
-        common::{CardanoDbBeacon, ProtocolMessagePartKey, SignedEntityType},
         MithrilCertificateMetadata,
+        common::{CardanoDbBeacon, ProtocolMessagePartKey, SignedEntityType},
     };
     use mithril_common::test_utils::TempDir;
 

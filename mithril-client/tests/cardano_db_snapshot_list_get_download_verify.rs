@@ -6,10 +6,10 @@ use mithril_cardano_node_internal_database::{
     digesters::CardanoImmutableDigester, test::DummyCardanoDbBuilder,
 };
 use mithril_client::{
+    ClientBuilder, MessageBuilder,
     aggregator_client::AggregatorRequest,
     cardano_database_client::{DownloadUnpackOptions, ImmutableFileRange},
     feedback::SlogFeedbackReceiver,
-    ClientBuilder, MessageBuilder,
 };
 use mithril_common::crypto_helper::ManifestSigner;
 
@@ -151,9 +151,9 @@ async fn cardano_db_snapshot_list_get_download_verify() {
         .expect("Computing cardano database snapshot message should not fail");
 
     assert!(
-            certificate.match_message(&message),
-            "Certificate and message did not match:\ncertificate_message: '{}'\n computed_message: '{}'",
-            certificate.signed_message,
-            message.compute_hash()
+        certificate.match_message(&message),
+        "Certificate and message did not match:\ncertificate_message: '{}'\n computed_message: '{}'",
+        certificate.signed_message,
+        message.compute_hash()
     );
 }

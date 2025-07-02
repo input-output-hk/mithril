@@ -6,16 +6,16 @@ use chrono::prelude::*;
 use thiserror::Error;
 
 use crate::{
+    StdResult,
     crypto_helper::{
-        ProtocolAggregateVerificationKey, ProtocolGenesisSignature, ProtocolGenesisSigner,
-        PROTOCOL_VERSION,
+        PROTOCOL_VERSION, ProtocolAggregateVerificationKey, ProtocolGenesisSignature,
+        ProtocolGenesisSigner,
     },
     entities::{
         Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
         ProtocolMessagePartKey, ProtocolParameters,
     },
     protocol::ToMessage,
-    StdResult,
 };
 
 /// [CertificateGenesisProducer] related errors.

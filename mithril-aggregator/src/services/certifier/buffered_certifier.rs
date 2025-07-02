@@ -1,13 +1,13 @@
 use async_trait::async_trait;
-use slog::{debug, trace, warn, Logger};
+use slog::{Logger, debug, trace, warn};
 use std::sync::Arc;
 
+use mithril_common::StdResult;
 use mithril_common::entities::{
     Certificate, Epoch, ProtocolMessage, SignedEntityType, SignedEntityTypeDiscriminants,
     SingleSignature,
 };
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::StdResult;
 
 use crate::entities::OpenMessage;
 use crate::services::{
@@ -249,8 +249,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn when_registering_single_signature_dont_buffer_signature_if_decorated_certifier_succeed(
-    ) {
+    async fn when_registering_single_signature_dont_buffer_signature_if_decorated_certifier_succeed()
+     {
         let (registration_result, buffered_signatures_after_registration) =
             run_register_signature_scenario(
                 |mock_certifier| {

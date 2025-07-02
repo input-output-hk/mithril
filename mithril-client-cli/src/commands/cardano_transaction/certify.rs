@@ -1,19 +1,19 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use clap::Parser;
-use cli_table::{print_stdout, Cell, Table};
+use cli_table::{Cell, Table, print_stdout};
 use slog::debug;
 use std::{collections::HashMap, sync::Arc};
 
 use mithril_client::{
-    common::TransactionHash, CardanoTransactionsProofs, MessageBuilder, MithrilCertificate,
-    MithrilResult, VerifiedCardanoTransactions, VerifyCardanoTransactionsProofsError,
+    CardanoTransactionsProofs, MessageBuilder, MithrilCertificate, MithrilResult,
+    VerifiedCardanoTransactions, VerifyCardanoTransactionsProofsError, common::TransactionHash,
 };
 
 use crate::utils::{IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter};
 use crate::{
-    commands::{client_builder, SharedArgs},
-    configuration::{ConfigError, ConfigSource},
     CommandContext,
+    commands::{SharedArgs, client_builder},
+    configuration::{ConfigError, ConfigSource},
 };
 
 /// Clap command to show a given Cardano transaction sets

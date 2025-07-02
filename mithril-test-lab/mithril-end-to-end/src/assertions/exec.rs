@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 use crate::{Aggregator, Devnet};
-use mithril_common::entities::{Epoch, ProtocolParameters};
 use mithril_common::StdResult;
+use mithril_common::entities::{Epoch, ProtocolParameters};
 use slog_scope::info;
 
 pub async fn bootstrap_genesis_certificate(aggregator: &Aggregator) -> StdResult<()> {

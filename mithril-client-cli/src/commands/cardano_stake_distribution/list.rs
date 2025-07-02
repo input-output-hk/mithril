@@ -1,9 +1,9 @@
 use clap::Parser;
-use cli_table::{format::Justify, print_stdout, Cell, Table};
+use cli_table::{Cell, Table, format::Justify, print_stdout};
 
 use crate::{
-    commands::{client_builder_with_fallback_genesis_key, SharedArgs},
     CommandContext,
+    commands::{SharedArgs, client_builder_with_fallback_genesis_key},
 };
 use mithril_client::MithrilResult;
 

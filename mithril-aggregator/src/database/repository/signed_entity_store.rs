@@ -3,8 +3,8 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 
-use mithril_common::entities::{Epoch, SignedEntityTypeDiscriminants};
 use mithril_common::StdResult;
+use mithril_common::entities::{Epoch, SignedEntityTypeDiscriminants};
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
 use crate::database::query::{
@@ -342,8 +342,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_cardano_stake_distribution_signed_entity_by_epoch_when_signed_entity_found_for_epoch(
-    ) {
+    async fn get_cardano_stake_distribution_signed_entity_by_epoch_when_signed_entity_found_for_epoch()
+     {
         let cardano_stake_distribution = fake_data::cardano_stake_distribution(Epoch(4));
 
         let expected_record: SignedEntityRecord = cardano_stake_distribution.into();

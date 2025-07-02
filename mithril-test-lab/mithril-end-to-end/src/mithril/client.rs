@@ -1,7 +1,7 @@
 use crate::utils::MithrilCommand;
 use crate::{ANCILLARY_MANIFEST_VERIFICATION_KEY, GENESIS_VERIFICATION_KEY};
-use anyhow::{anyhow, Context};
-use mithril_common::{entities::TransactionHash, StdResult};
+use anyhow::{Context, anyhow};
+use mithril_common::{StdResult, entities::TransactionHash};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 

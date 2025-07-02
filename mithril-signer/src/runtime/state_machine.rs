@@ -1,6 +1,6 @@
 use anyhow::Error;
 use chrono::Local;
-use slog::{debug, info, Logger};
+use slog::{Logger, debug, info};
 use std::{fmt::Display, ops::Deref, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 
@@ -11,9 +11,9 @@ use mithril_common::{
 };
 
 use crate::{
+    MetricsService,
     entities::{BeaconToSign, SignerEpochSettings},
     services::AggregatorClientError,
-    MetricsService,
 };
 
 use super::{Runner, RuntimeError};
@@ -321,9 +321,19 @@ impl StateMachine {
                 {
                     Ok(Some(SignerState::Unregistered { epoch }))
                 } else if e.downcast_ref::<ProtocolInitializerError>().is_some() {
-                    Err(RuntimeError::Critical { message: format!("Could not register to aggregator in 'unregistered → registered' phase for epoch {epoch:?}."), nested_error: Some(e) })
+                    Err(RuntimeError::Critical {
+                        message: format!(
+                            "Could not register to aggregator in 'unregistered → registered' phase for epoch {epoch:?}."
+                        ),
+                        nested_error: Some(e),
+                    })
                 } else {
-                    Err(RuntimeError::KeepState { message: format!("Could not register to aggregator in 'unregistered → registered' phase for epoch {epoch:?}."), nested_error: Some(e) })
+                    Err(RuntimeError::KeepState {
+                        message: format!(
+                            "Could not register to aggregator in 'unregistered → registered' phase for epoch {epoch:?}."
+                        ),
+                        nested_error: Some(e),
+                    })
                 }
             } else {
                 Ok(None)

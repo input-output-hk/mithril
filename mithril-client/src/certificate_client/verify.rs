@@ -1,6 +1,6 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
-use slog::{trace, Logger};
+use slog::{Logger, trace};
 use std::sync::Arc;
 
 use mithril_common::{
@@ -14,9 +14,9 @@ use mithril_common::{
 };
 
 use crate::aggregator_client::AggregatorClient;
-use crate::certificate_client::fetch::InternalCertificateRetriever;
 #[cfg(feature = "unstable")]
 use crate::certificate_client::CertificateVerifierCache;
+use crate::certificate_client::fetch::InternalCertificateRetriever;
 use crate::certificate_client::{CertificateClient, CertificateVerifier};
 use crate::feedback::{FeedbackSender, MithrilEvent};
 use crate::{MithrilCertificate, MithrilResult};
@@ -325,8 +325,8 @@ mod tests {
         use mockall::predicate::eq;
 
         use crate::aggregator_client::MockAggregatorClient;
-        use crate::certificate_client::verify_cache::MemoryCertificateVerifierCache;
         use crate::certificate_client::MockCertificateVerifierCache;
+        use crate::certificate_client::verify_cache::MemoryCertificateVerifierCache;
         use crate::test_utils::TestLogger;
 
         use super::*;
@@ -444,8 +444,8 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn verification_of_certificates_should_not_use_cache_until_crossing_an_epoch_boundary(
-        ) {
+        async fn verification_of_certificates_should_not_use_cache_until_crossing_an_epoch_boundary()
+         {
             // Scenario:
             // | Certificate | epoch |         Parent | Can use cache to | Should be fully |
             // |             |       |                | get parent hash  | Verified        |

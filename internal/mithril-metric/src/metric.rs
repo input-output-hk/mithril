@@ -1,7 +1,7 @@
 //! This module contains wrapper to prometheus metrics for use in a metrics service.
 
-use prometheus::{core::Collector, Counter, CounterVec, Gauge, Opts};
-use slog::{debug, Logger};
+use prometheus::{Counter, CounterVec, Gauge, Opts, core::Collector};
+use slog::{Logger, debug};
 
 use mithril_common::StdResult;
 

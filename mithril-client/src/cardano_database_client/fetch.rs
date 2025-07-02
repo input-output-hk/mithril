@@ -4,8 +4,8 @@ use anyhow::Context;
 use serde::de::DeserializeOwned;
 
 use crate::{
-    aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest},
     CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem, MithrilResult,
+    aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest},
 };
 
 pub struct InternalArtifactRetriever {
@@ -128,8 +128,8 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn list_cardano_database_snapshots_returns_error_when_invalid_json_structure_in_response(
-        ) {
+        async fn list_cardano_database_snapshots_returns_error_when_invalid_json_structure_in_response()
+         {
             let client = CardanoDatabaseClientDependencyInjector::new()
                 .with_aggregator_client_mock_config(|http_client| {
                     http_client
@@ -176,8 +176,8 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn get_cardano_database_snapshot_returns_error_when_invalid_json_structure_in_response(
-        ) {
+        async fn get_cardano_database_snapshot_returns_error_when_invalid_json_structure_in_response()
+         {
             let client = CardanoDatabaseClientDependencyInjector::new()
                 .with_aggregator_client_mock_config(|http_client| {
                     http_client
@@ -193,8 +193,8 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn get_cardano_database_snapshot_returns_none_when_not_found_or_remote_server_logical_error(
-        ) {
+        async fn get_cardano_database_snapshot_returns_none_when_not_found_or_remote_server_logical_error()
+         {
             let client = CardanoDatabaseClientDependencyInjector::new()
                 .with_aggregator_client_mock_config(|http_client| {
                     http_client.expect_get_content().return_once(move |_| {

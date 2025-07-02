@@ -19,6 +19,8 @@ use mithril_signed_entity_lock::SignedEntityTypeLock;
 use mithril_ticker::TickerService;
 
 use crate::{
+    EpochSettingsStorer, MetricsService, SignerRegisterer, SignerRegistrationRoundOpener,
+    SingleSignatureAuthenticator, VerificationKeyStorer,
     database::repository::{
         CertificateRepository, SignedEntityStorer, SignerGetter, StakePoolStore,
     },
@@ -28,8 +30,6 @@ use crate::{
         CertifierService, EpochService, MessageService, ProverService, SignedEntityService,
         SignerRecorder, SignerSynchronizer, StakeDistributionService, UpkeepService,
     },
-    EpochSettingsStorer, MetricsService, SignerRegisterer, SignerRegistrationRoundOpener,
-    SingleSignatureAuthenticator, VerificationKeyStorer,
 };
 
 /// EpochServiceWrapper wraps
@@ -250,17 +250,15 @@ pub(crate) mod tests {
     use std::{path::PathBuf, sync::Arc};
 
     use crate::{
-        dependency_injection::DependenciesBuilder, ServeCommandConfiguration,
-        ServeCommandDependenciesContainer,
+        ServeCommandConfiguration, ServeCommandDependenciesContainer,
+        dependency_injection::DependenciesBuilder,
     };
 
     /// Initialize dependency container with a unique temporary snapshot directory build from test path.
     /// This macro should used directly in a function test to be able to retrieve the function name.
     #[macro_export]
     macro_rules! initialize_dependencies {
-        () => {{
-            initialize_dependencies(mithril_common::temp_dir!())
-        }};
+        () => {{ initialize_dependencies(mithril_common::temp_dir!()) }};
     }
 
     pub async fn initialize_dependencies(tmp_path: PathBuf) -> ServeCommandDependenciesContainer {

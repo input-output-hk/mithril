@@ -4,7 +4,7 @@ use tokio::task::JoinSet;
 
 use mithril_common::StdResult;
 
-use crate::{assertions, Aggregator, MithrilInfrastructure};
+use crate::{Aggregator, MithrilInfrastructure, assertions};
 
 pub struct RunOnly {
     pub infrastructure: Arc<MithrilInfrastructure>,

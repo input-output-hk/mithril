@@ -106,7 +106,7 @@ mod tests {
     };
     use mithril_common::test_utils::fake_keys;
 
-    use crate::database::record::{strip_buffered_sigs_date, BufferedSingleSignatureRecord};
+    use crate::database::record::{BufferedSingleSignatureRecord, strip_buffered_sigs_date};
     use crate::database::test_helper::{insert_buffered_single_signatures, main_db_connection};
 
     use super::*;

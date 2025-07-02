@@ -1,4 +1,4 @@
-use mithril_common::{crypto_helper::TryToBytes, StdResult};
+use mithril_common::{StdResult, crypto_helper::TryToBytes};
 
 /// Trait for publishing messages from a DMQ node.
 #[cfg_attr(test, mockall::automock)]

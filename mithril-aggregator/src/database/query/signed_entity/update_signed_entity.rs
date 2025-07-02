@@ -12,8 +12,7 @@ pub struct UpdateSignedEntityQuery {
 
 impl UpdateSignedEntityQuery {
     pub fn one(signed_entity_record: SignedEntityRecord) -> StdResult<Self> {
-        let expression =
-            "signed_entity_type_id = ?*, certificate_id = ?*, beacon = ?*, artifact = ?*, \
+        let expression = "signed_entity_type_id = ?*, certificate_id = ?*, beacon = ?*, artifact = ?*, \
 created_at = ?* \
 where signed_entity_id = ?*";
         let parameters = vec![

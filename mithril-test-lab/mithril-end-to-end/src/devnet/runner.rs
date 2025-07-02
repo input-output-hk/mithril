@@ -1,8 +1,8 @@
-use anyhow::{anyhow, Context};
-use mithril_common::entities::{PartyId, TransactionHash};
+use anyhow::{Context, anyhow};
 use mithril_common::StdResult;
+use mithril_common::entities::{PartyId, TransactionHash};
 use slog_scope::info;
-use std::fs::{self, read_to_string, File};
+use std::fs::{self, File, read_to_string};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -339,8 +339,8 @@ impl Devnet {
 
 #[cfg(test)]
 mod tests {
-    use crate::devnet::runner::{Devnet, FullNode, PoolNode};
     use crate::devnet::DevnetTopology;
+    use crate::devnet::runner::{Devnet, FullNode, PoolNode};
     use std::path::PathBuf;
 
     #[test]

@@ -6,15 +6,15 @@ use std::{
 };
 
 use blst::{
-    min_sig::{AggregatePublicKey, PublicKey as BlstVk},
     BLST_ERROR,
+    min_sig::{AggregatePublicKey, PublicKey as BlstVk},
 };
 use serde::{Deserialize, Serialize};
 
 use crate::bls_multi_signature::{
-    helper::unsafe_helpers::verify_pairing, BlsProofOfPossession, BlsSigningKey, POP,
+    BlsProofOfPossession, BlsSigningKey, POP, helper::unsafe_helpers::verify_pairing,
 };
-use crate::error::{blst_err_to_mithril, MultiSignatureError};
+use crate::error::{MultiSignatureError, blst_err_to_mithril};
 
 /// MultiSig verification key, which is a wrapper over the BlstVk (element in G2)
 /// from the blst library.

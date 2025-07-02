@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use mithril_cardano_node_internal_database::digesters::ComputedImmutablesDigests;
 use mithril_cardano_node_internal_database::entities::AncillaryFilesManifest;
 use mithril_cardano_node_internal_database::test::DummyCardanoDb;
-use mithril_cardano_node_internal_database::{immutable_trio_names, IMMUTABLE_DIR, LEDGER_DIR};
+use mithril_cardano_node_internal_database::{IMMUTABLE_DIR, LEDGER_DIR, immutable_trio_names};
 
 use mithril_common::crypto_helper::{ManifestSigner, ManifestVerifierSecretKey};
 use mithril_common::entities::{CompressionAlgorithm, ImmutableFileNumber};

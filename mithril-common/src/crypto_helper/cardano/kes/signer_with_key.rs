@@ -1,17 +1,17 @@
 use std::path::PathBuf;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use kes_summed_ed25519::{
     kes::{Sum6Kes, Sum6KesSig},
     traits::KesSk,
 };
 
 use crate::{
-    crypto_helper::{
-        cardano::{KesSignError, KesSigner},
-        KesPeriod, OpCert, SerDeShelleyFileFormat, Sum6KesBytes,
-    },
     StdResult,
+    crypto_helper::{
+        KesPeriod, OpCert, SerDeShelleyFileFormat, Sum6KesBytes,
+        cardano::{KesSignError, KesSigner},
+    },
 };
 
 /// Standard KES Signer implementation which uses a KES secret key.
@@ -65,11 +65,11 @@ mod tests {
     use super::*;
 
     use crate::crypto_helper::cardano::kes::{
-        tests_setup::{
-            create_kes_cryptographic_material, KesCryptographicMaterialForTest,
-            KesPartyIndexForTest,
-        },
         KesVerifier, KesVerifierStandard,
+        tests_setup::{
+            KesCryptographicMaterialForTest, KesPartyIndexForTest,
+            create_kes_cryptographic_material,
+        },
     };
 
     #[test]

@@ -1,20 +1,20 @@
 use std::{fs, path::PathBuf, sync::Arc};
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use regex::Regex;
-use slog::{error, Logger};
+use slog::{Logger, error};
 
 use mithril_common::{
+    StdResult,
     entities::{CompressionAlgorithm, ImmutableFileNumber, ImmutablesLocation, MultiFilesUri},
     logging::LoggerExtensions,
-    StdResult,
 };
 
 use crate::{
+    DumbUploader, FileUploader,
     file_uploaders::{CloudUploader, LocalUploader},
     services::Snapshotter,
-    DumbUploader, FileUploader,
 };
 
 fn immutable_file_number_extractor(file_uri: &str) -> StdResult<Option<String>> {
@@ -281,7 +281,7 @@ mod tests {
     use mithril_cardano_node_internal_database::test::DummyCardanoDbBuilder;
     use mithril_common::{
         entities::TemplateUri,
-        test_utils::{assert_equivalent, equivalent_to, TempDir},
+        test_utils::{TempDir, assert_equivalent, equivalent_to},
     };
 
     use crate::services::ancillary_signer::MockAncillarySigner;

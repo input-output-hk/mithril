@@ -2,11 +2,11 @@ use anyhow::anyhow;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::StdResult;
 use crate::entities::{
     AncillaryLocation, AncillaryLocations, CardanoDbBeacon, CompressionAlgorithm, DigestLocation,
     DigestsLocations, Epoch, ImmutablesLocation, ImmutablesLocations, MultiFilesUri, TemplateUri,
 };
-use crate::StdResult;
 
 /// The message part that represents the locations of the Cardano database digests.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

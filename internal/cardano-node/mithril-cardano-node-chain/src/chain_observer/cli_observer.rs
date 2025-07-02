@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use hex::FromHex;
 use nom::IResult;
@@ -9,7 +9,7 @@ use std::fs;
 use std::path::PathBuf;
 use tokio::process::Command;
 
-use mithril_common::crypto_helper::{encode_bech32, KesPeriod, OpCert, SerDeShelleyFileFormat};
+use mithril_common::crypto_helper::{KesPeriod, OpCert, SerDeShelleyFileFormat, encode_bech32};
 use mithril_common::entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, StakeDistribution};
 use mithril_common::{CardanoNetwork, StdResult};
 
@@ -568,7 +568,7 @@ mod tests {
 
     use mithril_common::crypto_helper::ColdKeyGenerator;
 
-    use crate::test::test_cli_runner::{test_expected, TestCliRunner};
+    use crate::test::test_cli_runner::{TestCliRunner, test_expected};
 
     use super::*;
 

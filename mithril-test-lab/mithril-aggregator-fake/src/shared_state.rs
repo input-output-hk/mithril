@@ -4,11 +4,11 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use tokio::sync::RwLock;
 use tracing::{debug, trace};
 
-use crate::{default_values, StdResult};
+use crate::{StdResult, default_values};
 
 pub struct AppState {
     epoch_settings: String,

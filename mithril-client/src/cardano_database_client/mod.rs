@@ -125,9 +125,9 @@ mod api;
 mod fetch;
 mod statistics;
 
+pub use api::CardanoDatabaseClient;
 #[cfg(test)]
 pub(crate) use api::test_dependency_injector::CardanoDatabaseClientDependencyInjector;
-pub use api::CardanoDatabaseClient;
 
 cfg_fs! {
     mod immutable_file_range;

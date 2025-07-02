@@ -1,8 +1,8 @@
 use anyhow::Context;
 use mithril_common::{
+    StdResult,
     entities::{SingleSignature, SingleSignatureAuthenticationStatus},
     messages::{RegisterSignatureMessageHttp, TryFromMessageAdapter},
-    StdResult,
 };
 
 pub struct FromRegisterSingleSignatureAdapter;

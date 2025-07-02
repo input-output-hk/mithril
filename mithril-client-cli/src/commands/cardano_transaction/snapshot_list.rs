@@ -1,9 +1,9 @@
 use clap::Parser;
 use cli_table::format::Justify;
-use cli_table::{print_stdout, Cell, Table};
+use cli_table::{Cell, Table, print_stdout};
 
-use crate::commands::{client_builder_with_fallback_genesis_key, SharedArgs};
 use crate::CommandContext;
+use crate::commands::{SharedArgs, client_builder_with_fallback_genesis_key};
 use mithril_client::MithrilResult;
 
 /// Cardano transaction snapshot list command

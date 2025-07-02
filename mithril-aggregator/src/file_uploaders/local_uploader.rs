@@ -1,6 +1,6 @@
 use anyhow::Context;
 use async_trait::async_trait;
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 use std::path::{Path, PathBuf};
 
 use mithril_common::StdResult;

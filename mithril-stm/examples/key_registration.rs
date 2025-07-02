@@ -1,7 +1,7 @@
 //! This example shows how Key Registration is held. It is not held by a single central party,
 //! but instead by all the participants in the signature process. Contrarily to the full protocol
 //! run presented in `tests/integration.rs`, we explicitly treat each party individually.
-use blake2::{digest::consts::U32, Blake2b};
+use blake2::{Blake2b, digest::consts::U32};
 use mithril_stm::{
     Clerk, ClosedKeyRegistration, Initializer, KeyRegistration, Parameters, Stake,
     VerificationKeyProofOfPossession,

@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use chrono::Utc;
 use serde_json::json;
 use slog::Drain;
@@ -6,15 +6,15 @@ use slog_scope::debug;
 use std::convert::Infallible;
 use std::sync::Arc;
 use std::time::Duration;
-use warp::http::StatusCode;
 use warp::Filter;
+use warp::http::StatusCode;
 
 use mithril_aggregator::{
+    AggregatorRuntime, ConfigurationSource, DumbUploader, MetricsService,
+    ServeCommandConfiguration, ServeCommandDependenciesContainer, SignerRegistrationError,
     database::{record::SignedEntityRecord, repository::OpenMessageRepository},
     dependency_injection::DependenciesBuilder,
     services::FakeSnapshotter,
-    AggregatorRuntime, ConfigurationSource, DumbUploader, MetricsService,
-    ServeCommandConfiguration, ServeCommandDependenciesContainer, SignerRegistrationError,
 };
 use mithril_cardano_node_chain::{
     chain_observer::ChainObserver,
@@ -25,6 +25,7 @@ use mithril_cardano_node_internal_database::test::double::{
     DumbImmutableDigester, DumbImmutableFileObserver,
 };
 use mithril_common::{
+    StdResult,
     crypto_helper::ProtocolGenesisSigner,
     entities::{
         BlockNumber, CardanoTransactionsSigningConfig, Certificate, CertificateSignature,
@@ -35,10 +36,9 @@ use mithril_common::{
     test_utils::{
         MithrilFixture, MithrilFixtureBuilder, SignerFixture, StakeDistributionGenerationMethod,
     },
-    StdResult,
 };
-use mithril_era::{adapters::EraReaderDummyAdapter, EraMarker, EraReader};
-use mithril_test_http_server::{test_http_server, TestHttpServer};
+use mithril_era::{EraMarker, EraReader, adapters::EraReaderDummyAdapter};
+use mithril_test_http_server::{TestHttpServer, test_http_server};
 
 use crate::test_extensions::utilities::tx_hash;
 use crate::test_extensions::{AggregatorObserver, ExpectedCertificate, MetricsVerifier};
@@ -243,7 +243,8 @@ impl RuntimeTester {
     pub async fn expose_epoch_settings(&mut self) -> StdResult<TestHttpServer> {
         fn with_observer(
             runtime_tester: &RuntimeTester,
-        ) -> impl Filter<Extract = (Arc<AggregatorObserver>,), Error = Infallible> + Clone + use<> {
+        ) -> impl Filter<Extract = (Arc<AggregatorObserver>,), Error = Infallible> + Clone + use<>
+        {
             let observer = runtime_tester.observer.clone();
             warp::any().map(move || observer.clone())
         }
@@ -284,7 +285,8 @@ impl RuntimeTester {
             Ok(new_immutable_number)
         } else {
             Err(anyhow!(
-                "immutable file number should've increased, expected:{new_immutable_number} / actual:{updated_number}"))
+                "immutable file number should've increased, expected:{new_immutable_number} / actual:{updated_number}"
+            ))
         }
     }
 
@@ -326,7 +328,9 @@ impl RuntimeTester {
 
         anyhow::ensure!(
             expected_slot_number == new_slot_number,
-            format!("expected to increase slot number up to {expected_slot_number}, got {new_slot_number}"),
+            format!(
+                "expected to increase slot number up to {expected_slot_number}, got {new_slot_number}"
+            ),
         );
 
         anyhow::ensure!(
@@ -601,7 +605,9 @@ impl RuntimeTester {
                 certificate.aggregate_verification_key.try_into().unwrap(),
             ),
             None => {
-                panic!("A certificate should always have a SignedEntity if it's not a genesis certificate");
+                panic!(
+                    "A certificate should always have a SignedEntity if it's not a genesis certificate"
+                );
             }
             Some(record) => {
                 let previous_cert_identifier = self

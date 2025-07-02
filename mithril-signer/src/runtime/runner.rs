@@ -1,20 +1,20 @@
 use anyhow::Context;
 use async_trait::async_trait;
-use slog::{debug, warn, Logger};
+use slog::{Logger, debug, warn};
 use thiserror::Error;
 use tokio::sync::RwLockReadGuard;
 
+use mithril_common::StdResult;
 use mithril_common::crypto_helper::{KesPeriod, OpCert, ProtocolOpCert, SerDeShelleyFileFormat};
 use mithril_common::entities::{
     Epoch, PartyId, ProtocolMessage, SignedEntityType, Signer, TimePoint,
 };
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::StdResult;
 
+use crate::Configuration;
 use crate::dependency_injection::SignerDependencyContainer;
 use crate::entities::{BeaconToSign, SignerEpochSettings};
 use crate::services::{EpochService, MithrilProtocolInitializerBuilder};
-use crate::Configuration;
 
 /// This trait is mainly intended for mocking.
 #[async_trait]
@@ -163,9 +163,9 @@ impl Runner for SignerRunner {
             Some(operational_certificate_path) => {
                 let opcert: OpCert = OpCert::from_file(operational_certificate_path)
                     .map_err(|_| RunnerError::FileParse("operational_certificate_path".to_string()))
-                    .with_context(|| {
-                        "register_signer_to_aggregator can not decode OpCert from file"
-                    })?;
+                    .with_context(
+                        || "register_signer_to_aggregator can not decode OpCert from file",
+                    )?;
                 (Some(opcert.clone()), Some(ProtocolOpCert::new(opcert)))
             }
             _ => (None, None),
@@ -312,7 +312,10 @@ impl Runner for SignerRunner {
 
         if era_token.get_next_supported_era().is_err() {
             let era_name = &era_token.get_next_era_marker().unwrap().name;
-            warn!(self.logger, "Upcoming Era '{era_name}' is not supported by this version of the software. Please update!");
+            warn!(
+                self.logger,
+                "Upcoming Era '{era_name}' is not supported by this version of the software. Please update!"
+            );
         }
 
         Ok(())
@@ -350,9 +353,9 @@ mod tests {
             CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
             MithrilStakeDistributionSignableBuilder, SignableBuilderServiceDependencies,
         },
-        test_utils::{fake_data, MithrilFixtureBuilder},
+        test_utils::{MithrilFixtureBuilder, fake_data},
     };
-    use mithril_era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader};
+    use mithril_era::{EraChecker, EraReader, adapters::EraReaderBootstrapAdapter};
     use mithril_signed_entity_lock::SignedEntityTypeLock;
     use mithril_signed_entity_preloader::{
         CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
@@ -573,11 +576,13 @@ mod tests {
             .expect("chain observer should not fail")
             .expect("the observer should return an epoch");
         let runner = init_runner(Some(services), None).await;
-        assert!(stake_store
-            .get_stakes(current_epoch)
-            .await
-            .expect("getting stakes from store should not fail")
-            .is_none());
+        assert!(
+            stake_store
+                .get_stakes(current_epoch)
+                .await
+                .expect("getting stakes from store should not fail")
+                .is_none()
+        );
 
         runner
             .update_stake_distribution(current_epoch)

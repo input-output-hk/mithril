@@ -1,13 +1,14 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
-use slog::{o, Logger};
+use slog::{Logger, o};
 use std::collections::HashMap;
 use std::sync::Arc;
 
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
 
+use crate::MithrilResult;
 use crate::aggregator_client::{AggregatorClient, AggregatorHTTPClient};
 use crate::cardano_database_client::CardanoDatabaseClient;
 use crate::cardano_stake_distribution_client::CardanoStakeDistributionClient;
@@ -26,7 +27,6 @@ use crate::mithril_stake_distribution_client::MithrilStakeDistributionClient;
 use crate::snapshot_client::SnapshotClient;
 #[cfg(feature = "fs")]
 use crate::utils::AncillaryVerifier;
-use crate::MithrilResult;
 
 const DEFAULT_CLIENT_TYPE: &str = "LIBRARY";
 
@@ -568,8 +568,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_given_a_none_client_type_compute_http_headers_will_set_client_type_to_default_value(
-    ) {
+    async fn test_given_a_none_client_type_compute_http_headers_will_set_client_type_to_default_value()
+     {
         let builder_without_client_type = ClientBuilder::new("");
         let computed_headers = builder_without_client_type.compute_http_headers();
 
@@ -594,8 +594,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_compute_http_headers_will_compute_client_type_header_from_struct_attribute_over_options(
-    ) {
+    async fn test_compute_http_headers_will_compute_client_type_header_from_struct_attribute_over_options()
+     {
         let http_headers = HashMap::from([(
             MITHRIL_CLIENT_TYPE_HEADER.to_string(),
             "client type from options".to_string(),

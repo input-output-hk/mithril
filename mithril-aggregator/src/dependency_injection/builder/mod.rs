@@ -7,8 +7,9 @@ use slog::Logger;
 use std::{path::PathBuf, sync::Arc};
 use tokio::{
     sync::{
+        Mutex,
         mpsc::{UnboundedReceiver, UnboundedSender},
-        watch, Mutex,
+        watch,
     },
     time::Duration,
 };
@@ -20,8 +21,8 @@ use mithril_cardano_node_chain::{
     chain_scanner::BlockScanner,
 };
 use mithril_cardano_node_internal_database::{
-    digesters::{cache::ImmutableFileDigestCacheProvider, ImmutableDigester},
     ImmutableFileObserver,
+    digesters::{ImmutableDigester, cache::ImmutableFileDigestCacheProvider},
 };
 use mithril_common::{
     api_version::APIVersionProvider,
@@ -42,6 +43,10 @@ use super::{
     GenesisCommandDependenciesContainer, Result, ToolsCommandDependenciesContainer,
 };
 use crate::{
+    AggregatorConfig, AggregatorRunner, AggregatorRuntime, ImmutableFileDigestMapper,
+    MetricsService, MithrilSignerRegistrationLeader, MultiSigner, ProtocolParametersRetriever,
+    ServeCommandDependenciesContainer, SignerRegisterer, SignerRegistrationRoundOpener,
+    SignerRegistrationVerifier, SingleSignatureAuthenticator, VerificationKeyStorer,
     configuration::ConfigurationSource,
     database::repository::{
         CertificateRepository, EpochSettingsStore, OpenMessageRepository, SignedEntityStorer,
@@ -56,10 +61,6 @@ use crate::{
         StakeDistributionService, UpkeepService,
     },
     tools::file_archiver::FileArchiver,
-    AggregatorConfig, AggregatorRunner, AggregatorRuntime, ImmutableFileDigestMapper,
-    MetricsService, MithrilSignerRegistrationLeader, MultiSigner, ProtocolParametersRetriever,
-    ServeCommandDependenciesContainer, SignerRegisterer, SignerRegistrationRoundOpener,
-    SignerRegistrationVerifier, SingleSignatureAuthenticator, VerificationKeyStorer,
 };
 
 /// Retrieve attribute stored in the builder.
@@ -457,9 +458,9 @@ impl DependenciesBuilder {
     pub async fn create_genesis_container(
         &mut self,
     ) -> Result<GenesisCommandDependenciesContainer> {
-        let network = self.configuration.get_network().with_context(|| {
-            "Dependencies Builder can not get Cardano network while building genesis container"
-        })?;
+        let network = self.configuration.get_network().with_context(
+            || "Dependencies Builder can not get Cardano network while building genesis container",
+        )?;
 
         let dependencies = GenesisCommandDependenciesContainer {
             network,
@@ -488,9 +489,9 @@ impl DependenciesBuilder {
 
         self.get_sqlite_connection_cardano_transaction_pool()
             .await
-            .with_context(|| {
-                "Dependencies Builder can not get cardano transaction pool sqlite connection"
-            })?;
+            .with_context(
+                || "Dependencies Builder can not get cardano transaction pool sqlite connection",
+            )?;
 
         let dependencies = DatabaseCommandDependenciesContainer { main_db_connection };
 

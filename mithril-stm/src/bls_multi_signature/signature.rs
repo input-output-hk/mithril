@@ -9,12 +9,12 @@ use blst::{
 use digest::consts::U16;
 
 use crate::bls_multi_signature::{
-    helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk, sig_to_p1, vk_from_p2_affine},
     BlsVerificationKey,
+    helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk, sig_to_p1, vk_from_p2_affine},
 };
 use crate::{
-    error::{blst_err_to_mithril, MultiSignatureError},
     Index,
+    error::{MultiSignatureError, blst_err_to_mithril},
 };
 
 /// MultiSig signature, which is a wrapper over the `BlstSig` type.

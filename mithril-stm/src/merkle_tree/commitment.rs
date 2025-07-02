@@ -4,7 +4,7 @@ use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
 use crate::error::MerkleTreeError;
-use crate::merkle_tree::{parent, sibling, MerkleBatchPath, MerklePath, MerkleTreeLeaf};
+use crate::merkle_tree::{MerkleBatchPath, MerklePath, MerkleTreeLeaf, parent, sibling};
 
 /// `MerkleTree` commitment.
 /// This structure differs from `MerkleTree` in that it does not contain all elements, which are not always necessary.

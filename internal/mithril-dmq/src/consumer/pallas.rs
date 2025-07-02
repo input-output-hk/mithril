@@ -1,15 +1,15 @@
 use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use pallas_network::facades::DmqClient;
-use slog::{debug, error, Logger};
+use slog::{Logger, debug, error};
 use tokio::sync::{Mutex, MutexGuard};
 
 use mithril_common::{
+    CardanoNetwork, StdResult,
     crypto_helper::{OpCert, TryFromBytes},
     entities::PartyId,
     logging::LoggerExtensions,
-    CardanoNetwork, StdResult,
 };
 
 use crate::DmqConsumer;

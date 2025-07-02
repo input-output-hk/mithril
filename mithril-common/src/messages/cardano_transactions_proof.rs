@@ -1,9 +1,9 @@
+use crate::StdError;
 use crate::entities::{
     BlockNumber, CardanoTransactionsSetProof, ProtocolMessage, ProtocolMessagePartKey,
     TransactionHash,
 };
 use crate::messages::CardanoTransactionsSetProofMessagePart;
-use crate::StdError;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

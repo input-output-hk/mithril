@@ -1,8 +1,8 @@
 use std::fmt::Debug;
 
 use mithril_common::{
-    crypto_helper::{TryFromBytes, TryToBytes},
     StdResult,
+    crypto_helper::{TryFromBytes, TryToBytes},
 };
 
 /// A test message payload for the DMQ.

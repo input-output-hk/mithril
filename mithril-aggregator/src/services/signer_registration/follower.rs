@@ -1,17 +1,17 @@
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 
 use mithril_common::{
-    entities::{Epoch, Signer, SignerWithStake, StakeDistribution},
     StdResult,
+    entities::{Epoch, Signer, SignerWithStake, StakeDistribution},
 };
 use mithril_persistence::store::StakeStorer;
 
 use crate::{
-    dependency_injection::EpochServiceWrapper, services::AggregatorClient,
-    SignerRegistrationVerifier, VerificationKeyStorer,
+    SignerRegistrationVerifier, VerificationKeyStorer, dependency_injection::EpochServiceWrapper,
+    services::AggregatorClient,
 };
 
 use super::{
@@ -190,6 +190,8 @@ mod tests {
     };
 
     use crate::{
+        MithrilSignerRegistrationFollower, SignerRecorder, SignerRegisterer,
+        SignerRegistrationRoundOpener, SignerRegistrationVerifier, VerificationKeyStorer,
         database::{repository::SignerRegistrationStore, test_helper::main_db_connection},
         message_adapters::FromEpochSettingsAdapter,
         services::{
@@ -197,8 +199,6 @@ mod tests {
             MockSignerRecorder, MockSignerRegistrationVerifier, SignerSynchronizer,
         },
         tools::mocks::MockStakeStore,
-        MithrilSignerRegistrationFollower, SignerRecorder, SignerRegisterer,
-        SignerRegistrationRoundOpener, SignerRegistrationVerifier, VerificationKeyStorer,
     };
 
     use test_utils::*;

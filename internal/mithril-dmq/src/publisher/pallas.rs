@@ -2,10 +2,10 @@ use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
 
 use anyhow::Context;
 use pallas_network::{facades::DmqClient, miniprotocols::localtxsubmission::Response};
-use slog::{debug, error, Logger};
+use slog::{Logger, debug, error};
 
 use mithril_common::{
-    crypto_helper::TryToBytes, logging::LoggerExtensions, CardanoNetwork, StdResult,
+    CardanoNetwork, StdResult, crypto_helper::TryToBytes, logging::LoggerExtensions,
 };
 
 use crate::{DmqMessageBuilder, DmqPublisher};

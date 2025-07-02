@@ -4,10 +4,10 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use crate::{
+    StdResult,
     crypto_helper::{MKTree, MKTreeNode, MKTreeStoreInMemory},
     entities::{Epoch, ProtocolMessage, ProtocolMessagePartKey, StakeDistribution},
     signable_builder::SignableBuilder,
-    StdResult,
 };
 
 #[cfg(test)]

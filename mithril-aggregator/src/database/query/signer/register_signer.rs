@@ -17,10 +17,7 @@ impl RegisterSignerRecordQuery {
             "(signer_id, pool_ticker, created_at, updated_at, last_registered_at) values (?*, ?*, ?*, ?*, ?*)",
             vec![
                 Value::String(signer_record.signer_id),
-                signer_record
-                    .pool_ticker
-                    .map(Value::String)
-                    .unwrap_or(Value::Null),
+                signer_record.pool_ticker.map(Value::String).unwrap_or(Value::Null),
                 Value::String(signer_record.created_at.to_rfc3339()),
                 Value::String(signer_record.updated_at.to_rfc3339()),
                 signer_record

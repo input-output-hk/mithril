@@ -11,7 +11,7 @@ use mithril_common::{
     test_utils::MithrilFixtureBuilder,
 };
 use test_extensions::{
-    utilities::get_test_dir, ExpectedCertificate, ExpectedMetrics, RuntimeTester,
+    ExpectedCertificate, ExpectedMetrics, RuntimeTester, utilities::get_test_dir,
 };
 
 #[tokio::test]
@@ -80,7 +80,9 @@ async fn create_certificate_with_buffered_signatures() {
     comment!("register signers");
     tester.register_signers(&fixture.signers_fixture()).await.unwrap();
 
-    comment!("Using buffered signatures, the state machine should issue a certificate for the MithrilStakeDistribution");
+    comment!(
+        "Using buffered signatures, the state machine should issue a certificate for the MithrilStakeDistribution"
+    );
     cycle!(tester, "ready");
     assert_last_certificate_eq!(
         tester,

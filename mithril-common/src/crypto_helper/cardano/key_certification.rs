@@ -6,8 +6,8 @@
 use std::{collections::HashMap, sync::Arc};
 
 use blake2::{
-    digest::{consts::U32, FixedOutput},
     Blake2b, Digest,
+    digest::{FixedOutput, consts::U32},
 };
 use kes_summed_ed25519::kes::Sum6KesSig;
 use rand_core::{CryptoRng, RngCore};
@@ -20,15 +20,15 @@ use mithril_stm::{
 };
 
 use crate::{
+    StdError, StdResult,
     crypto_helper::{
+        ProtocolOpCert,
         cardano::{KesSigner, KesVerifier, KesVerifierStandard},
         types::{
             ProtocolParameters, ProtocolPartyId, ProtocolSignerVerificationKey,
             ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
         },
-        ProtocolOpCert,
     },
-    StdError, StdResult,
 };
 
 // Protocol types alias
@@ -129,7 +129,9 @@ impl StmInitializerWrapper {
 
             Some(signature)
         } else {
-            println!("WARNING: Non certified signer registration by providing only a Pool Id is decommissioned and must be used for tests only!");
+            println!(
+                "WARNING: Non certified signer registration by providing only a Pool Id is decommissioned and must be used for tests only!"
+            );
             None
         };
 
@@ -300,11 +302,11 @@ impl KeyRegWrapper {
 #[cfg(test)]
 mod test {
     use crate::crypto_helper::cardano::kes::{
-        tests_setup::{
-            create_kes_cryptographic_material, KesCryptographicMaterialForTest,
-            KesPartyIndexForTest,
-        },
         KesSignerStandard,
+        tests_setup::{
+            KesCryptographicMaterialForTest, KesPartyIndexForTest,
+            create_kes_cryptographic_material,
+        },
     };
     use crate::crypto_helper::{OpCert, SerDeShelleyFileFormat};
 

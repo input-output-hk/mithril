@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
-use blake2::{digest::consts::U64, Blake2b, Digest};
+use anyhow::{Context, anyhow};
+use blake2::{Blake2b, Digest, digest::consts::U64};
 use pallas_network::miniprotocols::localmsgsubmission::DmqMsg;
 
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_common::{
-    crypto_helper::{KesSigner, TryToBytes},
     StdResult,
+    crypto_helper::{KesSigner, TryToBytes},
 };
 
 /// The TTL (Time To Live) for DMQ messages in blocks.

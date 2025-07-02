@@ -1,11 +1,11 @@
 use anyhow::Context;
 use async_trait::async_trait;
 use chrono::Utc;
-use slog::{debug, info, trace, warn, Logger};
+use slog::{Logger, debug, info, trace, warn};
 use std::sync::Arc;
 
 use mithril_common::certificate_chain::CertificateVerifier;
-use mithril_common::crypto_helper::{ProtocolGenesisVerifier, PROTOCOL_VERSION};
+use mithril_common::crypto_helper::{PROTOCOL_VERSION, ProtocolGenesisVerifier};
 use mithril_common::entities::{
     Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
     SignedEntityType, SingleSignature, StakeDistributionParty,
@@ -14,6 +14,7 @@ use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::ToMessage;
 use mithril_common::{CardanoNetwork, StdResult};
 
+use crate::MultiSigner;
 use crate::database::record::{OpenMessageRecord, OpenMessageWithSingleSignaturesRecord};
 use crate::database::repository::{
     CertificateRepository, OpenMessageRepository, SingleSignatureRepository,
@@ -21,7 +22,6 @@ use crate::database::repository::{
 use crate::dependency_injection::EpochServiceWrapper;
 use crate::entities::OpenMessage;
 use crate::services::{CertifierService, CertifierServiceError, SignatureRegistrationStatus};
-use crate::MultiSigner;
 
 /// Mithril CertifierService implementation
 pub struct MithrilCertifierService {
@@ -93,7 +93,10 @@ impl CertifierService for MithrilCertifierService {
             .with_context(|| {
                 format!("Certifier can not clean open messages from epoch '{epoch}'")
             })?;
-        info!(self.logger, "Informed of a new Epoch: {epoch:?}. Cleaned {nb} open messages along with their single signatures.");
+        info!(
+            self.logger,
+            "Informed of a new Epoch: {epoch:?}. Cleaned {nb} open messages along with their single signatures."
+        );
 
         Ok(())
     }
@@ -103,7 +106,10 @@ impl CertifierService for MithrilCertifierService {
         signed_entity_type: &SignedEntityType,
         signature: &SingleSignature,
     ) -> StdResult<SignatureRegistrationStatus> {
-        debug!(self.logger, ">> register_single_signature(signed_entity_type: {signed_entity_type:?}, single_signatures: {signature:?}");
+        debug!(
+            self.logger,
+            ">> register_single_signature(signed_entity_type: {signed_entity_type:?}, single_signatures: {signature:?}"
+        );
         trace!(self.logger, ">> register_single_signature"; "complete_single_signatures" => #?signature);
 
         let open_message = self
@@ -115,13 +121,19 @@ impl CertifierService for MithrilCertifierService {
             })?;
 
         if open_message.is_certified {
-            warn!(self.logger, "register_single_signature: open message {signed_entity_type:?} is already certified, cannot register single signature.");
+            warn!(
+                self.logger,
+                "register_single_signature: open message {signed_entity_type:?} is already certified, cannot register single signature."
+            );
 
             return Err(CertifierServiceError::AlreadyCertified(signed_entity_type.clone()).into());
         }
 
         if open_message.is_expired {
-            warn!(self.logger, "register_single_signature: open message {signed_entity_type:?} has expired, cannot register single signature.");
+            warn!(
+                self.logger,
+                "register_single_signature: open message {signed_entity_type:?} has expired, cannot register single signature."
+            );
 
             return Err(CertifierServiceError::Expired(signed_entity_type.clone()).into());
         }
@@ -137,7 +149,11 @@ impl CertifierService for MithrilCertifierService {
             .single_signature_repository
             .create_single_signature(signature, &open_message.clone().into())
             .await.with_context(|| format!("Certifier can not create the single signature from single_signature: '{signature:?}', open_message: '{open_message:?}'"))?;
-        info!(self.logger, "register_single_signature: created pool '{}' single signature for {signed_entity_type:?}.", single_signature.signer_id);
+        info!(
+            self.logger,
+            "register_single_signature: created pool '{}' single signature for {signed_entity_type:?}.",
+            single_signature.signer_id
+        );
         debug!(
             self.logger,
             "register_single_signature: created single signature for open message ID='{}'.",
@@ -245,24 +261,36 @@ impl CertifierService for MithrilCertifierService {
         let open_message: OpenMessage = open_message_record.clone().into();
 
         if open_message.is_certified {
-            warn!(self.logger, "create_certificate: open message {signed_entity_type:?} is already certified, cannot create certificate.");
+            warn!(
+                self.logger,
+                "create_certificate: open message {signed_entity_type:?} is already certified, cannot create certificate."
+            );
 
             return Err(CertifierServiceError::AlreadyCertified(signed_entity_type.clone()).into());
         }
 
         if open_message.is_expired {
-            warn!(self.logger, "create_certificate: open message {signed_entity_type:?} is expired, cannot create certificate.");
+            warn!(
+                self.logger,
+                "create_certificate: open message {signed_entity_type:?} is expired, cannot create certificate."
+            );
 
             return Err(CertifierServiceError::Expired(signed_entity_type.clone()).into());
         }
 
         let multi_signature = match self.multi_signer.create_multi_signature(&open_message).await? {
             None => {
-                debug!(self.logger, "create_certificate: No multi-signature could be created for open message {signed_entity_type:?}");
+                debug!(
+                    self.logger,
+                    "create_certificate: No multi-signature could be created for open message {signed_entity_type:?}"
+                );
                 return Ok(None);
             }
             Some(signature) => {
-                info!(self.logger, "create_certificate: multi-signature created for open message {signed_entity_type:?}");
+                info!(
+                    self.logger,
+                    "create_certificate: multi-signature created for open message {signed_entity_type:?}"
+                );
                 signature
             }
         };
@@ -384,14 +412,14 @@ mod tests {
     use std::path::PathBuf;
 
     use crate::{
-        dependency_injection::DependenciesBuilder, multi_signer::MockMultiSigner,
-        services::FakeEpochService, test_tools::TestLogger, ServeCommandConfiguration,
+        ServeCommandConfiguration, dependency_injection::DependenciesBuilder,
+        multi_signer::MockMultiSigner, services::FakeEpochService, test_tools::TestLogger,
     };
     use chrono::{DateTime, Days};
     use mithril_common::{
         entities::{CardanoDbBeacon, ProtocolMessagePartKey},
         temp_dir,
-        test_utils::{fake_data, MithrilFixture, MithrilFixtureBuilder},
+        test_utils::{MithrilFixture, MithrilFixtureBuilder, fake_data},
     };
     use tokio::sync::RwLock;
 

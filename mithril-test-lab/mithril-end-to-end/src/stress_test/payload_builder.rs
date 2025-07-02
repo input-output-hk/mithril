@@ -7,6 +7,7 @@ use mithril_cardano_node_internal_database::{
     test::DummyCardanoDb,
 };
 use mithril_common::{
+    StdResult,
     entities::{
         CardanoDbBeacon, Epoch, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
         SignedEntityType, Signer,
@@ -14,7 +15,6 @@ use mithril_common::{
     messages::{RegisterSignatureMessageHttp, RegisterSignerMessage},
     protocol::ToMessage,
     test_utils::{MithrilFixture, MithrilFixtureBuilder},
-    StdResult,
 };
 
 /// Generate signer data

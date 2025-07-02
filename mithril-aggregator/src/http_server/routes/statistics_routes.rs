@@ -87,10 +87,10 @@ mod handlers {
         CardanoDatabaseImmutableFilesRestoredMessage, SnapshotDownloadMessage,
     };
 
+    use crate::MetricsService;
     use crate::event_store::{EventMessage, TransmitterService};
     use crate::http_server::routes::middlewares::ClientMetadata;
     use crate::http_server::routes::reply;
-    use crate::MetricsService;
 
     pub async fn post_snapshot_statistics(
         client_metadata: ClientMetadata,
@@ -232,13 +232,13 @@ mod tests {
     use mithril_common::messages::{
         CardanoDatabaseImmutableFilesRestoredMessage, SnapshotDownloadMessage,
     };
-    use mithril_common::{temp_dir, MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
+    use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER, temp_dir};
 
-    use crate::event_store::EventMessage;
     use crate::ServeCommandDependenciesContainer;
+    use crate::event_store::EventMessage;
     use crate::{
-        dependency_injection::DependenciesBuilder, initialize_dependencies,
-        ServeCommandConfiguration,
+        ServeCommandConfiguration, dependency_injection::DependenciesBuilder,
+        initialize_dependencies,
     };
 
     use super::*;

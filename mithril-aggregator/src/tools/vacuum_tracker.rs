@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::Context;
 use chrono::{DateTime, TimeDelta, Utc};
-use slog::{debug, info, Logger};
+use slog::{Logger, debug, info};
 
 use mithril_common::StdResult;
 

@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use reqwest::{Client, IntoUrl};
 use serde::de::DeserializeOwned;
@@ -183,8 +183,10 @@ mod tests {
             client.download(format!("{}/endpoint", server.base_url())).await;
         let error = result.expect_err("Expected an error due to 500 status");
 
-        assert!(error
-            .to_string()
-            .contains(&StatusCode::INTERNAL_SERVER_ERROR.to_string()));
+        assert!(
+            error
+                .to_string()
+                .contains(&StatusCode::INTERNAL_SERVER_ERROR.to_string())
+        );
     }
 }

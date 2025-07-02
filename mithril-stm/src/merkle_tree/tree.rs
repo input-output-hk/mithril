@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::MerkleTreeError;
 use crate::merkle_tree::{
-    left_child, parent, right_child, sibling, MerkleBatchPath, MerklePath,
-    MerkleTreeBatchCommitment, MerkleTreeCommitment, MerkleTreeLeaf,
+    MerkleBatchPath, MerklePath, MerkleTreeBatchCommitment, MerkleTreeCommitment, MerkleTreeLeaf,
+    left_child, parent, right_child, sibling,
 };
 
 /// Tree of hashes, providing a commitment of data and its ordering.
@@ -221,7 +221,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
 mod tests {
     use super::*;
     use crate::bls_multi_signature::BlsVerificationKey;
-    use blake2::{digest::consts::U32, Blake2b};
+    use blake2::{Blake2b, digest::consts::U32};
     use proptest::collection::vec;
     use proptest::prelude::*;
     use rand::{rng, seq::IteratorRandom};

@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use mithril_client::{certificate_client::CertificateVerifier, MithrilCertificate, MithrilResult};
+use mithril_client::{MithrilCertificate, MithrilResult, certificate_client::CertificateVerifier};
 use mockall::mock;
 
 mock! {

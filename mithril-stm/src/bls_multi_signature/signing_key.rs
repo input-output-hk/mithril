@@ -2,7 +2,7 @@ use blst::min_sig::SecretKey as BlstSk;
 use rand_core::{CryptoRng, RngCore};
 
 use crate::bls_multi_signature::signature::BlsSignature;
-use crate::error::{blst_err_to_mithril, MultiSignatureError};
+use crate::error::{MultiSignatureError, blst_err_to_mithril};
 
 /// MultiSig secret key, which is a wrapper over the BlstSk type from the blst
 /// library.

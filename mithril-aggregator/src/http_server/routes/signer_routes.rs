@@ -2,8 +2,8 @@ use anyhow::Context;
 use slog::warn;
 use warp::Filter;
 
-use mithril_common::entities::Epoch;
 use mithril_common::StdResult;
+use mithril_common::entities::Epoch;
 
 use crate::dependency_injection::EpochServiceWrapper;
 use crate::http_server::routes::middlewares;
@@ -101,10 +101,10 @@ mod handlers {
     use crate::http_server::routes::signer_routes::{
         compute_registration_epoch, fetch_epoch_header_value,
     };
-    use crate::{http_server::routes::reply, SignerRegisterer, SignerRegistrationError};
     use crate::{FromRegisterSignerAdapter, MetricsService, VerificationKeyStorer};
+    use crate::{SignerRegisterer, SignerRegistrationError, http_server::routes::reply};
     use mithril_common::messages::{RegisterSignerMessage, TryFromMessageAdapter};
-    use slog::{debug, warn, Logger};
+    use slog::{Logger, debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
@@ -267,21 +267,21 @@ mod tests {
 
     use mithril_api_spec::APISpec;
     use mithril_common::{
+        MITHRIL_ORIGIN_TAG_HEADER,
         crypto_helper::ProtocolRegistrationError,
         entities::Epoch,
         messages::RegisterSignerMessage,
-        test_utils::{fake_data, MithrilFixtureBuilder},
-        MITHRIL_ORIGIN_TAG_HEADER,
+        test_utils::{MithrilFixtureBuilder, fake_data},
     };
 
     use crate::{
+        SignerRegistrationError,
         database::{record::SignerRecord, repository::MockSignerGetter},
         http_server::routes::reply::MithrilStatusCode,
         initialize_dependencies,
         services::{FakeEpochService, MockSignerRegisterer},
         store::MockVerificationKeyStorer,
         test_tools::TestLogger,
-        SignerRegistrationError,
     };
 
     use super::*;
@@ -334,8 +334,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signer_post_increments_signer_registration_total_received_since_startup_metric(
-    ) {
+    async fn test_register_signer_post_increments_signer_registration_total_received_since_startup_metric()
+     {
         let method = Method::POST.as_str();
         let path = "/register-signer";
         let dependency_manager = Arc::new(initialize_dependencies!().await);

@@ -1,6 +1,6 @@
 use blake2::digest::{Digest, FixedOutput};
-use blake2::{digest::consts::U32, Blake2b};
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use blake2::{Blake2b, digest::consts::U32};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use mithril_stm::{
     AggregateSignature, BasicVerifier, Clerk, Initializer, KeyRegistration, Parameters, Signer,
     Stake, VerificationKey,

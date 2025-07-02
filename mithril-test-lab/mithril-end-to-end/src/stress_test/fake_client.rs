@@ -4,8 +4,8 @@ use anyhow::anyhow;
 use async_recursion::async_recursion;
 use indicatif::{ProgressBar, ProgressDrawTarget};
 use mithril_common::{
-    messages::{CertificateMessage, SnapshotListItemMessage, SnapshotListMessage},
     StdResult,
+    messages::{CertificateMessage, SnapshotListItemMessage, SnapshotListMessage},
 };
 use reqwest::StatusCode;
 use slog_scope::warn;
@@ -14,19 +14,25 @@ use tokio::task::JoinSet;
 
 #[derive(Debug, Error)]
 pub enum LoadError {
-    #[error("Get snapshot list, expected HTTP code {expected_http_code} got {got_http_code} with the message: {error_message}.")]
+    #[error(
+        "Get snapshot list, expected HTTP code {expected_http_code} got {got_http_code} with the message: {error_message}."
+    )]
     SnapshotListError {
         expected_http_code: u32,
         got_http_code: u32,
         error_message: String,
     },
-    #[error("Get snapshot detail, expected HTTP code {expected_http_code} got {got_http_code} with the message: {error_message}.")]
+    #[error(
+        "Get snapshot detail, expected HTTP code {expected_http_code} got {got_http_code} with the message: {error_message}."
+    )]
     SnapshotDetailError {
         expected_http_code: u32,
         got_http_code: u32,
         error_message: String,
     },
-    #[error("Get certificate detail, expected HTTP code {expected_http_code} got {got_http_code} with the message: {error_message}.")]
+    #[error(
+        "Get certificate detail, expected HTTP code {expected_http_code} got {got_http_code} with the message: {error_message}."
+    )]
     CertificateDetailError {
         expected_http_code: u32,
         got_http_code: u32,
