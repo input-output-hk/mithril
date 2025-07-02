@@ -166,17 +166,9 @@ No proof could be computed for some Cardano transactions. Mithril may not have s
             let result_table = verified_transactions
                 .certified_transactions()
                 .iter()
-                .map(|tx| {
-                    vec![
-                        tx.cell(),
-                        "✅".cell().justify(cli_table::format::Justify::Center),
-                    ]
-                })
+                .map(|tx| vec![tx.cell(), "✅".cell().justify(cli_table::format::Justify::Center)])
                 .chain(non_certified_transactions.iter().map(|tx| {
-                    vec![
-                        tx.cell(),
-                        "❌".cell().justify(cli_table::format::Justify::Center),
-                    ]
+                    vec![tx.cell(), "❌".cell().justify(cli_table::format::Justify::Center)]
                 }))
                 .table()
                 .title(vec!["Transaction Hash", "Certified"]);

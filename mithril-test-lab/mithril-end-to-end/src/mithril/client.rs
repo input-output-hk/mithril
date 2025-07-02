@@ -211,19 +211,15 @@ impl ClientCommand {
                 vec!["--backend".to_string(), "v1".to_string()],
             ]
             .concat(),
-            ClientCommand::MithrilStakeDistribution(cmd) => [
-                vec!["mithril-stake-distribution".to_string()],
-                cmd.cli_arg(),
-            ]
-            .concat(),
+            ClientCommand::MithrilStakeDistribution(cmd) => {
+                [vec!["mithril-stake-distribution".to_string()], cmd.cli_arg()].concat()
+            }
             ClientCommand::CardanoTransaction(cmd) => {
                 [vec!["cardano-transaction".to_string()], cmd.cli_arg()].concat()
             }
-            ClientCommand::CardanoStakeDistribution(cmd) => [
-                vec!["cardano-stake-distribution".to_string()],
-                cmd.cli_arg(),
-            ]
-            .concat(),
+            ClientCommand::CardanoStakeDistribution(cmd) => {
+                [vec!["cardano-stake-distribution".to_string()], cmd.cli_arg()].concat()
+            }
             ClientCommand::CardanoDbV2(cmd) => [
                 vec!["cardano-db".to_string()],
                 cmd.cli_arg(),

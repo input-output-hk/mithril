@@ -595,10 +595,7 @@ mod tests {
 
         // fail if part verified and part unverified
         proof
-            .contains(&[
-                leaves_to_verify[2].to_owned(),
-                leaves_not_verified[0].to_owned(),
-            ])
+            .contains(&[leaves_to_verify[2].to_owned(), leaves_not_verified[0].to_owned()])
             .unwrap_err();
     }
 

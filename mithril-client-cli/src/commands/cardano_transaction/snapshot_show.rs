@@ -62,15 +62,9 @@ impl CardanoTransactionsSnapshotShowCommand {
         } else {
             let transaction_sets_table = vec![
                 vec!["Epoch".cell(), format!("{}", &tx_sets.epoch).cell()],
-                vec![
-                    "Block Number".cell(),
-                    format!("{}", &tx_sets.block_number).cell(),
-                ],
+                vec!["Block Number".cell(), format!("{}", &tx_sets.block_number).cell()],
                 vec!["Merkle Root".cell(), tx_sets.merkle_root.to_string().cell()],
-                vec![
-                    "Certificate Hash".cell(),
-                    tx_sets.certificate_hash.to_string().cell(),
-                ],
+                vec!["Certificate Hash".cell(), tx_sets.certificate_hash.to_string().cell()],
                 vec!["Hash".cell(), tx_sets.hash.cell()],
                 vec!["Created".cell(), tx_sets.created_at.to_string().cell()],
             ]

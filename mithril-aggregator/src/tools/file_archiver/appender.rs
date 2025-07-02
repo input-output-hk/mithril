@@ -292,10 +292,7 @@ mod tests {
                         compression_algorithm: CompressionAlgorithm::Gzip,
                     },
                     AppenderEntries::new(
-                        vec![
-                            directory_to_archive_path.clone(),
-                            file_to_archive_path.clone(),
-                        ],
+                        vec![directory_to_archive_path.clone(), file_to_archive_path.clone()],
                         source,
                     )
                     .unwrap(),
