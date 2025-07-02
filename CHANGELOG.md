@@ -25,6 +25,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Upgrade the Rust edition of the repository from 2021 to 2024
 
+- Add pre-built Linux ARM binaries in the distribution for the signer, client CLI, and aggregator.
+
 - **UNSTABLE** :
   - Support for DMQ signature publisher in the signer and signature consumer in the aggregator.
 
