@@ -7,6 +7,7 @@ mod snapshot_converter;
 
 pub use snapshot_converter::*;
 
+use anyhow::anyhow;
 use clap::Subcommand;
 use mithril_client::MithrilResult;
 
@@ -40,7 +41,14 @@ impl UTxOHDCommands {
     /// Execute UTxO-HD command
     pub async fn execute(&self) -> MithrilResult<()> {
         match self {
-            Self::SnapshotConverter(cmd) => cmd.execute().await,
+            Self::SnapshotConverter(cmd) => {
+                if cfg!(target_os = "linux") && cfg!(target_arch = "aarch64") {
+                    return Err(anyhow!(
+                        "'snapshot-converter' command is not supported on Linux ARM"
+                    ));
+                }
+                cmd.execute().await
+            }
         }
     }
 }
