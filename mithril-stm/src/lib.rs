@@ -140,40 +140,40 @@ pub type Stake = u64;
 pub type Index = u64;
 
 // Aliases
-#[deprecated(since = "0.4.6", note = "Use `AggregateSignature` instead")]
+#[deprecated(since = "0.4.8", note = "Use `AggregateSignature` instead")]
 pub use aggregate_signature::AggregateSignature as StmAggrSig;
 
-#[deprecated(since = "0.4.6", note = "Use `AggregateVerificationKey` instead")]
+#[deprecated(since = "0.4.8", note = "Use `AggregateVerificationKey` instead")]
 pub use aggregate_signature::AggregateVerificationKey as StmAggrVerificationKey;
 
-#[deprecated(since = "0.4.6", note = "Use `Clerk` instead")]
+#[deprecated(since = "0.4.8", note = "Use `Clerk` instead")]
 pub use aggregate_signature::Clerk as StmClerk;
 
-#[deprecated(since = "0.4.6", note = "Use `ClosedKeyRegistration` instead")]
+#[deprecated(since = "0.4.8", note = "Use `ClosedKeyRegistration` instead")]
 pub use key_registration::ClosedKeyRegistration as ClosedKeyReg;
 
-#[deprecated(since = "0.4.6", note = "Use `KeyRegistration` instead")]
+#[deprecated(since = "0.4.8", note = "Use `KeyRegistration` instead")]
 pub use key_registration::KeyRegistration as KeyReg;
 
-#[deprecated(since = "0.4.6", note = "Use `Parameters` instead")]
+#[deprecated(since = "0.4.8", note = "Use `Parameters` instead")]
 pub use parameters::Parameters as StmParameters;
 
-#[deprecated(since = "0.4.6", note = "Use `Initializer` instead")]
+#[deprecated(since = "0.4.8", note = "Use `Initializer` instead")]
 pub use participant::Initializer as StmInitializer;
 
-#[deprecated(since = "0.4.6", note = "Use `Signer` instead")]
+#[deprecated(since = "0.4.8", note = "Use `Signer` instead")]
 pub use participant::Signer as StmSigner;
 
-#[deprecated(since = "0.4.6", note = "Use `VerificationKey` instead")]
+#[deprecated(since = "0.4.8", note = "Use `VerificationKey` instead")]
 pub use participant::VerificationKey as StmVerificationKey;
 
 #[deprecated(
-    since = "0.4.6",
+    since = "0.4.8",
     note = "Use `VerificationKeyProofOfPossession` instead"
 )]
 pub use participant::VerificationKeyProofOfPossession as StmVerificationKeyPoP;
 
-#[deprecated(since = "0.4.6", note = "Use `SingleSignature` instead")]
+#[deprecated(since = "0.4.8", note = "Use `SingleSignature` instead")]
 pub use single_signature::SingleSignature as StmSig;
 
 #[deprecated(since = "0.4.6", note = "Use `BasicVerifier` instead")]
