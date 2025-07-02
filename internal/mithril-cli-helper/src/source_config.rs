@@ -3,12 +3,12 @@
 /// Register an optional parameter in the config map when it's not None.
 #[macro_export]
 macro_rules! register_config_value_option {
-    ( $map:ident, $namespace:expr_2021, $self:ident.$command:ident ) => {{
+    ( $map:ident, $namespace:expr, $self:ident.$command:ident ) => {{
         if let Some(value) = $self.$command.clone() {
             register_config_value!($map, $namespace, $command = value);
         }
     }};
-    ( $map:ident, $namespace:expr_2021, $self:ident.$command:ident, $mapping:expr_2021 ) => {{
+    ( $map:ident, $namespace:expr, $self:ident.$command:ident, $mapping:expr ) => {{
         if let Some(value) = $self.$command.clone() {
             register_config_value!($map, $namespace, $command = $mapping(value));
         }
@@ -18,7 +18,7 @@ macro_rules! register_config_value_option {
 /// Register a boolean parameter in the config map only when it's true.
 #[macro_export]
 macro_rules! register_config_value_bool {
-    ( $map:ident, $namespace:expr_2021, $self:ident.$command:ident ) => {{
+    ( $map:ident, $namespace:expr, $self:ident.$command:ident ) => {{
         if $self.$command {
             register_config_value!($map, $namespace, $command = true);
         }
@@ -35,14 +35,14 @@ macro_rules! register_config_value_bool {
 ///     register_config_value!(map, namespace, identifier = value)
 #[macro_export]
 macro_rules! register_config_value {
-    ( $map:ident, $namespace:expr_2021, $self:ident.$command:ident ) => {{
+    ( $map:ident, $namespace:expr, $self:ident.$command:ident ) => {{
         register_config_value!($map, $namespace, $command = $self.$command);
     }};
-    ( $map:ident, $namespace:expr_2021, $self:ident.$command:ident, $mapping:expr_2021 ) => {{
+    ( $map:ident, $namespace:expr, $self:ident.$command:ident, $mapping:expr ) => {{
         register_config_value!($map, $namespace, $command = $mapping($self.$command));
     }};
 
-    ( $map:ident, $namespace:expr_2021, $command:ident = $value:expr_2021 ) => {{
+    ( $map:ident, $namespace:expr, $command:ident = $value:expr ) => {{
         $map.insert(
             stringify!($command).to_string(),
             config::Value::new(Some($namespace), $value),

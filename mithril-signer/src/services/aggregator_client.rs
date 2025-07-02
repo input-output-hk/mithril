@@ -479,7 +479,7 @@ mod tests {
     use super::*;
 
     macro_rules! assert_is_error {
-        ($error:expr_2021, $error_type:pat) => {
+        ($error:expr, $error_type:pat) => {
             assert!(
                 matches!($error, $error_type),
                 "Expected {} error, got '{:?}'.",
@@ -540,7 +540,7 @@ mod tests {
     }
 
     macro_rules! assert_error_text_contains {
-        ($error: expr_2021, $expect_contains: expr_2021) => {
+        ($error: expr, $expect_contains: expr) => {
             let error = &$error;
             assert!(
                 error.contains($expect_contains),

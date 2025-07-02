@@ -15,7 +15,7 @@ mod status;
 /// if it was an Error. Else return the unwrapped value.
 #[macro_export]
 macro_rules! unwrap_to_internal_server_error {
-    ($code:expr_2021, $logger:expr_2021 => $($warn_comment:tt)*) => {
+    ($code:expr, $logger:expr => $($warn_comment:tt)*) => {
         match $code {
             Ok(res) => res,
             Err(err) => {

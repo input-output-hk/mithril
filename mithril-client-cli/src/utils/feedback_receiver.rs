@@ -244,7 +244,7 @@ mod tests {
     const DOWNLOAD_ID: &str = "id";
 
     macro_rules! send_event {
-        (cardano_db, dl_started => $sender:expr_2021, total:$total_immutable:expr_2021, ancillary:$include_ancillary:expr_2021) => {
+        (cardano_db, dl_started => $sender:expr, total:$total_immutable:expr, ancillary:$include_ancillary:expr) => {
             $sender
                 .send_event(MithrilEvent::CardanoDatabase(
                     MithrilEventCardanoDatabase::Started {
@@ -255,7 +255,7 @@ mod tests {
                 ))
                 .await;
         };
-        (cardano_db, dl_completed => $sender:expr_2021) => {
+        (cardano_db, dl_completed => $sender:expr) => {
             $sender
                 .send_event(MithrilEvent::CardanoDatabase(
                     MithrilEventCardanoDatabase::Completed {
@@ -264,7 +264,7 @@ mod tests {
                 ))
                 .await;
         };
-        (cardano_db, immutable_dl, started => $sender:expr_2021, immutable:$immutable_file_number:expr_2021, size:$size:expr_2021) => {
+        (cardano_db, immutable_dl, started => $sender:expr, immutable:$immutable_file_number:expr, size:$size:expr) => {
             $sender
                 .send_event(MithrilEvent::CardanoDatabase(
                     MithrilEventCardanoDatabase::ImmutableDownloadStarted {
@@ -275,7 +275,7 @@ mod tests {
                 ))
                 .await;
         };
-        (cardano_db, immutable_dl, progress => $sender:expr_2021, immutable:$immutable_file_number:expr_2021, bytes:$downloaded_bytes:expr_2021, size:$size:expr_2021) => {
+        (cardano_db, immutable_dl, progress => $sender:expr, immutable:$immutable_file_number:expr, bytes:$downloaded_bytes:expr, size:$size:expr) => {
             $sender
                 .send_event(MithrilEvent::CardanoDatabase(
                     MithrilEventCardanoDatabase::ImmutableDownloadProgress {
@@ -287,7 +287,7 @@ mod tests {
                 ))
                 .await;
         };
-        (cardano_db, immutable_dl, completed => $sender:expr_2021, immutable:$immutable_file_number:expr_2021) => {
+        (cardano_db, immutable_dl, completed => $sender:expr, immutable:$immutable_file_number:expr) => {
             $sender
                 .send_event(MithrilEvent::CardanoDatabase(
                     MithrilEventCardanoDatabase::ImmutableDownloadCompleted {
@@ -297,7 +297,7 @@ mod tests {
                 ))
                 .await;
         };
-        (cardano_db, ancillary_dl, started => $sender:expr_2021, size:$size:expr_2021) => {
+        (cardano_db, ancillary_dl, started => $sender:expr, size:$size:expr) => {
             $sender
                 .send_event(MithrilEvent::CardanoDatabase(
                     MithrilEventCardanoDatabase::AncillaryDownloadStarted {
@@ -307,7 +307,7 @@ mod tests {
                 ))
                 .await;
         };
-        (cardano_db, ancillary_dl, progress => $sender:expr_2021, bytes:$downloaded_bytes:expr_2021, size:$size:expr_2021) => {
+        (cardano_db, ancillary_dl, progress => $sender:expr, bytes:$downloaded_bytes:expr, size:$size:expr) => {
             $sender
                 .send_event(MithrilEvent::CardanoDatabase(
                     MithrilEventCardanoDatabase::AncillaryDownloadProgress {
@@ -318,7 +318,7 @@ mod tests {
                 ))
                 .await;
         };
-        (cardano_db, ancillary_dl, completed => $sender:expr_2021) => {
+        (cardano_db, ancillary_dl, completed => $sender:expr) => {
             $sender
                 .send_event(MithrilEvent::CardanoDatabase(
                     MithrilEventCardanoDatabase::AncillaryDownloadCompleted {
@@ -327,7 +327,7 @@ mod tests {
                 ))
                 .await;
         };
-        (cardano_db, digests_dl, started => $sender:expr_2021, size:$size:expr_2021) => {
+        (cardano_db, digests_dl, started => $sender:expr, size:$size:expr) => {
             $sender
                 .send_event(MithrilEvent::CardanoDatabase(
                     MithrilEventCardanoDatabase::DigestDownloadStarted {
@@ -337,7 +337,7 @@ mod tests {
                 ))
                 .await;
         };
-        (cardano_db, digests_dl, progress => $sender:expr_2021, bytes:$downloaded_bytes:expr_2021, size:$size:expr_2021) => {
+        (cardano_db, digests_dl, progress => $sender:expr, bytes:$downloaded_bytes:expr, size:$size:expr) => {
             $sender
                 .send_event(MithrilEvent::CardanoDatabase(
                     MithrilEventCardanoDatabase::DigestDownloadProgress {
@@ -348,7 +348,7 @@ mod tests {
                 ))
                 .await;
         };
-        (cardano_db, digests_dl, completed => $sender:expr_2021) => {
+        (cardano_db, digests_dl, completed => $sender:expr) => {
             $sender
                 .send_event(MithrilEvent::CardanoDatabase(
                     MithrilEventCardanoDatabase::DigestDownloadCompleted {
@@ -357,7 +357,7 @@ mod tests {
                 ))
                 .await;
         };
-        (cardano_db_v1, full_immutables_dl, started => $sender:expr_2021, digest:$digest:expr_2021, size:$size:expr_2021) => {
+        (cardano_db_v1, full_immutables_dl, started => $sender:expr, digest:$digest:expr, size:$size:expr) => {
             $sender
                 .send_event(MithrilEvent::SnapshotDownloadStarted {
                     download_id: DOWNLOAD_ID.to_string(),
@@ -366,7 +366,7 @@ mod tests {
                 })
                 .await;
         };
-        (cardano_db_v1, full_immutables_dl, progress => $sender:expr_2021, bytes:$downloaded_bytes:expr_2021, size:$size:expr_2021) => {
+        (cardano_db_v1, full_immutables_dl, progress => $sender:expr, bytes:$downloaded_bytes:expr, size:$size:expr) => {
             $sender
                 .send_event(MithrilEvent::SnapshotDownloadProgress {
                     download_id: DOWNLOAD_ID.to_string(),
@@ -375,14 +375,14 @@ mod tests {
                 })
                 .await;
         };
-        (cardano_db_v1, full_immutables_dl, completed => $sender:expr_2021) => {
+        (cardano_db_v1, full_immutables_dl, completed => $sender:expr) => {
             $sender
                 .send_event(MithrilEvent::SnapshotDownloadCompleted {
                     download_id: DOWNLOAD_ID.to_string(),
                 })
                 .await;
         };
-        (cardano_db_v1, ancillary_dl, started => $sender:expr_2021, size:$size:expr_2021) => {
+        (cardano_db_v1, ancillary_dl, started => $sender:expr, size:$size:expr) => {
             $sender
                 .send_event(MithrilEvent::SnapshotAncillaryDownloadStarted {
                     download_id: DOWNLOAD_ID.to_string(),
@@ -390,7 +390,7 @@ mod tests {
                 })
                 .await;
         };
-        (cardano_db_v1, ancillary_dl, progress => $sender:expr_2021, bytes:$downloaded_bytes:expr_2021, size:$size:expr_2021) => {
+        (cardano_db_v1, ancillary_dl, progress => $sender:expr, bytes:$downloaded_bytes:expr, size:$size:expr) => {
             $sender
                 .send_event(MithrilEvent::SnapshotAncillaryDownloadProgress {
                     download_id: DOWNLOAD_ID.to_string(),
@@ -399,7 +399,7 @@ mod tests {
                 })
                 .await;
         };
-        (cardano_db_v1, ancillary_dl, completed => $sender:expr_2021) => {
+        (cardano_db_v1, ancillary_dl, completed => $sender:expr) => {
             $sender
                 .send_event(MithrilEvent::SnapshotAncillaryDownloadCompleted {
                     download_id: DOWNLOAD_ID.to_string(),
