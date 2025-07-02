@@ -496,7 +496,7 @@ pub struct ServeCommandConfiguration {
     /// separated list).
     ///
     /// The value `MithrilStakeDistribution` is prepended is automatically to the list.
-    #[example = "`MithrilStakeDistribution,CardanoImmutableFilesFull,CardanoStakeDistribution,CardanoDatabase,CardanoTransactions`"]
+    #[example = "`CardanoImmutableFilesFull,CardanoStakeDistribution,CardanoDatabase,CardanoTransactions`"]
     pub signed_entity_types: Option<String>,
 
     /// Compression algorithm used for the snapshot archive artifacts.
