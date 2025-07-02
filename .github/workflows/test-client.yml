@@ -160,7 +160,7 @@ jobs:
       - name: Cardano Database Snapshot / download & restore latest
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST --backend v1 ${{ matrix.extra_args }} 2>&1 | tee cdb-download-output.txt
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST --backend v1 --download-dir v1 ${{ matrix.extra_args }} 2>&1 | tee cdb-download-output.txt
 
       - name: Cardano Database Snapshot / verify Cardano node starts successfully
         if: runner.os == 'Linux'
@@ -173,19 +173,19 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --unstable tools utxo-hd snapshot-converter --db-directory db --cardano-node-version latest --utxo-hd-flavor LMDB --commit
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --unstable tools utxo-hd snapshot-converter --db-directory v1/db --cardano-node-version latest --utxo-hd-flavor LMDB --commit
 
       - name: Remove downloaded artifacts to free up disk space (Linux, Windows)
         if: runner.os != 'macOS'
         shell: bash
         working-directory: ./bin
-        run: rm --force db/immutable/*.{chunk,primary,secondary}
+        run: rm --force v1/db/immutable/*.{chunk,primary,secondary}
 
       - name: Remove downloaded artifacts to free up disk space (macOs)
         if: runner.os == 'macOS'
         shell: bash
         working-directory: ./bin
-        run: sudo rm -rf db/
+        run: sudo rm -rf v1/db/
 
       - name: Mithril Stake Distribution / list and get last hash
         shell: bash
@@ -259,13 +259,13 @@ jobs:
         if: steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download --backend v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH ${{ matrix.extra_args }} 2>&1 | tee cdb-v2-download-output.txt
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download --backend v2 --download-dir v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH ${{ matrix.extra_args }} 2>&1 | tee cdb-v2-download-output.txt
 
       - name: Cardano Database V2 Snapshot / verify immutables
         if: steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db verify --backend v2 --db-dir db_v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH | tee cdb-v2-verify-output.txt
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db verify --backend v2 --db-dir v2/db $CARDANO_DATABASE_V2_SNAPSHOT_HASH | tee cdb-v2-verify-output.txt
 
       - name: Cardano Database V2 Snapshot / verify Cardano node starts successfully
         if: runner.os == 'Linux' && steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true'
@@ -329,16 +329,16 @@ jobs:
 
       - name: Cardano Database Snapshot / download & restore latest
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST --backend v1 --download-dir /app/data ${{ matrix.extra_args }}
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST --backend v1 --download-dir /app/data/v1 ${{ matrix.extra_args }}
 
       - name: Ledger state snapshot conversion from InMemory to LMDB
         if: matrix.extra_args == '--include-ancillary'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }}  --unstable tools utxo-hd snapshot-converter --db-directory /app/data/db --cardano-node-version latest --utxo-hd-flavor LMDB --commit
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }}  --unstable tools utxo-hd snapshot-converter --db-directory /app/data/v1/db --cardano-node-version latest --utxo-hd-flavor LMDB --commit
 
       - name: Remove downloaded artifacts to free up disk space
         shell: bash
-        run: sudo rm -rf $PWD/data/db/
+        run: sudo rm -rf $PWD/data/v1/db/
 
       - name: Mithril Stake Distribution / list and get last hash
         shell: bash
@@ -401,12 +401,12 @@ jobs:
       - name: Cardano Database V2 Snapshot / download & restore latest (Full restoration)
         if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download --backend v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH --download-dir /app/data ${{ matrix.extra_args }}
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download --backend v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH --download-dir /app/data/v2 ${{ matrix.extra_args }}
 
       - name: Cardano Database V2 Snapshot / verify immutables
         if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db verify --backend v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH --db-dir /app/data/db_v2
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db verify --backend v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH --db-dir /app/data/v2/db
 
   test-mithril-client-wasm:
     strategy:

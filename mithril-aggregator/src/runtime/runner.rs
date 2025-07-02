@@ -520,8 +520,8 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 pub mod tests {
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
+    use mockall::mock;
     use mockall::predicate::eq;
-    use mockall::{mock, Sequence};
     use std::path::PathBuf;
     use std::sync::Arc;
     use tokio::sync::RwLock;
@@ -598,6 +598,14 @@ pub mod tests {
         temp_dir: PathBuf,
         mock_certifier_service: MockCertifierService,
     ) -> AggregatorRunner {
+        build_runner_with_discriminants(temp_dir, mock_certifier_service, vec![]).await
+    }
+
+    async fn build_runner_with_discriminants(
+        temp_dir: PathBuf,
+        mock_certifier_service: MockCertifierService,
+        allowed_discriminants: Vec<SignedEntityTypeDiscriminants>,
+    ) -> AggregatorRunner {
         let mut deps = initialize_dependencies(temp_dir).await;
         deps.certifier_service = Arc::new(mock_certifier_service);
 
@@ -606,6 +614,20 @@ pub mod tests {
             .expect_compute_protocol_message()
             .return_once(|_| Ok(ProtocolMessage::default()));
         deps.signable_builder_service = Arc::new(mock_signable_builder_service);
+
+        // Configure EpochService with allowed_discriminants
+        if !allowed_discriminants.is_empty() {
+            let current_epoch = deps.ticker_service.get_current_epoch().await.unwrap();
+            let epoch_service = FakeEpochServiceBuilder {
+                signed_entity_config: SignedEntityConfig {
+                    allowed_discriminants: allowed_discriminants.into_iter().collect(),
+                    ..SignedEntityConfig::dummy()
+                },
+                ..FakeEpochServiceBuilder::dummy(current_epoch)
+            }
+            .build();
+            deps.epoch_service = Arc::new(RwLock::new(epoch_service));
+        }
 
         let runner = build_runner_with_fixture_data(deps).await;
 
@@ -643,9 +665,13 @@ pub mod tests {
             .returning(|_| Ok(None));
     }
 
-    fn create_open_message(is_certified: IsCertified, is_expired: IsExpired) -> OpenMessage {
+    fn create_open_message(
+        is_certified: IsCertified,
+        is_expired: IsExpired,
+        signed_entity_type: SignedEntityType,
+    ) -> OpenMessage {
         OpenMessage {
-            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(fake_data::beacon()),
+            signed_entity_type,
             is_certified: is_certified == IsCertified::Yes,
             is_expired: is_expired == IsExpired::Yes,
             ..OpenMessage::dummy()
@@ -951,7 +977,11 @@ pub mod tests {
     #[tokio::test]
     async fn test_get_current_non_certified_open_message_should_create_new_open_message_if_none_exists(
     ) {
-        let open_message_created = create_open_message(IsCertified::No, IsExpired::No);
+        let open_message_created = create_open_message(
+            IsCertified::No,
+            IsExpired::No,
+            SignedEntityType::MithrilStakeDistribution(fake_data::epoch()),
+        );
         let open_message_expected = open_message_created.clone();
 
         let runner = {
@@ -975,7 +1005,11 @@ pub mod tests {
     #[tokio::test]
     async fn test_get_current_non_certified_open_message_should_return_existing_open_message_if_already_exists_and_not_expired(
     ) {
-        let not_certified_and_not_expired = create_open_message(IsCertified::No, IsExpired::No);
+        let not_certified_and_not_expired = create_open_message(
+            IsCertified::No,
+            IsExpired::No,
+            SignedEntityType::MithrilStakeDistribution(fake_data::epoch()),
+        );
 
         let open_message_expected = not_certified_and_not_expired.clone();
 
@@ -1001,8 +1035,16 @@ pub mod tests {
     #[tokio::test]
     async fn test_get_current_non_certified_open_message_should_return_existing_open_message_if_already_exists_and_open_message_already_certified(
     ) {
-        let certified_and_not_expired = create_open_message(IsCertified::Yes, IsExpired::No);
-        let not_certified_and_not_expired = create_open_message(IsCertified::No, IsExpired::No);
+        let certified_and_not_expired = create_open_message(
+            IsCertified::Yes,
+            IsExpired::No,
+            SignedEntityType::MithrilStakeDistribution(fake_data::epoch()),
+        );
+        let not_certified_and_not_expired = create_open_message(
+            IsCertified::No,
+            IsExpired::No,
+            SignedEntityType::CardanoStakeDistribution(fake_data::epoch()),
+        );
 
         let open_message_expected = not_certified_and_not_expired.clone();
 
@@ -1014,7 +1056,15 @@ pub mod tests {
             );
 
             mock_certifier_service.expect_create_open_message().never();
-            build_runner(temp_dir!(), mock_certifier_service).await
+            build_runner_with_discriminants(
+                temp_dir!(),
+                mock_certifier_service,
+                vec![
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                    SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+                ],
+            )
+            .await
         };
 
         let open_message_returned = runner
@@ -1028,9 +1078,16 @@ pub mod tests {
     #[tokio::test]
     async fn test_get_current_non_certified_open_message_should_create_open_message_if_none_exists_and_open_message_already_certified(
     ) {
-        let certified_and_not_expired = create_open_message(IsCertified::Yes, IsExpired::No);
-
-        let open_message_created = create_open_message(IsCertified::No, IsExpired::No);
+        let certified_and_not_expired = create_open_message(
+            IsCertified::Yes,
+            IsExpired::No,
+            SignedEntityType::MithrilStakeDistribution(fake_data::epoch()),
+        );
+        let open_message_created = create_open_message(
+            IsCertified::No,
+            IsExpired::No,
+            SignedEntityType::CardanoStakeDistribution(fake_data::epoch()),
+        );
         let open_message_expected = open_message_created.clone();
 
         let runner = {
@@ -1044,7 +1101,15 @@ pub mod tests {
                 .expect_create_open_message()
                 .return_once(|_, _| Ok(open_message_created))
                 .times(1);
-            build_runner(temp_dir!(), mock_certifier_service).await
+            build_runner_with_discriminants(
+                temp_dir!(),
+                mock_certifier_service,
+                vec![
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                    SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+                ],
+            )
+            .await
         };
 
         let open_message_returned = runner
@@ -1058,8 +1123,16 @@ pub mod tests {
     #[tokio::test]
     async fn test_get_current_non_certified_open_message_should_return_none_if_all_open_message_already_certified(
     ) {
-        let certified_and_not_expired_1 = create_open_message(IsCertified::Yes, IsExpired::No);
-        let certified_and_not_expired_2 = create_open_message(IsCertified::Yes, IsExpired::No);
+        let certified_and_not_expired_1 = create_open_message(
+            IsCertified::Yes,
+            IsExpired::No,
+            SignedEntityType::MithrilStakeDistribution(fake_data::epoch()),
+        );
+        let certified_and_not_expired_2 = create_open_message(
+            IsCertified::Yes,
+            IsExpired::No,
+            SignedEntityType::CardanoStakeDistribution(fake_data::epoch()),
+        );
 
         let runner = {
             let mut mock_certifier_service = MockCertifierService::new();
@@ -1069,7 +1142,15 @@ pub mod tests {
             );
 
             mock_certifier_service.expect_create_open_message().never();
-            build_runner(temp_dir!(), mock_certifier_service).await
+            build_runner_with_discriminants(
+                temp_dir!(),
+                mock_certifier_service,
+                vec![
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                    SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+                ],
+            )
+            .await
         };
 
         let open_message_returned = runner
@@ -1083,8 +1164,16 @@ pub mod tests {
     #[tokio::test]
     async fn test_get_current_non_certified_open_message_should_return_first_not_certified_and_not_expired_open_message(
     ) {
-        let not_certified_and_expired = create_open_message(IsCertified::No, IsExpired::Yes);
-        let not_certified_and_not_expired = create_open_message(IsCertified::No, IsExpired::No);
+        let not_certified_and_expired = create_open_message(
+            IsCertified::No,
+            IsExpired::Yes,
+            SignedEntityType::MithrilStakeDistribution(fake_data::epoch()),
+        );
+        let not_certified_and_not_expired = create_open_message(
+            IsCertified::No,
+            IsExpired::No,
+            SignedEntityType::CardanoStakeDistribution(fake_data::epoch()),
+        );
 
         let open_message_expected = not_certified_and_not_expired.clone();
 
@@ -1096,7 +1185,15 @@ pub mod tests {
             );
 
             mock_certifier_service.expect_create_open_message().never();
-            build_runner(temp_dir!(), mock_certifier_service).await
+            build_runner_with_discriminants(
+                temp_dir!(),
+                mock_certifier_service,
+                vec![
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                    SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+                ],
+            )
+            .await
         };
 
         let open_message_returned = runner
@@ -1108,28 +1205,22 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_current_non_certified_open_message_called_for_mithril_stake_distribution_and_then_for_immutable_file(
-    ) {
+    async fn test_get_current_non_certified_open_message_called_for_mithril_stake_distribution() {
         let mut mock_certifier_service = MockCertifierService::new();
 
-        let mut seq = Sequence::new();
         mock_certifier_service
             .expect_get_open_message()
             .with(eq(SignedEntityType::MithrilStakeDistribution(
                 TimePoint::dummy().epoch,
             )))
             .times(1)
-            .in_sequence(&mut seq)
-            .return_once(|_| Ok(Some(create_open_message(IsCertified::Yes, IsExpired::No))));
-
-        mock_certifier_service
-            .expect_get_open_message()
-            .with(eq(SignedEntityType::CardanoImmutableFilesFull(
-                fake_data::beacon(),
-            )))
-            .times(1)
-            .in_sequence(&mut seq)
-            .return_once(|_| Ok(Some(create_open_message(IsCertified::Yes, IsExpired::No))));
+            .return_once(|_| {
+                Ok(Some(create_open_message(
+                    IsCertified::Yes,
+                    IsExpired::No,
+                    SignedEntityType::MithrilStakeDistribution(fake_data::epoch()),
+                )))
+            });
 
         mock_certifier_service.expect_create_open_message().never();
 

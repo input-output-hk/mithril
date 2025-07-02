@@ -13,7 +13,10 @@ use mithril_client::{
 };
 
 use crate::{
-    commands::{cardano_db::shared_steps, client_builder, SharedArgs},
+    commands::{
+        cardano_db::{download::DB_DIRECTORY_NAME, shared_steps},
+        client_builder, SharedArgs,
+    },
     configuration::ConfigParameters,
     utils::{
         CardanoDbDownloadChecker, CardanoDbUtils, ExpanderUtils, IndicatifFeedbackReceiver,
@@ -45,7 +48,7 @@ pub(super) struct PreparedCardanoDbV2Download {
 impl PreparedCardanoDbV2Download {
     pub async fn execute(&self, logger: &Logger, params: ConfigParameters) -> MithrilResult<()> {
         let restoration_options = RestorationOptions {
-            db_dir: Path::new(&self.download_dir).join("db_v2"),
+            db_dir: Path::new(&self.download_dir).join(DB_DIRECTORY_NAME),
             immutable_file_range: shared_steps::immutable_file_range(self.start, self.end),
             download_unpack_options: DownloadUnpackOptions {
                 allow_override: self.allow_override,

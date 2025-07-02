@@ -495,9 +495,8 @@ pub struct ServeCommandConfiguration {
     /// Signed entity types parameters (discriminants names in an ordered, case-sensitive, comma
     /// separated list).
     ///
-    /// The values `MithrilStakeDistribution` and `CardanoImmutableFilesFull` are prepended
-    /// automatically to the list.
-    #[example = "`MithrilStakeDistribution,CardanoImmutableFilesFull,CardanoStakeDistribution`"]
+    /// The value `MithrilStakeDistribution` is prepended is automatically to the list.
+    #[example = "`CardanoImmutableFilesFull,CardanoStakeDistribution,CardanoDatabase,CardanoTransactions`"]
     pub signed_entity_types: Option<String>,
 
     /// Compression algorithm used for the snapshot archive artifacts.
