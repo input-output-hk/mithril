@@ -67,7 +67,7 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;
 
-use mithril_stm::{StmClerk, Parameters, SingleSignature, KeyRegistration, Initializer, Signer, AggregationError};
+use mithril_stm::{Clerk, Parameters, SingleSignature, KeyRegistration, Initializer, Signer, AggregationError};
 
 type H = Blake2b<U32>;
 
@@ -117,7 +117,7 @@ fn main() {
         .filter_map(|p| p.sign(&msg))
         .collect::<Vec<SingleSignature>>();
 
-    let clerk = StmClerk::from_signer(&ps[0]);
+    let clerk = Clerk::from_signer(&ps[0]);
     let avk = clerk.compute_avk();
 
     // Check all parties can verify every sig

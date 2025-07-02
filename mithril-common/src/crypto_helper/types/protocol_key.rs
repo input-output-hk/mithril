@@ -289,19 +289,20 @@ mod test {
         crypto_helper::ProtocolKey,
         test_utils::{TempDir, fake_keys},
     };
-    use mithril_stm::StmVerificationKeyPoP;
+    use mithril_stm::VerificationKeyProofOfPossession;
     use serde::{Deserialize, Serialize};
 
     static VERIFICATION_KEY_JSON_HEX: &str = fake_keys::signer_verification_key()[0];
 
     #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
     struct Container {
-        protocol_key: ProtocolKey<StmVerificationKeyPoP>,
+        protocol_key: ProtocolKey<VerificationKeyProofOfPossession>,
     }
 
     #[test]
     fn serializing_directly_does_not_change_the_string() {
-        let key: ProtocolKey<StmVerificationKeyPoP> = VERIFICATION_KEY_JSON_HEX.try_into().unwrap();
+        let key: ProtocolKey<VerificationKeyProofOfPossession> =
+            VERIFICATION_KEY_JSON_HEX.try_into().unwrap();
         let serialized = serde_json::to_string(&key).expect("Serialization should not fail");
 
         // Note: in json strings are enclosed in quotes
@@ -344,9 +345,10 @@ mod test {
 
     #[test]
     fn can_deserialize_a_struct_containing_a_bytes_hex_verification_key() {
-        let verification_key: ProtocolKey<StmVerificationKeyPoP> = VERIFICATION_KEY_JSON_HEX
-            .try_into()
-            .expect("Failed to convert verification key");
+        let verification_key: ProtocolKey<VerificationKeyProofOfPossession> =
+            VERIFICATION_KEY_JSON_HEX
+                .try_into()
+                .expect("Failed to convert verification key");
         let verification_key_bytes_hex = verification_key
             .to_bytes_hex()
             .expect("Failed to convert verification key to bytes hex");
@@ -362,7 +364,7 @@ mod test {
 
     #[test]
     fn can_read_and_write_to_file_a_verification_key() {
-        let expected_key: ProtocolKey<StmVerificationKeyPoP> =
+        let expected_key: ProtocolKey<VerificationKeyProofOfPossession> =
             VERIFICATION_KEY_JSON_HEX.try_into().unwrap();
         let key_path = TempDir::create(
             "protocol_key",
@@ -373,8 +375,9 @@ mod test {
         expected_key
             .write_json_hex_to_file(&key_path)
             .expect("Writing to file should not fail");
-        let read_key = ProtocolKey::<StmVerificationKeyPoP>::read_json_hex_from_file(&key_path)
-            .expect("Reading from file should not fail");
+        let read_key =
+            ProtocolKey::<VerificationKeyProofOfPossession>::read_json_hex_from_file(&key_path)
+                .expect("Reading from file should not fail");
 
         assert_eq!(expected_key, read_key);
     }

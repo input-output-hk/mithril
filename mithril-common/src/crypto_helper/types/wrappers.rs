@@ -1,37 +1,39 @@
 use kes_summed_ed25519::kes::Sum6KesSig;
-use mithril_stm::{StmAggrSig, StmAggrVerificationKey, StmSig, StmVerificationKeyPoP};
+use mithril_stm::{
+    AggregateSignature, AggregateVerificationKey, SingleSignature, VerificationKeyProofOfPossession,
+};
 
 use crate::crypto_helper::{D, MKMapProof, MKProof, OpCert, ProtocolKey};
 use crate::entities::BlockRange;
 
-/// Wrapper of [MithrilStm:StmVerificationKeyPoP](type@StmVerificationKeyPoP) to add serialization
+/// Wrapper of [MithrilStm:VerificationKeyProofOfPossession](type@VerificationKeyProofOfPossession) to add serialization
 /// utilities.
-pub type ProtocolSignerVerificationKey = ProtocolKey<StmVerificationKeyPoP>;
+pub type ProtocolSignerVerificationKey = ProtocolKey<VerificationKeyProofOfPossession>;
 
 /// Wrapper of [KES:Sum6KesSig](https://github.com/input-output-hk/kes/blob/master/src/kes.rs) to add
 /// serialization utilities.
 pub type ProtocolSignerVerificationKeySignature = ProtocolKey<Sum6KesSig>;
 
-/// Wrapper of [MithrilStm:StmSig](type@StmSig) to add serialization utilities.
-pub type ProtocolSingleSignature = ProtocolKey<StmSig>;
+/// Wrapper of [MithrilStm:SingleSignature](type@SingleSignature) to add serialization utilities.
+pub type ProtocolSingleSignature = ProtocolKey<SingleSignature>;
 
-/// Wrapper of [MithrilStm:StmAggrSig](struct@StmAggrSig) to add serialization utilities.
-pub type ProtocolMultiSignature = ProtocolKey<StmAggrSig<D>>;
+/// Wrapper of [MithrilStm:AggregateSignature](struct@AggregateSignature) to add serialization utilities.
+pub type ProtocolMultiSignature = ProtocolKey<AggregateSignature<D>>;
 
 /// Wrapper of [OpCert] to add serialization utilities.
 pub type ProtocolOpCert = ProtocolKey<OpCert>;
 
-/// Wrapper of [MithrilStm:StmAggrVerificationKey](struct@StmAggrVerificationKey).
-pub type ProtocolAggregateVerificationKey = ProtocolKey<StmAggrVerificationKey<D>>;
+/// Wrapper of [MithrilStm:AggregateVerificationKey](struct@AggregateVerificationKey).
+pub type ProtocolAggregateVerificationKey = ProtocolKey<AggregateVerificationKey<D>>;
 
 /// Wrapper of [MKProof] to add serialization utilities.
 pub type ProtocolMkProof = ProtocolKey<MKMapProof<BlockRange>>;
 
 impl_codec_and_type_conversions_for_protocol_key!(
-    json_hex_codec => StmAggrSig<D>, ed25519_dalek::VerifyingKey, ed25519_dalek::SigningKey, StmAggrVerificationKey<D>,
-        MKProof, StmVerificationKeyPoP, Sum6KesSig, OpCert
+    json_hex_codec => AggregateSignature<D>, ed25519_dalek::VerifyingKey, ed25519_dalek::SigningKey, AggregateVerificationKey<D>,
+        MKProof, VerificationKeyProofOfPossession, Sum6KesSig, OpCert
 );
 
 impl_codec_and_type_conversions_for_protocol_key!(
-    bytes_hex_codec => StmSig, ed25519_dalek::Signature
+    bytes_hex_codec => SingleSignature, ed25519_dalek::Signature
 );

@@ -1,6 +1,6 @@
 //! Pre hex encoded StmTypes for testing.
 
-/// A list of pre json hex encoded [MithrilStm:StmSig](type@mithril_stm::StmSig)
+/// A list of pre json hex encoded [MithrilStm:SingleSignature](type@mithril_stm::SingleSignature)
 pub const fn single_signature<'a>() -> [&'a str; 4] {
     [
         "7b227369676d61223a5b3133302c3137372c31352c3232392c32342c3235312c3234372c3137312c3139362c32\
@@ -52,7 +52,7 @@ pub const fn single_signature<'a>() -> [&'a str; 4] {
     ]
 }
 
-/// A list of pre json hex encoded [MithrilStm:StmAggrSig](struct@mithril_stm::StmAggrSig)
+/// A list of pre json hex encoded [MithrilStm:AggregateSignature](struct@mithril_stm::AggregateSignature)
 pub const fn multi_signature<'a>() -> [&'a str; 2] {
     [
         "7b227369676e617475726573223a5b5b7b227369676d61223a5b3137312c3136312c3232352c3139342c32382c\
@@ -158,7 +158,7 @@ pub const fn signable_manifest_signature<'a>() -> [&'a str; 2] {
     ]
 }
 
-/// A list of pre json hex encoded [MithrilStm:StmVerificationKeyPoP](type@mithril_stm::StmVerificationKeyPoP)
+/// A list of pre json hex encoded [MithrilStm:VerificationKeyProofOfPossession](type@mithril_stm::VerificationKeyProofOfPossession)
 pub const fn signer_verification_key<'a>() -> [&'a str; 4] {
     [
         "7b22766b223a5b3134352c32332c3135382c31322c3138332c3230392c33322c3134302c33372c3132342c3136\
@@ -366,7 +366,7 @@ pub const fn operational_certificate<'a>() -> [&'a str; 2] {
     ]
 }
 
-/// A list of pre json hex encoded [MithrilStm:StmAggrVerificationKey](struct@mithril_stm::StmAggrVerificationKey)
+/// A list of pre json hex encoded [MithrilStm:AggregateVerificationKey](struct@mithril_stm::AggregateVerificationKey)
 pub const fn aggregate_verification_key<'a>() -> [&'a str; 3] {
     [
         "7b226d745f636f6d6d69746d656e74223a7b22726f6f74223a5b3134302c31332c3135352c3134312c3136332c\
@@ -392,7 +392,10 @@ mod test {
     use super::*;
     use ed25519_dalek::VerifyingKey;
     use kes_summed_ed25519::kes::Sum6KesSig;
-    use mithril_stm::{StmAggrSig, StmAggrVerificationKey, StmSig, StmVerificationKeyPoP};
+    use mithril_stm::{
+        AggregateSignature, AggregateVerificationKey, SingleSignature,
+        VerificationKeyProofOfPossession,
+    };
     use serde::{Serialize, de::DeserializeOwned};
     use std::any::type_name;
 
@@ -452,16 +455,16 @@ mod test {
 
     #[test]
     fn assert_encoded_single_signatures_are_still_matching_concrete_type() {
-        assert_can_deserialize_using_key_decode_hex::<StmSig>(&single_signature());
+        assert_can_deserialize_using_key_decode_hex::<SingleSignature>(&single_signature());
 
-        assert_can_convert_to_protocol_key::<StmSig>(&single_signature());
+        assert_can_convert_to_protocol_key::<SingleSignature>(&single_signature());
     }
 
     #[test]
     fn assert_encoded_multi_signatures_are_still_matching_concrete_type() {
-        assert_can_deserialize_using_key_decode_hex::<StmAggrSig<D>>(&multi_signature());
+        assert_can_deserialize_using_key_decode_hex::<AggregateSignature<D>>(&multi_signature());
 
-        assert_can_convert_to_protocol_key::<StmAggrSig<D>>(&multi_signature());
+        assert_can_convert_to_protocol_key::<AggregateSignature<D>>(&multi_signature());
     }
 
     #[test]
@@ -488,11 +491,13 @@ mod test {
 
     #[test]
     fn assert_encoded_signer_verification_key_are_still_matching_concrete_type() {
-        assert_can_deserialize_using_key_decode_hex::<StmVerificationKeyPoP>(
+        assert_can_deserialize_using_key_decode_hex::<VerificationKeyProofOfPossession>(
             &signer_verification_key(),
         );
 
-        assert_can_convert_to_protocol_key::<StmVerificationKeyPoP>(&signer_verification_key());
+        assert_can_convert_to_protocol_key::<VerificationKeyProofOfPossession>(
+            &signer_verification_key(),
+        );
     }
 
     #[test]
@@ -519,7 +524,7 @@ mod test {
 
     #[test]
     fn assert_encoded_aggregate_verification_key_are_still_matching_concrete_type() {
-        assert_can_deserialize_using_key_decode_hex::<StmAggrVerificationKey<D>>(
+        assert_can_deserialize_using_key_decode_hex::<AggregateVerificationKey<D>>(
             &aggregate_verification_key(),
         );
     }

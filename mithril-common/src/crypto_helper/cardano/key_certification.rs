@@ -1,5 +1,5 @@
 //! API for mithril key certification.
-//! Includes the wrappers for StmInitializer and KeyReg, and ProtocolRegistrationErrorWrapper.
+//! Includes the wrappers for Initializer and KeyRegistration, and ProtocolRegistrationErrorWrapper.
 //! These wrappers allows keeping mithril-stm agnostic to Cardano, while providing some
 //! guarantees that mithril-stm will not be misused in the context of Cardano.  
 
@@ -15,8 +15,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use mithril_stm::{
-    ClosedKeyReg, KeyReg, RegisterError, Stake, StmInitializer, StmParameters, StmSigner,
-    StmVerificationKeyPoP,
+    ClosedKeyRegistration, Initializer, KeyRegistration, Parameters, RegisterError, Signer, Stake,
+    VerificationKeyProofOfPossession,
 };
 
 use crate::{
@@ -95,13 +95,13 @@ pub enum ProtocolInitializerErrorWrapper {
     KesMismatch(KesPeriod, KesPeriod),
 }
 
-/// Wrapper structure for [MithrilStm:StmInitializer](mithril_stm::stm::StmInitializer).
+/// Wrapper structure for [MithrilStm:Initializer](mithril_stm::stm::Initializer).
 /// It now obtains a KES signature over the Mithril key. This allows the signers prove
 /// their correct identity with respect to a Cardano PoolID.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StmInitializerWrapper {
-    /// The StmInitializer
-    stm_initializer: StmInitializer,
+    /// The Initializer
+    stm_initializer: Initializer,
 
     /// The KES signature over the Mithril key
     ///
@@ -110,17 +110,17 @@ pub struct StmInitializerWrapper {
 }
 
 impl StmInitializerWrapper {
-    /// Builds an `StmInitializer` that is ready to register with the key registration service.
+    /// Builds an `Initializer` that is ready to register with the key registration service.
     /// This function generates the signing and verification key with a PoP, signs the verification
     /// key with a provided KES signer implementation, and initializes the structure.
     pub fn setup<R: RngCore + CryptoRng>(
-        params: StmParameters,
+        params: Parameters,
         kes_signer: Option<Arc<dyn KesSigner>>,
         kes_period: Option<KesPeriod>,
         stake: Stake,
         rng: &mut R,
     ) -> StdResult<Self> {
-        let stm_initializer = StmInitializer::setup(params, stake, rng);
+        let stm_initializer = Initializer::setup(params, stake, rng);
         let kes_signature = if let Some(kes_signer) = kes_signer {
             let (signature, _op_cert) = kes_signer.sign(
                 &stm_initializer.verification_key().to_bytes(),
@@ -142,7 +142,7 @@ impl StmInitializerWrapper {
     }
 
     /// Extract the verification key.
-    pub fn verification_key(&self) -> StmVerificationKeyPoP {
+    pub fn verification_key(&self) -> VerificationKeyProofOfPossession {
         self.stm_initializer.verification_key()
     }
 
@@ -163,8 +163,8 @@ impl StmInitializerWrapper {
 
     /// Build the `avk` for the given list of parties.
     ///
-    /// Note that if this StmInitializer was modified *between* the last call to `register`,
-    /// then the resulting `StmSigner` may not be able to produce valid signatures.
+    /// Note that if this Initializer was modified *between* the last call to `register`,
+    /// then the resulting `Signer` may not be able to produce valid signatures.
     ///
     /// Returns a `StmSignerWrapper` specialized to
     /// * this `StmSignerWrapper`'s ID and current stake
@@ -175,8 +175,8 @@ impl StmInitializerWrapper {
     /// This function fails if the initializer is not registered.
     pub fn new_signer(
         self,
-        closed_reg: ClosedKeyReg<D>,
-    ) -> Result<StmSigner<D>, ProtocolRegistrationErrorWrapper> {
+        closed_reg: ClosedKeyRegistration<D>,
+    ) -> Result<Signer<D>, ProtocolRegistrationErrorWrapper> {
         self.stm_initializer
             .new_signer(closed_reg)
             .map_err(ProtocolRegistrationErrorWrapper::CoreRegister)
@@ -201,7 +201,7 @@ impl StmInitializerWrapper {
     /// The function fails if the given string of bytes is not of required size.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, RegisterError> {
         let stm_initializer =
-            StmInitializer::from_bytes(bytes.get(..256).ok_or(RegisterError::SerializationError)?)?;
+            Initializer::from_bytes(bytes.get(..256).ok_or(RegisterError::SerializationError)?)?;
         let bytes = bytes.get(256..).ok_or(RegisterError::SerializationError)?;
         let kes_signature = if bytes.is_empty() {
             None
@@ -216,14 +216,14 @@ impl StmInitializerWrapper {
     }
 
     cfg_test_tools! {
-        /// Override the protocol parameters of the `StmInitializer` for testing purposes only.
+        /// Override the protocol parameters of the `Initializer` for testing purposes only.
         pub fn override_protocol_parameters(&mut self, protocol_parameters: &ProtocolParameters) {
             self.stm_initializer.params = protocol_parameters.to_owned();
         }
     }
 }
 
-/// Wrapper structure for [MithrilStm:KeyReg](mithril_stm::key_reg::KeyReg).
+/// Wrapper structure for [MithrilStm:KeyRegistration](mithril_stm::key_reg::KeyRegistration).
 /// The wrapper not only contains a map between `Mithril vkey <-> Stake`, but also
 /// a map `PoolID <-> Stake`. This information is recovered from the node state, and
 /// is used to verify the identity of a Mithril signer. Furthermore, the `register` function
@@ -232,7 +232,7 @@ impl StmInitializerWrapper {
 #[derive(Debug, Clone)]
 pub struct KeyRegWrapper {
     kes_verifier: Arc<dyn KesVerifier>,
-    stm_key_reg: KeyReg,
+    stm_key_reg: KeyRegistration,
     stake_distribution: HashMap<ProtocolPartyId, Stake>,
 }
 
@@ -242,7 +242,7 @@ impl KeyRegWrapper {
     pub fn init(stake_dist: &ProtocolStakeDistribution) -> Self {
         Self {
             kes_verifier: Arc::new(KesVerifierStandard),
-            stm_key_reg: KeyReg::init(),
+            stm_key_reg: KeyRegistration::init(),
             stake_distribution: HashMap::from_iter(stake_dist.to_vec()),
         }
     }
@@ -293,8 +293,8 @@ impl KeyRegWrapper {
     }
 
     /// Finalize the key registration.
-    /// This function disables `KeyReg::register`, consumes the instance of `self`, and returns a `ClosedKeyReg`.
-    pub fn close<D: Digest + FixedOutput>(self) -> ClosedKeyReg<D> {
+    /// This function disables `ClosedKeyRegistration::register`, consumes the instance of `self`, and returns a `ClosedKeyRegistration`.
+    pub fn close<D: Digest + FixedOutput>(self) -> ClosedKeyRegistration<D> {
         self.stm_key_reg.close()
     }
 }
@@ -317,7 +317,7 @@ mod test {
 
     #[test]
     fn test_vector_key_reg() {
-        let params = StmParameters {
+        let params = Parameters {
             m: 5,
             k: 5,
             phi_f: 1.0,

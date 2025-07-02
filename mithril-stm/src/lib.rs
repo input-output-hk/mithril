@@ -13,7 +13,7 @@
 //! use rand_core::{RngCore, SeedableRng};
 //! use rayon::prelude::*; // We use par_iter to speed things up
 //!
-//! use mithril_stm::{StmClerk, Parameters, SingleSignature, KeyRegistration, Initializer, Signer, AggregationError};
+//! use mithril_stm::{Clerk, Parameters, SingleSignature, KeyRegistration, Initializer, Signer, AggregationError};
 //!
 //! let nparties = 4; // Use a small number of parties for this example
 //! type D = Blake2b<U32>; // Setting the hash function for convenience
@@ -54,7 +54,7 @@
 //! for stake in stakes {
 //!     // Create keys for this party
 //!     let p = Initializer::setup(params, stake, &mut rng);
-//!     // Register keys with the KeyReg service
+//!     // Register keys with the KeyRegistration service
 //!     key_reg
 //!         .register(p.stake, p.verification_key())
 //!         .unwrap();
@@ -64,7 +64,7 @@
 //! // Close the key registration.
 //! let closed_reg = key_reg.close();
 //!
-//! // Finalize the StmInitializer and turn it into a Signer, which can execute the
+//! // Finalize the Initializer and turn it into a Signer, which can execute the
 //! // rest of the protocol.
 //! let ps = ps
 //!     .into_par_iter()
@@ -84,8 +84,8 @@
 //!     })
 //!     .collect::<Vec<SingleSignature>>();
 //!
-//! // StmClerk can aggregate and verify signatures.
-//! let clerk = StmClerk::from_signer(&ps[0]);
+//! // Clerk can aggregate and verify signatures.
+//! let clerk = Clerk::from_signer(&ps[0]);
 //!
 //! // Aggregate and verify the signatures
 //! let msig = clerk.aggregate(&sigs, &msg);
@@ -140,17 +140,40 @@ pub type Stake = u64;
 pub type Index = u64;
 
 // Aliases
+#[deprecated(since = "0.4.6", note = "Use `AggregateSignature` instead")]
 pub use aggregate_signature::AggregateSignature as StmAggrSig;
+
+#[deprecated(since = "0.4.6", note = "Use `AggregateVerificationKey` instead")]
 pub use aggregate_signature::AggregateVerificationKey as StmAggrVerificationKey;
 
+#[deprecated(since = "0.4.6", note = "Use `Clerk` instead")]
 pub use aggregate_signature::Clerk as StmClerk;
+
+#[deprecated(since = "0.4.6", note = "Use `ClosedKeyRegistration` instead")]
 pub use key_registration::ClosedKeyRegistration as ClosedKeyReg;
+
+#[deprecated(since = "0.4.6", note = "Use `KeyRegistration` instead")]
 pub use key_registration::KeyRegistration as KeyReg;
+
+#[deprecated(since = "0.4.6", note = "Use `Parameters` instead")]
 pub use parameters::Parameters as StmParameters;
+
+#[deprecated(since = "0.4.6", note = "Use `Initializer` instead")]
 pub use participant::Initializer as StmInitializer;
+
+#[deprecated(since = "0.4.6", note = "Use `Signer` instead")]
 pub use participant::Signer as StmSigner;
+
+#[deprecated(since = "0.4.6", note = "Use `VerificationKey` instead")]
 pub use participant::VerificationKey as StmVerificationKey;
+
+#[deprecated(
+    since = "0.4.6",
+    note = "Use `VerificationKeyProofOfPossession` instead"
+)]
 pub use participant::VerificationKeyProofOfPossession as StmVerificationKeyPoP;
+
+#[deprecated(since = "0.4.6", note = "Use `SingleSignature` instead")]
 pub use single_signature::SingleSignature as StmSig;
 
 #[deprecated(since = "0.4.6", note = "Use `BasicVerifier` instead")]

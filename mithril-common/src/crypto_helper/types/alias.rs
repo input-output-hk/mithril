@@ -4,7 +4,7 @@ use crate::crypto_helper::cardano::{
 };
 
 use mithril_stm::{
-    AggregationError, ClosedKeyReg, Index, Stake, StmClerk, StmParameters, StmSigner,
+    AggregationError, Clerk, ClosedKeyRegistration, Index, Parameters, Signer, Stake,
 };
 
 use blake2::{Blake2b, digest::consts::U32};
@@ -24,26 +24,26 @@ pub type ProtocolStake = Stake;
 /// A list of [Party Id][ProtocolPartyId] associated with its [Stake][ProtocolStake].
 pub type ProtocolStakeDistribution = Vec<(ProtocolPartyId, ProtocolStake)>;
 
-/// Alias of [MithrilStm::StmParameters](struct@mithril_stm::StmParameters).
-pub type ProtocolParameters = StmParameters;
+/// Alias of [MithrilStm::Parameters](struct@mithril_stm::Parameters).
+pub type ProtocolParameters = Parameters;
 
 /// Alias of [MithrilStm::Index](type@mithril_stm::Index).
 pub type ProtocolLotteryIndex = Index;
 
-/// Alias of [MithrilStm:StmSigner](struct@mithril_stm::StmSigner).
-pub type ProtocolSigner = StmSigner<D>;
+/// Alias of [MithrilStm:Signer](struct@mithril_stm::Signer).
+pub type ProtocolSigner = Signer<D>;
 
-/// Alias of a wrapper of [MithrilStm:StmInitializer](struct@mithril_stm::StmInitializer).
+/// Alias of a wrapper of [MithrilStm:Initializer](struct@mithril_stm::Initializer).
 pub type ProtocolInitializer = StmInitializerWrapper;
 
-/// Alias of [MithrilStm:StmClerk](struct@mithril_stm::StmClerk).
-pub type ProtocolClerk = StmClerk<D>;
+/// Alias of [MithrilStm:Clerk](struct@mithril_stm::Clerk).
+pub type ProtocolClerk = Clerk<D>;
 
-/// Alias of a wrapper of [MithrilStm:KeyReg](struct@mithril_stm::KeyReg).
+/// Alias of a wrapper of [MithrilStm:KeyRegistration](struct@mithril_stm::KeyRegistration).
 pub type ProtocolKeyRegistration = KeyRegWrapper;
 
-/// Alias of a wrapper of [MithrilStm:ClosedKeyReg](struct@mithril_stm::KeyReg).
-pub type ProtocolClosedKeyRegistration = ClosedKeyReg<D>;
+/// Alias of a wrapper of [MithrilStm:ClosedKeyRegistration](struct@mithril_stm::ClosedKeyRegistration).
+pub type ProtocolClosedKeyRegistration = ClosedKeyRegistration<D>;
 
 // Error alias
 /// Alias of a wrapper of [MithrilCommon:ProtocolRegistrationErrorWrapper](enum@ProtocolRegistrationErrorWrapper).

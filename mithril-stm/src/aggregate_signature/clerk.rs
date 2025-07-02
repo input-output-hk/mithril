@@ -29,7 +29,7 @@ impl<D: Digest + Clone + FixedOutput> Clerk<D> {
         let closed_reg = signer
             .get_closed_reg()
             .clone()
-            .expect("Core signer does not include closed registration. StmClerk, and so, the Stm certificate cannot be built without closed registration!")
+            .expect("Core signer does not include closed registration. Clerk, and so, the Stm certificate cannot be built without closed registration!")
             ;
 
         Self {
@@ -81,7 +81,7 @@ impl<D: Digest + Clone + FixedOutput> Clerk<D> {
         })
     }
 
-    /// Compute the `StmAggrVerificationKey` related to the used registration.
+    /// Compute the `AggregateVerificationKey` related to the used registration.
     pub fn compute_avk(&self) -> AggregateVerificationKey<D> {
         AggregateVerificationKey::from(&self.closed_reg)
     }

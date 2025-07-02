@@ -33,7 +33,7 @@ impl Parameters {
         out
     }
 
-    /// Extract the `StmParameters` from a byte slice.
+    /// Extract the `Parameters` from a byte slice.
     /// # Error
     /// The function fails if the given string of bytes is not of required size.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, RegisterError> {
