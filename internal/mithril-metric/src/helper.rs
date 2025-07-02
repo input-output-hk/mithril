@@ -49,7 +49,7 @@ pub mod re_export {
 #[macro_export]
 macro_rules! build_metrics_service {
 
-    ($service:ident, $($metric_attribute:ident:$metric_type:ident ($name:literal, $help:literal $(, $labels:expr)?)),*) => {
+    ($service:ident, $($metric_attribute:ident:$metric_type:ident ($name:literal, $help:literal $(, $labels:expr_2021)?)),*) => {
         use $crate::helper::re_export::paste;
         use $crate::helper::re_export::prometheus;
         paste::item! {

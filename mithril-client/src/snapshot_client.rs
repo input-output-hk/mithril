@@ -422,7 +422,7 @@ impl SnapshotClient {
             for location in locations {
                 let file_downloader_uri = location.to_owned().into();
 
-                if let Err(error) = self
+                match self
                     .http_file_downloader
                     .download_unpack(
                         &file_downloader_uri,
@@ -432,11 +432,11 @@ impl SnapshotClient {
                         download_event.clone(),
                     )
                     .await
-                {
+                { Err(error) => {
                     slog::warn!(self.logger, "Failed downloading snapshot from '{location}'"; "error" => ?error);
-                } else {
+                } _ => {
                     return Ok(());
-                }
+                }}
             }
 
             let locations = locations.join(", ");

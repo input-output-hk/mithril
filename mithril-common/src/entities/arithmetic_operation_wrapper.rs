@@ -519,27 +519,27 @@ pub(crate) use impl_partial_eq_to_wrapper;
 #[cfg(test)]
 pub(crate) mod tests {
     macro_rules! test_op_assign {
-        ( $right:expr, +=, $left:expr => $expected:expr ) => {{
+        ( $right:expr_2021, +=, $left:expr_2021 => $expected:expr_2021 ) => {{
             let mut number = $right;
             number += $left;
             assert_eq!($expected, number);
         }};
-        ( $right:expr, -=, $left:expr => $expected:expr ) => {{
+        ( $right:expr_2021, -=, $left:expr_2021 => $expected:expr_2021 ) => {{
             let mut number = $right;
             number -= $left;
             assert_eq!($expected, number);
         }};
-        ( $right:expr, *=, $left:expr => $expected:expr ) => {{
+        ( $right:expr_2021, *=, $left:expr_2021 => $expected:expr_2021 ) => {{
             let mut number = $right;
             number *= $left;
             assert_eq!($expected, number);
         }};
-        ( $right:expr, /=, $left:expr => $expected:expr ) => {{
+        ( $right:expr_2021, /=, $left:expr_2021 => $expected:expr_2021 ) => {{
             let mut number = $right;
             number /= $left;
             assert_eq!($expected, number);
         }};
-        ( $right:expr, %=, $left:expr => $expected:expr ) => {{
+        ( $right:expr_2021, %=, $left:expr_2021 => $expected:expr_2021 ) => {{
             let mut number = $right;
             number %= $left;
             assert_eq!($expected, number);

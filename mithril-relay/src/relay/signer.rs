@@ -223,7 +223,7 @@ mod middlewares {
 
     pub fn with_logger(
         logger: &slog::Logger,
-    ) -> impl Filter<Extract = (slog::Logger,), Error = Infallible> + Clone {
+    ) -> impl Filter<Extract = (slog::Logger,), Error = Infallible> + Clone + use<> {
         let logger = logger.clone();
         warp::any().map(move || logger.clone())
     }

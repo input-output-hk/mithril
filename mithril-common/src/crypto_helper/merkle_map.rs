@@ -415,7 +415,7 @@ impl<K: MKMapKey, S: MKTreeStorer> MKMapValue<K> for MKMapNode<K, S> {
         leaves: &[T],
     ) -> StdResult<Option<MKMapProof<K>>> {
         match self {
-            MKMapNode::Tree(ref value) => {
+            MKMapNode::Tree(value) => {
                 let proof = value
                     .compute_proof(
                         &leaves.iter().map(|leaf| leaf.to_owned().into()).collect::<Vec<_>>(),
@@ -423,7 +423,7 @@ impl<K: MKMapKey, S: MKTreeStorer> MKMapValue<K> for MKMapNode<K, S> {
                     .with_context(|| "MKMapValue could not compute sub proof for MKTree")?;
                 Ok(Some(proof.into()))
             }
-            MKMapNode::Map(ref value) => {
+            MKMapNode::Map(value) => {
                 let proof = value
                     .compute_proof(
                         &leaves.iter().map(|leaf| leaf.to_owned().into()).collect::<Vec<_>>(),

@@ -24,14 +24,14 @@ impl CardanoTransactionProofQueryParams {
 
 pub fn routes(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     proof_cardano_transaction(router_state)
 }
 
 /// GET /proof/cardano-transaction
 fn proof_cardano_transaction(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("proof" / "cardano-transaction")
         .and(warp::get())
         .and(middlewares::with_client_metadata(router_state))
