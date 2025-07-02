@@ -1,16 +1,16 @@
 use anyhow::Context;
 use async_trait::async_trait;
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 use std::sync::Arc;
 
 use crate::{
+    StdResult,
     entities::{
         BlockNumber, CardanoDbBeacon, Epoch, ProtocolMessage, ProtocolMessagePartKey,
         SignedEntityType,
     },
     logging::LoggerExtensions,
     signable_builder::{SignableBuilder, SignableSeedBuilder},
-    StdResult,
 };
 
 /// ArtifactBuilder Service trait
@@ -145,10 +145,8 @@ impl MithrilSignableBuilderService {
             next_aggregate_verification_key,
         );
 
-        let next_protocol_parameters = self
-            .seed_signable_builder
-            .compute_next_protocol_parameters()
-            .await?;
+        let next_protocol_parameters =
+            self.seed_signable_builder.compute_next_protocol_parameters().await?;
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextProtocolParameters,
             next_protocol_parameters,
@@ -169,9 +167,7 @@ impl SignableBuilderService for MithrilSignableBuilderService {
         let protocol_message = self
             .compute_signed_entity_protocol_message(signed_entity_type)
             .await?;
-        let protocol_message = self
-            .compute_seeded_protocol_message(protocol_message)
-            .await?;
+        let protocol_message = self.compute_seeded_protocol_message(protocol_message).await?;
 
         Ok(protocol_message)
     }
@@ -182,10 +178,10 @@ mod tests {
     use super::*;
 
     use crate::{
+        StdResult,
         entities::{BlockNumber, Epoch, ProtocolMessage},
         signable_builder::{Beacon as Beaconnable, MockSignableSeedBuilder, SignableBuilder},
         test_utils::TestLogger,
-        StdResult,
     };
 
     use async_trait::async_trait;
@@ -262,8 +258,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn build_mithril_stake_distribution_signable_when_given_mithril_stake_distribution_entity_type(
-    ) {
+    async fn build_mithril_stake_distribution_signable_when_given_mithril_stake_distribution_entity_type()
+     {
         let mut mock_container = build_mock_container();
         mock_container
             .mock_mithril_stake_distribution_signable_builder
@@ -315,8 +311,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn build_cardano_stake_distribution_signable_when_given_cardano_stake_distribution_entity_type(
-    ) {
+    async fn build_cardano_stake_distribution_signable_when_given_cardano_stake_distribution_entity_type()
+     {
         let mut mock_container = build_mock_container();
         mock_container
             .mock_cardano_stake_distribution_signable_builder

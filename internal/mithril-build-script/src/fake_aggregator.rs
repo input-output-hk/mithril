@@ -140,9 +140,7 @@ impl FakeAggregatorData {
                 generate_ids_array(
                     "cardano_transaction_snapshot_hashes",
                     BTreeSet::from_iter(
-                        self.individual_cardano_transaction_snapshots
-                            .keys()
-                            .cloned(),
+                        self.individual_cardano_transaction_snapshots.keys().cloned(),
                     ),
                 ),
                 generate_ids_array(
@@ -219,9 +217,7 @@ impl FakeAggregatorData {
                 generate_ids_array(
                     "cardano_transaction_snapshot_hashes",
                     BTreeSet::from_iter(
-                        self.individual_cardano_transaction_snapshots
-                            .keys()
-                            .cloned(),
+                        self.individual_cardano_transaction_snapshots.keys().cloned(),
                     ),
                 ),
                 generate_artifact_getter(

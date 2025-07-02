@@ -4,9 +4,9 @@ use mithril_cardano_node_internal_database::test::double::DumbImmutableFileObser
 use mithril_cardano_node_internal_database::{ImmutableFileObserver, ImmutableFileSystemObserver};
 use mithril_ticker::{MithrilTickerService, TickerService};
 
+use crate::ExecutionEnvironment;
 use crate::dependency_injection::{DependenciesBuilder, Result};
 use crate::get_dependency;
-use crate::ExecutionEnvironment;
 
 impl DependenciesBuilder {
     /// Create [TickerService] instance.

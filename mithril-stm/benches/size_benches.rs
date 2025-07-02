@@ -1,7 +1,7 @@
 use blake2::digest::FixedOutput;
 use blake2::{
-    digest::consts::{U32, U64},
     Blake2b, Digest,
+    digest::consts::{U32, U64},
 };
 use mithril_stm::{
     BasicVerifier, Clerk, Initializer, KeyRegistration, Parameters, Signer, SingleSignature,
@@ -23,9 +23,7 @@ where
     let mut msg = [0u8; 16];
     rng.fill_bytes(&mut msg);
 
-    let parties = (0..nparties)
-        .map(|_| 1 + (rng.next_u64() % 9999))
-        .collect::<Vec<_>>();
+    let parties = (0..nparties).map(|_| 1 + (rng.next_u64() % 9999)).collect::<Vec<_>>();
 
     let mut ps: Vec<Initializer> = Vec::with_capacity(nparties);
     let params = Parameters { k, m, phi_f: 0.2 };
@@ -73,9 +71,7 @@ where
     let mut public_signers: Vec<(VerificationKey, Stake)> = Vec::with_capacity(nparties);
     let mut initializers: Vec<Initializer> = Vec::with_capacity(nparties);
 
-    let parties = (0..nparties)
-        .map(|_| 1 + (rng.next_u64() % 9999))
-        .collect::<Vec<_>>();
+    let parties = (0..nparties).map(|_| 1 + (rng.next_u64() % 9999)).collect::<Vec<_>>();
 
     let params = Parameters { k, m, phi_f: 0.2 };
 

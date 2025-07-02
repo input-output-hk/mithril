@@ -8,9 +8,9 @@ use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    StdResult,
     crypto_helper::{MKMapKey, MKTreeNode},
     entities::BlockNumber,
-    StdResult,
 };
 
 /// BlockRangeLength is the length of a block range.
@@ -262,21 +262,15 @@ mod tests {
     #[test]
     fn test_block_range_try_add() {
         assert_eq!(
-            BlockRange::new(1, 10)
-                .try_add(&BlockRange::new(1, 10))
-                .unwrap(),
+            BlockRange::new(1, 10).try_add(&BlockRange::new(1, 10)).unwrap(),
             BlockRange::new(1, 10)
         );
         assert_eq!(
-            BlockRange::new(1, 10)
-                .try_add(&BlockRange::new(1, 11))
-                .unwrap(),
+            BlockRange::new(1, 10).try_add(&BlockRange::new(1, 11)).unwrap(),
             BlockRange::new(1, 11)
         );
         assert_eq!(
-            BlockRange::new(1, 10)
-                .try_add(&BlockRange::new(2, 10))
-                .unwrap(),
+            BlockRange::new(1, 10).try_add(&BlockRange::new(2, 10)).unwrap(),
             BlockRange::new(1, 10)
         );
     }

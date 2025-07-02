@@ -10,8 +10,8 @@ use std::{
 use thiserror::Error;
 
 use mithril_common::{
-    crypto_helper::{MKMap, MKMapKey, MKMapValue, MKTreeStorer},
     StdResult,
+    crypto_helper::{MKMap, MKMapKey, MKMapValue, MKTreeStorer},
 };
 
 /// [ResourcePool] related errors.
@@ -209,10 +209,8 @@ impl<T: Reset + Send + Sync> DerefMut for ResourcePoolItem<'_, T> {
 
 impl<T: Reset + Send + Sync> Drop for ResourcePoolItem<'_, T> {
     fn drop(&mut self) {
-        self.take().map(|resource| {
-            self.resource_pool
-                .give_back_resource(resource, self.discriminant)
-        });
+        self.take()
+            .map(|resource| self.resource_pool.give_back_resource(resource, self.discriminant));
     }
 }
 
@@ -351,8 +349,7 @@ mod tests {
         let mut resource_item = pool.acquire_resource(Duration::from_millis(10)).unwrap();
         assert_eq!(pool.count().unwrap(), pool_size - 1);
         let discriminant_stale = pool.discriminant().unwrap();
-        pool.set_discriminant(pool.discriminant().unwrap() + 1)
-            .unwrap();
+        pool.set_discriminant(pool.discriminant().unwrap() + 1).unwrap();
         pool.give_back_resource(resource_item.take().unwrap(), discriminant_stale)
             .unwrap();
 

@@ -100,10 +100,7 @@ mod tests {
             .store(values_to_store)
             .await
             .expect("Cache write should not fail");
-        let result = provider
-            .get(immutables)
-            .await
-            .expect("Cache read should not fail");
+        let result = provider.get(immutables).await.expect("Cache read should not fail");
 
         assert_eq!(expected, result);
     }
@@ -120,10 +117,7 @@ mod tests {
         )]);
         let immutables = expected.keys().cloned().collect();
 
-        let result = provider
-            .get(immutables)
-            .await
-            .expect("Cache read should not fail");
+        let result = provider.get(immutables).await.expect("Cache read should not fail");
 
         assert_eq!(expected, result);
     }
@@ -140,10 +134,7 @@ mod tests {
         )]);
         let immutables = expected.keys().cloned().collect();
 
-        let result = provider
-            .get(immutables)
-            .await
-            .expect("Cache read should not fail");
+        let result = provider.get(immutables).await.expect("Cache read should not fail");
 
         assert_eq!(expected, result);
     }
@@ -183,10 +174,7 @@ mod tests {
             .store(values_to_store)
             .await
             .expect("Cache write should not fail");
-        let result = provider
-            .get(immutables)
-            .await
-            .expect("Cache read should not fail");
+        let result = provider.get(immutables).await.expect("Cache read should not fail");
 
         assert_eq!(expected, result);
     }
@@ -216,10 +204,8 @@ mod tests {
             .expect("Cache write should not fail");
         provider.reset().await.expect("reset should not fails");
 
-        let result: BTreeMap<_, _> = provider
-            .get(immutables)
-            .await
-            .expect("Cache read should not fail");
+        let result: BTreeMap<_, _> =
+            provider.get(immutables).await.expect("Cache read should not fail");
 
         assert!(result.into_iter().all(|(_, cache)| cache.is_none()));
     }

@@ -1,17 +1,17 @@
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 
 use mithril_common::{
-    entities::{Epoch, Signer, SignerWithStake, StakeDistribution},
     StdResult,
+    entities::{Epoch, Signer, SignerWithStake, StakeDistribution},
 };
 use mithril_persistence::store::StakeStorer;
 
 use crate::{
-    dependency_injection::EpochServiceWrapper, services::AggregatorClient,
-    SignerRegistrationVerifier, VerificationKeyStorer,
+    SignerRegistrationVerifier, VerificationKeyStorer, dependency_injection::EpochServiceWrapper,
+    services::AggregatorClient,
 };
 
 use super::{
@@ -127,9 +127,8 @@ impl SignerSynchronizer for MithrilSignerRegistrationFollower {
                     anyhow::anyhow!("Leader aggregator did not return any epoch settings"),
                 ),
             )?;
-        let registration_epoch = leader_epoch_settings
-            .epoch
-            .offset_to_leader_synchronization_epoch();
+        let registration_epoch =
+            leader_epoch_settings.epoch.offset_to_leader_synchronization_epoch();
         let next_signers = leader_epoch_settings.next_signers;
         let stake_distribution = self
             .stake_store
@@ -191,6 +190,8 @@ mod tests {
     };
 
     use crate::{
+        MithrilSignerRegistrationFollower, SignerRecorder, SignerRegisterer,
+        SignerRegistrationRoundOpener, SignerRegistrationVerifier, VerificationKeyStorer,
         database::{repository::SignerRegistrationStore, test_helper::main_db_connection},
         message_adapters::FromEpochSettingsAdapter,
         services::{
@@ -198,8 +199,6 @@ mod tests {
             MockSignerRecorder, MockSignerRegistrationVerifier, SignerSynchronizer,
         },
         tools::mocks::MockStakeStore,
-        MithrilSignerRegistrationFollower, SignerRecorder, SignerRegisterer,
-        SignerRegistrationRoundOpener, SignerRegistrationVerifier, VerificationKeyStorer,
     };
 
     use test_utils::*;
@@ -379,10 +378,7 @@ mod tests {
             })
             .build();
 
-        signer_registration_follower
-            .synchronize_all_signers()
-            .await
-            .unwrap();
+        signer_registration_follower.synchronize_all_signers().await.unwrap();
     }
 
     #[tokio::test]

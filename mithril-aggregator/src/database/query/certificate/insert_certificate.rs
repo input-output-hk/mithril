@@ -54,12 +54,7 @@ impl InsertCertificateRecordQuery {
                     Value::Integer(certificate_record.epoch.try_into().unwrap()),
                     Value::String(certificate_record.network),
                     Value::Integer(certificate_record.signed_entity_type.index() as i64),
-                    Value::String(
-                        certificate_record
-                            .signed_entity_type
-                            .get_json_beacon()
-                            .unwrap(),
-                    ),
+                    Value::String(certificate_record.signed_entity_type.get_json_beacon().unwrap()),
                     Value::String(certificate_record.protocol_version),
                     Value::String(
                         serde_json::to_string(&certificate_record.protocol_parameters).unwrap(),

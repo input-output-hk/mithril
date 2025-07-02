@@ -1,7 +1,7 @@
 use kes_summed_ed25519::kes::Sum6KesSig;
 use mithril_stm::{StmAggrSig, StmAggrVerificationKey, StmSig, StmVerificationKeyPoP};
 
-use crate::crypto_helper::{MKMapProof, MKProof, OpCert, ProtocolKey, D};
+use crate::crypto_helper::{D, MKMapProof, MKProof, OpCert, ProtocolKey};
 use crate::entities::BlockRange;
 
 /// Wrapper of [MithrilStm:StmVerificationKeyPoP](type@StmVerificationKeyPoP) to add serialization

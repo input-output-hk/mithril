@@ -1,6 +1,6 @@
-use anyhow::{anyhow, Context};
-use flate2::{read::GzDecoder, write::GzEncoder, Compression};
-use slog::{info, warn, Logger};
+use anyhow::{Context, anyhow};
+use flate2::{Compression, read::GzDecoder, write::GzEncoder};
+use slog::{Logger, info, warn};
 use std::{
     fs,
     fs::File,
@@ -10,12 +10,12 @@ use std::{
 use tar::{Archive, Entry, EntryType};
 use zstd::{Decoder, Encoder};
 
+use mithril_common::StdResult;
 use mithril_common::entities::CompressionAlgorithm;
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::StdResult;
 
-use crate::tools::file_size;
 use crate::ZstandardCompressionParameters;
+use crate::tools::file_size;
 
 use super::appender::TarAppender;
 use super::{ArchiveParameters, FileArchive};
@@ -170,9 +170,9 @@ impl FileArchiver {
                 let zstd = tar
                     .into_inner()
                     .with_context(|| "ZstandardEncoder Builder can not write the archive")?;
-                zstd.finish().with_context(|| {
-                    "ZstandardEncoder can not finish the output stream after writing"
-                })?;
+                zstd.finish().with_context(
+                    || "ZstandardEncoder can not finish the output stream after writing",
+                )?;
             }
         }
 
@@ -274,9 +274,7 @@ impl FileArchiver {
     ) -> StdResult<()> {
         if entry.header().entry_type() != EntryType::Directory {
             let mut file = entry;
-            let _ = file
-                .unpack(unpack_file_path)
-                .with_context(|| "can't unpack entry")?;
+            let _ = file.unpack(unpack_file_path).with_context(|| "can't unpack entry")?;
 
             fs::remove_file(unpack_file_path).with_context(|| {
                 format!(
@@ -403,10 +401,7 @@ mod tests {
         let remaining_files: Vec<String> = list_remaining_files(&test_dir);
 
         assert_equivalent(
-            vec![
-                "other-process.file".to_string(),
-                "archive.tar.gz".to_string(),
-            ],
+            vec!["other-process.file".to_string(), "archive.tar.gz".to_string()],
             remaining_files,
         );
     }

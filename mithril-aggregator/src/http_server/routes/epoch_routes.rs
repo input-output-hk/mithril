@@ -5,14 +5,14 @@ use crate::http_server::routes::router::RouterState;
 
 pub fn routes(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     epoch_settings(router_state)
 }
 
 /// GET /epoch-settings
 fn epoch_settings(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("epoch-settings")
         .and(warp::get())
         .and(middlewares::with_logger(router_state))
@@ -24,7 +24,7 @@ fn epoch_settings(
 }
 
 mod handlers {
-    use slog::{warn, Logger};
+    use slog::{Logger, warn};
     use std::collections::BTreeSet;
     use std::convert::Infallible;
     use std::sync::Arc;

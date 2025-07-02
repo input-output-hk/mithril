@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use mithril_common::{
     crypto_helper::{MKMap, MKMapNode, MKMapValue, MKTree, MKTreeNode, MKTreeStoreInMemory},
     entities::BlockRange,
@@ -8,18 +8,8 @@ use mithril_common::{
 const K: u64 = 1_000;
 const M: u64 = 1_000 * K;
 const B: u64 = 1_000 * M;
-const TOTAL_TRANSACTIONS_BENCHES: &[u64] = &[
-    K,
-    10 * K,
-    100 * K,
-    M,
-    10 * M,
-    50 * M,
-    100 * M,
-    250 * M,
-    500 * M,
-    B,
-];
+const TOTAL_TRANSACTIONS_BENCHES: &[u64] =
+    &[K, 10 * K, 100 * K, M, 10 * M, 50 * M, 100 * M, 250 * M, 500 * M, B];
 const BLOCK_RANGE_LENGTH_BENCH: u64 = 15;
 const TOTAL_TRANSACTIONS_PER_BLOCK: u64 = 15;
 const MAX_TRANSACTIONS_PER_PROOF_BENCH: u64 = 100;
@@ -94,11 +84,7 @@ fn generate_merkle_map(
         } else {
             panic!("Expected MKMapNode::Tree");
         };
-        let leaves_to_prove = mktree_to_prove
-            .leaves()
-            .into_iter()
-            .take(1)
-            .collect::<Vec<_>>();
+        let leaves_to_prove = mktree_to_prove.leaves().into_iter().take(1).collect::<Vec<_>>();
         leaves_to_prove_all.extend(leaves_to_prove);
         mk_map
             .insert(

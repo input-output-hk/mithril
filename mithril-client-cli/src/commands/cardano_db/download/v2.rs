@@ -1,5 +1,5 @@
 use anyhow::Context;
-use slog::{warn, Logger};
+use slog::{Logger, warn};
 use std::{
     fs::File,
     path::{Path, PathBuf},
@@ -7,15 +7,16 @@ use std::{
 };
 
 use mithril_client::{
+    CardanoDatabaseSnapshot, MithrilResult,
     cardano_database_client::{CardanoDatabaseClient, DownloadUnpackOptions, ImmutableFileRange},
     common::ImmutableFileNumber,
-    CardanoDatabaseSnapshot, MithrilResult,
 };
 
 use crate::{
     commands::{
+        SharedArgs,
         cardano_db::{download::DB_DIRECTORY_NAME, shared_steps},
-        client_builder, SharedArgs,
+        client_builder,
     },
     configuration::ConfigParameters,
     utils::{
@@ -74,10 +75,9 @@ impl PreparedCardanoDbV2Download {
             .build()?;
 
         let get_list_of_artifact_ids = || async {
-            let cardano_db_snapshots =
-                client.cardano_database_v2().list().await.with_context(|| {
-                    "Can not get the list of artifacts while retrieving the latest cardano db hash"
-                })?;
+            let cardano_db_snapshots = client.cardano_database_v2().list().await.with_context(
+                || "Can not get the list of artifacts while retrieving the latest cardano db hash",
+            )?;
 
             Ok(cardano_db_snapshots
                 .iter()
@@ -162,9 +162,7 @@ impl PreparedCardanoDbV2Download {
             &cardano_db_message.network,
             &cardano_db_message.cardano_node_version,
             self.is_json_output_enabled(),
-            restoration_options
-                .download_unpack_options
-                .include_ancillary,
+            restoration_options.download_unpack_options.include_ancillary,
         )?;
 
         Ok(())
@@ -202,10 +200,7 @@ impl PreparedCardanoDbV2Download {
 
             let mut total_size =
                 total_immutables_restored_size + cardano_db.digests.size_uncompressed;
-            if restoration_options
-                .download_unpack_options
-                .include_ancillary
-            {
+            if restoration_options.download_unpack_options.include_ancillary {
                 total_size += cardano_db.ancillary.size_uncompressed;
             }
 
@@ -262,9 +257,7 @@ impl PreparedCardanoDbV2Download {
         // The cardano db snapshot download does not fail if the statistic call fails.
         // It would be nice to implement tests to verify the behavior of `add_statistics`
         let full_restoration = restoration_options.immutable_file_range == ImmutableFileRange::Full;
-        let include_ancillary = restoration_options
-            .download_unpack_options
-            .include_ancillary;
+        let include_ancillary = restoration_options.download_unpack_options.include_ancillary;
         let number_of_immutable_files_restored = restoration_options
             .immutable_file_range
             .length(cardano_database_snapshot.beacon.immutable_file_number);

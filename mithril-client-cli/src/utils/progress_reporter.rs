@@ -1,7 +1,7 @@
 use chrono::Utc;
 use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle};
 use mithril_client::MithrilResult;
-use slog::{warn, Logger};
+use slog::{Logger, warn};
 use std::{
     fmt::Write,
     ops::Deref,
@@ -179,10 +179,14 @@ impl DownloadProgressReporterParams {
 
         match self.progress_bar_kind {
             ProgressBarKind::Bytes => {
-                format!("{{spinner:.green}} {label} [{{elapsed_precise}}] [{{wide_bar:.cyan/blue}}] {{bytes}}/{{total_bytes}} ({{eta}})")
+                format!(
+                    "{{spinner:.green}} {label} [{{elapsed_precise}}] [{{wide_bar:.cyan/blue}}] {{bytes}}/{{total_bytes}} ({{eta}})"
+                )
             }
             ProgressBarKind::Files => {
-                format!("{{spinner:.green}} {label} [{{elapsed_precise}}] [{{wide_bar:.cyan/blue}}] Files: {{human_pos}}/{{human_len}} ({{eta}})")
+                format!(
+                    "{{spinner:.green}} {label} [{{elapsed_precise}}] [{{wide_bar:.cyan/blue}}] Files: {{human_pos}}/{{human_len}} ({{eta}})"
+                )
             }
         }
     }

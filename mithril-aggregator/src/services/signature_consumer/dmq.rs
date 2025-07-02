@@ -4,9 +4,9 @@ use anyhow::Context;
 use async_trait::async_trait;
 
 use mithril_common::{
+    StdResult,
     entities::{SignedEntityType, SingleSignature},
     messages::RegisterSignatureMessageDmq,
-    StdResult,
 };
 
 use mithril_dmq::DmqConsumer;

@@ -23,6 +23,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Abstracted the implementation of KES signature and verification to allow multiple and reusable implementations.
 
+- Upgrade the Rust edition of the repository from 2021 to 2024
+
 - **UNSTABLE** :
   - Support for DMQ signature publisher in the signer and signature consumer in the aggregator.
 

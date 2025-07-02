@@ -3,17 +3,17 @@
 //! This service is responsible for computing the seed protocol message
 //! that is used by the [SignableBuilder] to compute the final protocol message.
 //!
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use mithril_common::{
+    StdResult,
     crypto_helper::ProtocolInitializer,
     entities::{ProtocolMessagePartValue, ProtocolParameters, SignerWithStake},
     protocol::SignerBuilder,
     signable_builder::SignableSeedBuilder,
-    StdResult,
 };
 
 use crate::{services::EpochService, store::ProtocolInitializerStorer};
@@ -50,9 +50,9 @@ impl SignerSignableSeedBuilder {
         let encoded_avk = signer_builder
             .compute_aggregate_verification_key()
             .to_json_hex()
-            .with_context(|| {
-                "SignerSignableSeedBuilder can not serialize aggregate verification key"
-            })?;
+            .with_context(
+                || "SignerSignableSeedBuilder can not serialize aggregate verification key",
+            )?;
 
         Ok(encoded_avk)
     }
@@ -141,9 +141,7 @@ mod tests {
     async fn test_compute_next_aggregate_verification_key_protocol_message_value() {
         let epoch = Epoch(5);
         let next_fixture = MithrilFixtureBuilder::default().with_signers(4).build();
-        let protocol_initializer = next_fixture.signers_fixture()[0]
-            .protocol_initializer
-            .clone();
+        let protocol_initializer = next_fixture.signers_fixture()[0].protocol_initializer.clone();
         let next_signers_with_stake = next_fixture.signers_with_stake();
         let mut mock_container = MockDependencyInjector::new();
         mock_container.mock_epoch_service =
@@ -179,9 +177,7 @@ mod tests {
     async fn test_compute_next_protocol_parameters_protocol_message_value() {
         let epoch = Epoch(5);
         let next_fixture = MithrilFixtureBuilder::default().with_signers(4).build();
-        let protocol_initializer = next_fixture.signers_fixture()[0]
-            .protocol_initializer
-            .clone();
+        let protocol_initializer = next_fixture.signers_fixture()[0].protocol_initializer.clone();
         let protocol_parameters: ProtocolParameters =
             protocol_initializer.get_protocol_parameters().into();
         let expected_next_protocol_parameters = protocol_parameters.compute_hash();

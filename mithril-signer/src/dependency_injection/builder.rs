@@ -2,7 +2,7 @@ use std::fs;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use slog::Logger;
 use tokio::sync::{Mutex, RwLock};
 
@@ -12,13 +12,14 @@ use mithril_cardano_node_chain::{
     chain_scanner::CardanoBlockScanner,
 };
 use mithril_cardano_node_internal_database::{
+    ImmutableFileObserver, ImmutableFileSystemObserver,
+    digesters::CardanoImmutableDigester,
     digesters::cache::{
         ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder,
     },
-    digesters::CardanoImmutableDigester,
     signable_builder::{CardanoDatabaseSignableBuilder, CardanoImmutableFilesFullSignableBuilder},
-    ImmutableFileObserver, ImmutableFileSystemObserver,
 };
+use mithril_common::StdResult;
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::crypto_helper::{
     KesSigner, KesSignerStandard, OpCert, ProtocolPartyId, SerDeShelleyFileFormat,
@@ -30,7 +31,6 @@ use mithril_common::signable_builder::{
     MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
     SignableBuilderServiceDependencies,
 };
-use mithril_common::StdResult;
 
 use mithril_era::{EraChecker, EraReader};
 use mithril_signed_entity_lock::SignedEntityTypeLock;
@@ -57,12 +57,12 @@ use crate::services::{
 };
 use crate::store::MKTreeStoreSqlite;
 use crate::{
-    database::repository::{ProtocolInitializerRepository, SignedBeaconRepository, StakePoolStore},
-    services::SignaturePublisher,
+    Configuration, HTTP_REQUEST_TIMEOUT_DURATION, MetricsService, SQLITE_FILE,
+    SQLITE_FILE_CARDANO_TRANSACTION,
 };
 use crate::{
-    Configuration, MetricsService, HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE,
-    SQLITE_FILE_CARDANO_TRANSACTION,
+    database::repository::{ProtocolInitializerRepository, SignedBeaconRepository, StakePoolStore},
+    services::SignaturePublisher,
 };
 
 /// The `DependenciesBuilder` is intended to manage Services instance creation.
@@ -256,8 +256,7 @@ impl<'a> DependenciesBuilder<'a> {
         };
 
         let era_reader = Arc::new(EraReader::new(
-            self.config
-                .build_era_reader_adapter(chain_observer.clone())?,
+            self.config.build_era_reader_adapter(chain_observer.clone())?,
         ));
         let era_epoch_token = era_reader
             .read_era_epoch_token(ticker_service.get_current_epoch().await?)
@@ -413,7 +412,7 @@ impl<'a> DependenciesBuilder<'a> {
             (Some(_), None) | (None, Some(_)) => {
                 return Err(anyhow!(
                     "kes_secret_key and operational_certificate are both mandatory".to_string(),
-                ))
+                ));
             }
             _ => None,
         };

@@ -4,7 +4,7 @@ use warp::Filter;
 
 pub fn routes(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     artifact_cardano_database_list(router_state)
         .or(artifact_cardano_database_digest_list(router_state))
         .or(artifact_cardano_database_by_id(router_state))
@@ -14,7 +14,7 @@ pub fn routes(
 /// GET /artifact/cardano-database
 fn artifact_cardano_database_list(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "cardano-database")
         .and(warp::get())
         .and(middlewares::with_logger(router_state))
@@ -25,7 +25,7 @@ fn artifact_cardano_database_list(
 /// GET /artifact/cardano-database/:id
 fn artifact_cardano_database_by_id(
     dependency_manager: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "cardano-database" / String)
         .and(warp::get())
         .and(middlewares::with_client_metadata(dependency_manager))
@@ -38,7 +38,7 @@ fn artifact_cardano_database_by_id(
 /// GET /artifact/cardano-database/digests
 fn artifact_cardano_database_digest_list(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "cardano-database" / "digests")
         .and(warp::get())
         .and(middlewares::with_logger(router_state))
@@ -48,13 +48,10 @@ fn artifact_cardano_database_digest_list(
 
 fn serve_cardano_database_dir(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path(crate::http_server::CARDANO_DATABASE_DOWNLOAD_PATH)
         .and(warp::fs::dir(
-            router_state
-                .configuration
-                .cardano_db_artifacts_directory
-                .clone(),
+            router_state.configuration.cardano_db_artifacts_directory.clone(),
         ))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::extract_config(router_state, |config| {
@@ -64,15 +61,15 @@ fn serve_cardano_database_dir(
 }
 
 mod handlers {
-    use slog::{debug, warn, Logger};
+    use slog::{Logger, debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
 
+    use crate::MetricsService;
     use crate::http_server::routes::middlewares::ClientMetadata;
     use crate::http_server::routes::reply;
     use crate::services::MessageService;
-    use crate::MetricsService;
 
     pub const LIST_MAX_ITEMS: usize = 20;
 
@@ -161,10 +158,7 @@ mod handlers {
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        match http_message_service
-            .get_cardano_database_digest_list_message()
-            .await
-        {
+        match http_message_service.get_cardano_database_digest_list_message().await {
             Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
             Err(err) => {
                 warn!(logger,"list_digests_cardano_database"; "error" => ?err);
@@ -275,8 +269,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_cardano_database_detail_increments_artifact_detail_total_served_since_startup_metric(
-    ) {
+    async fn test_cardano_database_detail_increments_artifact_detail_total_served_since_startup_metric()
+     {
         let method = Method::GET.as_str();
         let path = "/artifact/cardano-database/{hash}";
         let dependency_manager = Arc::new(initialize_dependencies!().await);

@@ -1,6 +1,6 @@
 use sqlite::Value;
 
-use mithril_common::{entities::Epoch, StdResult};
+use mithril_common::{StdResult, entities::Epoch};
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::SignerRegistrationRecord;
@@ -48,7 +48,9 @@ impl Query for GetSignerRegistrationRecordQuery {
     fn get_definition(&self, condition: &str) -> String {
         let aliases = SourceAlias::new(&[("{:signer_registration:}", "sr")]);
         let projection = Self::Entity::get_projection().expand(aliases);
-        format!("select {projection} from signer_registration as sr where {condition} order by ROWID desc")
+        format!(
+            "select {projection} from signer_registration as sr where {condition} order by ROWID desc"
+        )
     }
 }
 
@@ -80,9 +82,8 @@ mod tests {
     fn test_get_signer_registration_records() {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let signer_with_stakes = fixture.signers_with_stake();
-        let signer_with_stakes_by_epoch: Vec<(Epoch, Vec<SignerWithStake>)> = (0..=3)
-            .map(|e| (Epoch(e), signer_with_stakes.clone()))
-            .collect();
+        let signer_with_stakes_by_epoch: Vec<(Epoch, Vec<SignerWithStake>)> =
+            (0..=3).map(|e| (Epoch(e), signer_with_stakes.clone())).collect();
 
         let connection = main_db_connection().unwrap();
         insert_signer_registrations(&connection, signer_with_stakes_by_epoch.clone()).unwrap();

@@ -20,8 +20,8 @@ use mithril_era::adapters::EraReaderAdapterType;
 use crate::entities::AggregatorEpochSettings;
 use crate::http_server::SERVER_BASE_PATH;
 use crate::services::ancillary_signer::GcpCryptoKeyVersionResourceName;
-use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
 use crate::tools::DEFAULT_GCP_CREDENTIALS_JSON_ENV_VAR;
+use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
 
 /// Different kinds of execution environments
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -1134,9 +1134,7 @@ mod test {
         };
 
         assert_eq!(
-            config
-                .compute_allowed_signed_entity_types_discriminants()
-                .unwrap(),
+            config.compute_allowed_signed_entity_types_discriminants().unwrap(),
             BTreeSet::from(SignedEntityConfig::DEFAULT_ALLOWED_DISCRIMINANTS)
         );
     }
@@ -1197,11 +1195,7 @@ mod test {
             ..ServeCommandConfiguration::new_sample(temp_dir!())
         };
 
-        let joined_url = config
-            .get_local_server_url()
-            .unwrap()
-            .join("some/path")
-            .unwrap();
+        let joined_url = config.get_local_server_url().unwrap().join("some/path").unwrap();
         assert!(
             joined_url.as_str().contains(SERVER_BASE_PATH),
             "Joined URL `{joined_url}`, does not contain base path `{SERVER_BASE_PATH}`"
@@ -1246,8 +1240,8 @@ mod test {
     }
 
     #[test]
-    fn serialized_ancillary_files_signer_config_use_snake_case_for_keys_and_kebab_case_for_type_value(
-    ) {
+    fn serialized_ancillary_files_signer_config_use_snake_case_for_keys_and_kebab_case_for_type_value()
+     {
         let serialized_json = r#"{
             "type": "secret-key",
             "secret_key": "whatever"
@@ -1289,8 +1283,8 @@ mod test {
     }
 
     #[test]
-    fn deserializing_ancillary_signing_gcp_kms_configuration_without_credentials_json_env_var_fallback_to_default(
-    ) {
+    fn deserializing_ancillary_signing_gcp_kms_configuration_without_credentials_json_env_var_fallback_to_default()
+     {
         let serialized_json = r#"{
             "type": "gcp-kms",
             "resource_name": "projects/123456789/locations/global/keyRings/my-keyring/cryptoKeys/my-key/cryptoKeyVersions/1"

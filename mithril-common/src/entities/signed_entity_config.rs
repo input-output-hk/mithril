@@ -2,11 +2,11 @@ use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 
+use crate::StdResult;
 use crate::entities::{
     BlockNumber, BlockRange, CardanoDbBeacon, SignedEntityType, SignedEntityTypeDiscriminants,
     TimePoint,
 };
-use crate::StdResult;
 
 /// Convert [TimePoint] to [SignedEntityType] and list allowed signed entity types and
 /// discriminants.
@@ -360,8 +360,8 @@ mod tests {
     }
 
     #[test]
-    fn test_list_allowed_signed_entity_types_discriminant_should_not_duplicate_a_signed_entity_discriminant_type_already_in_default_ones(
-    ) {
+    fn test_list_allowed_signed_entity_types_discriminant_should_not_duplicate_a_signed_entity_discriminant_type_already_in_default_ones()
+     {
         let config = SignedEntityConfig {
             allowed_discriminants: BTreeSet::from([
                 SignedEntityConfig::DEFAULT_ALLOWED_DISCRIMINANTS[0],
@@ -408,8 +408,8 @@ mod tests {
     }
 
     #[test]
-    fn test_list_allowed_signed_entity_types_discriminants_with_multiple_identical_signed_entity_types_in_configuration_should_not_be_added_several_times(
-    ) {
+    fn test_list_allowed_signed_entity_types_discriminants_with_multiple_identical_signed_entity_types_in_configuration_should_not_be_added_several_times()
+     {
         let config = SignedEntityConfig {
             allowed_discriminants: BTreeSet::from([
                 SignedEntityTypeDiscriminants::CardanoTransactions,
@@ -456,9 +456,7 @@ mod tests {
             },
         };
 
-        let signed_entity_types = config
-            .list_allowed_signed_entity_types(&time_point)
-            .unwrap();
+        let signed_entity_types = config.list_allowed_signed_entity_types(&time_point).unwrap();
 
         assert_eq!(
             vec![

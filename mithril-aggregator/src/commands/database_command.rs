@@ -2,17 +2,17 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
-use config::{builder::DefaultState, ConfigBuilder, Map, Value};
+use config::{ConfigBuilder, Map, Value, builder::DefaultState};
 use mithril_persistence::sqlite::{SqliteCleaner, SqliteCleaningTask, SqliteConnection};
 use serde::{Deserialize, Serialize};
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 
 use mithril_common::StdResult;
 use mithril_doc::{Documenter, StructDoc};
 
 use crate::{
-    dependency_injection::DependenciesBuilder, extract_all, ConfigurationSource,
-    ExecutionEnvironment,
+    ConfigurationSource, ExecutionEnvironment, dependency_injection::DependenciesBuilder,
+    extract_all,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Documenter)]
@@ -49,9 +49,7 @@ impl DatabaseCommand {
         root_logger: Logger,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> StdResult<()> {
-        self.database_subcommand
-            .execute(root_logger, config_builder)
-            .await
+        self.database_subcommand.execute(root_logger, config_builder).await
     }
 
     pub fn extract_config(command_path: String) -> HashMap<String, StructDoc> {
@@ -167,10 +165,11 @@ impl VacuumCommand {
         let mut dependencies_builder =
             DependenciesBuilder::new(root_logger.clone(), Arc::new(config.clone()));
 
-        let dependency_container = dependencies_builder
-            .create_database_command_container()
-            .await
-            .with_context(|| "Failed to create the database command dependencies container")?;
+        let dependency_container =
+            dependencies_builder
+                .create_database_command_container()
+                .await
+                .with_context(|| "Failed to create the database command dependencies container")?;
 
         Self::vacuum_database(dependency_container.main_db_connection, root_logger.clone())
             .await

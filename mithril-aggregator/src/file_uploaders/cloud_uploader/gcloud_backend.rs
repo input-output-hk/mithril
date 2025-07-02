@@ -4,20 +4,20 @@ use anyhow::Context;
 use async_trait::async_trait;
 use gcloud_storage::client::google_cloud_auth::credentials::CredentialsFile;
 use gcloud_storage::client::{Client as GcpStorageClient, ClientConfig};
+use gcloud_storage::http::object_access_controls::ObjectACLRole;
 use gcloud_storage::http::object_access_controls::insert::{
     InsertObjectAccessControlRequest, ObjectAccessControlCreationConfig,
 };
-use gcloud_storage::http::object_access_controls::ObjectACLRole;
 use gcloud_storage::http::objects::get::GetObjectRequest;
 use gcloud_storage::http::objects::upload::{Media, UploadObjectRequest, UploadType};
-use slog::{info, Logger};
+use slog::{Logger, info};
 use tokio_util::codec::{BytesCodec, FramedRead};
 
-use mithril_common::entities::FileUri;
 use mithril_common::StdResult;
+use mithril_common::entities::FileUri;
 
-use crate::file_uploaders::cloud_uploader::{gcp_percent_encode, CloudBackendUploader};
 use crate::file_uploaders::CloudRemotePath;
+use crate::file_uploaders::cloud_uploader::{CloudBackendUploader, gcp_percent_encode};
 
 /// Google Cloud Platform file uploader using `gcloud-storage` crate
 pub struct GCloudBackendUploader {
@@ -100,11 +100,9 @@ impl CloudBackendUploader for GCloudBackendUploader {
             "Uploading {} to {remote_file_path}",
             local_file_path.display()
         );
-        let file = tokio::fs::File::open(local_file_path)
-            .await
-            .with_context(|| {
-                format!("Opening file failure, path: {}", local_file_path.display())
-            })?;
+        let file = tokio::fs::File::open(local_file_path).await.with_context(|| {
+            format!("Opening file failure, path: {}", local_file_path.display())
+        })?;
         let stream = FramedRead::new(file, BytesCodec::new());
 
         self.storage_client

@@ -11,7 +11,7 @@ use mithril_common::{
     test_utils::MithrilFixtureBuilder,
 };
 use test_extensions::{
-    utilities::get_test_dir, ExpectedCertificate, ExpectedMetrics, RuntimeTester,
+    ExpectedCertificate, ExpectedMetrics, RuntimeTester, utilities::get_test_dir,
 };
 
 #[tokio::test]
@@ -75,10 +75,7 @@ async fn create_certificate() {
     cycle!(tester, "signing");
 
     comment!("register signers");
-    tester
-        .register_signers(&fixture.signers_fixture())
-        .await
-        .unwrap();
+    tester.register_signers(&fixture.signers_fixture()).await.unwrap();
     cycle_err!(tester, "signing");
 
     comment!("signers send their single signature");
@@ -103,7 +100,9 @@ async fn create_certificate() {
         )
     );
 
-    comment!("The state machine should get back to signing to sign CardanoDatabase with the previously created immutable file");
+    comment!(
+        "The state machine should get back to signing to sign CardanoDatabase with the previously created immutable file"
+    );
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "signing");
     let signers_for_cardano_database = &fixture.signers_fixture()[1..=6];

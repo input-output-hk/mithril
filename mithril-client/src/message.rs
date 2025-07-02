@@ -1,5 +1,5 @@
 use anyhow::Context;
-use slog::{o, Logger};
+use slog::{Logger, o};
 #[cfg(feature = "fs")]
 use std::path::Path;
 #[cfg(feature = "fs")]
@@ -16,9 +16,9 @@ use mithril_common::signable_builder::CardanoStakeDistributionSignableBuilder;
 use mithril_common::{crypto_helper::MKProof, entities::SignedEntityType};
 
 use crate::{
-    common::{ProtocolMessage, ProtocolMessagePartKey},
     CardanoStakeDistribution, MithrilCertificate, MithrilResult, MithrilSigner,
     MithrilStakeDistribution, VerifiedCardanoTransactions,
+    common::{ProtocolMessage, ProtocolMessagePartKey},
 };
 
 /// A [MessageBuilder] can be used to compute the message of Mithril artifacts.
@@ -129,16 +129,16 @@ impl MessageBuilder {
 
         let signer_builder =
             SignerBuilder::new(&signers, &mithril_stake_distribution.protocol_parameters)
-                .with_context(|| {
-                    "Could not compute message: aggregate verification key computation failed"
-                })?;
+                .with_context(
+                    || "Could not compute message: aggregate verification key computation failed",
+                )?;
 
         let avk = signer_builder
             .compute_aggregate_verification_key()
             .to_json_hex()
-            .with_context(|| {
-                "Could not compute message: aggregate verification key encoding failed"
-            })?;
+            .with_context(
+                || "Could not compute message: aggregate verification key encoding failed",
+            )?;
 
         let mut message = certificate.protocol_message.clone();
         message.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);

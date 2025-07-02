@@ -1,10 +1,10 @@
 use std::{collections::HashMap, sync::Arc};
 
-use anyhow::{anyhow, Context};
-use slog::{debug, info, trace, Logger};
+use anyhow::{Context, anyhow};
+use slog::{Logger, debug, info, trace};
 
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::{entities::Certificate, StdResult};
+use mithril_common::{StdResult, entities::Certificate};
 
 use crate::database::repository::{CertificateRepository, SignedEntityStorer};
 
@@ -142,10 +142,8 @@ impl CertificatesHashMigrator {
         old_and_new_certificate_hashes: HashMap<String, String>,
     ) -> StdResult<()> {
         info!(self.logger, "Updating signed entities certificate ids");
-        let old_hashes: Vec<&str> = old_and_new_certificate_hashes
-            .keys()
-            .map(|k| k.as_str())
-            .collect();
+        let old_hashes: Vec<&str> =
+            old_and_new_certificate_hashes.keys().map(|k| k.as_str()).collect();
 
         debug!(
             self.logger,
@@ -203,9 +201,9 @@ impl CertificatesHashMigrator {
             self.certificate_repository
                 .delete_certificates(&old_certificates_chunk.iter().collect::<Vec<_>>())
                 .await
-                .with_context(|| {
-                    "Certificates Hash Migrator can not delete old certificates in the database"
-                })?;
+                .with_context(
+                    || "Certificates Hash Migrator can not delete old certificates in the database",
+                )?;
         }
 
         Ok(())
@@ -466,10 +464,8 @@ mod test {
 
         // Note: data retrieved from the database will be in the earliest to the oldest order, the
         // reverse of our insert order.
-        let expected_certificates_and_signed_entities = recompute_hashes(old_certificates)
-            .into_iter()
-            .rev()
-            .collect();
+        let expected_certificates_and_signed_entities =
+            recompute_hashes(old_certificates).into_iter().rev().collect();
 
         // Act
         let migrator = CertificatesHashMigrator::new(
@@ -484,9 +480,7 @@ mod test {
 
         // Assert
         let migrated_certificates_and_signed_entities =
-            get_certificates_and_signed_entities(sqlite_connection)
-                .await
-                .unwrap();
+            get_certificates_and_signed_entities(sqlite_connection).await.unwrap();
 
         let extract_human_readable_data =
             |entries: Vec<(Certificate, Option<SignedEntityRecord>)>| {
@@ -533,8 +527,8 @@ mod test {
     }
 
     #[tokio::test]
-    async fn migrate_a_chain_with_one_genesis_spanning_multiple_epochs_and_multiple_signed_entities(
-    ) {
+    async fn migrate_a_chain_with_one_genesis_spanning_multiple_epochs_and_multiple_signed_entities()
+     {
         let connection = Arc::new(connection_with_foreign_key_support());
         run_migration_test(
             connection,

@@ -1,17 +1,17 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use pallas_network::{
     facades::NodeClient,
     miniprotocols::chainsync::{BlockContent, NextResponse},
 };
 use pallas_traverse::MultiEraBlock;
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 
+use mithril_common::StdResult;
 use mithril_common::entities::CardanoNetwork;
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::StdResult;
 
 use crate::entities::{ChainBlockNextAction, RawCardanoPoint, ScannedBlock};
 
@@ -80,9 +80,7 @@ impl PallasChainReader {
 
         if chainsync.has_agency() {
             debug!(logger, "Has agency, finding intersect point..."; "point" => ?point);
-            chainsync
-                .find_intersect(vec![point.to_owned().into()])
-                .await?;
+            chainsync.find_intersect(vec![point.to_owned().into()]).await?;
         } else {
             debug!(logger, "Doesn't have agency, no need to find intersect point";);
         }
@@ -155,8 +153,8 @@ mod tests {
     use pallas_network::{
         facades::NodeServer,
         miniprotocols::{
-            chainsync::{BlockContent, Tip},
             Point,
+            chainsync::{BlockContent, Tip},
         },
     };
     use std::fs;

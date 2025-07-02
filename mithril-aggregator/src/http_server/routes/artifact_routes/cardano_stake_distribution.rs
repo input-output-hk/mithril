@@ -4,7 +4,7 @@ use warp::Filter;
 
 pub fn routes(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     artifact_cardano_stake_distributions(router_state)
         .or(artifact_cardano_stake_distribution_by_id(router_state))
         .or(artifact_cardano_stake_distribution_by_epoch(router_state))
@@ -13,7 +13,7 @@ pub fn routes(
 /// GET /artifact/cardano-stake-distributions
 fn artifact_cardano_stake_distributions(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "cardano-stake-distributions")
         .and(warp::get())
         .and(middlewares::with_logger(router_state))
@@ -24,7 +24,7 @@ fn artifact_cardano_stake_distributions(
 /// GET /artifact/cardano-stake-distribution/:id
 fn artifact_cardano_stake_distribution_by_id(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "cardano-stake-distribution" / String)
         .and(warp::get())
         .and(middlewares::with_client_metadata(router_state))
@@ -37,7 +37,7 @@ fn artifact_cardano_stake_distribution_by_id(
 /// GET /artifact/cardano-stake-distribution/epoch/:epoch
 fn artifact_cardano_stake_distribution_by_epoch(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "cardano-stake-distribution" / "epoch" / String)
         .and(warp::get())
         .and(middlewares::with_client_metadata(router_state))
@@ -48,17 +48,17 @@ fn artifact_cardano_stake_distribution_by_epoch(
 }
 
 pub mod handlers {
-    use slog::{warn, Logger};
+    use slog::{Logger, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
 
     use mithril_common::entities::Epoch;
 
+    use crate::MetricsService;
     use crate::http_server::routes::middlewares::ClientMetadata;
     use crate::http_server::routes::reply;
     use crate::services::MessageService;
-    use crate::MetricsService;
 
     pub const LIST_MAX_ITEMS: usize = 20;
 
@@ -168,8 +168,8 @@ pub mod tests {
 
     use mithril_api_spec::APISpec;
     use mithril_common::{
-        messages::{CardanoStakeDistributionListItemMessage, CardanoStakeDistributionMessage},
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
+        messages::{CardanoStakeDistributionListItemMessage, CardanoStakeDistributionMessage},
     };
 
     use crate::{initialize_dependencies, services::MockMessageService};
@@ -255,8 +255,8 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_cardano_stake_distribution_increments_artifact_detail_total_served_since_startup_metric(
-    ) {
+    async fn test_cardano_stake_distribution_increments_artifact_detail_total_served_since_startup_metric()
+     {
         let method = Method::GET.as_str();
         let dependency_manager = Arc::new(initialize_dependencies!().await);
         let initial_counter_value = dependency_manager

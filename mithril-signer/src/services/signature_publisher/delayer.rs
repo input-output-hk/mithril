@@ -1,11 +1,11 @@
 use std::{sync::Arc, time::Duration};
 
 use mithril_common::{
+    StdResult,
     entities::{ProtocolMessage, SignedEntityType, SingleSignature},
     logging::LoggerExtensions,
-    StdResult,
 };
-use slog::{error, Logger};
+use slog::{Logger, error};
 
 use super::SignaturePublisher;
 
@@ -85,16 +85,10 @@ mod tests {
     #[tokio::test]
     async fn should_call_both_publishers_when_first_succeeds() {
         let mut first_publisher = MockSignaturePublisher::new();
-        first_publisher
-            .expect_publish()
-            .once()
-            .returning(|_, _, _| Ok(()));
+        first_publisher.expect_publish().once().returning(|_, _, _| Ok(()));
 
         let mut second_publisher = MockSignaturePublisher::new();
-        second_publisher
-            .expect_publish()
-            .once()
-            .returning(|_, _, _| Ok(()));
+        second_publisher.expect_publish().once().returning(|_, _, _| Ok(()));
 
         let delayer = SignaturePublisherDelayer::new(
             Arc::new(first_publisher),
@@ -123,10 +117,7 @@ mod tests {
             .returning(|_, _, _| Err(anyhow::anyhow!("first publisher failure")));
 
         let mut second_publisher = MockSignaturePublisher::new();
-        second_publisher
-            .expect_publish()
-            .once()
-            .returning(|_, _, _| Ok(()));
+        second_publisher.expect_publish().once().returning(|_, _, _| Ok(()));
 
         let delayer = SignaturePublisherDelayer::new(
             Arc::new(first_publisher),
@@ -152,10 +143,7 @@ mod tests {
     async fn should_return_and_log_error_if_second_publisher_fails() {
         let (logger, log_inspector) = TestLogger::memory();
         let mut first_publisher = MockSignaturePublisher::new();
-        first_publisher
-            .expect_publish()
-            .once()
-            .returning(|_, _, _| Ok(()));
+        first_publisher.expect_publish().once().returning(|_, _, _| Ok(()));
 
         let mut second_publisher = MockSignaturePublisher::new();
         second_publisher
@@ -186,16 +174,10 @@ mod tests {
     #[tokio::test]
     async fn should_wait_before_calling_second_publisher() {
         let mut first_publisher = MockSignaturePublisher::new();
-        first_publisher
-            .expect_publish()
-            .once()
-            .returning(|_, _, _| Ok(()));
+        first_publisher.expect_publish().once().returning(|_, _, _| Ok(()));
 
         let mut second_publisher = MockSignaturePublisher::new();
-        second_publisher
-            .expect_publish()
-            .once()
-            .returning(|_, _, _| Ok(()));
+        second_publisher.expect_publish().once().returning(|_, _, _| Ok(()));
 
         let delay = Duration::from_millis(50);
         let delayer = SignaturePublisherDelayer::new(

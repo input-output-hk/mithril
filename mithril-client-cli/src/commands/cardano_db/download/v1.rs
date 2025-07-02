@@ -1,16 +1,17 @@
-use anyhow::{anyhow, Context};
-use slog::{debug, warn, Logger};
+use anyhow::{Context, anyhow};
+use slog::{Logger, debug, warn};
 use std::{fs::File, path::Path, sync::Arc};
 
 use mithril_client::{
-    common::ProtocolMessage, snapshot_client::SnapshotClient, MessageBuilder, MithrilCertificate,
-    MithrilResult, Snapshot,
+    MessageBuilder, MithrilCertificate, MithrilResult, Snapshot, common::ProtocolMessage,
+    snapshot_client::SnapshotClient,
 };
 
 use crate::{
     commands::{
+        SharedArgs,
         cardano_db::{download::DB_DIRECTORY_NAME, shared_steps},
-        client_builder, SharedArgs,
+        client_builder,
     },
     configuration::ConfigParameters,
     utils::{
@@ -158,9 +159,7 @@ impl PreparedCardanoDbV1Download {
         progress_printer.report_step(step_number, "Downloading and unpacking the cardano db")?;
 
         if include_ancillary {
-            snapshot_client
-                .download_unpack_full(cardano_db, db_dir)
-                .await?;
+            snapshot_client.download_unpack_full(cardano_db, db_dir).await?;
         } else {
             snapshot_client.download_unpack(cardano_db, db_dir).await?;
         }
@@ -240,8 +239,8 @@ impl PreparedCardanoDbV1Download {
 #[cfg(test)]
 mod tests {
     use mithril_client::{
-        common::{CardanoDbBeacon, ProtocolMessagePartKey, SignedEntityType},
         MithrilCertificateMetadata,
+        common::{CardanoDbBeacon, ProtocolMessagePartKey, SignedEntityType},
     };
     use mithril_common::test_utils::TempDir;
 

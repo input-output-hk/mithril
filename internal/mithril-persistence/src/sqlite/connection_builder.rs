@@ -2,11 +2,11 @@ use std::ops::Not;
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 use sqlite::{Connection, ConnectionThreadSafe};
 
-use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
+use mithril_common::logging::LoggerExtensions;
 
 use crate::database::{ApplicationNodeType, DatabaseVersionChecker, SqlMigration};
 
@@ -90,10 +90,7 @@ impl ConnectionBuilder {
                 )
             })?;
 
-        if self
-            .options
-            .contains(&ConnectionOptions::EnableWriteAheadLog)
-        {
+        if self.options.contains(&ConnectionOptions::EnableWriteAheadLog) {
             connection
                 .execute("pragma journal_mode = wal; pragma synchronous = normal;")
                 .with_context(|| "SQLite initialization: could not enable WAL.")?;
@@ -107,10 +104,7 @@ impl ConnectionBuilder {
 
         let migrations = self.sql_migrations.clone();
         self.apply_migrations(&connection, migrations)?;
-        if self
-            .options
-            .contains(&ConnectionOptions::ForceDisableForeignKeys)
-        {
+        if self.options.contains(&ConnectionOptions::ForceDisableForeignKeys) {
             connection
                 .execute("pragma foreign_keys=false")
                 .with_context(|| "SQLite initialization: could not disable FOREIGN KEY support.")?;
@@ -139,9 +133,7 @@ impl ConnectionBuilder {
                 db_checker.add_migration(migration.clone());
             }
 
-            db_checker
-                .apply()
-                .with_context(|| "Database migration error")?;
+            db_checker.apply().with_context(|| "Database migration error")?;
         }
 
         Ok(())

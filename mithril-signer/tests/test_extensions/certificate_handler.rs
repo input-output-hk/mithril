@@ -120,9 +120,7 @@ impl AggregatorClient for FakeAggregator {
                 next_signers,
                 registration_protocol_parameters: fake_data::protocol_parameters(),
                 cardano_transactions_signing_config: Some(
-                    signed_entity_config
-                        .cardano_transactions_signing_config
-                        .clone(),
+                    signed_entity_config.cardano_transactions_signing_config.clone(),
                 ),
                 next_cardano_transactions_signing_config: None,
             }))
@@ -310,10 +308,7 @@ mod tests {
                 CardanoTransactionsSigningConfig::dummy();
         }
 
-        let features = fake_aggregator
-            .retrieve_aggregator_features()
-            .await
-            .unwrap();
+        let features = fake_aggregator.retrieve_aggregator_features().await.unwrap();
         assert_eq!(
             &SignedEntityTypeDiscriminants::all(),
             &features.capabilities.signed_entity_types,
@@ -324,14 +319,9 @@ mod tests {
             SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
         ]);
 
-        fake_aggregator
-            .change_allowed_discriminants(&new_discriminants)
-            .await;
+        fake_aggregator.change_allowed_discriminants(&new_discriminants).await;
 
-        let updated_features = fake_aggregator
-            .retrieve_aggregator_features()
-            .await
-            .unwrap();
+        let updated_features = fake_aggregator.retrieve_aggregator_features().await.unwrap();
         assert_eq!(
             &new_discriminants,
             &updated_features.capabilities.signed_entity_types,

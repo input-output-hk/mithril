@@ -2,7 +2,7 @@ use std::{collections::VecDeque, fmt::Debug};
 
 use tokio::sync::Mutex;
 
-use mithril_common::{crypto_helper::TryFromBytes, entities::PartyId, StdResult};
+use mithril_common::{StdResult, crypto_helper::TryFromBytes, entities::PartyId};
 
 use crate::DmqConsumer;
 

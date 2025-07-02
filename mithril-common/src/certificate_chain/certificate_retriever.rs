@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 use thiserror::Error;
 
-use crate::{entities::Certificate, StdError};
+use crate::{StdError, entities::Certificate};
 
 /// [CertificateRetriever] related errors.
 #[derive(Debug, Error)]

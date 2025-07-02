@@ -53,8 +53,8 @@ mod tests {
     use mithril_common::crypto_helper::MKTreeNode;
     use mithril_common::entities::BlockRange;
 
-    use crate::database::query::block_range_root::test_helper::insert_block_range_roots;
     use crate::database::query::GetBlockRangeRootQuery;
+    use crate::database::query::block_range_root::test_helper::insert_block_range_roots;
     use crate::database::test_helper::cardano_tx_db_connection;
     use crate::sqlite::ConnectionExtensions;
 
@@ -156,9 +156,8 @@ mod tests {
     fn test_get_highest_with_empty_db() {
         let connection = cardano_tx_db_connection().unwrap();
 
-        let cursor: Option<BlockRangeRootRecord> = connection
-            .fetch_first(GetBlockRangeRootQuery::highest())
-            .unwrap();
+        let cursor: Option<BlockRangeRootRecord> =
+            connection.fetch_first(GetBlockRangeRootQuery::highest()).unwrap();
         assert_eq!(None, cursor);
     }
 
@@ -168,9 +167,8 @@ mod tests {
         let dataset = block_range_root_dataset();
         insert_block_range_roots(&connection, dataset.clone());
 
-        let cursor: Option<BlockRangeRootRecord> = connection
-            .fetch_first(GetBlockRangeRootQuery::highest())
-            .unwrap();
+        let cursor: Option<BlockRangeRootRecord> =
+            connection.fetch_first(GetBlockRangeRootQuery::highest()).unwrap();
         assert_eq!(dataset.last().cloned(), cursor);
     }
 }

@@ -21,11 +21,12 @@ use mithril_cardano_node_chain::{
     test::double::{DumbBlockScanner, FakeChainObserver},
 };
 use mithril_cardano_node_internal_database::{
+    ImmutableFileObserver,
     signable_builder::{CardanoDatabaseSignableBuilder, CardanoImmutableFilesFullSignableBuilder},
     test::double::{DumbImmutableDigester, DumbImmutableFileObserver},
-    ImmutableFileObserver,
 };
 use mithril_common::{
+    StdError,
     api_version::APIVersionProvider,
     crypto_helper::{KesSigner, KesSignerStandard},
     entities::{
@@ -38,9 +39,8 @@ use mithril_common::{
         MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
         SignableBuilderServiceDependencies,
     },
-    StdError,
 };
-use mithril_era::{adapters::EraReaderDummyAdapter, EraChecker, EraMarker, EraReader};
+use mithril_era::{EraChecker, EraMarker, EraReader, adapters::EraReaderDummyAdapter};
 use mithril_persistence::{
     database::repository::CardanoTransactionRepository, sqlite::SqliteConnectionPool,
     store::StakeStorer,
@@ -52,6 +52,7 @@ use mithril_signed_entity_preloader::{
 use mithril_ticker::{MithrilTickerService, TickerService};
 
 use mithril_signer::{
+    Configuration, MetricsService, RuntimeError, SignerRunner, SignerState, StateMachine,
     database::repository::{ProtocolInitializerRepository, SignedBeaconRepository, StakePoolStore},
     dependency_injection::{DependenciesBuilder, SignerDependencyContainer},
     services::{
@@ -60,7 +61,6 @@ use mithril_signer::{
         SignerUpkeepService,
     },
     store::{MKTreeStoreSqlite, ProtocolInitializerStorer},
-    Configuration, MetricsService, RuntimeError, SignerRunner, SignerState, StateMachine,
 };
 
 use super::FakeAggregator;
@@ -314,9 +314,7 @@ impl StateMachineTester {
             kes_signer,
         };
         // set up stake distribution
-        chain_observer
-            .set_signers(signers_with_stake.to_owned())
-            .await;
+        chain_observer.set_signers(signers_with_stake.to_owned()).await;
 
         let runner = Box::new(SignerRunner::new(config, services, logger.clone()));
 
@@ -426,10 +424,7 @@ impl StateMachineTester {
         self.cycle().await?;
 
         self.assert(
-            self.state_machine
-                .get_state()
-                .await
-                .is_registered_not_able_to_sign(),
+            self.state_machine.get_state().await.is_registered_not_able_to_sign(),
             format!(
                 "state machine is in {} state (RegisteredNotAbleToSign was expected)",
                 self.state_machine.get_state().await
@@ -525,9 +520,7 @@ impl StateMachineTester {
             expected == new_immutable,
             format!("expected to increase immutable number up to {expected}, got {new_immutable}"),
         )?;
-        self.immutable_observer
-            .shall_return(Some(new_immutable))
-            .await;
+        self.immutable_observer.shall_return(Some(new_immutable)).await;
 
         Ok(self)
     }
@@ -562,10 +555,9 @@ impl StateMachineTester {
         )?;
 
         // Make the block scanner return new blocks
-        self.block_scanner
-            .add_forwards(vec![Self::build_blocks_to_scan(
-                (*expected_block_number - increment + 1)..=*expected_block_number,
-            )]);
+        self.block_scanner.add_forwards(vec![Self::build_blocks_to_scan(
+            (*expected_block_number - increment + 1)..=*expected_block_number,
+        )]);
 
         Ok(self)
     }
@@ -689,10 +681,7 @@ impl StateMachineTester {
 
     fn parse_exported_metrics(metrics_service: &MetricsService) -> Result<BTreeMap<String, Value>> {
         Ok(prometheus_parse::Scrape::parse(
-            metrics_service
-                .export_metrics()?
-                .lines()
-                .map(|s| Ok(s.to_owned())),
+            metrics_service.export_metrics()?.lines().map(|s| Ok(s.to_owned())),
         )
         .map_err(|e| TestError::ValueError(e.to_string()))?
         .samples

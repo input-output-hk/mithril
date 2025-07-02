@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use mithril_common::crypto_helper::{MKTree, MKTreeNode, MKTreeStoreInMemory};
 
 // Shortcuts for magnitudes: K for thousand, M for million

@@ -1,13 +1,13 @@
 use async_trait::async_trait;
-use slog::{debug, trace, warn, Logger};
+use slog::{Logger, debug, trace, warn};
 use std::sync::Arc;
 
+use mithril_common::StdResult;
 use mithril_common::entities::{
     Certificate, Epoch, ProtocolMessage, SignedEntityType, SignedEntityTypeDiscriminants,
     SingleSignature,
 };
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::StdResult;
 
 use crate::entities::OpenMessage;
 use crate::services::{
@@ -150,9 +150,7 @@ impl CertifierService for BufferedCertifierService {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessage>> {
-        self.certifier_service
-            .get_open_message(signed_entity_type)
-            .await
+        self.certifier_service.get_open_message(signed_entity_type).await
     }
 
     async fn mark_open_message_if_expired(
@@ -168,9 +166,7 @@ impl CertifierService for BufferedCertifierService {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<Certificate>> {
-        self.certifier_service
-            .create_certificate(signed_entity_type)
-            .await
+        self.certifier_service.create_certificate(signed_entity_type).await
     }
 
     async fn get_certificate_by_hash(&self, hash: &str) -> StdResult<Option<Certificate>> {
@@ -246,17 +242,15 @@ mod tests {
             )
             .await;
 
-        let buffered_signatures = store
-            .get_buffered_signatures(MithrilStakeDistribution)
-            .await
-            .unwrap();
+        let buffered_signatures =
+            store.get_buffered_signatures(MithrilStakeDistribution).await.unwrap();
 
         (registration_result, buffered_signatures)
     }
 
     #[tokio::test]
-    async fn when_registering_single_signature_dont_buffer_signature_if_decorated_certifier_succeed(
-    ) {
+    async fn when_registering_single_signature_dont_buffer_signature_if_decorated_certifier_succeed()
+     {
         let (registration_result, buffered_signatures_after_registration) =
             run_register_signature_scenario(
                 |mock_certifier| {
@@ -284,14 +278,12 @@ mod tests {
             let (registration_result, buffered_signatures_after_registration) =
                 run_register_signature_scenario(
                     |mock_certifier| {
-                        mock_certifier
-                            .expect_register_single_signature()
-                            .returning(|_, _| {
-                                Err(CertifierServiceError::NotFound(
-                                    SignedEntityType::MithrilStakeDistribution(Epoch(5)),
-                                )
-                                .into())
-                            });
+                        mock_certifier.expect_register_single_signature().returning(|_, _| {
+                            Err(CertifierServiceError::NotFound(
+                                SignedEntityType::MithrilStakeDistribution(Epoch(5)),
+                            )
+                            .into())
+                        });
                     },
                     &SingleSignature {
                         authentication_status: SingleSignatureAuthenticationStatus::Authenticated,
@@ -313,14 +305,12 @@ mod tests {
             let (registration_result, buffered_signatures_after_registration) =
                 run_register_signature_scenario(
                     |mock_certifier| {
-                        mock_certifier
-                            .expect_register_single_signature()
-                            .returning(|_, _| {
-                                Err(CertifierServiceError::NotFound(
-                                    SignedEntityType::MithrilStakeDistribution(Epoch(5)),
-                                )
-                                .into())
-                            });
+                        mock_certifier.expect_register_single_signature().returning(|_, _| {
+                            Err(CertifierServiceError::NotFound(
+                                SignedEntityType::MithrilStakeDistribution(Epoch(5)),
+                            )
+                            .into())
+                        });
                     },
                     &SingleSignature {
                         authentication_status: SingleSignatureAuthenticationStatus::Unauthenticated,
@@ -356,10 +346,7 @@ mod tests {
                 SingleSignature::fake("party_3", "message 3"),
             ),
         ] {
-            store
-                .buffer_signature(signed_type, &signature)
-                .await
-                .unwrap();
+            store.buffer_signature(signed_type, &signature).await.unwrap();
         }
 
         let certifier = BufferedCertifierService::new(
@@ -395,10 +382,7 @@ mod tests {
             .await
             .unwrap();
 
-        let remaining_sigs = store
-            .get_buffered_signatures(MithrilStakeDistribution)
-            .await
-            .unwrap();
+        let remaining_sigs = store.get_buffered_signatures(MithrilStakeDistribution).await.unwrap();
         assert!(remaining_sigs.is_empty());
     }
 

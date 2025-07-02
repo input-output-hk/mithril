@@ -1,16 +1,16 @@
 use std::{
     any::type_name,
-    fs::{read_to_string, File},
+    fs::{File, read_to_string},
     io::Write,
     ops::Deref,
     path::Path,
 };
 
 use anyhow::Context;
-use serde::{de::DeserializeOwned, Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Serialize, Serializer, de::DeserializeOwned};
 
-use crate::crypto_helper::{key_decode_hex, key_encode_hex, TryFromBytes, TryToBytes};
 use crate::StdResult;
+use crate::crypto_helper::{TryFromBytes, TryToBytes, key_decode_hex, key_encode_hex};
 
 /// A ProtocolKey is a wrapped that add Serialization capabilities.
 ///
@@ -287,7 +287,7 @@ macro_rules! impl_codec_and_type_conversions_for_protocol_key {
 mod test {
     use crate::{
         crypto_helper::ProtocolKey,
-        test_utils::{fake_keys, TempDir},
+        test_utils::{TempDir, fake_keys},
     };
     use mithril_stm::StmVerificationKeyPoP;
     use serde::{Deserialize, Serialize};

@@ -1,8 +1,8 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use blake2::{Blake2s256, Digest};
 use ckb_merkle_mountain_range::{
-    Error as MMRError, MMRStoreReadOps, MMRStoreWriteOps, Merge, MerkleProof, Result as MMRResult,
-    MMR,
+    Error as MMRError, MMR, MMRStoreReadOps, MMRStoreWriteOps, Merge, MerkleProof,
+    Result as MMRResult,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -468,9 +468,7 @@ mod tests {
     use super::*;
 
     fn generate_leaves(total_leaves: usize) -> Vec<MKTreeNode> {
-        (0..total_leaves)
-            .map(|i| format!("test-{i}").into())
-            .collect()
+        (0..total_leaves).map(|i| format!("test-{i}").into()).collect()
     }
 
     #[test]
@@ -478,9 +476,7 @@ mod tests {
         let leaves = vec!["golden-1", "golden-2", "golden-3", "golden-4", "golden-5"];
         let mktree =
             MKTree::<MKTreeStoreInMemory>::new(&leaves).expect("MKTree creation should not fail");
-        let mkroot = mktree
-            .compute_root()
-            .expect("MKRoot generation should not fail");
+        let mkroot = mktree.compute_root().expect("MKRoot generation should not fail");
 
         assert_eq!(
             "3bbced153528697ecde7345a22e50115306478353619411523e804f2323fd921",
@@ -595,10 +591,7 @@ mod tests {
 
         // fail if part verified and part unverified
         proof
-            .contains(&[
-                leaves_to_verify[2].to_owned(),
-                leaves_not_verified[0].to_owned(),
-            ])
+            .contains(&[leaves_to_verify[2].to_owned(), leaves_not_verified[0].to_owned()])
             .unwrap_err();
     }
 

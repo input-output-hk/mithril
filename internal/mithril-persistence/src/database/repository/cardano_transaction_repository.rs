@@ -4,12 +4,12 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 
+use mithril_common::StdResult;
 use mithril_common::crypto_helper::{MKTreeNode, MKTreeStorer};
 use mithril_common::entities::{
     BlockHash, BlockNumber, BlockRange, CardanoTransaction, ChainPoint, SlotNumber, TransactionHash,
 };
 use mithril_common::signable_builder::BlockRangeRootRetriever;
-use mithril_common::StdResult;
 
 use crate::database::query::{
     DeleteBlockRangeRootQuery, DeleteCardanoTransactionQuery, GetBlockRangeRootQuery,
@@ -260,9 +260,8 @@ impl CardanoTransactionRepository {
     /// Prune the transactions older than the given number of blocks (based on the block range root
     /// stored).
     pub async fn prune_transaction(&self, number_of_blocks_to_keep: BlockNumber) -> StdResult<()> {
-        if let Some(highest_block_range_start) = self
-            .get_highest_start_block_number_for_block_range_roots()
-            .await?
+        if let Some(highest_block_range_start) =
+            self.get_highest_start_block_number_for_block_range_roots().await?
         {
             let threshold = highest_block_range_start - number_of_blocks_to_keep;
             let query = DeleteCardanoTransactionQuery::below_block_number_threshold(threshold)?;
@@ -303,9 +302,8 @@ impl CardanoTransactionRepository {
         &self,
         slot_number: SlotNumber,
     ) -> StdResult<()> {
-        if let Some(block_number) = self
-            .get_closest_block_number_above_slot_number(slot_number)
-            .await?
+        if let Some(block_number) =
+            self.get_closest_block_number_above_slot_number(slot_number).await?
         {
             self.remove_rolled_back_transactions_and_block_range_by_block_number(block_number)
                 .await?;
@@ -565,10 +563,7 @@ mod tests {
                 "block-hash-456",
             ),
         ];
-        repository
-            .create_transactions(cardano_transactions)
-            .await
-            .unwrap();
+        repository.create_transactions(cardano_transactions).await.unwrap();
 
         let transaction_result = repository.get_transaction("tx-hash-123").await.unwrap();
 
@@ -622,10 +617,8 @@ mod tests {
             .unwrap();
 
         let transactions_result = repository.get_all_transactions().await.unwrap();
-        let transactions_expected: Vec<CardanoTransactionRecord> = cardano_transactions
-            .iter()
-            .map(|tx| tx.clone().into())
-            .collect();
+        let transactions_expected: Vec<CardanoTransactionRecord> =
+            cardano_transactions.iter().map(|tx| tx.clone().into()).collect();
 
         assert_eq!(transactions_expected, transactions_result);
     }
@@ -648,10 +641,7 @@ mod tests {
             SlotNumber(50),
             "block-hash-123",
         )];
-        repository
-            .create_transactions(cardano_transactions)
-            .await
-            .unwrap();
+        repository.create_transactions(cardano_transactions).await.unwrap();
 
         let transaction_result = repository.get_transaction("tx-hash-000").await.unwrap();
 
@@ -673,10 +663,7 @@ mod tests {
             SqliteConnectionPool::build_from_connection(connection),
         ));
 
-        let highest_beacon = repository
-            .get_transaction_highest_chain_point()
-            .await
-            .unwrap();
+        let highest_beacon = repository.get_transaction_highest_chain_point().await.unwrap();
         assert_eq!(None, highest_beacon);
     }
 
@@ -701,15 +688,9 @@ mod tests {
                 "block-hash-25",
             ),
         ];
-        repository
-            .create_transactions(cardano_transactions)
-            .await
-            .unwrap();
+        repository.create_transactions(cardano_transactions).await.unwrap();
 
-        let highest_beacon = repository
-            .get_transaction_highest_chain_point()
-            .await
-            .unwrap();
+        let highest_beacon = repository.get_transaction_highest_chain_point().await.unwrap();
         assert_eq!(
             Some(ChainPoint {
                 slot_number: SlotNumber(51),
@@ -721,8 +702,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn repository_get_transaction_highest_chain_point_with_transactions_with_same_block_number_in_db(
-    ) {
+    async fn repository_get_transaction_highest_chain_point_with_transactions_with_same_block_number_in_db()
+     {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::build_from_connection(connection),
@@ -748,15 +729,9 @@ mod tests {
                 "block-hash-25",
             ),
         ];
-        repository
-            .create_transactions(cardano_transactions)
-            .await
-            .unwrap();
+        repository.create_transactions(cardano_transactions).await.unwrap();
 
-        let highest_beacon = repository
-            .get_transaction_highest_chain_point()
-            .await
-            .unwrap();
+        let highest_beacon = repository.get_transaction_highest_chain_point().await.unwrap();
         assert_eq!(
             Some(ChainPoint {
                 slot_number: SlotNumber(51),
@@ -794,10 +769,7 @@ mod tests {
                 "block-hash-3",
             ),
         ];
-        repository
-            .create_transactions(transactions.clone())
-            .await
-            .unwrap();
+        repository.create_transactions(transactions.clone()).await.unwrap();
 
         {
             let transaction_result = repository
@@ -881,10 +853,7 @@ mod tests {
                 "block-hash-6",
             ),
         ];
-        repository
-            .create_transactions(transactions.clone())
-            .await
-            .unwrap();
+        repository.create_transactions(transactions.clone()).await.unwrap();
 
         {
             let transaction_result = repository
@@ -941,10 +910,7 @@ mod tests {
             CardanoTransactionRecord::new("tx-2", BlockNumber(100), SlotNumber(500), "block-1"),
             CardanoTransactionRecord::new("tx-3", BlockNumber(101), SlotNumber(501), "block-1"),
         ];
-        repository
-            .create_transactions(transactions.clone())
-            .await
-            .unwrap();
+        repository.create_transactions(transactions.clone()).await.unwrap();
 
         let transaction_block_number_retrieved = repository
             .get_closest_block_number_above_slot_number(SlotNumber(500))
@@ -1088,10 +1054,7 @@ mod tests {
             .await
             .unwrap();
 
-        let retrieved_block_range = repository
-            .retrieve_highest_block_range_root()
-            .await
-            .unwrap();
+        let retrieved_block_range = repository.retrieve_highest_block_range_root().await.unwrap();
         assert_eq!(block_range_roots.last().cloned(), retrieved_block_range);
     }
 
@@ -1127,10 +1090,7 @@ mod tests {
 
         // Pruning with a number of block to keep greater than the highest block range start should
         // do nothing.
-        repository
-            .prune_transaction(BlockNumber(10_000_000))
-            .await
-            .unwrap();
+        repository.prune_transaction(BlockNumber(10_000_000)).await.unwrap();
         let transaction_result = repository.get_all_transactions().await.unwrap();
         assert_eq!(cardano_transactions, transaction_result);
 
@@ -1212,10 +1172,7 @@ mod tests {
                 "block-hash-456",
             ),
         ];
-        repository
-            .create_transactions(cardano_transactions)
-            .await
-            .unwrap();
+        repository.create_transactions(cardano_transactions).await.unwrap();
         repository
             .create_block_range_roots(vec![
                 (

@@ -1,29 +1,31 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
-use slog::{debug, trace, warn, Logger};
+use slog::{Logger, debug, trace, warn};
 use std::collections::BTreeSet;
 use std::sync::Arc;
 use thiserror::Error;
 
+use crate::RunnerError;
 use crate::dependency_injection::EpochServiceWrapper;
 use crate::entities::SignerEpochSettings;
 use crate::services::SignedEntityConfigProvider;
 use crate::store::ProtocolInitializerStorer;
-use crate::RunnerError;
+use mithril_common::StdResult;
 use mithril_common::crypto_helper::ProtocolInitializer;
 use mithril_common::entities::{
     CardanoTransactionsSigningConfig, Epoch, PartyId, ProtocolParameters, SignedEntityConfig,
     SignedEntityTypeDiscriminants, Signer, SignerWithStake,
 };
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
 
 /// Errors dedicated to the EpochService.
 #[derive(Debug, Error)]
 pub enum EpochServiceError {
     /// Raised when service has not collected data at least once.
-    #[error("Epoch service was not initialized, the function `inform_epoch_settings` must be called first")]
+    #[error(
+        "Epoch service was not initialized, the function `inform_epoch_settings` must be called first"
+    )]
     NotYetInitialized,
 }
 
@@ -145,9 +147,7 @@ impl MithrilEpochService {
             ));
             trace!(
                 self.logger,
-                " > Associating signer_id {} with stake {}",
-                signer.party_id,
-                *stake
+                " > Associating signer_id {} with stake {}", signer.party_id, *stake
             );
         }
 
@@ -166,9 +166,7 @@ impl MithrilEpochService {
     }
 
     fn unwrap_data(&self) -> Result<&EpochData, EpochServiceError> {
-        self.epoch_data
-            .as_ref()
-            .ok_or(EpochServiceError::NotYetInitialized)
+        self.epoch_data.as_ref().ok_or(EpochServiceError::NotYetInitialized)
     }
 }
 
@@ -430,7 +428,7 @@ mod tests {
     use tokio::sync::RwLock;
 
     use mithril_common::entities::{Epoch, StakeDistribution};
-    use mithril_common::test_utils::{fake_data, MithrilFixtureBuilder};
+    use mithril_common::test_utils::{MithrilFixtureBuilder, fake_data};
 
     use crate::database::repository::{ProtocolInitializerRepository, StakePoolStore};
     use crate::database::test_helper::main_db_connection;
@@ -441,8 +439,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_is_signer_included_in_current_stake_distribution_returns_error_when_epoch_settings_is_not_set(
-    ) {
+    fn test_is_signer_included_in_current_stake_distribution_returns_error_when_epoch_settings_is_not_set()
+     {
         let party_id = "party_id".to_string();
         let protocol_initializer = MithrilProtocolInitializerBuilder::build(
             &100,
@@ -467,12 +465,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_is_signer_included_in_current_stake_distribution_returns_true_when_signer_verification_key_and_pool_id_found(
-    ) {
+    async fn test_is_signer_included_in_current_stake_distribution_returns_true_when_signer_verification_key_and_pool_id_found()
+     {
         let fixtures = MithrilFixtureBuilder::default().with_signers(10).build();
-        let protocol_initializer = fixtures.signers_fixture()[0]
-            .protocol_initializer
-            .to_owned();
+        let protocol_initializer = fixtures.signers_fixture()[0].protocol_initializer.to_owned();
         let epoch = Epoch(12);
         let signers = fixtures.signers();
 
@@ -498,30 +494,35 @@ mod tests {
             .unwrap();
 
         let party_id = fixtures.signers_fixture()[0].party_id();
-        assert!(service
-            .is_signer_included_in_current_stake_distribution(
-                party_id.clone(),
-                &protocol_initializer
-            )
-            .unwrap());
+        assert!(
+            service
+                .is_signer_included_in_current_stake_distribution(
+                    party_id.clone(),
+                    &protocol_initializer
+                )
+                .unwrap()
+        );
 
         let party_id_not_included = fixtures.signers_fixture()[6].party_id();
-        assert!(!service
-            .is_signer_included_in_current_stake_distribution(
-                party_id_not_included,
-                &protocol_initializer
-            )
-            .unwrap());
+        assert!(
+            !service
+                .is_signer_included_in_current_stake_distribution(
+                    party_id_not_included,
+                    &protocol_initializer
+                )
+                .unwrap()
+        );
 
-        let protocol_initializer_not_included = fixtures.signers_fixture()[6]
-            .protocol_initializer
-            .to_owned();
-        assert!(!service
-            .is_signer_included_in_current_stake_distribution(
-                party_id,
-                &protocol_initializer_not_included
-            )
-            .unwrap());
+        let protocol_initializer_not_included =
+            fixtures.signers_fixture()[6].protocol_initializer.to_owned();
+        assert!(
+            !service
+                .is_signer_included_in_current_stake_distribution(
+                    party_id,
+                    &protocol_initializer_not_included
+                )
+                .unwrap()
+        );
     }
 
     mod can_signer_sign_current_epoch {

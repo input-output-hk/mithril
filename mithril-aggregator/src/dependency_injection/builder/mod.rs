@@ -7,8 +7,9 @@ use slog::Logger;
 use std::{path::PathBuf, sync::Arc};
 use tokio::{
     sync::{
+        Mutex,
         mpsc::{UnboundedReceiver, UnboundedSender},
-        watch, Mutex,
+        watch,
     },
     time::Duration,
 };
@@ -20,8 +21,8 @@ use mithril_cardano_node_chain::{
     chain_scanner::BlockScanner,
 };
 use mithril_cardano_node_internal_database::{
-    digesters::{cache::ImmutableFileDigestCacheProvider, ImmutableDigester},
     ImmutableFileObserver,
+    digesters::{ImmutableDigester, cache::ImmutableFileDigestCacheProvider},
 };
 use mithril_common::{
     api_version::APIVersionProvider,
@@ -42,6 +43,10 @@ use super::{
     GenesisCommandDependenciesContainer, Result, ToolsCommandDependenciesContainer,
 };
 use crate::{
+    AggregatorConfig, AggregatorRunner, AggregatorRuntime, ImmutableFileDigestMapper,
+    MetricsService, MithrilSignerRegistrationLeader, MultiSigner, ProtocolParametersRetriever,
+    ServeCommandDependenciesContainer, SignerRegisterer, SignerRegistrationRoundOpener,
+    SignerRegistrationVerifier, SingleSignatureAuthenticator, VerificationKeyStorer,
     configuration::ConfigurationSource,
     database::repository::{
         CertificateRepository, EpochSettingsStore, OpenMessageRepository, SignedEntityStorer,
@@ -56,10 +61,6 @@ use crate::{
         StakeDistributionService, UpkeepService,
     },
     tools::file_archiver::FileArchiver,
-    AggregatorConfig, AggregatorRunner, AggregatorRuntime, ImmutableFileDigestMapper,
-    MetricsService, MithrilSignerRegistrationLeader, MultiSigner, ProtocolParametersRetriever,
-    ServeCommandDependenciesContainer, SignerRegisterer, SignerRegistrationRoundOpener,
-    SignerRegistrationVerifier, SingleSignatureAuthenticator, VerificationKeyStorer,
 };
 
 /// Retrieve attribute stored in the builder.
@@ -346,10 +347,8 @@ impl DependenciesBuilder {
     }
 
     fn get_cardano_db_artifacts_dir(&self) -> Result<PathBuf> {
-        let cardano_db_artifacts_dir = self
-            .configuration
-            .get_snapshot_dir()?
-            .join(CARDANO_DB_ARTIFACTS_DIR);
+        let cardano_db_artifacts_dir =
+            self.configuration.get_snapshot_dir()?.join(CARDANO_DB_ARTIFACTS_DIR);
 
         if !cardano_db_artifacts_dir.exists() {
             std::fs::create_dir(&cardano_db_artifacts_dir).map_err(|e| {
@@ -428,7 +427,9 @@ impl DependenciesBuilder {
     /// Create the HTTP route instance
     pub async fn create_http_routes(
         &mut self,
-    ) -> Result<impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone> {
+    ) -> Result<
+        impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<>,
+    > {
         let dependency_container = Arc::new(self.build_serve_dependencies_container().await?);
         let snapshot_dir = self.configuration.get_snapshot_dir()?;
         let router_state = RouterState::new(
@@ -457,9 +458,9 @@ impl DependenciesBuilder {
     pub async fn create_genesis_container(
         &mut self,
     ) -> Result<GenesisCommandDependenciesContainer> {
-        let network = self.configuration.get_network().with_context(|| {
-            "Dependencies Builder can not get Cardano network while building genesis container"
-        })?;
+        let network = self.configuration.get_network().with_context(
+            || "Dependencies Builder can not get Cardano network while building genesis container",
+        )?;
 
         let dependencies = GenesisCommandDependenciesContainer {
             network,
@@ -488,9 +489,9 @@ impl DependenciesBuilder {
 
         self.get_sqlite_connection_cardano_transaction_pool()
             .await
-            .with_context(|| {
-                "Dependencies Builder can not get cardano transaction pool sqlite connection"
-            })?;
+            .with_context(
+                || "Dependencies Builder can not get cardano transaction pool sqlite connection",
+            )?;
 
         let dependencies = DatabaseCommandDependenciesContainer { main_db_connection };
 

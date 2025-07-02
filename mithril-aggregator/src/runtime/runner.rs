@@ -1,16 +1,16 @@
 use anyhow::Context;
 use async_trait::async_trait;
-use slog::{debug, warn, Logger};
+use slog::{Logger, debug, warn};
 use std::sync::Arc;
 use std::time::Duration;
 
+use mithril_common::StdResult;
 use mithril_common::entities::{Certificate, Epoch, ProtocolMessage, SignedEntityType, TimePoint};
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
 
-use crate::entities::OpenMessage;
 use crate::ServeCommandDependenciesContainer;
+use crate::entities::OpenMessage;
 
 /// Configuration structure dedicated to the AggregatorRuntime.
 #[derive(Debug, Clone)]
@@ -177,11 +177,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     /// Return the current time point from the chain
     async fn get_time_point_from_chain(&self) -> StdResult<TimePoint> {
         debug!(self.logger, ">> get_time_point_from_chain");
-        let time_point = self
-            .dependencies
-            .ticker_service
-            .get_current_time_point()
-            .await?;
+        let time_point = self.dependencies.ticker_service.get_current_time_point().await?;
 
         Ok(time_point)
     }
@@ -191,8 +187,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessage>> {
         debug!(self.logger,">> get_current_open_message_for_signed_entity_type"; "signed_entity_type" => ?signed_entity_type);
-        self.mark_open_message_if_expired(signed_entity_type)
-            .await?;
+        self.mark_open_message_if_expired(signed_entity_type).await?;
 
         Ok(self
             .dependencies
@@ -207,9 +202,8 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         current_time_point: &TimePoint,
     ) -> StdResult<Option<OpenMessage>> {
         debug!(self.logger,">> get_current_non_certified_open_message"; "time_point" => #?current_time_point);
-        let signed_entity_types = self
-            .list_available_signed_entity_types(current_time_point)
-            .await?;
+        let signed_entity_types =
+            self.list_available_signed_entity_types(current_time_point).await?;
 
         for signed_entity_type in signed_entity_types {
             let current_open_message = self.get_current_open_message_for_signed_entity_type(&signed_entity_type)
@@ -419,7 +413,10 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
         if token.get_next_supported_era().is_err() {
             let era_name = &token.get_next_era_marker().unwrap().name;
-            warn!(self.logger,"Upcoming Era '{era_name}' is not supported by this version of the software. Please update!");
+            warn!(
+                self.logger,
+                "Upcoming Era '{era_name}' is not supported by this version of the software. Please update!"
+            );
         }
 
         Ok(())
@@ -439,10 +436,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
     async fn inform_new_epoch(&self, epoch: Epoch) -> StdResult<()> {
         debug!(self.logger, ">> inform_new_epoch({epoch:?})");
-        self.dependencies
-            .certifier_service
-            .inform_epoch(epoch)
-            .await?;
+        self.dependencies.certifier_service.inform_epoch(epoch).await?;
 
         self.dependencies
             .epoch_service
@@ -482,10 +476,8 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             )
             .await
             .with_context(|| format!("AggregatorRuntime can not get the current open message for signed entity type: '{}'", &open_message_signed_entity_type))?;
-        let is_expired_open_message = current_open_message
-            .as_ref()
-            .map(|om| om.is_expired)
-            .unwrap_or(false);
+        let is_expired_open_message =
+            current_open_message.as_ref().map(|om| om.is_expired).unwrap_or(false);
 
         let exists_newer_open_message = {
             let new_signed_entity_type = self
@@ -529,6 +521,7 @@ pub mod tests {
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_cardano_node_internal_database::test::double::DumbImmutableFileObserver;
     use mithril_common::{
+        StdResult,
         entities::{
             CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolMessage,
             SignedEntityConfig, SignedEntityType, SignedEntityTypeDiscriminants, StakeDistribution,
@@ -536,14 +529,15 @@ pub mod tests {
         },
         signable_builder::SignableBuilderService,
         temp_dir,
-        test_utils::{fake_data, MithrilFixtureBuilder},
-        StdResult,
+        test_utils::{MithrilFixtureBuilder, fake_data},
     };
     use mithril_persistence::store::StakeStorer;
     use mithril_signed_entity_lock::SignedEntityTypeLock;
     use mithril_ticker::MithrilTickerService;
 
     use crate::{
+        MithrilSignerRegistrationLeader, ServeCommandConfiguration,
+        ServeCommandDependenciesContainer, SignerRegistrationRound,
         dependency_injection::DependenciesBuilder,
         entities::{AggregatorEpochSettings, OpenMessage},
         initialize_dependencies,
@@ -552,8 +546,6 @@ pub mod tests {
             FakeEpochService, FakeEpochServiceBuilder, MithrilStakeDistributionService,
             MockCertifierService, MockUpkeepService,
         },
-        MithrilSignerRegistrationLeader, ServeCommandConfiguration,
-        ServeCommandDependenciesContainer, SignerRegistrationRound,
     };
 
     mock! {
@@ -574,12 +566,7 @@ pub mod tests {
         deps: ServeCommandDependenciesContainer,
     ) -> AggregatorRunner {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
-        let current_epoch = deps
-            .chain_observer
-            .get_current_epoch()
-            .await
-            .unwrap()
-            .unwrap();
+        let current_epoch = deps.chain_observer.get_current_epoch().await.unwrap().unwrap();
         deps.init_state_from_fixture(
             &fixture,
             &CardanoTransactionsSigningConfig::dummy(),
@@ -631,12 +618,7 @@ pub mod tests {
 
         let runner = build_runner_with_fixture_data(deps).await;
 
-        let current_epoch = runner
-            .dependencies
-            .ticker_service
-            .get_current_epoch()
-            .await
-            .unwrap();
+        let current_epoch = runner.dependencies.ticker_service.get_current_epoch().await.unwrap();
         runner.inform_new_epoch(current_epoch).await.unwrap();
         runner.precompute_epoch_data().await.unwrap();
         runner
@@ -657,9 +639,7 @@ pub mod tests {
             .expect_get_open_message()
             .returning(|_| Ok(None));
 
-        mock_certifier_service
-            .expect_inform_epoch()
-            .return_once(|_| Ok(()));
+        mock_certifier_service.expect_inform_epoch().return_once(|_| Ok(()));
         mock_certifier_service
             .expect_mark_open_message_if_expired()
             .returning(|_| Ok(None));
@@ -727,9 +707,7 @@ pub mod tests {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let expected = fixture.stake_distribution();
 
-        chain_observer
-            .set_signers(fixture.signers_with_stake())
-            .await;
+        chain_observer.set_signers(fixture.signers_with_stake()).await;
         runner
             .update_stake_distribution(&time_point)
             .await
@@ -877,12 +855,7 @@ pub mod tests {
             .returning(|_| Ok(()))
             .times(1);
         let mut deps = initialize_dependencies!().await;
-        let current_epoch = deps
-            .chain_observer
-            .get_current_epoch()
-            .await
-            .unwrap()
-            .unwrap();
+        let current_epoch = deps.chain_observer.get_current_epoch().await.unwrap().unwrap();
 
         deps.certifier_service = Arc::new(mock_certifier_service);
         deps.epoch_service = Arc::new(RwLock::new(FakeEpochService::from_fixture(
@@ -957,12 +930,7 @@ pub mod tests {
     #[tokio::test]
     async fn test_precompute_epoch_data() {
         let mut deps = initialize_dependencies!().await;
-        let current_epoch = deps
-            .chain_observer
-            .get_current_epoch()
-            .await
-            .unwrap()
-            .unwrap();
+        let current_epoch = deps.chain_observer.get_current_epoch().await.unwrap().unwrap();
 
         deps.epoch_service = Arc::new(RwLock::new(FakeEpochService::from_fixture(
             current_epoch,
@@ -975,8 +943,8 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_current_non_certified_open_message_should_create_new_open_message_if_none_exists(
-    ) {
+    async fn test_get_current_non_certified_open_message_should_create_new_open_message_if_none_exists()
+     {
         let open_message_created = create_open_message(
             IsCertified::No,
             IsExpired::No,
@@ -1003,8 +971,8 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_current_non_certified_open_message_should_return_existing_open_message_if_already_exists_and_not_expired(
-    ) {
+    async fn test_get_current_non_certified_open_message_should_return_existing_open_message_if_already_exists_and_not_expired()
+     {
         let not_certified_and_not_expired = create_open_message(
             IsCertified::No,
             IsExpired::No,
@@ -1033,8 +1001,8 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_current_non_certified_open_message_should_return_existing_open_message_if_already_exists_and_open_message_already_certified(
-    ) {
+    async fn test_get_current_non_certified_open_message_should_return_existing_open_message_if_already_exists_and_open_message_already_certified()
+     {
         let certified_and_not_expired = create_open_message(
             IsCertified::Yes,
             IsExpired::No,
@@ -1076,8 +1044,8 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_current_non_certified_open_message_should_create_open_message_if_none_exists_and_open_message_already_certified(
-    ) {
+    async fn test_get_current_non_certified_open_message_should_create_open_message_if_none_exists_and_open_message_already_certified()
+     {
         let certified_and_not_expired = create_open_message(
             IsCertified::Yes,
             IsExpired::No,
@@ -1121,8 +1089,8 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_current_non_certified_open_message_should_return_none_if_all_open_message_already_certified(
-    ) {
+    async fn test_get_current_non_certified_open_message_should_return_none_if_all_open_message_already_certified()
+     {
         let certified_and_not_expired_1 = create_open_message(
             IsCertified::Yes,
             IsExpired::No,
@@ -1162,8 +1130,8 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_current_non_certified_open_message_should_return_first_not_certified_and_not_expired_open_message(
-    ) {
+    async fn test_get_current_non_certified_open_message_should_return_first_not_certified_and_not_expired_open_message()
+     {
         let not_certified_and_expired = create_open_message(
             IsCertified::No,
             IsExpired::Yes,
@@ -1224,9 +1192,7 @@ pub mod tests {
 
         mock_certifier_service.expect_create_open_message().never();
 
-        mock_certifier_service
-            .expect_inform_epoch()
-            .return_once(|_| Ok(()));
+        mock_certifier_service.expect_inform_epoch().return_once(|_| Ok(()));
         mock_certifier_service
             .expect_mark_open_message_if_expired()
             .returning(|_| Ok(None));
@@ -1267,9 +1233,7 @@ pub mod tests {
 
         assert_eq!(
             signed_entities,
-            SignedEntityTypeDiscriminants::all()
-                .into_iter()
-                .collect::<Vec<_>>()
+            SignedEntityTypeDiscriminants::all().into_iter().collect::<Vec<_>>()
         );
     }
 
@@ -1310,26 +1274,26 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn is_open_message_outdated_return_false_when_message_is_not_expired_and_no_newer_open_message(
-    ) {
+    async fn is_open_message_outdated_return_false_when_message_is_not_expired_and_no_newer_open_message()
+     {
         assert!(!is_outdated_returned_when(temp_dir!(), IsExpired::No, false).await);
     }
 
     #[tokio::test]
-    async fn is_open_message_outdated_return_true_when_message_is_expired_and_no_newer_open_message(
-    ) {
+    async fn is_open_message_outdated_return_true_when_message_is_expired_and_no_newer_open_message()
+     {
         assert!(is_outdated_returned_when(temp_dir!(), IsExpired::Yes, false).await);
     }
 
     #[tokio::test]
-    async fn is_open_message_outdated_return_true_when_message_is_not_expired_and_exists_newer_open_message(
-    ) {
+    async fn is_open_message_outdated_return_true_when_message_is_not_expired_and_exists_newer_open_message()
+     {
         assert!(is_outdated_returned_when(temp_dir!(), IsExpired::No, true).await);
     }
 
     #[tokio::test]
-    async fn is_open_message_outdated_return_true_when_message_is_expired_and_exists_newer_open_message(
-    ) {
+    async fn is_open_message_outdated_return_true_when_message_is_expired_and_exists_newer_open_message()
+     {
         assert!(is_outdated_returned_when(temp_dir!(), IsExpired::Yes, true).await);
     }
 

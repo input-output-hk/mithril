@@ -1,19 +1,19 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use clap::Parser;
-use cli_table::{print_stdout, Cell, Table};
+use cli_table::{Cell, Table, print_stdout};
 use slog::debug;
 use std::{collections::HashMap, sync::Arc};
 
 use mithril_client::{
-    common::TransactionHash, CardanoTransactionsProofs, MessageBuilder, MithrilCertificate,
-    MithrilResult, VerifiedCardanoTransactions, VerifyCardanoTransactionsProofsError,
+    CardanoTransactionsProofs, MessageBuilder, MithrilCertificate, MithrilResult,
+    VerifiedCardanoTransactions, VerifyCardanoTransactionsProofsError, common::TransactionHash,
 };
 
 use crate::utils::{IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter};
 use crate::{
-    commands::{client_builder, SharedArgs},
-    configuration::{ConfigError, ConfigSource},
     CommandContext,
+    commands::{SharedArgs, client_builder},
+    configuration::{ConfigError, ConfigSource},
 };
 
 /// Clap command to show a given Cardano transaction sets
@@ -166,17 +166,9 @@ No proof could be computed for some Cardano transactions. Mithril may not have s
             let result_table = verified_transactions
                 .certified_transactions()
                 .iter()
-                .map(|tx| {
-                    vec![
-                        tx.cell(),
-                        "✅".cell().justify(cli_table::format::Justify::Center),
-                    ]
-                })
+                .map(|tx| vec![tx.cell(), "✅".cell().justify(cli_table::format::Justify::Center)])
                 .chain(non_certified_transactions.iter().map(|tx| {
-                    vec![
-                        tx.cell(),
-                        "❌".cell().justify(cli_table::format::Justify::Center),
-                    ]
+                    vec![tx.cell(), "❌".cell().justify(cli_table::format::Justify::Center)]
                 }))
                 .table()
                 .title(vec!["Transaction Hash", "Certified"]);

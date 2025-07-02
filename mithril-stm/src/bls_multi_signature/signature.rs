@@ -9,12 +9,12 @@ use blst::{
 use digest::consts::U16;
 
 use crate::bls_multi_signature::{
-    helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk, sig_to_p1, vk_from_p2_affine},
     BlsVerificationKey,
+    helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk, sig_to_p1, vk_from_p2_affine},
 };
 use crate::{
-    error::{blst_err_to_mithril, MultiSignatureError},
     Index,
+    error::{MultiSignatureError, blst_err_to_mithril},
 };
 
 /// MultiSig signature, which is a wrapper over the `BlstSig` type.
@@ -27,10 +27,7 @@ impl BlsSignature {
         blst_err_to_mithril(
             self.0.validate(true).map_or_else(
                 |e| e,
-                |_| {
-                    self.0
-                        .verify(false, msg, &[], &[], &mvk.to_blst_vk(), false)
-                },
+                |_| self.0.verify(false, msg, &[], &[], &mvk.to_blst_vk(), false),
             ),
             Some(*self),
             None,
@@ -65,9 +62,7 @@ impl BlsSignature {
     /// # Error
     /// Returns an error if the byte string does not represent a point in the curve.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
-        let bytes = bytes
-            .get(..48)
-            .ok_or(MultiSignatureError::SerializationError)?;
+        let bytes = bytes.get(..48).ok_or(MultiSignatureError::SerializationError)?;
         match BlstSig::sig_validate(bytes, true) {
             Ok(sig) => Ok(Self(sig)),
             Err(e) => Err(blst_err_to_mithril(e, None, None)
@@ -144,9 +139,7 @@ impl BlsSignature {
         let (aggr_vk, aggr_sig) = Self::aggregate(vks, sigs)?;
 
         blst_err_to_mithril(
-            aggr_sig
-                .0
-                .verify(false, msg, &[], &[], &aggr_vk.to_blst_vk(), false),
+            aggr_sig.0.verify(false, msg, &[], &[], &aggr_vk.to_blst_vk(), false),
             Some(aggr_sig),
             None,
         )
@@ -168,10 +161,7 @@ impl BlsSignature {
 
         let p2_vks: Vec<BlstVk> = vks.iter().map(|vk| vk.to_blst_vk()).collect();
         let p2_vks_ref: Vec<&BlstVk> = p2_vks.iter().collect();
-        let slice_msgs = msgs
-            .iter()
-            .map(|msg| msg.as_slice())
-            .collect::<Vec<&[u8]>>();
+        let slice_msgs = msgs.iter().map(|msg| msg.as_slice()).collect::<Vec<&[u8]>>();
 
         blst_err_to_mithril(
             batched_sig.aggregate_verify(false, &slice_msgs, &[], &p2_vks_ref, false),

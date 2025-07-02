@@ -1,17 +1,17 @@
 use std::path::PathBuf;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use kes_summed_ed25519::{
     kes::{Sum6Kes, Sum6KesSig},
     traits::KesSk,
 };
 
 use crate::{
-    crypto_helper::{
-        cardano::{KesSignError, KesSigner},
-        KesPeriod, OpCert, SerDeShelleyFileFormat, Sum6KesBytes,
-    },
     StdResult,
+    crypto_helper::{
+        KesPeriod, OpCert, SerDeShelleyFileFormat, Sum6KesBytes,
+        cardano::{KesSignError, KesSigner},
+    },
 };
 
 /// Standard KES Signer implementation which uses a KES secret key.
@@ -32,9 +32,10 @@ impl KesSignerStandard {
 
 impl KesSigner for KesSignerStandard {
     fn sign(&self, message: &[u8], kes_period: KesPeriod) -> StdResult<(Sum6KesSig, OpCert)> {
-        let mut kes_sk_bytes = Sum6KesBytes::from_file(&self.kes_sk_path)
-            .map_err(|e| anyhow!(e))
-            .with_context(|| "StandardKesSigner can not read KES secret key from file")?;
+        let mut kes_sk_bytes =
+            Sum6KesBytes::from_file(&self.kes_sk_path)
+                .map_err(|e| anyhow!(e))
+                .with_context(|| "StandardKesSigner can not read KES secret key from file")?;
         let mut kes_sk = Sum6Kes::try_from(&mut kes_sk_bytes)
             .map_err(|e| anyhow!(e))
             .with_context(|| "StandardKesSigner can not use KES secret key")?;
@@ -48,9 +49,7 @@ impl KesSigner for KesSignerStandard {
 
         // We need to perform the evolutions
         for period in kes_sk_period..kes_period {
-            kes_sk
-                .update()
-                .map_err(|_| KesSignError::UpdateKey(period))?;
+            kes_sk.update().map_err(|_| KesSignError::UpdateKey(period))?;
         }
 
         let operational_certificate = OpCert::from_file(&self.operational_certificate_path)
@@ -66,11 +65,11 @@ mod tests {
     use super::*;
 
     use crate::crypto_helper::cardano::kes::{
-        tests_setup::{
-            create_kes_cryptographic_material, KesCryptographicMaterialForTest,
-            KesPartyIndexForTest,
-        },
         KesVerifier, KesVerifierStandard,
+        tests_setup::{
+            KesCryptographicMaterialForTest, KesPartyIndexForTest,
+            create_kes_cryptographic_material,
+        },
     };
 
     #[test]

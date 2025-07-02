@@ -1,6 +1,6 @@
 use anyhow::anyhow;
-use config::builder::DefaultState;
 use config::ConfigBuilder;
+use config::builder::DefaultState;
 use slog::Logger;
 use std::collections::HashMap;
 

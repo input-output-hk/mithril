@@ -1,12 +1,12 @@
 #[cfg(any(test, feature = "test_tools"))]
 use crate::test_utils::fake_keys;
 use crate::{
+    StdError, StdResult,
     crypto_helper::{KesPeriod, ProtocolOpCert, ProtocolSignerVerificationKeySignature},
     entities::{
         HexEncodedOpCert, HexEncodedVerificationKey, HexEncodedVerificationKeySignature, PartyId,
         Signer, SignerWithStake, Stake,
     },
-    StdError, StdResult,
 };
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
@@ -135,9 +135,7 @@ impl Debug for SignerWithStakeMessagePart {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let should_be_exhaustive = f.alternate();
         let mut debug = f.debug_struct("Signer");
-        debug
-            .field("party_id", &self.party_id)
-            .field("stake", &self.stake);
+        debug.field("party_id", &self.party_id).field("stake", &self.stake);
 
         match should_be_exhaustive {
             true => debug
@@ -195,10 +193,7 @@ pub struct SignerMessagePart {
 impl SignerMessagePart {
     /// Convert a set of signer message parts into a set of signers
     pub fn try_into_signers(messages: Vec<Self>) -> StdResult<Vec<Signer>> {
-        messages
-            .into_iter()
-            .map(SignerMessagePart::try_into)
-            .collect()
+        messages.into_iter().map(SignerMessagePart::try_into).collect()
     }
 
     /// Convert a set of signers into message parts

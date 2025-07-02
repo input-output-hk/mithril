@@ -121,7 +121,7 @@ use crate::file_downloader::{DownloadEvent, FileDownloader};
 use crate::utils::create_bootstrap_node_files;
 #[cfg(feature = "fs")]
 use crate::utils::{
-    AncillaryVerifier, UnexpectedDownloadedFileVerifier, ANCILLARIES_NOT_SIGNED_BY_MITHRIL,
+    ANCILLARIES_NOT_SIGNED_BY_MITHRIL, AncillaryVerifier, UnexpectedDownloadedFileVerifier,
 };
 use crate::{MithrilResult, Snapshot, SnapshotListItem};
 
@@ -129,7 +129,9 @@ use crate::{MithrilResult, Snapshot, SnapshotListItem};
 #[derive(Error, Debug)]
 pub enum SnapshotClientError {
     /// Download location does not work
-    #[error("Could not find a working download location for the snapshot digest '{digest}', tried location: {{'{locations}'}}.")]
+    #[error(
+        "Could not find a working download location for the snapshot digest '{digest}', tried location: {{'{locations}'}}."
+    )]
     NoWorkingLocation {
         /// given digest
         digest: String,
@@ -138,7 +140,9 @@ pub enum SnapshotClientError {
         locations: String,
     },
     /// Missing ancillary verifier
-    #[error("Ancillary verifier is not set, please use `set_ancillary_verification_key` when creating the client")]
+    #[error(
+        "Ancillary verifier is not set, please use `set_ancillary_verification_key` when creating the client"
+    )]
     MissingAncillaryVerifier,
 }
 
@@ -422,7 +426,7 @@ impl SnapshotClient {
             for location in locations {
                 let file_downloader_uri = location.to_owned().into();
 
-                if let Err(error) = self
+                match self
                     .http_file_downloader
                     .download_unpack(
                         &file_downloader_uri,
@@ -432,11 +436,11 @@ impl SnapshotClient {
                         download_event.clone(),
                     )
                     .await
-                {
+                { Err(error) => {
                     slog::warn!(self.logger, "Failed downloading snapshot from '{location}'"; "error" => ?error);
-                } else {
+                } _ => {
                     return Ok(());
-                }
+                }}
             }
 
             let locations = locations.join(", ");
@@ -682,16 +686,11 @@ mod tests {
             let client = setup_snapshot_client(
                 Arc::new(mock_downloader),
                 Some(Arc::new(AncillaryVerifier::new(
-                    fake_keys::manifest_verification_key()[0]
-                        .try_into()
-                        .unwrap(),
+                    fake_keys::manifest_verification_key()[0].try_into().unwrap(),
                 ))),
             );
 
-            client
-                .download_unpack_full(&snapshot, &test_dir)
-                .await
-                .unwrap_err();
+            client.download_unpack_full(&snapshot, &test_dir).await.unwrap_err();
             assert_dir_eq!(&test_dir, format!("* {IMMUTABLE_DIR}/"));
         }
     }
@@ -714,9 +713,7 @@ mod tests {
                 ..setup_snapshot_client(Arc::new(mock_downloader), None)
             };
 
-            let _result = client
-                .download_unpack(&snapshot, &PathBuf::from("/whatever"))
-                .await;
+            let _result = client.download_unpack(&snapshot, &PathBuf::from("/whatever")).await;
 
             assert!(
                 log_inspector.contains_log("WARN The fast bootstrap of the Cardano node is not available with the current parameters used in this command: the ledger state will be recomputed from genesis at startup of the Cardano node. Use the extra function download_unpack_full to allow it."),
@@ -758,9 +755,7 @@ mod tests {
         #[tokio::test]
         async fn log_a_info_message_telling_that_the_feature_does_not_use_mithril_certification() {
             let (logger, log_inspector) = TestLogger::memory();
-            let verification_key = fake_keys::manifest_verification_key()[0]
-                .try_into()
-                .unwrap();
+            let verification_key = fake_keys::manifest_verification_key()[0].try_into().unwrap();
             let snapshot = Snapshot {
                 ancillary_locations: None,
                 ancillary_size: None,
@@ -792,9 +787,7 @@ mod tests {
 
         #[tokio::test]
         async fn do_nothing_if_no_ancillary_locations_available_in_snapshot() {
-            let verification_key = fake_keys::manifest_verification_key()[0]
-                .try_into()
-                .unwrap();
+            let verification_key = fake_keys::manifest_verification_key()[0].try_into().unwrap();
             let snapshot = Snapshot {
                 ancillary_locations: None,
                 ancillary_size: None,
@@ -823,9 +816,7 @@ mod tests {
                 .with_file_uri("http://example.com/ancillary")
                 .with_failure()
                 .build();
-            let verification_key = fake_keys::manifest_verification_key()[0]
-                .try_into()
-                .unwrap();
+            let verification_key = fake_keys::manifest_verification_key()[0].try_into().unwrap();
 
             let client = setup_snapshot_client(
                 Arc::new(mock_downloader),
@@ -852,9 +843,7 @@ mod tests {
                 .with_file_uri("http://example.com/ancillary")
                 .with_success()
                 .build();
-            let verification_key = fake_keys::manifest_verification_key()[0]
-                .try_into()
-                .unwrap();
+            let verification_key = fake_keys::manifest_verification_key()[0].try_into().unwrap();
 
             let client = setup_snapshot_client(
                 Arc::new(mock_downloader),

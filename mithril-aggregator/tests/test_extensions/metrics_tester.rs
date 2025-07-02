@@ -103,8 +103,7 @@ impl MetricsVerifier {
 
         verify_metric!(
             expected_metrics.certificate_total,
-            self.metrics_service
-                .get_certificate_total_produced_since_startup()
+            self.metrics_service.get_certificate_total_produced_since_startup()
         );
 
         verify_metric!(
@@ -139,8 +138,7 @@ impl MetricsVerifier {
 
         verify_metric!(
             expected_metrics.runtime_cycle_success,
-            self.metrics_service
-                .get_runtime_cycle_success_since_startup()
+            self.metrics_service.get_runtime_cycle_success_since_startup()
         );
 
         verify_metric!(

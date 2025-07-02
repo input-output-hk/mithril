@@ -5,7 +5,7 @@ use crate::http_server::routes::router::RouterState;
 
 pub fn routes(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     certificate_certificates(router_state)
         .or(certificate_genesis(router_state))
         .or(certificate_certificate_hash(router_state))
@@ -14,7 +14,7 @@ pub fn routes(
 /// GET /certificates
 fn certificate_certificates(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("certificates")
         .and(warp::get())
         .and(middlewares::with_logger(router_state))
@@ -25,7 +25,7 @@ fn certificate_certificates(
 /// GET /certificate/genesis
 fn certificate_genesis(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("certificate" / "genesis")
         .and(warp::get())
         .and(middlewares::with_client_metadata(router_state))
@@ -38,7 +38,7 @@ fn certificate_genesis(
 /// GET /certificate/{certificate_hash}
 fn certificate_certificate_hash(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("certificate" / String)
         .and(warp::get())
         .and(middlewares::with_client_metadata(router_state))
@@ -49,13 +49,13 @@ fn certificate_certificate_hash(
 }
 
 mod handlers {
-    use slog::{warn, Logger};
+    use slog::{Logger, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
 
-    use crate::http_server::routes::middlewares::ClientMetadata;
     use crate::MetricsService;
+    use crate::http_server::routes::middlewares::ClientMetadata;
     use crate::{http_server::routes::reply, services::MessageService};
 
     pub const LIST_MAX_ITEMS: usize = 20;
@@ -91,10 +91,7 @@ mod handlers {
                 client_metadata.client_type.as_deref().unwrap_or_default(),
             ]);
 
-        match http_message_service
-            .get_latest_genesis_certificate_message()
-            .await
-        {
+        match http_message_service.get_latest_genesis_certificate_message().await {
             Ok(Some(certificate)) => Ok(reply::json(&certificate, StatusCode::OK)),
             Ok(None) => Ok(reply::empty(StatusCode::NOT_FOUND)),
             Err(err) => {
@@ -119,10 +116,7 @@ mod handlers {
                 client_metadata.client_type.as_deref().unwrap_or_default(),
             ]);
 
-        match http_message_service
-            .get_certificate_message(&certificate_hash)
-            .await
-        {
+        match http_message_service.get_certificate_message(&certificate_hash).await {
             Ok(Some(certificate)) => Ok(reply::json(&certificate, StatusCode::OK)),
             Ok(None) => Ok(reply::empty(StatusCode::NOT_FOUND)),
             Err(err) => {
@@ -145,8 +139,8 @@ mod tests {
 
     use mithril_api_spec::APISpec;
     use mithril_common::{
-        messages::CertificateMessage, test_utils::fake_data, MITHRIL_CLIENT_TYPE_HEADER,
-        MITHRIL_ORIGIN_TAG_HEADER,
+        MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER, messages::CertificateMessage,
+        test_utils::fake_data,
     };
 
     use crate::{initialize_dependencies, services::MockMessageService};
@@ -229,8 +223,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_certificate_certificate_hash_increments_certificate_detail_total_served_since_startup_metric(
-    ) {
+    async fn test_certificate_certificate_hash_increments_certificate_detail_total_served_since_startup_metric()
+     {
         let method = Method::GET.as_str();
         let path = "/certificate/{certificate_hash}";
 
@@ -355,8 +349,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_certificate_genesis_increments_certificate_detail_total_served_since_startup_metric(
-    ) {
+    async fn test_certificate_genesis_increments_certificate_detail_total_served_since_startup_metric()
+     {
         let method = Method::GET.as_str();
         let path = "/certificate/genesis";
 

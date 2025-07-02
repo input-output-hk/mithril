@@ -15,9 +15,7 @@ impl InsertOrReplaceSignerRegistrationRecordQuery {
             "(signer_id, epoch_setting_id, verification_key, verification_key_signature, operational_certificate, kes_period, stake, created_at) values (?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*)",
             vec![
                 Value::String(signer_registration_record.signer_id),
-                Value::Integer(
-                    signer_registration_record.epoch_settings_id.try_into().unwrap(),
-                ),
+                Value::Integer(signer_registration_record.epoch_settings_id.try_into().unwrap()),
                 Value::String(signer_registration_record.verification_key),
                 signer_registration_record
                     .verification_key_signature

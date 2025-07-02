@@ -2,24 +2,24 @@
 //! This module contains the controllers for the different routes and middlewares.
 
 use axum::{
+    Router,
     body::Body,
     extract::{Path, Query, Request, State},
     http::{HeaderValue, Response, StatusCode},
-    middleware::{from_fn, Next},
+    middleware::{Next, from_fn},
     response::IntoResponse,
     routing::{get, post},
-    Router,
 };
 use tower_http::{
+    LatencyUnit,
     cors::CorsLayer,
     trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer},
-    LatencyUnit,
 };
-use tracing::debug;
 use tracing::Level;
+use tracing::debug;
 
-use crate::shared_state::SharedState;
 use crate::AppError;
+use crate::shared_state::SharedState;
 
 pub async fn aggregator_router() -> Router<SharedState> {
     Router::new()
@@ -70,11 +70,7 @@ pub async fn aggregator_router() -> Router<SharedState> {
         .layer(from_fn(set_json_app_header))
         .layer(
             TraceLayer::new_for_http()
-                .make_span_with(
-                    DefaultMakeSpan::new()
-                        .include_headers(true)
-                        .level(Level::DEBUG),
-                )
+                .make_span_with(DefaultMakeSpan::new().include_headers(true).level(Level::DEBUG))
                 .on_request(DefaultOnRequest::new().level(Level::DEBUG))
                 .on_response(
                     DefaultOnResponse::new()

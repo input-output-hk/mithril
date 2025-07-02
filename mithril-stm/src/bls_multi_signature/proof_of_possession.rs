@@ -1,10 +1,10 @@
 use blst::{blst_p1, min_sig::Signature as BlstSig};
 
 use crate::bls_multi_signature::{
-    helper::unsafe_helpers::{compress_p1, scalar_to_pk_in_g1, uncompress_p1},
     BlsSigningKey, POP,
+    helper::unsafe_helpers::{compress_p1, scalar_to_pk_in_g1, uncompress_p1},
 };
-use crate::error::{blst_err_to_mithril, MultiSignatureError};
+use crate::error::{MultiSignatureError, blst_err_to_mithril};
 
 /// MultiSig proof of possession, which contains two elements from G1. However,
 /// the two elements have different types: `k1` is represented as a BlstSig
@@ -35,22 +35,16 @@ impl BlsProofOfPossession {
     /// Deserialize a byte string to a `PublicKeyPoP`.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         let k1 = match BlstSig::from_bytes(
-            bytes
-                .get(..48)
-                .ok_or(MultiSignatureError::SerializationError)?,
+            bytes.get(..48).ok_or(MultiSignatureError::SerializationError)?,
         ) {
             Ok(key) => key,
             Err(e) => {
                 return Err(blst_err_to_mithril(e, None, None)
-                    .expect_err("If it passed, blst returns and error different to SUCCESS."))
+                    .expect_err("If it passed, blst returns and error different to SUCCESS."));
             }
         };
 
-        let k2 = uncompress_p1(
-            bytes
-                .get(48..96)
-                .ok_or(MultiSignatureError::SerializationError)?,
-        )?;
+        let k2 = uncompress_p1(bytes.get(48..96).ok_or(MultiSignatureError::SerializationError)?)?;
 
         Ok(Self { k1, k2 })
     }

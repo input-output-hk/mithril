@@ -1,13 +1,13 @@
 use anyhow::Context;
-use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
+use mithril_common::logging::LoggerExtensions;
 use mithril_persistence::sqlite::SqliteConnection;
-use slog::{debug, info, Logger};
+use slog::{Logger, debug, info};
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedReceiver;
 
-use super::database::EventPersister;
 use super::EventMessage;
+use super::database::EventPersister;
 
 /// EventMessage receiver service.
 pub struct EventStore {
@@ -43,9 +43,7 @@ impl EventStore {
         loop {
             if let Some(message) = self.receiver.recv().await {
                 debug!(self.logger, "Event received"; "event" => ?message);
-                let event = persister
-                    .persist(message)
-                    .with_context(|| "event persist failure")?;
+                let event = persister.persist(message).with_context(|| "event persist failure")?;
                 debug!(self.logger, "Event ID={} created", event.event_id);
             } else {
                 info!(self.logger, "No more events to proceed, quitting…");

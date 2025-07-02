@@ -1,11 +1,11 @@
 use kes_summed_ed25519::{kes::Sum6KesSig, traits::KesSig};
 
 use crate::{
-    crypto_helper::{
-        cardano::{KesVerifier, KesVerifyError},
-        KesPeriod, OpCert,
-    },
     StdResult,
+    crypto_helper::{
+        KesPeriod, OpCert,
+        cardano::{KesVerifier, KesVerifyError},
+    },
 };
 
 /// A standard KES signature verifier.
@@ -48,11 +48,11 @@ impl KesVerifier for KesVerifierStandard {
 #[cfg(test)]
 mod tests {
     use crate::crypto_helper::cardano::kes::{
-        tests_setup::{
-            create_kes_cryptographic_material, KesCryptographicMaterialForTest,
-            KesPartyIndexForTest,
-        },
         KesSigner, KesSignerStandard,
+        tests_setup::{
+            KesCryptographicMaterialForTest, KesPartyIndexForTest,
+            create_kes_cryptographic_material,
+        },
     };
 
     use super::*;

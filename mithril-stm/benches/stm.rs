@@ -1,6 +1,6 @@
 use blake2::digest::{Digest, FixedOutput};
-use blake2::{digest::consts::U32, Blake2b};
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use blake2::{Blake2b, digest::consts::U32};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use mithril_stm::{
     AggregateSignature, BasicVerifier, Clerk, Initializer, KeyRegistration, Parameters, Signer,
     Stake, VerificationKey,
@@ -62,10 +62,7 @@ where
         })
     });
 
-    let sigs = signers
-        .par_iter()
-        .filter_map(|p| p.sign(&msg))
-        .collect::<Vec<_>>();
+    let sigs = signers.par_iter().filter_map(|p| p.sign(&msg)).collect::<Vec<_>>();
 
     let clerk = Clerk::from_signer(&signers[0]);
 
@@ -125,10 +122,7 @@ fn batch_benches<H>(
                 .map(|p| p.new_signer(closed_reg.clone()).unwrap())
                 .collect::<Vec<Signer<H>>>();
 
-            let sigs = signers
-                .par_iter()
-                .filter_map(|p| p.sign(&msg))
-                .collect::<Vec<_>>();
+            let sigs = signers.par_iter().filter_map(|p| p.sign(&msg)).collect::<Vec<_>>();
 
             let clerk = Clerk::from_signer(&signers[0]);
             let msig = clerk.aggregate(&sigs, &msg).unwrap();

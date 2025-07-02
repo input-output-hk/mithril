@@ -6,7 +6,7 @@ use uuid::Uuid;
 use mithril_common::entities::{
     BlockNumber, CardanoTransactionsSigningConfig, ProtocolParameters, SignerWithStake,
 };
-use mithril_common::{entities::Epoch, test_utils::fake_keys, StdError, StdResult};
+use mithril_common::{StdError, StdResult, entities::Epoch, test_utils::fake_keys};
 use mithril_persistence::sqlite::{
     ConnectionBuilder, ConnectionExtensions, ConnectionOptions, Query, SqliteConnection,
 };
@@ -317,10 +317,7 @@ pub fn insert_signers(
                 (1, signer_record.signer_id.into()),
                 (
                     2,
-                    signer_record
-                        .pool_ticker
-                        .map(Value::String)
-                        .unwrap_or(Value::Null),
+                    signer_record.pool_ticker.map(Value::String).unwrap_or(Value::Null),
                 ),
                 (3, signer_record.created_at.to_rfc3339().into()),
                 (4, signer_record.updated_at.to_rfc3339().into()),

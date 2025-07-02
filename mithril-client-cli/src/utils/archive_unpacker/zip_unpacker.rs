@@ -58,7 +58,7 @@ impl ArchiveFormat for ZipUnpacker {
 mod tests {
     use std::io::Write;
 
-    use zip::{write::FileOptions, ZipWriter};
+    use zip::{ZipWriter, write::FileOptions};
 
     use mithril_common::{assert_dir_eq, temp_dir_create};
 

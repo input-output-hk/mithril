@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use slog::{debug, trace, Logger};
+use slog::{Logger, debug, trace};
 use tokio::sync::Mutex;
 
+use mithril_common::StdResult;
 use mithril_common::entities::BlockNumber;
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::StdResult;
 
 use crate::chain_reader::ChainBlockReader;
 use crate::chain_scanner::{BlockStreamer, ChainScannedBlocks};
@@ -89,7 +89,7 @@ impl BlockStreamer for ChainReaderBlockStreamer {
                     } else {
                         chain_scanned_blocks = ChainScannedBlocks::RollForwards(roll_forwards);
                         Ok(Some(chain_scanned_blocks))
-                    }
+                    };
                 }
             }
         }
@@ -174,8 +174,8 @@ mod tests {
     use mithril_common::entities::SlotNumber;
 
     use crate::entities::ScannedBlock;
-    use crate::test::double::FakeChainReader;
     use crate::test::TestLogger;
+    use crate::test::double::FakeChainReader;
 
     use super::*;
 
@@ -482,8 +482,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_parse_expected_rollforward_when_rollbackward_on_different_point_and_have_previous_rollforwards(
-    ) {
+    async fn test_parse_expected_rollforward_when_rollbackward_on_different_point_and_have_previous_rollforwards()
+     {
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollForward {
                 parsed_block: ScannedBlock::new(
@@ -539,8 +539,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_parse_expected_backward_when_rollbackward_on_different_point_and_does_not_have_previous_rollforwards(
-    ) {
+    async fn test_parse_expected_backward_when_rollbackward_on_different_point_and_does_not_have_previous_rollforwards()
+     {
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollForward {
                 parsed_block: ScannedBlock::new(

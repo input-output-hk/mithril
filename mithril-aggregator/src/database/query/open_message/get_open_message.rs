@@ -2,8 +2,8 @@ use chrono::{DateTime, Utc};
 use sqlite::Value;
 
 use mithril_common::{
-    entities::{Epoch, SignedEntityType},
     StdResult,
+    entities::{Epoch, SignedEntityType},
 };
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 

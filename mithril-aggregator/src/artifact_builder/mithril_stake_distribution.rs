@@ -3,8 +3,8 @@ use async_trait::async_trait;
 use super::ArtifactBuilder;
 use crate::dependency_injection::EpochServiceWrapper;
 use mithril_common::{
-    entities::{Certificate, Epoch, MithrilStakeDistribution},
     StdResult,
+    entities::{Certificate, Epoch, MithrilStakeDistribution},
 };
 
 /// A [MithrilStakeDistributionArtifact] builder

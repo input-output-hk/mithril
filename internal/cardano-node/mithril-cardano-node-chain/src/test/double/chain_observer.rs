@@ -82,9 +82,7 @@ impl FakeChainObserver {
             ..time_point.clone()
         });
 
-        current_time_point
-            .as_ref()
-            .map(|b| b.chain_point.block_number)
+        current_time_point.as_ref().map(|b| b.chain_point.block_number)
     }
 
     /// Increase the slot number of the [current_time_point][`FakeChainObserver::current_time_point`] by
@@ -115,9 +113,7 @@ impl FakeChainObserver {
             ..time_point.clone()
         });
 
-        current_time_point
-            .as_ref()
-            .map(|b| b.chain_point.slot_number)
+        current_time_point.as_ref().map(|b| b.chain_point.slot_number)
     }
 
     /// Set the signers that will use to compute the result of
@@ -232,9 +228,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_current_chain_point() {
         let fake_observer = FakeChainObserver::new(None);
-        fake_observer
-            .set_current_time_point(Some(TimePoint::dummy()))
-            .await;
+        fake_observer.set_current_time_point(Some(TimePoint::dummy())).await;
         let chain_point = fake_observer.get_current_chain_point().await.unwrap();
 
         assert_eq!(
@@ -247,9 +241,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_current_stake_distribution() {
         let fake_observer = FakeChainObserver::new(None);
-        fake_observer
-            .set_signers(fake_data::signers_with_stakes(2))
-            .await;
+        fake_observer.set_signers(fake_data::signers_with_stakes(2)).await;
         let stake_distribution = fake_observer.get_current_stake_distribution().await;
 
         assert_eq!(
@@ -262,10 +254,8 @@ mod tests {
     #[tokio::test]
     async fn test_get_current_datums() {
         let fake_address = "addr_test_123456".to_string();
-        let fake_datums = vec![
-            TxDatum("tx_datum_1".to_string()),
-            TxDatum("tx_datum_2".to_string()),
-        ];
+        let fake_datums =
+            vec![TxDatum("tx_datum_1".to_string()), TxDatum("tx_datum_2".to_string())];
         let fake_observer = FakeChainObserver::new(None);
         fake_observer.set_datums(fake_datums.clone()).await;
         let datums = fake_observer
@@ -279,9 +269,7 @@ mod tests {
     #[tokio::test]
     async fn test_increase_block_number() {
         let fake_observer = FakeChainObserver::new(None);
-        fake_observer
-            .set_current_time_point(Some(TimePoint::dummy()))
-            .await;
+        fake_observer.set_current_time_point(Some(TimePoint::dummy())).await;
         fake_observer.increase_block_number(375).await;
 
         let chain_point = fake_observer.get_current_chain_point().await.unwrap();
@@ -323,9 +311,7 @@ mod tests {
     #[tokio::test]
     async fn test_increase_slot_number() {
         let fake_observer = FakeChainObserver::new(None);
-        fake_observer
-            .set_current_time_point(Some(TimePoint::dummy()))
-            .await;
+        fake_observer.set_current_time_point(Some(TimePoint::dummy())).await;
         fake_observer.increase_slot_number(375).await;
 
         let chain_point = fake_observer.get_current_chain_point().await.unwrap();

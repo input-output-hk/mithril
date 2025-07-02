@@ -10,7 +10,7 @@ use mithril_common::{
     test_utils::MithrilFixtureBuilder,
 };
 use test_extensions::{
-    utilities::get_test_dir, ExpectedCertificate, ExpectedMetrics, RuntimeTester,
+    ExpectedCertificate, ExpectedMetrics, RuntimeTester, utilities::get_test_dir,
 };
 
 #[tokio::test]
@@ -60,10 +60,7 @@ async fn open_message_newer_exists() {
     cycle!(tester, "signing");
 
     comment!("register signers");
-    tester
-        .register_signers(&fixture.signers_fixture())
-        .await
-        .unwrap();
+    tester.register_signers(&fixture.signers_fixture()).await.unwrap();
     cycle_err!(tester, "signing");
 
     comment!("signers send their single signature");
@@ -88,11 +85,15 @@ async fn open_message_newer_exists() {
         )
     );
 
-    comment!("The state machine should get back to signing to sign CardanoDatabase when a new immutable file exists");
+    comment!(
+        "The state machine should get back to signing to sign CardanoDatabase when a new immutable file exists"
+    );
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "signing");
 
-    comment!("The state machine should stay there as it is not able to create a certificate for the CardanoDatabase");
+    comment!(
+        "The state machine should stay there as it is not able to create a certificate for the CardanoDatabase"
+    );
     cycle_err!(tester, "signing");
 
     comment!("Increase the immutable file number");

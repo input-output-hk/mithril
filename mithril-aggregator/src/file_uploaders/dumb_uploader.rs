@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
-use mithril_common::{entities::FileUri, StdResult};
+use mithril_common::{StdResult, entities::FileUri};
 use std::{path::Path, sync::RwLock};
 
 use crate::file_uploaders::{FileUploadRetryPolicy, FileUploader};
@@ -36,12 +36,7 @@ impl DumbUploader {
             .read()
             .map_err(|e| anyhow!(e.to_string()).context("Error while reading filepath location"))?;
 
-        Ok(value
-            .iter()
-            .rev()
-            .take(n)
-            .cloned()
-            .collect::<Vec<FileUri>>())
+        Ok(value.iter().rev().take(n).cloned().collect::<Vec<FileUri>>())
     }
 }
 
@@ -80,10 +75,12 @@ mod tests {
     #[tokio::test]
     async fn test_dumb_uploader() {
         let uploader = DumbUploader::default();
-        assert!(uploader
-            .get_last_upload()
-            .expect("uploader should not fail")
-            .is_none());
+        assert!(
+            uploader
+                .get_last_upload()
+                .expect("uploader should not fail")
+                .is_none()
+        );
         let res = uploader
             .upload(Path::new("/tmp/whatever"))
             .await

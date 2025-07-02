@@ -1,6 +1,6 @@
 use warp::Filter;
 
-use mithril_common::{messages::AggregatorStatusMessage, StdResult};
+use mithril_common::{StdResult, messages::AggregatorStatusMessage};
 
 use crate::{
     dependency_injection::EpochServiceWrapper,
@@ -9,14 +9,14 @@ use crate::{
 
 pub fn routes(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     status(router_state)
 }
 
 /// GET /status
 fn status(
     router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("status")
         .and(warp::get())
         .and(middlewares::with_logger(router_state))
@@ -73,7 +73,7 @@ async fn get_aggregator_status_message(
 mod handlers {
     use std::convert::Infallible;
 
-    use slog::{warn, Logger};
+    use slog::{Logger, warn};
     use warp::http::StatusCode;
 
     use crate::{
@@ -115,7 +115,7 @@ mod tests {
     use mithril_api_spec::APISpec;
     use mithril_common::{
         entities::{Epoch, ProtocolParameters, Stake},
-        test_utils::{fake_data, MithrilFixtureBuilder},
+        test_utils::{MithrilFixtureBuilder, fake_data},
     };
 
     use crate::{

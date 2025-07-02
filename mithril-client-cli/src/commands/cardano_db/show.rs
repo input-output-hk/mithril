@@ -1,18 +1,18 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use clap::Parser;
-use cli_table::{print_stdout, Cell, CellStruct, Table};
+use cli_table::{Cell, CellStruct, Table, print_stdout};
 
 use mithril_client::{
-    common::{AncillaryLocation, DigestLocation, ImmutablesLocation, MultiFilesUri},
     Client, MithrilResult,
+    common::{AncillaryLocation, DigestLocation, ImmutablesLocation, MultiFilesUri},
 };
 
 use crate::{
+    CommandContext,
     commands::{
-        cardano_db::CardanoDbCommandsBackend, client_builder_with_fallback_genesis_key, SharedArgs,
+        SharedArgs, cardano_db::CardanoDbCommandsBackend, client_builder_with_fallback_genesis_key,
     },
     utils::{CardanoDbUtils, ExpanderUtils},
-    CommandContext,
 };
 
 /// Clap command to show a given Cardano db
@@ -74,10 +74,7 @@ impl CardanoDbShowCommand {
             println!("{}", serde_json::to_string(&cardano_db_message)?);
         } else {
             let cardano_db_table = vec![
-                vec![
-                    "Epoch".cell(),
-                    format!("{}", &cardano_db_message.beacon.epoch).cell(),
-                ],
+                vec!["Epoch".cell(), format!("{}", &cardano_db_message.beacon.epoch).cell()],
                 vec![
                     "Immutable File Number".cell(),
                     format!("{}", &cardano_db_message.beacon.immutable_file_number).cell(),
@@ -92,14 +89,8 @@ impl CardanoDbShowCommand {
                     "Cardano node version".cell(),
                     cardano_db_message.cardano_node_version.cell(),
                 ],
-                vec![
-                    "Location".cell(),
-                    cardano_db_message.locations.join(",").cell(),
-                ],
-                vec![
-                    "Created".cell(),
-                    cardano_db_message.created_at.to_string().cell(),
-                ],
+                vec!["Location".cell(), cardano_db_message.locations.join(",").cell()],
+                vec!["Created".cell(), cardano_db_message.created_at.to_string().cell()],
                 vec![
                     "Compression Algorithm".cell(),
                     format!("{}", &cardano_db_message.compression_algorithm).cell(),
@@ -138,10 +129,7 @@ impl CardanoDbShowCommand {
             println!("{}", serde_json::to_string(&cardano_db_message)?);
         } else {
             let mut cardano_db_table = vec![
-                vec![
-                    "Epoch".cell(),
-                    format!("{}", &cardano_db_message.beacon.epoch).cell(),
-                ],
+                vec!["Epoch".cell(), format!("{}", &cardano_db_message.beacon.epoch).cell()],
                 vec![
                     "Immutable File Number".cell(),
                     format!("{}", &cardano_db_message.beacon.immutable_file_number).cell(),
@@ -244,10 +232,7 @@ fn format_location_rows(
     locations
         .enumerate()
         .map(|(index, cell_content)| {
-            vec![
-                format!("{location_name} ({})", index + 1).cell(),
-                cell_content.cell(),
-            ]
+            vec![format!("{location_name} ({})", index + 1).cell(), cell_content.cell()]
         })
         .collect()
 }
@@ -334,9 +319,13 @@ mod tests {
         let rows_rendered = table.display().unwrap().to_string();
 
         assert!(rows_rendered.contains("Immutables location (1)"));
-        assert!(rows_rendered.contains("CloudStorage, template_uri: \"http://cloudstorage1.com/\""));
+        assert!(
+            rows_rendered.contains("CloudStorage, template_uri: \"http://cloudstorage1.com/\"")
+        );
         assert!(rows_rendered.contains("Immutables location (2)"));
-        assert!(rows_rendered.contains("CloudStorage, template_uri: \"http://cloudstorage2.com/\""));
+        assert!(
+            rows_rendered.contains("CloudStorage, template_uri: \"http://cloudstorage2.com/\"")
+        );
     }
 
     #[test]

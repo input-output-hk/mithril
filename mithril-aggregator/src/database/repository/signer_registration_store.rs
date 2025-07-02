@@ -4,17 +4,17 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 
-use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake};
 use mithril_common::StdResult;
+use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake};
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
+use crate::VerificationKeyStorer;
 use crate::database::query::{
     DeleteSignerRegistrationRecordQuery, GetSignerRegistrationRecordQuery,
     InsertOrReplaceSignerRegistrationRecordQuery,
 };
 use crate::database::record::SignerRegistrationRecord;
 use crate::services::EpochPruningTask;
-use crate::VerificationKeyStorer;
 
 /// Service to deal with signer_registration (read & write).
 pub struct SignerRegistrationStore {
@@ -347,11 +347,7 @@ mod tests {
 
         for epoch in 1..6 {
             assert!(
-                store
-                    .get_verification_keys(Epoch(epoch))
-                    .await
-                    .unwrap()
-                    .is_some(),
+                store.get_verification_keys(Epoch(epoch)).await.unwrap().is_some(),
                 "Keys should exist before pruning"
             );
             store
@@ -371,12 +367,7 @@ mod tests {
         let mut epochs_in_database = vec![];
         for epoch_number in 1..=(*until_epoch) {
             let current_epoch = Epoch(epoch_number);
-            if store
-                .get_verification_keys(current_epoch)
-                .await
-                .unwrap()
-                .is_some()
-            {
+            if store.get_verification_keys(current_epoch).await.unwrap().is_some() {
                 epochs_in_database.push(current_epoch);
             }
         }

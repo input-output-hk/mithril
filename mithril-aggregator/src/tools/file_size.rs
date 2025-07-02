@@ -189,10 +189,7 @@ mod tests {
         write_dummy_file(Some(3), &sub_dir_1, "file_1");
 
         let file_path_2 = write_dummy_file(Some(4), &test_dir, "sub_dir_1_file_2");
-        assert!(file_path_2
-            .to_str()
-            .unwrap()
-            .starts_with(sub_dir_1.to_str().unwrap()));
+        assert!(file_path_2.to_str().unwrap().starts_with(sub_dir_1.to_str().unwrap()));
 
         let size = compute_size(vec![sub_dir_1.clone(), file_path_2.clone()]).unwrap();
         assert_eq!(size, 7);
@@ -211,10 +208,7 @@ mod tests {
         std::fs::create_dir(&sub_dir_1).unwrap();
         write_dummy_file(Some(3), &sub_dir_1, "file_1");
 
-        assert!(sub_dir_1
-            .to_str()
-            .unwrap()
-            .starts_with(file_path_2.to_str().unwrap()));
+        assert!(sub_dir_1.to_str().unwrap().starts_with(file_path_2.to_str().unwrap()));
 
         let size = compute_size(vec![sub_dir_1.clone(), file_path_2.clone()]).unwrap();
         assert_eq!(size, 7);

@@ -1,15 +1,15 @@
 use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use pallas_network::facades::DmqClient;
-use slog::{debug, error, Logger};
+use slog::{Logger, debug, error};
 use tokio::sync::{Mutex, MutexGuard};
 
 use mithril_common::{
+    CardanoNetwork, StdResult,
     crypto_helper::{OpCert, TryFromBytes},
     entities::PartyId,
     logging::LoggerExtensions,
-    CardanoNetwork, StdResult,
 };
 
 use crate::DmqConsumer;
@@ -93,9 +93,7 @@ impl<M: TryFromBytes + Debug> DmqConsumerPallas<M> {
     async fn consume_messages_internal(&self) -> StdResult<Vec<(M, PartyId)>> {
         debug!(self.logger, "Waiting for messages from DMQ...");
         let mut client_guard = self.get_client().await?;
-        let client = client_guard
-            .as_mut()
-            .ok_or(anyhow!("DMQ client does not exist"))?;
+        let client = client_guard.as_mut().ok_or(anyhow!("DMQ client does not exist"))?;
         client
             .msg_notification()
             .send_request_messages_blocking()
@@ -225,10 +223,7 @@ mod tests {
 
                 if !reply_messages.is_empty() {
                     // server replies with messages if any
-                    server_msg
-                        .send_reply_messages_blocking(reply_messages)
-                        .await
-                        .unwrap();
+                    server_msg.send_reply_messages_blocking(reply_messages).await.unwrap();
                     assert_eq!(*server_msg.state(), localmsgnotification::State::Idle);
 
                     // server receives done from client

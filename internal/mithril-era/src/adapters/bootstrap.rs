@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
-use mithril_common::entities::{Epoch, SupportedEra};
 use mithril_common::StdResult;
+use mithril_common::entities::{Epoch, SupportedEra};
 
 use crate::{EraMarker, EraReaderAdapter};
 
@@ -29,14 +29,8 @@ mod tests {
         let adapter = BootstrapAdapter;
 
         assert_eq!(
-            vec![EraMarker::new(
-                &SupportedEra::dummy().to_string(),
-                Some(Epoch(0))
-            )],
-            adapter
-                .read()
-                .await
-                .expect("bootstrap adapter shall never fail")
+            vec![EraMarker::new(&SupportedEra::dummy().to_string(), Some(Epoch(0)))],
+            adapter.read().await.expect("bootstrap adapter shall never fail")
         );
     }
 }

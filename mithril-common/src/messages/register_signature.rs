@@ -4,9 +4,9 @@ use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    StdResult,
     crypto_helper::{ProtocolSingleSignature, TryFromBytes, TryToBytes},
     entities::{HexEncodedSingleSignature, LotteryIndex, PartyId, SignedEntityType},
-    StdResult,
 };
 
 #[cfg(any(test, feature = "test_tools"))]

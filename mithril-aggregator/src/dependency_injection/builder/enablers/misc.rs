@@ -58,10 +58,8 @@ impl DependenciesBuilder {
 
     /// Builds an [AggregatorClient]
     pub async fn build_leader_aggregator_client(&mut self) -> Result<Arc<dyn AggregatorClient>> {
-        let leader_aggregator_endpoint = self
-            .configuration
-            .leader_aggregator_endpoint()
-            .unwrap_or_default();
+        let leader_aggregator_endpoint =
+            self.configuration.leader_aggregator_endpoint().unwrap_or_default();
         let aggregator_client = AggregatorHTTPClient::new(
             leader_aggregator_endpoint,
             None,

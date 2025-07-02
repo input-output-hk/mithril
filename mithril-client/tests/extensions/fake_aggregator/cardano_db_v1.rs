@@ -78,9 +78,9 @@ impl FakeAggregator {
         let mut snapshot_to_update = snapshot.write().await;
         *snapshot_to_update = Snapshot {
             locations: vec![self.server_url("/snapshot_download/completed_immutables.tar.zst")],
-            ancillary_locations: Some(
-                vec![self.server_url("/snapshot_download/ancillary.tar.zst")],
-            ),
+            ancillary_locations: Some(vec![
+                self.server_url("/snapshot_download/ancillary.tar.zst"),
+            ]),
             ..snapshot_to_update.clone()
         };
     }

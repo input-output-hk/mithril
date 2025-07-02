@@ -370,7 +370,7 @@ impl<'a> CertificateChainBuilder<'a> {
         (genesis_signer, genesis_verifier)
     }
 
-    fn build_epochs_sequence(&self) -> impl Iterator<Item = Epoch> {
+    fn build_epochs_sequence(&self) -> impl Iterator<Item = Epoch> + use<> {
         let total_certificates = self.total_certificates;
         let certificates_per_epoch = self.certificates_per_epoch;
         assert!(
@@ -392,7 +392,7 @@ impl<'a> CertificateChainBuilder<'a> {
         (1..=total_epochs_in_sequence).map(Epoch)
     }
 
-    fn build_certificate_index_and_epoch_sequence(&self) -> impl Iterator<Item = (usize, Epoch)> {
+    fn build_certificate_index_and_epoch_sequence(&self) -> impl Iterator<Item = (usize, Epoch)> + use<> {
         let total_certificates = self.total_certificates as usize;
         let certificates_per_epoch = self.certificates_per_epoch as usize;
 

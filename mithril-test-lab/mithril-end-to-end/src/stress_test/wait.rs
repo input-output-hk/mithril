@@ -7,12 +7,12 @@ use std::time::Duration;
 use tokio::time::sleep;
 
 use mithril_common::{
+    StdResult,
     entities::Epoch,
     messages::{
         CertificateListItemMessage, EpochSettingsMessage, MithrilStakeDistributionListItemMessage,
         SnapshotListItemMessage,
     },
-    StdResult,
 };
 
 use crate::Aggregator;

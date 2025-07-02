@@ -1,10 +1,10 @@
 use anyhow::anyhow;
-use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
-use slog::{debug, Logger};
+use mithril_common::logging::LoggerExtensions;
+use slog::{Logger, debug};
 use std::{fmt::Debug, sync::Arc, time::Duration};
 use tokio::{
-    sync::{mpsc::UnboundedSender, Mutex},
+    sync::{Mutex, mpsc::UnboundedSender},
     time::Instant,
 };
 
@@ -53,9 +53,7 @@ impl<M: Clone + Debug + Sync + Send + 'static> MessageRepeater<M> {
         match self.message.lock().await.as_ref() {
             Some(message) => {
                 debug!(self.logger, "Repeat message"; "message" => #?message);
-                self.tx_message
-                    .send(message.clone())
-                    .map_err(|e| anyhow!(e))?
+                self.tx_message.send(message.clone()).map_err(|e| anyhow!(e))?
             }
             None => {
                 debug!(self.logger, "No message to repeat");

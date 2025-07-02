@@ -1,11 +1,11 @@
 use async_trait::async_trait;
 use chrono::Utc;
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 use std::sync::Arc;
 
+use mithril_common::StdResult;
 use mithril_common::entities::{ProtocolMessage, SignedEntityConfig, SignedEntityType, TimePoint};
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::StdResult;
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 
 use crate::entities::BeaconToSign;
@@ -126,10 +126,8 @@ impl CertifierService for SignerCertifierService {
         beacon_to_sign: &BeaconToSign,
         protocol_message: &ProtocolMessage,
     ) -> StdResult<()> {
-        if let Some(single_signature) = self
-            .single_signer
-            .compute_single_signature(protocol_message)
-            .await?
+        if let Some(single_signature) =
+            self.single_signer.compute_single_signature(protocol_message).await?
         {
             debug!(self.logger, " > There is a single signature to send");
             self.signature_publisher
@@ -144,9 +142,7 @@ impl CertifierService for SignerCertifierService {
         }
 
         debug!(self.logger, " > Marking beacon as signed"; "beacon" => ?beacon_to_sign);
-        self.signed_beacon_store
-            .mark_beacon_as_signed(beacon_to_sign)
-            .await?;
+        self.signed_beacon_store.mark_beacon_as_signed(beacon_to_sign).await?;
 
         Ok(())
     }

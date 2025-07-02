@@ -1,6 +1,6 @@
 //! Merkelized map and associated proof
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
@@ -325,10 +325,7 @@ impl<K: MKMapKey> MKMapProof<K> {
     pub fn contains(&self, leaf: &MKTreeNode) -> StdResult<()> {
         let contains_leaf = {
             self.master_proof.contains(&[leaf.to_owned()]).is_ok()
-                || self
-                    .sub_proofs
-                    .iter()
-                    .any(|(_k, p)| p.contains(leaf).is_ok())
+                || self.sub_proofs.iter().any(|(_k, p)| p.contains(leaf).is_ok())
         };
 
         contains_leaf
@@ -418,24 +415,18 @@ impl<K: MKMapKey, S: MKTreeStorer> MKMapValue<K> for MKMapNode<K, S> {
         leaves: &[T],
     ) -> StdResult<Option<MKMapProof<K>>> {
         match self {
-            MKMapNode::Tree(ref value) => {
+            MKMapNode::Tree(value) => {
                 let proof = value
                     .compute_proof(
-                        &leaves
-                            .iter()
-                            .map(|leaf| leaf.to_owned().into())
-                            .collect::<Vec<_>>(),
+                        &leaves.iter().map(|leaf| leaf.to_owned().into()).collect::<Vec<_>>(),
                     )
                     .with_context(|| "MKMapValue could not compute sub proof for MKTree")?;
                 Ok(Some(proof.into()))
             }
-            MKMapNode::Map(ref value) => {
+            MKMapNode::Map(value) => {
                 let proof = value
                     .compute_proof(
-                        &leaves
-                            .iter()
-                            .map(|leaf| leaf.to_owned().into())
-                            .collect::<Vec<_>>(),
+                        &leaves.iter().map(|leaf| leaf.to_owned().into()).collect::<Vec<_>>(),
                     )
                     .with_context(|| "MKMapValue could not compute sub proof for MKMap")?;
                 Ok(Some(proof))
@@ -559,16 +550,10 @@ mod tests {
         let mk_map_root_expected = mk_map.compute_root().unwrap();
         let block_range_replacement = BlockRange::new(0, 3);
         let same_root_value = MKMapNode::TreeNode(
-            mk_map
-                .get(&block_range_replacement)
-                .unwrap()
-                .compute_root()
-                .unwrap(),
+            mk_map.get(&block_range_replacement).unwrap().compute_root().unwrap(),
         );
 
-        mk_map
-            .insert(block_range_replacement, same_root_value)
-            .unwrap();
+        mk_map.insert(block_range_replacement, same_root_value).unwrap();
 
         assert_eq!(mk_map_root_expected, mk_map.compute_root().unwrap())
     }
@@ -602,11 +587,7 @@ mod tests {
             MKMap::<_, _, MKTreeStoreInMemory>::new(&into_mkmap_tree_entries(entries)).unwrap();
         let block_range_replacement = BlockRange::new(0, 3);
         let same_root_value = MKMapNode::TreeNode(
-            mk_map
-                .get(&block_range_replacement)
-                .unwrap()
-                .compute_root()
-                .unwrap(),
+            mk_map.get(&block_range_replacement).unwrap().compute_root().unwrap(),
         );
         let mk_map_root_expected = mk_map.compute_root().unwrap();
 
@@ -644,9 +625,7 @@ mod tests {
             .expect_err("the MKMap should reject replacement for nonexisting key");
 
         assert!(
-            error
-                .to_string()
-                .contains("MKMap could not replace non-existing key"),
+            error.to_string().contains("MKMap could not replace non-existing key"),
             "Invalid error message: `{error}`",
         );
     }
@@ -729,10 +708,7 @@ mod tests {
         let mk_map =
             MKMap::<_, _, MKTreeStoreInMemory>::new(merkle_tree_entries.as_slice()).unwrap();
 
-        let keys = mk_map
-            .iter()
-            .map(|(k, _v)| k.to_owned())
-            .collect::<Vec<_>>();
+        let keys = mk_map.iter().map(|(k, _v)| k.to_owned()).collect::<Vec<_>>();
         let expected_keys = merkle_tree_entries
             .iter()
             .map(|(k, _)| k)
@@ -753,10 +729,7 @@ mod tests {
         let mk_map =
             MKMap::<_, _, MKTreeStoreInMemory>::new(merkle_tree_entries.as_slice()).unwrap();
 
-        let values = mk_map
-            .iter()
-            .map(|(_k, v)| v.to_owned())
-            .collect::<Vec<_>>();
+        let values = mk_map.iter().map(|(_k, v)| v.to_owned()).collect::<Vec<_>>();
         let expected_values = merkle_tree_entries
             .iter()
             .map(|(_, v)| v)
@@ -849,9 +822,8 @@ mod tests {
             MKMap::<_, _, MKTreeStoreInMemory>::new(&into_mkmap_tree_entries(entries)).unwrap();
         let mk_map_proof = mk_map_full.compute_proof(&mktree_nodes_to_certify).unwrap();
 
-        let serialized_mk_map_proof = mk_map_proof
-            .to_bytes()
-            .expect("Serialization should not fail");
+        let serialized_mk_map_proof =
+            mk_map_proof.to_bytes().expect("Serialization should not fail");
         let deserialized_mk_map_proof =
             MKMapProof::<BlockRange>::from_bytes(&serialized_mk_map_proof)
                 .expect("Deserialization should not fail");
@@ -875,11 +847,9 @@ mod tests {
             .chunks(10)
             .map(|entries| {
                 (
-                    entries
-                        .iter()
-                        .fold(BlockRange::new(0, 0), |acc, (range, _)| {
-                            acc.try_add(range).unwrap()
-                        }),
+                    entries.iter().fold(BlockRange::new(0, 0), |acc, (range, _)| {
+                        acc.try_add(range).unwrap()
+                    }),
                     MKMapNode::Map(Arc::new(MKMap::new(entries).unwrap())),
                 )
             })

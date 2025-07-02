@@ -108,12 +108,7 @@ impl Party {
         }
         let closed_reg = key_reg.close();
 
-        let signer = self
-            .initializer
-            .clone()
-            .unwrap()
-            .new_signer(closed_reg)
-            .unwrap();
+        let signer = self.initializer.clone().unwrap().new_signer(closed_reg).unwrap();
         self.signer = Some(signer);
         self.clerk = Some(ProtocolClerk::from_signer(self.signer.as_ref().unwrap()));
     }
@@ -446,12 +441,7 @@ impl ProtocolDemonstrator for Demonstrator {
                     Err(err) => return Err(err),
                 }
                 let msig = party.get_aggregate(message).unwrap();
-                match self
-                    .verifier
-                    .as_ref()
-                    .unwrap()
-                    .verify_message(message, msig)
-                {
+                match self.verifier.as_ref().unwrap().verify_message(message, msig) {
                     Ok(_) => (),
                     Err(err) => return Err(err),
                 }

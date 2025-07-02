@@ -1,6 +1,6 @@
 use sqlite::Value;
 
-use mithril_common::{entities::Epoch, StdResult};
+use mithril_common::{StdResult, entities::Epoch};
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::StakePool;

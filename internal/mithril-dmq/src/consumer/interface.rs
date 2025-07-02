@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use mithril_common::{crypto_helper::TryFromBytes, entities::PartyId, StdResult};
+use mithril_common::{StdResult, crypto_helper::TryFromBytes, entities::PartyId};
 
 /// Trait for consuming messages from a DMQ node.
 #[cfg_attr(test, mockall::automock)]

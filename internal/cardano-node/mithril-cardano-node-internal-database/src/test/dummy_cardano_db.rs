@@ -157,19 +157,15 @@ impl DummyCardanoDbBuilder {
 
     /// Set legacy ledger state snapshot slot numbers to write to the db in the 'ledger' subdirectory.
     pub fn with_legacy_ledger_snapshots(&mut self, snapshot_slot_numbers: &[u64]) -> &mut Self {
-        self.ledger_snapshot_legacy_to_write = snapshot_slot_numbers
-            .iter()
-            .map(|s| SlotNumber(*s))
-            .collect();
+        self.ledger_snapshot_legacy_to_write =
+            snapshot_slot_numbers.iter().map(|s| SlotNumber(*s)).collect();
         self
     }
 
     /// Set the slot numbers of utxo-hd in-memory snapshot folders to write to the db in the 'ledger' subdirectory.
     pub fn with_in_memory_ledger_snapshots(&mut self, snapshot_slot_numbers: &[u64]) -> &mut Self {
-        self.ledger_snapshot_in_memory_to_write = snapshot_slot_numbers
-            .iter()
-            .map(|s| SlotNumber(*s))
-            .collect();
+        self.ledger_snapshot_in_memory_to_write =
+            snapshot_slot_numbers.iter().map(|s| SlotNumber(*s)).collect();
         self
     }
 

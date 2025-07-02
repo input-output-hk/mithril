@@ -3,12 +3,12 @@ use std::fmt::{Debug, Formatter};
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 
+use crate::StdError;
 use crate::entities::{
     Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
     SignedEntityType,
 };
 use crate::messages::CertificateMetadataMessagePart;
-use crate::StdError;
 #[cfg(any(test, feature = "test_tools"))]
 use crate::{entities::ProtocolMessagePartKey, test_utils::fake_keys};
 

@@ -1,14 +1,14 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use mithril_stm::StmParameters;
 
 use crate::{
+    StdResult,
     crypto_helper::{
         ProtocolAggregateVerificationKey, ProtocolAggregationError, ProtocolClerk,
         ProtocolMultiSignature,
     },
     entities::SingleSignature,
     protocol::ToMessage,
-    StdResult,
 };
 
 /// MultiSigner is the cryptographic engine in charge of producing multi-signatures from individual signatures
@@ -115,11 +115,9 @@ mod test {
         let multi_signer = build_multi_signer(&fixture);
         let message = ProtocolMessage::default();
 
-        let error = multi_signer
-            .aggregate_single_signatures(&[], &message)
-            .expect_err(
-                "Multi-signature should not be created with an empty single signatures list",
-            );
+        let error = multi_signer.aggregate_single_signatures(&[], &message).expect_err(
+            "Multi-signature should not be created with an empty single signatures list",
+        );
 
         assert!(
             matches!(error, ProtocolAggregationError::NotEnoughSignatures(_, _)),
@@ -177,12 +175,7 @@ mod test {
         );
         let fixture = MithrilFixtureBuilder::default().with_signers(1).build();
         let message = ProtocolMessage::default();
-        let single_signature = fixture
-            .signers_fixture()
-            .last()
-            .unwrap()
-            .sign(&message)
-            .unwrap();
+        let single_signature = fixture.signers_fixture().last().unwrap().sign(&message).unwrap();
 
         // Will fail because the single signature was issued by a signer from a stake distribution
         // that is not the one used by the multi-signer.
@@ -229,12 +222,7 @@ mod test {
         let fixture = MithrilFixtureBuilder::default().with_signers(1).build();
         let multi_signer = build_multi_signer(&fixture);
         let message = ProtocolMessage::default();
-        let single_signature = fixture
-            .signers_fixture()
-            .first()
-            .unwrap()
-            .sign(&message)
-            .unwrap();
+        let single_signature = fixture.signers_fixture().first().unwrap().sign(&message).unwrap();
 
         multi_signer
             .verify_single_signature(&message, &single_signature)

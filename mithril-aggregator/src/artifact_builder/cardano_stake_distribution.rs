@@ -3,9 +3,9 @@ use async_trait::async_trait;
 use std::sync::Arc;
 
 use mithril_common::{
+    StdResult,
     entities::{CardanoStakeDistribution, Certificate, Epoch},
     signable_builder::StakeDistributionRetriever,
-    StdResult,
 };
 
 use crate::ArtifactBuilder;

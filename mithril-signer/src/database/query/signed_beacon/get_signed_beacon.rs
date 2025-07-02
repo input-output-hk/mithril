@@ -1,7 +1,7 @@
 use sqlite::Value;
 
-use mithril_common::entities::SignedEntityType;
 use mithril_common::StdResult;
+use mithril_common::entities::SignedEntityType;
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::SignedBeaconRecord;
@@ -86,9 +86,8 @@ mod tests {
         ]);
         insert_signed_beacons(&connection, records.clone());
 
-        let stored_records: Vec<SignedBeaconRecord> = connection
-            .fetch_collect(GetSignedBeaconQuery::all())
-            .unwrap();
+        let stored_records: Vec<SignedBeaconRecord> =
+            connection.fetch_collect(GetSignedBeaconQuery::all()).unwrap();
 
         assert_eq!(
             records.into_iter().rev().collect::<Vec<_>>(),
@@ -216,10 +215,7 @@ mod tests {
                 SignedBeaconRecord::fakes(&[
                     (
                         Epoch(331),
-                        vec![SignedEntityType::CardanoTransactions(
-                            Epoch(5),
-                            BlockNumber(133)
-                        ),],
+                        vec![SignedEntityType::CardanoTransactions(Epoch(5), BlockNumber(133)),],
                     ),
                     (
                         Epoch(330),

@@ -1,13 +1,13 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use clap::{CommandFactory, Parser, Subcommand};
 use config::{Map, Value};
 
-use slog::{crit, debug, info, o, Drain, Level, Logger};
+use slog::{Drain, Level, Logger, crit, debug, info, o};
 use std::sync::Arc;
 use std::time::Duration;
 use std::{collections::HashMap, path::PathBuf};
 use tokio::{
-    signal::unix::{signal, SignalKind},
+    signal::unix::{SignalKind, signal},
     sync::watch,
     task::JoinSet,
 };
@@ -16,8 +16,8 @@ use mithril_common::StdResult;
 use mithril_doc::{Documenter, DocumenterDefault, GenerateDocCommands, StructDoc};
 use mithril_metric::MetricsServer;
 use mithril_signer::{
-    dependency_injection::DependenciesBuilder, Configuration, DatabaseCommand,
-    DefaultConfiguration, SignerRunner, SignerState, StateMachine,
+    Configuration, DatabaseCommand, DefaultConfiguration, SignerRunner, SignerState, StateMachine,
+    dependency_injection::DependenciesBuilder,
 };
 
 /// CLI args
@@ -192,9 +192,9 @@ async fn main() -> StdResult<()> {
             "preloading_refresh_interval_in_seconds",
             args.preloading_refresh_interval_in_seconds,
         )
-        .with_context(|| {
-            "configuration error: could not set `preloading_refresh_interval_in_seconds`"
-        })?
+        .with_context(
+            || "configuration error: could not set `preloading_refresh_interval_in_seconds`",
+        )?
         .set_default(
             "signature_publisher_config.retry_attempts",
             args.signature_publisher_retry_attempts,
@@ -247,13 +247,7 @@ async fn main() -> StdResult<()> {
     let (stop_tx, stop_rx) = watch::channel(());
 
     let mut join_set = JoinSet::new();
-    join_set.spawn(async move {
-        state_machine
-            .run()
-            .await
-            .map_err(|e| anyhow!(e))
-            .map(|_| None)
-    });
+    join_set.spawn(async move { state_machine.run().await.map_err(|e| anyhow!(e)).map(|_| None) });
 
     let preload_logger = root_logger.clone();
     join_set.spawn(async move {

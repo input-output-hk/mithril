@@ -1,6 +1,6 @@
 [package]
 name = "mithril-cardano-node-internal-database"
-version = "0.1.1"
+version = "0.1.2"
 description = "Mechanisms that allow Mithril nodes to read the files of a Cardano node internal database and compute digests from them"
 authors.workspace = true
 documentation.workspace = true

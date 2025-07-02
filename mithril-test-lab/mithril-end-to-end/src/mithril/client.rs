@@ -1,7 +1,7 @@
 use crate::utils::MithrilCommand;
 use crate::{ANCILLARY_MANIFEST_VERIFICATION_KEY, GENESIS_VERIFICATION_KEY};
-use anyhow::{anyhow, Context};
-use mithril_common::{entities::TransactionHash, StdResult};
+use anyhow::{Context, anyhow};
+use mithril_common::{StdResult, entities::TransactionHash};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -211,19 +211,15 @@ impl ClientCommand {
                 vec!["--backend".to_string(), "v1".to_string()],
             ]
             .concat(),
-            ClientCommand::MithrilStakeDistribution(cmd) => [
-                vec!["mithril-stake-distribution".to_string()],
-                cmd.cli_arg(),
-            ]
-            .concat(),
+            ClientCommand::MithrilStakeDistribution(cmd) => {
+                [vec!["mithril-stake-distribution".to_string()], cmd.cli_arg()].concat()
+            }
             ClientCommand::CardanoTransaction(cmd) => {
                 [vec!["cardano-transaction".to_string()], cmd.cli_arg()].concat()
             }
-            ClientCommand::CardanoStakeDistribution(cmd) => [
-                vec!["cardano-stake-distribution".to_string()],
-                cmd.cli_arg(),
-            ]
-            .concat(),
+            ClientCommand::CardanoStakeDistribution(cmd) => {
+                [vec!["cardano-stake-distribution".to_string()], cmd.cli_arg()].concat()
+            }
             ClientCommand::CardanoDbV2(cmd) => [
                 vec!["cardano-db".to_string()],
                 cmd.cli_arg(),

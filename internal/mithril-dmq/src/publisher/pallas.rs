@@ -2,10 +2,10 @@ use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
 
 use anyhow::Context;
 use pallas_network::{facades::DmqClient, miniprotocols::localtxsubmission::Response};
-use slog::{debug, error, Logger};
+use slog::{Logger, debug, error};
 
 use mithril_common::{
-    crypto_helper::TryToBytes, logging::LoggerExtensions, CardanoNetwork, StdResult,
+    CardanoNetwork, StdResult, crypto_helper::TryToBytes, logging::LoggerExtensions,
 };
 
 use crate::{DmqMessageBuilder, DmqPublisher};
@@ -164,9 +164,7 @@ mod tests {
                 TestLogger::stdout(),
             );
 
-            publisher
-                .publish_message(DmqMessageTestPayload::dummy())
-                .await
+            publisher.publish_message(DmqMessageTestPayload::dummy()).await
         });
 
         let (_, res) = tokio::join!(server, client);
@@ -200,14 +198,11 @@ mod tests {
                 TestLogger::stdout(),
             );
 
-            publisher
-                .publish_message(DmqMessageTestPayload::dummy())
-                .await
+            publisher.publish_message(DmqMessageTestPayload::dummy()).await
         });
 
         let (_, res) = tokio::join!(server, client);
 
-        res.unwrap()
-            .expect_err("Publishing DMQ message should fail");
+        res.unwrap().expect_err("Publishing DMQ message should fail");
     }
 }
