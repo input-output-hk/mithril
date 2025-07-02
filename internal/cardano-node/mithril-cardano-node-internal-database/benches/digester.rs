@@ -19,9 +19,7 @@ use mithril_cardano_node_internal_database::IMMUTABLE_DIR;
 use mithril_common::entities::{CardanoDbBeacon, ImmutableFileNumber};
 
 fn temp_dir() -> PathBuf {
-    std::env::temp_dir()
-        .join("mithril_benches")
-        .join("digester")
+    std::env::temp_dir().join("mithril_benches").join("digester")
 }
 
 fn db_dir() -> PathBuf {

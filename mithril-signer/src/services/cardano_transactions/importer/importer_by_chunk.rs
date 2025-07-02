@@ -87,8 +87,7 @@ mod tests {
     ) -> Arc<dyn HighestTransactionBlockNumberGetter> {
         Arc::new({
             let mut mock = MockHighestTransactionBlockNumberGetter::new();
-            mock.expect_get()
-                .returning(move || Ok(Some(highest_block_number)));
+            mock.expect_get().returning(move || Ok(Some(highest_block_number)));
             mock
         })
     }
@@ -141,8 +140,7 @@ mod tests {
 
         let highest_transaction_block_number_getter = Arc::new({
             let mut mock = MockHighestTransactionBlockNumberGetter::new();
-            mock.expect_get()
-                .returning(move || Ok(highest_block_number));
+            mock.expect_get().returning(move || Ok(highest_block_number));
             mock
         });
         let wrapped_importer = create_transaction_importer_mock(vec![up_to_beacon]);

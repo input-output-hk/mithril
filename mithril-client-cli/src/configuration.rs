@@ -70,8 +70,7 @@ impl ConfigParameters {
     /// Fetch a parameter from the holder. If the parameter is not set, an error
     /// is raised.
     pub fn require(&self, name: &str) -> Result<String, ConfigError> {
-        self.get(name)
-            .ok_or_else(|| ConfigError::Required(name.to_string()))
+        self.get(name).ok_or_else(|| ConfigError::Required(name.to_string()))
     }
 }
 
@@ -92,10 +91,7 @@ mod tests {
     impl<const N: usize> From<[(&str, &str); N]> for TestSource {
         fn from(arr: [(&str, &str); N]) -> Self {
             TestSource {
-                params: arr
-                    .into_iter()
-                    .map(|(k, v)| (k.to_string(), v.to_string()))
-                    .collect(),
+                params: arr.into_iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
             }
         }
     }
@@ -112,9 +108,7 @@ mod tests {
 
         assert_eq!(
             ConfigParameters {
-                parameters: [("pika".to_string(), "chu".to_string())]
-                    .into_iter()
-                    .collect()
+                parameters: [("pika".to_string(), "chu".to_string())].into_iter().collect()
             },
             config
         );
@@ -126,9 +120,7 @@ mod tests {
 
         assert_eq!(
             ConfigParameters {
-                parameters: [("pika".to_string(), "chu".to_string())]
-                    .into_iter()
-                    .collect()
+                parameters: [("pika".to_string(), "chu".to_string())].into_iter().collect()
             },
             config
         );

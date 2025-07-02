@@ -184,9 +184,7 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                     if let Some(cardano_database_multi_pb) =
                         self.cardano_database_multi_pb.read().await.as_ref()
                     {
-                        cardano_database_multi_pb
-                            .finish_child_bar("Ancillary")
-                            .await;
+                        cardano_database_multi_pb.finish_child_bar("Ancillary").await;
                     }
                 }
             },
@@ -429,11 +427,7 @@ mod tests {
             send_event!(cardano_db_v1, ancillary_dl, started =>  sender, size:456);
 
             assert!(receiver.download_progress_reporter.read().await.is_some());
-            assert!(receiver
-                .ancillary_download_progress_reporter
-                .read()
-                .await
-                .is_some());
+            assert!(receiver.ancillary_download_progress_reporter.read().await.is_some());
         }
 
         #[tokio::test]
@@ -444,11 +438,7 @@ mod tests {
             send_event!(cardano_db_v1, ancillary_dl, started => sender, size:0);
             send_event!(cardano_db_v1, ancillary_dl, progress => sender, bytes:124, size:0);
 
-            assert!(receiver
-                .ancillary_download_progress_reporter
-                .read()
-                .await
-                .is_some());
+            assert!(receiver.ancillary_download_progress_reporter.read().await.is_some());
         }
 
         #[tokio::test]
@@ -470,11 +460,7 @@ mod tests {
             send_event!(cardano_db_v1, ancillary_dl, started =>  sender, size:456);
             send_event!(cardano_db_v1, ancillary_dl, completed =>  sender);
 
-            assert!(receiver
-                .ancillary_download_progress_reporter
-                .read()
-                .await
-                .is_none());
+            assert!(receiver.ancillary_download_progress_reporter.read().await.is_none());
         }
     }
 

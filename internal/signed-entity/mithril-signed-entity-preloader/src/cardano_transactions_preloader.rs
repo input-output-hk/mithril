@@ -110,13 +110,13 @@ impl CardanoTransactionsPreloader {
     }
 
     async fn do_preload(&self) -> StdResult<()> {
-        let chain_point = self
-            .chain_observer
-            .get_current_chain_point()
-            .await?
-            .with_context(|| {
-                "No chain point yielded by the chain observer, is your cardano node ready?"
-            })?;
+        let chain_point =
+            self.chain_observer
+                .get_current_chain_point()
+                .await?
+                .with_context(|| {
+                    "No chain point yielded by the chain observer, is your cardano node ready?"
+                })?;
         let up_to_block_number = chain_point.block_number - self.security_parameter;
         self.importer.import(up_to_block_number).await?;
 

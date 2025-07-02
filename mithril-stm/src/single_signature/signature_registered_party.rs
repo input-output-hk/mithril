@@ -30,14 +30,10 @@ impl SingleSignatureWithRegisteredParty {
         bytes: &[u8],
     ) -> Result<SingleSignatureWithRegisteredParty, StmSignatureError> {
         let reg_party = RegisteredParty::from_bytes(
-            bytes
-                .get(0..104)
-                .ok_or(StmSignatureError::SerializationError)?,
+            bytes.get(0..104).ok_or(StmSignatureError::SerializationError)?,
         )?;
         let sig = SingleSignature::from_bytes::<D>(
-            bytes
-                .get(104..)
-                .ok_or(StmSignatureError::SerializationError)?,
+            bytes.get(104..).ok_or(StmSignatureError::SerializationError)?,
         )?;
 
         Ok(SingleSignatureWithRegisteredParty { sig, reg_party })

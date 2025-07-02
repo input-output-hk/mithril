@@ -141,10 +141,7 @@ pub fn routes(
             warp::reply::with_header(
                 reply,
                 MITHRIL_API_VERSION_HEADER,
-                &api_version_provider
-                    .compute_current_version()
-                    .unwrap()
-                    .to_string(),
+                &api_version_provider.compute_current_version().unwrap().to_string(),
             )
         })
         .with(cors)
@@ -189,9 +186,7 @@ mod tests {
             "API version header should be present, headers: {response_headers:?}",
         );
         assert!(
-            response_headers
-                .get("access-control-allow-origin")
-                .is_some(),
+            response_headers.get("access-control-allow-origin").is_some(),
             "CORS headers should be present, headers: {response_headers:?}",
         );
     }

@@ -220,9 +220,7 @@ mod tests {
         service.get_counter_example().increment();
         service.get_counter_example().increment();
         service.get_gauge_example().record(Epoch(12));
-        service
-            .get_counter_with_labels_example()
-            .increment(&["A", "200"]);
+        service.get_counter_with_labels_example().increment(&["A", "200"]);
 
         assert_eq!(2, service.get_counter_example().get());
         assert_eq!(Epoch(12), Epoch(service.get_gauge_example().get() as u64));
@@ -255,9 +253,7 @@ mod tests {
         service.get_counter_example().increment();
         service.get_counter_example().increment();
         service.get_gauge_example().record(Epoch(12));
-        service
-            .get_counter_with_labels_example()
-            .increment(&["A", "200"]);
+        service.get_counter_with_labels_example().increment(&["A", "200"]);
 
         assert_eq!(2, service.get_counter_example().get());
         assert_eq!(Epoch(12), Epoch(service.get_gauge_example().get() as u64));

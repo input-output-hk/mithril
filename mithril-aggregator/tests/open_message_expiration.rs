@@ -62,10 +62,7 @@ async fn open_message_expiration() {
     cycle!(tester, "signing");
 
     comment!("register signers");
-    tester
-        .register_signers(&fixture.signers_fixture())
-        .await
-        .unwrap();
+    tester.register_signers(&fixture.signers_fixture()).await.unwrap();
     cycle_err!(tester, "signing");
 
     comment!(

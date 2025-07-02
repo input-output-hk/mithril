@@ -629,10 +629,7 @@ mod tests {
             .await
             .expect("registering a signer to the aggregator should not fail");
 
-        assert!(certificate_handler
-            .get_last_registered_signer()
-            .await
-            .is_some());
+        assert!(certificate_handler.get_last_registered_signer().await.is_some());
         let maybe_protocol_initializer = protocol_initializer_store
             .get_protocol_initializer(current_epoch.offset_to_recording_epoch())
             .await
@@ -670,10 +667,7 @@ mod tests {
         services.upkeep_service = Arc::new(upkeep_service_mock);
 
         let runner = init_runner(Some(services), None).await;
-        runner
-            .upkeep(Epoch(17))
-            .await
-            .expect("upkeep should not fail");
+        runner.upkeep(Epoch(17)).await.expect("upkeep should not fail");
     }
 
     #[tokio::test]

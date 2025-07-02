@@ -159,14 +159,12 @@ mod tests {
 
     #[test]
     fn compute_allow_unparsable_block_should_always_return_false_on_mainnet_and_preprod() {
-        let allow_unparsable_block = CardanoNetwork::MainNet
-            .compute_allow_unparsable_block(false)
-            .unwrap();
+        let allow_unparsable_block =
+            CardanoNetwork::MainNet.compute_allow_unparsable_block(false).unwrap();
         assert!(!allow_unparsable_block);
 
-        let allow_unparsable_block = CardanoNetwork::MainNet
-            .compute_allow_unparsable_block(true)
-            .unwrap();
+        let allow_unparsable_block =
+            CardanoNetwork::MainNet.compute_allow_unparsable_block(true).unwrap();
         assert!(!allow_unparsable_block);
 
         let allow_unparsable_block = CardanoNetwork::TestNet(PREPROD_MAGIC_ID)

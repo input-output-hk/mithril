@@ -89,10 +89,7 @@ macro_rules! cycle_err {
 macro_rules! assert_last_certificate_eq {
     ( $tester:expr, $expected_certificate:expr ) => {{
         if let Some(signed_type) = $expected_certificate.get_signed_type() {
-            $tester
-                .wait_until_signed_entity(&signed_type)
-                .await
-                .unwrap();
+            $tester.wait_until_signed_entity(&signed_type).await.unwrap();
         }
 
         let last_certificate = RuntimeTester::get_last_expected_certificate(&mut $tester)
@@ -153,10 +150,7 @@ impl RuntimeTester {
         let chain_observer = Arc::new(FakeChainObserver::new(Some(start_time_point)));
         let digester = Arc::new(DumbImmutableDigester::default());
         let snapshotter = Arc::new(FakeSnapshotter::new(
-            configuration
-                .get_snapshot_dir()
-                .unwrap()
-                .join("fake_snapshots"),
+            configuration.get_snapshot_dir().unwrap().join("fake_snapshots"),
         ));
         let genesis_signer = Arc::new(ProtocolGenesisSigner::create_deterministic_signer());
         let era_reader_adapter =
@@ -174,10 +168,7 @@ impl RuntimeTester {
         deps_builder.era_reader = Some(Arc::new(EraReader::new(era_reader_adapter.clone())));
         deps_builder.block_scanner = Some(block_scanner.clone());
 
-        let dependencies = deps_builder
-            .build_serve_dependencies_container()
-            .await
-            .unwrap();
+        let dependencies = deps_builder.build_serve_dependencies_container().await.unwrap();
         let runtime = deps_builder.create_aggregator_runner().await.unwrap();
         let observer = Arc::new(AggregatorObserver::new(&mut deps_builder).await);
         let open_message_repository = deps_builder.get_open_message_repository().await.unwrap();
@@ -215,9 +206,7 @@ impl RuntimeTester {
     /// Init the aggregator state based on the data in the given fixture
     pub async fn init_state_from_fixture(&mut self, fixture: &MithrilFixture) -> StdResult<()> {
         // Tell the chain observer to returns the signers from the fixture when returning stake distribution
-        self.chain_observer
-            .set_signers(fixture.signers_with_stake())
-            .await;
+        self.chain_observer.set_signers(fixture.signers_with_stake()).await;
 
         // Init the stores needed for a genesis certificate
         let genesis_epochs = self.dependencies.get_genesis_epochs().await;
@@ -289,11 +278,7 @@ impl RuntimeTester {
         self.update_digester_digest().await;
         self.update_digester_merkle_tree().await;
 
-        let updated_number = self
-            .observer
-            .current_time_point()
-            .await
-            .immutable_file_number;
+        let updated_number = self.observer.current_time_point().await.immutable_file_number;
 
         if new_immutable_number == updated_number {
             Ok(new_immutable_number)
@@ -475,10 +460,8 @@ impl RuntimeTester {
         authentication_status: SingleSignatureAuthenticationStatus,
     ) -> StdResult<()> {
         let certifier_service = self.dependencies.certifier_service.clone();
-        let signed_entity_type = self
-            .observer
-            .build_current_signed_entity_type(discriminant)
-            .await?;
+        let signed_entity_type =
+            self.observer.build_current_signed_entity_type(discriminant).await?;
 
         let message = self
             .dependencies
@@ -534,9 +517,7 @@ impl RuntimeTester {
             ))
             .build();
 
-        self.chain_observer
-            .set_signers(fixture.signers_with_stake())
-            .await;
+        self.chain_observer.set_signers(fixture.signers_with_stake()).await;
 
         Ok(fixture)
     }
@@ -567,10 +548,8 @@ impl RuntimeTester {
         discriminant: SignedEntityTypeDiscriminants,
         timeout: Duration,
     ) -> StdResult<()> {
-        let signed_entity_type = self
-            .observer
-            .build_current_signed_entity_type(discriminant)
-            .await?;
+        let signed_entity_type =
+            self.observer.build_current_signed_entity_type(discriminant).await?;
         let mut open_message = self
             .open_message_repository
             .get_open_message(&signed_entity_type)
@@ -701,12 +680,8 @@ impl RuntimeTester {
     /// Returns the runtime cycle success and total metrics since startup
     pub fn get_runtime_cycle_success_and_total_since_startup_metrics(&self) -> (u32, u32) {
         (
-            self.metrics_service
-                .get_runtime_cycle_success_since_startup()
-                .get(),
-            self.metrics_service
-                .get_runtime_cycle_total_since_startup()
-                .get(),
+            self.metrics_service.get_runtime_cycle_success_since_startup().get(),
+            self.metrics_service.get_runtime_cycle_total_since_startup().get(),
         )
     }
 }

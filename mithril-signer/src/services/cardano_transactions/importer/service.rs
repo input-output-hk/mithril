@@ -88,9 +88,7 @@ impl CardanoTransactionsImporter {
             );
         }
 
-        Ok(last_polled_point.or(highest_stored_chain_point
-            .as_ref()
-            .map(RawCardanoPoint::from)))
+        Ok(last_polled_point.or(highest_stored_chain_point.as_ref().map(RawCardanoPoint::from)))
     }
 
     async fn import_transactions(&self, up_to_beacon: BlockNumber) -> StdResult<()> {
@@ -134,9 +132,7 @@ impl CardanoTransactionsImporter {
                         .flat_map(|b| b.into_transactions())
                         .collect();
 
-                    self.transaction_store
-                        .store_transactions(parsed_transactions)
-                        .await?;
+                    self.transaction_store.store_transactions(parsed_transactions).await?;
                 }
                 ChainScannedBlocks::RollBackward(slot_number) => {
                     self.transaction_store
@@ -277,10 +273,7 @@ mod tests {
     }
 
     fn into_transactions(blocks: &[ScannedBlock]) -> Vec<CardanoTransaction> {
-        blocks
-            .iter()
-            .flat_map(|b| b.clone().into_transactions())
-            .collect()
+        blocks.iter().flat_map(|b| b.clone().into_transactions()).collect()
     }
 
     fn merkle_root_for_blocks(block_ranges: &[ScannedBlock]) -> MKTreeNode {
@@ -369,10 +362,7 @@ mod tests {
                 BlockRange::from_block_number(BlockRange::LENGTH * 3),
                 BlockRange::from_block_number(BlockRange::LENGTH * 4),
             ],
-            block_range_roots
-                .into_iter()
-                .map(|r| r.range)
-                .collect::<Vec<_>>()
+            block_range_roots.into_iter().map(|r| r.range).collect::<Vec<_>>()
         );
     }
 
@@ -409,10 +399,7 @@ mod tests {
                 BlockRange::from_block_number(BlockNumber(0)),
                 BlockRange::from_block_number(BlockRange::LENGTH * 3),
             ],
-            block_range_roots
-                .into_iter()
-                .map(|r| r.range)
-                .collect::<Vec<_>>()
+            block_range_roots.into_iter().map(|r| r.range).collect::<Vec<_>>()
         );
     }
 
@@ -468,10 +455,7 @@ mod tests {
             SlotNumber(35),
             hex::encode("block_hash-3"),
         );
-        repository
-            .store_transactions(vec![last_tx.clone()])
-            .await
-            .unwrap();
+        repository.store_transactions(vec![last_tx.clone()]).await.unwrap();
 
         let importer =
             CardanoTransactionsImporter::new_for_test(Arc::new(scanner), repository.clone());
@@ -588,10 +572,7 @@ mod tests {
                 BlockRange::from_block_number(BlockNumber(0)),
                 BlockRange::from_block_number(BlockRange::LENGTH),
             ],
-            block_range_roots
-                .into_iter()
-                .map(|r| r.range)
-                .collect::<Vec<_>>()
+            block_range_roots.into_iter().map(|r| r.range).collect::<Vec<_>>()
         );
 
         importer
@@ -607,10 +588,7 @@ mod tests {
                 BlockRange::from_block_number(BlockRange::LENGTH * 2),
                 BlockRange::from_block_number(BlockRange::LENGTH * 3),
             ],
-            block_range_roots
-                .into_iter()
-                .map(|r| r.range)
-                .collect::<Vec<_>>()
+            block_range_roots.into_iter().map(|r| r.range).collect::<Vec<_>>()
         );
     }
 
@@ -639,10 +617,7 @@ mod tests {
         let block_range_roots = repository.get_all_block_range_root().unwrap();
         assert_eq!(
             vec![BlockRange::from_block_number(BlockRange::LENGTH)],
-            block_range_roots
-                .into_iter()
-                .map(|r| r.range)
-                .collect::<Vec<_>>()
+            block_range_roots.into_iter().map(|r| r.range).collect::<Vec<_>>()
         );
     }
 
@@ -671,10 +646,7 @@ mod tests {
         let block_range_roots = repository.get_all_block_range_root().unwrap();
         assert_eq!(
             vec![BlockRange::from_block_number(BlockRange::LENGTH)],
-            block_range_roots
-                .into_iter()
-                .map(|r| r.range)
-                .collect::<Vec<_>>()
+            block_range_roots.into_iter().map(|r| r.range).collect::<Vec<_>>()
         );
     }
 
@@ -708,9 +680,7 @@ mod tests {
                         .contains(range)
                 })
                 .returning(transactions_for_block);
-            store_mock
-                .expect_store_block_range_roots()
-                .returning(|_| Ok(()));
+            store_mock.expect_store_block_range_roots().returning(|_| Ok(()));
 
             CardanoTransactionsImporter::new_for_test(
                 Arc::new(MockBlockScannerImpl::new()),
@@ -763,10 +733,7 @@ mod tests {
         let block_range_roots = repository.get_all_block_range_root().unwrap();
         assert_eq!(
             expected_block_range_roots,
-            block_range_roots
-                .into_iter()
-                .map(|br| br.into())
-                .collect::<Vec<_>>()
+            block_range_roots.into_iter().map(|br| br.into()).collect::<Vec<_>>()
         );
     }
 
@@ -858,10 +825,7 @@ mod tests {
             let importer = importer_with_last_polled_point(None).await;
             let highest_stored_block_number = None;
 
-            let start_point = importer
-                .start_point(&highest_stored_block_number)
-                .await
-                .unwrap();
+            let start_point = importer.start_point(&highest_stored_block_number).await.unwrap();
             assert_eq!(None, start_point);
         }
 
@@ -874,10 +838,7 @@ mod tests {
                 hex::encode("block_hash-2"),
             ));
 
-            let start_point = importer
-                .start_point(&highest_stored_block_number)
-                .await
-                .unwrap();
+            let start_point = importer.start_point(&highest_stored_block_number).await.unwrap();
             assert_eq!(
                 Some(RawCardanoPoint::new(SlotNumber(25), "block_hash-2")),
                 start_point
@@ -893,10 +854,7 @@ mod tests {
             .await;
             let highest_stored_block_number = None;
 
-            let start_point = importer
-                .start_point(&highest_stored_block_number)
-                .await
-                .unwrap();
+            let start_point = importer.start_point(&highest_stored_block_number).await.unwrap();
             assert_eq!(
                 Some(RawCardanoPoint::new(SlotNumber(15), "block_hash-1")),
                 start_point
@@ -916,10 +874,7 @@ mod tests {
                 hex::encode("block_hash-2"),
             ));
 
-            let start_point = importer
-                .start_point(&highest_stored_block_number)
-                .await
-                .unwrap();
+            let start_point = importer.start_point(&highest_stored_block_number).await.unwrap();
             assert_eq!(
                 Some(RawCardanoPoint::new(SlotNumber(15), "block_hash-1")),
                 start_point
@@ -952,21 +907,14 @@ mod tests {
             };
             let highest_stored_block_number = None;
 
-            let start_point_before_import = importer
-                .start_point(&highest_stored_block_number)
-                .await
-                .unwrap();
+            let start_point_before_import =
+                importer.start_point(&highest_stored_block_number).await.unwrap();
             assert_eq!(None, start_point_before_import);
 
-            importer
-                .import_transactions(BlockNumber(1000))
-                .await
-                .unwrap();
+            importer.import_transactions(BlockNumber(1000)).await.unwrap();
 
-            let start_point_after_import = importer
-                .start_point(&highest_stored_block_number)
-                .await
-                .unwrap();
+            let start_point_after_import =
+                importer.start_point(&highest_stored_block_number).await.unwrap();
             assert_eq!(
                 Some(RawCardanoPoint::new(SlotNumber(25), "block_hash-2")),
                 start_point_after_import
@@ -990,15 +938,10 @@ mod tests {
             };
             let highest_stored_block_number = None;
 
-            importer
-                .import_transactions(BlockNumber(1000))
-                .await
-                .unwrap();
+            importer.import_transactions(BlockNumber(1000)).await.unwrap();
 
-            let start_point_after_import = importer
-                .start_point(&highest_stored_block_number)
-                .await
-                .unwrap();
+            let start_point_after_import =
+                importer.start_point(&highest_stored_block_number).await.unwrap();
             assert_eq!(
                 Some(RawCardanoPoint::new(SlotNumber(15), "block_hash-1")),
                 start_point_after_import
@@ -1117,10 +1060,7 @@ mod tests {
         let block_range_roots = repository.get_all_block_range_root().unwrap();
         assert_eq!(
             expected_remaining_block_ranges,
-            block_range_roots
-                .into_iter()
-                .map(|r| r.range)
-                .collect::<Vec<_>>()
+            block_range_roots.into_iter().map(|r| r.range).collect::<Vec<_>>()
         );
     }
 

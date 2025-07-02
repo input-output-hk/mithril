@@ -75,10 +75,7 @@ async fn create_certificate() {
     cycle!(tester, "signing");
 
     comment!("register signers");
-    tester
-        .register_signers(&fixture.signers_fixture())
-        .await
-        .unwrap();
+    tester.register_signers(&fixture.signers_fixture()).await.unwrap();
     cycle_err!(tester, "signing");
 
     comment!("signers send their single signature");

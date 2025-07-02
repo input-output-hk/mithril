@@ -48,9 +48,7 @@ impl ToolsCommand {
         root_logger: Logger,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> StdResult<()> {
-        self.genesis_subcommand
-            .execute(root_logger, config_builder)
-            .await
+        self.genesis_subcommand.execute(root_logger, config_builder).await
     }
 
     pub fn extract_config(command_path: String) -> HashMap<String, StructDoc> {

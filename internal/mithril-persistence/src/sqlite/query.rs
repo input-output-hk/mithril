@@ -140,9 +140,7 @@ returning {projection}
         let mut cursor = connection
             .fetch(GetTestEntityQuery::new(WhereCondition::default()))
             .unwrap();
-        let entity = cursor
-            .next()
-            .expect("there should be two results, none returned");
+        let entity = cursor.next().expect("there should be two results, none returned");
         assert_eq!(
             TestEntity {
                 text_data: "row 1".to_string(),
@@ -152,9 +150,7 @@ returning {projection}
             },
             entity
         );
-        let entity = cursor
-            .next()
-            .expect("there should be two results, only one returned");
+        let entity = cursor.next().expect("there should be two results, only one returned");
         assert_eq!(
             TestEntity {
                 text_data: "row 2".to_string(),
@@ -177,9 +173,7 @@ returning {projection}
                 Vec::new(),
             )))
             .unwrap();
-        let entity = cursor
-            .next()
-            .expect("there should be one result, none returned");
+        let entity = cursor.next().expect("there should be one result, none returned");
         assert_eq!(
             TestEntity {
                 text_data: "row 2".to_string(),
@@ -201,9 +195,7 @@ returning {projection}
                 vec![Value::String("%1".to_string())],
             )))
             .unwrap();
-        let entity = cursor
-            .next()
-            .expect("there should be one result, none returned");
+        let entity = cursor.next().expect("there should be one result, none returned");
         assert_eq!(
             TestEntity {
                 text_data: "row 1".to_string(),
@@ -230,9 +222,7 @@ returning {projection}
             .fetch(UpdateTestEntityQuery::new(WhereCondition::new("", params)))
             .unwrap();
 
-        let entity = cursor
-            .next()
-            .expect("there should be one result, none returned");
+        let entity = cursor.next().expect("there should be one result, none returned");
         assert_eq!(
             TestEntity {
                 text_data: "row 1".to_string(),

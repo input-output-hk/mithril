@@ -165,9 +165,7 @@ impl DigestArtifactBuilder {
     pub async fn upload(&self, beacon: &CardanoDbBeacon) -> StdResult<DigestUpload> {
         let filename_without_extensions =
             Self::get_digests_file_name_without_extension(&self.network, beacon);
-        let digest_path = self
-            .create_digest_file(&filename_without_extensions)
-            .await?;
+        let digest_path = self.create_digest_file(&filename_without_extensions).await?;
         let digest_archive = self
             .digest_snapshotter
             .create_archive_file(&filename_without_extensions, &digest_path)?;
@@ -217,9 +215,8 @@ impl DigestArtifactBuilder {
             )
             .collect::<Vec<_>>();
 
-        let digests_file_path = self
-            .digests_dir
-            .join(format!("{filename_without_extensions}.json"));
+        let digests_file_path =
+            self.digests_dir.join(format!("{filename_without_extensions}.json"));
 
         if let Some(digests_dir) = digests_file_path.parent() {
             fs::create_dir_all(digests_dir).with_context(|| {
@@ -490,10 +487,7 @@ mod tests {
         )
         .unwrap();
 
-        let locations = builder
-            .upload_digest_file(&FileArchive::dummy())
-            .await
-            .unwrap();
+        let locations = builder.upload_digest_file(&FileArchive::dummy()).await.unwrap();
 
         assert!(!locations.is_empty());
     }
@@ -526,10 +520,7 @@ mod tests {
         )
         .unwrap();
 
-        let locations = builder
-            .upload_digest_file(&FileArchive::dummy())
-            .await
-            .unwrap();
+        let locations = builder.upload_digest_file(&FileArchive::dummy()).await.unwrap();
 
         assert_equivalent(
             locations,
@@ -569,10 +560,7 @@ mod tests {
         )
         .unwrap();
 
-        let locations = builder
-            .upload_digest_file(&FileArchive::dummy())
-            .await
-            .unwrap();
+        let locations = builder.upload_digest_file(&FileArchive::dummy()).await.unwrap();
 
         assert_equivalent(
             locations,

@@ -456,9 +456,7 @@ mod tests {
             },
         };
 
-        let signed_entity_types = config
-            .list_allowed_signed_entity_types(&time_point)
-            .unwrap();
+        let signed_entity_types = config.list_allowed_signed_entity_types(&time_point).unwrap();
 
         assert_eq!(
             vec![

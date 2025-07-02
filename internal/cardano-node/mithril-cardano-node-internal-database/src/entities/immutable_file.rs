@@ -164,10 +164,7 @@ impl ImmutableFile {
             // filter out the last immutable file(s)
             Some(last_file) => {
                 let last_number = last_file.number;
-                Ok(files
-                    .into_iter()
-                    .filter(|f| f.number < last_number)
-                    .collect())
+                Ok(files.into_iter().filter(|f| f.number < last_number).collect())
             }
         }
     }
@@ -194,9 +191,7 @@ impl PartialOrd for ImmutableFile {
 
 impl Ord for ImmutableFile {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.number
-            .cmp(&other.number)
-            .then(self.path.cmp(&other.path))
+        self.number.cmp(&other.number).then(self.path.cmp(&other.path))
     }
 }
 

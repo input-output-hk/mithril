@@ -49,9 +49,7 @@ impl DatabaseCommand {
         root_logger: Logger,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> StdResult<()> {
-        self.database_subcommand
-            .execute(root_logger, config_builder)
-            .await
+        self.database_subcommand.execute(root_logger, config_builder).await
     }
 
     pub fn extract_config(command_path: String) -> HashMap<String, StructDoc> {
@@ -167,10 +165,11 @@ impl VacuumCommand {
         let mut dependencies_builder =
             DependenciesBuilder::new(root_logger.clone(), Arc::new(config.clone()));
 
-        let dependency_container = dependencies_builder
-            .create_database_command_container()
-            .await
-            .with_context(|| "Failed to create the database command dependencies container")?;
+        let dependency_container =
+            dependencies_builder
+                .create_database_command_container()
+                .await
+                .with_context(|| "Failed to create the database command dependencies container")?;
 
         Self::vacuum_database(dependency_container.main_db_connection, root_logger.clone())
             .await

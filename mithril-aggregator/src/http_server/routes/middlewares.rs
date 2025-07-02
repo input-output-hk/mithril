@@ -135,10 +135,7 @@ pub fn with_prover_service(
 pub fn with_single_signature_authenticator(
     router_state: &RouterState,
 ) -> impl Filter<Extract = (Arc<SingleSignatureAuthenticator>,), Error = Infallible> + Clone {
-    let single_signer_authenticator = router_state
-        .dependencies
-        .single_signer_authenticator
-        .clone();
+    let single_signer_authenticator = router_state.dependencies.single_signer_authenticator.clone();
     warp::any().map(move || single_signer_authenticator.clone())
 }
 
@@ -157,8 +154,7 @@ pub fn with_origin_tag(
     let white_list = router_state.configuration.origin_tag_white_list.clone();
 
     warp::header::optional::<String>(MITHRIL_ORIGIN_TAG_HEADER).map(move |name: Option<String>| {
-        name.filter(|tag| white_list.contains(tag))
-            .or(Some("NA".to_string()))
+        name.filter(|tag| white_list.contains(tag)).or(Some("NA".to_string()))
     })
 }
 

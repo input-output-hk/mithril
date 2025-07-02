@@ -73,9 +73,7 @@ impl EraMarkersPayload {
         &self,
         verification_key: EraMarkersVerifierVerificationKey,
     ) -> Result<(), EraMarkersPayloadError> {
-        let signature = self
-            .signature
-            .ok_or(EraMarkersPayloadError::MissingSignature)?;
+        let signature = self.signature.ok_or(EraMarkersPayloadError::MissingSignature)?;
         let markers_verifier: EraMarkersVerifier =
             EraMarkersVerifier::from_verification_key(verification_key);
 
@@ -125,10 +123,7 @@ impl CardanoChainAdapter {
 #[async_trait]
 impl EraReaderAdapter for CardanoChainAdapter {
     async fn read(&self) -> StdResult<Vec<EraMarker>> {
-        let tx_datums = self
-            .chain_observer
-            .get_current_datums(&self.address)
-            .await?;
+        let tx_datums = self.chain_observer.get_current_datums(&self.address).await?;
         let markers_list = tx_datums
             .into_iter()
             .filter_map(|datum| datum.get_fields_by_type(&TxDatumFieldTypeName::Bytes).ok())
@@ -205,10 +200,7 @@ mod test {
         };
         let mut fake_datums = dummy_tx_datums_from_markers_payload(vec![
             era_marker_payload_1,
-            era_marker_payload_2
-                .clone()
-                .sign(&era_markers_signer)
-                .unwrap(),
+            era_marker_payload_2.clone().sign(&era_markers_signer).unwrap(),
         ]);
         fake_datums.push(TxDatum("not_valid_datum".to_string()));
         let chain_observer = FakeChainObserver::default();

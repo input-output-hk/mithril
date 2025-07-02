@@ -317,10 +317,7 @@ pub fn insert_signers(
                 (1, signer_record.signer_id.into()),
                 (
                     2,
-                    signer_record
-                        .pool_ticker
-                        .map(Value::String)
-                        .unwrap_or(Value::Null),
+                    signer_record.pool_ticker.map(Value::String).unwrap_or(Value::Null),
                 ),
                 (3, signer_record.created_at.to_rfc3339().into()),
                 (4, signer_record.updated_at.to_rfc3339().into()),

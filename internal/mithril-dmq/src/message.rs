@@ -123,10 +123,7 @@ mod tests {
             content: b"test".to_vec(),
         };
 
-        let dmq_message = builder
-            .build(&message.to_bytes_vec().unwrap())
-            .await
-            .unwrap();
+        let dmq_message = builder.build(&message.to_bytes_vec().unwrap()).await.unwrap();
 
         assert!(!dmq_message.msg_id.is_empty());
         assert_eq!(

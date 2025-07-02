@@ -493,9 +493,7 @@ mod tests {
             fallback_distribution_version: None,
         };
 
-        db_checker
-            .check_minimum_required_version(1, &migration)
-            .expect(
+        db_checker.check_minimum_required_version(1, &migration).expect(
             "Check minimum required version should not fail when no fallback distribution version",
         );
     }

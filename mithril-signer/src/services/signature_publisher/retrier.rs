@@ -96,10 +96,7 @@ mod tests {
         let retry_policy = SignaturePublishRetryPolicy::never();
 
         let mut publisher = MockSignaturePublisher::new();
-        publisher
-            .expect_publish()
-            .once()
-            .returning(|_, _, _| Ok(()));
+        publisher.expect_publish().once().returning(|_, _, _| Ok(()));
 
         let retrier = SignaturePublisherRetrier::new(Arc::new(publisher), retry_policy);
 
@@ -147,10 +144,7 @@ mod tests {
             .expect_publish()
             .times(1)
             .return_once(|_, _, _| Err(anyhow::anyhow!("error")));
-        publisher
-            .expect_publish()
-            .times(1)
-            .return_once(|_, _, _| Ok(()));
+        publisher.expect_publish().times(1).return_once(|_, _, _| Ok(()));
 
         let retrier = SignaturePublisherRetrier::new(Arc::new(publisher), retry_policy);
 
@@ -202,10 +196,7 @@ mod tests {
             .expect_publish()
             .once()
             .return_once(|_, _, _| Err(anyhow::anyhow!("error")));
-        publisher
-            .expect_publish()
-            .once()
-            .return_once(|_, _, _| Ok(()));
+        publisher.expect_publish().once().return_once(|_, _, _| Ok(()));
 
         let retrier = SignaturePublisherRetrier::new(Arc::new(publisher), retry_policy);
 

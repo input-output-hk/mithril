@@ -44,17 +44,11 @@ async fn certificate_chain() {
         .with_protocol_parameters(protocol_parameters.clone())
         .build();
     let signers = initial_fixture.signers_fixture();
-    tester
-        .init_state_from_fixture(&initial_fixture)
-        .await
-        .unwrap();
+    tester.init_state_from_fixture(&initial_fixture).await.unwrap();
     let mut current_epoch = observer.current_epoch().await;
 
     comment!("Bootstrap the genesis certificate, {:?}", current_epoch);
-    tester
-        .register_genesis_certificate(&initial_fixture)
-        .await
-        .unwrap();
+    tester.register_genesis_certificate(&initial_fixture).await.unwrap();
 
     assert_last_certificate_eq!(
         tester,

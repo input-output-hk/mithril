@@ -8,11 +8,7 @@ pub use interface::*;
 
 use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 
-const ENCODE_SET: &AsciiSet = &NON_ALPHANUMERIC
-    .remove(b'*')
-    .remove(b'-')
-    .remove(b'.')
-    .remove(b'_');
+const ENCODE_SET: &AsciiSet = &NON_ALPHANUMERIC.remove(b'*').remove(b'-').remove(b'.').remove(b'_');
 
 /// Encode a string for use in a GCP URL, satisfying: https://cloud.google.com/storage/docs/request-endpoints#encoding
 pub fn gcp_percent_encode(input: &str) -> String {

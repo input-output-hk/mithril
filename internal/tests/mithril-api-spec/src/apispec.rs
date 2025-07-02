@@ -160,11 +160,7 @@ impl<'a> APISpec<'a> {
                 Null => None,
                 responses_spec => {
                     let status_code = status.as_str();
-                    if responses_spec
-                        .as_object()
-                        .unwrap()
-                        .contains_key(status_code)
-                    {
+                    if responses_spec.as_object().unwrap().contains_key(status_code) {
                         Some(&responses_spec[status_code])
                     } else {
                         Some(&responses_spec["default"])
@@ -352,10 +348,7 @@ mod tests {
     use super::*;
 
     fn build_empty_response(status_code: u16) -> Response<Bytes> {
-        Response::builder()
-            .status(status_code)
-            .body(Bytes::new())
-            .unwrap()
+        Response::builder().status(status_code).body(Bytes::new()).unwrap()
     }
 
     fn build_json_response<T: Serialize>(status_code: u16, value: T) -> Response<Bytes> {

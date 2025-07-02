@@ -86,10 +86,7 @@ impl CardanoCliRunner {
 
     fn command_for_stake_distribution(&self) -> Command {
         let mut command = self.get_command();
-        command
-            .arg(CARDANO_ERA)
-            .arg("query")
-            .arg("stake-distribution");
+        command.arg(CARDANO_ERA).arg("query").arg("stake-distribution");
         self.post_config_command(&mut command);
 
         command
@@ -186,10 +183,7 @@ impl CardanoCliRunner {
 impl CliRunner for CardanoCliRunner {
     async fn launch_utxo(&self, address: &str) -> StdResult<String> {
         let out_file = Self::random_out_file()?;
-        let output = self
-            .command_for_utxo(address, out_file.clone())
-            .output()
-            .await?;
+        let output = self.command_for_utxo(address, out_file.clone()).output().await?;
 
         if output.status.success() {
             Ok(fs::read_to_string(out_file)?.trim().to_string())
@@ -221,10 +215,7 @@ impl CliRunner for CardanoCliRunner {
     }
 
     async fn launch_stake_snapshot(&self, stake_pool_id: &str) -> StdResult<String> {
-        let output = self
-            .command_for_stake_snapshot(stake_pool_id)
-            .output()
-            .await?;
+        let output = self.command_for_stake_snapshot(stake_pool_id).output().await?;
 
         if output.status.success() {
             Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
@@ -795,11 +786,8 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        let computed_stake_distribution = observer
-            .get_current_stake_distribution()
-            .await
-            .unwrap()
-            .unwrap();
+        let computed_stake_distribution =
+            observer.get_current_stake_distribution().await.unwrap().unwrap();
 
         assert_eq!(
             BTreeMap::from_iter(
@@ -823,11 +811,8 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        let computed_stake_distribution = observer
-            .get_current_stake_distribution()
-            .await
-            .unwrap()
-            .unwrap();
+        let computed_stake_distribution =
+            observer.get_current_stake_distribution().await.unwrap().unwrap();
 
         assert_eq!(
             BTreeMap::from_iter(

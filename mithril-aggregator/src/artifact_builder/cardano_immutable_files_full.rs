@@ -58,9 +58,8 @@ impl CardanoImmutableFilesFullArtifactBuilder {
 
         let snapshotter = self.snapshotter.clone();
         let snapshot_name = base_file_name_without_extension.to_owned();
-        let ongoing_snapshot = snapshotter
-            .snapshot_all_completed_immutables(&snapshot_name)
-            .await?;
+        let ongoing_snapshot =
+            snapshotter.snapshot_all_completed_immutables(&snapshot_name).await?;
 
         debug!(
             self.logger,
@@ -96,10 +95,7 @@ impl CardanoImmutableFilesFullArtifactBuilder {
         ongoing_snapshot: &FileArchive,
     ) -> StdResult<Vec<FileUri>> {
         debug!(self.logger, ">> upload_snapshot_archive");
-        let location = self
-            .snapshot_uploader
-            .upload(ongoing_snapshot.get_file_path())
-            .await;
+        let location = self.snapshot_uploader.upload(ongoing_snapshot.get_file_path()).await;
 
         if let Err(error) = tokio::fs::remove_file(ongoing_snapshot.get_file_path()).await {
             warn!(

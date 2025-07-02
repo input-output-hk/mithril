@@ -378,12 +378,8 @@ mod tests {
         fn get_relative_path_only_list_meta_state_and_tvar_files_even_if_there_are_other_files_in_the_folder(
         ) {
             let target_dir = temp_dir_create!();
-            create_dir_all(
-                target_dir
-                    .join("050")
-                    .join(LedgerStateSnapshot::IN_MEMORY_TABLES),
-            )
-            .unwrap();
+            create_dir_all(target_dir.join("050").join(LedgerStateSnapshot::IN_MEMORY_TABLES))
+                .unwrap();
             let ledger_state = LedgerStateSnapshot::in_memory(
                 target_dir.join("050"),
                 SlotNumber(50),

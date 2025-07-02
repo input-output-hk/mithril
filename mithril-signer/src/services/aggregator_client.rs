@@ -99,10 +99,7 @@ impl AggregatorClientError {
 
     async fn get_root_cause(response: Response) -> String {
         let error_code = response.status();
-        let canonical_reason = error_code
-            .canonical_reason()
-            .unwrap_or_default()
-            .to_lowercase();
+        let canonical_reason = error_code.canonical_reason().unwrap_or_default().to_lowercase();
         let is_json = response
             .headers()
             .get(header::CONTENT_TYPE)
@@ -607,8 +604,7 @@ mod tests {
         let epoch_settings_expected = EpochSettingsMessage::dummy();
         let _server_mock = server.mock(|when, then| {
             when.path("/epoch-settings");
-            then.status(200)
-                .body(json!(epoch_settings_expected).to_string());
+            then.status(200).body(json!(epoch_settings_expected).to_string());
         });
 
         let epoch_settings = client.retrieve_epoch_settings().await;
@@ -685,11 +681,7 @@ mod tests {
             );
         });
 
-        match client
-            .register_signer(epoch, single_signer)
-            .await
-            .unwrap_err()
-        {
+        match client.register_signer(epoch, single_signer).await.unwrap_err() {
             AggregatorClientError::RemoteServerLogical(_) => (),
             err => {
                 panic!(
@@ -710,11 +702,7 @@ mod tests {
             then.status(500).body("an error occurred");
         });
 
-        match client
-            .register_signer(epoch, single_signer)
-            .await
-            .unwrap_err()
-        {
+        match client.register_signer(epoch, single_signer).await.unwrap_err() {
             AggregatorClientError::RemoteServerTechnical(_) => (),
             e => panic!("Expected Aggregator::RemoteServerTechnical error, got '{e:?}'."),
         };

@@ -36,12 +36,7 @@ impl DumbUploader {
             .read()
             .map_err(|e| anyhow!(e.to_string()).context("Error while reading filepath location"))?;
 
-        Ok(value
-            .iter()
-            .rev()
-            .take(n)
-            .cloned()
-            .collect::<Vec<FileUri>>())
+        Ok(value.iter().rev().take(n).cloned().collect::<Vec<FileUri>>())
     }
 }
 

@@ -34,9 +34,7 @@ impl InternalStatisticsSender {
             AggregatorRequest::IncrementCardanoDatabasePartialRestorationStatistic
         };
 
-        self.aggregator_client
-            .post_content(restoration_request)
-            .await?;
+        self.aggregator_client.post_content(restoration_request).await?;
 
         self.aggregator_client
             .post_content(
@@ -78,10 +76,7 @@ mod tests {
             })
             .build_cardano_database_client();
 
-        client
-            .add_statistics(false, include_ancillary, 99)
-            .await
-            .unwrap();
+        client.add_statistics(false, include_ancillary, 99).await.unwrap();
     }
 
     #[tokio::test]
@@ -102,10 +97,7 @@ mod tests {
             })
             .build_cardano_database_client();
 
-        client
-            .add_statistics(false, include_ancillary, 99)
-            .await
-            .unwrap();
+        client.add_statistics(false, include_ancillary, 99).await.unwrap();
     }
 
     #[tokio::test]
@@ -134,10 +126,7 @@ mod tests {
             })
             .build_cardano_database_client();
 
-        client
-            .add_statistics(full_restoration, false, 99)
-            .await
-            .unwrap();
+        client.add_statistics(full_restoration, false, 99).await.unwrap();
     }
 
     #[tokio::test]
@@ -166,10 +155,7 @@ mod tests {
             })
             .build_cardano_database_client();
 
-        client
-            .add_statistics(full_restoration, false, 99)
-            .await
-            .unwrap();
+        client.add_statistics(full_restoration, false, 99).await.unwrap();
     }
 
     #[tokio::test]

@@ -166,11 +166,7 @@ impl<D: Digest> MerkleTreeBatchCommitment<D> {
                     let sibling = sibling(ordered_indices[i]);
                     if i < ordered_indices.len() - 1 && ordered_indices[i + 1] == sibling {
                         new_hashes.push(
-                            D::new()
-                                .chain(&leaves[i])
-                                .chain(&leaves[i + 1])
-                                .finalize()
-                                .to_vec(),
+                            D::new().chain(&leaves[i]).chain(&leaves[i + 1]).finalize().to_vec(),
                         );
                         i += 1;
                     } else if sibling < nr_nodes {
@@ -184,11 +180,7 @@ impl<D: Digest> MerkleTreeBatchCommitment<D> {
                         values.remove(0);
                     } else {
                         new_hashes.push(
-                            D::new()
-                                .chain(&leaves[i])
-                                .chain(D::digest([0u8]))
-                                .finalize()
-                                .to_vec(),
+                            D::new().chain(&leaves[i]).chain(D::digest([0u8])).finalize().to_vec(),
                         );
                     }
                 }

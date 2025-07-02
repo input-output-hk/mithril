@@ -497,10 +497,7 @@ mod tests {
         let first_signer = &signers[0].protocol_signer;
         let clerk = ProtocolClerk::from_signer(first_signer);
         let aggregate_verification_key = clerk.compute_avk().into();
-        let multi_signature = clerk
-            .aggregate(&single_signatures, &message_hash)
-            .unwrap()
-            .into();
+        let multi_signature = clerk.aggregate(&single_signatures, &message_hash).unwrap().into();
 
         let verifier = MithrilCertificateVerifier::new(
             TestLogger::stdout(),
@@ -860,9 +857,7 @@ mod tests {
             "another-avk".to_string(),
         );
         previous_certificate.hash = previous_certificate.compute_hash();
-        certificate
-            .previous_hash
-            .clone_from(&previous_certificate.hash);
+        certificate.previous_hash.clone_from(&previous_certificate.hash);
         certificate.hash = certificate.compute_hash();
 
         let error = verifier
@@ -885,9 +880,7 @@ mod tests {
             "protocol-params-hash-123".to_string(),
         );
         previous_certificate.hash = previous_certificate.compute_hash();
-        certificate
-            .previous_hash
-            .clone_from(&previous_certificate.hash);
+        certificate.previous_hash.clone_from(&previous_certificate.hash);
         certificate.hash = certificate.compute_hash();
 
         let error = verifier
@@ -953,9 +946,7 @@ mod tests {
             fn from_certificates(certificates: &[Certificate]) -> Self {
                 Self {
                     certificates_unverified: Mutex::new(HashMap::from_iter(
-                        certificates
-                            .iter()
-                            .map(|c| (c.hash.to_owned(), c.to_owned())),
+                        certificates.iter().map(|c| (c.hash.to_owned(), c.to_owned())),
                     )),
                 }
             }
@@ -990,9 +981,8 @@ mod tests {
             ) -> StdResult<Option<Certificate>> {
                 let mut certificates_unverified = self.certificates_unverified.lock().await;
                 let _verified_certificate = (*certificates_unverified).remove(&certificate.hash);
-                let previous_certificate = (*certificates_unverified)
-                    .get(&certificate.previous_hash)
-                    .cloned();
+                let previous_certificate =
+                    (*certificates_unverified).get(&certificate.previous_hash).cloned();
 
                 Ok(previous_certificate)
             }

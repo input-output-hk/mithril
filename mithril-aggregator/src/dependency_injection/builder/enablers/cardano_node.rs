@@ -197,10 +197,8 @@ mod tests {
         };
         let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(Arc::new(configuration));
 
-        let cardano_transactions_preloader = dep_builder
-            .create_cardano_transactions_preloader()
-            .await
-            .unwrap();
+        let cardano_transactions_preloader =
+            dep_builder.create_cardano_transactions_preloader().await.unwrap();
 
         let is_activated = cardano_transactions_preloader.is_activated().await.unwrap();
         assert_eq!(

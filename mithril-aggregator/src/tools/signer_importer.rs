@@ -153,11 +153,7 @@ impl SignersImporterRetriever for CExplorerSignerRetriever {
             .await
             .with_context(|| "Failed to deserialize retrieved SPO list from CExplorer")?;
 
-        Ok(spo_list
-            .data
-            .into_iter()
-            .map(|item| item.extract())
-            .collect())
+        Ok(spo_list.data.into_iter().map(|item| item.extract()).collect())
     }
 }
 
@@ -292,10 +288,7 @@ mod tests {
             TestLogger::stdout(),
         )
         .unwrap();
-        let result = retriever
-            .retrieve()
-            .await
-            .expect("Retriever should not fail");
+        let result = retriever.retrieve().await.expect("Retriever should not fail");
 
         assert_eq!(
             result.into_iter().collect::<BTreeMap<_, _>>(),
@@ -375,10 +368,7 @@ mod tests {
             Arc::new(SignerStore::new(connection.clone())),
             TestLogger::stdout(),
         );
-        importer
-            .run()
-            .await
-            .expect("running importer should not fail");
+        importer.run().await.expect("running importer should not fail");
 
         let result = get_all_signers(connection).await.unwrap();
         assert_eq!(
@@ -420,10 +410,7 @@ mod tests {
             Arc::new(SignerStore::new(connection.clone())),
             TestLogger::stdout(),
         );
-        importer
-            .run()
-            .await
-            .expect("running importer should not fail");
+        importer.run().await.expect("running importer should not fail");
 
         let result = get_all_signers(connection).await.unwrap();
         assert_eq!(
@@ -477,10 +464,7 @@ mod tests {
             Arc::new(SignerStore::new(connection.clone())),
             TestLogger::stdout(),
         );
-        importer
-            .run()
-            .await
-            .expect("running importer should not fail");
+        importer.run().await.expect("running importer should not fail");
 
         let result = get_all_signers(connection).await.unwrap();
         assert_eq!(

@@ -65,9 +65,7 @@ impl Debug for RegisterSignerMessage {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let should_be_exhaustive = f.alternate();
         let mut debug = f.debug_struct("Signer");
-        debug
-            .field("party_id", &self.party_id)
-            .field("epoch", &self.epoch);
+        debug.field("party_id", &self.party_id).field("epoch", &self.epoch);
 
         match should_be_exhaustive {
             true => debug

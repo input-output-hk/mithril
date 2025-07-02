@@ -52,11 +52,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
             } else {
                 &z
             };
-            nodes[i] = D::new()
-                .chain_update(left)
-                .chain_update(right)
-                .finalize()
-                .to_vec();
+            nodes[i] = D::new().chain_update(left).chain_update(right).finalize().to_vec();
         }
 
         Self {
@@ -121,10 +117,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
 
         assert_eq!(ordered_indices, indices, "Indices should be ordered");
 
-        ordered_indices = ordered_indices
-            .into_iter()
-            .map(|i| self.idx_of_leaf(i))
-            .collect();
+        ordered_indices = ordered_indices.into_iter().map(|i| self.idx_of_leaf(i)).collect();
 
         let mut idx = ordered_indices[0];
         let mut proof = Vec::new();

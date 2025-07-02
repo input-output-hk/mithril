@@ -248,9 +248,7 @@ mod tests {
             BlockNumber(99999),
         );
 
-        let verified_txs = txs_proofs
-            .verify()
-            .expect("Valid txs proofs should verify itself");
+        let verified_txs = txs_proofs.verify().expect("Valid txs proofs should verify itself");
 
         assert_eq!(expected, verified_txs);
     }
@@ -295,10 +293,7 @@ mod tests {
         ];
         let txs_proofs = CardanoTransactionsProofsMessage::new(
             "whatever",
-            set_proofs
-                .into_iter()
-                .map(|p| p.try_into().unwrap())
-                .collect(),
+            set_proofs.into_iter().map(|p| p.try_into().unwrap()).collect(),
             vec![],
             BlockNumber(99999),
         );
@@ -370,9 +365,7 @@ mod tests {
         block_number: BlockNumber,
     ) -> ProtocolMessage {
         let mut transaction_importer = MockTransactionsImporter::new();
-        transaction_importer
-            .expect_import()
-            .return_once(move |_| Ok(()));
+        transaction_importer.expect_import().return_once(move |_| Ok(()));
         let mut block_range_root_retriever = MockBlockRangeRootRetriever::new();
 
         let transactions_imported = transactions.to_vec();

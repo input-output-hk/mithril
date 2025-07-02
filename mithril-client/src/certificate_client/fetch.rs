@@ -191,11 +191,7 @@ mod tests {
             })
             .build();
 
-        assert!(certificate_client
-            .get("cert-hash-123")
-            .await
-            .unwrap()
-            .is_none());
+        assert!(certificate_client.get("cert-hash-123").await.unwrap().is_none());
     }
 
     #[tokio::test]

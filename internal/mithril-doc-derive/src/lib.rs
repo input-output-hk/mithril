@@ -62,9 +62,7 @@ fn extract_fields_info(ast: &DeriveInput) -> Result<Vec<FieldInfo>, String> {
     let data = &ast.data;
     let data_code = match data {
         Data::Enum(_) => {
-            return Err("compile_error!(\"Enum types are not supported\")"
-                .parse()
-                .unwrap())
+            return Err("compile_error!(\"Enum types are not supported\")".parse().unwrap())
         }
         Data::Struct(data_struct) => {
             match &data_struct.fields {

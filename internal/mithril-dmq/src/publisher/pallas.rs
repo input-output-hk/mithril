@@ -164,9 +164,7 @@ mod tests {
                 TestLogger::stdout(),
             );
 
-            publisher
-                .publish_message(DmqMessageTestPayload::dummy())
-                .await
+            publisher.publish_message(DmqMessageTestPayload::dummy()).await
         });
 
         let (_, res) = tokio::join!(server, client);
@@ -200,14 +198,11 @@ mod tests {
                 TestLogger::stdout(),
             );
 
-            publisher
-                .publish_message(DmqMessageTestPayload::dummy())
-                .await
+            publisher.publish_message(DmqMessageTestPayload::dummy()).await
         });
 
         let (_, res) = tokio::join!(server, client);
 
-        res.unwrap()
-            .expect_err("Publishing DMQ message should fail");
+        res.unwrap().expect_err("Publishing DMQ message should fail");
     }
 }

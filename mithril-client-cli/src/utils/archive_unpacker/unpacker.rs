@@ -65,9 +65,7 @@ mod tests {
             tar_builder.finish().unwrap();
         }
 
-        ArchiveUnpacker::default()
-            .unpack(&archive_path, &temp_dir)
-            .unwrap();
+        ArchiveUnpacker::default().unpack(&archive_path, &temp_dir).unwrap();
 
         assert!(temp_dir.join("file.txt").exists());
     }
@@ -89,9 +87,7 @@ mod tests {
             zip_writer.finish().unwrap();
         }
 
-        ArchiveUnpacker::default()
-            .unpack(&archive_path, &temp_dir)
-            .unwrap();
+        ArchiveUnpacker::default().unpack(&archive_path, &temp_dir).unwrap();
 
         assert!(temp_dir.join("file.txt").exists());
     }

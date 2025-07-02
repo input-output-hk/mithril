@@ -48,11 +48,7 @@ impl<D: Digest + FixedOutput> MerklePath<D> {
         u64_bytes.copy_from_slice(bytes.get(..8).ok_or(MerkleTreeError::SerializationError)?);
         let index = usize::try_from(u64::from_be_bytes(u64_bytes))
             .map_err(|_| MerkleTreeError::SerializationError)?;
-        u64_bytes.copy_from_slice(
-            bytes
-                .get(8..16)
-                .ok_or(MerkleTreeError::SerializationError)?,
-        );
+        u64_bytes.copy_from_slice(bytes.get(8..16).ok_or(MerkleTreeError::SerializationError)?);
         let len = usize::try_from(u64::from_be_bytes(u64_bytes))
             .map_err(|_| MerkleTreeError::SerializationError)?;
         let mut values = Vec::with_capacity(len);

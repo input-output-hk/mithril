@@ -26,21 +26,13 @@ pub(super) async fn verify_chain(
     client: &CertificateClient,
     certificate_hash: &str,
 ) -> MithrilResult<MithrilCertificate> {
-    let certificate = client
-        .retriever
-        .get(certificate_hash)
-        .await?
-        .ok_or(anyhow!(
-            "No certificate exist for hash '{certificate_hash}'"
-        ))?;
+    let certificate = client.retriever.get(certificate_hash).await?.ok_or(anyhow!(
+        "No certificate exist for hash '{certificate_hash}'"
+    ))?;
 
-    client
-        .verifier
-        .verify_chain(&certificate)
-        .await
-        .with_context(|| {
-            format!("Certificate chain of certificate '{certificate_hash}' is invalid")
-        })?;
+    client.verifier.verify_chain(&certificate).await.with_context(|| {
+        format!("Certificate chain of certificate '{certificate_hash}' is invalid")
+    })?;
 
     Ok(certificate)
 }
@@ -218,9 +210,8 @@ impl CertificateVerifier for MithrilCertificateVerifier {
                         .verify_without_cache(&certificate_chain_validation_id, next)
                         .await?;
 
-                    let has_crossed_epoch_boundary = current_certificate
-                        .as_ref()
-                        .is_some_and(|c| c.epoch != start_epoch);
+                    let has_crossed_epoch_boundary =
+                        current_certificate.as_ref().is_some_and(|c| c.epoch != start_epoch);
                     if has_crossed_epoch_boundary {
                         break;
                     }
@@ -386,10 +377,7 @@ mod tests {
                 .unwrap();
 
             assert_eq!(
-                cache
-                    .get_previous_hash(&genesis_certificate.hash)
-                    .await
-                    .unwrap(),
+                cache.get_previous_hash(&genesis_certificate.hash).await.unwrap(),
                 None
             );
         }
@@ -495,8 +483,7 @@ mod tests {
                 mock.expect_get_previous_hash()
                     .with(eq(genesis_certificate.hash.clone()))
                     .returning(|_| Ok(None));
-                mock.expect_store_validated_certificate()
-                    .returning(|_, _| Ok(()));
+                mock.expect_store_validated_certificate().returning(|_, _| Ok(()));
 
                 Arc::new(mock)
             };
@@ -537,10 +524,8 @@ mod tests {
                 .with_verifier_cache(Arc::new(cache))
                 .build();
 
-            let certificate = certificate_client
-                .verify_chain(&last_certificate_hash)
-                .await
-                .unwrap();
+            let certificate =
+                certificate_client.verify_chain(&last_certificate_hash).await.unwrap();
 
             assert_eq!(certificate.hash, last_certificate_hash);
         }

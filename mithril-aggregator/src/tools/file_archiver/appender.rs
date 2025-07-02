@@ -38,13 +38,12 @@ impl AppenderDirAll {
 
 impl TarAppender for AppenderDirAll {
     fn append<T: Write>(&self, tar: &mut tar::Builder<T>) -> StdResult<()> {
-        tar.append_dir_all(".", &self.target_directory)
-            .with_context(|| {
-                format!(
-                    "Create archive error:  Can not add directory: '{}' to the archive",
-                    self.target_directory.display()
-                )
-            })?;
+        tar.append_dir_all(".", &self.target_directory).with_context(|| {
+            format!(
+                "Create archive error:  Can not add directory: '{}' to the archive",
+                self.target_directory.display()
+            )
+        })?;
         Ok(())
     }
 
@@ -132,13 +131,12 @@ impl TarAppender for AppenderEntries {
         for entry in &self.entries {
             let entry_path = self.base_directory.join(entry);
             if entry_path.is_dir() {
-                tar.append_dir_all(entry, entry_path.clone())
-                    .with_context(|| {
-                        format!(
-                            "Can not add directory: '{}' to the archive",
-                            entry_path.display()
-                        )
-                    })?;
+                tar.append_dir_all(entry, entry_path.clone()).with_context(|| {
+                    format!(
+                        "Can not add directory: '{}' to the archive",
+                        entry_path.display()
+                    )
+                })?;
             } else if entry_path.is_file() {
                 let mut file = File::open(entry_path.clone())?;
                 tar.append_file(entry, &mut file).with_context(|| {

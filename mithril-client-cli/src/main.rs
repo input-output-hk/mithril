@@ -218,9 +218,9 @@ impl ArtifactCommands {
             Self::MithrilStakeDistribution(cmd) => cmd.execute(context).await,
             Self::CardanoTransaction(cmd) => cmd.execute(context).await,
             Self::CardanoStakeDistribution(cmd) => cmd.execute(context).await,
-            Self::GenerateDoc(cmd) => cmd
-                .execute(&mut Args::command())
-                .map_err(|message| anyhow!(message)),
+            Self::GenerateDoc(cmd) => {
+                cmd.execute(&mut Args::command()).map_err(|message| anyhow!(message))
+            }
             Self::Tools(cmd) => {
                 context.require_unstable("tools", Some("utxo-hd snapshot-converter"))?;
                 cmd.execute().await

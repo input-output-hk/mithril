@@ -209,9 +209,7 @@ mod tests {
     #[tokio::test]
     async fn test_register_signatures_return_400_if_authentication_fail() {
         let mut mock_certifier_service = MockCertifierService::new();
-        mock_certifier_service
-            .expect_register_single_signature()
-            .never();
+        mock_certifier_service.expect_register_single_signature().never();
         let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
         dependency_manager.single_signer_authenticator =
