@@ -1,3 +1,33 @@
+//! A client to retrieve the current Mithril era.
+//!
+//! This module defines the following components:
+//!
+//! - [EraFetcher]: defines an interface to retrieve the current Mithril era
+//! - [AggregatorHttpEraFetcher]: an implementation of [EraFetcher] using an HTTP call to the aggregator
+//! - [FetchedEra]: a wrapper around a raw era string that provides a conversion to [SupportedEra]
+//!
+//! # Retrieve the current Mithril era
+//!
+//! To get [SupportedEra] using the [ClientBuilder][crate::client::ClientBuilder].
+//!
+//! ```no_run
+//! # async fn run() -> mithril_client::MithrilResult<()> {
+//! use mithril_client::ClientBuilder;
+//!
+//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//!
+//! let fetched_era = client.era_fetcher().fetch_current_era().await?;
+//! match fetched_era.to_supported_era() {
+//!     Ok(supported_era) => println!("Current Mithril era: {supported_era}"),
+//!     Err(era) => println!(
+//!         "Warning: Unsupported era '{}', the aggregator might not be compatible with this client version. Consider upgrading.\nFetched era: {era}",
+//!         fetched_era.era
+//!     ),
+//! }
+//! # Ok(())
+//! # }
+//! ```
+
 use std::sync::Arc;
 
 use anyhow::Context;
