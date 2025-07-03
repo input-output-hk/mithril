@@ -3,15 +3,15 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use slog::Logger;
 
 use mithril_common::entities::{CompressionAlgorithm, ImmutableFileNumber};
 
 use crate::{
+    MithrilResult,
     file_downloader::{DownloadEvent, FileDownloader, FileDownloaderUri},
     utils::AncillaryVerifier,
-    MithrilResult,
 };
 
 /// The future type for downloading a file
@@ -90,8 +90,7 @@ impl DownloadTask {
         ancillary_verifier: &Arc<AncillaryVerifier>,
         logger: &Logger,
     ) -> MithrilResult<()> {
-        self.download_unpack_file(ancillary_files_temp_dir, logger)
-            .await?;
+        self.download_unpack_file(ancillary_files_temp_dir, logger).await?;
         let validated_manifest = ancillary_verifier.verify(ancillary_files_temp_dir).await?;
         validated_manifest.move_to_final_location(target_dir).await
     }
@@ -205,10 +204,7 @@ mod tests {
                 kind: DownloadKind::Immutable(1),
                 locations_to_try: create_locations_to_download(
                     file_downloader,
-                    [
-                        "http://whatever-1/00001.tar.gz",
-                        "http://whatever-2/00001.tar.gz",
-                    ],
+                    ["http://whatever-1/00001.tar.gz", "http://whatever-2/00001.tar.gz"],
                 ),
                 size_uncompressed: 0,
                 target_dir: target_dir.clone(),
@@ -244,10 +240,7 @@ mod tests {
                 kind: DownloadKind::Immutable(1),
                 locations_to_try: create_locations_to_download(
                     file_downloader,
-                    [
-                        "http://whatever-1/00001.tar.gz",
-                        "http://whatever-2/00001.tar.gz",
-                    ],
+                    ["http://whatever-1/00001.tar.gz", "http://whatever-2/00001.tar.gz"],
                 ),
                 size_uncompressed: 0,
                 target_dir: target_dir.clone(),
@@ -269,11 +262,7 @@ mod tests {
         use super::*;
 
         fn fake_ancillary_verifier() -> AncillaryVerifier {
-            AncillaryVerifier::new(
-                fake_keys::manifest_verification_key()[0]
-                    .try_into()
-                    .unwrap(),
-            )
+            AncillaryVerifier::new(fake_keys::manifest_verification_key()[0].try_into().unwrap())
         }
 
         #[tokio::test]

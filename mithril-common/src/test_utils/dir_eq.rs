@@ -175,7 +175,7 @@ pub use assert_dir_eq;
 
 #[cfg(test)]
 mod tests {
-    use std::fs::{create_dir, File};
+    use std::fs::{File, create_dir};
 
     use crate::test_utils::temp_dir_create;
 

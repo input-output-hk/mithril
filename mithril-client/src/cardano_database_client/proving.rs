@@ -5,7 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 
 use mithril_cardano_node_internal_database::{
     digesters::{CardanoImmutableDigester, ImmutableDigester},
@@ -21,10 +21,10 @@ use mithril_common::{
 };
 
 use crate::{
+    MithrilResult,
     feedback::MithrilEvent,
     file_downloader::{DownloadEvent, FileDownloader, FileDownloaderUri},
     utils::{create_directory_if_not_exists, delete_directory, read_files_in_directory},
-    MithrilResult,
 };
 
 use super::immutable_file_range::ImmutableFileRange;
@@ -195,10 +195,10 @@ mod tests {
         use std::ops::RangeInclusive;
 
         use mithril_cardano_node_internal_database::{
-            digesters::ComputedImmutablesDigests, IMMUTABLE_DIR,
+            IMMUTABLE_DIR, digesters::ComputedImmutablesDigests,
         };
         use mithril_common::{
-            entities::ImmutableFileNumber, messages::DigestsMessagePart, StdResult,
+            StdResult, entities::ImmutableFileNumber, messages::DigestsMessagePart,
         };
 
         use super::*;
@@ -252,9 +252,7 @@ mod tests {
             {
                 fs::remove_file(
                     database_dir.join(
-                        database_dir
-                            .join(IMMUTABLE_DIR)
-                            .join(immutable_file.filename.clone()),
+                        database_dir.join(IMMUTABLE_DIR).join(immutable_file.filename.clone()),
                     ),
                 )
                 .unwrap();

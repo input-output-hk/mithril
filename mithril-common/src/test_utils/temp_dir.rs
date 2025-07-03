@@ -222,12 +222,8 @@ mod tests {
 
     #[test]
     fn same_name_but_two_different_module_generate_different_path_even_with_short_path_enabled() {
-        let path1 = TempDir::new("module_a", "test")
-            .generate_shorter_path()
-            .build_path();
-        let path2 = TempDir::new("module_b", "test")
-            .generate_shorter_path()
-            .build_path();
+        let path1 = TempDir::new("module_a", "test").generate_shorter_path().build_path();
+        let path2 = TempDir::new("module_b", "test").generate_shorter_path().build_path();
 
         assert_ne!(path1, path2);
     }

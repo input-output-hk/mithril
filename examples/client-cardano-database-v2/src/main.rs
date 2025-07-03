@@ -4,7 +4,7 @@
 //!
 //! A [FeedbackReceiver] using [indicatif] is used to nicely report the progress to the console.
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use clap::Parser;
 use futures::Future;

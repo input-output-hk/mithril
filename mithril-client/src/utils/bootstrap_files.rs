@@ -1,6 +1,6 @@
 use std::{fs::File, io::Write, path::Path};
 
-use slog::{warn, Logger};
+use slog::{Logger, warn};
 
 use mithril_common::CardanoNetwork;
 
@@ -31,7 +31,7 @@ pub fn create_bootstrap_node_files(
 
 #[cfg(test)]
 mod test {
-    use mithril_common::{temp_dir, CardanoNetwork};
+    use mithril_common::{CardanoNetwork, temp_dir};
     use slog::o;
 
     use super::*;
@@ -101,8 +101,8 @@ mod test {
     }
 
     #[test]
-    fn create_bootstrap_node_files_does_not_create_protocol_magic_id_file_and_create_clean_file_for_devnet(
-    ) {
+    fn create_bootstrap_node_files_does_not_create_protocol_magic_id_file_and_create_clean_file_for_devnet()
+     {
         let db_dir = temp_dir!().join("db");
         std::fs::create_dir_all(&db_dir).unwrap();
         let network = CardanoNetwork::from_code("devnet".to_string(), Some(123)).unwrap();

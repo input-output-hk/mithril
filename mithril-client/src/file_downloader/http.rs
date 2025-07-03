@@ -3,24 +3,24 @@ use std::{
     path::Path,
 };
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use flate2::read::GzDecoder;
 use flume::{Receiver, Sender};
 use futures::StreamExt;
 use reqwest::{Response, StatusCode, Url};
-use slog::{debug, Logger};
+use slog::{Logger, debug};
 use tar::Archive;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 
-use mithril_common::{logging::LoggerExtensions, StdResult};
+use mithril_common::{StdResult, logging::LoggerExtensions};
 
 use crate::common::CompressionAlgorithm;
 use crate::feedback::FeedbackSender;
 use crate::utils::StreamReader;
 
-use super::{interface::DownloadEvent, FileDownloader, FileDownloaderUri};
+use super::{FileDownloader, FileDownloaderUri, interface::DownloadEvent};
 
 /// A file downloader that only handles download through HTTP.
 pub struct HttpFileDownloader {
@@ -94,9 +94,7 @@ impl HttpFileDownloader {
             }
             buffer.truncate(bytes_read);
             sender.send_async(buffer).await.with_context(|| {
-                format!(
-                    "Local file read: could not write {bytes_read} bytes to stream."
-                )
+                format!("Local file read: could not write {bytes_read} bytes to stream.")
             })?;
             downloaded_bytes += bytes_read as u64;
             let event = download_event_type.build_download_progress_event(downloaded_bytes, size);

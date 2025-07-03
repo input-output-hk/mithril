@@ -48,7 +48,7 @@ pub const fn single_signature<'a>() -> [&'a str; 4] {
         33322c33332c33342c33352c33372c33382c33392c34312c34322c34332c34342c34352c34362c34372c34382c3\
         4392c35302c35312c35322c35332c35342c35352c35362c35372c35382c35392c36302c36312c36332c36342c36\
         352c36372c36382c37302c37312c37352c37362c37372c37392c38302c38312c38322c38342c38352c38392c393\
-        02c39312c39332c39352c39372c39382c39395d2c227369676e65725f696e646578223a337d"
+        02c39312c39332c39352c39372c39382c39395d2c227369676e65725f696e646578223a337d",
     ]
 }
 
@@ -393,12 +393,12 @@ mod test {
     use ed25519_dalek::VerifyingKey;
     use kes_summed_ed25519::kes::Sum6KesSig;
     use mithril_stm::{StmAggrSig, StmAggrVerificationKey, StmSig, StmVerificationKeyPoP};
-    use serde::{de::DeserializeOwned, Serialize};
+    use serde::{Serialize, de::DeserializeOwned};
     use std::any::type_name;
 
     use crate::crypto_helper::{
-        key_decode_hex, ManifestSignature, OpCert, ProtocolGenesisSignature, ProtocolKey,
-        ProtocolKeyCodec, TryFromBytes, TryToBytes, D,
+        D, ManifestSignature, OpCert, ProtocolGenesisSignature, ProtocolKey, ProtocolKeyCodec,
+        TryFromBytes, TryToBytes, key_decode_hex,
     };
 
     fn assert_decode_all<T: Fn(&str) -> Result<(), String>>(encoded_types: &[&str], decode_fun: T) {

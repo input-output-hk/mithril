@@ -23,9 +23,9 @@ use std::path::{Path, PathBuf};
 use anyhow::Context;
 use slog::Logger;
 
-use mithril_cardano_node_internal_database::{immutable_trio_names, IMMUTABLE_DIR};
-use mithril_common::entities::ImmutableFileNumber;
+use mithril_cardano_node_internal_database::{IMMUTABLE_DIR, immutable_trio_names};
 use mithril_common::StdResult;
+use mithril_common::entities::ImmutableFileNumber;
 
 const BASE_ERROR: &str = "Unexpected downloaded file check failed";
 
@@ -127,9 +127,7 @@ impl ExpectedFilesAfterDownload {
                     .with_context(|| BASE_ERROR)?
                     .flatten()
                     .filter(|entry| {
-                        !self
-                            .expected_filenames_in_immutable_dir
-                            .contains(&entry.file_name())
+                        !self.expected_filenames_in_immutable_dir.contains(&entry.file_name())
                     })
                     .collect()
             } else {
@@ -188,7 +186,7 @@ impl ExpectedFilesAfterDownload {
 
 #[cfg(test)]
 mod tests {
-    use std::fs::{create_dir, File};
+    use std::fs::{File, create_dir};
     use std::time::Instant;
 
     use mithril_common::temp_dir_create;
@@ -363,8 +361,8 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn when_unexpected_dirs_and_files_are_downloaded_remove_them_return_their_filenames_and_log_offenders(
-        ) {
+        async fn when_unexpected_dirs_and_files_are_downloaded_remove_them_return_their_filenames_and_log_offenders()
+         {
             let temp_dir = temp_dir_create!();
             let immutable_files_dir = create_immutable_files_dir(&temp_dir);
             let (logger, log_inspector) = TestLogger::memory();
@@ -414,10 +412,7 @@ mod tests {
         }
 
         let now = Instant::now();
-        let existing_files = verifier
-            .compute_expected_state_after_download()
-            .await
-            .unwrap();
+        let existing_files = verifier.compute_expected_state_after_download().await.unwrap();
         println!(
             "elapsed time on list_existing_file (30k files): {:?}",
             now.elapsed()

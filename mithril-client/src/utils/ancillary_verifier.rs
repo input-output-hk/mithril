@@ -175,9 +175,7 @@ mod tests {
             let temp_dir = temp_dir_create!();
 
             let ancillary_verifier = AncillaryVerifier::new(
-                fake_keys::manifest_verification_key()[0]
-                    .try_into()
-                    .unwrap(),
+                fake_keys::manifest_verification_key()[0].try_into().unwrap(),
             );
 
             let err = ancillary_verifier.verify(&temp_dir).await.unwrap_err();
@@ -196,9 +194,7 @@ mod tests {
             write!(&manifest_file, "invalid json").unwrap();
 
             let ancillary_verifier = AncillaryVerifier::new(
-                fake_keys::manifest_verification_key()[0]
-                    .try_into()
-                    .unwrap(),
+                fake_keys::manifest_verification_key()[0].try_into().unwrap(),
             );
 
             let err = ancillary_verifier.verify(&temp_dir).await.unwrap_err();
@@ -261,9 +257,7 @@ mod tests {
                 signable_manifest: SignableManifest {
                     // Note: This is a valid signature, but for different data
                     signature: Some(
-                        fake_keys::signable_manifest_signature()[0]
-                            .try_into()
-                            .unwrap(),
+                        fake_keys::signable_manifest_signature()[0].try_into().unwrap(),
                     ),
                     ..valid_manifest(&temp_dir, &signer).signable_manifest
                 },
@@ -326,10 +320,7 @@ mod tests {
                 ancillary_files: vec![file_in_root_dir.clone(), file_in_subdir.clone()],
             };
 
-            validated_manifest
-                .move_to_final_location(&target_dir)
-                .await
-                .unwrap();
+            validated_manifest.move_to_final_location(&target_dir).await.unwrap();
 
             assert_dir_eq!(
                 &source_dir,
@@ -363,10 +354,7 @@ mod tests {
             };
 
             assert!(target_dir.join(&existing_file_path).exists());
-            validated_manifest
-                .move_to_final_location(&target_dir)
-                .await
-                .unwrap();
+            validated_manifest.move_to_final_location(&target_dir).await.unwrap();
 
             assert!(!source_dir.join(&existing_file_path).exists());
             let final_content =
