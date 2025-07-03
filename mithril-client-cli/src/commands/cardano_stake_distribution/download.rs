@@ -11,7 +11,7 @@ use crate::utils::{
 };
 use crate::{
     CommandContext,
-    commands::{SharedArgs, client_builder},
+    commands::client_builder,
     configuration::{ConfigError, ConfigSource},
 };
 use mithril_client::Client;
@@ -21,9 +21,6 @@ use mithril_client::{CardanoStakeDistribution, MessageBuilder, MithrilResult};
 /// Download and verify a Cardano stake distribution information.
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoStakeDistributionDownloadCommand {
-    #[clap(flatten)]
-    shared_args: SharedArgs,
-
     /// Hash or Epoch of the Cardano stake distribution artifact, or `latest` for the latest artifact.
     ///
     /// The epoch represents the epoch at the end of which the Cardano stake distribution is computed by the Cardano node.
@@ -39,11 +36,6 @@ pub struct CardanoStakeDistributionDownloadCommand {
 }
 
 impl CardanoStakeDistributionDownloadCommand {
-    /// Is JSON output enabled
-    pub fn is_json_output_enabled(&self) -> bool {
-        self.shared_args.json
-    }
-
     /// Main command execution
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         let params = context.config_parameters()?.add_source(self)?;
@@ -51,7 +43,7 @@ impl CardanoStakeDistributionDownloadCommand {
         let download_dir = Path::new(&download_dir);
         let logger = context.logger();
 
-        let progress_output_type = if self.is_json_output_enabled() {
+        let progress_output_type = if context.is_json_output_enabled() {
             ProgressOutputType::JsonReporter
         } else {
             ProgressOutputType::Tty
@@ -135,7 +127,7 @@ impl CardanoStakeDistributionDownloadCommand {
             })?,
         )?;
 
-        if self.is_json_output_enabled() {
+        if context.is_json_output_enabled() {
             println!(
                 r#"{{"cardano_stake_distribution_epoch": "{}", "filepath": "{}"}}"#,
                 cardano_stake_distribution.epoch,

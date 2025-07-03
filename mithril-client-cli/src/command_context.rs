@@ -12,6 +12,7 @@ use crate::configuration::ConfigParameters;
 pub struct CommandContext {
     config_builder: ConfigBuilder<DefaultState>,
     unstable_enabled: bool,
+    json: bool,
     logger: Logger,
 }
 
@@ -20,11 +21,13 @@ impl CommandContext {
     pub fn new(
         config_builder: ConfigBuilder<DefaultState>,
         unstable_enabled: bool,
+        json: bool,
         logger: Logger,
     ) -> Self {
         Self {
             config_builder,
             unstable_enabled,
+            json,
             logger,
         }
     }
@@ -32,6 +35,11 @@ impl CommandContext {
     /// Check if unstable commands are enabled
     pub fn is_unstable_enabled(&self) -> bool {
         self.unstable_enabled
+    }
+
+    /// Check if JSON output is enabled
+    pub fn is_json_output_enabled(&self) -> bool {
+        self.json
     }
 
     /// Ensure that unstable commands are enabled
@@ -76,6 +84,7 @@ mod tests {
         let context = CommandContext::new(
             ConfigBuilder::default(),
             unstable_enabled,
+            true,
             Logger::root(slog::Discard, o!()),
         );
 
@@ -89,6 +98,7 @@ mod tests {
         let context = CommandContext::new(
             ConfigBuilder::default(),
             unstable_enabled,
+            true,
             Logger::root(slog::Discard, o!()),
         );
 

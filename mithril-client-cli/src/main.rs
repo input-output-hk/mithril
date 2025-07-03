@@ -86,6 +86,9 @@ pub struct Args {
     /// Request origin tag
     #[clap(long)]
     origin_tag: Option<String>,
+
+    #[clap(long, global = true)]
+    json: bool,
 }
 
 impl Args {
@@ -102,7 +105,7 @@ impl Args {
             .add_source(config::File::with_name(&filename).required(false))
             .add_source(self.clone())
             .set_default("download_dir", "")?;
-        let context = CommandContext::new(config, self.unstable, root_logger);
+        let context = CommandContext::new(config, self.unstable, self.json, root_logger);
 
         self.command.execute(context).await
     }

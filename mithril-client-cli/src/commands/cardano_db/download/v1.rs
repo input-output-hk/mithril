@@ -8,8 +8,8 @@ use mithril_client::{
 };
 
 use crate::{
+    CommandContext,
     commands::{
-        SharedArgs,
         cardano_db::{download::DB_DIRECTORY_NAME, shared_steps},
         client_builder,
     },
@@ -22,7 +22,6 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub(super) struct PreparedCardanoDbV1Download {
-    pub(super) shared_args: SharedArgs,
     pub(super) digest: String,
     pub(super) download_dir: String,
     pub(super) include_ancillary: bool,
@@ -30,15 +29,15 @@ pub(super) struct PreparedCardanoDbV1Download {
 }
 
 impl PreparedCardanoDbV1Download {
-    fn is_json_output_enabled(&self) -> bool {
-        self.shared_args.json
-    }
-
     /// Command execution
-    pub async fn execute(&self, logger: &Logger, params: ConfigParameters) -> MithrilResult<()> {
+    pub async fn execute(
+        &self,
+        context: &CommandContext,
+        params: ConfigParameters,
+    ) -> MithrilResult<()> {
         let db_dir = Path::new(&self.download_dir).join(DB_DIRECTORY_NAME);
 
-        let progress_output_type = if self.is_json_output_enabled() {
+        let progress_output_type = if context.is_json_output_enabled() {
             ProgressOutputType::JsonReporter
         } else {
             ProgressOutputType::Tty
@@ -47,10 +46,10 @@ impl PreparedCardanoDbV1Download {
         let client = client_builder(&params)?
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
                 progress_output_type,
-                logger.clone(),
+                context.logger().clone(),
             )))
             .set_ancillary_verification_key(self.ancillary_verification_key.clone())
-            .with_logger(logger.clone())
+            .with_logger(context.logger().clone())
             .build()?;
 
         let get_list_of_artifact_ids = || async {
@@ -84,7 +83,7 @@ impl PreparedCardanoDbV1Download {
         .await?;
 
         Self::download_and_unpack_cardano_db(
-            logger,
+            context.logger(),
             3,
             &progress_printer,
             client.cardano_database(),
@@ -104,7 +103,7 @@ impl PreparedCardanoDbV1Download {
             Self::compute_cardano_db_message(4, &progress_printer, &certificate, &db_dir).await?;
 
         Self::verify_cardano_db_signature(
-            logger,
+            context.logger(),
             5,
             &progress_printer,
             &certificate,
@@ -119,7 +118,7 @@ impl PreparedCardanoDbV1Download {
             &cardano_db_message.digest,
             &cardano_db_message.network,
             &cardano_db_message.cardano_node_version,
-            self.is_json_output_enabled(),
+            context.is_json_output_enabled(),
             self.include_ancillary,
         )?;
 

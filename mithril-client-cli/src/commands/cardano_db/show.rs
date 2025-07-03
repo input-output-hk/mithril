@@ -9,18 +9,13 @@ use mithril_client::{
 
 use crate::{
     CommandContext,
-    commands::{
-        SharedArgs, cardano_db::CardanoDbCommandsBackend, client_builder_with_fallback_genesis_key,
-    },
+    commands::{cardano_db::CardanoDbCommandsBackend, client_builder_with_fallback_genesis_key},
     utils::{CardanoDbUtils, ExpanderUtils},
 };
 
 /// Clap command to show a given Cardano db
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbShowCommand {
-    #[clap(flatten)]
-    shared_args: SharedArgs,
-
     #[arg(short, long, value_enum, default_value_t)]
     backend: CardanoDbCommandsBackend,
 
@@ -29,11 +24,6 @@ pub struct CardanoDbShowCommand {
 }
 
 impl CardanoDbShowCommand {
-    /// Is JSON output enabled
-    pub fn is_json_output_enabled(&self) -> bool {
-        self.shared_args.json
-    }
-
     /// Cardano DB Show command
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         let params = context.config_parameters()?;
@@ -42,14 +32,14 @@ impl CardanoDbShowCommand {
             .build()?;
 
         match self.backend {
-            CardanoDbCommandsBackend::V1 => self.print_v1(client).await?,
-            CardanoDbCommandsBackend::V2 => self.print_v2(client).await?,
+            CardanoDbCommandsBackend::V1 => self.print_v1(client, &context).await?,
+            CardanoDbCommandsBackend::V2 => self.print_v2(client, &context).await?,
         }
 
         Ok(())
     }
 
-    async fn print_v1(&self, client: Client) -> MithrilResult<()> {
+    async fn print_v1(&self, client: Client, context: &CommandContext) -> MithrilResult<()> {
         let get_list_of_artifact_ids = || async {
             let cardano_dbs = client.cardano_database().list().await.with_context(|| {
                 "Can not get the list of artifacts while retrieving the latest cardano db digest"
@@ -70,7 +60,7 @@ impl CardanoDbShowCommand {
             .await?
             .ok_or_else(|| anyhow!("Cardano DB not found for digest: '{}'", &self.digest))?;
 
-        if self.is_json_output_enabled() {
+        if context.is_json_output_enabled() {
             println!("{}", serde_json::to_string(&cardano_db_message)?);
         } else {
             let cardano_db_table = vec![
@@ -104,7 +94,7 @@ impl CardanoDbShowCommand {
         Ok(())
     }
 
-    async fn print_v2(&self, client: Client) -> MithrilResult<()> {
+    async fn print_v2(&self, client: Client, context: &CommandContext) -> MithrilResult<()> {
         let get_list_of_artifact_ids = || async {
             let cardano_dbs = client.cardano_database_v2().list().await.with_context(|| {
                 "Can not get the list of artifacts while retrieving the latest cardano db snapshot hash"
@@ -125,7 +115,7 @@ impl CardanoDbShowCommand {
             .await?
             .ok_or_else(|| anyhow!("Cardano DB snapshot not found for hash: '{}'", &self.digest))?;
 
-        if self.is_json_output_enabled() {
+        if context.is_json_output_enabled() {
             println!("{}", serde_json::to_string(&cardano_db_message)?);
         } else {
             let mut cardano_db_table = vec![

@@ -9,7 +9,7 @@ use std::{
 use crate::utils::{self, IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter};
 use crate::{
     CommandContext,
-    commands::{SharedArgs, client_builder},
+    commands::client_builder,
     configuration::{ConfigError, ConfigSource},
     utils::ExpanderUtils,
 };
@@ -20,9 +20,6 @@ use mithril_client::MithrilResult;
 /// verification fails, the file is not persisted.
 #[derive(Parser, Debug, Clone)]
 pub struct MithrilStakeDistributionDownloadCommand {
-    #[clap(flatten)]
-    shared_args: SharedArgs,
-
     /// Hash of the Mithril stake distribution artifact, or `latest` for the latest artifact.
     artifact_hash: String,
 
@@ -39,11 +36,6 @@ pub struct MithrilStakeDistributionDownloadCommand {
 }
 
 impl MithrilStakeDistributionDownloadCommand {
-    /// Is JSON output enabled
-    pub fn is_json_output_enabled(&self) -> bool {
-        self.shared_args.json
-    }
-
     /// Main command execution
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         let params = context.config_parameters()?.add_source(self)?;
@@ -51,7 +43,7 @@ impl MithrilStakeDistributionDownloadCommand {
         let download_dir = Path::new(&download_dir);
         let logger = context.logger();
 
-        let progress_output_type = if self.is_json_output_enabled() {
+        let progress_output_type = if context.is_json_output_enabled() {
             ProgressOutputType::JsonReporter
         } else {
             ProgressOutputType::Tty
@@ -149,7 +141,7 @@ impl MithrilStakeDistributionDownloadCommand {
             })?,
         )?;
 
-        if self.is_json_output_enabled() {
+        if context.is_json_output_enabled() {
             println!(
                 r#"{{"mithril_stake_distribution_hash": "{}", "filepath": "{}"}}"#,
                 mithril_stake_distribution.hash,
