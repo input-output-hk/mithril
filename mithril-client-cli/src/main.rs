@@ -54,20 +54,20 @@ pub struct Args {
     command: ArtifactCommands,
 
     /// Run Mode.
-    #[clap(long, env = "RUN_MODE", default_value = "dev")]
+    #[clap(long, env = "RUN_MODE", default_value = "dev", global = true)]
     run_mode: String,
 
     /// Verbosity level (-v=warning, -vv=info, -vvv=debug, -vvvv=trace).
-    #[clap(short, long, action = clap::ArgAction::Count)]
+    #[clap(short, long, action = clap::ArgAction::Count, global = true)]
     #[example = "Parsed from the number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace`"]
     verbose: u8,
 
     /// Directory where configuration file is located.
-    #[clap(long, default_value = "./config")]
+    #[clap(long, default_value = "./config", global = true)]
     pub config_directory: PathBuf,
 
     /// Override configuration Aggregator endpoint URL.
-    #[clap(long, env = "AGGREGATOR_ENDPOINT")]
+    #[clap(long, env = "AGGREGATOR_ENDPOINT", global = true)]
     #[example = "`https://aggregator.pre-release-preview.api.mithril.network/aggregator`"]
     aggregator_endpoint: Option<String>,
 
@@ -76,20 +76,20 @@ pub struct Args {
     json: bool,
 
     /// Enable JSON output for logs displayed according to verbosity level
-    #[clap(long)]
+    #[clap(long, global = true)]
     log_format_json: bool,
 
     /// Redirect the logs to a file
-    #[clap(long, alias("o"))]
+    #[clap(long, alias("o"), global = true)]
     #[example = "`./mithril-client.log`"]
     log_output: Option<String>,
 
     /// Enable unstable commands
-    #[clap(long)]
+    #[clap(long, global = true)]
     unstable: bool,
 
     /// Request origin tag
-    #[clap(long)]
+    #[clap(long, global = true)]
     origin_tag: Option<String>,
 }
 
