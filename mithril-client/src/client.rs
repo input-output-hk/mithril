@@ -18,6 +18,7 @@ use crate::certificate_client::CertificateVerifierCache;
 use crate::certificate_client::{
     CertificateClient, CertificateVerifier, MithrilCertificateVerifier,
 };
+use crate::era_fetcher::{AggregatorHttpEraFetcher, EraFetcher};
 use crate::feedback::{FeedbackReceiver, FeedbackSender};
 #[cfg(feature = "fs")]
 use crate::file_downloader::{
@@ -105,6 +106,7 @@ pub struct Client {
     cardano_database_client: Arc<CardanoDatabaseClient>,
     cardano_transaction_client: Arc<CardanoTransactionClient>,
     cardano_stake_distribution_client: Arc<CardanoStakeDistributionClient>,
+    era_fetcher: Arc<dyn EraFetcher>,
 }
 
 impl Client {
@@ -143,6 +145,11 @@ impl Client {
     pub fn cardano_stake_distribution(&self) -> Arc<CardanoStakeDistributionClient> {
         self.cardano_stake_distribution_client.clone()
     }
+
+    /// Get the client that fetches the current Mithril era.
+    pub fn era_fetcher(&self) -> Arc<dyn EraFetcher> {
+        self.era_fetcher.clone()
+    }
 }
 
 /// Builder than can be used to create a [Client] easily or with custom dependencies.
@@ -162,6 +169,7 @@ pub struct ClientBuilder {
     logger: Option<Logger>,
     feedback_receivers: Vec<Arc<dyn FeedbackReceiver>>,
     options: ClientOptions,
+    era_fetcher: Option<Arc<dyn EraFetcher>>,
 }
 
 impl ClientBuilder {
@@ -184,6 +192,7 @@ impl ClientBuilder {
             logger: None,
             feedback_receivers: vec![],
             options: ClientOptions::default(),
+            era_fetcher: None,
         }
     }
 
@@ -208,6 +217,7 @@ impl ClientBuilder {
             logger: None,
             feedback_receivers: vec![],
             options: ClientOptions::default(),
+            era_fetcher: None,
         }
     }
 
@@ -226,6 +236,11 @@ impl ClientBuilder {
         let aggregator_client = match self.aggregator_client {
             None => Arc::new(self.build_aggregator_client(logger.clone())?),
             Some(client) => client,
+        };
+
+        let era_fetcher = match self.era_fetcher {
+            None => Arc::new(AggregatorHttpEraFetcher::new(aggregator_client.clone())),
+            Some(era_fetcher) => era_fetcher,
         };
 
         let certificate_verifier = match self.certificate_verifier {
@@ -311,6 +326,7 @@ impl ClientBuilder {
             cardano_database_client,
             cardano_transaction_client,
             cardano_stake_distribution_client,
+            era_fetcher,
         })
     }
 
@@ -360,6 +376,12 @@ impl ClientBuilder {
         aggregator_client: Arc<dyn AggregatorClient>,
     ) -> ClientBuilder {
         self.aggregator_client = Some(aggregator_client);
+        self
+    }
+
+    /// Sets the [EraFetcher] that will be used by the client to retrieve the current Mithril era.
+    pub fn with_era_fetcher(mut self, era_fetcher: Arc<dyn EraFetcher>) -> ClientBuilder {
+        self.era_fetcher = Some(era_fetcher);
         self
     }
 
