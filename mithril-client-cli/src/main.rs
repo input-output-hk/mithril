@@ -95,17 +95,26 @@ pub struct Args {
 
 impl Args {
     pub async fn execute(&self, root_logger: Logger) -> MithrilResult<()> {
-        debug!(
-            root_logger,
-            "Mithril client CLI version: {}",
-            env!("CARGO_PKG_VERSION")
-        );
+        self.print_and_log_version(&root_logger);
         debug!(root_logger, "Run Mode: {}", self.run_mode);
 
         let config_parameters = self.config_parameters(&root_logger)?;
         let context = CommandContext::new(config_parameters, self.unstable, self.json, root_logger);
 
         self.command.execute(context).await
+    }
+
+    fn print_and_log_version(&self, root_logger: &Logger) {
+        let client_cli_version = env!("CARGO_PKG_VERSION");
+        let version_message = format!("Mithril Client CLI version: {client_cli_version}");
+        if self.json {
+            let json_message = serde_json::json!({
+                "mithril_client_cli_version": client_cli_version});
+            eprintln!("{json_message}");
+        } else {
+            eprintln!("{version_message}");
+        }
+        debug!(root_logger, "{version_message}");
     }
 
     fn log_level(&self) -> Level {
