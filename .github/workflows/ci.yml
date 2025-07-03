@@ -15,8 +15,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-ubuntu-X64:
-    runs-on: ubuntu-22.04
+  build-ubuntu:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-22.04-arm]
+    runs-on: ${{ matrix.os }}
     outputs:
       eras: ${{ steps.eras-test-lab.outputs.eras }}
     steps:
@@ -32,6 +36,7 @@ jobs:
 
       # We separate the build in 2 steps as we want to avoid side effects with Rust feature unification.
       - name: Cargo build - Tooling
+        if: matrix.os == 'ubuntu-22.04'
         shell: bash
         run: cargo build --release --bin mithril-end-to-end --bin load-aggregator --features bundle_tls
 
@@ -57,6 +62,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish End-to-end runner (${{ runner.os }}-${{ runner.arch }})
+        if: matrix.os == 'ubuntu-22.04'
         uses: actions/upload-artifact@v4
         with:
           name: mithril-tooling-${{ runner.os }}-${{ runner.arch }}
@@ -66,6 +72,7 @@ jobs:
           if-no-files-found: error
 
       - name: Prepare test lab eras
+        if: matrix.os == 'ubuntu-22.04'
         id: eras-test-lab
         run: |
           ERAS=$(./target/release/mithril-aggregator era list --json)
@@ -173,10 +180,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-14, windows-latest]
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-14, windows-latest]
 
         include:
           - os: ubuntu-24.04
+            test-args: --features full,unstable,future_dmq --workspace
+          - os: ubuntu-24.04-arm
             test-args: --features full,unstable,future_dmq --workspace
           # Exclude nodes not officially supported on Windows and macOS (only mithril-client is supported)
           - os: macos-14
@@ -326,12 +335,12 @@ jobs:
 
   e2e:
     runs-on: ubuntu-24.04
-    needs: [build-ubuntu-X64]
+    needs: [build-ubuntu]
     strategy:
       fail-fast: false
       matrix:
         mode: ["std"]
-        era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras) }}
+        era: ${{ fromJSON(needs.build-ubuntu.outputs.eras) }}
         next_era: [""]
         cardano_node_version: ["10.3.1", "10.4.1"]
         hard_fork_latest_era_at_epoch: [0]
@@ -341,7 +350,7 @@ jobs:
         include:
           # Include a test for partial decentralization with leader/follower signer registration and P2P signature registration
           - mode: "leader-follower"
-            era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
+            era: ${{ fromJSON(needs.build-ubuntu.outputs.eras)[0] }}
             next_era: [""]
             cardano_node_version: "10.3.1"
             hard_fork_latest_era_at_epoch: 0
@@ -349,7 +358,7 @@ jobs:
             extra_args: "--number-of-aggregators=2 --use-relays --relay-signer-registration-mode=passthrough --relay-signature-registration-mode=p2p"
           # Include a test for full dedentralization P2P signer registration and P2P signature registration
           - mode: "decentralized"
-            era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
+            era: ${{ fromJSON(needs.build-ubuntu.outputs.eras)[0] }}
             next_era: ""
             cardano_node_version: "10.3.1"
             hard_fork_latest_era_at_epoch: 0
@@ -357,16 +366,16 @@ jobs:
             extra_args: "--number-of-aggregators=2 --use-relays --relay-signer-registration-mode=p2p --relay-signature-registration-mode=p2p"
           # Include a test for the era switch without regenesis
           - mode: "std"
-            era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
-            next_era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[1] }}
+            era: ${{ fromJSON(needs.build-ubuntu.outputs.eras)[0] }}
+            next_era: ${{ fromJSON(needs.build-ubuntu.outputs.eras)[1] }}
             cardano_node_version: "10.3.1"
             hard_fork_latest_era_at_epoch: 0
             run_id: "#1"
             extra_args: ""
           # Include a test for the era switch with regenesis
           - mode: "std"
-            era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
-            next_era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[1] }}
+            era: ${{ fromJSON(needs.build-ubuntu.outputs.eras)[0] }}
+            next_era: ${{ fromJSON(needs.build-ubuntu.outputs.eras)[1] }}
             cardano_node_version: "10.3.1"
             hard_fork_latest_era_at_epoch: 0
             run_id: "#1"
@@ -494,6 +503,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Log in to the Container registry
         uses: docker/login-action@v3
         with:
@@ -510,11 +525,17 @@ jobs:
             unstable
             type=raw,value=${{ github.base_ref || github.ref_name }}-{{sha}}
 
-      - name: Download built artifacts
+      - name: Download built artifacts (Linux-X64)
         uses: actions/download-artifact@v4
         with:
-          name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
-          path: ${{ matrix.project }}
+          name: mithril-distribution-Linux-X64
+          path: ${{ matrix.project }}/bin-linux-amd64
+
+      - name: Download built artifacts (Linux-ARM64)
+        uses: actions/download-artifact@v4
+        with:
+          name: mithril-distribution-Linux-ARM64
+          path: ${{ matrix.project }}/bin-linux-arm64
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
@@ -523,6 +544,8 @@ jobs:
           file: ${{ env.DOCKER_FILE }}
           push: ${{ env.PUSH_PACKAGES }}
           tags: ${{ steps.meta.outputs.tags }}
+          platforms: linux/amd64,linux/arm64
+          provenance: false
 
   publish-crate-test:
     strategy:
@@ -626,6 +649,18 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: mithril-deb-packages-Linux-X64
+          path: ./package
+
+      - name: Download built artifacts (Linux-ARM64)
+        uses: actions/download-artifact@v4
+        with:
+          name: mithril-distribution-Linux-ARM64
+          path: ./package-Linux-ARM64
+
+      - name: Download Debian packages (Linux-ARM64)
+        uses: actions/download-artifact@v4
+        with:
+          name: mithril-deb-packages-Linux-ARM64
           path: ./package
 
       - name: Download built artifacts (macOS-ARM64)

@@ -134,6 +134,10 @@ pub fn log_download_information(
     json_output: bool,
     include_ancillary: bool,
 ) -> MithrilResult<()> {
+    fn is_linux_arm() -> bool {
+        cfg!(target_os = "linux") && cfg!(target_arch = "aarch64")
+    }
+
     let canonical_filepath = &db_dir
         .canonicalize()
         .with_context(|| format!("Could not get canonical filepath of '{}'", db_dir.display()))?;
@@ -155,21 +159,21 @@ pub fn log_download_information(
     };
 
     if json_output {
-        let json = if include_ancillary {
-            serde_json::json!({
-                "timestamp": Utc::now().to_rfc3339(),
-                "db_directory": canonical_filepath,
-                "run_docker_cmd": docker_cmd,
-                "snapshot_converter_cmd_to_lmdb": snapshot_converter_cmd("LMDB"),
-                "snapshot_converter_cmd_to_legacy": snapshot_converter_cmd("Legacy")
-            })
-        } else {
-            serde_json::json!({
-                "timestamp": Utc::now().to_rfc3339(),
-                "db_directory": canonical_filepath,
-                "run_docker_cmd": docker_cmd
-            })
-        };
+        let mut json = serde_json::json!({
+            "timestamp": Utc::now().to_rfc3339(),
+            "db_directory": canonical_filepath,
+        });
+
+        if !is_linux_arm() {
+            json["run_docker_cmd"] = serde_json::Value::String(docker_cmd);
+
+            if include_ancillary {
+                json["snapshot_converter_cmd_to_lmdb"] =
+                    serde_json::Value::String(snapshot_converter_cmd("LMDB"));
+                json["snapshot_converter_cmd_to_legacy"] =
+                    serde_json::Value::String(snapshot_converter_cmd("Legacy"));
+            }
+        }
 
         println!("{json}");
     } else {
@@ -177,31 +181,34 @@ pub fn log_download_information(
             r###"Cardano database snapshot '{}' archives have been successfully unpacked. Immutable files have been successfully verified with Mithril.
 
     Files in the directory '{}' can be used to run a Cardano node with version >= {cardano_node_version}.
-
-    If you are using Cardano Docker image, you can restore a Cardano Node with:
-
-    {}
-
     "###,
             snapshot_hash,
-            db_dir.display(),
-            docker_cmd
+            db_dir.display()
         );
 
-        if include_ancillary {
+        if !is_linux_arm() {
             println!(
-                r###"Upgrade and replace the restored ledger state snapshot to 'LMDB' flavor by running the command:
+                r###"If you are using the Cardano Docker image, you can restore a Cardano node with:
+
+    {docker_cmd}
+
+    "###
+            );
+
+            if include_ancillary {
+                println!(
+                    r###"Upgrade and replace the restored ledger state snapshot to 'LMDB' flavor by running the command:
 
     {}
 
     Or to 'Legacy' flavor by running the command:
 
     {}
-
     "###,
-                snapshot_converter_cmd("LMDB"),
-                snapshot_converter_cmd("Legacy"),
-            );
+                    snapshot_converter_cmd("LMDB"),
+                    snapshot_converter_cmd("Legacy"),
+                );
+            }
         }
     }
 

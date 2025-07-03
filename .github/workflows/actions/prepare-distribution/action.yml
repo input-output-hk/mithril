@@ -29,6 +29,15 @@ runs:
         --version "${{ inputs.version-name }}" \
         --target "linux-x64"
 
+    - name: Package distribution (Linux-ARM64)
+      shell: bash
+      run: |
+        python3 ./.github/workflows/scripts/package-distribution.py \
+        --input package-Linux-ARM64/ \
+        --dest package/ \
+        --version "${{ inputs.version-name }}" \
+        --target "linux-arm64"
+
     - name: Package distribution (macOS-ARM64)
       shell: bash
       run: |
@@ -84,12 +93,24 @@ runs:
           | jq -r 'keys_unsorted[] as $network | "| \($network) | \(.[$network]) |"' \
           >> ./release-notes-addon.txt
 
-    - name: Add minimum supported libc version
+    - name: Add platform support table
       shell: bash
       run: |
         cat >> ./release-notes-addon.txt << EOF
 
-        ## Linux Requirements
+        ## Platform Support
+
+        Summary of the platforms for which pre-built binaries are provided.
+
+        | Binary             | Linux x64 | Linux arm64 | macOS arm64 | Windows x64 |
+        | ------------------ | :-------: | :---------: | :---------: | :---------: |
+        | mithril-aggregator |     ✔     |   ✔ ⁽\*⁾    |     ⛔      |     ⛔      |
+        | mithril-signer     |     ✔     |   ✔ ⁽\*⁾    |     ⛔      |     ⛔      |
+        | mithril-client     |     ✔     |   ✔ ⁽\*⁾    |      ✔      |      ✔      |
+
+        ⁽\*⁾⚠️ Linux arm64 builds are not guaranteed, use at your own risk.
+
+        ### Linux Requirements
         The Linux binaries target \`glibc\`: to run them or install the \`.deb\` packages you must have \`glibc\` version \`2.35+\` installed.
         Compatible systems include, but are not limited to, \`Ubuntu 22.04+\` or \`Debian 12+\` (Bookworm)).
         EOF
