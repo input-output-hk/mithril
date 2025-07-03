@@ -1,7 +1,7 @@
 use std::{path::Path, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use mithril_common::{entities::CompressionAlgorithm, StdResult};
+use mithril_common::{StdResult, entities::CompressionAlgorithm};
 
 use super::{DownloadEvent, FileDownloader, FileDownloaderUri};
 

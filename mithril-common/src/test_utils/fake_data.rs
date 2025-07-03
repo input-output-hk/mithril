@@ -3,6 +3,7 @@
 use chrono::{DateTime, Utc};
 use semver::Version;
 
+use crate::CardanoNetwork;
 use crate::crypto_helper::{self, ProtocolMultiSignature};
 use crate::entities::{
     self, AncillaryLocations, BlockNumber, CardanoDatabaseSnapshotArtifactData,
@@ -11,7 +12,6 @@ use crate::entities::{
     SingleSignature, SlotNumber, StakeDistribution, StakeDistributionParty,
 };
 use crate::test_utils::MithrilFixtureBuilder;
-use crate::CardanoNetwork;
 
 use super::fake_keys;
 
@@ -58,9 +58,7 @@ pub fn protocol_initializer<S: Into<String>>(
     use rand_core::SeedableRng;
 
     let protocol_parameters = protocol_parameters();
-    let seed: [u8; 32] = format!("{:<032}", seed.into()).as_bytes()[..32]
-        .try_into()
-        .unwrap();
+    let seed: [u8; 32] = format!("{:<032}", seed.into()).as_bytes()[..32].try_into().unwrap();
     let mut rng = ChaCha20Rng::from_seed(seed);
     let kes_period = Some(0);
     crypto_helper::ProtocolInitializer::setup(
@@ -95,10 +93,8 @@ pub fn certificate<T: Into<String>>(certificate_hash: T) -> entities::Certificat
     let protocol_parameters = protocol_parameters();
 
     // Signers with stakes
-    let signers: Vec<StakeDistributionParty> = signers_with_stakes(5)
-        .into_iter()
-        .map(|s| s.into())
-        .collect();
+    let signers: Vec<StakeDistributionParty> =
+        signers_with_stakes(5).into_iter().map(|s| s.into()).collect();
 
     // Certificate metadata
     let protocol_version = crypto_helper::PROTOCOL_VERSION.to_string();
@@ -129,9 +125,7 @@ pub fn certificate<T: Into<String>>(certificate_hash: T) -> entities::Certificat
 
     // Certificate
     let previous_hash = format!("{hash}0");
-    let aggregate_verification_key = fake_keys::aggregate_verification_key()[1]
-        .try_into()
-        .unwrap();
+    let aggregate_verification_key = fake_keys::aggregate_verification_key()[1].try_into().unwrap();
     let multi_signature: ProtocolMultiSignature =
         fake_keys::multi_signature()[0].try_into().unwrap();
 

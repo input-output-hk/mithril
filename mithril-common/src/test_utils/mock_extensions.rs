@@ -53,8 +53,7 @@ mod tests {
 
         // specify the type on the builder generic
         let mock = MockBuilder::<MockTestTrait>::configure(|mock| {
-            mock.expect_test_method()
-                .returning(|| "test turbofish".to_string());
+            mock.expect_test_method().returning(|| "test turbofish".to_string());
         });
         assert_eq!("test turbofish".to_string(), mock.test_method());
     }

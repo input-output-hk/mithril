@@ -11,17 +11,17 @@ use mithril_common::messages::{
     AncillaryMessagePart, CardanoDatabaseSnapshotMessage, ImmutablesMessagePart,
 };
 
+use crate::MithrilResult;
 use crate::cardano_database_client::ImmutableFileRange;
 use crate::feedback::{FeedbackSender, MithrilEvent, MithrilEventCardanoDatabase};
 use crate::file_downloader::{DownloadEvent, FileDownloader, FileDownloaderUri};
 use crate::utils::{
-    create_bootstrap_node_files, AncillaryVerifier, UnexpectedDownloadedFileVerifier,
-    VecDequeExtensions, ANCILLARIES_NOT_SIGNED_BY_MITHRIL,
+    ANCILLARIES_NOT_SIGNED_BY_MITHRIL, AncillaryVerifier, UnexpectedDownloadedFileVerifier,
+    VecDequeExtensions, create_bootstrap_node_files,
 };
-use crate::MithrilResult;
 
-use super::download_task::{DownloadKind, DownloadTask, LocationToDownload};
 use super::DownloadUnpackOptions;
+use super::download_task::{DownloadKind, DownloadTask, LocationToDownload};
 
 pub struct InternalArtifactDownloader {
     http_file_downloader: Arc<dyn FileDownloader>,
@@ -96,16 +96,17 @@ impl InternalArtifactDownloader {
                 &download_id,
             )?);
         } else {
-            slog::warn!(self.logger, "The fast bootstrap of the Cardano node is not available with the current parameters used in this command: the ledger state will be recomputed from genesis at startup of the Cardano node. Set the include_ancillary entry to true in the DownloadUnpackOptions.");
+            slog::warn!(
+                self.logger,
+                "The fast bootstrap of the Cardano node is not available with the current parameters used in this command: the ledger state will be recomputed from genesis at startup of the Cardano node. Set the include_ancillary entry to true in the DownloadUnpackOptions."
+            );
         }
 
         // Return the result later so unexpected file removal is always run
         let download_result = self
             .batch_download_unpack(tasks, download_unpack_options.max_parallel_downloads)
             .await;
-        expected_files_after_download
-            .remove_unexpected_files()
-            .await?;
+        expected_files_after_download.remove_unexpected_files().await?;
         download_result?;
 
         create_bootstrap_node_files(&self.logger, target_dir, &cardano_database_snapshot.network)?;
@@ -538,11 +539,7 @@ mod tests {
         use super::*;
 
         fn fake_ancillary_verifier() -> AncillaryVerifier {
-            AncillaryVerifier::new(
-                fake_keys::manifest_verification_key()[0]
-                    .try_into()
-                    .unwrap(),
-            )
+            AncillaryVerifier::new(fake_keys::manifest_verification_key()[0].try_into().unwrap())
         }
 
         #[tokio::test]

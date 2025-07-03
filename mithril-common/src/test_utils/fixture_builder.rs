@@ -1,11 +1,11 @@
-use kes_summed_ed25519::{kes::Sum6Kes, traits::KesSk, PublicKey as KesPublicKey};
+use kes_summed_ed25519::{PublicKey as KesPublicKey, kes::Sum6Kes, traits::KesSk};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
 use crate::{
     crypto_helper::{
-        tests_setup, tests_setup::setup_temp_directory_for_signer, ColdKeyGenerator, OpCert,
-        ProtocolStakeDistribution, SerDeShelleyFileFormat, Sum6KesBytes,
+        ColdKeyGenerator, OpCert, ProtocolStakeDistribution, SerDeShelleyFileFormat, Sum6KesBytes,
+        tests_setup, tests_setup::setup_temp_directory_for_signer,
     },
     entities::{PartyId, ProtocolParameters, Stake, StakeDistribution},
     test_utils::{fake_data, mithril_fixture::MithrilFixture},
@@ -268,9 +268,7 @@ mod tests {
             .stake_distribution();
 
         assert!(
-            stake_distribution
-                .iter()
-                .all(|(_, stake)| *stake == expected_stake),
+            stake_distribution.iter().all(|(_, stake)| *stake == expected_stake),
             "Generated stake distribution doesn't have uniform stakes: {stake_distribution:?}"
         );
     }

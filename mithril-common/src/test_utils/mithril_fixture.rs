@@ -7,6 +7,7 @@ use std::{
 };
 
 use crate::{
+    StdResult,
     certificate_chain::CertificateGenesisProducer,
     crypto_helper::{
         ProtocolAggregateVerificationKey, ProtocolClosedKeyRegistration, ProtocolGenesisSigner,
@@ -18,7 +19,6 @@ use crate::{
         Signer, SignerWithStake, SingleSignature, Stake, StakeDistribution, StakeDistributionParty,
     },
     protocol::{SignerBuilder, ToMessage},
-    StdResult,
 };
 
 /// A fixture of Mithril data types.
@@ -132,11 +132,7 @@ impl MithrilFixture {
 
     /// Get the fixture signers with stake.
     pub fn signers_with_stake(&self) -> Vec<SignerWithStake> {
-        self.signers
-            .iter()
-            .map(|s| &s.signer_with_stake)
-            .cloned()
-            .collect()
+        self.signers.iter().map(|s| &s.signer_with_stake).cloned().collect()
     }
 
     /// Get certificate metadata signers
@@ -223,10 +219,7 @@ impl MithrilFixture {
     /// Make all underlying signers sign the given message, filter the resulting list to remove
     /// the signers that did not sign because they loosed the lottery.
     pub fn sign_all<T: ToMessage>(&self, message: &T) -> Vec<SingleSignature> {
-        self.signers
-            .par_iter()
-            .filter_map(|s| s.sign(message))
-            .collect()
+        self.signers.par_iter().filter_map(|s| s.sign(message)).collect()
     }
 }
 
@@ -252,17 +245,15 @@ impl SignerFixture {
     /// Sign the given protocol message.
     pub fn sign<T: ToMessage>(&self, message: &T) -> Option<SingleSignature> {
         let message = message.to_message();
-        self.protocol_signer
-            .sign(message.as_bytes())
-            .map(|signature| {
-                let won_indexes = signature.indexes.clone();
+        self.protocol_signer.sign(message.as_bytes()).map(|signature| {
+            let won_indexes = signature.indexes.clone();
 
-                SingleSignature::new(
-                    self.signer_with_stake.party_id.to_owned(),
-                    signature.into(),
-                    won_indexes,
-                )
-            })
+            SingleSignature::new(
+                self.signer_with_stake.party_id.to_owned(),
+                signature.into(),
+                won_indexes,
+            )
+        })
     }
 
     /// Shortcut to get the party id from the inner signer with stake

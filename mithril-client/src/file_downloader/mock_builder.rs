@@ -8,9 +8,9 @@ use sha2::{Digest, Sha256};
 
 use mithril_cardano_node_internal_database::entities::AncillaryFilesManifest;
 use mithril_common::{
+    StdResult,
     crypto_helper::ManifestSigner,
     entities::{CompressionAlgorithm, FileUri},
-    StdResult,
 };
 
 use super::{DownloadEvent, FileDownloaderUri, MockFileDownloader};
@@ -91,9 +91,7 @@ impl MockFileDownloaderBuilder {
     ) -> Self {
         self.with_returning(Box::new(move |_, _, target_dir: &Path, _, _| {
             for filename in [
-                fake_ancillary_file_builder
-                    .files_in_manifest_to_create
-                    .as_slice(),
+                fake_ancillary_file_builder.files_in_manifest_to_create.as_slice(),
                 fake_ancillary_file_builder
                     .files_not_in_manifest_to_create
                     .as_ref()
@@ -178,10 +176,7 @@ impl MockFileDownloaderBuilder {
                 .unwrap_or(true)
         });
         let predicate_target_dir = predicate::function(move |u| {
-            self.param_target_dir
-                .as_ref()
-                .map(|x| x == u)
-                .unwrap_or(true)
+            self.param_target_dir.as_ref().map(|x| x == u).unwrap_or(true)
         });
         let predicate_compression_algorithm = predicate::function(move |u| {
             self.param_compression_algorithm
@@ -272,9 +267,7 @@ mod tests {
         verifier
             .verify(
                 &ancillary_manifest.compute_hash(),
-                &ancillary_manifest
-                    .signature()
-                    .expect("Manifest should be signed"),
+                &ancillary_manifest.signature().expect("Manifest should be signed"),
             )
             .expect("Signed manifest should have a valid signature");
 

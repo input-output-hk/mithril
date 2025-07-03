@@ -2,7 +2,7 @@ use std::fmt;
 use std::io;
 use std::sync::{Arc, RwLock};
 
-use slog::{Drain, OwnedKVList, Record, KV};
+use slog::{Drain, KV, OwnedKVList, Record};
 
 /// A testing infrastructure for logging that consists of two main components:
 /// - [MemoryDrainForTest]: A slog Drain that stores records in memory
@@ -210,9 +210,7 @@ mod tests {
         let results = log_inspector.search_logs("multi thread test");
         assert_eq!(results.len(), 10);
         for i in 0..10 {
-            assert!(results
-                .iter()
-                .any(|r| r.contains(&format!("multi thread test {i}"))));
+            assert!(results.iter().any(|r| r.contains(&format!("multi thread test {i}"))));
         }
     }
 }

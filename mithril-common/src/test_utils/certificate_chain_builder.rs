@@ -14,7 +14,7 @@ use crate::{
         CardanoDbBeacon, Certificate, CertificateMetadata, CertificateSignature, Epoch,
         ProtocolMessage, ProtocolMessagePartKey, SignedEntityType,
     },
-    test_utils::{fake_data, MithrilFixture, MithrilFixtureBuilder, SignerFixture},
+    test_utils::{MithrilFixture, MithrilFixtureBuilder, SignerFixture, fake_data},
 };
 
 /// Genesis certificate processor function type. For tests only.
@@ -122,11 +122,7 @@ impl DerefMut for CertificateChainFixture {
 
 impl<C: From<Certificate>> From<CertificateChainFixture> for Vec<C> {
     fn from(fixture: CertificateChainFixture) -> Self {
-        fixture
-            .certificates_chained
-            .into_iter()
-            .map(C::from)
-            .collect()
+        fixture.certificates_chained.into_iter().map(C::from).collect()
     }
 }
 
@@ -392,7 +388,9 @@ impl<'a> CertificateChainBuilder<'a> {
         (1..=total_epochs_in_sequence).map(Epoch)
     }
 
-    fn build_certificate_index_and_epoch_sequence(&self) -> impl Iterator<Item = (usize, Epoch)> + use<> {
+    fn build_certificate_index_and_epoch_sequence(
+        &self,
+    ) -> impl Iterator<Item = (usize, Epoch)> + use<> {
         let total_certificates = self.total_certificates as usize;
         let certificates_per_epoch = self.certificates_per_epoch as usize;
 
@@ -497,10 +495,7 @@ impl<'a> CertificateChainBuilder<'a> {
         let single_signatures = fixture
             .signers_fixture()
             .iter()
-            .filter_map(|s| {
-                s.protocol_signer
-                    .sign(certificate.signed_message.as_bytes())
-            })
+            .filter_map(|s| s.protocol_signer.sign(certificate.signed_message.as_bytes()))
             .collect::<Vec<_>>();
         let clerk = CertificateChainBuilder::compute_clerk_for_signers(&fixture.signers_fixture());
         let multi_signature = clerk
@@ -523,9 +518,8 @@ impl<'a> CertificateChainBuilder<'a> {
         previous_certificate: Option<&Certificate>,
     ) -> Certificate {
         let mut certificate = certificate;
-        certificate.previous_hash = previous_certificate
-            .map(|c| c.hash.to_string())
-            .unwrap_or_default();
+        certificate.previous_hash =
+            previous_certificate.map(|c| c.hash.to_string()).unwrap_or_default();
         certificate.hash = certificate.compute_hash();
 
         certificate
@@ -891,10 +885,7 @@ mod test {
         assert_eq!(expected_signed_message, standard_certificate.signed_message);
         assert_eq!(
             avk,
-            standard_certificate
-                .aggregate_verification_key
-                .to_json_hex()
-                .unwrap()
+            standard_certificate.aggregate_verification_key.to_json_hex().unwrap()
         );
     }
 
@@ -1065,17 +1056,13 @@ mod test {
 
         #[test]
         fn get_genesis_certificate() {
-            let chain_with_only_a_genesis = CertificateChainBuilder::new()
-                .with_total_certificates(1)
-                .build();
+            let chain_with_only_a_genesis =
+                CertificateChainBuilder::new().with_total_certificates(1).build();
             assert!(chain_with_only_a_genesis.genesis_certificate().is_genesis());
 
-            let chain_with_multiple_certificates = CertificateChainBuilder::new()
-                .with_total_certificates(10)
-                .build();
-            assert!(chain_with_multiple_certificates
-                .genesis_certificate()
-                .is_genesis());
+            let chain_with_multiple_certificates =
+                CertificateChainBuilder::new().with_total_certificates(10).build();
+            assert!(chain_with_multiple_certificates.genesis_certificate().is_genesis());
         }
 
         #[test]
@@ -1098,12 +1085,8 @@ mod test {
                 .with_certificates_per_epoch(3)
                 .build();
 
-            let expected_subchain = vec![
-                chain[1].clone(),
-                chain[4].clone(),
-                chain[7].clone(),
-                chain[8].clone(),
-            ];
+            let expected_subchain =
+                vec![chain[1].clone(), chain[4].clone(), chain[7].clone(), chain[8].clone()];
             assert_eq!(
                 chain.certificate_path_to_genesis(&chain[1].hash),
                 expected_subchain
@@ -1117,12 +1100,8 @@ mod test {
                 .with_certificates_per_epoch(2)
                 .build();
 
-            let expected: Vec<Certificate> = chain
-                .certificates_chained
-                .clone()
-                .into_iter()
-                .rev()
-                .collect();
+            let expected: Vec<Certificate> =
+                chain.certificates_chained.clone().into_iter().rev().collect();
             assert_eq!(chain.reversed_chain(), expected);
         }
     }

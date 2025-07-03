@@ -2,7 +2,7 @@ use std::ops::RangeInclusive;
 
 use anyhow::anyhow;
 
-use mithril_common::{entities::ImmutableFileNumber, StdResult};
+use mithril_common::{StdResult, entities::ImmutableFileNumber};
 
 /// Immutable file range representation
 #[derive(Debug, Eq, PartialEq)]

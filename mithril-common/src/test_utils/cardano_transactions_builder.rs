@@ -166,10 +166,7 @@ mod test {
     {
         let mut grouped_by_block = HashMap::new();
         for t in list {
-            grouped_by_block
-                .entry(extract_value(t))
-                .or_insert(Vec::new())
-                .push(t);
+            grouped_by_block.entry(extract_value(t)).or_insert(Vec::new()).push(t);
         }
         grouped_by_block
     }
@@ -190,8 +187,8 @@ mod test {
     }
 
     #[test]
-    fn return_all_transactions_in_same_block_when_ask_less_transactions_than_transactions_per_block(
-    ) {
+    fn return_all_transactions_in_same_block_when_ask_less_transactions_than_transactions_per_block()
+     {
         let txs = CardanoTransactionsBuilder::new()
             .max_transactions_per_block(10)
             .build_transactions(3);
