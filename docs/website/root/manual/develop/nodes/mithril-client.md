@@ -637,6 +637,12 @@ Here is a list of the available parameters:
 
 `tools utxo-hd snapshot-converter` command:
 
+:::warning
+
+This command is not compatible with **Linux ARM environments**.
+
+:::
+
 | Parameter              | Command line (long)      | Command line (short) | Environment variable | Description                                                                                                                                             | Default value | Example  |     Mandatory      |
 | ---------------------- | ------------------------ | :------------------: | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | -------- | :----------------: |
 | `db_directory`         | `--db-directory`         |          -           | -                    | Path to the Cardano node database directory                                                                                                             | -             | -        | :heavy_check_mark: |
