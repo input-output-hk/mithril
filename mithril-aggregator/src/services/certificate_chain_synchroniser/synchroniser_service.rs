@@ -12,7 +12,7 @@
 //!    - if valid, store it in an in-memory FIFO list
 //!    - if invalid, abort with an `Err`
 //! 3. Repeat step 2. with each parent of the certificate until the genesis certificate is reached
-//! 4. Store the fetched certificates in the database, for each certificate:
+//! 4. Store the fetched certificates in the database, from genesis to latest, for each certificate:
 //!    - if it exists in the database, it is replaced
 //!    - if it doesn't exist, it is inserted
 //! 5. End
@@ -20,6 +20,7 @@
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use slog::{Logger, debug, info};
+use std::collections::VecDeque;
 use std::sync::Arc;
 
 use mithril_common::StdResult;
@@ -106,7 +107,9 @@ impl MithrilCertificateChainSynchronizer {
         &self,
         starting_point: Certificate,
     ) -> StdResult<Vec<Certificate>> {
-        let mut validated_certificates = Vec::new();
+        // IMPORTANT: Order matters, certificates must be ordered from genesis to latest
+        // (fetched database data is returned from last inserted to oldest)
+        let mut validated_certificates = VecDeque::new();
         let mut certificate = starting_point;
 
         loop {
@@ -117,7 +120,7 @@ impl MithrilCertificateChainSynchronizer {
                 .with_context(
                     || format!("Failed to verify certificate: `{}`", certificate.hash,),
                 )?;
-            validated_certificates.push(certificate);
+            validated_certificates.push_front(certificate);
 
             match parent_certificate {
                 None => break,
@@ -127,7 +130,7 @@ impl MithrilCertificateChainSynchronizer {
             }
         }
 
-        Ok(validated_certificates)
+        Ok(validated_certificates.into())
     }
 
     async fn store_certificate_chain(&self, certificate_chain: Vec<Certificate>) -> StdResult<()> {
@@ -445,6 +448,8 @@ mod tests {
     }
 
     mod retrieve_validate_remote_certificate_chain {
+        use mockall::predicate::{always, eq};
+
         use super::*;
 
         #[tokio::test]
@@ -494,8 +499,57 @@ mod tests {
                 .await
                 .unwrap();
 
-            let expected = chain.certificate_path_to_genesis(&starting_point.hash);
+            let mut expected = chain.certificate_path_to_genesis(&starting_point.hash);
+            expected.reverse();
             assert_eq!(remote_certificate_chain, expected);
+        }
+
+        #[tokio::test]
+        async fn return_chain_ordered_from_genesis_to_latest() {
+            let base_certificate = fake_data::certificate("whatever");
+            let chain = vec![
+                fake_data::genesis_certificate("genesis"),
+                Certificate {
+                    hash: "hash1".to_string(),
+                    previous_hash: "genesis".to_string(),
+                    ..base_certificate.clone()
+                },
+                Certificate {
+                    hash: "hash2".to_string(),
+                    previous_hash: "hash1".to_string(),
+                    ..base_certificate
+                },
+            ];
+            let synchroniser = MithrilCertificateChainSynchronizer {
+                certificate_verifier: MockBuilder::<MockCertificateVerifier>::configure(|mock| {
+                    let cert_1 = chain[1].clone();
+                    mock.expect_verify_certificate()
+                        .with(eq(chain[2].clone()), always())
+                        .return_once(move |_, _| Ok(Some(cert_1)));
+                    let genesis = chain[0].clone();
+                    mock.expect_verify_certificate()
+                        .with(eq(chain[1].clone()), always())
+                        .return_once(move |_, _| Ok(Some(genesis)));
+                    mock.expect_verify_certificate()
+                        .with(eq(chain[0].clone()), always())
+                        .return_once(move |_, _| Ok(None));
+                }),
+                ..MithrilCertificateChainSynchronizer::default_for_test()
+            };
+
+            let starting_point = chain[2].clone();
+            let remote_certificate_chain = synchroniser
+                .retrieve_and_validate_remote_certificate_chain(starting_point.clone())
+                .await
+                .unwrap();
+
+            assert_eq!(
+                remote_certificate_chain
+                    .into_iter()
+                    .map(|c| c.hash)
+                    .collect::<Vec<_>>(),
+                vec!["genesis".to_string(), "hash1".to_string(), "hash2".to_string()]
+            );
         }
     }
 
@@ -579,10 +633,10 @@ mod tests {
             // Will sync even if force is false
             synchroniser.synchronize_certificate_chain(false).await.unwrap();
 
-            assert_eq!(
-                remote_chain.certificate_path_to_genesis(&remote_chain.latest_certificate().hash),
-                storer.stored_certificates()
-            );
+            let mut expected =
+                remote_chain.certificate_path_to_genesis(&remote_chain.latest_certificate().hash);
+            expected.reverse();
+            assert_eq!(expected, storer.stored_certificates());
         }
 
         #[tokio::test]
@@ -607,10 +661,10 @@ mod tests {
             // Force true - will sync
             synchroniser.synchronize_certificate_chain(true).await.unwrap();
 
-            assert_eq!(
-                remote_chain.certificate_path_to_genesis(&remote_chain.latest_certificate().hash),
-                storer.stored_certificates()
-            );
+            let mut expected =
+                remote_chain.certificate_path_to_genesis(&remote_chain.latest_certificate().hash);
+            expected.reverse();
+            assert_eq!(expected, storer.stored_certificates());
         }
     }
 }
