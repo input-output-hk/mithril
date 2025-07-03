@@ -71,7 +71,8 @@ pub mod common {
         AncillaryLocation, BlockHash, BlockNumber, CardanoDbBeacon, ChainPoint,
         CompressionAlgorithm, DigestLocation, Epoch, ImmutableFileNumber, ImmutablesLocation,
         MultiFilesUri, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
-        SignedEntityType, SlotNumber, StakeDistribution, TemplateUri, TransactionHash,
+        SignedEntityType, SlotNumber, StakeDistribution, SupportedEra, TemplateUri,
+        TransactionHash,
     };
     pub use mithril_common::messages::{
         AncillaryMessagePart, DigestsMessagePart, ImmutablesMessagePart,
