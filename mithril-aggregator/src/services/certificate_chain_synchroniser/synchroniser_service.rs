@@ -15,10 +15,13 @@
 //! 4. Store the fetched certificates in the database, from genesis to latest, for each certificate:
 //!    - if it exists in the database, it is replaced
 //!    - if it doesn't exist, it is inserted
-//! 5. End
+//! 5. Create a certified open message in the database, based on the latest certificate and with a
+//!    MithrilStakeDistribution signed entity type
+//! 6. End
 //!
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
+use chrono::Utc;
 use slog::{Logger, debug, info};
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -26,11 +29,14 @@ use std::sync::Arc;
 use mithril_common::StdResult;
 use mithril_common::certificate_chain::CertificateVerifier;
 use mithril_common::crypto_helper::ProtocolGenesisVerifier;
-use mithril_common::entities::Certificate;
+use mithril_common::entities::{Certificate, SignedEntityType};
 use mithril_common::logging::LoggerExtensions;
 
+use crate::entities::OpenMessage;
+
 use super::{
-    CertificateChainSynchronizer, RemoteCertificateRetriever, SynchronizedCertificateStorer,
+    CertificateChainSynchronizer, OpenMessageStorer, RemoteCertificateRetriever,
+    SynchronizedCertificateStorer,
 };
 
 /// Service that synchronizes the certificate chain with a remote aggregator
@@ -39,6 +45,7 @@ pub struct MithrilCertificateChainSynchronizer {
     certificate_storer: Arc<dyn SynchronizedCertificateStorer>,
     certificate_verifier: Arc<dyn CertificateVerifier>,
     genesis_verifier: Arc<ProtocolGenesisVerifier>,
+    open_message_storer: Arc<dyn OpenMessageStorer>,
     logger: Logger,
 }
 
@@ -68,6 +75,7 @@ impl MithrilCertificateChainSynchronizer {
         certificate_storer: Arc<dyn SynchronizedCertificateStorer>,
         certificate_verifier: Arc<dyn CertificateVerifier>,
         genesis_verifier: Arc<ProtocolGenesisVerifier>,
+        open_message_storer: Arc<dyn OpenMessageStorer>,
         logger: Logger,
     ) -> Self {
         Self {
@@ -75,6 +83,7 @@ impl MithrilCertificateChainSynchronizer {
             certificate_storer,
             certificate_verifier,
             genesis_verifier,
+            open_message_storer,
             logger: logger.new_with_component_name::<Self>(),
         }
     }
@@ -164,6 +173,7 @@ impl CertificateChainSynchronizer for MithrilCertificateChainSynchronizer {
                 anyhow!("Remote aggregator doesn't have a chain yet")
                     .context("Failed to retrieve latest remote certificate details"),
             )?;
+        let open_message = prepare_open_message_to_store(&starting_point);
         let remote_certificate_chain = self
             .retrieve_and_validate_remote_certificate_chain(starting_point)
             .await
@@ -171,12 +181,29 @@ impl CertificateChainSynchronizer for MithrilCertificateChainSynchronizer {
         self.store_certificate_chain(remote_certificate_chain)
             .await
             .with_context(|| "Failed to store remote retrieved certificate chain")?;
+        self.open_message_storer
+            .insert_or_replace_open_message(open_message)
+            .await
+            .with_context(|| "Failed to store open message when synchronizing certificate chain")?;
 
         info!(
             self.logger,
             "Certificate chain synchronized with remote source"
         );
         Ok(())
+    }
+}
+
+fn prepare_open_message_to_store(latest_certificate: &Certificate) -> OpenMessage {
+    OpenMessage {
+        epoch: latest_certificate.epoch,
+        signed_entity_type: SignedEntityType::MithrilStakeDistribution(latest_certificate.epoch),
+        protocol_message: latest_certificate.protocol_message.clone(),
+        is_certified: true,
+        is_expired: false,
+        single_signatures: Vec::new(),
+        created_at: Utc::now(),
+        expires_at: None,
     }
 }
 
@@ -194,7 +221,9 @@ mod tests {
         mock_extensions::MockBuilder,
     };
 
-    use crate::services::{MockRemoteCertificateRetriever, MockSynchronizedCertificateStorer};
+    use crate::services::{
+        MockOpenMessageStorer, MockRemoteCertificateRetriever, MockSynchronizedCertificateStorer,
+    };
     use crate::test_tools::TestLogger;
 
     use super::*;
@@ -240,6 +269,7 @@ mod tests {
                 Arc::new(ProtocolGenesisVerifier::from_verification_key(
                     genesis_verification_key,
                 )),
+                Arc::new(MockOpenMessageStorer::new()),
                 TestLogger::stdout(),
             )
         }
@@ -599,6 +629,8 @@ mod tests {
     }
 
     mod synchronize_certificate_chain {
+        use mockall::predicate::function;
+
         use super::*;
 
         fn build_synchroniser(
@@ -617,6 +649,17 @@ mod tests {
                             .return_once(move || Ok(Some(latest)));
                     }),
                 certificate_verifier: fake_verifier(remote_chain),
+                open_message_storer: MockBuilder::<MockOpenMessageStorer>::configure(|mock| {
+                    // Ensure that `store_open_message` is called
+                    let expected_msd_epoch = remote_chain.latest_certificate().epoch;
+                    mock.expect_insert_or_replace_open_message()
+                        .with(function(move |open_message: &OpenMessage| {
+                            open_message.signed_entity_type
+                                == SignedEntityType::MithrilStakeDistribution(expected_msd_epoch)
+                        }))
+                        .times(1..)
+                        .returning(|_| Ok(()));
+                }),
                 ..MithrilCertificateChainSynchronizer::default_for_test()
             }
         }
