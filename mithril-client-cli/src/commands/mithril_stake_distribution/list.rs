@@ -11,8 +11,7 @@ pub struct MithrilStakeDistributionListCommand {}
 impl MithrilStakeDistributionListCommand {
     /// Main command execution
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
-        let params = context.config_parameters()?;
-        let client = client_builder_with_fallback_genesis_key(&params)?
+        let client = client_builder_with_fallback_genesis_key(context.config_parameters())?
             .with_logger(context.logger().clone())
             .build()?;
         let lines = client.mithril_stake_distribution().list().await?;

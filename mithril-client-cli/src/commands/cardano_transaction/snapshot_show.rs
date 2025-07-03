@@ -17,8 +17,7 @@ pub struct CardanoTransactionsSnapshotShowCommand {
 impl CardanoTransactionsSnapshotShowCommand {
     /// Cardano transaction snapshot Show command
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
-        let params = context.config_parameters()?;
-        let client = client_builder_with_fallback_genesis_key(&params)?
+        let client = client_builder_with_fallback_genesis_key(context.config_parameters())?
             .with_logger(context.logger().clone())
             .build()?;
 

@@ -18,7 +18,6 @@ use crate::{
         cardano_db::{download::DB_DIRECTORY_NAME, shared_steps},
         client_builder,
     },
-    configuration::ConfigParameters,
     utils::{
         CardanoDbDownloadChecker, CardanoDbUtils, ExpanderUtils, IndicatifFeedbackReceiver,
         ProgressOutputType, ProgressPrinter,
@@ -46,11 +45,7 @@ pub(super) struct PreparedCardanoDbV2Download {
 }
 
 impl PreparedCardanoDbV2Download {
-    pub async fn execute(
-        &self,
-        context: &CommandContext,
-        params: ConfigParameters,
-    ) -> MithrilResult<()> {
+    pub async fn execute(&self, context: &CommandContext) -> MithrilResult<()> {
         let restoration_options = RestorationOptions {
             db_dir: Path::new(&self.download_dir).join(DB_DIRECTORY_NAME),
             immutable_file_range: shared_steps::immutable_file_range(self.start, self.end),
@@ -68,7 +63,7 @@ impl PreparedCardanoDbV2Download {
             ProgressOutputType::Tty
         };
         let progress_printer = ProgressPrinter::new(progress_output_type, 6);
-        let client = client_builder(&params)?
+        let client = client_builder(context.config_parameters())?
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
                 progress_output_type,
                 context.logger().clone(),

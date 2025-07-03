@@ -30,8 +30,8 @@ pub struct CardanoTransactionsCertifyCommand {
 
 impl CardanoTransactionsCertifyCommand {
     /// Cardano transaction certify command
-    pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
-        let params = context.config_parameters()?.add_source(self)?;
+    pub async fn execute(&self, mut context: CommandContext) -> MithrilResult<()> {
+        context.config_parameters_mut().add_source(self)?;
         let logger = context.logger();
 
         let progress_output_type = if context.is_json_output_enabled() {
@@ -40,7 +40,7 @@ impl CardanoTransactionsCertifyCommand {
             ProgressOutputType::Tty
         };
         let progress_printer = ProgressPrinter::new(progress_output_type, 4);
-        let client = client_builder(&params)?
+        let client = client_builder(context.config_parameters())?
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
                 progress_output_type,
                 logger.clone(),

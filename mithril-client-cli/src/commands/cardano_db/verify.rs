@@ -15,7 +15,7 @@ use crate::{
         cardano_db::{CardanoDbCommandsBackend, shared_steps},
         client_builder,
     },
-    configuration::{ConfigError, ConfigParameters, ConfigSource},
+    configuration::{ConfigError, ConfigSource},
     utils::{self, ExpanderUtils, IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter},
 };
 
@@ -41,24 +41,20 @@ pub struct CardanoDbVerifyCommand {
 
 impl CardanoDbVerifyCommand {
     /// Main command execution
-    pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
+    pub async fn execute(&self, mut context: CommandContext) -> MithrilResult<()> {
         match self.backend {
             CardanoDbCommandsBackend::V1 => Err(anyhow::anyhow!(
                 r#"The "verify" subcommand is not available for the v1, use --backend v2 instead"#,
             )),
             CardanoDbCommandsBackend::V2 => {
-                let params = context.config_parameters()?.add_source(self)?;
-                self.verify(&context, params).await
+                context.config_parameters_mut().add_source(self)?;
+                self.verify(&context).await
             }
         }
     }
 
-    async fn verify(
-        &self,
-        context: &CommandContext,
-        params: ConfigParameters,
-    ) -> MithrilResult<()> {
-        let db_dir = params.require("db_dir")?;
+    async fn verify(&self, context: &CommandContext) -> MithrilResult<()> {
+        let db_dir = context.config_parameters().require("db_dir")?;
         let db_dir = Path::new(&db_dir);
 
         let progress_output_type = if context.is_json_output_enabled() {
@@ -67,7 +63,7 @@ impl CardanoDbVerifyCommand {
             ProgressOutputType::Tty
         };
         let progress_printer = ProgressPrinter::new(progress_output_type, 4);
-        let client = client_builder(&params)?
+        let client = client_builder(context.config_parameters())?
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
                 progress_output_type,
                 context.logger().clone(),

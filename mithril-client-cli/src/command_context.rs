@@ -1,8 +1,5 @@
 use anyhow::anyhow;
-use config::ConfigBuilder;
-use config::builder::DefaultState;
 use slog::Logger;
-use std::collections::HashMap;
 
 use mithril_client::MithrilResult;
 
@@ -10,7 +7,7 @@ use crate::configuration::ConfigParameters;
 
 /// Context for the command execution
 pub struct CommandContext {
-    config_builder: ConfigBuilder<DefaultState>,
+    config_parameters: ConfigParameters,
     unstable_enabled: bool,
     json: bool,
     logger: Logger,
@@ -19,13 +16,13 @@ pub struct CommandContext {
 impl CommandContext {
     /// Create a new command context
     pub fn new(
-        config_builder: ConfigBuilder<DefaultState>,
+        config_parameters: ConfigParameters,
         unstable_enabled: bool,
         json: bool,
         logger: Logger,
     ) -> Self {
         Self {
-            config_builder,
+            config_parameters,
             unstable_enabled,
             json,
             logger,
@@ -59,11 +56,14 @@ impl CommandContext {
         }
     }
 
-    /// Get the configured parameters
-    pub fn config_parameters(&self) -> MithrilResult<ConfigParameters> {
-        let config = self.config_builder.clone().build()?;
-        let config_hash_map = config.try_deserialize::<HashMap<String, String>>()?;
-        Ok(ConfigParameters::new(config_hash_map))
+    /// Get a reference to the configured parameters
+    pub fn config_parameters(&self) -> &ConfigParameters {
+        &self.config_parameters
+    }
+
+    /// Get a mutable reference to the configured parameters
+    pub fn config_parameters_mut(&mut self) -> &mut ConfigParameters {
+        &mut self.config_parameters
     }
 
     /// Get the shared logger
@@ -75,6 +75,9 @@ impl CommandContext {
 #[cfg(test)]
 mod tests {
     use slog::o;
+    use std::collections::HashMap;
+
+    use crate::configuration::{ConfigError, ConfigSource};
 
     use super::*;
 
@@ -82,7 +85,7 @@ mod tests {
     fn require_unstable_return_ok_if_unstable_enabled() {
         let unstable_enabled = true;
         let context = CommandContext::new(
-            ConfigBuilder::default(),
+            ConfigParameters::default(),
             unstable_enabled,
             true,
             Logger::root(slog::Discard, o!()),
@@ -96,7 +99,7 @@ mod tests {
     fn require_unstable_return_err_if_unstable_disabled() {
         let unstable_enabled = false;
         let context = CommandContext::new(
-            ConfigBuilder::default(),
+            ConfigParameters::default(),
             unstable_enabled,
             true,
             Logger::root(slog::Discard, o!()),
@@ -104,5 +107,40 @@ mod tests {
 
         let result = context.require_unstable("test", None);
         assert!(result.is_err(), "Expected Err, got {result:?}");
+    }
+
+    #[test]
+    fn can_edit_config_parameters() {
+        struct ParamSource {
+            key: String,
+            value: String,
+        }
+        impl ConfigSource for ParamSource {
+            fn collect(&self) -> Result<HashMap<String, String>, ConfigError> {
+                Ok(HashMap::from([(self.key.clone(), self.value.clone())]))
+            }
+        }
+
+        let mut context = CommandContext::new(
+            ConfigParameters::default(),
+            false,
+            true,
+            Logger::root(slog::Discard, o!()),
+        );
+
+        assert_eq!(context.config_parameters_mut().get("key"), None,);
+
+        context
+            .config_parameters_mut()
+            .add_source(&ParamSource {
+                key: "key".to_string(),
+                value: "value".to_string(),
+            })
+            .unwrap();
+
+        assert_eq!(
+            context.config_parameters_mut().get("key"),
+            Some("value".to_string())
+        );
     }
 }

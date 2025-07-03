@@ -10,7 +10,7 @@ use std::{collections::HashMap, path::PathBuf};
 use crate::{
     CommandContext,
     commands::cardano_db::CardanoDbCommandsBackend,
-    configuration::{ConfigError, ConfigParameters, ConfigSource},
+    configuration::{ConfigError, ConfigSource},
     utils::{self, JSON_CAUTION_KEY},
 };
 use mithril_client::{MithrilResult, common::ImmutableFileNumber};
@@ -71,33 +71,29 @@ pub struct CardanoDbDownloadCommand {
 
 impl CardanoDbDownloadCommand {
     /// Command execution
-    pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
-        let params = context.config_parameters()?.add_source(self)?;
+    pub async fn execute(&self, mut context: CommandContext) -> MithrilResult<()> {
+        context.config_parameters_mut().add_source(self)?;
 
         match self.backend {
             CardanoDbCommandsBackend::V1 => {
-                let prepared_command = self.prepare_v1(&params, &context)?;
-                prepared_command.execute(&context, params).await
+                let prepared_command = self.prepare_v1(&context)?;
+                prepared_command.execute(&context).await
             }
             CardanoDbCommandsBackend::V2 => {
-                let prepared_command = self.prepare_v2(&params, &context)?;
-                prepared_command.execute(&context, params).await
+                let prepared_command = self.prepare_v2(&context)?;
+                prepared_command.execute(&context).await
             }
         }
     }
 
-    fn prepare_v1(
-        &self,
-        params: &ConfigParameters,
-        context: &CommandContext,
-    ) -> MithrilResult<PreparedCardanoDbV1Download> {
+    fn prepare_v1(&self, context: &CommandContext) -> MithrilResult<PreparedCardanoDbV1Download> {
         if self.allow_override || self.start.is_some() || self.end.is_some() {
             self.warn_unused_parameter_with_v1_backend(context);
         }
 
         let ancillary_verification_key = if self.include_ancillary {
             self.warn_ancillary_not_signed_by_mithril(context);
-            Some(params.require("ancillary_verification_key")?)
+            Some(context.config_parameters().require("ancillary_verification_key")?)
         } else {
             self.warn_fast_bootstrap_not_available(context);
             None
@@ -105,20 +101,16 @@ impl CardanoDbDownloadCommand {
 
         Ok(PreparedCardanoDbV1Download {
             digest: self.digest.clone(),
-            download_dir: params.require("download_dir")?,
+            download_dir: context.config_parameters().require("download_dir")?,
             include_ancillary: self.include_ancillary,
             ancillary_verification_key,
         })
     }
 
-    fn prepare_v2(
-        &self,
-        params: &ConfigParameters,
-        context: &CommandContext,
-    ) -> MithrilResult<PreparedCardanoDbV2Download> {
+    fn prepare_v2(&self, context: &CommandContext) -> MithrilResult<PreparedCardanoDbV2Download> {
         let ancillary_verification_key = if self.include_ancillary {
             self.warn_ancillary_not_signed_by_mithril(context);
-            Some(params.require("ancillary_verification_key")?)
+            Some(context.config_parameters().require("ancillary_verification_key")?)
         } else {
             self.warn_fast_bootstrap_not_available(context);
             None
@@ -126,7 +118,7 @@ impl CardanoDbDownloadCommand {
 
         Ok(PreparedCardanoDbV2Download {
             hash: self.digest.clone(),
-            download_dir: params.require("download_dir")?,
+            download_dir: context.config_parameters().require("download_dir")?,
             start: self.start,
             end: self.end,
             include_ancillary: self.include_ancillary,
@@ -217,8 +209,9 @@ impl ConfigSource for CardanoDbDownloadCommand {
 
 #[cfg(test)]
 mod tests {
-    use config::ConfigBuilder;
     use slog::Logger;
+
+    use crate::ConfigParameters;
 
     use super::*;
 
@@ -244,7 +237,7 @@ mod tests {
             ..dummy_command()
         };
         let command_context = CommandContext::new(
-            ConfigBuilder::default(),
+            ConfigParameters::default(),
             false,
             true,
             Logger::root(slog::Discard, slog::o!()),
@@ -268,18 +261,15 @@ mod tests {
                 ancillary_verification_key: None,
                 ..dummy_command()
             };
-            let config = config::Config::builder()
-                .set_default("ancillary_verification_key", "value from config")
-                .expect("Failed to build config builder");
-            let command_context =
+            let config = ConfigParameters::new(HashMap::from([(
+                "ancillary_verification_key".to_string(),
+                "value from config".to_string(),
+            )]));
+            let mut command_context =
                 CommandContext::new(config, false, true, Logger::root(slog::Discard, slog::o!()));
-            let config_parameters = command_context
-                .config_parameters()
-                .unwrap()
-                .add_source(&command)
-                .unwrap();
+            command_context.config_parameters_mut().add_source(&command).unwrap();
 
-            let result = command.prepare_v1(&config_parameters, &command_context);
+            let result = command.prepare_v1(&command_context);
 
             assert!(result.is_ok());
         }
@@ -290,19 +280,16 @@ mod tests {
                 download_dir: None,
                 ..dummy_command()
             };
-            let command_context = &CommandContext::new(
-                ConfigBuilder::default(),
+            let mut command_context = CommandContext::new(
+                ConfigParameters::default(),
                 false,
                 true,
                 Logger::root(slog::Discard, slog::o!()),
             );
-            let config_parameters = command_context
-                .config_parameters()
-                .unwrap()
-                .add_source(&command)
-                .unwrap();
 
-            let result = command.prepare_v1(&config_parameters, command_context);
+            command_context.config_parameters_mut().add_source(&command).unwrap();
+
+            let result = command.prepare_v1(&command_context);
 
             assert!(result.is_err());
             assert_eq!(
@@ -321,18 +308,16 @@ mod tests {
                 ancillary_verification_key: None,
                 ..dummy_command()
             };
-            let config = config::Config::builder()
-                .set_default("ancillary_verification_key", "value from config")
-                .expect("Failed to build config builder");
-            let command_context =
+            let config = ConfigParameters::new(HashMap::from([(
+                "ancillary_verification_key".to_string(),
+                "value from config".to_string(),
+            )]));
+            let mut command_context =
                 CommandContext::new(config, false, true, Logger::root(slog::Discard, slog::o!()));
-            let config_parameters = command_context
-                .config_parameters()
-                .unwrap()
-                .add_source(&command)
-                .unwrap();
 
-            let result = command.prepare_v2(&config_parameters, &command_context);
+            command_context.config_parameters_mut().add_source(&command).unwrap();
+
+            let result = command.prepare_v2(&command_context);
 
             assert!(result.is_ok());
         }
@@ -343,19 +328,16 @@ mod tests {
                 download_dir: None,
                 ..dummy_command()
             };
-            let command_context = CommandContext::new(
-                ConfigBuilder::default(),
+            let mut command_context = CommandContext::new(
+                ConfigParameters::default(),
                 false,
                 true,
                 Logger::root(slog::Discard, slog::o!()),
             );
-            let config_parameters = command_context
-                .config_parameters()
-                .unwrap()
-                .add_source(&command)
-                .unwrap();
 
-            let result = command.prepare_v2(&config_parameters, &command_context);
+            command_context.config_parameters_mut().add_source(&command).unwrap();
+
+            let result = command.prepare_v2(&command_context);
 
             assert!(result.is_err());
             assert_eq!(

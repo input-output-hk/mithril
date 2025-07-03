@@ -2,10 +2,11 @@
 
 use anyhow::{Context, anyhow};
 use clap::{CommandFactory, Parser, Subcommand};
-use config::{ConfigBuilder, Map, Source, Value, builder::DefaultState};
+use config::{Map, Source, Value};
 use mithril_cli_helper::{register_config_value, register_config_value_option};
 use slog::{Drain, Fuse, Level, Logger, debug};
 use slog_term::Decorator;
+use std::collections::HashMap;
 use std::io::Write;
 use std::sync::Arc;
 use std::{fs::File, path::PathBuf};
@@ -19,7 +20,7 @@ use mithril_client_cli::commands::{
     cardano_transaction::CardanoTransactionCommands,
     mithril_stake_distribution::MithrilStakeDistributionCommands, tools::ToolsCommands,
 };
-use mithril_client_cli::{ClapError, CommandContext};
+use mithril_client_cli::{ClapError, CommandContext, ConfigParameters};
 
 enum LogOutputType {
     StdErr,
@@ -70,6 +71,10 @@ pub struct Args {
     #[example = "`https://aggregator.pre-release-preview.api.mithril.network/aggregator`"]
     aggregator_endpoint: Option<String>,
 
+    /// Enable JSON output for command results
+    #[clap(long, global = true)]
+    json: bool,
+
     /// Enable JSON output for logs displayed according to verbosity level
     #[clap(long)]
     log_format_json: bool,
@@ -86,9 +91,6 @@ pub struct Args {
     /// Request origin tag
     #[clap(long)]
     origin_tag: Option<String>,
-
-    #[clap(long, global = true)]
-    json: bool,
 }
 
 impl Args {
@@ -99,13 +101,9 @@ impl Args {
             env!("CARGO_PKG_VERSION")
         );
         debug!(root_logger, "Run Mode: {}", self.run_mode);
-        let filename = format!("{}/{}.json", self.config_directory.display(), self.run_mode);
-        debug!(root_logger, "Reading configuration file '{filename}'.");
-        let config: ConfigBuilder<DefaultState> = config::Config::builder()
-            .add_source(config::File::with_name(&filename).required(false))
-            .add_source(self.clone())
-            .set_default("download_dir", "")?;
-        let context = CommandContext::new(config, self.unstable, self.json, root_logger);
+
+        let config_parameters = self.config_parameters(&root_logger)?;
+        let context = CommandContext::new(config_parameters, self.unstable, self.json, root_logger);
 
         self.command.execute(context).await
     }
@@ -173,6 +171,19 @@ impl Args {
     ) -> Result<Self, ClapError> {
         let styles = Args::command().get_styles().clone();
         Deprecation::handle_deprecated_commands(args_result, styles, deprecated_commands)
+    }
+
+    fn config_parameters(&self, root_logger: &Logger) -> MithrilResult<ConfigParameters> {
+        let filename = format!("{}/{}.json", self.config_directory.display(), self.run_mode);
+        debug!(root_logger, "Reading configuration file '{filename}'.");
+        let config = config::Config::builder()
+            .add_source(config::File::with_name(&filename).required(false))
+            .add_source(self.clone())
+            .set_default("download_dir", "")?
+            .build()?;
+        let config_hash_map = config.try_deserialize::<HashMap<String, String>>()?;
+
+        Ok(ConfigParameters::new(config_hash_map))
     }
 }
 

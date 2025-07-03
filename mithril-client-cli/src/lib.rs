@@ -16,5 +16,6 @@ mod configuration;
 mod utils;
 
 pub use command_context::*;
+pub use configuration::*;
 /// Error Clap
 pub type ClapError = clap::error::Error;

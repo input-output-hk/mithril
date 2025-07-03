@@ -37,9 +37,9 @@ pub struct MithrilStakeDistributionDownloadCommand {
 
 impl MithrilStakeDistributionDownloadCommand {
     /// Main command execution
-    pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
-        let params = context.config_parameters()?.add_source(self)?;
-        let download_dir = params.get_or("download_dir", ".");
+    pub async fn execute(&self, mut context: CommandContext) -> MithrilResult<()> {
+        context.config_parameters_mut().add_source(self)?;
+        let download_dir = context.config_parameters().get_or("download_dir", ".");
         let download_dir = Path::new(&download_dir);
         let logger = context.logger();
 
@@ -49,7 +49,7 @@ impl MithrilStakeDistributionDownloadCommand {
             ProgressOutputType::Tty
         };
         let progress_printer = ProgressPrinter::new(progress_output_type, 4);
-        let client = client_builder(&params)?
+        let client = client_builder(context.config_parameters())?
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
                 progress_output_type,
                 logger.clone(),
