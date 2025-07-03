@@ -3,6 +3,8 @@ use async_trait::async_trait;
 use mithril_common::StdResult;
 use mithril_common::entities::Certificate;
 
+use crate::entities::OpenMessage;
+
 /// Define how to synchronize the certificate chain with a remote source
 #[cfg_attr(test, mockall::automock)]
 #[async_trait::async_trait]
@@ -34,4 +36,12 @@ pub trait SynchronizedCertificateStorer: Send + Sync {
 
     /// Get the latest genesis Certificate
     async fn get_latest_genesis(&self) -> StdResult<Option<Certificate>>;
+}
+
+/// Define how to store the open message created at the end of the synchronization process
+#[cfg_attr(test, mockall::automock)]
+#[async_trait]
+pub trait OpenMessageStorer: Send + Sync {
+    /// Store an open_message in the database
+    async fn insert_or_replace_open_message(&self, open_message: OpenMessage) -> StdResult<()>;
 }
