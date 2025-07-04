@@ -66,10 +66,10 @@ where
 
     let sigs = signers.par_iter().filter_map(|p| p.sign(&msg)).collect::<Vec<_>>();
 
-    let clerk = Clerk::from_signer(&signers[0]);
+    let clerk = Clerk::new_clerk_from_signer(&signers[0]);
 
     group.bench_function(BenchmarkId::new("Aggregation", &param_string), |b| {
-        b.iter(|| clerk.aggregate(&sigs, &msg))
+        b.iter(|| clerk.aggregate_signatures(&sigs, &msg))
     });
 }
 
@@ -128,10 +128,10 @@ fn batch_benches<H>(
 
             let sigs = signers.par_iter().filter_map(|p| p.sign(&msg)).collect::<Vec<_>>();
 
-            let clerk = Clerk::from_signer(&signers[0]);
-            let msig = clerk.aggregate(&sigs, &msg).unwrap();
+            let clerk = Clerk::new_clerk_from_signer(&signers[0]);
+            let msig = clerk.aggregate_signatures(&sigs, &msg).unwrap();
 
-            batch_avks.push(clerk.compute_avk());
+            batch_avks.push(clerk.compute_aggregate_verification_key());
             batch_stms.push(msig);
         }
 
@@ -179,7 +179,7 @@ where
         ));
     }
 
-    let core_verifier = BasicVerifier::setup(&public_signers);
+    let core_verifier = BasicVerifier::new(&public_signers);
 
     let signers: Vec<Signer<H>> = initializers
         .into_iter()

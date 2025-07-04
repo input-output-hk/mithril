@@ -71,8 +71,8 @@ pub fn operation_phase(
         .filter_map(|p| p.sign(&msg))
         .collect::<Vec<SingleSignature>>();
 
-    let clerk = Clerk::from_signer(&signers[0]);
-    let avk = clerk.compute_avk();
+    let clerk = Clerk::new_clerk_from_signer(&signers[0]);
+    let avk = clerk.compute_aggregate_verification_key();
 
     // Check all parties can verify every sig
     for (s, (vk, stake)) in sigs.iter().zip(reg_parties.iter()) {
@@ -82,7 +82,7 @@ pub fn operation_phase(
         );
     }
 
-    let msig = clerk.aggregate(&sigs, &msg);
+    let msig = clerk.aggregate_signatures(&sigs, &msg);
 
     OperationPhaseResult { msig, avk, sigs }
 }

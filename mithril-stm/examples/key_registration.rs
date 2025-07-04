@@ -110,26 +110,34 @@ fn main() {
     let incomplete_sigs_3 = vec![party_0_sigs, party_1_sigs, party_2_sigs, party_3_sigs];
 
     let closed_registration = local_reg(&stakes, &parties_pks);
-    let clerk = Clerk::from_registration(&params, &closed_registration);
+    let clerk = Clerk::new_clerk_from_closed_key_registration(&params, &closed_registration);
 
     // Now we aggregate the signatures
-    let msig_1 = match clerk.aggregate(&complete_sigs_1, &msg) {
+    let msig_1 = match clerk.aggregate_signatures(&complete_sigs_1, &msg) {
         Ok(s) => s,
         Err(e) => {
             panic!("Aggregation failed: {e:?}")
         }
     };
-    assert!(msig_1.verify(&msg, &clerk.compute_avk(), &params).is_ok());
+    assert!(
+        msig_1
+            .verify(&msg, &clerk.compute_aggregate_verification_key(), &params)
+            .is_ok()
+    );
 
-    let msig_2 = match clerk.aggregate(&complete_sigs_2, &msg) {
+    let msig_2 = match clerk.aggregate_signatures(&complete_sigs_2, &msg) {
         Ok(s) => s,
         Err(e) => {
             panic!("Aggregation failed: {e:?}")
         }
     };
-    assert!(msig_2.verify(&msg, &clerk.compute_avk(), &params).is_ok());
+    assert!(
+        msig_2
+            .verify(&msg, &clerk.compute_aggregate_verification_key(), &params)
+            .is_ok()
+    );
 
-    let msig_3 = clerk.aggregate(&incomplete_sigs_3, &msg);
+    let msig_3 = clerk.aggregate_signatures(&incomplete_sigs_3, &msg);
     assert!(msig_3.is_err());
 }
 

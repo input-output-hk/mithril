@@ -38,7 +38,7 @@ fn test_core_verifier() {
         ));
     }
 
-    let core_verifier = BasicVerifier::setup(&public_signers);
+    let core_verifier = BasicVerifier::new(&public_signers);
 
     let signers: Vec<Signer<D>> = initializers
         .into_iter()

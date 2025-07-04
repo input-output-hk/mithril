@@ -34,7 +34,7 @@ impl SingleSignature {
         avk: &AggregateVerificationKey<D>,
         msg: &[u8],
     ) -> Result<(), StmSignatureError> {
-        let msgp = avk.get_mt_commitment().concatenate_with_message(msg);
+        let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
         self.basic_verify(params, pk, stake, &msgp, &avk.get_total_stake())?;
         Ok(())
     }

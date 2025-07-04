@@ -48,10 +48,10 @@ where
         .par_iter()
         .filter_map(|p| p.sign(&msg))
         .collect::<Vec<SingleSignature>>();
-    let clerk = Clerk::from_signer(&ps[0]);
+    let clerk = Clerk::new_clerk_from_signer(&ps[0]);
 
     // Aggregate with random parties
-    let aggr = clerk.aggregate(&sigs, &msg).unwrap();
+    let aggr = clerk.aggregate_signatures(&sigs, &msg).unwrap();
 
     println!(
         "k = {} | m = {} | nr parties = {}; {} bytes",
@@ -86,7 +86,7 @@ where
         ));
     }
 
-    let core_verifier = BasicVerifier::setup(&public_signers);
+    let core_verifier = BasicVerifier::new(&public_signers);
 
     let signers: Vec<Signer<H>> = initializers
         .into_iter()
@@ -108,7 +108,7 @@ where
         })
         .collect::<Vec<SingleSignatureWithRegisteredParty>>();
 
-    let dedup_sigs = BasicVerifier::dedup_sigs_for_indices(
+    let dedup_sigs = BasicVerifier::select_valid_signatures_for_k_indices(
         &core_verifier.total_stake,
         &params,
         &msg,
