@@ -1,4 +1,4 @@
-//! Mithril-stm participant including StmInitializer and StmSigner
+//! Mithril-stm participant including Initializer and Signer
 
 mod initializer;
 mod signer;

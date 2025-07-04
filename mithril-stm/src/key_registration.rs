@@ -23,7 +23,7 @@ pub struct KeyRegistration {
 }
 
 impl KeyRegistration {
-    /// Initialize an empty `KeyReg`.
+    /// Initialize an empty `KeyRegistration`.
     pub fn init() -> Self {
         Self::default()
     }
@@ -45,7 +45,7 @@ impl KeyRegistration {
     }
 
     /// Finalize the key registration.
-    /// This function disables `KeyReg::register`, consumes the instance of `self`, and returns a `ClosedKeyReg`.
+    /// This function disables `KeyReg::register`, consumes the instance of `self`, and returns a `ClosedKeyRegistration`.
     pub fn close<D>(self) -> ClosedKeyRegistration<D>
     where
         D: Digest + FixedOutput,

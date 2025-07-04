@@ -10,7 +10,7 @@ pub type VerificationKey = BlsVerificationKey;
 
 /// Participant in the protocol can sign messages.
 /// * If the signer has `closed_reg`, then it can generate Stm certificate.
-///     * This kind of signer can only be generated out of an `StmInitializer` and a `ClosedKeyReg`.
+///     * This kind of signer can only be generated out of an `Initializer` and a `ClosedKeyRegistration`.
 ///     * This ensures that a `MerkleTree` root is not computed before all participants have registered.
 /// * If the signer does not have `closed_reg`, then it is a core signer.
 ///     * This kind of signer cannot participate certificate generation.
@@ -26,7 +26,7 @@ pub struct Signer<D: Digest> {
 }
 
 impl<D: Clone + Digest + FixedOutput> Signer<D> {
-    /// Create an StmSigner for given input
+    /// Create a Signer for given input
     pub fn set_stm_signer(
         signer_index: u64,
         stake: Stake,
@@ -70,7 +70,7 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
     /// If it wins at least one lottery, it stores the signer's merkle tree index. The proof of membership
     /// will be handled by the aggregator.
     pub fn sign(&self, msg: &[u8]) -> Option<SingleSignature> {
-        let closed_reg = self.closed_reg.as_ref().expect("Closed registration not found! Cannot produce StmSignatures. Use core_sign to produce core signatures (not valid for an StmCertificate).");
+        let closed_reg = self.closed_reg.as_ref().expect("Closed registration not found! Cannot produce SingleSignatures. Use core_sign to produce core signatures (not valid for an StmCertificate).");
         let msgp = closed_reg
             .merkle_tree
             .to_commitment_batch_compat()
@@ -130,7 +130,7 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
         indexes
     }
 
-    /// Get StmParameters
+    /// Get Parameters
     pub fn get_params(&self) -> Parameters {
         self.params
     }

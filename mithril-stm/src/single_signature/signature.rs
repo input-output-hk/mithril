@@ -62,7 +62,7 @@ impl SingleSignature {
         Ok(())
     }
 
-    /// Convert an `StmSig` into bytes
+    /// Convert an `SingleSignature` into bytes
     ///
     /// # Layout
     /// * Stake
@@ -125,7 +125,7 @@ impl SingleSignature {
         })
     }
 
-    /// Compare two `StmSig` by their signers' merkle tree indexes.
+    /// Compare two `SingleSignature` by their signers' merkle tree indexes.
     pub fn cmp_stm_sig(&self, other: &Self) -> Ordering {
         self.signer_index.cmp(&other.signer_index)
     }

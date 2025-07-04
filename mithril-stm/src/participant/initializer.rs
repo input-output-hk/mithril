@@ -10,9 +10,9 @@ use crate::{Parameters, RegisterError, Signer, Stake};
 /// Wrapper of the MultiSignature Verification key with proof of possession
 pub type VerificationKeyProofOfPossession = BlsVerificationKeyProofOfPossession;
 
-/// Initializer for `StmSigner`.
+/// Initializer for `Signer`.
 /// This is the data that is used during the key registration procedure.
-/// Once the latter is finished, this instance is consumed into an `StmSigner`.
+/// Once the latter is finished, this instance is consumed into an `Signer`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Initializer {
     /// This participant's stake.
@@ -46,12 +46,12 @@ impl Initializer {
 
     /// Build the `avk` for the given list of parties.
     ///
-    /// Note that if this StmInitializer was modified *between* the last call to `register`,
-    /// then the resulting `StmSigner` may not be able to produce valid signatures.
+    /// Note that if this Initializer was modified *between* the last call to `register`,
+    /// then the resulting `Signer` may not be able to produce valid signatures.
     ///
-    /// Returns an `StmSigner` specialized to
-    /// * this `StmSigner`'s ID and current stake
-    /// * this `StmSigner`'s parameter valuation
+    /// Returns an `Signer` specialized to
+    /// * this `Signer`'s ID and current stake
+    /// * this `Signer`'s parameter valuation
     /// * the `avk` as built from the current registered parties (according to the registration service)
     /// * the current total stake (according to the registration service)
     /// # Error

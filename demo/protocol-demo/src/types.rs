@@ -1,6 +1,6 @@
 use mithril_stm::{
-    KeyReg, Stake, StmAggrSig, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner,
-    StmVerificationKeyPoP,
+    AggregateSignature, Clerk, Initializer, KeyRegistration, Parameters, Signer, SingleSignature,
+    Stake, VerificationKeyProofOfPossession,
 };
 
 use blake2::{Blake2b, digest::consts::U32};
@@ -14,26 +14,26 @@ pub type ProtocolPartyId = String;
 /// Alias of [MithrilStm:Stake](type@mithril_stm::Stake).
 pub type ProtocolStake = Stake;
 
-/// Alias of [MithrilStm::StmParameters](struct@mithril_stm::StmParameters).
-pub type ProtocolParameters = StmParameters;
+/// Alias of [MithrilStm::Parameters](struct@mithril_stm::Parameters).
+pub type ProtocolParameters = Parameters;
 
-/// Alias of [MithrilStm:StmSigner](struct@mithril_stm::StmSigner).
-pub type ProtocolSigner = StmSigner<D>;
+/// Alias of [MithrilStm:Signer](struct@mithril_stm::Signer).
+pub type ProtocolSigner = Signer<D>;
 
-/// Alias of [MithrilStm:StmClerk](struct@mithril_stm::StmClerk).
-pub type ProtocolClerk = StmClerk<D>;
+/// Alias of [MithrilStm:Clerk](struct@mithril_stm::Clerk).
+pub type ProtocolClerk = Clerk<D>;
 
-/// Alias of [MithrilStm:StmInitializer](struct@mithril_stm::StmInitializer).
-pub type ProtocolInitializerNotCertified = StmInitializer;
+/// Alias of [MithrilStm:Initializer](struct@mithril_stm::Initializer).
+pub type ProtocolInitializerNotCertified = Initializer;
 
-/// Alias of [MithrilStm:KeyReg](struct@mithril_stm::KeyReg). (Test only)
-pub type ProtocolKeyRegistrationNotCertified = KeyReg;
+/// Alias of [MithrilStm:KeyRegistration](struct@mithril_stm::KeyRegistration). (Test only)
+pub type ProtocolKeyRegistrationNotCertified = KeyRegistration;
 
-/// Alias of [MithrilStm:StmSig](struct@mithril_stm::StmSig).
-pub type ProtocolSingleSignature = StmSig;
+/// Alias of [MithrilStm:SingleSignature](struct@mithril_stm::SingleSignature).
+pub type ProtocolSingleSignature = SingleSignature;
 
-/// Alias of [MithrilStm:StmAggrSig](struct@mithril_stm::StmAggrSig).
-pub type ProtocolMultiSignature = StmAggrSig<D>;
+/// Alias of [MithrilStm:AggregateSignature](struct@mithril_stm::AggregateSignature).
+pub type ProtocolMultiSignature = AggregateSignature<D>;
 
-/// Alias of [MithrilStm:StmVerificationKeyPoP](type@mithril_stm::StmVerificationKeyPoP).
-pub type ProtocolSignerVerificationKey = StmVerificationKeyPoP;
+/// Alias of [MithrilStm:VerificationKeyProofOfPossession](type@mithril_stm::VerificationKeyProofOfPossession).
+pub type ProtocolSignerVerificationKey = VerificationKeyProofOfPossession;

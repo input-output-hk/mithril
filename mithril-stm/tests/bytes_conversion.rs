@@ -49,14 +49,14 @@ fn test_binary_conversions() {
     let verification_key = reg_parties[0].0;
     let encoded = verification_key.to_bytes();
     VerificationKey::from_bytes(&encoded[1..])
-        .expect_err("StmVerificationKey decoding should fail with invalid bytes");
+        .expect_err("VerificationKey decoding should fail with invalid bytes");
     let decoded = VerificationKey::from_bytes(&encoded).unwrap();
     assert_eq!(verification_key, decoded);
 
     let initializer = &initializers[0];
     let encoded = initializer.to_bytes();
     Initializer::from_bytes(&encoded[1..])
-        .expect_err("StmInitializer decoding should fail with invalid bytes");
+        .expect_err("Initializer decoding should fail with invalid bytes");
     let decoded = Initializer::from_bytes(&encoded).unwrap();
     assert_eq!(initializer.to_bytes(), decoded.to_bytes());
 
@@ -66,14 +66,14 @@ fn test_binary_conversions() {
     let sig = &sigs[0];
     let encoded = sig.to_bytes();
     SingleSignature::from_bytes::<Blake2b<U32>>(&encoded[1..])
-        .expect_err("StmSig decoding should fail with invalid bytes");
+        .expect_err("SingleSignature decoding should fail with invalid bytes");
     let decoded = SingleSignature::from_bytes::<Blake2b<U32>>(&encoded).unwrap();
     assert_eq!(sig, &decoded);
 
     let msig = msig.unwrap();
     let encoded = msig.to_bytes();
     AggregateSignature::<Blake2b<U32>>::from_bytes(&encoded[1..])
-        .expect_err("StmAggrSig decoding should fail with invalid bytes");
+        .expect_err("AggregateSignature decoding should fail with invalid bytes");
     let decoded = AggregateSignature::<Blake2b<U32>>::from_bytes(&encoded).unwrap();
     assert_eq!(msig.to_bytes(), decoded.to_bytes());
 }
