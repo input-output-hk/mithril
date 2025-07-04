@@ -27,13 +27,13 @@ impl<D: Digest + Clone + FixedOutput> Clerk<D> {
     /// Create a Clerk from a signer.
     pub fn from_signer(signer: &Signer<D>) -> Self {
         let closed_reg = signer
-            .get_closed_reg()
+            .get_closed_key_registration()
             .clone()
             .expect("Core signer does not include closed registration. Clerk, and so, the Stm certificate cannot be built without closed registration!")
             ;
 
         Self {
-            params: signer.get_params(),
+            params: signer.get_parameters(),
             closed_reg,
         }
     }

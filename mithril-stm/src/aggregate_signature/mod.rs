@@ -46,14 +46,14 @@ mod tests {
         let ps = stake
             .into_iter()
             .map(|stake| {
-                let p = Initializer::setup(params, stake, &mut rng);
+                let p = Initializer::new(params, stake, &mut rng);
                 kr.register(stake, p.pk).unwrap();
                 p
             })
             .collect::<Vec<_>>();
         let closed_reg = kr.close();
         ps.into_iter()
-            .map(|p| p.new_signer(closed_reg.clone()).unwrap())
+            .map(|p| p.create_signer(closed_reg.clone()).unwrap())
             .collect()
     }
 
@@ -226,7 +226,7 @@ mod tests {
             );
             assert!(dedup_result.is_ok(), "dedup failure {dedup_result:?}");
             for passed_sigs in dedup_result.unwrap() {
-                let verify_result = passed_sigs.sig.verify(&params, &ps[0].get_vk(), &ps[0].get_stake(), &avk, &msg);
+                let verify_result = passed_sigs.sig.verify(&params, &ps[0].get_verification_key(), &ps[0].get_stake(), &avk, &msg);
                 assert!(verify_result.is_ok(), "verify {verify_result:?}");
             }
         }
@@ -327,7 +327,7 @@ mod tests {
             let avk = clerk.compute_avk();
 
             if let Some(sig) = ps[0].sign(&msg) {
-                assert!(sig.verify(&params, &ps[0].get_vk(), &ps[0].get_stake(), &avk, &msg).is_ok());
+                assert!(sig.verify(&params, &ps[0].get_verification_key(), &ps[0].get_stake(), &avk, &msg).is_ok());
             }
         }
     }
@@ -348,7 +348,7 @@ mod tests {
             let mut rng = ChaCha20Rng::from_seed(seed);
             let params = Parameters { m: 1, k: 1, phi_f: 1.0 };
             let stake = rng.next_u64();
-            let initializer = Initializer::setup(params, stake, &mut rng);
+            let initializer = Initializer::new(params, stake, &mut rng);
 
             let bytes = initializer.to_bytes();
             assert!(Initializer::from_bytes(&bytes).is_ok());
@@ -367,11 +367,11 @@ mod tests {
             if let Some(sig) = ps[0].sign(&msg) {
                 let bytes = sig.to_bytes();
                 let sig_deser = SingleSignature::from_bytes::<D>(&bytes).unwrap();
-                assert!(sig_deser.verify(&params, &ps[0].get_vk(), &ps[0].get_stake(), &avk, &msg).is_ok());
+                assert!(sig_deser.verify(&params, &ps[0].get_verification_key(), &ps[0].get_stake(), &avk, &msg).is_ok());
 
                 let encoded = bincode::serde::encode_to_vec(&sig, bincode::config::legacy()).unwrap();
                 let (decoded,_) = bincode::serde::decode_from_slice::<SingleSignature,_>(&encoded, bincode::config::legacy()).unwrap();
-                assert!(decoded.verify(&params, &ps[0].get_vk(), &ps[0].get_stake(), &avk, &msg).is_ok());
+                assert!(decoded.verify(&params, &ps[0].get_verification_key(), &ps[0].get_stake(), &avk, &msg).is_ok());
             }
         }
 
@@ -501,7 +501,7 @@ mod tests {
 
         let ps = stake
             .into_iter()
-            .map(|stake| Initializer::setup(params, stake, &mut rng))
+            .map(|stake| Initializer::new(params, stake, &mut rng))
             .collect::<Vec<Initializer>>();
 
         let public_signers = ps
@@ -520,7 +520,7 @@ mod tests {
     ) -> Vec<SingleSignature> {
         let mut sigs = Vec::new();
         for i in is {
-            if let Some(sig) = ps[*i].core_sign(msg, total_stake) {
+            if let Some(sig) = ps[*i].basic_sign(msg, total_stake) {
                 sigs.push(sig);
             }
         }
@@ -544,7 +544,7 @@ mod tests {
 
             let signers = initializers
                 .into_iter()
-                .filter_map(|s| s.new_core_signer(&core_verifier.eligible_parties))
+                .filter_map(|s| s.create_basic_signer(&core_verifier.eligible_parties))
                 .collect::<Vec<Signer<D>>>();
 
             let signatures = find_core_signatures(&msg, &signers, core_verifier.total_stake, &all_ps);

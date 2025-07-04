@@ -37,9 +37,11 @@ pub fn initialization_phase(
     let mut reg_parties: Vec<(VerificationKey, Stake)> = Vec::with_capacity(nparties);
 
     for stake in parties {
-        let p = Initializer::setup(params, stake, &mut rng);
-        key_reg.register(stake, p.verification_key()).unwrap();
-        reg_parties.push((p.verification_key().vk, stake));
+        let p = Initializer::new(params, stake, &mut rng);
+        key_reg
+            .register(stake, p.get_verification_key_proof_of_possession())
+            .unwrap();
+        reg_parties.push((p.get_verification_key_proof_of_possession().vk, stake));
         initializers.push(p);
     }
 
@@ -48,7 +50,7 @@ pub fn initialization_phase(
     let signers = initializers
         .clone()
         .into_par_iter()
-        .map(|p| p.new_signer(closed_reg.clone()).unwrap())
+        .map(|p| p.create_signer(closed_reg.clone()).unwrap())
         .collect::<Vec<Signer<H>>>();
 
     InitializationPhaseResult {

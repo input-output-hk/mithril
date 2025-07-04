@@ -38,17 +38,17 @@ fn main() {
         .collect::<Vec<_>>();
 
     // Each party generates their Stm keys
-    let party_0_init = Initializer::setup(params, stakes[0], &mut rng);
-    let party_1_init = Initializer::setup(params, stakes[1], &mut rng);
-    let party_2_init = Initializer::setup(params, stakes[2], &mut rng);
-    let party_3_init = Initializer::setup(params, stakes[3], &mut rng);
+    let party_0_init = Initializer::new(params, stakes[0], &mut rng);
+    let party_1_init = Initializer::new(params, stakes[1], &mut rng);
+    let party_2_init = Initializer::new(params, stakes[2], &mut rng);
+    let party_3_init = Initializer::new(params, stakes[3], &mut rng);
 
     // The public keys are broadcast. All participants will have the same keys.
     let parties_pks: Vec<VerificationKeyProofOfPossession> = vec![
-        party_0_init.verification_key(),
-        party_1_init.verification_key(),
-        party_2_init.verification_key(),
-        party_3_init.verification_key(),
+        party_0_init.get_verification_key_proof_of_possession(),
+        party_1_init.get_verification_key_proof_of_possession(),
+        party_2_init.get_verification_key_proof_of_possession(),
+        party_3_init.get_verification_key_proof_of_possession(),
     ];
 
     // Now, each party generates their own KeyReg instance, and registers all other participating
@@ -60,10 +60,10 @@ fn main() {
 
     // Now, with information of all participating parties (we can create the Merkle Tree), the
     // signers can be initialised.
-    let party_0 = party_0_init.new_signer(key_reg_0).unwrap();
-    let party_1 = party_1_init.new_signer(key_reg_1).unwrap();
-    let party_2 = party_2_init.new_signer(key_reg_2).unwrap();
-    let party_3 = party_3_init.new_signer(key_reg_3).unwrap();
+    let party_0 = party_0_init.create_signer(key_reg_0).unwrap();
+    let party_1 = party_1_init.create_signer(key_reg_1).unwrap();
+    let party_2 = party_2_init.create_signer(key_reg_2).unwrap();
+    let party_3 = party_3_init.create_signer(key_reg_3).unwrap();
 
     /////////////////////
     // operation phase //
