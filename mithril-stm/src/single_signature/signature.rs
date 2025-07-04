@@ -7,7 +7,7 @@ use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
 use crate::bls_multi_signature::BlsSignature;
-use crate::eligibility_check::ev_lt_phi;
+use crate::eligibility_check::is_lottery_won;
 use crate::{
     AggregateVerificationKey, Index, Parameters, Stake, StmSignatureError, VerificationKey,
 };
@@ -54,7 +54,7 @@ impl SingleSignature {
 
             let ev = self.sigma.eval(msg, index);
 
-            if !ev_lt_phi(params.phi_f, ev, *stake, *total_stake) {
+            if !is_lottery_won(params.phi_f, ev, *stake, *total_stake) {
                 return Err(StmSignatureError::LotteryLost);
             }
         }

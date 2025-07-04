@@ -1,7 +1,7 @@
 use blake2::digest::{Digest, FixedOutput};
 
 use crate::bls_multi_signature::{BlsSignature, BlsSigningKey, BlsVerificationKey};
-use crate::eligibility_check::ev_lt_phi;
+use crate::eligibility_check::is_lottery_won;
 use crate::key_registration::ClosedKeyRegistration;
 use crate::{Parameters, SingleSignature, Stake};
 
@@ -118,7 +118,7 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
     pub fn check_lottery(&self, msg: &[u8], sigma: &BlsSignature, total_stake: Stake) -> Vec<u64> {
         let mut indexes = Vec::new();
         for index in 0..self.params.m {
-            if ev_lt_phi(
+            if is_lottery_won(
                 self.params.phi_f,
                 sigma.eval(msg, index),
                 self.stake,
