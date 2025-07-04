@@ -15,6 +15,13 @@ pub struct GetOpenMessageQuery {
 }
 
 impl GetOpenMessageQuery {
+    #[cfg(test)]
+    pub fn all() -> Self {
+        Self {
+            condition: WhereCondition::default(),
+        }
+    }
+
     pub fn by_epoch_and_signed_entity_type(
         epoch: Epoch,
         signed_entity_type: &SignedEntityType,
