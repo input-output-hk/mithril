@@ -10,7 +10,7 @@ use std::{io, sync::Arc, time::Duration};
 use thiserror::Error;
 
 use mithril_common::{
-    MITHRIL_AGGREGATOR_VERSION_HEADER, MITHRIL_API_VERSION_HEADER, StdError,
+    MITHRIL_AGGREGATOR_VERSION_HEADER, MITHRIL_API_VERSION_HEADER, StdError, StdResult,
     api_version::APIVersionProvider,
     entities::{ClientError, ServerError},
     logging::LoggerExtensions,
@@ -19,6 +19,7 @@ use mithril_common::{
 
 use crate::entities::LeaderAggregatorEpochSettings;
 use crate::message_adapters::FromEpochSettingsAdapter;
+use crate::services::LeaderAggregatorClient;
 
 const JSON_CONTENT_TYPE: HeaderValue = HeaderValue::from_static("application/json");
 
@@ -116,16 +117,6 @@ impl AggregatorClientError {
             format!("{canonical_reason}: {response_text}")
         }
     }
-}
-
-/// Trait for mocking and testing a `AggregatorClient`
-#[cfg_attr(test, mockall::automock)]
-#[async_trait]
-pub trait AggregatorClient: Sync + Send {
-    /// Retrieves epoch settings from the aggregator
-    async fn retrieve_epoch_settings(
-        &self,
-    ) -> Result<Option<LeaderAggregatorEpochSettings>, AggregatorClientError>;
 }
 
 /// AggregatorHTTPClient is a http client for an aggregator
@@ -244,9 +235,9 @@ impl AggregatorHTTPClient {
     }
 }
 
-#[async_trait]
-impl AggregatorClient for AggregatorHTTPClient {
-    async fn retrieve_epoch_settings(
+// Route specifics methods
+impl AggregatorHTTPClient {
+    async fn epoch_settings(
         &self,
     ) -> Result<Option<LeaderAggregatorEpochSettings>, AggregatorClientError> {
         debug!(self.logger, "Retrieve epoch settings");
@@ -276,6 +267,14 @@ impl AggregatorClient for AggregatorHTTPClient {
     }
 }
 
+#[async_trait]
+impl LeaderAggregatorClient for AggregatorHTTPClient {
+    async fn retrieve_epoch_settings(&self) -> StdResult<Option<LeaderAggregatorEpochSettings>> {
+        let epoch_settings = self.epoch_settings().await?;
+        Ok(epoch_settings)
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod dumb {
     use tokio::sync::RwLock;
@@ -298,10 +297,10 @@ pub(crate) mod dumb {
     }
 
     #[async_trait]
-    impl AggregatorClient for DumbAggregatorClient {
+    impl LeaderAggregatorClient for DumbAggregatorClient {
         async fn retrieve_epoch_settings(
             &self,
-        ) -> Result<Option<LeaderAggregatorEpochSettings>, AggregatorClientError> {
+        ) -> StdResult<Option<LeaderAggregatorEpochSettings>> {
             let epoch_settings = self.epoch_settings.read().await.clone();
 
             Ok(epoch_settings)
@@ -396,7 +395,7 @@ mod tests {
             then.status(500).body("an error occurred");
         });
 
-        match client.retrieve_epoch_settings().await.unwrap_err() {
+        match client.epoch_settings().await.unwrap_err() {
             AggregatorClientError::RemoteServerTechnical(_) => (),
             e => panic!("Expected Aggregator::RemoteServerTechnical error, got '{e:?}'."),
         };
@@ -412,7 +411,7 @@ mod tests {
         });
 
         let error = client
-            .retrieve_epoch_settings()
+            .epoch_settings()
             .await
             .expect_err("retrieve_epoch_settings should fail");
 
