@@ -1,6 +1,6 @@
-use std::sync::Arc;
-
+use async_trait::async_trait;
 use chrono::Utc;
+use std::sync::Arc;
 
 use mithril_common::StdResult;
 use mithril_common::entities::{Epoch, ProtocolMessage, SignedEntityType};
@@ -8,9 +8,11 @@ use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
 use crate::database::query::{
     DeleteOpenMessageQuery, GetOpenMessageQuery, GetOpenMessageWithSingleSignaturesQuery,
-    InsertOpenMessageQuery, UpdateOpenMessageQuery,
+    InsertOpenMessageQuery, InsertOrReplaceOpenMessageQuery, UpdateOpenMessageQuery,
 };
 use crate::database::record::{OpenMessageRecord, OpenMessageWithSingleSignaturesRecord};
+use crate::entities::OpenMessage;
+use crate::services::OpenMessageStorer;
 
 /// ## Open message repository
 ///
@@ -79,6 +81,21 @@ impl OpenMessageRepository {
         message.ok_or_else(|| panic!("Inserting an open_message should not return nothing."))
     }
 
+    /// Create, or replace if one with the same [SignedEntityType] they already exist, a
+    /// [OpenMessageRecord] in the database.
+    pub async fn create_or_replace_open_message(
+        &self,
+        record: OpenMessageRecord,
+    ) -> StdResult<OpenMessageRecord> {
+        let message = self
+            .connection
+            .fetch_first(InsertOrReplaceOpenMessageQuery::one(record)?)?;
+
+        message.ok_or_else(|| {
+            panic!("Inserting or replacing an open_message should not return nothing.")
+        })
+    }
+
     /// Updates an [OpenMessageRecord] in the database.
     pub async fn update_open_message(
         &self,
@@ -99,6 +116,24 @@ impl OpenMessageRepository {
             .fetch(DeleteOpenMessageQuery::below_epoch_threshold(epoch))?;
 
         Ok(cursor.count())
+    }
+}
+
+#[async_trait]
+impl OpenMessageStorer for OpenMessageRepository {
+    async fn insert_or_replace_open_message(&self, open_message: OpenMessage) -> StdResult<()> {
+        let record = OpenMessageRecord {
+            open_message_id: OpenMessageRecord::new_id(),
+            epoch: open_message.epoch,
+            signed_entity_type: open_message.signed_entity_type,
+            protocol_message: open_message.protocol_message,
+            is_certified: open_message.is_certified,
+            is_expired: open_message.is_expired,
+            created_at: open_message.created_at,
+            expires_at: open_message.expires_at,
+        };
+        self.create_or_replace_open_message(record).await?;
+        Ok(())
     }
 }
 
@@ -259,6 +294,28 @@ mod tests {
 
         assert_eq!(open_message.protocol_message, message.protocol_message);
         assert_eq!(open_message.epoch, message.epoch);
+    }
+
+    #[tokio::test]
+    async fn repository_create_or_replace_open_message() {
+        let connection = get_connection().await;
+        let repository = OpenMessageRepository::new(connection.clone());
+        let mut inserted_record = repository
+            .create_or_replace_open_message(OpenMessageRecord {
+                epoch: Epoch(5),
+                signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(6)),
+                ..OpenMessageRecord::dummy()
+            })
+            .await
+            .unwrap();
+        assert_eq!(Epoch(5), inserted_record.epoch);
+
+        inserted_record.epoch = Epoch(32);
+        let replaced_record = repository
+            .create_or_replace_open_message(inserted_record)
+            .await
+            .unwrap();
+        assert_eq!(Epoch(32), replaced_record.epoch);
     }
 
     #[tokio::test]

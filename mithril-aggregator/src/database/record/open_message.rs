@@ -39,6 +39,11 @@ pub struct OpenMessageRecord {
 }
 
 impl OpenMessageRecord {
+    /// Creates a new random id that can be used for a new record
+    pub fn new_id() -> Uuid {
+        Uuid::new_v4()
+    }
+
     #[cfg(test)]
     /// Create a dumb OpenMessage instance mainly for test purposes
     pub fn dummy() -> Self {
