@@ -1,48 +1,68 @@
-use std::convert::Infallible;
 use std::sync::Arc;
 
-use serde_json::json;
-use warp::Filter;
-use warp::http::StatusCode;
+use axum::{
+    Json, Router,
+    extract::State,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    routing::get,
+};
+use axum_test::TestServer;
+use reqwest::Url;
 
-use mithril_common::StdResult;
+use mithril_aggregator::services::MessageService;
 use mithril_common::entities::SignedEntityTypeDiscriminants;
-use mithril_test_http_server::{TestHttpServer, test_http_server};
+use mithril_common::logging::LoggerExtensions;
+use mithril_common::{StdError, StdResult};
 
-use crate::test_extensions::{AggregatorObserver, RuntimeTester};
+use crate::test_extensions::RuntimeTester;
 
-pub struct LeaderAggregatorHttpServer {}
+pub struct LeaderAggregatorHttpServer {
+    server: TestServer,
+    url: Url,
+}
 
 impl LeaderAggregatorHttpServer {
-    pub fn spawn(runtime_tester: &RuntimeTester) -> StdResult<TestHttpServer> {
-        let routes = warp::path("epoch-settings")
-            .and(with_observer(runtime_tester))
-            .and_then(epoch_settings_handler);
+    pub fn spawn(runtime_tester: &RuntimeTester) -> StdResult<Self> {
+        let state = LeaderAggregatorRoutesState {
+            message_service: runtime_tester.dependencies.message_service.clone(),
+            logger: slog_scope::logger().new_with_component_name::<Self>(),
+        };
+        let router = Router::new()
+            .route("/epoch-settings", get(epoch_settings))
+            .with_state(state);
 
-        Ok(test_http_server(routes))
+        let server = TestServer::builder().http_transport().build(router)?;
+        let url = server.server_address().unwrap();
+
+        Ok(Self { server, url })
+    }
+
+    pub fn url(&self) -> &Url {
+        &self.url
     }
 }
 
-fn with_observer(
-    runtime_tester: &RuntimeTester,
-) -> impl Filter<Extract = (Arc<AggregatorObserver>,), Error = Infallible> + Clone + use<> {
-    let observer = runtime_tester.observer.clone();
-    warp::any().map(move || observer.clone())
+#[derive(Clone)]
+struct LeaderAggregatorRoutesState {
+    message_service: Arc<dyn MessageService>,
+    logger: slog::Logger,
 }
 
-async fn epoch_settings_handler(
-    observer: Arc<AggregatorObserver>,
-) -> Result<impl warp::Reply, Infallible> {
+fn internal_server_error(err: StdError) -> impl IntoResponse {
+    (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string()))
+}
+
+async fn epoch_settings(state: State<LeaderAggregatorRoutesState>) -> Response {
+    slog::debug!(state.logger, "/epoch-settings");
     let allowed_discriminants = SignedEntityTypeDiscriminants::all();
-    let epoch_settings_message = observer.get_epoch_settings(allowed_discriminants).await;
+    let epoch_settings_message = state
+        .message_service
+        .get_epoch_settings_message(allowed_discriminants)
+        .await;
+
     match epoch_settings_message {
-        Ok(message) => Ok(Box::new(warp::reply::with_status(
-            warp::reply::json(&message),
-            StatusCode::OK,
-        ))),
-        Err(err) => Ok(Box::new(warp::reply::with_status(
-            warp::reply::json(&json!(err.to_string())),
-            StatusCode::INTERNAL_SERVER_ERROR,
-        ))),
+        Ok(message) => (StatusCode::OK, Json(message)).into_response(),
+        Err(err) => internal_server_error(err).into_response(),
     }
 }

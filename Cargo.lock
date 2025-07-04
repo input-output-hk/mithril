@@ -3914,6 +3914,8 @@ version = "0.7.72"
 dependencies = [
  "anyhow",
  "async-trait",
+ "axum",
+ "axum-test",
  "chrono",
  "clap",
  "config",
