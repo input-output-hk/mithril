@@ -56,7 +56,7 @@ use crate::{
     file_uploaders::FileUploader,
     http_server::routes::router::{self, RouterConfig, RouterState},
     services::{
-        AggregatorClient, CertifierService, MessageService, MithrilSignerRegistrationFollower,
+        AggregatorHTTPClient, CertifierService, MessageService, MithrilSignerRegistrationFollower,
         ProverService, SignedEntityService, SignerSynchronizer, Snapshotter,
         StakeDistributionService, UpkeepService,
     },
@@ -273,7 +273,7 @@ pub struct DependenciesBuilder {
     pub metrics_service: Option<Arc<MetricsService>>,
 
     /// Leader aggregator client
-    pub leader_aggregator_client: Option<Arc<dyn AggregatorClient>>,
+    pub leader_aggregator_client: Option<Arc<AggregatorHTTPClient>>,
 
     /// Protocol parameters retriever
     pub protocol_parameters_retriever: Option<Arc<dyn ProtocolParametersRetriever>>,

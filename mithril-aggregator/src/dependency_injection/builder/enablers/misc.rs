@@ -21,8 +21,8 @@ use crate::get_dependency;
 #[cfg(feature = "future_dmq")]
 use crate::services::SignatureConsumerDmq;
 use crate::services::{
-    AggregatorClient, AggregatorHTTPClient, MessageService, MithrilMessageService,
-    SequentialSignatureProcessor, SignatureConsumer, SignatureConsumerNoop, SignatureProcessor,
+    AggregatorHTTPClient, MessageService, MithrilMessageService, SequentialSignatureProcessor,
+    SignatureConsumer, SignatureConsumerNoop, SignatureProcessor,
 };
 impl DependenciesBuilder {
     async fn build_signed_entity_type_lock(&mut self) -> Result<Arc<SignedEntityTypeLock>> {
@@ -58,8 +58,8 @@ impl DependenciesBuilder {
         get_dependency!(self.message_service)
     }
 
-    /// Builds an [AggregatorClient]
-    pub async fn build_leader_aggregator_client(&mut self) -> Result<Arc<dyn AggregatorClient>> {
+    /// Builds an [AggregatorHTTPClient]
+    pub async fn build_leader_aggregator_client(&mut self) -> Result<Arc<AggregatorHTTPClient>> {
         let leader_aggregator_endpoint = self.configuration.leader_aggregator_endpoint().ok_or(
             anyhow!("Leader Aggregator endpoint is mandatory for follower Aggregator"),
         )?;
@@ -79,8 +79,8 @@ impl DependenciesBuilder {
         Ok(Arc::new(aggregator_client))
     }
 
-    /// Returns a leader [AggregatorClient]
-    pub async fn get_leader_aggregator_client(&mut self) -> Result<Arc<dyn AggregatorClient>> {
+    /// Returns a leader [AggregatorHTTPClient]
+    pub async fn get_leader_aggregator_client(&mut self) -> Result<Arc<AggregatorHTTPClient>> {
         get_dependency!(self.leader_aggregator_client)
     }
 

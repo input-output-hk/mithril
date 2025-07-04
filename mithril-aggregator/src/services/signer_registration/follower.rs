@@ -11,12 +11,11 @@ use mithril_persistence::store::StakeStorer;
 
 use crate::{
     SignerRegistrationVerifier, VerificationKeyStorer, dependency_injection::EpochServiceWrapper,
-    services::AggregatorClient,
 };
 
 use super::{
-    SignerRecorder, SignerRegisterer, SignerRegistrationError, SignerRegistrationRound,
-    SignerRegistrationRoundOpener, SignerSynchronizer,
+    LeaderAggregatorClient, SignerRecorder, SignerRegisterer, SignerRegistrationError,
+    SignerRegistrationRound, SignerRegistrationRoundOpener, SignerSynchronizer,
 };
 
 /// A [MithrilSignerRegistrationFollower] supports signer registrations in a follower aggregator
@@ -34,7 +33,7 @@ pub struct MithrilSignerRegistrationFollower {
     signer_registration_verifier: Arc<dyn SignerRegistrationVerifier>,
 
     /// Leader aggregator client
-    leader_aggregator_client: Arc<dyn AggregatorClient>,
+    leader_aggregator_client: Arc<dyn LeaderAggregatorClient>,
 
     /// Stake store
     stake_store: Arc<dyn StakeStorer>,
@@ -47,7 +46,7 @@ impl MithrilSignerRegistrationFollower {
         verification_key_store: Arc<dyn VerificationKeyStorer>,
         signer_recorder: Arc<dyn SignerRecorder>,
         signer_registration_verifier: Arc<dyn SignerRegistrationVerifier>,
-        leader_aggregator_client: Arc<dyn AggregatorClient>,
+        leader_aggregator_client: Arc<dyn LeaderAggregatorClient>,
         stake_store: Arc<dyn StakeStorer>,
     ) -> Self {
         Self {
@@ -178,35 +177,27 @@ impl SignerRegistrationRoundOpener for MithrilSignerRegistrationFollower {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
-    use anyhow::anyhow;
-    use mithril_persistence::store::StakeStorer;
-
-    use mithril_common::{
-        entities::{Epoch, Signer, SignerWithStake},
-        messages::{EpochSettingsMessage, SignerMessagePart, TryFromMessageAdapter},
-        test_utils::MithrilFixtureBuilder,
+    use mithril_common::messages::{
+        EpochSettingsMessage, SignerMessagePart, TryFromMessageAdapter,
     };
+    use mithril_common::test_utils::MithrilFixtureBuilder;
 
     use crate::{
-        MithrilSignerRegistrationFollower, SignerRecorder, SignerRegisterer,
-        SignerRegistrationRoundOpener, SignerRegistrationVerifier, VerificationKeyStorer,
         database::{repository::SignerRegistrationStore, test_helper::main_db_connection},
         message_adapters::FromEpochSettingsAdapter,
         services::{
-            AggregatorClient, AggregatorClientError, FakeEpochService, MockAggregatorClient,
-            MockSignerRecorder, MockSignerRegistrationVerifier, SignerSynchronizer,
+            FakeEpochService, MockLeaderAggregatorClient, MockSignerRecorder,
+            MockSignerRegistrationVerifier,
         },
         tools::mocks::MockStakeStore,
     };
+
+    use super::*;
 
     use test_utils::*;
 
     mod test_utils {
         use tokio::sync::RwLock;
-
-        use crate::{dependency_injection::EpochServiceWrapper, services::FakeEpochService};
 
         use super::*;
 
@@ -215,7 +206,7 @@ mod tests {
             epoch_service: EpochServiceWrapper,
             signer_recorder: Arc<dyn SignerRecorder>,
             signer_registration_verifier: Arc<dyn SignerRegistrationVerifier>,
-            leader_aggregator_client: Arc<dyn AggregatorClient>,
+            leader_aggregator_client: Arc<dyn LeaderAggregatorClient>,
             stake_store: Arc<dyn StakeStorer>,
             verification_key_store: Arc<dyn VerificationKeyStorer>,
         }
@@ -226,7 +217,7 @@ mod tests {
                     epoch_service: Arc::new(RwLock::new(FakeEpochService::without_data())),
                     signer_recorder: Arc::new(MockSignerRecorder::new()),
                     signer_registration_verifier: Arc::new(MockSignerRegistrationVerifier::new()),
-                    leader_aggregator_client: Arc::new(MockAggregatorClient::new()),
+                    leader_aggregator_client: Arc::new(MockLeaderAggregatorClient::new()),
                     stake_store: Arc::new(MockStakeStore::new()),
                     verification_key_store: Arc::new(SignerRegistrationStore::new(
                         Arc::new(main_db_connection().unwrap()),
@@ -263,7 +254,7 @@ mod tests {
 
             pub fn with_leader_aggregator_client(
                 self,
-                leader_aggregator_client: Arc<dyn AggregatorClient>,
+                leader_aggregator_client: Arc<dyn LeaderAggregatorClient>,
             ) -> Self {
                 Self {
                     leader_aggregator_client,
@@ -359,7 +350,7 @@ mod tests {
                 Arc::new(signer_registration_verifier)
             })
             .with_leader_aggregator_client({
-                let mut aggregator_client = MockAggregatorClient::new();
+                let mut aggregator_client = MockLeaderAggregatorClient::new();
                 aggregator_client
                     .expect_retrieve_epoch_settings()
                     .returning(move || Ok(Some(epoch_settings_message.clone())))
@@ -421,7 +412,7 @@ mod tests {
                 Arc::new(signer_registration_verifier)
             })
             .with_leader_aggregator_client({
-                let mut aggregator_client = MockAggregatorClient::new();
+                let mut aggregator_client = MockLeaderAggregatorClient::new();
                 aggregator_client
                     .expect_retrieve_epoch_settings()
                     .returning(move || Ok(Some(epoch_settings_message.clone())))
@@ -488,7 +479,7 @@ mod tests {
                 Arc::new(signer_registration_verifier)
             })
             .with_leader_aggregator_client({
-                let mut aggregator_client = MockAggregatorClient::new();
+                let mut aggregator_client = MockLeaderAggregatorClient::new();
                 aggregator_client
                     .expect_retrieve_epoch_settings()
                     .returning(move || Ok(Some(epoch_settings_message.clone())))
@@ -517,14 +508,10 @@ mod tests {
     async fn synchronize_all_signers_fails_if_fetching_epoch_settings_fails() {
         let signer_registration_follower = MithrilSignerRegistrationFollowerBuilder::default()
             .with_leader_aggregator_client({
-                let mut aggregator_client = MockAggregatorClient::new();
+                let mut aggregator_client = MockLeaderAggregatorClient::new();
                 aggregator_client
                     .expect_retrieve_epoch_settings()
-                    .returning(move || {
-                        Err(AggregatorClientError::RemoteServerTechnical(anyhow!(
-                            "an error"
-                        )))
-                    })
+                    .returning(move || Err(anyhow!("an error")))
                     .times(1);
 
                 Arc::new(aggregator_client)
@@ -553,7 +540,7 @@ mod tests {
         .unwrap();
         let signer_registration_follower = MithrilSignerRegistrationFollowerBuilder::default()
             .with_leader_aggregator_client({
-                let mut aggregator_client = MockAggregatorClient::new();
+                let mut aggregator_client = MockLeaderAggregatorClient::new();
                 aggregator_client
                     .expect_retrieve_epoch_settings()
                     .returning(move || Ok(Some(epoch_settings_message.clone())))
