@@ -91,6 +91,11 @@ pub struct Args {
     /// Request origin tag
     #[clap(long, global = true)]
     origin_tag: Option<String>,
+
+    /// Override the current Mithril era with a specific one
+    #[clap(long, global = true)]
+    #[example = "`pythagoras`"]
+    era: Option<String>,
 }
 
 impl Args {
@@ -208,6 +213,7 @@ impl Source for Args {
         let myself = self.clone();
         register_config_value_option!(map, &namespace, myself.aggregator_endpoint);
         register_config_value_option!(map, &namespace, myself.origin_tag);
+        register_config_value_option!(map, &namespace, myself.era);
 
         Ok(map)
     }
