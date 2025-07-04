@@ -109,7 +109,8 @@ async fn create_certificate_follower() {
     };
     let mut leader_tester =
         RuntimeTester::build(start_time_point.clone(), leader_configuration.clone()).await;
-    let leader_aggregator_http_server = leader_tester.expose_epoch_settings().await.unwrap();
+    let leader_aggregator_http_server =
+        leader_tester.spawn_leader_aggregator_http_server().await.unwrap();
 
     let follower_configuration = ServeCommandConfiguration {
         data_stores_directory: get_test_dir("create_certificate_follower"),
@@ -117,7 +118,7 @@ async fn create_certificate_follower() {
             "aggregator-integration",
             "create_certificate_follower",
         ),
-        leader_aggregator_endpoint: Some(leader_aggregator_http_server.url()),
+        leader_aggregator_endpoint: Some(leader_aggregator_http_server.url().to_string()),
         ..leader_configuration
     };
     let mut follower_tester = RuntimeTester::build(start_time_point, follower_configuration).await;

@@ -34,7 +34,6 @@ use mithril_common::{
     },
 };
 use mithril_era::{EraMarker, EraReader, adapters::EraReaderDummyAdapter};
-use mithril_test_http_server::TestHttpServer;
 
 use crate::test_extensions::leader_aggregator_http_server::LeaderAggregatorHttpServer;
 use crate::test_extensions::utilities::tx_hash;
@@ -237,7 +236,9 @@ impl RuntimeTester {
         Ok(())
     }
 
-    pub async fn expose_epoch_settings(&self) -> StdResult<TestHttpServer> {
+    pub async fn spawn_leader_aggregator_http_server(
+        &self,
+    ) -> StdResult<LeaderAggregatorHttpServer> {
         LeaderAggregatorHttpServer::spawn(self)
     }
 

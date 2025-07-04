@@ -1,10 +1,10 @@
 use anyhow::{Context, anyhow};
-use std::{collections::BTreeSet, sync::Arc};
+use std::sync::Arc;
 
 use mithril_aggregator::{
     dependency_injection::{DependenciesBuilder, EpochServiceWrapper},
     entities::OpenMessage,
-    services::{CertifierService, MessageService, SignedEntityService},
+    services::{CertifierService, SignedEntityService},
 };
 use mithril_common::{
     StdResult,
@@ -12,7 +12,6 @@ use mithril_common::{
         CardanoTransactionsSnapshot, Certificate, Epoch, SignedEntityType,
         SignedEntityTypeDiscriminants, TimePoint,
     },
-    messages::EpochSettingsMessage,
     signable_builder::SignedEntity,
 };
 use mithril_ticker::TickerService;
@@ -23,7 +22,6 @@ pub struct AggregatorObserver {
     signed_entity_service: Arc<dyn SignedEntityService>,
     ticker_service: Arc<dyn TickerService>,
     epoch_service: EpochServiceWrapper,
-    message_service: Arc<dyn MessageService>,
 }
 
 impl AggregatorObserver {
@@ -34,7 +32,6 @@ impl AggregatorObserver {
             signed_entity_service: deps_builder.get_signed_entity_service().await.unwrap(),
             ticker_service: deps_builder.get_ticker_service().await.unwrap(),
             epoch_service: deps_builder.get_epoch_service().await.unwrap(),
-            message_service: deps_builder.get_message_service().await.unwrap(),
         }
     }
 
@@ -82,17 +79,6 @@ impl AggregatorObserver {
             .await
             .signed_entity_config()?
             .time_point_to_signed_entity(discriminant, &time_point)
-    }
-
-    /// Get the current [EpochSettingsMessage] of the aggregator
-    pub async fn get_epoch_settings(
-        &self,
-        allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
-    ) -> StdResult<EpochSettingsMessage> {
-        self.message_service
-            .get_epoch_settings_message(allowed_discriminants)
-            .await
-            .with_context(|| "Querying the current epoch settings should not fail")
     }
 
     /// Get the last certificate produced by the aggregator
