@@ -17,8 +17,16 @@ pub struct AggregateVerificationKey<D: Clone + Digest + FixedOutput> {
 }
 
 impl<D: Digest + Clone + FixedOutput> AggregateVerificationKey<D> {
-    pub fn get_mt_commitment(&self) -> MerkleTreeBatchCommitment<D> {
+    pub(crate) fn get_merkle_tree_batch_commitment(&self) -> MerkleTreeBatchCommitment<D> {
         self.mt_commitment.clone()
+    }
+
+    #[deprecated(
+        since = "0.4.9",
+        note = "Use `get_merkle_tree_batch_commitment` instead"
+    )]
+    pub fn get_mt_commitment(&self) -> MerkleTreeBatchCommitment<D> {
+        Self::get_merkle_tree_batch_commitment(self)
     }
 
     pub fn get_total_stake(&self) -> Stake {
@@ -39,7 +47,7 @@ impl<D: Clone + Digest + FixedOutput> From<&ClosedKeyRegistration<D>>
 {
     fn from(reg: &ClosedKeyRegistration<D>) -> Self {
         Self {
-            mt_commitment: reg.merkle_tree.to_commitment_batch_compat(),
+            mt_commitment: reg.merkle_tree.to_merkle_tree_batch_commitment(),
             total_stake: reg.total_stake,
         }
     }

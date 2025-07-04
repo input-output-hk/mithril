@@ -38,17 +38,17 @@ fn main() {
         .collect::<Vec<_>>();
 
     // Each party generates their Stm keys
-    let party_0_init = Initializer::setup(params, stakes[0], &mut rng);
-    let party_1_init = Initializer::setup(params, stakes[1], &mut rng);
-    let party_2_init = Initializer::setup(params, stakes[2], &mut rng);
-    let party_3_init = Initializer::setup(params, stakes[3], &mut rng);
+    let party_0_init = Initializer::new(params, stakes[0], &mut rng);
+    let party_1_init = Initializer::new(params, stakes[1], &mut rng);
+    let party_2_init = Initializer::new(params, stakes[2], &mut rng);
+    let party_3_init = Initializer::new(params, stakes[3], &mut rng);
 
     // The public keys are broadcast. All participants will have the same keys.
     let parties_pks: Vec<VerificationKeyProofOfPossession> = vec![
-        party_0_init.verification_key(),
-        party_1_init.verification_key(),
-        party_2_init.verification_key(),
-        party_3_init.verification_key(),
+        party_0_init.get_verification_key_proof_of_possession(),
+        party_1_init.get_verification_key_proof_of_possession(),
+        party_2_init.get_verification_key_proof_of_possession(),
+        party_3_init.get_verification_key_proof_of_possession(),
     ];
 
     // Now, each party generates their own KeyReg instance, and registers all other participating
@@ -60,10 +60,10 @@ fn main() {
 
     // Now, with information of all participating parties (we can create the Merkle Tree), the
     // signers can be initialised.
-    let party_0 = party_0_init.new_signer(key_reg_0).unwrap();
-    let party_1 = party_1_init.new_signer(key_reg_1).unwrap();
-    let party_2 = party_2_init.new_signer(key_reg_2).unwrap();
-    let party_3 = party_3_init.new_signer(key_reg_3).unwrap();
+    let party_0 = party_0_init.create_signer(key_reg_0).unwrap();
+    let party_1 = party_1_init.create_signer(key_reg_1).unwrap();
+    let party_2 = party_2_init.create_signer(key_reg_2).unwrap();
+    let party_3 = party_3_init.create_signer(key_reg_3).unwrap();
 
     /////////////////////
     // operation phase //
@@ -110,26 +110,34 @@ fn main() {
     let incomplete_sigs_3 = vec![party_0_sigs, party_1_sigs, party_2_sigs, party_3_sigs];
 
     let closed_registration = local_reg(&stakes, &parties_pks);
-    let clerk = Clerk::from_registration(&params, &closed_registration);
+    let clerk = Clerk::new_clerk_from_closed_key_registration(&params, &closed_registration);
 
     // Now we aggregate the signatures
-    let msig_1 = match clerk.aggregate(&complete_sigs_1, &msg) {
+    let msig_1 = match clerk.aggregate_signatures(&complete_sigs_1, &msg) {
         Ok(s) => s,
         Err(e) => {
             panic!("Aggregation failed: {e:?}")
         }
     };
-    assert!(msig_1.verify(&msg, &clerk.compute_avk(), &params).is_ok());
+    assert!(
+        msig_1
+            .verify(&msg, &clerk.compute_aggregate_verification_key(), &params)
+            .is_ok()
+    );
 
-    let msig_2 = match clerk.aggregate(&complete_sigs_2, &msg) {
+    let msig_2 = match clerk.aggregate_signatures(&complete_sigs_2, &msg) {
         Ok(s) => s,
         Err(e) => {
             panic!("Aggregation failed: {e:?}")
         }
     };
-    assert!(msig_2.verify(&msg, &clerk.compute_avk(), &params).is_ok());
+    assert!(
+        msig_2
+            .verify(&msg, &clerk.compute_aggregate_verification_key(), &params)
+            .is_ok()
+    );
 
-    let msig_3 = clerk.aggregate(&incomplete_sigs_3, &msg);
+    let msig_3 = clerk.aggregate_signatures(&incomplete_sigs_3, &msg);
     assert!(msig_3.is_err());
 }
 

@@ -30,16 +30,19 @@ fn test_core_verifier() {
     let parties = (0..nparties).map(|_| 1 + (rng.next_u64() % 9999)).collect::<Vec<_>>();
 
     for stake in parties {
-        let initializer = Initializer::setup(params, stake, &mut rng);
+        let initializer = Initializer::new(params, stake, &mut rng);
         initializers.push(initializer.clone());
-        public_signers.push((initializer.verification_key().vk, initializer.stake));
+        public_signers.push((
+            initializer.get_verification_key_proof_of_possession().vk,
+            initializer.stake,
+        ));
     }
 
-    let core_verifier = BasicVerifier::setup(&public_signers);
+    let core_verifier = BasicVerifier::new(&public_signers);
 
     let signers: Vec<Signer<D>> = initializers
         .into_iter()
-        .filter_map(|s| s.new_core_signer(&core_verifier.eligible_parties))
+        .filter_map(|s| s.create_basic_signer(&core_verifier.eligible_parties))
         .collect();
 
     //////////////////////////
@@ -48,7 +51,7 @@ fn test_core_verifier() {
 
     let mut signatures: Vec<SingleSignature> = Vec::with_capacity(nparties);
     for s in signers {
-        if let Some(sig) = s.core_sign(&msg, core_verifier.total_stake) {
+        if let Some(sig) = s.basic_sign(&msg, core_verifier.total_stake) {
             signatures.push(sig);
         }
     }

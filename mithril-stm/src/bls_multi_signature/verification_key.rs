@@ -43,7 +43,7 @@ impl BlsVerificationKey {
 
     /// Compare two `VerificationKey`. Used for PartialOrd impl, used to order signatures. The comparison
     /// function can be anything, as long as it is consistent.
-    fn cmp_msp_mvk(&self, other: &BlsVerificationKey) -> Ordering {
+    fn compare_verification_keys(&self, other: &BlsVerificationKey) -> Ordering {
         let self_bytes = self.to_bytes();
         let other_bytes = other.to_bytes();
         let mut result = Ordering::Equal;
@@ -58,7 +58,7 @@ impl BlsVerificationKey {
         result
     }
 
-    pub(crate) fn to_blst_vk(self) -> BlstVk {
+    pub(crate) fn to_blst_verification_key(self) -> BlstVk {
         self.0
     }
 }
@@ -91,7 +91,7 @@ impl PartialOrd for BlsVerificationKey {
 
 impl Ord for BlsVerificationKey {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.cmp_msp_mvk(other)
+        self.compare_verification_keys(other)
     }
 }
 
@@ -116,7 +116,7 @@ impl From<&BlsSigningKey> for BlsVerificationKey {
     /// `MspMvk = g2 * sk`, where `g2` is the generator in G2. We can use the
     /// blst built-in function `sk_to_pk`.
     fn from(sk: &BlsSigningKey) -> Self {
-        BlsVerificationKey(sk.to_blst_sk().sk_to_pk())
+        BlsVerificationKey(sk.to_blst_secret_key().sk_to_pk())
     }
 }
 
@@ -136,15 +136,18 @@ impl BlsVerificationKeyProofOfPossession {
     /// manually.
     // If we are really looking for performance improvements, we can combine the
     // two final exponentiations (for verifying k1 and k2) into a single one.
-    pub fn check(&self) -> Result<(), MultiSignatureError> {
-        match self.vk.to_blst_vk().validate() {
+    pub(crate) fn verify_proof_of_possesion(&self) -> Result<(), MultiSignatureError> {
+        match self.vk.to_blst_verification_key().validate() {
             Ok(_) => {
                 let result = verify_pairing(&self.vk, &self.pop);
-                if !(self
-                    .pop
-                    .to_k1()
-                    .verify(false, POP, &[], &[], &self.vk.to_blst_vk(), false)
-                    == BLST_ERROR::BLST_SUCCESS
+                if !(self.pop.get_k1().verify(
+                    false,
+                    POP,
+                    &[],
+                    &[],
+                    &self.vk.to_blst_verification_key(),
+                    false,
+                ) == BLST_ERROR::BLST_SUCCESS
                     && result)
                 {
                     return Err(MultiSignatureError::KeyInvalid(Box::new(*self)));
@@ -153,6 +156,17 @@ impl BlsVerificationKeyProofOfPossession {
             }
             Err(e) => blst_err_to_mithril(e, None, Some(self.vk)),
         }
+    }
+
+    /// if `e(k1,g2) = e(H_G1("PoP" || mvk),mvk)` and `e(g1,mvk) = e(k2,g2)`
+    /// are both true, return 1. The first part is a signature verification
+    /// of message "PoP", while the second we need to compute the pairing
+    /// manually.
+    // If we are really looking for performance improvements, we can combine the
+    // two final exponentiations (for verifying k1 and k2) into a single one.
+    #[deprecated(since = "0.4.9", note = "Use `verify_proof_of_possesion` instead")]
+    pub fn check(&self) -> Result<(), MultiSignatureError> {
+        Self::verify_proof_of_possesion(self)
     }
 
     /// Convert to a 144 byte string.

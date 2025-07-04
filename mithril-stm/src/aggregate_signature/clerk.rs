@@ -17,25 +17,43 @@ pub struct Clerk<D: Clone + Digest> {
 
 impl<D: Digest + Clone + FixedOutput> Clerk<D> {
     /// Create a new `Clerk` from a closed registration instance.
-    pub fn from_registration(params: &Parameters, closed_reg: &ClosedKeyRegistration<D>) -> Self {
+    pub fn new_clerk_from_closed_key_registration(
+        params: &Parameters,
+        closed_reg: &ClosedKeyRegistration<D>,
+    ) -> Self {
         Self {
             params: *params,
             closed_reg: closed_reg.clone(),
         }
     }
 
+    /// Create a new `Clerk` from a closed registration instance.
+    #[deprecated(
+        since = "0.4.9",
+        note = "Use `new_clerk_from_closed_key_registration` instead"
+    )]
+    pub fn from_registration(params: &Parameters, closed_reg: &ClosedKeyRegistration<D>) -> Self {
+        Self::new_clerk_from_closed_key_registration(params, closed_reg)
+    }
+
     /// Create a Clerk from a signer.
-    pub fn from_signer(signer: &Signer<D>) -> Self {
+    pub fn new_clerk_from_signer(signer: &Signer<D>) -> Self {
         let closed_reg = signer
-            .get_closed_reg()
+            .get_closed_key_registration()
             .clone()
             .expect("Core signer does not include closed registration. Clerk, and so, the Stm certificate cannot be built without closed registration!")
             ;
 
         Self {
-            params: signer.get_params(),
+            params: signer.get_parameters(),
             closed_reg,
         }
+    }
+
+    /// Create a Clerk from a signer.
+    #[deprecated(since = "0.4.9", note = "Use `new_clerk_from_signer` instead")]
+    pub fn from_signer(signer: &Signer<D>) -> Self {
+        Self::new_clerk_from_signer(signer)
     }
 
     /// Aggregate a set of signatures for their corresponding indices.
@@ -44,7 +62,7 @@ impl<D: Digest + Clone + FixedOutput> Clerk<D> {
     /// The list of merkle tree indexes is used to create a batch proof, to prove that all signatures are from eligible signers.
     ///
     /// It returns an instance of `AggregateSignature`.
-    pub fn aggregate(
+    pub fn aggregate_signatures(
         &self,
         sigs: &[SingleSignature],
         msg: &[u8],
@@ -58,8 +76,8 @@ impl<D: Digest + Clone + FixedOutput> Clerk<D> {
             .collect::<Vec<SingleSignatureWithRegisteredParty>>();
 
         let avk = AggregateVerificationKey::from(&self.closed_reg);
-        let msgp = avk.get_mt_commitment().concat_with_msg(msg);
-        let mut unique_sigs = BasicVerifier::dedup_sigs_for_indices(
+        let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
+        let mut unique_sigs = BasicVerifier::select_valid_signatures_for_k_indices(
             &self.closed_reg.total_stake,
             &self.params,
             &msgp,
@@ -73,7 +91,10 @@ impl<D: Digest + Clone + FixedOutput> Clerk<D> {
             .map(|sig_reg| sig_reg.sig.signer_index as usize)
             .collect::<Vec<usize>>();
 
-        let batch_proof = self.closed_reg.merkle_tree.get_batched_path(mt_index_list);
+        let batch_proof = self
+            .closed_reg
+            .merkle_tree
+            .compute_merkle_tree_batch_path(mt_index_list);
 
         Ok(AggregateSignature {
             signatures: unique_sigs,
@@ -81,16 +102,49 @@ impl<D: Digest + Clone + FixedOutput> Clerk<D> {
         })
     }
 
+    /// Aggregate a set of signatures for their corresponding indices.
+    ///
+    /// This function first deduplicates the repeated signatures, and if there are enough signatures, it collects the merkle tree indexes of unique signatures.
+    /// The list of merkle tree indexes is used to create a batch proof, to prove that all signatures are from eligible signers.
+    ///
+    /// It returns an instance of `AggregateSignature`.
+    #[deprecated(since = "0.4.9", note = "Use `aggregate_signatures` instead")]
+    pub fn aggregate(
+        &self,
+        sigs: &[SingleSignature],
+        msg: &[u8],
+    ) -> Result<AggregateSignature<D>, AggregationError> {
+        Self::aggregate_signatures(self, sigs, msg)
+    }
+
     /// Compute the `AggregateVerificationKey` related to the used registration.
-    pub fn compute_avk(&self) -> AggregateVerificationKey<D> {
+    pub fn compute_aggregate_verification_key(&self) -> AggregateVerificationKey<D> {
         AggregateVerificationKey::from(&self.closed_reg)
     }
 
+    /// Compute the `AggregateVerificationKey` related to the used registration.
+    #[deprecated(
+        since = "0.4.9",
+        note = "Use `compute_aggregate_verification_key` instead"
+    )]
+    pub fn compute_avk(&self) -> AggregateVerificationKey<D> {
+        Self::compute_aggregate_verification_key(self)
+    }
+
     /// Get the (VK, stake) of a party given its index.
-    pub fn get_reg_party(&self, party_index: &Index) -> Option<(VerificationKey, Stake)> {
+    pub fn get_registered_party_for_index(
+        &self,
+        party_index: &Index,
+    ) -> Option<(VerificationKey, Stake)> {
         self.closed_reg
             .reg_parties
             .get(*party_index as usize)
             .map(|&r| r.into())
+    }
+
+    /// Get the (VK, stake) of a party given its index.
+    #[deprecated(since = "0.4.9", note = "Use `get_registered_party_for_index` instead")]
+    pub fn get_reg_party(&self, party_index: &Index) -> Option<(VerificationKey, Stake)> {
+        Self::get_registered_party_for_index(self, party_index)
     }
 }

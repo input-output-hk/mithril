@@ -31,7 +31,7 @@ use {
 ///                 1 - p    1 - (ev / evMax)    (evMax - ev)
 ///
 /// Used to determine winning lottery tickets.
-pub(crate) fn ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> bool {
+pub(crate) fn is_lottery_won(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> bool {
     // If phi_f = 1, then we automatically break with true
     if (phi_f - 1.0).abs() < f64::EPSILON {
         return true;
@@ -92,7 +92,7 @@ fn taylor_comparison(bound: usize, cmp: Ratio<BigInt>, x: Ratio<BigInt>) -> bool
 /// order to keep the error in the 1e-17 range, we need to carry out the computations with 34
 /// decimal digits (in order to represent the 4.5e16 ada without any rounding errors, we need
 /// double that precision).
-pub(crate) fn ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> bool {
+pub(crate) fn is_lottery_won(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> bool {
     use rug::{Float, integer::Order, ops::Pow};
 
     // If phi_f = 1, then we automatically break with true
@@ -115,8 +115,8 @@ mod tests {
     use num_bigint::{BigInt, Sign};
     use num_rational::Ratio;
     use proptest::prelude::*;
-    // Implementation of `ev_lt_phi` without approximation. We only get the precision of f64 here.
-    fn simple_ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> bool {
+    // Implementation of `is_lottery_won` without approximation. We only get the precision of f64 here.
+    fn trivial_is_lottery_won(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> bool {
         let ev_max = BigInt::from(2u8).pow(512);
         let ev = BigInt::from_bytes_le(Sign::Plus, &ev);
         let q = Ratio::new_raw(ev, ev_max);
@@ -130,8 +130,8 @@ mod tests {
         #![proptest_config(ProptestConfig::with_cases(50))]
 
         #[test]
-        /// Checking the ev_lt_phi function.
-        fn test_precision_approximation(
+        /// Checking the `is_lottery_won` function.
+        fn is_lottery_won_check_precision_against_trivial_implementation(
             phi_f in 0.01..0.5f64,
             ev_1 in any::<[u8; 32]>(),
             ev_2 in any::<[u8; 32]>(),
@@ -141,15 +141,15 @@ mod tests {
             let mut ev = [0u8; 64];
             ev.copy_from_slice(&[&ev_1[..], &ev_2[..]].concat());
 
-            let quick_result = simple_ev_lt_phi(phi_f, ev, stake, total_stake);
-            let result = ev_lt_phi(phi_f, ev, stake, total_stake);
+            let quick_result = trivial_is_lottery_won(phi_f, ev, stake, total_stake);
+            let result = is_lottery_won(phi_f, ev, stake, total_stake);
             assert_eq!(quick_result, result);
         }
 
         #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
         #[test]
         /// Checking the early break of Taylor computation
-        fn early_break_taylor(
+        fn taylor_comparison_breaks_early(
             x in -0.9..0.9f64,
         ) {
             let exponential = num_traits::float::Float::exp(x);

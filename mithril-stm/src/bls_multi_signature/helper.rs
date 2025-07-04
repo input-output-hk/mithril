@@ -14,11 +14,12 @@ pub(crate) mod unsafe_helpers {
     pub(crate) fn verify_pairing(vk: &BlsVerificationKey, pop: &BlsProofOfPossession) -> bool {
         unsafe {
             let g1_p = *blst_p1_affine_generator();
-            let mvk_p = std::mem::transmute::<BlstVk, blst_p2_affine>(vk.to_blst_vk());
+            let mvk_p =
+                std::mem::transmute::<BlstVk, blst_p2_affine>(vk.to_blst_verification_key());
             let ml_lhs = blst_fp12::miller_loop(&mvk_p, &g1_p);
 
             let mut k2_p = blst_p1_affine::default();
-            blst_p1_to_affine(&mut k2_p, &pop.to_k2());
+            blst_p1_to_affine(&mut k2_p, &pop.get_k2());
             let g2_p = *blst_p2_affine_generator();
             let ml_rhs = blst_fp12::miller_loop(&g2_p, &k2_p);
 
@@ -60,7 +61,7 @@ pub(crate) mod unsafe_helpers {
             let mut projective_p2 = blst_p2::default();
             blst_p2_from_affine(
                 &mut projective_p2,
-                &std::mem::transmute::<BlstVk, blst_p2_affine>(vk.to_blst_vk()),
+                &std::mem::transmute::<BlstVk, blst_p2_affine>(vk.to_blst_verification_key()),
             );
             projective_p2
         }
