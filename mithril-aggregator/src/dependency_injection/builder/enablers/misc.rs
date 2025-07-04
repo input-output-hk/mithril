@@ -4,6 +4,8 @@
 //! - group these enablers into more logical categories
 //! - redefine the actual categories so those miscellaneous enablers fit into them
 
+use anyhow::{Context, anyhow};
+use reqwest::Url;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -58,10 +60,16 @@ impl DependenciesBuilder {
 
     /// Builds an [AggregatorClient]
     pub async fn build_leader_aggregator_client(&mut self) -> Result<Arc<dyn AggregatorClient>> {
-        let leader_aggregator_endpoint =
-            self.configuration.leader_aggregator_endpoint().unwrap_or_default();
+        let leader_aggregator_endpoint = self.configuration.leader_aggregator_endpoint().ok_or(
+            anyhow!("Leader Aggregator endpoint is mandatory for follower Aggregator"),
+        )?;
+
         let aggregator_client = AggregatorHTTPClient::new(
-            leader_aggregator_endpoint,
+            Url::parse(&leader_aggregator_endpoint).with_context(|| {
+                format!(
+                    "Failed to parse leader aggregator endpoint: '{leader_aggregator_endpoint}'"
+                )
+            })?,
             None,
             self.get_api_version_provider().await?,
             Some(Duration::from_secs(30)),

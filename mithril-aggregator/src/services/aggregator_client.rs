@@ -1,8 +1,9 @@
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use mithril_common::messages::TryFromMessageAdapter;
 use reqwest::header::{self, HeaderValue};
-use reqwest::{self, Client, Proxy, RequestBuilder, Response, StatusCode};
+use reqwest::{self, Client, Proxy, RequestBuilder, Response, StatusCode, Url};
+
 use semver::Version;
 use slog::{Logger, debug, error, warn};
 use std::{io, sync::Arc, time::Duration};
@@ -129,7 +130,7 @@ pub trait AggregatorClient: Sync + Send {
 
 /// AggregatorHTTPClient is a http client for an aggregator
 pub struct AggregatorHTTPClient {
-    aggregator_endpoint: String,
+    aggregator_endpoint: Url,
     relay_endpoint: Option<String>,
     api_version_provider: Arc<APIVersionProvider>,
     timeout_duration: Option<Duration>,
@@ -139,7 +140,7 @@ pub struct AggregatorHTTPClient {
 impl AggregatorHTTPClient {
     /// AggregatorHTTPClient factory
     pub fn new(
-        aggregator_endpoint: String,
+        aggregator_endpoint: Url,
         relay_endpoint: Option<String>,
         api_version_provider: Arc<APIVersionProvider>,
         timeout_duration: Option<Duration>,
@@ -147,6 +148,18 @@ impl AggregatorHTTPClient {
     ) -> Self {
         let logger = logger.new_with_component_name::<Self>();
         debug!(logger, "New AggregatorHTTPClient created");
+
+        // Trailing slash is significant because url::join
+        // (https://docs.rs/url/latest/url/struct.Url.html#method.join) will remove
+        // the 'path' part of the url if it doesn't end with a trailing slash.
+        let aggregator_endpoint = if aggregator_endpoint.as_str().ends_with('/') {
+            aggregator_endpoint
+        } else {
+            let mut url = aggregator_endpoint.clone();
+            url.set_path(&format!("{}/", aggregator_endpoint.path()));
+            url
+        };
+
         Self {
             aggregator_endpoint,
             relay_endpoint,
@@ -154,6 +167,18 @@ impl AggregatorHTTPClient {
             timeout_duration,
             logger,
         }
+    }
+
+    fn join_aggregator_endpoint(&self, endpoint: &str) -> Result<Url, AggregatorClientError> {
+        self.aggregator_endpoint
+            .join(endpoint)
+            .with_context(|| {
+                format!(
+                    "Invalid url when joining given endpoint, '{endpoint}', to aggregator url '{}'",
+                    self.aggregator_endpoint
+                )
+            })
+            .map_err(AggregatorClientError::HTTPClientCreation)
     }
 
     fn prepare_http_client(&self) -> Result<Client, AggregatorClientError> {
@@ -225,9 +250,9 @@ impl AggregatorClient for AggregatorHTTPClient {
         &self,
     ) -> Result<Option<LeaderAggregatorEpochSettings>, AggregatorClientError> {
         debug!(self.logger, "Retrieve epoch settings");
-        let url = format!("{}/epoch-settings", self.aggregator_endpoint);
+        let url = self.join_aggregator_endpoint("epoch-settings")?;
         let response = self
-            .prepare_request_builder(self.prepare_http_client()?.get(url.clone()))
+            .prepare_request_builder(self.prepare_http_client()?.get(url))
             .send()
             .await;
 
@@ -288,6 +313,7 @@ pub(crate) mod dumb {
 mod tests {
     use http::response::Builder as HttpResponseBuilder;
     use httpmock::prelude::*;
+    use reqwest::IntoUrl;
     use serde_json::json;
 
     use mithril_common::api_version::DummyApiVersionDiscriminantSource;
@@ -296,12 +322,12 @@ mod tests {
 
     use super::*;
 
-    fn setup_client<U: Into<String>>(server_url: U) -> AggregatorHTTPClient {
+    fn setup_client<U: IntoUrl>(server_url: U) -> AggregatorHTTPClient {
         let discriminant_source = DummyApiVersionDiscriminantSource::default();
         let api_version_provider = APIVersionProvider::new(Arc::new(discriminant_source));
 
         AggregatorHTTPClient::new(
-            server_url.into(),
+            server_url.into_url().unwrap(),
             None,
             Arc::new(api_version_provider),
             None,
@@ -567,7 +593,7 @@ mod tests {
             let aggregator_version = "1.0.0";
             let (logger, log_inspector) = TestLogger::memory();
             let version_provider = version_provider_with_open_api_version(aggregator_version);
-            let mut client = setup_client("whatever");
+            let mut client = setup_client("http://whatever");
             client.api_version_provider = Arc::new(version_provider);
             client.logger = logger;
             let response = build_fake_response_with_header(
@@ -594,7 +620,7 @@ mod tests {
             let version = "1.0.0";
             let (logger, log_inspector) = TestLogger::memory();
             let version_provider = version_provider_with_open_api_version(version);
-            let mut client = setup_client("whatever");
+            let mut client = setup_client("http://whatever");
             client.api_version_provider = Arc::new(version_provider);
             client.logger = logger;
             let response = build_fake_response_with_header(MITHRIL_API_VERSION_HEADER, version);
@@ -610,7 +636,7 @@ mod tests {
             let aggregator_version = "2.0.0";
             let (logger, log_inspector) = TestLogger::memory();
             let version_provider = version_provider_with_open_api_version(aggregator_version);
-            let mut client = setup_client("whatever");
+            let mut client = setup_client("http://whatever");
             client.api_version_provider = Arc::new(version_provider);
             client.logger = logger;
             let response = build_fake_response_with_header(
@@ -631,7 +657,7 @@ mod tests {
         #[test]
         fn test_does_not_log_or_fail_when_header_is_missing() {
             let (logger, log_inspector) = TestLogger::memory();
-            let mut client = setup_client("whatever");
+            let mut client = setup_client("http://whatever");
             client.logger = logger;
             let response =
                 build_fake_response_with_header("NotMithrilAPIVersionHeader", "whatever");
@@ -644,7 +670,7 @@ mod tests {
         #[test]
         fn test_does_not_log_or_fail_when_header_is_not_a_version() {
             let (logger, log_inspector) = TestLogger::memory();
-            let mut client = setup_client("whatever");
+            let mut client = setup_client("http://whatever");
             client.logger = logger;
             let response =
                 build_fake_response_with_header(MITHRIL_API_VERSION_HEADER, "not_a_version");
@@ -658,7 +684,7 @@ mod tests {
         fn test_logs_error_when_aggregator_version_cannot_be_computed() {
             let (logger, log_inspector) = TestLogger::memory();
             let version_provider = version_provider_without_open_api_version();
-            let mut client = setup_client("whatever");
+            let mut client = setup_client("http://whatever");
             client.api_version_provider = Arc::new(version_provider);
             client.logger = logger;
             let response = build_fake_response_with_header(MITHRIL_API_VERSION_HEADER, "1.0.0");
