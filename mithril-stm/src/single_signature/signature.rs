@@ -125,12 +125,19 @@ impl SingleSignature {
         })
     }
 
+    // Visibility will be changed to private.
     /// Compare two `SingleSignature` by their signers' merkle tree indexes.
     pub fn compare_signer_index(&self, other: &Self) -> Ordering {
         self.signer_index.cmp(&other.signer_index)
     }
 
-    /// Verify a core signature by checking that the lottery was won,
+    /// Will be deprecated. Use `compare_signer_index` instead.
+    pub fn cmp_stm_sig(&self, other: &Self) -> Ordering {
+        SingleSignature::compare_signer_index(self, other)
+    }
+
+    // Visibility will be changed to `pub(crate)`.
+    /// Verify a basic signature by checking that the lottery was won,
     /// the indexes are in the desired range and the underlying multi signature validates.
     pub fn basic_verify(
         &self,
@@ -144,6 +151,18 @@ impl SingleSignature {
         self.check_indices(params, stake, msg, total_stake)?;
 
         Ok(())
+    }
+
+    /// Will be deprecated. Use `basic_verify` instead.
+    pub fn core_verify(
+        &self,
+        params: &Parameters,
+        pk: &VerificationKey,
+        stake: &Stake,
+        msg: &[u8],
+        total_stake: &Stake,
+    ) -> Result<(), StmSignatureError> {
+        SingleSignature::basic_verify(self, params, pk, stake, msg, total_stake)
     }
 }
 
