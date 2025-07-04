@@ -135,6 +135,9 @@ pub enum AggregatorRequest {
 
     /// Lists the aggregator [Cardano stake distribution][crate::CardanoStakeDistribution]
     ListCardanoStakeDistributions,
+
+    /// Get information about the aggregator status
+    Status,
 }
 
 impl AggregatorRequest {
@@ -197,6 +200,7 @@ impl AggregatorRequest {
             AggregatorRequest::ListCardanoStakeDistributions => {
                 "artifact/cardano-stake-distributions".to_string()
             }
+            AggregatorRequest::Status => "status".to_string(),
         }
     }
 
@@ -668,6 +672,8 @@ mod tests {
             "artifact/cardano-stake-distributions".to_string(),
             AggregatorRequest::ListCardanoStakeDistributions.route()
         );
+
+        assert_eq!("status".to_string(), AggregatorRequest::Status.route());
     }
 
     #[test]

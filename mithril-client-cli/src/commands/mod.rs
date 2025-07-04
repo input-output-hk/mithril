@@ -12,9 +12,11 @@ pub mod tools;
 
 pub use deprecation::{DeprecatedCommand, Deprecation};
 
+use std::sync::Arc;
+
 use mithril_client::{ClientBuilder, MithrilResult};
 
-use crate::configuration::ConfigParameters;
+use crate::{configuration::ConfigParameters, utils::ForcedEraFetcher};
 
 const CLIENT_TYPE_CLI: &str = "CLI";
 
@@ -22,11 +24,9 @@ pub(crate) fn client_builder(params: &ConfigParameters) -> MithrilResult<ClientB
     let builder = ClientBuilder::aggregator(
         &params.require("aggregator_endpoint")?,
         &params.require("genesis_verification_key")?,
-    )
-    .with_origin_tag(params.get("origin_tag"))
-    .with_client_type(Some(CLIENT_TYPE_CLI.to_string()));
+    );
 
-    Ok(builder)
+    Ok(finalize_builder_config(builder, params))
 }
 
 pub(crate) fn client_builder_with_fallback_genesis_key(
@@ -44,9 +44,19 @@ pub(crate) fn client_builder_with_fallback_genesis_key(
             "genesis_verification_key",
             fallback_genesis_verification_key,
         ),
-    )
-    .with_origin_tag(params.get("origin_tag"))
-    .with_client_type(Some(CLIENT_TYPE_CLI.to_string()));
+    );
 
-    Ok(builder)
+    Ok(finalize_builder_config(builder, params))
+}
+
+fn finalize_builder_config(mut builder: ClientBuilder, params: &ConfigParameters) -> ClientBuilder {
+    builder = builder
+        .with_origin_tag(params.get("origin_tag"))
+        .with_client_type(Some(CLIENT_TYPE_CLI.to_string()));
+
+    if let Some(era) = params.get("era") {
+        builder = builder.with_era_fetcher(Arc::new(ForcedEraFetcher::new(era.to_string())));
+    }
+
+    builder
 }
