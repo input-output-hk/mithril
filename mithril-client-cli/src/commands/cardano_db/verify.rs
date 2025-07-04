@@ -22,6 +22,7 @@ use crate::{
 /// Clap command to verify a Cardano db and its associated certificate.
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbVerifyCommand {
+    ///Backend to use, either: `v1` (default, full database restoration only) or `v2` (full or partial database restoration)
     #[arg(short, long, value_enum, default_value_t = CardanoDbCommandsBackend::V2)]
     backend: CardanoDbCommandsBackend,
 

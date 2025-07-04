@@ -16,6 +16,7 @@ use crate::{
 /// Clap command to show a given Cardano db
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbShowCommand {
+    ///Backend to use, either: `v1` (default, full database restoration only) or `v2` (full or partial database restoration)
     #[arg(short, long, value_enum, default_value_t)]
     backend: CardanoDbCommandsBackend,
 

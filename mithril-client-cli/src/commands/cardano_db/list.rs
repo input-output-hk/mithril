@@ -11,6 +11,7 @@ use mithril_client::{Client, MithrilResult};
 /// Clap command to list existing Cardano dbs
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbListCommand {
+    ///Backend to use, either: `v1` (default, full database restoration only) or `v2` (full or partial database restoration)
     #[arg(short, long, value_enum, default_value_t)]
     backend: CardanoDbCommandsBackend,
 }

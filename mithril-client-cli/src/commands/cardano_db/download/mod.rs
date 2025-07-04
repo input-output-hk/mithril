@@ -20,6 +20,7 @@ const DB_DIRECTORY_NAME: &str = "db";
 /// Clap command to download a Cardano db and verify its associated certificate.
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbDownloadCommand {
+    ///Backend to use, either: `v1` (default, full database restoration only) or `v2` (full or partial database restoration)
     #[arg(short, long, value_enum, default_value_t)]
     backend: CardanoDbCommandsBackend,
 
