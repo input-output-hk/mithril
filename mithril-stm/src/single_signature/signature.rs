@@ -52,7 +52,7 @@ impl SingleSignature {
                 return Err(StmSignatureError::IndexBoundFailed(index, params.m));
             }
 
-            let ev = self.sigma.eval(msg, index);
+            let ev = self.sigma.evaluate_dense_mapping(msg, index);
 
             if !is_lottery_won(params.phi_f, ev, *stake, *total_stake) {
                 return Err(StmSignatureError::LotteryLost);

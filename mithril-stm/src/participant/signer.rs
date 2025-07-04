@@ -161,7 +161,7 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
         for index in 0..self.params.m {
             if is_lottery_won(
                 self.params.phi_f,
-                sigma.eval(msg, index),
+                sigma.evaluate_dense_mapping(msg, index),
                 self.stake,
                 total_stake,
             ) {
