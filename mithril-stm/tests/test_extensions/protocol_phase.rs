@@ -37,9 +37,11 @@ pub fn initialization_phase(
     let mut reg_parties: Vec<(VerificationKey, Stake)> = Vec::with_capacity(nparties);
 
     for stake in parties {
-        let p = Initializer::setup(params, stake, &mut rng);
-        key_reg.register(stake, p.verification_key()).unwrap();
-        reg_parties.push((p.verification_key().vk, stake));
+        let p = Initializer::new(params, stake, &mut rng);
+        key_reg
+            .register(stake, p.get_verification_key_proof_of_possession())
+            .unwrap();
+        reg_parties.push((p.get_verification_key_proof_of_possession().vk, stake));
         initializers.push(p);
     }
 
@@ -48,7 +50,7 @@ pub fn initialization_phase(
     let signers = initializers
         .clone()
         .into_par_iter()
-        .map(|p| p.new_signer(closed_reg.clone()).unwrap())
+        .map(|p| p.create_signer(closed_reg.clone()).unwrap())
         .collect::<Vec<Signer<H>>>();
 
     InitializationPhaseResult {
@@ -69,8 +71,8 @@ pub fn operation_phase(
         .filter_map(|p| p.sign(&msg))
         .collect::<Vec<SingleSignature>>();
 
-    let clerk = Clerk::from_signer(&signers[0]);
-    let avk = clerk.compute_avk();
+    let clerk = Clerk::new_clerk_from_signer(&signers[0]);
+    let avk = clerk.compute_aggregate_verification_key();
 
     // Check all parties can verify every sig
     for (s, (vk, stake)) in sigs.iter().zip(reg_parties.iter()) {
@@ -80,7 +82,7 @@ pub fn operation_phase(
         );
     }
 
-    let msig = clerk.aggregate(&sigs, &msg);
+    let msig = clerk.aggregate_signatures(&sigs, &msg);
 
     OperationPhaseResult { msig, avk, sigs }
 }

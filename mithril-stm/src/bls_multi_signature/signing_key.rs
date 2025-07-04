@@ -43,7 +43,7 @@ impl BlsSigningKey {
         }
     }
 
-    pub(crate) fn to_blst_sk(&self) -> BlstSk {
+    pub(crate) fn to_blst_secret_key(&self) -> BlstSk {
         self.0.clone()
     }
 }

@@ -27,7 +27,10 @@ impl BlsSignature {
         blst_err_to_mithril(
             self.0.validate(true).map_or_else(
                 |e| e,
-                |_| self.0.verify(false, msg, &[], &[], &mvk.to_blst_vk(), false),
+                |_| {
+                    self.0
+                        .verify(false, msg, &[], &[], &mvk.to_blst_verification_key(), false)
+                },
             ),
             Some(*self),
             None,
@@ -38,7 +41,7 @@ impl BlsSignature {
     /// We hash the signature to produce a 64 bytes integer.
     /// The return value of this function refers to
     /// `ev = H("map" || msg || index || σ) <- MSP.Eval(msg,index,σ)` given in paper.
-    pub fn eval(&self, msg: &[u8], index: Index) -> [u8; 64] {
+    pub(crate) fn evaluate_dense_mapping(&self, msg: &[u8], index: Index) -> [u8; 64] {
         let hasher = Blake2b512::new()
             .chain_update(b"map")
             .chain_update(msg)
@@ -72,7 +75,7 @@ impl BlsSignature {
 
     /// Compare two signatures. Used for PartialOrd impl, used to rank signatures. The comparison
     /// function can be anything, as long as it is consistent across different nodes.
-    fn cmp_msp_sig(&self, other: &Self) -> Ordering {
+    fn compare_signatures(&self, other: &Self) -> Ordering {
         let self_bytes = self.to_bytes();
         let other_bytes = other.to_bytes();
         let mut result = Ordering::Equal;
@@ -139,7 +142,14 @@ impl BlsSignature {
         let (aggr_vk, aggr_sig) = Self::aggregate(vks, sigs)?;
 
         blst_err_to_mithril(
-            aggr_sig.0.verify(false, msg, &[], &[], &aggr_vk.to_blst_vk(), false),
+            aggr_sig.0.verify(
+                false,
+                msg,
+                &[],
+                &[],
+                &aggr_vk.to_blst_verification_key(),
+                false,
+            ),
             Some(aggr_sig),
             None,
         )
@@ -159,7 +169,7 @@ impl BlsSignature {
             Err(e) => return blst_err_to_mithril(e, None, None),
         };
 
-        let p2_vks: Vec<BlstVk> = vks.iter().map(|vk| vk.to_blst_vk()).collect();
+        let p2_vks: Vec<BlstVk> = vks.iter().map(|vk| vk.to_blst_verification_key()).collect();
         let p2_vks_ref: Vec<&BlstVk> = p2_vks.iter().collect();
         let slice_msgs = msgs.iter().map(|msg| msg.as_slice()).collect::<Vec<&[u8]>>();
 
@@ -195,6 +205,6 @@ impl PartialOrd for BlsSignature {
 
 impl Ord for BlsSignature {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.cmp_msp_sig(other)
+        self.compare_signatures(other)
     }
 }

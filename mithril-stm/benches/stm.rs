@@ -35,7 +35,7 @@ where
 
     let mut initializers: Vec<Initializer> = Vec::with_capacity(nr_parties);
     for stake in stakes {
-        initializers.push(Initializer::setup(params, stake, &mut rng));
+        initializers.push(Initializer::new(params, stake, &mut rng));
     }
     let mut key_reg = KeyRegistration::init();
 
@@ -44,7 +44,9 @@ where
             // We need to initialise the key_reg at each iteration
             key_reg = KeyRegistration::init();
             for p in initializers.iter() {
-                key_reg.register(p.stake, p.verification_key()).unwrap();
+                key_reg
+                    .register(p.stake, p.get_verification_key_proof_of_possession())
+                    .unwrap();
             }
         })
     });
@@ -53,7 +55,7 @@ where
 
     let signers = initializers
         .into_par_iter()
-        .map(|p| p.new_signer(closed_reg.clone()).unwrap())
+        .map(|p| p.create_signer(closed_reg.clone()).unwrap())
         .collect::<Vec<Signer<H>>>();
 
     group.bench_function(BenchmarkId::new("Play all lotteries", &param_string), |b| {
@@ -64,10 +66,10 @@ where
 
     let sigs = signers.par_iter().filter_map(|p| p.sign(&msg)).collect::<Vec<_>>();
 
-    let clerk = Clerk::from_signer(&signers[0]);
+    let clerk = Clerk::new_clerk_from_signer(&signers[0]);
 
     group.bench_function(BenchmarkId::new("Aggregation", &param_string), |b| {
-        b.iter(|| clerk.aggregate(&sigs, &msg))
+        b.iter(|| clerk.aggregate_signatures(&sigs, &msg))
     });
 }
 
@@ -108,26 +110,28 @@ fn batch_benches<H>(
 
             let mut initializers: Vec<Initializer> = Vec::with_capacity(nr_parties);
             for stake in stakes {
-                initializers.push(Initializer::setup(params, stake, &mut rng));
+                initializers.push(Initializer::new(params, stake, &mut rng));
             }
             let mut key_reg = KeyRegistration::init();
             for p in initializers.iter() {
-                key_reg.register(p.stake, p.verification_key()).unwrap();
+                key_reg
+                    .register(p.stake, p.get_verification_key_proof_of_possession())
+                    .unwrap();
             }
 
             let closed_reg = key_reg.close();
 
             let signers = initializers
                 .into_par_iter()
-                .map(|p| p.new_signer(closed_reg.clone()).unwrap())
+                .map(|p| p.create_signer(closed_reg.clone()).unwrap())
                 .collect::<Vec<Signer<H>>>();
 
             let sigs = signers.par_iter().filter_map(|p| p.sign(&msg)).collect::<Vec<_>>();
 
-            let clerk = Clerk::from_signer(&signers[0]);
-            let msig = clerk.aggregate(&sigs, &msg).unwrap();
+            let clerk = Clerk::new_clerk_from_signer(&signers[0]);
+            let msig = clerk.aggregate_signatures(&sigs, &msg).unwrap();
 
-            batch_avks.push(clerk.compute_avk());
+            batch_avks.push(clerk.compute_aggregate_verification_key());
             batch_stms.push(msig);
         }
 
@@ -167,27 +171,30 @@ where
         .collect::<Vec<_>>();
 
     for stake in stakes {
-        let initializer = Initializer::setup(params, stake, &mut rng);
+        let initializer = Initializer::new(params, stake, &mut rng);
         initializers.push(initializer.clone());
-        public_signers.push((initializer.verification_key().vk, initializer.stake));
+        public_signers.push((
+            initializer.get_verification_key_proof_of_possession().vk,
+            initializer.stake,
+        ));
     }
 
-    let core_verifier = BasicVerifier::setup(&public_signers);
+    let core_verifier = BasicVerifier::new(&public_signers);
 
     let signers: Vec<Signer<H>> = initializers
         .into_iter()
-        .filter_map(|s| s.new_core_signer(&core_verifier.eligible_parties))
+        .filter_map(|s| s.create_basic_signer(&core_verifier.eligible_parties))
         .collect();
 
     group.bench_function(BenchmarkId::new("Play all lotteries", &param_string), |b| {
         b.iter(|| {
-            signers[0].core_sign(&msg, core_verifier.total_stake);
+            signers[0].basic_sign(&msg, core_verifier.total_stake);
         })
     });
 
     let signatures = signers
         .par_iter()
-        .filter_map(|p| p.core_sign(&msg, core_verifier.total_stake))
+        .filter_map(|p| p.basic_sign(&msg, core_verifier.total_stake))
         .collect::<Vec<_>>();
 
     group.bench_function(BenchmarkId::new("Core verification", &param_string), |b| {

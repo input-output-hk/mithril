@@ -49,11 +49,11 @@ impl BlsProofOfPossession {
         Ok(Self { k1, k2 })
     }
 
-    pub(crate) fn to_k1(self) -> BlstSig {
+    pub(crate) fn get_k1(self) -> BlstSig {
         self.k1
     }
 
-    pub(crate) fn to_k2(self) -> blst_p1 {
+    pub(crate) fn get_k2(self) -> blst_p1 {
         self.k2
     }
 }
@@ -63,8 +63,8 @@ impl From<&BlsSigningKey> for BlsProofOfPossession {
     /// `k1 =  H_G1(b"PoP" || mvk)` and `k2 = g1 * sk` where `H_G1` hashes into
     /// `G1` and `g1` is the generator in `G1`.
     fn from(sk: &BlsSigningKey) -> Self {
-        let k1 = sk.to_blst_sk().sign(POP, &[], &[]);
-        let k2 = scalar_to_pk_in_g1(&sk.to_blst_sk());
+        let k1 = sk.to_blst_secret_key().sign(POP, &[], &[]);
+        let k2 = scalar_to_pk_in_g1(&sk.to_blst_secret_key());
         Self { k1, k2 }
     }
 }

@@ -30,8 +30,10 @@ where
 
     let mut key_reg = KeyRegistration::init();
     for stake in parties {
-        let p = Initializer::setup(params, stake, &mut rng);
-        key_reg.register(stake, p.verification_key()).unwrap();
+        let p = Initializer::new(params, stake, &mut rng);
+        key_reg
+            .register(stake, p.get_verification_key_proof_of_possession())
+            .unwrap();
         ps.push(p);
     }
 
@@ -39,17 +41,17 @@ where
 
     let ps = ps
         .into_par_iter()
-        .map(|p| p.new_signer(closed_reg.clone()).unwrap())
+        .map(|p| p.create_signer(closed_reg.clone()).unwrap())
         .collect::<Vec<Signer<H>>>();
 
     let sigs = ps
         .par_iter()
         .filter_map(|p| p.sign(&msg))
         .collect::<Vec<SingleSignature>>();
-    let clerk = Clerk::from_signer(&ps[0]);
+    let clerk = Clerk::new_clerk_from_signer(&ps[0]);
 
     // Aggregate with random parties
-    let aggr = clerk.aggregate(&sigs, &msg).unwrap();
+    let aggr = clerk.aggregate_signatures(&sigs, &msg).unwrap();
 
     println!(
         "k = {} | m = {} | nr parties = {}; {} bytes",
@@ -76,21 +78,24 @@ where
     let params = Parameters { k, m, phi_f: 0.2 };
 
     for stake in parties {
-        let initializer = Initializer::setup(params, stake, &mut rng);
+        let initializer = Initializer::new(params, stake, &mut rng);
         initializers.push(initializer.clone());
-        public_signers.push((initializer.verification_key().vk, initializer.stake));
+        public_signers.push((
+            initializer.get_verification_key_proof_of_possession().vk,
+            initializer.stake,
+        ));
     }
 
-    let core_verifier = BasicVerifier::setup(&public_signers);
+    let core_verifier = BasicVerifier::new(&public_signers);
 
     let signers: Vec<Signer<H>> = initializers
         .into_iter()
-        .filter_map(|s| s.new_core_signer(&core_verifier.eligible_parties))
+        .filter_map(|s| s.create_basic_signer(&core_verifier.eligible_parties))
         .collect();
 
     let mut signatures: Vec<SingleSignature> = Vec::with_capacity(nparties);
     for s in signers {
-        if let Some(sig) = s.core_sign(&msg, core_verifier.total_stake) {
+        if let Some(sig) = s.basic_sign(&msg, core_verifier.total_stake) {
             signatures.push(sig);
         }
     }
@@ -103,7 +108,7 @@ where
         })
         .collect::<Vec<SingleSignatureWithRegisteredParty>>();
 
-    let dedup_sigs = BasicVerifier::dedup_sigs_for_indices(
+    let dedup_sigs = BasicVerifier::select_valid_signatures_for_k_indices(
         &core_verifier.total_stake,
         &params,
         &msg,
