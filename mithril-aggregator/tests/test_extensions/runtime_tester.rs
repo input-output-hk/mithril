@@ -1,13 +1,9 @@
 use anyhow::{Context, anyhow};
 use chrono::Utc;
-use serde_json::json;
 use slog::Drain;
 use slog_scope::debug;
-use std::convert::Infallible;
 use std::sync::Arc;
 use std::time::Duration;
-use warp::Filter;
-use warp::http::StatusCode;
 
 use mithril_aggregator::{
     AggregatorRuntime, ConfigurationSource, DumbUploader, MetricsService,
@@ -38,8 +34,9 @@ use mithril_common::{
     },
 };
 use mithril_era::{EraMarker, EraReader, adapters::EraReaderDummyAdapter};
-use mithril_test_http_server::{TestHttpServer, test_http_server};
+use mithril_test_http_server::TestHttpServer;
 
+use crate::test_extensions::leader_aggregator_http_server::LeaderAggregatorHttpServer;
 use crate::test_extensions::utilities::tx_hash;
 use crate::test_extensions::{AggregatorObserver, ExpectedCertificate, MetricsVerifier};
 
@@ -240,37 +237,8 @@ impl RuntimeTester {
         Ok(())
     }
 
-    pub async fn expose_epoch_settings(&mut self) -> StdResult<TestHttpServer> {
-        fn with_observer(
-            runtime_tester: &RuntimeTester,
-        ) -> impl Filter<Extract = (Arc<AggregatorObserver>,), Error = Infallible> + Clone + use<>
-        {
-            let observer = runtime_tester.observer.clone();
-            warp::any().map(move || observer.clone())
-        }
-
-        async fn epoch_settings_handler(
-            observer: Arc<AggregatorObserver>,
-        ) -> Result<impl warp::Reply, Infallible> {
-            let allowed_discriminants = SignedEntityTypeDiscriminants::all();
-            let epoch_settings_message = observer.get_epoch_settings(allowed_discriminants).await;
-            match epoch_settings_message {
-                Ok(message) => Ok(Box::new(warp::reply::with_status(
-                    warp::reply::json(&message),
-                    StatusCode::OK,
-                ))),
-                Err(err) => Ok(Box::new(warp::reply::with_status(
-                    warp::reply::json(&json!(err.to_string())),
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                ))),
-            }
-        }
-
-        let routes = warp::path("epoch-settings")
-            .and(with_observer(self))
-            .and_then(epoch_settings_handler);
-
-        Ok(test_http_server(routes))
+    pub async fn expose_epoch_settings(&self) -> StdResult<TestHttpServer> {
+        LeaderAggregatorHttpServer::spawn(self)
     }
 
     /// Increase the immutable file number of the simulated db, returns the new number.
