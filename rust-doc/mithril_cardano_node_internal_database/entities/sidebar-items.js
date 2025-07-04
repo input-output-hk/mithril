@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AncillaryFilesManifestVerifyError","ImmutableFileCreationError","ImmutableFileListingError","LedgerStateSnapshot","LedgerStateSnapshotListingError"],"struct":["AncillaryFilesManifest","ImmutableFile"]};

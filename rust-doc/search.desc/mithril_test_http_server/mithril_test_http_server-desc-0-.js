@@ -1,0 +1,1 @@
+searchState.loadedDescShard("mithril_test_http_server", 0, "This crate provides a test http server used by the Mithril …\nA HTTP server for test\nGet the test server address\nReturns the argument unchanged.\nCalls <code>U::from(self)</code>.\nSpawn a TestHttpServer using the given warp filters\nSpawn a TestHttpServer using the given warp filters\nGet the server url")
