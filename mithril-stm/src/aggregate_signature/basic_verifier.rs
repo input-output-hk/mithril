@@ -93,7 +93,7 @@ impl BasicVerifier {
         for sig_reg in sigs.iter() {
             if sig_reg
                 .sig
-                .verify_core(
+                .basic_verify(
                     params,
                     &sig_reg.reg_party.0,
                     &sig_reg.reg_party.1,

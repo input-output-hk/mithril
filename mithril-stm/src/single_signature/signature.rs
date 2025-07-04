@@ -35,7 +35,7 @@ impl SingleSignature {
         msg: &[u8],
     ) -> Result<(), StmSignatureError> {
         let msgp = avk.get_mt_commitment().concat_with_msg(msg);
-        self.verify_core(params, pk, stake, &msgp, &avk.get_total_stake())?;
+        self.basic_verify(params, pk, stake, &msgp, &avk.get_total_stake())?;
         Ok(())
     }
 
@@ -126,13 +126,13 @@ impl SingleSignature {
     }
 
     /// Compare two `SingleSignature` by their signers' merkle tree indexes.
-    pub fn cmp_stm_sig(&self, other: &Self) -> Ordering {
+    pub fn compare_signer_index(&self, other: &Self) -> Ordering {
         self.signer_index.cmp(&other.signer_index)
     }
 
     /// Verify a core signature by checking that the lottery was won,
     /// the indexes are in the desired range and the underlying multi signature validates.
-    pub fn verify_core(
+    pub fn basic_verify(
         &self,
         params: &Parameters,
         pk: &VerificationKey,
@@ -169,6 +169,6 @@ impl PartialOrd for SingleSignature {
 
 impl Ord for SingleSignature {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.cmp_stm_sig(other)
+        self.compare_signer_index(other)
     }
 }
