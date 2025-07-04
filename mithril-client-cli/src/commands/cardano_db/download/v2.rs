@@ -13,12 +13,11 @@ use mithril_client::{
 };
 
 use crate::{
+    CommandContext,
     commands::{
-        SharedArgs,
         cardano_db::{download::DB_DIRECTORY_NAME, shared_steps},
         client_builder,
     },
-    configuration::ConfigParameters,
     utils::{
         CardanoDbDownloadChecker, CardanoDbUtils, ExpanderUtils, IndicatifFeedbackReceiver,
         ProgressOutputType, ProgressPrinter,
@@ -36,7 +35,6 @@ struct RestorationOptions {
 
 #[derive(Debug, Clone)]
 pub(super) struct PreparedCardanoDbV2Download {
-    pub(super) shared_args: SharedArgs,
     pub(super) hash: String,
     pub(super) download_dir: String,
     pub(super) start: Option<ImmutableFileNumber>,
@@ -47,7 +45,7 @@ pub(super) struct PreparedCardanoDbV2Download {
 }
 
 impl PreparedCardanoDbV2Download {
-    pub async fn execute(&self, logger: &Logger, params: ConfigParameters) -> MithrilResult<()> {
+    pub async fn execute(&self, context: &CommandContext) -> MithrilResult<()> {
         let restoration_options = RestorationOptions {
             db_dir: Path::new(&self.download_dir).join(DB_DIRECTORY_NAME),
             immutable_file_range: shared_steps::immutable_file_range(self.start, self.end),
@@ -59,19 +57,19 @@ impl PreparedCardanoDbV2Download {
             disk_space_safety_margin_ratio: DISK_SPACE_SAFETY_MARGIN_RATIO,
         };
 
-        let progress_output_type = if self.is_json_output_enabled() {
+        let progress_output_type = if context.is_json_output_enabled() {
             ProgressOutputType::JsonReporter
         } else {
             ProgressOutputType::Tty
         };
         let progress_printer = ProgressPrinter::new(progress_output_type, 6);
-        let client = client_builder(&params)?
+        let client = client_builder(context.config_parameters())?
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
                 progress_output_type,
-                logger.clone(),
+                context.logger().clone(),
             )))
             .set_ancillary_verification_key(self.ancillary_verification_key.clone())
-            .with_logger(logger.clone())
+            .with_logger(context.logger().clone())
             .build()?;
 
         let get_list_of_artifact_ids = || async {
@@ -111,7 +109,7 @@ impl PreparedCardanoDbV2Download {
         .await?;
 
         Self::download_and_unpack_cardano_database_snapshot(
-            logger,
+            context.logger(),
             3,
             &progress_printer,
             client.cardano_database_v2(),
@@ -146,7 +144,7 @@ impl PreparedCardanoDbV2Download {
         .await?;
 
         shared_steps::verify_message_matches_certificate(
-            logger,
+            context.logger(),
             6,
             &progress_printer,
             &certificate,
@@ -161,16 +159,11 @@ impl PreparedCardanoDbV2Download {
             &cardano_db_message.hash,
             &cardano_db_message.network,
             &cardano_db_message.cardano_node_version,
-            self.is_json_output_enabled(),
+            context.is_json_output_enabled(),
             restoration_options.download_unpack_options.include_ancillary,
         )?;
 
         Ok(())
-    }
-
-    /// Is JSON output enabled
-    pub fn is_json_output_enabled(&self) -> bool {
-        self.shared_args.json
     }
 
     fn compute_total_immutables_restored_size(

@@ -3,32 +3,21 @@ use clap::Parser;
 use cli_table::{Cell, Table, print_stdout};
 
 use crate::{
-    CommandContext,
-    commands::{SharedArgs, client_builder_with_fallback_genesis_key},
-    utils::ExpanderUtils,
+    CommandContext, commands::client_builder_with_fallback_genesis_key, utils::ExpanderUtils,
 };
 use mithril_client::MithrilResult;
 
 /// Clap command to show a given Cardano transaction snapshot
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoTransactionsSnapshotShowCommand {
-    #[clap(flatten)]
-    shared_args: SharedArgs,
-
     /// Hash of the Cardano transaction snapshot to show or `latest` for the latest artifact
     hash: String,
 }
 
 impl CardanoTransactionsSnapshotShowCommand {
-    /// Is JSON output enabled
-    pub fn is_json_output_enabled(&self) -> bool {
-        self.shared_args.json
-    }
-
     /// Cardano transaction snapshot Show command
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
-        let params = context.config_parameters()?;
-        let client = client_builder_with_fallback_genesis_key(&params)?
+        let client = client_builder_with_fallback_genesis_key(context.config_parameters())?
             .with_logger(context.logger().clone())
             .build()?;
 
@@ -57,7 +46,7 @@ impl CardanoTransactionsSnapshotShowCommand {
                 )
             })?;
 
-        if self.is_json_output_enabled() {
+        if context.is_json_output_enabled() {
             println!("{}", serde_json::to_string(&tx_sets)?);
         } else {
             let transaction_sets_table = vec![

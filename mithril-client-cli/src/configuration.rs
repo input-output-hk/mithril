@@ -49,11 +49,11 @@ impl ConfigParameters {
     }
 
     /// Fill the holder with parameters from a source
-    pub fn add_source(mut self, source: &impl ConfigSource) -> Result<Self, ConfigError> {
+    pub fn add_source(&mut self, source: &impl ConfigSource) -> Result<(), ConfigError> {
         let extra = source.collect()?;
         self.parameters.extend(extra);
 
-        Ok(self)
+        Ok(())
     }
 
     /// Fetch a parameter from the holder.
@@ -155,9 +155,8 @@ mod tests {
 
     #[test]
     fn test_add_source_to_config() {
-        let config = ConfigParameters::build(&[("pika", "chu"), ("chari", "zard")])
-            .add_source(&TestSource::from([("jiggly", "puff")]))
-            .unwrap();
+        let mut config = ConfigParameters::build(&[("pika", "chu"), ("chari", "zard")]);
+        config.add_source(&TestSource::from([("jiggly", "puff")])).unwrap();
 
         assert_eq!(
             ConfigParameters {
@@ -173,9 +172,8 @@ mod tests {
 
     #[test]
     fn test_add_source_replace_existing_value() {
-        let config = ConfigParameters::build(&[("pika", "pika")])
-            .add_source(&TestSource::from([("pika", "not chu")]))
-            .unwrap();
+        let mut config = ConfigParameters::build(&[("pika", "pika")]);
+        config.add_source(&TestSource::from([("pika", "not chu")])).unwrap();
 
         assert_eq!(
             ConfigParameters {

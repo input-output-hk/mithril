@@ -8,27 +8,23 @@ use anyhow::Context;
 use chrono::Utc;
 use clap::Parser;
 use mithril_client::MithrilResult;
-use slog::Logger;
 
 use crate::{
     CommandContext,
     commands::{
-        SharedArgs,
         cardano_db::{CardanoDbCommandsBackend, shared_steps},
         client_builder,
     },
-    configuration::{ConfigError, ConfigParameters, ConfigSource},
+    configuration::{ConfigError, ConfigSource},
     utils::{self, ExpanderUtils, IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter},
 };
 
 /// Clap command to verify a Cardano db and its associated certificate.
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbVerifyCommand {
+    ///Backend to use, either: `v1` (default, full database restoration only) or `v2` (full or partial database restoration)
     #[arg(short, long, value_enum, default_value_t = CardanoDbCommandsBackend::V2)]
     backend: CardanoDbCommandsBackend,
-
-    #[clap(flatten)]
-    shared_args: SharedArgs,
 
     /// Digest of the Cardano db snapshot to verify  or `latest` for the latest artifact
     ///
@@ -45,40 +41,35 @@ pub struct CardanoDbVerifyCommand {
 }
 
 impl CardanoDbVerifyCommand {
-    /// Is JSON output enabled
-    pub fn is_json_output_enabled(&self) -> bool {
-        self.shared_args.json
-    }
-
     /// Main command execution
-    pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
+    pub async fn execute(&self, mut context: CommandContext) -> MithrilResult<()> {
         match self.backend {
             CardanoDbCommandsBackend::V1 => Err(anyhow::anyhow!(
                 r#"The "verify" subcommand is not available for the v1, use --backend v2 instead"#,
             )),
             CardanoDbCommandsBackend::V2 => {
-                let params = context.config_parameters()?.add_source(self)?;
-                self.verify(context.logger(), params).await
+                context.config_parameters_mut().add_source(self)?;
+                self.verify(&context).await
             }
         }
     }
 
-    async fn verify(&self, logger: &Logger, params: ConfigParameters) -> MithrilResult<()> {
-        let db_dir = params.require("db_dir")?;
+    async fn verify(&self, context: &CommandContext) -> MithrilResult<()> {
+        let db_dir = context.config_parameters().require("db_dir")?;
         let db_dir = Path::new(&db_dir);
 
-        let progress_output_type = if self.is_json_output_enabled() {
+        let progress_output_type = if context.is_json_output_enabled() {
             ProgressOutputType::JsonReporter
         } else {
             ProgressOutputType::Tty
         };
         let progress_printer = ProgressPrinter::new(progress_output_type, 4);
-        let client = client_builder(&params)?
+        let client = client_builder(context.config_parameters())?
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
                 progress_output_type,
-                logger.clone(),
+                context.logger().clone(),
             )))
-            .with_logger(logger.clone())
+            .with_logger(context.logger().clone())
             .build()?;
 
         client.cardano_database_v2().check_has_immutables(db_dir)?;
@@ -133,7 +124,7 @@ impl CardanoDbVerifyCommand {
         .await?;
 
         shared_steps::verify_message_matches_certificate(
-            logger,
+            &context.logger().clone(),
             4,
             &progress_printer,
             &certificate,
@@ -146,7 +137,7 @@ impl CardanoDbVerifyCommand {
         Self::log_verified_information(
             db_dir,
             &cardano_db_message.hash,
-            self.is_json_output_enabled(),
+            context.is_json_output_enabled(),
         )?;
 
         Ok(())

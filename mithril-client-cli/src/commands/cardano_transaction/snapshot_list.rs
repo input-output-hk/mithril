@@ -3,31 +3,22 @@ use cli_table::format::Justify;
 use cli_table::{Cell, Table, print_stdout};
 
 use crate::CommandContext;
-use crate::commands::{SharedArgs, client_builder_with_fallback_genesis_key};
+use crate::commands::client_builder_with_fallback_genesis_key;
 use mithril_client::MithrilResult;
 
 /// Cardano transaction snapshot list command
 #[derive(Parser, Debug, Clone)]
-pub struct CardanoTransactionSnapshotListCommand {
-    #[clap(flatten)]
-    shared_args: SharedArgs,
-}
+pub struct CardanoTransactionSnapshotListCommand {}
 
 impl CardanoTransactionSnapshotListCommand {
-    /// Is JSON output enabled
-    pub fn is_json_output_enabled(&self) -> bool {
-        self.shared_args.json
-    }
-
     /// Main command execution
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
-        let params = context.config_parameters()?;
-        let client = client_builder_with_fallback_genesis_key(&params)?
+        let client = client_builder_with_fallback_genesis_key(context.config_parameters())?
             .with_logger(context.logger().clone())
             .build()?;
         let lines = client.cardano_transaction().list_snapshots().await?;
 
-        if self.is_json_output_enabled() {
+        if context.is_json_output_enabled() {
             println!("{}", serde_json::to_string(&lines)?);
         } else {
             let lines = lines

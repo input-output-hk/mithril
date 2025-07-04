@@ -3,9 +3,7 @@ use cli_table::{Cell, Table, format::Justify, print_stdout};
 
 use crate::{
     CommandContext,
-    commands::{
-        SharedArgs, cardano_db::CardanoDbCommandsBackend, client_builder_with_fallback_genesis_key,
-    },
+    commands::{cardano_db::CardanoDbCommandsBackend, client_builder_with_fallback_genesis_key},
     utils::CardanoDbUtils,
 };
 use mithril_client::{Client, MithrilResult};
@@ -13,38 +11,30 @@ use mithril_client::{Client, MithrilResult};
 /// Clap command to list existing Cardano dbs
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbListCommand {
+    ///Backend to use, either: `v1` (default, full database restoration only) or `v2` (full or partial database restoration)
     #[arg(short, long, value_enum, default_value_t)]
     backend: CardanoDbCommandsBackend,
-
-    #[clap(flatten)]
-    shared_args: SharedArgs,
 }
 
 impl CardanoDbListCommand {
-    /// Is JSON output enabled
-    pub fn is_json_output_enabled(&self) -> bool {
-        self.shared_args.json
-    }
-
     /// Main command execution
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
-        let params = context.config_parameters()?;
-        let client = client_builder_with_fallback_genesis_key(&params)?
+        let client = client_builder_with_fallback_genesis_key(context.config_parameters())?
             .with_logger(context.logger().clone())
             .build()?;
 
         match self.backend {
-            CardanoDbCommandsBackend::V1 => self.print_v1(client).await?,
-            CardanoDbCommandsBackend::V2 => self.print_v2(client).await?,
+            CardanoDbCommandsBackend::V1 => self.print_v1(client, context).await?,
+            CardanoDbCommandsBackend::V2 => self.print_v2(client, context).await?,
         }
 
         Ok(())
     }
 
-    async fn print_v1(&self, client: Client) -> MithrilResult<()> {
+    async fn print_v1(&self, client: Client, context: CommandContext) -> MithrilResult<()> {
         let items = client.cardano_database().list().await?;
 
-        if self.is_json_output_enabled() {
+        if context.is_json_output_enabled() {
             println!("{}", serde_json::to_string(&items)?);
         } else {
             let items = items
@@ -76,10 +66,10 @@ impl CardanoDbListCommand {
         Ok(())
     }
 
-    async fn print_v2(&self, client: Client) -> MithrilResult<()> {
+    async fn print_v2(&self, client: Client, context: CommandContext) -> MithrilResult<()> {
         let items = client.cardano_database_v2().list().await?;
 
-        if self.is_json_output_enabled() {
+        if context.is_json_output_enabled() {
             println!("{}", serde_json::to_string(&items)?);
         } else {
             let items = items

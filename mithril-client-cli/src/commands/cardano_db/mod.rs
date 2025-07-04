@@ -56,11 +56,11 @@ pub enum CardanoDbSnapshotCommands {
 
 impl CardanoDbCommands {
     /// Execute Cardano db command
-    pub async fn execute(&self, config_builder: CommandContext) -> MithrilResult<()> {
+    pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         match self {
-            Self::Download(cmd) => cmd.execute(config_builder).await,
-            Self::Snapshot(cmd) => cmd.execute(config_builder).await,
-            Self::Verify(cmd) => cmd.execute(config_builder).await,
+            Self::Download(cmd) => cmd.execute(context).await,
+            Self::Snapshot(cmd) => cmd.execute(context).await,
+            Self::Verify(cmd) => cmd.execute(context).await,
         }
     }
 }

@@ -121,7 +121,7 @@ pub struct SnapshotConverterCommand {
     #[clap(long)]
     db_directory: PathBuf,
 
-    /// Cardano node version of the Mithril signed snapshot.
+    /// Cardano node version of the Mithril signed snapshot (`latest` and `pre-release` are also supported to download the latest or pre-release distribution).
     ///
     /// `latest` and `pre-release` are also supported to download the latest or pre-release distribution.
     #[clap(long)]
@@ -135,11 +135,11 @@ pub struct SnapshotConverterCommand {
     )]
     cardano_network: Option<CardanoNetwork>,
 
-    /// UTxO-HD flavor to convert the ledger snapshot to.
+    /// UTxO-HD flavor to convert the ledger snapshot to (`Legacy` or `LMDB`).
     #[clap(long)]
     utxo_hd_flavor: UTxOHDFlavor,
 
-    /// If set, the converted snapshot replaces the current ledger state in the `db_directory`.
+    /// Replaces the current ledger state in the `db_directory`.
     #[clap(long)]
     commit: bool,
 

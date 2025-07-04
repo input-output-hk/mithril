@@ -9,9 +9,8 @@ use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
     CommandContext,
-    commands::SharedArgs,
     commands::cardano_db::CardanoDbCommandsBackend,
-    configuration::{ConfigError, ConfigParameters, ConfigSource},
+    configuration::{ConfigError, ConfigSource},
     utils::{self, JSON_CAUTION_KEY},
 };
 use mithril_client::{MithrilResult, common::ImmutableFileNumber};
@@ -21,11 +20,9 @@ const DB_DIRECTORY_NAME: &str = "db";
 /// Clap command to download a Cardano db and verify its associated certificate.
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbDownloadCommand {
+    ///Backend to use, either: `v1` (default, full database restoration only) or `v2` (full or partial database restoration)
     #[arg(short, long, value_enum, default_value_t)]
     backend: CardanoDbCommandsBackend,
-
-    #[clap(flatten)]
-    shared_args: SharedArgs,
 
     /// Digest of the Cardano db snapshot to download  or `latest` for the latest artifact
     ///
@@ -74,61 +71,55 @@ pub struct CardanoDbDownloadCommand {
 }
 
 impl CardanoDbDownloadCommand {
-    fn is_json_output_enabled(&self) -> bool {
-        self.shared_args.json
-    }
-
     /// Command execution
-    pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
-        let params = context.config_parameters()?.add_source(self)?;
+    pub async fn execute(&self, mut context: CommandContext) -> MithrilResult<()> {
+        context.config_parameters_mut().add_source(self)?;
 
         match self.backend {
             CardanoDbCommandsBackend::V1 => {
-                let prepared_command = self.prepare_v1(&params)?;
-                prepared_command.execute(context.logger(), params).await
+                let prepared_command = self.prepare_v1(&context)?;
+                prepared_command.execute(&context).await
             }
             CardanoDbCommandsBackend::V2 => {
-                let prepared_command = self.prepare_v2(&params)?;
-                prepared_command.execute(context.logger(), params).await
+                let prepared_command = self.prepare_v2(&context)?;
+                prepared_command.execute(&context).await
             }
         }
     }
 
-    fn prepare_v1(&self, params: &ConfigParameters) -> MithrilResult<PreparedCardanoDbV1Download> {
+    fn prepare_v1(&self, context: &CommandContext) -> MithrilResult<PreparedCardanoDbV1Download> {
         if self.allow_override || self.start.is_some() || self.end.is_some() {
-            self.warn_unused_parameter_with_v1_backend();
+            self.warn_unused_parameter_with_v1_backend(context);
         }
 
         let ancillary_verification_key = if self.include_ancillary {
-            self.warn_ancillary_not_signed_by_mithril();
-            Some(params.require("ancillary_verification_key")?)
+            self.warn_ancillary_not_signed_by_mithril(context);
+            Some(context.config_parameters().require("ancillary_verification_key")?)
         } else {
-            self.warn_fast_bootstrap_not_available();
+            self.warn_fast_bootstrap_not_available(context);
             None
         };
 
         Ok(PreparedCardanoDbV1Download {
-            shared_args: self.shared_args.clone(),
             digest: self.digest.clone(),
-            download_dir: params.require("download_dir")?,
+            download_dir: context.config_parameters().require("download_dir")?,
             include_ancillary: self.include_ancillary,
             ancillary_verification_key,
         })
     }
 
-    fn prepare_v2(&self, params: &ConfigParameters) -> MithrilResult<PreparedCardanoDbV2Download> {
+    fn prepare_v2(&self, context: &CommandContext) -> MithrilResult<PreparedCardanoDbV2Download> {
         let ancillary_verification_key = if self.include_ancillary {
-            self.warn_ancillary_not_signed_by_mithril();
-            Some(params.require("ancillary_verification_key")?)
+            self.warn_ancillary_not_signed_by_mithril(context);
+            Some(context.config_parameters().require("ancillary_verification_key")?)
         } else {
-            self.warn_fast_bootstrap_not_available();
+            self.warn_fast_bootstrap_not_available(context);
             None
         };
 
         Ok(PreparedCardanoDbV2Download {
-            shared_args: self.shared_args.clone(),
             hash: self.digest.clone(),
-            download_dir: params.require("download_dir")?,
+            download_dir: context.config_parameters().require("download_dir")?,
             start: self.start,
             end: self.end,
             include_ancillary: self.include_ancillary,
@@ -138,8 +129,8 @@ impl CardanoDbDownloadCommand {
     }
 
     /// Provides guidance on how to enable fast bootstrap by including ancillary files
-    fn warn_fast_bootstrap_not_available(&self) {
-        if self.is_json_output_enabled() {
+    fn warn_fast_bootstrap_not_available(&self, context: &CommandContext) {
+        if context.is_json_output_enabled() {
             let json = serde_json::json!({
                 JSON_CAUTION_KEY: "The fast bootstrap of the Cardano node is not available with the current parameters used in this command",
                 "impact": "The ledger state will be recomputed from genesis at startup of the Cardano node",
@@ -165,18 +156,18 @@ For more information, please refer to the network configuration page of the docu
         }
     }
 
-    fn warn_ancillary_not_signed_by_mithril(&self) {
+    fn warn_ancillary_not_signed_by_mithril(&self, context: &CommandContext) {
         let message = "Ancillary verification does not use the Mithril certification: as a mitigation, IOG owned keys are used to sign these files.";
-        if self.is_json_output_enabled() {
+        if context.is_json_output_enabled() {
             eprintln!(r#"{{"{JSON_CAUTION_KEY}":"{message}"}}"#);
         } else {
             eprintln!("{message}");
         }
     }
 
-    fn warn_unused_parameter_with_v1_backend(&self) {
+    fn warn_unused_parameter_with_v1_backend(&self, context: &CommandContext) {
         let message = "`--start`, `--end`, and `--allow-override` are only available with the `v2` backend. They will be ignored.";
-        if self.is_json_output_enabled() {
+        if context.is_json_output_enabled() {
             eprintln!(r#"{{"{JSON_CAUTION_KEY}":"{message}"}}"#);
         } else {
             eprintln!("{message}");
@@ -219,15 +210,15 @@ impl ConfigSource for CardanoDbDownloadCommand {
 
 #[cfg(test)]
 mod tests {
-    use config::ConfigBuilder;
     use slog::Logger;
+
+    use crate::ConfigParameters;
 
     use super::*;
 
     fn dummy_command() -> CardanoDbDownloadCommand {
         CardanoDbDownloadCommand {
             backend: Default::default(),
-            shared_args: SharedArgs { json: false },
             digest: "whatever_digest".to_string(),
             download_dir: Some(std::path::PathBuf::from("whatever_dir")),
             genesis_verification_key: "whatever".to_string().into(),
@@ -247,8 +238,9 @@ mod tests {
             ..dummy_command()
         };
         let command_context = CommandContext::new(
-            ConfigBuilder::default(),
+            ConfigParameters::default(),
             false,
+            true,
             Logger::root(slog::Discard, slog::o!()),
         );
 
@@ -270,18 +262,15 @@ mod tests {
                 ancillary_verification_key: None,
                 ..dummy_command()
             };
-            let config = config::Config::builder()
-                .set_default("ancillary_verification_key", "value from config")
-                .expect("Failed to build config builder");
-            let command_context =
-                CommandContext::new(config, false, Logger::root(slog::Discard, slog::o!()));
-            let config_parameters = command_context
-                .config_parameters()
-                .unwrap()
-                .add_source(&command)
-                .unwrap();
+            let config = ConfigParameters::new(HashMap::from([(
+                "ancillary_verification_key".to_string(),
+                "value from config".to_string(),
+            )]));
+            let mut command_context =
+                CommandContext::new(config, false, true, Logger::root(slog::Discard, slog::o!()));
+            command_context.config_parameters_mut().add_source(&command).unwrap();
 
-            let result = command.prepare_v1(&config_parameters);
+            let result = command.prepare_v1(&command_context);
 
             assert!(result.is_ok());
         }
@@ -292,18 +281,16 @@ mod tests {
                 download_dir: None,
                 ..dummy_command()
             };
-            let command_context = CommandContext::new(
-                ConfigBuilder::default(),
+            let mut command_context = CommandContext::new(
+                ConfigParameters::default(),
                 false,
+                true,
                 Logger::root(slog::Discard, slog::o!()),
             );
-            let config_parameters = command_context
-                .config_parameters()
-                .unwrap()
-                .add_source(&command)
-                .unwrap();
 
-            let result = command.prepare_v1(&config_parameters);
+            command_context.config_parameters_mut().add_source(&command).unwrap();
+
+            let result = command.prepare_v1(&command_context);
 
             assert!(result.is_err());
             assert_eq!(
@@ -322,18 +309,16 @@ mod tests {
                 ancillary_verification_key: None,
                 ..dummy_command()
             };
-            let config = config::Config::builder()
-                .set_default("ancillary_verification_key", "value from config")
-                .expect("Failed to build config builder");
-            let command_context =
-                CommandContext::new(config, false, Logger::root(slog::Discard, slog::o!()));
-            let config_parameters = command_context
-                .config_parameters()
-                .unwrap()
-                .add_source(&command)
-                .unwrap();
+            let config = ConfigParameters::new(HashMap::from([(
+                "ancillary_verification_key".to_string(),
+                "value from config".to_string(),
+            )]));
+            let mut command_context =
+                CommandContext::new(config, false, true, Logger::root(slog::Discard, slog::o!()));
 
-            let result = command.prepare_v2(&config_parameters);
+            command_context.config_parameters_mut().add_source(&command).unwrap();
+
+            let result = command.prepare_v2(&command_context);
 
             assert!(result.is_ok());
         }
@@ -344,18 +329,16 @@ mod tests {
                 download_dir: None,
                 ..dummy_command()
             };
-            let command_context = CommandContext::new(
-                ConfigBuilder::default(),
+            let mut command_context = CommandContext::new(
+                ConfigParameters::default(),
                 false,
+                true,
                 Logger::root(slog::Discard, slog::o!()),
             );
-            let config_parameters = command_context
-                .config_parameters()
-                .unwrap()
-                .add_source(&command)
-                .unwrap();
 
-            let result = command.prepare_v2(&config_parameters);
+            command_context.config_parameters_mut().add_source(&command).unwrap();
+
+            let result = command.prepare_v2(&command_context);
 
             assert!(result.is_err());
             assert_eq!(

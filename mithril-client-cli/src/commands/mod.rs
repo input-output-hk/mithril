@@ -12,20 +12,11 @@ pub mod tools;
 
 pub use deprecation::{DeprecatedCommand, Deprecation};
 
-use clap::Args;
 use mithril_client::{ClientBuilder, MithrilResult};
 
 use crate::configuration::ConfigParameters;
 
 const CLIENT_TYPE_CLI: &str = "CLI";
-
-/// Shared arguments for all commands
-#[derive(Debug, Clone, Args)]
-pub struct SharedArgs {
-    /// Enable JSON output for command results
-    #[clap(long)]
-    json: bool,
-}
 
 pub(crate) fn client_builder(params: &ConfigParameters) -> MithrilResult<ClientBuilder> {
     let builder = ClientBuilder::aggregator(

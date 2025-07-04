@@ -12,16 +12,13 @@ use mithril_client::{
 use crate::utils::{IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter};
 use crate::{
     CommandContext,
-    commands::{SharedArgs, client_builder},
+    commands::client_builder,
     configuration::{ConfigError, ConfigSource},
 };
 
 /// Clap command to show a given Cardano transaction sets
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoTransactionsCertifyCommand {
-    #[clap(flatten)]
-    shared_args: SharedArgs,
-
     /// Genesis verification key to check the certificate chain.
     #[clap(long, env = "GENESIS_VERIFICATION_KEY")]
     genesis_verification_key: Option<String>,
@@ -32,23 +29,18 @@ pub struct CardanoTransactionsCertifyCommand {
 }
 
 impl CardanoTransactionsCertifyCommand {
-    /// Is JSON output enabled
-    pub fn is_json_output_enabled(&self) -> bool {
-        self.shared_args.json
-    }
-
     /// Cardano transaction certify command
-    pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
-        let params = context.config_parameters()?.add_source(self)?;
+    pub async fn execute(&self, mut context: CommandContext) -> MithrilResult<()> {
+        context.config_parameters_mut().add_source(self)?;
         let logger = context.logger();
 
-        let progress_output_type = if self.is_json_output_enabled() {
+        let progress_output_type = if context.is_json_output_enabled() {
             ProgressOutputType::JsonReporter
         } else {
             ProgressOutputType::Tty
         };
         let progress_printer = ProgressPrinter::new(progress_output_type, 4);
-        let client = client_builder(&params)?
+        let client = client_builder(context.config_parameters())?
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
                 progress_output_type,
                 logger.clone(),
@@ -97,7 +89,7 @@ impl CardanoTransactionsCertifyCommand {
         Self::log_certify_information(
             &verified_transactions,
             &cardano_transaction_proof.non_certified_transactions,
-            self.is_json_output_enabled(),
+            context.is_json_output_enabled(),
         )
     }
 
