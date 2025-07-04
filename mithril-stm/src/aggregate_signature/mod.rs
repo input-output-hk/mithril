@@ -217,7 +217,7 @@ mod tests {
             })
             .collect::<Vec<SingleSignatureWithRegisteredParty>>();
 
-            let msgp = avk.get_mt_commitment().concat_with_msg(&msg);
+            let msgp = avk.get_mt_commitment().concatenate_with_message(&msg);
             let dedup_result = BasicVerifier::dedup_sigs_for_indices(
                 &clerk.closed_reg.total_stake,
                 &params,

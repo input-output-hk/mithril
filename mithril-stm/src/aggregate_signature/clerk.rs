@@ -58,7 +58,7 @@ impl<D: Digest + Clone + FixedOutput> Clerk<D> {
             .collect::<Vec<SingleSignatureWithRegisteredParty>>();
 
         let avk = AggregateVerificationKey::from(&self.closed_reg);
-        let msgp = avk.get_mt_commitment().concat_with_msg(msg);
+        let msgp = avk.get_mt_commitment().concatenate_with_message(msg);
         let mut unique_sigs = BasicVerifier::dedup_sigs_for_indices(
             &self.closed_reg.total_stake,
             &self.params,
@@ -73,7 +73,10 @@ impl<D: Digest + Clone + FixedOutput> Clerk<D> {
             .map(|sig_reg| sig_reg.sig.signer_index as usize)
             .collect::<Vec<usize>>();
 
-        let batch_proof = self.closed_reg.merkle_tree.get_batched_path(mt_index_list);
+        let batch_proof = self
+            .closed_reg
+            .merkle_tree
+            .compute_merkle_tree_batch_path(mt_index_list);
 
         Ok(AggregateSignature {
             signatures: unique_sigs,

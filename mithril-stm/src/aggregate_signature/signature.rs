@@ -37,7 +37,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
         avk: &AggregateVerificationKey<D>,
         parameters: &Parameters,
     ) -> Result<(Vec<BlsSignature>, Vec<BlsVerificationKey>), StmAggregateSignatureError<D>> {
-        let msgp = avk.get_mt_commitment().concat_with_msg(msg);
+        let msgp = avk.get_mt_commitment().concatenate_with_message(msg);
         BasicVerifier::preliminary_verify(
             &avk.get_total_stake(),
             &self.signatures,
@@ -51,7 +51,8 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
             .map(|r| r.reg_party)
             .collect::<Vec<RegisteredParty>>();
 
-        avk.get_mt_commitment().check(&leaves, &self.batch_proof)?;
+        avk.get_mt_commitment()
+            .verify_leaves_membership_from_batch_path(&leaves, &self.batch_proof)?;
 
         Ok(BasicVerifier::collect_sigs_vks(&self.signatures))
     }
@@ -68,7 +69,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
         avk: &AggregateVerificationKey<D>,
         parameters: &Parameters,
     ) -> Result<(), StmAggregateSignatureError<D>> {
-        let msgp = avk.get_mt_commitment().concat_with_msg(msg);
+        let msgp = avk.get_mt_commitment().concatenate_with_message(msg);
         let (sigs, vks) = self.preliminary_verify(msg, avk, parameters)?;
 
         BlsSignature::verify_aggregate(msgp.as_slice(), &vks, &sigs)?;
@@ -119,7 +120,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
         let concat_msgs: Vec<Vec<u8>> = msgs
             .iter()
             .zip(avks.iter())
-            .map(|(msg, avk)| avk.get_mt_commitment().concat_with_msg(msg))
+            .map(|(msg, avk)| avk.get_mt_commitment().concatenate_with_message(msg))
             .collect();
 
         BlsSignature::batch_verify_aggregates(&concat_msgs, &aggr_vks, &aggr_sigs)?;

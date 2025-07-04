@@ -98,8 +98,8 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
         let closed_reg = self.closed_reg.as_ref().expect("Closed registration not found! Cannot produce SingleSignatures. Use core_sign to produce core signatures (not valid for an StmCertificate).");
         let msgp = closed_reg
             .merkle_tree
-            .to_commitment_batch_compat()
-            .concat_with_msg(msg);
+            .to_merkle_tree_batch_commitment()
+            .concatenate_with_message(msg);
         let signature = self.basic_sign(&msgp, closed_reg.total_stake)?;
 
         Some(SingleSignature {

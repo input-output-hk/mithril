@@ -66,7 +66,7 @@ impl KeyRegistration {
         reg_parties.sort();
 
         ClosedKeyRegistration {
-            merkle_tree: Arc::new(MerkleTree::create(&reg_parties)),
+            merkle_tree: Arc::new(MerkleTree::new(&reg_parties)),
             reg_parties,
             total_stake,
         }

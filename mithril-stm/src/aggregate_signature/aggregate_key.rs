@@ -39,7 +39,7 @@ impl<D: Clone + Digest + FixedOutput> From<&ClosedKeyRegistration<D>>
 {
     fn from(reg: &ClosedKeyRegistration<D>) -> Self {
         Self {
-            mt_commitment: reg.merkle_tree.to_commitment_batch_compat(),
+            mt_commitment: reg.merkle_tree.to_merkle_tree_batch_commitment(),
             total_stake: reg.total_stake,
         }
     }
