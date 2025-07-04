@@ -11,6 +11,7 @@ use thiserror::Error;
 use mithril_common::{
     MITHRIL_AGGREGATOR_VERSION_HEADER, MITHRIL_API_VERSION_HEADER, StdError, StdResult,
     api_version::APIVersionProvider,
+    certificate_chain::{CertificateRetriever, CertificateRetrieverError},
     entities::{Certificate, ClientError, ServerError},
     logging::LoggerExtensions,
     messages::{
@@ -331,6 +332,27 @@ impl LeaderAggregatorClient for AggregatorHTTPClient {
     async fn retrieve_epoch_settings(&self) -> StdResult<Option<LeaderAggregatorEpochSettings>> {
         let epoch_settings = self.epoch_settings().await?;
         Ok(epoch_settings)
+    }
+}
+
+#[async_trait]
+impl CertificateRetriever for AggregatorHTTPClient {
+    async fn get_certificate_details(
+        &self,
+        certificate_hash: &str,
+    ) -> Result<Certificate, CertificateRetrieverError> {
+        let message = self
+            .certificates_details(certificate_hash)
+            .await
+            .with_context(|| {
+                format!("Failed to retrieve certificate with hash: '{certificate_hash}'")
+            })
+            .map_err(CertificateRetrieverError)?
+            .ok_or(CertificateRetrieverError(anyhow!(
+                "Certificate does not exist: '{certificate_hash}'"
+            )))?;
+
+        message.try_into().map_err(CertificateRetrieverError)
     }
 }
 

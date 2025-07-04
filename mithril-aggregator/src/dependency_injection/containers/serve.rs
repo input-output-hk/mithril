@@ -27,8 +27,9 @@ use crate::{
     entities::AggregatorEpochSettings,
     event_store::{EventMessage, TransmitterService},
     services::{
-        CertifierService, EpochService, MessageService, ProverService, SignedEntityService,
-        SignerRecorder, SignerSynchronizer, StakeDistributionService, UpkeepService,
+        CertificateChainSynchronizer, CertifierService, EpochService, MessageService,
+        ProverService, SignedEntityService, SignerRecorder, SignerSynchronizer,
+        StakeDistributionService, UpkeepService,
     },
 };
 
@@ -56,6 +57,9 @@ pub struct ServeCommandDependenciesContainer {
 
     /// Chain observer service.
     pub(crate) chain_observer: Arc<dyn ChainObserver>,
+
+    /// Certificate chain synchroniser service
+    pub(crate) certificate_chain_synchroniser: Arc<dyn CertificateChainSynchronizer>,
 
     /// Signer registerer service
     pub signer_registerer: Arc<dyn SignerRegisterer>,
