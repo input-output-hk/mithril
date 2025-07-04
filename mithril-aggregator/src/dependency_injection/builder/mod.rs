@@ -56,9 +56,9 @@ use crate::{
     file_uploaders::FileUploader,
     http_server::routes::router::{self, RouterConfig, RouterState},
     services::{
-        AggregatorHTTPClient, CertifierService, MessageService, MithrilSignerRegistrationFollower,
-        ProverService, SignedEntityService, SignerSynchronizer, Snapshotter,
-        StakeDistributionService, UpkeepService,
+        AggregatorHTTPClient, CertificateChainSynchronizer, CertifierService, MessageService,
+        MithrilSignerRegistrationFollower, ProverService, SignedEntityService, SignerSynchronizer,
+        Snapshotter, StakeDistributionService, UpkeepService,
     },
     tools::file_archiver::FileArchiver,
 };
@@ -184,6 +184,9 @@ pub struct DependenciesBuilder {
 
     /// Genesis signature verifier service.
     pub genesis_verifier: Option<Arc<ProtocolGenesisVerifier>>,
+
+    /// Certificate chain synchroniser service
+    pub certificate_chain_synchroniser: Option<Arc<dyn CertificateChainSynchronizer>>,
 
     /// Mithril signer registration leader service
     pub mithril_signer_registration_leader: Option<Arc<MithrilSignerRegistrationLeader>>,
@@ -312,6 +315,7 @@ impl DependenciesBuilder {
             snapshotter: None,
             certificate_verifier: None,
             genesis_verifier: None,
+            certificate_chain_synchroniser: None,
             mithril_signer_registration_leader: None,
             mithril_signer_registration_follower: None,
             signer_registerer: None,
@@ -374,6 +378,7 @@ impl DependenciesBuilder {
             verification_key_store: self.get_verification_key_store().await?,
             epoch_settings_storer: self.get_epoch_settings_store().await?,
             chain_observer: self.get_chain_observer().await?,
+            certificate_chain_synchroniser: self.get_certificate_chain_synchroniser().await?,
             signer_registerer: self.get_signer_registerer().await?,
             signer_synchronizer: self.get_signer_synchronizer().await?,
             signer_registration_round_opener: self.get_signer_registration_round_opener().await?,
