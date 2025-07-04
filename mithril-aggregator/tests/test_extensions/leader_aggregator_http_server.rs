@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     Json, Router,
-    extract::State,
+    extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::get,
@@ -28,6 +28,9 @@ impl LeaderAggregatorHttpServer {
         };
         let router = Router::new()
             .route("/epoch-settings", get(epoch_settings))
+            .route("/certificates", get(certificates_list))
+            .route("/certificate/genesis", get(certificate_last_genesis))
+            .route("/certificate/{hash}", get(certificate_by_hash))
             .with_state(state);
 
         let server = TestServer::builder().http_transport().build(router)?;
@@ -59,6 +62,32 @@ async fn epoch_settings(state: State<LeaderAggregatorRoutesState>) -> Response {
 
     match epoch_settings_message {
         Ok(message) => (StatusCode::OK, Json(message)).into_response(),
+        Err(err) => internal_server_error(err).into_response(),
+    }
+}
+
+async fn certificates_list(state: State<LeaderAggregatorRoutesState>) -> Response {
+    match state.message_service.get_certificate_list_message(5).await {
+        Ok(message) => (StatusCode::OK, Json(message)).into_response(),
+        Err(err) => internal_server_error(err).into_response(),
+    }
+}
+
+async fn certificate_last_genesis(state: State<LeaderAggregatorRoutesState>) -> Response {
+    match state.message_service.get_latest_genesis_certificate_message().await {
+        Ok(Some(message)) => (StatusCode::OK, Json(message)).into_response(),
+        Ok(None) => StatusCode::NOT_FOUND.into_response(),
+        Err(err) => internal_server_error(err).into_response(),
+    }
+}
+
+async fn certificate_by_hash(
+    Path(hash): Path<String>,
+    state: State<LeaderAggregatorRoutesState>,
+) -> Response {
+    match state.message_service.get_certificate_message(&hash).await {
+        Ok(Some(message)) => (StatusCode::OK, Json(message)).into_response(),
+        Ok(None) => StatusCode::NOT_FOUND.into_response(),
         Err(err) => internal_server_error(err).into_response(),
     }
 }
