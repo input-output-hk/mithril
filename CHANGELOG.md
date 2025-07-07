@@ -27,6 +27,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Add pre-built Linux ARM binaries in the distribution for the signer, client CLI, and aggregator.
 
+- Support for Mithril era transition in the client library, CLI and WASM.
+
 - **UNSTABLE** :
   - Support for DMQ signature publisher in the signer and signature consumer in the aggregator.
 
