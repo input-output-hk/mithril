@@ -424,6 +424,19 @@ impl MithrilClient {
 
         Ok(serde_wasm_bindgen::to_value(&result)?)
     }
+
+    /// Call the client to fetch the current Mithril era
+    #[wasm_bindgen]
+    pub async fn fetch_current_mithril_era(&self) -> WasmResult {
+        let result = self
+            .client
+            .mithril_era_client()
+            .fetch_current()
+            .await
+            .map_err(|err| format!("{err:?}"))?;
+
+        Ok(serde_wasm_bindgen::to_value(&result)?)
+    }
 }
 
 // Unstable functions are only available when the unstable flag is set
@@ -506,7 +519,7 @@ mod tests {
         CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem, CardanoStakeDistribution,
         CardanoStakeDistributionListItem, CardanoTransactionSnapshot, MithrilCertificateListItem,
         MithrilStakeDistribution, MithrilStakeDistributionListItem, Snapshot, SnapshotListItem,
-        common::ProtocolMessage,
+        common::ProtocolMessage, common::SupportedEra, era::FetchedEra,
     };
 
     use crate::test_data;
@@ -959,5 +972,19 @@ mod tests {
             .get_cardano_database_v2("whatever")
             .await
             .expect_err("get_cardano_database_v2 should fail");
+    }
+
+    #[wasm_bindgen_test]
+    async fn fetch_current_mithril_era_should_return_value_convertible_to_supported_era() {
+        let fetched_era_js_value = get_mithril_client_stable()
+            .fetch_current_mithril_era()
+            .await
+            .expect("fetch_current_mithril_era should not fail");
+        let fetched_era = serde_wasm_bindgen::from_value::<FetchedEra>(fetched_era_js_value)
+            .expect("conversion should not fail");
+
+        let era = fetched_era.to_supported_era().expect("conversion should not fail");
+
+        assert_eq!(era, SupportedEra::Pythagoras);
     }
 }
