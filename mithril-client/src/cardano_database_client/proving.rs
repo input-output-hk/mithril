@@ -21,13 +21,21 @@ use mithril_common::{
 };
 
 use crate::{
-    MithrilResult,
+    MessageBuilder, MithrilResult,
     feedback::MithrilEvent,
     file_downloader::{DownloadEvent, FileDownloader, FileDownloaderUri},
     utils::{create_directory_if_not_exists, delete_directory, read_files_in_directory},
 };
 
 use super::immutable_file_range::ImmutableFileRange;
+
+/// Represents the verified digests and the Merkle tree built from them.
+pub struct VerifiedDigests {
+    /// A map of immutable file names to their corresponding verified digests.
+    pub digests: BTreeMap<ImmutableFileName, HexEncodedDigest>,
+    /// The Merkle tree built from the digests.
+    pub merkle_tree: MKTree<MKTreeStoreInMemory>,
+}
 
 pub struct InternalArtifactProver {
     http_file_downloader: Arc<dyn FileDownloader>,
@@ -84,6 +92,52 @@ impl InternalArtifactProver {
         delete_directory(&digest_target_dir)?;
 
         merkle_tree.compute_proof(&computed_digests)
+    }
+
+    ///Download digests and verify its authenticity against the certificate.
+    pub async fn download_and_verify_digests(
+        &self,
+        certificate: &CertificateMessage,
+        cardano_database_snapshot: &CardanoDatabaseSnapshotMessage,
+    ) -> MithrilResult<VerifiedDigests> {
+        let digest_target_dir = Self::digest_target_dir();
+        delete_directory(&digest_target_dir)?;
+        self.download_unpack_digest_file(&cardano_database_snapshot.digests, &digest_target_dir)
+            .await?;
+        let last_immutable_file_number = cardano_database_snapshot.beacon.immutable_file_number;
+
+        let downloaded_digests = self.read_digest_file(&digest_target_dir)?;
+        delete_directory(&digest_target_dir)?;
+
+        let filtered_digests = downloaded_digests
+            .clone()
+            .into_iter()
+            .filter(|(immutable_file_name, _)| {
+                match ImmutableFile::new(Path::new(immutable_file_name).to_path_buf()) {
+                    Ok(immutable_file) => immutable_file.number <= last_immutable_file_number,
+                    Err(_) => false,
+                }
+            })
+            .collect::<BTreeMap<_, _>>();
+
+        let filtered_digests_values = filtered_digests.values().collect::<Vec<_>>();
+        let merkle_tree: MKTree<MKTreeStoreInMemory> = MKTree::new(&filtered_digests_values)?;
+
+        let message = MessageBuilder::new()
+            .compute_cardano_database_message(certificate, &merkle_tree.compute_root()?)
+            .await?;
+
+        if !certificate.match_message(&message) {
+            return Err(anyhow!(
+                "Certificate message does not match the computed message for certificate {}",
+                certificate.hash
+            ));
+        }
+
+        Ok(VerifiedDigests {
+            digests: filtered_digests,
+            merkle_tree,
+        })
     }
 
     async fn download_unpack_digest_file(
@@ -200,7 +254,9 @@ mod tests {
             IMMUTABLE_DIR, digesters::ComputedImmutablesDigests,
         };
         use mithril_common::{
-            StdResult, entities::ImmutableFileNumber, messages::DigestsMessagePart,
+            StdResult,
+            entities::{ImmutableFileNumber, ProtocolMessage, ProtocolMessagePartKey},
+            messages::DigestsMessagePart,
         };
 
         use super::*;
@@ -210,6 +266,7 @@ mod tests {
             beacon: &CardanoDbBeacon,
             immutable_file_range: &RangeInclusive<ImmutableFileNumber>,
             digests_offset: usize,
+            digests_location: &str,
         ) -> (
             PathBuf,
             CardanoDatabaseSnapshotMessage,
@@ -223,7 +280,7 @@ mod tests {
                 digests: DigestsMessagePart {
                     size_uncompressed: 1024,
                     locations: vec![DigestLocation::CloudStorage {
-                        uri: "http://whatever/digests.json".to_string(),
+                        uri: digests_location.to_string(),
                         compression_algorithm: None,
                     }],
                 },
@@ -300,6 +357,96 @@ mod tests {
             Ok(())
         }
 
+        fn build_digests_map(size: usize) -> BTreeMap<ImmutableFile, HexEncodedDigest> {
+            let mut digests = BTreeMap::new();
+            for i in 1..=size {
+                for name in ["chunk", "primary", "secondary"] {
+                    let immutable_file_name = format!("{i:05}.{name}");
+                    let immutable_file =
+                        ImmutableFile::new(PathBuf::from(immutable_file_name)).unwrap();
+                    let digest = format!("digest-{i}-{name}");
+                    digests.insert(immutable_file, digest);
+                }
+            }
+
+            digests
+        }
+
+        #[tokio::test]
+        async fn download_and_verify_digest_should_return_digest_map_acording_to_beacon() {
+            let beacon = CardanoDbBeacon {
+                epoch: Epoch(123),
+                immutable_file_number: 42,
+            };
+            let hightest_immutable_number_in_digest_file =
+                123 + beacon.immutable_file_number as usize;
+            let digests_in_certificate_map =
+                build_digests_map(beacon.immutable_file_number as usize);
+            let protocol_message_merkle_root = {
+                let digests_in_certificate_values =
+                    digests_in_certificate_map.values().cloned().collect::<Vec<_>>();
+                let certificate_merkle_tree: MKTree<MKTreeStoreInMemory> =
+                    MKTree::new(&digests_in_certificate_values).unwrap();
+
+                certificate_merkle_tree.compute_root().unwrap().to_hex()
+            };
+            let mut protocol_message = ProtocolMessage::new();
+            protocol_message.set_message_part(
+                ProtocolMessagePartKey::CardanoDatabaseMerkleRoot,
+                protocol_message_merkle_root,
+            );
+            let certificate = CertificateMessage {
+                protocol_message: protocol_message.clone(),
+                signed_message: protocol_message.compute_hash(),
+                ..CertificateMessage::dummy()
+            };
+
+            let digests_location = "http://whatever/digests.json";
+            let cardano_database_snapshot = CardanoDatabaseSnapshotMessage {
+                beacon,
+                digests: DigestsMessagePart {
+                    size_uncompressed: 1024,
+                    locations: vec![DigestLocation::CloudStorage {
+                        uri: digests_location.to_string(),
+                        compression_algorithm: None,
+                    }],
+                },
+                ..CardanoDatabaseSnapshotMessage::dummy()
+            };
+            let client = CardanoDatabaseClientDependencyInjector::new()
+                .with_http_file_downloader(Arc::new(
+                    MockFileDownloaderBuilder::default()
+                        .with_file_uri(digests_location)
+                        .with_target_dir(InternalArtifactProver::digest_target_dir())
+                        .with_compression(None)
+                        .with_returning(Box::new(move |_, _, _, _, _| {
+                            write_digest_file(
+                                &InternalArtifactProver::digest_target_dir(),
+                                &build_digests_map(hightest_immutable_number_in_digest_file),
+                            )?;
+
+                            Ok(())
+                        }))
+                        .build(),
+                ))
+                .build_cardano_database_client();
+
+            let verified_digests = client
+                .download_and_verify_digests(&certificate, &cardano_database_snapshot)
+                .await
+                .unwrap();
+
+            let expected_digests_in_certificate = digests_in_certificate_map
+                .iter()
+                .map(|(immutable_file, digest)| {
+                    (immutable_file.filename.clone(), digest.to_string())
+                })
+                .collect();
+            assert_eq!(verified_digests.digests, expected_digests_in_certificate);
+
+            assert!(!InternalArtifactProver::digest_target_dir().exists());
+        }
+
         #[tokio::test]
         async fn compute_merkle_proof_succeeds() {
             let beacon = CardanoDbBeacon {
@@ -309,19 +456,21 @@ mod tests {
             let immutable_file_range = 1..=15;
             let immutable_file_range_to_prove = ImmutableFileRange::Range(2, 4);
             let digests_offset = 3;
+            let digests_location = "http://whatever/digests.json";
             let (database_dir, cardano_database_snapshot, certificate, merkle_tree, digests) =
                 prepare_fake_digests(
                     "compute_merkle_proof_succeeds",
                     &beacon,
                     &immutable_file_range,
                     digests_offset,
+                    digests_location,
                 )
                 .await;
             let expected_merkle_root = merkle_tree.compute_root().unwrap();
             let client = CardanoDatabaseClientDependencyInjector::new()
                 .with_http_file_downloader(Arc::new(
                     MockFileDownloaderBuilder::default()
-                        .with_file_uri("http://whatever/digests.json")
+                        .with_file_uri(digests_location)
                         .with_target_dir(InternalArtifactProver::digest_target_dir())
                         .with_compression(None)
                         .with_returning(Box::new(move |_, _, _, _, _| {
@@ -349,7 +498,7 @@ mod tests {
             let merkle_proof_root = merkle_proof.root().to_owned();
             assert_eq!(expected_merkle_root, merkle_proof_root);
 
-            assert!(!database_dir.join("digest").exists());
+            assert!(!InternalArtifactProver::digest_target_dir().exists());
         }
     }
 

@@ -135,7 +135,7 @@ async fn main() -> MithrilResult<()> {
     );
     let message = wait_spinner(
         &progress_bar,
-        MessageBuilder::new().compute_cardano_database_message(&certificate, &merkle_proof),
+        MessageBuilder::new().compute_cardano_database_message(&certificate, merkle_proof.root()),
     )
     .await?;
 

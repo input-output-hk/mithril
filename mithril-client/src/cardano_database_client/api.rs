@@ -16,6 +16,8 @@ use mithril_cardano_node_internal_database::entities::ImmutableFile;
 
 use crate::aggregator_client::AggregatorClient;
 #[cfg(feature = "fs")]
+use crate::cardano_database_client::VerifiedDigests;
+#[cfg(feature = "fs")]
 use crate::feedback::FeedbackSender;
 #[cfg(feature = "fs")]
 use crate::file_downloader::FileDownloader;
@@ -97,6 +99,18 @@ impl CardanoDatabaseClient {
                 target_dir,
                 download_unpack_options,
             )
+            .await
+    }
+
+    /// Download and verify the digests against the certificate.
+    #[cfg(feature = "fs")]
+    pub async fn download_and_verify_digests(
+        &self,
+        certificate: &CertificateMessage,
+        cardano_database_snapshot: &CardanoDatabaseSnapshotMessage,
+    ) -> MithrilResult<VerifiedDigests> {
+        self.artifact_prover
+            .download_and_verify_digests(certificate, cardano_database_snapshot)
             .await
     }
 

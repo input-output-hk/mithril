@@ -145,7 +145,7 @@ async fn cardano_db_snapshot_list_get_download_verify() {
     merkle_proof.verify().expect("Merkle proof should be valid");
 
     let message = MessageBuilder::new()
-        .compute_cardano_database_message(&certificate, &merkle_proof)
+        .compute_cardano_database_message(&certificate, merkle_proof.root())
         .await
         .expect("Computing cardano database snapshot message should not fail");
 

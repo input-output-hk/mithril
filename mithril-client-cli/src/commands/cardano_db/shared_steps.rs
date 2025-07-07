@@ -5,7 +5,7 @@ use std::path::Path;
 
 use mithril_client::{
     CardanoDatabaseSnapshot, Client, MessageBuilder, MithrilCertificate, MithrilResult,
-    cardano_database_client::ImmutableFileRange,
+    cardano_database_client::{ImmutableFileRange, VerifiedDigests},
     common::{ImmutableFileNumber, MKProof, ProtocolMessage},
 };
 
@@ -47,6 +47,22 @@ pub fn immutable_file_range(
     }
 }
 
+pub async fn download_and_verify_digests(
+    step_number: u16,
+    progress_printer: &ProgressPrinter,
+    client: &Client,
+    certificate: &MithrilCertificate,
+    cardano_database_snapshot: &CardanoDatabaseSnapshot,
+) -> MithrilResult<VerifiedDigests> {
+    progress_printer.report_step(step_number, "Downloading and verifying digests…")?;
+    let verified_digests = client
+        .cardano_database_v2()
+        .download_and_verify_digests(certificate, cardano_database_snapshot)
+        .await?;
+
+    Ok(verified_digests)
+}
+
 /// Computes and verifies the Merkle proof for the given certificate and database snapshot.
 pub async fn compute_verify_merkle_proof(
     step_number: u16,
@@ -85,7 +101,7 @@ pub async fn compute_cardano_db_snapshot_message(
     progress_printer.report_step(step_number, "Computing the cardano db snapshot message")?;
     let message = CardanoDbUtils::wait_spinner(
         progress_printer,
-        MessageBuilder::new().compute_cardano_database_message(certificate, merkle_proof),
+        MessageBuilder::new().compute_cardano_database_message(certificate, merkle_proof.root()),
     )
     .await
     .with_context(|| "Can not compute the cardano db snapshot message")?;

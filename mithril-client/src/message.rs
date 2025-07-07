@@ -13,7 +13,7 @@ use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::SignerBuilder;
 use mithril_common::signable_builder::CardanoStakeDistributionSignableBuilder;
 #[cfg(feature = "fs")]
-use mithril_common::{crypto_helper::MKProof, entities::SignedEntityType};
+use mithril_common::{crypto_helper::MKTreeNode, entities::SignedEntityType};
 
 use crate::{
     CardanoStakeDistribution, MithrilCertificate, MithrilResult, MithrilSigner,
@@ -105,12 +105,12 @@ impl MessageBuilder {
         pub async fn compute_cardano_database_message(
             &self,
             certificate: &MithrilCertificate,
-            merkle_proof: &MKProof,
+            merkle_root: &MKTreeNode,
         ) -> MithrilResult<ProtocolMessage> {
             let mut message = certificate.protocol_message.clone();
             message.set_message_part(
                 ProtocolMessagePartKey::CardanoDatabaseMerkleRoot,
-                merkle_proof.root().to_hex(),
+                merkle_root.to_hex(),
             );
 
             Ok(message)
