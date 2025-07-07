@@ -9,18 +9,18 @@ use mithril_common::{
     messages::RegisterSignatureMessageDmq,
 };
 
-use mithril_dmq::DmqConsumer;
+use mithril_dmq::DmqConsumerClient;
 
 use super::SignatureConsumer;
 
 /// DMQ implementation of the [SignatureConsumer] trait.
 pub struct SignatureConsumerDmq {
-    dmq_consumer: Arc<dyn DmqConsumer<RegisterSignatureMessageDmq>>,
+    dmq_consumer: Arc<dyn DmqConsumerClient<RegisterSignatureMessageDmq>>,
 }
 
 impl SignatureConsumerDmq {
     /// Creates a new instance of [SignatureConsumerDmq].
-    pub fn new(dmq_consumer: Arc<dyn DmqConsumer<RegisterSignatureMessageDmq>>) -> Self {
+    pub fn new(dmq_consumer: Arc<dyn DmqConsumerClient<RegisterSignatureMessageDmq>>) -> Self {
         Self { dmq_consumer }
     }
 }
