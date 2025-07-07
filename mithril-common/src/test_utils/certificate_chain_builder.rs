@@ -350,13 +350,13 @@ impl<'a> CertificateChainBuilder<'a> {
     fn compute_clerk_for_signers(signers: &[SignerFixture]) -> ProtocolClerk {
         let first_signer = &signers[0].protocol_signer;
 
-        ProtocolClerk::from_signer(first_signer)
+        ProtocolClerk::new_clerk_from_signer(first_signer)
     }
 
     fn compute_avk_for_signers(signers: &[SignerFixture]) -> ProtocolAggregateVerificationKey {
         let clerk = Self::compute_clerk_for_signers(signers);
 
-        clerk.compute_avk().into()
+        clerk.compute_aggregate_verification_key().into()
     }
 
     fn setup_genesis() -> (ProtocolGenesisSigner, ProtocolGenesisVerifier) {
@@ -499,7 +499,7 @@ impl<'a> CertificateChainBuilder<'a> {
             .collect::<Vec<_>>();
         let clerk = CertificateChainBuilder::compute_clerk_for_signers(&fixture.signers_fixture());
         let multi_signature = clerk
-            .aggregate(&single_signatures, certificate.signed_message.as_bytes())
+            .aggregate_signatures(&single_signatures, certificate.signed_message.as_bytes())
             .unwrap();
         certificate.signature = CertificateSignature::MultiSignature(
             SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(
