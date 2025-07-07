@@ -1,0 +1,24 @@
+{
+  "epoch": 18,
+  "cardano_era": "Conway",
+  "cardano_network": "devnet",
+  "mithril_era": "pythagoras",
+  "cardano_node_version": "10.4.1",
+  "aggregator_node_version": "0.7.72",
+  "protocol": {
+    "k": 70,
+    "m": 105,
+    "phi_f": 0.95
+  },
+  "next_protocol": {
+    "k": 70,
+    "m": 105,
+    "phi_f": 0.95
+  },
+  "total_signers": 2,
+  "total_next_signers": 2,
+  "total_stakes_signers": 40000000002,
+  "total_next_stakes_signers": 40000000002,
+  "total_cardano_spo": 2,
+  "total_cardano_stake": 40000000002
+}
