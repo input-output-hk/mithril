@@ -172,7 +172,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn returns_error_if_response_is_invalid_json() {
+    async fn fetch_current_era_returns_error_if_response_is_invalid_json() {
         let mock_aggregator_client = {
             let mut mock_client = MockAggregatorClient::new();
             mock_client
@@ -191,7 +191,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn returns_error_if_mithril_era_field_is_missing() {
+    async fn fetch_current_era_returns_error_if_mithril_era_field_is_missing() {
         let mut response_json = serde_json::json!(dummy_aggregator_status_message());
         response_json.as_object_mut().unwrap().remove("mithril_era");
         let mock_aggregator_client = {

@@ -92,7 +92,7 @@ pub struct Args {
     #[clap(long, global = true)]
     origin_tag: Option<String>,
 
-    /// Override the current Mithril era with a specific one
+    /// Override the Mithril era
     #[clap(long, global = true)]
     #[example = "`pythagoras`"]
     era: Option<String>,

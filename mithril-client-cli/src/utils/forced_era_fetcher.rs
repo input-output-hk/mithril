@@ -20,3 +20,22 @@ impl EraFetcher for ForcedEraFetcher {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn fetch_current_era_returns_fetched_era_with_forced_era_value() {
+        let era_fetcher = ForcedEraFetcher::new("forced_era".to_string());
+
+        let fetched_era = era_fetcher.fetch_current_era().await.unwrap();
+
+        assert_eq!(
+            FetchedEra {
+                era: "forced_era".to_string(),
+            },
+            fetched_era
+        );
+    }
+}

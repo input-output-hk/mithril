@@ -93,8 +93,6 @@ sequenceDiagram
     Old Node->>User: 💀 unsupported Era, quit.
 ```
 
-### Client-side Era Awareness
+### Client-side era awareness
 
-The Mithril client library and its consumers (e.g., Mithril client CLI) do not directly connect to a Cardano node and therefore cannot read Era Activation Markers from the blockchain themselves. Instead, they rely on the aggregator to determine the current Mithril era.
-
-To achieve this, the client fetches the current era from the aggregator's /status endpoint. This information represents the aggregator's reading of the most recent Era Activation Marker observed on-chain.
+The Mithril clients do not have access to a Cardano node and therefore can not read the Era Activation Markers stored on chain. As a consequence, they rely on the current era run by the aggregator, by using the era advertised by its `/status` route.

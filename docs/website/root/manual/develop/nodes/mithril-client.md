@@ -245,7 +245,7 @@ Options:
       --origin-tag <ORIGIN_TAG>
           Request origin tag
       --era <ERA>
-          Override the current Mithril era with a specific one
+          Override the Mithril era
   -h, --help
           Print help
   -V, --version
@@ -547,7 +547,7 @@ Here is a list of the available parameters:
 | `log_format_json`     | `--log-format-json`     |          -           | -                     | Enable JSON output for logs displayed according to verbosity level | `false`       | -                                                                                                                       |         -          |
 | `log_output`          | `--log-output`          |          -           | -                     | Redirect the logs to a file                                        | -             | -                                                                                                                       |         -          |
 | `origin_tag`          | `--origin-tag`          |          -           | -                     | Request origin tag                                                 | -             | -                                                                                                                       |         -          |
-| `era`                 | `--era`                 |          -           | -                     | Override the current Mithril era with a specific one               | -             | -                                                                                                                       |         -          |
+| `era`                 | `--era`                 |          -           | -                     | Override the Mithril era                                           | -             | -                                                                                                                       |         -          |
 | `version`             | `--version`             |         `-V`         | -                     | Print version                                                      | -             | `./mithril-client.log`                                                                                                  |         -          |
 
 `cardano-db snapshot show` command:
@@ -565,7 +565,7 @@ Here is a list of the available parameters:
 | `log_output`          | `--log-output`          |          -           | -                     | Redirect the logs to a file                                                                                           | -             | -       |         -          |
 | `unstable`            | `--unstable`            |          -           | -                     | Enable unstable commands                                                                                              | `false`       | -       |         -          |
 | `origin_tag`          | `--origin-tag`          |          -           | -                     | Request origin tag                                                                                                    | -             | -       |         -          |
-| `era`                 | `--era`                 |          -           | -                     | Override the current Mithril era with a specific one                                                                  | -             | -       |         -          |
+| `era`                 | `--era`                 |          -           | -                     | Override the Mithril era                                                                                              | -             | -       |         -          |
 | `help`                | `--help`                |         `-h`         | -                     | Print help (see more with '--help')                                                                                   | -             | -       |         -          |
 
 `cardano-db snapshot list` command:
@@ -582,7 +582,7 @@ Here is a list of the available parameters:
 | `log_output`          | `--log-output`          |          -           | -                     | Redirect the logs to a file                                                                                           | -             | -       |     -     |
 | `unstable`            | `--unstable`            |          -           | -                     | Enable unstable commands                                                                                              | `false`       | -       |     -     |
 | `origin_tag`          | `--origin-tag`          |          -           | -                     | Request origin tag                                                                                                    | -             | -       |     -     |
-| `era`                 | `--era`                 |          -           | -                     | Override the current Mithril era with a specific one                                                                  | -             | -       |     -     |
+| `era`                 | `--era`                 |          -           | -                     | Override the Mithril era                                                                                              | -             | -       |     -     |
 | `help`                | `--help`                |         `-h`         | -                     | Print help (see more with '--help')                                                                                   | -             | -       |     -     |
 
 `cardano-db download` command:
@@ -607,7 +607,7 @@ Here is a list of the available parameters:
 | `log_output`                 | `--log-output`                 |          -           | -                            | Redirect the logs to a file                                                                                                         | -             | -       |         -          |
 | `unstable`                   | `--unstable`                   |          -           | -                            | Enable unstable commands                                                                                                            | `false`       | -       |         -          |
 | `origin_tag`                 | `--origin-tag`                 |          -           | -                            | Request origin tag                                                                                                                  | -             | -       |         -          |
-| `era`                        | `--era`                        |          -           | -                            | Override the current Mithril era with a specific one                                                                                | -             | -       |         -          |
+| `era`                        | `--era`                        |          -           | -                            | Override the Mithril era                                                                                                            | -             | -       |         -          |
 | `help`                       | `--help`                       |         `-h`         | -                            | Print help (see more with '--help')                                                                                                 | -             | -       |         -          |
 
 `cardano-db verify` command (`v2` backend only):
@@ -627,7 +627,7 @@ Here is a list of the available parameters:
 | `log_output`               | `--log-output`               |          -           | -                          | Redirect the logs to a file                                                                                           | -             | -       |         -          |
 | `unstable`                 | `--unstable`                 |          -           | -                          | Enable unstable commands                                                                                              | `false`       | -       |         -          |
 | `origin_tag`               | `--origin-tag`               |          -           | -                          | Request origin tag                                                                                                    | -             | -       |         -          |
-| `era`                      | `--era`                      |          -           | -                          | Override the current Mithril era with a specific one                                                                  | -             | -       |         -          |
+| `era`                      | `--era`                      |          -           | -                          | Override the Mithril era                                                                                              | -             | -       |         -          |
 | `help`                     | `--help`                     |         `-h`         | -                          | Print help (see more with '--help')                                                                                   | -             | -       |         -          |
 
 `mithril-stake-distribution list` command:
@@ -643,7 +643,7 @@ Here is a list of the available parameters:
 | `log_output`          | `--log-output`          |          -           | -                     | Redirect the logs to a file                                        | -             | -       |     -     |
 | `unstable`            | `--unstable`            |          -           | -                     | Enable unstable commands                                           | `false`       | -       |     -     |
 | `origin_tag`          | `--origin-tag`          |          -           | -                     | Request origin tag                                                 | -             | -       |     -     |
-| `era`                 | `--era`                 |          -           | -                     | Override the current Mithril era with a specific one               | -             | -       |     -     |
+| `era`                 | `--era`                 |          -           | -                     | Override the Mithril era                                           | -             | -       |     -     |
 | `help`                | `--help`                |         `-h`         | -                     | Print help                                                         | -             | -       |     -     |
 
 `mithril-stake-distribution download` command:
@@ -662,7 +662,7 @@ Here is a list of the available parameters:
 | `log_output`               | `--log-output`               |          -           | -                          | Redirect the logs to a file                                                          | -             | -       |         -          |
 | `unstable`                 | `--unstable`                 |          -           | -                          | Enable unstable commands                                                             | `false`       | -       |         -          |
 | `origin_tag`               | `--origin-tag`               |          -           | -                          | Request origin tag                                                                   | -             | -       |         -          |
-| `era`                      | `--era`                      |          -           | -                          | Override the current Mithril era with a specific one                                 | -             | -       |         -          |
+| `era`                      | `--era`                      |          -           | -                          | Override the Mithril era                                                             | -             | -       |         -          |
 | `help`                     | `--help`                     |         `-h`         | -                          | Print help (see more with '--help')                                                  | -             | -       |         -          |
 
 `cardano-transaction snapshot show` command:
@@ -679,7 +679,7 @@ Here is a list of the available parameters:
 | `log_output`          | `--log-output`          |          -           | -                     | Redirect the logs to a file                                                          | -             | -       |         -          |
 | `unstable`            | `--unstable`            |          -           | -                     | Enable unstable commands                                                             | `false`       | -       |         -          |
 | `origin_tag`          | `--origin-tag`          |          -           | -                     | Request origin tag                                                                   | -             | -       |         -          |
-| `era`                 | `--era`                 |          -           | -                     | Override the current Mithril era with a specific one                                 | -             | -       |         -          |
+| `era`                 | `--era`                 |          -           | -                     | Override the Mithril era                                                             | -             | -       |         -          |
 | `help`                | `--help`                |         `-h`         | -                     | Print help                                                                           | -             | -       |         -          |
 
 `cardano-transaction snapshot list` command:
@@ -695,7 +695,7 @@ Here is a list of the available parameters:
 | `log_output`          | `--log-output`          |          -           | -                     | Redirect the logs to a file                                        | -             | -       |     -     |
 | `unstable`            | `--unstable`            |          -           | -                     | Enable unstable commands                                           | `false`       | -       |     -     |
 | `origin_tag`          | `--origin-tag`          |          -           | -                     | Request origin tag                                                 | -             | -       |     -     |
-| `era`                 | `--era`                 |          -           | -                     | Override the current Mithril era with a specific one               | -             | -       |     -     |
+| `era`                 | `--era`                 |          -           | -                     | Override the Mithril era                                           | -             | -       |     -     |
 | `help`                | `--help`                |         `-h`         | -                     | Print help                                                         | -             | -       |     -     |
 
 `cardano-transaction certify` command:
@@ -713,7 +713,7 @@ Here is a list of the available parameters:
 | `log_output`               | `--log-output`               |          -           | -                          | Redirect the logs to a file                                        | -             | -       |         -          |
 | `unstable`                 | `--unstable`                 |          -           | -                          | Enable unstable commands                                           | `false`       | -       |         -          |
 | `origin_tag`               | `--origin-tag`               |          -           | -                          | Request origin tag                                                 | -             | -       |         -          |
-| `era`                      | `--era`                      |          -           | -                          | Override the current Mithril era with a specific one               | -             | -       |         -          |
+| `era`                      | `--era`                      |          -           | -                          | Override the Mithril era                                           | -             | -       |         -          |
 | `help`                     | `--help`                     |         `-h`         | -                          | Print help                                                         | -             | -       |         -          |
 
 `cardano-stake-distribution list` command:
@@ -729,7 +729,7 @@ Here is a list of the available parameters:
 | `log_output`          | `--log-output`          |          -           | -                     | Redirect the logs to a file                                        | -             | -       |     -     |
 | `unstable`            | `--unstable`            |          -           | -                     | Enable unstable commands                                           | `false`       | -       |     -     |
 | `origin_tag`          | `--origin-tag`          |          -           | -                     | Request origin tag                                                 | -             | -       |     -     |
-| `era`                 | `--era`                 |          -           | -                     | Override the current Mithril era with a specific one               | -             | -       |     -     |
+| `era`                 | `--era`                 |          -           | -                     | Override the Mithril era                                           | -             | -       |     -     |
 | `help`                | `--help`                |         `-h`         | -                     | Print help                                                         | -             | -       |     -     |
 
 `cardano-stake-distribution download` command:
@@ -748,7 +748,7 @@ Here is a list of the available parameters:
 | `log_output`               | `--log-output`               |          -           | -                          | Redirect the logs to a file                                                                   | -             | -       |         -          |
 | `unstable`                 | `--unstable`                 |          -           | -                          | Enable unstable commands                                                                      | `false`       | -       |         -          |
 | `origin_tag`               | `--origin-tag`               |          -           | -                          | Request origin tag                                                                            | -             | -       |         -          |
-| `era`                      | `--era`                      |          -           | -                          | Override the current Mithril era with a specific one                                          | -             | -       |         -          |
+| `era`                      | `--era`                      |          -           | -                          | Override the Mithril era                                                                      | -             | -       |         -          |
 | `help`                     | `--help`                     |         `-h`         | -                          | Print help (see more with '--help')                                                           | -             | -       |         -          |
 
 `tools utxo-hd snapshot-converter` command:
@@ -776,5 +776,5 @@ This command is not compatible with **Linux ARM environments**.
 | `log_output`           | `--log-output`           |          -           | -                     | Redirect the logs to a file                                                                                                                             | -             | -       |         -          |
 | `unstable`             | `--unstable`             |          -           | -                     | Enable unstable commands                                                                                                                                | `false`       | -       |         -          |
 | `origin_tag`           | `--origin-tag`           |          -           | -                     | Request origin tag                                                                                                                                      | -             | -       |         -          |
-| `era`                  | `--era`                  |          -           | -                     | Override the current Mithril era with a specific one                                                                                                    | -             | -       |         -          |
+| `era`                  | `--era`                  |          -           | -                     | Override the Mithril era                                                                                                                                | -             | -       |         -          |
 | `help`                 | `--help`                 |         `-h`         | -                     | Print help (see more with '--help')                                                                                                                     | -             | -       |         -          |
