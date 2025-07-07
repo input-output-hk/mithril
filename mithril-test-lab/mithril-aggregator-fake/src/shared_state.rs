@@ -11,6 +11,7 @@ use tracing::{debug, trace};
 use crate::{StdResult, default_values};
 
 pub struct AppState {
+    status: String,
     epoch_settings: String,
     certificate_list: String,
     certificates: BTreeMap<String, String>,
@@ -40,6 +41,7 @@ impl From<AppState> for SharedState {
 impl Default for AppState {
     fn default() -> Self {
         Self {
+            status: default_values::status().to_owned(),
             epoch_settings: default_values::epoch_settings().to_owned(),
             certificate_list: default_values::certificate_list().to_owned(),
             certificates: default_values::certificates(),
@@ -67,6 +69,7 @@ impl AppState {
     /// This will fail if some files are missing or are inconsistent.
     pub fn from_directory(data_dir: &Path) -> StdResult<Self> {
         let reader = DataDir::new(data_dir)?;
+        let status = reader.read_file("status")?;
         let epoch_settings = reader.read_file("epoch-settings")?;
         let (certificate_list, certificates) = reader.read_files("certificate")?;
         let (snapshot_list, snapshots) = reader.read_files("snapshot")?;
@@ -81,6 +84,7 @@ impl AppState {
             reader.read_files("cardano-database")?;
 
         let instance = Self {
+            status,
             epoch_settings,
             certificate_list,
             certificates,
@@ -98,6 +102,11 @@ impl AppState {
         };
 
         Ok(instance)
+    }
+
+    /// return the aggregator status
+    pub async fn get_status(&self) -> StdResult<String> {
+        Ok(self.status.clone())
     }
 
     /// return the compiled epoch settings

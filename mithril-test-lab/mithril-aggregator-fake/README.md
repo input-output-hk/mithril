@@ -54,7 +54,7 @@ In another terminal:
 ```
 WORKING_DIR_END_TO_END=[SELECT A PATH]
 JSON_OUTPUT=./default_data
-TRANSACTION_HASH_SAMPLE=$(sqlite3 $WORKING_DIR_END_TO_END/stores/aggregator/cardano-transaction.sqlite3 "select transaction_hash from cardano_tx")
+TRANSACTION_HASH_SAMPLE=$(sqlite3 $WORKING_DIR_END_TO_END/stores/aggregator-1/cardano-transaction.sqlite3 "select transaction_hash from cardano_tx")
 
 ./scripts/import.sh $JSON_OUTPUT http://localhost:8080/aggregator "$TRANSACTION_HASH_SAMPLE"
 ```

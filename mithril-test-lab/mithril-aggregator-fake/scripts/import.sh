@@ -200,6 +200,9 @@ export DATA_DIR URL;
 check_requirements;
 clean_directory;
 
+echo "Downloading aggregator status"
+download_data "$BASE_URL/status" "status"
+
 echo "Downloading epoch-settings"
 download_data "$BASE_URL/epoch-settings" "epoch-settings"
 

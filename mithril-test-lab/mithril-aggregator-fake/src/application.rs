@@ -704,4 +704,29 @@ mod tests {
 
         test(task, PORT).await;
     }
+
+    #[tokio::test]
+    async fn get_status() {
+        const PORT: u16 = 3023;
+        let task = tokio::spawn(async move {
+            // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
+            yield_now().await;
+
+            let path = "/status";
+            let response = http_request(PORT, path).await;
+
+            APISpec::verify_conformity(
+                get_spec_file(),
+                "GET",
+                path,
+                "application/json",
+                &Null,
+                &response,
+                &StatusCode::OK,
+            )
+            .map_err(|e| anyhow!(e))
+        });
+
+        test(task, PORT).await;
+    }
 }
