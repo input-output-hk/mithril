@@ -18,7 +18,7 @@ use crate::certificate_client::CertificateVerifierCache;
 use crate::certificate_client::{
     CertificateClient, CertificateVerifier, MithrilCertificateVerifier,
 };
-use crate::era::{AggregatorHttpEraFetcher, EraFetcher};
+use crate::era::{AggregatorHttpEraFetcher, EraFetcher, MithrilEraClient};
 use crate::feedback::{FeedbackReceiver, FeedbackSender};
 #[cfg(feature = "fs")]
 use crate::file_downloader::{
@@ -106,7 +106,7 @@ pub struct Client {
     cardano_database_client: Arc<CardanoDatabaseClient>,
     cardano_transaction_client: Arc<CardanoTransactionClient>,
     cardano_stake_distribution_client: Arc<CardanoStakeDistributionClient>,
-    era_fetcher: Arc<dyn EraFetcher>,
+    mithril_era_client: Arc<MithrilEraClient>,
 }
 
 impl Client {
@@ -147,8 +147,8 @@ impl Client {
     }
 
     /// Get the client that fetches the current Mithril era.
-    pub fn era_fetcher(&self) -> Arc<dyn EraFetcher> {
-        self.era_fetcher.clone()
+    pub fn mithril_era_client(&self) -> Arc<MithrilEraClient> {
+        self.mithril_era_client.clone()
     }
 }
 
@@ -166,10 +166,10 @@ pub struct ClientBuilder {
     http_file_downloader: Option<Arc<dyn FileDownloader>>,
     #[cfg(feature = "unstable")]
     certificate_verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
+    era_fetcher: Option<Arc<dyn EraFetcher>>,
     logger: Option<Logger>,
     feedback_receivers: Vec<Arc<dyn FeedbackReceiver>>,
     options: ClientOptions,
-    era_fetcher: Option<Arc<dyn EraFetcher>>,
 }
 
 impl ClientBuilder {
@@ -189,10 +189,10 @@ impl ClientBuilder {
             http_file_downloader: None,
             #[cfg(feature = "unstable")]
             certificate_verifier_cache: None,
+            era_fetcher: None,
             logger: None,
             feedback_receivers: vec![],
             options: ClientOptions::default(),
-            era_fetcher: None,
         }
     }
 
@@ -214,10 +214,10 @@ impl ClientBuilder {
             http_file_downloader: None,
             #[cfg(feature = "unstable")]
             certificate_verifier_cache: None,
+            era_fetcher: None,
             logger: None,
             feedback_receivers: vec![],
             options: ClientOptions::default(),
-            era_fetcher: None,
         }
     }
 
@@ -238,9 +238,11 @@ impl ClientBuilder {
             Some(client) => client,
         };
 
-        let era_fetcher = match self.era_fetcher {
-            None => Arc::new(AggregatorHttpEraFetcher::new(aggregator_client.clone())),
-            Some(era_fetcher) => era_fetcher,
+        let mithril_era_client = match self.era_fetcher {
+            None => Arc::new(MithrilEraClient::new(Arc::new(
+                AggregatorHttpEraFetcher::new(aggregator_client.clone()),
+            ))),
+            Some(era_fetcher) => Arc::new(MithrilEraClient::new(era_fetcher)),
         };
 
         let certificate_verifier = match self.certificate_verifier {
@@ -326,7 +328,7 @@ impl ClientBuilder {
             cardano_database_client,
             cardano_transaction_client,
             cardano_stake_distribution_client,
-            era_fetcher,
+            mithril_era_client,
         })
     }
 

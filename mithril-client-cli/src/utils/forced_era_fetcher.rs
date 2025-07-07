@@ -1,6 +1,9 @@
 use async_trait::async_trait;
 
-use mithril_client::{EraFetcher, FetchedEra, MithrilResult};
+use mithril_client::{
+    MithrilResult,
+    era::{EraFetcher, FetchedEra},
+};
 
 pub struct ForcedEraFetcher {
     era: String,

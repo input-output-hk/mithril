@@ -1,5 +1,8 @@
 //! A client to retrieve the current Mithril era.
 //!
+//! In order to do so it defines a [MithrilEraClient] which exposes the following features:
+//! - [fetch_current][MithrilEraClient::fetch_current]: fetch the current Mithril era using its [EraFetcher]
+//!
 //! This module defines the following components:
 //!
 //! - [EraFetcher]: defines an interface to retrieve the current Mithril era
@@ -16,7 +19,7 @@
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
 //!
-//! let fetched_era = client.era_fetcher().fetch_current_era().await?;
+//! let fetched_era = client.mithril_era_client().fetch_current().await?;
 //! match fetched_era.to_supported_era() {
 //!     Ok(supported_era) => println!("Current Mithril era: {supported_era}"),
 //!     Err(era) => println!(
@@ -40,6 +43,23 @@ use crate::{
     MithrilResult,
     aggregator_client::{AggregatorClient, AggregatorRequest},
 };
+
+/// Client for retrieving the current Mithril era.
+pub struct MithrilEraClient {
+    era_fetcher: Arc<dyn EraFetcher>,
+}
+
+impl MithrilEraClient {
+    /// Constructs a new [MithrilEraClient].
+    pub fn new(era_fetcher: Arc<dyn EraFetcher>) -> Self {
+        Self { era_fetcher }
+    }
+
+    /// Fetches the current Mithril era.
+    pub async fn fetch_current(&self) -> MithrilResult<FetchedEra> {
+        self.era_fetcher.fetch_current_era().await
+    }
+}
 
 /// Wrapper around a raw Mithril era string.
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
