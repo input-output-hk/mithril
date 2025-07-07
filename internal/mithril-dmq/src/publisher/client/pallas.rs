@@ -8,12 +8,12 @@ use mithril_common::{
     CardanoNetwork, StdResult, crypto_helper::TryToBytes, logging::LoggerExtensions,
 };
 
-use crate::{DmqMessageBuilder, DmqPublisher};
+use crate::{DmqMessageBuilder, DmqPublisherClient};
 
-/// A DMQ publisher implementation.
+/// A DMQ client publisher implementation.
 ///
 /// This implementation is built upon the n2c mini-protocols DMQ implementation in Pallas.
-pub struct DmqPublisherPallas<M: TryToBytes + Debug> {
+pub struct DmqPublisherClientPallas<M: TryToBytes + Debug> {
     socket: PathBuf,
     network: CardanoNetwork,
     dmq_message_builder: DmqMessageBuilder,
@@ -21,8 +21,8 @@ pub struct DmqPublisherPallas<M: TryToBytes + Debug> {
     phantom: PhantomData<M>,
 }
 
-impl<M: TryToBytes + Debug> DmqPublisherPallas<M> {
-    /// Creates a new instance of [DmqPublisherPallas].
+impl<M: TryToBytes + Debug> DmqPublisherClientPallas<M> {
+    /// Creates a new instance of [DmqPublisherClientPallas].
     pub fn new(
         socket: PathBuf,
         network: CardanoNetwork,
@@ -43,12 +43,12 @@ impl<M: TryToBytes + Debug> DmqPublisherPallas<M> {
         let magic = self.network.magic_id();
         DmqClient::connect(&self.socket, magic)
             .await
-            .with_context(|| "DmqPublisherPallas failed to create a new client")
+            .with_context(|| "DmqPublisherClientPallas failed to create a new client")
     }
 }
 
 #[async_trait::async_trait]
-impl<M: TryToBytes + Debug + Sync + Send> DmqPublisher<M> for DmqPublisherPallas<M> {
+impl<M: TryToBytes + Debug + Sync + Send> DmqPublisherClient<M> for DmqPublisherClientPallas<M> {
     async fn publish_message(&self, message: M) -> StdResult<()> {
         debug!(
             self.logger,
@@ -146,7 +146,7 @@ mod tests {
         let reply_success = true;
         let server = setup_dmq_server(socket_path.clone(), reply_success);
         let client = tokio::spawn(async move {
-            let publisher = DmqPublisherPallas::new(
+            let publisher = DmqPublisherClientPallas::new(
                 socket_path,
                 CardanoNetwork::TestNet(0),
                 DmqMessageBuilder::new(
@@ -180,7 +180,7 @@ mod tests {
         let reply_success = false;
         let server = setup_dmq_server(socket_path.clone(), reply_success);
         let client = tokio::spawn(async move {
-            let publisher = DmqPublisherPallas::new(
+            let publisher = DmqPublisherClientPallas::new(
                 socket_path,
                 CardanoNetwork::TestNet(0),
                 DmqMessageBuilder::new(
