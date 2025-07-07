@@ -42,7 +42,7 @@ use mithril_persistence::database::{ApplicationNodeType, SqlMigration};
 use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnection, SqliteConnectionPool};
 
 #[cfg(feature = "future_dmq")]
-use mithril_dmq::{DmqMessageBuilder, DmqPublisherPallas};
+use mithril_dmq::{DmqMessageBuilder, DmqPublisherClientPallas};
 
 use crate::dependency_injection::SignerDependencyContainer;
 #[cfg(feature = "future_dmq")]
@@ -430,14 +430,14 @@ impl<'a> DependenciesBuilder<'a> {
                                 ))?,
                                 chain_observer.clone(),
                             );
-                            Arc::new(SignaturePublisherDmq::new(Arc::new(DmqPublisherPallas::<
-                                RegisterSignatureMessageDmq,
-                            >::new(
-                                dmq_node_socket_path.to_owned(),
-                                *cardano_network,
-                                dmq_message_builder,
-                                self.root_logger(),
-                            )))) as Arc<dyn SignaturePublisher>
+                            Arc::new(SignaturePublisherDmq::new(Arc::new(
+                                DmqPublisherClientPallas::<RegisterSignatureMessageDmq>::new(
+                                    dmq_node_socket_path.to_owned(),
+                                    *cardano_network,
+                                    dmq_message_builder,
+                                    self.root_logger(),
+                                ),
+                            ))) as Arc<dyn SignaturePublisher>
                         }
                         _ => Arc::new(SignaturePublisherNoop) as Arc<dyn SignaturePublisher>,
                     };
