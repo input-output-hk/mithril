@@ -18,7 +18,7 @@ use crate::certificate_client::CertificateVerifierCache;
 use crate::certificate_client::{
     CertificateClient, CertificateVerifier, MithrilCertificateVerifier,
 };
-use crate::era_fetcher::{AggregatorHttpEraFetcher, EraFetcher};
+use crate::era::{AggregatorHttpEraFetcher, EraFetcher};
 use crate::feedback::{FeedbackReceiver, FeedbackSender};
 #[cfg(feature = "fs")]
 use crate::file_downloader::{
