@@ -104,6 +104,15 @@ impl CardanoDbVerifyCommand {
 
         let immutable_file_range = shared_steps::immutable_file_range(None, None);
 
+        let verified_digests = shared_steps::download_and_verify_digests(
+            2,
+            &progress_printer,
+            &client,
+            &certificate,
+            &cardano_db_message,
+        )
+        .await?;
+
         let merkle_proof = shared_steps::compute_verify_merkle_proof(
             2,
             &progress_printer,
