@@ -1,15 +1,19 @@
-use std::{sync::Arc, time::Duration};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use libp2p::{Multiaddr, gossipsub};
-use mithril_common::messages::{RegisterSignatureMessageHttp, RegisterSignerMessage};
-use mithril_common::test::double::Dummy;
+use reqwest::StatusCode;
+use slog::{Drain, Level, Logger};
+use slog_scope::{error, info};
+
+use mithril_common::test_utils::double::Dummy;
+use mithril_common::{
+    CardanoNetwork,
+    messages::{RegisterSignatureMessageHttp, RegisterSignerMessage},
+};
 use mithril_relay::{
     PassiveRelay, SignerRelay, SignerRelayMode,
     p2p::{BroadcastMessage, PeerBehaviourEvent, PeerEvent},
 };
-use reqwest::StatusCode;
-use slog::{Drain, Level, Logger};
-use slog_scope::{error, info};
 
 // Launch a relay that connects to P2P network. The relay is a peer in the P2P
 // network. The relay sends some signer registrations that must be received by other
@@ -36,6 +40,8 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
     let total_peers = 1 + total_p2p_client;
     let addr: Multiaddr = "/ip4/0.0.0.0/tcp/0".parse().unwrap();
     let server_port = 0;
+    let dmq_node_socket_path = PathBuf::new();
+    let cardano_network = CardanoNetwork::TestNet(123);
     let signer_registration_mode = SignerRelayMode::P2P;
     let signature_registration_mode = SignerRelayMode::P2P;
     let aggregator_endpoint = "http://0.0.0.0:1234".to_string();
@@ -43,6 +49,8 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
     let mut signer_relay = SignerRelay::start(
         &addr,
         &server_port,
+        &dmq_node_socket_path,
+        &cardano_network,
         &signer_registration_mode,
         &signature_registration_mode,
         &aggregator_endpoint,
@@ -143,7 +151,7 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
     loop {
         tokio::select! {
             event =  p2p_client1.tick_peer() => {
-                if let Ok(Some(BroadcastMessage::RegisterSigner(signer_message_received))) = p2p_client1.peer_mut().convert_peer_event_to_message(event.unwrap().unwrap())
+                if let Ok(Some(BroadcastMessage::RegisterSignerHttp(signer_message_received))) = p2p_client1.peer_mut().convert_peer_event_to_message(event.unwrap().unwrap())
                 {
                     info!("Test: client1 consumed signer registration"; "message" => #?signer_message_received);
                     assert_eq!(signer_message_sent, signer_message_received);
@@ -151,7 +159,7 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
                 }
             }
             event =  p2p_client2.tick_peer() => {
-                if let Ok(Some(BroadcastMessage::RegisterSigner(signer_message_received))) = p2p_client2.peer_mut().convert_peer_event_to_message(event.unwrap().unwrap())
+                if let Ok(Some(BroadcastMessage::RegisterSignerHttp(signer_message_received))) = p2p_client2.peer_mut().convert_peer_event_to_message(event.unwrap().unwrap())
                 {
                     info!("Test: client2 consumed signer registration"; "message" => #?signer_message_received);
                     assert_eq!(signer_message_sent, signer_message_received);
@@ -190,7 +198,7 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
     loop {
         tokio::select! {
             event =  p2p_client1.tick_peer() => {
-                if let Ok(Some(BroadcastMessage::RegisterSignature(signature_message_received))) = p2p_client1.peer_mut().convert_peer_event_to_message(event.unwrap().unwrap())
+                if let Ok(Some(BroadcastMessage::RegisterSignatureHttp(signature_message_received))) = p2p_client1.peer_mut().convert_peer_event_to_message(event.unwrap().unwrap())
                 {
                     info!("Test: client1 consumed signature"; "message" => #?signature_message_received);
                     assert_eq!(signature_message_sent, signature_message_received);
@@ -198,7 +206,7 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
                 }
             }
             event =  p2p_client2.tick_peer() => {
-                if let Ok(Some(BroadcastMessage::RegisterSignature(signature_message_received))) = p2p_client2.peer_mut().convert_peer_event_to_message(event.unwrap().unwrap())
+                if let Ok(Some(BroadcastMessage::RegisterSignatureHttp(signature_message_received))) = p2p_client2.peer_mut().convert_peer_event_to_message(event.unwrap().unwrap())
                 {
                     info!("Test: client2 consumed signature"; "message" => #?signature_message_received);
                     assert_eq!(signature_message_sent, signature_message_received);
