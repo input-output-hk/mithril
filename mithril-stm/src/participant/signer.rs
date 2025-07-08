@@ -1,7 +1,7 @@
 use blake2::digest::{Digest, FixedOutput};
 
 use crate::bls_multi_signature::{BlsSignature, BlsSigningKey, BlsVerificationKey};
-use crate::eligibility_check::ev_lt_phi;
+use crate::eligibility_check::is_lottery_won;
 use crate::key_registration::ClosedKeyRegistration;
 use crate::{Parameters, SingleSignature, Stake};
 
@@ -27,7 +27,7 @@ pub struct Signer<D: Digest> {
 
 impl<D: Clone + Digest + FixedOutput> Signer<D> {
     /// Create a Signer for given input
-    pub fn set_stm_signer(
+    pub(crate) fn set_signer(
         signer_index: u64,
         stake: Stake,
         params: Parameters,
@@ -45,8 +45,21 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
         }
     }
 
-    /// Create a core signer (no registration data) for given input
-    pub fn set_core_signer(
+    /// Create a Signer for given input
+    #[deprecated(since = "0.4.9", note = "Use `set_signer` instead")]
+    pub fn set_stm_signer(
+        signer_index: u64,
+        stake: Stake,
+        params: Parameters,
+        sk: BlsSigningKey,
+        vk: VerificationKey,
+        closed_reg: ClosedKeyRegistration<D>,
+    ) -> Signer<D> {
+        Self::set_signer(signer_index, stake, params, sk, vk, closed_reg)
+    }
+
+    /// Create a basic signer (no registration data) for given input
+    pub(crate) fn set_basic_signer(
         signer_index: u64,
         stake: Stake,
         params: Parameters,
@@ -63,6 +76,18 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
         }
     }
 
+    /// Create a core signer (no registration data) for given input
+    #[deprecated(since = "0.4.9", note = "Use `set_basic_signer` instead")]
+    pub fn set_core_signer(
+        signer_index: u64,
+        stake: Stake,
+        params: Parameters,
+        sk: BlsSigningKey,
+        vk: VerificationKey,
+    ) -> Signer<D> {
+        Self::set_basic_signer(signer_index, stake, params, sk, vk)
+    }
+
     /// This function produces a signature following the description of Section 2.4.
     /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
     /// wins the lottery by evaluating the dense mapping.
@@ -73,9 +98,9 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
         let closed_reg = self.closed_reg.as_ref().expect("Closed registration not found! Cannot produce SingleSignatures. Use core_sign to produce core signatures (not valid for an StmCertificate).");
         let msgp = closed_reg
             .merkle_tree
-            .to_commitment_batch_compat()
-            .concat_with_msg(msg);
-        let signature = self.core_sign(&msgp, closed_reg.total_stake)?;
+            .to_merkle_tree_batch_commitment()
+            .concatenate_with_message(msg);
+        let signature = self.basic_sign(&msgp, closed_reg.total_stake)?;
 
         Some(SingleSignature {
             sigma: signature.sigma,
@@ -85,8 +110,14 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
     }
 
     /// Extract the verification key.
-    pub fn verification_key(&self) -> VerificationKey {
+    pub fn get_verification_key(&self) -> VerificationKey {
         self.vk
+    }
+
+    /// Extract the verification key.
+    #[deprecated(since = "0.4.9", note = "Use `get_verification_key` instead")]
+    pub fn verification_key(&self) -> VerificationKey {
+        Self::get_verification_key(self)
     }
 
     /// Extract stake from the signer.
@@ -94,12 +125,12 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
         self.stake
     }
 
-    /// A core signature generated without closed registration.
-    /// The core signature can be verified by core verifier.
+    /// A basic signature generated without closed key registration.
+    /// The basic signature can be verified by basic verifier.
     /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
     /// wins the lottery by evaluating the dense mapping.
     /// It records all the winning indexes in `Self.indexes`.
-    pub fn core_sign(&self, msg: &[u8], total_stake: Stake) -> Option<SingleSignature> {
+    pub fn basic_sign(&self, msg: &[u8], total_stake: Stake) -> Option<SingleSignature> {
         let sigma = self.sk.sign(msg);
 
         let indexes = self.check_lottery(msg, &sigma, total_stake);
@@ -114,13 +145,23 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
         }
     }
 
+    /// A basic signature generated without closed key registration.
+    /// The basic signature can be verified by basic verifier.
+    /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
+    /// wins the lottery by evaluating the dense mapping.
+    /// It records all the winning indexes in `Self.indexes`.
+    #[deprecated(since = "0.4.9", note = "Use `basic_sign` instead")]
+    pub fn core_sign(&self, msg: &[u8], total_stake: Stake) -> Option<SingleSignature> {
+        Self::basic_sign(self, msg, total_stake)
+    }
+
     /// Collects and returns the winning indices.
     pub fn check_lottery(&self, msg: &[u8], sigma: &BlsSignature, total_stake: Stake) -> Vec<u64> {
         let mut indexes = Vec::new();
         for index in 0..self.params.m {
-            if ev_lt_phi(
+            if is_lottery_won(
                 self.params.phi_f,
-                sigma.eval(msg, index),
+                sigma.evaluate_dense_mapping(msg, index),
                 self.stake,
                 total_stake,
             ) {
@@ -131,17 +172,24 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
     }
 
     /// Get Parameters
-    pub fn get_params(&self) -> Parameters {
+    pub(crate) fn get_parameters(&self) -> Parameters {
         self.params
     }
 
+    /// Get Parameters
+    #[deprecated(since = "0.4.9", note = "Use `get_parameters` instead")]
+    pub fn get_params(&self) -> Parameters {
+        Self::get_parameters(self)
+    }
+
     /// Get closed key registration
-    pub fn get_closed_reg(&self) -> Option<ClosedKeyRegistration<D>> {
+    pub(crate) fn get_closed_key_registration(&self) -> Option<ClosedKeyRegistration<D>> {
         self.closed_reg.clone()
     }
 
-    /// Get verification key
-    pub fn get_vk(&self) -> VerificationKey {
-        self.vk
+    /// Get closed key registration
+    #[deprecated(since = "0.4.9", note = "Use `get_closed_key_registration` instead")]
+    pub fn get_closed_reg(&self) -> Option<ClosedKeyRegistration<D>> {
+        Self::get_closed_key_registration(self)
     }
 }

@@ -37,7 +37,7 @@ impl KeyRegistration {
         pk: BlsVerificationKeyProofOfPossession,
     ) -> Result<(), RegisterError> {
         if let Entry::Vacant(e) = self.keys.entry(pk.vk) {
-            pk.check()?;
+            pk.verify_proof_of_possesion()?;
             e.insert(stake);
             return Ok(());
         }
@@ -66,7 +66,7 @@ impl KeyRegistration {
         reg_parties.sort();
 
         ClosedKeyRegistration {
-            merkle_tree: Arc::new(MerkleTree::create(&reg_parties)),
+            merkle_tree: Arc::new(MerkleTree::new(&reg_parties)),
             reg_parties,
             total_stake,
         }
@@ -136,7 +136,7 @@ mod tests {
                     }
                     Err(RegisterError::KeyInvalid(a)) => {
                         assert_eq!(fake_it, 0);
-                        assert!(a.check().is_err());
+                        assert!(a.verify_proof_of_possesion().is_err());
                     }
                     Err(RegisterError::SerializationError) => unreachable!(),
                     _ => unreachable!(),

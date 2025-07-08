@@ -108,9 +108,11 @@ impl Party {
         }
         let closed_reg = key_reg.close();
 
-        let signer = self.initializer.clone().unwrap().new_signer(closed_reg).unwrap();
+        let signer = self.initializer.clone().unwrap().create_signer(closed_reg).unwrap();
         self.signer = Some(signer);
-        self.clerk = Some(ProtocolClerk::from_signer(self.signer.as_ref().unwrap()));
+        self.clerk = Some(ProtocolClerk::new_clerk_from_signer(
+            self.signer.as_ref().unwrap(),
+        ));
     }
 
     /// Individually sign a message through lottery
@@ -140,7 +142,7 @@ impl Party {
         message: &Vec<u8>,
         signatures: &[ProtocolSingleSignature],
     ) -> Option<&ProtocolMultiSignature> {
-        let msig = self.clerk.as_ref().unwrap().aggregate(signatures, message);
+        let msig = self.clerk.as_ref().unwrap().aggregate_signatures(signatures, message);
         match msig {
             Ok(aggregate_signature) => {
                 println!("Party #{}: aggregate signature computed", self.party_id);
@@ -167,7 +169,7 @@ impl Party {
         match self.get_aggregate(message) {
             Some(msig) => match msig.verify(
                 message,
-                &self.clerk.as_ref().unwrap().compute_avk(),
+                &self.clerk.as_ref().unwrap().compute_aggregate_verification_key(),
                 &self.params.unwrap(),
             ) {
                 Ok(_) => {
@@ -245,7 +247,7 @@ impl Verifier {
         }
         let closed_reg = key_reg.close();
 
-        self.clerk = Some(ProtocolClerk::from_registration(
+        self.clerk = Some(ProtocolClerk::new_clerk_from_closed_key_registration(
             &self.params.unwrap(),
             &closed_reg,
         ));
@@ -259,7 +261,7 @@ impl Verifier {
     ) -> Result<(), String> {
         match msig.verify(
             message,
-            &self.clerk.as_ref().unwrap().compute_avk(),
+            &self.clerk.as_ref().unwrap().compute_aggregate_verification_key(),
             &self.params.unwrap(),
         ) {
             Ok(_) => {
@@ -358,11 +360,14 @@ impl ProtocolDemonstrator for Demonstrator {
         let mut players_artifacts = Vec::new();
         for party in self.parties.iter_mut() {
             let protocol_initializer =
-                ProtocolInitializerNotCertified::setup(self.params.unwrap(), party.stake, rng);
+                ProtocolInitializerNotCertified::new(self.params.unwrap(), party.stake, rng);
             players_artifacts.push(PlayerArtifact {
                 party_id: party.clone().party_id,
                 stake: party.stake,
-                verification_key: key_encode_hex(protocol_initializer.verification_key()).unwrap(),
+                verification_key: key_encode_hex(
+                    protocol_initializer.get_verification_key_proof_of_possession(),
+                )
+                .unwrap(),
                 initializer: key_encode_hex(protocol_initializer.clone()).unwrap(),
             });
             party.initializer = Some(protocol_initializer);

@@ -183,8 +183,8 @@ mod tests {
         let snapshot_digest = "digest".to_string();
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let current_signer = &fixture.signers_fixture()[0];
-        let clerk = ProtocolClerk::from_signer(&current_signer.protocol_signer);
-        let avk = clerk.compute_avk();
+        let clerk = ProtocolClerk::new_clerk_from_signer(&current_signer.protocol_signer);
+        let avk = clerk.compute_aggregate_verification_key();
         let logger = TestLogger::stdout();
         let connection = Arc::new(main_db_connection().unwrap());
         let stake_store = {
@@ -228,7 +228,7 @@ mod tests {
             decoded_sig
                 .verify(
                     &fixture.protocol_parameters().into(),
-                    &current_signer.protocol_signer.verification_key(),
+                    &current_signer.protocol_signer.get_verification_key(),
                     &current_signer.protocol_signer.get_stake(),
                     &avk,
                     &expected_message

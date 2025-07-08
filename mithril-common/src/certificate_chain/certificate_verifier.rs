@@ -495,9 +495,12 @@ mod tests {
             .collect::<Vec<_>>();
 
         let first_signer = &signers[0].protocol_signer;
-        let clerk = ProtocolClerk::from_signer(first_signer);
-        let aggregate_verification_key = clerk.compute_avk().into();
-        let multi_signature = clerk.aggregate(&single_signatures, &message_hash).unwrap().into();
+        let clerk = ProtocolClerk::new_clerk_from_signer(first_signer);
+        let aggregate_verification_key = clerk.compute_aggregate_verification_key().into();
+        let multi_signature = clerk
+            .aggregate_signatures(&single_signatures, &message_hash)
+            .unwrap()
+            .into();
 
         let verifier = MithrilCertificateVerifier::new(
             TestLogger::stdout(),
@@ -785,9 +788,10 @@ mod tests {
                 .iter()
                 .filter_map(|s| s.protocol_signer.sign(signed_message.as_bytes()))
                 .collect::<Vec<_>>();
-            let clerk = ProtocolClerk::from_signer(&fixture.signers_fixture()[0].protocol_signer);
+            let clerk =
+                ProtocolClerk::new_clerk_from_signer(&fixture.signers_fixture()[0].protocol_signer);
             let modified_multi_signature = clerk
-                .aggregate(&single_signatures, signed_message.as_bytes())
+                .aggregate_signatures(&single_signatures, signed_message.as_bytes())
                 .unwrap();
             modified_certificate.signature = CertificateSignature::MultiSignature(
                 modified_certificate.signed_entity_type(),
@@ -1082,12 +1086,12 @@ mod tests {
                     s_adversary.protocol_signer.sign(signed_message.as_bytes())
                 })
                 .collect::<Vec<_>>();
-            let forged_clerk = ProtocolClerk::from_registration(
+            let forged_clerk = ProtocolClerk::new_clerk_from_closed_key_registration(
                 &forged_protocol_parameters.clone().into(),
                 &fixture.signers_fixture()[0].protocol_closed_key_registration,
             );
             let forged_multi_signature = forged_clerk
-                .aggregate(&forged_single_signatures, signed_message.as_bytes())
+                .aggregate_signatures(&forged_single_signatures, signed_message.as_bytes())
                 .unwrap();
             forged_certificate.signature = CertificateSignature::MultiSignature(
                 forged_certificate.signed_entity_type(),

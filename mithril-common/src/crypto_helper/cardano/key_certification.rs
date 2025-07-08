@@ -120,10 +120,10 @@ impl StmInitializerWrapper {
         stake: Stake,
         rng: &mut R,
     ) -> StdResult<Self> {
-        let stm_initializer = Initializer::setup(params, stake, rng);
+        let stm_initializer = Initializer::new(params, stake, rng);
         let kes_signature = if let Some(kes_signer) = kes_signer {
             let (signature, _op_cert) = kes_signer.sign(
-                &stm_initializer.verification_key().to_bytes(),
+                &stm_initializer.get_verification_key_proof_of_possession().to_bytes(),
                 kes_period.unwrap_or_default(),
             )?;
 
@@ -143,7 +143,7 @@ impl StmInitializerWrapper {
 
     /// Extract the verification key.
     pub fn verification_key(&self) -> VerificationKeyProofOfPossession {
-        self.stm_initializer.verification_key()
+        self.stm_initializer.get_verification_key_proof_of_possession()
     }
 
     /// Extract the verification key signature.
@@ -178,7 +178,7 @@ impl StmInitializerWrapper {
         closed_reg: ClosedKeyRegistration<D>,
     ) -> Result<Signer<D>, ProtocolRegistrationErrorWrapper> {
         self.stm_initializer
-            .new_signer(closed_reg)
+            .create_signer(closed_reg)
             .map_err(ProtocolRegistrationErrorWrapper::CoreRegister)
     }
 
@@ -365,7 +365,10 @@ mod test {
             Some(opcert1),
             initializer_1.verification_key_signature(),
             Some(0),
-            initializer_1.stm_initializer.verification_key().into(),
+            initializer_1
+                .stm_initializer
+                .get_verification_key_proof_of_possession()
+                .into(),
         );
         assert!(key_registration_1.is_ok());
 
@@ -390,7 +393,10 @@ mod test {
             Some(opcert2),
             initializer_2.verification_key_signature(),
             Some(0),
-            initializer_2.stm_initializer.verification_key().into(),
+            initializer_2
+                .stm_initializer
+                .get_verification_key_proof_of_possession()
+                .into(),
         );
         assert!(key_registration_2.is_ok())
     }

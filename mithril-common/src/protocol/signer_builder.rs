@@ -73,8 +73,10 @@ impl SignerBuilder {
     /// Build a [MultiSigner] based on the registered parties
     pub fn build_multi_signer(&self) -> MultiSigner {
         let stm_parameters = self.protocol_parameters.clone().into();
-        let clerk =
-            ProtocolClerk::from_registration(&stm_parameters, &self.closed_key_registration);
+        let clerk = ProtocolClerk::new_clerk_from_closed_key_registration(
+            &stm_parameters,
+            &self.closed_key_registration,
+        );
 
         MultiSigner::new(clerk, stm_parameters)
     }
@@ -82,10 +84,12 @@ impl SignerBuilder {
     /// Compute aggregate verification key from stake distribution
     pub fn compute_aggregate_verification_key(&self) -> ProtocolAggregateVerificationKey {
         let stm_parameters = self.protocol_parameters.clone().into();
-        let clerk =
-            ProtocolClerk::from_registration(&stm_parameters, &self.closed_key_registration);
+        let clerk = ProtocolClerk::new_clerk_from_closed_key_registration(
+            &stm_parameters,
+            &self.closed_key_registration,
+        );
 
-        clerk.compute_avk().into()
+        clerk.compute_aggregate_verification_key().into()
     }
 
     fn build_single_signer_with_rng<R: RngCore + CryptoRng>(

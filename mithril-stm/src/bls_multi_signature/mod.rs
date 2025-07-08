@@ -102,7 +102,7 @@ mod tests {
 
     impl PartialEq for BlsSigningKey {
         fn eq(&self, other: &Self) -> bool {
-            self.to_blst_sk().to_bytes() == other.to_blst_sk().to_bytes()
+            self.to_blst_secret_key().to_bytes() == other.to_blst_secret_key().to_bytes()
         }
     }
 
@@ -158,7 +158,7 @@ mod tests {
             let vk_infinity = BlsVerificationKey(p2_affine_to_vk(&p2));
             let vkpop_infinity = BlsVerificationKeyProofOfPossession { vk: vk_infinity, pop };
 
-            let result = vkpop_infinity.check();
+            let result = vkpop_infinity.verify_proof_of_possesion();
             assert_eq!(result, Err(MultiSignatureError::VerificationKeyInfinity(Box::new(vkpop_infinity.vk))));
         }
 
@@ -210,7 +210,7 @@ mod tests {
                                   seed in any::<[u8;32]>()) {
             let sk = BlsSigningKey::generate(&mut ChaCha20Rng::from_seed(seed));
             let sig = sk.sign(&msg);
-            sig.eval(&msg, idx);
+            sig.evaluate_dense_mapping(&msg, idx);
         }
 
         #[test]

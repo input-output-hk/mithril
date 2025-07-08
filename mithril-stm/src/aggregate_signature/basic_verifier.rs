@@ -21,7 +21,7 @@ impl BasicVerifier {
     ///     * Collect the unique signers in a hash set,
     ///     * Calculate the total stake of the eligible signers,
     ///     * Sort the eligible signers.
-    pub fn setup(public_signers: &[(BlsVerificationKey, Stake)]) -> Self {
+    pub fn new(public_signers: &[(BlsVerificationKey, Stake)]) -> Self {
         let mut total_stake: Stake = 0;
         let mut unique_parties = HashSet::new();
         for signer in public_signers.iter() {
@@ -39,6 +39,15 @@ impl BasicVerifier {
             eligible_parties,
             total_stake,
         }
+    }
+
+    /// Setup a basic verifier for given list of signers.
+    ///     * Collect the unique signers in a hash set,
+    ///     * Calculate the total stake of the eligible signers,
+    ///     * Sort the eligible signers.
+    #[deprecated(since = "0.4.9", note = "Use `new` instead")]
+    pub fn setup(public_signers: &[(BlsVerificationKey, Stake)]) -> Self {
+        Self::new(public_signers)
     }
 
     /// Preliminary verification that checks whether indices are unique and the quorum is achieved.
@@ -79,7 +88,7 @@ impl BasicVerifier {
     /// If there is no sufficient signatures, then the function fails.
     // todo: We need to agree on a criteria to dedup (by default we use a BTreeMap that guarantees keys order)
     // todo: not good, because it only removes index if there is a conflict (see benches)
-    pub fn dedup_sigs_for_indices(
+    pub fn select_valid_signatures_for_k_indices(
         total_stake: &Stake,
         params: &Parameters,
         msg: &[u8],
@@ -93,7 +102,7 @@ impl BasicVerifier {
         for sig_reg in sigs.iter() {
             if sig_reg
                 .sig
-                .verify_core(
+                .basic_verify(
                     params,
                     &sig_reg.reg_party.0,
                     &sig_reg.reg_party.1,
@@ -160,13 +169,33 @@ impl BasicVerifier {
                 }
             }
         }
-
         Err(AggregationError::NotEnoughSignatures(count, params.k))
+    }
+
+    /// Given a slice of `sig_reg_list`, this function returns a new list of `sig_reg_list` with only valid indices.
+    /// In case of conflict (having several signatures for the same index)
+    /// it selects the smallest signature (i.e. takes the signature with the smallest scalar).
+    /// The function selects at least `self.k` indexes.
+    ///  # Error
+    /// If there is no sufficient signatures, then the function fails.
+    // todo: We need to agree on a criteria to dedup (by default we use a BTreeMap that guarantees keys order)
+    // todo: not good, because it only removes index if there is a conflict (see benches)
+    #[deprecated(
+        since = "0.4.9",
+        note = "Use `select_valid_signatures_for_k_indices` instead"
+    )]
+    pub fn dedup_sigs_for_indices(
+        total_stake: &Stake,
+        params: &Parameters,
+        msg: &[u8],
+        sigs: &[SingleSignatureWithRegisteredParty],
+    ) -> Result<Vec<SingleSignatureWithRegisteredParty>, AggregationError> {
+        Self::select_valid_signatures_for_k_indices(total_stake, params, msg, sigs)
     }
 
     /// Collect and return `Vec<BlsSignature>, Vec<BlsVerificationKey>` which will be used
     /// by the aggregate verification.
-    pub(crate) fn collect_sigs_vks(
+    pub(crate) fn collect_signatures_verification_keys(
         sig_reg_list: &[SingleSignatureWithRegisteredParty],
     ) -> (Vec<BlsSignature>, Vec<BlsVerificationKey>) {
         let sigs = sig_reg_list
@@ -198,12 +227,16 @@ impl BasicVerifier {
             })
             .collect::<Vec<SingleSignatureWithRegisteredParty>>();
 
-        let unique_sigs =
-            Self::dedup_sigs_for_indices(&self.total_stake, parameters, msg, &sig_reg_list)?;
+        let unique_sigs = Self::select_valid_signatures_for_k_indices(
+            &self.total_stake,
+            parameters,
+            msg,
+            &sig_reg_list,
+        )?;
 
         Self::preliminary_verify(&self.total_stake, &unique_sigs, parameters, msg)?;
 
-        let (sigs, vks) = Self::collect_sigs_vks(&unique_sigs);
+        let (sigs, vks) = Self::collect_signatures_verification_keys(&unique_sigs);
 
         BlsSignature::verify_aggregate(msg.to_vec().as_slice(), &vks, &sigs)?;
 

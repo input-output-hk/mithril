@@ -37,13 +37,13 @@ impl MultiSigner {
             .collect();
 
         self.protocol_clerk
-            .aggregate(&protocol_signatures, message.to_message().as_bytes())
+            .aggregate_signatures(&protocol_signatures, message.to_message().as_bytes())
             .map(|multi_sig| multi_sig.into())
     }
 
     /// Compute aggregate verification key from stake distribution
     pub fn compute_aggregate_verification_key(&self) -> ProtocolAggregateVerificationKey {
-        self.protocol_clerk.compute_avk().into()
+        self.protocol_clerk.compute_aggregate_verification_key().into()
     }
 
     /// Verify a single signature
@@ -60,7 +60,7 @@ impl MultiSigner {
         // party, and we can ignore the request.
         let (vk, stake) = self
             .protocol_clerk
-            .get_reg_party(&protocol_signature.signer_index)
+            .get_registered_party_for_index(&protocol_signature.signer_index)
             .ok_or_else(|| {
                 anyhow!(format!(
                     "Unregistered party: '{}'",

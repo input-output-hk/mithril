@@ -28,7 +28,7 @@ pub struct Initializer {
 impl Initializer {
     /// Builds an `Initializer` that is ready to register with the key registration service.
     /// This function generates the signing and verification key with a PoP, and initialises the structure.
-    pub fn setup<R: RngCore + CryptoRng>(params: Parameters, stake: Stake, rng: &mut R) -> Self {
+    pub fn new<R: RngCore + CryptoRng>(params: Parameters, stake: Stake, rng: &mut R) -> Self {
         let sk = BlsSigningKey::generate(rng);
         let pk = VerificationKeyProofOfPossession::from(&sk);
         Self {
@@ -39,9 +39,25 @@ impl Initializer {
         }
     }
 
-    /// Extract the verification key.
-    pub fn verification_key(&self) -> VerificationKeyProofOfPossession {
+    /// Builds an `Initializer` that is ready to register with the key registration service.
+    /// This function generates the signing and verification key with a PoP, and initialises the structure.
+    #[deprecated(since = "0.4.9", note = "Use `new` instead")]
+    pub fn setup<R: RngCore + CryptoRng>(params: Parameters, stake: Stake, rng: &mut R) -> Self {
+        Self::new(params, stake, rng)
+    }
+
+    /// Extract the verification key with proof of possession.
+    pub fn get_verification_key_proof_of_possession(&self) -> VerificationKeyProofOfPossession {
         self.pk
+    }
+
+    /// Extract the verification key.
+    #[deprecated(
+        since = "0.4.9",
+        note = "Use `get_verification_key_proof_of_possession` instead"
+    )]
+    pub fn verification_key(&self) -> VerificationKeyProofOfPossession {
+        Self::get_verification_key_proof_of_possession(self)
     }
 
     /// Build the `avk` for the given list of parties.
@@ -56,7 +72,7 @@ impl Initializer {
     /// * the current total stake (according to the registration service)
     /// # Error
     /// This function fails if the initializer is not registered.
-    pub fn new_signer<D: Digest + Clone + FixedOutput>(
+    pub fn create_signer<D: Digest + Clone + FixedOutput>(
         self,
         closed_reg: ClosedKeyRegistration<D>,
     ) -> Result<Signer<D>, RegisterError> {
@@ -71,7 +87,7 @@ impl Initializer {
             return Err(RegisterError::UnregisteredInitializer);
         }
 
-        Ok(Signer::set_stm_signer(
+        Ok(Signer::set_signer(
             my_index.unwrap(),
             self.stake,
             self.params,
@@ -81,11 +97,31 @@ impl Initializer {
         ))
     }
 
-    /// Creates a new core signer that does not include closed registration.
+    /// Build the `avk` for the given list of parties.
+    ///
+    /// Note that if this Initializer was modified *between* the last call to `register`,
+    /// then the resulting `Signer` may not be able to produce valid signatures.
+    ///
+    /// Returns an `Signer` specialized to
+    /// * this `Signer`'s ID and current stake
+    /// * this `Signer`'s parameter valuation
+    /// * the `avk` as built from the current registered parties (according to the registration service)
+    /// * the current total stake (according to the registration service)
+    /// # Error
+    /// This function fails if the initializer is not registered.
+    #[deprecated(since = "0.4.9", note = "Use `create_signer` instead")]
+    pub fn new_signer<D: Digest + Clone + FixedOutput>(
+        self,
+        closed_reg: ClosedKeyRegistration<D>,
+    ) -> Result<Signer<D>, RegisterError> {
+        Self::create_signer(self, closed_reg)
+    }
+
+    /// Creates a new basic signer that does not include closed registration.
     /// Takes `eligible_parties` as a parameter and determines the signer's index in the parties.
     /// `eligible_parties` is verified and trusted which is only run by a full-node
     /// that has already verified the parties.
-    pub fn new_core_signer<D: Digest + Clone + FixedOutput>(
+    pub fn create_basic_signer<D: Digest + Clone + FixedOutput>(
         self,
         eligible_parties: &[RegisteredParty],
     ) -> Option<Signer<D>> {
@@ -99,7 +135,7 @@ impl Initializer {
             }
         }
         if let Some(index) = my_index {
-            Some(Signer::set_core_signer(
+            Some(Signer::set_basic_signer(
                 index,
                 self.stake,
                 self.params,
@@ -109,6 +145,18 @@ impl Initializer {
         } else {
             None
         }
+    }
+
+    /// Creates a new basic signer that does not include closed registration.
+    /// Takes `eligible_parties` as a parameter and determines the signer's index in the parties.
+    /// `eligible_parties` is verified and trusted which is only run by a full-node
+    /// that has already verified the parties.
+    #[deprecated(since = "0.4.9", note = "Use `create_basic_signer` instead")]
+    pub fn new_core_signer<D: Digest + Clone + FixedOutput>(
+        self,
+        eligible_parties: &[RegisteredParty],
+    ) -> Option<Signer<D>> {
+        Self::create_basic_signer(self, eligible_parties)
     }
 
     /// Convert to bytes

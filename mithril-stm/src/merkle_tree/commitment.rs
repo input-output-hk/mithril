@@ -27,7 +27,7 @@ impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
     /// Check an inclusion proof that `val` is part of the tree by traveling the whole path until the root.
     /// # Error
     /// If the merkle tree path is invalid, then the function fails.
-    pub fn check(
+    pub(crate) fn verify_leaf_membership_from_path(
         &self,
         val: &MerkleTreeLeaf,
         proof: &MerklePath<D>,
@@ -53,9 +53,27 @@ impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
         Err(MerkleTreeError::PathInvalid(proof.clone()))
     }
 
+    /// Check an inclusion proof that `val` is part of the tree by traveling the whole path until the root.
+    /// # Error
+    /// If the merkle tree path is invalid, then the function fails.
+    #[deprecated(
+        since = "0.4.9",
+        note = "Use `verify_leaf_membership_from_path` instead"
+    )]
+    pub fn check(
+        &self,
+        val: &MerkleTreeLeaf,
+        proof: &MerklePath<D>,
+    ) -> Result<(), MerkleTreeError<D>>
+    where
+        D: FixedOutput + Clone,
+    {
+        Self::verify_leaf_membership_from_path(self, val, proof)
+    }
+
     /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
     /// Outputs `msg || self` as a vector of bytes.
-    pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8>
+    fn concatenate_with_message(&self, msg: &[u8]) -> Vec<u8>
     where
         D: Digest,
     {
@@ -64,6 +82,16 @@ impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
         msgp.append(&mut bytes);
 
         msgp
+    }
+
+    /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
+    /// Outputs `msg || self` as a vector of bytes.
+    #[deprecated(since = "0.4.9", note = "Use `concatenate_with_message` instead")]
+    pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8>
+    where
+        D: Digest,
+    {
+        Self::concatenate_with_message(self, msg)
     }
 }
 
@@ -90,19 +118,27 @@ impl<D: Digest> MerkleTreeBatchCommitment<D> {
 
     #[cfg(test)]
     /// Used in property test of `tree`: `test_bytes_tree_commitment_batch_compat`
-    pub(crate) fn get_nr_leaves(&self) -> usize {
+    pub(crate) fn get_number_of_leaves(&self) -> usize {
         self.nr_leaves
     }
 
     /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
     /// Outputs `msg || self` as a vector of bytes.
     // todo: Do we need to concat msg to whole commitment (nr_leaves and root) or just the root?
-    pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8> {
+    pub(crate) fn concatenate_with_message(&self, msg: &[u8]) -> Vec<u8> {
         let mut msgp = msg.to_vec();
         let mut bytes = self.root.clone();
         msgp.append(&mut bytes);
 
         msgp
+    }
+
+    /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
+    /// Outputs `msg || self` as a vector of bytes.
+    // todo: Do we need to concat msg to whole commitment (nr_leaves and root) or just the root?
+    #[deprecated(since = "0.4.9", note = "Use `concatenate_with_message` instead")]
+    pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8> {
+        Self::concatenate_with_message(self, msg)
     }
 
     /// Check a proof of a batched opening. The indices must be ordered.
@@ -112,7 +148,7 @@ impl<D: Digest> MerkleTreeBatchCommitment<D> {
     // todo: Update doc.
     // todo: Simplify the algorithm.
     // todo: Maybe we want more granular errors, rather than only `BatchPathInvalid`
-    pub fn check(
+    pub(crate) fn verify_leaves_membership_from_batch_path(
         &self,
         batch_val: &[MerkleTreeLeaf],
         proof: &MerkleBatchPath<D>,
@@ -195,6 +231,28 @@ impl<D: Digest> MerkleTreeBatchCommitment<D> {
         }
 
         Err(MerkleTreeError::BatchPathInvalid(proof.clone()))
+    }
+
+    /// Check a proof of a batched opening. The indices must be ordered.
+    ///
+    /// # Error
+    /// Returns an error if the proof is invalid.
+    // todo: Update doc.
+    // todo: Simplify the algorithm.
+    // todo: Maybe we want more granular errors, rather than only `BatchPathInvalid`
+    #[deprecated(
+        since = "0.4.9",
+        note = "Use `verify_leaves_membership_from_batch_path` instead"
+    )]
+    pub fn check(
+        &self,
+        batch_val: &[MerkleTreeLeaf],
+        proof: &MerkleBatchPath<D>,
+    ) -> Result<(), MerkleTreeError<D>>
+    where
+        D: FixedOutput + Clone,
+    {
+        Self::verify_leaves_membership_from_batch_path(self, batch_val, proof)
     }
 }
 
