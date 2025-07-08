@@ -92,3 +92,7 @@ sequenceDiagram
     Chain->>Old Node: Era change at Epoch XX
     Old Node->>User: 💀 unsupported Era, quit.
 ```
+
+### Client-side era awareness
+
+The Mithril clients do not have access to a Cardano node and therefore can not read the Era Activation Markers stored on chain. As a consequence, they rely on the current era run by the aggregator, by using the era advertised by its `/status` route.

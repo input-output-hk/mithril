@@ -23,6 +23,7 @@ use crate::shared_state::SharedState;
 
 pub async fn aggregator_router() -> Router<SharedState> {
     Router::new()
+        .route("/status", get(status))
         .route("/epoch-settings", get(epoch_settings))
         .route("/artifact/snapshots", get(snapshots))
         .route(
@@ -79,6 +80,14 @@ pub async fn aggregator_router() -> Router<SharedState> {
                         .latency_unit(LatencyUnit::Micros),
                 ),
         )
+}
+
+/// HTTP: Return the aggregator status.
+pub async fn status(State(state): State<SharedState>) -> Result<String, AppError> {
+    let app_state = state.read().await;
+    let status = app_state.get_status().await?;
+
+    Ok(status)
 }
 
 /// HTTP: Return the Epoch Settings.

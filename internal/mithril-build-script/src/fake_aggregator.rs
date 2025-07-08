@@ -14,6 +14,8 @@ pub type FileContent = String;
 /// of the fake aggregator.
 #[derive(Debug, Default)]
 pub struct FakeAggregatorData {
+    status: FileContent,
+
     epoch_settings: FileContent,
 
     certificates_list: FileContent,
@@ -50,6 +52,9 @@ impl FakeAggregatorData {
             });
 
             match filename.as_str() {
+                "status.json" => {
+                    data.status = file_content;
+                }
                 "epoch-settings.json" => {
                     data.epoch_settings = file_content;
                 }
@@ -155,6 +160,7 @@ impl FakeAggregatorData {
     pub fn generate_code_for_all_data(self) -> String {
         Self::assemble_code(
             &[
+                generate_list_getter("status", self.status),
                 generate_list_getter("epoch_settings", self.epoch_settings),
                 generate_ids_array(
                     "snapshot_digests",

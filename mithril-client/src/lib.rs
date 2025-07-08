@@ -12,6 +12,7 @@
 //! - [Cardano stake distribution][cardano_stake_distribution_client] list, get and get by epoch.
 //! - [Mithril stake distribution][mithril_stake_distribution_client] list and get.
 //! - [Certificates][certificate_client] list, get, and chain validation.
+//! - [MithrilEraClient][era]: retrieve the current Mithril era.
 //!
 //! The [Client] aggregates the queries of all of those types.
 //!
@@ -125,6 +126,7 @@ pub mod cardano_stake_distribution_client;
 pub mod cardano_transaction_client;
 pub mod certificate_client;
 mod client;
+pub mod era;
 pub mod feedback;
 mod message;
 pub mod mithril_stake_distribution_client;

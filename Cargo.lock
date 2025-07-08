@@ -3967,7 +3967,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator-fake"
-version = "0.4.10"
+version = "0.4.11"
 dependencies = [
  "anyhow",
  "axum",
@@ -4002,7 +4002,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-build-script"
-version = "0.2.24"
+version = "0.2.25"
 dependencies = [
  "semver",
  "serde_json",
@@ -4070,7 +4070,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.12.20"
+version = "0.12.21"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -4108,7 +4108,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.12.20"
+version = "0.12.21"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4142,7 +4142,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-wasm"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "anyhow",
  "async-trait",
