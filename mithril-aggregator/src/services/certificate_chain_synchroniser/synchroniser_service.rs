@@ -129,11 +129,19 @@ impl MithrilCertificateChainSynchronizer {
                 .with_context(
                     || format!("Failed to verify certificate: `{}`", certificate.hash,),
                 )?;
-            validated_certificates.push_front(certificate);
 
             match parent_certificate {
-                None => break,
+                None => {
+                    validated_certificates.push_front(certificate);
+                    break;
+                }
                 Some(parent) => {
+                    // At the start of the retrieval the first certificate may not be the first of
+                    // its epoch, filter them out since we only need one certificate per epoch
+                    if !validated_certificates.is_empty() || parent.epoch != certificate.epoch {
+                        validated_certificates.push_front(certificate);
+                    }
+
                     certificate = parent;
                 }
             }
@@ -480,6 +488,8 @@ mod tests {
     mod retrieve_validate_remote_certificate_chain {
         use mockall::predicate::{always, eq};
 
+        use mithril_common::entities::Epoch;
+
         use super::*;
 
         #[tokio::test]
@@ -512,10 +522,14 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn succeed_with_a_valid_certificate_chain() {
+        async fn succeed_with_a_valid_certificate_chain_and_only_get_first_certificate_of_each_epoch_plus_genesis()
+         {
+            // Note: the `CertificateChainBuilder` use one epoch for the genesis only, so in order
+            // for the last epoch to have two certificates when `certificates_per_epoch` is an *even*
+            // number, we need to set `total_certificates` to an *odd* number
             let chain = CertificateChainBuilder::new()
-                .with_total_certificates(10)
-                .with_certificates_per_epoch(3)
+                .with_total_certificates(9)
+                .with_certificates_per_epoch(2)
                 .build();
             let synchroniser = MithrilCertificateChainSynchronizer {
                 certificate_verifier: fake_verifier(&chain),
@@ -530,7 +544,10 @@ mod tests {
                 .unwrap();
 
             let mut expected = chain.certificate_path_to_genesis(&starting_point.hash);
+            // Remote certificate chain is returned ordered from genesis to latest
             expected.reverse();
+            // Remove the latest certificate has it's not the first of its epoch
+            expected.pop();
             assert_eq!(remote_certificate_chain, expected);
         }
 
@@ -538,13 +555,18 @@ mod tests {
         async fn return_chain_ordered_from_genesis_to_latest() {
             let base_certificate = fake_data::certificate("whatever");
             let chain = vec![
-                fake_data::genesis_certificate("genesis"),
                 Certificate {
+                    epoch: Epoch(2),
+                    ..fake_data::genesis_certificate("genesis")
+                },
+                Certificate {
+                    epoch: Epoch(3),
                     hash: "hash1".to_string(),
                     previous_hash: "genesis".to_string(),
                     ..base_certificate.clone()
                 },
                 Certificate {
+                    epoch: Epoch(4),
                     hash: "hash2".to_string(),
                     previous_hash: "hash1".to_string(),
                     ..base_certificate
