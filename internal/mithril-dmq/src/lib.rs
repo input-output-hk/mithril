@@ -6,9 +6,13 @@ mod model;
 mod publisher;
 pub mod test;
 
-pub use consumer::{DmqConsumerClient, DmqConsumerClientPallas};
+pub use consumer::{
+    DmqConsumerClient, DmqConsumerClientPallas, DmqConsumerServer, DmqConsumerServerPallas,
+};
 pub use model::{DmqMessage, DmqMessageBuilder};
-pub use publisher::{DmqPublisherClient, DmqPublisherClientPallas};
+pub use publisher::{
+    DmqPublisherClient, DmqPublisherClientPallas, DmqPublisherServer, DmqPublisherServerPallas,
+};
 
 #[cfg(test)]
 pub(crate) mod test_tools {
