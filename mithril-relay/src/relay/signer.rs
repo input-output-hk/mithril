@@ -1,13 +1,18 @@
+use std::{net::SocketAddr, path::Path, sync::Arc, time::Duration};
+
 use clap::ValueEnum;
 use libp2p::Multiaddr;
-use slog::{Logger, debug, info};
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use mithril_dmq::{DmqMessage, DmqPublisherServer, DmqPublisherServerPallas};
+use slog::{Logger, debug, error, info};
 use strum::Display;
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
+use tokio::sync::{
+    mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
+    watch::{self, Receiver},
+};
 use warp::Filter;
 
 use mithril_common::{
-    StdResult,
+    CardanoNetwork, StdResult,
     logging::LoggerExtensions,
     messages::{RegisterSignatureMessageHttp, RegisterSignerMessage},
 };
@@ -47,10 +52,11 @@ struct HTTPServerConfiguration<'a> {
 
 /// A relay for a Mithril signer
 pub struct SignerRelay {
-    server: TestHttpServer,
+    http_server: TestHttpServer,
     peer: Peer,
-    signature_rx: UnboundedReceiver<RegisterSignatureMessageHttp>,
-    signer_rx: UnboundedReceiver<RegisterSignerMessage>,
+    signature_http_rx: UnboundedReceiver<RegisterSignatureMessageHttp>,
+    signature_dmq_rx: UnboundedReceiver<DmqMessage>,
+    signer_http_rx: UnboundedReceiver<RegisterSignerMessage>,
     signer_repeater: Arc<MessageRepeater<RegisterSignerMessage>>,
     logger: Logger,
 }
@@ -60,6 +66,8 @@ impl SignerRelay {
     pub async fn start(
         address: &Multiaddr,
         server_port: &u16,
+        dmq_node_socket_path: &Path,
+        cardano_network: &CardanoNetwork,
         signer_registration_mode: &SignerRelayMode,
         signature_registration_mode: &SignerRelayMode,
         aggregator_endpoint: &str,
@@ -76,7 +84,7 @@ impl SignerRelay {
             logger,
         ));
         let peer = Peer::new(address).start().await?;
-        let server = Self::start_http_server(&HTTPServerConfiguration {
+        let http_server = Self::start_http_server(&HTTPServerConfiguration {
             server_port,
             signer_registration_mode: signer_registration_mode.to_owned(),
             signature_registration_mode: signature_registration_mode.to_owned(),
@@ -87,16 +95,52 @@ impl SignerRelay {
             logger: &relay_logger,
         })
         .await;
-        info!(relay_logger, "Listening on"; "address" => ?server.address());
+        info!(relay_logger, "Listening on"; "address" => ?http_server.address());
+
+        let (_stop_tx, stop_rx) = watch::channel(());
+        let (signature_dmq_tx, signature_dmq_rx) = unbounded_channel::<DmqMessage>();
+        let _dmq_publisher_server = Self::start_dmq_publisher_server(
+            dmq_node_socket_path,
+            cardano_network,
+            signature_dmq_tx,
+            stop_rx,
+            relay_logger.clone(),
+        )
+        .await?;
 
         Ok(Self {
-            server,
+            http_server,
             peer,
-            signature_rx,
-            signer_rx,
+            signature_http_rx: signature_rx,
+            signature_dmq_rx,
+            signer_http_rx: signer_rx,
             signer_repeater,
             logger: relay_logger,
         })
+    }
+
+    async fn start_dmq_publisher_server(
+        socket: &Path,
+        cardano_network: &CardanoNetwork,
+        signature_dmq_tx: UnboundedSender<DmqMessage>,
+        stop_rx: Receiver<()>,
+        logger: Logger,
+    ) -> StdResult<Arc<DmqPublisherServerPallas>> {
+        let dmq_publisher_server = Arc::new(DmqPublisherServerPallas::new(
+            socket.to_path_buf(),
+            cardano_network.to_owned(),
+            stop_rx,
+            logger.clone(),
+        ));
+        dmq_publisher_server.register_transmitter(signature_dmq_tx).await?;
+        let dmq_publisher_server_clone = dmq_publisher_server.clone();
+        tokio::spawn(async move {
+            if let Err(err) = dmq_publisher_server_clone.run().await {
+                error!(logger.to_owned(), "DMQ Publisher server failed"; "error" => ?err);
+            }
+        });
+
+        Ok(dmq_publisher_server)
     }
 
     async fn start_http_server(configuration: &HTTPServerConfiguration<'_>) -> TestHttpServer {
@@ -154,28 +198,41 @@ impl SignerRelay {
     /// Tick the signer relay
     pub async fn tick(&mut self) -> StdResult<()> {
         tokio::select! {
-            message = self.signature_rx.recv()  => {
+            message = self.signature_http_rx.recv()  => {
                 match message {
                     Some(signature_message) => {
-                        info!(self.logger, "Publish signature to p2p network"; "message" => #?signature_message);
-                        self.peer.publish_signature(&signature_message)?;
+                        info!(self.logger, "Publish HTTP signature to p2p network"; "message" => #?signature_message);
+                        self.peer.publish_signature_http(&signature_message)?;
                         Ok(())
                     }
                     None => {
-                        debug!(self.logger, "No signature message available");
+                        debug!(self.logger, "No HTTP signature message available");
                         Ok(())
                     }
                 }
             },
-            message = self.signer_rx.recv()  => {
+            message = self.signature_dmq_rx.recv()  => {
+                match message {
+                    Some(signature_message) => {
+                        info!(self.logger, "Publish DMQ signature to p2p network"; "message" => #?signature_message);
+                        self.peer.publish_signature_dmq(&signature_message)?;
+                        Ok(())
+                    }
+                    None => {
+                        //debug!(self.logger, "No DMQ signature message available");
+                        Ok(())
+                    }
+                }
+            },
+            message = self.signer_http_rx.recv()  => {
                 match message {
                     Some(signer_message) => {
-                        info!(self.logger, "Publish signer-registration to p2p network"; "message" => #?signer_message);
+                        info!(self.logger, "Publish HTTP signer-registration to p2p network"; "message" => #?signer_message);
                         self.peer.publish_signer_registration(&signer_message)?;
                         Ok(())
                     }
                     None => {
-                        debug!(self.logger, "No signer message available");
+                        debug!(self.logger, "No HTTP signer message available");
                         Ok(())
                     }
                 }
@@ -188,7 +245,7 @@ impl SignerRelay {
     /// Receive signature from the underlying channel
     #[allow(dead_code)]
     pub async fn receive_signature(&mut self) -> Option<RegisterSignatureMessageHttp> {
-        self.signature_rx.recv().await
+        self.signature_http_rx.recv().await
     }
 
     /// Tick the peer of the signer relay
@@ -203,7 +260,7 @@ impl SignerRelay {
 
     /// Retrieve address on which the HTTP Server is listening
     pub fn address(&self) -> SocketAddr {
-        self.server.address()
+        self.http_server.address()
     }
 
     /// Retrieve address on which the peer is listening
