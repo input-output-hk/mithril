@@ -64,7 +64,7 @@ impl<M: TryToBytes + Debug + Sync + Send> DmqPublisherClient<M> for DmqPublisher
             .with_context(|| "Failed to build DMQ message")?;
         client
             .msg_submission()
-            .send_submit_tx(dmq_message)
+            .send_submit_tx(dmq_message.into())
             .await
             .with_context(|| "Failed to submit DMQ message")?;
         let response = client.msg_submission().recv_submit_tx_response().await?;
