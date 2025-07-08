@@ -10,6 +10,8 @@ use mithril_common::{
     crypto_helper::{KesSigner, TryToBytes},
 };
 
+use crate::model::DmqMessage;
+
 /// The TTL (Time To Live) for DMQ messages in blocks.
 const DMQ_MESSAGE_TTL_IN_BLOCKS: u16 = 100;
 
@@ -38,7 +40,7 @@ impl DmqMessageBuilder {
     }
 
     /// Builds a DMQ message from the provided message bytes.
-    pub async fn build(&self, message_bytes: &[u8]) -> StdResult<DmqMsg> {
+    pub async fn build(&self, message_bytes: &[u8]) -> StdResult<DmqMessage> {
         fn compute_msg_id(dmq_message: &DmqMsg) -> Vec<u8> {
             let mut hasher = Blake2b::<U64>::new();
             hasher.update(&dmq_message.msg_body);
@@ -76,7 +78,7 @@ impl DmqMessageBuilder {
         };
         dmq_message.msg_id = compute_msg_id(&dmq_message);
 
-        Ok(dmq_message)
+        Ok(dmq_message.into())
     }
 }
 
@@ -137,7 +139,7 @@ mod tests {
             },
             DmqMsg {
                 msg_id: vec![],
-                ..dmq_message
+                ..dmq_message.into()
             }
         );
     }
