@@ -11,7 +11,7 @@ repository = { workspace = true }
 
 [features]
 bundle_tls = ["reqwest/native-tls-vendored"]
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+future_dmq = ["dep:mithril-dmq"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -35,6 +35,7 @@ libp2p = { version = "0.56.0", features = [
     "yamux",
 ] }
 mithril-common = { path = "../mithril-common" }
+mithril-dmq = { path = "../internal/mithril-dmq", optional = true }
 mithril-doc = { path = "../internal/mithril-doc" }
 mithril-test-http-server = { path = "../internal/tests/mithril-test-http-server" }
 reqwest = { workspace = true, features = [
