@@ -103,17 +103,22 @@ impl MithrilInfrastructure {
         let relay_signer_registration_mode = &config.relay_signer_registration_mode;
         let relay_signature_registration_mode = &config.relay_signature_registration_mode;
 
-        let aggregators =
-            Self::start_aggregators(config, aggregator_cardano_nodes, chain_observer_type).await?;
-        let aggregator_endpoints = aggregators
+        let (leader_aggregator, follower_aggregators) =
+            Self::prepare_aggregators(config, aggregator_cardano_nodes, chain_observer_type)
+                .await?;
+
+        Self::register_startup_era(&leader_aggregator, config).await?;
+        leader_aggregator.serve().await?;
+
+        let follower_aggregator_endpoints = follower_aggregators
             .iter()
             .map(|aggregator| aggregator.endpoint())
             .collect::<Vec<_>>();
-        let leader_aggregator_endpoint = aggregator_endpoints[0].to_owned();
 
         let (relay_aggregators, relay_signers, relay_passives) = Self::start_relays(
             config,
-            &aggregator_endpoints,
+            leader_aggregator.endpoint(),
+            &follower_aggregator_endpoints,
             &signer_party_ids,
             relay_signer_registration_mode.to_owned(),
             relay_signature_registration_mode.to_owned(),
@@ -121,7 +126,7 @@ impl MithrilInfrastructure {
 
         let signers = Self::start_signers(
             config,
-            leader_aggregator_endpoint,
+            leader_aggregator.endpoint(),
             signer_cardano_nodes,
             &relay_signers,
         )
@@ -132,11 +137,14 @@ impl MithrilInfrastructure {
             CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
         ));
 
+        let mut all_aggregators = vec![leader_aggregator];
+        all_aggregators.extend(follower_aggregators);
+
         Ok(Self {
             bin_dir: config.bin_dir.to_path_buf(),
             artifacts_dir: config.artifacts_dir.to_path_buf(),
             devnet: config.devnet.clone(),
-            aggregators,
+            aggregators: all_aggregators,
             signers,
             relay_aggregators,
             relay_signers,
@@ -176,8 +184,13 @@ impl MithrilInfrastructure {
             + 1;
         if self.era_reader_adapter == "cardano-chain" {
             let devnet = self.devnet.clone();
-            assertions::register_era_marker(self.aggregator(0), &devnet, next_era, next_era_epoch)
-                .await?;
+            assertions::register_era_marker(
+                self.leader_aggregator(),
+                &devnet,
+                next_era,
+                next_era_epoch,
+            )
+            .await?;
         }
         let mut current_era = self.current_era.write().await;
         *current_era = next_era.to_owned();
@@ -185,69 +198,80 @@ impl MithrilInfrastructure {
         Ok(())
     }
 
-    async fn start_aggregators(
+    async fn prepare_aggregators(
         config: &MithrilInfrastructureConfig,
-        pool_nodes: &[FullNode],
+        full_nodes: &[FullNode],
         chain_observer_type: &str,
-    ) -> StdResult<Vec<Aggregator>> {
-        let mut aggregators = vec![];
-        let mut leader_aggregator_endpoint: Option<String> = None;
-        for (index, full_node) in pool_nodes.iter().enumerate() {
-            let aggregator_name = Aggregator::name_suffix(index);
-            let aggregator_artifacts_dir = config
-                .artifacts_dir
-                .join(format!("mithril-aggregator-{aggregator_name}"));
-            let aggregator_store_dir =
-                config.store_dir.join(format!("aggregator-{aggregator_name}"));
-            let aggregator = Aggregator::new(&AggregatorConfig {
-                index,
-                name: &aggregator_name,
-                server_port: config.server_port + index as u64,
+    ) -> StdResult<(Aggregator, Vec<Aggregator>)> {
+        let [leader_node, follower_nodes @ ..] = full_nodes else {
+            panic!("Can't prepare Aggregators: No full nodes found");
+        };
+        let leader_aggregator =
+            Self::prepare_aggregator(0, leader_node, config, chain_observer_type, None).await?;
+
+        let mut follower_aggregators = vec![];
+        for (index, full_node) in follower_nodes.iter().enumerate() {
+            let aggregator = Self::prepare_aggregator(
+                index + 1,
                 full_node,
-                cardano_cli_path: &config.devnet.cardano_cli_path(),
-                work_dir: &config.work_dir,
-                store_dir: &aggregator_store_dir,
-                artifacts_dir: &aggregator_artifacts_dir,
-                bin_dir: &config.bin_dir,
-                cardano_node_version: &config.cardano_node_version,
-                mithril_run_interval: config.mithril_run_interval,
-                mithril_era: &config.mithril_era,
-                mithril_era_reader_adapter: &config.mithril_era_reader_adapter,
-                mithril_era_marker_address: &config.devnet.mithril_era_marker_address()?,
-                signed_entity_types: &config.signed_entity_types,
+                config,
                 chain_observer_type,
-                leader_aggregator_endpoint: &leader_aggregator_endpoint.clone(),
-            })?;
-
-            aggregator
-                .set_protocol_parameters(&ProtocolParameters {
-                    k: 70,
-                    m: 105,
-                    phi_f: 0.95,
-                })
-                .await;
-
-            if leader_aggregator_endpoint.is_none()
-                && config.has_leader_follower_signer_registration()
-            {
-                leader_aggregator_endpoint = Some(aggregator.endpoint());
-            }
-
-            aggregators.push(aggregator);
+                Some(leader_aggregator.endpoint()),
+            )
+            .await?;
+            follower_aggregators.push(aggregator);
         }
 
-        Self::register_startup_era(&aggregators[0], config).await?;
+        Ok((leader_aggregator, follower_aggregators))
+    }
 
-        for aggregator in &aggregators {
-            aggregator.serve().await?;
-        }
+    async fn prepare_aggregator(
+        index: usize,
+        full_node: &FullNode,
+        config: &MithrilInfrastructureConfig,
+        chain_observer_type: &str,
+        leader_aggregator_endpoint: Option<String>,
+    ) -> StdResult<Aggregator> {
+        let aggregator_name = Aggregator::name_suffix(index);
+        let aggregator_artifacts_dir = config
+            .artifacts_dir
+            .join(format!("mithril-aggregator-{aggregator_name}"));
+        let aggregator_store_dir = config.store_dir.join(format!("aggregator-{aggregator_name}"));
+        let aggregator = Aggregator::new(&AggregatorConfig {
+            index,
+            name: &aggregator_name,
+            server_port: config.server_port + index as u64,
+            full_node,
+            cardano_cli_path: &config.devnet.cardano_cli_path(),
+            work_dir: &config.work_dir,
+            store_dir: &aggregator_store_dir,
+            artifacts_dir: &aggregator_artifacts_dir,
+            bin_dir: &config.bin_dir,
+            cardano_node_version: &config.cardano_node_version,
+            mithril_run_interval: config.mithril_run_interval,
+            mithril_era: &config.mithril_era,
+            mithril_era_reader_adapter: &config.mithril_era_reader_adapter,
+            mithril_era_marker_address: &config.devnet.mithril_era_marker_address()?,
+            signed_entity_types: &config.signed_entity_types,
+            chain_observer_type,
+            leader_aggregator_endpoint: &leader_aggregator_endpoint,
+        })?;
 
-        Ok(aggregators)
+        aggregator
+            .set_protocol_parameters(&ProtocolParameters {
+                k: 70,
+                m: 105,
+                phi_f: 0.95,
+            })
+            .await;
+
+        Ok(aggregator)
     }
 
     fn start_relays(
         config: &MithrilInfrastructureConfig,
-        aggregator_endpoints: &[String],
+        leader_aggregator_endpoint: String,
+        follower_aggregator_endpoints: &[String],
         signers_party_ids: &[PartyId],
         relay_signer_registration_mode: String,
         relay_signature_registration_mode: String,
@@ -255,11 +279,15 @@ impl MithrilInfrastructure {
         if !config.use_relays {
             return Ok((vec![], vec![], vec![]));
         }
+        let aggregator_endpoints = [
+            vec![leader_aggregator_endpoint.clone()],
+            follower_aggregator_endpoints.to_vec(),
+        ]
+        .concat();
 
         let mut relay_aggregators: Vec<RelayAggregator> = vec![];
         let mut relay_signers: Vec<RelaySigner> = vec![];
         let mut relay_passives: Vec<RelayPassive> = vec![];
-        let leader_aggregator_endpoint = &aggregator_endpoints[0];
 
         info!("Starting the Mithril infrastructure in P2P mode (experimental)");
 
@@ -287,7 +315,7 @@ impl MithrilInfrastructure {
                 dial_to: bootstrap_peer_addr.clone(),
                 relay_signer_registration_mode: relay_signer_registration_mode.clone(),
                 relay_signature_registration_mode: relay_signature_registration_mode.clone(),
-                aggregator_endpoint: leader_aggregator_endpoint,
+                aggregator_endpoint: &leader_aggregator_endpoint,
                 party_id: party_id.clone(),
                 work_dir: &config.work_dir,
                 bin_dir: &config.bin_dir,
@@ -377,7 +405,7 @@ impl MithrilInfrastructure {
             signer.stop().await?;
         }
 
-        for aggregator in &self.aggregators {
+        for aggregator in self.aggregators() {
             aggregator.stop().await?;
         }
 
@@ -394,6 +422,18 @@ impl MithrilInfrastructure {
 
     pub fn aggregator(&self, index: usize) -> &Aggregator {
         &self.aggregators[index]
+    }
+
+    pub fn leader_aggregator(&self) -> &Aggregator {
+        &self.aggregators[0]
+    }
+
+    pub fn follower_aggregators(&self) -> &[Aggregator] {
+        &self.aggregators[1..]
+    }
+
+    pub fn follower_aggregator(&self, index: usize) -> &Aggregator {
+        &self.aggregators[index + 1]
     }
 
     pub fn signers(&self) -> &[Signer] {
