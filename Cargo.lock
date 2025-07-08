@@ -4321,6 +4321,7 @@ dependencies = [
  "httpmock",
  "libp2p",
  "mithril-common",
+ "mithril-dmq",
  "mithril-doc",
  "mithril-test-http-server",
  "reqwest",
