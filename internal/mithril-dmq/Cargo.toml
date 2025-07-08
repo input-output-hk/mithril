@@ -10,16 +10,24 @@ license.workspace = true
 repository.workspace = true
 include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 
+[package.metadata.cargo-machete]
+# `serde_bytes` is used for DmqMessage serialization
+ignored = ["serde_bytes"]
+
 [lib]
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+bincode = { version = "2.0.1" }
 blake2 = "0.10.6"
 mithril-cardano-node-chain = { path = "../cardano-node/mithril-cardano-node-chain" }
 mithril-common = { path = "../../mithril-common" }
 pallas-network = { git = "https://github.com/txpipe/pallas.git", branch = "main" }
+pallas-codec = { git = "https://github.com/txpipe/pallas.git", branch = "main" }
+serde = { workspace = true }
+serde_bytes = "0.11.17"
 slog = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 
