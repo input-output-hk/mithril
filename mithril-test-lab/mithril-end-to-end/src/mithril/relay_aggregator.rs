@@ -1,4 +1,5 @@
 use crate::utils::MithrilCommand;
+use crate::{Aggregator, DEVNET_MAGIC_ID};
 use mithril_common::StdResult;
 use std::collections::HashMap;
 use std::path::Path;
@@ -14,16 +15,25 @@ pub struct RelayAggregator {
 
 impl RelayAggregator {
     pub fn new(
-        name: String,
+        index: usize,
         listen_port: u64,
         dial_to: Option<String>,
         aggregator_endpoint: &str,
         work_dir: &Path,
         bin_dir: &Path,
     ) -> StdResult<Self> {
+        let name = Aggregator::name_suffix(index);
         let listen_port_str = format!("{listen_port}");
+        let dmq_node_socket_path = work_dir.join(format!("dmq-aggregator-{index}.socket"));
+        let magic_id = DEVNET_MAGIC_ID.to_string();
         let mut env = HashMap::from([
             ("LISTEN_PORT", listen_port_str.as_str()),
+            (
+                "DMQ_NODE_SOCKET_PATH",
+                dmq_node_socket_path.to_str().unwrap(),
+            ),
+            ("NETWORK", "devnet"),
+            ("NETWORK_MAGIC", &magic_id),
             ("AGGREGATOR_ENDPOINT", aggregator_endpoint),
         ]);
         if let Some(dial_to) = &dial_to {
