@@ -10,6 +10,8 @@ use mithril_common::{
     crypto_helper::{KesSigner, TryToBytes},
 };
 
+use crate::model::DmqMessage;
+
 /// The TTL (Time To Live) for DMQ messages in blocks.
 const DMQ_MESSAGE_TTL_IN_BLOCKS: u16 = 100;
 
@@ -38,7 +40,7 @@ impl DmqMessageBuilder {
     }
 
     /// Builds a DMQ message from the provided message bytes.
-    pub async fn build(&self, message_bytes: &[u8]) -> StdResult<DmqMsg> {
+    pub async fn build(&self, message_bytes: &[u8]) -> StdResult<DmqMessage> {
         fn compute_msg_id(dmq_message: &DmqMsg) -> Vec<u8> {
             let mut hasher = Blake2b::<U64>::new();
             hasher.update(&dmq_message.msg_body);
@@ -63,16 +65,16 @@ impl DmqMessageBuilder {
         let block_number = (*block_number)
             .try_into()
             .with_context(|| "Failed to convert block number to u32")?;
-        let (kes_signature, operational_certificate) = self
-            .kes_signer
-            .sign(message_bytes, block_number)
-            .with_context(|| "Failed to KES sign message while building DMQ message")?;
         let kes_period = self
             .chain_observer
             .get_current_kes_period()
             .await
             .with_context(|| "Failed to get KES period while building DMQ message")?
             .unwrap_or_default();
+        let (kes_signature, operational_certificate) = self
+            .kes_signer
+            .sign(message_bytes, kes_period)
+            .with_context(|| "Failed to KES sign message while building DMQ message")?;
         let mut dmq_message = DmqMsg {
             msg_id: vec![],
             msg_body: message_bytes.to_vec(),
@@ -84,7 +86,7 @@ impl DmqMessageBuilder {
         };
         dmq_message.msg_id = compute_msg_id(&dmq_message);
 
-        Ok(dmq_message)
+        Ok(dmq_message.into())
     }
 }
 
@@ -147,7 +149,7 @@ mod tests {
             },
             DmqMsg {
                 msg_id: vec![],
-                ..dmq_message
+                ..dmq_message.into()
             }
         );
     }
