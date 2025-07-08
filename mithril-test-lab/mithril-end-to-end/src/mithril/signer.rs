@@ -25,6 +25,7 @@ pub struct SignerConfig<'a> {
     pub mithril_era_reader_adapter: &'a str,
     pub mithril_era_marker_address: &'a str,
     pub enable_certification: bool,
+    pub use_dmq: bool,
 }
 
 #[derive(Debug)]
@@ -54,6 +55,7 @@ impl Signer {
         let mithril_run_interval = format!("{}", signer_config.mithril_run_interval);
         let mut env = HashMap::from([
             ("NETWORK", "devnet"),
+            ("NETWORK_MAGIC", &magic_id),
             ("RUN_INTERVAL", &mithril_run_interval),
             ("AGGREGATOR_ENDPOINT", &signer_config.aggregator_endpoint),
             (
@@ -65,7 +67,6 @@ impl Signer {
                 signer_config.store_dir.to_str().unwrap(),
             ),
             ("STORE_RETENTION_LIMIT", "10"),
-            ("NETWORK_MAGIC", &magic_id),
             (
                 "CARDANO_NODE_SOCKET_PATH",
                 signer_config.pool_node.socket_path.to_str().unwrap(),
@@ -95,6 +96,15 @@ impl Signer {
             );
         } else {
             env.insert("PARTY_ID", &party_id);
+        }
+        let dmq_node_socket_path = signer_config
+            .work_dir
+            .join(format!("dmq-signer-{}.socket", signer_config.signer_number));
+        if signer_config.use_dmq {
+            env.insert(
+                "DMQ_NODE_SOCKET_PATH",
+                dmq_node_socket_path.to_str().unwrap(),
+            );
         }
         let args = vec!["-vvv"];
 

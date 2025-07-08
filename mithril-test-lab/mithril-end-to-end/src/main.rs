@@ -123,6 +123,12 @@ pub struct Args {
     #[clap(long, default_value = "false")]
     use_p2p_passive_relays: bool,
 
+    /// Use DMQ protocol (used to broadcast signatures)
+    ///
+    /// Requires the Mithril nodes to be compiled with the 'future_dmq' feature
+    #[clap(long)]
+    use_dmq: bool,
+
     /// Skip cardano binaries download
     #[clap(long)]
     skip_cardano_bin_download: bool,
@@ -327,6 +333,7 @@ impl App {
         let use_relays = args.use_relays;
         let relay_signer_registration_mode = args.relay_signer_registration_mode;
         let relay_signature_registration_mode = args.relay_signature_registration_mode;
+        let use_dmq = args.use_dmq;
 
         let use_p2p_passive_relays = args.use_p2p_passive_relays;
 
@@ -360,6 +367,7 @@ impl App {
                 mithril_era_reader_adapter: args.mithril_era_reader_adapter,
                 signed_entity_types: args.signed_entity_types.clone(),
                 run_only_mode,
+                use_dmq,
                 use_relays,
                 relay_signer_registration_mode,
                 relay_signature_registration_mode,
