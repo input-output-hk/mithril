@@ -64,7 +64,7 @@ impl<M: TryToBytes + Debug + Sync + Send> DmqPublisherClient<M> for DmqPublisher
             .with_context(|| "Failed to build DMQ message")?;
         client
             .msg_submission()
-            .send_submit_tx(dmq_message)
+            .send_submit_tx(dmq_message.into())
             .await
             .with_context(|| "Failed to submit DMQ message")?;
         let response = client.msg_submission().recv_submit_tx_response().await?;
@@ -82,7 +82,7 @@ impl<M: TryToBytes + Debug + Sync + Send> DmqPublisherClient<M> for DmqPublisher
 
 #[cfg(all(test, unix))]
 mod tests {
-    use std::{fs, sync::Arc};
+    use std::{fs, sync::Arc, time::Duration};
 
     use pallas_network::miniprotocols::{
         localmsgsubmission::DmqMsgValidationError, localtxsubmission,
@@ -146,6 +146,9 @@ mod tests {
         let reply_success = true;
         let server = setup_dmq_server(socket_path.clone(), reply_success);
         let client = tokio::spawn(async move {
+            // sleep to avoid refused connection from the server
+            tokio::time::sleep(Duration::from_millis(10)).await;
+
             let publisher = DmqPublisherClientPallas::new(
                 socket_path,
                 CardanoNetwork::TestNet(0),
@@ -180,6 +183,9 @@ mod tests {
         let reply_success = false;
         let server = setup_dmq_server(socket_path.clone(), reply_success);
         let client = tokio::spawn(async move {
+            // sleep to avoid refused connection from the server
+            tokio::time::sleep(Duration::from_millis(10)).await;
+
             let publisher = DmqPublisherClientPallas::new(
                 socket_path,
                 CardanoNetwork::TestNet(0),
