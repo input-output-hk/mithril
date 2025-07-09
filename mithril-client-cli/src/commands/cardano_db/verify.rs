@@ -113,22 +113,26 @@ impl CardanoDbVerifyCommand {
         )
         .await?;
 
-        let merkle_proof = shared_steps::compute_verify_merkle_proof(
-            2,
-            &progress_printer,
-            &client,
-            &certificate,
-            &cardano_db_message,
-            &immutable_file_range,
-            db_dir,
-        )
-        .await?;
+        // let merkle_proof = shared_steps::compute_verify_merkle_proof(
+        //     3,
+        //     &progress_printer,
+        //     &client,
+        //     &certificate,
+        //     &cardano_db_message,
+        //     &immutable_file_range,
+        //     db_dir,
+        //     &verified_digests,
+        // )
+        // .await?;
 
         let message = shared_steps::compute_cardano_db_snapshot_message(
             3,
             &progress_printer,
             &certificate,
-            &merkle_proof,
+            &cardano_db_message,
+            &immutable_file_range,
+            db_dir,
+            &verified_digests,
         )
         .await?;
 
