@@ -72,15 +72,17 @@ pub async fn compute_verify_merkle_proof(
     cardano_database_snapshot: &CardanoDatabaseSnapshot,
     immutable_file_range: &ImmutableFileRange,
     unpacked_dir: &Path,
+    verified_digests: &VerifiedDigests,
 ) -> MithrilResult<MKProof> {
     progress_printer.report_step(step_number, "Computing and verifying the Merkle proof…")?;
     let merkle_proof = client
         .cardano_database_v2()
         .compute_merkle_proof(
             certificate,
-            cardano_database_snapshot,
+            cardano_database_snapshot.beacon.immutable_file_number,
             immutable_file_range,
             Path::new(&unpacked_dir),
+            verified_digests,
         )
         .await?;
 
@@ -96,12 +98,21 @@ pub async fn compute_cardano_db_snapshot_message(
     step_number: u16,
     progress_printer: &ProgressPrinter,
     certificate: &MithrilCertificate,
-    merkle_proof: &MKProof,
+    cardano_database_snapshot: &CardanoDatabaseSnapshot,
+    immutable_file_range: &ImmutableFileRange,
+    database_dir: &Path,
+    verified_digest: &VerifiedDigests,
 ) -> MithrilResult<ProtocolMessage> {
     progress_printer.report_step(step_number, "Computing the cardano db snapshot message")?;
     let message = CardanoDbUtils::wait_spinner(
         progress_printer,
-        MessageBuilder::new().compute_cardano_database_message(certificate, merkle_proof.root()),
+        MessageBuilder::new().compute_cardano_database_message(
+            certificate,
+            cardano_database_snapshot,
+            immutable_file_range,
+            database_dir,
+            verified_digest,
+        ),
     )
     .await
     .with_context(|| "Can not compute the cardano db snapshot message")?;

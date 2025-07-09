@@ -113,9 +113,16 @@
 //!     )
 //!     .await?;
 //!
+//! let verified_digests = client
+//!     .cardano_database_v2()
+//!     .download_and_verify_digests(
+//!         &certificate,
+//!         &cardano_database_snapshot)
+//!     .await?;
+//!
 //! let merkle_proof = client
 //!     .cardano_database_v2()
-//!     .compute_merkle_proof(&certificate, &cardano_database_snapshot, &immutable_file_range, &target_directory)
+//!     .compute_merkle_proof(&certificate, cardano_database_snapshot.beacon.immutable_file_number, &immutable_file_range, &target_directory, &verified_digests)
 //!     .await?;
 //! #
 //! #    Ok(())

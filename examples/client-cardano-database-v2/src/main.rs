@@ -98,14 +98,21 @@ async fn main() -> MithrilResult<()> {
         )
         .await?;
 
+    println!("Downloading and verifying digests file authenticity...");
+    let verified_digest = client
+        .cardano_database_v2()
+        .download_and_verify_digests(&certificate, &cardano_database_snapshot)
+        .await?;
+
     println!("Computing Cardano database Merkle proof...",);
     let merkle_proof = client
         .cardano_database_v2()
         .compute_merkle_proof(
             &certificate,
-            &cardano_database_snapshot,
+            cardano_database_snapshot.beacon.immutable_file_number,
             &immutable_file_range,
             &unpacked_dir,
+            &verified_digest,
         )
         .await?;
     merkle_proof
