@@ -139,18 +139,6 @@ impl PreparedCardanoDbV2Download {
             )
         })?;
 
-        // let merkle_proof = shared_steps::compute_verify_merkle_proof(
-        //     5,
-        //     &progress_printer,
-        //     &client,
-        //     &certificate,
-        //     &cardano_db_message,
-        //     &restoration_options.immutable_file_range,
-        //     &restoration_options.db_dir,
-        //     &verified_digests,
-        // )
-        // .await?;
-
         let message = shared_steps::compute_cardano_db_snapshot_message(
             5,
             &progress_printer,
