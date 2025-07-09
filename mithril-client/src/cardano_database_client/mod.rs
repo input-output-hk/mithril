@@ -4,8 +4,8 @@
 //!  - [get][CardanoDatabaseClient::get]: get a Cardano database data from its hash
 //!  - [list][CardanoDatabaseClient::list]: get the list of available Cardano database
 //!  - [download_unpack][CardanoDatabaseClient::download_unpack]: download and unpack a Cardano database snapshot for a given immutable files range
-//!  - [compute_merkle_proof][CardanoDatabaseClient::compute_merkle_proof]: compute a Merkle proof for a given Cardano database snapshot and a given immutable files range
-//!
+//!  - [download_and_verify_digests][CardanoDatabaseClient::download_and_verify_digests]: download and verify the digests of the immutable files in a Cardano database snapshot
+
 //! # Get a Cardano database
 //!
 //! To get a Cardano database using the [ClientBuilder][crate::client::ClientBuilder].

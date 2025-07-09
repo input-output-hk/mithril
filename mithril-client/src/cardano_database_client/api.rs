@@ -6,11 +6,7 @@ use std::sync::Arc;
 use slog::Logger;
 
 #[cfg(feature = "fs")]
-use mithril_common::{
-    crypto_helper::MKProof,
-    entities::ImmutableFileNumber,
-    messages::{CardanoDatabaseSnapshotMessage, CertificateMessage},
-};
+use mithril_common::messages::{CardanoDatabaseSnapshotMessage, CertificateMessage};
 
 #[cfg(feature = "fs")]
 use mithril_cardano_node_internal_database::entities::ImmutableFile;
@@ -112,27 +108,6 @@ impl CardanoDatabaseClient {
     ) -> MithrilResult<VerifiedDigests> {
         self.artifact_prover
             .download_and_verify_digests(certificate, cardano_database_snapshot)
-            .await
-    }
-
-    /// Compute the Merkle proof of membership for the given immutable file range.
-    #[cfg(feature = "fs")]
-    pub async fn compute_merkle_proof(
-        &self,
-        certificate: &CertificateMessage,
-        last_immutable_file_number_from_beacon: ImmutableFileNumber,
-        immutable_file_range: &ImmutableFileRange,
-        database_dir: &Path,
-        verified_digests: &VerifiedDigests,
-    ) -> MithrilResult<MKProof> {
-        self.artifact_prover
-            .compute_merkle_proof(
-                certificate,
-                last_immutable_file_number_from_beacon,
-                immutable_file_range,
-                database_dir,
-                verified_digests,
-            )
             .await
     }
 

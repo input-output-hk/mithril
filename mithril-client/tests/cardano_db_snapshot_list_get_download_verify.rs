@@ -138,19 +138,6 @@ async fn cardano_db_snapshot_list_get_download_verify() {
         .await
         .unwrap();
 
-    // let merkle_proof = client
-    //     .cardano_database_v2()
-    //     .compute_merkle_proof(
-    //         &certificate,
-    //         cardano_db_snapshot.beacon.immutable_file_number,
-    //         &immutable_file_range,
-    //         &unpacked_dir,
-    //         &verified_digests,
-    //     )
-    //     .await
-    //     .expect("Computing merkle proof should not fail");
-    // merkle_proof.verify().expect("Merkle proof should be valid"); //TODO verify?
-
     let message = MessageBuilder::new()
         .compute_cardano_database_message(
             &certificate,
