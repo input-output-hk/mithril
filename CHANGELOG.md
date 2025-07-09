@@ -32,6 +32,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 - **UNSTABLE** :
   - Support for DMQ signature publisher in the signer and signature consumer in the aggregator.
 
+  - Implement automatic certificates chain synchronization between leader/follower aggregators.
+
 - Crates versions:
 
 | Crate | Version |
