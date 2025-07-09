@@ -8,6 +8,7 @@ use slog::Logger;
 #[cfg(feature = "fs")]
 use mithril_common::{
     crypto_helper::MKProof,
+    entities::ImmutableFileNumber,
     messages::{CardanoDatabaseSnapshotMessage, CertificateMessage},
 };
 
@@ -119,16 +120,18 @@ impl CardanoDatabaseClient {
     pub async fn compute_merkle_proof(
         &self,
         certificate: &CertificateMessage,
-        cardano_database_snapshot: &CardanoDatabaseSnapshotMessage,
+        last_immutable_file_number_from_beacon: ImmutableFileNumber,
         immutable_file_range: &ImmutableFileRange,
         database_dir: &Path,
+        verified_digests: &VerifiedDigests,
     ) -> MithrilResult<MKProof> {
         self.artifact_prover
             .compute_merkle_proof(
                 certificate,
-                cardano_database_snapshot,
+                last_immutable_file_number_from_beacon,
                 immutable_file_range,
                 database_dir,
+                verified_digests,
             )
             .await
     }
