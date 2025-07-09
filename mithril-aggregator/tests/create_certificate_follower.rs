@@ -211,6 +211,8 @@ async fn create_certificate_follower() {
     - the follower aggregator synchronizes signers from the leader aggregator
     - the follower synchronizes its chain with the leader aggregator
     - the follower aggregator can transition from 'Idle' to 'Ready'
+    - the follower aggregator transition from 'Ready' to 'Signing(CardanoStakeDistribution)', skipping
+    MithrilStakeDistribution
     "
     );
     let epoch_fixture = &epoch_fixtures_map[&Epoch(3)];
@@ -272,8 +274,35 @@ async fn create_certificate_follower() {
     assert_last_certificate_eq!(
         follower_tester, synchronized_from_leader => expected_certificate_on_both_aggregator
     );
+    let current_msd_open_message = follower_tester
+        .observer
+        .get_current_open_message(SignedEntityTypeDiscriminants::MithrilStakeDistribution)
+        .await
+        .unwrap();
+    assert!(
+        current_msd_open_message
+            .as_ref()
+            .is_some_and(|m| m.epoch == 3 && m.is_certified),
+        "Expected a certified OpenMessage for MithrilStakeDistribution, got:\n{current_msd_open_message:#?}"
+    );
+
+    comment!(
+        "Follower: transition to 'Signing(CardanoStakeDistribution)' directly since a\
+        OpenMessage for MithrilStakeDistribution was stored by the synchronizer"
+    );
     cycle!(follower_tester, "ready");
-    cycle_err!(leader_tester, "signing");
+    cycle!(follower_tester, "signing");
+    let current_csd_open_message = follower_tester
+        .observer
+        .get_current_open_message(SignedEntityTypeDiscriminants::CardanoStakeDistribution)
+        .await
+        .unwrap();
+    assert!(
+        current_csd_open_message
+            .as_ref()
+            .is_some_and(|m| m.epoch == 3 && !m.is_certified),
+        "Expected a non-certified OpenMessage for CardanoStakeDistribution, got:\n{current_csd_open_message:#?}"
+    );
 
     comment!(
         "Epoch 4:

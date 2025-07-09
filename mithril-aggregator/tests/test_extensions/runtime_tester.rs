@@ -44,14 +44,15 @@ macro_rules! cycle {
     ( $tester:expr, $expected_state:expr ) => {{
         use $crate::test_extensions::ExpectedMetrics;
 
+        let runtime_tester: &mut RuntimeTester = &mut $tester;
         let (runtime_cycle_success, runtime_cycle_total) =
-            $tester.get_runtime_cycle_success_and_total_since_startup_metrics();
+            runtime_tester.get_runtime_cycle_success_and_total_since_startup_metrics();
 
-        RuntimeTester::cycle(&mut $tester).await.unwrap();
-        assert_eq!($expected_state, $tester.runtime.get_state());
+        runtime_tester.cycle().await.unwrap();
+        assert_eq!($expected_state, runtime_tester.runtime.get_state());
 
         assert_metrics_eq!(
-            $tester.metrics_verifier,
+            runtime_tester.metrics_verifier,
             ExpectedMetrics::new()
                 .runtime_cycle_success(runtime_cycle_success + 1)
                 .runtime_cycle_total(runtime_cycle_total + 1)
@@ -64,17 +65,19 @@ macro_rules! cycle_err {
     ( $tester:expr, $expected_state:expr ) => {{
         use $crate::test_extensions::ExpectedMetrics;
 
+        let runtime_tester: &mut RuntimeTester = &mut $tester;
         let (runtime_cycle_success, runtime_cycle_total) =
-            $tester.get_runtime_cycle_success_and_total_since_startup_metrics();
+            runtime_tester.get_runtime_cycle_success_and_total_since_startup_metrics();
 
-        let err = RuntimeTester::cycle(&mut $tester)
+        let err = runtime_tester
+            .cycle()
             .await
             .expect_err("cycle tick should have returned an error");
         slog_scope::info!("cycle_err result: {err:?}");
-        assert_eq!($expected_state, $tester.runtime.get_state());
+        assert_eq!($expected_state, runtime_tester.runtime.get_state());
 
         assert_metrics_eq!(
-            $tester.metrics_verifier,
+            runtime_tester.metrics_verifier,
             ExpectedMetrics::new()
                 .runtime_cycle_success(runtime_cycle_success)
                 .runtime_cycle_total(runtime_cycle_total + 1)
@@ -85,31 +88,29 @@ macro_rules! cycle_err {
 #[macro_export]
 macro_rules! assert_last_certificate_eq {
     ( $tester:expr, $expected_certificate:expr ) => {{
+        let runtime_tester: &mut RuntimeTester = &mut $tester;
         if let Some(signed_type) = $expected_certificate.get_signed_type() {
-            RuntimeTester::wait_until_signed_entity(&$tester, &signed_type)
-                .await
-                .unwrap();
+            runtime_tester.wait_until_signed_entity(&signed_type).await.unwrap();
         }
 
         let is_synchronized_from_leader = false;
-        let last_certificate =
-            RuntimeTester::get_last_expected_certificate(&mut $tester, is_synchronized_from_leader)
-                .await
-                .unwrap();
+        let last_certificate = runtime_tester
+            .get_last_expected_certificate(is_synchronized_from_leader)
+            .await
+            .unwrap();
         assert_eq!($expected_certificate, last_certificate);
     }};
     ( $tester:expr, synchronized_from_leader => $expected_certificate:expr ) => {{
+        let runtime_tester: &mut RuntimeTester = &mut $tester;
         if let Some(signed_type) = $expected_certificate.get_signed_type() {
-            RuntimeTester::wait_until_certificate(&$tester, &signed_type)
-                .await
-                .unwrap();
+            runtime_tester.wait_until_certificate(&signed_type).await.unwrap();
         }
 
         let is_synchronized_from_leader = true;
-        let last_certificate =
-            RuntimeTester::get_last_expected_certificate(&mut $tester, is_synchronized_from_leader)
-                .await
-                .unwrap();
+        let last_certificate = runtime_tester
+            .get_last_expected_certificate(is_synchronized_from_leader)
+            .await
+            .unwrap();
         assert_eq!($expected_certificate, last_certificate);
     }};
 }
