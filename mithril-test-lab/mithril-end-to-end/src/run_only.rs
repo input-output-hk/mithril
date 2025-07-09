@@ -17,7 +17,7 @@ impl RunOnly {
 
     pub async fn run(self) -> StdResult<()> {
         let run_only = Arc::new(self);
-        info!("bootstrapping leader aggregator");
+        info!("Bootstrapping leader aggregator");
         run_only.bootstrap_leader_aggregator(&run_only.infrastructure).await?;
 
         info!("Starting followers");

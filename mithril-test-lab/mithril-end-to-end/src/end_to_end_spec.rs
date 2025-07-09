@@ -55,7 +55,7 @@ impl Spec {
         // As we get closer to the tip of the chain when signing, we'll be able to relax this constraint.
         assertions::transfer_funds(spec.infrastructure.devnet()).await?;
 
-        info!("bootstrapping leader aggregator");
+        info!("Bootstrapping leader aggregator");
         spec.bootstrap_leader_aggregator(&spec.infrastructure).await?;
 
         info!("Starting followers");

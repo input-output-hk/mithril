@@ -1,7 +1,7 @@
 mod interface;
 mod noop;
-mod synchroniser_service;
+mod synchronizer_service;
 
 pub use interface::*;
 pub use noop::*;
-pub use synchroniser_service::*;
+pub use synchronizer_service::*;

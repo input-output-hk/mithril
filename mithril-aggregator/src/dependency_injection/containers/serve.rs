@@ -58,8 +58,8 @@ pub struct ServeCommandDependenciesContainer {
     /// Chain observer service.
     pub(crate) chain_observer: Arc<dyn ChainObserver>,
 
-    /// Certificate chain synchroniser service
-    pub(crate) certificate_chain_synchroniser: Arc<dyn CertificateChainSynchronizer>,
+    /// Certificate chain synchronizer service
+    pub(crate) certificate_chain_synchronizer: Arc<dyn CertificateChainSynchronizer>,
 
     /// Signer registerer service
     pub signer_registerer: Arc<dyn SignerRegisterer>,

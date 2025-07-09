@@ -11,7 +11,7 @@ use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError,
 use crate::get_dependency;
 use crate::services::{
     BufferedCertifierService, CertificateChainSynchronizer, CertifierService,
-    MithrilCertificateChainSynchroniserNoop, MithrilCertificateChainSynchronizer,
+    MithrilCertificateChainSynchronizer, MithrilCertificateChainSynchronizerNoop,
     MithrilCertifierService, MithrilSignerRegistrationFollower, SignerSynchronizer,
 };
 use crate::{
@@ -85,10 +85,10 @@ impl DependenciesBuilder {
         get_dependency!(self.multi_signer)
     }
 
-    async fn build_certificate_chain_synchroniser(
+    async fn build_certificate_chain_synchronizer(
         &mut self,
     ) -> Result<Arc<dyn CertificateChainSynchronizer>> {
-        let synchroniser: Arc<dyn CertificateChainSynchronizer> =
+        let synchronizer: Arc<dyn CertificateChainSynchronizer> =
             if self.configuration.is_follower_aggregator() {
                 let leader_aggregator_client = self.get_leader_aggregator_client().await?;
                 let verifier = Arc::new(MithrilCertificateVerifier::new(
@@ -105,17 +105,17 @@ impl DependenciesBuilder {
                     self.root_logger(),
                 ))
             } else {
-                Arc::new(MithrilCertificateChainSynchroniserNoop)
+                Arc::new(MithrilCertificateChainSynchronizerNoop)
             };
 
-        Ok(synchroniser)
+        Ok(synchronizer)
     }
 
     /// [CertificateChainSynchronizer] service
-    pub async fn get_certificate_chain_synchroniser(
+    pub async fn get_certificate_chain_synchronizer(
         &mut self,
     ) -> Result<Arc<dyn CertificateChainSynchronizer>> {
-        get_dependency!(self.certificate_chain_synchroniser)
+        get_dependency!(self.certificate_chain_synchronizer)
     }
 
     async fn build_certificate_verifier(&mut self) -> Result<Arc<dyn CertificateVerifier>> {

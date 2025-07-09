@@ -293,7 +293,7 @@ impl AggregatorHTTPClient {
         }
     }
 
-    async fn certificates_details(
+    async fn certificate_details(
         &self,
         certificate_hash: &str,
     ) -> Result<Option<CertificateMessage>, AggregatorClientError> {
@@ -323,7 +323,7 @@ impl AggregatorHTTPClient {
     async fn latest_genesis_certificate(
         &self,
     ) -> Result<Option<CertificateMessage>, AggregatorClientError> {
-        self.certificates_details("genesis").await
+        self.certificate_details("genesis").await
     }
 }
 
@@ -342,7 +342,7 @@ impl CertificateRetriever for AggregatorHTTPClient {
         certificate_hash: &str,
     ) -> Result<Certificate, CertificateRetrieverError> {
         let message = self
-            .certificates_details(certificate_hash)
+            .certificate_details(certificate_hash)
             .await
             .with_context(|| {
                 format!("Failed to retrieve certificate with hash: '{certificate_hash}'")
@@ -365,7 +365,7 @@ impl RemoteCertificateRetriever for AggregatorHTTPClient {
             None => Ok(None),
             Some(latest_certificate_list_item) => {
                 let latest_certificate_message =
-                    self.certificates_details(&latest_certificate_list_item.hash).await?;
+                    self.certificate_details(&latest_certificate_list_item.hash).await?;
                 latest_certificate_message.map(TryInto::try_into).transpose()
             }
         }
@@ -586,7 +586,7 @@ mod tests {
             then.status(200).body(json!(expected_message).to_string());
         });
 
-        let fetched_message = client.certificates_details(&expected_message.hash).await.unwrap();
+        let fetched_message = client.certificate_details(&expected_message.hash).await.unwrap();
 
         assert_eq!(Some(expected_message), fetched_message);
     }
@@ -612,7 +612,7 @@ mod tests {
             then.status(500).body("an error occurred");
         });
 
-        match client.certificates_details("whatever").await.unwrap_err() {
+        match client.certificate_details("whatever").await.unwrap_err() {
             AggregatorClientError::RemoteServerTechnical(_) => (),
             e => panic!("Expected Aggregator::RemoteServerTechnical error, got '{e:?}'."),
         };
@@ -628,7 +628,7 @@ mod tests {
         });
 
         let error = client
-            .certificates_details("whatever")
+            .certificate_details("whatever")
             .await
             .expect_err("retrieve_epoch_settings should fail");
 

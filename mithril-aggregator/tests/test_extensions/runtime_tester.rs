@@ -98,7 +98,7 @@ macro_rules! assert_last_certificate_eq {
                 .unwrap();
         assert_eq!($expected_certificate, last_certificate);
     }};
-    ( $tester:expr, synchronised_from_leader => $expected_certificate:expr ) => {{
+    ( $tester:expr, synchronized_from_leader => $expected_certificate:expr ) => {{
         if let Some(signed_type) = $expected_certificate.get_signed_type() {
             RuntimeTester::wait_until_certificate(&$tester, &signed_type)
                 .await

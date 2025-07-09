@@ -15,8 +15,8 @@
 //! 4. Store the fetched certificates in the database, from genesis to latest, for each certificate:
 //!    - if it exists in the database, it is replaced
 //!    - if it doesn't exist, it is inserted
-//! 5. Create a certified open message in the database, based on the latest certificate and with a
-//!    MithrilStakeDistribution signed entity type
+//! 5. Create a certified open message in the database, based on the latest certificate (the first
+//!    of the last epoch synchronized)
 //! 6. End
 //!
 use anyhow::{Context, anyhow};
@@ -54,7 +54,7 @@ enum SyncStatus {
     Forced,
     NoLocalGenesis,
     RemoteGenesisMatchesLocalGenesis,
-    RemoteGenesisDontMatchesLocalGenesis,
+    RemoteGenesisDoesntMatchLocalGenesis,
 }
 
 impl SyncStatus {
@@ -63,7 +63,7 @@ impl SyncStatus {
             SyncStatus::Forced => true,
             SyncStatus::NoLocalGenesis => true,
             SyncStatus::RemoteGenesisMatchesLocalGenesis => false,
-            SyncStatus::RemoteGenesisDontMatchesLocalGenesis => true,
+            SyncStatus::RemoteGenesisDoesntMatchLocalGenesis => true,
         }
     }
 }
@@ -103,7 +103,7 @@ impl MithrilCertificateChainSynchronizer {
                     Some(remote_genesis) if (local_genesis == remote_genesis) => {
                         Ok(SyncStatus::RemoteGenesisMatchesLocalGenesis)
                     }
-                    Some(_) => Ok(SyncStatus::RemoteGenesisDontMatchesLocalGenesis),
+                    Some(_) => Ok(SyncStatus::RemoteGenesisDoesntMatchLocalGenesis),
                     // The remote aggregator doesn't have a chain yet, we can't sync
                     None => Err(anyhow!("Remote aggregator doesn't have a chain yet")),
                 }
@@ -116,7 +116,7 @@ impl MithrilCertificateChainSynchronizer {
         &self,
         starting_point: Certificate,
     ) -> StdResult<Vec<Certificate>> {
-        // IMPORTANT: Order matters, certificates must be ordered from genesis to latest
+        // IMPORTANT: Order matters, returned certificates must be ordered from genesis to latest
         // (fetched database data is returned from last inserted to oldest)
         let mut validated_certificates = VecDeque::new();
         let mut certificate = starting_point;
@@ -181,11 +181,15 @@ impl CertificateChainSynchronizer for MithrilCertificateChainSynchronizer {
                 anyhow!("Remote aggregator doesn't have a chain yet")
                     .context("Failed to retrieve latest remote certificate details"),
             )?;
-        let open_message = prepare_open_message_to_store(&starting_point);
         let remote_certificate_chain = self
             .retrieve_and_validate_remote_certificate_chain(starting_point)
             .await
             .with_context(|| "Failed to retrieve and validate remote certificate chain")?;
+        let open_message = prepare_open_message_to_store(
+            remote_certificate_chain
+                .last()
+                .ok_or(anyhow!("Retrieved certificate chain is empty"))?,
+        );
         self.store_certificate_chain(remote_certificate_chain)
             .await
             .with_context(|| "Failed to store remote retrieved certificate chain")?;
@@ -223,7 +227,6 @@ mod tests {
     use mithril_common::certificate_chain::{
         FakeCertificaterRetriever, MithrilCertificateVerifier,
     };
-    use mithril_common::crypto_helper::ProtocolGenesisVerificationKey;
     use mithril_common::test_utils::{
         CertificateChainBuilder, CertificateChainFixture, fake_data, fake_keys,
         mock_extensions::MockBuilder,
@@ -233,38 +236,9 @@ mod tests {
         MockOpenMessageStorer, MockRemoteCertificateRetriever, MockSynchronizedCertificateStorer,
     };
     use crate::test_tools::TestLogger;
+    use crate::tools::mocks::MockCertificateVerifier;
 
     use super::*;
-
-    mockall::mock! {
-        CertificateVerifier {}
-        #[async_trait]
-        impl CertificateVerifier for CertificateVerifier {
-            async fn verify_genesis_certificate(
-                &self,
-                genesis_certificate: &Certificate,
-                genesis_verification_key: &ProtocolGenesisVerificationKey,
-            ) -> StdResult<()>;
-
-            async fn verify_standard_certificate(
-                &self,
-                certificate: &Certificate,
-                previous_certificate: &Certificate,
-            ) -> StdResult<()>;
-
-            async fn verify_certificate(
-                &self,
-                certificate: &Certificate,
-                genesis_verification_key: &ProtocolGenesisVerificationKey,
-            ) -> StdResult<Option<Certificate>>;
-
-            async fn verify_certificate_chain(
-                &self,
-                certificate: Certificate,
-                genesis_verification_key: &ProtocolGenesisVerificationKey,
-            ) -> StdResult<()>;
-        }
-    }
 
     impl MithrilCertificateChainSynchronizer {
         fn default_for_test() -> Self {
@@ -283,7 +257,7 @@ mod tests {
         }
     }
 
-    macro_rules! mocked_synchroniser {
+    macro_rules! mocked_synchronizer {
         (with_remote_genesis: $remote_genesis_result:expr) => {
             MithrilCertificateChainSynchronizer {
                 remote_certificate_retriever:
@@ -391,63 +365,63 @@ mod tests {
         fn sync_state_should_sync() {
             assert!(SyncStatus::Forced.should_sync());
             assert!(!SyncStatus::RemoteGenesisMatchesLocalGenesis.should_sync());
-            assert!(SyncStatus::RemoteGenesisDontMatchesLocalGenesis.should_sync());
+            assert!(SyncStatus::RemoteGenesisDoesntMatchLocalGenesis.should_sync());
             assert!(SyncStatus::NoLocalGenesis.should_sync());
         }
 
         #[tokio::test]
         async fn state_when_force_true() {
-            let synchroniser = MithrilCertificateChainSynchronizer::default_for_test();
+            let synchronizer = MithrilCertificateChainSynchronizer::default_for_test();
 
-            let sync_state = synchroniser.check_sync_state(true).await.unwrap();
+            let sync_state = synchronizer.check_sync_state(true).await.unwrap();
             assert_eq!(SyncStatus::Forced, sync_state);
         }
 
         #[tokio::test]
         async fn state_when_force_false_and_no_local_genesis_certificate_found() {
-            let synchroniser = mocked_synchroniser!(with_local_genesis: Ok(None));
+            let synchronizer = mocked_synchronizer!(with_local_genesis: Ok(None));
 
-            let sync_state = synchroniser.check_sync_state(false).await.unwrap();
+            let sync_state = synchronizer.check_sync_state(false).await.unwrap();
             assert_eq!(SyncStatus::NoLocalGenesis, sync_state);
         }
 
         #[tokio::test]
         async fn state_when_force_false_and_remote_genesis_dont_matches_local_genesis() {
-            let synchroniser = mocked_synchroniser!(
+            let synchronizer = mocked_synchronizer!(
                 with_remote_genesis: Ok(Some(fake_data::genesis_certificate("remote_genesis"))),
                 with_local_genesis: Ok(Some(fake_data::genesis_certificate("local_genesis")))
             );
 
-            let sync_state = synchroniser.check_sync_state(false).await.unwrap();
-            assert_eq!(SyncStatus::RemoteGenesisDontMatchesLocalGenesis, sync_state);
+            let sync_state = synchronizer.check_sync_state(false).await.unwrap();
+            assert_eq!(SyncStatus::RemoteGenesisDoesntMatchLocalGenesis, sync_state);
         }
 
         #[tokio::test]
         async fn state_when_force_false_and_remote_genesis_matches_local_genesis() {
             let remote_genesis = fake_data::genesis_certificate("genesis");
             let local_genesis = remote_genesis.clone();
-            let synchroniser = mocked_synchroniser!(
+            let synchronizer = mocked_synchronizer!(
                 with_remote_genesis: Ok(Some(remote_genesis)),
                 with_local_genesis: Ok(Some(local_genesis))
             );
 
-            let sync_state = synchroniser.check_sync_state(false).await.unwrap();
+            let sync_state = synchronizer.check_sync_state(false).await.unwrap();
             assert_eq!(SyncStatus::RemoteGenesisMatchesLocalGenesis, sync_state);
         }
 
         #[tokio::test]
         async fn if_force_true_it_should_not_fetch_remote_genesis_certificate() {
-            let synchroniser = mocked_synchroniser!(with_remote_genesis: Err(anyhow!(
+            let synchronizer = mocked_synchronizer!(with_remote_genesis: Err(anyhow!(
                 "should not fetch genesis"
             )));
 
-            synchroniser.check_sync_state(true).await.unwrap();
+            synchronizer.check_sync_state(true).await.unwrap();
         }
 
         #[tokio::test]
         async fn should_abort_with_error_if_force_false_and_fails_to_retrieve_local_genesis() {
-            let synchroniser = mocked_synchroniser!(with_local_genesis: Err(anyhow!("failure")));
-            synchroniser
+            let synchronizer = mocked_synchronizer!(with_local_genesis: Err(anyhow!("failure")));
+            synchronizer
                 .check_sync_state(false)
                 .await
                 .expect_err("Expected an error but was:");
@@ -455,11 +429,11 @@ mod tests {
 
         #[tokio::test]
         async fn should_abort_with_error_if_force_false_and_fails_to_retrieve_remote_genesis() {
-            let synchroniser = mocked_synchroniser!(
+            let synchronizer = mocked_synchronizer!(
                 with_remote_genesis: Err(anyhow!("failure")),
                 with_local_genesis: Ok(Some(fake_data::genesis_certificate("local_genesis")))
             );
-            synchroniser
+            synchronizer
                 .check_sync_state(false)
                 .await
                 .expect_err("Expected an error but was:");
@@ -467,11 +441,11 @@ mod tests {
 
         #[tokio::test]
         async fn should_abort_with_error_if_force_false_and_remote_genesis_is_none() {
-            let synchroniser = mocked_synchroniser!(
+            let synchronizer = mocked_synchronizer!(
                 with_remote_genesis: Ok(None),
                 with_local_genesis: Ok(Some(fake_data::genesis_certificate("local_genesis")))
             );
-            let error = synchroniser
+            let error = synchronizer
                 .check_sync_state(false)
                 .await
                 .expect_err("Expected an error but was:");
@@ -495,14 +469,14 @@ mod tests {
         #[tokio::test]
         async fn succeed_if_the_remote_chain_only_contains_a_genesis_certificate() {
             let chain = CertificateChainBuilder::new().with_total_certificates(1).build();
-            let synchroniser = MithrilCertificateChainSynchronizer {
+            let synchronizer = MithrilCertificateChainSynchronizer {
                 certificate_verifier: fake_verifier(&chain),
                 genesis_verifier: Arc::new(chain.genesis_verifier.clone()),
                 ..MithrilCertificateChainSynchronizer::default_for_test()
             };
 
             let starting_point = chain[0].clone();
-            let remote_certificate_chain = synchroniser
+            let remote_certificate_chain = synchronizer
                 .retrieve_and_validate_remote_certificate_chain(starting_point)
                 .await
                 .unwrap();
@@ -512,10 +486,10 @@ mod tests {
 
         #[tokio::test]
         async fn abort_with_error_if_a_certificate_is_invalid() {
-            let synchroniser = mocked_synchroniser!(with_verify_certificate_result: Err(anyhow!("invalid certificate")));
+            let synchronizer = mocked_synchronizer!(with_verify_certificate_result: Err(anyhow!("invalid certificate")));
 
             let starting_point = fake_data::certificate("certificate");
-            synchroniser
+            synchronizer
                 .retrieve_and_validate_remote_certificate_chain(starting_point)
                 .await
                 .expect_err("Expected an error but was:");
@@ -531,14 +505,14 @@ mod tests {
                 .with_total_certificates(9)
                 .with_certificates_per_epoch(2)
                 .build();
-            let synchroniser = MithrilCertificateChainSynchronizer {
+            let synchronizer = MithrilCertificateChainSynchronizer {
                 certificate_verifier: fake_verifier(&chain),
                 genesis_verifier: Arc::new(chain.genesis_verifier.clone()),
                 ..MithrilCertificateChainSynchronizer::default_for_test()
             };
 
             let starting_point = chain[0].clone();
-            let remote_certificate_chain = synchroniser
+            let remote_certificate_chain = synchronizer
                 .retrieve_and_validate_remote_certificate_chain(starting_point.clone())
                 .await
                 .unwrap();
@@ -572,7 +546,7 @@ mod tests {
                     ..base_certificate
                 },
             ];
-            let synchroniser = MithrilCertificateChainSynchronizer {
+            let synchronizer = MithrilCertificateChainSynchronizer {
                 certificate_verifier: MockBuilder::<MockCertificateVerifier>::configure(|mock| {
                     let cert_1 = chain[1].clone();
                     mock.expect_verify_certificate()
@@ -590,7 +564,7 @@ mod tests {
             };
 
             let starting_point = chain[2].clone();
-            let remote_certificate_chain = synchroniser
+            let remote_certificate_chain = synchronizer
                 .retrieve_and_validate_remote_certificate_chain(starting_point.clone())
                 .await
                 .unwrap();
@@ -616,14 +590,14 @@ mod tests {
                 fake_data::certificate("certificate2"),
             ];
             let storer = Arc::new(DumbCertificateStorer::default());
-            let synchroniser = MithrilCertificateChainSynchronizer {
+            let synchronizer = MithrilCertificateChainSynchronizer {
                 certificate_storer: storer.clone(),
                 ..MithrilCertificateChainSynchronizer::default_for_test()
             };
 
             assert_eq!(Vec::<Certificate>::new(), storer.stored_certificates());
 
-            synchroniser
+            synchronizer
                 .store_certificate_chain(certificates_chain.clone())
                 .await
                 .unwrap();
@@ -633,7 +607,7 @@ mod tests {
 
         #[tokio::test]
         async fn fail_on_storer_error() {
-            let synchroniser = MithrilCertificateChainSynchronizer {
+            let synchronizer = MithrilCertificateChainSynchronizer {
                 certificate_storer: MockBuilder::<MockSynchronizedCertificateStorer>::configure(
                     |mock| {
                         mock.expect_insert_or_replace_many()
@@ -643,7 +617,7 @@ mod tests {
                 ..MithrilCertificateChainSynchronizer::default_for_test()
             };
 
-            synchroniser
+            synchronizer
                 .store_certificate_chain(vec![fake_data::certificate("certificate")])
                 .await
                 .unwrap_err();
@@ -655,7 +629,7 @@ mod tests {
 
         use super::*;
 
-        fn build_synchroniser(
+        fn build_synchronizer(
             remote_chain: &CertificateChainFixture,
             storer: Arc<dyn SynchronizedCertificateStorer>,
         ) -> MithrilCertificateChainSynchronizer {
@@ -693,10 +667,10 @@ mod tests {
                 .with_total_certificates(8)
                 .build();
             let storer = Arc::new(DumbCertificateStorer::default());
-            let synchroniser = build_synchroniser(&remote_chain, storer.clone());
+            let synchronizer = build_synchronizer(&remote_chain, storer.clone());
 
             // Will sync even if force is false
-            synchroniser.synchronize_certificate_chain(false).await.unwrap();
+            synchronizer.synchronize_certificate_chain(false).await.unwrap();
 
             let mut expected =
                 remote_chain.certificate_path_to_genesis(&remote_chain.latest_certificate().hash);
@@ -716,15 +690,15 @@ mod tests {
                 remote_chain.genesis_certificate().clone(),
                 existing_certificates.clone(),
             ));
-            let synchroniser = build_synchroniser(&remote_chain, storer.clone());
+            let synchronizer = build_synchronizer(&remote_chain, storer.clone());
 
             // Force false - won't sync
-            synchroniser.synchronize_certificate_chain(false).await.unwrap();
+            synchronizer.synchronize_certificate_chain(false).await.unwrap();
 
             assert_eq!(&existing_certificates, &storer.stored_certificates());
 
             // Force true - will sync
-            synchroniser.synchronize_certificate_chain(true).await.unwrap();
+            synchronizer.synchronize_certificate_chain(true).await.unwrap();
 
             let mut expected =
                 remote_chain.certificate_path_to_genesis(&remote_chain.latest_certificate().hash);

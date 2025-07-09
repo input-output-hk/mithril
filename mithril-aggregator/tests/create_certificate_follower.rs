@@ -124,7 +124,7 @@ async fn create_certificate_follower() {
         "Epoch 1:
     - the leader aggregator registers the first signers
     - the leader aggregator can't transition from 'Idle' to 'Ready'
-    - the follower can't synchronise its chain with the leader aggregator
+    - the follower can't synchronize its chain with the leader aggregator
     - the follower aggregator can't transition from 'Idle' to 'Ready'
     "
     );
@@ -209,7 +209,7 @@ async fn create_certificate_follower() {
         "Epoch 3:
     - the leader aggregator produces a new certificate
     - the follower aggregator synchronizes signers from the leader aggregator
-    - the follower synchronise its chain with the leader aggregator
+    - the follower synchronizes its chain with the leader aggregator
     - the follower aggregator can transition from 'Idle' to 'Ready'
     "
     );
@@ -265,12 +265,12 @@ async fn create_certificate_follower() {
     cycle_err!(leader_tester, "signing");
 
     comment!(
-        "Follower: change the epoch after leader made a certificate and synchronise certificate chain"
+        "Follower: change the epoch after leader created a certificate and synchronize certificate chain"
     );
     follower_tester.increase_epoch().await.unwrap();
     cycle_err!(follower_tester, "idle");
     assert_last_certificate_eq!(
-        follower_tester, synchronised_from_leader => expected_certificate_on_both_aggregator
+        follower_tester, synchronized_from_leader => expected_certificate_on_both_aggregator
     );
     cycle!(follower_tester, "ready");
     cycle_err!(leader_tester, "signing");

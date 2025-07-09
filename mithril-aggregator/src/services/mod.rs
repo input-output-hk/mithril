@@ -11,7 +11,7 @@
 
 mod aggregator_client;
 mod cardano_transactions_importer;
-mod certificate_chain_synchroniser;
+mod certificate_chain_synchronizer;
 mod certifier;
 mod epoch_service;
 mod message;
@@ -28,7 +28,7 @@ mod usage_reporter;
 
 pub use aggregator_client::*;
 pub use cardano_transactions_importer::*;
-pub use certificate_chain_synchroniser::*;
+pub use certificate_chain_synchronizer::*;
 pub use certifier::*;
 pub use epoch_service::*;
 pub use message::*;

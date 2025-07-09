@@ -72,7 +72,7 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Synchronize the follower aggregator signer registration.
     async fn synchronize_follower_aggregator_signer_registration(&self) -> StdResult<()>;
 
-    /// Synchronise the follower aggregator certificate chain
+    /// Synchronize the follower aggregator certificate chain
     async fn synchronize_follower_aggregator_certificate_chain(
         &self,
         force_sync: bool,
@@ -522,7 +522,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             ">> synchronize_follower_aggregator_certificate_chain(force_sync:{force_sync})"
         );
         self.dependencies
-            .certificate_chain_synchroniser
+            .certificate_chain_synchronizer
             .synchronize_certificate_chain(force_sync)
             .await
     }
