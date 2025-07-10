@@ -120,7 +120,7 @@ mod test {
     fn test_from_record() {
         let created_at = Utc::now();
         let record = OpenMessageRecord {
-            open_message_id: Uuid::new_v4(),
+            open_message_id: OpenMessageRecord::new_id(),
             epoch: Epoch(1),
             signed_entity_type: SignedEntityType::dummy(),
             protocol_message: ProtocolMessage::default(),

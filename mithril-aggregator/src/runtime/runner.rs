@@ -72,6 +72,12 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Synchronize the follower aggregator signer registration.
     async fn synchronize_follower_aggregator_signer_registration(&self) -> StdResult<()>;
 
+    /// Synchronize the follower aggregator certificate chain
+    async fn synchronize_follower_aggregator_certificate_chain(
+        &self,
+        force_sync: bool,
+    ) -> StdResult<()>;
+
     /// Ask the EpochService to update the epoch settings.
     async fn update_epoch_settings(&self) -> StdResult<()>;
 
@@ -505,6 +511,20 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .metrics_service
             .get_runtime_cycle_total_since_startup()
             .increment();
+    }
+
+    async fn synchronize_follower_aggregator_certificate_chain(
+        &self,
+        force_sync: bool,
+    ) -> StdResult<()> {
+        debug!(
+            self.logger,
+            ">> synchronize_follower_aggregator_certificate_chain(force_sync:{force_sync})"
+        );
+        self.dependencies
+            .certificate_chain_synchronizer
+            .synchronize_certificate_chain(force_sync)
+            .await
     }
 }
 

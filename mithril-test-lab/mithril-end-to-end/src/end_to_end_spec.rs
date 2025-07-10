@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use slog_scope::info;
 use tokio::task::JoinSet;
 
 use mithril_common::{
@@ -54,6 +55,15 @@ impl Spec {
         // As we get closer to the tip of the chain when signing, we'll be able to relax this constraint.
         assertions::transfer_funds(spec.infrastructure.devnet()).await?;
 
+        info!("Bootstrapping leader aggregator");
+        spec.bootstrap_leader_aggregator(&spec.infrastructure).await?;
+
+        info!("Starting followers");
+        for follower_aggregator in spec.infrastructure.follower_aggregators() {
+            follower_aggregator.serve().await?;
+        }
+
+        info!("Running scenarios");
         for index in 0..spec.infrastructure.aggregators().len() {
             let spec_clone = spec.clone();
             join_set.spawn(async move {
@@ -72,44 +82,54 @@ impl Spec {
         Ok(())
     }
 
-    pub async fn run_scenario(
+    pub async fn bootstrap_leader_aggregator(
         &self,
-        aggregator: &Aggregator,
         infrastructure: &MithrilInfrastructure,
     ) -> StdResult<()> {
-        assertions::wait_for_enough_immutable(aggregator).await?;
-        let chain_observer = aggregator.chain_observer();
+        let leader_aggregator = infrastructure.leader_aggregator();
+
+        assertions::wait_for_enough_immutable(leader_aggregator).await?;
+        let chain_observer = leader_aggregator.chain_observer();
         let start_epoch = chain_observer.get_current_epoch().await?.unwrap_or_default();
 
         // Wait 4 epochs after start epoch for the aggregator to be able to bootstrap a genesis certificate
         let mut target_epoch = start_epoch + 4;
         assertions::wait_for_aggregator_at_target_epoch(
-            aggregator,
+            leader_aggregator,
             target_epoch,
             "minimal epoch for the aggregator to be able to bootstrap genesis certificate"
                 .to_string(),
         )
         .await?;
-        assertions::bootstrap_genesis_certificate(aggregator).await?;
-        assertions::wait_for_epoch_settings(aggregator).await?;
+        assertions::bootstrap_genesis_certificate(leader_aggregator).await?;
+        assertions::wait_for_epoch_settings(leader_aggregator).await?;
 
         // Wait 2 epochs before changing stake distribution, so that we use at least one original stake distribution
         target_epoch += 2;
         assertions::wait_for_aggregator_at_target_epoch(
-            aggregator,
+            leader_aggregator,
             target_epoch,
             "epoch after which the stake distribution will change".to_string(),
         )
         .await?;
 
-        if aggregator.is_first() {
-            // Delegate some stakes to pools
-            let delegation_round = 1;
-            assertions::delegate_stakes_to_pools(infrastructure.devnet(), delegation_round).await?;
-        }
+        // Delegate some stakes to pools
+        let delegation_round = 1;
+        assertions::delegate_stakes_to_pools(infrastructure.devnet(), delegation_round).await?;
+
+        Ok(())
+    }
+
+    pub async fn run_scenario(
+        &self,
+        aggregator: &Aggregator,
+        infrastructure: &MithrilInfrastructure,
+    ) -> StdResult<()> {
+        let chain_observer = aggregator.chain_observer();
+        let start_epoch = chain_observer.get_current_epoch().await?.unwrap_or_default();
 
         // Wait 2 epochs before changing protocol parameters
-        target_epoch += 2;
+        let mut target_epoch = start_epoch + 2;
         assertions::wait_for_aggregator_at_target_epoch(
             aggregator,
             target_epoch,

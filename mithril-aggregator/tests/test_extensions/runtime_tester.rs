@@ -1,13 +1,9 @@
 use anyhow::{Context, anyhow};
 use chrono::Utc;
-use serde_json::json;
 use slog::Drain;
 use slog_scope::debug;
-use std::convert::Infallible;
 use std::sync::Arc;
 use std::time::Duration;
-use warp::Filter;
-use warp::http::StatusCode;
 
 use mithril_aggregator::{
     AggregatorRuntime, ConfigurationSource, DumbUploader, MetricsService,
@@ -38,9 +34,9 @@ use mithril_common::{
     },
 };
 use mithril_era::{EraMarker, EraReader, adapters::EraReaderDummyAdapter};
-use mithril_test_http_server::{TestHttpServer, test_http_server};
 
-use crate::test_extensions::utilities::tx_hash;
+use crate::test_extensions::leader_aggregator_http_server::LeaderAggregatorHttpServer;
+use crate::test_extensions::utilities::{async_wait, tx_hash};
 use crate::test_extensions::{AggregatorObserver, ExpectedCertificate, MetricsVerifier};
 
 #[macro_export]
@@ -48,14 +44,15 @@ macro_rules! cycle {
     ( $tester:expr, $expected_state:expr ) => {{
         use $crate::test_extensions::ExpectedMetrics;
 
+        let runtime_tester: &mut RuntimeTester = &mut $tester;
         let (runtime_cycle_success, runtime_cycle_total) =
-            $tester.get_runtime_cycle_success_and_total_since_startup_metrics();
+            runtime_tester.get_runtime_cycle_success_and_total_since_startup_metrics();
 
-        RuntimeTester::cycle(&mut $tester).await.unwrap();
-        assert_eq!($expected_state, $tester.runtime.get_state());
+        runtime_tester.cycle().await.unwrap();
+        assert_eq!($expected_state, runtime_tester.runtime.get_state());
 
         assert_metrics_eq!(
-            $tester.metrics_verifier,
+            runtime_tester.metrics_verifier,
             ExpectedMetrics::new()
                 .runtime_cycle_success(runtime_cycle_success + 1)
                 .runtime_cycle_total(runtime_cycle_total + 1)
@@ -68,16 +65,19 @@ macro_rules! cycle_err {
     ( $tester:expr, $expected_state:expr ) => {{
         use $crate::test_extensions::ExpectedMetrics;
 
+        let runtime_tester: &mut RuntimeTester = &mut $tester;
         let (runtime_cycle_success, runtime_cycle_total) =
-            $tester.get_runtime_cycle_success_and_total_since_startup_metrics();
+            runtime_tester.get_runtime_cycle_success_and_total_since_startup_metrics();
 
-        RuntimeTester::cycle(&mut $tester)
+        let err = runtime_tester
+            .cycle()
             .await
             .expect_err("cycle tick should have returned an error");
-        assert_eq!($expected_state, $tester.runtime.get_state());
+        slog_scope::info!("cycle_err result: {err:?}");
+        assert_eq!($expected_state, runtime_tester.runtime.get_state());
 
         assert_metrics_eq!(
-            $tester.metrics_verifier,
+            runtime_tester.metrics_verifier,
             ExpectedMetrics::new()
                 .runtime_cycle_success(runtime_cycle_success)
                 .runtime_cycle_total(runtime_cycle_total + 1)
@@ -88,11 +88,27 @@ macro_rules! cycle_err {
 #[macro_export]
 macro_rules! assert_last_certificate_eq {
     ( $tester:expr, $expected_certificate:expr ) => {{
+        let runtime_tester: &mut RuntimeTester = &mut $tester;
         if let Some(signed_type) = $expected_certificate.get_signed_type() {
-            $tester.wait_until_signed_entity(&signed_type).await.unwrap();
+            runtime_tester.wait_until_signed_entity(&signed_type).await.unwrap();
         }
 
-        let last_certificate = RuntimeTester::get_last_expected_certificate(&mut $tester)
+        let is_synchronized_from_leader = false;
+        let last_certificate = runtime_tester
+            .get_last_expected_certificate(is_synchronized_from_leader)
+            .await
+            .unwrap();
+        assert_eq!($expected_certificate, last_certificate);
+    }};
+    ( $tester:expr, synchronized_from_leader => $expected_certificate:expr ) => {{
+        let runtime_tester: &mut RuntimeTester = &mut $tester;
+        if let Some(signed_type) = $expected_certificate.get_signed_type() {
+            runtime_tester.wait_until_certificate(&signed_type).await.unwrap();
+        }
+
+        let is_synchronized_from_leader = true;
+        let last_certificate = runtime_tester
+            .get_last_expected_certificate(is_synchronized_from_leader)
             .await
             .unwrap();
         assert_eq!($expected_certificate, last_certificate);
@@ -240,37 +256,10 @@ impl RuntimeTester {
         Ok(())
     }
 
-    pub async fn expose_epoch_settings(&mut self) -> StdResult<TestHttpServer> {
-        fn with_observer(
-            runtime_tester: &RuntimeTester,
-        ) -> impl Filter<Extract = (Arc<AggregatorObserver>,), Error = Infallible> + Clone + use<>
-        {
-            let observer = runtime_tester.observer.clone();
-            warp::any().map(move || observer.clone())
-        }
-
-        async fn epoch_settings_handler(
-            observer: Arc<AggregatorObserver>,
-        ) -> Result<impl warp::Reply, Infallible> {
-            let allowed_discriminants = SignedEntityTypeDiscriminants::all();
-            let epoch_settings_message = observer.get_epoch_settings(allowed_discriminants).await;
-            match epoch_settings_message {
-                Ok(message) => Ok(Box::new(warp::reply::with_status(
-                    warp::reply::json(&message),
-                    StatusCode::OK,
-                ))),
-                Err(err) => Ok(Box::new(warp::reply::with_status(
-                    warp::reply::json(&json!(err.to_string())),
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                ))),
-            }
-        }
-
-        let routes = warp::path("epoch-settings")
-            .and(with_observer(self))
-            .and_then(epoch_settings_handler);
-
-        Ok(test_http_server(routes))
+    pub async fn spawn_leader_aggregator_http_server(
+        &self,
+    ) -> StdResult<LeaderAggregatorHttpServer> {
+        LeaderAggregatorHttpServer::spawn(self)
     }
 
     /// Increase the immutable file number of the simulated db, returns the new number.
@@ -569,12 +558,11 @@ impl RuntimeTester {
         Ok(())
     }
 
-    /// Get the last produced certificate with its signed entity if it's not a genesis certificate
-    pub async fn get_last_certificate_with_signed_entity(
+    /// Get the last produced signed entity
+    async fn get_last_signed_entity(
         &mut self,
-    ) -> StdResult<(Certificate, Option<SignedEntityRecord>)> {
-        let certificate = self.observer.get_last_certificate().await?;
-
+        certificate: &Certificate,
+    ) -> StdResult<Option<SignedEntityRecord>> {
         let signed_entity = match &certificate.signature {
             CertificateSignature::GenesisSignature(..) => None,
             CertificateSignature::MultiSignature(..) => {
@@ -591,37 +579,40 @@ impl RuntimeTester {
             }
         };
 
-        Ok((certificate, signed_entity))
+        Ok(signed_entity)
     }
 
     /// Get the last produced certificate and transform it to a [ExpectedCertificate]
-    pub async fn get_last_expected_certificate(&mut self) -> StdResult<ExpectedCertificate> {
-        let (certificate, signed_entity_record) =
-            self.get_last_certificate_with_signed_entity().await?;
+    pub async fn get_last_expected_certificate(
+        &mut self,
+        is_synchronized_from_leader: bool,
+    ) -> StdResult<ExpectedCertificate> {
+        let certificate = self.observer.get_last_certificate().await?;
 
-        let expected_certificate = match signed_entity_record {
-            None if certificate.is_genesis() => ExpectedCertificate::new_genesis(
+        let expected_certificate = if certificate.is_genesis() {
+            ExpectedCertificate::new_genesis(
                 certificate.epoch,
                 certificate.aggregate_verification_key.try_into().unwrap(),
-            ),
-            None => {
-                panic!(
-                    "A certificate should always have a SignedEntity if it's not a genesis certificate"
-                );
-            }
-            Some(record) => {
-                let previous_cert_identifier = self
-                    .get_expected_certificate_identifier(&certificate.previous_hash)
-                    .await?;
+            )
+        } else {
+            let signed_entity_type = certificate.signed_entity_type();
+            let previous_cert_identifier = self
+                .get_expected_certificate_identifier(&certificate.previous_hash)
+                .await?;
 
-                ExpectedCertificate::new(
-                    certificate.epoch,
-                    certificate.metadata.signers.as_slice(),
-                    certificate.aggregate_verification_key.try_into().unwrap(),
-                    record.signed_entity_type,
-                    previous_cert_identifier,
-                )
+            if !is_synchronized_from_leader && !certificate.is_genesis() {
+                self.get_last_signed_entity(&certificate).await?.ok_or(anyhow!(
+                    "A certificate should always have a SignedEntity if it's not a genesis certificate"
+                ))?;
             }
+
+            ExpectedCertificate::new(
+                certificate.epoch,
+                certificate.metadata.signers.as_slice(),
+                certificate.aggregate_verification_key.try_into().unwrap(),
+                signed_entity_type,
+                previous_cert_identifier,
+            )
         };
 
         Ok(expected_certificate)
@@ -632,30 +623,22 @@ impl RuntimeTester {
         &mut self,
         certificate_hash: &str,
     ) -> StdResult<String> {
-        let cert_identifier = match self
+        let certificate = self
             .dependencies
-            .signed_entity_storer
-            .get_signed_entity_by_certificate_id(certificate_hash)
+            .certificate_repository
+            .get_certificate::<Certificate>(certificate_hash)
             .await
-            .with_context(|| "Querying signed entity should not fail")?
-        {
-            Some(record) => ExpectedCertificate::identifier(&record.signed_entity_type),
-            None => {
-                // Certificate is a genesis certificate
-                let genesis_certificate = self
-                    .dependencies
-                    .certifier_service
-                    .get_certificate_by_hash(certificate_hash)
-                    .await
-                    .with_context(|| "Querying genesis certificate should not fail")?
-                    .ok_or(anyhow!(
-                        "A genesis certificate should exist with hash {}",
-                        certificate_hash
-                    ))?;
-                ExpectedCertificate::genesis_identifier(genesis_certificate.epoch)
-            }
-        };
+            .with_context(|| format!("Failed to query certificate with hash {certificate_hash}"))?
+            .ok_or(anyhow!(
+                "A certificate should exist with hash {}",
+                certificate_hash
+            ))?;
 
+        let cert_identifier = if certificate.is_genesis() {
+            ExpectedCertificate::genesis_identifier(certificate.epoch)
+        } else {
+            ExpectedCertificate::identifier(&certificate.signed_entity_type())
+        };
         Ok(cert_identifier)
     }
 
@@ -665,22 +648,25 @@ impl RuntimeTester {
         &self,
         signed_entity_type_expected: &SignedEntityType,
     ) -> StdResult<()> {
-        let mut max_iteration = 100;
-        while !self
-            .observer
-            .is_last_signed_entity(signed_entity_type_expected)
-            .await?
-        {
-            max_iteration -= 1;
-            if max_iteration <= 0 {
-                return Err(anyhow!(
-                    "Signed entity not found: {signed_entity_type_expected}"
-                ));
-            }
-            tokio::time::sleep(Duration::from_millis(1)).await;
-        }
+        async_wait!(
+            max_iter:100, sleep_ms:1,
+            condition: !self.observer.is_last_signed_entity(signed_entity_type_expected).await?,
+            error_msg: "Signed entity not found: {signed_entity_type_expected}"
+        )
+    }
 
-        Ok(())
+    /// Wait until the last stored certificate of the given signed entity type
+    /// corresponds to the expected signed entity type
+    pub async fn wait_until_certificate(
+        &self,
+        certificate_signed_entity_type: &SignedEntityType,
+    ) -> StdResult<()> {
+        async_wait!(
+            max_iter:100, sleep_ms:1,
+            condition: self.observer.get_last_certificate().await?.signed_entity_type()
+                != *certificate_signed_entity_type,
+            error_msg: "Certificate not found for signed entity: {certificate_signed_entity_type}"
+        )
     }
 
     /// Returns the runtime cycle success and total metrics since startup

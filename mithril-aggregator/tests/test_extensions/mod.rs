@@ -8,6 +8,7 @@ pub mod runtime_tester;
 pub mod utilities;
 pub mod aggregator_observer;
 mod expected_certificate;
+mod leader_aggregator_http_server;
 mod metrics_tester;
 
 pub use aggregator_observer::AggregatorObserver;

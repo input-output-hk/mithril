@@ -277,13 +277,21 @@ impl AggregatorRuntime {
             self.runner.precompute_epoch_data().await?;
         }
 
-        self.runner
+        let chain_validity_result = self
+            .runner
             .is_certificate_chain_valid(&new_time_point)
             .await
             .map_err(|e| RuntimeError::KeepState {
                 message: "certificate chain is invalid".to_string(),
                 nested_error: e.into(),
-            })?;
+            });
+        if self.config.is_follower {
+            let force_sync = chain_validity_result.is_err();
+            self.runner
+                .synchronize_follower_aggregator_certificate_chain(force_sync)
+                .await?;
+        }
+        chain_validity_result?;
 
         Ok(())
     }
@@ -834,6 +842,8 @@ mod tests {
     }
 
     mod follower {
+        use mockall::predicate::eq;
+
         use super::*;
 
         #[tokio::test]
@@ -910,6 +920,11 @@ mod tests {
             runner
                 .expect_is_certificate_chain_valid()
                 .once()
+                .returning(|_| Ok(()));
+            runner
+                .expect_synchronize_follower_aggregator_certificate_chain()
+                .once()
+                .with(eq(false)) // Certificate chain valid so force_sync must be false
                 .returning(|_| Ok(()));
             runner
                 .expect_update_era_checker()

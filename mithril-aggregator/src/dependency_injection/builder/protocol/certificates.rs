@@ -10,8 +10,9 @@ use crate::database::repository::{BufferedSingleSignatureRepository, SingleSigna
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
 use crate::get_dependency;
 use crate::services::{
-    BufferedCertifierService, CertifierService, MithrilCertifierService,
-    MithrilSignerRegistrationFollower, SignerSynchronizer,
+    BufferedCertifierService, CertificateChainSynchronizer, CertifierService,
+    MithrilCertificateChainSynchronizer, MithrilCertificateChainSynchronizerNoop,
+    MithrilCertifierService, MithrilSignerRegistrationFollower, SignerSynchronizer,
 };
 use crate::{
     ExecutionEnvironment, MithrilSignerRegistrationLeader, MithrilSignerRegistrationVerifier,
@@ -82,6 +83,39 @@ impl DependenciesBuilder {
     /// Get a configured multi signer
     pub async fn get_multi_signer(&mut self) -> Result<Arc<dyn MultiSigner>> {
         get_dependency!(self.multi_signer)
+    }
+
+    async fn build_certificate_chain_synchronizer(
+        &mut self,
+    ) -> Result<Arc<dyn CertificateChainSynchronizer>> {
+        let synchronizer: Arc<dyn CertificateChainSynchronizer> =
+            if self.configuration.is_follower_aggregator() {
+                let leader_aggregator_client = self.get_leader_aggregator_client().await?;
+                let verifier = Arc::new(MithrilCertificateVerifier::new(
+                    self.root_logger(),
+                    leader_aggregator_client.clone(),
+                ));
+
+                Arc::new(MithrilCertificateChainSynchronizer::new(
+                    leader_aggregator_client,
+                    self.get_certificate_repository().await?,
+                    verifier,
+                    self.get_genesis_verifier().await?,
+                    self.get_open_message_repository().await?,
+                    self.root_logger(),
+                ))
+            } else {
+                Arc::new(MithrilCertificateChainSynchronizerNoop)
+            };
+
+        Ok(synchronizer)
+    }
+
+    /// [CertificateChainSynchronizer] service
+    pub async fn get_certificate_chain_synchronizer(
+        &mut self,
+    ) -> Result<Arc<dyn CertificateChainSynchronizer>> {
+        get_dependency!(self.certificate_chain_synchronizer)
     }
 
     async fn build_certificate_verifier(&mut self) -> Result<Arc<dyn CertificateVerifier>> {

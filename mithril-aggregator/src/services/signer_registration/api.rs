@@ -5,6 +5,8 @@ use mithril_common::{
     entities::{Epoch, Signer, SignerWithStake, StakeDistribution},
 };
 
+use crate::entities::LeaderAggregatorEpochSettings;
+
 use super::SignerRegistrationError;
 
 /// Represents the information needed to handle a signer registration round
@@ -86,4 +88,12 @@ pub trait SignerRegistrationVerifier: Send + Sync {
         signer: &Signer,
         stake_distribution: &StakeDistribution,
     ) -> StdResult<SignerWithStake>;
+}
+
+/// Define how data are retrieved from a leader aggregator
+#[cfg_attr(test, mockall::automock)]
+#[async_trait]
+pub trait LeaderAggregatorClient: Sync + Send {
+    /// Retrieves epoch settings from the aggregator
+    async fn retrieve_epoch_settings(&self) -> StdResult<Option<LeaderAggregatorEpochSettings>>;
 }

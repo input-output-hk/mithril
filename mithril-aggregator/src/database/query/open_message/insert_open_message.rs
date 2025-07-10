@@ -1,11 +1,10 @@
 use chrono::Utc;
-use sqlite::Value;
-use uuid::Uuid;
 
 use mithril_common::StdResult;
 use mithril_common::entities::{Epoch, ProtocolMessage, SignedEntityType};
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
+use crate::database::query::open_message::conditions;
 use crate::database::record::OpenMessageRecord;
 
 /// Query to insert [OpenMessageRecord] in the sqlite database
@@ -19,23 +18,20 @@ impl InsertOpenMessageQuery {
         signed_entity_type: &SignedEntityType,
         protocol_message: &ProtocolMessage,
     ) -> StdResult<Self> {
-        let expression = "(open_message_id, epoch_setting_id, beacon, signed_entity_type_id, protocol_message, expires_at, created_at) values (?*, ?*, ?*, ?*, ?*, ?*, ?*)";
-        let beacon_str = signed_entity_type.get_json_beacon()?;
-        let parameters = vec![
-            Value::String(Uuid::new_v4().to_string()),
-            Value::Integer(epoch.try_into()?),
-            Value::String(beacon_str),
-            Value::Integer(signed_entity_type.index() as i64),
-            Value::String(serde_json::to_string(protocol_message)?),
-            signed_entity_type
-                .get_open_message_timeout()
-                .map(|t| Value::String((Utc::now() + t).to_rfc3339()))
-                .unwrap_or(Value::Null),
-            Value::String(Utc::now().to_rfc3339()),
-        ];
+        let now = Utc::now();
+        let record = OpenMessageRecord {
+            open_message_id: OpenMessageRecord::new_id(),
+            epoch,
+            signed_entity_type: signed_entity_type.clone(),
+            protocol_message: protocol_message.clone(),
+            is_certified: false,
+            is_expired: false,
+            created_at: now,
+            expires_at: signed_entity_type.get_open_message_timeout().map(|t| now + t),
+        };
 
         Ok(Self {
-            condition: WhereCondition::new(expression, parameters),
+            condition: conditions::insert_one(record)?,
         })
     }
 }
@@ -52,5 +48,71 @@ impl Query for InsertOpenMessageQuery {
         let projection = Self::Entity::get_projection().expand(aliases);
 
         format!("insert into open_message {condition} returning {projection}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use mithril_common::entities::ProtocolMessagePartKey;
+    use mithril_persistence::sqlite::ConnectionExtensions;
+
+    use crate::database::query::GetOpenMessageQuery;
+    use crate::database::test_helper::main_db_connection;
+
+    use super::*;
+
+    #[test]
+    fn test_insert_one() {
+        let connection = main_db_connection().unwrap();
+        let epoch = Epoch(5);
+        let signed_entity_type = SignedEntityType::CardanoStakeDistribution(Epoch(10));
+        let mut protocol_message = ProtocolMessage::new();
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::CardanoStakeDistributionEpoch,
+            "value".to_string(),
+        );
+
+        connection
+            .fetch_first(
+                InsertOpenMessageQuery::one(epoch, &signed_entity_type, &protocol_message).unwrap(),
+            )
+            .unwrap();
+        let records: Vec<OpenMessageRecord> =
+            connection.fetch_collect(GetOpenMessageQuery::all()).unwrap();
+
+        assert_eq!(1, records.len());
+        assert_eq!(
+            OpenMessageRecord {
+                open_message_id: records[0].open_message_id,
+                epoch,
+                signed_entity_type,
+                protocol_message,
+                is_certified: false,
+                is_expired: false,
+                created_at: records[0].created_at,
+                expires_at: records[0].expires_at,
+            },
+            records[0]
+        );
+    }
+
+    #[should_panic]
+    #[test]
+    fn test_insert_two_entries_with_same_signed_entity_violate_unique_constraint() {
+        let connection = main_db_connection().unwrap();
+        let epoch = Epoch(5);
+        let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(10));
+
+        connection
+            .fetch_first(
+                InsertOpenMessageQuery::one(epoch, &signed_entity_type, &ProtocolMessage::new())
+                    .unwrap(),
+            )
+            .unwrap();
+
+        let _ = connection.fetch_first(
+            InsertOpenMessageQuery::one(epoch + 10, &signed_entity_type, &ProtocolMessage::new())
+                .unwrap(),
+        );
     }
 }

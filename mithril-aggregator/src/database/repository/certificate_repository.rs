@@ -11,9 +11,10 @@ use mithril_persistence::sqlite::ConnectionExtensions;
 
 use crate::database::query::{
     DeleteCertificateQuery, GetCertificateRecordQuery, InsertCertificateRecordQuery,
-    MasterCertificateQuery,
+    InsertOrReplaceCertificateRecordQuery, MasterCertificateQuery,
 };
 use crate::database::record::CertificateRecord;
+use crate::services::SynchronizedCertificateStorer;
 
 /// Database frontend API for Certificate queries.
 pub struct CertificateRepository {
@@ -105,6 +106,24 @@ impl CertificateRepository {
         Ok(new_certificates.map(|cert| cert.into()).collect())
     }
 
+    /// Create, or replace if they already exist, many certificates at once in the database.
+    pub async fn create_or_replace_many_certificates(
+        &self,
+        certificates: Vec<Certificate>,
+    ) -> StdResult<Vec<Certificate>> {
+        if certificates.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let records: Vec<CertificateRecord> =
+            certificates.into_iter().map(|cert| cert.into()).collect();
+        let new_certificates = self
+            .connection
+            .fetch(InsertOrReplaceCertificateRecordQuery::many(records))?;
+
+        Ok(new_certificates.map(|cert| cert.into()).collect())
+    }
+
     /// Delete all the given certificates from the database
     pub async fn delete_certificates(&self, certificates: &[&Certificate]) -> StdResult<()> {
         let ids = certificates.iter().map(|c| c.hash.as_str()).collect::<Vec<_>>();
@@ -128,6 +147,18 @@ impl CertificateRetriever for CertificateRepository {
                 "Certificate does not exist: '{}'",
                 certificate_hash
             ))))
+    }
+}
+
+#[async_trait]
+impl SynchronizedCertificateStorer for CertificateRepository {
+    async fn insert_or_replace_many(&self, certificates: Vec<Certificate>) -> StdResult<()> {
+        self.create_or_replace_many_certificates(certificates).await?;
+        Ok(())
+    }
+
+    async fn get_latest_genesis(&self) -> StdResult<Option<Certificate>> {
+        self.get_latest_genesis_certificate().await
     }
 }
 

@@ -29,3 +29,21 @@ macro_rules! comment {
         test_extensions::utilities::comment(format!($($comment)*));
     }};
 }
+
+#[macro_export]
+macro_rules! async_wait {
+    ( max_iter:$max_iter:expr, sleep_ms:$sleep_ms:expr, condition:$condition:expr, error_msg:$($error_msg:tt)*
+    ) => {{
+        let mut max_iteration: usize = $max_iter;
+        while $condition {
+            max_iteration -= 1;
+            if max_iteration == 0 {
+                return Err(anyhow::anyhow!($($error_msg)*));
+            }
+            tokio::time::sleep(Duration::from_millis($sleep_ms)).await;
+        }
+
+        Ok(())
+    }};
+}
+pub use async_wait;

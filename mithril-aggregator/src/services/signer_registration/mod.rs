@@ -5,8 +5,8 @@ mod leader;
 mod verifier;
 
 pub use api::{
-    SignerRecorder, SignerRegisterer, SignerRegistrationRound, SignerRegistrationRoundOpener,
-    SignerRegistrationVerifier, SignerSynchronizer,
+    LeaderAggregatorClient, SignerRecorder, SignerRegisterer, SignerRegistrationRound,
+    SignerRegistrationRoundOpener, SignerRegistrationVerifier, SignerSynchronizer,
 };
 pub use error::SignerRegistrationError;
 pub use follower::MithrilSignerRegistrationFollower;
@@ -14,4 +14,7 @@ pub use leader::MithrilSignerRegistrationLeader;
 pub use verifier::MithrilSignerRegistrationVerifier;
 
 #[cfg(test)]
-pub use api::{MockSignerRecorder, MockSignerRegisterer, MockSignerRegistrationVerifier};
+pub use api::{
+    MockLeaderAggregatorClient, MockSignerRecorder, MockSignerRegisterer,
+    MockSignerRegistrationVerifier,
+};
