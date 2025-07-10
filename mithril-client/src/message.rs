@@ -37,7 +37,7 @@ use crate::{
     common::{ProtocolMessage, ProtocolMessagePartKey},
 };
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct ImmutableFilesLists {
     pub dir_path: PathBuf,
     pub missing: Vec<ImmutableFileName>,
@@ -46,7 +46,7 @@ pub struct ImmutableFilesLists {
 
 #[derive(Error, Debug)]
 pub enum ComputeCardanoDatabaseMessageError {
-    ImmutableFiles(ImmutableFilesLists),
+    ImmutableFilesVerification(ImmutableFilesLists),
 
     ImmutableFilesDigester(#[from] ImmutableDigesterError),
 
@@ -58,7 +58,7 @@ pub enum ComputeCardanoDatabaseMessageError {
 impl fmt::Display for ComputeCardanoDatabaseMessageError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ComputeCardanoDatabaseMessageError::ImmutableFiles(files) => {
+            ComputeCardanoDatabaseMessageError::ImmutableFilesVerification(files) => {
                 write!(f, "immutable files: {:?}", files)
             }
             ComputeCardanoDatabaseMessageError::ImmutableFilesDigester(e) => {
@@ -190,41 +190,53 @@ impl MessageBuilder {
             let immutable_file_number_range = immutable_file_range
                 .to_range_inclusive(cardano_database_snapshot.beacon.immutable_file_number)
                 .map_err(ComputeCardanoDatabaseMessageError::ImmutableFilesRange)?;
-
             let missing_immutable_files =
                 Self::list_missing_immutable_files(database_dir, &immutable_file_number_range);
-
             let immutable_digester = CardanoImmutableDigester::new(network, None, self.logger.clone());
-            let computed_digests = immutable_digester
+            let computed_digest_entries = immutable_digester
                 .compute_digests_for_range(database_dir, &immutable_file_number_range)
                 .await?
-                .entries
+                .entries;
+            let computed_digests = computed_digest_entries
                 .values()
                 .map(MKTreeNode::from)
                 .collect::<Vec<_>>();
 
-            let merkle_proof = verified_digests.merkle_tree.compute_proof(&computed_digests).unwrap();
-            merkle_proof
-                .verify()
-                .map_err(ComputeCardanoDatabaseMessageError::MerkleProofVerification)?;
+            let proof_result = verified_digests.merkle_tree.compute_proof(&computed_digests);
+            if let Ok(ref merkle_proof) = proof_result
+                && missing_immutable_files.is_empty()
+            {
+                merkle_proof
+                    .verify()
+                    .map_err(ComputeCardanoDatabaseMessageError::MerkleProofVerification)?;
 
-            let mut message = certificate.protocol_message.clone();
-            message.set_message_part(
-                ProtocolMessagePartKey::CardanoDatabaseMerkleRoot,
-                merkle_proof.root().to_hex(),
-            );
+                let mut message = certificate.protocol_message.clone();
+                message.set_message_part(
+                    ProtocolMessagePartKey::CardanoDatabaseMerkleRoot,
+                    merkle_proof.root().to_hex(),
+                );
 
-            if !missing_immutable_files.is_empty() {
-                return Err(ComputeCardanoDatabaseMessageError::ImmutableFiles(
-                    ImmutableFilesLists {
-                        dir_path: Self::immutable_dir(database_dir),
-                        missing: missing_immutable_files,
-                        tampered: vec![],
-                    },
-                ));
+                return Ok(message);
             }
 
-            Ok(message)
+            let tampered_files = match proof_result {
+                // TODO: we need to handle the error properly.
+                // It's not possible yet since we cannot filter/match on a returned error type since the `compute_proof` method returns an `anyhow::Error`
+                Err(_e) => {
+                    verified_digests
+                        .list_immutable_files_not_verified(&computed_digest_entries)
+                        .tampered_files
+                }
+                Ok(_) => vec![],
+            };
+
+            Err(
+                ComputeCardanoDatabaseMessageError::ImmutableFilesVerification(ImmutableFilesLists {
+                    dir_path: Self::immutable_dir(database_dir),
+                    missing: missing_immutable_files,
+                    tampered: tampered_files,
+                }),
+            )
         }
     }
 
@@ -314,6 +326,14 @@ mod tests {
                 let immutable_file_path =
                     MessageBuilder::immutable_dir(database_dir).join(immutable_file_name.as_ref());
                 std::fs::remove_file(immutable_file_path).unwrap();
+            }
+        }
+
+        fn tamper_immutable_files<T: AsRef<Path>>(database_dir: &Path, immutable_file_names: &[T]) {
+            for immutable_file_name in immutable_file_names {
+                let immutable_file_path =
+                    MessageBuilder::immutable_dir(database_dir).join(immutable_file_name.as_ref());
+                std::fs::write(immutable_file_path, "tampered content").unwrap();
             }
         }
 
@@ -453,6 +473,10 @@ mod tests {
                 (database_dir.to_owned(), certificate, verified_digests)
             }
 
+            fn to_vec_immutable_file_name(list: &[&str]) -> Vec<ImmutableFileName> {
+                list.iter().map(|s| ImmutableFileName::from(*s)).collect()
+            }
+
             #[tokio::test]
             async fn compute_cardano_database_message_succeeds() {
                 let beacon = CardanoDbBeacon {
@@ -515,24 +539,115 @@ mod tests {
                         "compute_cardano_database_message should fail if a immutable is missing",
                     );
 
-                let expected_missing = files_to_remove
-                    .into_iter()
-                    .map(ImmutableFileName::from)
-                    .collect::<Vec<_>>();
-                let expected_lists = ImmutableFilesLists {
-                    dir_path: MessageBuilder::immutable_dir(&database_dir),
-                    missing: expected_missing,
-                    tampered: vec![],
+                let error_lists = match error {
+                    ComputeCardanoDatabaseMessageError::ImmutableFilesVerification(lists) => lists,
+                    _ => panic!("Expected ImmutableFilesVerification error, got: {error}"),
                 };
 
-                assert!(matches!(
-                    error,
-                    ComputeCardanoDatabaseMessageError::ImmutableFiles(..)
-                ));
+                assert_eq!(
+                    error_lists,
+                    ImmutableFilesLists {
+                        dir_path: MessageBuilder::immutable_dir(&database_dir),
+                        missing: to_vec_immutable_file_name(&files_to_remove),
+                        tampered: vec![],
+                    }
+                );
+            }
+
+            #[tokio::test]
+            async fn compute_cardano_database_message_should_fail_if_immutable_is_tampered() {
+                let beacon = CardanoDbBeacon {
+                    epoch: Epoch(123),
+                    immutable_file_number: 10,
+                };
+                let immutable_file_range = 1..=15;
+                let immutable_file_range_to_prove = ImmutableFileRange::Range(2, 4);
+                let (database_dir, certificate, verified_digests) =
+                    prepare_db_and_verified_digests(
+                        "compute_cardano_database_message_should_fail_if_immutable_is_tampered",
+                        &beacon,
+                        &immutable_file_range,
+                    )
+                    .await;
+
+                let files_to_tamper = vec!["00003.chunk", "00004.primary"];
+                tamper_immutable_files(&database_dir, &files_to_tamper);
+
+                let error = MessageBuilder::new()
+                    .compute_cardano_database_message(
+                        &certificate,
+                        &CardanoDatabaseSnapshotMessage::dummy(),
+                        &immutable_file_range_to_prove,
+                        &database_dir,
+                        &verified_digests,
+                    )
+                    .await
+                    .expect_err(
+                        "compute_cardano_database_message should fail if a immutable is missing",
+                    );
+
+                let error_lists = match error {
+                    ComputeCardanoDatabaseMessageError::ImmutableFilesVerification(lists) => lists,
+                    _ => panic!("Expected ImmutableFilesVerification error, got: {error}"),
+                };
+                assert_eq!(
+                    error_lists,
+                    ImmutableFilesLists {
+                        dir_path: MessageBuilder::immutable_dir(&database_dir),
+                        missing: vec![],
+                        tampered: to_vec_immutable_file_name(&files_to_tamper),
+                    }
+                )
+            }
+
+            #[tokio::test]
+            async fn compute_cardano_database_message_should_fail_if_immutables_are_missing_and_tampered()
+             {
+                let beacon = CardanoDbBeacon {
+                    epoch: Epoch(123),
+                    immutable_file_number: 10,
+                };
+                let immutable_file_range = 1..=15;
+                let immutable_file_range_to_prove = ImmutableFileRange::Range(2, 4);
+                let (database_dir, certificate, verified_digests) =
+                    prepare_db_and_verified_digests(
+                        "compute_cardano_database_message_should_fail_if_immutables_are_missing_and_tampered",
+                        &beacon,
+                        &immutable_file_range,
+                    )
+                    .await;
+
+                let files_to_remove = vec!["00003.chunk"];
+                let files_to_tamper = vec!["00004.primary"];
+                remove_immutable_files(&database_dir, &files_to_remove);
+                tamper_immutable_files(&database_dir, &files_to_tamper);
+
+                let error = MessageBuilder::new()
+                    .compute_cardano_database_message(
+                        &certificate,
+                        &CardanoDatabaseSnapshotMessage::dummy(),
+                        &immutable_file_range_to_prove,
+                        &database_dir,
+                        &verified_digests,
+                    )
+                    .await
+                    .expect_err(
+                        "compute_cardano_database_message should fail if a immutable is missing",
+                    );
+
+                let error_lists = match error {
+                    ComputeCardanoDatabaseMessageError::ImmutableFilesVerification(lists) => lists,
+                    _ => panic!("Expected ImmutableFilesVerification error, got: {error}"),
+                };
+                assert_eq!(
+                    error_lists,
+                    ImmutableFilesLists {
+                        dir_path: MessageBuilder::immutable_dir(&database_dir),
+                        missing: to_vec_immutable_file_name(&files_to_remove),
+                        tampered: to_vec_immutable_file_name(&files_to_tamper),
+                    }
+                )
             }
         }
     }
-    //test with missing immutable and no tampered immutable
-    //test with tampered immutable and no missing immutable
-    //test with missing and tampered immutable
 }
