@@ -33,33 +33,34 @@ pub struct VerifiedDigests {
 }
 
 #[derive(PartialEq, Debug)]
-pub(crate) struct InvalidImmutableFiles {
+pub(crate) struct ImmutableFilesNotVerified {
     pub tampered_files: Vec<ImmutableFileName>,
     pub non_verifiable_files: Vec<ImmutableFileName>,
 }
 
 impl VerifiedDigests {
-    pub(crate) fn list_tampered_immutable_files(
+    pub(crate) fn list_immutable_files_not_verified(
         &self,
-        computed_digests: &BTreeMap<ImmutableFileName, HexEncodedDigest>,
-    ) -> MithrilResult<InvalidImmutableFiles> {
+        computed_digests: &BTreeMap<ImmutableFile, HexEncodedDigest>,
+    ) -> ImmutableFilesNotVerified {
         let mut tampered_files = vec![];
         let mut non_verifiable_files = vec![];
 
-        computed_digests.iter().for_each(|(immutable_file_name, digest)| {
-            if let Some(verified_digest) = self.digests.get(immutable_file_name) {
+        computed_digests.iter().for_each(|(immutable_file, digest)| {
+            let immutable_file_name_to_verify = immutable_file.filename.clone();
+            if let Some(verified_digest) = self.digests.get(&immutable_file_name_to_verify) {
                 if verified_digest != digest {
-                    tampered_files.push(immutable_file_name.clone());
+                    tampered_files.push(immutable_file_name_to_verify);
                 }
             } else {
-                non_verifiable_files.push(immutable_file_name.clone());
+                non_verifiable_files.push(immutable_file_name_to_verify);
             }
         });
 
-        Ok(InvalidImmutableFiles {
+        ImmutableFilesNotVerified {
             tampered_files,
             non_verifiable_files,
-        })
+        }
     }
 }
 
@@ -242,15 +243,23 @@ mod tests {
 
     use super::*;
 
-    mod list_tampered_immutable_files {
+    mod list_immutable_files_not_verified {
 
         use super::*;
+
+        fn fake_immutable(filename: &str) -> ImmutableFile {
+            ImmutableFile {
+                path: PathBuf::from("whatever"),
+                number: 1,
+                filename: filename.to_string(),
+            }
+        }
 
         #[test]
         fn should_return_empty_list_when_no_tampered_files() {
             let digests_to_verify = BTreeMap::from([
-                ("00001.chunk".to_string(), "digest-1".to_string()),
-                ("00002.chunk".to_string(), "digest-2".to_string()),
+                (fake_immutable("00001.chunk"), "digest-1".to_string()),
+                (fake_immutable("00002.chunk"), "digest-2".to_string()),
             ]);
 
             let verified_digests = VerifiedDigests {
@@ -261,13 +270,12 @@ mod tests {
                 merkle_tree: MKTree::new(&["whatever"]).unwrap(),
             };
 
-            let invalid_files = verified_digests
-                .list_tampered_immutable_files(&digests_to_verify)
-                .unwrap();
+            let invalid_files =
+                verified_digests.list_immutable_files_not_verified(&digests_to_verify);
 
             assert_eq!(
                 invalid_files,
-                InvalidImmutableFiles {
+                ImmutableFilesNotVerified {
                     tampered_files: vec![],
                     non_verifiable_files: vec![],
                 }
@@ -277,8 +285,8 @@ mod tests {
         #[test]
         fn should_return_list_with_tampered_files() {
             let digests_to_verify = BTreeMap::from([
-                ("00001.chunk".to_string(), "digest-1".to_string()),
-                ("00002.chunk".to_string(), "digest-2".to_string()),
+                (fake_immutable("00001.chunk"), "digest-1".to_string()),
+                (fake_immutable("00002.chunk"), "digest-2".to_string()),
             ]);
 
             let verified_digests = VerifiedDigests {
@@ -289,13 +297,12 @@ mod tests {
                 merkle_tree: MKTree::new(&["whatever"]).unwrap(),
             };
 
-            let invalid_files = verified_digests
-                .list_tampered_immutable_files(&digests_to_verify)
-                .unwrap();
+            let invalid_files =
+                verified_digests.list_immutable_files_not_verified(&digests_to_verify);
 
             assert_eq!(
                 invalid_files,
-                InvalidImmutableFiles {
+                ImmutableFilesNotVerified {
                     tampered_files: vec!["00002.chunk".to_string()],
                     non_verifiable_files: vec![],
                 }
@@ -305,8 +312,11 @@ mod tests {
         #[test]
         fn should_return_list_with_non_verifiable() {
             let digests_to_verify = BTreeMap::from([
-                ("00001.chunk".to_string(), "digest-1".to_string()),
-                ("00002.not.verifiable".to_string(), "digest-2".to_string()),
+                (fake_immutable("00001.chunk"), "digest-1".to_string()),
+                (
+                    fake_immutable("00002.not.verifiable"),
+                    "digest-2".to_string(),
+                ),
             ]);
 
             let verified_digests = VerifiedDigests {
@@ -314,13 +324,12 @@ mod tests {
                 merkle_tree: MKTree::new(&["whatever"]).unwrap(),
             };
 
-            let invalid_files = verified_digests
-                .list_tampered_immutable_files(&digests_to_verify)
-                .unwrap();
+            let invalid_files =
+                verified_digests.list_immutable_files_not_verified(&digests_to_verify);
 
             assert_eq!(
                 invalid_files,
-                InvalidImmutableFiles {
+                ImmutableFilesNotVerified {
                     tampered_files: vec![],
                     non_verifiable_files: vec!["00002.not.verifiable".to_string()],
                 }
