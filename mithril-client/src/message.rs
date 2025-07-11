@@ -37,38 +37,59 @@ use crate::{
     common::{ProtocolMessage, ProtocolMessagePartKey},
 };
 
+/// Type containing the lists of immutable files that are missing or tampered.
 #[derive(Debug, PartialEq)]
 pub struct ImmutableFilesLists {
-    pub dir_path: PathBuf,
+    /// The immutables files directory.
+    pub immutables_dir: PathBuf,
+    /// List of missing immutable files.
     pub missing: Vec<ImmutableFileName>,
+    /// List of tampered immutable files.
     pub tampered: Vec<ImmutableFileName>,
 }
 
+/// Compute Cardano database message related errors.
 #[derive(Error, Debug)]
 pub enum ComputeCardanoDatabaseMessageError {
+    /// Error related to the verification of immutable files.
     ImmutableFilesVerification(ImmutableFilesLists),
 
+    /// Error related to the immutable files digests computation.
     ImmutableFilesDigester(#[from] ImmutableDigesterError),
 
+    /// Error related to the Merkle proof verification.
     MerkleProofVerification(#[source] MithrilError),
 
+    /// Error related to the immutable files range.
     ImmutableFilesRange(#[source] MithrilError),
 }
 
 impl fmt::Display for ComputeCardanoDatabaseMessageError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ComputeCardanoDatabaseMessageError::ImmutableFilesVerification(files) => {
-                write!(f, "immutable files: {:?}", files)
+            ComputeCardanoDatabaseMessageError::ImmutableFilesVerification(lists) => {
+                let missing_number = lists.missing.len();
+                let missing_files_subset = lists
+                    .missing
+                    .iter()
+                    .take(10)
+                    .map(|file| lists.immutables_dir.join(file).to_string_lossy().to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n");
+
+                write!(
+                    f,
+                    "Number of missing immutable files: {missing_number:?}\n{missing_files_subset}"
+                )
             }
             ComputeCardanoDatabaseMessageError::ImmutableFilesDigester(e) => {
-                write!(f, "Immutable files digester error: {}", e)
+                write!(f, "Immutable files digester error: {e}")
             }
             ComputeCardanoDatabaseMessageError::MerkleProofVerification(e) => {
-                write!(f, "Merkle proof verification error: {}", e)
+                write!(f, "Merkle proof verification error: {e}")
             }
             ComputeCardanoDatabaseMessageError::ImmutableFilesRange(e) => {
-                write!(f, "Immutable files range error: {}", e)
+                write!(f, "Immutable files range error: {e}")
             }
         }
     }
@@ -233,7 +254,7 @@ impl MessageBuilder {
 
             Err(
                 ComputeCardanoDatabaseMessageError::ImmutableFilesVerification(ImmutableFilesLists {
-                    dir_path: Self::immutable_dir(database_dir),
+                    immutables_dir: Self::immutable_dir(database_dir),
                     missing: missing_immutable_files,
                     tampered: tampered_files,
                 }),
@@ -548,7 +569,7 @@ mod tests {
                 assert_eq!(
                     error_lists,
                     ImmutableFilesLists {
-                        dir_path: MessageBuilder::immutable_dir(&database_dir),
+                        immutables_dir: MessageBuilder::immutable_dir(&database_dir),
                         missing: to_vec_immutable_file_name(&files_to_remove),
                         tampered: vec![],
                     }
@@ -594,7 +615,7 @@ mod tests {
                 assert_eq!(
                     error_lists,
                     ImmutableFilesLists {
-                        dir_path: MessageBuilder::immutable_dir(&database_dir),
+                        immutables_dir: MessageBuilder::immutable_dir(&database_dir),
                         missing: vec![],
                         tampered: to_vec_immutable_file_name(&files_to_tamper),
                     }
@@ -643,11 +664,50 @@ mod tests {
                 assert_eq!(
                     error_lists,
                     ImmutableFilesLists {
-                        dir_path: MessageBuilder::immutable_dir(&database_dir),
+                        immutables_dir: MessageBuilder::immutable_dir(&database_dir),
                         missing: to_vec_immutable_file_name(&files_to_remove),
                         tampered: to_vec_immutable_file_name(&files_to_tamper),
                     }
                 )
+            }
+        }
+
+        mod compute_cardano_database_message_error {
+            use super::*;
+
+            //TODO do we really want to display 10 elements of each missing and tampered list? or just the number of elements?
+            #[test]
+            fn display_immutable_files_verification_should_limit_lists_to_10_elements() {
+                let missing_file_number = 15;
+                let missing: Vec<ImmutableFileName> = (1..=missing_file_number)
+                    .map(|i| ImmutableFileName::from(format!("{i:05}.chunk")))
+                    .collect();
+                let expected_displayed_missing =
+                    missing.iter().take(10).cloned().collect::<Vec<_>>();
+                let immutables_dir = PathBuf::from("/path/to/immutables");
+                let lists = ImmutableFilesLists {
+                    immutables_dir: immutables_dir.clone(),
+                    missing,
+                    tampered: vec![],
+                };
+
+                let error = ComputeCardanoDatabaseMessageError::ImmutableFilesVerification(lists);
+                let display = format!("{error}");
+                assert!(
+                    display.contains(&format!(
+                        "Number of missing immutable files: {missing_file_number}"
+                    )),
+                    "{display}"
+                );
+                for file_name in expected_displayed_missing.iter() {
+                    let file_path = immutables_dir.join(file_name.as_str());
+                    assert!(
+                        display.contains(&file_path.display().to_string()),
+                        "Expected '{display}' to contain : '{}'",
+                        file_path.display()
+                    );
+                }
+                assert!(!display.contains("00011.chunk"), "{display}");
             }
         }
     }
