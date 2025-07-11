@@ -185,7 +185,7 @@ impl PreparedCardanoDbV1Download {
         db_dir: &Path,
     ) -> MithrilResult<ProtocolMessage> {
         progress_printer.report_step(step_number, "Computing the cardano db message")?;
-        let message = CardanoDbUtils::wait_spinner(
+        let message = CardanoDbUtils::wait_spinner_v1(
             progress_printer,
             MessageBuilder::new().compute_snapshot_message(certificate, db_dir),
         )

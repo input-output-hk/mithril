@@ -4,7 +4,7 @@ use indicatif::{MultiProgress, ProgressBar};
 use std::time::Duration;
 
 use super::CardanoDbDownloadCheckerError;
-use mithril_client::{MithrilError, MithrilResult};
+use mithril_client::{ComputeCardanoDatabaseMessageError, MithrilError, MithrilResult};
 
 /// Utility functions for to the CardanoDb commands
 pub struct CardanoDbUtils;
@@ -22,7 +22,7 @@ impl CardanoDbUtils {
     }
 
     /// Display a spinner while waiting for the result of a future
-    pub async fn wait_spinner<T>(
+    pub async fn wait_spinner_v1<T>(
         progress_bar: &MultiProgress,
         future: impl Future<Output = MithrilResult<T>>,
     ) -> MithrilResult<T> {
@@ -37,6 +37,28 @@ impl CardanoDbUtils {
         tokio::select! {
             _ = spinner => Err(anyhow!("timeout")),
             res = future => res,
+        }
+    }
+
+    /// Display a spinner while waiting for the result of a future
+    pub async fn wait_spinner<T>(
+        progress_bar: &MultiProgress,
+        future: impl Future<Output = Result<T, ComputeCardanoDatabaseMessageError>>,
+    ) -> MithrilResult<T> {
+        let pb = progress_bar.add(ProgressBar::new_spinner());
+        let spinner = async move {
+            loop {
+                pb.tick();
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+        };
+
+        tokio::select! {
+            _ = spinner => Err(anyhow!("timeout")),
+            res = future => {match res {
+                Ok(value) => Ok(value),
+                Err(e) => Err(anyhow!(e)),
+            }},
         }
     }
 
