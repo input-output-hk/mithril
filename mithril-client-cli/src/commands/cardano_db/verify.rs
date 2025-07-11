@@ -7,7 +7,10 @@ use std::{
 use anyhow::{Context, anyhow};
 use chrono::Utc;
 use clap::Parser;
-use mithril_client::{ComputeCardanoDatabaseMessageError, ImmutableFilesLists, MithrilResult};
+use mithril_client::{
+    ComputeCardanoDatabaseMessageError, ImmutableFilesLists, MithrilResult,
+    common::ImmutableFileNumber,
+};
 
 use crate::{
     CommandContext,
@@ -38,6 +41,18 @@ pub struct CardanoDbVerifyCommand {
     /// Genesis verification key to check the certificate chain.
     #[clap(long, env = "GENESIS_VERIFICATION_KEY")]
     genesis_verification_key: Option<String>,
+
+    /// The first immutable file number to verify.
+    ///
+    /// If not set, the verify process will start from the first immutable file.
+    #[clap(long)]
+    start: Option<ImmutableFileNumber>,
+
+    /// The last immutable file number to verify.
+    ///
+    /// If not set, the verify will continue until the last certified immutable file.
+    #[clap(long)]
+    end: Option<ImmutableFileNumber>,
 }
 
 impl CardanoDbVerifyCommand {
@@ -94,6 +109,17 @@ impl CardanoDbVerifyCommand {
             .await?
             .with_context(|| format!("Can not get the cardano db for hash: '{}'", self.digest))?;
 
+        let immutable_file_range = shared_steps::immutable_file_range(self.start, self.end);
+
+        let range_to_verify = immutable_file_range
+            .to_range_inclusive(cardano_db_message.beacon.immutable_file_number)?;
+
+        eprintln!(
+            "Verifying local immutable files from number {} to {}",
+            range_to_verify.start(),
+            range_to_verify.end()
+        ); //TODO add also json output ?
+
         let certificate = shared_steps::fetch_certificate_and_verifying_chain(
             1,
             &progress_printer,
@@ -101,8 +127,6 @@ impl CardanoDbVerifyCommand {
             &cardano_db_message.certificate_hash,
         )
         .await?;
-
-        let immutable_file_range = shared_steps::immutable_file_range(None, None);
 
         let verified_digests = shared_steps::download_and_verify_digests(
             2,
