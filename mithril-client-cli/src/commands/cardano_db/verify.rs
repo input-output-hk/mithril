@@ -4,10 +4,10 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::Context;
+use anyhow::{Context, anyhow};
 use chrono::Utc;
 use clap::Parser;
-use mithril_client::MithrilResult;
+use mithril_client::{ComputeCardanoDatabaseMessageError, MithrilResult};
 
 use crate::{
     CommandContext,
@@ -122,26 +122,37 @@ impl CardanoDbVerifyCommand {
             db_dir,
             &verified_digests,
         )
-        .await?;
+        .await;
 
-        shared_steps::verify_message_matches_certificate(
-            &context.logger().clone(),
-            4,
-            &progress_printer,
-            &certificate,
-            &message,
-            &cardano_db_message,
-            db_dir,
-        )
-        .await?;
+        match message {
+            Err(e) => match e.downcast_ref::<ComputeCardanoDatabaseMessageError>() {
+                Some(ComputeCardanoDatabaseMessageError::ImmutableFilesVerification(lists)) => {
+                    // let missing_files = lists.missing;
+                    Ok(())
+                }
+                _ => Err(e),
+            },
+            Ok(message) => {
+                shared_steps::verify_message_matches_certificate(
+                    &context.logger().clone(),
+                    4,
+                    &progress_printer,
+                    &certificate,
+                    &message,
+                    &cardano_db_message,
+                    db_dir,
+                )
+                .await?;
 
-        Self::log_verified_information(
-            db_dir,
-            &cardano_db_message.hash,
-            context.is_json_output_enabled(),
-        )?;
+                Self::log_verified_information(
+                    db_dir,
+                    &cardano_db_message.hash,
+                    context.is_json_output_enabled(),
+                )?;
 
-        Ok(())
+                Ok(())
+            }
+        }
     }
 
     fn log_verified_information(
