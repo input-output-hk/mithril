@@ -7,7 +7,7 @@ use std::{
 use anyhow::{Context, anyhow};
 use chrono::Utc;
 use clap::Parser;
-use mithril_client::{ComputeCardanoDatabaseMessageError, MithrilResult};
+use mithril_client::{ComputeCardanoDatabaseMessageError, ImmutableFilesLists, MithrilResult};
 
 use crate::{
     CommandContext,
@@ -129,6 +129,10 @@ impl CardanoDbVerifyCommand {
             Err(e) => match e.downcast_ref::<ComputeCardanoDatabaseMessageError>() {
                 Some(ComputeCardanoDatabaseMessageError::ImmutableFilesVerification(lists)) => {
                     // let missing_files = lists.missing;
+                    Self::print_immutables_verification_error(
+                        lists,
+                        context.is_json_output_enabled(),
+                    );
                     Ok(())
                 }
                 _ => Err(anyhow!(e)),
@@ -176,6 +180,27 @@ impl CardanoDbVerifyCommand {
             );
         }
         Ok(())
+    }
+
+    fn print_immutables_verification_error(lists: &ImmutableFilesLists, json_output: bool) {
+        if json_output {
+            let json = serde_json::json!({
+                "timestamp": Utc::now().to_rfc3339(),
+                "immutables_dir": lists.immutables_dir,
+                "missing_files": lists.missing,
+                "tampered_files": lists.tampered,
+            });
+            println!("{json}");
+        } else {
+            println!(
+                r###"computing cardano database message from immutables files has failed:
+    - missing files: {} 
+    - tampered files: {}
+                "###,
+                lists.missing.len(),
+                lists.tampered.len()
+            );
+        }
     }
 }
 
