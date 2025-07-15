@@ -1,4 +1,4 @@
-.PHONY: clean install build serve dev upgrade
+.PHONY: clean install build serve dev lint format upgrade update-current
 
 package-lock.json:
 	npm install
@@ -27,6 +27,12 @@ clean:
 	rm -rf build
 	rm package-lock.json || true
 
+lint:
+	npm run pretty:check
+
+format:
+	npm run pretty:write
+
 upgrade: clean install
 	# Update to the latest version of react and react-dom when it is supported and does not create dependency conflicts
 	npm install \
@@ -49,9 +55,3 @@ update-current:
 	mv versioned_sidebars/version-updated-sidebars.json  versioned_sidebars/version-maintained-sidebars.json
 	# Remove the entry for the temporary version in the versions.json file
 	sed -i '/updated/d' versions.json
-
-lint:
-	npm run pretty:check
-
-format:
-	npm run pretty:write

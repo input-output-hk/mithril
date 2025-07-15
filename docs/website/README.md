@@ -1,44 +1,56 @@
 # Website
 
-This website is built using [Docusaurus 2](https://docusaurus.io/), a modern static website generator.
+This website is built using [Docusaurus 3](https://docusaurus.io/), a modern static website generator.
 
 ### Installation
 
-```
+```shell
 $ make install
 ```
 
-### Local Development
-
-```
-$ yarn start
-```
-
-This command starts a local development server and opens up a browser window. Most changes are reflected live without
-having to restart the server.
-
 ### Build
 
-```
+```shell
 $ make build
 ```
 
 This command generates static content into the `build` directory and can be served using any static contents hosting
 service.
 
-### Deployment
+### Local Development
 
-Using SSH:
-
-```
-$ USE_SSH=true npx docusaurus deploy
+```shell
+$ make dev
 ```
 
-Not using SSH:
+This command starts a local development server and opens up a browser window. Most changes are reflected live without
+having to restart the server.
 
-```
-$ GIT_USER=<Your GitHub username> npx docusaurus deploy
+Alternatively, if you need to simulate GitHub pages hosting environment, you can run
+
+```shell
+$ make serve-static
 ```
 
-If you are using GitHub pages for hosting, this command is a convenient way to build the website and push to
-the `gh-pages` branch.
+This will create a production build and run it on a Python server as a static content.
+
+### Content versioning
+
+This website gives access to two versions of the documentation:
+
+- `current`:
+  - Hosts the documentation of the latest Mithril distribution
+  - Shown by default
+  - Source code can be found in `./root`
+- `next`:
+  - Hosts the documentation of the upcoming Mithril distribution under development
+  - Accessible by selecting `Next` in the version dropdown in the navbar
+  - Source code can be found in `./versioned_docs/version-maintained`
+
+#### Versions rotation
+
+When releasing a new distribution, the `current` documentation content can be rotated by using the `next` version with the command:
+
+```shell
+make update-current
+```
