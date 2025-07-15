@@ -1,17 +1,22 @@
+#[cfg(feature = "future_dmq")]
 use std::{path::Path, sync::Arc};
 
 use anyhow::anyhow;
 use libp2p::Multiaddr;
+#[cfg(feature = "future_dmq")]
 use mithril_dmq::{DmqConsumerServer, DmqConsumerServerPallas, DmqMessage};
 use reqwest::StatusCode;
 use slog::{Logger, error, info};
+#[cfg(feature = "future_dmq")]
 use tokio::sync::{
     mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
     watch::{self, Receiver},
 };
 
+#[cfg(feature = "future_dmq")]
+use mithril_common::CardanoNetwork;
 use mithril_common::{
-    CardanoNetwork, StdResult,
+    StdResult,
     logging::LoggerExtensions,
     messages::{RegisterSignatureMessageHttp, RegisterSignerMessage},
 };
@@ -22,7 +27,9 @@ use crate::p2p::{BroadcastMessage, Peer, PeerEvent};
 pub struct AggregatorRelay {
     aggregator_endpoint: String,
     peer: Peer,
+    #[cfg(feature = "future_dmq")]
     signature_dmq_tx: UnboundedSender<DmqMessage>,
+    #[cfg(feature = "future_dmq")]
     logger: Logger,
 }
 
@@ -30,30 +37,43 @@ impl AggregatorRelay {
     /// Start a relay for a Mithril aggregator
     pub async fn start(
         addr: &Multiaddr,
-        dmq_node_socket_path: &Path,
-        cardano_network: &CardanoNetwork,
+        #[cfg(feature = "future_dmq")] dmq_node_socket_path: &Path,
+        #[cfg(feature = "future_dmq")] cardano_network: &CardanoNetwork,
         aggregator_endpoint: &str,
         logger: &Logger,
     ) -> StdResult<Self> {
-        let (_stop_tx, stop_rx) = watch::channel(());
-        let (signature_dmq_tx, signature_dmq_rx) = unbounded_channel::<DmqMessage>();
-        let _dmq_consumer_server = Self::start_dmq_consumer_server(
-            dmq_node_socket_path,
-            cardano_network,
-            signature_dmq_rx,
-            stop_rx,
-            logger.clone(),
-        )
-        .await?;
+        let peer = Peer::new(addr).with_logger(logger).start().await?;
+        let logger = logger.new_with_component_name::<Self>();
+        #[cfg(feature = "future_dmq")]
+        {
+            let (_stop_tx, stop_rx) = watch::channel(());
+            let (signature_dmq_tx, signature_dmq_rx) = unbounded_channel::<DmqMessage>();
+            #[cfg(unix)]
+            let _dmq_consumer_server = Self::start_dmq_consumer_server(
+                dmq_node_socket_path,
+                cardano_network,
+                signature_dmq_rx,
+                stop_rx,
+                logger.clone(),
+            )
+            .await?;
 
+            Ok(Self {
+                aggregator_endpoint: aggregator_endpoint.to_owned(),
+                peer,
+                signature_dmq_tx,
+                logger,
+            })
+        }
+        #[cfg(not(feature = "future_dmq"))]
         Ok(Self {
             aggregator_endpoint: aggregator_endpoint.to_owned(),
-            peer: Peer::new(addr).with_logger(logger).start().await?,
-            signature_dmq_tx,
-            logger: logger.new_with_component_name::<Self>(),
+            peer,
+            logger,
         })
     }
 
+    #[cfg(feature = "future_dmq")]
     async fn start_dmq_consumer_server(
         socket: &Path,
         cardano_network: &CardanoNetwork,
@@ -174,6 +194,7 @@ impl AggregatorRelay {
                         }
                     }
                 }
+                #[cfg(feature = "future_dmq")]
                 Ok(Some(BroadcastMessage::RegisterSignatureDmq(signature_message_received))) => {
                     self.signature_dmq_tx.send(signature_message_received).map_err(|e| {
                         anyhow!("Failed to send signature message to DMQ consumer server: {e}")
@@ -235,7 +256,9 @@ mod tests {
         let addr: Multiaddr = "/ip4/0.0.0.0/tcp/0".parse().unwrap();
         let relay = AggregatorRelay::start(
             &addr,
-            &Path::new("test"),
+            #[cfg(feature = "future_dmq")]
+            Path::new("test"),
+            #[cfg(feature = "future_dmq")]
             &CardanoNetwork::TestNet(123),
             &server.url(""),
             &TestLogger::stdout(),

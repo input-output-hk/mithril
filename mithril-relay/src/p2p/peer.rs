@@ -15,6 +15,7 @@ use mithril_common::{
     logging::LoggerExtensions,
     messages::{RegisterSignatureMessageHttp, RegisterSignerMessage},
 };
+#[cfg(feature = "future_dmq")]
 use mithril_dmq::DmqMessage;
 use serde::{Deserialize, Serialize};
 use slog::{Logger, debug, info};
@@ -72,6 +73,7 @@ pub enum BroadcastMessage {
     RegisterSignatureHttp(RegisterSignatureMessageHttp),
 
     /// A DMQ signature registration message received from the Gossip sub
+    #[cfg(feature = "future_dmq")]
     RegisterSignatureDmq(DmqMessage),
 }
 
@@ -258,6 +260,7 @@ impl Peer {
     }
 
     /// Publish a DMQ signature on the P2P pubsub
+    #[cfg(feature = "future_dmq")]
     pub fn publish_signature_dmq(
         &mut self,
         message: &DmqMessage,

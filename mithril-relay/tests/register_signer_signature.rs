@@ -1,15 +1,16 @@
-use std::{path::PathBuf, sync::Arc, time::Duration};
+#[cfg(feature = "future_dmq")]
+use std::path::PathBuf;
+use std::{sync::Arc, time::Duration};
 
 use libp2p::{Multiaddr, gossipsub};
 use reqwest::StatusCode;
 use slog::{Drain, Level, Logger};
 use slog_scope::{error, info};
 
+#[cfg(feature = "future_dmq")]
+use mithril_common::CardanoNetwork;
+use mithril_common::messages::{RegisterSignatureMessageHttp, RegisterSignerMessage};
 use mithril_common::test_utils::double::Dummy;
-use mithril_common::{
-    CardanoNetwork,
-    messages::{RegisterSignatureMessageHttp, RegisterSignerMessage},
-};
 use mithril_relay::{
     PassiveRelay, SignerRelay, SignerRelayMode,
     p2p::{BroadcastMessage, PeerBehaviourEvent, PeerEvent},
@@ -40,7 +41,9 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
     let total_peers = 1 + total_p2p_client;
     let addr: Multiaddr = "/ip4/0.0.0.0/tcp/0".parse().unwrap();
     let server_port = 0;
+    #[cfg(feature = "future_dmq")]
     let dmq_node_socket_path = PathBuf::new();
+    #[cfg(feature = "future_dmq")]
     let cardano_network = CardanoNetwork::TestNet(123);
     let signer_registration_mode = SignerRelayMode::P2P;
     let signature_registration_mode = SignerRelayMode::P2P;
@@ -49,7 +52,9 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
     let mut signer_relay = SignerRelay::start(
         &addr,
         &server_port,
+        #[cfg(feature = "future_dmq")]
         &dmq_node_socket_path,
+        #[cfg(feature = "future_dmq")]
         &cardano_network,
         &signer_registration_mode,
         &signature_registration_mode,

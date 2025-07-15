@@ -1,21 +1,27 @@
-use std::{net::SocketAddr, path::Path, sync::Arc, time::Duration};
+#[cfg(feature = "future_dmq")]
+use std::path::Path;
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use clap::ValueEnum;
 use libp2p::Multiaddr;
-use mithril_dmq::{DmqMessage, DmqPublisherServer, DmqPublisherServerPallas};
-use slog::{Logger, debug, error, info};
+#[cfg(feature = "future_dmq")]
+use slog::error;
+use slog::{Logger, debug, info};
 use strum::Display;
-use tokio::sync::{
-    mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
-    watch::{self, Receiver},
-};
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
+#[cfg(feature = "future_dmq")]
+use tokio::sync::watch::{self, Receiver};
 use warp::Filter;
 
+#[cfg(feature = "future_dmq")]
+use mithril_common::CardanoNetwork;
 use mithril_common::{
-    CardanoNetwork, StdResult,
+    StdResult,
     logging::LoggerExtensions,
     messages::{RegisterSignatureMessageHttp, RegisterSignerMessage},
 };
+#[cfg(feature = "future_dmq")]
+use mithril_dmq::{DmqMessage, DmqPublisherServer, DmqPublisherServerPallas};
 use mithril_test_http_server::{TestHttpServer, test_http_server_with_socket_address};
 
 use crate::{
@@ -55,9 +61,11 @@ pub struct SignerRelay {
     http_server: TestHttpServer,
     peer: Peer,
     signature_http_rx: UnboundedReceiver<RegisterSignatureMessageHttp>,
+    #[cfg(feature = "future_dmq")]
     signature_dmq_rx: UnboundedReceiver<DmqMessage>,
     signer_http_rx: UnboundedReceiver<RegisterSignerMessage>,
     signer_repeater: Arc<MessageRepeater<RegisterSignerMessage>>,
+    #[cfg(feature = "future_dmq")]
     logger: Logger,
 }
 
@@ -66,8 +74,8 @@ impl SignerRelay {
     pub async fn start(
         address: &Multiaddr,
         server_port: &u16,
-        dmq_node_socket_path: &Path,
-        cardano_network: &CardanoNetwork,
+        #[cfg(feature = "future_dmq")] dmq_node_socket_path: &Path,
+        #[cfg(feature = "future_dmq")] cardano_network: &CardanoNetwork,
         signer_registration_mode: &SignerRelayMode,
         signature_registration_mode: &SignerRelayMode,
         aggregator_endpoint: &str,
@@ -97,28 +105,42 @@ impl SignerRelay {
         .await;
         info!(relay_logger, "Listening on"; "address" => ?http_server.address());
 
-        let (_stop_tx, stop_rx) = watch::channel(());
-        let (signature_dmq_tx, signature_dmq_rx) = unbounded_channel::<DmqMessage>();
-        let _dmq_publisher_server = Self::start_dmq_publisher_server(
-            dmq_node_socket_path,
-            cardano_network,
-            signature_dmq_tx,
-            stop_rx,
-            relay_logger.clone(),
-        )
-        .await?;
+        #[cfg(feature = "future_dmq")]
+        {
+            let (_stop_tx, stop_rx) = watch::channel(());
+            let (signature_dmq_tx, signature_dmq_rx) = unbounded_channel::<DmqMessage>();
+            #[cfg(unix)]
+            let _dmq_publisher_server = Self::start_dmq_publisher_server(
+                dmq_node_socket_path,
+                cardano_network,
+                signature_dmq_tx,
+                stop_rx,
+                relay_logger.clone(),
+            )
+            .await?;
 
+            Ok(Self {
+                http_server,
+                peer,
+                signature_http_rx: signature_rx,
+                signature_dmq_rx,
+                signer_http_rx: signer_rx,
+                signer_repeater,
+                logger: relay_logger,
+            })
+        }
+        #[cfg(not(feature = "future_dmq"))]
         Ok(Self {
             http_server,
             peer,
             signature_http_rx: signature_rx,
-            signature_dmq_rx,
             signer_http_rx: signer_rx,
             signer_repeater,
             logger: relay_logger,
         })
     }
 
+    #[cfg(feature = "future_dmq")]
     async fn start_dmq_publisher_server(
         socket: &Path,
         cardano_network: &CardanoNetwork,
@@ -195,47 +217,86 @@ impl SignerRelay {
         )
     }
 
+    fn process_register_signature_http_message(
+        &mut self,
+        message: Option<RegisterSignatureMessageHttp>,
+    ) -> StdResult<()> {
+        match message {
+            Some(signature_message) => {
+                info!(self.logger, "Publish HTTP signature to p2p network"; "message" => #?signature_message);
+                self.peer.publish_signature_http(&signature_message)?;
+
+                Ok(())
+            }
+            None => {
+                debug!(self.logger, "No HTTP signature message available");
+
+                Ok(())
+            }
+        }
+    }
+
+    fn process_register_signer_http_message(
+        &mut self,
+        message: Option<RegisterSignerMessage>,
+    ) -> StdResult<()> {
+        match message {
+            Some(signer_message) => {
+                info!(self.logger, "Publish HTTP signer-registration to p2p network"; "message" => #?signer_message);
+                self.peer.publish_signer_registration(&signer_message)?;
+
+                Ok(())
+            }
+            None => {
+                debug!(self.logger, "No HTTP signer message available");
+
+                Ok(())
+            }
+        }
+    }
+
+    #[cfg(feature = "future_dmq")]
+    fn process_register_signature_dmq_message(
+        &mut self,
+        message: Option<DmqMessage>,
+    ) -> StdResult<()> {
+        match message {
+            Some(signature_message) => {
+                info!(self.logger, "Publish DMQ signature to p2p network"; "message" => #?signature_message);
+                self.peer.publish_signature_dmq(&signature_message)?;
+
+                Ok(())
+            }
+            None => {
+                //debug!(self.logger, "No DMQ signature message available");
+                Ok(())
+            }
+        }
+    }
+
     /// Tick the signer relay
     pub async fn tick(&mut self) -> StdResult<()> {
+        #[cfg(feature = "future_dmq")]
         tokio::select! {
             message = self.signature_http_rx.recv()  => {
-                match message {
-                    Some(signature_message) => {
-                        info!(self.logger, "Publish HTTP signature to p2p network"; "message" => #?signature_message);
-                        self.peer.publish_signature_http(&signature_message)?;
-                        Ok(())
-                    }
-                    None => {
-                        debug!(self.logger, "No HTTP signature message available");
-                        Ok(())
-                    }
-                }
-            },
-            message = self.signature_dmq_rx.recv()  => {
-                match message {
-                    Some(signature_message) => {
-                        info!(self.logger, "Publish DMQ signature to p2p network"; "message" => #?signature_message);
-                        self.peer.publish_signature_dmq(&signature_message)?;
-                        Ok(())
-                    }
-                    None => {
-                        //debug!(self.logger, "No DMQ signature message available");
-                        Ok(())
-                    }
-                }
+                self.process_register_signature_http_message(message)
             },
             message = self.signer_http_rx.recv()  => {
-                match message {
-                    Some(signer_message) => {
-                        info!(self.logger, "Publish HTTP signer-registration to p2p network"; "message" => #?signer_message);
-                        self.peer.publish_signer_registration(&signer_message)?;
-                        Ok(())
-                    }
-                    None => {
-                        debug!(self.logger, "No HTTP signer message available");
-                        Ok(())
-                    }
-                }
+                self.process_register_signer_http_message(message)
+            },
+            message = self.signature_dmq_rx.recv()  => {
+                self.process_register_signature_dmq_message(message)
+            },
+            _ = self.signer_repeater.repeat_message() => {Ok(())},
+            _event =  self.peer.tick_swarm() => {Ok(())}
+        }
+        #[cfg(not(feature = "future_dmq"))]
+        tokio::select! {
+            message = self.signature_http_rx.recv()  => {
+                self.process_register_signature_http_message(message)
+            },
+            message = self.signer_http_rx.recv()  => {
+                self.process_register_signer_http_message(message)
             },
             _ = self.signer_repeater.repeat_message() => {Ok(())},
             _event =  self.peer.tick_swarm() => {Ok(())}

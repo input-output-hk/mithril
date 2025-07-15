@@ -50,9 +50,15 @@ impl DmqPublisherServerPallas {
 
     /// Creates and returns a new `DmqServer` connected to the specified socket.
     async fn new_server(&self) -> StdResult<DmqServer> {
-        let magic = self.network.code();
+        info!(
+            self.logger,
+            "Creating a new DMQ publisher server";
+            "socket" => ?self.socket,
+            "network" => ?self.network
+        );
+        let magic = self.network.magic_id();
         if self.socket.exists() {
-            fs::remove_file(self.socket.clone()).unwrap();
+            fs::remove_file(self.socket.clone())?;
         }
         let listener = UnixListener::bind(&self.socket)
             .map_err(|err| anyhow!(err))
@@ -184,7 +190,7 @@ impl DmqPublisherServer for DmqPublisherServerPallas {
         loop {
             select! {
                 _ = stop_rx.changed() => {
-                    warn!(self.logger, "Stopping signature processor...");
+                    warn!(self.logger, "Stopping DMQ publisher server...");
 
                     return Ok(());
                 }
