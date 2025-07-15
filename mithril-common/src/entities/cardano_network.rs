@@ -5,7 +5,6 @@ use thiserror::Error;
 use crate::{MagicId, StdResult};
 
 const MAINNET_MAGIC_ID: MagicId = 764824073;
-const TESTNET_MAGIC_ID: MagicId = 1097911063;
 const PREPROD_MAGIC_ID: MagicId = 1;
 const PREVIEW_MAGIC_ID: MagicId = 2;
 
@@ -37,7 +36,6 @@ impl CardanoNetwork {
     ) -> Result<CardanoNetwork, CardanoNetworkError> {
         match network_code.to_lowercase().as_str() {
             "mainnet" => Ok(CardanoNetwork::MainNet),
-            "testnet" => Ok(CardanoNetwork::TestNet(TESTNET_MAGIC_ID)),
             "preview" => Ok(CardanoNetwork::TestNet(PREVIEW_MAGIC_ID)),
             "preprod" => Ok(CardanoNetwork::TestNet(PREPROD_MAGIC_ID)),
             "private" => {
@@ -91,7 +89,6 @@ impl Display for CardanoNetwork {
             CardanoNetwork::MainNet => write!(f, "mainnet"),
             CardanoNetwork::DevNet(_) => write!(f, "devnet"),
             CardanoNetwork::TestNet(magic_id) => match magic_id {
-                TESTNET_MAGIC_ID => write!(f, "testnet"),
                 PREVIEW_MAGIC_ID => write!(f, "preview"),
                 PREPROD_MAGIC_ID => write!(f, "preprod"),
                 _ => write!(f, "private"),
@@ -143,14 +140,6 @@ mod tests {
             CardanoNetwork::TestNet(PREPROD_MAGIC_ID)
         );
         assert_eq!(
-            CardanoNetwork::from_code("testnet".to_string(), None).unwrap(),
-            CardanoNetwork::TestNet(TESTNET_MAGIC_ID)
-        );
-        assert_eq!(
-            CardanoNetwork::from_code("testnet".to_string(), Some(123)).unwrap(),
-            CardanoNetwork::TestNet(TESTNET_MAGIC_ID)
-        );
-        assert_eq!(
             CardanoNetwork::from_code("private".to_string(), Some(123)).unwrap(),
             CardanoNetwork::TestNet(123)
         );
@@ -191,16 +180,6 @@ mod tests {
             .unwrap();
         assert!(allow_unparsable_block);
 
-        let allow_unparsable_block = CardanoNetwork::TestNet(TESTNET_MAGIC_ID)
-            .compute_allow_unparsable_block(false)
-            .unwrap();
-        assert!(!allow_unparsable_block);
-
-        let allow_unparsable_block = CardanoNetwork::TestNet(TESTNET_MAGIC_ID)
-            .compute_allow_unparsable_block(true)
-            .unwrap();
-        assert!(allow_unparsable_block);
-
         let allow_unparsable_block = CardanoNetwork::DevNet(123)
             .compute_allow_unparsable_block(false)
             .unwrap();
@@ -222,7 +201,6 @@ mod tests {
 
         assert_all_conversions_eq(CardanoNetwork::MainNet, "mainnet");
         assert_all_conversions_eq(CardanoNetwork::DevNet(123456), "devnet");
-        assert_all_conversions_eq(CardanoNetwork::TestNet(TESTNET_MAGIC_ID), "testnet");
         assert_all_conversions_eq(CardanoNetwork::TestNet(PREVIEW_MAGIC_ID), "preview");
         assert_all_conversions_eq(CardanoNetwork::TestNet(PREPROD_MAGIC_ID), "preprod");
         assert_all_conversions_eq(CardanoNetwork::TestNet(123456), "private");
