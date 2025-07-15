@@ -1,0 +1,143 @@
+diff --git a/docs/website/src/theme/Navbar/Content/index.tsx b/docs/website/src/theme/Navbar/Content/index.tsx
+index 43f2a1e73..2c98c10ac 100644
+--- a/docs/website/src/theme/Navbar/Content/index.tsx
++++ b/docs/website/src/theme/Navbar/Content/index.tsx
+@@ -1,29 +1,24 @@
+-import React, { type ReactNode } from "react";
+-import clsx from "clsx";
+-import {
+-  useThemeConfig,
+-  ErrorCauseBoundary,
+-  ThemeClassNames,
+-} from "@docusaurus/theme-common";
++import React from "react";
++import { useThemeConfig, ErrorCauseBoundary } from "@docusaurus/theme-common";
+ import {
+   splitNavbarItems,
+   useNavbarMobileSidebar,
+ } from "@docusaurus/theme-common/internal";
+-import NavbarItem, { type Props as NavbarItemConfig } from "@theme/NavbarItem";
++import NavbarItem from "@theme/NavbarItem";
+ import NavbarColorModeToggle from "@theme/Navbar/ColorModeToggle";
+ import SearchBar from "@theme/SearchBar";
+ import NavbarMobileSidebarToggle from "@theme/Navbar/MobileSidebar/Toggle";
+ import NavbarLogo from "@theme/Navbar/Logo";
+ import NavbarSearch from "@theme/Navbar/Search";
+-
+ import styles from "./styles.module.css";
++import Discord from "../../../components/icons/Discord";
++import Github from "../../../components/icons/Github";
+
+ function useNavbarItems() {
+   // TODO temporary casting until ThemeConfig type is improved
+-  return useThemeConfig().navbar.items as NavbarItemConfig[];
++  return useThemeConfig().navbar.items;
+ }
+-
+-function NavbarItems({ items }: { items: NavbarItemConfig[] }): ReactNode {
++function NavbarItems({ items }) {
+   return (
+     <>
+       {items.map((item, i) => (
+@@ -44,57 +39,28 @@ ${JSON.stringify(item, null, 2)}`,
+     </>
+   );
+ }
+-
+-function NavbarContentLayout({
+-  left,
+-  right,
+-}: {
+-  left: ReactNode;
+-  right: ReactNode;
+-}) {
++function NavbarContentLayout({ left, right }) {
+   return (
+     <div className="navbar__inner">
+-      <div
+-        className={clsx(
+-          ThemeClassNames.layout.navbar.containerLeft,
+-          "navbar__items",
+-        )}
+-      >
+-        {left}
+-      </div>
+-      <div
+-        className={clsx(
+-          ThemeClassNames.layout.navbar.containerRight,
+-          "navbar__items navbar__items--right",
+-        )}
+-      >
+-        {right}
+-      </div>
++      <div className="navbar__items">{left}</div>
++      <div className="navbar__items navbar__items--right">{right}</div>
+     </div>
+   );
+ }
+-
+-export default function NavbarContent(): ReactNode {
++export default function NavbarContent() {
+   const mobileSidebar = useNavbarMobileSidebar();
+-
+   const items = useNavbarItems();
+   const [leftItems, rightItems] = splitNavbarItems(items);
+-
+   const searchBarItem = items.find((item) => item.type === "search");
+-
+   return (
+     <NavbarContentLayout
+       left={
+-        // TODO stop hardcoding items?
+         <>
+-          {!mobileSidebar.disabled && <NavbarMobileSidebarToggle />}
+           <NavbarLogo />
+           <NavbarItems items={leftItems} />
+         </>
+       }
+       right={
+-        // TODO stop hardcoding items?
+-        // Ask the user to add the respective navbar items => more flexible
+         <>
+           <NavbarItems items={rightItems} />
+           <NavbarColorModeToggle className={styles.colorModeToggle} />
+@@ -103,6 +69,23 @@ export default function NavbarContent(): ReactNode {
+               <SearchBar />
+             </NavbarSearch>
+           )}
++          <a
++            href="https://github.com/input-output-hk/mithril/"
++            target="_blank"
++            rel="noopener noreferrer"
++            className="hover:text-[var(--ifm-navbar-link-hover-color)] mx-3 py-1 laptop:flex hidden"
++          >
++            <Github />
++          </a>
++          <a
++            href="https://discord.gg/5kaErDKDRq"
++            target="_blank"
++            rel="noopener noreferrer"
++            className="hover:text-[var(--ifm-navbar-link-hover-color)] mx-3 py-1 laptop:flex hidden"
++          >
++            <Discord />
++          </a>
++          {!mobileSidebar.disabled && <NavbarMobileSidebarToggle />}
+         </>
+       }
+     />
+diff --git a/docs/website/src/theme/Navbar/Content/styles.module.css b/docs/website/src/theme/Navbar/Content/styles.module.css
+index 9f080ff96..4c9471e10 100644
+--- a/docs/website/src/theme/Navbar/Content/styles.module.css
++++ b/docs/website/src/theme/Navbar/Content/styles.module.css
+@@ -6,11 +6,3 @@ Hide color mode toggle in small viewports
+     display: none;
+   }
+ }
+-
+-/*
+-Restore some Infima style that broke with CSS Cascade Layers
+-See https://github.com/facebook/docusaurus/pull/11142
+- */
+-:global(.navbar__items--right) > :last-child {
+-  padding-right: 0;
+-}

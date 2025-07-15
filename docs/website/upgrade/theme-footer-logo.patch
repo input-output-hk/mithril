@@ -1,0 +1,24 @@
+diff --git a/docs/website/src/theme/Footer/Logo/index.tsx b/docs/website/src/theme/Footer/Logo/index.tsx
+index 2aa257a75..e7427e732 100644
+--- a/docs/website/src/theme/Footer/Logo/index.tsx
++++ b/docs/website/src/theme/Footer/Logo/index.tsx
+@@ -15,7 +15,7 @@ function LogoImage({ logo }: Props) {
+   };
+   return (
+     <ThemedImage
+-      className={clsx("footer__logo", logo.className)}
++      className={clsx(logo.className)}
+       alt={logo.alt}
+       sources={sources}
+       width={logo.width}
+@@ -35,6 +35,9 @@ export default function FooterLogo({ logo }: Props): ReactNode {
+       <LogoImage logo={logo} />
+     </Link>
+   ) : (
+-    <LogoImage logo={logo} />
++    <div className="flex items-center text-2xl tracking-[-0.01125rem] gap-1">
++      <LogoImage logo={logo} />
++      <h4>Mithril</h4>
++    </div>
+   );
+ }

@@ -54,3 +54,16 @@ When releasing a new distribution, the `current` documentation content can be ro
 ```shell
 make update-current
 ```
+
+### Upgrading swizzled components
+
+To apply a custom theme to the website, some components from the `docusaurus-theme-classic` have been swizzled.
+If there are changes from the docusaurus side, a makefile command is available to automatically swizzle them again and
+try to apply our custom changes:
+
+> [!WARNING]
+> Conflicts have to be handled manually by the developer.
+
+```shell
+$ make swizzled-components-upgrade
+```

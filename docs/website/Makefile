@@ -1,4 +1,4 @@
-.PHONY: clean install build serve dev lint format upgrade update-current
+.PHONY: clean install build serve dev lint format upgrade update-current swizzled-components-upgrade
 
 package-lock.json:
 	npm install
@@ -55,3 +55,24 @@ update-current:
 	mv versioned_sidebars/version-updated-sidebars.json  versioned_sidebars/version-maintained-sidebars.json
 	# Remove the entry for the temporary version in the versions.json file
 	sed -i '/updated/d' versions.json
+
+swizzled-components-upgrade:
+	@echo "\033[1mRemoving swizzled components\033[0m"
+	rm -rf ./src/theme/Footer ./src/theme/Navbar
+
+	@echo "\033[1mRe-swizzling Docusaurus components\033[0m"
+	npm run swizzle @docusaurus/theme-classic Footer/Layout -- --eject --typescript
+	npm run swizzle @docusaurus/theme-classic Footer/LinkItem -- --eject --typescript
+	npm run swizzle @docusaurus/theme-classic Footer/Links/MultiColumn -- --eject --typescript
+	npm run swizzle @docusaurus/theme-classic Footer/Logo -- --eject --typescript
+
+	npm run swizzle @docusaurus/theme-classic Navbar/Content -- --eject --typescript --danger
+	npm run swizzle @docusaurus/theme-classic Navbar/Layout -- --eject --typescript --danger
+	npm run swizzle @docusaurus/theme-classic Navbar/MobileSidebar/Layout -- --eject --typescript --danger
+	npm run swizzle @docusaurus/theme-classic Navbar/MobileSidebar/PrimaryMenu -- --eject --typescript --danger
+
+	@echo "\033[1mApplying prettier\033[0m"
+	prettier --write ./src/theme/Footer ./src/theme/Navbar
+
+	@echo "\033[1mTrying to apply custom changes ...\033[0m conflicts must be handled manually"
+	git apply ./upgrade/*.patch

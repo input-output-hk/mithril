@@ -1,0 +1,96 @@
+diff --git a/docs/website/src/theme/Navbar/Layout/index.tsx b/docs/website/src/theme/Navbar/Layout/index.tsx
+index c5de1274f..ef085dfb8 100644
+--- a/docs/website/src/theme/Navbar/Layout/index.tsx
++++ b/docs/website/src/theme/Navbar/Layout/index.tsx
+@@ -1,17 +1,16 @@
+-import React, { type ComponentProps, type ReactNode } from "react";
++import React, { useEffect, useState } from "react";
+ import clsx from "clsx";
+-import { ThemeClassNames, useThemeConfig } from "@docusaurus/theme-common";
++import { useThemeConfig } from "@docusaurus/theme-common";
+ import {
+   useHideableNavbar,
+   useNavbarMobileSidebar,
+ } from "@docusaurus/theme-common/internal";
+ import { translate } from "@docusaurus/Translate";
+ import NavbarMobileSidebar from "@theme/Navbar/MobileSidebar";
+-import type { Props } from "@theme/Navbar/Layout";
+-
+ import styles from "./styles.module.css";
++import { useIsLandingPage } from "../../../hooks/useIsLandingPage";
+
+-function NavbarBackdrop(props: ComponentProps<"div">) {
++function NavbarBackdrop(props) {
+   return (
+     <div
+       role="presentation"
+@@ -21,14 +20,27 @@ function NavbarBackdrop(props: ComponentProps<"div">) {
+   );
+ }
+
+-export default function NavbarLayout({ children }: Props): ReactNode {
++export default function NavbarLayout({ children }) {
++  const isLandingPage = useIsLandingPage();
+   const {
+-    navbar: { hideOnScroll, style },
++    navbar: { hideOnScroll },
+   } = useThemeConfig();
+   const mobileSidebar = useNavbarMobileSidebar();
+   const { navbarRef, isNavbarVisible } = useHideableNavbar(hideOnScroll);
++
++  const [scrolled, setScrolled] = useState(false);
++
++  useEffect(() => {
++    const onScroll = () => {
++      setScrolled(window.scrollY > 70);
++    };
++
++    window.addEventListener("scroll", onScroll);
++    return () => window.removeEventListener("scroll", onScroll);
++  }, []);
++
+   return (
+-    <nav
++    <header
+       ref={navbarRef}
+       aria-label={translate({
+         id: "theme.NavBar.navAriaLabel",
+@@ -36,23 +48,28 @@ export default function NavbarLayout({ children }: Props): ReactNode {
+         description: "The ARIA label for the main navigation",
+       })}
+       className={clsx(
+-        ThemeClassNames.layout.navbar.container,
+-        "navbar",
++        "flex navbar tablet:py-[30px] !px-0 shadow-none z-50",
++        isLandingPage
++          ? "border-none pt-3"
++          : "border-b border-[#EAEAEB] pt-3 pb-4 tablet:px-2",
+         "navbar--fixed-top",
+-        hideOnScroll && [
+-          styles.navbarHideable,
+-          !isNavbarVisible && styles.navbarHidden,
+-        ],
++        hideOnScroll && !isNavbarVisible && styles.navbarHidden,
+         {
+-          "navbar--dark": style === "dark",
+-          "navbar--primary": style === "primary",
+           "navbar-sidebar--show": mobileSidebar.shown,
++          "landing-navbar--scrolled": isLandingPage && scrolled,
++          "landing-navbar--top": isLandingPage && !scrolled,
+         },
+       )}
+     >
+-      {children}
++      <div
++        className={clsx(
++          isLandingPage ? "pageContainer py-0.5 tablet:py-0" : "w-full px-6",
++        )}
++      >
++        {children}
++      </div>
+       <NavbarBackdrop onClick={mobileSidebar.toggle} />
+       <NavbarMobileSidebar />
+-    </nav>
++    </header>
+   );
+ }

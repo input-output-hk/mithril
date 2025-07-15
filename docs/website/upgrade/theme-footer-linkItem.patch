@@ -1,0 +1,31 @@
+diff --git a/docs/website/src/theme/Footer/LinkItem/index.tsx b/docs/website/src/theme/Footer/LinkItem/index.tsx
+index c0dfe6e7b..5aedc324b 100644
+--- a/docs/website/src/theme/Footer/LinkItem/index.tsx
++++ b/docs/website/src/theme/Footer/LinkItem/index.tsx
+@@ -2,8 +2,7 @@ import React, { type ReactNode } from "react";
+ import clsx from "clsx";
+ import Link from "@docusaurus/Link";
+ import useBaseUrl from "@docusaurus/useBaseUrl";
+-import isInternalUrl from "@docusaurus/isInternalUrl";
+-import IconExternalLink from "@theme/Icon/ExternalLink";
++
+ import type { Props } from "@theme/Footer/LinkItem";
+
+ export default function FooterLinkItem({ item }: Props): ReactNode {
+@@ -13,7 +12,7 @@ export default function FooterLinkItem({ item }: Props): ReactNode {
+
+   return (
+     <Link
+-      className={clsx("footer__link-item", className)}
++      className={clsx("", className)}
+       {...(href
+         ? {
+             href: prependBaseUrlToHref ? normalizedHref : href,
+@@ -24,7 +23,6 @@ export default function FooterLinkItem({ item }: Props): ReactNode {
+       {...props}
+     >
+       {label}
+-      {href && !isInternalUrl(href) && <IconExternalLink />}
+     </Link>
+   );
+ }
