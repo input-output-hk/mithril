@@ -48,3 +48,46 @@ impl Parameters {
         Ok(Self { m, k, phi_f })
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::Parameters;
+
+    const GOLDEN_PARAMETERS_JSON: &str = r#"
+    {
+        "m": 20973,
+        "k": 2422,
+        "phi_f": 0.2
+    }
+    "#;
+
+    #[test]
+    fn golden_parameters_deserialization() {
+        let _: Parameters = serde_json::from_str(GOLDEN_PARAMETERS_JSON)
+            .expect("Deserializing Parameters should not fail");
+    }
+
+    #[test]
+    fn test_parameters_conversions() {
+        let parameters_json = GOLDEN_PARAMETERS_JSON;
+
+        let parameters_from_json: Parameters = serde_json::from_str(parameters_json)
+            .expect("Deserializing Parameters should not fail");
+        let parameters_from_json_to_json = serde_json::to_string(&parameters_from_json)
+            .expect("Serializing Parameters to json should not fail");
+
+        let parameters_from_bytes = Parameters::from_bytes(&parameters_from_json.to_bytes())
+            .expect("Deserializing Parameters from bytes should not fail");
+        let parameters_from_bytes_to_json = serde_json::to_string(&parameters_from_bytes)
+            .expect("Serializing Parameters to json should not fail");
+
+        assert_eq!(parameters_from_json_to_json, parameters_from_bytes_to_json);
+
+        let mut parameters_from_json = parameters_from_json;
+        parameters_from_json.phi_f = 0.0;
+
+        let parameters_from_bytes = Parameters::from_bytes(&parameters_from_json.to_bytes())
+            .expect("Deserializing Parameters from bytes should not fail");
+        assert_eq!(0.0, parameters_from_bytes.phi_f);
+    }
+}
