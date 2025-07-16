@@ -46,6 +46,7 @@ impl DmqMessageBuilder {
             hasher.update(dmq_message.ttl.to_be_bytes());
             hasher.update(&dmq_message.kes_signature);
             hasher.update(&dmq_message.operational_certificate);
+            hasher.update(dmq_message.kes_period.to_be_bytes());
 
             hasher.finalize().to_vec()
         }
@@ -66,6 +67,12 @@ impl DmqMessageBuilder {
             .kes_signer
             .sign(message_bytes, block_number)
             .with_context(|| "Failed to KES sign message while building DMQ message")?;
+        let kes_period = self
+            .chain_observer
+            .get_current_kes_period(&operational_certificate)
+            .await
+            .with_context(|| "Failed to get KES period while building DMQ message")?
+            .unwrap_or_default();
         let mut dmq_message = DmqMsg {
             msg_id: vec![],
             msg_body: message_bytes.to_vec(),
@@ -73,6 +80,7 @@ impl DmqMessageBuilder {
             ttl: self.ttl_blocks,
             kes_signature: kes_signature.to_bytes_vec()?,
             operational_certificate: operational_certificate.to_bytes_vec()?,
+            kes_period,
         };
         dmq_message.msg_id = compute_msg_id(&dmq_message);
 
@@ -134,6 +142,7 @@ mod tests {
                 ttl: 100,
                 kes_signature: kes_signature.to_bytes_vec().unwrap(),
                 operational_certificate: operational_certificate.to_bytes_vec().unwrap(),
+                kes_period: 0,
             },
             DmqMsg {
                 msg_id: vec![],
