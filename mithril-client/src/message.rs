@@ -229,6 +229,7 @@ impl MessageBuilder {
             certificate: &CertificateMessage,
             cardano_database_snapshot: &CardanoDatabaseSnapshotMessage,
             immutable_file_range: &ImmutableFileRange,
+            allow_missing: bool,
             database_dir: &Path,
             verified_digests: &VerifiedDigests,
         ) -> Result<ProtocolMessage, ComputeCardanoDatabaseMessageError> {
@@ -236,8 +237,11 @@ impl MessageBuilder {
             let immutable_file_number_range = immutable_file_range
                 .to_range_inclusive(cardano_database_snapshot.beacon.immutable_file_number)
                 .map_err(ComputeCardanoDatabaseMessageError::ImmutableFilesRange)?;
-            let missing_immutable_files =
-                Self::list_missing_immutable_files(database_dir, &immutable_file_number_range);
+            let missing_immutable_files = if allow_missing {
+                vec![]
+            } else {
+                Self::list_missing_immutable_files(database_dir, &immutable_file_number_range)
+            };
             let immutable_digester = CardanoImmutableDigester::new(network, None, self.logger.clone());
             let computed_digest_entries = immutable_digester
                 .compute_digests_for_range(database_dir, &immutable_file_number_range)
@@ -532,6 +536,7 @@ mod tests {
                     &certificate,
                     &CardanoDatabaseSnapshotMessage::dummy(),
                     &immutable_file_range_to_prove,
+                    false,
                     &database_dir,
                     &verified_digests,
                 )
@@ -542,7 +547,8 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn compute_cardano_database_message_should_fail_if_immutable_is_missing() {
+        async fn compute_cardano_database_message_should_fail_if_immutable_is_missing_and_allow_missing_not_set()
+         {
             let beacon = CardanoDbBeacon {
                 epoch: Epoch(123),
                 immutable_file_number: 10,
@@ -550,7 +556,7 @@ mod tests {
             let immutable_file_range = 1..=15;
             let immutable_file_range_to_prove = ImmutableFileRange::Range(2, 4);
             let (database_dir, certificate, verified_digests) = prepare_db_and_verified_digests(
-                "compute_cardano_database_message_should_fail_if_immutable_is_missing",
+                "compute_cardano_database_message_should_fail_if_immutable_is_missing_and_allow_missing_not_set",
                 &beacon,
                 &immutable_file_range,
             )
@@ -559,11 +565,13 @@ mod tests {
             let files_to_remove = vec!["00003.chunk", "00004.primary"];
             remove_immutable_files(&database_dir, &files_to_remove);
 
+            let allow_missing = false;
             let error = MessageBuilder::new()
                 .compute_cardano_database_message(
                     &certificate,
                     &CardanoDatabaseSnapshotMessage::dummy(),
                     &immutable_file_range_to_prove,
+                    allow_missing,
                     &database_dir,
                     &verified_digests,
                 )
@@ -585,6 +593,41 @@ mod tests {
                     tampered: vec![],
                 }
             );
+        }
+
+        #[tokio::test]
+        async fn compute_cardano_database_message_should_success_if_immutable_is_missing_and_allow_missing_is_set()
+         {
+            let beacon = CardanoDbBeacon {
+                epoch: Epoch(123),
+                immutable_file_number: 10,
+            };
+            let immutable_file_range = 1..=15;
+            let immutable_file_range_to_prove = ImmutableFileRange::Range(2, 4);
+            let (database_dir, certificate, verified_digests) = prepare_db_and_verified_digests(
+                "compute_cardano_database_message_should_success_if_immutable_is_missing_and_allow_missing_is_set",
+                &beacon,
+                &immutable_file_range,
+            )
+            .await;
+
+            let files_to_remove = vec!["00003.chunk", "00004.primary"];
+            remove_immutable_files(&database_dir, &files_to_remove);
+
+            let allow_missing = true;
+            MessageBuilder::new()
+                .compute_cardano_database_message(
+                    &certificate,
+                    &CardanoDatabaseSnapshotMessage::dummy(),
+                    &immutable_file_range_to_prove,
+                    allow_missing,
+                    &database_dir,
+                    &verified_digests,
+                )
+                .await
+                .expect(
+                    "compute_cardano_database_message should succeed if a immutable is missing but 'allow_missing' is set",
+                );
         }
 
         #[tokio::test]
@@ -613,6 +656,7 @@ mod tests {
                     &certificate,
                     &CardanoDatabaseSnapshotMessage::dummy(),
                     &immutable_file_range_to_prove,
+                    false,
                     &database_dir,
                     &verified_digests,
                 )
@@ -664,6 +708,7 @@ mod tests {
                     &certificate,
                     &CardanoDatabaseSnapshotMessage::dummy(),
                     &immutable_file_range_to_prove,
+                    false,
                     &database_dir,
                     &verified_digests,
                 )

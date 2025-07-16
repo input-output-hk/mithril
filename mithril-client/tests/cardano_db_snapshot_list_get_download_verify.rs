@@ -143,6 +143,7 @@ async fn cardano_db_snapshot_list_get_download_verify() {
             &certificate,
             &cardano_db_snapshot,
             &immutable_file_range,
+            false,
             &unpacked_dir,
             &verified_digests,
         )
