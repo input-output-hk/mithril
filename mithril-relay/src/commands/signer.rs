@@ -10,7 +10,7 @@ use slog::error;
 use mithril_common::CardanoNetwork;
 use mithril_common::StdResult;
 
-use crate::{SignerRelay, SignerRelayMode};
+use crate::{SignerRelay, SignerRelayConfiguration, SignerRelayMode};
 
 use super::CommandContext;
 
@@ -81,19 +81,19 @@ impl SignerCommand {
         let cardano_network =
             CardanoNetwork::from_code(self.network.to_owned(), self.network_magic)?;
 
-        let mut relay = SignerRelay::start(
-            &addr,
-            &server_port,
+        let mut relay = SignerRelay::start(SignerRelayConfiguration {
+            address: &addr,
+            server_port: &server_port,
             #[cfg(feature = "future_dmq")]
-            &self.dmq_node_socket_path,
+            dmq_node_socket_path: &self.dmq_node_socket_path,
             #[cfg(feature = "future_dmq")]
-            &cardano_network,
+            cardano_network: &cardano_network,
             signer_registration_mode,
             signature_registration_mode,
-            &aggregator_endpoint,
-            &signer_repeater_delay,
+            aggregator_endpoint: &aggregator_endpoint,
+            signer_repeater_delay: &signer_repeater_delay,
             logger,
-        )
+        })
         .await?;
         if let Some(dial_to_address) = dial_to {
             relay.dial_peer(dial_to_address.clone())?;
