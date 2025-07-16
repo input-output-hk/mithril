@@ -17,7 +17,7 @@ use std::time::Duration;
 use tokio::sync::RwLock;
 
 use mithril_client::feedback::{FeedbackReceiver, MithrilEvent, MithrilEventCardanoDatabase};
-use mithril_client::{ClientBuilder, MessageBuilder, MithrilResult};
+use mithril_client::{ClientBuilder, MessageBuilder, MithrilError, MithrilResult};
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -99,25 +99,10 @@ async fn main() -> MithrilResult<()> {
         .await?;
 
     println!("Downloading and verifying digests file authenticity...");
-    let verified_digest = client
+    let verified_digests = client
         .cardano_database_v2()
         .download_and_verify_digests(&certificate, &cardano_database_snapshot)
         .await?;
-
-    println!("Computing Cardano database Merkle proof...",);
-    let merkle_proof = client
-        .cardano_database_v2()
-        .compute_merkle_proof(
-            &certificate,
-            cardano_database_snapshot.beacon.immutable_file_number,
-            &immutable_file_range,
-            &unpacked_dir,
-            &verified_digest,
-        )
-        .await?;
-    merkle_proof
-        .verify()
-        .with_context(|| "Merkle proof verification failed")?;
 
     println!("Sending usage statistics to the aggregator...");
     let full_restoration = immutable_file_range == ImmutableFileRange::Full;
@@ -140,9 +125,17 @@ async fn main() -> MithrilResult<()> {
         "Computing Cardano database snapshot '{}' message...",
         cardano_database_snapshot.hash
     );
+    let allow_missing_immutables_files = false;
     let message = wait_spinner(
         &progress_bar,
-        MessageBuilder::new().compute_cardano_database_message(&certificate, merkle_proof.root()),
+        MessageBuilder::new().compute_cardano_database_message(
+            &certificate,
+            &cardano_database_snapshot,
+            &immutable_file_range,
+            allow_missing_immutables_files,
+            &unpacked_dir,
+            &verified_digests,
+        ),
     )
     .await?;
 
@@ -268,10 +261,13 @@ fn get_temp_dir() -> MithrilResult<PathBuf> {
     Ok(dir)
 }
 
-async fn wait_spinner<T>(
+pub async fn wait_spinner<T, E>(
     progress_bar: &MultiProgress,
-    future: impl Future<Output = MithrilResult<T>>,
-) -> MithrilResult<T> {
+    future: impl Future<Output = Result<T, E>>,
+) -> MithrilResult<T>
+where
+    MithrilError: From<E>,
+{
     let pb = progress_bar.add(ProgressBar::new_spinner());
     let spinner = async move {
         loop {
@@ -282,6 +278,6 @@ async fn wait_spinner<T>(
 
     tokio::select! {
         _ = spinner => Err(anyhow!("timeout")),
-        res = future => res,
+        res = future => res.map_err(Into::into),
     }
 }
