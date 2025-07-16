@@ -12,7 +12,6 @@ echo ">>>> Current Cardano Era: \${CURRENT_CARDANO_ERA}"
 
 # Get the current epoch
 CURRENT_EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI $CARDANO_CLI_ERA query tip \\
-                    --cardano-mode \\
                     --testnet-magic ${NETWORK_MAGIC} | jq .epoch)
 echo ">>>> Current Epoch: \${CURRENT_EPOCH}"
 

@@ -3,7 +3,6 @@ cat >> pools.sh <<EOF
 #!/usr/bin/env bash
 
 CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock $CARDANO_CLI $CARDANO_CLI_ERA query stake-pools \\
-    --cardano-mode \\
     --testnet-magic ${NETWORK_MAGIC}
 EOF
 
