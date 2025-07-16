@@ -40,7 +40,7 @@ impl<M: TryToBytes + Debug> DmqPublisherPallas<M> {
 
     /// Creates and returns a new `DmqClient` connected to the specified socket.
     async fn new_client(&self) -> StdResult<DmqClient> {
-        let magic = self.network.code();
+        let magic = self.network.magic_id();
         DmqClient::connect(&self.socket, magic)
             .await
             .with_context(|| "DmqPublisherPallas failed to create a new client")

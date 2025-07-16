@@ -56,7 +56,7 @@ impl PallasChainObserver {
 
     /// Creates and returns a new `NodeClient` connected to the specified socket.
     async fn new_client(&self) -> StdResult<NodeClient> {
-        let magic = self.network.code();
+        let magic = self.network.magic_id();
         let client = NodeClient::connect(&self.socket, magic).await?;
 
         Ok(client)

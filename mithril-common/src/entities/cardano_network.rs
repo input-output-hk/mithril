@@ -52,8 +52,8 @@ impl CardanoNetwork {
         }
     }
 
-    /// Returns the code (magic) of the network
-    pub fn code(&self) -> MagicId {
+    /// Returns the magic ID of the network
+    pub fn magic_id(&self) -> MagicId {
         match *self {
             CardanoNetwork::MainNet => MAINNET_MAGIC_ID,
             CardanoNetwork::TestNet(magic_id) => magic_id,
@@ -227,7 +227,7 @@ mod tests {
         fn assert_magic_id_conversion_roundtrip(magic_id: MagicId, expected: CardanoNetwork) {
             let network = CardanoNetwork::from(magic_id);
             assert_eq!(network, expected);
-            assert_eq!(network.code(), magic_id);
+            assert_eq!(network.magic_id(), magic_id);
         }
 
         assert_magic_id_conversion_roundtrip(MAINNET_MAGIC_ID, CardanoNetwork::MainNet);
