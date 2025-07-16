@@ -161,7 +161,7 @@ mod tests {
         let test_dir = get_test_directory("should_compute_valid_artifact");
 
         let beacon = CardanoDbBeacon::new(123, 3);
-        let network = CardanoNetwork::DevNet(123);
+        let network = CardanoNetwork::TestNet(123);
         let immutable_trio_file_size = 777;
         let ledger_file_size = 6666;
         let volatile_file_size = 99;

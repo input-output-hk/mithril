@@ -85,11 +85,28 @@ mod test {
     }
 
     #[test]
-    fn create_bootstrap_node_files_does_not_create_protocol_magic_id_file_and_create_clean_file_for_devnet()
-     {
+    fn create_bootstrap_node_files_creates_protocol_magic_id_file_and_create_clean_file_for_devnet()
+    {
         let db_dir = temp_dir!().join("db");
         std::fs::create_dir_all(&db_dir).unwrap();
         let network = CardanoNetwork::from_code("devnet".to_string(), Some(123)).unwrap();
+        let logger = slog::Logger::root(slog::Discard, o!());
+
+        create_bootstrap_node_files(&logger, &db_dir, &network.to_string()).unwrap();
+
+        let file_content =
+            std::fs::read_to_string(db_dir.join(PROTOCOL_MAGIC_ID_FILENAME)).unwrap();
+        assert_eq!(file_content, network.code().to_string());
+
+        assert!(db_dir.join(CLEAN_FILE_NAME).exists());
+    }
+
+    #[test]
+    fn create_bootstrap_node_files_does_not_create_protocol_magic_id_file_and_create_clean_file_for_private_network()
+     {
+        let db_dir = temp_dir!().join("db");
+        std::fs::create_dir_all(&db_dir).unwrap();
+        let network = CardanoNetwork::from_code("private".to_string(), Some(123)).unwrap();
         let logger = slog::Logger::root(slog::Discard, o!());
 
         create_bootstrap_node_files(&logger, &db_dir, &network.to_string()).unwrap();

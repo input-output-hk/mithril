@@ -388,7 +388,7 @@ mod tests {
                 target_location: temp_dir.clone(),
                 compression_algorithm: CompressionAlgorithm::Gzip,
             },
-            CardanoNetwork::DevNet(123),
+            CardanoNetwork::TestNet(123),
             temp_dir,
             Arc::new(immutable_file_digest_mapper),
             TestLogger::stdout(),
@@ -421,7 +421,7 @@ mod tests {
                 target_location: temp_dir.clone(),
                 compression_algorithm: CompressionAlgorithm::Gzip,
             },
-            CardanoNetwork::DevNet(123),
+            CardanoNetwork::TestNet(123),
             temp_dir,
             Arc::new(immutable_file_digest_mapper),
             TestLogger::stdout(),
@@ -455,7 +455,7 @@ mod tests {
                 target_location: temp_dir.clone(),
                 compression_algorithm: CompressionAlgorithm::Gzip,
             },
-            CardanoNetwork::DevNet(123),
+            CardanoNetwork::TestNet(123),
             PathBuf::from("/tmp/whatever"),
             Arc::new(MockImmutableFileDigestMapper::new()),
             logger,
@@ -480,7 +480,7 @@ mod tests {
                 target_location: temp_dir.clone(),
                 compression_algorithm: CompressionAlgorithm::Gzip,
             },
-            CardanoNetwork::DevNet(123),
+            CardanoNetwork::TestNet(123),
             PathBuf::from("/tmp/whatever"),
             Arc::new(MockImmutableFileDigestMapper::new()),
             TestLogger::stdout(),
@@ -513,7 +513,7 @@ mod tests {
                 target_location: temp_dir.clone(),
                 compression_algorithm: CompressionAlgorithm::Gzip,
             },
-            CardanoNetwork::DevNet(123),
+            CardanoNetwork::TestNet(123),
             PathBuf::from("/tmp/whatever"),
             Arc::new(MockImmutableFileDigestMapper::new()),
             TestLogger::stdout(),
@@ -553,7 +553,7 @@ mod tests {
                 target_location: temp_dir.clone(),
                 compression_algorithm: CompressionAlgorithm::Gzip,
             },
-            CardanoNetwork::DevNet(123),
+            CardanoNetwork::TestNet(123),
             PathBuf::from("/tmp/whatever"),
             Arc::new(MockImmutableFileDigestMapper::new()),
             TestLogger::stdout(),
@@ -601,7 +601,7 @@ mod tests {
                 target_location: temp_dir.clone(),
                 compression_algorithm: CompressionAlgorithm::Gzip,
             },
-            CardanoNetwork::DevNet(123),
+            CardanoNetwork::TestNet(123),
             temp_dir,
             Arc::new(immutable_file_digest_mapper),
             TestLogger::stdout(),
@@ -633,7 +633,7 @@ mod tests {
 
         let compression_algorithm = CompressionAlgorithm::Gzip;
         let beacon = CardanoDbBeacon::new(3, 456);
-        let network = CardanoNetwork::DevNet(24);
+        let network = CardanoNetwork::TestNet(24);
 
         let builder = DigestArtifactBuilder::new(
             SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),

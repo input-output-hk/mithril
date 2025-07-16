@@ -186,7 +186,7 @@ mod tests {
     fn dummy() -> CardanoDatabaseSnapshot {
         CardanoDatabaseSnapshot::new(
             "mk-root-1111111111".to_string(),
-            CardanoNetwork::DevNet(87),
+            CardanoNetwork::TestNet(87),
             CardanoDbBeacon::new(2222, 55555),
             CardanoDatabaseSnapshotArtifactData {
                 total_db_size_uncompressed: 0,

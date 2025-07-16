@@ -144,7 +144,7 @@ impl Aggregator {
         )?;
         let chain_observer = Arc::new(PallasChainObserver::new(
             &aggregator_config.full_node.socket_path,
-            CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
+            CardanoNetwork::TestNet(DEVNET_MAGIC_ID),
         ));
 
         Ok(Self {
