@@ -1,4 +1,5 @@
-.PHONY: clean install build serve dev lint format upgrade update-current swizzled-components-upgrade
+.PHONY: clean install build serve dev lint format upgrade update-current \
+	swizzled-components-upgrade swizzled-components-clean reswizzle-components swizzled-components-apply-patches
 
 package-lock.json:
 	npm install
@@ -56,10 +57,14 @@ update-current:
 	# Remove the entry for the temporary version in the versions.json file
 	sed -i '/updated/d' versions.json
 
-swizzled-components-upgrade:
+swizzled-components-upgrade: swizzled-components-clean reswizzle-components swizzled-components-apply-patches
+
+swizzled-components-clean:
 	@echo "\033[1mRemoving swizzled components\033[0m"
 	rm -rf ./src/theme/Footer ./src/theme/Navbar
+	@echo
 
+reswizzle-components:
 	@echo "\033[1mRe-swizzling Docusaurus components\033[0m"
 	npm run swizzle @docusaurus/theme-classic Footer/Layout -- --eject --typescript
 	npm run swizzle @docusaurus/theme-classic Footer/LinkItem -- --eject --typescript
@@ -73,6 +78,13 @@ swizzled-components-upgrade:
 
 	@echo "\033[1mApplying prettier\033[0m"
 	prettier --write ./src/theme/Footer ./src/theme/Navbar
+	@echo
 
-	@echo "\033[1mTrying to apply custom changes ...\033[0m conflicts must be handled manually"
-	git apply ./upgrade/*.patch
+swizzled-components-apply-patches:
+	@echo "\033[1mTrying to apply custom changes ...\033[33m conflicts must be handled manually\033[0m"
+	$(MAKE) $(wildcard ./upgrade/*.patch)
+
+upgrade/%.patch: src/theme
+	@echo "git apply --verbose --reject ${@}"
+	@git apply --verbose --reject $@ || echo "\033[31mPatch '${@}' failed, check '.rej' files\033[0m"
+	@echo
