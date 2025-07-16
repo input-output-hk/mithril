@@ -14,6 +14,16 @@ variable "cardano_network" {
   description = "The Cardano network name to attach: preview, preprod or mainnet"
 }
 
+variable "cardano_network_magic_map" {
+  type        = map(number)
+  description = "The Cardano network magic number mapping from Cardano network name"
+  default = {
+    "mainnet" = 764824073,
+    "preprod" = 1,
+    "preview" = 2,
+  }
+}
+
 locals {
   environment_name_short = format("%s%s", "${var.environment_prefix}-${var.cardano_network}", var.environment_suffix != "" ? "-${var.environment_suffix}" : "")
   environment_name       = "mithril-${local.environment_name_short}"
@@ -181,6 +191,12 @@ variable "mithril_container_logging_driver" {
 variable "mithril_use_p2p_network" {
   type        = bool
   description = "Use the P2P network layer (experimental, for test only)"
+  default     = false
+}
+
+variable "mithril_p2p_use_dmq_protocol" {
+  type        = bool
+  description = "Use the Decentralized Message Queue protocol (DMQ) (experimental, for test only)"
   default     = false
 }
 
@@ -457,6 +473,7 @@ variable "mithril_signers" {
     type    = string
     pool_id = string
   }))
+  description = "The Mithril signers configuration to deploy"
   default = {
     "1" = {
       type    = "unverified-cardano-passive",

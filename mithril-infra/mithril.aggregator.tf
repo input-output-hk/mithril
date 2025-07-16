@@ -76,6 +76,7 @@ EOT
     inline = [
       "set -e",
       "export NETWORK=${var.cardano_network}",
+      "export NETWORK_MAGIC=${var.cardano_network_magic_map[var.cardano_network]}",
       "export CARDANO_IMAGE_ID=${var.cardano_image_id}",
       "export CARDANO_IMAGE_REGISTRY=${var.cardano_image_registry}",
       "export MITHRIL_IMAGE_ID=${var.mithril_image_id}",
@@ -156,6 +157,10 @@ fi
 # Support for aggregator follower
 if [ "${local.mithril_aggregator_is_follower}" = "true" ]; then
   DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-aggregator-follower-override.yaml"
+fi
+# Support for DMQ protocol
+if [ "${var.mithril_p2p_use_dmq_protocol}" = "true" ]; then
+ DOCKER_COMPOSE_FILES="$DOCKER_COMPOSE_FILES -f $DOCKER_DIRECTORY/docker-compose-aggregator-p2p-dmq-override.yaml"
 fi
 EOT
       ,
