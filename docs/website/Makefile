@@ -1,4 +1,5 @@
-.PHONY: clean install build serve dev upgrade
+.PHONY: clean install build serve dev lint format upgrade update-current \
+	swizzled-components-upgrade swizzled-components-clean reswizzle-components swizzled-components-apply-patches
 
 package-lock.json:
 	npm install
@@ -27,6 +28,12 @@ clean:
 	rm -rf build
 	rm package-lock.json || true
 
+lint:
+	npm run pretty:check
+
+format:
+	npm run pretty:write
+
 upgrade: clean install
 	# Update to the latest version of react and react-dom when it is supported and does not create dependency conflicts
 	npm install \
@@ -50,8 +57,34 @@ update-current:
 	# Remove the entry for the temporary version in the versions.json file
 	sed -i '/updated/d' versions.json
 
-lint:
-	npm run pretty:check
+swizzled-components-upgrade: swizzled-components-clean reswizzle-components swizzled-components-apply-patches
 
-format:
-	npm run pretty:write
+swizzled-components-clean:
+	@echo "\033[1mRemoving swizzled components\033[0m"
+	rm -rf ./src/theme/Footer ./src/theme/Navbar
+	@echo
+
+reswizzle-components:
+	@echo "\033[1mRe-swizzling Docusaurus components\033[0m"
+	npm run swizzle @docusaurus/theme-classic Footer/Layout -- --eject --typescript
+	npm run swizzle @docusaurus/theme-classic Footer/LinkItem -- --eject --typescript
+	npm run swizzle @docusaurus/theme-classic Footer/Links/MultiColumn -- --eject --typescript
+	npm run swizzle @docusaurus/theme-classic Footer/Logo -- --eject --typescript
+
+	npm run swizzle @docusaurus/theme-classic Navbar/Content -- --eject --typescript --danger
+	npm run swizzle @docusaurus/theme-classic Navbar/Layout -- --eject --typescript --danger
+	npm run swizzle @docusaurus/theme-classic Navbar/MobileSidebar/Layout -- --eject --typescript --danger
+	npm run swizzle @docusaurus/theme-classic Navbar/MobileSidebar/PrimaryMenu -- --eject --typescript --danger
+
+	@echo "\033[1mApplying prettier\033[0m"
+	prettier --write ./src/theme/Footer ./src/theme/Navbar
+	@echo
+
+swizzled-components-apply-patches:
+	@echo "\033[1mTrying to apply custom changes ...\033[33m conflicts must be handled manually\033[0m"
+	$(MAKE) $(wildcard ./upgrade/*.patch)
+
+upgrade/%.patch: src/theme
+	@echo "git apply --verbose --reject ${@}"
+	@git apply --verbose --reject $@ || echo "\033[31mPatch '${@}' failed, check '.rej' files\033[0m"
+	@echo

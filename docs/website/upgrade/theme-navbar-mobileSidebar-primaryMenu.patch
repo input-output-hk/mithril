@@ -1,0 +1,27 @@
+diff --git a/docs/website/src/theme/Navbar/MobileSidebar/PrimaryMenu/index.tsx b/docs/website/src/theme/Navbar/MobileSidebar/PrimaryMenu/index.tsx
+index 8c51b751e..2c4260043 100644
+--- a/docs/website/src/theme/Navbar/MobileSidebar/PrimaryMenu/index.tsx
++++ b/docs/website/src/theme/Navbar/MobileSidebar/PrimaryMenu/index.tsx
+@@ -2,6 +2,7 @@ import React, { type ReactNode } from "react";
+ import { useThemeConfig } from "@docusaurus/theme-common";
+ import { useNavbarMobileSidebar } from "@docusaurus/theme-common/internal";
+ import NavbarItem, { type Props as NavbarItemConfig } from "@theme/NavbarItem";
++import Discord from "../../../../components/icons/Discord";
+
+ function useNavbarItems() {
+   // TODO temporary casting until ThemeConfig type is improved
+@@ -26,6 +27,14 @@ export default function NavbarMobilePrimaryMenu(): ReactNode {
+           key={i}
+         />
+       ))}
++      <a
++        href="https://discord.gg/5kaErDKDRq"
++        target="_blank"
++        rel="noopener noreferrer"
++        className="hover:text-blue-light mx-3 my-2 py-1 flex"
++      >
++        <Discord />
++      </a>
+     </ul>
+   );
+ }
