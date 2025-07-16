@@ -7,12 +7,10 @@ pub mod p2p;
 mod relay;
 mod repeater;
 
-pub use commands::Args;
-pub use commands::RelayCommands;
-pub use relay::AggregatorRelay;
-pub use relay::PassiveRelay;
-pub use relay::SignerRelay;
-pub use relay::SignerRelayMode;
+pub use commands::{Args, RelayCommands};
+pub use relay::{
+    AggregatorRelay, PassiveRelay, SignerRelay, SignerRelayConfiguration, SignerRelayMode,
+};
 
 /// The P2P topic names used by Mithril
 pub mod mithril_p2p_topic {

@@ -12,7 +12,7 @@ use mithril_common::CardanoNetwork;
 use mithril_common::messages::{RegisterSignatureMessageHttp, RegisterSignerMessage};
 use mithril_common::test_utils::double::Dummy;
 use mithril_relay::{
-    PassiveRelay, SignerRelay, SignerRelayMode,
+    PassiveRelay, SignerRelay, SignerRelayConfiguration, SignerRelayMode,
     p2p::{BroadcastMessage, PeerBehaviourEvent, PeerEvent},
 };
 
@@ -49,19 +49,19 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
     let signature_registration_mode = SignerRelayMode::P2P;
     let aggregator_endpoint = "http://0.0.0.0:1234".to_string();
     let signer_repeater_delay = Duration::from_secs(100);
-    let mut signer_relay = SignerRelay::start(
-        &addr,
-        &server_port,
+    let mut signer_relay = SignerRelay::start(SignerRelayConfiguration {
+        address: &addr,
+        server_port: &server_port,
         #[cfg(feature = "future_dmq")]
-        &dmq_node_socket_path,
+        dmq_node_socket_path: &dmq_node_socket_path,
         #[cfg(feature = "future_dmq")]
-        &cardano_network,
-        &signer_registration_mode,
-        &signature_registration_mode,
-        &aggregator_endpoint,
-        &signer_repeater_delay,
-        &logger,
-    )
+        cardano_network: &cardano_network,
+        signer_registration_mode: &signer_registration_mode,
+        signature_registration_mode: &signature_registration_mode,
+        aggregator_endpoint: &aggregator_endpoint,
+        signer_repeater_delay: &signer_repeater_delay,
+        logger: &logger,
+    })
     .await
     .expect("Relay start failed");
     let relay_address = signer_relay.address();

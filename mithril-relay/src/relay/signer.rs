@@ -57,6 +57,30 @@ struct HTTPServerConfiguration<'a> {
     logger: &'a Logger,
 }
 
+/// Configuration for a Mithril Signer Relay
+pub struct SignerRelayConfiguration<'a> {
+    /// Address on which the HTTP server will listen
+    pub address: &'a Multiaddr,
+    /// Port on which the HTTP server will listen
+    pub server_port: &'a u16,
+    /// Path to the DMQ node socket file
+    #[cfg(feature = "future_dmq")]
+    pub dmq_node_socket_path: &'a Path,
+    /// Cardano network
+    #[cfg(feature = "future_dmq")]
+    pub cardano_network: &'a CardanoNetwork,
+    /// Signer registration mode
+    pub signer_registration_mode: &'a SignerRelayMode,
+    /// Signature registration mode
+    pub signature_registration_mode: &'a SignerRelayMode,
+    /// Aggregator endpoint URL
+    pub aggregator_endpoint: &'a str,
+    /// Delay for repeating a signer registration message
+    pub signer_repeater_delay: &'a Duration,
+    /// Logger for the signer relay
+    pub logger: &'a Logger,
+}
+
 /// A relay for a Mithril signer
 pub struct SignerRelay {
     http_server: TestHttpServer,
@@ -73,32 +97,22 @@ pub struct SignerRelay {
 
 impl SignerRelay {
     /// Start a relay for a Mithril signer
-    pub async fn start(
-        address: &Multiaddr,
-        server_port: &u16,
-        #[cfg(feature = "future_dmq")] dmq_node_socket_path: &Path,
-        #[cfg(feature = "future_dmq")] cardano_network: &CardanoNetwork,
-        signer_registration_mode: &SignerRelayMode,
-        signature_registration_mode: &SignerRelayMode,
-        aggregator_endpoint: &str,
-        signer_repeater_delay: &Duration,
-        logger: &Logger,
-    ) -> StdResult<Self> {
-        let relay_logger = logger.new_with_component_name::<Self>();
-        debug!(relay_logger, "Starting..."; "signer_registration_mode" => ?signer_registration_mode, "signature_registration_mode" => ?signature_registration_mode);
+    pub async fn start(config: SignerRelayConfiguration<'_>) -> StdResult<Self> {
+        let relay_logger = config.logger.new_with_component_name::<Self>();
+        debug!(relay_logger, "Starting..."; "signer_registration_mode" => ?config.signer_registration_mode, "signature_registration_mode" => ?config.signature_registration_mode);
         let (signature_tx, signature_rx) = unbounded_channel::<RegisterSignatureMessageHttp>();
         let (signer_tx, signer_rx) = unbounded_channel::<RegisterSignerMessage>();
         let signer_repeater = Arc::new(MessageRepeater::new(
             signer_tx.clone(),
-            signer_repeater_delay.to_owned(),
-            logger,
+            config.signer_repeater_delay.to_owned(),
+            config.logger,
         ));
-        let peer = Peer::new(address).start().await?;
+        let peer = Peer::new(config.address).start().await?;
         let http_server = Self::start_http_server(&HTTPServerConfiguration {
-            server_port,
-            signer_registration_mode: signer_registration_mode.to_owned(),
-            signature_registration_mode: signature_registration_mode.to_owned(),
-            aggregator_endpoint,
+            server_port: config.server_port,
+            signer_registration_mode: config.signer_registration_mode.to_owned(),
+            signature_registration_mode: config.signature_registration_mode.to_owned(),
+            aggregator_endpoint: config.aggregator_endpoint,
             signer_tx: signer_tx.clone(),
             signature_tx: signature_tx.clone(),
             signer_repeater: signer_repeater.clone(),
@@ -113,8 +127,8 @@ impl SignerRelay {
             let (signature_dmq_tx, signature_dmq_rx) = unbounded_channel::<DmqMessage>();
             #[cfg(unix)]
             let _dmq_publisher_server = Self::start_dmq_publisher_server(
-                dmq_node_socket_path,
-                cardano_network,
+                config.dmq_node_socket_path,
+                config.cardano_network,
                 signature_dmq_tx,
                 stop_rx,
                 relay_logger.clone(),
@@ -280,10 +294,7 @@ impl SignerRelay {
 
                 Ok(())
             }
-            None => {
-                //debug!(self.logger, "No DMQ signature message available");
-                Ok(())
-            }
+            None => Ok(()),
         }
     }
 
