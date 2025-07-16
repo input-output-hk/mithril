@@ -28,7 +28,7 @@ export default function NavbarMobilePrimaryMenu(): ReactNode {
         />
       ))}
       <a
-        href="https://discord.com/invite/Qq5vNTg9PT"
+        href="https://discord.gg/5kaErDKDRq"
         target="_blank"
         rel="noopener noreferrer"
         className="hover:text-blue-light mx-3 my-2 py-1 flex"
