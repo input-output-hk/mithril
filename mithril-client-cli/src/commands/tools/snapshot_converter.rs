@@ -8,7 +8,10 @@ use std::{
 use anyhow::{Context, anyhow};
 use clap::{Parser, ValueEnum};
 
-use mithril_client::MithrilResult;
+use mithril_client::{
+    MithrilError, MithrilResult,
+    common::{CardanoNetwork, MagicId, PREPROD_MAGIC_ID, PREVIEW_MAGIC_ID},
+};
 
 use crate::utils::{
     ArchiveUnpacker, GitHubReleaseRetriever, HttpDownloader, ReqwestGitHubApiClient,
@@ -34,10 +37,6 @@ const SNAPSHOT_CONVERTER_CONFIG_FILE: &str = "config.json";
 const LEDGER_DIR: &str = "ledger";
 const PROTOCOL_MAGIC_ID_FILE: &str = "protocolMagicId";
 
-const MAINNET_MAGIC_ID: u32 = 764824073;
-const PREPROD_MAGIC_ID: u32 = 1;
-const PREVIEW_MAGIC_ID: u32 = 2;
-
 const CONVERSION_FALLBACK_LIMIT: usize = 2;
 
 #[derive(Debug, Clone, ValueEnum, Eq, PartialEq)]
@@ -58,18 +57,35 @@ impl fmt::Display for UTxOHDFlavor {
 }
 
 #[derive(Debug, Clone, ValueEnum, Eq, PartialEq)]
-enum CardanoNetwork {
+enum CardanoNetworkCliArg {
     Preview,
     Preprod,
     Mainnet,
 }
 
-impl fmt::Display for CardanoNetwork {
+impl fmt::Display for CardanoNetworkCliArg {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Preview => write!(f, "preview"),
             Self::Preprod => write!(f, "preprod"),
             Self::Mainnet => write!(f, "mainnet"),
+        }
+    }
+}
+
+impl TryFrom<CardanoNetwork> for CardanoNetworkCliArg {
+    type Error = MithrilError;
+
+    fn try_from(network: CardanoNetwork) -> Result<Self, Self::Error> {
+        match network {
+            CardanoNetwork::MainNet => Ok(Self::Mainnet),
+            CardanoNetwork::TestNet(magic_id) => match magic_id {
+                PREVIEW_MAGIC_ID => Ok(Self::Preview),
+                PREPROD_MAGIC_ID => Ok(Self::Preprod),
+                _ => Err(anyhow!(
+                    "Cardano network not supported for ledger state snapshot conversion: {network:?}",
+                )),
+            },
         }
     }
 }
@@ -133,7 +149,7 @@ pub struct SnapshotConverterCommand {
         since = "0.12.12",
         note = "optional: automatically detected from the protocolMagicId file"
     )]
-    cardano_network: Option<CardanoNetwork>,
+    cardano_network: Option<CardanoNetworkCliArg>,
 
     /// UTxO-HD flavor to convert the ledger snapshot to (`Legacy` or `LMDB`).
     #[clap(long)]
@@ -279,7 +295,7 @@ impl SnapshotConverterCommand {
         work_dir: &Path,
         db_dir: &Path,
         distribution_dir: &Path,
-        cardano_network: &CardanoNetwork,
+        cardano_network: &CardanoNetworkCliArg,
         utxo_hd_flavor: &UTxOHDFlavor,
         commit: bool,
     ) -> MithrilResult<()> {
@@ -374,7 +390,7 @@ impl SnapshotConverterCommand {
 
     fn get_snapshot_converter_config_path(
         distribution_dir: &Path,
-        network: &CardanoNetwork,
+        network: &CardanoNetworkCliArg,
     ) -> PathBuf {
         distribution_dir
             .join(SNAPSHOT_CONVERTER_CONFIG_DIR)
@@ -520,7 +536,7 @@ impl SnapshotConverterCommand {
         Ok(())
     }
 
-    fn detect_cardano_network(db_dir: &Path) -> MithrilResult<CardanoNetwork> {
+    fn detect_cardano_network(db_dir: &Path) -> MithrilResult<CardanoNetworkCliArg> {
         let magic_id_path = db_dir.join(PROTOCOL_MAGIC_ID_FILE);
         let content = std::fs::read_to_string(&magic_id_path).with_context(|| {
             format!(
@@ -528,17 +544,13 @@ impl SnapshotConverterCommand {
                 magic_id_path.display()
             )
         })?;
-        let id: u32 = content
+        let id: MagicId = content
             .trim()
             .parse()
             .with_context(|| format!("Invalid protocolMagicId value: '{}'", content.trim()))?;
+        let network = CardanoNetwork::from(id);
 
-        match id {
-            MAINNET_MAGIC_ID => Ok(CardanoNetwork::Mainnet),
-            PREPROD_MAGIC_ID => Ok(CardanoNetwork::Preprod),
-            PREVIEW_MAGIC_ID => Ok(CardanoNetwork::Preview),
-            _ => Err(anyhow!("Unknown protocolMagicId value: '{}'", id)),
-        }
+        CardanoNetworkCliArg::try_from(network)
     }
 }
 
@@ -727,7 +739,7 @@ mod tests {
         #[test]
         fn returns_config_path_for_mainnet() {
             let distribution_dir = PathBuf::from("/path/to/distribution");
-            let network = CardanoNetwork::Mainnet;
+            let network = CardanoNetworkCliArg::Mainnet;
 
             let config_path = SnapshotConverterCommand::get_snapshot_converter_config_path(
                 &distribution_dir,
@@ -746,7 +758,7 @@ mod tests {
         #[test]
         fn returns_config_path_for_preprod() {
             let distribution_dir = PathBuf::from("/path/to/distribution");
-            let network = CardanoNetwork::Preprod;
+            let network = CardanoNetworkCliArg::Preprod;
 
             let config_path = SnapshotConverterCommand::get_snapshot_converter_config_path(
                 &distribution_dir,
@@ -765,7 +777,7 @@ mod tests {
         #[test]
         fn returns_config_path_for_preview() {
             let distribution_dir = PathBuf::from("/path/to/distribution");
-            let network = CardanoNetwork::Preview;
+            let network = CardanoNetworkCliArg::Preview;
 
             let config_path = SnapshotConverterCommand::get_snapshot_converter_config_path(
                 &distribution_dir,
@@ -973,9 +985,11 @@ mod tests {
     }
 
     mod detect_cardano_network {
+        use mithril_client::common::MAINNET_MAGIC_ID;
+
         use super::*;
 
-        fn create_protocol_magic_id_file(db_dir: &Path, magic_id: u32) -> PathBuf {
+        fn create_protocol_magic_id_file(db_dir: &Path, magic_id: MagicId) -> PathBuf {
             let file_path = db_dir.join(PROTOCOL_MAGIC_ID_FILE);
             std::fs::write(&file_path, magic_id.to_string()).unwrap();
 
@@ -989,7 +1003,7 @@ mod tests {
 
             let network = SnapshotConverterCommand::detect_cardano_network(&db_dir).unwrap();
 
-            assert_eq!(network, CardanoNetwork::Mainnet);
+            assert_eq!(network, CardanoNetworkCliArg::Mainnet);
         }
 
         #[test]
@@ -999,7 +1013,7 @@ mod tests {
 
             let network = SnapshotConverterCommand::detect_cardano_network(&db_dir).unwrap();
 
-            assert_eq!(network, CardanoNetwork::Preprod);
+            assert_eq!(network, CardanoNetworkCliArg::Preprod);
         }
 
         #[test]
@@ -1009,7 +1023,7 @@ mod tests {
 
             let network = SnapshotConverterCommand::detect_cardano_network(&db_dir).unwrap();
 
-            assert_eq!(network, CardanoNetwork::Preview);
+            assert_eq!(network, CardanoNetworkCliArg::Preview);
         }
 
         #[test]

@@ -40,8 +40,8 @@ pub use cardano_database::{
     ImmutablesLocations,
 };
 pub use cardano_db_beacon::CardanoDbBeacon;
-pub use cardano_network::CardanoNetwork;
 pub(crate) use cardano_network::DEVNET_MAGIC_ID;
+pub use cardano_network::{CardanoNetwork, MAINNET_MAGIC_ID, PREPROD_MAGIC_ID, PREVIEW_MAGIC_ID};
 pub use cardano_stake_distribution::CardanoStakeDistribution;
 pub use cardano_transaction::{CardanoTransaction, TransactionHash};
 pub use cardano_transactions_set_proof::CardanoTransactionsSetProof;

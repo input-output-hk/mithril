@@ -4,9 +4,13 @@ use thiserror::Error;
 
 use crate::{MagicId, StdResult};
 
-const MAINNET_MAGIC_ID: MagicId = 764824073;
-const PREPROD_MAGIC_ID: MagicId = 1;
-const PREVIEW_MAGIC_ID: MagicId = 2;
+/// Mainnet magic ID
+pub const MAINNET_MAGIC_ID: MagicId = 764824073;
+/// Preprod magic ID
+pub const PREPROD_MAGIC_ID: MagicId = 1;
+/// Preview magic ID
+pub const PREVIEW_MAGIC_ID: MagicId = 2;
+/// Devnet magic ID
 pub(crate) const DEVNET_MAGIC_ID: MagicId = 42;
 
 #[derive(Error, Debug)]
