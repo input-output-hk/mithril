@@ -98,6 +98,15 @@ impl From<&CardanoNetwork> for String {
     }
 }
 
+impl From<MagicId> for CardanoNetwork {
+    fn from(magic_id: MagicId) -> Self {
+        match magic_id {
+            MAINNET_MAGIC_ID => Self::MainNet,
+            _ => Self::TestNet(magic_id),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -211,5 +220,29 @@ mod tests {
         assert_all_conversions_eq(CardanoNetwork::TestNet(PREVIEW_MAGIC_ID), "preview");
         assert_all_conversions_eq(CardanoNetwork::TestNet(PREPROD_MAGIC_ID), "preprod");
         assert_all_conversions_eq(CardanoNetwork::TestNet(123456), "private");
+    }
+
+    #[test]
+    fn cardano_network_from_magic_id_roundtrip() {
+        fn assert_magic_id_conversion_roundtrip(magic_id: MagicId, expected: CardanoNetwork) {
+            let network = CardanoNetwork::from(magic_id);
+            assert_eq!(network, expected);
+            assert_eq!(network.code(), magic_id);
+        }
+
+        assert_magic_id_conversion_roundtrip(MAINNET_MAGIC_ID, CardanoNetwork::MainNet);
+        assert_magic_id_conversion_roundtrip(
+            PREVIEW_MAGIC_ID,
+            CardanoNetwork::TestNet(PREVIEW_MAGIC_ID),
+        );
+        assert_magic_id_conversion_roundtrip(
+            PREPROD_MAGIC_ID,
+            CardanoNetwork::TestNet(PREPROD_MAGIC_ID),
+        );
+        assert_magic_id_conversion_roundtrip(
+            DEVNET_MAGIC_ID,
+            CardanoNetwork::TestNet(DEVNET_MAGIC_ID),
+        );
+        assert_magic_id_conversion_roundtrip(123456, CardanoNetwork::TestNet(123456));
     }
 }
