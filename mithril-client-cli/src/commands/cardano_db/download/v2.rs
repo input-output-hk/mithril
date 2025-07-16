@@ -15,7 +15,10 @@ use mithril_client::{
 use crate::{
     CommandContext,
     commands::{
-        cardano_db::{download::DB_DIRECTORY_NAME, shared_steps},
+        cardano_db::{
+            download::DB_DIRECTORY_NAME,
+            shared_steps::{self, ComputeCardanoDatabaseMessageOptions},
+        },
         client_builder,
     },
     utils::{
@@ -139,13 +142,17 @@ impl PreparedCardanoDbV2Download {
             )
         })?;
 
+        let options = ComputeCardanoDatabaseMessageOptions {
+            db_dir: restoration_options.db_dir.clone(),
+            immutable_file_range: restoration_options.immutable_file_range,
+            allow_missing: false,
+        };
         let message = shared_steps::compute_cardano_db_snapshot_message(
             5,
             &progress_printer,
             &certificate,
             &cardano_db_message,
-            &restoration_options.immutable_file_range,
-            &restoration_options.db_dir,
+            &options,
             &verified_digests,
         )
         .await?;

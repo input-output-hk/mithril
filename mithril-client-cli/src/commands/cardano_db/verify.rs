@@ -15,7 +15,10 @@ use mithril_client::{
 use crate::{
     CommandContext,
     commands::{
-        cardano_db::{CardanoDbCommandsBackend, shared_steps},
+        cardano_db::{
+            CardanoDbCommandsBackend,
+            shared_steps::{self, ComputeCardanoDatabaseMessageOptions},
+        },
         client_builder,
     },
     configuration::{ConfigError, ConfigSource},
@@ -53,6 +56,10 @@ pub struct CardanoDbVerifyCommand {
     /// If not set, the verify will continue until the last certified immutable file.
     #[clap(long)]
     end: Option<ImmutableFileNumber>,
+
+    /// If set, the verification will not fail if some immutable files are missing.
+    #[clap(long)]
+    allow_missing: bool,
 }
 
 impl CardanoDbVerifyCommand {
@@ -134,13 +141,17 @@ impl CardanoDbVerifyCommand {
         )
         .await?;
 
+        let options = ComputeCardanoDatabaseMessageOptions {
+            db_dir: db_dir.to_path_buf(),
+            immutable_file_range,
+            allow_missing: self.allow_missing,
+        };
         let message = shared_steps::compute_cardano_db_snapshot_message(
             3,
             &progress_printer,
             &certificate,
             &cardano_db_message,
-            &immutable_file_range,
-            db_dir,
+            &options,
             &verified_digests,
         )
         .await;

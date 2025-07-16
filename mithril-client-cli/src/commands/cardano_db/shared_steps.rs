@@ -1,7 +1,7 @@
 use anyhow::{Context, anyhow};
 use chrono::Utc;
 use slog::{Logger, debug, warn};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use mithril_client::{
     CardanoDatabaseSnapshot, Client, MessageBuilder, MithrilCertificate, MithrilResult,
@@ -10,6 +10,12 @@ use mithril_client::{
 };
 
 use crate::utils::{CardanoDbUtils, ProgressPrinter};
+
+pub struct ComputeCardanoDatabaseMessageOptions {
+    pub db_dir: PathBuf,
+    pub immutable_file_range: ImmutableFileRange,
+    pub allow_missing: bool,
+}
 
 pub async fn fetch_certificate_and_verifying_chain(
     step_number: u16,
@@ -69,8 +75,7 @@ pub async fn compute_cardano_db_snapshot_message(
     progress_printer: &ProgressPrinter,
     certificate: &MithrilCertificate,
     cardano_database_snapshot: &CardanoDatabaseSnapshot,
-    immutable_file_range: &ImmutableFileRange,
-    database_dir: &Path,
+    options: &ComputeCardanoDatabaseMessageOptions,
     verified_digest: &VerifiedDigests,
 ) -> MithrilResult<ProtocolMessage> {
     progress_printer.report_step(step_number, "Computing the cardano db snapshot message")?;
@@ -79,8 +84,9 @@ pub async fn compute_cardano_db_snapshot_message(
         MessageBuilder::new().compute_cardano_database_message(
             certificate,
             cardano_database_snapshot,
-            immutable_file_range,
-            database_dir,
+            &options.immutable_file_range,
+            options.allow_missing,
+            &options.db_dir,
             verified_digest,
         ),
     )
