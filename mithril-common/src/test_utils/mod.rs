@@ -6,6 +6,7 @@
 //! * A builder of [MithrilFixture] to generate signers alongside a stake distribution
 //!
 
+pub mod double;
 pub mod fake_data;
 pub mod fake_keys;
 pub mod mock_extensions;
