@@ -7,10 +7,9 @@ use crate::CardanoNetwork;
 use crate::crypto_helper::{self, ProtocolMultiSignature};
 use crate::entities::{
     self, AncillaryLocations, BlockNumber, CardanoDatabaseSnapshotArtifactData,
-    CertificateMetadata, CertificateSignature, CompressionAlgorithm, DEVNET_MAGIC_ID,
-    DigestsLocations, Epoch, ImmutablesLocations, LotteryIndex, ProtocolMessage,
-    ProtocolMessagePartKey, SignedEntityType, SingleSignature, SlotNumber, StakeDistribution,
-    StakeDistributionParty,
+    CertificateMetadata, CertificateSignature, CompressionAlgorithm, DigestsLocations, Epoch,
+    ImmutablesLocations, LotteryIndex, ProtocolMessage, ProtocolMessagePartKey, SignedEntityType,
+    SingleSignature, SlotNumber, StakeDistribution, StakeDistributionParty,
 };
 use crate::test_utils::MithrilFixtureBuilder;
 
@@ -18,7 +17,7 @@ use super::fake_keys;
 
 /// Fake network
 pub fn network() -> crate::CardanoNetwork {
-    crate::CardanoNetwork::TestNet(DEVNET_MAGIC_ID)
+    crate::CardanoNetwork::TestNet(CardanoNetwork::DEVNET_MAGIC_ID)
 }
 
 /// Fake Beacon

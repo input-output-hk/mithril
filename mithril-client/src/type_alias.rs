@@ -70,9 +70,9 @@ pub mod common {
     pub use mithril_common::entities::{
         AncillaryLocation, BlockHash, BlockNumber, CardanoDbBeacon, CardanoNetwork, ChainPoint,
         CompressionAlgorithm, DigestLocation, Epoch, ImmutableFileNumber, ImmutablesLocation,
-        MAINNET_MAGIC_ID, MagicId, MultiFilesUri, PREPROD_MAGIC_ID, PREVIEW_MAGIC_ID,
-        ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters, SignedEntityType, SlotNumber,
-        StakeDistribution, SupportedEra, TemplateUri, TransactionHash,
+        MagicId, MultiFilesUri, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
+        SignedEntityType, SlotNumber, StakeDistribution, SupportedEra, TemplateUri,
+        TransactionHash,
     };
     pub use mithril_common::messages::{
         AncillaryMessagePart, DigestsMessagePart, ImmutablesMessagePart,

@@ -10,7 +10,7 @@ use clap::{Parser, ValueEnum};
 
 use mithril_client::{
     MithrilError, MithrilResult,
-    common::{CardanoNetwork, MagicId, PREPROD_MAGIC_ID, PREVIEW_MAGIC_ID},
+    common::{CardanoNetwork, MagicId},
 };
 
 use crate::utils::{
@@ -80,8 +80,8 @@ impl TryFrom<CardanoNetwork> for CardanoNetworkCliArg {
         match network {
             CardanoNetwork::MainNet => Ok(Self::Mainnet),
             CardanoNetwork::TestNet(magic_id) => match magic_id {
-                PREVIEW_MAGIC_ID => Ok(Self::Preview),
-                PREPROD_MAGIC_ID => Ok(Self::Preprod),
+                CardanoNetwork::PREVIEW_MAGIC_ID => Ok(Self::Preview),
+                CardanoNetwork::PREPROD_MAGIC_ID => Ok(Self::Preprod),
                 _ => Err(anyhow!(
                     "Cardano network not supported for ledger state snapshot conversion: {network:?}",
                 )),
@@ -985,8 +985,6 @@ mod tests {
     }
 
     mod detect_cardano_network {
-        use mithril_client::common::MAINNET_MAGIC_ID;
-
         use super::*;
 
         fn create_protocol_magic_id_file(db_dir: &Path, magic_id: MagicId) -> PathBuf {
@@ -999,7 +997,7 @@ mod tests {
         #[test]
         fn detects_mainnet() {
             let db_dir = temp_dir_create!();
-            create_protocol_magic_id_file(&db_dir, MAINNET_MAGIC_ID);
+            create_protocol_magic_id_file(&db_dir, CardanoNetwork::MAINNET_MAGIC_ID);
 
             let network = SnapshotConverterCommand::detect_cardano_network(&db_dir).unwrap();
 
@@ -1009,7 +1007,7 @@ mod tests {
         #[test]
         fn detects_preprod() {
             let db_dir = temp_dir_create!();
-            create_protocol_magic_id_file(&db_dir, PREPROD_MAGIC_ID);
+            create_protocol_magic_id_file(&db_dir, CardanoNetwork::PREPROD_MAGIC_ID);
 
             let network = SnapshotConverterCommand::detect_cardano_network(&db_dir).unwrap();
 
@@ -1019,7 +1017,7 @@ mod tests {
         #[test]
         fn detects_preview() {
             let db_dir = temp_dir_create!();
-            create_protocol_magic_id_file(&db_dir, PREVIEW_MAGIC_ID);
+            create_protocol_magic_id_file(&db_dir, CardanoNetwork::PREVIEW_MAGIC_ID);
 
             let network = SnapshotConverterCommand::detect_cardano_network(&db_dir).unwrap();
 
