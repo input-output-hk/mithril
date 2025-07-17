@@ -28,7 +28,7 @@ impl SignerEpochSettings {
     #[cfg(test)]
     /// Create a dummy SignerEpochSettings
     pub fn dummy() -> SignerEpochSettings {
-        use mithril_common::test_utils::fake_data;
+        use mithril_common::test_utils::{double::Dummy, fake_data};
 
         // Beacon
         let beacon = fake_data::beacon();

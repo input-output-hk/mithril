@@ -94,6 +94,7 @@ mod tests {
     use mithril_common::{
         crypto_helper::{KesSignerFake, TryToBytes},
         entities::{BlockNumber, ChainPoint, TimePoint},
+        test_utils::double::Dummy,
     };
 
     use super::*;

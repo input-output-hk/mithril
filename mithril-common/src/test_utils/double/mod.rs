@@ -2,6 +2,8 @@
 //!
 //! Enable unit testing with controlled inputs and predictable behavior.
 
+mod dummies;
+
 /// A trait for giving a type a dummy value.
 ///
 /// Sometimes in tests you need to provide a value for a type, but the actual value doesn't matter.

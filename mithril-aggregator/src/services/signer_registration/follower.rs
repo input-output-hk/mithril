@@ -180,7 +180,7 @@ mod tests {
     use mithril_common::messages::{
         EpochSettingsMessage, SignerMessagePart, TryFromMessageAdapter,
     };
-    use mithril_common::test_utils::MithrilFixtureBuilder;
+    use mithril_common::test_utils::{MithrilFixtureBuilder, double::Dummy};
 
     use crate::{
         database::{repository::SignerRegistrationStore, test_helper::main_db_connection},

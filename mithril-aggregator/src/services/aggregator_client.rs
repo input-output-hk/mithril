@@ -421,6 +421,7 @@ mod tests {
 
     use mithril_common::api_version::DummyApiVersionDiscriminantSource;
     use mithril_common::messages::CertificateListItemMessage;
+    use mithril_common::test_utils::double::Dummy;
 
     use crate::test_tools::TestLogger;
 

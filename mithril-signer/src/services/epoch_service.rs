@@ -428,7 +428,7 @@ mod tests {
     use tokio::sync::RwLock;
 
     use mithril_common::entities::{Epoch, StakeDistribution};
-    use mithril_common::test_utils::{MithrilFixtureBuilder, fake_data};
+    use mithril_common::test_utils::{MithrilFixtureBuilder, double::Dummy, fake_data};
 
     use crate::database::repository::{ProtocolInitializerRepository, StakePoolStore};
     use crate::database::test_helper::main_db_connection;

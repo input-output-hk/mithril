@@ -232,7 +232,9 @@ mod tests {
     use mithril_common::messages::{
         CardanoDatabaseImmutableFilesRestoredMessage, SnapshotDownloadMessage,
     };
-    use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER, temp_dir};
+    use mithril_common::{
+        MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER, temp_dir, test_utils::double::Dummy,
+    };
 
     use crate::ServeCommandDependenciesContainer;
     use crate::event_store::EventMessage;

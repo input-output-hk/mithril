@@ -80,7 +80,10 @@ impl SignerRegistrationVerifier for MithrilSignerRegistrationVerifier {
 #[cfg(test)]
 mod tests {
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
-    use mithril_common::{entities::TimePoint, test_utils::MithrilFixtureBuilder};
+    use mithril_common::{
+        entities::TimePoint,
+        test_utils::{MithrilFixtureBuilder, double::Dummy},
+    };
 
     use super::*;
 

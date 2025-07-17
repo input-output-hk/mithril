@@ -41,26 +41,6 @@ pub struct RegisterSignerMessage {
     pub kes_period: Option<KesPeriod>,
 }
 
-impl RegisterSignerMessage {
-    cfg_test_tools! {
-        /// Return a dummy test entity (test-only).
-        pub fn dummy() -> Self {
-            use crate::test_utils::fake_keys;
-
-            Self {
-                epoch: Epoch(1),
-                party_id: "pool1m8crhnqj5k2kyszf5j2scshupystyxc887zdfrpzh6ty6eun4fx".to_string(),
-                verification_key: fake_keys::signer_verification_key()[0].to_string(),
-                verification_key_signature: Some(
-                    fake_keys::signer_verification_key_signature()[0].to_string(),
-                ),
-                operational_certificate: Some(fake_keys::operational_certificate()[0].to_string()),
-                kes_period: Some(6),
-            }
-        }
-    }
-}
-
 impl Debug for RegisterSignerMessage {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let should_be_exhaustive = f.alternate();

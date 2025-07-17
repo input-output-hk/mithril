@@ -31,6 +31,7 @@ use mithril_common::{
     },
     test_utils::{
         MithrilFixture, MithrilFixtureBuilder, SignerFixture, StakeDistributionGenerationMethod,
+        double::Dummy,
     },
 };
 use mithril_era::{EraMarker, EraReader, adapters::EraReaderDummyAdapter};

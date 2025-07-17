@@ -128,6 +128,7 @@ mod tests {
 
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_common::entities::{BlockNumber, ChainPoint, TimePoint};
+    use mithril_common::test_utils::double::Dummy;
 
     use crate::test_tools::TestLogger;
 

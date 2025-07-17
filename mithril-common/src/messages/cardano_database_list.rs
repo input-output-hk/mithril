@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::entities::{CardanoDbBeacon, Epoch};
+use crate::entities::CardanoDbBeacon;
 
 /// Message structure of a Cardano database snapshot list
 pub type CardanoDatabaseSnapshotListMessage = Vec<CardanoDatabaseSnapshotListItemMessage>;
@@ -31,30 +31,10 @@ pub struct CardanoDatabaseSnapshotListItemMessage {
     pub created_at: DateTime<Utc>,
 }
 
-impl CardanoDatabaseSnapshotListItemMessage {
-    /// Return a dummy test entity (test-only).
-    pub fn dummy() -> Self {
-        Self {
-            hash: "d4071d518a3ace0f6c04a9c0745b9e9560e3e2af1b373bafc4e0398423e9abfb".to_string(),
-            merkle_root: "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6"
-                .to_string(),
-            beacon: CardanoDbBeacon {
-                epoch: Epoch(123),
-                immutable_file_number: 2345,
-            },
-            certificate_hash: "f6c01b373bafc4e039844071d5da3ace4a9c0745b9e9560e3e2af01823e9abfb"
-                .to_string(),
-            total_db_size_uncompressed: 800796318,
-            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
-                .unwrap()
-                .with_timezone(&Utc),
-            cardano_node_version: "0.0.1".to_string(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use crate::entities::Epoch;
+
     use super::*;
 
     const CURRENT_JSON: &str = r#"

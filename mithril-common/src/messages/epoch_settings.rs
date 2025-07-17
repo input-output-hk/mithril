@@ -27,26 +27,6 @@ pub struct EpochSettingsMessage {
     pub next_cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
 }
 
-impl EpochSettingsMessage {
-    cfg_test_tools! {
-        /// Dummy instance for test purposes.
-        pub fn dummy() -> Self {
-            Self {
-                epoch: Epoch(10),
-                signer_registration_protocol_parameters: ProtocolParameters {
-                    k: 5,
-                    m: 100,
-                    phi_f: 0.65,
-                },
-                current_signers: [SignerMessagePart::dummy()].to_vec(),
-                next_signers: [SignerMessagePart::dummy()].to_vec(),
-                cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
-                next_cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
 

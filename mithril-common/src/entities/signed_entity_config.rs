@@ -19,16 +19,6 @@ pub struct SignedEntityConfig {
 }
 
 impl SignedEntityConfig {
-    cfg_test_tools! {
-        /// Create a dummy SignedEntityConfig
-        pub fn dummy() -> Self {
-            Self {
-                allowed_discriminants: SignedEntityTypeDiscriminants::all(),
-                cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
-            }
-        }
-    }
-
     /// Default allowed discriminants
     ///
     /// Appended to the allowed discriminants in the configuration.
@@ -131,13 +121,6 @@ impl CardanoTransactionsSigningConfig {
             }
         }
 
-        /// Create a dummy config
-        pub fn dummy() -> Self {
-            Self {
-                security_parameter: BlockNumber(0),
-                step: BlockNumber(15),
-            }
-        }
     }
 
     /// Compute the block number to be signed based on the chain tip block number.
@@ -174,7 +157,7 @@ mod tests {
     use crate::entities::{
         CardanoDbBeacon, ChainPoint, Epoch, SignedEntityType, SlotNumber, TimePoint,
     };
-    use crate::test_utils::fake_data;
+    use crate::test_utils::{double::Dummy, fake_data};
 
     use super::*;
 

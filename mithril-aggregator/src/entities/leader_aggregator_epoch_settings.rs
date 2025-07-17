@@ -28,7 +28,7 @@ impl LeaderAggregatorEpochSettings {
     #[cfg(test)]
     /// Create a dummy LeaderAggregatorEpochSettings
     pub fn dummy() -> LeaderAggregatorEpochSettings {
-        use mithril_common::test_utils::fake_data;
+        use mithril_common::test_utils::{double::Dummy, fake_data};
 
         // Beacon
         let beacon = fake_data::beacon();

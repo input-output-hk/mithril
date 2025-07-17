@@ -40,6 +40,7 @@ impl EraReaderAdapter for DummyAdapter {
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::{Epoch, SupportedEra};
+    use mithril_common::test_utils::double::Dummy;
 
     use super::*;
 

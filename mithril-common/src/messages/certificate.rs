@@ -9,8 +9,6 @@ use crate::entities::{
     SignedEntityType,
 };
 use crate::messages::CertificateMetadataMessagePart;
-#[cfg(any(test, feature = "test_tools"))]
-use crate::{entities::ProtocolMessagePartKey, test_utils::fake_keys};
 
 /// Message structure of a certificate
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
@@ -60,35 +58,6 @@ pub struct CertificateMessage {
 }
 
 impl CertificateMessage {
-    cfg_test_tools! {
-        /// Return a dummy test entity (test-only).
-        pub fn dummy() -> Self {
-            let mut protocol_message = ProtocolMessage::new();
-            protocol_message.set_message_part(
-                ProtocolMessagePartKey::SnapshotDigest,
-                "snapshot-digest-123".to_string(),
-            );
-            protocol_message.set_message_part(
-                ProtocolMessagePartKey::NextAggregateVerificationKey,
-                fake_keys::aggregate_verification_key()[1].to_owned(),
-            );
-            let epoch = Epoch(10);
-
-            Self {
-                hash: "hash".to_string(),
-                previous_hash: "previous_hash".to_string(),
-                epoch,
-                signed_entity_type: SignedEntityType::MithrilStakeDistribution(epoch),
-                metadata: CertificateMetadataMessagePart::dummy(),
-                protocol_message: protocol_message.clone(),
-                signed_message: "signed_message".to_string(),
-                aggregate_verification_key: fake_keys::aggregate_verification_key()[0].to_owned(),
-                multi_signature: fake_keys::multi_signature()[0].to_owned(),
-                genesis_signature: String::new(),
-            }
-        }
-    }
-
     /// Check that the certificate signed message match the given protocol message.
     pub fn match_message(&self, message: &ProtocolMessage) -> bool {
         message.compute_hash() == self.signed_message
@@ -235,7 +204,9 @@ impl TryFrom<Certificate> for CertificateMessage {
 mod tests {
     use chrono::{DateTime, Utc};
 
-    use crate::entities::{CardanoDbBeacon, ProtocolParameters, StakeDistributionParty};
+    use crate::entities::{
+        CardanoDbBeacon, ProtocolMessagePartKey, ProtocolParameters, StakeDistributionParty,
+    };
 
     use super::*;
 

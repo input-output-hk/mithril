@@ -236,7 +236,7 @@ mod tests {
         MithrilCertificateMetadata,
         common::{CardanoDbBeacon, ProtocolMessagePartKey, SignedEntityType},
     };
-    use mithril_common::test_utils::TempDir;
+    use mithril_common::test_utils::{TempDir, double::Dummy};
 
     use super::*;
 

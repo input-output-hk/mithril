@@ -7,15 +7,6 @@ pub struct CardanoDatabaseImmutableFilesRestoredMessage {
     pub nb_immutable_files: u32,
 }
 
-impl CardanoDatabaseImmutableFilesRestoredMessage {
-    /// Return a dummy test entity (test-only).
-    pub fn dummy() -> Self {
-        Self {
-            nb_immutable_files: 34,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

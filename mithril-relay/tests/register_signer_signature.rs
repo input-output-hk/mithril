@@ -2,6 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use libp2p::{Multiaddr, gossipsub};
 use mithril_common::messages::{RegisterSignatureMessageHttp, RegisterSignerMessage};
+use mithril_common::test_utils::double::Dummy;
 use mithril_relay::{
     PassiveRelay, SignerRelay, SignerRelayMode,
     p2p::{BroadcastMessage, PeerBehaviourEvent, PeerEvent},

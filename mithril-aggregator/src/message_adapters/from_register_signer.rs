@@ -39,6 +39,8 @@ impl TryFromMessageAdapter<RegisterSignerMessage, Signer> for FromRegisterSigner
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::test_utils::double::Dummy;
+
     use super::*;
 
     #[test]

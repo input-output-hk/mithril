@@ -9,9 +9,6 @@ use crate::{
     entities::{HexEncodedSingleSignature, LotteryIndex, PartyId, SignedEntityType},
 };
 
-#[cfg(any(test, feature = "test_tools"))]
-use crate::test_utils::fake_keys;
-
 /// Message structure to register single signature through HTTP.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RegisterSignatureMessageHttp {
@@ -34,22 +31,6 @@ pub struct RegisterSignatureMessageHttp {
     /// Used to buffer the signature for later if the aggregator has yet to create an open message
     /// for the signed entity type.
     pub signed_message: String,
-}
-
-impl RegisterSignatureMessageHttp {
-    cfg_test_tools! {
-        /// Return a dummy test entity (test-only).
-        pub fn dummy() -> Self {
-            use crate::entities::Epoch;
-            Self {
-                signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(5)),
-                party_id: "party_id".to_string(),
-                signature: fake_keys::single_signature()[0].to_string(),
-                won_indexes: vec![1, 3],
-                signed_message: "6a7e737c312972d2346b65ac3075696e04286d046dddaf8004121e3d5e27cc0d".to_string(),
-            }
-        }
-    }
 }
 
 impl Debug for RegisterSignatureMessageHttp {
@@ -82,17 +63,6 @@ pub struct RegisterSignatureMessageDmq {
 }
 
 impl RegisterSignatureMessageDmq {
-    cfg_test_tools! {
-        /// Return a dummy test entity (test-only).
-        pub fn dummy() -> Self {
-            use crate::entities::Epoch;
-            Self {
-                signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(5)),
-                signature: fake_keys::single_signature()[0].try_into().unwrap(),
-            }
-        }
-    }
-
     /// Convert a `RegisterSignatureMessageDmq` into bytes
     ///
     /// # Layout

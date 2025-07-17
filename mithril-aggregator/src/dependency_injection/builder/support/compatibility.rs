@@ -33,7 +33,7 @@ impl DependenciesBuilder {
                 error: Some(e.into()),
             })?,
             _ => Arc::new(EraReaderDummyAdapter::from_markers(vec![EraMarker::new(
-                &SupportedEra::dummy().to_string(),
+                &SupportedEra::Pythagoras.to_string(),
                 Some(Epoch(0)),
             )])),
         };

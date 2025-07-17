@@ -1,4 +1,5 @@
 use mithril_client::{MithrilCertificate, MithrilCertificateListItem};
+use mithril_common::test_utils::double::Dummy;
 
 use crate::extensions::routes;
 

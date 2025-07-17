@@ -4,8 +4,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::entities::Epoch;
 use crate::entities::ProtocolParameters;
-#[cfg(any(test, feature = "test_tools"))]
-use crate::test_utils::fake_data;
 
 use super::SignerWithStakeMessagePart;
 /// Message structure of a Mithril Stake Distribution
@@ -31,26 +29,10 @@ pub struct MithrilStakeDistributionMessage {
     pub protocol_parameters: ProtocolParameters,
 }
 
-impl MithrilStakeDistributionMessage {
-    cfg_test_tools! {
-        /// Return a dummy test entity (test-only).
-        pub fn dummy() -> Self {
-            Self {
-                epoch: Epoch(1),
-                signers_with_stake: vec![SignerWithStakeMessagePart::dummy()],
-                hash: "hash-123".to_string(),
-                certificate_hash: "cert-hash-123".to_string(),
-                created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
-                    .unwrap()
-                    .with_timezone(&Utc),
-                protocol_parameters: fake_data::protocol_parameters(),
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use crate::test_utils::fake_data;
+
     use super::*;
 
     fn golden_message_current() -> MithrilStakeDistributionMessage {

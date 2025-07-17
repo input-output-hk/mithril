@@ -34,17 +34,6 @@ impl ChainPoint {
             block_hash: block_hash.into(),
         }
     }
-
-    cfg_test_tools! {
-        /// Create a dummy ChainPoint
-        pub fn dummy() -> Self {
-            Self {
-                slot_number: SlotNumber(100),
-                block_number: BlockNumber(0),
-                block_hash: "block_hash-50".to_string(),
-            }
-        }
-    }
 }
 
 impl Display for ChainPoint {

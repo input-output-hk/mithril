@@ -24,25 +24,6 @@ pub struct CardanoStakeDistributionMessage {
     pub created_at: DateTime<Utc>,
 }
 
-impl CardanoStakeDistributionMessage {
-    cfg_test_tools! {
-        /// Return a dummy test entity (test-only).
-        pub fn dummy() -> Self {
-            Self {
-                epoch: Epoch(1),
-                hash: "hash-123".to_string(),
-                certificate_hash: "cert-hash-123".to_string(),
-                stake_distribution: StakeDistribution::from([
-                    ("pool-123".to_string(), 1000),
-                ]),
-                created_at: DateTime::parse_from_rfc3339("2024-07-29T16:15:05.618857482Z")
-                    .unwrap()
-                    .with_timezone(&Utc),
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

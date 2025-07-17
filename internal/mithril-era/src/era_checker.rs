@@ -55,6 +55,8 @@ impl ApiVersionDiscriminantSource for EraChecker {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::test_utils::double::Dummy;
+
     use super::*;
 
     #[test]

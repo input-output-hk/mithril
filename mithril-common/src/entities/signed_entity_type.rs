@@ -67,11 +67,6 @@ pub enum SignedEntityType {
 }
 
 impl SignedEntityType {
-    /// Retrieve a dummy entity type (for test only)
-    pub fn dummy() -> Self {
-        Self::MithrilStakeDistribution(Epoch(5))
-    }
-
     /// Create a new signed entity type for a genesis certificate (a [Self::MithrilStakeDistribution])
     pub fn genesis(epoch: Epoch) -> Self {
         Self::MithrilStakeDistribution(epoch)

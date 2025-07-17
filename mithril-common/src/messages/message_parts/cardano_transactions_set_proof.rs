@@ -19,15 +19,6 @@ pub struct CardanoTransactionsSetProofMessagePart {
     pub proof: HexEncodedKey,
 }
 
-impl CardanoTransactionsSetProofMessagePart {
-    cfg_test_tools! {
-        /// Retrieve a dummy proof (for test only)
-        pub fn dummy() -> Self {
-            crate::entities::CardanoTransactionsSetProof::dummy().try_into().unwrap()
-        }
-    }
-}
-
 impl TryFrom<CardanoTransactionsSetProof> for CardanoTransactionsSetProofMessagePart {
     type Error = StdError;
 
