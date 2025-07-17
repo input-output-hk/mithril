@@ -1,6 +1,6 @@
 {
   "name": "client-wasm-web",
-  "version": "0.3.9",
+  "version": "0.3.10",
   "private": true,
   "scripts": {
     "build": "webpack --config webpack.config.js",
@@ -13,9 +13,9 @@
   },
   "devDependencies": {
     "copy-webpack-plugin": "^13.0.0",
-    "prettier": "^3.5.3",
-    "webpack": "^5.99.9",
+    "prettier": "^3.6.2",
+    "webpack": "^5.100.2",
     "webpack-cli": "^6.0.1",
-    "webpack-dev-server": "^5.2.1"
+    "webpack-dev-server": "^5.2.2"
   }
 }

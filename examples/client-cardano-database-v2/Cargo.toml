@@ -1,7 +1,7 @@
 [package]
 name = "client-cardano-database-v2"
 description = "Mithril client Cardano database example"
-version = "0.0.11"
+version = "0.0.12"
 authors = ["dev@iohk.io", "mithril-dev@iohk.io"]
 documentation = "https://mithril.network/doc"
 edition = "2021"
@@ -14,6 +14,6 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }
 futures = "0.3.31"
-indicatif = "0.17.11"
+indicatif = "0.18.0"
 mithril-client = { path = "../../mithril-client", features = ["fs"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

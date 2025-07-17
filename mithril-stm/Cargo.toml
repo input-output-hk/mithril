@@ -1,6 +1,6 @@
 [package]
 name = "mithril-stm"
-version = "0.4.9"
+version = "0.4.10"
 edition = { workspace = true }
 authors = { workspace = true }
 homepage = { workspace = true }
@@ -22,7 +22,7 @@ benchmark-internals = []                                           # For benchma
 [dependencies]
 blake2 = "0.10.6"
 # Enforce blst portable feature for runtime detection of Intel ADX instruction set.
-blst = { version = "0.3.14", features = ["portable"] }
+blst = { version = "0.3.15", features = ["portable"] }
 digest = { workspace = true }
 rand_core = { workspace = true }
 rayon = { workspace = true }
@@ -47,7 +47,7 @@ bincode = { version = "2.0.1", features = ["serde"] }
 criterion = { version = "0.6.0", features = ["html_reports"] }
 num-bigint = "0.4.6"
 num-rational = "0.4.2"
-proptest = "1.6.0"
+proptest = "1.7.0"
 rand = "0.9.1"
 rand_chacha = { workspace = true }
 

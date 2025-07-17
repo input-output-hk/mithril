@@ -55,7 +55,7 @@ anyhow = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }
-flate2 = { version = "1.1.1", optional = true }
+flate2 = { version = "1.1.2", optional = true }
 flume = { version = "0.11.1", optional = true }
 futures = "0.3.31"
 mithril-common = { path = "../mithril-common", version = ">=0.5", default-features = false }
@@ -86,7 +86,7 @@ uuid = { version = "1.17.0", features = ["v4", "js"] }
 [dev-dependencies]
 axum = { version = "0.8.4", features = ["json"] }
 axum-test = "17.3.0"
-bon = "3.6.3"
+bon = "3.6.4"
 hex = { workspace = true }
 http = "1.3.1"
 httpmock = "0.7.0"

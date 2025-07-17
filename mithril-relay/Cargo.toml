@@ -1,6 +1,6 @@
 [package]
 name = "mithril-relay"
-version = "0.1.46"
+version = "0.1.47"
 description = "A Mithril relay"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -17,7 +17,7 @@ bundle_tls = ["reqwest/native-tls-vendored"]
 anyhow = { workspace = true }
 clap = { workspace = true }
 config = { workspace = true }
-libp2p = { version = "0.55.0", features = [
+libp2p = { version = "0.56.0", features = [
     "tokio",
     "gossipsub",
     "dns",

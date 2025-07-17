@@ -48,7 +48,7 @@ chrono = { workspace = true }
 ciborium = "0.2.2"
 ckb-merkle-mountain-range = "0.6.1"
 digest = { workspace = true }
-ed25519-dalek = { version = "2.1.1", features = ["rand_core", "serde"] }
+ed25519-dalek = { version = "2.2.0", features = ["rand_core", "serde"] }
 fixed = "1.29.0"
 hex = { workspace = true }
 kes-summed-ed25519 = { version = "0.2.1", features = [
@@ -64,7 +64,7 @@ semver = { workspace = true }
 serde = { workspace = true }
 serde_bytes = "0.11.17"
 serde_json = { workspace = true }
-serde_with = "3.12.0"
+serde_with = "3.14.0"
 sha2 = "0.10.9"
 slog = { workspace = true }
 strum = { workspace = true }

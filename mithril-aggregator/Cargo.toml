@@ -22,7 +22,7 @@ async-trait = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true, features = ["cargo"] }
 config = { workspace = true }
-flate2 = "1.1.1"
+flate2 = "1.1.2"
 gcloud-kms = { version = "1.2.1", features = ["auth"] }
 gcloud-storage = { version = "1.1.0", features = ["auth"] }
 hex = { workspace = true }
