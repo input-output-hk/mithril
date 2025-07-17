@@ -167,11 +167,6 @@ impl CardanoCliRunner {
     fn post_config_command<'a>(&'a self, command: &'a mut Command) -> &'a mut Command {
         match self.network {
             CardanoNetwork::MainNet => command.arg("--mainnet"),
-            CardanoNetwork::DevNet(magic) => command.args(vec![
-                "--cardano-mode",
-                "--testnet-magic",
-                &magic.to_string(),
-            ]),
             CardanoNetwork::TestNet(magic) => {
                 command.args(vec!["--testnet-magic", &magic.to_string()])
             }
@@ -634,26 +629,6 @@ mod tests {
         assert_cli_command!(
             runner.command_for_stake_distribution(),
             r#""cardano-cli" "latest" "query" "stake-distribution" "--testnet-magic" "10""#,
-            envs: vec![(OsStr::new("CARDANO_NODE_SOCKET_PATH"), Some(OsStr::new("/tmp/whatever.sock")))]
-        );
-    }
-
-    #[tokio::test]
-    async fn test_cli_devnet_runner() {
-        let runner = CardanoCliRunner::new(
-            PathBuf::from("cardano-cli"),
-            PathBuf::from("/tmp/whatever.sock"),
-            CardanoNetwork::DevNet(25),
-        );
-
-        assert_cli_command!(
-            runner.command_for_epoch(),
-            r#""cardano-cli" "latest" "query" "tip" "--cardano-mode" "--testnet-magic" "25""#,
-            envs: vec![(OsStr::new("CARDANO_NODE_SOCKET_PATH"), Some(OsStr::new("/tmp/whatever.sock")))]
-        );
-        assert_cli_command!(
-            runner.command_for_stake_distribution(),
-            r#""cardano-cli" "latest" "query" "stake-distribution" "--cardano-mode" "--testnet-magic" "25""#,
             envs: vec![(OsStr::new("CARDANO_NODE_SOCKET_PATH"), Some(OsStr::new("/tmp/whatever.sock")))]
         );
     }

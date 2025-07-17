@@ -266,7 +266,7 @@ mod tests {
         let result = AncillaryArtifactBuilder::new(
             vec![],
             Arc::new(DumbSnapshotter::default()),
-            CardanoNetwork::DevNet(123),
+            CardanoNetwork::TestNet(123),
             TestLogger::stdout(),
         );
 
@@ -284,7 +284,7 @@ mod tests {
         let builder = AncillaryArtifactBuilder::new(
             vec![Arc::new(uploader)],
             Arc::new(DumbSnapshotter::default()),
-            CardanoNetwork::DevNet(123),
+            CardanoNetwork::TestNet(123),
             logger,
         )
         .unwrap();
@@ -301,7 +301,7 @@ mod tests {
         let builder = AncillaryArtifactBuilder::new(
             vec![Arc::new(uploader)],
             Arc::new(DumbSnapshotter::default()),
-            CardanoNetwork::DevNet(123),
+            CardanoNetwork::TestNet(123),
             TestLogger::stdout(),
         )
         .unwrap();
@@ -330,7 +330,7 @@ mod tests {
         let builder = AncillaryArtifactBuilder::new(
             uploaders,
             Arc::new(DumbSnapshotter::default()),
-            CardanoNetwork::DevNet(123),
+            CardanoNetwork::TestNet(123),
             TestLogger::stdout(),
         )
         .unwrap();
@@ -370,7 +370,7 @@ mod tests {
         let builder = AncillaryArtifactBuilder::new(
             uploaders,
             Arc::new(DumbSnapshotter::new(CompressionAlgorithm::Gzip)),
-            CardanoNetwork::DevNet(123),
+            CardanoNetwork::TestNet(123),
             TestLogger::stdout(),
         )
         .unwrap();
@@ -417,7 +417,7 @@ mod tests {
         let builder = AncillaryArtifactBuilder::new(
             vec![Arc::new(uploader)],
             Arc::new(DumbSnapshotter::new(CompressionAlgorithm::Gzip)),
-            CardanoNetwork::DevNet(123),
+            CardanoNetwork::TestNet(123),
             TestLogger::stdout(),
         )
         .unwrap();
@@ -442,7 +442,7 @@ mod tests {
         let builder = AncillaryArtifactBuilder::new(
             vec![Arc::new(uploader)],
             Arc::new(DumbSnapshotter::default()),
-            CardanoNetwork::DevNet(123),
+            CardanoNetwork::TestNet(123),
             TestLogger::stdout(),
         )
         .unwrap();
@@ -467,7 +467,7 @@ mod tests {
         let builder = AncillaryArtifactBuilder::new(
             vec![Arc::new(uploader)],
             Arc::new(snapshotter),
-            CardanoNetwork::DevNet(123),
+            CardanoNetwork::TestNet(123),
             TestLogger::stdout(),
         )
         .unwrap();
@@ -501,7 +501,7 @@ mod tests {
         let builder = AncillaryArtifactBuilder::new(
             vec![Arc::new(uploader)],
             Arc::new(snapshotter),
-            CardanoNetwork::DevNet(123),
+            CardanoNetwork::TestNet(123),
             TestLogger::stdout(),
         )
         .unwrap();

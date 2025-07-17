@@ -39,7 +39,7 @@ pub struct RouterConfig {
 impl RouterConfig {
     pub fn dummy() -> Self {
         Self {
-            network: CardanoNetwork::DevNet(87),
+            network: CardanoNetwork::TestNet(87),
             server_url: SanitizedUrlWithTrailingSlash::parse("http://0.0.0.0:8000/").unwrap(),
             allowed_discriminants: BTreeSet::from([
                 SignedEntityTypeDiscriminants::MithrilStakeDistribution,

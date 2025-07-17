@@ -134,7 +134,7 @@ impl MithrilInfrastructure {
 
         let cardano_chain_observer = Arc::new(PallasChainObserver::new(
             &aggregator_cardano_nodes[0].socket_path,
-            CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
+            CardanoNetwork::TestNet(DEVNET_MAGIC_ID),
         ));
 
         let mut all_aggregators = vec![leader_aggregator];

@@ -45,7 +45,7 @@ impl<M: TryFromBytes + Debug> DmqConsumerPallas<M> {
             "socket" => ?self.socket,
             "network" => ?self.network
         );
-        DmqClient::connect(&self.socket, self.network.code())
+        DmqClient::connect(&self.socket, self.network.magic_id())
             .await
             .with_context(|| "DmqConsumerPallas failed to create a new client")
     }

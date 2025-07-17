@@ -4,11 +4,6 @@ use thiserror::Error;
 
 use crate::{MagicId, StdResult};
 
-const MAINNET_MAGIC_ID: MagicId = 764824073;
-const TESTNET_MAGIC_ID: MagicId = 1097911063;
-const PREPROD_MAGIC_ID: MagicId = 1;
-const PREVIEW_MAGIC_ID: MagicId = 2;
-
 #[derive(Error, Debug)]
 pub enum CardanoNetworkError {
     #[error("parse from code error: '{0}'")]
@@ -22,14 +17,20 @@ pub enum CardanoNetwork {
     /// The Cardano mainnet network
     MainNet,
 
-    /// A Cardano test network (testnet, preview, or preprod)
+    /// A Cardano test network (preview, preprod or private testnet)
     TestNet(MagicId),
-
-    /// A Cardano private devnet
-    DevNet(MagicId),
 }
 
 impl CardanoNetwork {
+    /// Mainnet magic ID
+    pub const MAINNET_MAGIC_ID: MagicId = 764824073;
+    /// Preprod magic ID
+    pub const PREPROD_MAGIC_ID: MagicId = 1;
+    /// Preview magic ID
+    pub const PREVIEW_MAGIC_ID: MagicId = 2;
+    /// Devnet magic ID
+    pub(crate) const DEVNET_MAGIC_ID: MagicId = 42;
+
     /// Instantiates a CardanoNetwork from its code and magic id
     pub fn from_code(
         network_code: String,
@@ -37,9 +38,9 @@ impl CardanoNetwork {
     ) -> Result<CardanoNetwork, CardanoNetworkError> {
         match network_code.to_lowercase().as_str() {
             "mainnet" => Ok(CardanoNetwork::MainNet),
-            "testnet" => Ok(CardanoNetwork::TestNet(TESTNET_MAGIC_ID)),
-            "preview" => Ok(CardanoNetwork::TestNet(PREVIEW_MAGIC_ID)),
-            "preprod" => Ok(CardanoNetwork::TestNet(PREPROD_MAGIC_ID)),
+            "preview" => Ok(CardanoNetwork::TestNet(Self::PREVIEW_MAGIC_ID)),
+            "preprod" => Ok(CardanoNetwork::TestNet(Self::PREPROD_MAGIC_ID)),
+            "devnet" => Ok(CardanoNetwork::TestNet(Self::DEVNET_MAGIC_ID)),
             "private" => {
                 if let Some(magic) = network_magic {
                     Ok(CardanoNetwork::TestNet(magic))
@@ -49,26 +50,16 @@ impl CardanoNetwork {
                     ))
                 }
             }
-            "devnet" => {
-                if let Some(magic) = network_magic {
-                    Ok(CardanoNetwork::DevNet(magic))
-                } else {
-                    Err(CardanoNetworkError::ParseFromCode(
-                        "no NETWORK MAGIC number given for devnet network".to_string(),
-                    ))
-                }
-            }
             what => Err(CardanoNetworkError::ParseFromCode(format!(
                 "could not parse network '{what}', the only recognized networks are: mainnet, devnet, testnet, preview, preprod and private"
             ))),
         }
     }
 
-    /// Returns the code (magic) of the network
-    pub fn code(&self) -> MagicId {
+    /// Returns the magic ID of the network
+    pub fn magic_id(&self) -> MagicId {
         match *self {
-            CardanoNetwork::MainNet => MAINNET_MAGIC_ID,
-            CardanoNetwork::DevNet(magic_id) => magic_id,
+            CardanoNetwork::MainNet => Self::MAINNET_MAGIC_ID,
             CardanoNetwork::TestNet(magic_id) => magic_id,
         }
     }
@@ -77,7 +68,7 @@ impl CardanoNetwork {
     pub fn compute_allow_unparsable_block(&self, allow_unparsable_block: bool) -> StdResult<bool> {
         let allow_unparsable_block = match self {
             CardanoNetwork::MainNet => false,
-            CardanoNetwork::TestNet(id) if *id == PREPROD_MAGIC_ID => false,
+            CardanoNetwork::TestNet(id) if *id == Self::PREPROD_MAGIC_ID => false,
             _ => allow_unparsable_block,
         };
 
@@ -89,11 +80,10 @@ impl Display for CardanoNetwork {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
             CardanoNetwork::MainNet => write!(f, "mainnet"),
-            CardanoNetwork::DevNet(_) => write!(f, "devnet"),
             CardanoNetwork::TestNet(magic_id) => match magic_id {
-                TESTNET_MAGIC_ID => write!(f, "testnet"),
-                PREVIEW_MAGIC_ID => write!(f, "preview"),
-                PREPROD_MAGIC_ID => write!(f, "preprod"),
+                Self::PREVIEW_MAGIC_ID => write!(f, "preview"),
+                Self::PREPROD_MAGIC_ID => write!(f, "preprod"),
+                Self::DEVNET_MAGIC_ID => write!(f, "devnet"),
                 _ => write!(f, "private"),
             },
         }
@@ -109,6 +99,15 @@ impl From<CardanoNetwork> for String {
 impl From<&CardanoNetwork> for String {
     fn from(network: &CardanoNetwork) -> Self {
         network.to_string()
+    }
+}
+
+impl From<MagicId> for CardanoNetwork {
+    fn from(magic_id: MagicId) -> Self {
+        match magic_id {
+            Self::MAINNET_MAGIC_ID => Self::MainNet,
+            _ => Self::TestNet(magic_id),
+        }
     }
 }
 
@@ -128,27 +127,27 @@ mod tests {
         );
         assert_eq!(
             CardanoNetwork::from_code("preview".to_string(), None).unwrap(),
-            CardanoNetwork::TestNet(PREVIEW_MAGIC_ID)
+            CardanoNetwork::TestNet(CardanoNetwork::PREVIEW_MAGIC_ID)
         );
         assert_eq!(
             CardanoNetwork::from_code("preview".to_string(), Some(123)).unwrap(),
-            CardanoNetwork::TestNet(PREVIEW_MAGIC_ID)
+            CardanoNetwork::TestNet(CardanoNetwork::PREVIEW_MAGIC_ID)
         );
         assert_eq!(
             CardanoNetwork::from_code("preprod".to_string(), None).unwrap(),
-            CardanoNetwork::TestNet(PREPROD_MAGIC_ID)
+            CardanoNetwork::TestNet(CardanoNetwork::PREPROD_MAGIC_ID)
         );
         assert_eq!(
             CardanoNetwork::from_code("preprod".to_string(), Some(123)).unwrap(),
-            CardanoNetwork::TestNet(PREPROD_MAGIC_ID)
+            CardanoNetwork::TestNet(CardanoNetwork::PREPROD_MAGIC_ID)
         );
         assert_eq!(
-            CardanoNetwork::from_code("testnet".to_string(), None).unwrap(),
-            CardanoNetwork::TestNet(TESTNET_MAGIC_ID)
+            CardanoNetwork::from_code("devnet".to_string(), None).unwrap(),
+            CardanoNetwork::TestNet(CardanoNetwork::DEVNET_MAGIC_ID)
         );
         assert_eq!(
-            CardanoNetwork::from_code("testnet".to_string(), Some(123)).unwrap(),
-            CardanoNetwork::TestNet(TESTNET_MAGIC_ID)
+            CardanoNetwork::from_code("devnet".to_string(), Some(123)).unwrap(),
+            CardanoNetwork::TestNet(CardanoNetwork::DEVNET_MAGIC_ID)
         );
         assert_eq!(
             CardanoNetwork::from_code("private".to_string(), Some(123)).unwrap(),
@@ -167,12 +166,12 @@ mod tests {
             CardanoNetwork::MainNet.compute_allow_unparsable_block(true).unwrap();
         assert!(!allow_unparsable_block);
 
-        let allow_unparsable_block = CardanoNetwork::TestNet(PREPROD_MAGIC_ID)
+        let allow_unparsable_block = CardanoNetwork::TestNet(CardanoNetwork::PREPROD_MAGIC_ID)
             .compute_allow_unparsable_block(false)
             .unwrap();
         assert!(!allow_unparsable_block);
 
-        let allow_unparsable_block = CardanoNetwork::TestNet(PREPROD_MAGIC_ID)
+        let allow_unparsable_block = CardanoNetwork::TestNet(CardanoNetwork::PREPROD_MAGIC_ID)
             .compute_allow_unparsable_block(true)
             .unwrap();
         assert!(!allow_unparsable_block);
@@ -181,32 +180,32 @@ mod tests {
     #[test]
     fn compute_allow_unparsable_block_should_return_value_passed_in_parameter_on_all_networks_other_than_mainnet_and_preprod()
      {
-        let allow_unparsable_block = CardanoNetwork::TestNet(PREVIEW_MAGIC_ID)
+        let allow_unparsable_block = CardanoNetwork::TestNet(CardanoNetwork::PREVIEW_MAGIC_ID)
             .compute_allow_unparsable_block(false)
             .unwrap();
         assert!(!allow_unparsable_block);
 
-        let allow_unparsable_block = CardanoNetwork::TestNet(PREVIEW_MAGIC_ID)
+        let allow_unparsable_block = CardanoNetwork::TestNet(CardanoNetwork::PREVIEW_MAGIC_ID)
             .compute_allow_unparsable_block(true)
             .unwrap();
         assert!(allow_unparsable_block);
 
-        let allow_unparsable_block = CardanoNetwork::TestNet(TESTNET_MAGIC_ID)
+        let allow_unparsable_block = CardanoNetwork::TestNet(CardanoNetwork::DEVNET_MAGIC_ID)
             .compute_allow_unparsable_block(false)
             .unwrap();
         assert!(!allow_unparsable_block);
 
-        let allow_unparsable_block = CardanoNetwork::TestNet(TESTNET_MAGIC_ID)
+        let allow_unparsable_block = CardanoNetwork::TestNet(CardanoNetwork::DEVNET_MAGIC_ID)
             .compute_allow_unparsable_block(true)
             .unwrap();
         assert!(allow_unparsable_block);
 
-        let allow_unparsable_block = CardanoNetwork::DevNet(123)
+        let allow_unparsable_block = CardanoNetwork::TestNet(123)
             .compute_allow_unparsable_block(false)
             .unwrap();
         assert!(!allow_unparsable_block);
 
-        let allow_unparsable_block = CardanoNetwork::DevNet(123)
+        let allow_unparsable_block = CardanoNetwork::TestNet(123)
             .compute_allow_unparsable_block(true)
             .unwrap();
         assert!(allow_unparsable_block);
@@ -221,10 +220,45 @@ mod tests {
         }
 
         assert_all_conversions_eq(CardanoNetwork::MainNet, "mainnet");
-        assert_all_conversions_eq(CardanoNetwork::DevNet(123456), "devnet");
-        assert_all_conversions_eq(CardanoNetwork::TestNet(TESTNET_MAGIC_ID), "testnet");
-        assert_all_conversions_eq(CardanoNetwork::TestNet(PREVIEW_MAGIC_ID), "preview");
-        assert_all_conversions_eq(CardanoNetwork::TestNet(PREPROD_MAGIC_ID), "preprod");
+        assert_all_conversions_eq(
+            CardanoNetwork::TestNet(CardanoNetwork::DEVNET_MAGIC_ID),
+            "devnet",
+        );
+        assert_all_conversions_eq(
+            CardanoNetwork::TestNet(CardanoNetwork::PREVIEW_MAGIC_ID),
+            "preview",
+        );
+        assert_all_conversions_eq(
+            CardanoNetwork::TestNet(CardanoNetwork::PREPROD_MAGIC_ID),
+            "preprod",
+        );
         assert_all_conversions_eq(CardanoNetwork::TestNet(123456), "private");
+    }
+
+    #[test]
+    fn cardano_network_from_magic_id_roundtrip() {
+        fn assert_magic_id_conversion_roundtrip(magic_id: MagicId, expected: CardanoNetwork) {
+            let network = CardanoNetwork::from(magic_id);
+            assert_eq!(network, expected);
+            assert_eq!(network.magic_id(), magic_id);
+        }
+
+        assert_magic_id_conversion_roundtrip(
+            CardanoNetwork::MAINNET_MAGIC_ID,
+            CardanoNetwork::MainNet,
+        );
+        assert_magic_id_conversion_roundtrip(
+            CardanoNetwork::PREVIEW_MAGIC_ID,
+            CardanoNetwork::TestNet(CardanoNetwork::PREVIEW_MAGIC_ID),
+        );
+        assert_magic_id_conversion_roundtrip(
+            CardanoNetwork::PREPROD_MAGIC_ID,
+            CardanoNetwork::TestNet(CardanoNetwork::PREPROD_MAGIC_ID),
+        );
+        assert_magic_id_conversion_roundtrip(
+            CardanoNetwork::DEVNET_MAGIC_ID,
+            CardanoNetwork::TestNet(CardanoNetwork::DEVNET_MAGIC_ID),
+        );
+        assert_magic_id_conversion_roundtrip(123456, CardanoNetwork::TestNet(123456));
     }
 }

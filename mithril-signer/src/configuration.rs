@@ -44,7 +44,7 @@ pub struct Configuration {
     pub dmq_node_socket_path: Option<PathBuf>,
 
     /// Cardano network
-    #[example = "`testnet` or `mainnet` or `devnet`"]
+    #[example = "`mainnet` or `preprod` or `devnet`"]
     pub network: String,
 
     /// Cardano Network Magic number

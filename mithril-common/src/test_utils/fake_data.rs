@@ -17,7 +17,7 @@ use super::fake_keys;
 
 /// Fake network
 pub fn network() -> crate::CardanoNetwork {
-    crate::CardanoNetwork::DevNet(10)
+    crate::CardanoNetwork::TestNet(CardanoNetwork::DEVNET_MAGIC_ID)
 }
 
 /// Fake Beacon
@@ -269,7 +269,7 @@ pub fn cardano_database_snapshots(total: u64) -> Vec<entities::CardanoDatabaseSn
 
             entities::CardanoDatabaseSnapshot::new(
                 merkle_root,
-                CardanoNetwork::DevNet(63),
+                CardanoNetwork::TestNet(63),
                 beacon,
                 CardanoDatabaseSnapshotArtifactData {
                     total_db_size_uncompressed,
