@@ -68,3 +68,35 @@ impl From<&BlsSigningKey> for BlsProofOfPossession {
         Self { k1, k2 }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    mod golden {
+
+        use rand_chacha::ChaCha20Rng;
+        use rand_core::SeedableRng;
+
+        use crate::{BlsProofOfPossession, BlsSigningKey};
+
+        const GOLDEN_JSON: &str = r#"[168,50,233,193,15,136,65,72,123,148,129,176,38,198,209,47,28,204,176,144,57,251,42,28,66,76,89,97,158,63,54,198,194,176,135,221,14,185,197,225,202,98,243,74,233,225,143,151,147,177,170,117,66,165,66,62,33,216,232,75,68,114,195,22,100,65,44,198,4,166,102,233,253,240,59,175,60,117,142,114,140,122,17,87,110,187,1,17,10,195,154,13,249,86,54,226]"#;
+
+        fn golden_value() -> BlsProofOfPossession {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let sk = BlsSigningKey::generate(&mut rng);
+            BlsProofOfPossession::from(&sk)
+        }
+
+        #[test]
+        fn golden_conversions() {
+            let value = serde_json::from_str(GOLDEN_JSON)
+                .expect("This JSON deserialization should not fail");
+            assert_eq!(golden_value(), value);
+
+            let serialized =
+                serde_json::to_string(&value).expect("This JSON serialization should not fail");
+            let golden_serialized = serde_json::to_string(&golden_value())
+                .expect("This JSON serialization should not fail");
+            assert_eq!(golden_serialized, serialized);
+        }
+    }
+}
