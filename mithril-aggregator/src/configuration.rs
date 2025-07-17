@@ -416,7 +416,7 @@ pub struct ServeCommandConfiguration {
     pub network_magic: Option<u64>,
 
     /// Cardano network
-    #[example = "`testnet` or `mainnet` or `devnet`"]
+    #[example = "`mainnet` or `preprod` or `devnet`"]
     pub network: String,
 
     /// Cardano chain observer type

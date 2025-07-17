@@ -38,7 +38,7 @@ pub struct GenesisCommandConfiguration {
     pub network_magic: Option<u64>,
 
     /// Cardano network
-    #[example = "`testnet` or `mainnet` or `devnet`"]
+    #[example = "`mainnet` or `preprod` or `devnet`"]
     network: String,
 
     /// Cardano chain observer type

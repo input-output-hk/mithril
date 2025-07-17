@@ -17,7 +17,7 @@ pub enum CardanoNetwork {
     /// The Cardano mainnet network
     MainNet,
 
-    /// A Cardano test network (preview, preprod or private devnet)
+    /// A Cardano test network (preview, preprod or private testnet)
     TestNet(MagicId),
 }
 
