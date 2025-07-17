@@ -31,11 +31,11 @@ chrono = { workspace = true }
 clap = { workspace = true }
 cli-table = "0.5.0"
 config = { workspace = true }
-flate2 = "1.1.1"
+flate2 = "1.1.2"
 fs2 = "0.4.3"
 futures = "0.3.31"
 human_bytes = { version = "0.4.3", features = ["fast"] }
-indicatif = { version = "0.17.11", features = ["tokio"] }
+indicatif = { version = "0.18.0", features = ["tokio"] }
 mithril-cli-helper = { path = "../internal/mithril-cli-helper" }
 mithril-client = { path = "../mithril-client", features = ["fs", "unstable"] }
 mithril-doc = { path = "../internal/mithril-doc" }
@@ -58,7 +58,7 @@ slog-term = { workspace = true }
 tar = "0.4.44"
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
-zip = "4.0.0"
+zip = "4.3.0"
 
 [dev-dependencies]
 httpmock = "0.7.0"
