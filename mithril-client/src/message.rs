@@ -50,6 +50,8 @@ cfg_fs! {
         pub missing: Vec<ImmutableFileName>,
         /// List of tampered immutable files.
         pub tampered: Vec<ImmutableFileName>,
+        /// List of non-verifiable immutable files.
+        pub non_verifiable: Vec<ImmutableFileName>,
     }
 
     /// Compute Cardano database message related errors.
@@ -85,9 +87,8 @@ cfg_fs! {
                             .join("\n")
                     }
 
-                    let missing_files_subset = get_first_10_files_path(&lists.missing, &lists.immutables_dir);
-                    let tampered_files_subset = get_first_10_files_path(&lists.tampered, &lists.immutables_dir);
                     if !lists.missing.is_empty() {
+                        let missing_files_subset = get_first_10_files_path(&lists.missing, &lists.immutables_dir);
                         writeln!(
                             f,
                             "Number of missing immutable files: {}",
@@ -100,9 +101,19 @@ cfg_fs! {
                         writeln!(f)?;
                     }
                     if !lists.tampered.is_empty() {
+                        let tampered_files_subset = get_first_10_files_path(&lists.tampered, &lists.immutables_dir);
                         writeln!(f,"Number of tampered immutable files: {}",lists.tampered.len())?;
                         writeln!(f, "First 10 tampered immutable files paths:")?;
                         writeln!(f, "{tampered_files_subset}")?;
+                    }
+                    if (!lists.missing.is_empty() || !lists.tampered.is_empty()) && !lists.non_verifiable.is_empty() {
+                        writeln!(f)?;
+                    }
+                    if !lists.non_verifiable.is_empty() {
+                        let non_verifiable_files_subset = get_first_10_files_path(&lists.non_verifiable, &lists.immutables_dir);
+                        writeln!(f, "Number of non verifiable immutable files: {}", lists.non_verifiable.len())?;
+                        writeln!(f, "First 10 non verifiable immutable files paths:")?;
+                        writeln!(f, "{non_verifiable_files_subset}")?;
                     }
                     Ok(())
                 }
@@ -269,20 +280,22 @@ impl MessageBuilder {
                 return Ok(message);
             }
 
-            let tampered_files = match proof_result {
+            let (tampered, non_verifiable) = match proof_result {
                 Err(e) => {
                     warn!(self.logger, "{MERKLE_PROOF_COMPUTATION_ERROR}: {e:}");
-                    verified_digests
-                        .list_immutable_files_not_verified(&computed_digest_entries)
-                        .tampered_files
+                    let verified_digests = verified_digests
+                        .list_immutable_files_not_verified(&computed_digest_entries);
+
+                    (verified_digests.tampered_files, verified_digests.non_verifiable_files)
                 }
-                Ok(_) => vec![],
+                Ok(_) => (vec![], vec![]),
             };
             Err(
                 ComputeCardanoDatabaseMessageError::ImmutableFilesVerification(ImmutableFilesLists {
                     immutables_dir: Self::immutable_dir(database_dir),
                     missing: missing_immutable_files,
-                    tampered: tampered_files,
+                    tampered,
+                    non_verifiable,
                 }),
             )
         }
@@ -591,6 +604,7 @@ mod tests {
                     immutables_dir: MessageBuilder::immutable_dir(&database_dir),
                     missing: to_vec_immutable_file_name(&files_to_remove),
                     tampered: vec![],
+                    non_verifiable: vec![],
                 }
             );
         }
@@ -677,6 +691,7 @@ mod tests {
                     immutables_dir: MessageBuilder::immutable_dir(&database_dir),
                     missing: vec![],
                     tampered: to_vec_immutable_file_name(&files_to_tamper),
+                    non_verifiable: vec![],
                 }
             )
         }
@@ -727,8 +742,76 @@ mod tests {
                     immutables_dir: MessageBuilder::immutable_dir(&database_dir),
                     missing: to_vec_immutable_file_name(&files_to_remove),
                     tampered: to_vec_immutable_file_name(&files_to_tamper),
+                    non_verifiable: vec![],
                 }
             )
+        }
+
+        #[tokio::test]
+        async fn compute_cardano_database_message_should_fail_if_there_is_more_local_immutable_than_verified_digest()
+         {
+            let last_verified_digest_number = 10;
+            let last_local_immutable_file_number = 15;
+            let range_of_non_verifiable_files =
+                last_verified_digest_number + 1..=last_local_immutable_file_number;
+
+            let expected_non_verifiable_files: Vec<ImmutableFileName> =
+                (range_of_non_verifiable_files)
+                    .flat_map(|i| {
+                        [
+                            format!("{i:05}.chunk"),
+                            format!("{i:05}.primary"),
+                            format!("{i:05}.secondary"),
+                        ]
+                    })
+                    .collect();
+
+            let beacon = CardanoDbBeacon {
+                epoch: Epoch(123),
+                immutable_file_number: last_verified_digest_number,
+            };
+            //create verified digests for immutable files 1 to 10
+            let (_, certificate, verified_digests) = prepare_db_and_verified_digests(
+                "database_dir_for_verified_digests",
+                &beacon,
+                &(1..=last_verified_digest_number),
+            )
+            .await;
+            //create a local database with immutable files 1 to 15
+            let (database_dir, _, _) = prepare_db_and_verified_digests(
+                "database_dir_for_local_immutables",
+                &beacon,
+                &(1..=last_local_immutable_file_number),
+            )
+            .await;
+
+            let error = MessageBuilder::new()
+                .compute_cardano_database_message(
+                    &certificate,
+                    &CardanoDatabaseSnapshotMessage::dummy(),
+                    &ImmutableFileRange::Range(1, 15),
+                    false,
+                    &database_dir,
+                    &verified_digests,
+                )
+                .await
+                .expect_err(
+                    "compute_cardano_database_message should fail if there is more local immutable than verified digest",
+                );
+
+            let error_lists = match error {
+                ComputeCardanoDatabaseMessageError::ImmutableFilesVerification(lists) => lists,
+                _ => panic!("Expected ImmutableFilesVerification error, got: {error}"),
+            };
+            assert_eq!(
+                error_lists,
+                ImmutableFilesLists {
+                    immutables_dir: MessageBuilder::immutable_dir(&database_dir),
+                    missing: vec![],
+                    tampered: vec![],
+                    non_verifiable: expected_non_verifiable_files,
+                }
+            );
         }
     }
 
@@ -738,6 +821,7 @@ mod tests {
         fn generate_immutable_files_verification_error(
             missing_range: Option<RangeInclusive<usize>>,
             tampered_range: Option<RangeInclusive<usize>>,
+            non_verifiable_range: Option<RangeInclusive<usize>>,
             immutable_path: &str,
         ) -> ComputeCardanoDatabaseMessageError {
             let missing: Vec<ImmutableFileName> = match missing_range {
@@ -753,10 +837,18 @@ mod tests {
                 None => vec![],
             };
 
+            let non_verifiable: Vec<ImmutableFileName> = match non_verifiable_range {
+                Some(range) => range
+                    .map(|i| ImmutableFileName::from(format!("{i:05}.chunk")))
+                    .collect(),
+                None => vec![],
+            };
+
             ComputeCardanoDatabaseMessageError::ImmutableFilesVerification(ImmutableFilesLists {
                 immutables_dir: PathBuf::from(immutable_path),
                 missing,
                 tampered,
+                non_verifiable,
             })
         }
 
@@ -769,6 +861,7 @@ mod tests {
             let error = generate_immutable_files_verification_error(
                 Some(1..=15),
                 Some(20..=31),
+                Some(40..=41),
                 "/path/to/immutables",
             );
 
@@ -801,15 +894,21 @@ First 10 tampered immutable files paths:
 /path/to/immutables/00027.chunk
 /path/to/immutables/00028.chunk
 /path/to/immutables/00029.chunk
+
+Number of non verifiable immutable files: 2
+First 10 non verifiable immutable files paths:
+/path/to/immutables/00040.chunk
+/path/to/immutables/00041.chunk
 "###
             );
         }
 
         #[test]
-        fn display_immutable_files_should_not_display_error_list_if_missing_is_empty() {
+        fn display_immutable_files_should_display_tampered_files_only() {
             let error = generate_immutable_files_verification_error(
                 None,
                 Some(1..=1),
+                None,
                 "/path/to/immutables",
             );
 
@@ -825,9 +924,10 @@ First 10 tampered immutable files paths:
         }
 
         #[test]
-        fn display_immutable_files_should_not_display_error_list_if_tampered_is_empty() {
+        fn display_immutable_files_should_display_missing_files_only() {
             let error = generate_immutable_files_verification_error(
                 Some(1..=1),
+                None,
                 None,
                 "/path/to/immutables",
             );
@@ -839,6 +939,30 @@ First 10 tampered immutable files paths:
                 r###"Number of missing immutable files: 1
 First 10 missing immutable files paths:
 /path/to/immutables/00001.chunk
+"###
+            );
+        }
+
+        #[test]
+        fn display_immutable_files_should_display_non_verifiable_files_only() {
+            let error = generate_immutable_files_verification_error(
+                None,
+                None,
+                Some(1..=5),
+                "/path/to/immutables",
+            );
+
+            let display = normalize_path_separators(&format!("{error}"));
+
+            assert_eq!(
+                display,
+                r###"Number of non verifiable immutable files: 5
+First 10 non verifiable immutable files paths:
+/path/to/immutables/00001.chunk
+/path/to/immutables/00002.chunk
+/path/to/immutables/00003.chunk
+/path/to/immutables/00004.chunk
+/path/to/immutables/00005.chunk
 "###
             );
         }
