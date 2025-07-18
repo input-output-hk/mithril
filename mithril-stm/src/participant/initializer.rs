@@ -197,3 +197,72 @@ impl Initializer {
         })
     }
 }
+
+impl PartialEq for Initializer {
+    fn eq(&self, other: &Self) -> bool {
+        self.stake == other.stake
+            && self.params == other.params
+            && self.sk.to_bytes() == other.sk.to_bytes()
+            && self.get_verification_key_proof_of_possession()
+                == other.get_verification_key_proof_of_possession()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod golden {
+        use rand_chacha::ChaCha20Rng;
+        use rand_core::SeedableRng;
+
+        use super::*;
+
+        const GOLDEN_JSON: &str = r#"
+            {
+                "stake":1,
+                "params":
+                {
+                    "m":20973,
+                    "k":2422,
+                    "phi_f":0.2
+                },
+                "sk":[64,129,87,121,27,239,221,215,2,103,45,207,207,201,157,163,81,47,156,14,168,24,137,15,203,106,183,73,88,14,242,207],
+                "pk":
+                {
+                    "vk":[143,161,255,48,78,57,204,220,25,221,164,252,248,14,56,126,186,135,228,188,145,181,52,200,97,99,213,46,0,199,193,89,187,88,29,135,173,244,86,36,83,54,67,164,6,137,94,72,6,105,128,128,93,48,176,11,4,246,138,48,180,133,90,142,192,24,193,111,142,31,76,111,110,234,153,90,208,192,31,124,95,102,49,158,99,52,220,165,94,251,68,69,121,16,224,194],
+                    "pop":[168,50,233,193,15,136,65,72,123,148,129,176,38,198,209,47,28,204,176,144,57,251,42,28,66,76,89,97,158,63,54,198,194,176,135,221,14,185,197,225,202,98,243,74,233,225,143,151,147,177,170,117,66,165,66,62,33,216,232,75,68,114,195,22,100,65,44,198,4,166,102,233,253,240,59,175,60,117,142,114,140,122,17,87,110,187,1,17,10,195,154,13,249,86,54,226]
+                }
+            }
+        "#;
+
+        fn golden_value() -> Initializer {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let sk = BlsSigningKey::generate(&mut rng);
+            let pk = BlsVerificationKeyProofOfPossession::from(&sk);
+            Initializer {
+                stake: 1,
+                params: Parameters {
+                    m: 20973,
+                    k: 2422,
+                    phi_f: 0.2,
+                },
+                sk,
+                pk,
+            }
+        }
+
+        #[test]
+        fn golden_conversions() {
+            let value = serde_json::from_str(GOLDEN_JSON)
+                .expect("This JSON deserialization should not fail");
+            assert_eq!(golden_value(), value);
+
+            let serialized =
+                serde_json::to_string(&value).expect("This JSON serialization should not fail");
+            let golden_serialized = serde_json::to_string(&golden_value())
+                .expect("This JSON serialization should not fail");
+            assert_eq!(golden_serialized, serialized);
+        }
+    }
+}
