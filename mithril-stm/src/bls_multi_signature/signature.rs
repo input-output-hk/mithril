@@ -216,7 +216,7 @@ mod tests {
         use rand_chacha::ChaCha20Rng;
         use rand_core::SeedableRng;
 
-        use crate::{BlsSignature, BlsSigningKey};
+        use crate::bls_multi_signature::{BlsSignature, BlsSigningKey};
 
         const GOLDEN_JSON: &str = r#"[132,95,124,197,185,105,193,171,114,182,52,171,205,119,202,188,2,213,61,125,219,242,10,131,53,219,53,197,157,42,152,194,234,161,244,204,2,134,47,179,176,49,200,232,120,241,180,246]"#;
 
