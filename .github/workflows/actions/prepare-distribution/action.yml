@@ -142,6 +142,27 @@ runs:
         \`git tag -d unstable && git fetch origin tag unstable\`
         EOF
 
+    - name: Download a binary asset
+      shell: bash
+      run: |
+        cat >> ./release-notes-addon.txt << EOF
+
+        ## Download a binary asset
+        To simplify the installation and updating of Mithril binaries, we have created a one line installer that downloads and installs the Mithril binaries for you.
+        This installer is available for Linux and macOS and supports the Mithril signer, Mithril aggregator, and Mithril client CLI.
+
+        Use the following commands to install the Mithril nodes:
+
+        - Download the **Mithril signer** in the current directory:
+        \`curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-signer -d ${{ inputs.tag }} -p $(pwd)\`
+
+        - Download the **Mithril client CLI** in the current directory:
+        \`curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-client -d ${{ inputs.tag }} -p $(pwd)\`
+
+        - Download the **Mithril aggregator** in the current directory:
+        \`curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-aggregator -d ${{ inputs.tag }} -p $(pwd)\`
+        EOF
+
     - name: Create and sign sha256 checksum
       shell: bash
       env:
