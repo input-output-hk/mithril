@@ -224,7 +224,8 @@ impl CardanoDbVerifyCommand {
                     "immutables_verification_error_file": json_file_path,
                     "immutables_dir": lists.immutables_dir,
                     "missing_files_count": lists.missing.len(),
-                    "tampered_files_count": lists.tampered.len()
+                    "tampered_files_count": lists.tampered.len(),
+                    "non_verifiable_files_count": lists.non_verifiable.len(),
                 }
             });
 
@@ -232,7 +233,7 @@ impl CardanoDbVerifyCommand {
         } else {
             println!("{error_message}");
             println!(
-                "See the lists of all missing and tampered files in {}",
+                "See the lists of all missing, tampered and non verifiable files in {}",
                 json_file_path.display()
             );
             if !lists.missing.is_empty() {
@@ -242,6 +243,12 @@ impl CardanoDbVerifyCommand {
                 println!(
                     "Number of tampered immutable files: {:?}",
                     lists.tampered.len()
+                );
+            }
+            if !lists.non_verifiable.is_empty() {
+                println!(
+                    "Number of non verifiable immutable files: {:?}",
+                    lists.non_verifiable.len()
                 );
             }
         }
@@ -260,6 +267,7 @@ fn write_json_file_error(date: DateTime<Utc>, lists: &ImmutableFilesLists) -> Pa
         "immutables_dir": lists.immutables_dir,
         "missing-files": lists.missing,
         "tampered-files": lists.tampered,
+        "non-verifiable-files": lists.non_verifiable,
         }))
         .unwrap(),
     )
