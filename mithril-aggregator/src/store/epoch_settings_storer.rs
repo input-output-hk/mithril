@@ -110,8 +110,8 @@ impl EpochPruningTask for FakeEpochSettingsStorer {
 
 #[cfg(test)]
 mod tests {
-
     use mithril_common::entities::CardanoTransactionsSigningConfig;
+    use mithril_common::test_utils::double::Dummy;
 
     use super::*;
 

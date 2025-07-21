@@ -46,30 +46,6 @@ impl OpenMessage {
             .map(|sig| sig.party_id.to_owned())
             .collect()
     }
-
-    #[cfg(test)]
-    /// Create a dumb OpenMessage instance mainly for test purposes
-    pub fn dummy() -> Self {
-        use mithril_common::test_utils::fake_data;
-
-        let beacon = fake_data::beacon();
-        let epoch = beacon.epoch;
-        let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon);
-
-        Self {
-            epoch,
-            signed_entity_type,
-            protocol_message: ProtocolMessage::new(),
-            is_certified: false,
-            is_expired: false,
-            single_signatures: vec![
-                fake_data::single_signature(vec![1, 4, 5]),
-                fake_data::single_signature(vec![2, 3, 8]),
-            ],
-            created_at: Utc::now(),
-            expires_at: None,
-        }
-    }
 }
 
 impl From<OpenMessageRecord> for OpenMessage {

@@ -9,20 +9,3 @@ pub struct AggregatorEpochSettings {
     /// Cardano transactions signing configuration
     pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
 }
-
-impl AggregatorEpochSettings {
-    #[cfg(test)]
-    /// Create a dummy AggregatorEpochSettings
-    pub fn dummy() -> AggregatorEpochSettings {
-        use mithril_common::test_utils::{double::Dummy, fake_data};
-
-        let protocol_parameters = fake_data::protocol_parameters();
-        let cardano_transactions_signing_config = CardanoTransactionsSigningConfig::dummy();
-
-        // Aggregator Epoch settings
-        AggregatorEpochSettings {
-            protocol_parameters,
-            cardano_transactions_signing_config,
-        }
-    }
-}

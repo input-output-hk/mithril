@@ -209,7 +209,6 @@ pub mod validators {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::Value;
     use std::convert::Infallible;
     use warp::{
@@ -219,8 +218,12 @@ mod tests {
         test::request,
     };
 
+    use mithril_common::test_utils::double::Dummy;
+
     use crate::http_server::routes::reply;
     use crate::initialize_dependencies;
+
+    use super::*;
 
     async fn route_handler(value: Option<String>) -> Result<impl warp::Reply, Infallible> {
         Ok(reply::json(&value, StatusCode::OK))

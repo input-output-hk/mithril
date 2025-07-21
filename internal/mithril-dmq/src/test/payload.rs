@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use mithril_common::{
     StdResult,
     crypto_helper::{TryFromBytes, TryToBytes},
+    test_utils::double::Dummy,
 };
 
 /// A test message payload for the DMQ.
@@ -18,9 +19,11 @@ impl DmqMessageTestPayload {
             message: bytes.to_vec(),
         }
     }
+}
 
+impl Dummy for DmqMessageTestPayload {
     /// Creates a dummy `DmqMessageTestPayload` with a predefined message.
-    pub fn dummy() -> Self {
+    fn dummy() -> Self {
         Self {
             message: b"dummy message".to_vec(),
         }

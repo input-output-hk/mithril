@@ -383,6 +383,8 @@ impl RemoteCertificateRetriever for AggregatorHTTPClient {
 pub(crate) mod dumb {
     use tokio::sync::RwLock;
 
+    use mithril_common::test_utils::double::Dummy;
+
     use super::*;
 
     /// This aggregator client is intended to be used by test services.

@@ -50,16 +50,6 @@ impl FileArchive {
         }
     }
 
-    #[cfg(test)]
-    pub fn dummy() -> Self {
-        Self {
-            filepath: PathBuf::from("archive.tar.gz"),
-            archive_filesize: 10,
-            uncompressed_size: 789,
-            compression_algorithm: CompressionAlgorithm::Gzip,
-        }
-    }
-
     /// Get the path of the archive.
     pub fn get_file_path(&self) -> &Path {
         &self.filepath
@@ -101,6 +91,18 @@ impl FileArchive {
         archive.unpack(&unpack_path).unwrap();
 
         unpack_path
+    }
+}
+
+#[cfg(test)]
+impl mithril_common::test_utils::double::Dummy for FileArchive {
+    fn dummy() -> Self {
+        Self {
+            filepath: PathBuf::from("archive.tar.gz"),
+            archive_filesize: 10,
+            uncompressed_size: 789,
+            compression_algorithm: CompressionAlgorithm::Gzip,
+        }
     }
 }
 

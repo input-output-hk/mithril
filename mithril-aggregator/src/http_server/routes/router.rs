@@ -8,6 +8,8 @@ use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
 
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::entities::SignedEntityTypeDiscriminants;
+#[cfg(test)]
+use mithril_common::test_utils::double::Dummy;
 use mithril_common::{
     CardanoNetwork, MITHRIL_API_VERSION_HEADER, MITHRIL_CLIENT_TYPE_HEADER,
     MITHRIL_ORIGIN_TAG_HEADER,
@@ -36,8 +38,8 @@ pub struct RouterConfig {
 }
 
 #[cfg(test)]
-impl RouterConfig {
-    pub fn dummy() -> Self {
+impl Dummy for RouterConfig {
+    fn dummy() -> Self {
         Self {
             network: CardanoNetwork::TestNet(87),
             server_url: SanitizedUrlWithTrailingSlash::parse("http://0.0.0.0:8000/").unwrap(),
@@ -53,7 +55,10 @@ impl RouterConfig {
             origin_tag_white_list: HashSet::from(["DUMMY_TAG".to_string()]),
         }
     }
+}
 
+#[cfg(test)]
+impl RouterConfig {
     pub fn dummy_with_origin_tag_white_list(origin_tag_white_list: &[&str]) -> Self {
         Self {
             origin_tag_white_list: origin_tag_white_list

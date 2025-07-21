@@ -19,15 +19,6 @@ impl ImmutableFileDigestRecord {
         let aliases = SourceAlias::new(&[("{:immutable_file_digest:}", table)]);
         Self::get_projection().expand(aliases)
     }
-
-    #[cfg(test)]
-    /// Create a dumb ImmutableFileDigestRecord instance mainly for test purposes
-    pub fn dummy() -> Self {
-        Self {
-            immutable_file_name: "123.chunk".to_string(),
-            digest: "dummy_digest".to_string(),
-        }
-    }
 }
 
 impl SqLiteEntity for ImmutableFileDigestRecord {

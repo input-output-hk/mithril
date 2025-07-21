@@ -206,7 +206,7 @@ impl AncillaryArtifactBuilder {
 mod tests {
     use std::path::PathBuf;
 
-    use mithril_common::test_utils::{TempDir, assert_equivalent};
+    use mithril_common::test_utils::{TempDir, assert_equivalent, double::Dummy};
 
     use crate::services::{DumbSnapshotter, MockSnapshotter};
     use crate::test_tools::TestLogger;
