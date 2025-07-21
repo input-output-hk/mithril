@@ -847,8 +847,8 @@ mod tests {
     use mockall::predicate::eq;
 
     use crate::store::{FakeEpochSettingsStorer, MockVerificationKeyStorer};
+    use crate::test::mocks::MockStakeStore;
     use crate::test_tools::TestLogger;
-    use crate::tools::mocks::MockStakeStore;
 
     use super::*;
 

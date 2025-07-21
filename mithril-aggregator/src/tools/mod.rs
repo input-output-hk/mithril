@@ -4,8 +4,6 @@ mod era;
 pub mod file_archiver;
 pub mod file_size;
 mod genesis;
-#[cfg(test)]
-pub mod mocks;
 mod signer_importer;
 mod single_signature_authenticator;
 pub mod url_sanitizer;

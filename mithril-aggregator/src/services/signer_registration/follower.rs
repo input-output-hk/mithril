@@ -189,7 +189,7 @@ mod tests {
             FakeEpochService, MockLeaderAggregatorClient, MockSignerRecorder,
             MockSignerRegistrationVerifier,
         },
-        tools::mocks::MockStakeStore,
+        test::mocks::MockStakeStore,
     };
 
     use super::*;
