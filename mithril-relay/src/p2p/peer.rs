@@ -11,6 +11,7 @@ use libp2p::{
 };
 use mithril_common::{
     StdResult,
+    crypto_helper::{TryFromBytes, TryToBytes},
     logging::LoggerExtensions,
     messages::{RegisterSignatureMessageHttp, RegisterSignerMessage},
 };
@@ -72,6 +73,22 @@ pub enum BroadcastMessage {
 
     /// A DMQ signature registration message received from the Gossip sub
     RegisterSignatureDmq(DmqMessage),
+}
+
+impl TryToBytes for BroadcastMessage {
+    fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
+        bincode::serde::encode_to_vec(self, bincode::config::standard()).map_err(|e| e.into())
+    }
+}
+
+impl TryFromBytes for BroadcastMessage {
+    fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
+        let (res, _) =
+            bincode::serde::decode_from_slice::<Self, _>(bytes, bincode::config::standard())
+                .map_err(|e| anyhow!(e))?;
+
+        Ok(res)
+    }
 }
 
 /// A peer in the P2P network
@@ -185,7 +202,11 @@ impl Peer {
         match event {
             PeerEvent::Behaviour {
                 event: PeerBehaviourEvent::Gossipsub(gossipsub::Event::Message { message, .. }),
-            } => Ok(Some(serde_json::from_slice(&message.data)?)),
+            } => Ok(Some(
+                BroadcastMessage::try_from_bytes(&message.data).with_context(
+                    || "Failed to deserialize BroadcastMessage from gossipsub event",
+                )?,
+            )),
             _ => Ok(None),
         }
     }
@@ -247,6 +268,17 @@ impl Peer {
         )
     }
 
+    /// Publish a signer registration on the P2P pubsub
+    pub fn publish_signer_registration(
+        &mut self,
+        message: &RegisterSignerMessage,
+    ) -> StdResult<gossipsub::MessageId> {
+        self.publish_broadcast_message(
+            &BroadcastMessage::RegisterSignerHttp(message.to_owned()),
+            mithril_p2p_topic::SIGNERS_HTTP,
+        )
+    }
+
     /// Publish a broadcast message on the P2P pubsub
     pub fn publish_broadcast_message(
         &mut self,
@@ -261,7 +293,7 @@ impl Peer {
                 format!("Can not publish broadcast message on invalid topic: {topic_name}")
             })?
             .to_owned();
-        let data = serde_json::to_vec(message).with_context(|| {
+        let data = message.to_bytes_vec().with_context(|| {
             format!("Can not publish broadcast message with invalid format on topic {topic_name}")
         })?;
 
@@ -281,17 +313,6 @@ impl Peer {
             })?;
 
         Ok(message_id.to_owned())
-    }
-
-    /// Publish a signer registration on the P2P pubsub
-    pub fn publish_signer_registration(
-        &mut self,
-        message: &RegisterSignerMessage,
-    ) -> StdResult<gossipsub::MessageId> {
-        self.publish_broadcast_message(
-            &BroadcastMessage::RegisterSignerHttp(message.to_owned()),
-            mithril_p2p_topic::SIGNERS_HTTP,
-        )
     }
 
     /// Connect to a remote peer
