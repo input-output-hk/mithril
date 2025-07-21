@@ -23,6 +23,34 @@ To complete
 To complete
 -->
 
+### 3. Guidelines for Dummy Test Doubles
+
+**Date:** 2025-07-22
+**Status:** Accepted
+
+#### Context
+
+The use of `dummy()` functions for creating test doubles is widespread across the codebase. However, inconsistencies
+in their placement and visibility have led to maintenance challenges and reduced code clarity.
+
+#### Decision
+
+A `Dummy` trait will be introduced, functioning similarly to Rust's `Default` trait.
+
+The following guidelines will be adopted for implementing the `Dummy` trait:
+
+1. Most implementations should reside in a `test::double::dummies` module within the crate where the type is defined.
+2. For types with non-public fields, the `Dummy` trait should be implemented directly below the type's definition.
+
+#### Consequences
+
+- Enhanced consistency in code organization.
+- Improved discoverability of test doubles.
+- Clearer distinction between production and test code.
+- Simplified maintenance of test implementations.
+
+---
+
 ## 2. Remove Artifacts serialization support when compiling to WebAssembly
 
 date: 2025-02-26
