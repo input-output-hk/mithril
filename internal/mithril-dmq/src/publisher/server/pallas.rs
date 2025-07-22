@@ -175,6 +175,30 @@ impl DmqPublisherServer for DmqPublisherServerPallas {
             }
         }
 
+        let request = server.msg_submission().recv_next_request().await.map_err(|err| {
+            anyhow!(
+                "Failed to receive next request from DMQ publisher client: {}",
+                err
+            )
+        })?;
+        match request {
+            Request::Done => {
+                debug!(
+                    self.logger,
+                    "Received Done request from DMQ publisher client"
+                );
+            }
+            _ => {
+                error!(
+                    self.logger,
+                    "Expected a Done request, but received: {request:?}"
+                );
+                return Err(anyhow!(
+                    "Expected a Done request, but received: {request:?}"
+                ));
+            }
+        }
+
         Ok(())
     }
 
@@ -201,10 +225,10 @@ impl DmqPublisherServer for DmqPublisherServerPallas {
                         }
                         Err(err) => {
                             error!(self.logger, "Failed to process message"; "error" => ?err);
-                            if let Err(drop_err) = self.drop_server().await {
-                                error!(self.logger, "Failed to drop DMQ publisher server"; "error" => ?drop_err);
-                            }
                         }
+                    }
+                    if let Err(drop_err) = self.drop_server().await {
+                        error!(self.logger, "Failed to drop DMQ publisher server"; "error" => ?drop_err);
                     }
                 }
             }
