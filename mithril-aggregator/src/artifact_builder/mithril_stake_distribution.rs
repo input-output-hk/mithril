@@ -40,7 +40,7 @@ impl ArtifactBuilder<Epoch, MithrilStakeDistribution> for MithrilStakeDistributi
 mod tests {
     use mithril_common::{
         crypto_helper::ProtocolParameters,
-        test_utils::{double::Dummy, fake_data},
+        test_utils::double::{Dummy, fake_data},
     };
     use std::sync::Arc;
     use tokio::sync::RwLock;

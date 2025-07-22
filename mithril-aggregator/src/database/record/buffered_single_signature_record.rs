@@ -176,7 +176,7 @@ mod tests {
     use mithril_common::entities::SignedEntityTypeDiscriminants::{
         CardanoTransactions, MithrilStakeDistribution,
     };
-    use mithril_common::test_utils::fake_data;
+    use mithril_common::test_utils::double::fake_data;
 
     use super::*;
 

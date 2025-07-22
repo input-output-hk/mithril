@@ -44,7 +44,7 @@ impl CertificateRetriever for FakeCertificaterRetriever {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils::fake_data;
+    use crate::test_utils::double::fake_data;
 
     use super::*;
 

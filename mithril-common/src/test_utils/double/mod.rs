@@ -3,6 +3,9 @@
 //! Enable unit testing with controlled inputs and predictable behavior.
 
 mod dummies;
+pub mod fake_data;
+pub mod fake_keys;
+pub(super) mod precomputed_kes_key;
 
 /// A trait for giving a type a dummy value.
 ///

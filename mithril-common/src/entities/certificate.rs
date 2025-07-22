@@ -163,16 +163,18 @@ impl Debug for Certificate {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use chrono::{DateTime, Duration, Utc};
+
     use crate::entities::SignedEntityType::CardanoStakeDistribution;
     use crate::{
         entities::{
             ProtocolMessagePartKey, ProtocolParameters,
             certificate_metadata::StakeDistributionParty,
         },
-        test_utils::fake_keys,
+        test_utils::double::fake_keys,
     };
-    use chrono::{DateTime, Duration, Utc};
+
+    use super::*;
 
     fn get_parties() -> Vec<StakeDistributionParty> {
         vec![

@@ -212,7 +212,7 @@ impl ChainObserver for FakeChainObserver {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::test_utils::{double::Dummy, fake_data};
+    use mithril_common::test_utils::double::{Dummy, fake_data};
 
     use super::*;
 

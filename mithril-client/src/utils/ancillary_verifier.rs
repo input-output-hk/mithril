@@ -131,7 +131,7 @@ mod tests {
         use std::collections::BTreeMap;
 
         use mithril_common::entities::SignableManifest;
-        use mithril_common::{crypto_helper::ManifestSigner, test_utils::fake_keys};
+        use mithril_common::{crypto_helper::ManifestSigner, test_utils::double::fake_keys};
 
         use super::*;
 

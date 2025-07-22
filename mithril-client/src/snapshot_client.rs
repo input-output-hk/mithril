@@ -481,7 +481,7 @@ mod tests {
     };
 
     use mithril_cardano_node_internal_database::IMMUTABLE_DIR;
-    use mithril_common::test_utils::{double::Dummy, fake_keys};
+    use mithril_common::test_utils::double::{Dummy, fake_keys};
     use mithril_common::{assert_dir_eq, crypto_helper::ManifestSigner, temp_dir_create};
 
     use super::*;

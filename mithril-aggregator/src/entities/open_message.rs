@@ -85,7 +85,7 @@ mod test {
 
     use mithril_common::{
         entities::{Epoch, ProtocolMessage, SignedEntityType},
-        test_utils::{double::Dummy, fake_data},
+        test_utils::double::{Dummy, fake_data},
     };
 
     use crate::database::record::{OpenMessageRecord, OpenMessageWithSingleSignaturesRecord};

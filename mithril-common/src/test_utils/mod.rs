@@ -7,8 +7,6 @@
 //!
 
 pub mod double;
-pub mod fake_data;
-pub mod fake_keys;
 pub mod mock_extensions;
 
 mod cardano_transactions_builder;
@@ -17,7 +15,6 @@ mod dir_eq;
 mod fixture_builder;
 mod memory_logger;
 mod mithril_fixture;
-mod precomputed_kes_key;
 mod temp_dir;
 
 pub use cardano_transactions_builder::CardanoTransactionsBuilder;

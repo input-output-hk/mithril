@@ -1,12 +1,13 @@
 mod extensions;
 
-use crate::extensions::fake_aggregator::{FakeAggregator, FakeCertificateVerifier};
 use mithril_client::{ClientBuilder, MessageBuilder, aggregator_client::AggregatorRequest};
+use mithril_common::test_utils::double::fake_keys;
+
+use crate::extensions::fake_aggregator::{FakeAggregator, FakeCertificateVerifier};
 
 #[tokio::test]
 async fn mithril_stake_distribution_list_get_show_verify() {
-    let genesis_verification_key =
-        mithril_common::test_utils::fake_keys::genesis_verification_key()[0];
+    let genesis_verification_key = fake_keys::genesis_verification_key()[0];
     let msd_hash = "msd_hash";
     let certificate_hash = "certificate_hash";
     let fake_aggregator =

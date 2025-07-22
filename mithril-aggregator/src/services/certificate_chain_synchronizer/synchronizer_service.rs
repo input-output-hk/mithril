@@ -228,7 +228,8 @@ mod tests {
         FakeCertificaterRetriever, MithrilCertificateVerifier,
     };
     use mithril_common::test_utils::{
-        CertificateChainBuilder, CertificateChainFixture, fake_data, fake_keys,
+        CertificateChainBuilder, CertificateChainFixture,
+        double::{fake_data, fake_keys},
         mock_extensions::MockBuilder,
     };
 

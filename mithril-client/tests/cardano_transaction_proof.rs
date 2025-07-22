@@ -1,12 +1,13 @@
 mod extensions;
 
-use crate::extensions::fake_aggregator::{FakeAggregator, FakeCertificateVerifier};
 use mithril_client::{ClientBuilder, MessageBuilder, aggregator_client::AggregatorRequest};
+use mithril_common::test_utils::double::fake_keys;
+
+use crate::extensions::fake_aggregator::{FakeAggregator, FakeCertificateVerifier};
 
 #[tokio::test]
 async fn cardano_transaction_proof_get_validate() {
-    let genesis_verification_key =
-        mithril_common::test_utils::fake_keys::genesis_verification_key()[0];
+    let genesis_verification_key = fake_keys::genesis_verification_key()[0];
 
     let transactions_hashes = ["abc", "def"];
     let certificate_hash = "certificate_hash";

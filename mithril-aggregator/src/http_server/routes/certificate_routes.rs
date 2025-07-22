@@ -140,7 +140,7 @@ mod tests {
     use mithril_api_spec::APISpec;
     use mithril_common::{
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER, messages::CertificateMessage,
-        test_utils::fake_data,
+        test_utils::double::fake_data,
     };
 
     use crate::{initialize_dependencies, services::MockMessageService};

@@ -53,7 +53,7 @@ impl Query for UpdateEpochSettingsQuery {
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::{BlockNumber, CardanoTransactionsSigningConfig};
-    use mithril_common::test_utils::fake_data;
+    use mithril_common::test_utils::double::fake_data;
     use mithril_persistence::sqlite::ConnectionExtensions;
 
     use crate::database::query::GetEpochSettingsQuery;

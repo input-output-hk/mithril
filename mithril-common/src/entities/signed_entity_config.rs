@@ -157,7 +157,7 @@ mod tests {
     use crate::entities::{
         CardanoDbBeacon, ChainPoint, Epoch, SignedEntityType, SlotNumber, TimePoint,
     };
-    use crate::test_utils::{double::Dummy, fake_data};
+    use crate::test_utils::{double::Dummy, double::fake_data};
 
     use super::*;
 

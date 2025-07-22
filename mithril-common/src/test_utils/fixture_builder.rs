@@ -8,10 +8,10 @@ use crate::{
         tests_setup, tests_setup::setup_temp_directory_for_signer,
     },
     entities::{PartyId, ProtocolParameters, Stake, StakeDistribution},
-    test_utils::{fake_data, mithril_fixture::MithrilFixture},
+    test_utils::{double::fake_data, mithril_fixture::MithrilFixture},
 };
 
-use super::precomputed_kes_key;
+use super::double::precomputed_kes_key;
 
 /// A builder of mithril types.
 pub struct MithrilFixtureBuilder {

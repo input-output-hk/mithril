@@ -156,7 +156,7 @@ mod tests {
         CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolMessagePartKey,
         SignedEntityTypeDiscriminants,
     };
-    use mithril_common::test_utils::{double::Dummy, fake_data};
+    use mithril_common::test_utils::double::{Dummy, fake_data};
 
     use crate::services::{MockSignaturePublisher, MockSingleSigner};
 

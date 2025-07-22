@@ -96,7 +96,7 @@ mod tests {
     use chrono::DateTime;
     use mithril_common::{
         entities::{CardanoDbBeacon, SignedEntityType},
-        test_utils::fake_data,
+        test_utils::double::fake_data,
     };
     use mithril_persistence::sqlite::ConnectionExtensions;
     use sqlite::ConnectionThreadSafe;

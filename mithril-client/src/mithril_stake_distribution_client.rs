@@ -95,7 +95,7 @@ impl MithrilStakeDistributionClient {
 #[cfg(test)]
 mod tests {
     use chrono::{DateTime, Utc};
-    use mithril_common::test_utils::fake_data;
+    use mithril_common::test_utils::double::fake_data;
 
     use crate::MithrilSigner;
     use crate::aggregator_client::MockAggregatorClient;

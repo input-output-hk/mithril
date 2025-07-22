@@ -14,7 +14,7 @@ use crate::{
         CardanoDbBeacon, Certificate, CertificateMetadata, CertificateSignature, Epoch,
         ProtocolMessage, ProtocolMessagePartKey, SignedEntityType,
     },
-    test_utils::{MithrilFixture, MithrilFixtureBuilder, SignerFixture, fake_data},
+    test_utils::{MithrilFixture, MithrilFixtureBuilder, SignerFixture, double::fake_data},
 };
 
 /// Genesis certificate processor function type. For tests only.
@@ -1072,14 +1072,12 @@ mod test {
 
         #[test]
         fn get_latest_certificate() {
-            let chain_with_only_a_genesis = CertificateChainBuilder::new()
-                .with_total_certificates(1)
-                .build();
+            let chain_with_only_a_genesis =
+                CertificateChainBuilder::new().with_total_certificates(1).build();
             assert!(chain_with_only_a_genesis.latest_certificate().is_genesis());
 
-            let chain_with_multiple_certificates = CertificateChainBuilder::new()
-                .with_total_certificates(10)
-                .build();
+            let chain_with_multiple_certificates =
+                CertificateChainBuilder::new().with_total_certificates(10).build();
             assert_eq!(
                 chain_with_multiple_certificates.latest_certificate(),
                 chain_with_multiple_certificates.first().unwrap()

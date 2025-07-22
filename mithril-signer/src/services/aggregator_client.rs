@@ -473,7 +473,10 @@ mod tests {
     use mithril_common::api_version::DummyApiVersionDiscriminantSource;
     use mithril_common::entities::Epoch;
     use mithril_common::messages::TryFromMessageAdapter;
-    use mithril_common::test_utils::{MemoryDrainForTestInspector, double::Dummy, fake_data};
+    use mithril_common::test_utils::{
+        MemoryDrainForTestInspector,
+        double::{Dummy, fake_data},
+    };
 
     use crate::test_tools::TestLogger;
 

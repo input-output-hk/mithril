@@ -523,7 +523,7 @@ mod tests {
     }
 
     mod snapshot_ancillary {
-        use mithril_common::test_utils::fake_keys;
+        use mithril_common::test_utils::double::fake_keys;
 
         use super::*;
 

@@ -342,7 +342,7 @@ impl MessageService for MithrilMessageService {
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::{BlockNumber, Certificate, SignedEntityType};
-    use mithril_common::test_utils::{double::Dummy, fake_data};
+    use mithril_common::test_utils::double::{Dummy, fake_data};
     use tokio::sync::RwLock;
 
     use crate::database::record::SignedEntityRecord;

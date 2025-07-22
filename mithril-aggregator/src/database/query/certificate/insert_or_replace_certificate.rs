@@ -40,7 +40,7 @@ mod tests {
 
     use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
     use mithril_common::entities::Epoch;
-    use mithril_common::test_utils::fake_data;
+    use mithril_common::test_utils::double::fake_data;
     use mithril_persistence::sqlite::ConnectionExtensions;
 
     use crate::database::query::{GetCertificateRecordQuery, InsertCertificateRecordQuery};

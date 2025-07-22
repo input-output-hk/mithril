@@ -1,7 +1,7 @@
 use chrono::Utc;
 use uuid::Uuid;
 
-use mithril_common::test_utils::{double::Dummy, fake_data};
+use mithril_common::test_utils::double::{Dummy, fake_data};
 
 mod record {
     use mithril_common::entities::{ProtocolMessage, SignedEntityType};

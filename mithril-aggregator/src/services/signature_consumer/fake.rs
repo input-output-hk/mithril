@@ -46,7 +46,7 @@ impl SignatureConsumer for FakeSignatureConsumer {
 mod tests {
     use super::*;
 
-    use mithril_common::{entities::Epoch, test_utils::fake_data};
+    use mithril_common::{entities::Epoch, test_utils::double::fake_data};
 
     #[tokio::test]
     async fn fake_signature_consumer_returns_signature_batches_in_expected_order() {

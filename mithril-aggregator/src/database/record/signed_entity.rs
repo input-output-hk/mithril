@@ -101,7 +101,7 @@ impl SignedEntityRecord {
     }
 
     pub(crate) fn fake_records(number_if_records: usize) -> Vec<SignedEntityRecord> {
-        use mithril_common::test_utils::fake_data;
+        use mithril_common::test_utils::double::fake_data;
 
         let snapshots = fake_data::snapshots(number_if_records as u64);
         (0..number_if_records)
@@ -435,7 +435,7 @@ impl SqLiteEntity for SignedEntityRecord {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::test_utils::fake_data;
+    use mithril_common::test_utils::double::fake_data;
 
     use super::*;
 

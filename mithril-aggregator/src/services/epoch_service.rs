@@ -560,7 +560,7 @@ pub(crate) struct FakeEpochServiceBuilder {
 #[cfg(test)]
 impl FakeEpochServiceBuilder {
     pub fn dummy(epoch: Epoch) -> Self {
-        use mithril_common::test_utils::{double::Dummy, fake_data};
+        use mithril_common::test_utils::double::{Dummy, fake_data};
         let signers = fake_data::signers_with_stakes(3);
 
         Self {
@@ -841,8 +841,8 @@ mod tests {
         BlockNumber, CardanoTransactionsSigningConfig, Stake, StakeDistribution, SupportedEra,
     };
     use mithril_common::test_utils::{
-        MithrilFixture, MithrilFixtureBuilder, StakeDistributionGenerationMethod, double::Dummy,
-        fake_data,
+        MithrilFixture, MithrilFixtureBuilder, StakeDistributionGenerationMethod,
+        double::{Dummy, fake_data},
     };
     use mockall::predicate::eq;
 

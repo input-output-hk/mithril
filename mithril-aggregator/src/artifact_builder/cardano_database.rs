@@ -112,7 +112,10 @@ mod tests {
             ImmutablesLocation, MultiFilesUri, ProtocolMessage, ProtocolMessagePartKey,
             TemplateUri,
         },
-        test_utils::{TempDir, fake_data, fake_keys},
+        test_utils::{
+            TempDir,
+            double::{fake_data, fake_keys},
+        },
     };
 
     use crate::{

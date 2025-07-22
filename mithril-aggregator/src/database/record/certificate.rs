@@ -12,7 +12,7 @@ use mithril_common::messages::{
 #[cfg(test)]
 use mithril_common::{
     entities::{CardanoDbBeacon, ImmutableFileNumber},
-    test_utils::{fake_data, fake_keys},
+    test_utils::double::{fake_data, fake_keys},
 };
 use mithril_persistence::{
     database::Hydrator,

@@ -1006,7 +1006,7 @@ mod tests {
     }
 
     mod remote_certificate_retriever {
-        use mithril_common::test_utils::fake_data;
+        use mithril_common::test_utils::double::fake_data;
 
         use super::*;
 

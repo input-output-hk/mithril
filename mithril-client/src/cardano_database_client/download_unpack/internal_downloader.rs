@@ -532,7 +532,7 @@ mod tests {
     }
 
     mod building_download_tasks {
-        use mithril_common::{entities::CompressionAlgorithm, test_utils::fake_keys};
+        use mithril_common::{entities::CompressionAlgorithm, test_utils::double::fake_keys};
 
         use crate::file_downloader::MockFileDownloader;
 

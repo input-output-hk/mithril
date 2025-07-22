@@ -353,7 +353,10 @@ mod tests {
             CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
             MithrilStakeDistributionSignableBuilder, SignableBuilderServiceDependencies,
         },
-        test_utils::{MithrilFixtureBuilder, double::Dummy, fake_data},
+        test_utils::{
+            MithrilFixtureBuilder,
+            double::{Dummy, fake_data},
+        },
     };
     use mithril_era::{EraChecker, EraReader, adapters::EraReaderBootstrapAdapter};
     use mithril_signed_entity_lock::SignedEntityTypeLock;

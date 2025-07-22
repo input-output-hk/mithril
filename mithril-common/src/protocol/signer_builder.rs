@@ -178,7 +178,7 @@ mod test {
 
     use crate::{
         crypto_helper::{KesSignerStandard, ProtocolRegistrationErrorWrapper},
-        test_utils::{MithrilFixtureBuilder, fake_data},
+        test_utils::{MithrilFixtureBuilder, double::fake_data},
     };
 
     use super::*;

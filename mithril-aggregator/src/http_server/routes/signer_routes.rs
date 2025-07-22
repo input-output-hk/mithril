@@ -271,7 +271,10 @@ mod tests {
         crypto_helper::ProtocolRegistrationError,
         entities::Epoch,
         messages::RegisterSignerMessage,
-        test_utils::{MithrilFixtureBuilder, double::Dummy, fake_data},
+        test_utils::{
+            MithrilFixtureBuilder,
+            double::{Dummy, fake_data},
+        },
     };
 
     use crate::{
