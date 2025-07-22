@@ -154,13 +154,19 @@ runs:
         Use the following commands to install the Mithril nodes:
 
         - Download the **Mithril signer** in the current directory:
-        \`curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-signer -d ${{ inputs.tag }} -p $(pwd)\`
+        \`\`\`bash
+        curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-signer -d ${{ inputs.tag }} -p \$(pwd)
+        \`\`\`
 
         - Download the **Mithril client CLI** in the current directory:
-        \`curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-client -d ${{ inputs.tag }} -p $(pwd)\`
+        \`\`\`bash
+        curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-client -d ${{ inputs.tag }} -p \$(pwd)
+        \`\`\`
 
         - Download the **Mithril aggregator** in the current directory:
-        \`curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-aggregator -d ${{ inputs.tag }} -p $(pwd)\`
+        \`\`\`bash
+        curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-aggregator -d ${{ inputs.tag }} -p \$(pwd)
+        \`\`\`
         EOF
 
     - name: Create and sign sha256 checksum
