@@ -43,7 +43,7 @@ cfg_fs! {
 
     /// Type containing the lists of immutable files that are missing or tampered.
     #[derive(Debug, PartialEq)]
-    pub struct ImmutableFilesLists {
+    pub struct ImmutableVerificationResult {
         /// The immutables files directory.
         pub immutables_dir: PathBuf,
         /// List of missing immutable files.
@@ -58,7 +58,7 @@ cfg_fs! {
     #[derive(Error, Debug)]
     pub enum ComputeCardanoDatabaseMessageError {
         /// Error related to the verification of immutable files.
-        ImmutableFilesVerification(ImmutableFilesLists),
+        ImmutableFilesVerification(ImmutableVerificationResult),
 
         /// Error related to the immutable files digests computation.
         ImmutableFilesDigester(#[from] ImmutableDigesterError),
@@ -291,7 +291,7 @@ impl MessageBuilder {
                 Ok(_) => (vec![], vec![]),
             };
             Err(
-                ComputeCardanoDatabaseMessageError::ImmutableFilesVerification(ImmutableFilesLists {
+                ComputeCardanoDatabaseMessageError::ImmutableFilesVerification(ImmutableVerificationResult {
                     immutables_dir: Self::immutable_dir(database_dir),
                     missing: missing_immutable_files,
                     tampered,
@@ -600,7 +600,7 @@ mod tests {
 
             assert_eq!(
                 error_lists,
-                ImmutableFilesLists {
+                ImmutableVerificationResult {
                     immutables_dir: MessageBuilder::immutable_dir(&database_dir),
                     missing: to_vec_immutable_file_name(&files_to_remove),
                     tampered: vec![],
@@ -687,7 +687,7 @@ mod tests {
             };
             assert_eq!(
                 error_lists,
-                ImmutableFilesLists {
+                ImmutableVerificationResult {
                     immutables_dir: MessageBuilder::immutable_dir(&database_dir),
                     missing: vec![],
                     tampered: to_vec_immutable_file_name(&files_to_tamper),
@@ -738,7 +738,7 @@ mod tests {
             };
             assert_eq!(
                 error_lists,
-                ImmutableFilesLists {
+                ImmutableVerificationResult {
                     immutables_dir: MessageBuilder::immutable_dir(&database_dir),
                     missing: to_vec_immutable_file_name(&files_to_remove),
                     tampered: to_vec_immutable_file_name(&files_to_tamper),
@@ -805,7 +805,7 @@ mod tests {
             };
             assert_eq!(
                 error_lists,
-                ImmutableFilesLists {
+                ImmutableVerificationResult {
                     immutables_dir: MessageBuilder::immutable_dir(&database_dir),
                     missing: vec![],
                     tampered: vec![],
@@ -844,12 +844,14 @@ mod tests {
                 None => vec![],
             };
 
-            ComputeCardanoDatabaseMessageError::ImmutableFilesVerification(ImmutableFilesLists {
-                immutables_dir: PathBuf::from(immutable_path),
-                missing,
-                tampered,
-                non_verifiable,
-            })
+            ComputeCardanoDatabaseMessageError::ImmutableFilesVerification(
+                ImmutableVerificationResult {
+                    immutables_dir: PathBuf::from(immutable_path),
+                    missing,
+                    tampered,
+                    non_verifiable,
+                },
+            )
         }
 
         fn normalize_path_separators(s: &str) -> String {
