@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, vec};
 
 use anyhow::{Context, anyhow};
 use blake2::{Blake2b, Digest, digest::consts::U64};
@@ -65,16 +65,18 @@ impl DmqMessageBuilder {
         let block_number = (*block_number)
             .try_into()
             .with_context(|| "Failed to convert block number to u32")?;
-        let (kes_signature, operational_certificate) = self
+        /* let (kes_signature, operational_certificate) = self
             .kes_signer
             .sign(message_bytes, block_number)
             .with_context(|| "Failed to KES sign message while building DMQ message")?;
+        // TODO: fix the computation of the KES period which is not done correctly in the pallas chain observer
         let kes_period = self
             .chain_observer
             .get_current_kes_period(&operational_certificate)
             .await
             .with_context(|| "Failed to get KES period while building DMQ message")?
-            .unwrap_or_default();
+            .unwrap_or_default()
+            - operational_certificate.start_kes_period as u32;
         let mut dmq_message = DmqMsg {
             msg_id: vec![],
             msg_body: message_bytes.to_vec(),
@@ -82,6 +84,16 @@ impl DmqMessageBuilder {
             ttl: self.ttl_blocks,
             kes_signature: kes_signature.to_bytes_vec()?,
             operational_certificate: operational_certificate.to_bytes_vec()?,
+            kes_period,
+        }; */
+        let kes_period = 0;
+        let mut dmq_message = DmqMsg {
+            msg_id: vec![],
+            msg_body: message_bytes.to_vec(),
+            block_number,
+            ttl: self.ttl_blocks,
+            kes_signature: vec![],
+            operational_certificate: vec![],
             kes_period,
         };
         dmq_message.msg_id = compute_msg_id(&dmq_message);

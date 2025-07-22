@@ -133,7 +133,7 @@ impl Aggregator {
         let dmq_node_socket_path = aggregator_config
             .work_dir
             .join(format!("dmq-aggregator-{}.socket", aggregator_config.index));
-        if true {
+        if false {
             env.insert(
                 "DMQ_NODE_SOCKET_PATH",
                 dmq_node_socket_path.to_str().unwrap(),
