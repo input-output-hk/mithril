@@ -8,7 +8,7 @@ use anyhow::Context;
 use chrono::{DateTime, Utc};
 use clap::Parser;
 use mithril_client::{
-    CardanoDatabaseSnapshot, ComputeCardanoDatabaseMessageError, ImmutableFilesLists,
+    CardanoDatabaseSnapshot, ComputeCardanoDatabaseMessageError, ImmutableVerificationResult,
     MithrilResult, cardano_database_client::ImmutableFileRange, common::ImmutableFileNumber,
 };
 
@@ -212,7 +212,7 @@ impl CardanoDbVerifyCommand {
         Ok(())
     }
 
-    fn print_immutables_verification_error(lists: &ImmutableFilesLists, json_output: bool) {
+    fn print_immutables_verification_error(lists: &ImmutableVerificationResult, json_output: bool) {
         let utc_now = Utc::now();
         let json_file_path = write_json_file_error(utc_now, lists);
         let error_message = "Verifying immutables files has failed";
@@ -255,7 +255,7 @@ impl CardanoDbVerifyCommand {
     }
 }
 
-fn write_json_file_error(date: DateTime<Utc>, lists: &ImmutableFilesLists) -> PathBuf {
+fn write_json_file_error(date: DateTime<Utc>, lists: &ImmutableVerificationResult) -> PathBuf {
     let file_path = PathBuf::from(format!(
         "immutables_verification_error-{}.json",
         date.timestamp()
