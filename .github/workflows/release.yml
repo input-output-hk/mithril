@@ -31,6 +31,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Get short SHA
+        id: slug
+        run: echo "sha8=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -51,7 +55,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.PACKAGE }}
           tags: |
             latest
-            type=raw,value=${{ github.ref_name }}-{{sha}}
+            type=raw,value=${{ github.ref_name }}-${{ steps.slug.outputs.sha8 }}
 
       - name: Download built artifacts (Linux-x64)
         uses: dawidd6/action-download-artifact@v6

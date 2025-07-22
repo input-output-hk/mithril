@@ -5,8 +5,8 @@ description: |
   The artifacts for all supported environments must have been downloaded
   in "package-{EnvName}-x64" subfolders before calling this action.
 inputs:
-  version-name:
-    description: Name of the version to package
+  tag:
+    description: The tag to use for the distribution
     required: true
   download-url-base:
     description: Base url where the released distribution will be downloadable
@@ -20,13 +20,28 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Get short SHA
+      id: slug
+      shell: bash
+      run: echo "sha8=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+
+    - name: Compute version name
+      id: compute-version-name
+      shell: bash
+      run: |
+        if [[ "${{ inputs.tag }}" == "unstable" ]]; then
+          echo "version-name=unstable-${{ steps.slug.outputs.sha8 }}" >> $GITHUB_OUTPUT
+        else
+          echo "version-name=${{ inputs.tag }}" >> $GITHUB_OUTPUT
+        fi
+
     - name: Package distribution (Linux-X64)
       shell: bash
       run: |
         python3 ./.github/workflows/scripts/package-distribution.py \
         --input package-Linux-X64/ \
         --dest package/ \
-        --version "${{ inputs.version-name }}" \
+        --version "${{ steps.compute-version-name.outputs.version-name }}" \
         --target "linux-x64"
 
     - name: Package distribution (Linux-ARM64)
@@ -35,7 +50,7 @@ runs:
         python3 ./.github/workflows/scripts/package-distribution.py \
         --input package-Linux-ARM64/ \
         --dest package/ \
-        --version "${{ inputs.version-name }}" \
+        --version "${{ steps.compute-version-name.outputs.version-name }}" \
         --target "linux-arm64"
 
     - name: Package distribution (macOS-ARM64)
@@ -44,7 +59,7 @@ runs:
         python3 ./.github/workflows/scripts/package-distribution.py \
         --input package-macOS-ARM64/ \
         --dest package/ \
-        --version "${{ inputs.version-name }}" \
+        --version "${{ steps.compute-version-name.outputs.version-name }}" \
         --target "macos-arm64"
 
     - name: Package distribution (Windows-X64)
@@ -53,7 +68,7 @@ runs:
         python3 ./.github/workflows/scripts/package-distribution.py \
         --input package-Windows-X64/ \
         --dest package/ \
-        --version "${{ inputs.version-name }}" \
+        --version "${{ steps.compute-version-name.outputs.version-name }}" \
         --target "windows-x64"
 
     - name: Package Explorer
@@ -63,7 +78,7 @@ runs:
         --input package-explorer/ \
         --dest package/ \
         --name "mithril-explorer" \
-        --version "${{ inputs.version-name }}"
+        --version "${{ steps.compute-version-name.outputs.version-name }}"
 
     - name: Prepare crates versions table
       shell: bash
@@ -127,6 +142,27 @@ runs:
         \`git tag -d unstable && git fetch origin tag unstable\`
         EOF
 
+    - name: Download a binary asset
+      shell: bash
+      run: |
+        cat >> ./release-notes-addon.txt << EOF
+
+        ## Download a binary asset
+        To simplify the installation and updating of Mithril binaries, we have created a one line installer that downloads and installs the Mithril binaries for you.
+        This installer is available for Linux and macOS and supports the Mithril signer, Mithril aggregator, and Mithril client CLI.
+
+        Use the following commands to install the Mithril nodes:
+
+        - Download the **Mithril signer** in the current directory:
+        \`curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-signer -d ${{ inputs.tag }} -p $(pwd)\`
+
+        - Download the **Mithril client CLI** in the current directory:
+        \`curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-client -d ${{ inputs.tag }} -p $(pwd)\`
+
+        - Download the **Mithril aggregator** in the current directory:
+        \`curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-aggregator -d ${{ inputs.tag }} -p $(pwd)\`
+        EOF
+
     - name: Create and sign sha256 checksum
       shell: bash
       env:
@@ -140,6 +176,27 @@ runs:
         PROCEDURE_FILE_PATH: ./release-notes-addon.txt
         DOWNLOAD_URL_BASE: ${{ inputs.download-url-base }}
       run: ./.github/workflows/scripts/verify-distribution.sh
+
+    - name: Download a Docker image
+      shell: bash
+      run: |
+        if [[ "${{ inputs.tag }}" == "unstable" ]]; then
+          MITHRIL_IMAGE_ID="main-${{ steps.slug.outputs.sha8 }}"
+        else
+          MITHRIL_IMAGE_ID="${{ inputs.tag }}-${{ steps.slug.outputs.sha8 }}"
+        fi
+
+        cat >> ./release-notes-addon.txt << EOF
+
+        ## Download a Docker image
+        You can directly pull prebuilt Mithril Docker images:
+
+        | Binary             |              Image name              |                             URL                              |
+        | ------------------ | :----------------------------------: | :----------------------------------------------------------: |
+        | mithril-aggregator | mithril-aggregator:$MITHRIL_IMAGE_ID | ghcr.io/input-output-hk/mithril-aggregator:$MITHRIL_IMAGE_ID |
+        | mithril-signer     |   mithril-signer:$MITHRIL_IMAGE_ID   |   ghcr.io/input-output-hk/mithril-signer:$MITHRIL_IMAGE_ID   |
+        | mithril-client     |   mithril-client:$MITHRIL_IMAGE_ID   |   ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID   |
+        EOF
 
     - name: List packaged assets
       shell: bash
