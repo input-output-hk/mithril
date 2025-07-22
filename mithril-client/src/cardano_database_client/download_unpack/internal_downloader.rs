@@ -275,7 +275,7 @@ mod tests {
     use mithril_common::{
         entities::{CardanoDbBeacon, Epoch, MultiFilesUri, TemplateUri},
         messages::CardanoDatabaseSnapshotMessage as CardanoDatabaseSnapshot,
-        test_utils::temp_dir_create,
+        test_utils::{double::Dummy, temp_dir_create},
     };
 
     use crate::cardano_database_client::CardanoDatabaseClientDependencyInjector;

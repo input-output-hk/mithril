@@ -398,6 +398,7 @@ mod tests {
         Method::{GET, POST},
         MockServer,
     };
+    use mithril_common::test_utils::double::Dummy;
     use tokio::sync::mpsc::error::TryRecvError;
 
     use crate::{repeater, test_tools::TestLogger};

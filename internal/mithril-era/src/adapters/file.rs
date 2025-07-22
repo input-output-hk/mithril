@@ -30,7 +30,7 @@ impl EraReaderAdapter for FileAdapter {
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::{Epoch, SupportedEra};
-    use mithril_common::test_utils::TempDir;
+    use mithril_common::test_utils::{TempDir, double::Dummy};
 
     use super::*;
 

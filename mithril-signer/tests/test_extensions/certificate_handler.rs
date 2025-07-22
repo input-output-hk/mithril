@@ -10,7 +10,7 @@ use mithril_common::{
         SignedEntityType, SignedEntityTypeDiscriminants, Signer, SingleSignature, TimePoint,
     },
     messages::AggregatorFeaturesMessage,
-    test_utils::fake_data,
+    test_utils::{double::Dummy, fake_data},
 };
 use mithril_ticker::{MithrilTickerService, TickerService};
 

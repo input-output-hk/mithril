@@ -22,6 +22,8 @@ impl EraReaderAdapter for BootstrapAdapter {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::test_utils::double::Dummy;
+
     use super::*;
 
     #[tokio::test]

@@ -53,20 +53,6 @@ impl CardanoTransactionsSetProof {
     }
 
     cfg_test_tools! {
-        /// Retrieve a dummy proof (for test only)
-        pub fn dummy() -> Self {
-            let leaves = vec![
-                (BlockNumber(0), "tx-1".to_string()),
-                (BlockNumber(1), "tx-2".to_string()),
-                (BlockNumber(1), "tx-3".to_string()),
-                (BlockNumber(10), "tx-4".to_string()),
-                (BlockNumber(20), "tx-5".to_string()),
-                (BlockNumber(22), "tx-6".to_string()),
-            ];
-
-            Self::from_leaves::<MKTreeStoreInMemory>(&leaves).unwrap()
-        }
-
         /// Helper to create a proof from a list of leaves
         pub fn from_leaves<S: MKTreeStorer>(leaves: &[(BlockNumber, TransactionHash)]) -> StdResult<Self> {
             let transactions_hashes: Vec<TransactionHash> =

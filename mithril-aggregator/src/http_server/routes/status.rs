@@ -115,7 +115,7 @@ mod tests {
     use mithril_api_spec::APISpec;
     use mithril_common::{
         entities::{Epoch, ProtocolParameters, Stake},
-        test_utils::{MithrilFixtureBuilder, fake_data},
+        test_utils::{MithrilFixtureBuilder, double::Dummy, fake_data},
     };
 
     use crate::{

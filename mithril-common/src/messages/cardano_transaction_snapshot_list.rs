@@ -28,24 +28,6 @@ pub struct CardanoTransactionSnapshotListItemMessage {
     pub created_at: DateTime<Utc>,
 }
 
-impl CardanoTransactionSnapshotListItemMessage {
-    cfg_test_tools! {
-        /// Return a dummy test entity (test-only).
-        pub fn dummy() -> Self {
-            Self {
-                merkle_root: "mkroot-123".to_string(),
-                epoch: Epoch(10),
-                block_number: BlockNumber(100),
-                hash: "hash-123".to_string(),
-                certificate_hash: "cert-hash-123".to_string(),
-                created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
-                    .unwrap()
-                    .with_timezone(&Utc),
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

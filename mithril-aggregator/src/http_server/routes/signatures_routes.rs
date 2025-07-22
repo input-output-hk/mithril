@@ -126,7 +126,10 @@ mod tests {
     use warp::test::request;
 
     use mithril_api_spec::APISpec;
-    use mithril_common::{entities::SignedEntityType, messages::RegisterSignatureMessageHttp};
+    use mithril_common::{
+        entities::SignedEntityType, messages::RegisterSignatureMessageHttp,
+        test_utils::double::Dummy,
+    };
 
     use crate::{
         SingleSignatureAuthenticator, initialize_dependencies,

@@ -3,8 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 
 use crate::entities::{
-    Epoch, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters, ProtocolVersion,
-    SignedEntityType,
+    Epoch, ProtocolMessage, ProtocolParameters, ProtocolVersion, SignedEntityType,
 };
 
 /// Message structure of a certificate list
@@ -82,44 +81,6 @@ pub struct CertificateListItemMessage {
     pub aggregate_verification_key: String,
 }
 
-impl CertificateListItemMessage {
-    /// Return a dummy test entity (test-only).
-    pub fn dummy() -> Self {
-        let mut protocol_message = ProtocolMessage::new();
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::SnapshotDigest,
-            "snapshot-digest-123".to_string(),
-        );
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            "next-avk-123".to_string(),
-        );
-        let epoch = Epoch(10);
-
-        Self {
-            hash: "hash".to_string(),
-            previous_hash: "previous_hash".to_string(),
-            epoch,
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(epoch),
-            metadata: CertificateListItemMessageMetadata {
-                network: "testnet".to_string(),
-                protocol_version: "0.1.0".to_string(),
-                protocol_parameters: ProtocolParameters::new(1000, 100, 0.123),
-                initiated_at: DateTime::parse_from_rfc3339("2024-02-12T13:11:47Z")
-                    .unwrap()
-                    .with_timezone(&Utc),
-                sealed_at: DateTime::parse_from_rfc3339("2024-02-12T13:12:57Z")
-                    .unwrap()
-                    .with_timezone(&Utc),
-                total_signers: 2,
-            },
-            protocol_message: protocol_message.clone(),
-            signed_message: "signed_message".to_string(),
-            aggregate_verification_key: "aggregate_verification_key".to_string(),
-        }
-    }
-}
-
 impl Debug for CertificateListItemMessage {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let should_be_exhaustive = f.alternate();
@@ -153,7 +114,7 @@ impl Debug for CertificateListItemMessage {
 
 #[cfg(test)]
 mod tests {
-    use crate::entities::CardanoDbBeacon;
+    use crate::entities::{CardanoDbBeacon, ProtocolMessagePartKey};
 
     use super::*;
 

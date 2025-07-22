@@ -28,6 +28,8 @@ impl TryFromMessageAdapter<RegisterSignatureMessageHttp, SingleSignature>
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::test_utils::double::Dummy;
+
     use super::*;
 
     #[test]

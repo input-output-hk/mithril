@@ -15,16 +15,6 @@ pub struct CardanoDatabaseDigestListItemMessage {
     pub digest: HexEncodedDigest,
 }
 
-impl CardanoDatabaseDigestListItemMessage {
-    /// Return a dummy test entity (test-only).
-    pub fn dummy() -> Self {
-        Self {
-            immutable_file_name: "06685.chunk".to_string(),
-            digest: "0af556ab2620dd9363bf76963a231abe8948a500ea6be31b131d87907ab09b1e".to_string(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

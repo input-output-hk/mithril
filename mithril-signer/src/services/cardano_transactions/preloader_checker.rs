@@ -43,6 +43,7 @@ mod tests {
 
     use mithril_common::{
         entities::SignedEntityTypeDiscriminants, messages::AggregatorFeaturesMessage,
+        test_utils::double::Dummy,
     };
 
     use crate::services::{AggregatorClientError, MockAggregatorClient};

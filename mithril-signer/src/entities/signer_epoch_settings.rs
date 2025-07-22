@@ -24,10 +24,10 @@ pub struct SignerEpochSettings {
     pub next_cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
 }
 
-impl SignerEpochSettings {
-    #[cfg(test)]
-    /// Create a dummy SignerEpochSettings
-    pub fn dummy() -> SignerEpochSettings {
+#[cfg(test)]
+impl mithril_common::test_utils::double::Dummy for SignerEpochSettings {
+    /// Create a dummy `SignerEpochSettings`
+    fn dummy() -> SignerEpochSettings {
         use mithril_common::test_utils::fake_data;
 
         // Beacon

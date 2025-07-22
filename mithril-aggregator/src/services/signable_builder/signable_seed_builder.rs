@@ -58,7 +58,7 @@ impl SignableSeedBuilder for AggregatorSignableSeedBuilder {
 mod tests {
     use mithril_common::{
         entities::Epoch,
-        test_utils::{MithrilFixture, MithrilFixtureBuilder},
+        test_utils::{MithrilFixture, MithrilFixtureBuilder, double::Dummy},
     };
 
     use crate::{entities::AggregatorEpochSettings, services::FakeEpochServiceBuilder};

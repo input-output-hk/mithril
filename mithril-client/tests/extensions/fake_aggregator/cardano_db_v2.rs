@@ -17,7 +17,7 @@ use mithril_client::{
     CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem, MithrilCertificate,
 };
 use mithril_common::crypto_helper::ManifestVerifierSecretKey;
-use mithril_common::test_utils::fake_data;
+use mithril_common::test_utils::{double::Dummy, fake_data};
 
 use crate::extensions::{routes, snapshot_archives};
 

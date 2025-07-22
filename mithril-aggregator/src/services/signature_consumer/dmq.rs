@@ -55,7 +55,10 @@ impl SignatureConsumer for SignatureConsumerDmq {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::{crypto_helper::ProtocolSingleSignature, test_utils::fake_keys};
+    use mithril_common::{
+        crypto_helper::ProtocolSingleSignature,
+        test_utils::{double::Dummy, fake_keys},
+    };
     use mithril_dmq::test::double::DmqConsumerFake;
 
     use super::*;

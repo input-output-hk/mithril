@@ -22,20 +22,6 @@ pub struct MithrilStakeDistributionListItemMessage {
     pub created_at: DateTime<Utc>,
 }
 
-impl MithrilStakeDistributionListItemMessage {
-    /// Return a dummy test entity (test-only).
-    pub fn dummy() -> Self {
-        Self {
-            epoch: Epoch(1),
-            hash: "hash-123".to_string(),
-            certificate_hash: "certificate-hash-123".to_string(),
-            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
-                .unwrap()
-                .with_timezone(&Utc),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

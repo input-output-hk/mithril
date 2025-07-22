@@ -507,6 +507,7 @@ mod tests {
 
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_cardano_node_internal_database::test::double::DumbImmutableFileObserver;
+    use mithril_common::test_utils::double::Dummy;
     use mithril_common::{entities::TimePoint, test_utils::TempDir};
 
     use crate::test_tools::TestLogger;

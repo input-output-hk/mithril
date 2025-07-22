@@ -11,13 +11,13 @@ use crate::entities::{
     ImmutablesLocations, LotteryIndex, ProtocolMessage, ProtocolMessagePartKey, SignedEntityType,
     SingleSignature, SlotNumber, StakeDistribution, StakeDistributionParty,
 };
-use crate::test_utils::MithrilFixtureBuilder;
+use crate::test_utils::{MithrilFixtureBuilder, double::Dummy};
 
 use super::fake_keys;
 
 /// Fake network
-pub fn network() -> crate::CardanoNetwork {
-    crate::CardanoNetwork::TestNet(CardanoNetwork::DEVNET_MAGIC_ID)
+pub fn network() -> CardanoNetwork {
+    CardanoNetwork::TestNet(CardanoNetwork::DEVNET_MAGIC_ID)
 }
 
 /// Fake Beacon

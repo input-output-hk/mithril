@@ -82,7 +82,6 @@ impl<M: TryToBytes + Debug + Sync + Send> DmqPublisher<M> for DmqPublisherPallas
 
 #[cfg(all(test, unix))]
 mod tests {
-
     use std::{fs, sync::Arc};
 
     use pallas_network::miniprotocols::{
@@ -91,7 +90,11 @@ mod tests {
     use tokio::{net::UnixListener, task::JoinHandle};
 
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
-    use mithril_common::{crypto_helper::KesSignerFake, current_function, test_utils::TempDir};
+    use mithril_common::{
+        crypto_helper::KesSignerFake,
+        current_function,
+        test_utils::{TempDir, double::Dummy},
+    };
 
     use crate::{test::payload::DmqMessageTestPayload, test_tools::TestLogger};
 

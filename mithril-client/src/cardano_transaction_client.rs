@@ -164,6 +164,8 @@ mod tests {
     use chrono::{DateTime, Utc};
     use mockall::predicate::eq;
 
+    use mithril_common::test_utils::double::Dummy;
+
     use crate::aggregator_client::{AggregatorClientError, MockAggregatorClient};
     use crate::common::{BlockNumber, Epoch};
     use crate::{

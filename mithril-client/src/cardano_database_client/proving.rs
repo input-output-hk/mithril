@@ -180,7 +180,7 @@ mod tests {
     use mithril_common::{
         entities::{CardanoDbBeacon, Epoch, HexEncodedDigest},
         messages::CardanoDatabaseDigestListItemMessage,
-        test_utils::TempDir,
+        test_utils::{TempDir, double::Dummy},
     };
 
     use crate::{

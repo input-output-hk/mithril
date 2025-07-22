@@ -477,7 +477,7 @@ mod tests {
     use mockall::predicate;
 
     use mithril_common::entities::{ChainPoint, Epoch, ProtocolMessage, SignedEntityType};
-    use mithril_common::test_utils::fake_data;
+    use mithril_common::test_utils::{double::Dummy, fake_data};
 
     use crate::runtime::runner::MockSignerRunner;
     use crate::services::AggregatorClientError;

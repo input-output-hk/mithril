@@ -34,6 +34,7 @@ impl Query for InsertOrReplaceOpenMessageQuery {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::test_utils::double::Dummy;
     use mithril_persistence::sqlite::ConnectionExtensions;
 
     use crate::database::query::GetOpenMessageQuery;

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::entities::{CardanoDbBeacon, CompressionAlgorithm, Epoch};
+use crate::entities::{CardanoDbBeacon, CompressionAlgorithm};
 
 /// Message structure of a snapshot
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -35,28 +35,10 @@ pub struct SnapshotDownloadMessage {
     pub cardano_node_version: String,
 }
 
-impl SnapshotDownloadMessage {
-    /// Return a dummy test entity (test-only).
-    pub fn dummy() -> Self {
-        Self {
-            digest: "0b9f5ad7f33cc523775c82249294eb8a1541d54f08eb3107cafc5638403ec7c6".to_string(),
-            network: "preview".to_string(),
-            beacon: CardanoDbBeacon {
-                epoch: Epoch(86),
-                immutable_file_number: 1728,
-            },
-            size: 807803196,
-            ancillary_size: Some(123456789),
-            locations: vec!["https://host/certificate.tar.gz".to_string()],
-            ancillary_locations: Some(vec!["https://host/ancillary.tar.gz".to_string()]),
-            compression_algorithm: CompressionAlgorithm::Gzip,
-            cardano_node_version: "0.0.1".to_string(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use crate::entities::Epoch;
+
     use super::*;
 
     #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -27,6 +27,8 @@ mod multi_signer;
 mod runtime;
 pub mod services;
 mod store;
+#[doc(hidden)]
+pub mod test;
 mod tools;
 
 pub use crate::artifact_builder::ArtifactBuilder;

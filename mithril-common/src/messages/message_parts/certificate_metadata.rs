@@ -1,6 +1,6 @@
 use crate::entities::{ProtocolParameters, ProtocolVersion, StakeDistributionParty};
 
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// CertificateMetadata represents the metadata associated to a Certificate
@@ -34,33 +34,6 @@ pub struct CertificateMetadataMessagePart {
     /// The list of the active signers with their stakes and verification keys
     /// part of METADATA(p,n)
     pub signers: Vec<StakeDistributionParty>,
-}
-
-impl CertificateMetadataMessagePart {
-    /// CertificateMetadata factory
-    pub fn dummy() -> Self {
-        let initiated_at = DateTime::parse_from_rfc3339("2024-02-12T13:11:47Z")
-            .unwrap()
-            .with_timezone(&Utc);
-
-        Self {
-            network: "testnet".to_string(),
-            protocol_version: "0.1.0".to_string(),
-            protocol_parameters: ProtocolParameters::new(1000, 100, 0.123),
-            initiated_at,
-            sealed_at: initiated_at + Duration::try_seconds(100).unwrap(),
-            signers: vec![
-                StakeDistributionParty {
-                    party_id: "1".to_string(),
-                    stake: 10,
-                },
-                StakeDistributionParty {
-                    party_id: "2".to_string(),
-                    stake: 20,
-                },
-            ],
-        }
-    }
 }
 
 #[cfg(test)]

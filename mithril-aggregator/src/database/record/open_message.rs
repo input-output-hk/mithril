@@ -43,25 +43,6 @@ impl OpenMessageRecord {
     pub fn new_id() -> Uuid {
         Uuid::new_v4()
     }
-
-    #[cfg(test)]
-    /// Create a dumb OpenMessage instance mainly for test purposes
-    pub fn dummy() -> Self {
-        let beacon = mithril_common::test_utils::fake_data::beacon();
-        let epoch = beacon.epoch;
-        let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon);
-
-        Self {
-            open_message_id: Uuid::parse_str("193d1442-e89b-43cf-9519-04d8db9a12ff").unwrap(),
-            epoch,
-            signed_entity_type,
-            protocol_message: ProtocolMessage::new(),
-            is_certified: false,
-            is_expired: false,
-            created_at: Utc::now(),
-            expires_at: None,
-        }
-    }
 }
 
 impl SqLiteEntity for OpenMessageRecord {

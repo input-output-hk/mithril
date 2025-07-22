@@ -92,6 +92,8 @@ impl EpochPruningTask for EpochSettingsStore {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::test_utils::double::Dummy;
+
     use crate::database::test_helper::{insert_epoch_settings, main_db_connection};
 
     use super::*;

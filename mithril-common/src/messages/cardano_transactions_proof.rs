@@ -181,13 +181,15 @@ impl CardanoTransactionsProofsMessage {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use crate::crypto_helper::{MKMap, MKMapNode, MKProof, MKTreeStoreInMemory};
     use crate::entities::{BlockNumber, BlockRange, CardanoTransaction, SlotNumber};
     use crate::signable_builder::{
         CardanoTransactionsSignableBuilder, MockBlockRangeRootRetriever, MockTransactionsImporter,
         SignableBuilder,
     };
-    use std::sync::Arc;
+    use crate::test_utils::double::Dummy;
 
     use super::*;
 

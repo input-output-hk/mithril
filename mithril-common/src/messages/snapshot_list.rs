@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::entities::{CardanoDbBeacon, CompressionAlgorithm, Epoch};
+use crate::entities::{CardanoDbBeacon, CompressionAlgorithm};
 
 /// Message structure of a snapshot list
 pub type SnapshotListMessage = Vec<SnapshotListItemMessage>;
@@ -45,33 +45,10 @@ pub struct SnapshotListItemMessage {
     pub cardano_node_version: String,
 }
 
-impl SnapshotListItemMessage {
-    /// Return a dummy test entity (test-only).
-    pub fn dummy() -> Self {
-        Self {
-            digest: "0b9f5ad7f33cc523775c82249294eb8a1541d54f08eb3107cafc5638403ec7c6".to_string(),
-            network: "preview".to_string(),
-            beacon: CardanoDbBeacon {
-                epoch: Epoch(86),
-                immutable_file_number: 1728,
-            },
-            certificate_hash: "d5daf6c03ace4a9c074e951844075b9b373bafc4e039160e3e2af01823e9abfb"
-                .to_string(),
-            size: 807803196,
-            ancillary_size: Some(123456789),
-            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
-                .unwrap()
-                .with_timezone(&Utc),
-            locations: vec!["https://host/certificate.tar.gz".to_string()],
-            ancillary_locations: Some(vec!["https://host/ancillary.tar.gz".to_string()]),
-            compression_algorithm: CompressionAlgorithm::default(),
-            cardano_node_version: "0.0.1".to_string(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use crate::entities::Epoch;
+
     use super::*;
 
     pub type SnapshotListMessageUntilV0_1_47 = Vec<SnapshotListItemMessageUntilV0_1_47>;

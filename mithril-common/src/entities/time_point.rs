@@ -30,13 +30,6 @@ impl TimePoint {
             chain_point,
         }
     }
-
-    cfg_test_tools! {
-        /// Create a dummy TimePoint
-        pub fn dummy() -> Self {
-            Self::new(10, 100, ChainPoint::dummy())
-        }
-    }
 }
 
 impl PartialOrd for TimePoint {

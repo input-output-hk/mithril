@@ -17,17 +17,15 @@ impl SupportedEra {
     pub fn eras() -> Vec<Self> {
         Self::iter().collect()
     }
-
-    /// Retrieve a dummy era (for test only)
-    pub fn dummy() -> Self {
-        Self::eras().first().unwrap().to_owned()
-    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::str::FromStr;
+
+    use crate::test_utils::double::Dummy;
+
+    use super::*;
 
     #[test]
     fn correct_number_of_eras() {

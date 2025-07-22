@@ -164,7 +164,7 @@ mod tests {
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
         entities::{BlockNumber, CardanoTransactionsSetProof, CardanoTransactionsSnapshot},
         signable_builder::SignedEntity,
-        test_utils::{assert_equivalent, fake_data},
+        test_utils::{assert_equivalent, double::Dummy, fake_data},
     };
 
     use crate::services::MockProverService;
@@ -196,7 +196,7 @@ mod tests {
 
         let signed_entity = SignedEntity::<CardanoTransactionsSnapshot> {
             artifact: cardano_transactions_snapshot,
-            ..SignedEntity::<CardanoTransactionsSnapshot>::dummy()
+            ..Dummy::dummy()
         };
 
         // Action
