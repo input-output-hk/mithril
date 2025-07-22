@@ -14,7 +14,7 @@ use mithril_common::{
     },
     messages::{RegisterSignatureMessageHttp, RegisterSignerMessage},
     protocol::ToMessage,
-    test::{MithrilFixture, MithrilFixtureBuilder},
+    test::builder::{MithrilFixture, MithrilFixtureBuilder},
 };
 
 /// Generate signer data

@@ -14,7 +14,10 @@ use crate::{
         CardanoDbBeacon, Certificate, CertificateMetadata, CertificateSignature, Epoch,
         ProtocolMessage, ProtocolMessagePartKey, SignedEntityType,
     },
-    test::{MithrilFixture, MithrilFixtureBuilder, SignerFixture, double::fake_data},
+    test::{
+        builder::{MithrilFixture, MithrilFixtureBuilder, SignerFixture},
+        double::fake_data,
+    },
 };
 
 /// Genesis certificate processor function type. For tests only.
@@ -169,7 +172,7 @@ impl CertificateChainFixture {
 ///
 /// ```
 ///     use mithril_common::crypto_helper::ProtocolParameters;
-///     use mithril_common::test::CertificateChainBuilder;
+///     use mithril_common::test::builder::CertificateChainBuilder;
 ///
 ///     let certificate_chain_fixture = CertificateChainBuilder::new()
 ///         .with_total_certificates(5)
@@ -184,7 +187,7 @@ impl CertificateChainFixture {
 /// ```
 ///     use std::cmp::min;
 ///     use mithril_common::crypto_helper::ProtocolParameters;
-///     use mithril_common::test::CertificateChainBuilder;
+///     use mithril_common::test::builder::CertificateChainBuilder;
 ///
 ///     let certificate_chain_fixture = CertificateChainBuilder::new()
 ///         .with_total_certificates(5)
@@ -205,7 +208,7 @@ impl CertificateChainFixture {
 /// ```
 ///     use mithril_common::entities::Epoch;
 ///     use mithril_common::crypto_helper::ProtocolParameters;
-///     use mithril_common::test::CertificateChainBuilder;
+///     use mithril_common::test::builder::CertificateChainBuilder;
 ///
 ///     let certificate_chain_fixture = CertificateChainBuilder::new()
 ///         .with_total_certificates(5)

@@ -206,7 +206,7 @@ mod tests {
             ProtocolGenesisSecretKey, ProtocolGenesisSigner, ProtocolGenesisVerificationKey,
             ProtocolGenesisVerifier,
         },
-        test::{MithrilFixtureBuilder, TempDir, double::fake_data},
+        test::{TempDir, builder::MithrilFixtureBuilder, double::fake_data},
     };
     use std::{fs::read_to_string, path::PathBuf};
 

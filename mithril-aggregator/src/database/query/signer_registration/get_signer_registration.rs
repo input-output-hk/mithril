@@ -59,7 +59,7 @@ mod tests {
     use chrono::{DateTime, Utc};
 
     use mithril_common::entities::SignerWithStake;
-    use mithril_common::test::MithrilFixtureBuilder;
+    use mithril_common::test::builder::MithrilFixtureBuilder;
     use mithril_persistence::sqlite::ConnectionExtensions;
 
     use crate::database::test_helper::{insert_signer_registrations, main_db_connection};

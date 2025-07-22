@@ -429,8 +429,9 @@ mod tests {
 
     use crate::certificate_chain::{CertificateRetrieverError, FakeCertificaterRetriever};
     use crate::crypto_helper::{ProtocolClerk, tests_setup::*};
-    use crate::test::{
-        CertificateChainBuilder, CertificateChainBuilderContext, MithrilFixtureBuilder, TestLogger,
+    use crate::test::TestLogger;
+    use crate::test::builder::{
+        CertificateChainBuilder, CertificateChainBuilderContext, MithrilFixtureBuilder,
     };
 
     macro_rules! assert_error_matches {

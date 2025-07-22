@@ -419,7 +419,10 @@ mod tests {
     use mithril_common::{
         entities::{CardanoDbBeacon, ProtocolMessagePartKey},
         temp_dir,
-        test::{MithrilFixture, MithrilFixtureBuilder, double::fake_data},
+        test::{
+            builder::{MithrilFixture, MithrilFixtureBuilder},
+            double::fake_data,
+        },
     };
     use tokio::sync::RwLock;
 

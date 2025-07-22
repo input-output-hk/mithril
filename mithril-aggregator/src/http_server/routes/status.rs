@@ -116,7 +116,7 @@ mod tests {
     use mithril_common::{
         entities::{Epoch, ProtocolParameters, Stake},
         test::{
-            MithrilFixtureBuilder,
+            builder::MithrilFixtureBuilder,
             double::{Dummy, fake_data},
         },
     };

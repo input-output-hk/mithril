@@ -4,7 +4,7 @@ use mithril_aggregator::ServeCommandConfiguration;
 use mithril_common::{
     entities::{BlockNumber, ChainPoint, Epoch, ProtocolParameters, SlotNumber, TimePoint},
     temp_dir,
-    test::MithrilFixtureBuilder,
+    test::builder::MithrilFixtureBuilder,
 };
 use test_extensions::{ExpectedCertificate, RuntimeTester, utilities::get_test_dir};
 

@@ -9,7 +9,7 @@ use mithril_common::{
         SignedEntityTypeDiscriminants, SlotNumber, StakeDistribution, StakeDistributionParty,
         TimePoint,
     },
-    test::MithrilFixtureBuilder,
+    test::builder::MithrilFixtureBuilder,
 };
 use test_extensions::ExpectedMetrics;
 use test_extensions::{ExpectedCertificate, RuntimeTester, utilities::get_test_dir};

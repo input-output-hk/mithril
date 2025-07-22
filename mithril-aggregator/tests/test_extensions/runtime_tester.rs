@@ -30,7 +30,9 @@ use mithril_common::{
         TimePoint,
     },
     test::{
-        MithrilFixture, MithrilFixtureBuilder, SignerFixture, StakeDistributionGenerationMethod,
+        builder::{
+            MithrilFixture, MithrilFixtureBuilder, SignerFixture, StakeDistributionGenerationMethod,
+        },
         double::Dummy,
     },
 };

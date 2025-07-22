@@ -67,7 +67,7 @@ impl SingleSignature {
     /// Create a fake [SingleSignature] with valid cryptographic data for testing purposes.
     pub fn fake<TPartyId: Into<String>, TMessage: Into<String>>(party_id: TPartyId, message: TMessage) -> Self {
         use crate::entities::{ProtocolParameters};
-        use crate::test::{MithrilFixtureBuilder, StakeDistributionGenerationMethod};
+        use crate::test::builder::{MithrilFixtureBuilder, StakeDistributionGenerationMethod};
 
         let party_id = party_id.into();
         let message = message.into();
@@ -110,7 +110,7 @@ impl Debug for SingleSignature {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{crypto_helper::tests_setup::setup_message, test::MithrilFixtureBuilder};
+    use crate::{crypto_helper::tests_setup::setup_message, test::builder::MithrilFixtureBuilder};
 
     #[test]
     fn single_signatures_should_convert_to_protocol_signatures() {

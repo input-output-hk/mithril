@@ -5,7 +5,7 @@ use mithril_common::{
         ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants, SlotNumber, TimePoint,
     },
     temp_dir,
-    test::MithrilFixtureBuilder,
+    test::builder::MithrilFixtureBuilder,
 };
 use test_extensions::{
     ExpectedCertificate, ExpectedMetrics, RuntimeTester, utilities::get_test_dir,

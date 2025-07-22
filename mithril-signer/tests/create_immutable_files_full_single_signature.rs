@@ -7,7 +7,7 @@ use mithril_common::entities::{CardanoDbBeacon, SignedEntityTypeDiscriminants};
 use mithril_common::{
     crypto_helper::tests_setup,
     entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, TimePoint},
-    test::MithrilFixtureBuilder,
+    test::builder::MithrilFixtureBuilder,
 };
 use test_extensions::StateMachineTester;
 

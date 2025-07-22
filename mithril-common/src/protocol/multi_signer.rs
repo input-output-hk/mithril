@@ -94,8 +94,10 @@ mod test {
     use crate::{
         entities::{ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters},
         protocol::SignerBuilder,
-        test::double::fake_keys,
-        test::{MithrilFixture, MithrilFixtureBuilder, StakeDistributionGenerationMethod},
+        test::{
+            builder::{MithrilFixture, MithrilFixtureBuilder, StakeDistributionGenerationMethod},
+            double::fake_keys,
+        },
     };
 
     use super::*;

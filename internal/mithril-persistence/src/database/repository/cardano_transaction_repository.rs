@@ -325,7 +325,7 @@ impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for CardanoTransactionRepositor
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::test::CardanoTransactionsBuilder;
+    use mithril_common::test::builder::CardanoTransactionsBuilder;
 
     use crate::database::query::GetBlockRangeRootQuery;
     use crate::database::test_helper::cardano_tx_db_connection;

@@ -354,7 +354,7 @@ mod tests {
             MithrilStakeDistributionSignableBuilder, SignableBuilderServiceDependencies,
         },
         test::{
-            MithrilFixtureBuilder,
+            builder::MithrilFixtureBuilder,
             double::{Dummy, fake_data},
         },
     };

@@ -11,7 +11,7 @@ use crate::entities::{
     ImmutablesLocations, LotteryIndex, ProtocolMessage, ProtocolMessagePartKey, SignedEntityType,
     SingleSignature, SlotNumber, StakeDistribution, StakeDistributionParty,
 };
-use crate::test::{MithrilFixtureBuilder, double::Dummy};
+use crate::test::{builder::MithrilFixtureBuilder, double::Dummy};
 
 use super::fake_keys;
 

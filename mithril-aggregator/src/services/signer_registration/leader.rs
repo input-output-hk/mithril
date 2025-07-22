@@ -150,7 +150,7 @@ mod tests {
 
     use mithril_common::{
         entities::{Epoch, Signer, SignerWithStake},
-        test::MithrilFixtureBuilder,
+        test::builder::MithrilFixtureBuilder,
     };
 
     use crate::{

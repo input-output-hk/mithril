@@ -56,7 +56,7 @@ impl MithrilStakeDistribution {
 
 #[cfg(test)]
 mod tests {
-    use crate::test::{MithrilFixtureBuilder, double::fake_data};
+    use crate::test::{builder::MithrilFixtureBuilder, double::fake_data};
 
     use super::*;
 

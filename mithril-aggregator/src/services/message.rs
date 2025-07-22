@@ -437,7 +437,7 @@ mod tests {
     mod epoch_settings {
         use mithril_common::{
             entities::{CardanoTransactionsSigningConfig, ProtocolParameters},
-            test::MithrilFixtureBuilder,
+            test::builder::MithrilFixtureBuilder,
         };
 
         use crate::{entities::AggregatorEpochSettings, services::FakeEpochServiceBuilder};

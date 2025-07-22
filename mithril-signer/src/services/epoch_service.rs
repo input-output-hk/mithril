@@ -429,7 +429,7 @@ mod tests {
 
     use mithril_common::entities::{Epoch, StakeDistribution};
     use mithril_common::test::{
-        MithrilFixtureBuilder,
+        builder::MithrilFixtureBuilder,
         double::{Dummy, fake_data},
     };
 

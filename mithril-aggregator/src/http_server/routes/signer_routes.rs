@@ -272,7 +272,7 @@ mod tests {
         entities::Epoch,
         messages::RegisterSignerMessage,
         test::{
-            MithrilFixtureBuilder,
+            builder::MithrilFixtureBuilder,
             double::{Dummy, fake_data},
         },
     };

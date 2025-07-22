@@ -173,7 +173,7 @@ mod tests {
     use crate::test_tools::TestLogger;
     use mithril_common::crypto_helper::ProtocolClerk;
     use mithril_common::entities::{Epoch, ProtocolMessagePartKey};
-    use mithril_common::test::MithrilFixtureBuilder;
+    use mithril_common::test::builder::MithrilFixtureBuilder;
     use mithril_persistence::store::StakeStorer;
 
     use super::*;

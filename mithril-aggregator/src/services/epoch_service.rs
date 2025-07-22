@@ -635,7 +635,10 @@ impl FakeEpochServiceBuilder {
 
 #[cfg(test)]
 impl FakeEpochService {
-    pub fn from_fixture(epoch: Epoch, fixture: &mithril_common::test::MithrilFixture) -> Self {
+    pub fn from_fixture(
+        epoch: Epoch,
+        fixture: &mithril_common::test::builder::MithrilFixture,
+    ) -> Self {
         use mithril_common::entities::CardanoTransactionsSigningConfig;
         use mithril_common::test::double::Dummy;
 
@@ -840,7 +843,7 @@ mod tests {
         BlockNumber, CardanoTransactionsSigningConfig, Stake, StakeDistribution, SupportedEra,
     };
     use mithril_common::test::{
-        MithrilFixture, MithrilFixtureBuilder, StakeDistributionGenerationMethod,
+        builder::{MithrilFixture, MithrilFixtureBuilder, StakeDistributionGenerationMethod},
         double::{Dummy, fake_data},
     };
 

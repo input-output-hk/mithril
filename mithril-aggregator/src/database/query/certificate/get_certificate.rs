@@ -61,7 +61,7 @@ impl Query for GetCertificateRecordQuery {
 mod tests {
     use mithril_common::crypto_helper::ProtocolParameters;
     use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
-    use mithril_common::test::CertificateChainBuilder;
+    use mithril_common::test::builder::CertificateChainBuilder;
 
     use mithril_persistence::sqlite::ConnectionExtensions;
 

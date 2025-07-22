@@ -9,7 +9,10 @@ use mithril_common::{
         SignedEntityTypeDiscriminants, SlotNumber, StakeDistributionParty, TimePoint,
     },
     temp_dir,
-    test::{MithrilFixture, MithrilFixtureBuilder, StakeDistributionGenerationMethod, TempDir},
+    test::{
+        TempDir,
+        builder::{MithrilFixture, MithrilFixtureBuilder, StakeDistributionGenerationMethod},
+    },
 };
 use test_extensions::{ExpectedCertificate, RuntimeTester, utilities::get_test_dir};
 
