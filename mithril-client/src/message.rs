@@ -1,41 +1,42 @@
 use anyhow::Context;
-#[cfg(feature = "fs")]
-use slog::warn;
 use slog::{Logger, o};
 #[cfg(feature = "fs")]
-use std::fmt;
-#[cfg(feature = "fs")]
-use std::ops::RangeInclusive;
-#[cfg(feature = "fs")]
-use std::path::{Path, PathBuf};
-#[cfg(feature = "fs")]
-use std::sync::Arc;
-#[cfg(feature = "fs")]
-use thiserror::Error;
+use {
+    slog::warn,
+    std::{
+        fmt,
+        ops::RangeInclusive,
+        path::{Path, PathBuf},
+        sync::Arc,
+    },
+    thiserror::Error,
+};
 
-#[cfg(feature = "fs")]
-use crate::cardano_database_client::{ImmutableFileRange, VerifiedDigests};
 #[cfg(feature = "fs")]
 use mithril_cardano_node_internal_database::{
     IMMUTABLE_DIR,
     digesters::{CardanoImmutableDigester, ImmutableDigester, ImmutableDigesterError},
 };
-use mithril_common::logging::LoggerExtensions;
-use mithril_common::protocol::SignerBuilder;
-use mithril_common::signable_builder::CardanoStakeDistributionSignableBuilder;
 #[cfg(feature = "fs")]
 use mithril_common::{
     crypto_helper::MKTreeNode,
     entities::{ImmutableFileName, ImmutableFileNumber, SignedEntityType},
     messages::{CardanoDatabaseSnapshotMessage, CertificateMessage},
 };
+use mithril_common::{
+    logging::LoggerExtensions, protocol::SignerBuilder,
+    signable_builder::CardanoStakeDistributionSignableBuilder,
+};
 
-#[cfg(feature = "fs")]
-use crate::MithrilError;
 use crate::{
     CardanoStakeDistribution, MithrilCertificate, MithrilResult, MithrilSigner,
     MithrilStakeDistribution, VerifiedCardanoTransactions,
     common::{ProtocolMessage, ProtocolMessagePartKey},
+};
+#[cfg(feature = "fs")]
+use crate::{
+    MithrilError,
+    cardano_database_client::{ImmutableFileRange, VerifiedDigests},
 };
 
 cfg_fs! {
