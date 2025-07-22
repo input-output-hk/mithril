@@ -7,7 +7,7 @@ use mithril_client::aggregator_client::AggregatorRequest;
 use mithril_client::feedback::SlogFeedbackReceiver;
 use mithril_client::{ClientBuilder, MessageBuilder};
 use mithril_common::crypto_helper::ManifestSigner;
-use mithril_common::test_utils::double::fake_keys;
+use mithril_common::test::double::fake_keys;
 
 use crate::extensions::fake_aggregator::{FakeAggregator, FakeCertificateVerifier};
 

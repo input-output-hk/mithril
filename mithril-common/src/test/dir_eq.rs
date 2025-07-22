@@ -139,7 +139,7 @@ impl From<&str> for DirStructure {
 ///
 /// Example:
 /// ```no_run
-/// # use mithril_common::test_utils::assert_dir_eq;
+/// # use mithril_common::test::assert_dir_eq;
 /// # use std::path::PathBuf;
 /// # let path = PathBuf::new();
 /// assert_dir_eq!(
@@ -155,11 +155,11 @@ impl From<&str> for DirStructure {
 #[macro_export]
 macro_rules! assert_dir_eq {
     ($dir: expr, $expected_structure: expr) => {
-        $crate::test_utils::assert_dir_eq!($dir, $expected_structure, "");
+        $crate::test::assert_dir_eq!($dir, $expected_structure, "");
     };
     ($dir: expr, $expected_structure: expr, $($arg:tt)+) => {
-        let actual = $crate::test_utils::DirStructure::from_path($dir);
-        let expected = $crate::test_utils::DirStructure::from($expected_structure);
+        let actual = $crate::test::DirStructure::from_path($dir);
+        let expected = $crate::test::DirStructure::from($expected_structure);
         let comment = format!($($arg)+);
         assert!(
             actual == expected,
@@ -177,7 +177,7 @@ pub use assert_dir_eq;
 mod tests {
     use std::fs::{File, create_dir};
 
-    use crate::test_utils::temp_dir_create;
+    use crate::test::temp_dir_create;
 
     use super::*;
 

@@ -244,7 +244,7 @@ impl CertificateVerifier for MithrilCertificateVerifier {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::test_utils::CertificateChainBuilder;
+    use mithril_common::test::CertificateChainBuilder;
 
     use crate::certificate_client::tests_utils::CertificateClientTestBuilder;
     use crate::feedback::StackFeedbackReceiver;
@@ -321,7 +321,7 @@ mod tests {
     #[cfg(feature = "unstable")]
     mod cache {
         use chrono::TimeDelta;
-        use mithril_common::test_utils::CertificateChainingMethod;
+        use mithril_common::test::CertificateChainingMethod;
         use mockall::predicate::eq;
 
         use crate::aggregator_client::MockAggregatorClient;

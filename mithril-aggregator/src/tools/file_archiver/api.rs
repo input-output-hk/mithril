@@ -292,7 +292,7 @@ impl FileArchiver {
 mod tests {
     use std::fs::File;
 
-    use mithril_common::test_utils::assert_equivalent;
+    use mithril_common::test::assert_equivalent;
 
     use crate::tools::file_archiver::appender::{AppenderDirAll, AppenderFile};
     use crate::tools::file_archiver::test_tools::*;

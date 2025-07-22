@@ -8,7 +8,7 @@ use crate::{
         tests_setup, tests_setup::setup_temp_directory_for_signer,
     },
     entities::{PartyId, ProtocolParameters, Stake, StakeDistribution},
-    test_utils::{double::fake_data, mithril_fixture::MithrilFixture},
+    test::{double::fake_data, mithril_fixture::MithrilFixture},
 };
 
 use super::double::precomputed_kes_key;

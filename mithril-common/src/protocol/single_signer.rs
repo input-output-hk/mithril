@@ -53,7 +53,7 @@ mod test {
         crypto_helper::{KesSigner, KesSignerStandard},
         entities::ProtocolMessage,
         protocol::SignerBuilder,
-        test_utils::MithrilFixtureBuilder,
+        test::MithrilFixtureBuilder,
     };
 
     #[test]

@@ -90,7 +90,7 @@ mod tests {
     use mithril_common::entities::{
         BlockNumber, Epoch, SignedEntityConfig, SignedEntityTypeDiscriminants, TimePoint,
     };
-    use mithril_common::test_utils::double::Dummy;
+    use mithril_common::test::double::Dummy;
     use mithril_persistence::sqlite::ConnectionExtensions;
 
     use crate::database::query::GetSignedBeaconQuery;

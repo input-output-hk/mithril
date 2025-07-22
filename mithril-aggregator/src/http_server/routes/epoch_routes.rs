@@ -67,7 +67,7 @@ mod tests {
 
     use mithril_api_spec::APISpec;
     use mithril_common::messages::EpochSettingsMessage;
-    use mithril_common::test_utils::double::Dummy;
+    use mithril_common::test::double::Dummy;
 
     use crate::{initialize_dependencies, services::MockMessageService};
 

@@ -37,7 +37,7 @@ impl
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::{CardanoDbBeacon, Epoch};
-    use mithril_common::test_utils::double::fake_data;
+    use mithril_common::test::double::fake_data;
 
     use super::*;
 

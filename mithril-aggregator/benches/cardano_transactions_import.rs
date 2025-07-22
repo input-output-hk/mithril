@@ -3,7 +3,7 @@ use sqlite::ConnectionThreadSafe;
 use std::sync::Arc;
 
 use mithril_common::entities::{BlockNumber, CardanoTransaction, SlotNumber};
-use mithril_common::test_utils::TempDir;
+use mithril_common::test::TempDir;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnectionPool};
 

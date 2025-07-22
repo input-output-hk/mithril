@@ -58,7 +58,7 @@ impl ArtifactBuilder<BlockNumber, CardanoTransactionsSnapshot>
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::{entities::ProtocolMessage, test_utils::double::fake_data};
+    use mithril_common::{entities::ProtocolMessage, test::double::fake_data};
 
     use crate::services::MockProverService;
 

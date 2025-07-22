@@ -281,7 +281,7 @@ mod tests {
     use mithril_cardano_node_internal_database::test::DummyCardanoDbBuilder;
     use mithril_common::{
         entities::TemplateUri,
-        test_utils::{TempDir, assert_equivalent, equivalent_to},
+        test::{TempDir, assert_equivalent, equivalent_to},
     };
 
     use crate::services::ancillary_signer::MockAncillarySigner;
@@ -853,7 +853,7 @@ mod tests {
     }
 
     mod batch_upload {
-        use mithril_common::test_utils::TempDir;
+        use mithril_common::test::TempDir;
 
         use crate::file_uploaders::FileUploadRetryPolicy;
         use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;

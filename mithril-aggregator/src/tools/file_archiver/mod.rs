@@ -10,7 +10,7 @@ pub(crate) mod test_tools {
     use std::fs::File;
     use std::path::{Path, PathBuf};
 
-    use mithril_common::test_utils::TempDir;
+    use mithril_common::test::TempDir;
 
     pub fn get_test_directory(dir_name: &str) -> PathBuf {
         TempDir::create("file_archiver", dir_name)

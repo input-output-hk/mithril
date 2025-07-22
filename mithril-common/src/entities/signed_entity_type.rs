@@ -248,7 +248,7 @@ Accepted values are (case-sensitive): {}."#,
 mod tests {
     use digest::Digest;
 
-    use crate::test_utils::assert_same_json;
+    use crate::test::assert_same_json;
 
     use super::*;
 

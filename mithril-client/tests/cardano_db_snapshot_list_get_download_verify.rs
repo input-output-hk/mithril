@@ -11,7 +11,7 @@ use mithril_client::{
     cardano_database_client::{DownloadUnpackOptions, ImmutableFileRange},
     feedback::SlogFeedbackReceiver,
 };
-use mithril_common::{crypto_helper::ManifestSigner, test_utils::double::fake_keys};
+use mithril_common::{crypto_helper::ManifestSigner, test::double::fake_keys};
 
 use crate::extensions::fake_aggregator::{
     CardanoDatabaseSnapshotV2Fixture, FakeAggregator, FakeCertificateVerifier,

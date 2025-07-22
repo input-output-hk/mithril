@@ -191,7 +191,7 @@ mod tests {
         CardanoTransactions, MithrilStakeDistribution,
     };
     use mithril_common::entities::SingleSignatureAuthenticationStatus;
-    use mithril_common::test_utils::double::{Dummy, fake_data};
+    use mithril_common::test::double::{Dummy, fake_data};
 
     use crate::database::repository::BufferedSingleSignatureRepository;
     use crate::database::test_helper::main_db_connection;

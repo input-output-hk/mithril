@@ -154,7 +154,7 @@ impl AggregatorRelay {
 #[cfg(test)]
 mod tests {
     use httpmock::MockServer;
-    use mithril_common::test_utils::double::Dummy;
+    use mithril_common::test::double::Dummy;
 
     use crate::test_tools::TestLogger;
 

@@ -380,7 +380,7 @@ impl AggregatorClient for AggregatorHTTPClient {
 
 #[cfg(test)]
 pub(crate) mod dumb {
-    use mithril_common::test_utils::double::Dummy;
+    use mithril_common::test::double::Dummy;
     use tokio::sync::RwLock;
 
     use super::*;
@@ -473,7 +473,7 @@ mod tests {
     use mithril_common::api_version::DummyApiVersionDiscriminantSource;
     use mithril_common::entities::Epoch;
     use mithril_common::messages::TryFromMessageAdapter;
-    use mithril_common::test_utils::{
+    use mithril_common::test::{
         MemoryDrainForTestInspector,
         double::{Dummy, fake_data},
     };

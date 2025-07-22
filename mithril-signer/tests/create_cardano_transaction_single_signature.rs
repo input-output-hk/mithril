@@ -9,7 +9,7 @@ use mithril_common::{
         },
         SignedEntityTypeDiscriminants, SlotNumber, TimePoint,
     },
-    test_utils::MithrilFixtureBuilder,
+    test::MithrilFixtureBuilder,
 };
 use test_extensions::StateMachineTester;
 

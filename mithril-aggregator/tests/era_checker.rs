@@ -5,7 +5,7 @@ use mithril_common::{
         BlockNumber, ChainPoint, Epoch, ProtocolParameters, SlotNumber, SupportedEra, TimePoint,
     },
     temp_dir,
-    test_utils::{MithrilFixtureBuilder, double::Dummy},
+    test::{MithrilFixtureBuilder, double::Dummy},
 };
 use mithril_era::EraMarker;
 

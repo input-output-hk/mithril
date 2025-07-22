@@ -287,7 +287,7 @@ macro_rules! impl_codec_and_type_conversions_for_protocol_key {
 mod test {
     use crate::{
         crypto_helper::ProtocolKey,
-        test_utils::{TempDir, double::fake_keys},
+        test::{TempDir, double::fake_keys},
     };
     use mithril_stm::VerificationKeyProofOfPossession;
     use serde::{Deserialize, Serialize};

@@ -171,7 +171,7 @@ mod tests {
             ProtocolMessagePartKey, ProtocolParameters,
             certificate_metadata::StakeDistributionParty,
         },
-        test_utils::double::fake_keys,
+        test::double::fake_keys,
     };
 
     use super::*;

@@ -1,7 +1,7 @@
 mod extensions;
 
 use mithril_client::{ClientBuilder, MessageBuilder, aggregator_client::AggregatorRequest};
-use mithril_common::test_utils::double::fake_keys;
+use mithril_common::test::double::fake_keys;
 
 use crate::extensions::fake_aggregator::{FakeAggregator, FakeCertificateVerifier};
 

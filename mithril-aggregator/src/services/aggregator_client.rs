@@ -383,7 +383,7 @@ impl RemoteCertificateRetriever for AggregatorHTTPClient {
 pub(crate) mod dumb {
     use tokio::sync::RwLock;
 
-    use mithril_common::test_utils::double::Dummy;
+    use mithril_common::test::double::Dummy;
 
     use super::*;
 
@@ -423,7 +423,7 @@ mod tests {
 
     use mithril_common::api_version::DummyApiVersionDiscriminantSource;
     use mithril_common::messages::CertificateListItemMessage;
-    use mithril_common::test_utils::double::Dummy;
+    use mithril_common::test::double::Dummy;
 
     use crate::test_tools::TestLogger;
 
@@ -813,7 +813,7 @@ mod tests {
     mod warn_if_api_version_mismatch {
         use std::collections::HashMap;
 
-        use mithril_common::test_utils::MemoryDrainForTestInspector;
+        use mithril_common::test::MemoryDrainForTestInspector;
 
         use super::*;
 
@@ -1006,7 +1006,7 @@ mod tests {
     }
 
     mod remote_certificate_retriever {
-        use mithril_common::test_utils::double::fake_data;
+        use mithril_common::test::double::fake_data;
 
         use super::*;
 

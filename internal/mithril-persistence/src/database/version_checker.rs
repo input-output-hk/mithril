@@ -269,7 +269,7 @@ impl Eq for SqlMigration {}
 #[cfg(test)]
 mod tests {
     use anyhow::Context;
-    use mithril_common::test_utils::TempDir;
+    use mithril_common::test::TempDir;
     use mithril_common::{StdResult, current_function};
     use sqlite::{Connection, ConnectionThreadSafe};
     use std::path::PathBuf;

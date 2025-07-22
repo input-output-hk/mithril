@@ -70,8 +70,8 @@ where
 #[macro_export]
 macro_rules! assert_equivalent_macro {
     ( $expected:expr, $actual:expr ) => {{
-        let expected = $crate::test_utils::as_sorted_vec($expected);
-        let actual = $crate::test_utils::as_sorted_vec($actual);
+        let expected = $crate::test::as_sorted_vec($expected);
+        let actual = $crate::test::as_sorted_vec($actual);
         assert_eq!(expected, actual);
     }};
 }
@@ -108,7 +108,7 @@ pub fn format_current_function_path<T>(f: T) -> String {
 macro_rules! current_function {
     () => {{
         fn f() {}
-        let name = $crate::test_utils::format_current_function_module(f);
+        let name = $crate::test::format_current_function_module(f);
         // The index found is the beginning of the '..', this is why we add 2.
         let function_name_index = name.rfind("::").map(|index| index + 2).unwrap_or(0);
 
@@ -123,7 +123,7 @@ macro_rules! current_function_path {
     () => {{
         fn f() {}
 
-        std::path::PathBuf::from($crate::test_utils::format_current_function_path(f))
+        std::path::PathBuf::from($crate::test::format_current_function_path(f))
     }};
 }
 pub use current_function_path;

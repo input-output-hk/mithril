@@ -46,7 +46,7 @@ impl SignaturePublisher for SignaturePublisherDmq {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::test_utils::double::{Dummy, fake_data};
+    use mithril_common::test::double::{Dummy, fake_data};
     use mithril_dmq::test::double::DmqPublisherFake;
 
     use super::*;

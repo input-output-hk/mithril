@@ -264,7 +264,7 @@ impl Debug for SignerWithStake {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils::{MithrilFixtureBuilder, double::fake_keys};
+    use crate::test::{MithrilFixtureBuilder, double::fake_keys};
 
     use super::*;
 

@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use mithril_common::{
     StdResult,
     crypto_helper::{TryFromBytes, TryToBytes},
-    test_utils::double::Dummy,
+    test::double::Dummy,
 };
 
 /// A test message payload for the DMQ.

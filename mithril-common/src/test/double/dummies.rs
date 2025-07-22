@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 
-use crate::test_utils::double::{Dummy, fake_data, fake_keys};
+use crate::test::double::{Dummy, fake_data, fake_keys};
 
 mod entities {
     use crate::crypto_helper::MKTreeStoreInMemory;

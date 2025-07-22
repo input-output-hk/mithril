@@ -1,7 +1,7 @@
 use mithril_client::{
     MessageBuilder, MithrilCertificate, MithrilStakeDistribution, MithrilStakeDistributionListItem,
 };
-use mithril_common::test_utils::double::Dummy;
+use mithril_common::test::double::Dummy;
 
 use crate::extensions::routes;
 

@@ -66,7 +66,7 @@ mod tests {
     use mockall::predicate::eq;
 
     use mithril_common::entities::{CardanoDbBeacon, Epoch};
-    use mithril_common::test_utils::double::Dummy;
+    use mithril_common::test::double::Dummy;
 
     use crate::cardano_database_client::CardanoDatabaseClientDependencyInjector;
 

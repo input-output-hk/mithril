@@ -29,7 +29,7 @@ pub mod protocol;
 pub mod signable_builder;
 
 cfg_test_tools! {
-    pub mod test_utils;
+    pub mod test;
 }
 
 pub use entities::{CardanoNetwork, MagicId};

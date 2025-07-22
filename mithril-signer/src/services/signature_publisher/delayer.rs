@@ -76,7 +76,7 @@ impl SignaturePublisher for SignaturePublisherDelayer {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::{entities::Epoch, test_utils::double::fake_data};
+    use mithril_common::{entities::Epoch, test::double::fake_data};
 
     use crate::{services::MockSignaturePublisher, test_tools::TestLogger};
 

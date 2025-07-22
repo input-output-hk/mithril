@@ -218,7 +218,7 @@ mod tests {
         test::request,
     };
 
-    use mithril_common::test_utils::double::Dummy;
+    use mithril_common::test::double::Dummy;
 
     use crate::http_server::routes::reply;
     use crate::initialize_dependencies;

@@ -161,7 +161,7 @@ pub(crate) mod test_tools {
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::Certificate;
-    use mithril_common::test_utils::double::fake_data;
+    use mithril_common::test::double::fake_data;
 
     use super::*;
 

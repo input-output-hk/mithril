@@ -549,7 +549,7 @@ pub mod tests {
         },
         signable_builder::SignableBuilderService,
         temp_dir,
-        test_utils::{
+        test::{
             MithrilFixtureBuilder,
             double::{Dummy, fake_data},
         },

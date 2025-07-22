@@ -112,7 +112,7 @@ mod tests {
             ImmutablesLocation, MultiFilesUri, ProtocolMessage, ProtocolMessagePartKey,
             TemplateUri,
         },
-        test_utils::{
+        test::{
             TempDir,
             double::{fake_data, fake_keys},
         },

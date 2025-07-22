@@ -104,7 +104,7 @@ mod tests {
     use mithril_common::entities::SignedEntityTypeDiscriminants::{
         CardanoTransactions, MithrilStakeDistribution,
     };
-    use mithril_common::test_utils::double::fake_keys;
+    use mithril_common::test::double::fake_keys;
 
     use crate::database::record::{BufferedSingleSignatureRecord, strip_buffered_sigs_date};
     use crate::database::test_helper::{insert_buffered_single_signatures, main_db_connection};

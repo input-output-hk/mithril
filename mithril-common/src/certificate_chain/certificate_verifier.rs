@@ -429,7 +429,7 @@ mod tests {
 
     use crate::certificate_chain::{CertificateRetrieverError, FakeCertificaterRetriever};
     use crate::crypto_helper::{ProtocolClerk, tests_setup::*};
-    use crate::test_utils::{
+    use crate::test::{
         CertificateChainBuilder, CertificateChainBuilderContext, MithrilFixtureBuilder, TestLogger,
     };
 

@@ -1,7 +1,7 @@
 use slog_scope::debug;
 use std::{fs::File, io::Write, path::Path};
 
-use mithril_common::{entities::Epoch, test_utils::MithrilFixture};
+use mithril_common::{entities::Epoch, test::MithrilFixture};
 
 pub fn set_stake_distribution(
     mock_stake_distribution_file_path: &Path,

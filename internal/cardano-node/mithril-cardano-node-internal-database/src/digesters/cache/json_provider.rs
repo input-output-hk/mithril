@@ -109,7 +109,7 @@ impl ImmutableFileDigestCacheProvider for JsonImmutableFileDigestCacheProvider {
 mod tests {
     use std::{collections::BTreeMap, path::PathBuf};
 
-    use mithril_common::test_utils::TempDir;
+    use mithril_common::test::TempDir;
 
     use crate::digesters::cache::{
         ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProvider,

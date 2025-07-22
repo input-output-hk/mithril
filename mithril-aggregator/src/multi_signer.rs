@@ -146,7 +146,7 @@ mod tests {
     use mithril_common::crypto_helper::tests_setup::*;
     use mithril_common::entities::{CardanoDbBeacon, Epoch, SignedEntityType, SignerWithStake};
     use mithril_common::protocol::ToMessage;
-    use mithril_common::test_utils::{
+    use mithril_common::test::{
         MithrilFixtureBuilder,
         double::{Dummy, fake_data},
     };

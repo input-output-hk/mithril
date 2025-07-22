@@ -271,7 +271,7 @@ mod tests {
         crypto_helper::ProtocolRegistrationError,
         entities::Epoch,
         messages::RegisterSignerMessage,
-        test_utils::{
+        test::{
             MithrilFixtureBuilder,
             double::{Dummy, fake_data},
         },

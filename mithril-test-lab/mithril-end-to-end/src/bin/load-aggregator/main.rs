@@ -7,7 +7,7 @@ use mithril_cardano_node_internal_database::test::{DummyCardanoDb, DummyCardanoD
 use mithril_common::{
     StdResult,
     entities::{Epoch, ProtocolParameters},
-    test_utils::MithrilFixture,
+    test::MithrilFixture,
 };
 
 use mithril_end_to_end::{

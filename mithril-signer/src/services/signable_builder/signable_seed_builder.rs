@@ -107,7 +107,7 @@ impl SignableSeedBuilder for SignerSignableSeedBuilder {
 mod tests {
 
     use mithril_common::{
-        entities::Epoch, entities::ProtocolParameters, test_utils::MithrilFixtureBuilder,
+        entities::Epoch, entities::ProtocolParameters, test::MithrilFixtureBuilder,
     };
 
     use crate::{

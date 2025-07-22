@@ -93,7 +93,7 @@ mod tests {
     use mithril_common::{
         crypto_helper::KesSignerFake,
         current_function,
-        test_utils::{TempDir, double::Dummy},
+        test::{TempDir, double::Dummy},
     };
 
     use crate::{test::payload::DmqMessageTestPayload, test_tools::TestLogger};

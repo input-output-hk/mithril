@@ -18,7 +18,7 @@ pub(super) mod precomputed_kes_key;
 ///
 /// # Example
 /// ```
-/// use mithril_common::test_utils::double::Dummy;
+/// use mithril_common::test::double::Dummy;
 ///
 /// struct MyType(String);
 ///

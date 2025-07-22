@@ -139,7 +139,7 @@ mod tests {
     }
 
     mod repository {
-        use mithril_common::test_utils::assert_equivalent;
+        use mithril_common::test::assert_equivalent;
 
         use super::*;
 

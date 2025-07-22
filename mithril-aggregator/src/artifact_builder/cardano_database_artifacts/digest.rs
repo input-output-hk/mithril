@@ -299,7 +299,7 @@ mod tests {
         current_function,
         entities::{CardanoDbBeacon, CompressionAlgorithm},
         messages::{CardanoDatabaseDigestListItemMessage, CardanoDatabaseDigestListMessage},
-        test_utils::{TempDir, assert_equivalent, double::Dummy},
+        test::{TempDir, assert_equivalent, double::Dummy},
     };
 
     use crate::{

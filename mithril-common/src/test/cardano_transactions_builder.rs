@@ -8,7 +8,7 @@ use crate::entities::{BlockNumber, BlockRange, CardanoTransaction, SlotNumber};
 ///
 /// ```
 ///     use mithril_common::entities::{BlockNumber, CardanoTransaction, SlotNumber};
-///     use mithril_common::test_utils::CardanoTransactionsBuilder;
+///     use mithril_common::test::CardanoTransactionsBuilder;
 ///
 ///     let txs = CardanoTransactionsBuilder::new()
 ///         .max_transactions_per_block(3)
@@ -35,7 +35,7 @@ use crate::entities::{BlockNumber, BlockRange, CardanoTransaction, SlotNumber};
 ///
 /// ```
 ///     use mithril_common::entities::{BlockNumber, CardanoTransaction, SlotNumber};
-///     use mithril_common::test_utils::CardanoTransactionsBuilder;
+///     use mithril_common::test::CardanoTransactionsBuilder;
 ///
 ///     let txs = CardanoTransactionsBuilder::new()
 ///         .max_transactions_per_block(3)

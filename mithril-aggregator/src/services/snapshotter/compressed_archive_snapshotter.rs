@@ -325,7 +325,7 @@ mod tests {
     use std::sync::Arc;
 
     use mithril_cardano_node_internal_database::test::DummyCardanoDbBuilder;
-    use mithril_common::test_utils::assert_equivalent;
+    use mithril_common::test::assert_equivalent;
     use mithril_common::{assert_dir_eq, current_function, temp_dir_create};
 
     use crate::services::ancillary_signer::MockAncillarySigner;
@@ -523,7 +523,7 @@ mod tests {
     }
 
     mod snapshot_ancillary {
-        use mithril_common::test_utils::double::fake_keys;
+        use mithril_common::test::double::fake_keys;
 
         use super::*;
 

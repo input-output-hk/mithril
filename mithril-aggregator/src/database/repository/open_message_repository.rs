@@ -140,7 +140,7 @@ impl OpenMessageStorer for OpenMessageRepository {
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::{BlockNumber, CardanoDbBeacon};
-    use mithril_common::test_utils::double::Dummy;
+    use mithril_common::test::double::Dummy;
 
     use crate::database::record::SingleSignatureRecord;
     use crate::database::test_helper::{

@@ -7,7 +7,7 @@ use mithril_cardano_node_internal_database::test::DummyCardanoDb;
 use mithril_client::{MessageBuilder, MithrilCertificate, Snapshot, SnapshotListItem};
 use mithril_common::crypto_helper::ManifestVerifierSecretKey;
 use mithril_common::entities::{CardanoDbBeacon, CompressionAlgorithm, SignedEntityType};
-use mithril_common::test_utils::double::{Dummy, fake_data};
+use mithril_common::test::double::{Dummy, fake_data};
 
 use crate::extensions::{routes, snapshot_archives};
 

@@ -437,7 +437,7 @@ mod tests {
 
         use crate::event_store::database::test_helper::event_store_db_connection;
         use mithril_common::entities::{SignerWithStake, Stake};
-        use mithril_common::{StdResult, test_utils::double::fake_data};
+        use mithril_common::{StdResult, test::double::fake_data};
         use sqlite::ConnectionThreadSafe;
 
         use super::{EventMessage, EventPersister};

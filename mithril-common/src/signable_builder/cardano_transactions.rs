@@ -96,7 +96,7 @@ mod tests {
 
     use crate::{
         crypto_helper::MKTreeStoreInMemory, entities::CardanoTransaction,
-        test_utils::CardanoTransactionsBuilder,
+        test::CardanoTransactionsBuilder,
     };
 
     use super::*;

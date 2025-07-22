@@ -99,7 +99,7 @@ mod tests {
     use anyhow::anyhow;
     use mithril_common::{
         entities::{Epoch, SignedEntityType},
-        test_utils::double::fake_data,
+        test::double::fake_data,
     };
     use mockall::predicate::eq;
     use tokio::{

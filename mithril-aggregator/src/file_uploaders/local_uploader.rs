@@ -92,7 +92,7 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::time::Duration;
 
-    use mithril_common::test_utils::TempDir;
+    use mithril_common::test::TempDir;
 
     use crate::test_tools::TestLogger;
 

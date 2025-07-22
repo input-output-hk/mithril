@@ -60,7 +60,7 @@ fn try_adapt_set_proof_message(
 #[cfg(test)]
 mod tests {
     use mithril_common::crypto_helper::MKProof;
-    use mithril_common::test_utils::double::Dummy;
+    use mithril_common::test::double::Dummy;
 
     use super::*;
 

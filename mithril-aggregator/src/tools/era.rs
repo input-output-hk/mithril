@@ -78,7 +78,7 @@ impl EraTools {
 mod tests {
     use mithril_common::{
         crypto_helper::{EraMarkersVerifierSecretKey, EraMarkersVerifierVerificationKey},
-        test_utils::TempDir,
+        test::TempDir,
     };
     use std::fs::read_to_string;
 

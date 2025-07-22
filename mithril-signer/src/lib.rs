@@ -48,7 +48,7 @@ pub(crate) mod test_tools {
     use slog_async::Async;
     use slog_term::{CompactFormat, PlainDecorator};
 
-    use mithril_common::test_utils::{MemoryDrainForTest, MemoryDrainForTestInspector};
+    use mithril_common::test::{MemoryDrainForTest, MemoryDrainForTestInspector};
     pub struct TestLogger;
 
     impl TestLogger {

@@ -353,7 +353,7 @@ mod tests {
             CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
             MithrilStakeDistributionSignableBuilder, SignableBuilderServiceDependencies,
         },
-        test_utils::{
+        test::{
             MithrilFixtureBuilder,
             double::{Dummy, fake_data},
         },

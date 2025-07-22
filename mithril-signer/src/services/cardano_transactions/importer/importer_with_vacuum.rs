@@ -55,7 +55,7 @@ mod tests {
     use mockall::mock;
     use sqlite::Connection;
 
-    use mithril_common::test_utils::TempDir;
+    use mithril_common::test::TempDir;
     use mithril_persistence::sqlite::SqliteConnection;
 
     use crate::test_tools::TestLogger;

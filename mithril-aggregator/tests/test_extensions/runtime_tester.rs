@@ -29,7 +29,7 @@ use mithril_common::{
         SingleSignatureAuthenticationStatus, SlotNumber, StakeDistribution, SupportedEra,
         TimePoint,
     },
-    test_utils::{
+    test::{
         MithrilFixture, MithrilFixtureBuilder, SignerFixture, StakeDistributionGenerationMethod,
         double::Dummy,
     },

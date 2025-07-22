@@ -164,7 +164,7 @@ mod tests {
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
         entities::{BlockNumber, CardanoTransactionsSetProof, CardanoTransactionsSnapshot},
         signable_builder::SignedEntity,
-        test_utils::{
+        test::{
             assert_equivalent,
             double::{Dummy, fake_data},
         },

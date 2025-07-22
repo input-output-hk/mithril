@@ -166,7 +166,7 @@ mod tests {
     use mithril_common::{
         entities::{Epoch, MithrilStakeDistribution, Snapshot},
         signable_builder::SignedEntity,
-        test_utils::double::fake_data,
+        test::double::fake_data,
     };
 
     use crate::database::test_helper::{insert_signed_entities, main_db_connection};

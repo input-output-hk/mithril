@@ -189,7 +189,7 @@ mod tests {
         CardanoTransactionsSignableBuilder, MockBlockRangeRootRetriever, MockTransactionsImporter,
         SignableBuilder,
     };
-    use crate::test_utils::double::Dummy;
+    use crate::test::double::Dummy;
 
     use super::*;
 

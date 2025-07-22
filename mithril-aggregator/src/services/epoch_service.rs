@@ -560,7 +560,7 @@ pub(crate) struct FakeEpochServiceBuilder {
 #[cfg(test)]
 impl FakeEpochServiceBuilder {
     pub fn dummy(epoch: Epoch) -> Self {
-        use mithril_common::test_utils::double::{Dummy, fake_data};
+        use mithril_common::test::double::{Dummy, fake_data};
         let signers = fake_data::signers_with_stakes(3);
 
         Self {
@@ -635,12 +635,9 @@ impl FakeEpochServiceBuilder {
 
 #[cfg(test)]
 impl FakeEpochService {
-    pub fn from_fixture(
-        epoch: Epoch,
-        fixture: &mithril_common::test_utils::MithrilFixture,
-    ) -> Self {
+    pub fn from_fixture(epoch: Epoch, fixture: &mithril_common::test::MithrilFixture) -> Self {
         use mithril_common::entities::CardanoTransactionsSigningConfig;
-        use mithril_common::test_utils::double::Dummy;
+        use mithril_common::test::double::Dummy;
 
         let current_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: fixture.protocol_parameters(),
@@ -836,15 +833,16 @@ impl EpochService for FakeEpochService {
 
 #[cfg(test)]
 mod tests {
+    use mockall::predicate::eq;
+
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_common::entities::{
         BlockNumber, CardanoTransactionsSigningConfig, Stake, StakeDistribution, SupportedEra,
     };
-    use mithril_common::test_utils::{
+    use mithril_common::test::{
         MithrilFixture, MithrilFixtureBuilder, StakeDistributionGenerationMethod,
         double::{Dummy, fake_data},
     };
-    use mockall::predicate::eq;
 
     use crate::store::{FakeEpochSettingsStorer, MockVerificationKeyStorer};
     use crate::test::mocks::MockStakeStore;

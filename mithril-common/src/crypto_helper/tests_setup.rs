@@ -7,7 +7,7 @@ use rand_core::SeedableRng;
 use crate::{
     crypto_helper::{KesSigner, cardano::KesSignerStandard},
     entities::{ProtocolMessage, ProtocolMessagePartKey, SignerWithStake, Stake},
-    test_utils::{CertificateChainBuilder, CertificateChainFixture, SignerFixture, TempDir},
+    test::{CertificateChainBuilder, CertificateChainFixture, SignerFixture, TempDir},
 };
 
 use super::{OpCert, SerDeShelleyFileFormat, types::*};

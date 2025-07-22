@@ -387,7 +387,7 @@ mod tests {
     use mockall::predicate;
     use std::time::Duration;
 
-    use mithril_common::test_utils::double::{Dummy, fake_data};
+    use mithril_common::test::double::{Dummy, fake_data};
 
     use crate::entities::OpenMessage;
     use crate::test_tools::TestLogger;
