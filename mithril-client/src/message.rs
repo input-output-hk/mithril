@@ -62,13 +62,13 @@ cfg_fs! {
         ImmutableFilesVerification(ImmutableVerificationResult),
 
         /// Error related to the immutable files digests computation.
-        ImmutableFilesDigester(#[from] ImmutableDigesterError),
+        DigestsComputation(#[from] ImmutableDigesterError),
 
         /// Error related to the Merkle proof verification.
         MerkleProofVerification(#[source] MithrilError),
 
         /// Error related to the immutable files range.
-        ImmutableFilesRange(#[source] MithrilError),
+        ImmutableFilesRangeCreation(#[source] MithrilError),
     }
 
     impl fmt::Display for ComputeCardanoDatabaseMessageError {
@@ -118,13 +118,13 @@ cfg_fs! {
                     }
                     Ok(())
                 }
-                ComputeCardanoDatabaseMessageError::ImmutableFilesDigester(e) => {
+                ComputeCardanoDatabaseMessageError::DigestsComputation(e) => {
                     write!(f, "Immutable files digester error: {e:?}")
                 }
                 ComputeCardanoDatabaseMessageError::MerkleProofVerification(e) => {
                     write!(f, "Merkle proof verification error: {e:?}")
                 }
-                ComputeCardanoDatabaseMessageError::ImmutableFilesRange(e) => {
+                ComputeCardanoDatabaseMessageError::ImmutableFilesRangeCreation(e) => {
                     write!(f, "Immutable files range error: {e:?}")
                 }
             }
@@ -248,7 +248,7 @@ impl MessageBuilder {
             let network = certificate.metadata.network.clone();
             let immutable_file_number_range = immutable_file_range
                 .to_range_inclusive(cardano_database_snapshot.beacon.immutable_file_number)
-                .map_err(ComputeCardanoDatabaseMessageError::ImmutableFilesRange)?;
+                .map_err(ComputeCardanoDatabaseMessageError::ImmutableFilesRangeCreation)?;
             let missing_immutable_files = if allow_missing {
                 vec![]
             } else {
@@ -467,6 +467,7 @@ mod tests {
         use mithril_common::{
             entities::{CardanoDbBeacon, Epoch},
             messages::CertificateMessage,
+            test::double::Dummy,
         };
 
         use crate::cardano_database_client::ImmutableFileRange;
