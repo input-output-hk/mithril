@@ -12,4 +12,4 @@ include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 [dependencies]
 semver = { workspace = true }
 serde_json = { workspace = true }
-serde_yaml = "0.9.34"
+serde_yml = "0.0.12"

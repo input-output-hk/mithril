@@ -13,7 +13,7 @@ jsonschema = { version = "0.30.0" }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_yaml = { version = "0.9.34" }
+serde_yml = "0.0.12"
 warp = { workspace = true }
 
 [dev-dependencies]
