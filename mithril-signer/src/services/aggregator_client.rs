@@ -474,8 +474,8 @@ mod tests {
     use mithril_common::entities::Epoch;
     use mithril_common::messages::TryFromMessageAdapter;
     use mithril_common::test::{
-        MemoryDrainForTestInspector,
         double::{Dummy, fake_data},
+        logging::MemoryDrainForTestInspector,
     };
 
     use crate::test_tools::TestLogger;

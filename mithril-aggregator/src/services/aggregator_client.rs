@@ -813,7 +813,7 @@ mod tests {
     mod warn_if_api_version_mismatch {
         use std::collections::HashMap;
 
-        use mithril_common::test::MemoryDrainForTestInspector;
+        use mithril_common::test::logging::MemoryDrainForTestInspector;
 
         use super::*;
 

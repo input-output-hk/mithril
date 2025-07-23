@@ -8,17 +8,16 @@
 
 pub mod builder;
 pub mod double;
+pub mod logging;
 pub mod mock_extensions;
 
 mod assert;
-mod memory_logger;
 mod temp_dir;
 
 pub use assert::*;
-pub use memory_logger::*;
 pub use temp_dir::*;
-#[cfg(test)]
-pub(crate) use utils::*;
+
+logging::define_test_logger!();
 
 /// Return the path of the given function.
 /// If the last function is `f`, it is removed.
@@ -66,36 +65,9 @@ pub use current_function_path;
 
 #[cfg(test)]
 mod utils {
-    use std::io;
     use std::path::Path;
-    use std::sync::Arc;
-
-    use slog::{Drain, Logger};
-    use slog_async::Async;
-    use slog_term::{CompactFormat, PlainDecorator};
 
     use super::*;
-
-    pub struct TestLogger;
-
-    #[cfg(test)]
-    impl TestLogger {
-        fn from_writer<W: io::Write + Send + 'static>(writer: W) -> Logger {
-            let decorator = PlainDecorator::new(writer);
-            let drain = CompactFormat::new(decorator).build().fuse();
-            let drain = Async::new(drain).build().fuse();
-            Logger::root(Arc::new(drain), slog::o!())
-        }
-
-        pub fn stdout() -> Logger {
-            Self::from_writer(slog_term::TestStdoutWriter)
-        }
-
-        pub fn memory() -> (Logger, MemoryDrainForTestInspector) {
-            let (drain, inspector) = MemoryDrainForTest::new();
-            (Logger::root(drain.fuse(), slog::o!()), inspector)
-        }
-    }
 
     #[test]
     fn test_current_function_extract_function_name() {
