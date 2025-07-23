@@ -17,6 +17,7 @@ mod temp_dir;
 pub use assert::*;
 pub use temp_dir::*;
 
+#[cfg(test)]
 logging::define_test_logger!();
 
 /// Return the path of the given function.

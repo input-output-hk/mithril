@@ -10,4 +10,5 @@ pub mod fake_data;
 
 pub use dummy_cardano_db::{DummyCardanoDb, DummyCardanoDbBuilder};
 
+#[cfg(test)]
 mithril_common::define_test_logger!();

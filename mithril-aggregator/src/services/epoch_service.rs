@@ -849,7 +849,7 @@ mod tests {
 
     use crate::store::{FakeEpochSettingsStorer, MockVerificationKeyStorer};
     use crate::test::TestLogger;
-    use crate::test::mocks::MockStakeStore;
+    use crate::test::double::mocks::MockStakeStore;
 
     use super::*;
 

@@ -1,5 +1,4 @@
-mod double;
-#[cfg(test)]
-pub mod mocks;
+pub mod double;
 
+#[cfg(test)]
 mithril_common::define_test_logger!();

@@ -237,7 +237,7 @@ mod tests {
         MockOpenMessageStorer, MockRemoteCertificateRetriever, MockSynchronizedCertificateStorer,
     };
     use crate::test::TestLogger;
-    use crate::test::mocks::MockCertificateVerifier;
+    use crate::test::double::mocks::MockCertificateVerifier;
 
     use super::*;
 
