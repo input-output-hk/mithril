@@ -10,69 +10,15 @@ pub mod builder;
 pub mod double;
 pub mod mock_extensions;
 
-mod dir_eq;
+mod assert;
 mod memory_logger;
 mod temp_dir;
 
-pub use dir_eq::*;
+pub use assert::*;
 pub use memory_logger::*;
 pub use temp_dir::*;
 #[cfg(test)]
 pub(crate) use utils::*;
-
-/// Compare two json strings ignoring keys order
-#[macro_export]
-macro_rules! assert_same_json {
-    ( $expected:expr, $actual:expr ) => {
-        assert_eq!(
-            serde_json::from_str::<serde_json::Value>($expected).unwrap(),
-            serde_json::from_str::<serde_json::Value>($actual).unwrap()
-        )
-    };
-}
-pub use assert_same_json;
-
-/// Compare two iterators ignoring the order
-pub fn equivalent_to<T, I1, I2>(a: I1, b: I2) -> bool
-where
-    T: PartialEq + Ord,
-    I1: IntoIterator<Item = T> + Clone,
-    I2: IntoIterator<Item = T> + Clone,
-{
-    let a = as_sorted_vec(a);
-    let b = as_sorted_vec(b);
-    a == b
-}
-
-/// Assert that two iterators are equivalent
-pub fn assert_equivalent<T, I1, I2>(a: I1, b: I2)
-where
-    T: PartialEq + Ord + std::fmt::Debug,
-    I1: IntoIterator<Item = T> + Clone,
-    I2: IntoIterator<Item = T> + Clone,
-{
-    let a = as_sorted_vec(a);
-    let b = as_sorted_vec(b);
-    assert_eq!(a, b);
-}
-
-/// Assert that two iterators are equivalent
-#[macro_export]
-macro_rules! assert_equivalent_macro {
-    ( $expected:expr, $actual:expr ) => {{
-        let expected = $crate::test::as_sorted_vec($expected);
-        let actual = $crate::test::as_sorted_vec($actual);
-        assert_eq!(expected, actual);
-    }};
-}
-pub use assert_equivalent_macro;
-
-/// Create a sorted clone af an iterable.
-pub fn as_sorted_vec<T: Ord, I: IntoIterator<Item = T> + Clone>(iter: I) -> Vec<T> {
-    let mut list: Vec<T> = iter.clone().into_iter().collect();
-    list.sort();
-    list
-}
 
 /// Return the path of the given function.
 /// If the last function is `f`, it is removed.
@@ -121,8 +67,8 @@ pub use current_function_path;
 #[cfg(test)]
 mod utils {
     use std::io;
+    use std::path::Path;
     use std::sync::Arc;
-    use std::{collections::HashSet, path::Path};
 
     use slog::{Drain, Logger};
     use slog_async::Async;
@@ -149,29 +95,6 @@ mod utils {
             let (drain, inspector) = MemoryDrainForTest::new();
             (Logger::root(drain.fuse(), slog::o!()), inspector)
         }
-    }
-
-    #[test]
-    fn test_equivalent_to() {
-        assert!(equivalent_to(vec![1, 2, 3], vec![3, 2, 1]));
-        assert!(equivalent_to(vec![1, 2, 3], vec![2, 1, 3]));
-        assert!(!equivalent_to(vec![1, 2, 3], vec![3, 2, 1, 4]));
-        assert!(!equivalent_to(vec![1, 2, 3], vec![3, 2]));
-
-        assert!(equivalent_to([1, 2, 3], vec![3, 2, 1]));
-        assert!(equivalent_to(&[1, 2, 3], &vec![3, 2, 1]));
-        assert!(equivalent_to([1, 2, 3], HashSet::from([3, 2, 1])));
-        assert!(equivalent_to(vec![1, 2, 3], HashSet::from([3, 2, 1])));
-        assert!(equivalent_to(&vec![1, 2, 3], &HashSet::from([3, 2, 1])));
-
-        assert_equivalent(vec![1, 2, 3], vec![3, 2, 1]);
-        assert_equivalent(vec![1, 2, 3], vec![2, 1, 3]);
-
-        assert_equivalent([1, 2, 3], vec![3, 2, 1]);
-        assert_equivalent(&[1, 2, 3], &vec![3, 2, 1]);
-        assert_equivalent([1, 2, 3], HashSet::from([3, 2, 1]));
-        assert_equivalent(vec![1, 2, 3], HashSet::from([3, 2, 1]));
-        assert_equivalent(&vec![1, 2, 3], &HashSet::from([3, 2, 1]));
     }
 
     #[test]
