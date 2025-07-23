@@ -443,6 +443,6 @@ mod tests {
             transaction_hashes: format!("{tx1},{tx2},{tx2},{tx1},{tx2}",),
         };
 
-        assert_equivalent(params.sanitize(), vec![tx1, tx2]);
+        assert_equivalent!(params.sanitize(), vec![tx1, tx2]);
     }
 }

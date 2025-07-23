@@ -470,8 +470,8 @@ mod tests {
             let unpacked_files = list_files(&unpack_dir);
             let unpacked_immutable_files = list_files(&unpack_dir.join(IMMUTABLE_DIR));
 
-            assert_equivalent(vec![IMMUTABLE_DIR.to_string()], unpacked_files);
-            assert_equivalent(
+            assert_equivalent!(vec![IMMUTABLE_DIR.to_string()], unpacked_files);
+            assert_equivalent!(
                 vec![
                     "00001.chunk".to_string(),
                     "00001.primary".to_string(),
@@ -510,8 +510,8 @@ mod tests {
             let unpacked_files = list_files(&unpack_dir);
             let unpacked_immutable_files = list_files(&unpack_dir.join(IMMUTABLE_DIR));
 
-            assert_equivalent(vec![IMMUTABLE_DIR.to_string()], unpacked_files);
-            assert_equivalent(
+            assert_equivalent!(vec![IMMUTABLE_DIR.to_string()], unpacked_files);
+            assert_equivalent!(
                 vec![
                     "00002.chunk".to_string(),
                     "00002.primary".to_string(),

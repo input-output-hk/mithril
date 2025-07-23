@@ -73,7 +73,7 @@ macro_rules! extract_all {
 mod tests {
     use std::collections::HashMap;
 
-    use mithril_common::assert_equivalent_macro;
+    use mithril_common::assert_equivalent;
     use mithril_doc::StructDoc;
 
     #[allow(dead_code)]
@@ -167,7 +167,7 @@ mod tests {
             "mithril commande subcommande".to_string(),
         ];
 
-        assert_equivalent_macro!(expected, keys);
+        assert_equivalent!(expected, keys);
     }
 
     #[test]

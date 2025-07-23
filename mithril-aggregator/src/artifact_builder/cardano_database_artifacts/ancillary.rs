@@ -345,7 +345,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_equivalent(
+        assert_equivalent!(
             locations,
             vec![AncillaryLocation::CloudStorage {
                 uri: "an_uri".to_string(),
@@ -385,7 +385,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_equivalent(
+        assert_equivalent!(
             locations,
             vec![
                 AncillaryLocation::CloudStorage {

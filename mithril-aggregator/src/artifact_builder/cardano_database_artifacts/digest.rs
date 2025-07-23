@@ -522,7 +522,7 @@ mod tests {
 
         let locations = builder.upload_digest_file(&FileArchive::dummy()).await.unwrap();
 
-        assert_equivalent(
+        assert_equivalent!(
             locations,
             vec![
                 DigestLocation::CloudStorage {
@@ -562,7 +562,7 @@ mod tests {
 
         let locations = builder.upload_digest_file(&FileArchive::dummy()).await.unwrap();
 
-        assert_equivalent(
+        assert_equivalent!(
             locations,
             vec![
                 DigestLocation::CloudStorage {

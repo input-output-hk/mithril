@@ -383,7 +383,7 @@ mod tests {
 
         let upload = builder.upload(2).await.unwrap();
 
-        assert_equivalent(
+        assert_equivalent!(
             upload.locations,
             vec![ImmutablesLocation::CloudStorage {
                 uri: MultiFilesUri::Template(TemplateUri("archive.tar.gz".to_string())),
@@ -469,7 +469,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            assert_equivalent(
+            assert_equivalent!(
                 archive_paths,
                 vec![
                     work_dir.join("00000.tar.gz"),
@@ -641,7 +641,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            assert_equivalent(
+            assert_equivalent!(
                 archive_paths,
                 vec![
                     work_dir.join("00000.tar.gz"),
@@ -683,7 +683,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            assert_equivalent(
+            assert_equivalent!(
                 archive_paths,
                 vec![
                     work_dir.join("00000.tar.gz"),
@@ -794,7 +794,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            assert_equivalent(
+            assert_equivalent!(
                 archive_paths,
                 vec![ImmutablesLocation::CloudStorage {
                     uri: MultiFilesUri::Template(TemplateUri("archive_2.tar.gz".to_string())),
@@ -836,7 +836,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            assert_equivalent(
+            assert_equivalent!(
                 archive_paths,
                 vec![
                     ImmutablesLocation::CloudStorage {

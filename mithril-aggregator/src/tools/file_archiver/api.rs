@@ -400,7 +400,7 @@ mod tests {
             .expect_err("FileArchiver::archive should fail if the db is empty.");
         let remaining_files: Vec<String> = list_remaining_files(&test_dir);
 
-        assert_equivalent(
+        assert_equivalent!(
             vec!["other-process.file".to_string(), "archive.tar.gz".to_string()],
             remaining_files,
         );
