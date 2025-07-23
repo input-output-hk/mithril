@@ -284,7 +284,7 @@ mod tests {
         initialize_dependencies,
         services::{FakeEpochService, MockSignerRegisterer},
         store::MockVerificationKeyStorer,
-        test_tools::TestLogger,
+        test::TestLogger,
     };
 
     use super::*;

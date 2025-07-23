@@ -93,7 +93,7 @@ impl From<StdError> for RuntimeError {
 mod tests {
     use anyhow::anyhow;
 
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

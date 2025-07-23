@@ -198,7 +198,7 @@ mod tests {
     use crate::services::{
         CertifierServiceError, MockBufferedSingleSignatureStore, MockCertifierService,
     };
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

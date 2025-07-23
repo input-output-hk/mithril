@@ -125,7 +125,7 @@ mod tests {
         immutable_file_digest_mapper::MockImmutableFileDigestMapper,
         services::CompressedArchiveSnapshotter,
         services::ancillary_signer::MockAncillarySigner,
-        test_tools::TestLogger,
+        test::TestLogger,
         tools::{file_archiver::FileArchiver, url_sanitizer::SanitizedUrlWithTrailingSlash},
     };
 

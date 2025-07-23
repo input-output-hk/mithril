@@ -8,3 +8,5 @@ pub mod double;
 
 #[cfg(test)]
 pub(crate) mod payload;
+
+mithril_common::define_test_logger!();

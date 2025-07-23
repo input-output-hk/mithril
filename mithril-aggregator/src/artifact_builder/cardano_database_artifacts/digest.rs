@@ -304,7 +304,7 @@ mod tests {
 
     use crate::{
         file_uploaders::FileUploadRetryPolicy,
-        immutable_file_digest_mapper::MockImmutableFileDigestMapper, test_tools::TestLogger,
+        immutable_file_digest_mapper::MockImmutableFileDigestMapper, test::TestLogger,
         tools::file_archiver::FileArchiver,
     };
 

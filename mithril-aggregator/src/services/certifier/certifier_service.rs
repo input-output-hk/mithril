@@ -413,7 +413,7 @@ mod tests {
 
     use crate::{
         ServeCommandConfiguration, dependency_injection::DependenciesBuilder,
-        multi_signer::MockMultiSigner, services::FakeEpochService, test_tools::TestLogger,
+        multi_signer::MockMultiSigner, services::FakeEpochService, test::TestLogger,
     };
     use chrono::{DateTime, Days};
     use mithril_common::{

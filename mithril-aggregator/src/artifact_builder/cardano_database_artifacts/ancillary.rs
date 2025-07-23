@@ -209,7 +209,7 @@ mod tests {
     use mithril_common::test::{TempDir, assert_equivalent, double::Dummy};
 
     use crate::services::{DumbSnapshotter, MockSnapshotter};
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

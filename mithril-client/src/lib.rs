@@ -144,33 +144,5 @@ pub use type_alias::*;
 
 #[cfg(test)]
 pub(crate) mod test_utils {
-    use std::io;
-    use std::sync::Arc;
-
-    use slog::{Drain, Logger};
-    use slog_async::Async;
-    use slog_term::{CompactFormat, PlainDecorator};
-
-    use mithril_common::test::{MemoryDrainForTest, MemoryDrainForTestInspector};
-
-    pub struct TestLogger;
-
-    #[allow(unused)]
-    impl TestLogger {
-        fn from_writer<W: io::Write + Send + 'static>(writer: W) -> Logger {
-            let decorator = PlainDecorator::new(writer);
-            let drain = CompactFormat::new(decorator).build().fuse();
-            let drain = Async::new(drain).build().fuse();
-            Logger::root(Arc::new(drain), slog::o!())
-        }
-
-        pub fn stdout() -> Logger {
-            Self::from_writer(slog_term::TestStdoutWriter)
-        }
-
-        pub fn memory() -> (Logger, MemoryDrainForTestInspector) {
-            let (drain, inspector) = MemoryDrainForTest::new();
-            (Logger::root(drain.fuse(), slog::o!()), inspector)
-        }
-    }
+    mithril_common::define_test_logger!();
 }

@@ -425,7 +425,7 @@ mod tests {
     use mithril_common::messages::CertificateListItemMessage;
     use mithril_common::test::double::Dummy;
 
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

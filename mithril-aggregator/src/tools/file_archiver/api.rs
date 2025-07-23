@@ -44,7 +44,7 @@ impl FileArchiver {
 
     #[cfg(test)]
     pub fn new_for_test(verification_temp_dir: PathBuf) -> Self {
-        use crate::test_tools::TestLogger;
+        use crate::test::TestLogger;
         Self {
             zstandard_compression_parameter: ZstandardCompressionParameters::default(),
             verification_temp_dir,

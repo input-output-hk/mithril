@@ -512,7 +512,7 @@ mod tests {
 
     use crate::artifact_builder::MockArtifactBuilder;
     use crate::database::repository::MockSignedEntityStorer;
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

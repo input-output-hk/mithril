@@ -88,7 +88,7 @@ impl SingleSignatureAuthenticator {
 
         Self {
             multi_signer: Arc::new(multi_signer),
-            logger: crate::test_tools::TestLogger::stdout(),
+            logger: crate::test::TestLogger::stdout(),
         }
     }
 
@@ -103,7 +103,7 @@ impl SingleSignatureAuthenticator {
 
         Self {
             multi_signer: Arc::new(multi_signer),
-            logger: crate::test_tools::TestLogger::stdout(),
+            logger: crate::test::TestLogger::stdout(),
         }
     }
 }
@@ -113,7 +113,7 @@ mod tests {
     use anyhow::anyhow;
 
     use crate::multi_signer::MockMultiSigner;
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

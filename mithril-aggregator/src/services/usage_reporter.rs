@@ -166,7 +166,7 @@ mod tests {
 
     use super::UsageReporter;
     use super::*;
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     fn build_usage_reporter() -> (
         UsageReporter,

@@ -211,7 +211,7 @@ mod tests {
     use std::{fs::read_to_string, path::PathBuf};
 
     use crate::database::test_helper::main_db_connection;
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

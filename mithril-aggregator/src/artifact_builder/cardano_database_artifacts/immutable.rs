@@ -286,7 +286,7 @@ mod tests {
 
     use crate::services::ancillary_signer::MockAncillarySigner;
     use crate::services::{CompressedArchiveSnapshotter, DumbSnapshotter, MockSnapshotter};
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
     use crate::tools::file_archiver::FileArchiver;
 
     use super::*;

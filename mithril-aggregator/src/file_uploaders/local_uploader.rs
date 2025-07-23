@@ -94,7 +94,7 @@ mod tests {
 
     use mithril_common::test::TempDir;
 
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

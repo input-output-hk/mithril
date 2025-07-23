@@ -112,7 +112,7 @@ mod tests {
             FakeSignatureConsumer, MockCertifierService, MockSignatureConsumer,
             SignatureRegistrationStatus,
         },
-        test_tools::TestLogger,
+        test::TestLogger,
     };
 
     use super::*;

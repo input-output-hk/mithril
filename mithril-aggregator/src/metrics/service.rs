@@ -198,7 +198,7 @@ impl Default for MetricLabelValueMap {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

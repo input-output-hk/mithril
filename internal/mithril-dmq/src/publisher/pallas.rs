@@ -96,7 +96,7 @@ mod tests {
         test::{TempDir, double::Dummy},
     };
 
-    use crate::{test::payload::DmqMessageTestPayload, test_tools::TestLogger};
+    use crate::test::{TestLogger, payload::DmqMessageTestPayload};
 
     use super::*;
 

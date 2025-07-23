@@ -221,7 +221,7 @@ mod test {
 
     use crate::database::record::{CertificateRecord, SignedEntityRecord};
     use crate::database::repository::SignedEntityStore;
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

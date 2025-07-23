@@ -329,7 +329,7 @@ mod tests {
     use mithril_common::{assert_dir_eq, current_function, temp_dir_create};
 
     use crate::services::ancillary_signer::MockAncillarySigner;
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

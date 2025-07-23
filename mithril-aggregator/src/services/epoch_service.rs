@@ -848,8 +848,8 @@ mod tests {
     };
 
     use crate::store::{FakeEpochSettingsStorer, MockVerificationKeyStorer};
+    use crate::test::TestLogger;
     use crate::test::mocks::MockStakeStore;
-    use crate::test_tools::TestLogger;
 
     use super::*;
 

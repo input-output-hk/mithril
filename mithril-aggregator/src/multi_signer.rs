@@ -153,7 +153,7 @@ mod tests {
 
     use crate::entities::AggregatorEpochSettings;
     use crate::services::{FakeEpochService, FakeEpochServiceBuilder};
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 
