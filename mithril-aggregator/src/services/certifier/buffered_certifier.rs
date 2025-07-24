@@ -192,6 +192,7 @@ mod tests {
     };
     use mithril_common::entities::SingleSignatureAuthenticationStatus;
     use mithril_common::test::double::{Dummy, fake_data};
+    use mithril_common::test::entities_extensions::SingleSignatureTestExtension;
 
     use crate::database::repository::BufferedSingleSignatureRepository;
     use crate::database::test_helper::main_db_connection;

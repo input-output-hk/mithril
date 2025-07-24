@@ -191,6 +191,7 @@ mod tests {
     };
     use crate::test::crypto_helper::MKProofTestExtension;
     use crate::test::double::Dummy;
+    use crate::test::entities_extensions::CardanoTransactionsSetProofTestExtension;
 
     use super::*;
 

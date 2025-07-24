@@ -120,7 +120,6 @@ impl CardanoTransactionsSigningConfig {
                 step,
             }
         }
-
     }
 
     /// Compute the block number to be signed based on the chain tip block number.

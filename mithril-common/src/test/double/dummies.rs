@@ -5,6 +5,7 @@ use crate::test::double::{Dummy, fake_data, fake_keys};
 mod entities {
     use crate::crypto_helper::MKTreeStoreInMemory;
     use crate::entities::*;
+    use crate::test::entities_extensions::CardanoTransactionsSetProofTestExtension;
 
     use super::*;
 

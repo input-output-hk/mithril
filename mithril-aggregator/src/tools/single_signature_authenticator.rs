@@ -112,6 +112,8 @@ impl SingleSignatureAuthenticator {
 mod tests {
     use anyhow::anyhow;
 
+    use mithril_common::test::entities_extensions::SingleSignatureTestExtension;
+
     use crate::multi_signer::MockMultiSigner;
     use crate::test::TestLogger;
 

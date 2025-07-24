@@ -9,6 +9,7 @@
 pub mod builder;
 pub mod crypto_helper;
 pub mod double;
+pub mod entities_extensions;
 pub mod logging;
 pub mod mock_extensions;
 

@@ -19,40 +19,13 @@ pub type BlockRangeLength = BlockNumber;
 /// BlockRange for the Cardano chain
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq, Debug, Hash)]
 pub struct BlockRange {
-    inner_range: Range<BlockNumber>,
+    pub(crate) inner_range: Range<BlockNumber>,
 }
 
 impl BlockRange {
     /// The length of the block range
     /// Important: this value should be updated with extreme care (probably with an era change) in order to avoid signing disruptions.
     pub const LENGTH: BlockRangeLength = BlockNumber(15);
-
-    cfg_test_tools! {
-        /// BlockRange factory
-        pub fn new(start: u64, end: u64) -> Self {
-            Self {
-                inner_range: BlockNumber(start)..BlockNumber(end),
-            }
-        }
-
-        /// Try to add two BlockRanges
-        pub fn try_add(&self, other: &BlockRange) -> StdResult<BlockRange> {
-            if self.inner_range.end.max(other.inner_range.end)
-                < self.inner_range.start.min(other.inner_range.start)
-            {
-                return Err(anyhow!(
-                    "BlockRange cannot be added as they don't strictly overlap"
-                ));
-            }
-
-            Ok(Self {
-                inner_range: Range {
-                    start: self.inner_range.start.min(other.inner_range.start),
-                    end: self.inner_range.end.max(other.inner_range.end),
-                },
-            })
-        }
-    }
 
     /// Get the start of the block range that contains the given block number
     pub fn start(number: BlockNumber) -> BlockNumber {
@@ -232,6 +205,8 @@ impl ExactSizeIterator for BlockRangesSequence {
 mod tests {
     use std::ops::Not;
 
+    use crate::test::entities_extensions::BlockRangeTestExtension;
+
     use super::*;
 
     #[test]
@@ -257,22 +232,6 @@ mod tests {
         assert!(BlockRange::new(1, 10) < BlockRange::new(1, 11));
         assert!(BlockRange::new(1, 10) < BlockRange::new(2, 10));
         assert!(BlockRange::new(1, 11) < BlockRange::new(2, 10));
-    }
-
-    #[test]
-    fn test_block_range_try_add() {
-        assert_eq!(
-            BlockRange::new(1, 10).try_add(&BlockRange::new(1, 10)).unwrap(),
-            BlockRange::new(1, 10)
-        );
-        assert_eq!(
-            BlockRange::new(1, 10).try_add(&BlockRange::new(1, 11)).unwrap(),
-            BlockRange::new(1, 11)
-        );
-        assert_eq!(
-            BlockRange::new(1, 10).try_add(&BlockRange::new(2, 10)).unwrap(),
-            BlockRange::new(1, 10)
-        );
     }
 
     #[test]
