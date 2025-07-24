@@ -7,6 +7,7 @@
 //!
 
 pub mod builder;
+pub mod crypto_helper;
 pub mod double;
 pub mod logging;
 pub mod mock_extensions;

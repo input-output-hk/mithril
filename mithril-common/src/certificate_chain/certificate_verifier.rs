@@ -423,13 +423,16 @@ mod tests {
     use async_trait::async_trait;
     use tokio::sync::Mutex;
 
-    use crate::certificate_chain::certificate_retriever::MockCertificateRetriever;
-    use crate::crypto_helper::{ProtocolClerk, tests_setup::*};
-    use crate::test::TestLogger;
-    use crate::test::builder::{
-        CertificateChainBuilder, CertificateChainBuilderContext, MithrilFixtureBuilder,
+    use crate::test::{
+        TestLogger,
+        builder::{CertificateChainBuilder, CertificateChainBuilderContext, MithrilFixtureBuilder},
+        crypto_helper::{setup_certificate_chain, setup_message, setup_protocol_parameters},
+        double::FakeCertificaterRetriever,
     };
-    use crate::test::double::FakeCertificaterRetriever;
+    use crate::{
+        certificate_chain::certificate_retriever::MockCertificateRetriever,
+        crypto_helper::ProtocolClerk,
+    };
 
     use super::*;
 

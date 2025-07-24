@@ -1,7 +1,6 @@
 mod test_extensions;
 
 use mithril_common::{
-    crypto_helper::tests_setup,
     entities::{
         BlockNumber, CardanoDbBeacon, ChainPoint, Epoch,
         SignedEntityType::{
@@ -9,14 +8,14 @@ use mithril_common::{
         },
         SignedEntityTypeDiscriminants, SlotNumber, TimePoint,
     },
-    test::builder::MithrilFixtureBuilder,
+    test::{builder::MithrilFixtureBuilder, crypto_helper},
 };
 use test_extensions::StateMachineTester;
 
 #[rustfmt::skip]
 #[tokio::test]
 async fn test_create_cardano_transaction_single_signature() {
-    let protocol_parameters = tests_setup::setup_protocol_parameters();
+    let protocol_parameters = crypto_helper::setup_protocol_parameters();
     let fixture = MithrilFixtureBuilder::default()
         .with_signers(10)
         .with_protocol_parameters(protocol_parameters.into())

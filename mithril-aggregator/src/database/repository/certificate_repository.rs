@@ -164,7 +164,7 @@ impl SynchronizedCertificateStorer for CertificateRepository {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
+    use mithril_common::test::crypto_helper::setup_certificate_chain;
 
     use crate::database::test_helper::{insert_certificate_records, main_db_connection};
 

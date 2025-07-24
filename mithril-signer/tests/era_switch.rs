@@ -1,9 +1,8 @@
 mod test_extensions;
 
 use mithril_common::{
-    crypto_helper::tests_setup,
     entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, SupportedEra, TimePoint},
-    test::{builder::MithrilFixtureBuilder, double::Dummy},
+    test::{builder::MithrilFixtureBuilder, crypto_helper, double::Dummy},
 };
 use mithril_era::EraMarker;
 use test_extensions::StateMachineTester;
@@ -11,7 +10,7 @@ use test_extensions::StateMachineTester;
 #[rustfmt::skip]
 #[tokio::test]
 async fn era_fail_at_startup() {
-    let protocol_parameters = tests_setup::setup_protocol_parameters();
+    let protocol_parameters = crypto_helper::setup_protocol_parameters();
     let fixture = MithrilFixtureBuilder::default().with_signers(10).with_protocol_parameters(protocol_parameters.into()).build();
     let signers_with_stake = fixture.signers_with_stake();
     let initial_time_point = TimePoint {

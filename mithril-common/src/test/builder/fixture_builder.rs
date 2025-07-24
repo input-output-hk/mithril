@@ -5,11 +5,11 @@ use rand_core::{RngCore, SeedableRng};
 use crate::{
     crypto_helper::{
         ColdKeyGenerator, OpCert, ProtocolStakeDistribution, SerDeShelleyFileFormat, Sum6KesBytes,
-        tests_setup, tests_setup::setup_temp_directory_for_signer,
     },
     entities::{PartyId, ProtocolParameters, Stake, StakeDistribution},
     test::{
         builder::MithrilFixture,
+        crypto_helper,
         double::{fake_data, precomputed_kes_key},
     },
 };
@@ -96,7 +96,7 @@ impl MithrilFixtureBuilder {
     /// Transform the specified parameters to a [MithrilFixture].
     pub fn build(self) -> MithrilFixture {
         let protocol_stake_distribution = self.generate_stake_distribution();
-        let signers = tests_setup::setup_signers_from_stake_distribution(
+        let signers = crypto_helper::setup_signers_from_stake_distribution(
             &protocol_stake_distribution,
             &self.protocol_parameters.clone().into(),
         );
@@ -208,7 +208,7 @@ impl MithrilFixtureBuilder {
         let party_id = operational_certificate
             .compute_protocol_party_id()
             .expect("compute protocol party id should not fail");
-        let temp_dir = setup_temp_directory_for_signer(&party_id, true)
+        let temp_dir = crypto_helper::setup_temp_directory_for_signer(&party_id, true)
             .expect("setup temp directory should return a value");
         if !temp_dir.join("kes.sk").exists() {
             kes_bytes

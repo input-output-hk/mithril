@@ -109,8 +109,9 @@ impl Debug for SingleSignature {
 
 #[cfg(test)]
 mod tests {
+    use crate::test::{builder::MithrilFixtureBuilder, crypto_helper::setup_message};
+
     use super::*;
-    use crate::{crypto_helper::tests_setup::setup_message, test::builder::MithrilFixtureBuilder};
 
     #[test]
     fn single_signatures_should_convert_to_protocol_signatures() {

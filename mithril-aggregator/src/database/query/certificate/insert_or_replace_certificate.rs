@@ -38,9 +38,8 @@ impl Query for InsertOrReplaceCertificateRecordQuery {
 mod tests {
     use std::collections::HashMap;
 
-    use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
     use mithril_common::entities::Epoch;
-    use mithril_common::test::double::fake_data;
+    use mithril_common::test::{crypto_helper::setup_certificate_chain, double::fake_data};
     use mithril_persistence::sqlite::ConnectionExtensions;
 
     use crate::database::query::{GetCertificateRecordQuery, InsertCertificateRecordQuery};

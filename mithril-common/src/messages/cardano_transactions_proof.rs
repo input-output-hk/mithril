@@ -189,6 +189,7 @@ mod tests {
         CardanoTransactionsSignableBuilder, MockBlockRangeRootRetriever, MockTransactionsImporter,
         SignableBuilder,
     };
+    use crate::test::crypto_helper::MKProofTestExtension;
     use crate::test::double::Dummy;
 
     use super::*;

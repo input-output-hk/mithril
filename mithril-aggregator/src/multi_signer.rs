@@ -143,11 +143,11 @@ mod tests {
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
-    use mithril_common::crypto_helper::tests_setup::*;
     use mithril_common::entities::{CardanoDbBeacon, Epoch, SignedEntityType, SignerWithStake};
     use mithril_common::protocol::ToMessage;
     use mithril_common::test::{
         builder::MithrilFixtureBuilder,
+        crypto_helper::setup_message,
         double::{Dummy, fake_data},
     };
 

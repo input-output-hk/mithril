@@ -169,33 +169,6 @@ impl MKProof {
             .collect::<Vec<_>>()
     }
 
-    cfg_test_tools! {
-        /// Build a [MKProof] based on the given leaves (*Test only*).
-        pub fn from_leaves<T: Into<MKTreeNode> + Clone>(
-            leaves: &[T],
-        ) -> StdResult<MKProof> {
-            Self::from_subset_of_leaves(leaves, leaves)
-        }
-
-        /// Build a [MKProof] based on the given leaves (*Test only*).
-        pub fn from_subset_of_leaves<T: Into<MKTreeNode> + Clone>(
-            leaves: &[T],
-            leaves_to_verify: &[T],
-        ) -> StdResult<MKProof> {
-            let leaves = Self::list_to_mknode(leaves);
-            let leaves_to_verify =
-                Self::list_to_mknode(leaves_to_verify);
-
-            let mktree =
-                MKTree::<MKTreeStoreInMemory>::new(&leaves).with_context(|| "MKTree creation should not fail")?;
-            mktree.compute_proof(&leaves_to_verify)
-        }
-
-        fn list_to_mknode<T: Into<MKTreeNode> + Clone>(hashes: &[T]) -> Vec<MKTreeNode> {
-            hashes.iter().map(|h| h.clone().into()).collect()
-        }
-    }
-
     /// Convert the proof to bytes
     pub fn to_bytes(&self) -> StdResult<Bytes> {
         bincode::serde::encode_to_vec(self, bincode::config::standard()).map_err(|e| e.into())
@@ -465,6 +438,8 @@ impl<S: MKTreeStorer> Clone for MKTree<S> {
 
 #[cfg(test)]
 mod tests {
+    use crate::test::crypto_helper::MKProofTestExtension;
+
     use super::*;
 
     fn generate_leaves(total_leaves: usize) -> Vec<MKTreeNode> {
