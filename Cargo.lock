@@ -4009,7 +4009,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-api-spec"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "jsonschema",
  "mithril-common",
@@ -4022,7 +4022,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-build-script"
-version = "0.2.25"
+version = "0.2.26"
 dependencies = [
  "semver",
  "serde_json",
