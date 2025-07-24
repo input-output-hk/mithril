@@ -467,17 +467,17 @@ mod tests {
             assert_eq!(message.next_signers.len(), 3);
             assert_eq!(
                 message.cardano_transactions_signing_config,
-                Some(CardanoTransactionsSigningConfig::new(
-                    BlockNumber(0),
-                    BlockNumber(15)
-                ))
+                Some(CardanoTransactionsSigningConfig {
+                    security_parameter: BlockNumber(0),
+                    step: BlockNumber(15)
+                })
             );
             assert_eq!(
                 message.next_cardano_transactions_signing_config,
-                Some(CardanoTransactionsSigningConfig::new(
-                    BlockNumber(0),
-                    BlockNumber(15)
-                ))
+                Some(CardanoTransactionsSigningConfig {
+                    security_parameter: BlockNumber(0),
+                    step: BlockNumber(15)
+                })
             );
         }
 
@@ -561,17 +561,17 @@ mod tests {
         #[tokio::test]
         async fn get_epoch_settings_message_retrieves_signing_configuration_from_epoch_service() {
             let current_epoch_settings = AggregatorEpochSettings {
-                cardano_transactions_signing_config: CardanoTransactionsSigningConfig::new(
-                    BlockNumber(100),
-                    BlockNumber(15),
-                ),
+                cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+                    security_parameter: BlockNumber(100),
+                    step: BlockNumber(15),
+                },
                 ..AggregatorEpochSettings::dummy()
             };
             let next_epoch_settings = AggregatorEpochSettings {
-                cardano_transactions_signing_config: CardanoTransactionsSigningConfig::new(
-                    BlockNumber(200),
-                    BlockNumber(15),
-                ),
+                cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+                    security_parameter: BlockNumber(200),
+                    step: BlockNumber(15),
+                },
                 ..AggregatorEpochSettings::dummy()
             };
             let epoch_service = FakeEpochServiceBuilder {

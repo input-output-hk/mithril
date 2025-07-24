@@ -68,10 +68,10 @@ mod tests {
 
         let epoch_settings_send_to_update = AggregatorEpochSettings {
             protocol_parameters: fake_data::protocol_parameters(),
-            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::new(
-                BlockNumber(24),
-                BlockNumber(62),
-            ),
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(24),
+                step: BlockNumber(62),
+            },
         };
         let record_returned_by_update_query = connection
             .fetch_first(UpdateEpochSettingsQuery::one(

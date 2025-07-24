@@ -69,7 +69,10 @@ mod tests {
         );
 
         assert_eq!(
-            CardanoTransactionsSigningConfig::new(BlockNumber(10), BlockNumber(15)),
+            CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(10),
+                step: BlockNumber(15)
+            },
             epoch_settings_record.cardano_transactions_signing_config
         );
 

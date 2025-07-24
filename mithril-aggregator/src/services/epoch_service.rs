@@ -1125,8 +1125,10 @@ mod tests {
     async fn inform_epoch_get_signed_entity_config_from_its_dependencies_and_store() {
         let epoch = Epoch(5);
 
-        let cardano_transactions_signing_config =
-            CardanoTransactionsSigningConfig::new(BlockNumber(29), BlockNumber(986));
+        let cardano_transactions_signing_config = CardanoTransactionsSigningConfig {
+            security_parameter: BlockNumber(29),
+            step: BlockNumber(986),
+        };
         let allowed_discriminants = BTreeSet::from([
             SignedEntityTypeDiscriminants::CardanoTransactions,
             SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
