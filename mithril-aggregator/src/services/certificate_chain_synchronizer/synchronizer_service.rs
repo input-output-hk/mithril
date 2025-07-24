@@ -224,12 +224,10 @@ mod tests {
     use anyhow::anyhow;
     use std::sync::RwLock;
 
-    use mithril_common::certificate_chain::{
-        FakeCertificaterRetriever, MithrilCertificateVerifier,
-    };
+    use mithril_common::certificate_chain::MithrilCertificateVerifier;
     use mithril_common::test::{
         builder::{CertificateChainBuilder, CertificateChainFixture},
-        double::{fake_data, fake_keys},
+        double::{FakeCertificaterRetriever, fake_data, fake_keys},
         mock_extensions::MockBuilder,
     };
 

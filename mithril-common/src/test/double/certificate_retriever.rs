@@ -6,9 +6,8 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 
+use crate::certificate_chain::{CertificateRetriever, CertificateRetrieverError};
 use crate::entities::Certificate;
-
-use super::{CertificateRetriever, CertificateRetrieverError};
 
 /// A fake [CertificateRetriever] that returns a [Certificate] given its hash
 pub struct FakeCertificaterRetriever {
