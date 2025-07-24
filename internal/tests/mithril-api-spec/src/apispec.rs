@@ -56,7 +56,7 @@ impl<'a> APISpec<'a> {
     /// APISpec factory from spec
     pub fn from_file(path: &str) -> APISpec<'a> {
         let yaml_spec = std::fs::read_to_string(path).unwrap();
-        let openapi: serde_json::Value = serde_yaml::from_str(&yaml_spec).unwrap();
+        let openapi: serde_json::Value = serde_yml::from_str(&yaml_spec).unwrap();
         APISpec {
             openapi,
             path: None,
