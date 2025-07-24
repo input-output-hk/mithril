@@ -8,18 +8,18 @@ use mithril_common::{
     entities::{ProtocolMessage, SignedEntityType, SingleSignature},
     messages::RegisterSignatureMessageDmq,
 };
-use mithril_dmq::DmqPublisher;
+use mithril_dmq::DmqPublisherClient;
 
 use super::SignaturePublisher;
 
 /// DMQ implementation of the [SignaturePublisher] trait.
 pub struct SignaturePublisherDmq {
-    dmq_publisher: Arc<dyn DmqPublisher<RegisterSignatureMessageDmq>>,
+    dmq_publisher: Arc<dyn DmqPublisherClient<RegisterSignatureMessageDmq>>,
 }
 
 impl SignaturePublisherDmq {
     /// Creates a new instance of [SignaturePublisherDmq].
-    pub fn new(dmq_publisher: Arc<dyn DmqPublisher<RegisterSignatureMessageDmq>>) -> Self {
+    pub fn new(dmq_publisher: Arc<dyn DmqPublisherClient<RegisterSignatureMessageDmq>>) -> Self {
         Self { dmq_publisher }
     }
 }

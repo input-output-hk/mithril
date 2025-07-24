@@ -12,12 +12,12 @@ use mithril_common::{
     logging::LoggerExtensions,
 };
 
-use crate::DmqConsumer;
+use crate::DmqConsumerClient;
 
-/// A DMQ consumer implementation.
+/// A DMQ client consumer implementation.
 ///
 /// This implementation is built upon the n2c mini-protocols DMQ implementation in Pallas.
-pub struct DmqConsumerPallas<M: TryFromBytes + Debug> {
+pub struct DmqConsumerClientPallas<M: TryFromBytes + Debug> {
     socket: PathBuf,
     network: CardanoNetwork,
     client: Mutex<Option<DmqClient>>,
@@ -25,8 +25,8 @@ pub struct DmqConsumerPallas<M: TryFromBytes + Debug> {
     phantom: PhantomData<M>,
 }
 
-impl<M: TryFromBytes + Debug> DmqConsumerPallas<M> {
-    /// Creates a new `DmqConsumerPallas` instance.
+impl<M: TryFromBytes + Debug> DmqConsumerClientPallas<M> {
+    /// Creates a new `DmqConsumerClientPallas` instance.
     pub fn new(socket: PathBuf, network: CardanoNetwork, logger: Logger) -> Self {
         Self {
             socket,
@@ -47,7 +47,7 @@ impl<M: TryFromBytes + Debug> DmqConsumerPallas<M> {
         );
         DmqClient::connect(&self.socket, self.network.magic_id())
             .await
-            .with_context(|| "DmqConsumerPallas failed to create a new client")
+            .with_context(|| "DmqConsumerClientPallas failed to create a new client")
     }
 
     /// Gets the cached `DmqClient`, creating a new one if it does not exist.
@@ -128,7 +128,7 @@ impl<M: TryFromBytes + Debug> DmqConsumerPallas<M> {
 }
 
 #[async_trait::async_trait]
-impl<M: TryFromBytes + Debug + Sync + Send> DmqConsumer<M> for DmqConsumerPallas<M> {
+impl<M: TryFromBytes + Debug + Sync + Send> DmqConsumerClient<M> for DmqConsumerClientPallas<M> {
     async fn consume_messages(&self) -> StdResult<Vec<(M, PartyId)>> {
         let messages = self.consume_messages_internal().await;
         if messages.is_err() {
@@ -247,7 +247,7 @@ mod tests {
         let reply_messages = fake_msgs();
         let server = setup_dmq_server(socket_path.clone(), reply_messages);
         let client = tokio::spawn(async move {
-            let consumer = DmqConsumerPallas::new(
+            let consumer = DmqConsumerClientPallas::new(
                 socket_path,
                 CardanoNetwork::TestNet(0),
                 TestLogger::stdout(),
@@ -280,7 +280,7 @@ mod tests {
         let reply_messages = vec![];
         let server = setup_dmq_server(socket_path.clone(), reply_messages);
         let client = tokio::spawn(async move {
-            let consumer = DmqConsumerPallas::<DmqMessageTestPayload>::new(
+            let consumer = DmqConsumerClientPallas::<DmqMessageTestPayload>::new(
                 socket_path,
                 CardanoNetwork::TestNet(0),
                 TestLogger::stdout(),
@@ -304,7 +304,7 @@ mod tests {
         let reply_messages = fake_msgs();
         let server = setup_dmq_server(socket_path.clone(), reply_messages);
         let client = tokio::spawn(async move {
-            let consumer = DmqConsumerPallas::<DmqMessageTestPayload>::new(
+            let consumer = DmqConsumerClientPallas::<DmqMessageTestPayload>::new(
                 socket_path,
                 CardanoNetwork::TestNet(0),
                 TestLogger::stdout(),

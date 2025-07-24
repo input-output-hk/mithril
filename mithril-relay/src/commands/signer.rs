@@ -1,12 +1,18 @@
+#[cfg(feature = "future_dmq")]
+use std::path::PathBuf;
 use std::time::Duration;
 
 use clap::Parser;
 use libp2p::Multiaddr;
-use mithril_common::StdResult;
 use slog::error;
 
+#[cfg(feature = "future_dmq")]
+use mithril_common::CardanoNetwork;
+use mithril_common::StdResult;
+
+use crate::{SignerRelay, SignerRelayConfiguration, SignerRelayMode};
+
 use super::CommandContext;
-use crate::{SignerRelay, SignerRelayMode};
 
 #[derive(Parser, Debug, Clone)]
 pub struct SignerCommand {
@@ -21,6 +27,27 @@ pub struct SignerCommand {
     /// Dial to peer multi-address (e.g. /ip4/0.0.0.0/tcp/1234)
     #[clap(long, env = "DIAL_TO")]
     dial_to: Option<Multiaddr>,
+
+    /// Path to the DMQ socket file
+    #[cfg(feature = "future_dmq")]
+    #[clap(
+        long,
+        env = "DMQ_NODE_SOCKET_PATH",
+        value_name = "PATH",
+        default_value = "./dmq.socket"
+    )]
+    dmq_node_socket_path: PathBuf,
+
+    /// Cardano network
+    #[cfg(feature = "future_dmq")]
+    #[clap(long, env = "NETWORK")]
+    pub network: String,
+
+    /// Cardano Network Magic number
+    /// useful for TestNet & DevNet
+    #[cfg(feature = "future_dmq")]
+    #[clap(long, env = "NETWORK_MAGIC")]
+    pub network_magic: Option<u64>,
 
     /// Aggregator endpoint URL.
     #[clap(long, env = "AGGREGATOR_ENDPOINT")]
@@ -50,16 +77,23 @@ impl SignerCommand {
         let signature_registration_mode = &self.signature_registration_mode;
         let aggregator_endpoint = self.aggregator_endpoint.to_owned();
         let signer_repeater_delay = Duration::from_millis(self.signer_repeater_delay);
+        #[cfg(feature = "future_dmq")]
+        let cardano_network =
+            CardanoNetwork::from_code(self.network.to_owned(), self.network_magic)?;
 
-        let mut relay = SignerRelay::start(
-            &addr,
-            &server_port,
+        let mut relay = SignerRelay::start(SignerRelayConfiguration {
+            address: &addr,
+            server_port: &server_port,
+            #[cfg(feature = "future_dmq")]
+            dmq_node_socket_path: &self.dmq_node_socket_path,
+            #[cfg(feature = "future_dmq")]
+            cardano_network: &cardano_network,
             signer_registration_mode,
             signature_registration_mode,
-            &aggregator_endpoint,
-            &signer_repeater_delay,
+            aggregator_endpoint: &aggregator_endpoint,
+            signer_repeater_delay: &signer_repeater_delay,
             logger,
-        )
+        })
         .await?;
         if let Some(dial_to_address) = dial_to {
             relay.dial_peer(dial_to_address.clone())?;

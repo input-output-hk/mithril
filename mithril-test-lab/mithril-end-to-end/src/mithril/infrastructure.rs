@@ -294,7 +294,7 @@ impl MithrilInfrastructure {
         let mut bootstrap_peer_addr = None;
         for (index, aggregator_endpoint) in aggregator_endpoints.iter().enumerate() {
             let mut relay_aggregator = RelayAggregator::new(
-                Aggregator::name_suffix(index),
+                index,
                 config.server_port + index as u64 + 100,
                 bootstrap_peer_addr.clone(),
                 aggregator_endpoint,
@@ -310,6 +310,7 @@ impl MithrilInfrastructure {
 
         for (index, party_id) in signers_party_ids.iter().enumerate() {
             let mut relay_signer = RelaySigner::new(&RelaySignerConfiguration {
+                signer_number: index + 1,
                 listen_port: config.server_port + index as u64 + 200,
                 server_port: config.server_port + index as u64 + 300,
                 dial_to: bootstrap_peer_addr.clone(),
