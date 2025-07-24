@@ -470,11 +470,10 @@ mod tests {
     use semver::Version;
     use serde_json::json;
 
-    use mithril_common::api_version::DummyApiVersionDiscriminantSource;
     use mithril_common::entities::Epoch;
     use mithril_common::messages::TryFromMessageAdapter;
     use mithril_common::test::{
-        double::{Dummy, fake_data},
+        double::{Dummy, DummyApiVersionDiscriminantSource, fake_data},
         logging::MemoryDrainForTestInspector,
     };
 

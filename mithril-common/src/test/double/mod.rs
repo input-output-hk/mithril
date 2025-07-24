@@ -2,12 +2,14 @@
 //!
 //! Enable unit testing with controlled inputs and predictable behavior.
 
+mod api_version;
 mod certificate_retriever;
 mod dummies;
 pub mod fake_data;
 pub mod fake_keys;
 pub(super) mod precomputed_kes_key;
 
+pub use api_version::DummyApiVersionDiscriminantSource;
 pub use certificate_retriever::FakeCertificaterRetriever;
 
 /// A trait for giving a type a dummy value.

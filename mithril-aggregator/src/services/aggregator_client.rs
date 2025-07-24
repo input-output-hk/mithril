@@ -421,9 +421,8 @@ mod tests {
     use reqwest::IntoUrl;
     use serde_json::json;
 
-    use mithril_common::api_version::DummyApiVersionDiscriminantSource;
     use mithril_common::messages::CertificateListItemMessage;
-    use mithril_common::test::double::Dummy;
+    use mithril_common::test::double::{Dummy, DummyApiVersionDiscriminantSource};
 
     use crate::test::TestLogger;
 
