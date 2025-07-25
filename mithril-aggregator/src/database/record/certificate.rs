@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 
+use mithril_common::StdError;
 use mithril_common::entities::{
     Certificate, CertificateMetadata, CertificateSignature, Epoch,
     HexEncodedAggregateVerificationKey, HexEncodedKey, ProtocolMessage, ProtocolParameters,
@@ -127,24 +128,24 @@ impl CertificateRecord {
     }
 }
 
-impl From<Certificate> for CertificateRecord {
-    fn from(other: Certificate) -> Self {
+impl TryFrom<Certificate> for CertificateRecord {
+    type Error = StdError;
+
+    fn try_from(other: Certificate) -> Result<Self, Self::Error> {
         let signed_entity_type = other.signed_entity_type();
         let (signature, parent_certificate_id) = match other.signature {
-            CertificateSignature::GenesisSignature(signature) => {
-                (signature.to_bytes_hex().unwrap(), None)
-            }
+            CertificateSignature::GenesisSignature(signature) => (signature.to_bytes_hex()?, None),
             CertificateSignature::MultiSignature(_, signature) => {
-                (signature.to_json_hex().unwrap(), Some(other.previous_hash))
+                (signature.to_json_hex()?, Some(other.previous_hash))
             }
         };
 
-        CertificateRecord {
+        let certificate_record = CertificateRecord {
             certificate_id: other.hash,
             parent_certificate_id,
             message: other.signed_message,
             signature,
-            aggregate_verification_key: other.aggregate_verification_key.to_json_hex().unwrap(),
+            aggregate_verification_key: other.aggregate_verification_key.to_json_hex()?,
             epoch: other.epoch,
             network: other.metadata.network,
             signed_entity_type,
@@ -154,7 +155,9 @@ impl From<Certificate> for CertificateRecord {
             signers: other.metadata.signers,
             initiated_at: other.metadata.initiated_at,
             sealed_at: other.metadata.sealed_at,
-        }
+        };
+
+        Ok(certificate_record)
     }
 }
 
@@ -393,7 +396,7 @@ mod tests {
         let certificates = setup_certificate_chain(20, 3);
         let mut certificate_records: Vec<CertificateRecord> = Vec::new();
         for certificate in certificates.certificates_chained.clone() {
-            certificate_records.push(certificate.into());
+            certificate_records.push(certificate.try_into().unwrap());
         }
         let mut certificates_new: Vec<Certificate> = Vec::new();
         for certificate_record in certificate_records {

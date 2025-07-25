@@ -183,14 +183,19 @@ pub fn insert_buffered_single_signatures(
     Ok(())
 }
 
-pub fn insert_certificate_records<T: Into<CertificateRecord>>(
-    connection: &ConnectionThreadSafe,
-    records: Vec<T>,
-) {
+pub fn insert_certificate_records<T>(connection: &ConnectionThreadSafe, records: Vec<T>)
+where
+    T: TryInto<CertificateRecord>,
+    T::Error: Into<StdError>,
+{
+    let records: Vec<CertificateRecord> = records
+        .into_iter()
+        .map(|c| c.try_into().map_err(Into::into))
+        .collect::<StdResult<_>>()
+        .unwrap();
+
     let _ = connection
-        .fetch_first(InsertCertificateRecordQuery::many(
-            records.into_iter().map(Into::into).collect(),
-        ))
+        .fetch_first(InsertCertificateRecordQuery::many(records))
         .unwrap();
 }
 
