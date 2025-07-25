@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["test"],"struct":["DmqConsumerPallas","DmqMessageBuilder","DmqPublisherPallas"],"trait":["DmqConsumer","DmqPublisher"]};
