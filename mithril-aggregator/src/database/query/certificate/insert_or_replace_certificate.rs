@@ -38,7 +38,7 @@ impl Query for InsertOrReplaceCertificateRecordQuery {
 mod tests {
     use std::collections::HashMap;
 
-    use mithril_common::entities::{Certificate, Epoch};
+    use mithril_common::entities::Epoch;
     use mithril_common::test::{crypto_helper::setup_certificate_chain, double::fake_data};
     use mithril_persistence::sqlite::ConnectionExtensions;
 
@@ -50,9 +50,7 @@ mod tests {
     #[test]
     fn test_insert_many_certificates_records_in_empty_db() {
         let certificates = setup_certificate_chain(5, 2);
-        let certificates: Vec<Certificate> = certificates.into();
-        let certificates_records: Vec<CertificateRecord> =
-            certificates.into_iter().map(|c| c.try_into().unwrap()).collect();
+        let certificates_records: Vec<CertificateRecord> = certificates.try_into().unwrap();
 
         let connection = main_db_connection().unwrap();
 
