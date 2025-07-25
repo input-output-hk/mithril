@@ -26,7 +26,7 @@ hex = { workspace = true }
 mithril-cardano-node-chain = { path = "../internal/cardano-node/mithril-cardano-node-chain" }
 mithril-cardano-node-internal-database = { path = "../internal/cardano-node/mithril-cardano-node-internal-database" }
 mithril-cli-helper = { path = "../internal/mithril-cli-helper" }
-mithril-common = { path = "../mithril-common", features = ["full"] }
+mithril-common = { path = "../mithril-common" }
 mithril-dmq = { path = "../internal/mithril-dmq", optional = true }
 mithril-doc = { path = "../internal/mithril-doc" }
 mithril-era = { path = "../internal/mithril-era" }
@@ -64,7 +64,6 @@ tikv-jemallocator = { version = "0.6.0", optional = true }
 criterion = { version = "0.6.0", features = ["html_reports", "async_tokio"] }
 http = "1.3.1"
 httpmock = "0.7.0"
-mithril-common = { path = "../mithril-common" }
 mockall = { workspace = true }
 prometheus-parse = "0.2.5"
 slog-scope = "4.4.0"

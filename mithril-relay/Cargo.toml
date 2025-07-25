@@ -34,7 +34,7 @@ libp2p = { version = "0.56.0", features = [
     "websocket",
     "yamux",
 ] }
-mithril-common = { path = "../mithril-common", features = ["full"] }
+mithril-common = { path = "../mithril-common" }
 mithril-doc = { path = "../internal/mithril-doc" }
 mithril-test-http-server = { path = "../internal/tests/mithril-test-http-server" }
 reqwest = { workspace = true, features = [
