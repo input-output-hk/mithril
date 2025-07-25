@@ -100,7 +100,7 @@
             // args);
 
         mithril-stm = buildPackage ./mithril-stm/Cargo.toml null {};
-        mithril-common = buildPackage ./mithril-common/Cargo.toml mithril-stm.cargoArtifacts { cargoExtraArgs = "-p mithril-common --features full"; };
+        mithril-common = buildPackage ./mithril-common/Cargo.toml mithril-stm.cargoArtifacts { cargoExtraArgs = "-p mithril-common"; };
         mithril = buildPackage null mithril-common.cargoArtifacts {
           doCheck = false;
         };

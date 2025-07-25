@@ -24,7 +24,6 @@ slog = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]
-mithril-common = { path = "../../mithril-common", features = ["test_tools"] }
 mockall = { workspace = true }
 slog-async = { workspace = true }
 slog-term = { workspace = true }
