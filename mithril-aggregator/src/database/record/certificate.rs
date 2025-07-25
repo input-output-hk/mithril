@@ -161,8 +161,10 @@ impl TryFrom<Certificate> for CertificateRecord {
     }
 }
 
-impl From<CertificateRecord> for Certificate {
-    fn from(other: CertificateRecord) -> Self {
+impl TryFrom<CertificateRecord> for Certificate {
+    type Error = StdError;
+
+    fn try_from(other: CertificateRecord) -> Result<Self, Self::Error> {
         let certificate_metadata = CertificateMetadata::new(
             other.network,
             other.protocol_version,
@@ -174,27 +176,29 @@ impl From<CertificateRecord> for Certificate {
         let (previous_hash, signature) = match other.parent_certificate_id {
             None => (
                 String::new(),
-                CertificateSignature::GenesisSignature(other.signature.try_into().unwrap()),
+                CertificateSignature::GenesisSignature(other.signature.try_into()?),
             ),
             Some(parent_certificate_id) => (
                 parent_certificate_id,
                 CertificateSignature::MultiSignature(
                     other.signed_entity_type,
-                    other.signature.try_into().unwrap(),
+                    other.signature.try_into()?,
                 ),
             ),
         };
 
-        Certificate {
+        let certificate = Certificate {
             hash: other.certificate_id,
             previous_hash,
             epoch: other.epoch,
             metadata: certificate_metadata,
             signed_message: other.protocol_message.compute_hash(),
             protocol_message: other.protocol_message,
-            aggregate_verification_key: other.aggregate_verification_key.try_into().unwrap(),
+            aggregate_verification_key: other.aggregate_verification_key.try_into()?,
             signature,
-        }
+        };
+
+        Ok(certificate)
     }
 }
 
@@ -400,7 +404,7 @@ mod tests {
         }
         let mut certificates_new: Vec<Certificate> = Vec::new();
         for certificate_record in certificate_records {
-            certificates_new.push(certificate_record.into());
+            certificates_new.push(certificate_record.try_into().unwrap());
         }
         assert_eq!(certificates.certificates_chained, certificates_new);
     }
@@ -409,7 +413,7 @@ mod tests {
     fn converting_certificate_record_to_certificate_should_not_recompute_hash() {
         let expected_hash = "my_hash";
         let record = CertificateRecord::dummy_genesis(expected_hash, Epoch(1));
-        let certificate: Certificate = record.into();
+        let certificate: Certificate = record.try_into().unwrap();
 
         assert_eq!(expected_hash, &certificate.hash);
     }
