@@ -50,7 +50,7 @@ mod tests {
     #[test]
     fn test_insert_many_certificates_records_in_empty_db() {
         let certificates = setup_certificate_chain(5, 2);
-        let certificates_records: Vec<CertificateRecord> = certificates.into();
+        let certificates_records: Vec<CertificateRecord> = certificates.try_into().unwrap();
 
         let connection = main_db_connection().unwrap();
 
@@ -75,7 +75,7 @@ mod tests {
     fn test_replace_one_certificate_record() {
         let certificate_record = CertificateRecord {
             epoch: Epoch(12),
-            ..fake_data::certificate("hash").into()
+            ..fake_data::certificate("hash").try_into().unwrap()
         };
 
         let connection = main_db_connection().unwrap();
@@ -106,26 +106,26 @@ mod tests {
         let tested_records: HashMap<_, CertificateRecord> = HashMap::from([
             (
                 "cert1-genesis",
-                fake_data::genesis_certificate("genesis").into(),
+                fake_data::genesis_certificate("genesis").try_into().unwrap(),
             ),
-            ("cert2", fake_data::certificate("cert2").into()),
+            ("cert2", fake_data::certificate("cert2").try_into().unwrap()),
             (
                 "cert2-modified",
                 CertificateRecord {
                     epoch: Epoch(14),
-                    ..fake_data::certificate("cert2").into()
+                    ..fake_data::certificate("cert2").try_into().unwrap()
                 },
             ),
-            ("cert3", fake_data::certificate("cert3").into()),
-            ("cert4", fake_data::certificate("cert4").into()),
+            ("cert3", fake_data::certificate("cert3").try_into().unwrap()),
+            ("cert4", fake_data::certificate("cert4").try_into().unwrap()),
             (
                 "cert4-modified",
                 CertificateRecord {
                     epoch: Epoch(32),
-                    ..fake_data::certificate("cert4").into()
+                    ..fake_data::certificate("cert4").try_into().unwrap()
                 },
             ),
-            ("cert5", fake_data::certificate("cert5").into()),
+            ("cert5", fake_data::certificate("cert5").try_into().unwrap()),
         ]);
         let connection = main_db_connection().unwrap();
 
