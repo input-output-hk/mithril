@@ -208,3 +208,36 @@ impl Ord for BlsSignature {
         self.compare_signatures(other)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    mod golden {
+
+        use rand_chacha::ChaCha20Rng;
+        use rand_core::SeedableRng;
+
+        use crate::bls_multi_signature::{BlsSignature, BlsSigningKey};
+
+        const GOLDEN_JSON: &str = r#"[132,95,124,197,185,105,193,171,114,182,52,171,205,119,202,188,2,213,61,125,219,242,10,131,53,219,53,197,157,42,152,194,234,161,244,204,2,134,47,179,176,49,200,232,120,241,180,246]"#;
+
+        fn golden_value() -> BlsSignature {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let sk = BlsSigningKey::generate(&mut rng);
+            let msg = [0u8; 32];
+            sk.sign(&msg)
+        }
+
+        #[test]
+        fn golden_conversions() {
+            let value = serde_json::from_str(GOLDEN_JSON)
+                .expect("This JSON deserialization should not fail");
+            assert_eq!(golden_value(), value);
+
+            let serialized =
+                serde_json::to_string(&value).expect("This JSON serialization should not fail");
+            let golden_serialized = serde_json::to_string(&golden_value())
+                .expect("This JSON serialization should not fail");
+            assert_eq!(golden_serialized, serialized);
+        }
+    }
+}
