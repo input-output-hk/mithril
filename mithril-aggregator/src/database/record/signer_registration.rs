@@ -172,7 +172,7 @@ impl SqLiteEntity for SignerRegistrationRecord {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::test_utils::MithrilFixtureBuilder;
+    use mithril_common::test::builder::MithrilFixtureBuilder;
 
     use super::*;
 

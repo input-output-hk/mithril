@@ -206,12 +206,12 @@ mod tests {
             ProtocolGenesisSecretKey, ProtocolGenesisSigner, ProtocolGenesisVerificationKey,
             ProtocolGenesisVerifier,
         },
-        test_utils::{MithrilFixtureBuilder, TempDir, fake_data},
+        test::{TempDir, builder::MithrilFixtureBuilder, double::fake_data},
     };
     use std::{fs::read_to_string, path::PathBuf};
 
     use crate::database::test_helper::main_db_connection;
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

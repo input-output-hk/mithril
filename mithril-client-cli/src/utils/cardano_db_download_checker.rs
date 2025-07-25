@@ -176,7 +176,7 @@ impl CardanoDbDownloadChecker {
 
 #[cfg(test)]
 mod test {
-    use mithril_common::test_utils::TempDir;
+    use mithril_common::test::TempDir;
 
     use super::*;
 

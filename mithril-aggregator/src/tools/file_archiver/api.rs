@@ -44,7 +44,7 @@ impl FileArchiver {
 
     #[cfg(test)]
     pub fn new_for_test(verification_temp_dir: PathBuf) -> Self {
-        use crate::test_tools::TestLogger;
+        use crate::test::TestLogger;
         Self {
             zstandard_compression_parameter: ZstandardCompressionParameters::default(),
             verification_temp_dir,
@@ -292,7 +292,7 @@ impl FileArchiver {
 mod tests {
     use std::fs::File;
 
-    use mithril_common::test_utils::assert_equivalent;
+    use mithril_common::test::assert_equivalent;
 
     use crate::tools::file_archiver::appender::{AppenderDirAll, AppenderFile};
     use crate::tools::file_archiver::test_tools::*;
@@ -400,7 +400,7 @@ mod tests {
             .expect_err("FileArchiver::archive should fail if the db is empty.");
         let remaining_files: Vec<String> = list_remaining_files(&test_dir);
 
-        assert_equivalent(
+        assert_equivalent!(
             vec!["other-process.file".to_string(), "archive.tar.gz".to_string()],
             remaining_files,
         );

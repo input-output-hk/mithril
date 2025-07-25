@@ -1,6 +1,6 @@
 [package]
 name = "mithril-era"
-version = "0.1.3"
+version = "0.1.4"
 authors.workspace = true
 documentation.workspace = true
 edition.workspace = true

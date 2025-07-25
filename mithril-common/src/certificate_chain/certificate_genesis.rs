@@ -111,7 +111,7 @@ impl CertificateGenesisProducer {
 mod tests {
     use super::*;
 
-    use crate::{entities::ProtocolMessagePartKey, test_utils::MithrilFixtureBuilder};
+    use crate::{entities::ProtocolMessagePartKey, test::builder::MithrilFixtureBuilder};
 
     #[test]
     fn test_create_genesis_protocol_message_has_expected_keys_and_values() {

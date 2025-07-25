@@ -160,7 +160,7 @@ mod tests {
     use std::fs;
     use tokio::net::UnixListener;
 
-    use mithril_common::{current_function, entities::BlockNumber, test_utils::TempDir};
+    use mithril_common::{current_function, entities::BlockNumber, test::TempDir};
 
     use crate::test::TestLogger;
 

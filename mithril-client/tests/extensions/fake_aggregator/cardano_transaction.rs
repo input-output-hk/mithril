@@ -1,7 +1,8 @@
 use mithril_client::common::{BlockNumber, ProtocolMessagePartKey};
 use mithril_client::{CardanoTransactionsProofs, CardanoTransactionsSetProof, MithrilCertificate};
 use mithril_common::crypto_helper::{MKProof, ProtocolMkProof};
-use mithril_common::test_utils::double::Dummy;
+use mithril_common::test::crypto_helper::MKProofTestExtension;
+use mithril_common::test::double::Dummy;
 
 use crate::extensions::routes;
 

@@ -143,7 +143,7 @@ mod tests {
     use mockall::predicate::eq;
 
     use mithril_common::entities::SignedEntityTypeDiscriminants;
-    use mithril_common::test_utils::TempDir;
+    use mithril_common::test::TempDir;
 
     use crate::database::test_helper::{
         cardano_tx_db_connection, cardano_tx_db_file_connection, main_db_connection,

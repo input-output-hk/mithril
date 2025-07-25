@@ -7,14 +7,14 @@ use mithril_client::aggregator_client::AggregatorRequest;
 use mithril_client::feedback::SlogFeedbackReceiver;
 use mithril_client::{ClientBuilder, MessageBuilder};
 use mithril_common::crypto_helper::ManifestSigner;
+use mithril_common::test::double::fake_keys;
 
 use crate::extensions::fake_aggregator::{FakeAggregator, FakeCertificateVerifier};
 
 #[tokio::test]
 async fn snapshot_list_get_show_download_verify() {
     let work_dir = extensions::get_test_dir("snapshot_list_get_show_download_verify");
-    let genesis_verification_key =
-        mithril_common::test_utils::fake_keys::genesis_verification_key()[0];
+    let genesis_verification_key = fake_keys::genesis_verification_key()[0];
     let (ancillary_manifest_signing_key, ancillary_manifest_signer_verification_key) = {
         let signer = ManifestSigner::create_deterministic_signer();
         (signer.secret_key(), signer.verification_key())

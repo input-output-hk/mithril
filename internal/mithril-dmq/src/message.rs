@@ -92,9 +92,9 @@ impl DmqMessageBuilder {
 mod tests {
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_common::{
-        crypto_helper::{KesSignerFake, TryToBytes},
+        crypto_helper::TryToBytes,
         entities::{BlockNumber, ChainPoint, TimePoint},
-        test_utils::double::Dummy,
+        test::{crypto_helper::KesSignerFake, double::Dummy},
     };
 
     use super::*;

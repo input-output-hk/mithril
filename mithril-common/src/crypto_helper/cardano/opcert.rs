@@ -179,7 +179,7 @@ impl<'de> Deserialize<'de> for OpCert {
 mod tests {
     use super::*;
     use crate::crypto_helper::cardano::ColdKeyGenerator;
-    use crate::test_utils::TempDir;
+    use crate::test::TempDir;
 
     use kes_summed_ed25519::{kes::Sum6Kes, traits::KesSk};
     use std::path::PathBuf;

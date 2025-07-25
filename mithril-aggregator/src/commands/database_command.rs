@@ -189,7 +189,7 @@ mod tests {
 
     use mithril_common::temp_dir;
 
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

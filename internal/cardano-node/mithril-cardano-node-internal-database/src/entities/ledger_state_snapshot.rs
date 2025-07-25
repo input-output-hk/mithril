@@ -191,7 +191,7 @@ mod tests {
     use std::fs::{File, create_dir};
     use std::io::prelude::*;
 
-    use mithril_common::test_utils::temp_dir_create;
+    use mithril_common::test::temp_dir_create;
 
     use super::*;
 

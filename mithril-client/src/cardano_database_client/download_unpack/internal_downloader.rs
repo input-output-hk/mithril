@@ -275,7 +275,7 @@ mod tests {
     use mithril_common::{
         entities::{CardanoDbBeacon, Epoch, MultiFilesUri, TemplateUri},
         messages::CardanoDatabaseSnapshotMessage as CardanoDatabaseSnapshot,
-        test_utils::{double::Dummy, temp_dir_create},
+        test::{double::Dummy, temp_dir_create},
     };
 
     use crate::cardano_database_client::CardanoDatabaseClientDependencyInjector;
@@ -532,7 +532,7 @@ mod tests {
     }
 
     mod building_download_tasks {
-        use mithril_common::{entities::CompressionAlgorithm, test_utils::fake_keys};
+        use mithril_common::{entities::CompressionAlgorithm, test::double::fake_keys};
 
         use crate::file_downloader::MockFileDownloader;
 

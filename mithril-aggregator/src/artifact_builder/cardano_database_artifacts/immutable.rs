@@ -281,12 +281,12 @@ mod tests {
     use mithril_cardano_node_internal_database::test::DummyCardanoDbBuilder;
     use mithril_common::{
         entities::TemplateUri,
-        test_utils::{TempDir, assert_equivalent, equivalent_to},
+        test::{TempDir, assert_equivalent, equivalent_to},
     };
 
     use crate::services::ancillary_signer::MockAncillarySigner;
     use crate::services::{CompressedArchiveSnapshotter, DumbSnapshotter, MockSnapshotter};
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
     use crate::tools::file_archiver::FileArchiver;
 
     use super::*;
@@ -383,7 +383,7 @@ mod tests {
 
         let upload = builder.upload(2).await.unwrap();
 
-        assert_equivalent(
+        assert_equivalent!(
             upload.locations,
             vec![ImmutablesLocation::CloudStorage {
                 uri: MultiFilesUri::Template(TemplateUri("archive.tar.gz".to_string())),
@@ -469,7 +469,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            assert_equivalent(
+            assert_equivalent!(
                 archive_paths,
                 vec![
                     work_dir.join("00000.tar.gz"),
@@ -641,7 +641,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            assert_equivalent(
+            assert_equivalent!(
                 archive_paths,
                 vec![
                     work_dir.join("00000.tar.gz"),
@@ -683,7 +683,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            assert_equivalent(
+            assert_equivalent!(
                 archive_paths,
                 vec![
                     work_dir.join("00000.tar.gz"),
@@ -794,7 +794,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            assert_equivalent(
+            assert_equivalent!(
                 archive_paths,
                 vec![ImmutablesLocation::CloudStorage {
                     uri: MultiFilesUri::Template(TemplateUri("archive_2.tar.gz".to_string())),
@@ -836,7 +836,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            assert_equivalent(
+            assert_equivalent!(
                 archive_paths,
                 vec![
                     ImmutablesLocation::CloudStorage {
@@ -853,7 +853,7 @@ mod tests {
     }
 
     mod batch_upload {
-        use mithril_common::test_utils::TempDir;
+        use mithril_common::test::TempDir;
 
         use crate::file_uploaders::FileUploadRetryPolicy;
         use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;

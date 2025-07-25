@@ -178,7 +178,7 @@ mod test {
 
     use crate::{
         crypto_helper::{KesSignerStandard, ProtocolRegistrationErrorWrapper},
-        test_utils::{MithrilFixtureBuilder, fake_data},
+        test::{builder::MithrilFixtureBuilder, double::fake_data},
     };
 
     use super::*;
@@ -207,7 +207,7 @@ mod test {
         let fixture_with_another_stake_distribution = MithrilFixtureBuilder::default()
             .with_signers(1)
             .with_stake_distribution(
-                crate::test_utils::StakeDistributionGenerationMethod::RandomDistribution {
+                crate::test::builder::StakeDistributionGenerationMethod::RandomDistribution {
                     seed: [4u8; 32],
                     min_stake: 1,
                 },

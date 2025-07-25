@@ -139,7 +139,7 @@ mod tests {
     }
 
     mod repository {
-        use mithril_common::test_utils::assert_equivalent;
+        use mithril_common::test::assert_equivalent;
 
         use super::*;
 
@@ -191,7 +191,7 @@ mod tests {
             let all_immutable_file_digests =
                 repository.get_all_immutable_file_digest().await.unwrap();
 
-            assert_equivalent(
+            assert_equivalent!(
                 vec![
                     ImmutableFileDigestRecord {
                         immutable_file_name: "123.chunk".to_string(),

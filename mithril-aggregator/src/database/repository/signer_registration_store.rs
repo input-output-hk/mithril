@@ -142,7 +142,7 @@ mod tests {
     use crate::database::test_helper::{insert_signer_registrations, main_db_connection};
 
     use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake};
-    use mithril_common::test_utils::fake_keys;
+    use mithril_common::test::double::fake_keys;
     use std::collections::HashMap;
     use std::sync::Arc;
 

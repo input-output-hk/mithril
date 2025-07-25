@@ -95,7 +95,7 @@ impl FileArchive {
 }
 
 #[cfg(test)]
-impl mithril_common::test_utils::double::Dummy for FileArchive {
+impl mithril_common::test::double::Dummy for FileArchive {
     fn dummy() -> Self {
         Self {
             filepath: PathBuf::from("archive.tar.gz"),

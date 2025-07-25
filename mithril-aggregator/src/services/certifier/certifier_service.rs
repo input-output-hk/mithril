@@ -413,13 +413,16 @@ mod tests {
 
     use crate::{
         ServeCommandConfiguration, dependency_injection::DependenciesBuilder,
-        multi_signer::MockMultiSigner, services::FakeEpochService, test_tools::TestLogger,
+        multi_signer::MockMultiSigner, services::FakeEpochService, test::TestLogger,
     };
     use chrono::{DateTime, Days};
     use mithril_common::{
         entities::{CardanoDbBeacon, ProtocolMessagePartKey},
         temp_dir,
-        test_utils::{MithrilFixture, MithrilFixtureBuilder, fake_data},
+        test::{
+            builder::{MithrilFixture, MithrilFixtureBuilder},
+            double::fake_data,
+        },
     };
     use tokio::sync::RwLock;
 

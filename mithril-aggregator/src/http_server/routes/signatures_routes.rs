@@ -127,8 +127,7 @@ mod tests {
 
     use mithril_api_spec::APISpec;
     use mithril_common::{
-        entities::SignedEntityType, messages::RegisterSignatureMessageHttp,
-        test_utils::double::Dummy,
+        entities::SignedEntityType, messages::RegisterSignatureMessageHttp, test::double::Dummy,
     };
 
     use crate::{

@@ -5,15 +5,9 @@ use std::sync::Mutex;
 
 use crate::{
     StdResult,
-    crypto_helper::{
-        KesPeriod, KesSigner, OpCert,
-        cardano::kes::{
-            KesSignerStandard,
-            tests_setup::{
-                KesCryptographicMaterialForTest, KesPartyIndexForTest,
-                create_kes_cryptographic_material,
-            },
-        },
+    crypto_helper::{KesPeriod, KesSigner, KesSignerStandard, OpCert},
+    test::crypto_helper::{
+        KesCryptographicMaterialForTest, KesPartyIndexForTest, create_kes_cryptographic_material,
     },
 };
 

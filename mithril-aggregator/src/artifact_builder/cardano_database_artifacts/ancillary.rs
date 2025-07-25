@@ -206,10 +206,10 @@ impl AncillaryArtifactBuilder {
 mod tests {
     use std::path::PathBuf;
 
-    use mithril_common::test_utils::{TempDir, assert_equivalent, double::Dummy};
+    use mithril_common::test::{TempDir, assert_equivalent, double::Dummy};
 
     use crate::services::{DumbSnapshotter, MockSnapshotter};
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 
@@ -345,7 +345,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_equivalent(
+        assert_equivalent!(
             locations,
             vec![AncillaryLocation::CloudStorage {
                 uri: "an_uri".to_string(),
@@ -385,7 +385,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_equivalent(
+        assert_equivalent!(
             locations,
             vec![
                 AncillaryLocation::CloudStorage {

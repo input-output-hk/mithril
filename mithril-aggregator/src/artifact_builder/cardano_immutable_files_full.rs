@@ -206,11 +206,10 @@ mod tests {
     use anyhow::anyhow;
     use tempfile::NamedTempFile;
 
-    use mithril_common::{entities::CompressionAlgorithm, test_utils::fake_data};
+    use mithril_common::{entities::CompressionAlgorithm, test::double::fake_data};
 
     use crate::{
-        DumbUploader, file_uploaders::MockFileUploader, services::DumbSnapshotter,
-        test_tools::TestLogger,
+        DumbUploader, file_uploaders::MockFileUploader, services::DumbSnapshotter, test::TestLogger,
     };
 
     use super::*;

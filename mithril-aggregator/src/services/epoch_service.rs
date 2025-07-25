@@ -560,7 +560,7 @@ pub(crate) struct FakeEpochServiceBuilder {
 #[cfg(test)]
 impl FakeEpochServiceBuilder {
     pub fn dummy(epoch: Epoch) -> Self {
-        use mithril_common::test_utils::{double::Dummy, fake_data};
+        use mithril_common::test::double::{Dummy, fake_data};
         let signers = fake_data::signers_with_stakes(3);
 
         Self {
@@ -637,10 +637,10 @@ impl FakeEpochServiceBuilder {
 impl FakeEpochService {
     pub fn from_fixture(
         epoch: Epoch,
-        fixture: &mithril_common::test_utils::MithrilFixture,
+        fixture: &mithril_common::test::builder::MithrilFixture,
     ) -> Self {
         use mithril_common::entities::CardanoTransactionsSigningConfig;
-        use mithril_common::test_utils::double::Dummy;
+        use mithril_common::test::double::Dummy;
 
         let current_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: fixture.protocol_parameters(),
@@ -836,19 +836,20 @@ impl EpochService for FakeEpochService {
 
 #[cfg(test)]
 mod tests {
+    use mockall::predicate::eq;
+
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_common::entities::{
         BlockNumber, CardanoTransactionsSigningConfig, Stake, StakeDistribution, SupportedEra,
     };
-    use mithril_common::test_utils::{
-        MithrilFixture, MithrilFixtureBuilder, StakeDistributionGenerationMethod, double::Dummy,
-        fake_data,
+    use mithril_common::test::{
+        builder::{MithrilFixture, MithrilFixtureBuilder, StakeDistributionGenerationMethod},
+        double::{Dummy, fake_data},
     };
-    use mockall::predicate::eq;
 
     use crate::store::{FakeEpochSettingsStorer, MockVerificationKeyStorer};
-    use crate::test::mocks::MockStakeStore;
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
+    use crate::test::double::mocks::MockStakeStore;
 
     use super::*;
 
@@ -1124,8 +1125,10 @@ mod tests {
     async fn inform_epoch_get_signed_entity_config_from_its_dependencies_and_store() {
         let epoch = Epoch(5);
 
-        let cardano_transactions_signing_config =
-            CardanoTransactionsSigningConfig::new(BlockNumber(29), BlockNumber(986));
+        let cardano_transactions_signing_config = CardanoTransactionsSigningConfig {
+            security_parameter: BlockNumber(29),
+            step: BlockNumber(986),
+        };
         let allowed_discriminants = BTreeSet::from([
             SignedEntityTypeDiscriminants::CardanoTransactions,
             SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,

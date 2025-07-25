@@ -43,7 +43,7 @@ impl ArtifactBuilder<Epoch, CardanoStakeDistribution> for CardanoStakeDistributi
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::{entities::StakeDistribution, test_utils::fake_data};
+    use mithril_common::{entities::StakeDistribution, test::double::fake_data};
     use mockall::{mock, predicate::eq};
 
     use super::*;

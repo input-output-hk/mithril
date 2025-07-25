@@ -421,17 +421,20 @@ mod tests {
     use std::collections::HashMap;
 
     use async_trait::async_trait;
-    use mockall::mock;
     use tokio::sync::Mutex;
 
-    use super::CertificateRetriever;
-    use super::*;
-
-    use crate::certificate_chain::{CertificateRetrieverError, FakeCertificaterRetriever};
-    use crate::crypto_helper::{ProtocolClerk, tests_setup::*};
-    use crate::test_utils::{
-        CertificateChainBuilder, CertificateChainBuilderContext, MithrilFixtureBuilder, TestLogger,
+    use crate::test::{
+        TestLogger,
+        builder::{CertificateChainBuilder, CertificateChainBuilderContext, MithrilFixtureBuilder},
+        crypto_helper::{setup_certificate_chain, setup_message, setup_protocol_parameters},
+        double::FakeCertificaterRetriever,
     };
+    use crate::{
+        certificate_chain::certificate_retriever::MockCertificateRetriever,
+        crypto_helper::ProtocolClerk,
+    };
+
+    use super::*;
 
     macro_rules! assert_error_matches {
         ( $expected_error:path, $error:expr ) => {{
@@ -447,27 +450,14 @@ mod tests {
         }};
     }
 
-    mock! {
-        pub CertificateRetrieverImpl { }
-
-        #[async_trait]
-        impl CertificateRetriever for CertificateRetrieverImpl {
-
-            async fn get_certificate_details(
-                &self,
-                certificate_hash: &str,
-            ) -> Result<Certificate, CertificateRetrieverError>;
-        }
-    }
-
     struct MockDependencyInjector {
-        mock_certificate_retriever: MockCertificateRetrieverImpl,
+        mock_certificate_retriever: MockCertificateRetriever,
     }
 
     impl MockDependencyInjector {
         fn new() -> MockDependencyInjector {
             MockDependencyInjector {
-                mock_certificate_retriever: MockCertificateRetrieverImpl::new(),
+                mock_certificate_retriever: MockCertificateRetriever::new(),
             }
         }
 
@@ -504,7 +494,7 @@ mod tests {
 
         let verifier = MithrilCertificateVerifier::new(
             TestLogger::stdout(),
-            Arc::new(MockCertificateRetrieverImpl::new()),
+            Arc::new(MockCertificateRetriever::new()),
         );
         let message_tampered = message_hash[1..].to_vec();
         assert!(

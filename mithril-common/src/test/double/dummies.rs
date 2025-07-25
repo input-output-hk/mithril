@@ -1,10 +1,11 @@
 use chrono::{DateTime, Utc};
 
-use crate::test_utils::{double::Dummy, fake_data, fake_keys};
+use crate::test::double::{Dummy, fake_data, fake_keys};
 
 mod entities {
     use crate::crypto_helper::MKTreeStoreInMemory;
     use crate::entities::*;
+    use crate::test::entities_extensions::CardanoTransactionsSetProofTestExtension;
 
     use super::*;
 
@@ -477,8 +478,6 @@ mod messages {
     impl Dummy for RegisterSignerMessage {
         /// Return a dummy [RegisterSignerMessage] (test-only).
         fn dummy() -> Self {
-            use crate::test_utils::fake_keys;
-
             Self {
                 epoch: Epoch(1),
                 party_id: "pool1m8crhnqj5k2kyszf5j2scshupystyxc887zdfrpzh6ty6eun4fx".to_string(),

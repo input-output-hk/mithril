@@ -99,7 +99,7 @@ mod tests {
     use anyhow::anyhow;
     use mithril_common::{
         entities::{Epoch, SignedEntityType},
-        test_utils::fake_data,
+        test::double::fake_data,
     };
     use mockall::predicate::eq;
     use tokio::{
@@ -112,7 +112,7 @@ mod tests {
             FakeSignatureConsumer, MockCertifierService, MockSignatureConsumer,
             SignatureRegistrationStatus,
         },
-        test_tools::TestLogger,
+        test::TestLogger,
     };
 
     use super::*;

@@ -242,7 +242,7 @@ mod tests {
 
     use httpmock::MockServer;
 
-    use mithril_common::{entities::FileUri, test_utils::TempDir};
+    use mithril_common::{entities::FileUri, test::TempDir};
 
     use crate::{
         feedback::{MithrilEvent, MithrilEventCardanoDatabase, StackFeedbackReceiver},

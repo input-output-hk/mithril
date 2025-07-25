@@ -181,7 +181,7 @@ mod tests {
         StdResult,
         entities::{BlockNumber, Epoch, ProtocolMessage},
         signable_builder::{Beacon as Beaconnable, MockSignableSeedBuilder, SignableBuilder},
-        test_utils::TestLogger,
+        test::TestLogger,
     };
 
     use async_trait::async_trait;

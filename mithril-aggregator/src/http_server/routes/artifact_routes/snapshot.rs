@@ -215,7 +215,7 @@ mod tests {
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
         entities::{CardanoDbBeacon, SignedEntityType, Snapshot},
         messages::{SnapshotListItemMessage, SnapshotMessage},
-        test_utils::{double::Dummy, fake_data},
+        test::double::{Dummy, fake_data},
     };
     use mithril_persistence::sqlite::HydrationError;
 

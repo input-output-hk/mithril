@@ -25,10 +25,10 @@ pub struct SignerEpochSettings {
 }
 
 #[cfg(test)]
-impl mithril_common::test_utils::double::Dummy for SignerEpochSettings {
+impl mithril_common::test::double::Dummy for SignerEpochSettings {
     /// Create a dummy `SignerEpochSettings`
     fn dummy() -> SignerEpochSettings {
-        use mithril_common::test_utils::fake_data;
+        use mithril_common::test::double::fake_data;
 
         // Beacon
         let beacon = fake_data::beacon();

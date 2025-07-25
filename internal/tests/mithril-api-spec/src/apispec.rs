@@ -343,7 +343,10 @@ mod tests {
 
     use mithril_common::entities;
     use mithril_common::messages::{AggregatorFeaturesMessage, SignerMessagePart};
-    use mithril_common::test_utils::{TempDir, double::Dummy, fake_data};
+    use mithril_common::test::{
+        TempDir,
+        double::{Dummy, fake_data},
+    };
 
     use super::*;
 

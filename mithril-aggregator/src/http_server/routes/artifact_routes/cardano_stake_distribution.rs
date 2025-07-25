@@ -170,7 +170,7 @@ pub mod tests {
     use mithril_common::{
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
         messages::{CardanoStakeDistributionListItemMessage, CardanoStakeDistributionMessage},
-        test_utils::double::Dummy,
+        test::double::Dummy,
     };
 
     use crate::{initialize_dependencies, services::MockMessageService};

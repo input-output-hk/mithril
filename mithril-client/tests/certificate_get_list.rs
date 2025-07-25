@@ -1,13 +1,14 @@
 mod extensions;
 
-use crate::extensions::fake_aggregator::FakeAggregator;
 use mithril_client::{ClientBuilder, aggregator_client::AggregatorRequest};
+use mithril_common::test::double::fake_keys;
+
+use crate::extensions::fake_aggregator::FakeAggregator;
 
 #[tokio::test]
 async fn certificate_get_list() {
     let certificate_hash_list = vec!["certificate-123".to_string(), "certificate-456".to_string()];
-    let genesis_verification_key =
-        mithril_common::test_utils::fake_keys::genesis_verification_key()[0];
+    let genesis_verification_key = fake_keys::genesis_verification_key()[0];
     let fake_aggregator = FakeAggregator::spawn_with_certificate(&certificate_hash_list);
     let client =
         ClientBuilder::aggregator(&fake_aggregator.server_root_url(), genesis_verification_key)

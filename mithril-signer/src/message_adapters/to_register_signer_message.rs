@@ -46,7 +46,7 @@ impl TryToMessageAdapter<(Epoch, Signer), RegisterSignerMessage>
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::test_utils::fake_data;
+    use mithril_common::test::double::fake_data;
 
     use super::*;
 

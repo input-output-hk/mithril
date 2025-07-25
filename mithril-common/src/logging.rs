@@ -36,7 +36,7 @@ fn component_name<T>() -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::TestLogger;
+    use crate::test::TestLogger;
     use slog::info;
 
     struct TestStruct;

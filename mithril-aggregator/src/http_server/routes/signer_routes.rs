@@ -271,7 +271,10 @@ mod tests {
         crypto_helper::ProtocolRegistrationError,
         entities::Epoch,
         messages::RegisterSignerMessage,
-        test_utils::{MithrilFixtureBuilder, double::Dummy, fake_data},
+        test::{
+            builder::MithrilFixtureBuilder,
+            double::{Dummy, fake_data},
+        },
     };
 
     use crate::{
@@ -281,7 +284,7 @@ mod tests {
         initialize_dependencies,
         services::{FakeEpochService, MockSignerRegisterer},
         store::MockVerificationKeyStorer,
-        test_tools::TestLogger,
+        test::TestLogger,
     };
 
     use super::*;

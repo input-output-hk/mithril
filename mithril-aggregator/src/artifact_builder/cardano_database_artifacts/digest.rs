@@ -299,12 +299,12 @@ mod tests {
         current_function,
         entities::{CardanoDbBeacon, CompressionAlgorithm},
         messages::{CardanoDatabaseDigestListItemMessage, CardanoDatabaseDigestListMessage},
-        test_utils::{TempDir, assert_equivalent, double::Dummy},
+        test::{TempDir, assert_equivalent, double::Dummy},
     };
 
     use crate::{
         file_uploaders::FileUploadRetryPolicy,
-        immutable_file_digest_mapper::MockImmutableFileDigestMapper, test_tools::TestLogger,
+        immutable_file_digest_mapper::MockImmutableFileDigestMapper, test::TestLogger,
         tools::file_archiver::FileArchiver,
     };
 
@@ -522,7 +522,7 @@ mod tests {
 
         let locations = builder.upload_digest_file(&FileArchive::dummy()).await.unwrap();
 
-        assert_equivalent(
+        assert_equivalent!(
             locations,
             vec![
                 DigestLocation::CloudStorage {
@@ -562,7 +562,7 @@ mod tests {
 
         let locations = builder.upload_digest_file(&FileArchive::dummy()).await.unwrap();
 
-        assert_equivalent(
+        assert_equivalent!(
             locations,
             vec![
                 DigestLocation::CloudStorage {

@@ -63,7 +63,7 @@ impl Query for InsertOrReplaceSignerRegistrationRecordQuery {
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::Epoch;
-    use mithril_common::test_utils::MithrilFixtureBuilder;
+    use mithril_common::test::builder::MithrilFixtureBuilder;
     use mithril_persistence::sqlite::ConnectionExtensions;
 
     use crate::database::test_helper::main_db_connection;

@@ -216,12 +216,12 @@ mod test {
         Epoch, ImmutableFileNumber, SignedEntityConfig, SignedEntityType,
         SignedEntityTypeDiscriminants as Type, TimePoint,
     };
-    use mithril_common::test_utils::double::Dummy;
+    use mithril_common::test::double::Dummy;
     use mithril_persistence::sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection};
 
     use crate::database::record::{CertificateRecord, SignedEntityRecord};
     use crate::database::repository::SignedEntityStore;
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

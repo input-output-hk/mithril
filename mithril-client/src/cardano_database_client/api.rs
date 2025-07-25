@@ -249,7 +249,7 @@ pub(crate) mod test_dependency_injector {
     }
 
     mod tests {
-        use mithril_common::test_utils::double::Dummy;
+        use mithril_common::test::double::Dummy;
         use mockall::predicate;
 
         use crate::aggregator_client::AggregatorRequest;

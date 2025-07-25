@@ -227,7 +227,7 @@ mod tests {
     use mithril_common::temp_dir;
 
     use crate::dependency_injection::DependenciesBuilder;
-    use crate::test::mocks::MockChainObserver;
+    use crate::test::double::mocks::MockChainObserver;
 
     use super::*;
 

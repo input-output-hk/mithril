@@ -214,13 +214,6 @@ impl StmInitializerWrapper {
             kes_signature,
         })
     }
-
-    cfg_test_tools! {
-        /// Override the protocol parameters of the `Initializer` for testing purposes only.
-        pub fn override_protocol_parameters(&mut self, protocol_parameters: &ProtocolParameters) {
-            self.stm_initializer.params = protocol_parameters.to_owned();
-        }
-    }
 }
 
 /// Wrapper structure for [MithrilStm:KeyRegistration](mithril_stm::key_reg::KeyRegistration).
@@ -299,16 +292,26 @@ impl KeyRegWrapper {
     }
 }
 
+#[cfg(any(test, feature = "test_tools"))]
+mod test_extensions {
+    use crate::test::crypto_helper::ProtocolInitializerTestExtension;
+
+    use super::*;
+
+    impl ProtocolInitializerTestExtension for StmInitializerWrapper {
+        fn override_protocol_parameters(&mut self, protocol_parameters: &ProtocolParameters) {
+            self.stm_initializer.params = protocol_parameters.to_owned();
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use crate::crypto_helper::cardano::kes::{
-        KesSignerStandard,
-        tests_setup::{
-            KesCryptographicMaterialForTest, KesPartyIndexForTest,
-            create_kes_cryptographic_material,
-        },
-    };
+    use crate::crypto_helper::cardano::kes::KesSignerStandard;
     use crate::crypto_helper::{OpCert, SerDeShelleyFileFormat};
+    use crate::test::crypto_helper::{
+        KesCryptographicMaterialForTest, KesPartyIndexForTest, create_kes_cryptographic_material,
+    };
 
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;

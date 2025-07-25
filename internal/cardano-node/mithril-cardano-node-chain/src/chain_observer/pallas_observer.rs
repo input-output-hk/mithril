@@ -529,7 +529,7 @@ mod tests {
     use tokio::net::UnixListener;
 
     use mithril_common::crypto_helper::ColdKeyGenerator;
-    use mithril_common::test_utils::TempDir;
+    use mithril_common::test::TempDir;
 
     use super::*;
 

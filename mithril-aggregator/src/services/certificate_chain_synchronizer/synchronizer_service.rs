@@ -224,19 +224,18 @@ mod tests {
     use anyhow::anyhow;
     use std::sync::RwLock;
 
-    use mithril_common::certificate_chain::{
-        FakeCertificaterRetriever, MithrilCertificateVerifier,
-    };
-    use mithril_common::test_utils::{
-        CertificateChainBuilder, CertificateChainFixture, fake_data, fake_keys,
+    use mithril_common::certificate_chain::MithrilCertificateVerifier;
+    use mithril_common::test::{
+        builder::{CertificateChainBuilder, CertificateChainFixture},
+        double::{FakeCertificaterRetriever, fake_data, fake_keys},
         mock_extensions::MockBuilder,
     };
 
     use crate::services::{
         MockOpenMessageStorer, MockRemoteCertificateRetriever, MockSynchronizedCertificateStorer,
     };
-    use crate::test::mocks::MockCertificateVerifier;
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
+    use crate::test::double::mocks::MockCertificateVerifier;
 
     use super::*;
 

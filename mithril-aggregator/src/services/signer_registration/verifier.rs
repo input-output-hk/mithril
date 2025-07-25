@@ -82,7 +82,7 @@ mod tests {
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_common::{
         entities::TimePoint,
-        test_utils::{MithrilFixtureBuilder, double::Dummy},
+        test::{builder::MithrilFixtureBuilder, double::Dummy},
     };
 
     use super::*;

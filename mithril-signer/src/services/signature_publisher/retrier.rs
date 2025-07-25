@@ -85,7 +85,7 @@ impl SignaturePublisher for SignaturePublisherRetrier {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::{entities::Epoch, test_utils::fake_data};
+    use mithril_common::{entities::Epoch, test::double::fake_data};
 
     use crate::services::MockSignaturePublisher;
 

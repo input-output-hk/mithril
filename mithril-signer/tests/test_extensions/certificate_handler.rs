@@ -10,7 +10,7 @@ use mithril_common::{
         SignedEntityType, SignedEntityTypeDiscriminants, Signer, SingleSignature, TimePoint,
     },
     messages::AggregatorFeaturesMessage,
-    test_utils::{double::Dummy, fake_data},
+    test::double::{Dummy, fake_data},
 };
 use mithril_ticker::{MithrilTickerService, TickerService};
 
@@ -170,7 +170,7 @@ mod tests {
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_cardano_node_internal_database::test::double::DumbImmutableFileObserver;
     use mithril_common::entities::{BlockNumber, ChainPoint};
-    use mithril_common::test_utils::fake_data;
+    use mithril_common::test::double::fake_data;
 
     use super::*;
 

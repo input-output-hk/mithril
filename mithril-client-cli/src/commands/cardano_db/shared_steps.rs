@@ -221,7 +221,7 @@ mod tests {
         MithrilCertificateMetadata,
         common::{CardanoDbBeacon, ProtocolMessagePartKey, SignedEntityType},
     };
-    use mithril_common::test_utils::{TempDir, double::Dummy};
+    use mithril_common::test::{TempDir, double::Dummy};
 
     use crate::utils::ProgressOutputType;
 

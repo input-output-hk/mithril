@@ -549,7 +549,10 @@ pub mod tests {
         },
         signable_builder::SignableBuilderService,
         temp_dir,
-        test_utils::{MithrilFixtureBuilder, double::Dummy, fake_data},
+        test::{
+            builder::MithrilFixtureBuilder,
+            double::{Dummy, fake_data},
+        },
     };
     use mithril_persistence::store::StakeStorer;
     use mithril_signed_entity_lock::SignedEntityTypeLock;

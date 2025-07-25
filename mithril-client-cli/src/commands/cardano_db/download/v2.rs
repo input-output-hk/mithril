@@ -283,7 +283,7 @@ impl PreparedCardanoDbV2Download {
 #[cfg(test)]
 mod tests {
     use mithril_client::common::{AncillaryMessagePart, DigestsMessagePart, ImmutablesMessagePart};
-    use mithril_common::test_utils::double::Dummy;
+    use mithril_common::test::double::Dummy;
 
     use super::*;
 

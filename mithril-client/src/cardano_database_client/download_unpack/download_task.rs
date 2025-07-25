@@ -162,7 +162,7 @@ pub struct LocationToDownload {
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::FileUri;
-    use mithril_common::test_utils::{assert_dir_eq, fake_keys, temp_dir_create};
+    use mithril_common::test::{assert_dir_eq, double::fake_keys, temp_dir_create};
 
     use crate::file_downloader::MockFileDownloaderBuilder;
     use crate::test_utils::TestLogger;

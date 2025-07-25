@@ -182,7 +182,7 @@ mod tests {
         CardanoDatabaseDigestListItemMessage, CardanoDatabaseSnapshotListItemMessage,
         CardanoDatabaseSnapshotMessage,
     };
-    use mithril_common::test_utils::double::Dummy;
+    use mithril_common::test::double::Dummy;
     use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
     use mithril_persistence::sqlite::HydrationError;
 

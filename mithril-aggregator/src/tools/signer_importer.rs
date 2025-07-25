@@ -201,7 +201,7 @@ mod tests {
     use crate::database::repository::{SignerGetter, SignerStore};
     use crate::database::test_helper::main_db_connection;
     use crate::http_server::routes::reply;
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

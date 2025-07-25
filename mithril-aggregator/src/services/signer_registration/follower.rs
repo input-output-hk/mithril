@@ -180,7 +180,7 @@ mod tests {
     use mithril_common::messages::{
         EpochSettingsMessage, SignerMessagePart, TryFromMessageAdapter,
     };
-    use mithril_common::test_utils::{MithrilFixtureBuilder, double::Dummy};
+    use mithril_common::test::{builder::MithrilFixtureBuilder, double::Dummy};
 
     use crate::{
         database::{repository::SignerRegistrationStore, test_helper::main_db_connection},
@@ -189,7 +189,7 @@ mod tests {
             FakeEpochService, MockLeaderAggregatorClient, MockSignerRecorder,
             MockSignerRegistrationVerifier,
         },
-        test::mocks::MockStakeStore,
+        test::double::mocks::MockStakeStore,
     };
 
     use super::*;

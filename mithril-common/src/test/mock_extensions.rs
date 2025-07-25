@@ -17,7 +17,7 @@ impl<M: Default> MockBuilder<M> {
     ///
     /// The type must be specified either:
     /// ```
-    /// use mithril_common::test_utils::mock_extensions::MockBuilder;
+    /// use mithril_common::test::mock_extensions::MockBuilder;
     /// # #[derive(Default)] struct MockType {};
     ///
     /// // from the builder generic

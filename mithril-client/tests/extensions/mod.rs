@@ -8,7 +8,7 @@ mod routes;
 #[cfg(feature = "fs")]
 mod snapshot_archives;
 
-use mithril_common::test_utils::TempDir;
+use mithril_common::test::TempDir;
 use std::path::PathBuf;
 
 pub fn get_test_dir(subdir_name: &str) -> PathBuf {

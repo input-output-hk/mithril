@@ -112,7 +112,10 @@ mod tests {
             ImmutablesLocation, MultiFilesUri, ProtocolMessage, ProtocolMessagePartKey,
             TemplateUri,
         },
-        test_utils::{TempDir, fake_data, fake_keys},
+        test::{
+            TempDir,
+            double::{fake_data, fake_keys},
+        },
     };
 
     use crate::{
@@ -122,7 +125,7 @@ mod tests {
         immutable_file_digest_mapper::MockImmutableFileDigestMapper,
         services::CompressedArchiveSnapshotter,
         services::ancillary_signer::MockAncillarySigner,
-        test_tools::TestLogger,
+        test::TestLogger,
         tools::{file_archiver::FileArchiver, url_sanitizer::SanitizedUrlWithTrailingSlash},
     };
 

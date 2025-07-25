@@ -14,7 +14,10 @@ use crate::{
         CardanoDbBeacon, Certificate, CertificateMetadata, CertificateSignature, Epoch,
         ProtocolMessage, ProtocolMessagePartKey, SignedEntityType,
     },
-    test_utils::{MithrilFixture, MithrilFixtureBuilder, SignerFixture, fake_data},
+    test::{
+        builder::{MithrilFixture, MithrilFixtureBuilder, SignerFixture},
+        double::fake_data,
+    },
 };
 
 /// Genesis certificate processor function type. For tests only.
@@ -169,7 +172,7 @@ impl CertificateChainFixture {
 ///
 /// ```
 ///     use mithril_common::crypto_helper::ProtocolParameters;
-///     use mithril_common::test_utils::CertificateChainBuilder;
+///     use mithril_common::test::builder::CertificateChainBuilder;
 ///
 ///     let certificate_chain_fixture = CertificateChainBuilder::new()
 ///         .with_total_certificates(5)
@@ -184,7 +187,7 @@ impl CertificateChainFixture {
 /// ```
 ///     use std::cmp::min;
 ///     use mithril_common::crypto_helper::ProtocolParameters;
-///     use mithril_common::test_utils::CertificateChainBuilder;
+///     use mithril_common::test::builder::CertificateChainBuilder;
 ///
 ///     let certificate_chain_fixture = CertificateChainBuilder::new()
 ///         .with_total_certificates(5)
@@ -205,7 +208,7 @@ impl CertificateChainFixture {
 /// ```
 ///     use mithril_common::entities::Epoch;
 ///     use mithril_common::crypto_helper::ProtocolParameters;
-///     use mithril_common::test_utils::CertificateChainBuilder;
+///     use mithril_common::test::builder::CertificateChainBuilder;
 ///
 ///     let certificate_chain_fixture = CertificateChainBuilder::new()
 ///         .with_total_certificates(5)
@@ -1072,14 +1075,12 @@ mod test {
 
         #[test]
         fn get_latest_certificate() {
-            let chain_with_only_a_genesis = CertificateChainBuilder::new()
-                .with_total_certificates(1)
-                .build();
+            let chain_with_only_a_genesis =
+                CertificateChainBuilder::new().with_total_certificates(1).build();
             assert!(chain_with_only_a_genesis.latest_certificate().is_genesis());
 
-            let chain_with_multiple_certificates = CertificateChainBuilder::new()
-                .with_total_certificates(10)
-                .build();
+            let chain_with_multiple_certificates =
+                CertificateChainBuilder::new().with_total_certificates(10).build();
             assert_eq!(
                 chain_with_multiple_certificates.latest_certificate(),
                 chain_with_multiple_certificates.first().unwrap()

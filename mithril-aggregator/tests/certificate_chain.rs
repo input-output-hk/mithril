@@ -8,7 +8,7 @@ use mithril_common::{
         TimePoint,
     },
     temp_dir,
-    test_utils::MithrilFixtureBuilder,
+    test::builder::MithrilFixtureBuilder,
 };
 use test_extensions::{
     ExpectedCertificate, ExpectedMetrics, RuntimeTester, utilities::get_test_dir,

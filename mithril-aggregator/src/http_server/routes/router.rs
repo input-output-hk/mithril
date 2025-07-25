@@ -9,7 +9,7 @@ use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::entities::SignedEntityTypeDiscriminants;
 #[cfg(test)]
-use mithril_common::test_utils::double::Dummy;
+use mithril_common::test::double::Dummy;
 use mithril_common::{
     CardanoNetwork, MITHRIL_API_VERSION_HEADER, MITHRIL_CLIENT_TYPE_HEADER,
     MITHRIL_ORIGIN_TAG_HEADER,

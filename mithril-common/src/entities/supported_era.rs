@@ -23,7 +23,7 @@ impl SupportedEra {
 mod tests {
     use std::str::FromStr;
 
-    use crate::test_utils::double::Dummy;
+    use crate::test::double::Dummy;
 
     use super::*;
 

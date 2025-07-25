@@ -95,7 +95,7 @@ mod tests {
     use std::ops::Range;
     use std::path::Path;
 
-    use mithril_common::test_utils::TempDir;
+    use mithril_common::test::TempDir;
 
     use crate::sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection};
 

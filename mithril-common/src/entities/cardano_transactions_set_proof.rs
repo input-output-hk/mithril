@@ -4,12 +4,6 @@ use crate::entities::TransactionHash;
 
 use super::BlockRange;
 
-cfg_test_tools! {
-    use crate::crypto_helper::{MKMap, MKTree, MKTreeNode, MKMapNode, MKTreeStorer, MKTreeStoreInMemory};
-    use crate::entities::BlockNumber;
-    use std::collections::HashMap;
-}
-
 /// A cryptographic proof of a set of Cardano transactions is included in the global Cardano transactions set
 #[derive(Clone, Debug, PartialEq)]
 pub struct CardanoTransactionsSetProof {
@@ -51,46 +45,14 @@ impl CardanoTransactionsSetProof {
 
         Ok(())
     }
-
-    cfg_test_tools! {
-        /// Helper to create a proof from a list of leaves
-        pub fn from_leaves<S: MKTreeStorer>(leaves: &[(BlockNumber, TransactionHash)]) -> StdResult<Self> {
-            let transactions_hashes: Vec<TransactionHash> =
-                leaves.iter().map(|(_, t)| t.into()).collect();
-            let mut transactions_by_block_ranges: HashMap<BlockRange, Vec<TransactionHash>> =
-                HashMap::new();
-            for (block_number, transaction_hash) in leaves {
-                let block_range = BlockRange::from_block_number(*block_number);
-                transactions_by_block_ranges
-                    .entry(block_range)
-                    .or_default()
-                    .push(transaction_hash.to_owned());
-            }
-            let mk_map = MKMap::<_, _, MKTreeStoreInMemory>::new(
-                transactions_by_block_ranges
-                    .into_iter()
-                    .try_fold(
-                        vec![],
-                        |mut acc, (block_range, transactions)| -> StdResult<Vec<(_, MKMapNode<_,S>)>> {
-                            acc.push((block_range, MKTree::<S>::new(&transactions)?.into()));
-                            Ok(acc)
-                        },
-                    )?
-                    .as_slice(),
-            )?;
-            let mk_leaves: Vec<MKTreeNode> = transactions_hashes
-                .iter()
-                .map(|h| h.to_owned().into())
-                .collect();
-            let mk_proof = mk_map.compute_proof(&mk_leaves)?;
-            Ok(Self::new(transactions_hashes, mk_proof))
-        }
-
-    }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::crypto_helper::MKTreeStoreInMemory;
+    use crate::entities::BlockNumber;
+    use crate::test::entities_extensions::CardanoTransactionsSetProofTestExtension;
+
     use super::*;
 
     #[test]

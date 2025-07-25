@@ -199,7 +199,7 @@ mod tests {
     use crate::event_store::database::test_helper::{
         event_store_db_connection, event_store_db_file_connection,
     };
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

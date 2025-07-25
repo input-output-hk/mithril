@@ -526,6 +526,6 @@ impl DependenciesBuilder {
 #[cfg(test)]
 impl DependenciesBuilder {
     pub(crate) fn new_with_stdout_logger(configuration: Arc<dyn ConfigurationSource>) -> Self {
-        Self::new(crate::test_tools::TestLogger::stdout(), configuration)
+        Self::new(crate::test::TestLogger::stdout(), configuration)
     }
 }

@@ -12,7 +12,7 @@ use mithril_common::messages::{
 #[cfg(test)]
 use mithril_common::{
     entities::{CardanoDbBeacon, ImmutableFileNumber},
-    test_utils::{fake_data, fake_keys},
+    test::double::{fake_data, fake_keys},
 };
 use mithril_persistence::{
     database::Hydrator,
@@ -384,7 +384,7 @@ impl SqLiteEntity for CertificateRecord {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
+    use mithril_common::test::crypto_helper::setup_certificate_chain;
 
     use super::*;
 

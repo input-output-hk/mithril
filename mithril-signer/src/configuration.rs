@@ -8,7 +8,6 @@ use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_cli_helper::register_config_value;
 use mithril_common::{
     CardanoNetwork, StdResult,
-    crypto_helper::tests_setup,
     entities::{BlockNumber, PartyId},
 };
 use mithril_era::{
@@ -147,7 +146,8 @@ impl Configuration {
     #[doc(hidden)]
     pub fn new_sample<P: Into<PartyId>>(party_id: P) -> Self {
         let party_id: PartyId = party_id.into();
-        let signer_temp_dir = tests_setup::setup_temp_directory_for_signer(&party_id, false);
+        let signer_temp_dir =
+            mithril_common::test::crypto_helper::setup_temp_directory_for_signer(&party_id, false);
         Self {
             aggregator_endpoint: "http://0.0.0.0:8000".to_string(),
             relay_endpoint: None,

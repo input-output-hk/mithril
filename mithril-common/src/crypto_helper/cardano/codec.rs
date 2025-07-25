@@ -180,7 +180,7 @@ impl<'a> TryFrom<&'a mut Sum6KesBytes> for Sum6Kes<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test_utils::TempDir;
+    use crate::test::TempDir;
 
     #[test]
     fn compat_with_shelly_format() {

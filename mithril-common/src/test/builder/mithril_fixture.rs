@@ -19,6 +19,7 @@ use crate::{
         Signer, SignerWithStake, SingleSignature, Stake, StakeDistribution, StakeDistributionParty,
     },
     protocol::{SignerBuilder, ToMessage},
+    test::crypto_helper::ProtocolInitializerTestExtension,
 };
 
 /// A fixture of Mithril data types.

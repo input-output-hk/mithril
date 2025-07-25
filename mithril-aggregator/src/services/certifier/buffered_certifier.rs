@@ -191,14 +191,15 @@ mod tests {
         CardanoTransactions, MithrilStakeDistribution,
     };
     use mithril_common::entities::SingleSignatureAuthenticationStatus;
-    use mithril_common::test_utils::{double::Dummy, fake_data};
+    use mithril_common::test::double::{Dummy, fake_data};
+    use mithril_common::test::entities_extensions::SingleSignatureTestExtension;
 
     use crate::database::repository::BufferedSingleSignatureRepository;
     use crate::database::test_helper::main_db_connection;
     use crate::services::{
         CertifierServiceError, MockBufferedSingleSignatureStore, MockCertifierService,
     };
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

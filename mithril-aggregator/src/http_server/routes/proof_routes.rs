@@ -164,7 +164,10 @@ mod tests {
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
         entities::{BlockNumber, CardanoTransactionsSetProof, CardanoTransactionsSnapshot},
         signable_builder::SignedEntity,
-        test_utils::{assert_equivalent, double::Dummy, fake_data},
+        test::{
+            assert_equivalent,
+            double::{Dummy, fake_data},
+        },
     };
 
     use crate::services::MockProverService;
@@ -440,6 +443,6 @@ mod tests {
             transaction_hashes: format!("{tx1},{tx2},{tx2},{tx1},{tx2}",),
         };
 
-        assert_equivalent(params.sanitize(), vec![tx1, tx2]);
+        assert_equivalent!(params.sanitize(), vec![tx1, tx2]);
     }
 }

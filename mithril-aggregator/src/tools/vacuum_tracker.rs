@@ -90,7 +90,7 @@ impl VacuumTracker {
 mod tests {
     use mithril_common::temp_dir_create;
 
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

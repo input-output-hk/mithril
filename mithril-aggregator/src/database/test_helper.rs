@@ -6,7 +6,7 @@ use uuid::Uuid;
 use mithril_common::entities::{
     BlockNumber, CardanoTransactionsSigningConfig, ProtocolParameters, SignerWithStake,
 };
-use mithril_common::{StdError, StdResult, entities::Epoch, test_utils::fake_keys};
+use mithril_common::{StdError, StdResult, entities::Epoch, test::double::fake_keys};
 use mithril_persistence::sqlite::{
     ConnectionBuilder, ConnectionExtensions, ConnectionOptions, Query, SqliteConnection,
 };
@@ -205,10 +205,10 @@ pub fn insert_epoch_settings(
             Epoch(1),
             AggregatorEpochSettings {
                 protocol_parameters: ProtocolParameters::new(1, 2, 1.0),
-                cardano_transactions_signing_config: CardanoTransactionsSigningConfig::new(
-                    BlockNumber(0),
-                    BlockNumber(0),
-                ),
+                cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+                    security_parameter: BlockNumber(0),
+                    step: BlockNumber(0),
+                },
             },
         )
         .filters()
@@ -222,7 +222,10 @@ pub fn insert_epoch_settings(
             (
                 epoch,
                 ProtocolParameters::new(*epoch, epoch + 1, 1.0),
-                CardanoTransactionsSigningConfig::new(BlockNumber(epoch * 10), BlockNumber(15)),
+                CardanoTransactionsSigningConfig {
+                    security_parameter: BlockNumber(epoch * 10),
+                    step: BlockNumber(15),
+                },
             )
         })
     {

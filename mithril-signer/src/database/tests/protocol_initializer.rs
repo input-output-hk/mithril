@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use mithril_common::test_utils::fake_data;
+use mithril_common::test::double::fake_data;
 use mithril_common::{crypto_helper::ProtocolInitializer, entities::Epoch};
 use mithril_persistence::sqlite::{ConnectionBuilder, ConnectionExtensions};
 

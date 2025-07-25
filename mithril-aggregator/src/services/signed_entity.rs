@@ -504,7 +504,7 @@ mod tests {
     use mithril_common::{
         entities::{CardanoTransactionsSnapshot, Epoch, StakeDistribution},
         signable_builder,
-        test_utils::fake_data,
+        test::double::fake_data,
     };
     use mithril_metric::CounterValue;
     use serde::{Serialize, de::DeserializeOwned};
@@ -512,7 +512,7 @@ mod tests {
 
     use crate::artifact_builder::MockArtifactBuilder;
     use crate::database::repository::MockSignedEntityStorer;
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

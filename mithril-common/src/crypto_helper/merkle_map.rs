@@ -468,6 +468,7 @@ mod tests {
     use crate::{
         crypto_helper::MKTreeStoreInMemory,
         entities::{BlockNumber, BlockRange},
+        test::entities_extensions::BlockRangeTestExtension,
     };
 
     use super::*;

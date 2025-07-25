@@ -108,7 +108,7 @@ pub mod tests {
     use mithril_common::{
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
         messages::{MithrilStakeDistributionListItemMessage, MithrilStakeDistributionMessage},
-        test_utils::double::Dummy,
+        test::double::Dummy,
     };
     use mithril_persistence::sqlite::HydrationError;
 

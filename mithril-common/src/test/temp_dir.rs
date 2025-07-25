@@ -82,7 +82,7 @@ impl TempDir {
     ///
     /// Equivalent to:
     /// ```
-    /// # use crate::mithril_common::test_utils::TempDir;
+    /// # use crate::mithril_common::test::TempDir;
     /// TempDir::new("module", "name").build();
     /// ```
     pub fn create<M: Into<String>, N: Into<String>>(module: M, name: N) -> PathBuf {
@@ -94,7 +94,7 @@ impl TempDir {
     ///
     /// Equivalent to:
     /// ```
-    /// # use crate::mithril_common::test_utils::TempDir;
+    /// # use crate::mithril_common::test::TempDir;
     /// TempDir::new("module", "name").generate_shorter_path().build();
     /// ```
     pub fn create_with_short_path<M: Into<String>, N: Into<String>>(module: M, name: N) -> PathBuf {
@@ -117,10 +117,10 @@ impl TempDir {
 macro_rules! temp_dir {
     () => {{
         fn f() {}
-        let current_function_path = $crate::test_utils::format_current_function_path(f);
+        let current_function_path = $crate::test::format_current_function_path(f);
         let current_function_path = current_function_path.replace("/tests/", "/");
 
-        $crate::test_utils::TempDir::new(current_function_path, "").build_path()
+        $crate::test::TempDir::new(current_function_path, "").build_path()
     }};
 }
 pub use temp_dir;
@@ -130,10 +130,10 @@ pub use temp_dir;
 macro_rules! temp_dir_create {
     () => {{
         fn f() {}
-        let current_function_path = $crate::test_utils::format_current_function_path(f);
+        let current_function_path = $crate::test::format_current_function_path(f);
         let current_function_path = current_function_path.replace("/tests/", "/");
 
-        $crate::test_utils::TempDir::new(current_function_path, "").build()
+        $crate::test::TempDir::new(current_function_path, "").build()
     }};
 }
 pub use temp_dir_create;
@@ -258,7 +258,7 @@ mod tests {
             std::env::temp_dir()
                 .join(TEMP_DIR_ROOT_NAME)
                 .join("mithril_common")
-                .join("test_utils")
+                .join("test")
                 .join("temp_dir")
                 .join("creating_temp_dir_base_on_current_function"),
             temp_dir!(),
@@ -271,7 +271,7 @@ mod tests {
             std::env::temp_dir()
                 .join(TEMP_DIR_ROOT_NAME)
                 .join("mithril_common")
-                .join("test_utils")
+                .join("test")
                 .join("temp_dir")
                 .join("creating_temp_dir_base_on_current_async_function"),
             temp_dir!(),

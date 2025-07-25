@@ -340,7 +340,7 @@ impl MithrilEpochService {
     /// `TEST ONLY` - Set all data to either default values, empty values, or fake values
     /// if no default/empty can be set.
     pub fn set_data_to_default_or_fake(mut self, epoch: Epoch) -> Self {
-        use mithril_common::test_utils::fake_data;
+        use mithril_common::test::double::fake_data;
 
         let epoch_data = EpochData {
             epoch,
@@ -428,7 +428,10 @@ mod tests {
     use tokio::sync::RwLock;
 
     use mithril_common::entities::{Epoch, StakeDistribution};
-    use mithril_common::test_utils::{MithrilFixtureBuilder, double::Dummy, fake_data};
+    use mithril_common::test::{
+        builder::MithrilFixtureBuilder,
+        double::{Dummy, fake_data},
+    };
 
     use crate::database::repository::{ProtocolInitializerRepository, StakePoolStore};
     use crate::database::test_helper::main_db_connection;

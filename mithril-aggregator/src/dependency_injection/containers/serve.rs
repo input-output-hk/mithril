@@ -10,7 +10,7 @@ use mithril_common::{
         StakeDistribution,
     },
     signable_builder::SignableBuilderService,
-    test_utils::MithrilFixture,
+    test::builder::MithrilFixture,
 };
 
 use mithril_era::{EraChecker, EraReader};

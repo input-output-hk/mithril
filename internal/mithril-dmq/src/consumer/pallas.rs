@@ -144,14 +144,14 @@ mod tests {
 
     use std::{fs, future, time::Duration, vec};
 
-    use mithril_common::{crypto_helper::TryToBytes, current_function, test_utils::TempDir};
+    use mithril_common::{crypto_helper::TryToBytes, current_function, test::TempDir};
     use pallas_network::{
         facades::DmqServer,
         miniprotocols::{localmsgnotification, localmsgsubmission::DmqMsg},
     };
     use tokio::{net::UnixListener, task::JoinHandle, time::sleep};
 
-    use crate::{test::payload::DmqMessageTestPayload, test_tools::TestLogger};
+    use crate::test::{TestLogger, payload::DmqMessageTestPayload};
 
     use super::*;
 

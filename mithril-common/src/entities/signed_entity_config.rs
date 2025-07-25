@@ -112,17 +112,6 @@ pub struct CardanoTransactionsSigningConfig {
 }
 
 impl CardanoTransactionsSigningConfig {
-    cfg_test_tools! {
-        /// Create a new CardanoTransactionsSigningConfig
-        pub fn new(security_parameter: BlockNumber, step: BlockNumber) -> Self {
-            Self {
-                security_parameter,
-                step,
-            }
-        }
-
-    }
-
     /// Compute the block number to be signed based on the chain tip block number.
     ///
     /// The latest block number to be signed is the highest multiple of the step less or equal than the
@@ -157,7 +146,7 @@ mod tests {
     use crate::entities::{
         CardanoDbBeacon, ChainPoint, Epoch, SignedEntityType, SlotNumber, TimePoint,
     };
-    use crate::test_utils::{double::Dummy, fake_data};
+    use crate::test::{double::Dummy, double::fake_data};
 
     use super::*;
 

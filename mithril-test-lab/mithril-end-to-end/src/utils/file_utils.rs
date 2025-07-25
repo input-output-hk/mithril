@@ -66,7 +66,7 @@ pub async fn last_errors(file_path: &Path, number_of_error: u64) -> StdResult<St
 #[cfg(test)]
 mod tests {
     use crate::utils::file_utils;
-    use mithril_common::test_utils::TempDir;
+    use mithril_common::test::TempDir;
     use std::fs::File;
     use std::io::prelude::*;
     use std::path::{Path, PathBuf};

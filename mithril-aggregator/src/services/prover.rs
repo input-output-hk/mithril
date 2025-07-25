@@ -213,11 +213,11 @@ mod tests {
         MKMap, MKMapNode, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer,
     };
     use mithril_common::entities::CardanoTransaction;
-    use mithril_common::test_utils::CardanoTransactionsBuilder;
+    use mithril_common::test::builder::CardanoTransactionsBuilder;
     use mockall::mock;
     use mockall::predicate::eq;
 
-    use crate::test_tools::TestLogger;
+    use crate::test::TestLogger;
 
     use super::*;
 

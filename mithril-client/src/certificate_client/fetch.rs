@@ -105,7 +105,7 @@ impl CertificateRetriever for InternalCertificateRetriever {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::test_utils::{double::Dummy, fake_data};
+    use mithril_common::test::double::{Dummy, fake_data};
 
     use crate::certificate_client::tests_utils::CertificateClientTestBuilder;
 

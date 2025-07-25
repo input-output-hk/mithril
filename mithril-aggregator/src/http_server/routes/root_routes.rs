@@ -91,7 +91,7 @@ mod tests {
     use mithril_common::messages::{
         AggregatorCapabilities, AggregatorFeaturesMessage, CardanoTransactionsProverCapabilities,
     };
-    use mithril_common::test_utils::double::Dummy;
+    use mithril_common::test::double::Dummy;
 
     use crate::http_server::routes::router::RouterConfig;
     use crate::initialize_dependencies;

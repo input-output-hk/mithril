@@ -40,7 +40,7 @@ impl Query for InsertCertificateRecordQuery {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
+    use mithril_common::test::crypto_helper::setup_certificate_chain;
     use mithril_persistence::sqlite::ConnectionExtensions;
 
     use crate::database::test_helper::main_db_connection;

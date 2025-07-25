@@ -3928,7 +3928,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.7.75"
+version = "0.7.76"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4009,7 +4009,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-api-spec"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "jsonschema",
  "mithril-common",
@@ -4031,7 +4031,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-cardano-node-chain"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4059,7 +4059,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-cardano-node-internal-database"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4090,7 +4090,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.12.23"
+version = "0.12.24"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -4128,7 +4128,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.12.23"
+version = "0.12.24"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4180,7 +4180,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.6.10"
+version = "0.6.11"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4222,7 +4222,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-dmq"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4258,7 +4258,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.4.97"
+version = "0.4.98"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -4281,7 +4281,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-era"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4295,7 +4295,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-metric"
-version = "0.1.16"
+version = "0.1.17"
 dependencies = [
  "anyhow",
  "axum",
@@ -4312,7 +4312,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-persistence"
-version = "0.2.56"
+version = "0.2.57"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4330,7 +4330,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-relay"
-version = "0.1.48"
+version = "0.1.49"
 dependencies = [
  "anyhow",
  "clap",
@@ -4374,7 +4374,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signed-entity-preloader"
-version = "0.0.8"
+version = "0.0.9"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4390,7 +4390,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.261"
+version = "0.2.262"
 dependencies = [
  "anyhow",
  "async-trait",

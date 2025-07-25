@@ -91,12 +91,11 @@ mod tests {
 
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_common::{
-        crypto_helper::KesSignerFake,
         current_function,
-        test_utils::{TempDir, double::Dummy},
+        test::{TempDir, crypto_helper::KesSignerFake, double::Dummy},
     };
 
-    use crate::{test::payload::DmqMessageTestPayload, test_tools::TestLogger};
+    use crate::test::{TestLogger, payload::DmqMessageTestPayload};
 
     use super::*;
 

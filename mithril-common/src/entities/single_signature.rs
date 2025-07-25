@@ -62,34 +62,6 @@ impl SingleSignature {
     }
 }
 
-cfg_test_tools! {
-impl SingleSignature {
-    /// Create a fake [SingleSignature] with valid cryptographic data for testing purposes.
-    pub fn fake<TPartyId: Into<String>, TMessage: Into<String>>(party_id: TPartyId, message: TMessage) -> Self {
-        use crate::entities::{ProtocolParameters};
-        use crate::test_utils::{MithrilFixtureBuilder, StakeDistributionGenerationMethod};
-
-        let party_id = party_id.into();
-        let message = message.into();
-
-        let fixture = MithrilFixtureBuilder::default()
-            .with_stake_distribution(StakeDistributionGenerationMethod::Custom(
-                std::collections::BTreeMap::from([(party_id.to_string(), 100)]),
-            ))
-            .with_protocol_parameters(ProtocolParameters::new(1, 1, 1.0))
-            .build();
-        let signature = fixture.signers_fixture()[0].sign(&message).unwrap();
-
-        Self {
-            party_id,
-            signature: signature.signature,
-            won_indexes: vec![10, 15],
-            authentication_status: SingleSignatureAuthenticationStatus::Unauthenticated,
-        }
-    }
-}
-}
-
 impl Debug for SingleSignature {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let is_pretty_printing = f.alternate();
@@ -109,8 +81,9 @@ impl Debug for SingleSignature {
 
 #[cfg(test)]
 mod tests {
+    use crate::test::{builder::MithrilFixtureBuilder, crypto_helper::setup_message};
+
     use super::*;
-    use crate::{crypto_helper::tests_setup::setup_message, test_utils::MithrilFixtureBuilder};
 
     #[test]
     fn single_signatures_should_convert_to_protocol_signatures() {

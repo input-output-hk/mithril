@@ -73,7 +73,7 @@ mod tests {
     use std::io::Write;
 
     use mithril_common::current_function;
-    use mithril_common::test_utils::TempDir;
+    use mithril_common::test::TempDir;
 
     use super::*;
 
