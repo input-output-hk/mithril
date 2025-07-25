@@ -123,9 +123,11 @@ impl DerefMut for CertificateChainFixture {
     }
 }
 
-impl<C: From<Certificate>> From<CertificateChainFixture> for Vec<C> {
-    fn from(fixture: CertificateChainFixture) -> Self {
-        fixture.certificates_chained.into_iter().map(C::from).collect()
+impl<C: TryFrom<Certificate>> TryFrom<CertificateChainFixture> for Vec<C> {
+    type Error = C::Error;
+
+    fn try_from(fixture: CertificateChainFixture) -> Result<Self, Self::Error> {
+        fixture.certificates_chained.into_iter().map(C::try_from).collect()
     }
 }
 
