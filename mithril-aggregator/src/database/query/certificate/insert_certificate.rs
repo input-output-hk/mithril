@@ -40,7 +40,7 @@ impl Query for InsertCertificateRecordQuery {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::test::crypto_helper::setup_certificate_chain;
+    use mithril_common::{entities::Certificate, test::crypto_helper::setup_certificate_chain};
     use mithril_persistence::sqlite::ConnectionExtensions;
 
     use crate::database::test_helper::main_db_connection;
@@ -54,7 +54,7 @@ mod tests {
         let connection = main_db_connection().unwrap();
 
         for certificate in certificates.certificates_chained {
-            let certificate_record: CertificateRecord = certificate.into();
+            let certificate_record: CertificateRecord = certificate.try_into().unwrap();
             let certificate_record_saved = connection
                 .fetch_first(InsertCertificateRecordQuery::one(
                     certificate_record.clone(),
@@ -67,7 +67,9 @@ mod tests {
     #[test]
     fn test_insert_many_certificates_records() {
         let certificates = setup_certificate_chain(5, 2);
-        let certificates_records: Vec<CertificateRecord> = certificates.into();
+        let certificates: Vec<Certificate> = certificates.into();
+        let certificates_records: Vec<CertificateRecord> =
+            certificates.into_iter().map(|c| c.try_into().unwrap()).collect();
 
         let connection = main_db_connection().unwrap();
 

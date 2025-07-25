@@ -80,7 +80,7 @@ impl CertificateRepository {
         let record = self
             .connection
             .fetch_first(InsertCertificateRecordQuery::one(
-                certificate.clone().into(),
+                certificate.clone().try_into()?,
             ))?
             .unwrap_or_else(|| {
                 panic!("No entity returned by the persister, certificate = {certificate:#?}")
@@ -98,8 +98,10 @@ impl CertificateRepository {
             return Ok(vec![]);
         }
 
-        let records: Vec<CertificateRecord> =
-            certificates.into_iter().map(|cert| cert.into()).collect();
+        let records: Vec<CertificateRecord> = certificates
+            .into_iter()
+            .map(|cert| cert.try_into())
+            .collect::<StdResult<_>>()?;
         let new_certificates =
             self.connection.fetch(InsertCertificateRecordQuery::many(records))?;
 
@@ -115,8 +117,10 @@ impl CertificateRepository {
             return Ok(vec![]);
         }
 
-        let records: Vec<CertificateRecord> =
-            certificates.into_iter().map(|cert| cert.into()).collect();
+        let records: Vec<CertificateRecord> = certificates
+            .into_iter()
+            .map(|cert| cert.try_into())
+            .collect::<StdResult<_>>()?;
         let new_certificates = self
             .connection
             .fetch(InsertOrReplaceCertificateRecordQuery::many(records))?;
