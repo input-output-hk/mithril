@@ -101,7 +101,7 @@ pub enum ProtocolInitializerErrorWrapper {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StmInitializerWrapper {
     /// The Initializer
-    pub(crate) stm_initializer: Initializer,
+    stm_initializer: Initializer,
 
     /// The KES signature over the Mithril key
     ///
@@ -289,6 +289,19 @@ impl KeyRegWrapper {
     /// This function disables `ClosedKeyRegistration::register`, consumes the instance of `self`, and returns a `ClosedKeyRegistration`.
     pub fn close<D: Digest + FixedOutput>(self) -> ClosedKeyRegistration<D> {
         self.stm_key_reg.close()
+    }
+}
+
+#[cfg(any(test, feature = "test_tools"))]
+mod test_extensions {
+    use crate::test::crypto_helper::ProtocolInitializerTestExtension;
+
+    use super::*;
+
+    impl ProtocolInitializerTestExtension for StmInitializerWrapper {
+        fn override_protocol_parameters(&mut self, protocol_parameters: &ProtocolParameters) {
+            self.stm_initializer.params = protocol_parameters.to_owned();
+        }
     }
 }
 

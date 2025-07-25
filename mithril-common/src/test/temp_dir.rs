@@ -258,7 +258,7 @@ mod tests {
             std::env::temp_dir()
                 .join(TEMP_DIR_ROOT_NAME)
                 .join("mithril_common")
-                .join("test_utils")
+                .join("test")
                 .join("temp_dir")
                 .join("creating_temp_dir_base_on_current_function"),
             temp_dir!(),
@@ -271,7 +271,7 @@ mod tests {
             std::env::temp_dir()
                 .join(TEMP_DIR_ROOT_NAME)
                 .join("mithril_common")
-                .join("test_utils")
+                .join("test")
                 .join("temp_dir")
                 .join("creating_temp_dir_base_on_current_async_function"),
             temp_dir!(),

@@ -1,9 +1,15 @@
 //! Test utilities
 //!
-//! They contains:
-//! * A Open Api Spec tester
-//! * Some precomputed fake data and keys
-//! * A builder of [MithrilFixture] to generate signers alongside a stake distribution
+//! A collection of testing utilities and helpers:
+//!
+//! * `assert`: Custom assertions for comparing directory structures, iterables, JSON strings and more
+//! * `builder`: Test data builders and fixtures
+//! * `crypto_helper`: Cryptographic utilities for testing
+//! * `double`: Test doubles (mocks, fakes, dummies, ...)
+//! * `entities_extensions`: Extension traits adding test-specific methods for [crate::entities]
+//! * `logging`: Test logging infrastructure
+//! * `mock_extensions`: Additional mocking utilities
+//! * `temp_dir`: Temporary directory management for tests
 //!
 
 pub mod builder;
@@ -89,7 +95,7 @@ mod utils {
     #[test]
     fn test_format_function_path_from_given_function() {
         assert_eq!(
-            "mithril_common/test_utils/utils/test_format_function_path_from_given_function",
+            "mithril_common/test/utils/test_format_function_path_from_given_function",
             format_current_function_path(test_format_function_path_from_given_function)
         );
     }
@@ -98,7 +104,7 @@ mod utils {
     fn test_format_function_path_from_given_pseudo_function_f() {
         fn f() {}
         assert_eq!(
-            "mithril_common/test_utils/utils/test_format_function_path_from_given_pseudo_function_f",
+            "mithril_common/test/utils/test_format_function_path_from_given_pseudo_function_f",
             format_current_function_path(f)
         );
     }
@@ -107,7 +113,7 @@ mod utils {
     async fn test_format_function_path_from_given_async_function_f() {
         fn f() {}
         assert_eq!(
-            "mithril_common/test_utils/utils/test_format_function_path_from_given_async_function_f",
+            "mithril_common/test/utils/test_format_function_path_from_given_async_function_f",
             format_current_function_path(f)
         );
     }
@@ -116,7 +122,7 @@ mod utils {
     fn test_build_current_function_path_using_macros() {
         assert_eq!(
             Path::new("mithril_common")
-                .join("test_utils")
+                .join("test")
                 .join("utils")
                 .join("test_build_current_function_path_using_macros"),
             current_function_path!()
@@ -127,7 +133,7 @@ mod utils {
     async fn test_build_current_async_function_path_using_macros() {
         assert_eq!(
             Path::new("mithril_common")
-                .join("test_utils")
+                .join("test")
                 .join("utils")
                 .join("test_build_current_async_function_path_using_macros"),
             current_function_path!()

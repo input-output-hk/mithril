@@ -19,7 +19,7 @@ pub type BlockRangeLength = BlockNumber;
 /// BlockRange for the Cardano chain
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq, Debug, Hash)]
 pub struct BlockRange {
-    pub(crate) inner_range: Range<BlockNumber>,
+    inner_range: Range<BlockNumber>,
 }
 
 impl BlockRange {
@@ -201,6 +201,38 @@ impl ExactSizeIterator for BlockRangesSequence {
     }
 }
 
+#[cfg(any(test, feature = "test_tools"))]
+mod test_extensions {
+    use crate::test::entities_extensions::BlockRangeTestExtension;
+
+    use super::*;
+
+    impl BlockRangeTestExtension for BlockRange {
+        fn new(start: u64, end: u64) -> Self {
+            Self {
+                inner_range: BlockNumber(start)..BlockNumber(end),
+            }
+        }
+
+        fn try_add(&self, other: &BlockRange) -> StdResult<BlockRange> {
+            if self.inner_range.end.max(other.inner_range.end)
+                < self.inner_range.start.min(other.inner_range.start)
+            {
+                return Err(anyhow!(
+                    "BlockRange cannot be added as they don't strictly overlap"
+                ));
+            }
+
+            Ok(Self {
+                inner_range: Range {
+                    start: self.inner_range.start.min(other.inner_range.start),
+                    end: self.inner_range.end.max(other.inner_range.end),
+                },
+            })
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::ops::Not;
@@ -232,6 +264,22 @@ mod tests {
         assert!(BlockRange::new(1, 10) < BlockRange::new(1, 11));
         assert!(BlockRange::new(1, 10) < BlockRange::new(2, 10));
         assert!(BlockRange::new(1, 11) < BlockRange::new(2, 10));
+    }
+
+    #[test]
+    fn test_block_range_try_add() {
+        assert_eq!(
+            BlockRange::new(1, 10).try_add(&BlockRange::new(1, 10)).unwrap(),
+            BlockRange::new(1, 10)
+        );
+        assert_eq!(
+            BlockRange::new(1, 10).try_add(&BlockRange::new(1, 11)).unwrap(),
+            BlockRange::new(1, 11)
+        );
+        assert_eq!(
+            BlockRange::new(1, 10).try_add(&BlockRange::new(2, 10)).unwrap(),
+            BlockRange::new(1, 10)
+        );
     }
 
     #[test]

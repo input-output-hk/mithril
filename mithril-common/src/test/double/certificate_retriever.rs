@@ -27,7 +27,8 @@ impl FakeCertificaterRetriever {
     }
 }
 
-#[async_trait]
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
 impl CertificateRetriever for FakeCertificaterRetriever {
     async fn get_certificate_details(
         &self,

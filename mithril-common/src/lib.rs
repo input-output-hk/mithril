@@ -9,16 +9,6 @@
 //! - [certificate chain][certificate_chain] used to validate the Certificate Chain created by an aggregator
 //! - The [entities] used by, and exchanged between, the aggregator, signers and client.
 
-macro_rules! cfg_test_tools {
-    ($($item:item)*) => {
-        $(
-            #[cfg(any(test, feature = "test_tools"))]
-            #[cfg_attr(docsrs, doc(cfg(feature = "test_tools")))]
-            $item
-        )*
-    }
-}
-
 pub mod api_version;
 pub mod certificate_chain;
 pub mod crypto_helper;
@@ -28,9 +18,9 @@ pub mod messages;
 pub mod protocol;
 pub mod signable_builder;
 
-cfg_test_tools! {
-    pub mod test;
-}
+#[cfg(any(test, feature = "test_tools"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "test_tools")))]
+pub mod test;
 
 pub use entities::{CardanoNetwork, MagicId};
 

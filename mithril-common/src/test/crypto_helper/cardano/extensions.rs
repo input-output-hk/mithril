@@ -1,20 +1,12 @@
 use anyhow::Context;
 
 use crate::StdResult;
-use crate::crypto_helper::{
-    MKProof, MKTree, MKTreeNode, MKTreeStoreInMemory, ProtocolInitializer, ProtocolParameters,
-};
+use crate::crypto_helper::{MKProof, MKTree, MKTreeNode, MKTreeStoreInMemory, ProtocolParameters};
 
-/// Extension trait adding test utilities to [ProtocolInitializer]
+/// Extension trait adding test utilities to [ProtocolInitializer][crate::crypto_helper::ProtocolInitializer]
 pub trait ProtocolInitializerTestExtension {
     /// `TEST ONLY` - Override the protocol parameters of the `Initializer`
     fn override_protocol_parameters(&mut self, protocol_parameters: &ProtocolParameters);
-}
-
-impl ProtocolInitializerTestExtension for ProtocolInitializer {
-    fn override_protocol_parameters(&mut self, protocol_parameters: &ProtocolParameters) {
-        self.stm_initializer.params = protocol_parameters.to_owned();
-    }
 }
 
 /// Extension trait adding test utilities to [MKProof]

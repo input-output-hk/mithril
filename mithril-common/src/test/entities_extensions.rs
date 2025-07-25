@@ -1,9 +1,6 @@
 //! A set of extension traits to add test utilities to this crate `entities`
 
 use std::collections::HashMap;
-use std::ops::Range;
-
-use anyhow::anyhow;
 
 use crate::StdResult;
 use crate::crypto_helper::{
@@ -22,31 +19,6 @@ pub trait BlockRangeTestExtension {
 
     /// `TEST ONLY` - Try to add two BlockRanges
     fn try_add(&self, other: &BlockRange) -> StdResult<BlockRange>;
-}
-
-impl BlockRangeTestExtension for BlockRange {
-    fn new(start: u64, end: u64) -> Self {
-        Self {
-            inner_range: BlockNumber(start)..BlockNumber(end),
-        }
-    }
-
-    fn try_add(&self, other: &BlockRange) -> StdResult<BlockRange> {
-        if self.inner_range.end.max(other.inner_range.end)
-            < self.inner_range.start.min(other.inner_range.start)
-        {
-            return Err(anyhow!(
-                "BlockRange cannot be added as they don't strictly overlap"
-            ));
-        }
-
-        Ok(Self {
-            inner_range: Range {
-                start: self.inner_range.start.min(other.inner_range.start),
-                end: self.inner_range.end.max(other.inner_range.end),
-            },
-        })
-    }
 }
 
 /// Extension trait adding test utilities to [CardanoTransactionsSetProof]
@@ -124,26 +96,5 @@ impl SingleSignatureTestExtension for SingleSignature {
             won_indexes: vec![10, 15],
             authentication_status: SingleSignatureAuthenticationStatus::Unauthenticated,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_block_range_try_add() {
-        assert_eq!(
-            BlockRange::new(1, 10).try_add(&BlockRange::new(1, 10)).unwrap(),
-            BlockRange::new(1, 10)
-        );
-        assert_eq!(
-            BlockRange::new(1, 10).try_add(&BlockRange::new(1, 11)).unwrap(),
-            BlockRange::new(1, 11)
-        );
-        assert_eq!(
-            BlockRange::new(1, 10).try_add(&BlockRange::new(2, 10)).unwrap(),
-            BlockRange::new(1, 10)
-        );
     }
 }
