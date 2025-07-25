@@ -18,8 +18,6 @@ pub mod messages;
 pub mod protocol;
 pub mod signable_builder;
 
-#[cfg(any(test, feature = "test_tools"))]
-#[cfg_attr(docsrs, doc(cfg(feature = "test_tools")))]
 pub mod test;
 
 pub use entities::{CardanoNetwork, MagicId};
