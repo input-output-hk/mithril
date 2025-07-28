@@ -18,6 +18,16 @@ on:
         required: true
         type: string
         default: "CardanoTransactions,CardanoStakeDistribution,CardanoDatabase,CardanoImmutableFilesFull"
+      release-to-test:
+        description: "Release to test against the latest published releases"
+        required: true
+        type: string
+        default: "unstable"
+      e2e-release:
+        description: "Release used to build the end-to-end binary"
+        required: true
+        type: string
+        default: "unstable"
   workflow_call:
     inputs:
       total-releases:
@@ -29,6 +39,12 @@ on:
       signed-entity-types:
         type: string
         default: "CardanoTransactions,CardanoStakeDistribution,CardanoDatabase,CardanoImmutableFilesFull"
+      release-to-test:
+        type: string
+        default: "unstable"
+      e2e-release:
+        type: string
+        default: "unstable"
 
 jobs:
   prepare-env-variables:
@@ -49,13 +65,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Download releases artifacts binaries
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          ./.github/workflows/scripts/download-distribution-binaries.sh ${{ inputs.total-releases }}
+          ./.github/workflows/scripts/download-distribution-binaries.sh ${{ inputs.total-releases }} ${{ inputs.release-to-test }}
 
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@master
@@ -65,8 +84,10 @@ jobs:
       - name: Build e2e
         shell: bash
         run: |
+          git checkout ${{ inputs.e2e-release }}
           cargo build --release --bin mithril-end-to-end
-          cp ./target/release/mithril-end-to-end ./mithril-binaries/unstable
+          mkdir -p ./mithril-binaries/e2e-${{ inputs.e2e-release }}
+          cp ./target/release/mithril-end-to-end ./mithril-binaries/e2e-${{ inputs.e2e-release }}
 
       - name: Upload Mithril binaries
         uses: actions/upload-artifact@v4
@@ -107,7 +128,8 @@ jobs:
         shell: bash
         run: |
           mkdir -p mithril-binaries/e2e
-          cp ./mithril-binaries/unstable/* ./mithril-binaries/e2e
+          cp ./mithril-binaries/e2e-${{ inputs.e2e-release }}/* ./mithril-binaries/e2e
+          cp ./mithril-binaries/${{ inputs.release-to-test }}/* ./mithril-binaries/e2e
           cp --remove-destination ./mithril-binaries/${{ matrix.tag }}/${{ matrix.node }} ./mithril-binaries/e2e/
 
           chmod +x ./mithril-binaries/e2e/mithril-aggregator
@@ -151,9 +173,9 @@ jobs:
         if: success() || failure()
         shell: bash
         run: |
-          AGGREGATOR_TAG="unstable"
-          SIGNER_TAG="unstable"
-          CLIENT_TAG="unstable"
+          AGGREGATOR_TAG="${{ inputs.release-to-test }}"
+          SIGNER_TAG="${{ inputs.release-to-test }}"
+          CLIENT_TAG="${{ inputs.release-to-test }}"
 
           case "$NODE" in
             mithril-aggregator)
@@ -224,7 +246,7 @@ jobs:
           echo "## Distributions backward compatibility" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          echo "This is the compatibility report of previous distributions nodes with the current unstable nodes." >> $GITHUB_STEP_SUMMARY
+          echo "This is the compatibility report of the latest distributions against **'${{ inputs.release-to-test }}'**." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "**Signed entity types**: ${{ inputs.signed-entity-types }}" >> $GITHUB_STEP_SUMMARY
