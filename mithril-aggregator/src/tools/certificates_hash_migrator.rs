@@ -254,7 +254,7 @@ mod test {
     fn dummy_genesis(certificate_hash: &str, time_point: TimePoint) -> Certificate {
         let certificate = CertificateRecord::dummy_genesis(certificate_hash, time_point.epoch);
 
-        certificate.into()
+        certificate.try_into().unwrap()
     }
 
     fn dummy_certificate(
@@ -272,7 +272,7 @@ mod test {
                 .unwrap(),
         );
 
-        certificate.into()
+        certificate.try_into().unwrap()
     }
 
     fn signed_entity_for_certificate(certificate: &Certificate) -> Option<SignedEntityRecord> {

@@ -4,9 +4,9 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use sqlite::ConnectionThreadSafe;
 
-use mithril_common::StdResult;
 use mithril_common::certificate_chain::{CertificateRetriever, CertificateRetrieverError};
 use mithril_common::entities::{Certificate, Epoch};
+use mithril_common::{StdError, StdResult};
 use mithril_persistence::sqlite::ConnectionExtensions;
 
 use crate::database::query::{
@@ -30,35 +30,41 @@ impl CertificateRepository {
     /// Return the certificate corresponding to the given hash if any.
     pub async fn get_certificate<T>(&self, hash: &str) -> StdResult<Option<T>>
     where
-        T: From<CertificateRecord>,
+        T: TryFrom<CertificateRecord>,
+        T::Error: Into<StdError>,
     {
         let record = self
             .connection
             .fetch_first(GetCertificateRecordQuery::by_certificate_id(hash))?;
 
-        Ok(record.map(|c| c.into()))
+        record.map(|c| c.try_into().map_err(Into::into)).transpose()
     }
 
     /// Return the latest certificates.
     pub async fn get_latest_certificates<T>(&self, last_n: usize) -> StdResult<Vec<T>>
     where
-        T: From<CertificateRecord>,
+        T: TryFrom<CertificateRecord>,
+        T::Error: Into<StdError>,
     {
         let cursor = self.connection.fetch(GetCertificateRecordQuery::all())?;
 
-        Ok(cursor.take(last_n).map(|v| v.into()).collect())
+        cursor
+            .take(last_n)
+            .map(|c| c.try_into().map_err(Into::into))
+            .collect()
     }
 
     /// Return the latest genesis certificate.
     pub async fn get_latest_genesis_certificate<T>(&self) -> StdResult<Option<T>>
     where
-        T: From<CertificateRecord>,
+        T: TryFrom<CertificateRecord>,
+        T::Error: Into<StdError>,
     {
         let record = self
             .connection
             .fetch_first(GetCertificateRecordQuery::all_genesis())?;
 
-        Ok(record.map(|c| c.into()))
+        record.map(|c| c.try_into().map_err(Into::into)).transpose()
     }
 
     /// Return the first certificate signed per epoch as the reference
@@ -66,13 +72,14 @@ impl CertificateRepository {
     /// other certificates issued within this Epoch.
     pub async fn get_master_certificate_for_epoch<T>(&self, epoch: Epoch) -> StdResult<Option<T>>
     where
-        T: From<CertificateRecord>,
+        T: TryFrom<CertificateRecord>,
+        T::Error: Into<StdError>,
     {
         let record = self
             .connection
             .fetch_first(MasterCertificateQuery::for_epoch(epoch))?;
 
-        Ok(record.map(|c| c.into()))
+        record.map(|c| c.try_into().map_err(Into::into)).transpose()
     }
 
     /// Create a new certificate in the database.
@@ -80,13 +87,13 @@ impl CertificateRepository {
         let record = self
             .connection
             .fetch_first(InsertCertificateRecordQuery::one(
-                certificate.clone().into(),
+                certificate.clone().try_into()?,
             ))?
             .unwrap_or_else(|| {
                 panic!("No entity returned by the persister, certificate = {certificate:#?}")
             });
 
-        Ok(record.into())
+        record.try_into()
     }
 
     /// Create many certificates at once in the database.
@@ -98,12 +105,14 @@ impl CertificateRepository {
             return Ok(vec![]);
         }
 
-        let records: Vec<CertificateRecord> =
-            certificates.into_iter().map(|cert| cert.into()).collect();
+        let records: Vec<CertificateRecord> = certificates
+            .into_iter()
+            .map(|cert| cert.try_into())
+            .collect::<StdResult<_>>()?;
         let new_certificates =
             self.connection.fetch(InsertCertificateRecordQuery::many(records))?;
 
-        Ok(new_certificates.map(|cert| cert.into()).collect())
+        new_certificates.map(|cert| cert.try_into()).collect::<StdResult<_>>()
     }
 
     /// Create, or replace if they already exist, many certificates at once in the database.
@@ -115,13 +124,15 @@ impl CertificateRepository {
             return Ok(vec![]);
         }
 
-        let records: Vec<CertificateRecord> =
-            certificates.into_iter().map(|cert| cert.into()).collect();
+        let records: Vec<CertificateRecord> = certificates
+            .into_iter()
+            .map(|cert| cert.try_into())
+            .collect::<StdResult<_>>()?;
         let new_certificates = self
             .connection
             .fetch(InsertOrReplaceCertificateRecordQuery::many(records))?;
 
-        Ok(new_certificates.map(|cert| cert.into()).collect())
+        new_certificates.map(|cert| cert.try_into()).collect::<StdResult<_>>()
     }
 
     /// Delete all the given certificates from the database
@@ -331,7 +342,7 @@ mod tests {
     async fn get_master_certificate_one_cert_in_current_epoch_recorded_returns_that_one() {
         let connection = Arc::new(main_db_connection().unwrap());
         let certificate = CertificateRecord::dummy_genesis("1", Epoch(1));
-        let expected_certificate: Certificate = certificate.clone().into();
+        let expected_certificate: Certificate = certificate.clone().try_into().unwrap();
         insert_certificate_records(&connection, vec![certificate]);
 
         let repository: CertificateRepository = CertificateRepository::new(connection);
@@ -353,7 +364,8 @@ mod tests {
             CertificateRecord::dummy_db_snapshot("2", "1", Epoch(1), 2),
             CertificateRecord::dummy_db_snapshot("3", "1", Epoch(1), 3),
         ];
-        let expected_certificate: Certificate = certificates.first().unwrap().clone().into();
+        let expected_certificate: Certificate =
+            certificates.first().unwrap().clone().try_into().unwrap();
         insert_certificate_records(&connection, certificates);
 
         let repository: CertificateRepository = CertificateRepository::new(connection);
@@ -375,7 +387,8 @@ mod tests {
             CertificateRecord::dummy_db_snapshot("2", "1", Epoch(1), 2),
             CertificateRecord::dummy_db_snapshot("3", "1", Epoch(1), 3),
         ];
-        let expected_certificate: Certificate = certificates.first().unwrap().clone().into();
+        let expected_certificate: Certificate =
+            certificates.first().unwrap().clone().try_into().unwrap();
         insert_certificate_records(&connection, certificates);
 
         let repository: CertificateRepository = CertificateRepository::new(connection);
@@ -398,7 +411,8 @@ mod tests {
             CertificateRecord::dummy_db_snapshot("3", "1", Epoch(1), 3),
             CertificateRecord::dummy_db_snapshot("4", "1", Epoch(2), 4),
         ];
-        let expected_certificate: Certificate = certificates.last().unwrap().clone().into();
+        let expected_certificate: Certificate =
+            certificates.last().unwrap().clone().try_into().unwrap();
         insert_certificate_records(&connection, certificates);
 
         let repository: CertificateRepository = CertificateRepository::new(connection);
@@ -423,7 +437,8 @@ mod tests {
             CertificateRecord::dummy_db_snapshot("5", "4", Epoch(2), 5),
             CertificateRecord::dummy_db_snapshot("6", "4", Epoch(2), 6),
         ];
-        let expected_certificate: Certificate = certificates.get(3).unwrap().clone().into();
+        let expected_certificate: Certificate =
+            certificates.get(3).unwrap().clone().try_into().unwrap();
         insert_certificate_records(&connection, certificates);
 
         let repository: CertificateRepository = CertificateRepository::new(connection);
@@ -465,7 +480,8 @@ mod tests {
             CertificateRecord::dummy_db_snapshot("3", "1", Epoch(1), 3),
             CertificateRecord::dummy_genesis("4", Epoch(1)),
         ];
-        let expected_certificate: Certificate = certificates.last().unwrap().clone().into();
+        let expected_certificate: Certificate =
+            certificates.last().unwrap().clone().try_into().unwrap();
         insert_certificate_records(&connection, certificates);
 
         let repository: CertificateRepository = CertificateRepository::new(connection);
@@ -490,7 +506,8 @@ mod tests {
             CertificateRecord::dummy_db_snapshot("5", "1", Epoch(2), 5),
             CertificateRecord::dummy_genesis("6", Epoch(2)),
         ];
-        let expected_certificate: Certificate = certificates.last().unwrap().clone().into();
+        let expected_certificate: Certificate =
+            certificates.last().unwrap().clone().try_into().unwrap();
         insert_certificate_records(&connection, certificates);
 
         let repository: CertificateRepository = CertificateRepository::new(connection);
@@ -513,7 +530,8 @@ mod tests {
             CertificateRecord::dummy_db_snapshot("3", "1", Epoch(1), 3),
             CertificateRecord::dummy_genesis("4", Epoch(2)),
         ];
-        let expected_certificate: Certificate = certificates.last().unwrap().clone().into();
+        let expected_certificate: Certificate =
+            certificates.last().unwrap().clone().try_into().unwrap();
         insert_certificate_records(&connection, certificates);
 
         let repository: CertificateRepository = CertificateRepository::new(connection);
@@ -574,7 +592,8 @@ mod tests {
             CertificateRecord::dummy_db_snapshot("3", "1", Epoch(1), 3),
         ];
         insert_certificate_records(&connection, records.clone());
-        let certificates: Vec<Certificate> = records.into_iter().map(|c| c.into()).collect();
+        let certificates: Vec<Certificate> =
+            records.into_iter().map(|c| c.try_into().unwrap()).collect();
 
         // Delete all records except the first
         repository

@@ -82,7 +82,7 @@ mod tests {
         let expected_certificate_records: Vec<CertificateRecord> = certificates
             .reversed_chain()
             .into_iter()
-            .filter_map(|c| (c.epoch == Epoch(1)).then_some(c.to_owned().into()))
+            .filter_map(|c| (c.epoch == Epoch(1)).then_some(c.to_owned().try_into().unwrap()))
             .collect();
         assert_eq!(expected_certificate_records, certificate_records);
 
@@ -92,7 +92,7 @@ mod tests {
         let expected_certificate_records: Vec<CertificateRecord> = certificates
             .reversed_chain()
             .into_iter()
-            .filter_map(|c| (c.epoch == Epoch(3)).then_some(c.to_owned().into()))
+            .filter_map(|c| (c.epoch == Epoch(3)).then_some(c.to_owned().try_into().unwrap()))
             .collect();
         assert_eq!(expected_certificate_records, certificate_records);
 
@@ -105,8 +105,11 @@ mod tests {
     #[test]
     fn test_get_all_certificate_records() {
         let certificates = setup_certificate_chain(5, 2);
-        let expected_certificate_records: Vec<CertificateRecord> =
-            certificates.reversed_chain().into_iter().map(Into::into).collect();
+        let expected_certificate_records: Vec<CertificateRecord> = certificates
+            .reversed_chain()
+            .into_iter()
+            .map(|c| c.try_into().unwrap())
+            .collect();
 
         let connection = main_db_connection().unwrap();
         insert_certificate_records(&connection, certificates.certificates_chained.clone());
@@ -127,8 +130,11 @@ mod tests {
                 phi_f: 0.65,
             })
             .build();
-        let first_chain_genesis: CertificateRecord =
-            first_certificates_chain.genesis_certificate().clone().into();
+        let first_chain_genesis: CertificateRecord = first_certificates_chain
+            .genesis_certificate()
+            .clone()
+            .try_into()
+            .unwrap();
         let second_certificates_chain = CertificateChainBuilder::new()
             .with_total_certificates(2)
             .with_protocol_parameters(ProtocolParameters {
@@ -137,8 +143,11 @@ mod tests {
                 phi_f: 0.65,
             })
             .build();
-        let second_chain_genesis: CertificateRecord =
-            second_certificates_chain.genesis_certificate().clone().into();
+        let second_chain_genesis: CertificateRecord = second_certificates_chain
+            .genesis_certificate()
+            .clone()
+            .try_into()
+            .unwrap();
         assert_ne!(first_chain_genesis, second_chain_genesis);
 
         let connection = main_db_connection().unwrap();
