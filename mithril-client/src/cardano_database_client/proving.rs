@@ -44,6 +44,8 @@ impl InternalArtifactProver {
     }
 
     /// Compute the Merkle proof of membership for the given immutable file range.
+    ///
+    /// It will recursively search for immutables directory inside the provided `database_dir`.
     pub async fn compute_merkle_proof(
         &self,
         certificate: &CertificateMessage,

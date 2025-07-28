@@ -133,7 +133,7 @@ impl ImmutableFile {
         Ok(hasher.finalize())
     }
 
-    /// List all [`ImmutableFile`] in a given directory.
+    /// List all [`ImmutableFile`] in a given directory by recursively searching a immutable directory.
     pub fn list_all_in_dir(dir: &Path) -> Result<Vec<ImmutableFile>, ImmutableFileListingError> {
         let immutable_dir = find_immutables_dir(dir).ok_or(
             ImmutableFileListingError::MissingImmutableFolder(dir.to_path_buf()),
@@ -169,7 +169,7 @@ impl ImmutableFile {
         }
     }
 
-    /// Check if at least one immutable file exists in the given directory
+    /// Check if at least one immutable file exists in the given directory by recursively searching a immutable directory
     pub fn at_least_one_immutable_files_exist_in_dir(
         dir: &Path,
     ) -> Result<(), ImmutableFileListingError> {
