@@ -131,7 +131,7 @@ runs:
         EOF
 
     - name: Fetch the latest version of the unstable tag
-      if: contains(inputs.version-name, 'unstable')
+      if: contains(inputs.tag, 'unstable')
       shell: bash
       run: |
         cat >> ./release-notes-addon.txt << EOF
