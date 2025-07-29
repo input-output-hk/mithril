@@ -80,11 +80,13 @@ This repository consists of the following parts:
 - [**Mithril signer**](./mithril-signer): the node of the **Mithril network** responsible for producing individual signatures that are collected and aggregated by the **Mithril aggregator**.
 
 - [**Internal**](./internal): the shared tools and API used by **Mithril** crates.
+  - [**Mithril aggregator client**](./internal/mithril-aggregator-client): a client to request data from a Mithril Aggregator, used by **Mithril network** nodes and client library.
+
   - [**Mithril build script**](./internal/mithril-build-script): a toolbox for Mithril crates that uses a build script phase.
 
   - [**Mithril cardano-node-chain**](./internal/cardano-node/mithril-cardano-node-chain): mechanisms to read and interact with the **Cardano chain** through a Cardano node, used by **Mithril network** nodes.
 
-  - [**Mithril cardano-node-internal-database**](./internal/cardano-node/mithril-cardano-node-internal-database): mechanisms to read the files of a **Cardano node** internal database and compute digests from them, used by **Mithril network** nodes.
+  - [**Mithril cardano-node-internal-database**](./internal/cardano-node/mithril-cardano-node-internal-database): mechanisms to read the files of a **Cardano node** internal database and compute digests from them, used by **Mithril network** nodes and client library.
 
   - [**Mithril cli helper**](./internal/mithril-cli-helper): **CLI** tools for **Mithril** binaries.
 
