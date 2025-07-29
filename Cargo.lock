@@ -4059,7 +4059,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-cardano-node-internal-database"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4090,7 +4090,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.12.24"
+version = "0.12.25"
 dependencies = [
  "anyhow",
  "async-recursion",

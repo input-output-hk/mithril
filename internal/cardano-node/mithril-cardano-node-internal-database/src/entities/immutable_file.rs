@@ -133,7 +133,7 @@ impl ImmutableFile {
         Ok(hasher.finalize())
     }
 
-    /// List all [`ImmutableFile`] in a given directory.
+    /// List all [`ImmutableFile`] in a given directory by recursively searching a immutable directory.
     pub fn list_all_in_dir(dir: &Path) -> Result<Vec<ImmutableFile>, ImmutableFileListingError> {
         let immutable_dir = find_immutables_dir(dir).ok_or(
             ImmutableFileListingError::MissingImmutableFolder(dir.to_path_buf()),
@@ -169,7 +169,7 @@ impl ImmutableFile {
         }
     }
 
-    /// Check if at least one immutable file exists in the given directory
+    /// Check if at least one immutable file exists in the given directory by recursively searching a immutable directory
     pub fn at_least_one_immutable_files_exist_in_dir(
         dir: &Path,
     ) -> Result<(), ImmutableFileListingError> {
@@ -424,6 +424,33 @@ mod tests {
             error.to_string(),
             format!("Couldn't find the 'immutable' folder in '{database_path:?}'")
         );
+    }
+
+    #[test]
+    fn find_immutables_dir_returns_none_if_no_immutable_dir_found() {
+        let database_path = temp_dir_create!();
+        assert!(find_immutables_dir(&database_path).is_none());
+    }
+
+    #[test]
+    fn find_immutables_dir_returns_immutable_dir_if_found_at_root() {
+        let database_path = temp_dir_create!();
+        fs::create_dir(database_path.join(IMMUTABLE_DIR)).unwrap();
+
+        let immutable_dir =
+            find_immutables_dir(&database_path).expect("Immutable directory should be found");
+        assert_eq!(immutable_dir, database_path.join(IMMUTABLE_DIR));
+    }
+
+    #[test]
+    fn find_immutables_dir_returns_immutable_dir_if_found_at_any_depth() {
+        let database_path = temp_dir_create!();
+        let subdir = database_path.join("one/two/three");
+        fs::create_dir_all(subdir.join(IMMUTABLE_DIR)).unwrap();
+
+        let immutable_dir =
+            find_immutables_dir(&database_path).expect("Immutable directory should be found");
+        assert_eq!(immutable_dir, subdir.join(IMMUTABLE_DIR));
     }
 
     #[test]
