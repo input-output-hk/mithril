@@ -3,15 +3,28 @@
 set -e
 
 TOTAL_RELEASES=$1
+TAG_TO_TEST=$2
 ASSETS_DIRECTORY="./mithril-binaries"
 TAG_FILE=$ASSETS_DIRECTORY/tags.json
+TAGS_TO_COMPARE=()
 
-echo ">> Retrieving artifacts for last ${TOTAL_RELEASES} releases and unstable"
 mkdir -p $ASSETS_DIRECTORY
-gh api /repos/input-output-hk/mithril/releases | jq -r --argjson TOTAL $TOTAL_RELEASES '[.[] | select(.prerelease == false)] | [.[:$TOTAL][].tag_name]' >> $TAG_FILE
+LATEST_TAGS=$(gh api /repos/input-output-hk/mithril/releases | jq -r '[.[] | select(.prerelease == false)][].tag_name' | head -n "$TOTAL_RELEASES")
 
-TAG_NAMES=$(cat $TAG_FILE | jq -r '.[]' | tr '\n' ' ')
-for TAG_NAME in unstable $TAG_NAMES
+for TAG in $LATEST_TAGS; do
+  if [[ "$TAG" == "$TAG_TO_TEST" ]]; then
+    continue
+  fi
+  TAGS_TO_COMPARE+=("$TAG")
+done
+
+printf '%s\n' "${TAGS_TO_COMPARE[@]}" | jq -R -s -c 'split("\n") | map(select(. != ""))' > "$TAG_FILE"
+
+TAGS_TO_DOWNLOAD=("$TAG_TO_TEST" "${TAGS_TO_COMPARE[@]}")
+echo ">> Downloading Mithril distribution binaries"
+echo ">> Release to test: $TAG_TO_TEST"
+echo ">> Releases to be tested against: ${TAGS_TO_COMPARE[*]}"
+for TAG_NAME in "${TAGS_TO_DOWNLOAD[@]}"
 do
     echo ">>>> Retrieving artifacts for release ${TAG_NAME}"
     ARCHIVE_DIRECTORY="./mithril-binaries/$TAG_NAME"
