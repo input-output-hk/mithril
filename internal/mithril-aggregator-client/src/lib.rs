@@ -16,4 +16,5 @@ pub use error::AggregatorClientError;
 pub(crate) const JSON_CONTENT_TYPE: reqwest::header::HeaderValue =
     reqwest::header::HeaderValue::from_static("application/json");
 
+/// Aggregator-client result type
 pub type AggregatorClientResult<T> = Result<T, error::AggregatorClientError>;

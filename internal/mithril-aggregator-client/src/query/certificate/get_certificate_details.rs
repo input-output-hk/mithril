@@ -8,12 +8,14 @@ use crate::AggregatorClientResult;
 use crate::error::AggregatorClientError;
 use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
 
+/// Get the details of a certificate
 pub struct CertificateDetailsQuery {
     hash: String,
 }
 
 impl CertificateDetailsQuery {
-    pub fn new(hash: String) -> Self {
+    /// Instantiate a query to get a certificate by hash
+    pub fn by_hash(hash: String) -> Self {
         Self { hash }
     }
 }

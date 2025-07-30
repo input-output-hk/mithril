@@ -14,6 +14,7 @@ use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
 
 const API_VERSION_MISMATCH_WARNING_MESSAGE: &str = "OpenAPI version may be incompatible, please update Mithril client library to the latest version.";
 
+/// A client to send HTTP requests to a Mithril Aggregator
 pub struct AggregatorClient {
     pub(super) aggregator_endpoint: Url,
     pub(super) api_version_provider: APIVersionProvider,
@@ -30,6 +31,7 @@ impl AggregatorClient {
         AggregatorClientBuilder::new(aggregator_url)
     }
 
+    /// Send the given query to the Mithril Aggregator
     pub async fn send<Q: AggregatorQuery>(&self, query: Q) -> AggregatorClientResult<Q::Response> {
         // Todo: error handling ? Reuse the version in `warn_if_api_version_mismatch` ?
         let current_api_version = self.api_version_provider.compute_current_version().unwrap();
