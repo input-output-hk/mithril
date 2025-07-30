@@ -95,12 +95,17 @@ esac
 # Set temp file
 TEMP_FILE="${INSTALL_PATH}/temp.json"
 
-# Create the install path if it doesn't exist
-mkdir -p "$INSTALL_PATH"
-
 # Check if node and path are provided
 if [ -z "$NODE" ] || [ -z "$DISTRIBUTION" ] || [ -z "$INSTALL_PATH" ]; then
   usage
+fi
+
+# Create the install path if it doesn't exist
+mkdir -p "$INSTALL_PATH"
+
+# Check if install path is writable
+if [ ! -w "$INSTALL_PATH" ]; then
+  error_exit "Error: The specified install path '$INSTALL_PATH' is not writable."
 fi
 
 # Validate node
