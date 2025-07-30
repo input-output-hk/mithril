@@ -2,6 +2,7 @@ use anyhow::{Context, anyhow};
 use reqwest::{IntoUrl, Response, Url};
 use semver::Version;
 use slog::{Logger, error, warn};
+use std::time::Duration;
 
 use mithril_common::MITHRIL_API_VERSION_HEADER;
 use mithril_common::api_version::APIVersionProvider;
@@ -16,6 +17,7 @@ const API_VERSION_MISMATCH_WARNING_MESSAGE: &str = "OpenAPI version may be incom
 pub struct AggregatorClient {
     pub(super) aggregator_endpoint: Url,
     pub(super) api_version_provider: APIVersionProvider,
+    pub(super) timeout_duration: Option<Duration>,
     pub(super) client: reqwest::Client,
     pub(super) logger: Logger,
 }
@@ -39,6 +41,10 @@ impl AggregatorClient {
 
         if let Some(body) = query.body() {
             request_builder = request_builder.json(&body);
+        }
+
+        if let Some(timeout) = self.timeout_duration {
+            request_builder = request_builder.timeout(timeout);
         }
 
         match request_builder.send().await {
@@ -159,6 +165,15 @@ mod tests {
         chu: u8,
     }
 
+    impl TestBody {
+        fn new<P: Into<String>>(pika: P, chu: u8) -> Self {
+            Self {
+                pika: pika.into(),
+                chu,
+            }
+        }
+    }
+
     struct TestPostQuery {
         body: TestBody,
     }
@@ -226,6 +241,23 @@ mod tests {
 
             client.send(TestGetQuery).await.expect("should not fail");
         }
+
+        #[tokio::test]
+        async fn test_get_query_timeout() {
+            let (server, mut client) = setup_server_and_client();
+            client.timeout_duration = Some(Duration::from_millis(10));
+            let _server_mock = server.mock(|when, then| {
+                when.method(httpmock::Method::GET);
+                then.delay(Duration::from_millis(100));
+            });
+
+            let error = client.send(TestGetQuery).await.expect_err("should not fail");
+
+            assert!(
+                matches!(error, AggregatorClientError::RemoteServerUnreachable(_)),
+                "unexpected error type: {error:?}"
+            );
+        }
     }
 
     mod post {
@@ -238,22 +270,13 @@ mod tests {
                 when.method(httpmock::Method::POST)
                     .path("/dummy-post-route")
                     .header("content-type", "application/json")
-                    .body(
-                        serde_json::to_string(&TestBody {
-                            pika: "miaouss".to_string(),
-                            chu: 5,
-                        })
-                        .unwrap(),
-                    );
+                    .body(serde_json::to_string(&TestBody::new("miaouss", 5)).unwrap());
                 then.status(201);
             });
 
             let response = client
                 .send(TestPostQuery {
-                    body: TestBody {
-                        pika: "miaouss".to_string(),
-                        chu: 5,
-                    },
+                    body: TestBody::new("miaouss", 5),
                 })
                 .await
                 .unwrap();
@@ -274,13 +297,32 @@ mod tests {
 
             client
                 .send(TestPostQuery {
-                    body: TestBody {
-                        pika: "a".to_string(),
-                        chu: 3,
-                    },
+                    body: TestBody::new("miaouss", 3),
                 })
                 .await
                 .expect("should not fail");
+        }
+
+        #[tokio::test]
+        async fn test_post_query_timeout() {
+            let (server, mut client) = setup_server_and_client();
+            client.timeout_duration = Some(Duration::from_millis(10));
+            let _server_mock = server.mock(|when, then| {
+                when.method(httpmock::Method::POST);
+                then.delay(Duration::from_millis(100));
+            });
+
+            let error = client
+                .send(TestPostQuery {
+                    body: TestBody::new("miaouss", 3),
+                })
+                .await
+                .expect_err("should not fail");
+
+            assert!(
+                matches!(error, AggregatorClientError::RemoteServerUnreachable(_)),
+                "unexpected error type: {error:?}"
+            );
         }
     }
 
@@ -481,10 +523,7 @@ mod tests {
 
             client
                 .send(TestPostQuery {
-                    body: TestBody {
-                        pika: "miaouss".to_string(),
-                        chu: 5,
-                    },
+                    body: TestBody::new("miaouss", 3),
                 })
                 .await
                 .unwrap();

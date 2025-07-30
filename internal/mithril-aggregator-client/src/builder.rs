@@ -1,6 +1,7 @@
 use anyhow::Context;
 use reqwest::{IntoUrl, Url};
 use slog::{Logger, o};
+use std::time::Duration;
 
 use mithril_common::StdResult;
 use mithril_common::api_version::APIVersionProvider;
@@ -11,6 +12,7 @@ use crate::client::AggregatorClient;
 pub struct AggregatorClientBuilder {
     aggregator_url_result: reqwest::Result<Url>,
     api_version_provider: Option<APIVersionProvider>,
+    timeout_duration: Option<Duration>,
     logger: Option<Logger>,
 }
 
@@ -22,6 +24,7 @@ impl AggregatorClientBuilder {
         Self {
             aggregator_url_result: aggregator_url.into_url(),
             api_version_provider: None,
+            timeout_duration: None,
             logger: None,
         }
     }
@@ -38,6 +41,12 @@ impl AggregatorClientBuilder {
         self
     }
 
+    /// Set a timeout to enforce on each request
+    pub fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.timeout_duration = Some(timeout);
+        self
+    }
+
     /// Returns an [AggregatorClient] based on the builder configuration
     pub fn build(self) -> StdResult<AggregatorClient> {
         let aggregator_endpoint =
@@ -50,6 +59,7 @@ impl AggregatorClientBuilder {
         Ok(AggregatorClient {
             aggregator_endpoint,
             api_version_provider,
+            timeout_duration: self.timeout_duration,
             client: reqwest::Client::new(),
             logger,
         })
