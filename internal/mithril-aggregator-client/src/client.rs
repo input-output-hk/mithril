@@ -29,10 +29,13 @@ impl AggregatorClient {
     }
 
     pub async fn send<Q: AggregatorQuery>(&self, query: Q) -> AggregatorClientResult<Q::Response> {
+        // Todo: error handling ? Reuse the version in `warn_if_api_version_mismatch` ?
+        let current_api_version = self.api_version_provider.compute_current_version().unwrap();
         let mut request_builder = match Q::method() {
             QueryMethod::Get => self.client.get(self.join_aggregator_endpoint(&query.route())?),
             QueryMethod::Post => self.client.post(self.join_aggregator_endpoint(&query.route())?),
-        };
+        }
+        .header(MITHRIL_API_VERSION_HEADER, current_api_version.to_string());
 
         if let Some(body) = query.body() {
             request_builder = request_builder.json(&body);
@@ -209,6 +212,20 @@ mod tests {
                 }
             )
         }
+
+        #[tokio::test]
+        async fn test_get_query_send_mithril_api_version_header() {
+            let (server, mut client) = setup_server_and_client();
+            client.api_version_provider =
+                APIVersionProvider::new_with_default_version(Version::parse("1.2.9").unwrap());
+            server.mock(|when, then| {
+                when.method(httpmock::Method::GET)
+                    .header(MITHRIL_API_VERSION_HEADER, "1.2.9");
+                then.status(200).body(r#"{"foo": "a", "bar": 1}"#);
+            });
+
+            client.send(TestGetQuery).await.expect("should not fail");
+        }
     }
 
     mod post {
@@ -243,13 +260,34 @@ mod tests {
 
             assert_eq!(response, ())
         }
+
+        #[tokio::test]
+        async fn test_post_query_send_mithril_api_version_header() {
+            let (server, mut client) = setup_server_and_client();
+            client.api_version_provider =
+                APIVersionProvider::new_with_default_version(Version::parse("1.2.9").unwrap());
+            server.mock(|when, then| {
+                when.method(httpmock::Method::POST)
+                    .header(MITHRIL_API_VERSION_HEADER, "1.2.9");
+                then.status(201);
+            });
+
+            client
+                .send(TestPostQuery {
+                    body: TestBody {
+                        pika: "a".to_string(),
+                        chu: 3,
+                    },
+                })
+                .await
+                .expect("should not fail");
+        }
     }
 
     mod warn_if_api_version_mismatch {
         use http::response::Builder as HttpResponseBuilder;
         use reqwest::Response;
 
-        use mithril_common::test::api_version_extensions::ApiVersionProviderExtensions;
         use mithril_common::test::logging::MemoryDrainForTestInspector;
 
         use super::*;
