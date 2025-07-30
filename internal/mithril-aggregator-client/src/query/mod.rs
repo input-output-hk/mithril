@@ -1,3 +1,5 @@
-mod certificate_details;
+mod api;
+mod certificate;
 
-pub use certificate_details::*;
+pub(crate) use api::*;
+pub use certificate::*;

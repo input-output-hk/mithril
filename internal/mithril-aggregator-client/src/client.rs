@@ -1,49 +1,11 @@
 use anyhow::{Context, anyhow};
-use reqwest::{Response, Url};
+use reqwest::Url;
 
-use serde::de::DeserializeOwned;
 use slog::Logger;
 
 use crate::AggregatorClientResult;
 use crate::error::AggregatorClientError;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum QueryMethod {
-    Get,
-    Post,
-}
-
-// Todo: wasm compatibility
-#[async_trait::async_trait]
-pub(crate) trait AggregatorQuery {
-    type Response: DeserializeOwned;
-    type Body: serde::Serialize + Sized;
-
-    fn method() -> QueryMethod;
-
-    fn route(&self) -> String;
-
-    fn body(&self) -> Option<Self::Body> {
-        None
-    }
-
-    async fn handle_response(
-        &self,
-        context: QueryContext,
-    ) -> AggregatorClientResult<Self::Response>;
-}
-
-// internal to the crate
-pub(crate) struct QueryContext {
-    pub(crate) response: Response,
-    pub(crate) logger: Logger,
-}
-
-impl QueryContext {
-    pub(crate) async fn unhandled_status_code(self) -> AggregatorClientError {
-        AggregatorClientError::from_response(self.response).await
-    }
-}
+use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
 
 pub struct AggregatorClient {
     aggregator_endpoint: Url,

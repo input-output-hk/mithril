@@ -5,8 +5,8 @@ use slog::debug;
 use mithril_common::messages::CertificateMessage;
 
 use crate::AggregatorClientResult;
-use crate::client::{AggregatorQuery, QueryContext, QueryMethod};
 use crate::error::AggregatorClientError;
+use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
 
 pub struct CertificateDetailsQuery {
     hash: String,
