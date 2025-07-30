@@ -1,19 +1,27 @@
 use anyhow::{Context, anyhow};
-use reqwest::Url;
+use reqwest::{IntoUrl, Url};
 
 use slog::Logger;
 
 use crate::AggregatorClientResult;
+use crate::builder::AggregatorClientBuilder;
 use crate::error::AggregatorClientError;
 use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
 
 pub struct AggregatorClient {
-    aggregator_endpoint: Url,
-    client: reqwest::Client,
-    logger: Logger,
+    pub(super) aggregator_endpoint: Url,
+    pub(super) client: reqwest::Client,
+    pub(super) logger: Logger,
 }
 
 impl AggregatorClient {
+    /// Creates a [AggregatorClientBuilder] to configure a `AggregatorClient`.
+    //
+    // This is the same as `AggregatorClient::builder()`.
+    pub fn builder<U: IntoUrl>(aggregator_url: U) -> AggregatorClientBuilder {
+        AggregatorClientBuilder::new(aggregator_url)
+    }
+
     pub async fn send<Q: AggregatorQuery>(&self, query: Q) -> AggregatorClientResult<Q::Response> {
         let mut request_builder = match Q::method() {
             QueryMethod::Get => self.client.get(self.join_aggregator_endpoint(&query.route())?),

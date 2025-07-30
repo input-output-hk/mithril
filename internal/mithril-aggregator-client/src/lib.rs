@@ -2,12 +2,14 @@
 //! This crate provides a client to request data from a Mithril Aggregator.
 //!
 
+mod builder;
 mod client;
 mod error;
 pub mod query;
 #[cfg(test)]
 mod test;
 
+pub use builder::AggregatorClientBuilder;
 pub use client::AggregatorClient;
 pub use error::AggregatorClientError;
 
