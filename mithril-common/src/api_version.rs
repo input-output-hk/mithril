@@ -73,6 +73,20 @@ impl APIVersionProvider {
     }
 }
 
+impl Default for APIVersionProvider {
+    fn default() -> Self {
+        struct DiscriminantSourceDefault;
+        impl ApiVersionDiscriminantSource for DiscriminantSourceDefault {
+            fn get_discriminant(&self) -> String {
+                // Return nonexistent discriminant to ensure the default 'openapi.yml' file is used
+                "nonexistent-discriminant".to_string()
+            }
+        }
+
+        Self::new(Arc::new(DiscriminantSourceDefault))
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::test::double::DummyApiVersionDiscriminantSource;
@@ -151,5 +165,16 @@ mod test {
         let all_versions_sorted = APIVersionProvider::compute_all_versions_sorted();
 
         assert!(!all_versions_sorted.is_empty());
+    }
+
+    #[test]
+    fn default_provider_returns_default_version() {
+        let provider = APIVersionProvider::default();
+        let version = provider.compute_current_version().unwrap();
+
+        assert_eq!(
+            get_open_api_versions_mapping().get("openapi.yaml").unwrap(),
+            &version
+        );
     }
 }
