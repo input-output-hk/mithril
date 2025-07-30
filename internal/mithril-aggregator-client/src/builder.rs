@@ -3,12 +3,14 @@ use reqwest::{IntoUrl, Url};
 use slog::{Logger, o};
 
 use mithril_common::StdResult;
+use mithril_common::api_version::APIVersionProvider;
 
 use crate::client::AggregatorClient;
 
 /// A builder of [AggregatorClient]
 pub struct AggregatorClientBuilder {
     aggregator_url_result: reqwest::Result<Url>,
+    api_version_provider: Option<APIVersionProvider>,
     logger: Option<Logger>,
 }
 
@@ -19,6 +21,7 @@ impl AggregatorClientBuilder {
     pub fn new<U: IntoUrl>(aggregator_url: U) -> Self {
         Self {
             aggregator_url_result: aggregator_url.into_url(),
+            api_version_provider: None,
             logger: None,
         }
     }
@@ -29,6 +32,12 @@ impl AggregatorClientBuilder {
         self
     }
 
+    /// Set the [APIVersionProvider] to use.
+    pub fn with_api_version_provider(mut self, api_version_provider: APIVersionProvider) -> Self {
+        self.api_version_provider = Some(api_version_provider);
+        self
+    }
+
     /// Returns an [AggregatorClient] based on the builder configuration
     pub fn build(self) -> StdResult<AggregatorClient> {
         let aggregator_endpoint =
@@ -36,9 +45,11 @@ impl AggregatorClientBuilder {
                 || "Invalid aggregator endpoint, it must be a correctly formed url",
             )?);
         let logger = self.logger.unwrap_or_else(|| Logger::root(slog::Discard, o!()));
+        let api_version_provider = self.api_version_provider.unwrap_or_default();
 
         Ok(AggregatorClient {
             aggregator_endpoint,
+            api_version_provider,
             client: reqwest::Client::new(),
             logger,
         })
