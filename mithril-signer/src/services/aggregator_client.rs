@@ -1057,6 +1057,8 @@ mod tests {
     }
 
     mod warn_if_api_version_mismatch {
+        use mithril_common::test::api_version_extensions::ApiVersionProviderTestExtension;
+
         use super::*;
 
         fn version_provider_with_open_api_version<V: Into<String>>(

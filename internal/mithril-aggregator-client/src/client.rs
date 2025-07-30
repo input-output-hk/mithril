@@ -68,6 +68,8 @@ mod tests {
     use http::StatusCode;
     use httpmock::MockServer;
 
+    use mithril_common::test::api_version_extensions::ApiVersionProviderTestExtension;
+
     use crate::test::TestLogger;
 
     use super::*;
