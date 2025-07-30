@@ -72,65 +72,144 @@ mod tests {
 
     use super::*;
 
-    #[derive(Debug, Eq, PartialEq, serde::Deserialize)]
-    struct TestResponse {
-        foo: String,
-        bar: i32,
-    }
-
-    struct TestGetQuery;
-
-    #[async_trait::async_trait]
-    impl AggregatorQuery for TestGetQuery {
-        type Response = TestResponse;
-        type Body = ();
-
-        fn method() -> QueryMethod {
-            QueryMethod::Get
-        }
-
-        fn route(&self) -> String {
-            "/dummy-route".to_string()
-        }
-
-        async fn handle_response(
-            &self,
-            context: QueryContext,
-        ) -> AggregatorClientResult<Self::Response> {
-            match context.response.status() {
-                StatusCode::OK => context
-                    .response
-                    .json::<TestResponse>()
-                    .await
-                    .map_err(|err| AggregatorClientError::JsonParseFailed(anyhow!(err))),
-                _ => Err(context.unhandled_status_code().await),
-            }
-        }
-    }
-
-    #[tokio::test]
-    async fn test_minimal_query() {
+    fn setup_server_and_client() -> (MockServer, AggregatorClient) {
         let server = MockServer::start();
-        server.mock(|when, then| {
-            when.method(httpmock::Method::GET).path(TestGetQuery.route());
-            then.status(200).body(r#"{"foo": "bar", "bar": 123}"#);
-        });
+        let client = AggregatorClient::builder(server.base_url())
+            .with_logger(TestLogger::stdout())
+            .build()
+            .unwrap();
 
-        let aggregator_endpoint = Url::parse(&server.url("/")).unwrap();
-        let client = AggregatorClient {
-            aggregator_endpoint,
-            client: reqwest::Client::new(),
-            logger: TestLogger::stdout(),
-        };
+        (server, client)
+    }
 
-        let response = client.send(TestGetQuery).await.unwrap();
+    mod get {
+        use super::*;
 
-        assert_eq!(
-            response,
-            TestResponse {
-                foo: "bar".to_string(),
-                bar: 123,
+        #[derive(Debug, Eq, PartialEq, serde::Deserialize)]
+        struct TestResponse {
+            foo: String,
+            bar: i32,
+        }
+
+        struct TestGetQuery;
+
+        #[async_trait::async_trait]
+        impl AggregatorQuery for TestGetQuery {
+            type Response = TestResponse;
+            type Body = ();
+
+            fn method() -> QueryMethod {
+                QueryMethod::Get
             }
-        )
+
+            fn route(&self) -> String {
+                "/dummy-get-route".to_string()
+            }
+
+            async fn handle_response(
+                &self,
+                context: QueryContext,
+            ) -> AggregatorClientResult<Self::Response> {
+                match context.response.status() {
+                    StatusCode::OK => context
+                        .response
+                        .json::<TestResponse>()
+                        .await
+                        .map_err(|err| AggregatorClientError::JsonParseFailed(anyhow!(err))),
+                    _ => Err(context.unhandled_status_code().await),
+                }
+            }
+        }
+
+        #[tokio::test]
+        async fn test_minimal_get_query() {
+            let (server, client) = setup_server_and_client();
+            server.mock(|when, then| {
+                when.method(httpmock::Method::GET).path("/dummy-get-route");
+                then.status(200).body(r#"{"foo": "bar", "bar": 123}"#);
+            });
+
+            let response = client.send(TestGetQuery).await.unwrap();
+
+            assert_eq!(
+                response,
+                TestResponse {
+                    foo: "bar".to_string(),
+                    bar: 123,
+                }
+            )
+        }
+    }
+
+    mod post {
+        use super::*;
+
+        #[derive(Debug, Clone, Eq, PartialEq, serde::Serialize)]
+        struct TestBody {
+            pika: String,
+            chu: u8,
+        }
+
+        struct TestPostQuery {
+            body: TestBody,
+        }
+
+        #[async_trait::async_trait]
+        impl AggregatorQuery for TestPostQuery {
+            type Response = ();
+            type Body = TestBody;
+
+            fn method() -> QueryMethod {
+                QueryMethod::Post
+            }
+
+            fn route(&self) -> String {
+                "/dummy-post-route".to_string()
+            }
+
+            fn body(&self) -> Option<Self::Body> {
+                Some(self.body.clone())
+            }
+
+            async fn handle_response(
+                &self,
+                context: QueryContext,
+            ) -> AggregatorClientResult<Self::Response> {
+                match context.response.status() {
+                    StatusCode::CREATED => Ok(()),
+                    _ => Err(context.unhandled_status_code().await),
+                }
+            }
+        }
+
+        #[tokio::test]
+        async fn test_minimal_post_query() {
+            let (server, client) = setup_server_and_client();
+            server.mock(|when, then| {
+                when.method(httpmock::Method::POST)
+                    .path("/dummy-post-route")
+                    .header("content-type", "application/json")
+                    .body(
+                        serde_json::to_string(&TestBody {
+                            pika: "miaouss".to_string(),
+                            chu: 5,
+                        })
+                        .unwrap(),
+                    );
+                then.status(201);
+            });
+
+            let response = client
+                .send(TestPostQuery {
+                    body: TestBody {
+                        pika: "miaouss".to_string(),
+                        chu: 5,
+                    },
+                })
+                .await
+                .unwrap();
+
+            assert_eq!(response, ())
+        }
     }
 }
