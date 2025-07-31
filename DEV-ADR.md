@@ -23,6 +23,51 @@ To complete
 To complete
 -->
 
+### 4. Guidelines for crate test utilities
+
+date: 2025-07-25
+status: Accepted
+
+### Context
+
+- For testing, crates may need to define reusable test utilities
+- Some of those utilities may need to be exposed to child crates to enable or facilitate writing tests
+- We want to isolate test utilities from production code as much as possible
+- We want to limit the number of feature flags so the Rust compiler may reuse built artifacts effectively, reducing build time
+
+### Decision
+
+Test utilities should be organized following these rules:
+
+1. Each crate must define its private and public test utilities in a `test` module
+2. A test utility should be made public if it is reused in a child crate or in the crate's integration tests
+3. Making a test utility public should not add any dependency to the crate
+4. Private test utilities should be behind `cfg(test)`
+5. Importing a public test utility should always require an import path that contains a `test` module, so their misuse
+   in production code can be easily identified
+6. No feature flag should be added to isolate test utilities from production code
+
+Specific cases:
+
+- Test doubles (fakes, dummies, mocks, stubs, etc.): should be located in a `test::double` module
+- Builders of test data should be located in a `test::builder` module
+- Extending a type with a test-only method should be done using extension traits located in the `test` module, which
+  forces the import of a `test`-scoped symbol
+  - Their name should be suffixed with `TestExtension`
+  - Implementation of those traits should preferably be below the trait definition, but if some methods need to access
+    private properties, then the implementation may be located below their extended type
+
+#### Consequences
+
+- Enhanced consistency in code organization
+- Improved discoverability of test utilities
+- Clearer distinction between production and test code
+- Simplified maintenance of test utilities
+- Child crates can reuse common test utilities when needed
+- Feature flag usage is minimized, avoiding unnecessary recompilation
+
+---
+
 ### 3. Guidelines for Dummy Test Doubles
 
 **Date:** 2025-07-22

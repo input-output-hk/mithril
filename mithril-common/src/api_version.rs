@@ -79,7 +79,6 @@ impl Default for APIVersionProvider {
     }
 }
 
-#[cfg(any(test, feature = "test_tools"))]
 impl crate::test::api_version_extensions::ApiVersionProviderTestExtension for APIVersionProvider {
     fn update_open_api_versions(&mut self, open_api_versions: HashMap<OpenAPIFileName, Version>) {
         self.open_api_versions = open_api_versions;
