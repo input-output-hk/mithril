@@ -1,6 +1,7 @@
 use anyhow::Context;
 use reqwest::{IntoUrl, Url};
 use slog::{Logger, o};
+use std::collections::HashMap;
 use std::time::Duration;
 
 use mithril_common::StdResult;
@@ -12,6 +13,7 @@ use crate::client::AggregatorClient;
 pub struct AggregatorClientBuilder {
     aggregator_url_result: reqwest::Result<Url>,
     api_version_provider: Option<APIVersionProvider>,
+    additional_headers: Option<HashMap<String, String>>,
     timeout_duration: Option<Duration>,
     logger: Option<Logger>,
 }
@@ -24,6 +26,7 @@ impl AggregatorClientBuilder {
         Self {
             aggregator_url_result: aggregator_url.into_url(),
             api_version_provider: None,
+            additional_headers: None,
             timeout_duration: None,
             logger: None,
         }
@@ -47,6 +50,12 @@ impl AggregatorClientBuilder {
         self
     }
 
+    /// Add a set of http headers that will be sent on client requests
+    pub fn with_headers(mut self, custom_headers: HashMap<String, String>) -> Self {
+        self.additional_headers = Some(custom_headers);
+        self
+    }
+
     /// Returns an [AggregatorClient] based on the builder configuration
     pub fn build(self) -> StdResult<AggregatorClient> {
         let aggregator_endpoint =
@@ -55,10 +64,14 @@ impl AggregatorClientBuilder {
             )?);
         let logger = self.logger.unwrap_or_else(|| Logger::root(slog::Discard, o!()));
         let api_version_provider = self.api_version_provider.unwrap_or_default();
+        let additional_headers = self.additional_headers.unwrap_or_default();
 
         Ok(AggregatorClient {
             aggregator_endpoint,
             api_version_provider,
+            additional_headers: (&additional_headers)
+                .try_into()
+                .with_context(|| format!("Invalid headers: '{additional_headers:?}'"))?,
             timeout_duration: self.timeout_duration,
             client: reqwest::Client::new(),
             logger,

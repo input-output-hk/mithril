@@ -1,5 +1,5 @@
 use anyhow::{Context, anyhow};
-use reqwest::{IntoUrl, Response, Url};
+use reqwest::{IntoUrl, Response, Url, header::HeaderMap};
 use semver::Version;
 use slog::{Logger, error, warn};
 use std::time::Duration;
@@ -18,6 +18,7 @@ const API_VERSION_MISMATCH_WARNING_MESSAGE: &str = "OpenAPI version may be incom
 pub struct AggregatorClient {
     pub(super) aggregator_endpoint: Url,
     pub(super) api_version_provider: APIVersionProvider,
+    pub(super) additional_headers: HeaderMap,
     pub(super) timeout_duration: Option<Duration>,
     pub(super) client: reqwest::Client,
     pub(super) logger: Logger,
@@ -39,6 +40,7 @@ impl AggregatorClient {
             QueryMethod::Get => self.client.get(self.join_aggregator_endpoint(&query.route())?),
             QueryMethod::Post => self.client.post(self.join_aggregator_endpoint(&query.route())?),
         }
+        .headers(self.additional_headers.clone())
         .header(MITHRIL_API_VERSION_HEADER, current_api_version.to_string());
 
         if let Some(body) = query.body() {
@@ -245,6 +247,29 @@ mod tests {
         }
 
         #[tokio::test]
+        async fn test_get_query_send_additional_header_and_dont_override_mithril_api_version_header()
+         {
+            let (server, mut client) = setup_server_and_client();
+            client.api_version_provider =
+                APIVersionProvider::new_with_default_version(Version::parse("1.2.9").unwrap());
+            client.additional_headers = {
+                let mut headers = HeaderMap::new();
+                headers.insert(MITHRIL_API_VERSION_HEADER, "9.4.5".parse().unwrap());
+                headers.insert("foo", "bar".parse().unwrap());
+                headers
+            };
+
+            server.mock(|when, then| {
+                when.method(httpmock::Method::GET)
+                    .header(MITHRIL_API_VERSION_HEADER, "1.2.9")
+                    .header("foo", "bar");
+                then.status(200).body(r#"{"foo": "a", "bar": 1}"#);
+            });
+
+            client.send(TestGetQuery).await.expect("should not fail");
+        }
+
+        #[tokio::test]
         async fn test_get_query_timeout() {
             let (server, mut client) = setup_server_and_client();
             client.timeout_duration = Some(Duration::from_millis(10));
@@ -276,14 +301,12 @@ mod tests {
                 then.status(201);
             });
 
-            let response = client
+            client
                 .send(TestPostQuery {
                     body: TestBody::new("miaouss", 5),
                 })
                 .await
                 .unwrap();
-
-            assert_eq!(response, ())
         }
 
         #[tokio::test]
@@ -295,6 +318,34 @@ mod tests {
                 when.method(httpmock::Method::POST)
                     .header(MITHRIL_API_VERSION_HEADER, "1.2.9");
                 then.status(201);
+            });
+
+            client
+                .send(TestPostQuery {
+                    body: TestBody::new("miaouss", 3),
+                })
+                .await
+                .expect("should not fail");
+        }
+
+        #[tokio::test]
+        async fn test_post_query_send_additional_header_and_dont_override_mithril_api_version_header()
+         {
+            let (server, mut client) = setup_server_and_client();
+            client.api_version_provider =
+                APIVersionProvider::new_with_default_version(Version::parse("1.2.9").unwrap());
+            client.additional_headers = {
+                let mut headers = HeaderMap::new();
+                headers.insert(MITHRIL_API_VERSION_HEADER, "9.4.5".parse().unwrap());
+                headers.insert("foo", "bar".parse().unwrap());
+                headers
+            };
+
+            server.mock(|when, then| {
+                when.method(httpmock::Method::POST)
+                    .header(MITHRIL_API_VERSION_HEADER, "1.2.9")
+                    .header("foo", "bar");
+                then.status(201).body(r#"{"foo": "a", "bar": 1}"#);
             });
 
             client
