@@ -109,23 +109,12 @@ impl AggregatorClient {
 #[cfg(test)]
 mod tests {
     use http::StatusCode;
-    use httpmock::MockServer;
 
     use mithril_common::test::api_version_extensions::ApiVersionProviderTestExtension;
 
-    use crate::test::TestLogger;
+    use crate::test::{TestLogger, setup_server_and_client};
 
     use super::*;
-
-    fn setup_server_and_client() -> (MockServer, AggregatorClient) {
-        let server = MockServer::start();
-        let client = AggregatorClient::builder(server.base_url())
-            .with_logger(TestLogger::stdout())
-            .build()
-            .unwrap();
-
-        (server, client)
-    }
 
     #[derive(Debug, Eq, PartialEq, serde::Deserialize)]
     struct TestResponse {
