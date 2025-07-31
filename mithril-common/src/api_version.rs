@@ -63,18 +63,47 @@ impl APIVersionProvider {
         versions.sort();
         versions
     }
+}
 
-    /// Update open api versions. Test only
-    pub fn update_open_api_versions(
-        &mut self,
-        open_api_versions: HashMap<OpenAPIFileName, Version>,
-    ) {
+impl Default for APIVersionProvider {
+    fn default() -> Self {
+        struct DiscriminantSourceDefault;
+        impl ApiVersionDiscriminantSource for DiscriminantSourceDefault {
+            fn get_discriminant(&self) -> String {
+                // Return nonexistent discriminant to ensure the default 'openapi.yml' file is used
+                "nonexistent-discriminant".to_string()
+            }
+        }
+
+        Self::new(Arc::new(DiscriminantSourceDefault))
+    }
+}
+
+#[cfg(any(test, feature = "test_tools"))]
+impl crate::test::api_version_extensions::ApiVersionProviderTestExtension for APIVersionProvider {
+    fn update_open_api_versions(&mut self, open_api_versions: HashMap<OpenAPIFileName, Version>) {
         self.open_api_versions = open_api_versions;
+    }
+
+    fn new_with_default_version(version: Version) -> APIVersionProvider {
+        Self {
+            open_api_versions: HashMap::from([("openapi.yaml".to_string(), version)]),
+            ..Self::default()
+        }
+    }
+
+    fn new_failing() -> APIVersionProvider {
+        Self {
+            // Leverage the error raised if the default api version is missing
+            open_api_versions: HashMap::new(),
+            ..Self::default()
+        }
     }
 }
 
 #[cfg(test)]
 mod test {
+    use crate::test::api_version_extensions::ApiVersionProviderTestExtension;
     use crate::test::double::DummyApiVersionDiscriminantSource;
 
     use super::*;
@@ -151,5 +180,30 @@ mod test {
         let all_versions_sorted = APIVersionProvider::compute_all_versions_sorted();
 
         assert!(!all_versions_sorted.is_empty());
+    }
+
+    #[test]
+    fn default_provider_returns_default_version() {
+        let provider = APIVersionProvider::default();
+        let version = provider.compute_current_version().unwrap();
+
+        assert_eq!(
+            get_open_api_versions_mapping().get("openapi.yaml").unwrap(),
+            &version
+        );
+    }
+
+    #[test]
+    fn building_provider_with_canned_default_openapi_version() {
+        let provider = APIVersionProvider::new_with_default_version(Version::new(1, 2, 3));
+        let version = provider.compute_current_version().unwrap();
+
+        assert_eq!(Version::new(1, 2, 3), version);
+    }
+
+    #[test]
+    fn building_provider_that_fails_compute_current_version() {
+        let provider = APIVersionProvider::new_failing();
+        provider.compute_current_version().expect_err("Should fail");
     }
 }

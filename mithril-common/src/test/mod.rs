@@ -12,6 +12,7 @@
 //! * `temp_dir`: Temporary directory management for tests
 //!
 
+pub mod api_version_extensions;
 pub mod builder;
 pub mod crypto_helper;
 pub mod double;
