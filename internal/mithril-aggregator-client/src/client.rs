@@ -210,173 +210,100 @@ mod tests {
         }
     }
 
-    mod get {
-        use super::*;
+    #[tokio::test]
+    async fn test_minimal_get_query() {
+        let (server, client) = setup_server_and_client();
+        server.mock(|when, then| {
+            when.method(httpmock::Method::GET).path("/dummy-get-route");
+            then.status(200).body(r#"{"foo": "bar", "bar": 123}"#);
+        });
 
-        #[tokio::test]
-        async fn test_minimal_get_query() {
-            let (server, client) = setup_server_and_client();
-            server.mock(|when, then| {
-                when.method(httpmock::Method::GET).path("/dummy-get-route");
-                then.status(200).body(r#"{"foo": "bar", "bar": 123}"#);
-            });
+        let response = client.send(TestGetQuery).await.unwrap();
 
-            let response = client.send(TestGetQuery).await.unwrap();
-
-            assert_eq!(
-                response,
-                TestResponse {
-                    foo: "bar".to_string(),
-                    bar: 123,
-                }
-            )
-        }
-
-        #[tokio::test]
-        async fn test_get_query_send_mithril_api_version_header() {
-            let (server, mut client) = setup_server_and_client();
-            client.api_version_provider =
-                APIVersionProvider::new_with_default_version(Version::parse("1.2.9").unwrap());
-            server.mock(|when, then| {
-                when.method(httpmock::Method::GET)
-                    .header(MITHRIL_API_VERSION_HEADER, "1.2.9");
-                then.status(200).body(r#"{"foo": "a", "bar": 1}"#);
-            });
-
-            client.send(TestGetQuery).await.expect("should not fail");
-        }
-
-        #[tokio::test]
-        async fn test_get_query_send_additional_header_and_dont_override_mithril_api_version_header()
-         {
-            let (server, mut client) = setup_server_and_client();
-            client.api_version_provider =
-                APIVersionProvider::new_with_default_version(Version::parse("1.2.9").unwrap());
-            client.additional_headers = {
-                let mut headers = HeaderMap::new();
-                headers.insert(MITHRIL_API_VERSION_HEADER, "9.4.5".parse().unwrap());
-                headers.insert("foo", "bar".parse().unwrap());
-                headers
-            };
-
-            server.mock(|when, then| {
-                when.method(httpmock::Method::GET)
-                    .header(MITHRIL_API_VERSION_HEADER, "1.2.9")
-                    .header("foo", "bar");
-                then.status(200).body(r#"{"foo": "a", "bar": 1}"#);
-            });
-
-            client.send(TestGetQuery).await.expect("should not fail");
-        }
-
-        #[tokio::test]
-        async fn test_get_query_timeout() {
-            let (server, mut client) = setup_server_and_client();
-            client.timeout_duration = Some(Duration::from_millis(10));
-            let _server_mock = server.mock(|when, then| {
-                when.method(httpmock::Method::GET);
-                then.delay(Duration::from_millis(100));
-            });
-
-            let error = client.send(TestGetQuery).await.expect_err("should not fail");
-
-            assert!(
-                matches!(error, AggregatorClientError::RemoteServerUnreachable(_)),
-                "unexpected error type: {error:?}"
-            );
-        }
+        assert_eq!(
+            response,
+            TestResponse {
+                foo: "bar".to_string(),
+                bar: 123,
+            }
+        )
     }
 
-    mod post {
-        use super::*;
+    #[tokio::test]
+    async fn test_minimal_post_query() {
+        let (server, client) = setup_server_and_client();
+        server.mock(|when, then| {
+            when.method(httpmock::Method::POST)
+                .path("/dummy-post-route")
+                .header("content-type", "application/json")
+                .body(serde_json::to_string(&TestBody::new("miaouss", 5)).unwrap());
+            then.status(201);
+        });
 
-        #[tokio::test]
-        async fn test_minimal_post_query() {
-            let (server, client) = setup_server_and_client();
-            server.mock(|when, then| {
-                when.method(httpmock::Method::POST)
-                    .path("/dummy-post-route")
-                    .header("content-type", "application/json")
-                    .body(serde_json::to_string(&TestBody::new("miaouss", 5)).unwrap());
-                then.status(201);
-            });
+        client
+            .send(TestPostQuery {
+                body: TestBody::new("miaouss", 5),
+            })
+            .await
+            .unwrap();
+    }
 
-            client
-                .send(TestPostQuery {
-                    body: TestBody::new("miaouss", 5),
-                })
-                .await
-                .unwrap();
-        }
+    #[tokio::test]
+    async fn test_query_send_mithril_api_version_header() {
+        let (server, mut client) = setup_server_and_client();
+        client.api_version_provider =
+            APIVersionProvider::new_with_default_version(Version::parse("1.2.9").unwrap());
+        server.mock(|when, then| {
+            when.method(httpmock::Method::GET)
+                .header(MITHRIL_API_VERSION_HEADER, "1.2.9");
+            then.status(200).body(r#"{"foo": "a", "bar": 1}"#);
+        });
 
-        #[tokio::test]
-        async fn test_post_query_send_mithril_api_version_header() {
-            let (server, mut client) = setup_server_and_client();
-            client.api_version_provider =
-                APIVersionProvider::new_with_default_version(Version::parse("1.2.9").unwrap());
-            server.mock(|when, then| {
-                when.method(httpmock::Method::POST)
-                    .header(MITHRIL_API_VERSION_HEADER, "1.2.9");
-                then.status(201);
-            });
+        client.send(TestGetQuery).await.expect("should not fail");
+    }
 
-            client
-                .send(TestPostQuery {
-                    body: TestBody::new("miaouss", 3),
-                })
-                .await
-                .expect("should not fail");
-        }
+    #[tokio::test]
+    async fn test_query_send_additional_header_and_dont_override_mithril_api_version_header() {
+        let (server, mut client) = setup_server_and_client();
+        client.api_version_provider =
+            APIVersionProvider::new_with_default_version(Version::parse("1.2.9").unwrap());
+        client.additional_headers = {
+            let mut headers = HeaderMap::new();
+            headers.insert(MITHRIL_API_VERSION_HEADER, "9.4.5".parse().unwrap());
+            headers.insert("foo", "bar".parse().unwrap());
+            headers
+        };
 
-        #[tokio::test]
-        async fn test_post_query_send_additional_header_and_dont_override_mithril_api_version_header()
-         {
-            let (server, mut client) = setup_server_and_client();
-            client.api_version_provider =
-                APIVersionProvider::new_with_default_version(Version::parse("1.2.9").unwrap());
-            client.additional_headers = {
-                let mut headers = HeaderMap::new();
-                headers.insert(MITHRIL_API_VERSION_HEADER, "9.4.5".parse().unwrap());
-                headers.insert("foo", "bar".parse().unwrap());
-                headers
-            };
+        server.mock(|when, then| {
+            when.method(httpmock::Method::POST)
+                .header(MITHRIL_API_VERSION_HEADER, "1.2.9")
+                .header("foo", "bar");
+            then.status(201).body(r#"{"foo": "a", "bar": 1}"#);
+        });
 
-            server.mock(|when, then| {
-                when.method(httpmock::Method::POST)
-                    .header(MITHRIL_API_VERSION_HEADER, "1.2.9")
-                    .header("foo", "bar");
-                then.status(201).body(r#"{"foo": "a", "bar": 1}"#);
-            });
+        client
+            .send(TestPostQuery {
+                body: TestBody::new("miaouss", 3),
+            })
+            .await
+            .expect("should not fail");
+    }
 
-            client
-                .send(TestPostQuery {
-                    body: TestBody::new("miaouss", 3),
-                })
-                .await
-                .expect("should not fail");
-        }
+    #[tokio::test]
+    async fn test_query_timeout() {
+        let (server, mut client) = setup_server_and_client();
+        client.timeout_duration = Some(Duration::from_millis(10));
+        let _server_mock = server.mock(|when, then| {
+            when.method(httpmock::Method::GET);
+            then.delay(Duration::from_millis(100));
+        });
 
-        #[tokio::test]
-        async fn test_post_query_timeout() {
-            let (server, mut client) = setup_server_and_client();
-            client.timeout_duration = Some(Duration::from_millis(10));
-            let _server_mock = server.mock(|when, then| {
-                when.method(httpmock::Method::POST);
-                then.delay(Duration::from_millis(100));
-            });
+        let error = client.send(TestGetQuery).await.expect_err("should not fail");
 
-            let error = client
-                .send(TestPostQuery {
-                    body: TestBody::new("miaouss", 3),
-                })
-                .await
-                .expect_err("should not fail");
-
-            assert!(
-                matches!(error, AggregatorClientError::RemoteServerUnreachable(_)),
-                "unexpected error type: {error:?}"
-            );
-        }
+        assert!(
+            matches!(error, AggregatorClientError::RemoteServerUnreachable(_)),
+            "unexpected error type: {error:?}"
+        );
     }
 
     mod warn_if_api_version_mismatch {
@@ -529,33 +456,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn test_client_get_log_warning_if_api_version_mismatch() {
-            let aggregator_version = "2.0.0";
-            let client_version = "1.0.0";
-            let (server, mut client) = setup_server_and_client();
-            let (logger, log_inspector) = TestLogger::memory();
-            client.api_version_provider = APIVersionProvider::new_with_default_version(
-                Version::parse(client_version).unwrap(),
-            );
-            client.logger = logger;
-            server.mock(|_, then| {
-                then.status(StatusCode::OK.as_u16())
-                    .header(MITHRIL_API_VERSION_HEADER, aggregator_version)
-                    .body(r#"{"foo": "bar", "bar": 123}"#);
-            });
-
-            assert!(
-                Version::parse(aggregator_version).unwrap()
-                    > Version::parse(client_version).unwrap()
-            );
-
-            client.send(TestGetQuery).await.unwrap();
-
-            assert_api_version_warning_logged(&log_inspector, aggregator_version, client_version);
-        }
-
-        #[tokio::test]
-        async fn test_client_post_log_warning_if_api_version_mismatch() {
+        async fn test_client_log_warning_if_api_version_mismatch() {
             let aggregator_version = "2.0.0";
             let client_version = "1.0.0";
             let (server, mut client) = setup_server_and_client();
