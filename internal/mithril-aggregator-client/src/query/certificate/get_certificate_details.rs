@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use async_trait::async_trait;
 use reqwest::StatusCode;
 use slog::debug;
 
@@ -20,7 +21,8 @@ impl CertificateDetailsQuery {
     }
 }
 
-#[async_trait::async_trait]
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
 impl AggregatorQuery for CertificateDetailsQuery {
     type Response = Option<CertificateMessage>;
     type Body = ();

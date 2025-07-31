@@ -11,8 +11,8 @@ pub enum QueryMethod {
     Post,
 }
 
-// Todo: wasm compatibility
-#[async_trait::async_trait]
+#[cfg_attr(target_family = "wasm", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_family = "wasm"), async_trait::async_trait)]
 pub trait AggregatorQuery {
     type Response: DeserializeOwned;
     type Body: serde::Serialize + Sized;
