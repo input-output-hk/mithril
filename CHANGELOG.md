@@ -9,6 +9,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
+- Support for `Cardano node` `10.5.1` in the signer and the aggregator.
+
 - `cardano_database_v2` in the `mithril-client` library is now stable
 
 - Support for loose enforcement of OpenAPI compatibility: a warning is displayed when a call to an aggregator may be incompatible.
