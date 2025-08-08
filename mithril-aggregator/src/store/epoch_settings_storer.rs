@@ -1,7 +1,9 @@
+#[cfg(test)]
 use std::collections::HashMap;
 
 use async_trait::async_trait;
 use mithril_common::StdResult;
+#[cfg(test)]
 use tokio::sync::RwLock;
 
 use mithril_common::entities::{Epoch, ProtocolParameters};
@@ -56,18 +58,20 @@ pub trait EpochSettingsStorer:
     }
 }
 
+#[cfg(test)]
 pub struct FakeEpochSettingsStorer {
     pub epoch_settings: RwLock<HashMap<Epoch, AggregatorEpochSettings>>,
 }
 
+#[cfg(test)]
 impl FakeEpochSettingsStorer {
-    #[cfg(test)]
     pub fn new(data: Vec<(Epoch, AggregatorEpochSettings)>) -> Self {
         let epoch_settings = RwLock::new(data.into_iter().collect());
         Self { epoch_settings }
     }
 }
 
+#[cfg(test)]
 #[async_trait]
 impl ProtocolParametersRetriever for FakeEpochSettingsStorer {
     async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
@@ -78,6 +82,7 @@ impl ProtocolParametersRetriever for FakeEpochSettingsStorer {
     }
 }
 
+#[cfg(test)]
 #[async_trait]
 impl EpochSettingsStorer for FakeEpochSettingsStorer {
     async fn save_epoch_settings(
@@ -97,6 +102,7 @@ impl EpochSettingsStorer for FakeEpochSettingsStorer {
     }
 }
 
+#[cfg(test)]
 #[async_trait]
 impl EpochPruningTask for FakeEpochSettingsStorer {
     fn pruned_data(&self) -> &'static str {

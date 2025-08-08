@@ -380,41 +380,6 @@ impl RemoteCertificateRetriever for AggregatorHTTPClient {
 }
 
 #[cfg(test)]
-pub(crate) mod dumb {
-    use tokio::sync::RwLock;
-
-    use mithril_common::test::double::Dummy;
-
-    use super::*;
-
-    /// This aggregator client is intended to be used by test services.
-    /// It actually does not communicate with an aggregator host but mimics this behavior.
-    /// It is driven by a Tester that controls the data it can return, and it can return its internal state for testing.
-    pub struct DumbAggregatorClient {
-        epoch_settings: RwLock<Option<LeaderAggregatorEpochSettings>>,
-    }
-
-    impl Default for DumbAggregatorClient {
-        fn default() -> Self {
-            Self {
-                epoch_settings: RwLock::new(Some(LeaderAggregatorEpochSettings::dummy())),
-            }
-        }
-    }
-
-    #[async_trait]
-    impl LeaderAggregatorClient for DumbAggregatorClient {
-        async fn retrieve_epoch_settings(
-            &self,
-        ) -> StdResult<Option<LeaderAggregatorEpochSettings>> {
-            let epoch_settings = self.epoch_settings.read().await.clone();
-
-            Ok(epoch_settings)
-        }
-    }
-}
-
-#[cfg(test)]
 mod tests {
     use http::response::Builder as HttpResponseBuilder;
     use httpmock::prelude::*;
