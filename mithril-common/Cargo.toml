@@ -22,7 +22,7 @@ ignored = ["serde_bytes"]
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [features]
-default = ["rug-backend"]
+default = ["rug-backend", "allow_skip_signer_certification"]
 
 # Full feature set
 full = ["test_tools"]
