@@ -590,7 +590,8 @@ mod tests {
     #[tokio::test]
     async fn send_event_same_thread() {
         let receiver = Arc::new(StackFeedbackReceiver::new());
-        let sender = FeedbackSender::new(&[receiver.clone()]);
+        let receiver_clone = receiver.clone() as Arc<dyn FeedbackReceiver>;
+        let sender = FeedbackSender::new(&[receiver_clone]);
 
         sender
             .send_event(SnapshotDownloadStarted {
@@ -716,8 +717,9 @@ mod tests {
     #[tokio::test]
     async fn send_event_in_one_thread_and_receive_in_another_thread() {
         let receiver = Arc::new(StackFeedbackReceiver::new());
+        let receiver_clone = receiver.clone() as Arc<dyn FeedbackReceiver>;
         let receiver2 = receiver.clone();
-        let sender = FeedbackSender::new(&[receiver.clone()]);
+        let sender = FeedbackSender::new(&[receiver_clone]);
         let mut join_set = JoinSet::new();
 
         join_set.spawn(async move {

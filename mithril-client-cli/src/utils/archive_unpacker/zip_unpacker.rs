@@ -32,12 +32,12 @@ impl ArchiveFormat for ZipUnpacker {
                     format!("Could not create directory '{}'", outpath.display())
                 })?;
             } else {
-                if let Some(parent) = outpath.parent() {
-                    if !parent.exists() {
-                        fs::create_dir_all(parent).with_context(|| {
-                            format!("Could not create directory '{}'", parent.display())
-                        })?;
-                    }
+                if let Some(parent) = outpath.parent()
+                    && !parent.exists()
+                {
+                    fs::create_dir_all(parent).with_context(|| {
+                        format!("Could not create directory '{}'", parent.display())
+                    })?;
                 }
                 let mut outfile = File::create(&outpath)
                     .with_context(|| format!("Could not create file '{}'", outpath.display()))?;

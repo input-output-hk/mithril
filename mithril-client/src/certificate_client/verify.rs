@@ -140,12 +140,12 @@ impl MithrilCertificateVerifier {
             .await?;
 
         #[cfg(feature = "unstable")]
-        if let Some(cache) = self.verifier_cache.as_ref() {
-            if !certificate.is_genesis() {
-                cache
-                    .store_validated_certificate(&certificate.hash, &certificate.previous_hash)
-                    .await?;
-            }
+        if let Some(cache) = self.verifier_cache.as_ref()
+            && !certificate.is_genesis()
+        {
+            cache
+                .store_validated_certificate(&certificate.hash, &certificate.previous_hash)
+                .await?;
         }
 
         trace!(self.logger, "Certificate validated"; "hash" => &certificate.hash, "previous_hash" => &certificate.previous_hash);

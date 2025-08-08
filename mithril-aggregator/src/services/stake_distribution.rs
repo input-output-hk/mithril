@@ -118,7 +118,7 @@ impl Default for UpdateToken {
 }
 
 impl UpdateToken {
-    pub fn update(&self, epoch: Epoch) -> StdResult<MutexGuard<()>> {
+    pub fn update(&self, epoch: Epoch) -> StdResult<MutexGuard<'_, ()>> {
         let update_semaphore = self.is_busy.try_lock().map_err(|_| {
             let last_updated_epoch = self.busy_on_epoch.read().unwrap();
 

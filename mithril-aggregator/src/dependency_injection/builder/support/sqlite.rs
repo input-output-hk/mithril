@@ -53,10 +53,10 @@ impl DependenciesBuilder {
             let _ = connection.execute("pragma analysis_limit=400; pragma optimize;");
         }
 
-        if let Some(pool) = &self.sqlite_connection_cardano_transaction_pool {
-            if let Ok(connection) = pool.connection() {
-                let _ = connection.execute("pragma analysis_limit=400; pragma optimize;");
-            }
+        if let Some(pool) = &self.sqlite_connection_cardano_transaction_pool
+            && let Ok(connection) = pool.connection()
+        {
+            let _ = connection.execute("pragma analysis_limit=400; pragma optimize;");
         }
     }
 

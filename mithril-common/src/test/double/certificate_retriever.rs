@@ -53,7 +53,7 @@ mod tests {
         let certificate = fake_data::certificate("certificate-hash-123".to_string());
         let certificate_hash = certificate.hash.clone();
         let certificate_retriever =
-            FakeCertificaterRetriever::from_certificates(&[certificate.clone()]);
+            FakeCertificaterRetriever::from_certificates(std::slice::from_ref(&certificate));
 
         let retrieved_certificate = certificate_retriever
             .get_certificate_details(&certificate_hash)

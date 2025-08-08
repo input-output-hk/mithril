@@ -69,16 +69,21 @@ impl FileArchiver {
         let temporary_archive_path = parameters.temporary_archive_path();
 
         let temporary_file_archive = self
-            .create_and_verify_archive(&temporary_archive_path, appender, parameters.compression_algorithm)
+            .create_and_verify_archive(
+                &temporary_archive_path,
+                appender,
+                parameters.compression_algorithm,
+            )
             .inspect_err(|_err| {
-                if temporary_archive_path.exists() {
-                    if let Err(remove_error) = fs::remove_file(&temporary_archive_path) {
-                        warn!(
-                            self.logger, " > Post FileArchiver.archive failure, could not remove temporary archive";
-                            "archive_path" => temporary_archive_path.display(),
-                            "error" => remove_error
-                        );
-                    }
+                if temporary_archive_path.exists()
+                    && let Err(remove_error) = fs::remove_file(&temporary_archive_path)
+                {
+                    warn!(
+                        self.logger,
+                        " > Post FileArchiver.archive failure, could not remove temporary archive";
+                        "archive_path" => temporary_archive_path.display(),
+                        "error" => remove_error
+                    );
                 }
             })
             .with_context(|| {

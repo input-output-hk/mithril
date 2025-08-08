@@ -73,7 +73,7 @@ pub async fn try_register_signer_until_registration_round_is_open(
     timeout: Duration,
 ) -> StdResult<()> {
     let mut register_message =
-        payload_builder::generate_register_signer_message(&[signer.clone()], epoch);
+        payload_builder::generate_register_signer_message(std::slice::from_ref(signer), epoch);
     let register_message = register_message.swap_remove(0);
     let party_id = register_message.party_id.clone();
 
