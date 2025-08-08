@@ -115,7 +115,7 @@ async fn prove_transactions() {
     let proof_for_last_transaction = prover
         .compute_transactions_proofs(
             last_tx_snapshot.artifact.block_number,
-            &[last_transaction_hash.clone()],
+            std::slice::from_ref(&last_transaction_hash),
         )
         .await
         .unwrap()

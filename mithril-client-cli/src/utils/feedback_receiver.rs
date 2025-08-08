@@ -421,7 +421,8 @@ mod tests {
         #[tokio::test]
         async fn starting_full_immutables_and_ancillary_together_spawn_two_progress_bars() {
             let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
-            let sender = FeedbackSender::new(&[receiver.clone()]);
+            let receiver_clone = receiver.clone() as Arc<dyn FeedbackReceiver>;
+            let sender = FeedbackSender::new(&[receiver_clone]);
 
             send_event!(cardano_db_v1, full_immutables_dl, started => sender, digest:"digest", size:123);
             send_event!(cardano_db_v1, ancillary_dl, started =>  sender, size:456);
@@ -433,7 +434,8 @@ mod tests {
         #[tokio::test]
         async fn start_and_progress_ancillary_download_with_a_size_of_zero_should_not_crash() {
             let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
-            let sender = FeedbackSender::new(&[receiver.clone()]);
+            let receiver_clone = receiver.clone() as Arc<dyn FeedbackReceiver>;
+            let sender = FeedbackSender::new(&[receiver_clone]);
 
             send_event!(cardano_db_v1, ancillary_dl, started => sender, size:0);
             send_event!(cardano_db_v1, ancillary_dl, progress => sender, bytes:124, size:0);
@@ -444,7 +446,8 @@ mod tests {
         #[tokio::test]
         async fn start_then_complete_should_remove_immutables_progress_bar() {
             let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
-            let sender = FeedbackSender::new(&[receiver.clone()]);
+            let receiver_clone = receiver.clone() as Arc<dyn FeedbackReceiver>;
+            let sender = FeedbackSender::new(&[receiver_clone]);
 
             send_event!(cardano_db_v1, full_immutables_dl, started => sender, digest:"digest", size:123);
             send_event!(cardano_db_v1, full_immutables_dl, completed => sender);
@@ -455,7 +458,8 @@ mod tests {
         #[tokio::test]
         async fn start_then_complete_should_remove_ancillary_progress_bar() {
             let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
-            let sender = FeedbackSender::new(&[receiver.clone()]);
+            let receiver_clone = receiver.clone() as Arc<dyn FeedbackReceiver>;
+            let sender = FeedbackSender::new(&[receiver_clone]);
 
             send_event!(cardano_db_v1, ancillary_dl, started =>  sender, size:456);
             send_event!(cardano_db_v1, ancillary_dl, completed =>  sender);
@@ -470,7 +474,8 @@ mod tests {
         #[tokio::test]
         async fn starting_should_add_multi_progress_bar() {
             let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
-            let sender = FeedbackSender::new(&[receiver.clone()]);
+            let receiver_clone = receiver.clone() as Arc<dyn FeedbackReceiver>;
+            let sender = FeedbackSender::new(&[receiver_clone]);
 
             send_event!(cardano_db, dl_started => sender, total:99, ancillary:false);
 
@@ -480,7 +485,8 @@ mod tests {
         #[tokio::test]
         async fn start_then_complete_should_remove_multi_progress_bar() {
             let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
-            let sender = FeedbackSender::new(&[receiver.clone()]);
+            let receiver_clone = receiver.clone() as Arc<dyn FeedbackReceiver>;
+            let sender = FeedbackSender::new(&[receiver_clone]);
 
             send_event!(cardano_db, dl_started => sender, total:99, ancillary:false);
             send_event!(cardano_db, dl_completed => sender);
@@ -491,7 +497,8 @@ mod tests {
         #[tokio::test]
         async fn start_including_ancillary_add_one_to_total_downloads() {
             let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
-            let sender = FeedbackSender::new(&[receiver.clone()]);
+            let receiver_clone = receiver.clone() as Arc<dyn FeedbackReceiver>;
+            let sender = FeedbackSender::new(&[receiver_clone]);
 
             send_event!(cardano_db, dl_started => sender, total:99, ancillary:true);
 
@@ -509,7 +516,8 @@ mod tests {
         #[tokio::test]
         async fn starting_twice_should_supersede_first_multi_progress_bar() {
             let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
-            let sender = FeedbackSender::new(&[receiver.clone()]);
+            let receiver_clone = receiver.clone() as Arc<dyn FeedbackReceiver>;
+            let sender = FeedbackSender::new(&[receiver_clone]);
 
             send_event!(cardano_db, dl_started => sender, total:50, ancillary:false);
             send_event!(cardano_db, dl_started => sender, total:99, ancillary:false);
@@ -528,7 +536,8 @@ mod tests {
         #[tokio::test]
         async fn complete_without_start_should_not_panic() {
             let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
-            let sender = FeedbackSender::new(&[receiver.clone()]);
+            let receiver_clone = receiver.clone() as Arc<dyn FeedbackReceiver>;
+            let sender = FeedbackSender::new(&[receiver_clone]);
 
             send_event!(cardano_db, dl_completed => sender);
         }
@@ -536,7 +545,8 @@ mod tests {
         #[tokio::test]
         async fn starting_immutable_downloads_should_not_add_progress_bars() {
             let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
-            let sender = FeedbackSender::new(&[receiver.clone()]);
+            let receiver_clone = receiver.clone() as Arc<dyn FeedbackReceiver>;
+            let sender = FeedbackSender::new(&[receiver_clone]);
 
             send_event!(cardano_db, dl_started => sender, total:50, ancillary:false);
 
@@ -551,7 +561,8 @@ mod tests {
         #[tokio::test]
         async fn completed_immutable_downloads_bump_progress() {
             let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
-            let sender = FeedbackSender::new(&[receiver.clone()]);
+            let receiver_clone = receiver.clone() as Arc<dyn FeedbackReceiver>;
+            let sender = FeedbackSender::new(&[receiver_clone]);
 
             send_event!(cardano_db, dl_started => sender, total:50, ancillary:false);
 
@@ -566,7 +577,8 @@ mod tests {
         #[tokio::test]
         async fn starting_digests_downloads_should_not_add_progress_bars() {
             let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
-            let sender = FeedbackSender::new(&[receiver.clone()]);
+            let receiver_clone = receiver.clone() as Arc<dyn FeedbackReceiver>;
+            let sender = FeedbackSender::new(&[receiver_clone]);
 
             send_event!(cardano_db, dl_started => sender, total:50, ancillary:false);
 
@@ -581,7 +593,8 @@ mod tests {
         #[tokio::test]
         async fn starting_ancillary_downloads_should_add_a_progress_bar() {
             let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
-            let sender = FeedbackSender::new(&[receiver.clone()]);
+            let receiver_clone = receiver.clone() as Arc<dyn FeedbackReceiver>;
+            let sender = FeedbackSender::new(&[receiver_clone]);
 
             send_event!(cardano_db, dl_started => sender, total:50, ancillary:false);
 

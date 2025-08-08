@@ -621,7 +621,7 @@ mod tests {
         async fn get_certificate() {
             let genesis_certificate = fake_data::genesis_certificate("genesis_hash");
             let service = MessageServiceBuilder::new()
-                .with_certificates(&[genesis_certificate.clone()])
+                .with_certificates(std::slice::from_ref(&genesis_certificate))
                 .build()
                 .await;
 
@@ -705,7 +705,7 @@ mod tests {
             let message: SnapshotMessage = record.clone().try_into().unwrap();
 
             let service = MessageServiceBuilder::new()
-                .with_signed_entity_records(&[record.clone()])
+                .with_signed_entity_records(std::slice::from_ref(&record))
                 .build()
                 .await;
 
@@ -778,7 +778,7 @@ mod tests {
             let message: CardanoDatabaseSnapshotMessage = record.clone().try_into().unwrap();
 
             let service = MessageServiceBuilder::new()
-                .with_signed_entity_records(&[record.clone()])
+                .with_signed_entity_records(std::slice::from_ref(&record))
                 .build()
                 .await;
 
@@ -869,7 +869,7 @@ mod tests {
             let message: MithrilStakeDistributionMessage = record.clone().try_into().unwrap();
 
             let service = MessageServiceBuilder::new()
-                .with_signed_entity_records(&[record.clone()])
+                .with_signed_entity_records(std::slice::from_ref(&record))
                 .build()
                 .await;
 
@@ -949,7 +949,7 @@ mod tests {
             let message: CardanoTransactionSnapshotMessage = record.clone().try_into().unwrap();
 
             let service = MessageServiceBuilder::new()
-                .with_signed_entity_records(&[record.clone()])
+                .with_signed_entity_records(std::slice::from_ref(&record))
                 .build()
                 .await;
 
@@ -1028,7 +1028,7 @@ mod tests {
             let message: CardanoStakeDistributionMessage = record.clone().try_into().unwrap();
 
             let service = MessageServiceBuilder::new()
-                .with_signed_entity_records(&[record.clone()])
+                .with_signed_entity_records(std::slice::from_ref(&record))
                 .build()
                 .await;
 
@@ -1066,7 +1066,7 @@ mod tests {
             let message: CardanoStakeDistributionMessage = record.clone().try_into().unwrap();
 
             let service = MessageServiceBuilder::new()
-                .with_signed_entity_records(&[record.clone()])
+                .with_signed_entity_records(std::slice::from_ref(&record))
                 .build()
                 .await;
 

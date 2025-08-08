@@ -96,7 +96,7 @@ mod tests {
         for invalid_char in ["g", "x", ";", " ", "à"].iter() {
             let hash = format!("{}{}", "a".repeat(63), invalid_char);
             let error = ProverTransactionsHashValidator::default()
-                .validate(&[hash.clone()])
+                .validate(std::slice::from_ref(&hash))
                 .expect_err("Should return an error");
             assert_eq!(
                 error,

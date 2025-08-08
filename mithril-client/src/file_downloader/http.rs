@@ -245,7 +245,9 @@ mod tests {
     use mithril_common::{entities::FileUri, test::TempDir};
 
     use crate::{
-        feedback::{MithrilEvent, MithrilEventCardanoDatabase, StackFeedbackReceiver},
+        feedback::{
+            FeedbackReceiver, MithrilEvent, MithrilEventCardanoDatabase, StackFeedbackReceiver,
+        },
         test_utils::TestLogger,
     };
 
@@ -288,8 +290,9 @@ mod tests {
                 .header(reqwest::header::CONTENT_LENGTH.as_str(), size.to_string());
         });
         let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
+        let feedback_receiver_clone = feedback_receiver.clone() as Arc<dyn FeedbackReceiver>;
         let http_file_downloader = HttpFileDownloader::new(
-            FeedbackSender::new(&[feedback_receiver.clone()]),
+            FeedbackSender::new(&[feedback_receiver_clone]),
             TestLogger::stdout(),
         )
         .unwrap();
@@ -339,8 +342,9 @@ mod tests {
         file.write_all(content.as_bytes()).unwrap();
 
         let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
+        let feedback_receiver_clone = feedback_receiver.clone() as Arc<dyn FeedbackReceiver>;
         let http_file_downloader = HttpFileDownloader::new(
-            FeedbackSender::new(&[feedback_receiver.clone()]),
+            FeedbackSender::new(&[feedback_receiver_clone]),
             TestLogger::stdout(),
         )
         .unwrap();
