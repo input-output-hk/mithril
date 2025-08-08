@@ -46,15 +46,14 @@ impl CloudUploader {
 impl FileUploader for CloudUploader {
     async fn upload_without_retry(&self, file_path: &Path) -> StdResult<FileUri> {
         let remote_file_path = self.remote_folder.join(get_file_name(file_path)?);
-        if !self.allow_overwrite {
-            if let Some(file_uri) = self
+        if !self.allow_overwrite
+            && let Some(file_uri) = self
                 .cloud_backend_uploader
                 .file_exists(&remote_file_path)
                 .await
                 .with_context(|| "checking if file exists in cloud")?
-            {
-                return Ok(file_uri);
-            }
+        {
+            return Ok(file_uri);
         }
 
         let file_uri = self

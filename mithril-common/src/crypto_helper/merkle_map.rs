@@ -194,10 +194,10 @@ impl<K: MKMapKey, V: MKMapValue<K>, S: MKTreeStorer> MKMap<K, V, S> {
         let leaves_by_keys = self.group_leaves_by_keys(leaves);
         let mut sub_proofs = BTreeMap::<K, MKMapProof<K>>::default();
         for (key, sub_leaves) in leaves_by_keys {
-            if let Some(value) = self.get(&key) {
-                if let Some(proof) = value.compute_proof(&sub_leaves)? {
-                    sub_proofs.insert(key.to_owned(), proof);
-                }
+            if let Some(value) = self.get(&key)
+                && let Some(proof) = value.compute_proof(&sub_leaves)?
+            {
+                sub_proofs.insert(key.to_owned(), proof);
             }
         }
 

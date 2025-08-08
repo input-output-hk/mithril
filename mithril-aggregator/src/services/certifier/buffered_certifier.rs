@@ -131,16 +131,15 @@ impl CertifierService for BufferedCertifierService {
             .create_open_message(signed_entity_type, protocol_message)
             .await;
 
-        if creation_result.is_ok() {
-            if let Err(error) = self
+        if creation_result.is_ok()
+            && let Err(error) = self
                 .try_register_buffered_signatures_to_current_open_message(signed_entity_type)
                 .await
-            {
-                warn!(self.logger, "Failed to register buffered signatures to the new open message";
-                    "signed_entity_type" => ?signed_entity_type,
-                    "error" => ?error
-                );
-            }
+        {
+            warn!(self.logger, "Failed to register buffered signatures to the new open message";
+                "signed_entity_type" => ?signed_entity_type,
+                "error" => ?error
+            );
         }
 
         creation_result

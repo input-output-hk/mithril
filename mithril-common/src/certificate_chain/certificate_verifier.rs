@@ -228,10 +228,9 @@ impl MithrilCertificateVerifier {
         if let Some(signed_epoch) = &certificate
             .protocol_message
             .get_message_part(&ProtocolMessagePartKey::CurrentEpoch)
+            && **signed_epoch == certificate.epoch.to_string()
         {
-            if **signed_epoch == certificate.epoch.to_string() {
-                return Ok(());
-            }
+            return Ok(());
         }
 
         Err(anyhow!(CertificateVerifierError::CertificateEpochUnmatch))
