@@ -5,7 +5,7 @@ on:
   # Important note about scheduled workflows:
   # Notifications for scheduled workflows are sent to the user who last modified the cron syntax in the workflow file.
   schedule:
-    - cron: "0 2 * * *"
+    - cron: "0 1 * * *"
 
 jobs:
   backward-compatibility:
