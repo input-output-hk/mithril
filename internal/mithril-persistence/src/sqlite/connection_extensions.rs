@@ -8,7 +8,7 @@ use crate::sqlite::{EntityCursor, Query, SqliteConnection, Transaction};
 /// Extension trait for the [SqliteConnection] type.
 pub trait ConnectionExtensions {
     /// Begin a transaction on the connection.
-    fn begin_transaction(&self) -> StdResult<Transaction>;
+    fn begin_transaction(&self) -> StdResult<Transaction<'_>>;
 
     /// Execute the given sql query and return the value of the first cell read.
     fn query_single_cell<Q: AsRef<str>, T: ReadableWithIndex>(
@@ -18,7 +18,7 @@ pub trait ConnectionExtensions {
     ) -> StdResult<T>;
 
     /// Fetch entities from the database using the given query.
-    fn fetch<Q: Query>(&self, query: Q) -> StdResult<EntityCursor<Q::Entity>>;
+    fn fetch<Q: Query>(&self, query: Q) -> StdResult<EntityCursor<'_, Q::Entity>>;
 
     /// Fetch the first entity from the database returned using the given query.
     fn fetch_first<Q: Query>(&self, query: Q) -> StdResult<Option<Q::Entity>> {
@@ -39,7 +39,7 @@ pub trait ConnectionExtensions {
 }
 
 impl ConnectionExtensions for SqliteConnection {
-    fn begin_transaction(&self) -> StdResult<Transaction> {
+    fn begin_transaction(&self) -> StdResult<Transaction<'_>> {
         Ok(Transaction::begin(self)?)
     }
 
@@ -54,7 +54,7 @@ impl ConnectionExtensions for SqliteConnection {
         statement.read::<T, _>(0).with_context(|| "Read query error")
     }
 
-    fn fetch<Q: Query>(&self, query: Q) -> StdResult<EntityCursor<Q::Entity>> {
+    fn fetch<Q: Query>(&self, query: Q) -> StdResult<EntityCursor<'_, Q::Entity>> {
         let (condition, params) = query.filters().expand();
         let sql = query.get_definition(&condition);
         let cursor = prepare_statement(self, &sql)?.into_iter().bind(&params[..])?;

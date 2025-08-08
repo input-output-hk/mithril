@@ -51,7 +51,7 @@ impl<M: TryFromBytes + Debug> DmqConsumerPallas<M> {
     }
 
     /// Gets the cached `DmqClient`, creating a new one if it does not exist.
-    async fn get_client(&self) -> StdResult<MutexGuard<Option<DmqClient>>> {
+    async fn get_client(&self) -> StdResult<MutexGuard<'_, Option<DmqClient>>> {
         {
             // Run this in a separate block to avoid dead lock on the Mutex
             let client_lock = self.client.lock().await;

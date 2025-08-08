@@ -317,7 +317,7 @@ mod tests {
             .read::<i64, _>(0)
     }
 
-    fn create_db_checker(connection: &ConnectionThreadSafe) -> DatabaseVersionChecker {
+    fn create_db_checker(connection: &ConnectionThreadSafe) -> DatabaseVersionChecker<'_> {
         DatabaseVersionChecker::new(
             discard_logger(),
             ApplicationNodeType::Aggregator,

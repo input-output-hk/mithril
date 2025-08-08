@@ -47,7 +47,7 @@ impl SqliteConnectionPool {
     }
 
     /// Get a connection from the pool
-    pub fn connection(&self) -> StdResult<ResourcePoolItem<SqlitePooledConnection>> {
+    pub fn connection(&self) -> StdResult<ResourcePoolItem<'_, SqlitePooledConnection>> {
         let timeout = Duration::from_millis(1000);
         let connection = self.connection_pool.acquire_resource(timeout)?;
 
