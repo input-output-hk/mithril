@@ -22,7 +22,6 @@ slog = { workspace = true }
 tokio = { workspace = true }
 
 [dev-dependencies]
-mithril-common = { path = "../../mithril-common", features = ["test_tools"] }
 prometheus-parse = "0.2.5"
 slog-async = { workspace = true }
 slog-term = { workspace = true }

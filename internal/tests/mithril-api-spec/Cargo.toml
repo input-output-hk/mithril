@@ -17,4 +17,4 @@ serde_yml = "0.0.12"
 warp = { workspace = true }
 
 [dev-dependencies]
-mithril-common = { path = "../../../mithril-common", features = ["test_tools"] }
+mithril-common = { path = "../../../mithril-common" }
