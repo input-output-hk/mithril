@@ -434,7 +434,7 @@ You will see more information about the snapshot:
 +-----------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | Size                  | 3.14 GiB                                                                                                                                                                                                        |
 +-----------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| Cardano node version  | 10.4.1                                                                                                                                                                                                          |
+| Cardano node version  | 10.5.1                                                                                                                                                                                                          |
 +-----------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | Location              | https://storage.googleapis.com/cdn.aggregator.pre-release-preview.api.mithril.network/cardano-immutable-files-full/preview-e916-i18323.a1b5e6f43521fd9c5f55e3d6bf27dc4a62f43980681cb67e28cc40582a0d1974.tar.zst |
 +-----------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -477,20 +477,20 @@ You will see that the selected snapshot archive has been downloaded locally unpa
 5/5 - Verifying the cardano db signature…
 Cardano db 'a1b5e6f43521fd9c5f55e3d6bf27dc4a62f43980681cb67e28cc40582a0d1974' has been unpacked and successfully verified with Mithril.
 
-    Files in the directory 'db' can be used to run a Cardano node with version >= 10.4.1.
+    Files in the directory 'db' can be used to run a Cardano node with version >= 10.5.1.
 
     If you are using Cardano Docker image, you can restore a Cardano Node with:
 
-    docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="/home/mithril/data/testnet/a1b5e6f43521fd9c5f55e3d6bf27dc4a62f43980681cb67e28cc40582a0d1974/db",target=/data/db/ -e NETWORK=preview ghcr.io/intersectmbo/cardano-node:10.4.1
+    docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="/home/mithril/data/testnet/a1b5e6f43521fd9c5f55e3d6bf27dc4a62f43980681cb67e28cc40582a0d1974/db",target=/data/db/ -e NETWORK=preview ghcr.io/intersectmbo/cardano-node:10.5.1
 
 
 Upgrade and replace the restored ledger state snapshot to 'LMDB' flavor by running the command:
 
-    mithril-client --unstable tools utxo-hd snapshot-converter --db-directory db --cardano-node-version 10.4.1 --utxo-hd-flavor LMDB --commit
+    mithril-client --unstable tools utxo-hd snapshot-converter --db-directory db --cardano-node-version 10.5.1 --utxo-hd-flavor LMDB --commit
 
     Or to 'Legacy' flavor by running the command:
 
-    mithril-client --unstable tools utxo-hd snapshot-converter --db-directory db --cardano-node-version 10.4.1 --utxo-hd-flavor Legacy --commit
+    mithril-client --unstable tools utxo-hd snapshot-converter --db-directory db --cardano-node-version 10.5.1 --utxo-hd-flavor Legacy --commit
 ```
 
 ### Step 5 (optional): Convert the ledger state snapshot to another flavor
@@ -518,7 +518,7 @@ You can also replace `latest` with a specific Cardano node version tag which wil
 Launch an empty Cardano node and make it live in minutes!
 
 ```bash
-docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="$(pwd)/data/testnet/$SNAPSHOT_DIGEST/db",target=/data/db/ -e NETWORK=$CARDANO_NETWORK ghcr.io/intersectmbo/cardano-node:10.4.1
+docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="$(pwd)/data/testnet/$SNAPSHOT_DIGEST/db",target=/data/db/ -e NETWORK=$CARDANO_NETWORK ghcr.io/intersectmbo/cardano-node:10.5.1
 ```
 
 You will see the Cardano node start by validating the files ingested from the snapshot archive. Then, it will synchronize with the other network nodes and start adding blocks:

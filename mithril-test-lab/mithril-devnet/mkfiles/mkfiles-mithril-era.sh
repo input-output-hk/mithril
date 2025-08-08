@@ -97,7 +97,10 @@ function send_funds_to_era_address {
 
     ## Compute the submitted transaction id
     TX_ID_SUBMITTED=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI \${CURRENT_CARDANO_ERA} transaction txid --tx-file node-pool${N}/tx/tx${N}-era-funds.tx)
-
+    if [[ "\${TX_ID_SUBMITTED}" =~ txhash ]]; then
+        TX_ID_SUBMITTED=\$(echo \$TX_ID_SUBMITTED | jq -r '.txhash')
+    fi
+    
     ## Wait at least for 10 blocks so that the transaction is confirmed
     wait_for_elapsed_blocks 10
 
