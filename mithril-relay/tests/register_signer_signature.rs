@@ -10,7 +10,7 @@ use slog_scope::{error, info};
 #[cfg(feature = "future_dmq")]
 use mithril_common::CardanoNetwork;
 use mithril_common::messages::{RegisterSignatureMessageHttp, RegisterSignerMessage};
-use mithril_common::test_utils::double::Dummy;
+use mithril_common::test::double::Dummy;
 use mithril_relay::{
     PassiveRelay, SignerRelay, SignerRelayConfiguration, SignerRelayMode,
     p2p::{BroadcastMessage, PeerBehaviourEvent, PeerEvent},
