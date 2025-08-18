@@ -70,6 +70,11 @@ for SIGNER_TYPE in $SIGNER_TYPES; do
       # Setup cardano node relay topology
       cat /home/curry/docker/cardano/config/$CARDANO_NODE_VERSION/${var.cardano_network}/cardano-node/topology.json > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/topology-relay.json
 
+      # Copy peer snapshot file (if exists)
+      if [ -f "/home/curry/docker/cardano/config/$CARDANO_NODE_VERSION/${var.cardano_network}/cardano-node/peer-snapshot.json" ]; then
+        cp /home/curry/docker/cardano/config/$CARDANO_NODE_VERSION/${var.cardano_network}/cardano-node/peer-snapshot.json /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/peer-snapshot.json
+      fi
+
       FOUND_CONFIGURATION=true
       break
     fi
