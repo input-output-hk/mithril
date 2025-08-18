@@ -1,8 +1,12 @@
 use std::{fs, path::PathBuf};
 
 use anyhow::{Context, anyhow};
-use pallas_network::{facades::DmqServer, miniprotocols::localmsgnotification::Request};
+use pallas_network::{
+    facades::DmqServer,
+    miniprotocols::localmsgnotification::{Request, State},
+};
 use tokio::{
+    join,
     net::UnixListener,
     select,
     sync::{Mutex, MutexGuard, mpsc::UnboundedReceiver, watch::Receiver},
@@ -118,6 +122,77 @@ impl DmqConsumerServerPallas {
 
         Ok(())
     }
+
+    /// Receives incoming messages into the DMQ consumer server.
+    async fn receive_incoming_messages(&self) -> StdResult<()> {
+        info!(
+            self.logger,
+            "Receive incoming messages into DMQ consumer server...";
+            "socket" => ?self.socket,
+            "network" => ?self.network
+        );
+
+        let mut stop_rx = self.stop_rx.clone();
+        let mut receiver = self.messages_receiver.lock().await;
+        match *receiver {
+            Some(ref mut receiver) => loop {
+                select! {
+                    _ = stop_rx.changed() => {
+                        warn!(self.logger, "Stopping DMQ consumer server...");
+
+                        return Ok(());
+                    }
+                    message = receiver.recv() => {
+                        if let Some(message) = message {
+                            debug!(self.logger, "Received a message from the DMQ network"; "message" => ?message);
+                            self.messages_buffer.enqueue(message).await;
+                        } else {
+                            warn!(self.logger, "DMQ message receiver channel closed");
+                            return Ok(());
+                        }
+
+                    }
+                }
+            },
+            None => {
+                return Err(anyhow!("DMQ message receiver is not registered"));
+            }
+        }
+    }
+
+    /// Serves incoming messages from the DMQ consumer server.
+    async fn serve_incoming_messages(&self) -> StdResult<()> {
+        info!(
+            self.logger,
+            "Serve incoming messages from DMQ consumer server...";
+            "socket" => ?self.socket,
+            "network" => ?self.network
+        );
+
+        let mut stop_rx = self.stop_rx.clone();
+        loop {
+            select! {
+                _ = stop_rx.changed() => {
+                    warn!(self.logger, "Stopping DMQ consumer server...");
+
+                    return Ok(());
+                }
+                res = self.process_message() => {
+                    match res {
+                        Ok(_) => {
+                            debug!(self.logger, "Processed a message successfully");
+                        }
+                        Err(err) => {
+                            error!(self.logger, "Failed to process message"; "error" => ?err);
+                            /* if let Err(drop_err) = self.drop_server().await {
+                                error!(self.logger, "Failed to drop DMQ consumer server"; "error" => ?drop_err);
+                            } */
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[async_trait::async_trait]
@@ -129,6 +204,12 @@ impl DmqConsumerServer for DmqConsumerServerPallas {
         );
         let mut server_guard = self.get_server().await?;
         let server = server_guard.as_mut().ok_or(anyhow!("DMQ server does not exist"))?;
+
+        debug!(
+            self.logger,
+            "DMQ Server state: {:?}",
+            server.msg_notification().state()
+        );
 
         let request = server
             .msg_notification()
@@ -147,8 +228,13 @@ impl DmqConsumerServer for DmqConsumerServerPallas {
                     reply_messages.into_iter().map(|msg| msg.into()).collect::<Vec<_>>();
                 server
                     .msg_notification()
-                    .send_reply_messages_blocking(reply_messages)
+                    .send_reply_messages_blocking(reply_messages.clone())
                     .await?;
+                debug!(
+                    self.logger,
+                    "Blocking notification replied to the DMQ notification client: {:?}",
+                    reply_messages
+                );
             }
             Request::NonBlocking => {
                 debug!(
@@ -179,45 +265,14 @@ impl DmqConsumerServer for DmqConsumerServerPallas {
             "network" => ?self.network
         );
 
-        let mut stop_rx = self.stop_rx.clone();
-        let mut receiver = self.messages_receiver.lock().await;
-        match *receiver {
-            Some(ref mut receiver) => loop {
-                select! {
-                    _ = stop_rx.changed() => {
-                        warn!(self.logger, "Stopping DMQ consumer server...");
+        let (receive_result, serve_result) = join!(
+            self.receive_incoming_messages(),
+            self.serve_incoming_messages()
+        );
+        receive_result?;
+        serve_result?;
 
-                        return Ok(());
-                    }
-                    message = receiver.recv() => {
-                        if let Some(message) = message {
-                            debug!(self.logger, "Received a message from the DMQ network"; "message" => ?message);
-                            self.messages_buffer.enqueue(message).await;
-                        } else {
-                            warn!(self.logger, "DMQ message receiver channel closed");
-                            return Ok(());
-                        }
-
-                    }
-                    res = self.process_message() => {
-                        match res {
-                            Ok(_) => {
-                                debug!(self.logger, "Processed a message successfully");
-                            }
-                            Err(err) => {
-                                error!(self.logger, "Failed to process message"; "error" => ?err);
-                                if let Err(drop_err) = self.drop_server().await {
-                                    error!(self.logger, "Failed to drop DMQ consumer server"; "error" => ?drop_err);
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            None => {
-                return Err(anyhow!("DMQ message receiver is not registered"));
-            }
-        }
+        Ok(())
     }
 }
 
