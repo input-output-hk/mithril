@@ -121,6 +121,9 @@ cat >> payment-mithril.sh <<EOF
 
     ## Compute the submitted transaction id
     TX_ID_SUBMITTED=\$($CARDANO_CLI \${CURRENT_CARDANO_ERA} transaction txid --tx-file node-pool${i}/tx/tx${i}-payment-funds.tx)
+    if [[ "\${TX_ID_SUBMITTED}" =~ txhash ]]; then
+        TX_ID_SUBMITTED=\$(echo \$TX_ID_SUBMITTED | jq -r '.txhash')
+    fi
 
     ## Retrieve the on-chain transaction id
     TX_IN_ON_CHAIN=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI \${CURRENT_CARDANO_ERA} query utxo \\
