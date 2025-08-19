@@ -73,7 +73,7 @@ services:
       [
         "run",
         "--config",
-        "/config/cardano-node/config.json",
+        "/config/cardano-node/config-bp.json",
         "--topology",
         "/pool/topology-block-producer.json",
         "--database-path",
