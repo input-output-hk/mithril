@@ -201,7 +201,6 @@ impl ExactSizeIterator for BlockRangesSequence {
     }
 }
 
-#[cfg(any(test, feature = "test_tools"))]
 mod test_extensions {
     use crate::test::entities_extensions::BlockRangeTestExtension;
 

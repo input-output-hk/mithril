@@ -1,6 +1,6 @@
 [package]
 name = "mithril-signed-entity-preloader"
-version = "0.0.9"
+version = "0.0.10"
 description = "A preload mechanism for Cardano Transaction signed entity."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -21,7 +21,6 @@ slog = { workspace = true }
 tokio = { workspace = true }
 
 [dev-dependencies]
-mithril-common = { path = "../../../mithril-common", features = ["test_tools"] }
 mockall = { workspace = true }
 slog-async = { workspace = true }
 slog-term = { workspace = true }

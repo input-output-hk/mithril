@@ -1,6 +1,6 @@
 [package]
 name = "mithril-api-spec"
-version = "0.1.4"
+version = "0.1.5"
 authors.workspace = true
 documentation.workspace = true
 edition.workspace = true
@@ -17,4 +17,4 @@ serde_yml = "0.0.12"
 warp = { workspace = true }
 
 [dev-dependencies]
-mithril-common = { path = "../../../mithril-common", features = ["test_tools"] }
+mithril-common = { path = "../../../mithril-common" }

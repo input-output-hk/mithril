@@ -1,6 +1,6 @@
 [package]
 name = "mithril-metric"
-version = "0.1.18"
+version = "0.1.19"
 description = "Common tools to expose metrics."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -22,7 +22,6 @@ slog = { workspace = true }
 tokio = { workspace = true }
 
 [dev-dependencies]
-mithril-common = { path = "../../mithril-common", features = ["test_tools"] }
 prometheus-parse = "0.2.5"
 slog-async = { workspace = true }
 slog-term = { workspace = true }

@@ -1,6 +1,6 @@
 [package]
 name = "mithril-aggregator-client"
-version = "0.1.0"
+version = "0.1.1"
 description = "Client to request data from a Mithril Aggregator"
 authors.workspace = true
 documentation.workspace = true
@@ -28,7 +28,6 @@ tokio = { workspace = true }
 [dev-dependencies]
 http = "1.3.1"
 httpmock = "0.7.0"
-mithril-common = { path = "../../mithril-common", version = ">=0.5", features = ["test_tools"] }
 mockall = { workspace = true }
 slog-async = { workspace = true }
 slog-term = { workspace = true }

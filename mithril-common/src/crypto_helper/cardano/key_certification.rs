@@ -292,7 +292,6 @@ impl KeyRegWrapper {
     }
 }
 
-#[cfg(any(test, feature = "test_tools"))]
 mod test_extensions {
     use crate::test::crypto_helper::ProtocolInitializerTestExtension;
 

@@ -1,6 +1,6 @@
 [package]
 name = "mithril-common"
-version = "0.6.14"
+version = "0.6.15"
 description = "Common types, interfaces, and utilities for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -24,9 +24,6 @@ crate-type = ["lib", "cdylib", "staticlib"]
 [features]
 default = ["rug-backend"]
 
-# Full feature set
-full = ["test_tools"]
-
 # Enables `rug-backend` features for `mithril-stm` dependency
 rug-backend = ["mithril-stm/rug-backend"]
 # Enables `num-integer-backend` features for `mithril-stm` dependency
@@ -35,8 +32,6 @@ num-integer-backend = ["mithril-stm/num-integer-backend"]
 
 # Disable signer certification, to be used only for tests
 allow_skip_signer_certification = []
-# Enable all tests tools
-test_tools = []
 
 [dependencies]
 anyhow = { workspace = true }

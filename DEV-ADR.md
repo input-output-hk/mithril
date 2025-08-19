@@ -23,6 +23,48 @@ To complete
 To complete
 -->
 
+### 4. Guidelines for crate test utilities
+
+**Date:** 2025-07-25
+**Status:** Accepted
+
+### Context
+
+- Testing requires reusable utilities that may need to be shared across crates
+- Test utilities should be isolated from production code while remaining accessible to child crates
+- We need to minimize feature flags to optimize Rust compiler artifact reuse and reduce build times
+
+### Decision
+
+Test utilities must follow this organizational structure:
+
+**Core Rules:**
+
+1. All test utilities belong in a dedicated `test` module within each crate
+2. Utilities become public only when used by child crates or integration tests
+3. Public test utilities must not introduce additional dependencies
+4. Private test utilities are gated behind `cfg(test)`
+5. Import paths must explicitly include `test` modules to prevent accidental production usage
+6. Feature flags are prohibited for test utility isolation
+
+**Module Organization:**
+
+- **Test doubles** (mocks, fakes, stubs): `test::double` module
+- **Test data builders**: `test::builder` module
+- **Test-only type extensions**: Extension traits in `test` module
+  - Trait names end with `TestExtension`
+  - Implementations follow trait definitions, except when accessing private fields
+
+#### Consequences
+
+- Consistent codebase organization across all crates
+- Clear separation between production and test code
+- Improved discoverability and maintainability of test utilities
+- Reduced build times through minimal feature flag usage
+- Enhanced reusability of test utilities across child crates
+
+---
+
 ### 3. Guidelines for Dummy Test Doubles
 
 **Date:** 2025-07-22
@@ -51,7 +93,7 @@ The following guidelines will be adopted for implementing the `Dummy` trait:
 
 ---
 
-## 2. Remove Artifacts serialization support when compiling to WebAssembly
+## 2. Remove artifacts serialization support when compiling to WebAssembly
 
 date: 2025-02-26
 status: Accepted
@@ -88,7 +130,7 @@ In the future, if we need to serialize and deserialize Artifacts in WebAssembly,
 
 ---
 
-## 1. Record Architecture Decisions
+## 1. Record architecture decisions
 
 date: 2025-02-26
 status: Accepted
