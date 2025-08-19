@@ -25,46 +25,43 @@ To complete
 
 ### 4. Guidelines for crate test utilities
 
-date: 2025-07-25
-status: Accepted
+**Date:** 2025-07-25
+**Status:** Accepted
 
 ### Context
 
-- For testing, crates may need to define reusable test utilities
-- Some of those utilities may need to be exposed to child crates to enable or facilitate writing tests
-- We want to isolate test utilities from production code as much as possible
-- We want to limit the number of feature flags so the Rust compiler may reuse built artifacts effectively, reducing build time
+- Testing requires reusable utilities that may need to be shared across crates
+- Test utilities should be isolated from production code while remaining accessible to child crates
+- We need to minimize feature flags to optimize Rust compiler artifact reuse and reduce build times
 
 ### Decision
 
-Test utilities should be organized following these rules:
+Test utilities must follow this organizational structure:
 
-1. Each crate must define its private and public test utilities in a `test` module
-2. A test utility should be made public if it is reused in a child crate or in the crate's integration tests
-3. Making a test utility public should not add any dependency to the crate
-4. Private test utilities should be behind `cfg(test)`
-5. Importing a public test utility should always require an import path that contains a `test` module, so their misuse
-   in production code can be easily identified
-6. No feature flag should be added to isolate test utilities from production code
+**Core Rules:**
 
-Specific cases:
+1. All test utilities belong in a dedicated `test` module within each crate
+2. Utilities become public only when used by child crates or integration tests
+3. Public test utilities must not introduce additional dependencies
+4. Private test utilities are gated behind `cfg(test)`
+5. Import paths must explicitly include `test` modules to prevent accidental production usage
+6. Feature flags are prohibited for test utility isolation
 
-- Test doubles (fakes, dummies, mocks, stubs, etc.): should be located in a `test::double` module
-- Builders of test data should be located in a `test::builder` module
-- Extending a type with a test-only method should be done using extension traits located in the `test` module, which
-  forces the import of a `test`-scoped symbol
-  - Their name should be suffixed with `TestExtension`
-  - Implementation of those traits should preferably be below the trait definition, but if some methods need to access
-    private properties, then the implementation may be located below their extended type
+**Module Organization:**
+
+- **Test doubles** (mocks, fakes, stubs): `test::double` module
+- **Test data builders**: `test::builder` module
+- **Test-only type extensions**: Extension traits in `test` module
+  - Trait names end with `TestExtension`
+  - Implementations follow trait definitions, except when accessing private fields
 
 #### Consequences
 
-- Enhanced consistency in code organization
-- Improved discoverability of test utilities
-- Clearer distinction between production and test code
-- Simplified maintenance of test utilities
-- Child crates can reuse common test utilities when needed
-- Feature flag usage is minimized, avoiding unnecessary recompilation
+- Consistent codebase organization across all crates
+- Clear separation between production and test code
+- Improved discoverability and maintainability of test utilities
+- Reduced build times through minimal feature flag usage
+- Enhanced reusability of test utilities across child crates
 
 ---
 
@@ -96,7 +93,7 @@ The following guidelines will be adopted for implementing the `Dummy` trait:
 
 ---
 
-## 2. Remove Artifacts serialization support when compiling to WebAssembly
+## 2. Remove artifacts serialization support when compiling to WebAssembly
 
 date: 2025-02-26
 status: Accepted
@@ -133,7 +130,7 @@ In the future, if we need to serialize and deserialize Artifacts in WebAssembly,
 
 ---
 
-## 1. Record Architecture Decisions
+## 1. Record architecture decisions
 
 date: 2025-02-26
 status: Accepted
