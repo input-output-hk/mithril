@@ -151,9 +151,7 @@ impl DmqConsumerServerPallas {
                     }
                 }
             },
-            None => {
-                return Err(anyhow!("DMQ message receiver is not registered"));
-            }
+            None => Err(anyhow!("DMQ message receiver is not registered")),
         }
     }
 
@@ -229,8 +227,7 @@ impl DmqConsumerServer for DmqConsumerServerPallas {
                     .await?;
                 debug!(
                     self.logger,
-                    "Blocking notification replied to the DMQ notification client: {:?}",
-                    reply_messages
+                    "Messages replied to the DMQ notification client: {:?}", reply_messages
                 );
             }
             Request::NonBlocking => {
@@ -244,9 +241,12 @@ impl DmqConsumerServer for DmqConsumerServerPallas {
                 let has_more = !self.messages_buffer.is_empty().await;
                 server
                     .msg_notification()
-                    .send_reply_messages_non_blocking(reply_messages, has_more)
+                    .send_reply_messages_non_blocking(reply_messages.clone(), has_more)
                     .await?;
-                server.msg_notification().recv_done().await?;
+                debug!(
+                    self.logger,
+                    "Messages replied to the DMQ notification client: {:?}", reply_messages
+                );
             }
         };
 

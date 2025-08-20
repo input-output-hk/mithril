@@ -47,7 +47,7 @@ async fn dmq_consumer_client_server() {
         async move {
             let dmq_consumer_server = Arc::new(DmqConsumerServerPallas::new(
                 socket_path.to_path_buf(),
-                cardano_network.to_owned(),
+                cardano_network,
                 stop_rx,
                 slog_scope::logger(),
             ));
@@ -61,13 +61,14 @@ async fn dmq_consumer_client_server() {
         async move {
             let consumer_client = DmqConsumerClientPallas::<DmqMessageTestPayload>::new(
                 socket_path,
-                cardano_network.clone(),
+                cardano_network,
                 slog_scope::logger(),
             );
             let mut messages = vec![];
-            signature_dmq_tx.send(create_fake_msg(b"msg_1").await.into()).unwrap();
+            signature_dmq_tx.send(create_fake_msg(b"msg_1").await).unwrap();
+            signature_dmq_tx.send(create_fake_msg(b"msg_2").await).unwrap();
             messages.extend_from_slice(&consumer_client.consume_messages().await.unwrap());
-            signature_dmq_tx.send(create_fake_msg(b"msg_2").await.into()).unwrap();
+            signature_dmq_tx.send(create_fake_msg(b"msg_3").await).unwrap();
             messages.extend_from_slice(&consumer_client.consume_messages().await.unwrap());
             stop_tx.send(()).unwrap();
 
@@ -79,7 +80,8 @@ async fn dmq_consumer_client_server() {
     assert_eq!(
         vec![
             DmqMessageTestPayload::new(b"msg_1"),
-            DmqMessageTestPayload::new(b"msg_2")
+            DmqMessageTestPayload::new(b"msg_2"),
+            DmqMessageTestPayload::new(b"msg_3")
         ],
         messages
     );

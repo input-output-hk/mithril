@@ -1,8 +1,8 @@
 use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
 
 use anyhow::{Context, anyhow};
-use pallas_network::facades::DmqClient;
-use slog::{Logger, debug, error};
+use pallas_network::{facades::DmqClient, miniprotocols::localmsgnotification::State};
+use slog::{Logger, debug};
 use tokio::sync::{Mutex, MutexGuard};
 
 use mithril_common::{
@@ -94,11 +94,13 @@ impl<M: TryFromBytes + Debug> DmqConsumerClientPallas<M> {
         debug!(self.logger, "Waiting for messages from DMQ...");
         let mut client_guard = self.get_client().await?;
         let client = client_guard.as_mut().ok_or(anyhow!("DMQ client does not exist"))?;
-        client
-            .msg_notification()
-            .send_request_messages_blocking()
-            .await
-            .with_context(|| "Failed to request notifications from DMQ server: {}")?;
+        if *client.msg_notification().state() == State::Idle {
+            client
+                .msg_notification()
+                .send_request_messages_blocking()
+                .await
+                .with_context(|| "Failed to request notifications from DMQ server: {}")?;
+        }
 
         let reply = client
             .msg_notification()
@@ -106,9 +108,6 @@ impl<M: TryFromBytes + Debug> DmqConsumerClientPallas<M> {
             .await
             .with_context(|| "Failed to receive notifications from DMQ server")?;
         debug!(self.logger, "Received single signatures from DMQ"; "messages" => ?reply);
-        if let Err(e) = client.msg_notification().send_done().await {
-            error!(self.logger, "Failed to send Done"; "error" => ?e);
-        }
 
         reply
             .0
@@ -227,10 +226,6 @@ mod tests {
                     // server replies with messages if any
                     server_msg.send_reply_messages_blocking(reply_messages).await.unwrap();
                     assert_eq!(*server_msg.state(), localmsgnotification::State::Idle);
-
-                    // server receives done from client
-                    server_msg.recv_done().await.unwrap();
-                    assert_eq!(*server_msg.state(), localmsgnotification::State::Done);
                 } else {
                     // server waits if no message available
                     future::pending().await
