@@ -24,11 +24,12 @@ bincode = { version = "2.0.1" }
 blake2 = "0.10.6"
 mithril-cardano-node-chain = { path = "../cardano-node/mithril-cardano-node-chain" }
 mithril-common = { path = "../../mithril-common" }
-pallas-network = { git = "https://github.com/txpipe/pallas.git", branch = "main" }
 pallas-codec = { git = "https://github.com/txpipe/pallas.git", branch = "main" }
+pallas-network = { git = "https://github.com/txpipe/pallas.git", branch = "main" }
 serde = { workspace = true }
 serde_bytes = "0.11.17"
 slog = { workspace = true }
+slog-scope = "4.4.0"
 tokio = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]

@@ -4258,6 +4258,7 @@ dependencies = [
  "serde_bytes",
  "slog",
  "slog-async",
+ "slog-scope",
  "slog-term",
  "tokio",
 ]

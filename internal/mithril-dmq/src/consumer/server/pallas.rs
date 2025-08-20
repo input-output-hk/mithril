@@ -1,10 +1,7 @@
 use std::{fs, path::PathBuf};
 
 use anyhow::{Context, anyhow};
-use pallas_network::{
-    facades::DmqServer,
-    miniprotocols::localmsgnotification::{Request, State},
-};
+use pallas_network::{facades::DmqServer, miniprotocols::localmsgnotification::Request};
 use tokio::{
     join,
     net::UnixListener,
