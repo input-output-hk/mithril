@@ -41,6 +41,7 @@ async fn dmq_consumer_client_server() {
             .join("node.socket");
     let (stop_tx, stop_rx) = watch::channel(());
 
+    // Start the server
     let (signature_dmq_tx, signature_dmq_rx) = unbounded_channel::<DmqMessage>();
     let server = tokio::spawn({
         let socket_path = socket_path.clone();
@@ -56,8 +57,10 @@ async fn dmq_consumer_client_server() {
         }
     });
 
+    // Start a first client, receive messages and wait for its deconnection
     let client = tokio::spawn({
         let socket_path = socket_path.clone();
+        let signature_dmq_tx = signature_dmq_tx.clone();
         async move {
             let consumer_client = DmqConsumerClientPallas::<DmqMessageTestPayload>::new(
                 socket_path,
@@ -70,13 +73,12 @@ async fn dmq_consumer_client_server() {
             messages.extend_from_slice(&consumer_client.consume_messages().await.unwrap());
             signature_dmq_tx.send(create_fake_msg(b"msg_3").await).unwrap();
             messages.extend_from_slice(&consumer_client.consume_messages().await.unwrap());
-            stop_tx.send(()).unwrap();
 
             messages.into_iter().map(|(msg, _)| msg).collect::<Vec<_>>()
         }
     });
 
-    let (_, messages) = tokio::try_join!(server, client).unwrap();
+    let messages = client.await.unwrap();
     assert_eq!(
         vec![
             DmqMessageTestPayload::new(b"msg_1"),
@@ -85,4 +87,30 @@ async fn dmq_consumer_client_server() {
         ],
         messages
     );
+
+    // Sleep to avoid refused connection from the server
+    tokio::time::sleep(std::time::Duration::from_millis(3000)).await;
+
+    // Start a second client, receive messages
+    let client = tokio::spawn({
+        let socket_path = socket_path.clone();
+        let signature_dmq_tx = signature_dmq_tx.clone();
+        async move {
+            let consumer_client = DmqConsumerClientPallas::<DmqMessageTestPayload>::new(
+                socket_path,
+                cardano_network,
+                slog_scope::logger(),
+            );
+            let mut messages = vec![];
+            signature_dmq_tx.send(create_fake_msg(b"msg_4").await).unwrap();
+            messages.extend_from_slice(&consumer_client.consume_messages().await.unwrap());
+            stop_tx.send(()).unwrap();
+
+            messages.into_iter().map(|(msg, _)| msg).collect::<Vec<_>>()
+        }
+    });
+
+    // Check that all messages have been correctly received
+    let (_, messages) = tokio::try_join!(server, client).unwrap();
+    assert_eq!(vec![DmqMessageTestPayload::new(b"msg_4")], messages);
 }
