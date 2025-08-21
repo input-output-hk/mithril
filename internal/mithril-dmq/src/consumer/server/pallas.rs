@@ -40,7 +40,7 @@ impl DmqConsumerServerPallas {
             network,
             server: Mutex::new(None),
             messages_receiver: Mutex::new(None),
-            messages_buffer: MessageQueue::new(),
+            messages_buffer: MessageQueue::default(),
             stop_rx,
             logger: logger.new_with_component_name::<Self>(),
         }
@@ -90,6 +90,8 @@ impl DmqConsumerServerPallas {
     }
 
     /// Drops the current `DmqServer`, if it exists.
+    // TODO: remove allow dead code
+    #[allow(dead_code)]
     async fn drop_server(&self) -> StdResult<()> {
         debug!(
             self.logger,
