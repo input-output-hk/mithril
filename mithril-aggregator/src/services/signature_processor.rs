@@ -2,7 +2,11 @@ use std::sync::Arc;
 
 use slog::{Logger, error, warn};
 
-use mithril_common::{StdResult, logging::LoggerExtensions};
+use mithril_common::{
+    StdResult,
+    entities::{SingleSignature, SingleSignatureAuthenticationStatus},
+    logging::LoggerExtensions,
+};
 use tokio::{select, sync::watch::Receiver};
 
 use crate::MetricsService;
@@ -46,6 +50,13 @@ impl SequentialSignatureProcessor {
             metrics_service,
         }
     }
+
+    /// Authenticates a single signature
+    ///
+    /// This is always the case with single signatures received from the DMQ network.
+    fn authenticate_signature(&self, signature: &mut SingleSignature) {
+        signature.authentication_status = SingleSignatureAuthenticationStatus::Authenticated;
+    }
 }
 
 #[async_trait::async_trait]
@@ -53,7 +64,8 @@ impl SignatureProcessor for SequentialSignatureProcessor {
     async fn process_signatures(&self) -> StdResult<()> {
         match self.consumer.get_signatures().await {
             Ok(signatures) => {
-                for (signature, signed_entity_type) in signatures {
+                for (mut signature, signed_entity_type) in signatures {
+                    self.authenticate_signature(&mut signature);
                     match self
                         .certifier
                         .register_single_signature(&signed_entity_type, &signature)
@@ -150,15 +162,27 @@ mod tests {
                 .expect_register_single_signature()
                 .with(
                     eq(SignedEntityType::MithrilStakeDistribution(Epoch(1))),
-                    eq(fake_data::single_signature(vec![1, 2, 3])),
+                    eq(SingleSignature {
+                        authentication_status: SingleSignatureAuthenticationStatus::Authenticated,
+                        ..fake_data::single_signature(vec![1, 2, 3])
+                    }),
                 )
-                .returning(|_, _| Ok(SignatureRegistrationStatus::Registered))
+                .returning(|_, single_signature| {
+                    assert_eq!(
+                        single_signature.authentication_status,
+                        SingleSignatureAuthenticationStatus::Authenticated
+                    );
+                    Ok(SignatureRegistrationStatus::Registered)
+                })
                 .times(1);
             mock_certifier
                 .expect_register_single_signature()
                 .with(
                     eq(SignedEntityType::MithrilStakeDistribution(Epoch(2))),
-                    eq(fake_data::single_signature(vec![4, 5, 6])),
+                    eq(SingleSignature {
+                        authentication_status: SingleSignatureAuthenticationStatus::Authenticated,
+                        ..fake_data::single_signature(vec![4, 5, 6])
+                    }),
                 )
                 .returning(|_, _| Ok(SignatureRegistrationStatus::Registered))
                 .times(1);
@@ -207,7 +231,10 @@ mod tests {
                 .expect_register_single_signature()
                 .with(
                     eq(SignedEntityType::MithrilStakeDistribution(Epoch(1))),
-                    eq(fake_data::single_signature(vec![1, 2, 3])),
+                    eq(SingleSignature {
+                        authentication_status: SingleSignatureAuthenticationStatus::Authenticated,
+                        ..fake_data::single_signature(vec![1, 2, 3])
+                    }),
                 )
                 .returning(|_, _| Ok(SignatureRegistrationStatus::Registered))
                 .times(1);
