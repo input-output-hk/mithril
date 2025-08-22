@@ -19,10 +19,8 @@ async fn create_fake_msg(bytes: &[u8]) -> DmqMessage {
     let dmq_builder = DmqMessageBuilder::new(
         {
             let (kes_signature, operational_certificate) = KesSignerFake::dummy_signature();
-            let kes_signer = KesSignerFake::new(vec![
-                Ok((kes_signature, operational_certificate.clone())),
-                Ok((kes_signature, operational_certificate.clone())), // TODO: remove this line once the hack of KES signature is removed in DMQ message builder
-            ]);
+            let kes_signer =
+                KesSignerFake::new(vec![Ok((kes_signature, operational_certificate.clone()))]);
 
             Arc::new(kes_signer)
         },
@@ -33,7 +31,7 @@ async fn create_fake_msg(bytes: &[u8]) -> DmqMessage {
     dmq_builder.build(&message.to_bytes_vec().unwrap()).await.unwrap()
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn dmq_consumer_client_server() {
     let cardano_network = CardanoNetwork::TestNet(0);
     let socket_path =
@@ -89,7 +87,7 @@ async fn dmq_consumer_client_server() {
     );
 
     // Sleep to avoid refused connection from the server
-    tokio::time::sleep(std::time::Duration::from_millis(3000)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
 
     // Start a second client, receive messages
     let client = tokio::spawn({

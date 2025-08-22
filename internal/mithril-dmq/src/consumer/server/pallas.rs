@@ -91,8 +91,6 @@ impl DmqConsumerServerPallas {
     }
 
     /// Drops the current `DmqServer`, if it exists.
-    // TODO: remove allow dead code
-    #[allow(dead_code)]
     async fn drop_server(&self) -> StdResult<()> {
         debug!(
             self.logger,
@@ -179,9 +177,9 @@ impl DmqConsumerServerPallas {
                         }
                         Err(err) => {
                             error!(self.logger, "Failed to process message"; "error" => ?err);
-                            /* if let Err(drop_err) = self.drop_server().await {
+                            if let Err(drop_err) = self.drop_server().await {
                                 error!(self.logger, "Failed to drop DMQ consumer server"; "error" => ?drop_err);
-                            } */
+                            }
                         }
                     }
                 }
@@ -197,15 +195,9 @@ impl DmqConsumerServer for DmqConsumerServerPallas {
             self.logger,
             "Waiting for message received from the DMQ network"
         );
+
         let mut server_guard = self.get_server().await?;
         let server = server_guard.as_mut().ok_or(anyhow!("DMQ server does not exist"))?;
-
-        debug!(
-            self.logger,
-            "DMQ Server state: {:?}",
-            server.msg_notification().state()
-        );
-
         let request = server
             .msg_notification()
             .recv_next_request()
@@ -253,7 +245,6 @@ impl DmqConsumerServer for DmqConsumerServerPallas {
         Ok(())
     }
 
-    /// Runs the DMQ publisher server, processing messages in a loop.
     async fn run(&self) -> StdResult<()> {
         info!(
             self.logger,
@@ -270,6 +261,18 @@ impl DmqConsumerServer for DmqConsumerServerPallas {
         serve_result?;
 
         Ok(())
+    }
+}
+
+impl Drop for DmqConsumerServerPallas {
+    fn drop(&mut self) {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                if let Err(e) = self.drop_server().await {
+                    error!(self.logger, "Failed to drop DMQ consumer server: {}", e);
+                }
+            });
+        });
     }
 }
 
@@ -306,7 +309,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn pallas_dmq_consumer_server_non_blocking_success() {
         let (stop_tx, stop_rx) = watch::channel(());
         let (signature_dmq_tx, signature_dmq_rx) = unbounded_channel::<DmqMessage>();
@@ -322,7 +325,8 @@ mod tests {
         let message = fake_msg();
         let client = tokio::spawn({
             async move {
-                tokio::time::sleep(Duration::from_secs(1)).await;
+                // sleep to avoid refused connection from the server
+                tokio::time::sleep(Duration::from_millis(10)).await;
 
                 // client setup
                 let mut client = DmqClient::connect(socket_path.clone(), 0).await.unwrap();
@@ -364,7 +368,7 @@ mod tests {
         assert_eq!(vec![message], messages_received);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn pallas_dmq_consumer_server_blocking_success() {
         let (stop_tx, stop_rx) = watch::channel(());
         let (signature_dmq_tx, signature_dmq_rx) = unbounded_channel::<DmqMessage>();
@@ -380,7 +384,8 @@ mod tests {
         let message = fake_msg();
         let client = tokio::spawn({
             async move {
-                tokio::time::sleep(Duration::from_secs(1)).await;
+                // sleep to avoid refused connection from the server
+                tokio::time::sleep(Duration::from_millis(10)).await;
 
                 // client setup
                 let mut client = DmqClient::connect(socket_path.clone(), 0).await.unwrap();
@@ -422,10 +427,10 @@ mod tests {
         assert_eq!(vec![message], messages_received);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn pallas_dmq_consumer_server_blocking_blocks_when_no_message_available() {
         let (_stop_tx, stop_rx) = watch::channel(());
-        let (signature_dmq_tx, signature_dmq_rx) = unbounded_channel::<DmqMessage>();
+        let (_signature_dmq_tx, signature_dmq_rx) = unbounded_channel::<DmqMessage>();
         let socket_path = create_temp_dir(current_function!()).join("node.socket");
         let cardano_network = CardanoNetwork::TestNet(0);
         let dmq_consumer_server = Arc::new(DmqConsumerServerPallas::new(
@@ -437,6 +442,9 @@ mod tests {
         dmq_consumer_server.register_receiver(signature_dmq_rx).await.unwrap();
         let client = tokio::spawn({
             async move {
+                // sleep to avoid refused connection from the server
+                tokio::time::sleep(Duration::from_millis(10)).await;
+
                 // client setup
                 let mut client = DmqClient::connect(socket_path.clone(), 0).await.unwrap();
 
@@ -451,10 +459,9 @@ mod tests {
                     localmsgnotification::State::BusyBlocking
                 );
 
-                client_msg.recv_next_reply().await.unwrap();
+                let _ = client_msg.recv_next_reply().await;
             }
         });
-        let _signature_dmq_tx_clone = signature_dmq_tx.clone();
 
         let result = tokio::select!(
             _res = sleep(Duration::from_millis(1000)) => {Err(anyhow!("Timeout"))},

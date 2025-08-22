@@ -2,7 +2,7 @@ use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
 
 use anyhow::{Context, anyhow};
 use pallas_network::{facades::DmqClient, miniprotocols::localmsgnotification::State};
-use slog::{Logger, debug};
+use slog::{Logger, debug, error};
 use tokio::sync::{Mutex, MutexGuard};
 
 use mithril_common::{
@@ -138,6 +138,18 @@ impl<M: TryFromBytes + Debug + Sync + Send> DmqConsumerClient<M> for DmqConsumer
     }
 }
 
+impl<M: TryFromBytes + Debug> Drop for DmqConsumerClientPallas<M> {
+    fn drop(&mut self) {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                if let Err(e) = self.drop_client().await {
+                    error!(self.logger, "Failed to drop DMQ consumer client: {}", e);
+                }
+            });
+        });
+    }
+}
+
 #[cfg(all(test, unix))]
 mod tests {
 
@@ -236,7 +248,7 @@ mod tests {
         })
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn pallas_dmq_consumer_publisher_succeeds_when_messages_are_available() {
         let socket_path = create_temp_dir(current_function!()).join("node.socket");
         let reply_messages = fake_msgs();
@@ -293,7 +305,7 @@ mod tests {
         result.expect_err("Should have timed out");
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn pallas_dmq_consumer_client_is_dropped_when_returning_error() {
         let socket_path = create_temp_dir(current_function!()).join("node.socket");
         let reply_messages = fake_msgs();
