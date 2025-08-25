@@ -74,7 +74,7 @@ impl<M: TryFromBytes + Debug> DmqConsumerClientPallas<M> {
             "socket" => ?self.socket,
             "network" => ?self.network
         );
-        let mut client_lock = self.client.lock().await;
+        let mut client_lock = self.client.try_lock()?;
         if let Some(client) = client_lock.take() {
             client.abort().await;
         }
@@ -249,11 +249,14 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn pallas_dmq_consumer_publisher_succeeds_when_messages_are_available() {
+    async fn pallas_dmq_consumer_client_succeeds_when_messages_are_available() {
         let socket_path = create_temp_dir(current_function!()).join("node.socket");
         let reply_messages = fake_msgs();
         let server = setup_dmq_server(socket_path.clone(), reply_messages);
         let client = tokio::spawn(async move {
+            // sleep to avoid refused connection from the server
+            tokio::time::sleep(Duration::from_millis(10)).await;
+
             let consumer = DmqConsumerClientPallas::new(
                 socket_path,
                 CardanoNetwork::TestNet(0),
@@ -282,11 +285,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn pallas_dmq_consumer_publisher_blocks_when_no_message_available() {
+    async fn pallas_dmq_consumer_client_blocks_when_no_message_available() {
         let socket_path = create_temp_dir(current_function!()).join("node.socket");
         let reply_messages = vec![];
         let server = setup_dmq_server(socket_path.clone(), reply_messages);
         let client = tokio::spawn(async move {
+            // sleep to avoid refused connection from the server
+            tokio::time::sleep(Duration::from_millis(10)).await;
+
             let consumer = DmqConsumerClientPallas::<DmqMessageTestPayload>::new(
                 socket_path,
                 CardanoNetwork::TestNet(0),
@@ -311,6 +317,9 @@ mod tests {
         let reply_messages = fake_msgs();
         let server = setup_dmq_server(socket_path.clone(), reply_messages);
         let client = tokio::spawn(async move {
+            // sleep to avoid refused connection from the server
+            tokio::time::sleep(Duration::from_millis(10)).await;
+
             let consumer = DmqConsumerClientPallas::<DmqMessageTestPayload>::new(
                 socket_path,
                 CardanoNetwork::TestNet(0),

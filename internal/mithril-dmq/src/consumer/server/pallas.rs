@@ -98,7 +98,7 @@ impl DmqConsumerServerPallas {
             "socket" => ?self.socket,
             "network" => ?self.network
         );
-        let mut server_lock = self.server.lock().await;
+        let mut server_lock = self.server.try_lock()?;
         if let Some(server) = server_lock.take() {
             server.abort().await;
         }
@@ -464,7 +464,7 @@ mod tests {
         });
 
         let result = tokio::select!(
-            _res = sleep(Duration::from_millis(1000)) => {Err(anyhow!("Timeout"))},
+            _res = sleep(Duration::from_millis(100)) => {Err(anyhow!("Timeout"))},
             _res =  dmq_consumer_server.run()  => {Ok(())},
             _res =  client  => {Ok(())},
         );

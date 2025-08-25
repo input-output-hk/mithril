@@ -99,7 +99,7 @@ impl DmqPublisherServerPallas {
             "socket" => ?self.socket,
             "network" => ?self.network
         );
-        let mut server_lock = self.server.lock().await;
+        let mut server_lock = self.server.try_lock()?;
         if let Some(server) = server_lock.take() {
             server.abort().await;
         }
