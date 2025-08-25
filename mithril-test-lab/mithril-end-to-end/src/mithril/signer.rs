@@ -25,6 +25,7 @@ pub struct SignerConfig<'a> {
     pub mithril_era_reader_adapter: &'a str,
     pub mithril_era_marker_address: &'a str,
     pub enable_certification: bool,
+    pub skip_signature_delayer: bool,
     pub use_dmq: bool,
 }
 
@@ -53,6 +54,11 @@ impl Signer {
                 )
             };
         let mithril_run_interval = format!("{}", signer_config.mithril_run_interval);
+        let skip_signature_delayer = if signer_config.skip_signature_delayer {
+            "true"
+        } else {
+            "false"
+        };
         let mut env = HashMap::from([
             ("NETWORK", "devnet"),
             ("NETWORK_MAGIC", &magic_id),
@@ -84,6 +90,8 @@ impl Signer {
             ("PRELOADING_REFRESH_INTERVAL_IN_SECONDS", "10"),
             ("SIGNATURE_PUBLISHER_RETRY_DELAY_MS", "1"),
             ("SIGNATURE_PUBLISHER_DELAYER_DELAY_MS", "1"),
+            ("SIGNATURE_PUBLISHER_SKIP_DELAYER", skip_signature_delayer),
+            ("PARTY_ID", &party_id),
         ]);
         if signer_config.enable_certification {
             env.insert(

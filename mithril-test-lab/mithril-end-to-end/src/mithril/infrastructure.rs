@@ -35,6 +35,7 @@ pub struct MithrilInfrastructureConfig {
     pub relay_signer_registration_mode: String,
     pub relay_signature_registration_mode: String,
     pub use_p2p_passive_relays: bool,
+    pub skip_signature_delayer: bool,
     pub use_dmq: bool,
     pub use_era_specific_work_dir: bool,
 }
@@ -69,6 +70,7 @@ impl MithrilInfrastructureConfig {
             relay_signer_registration_mode: "passthrough".to_string(),
             relay_signature_registration_mode: "passthrough".to_string(),
             use_p2p_passive_relays: false,
+            skip_signature_delayer: false,
             use_dmq: false,
             use_era_specific_work_dir: false,
         }
@@ -395,6 +397,7 @@ impl MithrilInfrastructure {
                 mithril_era_reader_adapter: &config.mithril_era_reader_adapter,
                 mithril_era_marker_address: &config.devnet.mithril_era_marker_address()?,
                 enable_certification,
+                skip_signature_delayer: config.skip_signature_delayer,
                 use_dmq: config.use_dmq,
             })?;
             signer.start().await?;

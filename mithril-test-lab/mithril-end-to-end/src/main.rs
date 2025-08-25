@@ -123,6 +123,10 @@ pub struct Args {
     #[clap(long, default_value = "false")]
     use_p2p_passive_relays: bool,
 
+    /// Skip the signature delayer
+    #[clap(long)]
+    skip_signature_delayer: bool,
+
     /// Use DMQ protocol (used to broadcast signatures)
     ///
     /// Requires the Mithril nodes to be compiled with the 'future_dmq' feature
@@ -371,6 +375,7 @@ impl App {
                 use_relays,
                 relay_signer_registration_mode,
                 relay_signature_registration_mode,
+                skip_signature_delayer: args.skip_signature_delayer,
                 use_p2p_passive_relays,
                 use_era_specific_work_dir: args.mithril_next_era.is_some(),
             })
