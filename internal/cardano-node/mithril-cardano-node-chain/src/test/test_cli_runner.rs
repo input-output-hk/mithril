@@ -29,7 +29,7 @@ pub(crate) mod test_expected {
         pub(crate) const BYTES: &str = "5b0a20207b0a20202020226e616d65223a20227468616c6573222c0a202020202265706f6368223a203132330a20207d2c0a20207b0a20202020226e616d65223a20227079746861676f726173222c0a202020202265706f6368223a206e756c6c0a20207d0a5d0a";
     }
     pub(crate) mod launch_kes_period {
-        pub(crate) const KES_PERIOD: u32 = 404;
+        pub(crate) const SLOTS_PER_KES_PERIOD: u64 = 10000;
     }
     pub(crate) mod launch_stake_snapshot {
         pub(crate) const DEFAULT_POOL_STAKE_MARK: u64 = 3_000_000;
@@ -256,25 +256,27 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
     }
 
     /// launches the kes period.
-    async fn launch_kes_period(&self, _opcert_file: &str) -> StdResult<String> {
+    async fn launch_kes_period(&self) -> StdResult<(String, u64)> {
         let output = format!(
             r#"
-✓ The operational certificate counter agrees with the node protocol state counter
-✓ Operational certificate's kes period is within the correct KES period interval
 {{
-    "qKesNodeStateOperationalCertificateNumber": 6,
-    "qKesCurrentKesPeriod": {},
-    "qKesOnDiskOperationalCertificateNumber": 6,
-    "qKesRemainingSlotsInKesPeriod": 3760228,
-    "qKesMaxKESEvolutions": 62,
-    "qKesKesKeyExpiry": "2022-03-20T21:44:51Z",
-    "qKesEndKesInterval": 434,
-    "qKesStartKesInterval": 372,
-    "qKesSlotsPerKesPeriod": 129600
+    "block": {},
+    "epoch": 299,
+    "era": "Conway",
+    "hash": "{}",
+    "slot": {},
+    "slotInEpoch": 53017,
+    "slotsToEpochEnd": 33383,
+    "syncProgress": "100.00"
 }}"#,
-            test_expected::launch_kes_period::KES_PERIOD
+            test_expected::launch_chain_point::BLOCK_NUMBER,
+            test_expected::launch_chain_point::BLOCK_HASH,
+            test_expected::launch_chain_point::SLOT_NUMBER,
         );
 
-        Ok(output)
+        Ok((
+            output,
+            test_expected::launch_kes_period::SLOTS_PER_KES_PERIOD,
+        ))
     }
 }

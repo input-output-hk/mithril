@@ -9,7 +9,7 @@ use std::fs;
 use std::path::PathBuf;
 use tokio::process::Command;
 
-use mithril_common::crypto_helper::{KesPeriod, OpCert, SerDeShelleyFileFormat, encode_bech32};
+use mithril_common::crypto_helper::{KesPeriod, encode_bech32};
 use mithril_common::entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, StakeDistribution};
 use mithril_common::{CardanoNetwork, StdResult};
 
@@ -38,7 +38,7 @@ pub trait CliRunner {
     /// Launches the chain point.
     async fn launch_chain_point(&self) -> StdResult<String>;
     /// Launches the kes period.
-    async fn launch_kes_period(&self, opcert_file: &str) -> StdResult<String>;
+    async fn launch_kes_period(&self) -> StdResult<(String, u64)>;
 }
 
 /// A runner able to request data from a Cardano node using the
@@ -141,14 +141,9 @@ impl CardanoCliRunner {
         command
     }
 
-    fn command_for_kes_period(&self, opcert_file: &str) -> Command {
+    fn command_for_kes_period(&self) -> Command {
         let mut command = self.get_command();
-        command
-            .arg(CARDANO_ERA)
-            .arg("query")
-            .arg("kes-period-info")
-            .arg("--op-cert-file")
-            .arg(opcert_file);
+        command.arg(CARDANO_ERA).arg("query").arg("tip");
         self.post_config_command(&mut command);
 
         command
@@ -170,6 +165,20 @@ impl CardanoCliRunner {
             CardanoNetwork::TestNet(magic) => {
                 command.args(vec!["--testnet-magic", &magic.to_string()])
             }
+        }
+    }
+
+    /// Get slots per kes period
+    ///
+    /// This implementation is aligned with current value for the KES period on the testnet and mainnet networks of Cardano.
+    /// If this value changes in the future, the implementation should be updated accordingly.
+    /// The value can be retrieved in the 'slotsPerKESPeriod' field of the 'shelly-genesis.json' configuration file.
+    fn get_slots_per_kes_period(&self) -> u64 {
+        match self.network {
+            CardanoNetwork::MainNet => 129600,
+            CardanoNetwork::TestNet(1) => 129600,
+            CardanoNetwork::TestNet(2) => 129600,
+            CardanoNetwork::TestNet(_) => 129600,
         }
     }
 }
@@ -289,17 +298,20 @@ impl CliRunner for CardanoCliRunner {
         }
     }
 
-    async fn launch_kes_period(&self, opcert_file: &str) -> StdResult<String> {
-        let output = self.command_for_kes_period(opcert_file).output().await?;
+    async fn launch_kes_period(&self) -> StdResult<(String, u64)> {
+        let output = self.command_for_kes_period().output().await?;
 
         if output.status.success() {
-            Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
+            Ok((
+                std::str::from_utf8(&output.stdout)?.trim().to_string(),
+                self.get_slots_per_kes_period(),
+            ))
         } else {
             let message = String::from_utf8_lossy(&output.stderr);
 
             Err(anyhow!(
                 "Error launching command {:?}, error = '{}'",
-                self.command_for_kes_period(opcert_file),
+                self.command_for_kes_period(),
                 message
             ))
         }
@@ -526,29 +538,26 @@ impl ChainObserver for CardanoCliChainObserver {
         }
     }
 
-    async fn get_current_kes_period(
-        &self,
-        opcert: &OpCert,
-    ) -> Result<Option<KesPeriod>, ChainObserverError> {
+    async fn get_current_kes_period(&self) -> Result<Option<KesPeriod>, ChainObserverError> {
         let dir = std::env::temp_dir().join("mithril_kes_period");
         fs::create_dir_all(&dir).map_err(|e| ChainObserverError::General(e.into()))?;
-        let opcert_file = dir.join(format!("opcert_kes_period-{}", opcert.compute_hash()));
-        opcert
-            .to_file(&opcert_file)
-            .map_err(|e| ChainObserverError::General(e.into()))?;
-        let output = self
+        let (output, slots_per_kes_period) = self
             .cli_runner
-            .launch_kes_period(opcert_file.to_str().unwrap())
+            .launch_kes_period()
             .await
             .map_err(ChainObserverError::General)?;
+        if slots_per_kes_period == 0 {
+            return Err(anyhow!("slots_per_kes_period must be greater than 0"))
+                .with_context(|| "CardanoCliChainObserver failed to calculate kes period")?;
+        }
         let first_left_curly_bracket_index = output.find('{').unwrap_or_default();
         let output_cleaned = output.split_at(first_left_curly_bracket_index).1;
         let v: Value = serde_json::from_str(output_cleaned)
             .with_context(|| format!("output was = '{output}'"))
             .map_err(ChainObserverError::InvalidContent)?;
 
-        if let Value::Number(kes_period) = &v["qKesCurrentKesPeriod"] {
-            Ok(kes_period.as_u64().map(|p| p as KesPeriod))
+        if let Value::Number(slot) = &v["slot"] {
+            Ok(slot.as_u64().map(|slot| (slot / slots_per_kes_period) as KesPeriod))
         } else {
             Ok(None)
         }
@@ -557,11 +566,8 @@ impl ChainObserver for CardanoCliChainObserver {
 
 #[cfg(test)]
 mod tests {
-    use kes_summed_ed25519::{kes::Sum6Kes, traits::KesSk};
     use std::collections::BTreeMap;
     use std::ffi::OsStr;
-
-    use mithril_common::crypto_helper::ColdKeyGenerator;
 
     use crate::test::test_cli_runner::{TestCliRunner, test_expected};
 
@@ -807,17 +813,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_current_kes_period() {
-        let keypair = ColdKeyGenerator::create_deterministic_keypair([0u8; 32]);
-        let mut dummy_key_buffer = [0u8; Sum6Kes::SIZE + 4];
-        let mut dummy_seed = [0u8; 32];
-        let (_, kes_verification_key) = Sum6Kes::keygen(&mut dummy_key_buffer, &mut dummy_seed);
-        let operational_certificate = OpCert::new(kes_verification_key, 0, 0, keypair);
         let observer = CardanoCliChainObserver::new(Box::<TestCliRunner>::default());
-        let kes_period = observer
-            .get_current_kes_period(&operational_certificate)
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!(test_expected::launch_kes_period::KES_PERIOD, kes_period);
+        let kes_period = observer.get_current_kes_period().await.unwrap().unwrap();
+        assert_eq!(
+            (test_expected::launch_chain_point::SLOT_NUMBER.0
+                / test_expected::launch_kes_period::SLOTS_PER_KES_PERIOD) as u32,
+            kes_period
+        );
     }
 }
