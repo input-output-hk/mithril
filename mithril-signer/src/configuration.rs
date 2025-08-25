@@ -25,6 +25,13 @@ pub struct SignaturePublisherConfig {
 
     /// Delay (in milliseconds) between two separate publications done by the delayer signature publisher
     pub delayer_delay_ms: u64,
+
+    /// Whether to skip the delayer when publishing the signature
+    ///
+    /// If set to true, the signatures will be published only once:
+    /// - if the 'future_dmq` feature is used to compile, the signatures will be published only with the DMQ protocol
+    /// - if the `future_dmq` feature is not used, the signatures will be published with the regular HTTP protocol
+    pub skip_delayer: bool,
 }
 
 /// Client configuration
@@ -137,7 +144,7 @@ pub struct Configuration {
     pub preloading_refresh_interval_in_seconds: u64,
 
     /// Signature publisher configuration
-    #[example = "`{ retry_attempts: 3, retry_delay_ms: 2000, delayer_delay_ms: 10000 }`"]
+    #[example = "`{ retry_attempts: 3, retry_delay_ms: 2000, delayer_delay_ms: 10000, skip_delayer: false }`"]
     pub signature_publisher_config: SignaturePublisherConfig,
 }
 
@@ -183,6 +190,7 @@ impl Configuration {
                 retry_attempts: 1,
                 retry_delay_ms: 1,
                 delayer_delay_ms: 1,
+                skip_delayer: false,
             },
         }
     }

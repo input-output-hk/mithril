@@ -459,12 +459,20 @@ impl<'a> DependenciesBuilder<'a> {
                 },
             );
 
-            Arc::new(SignaturePublisherDelayer::new(
-                Arc::new(first_publisher),
-                Arc::new(second_publisher),
-                Duration::from_millis(self.config.signature_publisher_config.delayer_delay_ms),
-                self.root_logger(),
-            ))
+            if self.config.signature_publisher_config.skip_delayer {
+                if cfg!(feature = "future_dmq") {
+                    Arc::new(first_publisher) as Arc<dyn SignaturePublisher>
+                } else {
+                    Arc::new(second_publisher) as Arc<dyn SignaturePublisher>
+                }
+            } else {
+                Arc::new(SignaturePublisherDelayer::new(
+                    Arc::new(first_publisher),
+                    Arc::new(second_publisher),
+                    Duration::from_millis(self.config.signature_publisher_config.delayer_delay_ms),
+                    self.root_logger(),
+                )) as Arc<dyn SignaturePublisher>
+            }
         };
 
         let certifier = Arc::new(SignerCertifierService::new(
