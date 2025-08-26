@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use thiserror::Error;
 
 use mithril_common::StdError;
-use mithril_common::crypto_helper::{KesPeriod, OpCert};
+use mithril_common::crypto_helper::KesPeriod;
 use mithril_common::entities::{ChainPoint, Epoch, StakeDistribution};
 
 use crate::entities::{ChainAddress, TxDatum};
@@ -43,11 +43,8 @@ pub trait ChainObserver: Sync + Send {
         &self,
     ) -> Result<Option<StakeDistribution>, ChainObserverError>;
 
-    /// Retrieve the KES period of an operational certificate
-    async fn get_current_kes_period(
-        &self,
-        _opcert: &OpCert,
-    ) -> Result<Option<KesPeriod>, ChainObserverError> {
+    /// Retrieve the current KES period
+    async fn get_current_kes_period(&self) -> Result<Option<KesPeriod>, ChainObserverError> {
         Ok(None)
     }
 }

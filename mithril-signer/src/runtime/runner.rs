@@ -175,7 +175,7 @@ impl Runner for SignerRunner {
             Some(operational_certificate) => Some(
                 self.services
                     .chain_observer
-                    .get_current_kes_period(&operational_certificate)
+                    .get_current_kes_period()
                     .await?
                     .unwrap_or_default()
                     - operational_certificate.start_kes_period as KesPeriod,

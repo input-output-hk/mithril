@@ -69,7 +69,7 @@ impl DmqMessageBuilder {
             .with_context(|| "Failed to KES sign message while building DMQ message")?;
         let kes_period = self
             .chain_observer
-            .get_current_kes_period(&operational_certificate)
+            .get_current_kes_period()
             .await
             .with_context(|| "Failed to get KES period while building DMQ message")?
             .unwrap_or_default();

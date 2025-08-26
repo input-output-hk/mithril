@@ -45,7 +45,7 @@ impl SignerRegistrationVerifier for MithrilSignerRegistrationVerifier {
         let kes_period = match &signer.operational_certificate {
             Some(operational_certificate) => Some(
                 self.chain_observer
-                    .get_current_kes_period(operational_certificate)
+                    .get_current_kes_period()
                     .await?
                     .unwrap_or_default()
                     - operational_certificate.start_kes_period as KesPeriod,

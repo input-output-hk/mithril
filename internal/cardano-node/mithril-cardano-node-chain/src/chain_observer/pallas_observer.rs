@@ -21,7 +21,7 @@ use pallas_network::{
 use pallas_primitives::ToCanonicalJson;
 use pallas_traverse::Era;
 
-use mithril_common::crypto_helper::{KesPeriod, OpCert, encode_bech32};
+use mithril_common::crypto_helper::{KesPeriod, encode_bech32};
 use mithril_common::entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, StakeDistribution};
 use mithril_common::{CardanoNetwork, StdResult};
 
@@ -491,10 +491,7 @@ impl ChainObserver for PallasChainObserver {
         Ok(stake_distribution)
     }
 
-    async fn get_current_kes_period(
-        &self,
-        _opcert: &OpCert,
-    ) -> Result<Option<KesPeriod>, ChainObserverError> {
+    async fn get_current_kes_period(&self) -> Result<Option<KesPeriod>, ChainObserverError> {
         let mut client = self.get_client().await?;
 
         let current_kes_period = self.get_kes_period(&mut client).await?;
@@ -512,7 +509,6 @@ impl ChainObserver for PallasChainObserver {
 mod tests {
     use std::fs;
 
-    use kes_summed_ed25519::{kes::Sum6Kes, traits::KesSk};
     use pallas_codec::utils::{AnyCbor, AnyUInt, KeyValuePairs, TagWrap};
     use pallas_crypto::hash::Hash;
     use pallas_network::facades::NodeServer;
@@ -528,7 +524,6 @@ mod tests {
     };
     use tokio::net::UnixListener;
 
-    use mithril_common::crypto_helper::ColdKeyGenerator;
     use mithril_common::test::TempDir;
 
     use super::*;
@@ -781,15 +776,7 @@ mod tests {
             let observer =
                 PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
 
-            let keypair = ColdKeyGenerator::create_deterministic_keypair([0u8; 32]);
-            let mut dummy_key_buffer = [0u8; Sum6Kes::SIZE + 4];
-            let mut dummy_seed = [0u8; 32];
-            let (_, kes_verification_key) = Sum6Kes::keygen(&mut dummy_key_buffer, &mut dummy_seed);
-            let operational_certificate = OpCert::new(kes_verification_key, 0, 0, keypair);
-            observer
-                .get_current_kes_period(&operational_certificate)
-                .await
-                .unwrap()
+            observer.get_current_kes_period().await.unwrap()
         });
 
         let (_, client_res) = tokio::join!(server, client);
