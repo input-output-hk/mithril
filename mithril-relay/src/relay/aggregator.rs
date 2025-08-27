@@ -10,7 +10,7 @@ use slog::{Logger, error, info};
 #[cfg(feature = "future_dmq")]
 use tokio::sync::{
     mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
-    watch::{self, Receiver},
+    watch::{self, Receiver, Sender},
 };
 
 #[cfg(feature = "future_dmq")]
@@ -30,6 +30,7 @@ pub struct AggregatorRelay {
     #[cfg(feature = "future_dmq")]
     signature_dmq_tx: UnboundedSender<DmqMessage>,
     #[cfg(feature = "future_dmq")]
+    stop_tx: Sender<()>,
     logger: Logger,
 }
 
@@ -46,7 +47,7 @@ impl AggregatorRelay {
         let logger = logger.new_with_component_name::<Self>();
         #[cfg(feature = "future_dmq")]
         {
-            let (_stop_tx, stop_rx) = watch::channel(());
+            let (stop_tx, stop_rx) = watch::channel(());
             let (signature_dmq_tx, signature_dmq_rx) = unbounded_channel::<DmqMessage>();
             #[cfg(unix)]
             let _dmq_consumer_server = Self::start_dmq_consumer_server(
@@ -62,6 +63,7 @@ impl AggregatorRelay {
                 aggregator_endpoint: aggregator_endpoint.to_owned(),
                 peer,
                 signature_dmq_tx,
+                stop_tx,
                 logger,
             })
         }
@@ -71,6 +73,16 @@ impl AggregatorRelay {
             peer,
             logger,
         })
+    }
+
+    /// Stop the aggregator relay
+    pub async fn stop(&self) -> StdResult<()> {
+        #[cfg(feature = "future_dmq")]
+        self.stop_tx
+            .send(())
+            .map_err(|e| anyhow!("Failed to send stop signal to DMQ consumer server: {e}"))?;
+
+        Ok(())
     }
 
     #[cfg(feature = "future_dmq")]
