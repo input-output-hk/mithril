@@ -2,6 +2,7 @@
 use std::path::Path;
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
+use anyhow::anyhow;
 use clap::ValueEnum;
 use libp2p::Multiaddr;
 #[cfg(feature = "future_dmq")]
@@ -10,7 +11,7 @@ use slog::{Logger, debug, info};
 use strum::Display;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 #[cfg(feature = "future_dmq")]
-use tokio::sync::watch::{self, Receiver};
+use tokio::sync::watch::{self, Receiver, Sender};
 use warp::Filter;
 
 #[cfg(feature = "future_dmq")]
@@ -66,6 +67,7 @@ pub struct SignerRelay {
     signer_http_rx: UnboundedReceiver<RegisterSignerMessage>,
     signer_repeater: Arc<MessageRepeater<RegisterSignerMessage>>,
     #[cfg(feature = "future_dmq")]
+    stop_tx: Sender<()>,
     logger: Logger,
 }
 
@@ -107,7 +109,7 @@ impl SignerRelay {
 
         #[cfg(feature = "future_dmq")]
         {
-            let (_stop_tx, stop_rx) = watch::channel(());
+            let (stop_tx, stop_rx) = watch::channel(());
             let (signature_dmq_tx, signature_dmq_rx) = unbounded_channel::<DmqMessage>();
             #[cfg(unix)]
             let _dmq_publisher_server = Self::start_dmq_publisher_server(
@@ -126,6 +128,7 @@ impl SignerRelay {
                 signature_dmq_rx,
                 signer_http_rx: signer_rx,
                 signer_repeater,
+                stop_tx,
                 logger: relay_logger,
             })
         }
@@ -138,6 +141,16 @@ impl SignerRelay {
             signer_repeater,
             logger: relay_logger,
         })
+    }
+
+    /// Stop the signer relay
+    pub async fn stop(&self) -> StdResult<()> {
+        #[cfg(feature = "future_dmq")]
+        self.stop_tx
+            .send(())
+            .map_err(|e| anyhow!("Failed to send stop signal to DMQ publisher server: {e}"))?;
+
+        Ok(())
     }
 
     #[cfg(feature = "future_dmq")]
