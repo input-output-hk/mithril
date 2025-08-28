@@ -15,10 +15,11 @@ use mithril_dmq::{
     DmqMessage, DmqMessageBuilder, test::payload::DmqMessageTestPayload,
 };
 
-async fn create_fake_msg(bytes: &[u8]) -> DmqMessage {
+async fn create_fake_msg(bytes: &[u8], test_directory: &str) -> DmqMessage {
     let dmq_builder = DmqMessageBuilder::new(
         {
-            let (kes_signature, operational_certificate) = KesSignerFake::dummy_signature();
+            let (kes_signature, operational_certificate) =
+                KesSignerFake::dummy_signature(test_directory);
             let kes_signer =
                 KesSignerFake::new(vec![Ok((kes_signature, operational_certificate.clone()))]);
 
@@ -33,9 +34,10 @@ async fn create_fake_msg(bytes: &[u8]) -> DmqMessage {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn dmq_consumer_client_server() {
+    let current_function_name = current_function!();
     let cardano_network = CardanoNetwork::TestNet(0);
     let socket_path =
-        TempDir::create_with_short_path("dmq_consumer_client_server", current_function!())
+        TempDir::create_with_short_path("dmq_consumer_client_server", current_function_name)
             .join("node.socket");
     let (stop_tx, stop_rx) = watch::channel(());
 
@@ -66,10 +68,16 @@ async fn dmq_consumer_client_server() {
                 slog_scope::logger(),
             );
             let mut messages = vec![];
-            signature_dmq_tx.send(create_fake_msg(b"msg_1").await).unwrap();
-            signature_dmq_tx.send(create_fake_msg(b"msg_2").await).unwrap();
+            signature_dmq_tx
+                .send(create_fake_msg(b"msg_1", current_function_name).await)
+                .unwrap();
+            signature_dmq_tx
+                .send(create_fake_msg(b"msg_2", current_function_name).await)
+                .unwrap();
             messages.extend_from_slice(&consumer_client.consume_messages().await.unwrap());
-            signature_dmq_tx.send(create_fake_msg(b"msg_3").await).unwrap();
+            signature_dmq_tx
+                .send(create_fake_msg(b"msg_3", current_function_name).await)
+                .unwrap();
             messages.extend_from_slice(&consumer_client.consume_messages().await.unwrap());
 
             messages.into_iter().map(|(msg, _)| msg).collect::<Vec<_>>()
@@ -100,7 +108,9 @@ async fn dmq_consumer_client_server() {
                 slog_scope::logger(),
             );
             let mut messages = vec![];
-            signature_dmq_tx.send(create_fake_msg(b"msg_4").await).unwrap();
+            signature_dmq_tx
+                .send(create_fake_msg(b"msg_4", current_function_name).await)
+                .unwrap();
             messages.extend_from_slice(&consumer_client.consume_messages().await.unwrap());
             stop_tx.send(()).unwrap();
 

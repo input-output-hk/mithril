@@ -27,7 +27,7 @@ impl KesSignerFake {
     }
 
     /// Returns a dummy signature result that is always successful.
-    pub fn dummy_signature() -> (Sum6KesSig, OpCert) {
+    pub fn dummy_signature(test_directory: &str) -> (Sum6KesSig, OpCert) {
         let KesCryptographicMaterialForTest {
             party_id: _,
             operational_certificate_file,
@@ -35,10 +35,11 @@ impl KesSignerFake {
         } = create_kes_cryptographic_material(
             1 as KesPartyIndexForTest,
             0 as KesPeriod,
-            "fake_kes_signer_returns_signature_batches_in_expected_order",
+            &format!("{}-kes", test_directory),
         );
         let message = b"Test message for KES signing";
-        let kes_signer = KesSignerStandard::new(kes_secret_key_file, operational_certificate_file);
+        let kes_signer =
+            KesSignerStandard::new(kes_secret_key_file.clone(), operational_certificate_file);
         let kes_signing_period = 1;
         let (kes_signature, op_cert) = kes_signer
             .sign(message, kes_signing_period)

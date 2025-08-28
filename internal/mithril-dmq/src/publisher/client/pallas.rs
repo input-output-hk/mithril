@@ -140,9 +140,11 @@ mod tests {
         })
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn pallas_dmq_signature_publisher_success() {
-        let socket_path = create_temp_dir(current_function!()).join("node.socket");
+        let current_function_name = current_function!();
+
+        let socket_path = create_temp_dir(current_function_name).join("node.socket");
         let reply_success = true;
         let server = setup_dmq_server(socket_path.clone(), reply_success);
         let client = tokio::spawn(async move {
@@ -155,7 +157,7 @@ mod tests {
                 DmqMessageBuilder::new(
                     {
                         let (kes_signature, operational_certificate) =
-                            KesSignerFake::dummy_signature();
+                            KesSignerFake::dummy_signature(current_function_name);
                         let kes_signer = KesSignerFake::new(vec![Ok((
                             kes_signature,
                             operational_certificate.clone(),
@@ -177,9 +179,10 @@ mod tests {
         res.unwrap().unwrap();
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn pallas_dmq_signature_publisher_fails() {
-        let socket_path = create_temp_dir(current_function!()).join("node.socket");
+        let current_function_name = current_function!();
+        let socket_path = create_temp_dir(current_function_name).join("node.socket");
         let reply_success = false;
         let server = setup_dmq_server(socket_path.clone(), reply_success);
         let client = tokio::spawn(async move {
@@ -192,7 +195,7 @@ mod tests {
                 DmqMessageBuilder::new(
                     {
                         let (kes_signature, operational_certificate) =
-                            KesSignerFake::dummy_signature();
+                            KesSignerFake::dummy_signature(current_function_name);
                         let kes_signer = KesSignerFake::new(vec![Ok((
                             kes_signature,
                             operational_certificate.clone(),

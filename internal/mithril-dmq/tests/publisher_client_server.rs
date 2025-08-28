@@ -15,10 +15,11 @@ use mithril_dmq::{
     DmqPublisherServer, DmqPublisherServerPallas, test::payload::DmqMessageTestPayload,
 };
 
-async fn create_fake_msg(bytes: &[u8]) -> DmqMessage {
+async fn create_fake_msg(bytes: &[u8], test_directory: &str) -> DmqMessage {
     let dmq_builder = DmqMessageBuilder::new(
         {
-            let (kes_signature, operational_certificate) = KesSignerFake::dummy_signature();
+            let (kes_signature, operational_certificate) =
+                KesSignerFake::dummy_signature(test_directory);
             let kes_signer =
                 KesSignerFake::new(vec![Ok((kes_signature, operational_certificate.clone()))]);
 
@@ -33,9 +34,10 @@ async fn create_fake_msg(bytes: &[u8]) -> DmqMessage {
 
 #[tokio::test]
 async fn dmq_publisher_client_server() {
+    let current_function_name = current_function!();
     let cardano_network = CardanoNetwork::TestNet(0);
     let socket_path =
-        TempDir::create_with_short_path("dmq_publisher_client_server", current_function!())
+        TempDir::create_with_short_path("dmq_publisher_client_server", current_function_name)
             .join("node.socket");
     let (stop_tx, stop_rx) = watch::channel(());
 
@@ -64,7 +66,8 @@ async fn dmq_publisher_client_server() {
         async move {
             let dmq_builder = DmqMessageBuilder::new(
                 {
-                    let (kes_signature, operational_certificate) = KesSignerFake::dummy_signature();
+                    let (kes_signature, operational_certificate) =
+                        KesSignerFake::dummy_signature(current_function_name);
                     let kes_signer = KesSignerFake::new(vec![
                         Ok((kes_signature, operational_certificate.clone())),
                         Ok((kes_signature, operational_certificate.clone())),
@@ -105,7 +108,8 @@ async fn dmq_publisher_client_server() {
         async move {
             let dmq_builder = DmqMessageBuilder::new(
                 {
-                    let (kes_signature, operational_certificate) = KesSignerFake::dummy_signature();
+                    let (kes_signature, operational_certificate) =
+                        KesSignerFake::dummy_signature(current_function_name);
                     let kes_signer = KesSignerFake::new(vec![
                         Ok((kes_signature, operational_certificate.clone())),
                         Ok((kes_signature, operational_certificate.clone())),
@@ -153,9 +157,9 @@ async fn dmq_publisher_client_server() {
     let (_, _, messages) = tokio::try_join!(server, client, recorder).unwrap();
     assert_eq!(
         vec![
-            create_fake_msg(b"msg_1").await,
-            create_fake_msg(b"msg_2").await,
-            create_fake_msg(b"msg_3").await,
+            create_fake_msg(b"msg_1", current_function_name).await,
+            create_fake_msg(b"msg_2", current_function_name).await,
+            create_fake_msg(b"msg_3", current_function_name).await,
         ],
         messages
     );

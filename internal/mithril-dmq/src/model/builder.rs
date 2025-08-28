@@ -95,6 +95,7 @@ mod tests {
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_common::{
         crypto_helper::TryToBytes,
+        current_function,
         entities::{BlockNumber, ChainPoint, TimePoint},
         test::{crypto_helper::KesSignerFake, double::Dummy},
     };
@@ -117,7 +118,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_build_dmq_message() {
-        let (kes_signature, operational_certificate) = KesSignerFake::dummy_signature();
+        let (kes_signature, operational_certificate) =
+            KesSignerFake::dummy_signature(current_function!());
         let kes_signer = Arc::new(KesSignerFake::new(vec![Ok((
             kes_signature,
             operational_certificate.clone(),
