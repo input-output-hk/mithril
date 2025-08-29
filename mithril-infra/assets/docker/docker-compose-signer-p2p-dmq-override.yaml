@@ -1,0 +1,12 @@
+services:
+  mithril-signer:
+    environment:
+      - DMQ_NODE_SOCKET_PATH=/ipc/dmq.socket
+      - NETWORK_MAGIC=${NETWORK_MAGIC}
+  mithril-signer-relay:
+    volumes:
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
+    environment:
+      - DMQ_NODE_SOCKET_PATH=/ipc/dmq.socket
+      - NETWORK=${NETWORK}
+      - NETWORK_MAGIC=${NETWORK_MAGIC}

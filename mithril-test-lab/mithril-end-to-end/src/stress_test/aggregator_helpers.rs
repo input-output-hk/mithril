@@ -36,6 +36,7 @@ pub async fn bootstrap_aggregator(
         signed_entity_types: &signed_entity_types,
         chain_observer_type,
         leader_aggregator_endpoint: &None,
+        use_dmq: false,
     })
     .unwrap();
 

@@ -8,12 +8,12 @@ use mithril_common::{
     CardanoNetwork, StdResult, crypto_helper::TryToBytes, logging::LoggerExtensions,
 };
 
-use crate::{DmqMessageBuilder, DmqPublisher};
+use crate::{DmqMessageBuilder, DmqPublisherClient};
 
-/// A DMQ publisher implementation.
+/// A DMQ client publisher implementation.
 ///
 /// This implementation is built upon the n2c mini-protocols DMQ implementation in Pallas.
-pub struct DmqPublisherPallas<M: TryToBytes + Debug> {
+pub struct DmqPublisherClientPallas<M: TryToBytes + Debug> {
     socket: PathBuf,
     network: CardanoNetwork,
     dmq_message_builder: DmqMessageBuilder,
@@ -21,8 +21,8 @@ pub struct DmqPublisherPallas<M: TryToBytes + Debug> {
     phantom: PhantomData<M>,
 }
 
-impl<M: TryToBytes + Debug> DmqPublisherPallas<M> {
-    /// Creates a new instance of [DmqPublisherPallas].
+impl<M: TryToBytes + Debug> DmqPublisherClientPallas<M> {
+    /// Creates a new instance of [DmqPublisherClientPallas].
     pub fn new(
         socket: PathBuf,
         network: CardanoNetwork,
@@ -43,12 +43,12 @@ impl<M: TryToBytes + Debug> DmqPublisherPallas<M> {
         let magic = self.network.magic_id();
         DmqClient::connect(&self.socket, magic)
             .await
-            .with_context(|| "DmqPublisherPallas failed to create a new client")
+            .with_context(|| "DmqPublisherClientPallas failed to create a new client")
     }
 }
 
 #[async_trait::async_trait]
-impl<M: TryToBytes + Debug + Sync + Send> DmqPublisher<M> for DmqPublisherPallas<M> {
+impl<M: TryToBytes + Debug + Sync + Send> DmqPublisherClient<M> for DmqPublisherClientPallas<M> {
     async fn publish_message(&self, message: M) -> StdResult<()> {
         debug!(
             self.logger,
@@ -64,7 +64,7 @@ impl<M: TryToBytes + Debug + Sync + Send> DmqPublisher<M> for DmqPublisherPallas
             .with_context(|| "Failed to build DMQ message")?;
         client
             .msg_submission()
-            .send_submit_tx(dmq_message)
+            .send_submit_tx(dmq_message.into())
             .await
             .with_context(|| "Failed to submit DMQ message")?;
         let response = client.msg_submission().recv_submit_tx_response().await?;
@@ -82,7 +82,7 @@ impl<M: TryToBytes + Debug + Sync + Send> DmqPublisher<M> for DmqPublisherPallas
 
 #[cfg(all(test, unix))]
 mod tests {
-    use std::{fs, sync::Arc};
+    use std::{fs, sync::Arc, time::Duration};
 
     use pallas_network::miniprotocols::{
         localmsgsubmission::DmqMsgValidationError, localtxsubmission,
@@ -140,19 +140,24 @@ mod tests {
         })
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn pallas_dmq_signature_publisher_success() {
-        let socket_path = create_temp_dir(current_function!()).join("node.socket");
+        let current_function_name = current_function!();
+
+        let socket_path = create_temp_dir(current_function_name).join("node.socket");
         let reply_success = true;
         let server = setup_dmq_server(socket_path.clone(), reply_success);
         let client = tokio::spawn(async move {
-            let publisher = DmqPublisherPallas::new(
+            // sleep to avoid refused connection from the server
+            tokio::time::sleep(Duration::from_millis(10)).await;
+
+            let publisher = DmqPublisherClientPallas::new(
                 socket_path,
                 CardanoNetwork::TestNet(0),
                 DmqMessageBuilder::new(
                     {
                         let (kes_signature, operational_certificate) =
-                            KesSignerFake::dummy_signature();
+                            KesSignerFake::dummy_signature(current_function_name);
                         let kes_signer = KesSignerFake::new(vec![Ok((
                             kes_signature,
                             operational_certificate.clone(),
@@ -174,19 +179,23 @@ mod tests {
         res.unwrap().unwrap();
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn pallas_dmq_signature_publisher_fails() {
-        let socket_path = create_temp_dir(current_function!()).join("node.socket");
+        let current_function_name = current_function!();
+        let socket_path = create_temp_dir(current_function_name).join("node.socket");
         let reply_success = false;
         let server = setup_dmq_server(socket_path.clone(), reply_success);
         let client = tokio::spawn(async move {
-            let publisher = DmqPublisherPallas::new(
+            // sleep to avoid refused connection from the server
+            tokio::time::sleep(Duration::from_millis(10)).await;
+
+            let publisher = DmqPublisherClientPallas::new(
                 socket_path,
                 CardanoNetwork::TestNet(0),
                 DmqMessageBuilder::new(
                     {
                         let (kes_signature, operational_certificate) =
-                            KesSignerFake::dummy_signature();
+                            KesSignerFake::dummy_signature(current_function_name);
                         let kes_signer = KesSignerFake::new(vec![Ok((
                             kes_signature,
                             operational_certificate.clone(),

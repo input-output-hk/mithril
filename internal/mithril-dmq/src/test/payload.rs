@@ -1,3 +1,5 @@
+//! DmqMessageTestPayload module for tests only
+
 use std::fmt::Debug;
 
 use mithril_common::{
@@ -7,7 +9,7 @@ use mithril_common::{
 };
 
 /// A test message payload for the DMQ.
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone)]
 pub struct DmqMessageTestPayload {
     message: Vec<u8>,
 }

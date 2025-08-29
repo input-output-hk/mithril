@@ -6,8 +6,7 @@
 
 pub mod double;
 
-#[cfg(test)]
-pub(crate) mod payload;
+pub mod payload;
 
 #[cfg(test)]
 mithril_common::define_test_logger!();

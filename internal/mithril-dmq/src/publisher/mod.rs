@@ -1,5 +1,5 @@
-mod interface;
-mod pallas;
+mod client;
+mod server;
 
-pub use interface::*;
-pub use pallas::*;
+pub use client::*;
+pub use server::*;

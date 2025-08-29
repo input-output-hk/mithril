@@ -34,6 +34,7 @@ jobs:
             environment_prefix: dev
             cardano_network: preview
             mithril_use_p2p_network: true
+            mithril_p2p_use_dmq_protocol: false
             mithril_p2p_signer_relay_signer_registration_mode: passthrough
             mithril_p2p_signer_relay_signature_registration_mode: p2p
             mithril_api_domain: api.mithril.network
@@ -72,6 +73,7 @@ jobs:
             environment_prefix: dev-follower
             cardano_network: preview
             mithril_use_p2p_network: true
+            mithril_p2p_use_dmq_protocol: false
             mithril_p2p_network_bootstrap_peer: "/dns4/aggregator.dev-preview.api.mithril.network/tcp/6060"
             mithril_p2p_signer_relay_signer_registration_mode: passthrough
             mithril_p2p_signer_relay_signature_registration_mode: p2p
@@ -103,6 +105,7 @@ jobs:
             environment_prefix: dev
             cardano_network: mainnet
             mithril_use_p2p_network: false
+            mithril_p2p_use_dmq_protocol: false
             mithril_api_domain: api.mithril.network
             mithril_era_reader_adapter_type: bootstrap
             mithril_protocol_parameters: |
@@ -160,6 +163,7 @@ jobs:
           google_compute_instance_ssh_keys_environment: testing
           google_application_credentials: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
           mithril_use_p2p_network: ${{ matrix.mithril_use_p2p_network }}
+          mithril_p2p_use_dmq_protocol: ${{ matrix.mithril_p2p_use_dmq_protocol }}
           mithril_p2p_network_bootstrap_peer: ${{ matrix.mithril_p2p_network_bootstrap_peer }}
           mithril_api_domain: ${{ matrix.mithril_api_domain }}
           mithril_image_id: ${{ inputs.mithril_image_id }}

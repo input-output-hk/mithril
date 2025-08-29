@@ -4,11 +4,11 @@ use tokio::sync::Mutex;
 
 use mithril_common::{StdResult, crypto_helper::TryFromBytes, entities::PartyId};
 
-use crate::DmqConsumer;
+use crate::DmqConsumerClient;
 
 type ConsumerReturn<M> = StdResult<Vec<(M, PartyId)>>;
 
-/// A fake implementation of the [DmqConsumer] trait for testing purposes.
+/// A fake implementation of the [DmqConsumerClient] trait for testing purposes.
 pub struct DmqConsumerFake<M: TryFromBytes + Debug + Send + Sync> {
     results: Mutex<VecDeque<ConsumerReturn<M>>>,
 }
@@ -23,7 +23,7 @@ impl<M: TryFromBytes + Debug + Send + Sync> DmqConsumerFake<M> {
 }
 
 #[async_trait::async_trait]
-impl<M: TryFromBytes + Debug + Send + Sync> DmqConsumer<M> for DmqConsumerFake<M> {
+impl<M: TryFromBytes + Debug + Send + Sync> DmqConsumerClient<M> for DmqConsumerFake<M> {
     async fn consume_messages(&self) -> ConsumerReturn<M> {
         let mut results = self.results.lock().await;
 

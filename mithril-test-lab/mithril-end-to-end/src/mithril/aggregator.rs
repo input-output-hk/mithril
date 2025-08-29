@@ -39,6 +39,7 @@ pub struct AggregatorConfig<'a> {
     pub signed_entity_types: &'a [String],
     pub chain_observer_type: &'a str,
     pub leader_aggregator_endpoint: &'a Option<String>,
+    pub use_dmq: bool,
 }
 
 pub struct Aggregator {
@@ -75,6 +76,7 @@ impl Aggregator {
         let public_server_url = format!("http://localhost:{server_port_parameter}/aggregator");
         let mut env = HashMap::from([
             ("NETWORK", "devnet"),
+            ("NETWORK_MAGIC", &magic_id),
             ("RUN_INTERVAL", &mithril_run_interval),
             ("SERVER_IP", "0.0.0.0"),
             ("SERVER_PORT", &server_port_parameter),
@@ -85,7 +87,6 @@ impl Aggregator {
                 "SNAPSHOT_DIRECTORY",
                 aggregator_config.artifacts_dir.to_str().unwrap(),
             ),
-            ("NETWORK_MAGIC", &magic_id),
             (
                 "DATA_STORES_DIRECTORY",
                 aggregator_config.store_dir.to_str().unwrap(),
@@ -128,6 +129,15 @@ impl Aggregator {
         ]);
         if let Some(leader_aggregator_endpoint) = aggregator_config.leader_aggregator_endpoint {
             env.insert("LEADER_AGGREGATOR_ENDPOINT", leader_aggregator_endpoint);
+        }
+        let dmq_node_socket_path = aggregator_config
+            .work_dir
+            .join(format!("dmq-aggregator-{}.socket", aggregator_config.index));
+        if aggregator_config.use_dmq {
+            env.insert(
+                "DMQ_NODE_SOCKET_PATH",
+                dmq_node_socket_path.to_str().unwrap(),
+            );
         }
         let args = vec![
             "--db-directory",

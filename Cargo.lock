@@ -3928,7 +3928,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.7.82"
+version = "0.7.83"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4243,17 +4243,22 @@ dependencies = [
 
 [[package]]
 name = "mithril-dmq"
-version = "0.1.9"
+version = "0.1.10"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bincode",
  "blake2 0.10.6",
  "mithril-cardano-node-chain",
  "mithril-common",
  "mockall",
+ "pallas-codec 1.0.0-alpha.2",
  "pallas-network 1.0.0-alpha.2",
+ "serde",
+ "serde_bytes",
  "slog",
  "slog-async",
+ "slog-scope",
  "slog-term",
  "tokio",
 ]
@@ -4279,7 +4284,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.4.101"
+version = "0.4.102"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -4351,14 +4356,16 @@ dependencies = [
 
 [[package]]
 name = "mithril-relay"
-version = "0.1.50"
+version = "0.1.51"
 dependencies = [
  "anyhow",
+ "bincode",
  "clap",
  "config",
  "httpmock",
  "libp2p",
  "mithril-common",
+ "mithril-dmq",
  "mithril-doc",
  "mithril-test-http-server",
  "reqwest",
@@ -4411,7 +4418,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.266"
+version = "0.2.267"
 dependencies = [
  "anyhow",
  "async-trait",

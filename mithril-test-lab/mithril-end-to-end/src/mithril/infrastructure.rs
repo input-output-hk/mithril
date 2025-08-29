@@ -35,6 +35,8 @@ pub struct MithrilInfrastructureConfig {
     pub relay_signer_registration_mode: String,
     pub relay_signature_registration_mode: String,
     pub use_p2p_passive_relays: bool,
+    pub skip_signature_delayer: bool,
+    pub use_dmq: bool,
     pub use_era_specific_work_dir: bool,
 }
 
@@ -68,6 +70,8 @@ impl MithrilInfrastructureConfig {
             relay_signer_registration_mode: "passthrough".to_string(),
             relay_signature_registration_mode: "passthrough".to_string(),
             use_p2p_passive_relays: false,
+            skip_signature_delayer: false,
+            use_dmq: false,
             use_era_specific_work_dir: false,
         }
     }
@@ -255,6 +259,7 @@ impl MithrilInfrastructure {
             signed_entity_types: &config.signed_entity_types,
             chain_observer_type,
             leader_aggregator_endpoint: &leader_aggregator_endpoint,
+            use_dmq: config.use_dmq,
         })?;
 
         aggregator
@@ -294,12 +299,13 @@ impl MithrilInfrastructure {
         let mut bootstrap_peer_addr = None;
         for (index, aggregator_endpoint) in aggregator_endpoints.iter().enumerate() {
             let mut relay_aggregator = RelayAggregator::new(
-                Aggregator::name_suffix(index),
+                index,
                 config.server_port + index as u64 + 100,
                 bootstrap_peer_addr.clone(),
                 aggregator_endpoint,
                 &config.work_dir,
                 &config.bin_dir,
+                config.use_dmq,
             )?;
             if bootstrap_peer_addr.is_none() {
                 bootstrap_peer_addr = Some(relay_aggregator.peer_addr().to_owned());
@@ -310,6 +316,7 @@ impl MithrilInfrastructure {
 
         for (index, party_id) in signers_party_ids.iter().enumerate() {
             let mut relay_signer = RelaySigner::new(&RelaySignerConfiguration {
+                signer_number: index + 1,
                 listen_port: config.server_port + index as u64 + 200,
                 server_port: config.server_port + index as u64 + 300,
                 dial_to: bootstrap_peer_addr.clone(),
@@ -319,6 +326,7 @@ impl MithrilInfrastructure {
                 party_id: party_id.clone(),
                 work_dir: &config.work_dir,
                 bin_dir: &config.bin_dir,
+                use_dmq: config.use_dmq,
             })?;
             relay_signer.start()?;
 
@@ -389,6 +397,8 @@ impl MithrilInfrastructure {
                 mithril_era_reader_adapter: &config.mithril_era_reader_adapter,
                 mithril_era_marker_address: &config.devnet.mithril_era_marker_address()?,
                 enable_certification,
+                skip_signature_delayer: config.skip_signature_delayer,
+                use_dmq: config.use_dmq,
             })?;
             signer.start().await?;
 

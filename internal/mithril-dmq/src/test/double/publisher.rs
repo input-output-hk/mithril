@@ -4,9 +4,9 @@ use tokio::sync::Mutex;
 
 use mithril_common::{StdResult, crypto_helper::TryToBytes};
 
-use crate::DmqPublisher;
+use crate::DmqPublisherClient;
 
-/// A fake implementation of the [DmqPublisher] trait for testing purposes.
+/// A fake implementation of the [DmqPublisherClient] trait for testing purposes.
 pub struct DmqPublisherFake<M: TryToBytes + Debug + Send + Sync> {
     results: Mutex<VecDeque<StdResult<()>>>,
     phantom: PhantomData<M>,
@@ -23,7 +23,7 @@ impl<M: TryToBytes + Debug + Send + Sync> DmqPublisherFake<M> {
 }
 
 #[async_trait::async_trait]
-impl<M: TryToBytes + Debug + Send + Sync> DmqPublisher<M> for DmqPublisherFake<M> {
+impl<M: TryToBytes + Debug + Send + Sync> DmqPublisherClient<M> for DmqPublisherFake<M> {
     async fn publish_message(&self, _message: M) -> StdResult<()> {
         let mut results = self.results.lock().await;
 

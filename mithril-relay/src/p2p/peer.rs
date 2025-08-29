@@ -11,9 +11,12 @@ use libp2p::{
 };
 use mithril_common::{
     StdResult,
+    crypto_helper::{TryFromBytes, TryToBytes},
     logging::LoggerExtensions,
     messages::{RegisterSignatureMessageHttp, RegisterSignerMessage},
 };
+#[cfg(feature = "future_dmq")]
+use mithril_dmq::DmqMessage;
 use serde::{Deserialize, Serialize};
 use slog::{Logger, debug, info};
 use std::{collections::HashMap, time::Duration};
@@ -63,11 +66,31 @@ pub type TopicName = String;
 /// The broadcast message received from a Gossip sub event
 #[derive(Serialize, Deserialize)]
 pub enum BroadcastMessage {
-    /// A signer registration message received from the Gossip sub
-    RegisterSigner(RegisterSignerMessage),
+    /// A HTTP signer registration message received from the Gossip sub
+    RegisterSignerHttp(RegisterSignerMessage),
 
-    /// A signature registration message received from the Gossip sub
-    RegisterSignature(RegisterSignatureMessageHttp),
+    /// A HTTP signature registration message received from the Gossip sub
+    RegisterSignatureHttp(RegisterSignatureMessageHttp),
+
+    /// A DMQ signature registration message received from the Gossip sub
+    #[cfg(feature = "future_dmq")]
+    RegisterSignatureDmq(DmqMessage),
+}
+
+impl TryToBytes for BroadcastMessage {
+    fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
+        bincode::serde::encode_to_vec(self, bincode::config::standard()).map_err(|e| e.into())
+    }
+}
+
+impl TryFromBytes for BroadcastMessage {
+    fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
+        let (res, _) =
+            bincode::serde::decode_from_slice::<Self, _>(bytes, bincode::config::standard())
+                .map_err(|e| anyhow!(e))?;
+
+        Ok(res)
+    }
 }
 
 /// A peer in the P2P network
@@ -95,12 +118,16 @@ impl Peer {
     fn build_topics() -> HashMap<TopicName, gossipsub::IdentTopic> {
         HashMap::from([
             (
-                mithril_p2p_topic::SIGNATURES.into(),
-                gossipsub::IdentTopic::new(mithril_p2p_topic::SIGNATURES),
+                mithril_p2p_topic::SIGNATURES_HTTP.into(),
+                gossipsub::IdentTopic::new(mithril_p2p_topic::SIGNATURES_HTTP),
             ),
             (
-                mithril_p2p_topic::SIGNERS.into(),
-                gossipsub::IdentTopic::new(mithril_p2p_topic::SIGNERS),
+                mithril_p2p_topic::SIGNATURES_DMQ.into(),
+                gossipsub::IdentTopic::new(mithril_p2p_topic::SIGNATURES_DMQ),
+            ),
+            (
+                mithril_p2p_topic::SIGNERS_HTTP.into(),
+                gossipsub::IdentTopic::new(mithril_p2p_topic::SIGNERS_HTTP),
             ),
         ])
     }
@@ -177,7 +204,11 @@ impl Peer {
         match event {
             PeerEvent::Behaviour {
                 event: PeerBehaviourEvent::Gossipsub(gossipsub::Event::Message { message, .. }),
-            } => Ok(Some(serde_json::from_slice(&message.data)?)),
+            } => Ok(Some(
+                BroadcastMessage::try_from_bytes(&message.data).with_context(
+                    || "Failed to deserialize BroadcastMessage from gossipsub event",
+                )?,
+            )),
             _ => Ok(None),
         }
     }
@@ -217,14 +248,37 @@ impl Peer {
         }
     }
 
-    /// Publish a signature on the P2P pubsub
-    pub fn publish_signature(
+    /// Publish a HTTP signature on the P2P pubsub
+    pub fn publish_signature_http(
         &mut self,
         message: &RegisterSignatureMessageHttp,
     ) -> StdResult<gossipsub::MessageId> {
         self.publish_broadcast_message(
-            &BroadcastMessage::RegisterSignature(message.to_owned()),
-            mithril_p2p_topic::SIGNATURES,
+            &BroadcastMessage::RegisterSignatureHttp(message.to_owned()),
+            mithril_p2p_topic::SIGNATURES_HTTP,
+        )
+    }
+
+    /// Publish a DMQ signature on the P2P pubsub
+    #[cfg(feature = "future_dmq")]
+    pub fn publish_signature_dmq(
+        &mut self,
+        message: &DmqMessage,
+    ) -> StdResult<gossipsub::MessageId> {
+        self.publish_broadcast_message(
+            &BroadcastMessage::RegisterSignatureDmq(message.to_owned()),
+            mithril_p2p_topic::SIGNATURES_DMQ,
+        )
+    }
+
+    /// Publish a signer registration on the P2P pubsub
+    pub fn publish_signer_registration(
+        &mut self,
+        message: &RegisterSignerMessage,
+    ) -> StdResult<gossipsub::MessageId> {
+        self.publish_broadcast_message(
+            &BroadcastMessage::RegisterSignerHttp(message.to_owned()),
+            mithril_p2p_topic::SIGNERS_HTTP,
         )
     }
 
@@ -242,7 +296,7 @@ impl Peer {
                 format!("Can not publish broadcast message on invalid topic: {topic_name}")
             })?
             .to_owned();
-        let data = serde_json::to_vec(message).with_context(|| {
+        let data = message.to_bytes_vec().with_context(|| {
             format!("Can not publish broadcast message with invalid format on topic {topic_name}")
         })?;
 
@@ -262,17 +316,6 @@ impl Peer {
             })?;
 
         Ok(message_id.to_owned())
-    }
-
-    /// Publish a signer registration on the P2P pubsub
-    pub fn publish_signer_registration(
-        &mut self,
-        message: &RegisterSignerMessage,
-    ) -> StdResult<gossipsub::MessageId> {
-        self.publish_broadcast_message(
-            &BroadcastMessage::RegisterSigner(message.to_owned()),
-            mithril_p2p_topic::SIGNERS,
-        )
     }
 
     /// Connect to a remote peer

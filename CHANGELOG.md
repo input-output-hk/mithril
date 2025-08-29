@@ -32,9 +32,11 @@ As a minor extension, we have adopted a slightly different versioning convention
 - Support for Mithril era transition in the client library, CLI and WASM.
 
 - **UNSTABLE** :
+  - Support for certificates chain synchronization between leader/follower aggregators.
+
   - Support for DMQ signature publisher in the signer and signature consumer in the aggregator.
 
-  - Implement automatic certificates chain synchronization between leader/follower aggregators.
+  - Support for fake DMQ node implementation in the relay for testing purposes.
 
 - Crates versions:
 

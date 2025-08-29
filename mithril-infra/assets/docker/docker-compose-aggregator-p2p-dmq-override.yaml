@@ -1,0 +1,13 @@
+services:
+  mithril-aggregator:
+    environment:
+      - DMQ_NODE_SOCKET_PATH=/ipc/dmq.socket
+      - NETWORK=${NETWORK}
+      - NETWORK_MAGIC=${NETWORK_MAGIC}
+  mithril-aggregator-relay:
+    volumes:
+      - ../data/${NETWORK}/mithril-aggregator/cardano/ipc:/ipc
+    environment:
+      - DMQ_NODE_SOCKET_PATH=/ipc/dmq.socket
+      - NETWORK=${NETWORK}
+      - NETWORK_MAGIC=${NETWORK_MAGIC}

@@ -42,7 +42,7 @@ use mithril_persistence::database::{ApplicationNodeType, SqlMigration};
 use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnection, SqliteConnectionPool};
 
 #[cfg(feature = "future_dmq")]
-use mithril_dmq::{DmqMessageBuilder, DmqPublisherPallas};
+use mithril_dmq::{DmqMessageBuilder, DmqPublisherClientPallas};
 
 use crate::dependency_injection::SignerDependencyContainer;
 #[cfg(feature = "future_dmq")]
@@ -417,34 +417,28 @@ impl<'a> DependenciesBuilder<'a> {
             _ => None,
         };
 
+        #[cfg(feature = "future_dmq")]
         let signature_publisher = {
             let first_publisher = SignaturePublisherRetrier::new(
-                {
-                    #[cfg(feature = "future_dmq")]
-                    let publisher = match &self.config.dmq_node_socket_path {
-                        Some(dmq_node_socket_path) => {
-                            let cardano_network = &self.config.get_network()?;
-                            let dmq_message_builder = DmqMessageBuilder::new(
-                                kes_signer.clone().ok_or(anyhow!(
-                                    "A KES signer is mandatory to sign DMQ messages"
-                                ))?,
-                                chain_observer.clone(),
-                            );
-                            Arc::new(SignaturePublisherDmq::new(Arc::new(DmqPublisherPallas::<
-                                RegisterSignatureMessageDmq,
-                            >::new(
+                match &self.config.dmq_node_socket_path {
+                    Some(dmq_node_socket_path) => {
+                        let cardano_network = &self.config.get_network()?;
+                        let dmq_message_builder = DmqMessageBuilder::new(
+                            kes_signer
+                                .clone()
+                                .ok_or(anyhow!("A KES signer is mandatory to sign DMQ messages"))?,
+                            chain_observer.clone(),
+                        );
+                        Arc::new(SignaturePublisherDmq::new(Arc::new(
+                            DmqPublisherClientPallas::<RegisterSignatureMessageDmq>::new(
                                 dmq_node_socket_path.to_owned(),
                                 *cardano_network,
                                 dmq_message_builder,
                                 self.root_logger(),
-                            )))) as Arc<dyn SignaturePublisher>
-                        }
-                        _ => Arc::new(SignaturePublisherNoop) as Arc<dyn SignaturePublisher>,
-                    };
-                    #[cfg(not(feature = "future_dmq"))]
-                    let publisher = Arc::new(SignaturePublisherNoop) as Arc<dyn SignaturePublisher>;
-
-                    publisher
+                            ),
+                        ))) as Arc<dyn SignaturePublisher>
+                    }
+                    _ => Arc::new(SignaturePublisherNoop) as Arc<dyn SignaturePublisher>,
                 },
                 SignaturePublishRetryPolicy::never(),
             );
@@ -459,12 +453,45 @@ impl<'a> DependenciesBuilder<'a> {
                 },
             );
 
-            Arc::new(SignaturePublisherDelayer::new(
-                Arc::new(first_publisher),
-                Arc::new(second_publisher),
-                Duration::from_millis(self.config.signature_publisher_config.delayer_delay_ms),
-                self.root_logger(),
-            ))
+            if self.config.signature_publisher_config.skip_delayer {
+                Arc::new(first_publisher) as Arc<dyn SignaturePublisher>
+            } else {
+                Arc::new(SignaturePublisherDelayer::new(
+                    Arc::new(first_publisher),
+                    Arc::new(second_publisher),
+                    Duration::from_millis(self.config.signature_publisher_config.delayer_delay_ms),
+                    self.root_logger(),
+                )) as Arc<dyn SignaturePublisher>
+            }
+        };
+
+        #[cfg(not(feature = "future_dmq"))]
+        let signature_publisher = {
+            let first_publisher = SignaturePublisherRetrier::new(
+                Arc::new(SignaturePublisherNoop) as Arc<dyn SignaturePublisher>,
+                SignaturePublishRetryPolicy::never(),
+            );
+
+            let second_publisher = SignaturePublisherRetrier::new(
+                aggregator_client.clone(),
+                SignaturePublishRetryPolicy {
+                    attempts: self.config.signature_publisher_config.retry_attempts,
+                    delay_between_attempts: Duration::from_millis(
+                        self.config.signature_publisher_config.retry_delay_ms,
+                    ),
+                },
+            );
+
+            if self.config.signature_publisher_config.skip_delayer {
+                Arc::new(second_publisher) as Arc<dyn SignaturePublisher>
+            } else {
+                Arc::new(SignaturePublisherDelayer::new(
+                    Arc::new(first_publisher),
+                    Arc::new(second_publisher),
+                    Duration::from_millis(self.config.signature_publisher_config.delayer_delay_ms),
+                    self.root_logger(),
+                )) as Arc<dyn SignaturePublisher>
+            }
         };
 
         let certifier = Arc::new(SignerCertifierService::new(
