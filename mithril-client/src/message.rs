@@ -236,6 +236,9 @@ impl MessageBuilder {
         }
 
         /// Compute message for a Cardano database.
+        ///
+        /// This function first lists missing immutables files (if `allow_missing` is false)
+        /// then computes the digests for the given range and finally computes the Merkle proof.
         pub async fn compute_cardano_database_message(
             &self,
             certificate: &CertificateMessage,
