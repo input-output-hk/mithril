@@ -829,6 +829,7 @@ mod tests {
         }
     }
 
+    //TODO: TO REMOVE (Moved to proving.rs)
     mod compute_cardano_database_message_error {
         use super::*;
 

@@ -16,9 +16,7 @@ use mithril_cardano_node_internal_database::entities::ImmutableFile;
 
 use crate::aggregator_client::AggregatorClient;
 #[cfg(feature = "fs")]
-use crate::cardano_database_client::{
-    VerifiedDigests, proving::ComputeCardanoDatabaseMessageError,
-};
+use crate::cardano_database_client::{VerifiedDigests, proving::CardanoDatabaseVerificationError};
 #[cfg(feature = "fs")]
 use crate::feedback::FeedbackSender;
 #[cfg(feature = "fs")]
@@ -126,7 +124,7 @@ impl CardanoDatabaseClient {
         allow_missing: bool,
         database_dir: &Path,
         verified_digests: &VerifiedDigests,
-    ) -> Result<MKProof, ComputeCardanoDatabaseMessageError> {
+    ) -> Result<MKProof, CardanoDatabaseVerificationError> {
         self.artifact_prover
             .verify_cardano_database(
                 certificate,
