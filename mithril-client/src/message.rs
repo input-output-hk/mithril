@@ -40,8 +40,10 @@ use crate::{
 };
 
 cfg_fs! {
+    //TODO: TO REMOVE (Moved to proving.rs)
     const MERKLE_PROOF_COMPUTATION_ERROR:&str = "Merkle proof computation failed";
 
+    //TODO: TO REMOVE (Moved to proving.rs)
     /// Type containing the lists of immutable files that are missing or tampered.
     #[derive(Debug, PartialEq)]
     pub struct ImmutableVerificationResult {
@@ -55,6 +57,7 @@ cfg_fs! {
         pub non_verifiable: Vec<ImmutableFileName>,
     }
 
+    //TODO: TO REMOVE (Moved to proving.rs)
     /// Compute Cardano database message related errors.
     #[derive(Error, Debug)]
     pub enum ComputeCardanoDatabaseMessageError {
@@ -212,10 +215,12 @@ impl MessageBuilder {
             Ok(message)
         }
 
+        //TODO: TO REMOVE OR MUTUALIZE WITH proving.rs
         fn immutable_dir(db_dir: &Path) -> PathBuf {
             db_dir.join(IMMUTABLE_DIR)
         }
 
+        //TODO: TO REMOVE
         fn list_missing_immutable_files(
             database_dir: &Path,
             immutable_file_number_range: &RangeInclusive<ImmutableFileNumber>,
@@ -235,6 +240,7 @@ impl MessageBuilder {
             missing_files
         }
 
+        ///TODO: TO REMOVE
         /// Compute message for a Cardano database.
         ///
         /// This function first lists missing immutables files (if `allow_missing` is false)
@@ -478,6 +484,7 @@ mod tests {
 
         use super::*;
 
+        //TODO TO REMOVE (Moved to proving.rs)
         async fn prepare_db_and_verified_digests(
             dir_name: &str,
             beacon: &CardanoDbBeacon,
@@ -534,6 +541,7 @@ mod tests {
             list.iter().map(|s| ImmutableFileName::from(*s)).collect()
         }
 
+        //TODO TO REMOVE (Moved to proving.rs)
         #[tokio::test]
         async fn compute_cardano_database_message_succeeds() {
             let beacon = CardanoDbBeacon {
@@ -564,6 +572,7 @@ mod tests {
             assert!(certificate.match_message(&message));
         }
 
+        //TODO TO REMOVE (Moved to proving.rs)
         #[tokio::test]
         async fn compute_cardano_database_message_should_fail_if_immutable_is_missing_and_allow_missing_not_set()
          {

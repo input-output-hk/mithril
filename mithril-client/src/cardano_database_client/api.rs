@@ -6,14 +6,19 @@ use std::sync::Arc;
 use slog::Logger;
 
 #[cfg(feature = "fs")]
-use mithril_common::messages::{CardanoDatabaseSnapshotMessage, CertificateMessage};
+use mithril_common::{
+    crypto_helper::MKProof,
+    messages::{CardanoDatabaseSnapshotMessage, CertificateMessage},
+};
 
 #[cfg(feature = "fs")]
 use mithril_cardano_node_internal_database::entities::ImmutableFile;
 
 use crate::aggregator_client::AggregatorClient;
 #[cfg(feature = "fs")]
-use crate::cardano_database_client::VerifiedDigests;
+use crate::cardano_database_client::{
+    VerifiedDigests, proving::ComputeCardanoDatabaseMessageError,
+};
 #[cfg(feature = "fs")]
 use crate::feedback::FeedbackSender;
 #[cfg(feature = "fs")]
@@ -108,6 +113,29 @@ impl CardanoDatabaseClient {
     ) -> MithrilResult<VerifiedDigests> {
         self.artifact_prover
             .download_and_verify_digests(certificate, cardano_database_snapshot)
+            .await
+    }
+
+    /// Verify a local cardano database
+    #[cfg(feature = "fs")]
+    pub async fn verify_cardano_database(
+        &self,
+        certificate: &CertificateMessage,
+        cardano_database_snapshot: &CardanoDatabaseSnapshotMessage,
+        immutable_file_range: &ImmutableFileRange,
+        allow_missing: bool,
+        database_dir: &Path,
+        verified_digests: &VerifiedDigests,
+    ) -> Result<MKProof, ComputeCardanoDatabaseMessageError> {
+        self.artifact_prover
+            .verify_cardano_database(
+                certificate,
+                cardano_database_snapshot,
+                immutable_file_range,
+                allow_missing,
+                database_dir,
+                verified_digests,
+            )
             .await
     }
 
