@@ -72,18 +72,23 @@ impl<'de> Deserialize<'de> for DmqMessage {
 
 #[cfg(test)]
 mod tests {
+    use pallas_network::miniprotocols::localmsgsubmission::DmqMsgPayload;
+
     use super::*;
 
     #[test]
     fn test_dmq_message_serialize_deserialize() {
         let dmq_msg = DmqMsg {
-            msg_id: vec![0, 1],
-            msg_body: vec![0, 1, 2],
+            msg_payload: DmqMsgPayload {
+                msg_id: vec![0, 1],
+                msg_body: vec![0, 1, 2],
+
+                kes_period: 10,
+                operational_certificate: vec![0, 1, 2, 3, 4],
+                cold_verification_key: vec![0, 1, 2, 3, 4, 5],
+                expires_at: 100,
+            },
             kes_signature: vec![0, 1, 2, 3],
-            kes_period: 10,
-            operational_certificate: vec![0, 1, 2, 3, 4],
-            cold_verification_key: vec![0, 1, 2, 3, 4, 5],
-            expires_at: 100,
         };
 
         let dmq_message = DmqMessage::from(dmq_msg.clone());
