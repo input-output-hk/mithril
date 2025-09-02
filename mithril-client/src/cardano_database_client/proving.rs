@@ -757,4 +757,132 @@ mod tests {
             )
         }
     }
+
+    mod verify_cardano_database {
+
+        use std::{collections::BTreeMap, ops::RangeInclusive, path::PathBuf};
+
+        use mithril_cardano_node_internal_database::{
+            digesters::{CardanoImmutableDigester, ImmutableDigester},
+            test::DummyCardanoDbBuilder,
+        };
+        use mithril_common::{
+            entities::{CardanoDbBeacon, Epoch, ImmutableFileNumber, ProtocolMessage},
+            messages::CertificateMessage,
+            test::double::Dummy,
+        };
+
+        use crate::cardano_database_client::ImmutableFileRange;
+        use crate::{cardano_database_client::VerifiedDigests, test_utils::TestLogger};
+
+        use super::*;
+
+        async fn prepare_db_and_verified_digests(
+            dir_name: &str,
+            beacon: &CardanoDbBeacon,
+            immutable_file_range: &RangeInclusive<ImmutableFileNumber>,
+        ) -> (PathBuf, CertificateMessage, VerifiedDigests) {
+            let cardano_db = DummyCardanoDbBuilder::new(dir_name)
+                .with_immutables(&immutable_file_range.clone().collect::<Vec<_>>())
+                .append_immutable_trio()
+                .build();
+            let database_dir = cardano_db.get_dir();
+            let immutable_digester =
+                CardanoImmutableDigester::new("whatever".to_string(), None, TestLogger::stdout());
+            let computed_digests = immutable_digester
+                .compute_digests_for_range(database_dir, immutable_file_range)
+                .await
+                .unwrap();
+
+            let digests = computed_digests
+                .entries
+                .iter()
+                .map(|(immutable_file, digest)| (immutable_file.filename.clone(), digest.clone()))
+                .collect::<BTreeMap<_, _>>();
+
+            let merkle_tree = immutable_digester
+                .compute_merkle_tree(database_dir, beacon)
+                .await
+                .unwrap();
+
+            let verified_digests = VerifiedDigests {
+                digests,
+                merkle_tree,
+            };
+
+            let certificate = {
+                let protocol_message_merkle_root =
+                    verified_digests.merkle_tree.compute_root().unwrap().to_hex();
+                let mut protocol_message = ProtocolMessage::new();
+                protocol_message.set_message_part(
+                    ProtocolMessagePartKey::CardanoDatabaseMerkleRoot,
+                    protocol_message_merkle_root,
+                );
+
+                CertificateMessage {
+                    protocol_message: protocol_message.clone(),
+                    signed_message: protocol_message.compute_hash(),
+                    ..CertificateMessage::dummy()
+                }
+            };
+
+            (database_dir.to_owned(), certificate, verified_digests)
+        }
+
+        fn to_vec_immutable_file_name(list: &[&str]) -> Vec<ImmutableFileName> {
+            list.iter().map(|s| ImmutableFileName::from(*s)).collect()
+        }
+
+        #[tokio::test]
+        async fn verify_cardano_database_succeeds() {
+            let beacon = CardanoDbBeacon {
+                epoch: Epoch(123),
+                immutable_file_number: 10,
+            };
+            let immutable_file_range = 1..=15;
+            let immutable_file_range_to_prove = ImmutableFileRange::Range(2, 4);
+            let (database_dir, certificate, verified_digests) = prepare_db_and_verified_digests(
+                "compute_cardano_database_message_succeeds",
+                &beacon,
+                &immutable_file_range,
+            )
+            .await;
+
+            //TODO: verify_cardano_database will not build a message anymore
+            // let message = MessageBuilder::new()
+            //     .compute_cardano_database_message(
+            //         &certificate,
+            //         &CardanoDatabaseSnapshotMessage::dummy(),
+            //         &immutable_file_range_to_prove,
+            //         false,
+            //         &database_dir,
+            //         &verified_digests,
+            //     )
+            //     .await
+            //     .unwrap();
+
+            // assert!(certificate.match_message(&message));
+            let expected_merkle_root =
+                verified_digests.merkle_tree.compute_root().unwrap().to_owned();
+
+            let client = CardanoDatabaseClientDependencyInjector::new();
+
+            let merkle_proof = client
+                .verify_cardano_database(
+                    &certificate,
+                    &CardanoDatabaseSnapshotMessage::dummy(),
+                    &immutable_file_range_to_prove,
+                    false,
+                    &database_dir,
+                    &verified_digests,
+                )
+                .await
+                .unwrap();
+
+            merkle_proof.verify().unwrap();
+            let merkle_proof_root = merkle_proof.root().to_owned();
+            assert_eq!(expected_merkle_root, merkle_proof_root);
+            assert!(!InternalArtifactProver::digest_target_dir().exists());
+        }
+    }
 }
