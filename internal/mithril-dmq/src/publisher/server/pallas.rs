@@ -259,12 +259,12 @@ mod tests {
     async fn fake_msg() -> DmqMsg {
         DmqMsg {
             msg_id: vec![0, 1],
-            msg_body: vec![2, 3, 4, 5],
-            block_number: 10,
-            ttl: 100,
+            msg_body: vec![0, 1, 2],
             kes_signature: vec![0, 1, 2, 3],
-            operational_certificate: vec![0, 1, 2, 3, 4, 5],
             kes_period: 10,
+            operational_certificate: vec![0, 1, 2, 3, 4],
+            cold_verification_key: vec![0, 1, 2, 3, 4, 5],
+            expires_at: 100,
         }
     }
 
