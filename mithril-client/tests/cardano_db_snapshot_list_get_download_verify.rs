@@ -138,8 +138,9 @@ async fn cardano_db_snapshot_list_get_download_verify() {
         .await
         .unwrap();
 
-    let message = MessageBuilder::new()
-        .compute_cardano_database_message(
+    let merkle_proof = client
+        .cardano_database_v2()
+        .verify_cardano_database(
             &certificate,
             &cardano_db_snapshot,
             &immutable_file_range,
@@ -147,6 +148,11 @@ async fn cardano_db_snapshot_list_get_download_verify() {
             &unpacked_dir,
             &verified_digests,
         )
+        .await
+        .unwrap();
+
+    let message = MessageBuilder::new()
+        .compute_cardano_database_message(&certificate, &merkle_proof)
         .await
         .expect("Computing cardano database snapshot message should not fail");
 

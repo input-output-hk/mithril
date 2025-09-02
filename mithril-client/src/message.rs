@@ -28,6 +28,9 @@ use mithril_common::{
     signable_builder::CardanoStakeDistributionSignableBuilder,
 };
 
+#[cfg(feature = "fs")]
+use mithril_common::crypto_helper::MKProof;
+
 use crate::{
     CardanoStakeDistribution, MithrilCertificate, MithrilResult, MithrilSigner,
     MithrilStakeDistribution, VerifiedCardanoTransactions,
@@ -240,12 +243,27 @@ impl MessageBuilder {
             missing_files
         }
 
+        /// Compute message for a Cardano database.
+        pub async fn compute_cardano_database_message(
+        &self,
+            certificate: &MithrilCertificate,
+            merkle_proof: &MKProof,
+        ) -> MithrilResult<ProtocolMessage> {
+            let mut message = certificate.protocol_message.clone();
+            message.set_message_part(
+                ProtocolMessagePartKey::CardanoDatabaseMerkleRoot,
+                merkle_proof.root().to_hex(),
+            );
+            Ok(message)
+        }
+
+
         ///TODO: TO REMOVE
         /// Compute message for a Cardano database.
         ///
         /// This function first lists missing immutables files (if `allow_missing` is false)
         /// then computes the digests for the given range and finally computes the Merkle proof.
-        pub async fn compute_cardano_database_message(
+        pub async fn compute_cardano_database_message_OLD(
             &self,
             certificate: &CertificateMessage,
             cardano_database_snapshot: &CardanoDatabaseSnapshotMessage,
@@ -558,7 +576,7 @@ mod tests {
             .await;
 
             let message = MessageBuilder::new()
-                .compute_cardano_database_message(
+                .compute_cardano_database_message_OLD(
                     &certificate,
                     &CardanoDatabaseSnapshotMessage::dummy(),
                     &immutable_file_range_to_prove,
@@ -594,7 +612,7 @@ mod tests {
 
             let allow_missing = false;
             let error = MessageBuilder::new()
-                .compute_cardano_database_message(
+                .compute_cardano_database_message_OLD(
                     &certificate,
                     &CardanoDatabaseSnapshotMessage::dummy(),
                     &immutable_file_range_to_prove,
@@ -644,7 +662,7 @@ mod tests {
 
             let allow_missing = true;
             MessageBuilder::new()
-                .compute_cardano_database_message(
+                .compute_cardano_database_message_OLD(
                     &certificate,
                     &CardanoDatabaseSnapshotMessage::dummy(),
                     &immutable_file_range_to_prove,
@@ -680,7 +698,7 @@ mod tests {
 
             let error = MessageBuilder::new()
                 .with_logger(logger)
-                .compute_cardano_database_message(
+                .compute_cardano_database_message_OLD(
                     &certificate,
                     &CardanoDatabaseSnapshotMessage::dummy(),
                     &immutable_file_range_to_prove,
@@ -733,7 +751,7 @@ mod tests {
             tamper_immutable_files(&database_dir, &files_to_tamper);
 
             let error = MessageBuilder::new()
-                .compute_cardano_database_message(
+                .compute_cardano_database_message_OLD(
                     &certificate,
                     &CardanoDatabaseSnapshotMessage::dummy(),
                     &immutable_file_range_to_prove,
@@ -800,7 +818,7 @@ mod tests {
             .await;
 
             let error = MessageBuilder::new()
-                .compute_cardano_database_message(
+                .compute_cardano_database_message_OLD(
                     &certificate,
                     &CardanoDatabaseSnapshotMessage::dummy(),
                     &ImmutableFileRange::Range(1, 15),
