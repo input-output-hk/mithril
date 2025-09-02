@@ -175,9 +175,8 @@ mod tests {
             DmqMsg {
                 msg_id: vec![0, 1],
                 msg_body: DmqMessageTestPayload::new(b"msg_1").to_bytes_vec().unwrap(),
-                block_number: 10,
-                ttl: 100,
                 kes_signature: vec![0, 1, 2, 3],
+                kes_period: 10,
                 operational_certificate: vec![
                     130, 132, 88, 32, 230, 80, 215, 83, 21, 9, 187, 108, 255, 215, 153, 140, 40,
                     198, 142, 78, 200, 250, 98, 26, 9, 82, 32, 110, 161, 30, 176, 63, 205, 125,
@@ -188,14 +187,14 @@ mod tests {
                     32, 32, 253, 186, 201, 177, 11, 117, 135, 187, 167, 181, 188, 22, 59, 206, 105,
                     231, 150, 215, 30, 78, 212, 76, 16, 252, 180, 72, 134, 137, 247, 161, 68,
                 ],
-                kes_period: 10,
+                cold_verification_key: vec![0, 1, 2, 3, 4, 5],
+                expires_at: 100,
             },
             DmqMsg {
                 msg_id: vec![1, 2],
                 msg_body: DmqMessageTestPayload::new(b"msg_2").to_bytes_vec().unwrap(),
-                block_number: 11,
-                ttl: 100,
                 kes_signature: vec![1, 2, 3, 4],
+                kes_period: 11,
                 operational_certificate: vec![
                     130, 132, 88, 32, 230, 80, 215, 83, 21, 9, 187, 108, 255, 215, 153, 140, 40,
                     198, 142, 78, 200, 250, 98, 26, 9, 82, 32, 110, 161, 30, 176, 63, 205, 125,
@@ -207,7 +206,8 @@ mod tests {
                     240, 103, 245, 159, 147, 177, 110, 58, 248, 115, 58, 152, 138, 220, 35, 65,
                     245, 200,
                 ],
-                kes_period: 11,
+                cold_verification_key: vec![0, 1, 2, 3, 4, 5],
+                expires_at: 101,
             },
         ]
     }
