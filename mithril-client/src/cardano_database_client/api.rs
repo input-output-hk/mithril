@@ -183,6 +183,8 @@ pub(crate) mod test_dependency_injector {
         ancillary_verifier: Option<Arc<AncillaryVerifier>>,
         #[cfg(feature = "fs")]
         feedback_receivers: Vec<Arc<dyn FeedbackReceiver>>,
+        #[cfg(feature = "fs")]
+        logger: Logger,
     }
 
     impl CardanoDatabaseClientDependencyInjector {
@@ -201,7 +203,15 @@ pub(crate) mod test_dependency_injector {
                 ancillary_verifier: None,
                 #[cfg(feature = "fs")]
                 feedback_receivers: vec![],
+                #[cfg(feature = "fs")]
+                logger: TestLogger::stdout(),
             }
+        }
+
+        #[cfg(feature = "fs")]
+        pub(crate) fn with_logger(self, logger: Logger) -> Self {
+            #[cfg(feature = "fs")]
+            Self { logger, ..self }
         }
 
         pub(crate) fn with_aggregator_client_mock_config<F>(mut self, config: F) -> Self
@@ -256,7 +266,7 @@ pub(crate) mod test_dependency_injector {
                 self.http_file_downloader,
                 self.ancillary_verifier,
                 FeedbackSender::new(&self.feedback_receivers),
-                TestLogger::stdout(),
+                self.logger,
             )
         }
 
