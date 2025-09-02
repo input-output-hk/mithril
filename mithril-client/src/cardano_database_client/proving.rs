@@ -7,13 +7,10 @@ use std::{
 
 use anyhow::{Context, anyhow};
 
-use mithril_cardano_node_internal_database::{
-    digesters::{CardanoImmutableDigester, ImmutableDigester},
-    entities::ImmutableFile,
-};
+use mithril_cardano_node_internal_database::entities::ImmutableFile;
 use mithril_common::{
-    crypto_helper::{MKProof, MKTree, MKTreeNode, MKTreeStoreInMemory},
-    entities::{DigestLocation, HexEncodedDigest, ImmutableFileName},
+    crypto_helper::{MKTree, MKTreeNode, MKTreeStoreInMemory},
+    entities::{DigestLocation, HexEncodedDigest, ImmutableFileName, ProtocolMessagePartKey},
     messages::{
         CardanoDatabaseDigestListItemMessage, CardanoDatabaseSnapshotMessage, CertificateMessage,
         DigestsMessagePart,
@@ -27,7 +24,50 @@ use crate::{
     utils::{create_directory_if_not_exists, delete_directory, read_files_in_directory},
 };
 
-use super::immutable_file_range::ImmutableFileRange;
+/// Represents the verified digests and the Merkle tree built from them.
+pub struct VerifiedDigests {
+    /// A map of immutable file names to their corresponding verified digests.
+    pub digests: BTreeMap<ImmutableFileName, HexEncodedDigest>,
+    /// The Merkle tree built from the digests.
+    pub merkle_tree: MKTree<MKTreeStoreInMemory>,
+}
+
+/// Represents the immutable files that were not verified during the digest verification process.
+#[derive(PartialEq, Debug)]
+pub(crate) struct ImmutableFilesNotVerified {
+    /// List of immutable files that were tampered (i.e. their digest does not match the verified digest)
+    pub tampered_files: Vec<ImmutableFileName>,
+    /// List of immutable files that could not be verified (i.e., not present in the digests)
+    pub non_verifiable_files: Vec<ImmutableFileName>,
+}
+
+impl VerifiedDigests {
+    pub(crate) fn list_immutable_files_not_verified(
+        &self,
+        computed_digests: &BTreeMap<ImmutableFile, HexEncodedDigest>,
+    ) -> ImmutableFilesNotVerified {
+        let mut tampered_files = vec![];
+        let mut non_verifiable_files = vec![];
+
+        for (immutable_file, digest) in computed_digests.iter() {
+            let immutable_file_name_to_verify = immutable_file.filename.clone();
+            match self.digests.get(&immutable_file_name_to_verify) {
+                Some(verified_digest) if verified_digest != digest => {
+                    tampered_files.push(immutable_file_name_to_verify);
+                }
+                None => {
+                    non_verifiable_files.push(immutable_file_name_to_verify);
+                }
+                _ => {}
+            }
+        }
+
+        ImmutableFilesNotVerified {
+            tampered_files,
+            non_verifiable_files,
+        }
+    }
+}
 
 pub struct InternalArtifactProver {
     http_file_downloader: Arc<dyn FileDownloader>,
@@ -43,26 +83,43 @@ impl InternalArtifactProver {
         }
     }
 
-    /// Compute the Merkle proof of membership for the given immutable file range.
-    ///
-    /// It will recursively search for immutables directory inside the provided `database_dir`.
-    pub async fn compute_merkle_proof(
+    fn check_merkle_root_is_signed_by_certificate(
+        certificate: &CertificateMessage,
+        merkle_root: &MKTreeNode,
+    ) -> MithrilResult<()> {
+        let mut message = certificate.protocol_message.clone();
+        message.set_message_part(
+            ProtocolMessagePartKey::CardanoDatabaseMerkleRoot,
+            merkle_root.to_hex(),
+        );
+
+        if !certificate.match_message(&message) {
+            return Err(anyhow!(
+                "Certificate message does not match the computed message for certificate {}",
+                certificate.hash
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Download digests and verify its authenticity against the certificate.
+    pub async fn download_and_verify_digests(
         &self,
         certificate: &CertificateMessage,
         cardano_database_snapshot: &CardanoDatabaseSnapshotMessage,
-        immutable_file_range: &ImmutableFileRange,
-        database_dir: &Path,
-    ) -> MithrilResult<MKProof> {
+    ) -> MithrilResult<VerifiedDigests> {
         let digest_target_dir = Self::digest_target_dir();
         delete_directory(&digest_target_dir)?;
         self.download_unpack_digest_file(&cardano_database_snapshot.digests, &digest_target_dir)
             .await?;
-        let network = certificate.metadata.network.clone();
         let last_immutable_file_number = cardano_database_snapshot.beacon.immutable_file_number;
-        let immutable_file_number_range =
-            immutable_file_range.to_range_inclusive(last_immutable_file_number)?;
+
         let downloaded_digests = self.read_digest_file(&digest_target_dir)?;
-        let downloaded_digests_values = downloaded_digests
+        delete_directory(&digest_target_dir)?;
+
+        let filtered_digests = downloaded_digests
+            .clone()
             .into_iter()
             .filter(|(immutable_file_name, _)| {
                 match ImmutableFile::new(Path::new(immutable_file_name).to_path_buf()) {
@@ -70,20 +127,20 @@ impl InternalArtifactProver {
                     Err(_) => false,
                 }
             })
-            .map(|(_immutable_file_name, digest)| digest)
-            .collect::<Vec<_>>();
-        let merkle_tree: MKTree<MKTreeStoreInMemory> = MKTree::new(&downloaded_digests_values)?;
-        let immutable_digester = CardanoImmutableDigester::new(network, None, self.logger.clone());
-        let computed_digests = immutable_digester
-            .compute_digests_for_range(database_dir, &immutable_file_number_range)
-            .await?
-            .entries
-            .values()
-            .map(MKTreeNode::from)
-            .collect::<Vec<_>>();
-        delete_directory(&digest_target_dir)?;
+            .collect::<BTreeMap<_, _>>();
 
-        merkle_tree.compute_proof(&computed_digests)
+        let filtered_digests_values = filtered_digests.values().collect::<Vec<_>>();
+        let merkle_tree: MKTree<MKTreeStoreInMemory> = MKTree::new(&filtered_digests_values)?;
+
+        Self::check_merkle_root_is_signed_by_certificate(
+            certificate,
+            &merkle_tree.compute_root()?,
+        )?;
+
+        Ok(VerifiedDigests {
+            digests: filtered_digests,
+            merkle_tree,
+        })
     }
 
     async fn download_unpack_digest_file(
@@ -178,7 +235,6 @@ mod tests {
     use std::path::Path;
     use std::sync::Arc;
 
-    use mithril_cardano_node_internal_database::test::DummyCardanoDbBuilder;
     use mithril_common::{
         entities::{CardanoDbBeacon, Epoch, HexEncodedDigest},
         messages::CardanoDatabaseDigestListItemMessage,
@@ -192,87 +248,108 @@ mod tests {
 
     use super::*;
 
-    mod compute_merkle_proof {
-
-        use std::ops::RangeInclusive;
-
-        use mithril_cardano_node_internal_database::{
-            IMMUTABLE_DIR, digesters::ComputedImmutablesDigests,
-        };
-        use mithril_common::{
-            StdResult, entities::ImmutableFileNumber, messages::DigestsMessagePart,
-        };
+    mod list_immutable_files_not_verified {
 
         use super::*;
 
-        async fn prepare_fake_digests(
-            dir_name: &str,
-            beacon: &CardanoDbBeacon,
-            immutable_file_range: &RangeInclusive<ImmutableFileNumber>,
-            digests_offset: usize,
-        ) -> (
-            PathBuf,
-            CardanoDatabaseSnapshotMessage,
-            CertificateMessage,
-            MKTree<MKTreeStoreInMemory>,
-            ComputedImmutablesDigests,
-        ) {
-            let cardano_database_snapshot = CardanoDatabaseSnapshotMessage {
-                hash: "hash-123".to_string(),
-                beacon: beacon.clone(),
-                digests: DigestsMessagePart {
-                    size_uncompressed: 1024,
-                    locations: vec![DigestLocation::CloudStorage {
-                        uri: "http://whatever/digests.json".to_string(),
-                        compression_algorithm: None,
-                    }],
-                },
-                ..CardanoDatabaseSnapshotMessage::dummy()
-            };
-            let certificate = CertificateMessage {
-                hash: "cert-hash-123".to_string(),
-                ..CertificateMessage::dummy()
-            };
-            let cardano_db = DummyCardanoDbBuilder::new(dir_name)
-                .with_immutables(&immutable_file_range.clone().collect::<Vec<_>>())
-                .append_immutable_trio()
-                .build();
-            let database_dir = cardano_db.get_dir();
-            let immutable_digester = CardanoImmutableDigester::new(
-                certificate.metadata.network.to_string(),
-                None,
-                TestLogger::stdout(),
-            );
-            let computed_digests = immutable_digester
-                .compute_digests_for_range(database_dir, immutable_file_range)
-                .await
-                .unwrap();
-            // We remove the last digests_offset digests to simulate receiving
-            // a digest file with more immutable files than downloaded
-            for (immutable_file, _digest) in
-                computed_digests.entries.iter().rev().take(digests_offset)
-            {
-                fs::remove_file(
-                    database_dir.join(
-                        database_dir.join(IMMUTABLE_DIR).join(immutable_file.filename.clone()),
-                    ),
-                )
-                .unwrap();
+        fn fake_immutable(filename: &str) -> ImmutableFile {
+            ImmutableFile {
+                path: PathBuf::from("whatever"),
+                number: 1,
+                filename: filename.to_string(),
             }
-
-            let merkle_tree = immutable_digester
-                .compute_merkle_tree(database_dir, beacon)
-                .await
-                .unwrap();
-
-            (
-                database_dir.to_owned(),
-                cardano_database_snapshot,
-                certificate,
-                merkle_tree,
-                computed_digests,
-            )
         }
+
+        #[test]
+        fn should_return_empty_list_when_no_tampered_files() {
+            let digests_to_verify = BTreeMap::from([
+                (fake_immutable("00001.chunk"), "digest-1".to_string()),
+                (fake_immutable("00002.chunk"), "digest-2".to_string()),
+            ]);
+
+            let verified_digests = VerifiedDigests {
+                digests: BTreeMap::from([
+                    ("00001.chunk".to_string(), "digest-1".to_string()),
+                    ("00002.chunk".to_string(), "digest-2".to_string()),
+                ]),
+                merkle_tree: MKTree::new(&["whatever"]).unwrap(),
+            };
+
+            let invalid_files =
+                verified_digests.list_immutable_files_not_verified(&digests_to_verify);
+
+            assert_eq!(
+                invalid_files,
+                ImmutableFilesNotVerified {
+                    tampered_files: vec![],
+                    non_verifiable_files: vec![],
+                }
+            );
+        }
+
+        #[test]
+        fn should_return_list_with_tampered_files() {
+            let digests_to_verify = BTreeMap::from([
+                (fake_immutable("00001.chunk"), "digest-1".to_string()),
+                (fake_immutable("00002.chunk"), "digest-2".to_string()),
+            ]);
+
+            let verified_digests = VerifiedDigests {
+                digests: BTreeMap::from([
+                    ("00001.chunk".to_string(), "digest-1".to_string()),
+                    ("00002.chunk".to_string(), "INVALID".to_string()),
+                ]),
+                merkle_tree: MKTree::new(&["whatever"]).unwrap(),
+            };
+
+            let invalid_files =
+                verified_digests.list_immutable_files_not_verified(&digests_to_verify);
+
+            assert_eq!(
+                invalid_files,
+                ImmutableFilesNotVerified {
+                    tampered_files: vec!["00002.chunk".to_string()],
+                    non_verifiable_files: vec![],
+                }
+            );
+        }
+
+        #[test]
+        fn should_return_list_with_non_verifiable() {
+            let digests_to_verify = BTreeMap::from([
+                (fake_immutable("00001.chunk"), "digest-1".to_string()),
+                (
+                    fake_immutable("00002.not.verifiable"),
+                    "digest-2".to_string(),
+                ),
+            ]);
+
+            let verified_digests = VerifiedDigests {
+                digests: BTreeMap::from([("00001.chunk".to_string(), "digest-1".to_string())]),
+                merkle_tree: MKTree::new(&["whatever"]).unwrap(),
+            };
+
+            let invalid_files =
+                verified_digests.list_immutable_files_not_verified(&digests_to_verify);
+
+            assert_eq!(
+                invalid_files,
+                ImmutableFilesNotVerified {
+                    tampered_files: vec![],
+                    non_verifiable_files: vec!["00002.not.verifiable".to_string()],
+                }
+            );
+        }
+    }
+
+    mod download_and_verify_digests {
+        use mithril_common::{
+            StdResult,
+            entities::{ProtocolMessage, ProtocolMessagePartKey},
+            messages::DigestsMessagePart,
+        };
+
+        use super::*;
 
         fn write_digest_file(
             digest_dir: &Path,
@@ -300,34 +377,73 @@ mod tests {
             Ok(())
         }
 
+        fn build_digests_map(size: usize) -> BTreeMap<ImmutableFile, HexEncodedDigest> {
+            let mut digests = BTreeMap::new();
+            for i in 1..=size {
+                for name in ["chunk", "primary", "secondary"] {
+                    let immutable_file_name = format!("{i:05}.{name}");
+                    let immutable_file =
+                        ImmutableFile::new(PathBuf::from(immutable_file_name)).unwrap();
+                    let digest = format!("digest-{i}-{name}");
+                    digests.insert(immutable_file, digest);
+                }
+            }
+
+            digests
+        }
+
         #[tokio::test]
-        async fn compute_merkle_proof_succeeds() {
+        async fn download_and_verify_digest_should_return_digest_map_acording_to_beacon() {
             let beacon = CardanoDbBeacon {
                 epoch: Epoch(123),
-                immutable_file_number: 10,
+                immutable_file_number: 42,
             };
-            let immutable_file_range = 1..=15;
-            let immutable_file_range_to_prove = ImmutableFileRange::Range(2, 4);
-            let digests_offset = 3;
-            let (database_dir, cardano_database_snapshot, certificate, merkle_tree, digests) =
-                prepare_fake_digests(
-                    "compute_merkle_proof_succeeds",
-                    &beacon,
-                    &immutable_file_range,
-                    digests_offset,
-                )
-                .await;
-            let expected_merkle_root = merkle_tree.compute_root().unwrap();
+            let hightest_immutable_number_in_digest_file =
+                123 + beacon.immutable_file_number as usize;
+            let digests_in_certificate_map =
+                build_digests_map(beacon.immutable_file_number as usize);
+            let protocol_message_merkle_root = {
+                let digests_in_certificate_values =
+                    digests_in_certificate_map.values().cloned().collect::<Vec<_>>();
+                let certificate_merkle_tree: MKTree<MKTreeStoreInMemory> =
+                    MKTree::new(&digests_in_certificate_values).unwrap();
+
+                certificate_merkle_tree.compute_root().unwrap().to_hex()
+            };
+            let mut protocol_message = ProtocolMessage::new();
+            protocol_message.set_message_part(
+                ProtocolMessagePartKey::CardanoDatabaseMerkleRoot,
+                protocol_message_merkle_root,
+            );
+            let certificate = CertificateMessage {
+                protocol_message: protocol_message.clone(),
+                signed_message: protocol_message.compute_hash(),
+                ..CertificateMessage::dummy()
+            };
+
+            let digests_location = "http://whatever/digests.json";
+            let cardano_database_snapshot = CardanoDatabaseSnapshotMessage {
+                beacon,
+                digests: DigestsMessagePart {
+                    size_uncompressed: 1024,
+                    locations: vec![DigestLocation::CloudStorage {
+                        uri: digests_location.to_string(),
+                        compression_algorithm: None,
+                    }],
+                },
+                ..CardanoDatabaseSnapshotMessage::dummy()
+            };
             let client = CardanoDatabaseClientDependencyInjector::new()
                 .with_http_file_downloader(Arc::new(
                     MockFileDownloaderBuilder::default()
-                        .with_file_uri("http://whatever/digests.json")
+                        .with_file_uri(digests_location)
                         .with_target_dir(InternalArtifactProver::digest_target_dir())
                         .with_compression(None)
                         .with_returning(Box::new(move |_, _, _, _, _| {
-                            let digests = digests.entries.clone();
-                            let digest_dir = InternalArtifactProver::digest_target_dir();
-                            write_digest_file(digest_dir.as_path(), &digests)?;
+                            write_digest_file(
+                                &InternalArtifactProver::digest_target_dir(),
+                                &build_digests_map(hightest_immutable_number_in_digest_file),
+                            )?;
 
                             Ok(())
                         }))
@@ -335,21 +451,20 @@ mod tests {
                 ))
                 .build_cardano_database_client();
 
-            let merkle_proof = client
-                .compute_merkle_proof(
-                    &certificate,
-                    &cardano_database_snapshot,
-                    &immutable_file_range_to_prove,
-                    &database_dir,
-                )
+            let verified_digests = client
+                .download_and_verify_digests(&certificate, &cardano_database_snapshot)
                 .await
                 .unwrap();
-            merkle_proof.verify().unwrap();
 
-            let merkle_proof_root = merkle_proof.root().to_owned();
-            assert_eq!(expected_merkle_root, merkle_proof_root);
+            let expected_digests_in_certificate = digests_in_certificate_map
+                .iter()
+                .map(|(immutable_file, digest)| {
+                    (immutable_file.filename.clone(), digest.to_string())
+                })
+                .collect();
+            assert_eq!(verified_digests.digests, expected_digests_in_certificate);
 
-            assert!(!database_dir.join("digest").exists());
+            assert!(!InternalArtifactProver::digest_target_dir().exists());
         }
     }
 

@@ -6,15 +6,14 @@ use std::sync::Arc;
 use slog::Logger;
 
 #[cfg(feature = "fs")]
-use mithril_common::{
-    crypto_helper::MKProof,
-    messages::{CardanoDatabaseSnapshotMessage, CertificateMessage},
-};
+use mithril_common::messages::{CardanoDatabaseSnapshotMessage, CertificateMessage};
 
 #[cfg(feature = "fs")]
 use mithril_cardano_node_internal_database::entities::ImmutableFile;
 
 use crate::aggregator_client::AggregatorClient;
+#[cfg(feature = "fs")]
+use crate::cardano_database_client::VerifiedDigests;
 #[cfg(feature = "fs")]
 use crate::feedback::FeedbackSender;
 #[cfg(feature = "fs")]
@@ -100,22 +99,15 @@ impl CardanoDatabaseClient {
             .await
     }
 
-    /// Compute the Merkle proof of membership for the given immutable file range.
+    /// Download and verify the digests against the certificate.
     #[cfg(feature = "fs")]
-    pub async fn compute_merkle_proof(
+    pub async fn download_and_verify_digests(
         &self,
         certificate: &CertificateMessage,
         cardano_database_snapshot: &CardanoDatabaseSnapshotMessage,
-        immutable_file_range: &ImmutableFileRange,
-        database_dir: &Path,
-    ) -> MithrilResult<MKProof> {
+    ) -> MithrilResult<VerifiedDigests> {
         self.artifact_prover
-            .compute_merkle_proof(
-                certificate,
-                cardano_database_snapshot,
-                immutable_file_range,
-                database_dir,
-            )
+            .download_and_verify_digests(certificate, cardano_database_snapshot)
             .await
     }
 

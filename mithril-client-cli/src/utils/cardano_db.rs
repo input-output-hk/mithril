@@ -22,10 +22,13 @@ impl CardanoDbUtils {
     }
 
     /// Display a spinner while waiting for the result of a future
-    pub async fn wait_spinner<T>(
+    pub async fn wait_spinner<T, E>(
         progress_bar: &MultiProgress,
-        future: impl Future<Output = MithrilResult<T>>,
-    ) -> MithrilResult<T> {
+        future: impl Future<Output = Result<T, E>>,
+    ) -> MithrilResult<T>
+    where
+        MithrilError: From<E>,
+    {
         let pb = progress_bar.add(ProgressBar::new_spinner());
         let spinner = async move {
             loop {
@@ -36,7 +39,7 @@ impl CardanoDbUtils {
 
         tokio::select! {
             _ = spinner => Err(anyhow!("timeout")),
-            res = future => res,
+            res = future => res.map_err(Into::into),
         }
     }
 

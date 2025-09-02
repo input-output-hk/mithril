@@ -4,8 +4,7 @@
 //!  - [get][CardanoDatabaseClient::get]: get a Cardano database data from its hash
 //!  - [list][CardanoDatabaseClient::list]: get the list of available Cardano database
 //!  - [download_unpack][CardanoDatabaseClient::download_unpack]: download and unpack a Cardano database snapshot for a given immutable files range
-//!  - [compute_merkle_proof][CardanoDatabaseClient::compute_merkle_proof]: compute a Merkle proof for a given Cardano database snapshot and a given immutable files range
-//!
+//!  - [download_and_verify_digests][CardanoDatabaseClient::download_and_verify_digests]: download and verify the digests of the immutable files in a Cardano database snapshot
 //! # Get a Cardano database
 //!
 //! To get a Cardano database using the [ClientBuilder][crate::client::ClientBuilder].
@@ -88,7 +87,7 @@
 //! ```no_run
 //! # #[cfg(feature = "fs")]
 //! # async fn run() -> mithril_client::MithrilResult<()> {
-//! use mithril_client::{ClientBuilder, cardano_database_client::{ImmutableFileRange, DownloadUnpackOptions}};
+//! use mithril_client::{ClientBuilder, MessageBuilder, cardano_database_client::{ImmutableFileRange, DownloadUnpackOptions}};
 //! use std::path::Path;
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
@@ -113,10 +112,22 @@
 //!     )
 //!     .await?;
 //!
-//! let merkle_proof = client
+//! let verified_digests = client
 //!     .cardano_database_v2()
-//!     .compute_merkle_proof(&certificate, &cardano_database_snapshot, &immutable_file_range, &target_directory)
+//!     .download_and_verify_digests(
+//!         &certificate,
+//!         &cardano_database_snapshot)
 //!     .await?;
+//!
+//! let allow_missing_immutables_files = false;
+//! let message = MessageBuilder::new().compute_cardano_database_message(
+//!         &certificate,
+//!         &cardano_database_snapshot,
+//!         &immutable_file_range,
+//!         allow_missing_immutables_files,
+//!         &target_directory,
+//!         &verified_digests,
+//!     ).await?;
 //! #
 //! #    Ok(())
 //! # }
@@ -136,4 +147,5 @@ cfg_fs! {
 
     pub use download_unpack::DownloadUnpackOptions;
     pub use immutable_file_range::ImmutableFileRange;
+    pub use proving::VerifiedDigests;
 }

@@ -1092,7 +1092,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-database-v2"
-version = "0.0.12"
+version = "0.0.13"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4111,7 +4111,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.12.27"
+version = "0.12.28"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -4149,7 +4149,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.12.26"
+version = "0.12.27"
 dependencies = [
  "anyhow",
  "async-trait",
