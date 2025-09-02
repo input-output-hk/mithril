@@ -85,31 +85,32 @@ mod tests {
     use std::{ops::RangeInclusive, time::Duration};
 
     use anyhow::anyhow;
-    use pallas_network::miniprotocols::localmsgsubmission::DmqMsg;
+    use pallas_network::miniprotocols::localmsgsubmission::{DmqMsg, DmqMsgPayload};
     use tokio::time::sleep;
 
     use super::*;
 
     fn fake_msg() -> DmqMsg {
         DmqMsg {
-            msg_id: vec![0, 1],
-            msg_body: vec![0, 1, 2],
+            msg_payload: DmqMsgPayload {
+                msg_id: vec![0, 1],
+                msg_body: vec![0, 1, 2],
+
+                kes_period: 10,
+                operational_certificate: vec![0, 1, 2, 3, 4],
+                cold_verification_key: vec![0, 1, 2, 3, 4, 5],
+                expires_at: 100,
+            },
             kes_signature: vec![0, 1, 2, 3],
-            kes_period: 10,
-            operational_certificate: vec![0, 1, 2, 3, 4],
-            cold_verification_key: vec![0, 1, 2, 3, 4, 5],
-            expires_at: 100,
         }
     }
 
     fn fake_messages(range: RangeInclusive<u8>) -> Vec<DmqMessage> {
         range
             .map(|i| {
-                DmqMsg {
-                    msg_id: vec![i],
-                    ..fake_msg()
-                }
-                .into()
+                let mut message = fake_msg();
+                message.msg_payload.msg_id = vec![i];
+                message.into()
             })
             .collect::<Vec<_>>()
     }
