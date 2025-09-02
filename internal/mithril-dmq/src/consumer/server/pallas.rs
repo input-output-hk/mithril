@@ -282,7 +282,10 @@ mod tests {
 
     use pallas_network::{
         facades::DmqClient,
-        miniprotocols::{localmsgnotification, localmsgsubmission::DmqMsg},
+        miniprotocols::{
+            localmsgnotification,
+            localmsgsubmission::{DmqMsg, DmqMsgPayload},
+        },
     };
     use tokio::sync::{mpsc::unbounded_channel, watch};
     use tokio::time::sleep;
@@ -299,13 +302,16 @@ mod tests {
 
     fn fake_msg() -> DmqMsg {
         DmqMsg {
-            msg_id: vec![0, 1],
-            msg_body: vec![0, 1, 2],
+            msg_payload: DmqMsgPayload {
+                msg_id: vec![0, 1],
+                msg_body: vec![0, 1, 2],
+
+                kes_period: 10,
+                operational_certificate: vec![0, 1, 2, 3, 4],
+                cold_verification_key: vec![0, 1, 2, 3, 4, 5],
+                expires_at: 100,
+            },
             kes_signature: vec![0, 1, 2, 3],
-            kes_period: 10,
-            operational_certificate: vec![0, 1, 2, 3, 4],
-            cold_verification_key: vec![0, 1, 2, 3, 4, 5],
-            expires_at: 100,
         }
     }
 
