@@ -12,9 +12,9 @@
     "@mithril-dev/mithril-client-wasm": "file:../../mithril-client-wasm"
   },
   "devDependencies": {
-    "copy-webpack-plugin": "^13.0.0",
+    "copy-webpack-plugin": "^13.0.1",
     "prettier": "^3.6.2",
-    "webpack": "^5.100.2",
+    "webpack": "^5.101.3",
     "webpack-cli": "^6.0.1",
     "webpack-dev-server": "^5.2.2"
   }
