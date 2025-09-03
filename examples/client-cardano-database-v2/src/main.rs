@@ -121,21 +121,27 @@ async fn main() -> MithrilResult<()> {
         println!("Could not send usage statistics to the aggregator: {e:?}");
     }
 
-    println!(
-        "Computing Cardano database snapshot '{}' message...",
-        cardano_database_snapshot.hash
-    );
+    println!("Verifying Cardano database...",);
     let allow_missing_immutables_files = false;
-    let message = wait_spinner(
-        &progress_bar,
-        MessageBuilder::new().compute_cardano_database_message(
+    let merkle_proof = client
+        .cardano_database_v2()
+        .verify_cardano_database(
             &certificate,
             &cardano_database_snapshot,
             &immutable_file_range,
             allow_missing_immutables_files,
             &unpacked_dir,
             &verified_digests,
-        ),
+        )
+        .await?;
+
+    println!(
+        "Computing Cardano database snapshot '{}' message...",
+        cardano_database_snapshot.hash
+    );
+    let message = wait_spinner(
+        &progress_bar,
+        MessageBuilder::new().compute_cardano_database_message(&certificate, &merkle_proof),
     )
     .await?;
 
