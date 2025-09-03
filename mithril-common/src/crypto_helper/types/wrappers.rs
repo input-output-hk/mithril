@@ -31,9 +31,9 @@ pub type ProtocolMkProof = ProtocolKey<MKMapProof<BlockRange>>;
 
 impl_codec_and_type_conversions_for_protocol_key!(
     json_hex_codec => AggregateSignature<D>, ed25519_dalek::VerifyingKey, ed25519_dalek::SigningKey, AggregateVerificationKey<D>,
-        MKProof, VerificationKeyProofOfPossession, Sum6KesSig, OpCert
+        MKProof, VerificationKeyProofOfPossession, Sum6KesSig, OpCert, SingleSignature
 );
 
 impl_codec_and_type_conversions_for_protocol_key!(
-    bytes_hex_codec => SingleSignature, ed25519_dalek::Signature
+    bytes_hex_codec => ed25519_dalek::Signature
 );
