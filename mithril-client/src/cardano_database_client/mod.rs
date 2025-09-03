@@ -147,5 +147,6 @@ cfg_fs! {
 
     pub use download_unpack::DownloadUnpackOptions;
     pub use immutable_file_range::ImmutableFileRange;
+    pub use proving::{CardanoDatabaseVerificationError, ImmutableVerificationResult};
     pub use proving::VerifiedDigests;
 }
