@@ -58,7 +58,7 @@ slog-term = { workspace = true }
 tar = "0.4.44"
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
-zip = "4.3.0"
+zip = "4.6.1"
 
 [dev-dependencies]
 httpmock = "0.7.0"
