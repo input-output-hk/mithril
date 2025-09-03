@@ -1406,7 +1406,7 @@ mod tests {
         }
     }
 
-    mod compute_cardano_database_message_error {
+    mod cardano_database_verification_error {
         use super::*;
 
         fn generate_immutable_files_verification_error(
