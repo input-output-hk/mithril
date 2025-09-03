@@ -74,10 +74,24 @@ impl DmqMessageBuilder {
             .await
             .with_context(|| "Failed to get KES period while building DMQ message")?
             .unwrap_or_default();
+        let mut dmq_message_payload = DmqMsgPayload {
+            msg_id: vec![],
+            msg_body: message_bytes.to_vec(),
+            kes_period: kes_period as u64,
+            operational_certificate: vec![],
+            cold_verification_key: vec![],
+            expires_at,
+        };
+        dmq_message_payload.msg_id = Self::compute_msg_id(&dmq_message_payload);
+
         let (kes_signature, operational_certificate) = self
             .kes_signer
-            .sign(message_bytes, kes_period)
+            .sign(&dmq_message_payload.bytes_to_sign()?, kes_period)
             .with_context(|| "Failed to KES sign message while building DMQ message")?;
+
+        // TODO: remove the cold verification key in the op cert
+        dmq_message_payload.operational_certificate = operational_certificate.to_bytes_vec()?;
+        dmq_message_payload.cold_verification_key = vec![];
 
         let dmq_message = DmqMsg {
             msg_payload: {
@@ -86,7 +100,7 @@ impl DmqMessageBuilder {
                     msg_body: message_bytes.to_vec(),
                     kes_period: kes_period as u64,
                     operational_certificate: operational_certificate.to_bytes_vec()?, // TODO: remove the cold verification key in the op cert
-                    cold_verification_key: vec![],
+                    cold_verification_key: vec![],                                    // TODO: fix
                     expires_at,
                 };
                 dmq_message_payload.msg_id = Self::compute_msg_id(&dmq_message_payload);
@@ -143,7 +157,7 @@ mod tests {
             },
             ..TimePoint::dummy()
         })));
-        let builder = DmqMessageBuilder::new(kes_signer, chain_observer)
+        let builder = DmqMessageBuilder::new(kes_signer.clone(), chain_observer)
             .set_ttl(1000)
             .set_timestamp_provider(Arc::new({
                 let mut mock_timestamp_provider = MockUnixTimestampProvider::new();
@@ -163,6 +177,7 @@ mod tests {
             msg_payload,
             kes_signature: _,
         } = &*dmq_message;
+
         assert_eq!(
             DmqMsg {
                 msg_payload: DmqMsgPayload {
@@ -175,7 +190,22 @@ mod tests {
                 },
                 kes_signature: kes_signature.to_bytes_vec().unwrap(),
             },
-            dmq_message.into()
+            dmq_message.clone().into()
+        );
+
+        let signed_messages = kes_signer.get_signed_messages();
+        let mut expected_msg_payload = DmqMsgPayload {
+            msg_id: vec![],
+            msg_body: b"test".to_vec(),
+            kes_period: 0,
+            operational_certificate: vec![], // TODO: fix
+            cold_verification_key: vec![],   // TODO: fix
+            expires_at: 1234,
+        };
+        expected_msg_payload.msg_id = DmqMessageBuilder::compute_msg_id(&expected_msg_payload);
+        assert_eq!(
+            vec![expected_msg_payload.bytes_to_sign().unwrap()],
+            signed_messages
         );
     }
 }
