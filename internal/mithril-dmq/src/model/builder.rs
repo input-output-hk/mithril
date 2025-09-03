@@ -55,11 +55,18 @@ impl DmqMessageBuilder {
         let mut hasher = Blake2b::<U64>::new();
         hasher.update(&dmq_message_payload.msg_body);
         hasher.update(dmq_message_payload.kes_period.to_be_bytes());
-        hasher.update(&dmq_message_payload.operational_certificate);
-        hasher.update(&dmq_message_payload.cold_verification_key);
         hasher.update(dmq_message_payload.expires_at.to_be_bytes());
 
         hasher.finalize().to_vec()
+    }
+
+    /// Enriches a DMQ message payload with a computed message ID.
+    fn enrich_msg_payload_with_id(dmq_message_payload: DmqMsgPayload) -> DmqMsgPayload {
+        let msg_id = Self::compute_msg_id(&dmq_message_payload);
+        let mut dmq_message_payload_with_id = dmq_message_payload;
+        dmq_message_payload_with_id.msg_id = msg_id;
+
+        dmq_message_payload_with_id
     }
 
     /// Builds a DMQ message from the provided message bytes.
@@ -74,40 +81,28 @@ impl DmqMessageBuilder {
             .await
             .with_context(|| "Failed to get KES period while building DMQ message")?
             .unwrap_or_default();
-        let mut dmq_message_payload = DmqMsgPayload {
+        let dmq_message_payload = Self::enrich_msg_payload_with_id(DmqMsgPayload {
             msg_id: vec![],
             msg_body: message_bytes.to_vec(),
             kes_period: kes_period as u64,
-            operational_certificate: vec![],
-            cold_verification_key: vec![],
             expires_at,
-        };
-        dmq_message_payload.msg_id = Self::compute_msg_id(&dmq_message_payload);
+        });
 
         let (kes_signature, operational_certificate) = self
             .kes_signer
             .sign(&dmq_message_payload.bytes_to_sign()?, kes_period)
             .with_context(|| "Failed to KES sign message while building DMQ message")?;
 
-        // TODO: remove the cold verification key in the op cert
-        dmq_message_payload.operational_certificate = operational_certificate.to_bytes_vec()?;
-        dmq_message_payload.cold_verification_key = vec![];
-
         let dmq_message = DmqMsg {
-            msg_payload: {
-                let mut dmq_message_payload = DmqMsgPayload {
-                    msg_id: vec![],
-                    msg_body: message_bytes.to_vec(),
-                    kes_period: kes_period as u64,
-                    operational_certificate: operational_certificate.to_bytes_vec()?, // TODO: remove the cold verification key in the op cert
-                    cold_verification_key: vec![],                                    // TODO: fix
-                    expires_at,
-                };
-                dmq_message_payload.msg_id = Self::compute_msg_id(&dmq_message_payload);
-
-                dmq_message_payload
-            },
+            msg_payload: Self::enrich_msg_payload_with_id(DmqMsgPayload {
+                msg_id: vec![],
+                msg_body: message_bytes.to_vec(),
+                kes_period: kes_period as u64,
+                expires_at,
+            }),
             kes_signature: kes_signature.to_bytes_vec()?,
+            operational_certificate: operational_certificate.to_bytes_vec()?, // TODO: remove the cold verification key in the op cert
+            cold_verification_key: vec![],                                    // TODO: fix
         };
 
         Ok(dmq_message.into())
@@ -173,36 +168,23 @@ mod tests {
 
         let dmq_message = builder.build(&message.to_bytes_vec().unwrap()).await.unwrap();
 
-        let DmqMsg {
-            msg_payload,
-            kes_signature: _,
-        } = &*dmq_message;
-
+        let expected_msg_payload = DmqMessageBuilder::enrich_msg_payload_with_id(DmqMsgPayload {
+            msg_id: vec![],
+            msg_body: b"test".to_vec(),
+            kes_period: 0,
+            expires_at: 1234,
+        });
         assert_eq!(
             DmqMsg {
-                msg_payload: DmqMsgPayload {
-                    msg_id: DmqMessageBuilder::compute_msg_id(msg_payload),
-                    msg_body: b"test".to_vec(),
-                    kes_period: 0,
-                    operational_certificate: operational_certificate.to_bytes_vec().unwrap(),
-                    cold_verification_key: vec![], // TODO: fix
-                    expires_at: 1234,
-                },
+                msg_payload: expected_msg_payload.clone(),
                 kes_signature: kes_signature.to_bytes_vec().unwrap(),
+                operational_certificate: operational_certificate.to_bytes_vec().unwrap(),
+                cold_verification_key: vec![],
             },
             dmq_message.clone().into()
         );
 
         let signed_messages = kes_signer.get_signed_messages();
-        let mut expected_msg_payload = DmqMsgPayload {
-            msg_id: vec![],
-            msg_body: b"test".to_vec(),
-            kes_period: 0,
-            operational_certificate: vec![], // TODO: fix
-            cold_verification_key: vec![],   // TODO: fix
-            expires_at: 1234,
-        };
-        expected_msg_payload.msg_id = DmqMessageBuilder::compute_msg_id(&expected_msg_payload);
         assert_eq!(
             vec![expected_msg_payload.bytes_to_sign().unwrap()],
             signed_messages
