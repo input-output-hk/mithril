@@ -65,7 +65,7 @@ impl PreparedCardanoDbV2Download {
         } else {
             ProgressOutputType::Tty
         };
-        let progress_printer = ProgressPrinter::new(progress_output_type, 6);
+        let progress_printer = ProgressPrinter::new(progress_output_type, 7);
         let client = client_builder(context.config_parameters())?
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
                 progress_output_type,
@@ -147,19 +147,30 @@ impl PreparedCardanoDbV2Download {
             immutable_file_range: restoration_options.immutable_file_range,
             allow_missing: false,
         };
-        let message = shared_steps::compute_cardano_db_snapshot_message(
+
+        let merkle_proof = shared_steps::verify_cardano_database(
             5,
             &progress_printer,
+            &client,
             &certificate,
             &cardano_db_message,
             &options,
             &verified_digests,
         )
+        .await
+        .with_context(|| format!("Can not verify cardano database for hash: '{}'", self.hash))?;
+
+        let message = shared_steps::compute_cardano_db_snapshot_message(
+            6,
+            &progress_printer,
+            &certificate,
+            &merkle_proof,
+        )
         .await?;
 
         shared_steps::verify_message_matches_certificate(
             context.logger(),
-            6,
+            7,
             &progress_printer,
             &certificate,
             &message,
