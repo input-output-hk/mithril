@@ -178,7 +178,7 @@ impl Runner for SignerRunner {
                     .get_current_kes_period()
                     .await?
                     .unwrap_or_default()
-                    - operational_certificate.start_kes_period as KesPeriod,
+                    - operational_certificate.get_start_kes_period() as KesPeriod,
             ),
             None => None,
         };
