@@ -266,7 +266,7 @@ impl KeyRegWrapper {
             } else {
                 return Err(ProtocolRegistrationErrorWrapper::KesSignatureInvalid(
                     kes_period,
-                    opcert.start_kes_period,
+                    opcert.get_start_kes_period(),
                 ));
             }
         } else {
