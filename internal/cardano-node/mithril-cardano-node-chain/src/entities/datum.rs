@@ -105,6 +105,7 @@ impl TxDatum {
 #[strum_discriminants(name(TxDatumFieldTypeName))]
 #[strum_discriminants(strum(serialize_all = "lowercase"))]
 #[strum_discriminants(serde(rename_all = "lowercase"))]
+#[strum_discriminants(doc = "The discriminants of the TxDatumFieldValue enum.")]
 pub enum TxDatumFieldValue {
     /// Bytes datum field value.
     Bytes(String),

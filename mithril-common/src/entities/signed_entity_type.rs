@@ -39,6 +39,7 @@ const ENTITY_TYPE_CARDANO_DATABASE: usize = 4;
 // Important note: The order of the variants is important as it is used for the derived Ord trait.
 #[derive(Display, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, EnumDiscriminants)]
 #[strum(serialize_all = "PascalCase")]
+#[strum_discriminants(doc = "The discriminants of the SignedEntityType enum.")]
 #[strum_discriminants(derive(
     Display,
     EnumString,
