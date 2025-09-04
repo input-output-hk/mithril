@@ -8,8 +8,10 @@ use anyhow::Context;
 use chrono::{DateTime, Utc};
 use clap::Parser;
 use mithril_client::{
-    CardanoDatabaseSnapshot, ComputeCardanoDatabaseMessageError, ImmutableVerificationResult,
-    MithrilResult, cardano_database_client::ImmutableFileRange, common::ImmutableFileNumber,
+    CardanoDatabaseSnapshot, MithrilResult,
+    cardano_database_client::ImmutableFileRange,
+    cardano_database_client::{CardanoDatabaseVerificationError, ImmutableVerificationResult},
+    common::ImmutableFileNumber,
 };
 
 use crate::{
@@ -85,7 +87,7 @@ impl CardanoDbVerifyCommand {
         } else {
             ProgressOutputType::Tty
         };
-        let progress_printer = ProgressPrinter::new(progress_output_type, 4);
+        let progress_printer = ProgressPrinter::new(progress_output_type, 5);
         let client = client_builder(context.config_parameters())?
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
                 progress_output_type,
@@ -146,9 +148,11 @@ impl CardanoDbVerifyCommand {
             immutable_file_range,
             allow_missing: self.allow_missing,
         };
-        let message = shared_steps::compute_cardano_db_snapshot_message(
+
+        let merkle_proof = shared_steps::verify_cardano_database(
             3,
             &progress_printer,
+            &client,
             &certificate,
             &cardano_db_message,
             &options,
@@ -156,9 +160,9 @@ impl CardanoDbVerifyCommand {
         )
         .await;
 
-        match message {
-            Err(e) => match e.downcast_ref::<ComputeCardanoDatabaseMessageError>() {
-                Some(ComputeCardanoDatabaseMessageError::ImmutableFilesVerification(lists)) => {
+        match merkle_proof {
+            Err(e) => match e.downcast_ref::<CardanoDatabaseVerificationError>() {
+                Some(CardanoDatabaseVerificationError::ImmutableFilesVerification(lists)) => {
                     Self::print_immutables_verification_error(
                         lists,
                         context.is_json_output_enabled(),
@@ -167,10 +171,18 @@ impl CardanoDbVerifyCommand {
                 }
                 _ => Err(e),
             },
-            Ok(message) => {
+            Ok(merkle_proof) => {
+                let message = shared_steps::compute_cardano_db_snapshot_message(
+                    4,
+                    &progress_printer,
+                    &certificate,
+                    &merkle_proof,
+                )
+                .await?;
+
                 shared_steps::verify_message_matches_certificate(
                     &context.logger().clone(),
-                    4,
+                    5,
                     &progress_printer,
                     &certificate,
                     &message,

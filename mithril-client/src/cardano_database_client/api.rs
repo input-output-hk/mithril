@@ -6,14 +6,17 @@ use std::sync::Arc;
 use slog::Logger;
 
 #[cfg(feature = "fs")]
-use mithril_common::messages::{CardanoDatabaseSnapshotMessage, CertificateMessage};
+use mithril_common::{
+    crypto_helper::MKProof,
+    messages::{CardanoDatabaseSnapshotMessage, CertificateMessage},
+};
 
 #[cfg(feature = "fs")]
 use mithril_cardano_node_internal_database::entities::ImmutableFile;
 
 use crate::aggregator_client::AggregatorClient;
 #[cfg(feature = "fs")]
-use crate::cardano_database_client::VerifiedDigests;
+use crate::cardano_database_client::{VerifiedDigests, proving::CardanoDatabaseVerificationError};
 #[cfg(feature = "fs")]
 use crate::feedback::FeedbackSender;
 #[cfg(feature = "fs")]
@@ -111,6 +114,29 @@ impl CardanoDatabaseClient {
             .await
     }
 
+    /// Verify a local cardano database
+    #[cfg(feature = "fs")]
+    pub async fn verify_cardano_database(
+        &self,
+        certificate: &CertificateMessage,
+        cardano_database_snapshot: &CardanoDatabaseSnapshotMessage,
+        immutable_file_range: &ImmutableFileRange,
+        allow_missing: bool,
+        database_dir: &Path,
+        verified_digests: &VerifiedDigests,
+    ) -> Result<MKProof, CardanoDatabaseVerificationError> {
+        self.artifact_prover
+            .verify_cardano_database(
+                certificate,
+                cardano_database_snapshot,
+                immutable_file_range,
+                allow_missing,
+                database_dir,
+                verified_digests,
+            )
+            .await
+    }
+
     /// Checks if immutable directory exists with at least one immutable in it
     #[cfg(feature = "fs")]
     pub fn check_has_immutables(&self, database_dir: &Path) -> MithrilResult<()> {
@@ -157,6 +183,8 @@ pub(crate) mod test_dependency_injector {
         ancillary_verifier: Option<Arc<AncillaryVerifier>>,
         #[cfg(feature = "fs")]
         feedback_receivers: Vec<Arc<dyn FeedbackReceiver>>,
+        #[cfg(feature = "fs")]
+        logger: Logger,
     }
 
     impl CardanoDatabaseClientDependencyInjector {
@@ -175,7 +203,15 @@ pub(crate) mod test_dependency_injector {
                 ancillary_verifier: None,
                 #[cfg(feature = "fs")]
                 feedback_receivers: vec![],
+                #[cfg(feature = "fs")]
+                logger: TestLogger::stdout(),
             }
+        }
+
+        #[cfg(feature = "fs")]
+        pub(crate) fn with_logger(self, logger: Logger) -> Self {
+            #[cfg(feature = "fs")]
+            Self { logger, ..self }
         }
 
         pub(crate) fn with_aggregator_client_mock_config<F>(mut self, config: F) -> Self
@@ -230,7 +266,7 @@ pub(crate) mod test_dependency_injector {
                 self.http_file_downloader,
                 self.ancillary_verifier,
                 FeedbackSender::new(&self.feedback_receivers),
-                TestLogger::stdout(),
+                self.logger,
             )
         }
 

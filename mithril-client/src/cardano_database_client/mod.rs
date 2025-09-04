@@ -120,13 +120,21 @@
 //!     .await?;
 //!
 //! let allow_missing_immutables_files = false;
+//! let merkle_proof = client
+//!    .cardano_database_v2()
+//!    .verify_cardano_database(
+//!        &certificate,
+//!       &cardano_database_snapshot,
+//!       &immutable_file_range,
+//!      allow_missing_immutables_files,
+//!      &target_directory,
+//!      &verified_digests
+//!  ).await?;
+//!
+//!
 //! let message = MessageBuilder::new().compute_cardano_database_message(
 //!         &certificate,
-//!         &cardano_database_snapshot,
-//!         &immutable_file_range,
-//!         allow_missing_immutables_files,
-//!         &target_directory,
-//!         &verified_digests,
+//!         &merkle_proof,
 //!     ).await?;
 //! #
 //! #    Ok(())
@@ -147,5 +155,6 @@ cfg_fs! {
 
     pub use download_unpack::DownloadUnpackOptions;
     pub use immutable_file_range::ImmutableFileRange;
+    pub use proving::{CardanoDatabaseVerificationError, ImmutableVerificationResult};
     pub use proving::VerifiedDigests;
 }
