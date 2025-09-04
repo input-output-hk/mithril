@@ -7,7 +7,7 @@ use pallas_network::miniprotocols::localmsgsubmission::{DmqMsg, DmqMsgPayload};
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_common::{
     StdResult,
-    crypto_helper::{KesSigner, TryToBytes},
+    crypto_helper::{KesSigner, SerDeShelleyFileFormat, TryToBytes},
 };
 
 use crate::model::{DmqMessage, SystemUnixTimestampProvider, UnixTimestampProvider};
@@ -92,17 +92,16 @@ impl DmqMessageBuilder {
             .kes_signer
             .sign(&dmq_message_payload.bytes_to_sign()?, kes_period)
             .with_context(|| "Failed to KES sign message while building DMQ message")?;
+        let operational_certificate_without_cold_verification_key =
+            operational_certificate.get_opcert_without_cold_verification_key();
+        let cold_verification_key = operational_certificate.get_cold_verification_key();
 
         let dmq_message = DmqMsg {
-            msg_payload: Self::enrich_msg_payload_with_id(DmqMsgPayload {
-                msg_id: vec![],
-                msg_body: message_bytes.to_vec(),
-                kes_period: kes_period as u64,
-                expires_at,
-            }),
+            msg_payload: dmq_message_payload,
             kes_signature: kes_signature.to_bytes_vec()?,
-            operational_certificate: operational_certificate.to_bytes_vec()?, // TODO: remove the cold verification key in the op cert
-            cold_verification_key: vec![],                                    // TODO: fix
+            operational_certificate: operational_certificate_without_cold_verification_key
+                .to_cbor_bytes()?,
+            cold_verification_key: cold_verification_key.to_bytes().to_vec(),
         };
 
         Ok(dmq_message.into())
@@ -178,8 +177,14 @@ mod tests {
             DmqMsg {
                 msg_payload: expected_msg_payload.clone(),
                 kes_signature: kes_signature.to_bytes_vec().unwrap(),
-                operational_certificate: operational_certificate.to_bytes_vec().unwrap(),
-                cold_verification_key: vec![],
+                operational_certificate: operational_certificate
+                    .get_opcert_without_cold_verification_key()
+                    .to_cbor_bytes()
+                    .unwrap(),
+                cold_verification_key: operational_certificate
+                    .get_cold_verification_key()
+                    .to_bytes()
+                    .to_vec(),
             },
             dmq_message.clone().into()
         );
