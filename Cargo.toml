@@ -71,4 +71,4 @@ strum = { version = "0.27.2", features = ["derive"] }
 thiserror = "2.0.16"
 tokio = { version = "1.47.1", features = ["rt", "sync", "time"] }
 tracing = "0.1.41"
-warp = "0.4.2"
+warp = { version = "0.4.2", features = ["server", "websocket"] }
