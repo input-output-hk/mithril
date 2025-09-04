@@ -26,7 +26,7 @@ pub enum OpCertError {
 
 /// Raw Fields of the operational certificates (without including the cold VK)
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
-struct RawFields(
+struct RawOpCertWithoutColdVerificationKey(
     #[serde(with = "serde_bytes")] Vec<u8>,
     u64,
     u64,
@@ -35,16 +35,72 @@ struct RawFields(
 
 /// Raw Operational Certificate
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
-struct RawOpCert(RawFields, EdVerificationKey);
+struct RawOpCert(RawOpCertWithoutColdVerificationKey, EdVerificationKey);
 
-/// Parsed Operational Certificate
+/// Parsed Operational Certificate without cold verification key
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct OpCert {
+pub struct OpCertWithoutColdVerificationKey {
     pub(crate) kes_vk: KesPublicKey,
     pub(crate) issue_number: u64,
     /// KES period at which KES key is initalized
     pub start_kes_period: u64,
     pub(crate) cert_sig: EdSignature,
+}
+
+impl SerDeShelleyFileFormat for OpCertWithoutColdVerificationKey {
+    const TYPE: &'static str = "NodeOperationalCertificateWithoutColdVerificationKey";
+    const DESCRIPTION: &'static str = "";
+}
+
+impl Serialize for OpCertWithoutColdVerificationKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let raw_cert = RawOpCertWithoutColdVerificationKey(
+            self.kes_vk.as_bytes().to_vec(),
+            self.issue_number,
+            self.start_kes_period,
+            self.cert_sig.to_bytes().to_vec(),
+        );
+
+        raw_cert.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for OpCertWithoutColdVerificationKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let raw_cert = RawOpCertWithoutColdVerificationKey::deserialize(deserializer)?;
+
+        Ok(Self {
+            kes_vk: KesPublicKey::from_bytes(&raw_cert.0)
+                .map_err(|_| Error::custom("KES vk serialisation error"))?,
+            issue_number: raw_cert.1,
+            start_kes_period: raw_cert.2,
+            cert_sig: EdSignature::from_slice(&raw_cert.3)
+                .map_err(|_| Error::custom("ed25519 signature serialisation error"))?,
+        })
+    }
+}
+
+impl From<&OpCertWithoutColdVerificationKey> for RawOpCertWithoutColdVerificationKey {
+    fn from(opcert: &OpCertWithoutColdVerificationKey) -> Self {
+        RawOpCertWithoutColdVerificationKey(
+            opcert.kes_vk.as_bytes().to_vec(),
+            opcert.issue_number,
+            opcert.start_kes_period,
+            opcert.cert_sig.to_bytes().to_vec(),
+        )
+    }
+}
+
+/// Parsed Operational Certificate
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OpCert {
+    pub(crate) opcert_without_vk: OpCertWithoutColdVerificationKey,
     pub(crate) cold_vk: EdVerificationKey,
 }
 
@@ -69,12 +125,44 @@ impl OpCert {
         ));
 
         Self {
-            kes_vk,
-            issue_number,
-            start_kes_period,
-            cert_sig,
+            opcert_without_vk: OpCertWithoutColdVerificationKey {
+                kes_vk,
+                issue_number,
+                start_kes_period,
+                cert_sig,
+            },
             cold_vk,
         }
+    }
+
+    /// Get the KES verification key
+    pub fn get_kes_verification_key(&self) -> KesPublicKey {
+        self.opcert_without_vk.kes_vk
+    }
+
+    /// Get the issue number
+    pub fn get_issue_number(&self) -> u64 {
+        self.opcert_without_vk.issue_number
+    }
+
+    /// Get the start KES period
+    pub fn get_start_kes_period(&self) -> u64 {
+        self.opcert_without_vk.start_kes_period
+    }
+
+    /// Get the certificate signature
+    pub fn get_certificate_signature(&self) -> EdSignature {
+        self.opcert_without_vk.cert_sig
+    }
+
+    /// Get the OpCert without cold verification key
+    pub fn get_opcert_without_cold_verification_key(&self) -> OpCertWithoutColdVerificationKey {
+        self.opcert_without_vk.clone()
+    }
+
+    /// Get the cold verification key
+    pub fn get_cold_verification_key(&self) -> EdVerificationKey {
+        self.cold_vk
     }
 
     /// Compute message to sign
@@ -96,11 +184,11 @@ impl OpCert {
             .cold_vk
             .verify(
                 &Self::compute_message_to_sign(
-                    &self.kes_vk,
-                    self.issue_number,
-                    self.start_kes_period,
+                    &self.opcert_without_vk.kes_vk,
+                    self.opcert_without_vk.issue_number,
+                    self.opcert_without_vk.start_kes_period,
                 ),
-                &self.cert_sig,
+                &self.opcert_without_vk.cert_sig,
             )
             .is_ok()
         {
@@ -129,10 +217,10 @@ impl OpCert {
     /// Compute the hash of an OpCert
     pub fn compute_hash(&self) -> String {
         let mut hasher = Sha256::new();
-        hasher.update(self.kes_vk.as_bytes());
-        hasher.update(self.issue_number.to_be_bytes());
-        hasher.update(self.start_kes_period.to_be_bytes());
-        hasher.update(self.cert_sig.to_bytes());
+        hasher.update(self.opcert_without_vk.kes_vk.as_bytes());
+        hasher.update(self.opcert_without_vk.issue_number.to_be_bytes());
+        hasher.update(self.opcert_without_vk.start_kes_period.to_be_bytes());
+        hasher.update(self.opcert_without_vk.cert_sig.to_bytes());
         hasher.update(self.cold_vk.as_bytes());
         hex::encode(hasher.finalize())
     }
@@ -143,15 +231,9 @@ impl Serialize for OpCert {
     where
         S: Serializer,
     {
-        let raw_cert = RawOpCert(
-            RawFields(
-                self.kes_vk.as_bytes().to_vec(),
-                self.issue_number,
-                self.start_kes_period,
-                self.cert_sig.to_bytes().to_vec(),
-            ),
-            self.cold_vk,
-        );
+        let raw_opcert_without_vk: RawOpCertWithoutColdVerificationKey =
+            (&self.opcert_without_vk).into();
+        let raw_cert = RawOpCert(raw_opcert_without_vk, self.cold_vk);
 
         raw_cert.serialize(serializer)
     }
@@ -163,15 +245,30 @@ impl<'de> Deserialize<'de> for OpCert {
         D: Deserializer<'de>,
     {
         let raw_cert = RawOpCert::deserialize(deserializer)?;
+        let raw_opcert_without_vk = &raw_cert.0;
+
         Ok(Self {
-            kes_vk: KesPublicKey::from_bytes(&raw_cert.0.0)
-                .map_err(|_| Error::custom("KES vk serialisation error"))?,
-            issue_number: raw_cert.0.1,
-            start_kes_period: raw_cert.0.2,
-            cert_sig: EdSignature::from_slice(&raw_cert.0.3)
-                .map_err(|_| Error::custom("ed25519 signature serialisation error"))?,
+            opcert_without_vk: OpCertWithoutColdVerificationKey {
+                kes_vk: KesPublicKey::from_bytes(&raw_opcert_without_vk.0)
+                    .map_err(|_| Error::custom("KES vk serialisation error"))?,
+                issue_number: raw_opcert_without_vk.1,
+                start_kes_period: raw_opcert_without_vk.2,
+                cert_sig: EdSignature::from_slice(&raw_opcert_without_vk.3)
+                    .map_err(|_| Error::custom("ed25519 signature serialisation error"))?,
+            },
             cold_vk: raw_cert.1,
         })
+    }
+}
+
+impl From<(OpCertWithoutColdVerificationKey, EdVerificationKey)> for OpCert {
+    fn from(
+        (opcert_without_vk, cold_vk): (OpCertWithoutColdVerificationKey, EdVerificationKey),
+    ) -> Self {
+        Self {
+            opcert_without_vk,
+            cold_vk,
+        }
     }
 }
 
@@ -219,6 +316,15 @@ mod tests {
         assert_eq!(
             "d9899c574fd7a710732391706b59e878bfd416214c49d2b3841c5c8b".to_string(),
             party_id_as_hash
+        );
+
+        let operational_certificate_bytes_without_cold_vk = operational_certificate
+            .get_opcert_without_cold_verification_key()
+            .to_cbor_bytes()
+            .expect("compute CBOR bytes should not fail");
+        assert_eq!(
+            "845820e650d7531509bb6cffd7998c28c68e4ec8fa621a0952206ea11eb03fcd7dcb2900005840d4abce27da05ff03c1342cc6ab53135072e1babf9cc05492f59f1ff009f70457aaa862c7158b13be0cfb41d7a91a562589bc110eb2cdaf5d2756048abbea5f05",
+            hex::encode(operational_certificate_bytes_without_cold_vk)
         );
     }
 }
