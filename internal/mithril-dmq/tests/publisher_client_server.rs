@@ -5,32 +5,14 @@ use tokio::sync::{mpsc::unbounded_channel, watch};
 
 use mithril_cardano_node_chain::test::double::FakeChainObserver;
 use mithril_common::{
-    CardanoNetwork,
-    crypto_helper::TryToBytes,
-    current_function,
+    CardanoNetwork, current_function,
     test::{TempDir, crypto_helper::KesSignerFake},
 };
 use mithril_dmq::{
     DmqMessage, DmqMessageBuilder, DmqPublisherClient, DmqPublisherClientPallas,
-    DmqPublisherServer, DmqPublisherServerPallas, test::payload::DmqMessageTestPayload,
+    DmqPublisherServer, DmqPublisherServerPallas,
+    test::{fake_message::compute_fake_msg, payload::DmqMessageTestPayload},
 };
-
-async fn create_fake_msg(bytes: &[u8], test_directory: &str) -> DmqMessage {
-    let dmq_builder = DmqMessageBuilder::new(
-        {
-            let (kes_signature, operational_certificate) =
-                KesSignerFake::dummy_signature(test_directory);
-            let kes_signer =
-                KesSignerFake::new(vec![Ok((kes_signature, operational_certificate.clone()))]);
-
-            Arc::new(kes_signer)
-        },
-        Arc::new(FakeChainObserver::default()),
-    )
-    .set_ttl(100);
-    let message = DmqMessageTestPayload::new(bytes);
-    dmq_builder.build(&message.to_bytes_vec().unwrap()).await.unwrap()
-}
 
 #[tokio::test]
 async fn dmq_publisher_client_server() {
@@ -157,9 +139,9 @@ async fn dmq_publisher_client_server() {
     let (_, _, messages) = tokio::try_join!(server, client, recorder).unwrap();
     assert_eq!(
         vec![
-            create_fake_msg(b"msg_1", current_function_name).await,
-            create_fake_msg(b"msg_2", current_function_name).await,
-            create_fake_msg(b"msg_3", current_function_name).await,
+            compute_fake_msg(b"msg_1", current_function_name).await,
+            compute_fake_msg(b"msg_2", current_function_name).await,
+            compute_fake_msg(b"msg_3", current_function_name).await,
         ],
         messages
     );
