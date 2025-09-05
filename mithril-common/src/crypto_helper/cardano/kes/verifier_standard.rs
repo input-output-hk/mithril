@@ -30,7 +30,11 @@ impl KesVerifier for KesVerifierStandard {
         let kes_period_try_max = std::cmp::min(64, kes_period.saturating_add(1));
         for kes_period_try in kes_period_try_min..kes_period_try_max {
             if signature
-                .verify(kes_period_try, &operational_certificate.kes_vk, message)
+                .verify(
+                    kes_period_try,
+                    &operational_certificate.get_kes_verification_key(),
+                    message,
+                )
                 .is_ok()
             {
                 return Ok(());
@@ -39,7 +43,7 @@ impl KesVerifier for KesVerifierStandard {
 
         Err(KesVerifyError::SignatureInvalid(
             kes_period,
-            operational_certificate.start_kes_period as u32,
+            operational_certificate.get_start_kes_period() as u32,
         )
         .into())
     }

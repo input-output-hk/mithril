@@ -1,25 +1,26 @@
 use std::sync::Arc;
 
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use blake2::{Blake2b, Digest, digest::consts::U64};
-use pallas_network::miniprotocols::localmsgsubmission::DmqMsg;
+use pallas_network::miniprotocols::localmsgsubmission::{DmqMsg, DmqMsgPayload};
 
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_common::{
     StdResult,
-    crypto_helper::{KesSigner, TryToBytes},
+    crypto_helper::{KesSigner, SerDeShelleyFileFormat, TryToBytes},
 };
 
-use crate::model::DmqMessage;
+use crate::model::{DmqMessage, SystemUnixTimestampProvider, UnixTimestampProvider};
 
-/// The TTL (Time To Live) for DMQ messages in blocks.
-const DMQ_MESSAGE_TTL_IN_BLOCKS: u16 = 100;
+/// The TTL (Time To Live) for DMQ messages in seconds (default is 30 minutes).
+const DMQ_MESSAGE_TTL_IN_SECONDS: u16 = 1800;
 
 /// A builder for creating DMQ messages.
 pub struct DmqMessageBuilder {
     kes_signer: Arc<dyn KesSigner>,
     chain_observer: Arc<dyn ChainObserver>,
-    ttl_blocks: u16,
+    timestamp_provider: Arc<dyn UnixTimestampProvider>,
+    ttl_seconds: u16,
 }
 
 impl DmqMessageBuilder {
@@ -28,63 +29,80 @@ impl DmqMessageBuilder {
         Self {
             kes_signer,
             chain_observer,
-            ttl_blocks: DMQ_MESSAGE_TTL_IN_BLOCKS,
+            timestamp_provider: Arc::new(SystemUnixTimestampProvider),
+            ttl_seconds: DMQ_MESSAGE_TTL_IN_SECONDS,
         }
     }
 
-    /// Set the TTL (Time To Live) for DMQ messages in blocks.
-    pub fn set_ttl(mut self, ttl_blocks: u16) -> Self {
-        self.ttl_blocks = ttl_blocks;
+    /// Sets the timestamp provider for the DMQ message builder.
+    pub fn set_timestamp_provider(
+        mut self,
+        timestamp_provider: Arc<dyn UnixTimestampProvider>,
+    ) -> Self {
+        self.timestamp_provider = timestamp_provider;
+        self
+    }
+
+    /// Sets the TTL (Time To Live) for DMQ messages in seconds.
+    pub fn set_ttl(mut self, ttl_seconds: u16) -> Self {
+        self.ttl_seconds = ttl_seconds;
 
         self
     }
 
+    /// Computes a message id for a DMQ message payload.
+    fn compute_msg_id(dmq_message_payload: &DmqMsgPayload) -> Vec<u8> {
+        let mut hasher = Blake2b::<U64>::new();
+        hasher.update(&dmq_message_payload.msg_body);
+        hasher.update(dmq_message_payload.kes_period.to_be_bytes());
+        hasher.update(dmq_message_payload.expires_at.to_be_bytes());
+
+        hasher.finalize().to_vec()
+    }
+
+    /// Enriches a DMQ message payload with a computed message ID.
+    fn enrich_msg_payload_with_id(dmq_message_payload: DmqMsgPayload) -> DmqMsgPayload {
+        let msg_id = Self::compute_msg_id(&dmq_message_payload);
+        let mut dmq_message_payload_with_id = dmq_message_payload;
+        dmq_message_payload_with_id.msg_id = msg_id;
+
+        dmq_message_payload_with_id
+    }
+
     /// Builds a DMQ message from the provided message bytes.
     pub async fn build(&self, message_bytes: &[u8]) -> StdResult<DmqMessage> {
-        fn compute_msg_id(dmq_message: &DmqMsg) -> Vec<u8> {
-            let mut hasher = Blake2b::<U64>::new();
-            hasher.update(&dmq_message.msg_body);
-            hasher.update(dmq_message.block_number.to_be_bytes());
-            hasher.update(dmq_message.ttl.to_be_bytes());
-            hasher.update(&dmq_message.kes_signature);
-            hasher.update(&dmq_message.operational_certificate);
-            hasher.update(dmq_message.kes_period.to_be_bytes());
-
-            hasher.finalize().to_vec()
-        }
-
-        let block_number = self
-            .chain_observer
-            .get_current_chain_point()
-            .await
-            .with_context(|| "Failed to get current chain point while building DMQ message")?
-            .ok_or(anyhow!(
-                "No current chain point available while building DMQ message"
-            ))?
-            .block_number;
-        let block_number = (*block_number)
+        let expires_at: u32 = (self.timestamp_provider.current_timestamp()?
+            + self.ttl_seconds as u64)
             .try_into()
-            .with_context(|| "Failed to convert block number to u32")?;
+            .with_context(|| "Failed to compute expires_at while building DMQ message")?;
         let kes_period = self
             .chain_observer
             .get_current_kes_period()
             .await
             .with_context(|| "Failed to get KES period while building DMQ message")?
             .unwrap_or_default();
-        let (kes_signature, operational_certificate) = self
-            .kes_signer
-            .sign(message_bytes, kes_period)
-            .with_context(|| "Failed to KES sign message while building DMQ message")?;
-        let mut dmq_message = DmqMsg {
+        let dmq_message_payload = Self::enrich_msg_payload_with_id(DmqMsgPayload {
             msg_id: vec![],
             msg_body: message_bytes.to_vec(),
-            block_number,
-            ttl: self.ttl_blocks,
+            kes_period: kes_period as u64,
+            expires_at,
+        });
+
+        let (kes_signature, operational_certificate) = self
+            .kes_signer
+            .sign(&dmq_message_payload.bytes_to_sign()?, kes_period)
+            .with_context(|| "Failed to KES sign message while building DMQ message")?;
+        let operational_certificate_without_cold_verification_key =
+            operational_certificate.get_opcert_without_cold_verification_key();
+        let cold_verification_key = operational_certificate.get_cold_verification_key();
+
+        let dmq_message = DmqMsg {
+            msg_payload: dmq_message_payload,
             kes_signature: kes_signature.to_bytes_vec()?,
-            operational_certificate: operational_certificate.to_bytes_vec()?,
-            kes_period,
+            operational_certificate: operational_certificate_without_cold_verification_key
+                .to_cbor_bytes()?,
+            cold_verification_key: cold_verification_key.to_bytes().to_vec(),
         };
-        dmq_message.msg_id = compute_msg_id(&dmq_message);
 
         Ok(dmq_message.into())
     }
@@ -99,6 +117,8 @@ mod tests {
         entities::{BlockNumber, ChainPoint, TimePoint},
         test::{crypto_helper::KesSignerFake, double::Dummy},
     };
+
+    use crate::model::MockUnixTimestampProvider;
 
     use super::*;
 
@@ -131,28 +151,48 @@ mod tests {
             },
             ..TimePoint::dummy()
         })));
-        let builder = DmqMessageBuilder::new(kes_signer, chain_observer).set_ttl(100);
+        let builder = DmqMessageBuilder::new(kes_signer.clone(), chain_observer)
+            .set_ttl(1000)
+            .set_timestamp_provider(Arc::new({
+                let mut mock_timestamp_provider = MockUnixTimestampProvider::new();
+                mock_timestamp_provider
+                    .expect_current_timestamp()
+                    .returning(|| Ok(234));
+
+                mock_timestamp_provider
+            }));
         let message = test_utils::TestMessage {
             content: b"test".to_vec(),
         };
 
         let dmq_message = builder.build(&message.to_bytes_vec().unwrap()).await.unwrap();
 
-        assert!(!dmq_message.msg_id.is_empty());
+        let expected_msg_payload = DmqMessageBuilder::enrich_msg_payload_with_id(DmqMsgPayload {
+            msg_id: vec![],
+            msg_body: b"test".to_vec(),
+            kes_period: 0,
+            expires_at: 1234,
+        });
         assert_eq!(
             DmqMsg {
-                msg_id: vec![],
-                msg_body: b"test".to_vec(),
-                block_number: 123,
-                ttl: 100,
+                msg_payload: expected_msg_payload.clone(),
                 kes_signature: kes_signature.to_bytes_vec().unwrap(),
-                operational_certificate: operational_certificate.to_bytes_vec().unwrap(),
-                kes_period: 0,
+                operational_certificate: operational_certificate
+                    .get_opcert_without_cold_verification_key()
+                    .to_cbor_bytes()
+                    .unwrap(),
+                cold_verification_key: operational_certificate
+                    .get_cold_verification_key()
+                    .to_bytes()
+                    .to_vec(),
             },
-            DmqMsg {
-                msg_id: vec![],
-                ..dmq_message.into()
-            }
+            dmq_message.clone().into()
+        );
+
+        let signed_messages = kes_signer.get_signed_messages();
+        assert_eq!(
+            vec![expected_msg_payload.bytes_to_sign().unwrap()],
+            signed_messages
         );
     }
 }
