@@ -22,7 +22,7 @@ ignored = ["serde_bytes"]
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [features]
-default = ["rug-backend"]
+default = ["num-integer-backend"]
 
 # Enables `rug-backend` features for `mithril-stm` dependency
 rug-backend = ["mithril-stm/rug-backend"]
