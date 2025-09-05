@@ -2,6 +2,7 @@
 use std::path::Path;
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
+#[cfg(feature = "future_dmq")]
 use anyhow::anyhow;
 use clap::ValueEnum;
 use libp2p::Multiaddr;

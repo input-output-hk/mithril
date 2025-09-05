@@ -182,16 +182,17 @@ impl ServeCommand {
             .with_context(|| "Dependencies Builder can not create http routes")?;
         let mut stop_rx_clone = stop_rx.clone();
         join_set.spawn(async move {
-            let (_, server) = warp::serve(routes).bind_with_graceful_shutdown(
-                (
+            warp::serve(routes)
+                .bind((
                     config.server_ip.clone().parse::<IpAddr>().unwrap(),
                     config.server_port,
-                ),
-                async move {
+                ))
+                .await
+                .graceful(async move {
                     stop_rx_clone.changed().await.ok();
-                },
-            );
-            server.await;
+                })
+                .run()
+                .await;
 
             Ok(())
         });

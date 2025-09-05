@@ -58,10 +58,11 @@ where
             .build()
             .expect("new rt");
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
-        let (address, server) = rt.block_on(async move {
-            warp::serve(filters).bind_with_graceful_shutdown(socket_addr, async {
-                shutdown_rx.await.ok();
-            })
+        let listener =
+            rt.block_on(async move { tokio::net::TcpListener::bind(socket_addr).await.unwrap() });
+        let address = listener.local_addr().unwrap();
+        let server = warp::serve(filters).incoming(listener).graceful(async {
+            shutdown_rx.await.ok();
         });
 
         let (panic_tx, _) = std_mpsc::channel();
@@ -72,7 +73,7 @@ where
         thread::Builder::new()
             .name(thread_name)
             .spawn(move || {
-                rt.block_on(server);
+                rt.block_on(server.run());
                 let _ = panic_tx.send(());
             })
             .expect("thread spawn");
