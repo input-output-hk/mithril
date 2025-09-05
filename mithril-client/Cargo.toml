@@ -20,8 +20,8 @@ crate-type = ["lib", "cdylib", "staticlib"]
 
 [features]
 # Include native-tls in reqwest by default
-default = ["rustls-tls", "num-integer-backend", "enable-http-compression"]
-
+default = ["native-tls", "rug-backend", "enable-http-compression"]
+#default = ["rustls-tls", "num-integer-backend", "enable-http-compression"]
 # Full feature set
 full = ["fs"]
 
