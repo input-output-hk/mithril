@@ -10,7 +10,7 @@ license = { workspace = true }
 repository = { workspace = true }
 
 [features]
-default = ["jemallocator"]
+default = ["jemallocator","bundle_tls"]
 
 bundle_tls = ["reqwest/native-tls-vendored"]
 jemallocator = ["dep:tikv-jemallocator"]
