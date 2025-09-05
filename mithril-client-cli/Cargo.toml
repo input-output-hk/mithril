@@ -22,7 +22,7 @@ name = "mithril-client"
 path = "src/main.rs"
 
 [features]
-default = ["bundle_tls"]
+#default = ["bundle_tls"]
 bundle_tls = ["mithril-client/native-tls-vendored"]
 
 [dependencies]
