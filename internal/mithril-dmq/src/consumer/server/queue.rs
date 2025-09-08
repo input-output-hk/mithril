@@ -270,22 +270,32 @@ mod tests {
     #[tokio::test]
     async fn queue_drains_expired_message() {
         let max_size = 3;
+        let total_expired_messages = 4;
+        let total_non_expired_messages = 6;
         let current_timestamp = 10;
         let expires_at_expired = 1;
         let expires_at_non_expired = 100;
         let queue = create_queue(max_size, current_timestamp);
-        let mut messages = fake_messages(1..=10, expires_at_expired);
-        for (index, mut message) in messages.clone().into_iter().enumerate() {
-            if index >= 5 {
-                message.msg_payload.expires_at = expires_at_non_expired;
-                messages[index] = message.clone();
-            }
+        let expired_messages = fake_messages(1..=total_expired_messages, expires_at_expired);
+        let non_expired_messages = fake_messages(
+            total_expired_messages + 1..=total_non_expired_messages + total_expired_messages,
+            expires_at_non_expired,
+        );
+        for message in expired_messages.clone() {
+            queue.enqueue(message).await;
+        }
+        for message in non_expired_messages.clone() {
             queue.enqueue(message).await;
         }
         let limit = None;
 
         let dequeued_messages = queue.dequeue_blocking(limit).await;
 
-        assert_eq!(messages[7..=9].to_vec(), dequeued_messages);
+        let expected_non_expired_messages_range =
+            total_non_expired_messages as usize - max_size..total_non_expired_messages as usize;
+        assert_eq!(
+            non_expired_messages[expected_non_expired_messages_range].to_vec(),
+            dequeued_messages
+        );
     }
 }
