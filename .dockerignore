@@ -1,7 +1,7 @@
 .git
 .sock
 .socket
-/target
+
 /**/artifacts
 /**/data
 /**/node_modules

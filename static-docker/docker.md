@@ -16,3 +16,7 @@ cargo build --release -p mithril-signer --no-default-features --features bundle_
 ```
 cargo build --release -p mithril-client-cli --no-default-features --features bundle_tls,num-integer-backend,enable-http-compression --target=x86_64-unknown-linux-musl
 ```
+
+docker commands :
+
+`docker build . -t mithril-cardano-bundle`
