@@ -21,11 +21,13 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for stable `v2` backend of `cardano-db` command and decommission of the `cardano-db-v2` command in client CLI.
 
+- Support for stable `tools utxo-hd` commands in client CLI.
+
 - Add a new `/certificate/genesis` route to the aggregator that fetches the latest genesis certificate
 
 - Abstracted the implementation of KES signature and verification to allow multiple and reusable implementations.
 
-- Upgrade the Rust edition of the repository from 2021 to 2024
+- Upgrade the Rust edition of the repository from `2021` to `2024`.
 
 - Add pre-built Linux ARM binaries in the distribution for the signer, client CLI, and aggregator.
 
