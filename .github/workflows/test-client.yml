@@ -174,7 +174,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --unstable tools utxo-hd snapshot-converter --db-directory v1/db --cardano-node-version latest --utxo-hd-flavor LMDB --commit
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} tools utxo-hd snapshot-converter --db-directory v1/db --cardano-node-version latest --utxo-hd-flavor LMDB --commit
 
       - name: Remove downloaded artifacts to free up disk space (Linux, Windows)
         if: runner.os != 'macOS'
@@ -335,7 +335,7 @@ jobs:
       - name: Ledger state snapshot conversion from InMemory to LMDB
         if: matrix.extra_args == '--include-ancillary'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }}  --unstable tools utxo-hd snapshot-converter --db-directory /app/data/v1/db --cardano-node-version latest --utxo-hd-flavor LMDB --commit
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }}  tools utxo-hd snapshot-converter --db-directory /app/data/v1/db --cardano-node-version latest --utxo-hd-flavor LMDB --commit
 
       - name: Remove downloaded artifacts to free up disk space
         shell: bash

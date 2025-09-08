@@ -222,7 +222,7 @@ Commands:
   mithril-stake-distribution  Mithril stake distribution management (alias: msd)
   cardano-transaction         Cardano transactions management (alias: ctx)
   cardano-stake-distribution  Cardano stake distribution management (alias: csd)
-  tools                       [unstable] Tools commands
+  tools                       Tools commands
   help                        Print this message or the help of the given subcommand(s)
 
 Options:
@@ -519,7 +519,7 @@ Here are the subcommands available:
 | **help**     | Prints this message or the help for the given subcommand(s) |
 | **list**     | Lists available Cardano stake distributions                 |
 
-### Tools (`unstable`)
+### Tools
 
 | Subcommand  | Performed action                                                                      |
 | ----------- | ------------------------------------------------------------------------------------- |
