@@ -7,31 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 As a minor extension, we have adopted a slightly different versioning convention for the Mithril distributions (<https://mithril.network/doc/adr/3#decision>)
 
-## Mithril Distribution [XXXX] - UNRELEASED
+## Mithril Distribution [2537] - UNRELEASED
+
+- Client library, CI and WASM:
+  - Support for stable `cardano_database_v2` backend in the `mithril-client` library.
+
+  - Support for stable `v2` backend of `cardano-db` command and decommission of the `cardano-db-v2` command in client CLI.
+
+  - Support for stable `verify` command to verify an existing Cardano database in the client CLI.
+
+  - Support for stable `tools utxo-hd` commands in client CLI.
+
+  - Support for Mithril era transition in the client library, CLI and WASM.
 
 - Support for `Cardano node` `10.5.1` in the signer and the aggregator.
 
-- `cardano_database_v2` in the `mithril-client` library is now stable
+- Refactored STM library for enhanced clarity, readability and maintainability.
 
-- Support for loose enforcement of OpenAPI compatibility: a warning is displayed when a call to an aggregator may be incompatible.
+- Added pre-built Linux ARM binaries in the distribution for the signer, client CLI, and aggregator.
+
+- Added a `/certificate/genesis` route to the aggregator to fetch the latest genesis certificate.
+
+- Support for loose enforcement of OpenAPI compatibility in HTTP clients of the Mithril nodes.
 
 - Support for binary hex codec in the protocol keys and signatures.
 
-- Support for a `verify` command to verify an existing Cardano database in the client CLI.
+- Support for multiple implementations of KES signature and verification operations.
 
-- Support for stable `v2` backend of `cardano-db` command and decommission of the `cardano-db-v2` command in client CLI.
-
-- Support for stable `tools utxo-hd` commands in client CLI.
-
-- Add a new `/certificate/genesis` route to the aggregator that fetches the latest genesis certificate
-
-- Abstracted the implementation of KES signature and verification to allow multiple and reusable implementations.
-
-- Upgrade the Rust edition of the repository from `2021` to `2024`.
-
-- Add pre-built Linux ARM binaries in the distribution for the signer, client CLI, and aggregator.
-
-- Support for Mithril era transition in the client library, CLI and WASM.
+- Support for the Rust `2024` edition (from `2021` edition).
 
 - **UNSTABLE** :
   - Support for certificates chain synchronization between leader/follower aggregators.
