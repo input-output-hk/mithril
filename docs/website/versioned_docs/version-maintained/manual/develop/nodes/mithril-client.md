@@ -222,8 +222,7 @@ Commands:
   mithril-stake-distribution  Mithril stake distribution management (alias: msd)
   cardano-transaction         Cardano transactions management (alias: ctx)
   cardano-stake-distribution  Cardano stake distribution management (alias: csd)
-  cardano-db-v2               Deprecated, use `cardano-db` instead
-  tools                       [unstable] Tools commands
+  tools                       Tools commands
   help                        Print this message or the help of the given subcommand(s)
 
 Options:
@@ -235,6 +234,8 @@ Options:
           Directory where configuration file is located [default: ./config]
       --aggregator-endpoint <AGGREGATOR_ENDPOINT>
           Override configuration Aggregator endpoint URL [env: AGGREGATOR_ENDPOINT=]
+      --json
+          Enable JSON output for command results
       --log-format-json
           Enable JSON output for logs displayed according to verbosity level
       --log-output <LOG_OUTPUT>
@@ -243,6 +244,8 @@ Options:
           Enable unstable commands
       --origin-tag <ORIGIN_TAG>
           Request origin tag
+      --era <ERA>
+          Override the Mithril era
   -h, --help
           Print help
   -V, --version
@@ -486,6 +489,7 @@ Here are the subcommands available:
 | Subcommand        | Performed action                                            |
 | ----------------- | ----------------------------------------------------------- |
 | **download**      | Downloads and restores a cardano-db snapshot                |
+| **verify**        | Verifies an existing Cardano database (`v2` backend only)   |
 | **help**          | Prints this message or the help for the given subcommand(s) |
 | **snapshot list** | Lists available cardano-db snapshots                        |
 | **snapshot show** | Shows information about a cardano-db snapshot               |
@@ -515,16 +519,7 @@ Here are the subcommands available:
 | **help**     | Prints this message or the help for the given subcommand(s) |
 | **list**     | Lists available Cardano stake distributions                 |
 
-### Cardano DB V2 (Deprecated, use `cardano-db` with option `--backend v2` instead)
-
-| Subcommand        | Performed action                                            |
-| ----------------- | ----------------------------------------------------------- |
-| **download**      | Downloads and restores a cardano-db v2 snapshot             |
-| **help**          | Prints this message or the help for the given subcommand(s) |
-| **snapshot list** | Lists available cardano-db v2 snapshots                     |
-| **snapshot show** | Shows information about a cardano-db v2 snapshot            |
-
-### Tools (`unstable`)
+### Tools
 
 | Subcommand  | Performed action                                                                      |
 | ----------- | ------------------------------------------------------------------------------------- |
@@ -548,32 +543,53 @@ Here is a list of the available parameters:
 | `unstable`            | `--unstable`            |          -           | -                     | Enable unstable commands                                           | `false`       | -                                                                                                                       |         -          |
 | `run_mode`            | `--run-mode`            |          -           | `RUN_MODE`            | Run Mode                                                           | `dev`         | -                                                                                                                       | :heavy_check_mark: |
 | `aggregator_endpoint` | `--aggregator-endpoint` |          -           | `AGGREGATOR_ENDPOINT` | Override configuration Aggregator endpoint URL                     | -             | `https://aggregator.pre-release-preview.api.mithril.network/aggregator`                                                 | :heavy_check_mark: |
+| `json`                | `--json`                |          -           | -                     | Enable JSON output for command results                             | `false`       | -                                                                                                                       |         -          |
 | `log_format_json`     | `--log-format-json`     |          -           | -                     | Enable JSON output for logs displayed according to verbosity level | `false`       | -                                                                                                                       |         -          |
 | `log_output`          | `--log-output`          |          -           | -                     | Redirect the logs to a file                                        | -             | -                                                                                                                       |         -          |
 | `origin_tag`          | `--origin-tag`          |          -           | -                     | Request origin tag                                                 | -             | -                                                                                                                       |         -          |
+| `era`                 | `--era`                 |          -           | -                     | Override the Mithril era                                           | -             | -                                                                                                                       |         -          |
 | `version`             | `--version`             |         `-V`         | -                     | Print version                                                      | -             | `./mithril-client.log`                                                                                                  |         -          |
 
 `cardano-db snapshot show` command:
 
-| Parameter | Command line (long) | Command line (short) | Environment variable | Description                                                                                                                     | Default value | Example |     Mandatory      |
-| --------- | ------------------- | :------------------: | -------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
-| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results                                                                                          | `false`       | -       |         -          |
-| `backend` | `--backend`         |         `-b`         | -                    | Backend to use, either: `v1` (default, full database restoration only) or `v2` (unstable, full or partial database restoration) | `v1`          | -       |         -          |
-| `digest`  | -                   |          -           | -                    | Digest of the Cardano db snapshot to show or `latest` for the latest artifact                                                   | -             | -       | :heavy_check_mark: |
+| Parameter             | Command line (long)     | Command line (short) | Environment variable  | Description                                                                                                           | Default value | Example |     Mandatory      |
+| --------------------- | ----------------------- | :------------------: | --------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
+| `backend`             | `--backend`             |         `-b`         | -                     | Backend to use, either: `v1` (default, full database restoration only) or `v2` (full or partial database restoration) | `v1`          | -       |         -          |
+| `digest`              | -                       |          -           | -                     | Digest of the Cardano db snapshot to show or `latest` for the latest artifact                                         | -             | -       | :heavy_check_mark: |
+| `run_mode`            | `--run-mode`            |          -           | `RUN_MODE`            | Run Mode                                                                                                              | `dev`         | -       |         -          |
+| `verbose`             | `--verbose`             |         `-v`         | -                     | Verbosity level (-v=warning, -vv=info, -vvv=debug, -vvvv=trace)                                                       | `0`           | -       |         -          |
+| `config_directory`    | `--config-directory`    |          -           | -                     | Directory where configuration file is located                                                                         | `./config`    | -       |         -          |
+| `aggregator_endpoint` | `--aggregator-endpoint` |          -           | `AGGREGATOR_ENDPOINT` | Override configuration Aggregator endpoint URL                                                                        | -             | -       |         -          |
+| `json`                | `--json`                |          -           | -                     | Enable JSON output for command results                                                                                | `false`       | -       |         -          |
+| `log_format_json`     | `--log-format-json`     |          -           | -                     | Enable JSON output for logs displayed according to verbosity level                                                    | `false`       | -       |         -          |
+| `log_output`          | `--log-output`          |          -           | -                     | Redirect the logs to a file                                                                                           | -             | -       |         -          |
+| `unstable`            | `--unstable`            |          -           | -                     | Enable unstable commands                                                                                              | `false`       | -       |         -          |
+| `origin_tag`          | `--origin-tag`          |          -           | -                     | Request origin tag                                                                                                    | -             | -       |         -          |
+| `era`                 | `--era`                 |          -           | -                     | Override the Mithril era                                                                                              | -             | -       |         -          |
+| `help`                | `--help`                |         `-h`         | -                     | Print help (see more with '--help')                                                                                   | -             | -       |         -          |
 
 `cardano-db snapshot list` command:
 
-| Parameter | Command line (long) | Command line (short) | Environment variable | Description                                                                                                                     | Default value | Example | Mandatory |
-| --------- | ------------------- | :------------------: | -------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------- | :-------: |
-| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results                                                                                          | `false`       | -       |     -     |
-| `backend` | `--backend`         |         `-b`         | -                    | Backend to use, either: `v1` (default, full database restoration only) or `v2` (unstable, full or partial database restoration) | `v1`          | -       |     -     |
+| Parameter             | Command line (long)     | Command line (short) | Environment variable  | Description                                                                                                           | Default value | Example | Mandatory |
+| --------------------- | ----------------------- | :------------------: | --------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------- | ------- | :-------: |
+| `backend`             | `--backend`             |         `-b`         | -                     | Backend to use, either: `v1` (default, full database restoration only) or `v2` (full or partial database restoration) | `v1`          | -       |     -     |
+| `run_mode`            | `--run-mode`            |          -           | `RUN_MODE`            | Run Mode                                                                                                              | `dev`         | -       |     -     |
+| `verbose`             | `--verbose`             |         `-v`         | -                     | Verbosity level (-v=warning, -vv=info, -vvv=debug, -vvvv=trace)                                                       | `0`           | -       |     -     |
+| `config_directory`    | `--config-directory`    |          -           | -                     | Directory where configuration file is located                                                                         | `./config`    | -       |     -     |
+| `aggregator_endpoint` | `--aggregator-endpoint` |          -           | `AGGREGATOR_ENDPOINT` | Override configuration Aggregator endpoint URL                                                                        | -             | -       |     -     |
+| `json`                | `--json`                |          -           | -                     | Enable JSON output for command results                                                                                | `false`       | -       |     -     |
+| `log_format_json`     | `--log-format-json`     |          -           | -                     | Enable JSON output for logs displayed according to verbosity level                                                    | `false`       | -       |     -     |
+| `log_output`          | `--log-output`          |          -           | -                     | Redirect the logs to a file                                                                                           | -             | -       |     -     |
+| `unstable`            | `--unstable`            |          -           | -                     | Enable unstable commands                                                                                              | `false`       | -       |     -     |
+| `origin_tag`          | `--origin-tag`          |          -           | -                     | Request origin tag                                                                                                    | -             | -       |     -     |
+| `era`                 | `--era`                 |          -           | -                     | Override the Mithril era                                                                                              | -             | -       |     -     |
+| `help`                | `--help`                |         `-h`         | -                     | Print help (see more with '--help')                                                                                   | -             | -       |     -     |
 
 `cardano-db download` command:
 
 | Parameter                    | Command line (long)            | Command line (short) | Environment variable         | Description                                                                                                                         | Default value | Example |     Mandatory      |
 | ---------------------------- | ------------------------------ | :------------------: | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
-| `json`                       | `--json`                       |          -           | -                            | Enable JSON output for command results                                                                                              | `false`       | -       |         -          |
-| `backend`                    | `--backend`                    |         `-b`         | -                            | Backend to use, either: `v1` (default, full database restoration only) or `v2` (unstable, full or partial database restoration)     | `v1`          | -       |         -          |
+| `backend`                    | `--backend`                    |         `-b`         | -                            | Backend to use, either: `v1` (default, full database restoration only) or `v2` (full or partial database restoration)               | `v1`          | -       |         -          |
 | `digest`                     | -                              |          -           | -                            | Digest of the Cardano db snapshot to download or `latest` for the latest artifact                                                   | -             | -       | :heavy_check_mark: |
 | `download_dir`               | `--download-dir`               |          -           | -                            | Directory where the immutable and ancillary files will be downloaded                                                                | -             | -       |         -          |
 | `genesis_verification_key`   | `--genesis-verification-key`   |          -           | `GENESIS_VERIFICATION_KEY`   | Genesis verification key to check the certificate chain                                                                             | -             | -       | :heavy_check_mark: |
@@ -582,110 +598,186 @@ Here is a list of the available parameters:
 | `start`                      | `--start`                      |          -           | -                            | [backend `v2` only] The first immutable file number to download                                                                     | -             | -       |         -          |
 | `end`                        | `--end`                        |          -           | -                            | [backend `v2` only] The last immutable file number to download                                                                      | -             | -       |         -          |
 | `allow_override`             | `--allow-override`             |          -           | -                            | [backend `v2` only] Allow existing files in the download directory to be overridden                                                 | `false`       | -       |         -          |
+| `run_mode`                   | `--run-mode`                   |          -           | `RUN_MODE`                   | Run Mode                                                                                                                            | `dev`         | -       |         -          |
+| `verbose`                    | `--verbose`                    |         `-v`         | -                            | Verbosity level (-v=warning, -vv=info, -vvv=debug, -vvvv=trace)                                                                     | `0`           | -       |         -          |
+| `config_directory`           | `--config-directory`           |          -           | -                            | Directory where configuration file is located                                                                                       | `./config`    | -       |         -          |
+| `aggregator_endpoint`        | `--aggregator-endpoint`        |          -           | `AGGREGATOR_ENDPOINT`        | Override configuration Aggregator endpoint URL                                                                                      | -             | -       |         -          |
+| `json`                       | `--json`                       |          -           | -                            | Enable JSON output for command results                                                                                              | `false`       | -       |         -          |
+| `log_format_json`            | `--log-format-json`            |          -           | -                            | Enable JSON output for logs displayed according to verbosity level                                                                  | `false`       | -       |         -          |
+| `log_output`                 | `--log-output`                 |          -           | -                            | Redirect the logs to a file                                                                                                         | -             | -       |         -          |
+| `unstable`                   | `--unstable`                   |          -           | -                            | Enable unstable commands                                                                                                            | `false`       | -       |         -          |
+| `origin_tag`                 | `--origin-tag`                 |          -           | -                            | Request origin tag                                                                                                                  | -             | -       |         -          |
+| `era`                        | `--era`                        |          -           | -                            | Override the Mithril era                                                                                                            | -             | -       |         -          |
+| `help`                       | `--help`                       |         `-h`         | -                            | Print help (see more with '--help')                                                                                                 | -             | -       |         -          |
+
+`cardano-db verify` command (`v2` backend only):
+
+| Parameter                  | Command line (long)          | Command line (short) | Environment variable       | Description                                                                                                           | Default value | Example |     Mandatory      |
+| -------------------------- | ---------------------------- | :------------------: | -------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
+| `backend`                  | `--backend`                  |         `-b`         | -                          | Backend to use, either: `v1` (default, full database restoration only) or `v2` (full or partial database restoration) | `v2`          | -       |         -          |
+| `digest`                   | -                            |          -           | -                          | Digest of the Cardano db snapshot to verify or `latest` for the latest artifact                                       | -             | -       | :heavy_check_mark: |
+| `db_dir`                   | `--db-dir`                   |          -           | -                          | Directory from where the immutable will be verified                                                                   | -             | -       |         -          |
+| `genesis_verification_key` | `--genesis-verification-key` |          -           | `GENESIS_VERIFICATION_KEY` | Genesis verification key to check the certificate chain                                                               | -             | -       |         -          |
+| `start`                    | `--start`                    |          -           | -                          | The first immutable file number to verify                                                                             | -             | -       |         -          |
+| `end`                      | `--end`                      |          -           | -                          | The last immutable file number to verify                                                                              | -             | -       |         -          |
+| `allow_missing`            | `--allow-missing`            |          -           | -                          | If set, the verification will not fail if some immutable files are missing                                            | `false`       | -       |         -          |
+| `run_mode`                 | `--run-mode`                 |          -           | `RUN_MODE`                 | Run Mode                                                                                                              | `dev`         | -       |         -          |
+| `verbose`                  | `--verbose`                  |         `-v`         | -                          | Verbosity level (-v=warning, -vv=info, -vvv=debug, -vvvv=trace)                                                       | `0`           | -       |         -          |
+| `config_directory`         | `--config-directory`         |          -           | -                          | Directory where configuration file is located                                                                         | `./config`    | -       |         -          |
+| `aggregator_endpoint`      | `--aggregator-endpoint`      |          -           | `AGGREGATOR_ENDPOINT`      | Override configuration Aggregator endpoint URL                                                                        | -             | -       |         -          |
+| `json`                     | `--json`                     |          -           | -                          | Enable JSON output for command results                                                                                | `false`       | -       |         -          |
+| `log_format_json`          | `--log-format-json`          |          -           | -                          | Enable JSON output for logs displayed according to verbosity level                                                    | `false`       | -       |         -          |
+| `log_output`               | `--log-output`               |          -           | -                          | Redirect the logs to a file                                                                                           | -             | -       |         -          |
+| `unstable`                 | `--unstable`                 |          -           | -                          | Enable unstable commands                                                                                              | `false`       | -       |         -          |
+| `origin_tag`               | `--origin-tag`               |          -           | -                          | Request origin tag                                                                                                    | -             | -       |         -          |
+| `era`                      | `--era`                      |          -           | -                          | Override the Mithril era                                                                                              | -             | -       |         -          |
+| `help`                     | `--help`                     |         `-h`         | -                          | Print help (see more with '--help')                                                                                   | -             | -       |         -          |
 
 `mithril-stake-distribution list` command:
 
-| Parameter | Command line (long) | Command line (short) | Environment variable | Description                            | Default value | Example | Mandatory |
-| --------- | ------------------- | :------------------: | -------------------- | -------------------------------------- | ------------- | ------- | :-------: |
-| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results | `false`       | -       |     -     |
+| Parameter             | Command line (long)     | Command line (short) | Environment variable  | Description                                                        | Default value | Example | Mandatory |
+| --------------------- | ----------------------- | :------------------: | --------------------- | ------------------------------------------------------------------ | ------------- | ------- | :-------: |
+| `run_mode`            | `--run-mode`            |          -           | `RUN_MODE`            | Run Mode                                                           | `dev`         | -       |     -     |
+| `verbose`             | `--verbose`             |         `-v`         | -                     | Verbosity level (-v=warning, -vv=info, -vvv=debug, -vvvv=trace)    | `0`           | -       |     -     |
+| `config_directory`    | `--config-directory`    |          -           | -                     | Directory where configuration file is located                      | `./config`    | -       |     -     |
+| `aggregator_endpoint` | `--aggregator-endpoint` |          -           | `AGGREGATOR_ENDPOINT` | Override configuration Aggregator endpoint URL                     | -             | -       |     -     |
+| `json`                | `--json`                |          -           | -                     | Enable JSON output for command results                             | `false`       | -       |     -     |
+| `log_format_json`     | `--log-format-json`     |          -           | -                     | Enable JSON output for logs displayed according to verbosity level | `false`       | -       |     -     |
+| `log_output`          | `--log-output`          |          -           | -                     | Redirect the logs to a file                                        | -             | -       |     -     |
+| `unstable`            | `--unstable`            |          -           | -                     | Enable unstable commands                                           | `false`       | -       |     -     |
+| `origin_tag`          | `--origin-tag`          |          -           | -                     | Request origin tag                                                 | -             | -       |     -     |
+| `era`                 | `--era`                 |          -           | -                     | Override the Mithril era                                           | -             | -       |     -     |
+| `help`                | `--help`                |         `-h`         | -                     | Print help                                                         | -             | -       |     -     |
 
 `mithril-stake-distribution download` command:
 
 | Parameter                  | Command line (long)          | Command line (short) | Environment variable       | Description                                                                          | Default value | Example |     Mandatory      |
 | -------------------------- | ---------------------------- | :------------------: | -------------------------- | ------------------------------------------------------------------------------------ | ------------- | ------- | :----------------: |
-| `json`                     | `--json`                     |          -           | -                          | Enable JSON output for command results                                               | `false`       | -       |         -          |
 | `artifact_hash`            | -                            |          -           | -                          | Hash of the Mithril stake distribution artifact, or `latest` for the latest artifact | -             | -       | :heavy_check_mark: |
 | `download_dir`             | `--download-dir`             |          -           | -                          | Directory where the Mithril stake distribution will be downloaded                    | -             | -       |         -          |
 | `genesis_verification_key` | `--genesis-verification-key` |          -           | `GENESIS_VERIFICATION_KEY` | Genesis verification key to check the certificate chain                              | -             | -       | :heavy_check_mark: |
+| `run_mode`                 | `--run-mode`                 |          -           | `RUN_MODE`                 | Run Mode                                                                             | `dev`         | -       |         -          |
+| `verbose`                  | `--verbose`                  |         `-v`         | -                          | Verbosity level (-v=warning, -vv=info, -vvv=debug, -vvvv=trace)                      | `0`           | -       |         -          |
+| `config_directory`         | `--config-directory`         |          -           | -                          | Directory where configuration file is located                                        | `./config`    | -       |         -          |
+| `aggregator_endpoint`      | `--aggregator-endpoint`      |          -           | `AGGREGATOR_ENDPOINT`      | Override configuration Aggregator endpoint URL                                       | -             | -       |         -          |
+| `json`                     | `--json`                     |          -           | -                          | Enable JSON output for command results                                               | `false`       | -       |         -          |
+| `log_format_json`          | `--log-format-json`          |          -           | -                          | Enable JSON output for logs displayed according to verbosity level                   | `false`       | -       |         -          |
+| `log_output`               | `--log-output`               |          -           | -                          | Redirect the logs to a file                                                          | -             | -       |         -          |
+| `unstable`                 | `--unstable`                 |          -           | -                          | Enable unstable commands                                                             | `false`       | -       |         -          |
+| `origin_tag`               | `--origin-tag`               |          -           | -                          | Request origin tag                                                                   | -             | -       |         -          |
+| `era`                      | `--era`                      |          -           | -                          | Override the Mithril era                                                             | -             | -       |         -          |
+| `help`                     | `--help`                     |         `-h`         | -                          | Print help (see more with '--help')                                                  | -             | -       |         -          |
 
 `cardano-transaction snapshot show` command:
 
-| Parameter | Command line (long) | Command line (short) | Environment variable | Description                                                                          | Default value | Example |     Mandatory      |
-| --------- | ------------------- | :------------------: | -------------------- | ------------------------------------------------------------------------------------ | ------------- | ------- | :----------------: |
-| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results                                               | `false`       | -       |         -          |
-| `hash`    | -                   |          -           | -                    | Hash of the Cardano transaction snapshot to show or `latest` for the latest artifact | -             | -       | :heavy_check_mark: |
+| Parameter             | Command line (long)     | Command line (short) | Environment variable  | Description                                                                          | Default value | Example |     Mandatory      |
+| --------------------- | ----------------------- | :------------------: | --------------------- | ------------------------------------------------------------------------------------ | ------------- | ------- | :----------------: |
+| `hash`                | -                       |          -           | -                     | Hash of the Cardano transaction snapshot to show or `latest` for the latest artifact | -             | -       | :heavy_check_mark: |
+| `run_mode`            | `--run-mode`            |          -           | `RUN_MODE`            | Run Mode                                                                             | `dev`         | -       |         -          |
+| `verbose`             | `--verbose`             |         `-v`         | -                     | Verbosity level (-v=warning, -vv=info, -vvv=debug, -vvvv=trace)                      | `0`           | -       |         -          |
+| `config_directory`    | `--config-directory`    |          -           | -                     | Directory where configuration file is located                                        | `./config`    | -       |         -          |
+| `aggregator_endpoint` | `--aggregator-endpoint` |          -           | `AGGREGATOR_ENDPOINT` | Override configuration Aggregator endpoint URL                                       | -             | -       |         -          |
+| `json`                | `--json`                |          -           | -                     | Enable JSON output for command results                                               | `false`       | -       |         -          |
+| `log_format_json`     | `--log-format-json`     |          -           | -                     | Enable JSON output for logs displayed according to verbosity level                   | `false`       | -       |         -          |
+| `log_output`          | `--log-output`          |          -           | -                     | Redirect the logs to a file                                                          | -             | -       |         -          |
+| `unstable`            | `--unstable`            |          -           | -                     | Enable unstable commands                                                             | `false`       | -       |         -          |
+| `origin_tag`          | `--origin-tag`          |          -           | -                     | Request origin tag                                                                   | -             | -       |         -          |
+| `era`                 | `--era`                 |          -           | -                     | Override the Mithril era                                                             | -             | -       |         -          |
+| `help`                | `--help`                |         `-h`         | -                     | Print help                                                                           | -             | -       |         -          |
 
 `cardano-transaction snapshot list` command:
 
-| Parameter | Command line (long) | Command line (short) | Environment variable | Description                            | Default value | Example | Mandatory |
-| --------- | ------------------- | :------------------: | -------------------- | -------------------------------------- | ------------- | ------- | :-------: |
-| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results | `false`       | -       |     -     |
+| Parameter             | Command line (long)     | Command line (short) | Environment variable  | Description                                                        | Default value | Example | Mandatory |
+| --------------------- | ----------------------- | :------------------: | --------------------- | ------------------------------------------------------------------ | ------------- | ------- | :-------: |
+| `run_mode`            | `--run-mode`            |          -           | `RUN_MODE`            | Run Mode                                                           | `dev`         | -       |     -     |
+| `verbose`             | `--verbose`             |         `-v`         | -                     | Verbosity level (-v=warning, -vv=info, -vvv=debug, -vvvv=trace)    | `0`           | -       |     -     |
+| `config_directory`    | `--config-directory`    |          -           | -                     | Directory where configuration file is located                      | `./config`    | -       |     -     |
+| `aggregator_endpoint` | `--aggregator-endpoint` |          -           | `AGGREGATOR_ENDPOINT` | Override configuration Aggregator endpoint URL                     | -             | -       |     -     |
+| `json`                | `--json`                |          -           | -                     | Enable JSON output for command results                             | `false`       | -       |     -     |
+| `log_format_json`     | `--log-format-json`     |          -           | -                     | Enable JSON output for logs displayed according to verbosity level | `false`       | -       |     -     |
+| `log_output`          | `--log-output`          |          -           | -                     | Redirect the logs to a file                                        | -             | -       |     -     |
+| `unstable`            | `--unstable`            |          -           | -                     | Enable unstable commands                                           | `false`       | -       |     -     |
+| `origin_tag`          | `--origin-tag`          |          -           | -                     | Request origin tag                                                 | -             | -       |     -     |
+| `era`                 | `--era`                 |          -           | -                     | Override the Mithril era                                           | -             | -       |     -     |
+| `help`                | `--help`                |         `-h`         | -                     | Print help                                                         | -             | -       |     -     |
 
 `cardano-transaction certify` command:
 
-| Parameter                  | Command line (long)          | Command line (short) | Environment variable       | Description                                             | Default value | Example |     Mandatory      |
-| -------------------------- | ---------------------------- | :------------------: | -------------------------- | ------------------------------------------------------- | ------------- | ------- | :----------------: |
-| `json`                     | `--json`                     |          -           | -                          | Enable JSON output for command results                  | `false`       | -       |         -          |
-| `genesis_verification_key` | `--genesis-verification-key` |          -           | `GENESIS_VERIFICATION_KEY` | Genesis verification key to check the certificate chain | -             | -       | :heavy_check_mark: |
-| `transactions_hashes`      | -                            |          -           | -                          | Hashes of the transactions to certify                   | -             | -       | :heavy_check_mark: |
+| Parameter                  | Command line (long)          | Command line (short) | Environment variable       | Description                                                        | Default value | Example |     Mandatory      |
+| -------------------------- | ---------------------------- | :------------------: | -------------------------- | ------------------------------------------------------------------ | ------------- | ------- | :----------------: |
+| `genesis_verification_key` | `--genesis-verification-key` |          -           | `GENESIS_VERIFICATION_KEY` | Genesis verification key to check the certificate chain            | -             | -       | :heavy_check_mark: |
+| `transactions_hashes`      | -                            |          -           | -                          | Hashes of the transactions to certify                              | -             | -       | :heavy_check_mark: |
+| `run_mode`                 | `--run-mode`                 |          -           | `RUN_MODE`                 | Run Mode                                                           | `dev`         | -       |         -          |
+| `verbose`                  | `--verbose`                  |         `-v`         | -                          | Verbosity level (-v=warning, -vv=info, -vvv=debug, -vvvv=trace)    | `0`           | -       |         -          |
+| `config_directory`         | `--config-directory`         |          -           | -                          | Directory where configuration file is located                      | `./config`    | -       |         -          |
+| `aggregator_endpoint`      | `--aggregator-endpoint`      |          -           | `AGGREGATOR_ENDPOINT`      | Override configuration Aggregator endpoint URL                     | -             | -       |         -          |
+| `json`                     | `--json`                     |          -           | -                          | Enable JSON output for command results                             | `false`       | -       |         -          |
+| `log_format_json`          | `--log-format-json`          |          -           | -                          | Enable JSON output for logs displayed according to verbosity level | `false`       | -       |         -          |
+| `log_output`               | `--log-output`               |          -           | -                          | Redirect the logs to a file                                        | -             | -       |         -          |
+| `unstable`                 | `--unstable`                 |          -           | -                          | Enable unstable commands                                           | `false`       | -       |         -          |
+| `origin_tag`               | `--origin-tag`               |          -           | -                          | Request origin tag                                                 | -             | -       |         -          |
+| `era`                      | `--era`                      |          -           | -                          | Override the Mithril era                                           | -             | -       |         -          |
+| `help`                     | `--help`                     |         `-h`         | -                          | Print help                                                         | -             | -       |         -          |
 
 `cardano-stake-distribution list` command:
 
-| Parameter | Command line (long) | Command line (short) | Environment variable | Description                            | Default value | Example | Mandatory |
-| --------- | ------------------- | :------------------: | -------------------- | -------------------------------------- | ------------- | ------- | :-------: |
-| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results | `false`       | -       |     -     |
+| Parameter             | Command line (long)     | Command line (short) | Environment variable  | Description                                                        | Default value | Example | Mandatory |
+| --------------------- | ----------------------- | :------------------: | --------------------- | ------------------------------------------------------------------ | ------------- | ------- | :-------: |
+| `run_mode`            | `--run-mode`            |          -           | `RUN_MODE`            | Run Mode                                                           | `dev`         | -       |     -     |
+| `verbose`             | `--verbose`             |         `-v`         | -                     | Verbosity level (-v=warning, -vv=info, -vvv=debug, -vvvv=trace)    | `0`           | -       |     -     |
+| `config_directory`    | `--config-directory`    |          -           | -                     | Directory where configuration file is located                      | `./config`    | -       |     -     |
+| `aggregator_endpoint` | `--aggregator-endpoint` |          -           | `AGGREGATOR_ENDPOINT` | Override configuration Aggregator endpoint URL                     | -             | -       |     -     |
+| `json`                | `--json`                |          -           | -                     | Enable JSON output for command results                             | `false`       | -       |     -     |
+| `log_format_json`     | `--log-format-json`     |          -           | -                     | Enable JSON output for logs displayed according to verbosity level | `false`       | -       |     -     |
+| `log_output`          | `--log-output`          |          -           | -                     | Redirect the logs to a file                                        | -             | -       |     -     |
+| `unstable`            | `--unstable`            |          -           | -                     | Enable unstable commands                                           | `false`       | -       |     -     |
+| `origin_tag`          | `--origin-tag`          |          -           | -                     | Request origin tag                                                 | -             | -       |     -     |
+| `era`                 | `--era`                 |          -           | -                     | Override the Mithril era                                           | -             | -       |     -     |
+| `help`                | `--help`                |         `-h`         | -                     | Print help                                                         | -             | -       |     -     |
 
 `cardano-stake-distribution download` command:
 
 | Parameter                  | Command line (long)          | Command line (short) | Environment variable       | Description                                                                                   | Default value | Example |     Mandatory      |
 | -------------------------- | ---------------------------- | :------------------: | -------------------------- | --------------------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
-| `json`                     | `--json`                     |          -           | -                          | Enable JSON output for command results                                                        | `false`       | -       |         -          |
 | `unique_identifier`        | -                            |          -           | -                          | Hash or Epoch of the Cardano stake distribution artifact, or `latest` for the latest artifact | -             | -       | :heavy_check_mark: |
 | `download_dir`             | `--download-dir`             |          -           | -                          | Directory where the Cardano stake distribution will be downloaded                             | -             | -       |         -          |
 | `genesis_verification_key` | `--genesis-verification-key` |          -           | `GENESIS_VERIFICATION_KEY` | Genesis verification key to check the certificate chain                                       | -             | -       | :heavy_check_mark: |
-
-`cardano-db-v2 snapshot show` command:
-
-:::warning
-
-Deprecated, use `cardano-db snapshot show` with option `--backend v2` instead
-
-:::
-
-| Parameter | Command line (long) | Command line (short) | Environment variable | Description                                                                 | Default value | Example |     Mandatory      |
-| --------- | ------------------- | :------------------: | -------------------- | --------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
-| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results                                      | `false`       | -       |         -          |
-| `hash`    | -                   |          -           | -                    | Hash of the Cardano db snapshot to show or `latest` for the latest artifact | -             | -       | :heavy_check_mark: |
-
-`cardano-db-v2 snapshot list` command:
-
-:::warning
-
-Deprecated, use `cardano-db snapshot list` with option `--backend v2` instead
-
-:::
-
-| Parameter | Command line (long) | Command line (short) | Environment variable | Description                            | Default value | Example | Mandatory |
-| --------- | ------------------- | :------------------: | -------------------- | -------------------------------------- | ------------- | ------- | :-------: |
-| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results | `false`       | -       |     -     |
-
-`cardano-db-v2 download` command:
-
-:::warning
-
-Deprecated, use `cardano-db download` with option `--backend v2` instead
-
-:::
-
-| Parameter                    | Command line (long)            | Command line (short) | Environment variable         | Description                                                                                                                         | Default value | Example |     Mandatory      |
-| ---------------------------- | ------------------------------ | :------------------: | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
-| `json`                       | `--json`                       |          -           | -                            | Enable JSON output for command results                                                                                              | `false`       | -       |         -          |
-| `hash`                       | -                              |          -           | -                            | Hash of the Cardano db snapshot to download or `latest` for the latest artifact                                                     | -             | -       | :heavy_check_mark: |
-| `download_dir`               | `--download-dir`               |          -           | -                            | Directory where the immutable and ancillary files will be downloaded                                                                | -             | -       |         -          |
-| `genesis_verification_key`   | `--genesis-verification-key`   |          -           | `GENESIS_VERIFICATION_KEY`   | Genesis verification key to check the certificate chain                                                                             | -             | -       | :heavy_check_mark: |
-| `start`                      | `--start`                      |          -           | -                            | The first immutable file number to download                                                                                         | -             | -       |         -          |
-| `end`                        | `--end`                        |          -           | -                            | The last immutable file number to download                                                                                          | -             | -       |         -          |
-| `include_ancillary`          | `--include-ancillary`          |          -           | -                            | Include ancillary files in the download, if set the `ancillary_verification_key` is required in order to verify the ancillary files | `false`       | -       |         -          |
-| `ancillary_verification_key` | `--ancillary-verification-key` |          -           | `ANCILLARY_VERIFICATION_KEY` | Ancillary verification key to verify the ancillary files                                                                            | -             | -       |         -          |
-| `allow_override`             | `--allow-override`             |          -           | -                            | Allow existing files in the download directory to be overridden                                                                     | `false`       | -       |         -          |
+| `run_mode`                 | `--run-mode`                 |          -           | `RUN_MODE`                 | Run Mode                                                                                      | `dev`         | -       |         -          |
+| `verbose`                  | `--verbose`                  |         `-v`         | -                          | Verbosity level (-v=warning, -vv=info, -vvv=debug, -vvvv=trace)                               | `0`           | -       |         -          |
+| `config_directory`         | `--config-directory`         |          -           | -                          | Directory where configuration file is located                                                 | `./config`    | -       |         -          |
+| `aggregator_endpoint`      | `--aggregator-endpoint`      |          -           | `AGGREGATOR_ENDPOINT`      | Override configuration Aggregator endpoint URL                                                | -             | -       |         -          |
+| `json`                     | `--json`                     |          -           | -                          | Enable JSON output for command results                                                        | `false`       | -       |         -          |
+| `log_format_json`          | `--log-format-json`          |          -           | -                          | Enable JSON output for logs displayed according to verbosity level                            | `false`       | -       |         -          |
+| `log_output`               | `--log-output`               |          -           | -                          | Redirect the logs to a file                                                                   | -             | -       |         -          |
+| `unstable`                 | `--unstable`                 |          -           | -                          | Enable unstable commands                                                                      | `false`       | -       |         -          |
+| `origin_tag`               | `--origin-tag`               |          -           | -                          | Request origin tag                                                                            | -             | -       |         -          |
+| `era`                      | `--era`                      |          -           | -                          | Override the Mithril era                                                                      | -             | -       |         -          |
+| `help`                     | `--help`                     |         `-h`         | -                          | Print help (see more with '--help')                                                           | -             | -       |         -          |
 
 `tools utxo-hd snapshot-converter` command:
 
-| Parameter              | Command line (long)      | Command line (short) | Environment variable | Description                                                                                                                                             | Default value | Example  |     Mandatory      |
-| ---------------------- | ------------------------ | :------------------: | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | -------- | :----------------: |
-| `db_directory`         | `--db-directory`         |          -           | -                    | Path to the Cardano node database directory                                                                                                             | -             | -        | :heavy_check_mark: |
-| `cardano_node_version` | `--cardano-node-version` |          -           | -                    | Cardano node version of the Mithril signed snapshot (`latest` and `pre-release` are also supported to download the latest or pre-release distribution.) | -             | `10.4.1` | :heavy_check_mark: |
-| `cardano_network`      | `--cardano-network`      |          -           | -                    | Cardano network                                                                                                                                         | -             | -        | :heavy_check_mark: |
-| `utxo_hd_flavor`       | `--utxo-hd-flavor`       |          -           | -                    | UTxO-HD flavor to convert the ledger snapshot to (`Legacy` or `LMDB`)                                                                                   | -             | `LMDB`   | :heavy_check_mark: |
-| `commit`               | `--commit`               |          -           | -                    | Replaces the current ledger state in the `db_directory`                                                                                                 | `false`       | -        |         -          |
-| `github_token`         | `--github-token`         |          -           | `GITHUB_TOKEN`       | GitHub token for authenticated API calls                                                                                                                | -             | -        |         -          |
+:::warning
+
+This command is not compatible with **Linux ARM environments**.
+
+:::
+
+| Parameter              | Command line (long)      | Command line (short) | Environment variable  | Description                                                                                                                                             | Default value | Example |     Mandatory      |
+| ---------------------- | ------------------------ | :------------------: | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
+| `db_directory`         | `--db-directory`         |          -           | -                     | Path to the Cardano node database directory                                                                                                             | -             | -       | :heavy_check_mark: |
+| `cardano_node_version` | `--cardano-node-version` |          -           | -                     | Cardano node version of the Mithril signed snapshot (`latest` and `pre-release` are also supported to download the latest or pre-release distribution). | -             | -       | :heavy_check_mark: |
+| `cardano_network`      | `--cardano-network`      |          -           | -                     | Cardano network                                                                                                                                         | -             | -       |         -          |
+| `utxo_hd_flavor`       | `--utxo-hd-flavor`       |          -           | -                     | UTxO-HD flavor to convert the ledger snapshot to (`Legacy` or `LMDB`)                                                                                   | -             | -       | :heavy_check_mark: |
+| `commit`               | `--commit`               |          -           | -                     | Replaces the current ledger state in the `db_directory`.                                                                                                | `false`       | -       |         -          |
+| `github_token`         | `--github-token`         |          -           | `GITHUB_TOKEN`        | GitHub token for authenticated API calls                                                                                                                | -             | -       |         -          |
+| `run_mode`             | `--run-mode`             |          -           | `RUN_MODE`            | Run Mode                                                                                                                                                | `dev`         | -       |         -          |
+| `verbose`              | `--verbose`              |         `-v`         | -                     | Verbosity level (-v=warning, -vv=info, -vvv=debug, -vvvv=trace)                                                                                         | `0`           | -       |         -          |
+| `config_directory`     | `--config-directory`     |          -           | -                     | Directory where configuration file is located                                                                                                           | `./config`    | -       |         -          |
+| `aggregator_endpoint`  | `--aggregator-endpoint`  |          -           | `AGGREGATOR_ENDPOINT` | Override configuration Aggregator endpoint URL                                                                                                          | -             | -       |         -          |
+| `json`                 | `--json`                 |          -           | -                     | Enable JSON output for command results                                                                                                                  | `false`       | -       |         -          |
+| `log_format_json`      | `--log-format-json`      |          -           | -                     | Enable JSON output for logs displayed according to verbosity level                                                                                      | `false`       | -       |         -          |
+| `log_output`           | `--log-output`           |          -           | -                     | Redirect the logs to a file                                                                                                                             | -             | -       |         -          |
+| `unstable`             | `--unstable`             |          -           | -                     | Enable unstable commands                                                                                                                                | `false`       | -       |         -          |
+| `origin_tag`           | `--origin-tag`           |          -           | -                     | Request origin tag                                                                                                                                      | -             | -       |         -          |
+| `era`                  | `--era`                  |          -           | -                     | Override the Mithril era                                                                                                                                | -             | -       |         -          |
+| `help`                 | `--help`                 |         `-h`         | -                     | Print help (see more with '--help')                                                                                                                     | -             | -       |         -          |
