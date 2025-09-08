@@ -16,6 +16,12 @@ bundle_tls = ["reqwest/native-tls-vendored"]
 jemallocator = ["dep:tikv-jemallocator"]
 future_dmq = ["dep:mithril-dmq"]
 
+# Enables usage of `rug` numerical backend in `mithril-stm` (dependency of `mithril-common`).
+rug-backend = ["mithril-common/rug-backend"]
+# Enables usage of `num-integer` numerical backend in `mithril-stm` (dependency of `mithril-common`)
+# by default it's `rug-backend`
+num-integer-backend = ["mithril-common/num-integer-backend"]
+
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
