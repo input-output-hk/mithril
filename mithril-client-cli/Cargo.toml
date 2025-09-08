@@ -25,6 +25,15 @@ path = "src/main.rs"
 #default = ["bundle_tls"]
 bundle_tls = ["mithril-client/native-tls-vendored"]
 
+# Enables usage of `rug` numerical backend in `mithril-stm` (dependency of `mithril-client`).
+rug-backend = ["mithril-client/rug-backend"]
+# Enables usage of `num-integer` numerical backend in `mithril-stm` (dependency of `mithril-client`)
+# by default it's `rug-backend`
+num-integer-backend = ["mithril-client/num-integer-backend"]
+
+# Support compressed traffic with `reqwest`
+enable-http-compression = ["mithril-client/enable-http-compression"]
+
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }

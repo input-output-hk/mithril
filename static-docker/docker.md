@@ -4,28 +4,15 @@ prerequisites :
 
 `sudo apt-get install musl-dev musl-tools libssl-dev pkg-config`
 
-commands (working with previous commit) :
+⚠️ defaults features have to be removed from mithril-common and mithril-client since we cannot build signer and cli surcharging thoses values
+so in the futur we may have to specify manually with wich features we want to build by default inside the command
+or find a way to automatise the removing of default features before staticly compile signer and CLI for the docker image 
+
+commands :
 
 ```
-cargo build --release -p mithril-client --target=x86_64-unknown-linux-musl
-
-cargo build --release -p mithril-signer --target=x86_64-unknown-linux-musl
-
-cargo build --release -p mithril-client-cli --target=x86_64-unknown-linux-musl
+cargo build --release -p mithril-signer --no-default-features --features bundle_tls,num-integer-backend,jemallocator --target=x86_64-unknown-linux-musl
 ```
-
-
-commands (with default no modified in cargo.toml files) :
-
 ```
-cargo build --release -p mithril-common --no-default-features --features num-integer-backend --target=x86_64-unknown-linux-musl
--> ok
-
-cargo build --release -p mithril-client --no-default-features --features rustls-tls,num-integer-backend,enable-http-compression --target=x86_64-unknown-linux-musl
--> ko
-
-cargo build --release -p mithril-client-cli --no-default-features --features bundle_tls --target=x86_64-unknown-linux-musl
-
-
-cargo build --release -p mithril-signer --no-default-features --features jemallocator,bundle_tls --target=x86_64-unknown-linux-musl
+cargo build --release -p mithril-client-cli --no-default-features --features bundle_tls,num-integer-backend,enable-http-compression --target=x86_64-unknown-linux-musl
 ```
