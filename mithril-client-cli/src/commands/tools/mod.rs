@@ -13,7 +13,7 @@ use mithril_client::MithrilResult;
 
 /// Tools commands
 #[derive(Subcommand, Debug, Clone)]
-#[command(about = "[unstable] Tools commands")]
+#[command(about = "Tools commands")]
 pub enum ToolsCommands {
     /// UTxO-HD related commands
     #[clap(subcommand, name = "utxo-hd")]

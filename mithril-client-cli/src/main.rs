@@ -250,10 +250,7 @@ impl ArtifactCommands {
             Self::GenerateDoc(cmd) => {
                 cmd.execute(&mut Args::command()).map_err(|message| anyhow!(message))
             }
-            Self::Tools(cmd) => {
-                context.require_unstable("tools", Some("utxo-hd snapshot-converter"))?;
-                cmd.execute().await
-            }
+            Self::Tools(cmd) => cmd.execute().await,
         }
     }
 }
@@ -280,36 +277,6 @@ async fn main() -> MithrilResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[tokio::test]
-    async fn fail_if_tools_command_is_used_without_unstable_flag() {
-        let args = Args::try_parse_from([
-            "mithril-client",
-            "tools",
-            "utxo-hd",
-            "snapshot-converter",
-            "--db-directory",
-            "whatever",
-            "--cardano-network",
-            "preview",
-            "--cardano-node-version",
-            "1.2.3",
-            "--utxo-hd-flavor",
-            "Legacy",
-        ])
-        .unwrap();
-
-        let error = args
-            .execute(Logger::root(slog::Discard, slog::o!()))
-            .await
-            .expect_err("Should fail if unstable flag missing");
-
-        assert!(
-            error
-                .to_string()
-                .contains("subcommand is only accepted using the --unstable flag.")
-        );
-    }
 
     #[tokio::test]
     async fn verify_subcommand_should_fail_with_cardano_db_v1() {

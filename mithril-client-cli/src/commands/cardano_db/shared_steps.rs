@@ -172,7 +172,7 @@ pub fn log_download_information(
 
     let snapshot_converter_cmd = |flavor| {
         format!(
-            "mithril-client --unstable tools utxo-hd snapshot-converter --db-directory {} --cardano-node-version {} --utxo-hd-flavor {} --commit",
+            "mithril-client tools utxo-hd snapshot-converter --db-directory {} --cardano-node-version {} --utxo-hd-flavor {} --commit",
             db_dir.display(),
             cardano_node_version,
             flavor,
