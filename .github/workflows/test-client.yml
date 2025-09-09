@@ -273,6 +273,26 @@ jobs:
         shell: bash
         run: .github/workflows/scripts/verify-cardano-db-restoration.sh ./bin/cdb-v2-download-output.txt "${{ matrix.extra_args }}"
 
+      - name: Cardano Database V2 Snapshot / verify tampered and missing immutables from a specific range
+        if: steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_database_v2_enabled == 'true'
+        shell: bash
+        working-directory: ./bin
+        run: |
+          rm -f v2/db/immutable/00007.chunk 
+          rm -f v2/db/immutable/00007.primary
+          rm -f v2/db/immutable/00007.secondary
+          rm -f v2/db/immutable/00011.chunk
+          echo "tampered chunk 5" > v2/db/immutable/00005.chunk
+          echo "tampered primary 9" > v2/db/immutable/00009.primary
+          echo "tampered outside verification range" > v2/db/immutable/00012.chunk
+          ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db verify --end 10 --backend v2 --db-dir v2/db $CARDANO_DATABASE_V2_SNAPSHOT_HASH
+          # Check missing files in immutables_verification_error-*.json
+          jq -r '.["missing-files"] | sort | @csv' immutables_verification_error-*.json | grep -qx '"00007.chunk","00007.primary","00007.secondary"' || { echo "Error: missing-files array does not match expected values!"; exit 1; }
+          # Check tampered files in immutables_verification_error-*.json
+          jq -r '.["tampered-files"] | sort | @csv' immutables_verification_error-*.json | grep -qx '"00005.chunk","00009.primary"' || { echo "Error: tampered-files array does not match expected values!"; exit 1; }
+          # check that non-verifiable-files list is empty
+          jq -e '.["non-verifiable-files"] | length == 0' immutables_verification_error-*.json || { echo "ERROR: non-verifiable-files is not empty!"; exit 1; }
+
   test-docker:
     strategy:
       fail-fast: false
