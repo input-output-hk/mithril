@@ -45,7 +45,7 @@ impl BasicVerifier {
     ///     * Collect the unique signers in a hash set,
     ///     * Calculate the total stake of the eligible signers,
     ///     * Sort the eligible signers.
-    #[deprecated(since = "0.4.9", note = "Use `new` instead")]
+    #[deprecated(since = "0.5.0", note = "Use `new` instead")]
     pub fn setup(public_signers: &[(BlsVerificationKey, Stake)]) -> Self {
         Self::new(public_signers)
     }
@@ -181,7 +181,7 @@ impl BasicVerifier {
     // todo: We need to agree on a criteria to dedup (by default we use a BTreeMap that guarantees keys order)
     // todo: not good, because it only removes index if there is a conflict (see benches)
     #[deprecated(
-        since = "0.4.9",
+        since = "0.5.0",
         note = "Use `select_valid_signatures_for_k_indices` instead"
     )]
     pub fn dedup_sigs_for_indices(

@@ -57,7 +57,7 @@ impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
     /// # Error
     /// If the merkle tree path is invalid, then the function fails.
     #[deprecated(
-        since = "0.4.9",
+        since = "0.5.0",
         note = "Use `verify_leaf_membership_from_path` instead"
     )]
     pub fn check(
@@ -86,7 +86,7 @@ impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
 
     /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
     /// Outputs `msg || self` as a vector of bytes.
-    #[deprecated(since = "0.4.9", note = "Use `concatenate_with_message` instead")]
+    #[deprecated(since = "0.5.0", note = "Use `concatenate_with_message` instead")]
     pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8>
     where
         D: Digest,
@@ -136,7 +136,7 @@ impl<D: Digest> MerkleTreeBatchCommitment<D> {
     /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
     /// Outputs `msg || self` as a vector of bytes.
     // todo: Do we need to concat msg to whole commitment (nr_leaves and root) or just the root?
-    #[deprecated(since = "0.4.9", note = "Use `concatenate_with_message` instead")]
+    #[deprecated(since = "0.5.0", note = "Use `concatenate_with_message` instead")]
     pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8> {
         Self::concatenate_with_message(self, msg)
     }
@@ -241,7 +241,7 @@ impl<D: Digest> MerkleTreeBatchCommitment<D> {
     // todo: Simplify the algorithm.
     // todo: Maybe we want more granular errors, rather than only `BatchPathInvalid`
     #[deprecated(
-        since = "0.4.9",
+        since = "0.5.0",
         note = "Use `verify_leaves_membership_from_batch_path` instead"
     )]
     pub fn check(
