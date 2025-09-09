@@ -131,7 +131,7 @@ impl SingleSignature {
     }
 
     /// Compare two `SingleSignature` by their signers' merkle tree indexes.
-    #[deprecated(since = "0.4.9", note = "This function will be removed")]
+    #[deprecated(since = "0.5.0", note = "This function will be removed")]
     pub fn cmp_stm_sig(&self, other: &Self) -> Ordering {
         Self::compare_signer_index(self, other)
     }
@@ -153,7 +153,7 @@ impl SingleSignature {
     }
 
     /// Will be deprecated. Use `basic_verify` instead.
-    #[deprecated(since = "0.4.9", note = "Use `basic_verify` instead")]
+    #[deprecated(since = "0.5.0", note = "Use `basic_verify` instead")]
     pub fn core_verify(
         &self,
         params: &Parameters,

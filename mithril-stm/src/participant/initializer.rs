@@ -41,7 +41,7 @@ impl Initializer {
 
     /// Builds an `Initializer` that is ready to register with the key registration service.
     /// This function generates the signing and verification key with a PoP, and initialises the structure.
-    #[deprecated(since = "0.4.9", note = "Use `new` instead")]
+    #[deprecated(since = "0.5.0", note = "Use `new` instead")]
     pub fn setup<R: RngCore + CryptoRng>(params: Parameters, stake: Stake, rng: &mut R) -> Self {
         Self::new(params, stake, rng)
     }
@@ -53,7 +53,7 @@ impl Initializer {
 
     /// Extract the verification key.
     #[deprecated(
-        since = "0.4.9",
+        since = "0.5.0",
         note = "Use `get_verification_key_proof_of_possession` instead"
     )]
     pub fn verification_key(&self) -> VerificationKeyProofOfPossession {
@@ -109,7 +109,7 @@ impl Initializer {
     /// * the current total stake (according to the registration service)
     /// # Error
     /// This function fails if the initializer is not registered.
-    #[deprecated(since = "0.4.9", note = "Use `create_signer` instead")]
+    #[deprecated(since = "0.5.0", note = "Use `create_signer` instead")]
     pub fn new_signer<D: Digest + Clone + FixedOutput>(
         self,
         closed_reg: ClosedKeyRegistration<D>,
@@ -151,7 +151,7 @@ impl Initializer {
     /// Takes `eligible_parties` as a parameter and determines the signer's index in the parties.
     /// `eligible_parties` is verified and trusted which is only run by a full-node
     /// that has already verified the parties.
-    #[deprecated(since = "0.4.9", note = "Use `create_basic_signer` instead")]
+    #[deprecated(since = "0.5.0", note = "Use `create_basic_signer` instead")]
     pub fn new_core_signer<D: Digest + Clone + FixedOutput>(
         self,
         eligible_parties: &[RegisteredParty],

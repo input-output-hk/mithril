@@ -46,7 +46,7 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
     }
 
     /// Create a Signer for given input
-    #[deprecated(since = "0.4.9", note = "Use `set_signer` instead")]
+    #[deprecated(since = "0.5.0", note = "Use `set_signer` instead")]
     pub fn set_stm_signer(
         signer_index: u64,
         stake: Stake,
@@ -77,7 +77,7 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
     }
 
     /// Create a core signer (no registration data) for given input
-    #[deprecated(since = "0.4.9", note = "Use `set_basic_signer` instead")]
+    #[deprecated(since = "0.5.0", note = "Use `set_basic_signer` instead")]
     pub fn set_core_signer(
         signer_index: u64,
         stake: Stake,
@@ -115,7 +115,7 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
     }
 
     /// Extract the verification key.
-    #[deprecated(since = "0.4.9", note = "Use `get_verification_key` instead")]
+    #[deprecated(since = "0.5.0", note = "Use `get_verification_key` instead")]
     pub fn verification_key(&self) -> VerificationKey {
         Self::get_verification_key(self)
     }
@@ -150,7 +150,7 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
     /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
     /// wins the lottery by evaluating the dense mapping.
     /// It records all the winning indexes in `Self.indexes`.
-    #[deprecated(since = "0.4.9", note = "Use `basic_sign` instead")]
+    #[deprecated(since = "0.5.0", note = "Use `basic_sign` instead")]
     pub fn core_sign(&self, msg: &[u8], total_stake: Stake) -> Option<SingleSignature> {
         Self::basic_sign(self, msg, total_stake)
     }
@@ -177,7 +177,7 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
     }
 
     /// Get Parameters
-    #[deprecated(since = "0.4.9", note = "Use `get_parameters` instead")]
+    #[deprecated(since = "0.5.0", note = "Use `get_parameters` instead")]
     pub fn get_params(&self) -> Parameters {
         Self::get_parameters(self)
     }
@@ -188,7 +188,7 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
     }
 
     /// Get closed key registration
-    #[deprecated(since = "0.4.9", note = "Use `get_closed_key_registration` instead")]
+    #[deprecated(since = "0.5.0", note = "Use `get_closed_key_registration` instead")]
     pub fn get_closed_reg(&self) -> Option<ClosedKeyRegistration<D>> {
         Self::get_closed_key_registration(self)
     }

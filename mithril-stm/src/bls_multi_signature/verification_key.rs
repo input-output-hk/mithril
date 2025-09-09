@@ -164,7 +164,7 @@ impl BlsVerificationKeyProofOfPossession {
     /// manually.
     // If we are really looking for performance improvements, we can combine the
     // two final exponentiations (for verifying k1 and k2) into a single one.
-    #[deprecated(since = "0.4.9", note = "Use `verify_proof_of_possesion` instead")]
+    #[deprecated(since = "0.5.0", note = "Use `verify_proof_of_possesion` instead")]
     pub fn check(&self) -> Result<(), MultiSignatureError> {
         Self::verify_proof_of_possesion(self)
     }

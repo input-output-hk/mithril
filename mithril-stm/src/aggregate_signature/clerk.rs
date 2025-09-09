@@ -29,7 +29,7 @@ impl<D: Digest + Clone + FixedOutput> Clerk<D> {
 
     /// Create a new `Clerk` from a closed registration instance.
     #[deprecated(
-        since = "0.4.9",
+        since = "0.5.0",
         note = "Use `new_clerk_from_closed_key_registration` instead"
     )]
     pub fn from_registration(params: &Parameters, closed_reg: &ClosedKeyRegistration<D>) -> Self {
@@ -51,7 +51,7 @@ impl<D: Digest + Clone + FixedOutput> Clerk<D> {
     }
 
     /// Create a Clerk from a signer.
-    #[deprecated(since = "0.4.9", note = "Use `new_clerk_from_signer` instead")]
+    #[deprecated(since = "0.5.0", note = "Use `new_clerk_from_signer` instead")]
     pub fn from_signer(signer: &Signer<D>) -> Self {
         Self::new_clerk_from_signer(signer)
     }
@@ -108,7 +108,7 @@ impl<D: Digest + Clone + FixedOutput> Clerk<D> {
     /// The list of merkle tree indexes is used to create a batch proof, to prove that all signatures are from eligible signers.
     ///
     /// It returns an instance of `AggregateSignature`.
-    #[deprecated(since = "0.4.9", note = "Use `aggregate_signatures` instead")]
+    #[deprecated(since = "0.5.0", note = "Use `aggregate_signatures` instead")]
     pub fn aggregate(
         &self,
         sigs: &[SingleSignature],
@@ -124,7 +124,7 @@ impl<D: Digest + Clone + FixedOutput> Clerk<D> {
 
     /// Compute the `AggregateVerificationKey` related to the used registration.
     #[deprecated(
-        since = "0.4.9",
+        since = "0.5.0",
         note = "Use `compute_aggregate_verification_key` instead"
     )]
     pub fn compute_avk(&self) -> AggregateVerificationKey<D> {
@@ -143,7 +143,7 @@ impl<D: Digest + Clone + FixedOutput> Clerk<D> {
     }
 
     /// Get the (VK, stake) of a party given its index.
-    #[deprecated(since = "0.4.9", note = "Use `get_registered_party_for_index` instead")]
+    #[deprecated(since = "0.5.0", note = "Use `get_registered_party_for_index` instead")]
     pub fn get_reg_party(&self, party_index: &Index) -> Option<(VerificationKey, Stake)> {
         Self::get_registered_party_for_index(self, party_index)
     }

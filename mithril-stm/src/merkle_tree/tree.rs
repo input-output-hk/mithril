@@ -64,7 +64,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
     }
 
     /// Provided a non-empty list of leaves, `create` generates its corresponding `MerkleTree`.
-    #[deprecated(since = "0.4.9", note = "Use `new` instead")]
+    #[deprecated(since = "0.5.0", note = "Use `new` instead")]
     pub fn create(leaves: &[MerkleTreeLeaf]) -> MerkleTree<D> {
         Self::new(leaves)
     }
@@ -83,7 +83,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
     /// Convert merkle tree to a batch compatible commitment.
     /// This function simply returns the root and the number of leaves in the tree.
     #[deprecated(
-        since = "0.4.9",
+        since = "0.5.0",
         note = "Use `to_merkle_tree_batch_commitment` instead"
     )]
     pub fn to_commitment_batch_compat(&self) -> MerkleTreeBatchCommitment<D> {
@@ -169,7 +169,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
     /// If the indices provided are out of bounds (higher than the number of elements
     /// committed in the `MerkleTree`) or are not ordered, the function fails.
     // todo: Update doc.
-    #[deprecated(since = "0.4.9", note = "Use `compute_merkle_tree_batch_path` instead")]
+    #[deprecated(since = "0.5.0", note = "Use `compute_merkle_tree_batch_path` instead")]
     pub fn get_batched_path(&self, indices: Vec<usize>) -> MerkleBatchPath<D>
     where
         D: FixedOutput,
@@ -226,7 +226,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
     }
 
     /// Convert merkle tree to a commitment. This function simply returns the root.
-    #[deprecated(since = "0.4.9", note = "Use `to_merkle_tree_commitment` instead")]
+    #[deprecated(since = "0.5.0", note = "Use `to_merkle_tree_commitment` instead")]
     pub fn to_commitment(&self) -> MerkleTreeCommitment<D> {
         Self::to_merkle_tree_commitment(self)
     }
@@ -260,7 +260,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
     /// Get a path (hashes of siblings of the path to the root node)
     /// for the `i`th value stored in the tree.
     /// Requires `i < self.n`
-    #[deprecated(since = "0.4.9", note = "Use `compute_merkle_tree_path` instead")]
+    #[deprecated(since = "0.5.0", note = "Use `compute_merkle_tree_path` instead")]
     pub fn get_path(&self, i: usize) -> MerklePath<D> {
         Self::compute_merkle_tree_path(self, i)
     }

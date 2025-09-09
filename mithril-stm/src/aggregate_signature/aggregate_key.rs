@@ -22,7 +22,7 @@ impl<D: Digest + Clone + FixedOutput> AggregateVerificationKey<D> {
     }
 
     #[deprecated(
-        since = "0.4.9",
+        since = "0.5.0",
         note = "Use `get_merkle_tree_batch_commitment` instead"
     )]
     pub fn get_mt_commitment(&self) -> MerkleTreeBatchCommitment<D> {
