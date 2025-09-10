@@ -32,7 +32,10 @@ use crate::{
     cardano_database_client::ImmutableFileRange,
     feedback::MithrilEvent,
     file_downloader::{DownloadEvent, FileDownloader, FileDownloaderUri},
-    utils::{create_directory_if_not_exists, delete_directory, read_files_in_directory},
+    utils::{
+        TempDirectoryProvider, create_directory_if_not_exists, delete_directory,
+        read_files_in_directory,
+    },
 };
 
 /// Represents the verified digests and the Merkle tree built from them.
@@ -185,14 +188,20 @@ impl VerifiedDigests {
 
 pub struct InternalArtifactProver {
     http_file_downloader: Arc<dyn FileDownloader>,
+    temp_directory_provider: Arc<dyn TempDirectoryProvider>,
     logger: slog::Logger,
 }
 
 impl InternalArtifactProver {
     /// Constructs a new `InternalArtifactProver`.
-    pub fn new(http_file_downloader: Arc<dyn FileDownloader>, logger: slog::Logger) -> Self {
+    pub fn new(
+        http_file_downloader: Arc<dyn FileDownloader>,
+        temp_directory_provider: Arc<dyn TempDirectoryProvider>,
+        logger: slog::Logger,
+    ) -> Self {
         Self {
             http_file_downloader,
+            temp_directory_provider,
             logger,
         }
     }
@@ -223,7 +232,7 @@ impl InternalArtifactProver {
         certificate: &CertificateMessage,
         cardano_database_snapshot: &CardanoDatabaseSnapshotMessage,
     ) -> MithrilResult<VerifiedDigests> {
-        let digest_target_dir = Self::digest_target_dir();
+        let digest_target_dir = self.digest_target_dir();
         delete_directory(&digest_target_dir)?;
         self.download_unpack_digest_file(&cardano_database_snapshot.digests, &digest_target_dir)
             .await?;
@@ -423,8 +432,8 @@ impl InternalArtifactProver {
         Ok(digest_map)
     }
 
-    fn digest_target_dir() -> PathBuf {
-        std::env::temp_dir().join("mithril_digest")
+    fn digest_target_dir(&self) -> PathBuf {
+        self.temp_directory_provider.temp_dir()
     }
 }
 
@@ -437,6 +446,7 @@ mod tests {
     use std::sync::Arc;
 
     use mithril_common::{
+        current_function,
         entities::{CardanoDbBeacon, Epoch, HexEncodedDigest},
         messages::CardanoDatabaseDigestListItemMessage,
         test::{TempDir, double::Dummy},
@@ -445,6 +455,7 @@ mod tests {
     use crate::{
         cardano_database_client::CardanoDatabaseClientDependencyInjector,
         file_downloader::MockFileDownloaderBuilder, test_utils::TestLogger,
+        utils::TimestampTempDirectoryProvider,
     };
 
     use super::*;
@@ -561,10 +572,12 @@ mod tests {
 
     mod download_and_verify_digests {
         use mithril_common::{
-            StdResult,
+            StdResult, current_function,
             entities::{ProtocolMessage, ProtocolMessagePartKey},
             messages::DigestsMessagePart,
         };
+
+        use crate::utils::TimestampTempDirectoryProvider;
 
         use super::*;
 
@@ -610,7 +623,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn download_and_verify_digest_should_return_digest_map_acording_to_beacon() {
+        async fn download_and_verify_digest_should_return_digest_map_according_to_beacon() {
             let beacon = CardanoDbBeacon {
                 epoch: Epoch(123),
                 immutable_file_number: 42,
@@ -650,22 +663,28 @@ mod tests {
                 },
                 ..CardanoDatabaseSnapshotMessage::dummy()
             };
-            let client = CardanoDatabaseClientDependencyInjector::new()
-                .with_http_file_downloader(Arc::new(
-                    MockFileDownloaderBuilder::default()
-                        .with_file_uri(digests_location)
-                        .with_target_dir(InternalArtifactProver::digest_target_dir())
-                        .with_compression(None)
-                        .with_returning(Box::new(move |_, _, _, _, _| {
-                            write_digest_file(
-                                &InternalArtifactProver::digest_target_dir(),
-                                &build_digests_map(hightest_immutable_number_in_digest_file),
-                            )?;
+            let temp_directory_provider =
+                Arc::new(TimestampTempDirectoryProvider::new(current_function!()));
+            let digest_target_dir = temp_directory_provider.temp_dir();
+            let digest_target_dir_clone = digest_target_dir.clone();
+            let http_file_downloader = Arc::new(
+                MockFileDownloaderBuilder::default()
+                    .with_file_uri(digests_location)
+                    .with_target_dir(digest_target_dir.clone())
+                    .with_compression(None)
+                    .with_returning(Box::new(move |_, _, _, _, _| {
+                        write_digest_file(
+                            &digest_target_dir_clone,
+                            &build_digests_map(hightest_immutable_number_in_digest_file),
+                        )?;
 
-                            Ok(())
-                        }))
-                        .build(),
-                ))
+                        Ok(())
+                    }))
+                    .build(),
+            );
+            let client = CardanoDatabaseClientDependencyInjector::new()
+                .with_http_file_downloader(http_file_downloader)
+                .with_temp_directory_provider(temp_directory_provider)
                 .build_cardano_database_client();
 
             let verified_digests = client
@@ -681,7 +700,7 @@ mod tests {
                 .collect();
             assert_eq!(verified_digests.digests, expected_digests_in_certificate);
 
-            assert!(!InternalArtifactProver::digest_target_dir().exists());
+            assert!(!digest_target_dir.exists());
         }
     }
 
@@ -704,6 +723,7 @@ mod tests {
                         .with_times(2)
                         .build(),
                 ),
+                Arc::new(TimestampTempDirectoryProvider::new(current_function!())),
                 TestLogger::stdout(),
             );
 
@@ -732,6 +752,7 @@ mod tests {
             let target_dir = Path::new(".");
             let artifact_prover = InternalArtifactProver::new(
                 Arc::new(MockFileDownloader::new()),
+                Arc::new(TimestampTempDirectoryProvider::new(current_function!())),
                 TestLogger::stdout(),
             );
 
@@ -760,6 +781,7 @@ mod tests {
                         .with_success()
                         .build(),
                 ),
+                Arc::new(TimestampTempDirectoryProvider::new(current_function!())),
                 TestLogger::stdout(),
             );
 
@@ -794,6 +816,7 @@ mod tests {
                         .with_success()
                         .build(),
                 ),
+                Arc::new(TimestampTempDirectoryProvider::new(current_function!())),
                 TestLogger::stdout(),
             );
 
@@ -828,6 +851,7 @@ mod tests {
                         .with_success()
                         .build(),
                 ),
+                Arc::new(TimestampTempDirectoryProvider::new(current_function!())),
                 TestLogger::stdout(),
             );
 
@@ -884,6 +908,7 @@ mod tests {
                         .with_success()
                         .build(),
                 ),
+                Arc::new(TimestampTempDirectoryProvider::new(current_function!())),
                 TestLogger::stdout(),
             );
             artifact_prover
@@ -907,6 +932,7 @@ mod tests {
                         .with_success()
                         .build(),
                 ),
+                Arc::new(TimestampTempDirectoryProvider::new(current_function!())),
                 TestLogger::stdout(),
             );
             artifact_prover
@@ -929,6 +955,7 @@ mod tests {
                         .with_success()
                         .build(),
                 ),
+                Arc::new(TimestampTempDirectoryProvider::new(current_function!())),
                 TestLogger::stdout(),
             );
             artifact_prover
@@ -961,6 +988,7 @@ mod tests {
                         .with_success()
                         .build(),
                 ),
+                Arc::new(TimestampTempDirectoryProvider::new(current_function!())),
                 TestLogger::stdout(),
             );
 
