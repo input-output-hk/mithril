@@ -167,6 +167,7 @@ impl From<StmSignatureError> for CoreVerifierError {
     }
 }
 
+// TODO: rename StmAggregateSignatureError to ConcatenationProofError and move it to aggregate_signature/proof/error.rs
 /// Errors which can be output by Mithril aggregate verification.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
