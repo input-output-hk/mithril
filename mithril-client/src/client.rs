@@ -1,4 +1,6 @@
 use anyhow::{Context, anyhow};
+#[cfg(feature = "fs")]
+use chrono::Utc;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use slog::{Logger, o};
@@ -28,6 +30,8 @@ use crate::mithril_stake_distribution_client::MithrilStakeDistributionClient;
 use crate::snapshot_client::SnapshotClient;
 #[cfg(feature = "fs")]
 use crate::utils::AncillaryVerifier;
+#[cfg(feature = "fs")]
+use crate::utils::TimestampTempDirectoryProvider;
 
 const DEFAULT_CLIENT_TYPE: &str = "LIBRARY";
 
@@ -311,6 +315,11 @@ impl ClientBuilder {
             ancillary_verifier,
             #[cfg(feature = "fs")]
             feedback_sender,
+            #[cfg(feature = "fs")]
+            Arc::new(TimestampTempDirectoryProvider::new(&format!(
+                "{}",
+                Utc::now().timestamp_micros()
+            ))),
             #[cfg(feature = "fs")]
             logger,
         ));

@@ -22,7 +22,7 @@ use crate::feedback::FeedbackSender;
 #[cfg(feature = "fs")]
 use crate::file_downloader::FileDownloader;
 #[cfg(feature = "fs")]
-use crate::utils::AncillaryVerifier;
+use crate::utils::{AncillaryVerifier, TempDirectoryProvider};
 use crate::{CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem, MithrilResult};
 
 use super::fetch::InternalArtifactRetriever;
@@ -50,6 +50,7 @@ impl CardanoDatabaseClient {
         #[cfg(feature = "fs")] http_file_downloader: Arc<dyn FileDownloader>,
         #[cfg(feature = "fs")] ancillary_verifier: Option<Arc<AncillaryVerifier>>,
         #[cfg(feature = "fs")] feedback_sender: FeedbackSender,
+        #[cfg(feature = "fs")] temp_directory_provider: Arc<dyn TempDirectoryProvider>,
         #[cfg(feature = "fs")] logger: Logger,
     ) -> Self {
         #[cfg(feature = "fs")]
@@ -67,6 +68,7 @@ impl CardanoDatabaseClient {
             #[cfg(feature = "fs")]
             artifact_prover: InternalArtifactProver::new(
                 http_file_downloader.clone(),
+                temp_directory_provider.clone(),
                 logger.clone(),
             ),
             statistics_sender: InternalStatisticsSender::new(aggregator_client.clone()),
@@ -172,6 +174,8 @@ pub(crate) mod test_dependency_injector {
     #[cfg(feature = "fs")]
     use crate::file_downloader::{FileDownloader, MockFileDownloaderBuilder};
     #[cfg(feature = "fs")]
+    use crate::utils::TimestampTempDirectoryProvider;
+    #[cfg(feature = "fs")]
     use crate::{feedback::FeedbackReceiver, test_utils::TestLogger};
 
     /// Dependency injector for `CardanoDatabaseClient` for testing purposes.
@@ -183,6 +187,8 @@ pub(crate) mod test_dependency_injector {
         ancillary_verifier: Option<Arc<AncillaryVerifier>>,
         #[cfg(feature = "fs")]
         feedback_receivers: Vec<Arc<dyn FeedbackReceiver>>,
+        #[cfg(feature = "fs")]
+        temp_directory_provider: Arc<dyn TempDirectoryProvider>,
         #[cfg(feature = "fs")]
         logger: Logger,
     }
@@ -203,6 +209,10 @@ pub(crate) mod test_dependency_injector {
                 ancillary_verifier: None,
                 #[cfg(feature = "fs")]
                 feedback_receivers: vec![],
+                #[cfg(feature = "fs")]
+                temp_directory_provider: Arc::new(TimestampTempDirectoryProvider::new(
+                    "cardano_database_client_test",
+                )),
                 #[cfg(feature = "fs")]
                 logger: TestLogger::stdout(),
             }
@@ -260,12 +270,24 @@ pub(crate) mod test_dependency_injector {
         }
 
         #[cfg(feature = "fs")]
+        pub(crate) fn with_temp_directory_provider(
+            self,
+            temp_directory_provider: Arc<dyn TempDirectoryProvider>,
+        ) -> Self {
+            Self {
+                temp_directory_provider,
+                ..self
+            }
+        }
+
+        #[cfg(feature = "fs")]
         pub(crate) fn build_cardano_database_client(self) -> CardanoDatabaseClient {
             CardanoDatabaseClient::new(
                 Arc::new(self.aggregator_client),
                 self.http_file_downloader,
                 self.ancillary_verifier,
                 FeedbackSender::new(&self.feedback_receivers),
+                self.temp_directory_provider,
                 self.logger,
             )
         }
