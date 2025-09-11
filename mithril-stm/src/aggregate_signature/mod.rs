@@ -461,7 +461,7 @@ mod tests {
         #[test]
         fn test_invalid_proof_index_unique(tc in arb_proof_setup(10)) {
             with_proof_mod(tc, |aggr, clerk, _msg| {
-                for sig_reg in aggr.signatures.iter_mut() {
+                for sig_reg in aggr.signatures().iter_mut() {
                     for index in sig_reg.sig.indexes.iter_mut() {
                        *index %= clerk.params.k - 1
                     }
@@ -471,7 +471,7 @@ mod tests {
         #[test]
         fn test_invalid_proof_path(tc in arb_proof_setup(10)) {
             with_proof_mod(tc, |aggr, _, _msg| {
-                let p = aggr.batch_proof.clone();
+                let p = aggr.batch_proof().clone();
                 let mut index_list = p.indices.clone();
                 let values = p.values;
                 let batch_proof = {
@@ -482,7 +482,7 @@ mod tests {
                         hasher: Default::default()
                     }
                 };
-                aggr.batch_proof = batch_proof;
+                aggr.set_batch_proof(batch_proof);
             })
         }
     }
