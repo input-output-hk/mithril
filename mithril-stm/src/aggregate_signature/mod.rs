@@ -1,11 +1,13 @@
 mod aggregate_key;
 mod basic_verifier;
 mod clerk;
+mod proof;
 mod signature;
 
 pub use aggregate_key::*;
 pub use basic_verifier::*;
 pub use clerk::*;
+pub use proof::*;
 pub use signature::*;
 
 #[cfg(test)]
