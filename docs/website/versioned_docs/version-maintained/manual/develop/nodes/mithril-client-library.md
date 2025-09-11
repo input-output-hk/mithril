@@ -263,18 +263,6 @@ cargo run
 
 ### Cardano database v2
 
-:::danger
-
-This feature is still unstable.
-
-To use it, you need to add the `unstable` feature in your project's `Cargo.toml` file.
-
-```
-mithril-client = { version = "0.11.X", features = ["fs", "unstable"] }
-```
-
-:::
-
 Below is a basic example using the new `CardanoDatabase` functions. Make sure the target aggregator signs `CardanoDatabase` incremental snapshot.
 
 :::tip
@@ -339,21 +327,32 @@ async fn main() -> mithril_client::MithrilResult<()> {
         .download_unpack(
             &snapshot,
             &immutable_file_range,
-            target_directory,
+            &target_directory,
             download_unpack_options,
         )
         .await?;
 
+    let verified_digests = client
+        .cardano_database_v2()
+        .download_and_verify_digests(
+            &certificate,
+            &snapshot
+        )
+        .await?;
+
+    let allow_missing_immutables_files = false;
     let merkle_proof = client
         .cardano_database_v2()
-        .compute_merkle_proof(
+        .verify_cardano_database(
             &certificate,
             &snapshot,
             &immutable_file_range,
-            target_directory,
-        )
-        .await?;
-    merkle_proof.verify()?;
+            allow_missing_immutables_files,
+            &target_directory,
+            &verified_digest,
+        ),
+    )
+    .await?;
 
     let message = MessageBuilder::new()
         .compute_cardano_database_message(&certificate, &merkle_proof)

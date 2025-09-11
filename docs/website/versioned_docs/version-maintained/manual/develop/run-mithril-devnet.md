@@ -107,7 +107,7 @@ You should see the following information displayed:
 >> Artifacts Directory[env::ARTIFACTS_DIR]: artifacts
 >> Cardano Full nodes [env::NUM_FULL_NODES]: 1
 >> Cardano SPO nodes [env::NUM_POOL_NODES]: 2
->> Cardano Node Version [env::CARDANO_NODE_VERSION]: 10.4.1
+>> Cardano Node Version [env::CARDANO_NODE_VERSION]: 10.5.1
 >> Cardano Network Magic [env::NETWORK_MAGIC]: 42
 >> Cardano Hard Fork Babbage At Epoch [env::HARD_FORK_BABBAGE_AT_EPOCH]: 0
 >> Cardano Hard Fork Conway At Epoch [env::HARD_FORK_CONWAY_AT_EPOCH]: 0
@@ -126,7 +126,7 @@ generated genesis with: 3 genesis keys, 2 non-delegating UTxO keys, 2 stake pool
 >> Start Cardano network
 cardano-cli 10.1.1.0 - linux-x86_64 - ghc-8.10
 git rev 01bda2e2cb0a70cd95067d696dbb44665f1d680a
-cardano-node 10.4.1 - linux-x86_64 - ghc-8.10
+cardano-node 10.5.1 - linux-x86_64 - ghc-8.10
 git rev 01bda2e2cb0a70cd95067d696dbb44665f1d680a
 >> Starting Cardano node 'node-full1'
 >> Starting Cardano node 'node-pool1'
@@ -191,7 +191,7 @@ Signer 2  pool1y3pxhtqytcwy3mmnawqf2ej0x9sz5frkkwkz6scfqmzyyw8u38v  Certified Po
 >> Bootstrap the Genesis certificate
 {"msg":"Started","v":0,"name":"mithril-aggregator","level":20,"time":"2024-11-14T10:29:07.953666896Z","hostname":"c993b6b764f2","pid":1,"node_version":"0.5.110+e2fa1e0","run_mode":"dev"}
 {Genesis bootstrap for test only!
-"msg":"BOOTSTRAP GENESIS command","v":0,"name":"mithril-aggregator","level":20,"time":"2024-11-14T10:29:07.95394937Z","hostname":"c993b6b764f2","pid":1,"config":"Configuration { environment: Production, cardano_cli_path: \"/app/bin/cardano-cli\", cardano_node_socket_path: \"/data/ipc/node.sock\", cardano_node_version: \"10.4.1\", network_magic: Some(42), network: \"devnet\", chain_observer_type: Pallas, protocol_parameters: ProtocolParameters { k: 5, m: 100, phi_f: 0.65 }, snapshot_uploader_type: Local, snapshot_bucket_name: None, snapshot_use_cdn_domain: false, server_ip: \"0.0.0.0\", server_port: 8080, run_interval: 1000, db_directory: \"/data/db\", snapshot_directory: \".\", data_stores_directory: \"/data/mithril/aggregator/stores\", genesis_verification_key: \"5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d\", reset_digests_cache: false, disable_digests_cache: false, store_retention_limit: None, era_reader_adapter_type: Bootstrap, era_reader_adapter_params: None, signed_entity_types: None, snapshot_compression_algorithm: Zstandard, zstandard_parameters: None, cexplorer_pools_url: None, signer_importer_run_interval: 720, allow_unparsable_block: false, cardano_transactions_prover_cache_pool_size: 10, cardano_transactions_database_connection_pool_size: 10, cardano_transactions_signing_config: CardanoTransactionsSigningConfig { security_parameter: BlockNumber(3000), step: BlockNumber(120) }, cardano_transactions_prover_max_hashes_allowed_by_request: 100, cardano_transactions_block_streamer_max_roll_forwards_per_poll: 10000, enable_metrics_server: false, metrics_server_ip: \"0.0.0.0\", metrics_server_port: 9090, persist_usage_report_interval_in_seconds: 10 }"}
+"msg":"BOOTSTRAP GENESIS command","v":0,"name":"mithril-aggregator","level":20,"time":"2024-11-14T10:29:07.95394937Z","hostname":"c993b6b764f2","pid":1,"config":"Configuration { environment: Production, cardano_cli_path: \"/app/bin/cardano-cli\", cardano_node_socket_path: \"/data/ipc/node.sock\", cardano_node_version: \"10.5.1\", network_magic: Some(42), network: \"devnet\", chain_observer_type: Pallas, protocol_parameters: ProtocolParameters { k: 5, m: 100, phi_f: 0.65 }, snapshot_uploader_type: Local, snapshot_bucket_name: None, snapshot_use_cdn_domain: false, server_ip: \"0.0.0.0\", server_port: 8080, run_interval: 1000, db_directory: \"/data/db\", snapshot_directory: \".\", data_stores_directory: \"/data/mithril/aggregator/stores\", genesis_verification_key: \"5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d\", reset_digests_cache: false, disable_digests_cache: false, store_retention_limit: None, era_reader_adapter_type: Bootstrap, era_reader_adapter_params: None, signed_entity_types: None, snapshot_compression_algorithm: Zstandard, zstandard_parameters: None, cexplorer_pools_url: None, signer_importer_run_interval: 720, allow_unparsable_block: false, cardano_transactions_prover_cache_pool_size: 10, cardano_transactions_database_connection_pool_size: 10, cardano_transactions_signing_config: CardanoTransactionsSigningConfig { security_parameter: BlockNumber(3000), step: BlockNumber(120) }, cardano_transactions_prover_max_hashes_allowed_by_request: 100, cardano_transactions_block_streamer_max_roll_forwards_per_poll: 10000, enable_metrics_server: false, metrics_server_ip: \"0.0.0.0\", metrics_server_port: 9090, persist_usage_report_interval_in_seconds: 10 }"}
 {"msg":"Opening SQLite connection","v":0,"name":"mithril-aggregator","level":20,"time":"2024-11-14T10:29:07.954098066Z","hostname":"c993b6b764f2","pid":1,"src":"ConnectionBuilder","path":"/data/mithril/aggregator/stores/aggregator.sqlite3"}
 {"msg":"Enabling SQLite Write Ahead Log journal mode","v":0,"name":"mithril-aggregator","level":20,"time":"2024-11-14T10:29:07.954185725Z","hostname":"c993b6b764f2","pid":1,"src":"ConnectionBuilder"}
 {"msg":"Enabling SQLite foreign key support","v":0,"name":"mithril-aggregator","level":20,"time":"2024-11-14T10:29:07.954483371Z","hostname":"c993b6b764f2","pid":1,"src":"ConnectionBuilder"}
@@ -332,7 +332,7 @@ The networks will be queried every second and will display:
       "http://0.0.0.0:8080/aggregator/artifact/snapshot/4c7b06dd2bef1416391b92a46dae7d2f606ced2954b628f844b021ba5b52b15f/download"
     ],
     "compression_algorithm": "zstandard",
-    "cardano_node_version": "10.4.1"
+    "cardano_node_version": "10.5.1"
   },
   {
     "digest": "b98b25f505401e967df1012a4c13385290db15d157d0292e9f8290bd9933a66e",
@@ -349,7 +349,7 @@ The networks will be queried every second and will display:
       "http://0.0.0.0:8080/aggregator/artifact/snapshot/b98b25f505401e967df1012a4c13385290db15d157d0292e9f8290bd9933a66e/download"
     ],
     "compression_algorithm": "zstandard",
-    "cardano_node_version": "10.4.1"
+    "cardano_node_version": "10.5.1"
   }
 ]
 
@@ -564,7 +564,7 @@ You will see more information about the snapshot:
 +-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | Size                  | 2323485648                                                                                                                                                                     |
 +-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| Cardano node version  | 10.4.1                                                                                                                                                                          |
+| Cardano node version  | 10.5.1                                                                                                                                                                          |
 +-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | Location              | https://storage.googleapis.com/cdn.aggregator.testing-preview.api.mithril.network/preview-e539-i10787.db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667.tar.zst |
 +-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -590,11 +590,11 @@ You will see that the certificate chain is validated to ensure the issued certif
 3/5 - Downloading and unpacking the Cardano db
 4/5 - Computing the Cardano db message
 5/5 - Verifying the cardano db signature…
-Cardano db 'db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667' has been unpacked and successfully checked against Mithril multi-signature contained in the certificate.
+Cardano db 'db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667' has been unpacked and successfully verified with Mithril.
 
-    Files in the directory '/home/mithril/data/testnet/db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667/db' can be used to run a Cardano node with version >= 10.4.1.
+    Files in the directory '/home/mithril/data/testnet/db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667/db' can be used to run a Cardano node with version >= 10.5.1.
 
     If you are using Cardano Docker image, you can restore a Cardano Node with:
 
-    docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="/home/mithril/data/testnet/db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667/db",target=/data/db/ -e NETWORK=preview ghcr.io/intersectmbo/cardano-node:10.4.1
+    docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="/home/mithril/data/testnet/db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667/db",target=/data/db/ -e NETWORK=preview ghcr.io/intersectmbo/cardano-node:10.5.1
 ```
