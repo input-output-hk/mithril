@@ -52,7 +52,7 @@ pub const fn single_signature<'a>() -> [&'a str; 4] {
     ]
 }
 
-/// A list of pre json hex encoded [MithrilStm:AggregateSignature](struct@mithril_stm::AggregateSignature)
+/// A list of pre json hex encoded [MithrilStm:AggregateSignature](enum@mithril_stm::AggregateSignature)
 pub const fn multi_signature<'a>() -> [&'a str; 2] {
     [
         "7b227369676e617475726573223a5b5b7b227369676d61223a5b3137312c3136312c3232352c3139342c32382c\
