@@ -4,6 +4,7 @@ use crate::{
     AggregateSignature, AggregateVerificationKey, AggregationError, BasicVerifier,
     ClosedKeyRegistration, Index, Parameters, Signer, SingleSignature,
     SingleSignatureWithRegisteredParty, Stake, VerificationKey,
+    aggregate_signature::ConcatenationProof,
 };
 
 /// `Clerk` can verify and aggregate `SingleSignature`s and verify `AggregateSignature`s.
@@ -15,7 +16,7 @@ pub struct Clerk<D: Clone + Digest> {
     pub(crate) params: Parameters,
 }
 
-impl<D: Digest + Clone + FixedOutput> Clerk<D> {
+impl<D: Digest + Clone + FixedOutput + Send + Sync> Clerk<D> {
     /// Create a new `Clerk` from a closed registration instance.
     pub fn new_clerk_from_closed_key_registration(
         params: &Parameters,
@@ -96,10 +97,10 @@ impl<D: Digest + Clone + FixedOutput> Clerk<D> {
             .merkle_tree
             .compute_merkle_tree_batch_path(mt_index_list);
 
-        Ok(AggregateSignature {
+        Ok(AggregateSignature::Concatenation(ConcatenationProof {
             signatures: unique_sigs,
             batch_proof,
-        })
+        }))
     }
 
     /// Aggregate a set of signatures for their corresponding indices.
