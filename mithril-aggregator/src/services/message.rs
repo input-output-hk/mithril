@@ -165,10 +165,10 @@ impl MessageService for MithrilMessageService {
             .map(|_| epoch_service.current_cardano_transactions_signing_config())
             .transpose()?
             .cloned();
-        let next_cardano_transactions_signing_config = cardano_transactions_discriminant
-            .map(|_| epoch_service.next_cardano_transactions_signing_config())
-            .transpose()?
-            .cloned();
+        // let next_cardano_transactions_signing_config = cardano_transactions_discriminant
+        //     .map(|_| epoch_service.next_cardano_transactions_signing_config())
+        //     .transpose()?
+        //     .cloned();
 
         let epoch_settings_message = EpochSettingsMessage {
             epoch,
@@ -176,7 +176,7 @@ impl MessageService for MithrilMessageService {
             current_signers: SignerMessagePart::from_signers(current_signers.to_vec()),
             next_signers: SignerMessagePart::from_signers(next_signers.to_vec()),
             cardano_transactions_signing_config,
-            next_cardano_transactions_signing_config,
+            next_cardano_transactions_signing_config: None,
         };
 
         Ok(epoch_settings_message)
