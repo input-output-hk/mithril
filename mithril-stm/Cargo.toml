@@ -17,7 +17,8 @@ crate-type = ["lib", "cdylib", "staticlib"]
 default = ["rug-backend"]
 rug-backend = ["rug/default"]
 num-integer-backend = ["num-bigint", "num-rational", "num-traits"]
-benchmark-internals = []                                           # For benchmarking multi_sig
+benchmark-internals = [] # For benchmarking multi_sig
+future_proof_system = [] # For activating future proof systems
 
 [dependencies]
 blake2 = "0.10.6"

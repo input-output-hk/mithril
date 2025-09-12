@@ -2,6 +2,7 @@
 use blake2::digest::{Digest, FixedOutput};
 use blst::BLST_ERROR;
 
+use crate::aggregate_signature::AggregateSignatureType;
 use crate::bls_multi_signature::{
     BlsSignature, BlsVerificationKey, BlsVerificationKeyProofOfPossession,
 };
@@ -189,6 +190,10 @@ pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
     /// `CoreVerifier` check failed
     #[error("Core verification error: {0}")]
     CoreVerificationError(#[source] CoreVerifierError),
+
+    /// The proof system used in the aggregate signature is not supported
+    #[error("Unsupported proof system: {0}")]
+    UnsupportedProofSystem(AggregateSignatureType),
 }
 
 impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmAggregateSignatureError<D> {
