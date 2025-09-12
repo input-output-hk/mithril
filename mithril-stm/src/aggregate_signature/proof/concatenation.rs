@@ -59,7 +59,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
         ))
     }
 
-    /// Verify aggregate signature, by checking that
+    /// Verify concatenation proof, by checking that
     /// * each signature contains only valid indices,
     /// * the lottery is indeed won by each one of them,
     /// * the merkle tree path is valid,
@@ -129,19 +129,13 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
         Ok(())
     }
 
-    /// Convert multi signature to bytes
+    /// Convert concatenation proof to bytes
     /// # Layout
-    /// * Aggregate signature type (u8)
     /// * Number of the pairs of Signatures and Registered Parties (SigRegParty) (as u64)
     /// * Pairs of Signatures and Registered Parties (prefixed with their size as u64)
     /// * Batch proof
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
-        // This proof type is not strictly necessary, but it will help to identify
-        // the type of the proof used to aggregate when implementing multiple aggregation proof systems.
-        // We use '0' for concatenation proof.
-        let proof_type: u8 = 0;
-        out.extend_from_slice(&proof_type.to_be_bytes());
         out.extend_from_slice(&u64::try_from(self.signatures.len()).unwrap().to_be_bytes());
         for sig_reg in &self.signatures {
             out.extend_from_slice(&u64::try_from(sig_reg.to_bytes().len()).unwrap().to_be_bytes());
@@ -153,20 +147,11 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
         out
     }
 
-    ///Extract a `AggregateSignature` from a byte slice.
+    ///Extract a concatenation proof from a byte slice.
     pub fn from_bytes(
         bytes: &[u8],
     ) -> Result<ConcatenationProof<D>, StmAggregateSignatureError<D>> {
-        let mut u8_bytes = [0u8; 1];
         let mut bytes_index = 0;
-
-        u8_bytes
-            .copy_from_slice(bytes.get(..1).ok_or(StmAggregateSignatureError::SerializationError)?);
-        bytes_index += 1;
-        let proof_type = u8::from_be_bytes(u8_bytes);
-        if proof_type != 0 {
-            return Err(StmAggregateSignatureError::SerializationError);
-        }
 
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(
