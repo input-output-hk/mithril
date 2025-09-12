@@ -16,6 +16,9 @@ use super::ConcatenationProof;
 pub enum AggregateSignatureType {
     /// Concatenation proof system.
     Concatenation,
+    /// Future proof system. Not suitable for production.
+    #[cfg(feature = "future_proof_system")]
+    Future,
 }
 
 impl AggregateSignatureType {
@@ -25,6 +28,8 @@ impl AggregateSignatureType {
     pub fn to_bytes_encoding_prefix(&self) -> u8 {
         match self {
             AggregateSignatureType::Concatenation => 0,
+            #[cfg(feature = "future_proof_system")]
+            AggregateSignatureType::Future => 255,
         }
     }
 
@@ -34,6 +39,8 @@ impl AggregateSignatureType {
     pub fn from_bytes_encoding_prefix(byte: u8) -> Option<Self> {
         match byte {
             0 => Some(AggregateSignatureType::Concatenation),
+            #[cfg(feature = "future_proof_system")]
+            255 => Some(AggregateSignatureType::Future),
             _ => None,
         }
     }
@@ -45,6 +52,8 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> From<&AggregateSignature<D>>
     fn from(aggr_sig: &AggregateSignature<D>) -> Self {
         match aggr_sig {
             AggregateSignature::Concatenation(_) => AggregateSignatureType::Concatenation,
+            #[cfg(feature = "future_proof_system")]
+            AggregateSignature::Future => AggregateSignatureType::Future,
         }
     }
 }
@@ -53,6 +62,8 @@ impl Display for AggregateSignatureType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AggregateSignatureType::Concatenation => write!(f, "Concatenation"),
+            #[cfg(feature = "future_proof_system")]
+            AggregateSignatureType::Future => write!(f, "Future"),
         }
     }
 }
@@ -63,9 +74,16 @@ impl Display for AggregateSignatureType {
     serialize = "MerkleBatchPath<D>: Serialize",
     deserialize = "MerkleBatchPath<D>: Deserialize<'de>"
 ))]
-#[serde(untagged)]
 pub enum AggregateSignature<D: Clone + Digest + FixedOutput + Send + Sync> {
+    /// A future proof system.
+    #[cfg(feature = "future_proof_system")]
+    Future,
+
     /// Concatenation proof system.
+    // The 'untagged' attribute is required for backward compatibility.
+    // It implies that this variant is placed at the end of the enum.
+    // It will be removed when the support for JSON hex encoding is dropped in the calling crates.
+    #[serde(untagged)]
     Concatenation(ConcatenationProof<D>),
 }
 
@@ -78,9 +96,13 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
         parameters: &Parameters,
     ) -> Result<(), StmAggregateSignatureError<D>> {
         match self {
-            AggregateSignature::Concatenation(stm_aggr_sig) => {
-                stm_aggr_sig.verify(msg, avk, parameters)
+            AggregateSignature::Concatenation(concatenation_proof) => {
+                concatenation_proof.verify(msg, avk, parameters)
             }
+            #[cfg(feature = "future_proof_system")]
+            AggregateSignature::Future => Err(StmAggregateSignatureError::UnsupportedProofSystem(
+                self.into(),
+            )),
         }
     }
 
@@ -98,21 +120,33 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
             });
         stm_signatures
             .into_iter()
-            .try_for_each(
-                |(stm_aggr_sig_type, stm_aggr_sigs)| match stm_aggr_sig_type {
-                    AggregateSignatureType::Concatenation => ConcatenationProof::batch_verify(
-                        &stm_aggr_sigs
+            .try_for_each(|(aggregate_signature_type, aggregate_signatures)| {
+                match aggregate_signature_type {
+                    AggregateSignatureType::Concatenation => {
+                        let aggregate_signatures_length = aggregate_signatures.len();
+                        let concatenation_proofs = aggregate_signatures
                             .into_iter()
-                            .filter_map(|s| match s {
-                                Self::Concatenation(stm_aggr_sig) => Some(stm_aggr_sig),
-                            })
-                            .collect::<Vec<_>>(),
-                        msgs,
-                        avks,
-                        parameters,
-                    ),
-                },
-            )
+                            .filter_map(|s| s.to_concatenation_proof().cloned())
+                            .collect::<Vec<_>>();
+                        if concatenation_proofs.len() != aggregate_signatures_length {
+                            return Err(StmAggregateSignatureError::BatchInvalid);
+                        }
+
+                        ConcatenationProof::batch_verify(
+                            &concatenation_proofs,
+                            msgs,
+                            avks,
+                            parameters,
+                        )
+                    }
+                    #[cfg(feature = "future_proof_system")]
+                    AggregateSignatureType::Future => {
+                        Err(StmAggregateSignatureError::UnsupportedProofSystem(
+                            aggregate_signature_type,
+                        ))
+                    }
+                }
+            })
             .map_err(|_| StmAggregateSignatureError::BatchInvalid)
     }
 
@@ -127,6 +161,8 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
             AggregateSignature::Concatenation(concatenation_proof) => {
                 concatenation_proof.to_bytes()
             }
+            #[cfg(feature = "future_proof_system")]
+            AggregateSignature::Future => vec![],
         };
         aggregate_signature_bytes.append(&mut proof_bytes);
 
@@ -143,6 +179,17 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
             AggregateSignatureType::Concatenation => Ok(AggregateSignature::Concatenation(
                 ConcatenationProof::from_bytes(proof_bytes)?,
             )),
+            #[cfg(feature = "future_proof_system")]
+            AggregateSignatureType::Future => Ok(AggregateSignature::Future),
+        }
+    }
+
+    /// If the aggregate signature is a concatenation proof, return it.
+    pub fn to_concatenation_proof(&self) -> Option<&ConcatenationProof<D>> {
+        match self {
+            AggregateSignature::Concatenation(proof) => Some(proof),
+            #[cfg(feature = "future_proof_system")]
+            AggregateSignature::Future => None,
         }
     }
 
@@ -150,7 +197,13 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
     // TODO: transfer this function to the concatenation proof ? Some proofs might not fully carry this information
     pub fn signatures(&self) -> Vec<SingleSignatureWithRegisteredParty> {
         match self {
-            AggregateSignature::Concatenation(stm_aggr_sig) => stm_aggr_sig.signatures.clone(),
+            AggregateSignature::Concatenation(concatenation_proof) => {
+                concatenation_proof.signatures.clone()
+            }
+            #[cfg(feature = "future_proof_system")]
+            AggregateSignature::Future(concatenation_proof) => {
+                concatenation_proof.signatures.clone()
+            }
         }
     }
 
@@ -158,7 +211,13 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
     // TODO: transfer this function to the concatenation proof
     pub fn batch_proof(&self) -> MerkleBatchPath<D> {
         match self {
-            AggregateSignature::Concatenation(stm_aggr_sig) => stm_aggr_sig.batch_proof.clone(),
+            AggregateSignature::Concatenation(concatenation_proof) => {
+                concatenation_proof.batch_proof.clone()
+            }
+            #[cfg(feature = "future_proof_system")]
+            AggregateSignature::Future(concatenation_proof) => {
+                concatenation_proof.batch_proof.clone()
+            }
         }
     }
 
@@ -167,8 +226,12 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
     #[cfg(test)]
     pub(crate) fn set_batch_proof(&mut self, batch_proof: MerkleBatchPath<D>) {
         match self {
-            AggregateSignature::Concatenation(stm_aggr_sig) => {
-                stm_aggr_sig.batch_proof = batch_proof
+            AggregateSignature::Concatenation(concatenation_proof) => {
+                concatenation_proof.batch_proof = batch_proof
+            }
+            #[cfg(feature = "future_proof_system")]
+            AggregateSignature::Future(concatenation_proof) => {
+                concatenation_proof.batch_proof = batch_proof
             }
         }
     }
