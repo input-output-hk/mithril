@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::StmAggregateSignatureError;
 use crate::merkle_tree::MerkleBatchPath;
-use crate::{AggregateVerificationKey, Parameters, SingleSignatureWithRegisteredParty};
+use crate::{AggregateVerificationKey, Parameters};
 
 use super::ConcatenationProof;
 
@@ -191,49 +191,6 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
             AggregateSignature::Concatenation(proof) => Some(proof),
             #[cfg(feature = "future_proof_system")]
             AggregateSignature::Future => None,
-        }
-    }
-
-    /// Extract the list of signatures.
-    // TODO: transfer this function to the concatenation proof ? Some proofs might not fully carry this information
-    pub fn signatures(&self) -> Vec<SingleSignatureWithRegisteredParty> {
-        match self {
-            AggregateSignature::Concatenation(concatenation_proof) => {
-                concatenation_proof.signatures.clone()
-            }
-            #[cfg(feature = "future_proof_system")]
-            AggregateSignature::Future(concatenation_proof) => {
-                concatenation_proof.signatures.clone()
-            }
-        }
-    }
-
-    /// Extract the list of unique merkle tree nodes that covers path for all signatures.
-    // TODO: transfer this function to the concatenation proof
-    pub fn batch_proof(&self) -> MerkleBatchPath<D> {
-        match self {
-            AggregateSignature::Concatenation(concatenation_proof) => {
-                concatenation_proof.batch_proof.clone()
-            }
-            #[cfg(feature = "future_proof_system")]
-            AggregateSignature::Future(concatenation_proof) => {
-                concatenation_proof.batch_proof.clone()
-            }
-        }
-    }
-
-    /// Extract the list of unique merkle tree nodes that covers path for all signatures. (test only)
-    // TODO: transfer this function to the concatenation proof
-    #[cfg(test)]
-    pub(crate) fn set_batch_proof(&mut self, batch_proof: MerkleBatchPath<D>) {
-        match self {
-            AggregateSignature::Concatenation(concatenation_proof) => {
-                concatenation_proof.batch_proof = batch_proof
-            }
-            #[cfg(feature = "future_proof_system")]
-            AggregateSignature::Future(concatenation_proof) => {
-                concatenation_proof.batch_proof = batch_proof
-            }
         }
     }
 }
