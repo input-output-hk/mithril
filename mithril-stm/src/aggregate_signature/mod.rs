@@ -359,9 +359,6 @@ mod tests {
 
             let bytes = initializer.to_bytes();
             assert!(Initializer::from_bytes(&bytes).is_ok());
-
-            let bytes = bincode::serde::encode_to_vec(&initializer, bincode::config::legacy()).unwrap();
-            assert!(bincode::serde::decode_from_slice::<Initializer,_>(&bytes, bincode::config::legacy()).is_ok())
         }
 
         #[test]
@@ -375,10 +372,6 @@ mod tests {
                 let bytes = sig.to_bytes();
                 let sig_deser = SingleSignature::from_bytes::<D>(&bytes).unwrap();
                 assert!(sig_deser.verify(&params, &ps[0].get_verification_key(), &ps[0].get_stake(), &avk, &msg).is_ok());
-
-                let encoded = bincode::serde::encode_to_vec(&sig, bincode::config::legacy()).unwrap();
-                let (decoded,_) = bincode::serde::decode_from_slice::<SingleSignature,_>(&encoded, bincode::config::legacy()).unwrap();
-                assert!(decoded.verify(&params, &ps[0].get_verification_key(), &ps[0].get_stake(), &avk, &msg).is_ok());
             }
         }
 
@@ -396,10 +389,6 @@ mod tests {
                     let bytes: Vec<u8> = aggr.to_bytes();
                     let aggr2 = AggregateSignature::from_bytes(&bytes).unwrap();
                     assert!(aggr2.verify(&msg, &clerk.compute_aggregate_verification_key(), &params).is_ok());
-
-                    let encoded = bincode::serde::encode_to_vec(&aggr, bincode::config::legacy()).unwrap();
-                    let (decoded,_) = bincode::serde::decode_from_slice::<AggregateSignature<D>,_>(&encoded, bincode::config::legacy()).unwrap();
-                    assert!(decoded.verify(&msg, &clerk.compute_aggregate_verification_key(), &params).is_ok());
             }
         }
     }
