@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.51
+  version: 0.1.52
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -932,8 +932,6 @@ components:
             $ref: "#/components/schemas/Signer"
         cardano_transactions_signing_config:
           $ref: "#/components/schemas/CardanoTransactionsSigningConfig"
-        next_cardano_transactions_signing_config:
-          $ref: "#/components/schemas/CardanoTransactionsSigningConfig"
       examples:
         - {
             "epoch": 329,
@@ -973,9 +971,7 @@ components:
                 }
               ],
             "cardano_transactions_signing_config":
-              { "security_parameter": 100, "step": 10 },
-            "next_cardano_transactions_signing_config":
-              { "security_parameter": 50, "step": 5 }
+              { "security_parameter": 100, "step": 10 }
           }
 
     ProtocolParameters:

@@ -21,10 +21,6 @@ pub struct EpochSettingsMessage {
     /// Cardano transactions signing configuration for the current epoch
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
-
-    /// Cardano transactions signing configuration for the next epoch
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub next_cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
 }
 
 #[cfg(test)]
@@ -54,12 +50,56 @@ mod tests {
         "cardano_transactions_signing_config": {
             "security_parameter": 70,
             "step": 20
-        },
-        "next_cardano_transactions_signing_config": {
-            "security_parameter": 50,
-            "step": 10
         }
     }"#;
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct EpochSettingsMessageUntilV0_1_51 {
+        pub epoch: Epoch,
+
+        #[serde(rename = "signer_registration_protocol")]
+        pub signer_registration_protocol_parameters: ProtocolParameters,
+
+        pub current_signers: Vec<SignerMessagePart>,
+
+        pub next_signers: Vec<SignerMessagePart>,
+
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
+
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub next_cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
+    }
+
+    fn golden_message_until_open_api_0_1_51() -> EpochSettingsMessageUntilV0_1_51 {
+        EpochSettingsMessageUntilV0_1_51 {
+            epoch: Epoch(10),
+            signer_registration_protocol_parameters: ProtocolParameters {
+                k: 500,
+                m: 10000,
+                phi_f: 0.65,
+            },
+            current_signers: vec![SignerMessagePart {
+                party_id: "123".to_string(),
+                verification_key: "key_123".to_string(),
+                verification_key_signature: Some("signature_123".to_string()),
+                operational_certificate: Some("certificate_123".to_string()),
+                kes_period: Some(12),
+            }],
+            next_signers: vec![SignerMessagePart {
+                party_id: "456".to_string(),
+                verification_key: "key_456".to_string(),
+                verification_key_signature: Some("signature_456".to_string()),
+                operational_certificate: Some("certificate_456".to_string()),
+                kes_period: Some(45),
+            }],
+            cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(70),
+                step: BlockNumber(20),
+            }),
+            next_cardano_transactions_signing_config: None,
+        }
+    }
 
     fn golden_current_message() -> EpochSettingsMessage {
         EpochSettingsMessage {
@@ -87,11 +127,15 @@ mod tests {
                 security_parameter: BlockNumber(70),
                 step: BlockNumber(20),
             }),
-            next_cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-                security_parameter: BlockNumber(50),
-                step: BlockNumber(10),
-            }),
         }
+    }
+
+    #[test]
+    fn test_current_json_deserialized_into_message_supported_until_open_api_0_1_51() {
+        let json = CURRENT_JSON;
+        let message: EpochSettingsMessageUntilV0_1_51 = serde_json::from_str(json).unwrap();
+
+        assert_eq!(golden_message_until_open_api_0_1_51(), message);
     }
 
     #[test]

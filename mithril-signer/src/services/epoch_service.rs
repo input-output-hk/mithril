@@ -71,11 +71,6 @@ pub trait EpochService: Sync + Send {
         &self,
     ) -> StdResult<&Option<CardanoTransactionsSigningConfig>>;
 
-    /// Get the cardano transactions signing configuration for the next epoch
-    fn next_cardano_transactions_signing_config(
-        &self,
-    ) -> StdResult<&Option<CardanoTransactionsSigningConfig>>;
-
     /// Check if the given signer can sign for the current epoch
     fn can_signer_sign_current_epoch(&self, party_id: PartyId) -> StdResult<bool>;
 }
@@ -88,7 +83,6 @@ pub(crate) struct EpochData {
     pub next_signers: Vec<Signer>,
     pub allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
     pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
-    pub next_cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
 }
 
 /// Implementation of the [epoch service][EpochService].
@@ -193,8 +187,6 @@ impl EpochService for MithrilEpochService {
             next_signers: epoch_settings.next_signers,
             allowed_discriminants,
             cardano_transactions_signing_config: epoch_settings.cardano_transactions_signing_config,
-            next_cardano_transactions_signing_config: epoch_settings
-                .next_cardano_transactions_signing_config,
         });
 
         Ok(())
@@ -246,12 +238,6 @@ impl EpochService for MithrilEpochService {
         &self,
     ) -> StdResult<&Option<CardanoTransactionsSigningConfig>> {
         Ok(&self.unwrap_data()?.cardano_transactions_signing_config)
-    }
-
-    fn next_cardano_transactions_signing_config(
-        &self,
-    ) -> StdResult<&Option<CardanoTransactionsSigningConfig>> {
-        Ok(&self.unwrap_data()?.next_cardano_transactions_signing_config)
     }
 
     fn can_signer_sign_current_epoch(&self, party_id: PartyId) -> StdResult<bool> {
@@ -350,7 +336,6 @@ impl MithrilEpochService {
             next_signers: vec![],
             allowed_discriminants: BTreeSet::new(),
             cardano_transactions_signing_config: None,
-            next_cardano_transactions_signing_config: None,
         };
         self.epoch_data = Some(epoch_data);
         self
@@ -399,10 +384,6 @@ pub(crate) mod mock_epoch_service {
             fn allowed_discriminants(&self) -> StdResult<&'static BTreeSet<SignedEntityTypeDiscriminants>>;
 
             fn cardano_transactions_signing_config(
-                &self,
-            ) -> StdResult<&'static Option<CardanoTransactionsSigningConfig>>;
-
-            fn next_cardano_transactions_signing_config(
                 &self,
             ) -> StdResult<&'static Option<CardanoTransactionsSigningConfig>>;
 
@@ -642,7 +623,6 @@ mod tests {
         assert!(service.current_signers_with_stake().await.is_err());
         assert!(service.next_signers_with_stake().await.is_err());
         assert!(service.cardano_transactions_signing_config().is_err());
-        assert!(service.next_cardano_transactions_signing_config().is_err());
     }
 
     #[tokio::test]
@@ -717,11 +697,6 @@ mod tests {
         assert_eq!(
             epoch_settings.cardano_transactions_signing_config,
             *service.cardano_transactions_signing_config().unwrap()
-        );
-        // Check next_cardano_transactions_signing_config
-        assert_eq!(
-            epoch_settings.next_cardano_transactions_signing_config,
-            *service.next_cardano_transactions_signing_config().unwrap()
         );
     }
 

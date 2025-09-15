@@ -122,7 +122,6 @@ impl AggregatorClient for FakeAggregator {
                 cardano_transactions_signing_config: Some(
                     signed_entity_config.cardano_transactions_signing_config.clone(),
                 ),
-                next_cardano_transactions_signing_config: None,
             }))
         }
     }

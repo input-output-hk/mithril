@@ -165,10 +165,6 @@ impl MessageService for MithrilMessageService {
             .map(|_| epoch_service.current_cardano_transactions_signing_config())
             .transpose()?
             .cloned();
-        // let next_cardano_transactions_signing_config = cardano_transactions_discriminant
-        //     .map(|_| epoch_service.next_cardano_transactions_signing_config())
-        //     .transpose()?
-        //     .cloned();
 
         let epoch_settings_message = EpochSettingsMessage {
             epoch,
@@ -176,7 +172,6 @@ impl MessageService for MithrilMessageService {
             current_signers: SignerMessagePart::from_signers(current_signers.to_vec()),
             next_signers: SignerMessagePart::from_signers(next_signers.to_vec()),
             cardano_transactions_signing_config,
-            next_cardano_transactions_signing_config: None,
         };
 
         Ok(epoch_settings_message)
@@ -472,13 +467,6 @@ mod tests {
                     step: BlockNumber(15)
                 })
             );
-            assert_eq!(
-                message.next_cardano_transactions_signing_config,
-                Some(CardanoTransactionsSigningConfig {
-                    security_parameter: BlockNumber(0),
-                    step: BlockNumber(15)
-                })
-            );
         }
 
         #[tokio::test]
@@ -498,7 +486,6 @@ mod tests {
                 .unwrap();
 
             assert!(message.cardano_transactions_signing_config.is_some());
-            assert!(message.next_cardano_transactions_signing_config.is_some(),);
         }
 
         #[tokio::test]
@@ -516,7 +503,6 @@ mod tests {
                 .unwrap();
 
             assert_eq!(message.cardano_transactions_signing_config, None);
-            assert_eq!(message.next_cardano_transactions_signing_config, None);
         }
 
         #[tokio::test]
@@ -596,10 +582,6 @@ mod tests {
             assert_eq!(
                 message.cardano_transactions_signing_config,
                 Some(current_epoch_settings.cardano_transactions_signing_config),
-            );
-            assert_eq!(
-                message.next_cardano_transactions_signing_config,
-                Some(next_epoch_settings.cardano_transactions_signing_config),
             );
         }
     }

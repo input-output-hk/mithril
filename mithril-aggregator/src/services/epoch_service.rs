@@ -80,11 +80,6 @@ pub trait EpochService: Sync + Send {
         &self,
     ) -> StdResult<&CardanoTransactionsSigningConfig>;
 
-    /// Get next cardano transactions signing configuration used in next epoch
-    fn next_cardano_transactions_signing_config(
-        &self,
-    ) -> StdResult<&CardanoTransactionsSigningConfig>;
-
     /// Get aggregate verification key for current epoch
     fn current_aggregate_verification_key(&self) -> StdResult<&ProtocolAggregateVerificationKey>;
 
@@ -470,15 +465,6 @@ impl EpochService for MithrilEpochService {
             .cardano_transactions_signing_config)
     }
 
-    fn next_cardano_transactions_signing_config(
-        &self,
-    ) -> StdResult<&CardanoTransactionsSigningConfig> {
-        Ok(&self
-            .unwrap_data()?
-            .next_epoch_settings
-            .cardano_transactions_signing_config)
-    }
-
     fn current_aggregate_verification_key(&self) -> StdResult<&ProtocolAggregateVerificationKey> {
         Ok(&self.unwrap_computed_data()?.aggregate_verification_key)
     }
@@ -772,15 +758,6 @@ impl EpochService for FakeEpochService {
             .cardano_transactions_signing_config)
     }
 
-    fn next_cardano_transactions_signing_config(
-        &self,
-    ) -> StdResult<&CardanoTransactionsSigningConfig> {
-        Ok(&self
-            .unwrap_data()?
-            .next_epoch_settings
-            .cardano_transactions_signing_config)
-    }
-
     fn current_aggregate_verification_key(&self) -> StdResult<&ProtocolAggregateVerificationKey> {
         Ok(&self.unwrap_computed_data()?.aggregate_verification_key)
     }
@@ -873,7 +850,6 @@ mod tests {
         protocol_parameters: ProtocolParameters,
         next_protocol_parameters: ProtocolParameters,
         cardano_signing_config: CardanoTransactionsSigningConfig,
-        next_cardano_signing_config: CardanoTransactionsSigningConfig,
         signer_registration_protocol_parameters: ProtocolParameters,
         current_signers_with_stake: BTreeSet<SignerWithStake>,
         next_signers_with_stake: BTreeSet<SignerWithStake>,
@@ -903,9 +879,6 @@ mod tests {
                     .clone(),
                 cardano_signing_config: service
                     .current_cardano_transactions_signing_config()?
-                    .clone(),
-                next_cardano_signing_config: service
-                    .next_cardano_transactions_signing_config()?
                     .clone(),
                 current_signers_with_stake: service
                     .current_signers_with_stake()?
@@ -1103,7 +1076,6 @@ mod tests {
                 next_protocol_parameters: next_epoch_fixture.protocol_parameters(),
                 signer_registration_protocol_parameters,
                 cardano_signing_config: CardanoTransactionsSigningConfig::dummy(),
-                next_cardano_signing_config: CardanoTransactionsSigningConfig::dummy(),
                 current_signers_with_stake: current_epoch_fixture
                     .signers_with_stake()
                     .into_iter()
@@ -1337,10 +1309,6 @@ mod tests {
                 service.current_cardano_transactions_signing_config().err(),
             ),
             (
-                "next_cardano_transactions_signing_config",
-                service.next_cardano_transactions_signing_config().err(),
-            ),
-            (
                 "current_signers_with_stake",
                 service.current_signers_with_stake().err(),
             ),
@@ -1394,7 +1362,6 @@ mod tests {
         assert!(service.next_protocol_parameters().is_ok());
         assert!(service.signer_registration_protocol_parameters().is_ok());
         assert!(service.current_cardano_transactions_signing_config().is_ok());
-        assert!(service.next_cardano_transactions_signing_config().is_ok());
         assert!(service.current_signers_with_stake().is_ok());
         assert!(service.next_signers_with_stake().is_ok());
         assert!(service.current_signers().is_ok());

@@ -412,9 +412,6 @@ mod messages {
                 current_signers: [SignerMessagePart::dummy()].to_vec(),
                 next_signers: [SignerMessagePart::dummy()].to_vec(),
                 cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
-                next_cardano_transactions_signing_config: Some(
-                    CardanoTransactionsSigningConfig::dummy(),
-                ),
             }
         }
     }
