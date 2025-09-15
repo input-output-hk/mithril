@@ -8,3 +8,12 @@ RUN chmod +x /usr/local/bin/mithril-client
 # Copy static build of the Mithril signer
 COPY ./target/x86_64-unknown-linux-musl/release/mithril-signer /usr/local/bin/mithril-signer
 RUN chmod +x /usr/local/bin/mithril-signer
+
+# Update entrypoints of bundle
+COPY ./static-docker/bundle-entrypoint /usr/local/bin/bundle-entrypoint 
+RUN chmod +x /usr/local/bin/bundle-entrypoint
+COPY ./static-docker/mithril-entrypoint /usr/local/bin/mithril-entrypoint 
+RUN chmod +x /usr/local/bin/mithril-entrypoint
+RUN ls -al /usr/local/bin/
+
+ENTRYPOINT ["/usr/local/bin/bundle-entrypoint"]

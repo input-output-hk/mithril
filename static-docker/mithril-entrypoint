@@ -1,0 +1,51 @@
+#!/bin/env bash
+
+#####################################################################
+#
+# Run the Mithril signer in the background
+#
+#####################################################################
+prepareRunEnv () {
+    KES_SECRET_KEY_PATH=$CARDANO_SHELLEY_KES_KEY
+    OPERATIONAL_CERTIFICATE_PATH=$CARDANO_SHELLEY_OPERATIONAL_CERTIFICATE
+    NETWORK=**YOUR_CARDANO_NETWORK**
+    AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT**
+    RUN_INTERVAL=60000
+    DB_DIRECTORY=/cardano/db
+    CARDANO_NODE_SOCKET_PATH=/cardano/ipc/node.socket
+    CARDANO_CLI_PATH=/app/bin/cardano-cli
+    DATA_STORES_DIRECTORY=/opt/mithril/stores
+    STORE_RETENTION_LIMIT=5
+    ERA_READER_ADAPTER_TYPE=**YOUR_ERA_READER_ADAPTER_TYPE**
+    ERA_READER_ADAPTER_PARAMS=**YOUR_ERA_READER_ADAPTER_PARAMS**
+}
+
+#####################################################################
+#
+# Run the Mithril signer in the background
+#
+#####################################################################
+runMithrilSignerNode () {
+    echo /usr/local/bin/mithril-signer run-node \
+        --kes-secret-key-path $KES_SECRET_KEY_PATH \
+        --operational-certificate-path $OPERATIONAL_CERTIFICATE_PATH \
+        --network $NETWORK \
+        --aggregator-endpoint $AGGREGATOR_ENDPOINT \
+        --run-interval $RUN_INTERVAL \
+        --db-directory $DB_DIRECTORY \
+        --cardano-node-socket-path $CARDANO_NODE_SOCKET_PATH \
+        --cardano-cli-path $CARDANO_CLI_PATH \
+        --data-stores-directory $DATA_STORES_DIRECTORY \
+        --store-retention-limit $STORE_RETENTION_LIMIT \
+        --era-reader-adapter-type $ERA_READER_ADAPTER_TYPE \
+        --era-reader-adapter-params $ERA_READER_ADAPTER_PARAMS
+}
+
+if [[ $CARDANO_BLOCK_PRODUCER == true ]]; then
+  # Start Mithril signer in the background
+  echo "Starting Mithril Signer..."
+  prepareRunEnv
+  runMithrilSignerNode
+else
+  echo "No Mithril node to start"
+fi

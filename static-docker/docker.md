@@ -1,5 +1,10 @@
 ### Steps to staticly build binaries
 
+questions/problems
+- Default values for environmnet variables set for the Cardano node should be extracted from Cardano entrypoint script (or can we run the `printRunEnv` (from the cardano run-mode) function from the entrypoint script without running the whole script ?)
+- Do we also support the CLI arguments for the entrypoint? (e.g. `--shelley-kes-key /pool/kes.skey`)
+- check signer crash if node socket path is not available yet ? 
+
 prerequisites :
 
 `sudo apt-get install musl-dev musl-tools libssl-dev pkg-config`
@@ -22,17 +27,23 @@ cargo build --release -p mithril-client-cli --no-default-features --features bun
 
 build:
 
-`docker build . -t mithril-cardano-bundle`
+`
+docker build . -t mithril-cardano-bundle --progress=plain
+`
 
 run :
 
-`docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="$(pwd)/db",target=/data/db/ -e NETWORK=preview mithril-cardano-bundle`
+`
+docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="$(pwd)/db",target=/data/db/ -e NETWORK=preview -e CARDANO_BLOCK_PRODUCER=true -e CARDANO_SHELLEY_KES_KEY=/todo/kes.sk -e CARDANO_SHELLEY_OPERATIONAL_CERTIFICATE=/todo/opcert.cert mithril-cardano-bundle
+`
 
 wait for 100% of replayed blocks.
 
 checking tip of the chain is moving forward:
 
-`docker exec -it compassionate_ganguly cardano-cli query tip --testnet-magic 2 --socket-path /ipc/node.socket`
+`
+docker exec -it compassionate_ganguly cardano-cli query tip --testnet-magic 2 --socket-path /ipc/node.socket
+`
 ```
 {
     "block": 3590825,
@@ -47,7 +58,9 @@ checking tip of the chain is moving forward:
 ```
 connect to docker image through sh and check for versions
 
-`docker exec -it compassionate_ganguly sh`
+`
+docker exec -it compassionate_ganguly sh
+`
 
 sh-5.2# `/usr/local/bin/mithril-signer --version `
 
