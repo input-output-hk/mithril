@@ -25,7 +25,7 @@ impl AggregateSignatureType {
     /// The prefix byte used in the byte representation of the aggregate signature type.
     ///
     /// IMPORTANT: This value is used in serialization/deserialization. Changing it will break compatibility.
-    pub fn to_bytes_encoding_prefix(&self) -> u8 {
+    pub fn get_byte_encoding_prefix(&self) -> u8 {
         match self {
             AggregateSignatureType::Concatenation => 0,
             #[cfg(feature = "future_proof_system")]
@@ -36,7 +36,7 @@ impl AggregateSignatureType {
     /// Create an aggregate signature type from a prefix byte.
     ///
     /// IMPORTANT: This value is used in serialization/deserialization. Changing it will break compatibility.
-    pub fn from_bytes_encoding_prefix(byte: u8) -> Option<Self> {
+    pub fn from_byte_encoding_prefix(byte: u8) -> Option<Self> {
         match byte {
             0 => Some(AggregateSignatureType::Concatenation),
             #[cfg(feature = "future_proof_system")]
@@ -155,7 +155,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
         let mut aggregate_signature_bytes = Vec::new();
         let aggregate_signature_type: AggregateSignatureType = self.into();
         aggregate_signature_bytes
-            .extend_from_slice(&[aggregate_signature_type.to_bytes_encoding_prefix()]);
+            .extend_from_slice(&[aggregate_signature_type.get_byte_encoding_prefix()]);
 
         let mut proof_bytes = match self {
             AggregateSignature::Concatenation(concatenation_proof) => {
@@ -171,9 +171,10 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
 
     /// Extract an aggregate signature from a byte slice.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, StmAggregateSignatureError<D>> {
-        let proof_type_byte = bytes.get(0).ok_or(StmAggregateSignatureError::SerializationError)?;
+        let proof_type_byte =
+            bytes.first().ok_or(StmAggregateSignatureError::SerializationError)?;
         let proof_bytes = &bytes[1..];
-        let proof_type = AggregateSignatureType::from_bytes_encoding_prefix(*proof_type_byte)
+        let proof_type = AggregateSignatureType::from_byte_encoding_prefix(*proof_type_byte)
             .ok_or(StmAggregateSignatureError::SerializationError)?;
         match proof_type {
             AggregateSignatureType::Concatenation => Ok(AggregateSignature::Concatenation(
@@ -248,10 +249,10 @@ mod tests {
         fn golden_bytes_encoding_prefix() {
             assert_eq!(
                 0u8,
-                AggregateSignatureType::Concatenation.to_bytes_encoding_prefix()
+                AggregateSignatureType::Concatenation.get_byte_encoding_prefix()
             );
             assert_eq!(
-                AggregateSignatureType::from_bytes_encoding_prefix(0u8),
+                AggregateSignatureType::from_byte_encoding_prefix(0u8),
                 Some(AggregateSignatureType::Concatenation)
             );
         }
