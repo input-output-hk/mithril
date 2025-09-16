@@ -398,14 +398,14 @@ Proceed by creating a shell function for the Mithril client:
   <TabItem value="linux-mac" label="Linux / Mac">
   ```bash
   mithril_client () {
-    docker run --rm -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-client' -v $(pwd):/app/data -u $(id -u) ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID $@
+    docker run --rm -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-client' -v $(pwd):/app/data -w /app/data -u $(id -u) ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID $@
   }
   ```
   </TabItem>
   <TabItem value="windows" label="Windows">
   ```powershell
   function mithril_client {
-    docker run --rm -e GENESIS_VERIFICATION_KEY=$env:GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$env:AGGREGATOR_ENDPOINT --name='mithril-client' -v ${PWD}:/app/data ghcr.io/input-output-hk/mithril-client:$env:MITHRIL_IMAGE_ID $args
+    docker run --rm -e GENESIS_VERIFICATION_KEY=$env:GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$env:AGGREGATOR_ENDPOINT --name='mithril-client' -v ${PWD}:/app/data -w /app/data ghcr.io/input-output-hk/mithril-client:$env:MITHRIL_IMAGE_ID $args
   }
   ```
   </TabItem>
