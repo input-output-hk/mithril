@@ -11,7 +11,7 @@ use mithril_common::entities::SignedEntityTypeDiscriminants;
 #[cfg(test)]
 use mithril_common::test::double::Dummy;
 use mithril_common::{
-    CardanoNetwork, MITHRIL_API_VERSION_HEADER, MITHRIL_CLIENT_TYPE_HEADER,
+    AggregateSignatureType, CardanoNetwork, MITHRIL_API_VERSION_HEADER, MITHRIL_CLIENT_TYPE_HEADER,
     MITHRIL_ORIGIN_TAG_HEADER,
 };
 
@@ -35,6 +35,7 @@ pub struct RouterConfig {
     pub cardano_node_version: String,
     pub allow_http_serve_directory: bool,
     pub origin_tag_white_list: HashSet<String>,
+    pub aggregate_signature_type: AggregateSignatureType,
 }
 
 #[cfg(test)]
@@ -53,6 +54,7 @@ impl Dummy for RouterConfig {
             cardano_node_version: "1.2.3".to_string(),
             allow_http_serve_directory: false,
             origin_tag_white_list: HashSet::from(["DUMMY_TAG".to_string()]),
+            aggregate_signature_type: AggregateSignatureType::Concatenation,
         }
     }
 }
