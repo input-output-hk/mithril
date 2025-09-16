@@ -34,7 +34,17 @@ docker build . -t mithril-cardano-bundle --progress=plain
 run :
 
 `
-docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="$(pwd)/db",target=/data/db/ -e NETWORK=preview -e CARDANO_BLOCK_PRODUCER=true -e CARDANO_SHELLEY_KES_KEY=/todo/kes.sk -e CARDANO_SHELLEY_OPERATIONAL_CERTIFICATE=/todo/opcert.cert mithril-cardano-bundle
+docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data \
+    --mount type=bind,source="$(pwd)/db",target=/data/db/ \
+    --mount type=bind,source="$(pwd)/mithril",target=/data/mithril/ \
+    -e NETWORK=preview \
+    -e CARDANO_BLOCK_PRODUCER=true \
+    -e CARDANO_SHELLEY_KES_KEY=/todo/kes.sk \
+    -e CARDANO_SHELLEY_OPERATIONAL_CERTIFICATE=/todo/opcert.cert \
+    -e PARTY_ID=pool15jqsjphnxg7hcx2rvd0ryhg5xwshg7xktthj3zf70nmxx9ffjet \
+    -e RUN_INTERVAL=60000 \
+    -e STORE_RETENTION_LIMIT=5 \
+    mithril-cardano-bundle
 `
 
 wait for 100% of replayed blocks.
