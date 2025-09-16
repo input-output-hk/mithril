@@ -2,13 +2,13 @@
 //! but instead by all the participants in the signature process. Contrarily to the full protocol
 //! run presented in `tests/integration.rs`, we explicitly treat each party individually.
 use blake2::{Blake2b, digest::consts::U32};
-use mithril_stm::{
-    Clerk, ClosedKeyRegistration, Initializer, KeyRegistration, Parameters, Stake,
-    VerificationKeyProofOfPossession,
-};
-
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
+
+use mithril_stm::{
+    AggregateSignatureType, Clerk, ClosedKeyRegistration, Initializer, KeyRegistration, Parameters,
+    Stake, VerificationKeyProofOfPossession,
+};
 
 type H = Blake2b<U32>;
 
@@ -113,7 +113,8 @@ fn main() {
     let clerk = Clerk::new_clerk_from_closed_key_registration(&params, &closed_registration);
 
     // Now we aggregate the signatures
-    let msig_1 = match clerk.aggregate_signatures(&complete_sigs_1, &msg) {
+    let aggr_sig_type = AggregateSignatureType::Concatenation;
+    let msig_1 = match clerk.aggregate_signatures_with_type(&complete_sigs_1, &msg, aggr_sig_type) {
         Ok(s) => s,
         Err(e) => {
             panic!("Aggregation failed: {e:?}")
@@ -125,7 +126,7 @@ fn main() {
             .is_ok()
     );
 
-    let msig_2 = match clerk.aggregate_signatures(&complete_sigs_2, &msg) {
+    let msig_2 = match clerk.aggregate_signatures_with_type(&complete_sigs_2, &msg, aggr_sig_type) {
         Ok(s) => s,
         Err(e) => {
             panic!("Aggregation failed: {e:?}")
@@ -137,7 +138,7 @@ fn main() {
             .is_ok()
     );
 
-    let msig_3 = clerk.aggregate_signatures(&incomplete_sigs_3, &msg);
+    let msig_3 = clerk.aggregate_signatures_with_type(&incomplete_sigs_3, &msg, aggr_sig_type);
     assert!(msig_3.is_err());
 }
 
