@@ -117,6 +117,10 @@ pub enum AggregationError {
     /// This error happens when we try to convert a u64 to a usize and it does not fit
     #[error("Invalid usize conversion")]
     UsizeConversionInvalid,
+
+    /// The proof system used in the aggregate signature is not supported
+    #[error("Unsupported proof system: {0}")]
+    UnsupportedProofSystem(AggregateSignatureType),
 }
 
 /// Errors which can be output by `CoreVerifier`.
@@ -144,6 +148,7 @@ impl From<AggregationError> for CoreVerifierError {
         match e {
             AggregationError::NotEnoughSignatures(e, _e) => Self::NoQuorum(e, e),
             AggregationError::UsizeConversionInvalid => unreachable!(),
+            AggregationError::UnsupportedProofSystem(_) => unreachable!(),
         }
     }
 }

@@ -1,9 +1,8 @@
 use blake2::digest::{Digest, FixedOutput};
 
 use crate::{
-    AggregateSignature, AggregateVerificationKey, AggregationError, BasicVerifier,
-    ClosedKeyRegistration, Index, Parameters, Signer, SingleSignature,
-    SingleSignatureWithRegisteredParty, Stake, VerificationKey,
+    AggregateSignature, AggregateSignatureType, AggregateVerificationKey, AggregationError,
+    ClosedKeyRegistration, Index, Parameters, Signer, SingleSignature, Stake, VerificationKey,
     aggregate_signature::ConcatenationProof,
 };
 
@@ -57,50 +56,32 @@ impl<D: Digest + Clone + FixedOutput + Send + Sync> Clerk<D> {
         Self::new_clerk_from_signer(signer)
     }
 
-    /// Aggregate a set of signatures for their corresponding indices.
-    ///
-    /// This function first deduplicates the repeated signatures, and if there are enough signatures, it collects the merkle tree indexes of unique signatures.
-    /// The list of merkle tree indexes is used to create a batch proof, to prove that all signatures are from eligible signers.
-    ///
-    /// It returns an instance of `AggregateSignature`.
+    /// Aggregate a set of signatures.
+    #[deprecated(since = "0.5.3", note = "Use `aggregate_signatures_with_type` instead")]
     pub fn aggregate_signatures(
         &self,
         sigs: &[SingleSignature],
         msg: &[u8],
     ) -> Result<AggregateSignature<D>, AggregationError> {
-        let sig_reg_list = sigs
-            .iter()
-            .map(|sig| SingleSignatureWithRegisteredParty {
-                sig: sig.clone(),
-                reg_party: self.closed_reg.reg_parties[sig.signer_index as usize],
-            })
-            .collect::<Vec<SingleSignatureWithRegisteredParty>>();
+        self.aggregate_signatures_with_type(sigs, msg, AggregateSignatureType::default())
+    }
 
-        let avk = AggregateVerificationKey::from(&self.closed_reg);
-        let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
-        let mut unique_sigs = BasicVerifier::select_valid_signatures_for_k_indices(
-            &self.closed_reg.total_stake,
-            &self.params,
-            &msgp,
-            &sig_reg_list,
-        )?;
-
-        unique_sigs.sort_unstable();
-
-        let mt_index_list = unique_sigs
-            .iter()
-            .map(|sig_reg| sig_reg.sig.signer_index as usize)
-            .collect::<Vec<usize>>();
-
-        let batch_proof = self
-            .closed_reg
-            .merkle_tree
-            .compute_merkle_tree_batch_path(mt_index_list);
-
-        Ok(AggregateSignature::Concatenation(ConcatenationProof {
-            signatures: unique_sigs,
-            batch_proof,
-        }))
+    /// Aggregate a set of signatures with a given proof type.
+    pub fn aggregate_signatures_with_type(
+        &self,
+        sigs: &[SingleSignature],
+        msg: &[u8],
+        aggregate_signature_type: AggregateSignatureType,
+    ) -> Result<AggregateSignature<D>, AggregationError> {
+        match aggregate_signature_type {
+            AggregateSignatureType::Concatenation => Ok(AggregateSignature::Concatenation(
+                ConcatenationProof::aggregate_signatures(self, sigs, msg)?,
+            )),
+            #[cfg(feature = "future_proof_system")]
+            AggregateSignatureType::Future => Err(AggregationError::UnsupportedProofSystem(
+                aggregate_signature_type,
+            )),
+        }
     }
 
     /// Aggregate a set of signatures for their corresponding indices.
@@ -110,6 +91,7 @@ impl<D: Digest + Clone + FixedOutput + Send + Sync> Clerk<D> {
     ///
     /// It returns an instance of `AggregateSignature`.
     #[deprecated(since = "0.5.0", note = "Use `aggregate_signatures` instead")]
+    #[allow(deprecated)]
     pub fn aggregate(
         &self,
         sigs: &[SingleSignature],

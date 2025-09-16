@@ -140,6 +140,9 @@ match msig {
     Err(AggregationError::UsizeConversionInvalid) => {
         println!("Invalid usize conversion");
     }
+    Err(AggregationError::UnsupportedProofSystem(aggregate_signature_type)) => {
+        println!("Unsupported proof system: {:?}", aggregate_signature_type);
+    }
 }
 ```
 

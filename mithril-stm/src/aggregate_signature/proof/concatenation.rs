@@ -2,12 +2,13 @@ use blake2::digest::{Digest, FixedOutput};
 
 use serde::{Deserialize, Serialize};
 
+use crate::aggregate_signature::clerk::Clerk;
 use crate::bls_multi_signature::{BlsSignature, BlsVerificationKey};
 use crate::key_registration::RegisteredParty;
 use crate::merkle_tree::MerkleBatchPath;
 use crate::{
-    AggregateVerificationKey, BasicVerifier, Parameters, SingleSignatureWithRegisteredParty,
-    StmAggregateSignatureError,
+    AggregateVerificationKey, AggregationError, BasicVerifier, Parameters, SingleSignature,
+    SingleSignatureWithRegisteredParty, StmAggregateSignatureError,
 };
 
 /// `ConcatenationProof` uses the "concatenation" proving system (as described in Section 4.3 of the original paper.)
@@ -25,6 +26,52 @@ pub struct ConcatenationProof<D: Clone + Digest + FixedOutput> {
 }
 
 impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
+    /// Aggregate a set of signatures for their corresponding indices.
+    ///
+    /// This function first deduplicates the repeated signatures, and if there are enough signatures, it collects the merkle tree indexes of unique signatures.
+    /// The list of merkle tree indexes is used to create a batch proof, to prove that all signatures are from eligible signers.
+    ///
+    /// It returns an instance of `ConcatenationProof`.
+    pub fn aggregate_signatures(
+        clerk: &Clerk<D>,
+        sigs: &[SingleSignature],
+        msg: &[u8],
+    ) -> Result<ConcatenationProof<D>, AggregationError> {
+        let sig_reg_list = sigs
+            .iter()
+            .map(|sig| SingleSignatureWithRegisteredParty {
+                sig: sig.clone(),
+                reg_party: clerk.closed_reg.reg_parties[sig.signer_index as usize],
+            })
+            .collect::<Vec<SingleSignatureWithRegisteredParty>>();
+
+        let avk = AggregateVerificationKey::from(&clerk.closed_reg);
+        let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
+        let mut unique_sigs = BasicVerifier::select_valid_signatures_for_k_indices(
+            &clerk.closed_reg.total_stake,
+            &clerk.params,
+            &msgp,
+            &sig_reg_list,
+        )?;
+
+        unique_sigs.sort_unstable();
+
+        let mt_index_list = unique_sigs
+            .iter()
+            .map(|sig_reg| sig_reg.sig.signer_index as usize)
+            .collect::<Vec<usize>>();
+
+        let batch_proof = clerk
+            .closed_reg
+            .merkle_tree
+            .compute_merkle_tree_batch_path(mt_index_list);
+
+        Ok(Self {
+            signatures: unique_sigs,
+            batch_proof,
+        })
+    }
+
     /// Verify all checks from signatures, except for the signature verification itself.
     ///
     /// Indices and quorum are checked by `BasicVerifier::preliminary_verify` with `msgp`.
