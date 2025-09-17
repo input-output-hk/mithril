@@ -4,6 +4,8 @@ use std::iter::repeat_n;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
+use mithril_stm::AggregateSignatureType;
+
 use crate::{
     certificate_chain::CertificateGenesisProducer,
     crypto_helper::{
@@ -236,6 +238,7 @@ pub struct CertificateChainBuilder<'a> {
     genesis_certificate_processor: &'a GenesisCertificateProcessorFunc,
     standard_certificate_processor: &'a StandardCertificateProcessorFunc,
     certificate_chaining_method: CertificateChainingMethod,
+    aggregate_signature_type: AggregateSignatureType,
 }
 
 impl<'a> CertificateChainBuilder<'a> {
@@ -254,6 +257,7 @@ impl<'a> CertificateChainBuilder<'a> {
             genesis_certificate_processor: &|certificate, _, _| certificate,
             standard_certificate_processor: &|certificate, _| certificate,
             certificate_chaining_method: Default::default(),
+            aggregate_signature_type: Default::default(),
         }
     }
 
@@ -314,6 +318,16 @@ impl<'a> CertificateChainBuilder<'a> {
         certificate_chaining_method: CertificateChainingMethod,
     ) -> Self {
         self.certificate_chaining_method = certificate_chaining_method;
+
+        self
+    }
+
+    /// Set the aggregate signature type to use when building the certificate chain.
+    pub fn with_aggregate_signature_type(
+        mut self,
+        aggregate_signature_type: AggregateSignatureType,
+    ) -> Self {
+        self.aggregate_signature_type = aggregate_signature_type;
 
         self
     }
@@ -509,7 +523,11 @@ impl<'a> CertificateChainBuilder<'a> {
             .collect::<Vec<_>>();
         let clerk = CertificateChainBuilder::compute_clerk_for_signers(&fixture.signers_fixture());
         let multi_signature = clerk
-            .aggregate_signatures(&single_signatures, certificate.signed_message.as_bytes())
+            .aggregate_signatures_with_type(
+                &single_signatures,
+                certificate.signed_message.as_bytes(),
+                self.aggregate_signature_type,
+            )
             .unwrap();
         certificate.signature = CertificateSignature::MultiSignature(
             SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(

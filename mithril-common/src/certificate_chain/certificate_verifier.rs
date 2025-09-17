@@ -422,6 +422,8 @@ mod tests {
     use async_trait::async_trait;
     use tokio::sync::Mutex;
 
+    use mithril_stm::AggregateSignatureType;
+
     use crate::test::{
         TestLogger,
         builder::{CertificateChainBuilder, CertificateChainBuilderContext, MithrilFixtureBuilder},
@@ -487,7 +489,11 @@ mod tests {
         let clerk = ProtocolClerk::new_clerk_from_signer(first_signer);
         let aggregate_verification_key = clerk.compute_aggregate_verification_key().into();
         let multi_signature = clerk
-            .aggregate_signatures(&single_signatures, &message_hash)
+            .aggregate_signatures_with_type(
+                &single_signatures,
+                &message_hash,
+                AggregateSignatureType::default(),
+            )
             .unwrap()
             .into();
 
@@ -780,7 +786,11 @@ mod tests {
             let clerk =
                 ProtocolClerk::new_clerk_from_signer(&fixture.signers_fixture()[0].protocol_signer);
             let modified_multi_signature = clerk
-                .aggregate_signatures(&single_signatures, signed_message.as_bytes())
+                .aggregate_signatures_with_type(
+                    &single_signatures,
+                    signed_message.as_bytes(),
+                    AggregateSignatureType::default(),
+                )
                 .unwrap();
             modified_certificate.signature = CertificateSignature::MultiSignature(
                 modified_certificate.signed_entity_type(),
@@ -1080,7 +1090,11 @@ mod tests {
                 &fixture.signers_fixture()[0].protocol_closed_key_registration,
             );
             let forged_multi_signature = forged_clerk
-                .aggregate_signatures(&forged_single_signatures, signed_message.as_bytes())
+                .aggregate_signatures_with_type(
+                    &forged_single_signatures,
+                    signed_message.as_bytes(),
+                    AggregateSignatureType::default(),
+                )
                 .unwrap();
             forged_certificate.signature = CertificateSignature::MultiSignature(
                 forged_certificate.signed_entity_type(),
