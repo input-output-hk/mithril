@@ -1,5 +1,5 @@
 use anyhow::{Context, anyhow};
-use mithril_stm::Parameters;
+use mithril_stm::{AggregateSignatureType, Parameters};
 
 use crate::{
     StdResult,
@@ -30,6 +30,7 @@ impl MultiSigner {
         &self,
         single_signatures: &[SingleSignature],
         message: &T,
+        aggregate_signature_type: AggregateSignatureType,
     ) -> Result<ProtocolMultiSignature, ProtocolAggregationError> {
         let protocol_signatures: Vec<_> = single_signatures
             .iter()
@@ -37,7 +38,11 @@ impl MultiSigner {
             .collect();
 
         self.protocol_clerk
-            .aggregate_signatures(&protocol_signatures, message.to_message().as_bytes())
+            .aggregate_signatures_with_type(
+                &protocol_signatures,
+                message.to_message().as_bytes(),
+                aggregate_signature_type,
+            )
             .map(|multi_sig| multi_sig.into())
     }
 
@@ -117,9 +122,11 @@ mod test {
         let multi_signer = build_multi_signer(&fixture);
         let message = ProtocolMessage::default();
 
-        let error = multi_signer.aggregate_single_signatures(&[], &message).expect_err(
-            "Multi-signature should not be created with an empty single signatures list",
-        );
+        let error = multi_signer
+            .aggregate_single_signatures(&[], &message, AggregateSignatureType::default())
+            .expect_err(
+                "Multi-signature should not be created with an empty single signatures list",
+            );
 
         assert!(
             matches!(error, ProtocolAggregationError::NotEnoughSignatures(_, _)),
@@ -139,7 +146,7 @@ mod test {
             .collect();
 
         multi_signer
-            .aggregate_single_signatures(&signatures, &message)
+            .aggregate_single_signatures(&signatures, &message, AggregateSignatureType::default())
             .expect("Multi-signature should be created");
     }
 
@@ -160,7 +167,7 @@ mod test {
         signatures[4].signature = fake_keys::single_signature()[3].try_into().unwrap();
 
         multi_signer
-            .aggregate_single_signatures(&signatures, &message)
+            .aggregate_single_signatures(&signatures, &message, AggregateSignatureType::default())
             .expect("Multi-signature should be created even with one invalid signature");
     }
 
