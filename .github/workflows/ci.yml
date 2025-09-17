@@ -345,7 +345,7 @@ jobs:
         cardano_node_version: ["10.4.1", "10.5.1"]
         hard_fork_latest_era_at_epoch: [0]
         run_id: ["#1", "#2", "#3"]
-        extra_args: [""]
+        extra_args: ["--aggregate-signature-type=Concatenation"]
 
         include:
           # Include a test for partial decentralization with leader/follower signer registration and P2P signature registration
