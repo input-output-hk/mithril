@@ -5,6 +5,8 @@ authors:
 tags: [mithril client, cli, command, utxo-hd, conversion]
 ---
 
+**Update 2025/09/17**: The command has been promoted to `stable` and is now available without the `--unstable` flag.
+
 ### Introducing the UTXO-HD ledger state snapshot converter command in the Mithril client CLI
 
 With the release of the new [2524](https://github.com/input-output-hk/mithril/releases/tag/2524.0) distribution, the **tools** command has been added to the **Mithril client CLI**.
@@ -22,7 +24,7 @@ It operates using the `snapshot-converter` binary included with the Cardano node
 Usage:
 
 ```bash
-mithril-client --unstable tools utxo-hd snapshot-converter --db-directory $DB_DIRECTORY --cardano-node-version 10.1.4 --utxo-hd-flavor $UTXO_HD_FLAVOR --cardano-network $CARDANO_NETWORK
+mithril-client tools utxo-hd snapshot-converter --db-directory $DB_DIRECTORY --cardano-node-version 10.1.4 --utxo-hd-flavor $UTXO_HD_FLAVOR
 ```
 
 Parameters:
@@ -30,7 +32,6 @@ Parameters:
 - `--db-directory`: path to the Cardano database directory
 - `--cardano-node-version`: version used to download the `snapshot-converter` binary (specific version, eg, `10.1.4`, `latest`, or `prerelease`)
 - `--utxo-hd-flavor`: target UTXO-HD flavor (`LMDB` or `Legacy`)
-- `--cardano-network`: Cardano network (`preview`, `preprod` or `mainnet`).
 
 The 'Bootstrap a Cardano node' guide now includes a new optional [step](https://mithril.network/doc/manual/getting-started/bootstrap-cardano-node#step-5-optional-convert-the-ledger-state-snapshot-to-another-flavor) that describes how to use the command.
 
