@@ -39,20 +39,22 @@ setRunEnv () {
     TESTING_PREVIEW_ERA_ADDR=addr_test1qzzngukkj9ydjemqjlgfn42sevy2xnvauay46weushlpuq9thd4ray00csjssf4sxftv04xeequ3xfx72nujg9y4d5ysgkxxlh
     TESTING_PREVIEW_ERA_VKEY=5b35352c3232382c3134342c38372c3133382c3133362c34382c382c31342c3138372c38352c3134382c39372c3233322c3235352c3232392c33382c3234342c3234372c3230342c3139382c31332c33312c3232322c32352c3136342c35322c3130322c39312c3132302c3230382c3134375d
 
-    PARTY_ID=$PARTY_ID
-    KES_SECRET_KEY_PATH=$CARDANO_SHELLEY_KES_KEY
-    OPERATIONAL_CERTIFICATE_PATH=$CARDANO_SHELLEY_OPERATIONAL_CERTIFICATE
-    NETWORK=$NETWORK
-    AGGREGATOR_ENDPOINT=https://aggregator.${MITHRIL_NETWORK}.api.mithril.network/aggregator
-    RUN_INTERVAL=$RUN_INTERVAL
-    DB_DIRECTORY=$CARDANO_DATABASE_PATH
-    CARDANO_NODE_SOCKET_PATH=$CARDANO_SOCKET_PATH
-    CARDANO_CLI_PATH=/usr/local/bin/cardano-cli
-    DATA_STORES_DIRECTORY=/data/mithril/stores
-    STORE_RETENTION_LIMIT=$STORE_RETENTION_LIMIT
-    ERA_READER_ADAPTER_TYPE=cardano-chain
+    export PARTY_ID=$PARTY_ID
+    #export KES_SECRET_KEY_PATH=$CARDANO_SHELLEY_KES_KEY
+    #export OPERATIONAL_CERTIFICATE_PATH=$CARDANO_SHELLEY_OPERATIONAL_CERTIFICATE
+    export NETWORK=$NETWORK
+    export AGGREGATOR_ENDPOINT=https://aggregator.${MITHRIL_NETWORK}.api.mithril.network/aggregator
+    export RUN_INTERVAL=$RUN_INTERVAL
+    #export DB_DIRECTORY=$CARDANO_DATABASE_PATH
+    export DB_DIRECTORY=/data/db
+    #export CARDANO_NODE_SOCKET_PATH=$CARDANO_SOCKET_PATH
+    export CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
+    export CARDANO_CLI_PATH=/usr/local/bin/cardano-cli
+    export DATA_STORES_DIRECTORY=/data/mithril/stores
+    export STORE_RETENTION_LIMIT=$STORE_RETENTION_LIMIT
+    export ERA_READER_ADAPTER_TYPE=cardano-chain
     #ERA_READER_ADAPTER_PARAMS=$(jq -nc --arg address $(curl -s https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/${MITHRIL_NETWORK_CONFIG_FILES}/era.addr) --arg verification_key $(curl -s https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/${MITHRIL_NETWORK_CONFIG_FILES}/era.vkey) '{"address": $address, "verification_key": $verification_key}')
-    ERA_READER_ADAPTER_PARAMS=$(jq -nc --arg address $TESTING_PREVIEW_ERA_ADDR --arg verification_key $TESTING_PREVIEW_ERA_VKEY '{"address": $address, "verification_key": $verification_key}')
+    export ERA_READER_ADAPTER_PARAMS=$(jq -nc --arg address $TESTING_PREVIEW_ERA_ADDR --arg verification_key $TESTING_PREVIEW_ERA_VKEY '{"address": $address, "verification_key": $verification_key}')
 
 }
 
@@ -62,19 +64,21 @@ setRunEnv () {
 #
 #####################################################################
 runMithrilSignerNode () {
-    /usr/local/bin/mithril-signer run-node \
-        --kes-secret-key-path $KES_SECRET_KEY_PATH \
-        --operational-certificate-path $OPERATIONAL_CERTIFICATE_PATH \
-        --network $NETWORK \
-        --aggregator-endpoint $AGGREGATOR_ENDPOINT \
-        --run-interval $RUN_INTERVAL \
-        --db-directory $DB_DIRECTORY \
-        --cardano-node-socket-path $CARDANO_NODE_SOCKET_PATH \
-        --cardano-cli-path $CARDANO_CLI_PATH \
-        --data-stores-directory $DATA_STORES_DIRECTORY \
-        --store-retention-limit $STORE_RETENTION_LIMIT \
-        --era-reader-adapter-type $ERA_READER_ADAPTER_TYPE \
-        --era-reader-adapter-params $ERA_READER_ADAPTER_PARAMS
+    local max_retries=1000
+    local count=0
+    local success=0
+
+    while [[ $count -lt $max_retries ]]; do
+        /usr/local/bin/mithril-signer -vvv >> /data/mithril/signer.log 2>&1 && success=1 && break
+        echo "Signer failed to start (attempt $((count+1))/$max_retries), retrying in 5 seconds..."
+        sleep 5
+        ((count++))
+    done
+
+    if [[ $success -eq 0 ]]; then
+        echo "Signer failed to start after $max_retries attempts."
+        return 1
+    fi
 }
 
 if [[ $CARDANO_BLOCK_PRODUCER == true ]]; then

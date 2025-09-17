@@ -1,7 +1,7 @@
 #!/bin/env bash
 
 # Start Mithril signer in the background
-/usr/local/bin/mithril-entrypoint #&
+/usr/local/bin/mithril-entrypoint &
 
 # Run Cardano entrypoint
 /usr/local/bin/entrypoint
