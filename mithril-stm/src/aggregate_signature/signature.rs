@@ -12,9 +12,10 @@ use crate::{AggregateVerificationKey, Parameters};
 use super::ConcatenationProof;
 
 /// The type of STM aggregate signature.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum AggregateSignatureType {
     /// Concatenation proof system.
+    #[default]
     Concatenation,
     /// Future proof system. Not suitable for production.
     #[cfg(feature = "future_proof_system")]
