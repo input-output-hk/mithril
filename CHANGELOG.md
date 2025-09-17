@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 As a minor extension, we have adopted a slightly different versioning convention for the Mithril distributions (<https://mithril.network/doc/adr/3#decision>)
 
-## Mithril Distribution [2537] - UNRELEASED
+## Mithril Distribution [2537] - 2025-09-17
 
 - Client library, CI and WASM:
   - Support for stable `cardano_database_v2` backend in the `mithril-client` library.
@@ -45,9 +45,15 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Crates versions:
 
-| Crate | Version |
-| ----- | ------- |
-| N/A   | `-`     |
+| Crate               | Version   |
+| ------------------- | --------- |
+| mithril-aggregator  | `0.7.84`  |
+| mithril-client      | `0.12.30` |
+| mithril-client-cli  | `0.12.30` |
+| mithril-client-wasm | `0.9.5`   |
+| mithril-common      | `0.6.17`  |
+| mithril-signer      | `0.2.268` |
+| mithril-stm         | `0.5.0`   |
 
 ## Mithril Distribution [2524.0] - 2025-06-16
 
