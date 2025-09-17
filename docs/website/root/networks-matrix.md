@@ -9,7 +9,7 @@ import TabItem from '@theme/TabItem';
 
 Here is an updated list of all **Mithril networks**, including their configurations and current statuses:
 
-> Last update: 02/11/2025
+> Last update: 09/17/2025
 
 <Tabs>
   <TabItem value="mainnet" label="Mainnet" default>
