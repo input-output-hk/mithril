@@ -345,7 +345,7 @@ jobs:
         cardano_node_version: ["10.4.1", "10.5.1"]
         hard_fork_latest_era_at_epoch: [0]
         run_id: ["#1", "#2", "#3"]
-        extra_args: [""]
+        extra_args: ["--aggregate-signature-type=Concatenation"]
 
         include:
           # Include a test for partial decentralization with leader/follower signer registration and P2P signature registration
@@ -355,7 +355,7 @@ jobs:
             cardano_node_version: "10.4.1"
             hard_fork_latest_era_at_epoch: 0
             run_id: "#1"
-            extra_args: "--number-of-aggregators=2 --use-relays --relay-signer-registration-mode=passthrough --relay-signature-registration-mode=p2p"
+            extra_args: "--number-of-aggregators=2 --use-relays --relay-signer-registration-mode=passthrough --relay-signature-registration-mode=p2p --aggregate-signature-type=Concatenation"
           # Include a test for full dedentralization P2P signer registration and P2P signature registration
           - mode: "decentralized"
             era: ${{ fromJSON(needs.build-ubuntu.outputs.eras)[0] }}
@@ -363,7 +363,7 @@ jobs:
             cardano_node_version: "10.4.1"
             hard_fork_latest_era_at_epoch: 0
             run_id: "#1"
-            extra_args: "--number-of-aggregators=2 --use-relays --relay-signer-registration-mode=p2p --relay-signature-registration-mode=p2p"
+            extra_args: "--number-of-aggregators=2 --use-relays --relay-signer-registration-mode=p2p --relay-signature-registration-mode=p2p --aggregate-signature-type=Concatenation"
           # Include a test for the era switch without regenesis
           - mode: "std"
             era: ${{ fromJSON(needs.build-ubuntu.outputs.eras)[0] }}
@@ -371,7 +371,7 @@ jobs:
             cardano_node_version: "10.4.1"
             hard_fork_latest_era_at_epoch: 0
             run_id: "#1"
-            extra_args: ""
+            extra_args: "--aggregate-signature-type=Concatenation"
           # Include a test for the era switch with regenesis
           - mode: "std"
             era: ${{ fromJSON(needs.build-ubuntu.outputs.eras)[0] }}
@@ -379,7 +379,7 @@ jobs:
             cardano_node_version: "10.4.1"
             hard_fork_latest_era_at_epoch: 0
             run_id: "#1"
-            extra_args: "--mithril-era-regenesis-on-switch"
+            extra_args: "--mithril-era-regenesis-on-switch --aggregate-signature-type=Concatenation"
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
