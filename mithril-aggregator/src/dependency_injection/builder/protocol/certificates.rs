@@ -74,8 +74,11 @@ impl DependenciesBuilder {
     }
 
     async fn build_multi_signer(&mut self) -> Result<Arc<dyn MultiSigner>> {
-        let multi_signer =
-            MultiSignerImpl::new(self.get_epoch_service().await?, self.root_logger());
+        let multi_signer = MultiSignerImpl::new(
+            self.configuration.aggregate_signature_type(),
+            self.get_epoch_service().await?,
+            self.root_logger(),
+        );
 
         Ok(Arc::new(multi_signer))
     }
