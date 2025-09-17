@@ -40,9 +40,9 @@ To support this transition, both certification versions will remain available du
   - No breaking changes in the client CLI
   - The `v2` backend is accessible via the `cardano_database_v2` function in the client library.
 
-- [ ] **Distribution +1**:
-  - The `v2` backend will be promoted to **stable** status but will remain optional
-  - The `v1` backend will continue to be the default.
+- [x] **Distribution [2537](https://github.com/input-output-hk/mithril/releases/tag/2537.0)**:
+  - The `v2` backend is promoted to **stable** status but will remain optional
+  - The `v1` backend is still the default.
 
 - [ ] **Distribution +2**:
   - The `v2` backend will become the default
