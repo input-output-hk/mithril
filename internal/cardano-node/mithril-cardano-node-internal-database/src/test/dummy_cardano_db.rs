@@ -211,7 +211,7 @@ impl DummyCardanoDbBuilder {
     /// Note: by default, the size of the produced files is less than 1 kb.
     pub fn set_immutable_trio_file_size(&mut self, trio_file_size: u64) -> &mut Self {
         assert!(
-            trio_file_size % 3 == 0,
+            trio_file_size.is_multiple_of(3),
             "'trio_file_size' must be a multiple of 3"
         );
 

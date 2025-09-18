@@ -1019,7 +1019,7 @@ mod tests {
 
             let stake_store = {
                 assert!(
-                    self.total_stake % self.total_spo as u64 == 0,
+                    self.total_stake.is_multiple_of(self.total_spo as u64),
                     "'total_stake' must be a multiple of 'total_spo' to create a uniform stake distribution"
                 );
                 let stake_per_spo = self.total_stake / self.total_spo as u64;

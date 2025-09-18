@@ -107,7 +107,7 @@ impl From<SignerWithStake> for SignerWithStakeMessagePart {
                 .map(|k| k.try_into().unwrap()),
             operational_certificate: value
                 .operational_certificate
-                .map(|op_cert| (op_cert.try_into().unwrap())),
+                .map(|op_cert| op_cert.try_into().unwrap()),
             kes_period: value.kes_period,
             stake: value.stake,
         }
@@ -230,7 +230,7 @@ impl From<Signer> for SignerMessagePart {
                 .map(|k| k.try_into().unwrap()),
             operational_certificate: value
                 .operational_certificate
-                .map(|op_cert| (op_cert.try_into().unwrap())),
+                .map(|op_cert| op_cert.try_into().unwrap()),
             kes_period: value.kes_period,
         }
     }
