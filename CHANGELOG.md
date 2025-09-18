@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 As a minor extension, we have adopted a slightly different versioning convention for the Mithril distributions (<https://mithril.network/doc/adr/3#decision>)
 
+## Mithril Distribution [XXXX] - UNRELEASED
+
+- **BREAKING** changes in aggregator OpenAPI: removed the `next_cardano_transactions_signing_config` in `/epoch-settings` route.
+
+- Crates versions:
+
+| Crate | Version |
+| ----- | ------- |
+| N/A   | `-`     |
+
 ## Mithril Distribution [2537] - 2025-09-17
 
 - Client library, CI and WASM:
