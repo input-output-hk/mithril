@@ -177,7 +177,7 @@ pub(super) struct Progress {
 impl Progress {
     pub(super) fn report(&mut self, ix: usize) -> bool {
         self.index = ix;
-        (20 * ix) % self.total == 0
+        (20 * ix).is_multiple_of(self.total)
     }
 
     pub(super) fn percent(&self) -> f64 {
