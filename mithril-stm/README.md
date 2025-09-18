@@ -95,8 +95,8 @@ let mut key_reg = KeyRegistration::init();
 
 let mut ps: Vec<Initializer> = Vec::with_capacity(nparties as usize);
 for stake in parties {
-    let p = Initializer::setup(params, stake, &mut rng);
-    key_reg.register(stake, p.verification_key()).unwrap();
+    let p = Initializer::new(params, stake, &mut rng);
+    key_reg.register(stake, p.get_verification_key_proof_of_possession()).unwrap();
     ps.push(p);
 }
 
@@ -104,7 +104,7 @@ let closed_reg = key_reg.close();
 
 let ps = ps
     .into_par_iter()
-    .map(|p| p.new_signer(closed_reg.clone()).unwrap())
+    .map(|p| p.create_signer(closed_reg.clone()).unwrap())
     .collect::<Vec<Signer<H>>>();
 
 /////////////////////
@@ -116,22 +116,22 @@ let sigs = ps
     .filter_map(|p| p.sign(&msg))
     .collect::<Vec<SingleSignature>>();
 
-let clerk = Clerk::from_signer(&ps[0]);
-let avk = clerk.compute_avk();
+let clerk = Clerk::new_clerk_from_signer(&ps[0]);
+let avk = clerk.compute_aggregate_verification_key();
 
 // Check all parties can verify every sig
 for (s, p) in sigs.iter().zip(ps.iter()) {
-    assert!(s.verify(&params, &p.verification_key(), &p.get_stake(), &avk, &msg).is_ok(), "Verification
+    assert!(s.verify(&params, &p.get_verification_key(), &p.get_stake(), &avk, &msg).is_ok(), "Verification
     failed");
 }
 
 // Aggregate with random parties
-let msig = clerk.aggregate(&sigs, &msg);
+let msig = clerk.aggregate_signatures(&sigs, &msg);
 
 match msig {
     Ok(aggr) => {
         println!("Aggregate ok");
-        assert!(aggr.verify(&msg, &clerk.compute_avk(), &params).is_ok());
+        assert!(aggr.verify(&msg, &clerk.compute_aggregate_verification_key(), &params).is_ok());
     }
     Err(AggregationError::NotEnoughSignatures(n, k)) => {
         println!("Not enough signatures");
