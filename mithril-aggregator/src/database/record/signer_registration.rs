@@ -61,8 +61,8 @@ impl From<SignerRegistrationRecord> for Signer {
             verification_key: other.verification_key.try_into().unwrap(),
             verification_key_signature: other
                 .verification_key_signature
-                .map(|k| (k.try_into().unwrap())),
-            operational_certificate: other.operational_certificate.map(|o| (o.try_into().unwrap())),
+                .map(|k| k.try_into().unwrap()),
+            operational_certificate: other.operational_certificate.map(|o| o.try_into().unwrap()),
             kes_period: other.kes_period,
         }
     }
@@ -75,8 +75,8 @@ impl From<SignerRegistrationRecord> for SignerWithStake {
             verification_key: other.verification_key.try_into().unwrap(),
             verification_key_signature: other
                 .verification_key_signature
-                .map(|k| (k.try_into().unwrap())),
-            operational_certificate: other.operational_certificate.map(|o| (o.try_into().unwrap())),
+                .map(|k| k.try_into().unwrap()),
+            operational_certificate: other.operational_certificate.map(|o| o.try_into().unwrap()),
             kes_period: other.kes_period,
             stake: other.stake.unwrap_or_default(),
         }
