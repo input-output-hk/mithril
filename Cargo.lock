@@ -3989,7 +3989,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.7.84"
+version = "0.7.85"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4141,7 +4141,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-cardano-node-internal-database"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4262,7 +4262,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.6.17"
+version = "0.6.18"
 dependencies = [
  "anyhow",
  "async-trait",
