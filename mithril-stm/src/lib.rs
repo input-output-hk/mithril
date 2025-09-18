@@ -53,7 +53,7 @@
 //! let mut ps: Vec<Initializer> = Vec::with_capacity(nparties);
 //! for stake in stakes {
 //!     // Create keys for this party
-//!     let p = Initializer::setup(params, stake, &mut rng);
+//!     let p = Initializer::new(params, stake, &mut rng);
 //!     // Register keys with the KeyRegistration service
 //!     key_reg
 //!         .register(p.stake, p.verification_key())
