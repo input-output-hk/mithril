@@ -453,6 +453,7 @@ impl DependenciesBuilder {
                 cardano_node_version: self.configuration.cardano_node_version(),
                 allow_http_serve_directory: self.configuration.allow_http_serve_directory(),
                 origin_tag_white_list: self.configuration.compute_origin_tag_white_list(),
+                aggregate_signature_type: self.configuration.aggregate_signature_type(),
             },
         );
 

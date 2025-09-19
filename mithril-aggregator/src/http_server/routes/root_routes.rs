@@ -19,6 +19,9 @@ fn root(
             config.allowed_discriminants.clone()
         }))
         .and(middlewares::extract_config(router_state, |config| {
+            config.aggregate_signature_type
+        }))
+        .and(middlewares::extract_config(router_state, |config| {
             config.cardano_transactions_prover_max_hashes_allowed_by_request
         }))
         .and_then(handlers::root)
@@ -28,6 +31,7 @@ mod handlers {
     use std::collections::BTreeSet;
     use std::{convert::Infallible, sync::Arc};
 
+    use mithril_common::AggregateSignatureType;
     use slog::Logger;
     use warp::http::StatusCode;
 
@@ -45,6 +49,7 @@ mod handlers {
         logger: Logger,
         api_version_provider: Arc<APIVersionProvider>,
         allowed_signed_entity_type_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+        aggregate_signature_type: AggregateSignatureType,
         max_hashes_allowed_by_request: usize,
     ) -> Result<impl warp::Reply, Infallible> {
         let open_api_version = unwrap_to_internal_server_error!(
@@ -54,6 +59,7 @@ mod handlers {
 
         let mut capabilities = AggregatorCapabilities {
             signed_entity_types: allowed_signed_entity_type_discriminants,
+            aggregate_signature_type,
             cardano_transactions_prover: None,
         };
 
@@ -87,6 +93,7 @@ mod tests {
     use warp::test::request;
 
     use mithril_api_spec::APISpec;
+    use mithril_common::AggregateSignatureType;
     use mithril_common::entities::SignedEntityTypeDiscriminants;
     use mithril_common::messages::{
         AggregatorCapabilities, AggregatorFeaturesMessage, CardanoTransactionsProverCapabilities,
@@ -155,6 +162,7 @@ mod tests {
                         SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
                         SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                     ]),
+                    aggregate_signature_type: AggregateSignatureType::Concatenation,
                     cardano_transactions_prover: None,
                 },
             }

@@ -32,7 +32,7 @@ pub type ProtocolKeyRegistrationNotCertified = KeyRegistration;
 /// Alias of [MithrilStm:SingleSignature](struct@mithril_stm::SingleSignature).
 pub type ProtocolSingleSignature = SingleSignature;
 
-/// Alias of [MithrilStm:AggregateSignature](struct@mithril_stm::AggregateSignature).
+/// Alias of [MithrilStm:AggregateSignature](enum@mithril_stm::AggregateSignature).
 pub type ProtocolMultiSignature = AggregateSignature<D>;
 
 /// Alias of [MithrilStm:VerificationKeyProofOfPossession](type@mithril_stm::VerificationKeyProofOfPossession).

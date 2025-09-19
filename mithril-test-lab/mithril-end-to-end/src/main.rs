@@ -103,6 +103,10 @@ pub struct Args {
     )]
     signed_entity_types: Vec<String>,
 
+    /// Aggregate signature type used to create the certificates
+    #[clap(long, default_value = "Concatenation")]
+    aggregate_signature_type: String,
+
     /// Enable run only mode
     #[clap(long)]
     run_only: bool,
@@ -370,6 +374,7 @@ impl App {
                 mithril_era: args.mithril_era,
                 mithril_era_reader_adapter: args.mithril_era_reader_adapter,
                 signed_entity_types: args.signed_entity_types.clone(),
+                aggregate_signature_type: args.aggregate_signature_type,
                 run_only_mode,
                 use_dmq,
                 use_relays,

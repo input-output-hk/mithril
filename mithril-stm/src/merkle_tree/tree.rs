@@ -307,17 +307,13 @@ mod tests {
                 let bytes = pf.to_bytes();
                 let deserialised = MerklePath::from_bytes(&bytes).unwrap();
                 assert!(t.to_merkle_tree_commitment().verify_leaf_membership_from_path(&values[i], &deserialised).is_ok());
-
-                let encoded = bincode::serde::encode_to_vec(&pf, bincode::config::legacy()).unwrap();
-                let (decoded,_) = bincode::serde::decode_from_slice::<MerklePath<Blake2b<U32>>,_>(&encoded, bincode::config::legacy()).unwrap();
-                assert!(t.to_merkle_tree_commitment().verify_leaf_membership_from_path(&values[i], &decoded).is_ok());
             })
         }
 
         #[test]
         fn test_bytes_tree_commitment((t, values) in arb_tree(5)) {
-            let encoded = bincode::serde::encode_to_vec(t.to_merkle_tree_commitment(), bincode::config::legacy()).unwrap();
-            let (decoded,_) = bincode::serde::decode_from_slice::<MerkleTreeCommitment<Blake2b<U32>>,_>(&encoded, bincode::config::legacy()).unwrap();
+            let encoded = t.to_merkle_tree_commitment().to_bytes();
+            let decoded = MerkleTreeCommitment::<Blake2b<U32>>::from_bytes(&encoded).unwrap();
 
             let tree_commitment = MerkleTree::<Blake2b<U32>>::new(&values).to_merkle_tree_commitment();
             assert_eq!(tree_commitment.root, decoded.root);
@@ -329,16 +325,12 @@ mod tests {
             let deserialised = MerkleTree::<Blake2b<U32>>::from_bytes(&bytes).unwrap();
             let tree = MerkleTree::<Blake2b<U32>>::new(&values);
             assert_eq!(tree.nodes, deserialised.nodes);
-
-            let encoded = bincode::serde::encode_to_vec(&t, bincode::config::legacy()).unwrap();
-            let (decoded,_) = bincode::serde::decode_from_slice::<MerkleTree<Blake2b<U32>>,_>(&encoded, bincode::config::legacy()).unwrap();
-            assert_eq!(tree.nodes, decoded.nodes);
         }
 
         #[test]
         fn test_bytes_tree_commitment_batch_compat((t, values) in arb_tree(5)) {
-            let encoded = bincode::serde::encode_to_vec(t.to_merkle_tree_batch_commitment(), bincode::config::legacy()).unwrap();
-            let (decoded,_) = bincode::serde::decode_from_slice::<MerkleTreeBatchCommitment<Blake2b<U32>>,_>(&encoded, bincode::config::legacy()).unwrap();
+            let encoded = t.to_merkle_tree_batch_commitment().to_bytes();
+            let decoded = MerkleTreeBatchCommitment::<Blake2b<U32>>::from_bytes(&encoded).unwrap();
             let tree_commitment = MerkleTree::<Blake2b<U32>>::new(&values).to_merkle_tree_batch_commitment();
             assert_eq!(tree_commitment.root, decoded.root);
             assert_eq!(tree_commitment.get_number_of_leaves(), decoded.get_number_of_leaves());
@@ -427,10 +419,6 @@ mod tests {
             let bytes = &bp.to_bytes();
             let deserialized = MerkleBatchPath::from_bytes(bytes).unwrap();
             assert!(t.to_merkle_tree_batch_commitment().verify_leaves_membership_from_batch_path(&batch_values, &deserialized).is_ok());
-
-            let encoded = bincode::serde::encode_to_vec(&bp, bincode::config::legacy()).unwrap();
-            let (decoded,_) = bincode::serde::decode_from_slice::<MerkleBatchPath<Blake2b<U32>>,_>(&encoded, bincode::config::legacy()).unwrap();
-            assert!(t.to_merkle_tree_batch_commitment().verify_leaves_membership_from_batch_path(&batch_values, &decoded).is_ok());
         }
     }
 }
