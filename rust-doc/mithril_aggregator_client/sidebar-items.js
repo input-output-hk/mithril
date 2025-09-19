@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AggregatorClientError"],"mod":["query"],"struct":["AggregatorClient","AggregatorClientBuilder"],"type":["AggregatorClientResult"]};
