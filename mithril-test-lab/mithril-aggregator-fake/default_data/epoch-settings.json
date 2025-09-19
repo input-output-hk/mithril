@@ -40,9 +40,5 @@
   "cardano_transactions_signing_config": {
     "security_parameter": 1,
     "step": 15
-  },
-  "next_cardano_transactions_signing_config": {
-    "security_parameter": 1,
-    "step": 15
   }
 }

@@ -81,8 +81,6 @@ mod entities {
             // Cardano transactions signing configuration
             let cardano_transactions_signing_config =
                 Some(CardanoTransactionsSigningConfig::dummy());
-            let next_cardano_transactions_signing_config =
-                Some(CardanoTransactionsSigningConfig::dummy());
 
             // Signer Epoch settings
             LeaderAggregatorEpochSettings {
@@ -91,7 +89,6 @@ mod entities {
                 current_signers,
                 next_signers,
                 cardano_transactions_signing_config,
-                next_cardano_transactions_signing_config,
             }
         }
     }

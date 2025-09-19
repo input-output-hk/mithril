@@ -19,9 +19,6 @@ pub struct SignerEpochSettings {
 
     /// Cardano transactions signing configuration for the current epoch
     pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
-
-    /// Cardano transactions signing configuration for the next epoch
-    pub next_cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
 }
 
 #[cfg(test)]
@@ -43,8 +40,6 @@ impl mithril_common::test::double::Dummy for SignerEpochSettings {
 
         // Cardano transactions signing configuration
         let cardano_transactions_signing_config = Some(CardanoTransactionsSigningConfig::dummy());
-        let next_cardano_transactions_signing_config =
-            Some(CardanoTransactionsSigningConfig::dummy());
 
         // Signer Epoch settings
         SignerEpochSettings {
@@ -53,7 +48,6 @@ impl mithril_common::test::double::Dummy for SignerEpochSettings {
             current_signers,
             next_signers,
             cardano_transactions_signing_config,
-            next_cardano_transactions_signing_config,
         }
     }
 }
