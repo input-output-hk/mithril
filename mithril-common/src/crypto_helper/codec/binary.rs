@@ -210,7 +210,7 @@ mod binary_kes_sig {
 }
 
 mod binary_opcert {
-    use crate::crypto_helper::{OpCert, SerDeShelleyFileFormat};
+    use crate::crypto_helper::{OpCert, OpCertWithoutColdVerificationKey, SerDeShelleyFileFormat};
     use anyhow::anyhow;
 
     use super::*;
@@ -222,6 +222,18 @@ mod binary_opcert {
     }
 
     impl TryFromBytes for OpCert {
+        fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
+            Self::from_cbor_bytes(bytes).map_err(|e| anyhow!(format!("{e:?}")))
+        }
+    }
+
+    impl TryToBytes for OpCertWithoutColdVerificationKey {
+        fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
+            self.to_cbor_bytes().map_err(|e| anyhow!(format!("{e:?}")))
+        }
+    }
+
+    impl TryFromBytes for OpCertWithoutColdVerificationKey {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
             Self::from_cbor_bytes(bytes).map_err(|e| anyhow!(format!("{e:?}")))
         }

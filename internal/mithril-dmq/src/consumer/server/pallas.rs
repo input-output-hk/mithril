@@ -289,7 +289,7 @@ mod tests {
 
     use mithril_common::{current_function, test::TempDir};
 
-    use crate::test_tools::TestLogger;
+    use crate::{test::fake_message::compute_fake_msg, test_tools::TestLogger};
 
     use super::*;
 
@@ -297,23 +297,12 @@ mod tests {
         TempDir::create_with_short_path("dmq_consumer_server", folder_name)
     }
 
-    fn fake_msg() -> DmqMsg {
-        DmqMsg {
-            msg_id: vec![0, 1],
-            msg_body: vec![0, 1, 2],
-            block_number: 10,
-            ttl: 100,
-            kes_signature: vec![0, 1, 2, 3],
-            operational_certificate: vec![0, 1, 2, 3, 4],
-            kes_period: 10,
-        }
-    }
-
     #[tokio::test(flavor = "multi_thread")]
     async fn pallas_dmq_consumer_server_non_blocking_success() {
+        let current_function_name = current_function!();
         let (stop_tx, stop_rx) = watch::channel(());
         let (signature_dmq_tx, signature_dmq_rx) = unbounded_channel::<DmqMessage>();
-        let socket_path = create_temp_dir(current_function!()).join("node.socket");
+        let socket_path = create_temp_dir(current_function_name).join("node.socket");
         let cardano_network = CardanoNetwork::TestNet(0);
         let dmq_consumer_server = Arc::new(DmqConsumerServerPallas::new(
             socket_path.to_path_buf(),
@@ -322,7 +311,7 @@ mod tests {
             TestLogger::stdout(),
         ));
         dmq_consumer_server.register_receiver(signature_dmq_rx).await.unwrap();
-        let message = fake_msg();
+        let message: DmqMsg = compute_fake_msg(b"test", current_function_name).await.into();
         let client = tokio::spawn({
             async move {
                 // sleep to avoid refused connection from the server
@@ -370,9 +359,10 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn pallas_dmq_consumer_server_blocking_success() {
+        let current_function_name = current_function!();
         let (stop_tx, stop_rx) = watch::channel(());
         let (signature_dmq_tx, signature_dmq_rx) = unbounded_channel::<DmqMessage>();
-        let socket_path = create_temp_dir(current_function!()).join("node.socket");
+        let socket_path = create_temp_dir(current_function_name).join("node.socket");
         let cardano_network = CardanoNetwork::TestNet(0);
         let dmq_consumer_server = Arc::new(DmqConsumerServerPallas::new(
             socket_path.to_path_buf(),
@@ -381,7 +371,7 @@ mod tests {
             TestLogger::stdout(),
         ));
         dmq_consumer_server.register_receiver(signature_dmq_rx).await.unwrap();
-        let message = fake_msg();
+        let message: DmqMsg = compute_fake_msg(b"test", current_function_name).await.into();
         let client = tokio::spawn({
             async move {
                 // sleep to avoid refused connection from the server

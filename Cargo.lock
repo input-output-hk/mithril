@@ -3989,7 +3989,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.7.85"
+version = "0.7.86"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4262,7 +4262,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.6.18"
+version = "0.6.19"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4304,7 +4304,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-dmq"
-version = "0.1.10"
+version = "0.1.11"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4479,7 +4479,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.269"
+version = "0.2.270"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5072,7 +5072,7 @@ dependencies = [
 [[package]]
 name = "pallas-codec"
 version = "1.0.0-alpha.2"
-source = "git+https://github.com/txpipe/pallas.git?branch=main#b9175a7e5b54b1b593f69bfdadf0652867143905"
+source = "git+https://github.com/txpipe/pallas.git?branch=main#d34b143f838c16e33759d63cd3aec8eaab539111"
 dependencies = [
  "hex",
  "minicbor 0.26.5",
@@ -5098,12 +5098,12 @@ dependencies = [
 [[package]]
 name = "pallas-crypto"
 version = "1.0.0-alpha.2"
-source = "git+https://github.com/txpipe/pallas.git?branch=main#b9175a7e5b54b1b593f69bfdadf0652867143905"
+source = "git+https://github.com/txpipe/pallas.git?branch=main#d34b143f838c16e33759d63cd3aec8eaab539111"
 dependencies = [
  "cryptoxide",
  "hex",
  "pallas-codec 1.0.0-alpha.2",
- "rand_core 0.6.4",
+ "rand_core 0.9.3",
  "serde",
  "thiserror 1.0.69",
 ]
@@ -5129,7 +5129,7 @@ dependencies = [
 [[package]]
 name = "pallas-network"
 version = "1.0.0-alpha.2"
-source = "git+https://github.com/txpipe/pallas.git?branch=main#b9175a7e5b54b1b593f69bfdadf0652867143905"
+source = "git+https://github.com/txpipe/pallas.git?branch=main#d34b143f838c16e33759d63cd3aec8eaab539111"
 dependencies = [
  "byteorder",
  "hex",

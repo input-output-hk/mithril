@@ -7,7 +7,9 @@ use tokio::sync::{Mutex, MutexGuard};
 
 use mithril_common::{
     CardanoNetwork, StdResult,
-    crypto_helper::{OpCert, TryFromBytes},
+    crypto_helper::{
+        OpCert, OpCertWithoutColdVerificationKey, TryFromBytes, ed25519::Ed25519VerificationKey,
+    },
     entities::PartyId,
     logging::LoggerExtensions,
 };
@@ -113,10 +115,19 @@ impl<M: TryFromBytes + Debug> DmqConsumerClientPallas<M> {
             .0
             .into_iter()
             .map(|dmq_message| {
-                let opcert = OpCert::try_from_bytes(&dmq_message.operational_certificate)
+                let opcert_without_verification_key =
+                    OpCertWithoutColdVerificationKey::try_from_bytes(
+                        &dmq_message.operational_certificate,
+                    )
                     .with_context(|| "Failed to parse operational certificate")?;
+                let cold_verification_key =
+                    Ed25519VerificationKey::from_bytes(&dmq_message.cold_verification_key)
+                        .with_context(|| "Failed to parse cold verification key")?
+                        .into_inner();
+                let opcert: OpCert =
+                    (opcert_without_verification_key, cold_verification_key).into();
                 let party_id = opcert.compute_protocol_party_id()?;
-                let payload = M::try_from_bytes(&dmq_message.msg_body)
+                let payload = M::try_from_bytes(&dmq_message.msg_payload.msg_body)
                     .with_context(|| "Failed to parse DMQ message body")?;
 
                 Ok((payload, party_id))
@@ -158,7 +169,10 @@ mod tests {
     use mithril_common::{crypto_helper::TryToBytes, current_function, test::TempDir};
     use pallas_network::{
         facades::DmqServer,
-        miniprotocols::{localmsgnotification, localmsgsubmission::DmqMsg},
+        miniprotocols::{
+            localmsgnotification,
+            localmsgsubmission::{DmqMsg, DmqMsgPayload},
+        },
     };
     use tokio::{net::UnixListener, task::JoinHandle, time::sleep};
 
@@ -173,41 +187,46 @@ mod tests {
     fn fake_msgs() -> Vec<DmqMsg> {
         vec![
             DmqMsg {
-                msg_id: vec![0, 1],
-                msg_body: DmqMessageTestPayload::new(b"msg_1").to_bytes_vec().unwrap(),
-                block_number: 10,
-                ttl: 100,
+                msg_payload: DmqMsgPayload {
+                    msg_id: vec![0, 1],
+                    msg_body: DmqMessageTestPayload::new(b"msg_1").to_bytes_vec().unwrap(),
+                    kes_period: 10,
+                    expires_at: 100,
+                },
                 kes_signature: vec![0, 1, 2, 3],
                 operational_certificate: vec![
-                    130, 132, 88, 32, 230, 80, 215, 83, 21, 9, 187, 108, 255, 215, 153, 140, 40,
-                    198, 142, 78, 200, 250, 98, 26, 9, 82, 32, 110, 161, 30, 176, 63, 205, 125,
-                    203, 41, 0, 0, 88, 64, 212, 171, 206, 39, 218, 5, 255, 3, 193, 52, 44, 198,
-                    171, 83, 19, 80, 114, 225, 186, 191, 156, 192, 84, 146, 245, 159, 31, 240, 9,
-                    247, 4, 87, 170, 168, 98, 199, 21, 139, 19, 190, 12, 251, 65, 215, 169, 26, 86,
-                    37, 137, 188, 17, 14, 178, 205, 175, 93, 39, 86, 4, 138, 187, 234, 95, 5, 88,
-                    32, 32, 253, 186, 201, 177, 11, 117, 135, 187, 167, 181, 188, 22, 59, 206, 105,
+                    132, 88, 32, 230, 80, 215, 83, 21, 9, 187, 108, 255, 215, 153, 140, 40, 198,
+                    142, 78, 200, 250, 98, 26, 9, 82, 32, 110, 161, 30, 176, 63, 205, 125, 203, 41,
+                    0, 0, 88, 64, 212, 171, 206, 39, 218, 5, 255, 3, 193, 52, 44, 198, 171, 83, 19,
+                    80, 114, 225, 186, 191, 156, 192, 84, 146, 245, 159, 31, 240, 9, 247, 4, 87,
+                    170, 168, 98, 199, 21, 139, 19, 190, 12, 251, 65, 215, 169, 26, 86, 37, 137,
+                    188, 17, 14, 178, 205, 175, 93, 39, 86, 4, 138, 187, 234, 95, 5,
+                ],
+                cold_verification_key: vec![
+                    32, 253, 186, 201, 177, 11, 117, 135, 187, 167, 181, 188, 22, 59, 206, 105,
                     231, 150, 215, 30, 78, 212, 76, 16, 252, 180, 72, 134, 137, 247, 161, 68,
                 ],
-                kes_period: 10,
             },
             DmqMsg {
-                msg_id: vec![1, 2],
-                msg_body: DmqMessageTestPayload::new(b"msg_2").to_bytes_vec().unwrap(),
-                block_number: 11,
-                ttl: 100,
+                msg_payload: DmqMsgPayload {
+                    msg_id: vec![1, 2],
+                    msg_body: DmqMessageTestPayload::new(b"msg_2").to_bytes_vec().unwrap(),
+                    kes_period: 11,
+                    expires_at: 101,
+                },
                 kes_signature: vec![1, 2, 3, 4],
                 operational_certificate: vec![
-                    130, 132, 88, 32, 230, 80, 215, 83, 21, 9, 187, 108, 255, 215, 153, 140, 40,
-                    198, 142, 78, 200, 250, 98, 26, 9, 82, 32, 110, 161, 30, 176, 63, 205, 125,
-                    203, 41, 0, 0, 88, 64, 132, 4, 199, 39, 190, 173, 88, 102, 121, 117, 55, 62,
-                    39, 189, 113, 96, 175, 24, 171, 240, 74, 42, 139, 202, 128, 185, 44, 130, 209,
-                    77, 191, 122, 196, 224, 33, 158, 187, 156, 203, 190, 173, 150, 247, 87, 172,
-                    58, 153, 185, 157, 87, 128, 14, 187, 107, 187, 215, 105, 195, 107, 135, 172,
-                    43, 173, 9, 88, 32, 77, 75, 24, 6, 47, 133, 2, 89, 141, 224, 69, 202, 123, 105,
-                    240, 103, 245, 159, 147, 177, 110, 58, 248, 115, 58, 152, 138, 220, 35, 65,
-                    245, 200,
+                    132, 88, 32, 230, 80, 215, 83, 21, 9, 187, 108, 255, 215, 153, 140, 40, 198,
+                    142, 78, 200, 250, 98, 26, 9, 82, 32, 110, 161, 30, 176, 63, 205, 125, 203, 41,
+                    0, 0, 88, 64, 212, 171, 206, 39, 218, 5, 255, 3, 193, 52, 44, 198, 171, 83, 19,
+                    80, 114, 225, 186, 191, 156, 192, 84, 146, 245, 159, 31, 240, 9, 247, 4, 87,
+                    170, 168, 98, 199, 21, 139, 19, 190, 12, 251, 65, 215, 169, 26, 86, 37, 137,
+                    188, 17, 14, 178, 205, 175, 93, 39, 86, 4, 138, 187, 234, 95, 5,
                 ],
-                kes_period: 11,
+                cold_verification_key: vec![
+                    77, 75, 24, 6, 47, 133, 2, 89, 141, 224, 69, 202, 123, 105, 240, 103, 245, 159,
+                    147, 177, 110, 58, 248, 115, 58, 152, 138, 220, 35, 65, 245, 200,
+                ],
             },
         ]
     }

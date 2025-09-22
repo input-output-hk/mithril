@@ -129,6 +129,11 @@ where
     pub fn key_to_bytes_hex(key: &T) -> StdResult<String> {
         key.to_bytes_hex()
     }
+
+    /// Consume self and return the inner key
+    pub fn into_inner(self) -> T {
+        self.key
+    }
 }
 
 impl<T> Deref for ProtocolKey<T>
