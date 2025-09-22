@@ -5,6 +5,7 @@ use crate::dependency_injection::{DependenciesBuilder, EpochServiceWrapper, Resu
 use crate::get_dependency;
 use crate::services::{EpochServiceDependencies, MithrilEpochService};
 impl DependenciesBuilder {
+    // is this dead code ???
     async fn build_epoch_service(&mut self) -> Result<EpochServiceWrapper> {
         let verification_key_store = self.get_verification_key_store().await?;
         let epoch_settings_storer = self.get_epoch_settings_store().await?;
