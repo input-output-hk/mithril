@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ResourcePoolError"],"struct":["ResourcePool","ResourcePoolItem"],"trait":["Reset"]};

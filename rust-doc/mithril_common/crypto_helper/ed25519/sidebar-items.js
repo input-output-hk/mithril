@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Ed25519Signer","Ed25519Verifier","Ed25519VerifierError"],"type":["Ed25519SecretKey","Ed25519Signature","Ed25519VerificationKey"]};
