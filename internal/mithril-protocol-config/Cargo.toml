@@ -1,0 +1,40 @@
+[package]
+name = "mithril-protocol-config"
+version = "0.1.0"
+description = "Configuraton parameters of the mithril network"
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+mithril-common = { path = "../../mithril-common" }
+reqwest = { workspace = true, features = [
+    "default",
+    "stream",
+    "gzip",
+    "zstd",
+    "deflate",
+    "brotli"
+] }
+semver = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+slog = { workspace = true, features = [
+    "max_level_trace",
+    "release_max_level_debug",
+] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal"] }
+
+
+[dev-dependencies]
+slog-async = { workspace = true }
+slog-term = { workspace = true }
+#criterion = { version = "0.7.0", features = ["html_reports", "async_tokio"] }
+http = "1.3.1"
+httpmock = "0.7.0"
+mockall = { workspace = true }
