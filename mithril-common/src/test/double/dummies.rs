@@ -79,8 +79,11 @@ mod entities {
 }
 
 mod messages {
-    use chrono::Duration;
     use std::collections::BTreeSet;
+
+    use chrono::Duration;
+
+    use mithril_stm::AggregateSignatureType;
 
     use crate::entities::{
         AncillaryLocation, BlockNumber, CardanoDbBeacon, CardanoTransactionsSetProof,
@@ -168,6 +171,7 @@ mod messages {
                     signed_entity_types: BTreeSet::from([
                         SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                     ]),
+                    aggregate_signature_type: AggregateSignatureType::Concatenation,
                     cardano_transactions_prover: None,
                 },
             }

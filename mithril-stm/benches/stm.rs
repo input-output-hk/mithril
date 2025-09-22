@@ -1,14 +1,16 @@
+use std::fmt::Debug;
+
 use blake2::digest::{Digest, FixedOutput};
 use blake2::{Blake2b, digest::consts::U32};
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use mithril_stm::{
-    AggregateSignature, BasicVerifier, Clerk, Initializer, KeyRegistration, Parameters, Signer,
-    Stake, VerificationKey,
-};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;
-use std::fmt::Debug;
+
+use mithril_stm::{
+    AggregateSignature, AggregateSignatureType, BasicVerifier, Clerk, Initializer, KeyRegistration,
+    Parameters, Signer, Stake, VerificationKey,
+};
 
 /// This benchmark framework is not ideal. We really have to think what is the best mechanism for
 /// benchmarking these signatures, over which parameters, how many times to run them, etc:
@@ -67,9 +69,10 @@ where
     let sigs = signers.par_iter().filter_map(|p| p.sign(&msg)).collect::<Vec<_>>();
 
     let clerk = Clerk::new_clerk_from_signer(&signers[0]);
+    let aggregate_signature_type = AggregateSignatureType::Concatenation;
 
     group.bench_function(BenchmarkId::new("Aggregation", &param_string), |b| {
-        b.iter(|| clerk.aggregate_signatures(&sigs, &msg))
+        b.iter(|| clerk.aggregate_signatures_with_type(&sigs, &msg, aggregate_signature_type))
     });
 }
 
@@ -129,7 +132,10 @@ fn batch_benches<H>(
             let sigs = signers.par_iter().filter_map(|p| p.sign(&msg)).collect::<Vec<_>>();
 
             let clerk = Clerk::new_clerk_from_signer(&signers[0]);
-            let msig = clerk.aggregate_signatures(&sigs, &msg).unwrap();
+            let aggregate_signature_type = AggregateSignatureType::Concatenation;
+            let msig = clerk
+                .aggregate_signatures_with_type(&sigs, &msg, aggregate_signature_type)
+                .unwrap();
 
             batch_avks.push(clerk.compute_aggregate_verification_key());
             batch_stms.push(msig);

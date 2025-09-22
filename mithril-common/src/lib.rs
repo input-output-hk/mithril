@@ -22,6 +22,8 @@ pub mod test;
 
 pub use entities::{CardanoNetwork, MagicId};
 
+pub use mithril_stm::AggregateSignatureType;
+
 /// Generic error type
 pub type StdError = anyhow::Error;
 

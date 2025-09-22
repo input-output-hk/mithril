@@ -862,6 +862,7 @@ components:
           additionalProperties: false
           required:
             - signed_entity_types
+            - aggregate_signature_type
           properties:
             signed_entity_types:
               description: Signed entity types that are signed by the aggregator
@@ -875,6 +876,11 @@ components:
                   - CardanoStakeDistribution
                   - CardanoImmutableFilesFull
                   - CardanoTransactions
+            aggregate_signature_type:
+              description: Aggregate signature type used by the aggregator to create certificates
+              type: string
+              enum:
+                - Concatenation
             cardano_transactions_prover:
               description: Cardano transactions prover capabilities
               type: object
@@ -898,6 +904,7 @@ components:
                     "CardanoImmutableFilesFull",
                     "CardanoTransactions"
                   ],
+                "aggregate_signature_type": "Concatenation",
                 "cardano_transactions_prover":
                   { "max_hashes_allowed_by_request": 100 }
               }

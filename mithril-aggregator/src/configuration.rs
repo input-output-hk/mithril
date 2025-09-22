@@ -13,7 +13,7 @@ use mithril_common::entities::{
     HexEncodedGenesisVerificationKey, HexEncodedKey, ProtocolParameters, SignedEntityConfig,
     SignedEntityTypeDiscriminants,
 };
-use mithril_common::{CardanoNetwork, StdResult};
+use mithril_common::{AggregateSignatureType, CardanoNetwork, StdResult};
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use mithril_era::adapters::EraReaderAdapterType;
 
@@ -382,6 +382,11 @@ pub trait ConfigurationSource {
 
         white_list
     }
+
+    /// Aggregate signature type
+    fn aggregate_signature_type(&self) -> AggregateSignatureType {
+        panic!("get_aggregate_signature_type is not implemented.");
+    }
 }
 
 /// Serve command configuration
@@ -557,6 +562,9 @@ pub struct ServeCommandConfiguration {
     /// Custom origin tag of client request added to the whitelist (comma
     /// separated list).
     pub custom_origin_tag_white_list: Option<String>,
+
+    /// Aggregate signature type used to create certificates
+    pub aggregate_signature_type: AggregateSignatureType,
 }
 
 /// Uploader needed to copy the snapshot once computed.
@@ -689,6 +697,7 @@ impl ServeCommandConfiguration {
             persist_usage_report_interval_in_seconds: 10,
             leader_aggregator_endpoint: None,
             custom_origin_tag_white_list: None,
+            aggregate_signature_type: AggregateSignatureType::Concatenation,
         }
     }
 
@@ -880,6 +889,10 @@ impl ConfigurationSource for ServeCommandConfiguration {
             None => self.get_local_server_url(),
         }
     }
+
+    fn aggregate_signature_type(&self) -> AggregateSignatureType {
+        self.aggregate_signature_type
+    }
 }
 
 /// Default configuration with all the default values for configurations.
@@ -955,6 +968,9 @@ pub struct DefaultConfiguration {
 
     /// Time interval at which metrics are persisted in event database (in seconds).
     pub persist_usage_report_interval_in_seconds: u64,
+
+    /// Aggregate signature type used to create certificates
+    pub aggregate_signature_type: String,
 }
 
 impl Default for DefaultConfiguration {
@@ -986,6 +1002,7 @@ impl Default for DefaultConfiguration {
             metrics_server_ip: "0.0.0.0".to_string(),
             metrics_server_port: 9090,
             persist_usage_report_interval_in_seconds: 10,
+            aggregate_signature_type: "Concatenation".to_string(),
         }
     }
 }
@@ -1069,6 +1086,7 @@ impl Source for DefaultConfiguration {
                 ("step".to_string(), ValueKind::from(*v.step),)
             ])
         );
+        register_config_value!(result, &namespace, myself.aggregate_signature_type);
         Ok(result)
     }
 }

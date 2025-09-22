@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use slog::{Logger, debug, warn};
 
 use mithril_common::{
-    StdResult,
+    AggregateSignatureType, StdResult,
     crypto_helper::{ProtocolAggregationError, ProtocolMultiSignature},
     entities::{self},
     logging::LoggerExtensions,
@@ -40,16 +40,22 @@ pub trait MultiSigner: Sync + Send {
 
 /// MultiSignerImpl is an implementation of the MultiSigner
 pub struct MultiSignerImpl {
+    aggregate_signature_type: AggregateSignatureType,
     epoch_service: EpochServiceWrapper,
     logger: Logger,
 }
 
 impl MultiSignerImpl {
     /// MultiSignerImpl factory
-    pub fn new(epoch_service: EpochServiceWrapper, logger: Logger) -> Self {
+    pub fn new(
+        aggregate_signature_type: AggregateSignatureType,
+        epoch_service: EpochServiceWrapper,
+        logger: Logger,
+    ) -> Self {
         let logger = logger.new_with_component_name::<Self>();
         debug!(logger, "New MultiSignerImpl created");
         Self {
+            aggregate_signature_type,
             epoch_service,
             logger,
         }
@@ -121,6 +127,7 @@ impl MultiSigner for MultiSignerImpl {
         match protocol_multi_signer.aggregate_single_signatures(
             &open_message.single_signatures,
             &open_message.protocol_message,
+            self.aggregate_signature_type,
         ) {
             Ok(multi_signature) => Ok(Some(multi_signature)),
             Err(ProtocolAggregationError::NotEnoughSignatures(actual, expected)) => {
@@ -183,6 +190,7 @@ mod tests {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let next_fixture = MithrilFixtureBuilder::default().with_signers(4).build();
         let multi_signer = MultiSignerImpl::new(
+            AggregateSignatureType::default(),
             Arc::new(RwLock::new(
                 FakeEpochServiceBuilder {
                     current_epoch_settings: AggregatorEpochSettings {
@@ -243,6 +251,7 @@ mod tests {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let protocol_parameters = fixture.protocol_parameters();
         let multi_signer = MultiSignerImpl::new(
+            AggregateSignatureType::default(),
             Arc::new(RwLock::new(FakeEpochService::from_fixture(epoch, &fixture))),
             TestLogger::stdout(),
         );

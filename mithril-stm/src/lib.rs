@@ -116,7 +116,9 @@ mod parameters;
 mod participant;
 mod single_signature;
 
-pub use aggregate_signature::{AggregateSignature, AggregateVerificationKey, BasicVerifier, Clerk};
+pub use aggregate_signature::{
+    AggregateSignature, AggregateSignatureType, AggregateVerificationKey, BasicVerifier, Clerk,
+};
 pub use error::{
     AggregationError, CoreVerifierError, RegisterError, StmAggregateSignatureError,
     StmSignatureError,

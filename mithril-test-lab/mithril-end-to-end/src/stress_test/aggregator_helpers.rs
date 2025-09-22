@@ -34,6 +34,7 @@ pub async fn bootstrap_aggregator(
         mithril_era_marker_address: "",
         mithril_era_reader_adapter: "dummy",
         signed_entity_types: &signed_entity_types,
+        aggregate_signature_type: "Concatenation",
         chain_observer_type,
         leader_aggregator_endpoint: &None,
         use_dmq: false,

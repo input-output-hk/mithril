@@ -41,6 +41,9 @@ fn test_full_protocol() {
         Err(AggregationError::UsizeConversionInvalid) => {
             println!("Invalid usize conversion");
         }
+        Err(AggregationError::UnsupportedProofSystem(_)) => {
+            println!("Unsupported proof system");
+        }
     }
 }
 
