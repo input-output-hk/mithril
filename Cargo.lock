@@ -4400,6 +4400,9 @@ dependencies = [
 [[package]]
 name = "mithril-network-config"
 version = "0.1.0"
+dependencies = [
+ "mithril-common",
+]
 
 [[package]]
 name = "mithril-persistence"
