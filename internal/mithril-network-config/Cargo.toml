@@ -1,0 +1,11 @@
+[package]
+name = "mithril-network-config"
+version = "0.1.0"
+description = "Common services to access data through the mithril network
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+
+[dependencies]
