@@ -27,6 +27,8 @@ slog = { workspace = true, features = [
     "max_level_trace",
     "release_max_level_debug",
 ] }
+slog-async = { workspace = true }
+slog-term = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal"] }
 
