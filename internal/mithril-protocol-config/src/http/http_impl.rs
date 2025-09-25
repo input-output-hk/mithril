@@ -4,7 +4,8 @@ use std::{collections::BTreeSet, sync::Arc, time::Duration};
 use crate::{
     HTTP_REQUEST_TIMEOUT_DURATION,
     http::aggregator_client::{AggregatorClient, AggregatorHTTPClient},
-    interface::{MithrilNetworkConfiguration, MithrilNetworkConfigurationProvider},
+    interface::MithrilNetworkConfigurationProvider,
+    model::MithrilNetworkConfiguration,
 };
 use async_trait::async_trait;
 use mithril_common::StdResult;
@@ -44,7 +45,7 @@ impl MithrilNetworkConfigurationProvider for HttpMithrilNetworkConfigurationProv
             return Err(anyhow!("Failed to retrieve epoch settings"));
         };
 
-        let available_signed_entity_types = BTreeSet::new(); // To be implemented
+        let available_signed_entity_types = BTreeSet::new(); // To be implemented to be retrieve from /aggreagator-features from aggregator_client.rs
         let signed_entity_types_config = vec![]; // To be implemented
 
         Ok(MithrilNetworkConfiguration {

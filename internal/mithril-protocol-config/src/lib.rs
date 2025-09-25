@@ -2,6 +2,7 @@
 const HTTP_REQUEST_TIMEOUT_DURATION: u64 = 30000;
 pub mod http;
 pub mod interface;
+pub mod model;
 pub mod signer_epoch_settings;
 
 #[cfg(test)]
