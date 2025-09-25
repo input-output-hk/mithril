@@ -1,7 +1,7 @@
 [package]
-name = "mithril-network-config"
+name = "mithril-protocol-config"
 version = "0.1.0"
-description = "Common services to access data through the mithril network"
+description = "Configuraton parameters of the mithril network"
 authors = { workspace = true }
 edition = { workspace = true }
 homepage = { workspace = true }

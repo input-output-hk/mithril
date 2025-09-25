@@ -16,7 +16,7 @@ use mithril_common::{
     messages::EpochSettingsMessage,
 };
 
-use crate::from_epoch_settings::FromEpochSettingsAdapter;
+use crate::http::from_epoch_settings::FromEpochSettingsAdapter;
 use crate::signer_epoch_settings::SignerEpochSettings;
 
 const JSON_CONTENT_TYPE: HeaderValue = HeaderValue::from_static("application/json");
