@@ -1,6 +1,5 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
-use mithril_common::messages::TryFromMessageAdapter;
 use reqwest::header::{self, HeaderValue};
 use reqwest::{self, Client, Proxy, RequestBuilder, Response, StatusCode};
 use semver::Version;
@@ -15,9 +14,6 @@ use mithril_common::{
     logging::LoggerExtensions,
     messages::EpochSettingsMessage,
 };
-
-use crate::http::from_epoch_settings::FromEpochSettingsAdapter;
-use crate::signer_epoch_settings::SignerEpochSettings;
 
 const JSON_CONTENT_TYPE: HeaderValue = HeaderValue::from_static("application/json");
 
@@ -58,10 +54,6 @@ pub enum AggregatorClientError {
     /// Proxy creation error
     #[error("proxy creation failed")]
     ProxyCreation(#[source] StdError),
-
-    /// Adapter error
-    #[error("adapter failed")]
-    Adapter(#[source] StdError),
 
     /// No signer registration round opened yet
     #[error("a signer registration round is not opened yet, please try again later")]
@@ -131,7 +123,7 @@ pub trait AggregatorClient: Sync + Send {
     /// Retrieves epoch settings from the aggregator
     async fn retrieve_epoch_settings(
         &self,
-    ) -> Result<Option<SignerEpochSettings>, AggregatorClientError>;
+    ) -> Result<Option<EpochSettingsMessage>, AggregatorClientError>;
 }
 
 /// AggregatorHTTPClient is a http client for an aggregator
@@ -230,7 +222,7 @@ impl AggregatorHTTPClient {
 impl AggregatorClient for AggregatorHTTPClient {
     async fn retrieve_epoch_settings(
         &self,
-    ) -> Result<Option<SignerEpochSettings>, AggregatorClientError> {
+    ) -> Result<Option<EpochSettingsMessage>, AggregatorClientError> {
         debug!(self.logger, "Retrieve epoch settings");
         let url = format!("{}/epoch-settings", self.aggregator_endpoint);
         let response = self
@@ -243,11 +235,7 @@ impl AggregatorClient for AggregatorHTTPClient {
                 StatusCode::OK => {
                     self.warn_if_api_version_mismatch(&response);
                     match response.json::<EpochSettingsMessage>().await {
-                        Ok(message) => {
-                            let epoch_settings = FromEpochSettingsAdapter::try_adapt(message)
-                                .map_err(|e| AggregatorClientError::Adapter(anyhow!(e)))?;
-                            Ok(Some(epoch_settings))
-                        }
+                        Ok(message) => Ok(Some(message)),
                         Err(err) => Err(AggregatorClientError::JsonParseFailed(anyhow!(err))),
                     }
                 }
@@ -269,7 +257,7 @@ pub(crate) mod dumb {
     /// It actually does not communicate with an aggregator host but mimics this behavior.
     /// It is driven by a Tester that controls the data it can return, and it can return its internal state for testing.
     pub struct DumbAggregatorClient {
-        epoch_settings: RwLock<Option<SignerEpochSettings>>,
+        epoch_settings: RwLock<Option<EpochSettingsMessage>>,
     }
 
     // impl DumbAggregatorClient {
@@ -282,7 +270,7 @@ pub(crate) mod dumb {
     impl Default for DumbAggregatorClient {
         fn default() -> Self {
             Self {
-                epoch_settings: RwLock::new(Some(SignerEpochSettings::dummy())),
+                epoch_settings: RwLock::new(Some(EpochSettingsMessage::dummy())),
             }
         }
     }
@@ -291,7 +279,7 @@ pub(crate) mod dumb {
     impl AggregatorClient for DumbAggregatorClient {
         async fn retrieve_epoch_settings(
             &self,
-        ) -> Result<Option<SignerEpochSettings>, AggregatorClientError> {
+        ) -> Result<Option<EpochSettingsMessage>, AggregatorClientError> {
             let epoch_settings = self.epoch_settings.read().await.clone();
 
             Ok(epoch_settings)
@@ -389,10 +377,7 @@ mod tests {
 
         let epoch_settings = client.retrieve_epoch_settings().await;
         epoch_settings.as_ref().expect("unexpected error");
-        assert_eq!(
-            FromEpochSettingsAdapter::try_adapt(epoch_settings_expected).unwrap(),
-            epoch_settings.unwrap().unwrap()
-        );
+        assert_eq!(epoch_settings_expected, epoch_settings.unwrap().unwrap());
     }
 
     #[tokio::test]

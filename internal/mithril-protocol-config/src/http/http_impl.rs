@@ -51,8 +51,8 @@ impl MithrilNetworkConfigurationProvider for HttpMithrilNetworkConfigurationProv
         Ok(MithrilNetworkConfiguration {
             epoch: epoch_settings.epoch,
             signer_registration_protocol_parameters: epoch_settings
-                .registration_protocol_parameters,
-            available_signed_entity_types, // To be implemented
+                .signer_registration_protocol_parameters,
+            available_signed_entity_types,
             signed_entity_types_config,
         })
     }
