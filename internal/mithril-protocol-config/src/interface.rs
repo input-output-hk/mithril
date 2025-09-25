@@ -1,25 +1,12 @@
 use async_trait::async_trait;
 use mithril_common::StdResult;
 use mithril_common::entities::{
-    CardanoDbBeacon, CardanoTransactionsSigningConfig, Epoch, ProtocolParameters,
-    SignedEntityTypeDiscriminants,
+    CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityTypeDiscriminants,
 };
 use std::collections::BTreeSet;
 
 /// Signed entity type specific configurations
 pub enum SignedEntityTypeConfiguration {
-    /// Mithril stake distribution
-    MithrilStakeDistribution(Epoch),
-
-    /// Cardano Stake Distribution
-    CardanoStakeDistribution(Epoch),
-
-    /// Full Cardano Immutable Files
-    CardanoImmutableFilesFull(CardanoDbBeacon),
-
-    /// Cardano Database
-    CardanoDatabase(CardanoDbBeacon),
-
     /// Cardano Transactions
     CardanoTransactions(CardanoTransactionsSigningConfig),
 }
