@@ -37,7 +37,7 @@ impl KeyRegistration {
         pk: BlsVerificationKeyProofOfPossession,
     ) -> Result<(), RegisterError> {
         if let Entry::Vacant(e) = self.keys.entry(pk.vk) {
-            pk.verify_proof_of_possesion()?;
+            pk.verify_proof_of_possession()?;
             e.insert(stake);
             return Ok(());
         }
@@ -136,7 +136,7 @@ mod tests {
                     }
                     Err(RegisterError::KeyInvalid(a)) => {
                         assert_eq!(fake_it, 0);
-                        assert!(a.verify_proof_of_possesion().is_err());
+                        assert!(a.verify_proof_of_possession().is_err());
                     }
                     Err(RegisterError::SerializationError) => unreachable!(),
                     _ => unreachable!(),

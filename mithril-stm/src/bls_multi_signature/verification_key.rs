@@ -136,7 +136,7 @@ impl BlsVerificationKeyProofOfPossession {
     /// manually.
     // If we are really looking for performance improvements, we can combine the
     // two final exponentiations (for verifying k1 and k2) into a single one.
-    pub(crate) fn verify_proof_of_possesion(&self) -> Result<(), MultiSignatureError> {
+    pub(crate) fn verify_proof_of_possession(&self) -> Result<(), MultiSignatureError> {
         match self.vk.to_blst_verification_key().validate() {
             Ok(_) => {
                 let result = verify_pairing(&self.vk, &self.pop);
@@ -164,9 +164,9 @@ impl BlsVerificationKeyProofOfPossession {
     /// manually.
     // If we are really looking for performance improvements, we can combine the
     // two final exponentiations (for verifying k1 and k2) into a single one.
-    #[deprecated(since = "0.5.0", note = "Use `verify_proof_of_possesion` instead")]
+    #[deprecated(since = "0.5.0", note = "Use `verify_proof_of_possession` instead")]
     pub fn check(&self) -> Result<(), MultiSignatureError> {
-        Self::verify_proof_of_possesion(self)
+        Self::verify_proof_of_possession(self)
     }
 
     /// Convert to a 144 byte string.
