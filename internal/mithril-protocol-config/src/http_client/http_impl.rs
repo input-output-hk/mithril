@@ -1,5 +1,9 @@
 use anyhow::anyhow;
-use std::{collections::BTreeSet, sync::Arc, time::Duration};
+use std::{
+    collections::{BTreeSet, HashMap},
+    sync::Arc,
+    time::Duration,
+};
 
 use crate::{
     HTTP_REQUEST_TIMEOUT_DURATION,
@@ -46,7 +50,7 @@ impl MithrilNetworkConfigurationProvider for HttpMithrilNetworkConfigurationProv
         };
 
         let available_signed_entity_types = BTreeSet::new(); // To be implemented to be retrieve from /aggreagator-features from aggregator_client.rs
-        let signed_entity_types_config = vec![]; // To be implemented
+        let signed_entity_types_config = HashMap::new(); // To be implemented
 
         Ok(MithrilNetworkConfiguration {
             epoch: epoch_settings.epoch,
