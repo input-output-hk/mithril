@@ -49,6 +49,7 @@ const ENTITY_TYPE_CARDANO_DATABASE: usize = 4;
     PartialOrd,
     Ord,
     EnumIter,
+    Hash,
 ))]
 pub enum SignedEntityType {
     /// Mithril stake distribution
