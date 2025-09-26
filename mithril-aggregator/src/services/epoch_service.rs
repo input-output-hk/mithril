@@ -273,7 +273,7 @@ impl MithrilEpochService {
 
         self.epoch_settings_storer
             .save_epoch_settings(
-                recording_epoch,
+                recording_epoch,    //epoch + 2
                 self.future_epoch_settings.clone(),
             )
             .await
@@ -347,17 +347,17 @@ impl EpochService for MithrilEpochService {
         self.epoch_data = Some(EpochData {
             cardano_era,
             mithril_era,
-            epoch,
-            current_epoch_settings,
-            next_epoch_settings,
-            signer_registration_epoch_settings,
-            current_signers_with_stake,
-            next_signers_with_stake,
-            current_signers,
-            next_signers,
-            total_stakes_signers,
-            total_next_stakes_signers,
-            signed_entity_config,
+            epoch,                              //epoch = 42
+            current_epoch_settings,             //epoch - 1
+            next_epoch_settings,                //epoch + 0
+            signer_registration_epoch_settings, //epoch + 1
+            current_signers_with_stake,         //epoch - 1
+            next_signers_with_stake,            //epoch + 0
+            current_signers,                    //epoch - 1
+            next_signers,                       //epoch + 0
+            total_stakes_signers,               //epoch - 1
+            total_next_stakes_signers,          //epoch + 0
+            signed_entity_config,               //epoch - 1
             total_spo,
             total_stake,
         });
