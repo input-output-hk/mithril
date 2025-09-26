@@ -1,7 +1,9 @@
-use semver::Version;
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+
+use saphyr::{LoadableYamlNode, Yaml};
+use semver::Version;
 
 type OpenAPIFileName = String;
 type OpenAPIVersionRaw = String;
@@ -29,7 +31,7 @@ pub fn list_all_open_api_spec_files(paths: &[&Path]) -> Vec<PathBuf> {
 
 fn read_version_from_open_api_spec_file<P: AsRef<Path>>(spec_file_path: P) -> OpenAPIVersionRaw {
     let yaml_spec = fs::read_to_string(spec_file_path).unwrap();
-    let open_api: serde_yml::Value = serde_yml::from_str(&yaml_spec).unwrap();
+    let open_api = &Yaml::load_from_str(&yaml_spec).unwrap()[0];
     open_api["info"]["version"].as_str().unwrap().to_owned()
 }
 
