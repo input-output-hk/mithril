@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 use mithril_common::entities::{
     CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityTypeDiscriminants,
@@ -21,5 +21,6 @@ pub struct MithrilNetworkConfiguration {
     pub available_signed_entity_types: BTreeSet<SignedEntityTypeDiscriminants>,
 
     /// Custom configurations for signed entity types (e.g. `cardano_transactions_signing_config` for `CardanoTransactions`)
-    pub signed_entity_types_config: Vec<SignedEntityTypeConfiguration>, //or HashMap<SignedEntityTypeDiscriminant, SignedEntityTypeConfiguration>
+    pub signed_entity_types_config:
+        HashMap<SignedEntityTypeDiscriminants, SignedEntityTypeConfiguration>,
 }
