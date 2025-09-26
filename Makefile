@@ -3,6 +3,7 @@ COMPONENTS = mithril-aggregator mithril-client mithril-client-cli mithril-client
 			 internal/mithril-build-script internal/mithril-cli-helper internal/mithril-doc \
 			 internal/mithril-dmq \
 			 internal/mithril-doc-derive internal/mithril-era internal/mithril-metric internal/mithril-persistence \
+			 internal/mithril-protocol-config \
 			 internal/mithril-resource-pool internal/mithril-ticker \
 			 internal/cardano-node/mithril-cardano-node-chain internal/cardano-node/mithril-cardano-node-internal-database \
 			 internal/signed-entity/mithril-signed-entity-lock internal/signed-entity/mithril-signed-entity-preloader \
