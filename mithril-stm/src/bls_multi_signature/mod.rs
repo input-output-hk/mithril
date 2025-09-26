@@ -158,7 +158,7 @@ mod tests {
             let vk_infinity = BlsVerificationKey(p2_affine_to_vk(&p2));
             let vkpop_infinity = BlsVerificationKeyProofOfPossession { vk: vk_infinity, pop };
 
-            let result = vkpop_infinity.verify_proof_of_possesion();
+            let result = vkpop_infinity.verify_proof_of_possession();
             assert_eq!(result, Err(MultiSignatureError::VerificationKeyInfinity(Box::new(vkpop_infinity.vk))));
         }
 
