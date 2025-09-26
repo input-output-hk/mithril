@@ -2,9 +2,9 @@
 
 use jsonschema::Validator;
 use reqwest::Url;
+use saphyr::{LoadableYamlNode, YamlOwned};
 use serde::Serialize;
 use serde_json::{Value, Value::Null, json};
-
 use warp::http::Response;
 use warp::http::StatusCode;
 use warp::hyper::body::Bytes;
@@ -14,7 +14,7 @@ pub(crate) const DEFAULT_SPEC_FILE: &str = "../../../openapi.yaml";
 
 /// APISpec helps validate conformity to an OpenAPI specification
 pub struct APISpec<'a> {
-    openapi: Value,
+    openapi: YamlOwned,
     path: Option<&'a str>,
     method: Option<&'a str>,
     content_type: Option<&'a str>,
@@ -56,7 +56,7 @@ impl<'a> APISpec<'a> {
     /// APISpec factory from spec
     pub fn from_file(path: &str) -> APISpec<'a> {
         let yaml_spec = std::fs::read_to_string(path).unwrap();
-        let openapi: serde_json::Value = serde_yml::from_str(&yaml_spec).unwrap();
+        let openapi = YamlOwned::load_from_str(&yaml_spec).unwrap()[0].to_owned();
         APISpec {
             openapi,
             path: None,
@@ -93,7 +93,7 @@ impl<'a> APISpec<'a> {
         let content_type = self.content_type.unwrap();
 
         let openapi_path_entry = path.split('?').next().unwrap();
-        let operation_object = &self.openapi["paths"][openapi_path_entry][method];
+        let operation_object = &self.openapi["paths"][openapi_path_entry][method.as_str()];
 
         self.validate_query_parameters(path, operation_object)?;
 
@@ -105,7 +105,7 @@ impl<'a> APISpec<'a> {
     fn validate_query_parameters(
         &'a self,
         path: &str,
-        operation_object: &Value,
+        operation_object: &YamlOwned,
     ) -> Result<&'a APISpec<'a>, String> {
         let fake_base_url = "http://0.0.0.1";
         let url = Url::parse(&format!("{fake_base_url}{path}")).unwrap();
@@ -156,7 +156,7 @@ impl<'a> APISpec<'a> {
         let mut openapi = self.openapi.clone();
 
         let response_spec = {
-            match &mut openapi["paths"][path][&method]["responses"] {
+            match &mut openapi["paths"][path][method.as_str()]["responses"] {
                 Null => None,
                 responses_spec => {
                     let status_code = status.as_str();
@@ -208,7 +208,7 @@ impl<'a> APISpec<'a> {
     fn validate_conformity(
         &'a self,
         value: &Value,
-        schema: &Value,
+        schema: &YamlOwned,
     ) -> Result<&'a APISpec<'a>, String> {
         match schema {
             Null => match value {
@@ -318,12 +318,12 @@ impl<'a> APISpec<'a> {
 
 // TODO: For now, it verifies only one parameter,
 // should verify with multiple query parameters using an openapi.yaml file for test.
-fn check_query_parameter_limitations(url: &Url, operation_object: &Value) {
+fn check_query_parameter_limitations(url: &Url, operation_object: &YamlOwned) {
     if url.query_pairs().count() >= 2 {
         panic!("This method does not work with multiple parameters");
     }
 
-    if let Some(parameters) = operation_object["parameters"].as_array() {
+    if let Some(parameters) = operation_object["parameters"] {
         let len = parameters
             .iter()
             .filter(|p| p["in"].eq("query"))
