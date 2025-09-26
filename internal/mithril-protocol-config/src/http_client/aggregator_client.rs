@@ -12,7 +12,7 @@ use mithril_common::{
     api_version::APIVersionProvider,
     entities::{ClientError, ServerError},
     logging::LoggerExtensions,
-    messages::EpochSettingsMessage,
+    messages::{AggregatorFeaturesMessage, EpochSettingsMessage},
 };
 
 const JSON_CONTENT_TYPE: HeaderValue = HeaderValue::from_static("application/json");
@@ -124,6 +124,11 @@ pub trait AggregatorClient: Sync + Send {
     async fn retrieve_epoch_settings(
         &self,
     ) -> Result<Option<EpochSettingsMessage>, AggregatorClientError>;
+
+    /// Retrieves aggregator features message from the aggregator
+    async fn retrieve_aggregator_features(
+        &self,
+    ) -> Result<AggregatorFeaturesMessage, AggregatorClientError>;
 }
 
 /// AggregatorHTTPClient is a http client for an aggregator
@@ -244,45 +249,30 @@ impl AggregatorClient for AggregatorHTTPClient {
             Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
         }
     }
-}
 
-#[cfg(test)]
-pub(crate) mod dumb {
-    use mithril_common::test::double::Dummy;
-    use tokio::sync::RwLock;
+    async fn retrieve_aggregator_features(
+        &self,
+    ) -> Result<AggregatorFeaturesMessage, AggregatorClientError> {
+        debug!(self.logger, "Retrieve aggregator features message");
+        let url = format!("{}/", self.aggregator_endpoint);
+        let response = self
+            .prepare_request_builder(self.prepare_http_client()?.get(url.clone()))
+            .send()
+            .await;
 
-    use super::*;
+        match response {
+            Ok(response) => match response.status() {
+                StatusCode::OK => {
+                    self.warn_if_api_version_mismatch(&response);
 
-    /// This aggregator client is intended to be used by test services.
-    /// It actually does not communicate with an aggregator host but mimics this behavior.
-    /// It is driven by a Tester that controls the data it can return, and it can return its internal state for testing.
-    pub struct DumbAggregatorClient {
-        epoch_settings: RwLock<Option<EpochSettingsMessage>>,
-    }
-
-    // impl DumbAggregatorClient {
-    //     /// Return the last signer that called with the `register` method.
-    //     pub async fn get_last_registered_signer(&self) -> Option<Signer> {
-    //         self.last_registered_signer.read().await.clone()
-    //     }
-    // }
-
-    impl Default for DumbAggregatorClient {
-        fn default() -> Self {
-            Self {
-                epoch_settings: RwLock::new(Some(EpochSettingsMessage::dummy())),
-            }
-        }
-    }
-
-    #[async_trait]
-    impl AggregatorClient for DumbAggregatorClient {
-        async fn retrieve_epoch_settings(
-            &self,
-        ) -> Result<Option<EpochSettingsMessage>, AggregatorClientError> {
-            let epoch_settings = self.epoch_settings.read().await.clone();
-
-            Ok(epoch_settings)
+                    Ok(response
+                        .json::<AggregatorFeaturesMessage>()
+                        .await
+                        .map_err(|e| AggregatorClientError::JsonParseFailed(anyhow!(e)))?)
+                }
+                _ => Err(AggregatorClientError::from_response(response).await),
+            },
+            Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
         }
     }
 }
@@ -304,6 +294,17 @@ mod tests {
     use crate::test_tools::TestLogger;
 
     use super::*;
+
+    macro_rules! assert_is_error {
+        ($error:expr, $error_type:pat) => {
+            assert!(
+                matches!($error, $error_type),
+                "Expected {} error, got '{:?}'.",
+                stringify!($error_type),
+                $error
+            );
+        };
+    }
 
     fn setup_client<U: Into<String>>(server_url: U) -> AggregatorHTTPClient {
         let discriminant_source = DummyApiVersionDiscriminantSource::new("dummy");
@@ -366,52 +367,108 @@ mod tests {
         };
     }
 
-    #[tokio::test]
-    async fn test_epoch_settings_ok_200() {
-        let (server, client) = setup_server_and_client();
-        let epoch_settings_expected = EpochSettingsMessage::dummy();
-        let _server_mock = server.mock(|when, then| {
-            when.path("/epoch-settings");
-            then.status(200).body(json!(epoch_settings_expected).to_string());
-        });
+    mod epoch_settings {
+        use super::*;
 
-        let epoch_settings = client.retrieve_epoch_settings().await;
-        epoch_settings.as_ref().expect("unexpected error");
-        assert_eq!(epoch_settings_expected, epoch_settings.unwrap().unwrap());
+        #[tokio::test]
+        async fn test_epoch_settings_ok_200() {
+            let (server, client) = setup_server_and_client();
+            let epoch_settings_expected = EpochSettingsMessage::dummy();
+            let _server_mock = server.mock(|when, then| {
+                when.path("/epoch-settings");
+                then.status(200).body(json!(epoch_settings_expected).to_string());
+            });
+
+            let epoch_settings = client.retrieve_epoch_settings().await;
+            epoch_settings.as_ref().expect("unexpected error");
+            assert_eq!(epoch_settings_expected, epoch_settings.unwrap().unwrap());
+        }
+
+        #[tokio::test]
+        async fn test_epoch_settings_ko_500() {
+            let (server, client) = setup_server_and_client();
+            let _server_mock = server.mock(|when, then| {
+                when.path("/epoch-settings");
+                then.status(500).body("an error occurred");
+            });
+
+            match client.retrieve_epoch_settings().await.unwrap_err() {
+                AggregatorClientError::RemoteServerTechnical(_) => (),
+                e => panic!("Expected Aggregator::RemoteServerTechnical error, got '{e:?}'."),
+            };
+        }
+
+        #[tokio::test]
+        async fn test_epoch_settings_timeout() {
+            let (server, mut client) = setup_server_and_client();
+            client.timeout_duration = Some(Duration::from_millis(10));
+            let _server_mock = server.mock(|when, then| {
+                when.path("/epoch-settings");
+                then.delay(Duration::from_millis(100));
+            });
+
+            let error = client
+                .retrieve_epoch_settings()
+                .await
+                .expect_err("retrieve_epoch_settings should fail");
+
+            assert!(
+                matches!(error, AggregatorClientError::RemoteServerUnreachable(_)),
+                "unexpected error type: {error:?}"
+            );
+        }
     }
 
-    #[tokio::test]
-    async fn test_epoch_settings_ko_500() {
-        let (server, client) = setup_server_and_client();
-        let _server_mock = server.mock(|when, then| {
-            when.path("/epoch-settings");
-            then.status(500).body("an error occurred");
-        });
+    mod aggregator_features {
+        use super::*;
 
-        match client.retrieve_epoch_settings().await.unwrap_err() {
-            AggregatorClientError::RemoteServerTechnical(_) => (),
-            e => panic!("Expected Aggregator::RemoteServerTechnical error, got '{e:?}'."),
-        };
-    }
+        #[tokio::test]
+        async fn test_aggregator_features_ok_200() {
+            let (server, client) = setup_server_and_client();
+            let message_expected = AggregatorFeaturesMessage::dummy();
+            let _server_mock = server.mock(|when, then| {
+                when.path("/");
+                then.status(200).body(json!(message_expected).to_string());
+            });
 
-    #[tokio::test]
-    async fn test_epoch_settings_timeout() {
-        let (server, mut client) = setup_server_and_client();
-        client.timeout_duration = Some(Duration::from_millis(10));
-        let _server_mock = server.mock(|when, then| {
-            when.path("/epoch-settings");
-            then.delay(Duration::from_millis(100));
-        });
+            let message = client.retrieve_aggregator_features().await.unwrap();
 
-        let error = client
-            .retrieve_epoch_settings()
-            .await
-            .expect_err("retrieve_epoch_settings should fail");
+            assert_eq!(message_expected, message);
+        }
 
-        assert!(
-            matches!(error, AggregatorClientError::RemoteServerUnreachable(_)),
-            "unexpected error type: {error:?}"
-        );
+        #[tokio::test]
+        async fn test_aggregator_features_ko_500() {
+            let (server, client) = setup_server_and_client();
+            set_returning_500(&server);
+
+            let error = client.retrieve_aggregator_features().await.unwrap_err();
+
+            assert_is_error!(error, AggregatorClientError::RemoteServerTechnical(_));
+        }
+
+        #[tokio::test]
+        async fn test_aggregator_features_ko_json_serialization() {
+            let (server, client) = setup_server_and_client();
+            set_unparsable_json(&server);
+
+            let error = client.retrieve_aggregator_features().await.unwrap_err();
+
+            assert_is_error!(error, AggregatorClientError::JsonParseFailed(_));
+        }
+
+        #[tokio::test]
+        async fn test_aggregator_features_timeout() {
+            let (server, mut client) = setup_server_and_client();
+            client.timeout_duration = Some(Duration::from_millis(10));
+            let _server_mock = server.mock(|when, then| {
+                when.path("/");
+                then.delay(Duration::from_millis(100));
+            });
+
+            let error = client.retrieve_aggregator_features().await.unwrap_err();
+
+            assert_is_error!(error, AggregatorClientError::RemoteServerUnreachable(_));
+        }
     }
 
     #[tokio::test]
