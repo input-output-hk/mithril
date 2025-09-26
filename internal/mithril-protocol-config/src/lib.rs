@@ -1,6 +1,6 @@
 /// HTTP request timeout duration in milliseconds
 const HTTP_REQUEST_TIMEOUT_DURATION: u64 = 30000;
-pub mod http;
+pub mod http_client;
 pub mod interface;
 pub mod model;
 

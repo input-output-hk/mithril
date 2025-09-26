@@ -3,7 +3,7 @@ use std::{collections::BTreeSet, sync::Arc, time::Duration};
 
 use crate::{
     HTTP_REQUEST_TIMEOUT_DURATION,
-    http::aggregator_client::{AggregatorClient, AggregatorHTTPClient},
+    http_client::aggregator_client::{AggregatorClient, AggregatorHTTPClient},
     interface::MithrilNetworkConfigurationProvider,
     model::MithrilNetworkConfiguration,
 };
