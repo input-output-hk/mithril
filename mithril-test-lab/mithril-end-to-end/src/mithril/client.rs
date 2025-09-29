@@ -220,12 +220,9 @@ impl ClientCommand {
             ClientCommand::CardanoStakeDistribution(cmd) => {
                 [vec!["cardano-stake-distribution".to_string()], cmd.cli_arg()].concat()
             }
-            ClientCommand::CardanoDbV2(cmd) => [
-                vec!["cardano-db".to_string()],
-                cmd.cli_arg(),
-                vec!["--backend".to_string(), "v2".to_string()],
-            ]
-            .concat(),
+            ClientCommand::CardanoDbV2(cmd) => {
+                [vec!["cardano-db".to_string()], cmd.cli_arg()].concat()
+            }
         };
         args.push("--json".to_string());
 

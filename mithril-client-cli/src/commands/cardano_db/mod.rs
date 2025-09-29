@@ -18,11 +18,11 @@ use mithril_client::MithrilResult;
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, ValueEnum)]
 pub enum CardanoDbCommandsBackend {
     /// Legacy backend
-    #[default]
-    #[clap(help = "[default] Legacy backend, full database restoration only")]
+    #[clap(help = "Legacy backend, full database restoration only")]
     V1,
     /// V2 backend
-    #[clap(help = "V2 backend, full or partial database restoration")]
+    #[default]
+    #[clap(help = "[default] V2 backend, full or partial database restoration")]
     V2,
 }
 

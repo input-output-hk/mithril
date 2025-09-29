@@ -585,16 +585,18 @@ AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client cardano-db download $S
 You will see that the certificate chain is validated to ensure the issued certificate is genuine and then the selected snapshot archive is downloaded, unpacked and verified against the corresponding certificate.
 
 ```bash
-1/5 - Checking local disk info…
-2/5 - Fetching the certificate and verifying the certificate chain…
-3/5 - Downloading and unpacking the Cardano db
-4/5 - Computing the Cardano db message
-5/5 - Verifying the cardano db signature…
-Cardano db 'db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667' has been unpacked and successfully verified with Mithril.
+1/7 - Checking local disk info… 
+2/7 - Fetching the certificate and verifying the certificate chain… 
+3/7 - Downloading and unpacking the cardano db snapshot
+4/7 - Downloading and verifying digests…
+5/7 - Verifying the cardano database
+6/7 - Computing the cardano db snapshot message
+7/7 - Verifying the cardano db signature…
+Cardano database snapshot 'bfd6621886fe1d3810e1ffb5e366c1688f9cc2ac1ee6aa40eb99ab28f0cc1fd6' archives have been successfully unpacked. Immutable files have been successfully verified with Mithril.
 
-    Files in the directory '/home/mithril/data/testnet/db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667/db' can be used to run a Cardano node with version >= 10.5.1.
+    Files in the directory 'db' can be used to run a Cardano node with version >= 10.5.1.
 
     If you are using Cardano Docker image, you can restore a Cardano Node with:
 
-    docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="/home/mithril/data/testnet/db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667/db",target=/data/db/ -e NETWORK=preview ghcr.io/intersectmbo/cardano-node:10.5.1
+    docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="/home/mithril/data/testnet/bfd6621886fe1d3810e1ffb5e366c1688f9cc2ac1ee6aa40eb99ab28f0cc1fd6/db",target=/data/db/ -e NETWORK=preview ghcr.io/intersectmbo/cardano-node:10.5.1
 ```
