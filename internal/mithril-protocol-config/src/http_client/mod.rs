@@ -1,2 +1,2 @@
 mod aggregator_client;
-mod http_impl;
+pub mod http_impl;

@@ -1,2 +1,2 @@
 mod fake_data;
-mod mithril_network_configuration_provider;
+pub mod mithril_network_configuration_provider;
