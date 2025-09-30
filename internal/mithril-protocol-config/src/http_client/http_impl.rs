@@ -11,9 +11,8 @@ use async_trait::async_trait;
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::{StdResult, entities::SignedEntityTypeDiscriminants};
 
-struct HttpMithrilNetworkConfigurationProvider {
+pub struct HttpMithrilNetworkConfigurationProvider {
     aggregator_client: AggregatorHTTPClient,
-    logger: slog::Logger,
 }
 
 impl HttpMithrilNetworkConfigurationProvider {
@@ -31,10 +30,7 @@ impl HttpMithrilNetworkConfigurationProvider {
             logger.clone(),
         );
 
-        Self {
-            aggregator_client,
-            logger,
-        }
+        Self { aggregator_client }
     }
 }
 

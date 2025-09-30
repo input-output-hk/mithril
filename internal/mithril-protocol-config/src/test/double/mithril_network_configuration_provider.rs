@@ -14,6 +14,19 @@ impl FakeMithrilNetworkConfigurationProvider {
     }
 }
 
+impl Default for FakeMithrilNetworkConfigurationProvider {
+    fn default() -> Self {
+        Self {
+            configuration: MithrilNetworkConfiguration {
+                epoch: Default::default(),
+                signer_registration_protocol_parameters: Default::default(),
+                available_signed_entity_types: Default::default(),
+                signed_entity_types_config: Default::default(),
+            },
+        }
+    }
+}
+
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 impl MithrilNetworkConfigurationProvider for FakeMithrilNetworkConfigurationProvider {
