@@ -155,7 +155,7 @@ jobs:
         working-directory: ./bin
         run: |
           ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db snapshot list --backend v1
-          echo "CDB_SNAPSHOT_DIGEST=$(./mithril-client --origin-tag CI cardano-db snapshot list --json | jq -r '.[0].digest')" >> $GITHUB_ENV
+          echo "CDB_SNAPSHOT_DIGEST=$(./mithril-client --origin-tag CI cardano-db snapshot list --backend v1 --json | jq -r '.[0].digest')" >> $GITHUB_ENV
 
       - name: Cardano Database Snapshot / download & restore latest
         shell: bash
@@ -247,26 +247,26 @@ jobs:
         shell: bash
         working-directory: ./bin
         run: |
-          ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db snapshot list --backend v2
-          echo "CARDANO_DATABASE_V2_SNAPSHOT_HASH=$(./mithril-client --origin-tag CI cardano-db snapshot list --backend v2 --json | jq -r '.[0].hash')" >> $GITHUB_ENV
+          ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db snapshot list
+          echo "CARDANO_DATABASE_V2_SNAPSHOT_HASH=$(./mithril-client --origin-tag CI cardano-db snapshot list --json | jq -r '.[0].hash')" >> $GITHUB_ENV
 
       - name: Cardano Database V2 Snapshot / show snapshot
         if: steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client --origin-tag CI cardano-db snapshot show --backend v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH
+        run: ./mithril-client --origin-tag CI cardano-db snapshot show $CARDANO_DATABASE_V2_SNAPSHOT_HASH
 
       - name: Cardano Database V2 Snapshot / download & restore latest (Full restoration)
         if: steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download --backend v2 --download-dir v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH ${{ matrix.extra_args }} 2>&1 | tee cdb-v2-download-output.txt
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download --download-dir v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH ${{ matrix.extra_args }} 2>&1 | tee cdb-v2-download-output.txt
 
       - name: Cardano Database V2 Snapshot / verify immutables
         if: steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db verify --backend v2 --db-dir v2/db $CARDANO_DATABASE_V2_SNAPSHOT_HASH | tee cdb-v2-verify-output.txt
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db verify --db-dir v2/db $CARDANO_DATABASE_V2_SNAPSHOT_HASH | tee cdb-v2-verify-output.txt
 
       - name: Cardano Database V2 Snapshot / verify Cardano node starts successfully
         if: matrix.os == 'ubuntu-24.04' && steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true'
@@ -285,7 +285,7 @@ jobs:
           echo "tampered chunk 5" > v2/db/immutable/00005.chunk
           echo "tampered primary 9" > v2/db/immutable/00009.primary
           echo "tampered outside verification range" > v2/db/immutable/00012.chunk
-          ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db verify --end 10 --backend v2 --db-dir v2/db $CARDANO_DATABASE_V2_SNAPSHOT_HASH
+          ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db verify --end 10 --db-dir v2/db $CARDANO_DATABASE_V2_SNAPSHOT_HASH
           # Check missing files in immutables_verification_error-*.json
           jq -r '.["missing-files"] | sort | @csv' immutables_verification_error-*.json | grep -qx '"00007.chunk","00007.primary","00007.secondary"' || { echo "Error: missing-files array does not match expected values!"; exit 1; }
           # Check tampered files in immutables_verification_error-*.json
@@ -411,23 +411,23 @@ jobs:
         if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
         run: |
-          ${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --backend v2
-          echo "CARDANO_DATABASE_V2_SNAPSHOT_HASH=$(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --backend v2 --json | jq -r '.[0].hash')" >> $GITHUB_ENV
+          ${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list
+          echo "CARDANO_DATABASE_V2_SNAPSHOT_HASH=$(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --json | jq -r '.[0].hash')" >> $GITHUB_ENV
 
       - name: Cardano Database V2 Snapshot / show snapshot
         if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot show --backend v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH
+        run: ${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot show $CARDANO_DATABASE_V2_SNAPSHOT_HASH
 
       - name: Cardano Database V2 Snapshot / download & restore latest (Full restoration)
         if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download --backend v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH --download-dir /app/data/v2 ${{ matrix.extra_args }}
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CARDANO_DATABASE_V2_SNAPSHOT_HASH --download-dir /app/data/v2 ${{ matrix.extra_args }}
 
       - name: Cardano Database V2 Snapshot / verify immutables
         if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db verify --backend v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH --db-dir /app/data/v2/db
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db verify $CARDANO_DATABASE_V2_SNAPSHOT_HASH --db-dir /app/data/v2/db
 
   test-mithril-client-wasm:
     strategy:

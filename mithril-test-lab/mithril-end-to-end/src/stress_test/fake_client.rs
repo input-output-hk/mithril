@@ -5,7 +5,10 @@ use async_recursion::async_recursion;
 use indicatif::{ProgressBar, ProgressDrawTarget};
 use mithril_common::{
     StdResult,
-    messages::{CertificateMessage, SnapshotListItemMessage, SnapshotListMessage},
+    messages::{
+        CardanoDatabaseSnapshotListItemMessage, CardanoDatabaseSnapshotListMessage,
+        CertificateMessage,
+    },
 };
 use reqwest::StatusCode;
 use slog_scope::warn;
@@ -47,12 +50,12 @@ pub enum LoadError {
 pub async fn download_latest_snasphot(
     http_client: Arc<reqwest::Client>,
     endpoint: &str,
-) -> StdResult<SnapshotListItemMessage> {
-    let http_request = http_client.get(format!("{endpoint}/artifact/snapshots"));
+) -> StdResult<CardanoDatabaseSnapshotListItemMessage> {
+    let http_request = http_client.get(format!("{endpoint}/artifact/cardano-database"));
     let response = http_request.send().await;
-    let snapshots: SnapshotListMessage = match response {
+    let snapshots: CardanoDatabaseSnapshotListMessage = match response {
         Ok(response) => match response.status() {
-            StatusCode::OK => Ok(serde_json::from_str::<SnapshotListMessage>(
+            StatusCode::OK => Ok(serde_json::from_str::<CardanoDatabaseSnapshotListMessage>(
                 &response.text().await.unwrap(),
             )
             .expect("this error should never happen")),
@@ -67,8 +70,8 @@ pub async fn download_latest_snasphot(
 
     let last_snapshot = snapshots.first().ok_or(LoadError::EmptySnapshotList)?;
     let http_request = http_client.get(format!(
-        "{}/artifact/snapshot/{}",
-        endpoint, last_snapshot.digest
+        "{}/artifact/cardano-database/{}",
+        endpoint, last_snapshot.hash
     ));
     let response = http_request.send().await;
     match response {

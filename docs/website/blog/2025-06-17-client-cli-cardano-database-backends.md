@@ -46,12 +46,14 @@ To support this transition, both certification versions will remain available du
 
 - [ ] **Distribution +2**:
   - The `v2` backend will become the default
-  - The `v1` backend will be deprecated.
 
 - [ ] **Distribution +3**:
-  - The `v1` backend will be decommissioned and removed from the client CLI and library.
+  - The `v1` backend will be deprecated.
 
 - [ ] **Distribution +4**:
+  - The `v1` backend will be decommissioned and removed from the client CLI and library.
+
+- [ ] **Distribution +5**:
   - The `v1` backend will be fully removed from the signer and aggregator.
 
 If you have any questions or need assistance, contact the team on the [Discord channel](https://discord.gg/5kaErDKDRq).

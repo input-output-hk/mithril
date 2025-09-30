@@ -4210,7 +4210,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.12.30"
+version = "0.12.31"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4345,7 +4345,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.4.102"
+version = "0.4.103"
 dependencies = [
  "anyhow",
  "async-recursion",

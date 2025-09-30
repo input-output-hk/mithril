@@ -10,8 +10,8 @@ use mithril_common::{
     StdResult,
     entities::Epoch,
     messages::{
-        CertificateListItemMessage, EpochSettingsMessage, MithrilStakeDistributionListItemMessage,
-        SnapshotListItemMessage,
+        CardanoDatabaseSnapshotListItemMessage, CertificateListItemMessage, EpochSettingsMessage,
+        MithrilStakeDistributionListItemMessage,
     },
 };
 
@@ -163,13 +163,15 @@ pub async fn for_immutable_files_artifacts(
     aggregator: &Aggregator,
     total: usize,
     timeout: Duration,
-) -> StdResult<SnapshotListItemMessage> {
-    let url = &format!("{}/artifact/snapshots", aggregator.endpoint());
+) -> StdResult<CardanoDatabaseSnapshotListItemMessage> {
+    let url = &format!("{}/artifact/cardano-database", aggregator.endpoint());
     spin_while_waiting!(
         {
-            request_first_list_item_with_expected_size::<SnapshotListItemMessage>(url, total)
-                .await
-                .map_err(|e| anyhow!(e).context("Request first snapshot failure"))
+            request_first_list_item_with_expected_size::<CardanoDatabaseSnapshotListItemMessage>(
+                url, total,
+            )
+            .await
+            .map_err(|e| anyhow!(e).context("Request first snapshot failure"))
         },
         timeout,
         format!("Waiting for immutable files artifacts"),
