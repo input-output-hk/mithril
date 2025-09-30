@@ -11,9 +11,9 @@ repository.workspace = true
 [dependencies]
 jsonschema = { version = "0.33.0" }
 reqwest = { workspace = true }
+saphyr = "0.0.6"
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_yml = "0.0.12"
 warp = { workspace = true }
 
 [dev-dependencies]
