@@ -4,12 +4,14 @@ use mithril_common::entities::{
     CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityTypeDiscriminants,
 };
 
+#[derive(PartialEq, Clone, Debug)]
 pub enum SignedEntityTypeConfiguration {
     /// Cardano Transactions
     CardanoTransactions(CardanoTransactionsSigningConfig),
 }
 
 /// A Mithril network configuration
+#[derive(PartialEq, Clone, Debug)]
 pub struct MithrilNetworkConfiguration {
     /// Epoch
     pub epoch: Epoch,
