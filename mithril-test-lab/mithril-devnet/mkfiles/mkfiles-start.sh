@@ -110,6 +110,41 @@ EOF
 
 chmod u+x start-cardano.sh
 
+cat >> start-dmq.sh <<EOF
+#!/usr/bin/env bash
+
+echo ">> Start DMQ network"
+killall dmq-node > /dev/null 2>&1
+
+# Stop when there's an error, activate it after the killall since it will report an error if it doesn't kill anything
+set -e
+
+$DMQ_NODE --version
+
+EOF
+
+for NODE in ${ALL_NODES}; do
+  cat >> ${NODE}/start-dmq.sh <<EOF
+#!/usr/bin/env bash
+
+$DMQ_NODE \\
+  --configuration-file              ${NODE}/config.dmq.json \\
+  --topology-file                   ${NODE}/topology.dmq.json \\
+  --local-socket                    ${NODE}/ipc/dmq.node.sock \\
+  --host-addr                       $(cat ${NODE}/host) \\
+  --port                            $(cat ${NODE}/port.dmq) \\
+  > ${NODE}/dmq.node.log
+EOF
+  chmod u+x ${NODE}/start-dmq.sh
+  cat >> start-dmq.sh <<EOF
+echo ">> Starting DMQ node '${NODE}'"
+./${NODE}/start-dmq.sh &
+
+EOF
+done
+
+chmod u+x start-dmq.sh
+
 cat >> start-mithril.sh <<EOF
 #!/usr/bin/env bash
 
@@ -190,6 +225,9 @@ cat >> stop.sh <<EOF
 
 echo ">> Stop Cardano network"
 killall cardano-node
+
+echo ">> Stop DMQ network"
+killall dmq-node
 
 echo ">> Stop Mithril network"
 if [ -z "\${MITHRIL_IMAGE_ID}" ]; then 

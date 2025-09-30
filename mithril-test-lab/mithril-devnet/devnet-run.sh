@@ -31,6 +31,16 @@ echo
 # Change directory
 pushd ${ARTIFACTS_DIR} > /dev/null
 
+# Start devnet DMQ nodes
+if [ "${NODES}" = "dmq" ] || [ "${NODES}" = "*" ]; then 
+    echo "====================================================================="
+    echo " Start DMQ nodes"
+    echo "====================================================================="
+    echo
+    ./start-dmq.sh
+    echo
+fi
+
 # Start devnet Cardano nodes
 if [ "${NODES}" = "cardano" ] || [ "${NODES}" = "*" ]; then 
     echo "====================================================================="

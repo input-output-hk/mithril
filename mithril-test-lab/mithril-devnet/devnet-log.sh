@@ -40,3 +40,14 @@ if [ "${NODES}" = "cardano" ] || [ "${NODES}" = "*" ]; then
     LINES=${LINES} ./log-cardano.sh
     echo
 fi
+if [ "${NODES}" = "*" ]; then 
+    echo "====================================================================="
+    echo "=== DMQ Network"
+    echo "====================================================================="
+    echo
+fi
+if [ "${NODES}" = "dmq" ] || [ "${NODES}" = "*" ]; then 
+
+    LINES=${LINES} ./log-dmq.sh
+    echo
+fi
