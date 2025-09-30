@@ -36,7 +36,7 @@ async fn main() -> StdResult<()> {
     reporter.start("stress tests bootstrap");
     // configure a dummy immutable db
     let cardano_db = DummyCardanoDbBuilder::new("load-tester")
-        .with_immutables(&[1, 2, 3])
+        .with_immutables(&[0, 1, 2])
         .with_legacy_ledger_snapshots(&[533])
         .append_immutable_trio()
         .build();
@@ -226,7 +226,7 @@ async fn main_scenario(
         .unwrap();
 
     info!(
-        ">> Send the Signer Signatures payloads for CardanoImmutableFiles({:?})",
+        ">> Send the Signer Signatures payloads for CardanoDatabase({:?})",
         current_beacon
     );
     parameters.reporter.start("signatures registration");

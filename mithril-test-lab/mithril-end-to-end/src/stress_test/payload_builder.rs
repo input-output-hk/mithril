@@ -114,8 +114,8 @@ pub async fn compute_immutable_files_signatures(
             let beacon = CardanoDbBeacon::new(*epoch, immutable_file_number);
             let digester =
                 CardanoImmutableDigester::new("devnet".to_string(), None, slog_scope::logger());
-            let digest = digester
-                .compute_digest(cardano_db.get_immutable_dir(), &beacon)
+            let merkle_tree = digester
+                .compute_merkle_tree(cardano_db.get_immutable_dir(), &beacon)
                 .await
                 .with_context(|| {
                     format!(
@@ -123,12 +123,16 @@ pub async fn compute_immutable_files_signatures(
                         cardano_db.get_immutable_dir().display()
                     )
                 })?;
+            let merkle_root = merkle_tree.compute_root()?.to_hex();
             let signers_fixture = signers_fixture.clone();
 
             let signatures = tokio::task::spawn_blocking(move || -> Vec<_> {
                 let cardano_immutable_files_full_message = {
                     let mut message = ProtocolMessage::new();
-                    message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
+                    message.set_message_part(
+                        ProtocolMessagePartKey::CardanoDatabaseMerkleRoot,
+                        merkle_root,
+                    );
                     message.set_message_part(
                         ProtocolMessagePartKey::NextAggregateVerificationKey,
                         signers_fixture.compute_and_encode_avk(),
@@ -148,7 +152,7 @@ pub async fn compute_immutable_files_signatures(
                     .sign_all(&cardano_immutable_files_full_message)
                     .into_iter()
                     .map(|s| RegisterSignatureMessageHttp {
-                        signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
+                        signed_entity_type: SignedEntityType::CardanoDatabase(
                             CardanoDbBeacon::new(*epoch, immutable_file_number),
                         ),
                         party_id: s.party_id.clone(),
