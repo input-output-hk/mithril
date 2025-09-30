@@ -2,6 +2,7 @@ mod aggregate_key;
 mod basic_verifier;
 mod clerk;
 mod signature;
+mod telescope_stm;
 
 pub use aggregate_key::*;
 pub use basic_verifier::*;
