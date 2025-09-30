@@ -20,6 +20,7 @@ num-integer-backend = ["num-bigint", "num-rational", "num-traits"]
 benchmark-internals = []                                           # For benchmarking multi_sig
 
 [dependencies]
+alba = { git = "https://github.com/cardano-scaling/alba.git", branch = "main" }
 blake2 = "0.10.6"
 # Enforce blst portable feature for runtime detection of Intel ADX instruction set.
 blst = { version = "0.3.15", features = ["portable"] }
@@ -28,6 +29,7 @@ rand_core = { workspace = true }
 rayon = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
+sha2 = "0.10.6"
 
 [target.'cfg(any(target_family = "wasm", windows))'.dependencies]
 # WASM and Windows don't support rug backend, fallback to num-integer only
