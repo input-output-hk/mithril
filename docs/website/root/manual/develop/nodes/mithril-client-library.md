@@ -349,10 +349,9 @@ async fn main() -> mithril_client::MithrilResult<()> {
             &immutable_file_range,
             allow_missing_immutables_files,
             &target_directory,
-            &verified_digest,
-        ),
-    )
-    .await?;
+            &verified_digests,
+        )
+        .await?;
 
     let message = MessageBuilder::new()
         .compute_cardano_database_message(&certificate, &merkle_proof)
