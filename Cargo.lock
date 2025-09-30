@@ -4510,6 +4510,7 @@ dependencies = [
  "mithril-era",
  "mithril-metric",
  "mithril-persistence",
+ "mithril-protocol-config",
  "mithril-signed-entity-lock",
  "mithril-signed-entity-preloader",
  "mithril-ticker",

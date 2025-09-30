@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 use anyhow::anyhow;
 use mithril_metric::{MetricCollector, MetricsServiceExporter};
+use mithril_protocol_config::test::double::mithril_network_configuration_provider::FakeMithrilNetworkConfigurationProvider;
 use prometheus_parse::Value;
 use slog::Drain;
 use slog_scope::debug;
@@ -294,6 +295,9 @@ impl StateMachineTester {
             config.operational_certificate_path.clone().unwrap(),
         )) as Arc<dyn KesSigner>);
 
+        let network_configuration_service =
+            Arc::new(FakeMithrilNetworkConfigurationProvider::default());
+
         let services = SignerDependencyContainer {
             certificate_handler: certificate_handler.clone(),
             ticker_service: ticker_service.clone(),
@@ -313,6 +317,7 @@ impl StateMachineTester {
             epoch_service,
             certifier,
             kes_signer,
+            network_configuration_service,
         };
         // set up stake distribution
         chain_observer.set_signers(signers_with_stake.to_owned()).await;

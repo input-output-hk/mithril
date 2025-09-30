@@ -10,6 +10,7 @@ use mithril_common::entities::{
     Epoch, PartyId, ProtocolMessage, SignedEntityType, Signer, TimePoint,
 };
 use mithril_common::logging::LoggerExtensions;
+use mithril_protocol_config::model::MithrilNetworkConfiguration;
 
 use crate::Configuration;
 use crate::dependency_injection::SignerDependencyContainer;
@@ -19,6 +20,9 @@ use crate::services::{EpochService, MithrilProtocolInitializerBuilder};
 /// This trait is mainly intended for mocking.
 #[async_trait]
 pub trait Runner: Send + Sync {
+    ///Fetch the configuration parameters of a Mithril network
+    async fn get_mithril_network_configuration(&self) -> StdResult<MithrilNetworkConfiguration>;
+
     /// Fetch the current epoch settings if any.
     async fn get_epoch_settings(&self) -> StdResult<Option<SignerEpochSettings>>;
 
@@ -102,6 +106,12 @@ impl SignerRunner {
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 impl Runner for SignerRunner {
+    async fn get_mithril_network_configuration(&self) -> StdResult<MithrilNetworkConfiguration> {
+        debug!(self.logger, ">> get_mithril_network_configuration");
+
+        self.services.network_configuration_service.get().await
+    }
+
     async fn get_epoch_settings(&self) -> StdResult<Option<SignerEpochSettings>> {
         debug!(self.logger, ">> get_epoch_settings");
 
@@ -359,6 +369,7 @@ mod tests {
         },
     };
     use mithril_era::{EraChecker, EraReader, adapters::EraReaderBootstrapAdapter};
+    use mithril_protocol_config::test::double::mithril_network_configuration_provider::FakeMithrilNetworkConfigurationProvider;
     use mithril_signed_entity_lock::SignedEntityTypeLock;
     use mithril_signed_entity_preloader::{
         CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
@@ -514,6 +525,9 @@ mod tests {
         ));
         let kes_signer = None;
 
+        let network_configuration_service =
+            Arc::new(FakeMithrilNetworkConfigurationProvider::default());
+
         SignerDependencyContainer {
             stake_store,
             certificate_handler: aggregator_client,
@@ -533,6 +547,7 @@ mod tests {
             epoch_service,
             certifier,
             kes_signer,
+            network_configuration_service,
         }
     }
 
