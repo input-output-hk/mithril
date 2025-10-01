@@ -12,6 +12,7 @@ repository = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 mithril-common = { path = "../../mithril-common" }
+mithril-ticker = { path = "../mithril-ticker" }
 reqwest = { workspace = true, features = [
     "default",
     "stream",
