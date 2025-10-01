@@ -42,7 +42,12 @@ pub trait Runner: Send + Sync {
     async fn can_sign_current_epoch(&self) -> StdResult<bool>;
 
     /// Register epoch information
-    async fn inform_epoch_settings(&self, epoch_settings: SignerEpochSettings) -> StdResult<()>;
+    async fn inform_epoch_settings(
+        &self,
+        mithril_network_configuration: MithrilNetworkConfiguration,
+        current_signer: Vec<Signer>,
+        next_signer: Vec<Signer>,
+    ) -> StdResult<()>;
 
     /// Create the message to be signed with the single signature.
     async fn compute_message(
@@ -250,25 +255,22 @@ impl Runner for SignerRunner {
         epoch_service.can_signer_sign_current_epoch(self.services.single_signer.get_party_id())
     }
 
-    async fn inform_epoch_settings(&self, epoch_settings: SignerEpochSettings) -> StdResult<()> {
+    async fn inform_epoch_settings(
+        &self,
+        mithril_network_configuration: MithrilNetworkConfiguration,
+        current_signer: Vec<Signer>,
+        next_signer: Vec<Signer>,
+    ) -> StdResult<()> {
         debug!(
             self.logger,
-            ">> inform_epoch_settings(epoch:{})", epoch_settings.epoch
+            ">> inform_epoch_settings(epoch:{})", mithril_network_configuration.epoch
         );
-        let aggregator_features = self
-            .services
-            .certificate_handler
-            .retrieve_aggregator_features()
-            .await?;
 
         self.services
             .epoch_service
             .write()
             .await
-            .inform_epoch_settings(
-                epoch_settings,
-                aggregator_features.capabilities.signed_entity_types,
-            )
+            .inform_epoch_settings(mithril_network_configuration, current_signer, next_signer)
             .await
     }
 
@@ -357,7 +359,6 @@ mod tests {
         api_version::APIVersionProvider,
         crypto_helper::{MKMap, MKMapNode, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer},
         entities::{BlockNumber, BlockRange, Epoch, SignedEntityTypeDiscriminants},
-        messages::{AggregatorCapabilities, AggregatorFeaturesMessage},
         signable_builder::{
             BlockRangeRootRetriever, CardanoStakeDistributionSignableBuilder,
             CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
@@ -525,8 +526,12 @@ mod tests {
         ));
         let kes_signer = None;
 
-        let network_configuration_service =
-            Arc::new(FakeMithrilNetworkConfigurationProvider::default());
+        let network_configuration_service = Arc::new(FakeMithrilNetworkConfigurationProvider::new(
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            ticker_service.clone(),
+        ));
 
         SignerDependencyContainer {
             stake_store,
@@ -638,14 +643,20 @@ mod tests {
             .unwrap();
 
         let runner = init_runner(Some(services), None).await;
-        // inform epoch settings
-        let epoch_settings = SignerEpochSettings {
+
+        let mithril_network_configuration = MithrilNetworkConfiguration {
             epoch: current_epoch,
-            current_signers: fixture.signers(),
-            next_signers: fixture.signers(),
-            ..SignerEpochSettings::dummy().clone()
+            ..MithrilNetworkConfiguration::dummy()
         };
-        runner.inform_epoch_settings(epoch_settings).await.unwrap();
+
+        runner
+            .inform_epoch_settings(
+                mithril_network_configuration,
+                fixture.signers(),
+                fixture.signers(),
+            )
+            .await
+            .unwrap();
 
         runner
             .register_signer_to_aggregator()
@@ -697,26 +708,39 @@ mod tests {
     async fn test_inform_epoch_setting_pass_allowed_discriminant_to_epoch_service() {
         let mut services = init_services().await;
         let certificate_handler = Arc::new(DumbAggregatorClient::default());
-        certificate_handler
-            .set_aggregator_features(AggregatorFeaturesMessage {
-                capabilities: AggregatorCapabilities {
-                    signed_entity_types: BTreeSet::from([
-                        SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                        SignedEntityTypeDiscriminants::CardanoTransactions,
-                    ]),
-                    ..AggregatorFeaturesMessage::dummy().capabilities
-                },
-                ..AggregatorFeaturesMessage::dummy()
-            })
-            .await;
+        // certificate_handler
+        //     .set_aggregator_features(AggregatorFeaturesMessage {
+        //         capabilities: AggregatorCapabilities {
+        //             signed_entity_types: BTreeSet::from([
+        //                 SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+        //                 SignedEntityTypeDiscriminants::CardanoTransactions,
+        //             ]),
+        //             ..AggregatorFeaturesMessage::dummy().capabilities
+        //         },
+        //         ..AggregatorFeaturesMessage::dummy()
+        //     })
+        //     .await;
         services.certificate_handler = certificate_handler;
         let runner = init_runner(Some(services), None).await;
 
-        let epoch_settings = SignerEpochSettings {
+        let mithril_network_configuration = MithrilNetworkConfiguration {
             epoch: Epoch(1),
-            ..SignerEpochSettings::dummy()
+            available_signed_entity_types: BTreeSet::from([
+                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                SignedEntityTypeDiscriminants::CardanoTransactions,
+            ]),
+            ..MithrilNetworkConfiguration::dummy()
         };
-        runner.inform_epoch_settings(epoch_settings).await.unwrap();
+
+        // Signers
+        let signers = fake_data::signers(5);
+        let current_signers = signers[1..3].to_vec();
+        let next_signers = signers[2..5].to_vec();
+
+        runner
+            .inform_epoch_settings(mithril_network_configuration, current_signers, next_signers)
+            .await
+            .unwrap();
 
         let epoch_service = runner.services.epoch_service.read().await;
         let recorded_allowed_discriminants = epoch_service.allowed_discriminants().unwrap();

@@ -231,6 +231,7 @@ mod tests {
 
     #[tokio::test]
     async fn retrieve_epoch_settings() {
+        //TODO split in two tests, to test only signers from retrieve_epoch_settings and CardanoTransactionsSigningConfig in a mithril_network_configuration_provider test ?
         let (chain_observer, fake_aggregator) = init().await;
         let fake_signers = fake_data::signers(3);
         let epoch = chain_observer.get_current_epoch().await.unwrap().unwrap();
@@ -298,6 +299,7 @@ mod tests {
 
     #[tokio::test]
     async fn retrieve_aggregator_features() {
+        //TODO aggregator features are now retrieved with mithril_network_configuration_provider, adapt or remove test and implementation ?
         let (_chain_observer, fake_aggregator) = init().await;
 
         {

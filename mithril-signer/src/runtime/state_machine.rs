@@ -1,20 +1,17 @@
 use anyhow::Error;
 use chrono::Local;
+use mithril_protocol_config::model::MithrilNetworkConfiguration;
 use slog::{Logger, debug, info};
 use std::{fmt::Display, ops::Deref, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 
 use mithril_common::{
     crypto_helper::ProtocolInitializerError,
-    entities::{Epoch, TimePoint},
+    entities::{Epoch, Signer, TimePoint},
     logging::LoggerExtensions,
 };
 
-use crate::{
-    MetricsService,
-    entities::{BeaconToSign, SignerEpochSettings},
-    services::AggregatorClientError,
-};
+use crate::{MetricsService, entities::BeaconToSign, services::AggregatorClientError};
 
 use super::{Runner, RuntimeError};
 
@@ -167,7 +164,7 @@ impl StateMachine {
                         "→ Epoch has changed, transiting to Unregistered"
                     );
                     *state = self.transition_from_unregistered_to_unregistered(new_epoch).await?;
-                } else if let Some(epoch_settings) = self
+                } else if let Some(signer_settings) = self
                     .runner
                     .get_epoch_settings()
                     .await
@@ -176,19 +173,33 @@ impl StateMachine {
                         nested_error: Some(e),
                     })?
                 {
-                    info!(self.logger, "→ Epoch settings found");
-                    if epoch_settings.epoch >= *epoch {
+                    info!(self.logger, "→ Epoch settings found"); //TODO Do we switch the logs and type from SignerEpochSettings to SignerSettings since now we only read current and next signer from it ?
+                    let network_configuration = self
+                        .runner
+                        .get_mithril_network_configuration()
+                        .await
+                        .map_err(|e| RuntimeError::KeepState {
+                            message: "could not retrieve mithril network configuration".to_string(),
+                            nested_error: Some(e),
+                        })?;
+                    info!(self.logger, "→ Mithril network configuration found");
+
+                    if network_configuration.epoch >= *epoch {
                         info!(self.logger, "New Epoch found");
                         info!(self.logger, " ⋅ Transiting to Registered");
                         *state = self
                             .transition_from_unregistered_to_one_of_registered_states(
-                                epoch_settings,
+                                network_configuration,
+                                signer_settings.current_signers,
+                                signer_settings.next_signers,
                             )
                             .await?;
                     } else {
                         info!(
-                            self.logger, " ⋅ Epoch settings found, but its epoch is behind the known epoch, waiting…";
-                            "epoch_settings" => ?epoch_settings,
+                            self.logger, " ⋅ Signer settings and Network Configuration found, but its epoch is behind the known epoch, waiting…";
+                            "network_configuration" => ?network_configuration,
+                            "current_singer" => ?signer_settings.current_signers,
+                            "next_signer" => ?signer_settings.next_signers,
                             "known_epoch" => ?epoch,
                         );
                     }
@@ -286,7 +297,9 @@ impl StateMachine {
     /// Launch the transition process from the `Unregistered` to `ReadyToSign` or `RegisteredNotAbleToSign` state.
     async fn transition_from_unregistered_to_one_of_registered_states(
         &self,
-        epoch_settings: SignerEpochSettings,
+        mithril_network_configuration: MithrilNetworkConfiguration,
+        current_signer: Vec<Signer>,
+        next_signer: Vec<Signer>,
     ) -> Result<SignerState, RuntimeError> {
         self.metrics_service
             .get_signer_registration_total_since_startup_counter()
@@ -302,7 +315,7 @@ impl StateMachine {
             })?;
 
         self.runner
-            .inform_epoch_settings(epoch_settings)
+            .inform_epoch_settings(mithril_network_configuration, current_signer,  next_signer)
             .await
             .map_err(|e| RuntimeError::KeepState {
                 message: format!(
@@ -474,11 +487,13 @@ impl StateMachine {
 mod tests {
     use anyhow::anyhow;
     use chrono::DateTime;
+    use mithril_protocol_config::model::MithrilNetworkConfiguration;
     use mockall::predicate;
 
     use mithril_common::entities::{ChainPoint, Epoch, ProtocolMessage, SignedEntityType};
     use mithril_common::test::double::{Dummy, fake_data};
 
+    use crate::SignerEpochSettings;
     use crate::runtime::runner::MockSignerRunner;
     use crate::services::AggregatorClientError;
     use crate::test_tools::TestLogger;
@@ -528,7 +543,7 @@ mod tests {
     async fn unregistered_epoch_settings_behind_known_epoch() {
         let mut runner = MockSignerRunner::new();
         let epoch_settings = SignerEpochSettings {
-            epoch: Epoch(3),
+            epoch: Epoch(999), // epoch is no longer read from get_epoch_settings anymore but from mithril network configuration
             registration_protocol_parameters: fake_data::protocol_parameters(),
             current_signers: vec![],
             next_signers: vec![],
@@ -539,6 +554,17 @@ mod tests {
             .expect_get_epoch_settings()
             .once()
             .returning(move || Ok(Some(epoch_settings.to_owned())));
+        runner
+            .expect_get_mithril_network_configuration()
+            .once()
+            .returning(|| {
+                Ok(MithrilNetworkConfiguration {
+                    epoch: Epoch(3),
+                    signer_registration_protocol_parameters: fake_data::protocol_parameters(),
+                    available_signed_entity_types: Default::default(),
+                    signed_entity_types_config: Default::default(),
+                })
+            });
         runner.expect_get_current_time_point().once().returning(|| {
             Ok(TimePoint {
                 epoch: Epoch(4),
@@ -568,10 +594,20 @@ mod tests {
             .returning(|| Ok(Some(SignerEpochSettings::dummy())));
 
         runner
-            .expect_inform_epoch_settings()
-            .with(predicate::eq(SignerEpochSettings::dummy()))
+            .expect_get_mithril_network_configuration()
             .once()
-            .returning(|_| Ok(()));
+            .returning(|| Ok(MithrilNetworkConfiguration::dummy()));
+
+        runner
+            .expect_inform_epoch_settings()
+            .with(
+                //todo do we really want to specify a WITH ?
+                predicate::eq(MithrilNetworkConfiguration::dummy()),
+                predicate::eq(SignerEpochSettings::dummy().current_signers),
+                predicate::eq(SignerEpochSettings::dummy().next_signers),
+            )
+            .once()
+            .returning(|_, _, _| Ok(()));
 
         runner
             .expect_get_current_time_point()
@@ -616,10 +652,20 @@ mod tests {
             .returning(|| Ok(Some(SignerEpochSettings::dummy())));
 
         runner
-            .expect_inform_epoch_settings()
-            .with(predicate::eq(SignerEpochSettings::dummy()))
+            .expect_get_mithril_network_configuration()
             .once()
-            .returning(|_| Ok(()));
+            .returning(|| Ok(MithrilNetworkConfiguration::dummy()));
+
+        runner
+            .expect_inform_epoch_settings()
+            .with(
+                //todo do we really want to specify a WITH ?
+                predicate::eq(MithrilNetworkConfiguration::dummy()),
+                predicate::eq(SignerEpochSettings::dummy().current_signers),
+                predicate::eq(SignerEpochSettings::dummy().next_signers),
+            )
+            .once()
+            .returning(|_, _, _| Ok(()));
 
         runner
             .expect_get_current_time_point()
@@ -668,10 +714,20 @@ mod tests {
             .returning(|| Ok(Some(SignerEpochSettings::dummy())));
 
         runner
-            .expect_inform_epoch_settings()
-            .with(predicate::eq(SignerEpochSettings::dummy()))
+            .expect_get_mithril_network_configuration()
             .once()
-            .returning(|_| Ok(()));
+            .returning(|| Ok(MithrilNetworkConfiguration::dummy()));
+
+        runner
+            .expect_inform_epoch_settings()
+            .with(
+                //todo do we really want to specify a WITH ?
+                predicate::eq(MithrilNetworkConfiguration::dummy()),
+                predicate::eq(SignerEpochSettings::dummy().current_signers),
+                predicate::eq(SignerEpochSettings::dummy().next_signers),
+            )
+            .once()
+            .returning(|_, _, _| Ok(()));
 
         runner
             .expect_get_current_time_point()

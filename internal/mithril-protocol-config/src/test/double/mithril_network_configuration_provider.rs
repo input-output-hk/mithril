@@ -1,29 +1,64 @@
-use crate::{interface::MithrilNetworkConfigurationProvider, model::MithrilNetworkConfiguration};
+use std::{
+    collections::{BTreeSet, HashMap},
+    sync::Arc,
+};
+
+use tokio::sync::RwLock;
+
+use crate::{
+    interface::MithrilNetworkConfigurationProvider,
+    model::{MithrilNetworkConfiguration, SignedEntityTypeConfiguration},
+};
+use anyhow::Error;
 use async_trait::async_trait;
-use mithril_common::StdResult;
+use mithril_common::{
+    StdResult,
+    entities::{ProtocolParameters, SignedEntityTypeDiscriminants, TimePoint},
+};
+use mithril_ticker::{MithrilTickerService, TickerService};
 
 /// A fake [MithrilNetworkConfigurationProvider] that return [MithrilNetworkConfiguration]
 pub struct FakeMithrilNetworkConfigurationProvider {
-    configuration: MithrilNetworkConfiguration,
+    pub signer_registration_protocol_parameters: ProtocolParameters,
+
+    pub available_signed_entity_types: RwLock<BTreeSet<SignedEntityTypeDiscriminants>>,
+
+    pub signed_entity_types_config:
+        HashMap<SignedEntityTypeDiscriminants, SignedEntityTypeConfiguration>,
+
+    ticker_service: Arc<MithrilTickerService>,
 }
 
 impl FakeMithrilNetworkConfigurationProvider {
-    /// Create a new [FakeMithrilNetworkConfigurationProvider]
-    pub fn from_mithril_network_configuration(configuration: MithrilNetworkConfiguration) -> Self {
-        Self { configuration }
-    }
-}
-
-impl Default for FakeMithrilNetworkConfigurationProvider {
-    fn default() -> Self {
+    pub fn new(
+        signer_registration_protocol_parameters: ProtocolParameters,
+        available_signed_entity_types: BTreeSet<SignedEntityTypeDiscriminants>,
+        signed_entity_types_config: HashMap<
+            SignedEntityTypeDiscriminants,
+            SignedEntityTypeConfiguration,
+        >,
+        ticker_service: Arc<MithrilTickerService>,
+    ) -> Self {
         Self {
-            configuration: MithrilNetworkConfiguration {
-                epoch: Default::default(),
-                signer_registration_protocol_parameters: Default::default(),
-                available_signed_entity_types: Default::default(),
-                signed_entity_types_config: Default::default(),
-            },
+            signer_registration_protocol_parameters,
+            available_signed_entity_types: RwLock::new(available_signed_entity_types),
+            signed_entity_types_config,
+            ticker_service,
         }
+    }
+
+    async fn get_time_point(&self) -> Result<TimePoint, Error> {
+        let time_point = self.ticker_service.get_current_time_point().await?;
+
+        Ok(time_point)
+    }
+
+    pub async fn change_allowed_discriminants(
+        &self,
+        discriminants: &BTreeSet<SignedEntityTypeDiscriminants>,
+    ) {
+        let mut available_signed_entity_types = self.available_signed_entity_types.write().await;
+        *available_signed_entity_types = discriminants.clone();
     }
 }
 
@@ -31,51 +66,17 @@ impl Default for FakeMithrilNetworkConfigurationProvider {
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 impl MithrilNetworkConfigurationProvider for FakeMithrilNetworkConfigurationProvider {
     async fn get(&self) -> StdResult<MithrilNetworkConfiguration> {
-        Ok(self.configuration.clone())
-    }
-}
+        let time_point = self.get_time_point().await?;
 
-#[cfg(test)]
-mod tests {
-    use std::collections::{BTreeSet, HashMap};
+        let available_signed_entity_types = self.available_signed_entity_types.read().await;
 
-    use mithril_common::{
-        StdResult,
-        entities::{BlockNumber, CardanoTransactionsSigningConfig, SignedEntityTypeDiscriminants},
-    };
-
-    use super::*;
-    use crate::{model::SignedEntityTypeConfiguration, test::double::fake_data};
-
-    #[tokio::test]
-    async fn fake_mithril_network_configuration_provider_returns_configuration() -> StdResult<()> {
-        let mut available_signed_entity_types = BTreeSet::new();
-        available_signed_entity_types.insert(SignedEntityTypeDiscriminants::CardanoTransactions);
-
-        let mut signed_entity_types_config = HashMap::new();
-        signed_entity_types_config.insert(
-            SignedEntityTypeDiscriminants::CardanoTransactions,
-            SignedEntityTypeConfiguration::CardanoTransactions(CardanoTransactionsSigningConfig {
-                security_parameter: BlockNumber(13),
-                step: BlockNumber(26),
-            }),
-        );
-
-        let configuration = fake_data::mithril_network_configuration(
-            42,
-            1,
-            2,
-            0.123,
-            available_signed_entity_types,
-            signed_entity_types_config,
-        );
-        let provider = FakeMithrilNetworkConfigurationProvider::from_mithril_network_configuration(
-            configuration.clone(),
-        );
-
-        let retrieved_configuration = provider.get().await?;
-
-        assert_eq!(configuration, retrieved_configuration);
-        Ok(())
+        Ok(MithrilNetworkConfiguration {
+            epoch: time_point.epoch,
+            signer_registration_protocol_parameters: self
+                .signer_registration_protocol_parameters
+                .clone(),
+            available_signed_entity_types: available_signed_entity_types.clone(),
+            signed_entity_types_config: self.signed_entity_types_config.clone(),
+        })
     }
 }
