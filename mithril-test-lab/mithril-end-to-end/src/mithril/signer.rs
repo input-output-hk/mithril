@@ -1,15 +1,17 @@
-use crate::devnet::PoolNode;
-use crate::utils::MithrilCommand;
-use crate::{DEVNET_MAGIC_ID, ERA_MARKERS_VERIFICATION_KEY};
-use anyhow::Context;
-use mithril_common::StdResult;
-use mithril_common::entities::PartyId;
-use slog_scope::info;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
+
+use anyhow::{Context, anyhow};
+use mithril_common::StdResult;
+use mithril_common::entities::PartyId;
+use slog_scope::info;
 use tokio::process::Child;
 use tokio::sync::RwLock;
+
+use crate::devnet::PoolNode;
+use crate::utils::MithrilCommand;
+use crate::{DEVNET_MAGIC_ID, ERA_MARKERS_VERIFICATION_KEY};
 
 #[derive(Debug)]
 pub struct SignerConfig<'a> {
@@ -27,6 +29,7 @@ pub struct SignerConfig<'a> {
     pub enable_certification: bool,
     pub skip_signature_delayer: bool,
     pub use_dmq: bool,
+    pub dmq_node_flavor: &'a Option<String>,
 }
 
 #[derive(Debug)]
@@ -105,14 +108,29 @@ impl Signer {
         } else {
             env.insert("PARTY_ID", &party_id);
         }
-        let dmq_node_socket_path = signer_config
-            .work_dir
-            .join(format!("dmq-signer-{}.socket", signer_config.signer_number));
+        let dmq_node_socket_path = if signer_config.use_dmq {
+            match signer_config.dmq_node_flavor {
+                Some(flavor) if flavor == "haskell" => {
+                    signer_config.pool_node.dmq_socket_path.to_str().unwrap().to_string()
+                }
+                Some(flavor) if flavor == "fake" => signer_config
+                    .work_dir
+                    .join(format!("dmq-signer-{}.socket", signer_config.signer_number))
+                    .to_str()
+                    .unwrap()
+                    .to_string(),
+                _ => {
+                    return Err(anyhow!(format!(
+                        "Unsupported DMQ node flavor: {:?}",
+                        signer_config.dmq_node_flavor
+                    )));
+                }
+            }
+        } else {
+            "".to_string()
+        };
         if signer_config.use_dmq {
-            env.insert(
-                "DMQ_NODE_SOCKET_PATH",
-                dmq_node_socket_path.to_str().unwrap(),
-            );
+            env.insert("DMQ_NODE_SOCKET_PATH", dmq_node_socket_path.as_str());
         }
         let args = vec!["-vvv"];
 

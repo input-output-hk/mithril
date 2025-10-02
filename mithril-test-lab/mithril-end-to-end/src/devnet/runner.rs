@@ -24,6 +24,7 @@ pub struct Devnet {
 pub struct PoolNode {
     pub db_path: PathBuf,
     pub socket_path: PathBuf,
+    pub dmq_socket_path: PathBuf,
     pub pool_env_path: PathBuf,
     pub kes_secret_key_path: PathBuf,
     pub operational_certificate_path: PathBuf,
@@ -50,6 +51,7 @@ impl PoolNode {
 pub struct FullNode {
     pub db_path: PathBuf,
     pub socket_path: PathBuf,
+    pub dmq_socket_path: PathBuf,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -198,6 +200,7 @@ impl Devnet {
             .map(|n| PoolNode {
                 db_path: self.artifacts_dir.join(format!("node-pool{n}/db")),
                 socket_path: self.artifacts_dir.join(format!("node-pool{n}/ipc/node.sock")),
+                dmq_socket_path: self.artifacts_dir.join(format!("node-pool{n}/ipc/dmq.node.sock")),
                 pool_env_path: self.artifacts_dir.join(format!("node-pool{n}/pool.env")),
                 kes_secret_key_path: self
                     .artifacts_dir
@@ -211,6 +214,7 @@ impl Devnet {
             .map(|n| FullNode {
                 db_path: self.artifacts_dir.join(format!("node-full{n}/db")),
                 socket_path: self.artifacts_dir.join(format!("node-full{n}/ipc/node.sock")),
+                dmq_socket_path: self.artifacts_dir.join(format!("node-full{n}/ipc/dmq.node.sock")),
             })
             .collect::<Vec<_>>();
 
@@ -226,20 +230,43 @@ impl Devnet {
         let mut run_command = Command::new(&run_script_path);
         run_command.current_dir(&self.artifacts_dir).kill_on_drop(true);
 
-        info!("Starting the Devnet"; "script" => &run_script_path.display());
+        info!("Starting the Cardano devnet"; "script" => &run_script_path.display());
 
         let status = run_command
             .spawn()
-            .with_context(|| "Failed to start the devnet")?
+            .with_context(|| "Failed to start the Cardano devnet")?
             .wait()
             .await
-            .with_context(|| "Error while starting the devnet")?;
+            .with_context(|| "Error while starting the Cardano devnet")?;
         match status.code() {
             Some(0) => Ok(()),
             Some(code) => Err(anyhow!(RetryableDevnetError(format!(
-                "Run devnet exited with status code: {code}"
+                "Run Cardano devnet exited with status code: {code}"
             )))),
-            None => Err(anyhow!("Run devnet terminated by signal")),
+            None => Err(anyhow!("Run Cardano devnet terminated by signal")),
+        }
+    }
+
+    pub async fn run_dmq(&self) -> StdResult<()> {
+        let run_script = "start-dmq.sh";
+        let run_script_path = self.artifacts_dir.join(run_script);
+        let mut run_command = Command::new(&run_script_path);
+        run_command.current_dir(&self.artifacts_dir).kill_on_drop(true);
+
+        info!("Starting the DMQ devnet"; "script" => &run_script_path.display());
+
+        let status = run_command
+            .spawn()
+            .with_context(|| "Failed to start the DMQ devnet")?
+            .wait()
+            .await
+            .with_context(|| "Error while starting the DMQ devnet")?;
+        match status.code() {
+            Some(0) => Ok(()),
+            Some(code) => Err(anyhow!(RetryableDevnetError(format!(
+                "Run DMQ devnet exited with status code: {code}"
+            )))),
+            None => Err(anyhow!("Run DMQ devnet terminated by signal")),
         }
     }
 
@@ -377,6 +404,7 @@ mod tests {
                 pool_nodes: vec![PoolNode {
                     db_path: PathBuf::from(r"test/path/node-pool1/db"),
                     socket_path: PathBuf::from(r"test/path/node-pool1/ipc/node.sock"),
+                    dmq_socket_path: PathBuf::from(r"test/path/node-pool1/ipc/dmq.node.sock"),
                     pool_env_path: PathBuf::from(r"test/path/node-pool1/pool.env"),
                     kes_secret_key_path: PathBuf::from(r"test/path/node-pool1/shelley/kes.skey"),
                     operational_certificate_path: PathBuf::from(
@@ -385,7 +413,8 @@ mod tests {
                 },],
                 full_nodes: vec![FullNode {
                     db_path: PathBuf::from(r"test/path/node-full1/db"),
-                    socket_path: PathBuf::from(r"test/path/node-full1/ipc/node.sock")
+                    socket_path: PathBuf::from(r"test/path/node-full1/ipc/node.sock"),
+                    dmq_socket_path: PathBuf::from(r"test/path/node-full1/ipc/dmq.node.sock")
                 }]
             },
             devnet.topology()
