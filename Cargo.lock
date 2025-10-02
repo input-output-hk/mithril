@@ -4081,7 +4081,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-api-spec"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "jsonschema",
  "mithril-common",
@@ -4094,7 +4094,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-build-script"
-version = "0.2.26"
+version = "0.2.27"
 dependencies = [
  "saphyr",
  "semver",
