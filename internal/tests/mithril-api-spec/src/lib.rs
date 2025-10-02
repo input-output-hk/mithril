@@ -2,7 +2,7 @@
 //! This crate provides a toolset to verify conformity of http routes against an Open Api specification.
 
 mod apispec;
-mod yaml_to_serde;
+pub(crate) mod spec_parser;
 
 pub use apispec::*;
 

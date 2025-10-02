@@ -8,7 +8,7 @@ use warp::http::Response;
 use warp::http::StatusCode;
 use warp::hyper::body::Bytes;
 
-use crate::yaml_to_serde::convert_yaml_to_serde_json;
+use crate::spec_parser::OpenApiSpecParser;
 
 #[cfg(test)]
 pub(crate) const DEFAULT_SPEC_FILE: &str = "../../../openapi.yaml";
@@ -56,12 +56,8 @@ impl<'a> APISpec<'a> {
 
     /// APISpec factory from spec
     pub fn from_file(path: &str) -> APISpec<'a> {
-        use saphyr::LoadableYamlNode;
-
-        let yaml_spec = std::fs::read_to_string(path).unwrap();
-        let openapi = saphyr::Yaml::load_from_str(&yaml_spec).unwrap();
         APISpec {
-            openapi: convert_yaml_to_serde_json(&openapi[0]).unwrap(),
+            openapi: OpenApiSpecParser::parse_yaml(path).unwrap(),
             path: None,
             method: None,
             content_type: Some("application/json"),
