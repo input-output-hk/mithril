@@ -172,7 +172,6 @@ impl BasicVerifier {
         Err(AggregationError::NotEnoughSignatures(count, params.k))
     }
 
-
     // Modification of the function select_valid_signatures_for_k_indices
     // to try to improve readability
     // Still not outputing the same results, more tests need to be done
@@ -182,22 +181,10 @@ impl BasicVerifier {
         msg: &[u8],
         sigs: &[SingleSignatureWithRegisteredParty],
     ) -> Result<Vec<SingleSignatureWithRegisteredParty>, AggregationError> {
+        let (idx_by_mtidx, btm) = Self::get_k_indices(total_stake, params, msg, sigs);
 
-        let (idx_by_mtidx, btm) = Self::get_k_indices(
-            total_stake,
-            params,
-            msg,
-            sigs,
-        );
-
-        let vec_single_sig = Self::valid_signatures_from_k_indices(
-            &params,
-            idx_by_mtidx,
-            btm,
-        );
-        vec_single_sig
+        Self::valid_signatures_from_k_indices(&params, idx_by_mtidx, btm)
     }
-
 
     // Get a set of k unique indices connected to indices in the MT
     // Also creates a more explicit link between MT index and signature to reuse later
@@ -206,7 +193,10 @@ impl BasicVerifier {
         params: &Parameters,
         msg: &[u8],
         sigs: &'a [SingleSignatureWithRegisteredParty],
-    ) -> (HashMap<Index, Index>, BTreeMap<Index, &'a SingleSignatureWithRegisteredParty>) {
+    ) -> (
+        HashMap<Index, Index>,
+        BTreeMap<Index, &'a SingleSignatureWithRegisteredParty>,
+    ) {
         let mut sig_by_mt_index: BTreeMap<Index, &SingleSignatureWithRegisteredParty> =
             BTreeMap::new();
         let mut indices_by_mt_idx: HashMap<Index, Index> = HashMap::new();
@@ -229,17 +219,16 @@ impl BasicVerifier {
                 if let Some(mt_idx) = indices_by_mt_idx.get(index) {
                     if let Some(prev_sig) = sig_by_mt_index.get(mt_idx) {
                         if prev_sig.sig.sigma < sig_reg.sig.sigma {
-                            continue
+                            continue;
                         } else {
                             indices_by_mt_idx.insert(*index, sig_reg.sig.signer_index);
                             sig_by_mt_index.insert(sig_reg.sig.signer_index, &sig_reg);
                         }
                     }
-                } else {
-                    if (indices_by_mt_idx.len() as u64) < params.k {
-                        indices_by_mt_idx.insert(*index, sig_reg.sig.signer_index);
-                        sig_by_mt_index.insert(sig_reg.sig.signer_index, &sig_reg);
-                    }
+                } else if (indices_by_mt_idx.len() as u64) < params.k {
+                    // Should we test for k indices here?
+                    indices_by_mt_idx.insert(*index, sig_reg.sig.signer_index);
+                    sig_by_mt_index.insert(sig_reg.sig.signer_index, &sig_reg);
                 }
             }
         }
@@ -253,7 +242,6 @@ impl BasicVerifier {
         list_k_valid_indices: HashMap<Index, Index>,
         sig_by_mt_index: BTreeMap<Index, &SingleSignatureWithRegisteredParty>,
     ) -> Result<Vec<SingleSignatureWithRegisteredParty>, AggregationError> {
-
         let mut valid_idx_for_mt_idx: HashMap<u64, Vec<u64>> = HashMap::new();
 
         for (&valid_idx, &mt_id) in list_k_valid_indices.iter() {
@@ -275,8 +263,7 @@ impl BasicVerifier {
             count_idx += indices.len() as u64;
             single_sig.sig.indexes = indices;
             uniques_sig.push(single_sig);
-
-        } 
+        }
 
         if count_idx >= params.k {
             return Ok(uniques_sig);
