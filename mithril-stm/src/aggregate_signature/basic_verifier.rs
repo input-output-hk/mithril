@@ -183,7 +183,7 @@ impl BasicVerifier {
     ) -> Result<Vec<SingleSignatureWithRegisteredParty>, AggregationError> {
         let (idx_by_mtidx, btm) = Self::get_k_indices(total_stake, params, msg, sigs);
 
-        Self::valid_signatures_from_k_indices(&params, idx_by_mtidx, btm)
+        Self::valid_signatures_from_k_indices(params, idx_by_mtidx, btm)
     }
 
     // Get a set of k unique indices connected to indices in the MT
@@ -222,13 +222,13 @@ impl BasicVerifier {
                             continue;
                         } else {
                             indices_by_mt_idx.insert(*index, sig_reg.sig.signer_index);
-                            sig_by_mt_index.insert(sig_reg.sig.signer_index, &sig_reg);
+                            sig_by_mt_index.insert(sig_reg.sig.signer_index, sig_reg);
                         }
                     }
                 } else if (indices_by_mt_idx.len() as u64) < params.k {
                     // Should we test for k indices here?
                     indices_by_mt_idx.insert(*index, sig_reg.sig.signer_index);
-                    sig_by_mt_index.insert(sig_reg.sig.signer_index, &sig_reg);
+                    sig_by_mt_index.insert(sig_reg.sig.signer_index, sig_reg);
                 }
             }
         }
