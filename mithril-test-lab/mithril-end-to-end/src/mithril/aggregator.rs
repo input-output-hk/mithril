@@ -41,6 +41,7 @@ pub struct AggregatorConfig<'a> {
     pub chain_observer_type: &'a str,
     pub leader_aggregator_endpoint: &'a Option<String>,
     pub use_dmq: bool,
+    pub dmq_node_flavor: &'a Option<String>,
 }
 
 pub struct Aggregator {
@@ -135,14 +136,32 @@ impl Aggregator {
         if let Some(leader_aggregator_endpoint) = aggregator_config.leader_aggregator_endpoint {
             env.insert("LEADER_AGGREGATOR_ENDPOINT", leader_aggregator_endpoint);
         }
-        let dmq_node_socket_path = aggregator_config
-            .work_dir
-            .join(format!("dmq-aggregator-{}.socket", aggregator_config.index));
+        let dmq_node_socket_path = if aggregator_config.use_dmq {
+            match aggregator_config.dmq_node_flavor {
+                Some(flavor) if flavor == "haskell" => aggregator_config
+                    .full_node
+                    .dmq_socket_path
+                    .to_str()
+                    .unwrap()
+                    .to_string(),
+                Some(flavor) if flavor == "fake" => aggregator_config
+                    .work_dir
+                    .join(format!("dmq-aggregator-{}.socket", aggregator_config.index))
+                    .to_str()
+                    .unwrap()
+                    .to_string(),
+                _ => {
+                    return Err(anyhow!(format!(
+                        "Unsupported DMQ node flavor: {:?}",
+                        aggregator_config.dmq_node_flavor
+                    )));
+                }
+            }
+        } else {
+            "".to_string()
+        };
         if aggregator_config.use_dmq {
-            env.insert(
-                "DMQ_NODE_SOCKET_PATH",
-                dmq_node_socket_path.to_str().unwrap(),
-            );
+            env.insert("DMQ_NODE_SOCKET_PATH", dmq_node_socket_path.as_str());
         }
         let args = vec![
             "--db-directory",
