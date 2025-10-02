@@ -99,6 +99,11 @@ impl BasicVerifier {
         let mut removal_idx_by_vk: HashMap<&SingleSignatureWithRegisteredParty, Vec<Index>> =
             HashMap::new();
 
+        // Loop over all signatures and create a mapping `sig_by_index` of signatures by lottery index.
+        // Only one signature is kept for each index, the one with the smallest scalar (arbitrary decision).
+        // Also we want to keep track of the indices that need to be removed from each signature (i.e. when a there is a collision in the lottery index).
+        // This is done in the `removal_idx_by_vk` map.
+        // At the end of this phase, we now which signature to keep for each index, and which indices to remove from each signature.
         for sig_reg in sigs.iter() {
             if sig_reg
                 .sig
@@ -113,9 +118,11 @@ impl BasicVerifier {
             {
                 continue;
             }
+            // For verified signatures only, we iterate over their indices
             for index in sig_reg.sig.indexes.iter() {
                 let mut insert_this_sig = false;
                 if let Some(&previous_sig) = sig_by_index.get(index) {
+                    // There is already a signature for this index, we keep the one with the smallest scalar
                     let sig_to_remove_index = if sig_reg.sig.sigma < previous_sig.sig.sigma {
                         insert_this_sig = true;
                         previous_sig
@@ -123,6 +130,7 @@ impl BasicVerifier {
                         sig_reg
                     };
 
+                    // We need to append the current index of the signature to the list of indices to remove for the signature which is not kept
                     if let Some(indexes) = removal_idx_by_vk.get_mut(sig_to_remove_index) {
                         indexes.push(*index);
                     } else {
@@ -132,19 +140,28 @@ impl BasicVerifier {
                     insert_this_sig = true;
                 }
 
+                // Finally we insert the signature for this index if needed
                 if insert_this_sig {
                     sig_by_index.insert(*index, sig_reg);
                 }
             }
         }
 
+        // Create the final list of signatures which will carry the quorum of indices
         let mut dedup_sigs: HashSet<SingleSignatureWithRegisteredParty> = HashSet::new();
         let mut count: u64 = 0;
 
+        // We iterate over the signatures in the order of their indices (thanks to BTreeMap)
+        // and we remove the indices that are in the `removal_idx_by_vk` map
         for (_, &sig_reg) in sig_by_index.iter() {
+            // If we already have this signature, we skip it the next times we see it
             if dedup_sigs.contains(sig_reg) {
                 continue;
             }
+
+            // We update the lottery indices of the signature by removing the ones that are in the `removal_idx_by_vk` map
+            // This helps us keep track of the number of unique indices we already have acumulated so far
+            // Note: not sure why we need to remove the indices, but let's keep them for now
             let mut deduped_sig = sig_reg.clone();
             if let Some(indexes) = removal_idx_by_vk.get(sig_reg) {
                 deduped_sig.sig.indexes = deduped_sig
@@ -156,14 +173,18 @@ impl BasicVerifier {
                     .collect();
             }
 
+            // We compute the number of indices for the signature which have not been removed
+            // and we add it to the total count of unique indices we have so far
             let size: Result<u64, _> = deduped_sig.sig.indexes.len().try_into();
             if let Ok(size) = size {
+                // We append the signature with its updated list of indices to the final list of signatures
                 if dedup_sigs.contains(&deduped_sig) {
                     panic!("Should not reach!");
                 }
                 dedup_sigs.insert(deduped_sig);
                 count += size;
 
+                // If we already have enough indices, we can stop here
                 if count >= params.k {
                     return Ok(dedup_sigs.into_iter().collect());
                 }
