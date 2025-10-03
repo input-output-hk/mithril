@@ -4413,6 +4413,8 @@ dependencies = [
  "async-trait",
  "http 1.3.1",
  "httpmock",
+ "mithril-cardano-node-chain",
+ "mithril-cardano-node-internal-database",
  "mithril-common",
  "mithril-ticker",
  "mockall",

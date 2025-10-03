@@ -13,6 +13,8 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 mithril-common = { path = "../../mithril-common" }
 mithril-ticker = { path = "../mithril-ticker" }
+mithril-cardano-node-chain = { path = "../cardano-node/mithril-cardano-node-chain" }
+mithril-cardano-node-internal-database = { path = "../cardano-node/mithril-cardano-node-internal-database" }
 reqwest = { workspace = true, features = [
     "default",
     "stream",
