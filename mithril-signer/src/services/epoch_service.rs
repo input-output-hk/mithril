@@ -475,12 +475,6 @@ mod tests {
         let protocol_initializer_store =
             Arc::new(ProtocolInitializerRepository::new(connection, None));
 
-        // let epoch_settings = SignerEpochSettings {
-        //     epoch,
-        //     current_signers: signers[..5].to_vec(),
-        //     ..SignerEpochSettings::dummy().clone()
-        // };
-
         let epoch = Epoch(12);
         let mithril_network_configuration = MithrilNetworkConfiguration {
             epoch,
