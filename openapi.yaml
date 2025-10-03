@@ -275,6 +275,42 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /artifact/cardano-database/epoch/{epoch}:
+    get:
+      summary: Get most recent Cardano database snapshots for a specific epoch
+      description: |
+        Returns the list of the most recent Cardano database snapshots for a specific epoch
+      parameters:
+        - name: epoch
+          in: path
+          description: Epoch of the Cardano database snapshots to list
+          required: true
+          schema:
+            oneOf:
+              - type: integer
+                format: int64
+                examples:
+                  - 419
+              - description: Use the latest epoch with an optional offset
+                type: string
+                pattern: '^latest(-\d+)?$'
+                examples:
+                  - "latest"
+                  - "latest-5"
+      responses:
+        "200":
+          description: Cardano database snapshots found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardanoDatabaseSnapshotListMessage"
+        default:
+          description: Cardano database snapshots retrieval error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /artifact/cardano-database/digests:
     get:
       summary: Get Cardano database immutable file digests
@@ -552,12 +588,16 @@ paths:
           required: true
           schema:
             oneOf:
-              - description: Use the latest epoch
-                const: "latest"
               - type: integer
                 format: int64
                 examples:
                   - 419
+              - description: Use the latest epoch with an optional offset
+                type: string
+                pattern: '^latest(-\d+)?$'
+                examples:
+                  - "latest"
+                  - "latest-5"
       responses:
         "200":
           description: Registered Signers found
