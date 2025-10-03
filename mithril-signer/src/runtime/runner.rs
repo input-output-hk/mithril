@@ -705,21 +705,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_inform_epoch_setting_pass_allowed_discriminant_to_epoch_service() {
+    async fn test_inform_epoch_setting_pass_available_signed_entity_types_to_epoch_service() {
         let mut services = init_services().await;
         let certificate_handler = Arc::new(DumbAggregatorClient::default());
-        // certificate_handler
-        //     .set_aggregator_features(AggregatorFeaturesMessage {
-        //         capabilities: AggregatorCapabilities {
-        //             signed_entity_types: BTreeSet::from([
-        //                 SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-        //                 SignedEntityTypeDiscriminants::CardanoTransactions,
-        //             ]),
-        //             ..AggregatorFeaturesMessage::dummy().capabilities
-        //         },
-        //         ..AggregatorFeaturesMessage::dummy()
-        //     })
-        //     .await;
+
         services.certificate_handler = certificate_handler;
         let runner = init_runner(Some(services), None).await;
 
