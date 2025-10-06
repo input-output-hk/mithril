@@ -15,15 +15,13 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 use tokio::sync::watch::{self, Receiver, Sender};
 use warp::Filter;
 
-#[cfg(feature = "future_dmq")]
-use mithril_common::CardanoNetwork;
 use mithril_common::{
     StdResult,
     logging::LoggerExtensions,
     messages::{RegisterSignatureMessageHttp, RegisterSignerMessage},
 };
 #[cfg(feature = "future_dmq")]
-use mithril_dmq::{DmqMessage, DmqPublisherServer, DmqPublisherServerPallas};
+use mithril_dmq::{DmqMessage, DmqNetwork, DmqPublisherServer, DmqPublisherServerPallas};
 use mithril_test_http_server::{TestHttpServer, test_http_server_with_socket_address};
 
 use crate::{
@@ -67,9 +65,9 @@ pub struct SignerRelayConfiguration<'a> {
     /// Path to the DMQ node socket file
     #[cfg(feature = "future_dmq")]
     pub dmq_node_socket_path: &'a Path,
-    /// Cardano network
+    /// DMQ network
     #[cfg(feature = "future_dmq")]
-    pub cardano_network: &'a CardanoNetwork,
+    pub dmq_network: &'a DmqNetwork,
     /// Signer registration mode
     pub signer_registration_mode: &'a SignerRelayMode,
     /// Signature registration mode
@@ -129,7 +127,7 @@ impl SignerRelay {
             #[cfg(unix)]
             let _dmq_publisher_server = Self::start_dmq_publisher_server(
                 config.dmq_node_socket_path,
-                config.cardano_network,
+                config.dmq_network,
                 signature_dmq_tx,
                 stop_rx,
                 relay_logger.clone(),
@@ -171,14 +169,14 @@ impl SignerRelay {
     #[cfg(feature = "future_dmq")]
     async fn start_dmq_publisher_server(
         socket: &Path,
-        cardano_network: &CardanoNetwork,
+        dmq_network: &DmqNetwork,
         signature_dmq_tx: UnboundedSender<DmqMessage>,
         stop_rx: Receiver<()>,
         logger: Logger,
     ) -> StdResult<Arc<DmqPublisherServerPallas>> {
         let dmq_publisher_server = Arc::new(DmqPublisherServerPallas::new(
             socket.to_path_buf(),
-            cardano_network.to_owned(),
+            dmq_network.to_owned(),
             stop_rx,
             logger.clone(),
         ));
