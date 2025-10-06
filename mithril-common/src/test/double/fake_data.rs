@@ -116,7 +116,7 @@ pub fn certificate<T: Into<String>>(certificate_hash: T) -> entities::Certificat
     // Protocol message
     let next_aggregate_verification_key = fake_keys::aggregate_verification_key()[2].to_owned();
     let mut protocol_message = ProtocolMessage::new();
-    let snapshot_digest = format!("1{}", beacon.immutable_file_number).repeat(20);
+    let snapshot_digest = format!("{:0>20}", beacon.immutable_file_number);
     protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, snapshot_digest);
     protocol_message.set_message_part(
         ProtocolMessagePartKey::NextAggregateVerificationKey,
@@ -170,7 +170,7 @@ pub fn single_signature(won_indexes: Vec<LotteryIndex>) -> SingleSignature {
 
 /// Fake Snapshot
 pub fn snapshot(snapshot_id: u64) -> entities::Snapshot {
-    let digest = format!("1{snapshot_id}").repeat(20);
+    let digest = format!("snapshot-{snapshot_id:0>11}");
     let mut beacon = beacon();
     beacon.immutable_file_number += snapshot_id;
     let certificate_hash = "123".to_string();
@@ -212,7 +212,7 @@ pub fn mithril_stake_distribution(
     entities::MithrilStakeDistribution {
         epoch,
         signers_with_stake,
-        hash: format!("hash-epoch-{epoch}"),
+        hash: format!("msd-{epoch}"),
         protocol_parameters: protocol_parameters(),
     }
 }
@@ -244,7 +244,7 @@ pub fn cardano_transactions_snapshots(total: u64) -> Vec<entities::CardanoTransa
 pub fn cardano_stake_distribution(epoch: Epoch) -> entities::CardanoStakeDistribution {
     let stake_distribution = StakeDistribution::from([("pool-1".to_string(), 100)]);
     entities::CardanoStakeDistribution {
-        hash: format!("hash-epoch-{epoch}"),
+        hash: format!("csd-{epoch}"),
         epoch,
         stake_distribution,
     }
@@ -261,7 +261,7 @@ pub fn cardano_stake_distributions(total: u64) -> Vec<entities::CardanoStakeDist
 pub fn cardano_database_snapshot(
     immutable_file_number: entities::ImmutableFileNumber,
 ) -> entities::CardanoDatabaseSnapshot {
-    let merkle_root = format!("1{immutable_file_number}").repeat(20);
+    let merkle_root = format!("cdb-{immutable_file_number:0>16}");
     let mut beacon = beacon();
     beacon.immutable_file_number += immutable_file_number;
     let total_db_size_uncompressed = immutable_file_number * 100000;
