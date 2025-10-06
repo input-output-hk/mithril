@@ -5,11 +5,11 @@ use tokio::sync::{mpsc::unbounded_channel, watch};
 
 use mithril_cardano_node_chain::test::double::FakeChainObserver;
 use mithril_common::{
-    CardanoNetwork, current_function,
+    current_function,
     test::{TempDir, crypto_helper::KesSignerFake},
 };
 use mithril_dmq::{
-    DmqMessage, DmqMessageBuilder, DmqPublisherClient, DmqPublisherClientPallas,
+    DmqMessage, DmqMessageBuilder, DmqNetwork, DmqPublisherClient, DmqPublisherClientPallas,
     DmqPublisherServer, DmqPublisherServerPallas,
     test::{
         double::FakeUnixTimestampProvider, fake_message::compute_fake_msg,
@@ -20,7 +20,7 @@ use mithril_dmq::{
 #[tokio::test]
 async fn dmq_publisher_client_server() {
     let current_function_name = current_function!();
-    let cardano_network = CardanoNetwork::TestNet(0);
+    let dmq_network = DmqNetwork::TestNet(0);
     let socket_path =
         TempDir::create_with_short_path("dmq_publisher_client_server", current_function_name)
             .join("node.socket");
@@ -33,7 +33,7 @@ async fn dmq_publisher_client_server() {
         async move {
             let dmq_publisher_server = Arc::new(DmqPublisherServerPallas::new(
                 socket_path.to_path_buf(),
-                cardano_network,
+                dmq_network,
                 stop_rx,
                 slog_scope::logger(),
             ));
@@ -68,7 +68,7 @@ async fn dmq_publisher_client_server() {
             ));
             let publisher_client = DmqPublisherClientPallas::<DmqMessageTestPayload>::new(
                 socket_path,
-                cardano_network,
+                dmq_network,
                 dmq_builder,
                 slog_scope::logger(),
             );
@@ -113,7 +113,7 @@ async fn dmq_publisher_client_server() {
             ));
             let publisher_client = DmqPublisherClientPallas::<DmqMessageTestPayload>::new(
                 socket_path,
-                cardano_network,
+                dmq_network,
                 dmq_builder,
                 slog_scope::logger(),
             );

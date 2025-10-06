@@ -16,14 +16,14 @@ use tokio::{
 
 use slog::{Logger, debug, error, info, warn};
 
-use mithril_common::{CardanoNetwork, StdResult, logging::LoggerExtensions};
+use mithril_common::{StdResult, logging::LoggerExtensions};
 
-use crate::{DmqMessage, DmqPublisherServer};
+use crate::{DmqMessage, DmqNetwork, DmqPublisherServer};
 
 /// A DMQ server implementation for messages publication to a DMQ node.
 pub struct DmqPublisherServerPallas {
     socket: PathBuf,
-    network: CardanoNetwork,
+    network: DmqNetwork,
     server: Mutex<Option<DmqServer>>,
     transmitters: Mutex<Vec<UnboundedSender<DmqMessage>>>,
     stop_rx: Receiver<()>,
@@ -34,7 +34,7 @@ impl DmqPublisherServerPallas {
     /// Creates a new instance of [DmqPublisherServerPallas].
     pub fn new(
         socket: PathBuf,
-        network: CardanoNetwork,
+        network: DmqNetwork,
         stop_rx: Receiver<()>,
         logger: Logger,
     ) -> Self {
@@ -278,7 +278,7 @@ mod tests {
         let (stop_tx, stop_rx) = watch::channel(());
         let (signature_dmq_tx, signature_dmq_rx) = unbounded_channel::<DmqMessage>();
         let socket_path = create_temp_dir(current_function!()).join("node.socket");
-        let cardano_network = CardanoNetwork::TestNet(0);
+        let cardano_network = DmqNetwork::TestNet(0);
         let dmq_publisher_server = Arc::new(DmqPublisherServerPallas::new(
             socket_path.to_path_buf(),
             cardano_network.to_owned(),

@@ -11,16 +11,16 @@ use tokio::{
 
 use slog::{Logger, debug, error, info, warn};
 
-use mithril_common::{CardanoNetwork, StdResult, logging::LoggerExtensions};
+use mithril_common::{StdResult, logging::LoggerExtensions};
 
-use crate::{DmqConsumerServer, DmqMessage};
+use crate::{DmqConsumerServer, DmqMessage, DmqNetwork};
 
 use super::queue::MessageQueue;
 
 /// A DMQ server implementation for messages notification from a DMQ node.
 pub struct DmqConsumerServerPallas {
     socket: PathBuf,
-    network: CardanoNetwork,
+    network: DmqNetwork,
     server: Mutex<Option<DmqServer>>,
     messages_receiver: Mutex<Option<UnboundedReceiver<DmqMessage>>>,
     messages_buffer: MessageQueue,
@@ -32,7 +32,7 @@ impl DmqConsumerServerPallas {
     /// Creates a new instance of [DmqConsumerServerPallas].
     pub fn new(
         socket: PathBuf,
-        network: CardanoNetwork,
+        network: DmqNetwork,
         stop_rx: Receiver<()>,
         logger: Logger,
     ) -> Self {
@@ -303,10 +303,10 @@ mod tests {
         let (stop_tx, stop_rx) = watch::channel(());
         let (signature_dmq_tx, signature_dmq_rx) = unbounded_channel::<DmqMessage>();
         let socket_path = create_temp_dir(current_function_name).join("node.socket");
-        let cardano_network = CardanoNetwork::TestNet(0);
+        let dmq_network = DmqNetwork::TestNet(0);
         let dmq_consumer_server = Arc::new(DmqConsumerServerPallas::new(
             socket_path.to_path_buf(),
-            cardano_network.to_owned(),
+            dmq_network.to_owned(),
             stop_rx,
             TestLogger::stdout(),
         ));
@@ -363,10 +363,10 @@ mod tests {
         let (stop_tx, stop_rx) = watch::channel(());
         let (signature_dmq_tx, signature_dmq_rx) = unbounded_channel::<DmqMessage>();
         let socket_path = create_temp_dir(current_function_name).join("node.socket");
-        let cardano_network = CardanoNetwork::TestNet(0);
+        let dmq_network = DmqNetwork::TestNet(0);
         let dmq_consumer_server = Arc::new(DmqConsumerServerPallas::new(
             socket_path.to_path_buf(),
-            cardano_network.to_owned(),
+            dmq_network.to_owned(),
             stop_rx,
             TestLogger::stdout(),
         ));
@@ -422,10 +422,10 @@ mod tests {
         let (_stop_tx, stop_rx) = watch::channel(());
         let (_signature_dmq_tx, signature_dmq_rx) = unbounded_channel::<DmqMessage>();
         let socket_path = create_temp_dir(current_function!()).join("node.socket");
-        let cardano_network = CardanoNetwork::TestNet(0);
+        let dmq_network = DmqNetwork::TestNet(0);
         let dmq_consumer_server = Arc::new(DmqConsumerServerPallas::new(
             socket_path.to_path_buf(),
-            cardano_network.to_owned(),
+            dmq_network.to_owned(),
             stop_rx,
             TestLogger::stdout(),
         ));
