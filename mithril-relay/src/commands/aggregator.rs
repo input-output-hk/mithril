@@ -5,9 +5,9 @@ use clap::Parser;
 use libp2p::Multiaddr;
 use slog::error;
 
-#[cfg(feature = "future_dmq")]
-use mithril_common::CardanoNetwork;
 use mithril_common::StdResult;
+#[cfg(feature = "future_dmq")]
+use mithril_dmq::DmqNetwork;
 
 use crate::AggregatorRelay;
 
@@ -33,16 +33,16 @@ pub struct AggregatorCommand {
     )]
     dmq_node_socket_path: PathBuf,
 
-    /// Cardano network
+    /// DMQ network
     #[cfg(feature = "future_dmq")]
     #[clap(long, env = "NETWORK")]
     pub network: String,
 
-    /// Cardano Network Magic number
+    /// DMQ Network Magic number
     /// useful for TestNet & DevNet
     #[cfg(feature = "future_dmq")]
-    #[clap(long, env = "NETWORK_MAGIC")]
-    pub network_magic: Option<u64>,
+    #[clap(long, env = "DMQ_NETWORK_MAGIC")]
+    pub dmq_network_magic: Option<u64>,
 
     /// Aggregator endpoint URL.
     #[clap(long, env = "AGGREGATOR_ENDPOINT")]
@@ -57,15 +57,14 @@ impl AggregatorCommand {
         let addr: Multiaddr = format!("/ip4/0.0.0.0/tcp/{}", self.listen_port).parse()?;
         let aggregator_endpoint = self.aggregator_endpoint.to_owned();
         #[cfg(feature = "future_dmq")]
-        let cardano_network =
-            CardanoNetwork::from_code(self.network.to_owned(), self.network_magic)?;
+        let dmq_network = DmqNetwork::from_code(self.network.to_owned(), self.dmq_network_magic)?;
 
         let mut relay = AggregatorRelay::start(
             &addr,
             #[cfg(feature = "future_dmq")]
             &self.dmq_node_socket_path,
             #[cfg(feature = "future_dmq")]
-            &cardano_network,
+            &dmq_network,
             &aggregator_endpoint,
             logger,
         )
