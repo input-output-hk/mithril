@@ -15,7 +15,7 @@ use mithril_common::{CardanoNetwork, StdResult, entities};
 
 use crate::utils::MithrilCommand;
 use crate::{
-    ANCILLARY_MANIFEST_SECRET_KEY, DEVNET_MAGIC_ID, ERA_MARKERS_SECRET_KEY,
+    ANCILLARY_MANIFEST_SECRET_KEY, DEVNET_DMQ_MAGIC_ID, DEVNET_MAGIC_ID, ERA_MARKERS_SECRET_KEY,
     ERA_MARKERS_VERIFICATION_KEY, FullNode, GENESIS_SECRET_KEY, GENESIS_VERIFICATION_KEY,
     RetryableDevnetError,
 };
@@ -58,6 +58,7 @@ pub struct Aggregator {
 impl Aggregator {
     pub fn new(aggregator_config: &AggregatorConfig) -> StdResult<Self> {
         let magic_id = DEVNET_MAGIC_ID.to_string();
+        let dmq_magic_id = DEVNET_DMQ_MAGIC_ID.to_string();
         let server_port_parameter = aggregator_config.server_port.to_string();
         let era_reader_adapter_params =
             if aggregator_config.mithril_era_reader_adapter == "cardano-chain" {
@@ -79,6 +80,7 @@ impl Aggregator {
         let mut env = HashMap::from([
             ("NETWORK", "devnet"),
             ("NETWORK_MAGIC", &magic_id),
+            ("DMQ_NETWORK_MAGIC", &dmq_magic_id),
             ("RUN_INTERVAL", &mithril_run_interval),
             ("SERVER_IP", "0.0.0.0"),
             ("SERVER_PORT", &server_port_parameter),

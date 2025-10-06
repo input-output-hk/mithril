@@ -11,7 +11,7 @@ use tokio::sync::RwLock;
 
 use crate::devnet::PoolNode;
 use crate::utils::MithrilCommand;
-use crate::{DEVNET_MAGIC_ID, ERA_MARKERS_VERIFICATION_KEY};
+use crate::{DEVNET_DMQ_MAGIC_ID, DEVNET_MAGIC_ID, ERA_MARKERS_VERIFICATION_KEY};
 
 #[derive(Debug)]
 pub struct SignerConfig<'a> {
@@ -44,6 +44,7 @@ impl Signer {
     pub fn new(signer_config: &SignerConfig) -> StdResult<Self> {
         let party_id = signer_config.pool_node.party_id()?;
         let magic_id = DEVNET_MAGIC_ID.to_string();
+        let dmq_magic_id = DEVNET_DMQ_MAGIC_ID.to_string();
         let era_reader_adapter_params =
             if signer_config.mithril_era_reader_adapter == "cardano-chain" {
                 format!(
@@ -65,6 +66,7 @@ impl Signer {
         let mut env = HashMap::from([
             ("NETWORK", "devnet"),
             ("NETWORK_MAGIC", &magic_id),
+            ("DMQ_NETWORK_MAGIC", &dmq_magic_id),
             ("RUN_INTERVAL", &mithril_run_interval),
             ("AGGREGATOR_ENDPOINT", &signer_config.aggregator_endpoint),
             (
