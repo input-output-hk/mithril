@@ -66,6 +66,49 @@ impl From<MithrilStakeDistribution> for SignedEntityRecord {
 
 #[cfg(test)]
 impl SignedEntityRecord {
+    pub(crate) fn fake_with_signed_entity(signed_entity_type: SignedEntityType) -> Self {
+        use mithril_common::test::double::fake_data;
+        fn get_id_and_artifact(artifact: &(impl Artifact + serde::Serialize)) -> (String, String) {
+            (artifact.get_id(), serde_json::to_string(artifact).unwrap())
+        }
+
+        let (id, artifact) = match signed_entity_type.clone() {
+            SignedEntityType::MithrilStakeDistribution(epoch) => {
+                let artifact = fake_data::mithril_stake_distribution(epoch, vec![]);
+                get_id_and_artifact(&artifact)
+            }
+            SignedEntityType::CardanoStakeDistribution(epoch) => {
+                let artifact = fake_data::cardano_stake_distribution(epoch);
+                get_id_and_artifact(&artifact)
+            }
+            SignedEntityType::CardanoImmutableFilesFull(cardano_db_beacon) => {
+                let mut artifact = fake_data::snapshot(cardano_db_beacon.immutable_file_number);
+                artifact.beacon = cardano_db_beacon;
+                get_id_and_artifact(&artifact)
+            }
+            SignedEntityType::CardanoDatabase(cardano_db_beacon) => {
+                let mut artifact =
+                    fake_data::cardano_database_snapshot(cardano_db_beacon.immutable_file_number);
+                artifact.beacon = cardano_db_beacon;
+                get_id_and_artifact(&artifact)
+            }
+            SignedEntityType::CardanoTransactions(_epoch, block_number) => {
+                let artifact = fake_data::cardano_transactions_snapshot(block_number);
+                get_id_and_artifact(&artifact)
+            }
+        };
+
+        SignedEntityRecord {
+            signed_entity_id: id.clone(),
+            signed_entity_type,
+            certificate_id: format!("certificate-{id}"),
+            artifact,
+            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                .unwrap()
+                .with_timezone(&Utc),
+        }
+    }
+
     pub(crate) fn from_snapshot(
         snapshot: Snapshot,
         certificate_id: String,

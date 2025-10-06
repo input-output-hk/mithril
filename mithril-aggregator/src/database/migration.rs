@@ -239,5 +239,17 @@ create table immutable_file_digest (
 drop table pending_certificate;
         "#,
         ),
+        // Migration 36
+        // Add `epoch` virtual column to `signed_entity` table.
+        //
+        // Note: because the epoch in the `beacon` field can be either stored directly as an integer
+        // or as a JSON property, we need to use a coalesce function to get the epoch value.
+        SqlMigration::new(
+            36,
+            r#"
+alter table signed_entity add column epoch as (coalesce(json_extract(beacon, '$.epoch'), beacon));
+create index signed_entity_epoch on signed_entity(epoch);
+        "#,
+        ),
     ]
 }
