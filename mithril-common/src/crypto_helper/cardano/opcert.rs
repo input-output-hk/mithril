@@ -1,9 +1,6 @@
 //! Module to (de)serialise, OpCert using the same structure as used in Cardano.  
 
-use super::SerDeShelleyFileFormat;
-use crate::crypto_helper::cardano::ProtocolRegistrationErrorWrapper;
-use crate::crypto_helper::{ProtocolPartyId, encode_bech32};
-
+use anyhow::anyhow;
 use blake2::{Blake2b, Digest, digest::consts::U28};
 use ed25519_dalek::{
     Signature as EdSignature, Signer, SigningKey as EdSecretKey, Verifier,
@@ -15,6 +12,12 @@ use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Sha256;
 use thiserror::Error;
+
+use crate::StdResult;
+use crate::crypto_helper::cardano::ProtocolRegistrationErrorWrapper;
+use crate::crypto_helper::{ProtocolPartyId, encode_bech32};
+
+use super::SerDeShelleyFileFormat;
 
 /// Operational certificate error
 #[derive(Error, Debug, PartialEq, Eq)]
@@ -45,6 +48,45 @@ pub struct OpCertWithoutColdVerificationKey {
     /// KES period at which KES key is initalized
     pub start_kes_period: u64,
     pub(crate) cert_sig: EdSignature,
+}
+
+impl OpCertWithoutColdVerificationKey {
+    /// OpCertWithoutColdVerificationKey factory
+    pub fn try_new(
+        kes_vk: &[u8],
+        issue_number: u64,
+        start_kes_period: u64,
+        cert_sig: &[u8],
+    ) -> StdResult<Self> {
+        Ok(Self {
+            kes_vk: KesPublicKey::from_bytes(kes_vk)
+                .map_err(|_| anyhow!("KES vk serialisation error"))?,
+            issue_number,
+            start_kes_period,
+            cert_sig: EdSignature::from_slice(cert_sig)
+                .map_err(|_| anyhow!("ed25519 signature serialisation error"))?,
+        })
+    }
+
+    /// Get the KES verification key
+    pub fn kes_vk(&self) -> KesPublicKey {
+        self.kes_vk
+    }
+
+    /// Get the issue number
+    pub fn issue_number(&self) -> u64 {
+        self.issue_number
+    }
+
+    /// Get the start KES period
+    pub fn start_kes_period(&self) -> u64 {
+        self.start_kes_period
+    }
+
+    /// Get the certificate signature
+    pub fn cert_sig(&self) -> EdSignature {
+        self.cert_sig
+    }
 }
 
 impl SerDeShelleyFileFormat for OpCertWithoutColdVerificationKey {
