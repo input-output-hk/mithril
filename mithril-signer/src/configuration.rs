@@ -1,5 +1,7 @@
 use anyhow::Context;
 use config::{ConfigError, Map, Source, Value};
+#[cfg(feature = "future_dmq")]
+use mithril_dmq::DmqNetwork;
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};
@@ -53,10 +55,15 @@ pub struct Configuration {
     #[example = "`mainnet` or `preprod` or `devnet`"]
     pub network: String,
 
-    /// Cardano Network Magic number
+    /// Cardano network magic number
     /// useful for TestNet & DevNet
     #[example = "`1097911063` or `42`"]
     pub network_magic: Option<u64>,
+
+    /// DMQ network magic number
+    /// useful for TestNet & DevNet
+    #[example = "`1097911063` or `42`"]
+    pub dmq_network_magic: Option<u64>,
 
     /// Also known as `k`, it defines the number of blocks that are required for the blockchain to
     /// be considered final, preventing any further rollback `[default: 2160]`.
@@ -164,6 +171,7 @@ impl Configuration {
             db_directory: PathBuf::new(),
             network: "devnet".to_string(),
             network_magic: Some(42),
+            dmq_network_magic: Some(3141592),
             network_security_parameter: BlockNumber(2160),
             preload_security_parameter: BlockNumber(30),
             party_id: Some(party_id),
@@ -195,11 +203,22 @@ impl Configuration {
         }
     }
 
-    /// Return the CardanoNetwork value from the configuration.
+    /// Return the Cardano network value from the configuration.
     pub fn get_network(&self) -> StdResult<CardanoNetwork> {
         CardanoNetwork::from_code(self.network.clone(), self.network_magic).with_context(|| {
             format!(
                 "Could not read Network '{}' from configuration.",
+                &self.network
+            )
+        })
+    }
+
+    /// Return the DMQ network value from the configuration.
+    #[cfg(feature = "future_dmq")]
+    pub fn get_dmq_network(&self) -> StdResult<DmqNetwork> {
+        DmqNetwork::from_code(self.network.clone(), self.dmq_network_magic).with_context(|| {
+            format!(
+                "Could not read DMQ Network '{}' from configuration.",
                 &self.network
             )
         })
