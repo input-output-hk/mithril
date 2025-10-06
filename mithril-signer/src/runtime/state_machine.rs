@@ -164,7 +164,7 @@ impl StateMachine {
                         "→ Epoch has changed, transiting to Unregistered"
                     );
                     *state = self.transition_from_unregistered_to_unregistered(new_epoch).await?;
-                } else if let Some(signer_settings) = self
+                } else if let Some(signer_registrations) = self
                     .runner
                     .get_epoch_settings()
                     .await
@@ -173,7 +173,7 @@ impl StateMachine {
                         nested_error: Some(e),
                     })?
                 {
-                    info!(self.logger, "→ Epoch settings found"); //TODO Do we switch the logs and type from SignerEpochSettings to SignerSettings since now we only read current and next signer from it ?
+                    info!(self.logger, "→ Epoch Signer registrations found");
                     let network_configuration = self
                         .runner
                         .get_mithril_network_configuration()
@@ -190,16 +190,16 @@ impl StateMachine {
                         *state = self
                             .transition_from_unregistered_to_one_of_registered_states(
                                 network_configuration,
-                                signer_settings.current_signers,
-                                signer_settings.next_signers,
+                                signer_registrations.current_signers,
+                                signer_registrations.next_signers,
                             )
                             .await?;
                     } else {
                         info!(
                             self.logger, " ⋅ Signer settings and Network Configuration found, but its epoch is behind the known epoch, waiting…";
                             "network_configuration" => ?network_configuration,
-                            "current_singer" => ?signer_settings.current_signers,
-                            "next_signer" => ?signer_settings.next_signers,
+                            "current_singer" => ?signer_registrations.current_signers,
+                            "next_signer" => ?signer_registrations.next_signers,
                             "known_epoch" => ?epoch,
                         );
                     }
@@ -488,7 +488,6 @@ mod tests {
     use anyhow::anyhow;
     use chrono::DateTime;
     use mithril_protocol_config::model::MithrilNetworkConfiguration;
-    use mockall::predicate;
 
     use mithril_common::entities::{ChainPoint, Epoch, ProtocolMessage, SignedEntityType};
     use mithril_common::test::double::{Dummy, fake_data};
@@ -600,12 +599,6 @@ mod tests {
 
         runner
             .expect_inform_epoch_settings()
-            .with(
-                //todo do we really want to specify a WITH ?
-                predicate::eq(MithrilNetworkConfiguration::dummy()),
-                predicate::eq(SignerEpochSettings::dummy().current_signers),
-                predicate::eq(SignerEpochSettings::dummy().next_signers),
-            )
             .once()
             .returning(|_, _, _| Ok(()));
 
@@ -658,12 +651,6 @@ mod tests {
 
         runner
             .expect_inform_epoch_settings()
-            .with(
-                //todo do we really want to specify a WITH ?
-                predicate::eq(MithrilNetworkConfiguration::dummy()),
-                predicate::eq(SignerEpochSettings::dummy().current_signers),
-                predicate::eq(SignerEpochSettings::dummy().next_signers),
-            )
             .once()
             .returning(|_, _, _| Ok(()));
 
@@ -720,12 +707,6 @@ mod tests {
 
         runner
             .expect_inform_epoch_settings()
-            .with(
-                //todo do we really want to specify a WITH ?
-                predicate::eq(MithrilNetworkConfiguration::dummy()),
-                predicate::eq(SignerEpochSettings::dummy().current_signers),
-                predicate::eq(SignerEpochSettings::dummy().next_signers),
-            )
             .once()
             .returning(|_, _, _| Ok(()));
 
