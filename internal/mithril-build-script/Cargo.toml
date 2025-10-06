@@ -1,6 +1,6 @@
 [package]
 name = "mithril-build-script"
-version = "0.2.26"
+version = "0.2.27"
 description = "A toolbox for Mithril crates build scripts"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -10,6 +10,6 @@ repository = { workspace = true }
 include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 
 [dependencies]
+saphyr = "0.0.6"
 semver = { workspace = true }
 serde_json = { workspace = true }
-serde_yml = "0.0.12"

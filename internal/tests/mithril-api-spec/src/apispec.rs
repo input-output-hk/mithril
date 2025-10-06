@@ -4,10 +4,11 @@ use jsonschema::Validator;
 use reqwest::Url;
 use serde::Serialize;
 use serde_json::{Value, Value::Null, json};
-
 use warp::http::Response;
 use warp::http::StatusCode;
 use warp::hyper::body::Bytes;
+
+use crate::spec_parser::OpenApiSpecParser;
 
 #[cfg(test)]
 pub(crate) const DEFAULT_SPEC_FILE: &str = "../../../openapi.yaml";
@@ -55,10 +56,8 @@ impl<'a> APISpec<'a> {
 
     /// APISpec factory from spec
     pub fn from_file(path: &str) -> APISpec<'a> {
-        let yaml_spec = std::fs::read_to_string(path).unwrap();
-        let openapi: serde_json::Value = serde_yml::from_str(&yaml_spec).unwrap();
         APISpec {
-            openapi,
+            openapi: OpenApiSpecParser::parse_yaml(path).unwrap(),
             path: None,
             method: None,
             content_type: Some("application/json"),
