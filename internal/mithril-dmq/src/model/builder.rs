@@ -2,12 +2,14 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use blake2::{Blake2b, Digest, digest::consts::U64};
-use pallas_network::miniprotocols::localmsgsubmission::{DmqMsg, DmqMsgPayload};
+use pallas_network::miniprotocols::localmsgsubmission::{
+    DmqMsg, DmqMsgOperationalCertificate, DmqMsgPayload,
+};
 
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_common::{
     StdResult,
-    crypto_helper::{KesSigner, SerDeShelleyFileFormat, TryToBytes},
+    crypto_helper::{KesSigner, TryToBytes},
 };
 
 use crate::model::{DmqMessage, SystemUnixTimestampProvider, UnixTimestampProvider};
@@ -99,8 +101,19 @@ impl DmqMessageBuilder {
         let dmq_message = DmqMsg {
             msg_payload: dmq_message_payload,
             kes_signature: kes_signature.to_bytes_vec()?,
-            operational_certificate: operational_certificate_without_cold_verification_key
-                .to_cbor_bytes()?,
+            operational_certificate: DmqMsgOperationalCertificate {
+                kes_vk: operational_certificate_without_cold_verification_key
+                    .kes_vk()
+                    .as_bytes()
+                    .to_vec(),
+                issue_number: operational_certificate_without_cold_verification_key.issue_number(),
+                start_kes_period: operational_certificate_without_cold_verification_key
+                    .start_kes_period(),
+                cert_sig: operational_certificate_without_cold_verification_key
+                    .cert_sig()
+                    .to_bytes()
+                    .to_vec(),
+            },
             cold_verification_key: cold_verification_key.to_bytes().to_vec(),
         };
 
@@ -177,10 +190,24 @@ mod tests {
             DmqMsg {
                 msg_payload: expected_msg_payload.clone(),
                 kes_signature: kes_signature.to_bytes_vec().unwrap(),
-                operational_certificate: operational_certificate
-                    .get_opcert_without_cold_verification_key()
-                    .to_cbor_bytes()
-                    .unwrap(),
+                operational_certificate: DmqMsgOperationalCertificate {
+                    kes_vk: operational_certificate
+                        .get_opcert_without_cold_verification_key()
+                        .kes_vk()
+                        .as_bytes()
+                        .to_vec(),
+                    issue_number: operational_certificate
+                        .get_opcert_without_cold_verification_key()
+                        .issue_number(),
+                    start_kes_period: operational_certificate
+                        .get_opcert_without_cold_verification_key()
+                        .start_kes_period(),
+                    cert_sig: operational_certificate
+                        .get_opcert_without_cold_verification_key()
+                        .cert_sig()
+                        .to_bytes()
+                        .to_vec(),
+                },
                 cold_verification_key: operational_certificate
                     .get_cold_verification_key()
                     .to_bytes()
