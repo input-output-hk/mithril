@@ -138,7 +138,10 @@ impl SignedEntityStorer for SignedEntityStore {
         epoch: Epoch,
     ) -> StdResult<Option<SignedEntityRecord>> {
         self.connection
-            .fetch_first(GetSignedEntityRecordQuery::cardano_stake_distribution_by_epoch(epoch))
+            .fetch_first(GetSignedEntityRecordQuery::by_signed_entity_type_and_epoch(
+                &SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+                epoch,
+            ))
     }
 
     async fn update_signed_entities(
