@@ -441,8 +441,7 @@ mod tests {
 
     #[test]
     fn test_convert_signed_entity() {
-        let snapshots = fake_data::snapshots(1);
-        let snapshot = snapshots.first().unwrap().to_owned();
+        let snapshot = fake_data::snapshot(1);
         let snapshot_expected = snapshot.clone();
 
         let signed_entity: SignedEntityRecord = SignedEntityRecord::from_snapshot(

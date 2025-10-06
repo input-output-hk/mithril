@@ -153,15 +153,14 @@ mod tests {
         };
 
         let snapshots_record = {
-            let mut snapshot = fake_data::snapshots(1)[0].clone();
+            let mut snapshot = fake_data::snapshot(1);
             snapshot.beacon.epoch = Epoch(4);
             SignedEntityRecord::from_snapshot(snapshot, "whatever".to_string(), DateTime::default())
         };
 
         let mithril_stake_distribution_record: SignedEntityRecord = {
-            let mithril_stake_distributions = fake_data::mithril_stake_distributions(1);
-            let mut mithril_stake_distribution = mithril_stake_distributions[0].clone();
-            mithril_stake_distribution.epoch = Epoch(4);
+            let mithril_stake_distribution =
+                fake_data::mithril_stake_distribution(Epoch(4), vec![]);
             mithril_stake_distribution.into()
         };
 
