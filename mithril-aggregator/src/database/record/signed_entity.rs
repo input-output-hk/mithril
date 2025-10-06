@@ -65,6 +65,23 @@ impl From<MithrilStakeDistribution> for SignedEntityRecord {
 }
 
 #[cfg(test)]
+impl From<CardanoDatabaseSnapshot> for SignedEntityRecord {
+    fn from(value: CardanoDatabaseSnapshot) -> Self {
+        let entity = serde_json::to_string(&value).unwrap();
+
+        SignedEntityRecord {
+            signed_entity_id: value.hash.clone(),
+            signed_entity_type: SignedEntityType::CardanoDatabase(value.beacon),
+            certificate_id: format!("certificate-{}", value.hash),
+            artifact: entity,
+            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                .unwrap()
+                .with_timezone(&Utc),
+        }
+    }
+}
+
+#[cfg(test)]
 impl SignedEntityRecord {
     pub(crate) fn fake_with_signed_entity(signed_entity_type: SignedEntityType) -> Self {
         use mithril_common::test::double::fake_data;
