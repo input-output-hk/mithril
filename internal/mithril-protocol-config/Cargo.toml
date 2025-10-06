@@ -11,10 +11,10 @@ repository = { workspace = true }
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-mithril-common = { path = "../../mithril-common" }
-mithril-ticker = { path = "../mithril-ticker" }
 mithril-cardano-node-chain = { path = "../cardano-node/mithril-cardano-node-chain" }
 mithril-cardano-node-internal-database = { path = "../cardano-node/mithril-cardano-node-internal-database" }
+mithril-common = { path = "../../mithril-common" }
+mithril-ticker = { path = "../mithril-ticker" }
 reqwest = { workspace = true, features = [
     "default",
     "stream",
@@ -33,11 +33,10 @@ slog = { workspace = true, features = [
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal"] }
 
-
 [dev-dependencies]
-slog-async = { workspace = true }
-slog-term = { workspace = true }
 #criterion = { version = "0.7.0", features = ["html_reports", "async_tokio"] }
 http = "1.3.1"
 httpmock = "0.7.0"
 mockall = { workspace = true }
+slog-async = { workspace = true }
+slog-term = { workspace = true }
