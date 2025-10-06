@@ -168,83 +168,76 @@ pub fn single_signature(won_indexes: Vec<LotteryIndex>) -> SingleSignature {
     SingleSignature::new(party_id, signature, won_indexes)
 }
 
-/// Fake Snapshots
-pub fn snapshots(total: u64) -> Vec<entities::Snapshot> {
-    (1..total + 1)
-        .map(|snapshot_id| {
-            let digest = format!("1{snapshot_id}").repeat(20);
-            let mut beacon = beacon();
-            beacon.immutable_file_number += snapshot_id;
-            let certificate_hash = "123".to_string();
-            let size = snapshot_id * 100_000;
-            let ancillary_size = snapshot_id * 10_000;
-            let cardano_node_version = Version::parse("1.0.0").unwrap();
-            let locations = vec![
-                format!("http://{certificate_hash}"),
-                format!("http2://{certificate_hash}"),
-            ];
-            let ancillary_locations = vec![
-                format!("http://ancillary-{certificate_hash}"),
-                format!("http2://ancillary-{certificate_hash}"),
-            ];
+/// Fake Snapshot
+pub fn snapshot(snapshot_id: u64) -> entities::Snapshot {
+    let digest = format!("1{snapshot_id}").repeat(20);
+    let mut beacon = beacon();
+    beacon.immutable_file_number += snapshot_id;
+    let certificate_hash = "123".to_string();
+    let size = snapshot_id * 100_000;
+    let ancillary_size = snapshot_id * 10_000;
+    let cardano_node_version = Version::parse("1.0.0").unwrap();
+    let locations = vec![
+        format!("http://{certificate_hash}"),
+        format!("http2://{certificate_hash}"),
+    ];
+    let ancillary_locations = vec![
+        format!("http://ancillary-{certificate_hash}"),
+        format!("http2://ancillary-{certificate_hash}"),
+    ];
 
-            entities::Snapshot {
-                digest,
-                network: network().into(),
-                beacon,
-                size,
-                ancillary_size: Some(ancillary_size),
-                locations,
-                ancillary_locations: Some(ancillary_locations),
-                compression_algorithm: CompressionAlgorithm::Gzip,
-                cardano_node_version: cardano_node_version.to_string(),
-            }
-        })
-        .collect::<Vec<entities::Snapshot>>()
+    entities::Snapshot {
+        digest,
+        network: network().into(),
+        beacon,
+        size,
+        ancillary_size: Some(ancillary_size),
+        locations,
+        ancillary_locations: Some(ancillary_locations),
+        compression_algorithm: CompressionAlgorithm::Gzip,
+        cardano_node_version: cardano_node_version.to_string(),
+    }
+}
+
+/// Fake Snapshots list
+pub fn snapshots(total: u64) -> Vec<entities::Snapshot> {
+    (1..total + 1).map(snapshot).collect()
 }
 
 /// Fake Mithril Stake Distribution
+pub fn mithril_stake_distribution(
+    epoch: Epoch,
+    signers_with_stake: Vec<entities::SignerWithStake>,
+) -> entities::MithrilStakeDistribution {
+    entities::MithrilStakeDistribution {
+        epoch,
+        signers_with_stake,
+        hash: format!("hash-epoch-{epoch}"),
+        protocol_parameters: protocol_parameters(),
+    }
+}
+
+/// Fake Mithril Stake Distribution list
 pub fn mithril_stake_distributions(total: u64) -> Vec<entities::MithrilStakeDistribution> {
     let signers = signers_with_stakes(5);
 
     (1..total + 1)
-        .map(|epoch_idx| entities::MithrilStakeDistribution {
-            epoch: Epoch(epoch_idx),
-            signers_with_stake: signers.clone(),
-            hash: format!("hash-epoch-{epoch_idx}"),
-            protocol_parameters: protocol_parameters(),
-        })
-        .collect::<Vec<entities::MithrilStakeDistribution>>()
-}
-
-/// Fake Cardano Transactions
-pub fn cardano_transactions_snapshot(total: u64) -> Vec<entities::CardanoTransactionsSnapshot> {
-    (1..total + 1)
-        .map(|idx| {
-            entities::CardanoTransactionsSnapshot::new(
-                format!("merkleroot-{idx}"),
-                BlockNumber(idx),
-            )
-        })
+        .map(|epoch_idx| mithril_stake_distribution(Epoch(epoch_idx), signers.clone()))
         .collect()
 }
 
-/// Fake transaction hashes that have valid length & characters
-pub const fn transaction_hashes<'a>() -> [&'a str; 5] {
-    [
-        "c96809e2cecd9e27499a4379094c4e1f7b59d918c96327bd8daf1bf909dae332",
-        "5b8788784af9c414f18fc1e6161005b13b839fd91130b7c109aeba1792feb843",
-        "8b6ae44edf877ff2ac80cf067809d575ab2bad234b668f91e90decde837b154a",
-        "3f6f3c981c89097f62c9b43632875db7a52183ad3061c822d98259d18cd63dcf",
-        "f4fd91dccc25fd63f2caebab3d3452bc4b2944fcc11652214a3e8f1d32b09713",
-    ]
+/// Fake Cardano Transaction
+pub fn cardano_transactions_snapshot(
+    block_number: BlockNumber,
+) -> entities::CardanoTransactionsSnapshot {
+    entities::CardanoTransactionsSnapshot::new(format!("merkleroot-{block_number}"), block_number)
 }
 
-/// Fake Cardano Stake Distributions
-pub fn cardano_stake_distributions(total: u64) -> Vec<entities::CardanoStakeDistribution> {
+/// Fake Cardano Transactions list
+pub fn cardano_transactions_snapshots(total: u64) -> Vec<entities::CardanoTransactionsSnapshot> {
     (1..total + 1)
-        .map(|epoch_idx| cardano_stake_distribution(Epoch(epoch_idx)))
-        .collect::<Vec<entities::CardanoStakeDistribution>>()
+        .map(|idx| cardano_transactions_snapshot(BlockNumber(idx)))
+        .collect()
 }
 
 /// Fake Cardano Stake Distribution
@@ -257,28 +250,49 @@ pub fn cardano_stake_distribution(epoch: Epoch) -> entities::CardanoStakeDistrib
     }
 }
 
-/// Fake Cardano Database snapshots
-pub fn cardano_database_snapshots(total: u64) -> Vec<entities::CardanoDatabaseSnapshot> {
+/// Fake Cardano Stake Distributions list
+pub fn cardano_stake_distributions(total: u64) -> Vec<entities::CardanoStakeDistribution> {
     (1..total + 1)
-        .map(|cardano_database_id| {
-            let merkle_root = format!("1{cardano_database_id}").repeat(20);
-            let mut beacon = beacon();
-            beacon.immutable_file_number += cardano_database_id;
-            let total_db_size_uncompressed = cardano_database_id * 100000;
-            let cardano_node_version = Version::parse("1.0.0").unwrap();
+        .map(|epoch_idx| cardano_stake_distribution(Epoch(epoch_idx)))
+        .collect()
+}
 
-            entities::CardanoDatabaseSnapshot::new(
-                merkle_root,
-                CardanoNetwork::TestNet(63),
-                beacon,
-                CardanoDatabaseSnapshotArtifactData {
-                    total_db_size_uncompressed,
-                    digests: DigestsLocations::default(),
-                    immutables: ImmutablesLocations::default(),
-                    ancillary: AncillaryLocations::default(),
-                },
-                &cardano_node_version,
-            )
-        })
-        .collect::<Vec<entities::CardanoDatabaseSnapshot>>()
+/// Fake Cardano Database snapshots
+pub fn cardano_database_snapshot(
+    immutable_file_number: entities::ImmutableFileNumber,
+) -> entities::CardanoDatabaseSnapshot {
+    let merkle_root = format!("1{immutable_file_number}").repeat(20);
+    let mut beacon = beacon();
+    beacon.immutable_file_number += immutable_file_number;
+    let total_db_size_uncompressed = immutable_file_number * 100000;
+    let cardano_node_version = Version::parse("1.0.0").unwrap();
+
+    entities::CardanoDatabaseSnapshot::new(
+        merkle_root,
+        CardanoNetwork::TestNet(63),
+        beacon,
+        CardanoDatabaseSnapshotArtifactData {
+            total_db_size_uncompressed,
+            digests: DigestsLocations::default(),
+            immutables: ImmutablesLocations::default(),
+            ancillary: AncillaryLocations::default(),
+        },
+        &cardano_node_version,
+    )
+}
+
+/// Fake Cardano Database snapshots list
+pub fn cardano_database_snapshots(total: u64) -> Vec<entities::CardanoDatabaseSnapshot> {
+    (1..total + 1).map(cardano_database_snapshot).collect()
+}
+
+/// Fake transaction hashes that have valid length & characters
+pub const fn transaction_hashes<'a>() -> [&'a str; 5] {
+    [
+        "c96809e2cecd9e27499a4379094c4e1f7b59d918c96327bd8daf1bf909dae332",
+        "5b8788784af9c414f18fc1e6161005b13b839fd91130b7c109aeba1792feb843",
+        "8b6ae44edf877ff2ac80cf067809d575ab2bad234b668f91e90decde837b154a",
+        "3f6f3c981c89097f62c9b43632875db7a52183ad3061c822d98259d18cd63dcf",
+        "f4fd91dccc25fd63f2caebab3d3452bc4b2944fcc11652214a3e8f1d32b09713",
+    ]
 }

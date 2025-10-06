@@ -441,7 +441,7 @@ mod tests {
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default()),
             Snapshot {
                 beacon: CardanoDbBeacon::new(1, 10),
-                ..fake_data::snapshots(1)[0].clone()
+                ..fake_data::snapshot(1)
             },
         );
         let mut mock_signed_entity_service = MockSignedEntityService::new();
