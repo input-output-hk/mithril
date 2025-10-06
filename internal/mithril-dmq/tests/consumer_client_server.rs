@@ -3,16 +3,17 @@ use std::sync::Arc;
 
 use tokio::sync::{mpsc::unbounded_channel, watch};
 
-use mithril_common::{CardanoNetwork, current_function, test::TempDir};
+use mithril_common::{current_function, test::TempDir};
 use mithril_dmq::{
     DmqConsumerClient, DmqConsumerClientPallas, DmqConsumerServer, DmqConsumerServerPallas,
-    DmqMessage, test::fake_message::compute_fake_msg, test::payload::DmqMessageTestPayload,
+    DmqMessage, DmqNetwork,
+    test::{fake_message::compute_fake_msg, payload::DmqMessageTestPayload},
 };
 
 #[tokio::test(flavor = "multi_thread")]
 async fn dmq_consumer_client_server() {
     let current_function_name = current_function!();
-    let cardano_network = CardanoNetwork::TestNet(0);
+    let dmq_network = DmqNetwork::TestNet(0);
     let socket_path =
         TempDir::create_with_short_path("dmq_consumer_client_server", current_function_name)
             .join("node.socket");
@@ -25,7 +26,7 @@ async fn dmq_consumer_client_server() {
         async move {
             let dmq_consumer_server = Arc::new(DmqConsumerServerPallas::new(
                 socket_path.to_path_buf(),
-                cardano_network,
+                dmq_network,
                 stop_rx,
                 slog_scope::logger(),
             ));
@@ -41,7 +42,7 @@ async fn dmq_consumer_client_server() {
         async move {
             let consumer_client = DmqConsumerClientPallas::<DmqMessageTestPayload>::new(
                 socket_path,
-                cardano_network,
+                dmq_network,
                 slog_scope::logger(),
             );
             let mut messages = vec![];
@@ -81,7 +82,7 @@ async fn dmq_consumer_client_server() {
         async move {
             let consumer_client = DmqConsumerClientPallas::<DmqMessageTestPayload>::new(
                 socket_path,
-                cardano_network,
+                dmq_network,
                 slog_scope::logger(),
             );
             let mut messages = vec![];

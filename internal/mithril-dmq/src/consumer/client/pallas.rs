@@ -6,7 +6,7 @@ use slog::{Logger, debug, error};
 use tokio::sync::{Mutex, MutexGuard};
 
 use mithril_common::{
-    CardanoNetwork, StdResult,
+    StdResult,
     crypto_helper::{
         OpCert, OpCertWithoutColdVerificationKey, TryFromBytes, ed25519::Ed25519VerificationKey,
     },
@@ -14,14 +14,14 @@ use mithril_common::{
     logging::LoggerExtensions,
 };
 
-use crate::DmqConsumerClient;
+use crate::{DmqConsumerClient, model::DmqNetwork};
 
 /// A DMQ client consumer implementation.
 ///
 /// This implementation is built upon the n2c mini-protocols DMQ implementation in Pallas.
 pub struct DmqConsumerClientPallas<M: TryFromBytes + Debug> {
     socket: PathBuf,
-    network: CardanoNetwork,
+    network: DmqNetwork,
     client: Mutex<Option<DmqClient>>,
     logger: Logger,
     phantom: PhantomData<M>,
@@ -29,7 +29,7 @@ pub struct DmqConsumerClientPallas<M: TryFromBytes + Debug> {
 
 impl<M: TryFromBytes + Debug> DmqConsumerClientPallas<M> {
     /// Creates a new `DmqConsumerClientPallas` instance.
-    pub fn new(socket: PathBuf, network: CardanoNetwork, logger: Logger) -> Self {
+    pub fn new(socket: PathBuf, network: DmqNetwork, logger: Logger) -> Self {
         Self {
             socket,
             network,
@@ -278,7 +278,7 @@ mod tests {
 
             let consumer = DmqConsumerClientPallas::new(
                 socket_path,
-                CardanoNetwork::TestNet(0),
+                DmqNetwork::TestNet(0),
                 TestLogger::stdout(),
             );
 
@@ -314,7 +314,7 @@ mod tests {
 
             let consumer = DmqConsumerClientPallas::<DmqMessageTestPayload>::new(
                 socket_path,
-                CardanoNetwork::TestNet(0),
+                DmqNetwork::TestNet(0),
                 TestLogger::stdout(),
             );
 
@@ -341,7 +341,7 @@ mod tests {
 
             let consumer = DmqConsumerClientPallas::<DmqMessageTestPayload>::new(
                 socket_path,
-                CardanoNetwork::TestNet(0),
+                DmqNetwork::TestNet(0),
                 TestLogger::stdout(),
             );
 
