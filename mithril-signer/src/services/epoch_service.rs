@@ -173,7 +173,7 @@ impl EpochService for MithrilEpochService {
         current_signers: Vec<Signer>,
         next_signers: Vec<Signer>,
     ) -> StdResult<()> {
-        debug!(self.logger, ">> inform_epoch_settings"; "mithril_network_configuration" => ?mithril_network_configuration); //TODO: what about current_signers and next_signers?
+        debug!(self.logger, ">> inform_epoch_settings"; "mithril_network_configuration" => ?mithril_network_configuration, "current_signers" => ?current_signers, "next_signers" => ?next_signers);
 
         let epoch = mithril_network_configuration.epoch;
 
