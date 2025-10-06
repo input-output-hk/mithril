@@ -4311,6 +4311,7 @@ dependencies = [
  "slog-async",
  "slog-scope",
  "slog-term",
+ "thiserror 2.0.16",
  "tokio",
 ]
 
