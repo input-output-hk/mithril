@@ -26,11 +26,10 @@ mod tests {
 
     use crate::merkle_tree::MerkleBatchPath;
     use crate::{
-        AggregateSignature, AggregationError, BasicVerifier, Clerk, CoreVerifierError, Initializer,
-        KeyRegistration, Parameters, Signer, SingleSignature, SingleSignatureWithRegisteredParty,
-        Stake,
+        AggregateSignature, AggregateSignatureType, AggregationError, BasicVerifier, Clerk,
+        CoreVerifierError, Initializer, KeyRegistration, Parameters, Signer, SingleSignature,
+        SingleSignatureWithRegisteredParty, Stake, bls_multi_signature::BlsVerificationKey,
     };
-    use crate::{AggregateSignatureType, bls_multi_signature::BlsVerificationKey};
 
     type Sig = AggregateSignature<D>;
     type D = Blake2b<U32>;
@@ -459,36 +458,32 @@ mod tests {
         #[test]
         fn test_invalid_proof_index_unique(tc in arb_proof_setup(10)) {
             with_proof_mod(tc, |aggr, clerk, _msg| {
-                if let AggregateSignature::Concatenation(concatenation_proof) = aggr {
-                    for sig_reg in concatenation_proof.signatures.iter_mut() {
-                        for index in sig_reg.sig.indexes.iter_mut() {
-                        *index %= clerk.params.k - 1
-                        }
+                let mut concatenation_proof = AggregateSignature::to_concatenation_proof(aggr).unwrap().to_owned();
+                for sig_reg in concatenation_proof.signatures.iter_mut() {
+                    for index in sig_reg.sig.indexes.iter_mut() {
+                    *index %= clerk.params.k - 1
                     }
-                }else{
-                    panic!("Unexpected aggregate signature type");
                 }
+                *aggr = AggregateSignature::Concatenation(concatenation_proof);
             })
         }
         #[test]
         fn test_invalid_proof_path(tc in arb_proof_setup(10)) {
             with_proof_mod(tc, |aggr, _, _msg| {
-                if let AggregateSignature::Concatenation(concatenation_proof) = aggr {
-                   let p = concatenation_proof.batch_proof.clone();
-                    let mut index_list = p.indices.clone();
-                    let values = p.values;
-                    let batch_proof = {
-                        index_list[0] += 1;
-                        MerkleBatchPath {
-                            values,
-                            indices: index_list,
-                            hasher: Default::default()
-                        }
-                    };
-                    concatenation_proof.batch_proof = batch_proof;
-                }else{
-                    panic!("Unexpected aggregate signature type");
-                }
+                let mut concatenation_proof = AggregateSignature::to_concatenation_proof(aggr).unwrap().to_owned();
+                let p = concatenation_proof.batch_proof.clone();
+                let mut index_list = p.indices.clone();
+                let values = p.values;
+                let batch_proof = {
+                    index_list[0] += 1;
+                    MerkleBatchPath {
+                        values,
+                        indices: index_list,
+                        hasher: Default::default()
+                    }
+                };
+                concatenation_proof.batch_proof = batch_proof;
+                *aggr = AggregateSignature::Concatenation(concatenation_proof);
             })
         }
     }

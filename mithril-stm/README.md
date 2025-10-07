@@ -67,7 +67,10 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;
 
-use mithril_stm::{Clerk, Parameters, SingleSignature, KeyRegistration, Initializer, Signer, AggregationError};
+use mithril_stm::{
+    AggregateSignatureType, AggregationError, Clerk, Initializer, KeyRegistration, Parameters,
+    Signer, SingleSignature,
+};
 
 type H = Blake2b<U32>;
 
@@ -125,8 +128,8 @@ for (s, p) in sigs.iter().zip(ps.iter()) {
     failed");
 }
 
-// Aggregate with random parties
-let msig = clerk.aggregate_signatures(&sigs, &msg);
+// Aggregate a concatenation proof with random parties
+let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, AggregateSignatureType::Concatenation);
 
 match msig {
     Ok(aggr) => {
