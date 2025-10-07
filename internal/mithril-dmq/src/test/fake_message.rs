@@ -5,7 +5,10 @@ use std::sync::Arc;
 use mithril_cardano_node_chain::test::double::FakeChainObserver;
 use mithril_common::{crypto_helper::TryToBytes, test::crypto_helper::KesSignerFake};
 
-use crate::{DmqMessage, DmqMessageBuilder, test::payload::DmqMessageTestPayload};
+use crate::{
+    DmqMessage, DmqMessageBuilder,
+    test::{double::FakeUnixTimestampProvider, payload::DmqMessageTestPayload},
+};
 
 /// Computes a fake DMQ message for testing purposes.
 pub async fn compute_fake_msg(bytes: &[u8], test_directory: &str) -> DmqMessage {
@@ -20,7 +23,10 @@ pub async fn compute_fake_msg(bytes: &[u8], test_directory: &str) -> DmqMessage 
         },
         Arc::new(FakeChainObserver::default()),
     )
-    .set_ttl(100);
+    .set_ttl(100)
+    .set_timestamp_provider(Arc::new(FakeUnixTimestampProvider::max_timestamp_for_ttl(
+        100,
+    )));
     let message = DmqMessageTestPayload::new(bytes);
     dmq_builder.build(&message.to_bytes_vec().unwrap()).await.unwrap()
 }
