@@ -36,6 +36,7 @@ mithril-doc = { path = "../internal/mithril-doc" }
 mithril-era = { path = "../internal/mithril-era" }
 mithril-metric = { path = "../internal/mithril-metric" }
 mithril-persistence = { path = "../internal/mithril-persistence" }
+mithril-protocol-config = { path = "../internal/mithril-protocol-config" }
 mithril-resource-pool = { path = "../internal/mithril-resource-pool" }
 mithril-signed-entity-lock = { path = "../internal/signed-entity/mithril-signed-entity-lock" }
 mithril-signed-entity-preloader = { path = "../internal/signed-entity/mithril-signed-entity-preloader" }
