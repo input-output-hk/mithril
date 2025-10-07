@@ -4,6 +4,7 @@ use std::sync::Arc;
 use warp::Filter;
 
 use mithril_common::api_version::APIVersionProvider;
+use mithril_common::entities::Epoch;
 use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
 
 use crate::database::repository::SignerGetter;
@@ -207,6 +208,41 @@ pub mod validators {
     }
 }
 
+pub mod parameters {
+    use anyhow::Context;
+
+    use mithril_common::StdResult;
+
+    use super::*;
+
+    /// Parse the string into an [Epoch] if it's a number, or if it's 'latest{-{offset}}' expand
+    /// into the actual epoch minus the optional given offset.
+    pub async fn expand_epoch<F, Fut>(epoch_str: &str, actual_epoch_getter: F) -> StdResult<Epoch>
+    where
+        F: FnOnce() -> Fut,
+        Fut: Future<Output = StdResult<Epoch>>,
+    {
+        let epoch_str = epoch_str.to_lowercase();
+        if epoch_str == "latest" {
+            actual_epoch_getter().await
+        } else if epoch_str.starts_with("latest-") {
+            let (_, offset_str) = epoch_str.split_at(7);
+            let offset = offset_str
+                .parse::<u64>()
+                .with_context(|| "Invalid epoch offset: must be a number")?;
+
+            actual_epoch_getter()
+                .await
+                .map(|epoch| Epoch(epoch.saturating_sub(offset)))
+        } else {
+            epoch_str
+                .parse::<u64>()
+                .map(Epoch)
+                .with_context(|| "Invalid epoch: must be a number or 'latest'")
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::Value;
@@ -358,6 +394,70 @@ mod tests {
 
             let response: Response<Bytes> = request_with_client_type("UNKNOWN").await;
             assert_eq!(Some("NA".to_string()), get_body(response));
+        }
+    }
+
+    mod expand_epoch {
+        use super::*;
+
+        #[tokio::test]
+        async fn use_given_epoch_if_valid_number() {
+            let epoch = parameters::expand_epoch("456", || async { Ok(Epoch(300)) })
+                .await
+                .unwrap();
+
+            assert_eq!(epoch, Epoch(456));
+        }
+
+        #[tokio::test]
+        async fn use_epoch_service_current_epoch_if_latest() {
+            let epoch = parameters::expand_epoch("latest", || async { Ok(Epoch(89)) })
+                .await
+                .unwrap();
+
+            assert_eq!(epoch, Epoch(89));
+        }
+
+        #[tokio::test]
+        async fn use_offset_epoch_service_current_epoch_if_latest_minus_a_number() {
+            let epoch = parameters::expand_epoch("latest-13", || async { Ok(Epoch(89)) })
+                .await
+                .unwrap();
+            assert_eq!(epoch, Epoch(76));
+
+            let epoch = parameters::expand_epoch("latest-0", || async { Ok(Epoch(89)) })
+                .await
+                .unwrap();
+            assert_eq!(epoch, Epoch(89));
+        }
+
+        #[tokio::test]
+        async fn error_if_given_epoch_is_not_a_number_nor_latest_nor_latest_minus_a_number() {
+            for invalid_epoch in [
+                "invalid",
+                "latest-",
+                "latest+",
+                "latest+0",
+                "latest+293",
+                "latest-invalid",
+            ] {
+                parameters::expand_epoch(invalid_epoch, || async { Ok(Epoch(78)) })
+                    .await
+                    .expect_err(
+                        "Should fail if epoch is not a number nor 'latest' nor 'latest-{offset}'",
+                    );
+            }
+        }
+
+        #[tokio::test]
+        async fn dont_overflow_if_epoch_minus_offset_is_negative() {
+            let epoch = parameters::expand_epoch(&format!("latest-{}", u64::MAX), || async {
+                Ok(Epoch(89))
+            })
+            .await
+            .unwrap();
+
+            assert_eq!(epoch, Epoch(0));
         }
     }
 }
