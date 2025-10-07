@@ -13,7 +13,10 @@
 //! use rand_core::{RngCore, SeedableRng};
 //! use rayon::prelude::*; // We use par_iter to speed things up
 //!
-//! use mithril_stm::{Clerk, Parameters, SingleSignature, KeyRegistration, Initializer, Signer, AggregationError};
+//! use mithril_stm::{
+//!    AggregateSignatureType, AggregationError, Clerk, Initializer, KeyRegistration, Parameters,
+//!    Signer, SingleSignature,
+//! };
 //!
 //! let nparties = 4; // Use a small number of parties for this example
 //! type D = Blake2b<U32>; // Setting the hash function for convenience
@@ -116,7 +119,9 @@ mod parameters;
 mod participant;
 mod single_signature;
 
-pub use aggregate_signature::{AggregateSignature, AggregateVerificationKey, BasicVerifier, Clerk};
+pub use aggregate_signature::{
+    AggregateSignature, AggregateSignatureType, AggregateVerificationKey, BasicVerifier, Clerk,
+};
 pub use error::{
     AggregationError, CoreVerifierError, RegisterError, StmAggregateSignatureError,
     StmSignatureError,

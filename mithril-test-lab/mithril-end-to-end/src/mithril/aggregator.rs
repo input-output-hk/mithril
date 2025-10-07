@@ -37,6 +37,7 @@ pub struct AggregatorConfig<'a> {
     pub mithril_era_reader_adapter: &'a str,
     pub mithril_era_marker_address: &'a str,
     pub signed_entity_types: &'a [String],
+    pub aggregate_signature_type: &'a str,
     pub chain_observer_type: &'a str,
     pub leader_aggregator_endpoint: &'a Option<String>,
     pub use_dmq: bool,
@@ -112,6 +113,10 @@ impl Aggregator {
             ),
             ("ERA_READER_ADAPTER_PARAMS", &era_reader_adapter_params),
             ("SIGNED_ENTITY_TYPES", &signed_entity_types),
+            (
+                "AGGREGATE_SIGNATURE_TYPE",
+                aggregator_config.aggregate_signature_type,
+            ),
             (
                 "CARDANO_NODE_VERSION",
                 aggregator_config.cardano_node_version,

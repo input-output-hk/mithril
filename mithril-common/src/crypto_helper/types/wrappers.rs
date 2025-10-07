@@ -17,7 +17,7 @@ pub type ProtocolSignerVerificationKeySignature = ProtocolKey<Sum6KesSig>;
 /// Wrapper of [MithrilStm:SingleSignature](type@SingleSignature) to add serialization utilities.
 pub type ProtocolSingleSignature = ProtocolKey<SingleSignature>;
 
-/// Wrapper of [MithrilStm:AggregateSignature](struct@AggregateSignature) to add serialization utilities.
+/// Wrapper of [MithrilStm:AggregateSignature](enum@AggregateSignature) to add serialization utilities.
 pub type ProtocolMultiSignature = ProtocolKey<AggregateSignature<D>>;
 
 /// Wrapper of [OpCert] to add serialization utilities.

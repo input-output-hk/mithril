@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.52
+  version: 0.1.53
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -862,6 +862,7 @@ components:
           additionalProperties: false
           required:
             - signed_entity_types
+            - aggregate_signature_type
           properties:
             signed_entity_types:
               description: Signed entity types that are signed by the aggregator
@@ -875,6 +876,11 @@ components:
                   - CardanoStakeDistribution
                   - CardanoImmutableFilesFull
                   - CardanoTransactions
+            aggregate_signature_type:
+              description: Aggregate signature type used by the aggregator to create certificates
+              type: string
+              enum:
+                - Concatenation
             cardano_transactions_prover:
               description: Cardano transactions prover capabilities
               type: object
@@ -898,6 +904,7 @@ components:
                     "CardanoImmutableFilesFull",
                     "CardanoTransactions"
                   ],
+                "aggregate_signature_type": "Concatenation",
                 "cardano_transactions_prover":
                   { "max_hashes_allowed_by_request": 100 }
               }

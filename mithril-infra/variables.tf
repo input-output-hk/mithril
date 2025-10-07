@@ -230,6 +230,12 @@ variable "mithril_aggregator_signed_entity_types" {
   default     = ""
 }
 
+variable "mithril_aggregator_aggregate_signature_type" {
+  type        = string
+  description = "The aggregate signature type used by the mithril aggregator to create certificates."
+  default     = "Concatenation"
+}
+
 variable "mithril_aggregator_chain_observer_type" {
   type        = string
   description = "The chain observer type used by the mithril aggregator."

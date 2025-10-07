@@ -93,6 +93,25 @@ impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
     {
         Self::concatenate_with_message(self, msg)
     }
+
+    /// Convert to bytes
+    /// # Layout
+    /// * Root of the Merkle commitment
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut output = Vec::new();
+        output.extend_from_slice(&self.root);
+        output
+    }
+
+    /// Extract a `MerkleTreeCommitment` from a byte slice.
+    pub fn from_bytes(bytes: &[u8]) -> Result<MerkleTreeCommitment<D>, MerkleTreeError<D>> {
+        let root = bytes.to_vec();
+
+        Ok(Self {
+            root,
+            hasher: PhantomData,
+        })
+    }
 }
 
 /// Batch compatible `MerkleTree` commitment .
@@ -107,7 +126,7 @@ pub struct MerkleTreeBatchCommitment<D: Digest> {
     hasher: PhantomData<D>,
 }
 
-impl<D: Digest> MerkleTreeBatchCommitment<D> {
+impl<D: Digest + FixedOutput> MerkleTreeBatchCommitment<D> {
     pub(crate) fn new(root: Vec<u8>, nr_leaves: usize) -> Self {
         Self {
             root,
@@ -253,6 +272,33 @@ impl<D: Digest> MerkleTreeBatchCommitment<D> {
         D: FixedOutput + Clone,
     {
         Self::verify_leaves_membership_from_batch_path(self, batch_val, proof)
+    }
+
+    /// Convert to bytes
+    /// * Number of leaves as u64
+    /// * Root of the Merkle commitment as bytes
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut output = Vec::new();
+        output.extend_from_slice(&u64::try_from(self.nr_leaves).unwrap().to_be_bytes());
+        output.extend_from_slice(&self.root);
+
+        output
+    }
+
+    /// Extract a `MerkleTreeBatchCommitment` from a byte slice.
+    pub fn from_bytes(bytes: &[u8]) -> Result<MerkleTreeBatchCommitment<D>, MerkleTreeError<D>> {
+        let mut u64_bytes = [0u8; 8];
+        u64_bytes.copy_from_slice(bytes.get(..8).ok_or(MerkleTreeError::SerializationError)?);
+        let nr_leaves = usize::try_from(u64::from_be_bytes(u64_bytes))
+            .map_err(|_| MerkleTreeError::SerializationError)?;
+        let mut root = Vec::new();
+        root.extend_from_slice(bytes.get(8..).ok_or(MerkleTreeError::SerializationError)?);
+
+        Ok(MerkleTreeBatchCommitment {
+            root,
+            nr_leaves,
+            hasher: PhantomData,
+        })
     }
 }
 

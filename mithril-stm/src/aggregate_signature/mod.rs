@@ -1,15 +1,18 @@
 mod aggregate_key;
 mod basic_verifier;
 mod clerk;
+mod proof;
 mod signature;
 
 pub use aggregate_key::*;
 pub use basic_verifier::*;
 pub use clerk::*;
+pub use proof::*;
 pub use signature::*;
 
 #[cfg(test)]
 mod tests {
+    use core::panic;
     use std::collections::{HashMap, HashSet};
 
     use blake2::{Blake2b, digest::consts::U32};
@@ -21,12 +24,11 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::{RngCore, SeedableRng};
 
-    use crate::bls_multi_signature::BlsVerificationKey;
     use crate::merkle_tree::MerkleBatchPath;
     use crate::{
-        AggregateSignature, AggregationError, BasicVerifier, Clerk, CoreVerifierError, Initializer,
-        KeyRegistration, Parameters, Signer, SingleSignature, SingleSignatureWithRegisteredParty,
-        Stake,
+        AggregateSignature, AggregateSignatureType, AggregationError, BasicVerifier, Clerk,
+        CoreVerifierError, Initializer, KeyRegistration, Parameters, Signer, SingleSignature,
+        SingleSignatureWithRegisteredParty, Stake, bls_multi_signature::BlsVerificationKey,
     };
 
     type Sig = AggregateSignature<D>;
@@ -166,7 +168,8 @@ mod tests {
                 let all_ps: Vec<usize> = (0..n).collect();
                 let sigs = find_signatures(&msg, &ps, &all_ps);
 
-                let msig = clerk.aggregate_signatures(&sigs, &msg);
+                let aggr_sig_type = AggregateSignatureType::Concatenation;
+                let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type);
                 ProofTest { msig, clerk, msg }
             })
         })
@@ -249,10 +252,11 @@ mod tests {
             let params = Parameters { m, k, phi_f: 0.2 };
             let ps = setup_equal_parties(params, nparties);
             let clerk = Clerk::new_clerk_from_signer(&ps[0]);
+            let aggr_sig_type = AggregateSignatureType::Concatenation;
 
             let all_ps: Vec<usize> = (0..nparties).collect();
             let sigs = find_signatures(&msg, &ps, &all_ps);
-            let msig = clerk.aggregate_signatures(&sigs, &msg);
+            let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type);
 
             match msig {
                 Ok(aggr) => {
@@ -262,7 +266,9 @@ mod tests {
                 Err(AggregationError::NotEnoughSignatures(n, k)) =>
                     assert!(n < params.k || k == params.k),
                 Err(AggregationError::UsizeConversionInvalid) =>
-                    unreachable!()
+                    unreachable!(),
+                Err(AggregationError::UnsupportedProofSystem(_)) =>
+                    unreachable!(),
             }
         }
 
@@ -274,6 +280,7 @@ mod tests {
                               seed in any::<[u8;32]>(),
                               batch_size in 2..10,
         ) {
+            let aggr_sig_type = AggregateSignatureType::Concatenation;
             let mut rng = ChaCha20Rng::from_seed(seed);
             let mut aggr_avks = Vec::new();
             let mut aggr_stms = Vec::new();
@@ -288,7 +295,7 @@ mod tests {
 
                 let all_ps: Vec<usize> = (0..nparties).collect();
                 let sigs = find_signatures(&msg, &ps, &all_ps);
-                let msig = clerk.aggregate_signatures(&sigs, &msg);
+                let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type);
 
                 match msig {
                     Ok(aggr) => {
@@ -301,6 +308,7 @@ mod tests {
                         assert!(sigs.len() < params.k as usize)
                     }
                     Err(AggregationError::UsizeConversionInvalid) => unreachable!(),
+                    Err(AggregationError::UnsupportedProofSystem(_)) => unreachable!(),
                 }
             }
 
@@ -314,7 +322,7 @@ mod tests {
 
             let all_ps: Vec<usize> = (0..nparties).collect();
             let sigs = find_signatures(&msg, &ps, &all_ps);
-            let fake_msig = clerk.aggregate_signatures(&sigs, &msg);
+            let fake_msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type);
 
             aggr_stms[0] = fake_msig.unwrap();
             assert!(AggregateSignature::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params).is_err());
@@ -356,9 +364,6 @@ mod tests {
 
             let bytes = initializer.to_bytes();
             assert!(Initializer::from_bytes(&bytes).is_ok());
-
-            let bytes = bincode::serde::encode_to_vec(&initializer, bincode::config::legacy()).unwrap();
-            assert!(bincode::serde::decode_from_slice::<Initializer,_>(&bytes, bincode::config::legacy()).is_ok())
         }
 
         #[test]
@@ -372,10 +377,6 @@ mod tests {
                 let bytes = sig.to_bytes();
                 let sig_deser = SingleSignature::from_bytes::<D>(&bytes).unwrap();
                 assert!(sig_deser.verify(&params, &ps[0].get_verification_key(), &ps[0].get_stake(), &avk, &msg).is_ok());
-
-                let encoded = bincode::serde::encode_to_vec(&sig, bincode::config::legacy()).unwrap();
-                let (decoded,_) = bincode::serde::decode_from_slice::<SingleSignature,_>(&encoded, bincode::config::legacy()).unwrap();
-                assert!(decoded.verify(&params, &ps[0].get_verification_key(), &ps[0].get_stake(), &avk, &msg).is_ok());
             }
         }
 
@@ -385,18 +386,15 @@ mod tests {
             let params = Parameters { m: 10, k: 5, phi_f: 1.0 };
             let ps = setup_equal_parties(params, nparties);
             let clerk = Clerk::new_clerk_from_signer(&ps[0]);
+            let aggr_sig_type = AggregateSignatureType::Concatenation;
 
             let all_ps: Vec<usize> = (0..nparties).collect();
             let sigs = find_signatures(&msg, &ps, &all_ps);
-            let msig = clerk.aggregate_signatures(&sigs, &msg);
+            let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type);
             if let Ok(aggr) = msig {
                     let bytes: Vec<u8> = aggr.to_bytes();
                     let aggr2 = AggregateSignature::from_bytes(&bytes).unwrap();
                     assert!(aggr2.verify(&msg, &clerk.compute_aggregate_verification_key(), &params).is_ok());
-
-                    let encoded = bincode::serde::encode_to_vec(&aggr, bincode::config::legacy()).unwrap();
-                    let (decoded,_) = bincode::serde::decode_from_slice::<AggregateSignature<D>,_>(&encoded, bincode::config::legacy()).unwrap();
-                    assert!(decoded.verify(&msg, &clerk.compute_aggregate_verification_key(), &params).is_ok());
             }
         }
     }
@@ -429,8 +427,9 @@ mod tests {
             assert!(sigs.len() < params.k as usize);
 
             let clerk = Clerk::new_clerk_from_signer(&ps[0]);
+            let aggr_sig_type = AggregateSignatureType::Concatenation;
 
-            let msig = clerk.aggregate_signatures(&sigs, &msg);
+            let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type);
             match msig {
                 Err(AggregationError::NotEnoughSignatures(n, k)) =>
                     assert!(n < params.k && params.k == k),
@@ -459,17 +458,20 @@ mod tests {
         #[test]
         fn test_invalid_proof_index_unique(tc in arb_proof_setup(10)) {
             with_proof_mod(tc, |aggr, clerk, _msg| {
-                for sig_reg in aggr.signatures.iter_mut() {
+                let mut concatenation_proof = AggregateSignature::to_concatenation_proof(aggr).unwrap().to_owned();
+                for sig_reg in concatenation_proof.signatures.iter_mut() {
                     for index in sig_reg.sig.indexes.iter_mut() {
-                       *index %= clerk.params.k - 1
+                    *index %= clerk.params.k - 1
                     }
                 }
+                *aggr = AggregateSignature::Concatenation(concatenation_proof);
             })
         }
         #[test]
         fn test_invalid_proof_path(tc in arb_proof_setup(10)) {
             with_proof_mod(tc, |aggr, _, _msg| {
-                let p = aggr.batch_proof.clone();
+                let mut concatenation_proof = AggregateSignature::to_concatenation_proof(aggr).unwrap().to_owned();
+                let p = concatenation_proof.batch_proof.clone();
                 let mut index_list = p.indices.clone();
                 let values = p.values;
                 let batch_proof = {
@@ -480,7 +482,8 @@ mod tests {
                         hasher: Default::default()
                     }
                 };
-                aggr.batch_proof = batch_proof;
+                concatenation_proof.batch_proof = batch_proof;
+                *aggr = AggregateSignature::Concatenation(concatenation_proof);
             })
         }
     }

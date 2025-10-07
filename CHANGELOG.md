@@ -11,6 +11,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - **BREAKING** changes in aggregator OpenAPI: removed the `next_cardano_transactions_signing_config` in `/epoch-settings` route.
 
+- Support for multiple aggregate signature proof systems.
+
 - Crates versions:
 
 | Crate | Version |

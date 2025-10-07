@@ -1,210 +1,218 @@
-use blake2::digest::{Digest, FixedOutput};
+use std::collections::HashMap;
+use std::fmt::Display;
+use std::hash::Hash;
 
+use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
-use crate::bls_multi_signature::{BlsSignature, BlsVerificationKey};
-use crate::key_registration::RegisteredParty;
+use crate::error::StmAggregateSignatureError;
 use crate::merkle_tree::MerkleBatchPath;
-use crate::{
-    AggregateVerificationKey, BasicVerifier, Parameters, SingleSignatureWithRegisteredParty,
-    StmAggregateSignatureError,
-};
+use crate::{AggregateVerificationKey, Parameters};
 
-/// `AggregateSignature` uses the "concatenation" proving system (as described in Section 4.3 of the original paper.)
-/// This means that the aggregated signature contains a vector with all individual signatures.
-/// BatchPath is also a part of the aggregate signature which covers path for all signatures.
+use super::ConcatenationProof;
+
+/// The type of STM aggregate signature.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum AggregateSignatureType {
+    /// Concatenation proof system.
+    #[default]
+    Concatenation,
+    /// Future proof system. Not suitable for production.
+    #[cfg(feature = "future_proof_system")]
+    Future,
+}
+
+impl AggregateSignatureType {
+    /// The prefix byte used in the byte representation of the aggregate signature type.
+    ///
+    /// IMPORTANT: This value is used in serialization/deserialization. Changing it will break compatibility.
+    pub fn get_byte_encoding_prefix(&self) -> u8 {
+        match self {
+            AggregateSignatureType::Concatenation => 0,
+            #[cfg(feature = "future_proof_system")]
+            AggregateSignatureType::Future => 255,
+        }
+    }
+
+    /// Create an aggregate signature type from a prefix byte.
+    ///
+    /// IMPORTANT: This value is used in serialization/deserialization. Changing it will break compatibility.
+    pub fn from_byte_encoding_prefix(byte: u8) -> Option<Self> {
+        match byte {
+            0 => Some(AggregateSignatureType::Concatenation),
+            #[cfg(feature = "future_proof_system")]
+            255 => Some(AggregateSignatureType::Future),
+            _ => None,
+        }
+    }
+}
+
+impl<D: Clone + Digest + FixedOutput + Send + Sync> From<&AggregateSignature<D>>
+    for AggregateSignatureType
+{
+    fn from(aggr_sig: &AggregateSignature<D>) -> Self {
+        match aggr_sig {
+            AggregateSignature::Concatenation(_) => AggregateSignatureType::Concatenation,
+            #[cfg(feature = "future_proof_system")]
+            AggregateSignature::Future => AggregateSignatureType::Future,
+        }
+    }
+}
+
+impl Display for AggregateSignatureType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AggregateSignatureType::Concatenation => write!(f, "Concatenation"),
+            #[cfg(feature = "future_proof_system")]
+            AggregateSignatureType::Future => write!(f, "Future"),
+        }
+    }
+}
+
+/// An STM aggregate signature.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(
     serialize = "MerkleBatchPath<D>: Serialize",
     deserialize = "MerkleBatchPath<D>: Deserialize<'de>"
 ))]
-pub struct AggregateSignature<D: Clone + Digest + FixedOutput> {
-    pub(crate) signatures: Vec<SingleSignatureWithRegisteredParty>,
-    /// The list of unique merkle tree nodes that covers path for all signatures.
-    pub batch_proof: MerkleBatchPath<D>,
+pub enum AggregateSignature<D: Clone + Digest + FixedOutput + Send + Sync> {
+    /// A future proof system.
+    #[cfg(feature = "future_proof_system")]
+    Future,
+
+    /// Concatenation proof system.
+    // The 'untagged' attribute is required for backward compatibility.
+    // It implies that this variant is placed at the end of the enum.
+    // It will be removed when the support for JSON hex encoding is dropped in the calling crates.
+    #[serde(untagged)]
+    Concatenation(ConcatenationProof<D>),
 }
 
 impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
-    /// Verify all checks from signatures, except for the signature verification itself.
-    ///
-    /// Indices and quorum are checked by `BasicVerifier::preliminary_verify` with `msgp`.
-    /// It collects leaves from signatures and checks the batch proof.
-    /// After batch proof is checked, it collects and returns the signatures and
-    /// verification keys to be used by aggregate verification.
-    fn preliminary_verify(
-        &self,
-        msg: &[u8],
-        avk: &AggregateVerificationKey<D>,
-        parameters: &Parameters,
-    ) -> Result<(Vec<BlsSignature>, Vec<BlsVerificationKey>), StmAggregateSignatureError<D>> {
-        let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
-        BasicVerifier::preliminary_verify(
-            &avk.get_total_stake(),
-            &self.signatures,
-            parameters,
-            &msgp,
-        )?;
-
-        let leaves = self
-            .signatures
-            .iter()
-            .map(|r| r.reg_party)
-            .collect::<Vec<RegisteredParty>>();
-
-        avk.get_merkle_tree_batch_commitment()
-            .verify_leaves_membership_from_batch_path(&leaves, &self.batch_proof)?;
-
-        Ok(BasicVerifier::collect_signatures_verification_keys(
-            &self.signatures,
-        ))
-    }
-
-    /// Verify aggregate signature, by checking that
-    /// * each signature contains only valid indices,
-    /// * the lottery is indeed won by each one of them,
-    /// * the merkle tree path is valid,
-    /// * the aggregate signature validates with respect to the aggregate verification key
-    ///   (aggregation is computed using functions `MSP.BKey` and `MSP.BSig` as described in Section 2.4 of the paper).
+    /// Verify an aggregate signature
     pub fn verify(
         &self,
         msg: &[u8],
         avk: &AggregateVerificationKey<D>,
         parameters: &Parameters,
     ) -> Result<(), StmAggregateSignatureError<D>> {
-        let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
-        let (sigs, vks) = self.preliminary_verify(msg, avk, parameters)?;
-
-        BlsSignature::verify_aggregate(msgp.as_slice(), &vks, &sigs)?;
-        Ok(())
+        match self {
+            AggregateSignature::Concatenation(concatenation_proof) => {
+                concatenation_proof.verify(msg, avk, parameters)
+            }
+            #[cfg(feature = "future_proof_system")]
+            AggregateSignature::Future => Err(StmAggregateSignatureError::UnsupportedProofSystem(
+                self.into(),
+            )),
+        }
     }
 
-    /// Batch verify a set of signatures, with different messages and avks.
+    /// Batch verify a set of aggregate signatures
     pub fn batch_verify(
         stm_signatures: &[Self],
         msgs: &[Vec<u8>],
         avks: &[AggregateVerificationKey<D>],
         parameters: &[Parameters],
     ) -> Result<(), StmAggregateSignatureError<D>> {
-        let batch_size = stm_signatures.len();
-        assert_eq!(
-            batch_size,
-            msgs.len(),
-            "Number of messages should correspond to size of the batch"
-        );
-        assert_eq!(
-            batch_size,
-            avks.len(),
-            "Number of avks should correspond to size of the batch"
-        );
-        assert_eq!(
-            batch_size,
-            parameters.len(),
-            "Number of parameters should correspond to size of the batch"
-        );
+        let stm_signatures: HashMap<AggregateSignatureType, Vec<Self>> =
+            stm_signatures.iter().fold(HashMap::new(), |mut acc, sig| {
+                acc.entry(sig.into()).or_default().push(sig.clone());
+                acc
+            });
+        stm_signatures
+            .into_iter()
+            .try_for_each(|(aggregate_signature_type, aggregate_signatures)| {
+                match aggregate_signature_type {
+                    AggregateSignatureType::Concatenation => {
+                        let aggregate_signatures_length = aggregate_signatures.len();
+                        let concatenation_proofs = aggregate_signatures
+                            .into_iter()
+                            .filter_map(|s| s.to_concatenation_proof().cloned())
+                            .collect::<Vec<_>>();
+                        if concatenation_proofs.len() != aggregate_signatures_length {
+                            return Err(StmAggregateSignatureError::BatchInvalid);
+                        }
 
-        let mut aggr_sigs = Vec::with_capacity(batch_size);
-        let mut aggr_vks = Vec::with_capacity(batch_size);
-        for (idx, sig_group) in stm_signatures.iter().enumerate() {
-            sig_group.preliminary_verify(&msgs[idx], &avks[idx], &parameters[idx])?;
-            let grouped_sigs: Vec<BlsSignature> =
-                sig_group.signatures.iter().map(|sig_reg| sig_reg.sig.sigma).collect();
-            let grouped_vks: Vec<BlsVerificationKey> = sig_group
-                .signatures
-                .iter()
-                .map(|sig_reg| sig_reg.reg_party.0)
-                .collect();
-
-            let (aggr_vk, aggr_sig) = BlsSignature::aggregate(&grouped_vks, &grouped_sigs).unwrap();
-            aggr_sigs.push(aggr_sig);
-            aggr_vks.push(aggr_vk);
-        }
-
-        let concat_msgs: Vec<Vec<u8>> = msgs
-            .iter()
-            .zip(avks.iter())
-            .map(|(msg, avk)| avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg))
-            .collect();
-
-        BlsSignature::batch_verify_aggregates(&concat_msgs, &aggr_vks, &aggr_sigs)?;
-        Ok(())
+                        ConcatenationProof::batch_verify(
+                            &concatenation_proofs,
+                            msgs,
+                            avks,
+                            parameters,
+                        )
+                    }
+                    #[cfg(feature = "future_proof_system")]
+                    AggregateSignatureType::Future => {
+                        Err(StmAggregateSignatureError::UnsupportedProofSystem(
+                            aggregate_signature_type,
+                        ))
+                    }
+                }
+            })
+            .map_err(|_| StmAggregateSignatureError::BatchInvalid)
     }
 
-    /// Convert multi signature to bytes
-    /// # Layout
-    /// * Aggregate signature type (u8)
-    /// * Number of the pairs of Signatures and Registered Parties (SigRegParty) (as u64)
-    /// * Pairs of Signatures and Registered Parties (prefixed with their size as u64)
-    /// * Batch proof
+    /// Convert an aggregate signature to bytes
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut out = Vec::new();
-        // This proof type is not strictly necessary, but it will help to identify
-        // the type of the proof used to aggregate when implementing multiple aggregation proof systems.
-        // We use '0' for concatenation proof.
-        let proof_type: u8 = 0;
-        out.extend_from_slice(&proof_type.to_be_bytes());
-        out.extend_from_slice(&u64::try_from(self.signatures.len()).unwrap().to_be_bytes());
-        for sig_reg in &self.signatures {
-            out.extend_from_slice(&u64::try_from(sig_reg.to_bytes().len()).unwrap().to_be_bytes());
-            out.extend_from_slice(&sig_reg.to_bytes());
-        }
-        let proof = &self.batch_proof;
-        out.extend_from_slice(&proof.to_bytes());
+        let mut aggregate_signature_bytes = Vec::new();
+        let aggregate_signature_type: AggregateSignatureType = self.into();
+        aggregate_signature_bytes
+            .extend_from_slice(&[aggregate_signature_type.get_byte_encoding_prefix()]);
 
-        out
+        let mut proof_bytes = match self {
+            AggregateSignature::Concatenation(concatenation_proof) => {
+                concatenation_proof.to_bytes()
+            }
+            #[cfg(feature = "future_proof_system")]
+            AggregateSignature::Future => vec![],
+        };
+        aggregate_signature_bytes.append(&mut proof_bytes);
+
+        aggregate_signature_bytes
     }
 
-    ///Extract a `AggregateSignature` from a byte slice.
-    pub fn from_bytes(
-        bytes: &[u8],
-    ) -> Result<AggregateSignature<D>, StmAggregateSignatureError<D>> {
-        let mut u8_bytes = [0u8; 1];
-        let mut bytes_index = 0;
-
-        u8_bytes
-            .copy_from_slice(bytes.get(..1).ok_or(StmAggregateSignatureError::SerializationError)?);
-        bytes_index += 1;
-        let proof_type = u8::from_be_bytes(u8_bytes);
-        if proof_type != 0 {
-            return Err(StmAggregateSignatureError::SerializationError);
+    /// Extract an aggregate signature from a byte slice.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, StmAggregateSignatureError<D>> {
+        let proof_type_byte =
+            bytes.first().ok_or(StmAggregateSignatureError::SerializationError)?;
+        let proof_bytes = &bytes[1..];
+        let proof_type = AggregateSignatureType::from_byte_encoding_prefix(*proof_type_byte)
+            .ok_or(StmAggregateSignatureError::SerializationError)?;
+        match proof_type {
+            AggregateSignatureType::Concatenation => Ok(AggregateSignature::Concatenation(
+                ConcatenationProof::from_bytes(proof_bytes)?,
+            )),
+            #[cfg(feature = "future_proof_system")]
+            AggregateSignatureType::Future => Ok(AggregateSignature::Future),
         }
+    }
 
-        let mut u64_bytes = [0u8; 8];
-        u64_bytes.copy_from_slice(
-            bytes
-                .get(bytes_index..bytes_index + 8)
-                .ok_or(StmAggregateSignatureError::SerializationError)?,
-        );
-        let total_sigs = usize::try_from(u64::from_be_bytes(u64_bytes))
-            .map_err(|_| StmAggregateSignatureError::SerializationError)?;
-        bytes_index += 8;
+    /// If the aggregate signature is a concatenation proof, return it.
+    pub fn to_concatenation_proof(&self) -> Option<&ConcatenationProof<D>> {
+        match self {
+            AggregateSignature::Concatenation(proof) => Some(proof),
+            #[cfg(feature = "future_proof_system")]
+            AggregateSignature::Future => None,
+        }
+    }
+}
 
-        let mut sig_reg_list = Vec::with_capacity(total_sigs);
-        for _ in 0..total_sigs {
-            u64_bytes.copy_from_slice(
-                bytes
-                    .get(bytes_index..bytes_index + 8)
-                    .ok_or(StmAggregateSignatureError::SerializationError)?,
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod aggregate_signature_type {
+        use super::*;
+
+        #[test]
+        fn golden_bytes_encoding_prefix() {
+            assert_eq!(
+                0u8,
+                AggregateSignatureType::Concatenation.get_byte_encoding_prefix()
             );
-            let sig_reg_size = usize::try_from(u64::from_be_bytes(u64_bytes))
-                .map_err(|_| StmAggregateSignatureError::SerializationError)?;
-            let sig_reg = SingleSignatureWithRegisteredParty::from_bytes::<D>(
-                bytes
-                    .get(bytes_index + 8..bytes_index + 8 + sig_reg_size)
-                    .ok_or(StmAggregateSignatureError::SerializationError)?,
-            )?;
-            bytes_index += 8 + sig_reg_size;
-            sig_reg_list.push(sig_reg);
+            assert_eq!(
+                AggregateSignatureType::from_byte_encoding_prefix(0u8),
+                Some(AggregateSignatureType::Concatenation)
+            );
         }
-
-        let batch_proof = MerkleBatchPath::from_bytes(
-            bytes
-                .get(bytes_index..)
-                .ok_or(StmAggregateSignatureError::SerializationError)?,
-        )?;
-
-        Ok(AggregateSignature {
-            signatures: sig_reg_list,
-            batch_proof,
-        })
     }
 }

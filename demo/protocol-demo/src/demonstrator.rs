@@ -1,4 +1,5 @@
 use hex::ToHex;
+use mithril_stm::AggregateSignatureType;
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -142,7 +143,12 @@ impl Party {
         message: &Vec<u8>,
         signatures: &[ProtocolSingleSignature],
     ) -> Option<&ProtocolMultiSignature> {
-        let msig = self.clerk.as_ref().unwrap().aggregate_signatures(signatures, message);
+        let aggregate_signature_type = AggregateSignatureType::Concatenation;
+        let msig = self.clerk.as_ref().unwrap().aggregate_signatures_with_type(
+            signatures,
+            message,
+            aggregate_signature_type,
+        );
         match msig {
             Ok(aggregate_signature) => {
                 println!("Party #{}: aggregate signature computed", self.party_id);

@@ -1,11 +1,12 @@
 use blake2::{Blake2b, digest::consts::U32};
-use mithril_stm::{
-    AggregateSignature, AggregateVerificationKey, AggregationError, Clerk, Initializer,
-    KeyRegistration, Parameters, Signer, SingleSignature, Stake, VerificationKey,
-};
 use rand_chacha::ChaCha20Rng;
 use rand_core::RngCore;
 use rayon::prelude::*;
+
+use mithril_stm::{
+    AggregateSignature, AggregateSignatureType, AggregateVerificationKey, AggregationError, Clerk,
+    Initializer, KeyRegistration, Parameters, Signer, SingleSignature, Stake, VerificationKey,
+};
 
 type H = Blake2b<U32>;
 
@@ -73,6 +74,7 @@ pub fn operation_phase(
 
     let clerk = Clerk::new_clerk_from_signer(&signers[0]);
     let avk = clerk.compute_aggregate_verification_key();
+    let aggr_sig_type = AggregateSignatureType::Concatenation;
 
     // Check all parties can verify every sig
     for (s, (vk, stake)) in sigs.iter().zip(reg_parties.iter()) {
@@ -82,7 +84,7 @@ pub fn operation_phase(
         );
     }
 
-    let msig = clerk.aggregate_signatures(&sigs, &msg);
+    let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type);
 
     OperationPhaseResult { msig, avk, sigs }
 }

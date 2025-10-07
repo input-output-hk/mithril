@@ -4,8 +4,8 @@ use blake2::{
     digest::consts::{U32, U64},
 };
 use mithril_stm::{
-    BasicVerifier, Clerk, Initializer, KeyRegistration, Parameters, Signer, SingleSignature,
-    SingleSignatureWithRegisteredParty, Stake, VerificationKey,
+    AggregateSignatureType, BasicVerifier, Clerk, Initializer, KeyRegistration, Parameters, Signer,
+    SingleSignature, SingleSignatureWithRegisteredParty, Stake, VerificationKey,
 };
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
@@ -51,7 +51,10 @@ where
     let clerk = Clerk::new_clerk_from_signer(&ps[0]);
 
     // Aggregate with random parties
-    let aggr = clerk.aggregate_signatures(&sigs, &msg).unwrap();
+    let aggr_sig_type = AggregateSignatureType::Concatenation;
+    let aggr = clerk
+        .aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type)
+        .unwrap();
 
     println!(
         "k = {} | m = {} | nr parties = {}; {} bytes",
