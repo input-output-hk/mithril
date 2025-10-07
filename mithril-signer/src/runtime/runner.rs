@@ -44,6 +44,7 @@ pub trait Runner: Send + Sync {
     /// Register epoch information
     async fn inform_epoch_settings(
         &self,
+        signer_epoch: Epoch,
         mithril_network_configuration: MithrilNetworkConfiguration,
         current_signer: Vec<Signer>,
         next_signer: Vec<Signer>,
@@ -257,20 +258,26 @@ impl Runner for SignerRunner {
 
     async fn inform_epoch_settings(
         &self,
+        signer_epoch: Epoch,
         mithril_network_configuration: MithrilNetworkConfiguration,
         current_signer: Vec<Signer>,
         next_signer: Vec<Signer>,
     ) -> StdResult<()> {
         debug!(
             self.logger,
-            ">> inform_epoch_settings(epoch:{})", mithril_network_configuration.epoch
+            ">> inform_epoch_settings(epoch:{})", signer_epoch
         );
 
         self.services
             .epoch_service
             .write()
             .await
-            .inform_epoch_settings(mithril_network_configuration, current_signer, next_signer)
+            .inform_epoch_settings(
+                signer_epoch,
+                mithril_network_configuration,
+                current_signer,
+                next_signer,
+            )
             .await
     }
 
@@ -651,6 +658,7 @@ mod tests {
 
         runner
             .inform_epoch_settings(
+                current_epoch,
                 mithril_network_configuration,
                 fixture.signers(),
                 fixture.signers(),
@@ -712,8 +720,14 @@ mod tests {
         services.certificate_handler = certificate_handler;
         let runner = init_runner(Some(services), None).await;
 
+        // Signers
+        let epoch = Epoch(1);
+        let signers = fake_data::signers(5);
+        let current_signers = signers[1..3].to_vec();
+        let next_signers = signers[2..5].to_vec();
+
         let mithril_network_configuration = MithrilNetworkConfiguration {
-            epoch: Epoch(1),
+            epoch,
             available_signed_entity_types: BTreeSet::from([
                 SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                 SignedEntityTypeDiscriminants::CardanoTransactions,
@@ -721,13 +735,13 @@ mod tests {
             ..MithrilNetworkConfiguration::dummy()
         };
 
-        // Signers
-        let signers = fake_data::signers(5);
-        let current_signers = signers[1..3].to_vec();
-        let next_signers = signers[2..5].to_vec();
-
         runner
-            .inform_epoch_settings(mithril_network_configuration, current_signers, next_signers)
+            .inform_epoch_settings(
+                epoch,
+                mithril_network_configuration,
+                current_signers,
+                next_signers,
+            )
             .await
             .unwrap();
 
