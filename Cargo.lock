@@ -4005,6 +4005,7 @@ dependencies = [
  "mithril-era",
  "mithril-metric",
  "mithril-persistence",
+ "mithril-protocol-config",
  "mithril-resource-pool",
  "mithril-signed-entity-lock",
  "mithril-signed-entity-preloader",
