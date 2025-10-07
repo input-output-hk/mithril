@@ -184,11 +184,12 @@ impl StateMachine {
                         })?;
                     info!(self.logger, "→ Mithril network configuration found");
 
-                    if network_configuration.epoch >= *epoch {
+                    if signer_registrations.epoch >= *epoch {
                         info!(self.logger, "New Epoch found");
                         info!(self.logger, " ⋅ Transiting to Registered");
                         *state = self
                             .transition_from_unregistered_to_one_of_registered_states(
+                                signer_registrations.epoch,
                                 network_configuration,
                                 signer_registrations.current_signers,
                                 signer_registrations.next_signers,
@@ -297,6 +298,7 @@ impl StateMachine {
     /// Launch the transition process from the `Unregistered` to `ReadyToSign` or `RegisteredNotAbleToSign` state.
     async fn transition_from_unregistered_to_one_of_registered_states(
         &self,
+        signer_epoch: Epoch,
         mithril_network_configuration: MithrilNetworkConfiguration,
         current_signer: Vec<Signer>,
         next_signer: Vec<Signer>,
@@ -315,7 +317,7 @@ impl StateMachine {
             })?;
 
         self.runner
-            .inform_epoch_settings(mithril_network_configuration, current_signer,  next_signer)
+            .inform_epoch_settings(signer_epoch, mithril_network_configuration, current_signer,  next_signer)
             .await
             .map_err(|e| RuntimeError::KeepState {
                 message: format!(
@@ -542,7 +544,7 @@ mod tests {
     async fn unregistered_epoch_settings_behind_known_epoch() {
         let mut runner = MockSignerRunner::new();
         let epoch_settings = SignerEpochSettings {
-            epoch: Epoch(999), // epoch is no longer read from get_epoch_settings anymore but from mithril network configuration
+            epoch: Epoch(3),
             registration_protocol_parameters: fake_data::protocol_parameters(),
             current_signers: vec![],
             next_signers: vec![],
@@ -558,7 +560,7 @@ mod tests {
             .once()
             .returning(|| {
                 Ok(MithrilNetworkConfiguration {
-                    epoch: Epoch(3),
+                    epoch: Epoch(999),
                     signer_registration_protocol_parameters: fake_data::protocol_parameters(),
                     available_signed_entity_types: Default::default(),
                     signed_entity_types_config: Default::default(),
@@ -600,7 +602,7 @@ mod tests {
         runner
             .expect_inform_epoch_settings()
             .once()
-            .returning(|_, _, _| Ok(()));
+            .returning(|_, _, _, _| Ok(()));
 
         runner
             .expect_get_current_time_point()
@@ -652,7 +654,7 @@ mod tests {
         runner
             .expect_inform_epoch_settings()
             .once()
-            .returning(|_, _, _| Ok(()));
+            .returning(|_, _, _, _| Ok(()));
 
         runner
             .expect_get_current_time_point()
@@ -708,7 +710,7 @@ mod tests {
         runner
             .expect_inform_epoch_settings()
             .once()
-            .returning(|_, _, _| Ok(()));
+            .returning(|_, _, _, _| Ok(()));
 
         runner
             .expect_get_current_time_point()
