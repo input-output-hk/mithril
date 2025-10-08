@@ -200,7 +200,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
 mod tests {
     use super::*;
 
-    mod aggregate_signature_type {
+    mod aggregate_signature_type_golden {
         use super::*;
 
         #[test]
@@ -213,6 +213,119 @@ mod tests {
                 AggregateSignatureType::from_byte_encoding_prefix(0u8),
                 Some(AggregateSignatureType::Concatenation)
             );
+        }
+    }
+
+    mod aggregate_signature_golden_concatenation {
+        use blake2::{Blake2b, digest::consts::U32};
+        use rand_chacha::ChaCha20Rng;
+        use rand_core::SeedableRng;
+
+        use crate::bls_multi_signature::{BlsSigningKey, BlsVerificationKeyProofOfPossession};
+        use crate::{
+            AggregateSignature, AggregateSignatureType, Clerk, ClosedKeyRegistration,
+            KeyRegistration, Parameters, Signer,
+        };
+
+        type D = Blake2b<U32>;
+
+        const GOLDEN_JSON: &str = r#"
+        {
+            "signatures": [
+                [
+                {
+                    "sigma": [
+                    149, 157, 201, 187, 140, 54, 0, 128, 209, 88, 16, 203, 61, 78, 77, 98,
+                    161, 133, 58, 152, 29, 74, 217, 113, 64, 100, 10, 161, 186, 167, 133,
+                    114, 211, 153, 218, 56, 223, 84, 105, 242, 41, 54, 224, 170, 208, 185,
+                    126, 83
+                    ],
+                    "indexes": [1, 4, 5, 8],
+                    "signer_index": 0
+                },
+                [
+                    [
+                    143, 161, 255, 48, 78, 57, 204, 220, 25, 221, 164, 252, 248, 14, 56,
+                    126, 186, 135, 228, 188, 145, 181, 52, 200, 97, 99, 213, 46, 0, 199,
+                    193, 89, 187, 88, 29, 135, 173, 244, 86, 36, 83, 54, 67, 164, 6, 137,
+                    94, 72, 6, 105, 128, 128, 93, 48, 176, 11, 4, 246, 138, 48, 180, 133,
+                    90, 142, 192, 24, 193, 111, 142, 31, 76, 111, 110, 234, 153, 90, 208,
+                    192, 31, 124, 95, 102, 49, 158, 99, 52, 220, 165, 94, 251, 68, 69,
+                    121, 16, 224, 194
+                    ],
+                    1
+                ]
+                ],
+                [
+                {
+                    "sigma": [
+                    149, 169, 22, 201, 216, 97, 163, 188, 115, 210, 217, 236, 233, 161,
+                    201, 13, 42, 132, 12, 63, 5, 31, 120, 22, 78, 177, 125, 134, 208, 205,
+                    73, 58, 247, 141, 59, 62, 187, 81, 213, 30, 153, 218, 41, 42, 110,
+                    156, 161, 205
+                    ],
+                    "indexes": [0, 3, 6],
+                    "signer_index": 1
+                },
+                [
+                    [
+                    145, 56, 175, 32, 122, 187, 214, 226, 251, 148, 88, 9, 1, 103, 159,
+                    146, 80, 166, 107, 243, 251, 236, 41, 28, 111, 128, 207, 164, 132,
+                    147, 228, 83, 246, 228, 170, 68, 89, 78, 60, 28, 123, 130, 88, 234,
+                    38, 97, 42, 65, 1, 100, 53, 18, 78, 131, 8, 61, 122, 131, 238, 84,
+                    233, 223, 154, 118, 118, 73, 28, 27, 101, 78, 80, 233, 123, 206, 220,
+                    174, 134, 205, 71, 110, 112, 180, 97, 98, 0, 113, 69, 145, 231, 168,
+                    43, 173, 172, 56, 104, 208
+                    ],
+                    1
+                ]
+                ]
+            ],
+            "batch_proof": { "values": [], "indices": [0, 1], "hasher": null }
+        }
+        "#;
+
+        fn golden_value() -> AggregateSignature<D> {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let msg = [0u8; 16];
+            let params = Parameters {
+                m: 10,
+                k: 5,
+                phi_f: 0.8,
+            };
+            let sk_1 = BlsSigningKey::generate(&mut rng);
+            let sk_2 = BlsSigningKey::generate(&mut rng);
+            let pk_1 = BlsVerificationKeyProofOfPossession::from(&sk_1);
+            let pk_2 = BlsVerificationKeyProofOfPossession::from(&sk_2);
+            let mut key_reg = KeyRegistration::init();
+            key_reg.register(1, pk_1).unwrap();
+            key_reg.register(1, pk_2).unwrap();
+            let closed_key_reg: ClosedKeyRegistration<D> = key_reg.close();
+            let clerk = Clerk::new_clerk_from_closed_key_registration(&params, &closed_key_reg);
+            let signer_1 = Signer::set_signer(0, 1, params, sk_1, pk_1.vk, closed_key_reg.clone());
+            let signer_2 = Signer::set_signer(1, 1, params, sk_2, pk_2.vk, closed_key_reg);
+            let signature_1 = signer_1.sign(&msg).unwrap();
+            let signature_2 = signer_2.sign(&msg).unwrap();
+
+            clerk
+                .aggregate_signatures_with_type(
+                    &[signature_1, signature_2],
+                    &msg,
+                    AggregateSignatureType::Concatenation,
+                )
+                .unwrap()
+        }
+
+        #[test]
+        fn golden_conversions() {
+            let value: AggregateSignature<D> = serde_json::from_str(GOLDEN_JSON)
+                .expect("This JSON deserialization should not fail");
+
+            let serialized =
+                serde_json::to_string(&value).expect("This JSON serialization should not fail");
+            let golden_serialized = serde_json::to_string(&golden_value())
+                .expect("This JSON serialization should not fail");
+            assert_eq!(golden_serialized, serialized);
         }
     }
 }

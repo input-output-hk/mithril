@@ -47,3 +47,36 @@ impl BlsSigningKey {
         self.0.clone()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod golden {
+
+        use rand_chacha::ChaCha20Rng;
+        use rand_core::SeedableRng;
+
+        use super::*;
+
+        const GOLDEN_JSON: &str = r#"[64, 129, 87, 121, 27, 239, 221, 215, 2, 103, 45, 207, 207, 201, 157, 163, 81, 47, 156, 14, 168, 24, 137, 15, 203, 106, 183, 73, 88, 14, 242, 207]"#;
+
+        fn golden_value() -> BlsSigningKey {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            BlsSigningKey::generate(&mut rng)
+        }
+
+        #[test]
+        fn golden_conversions() {
+            let value = serde_json::from_str(GOLDEN_JSON)
+                .expect("This JSON deserialization should not fail");
+            assert_eq!(golden_value(), value);
+
+            let serialized =
+                serde_json::to_string(&value).expect("This JSON serialization should not fail");
+            let golden_serialized = serde_json::to_string(&golden_value())
+                .expect("This JSON serialization should not fail");
+            assert_eq!(golden_serialized, serialized);
+        }
+    }
+}
