@@ -3,7 +3,7 @@ use anyhow::anyhow;
 use mithril_metric::{MetricCollector, MetricsServiceExporter};
 use mithril_protocol_config::{
     model::SignedEntityTypeConfiguration,
-    test::double::mithril_network_configuration_provider::FakeMithrilNetworkConfigurationProvider,
+    test::double::configuration_provider::FakeMithrilNetworkConfigurationProvider,
 };
 use prometheus_parse::Value;
 use slog::Drain;
