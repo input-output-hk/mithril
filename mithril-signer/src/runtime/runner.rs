@@ -377,7 +377,7 @@ mod tests {
         },
     };
     use mithril_era::{EraChecker, EraReader, adapters::EraReaderBootstrapAdapter};
-    use mithril_protocol_config::test::double::mithril_network_configuration_provider::FakeMithrilNetworkConfigurationProvider;
+    use mithril_protocol_config::test::double::configuration_provider::FakeMithrilNetworkConfigurationProvider;
     use mithril_signed_entity_lock::SignedEntityTypeLock;
     use mithril_signed_entity_preloader::{
         CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
