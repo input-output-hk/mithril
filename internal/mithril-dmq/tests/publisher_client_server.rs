@@ -11,7 +11,10 @@ use mithril_common::{
 use mithril_dmq::{
     DmqMessage, DmqMessageBuilder, DmqPublisherClient, DmqPublisherClientPallas,
     DmqPublisherServer, DmqPublisherServerPallas,
-    test::{fake_message::compute_fake_msg, payload::DmqMessageTestPayload},
+    test::{
+        double::FakeUnixTimestampProvider, fake_message::compute_fake_msg,
+        payload::DmqMessageTestPayload,
+    },
 };
 
 #[tokio::test]
@@ -59,7 +62,10 @@ async fn dmq_publisher_client_server() {
                 },
                 Arc::new(FakeChainObserver::default()),
             )
-            .set_ttl(100);
+            .set_ttl(100)
+            .set_timestamp_provider(Arc::new(
+                FakeUnixTimestampProvider::max_timestamp_for_ttl(100),
+            ));
             let publisher_client = DmqPublisherClientPallas::<DmqMessageTestPayload>::new(
                 socket_path,
                 cardano_network,
@@ -101,7 +107,10 @@ async fn dmq_publisher_client_server() {
                 },
                 Arc::new(FakeChainObserver::default()),
             )
-            .set_ttl(100);
+            .set_ttl(100)
+            .set_timestamp_provider(Arc::new(
+                FakeUnixTimestampProvider::max_timestamp_for_ttl(100),
+            ));
             let publisher_client = DmqPublisherClientPallas::<DmqMessageTestPayload>::new(
                 socket_path,
                 cardano_network,
