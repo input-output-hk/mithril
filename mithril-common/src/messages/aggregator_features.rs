@@ -26,6 +26,7 @@ pub struct AggregatorCapabilities {
     pub signed_entity_types: BTreeSet<SignedEntityTypeDiscriminants>,
 
     /// Aggregate signature type used by the aggregator
+    #[serde(default)]
     pub aggregate_signature_type: AggregateSignatureType,
 
     /// Cardano transactions prover capabilities
