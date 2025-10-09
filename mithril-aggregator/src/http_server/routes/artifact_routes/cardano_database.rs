@@ -6,6 +6,7 @@ pub fn routes(
     router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     artifact_cardano_database_list(router_state)
+        .or(artifact_cardano_database_list_by_epoch(router_state))
         .or(artifact_cardano_database_digest_list(router_state))
         .or(artifact_cardano_database_by_id(router_state))
         .or(serve_cardano_database_dir(router_state))
@@ -20,6 +21,18 @@ fn artifact_cardano_database_list(
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_http_message_service(router_state))
         .and_then(handlers::list_artifacts)
+}
+
+/// GET /artifact/cardano-database/epoch/:epoch{-offset}
+fn artifact_cardano_database_list_by_epoch(
+    dependency_manager: &RouterState,
+) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
+    warp::path!("artifact" / "cardano-database" / "epoch" / String)
+        .and(warp::get())
+        .and(middlewares::with_logger(dependency_manager))
+        .and(middlewares::with_epoch_service(dependency_manager))
+        .and(middlewares::with_http_message_service(dependency_manager))
+        .and_then(handlers::list_artifacts_by_epoch)
 }
 
 /// GET /artifact/cardano-database/:id
@@ -66,10 +79,11 @@ mod handlers {
     use std::sync::Arc;
     use warp::http::StatusCode;
 
-    use crate::MetricsService;
-    use crate::http_server::routes::middlewares::ClientMetadata;
+    use crate::dependency_injection::EpochServiceWrapper;
+    use crate::http_server::routes::middlewares::{ClientMetadata, parameters};
     use crate::http_server::routes::reply;
     use crate::services::MessageService;
+    use crate::{MetricsService, unwrap_to_internal_server_error};
 
     pub const LIST_MAX_ITEMS: usize = 20;
 
@@ -85,6 +99,41 @@ mod handlers {
             Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
             Err(err) => {
                 warn!(logger,"list_artifacts_cardano_database"; "error" => ?err);
+                Ok(reply::server_error(err))
+            }
+        }
+    }
+
+    /// List artifacts for an epoch
+    pub async fn list_artifacts_by_epoch(
+        epoch: String,
+        logger: Logger,
+        epoch_service: EpochServiceWrapper,
+        http_message_service: Arc<dyn MessageService>,
+    ) -> Result<impl warp::Reply, Infallible> {
+        let actual_epoch = unwrap_to_internal_server_error!(epoch_service.read().await.epoch_of_current_data(),
+            logger => "list_by_epoch_artifacts_cardano_database"
+        );
+        let expanded_epoch = match parameters::expand_epoch(&epoch, || async { Ok(actual_epoch) })
+            .await
+        {
+            Ok(epoch) => epoch,
+            Err(err) => {
+                warn!(logger,"list_by_epoch_artifacts_cardano_database::invalid_epoch"; "error" => ?err);
+                return Ok(reply::bad_request(
+                    "invalid_epoch".to_string(),
+                    err.to_string(),
+                ));
+            }
+        };
+
+        match http_message_service
+            .get_cardano_database_list_message_by_epoch(LIST_MAX_ITEMS, expanded_epoch)
+            .await
+        {
+            Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
+            Err(err) => {
+                warn!(logger,"list_by_epoch_artifacts_cardano_database"; "error" => ?err);
                 Ok(reply::server_error(err))
             }
         }
@@ -170,14 +219,17 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
+    use mockall::predicate::{always, eq};
     use serde_json::Value::Null;
     use std::sync::Arc;
+    use tokio::sync::RwLock;
     use warp::{
         http::{Method, StatusCode},
         test::request,
     };
 
     use mithril_api_spec::APISpec;
+    use mithril_common::entities::Epoch;
     use mithril_common::messages::{
         CardanoDatabaseDigestListItemMessage, CardanoDatabaseSnapshotListItemMessage,
         CardanoDatabaseSnapshotMessage,
@@ -186,7 +238,10 @@ mod tests {
     use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
     use mithril_persistence::sqlite::HydrationError;
 
-    use crate::{initialize_dependencies, services::MockMessageService};
+    use crate::{
+        initialize_dependencies,
+        services::{FakeEpochServiceBuilder, MockMessageService},
+    };
 
     use super::*;
 
@@ -261,6 +316,77 @@ mod tests {
             APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
             method,
             path,
+            "application/json",
+            &Null,
+            &response,
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_cardano_database_get_by_epoch_ok() {
+        let epoch_service = FakeEpochServiceBuilder::dummy(Epoch(100)).build();
+        let mut mock_http_message_service = MockMessageService::new();
+        mock_http_message_service
+            .expect_get_cardano_database_list_message_by_epoch()
+            .with(always(), eq(&Epoch(85)))
+            .return_once(|_, _| Ok(vec![CardanoDatabaseSnapshotListItemMessage::dummy()]))
+            .once();
+
+        let mut dependency_manager = initialize_dependencies!().await;
+        dependency_manager.epoch_service = Arc::new(RwLock::new(epoch_service));
+        dependency_manager.message_service = Arc::new(mock_http_message_service);
+
+        let method = Method::GET.as_str();
+        let base_path = "/artifact/cardano-database/epoch";
+
+        let response = request()
+            .method(method)
+            .path(&format!("{base_path}/latest-15"))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
+            method,
+            &format!("{base_path}/{{epoch}}"),
+            "application/json",
+            &Null,
+            &response,
+            &StatusCode::OK,
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_cardano_database_get_by_epoch_ko() {
+        let mut mock_http_message_service = MockMessageService::new();
+        mock_http_message_service
+            .expect_get_cardano_database_list_message_by_epoch()
+            .return_once(|_, _| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
+            .once();
+
+        let mut dependency_manager = initialize_dependencies!().await;
+        dependency_manager.message_service = Arc::new(mock_http_message_service);
+
+        let method = Method::GET.as_str();
+        let base_path = "/artifact/cardano-database/epoch";
+
+        let response = request()
+            .method(method)
+            .path(&format!("{base_path}/120"))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
+            method,
+            &format!("{base_path}/{{epoch}}"),
             "application/json",
             &Null,
             &response,
