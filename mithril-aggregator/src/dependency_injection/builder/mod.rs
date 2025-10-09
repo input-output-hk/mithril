@@ -449,6 +449,7 @@ impl DependenciesBuilder {
                     .configuration
                     .cardano_transactions_prover_max_hashes_allowed_by_request(),
                 cardano_db_artifacts_directory: self.get_cardano_db_artifacts_dir()?,
+                max_artifact_epoch_offset: 5,
                 snapshot_directory: snapshot_dir.join(SNAPSHOT_ARTIFACTS_DIR),
                 cardano_node_version: self.configuration.cardano_node_version(),
                 allow_http_serve_directory: self.configuration.allow_http_serve_directory(),

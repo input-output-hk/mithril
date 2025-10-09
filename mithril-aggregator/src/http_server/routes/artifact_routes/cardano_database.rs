@@ -25,13 +25,16 @@ fn artifact_cardano_database_list(
 
 /// GET /artifact/cardano-database/epoch/:epoch{-offset}
 fn artifact_cardano_database_list_by_epoch(
-    dependency_manager: &RouterState,
+    router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
     warp::path!("artifact" / "cardano-database" / "epoch" / String)
         .and(warp::get())
-        .and(middlewares::with_logger(dependency_manager))
-        .and(middlewares::with_epoch_service(dependency_manager))
-        .and(middlewares::with_http_message_service(dependency_manager))
+        .and(middlewares::with_logger(router_state))
+        .and(middlewares::with_epoch_service(router_state))
+        .and(middlewares::with_http_message_service(router_state))
+        .and(middlewares::extract_config(router_state, |config| {
+            config.max_artifact_epoch_offset
+        }))
         .and_then(handlers::list_artifacts_by_epoch)
 }
 
@@ -110,9 +113,9 @@ mod handlers {
         logger: Logger,
         epoch_service: EpochServiceWrapper,
         http_message_service: Arc<dyn MessageService>,
+        max_artifact_epoch_offset: u32,
     ) -> Result<impl warp::Reply, Infallible> {
-        let (expanded_epoch, _offset) = match parameters::expand_epoch(&epoch, epoch_service).await
-        {
+        let (expanded_epoch, offset) = match parameters::expand_epoch(&epoch, epoch_service).await {
             Ok(epoch) => epoch,
             Err(err) => {
                 warn!(logger,"list_by_epoch_artifacts_cardano_database::invalid_epoch"; "error" => ?err);
@@ -122,6 +125,15 @@ mod handlers {
                 ));
             }
         };
+
+        if offset.is_some_and(|o| o > max_artifact_epoch_offset as u64) {
+            return Ok(reply::bad_request(
+                "invalid_epoch".to_string(),
+                format!(
+                    "offset greater than max configured: epoch:`{epoch}`, max offset:`{max_artifact_epoch_offset}`"
+                ),
+            ));
+        }
 
         match http_message_service
             .get_cardano_database_list_message_by_epoch(LIST_MAX_ITEMS, expanded_epoch)
@@ -235,6 +247,7 @@ mod tests {
     use mithril_persistence::sqlite::HydrationError;
 
     use crate::{
+        http_server::routes::router::RouterConfig,
         initialize_dependencies,
         services::{FakeEpochServiceBuilder, MockMessageService},
     };
@@ -355,6 +368,47 @@ mod tests {
             &StatusCode::OK,
         )
         .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_cardano_database_get_by_epoch_reject_query_with_offset_greater_than_max_configured()
+     {
+        let epoch_service = FakeEpochServiceBuilder::dummy(Epoch(100)).build();
+        let mut mock_http_message_service = MockMessageService::new();
+        mock_http_message_service
+            .expect_get_cardano_database_list_message_by_epoch()
+            .returning(|_, _| Ok(vec![CardanoDatabaseSnapshotListItemMessage::dummy()]));
+
+        let mut dependency_manager = initialize_dependencies!().await;
+        dependency_manager.epoch_service = Arc::new(RwLock::new(epoch_service));
+        dependency_manager.message_service = Arc::new(mock_http_message_service);
+
+        let router = setup_router(RouterState::new(
+            Arc::new(dependency_manager),
+            RouterConfig {
+                max_artifact_epoch_offset: 10,
+                ..RouterConfig::dummy()
+            },
+        ));
+
+        let method = Method::GET.as_str();
+        let base_path = "/artifact/cardano-database/epoch";
+
+        let response = request()
+            .method(method)
+            .path(&format!("{base_path}/latest-10"))
+            .reply(&router)
+            .await;
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let response = request()
+            .method(method)
+            .path(&format!("{base_path}/latest-11"))
+            .reply(&router)
+            .await;
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 
     #[tokio::test]
