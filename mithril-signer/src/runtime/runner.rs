@@ -541,7 +541,7 @@ mod tests {
         let kes_signer = None;
 
         let network_configuration_service = Arc::new(FakeMithrilNetworkConfigurationProvider::new(
-            Default::default(),
+            ProtocolParameters::new(1000, 100, 0.1234),
             Default::default(),
             Default::default(),
             ticker_service.clone(),
