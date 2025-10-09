@@ -1,7 +1,7 @@
 [package]
 name = "mithril-protocol-config"
 version = "0.1.0"
-description = "Configuraton parameters of the mithril network"
+description = "Configuraton parameters for Mithril network"
 authors = { workspace = true }
 edition = { workspace = true }
 homepage = { workspace = true }
@@ -34,7 +34,6 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal"] }
 
 [dev-dependencies]
-#criterion = { version = "0.7.0", features = ["html_reports", "async_tokio"] }
 http = "1.3.1"
 httpmock = "0.7.0"
 mockall = { workspace = true }

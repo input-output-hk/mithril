@@ -1,3 +1,4 @@
+//! provides test doubles for MithrilNetworkConfigurationProvider
 use std::{
     collections::{BTreeSet, HashMap},
     sync::Arc,
@@ -18,10 +19,13 @@ use mithril_ticker::{MithrilTickerService, TickerService};
 
 /// A fake [MithrilNetworkConfigurationProvider] that return [MithrilNetworkConfiguration]
 pub struct FakeMithrilNetworkConfigurationProvider {
+    /// The protocol parameters for the signer registration
     pub signer_registration_protocol_parameters: ProtocolParameters,
 
+    /// The available signed entity types
     pub available_signed_entity_types: RwLock<BTreeSet<SignedEntityTypeDiscriminants>>,
 
+    /// The configuration for each signed entity type
     pub signed_entity_types_config:
         HashMap<SignedEntityTypeDiscriminants, SignedEntityTypeConfiguration>,
 
@@ -29,6 +33,7 @@ pub struct FakeMithrilNetworkConfigurationProvider {
 }
 
 impl FakeMithrilNetworkConfigurationProvider {
+    /// FakeMithrilNetworkConfigurationProvider factory
     pub fn new(
         signer_registration_protocol_parameters: ProtocolParameters,
         available_signed_entity_types: BTreeSet<SignedEntityTypeDiscriminants>,
@@ -46,6 +51,7 @@ impl FakeMithrilNetworkConfigurationProvider {
         }
     }
 
+    /// Change the allowed signed entity discriminants (signed entity types) returned by the provider
     pub async fn change_allowed_discriminants(
         &self,
         discriminants: &BTreeSet<SignedEntityTypeDiscriminants>,
@@ -137,7 +143,10 @@ mod tests {
             ticker_service().await,
         );
 
-        let actual_config = mithril_network_configuration_provider.get_network_configuration().await.unwrap();
+        let actual_config = mithril_network_configuration_provider
+            .get_network_configuration()
+            .await
+            .unwrap();
 
         assert_eq!(actual_config.epoch, Epoch(1));
         assert_eq!(

@@ -1,3 +1,5 @@
+//! HTTP implementation of MithrilNetworkConfigurationProvider.
+
 use anyhow::anyhow;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
@@ -12,11 +14,13 @@ use async_trait::async_trait;
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::{StdResult, entities::SignedEntityTypeDiscriminants};
 
+/// Structure implementing MithrilNetworkConfigurationProvider using HTTP.
 pub struct HttpMithrilNetworkConfigurationProvider {
     aggregator_client: AggregatorHTTPClient,
 }
 
 impl HttpMithrilNetworkConfigurationProvider {
+    /// HttpMithrilNetworkConfigurationProvider factory
     pub fn new(
         aggregator_endpoint: String,
         relay_endpoint: Option<String>,
