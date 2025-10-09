@@ -2,8 +2,9 @@ use anyhow::anyhow;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use crate::{
-    HTTP_REQUEST_TIMEOUT_DURATION,
-    http_client::aggregator_client::{AggregatorClient, AggregatorHTTPClient},
+    http_client::aggregator_client::{
+        AggregatorClient, AggregatorHTTPClient, HTTP_REQUEST_TIMEOUT_DURATION,
+    },
     interface::MithrilNetworkConfigurationProvider,
     model::{MithrilNetworkConfiguration, SignedEntityTypeConfiguration},
 };
