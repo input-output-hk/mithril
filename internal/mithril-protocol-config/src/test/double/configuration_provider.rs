@@ -9,11 +9,10 @@ use crate::{
     interface::MithrilNetworkConfigurationProvider,
     model::{MithrilNetworkConfiguration, SignedEntityTypeConfiguration},
 };
-use anyhow::Error;
 use async_trait::async_trait;
 use mithril_common::{
     StdResult,
-    entities::{ProtocolParameters, SignedEntityTypeDiscriminants, TimePoint},
+    entities::{ProtocolParameters, SignedEntityTypeDiscriminants},
 };
 use mithril_ticker::{MithrilTickerService, TickerService};
 
@@ -47,12 +46,6 @@ impl FakeMithrilNetworkConfigurationProvider {
         }
     }
 
-    async fn get_time_point(&self) -> Result<TimePoint, Error> {
-        let time_point = self.ticker_service.get_current_time_point().await?;
-
-        Ok(time_point)
-    }
-
     pub async fn change_allowed_discriminants(
         &self,
         discriminants: &BTreeSet<SignedEntityTypeDiscriminants>,
@@ -66,7 +59,7 @@ impl FakeMithrilNetworkConfigurationProvider {
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 impl MithrilNetworkConfigurationProvider for FakeMithrilNetworkConfigurationProvider {
     async fn get_network_configuration(&self) -> StdResult<MithrilNetworkConfiguration> {
-        let time_point = self.get_time_point().await?;
+        let time_point = self.ticker_service.get_current_time_point().await?;
         let available_signed_entity_types = self.available_signed_entity_types.read().await;
 
         Ok(MithrilNetworkConfiguration {
