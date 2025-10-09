@@ -54,10 +54,6 @@ pub enum AggregatorClientError {
     /// Proxy creation error
     #[error("proxy creation failed")]
     ProxyCreation(#[source] StdError),
-
-    /// No signer registration round opened yet
-    #[error("a signer registration round is not opened yet, please try again later")]
-    RegistrationRoundNotYetOpened(#[source] StdError),
 }
 
 impl AggregatorClientError {
@@ -74,10 +70,7 @@ impl AggregatorClientError {
             Self::RemoteServerLogical(anyhow!(root_cause))
         } else if error_code.is_server_error() {
             let root_cause = Self::get_root_cause(response).await;
-            match error_code.as_u16() {
-                550 => Self::RegistrationRoundNotYetOpened(anyhow!(root_cause)),
-                _ => Self::RemoteServerTechnical(anyhow!(root_cause)),
-            }
+            Self::RemoteServerTechnical(anyhow!(root_cause))
         } else {
             let response_text = response.text().await.unwrap_or_default();
             Self::UnhandledStatusCode(error_code, response_text)
@@ -496,20 +489,6 @@ mod tests {
                 AggregatorClientError::RemoteServerTechnical(..)
             ),
             "Expected error to be RemoteServerLogical\ngot '{handled_error:?}'",
-        );
-    }
-
-    #[tokio::test]
-    async fn test_550_error_is_handled_as_registration_round_not_yet_opened() {
-        let response = build_text_response(StatusCode::from_u16(550).unwrap(), "Not yet available");
-        let handled_error = AggregatorClientError::from_response(response).await;
-
-        assert!(
-            matches!(
-                handled_error,
-                AggregatorClientError::RegistrationRoundNotYetOpened(..)
-            ),
-            "Expected error to be RegistrationRoundNotYetOpened\ngot '{handled_error:?}'",
         );
     }
 
