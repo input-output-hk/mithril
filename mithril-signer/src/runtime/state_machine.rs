@@ -166,7 +166,7 @@ impl StateMachine {
                     *state = self.transition_from_unregistered_to_unregistered(new_epoch).await?;
                 } else if let Some(signer_registrations) = self
                     .runner
-                    .get_epoch_settings()
+                    .get_signer_registrations_from_aggregator()
                     .await
                     .map_err(|e| RuntimeError::KeepState {
                         message: format!("could not retrieve epoch settings at epoch {epoch:?}"),
@@ -516,7 +516,10 @@ mod tests {
     #[tokio::test]
     async fn unregistered_epoch_settings_not_found() {
         let mut runner = MockSignerRunner::new();
-        runner.expect_get_epoch_settings().once().returning(|| Ok(None));
+        runner
+            .expect_get_signer_registrations_from_aggregator()
+            .once()
+            .returning(|| Ok(None));
         runner
             .expect_get_current_time_point()
             .once()
@@ -552,7 +555,7 @@ mod tests {
         };
         let known_epoch = Epoch(4);
         runner
-            .expect_get_epoch_settings()
+            .expect_get_signer_registrations_from_aggregator()
             .once()
             .returning(move || Ok(Some(epoch_settings.to_owned())));
         runner
@@ -590,7 +593,7 @@ mod tests {
         let mut runner = MockSignerRunner::new();
         runner.expect_upkeep().returning(|_| Ok(())).once();
         runner
-            .expect_get_epoch_settings()
+            .expect_get_signer_registrations_from_aggregator()
             .once()
             .returning(|| Ok(Some(SignerEpochSettings::dummy())));
 
@@ -642,7 +645,7 @@ mod tests {
         let mut runner = MockSignerRunner::new();
         runner.expect_upkeep().returning(|_| Ok(())).once();
         runner
-            .expect_get_epoch_settings()
+            .expect_get_signer_registrations_from_aggregator()
             .once()
             .returning(|| Ok(Some(SignerEpochSettings::dummy())));
 
@@ -698,7 +701,7 @@ mod tests {
         let mut runner = MockSignerRunner::new();
 
         runner
-            .expect_get_epoch_settings()
+            .expect_get_signer_registrations_from_aggregator()
             .once()
             .returning(|| Ok(Some(SignerEpochSettings::dummy())));
 
