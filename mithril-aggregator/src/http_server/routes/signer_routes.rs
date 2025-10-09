@@ -178,20 +178,17 @@ mod handlers {
         epoch_service: EpochServiceWrapper,
         verification_key_store: Arc<dyn VerificationKeyStorer>,
     ) -> Result<impl warp::Reply, Infallible> {
-        let registered_at_epoch = match parameters::expand_epoch(&registered_at, || async {
-            epoch_service.read().await.epoch_of_current_data()
-        })
-        .await
-        {
-            Ok(epoch) => epoch,
-            Err(err) => {
-                warn!(logger,"registered_signers::invalid_epoch"; "error" => ?err);
-                return Ok(reply::bad_request(
-                    "invalid_epoch".to_string(),
-                    err.to_string(),
-                ));
-            }
-        };
+        let (registered_at_epoch, _offset) =
+            match parameters::expand_epoch(&registered_at, epoch_service).await {
+                Ok(epoch) => epoch,
+                Err(err) => {
+                    warn!(logger,"registered_signers::invalid_epoch"; "error" => ?err);
+                    return Ok(reply::bad_request(
+                        "invalid_epoch".to_string(),
+                        err.to_string(),
+                    ));
+                }
+            };
 
         // The given epoch is the epoch at which the signer registered, the store works on
         // the recording epoch so we need to offset.

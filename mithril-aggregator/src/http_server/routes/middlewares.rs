@@ -217,27 +217,34 @@ pub mod parameters {
 
     /// Parse the string into an [Epoch] if it's a number, or if it's 'latest{-{offset}}' expand
     /// into the actual epoch minus the optional given offset.
-    pub async fn expand_epoch<F, Fut>(epoch_str: &str, actual_epoch_getter: F) -> StdResult<Epoch>
-    where
-        F: FnOnce() -> Fut,
-        Fut: Future<Output = StdResult<Epoch>>,
-    {
+    ///
+    /// Return the expanded epoch and the eventual offset that was applied
+    pub async fn expand_epoch(
+        epoch_str: &str,
+        epoch_service: EpochServiceWrapper,
+    ) -> StdResult<(Epoch, Option<u64>)> {
         let epoch_str = epoch_str.to_lowercase();
         if epoch_str == "latest" {
-            actual_epoch_getter().await
+            epoch_service
+                .read()
+                .await
+                .epoch_of_current_data()
+                .map(|epoch| (epoch, None))
         } else if epoch_str.starts_with("latest-") {
             let (_, offset_str) = epoch_str.split_at(7);
             let offset = offset_str
                 .parse::<u64>()
                 .with_context(|| "Invalid epoch offset: must be a number")?;
 
-            actual_epoch_getter()
+            epoch_service
+                .read()
                 .await
-                .map(|epoch| Epoch(epoch.saturating_sub(offset)))
+                .epoch_of_current_data()
+                .map(|epoch| (Epoch(epoch.saturating_sub(offset)), Some(offset)))
         } else {
             epoch_str
                 .parse::<u64>()
-                .map(Epoch)
+                .map(|epoch| (Epoch(epoch), None))
                 .with_context(|| "Invalid epoch: must be a number or 'latest'")
         }
     }
@@ -398,41 +405,49 @@ mod tests {
     }
 
     mod expand_epoch {
+        use tokio::sync::RwLock;
+
+        use crate::services::FakeEpochServiceBuilder;
+
         use super::*;
+
+        fn fake_epoch_service(returned_epoch: Epoch) -> EpochServiceWrapper {
+            Arc::new(RwLock::new(
+                FakeEpochServiceBuilder::dummy(returned_epoch).build(),
+            ))
+        }
 
         #[tokio::test]
         async fn use_given_epoch_if_valid_number() {
-            let epoch = parameters::expand_epoch("456", || async { Ok(Epoch(300)) })
-                .await
-                .unwrap();
+            let epoch_service = fake_epoch_service(Epoch(300));
+            let expanded_epoch = parameters::expand_epoch("456", epoch_service).await.unwrap();
 
-            assert_eq!(epoch, Epoch(456));
+            assert_eq!(expanded_epoch, (Epoch(456), None));
         }
 
         #[tokio::test]
         async fn use_epoch_service_current_epoch_if_latest() {
-            let epoch = parameters::expand_epoch("latest", || async { Ok(Epoch(89)) })
-                .await
-                .unwrap();
+            let epoch_service = fake_epoch_service(Epoch(89));
+            let expanded_epoch = parameters::expand_epoch("latest", epoch_service).await.unwrap();
 
-            assert_eq!(epoch, Epoch(89));
+            assert_eq!(expanded_epoch, (Epoch(89), None));
         }
 
         #[tokio::test]
         async fn use_offset_epoch_service_current_epoch_if_latest_minus_a_number() {
-            let epoch = parameters::expand_epoch("latest-13", || async { Ok(Epoch(89)) })
+            let epoch_service = fake_epoch_service(Epoch(89));
+            let expanded_epoch = parameters::expand_epoch("latest-13", epoch_service.clone())
                 .await
                 .unwrap();
-            assert_eq!(epoch, Epoch(76));
+            assert_eq!(expanded_epoch, (Epoch(76), Some(13)));
 
-            let epoch = parameters::expand_epoch("latest-0", || async { Ok(Epoch(89)) })
-                .await
-                .unwrap();
-            assert_eq!(epoch, Epoch(89));
+            let expanded_epoch = parameters::expand_epoch("latest-0", epoch_service).await.unwrap();
+            assert_eq!(expanded_epoch, (Epoch(89), Some(0)));
         }
 
         #[tokio::test]
         async fn error_if_given_epoch_is_not_a_number_nor_latest_nor_latest_minus_a_number() {
+            let epoch_service = fake_epoch_service(Epoch(78));
             for invalid_epoch in [
                 "invalid",
                 "latest-",
@@ -441,7 +456,7 @@ mod tests {
                 "latest+293",
                 "latest-invalid",
             ] {
-                parameters::expand_epoch(invalid_epoch, || async { Ok(Epoch(78)) })
+                parameters::expand_epoch(invalid_epoch, epoch_service.clone())
                     .await
                     .expect_err(
                         "Should fail if epoch is not a number nor 'latest' nor 'latest-{offset}'",
@@ -451,13 +466,13 @@ mod tests {
 
         #[tokio::test]
         async fn dont_overflow_if_epoch_minus_offset_is_negative() {
-            let epoch = parameters::expand_epoch(&format!("latest-{}", u64::MAX), || async {
-                Ok(Epoch(89))
-            })
-            .await
-            .unwrap();
+            let epoch_service = fake_epoch_service(Epoch(89));
+            let expanded_epoch =
+                parameters::expand_epoch(&format!("latest-{}", u64::MAX), epoch_service)
+                    .await
+                    .unwrap();
 
-            assert_eq!(epoch, Epoch(0));
+            assert_eq!(expanded_epoch, (Epoch(0), Some(u64::MAX)));
         }
     }
 }
