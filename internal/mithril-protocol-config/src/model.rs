@@ -52,20 +52,12 @@ impl MithrilNetworkConfiguration {
 mod tests {
     use std::collections::HashMap;
 
-    use mithril_common::entities::{
-        BlockNumber, CardanoTransactionsSigningConfig, SignedEntityTypeDiscriminants,
+    use mithril_common::{
+        entities::{BlockNumber, CardanoTransactionsSigningConfig, SignedEntityTypeDiscriminants},
+        test::double::Dummy,
     };
 
     use crate::model::{MithrilNetworkConfiguration, SignedEntityTypeConfiguration};
-
-    fn default() -> MithrilNetworkConfiguration {
-        MithrilNetworkConfiguration {
-            epoch: Default::default(),
-            signer_registration_protocol_parameters: Default::default(),
-            available_signed_entity_types: Default::default(),
-            signed_entity_types_config: Default::default(),
-        }
-    }
 
     #[test]
     fn test_get_cardano_transactions_signing_config_should_return_config_if_cardano_transactions_exist()
@@ -80,7 +72,7 @@ mod tests {
                     },
                 ),
             )]),
-            ..default()
+            ..Dummy::dummy()
         };
 
         let result = config.get_cardano_transactions_signing_config();
@@ -95,7 +87,7 @@ mod tests {
      {
         let config = MithrilNetworkConfiguration {
             signed_entity_types_config: HashMap::new(),
-            ..default()
+            ..Dummy::dummy()
         };
 
         let result = config.get_cardano_transactions_signing_config();
