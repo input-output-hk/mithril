@@ -7,5 +7,5 @@ use crate::model::MithrilNetworkConfiguration;
 #[async_trait]
 pub trait MithrilNetworkConfigurationProvider: Sync + Send {
     /// Get the Mithril network configuration for the current epoch.
-    async fn get(&self) -> StdResult<MithrilNetworkConfiguration>;
+    async fn get_network_configuration(&self) -> StdResult<MithrilNetworkConfiguration>;
 }
