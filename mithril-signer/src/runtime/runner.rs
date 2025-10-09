@@ -356,9 +356,11 @@ impl Runner for SignerRunner {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::entities::{CardanoTransactionsSigningConfig, ProtocolParameters};
+    use mithril_protocol_config::model::SignedEntityTypeConfiguration;
     use mockall::mock;
     use mockall::predicate::eq;
-    use std::collections::BTreeSet;
+    use std::collections::{BTreeSet, HashMap};
     use std::{path::Path, sync::Arc};
     use tokio::sync::RwLock;
 
@@ -542,8 +544,13 @@ mod tests {
 
         let network_configuration_service = Arc::new(FakeMithrilNetworkConfigurationProvider::new(
             ProtocolParameters::new(1000, 100, 0.1234),
-            Default::default(),
-            Default::default(),
+            SignedEntityTypeDiscriminants::all(),
+            HashMap::from([(
+                SignedEntityTypeDiscriminants::CardanoTransactions,
+                SignedEntityTypeConfiguration::CardanoTransactions(
+                    CardanoTransactionsSigningConfig::dummy(),
+                ),
+            )]),
             ticker_service.clone(),
         ));
 
