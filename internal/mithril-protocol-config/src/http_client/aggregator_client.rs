@@ -15,6 +15,9 @@ use mithril_common::{
     messages::{AggregatorFeaturesMessage, EpochSettingsMessage},
 };
 
+/// HTTP request timeout duration in milliseconds
+pub const HTTP_REQUEST_TIMEOUT_DURATION: u64 = 30000;
+
 const JSON_CONTENT_TYPE: HeaderValue = HeaderValue::from_static("application/json");
 
 const API_VERSION_MISMATCH_WARNING_MESSAGE: &str =
