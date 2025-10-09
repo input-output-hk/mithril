@@ -36,7 +36,7 @@ impl HttpMithrilNetworkConfigurationProvider {
 
 #[async_trait]
 impl MithrilNetworkConfigurationProvider for HttpMithrilNetworkConfigurationProvider {
-    async fn get(&self) -> StdResult<MithrilNetworkConfiguration> {
+    async fn get_network_configuration(&self) -> StdResult<MithrilNetworkConfiguration> {
         let Some(epoch_settings) = self.aggregator_client.retrieve_epoch_settings().await? else {
             return Err(anyhow!("Failed to retrieve epoch settings"));
         };

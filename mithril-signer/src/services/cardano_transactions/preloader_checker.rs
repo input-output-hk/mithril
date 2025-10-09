@@ -27,7 +27,7 @@ impl CardanoTransactionsPreloaderChecker for CardanoTransactionsPreloaderActivat
     async fn is_activated(&self) -> StdResult<bool> {
         let configuration = self
             .network_configuration_provider
-            .get()
+            .get_network_configuration()
             .await
             .context("An error occurred while retrieving Mithril network configuration")?;
 
@@ -53,7 +53,7 @@ mod tests {
 
         #[async_trait]
         impl MithrilNetworkConfigurationProvider for MithrilNetworkConfigurationProvider {
-            async fn get(&self) -> StdResult<MithrilNetworkConfiguration>;
+            async fn get_network_configuration(&self) -> StdResult<MithrilNetworkConfiguration>;
         }
     }
 
@@ -61,14 +61,17 @@ mod tests {
     async fn preloader_activation_state_activate_preloader_when_cardano_transactions_not_in_aggregator_capabilities()
      {
         let mut network_configuration_provider = MockMithrilNetworkConfigurationProvider::new();
-        network_configuration_provider.expect_get().times(1).returning(|| {
-            Ok(MithrilNetworkConfiguration {
-                available_signed_entity_types: BTreeSet::from([
-                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                ]),
-                ..Dummy::dummy()
-            })
-        });
+        network_configuration_provider
+            .expect_get_network_configuration()
+            .times(1)
+            .returning(|| {
+                Ok(MithrilNetworkConfiguration {
+                    available_signed_entity_types: BTreeSet::from([
+                        SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                    ]),
+                    ..Dummy::dummy()
+                })
+            });
 
         let preloader = CardanoTransactionsPreloaderActivationSigner::new(Arc::new(
             network_configuration_provider,
@@ -83,14 +86,17 @@ mod tests {
     async fn preloader_activation_state_activate_preloader_when_cardano_transactions_in_aggregator_capabilities()
      {
         let mut network_configuration_provider = MockMithrilNetworkConfigurationProvider::new();
-        network_configuration_provider.expect_get().times(1).returning(|| {
-            Ok(MithrilNetworkConfiguration {
-                available_signed_entity_types: BTreeSet::from([
-                    SignedEntityTypeDiscriminants::CardanoTransactions,
-                ]),
-                ..Dummy::dummy()
-            })
-        });
+        network_configuration_provider
+            .expect_get_network_configuration()
+            .times(1)
+            .returning(|| {
+                Ok(MithrilNetworkConfiguration {
+                    available_signed_entity_types: BTreeSet::from([
+                        SignedEntityTypeDiscriminants::CardanoTransactions,
+                    ]),
+                    ..Dummy::dummy()
+                })
+            });
 
         let preloader = CardanoTransactionsPreloaderActivationSigner::new(Arc::new(
             network_configuration_provider,
@@ -105,7 +111,7 @@ mod tests {
     async fn preloader_activation_state_activate_preloader_when_aggregator_call_fails() {
         let mut network_configuration_provider = MockMithrilNetworkConfigurationProvider::new();
         network_configuration_provider
-            .expect_get()
+            .expect_get_network_configuration()
             .times(1)
             .returning(|| Err(anyhow!("Aggregator call failure")));
 

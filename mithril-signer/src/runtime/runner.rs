@@ -115,7 +115,10 @@ impl Runner for SignerRunner {
     async fn get_mithril_network_configuration(&self) -> StdResult<MithrilNetworkConfiguration> {
         debug!(self.logger, ">> get_mithril_network_configuration");
 
-        self.services.network_configuration_service.get().await
+        self.services
+            .network_configuration_service
+            .get_network_configuration()
+            .await
     }
 
     async fn get_epoch_settings(&self) -> StdResult<Option<SignerEpochSettings>> {
