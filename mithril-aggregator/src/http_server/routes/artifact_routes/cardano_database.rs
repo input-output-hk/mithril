@@ -79,11 +79,11 @@ mod handlers {
     use std::sync::Arc;
     use warp::http::StatusCode;
 
+    use crate::MetricsService;
     use crate::dependency_injection::EpochServiceWrapper;
     use crate::http_server::routes::middlewares::{ClientMetadata, parameters};
     use crate::http_server::routes::reply;
     use crate::services::MessageService;
-    use crate::{MetricsService, unwrap_to_internal_server_error};
 
     pub const LIST_MAX_ITEMS: usize = 20;
 
@@ -111,11 +111,7 @@ mod handlers {
         epoch_service: EpochServiceWrapper,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        let actual_epoch = unwrap_to_internal_server_error!(epoch_service.read().await.epoch_of_current_data(),
-            logger => "list_by_epoch_artifacts_cardano_database"
-        );
-        let expanded_epoch = match parameters::expand_epoch(&epoch, || async { Ok(actual_epoch) })
-            .await
+        let (expanded_epoch, _offset) = match parameters::expand_epoch(&epoch, epoch_service).await
         {
             Ok(epoch) => epoch,
             Err(err) => {
