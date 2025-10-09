@@ -1,9 +1,11 @@
+//! Interface definition for Mithril Protocol Configuration.
+
 use async_trait::async_trait;
 use mithril_common::StdResult;
 
 use crate::model::MithrilNetworkConfiguration;
 
-/// Trait to provide the current Mithril network configuration.
+/// A provider for the Mithril network configuration of the current epoch.
 #[async_trait]
 pub trait MithrilNetworkConfigurationProvider: Sync + Send {
     /// Get the Mithril network configuration for the current epoch.

@@ -769,7 +769,7 @@ mod tests {
         let protocol_initializer_store =
             Arc::new(ProtocolInitializerRepository::new(connection, None));
 
-        //MithrilNetworkConfiguration
+        // MithrilNetworkConfiguration
         let mithril_network_configuration = MithrilNetworkConfiguration {
             epoch,
             available_signed_entity_types: BTreeSet::new(),

@@ -179,7 +179,7 @@ impl StateMachine {
                         .get_mithril_network_configuration()
                         .await
                         .map_err(|e| RuntimeError::KeepState {
-                            message: "could not retrieve mithril network configuration".to_string(),
+                            message: "could not retrieve Mithril network configuration".to_string(),
                             nested_error: Some(e),
                         })?;
                     info!(self.logger, "→ Mithril network configuration found");

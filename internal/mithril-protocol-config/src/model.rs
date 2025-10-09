@@ -1,3 +1,5 @@
+//! Model definitions for Mithril Protocol Configuration.
+
 use std::collections::{BTreeSet, HashMap};
 
 use mithril_common::entities::{
@@ -5,6 +7,8 @@ use mithril_common::entities::{
 };
 
 #[derive(PartialEq, Clone, Debug)]
+
+/// Custom configuration for a signed entity type
 pub enum SignedEntityTypeConfiguration {
     /// Cardano Transactions
     CardanoTransactions(CardanoTransactionsSigningConfig),
@@ -19,10 +23,10 @@ pub struct MithrilNetworkConfiguration {
     /// Cryptographic protocol parameters (`k`, `m` and `phi_f`)
     pub signer_registration_protocol_parameters: ProtocolParameters,
 
-    /// List of available types of certifications (`CardanoDatabase`, `CardanoTransactions`, `CardanoStakeDistribution`, ...)
+    /// List of available types of certifications
     pub available_signed_entity_types: BTreeSet<SignedEntityTypeDiscriminants>,
 
-    /// Custom configurations for signed entity types (e.g. `cardano_transactions_signing_config` for `CardanoTransactions`)
+    /// Custom configurations for signed entity types
     pub signed_entity_types_config:
         HashMap<SignedEntityTypeDiscriminants, SignedEntityTypeConfiguration>,
 }
