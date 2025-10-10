@@ -20,7 +20,7 @@ use crate::services::{EpochService, MithrilProtocolInitializerBuilder};
 /// This trait is mainly intended for mocking.
 #[async_trait]
 pub trait Runner: Send + Sync {
-    ///Fetch the configuration parameters of the Mithril network
+    /// Fetch the configuration parameters of the Mithril network
     async fn get_mithril_network_configuration(&self) -> StdResult<MithrilNetworkConfiguration>;
 
     /// Fetch the current epoch settings if any.

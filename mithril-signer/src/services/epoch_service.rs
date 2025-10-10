@@ -886,7 +886,6 @@ mod tests {
         }
         // Fail after `inform_epoch_settings` if `cardano_transactions_signing_config` is not set
         {
-            // Signers
             let signers = fake_data::signers(5);
             let current_signers = signers[1..3].to_vec();
             let next_signers = signers[2..5].to_vec();
@@ -923,7 +922,6 @@ mod tests {
                 cardano_transactions: Some(CardanoTransactionsSigningConfig::dummy()),
             };
 
-            // Signers
             let signers = fake_data::signers(5);
             let current_signers = signers[1..3].to_vec();
             let next_signers = signers[2..5].to_vec();
