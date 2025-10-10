@@ -424,7 +424,6 @@ pub(crate) mod mock_epoch_service {
 
 #[cfg(test)]
 mod tests {
-    use mithril_protocol_config::model::SignedEntityTypeConfiguration;
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
@@ -433,6 +432,8 @@ mod tests {
         builder::MithrilFixtureBuilder,
         double::{Dummy, fake_data},
     };
+
+    use mithril_protocol_config::model::SignedEntityTypeConfiguration;
 
     use crate::database::repository::{ProtocolInitializerRepository, StakePoolStore};
     use crate::database::test_helper::main_db_connection;
