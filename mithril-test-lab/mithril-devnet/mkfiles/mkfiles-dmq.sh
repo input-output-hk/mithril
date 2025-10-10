@@ -1,18 +1,22 @@
-# Temporary script to copy DMQ node binary
-cp $DMQ_NODE_BINARY/dmq-node ./bin/
-
 for NODE in ${ALL_NODES}; do
   cat >> ${NODE}/config.dmq.json <<EOF
 {
   "LocalMsgSubmissionTracer": true,
   "LocalMsgNotificationTracer": true,
-  "ConnectionManagerTracer": false,
-  "DiffusionTracer": true,
+  "ConnectionManagerTracer": true,
+  "DiffusionTracer": false,
   "InboundGovernorTracer": false,
   "LocalInboundGovernorTracer": false,
-  "PeerSelectionTracer": false,
+  "PeerSelectionTracer": true,
   "PeerSelectionCounters": false,
-  "PeerSharing": false
+  "PeerSharing": false,
+  "SigSubmissionLogicTracer": true,
+  "SigSubmissionClientTracer": true,
+  "SigSubmissionServerTracer": true,
+  "MuxTracer": true,
+  "ChannelTracer": true,
+  "DebugPeerSelectionTracer": true
 }
+
 EOF
 done
