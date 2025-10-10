@@ -71,6 +71,13 @@ pub trait MessageService: Sync + Send {
         limit: usize,
     ) -> StdResult<CardanoDatabaseSnapshotListMessage>;
 
+    /// Return the list of the last Cardano database message.
+    async fn get_cardano_database_list_message_by_epoch(
+        &self,
+        limit: usize,
+        epoch: Epoch,
+    ) -> StdResult<CardanoDatabaseSnapshotListMessage>;
+
     /// Return the list of the Cardano database immutable file names and their digests.
     async fn get_cardano_database_digest_list_message(
         &self,
@@ -238,6 +245,20 @@ impl MessageService for MithrilMessageService {
         entities.into_iter().map(|i| i.try_into()).collect()
     }
 
+    async fn get_cardano_database_list_message_by_epoch(
+        &self,
+        limit: usize,
+        epoch: Epoch,
+    ) -> StdResult<CardanoDatabaseSnapshotListMessage> {
+        let signed_entity_type_id = SignedEntityTypeDiscriminants::CardanoDatabase;
+        let entities = self
+            .signed_entity_storer
+            .get_last_signed_entities_by_type_and_epoch(&signed_entity_type_id, epoch, limit)
+            .await?;
+
+        entities.into_iter().map(|i| i.try_into()).collect()
+    }
+
     async fn get_cardano_database_digest_list_message(
         &self,
     ) -> StdResult<CardanoDatabaseDigestListMessage> {
@@ -336,7 +357,7 @@ impl MessageService for MithrilMessageService {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::{BlockNumber, Certificate, SignedEntityType};
+    use mithril_common::entities::{BlockNumber, CardanoDbBeacon, Certificate, SignedEntityType};
     use mithril_common::test::double::{Dummy, fake_data};
     use tokio::sync::RwLock;
 
@@ -681,7 +702,7 @@ mod tests {
                 signed_entity_id: "signed_entity_id".to_string(),
                 signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(fake_data::beacon()),
                 certificate_id: "cert_id".to_string(),
-                artifact: serde_json::to_string(&fake_data::snapshots(1)[0]).unwrap(),
+                artifact: serde_json::to_string(&fake_data::snapshot(1)).unwrap(),
                 created_at: Default::default(),
             };
             let message: SnapshotMessage = record.clone().try_into().unwrap();
@@ -709,14 +730,14 @@ mod tests {
                         fake_data::beacon(),
                     ),
                     certificate_id: "cert_id-1".to_string(),
-                    artifact: serde_json::to_string(&fake_data::snapshots(1)[0]).unwrap(),
+                    artifact: serde_json::to_string(&fake_data::snapshot(1)).unwrap(),
                     created_at: Default::default(),
                 },
                 SignedEntityRecord {
                     signed_entity_id: "signed_entity_id-2".to_string(),
                     signed_entity_type: SignedEntityType::CardanoDatabase(fake_data::beacon()),
                     certificate_id: "cert_id-2".to_string(),
-                    artifact: serde_json::to_string(&fake_data::cardano_database_snapshots(1)[0])
+                    artifact: serde_json::to_string(&fake_data::cardano_database_snapshot(1))
                         .unwrap(),
                     created_at: Default::default(),
                 },
@@ -753,8 +774,7 @@ mod tests {
                 signed_entity_id: "signed_entity_id".to_string(),
                 signed_entity_type: SignedEntityType::CardanoDatabase(fake_data::beacon()),
                 certificate_id: "cert_id".to_string(),
-                artifact: serde_json::to_string(&fake_data::cardano_database_snapshots(1)[0])
-                    .unwrap(),
+                artifact: serde_json::to_string(&fake_data::cardano_database_snapshot(1)).unwrap(),
                 created_at: Default::default(),
             };
             let message: CardanoDatabaseSnapshotMessage = record.clone().try_into().unwrap();
@@ -780,7 +800,7 @@ mod tests {
                     signed_entity_id: "signed_entity_id-1".to_string(),
                     signed_entity_type: SignedEntityType::CardanoDatabase(fake_data::beacon()),
                     certificate_id: "cert_id-1".to_string(),
-                    artifact: serde_json::to_string(&fake_data::cardano_database_snapshots(1)[0])
+                    artifact: serde_json::to_string(&fake_data::cardano_database_snapshot(1))
                         .unwrap(),
                     created_at: Default::default(),
                 },
@@ -790,7 +810,7 @@ mod tests {
                         fake_data::beacon(),
                     ),
                     certificate_id: "cert_id-2".to_string(),
-                    artifact: serde_json::to_string(&fake_data::snapshots(1)[0]).unwrap(),
+                    artifact: serde_json::to_string(&fake_data::snapshot(1)).unwrap(),
                     created_at: Default::default(),
                 },
             ];
@@ -806,6 +826,76 @@ mod tests {
             assert!(response.is_empty());
 
             let response = service.get_cardano_database_list_message(3).await.unwrap();
+            assert_eq!(message, response);
+        }
+
+        #[tokio::test]
+        async fn get_cardano_database_list_message_by_epoch() {
+            let records = vec![
+                // Cardano database on epoch 3
+                SignedEntityRecord {
+                    signed_entity_id: "signed_entity_id-1".to_string(),
+                    signed_entity_type: SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(
+                        3, 100,
+                    )),
+                    certificate_id: "cert_id-1".to_string(),
+                    artifact: serde_json::to_string(&fake_data::cardano_database_snapshot(100))
+                        .unwrap(),
+                    created_at: Default::default(),
+                },
+                // Another signed entity type on the same epoch
+                SignedEntityRecord {
+                    signed_entity_id: "signed_entity_id-2".to_string(),
+                    signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
+                        CardanoDbBeacon::new(3, 100),
+                    ),
+                    certificate_id: "cert_id-2".to_string(),
+                    artifact: serde_json::to_string(&fake_data::snapshot(1)).unwrap(),
+                    created_at: Default::default(),
+                },
+                // Cardano database also on epoch 3
+                SignedEntityRecord {
+                    signed_entity_id: "signed_entity_id-3".to_string(),
+                    signed_entity_type: SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(
+                        3, 102,
+                    )),
+                    certificate_id: "cert_id-3".to_string(),
+                    artifact: serde_json::to_string(&fake_data::cardano_database_snapshot(102))
+                        .unwrap(),
+                    created_at: Default::default(),
+                },
+                // Cardano database also another epoch
+                SignedEntityRecord {
+                    signed_entity_id: "signed_entity_id-4".to_string(),
+                    signed_entity_type: SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(
+                        4, 104,
+                    )),
+                    certificate_id: "cert_id-4".to_string(),
+                    artifact: serde_json::to_string(&fake_data::cardano_database_snapshot(104))
+                        .unwrap(),
+                    created_at: Default::default(),
+                },
+            ];
+            let message: CardanoDatabaseSnapshotListMessage = vec![
+                records[2].clone().try_into().unwrap(),
+                records[0].clone().try_into().unwrap(),
+            ];
+
+            let service = MessageServiceBuilder::new()
+                .with_signed_entity_records(&records)
+                .build()
+                .await;
+
+            let response = service
+                .get_cardano_database_list_message_by_epoch(0, Epoch(3))
+                .await
+                .unwrap();
+            assert!(response.is_empty());
+
+            let response = service
+                .get_cardano_database_list_message_by_epoch(3, Epoch(3))
+                .await
+                .unwrap();
             assert_eq!(message, response);
         }
 
@@ -844,8 +934,11 @@ mod tests {
                 signed_entity_id: "signed_entity_id".to_string(),
                 signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(18)),
                 certificate_id: "cert_id".to_string(),
-                artifact: serde_json::to_string(&fake_data::mithril_stake_distributions(1)[0])
-                    .unwrap(),
+                artifact: serde_json::to_string(&fake_data::mithril_stake_distribution(
+                    Epoch(1),
+                    vec![],
+                ))
+                .unwrap(),
                 created_at: Default::default(),
             };
             let message: MithrilStakeDistributionMessage = record.clone().try_into().unwrap();
@@ -883,15 +976,18 @@ mod tests {
                     signed_entity_id: "signed_entity_id-1".to_string(),
                     signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(18)),
                     certificate_id: "cert_id-1".to_string(),
-                    artifact: serde_json::to_string(&fake_data::mithril_stake_distributions(1)[0])
-                        .unwrap(),
+                    artifact: serde_json::to_string(&fake_data::mithril_stake_distribution(
+                        Epoch(1),
+                        vec![],
+                    ))
+                    .unwrap(),
                     created_at: Default::default(),
                 },
                 SignedEntityRecord {
                     signed_entity_id: "signed_entity_id-2".to_string(),
                     signed_entity_type: SignedEntityType::CardanoDatabase(fake_data::beacon()),
                     certificate_id: "cert_id-2".to_string(),
-                    artifact: serde_json::to_string(&fake_data::cardano_database_snapshots(1)[0])
+                    artifact: serde_json::to_string(&fake_data::cardano_database_snapshot(1))
                         .unwrap(),
                     created_at: Default::default(),
                 },
@@ -924,8 +1020,10 @@ mod tests {
                     BlockNumber(120),
                 ),
                 certificate_id: "cert_id".to_string(),
-                artifact: serde_json::to_string(&fake_data::cardano_transactions_snapshot(1)[0])
-                    .unwrap(),
+                artifact: serde_json::to_string(&fake_data::cardano_transactions_snapshot(
+                    BlockNumber(1),
+                ))
+                .unwrap(),
                 created_at: Default::default(),
             };
             let message: CardanoTransactionSnapshotMessage = record.clone().try_into().unwrap();
@@ -963,9 +1061,9 @@ mod tests {
                         BlockNumber(120),
                     ),
                     certificate_id: "cert_id-1".to_string(),
-                    artifact: serde_json::to_string(
-                        &fake_data::cardano_transactions_snapshot(1)[0],
-                    )
+                    artifact: serde_json::to_string(&fake_data::cardano_transactions_snapshot(
+                        BlockNumber(1),
+                    ))
                     .unwrap(),
                     created_at: Default::default(),
                 },
@@ -973,7 +1071,7 @@ mod tests {
                     signed_entity_id: "signed_entity_id-2".to_string(),
                     signed_entity_type: SignedEntityType::CardanoDatabase(fake_data::beacon()),
                     certificate_id: "cert_id-2".to_string(),
-                    artifact: serde_json::to_string(&fake_data::cardano_database_snapshots(1)[0])
+                    artifact: serde_json::to_string(&fake_data::cardano_database_snapshot(1))
                         .unwrap(),
                     created_at: Default::default(),
                 },
@@ -1003,7 +1101,7 @@ mod tests {
                 signed_entity_id: "signed_entity_id".to_string(),
                 signed_entity_type: SignedEntityType::CardanoStakeDistribution(Epoch(18)),
                 certificate_id: "cert_id".to_string(),
-                artifact: serde_json::to_string(&fake_data::cardano_stake_distributions(1)[0])
+                artifact: serde_json::to_string(&fake_data::cardano_stake_distribution(Epoch(1)))
                     .unwrap(),
                 created_at: Default::default(),
             };
@@ -1041,7 +1139,7 @@ mod tests {
                 signed_entity_id: "signed_entity_id".to_string(),
                 signed_entity_type: SignedEntityType::CardanoStakeDistribution(Epoch(18)),
                 certificate_id: "cert_id".to_string(),
-                artifact: serde_json::to_string(&fake_data::cardano_stake_distributions(1)[0])
+                artifact: serde_json::to_string(&fake_data::cardano_stake_distribution(Epoch(1)))
                     .unwrap(),
                 created_at: Default::default(),
             };
@@ -1082,15 +1180,17 @@ mod tests {
                     signed_entity_id: "signed_entity_id-1".to_string(),
                     signed_entity_type: SignedEntityType::CardanoStakeDistribution(Epoch(18)),
                     certificate_id: "cert_id-1".to_string(),
-                    artifact: serde_json::to_string(&fake_data::cardano_stake_distributions(1)[0])
-                        .unwrap(),
+                    artifact: serde_json::to_string(&fake_data::cardano_stake_distribution(Epoch(
+                        1,
+                    )))
+                    .unwrap(),
                     created_at: Default::default(),
                 },
                 SignedEntityRecord {
                     signed_entity_id: "signed_entity_id-2".to_string(),
                     signed_entity_type: SignedEntityType::CardanoDatabase(fake_data::beacon()),
                     certificate_id: "cert_id-2".to_string(),
-                    artifact: serde_json::to_string(&fake_data::cardano_database_snapshots(1)[0])
+                    artifact: serde_json::to_string(&fake_data::cardano_database_snapshot(1))
                         .unwrap(),
                     created_at: Default::default(),
                 },

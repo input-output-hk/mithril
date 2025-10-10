@@ -584,7 +584,7 @@ mod signable_builder {
                     CardanoDbBeacon::default(),
                 ),
                 certificate_id: "certificate-hash-123".to_string(),
-                artifact: fake_data::snapshots(1)[0].to_owned(),
+                artifact: fake_data::snapshot(1),
                 created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
                     .unwrap()
                     .with_timezone(&Utc),
@@ -599,7 +599,10 @@ mod signable_builder {
                 signed_entity_id: "mithril-stake-distribution-id-123".to_string(),
                 signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(1)),
                 certificate_id: "certificate-hash-123".to_string(),
-                artifact: fake_data::mithril_stake_distributions(1)[0].to_owned(),
+                artifact: fake_data::mithril_stake_distribution(
+                    Epoch(1),
+                    fake_data::signers_with_stakes(5),
+                ),
                 created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
                     .unwrap()
                     .with_timezone(&Utc),
@@ -630,7 +633,7 @@ mod signable_builder {
                 signed_entity_id: "cardano-stake-distribution-id-123".to_string(),
                 signed_entity_type: SignedEntityType::CardanoStakeDistribution(Epoch(1)),
                 certificate_id: "certificate-hash-123".to_string(),
-                artifact: fake_data::cardano_stake_distributions(1)[0].to_owned(),
+                artifact: fake_data::cardano_stake_distribution(Epoch(1)),
                 created_at: DateTime::parse_from_rfc3339("2024-07-29T16:15:05.618857482Z")
                     .unwrap()
                     .with_timezone(&Utc),
