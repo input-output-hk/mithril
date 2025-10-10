@@ -115,7 +115,7 @@ mod handlers {
         http_message_service: Arc<dyn MessageService>,
         max_artifact_epoch_offset: u32,
     ) -> Result<impl warp::Reply, Infallible> {
-        let (expanded_epoch, offset) = match parameters::expand_epoch(&epoch, epoch_service).await {
+        let expanded_epoch = match parameters::expand_epoch(&epoch, epoch_service).await {
             Ok(epoch) => epoch,
             Err(err) => {
                 warn!(logger,"list_by_epoch_artifacts_cardano_database::invalid_epoch"; "error" => ?err);
@@ -126,7 +126,7 @@ mod handlers {
             }
         };
 
-        if offset.is_some_and(|o| o > max_artifact_epoch_offset as u64) {
+        if expanded_epoch.has_offset_greater_than(max_artifact_epoch_offset as u64) {
             return Ok(reply::bad_request(
                 "invalid_epoch".to_string(),
                 format!(
@@ -136,7 +136,7 @@ mod handlers {
         }
 
         match http_message_service
-            .get_cardano_database_list_message_by_epoch(LIST_MAX_ITEMS, expanded_epoch)
+            .get_cardano_database_list_message_by_epoch(LIST_MAX_ITEMS, *expanded_epoch)
             .await
         {
             Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
