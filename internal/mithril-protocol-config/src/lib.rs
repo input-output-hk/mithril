@@ -1,5 +1,5 @@
 #![warn(missing_docs)]
-//! This crate provides functionality for interacting with Mithril Network
+//! This crate provides mechanisms to read and check the configuration parameters of a Mithril network.
 
 mod aggregator_client;
 /// HTTP client Implementation for interacting with Mithril Network.
