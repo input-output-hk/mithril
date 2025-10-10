@@ -198,7 +198,7 @@ impl StateMachine {
                             .await?;
                     } else {
                         info!(
-                            self.logger, " ⋅ Signer settings and Network Configuration found, but its epoch is behind the known epoch, waiting…";
+                            self.logger, " ⋅ Signer settings found, but its epoch is behind the known epoch, waiting…";
                             "network_configuration" => ?network_configuration,
                             "current_singer" => ?signer_registrations.current_signers,
                             "next_signer" => ?signer_registrations.next_signers,
