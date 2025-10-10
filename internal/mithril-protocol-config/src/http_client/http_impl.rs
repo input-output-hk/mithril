@@ -1,0 +1,68 @@
+//! HTTP implementation of MithrilNetworkConfigurationProvider.
+
+use anyhow::anyhow;
+use async_trait::async_trait;
+use std::{sync::Arc, time::Duration};
+
+use mithril_common::StdResult;
+use mithril_common::api_version::APIVersionProvider;
+
+use crate::{
+    aggregator_client::{AggregatorClient, AggregatorHTTPClient, HTTP_REQUEST_TIMEOUT_DURATION},
+    interface::MithrilNetworkConfigurationProvider,
+    model::{MithrilNetworkConfiguration, SignedEntityTypeConfiguration},
+};
+
+/// Structure implementing MithrilNetworkConfigurationProvider using HTTP.
+pub struct HttpMithrilNetworkConfigurationProvider {
+    aggregator_client: AggregatorHTTPClient,
+}
+
+impl HttpMithrilNetworkConfigurationProvider {
+    /// HttpMithrilNetworkConfigurationProvider factory
+    pub fn new(
+        aggregator_endpoint: String,
+        relay_endpoint: Option<String>,
+        api_version_provider: Arc<APIVersionProvider>,
+        logger: slog::Logger,
+    ) -> Self {
+        let aggregator_client = AggregatorHTTPClient::new(
+            aggregator_endpoint.clone(),
+            relay_endpoint.clone(),
+            api_version_provider.clone(),
+            Some(Duration::from_millis(HTTP_REQUEST_TIMEOUT_DURATION)),
+            logger.clone(),
+        );
+
+        Self { aggregator_client }
+    }
+}
+
+#[async_trait]
+impl MithrilNetworkConfigurationProvider for HttpMithrilNetworkConfigurationProvider {
+    async fn get_network_configuration(&self) -> StdResult<MithrilNetworkConfiguration> {
+        let Some(epoch_settings) = self.aggregator_client.retrieve_epoch_settings().await? else {
+            return Err(anyhow!("Failed to retrieve epoch settings"));
+        };
+
+        let aggregator_features = self.aggregator_client.retrieve_aggregator_features().await?;
+        let available_signed_entity_types = aggregator_features.capabilities.signed_entity_types;
+
+        let cardano_transactions =
+            epoch_settings.cardano_transactions_signing_config.ok_or_else(|| {
+                anyhow!("Cardano transactions signing config is missing in epoch settings")
+            })?;
+
+        let signed_entity_types_config = SignedEntityTypeConfiguration {
+            cardano_transactions: Some(cardano_transactions),
+        };
+
+        Ok(MithrilNetworkConfiguration {
+            epoch: epoch_settings.epoch,
+            signer_registration_protocol_parameters: epoch_settings
+                .signer_registration_protocol_parameters,
+            available_signed_entity_types,
+            signed_entity_types_config,
+        })
+    }
+}

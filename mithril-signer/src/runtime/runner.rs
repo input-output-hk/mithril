@@ -10,6 +10,7 @@ use mithril_common::entities::{
     Epoch, PartyId, ProtocolMessage, SignedEntityType, Signer, TimePoint,
 };
 use mithril_common::logging::LoggerExtensions;
+use mithril_protocol_config::model::MithrilNetworkConfiguration;
 
 use crate::Configuration;
 use crate::dependency_injection::SignerDependencyContainer;
@@ -19,8 +20,13 @@ use crate::services::{EpochService, MithrilProtocolInitializerBuilder};
 /// This trait is mainly intended for mocking.
 #[async_trait]
 pub trait Runner: Send + Sync {
+    /// Fetch the configuration parameters of the Mithril network
+    async fn get_mithril_network_configuration(&self) -> StdResult<MithrilNetworkConfiguration>;
+
     /// Fetch the current epoch settings if any.
-    async fn get_epoch_settings(&self) -> StdResult<Option<SignerEpochSettings>>;
+    async fn get_signer_registrations_from_aggregator(
+        &self,
+    ) -> StdResult<Option<SignerEpochSettings>>;
 
     /// Fetch the beacon to sign if any.
     async fn get_beacon_to_sign(&self, time_point: TimePoint) -> StdResult<Option<BeaconToSign>>;
@@ -38,7 +44,13 @@ pub trait Runner: Send + Sync {
     async fn can_sign_current_epoch(&self) -> StdResult<bool>;
 
     /// Register epoch information
-    async fn inform_epoch_settings(&self, epoch_settings: SignerEpochSettings) -> StdResult<()>;
+    async fn inform_epoch_settings(
+        &self,
+        aggregator_signer_registration_epoch: Epoch,
+        mithril_network_configuration: MithrilNetworkConfiguration,
+        current_signer: Vec<Signer>,
+        next_signer: Vec<Signer>,
+    ) -> StdResult<()>;
 
     /// Create the message to be signed with the single signature.
     async fn compute_message(
@@ -102,7 +114,18 @@ impl SignerRunner {
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 impl Runner for SignerRunner {
-    async fn get_epoch_settings(&self) -> StdResult<Option<SignerEpochSettings>> {
+    async fn get_mithril_network_configuration(&self) -> StdResult<MithrilNetworkConfiguration> {
+        debug!(self.logger, ">> get_mithril_network_configuration");
+
+        self.services
+            .network_configuration_service
+            .get_network_configuration()
+            .await
+    }
+
+    async fn get_signer_registrations_from_aggregator(
+        &self,
+    ) -> StdResult<Option<SignerEpochSettings>> {
         debug!(self.logger, ">> get_epoch_settings");
 
         self.services
@@ -240,24 +263,27 @@ impl Runner for SignerRunner {
         epoch_service.can_signer_sign_current_epoch(self.services.single_signer.get_party_id())
     }
 
-    async fn inform_epoch_settings(&self, epoch_settings: SignerEpochSettings) -> StdResult<()> {
+    async fn inform_epoch_settings(
+        &self,
+        aggregator_signer_registration_epoch: Epoch,
+        mithril_network_configuration: MithrilNetworkConfiguration,
+        current_signer: Vec<Signer>,
+        next_signer: Vec<Signer>,
+    ) -> StdResult<()> {
         debug!(
             self.logger,
-            ">> inform_epoch_settings(epoch:{})", epoch_settings.epoch
+            ">> inform_epoch_settings(epoch:{})", aggregator_signer_registration_epoch
         );
-        let aggregator_features = self
-            .services
-            .certificate_handler
-            .retrieve_aggregator_features()
-            .await?;
 
         self.services
             .epoch_service
             .write()
             .await
             .inform_epoch_settings(
-                epoch_settings,
-                aggregator_features.capabilities.signed_entity_types,
+                aggregator_signer_registration_epoch,
+                mithril_network_configuration,
+                current_signer,
+                next_signer,
             )
             .await
     }
@@ -330,6 +356,8 @@ impl Runner for SignerRunner {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::entities::{CardanoTransactionsSigningConfig, ProtocolParameters};
+    use mithril_protocol_config::model::SignedEntityTypeConfiguration;
     use mockall::mock;
     use mockall::predicate::eq;
     use std::collections::BTreeSet;
@@ -347,7 +375,6 @@ mod tests {
         api_version::APIVersionProvider,
         crypto_helper::{MKMap, MKMapNode, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer},
         entities::{BlockNumber, BlockRange, Epoch, SignedEntityTypeDiscriminants},
-        messages::{AggregatorCapabilities, AggregatorFeaturesMessage},
         signable_builder::{
             BlockRangeRootRetriever, CardanoStakeDistributionSignableBuilder,
             CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
@@ -359,6 +386,7 @@ mod tests {
         },
     };
     use mithril_era::{EraChecker, EraReader, adapters::EraReaderBootstrapAdapter};
+    use mithril_protocol_config::test::double::configuration_provider::FakeMithrilNetworkConfigurationProvider;
     use mithril_signed_entity_lock::SignedEntityTypeLock;
     use mithril_signed_entity_preloader::{
         CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
@@ -514,6 +542,15 @@ mod tests {
         ));
         let kes_signer = None;
 
+        let network_configuration_service = Arc::new(FakeMithrilNetworkConfigurationProvider::new(
+            ProtocolParameters::new(1000, 100, 0.1234),
+            SignedEntityTypeDiscriminants::all(),
+            SignedEntityTypeConfiguration {
+                cardano_transactions: Some(CardanoTransactionsSigningConfig::dummy()),
+            },
+            ticker_service.clone(),
+        ));
+
         SignerDependencyContainer {
             stake_store,
             certificate_handler: aggregator_client,
@@ -533,6 +570,7 @@ mod tests {
             epoch_service,
             certifier,
             kes_signer,
+            network_configuration_service,
         }
     }
 
@@ -623,14 +661,21 @@ mod tests {
             .unwrap();
 
         let runner = init_runner(Some(services), None).await;
-        // inform epoch settings
-        let epoch_settings = SignerEpochSettings {
+
+        let mithril_network_configuration = MithrilNetworkConfiguration {
             epoch: current_epoch,
-            current_signers: fixture.signers(),
-            next_signers: fixture.signers(),
-            ..SignerEpochSettings::dummy().clone()
+            ..MithrilNetworkConfiguration::dummy()
         };
-        runner.inform_epoch_settings(epoch_settings).await.unwrap();
+
+        runner
+            .inform_epoch_settings(
+                current_epoch,
+                mithril_network_configuration,
+                fixture.signers(),
+                fixture.signers(),
+            )
+            .await
+            .unwrap();
 
         runner
             .register_signer_to_aggregator()
@@ -679,29 +724,36 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_inform_epoch_setting_pass_allowed_discriminant_to_epoch_service() {
+    async fn test_inform_epoch_setting_pass_available_signed_entity_types_to_epoch_service() {
         let mut services = init_services().await;
         let certificate_handler = Arc::new(DumbAggregatorClient::default());
-        certificate_handler
-            .set_aggregator_features(AggregatorFeaturesMessage {
-                capabilities: AggregatorCapabilities {
-                    signed_entity_types: BTreeSet::from([
-                        SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                        SignedEntityTypeDiscriminants::CardanoTransactions,
-                    ]),
-                    ..AggregatorFeaturesMessage::dummy().capabilities
-                },
-                ..AggregatorFeaturesMessage::dummy()
-            })
-            .await;
+
         services.certificate_handler = certificate_handler;
         let runner = init_runner(Some(services), None).await;
 
-        let epoch_settings = SignerEpochSettings {
-            epoch: Epoch(1),
-            ..SignerEpochSettings::dummy()
+        let epoch = Epoch(1);
+        let signers = fake_data::signers(5);
+        let current_signers = signers[1..3].to_vec();
+        let next_signers = signers[2..5].to_vec();
+
+        let mithril_network_configuration = MithrilNetworkConfiguration {
+            epoch,
+            available_signed_entity_types: BTreeSet::from([
+                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                SignedEntityTypeDiscriminants::CardanoTransactions,
+            ]),
+            ..MithrilNetworkConfiguration::dummy()
         };
-        runner.inform_epoch_settings(epoch_settings).await.unwrap();
+
+        runner
+            .inform_epoch_settings(
+                epoch,
+                mithril_network_configuration,
+                current_signers,
+                next_signers,
+            )
+            .await
+            .unwrap();
 
         let epoch_service = runner.services.epoch_service.read().await;
         let recorded_allowed_discriminants = epoch_service.allowed_discriminants().unwrap();

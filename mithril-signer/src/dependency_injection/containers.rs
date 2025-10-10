@@ -9,6 +9,7 @@ use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_cardano_node_internal_database::digesters::ImmutableDigester;
 use mithril_era::{EraChecker, EraReader};
 use mithril_persistence::store::StakeStorer;
+use mithril_protocol_config::interface::MithrilNetworkConfigurationProvider;
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 use mithril_signed_entity_preloader::CardanoTransactionsPreloader;
 use mithril_ticker::TickerService;
@@ -26,6 +27,7 @@ type DigesterService = Arc<dyn ImmutableDigester>;
 type SingleSignerService = Arc<dyn SingleSigner>;
 type TimePointProviderService = Arc<dyn TickerService>;
 type ProtocolInitializerStoreService = Arc<dyn ProtocolInitializerStorer>;
+type MithrilNetworkConfigurationService = Arc<dyn MithrilNetworkConfigurationProvider>;
 
 /// EpochServiceWrapper wraps a [EpochService]
 pub type EpochServiceWrapper = Arc<RwLock<dyn EpochService>>;
@@ -85,4 +87,7 @@ pub struct SignerDependencyContainer {
 
     /// Kes signer service
     pub kes_signer: Option<Arc<dyn KesSigner>>,
+
+    /// Mithril network configuration service
+    pub network_configuration_service: MithrilNetworkConfigurationService,
 }

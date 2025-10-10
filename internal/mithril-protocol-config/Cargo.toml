@@ -1,0 +1,32 @@
+[package]
+name = "mithril-protocol-config"
+version = "0.1.0"
+description = "Configuraton parameters for Mithril network"
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+mithril-cardano-node-chain = { path = "../cardano-node/mithril-cardano-node-chain" }
+mithril-cardano-node-internal-database = { path = "../cardano-node/mithril-cardano-node-internal-database" }
+mithril-common = { path = "../../mithril-common" }
+mithril-ticker = { path = "../mithril-ticker" }
+reqwest = { workspace = true }
+semver = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+slog = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+http = "1.3.1"
+httpmock = "0.7.0"
+mockall = { workspace = true }
+slog-async = { workspace = true }
+slog-term = { workspace = true }

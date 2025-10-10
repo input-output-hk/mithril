@@ -6,15 +6,13 @@ use tokio::sync::Mutex;
 
 use mithril_common::{
     crypto_helper::ProtocolInitializerError,
-    entities::{Epoch, TimePoint},
+    entities::{Epoch, Signer, TimePoint},
     logging::LoggerExtensions,
 };
 
-use crate::{
-    MetricsService,
-    entities::{BeaconToSign, SignerEpochSettings},
-    services::AggregatorClientError,
-};
+use mithril_protocol_config::model::MithrilNetworkConfiguration;
+
+use crate::{MetricsService, entities::BeaconToSign, services::AggregatorClientError};
 
 use super::{Runner, RuntimeError};
 
@@ -167,28 +165,43 @@ impl StateMachine {
                         "→ Epoch has changed, transiting to Unregistered"
                     );
                     *state = self.transition_from_unregistered_to_unregistered(new_epoch).await?;
-                } else if let Some(epoch_settings) = self
+                } else if let Some(signer_registrations) = self
                     .runner
-                    .get_epoch_settings()
+                    .get_signer_registrations_from_aggregator()
                     .await
                     .map_err(|e| RuntimeError::KeepState {
                         message: format!("could not retrieve epoch settings at epoch {epoch:?}"),
                         nested_error: Some(e),
                     })?
                 {
-                    info!(self.logger, "→ Epoch settings found");
-                    if epoch_settings.epoch >= *epoch {
+                    info!(self.logger, "→ Epoch Signer registrations found");
+                    let network_configuration = self
+                        .runner
+                        .get_mithril_network_configuration()
+                        .await
+                        .map_err(|e| RuntimeError::KeepState {
+                            message: "could not retrieve Mithril network configuration".to_string(),
+                            nested_error: Some(e),
+                        })?;
+                    info!(self.logger, "→ Mithril network configuration found");
+
+                    if signer_registrations.epoch >= *epoch {
                         info!(self.logger, "New Epoch found");
                         info!(self.logger, " ⋅ Transiting to Registered");
                         *state = self
                             .transition_from_unregistered_to_one_of_registered_states(
-                                epoch_settings,
+                                signer_registrations.epoch,
+                                network_configuration,
+                                signer_registrations.current_signers,
+                                signer_registrations.next_signers,
                             )
                             .await?;
                     } else {
                         info!(
-                            self.logger, " ⋅ Epoch settings found, but its epoch is behind the known epoch, waiting…";
-                            "epoch_settings" => ?epoch_settings,
+                            self.logger, " ⋅ Signer settings found, but its epoch is behind the known epoch, waiting…";
+                            "network_configuration" => ?network_configuration,
+                            "current_singer" => ?signer_registrations.current_signers,
+                            "next_signer" => ?signer_registrations.next_signers,
                             "known_epoch" => ?epoch,
                         );
                     }
@@ -286,7 +299,10 @@ impl StateMachine {
     /// Launch the transition process from the `Unregistered` to `ReadyToSign` or `RegisteredNotAbleToSign` state.
     async fn transition_from_unregistered_to_one_of_registered_states(
         &self,
-        epoch_settings: SignerEpochSettings,
+        aggregator_signer_registration_epoch: Epoch,
+        mithril_network_configuration: MithrilNetworkConfiguration,
+        current_signer: Vec<Signer>,
+        next_signer: Vec<Signer>,
     ) -> Result<SignerState, RuntimeError> {
         self.metrics_service
             .get_signer_registration_total_since_startup_counter()
@@ -302,7 +318,7 @@ impl StateMachine {
             })?;
 
         self.runner
-            .inform_epoch_settings(epoch_settings)
+            .inform_epoch_settings(aggregator_signer_registration_epoch, mithril_network_configuration, current_signer,  next_signer)
             .await
             .map_err(|e| RuntimeError::KeepState {
                 message: format!(
@@ -474,11 +490,15 @@ impl StateMachine {
 mod tests {
     use anyhow::anyhow;
     use chrono::DateTime;
-    use mockall::predicate;
 
-    use mithril_common::entities::{ChainPoint, Epoch, ProtocolMessage, SignedEntityType};
+    use mithril_common::entities::{
+        CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolMessage, SignedEntityType,
+        SignedEntityTypeDiscriminants,
+    };
     use mithril_common::test::double::{Dummy, fake_data};
+    use mithril_protocol_config::model::SignedEntityTypeConfiguration;
 
+    use crate::SignerEpochSettings;
     use crate::runtime::runner::MockSignerRunner;
     use crate::services::AggregatorClientError;
     use crate::test_tools::TestLogger;
@@ -500,7 +520,10 @@ mod tests {
     #[tokio::test]
     async fn unregistered_epoch_settings_not_found() {
         let mut runner = MockSignerRunner::new();
-        runner.expect_get_epoch_settings().once().returning(|| Ok(None));
+        runner
+            .expect_get_signer_registrations_from_aggregator()
+            .once()
+            .returning(|| Ok(None));
         runner
             .expect_get_current_time_point()
             .once()
@@ -536,9 +559,22 @@ mod tests {
         };
         let known_epoch = Epoch(4);
         runner
-            .expect_get_epoch_settings()
+            .expect_get_signer_registrations_from_aggregator()
             .once()
             .returning(move || Ok(Some(epoch_settings.to_owned())));
+        runner
+            .expect_get_mithril_network_configuration()
+            .once()
+            .returning(|| {
+                Ok(MithrilNetworkConfiguration {
+                    epoch: Epoch(999),
+                    signer_registration_protocol_parameters: fake_data::protocol_parameters(),
+                    available_signed_entity_types: SignedEntityTypeDiscriminants::all(),
+                    signed_entity_types_config: SignedEntityTypeConfiguration {
+                        cardano_transactions: Some(CardanoTransactionsSigningConfig::dummy()),
+                    },
+                })
+            });
         runner.expect_get_current_time_point().once().returning(|| {
             Ok(TimePoint {
                 epoch: Epoch(4),
@@ -563,15 +599,19 @@ mod tests {
         let mut runner = MockSignerRunner::new();
         runner.expect_upkeep().returning(|_| Ok(())).once();
         runner
-            .expect_get_epoch_settings()
+            .expect_get_signer_registrations_from_aggregator()
             .once()
             .returning(|| Ok(Some(SignerEpochSettings::dummy())));
 
         runner
-            .expect_inform_epoch_settings()
-            .with(predicate::eq(SignerEpochSettings::dummy()))
+            .expect_get_mithril_network_configuration()
             .once()
-            .returning(|_| Ok(()));
+            .returning(|| Ok(MithrilNetworkConfiguration::dummy()));
+
+        runner
+            .expect_inform_epoch_settings()
+            .once()
+            .returning(|_, _, _, _| Ok(()));
 
         runner
             .expect_get_current_time_point()
@@ -611,15 +651,19 @@ mod tests {
         let mut runner = MockSignerRunner::new();
         runner.expect_upkeep().returning(|_| Ok(())).once();
         runner
-            .expect_get_epoch_settings()
+            .expect_get_signer_registrations_from_aggregator()
             .once()
             .returning(|| Ok(Some(SignerEpochSettings::dummy())));
 
         runner
-            .expect_inform_epoch_settings()
-            .with(predicate::eq(SignerEpochSettings::dummy()))
+            .expect_get_mithril_network_configuration()
             .once()
-            .returning(|_| Ok(()));
+            .returning(|| Ok(MithrilNetworkConfiguration::dummy()));
+
+        runner
+            .expect_inform_epoch_settings()
+            .once()
+            .returning(|_, _, _, _| Ok(()));
 
         runner
             .expect_get_current_time_point()
@@ -663,15 +707,19 @@ mod tests {
         let mut runner = MockSignerRunner::new();
 
         runner
-            .expect_get_epoch_settings()
+            .expect_get_signer_registrations_from_aggregator()
             .once()
             .returning(|| Ok(Some(SignerEpochSettings::dummy())));
 
         runner
-            .expect_inform_epoch_settings()
-            .with(predicate::eq(SignerEpochSettings::dummy()))
+            .expect_get_mithril_network_configuration()
             .once()
-            .returning(|_| Ok(()));
+            .returning(|| Ok(MithrilNetworkConfiguration::dummy()));
+
+        runner
+            .expect_inform_epoch_settings()
+            .once()
+            .returning(|_, _, _, _| Ok(()));
 
         runner
             .expect_get_current_time_point()

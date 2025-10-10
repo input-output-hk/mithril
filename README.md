@@ -102,6 +102,8 @@ This repository consists of the following parts:
 
   - [**Mithril persistence**](./internal/mithril-persistence): the **persistence** library that is used by **Mithril network** nodes.
 
+  - [**Mithril protocol config**](./internal/mithril-protocol-config): mechanisms to read and check the **configuration parameters** of a **Mithril network**.
+
   - [**Mithril resource pool**](./internal/mithril-resource-pool): a **resource pool** mechanism that is used by **Mithril network** nodes.
 
   - [**Mithril ticker**](./internal/mithril-ticker): a **ticker** mechanism that reads time information from the chain and is used by **Mithril network** nodes.

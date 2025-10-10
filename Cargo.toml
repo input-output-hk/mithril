@@ -20,6 +20,7 @@ members = [
     "internal/mithril-era",
     "internal/mithril-metric",
     "internal/mithril-persistence",
+    "internal/mithril-protocol-config",
     "internal/mithril-resource-pool",
     "internal/mithril-ticker",
     "internal/signed-entity/mithril-signed-entity-lock",

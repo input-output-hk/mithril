@@ -399,14 +399,6 @@ pub(crate) mod dumb {
         pub async fn get_last_registered_signer(&self) -> Option<Signer> {
             self.last_registered_signer.read().await.clone()
         }
-
-        pub async fn set_aggregator_features(
-            &self,
-            aggregator_features: AggregatorFeaturesMessage,
-        ) {
-            let mut aggregator_features_writer = self.aggregator_features.write().await;
-            *aggregator_features_writer = aggregator_features;
-        }
     }
 
     impl Default for DumbAggregatorClient {
