@@ -130,7 +130,7 @@ pub mod handlers {
                 client_metadata.client_type.as_deref().unwrap_or_default(),
             ]);
 
-        let (expanded_epoch, offset) = match parameters::expand_epoch(&epoch, epoch_service).await {
+        let expanded_epoch = match parameters::expand_epoch(&epoch, epoch_service).await {
             Ok(epoch) => epoch,
             Err(err) => {
                 warn!(logger, "get_artifact_by_epoch::invalid_epoch"; "error" => ?err);
@@ -141,7 +141,7 @@ pub mod handlers {
             }
         };
 
-        if offset.is_some_and(|o| o > max_artifact_epoch_offset as u64) {
+        if expanded_epoch.has_offset_greater_than(max_artifact_epoch_offset as u64) {
             return Ok(reply::bad_request(
                 "invalid_epoch".to_string(),
                 format!(
@@ -151,7 +151,10 @@ pub mod handlers {
         }
 
         match http_message_service
-            .get_cardano_stake_distribution_message_by_epoch(expanded_epoch)
+            .get_cardano_stake_distribution_message_by_epoch(
+                // Reminder: Cardano stake distribution is recorded with a `-1` epoch offset
+                expanded_epoch.apply_offset_for_latest(1),
+            )
             .await
         {
             Ok(Some(message)) => Ok(reply::json(&message, StatusCode::OK)),

@@ -178,26 +178,25 @@ mod handlers {
         epoch_service: EpochServiceWrapper,
         verification_key_store: Arc<dyn VerificationKeyStorer>,
     ) -> Result<impl warp::Reply, Infallible> {
-        let (registered_at_epoch, _offset) =
-            match parameters::expand_epoch(&registered_at, epoch_service).await {
-                Ok(epoch) => epoch,
-                Err(err) => {
-                    warn!(logger,"registered_signers::invalid_epoch"; "error" => ?err);
-                    return Ok(reply::bad_request(
-                        "invalid_epoch".to_string(),
-                        err.to_string(),
-                    ));
-                }
-            };
+        let expanded_epoch = match parameters::expand_epoch(&registered_at, epoch_service).await {
+            Ok(epoch) => epoch,
+            Err(err) => {
+                warn!(logger,"registered_signers::invalid_epoch"; "error" => ?err);
+                return Ok(reply::bad_request(
+                    "invalid_epoch".to_string(),
+                    err.to_string(),
+                ));
+            }
+        };
 
         // The given epoch is the epoch at which the signer registered, the store works on
-        // the recording epoch so we need to offset.
+        // the recording epoch, so we need to offset.
         match verification_key_store
-            .get_signers(registered_at_epoch.offset_to_recording_epoch())
+            .get_signers(expanded_epoch.offset_to_recording_epoch())
             .await
         {
             Ok(Some(signers)) => {
-                let message = SignerRegistrationsMessage::new(registered_at_epoch, signers);
+                let message = SignerRegistrationsMessage::new(*expanded_epoch, signers);
                 Ok(reply::json(&message, StatusCode::OK))
             }
             Ok(None) => {
