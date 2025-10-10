@@ -36,6 +36,7 @@ use mithril_persistence::{
     database::repository::CardanoTransactionRepository,
     sqlite::{SqliteConnection, SqliteConnectionPool},
 };
+use mithril_protocol_config::interface::MithrilNetworkConfigurationProvider;
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 use mithril_ticker::TickerService;
 
@@ -254,6 +255,10 @@ pub struct DependenciesBuilder {
     /// Epoch service.
     pub epoch_service: Option<EpochServiceWrapper>,
 
+    /// Mithril network configuration provider
+    pub mithril_network_configuration_provider:
+        Option<Arc<dyn MithrilNetworkConfigurationProvider>>,
+
     /// Signed Entity storer
     pub signed_entity_storer: Option<Arc<dyn SignedEntityStorer>>,
 
@@ -339,6 +344,7 @@ impl DependenciesBuilder {
             signed_entity_service: None,
             certifier_service: None,
             epoch_service: None,
+            mithril_network_configuration_provider: None,
             signed_entity_storer: None,
             message_service: None,
             prover_service: None,
@@ -395,6 +401,9 @@ impl DependenciesBuilder {
             signed_entity_service: self.get_signed_entity_service().await?,
             certifier_service: self.get_certifier_service().await?,
             epoch_service: self.get_epoch_service().await?,
+            mithril_network_configuration_provider: self
+                .get_mithril_network_configuration_provider()
+                .await?,
             ticker_service: self.get_ticker_service().await?,
             signed_entity_storer: self.get_signed_entity_storer().await?,
             signer_getter: self.get_signer_store().await?,

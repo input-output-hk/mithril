@@ -1,3 +1,4 @@
+use mithril_protocol_config::interface::MithrilNetworkConfigurationProvider;
 use slog::Logger;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -99,6 +100,9 @@ pub struct ServeCommandDependenciesContainer {
 
     /// Epoch service
     pub(crate) epoch_service: EpochServiceWrapper,
+
+    /// Mithril network configuration provider
+    pub(crate) mithril_network_configuration_provider: Arc<dyn MithrilNetworkConfigurationProvider>,
 
     /// Ticker Service
     pub(crate) ticker_service: Arc<dyn TickerService>,
