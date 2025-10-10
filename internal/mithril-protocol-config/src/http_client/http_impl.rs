@@ -8,9 +8,7 @@ use mithril_common::api_version::APIVersionProvider;
 use mithril_common::{StdResult, entities::SignedEntityTypeDiscriminants};
 
 use crate::{
-    http_client::aggregator_client::{
-        AggregatorClient, AggregatorHTTPClient, HTTP_REQUEST_TIMEOUT_DURATION,
-    },
+    aggregator_client::{AggregatorClient, AggregatorHTTPClient, HTTP_REQUEST_TIMEOUT_DURATION},
     interface::MithrilNetworkConfigurationProvider,
     model::{MithrilNetworkConfiguration, SignedEntityTypeConfiguration},
 };
