@@ -2,10 +2,10 @@
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
+use mithril_common::StdResult;
 use mithril_common::api_version::APIVersionProvider;
-use mithril_common::{StdResult, entities::SignedEntityTypeDiscriminants};
 
 use crate::{
     aggregator_client::{AggregatorClient, AggregatorHTTPClient, HTTP_REQUEST_TIMEOUT_DURATION},
@@ -48,15 +48,14 @@ impl MithrilNetworkConfigurationProvider for HttpMithrilNetworkConfigurationProv
         let aggregator_features = self.aggregator_client.retrieve_aggregator_features().await?;
         let available_signed_entity_types = aggregator_features.capabilities.signed_entity_types;
 
-        let mut signed_entity_types_config = HashMap::new();
-        signed_entity_types_config.insert(
-            SignedEntityTypeDiscriminants::CardanoTransactions,
-            SignedEntityTypeConfiguration::CardanoTransactions(
-                epoch_settings.cardano_transactions_signing_config.ok_or_else(|| {
-                    anyhow!("Cardano transactions signing config is missing in epoch settings")
-                })?,
-            ),
-        );
+        let cardano_transactions =
+            epoch_settings.cardano_transactions_signing_config.ok_or_else(|| {
+                anyhow!("Cardano transactions signing config is missing in epoch settings")
+            })?;
+
+        let signed_entity_types_config = SignedEntityTypeConfiguration {
+            cardano_transactions: Some(cardano_transactions),
+        };
 
         Ok(MithrilNetworkConfiguration {
             epoch: epoch_settings.epoch,

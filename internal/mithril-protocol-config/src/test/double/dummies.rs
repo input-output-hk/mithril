@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 
 use mithril_common::{
     entities::{CardanoTransactionsSigningConfig, SignedEntityTypeDiscriminants},
@@ -15,13 +15,9 @@ impl Dummy for MithrilNetworkConfiguration {
         let mut available_signed_entity_types = BTreeSet::new();
 
         available_signed_entity_types.insert(SignedEntityTypeDiscriminants::CardanoTransactions);
-        let mut signed_entity_types_config = HashMap::new();
-        signed_entity_types_config.insert(
-            SignedEntityTypeDiscriminants::CardanoTransactions,
-            SignedEntityTypeConfiguration::CardanoTransactions(
-                CardanoTransactionsSigningConfig::dummy(),
-            ),
-        );
+        let signed_entity_types_config = SignedEntityTypeConfiguration {
+            cardano_transactions: Some(CardanoTransactionsSigningConfig::dummy()),
+        };
 
         Self {
             epoch: beacon.epoch,

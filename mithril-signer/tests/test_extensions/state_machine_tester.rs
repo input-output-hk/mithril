@@ -9,7 +9,7 @@ use prometheus_parse::Value;
 use slog::Drain;
 use slog_scope::debug;
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap},
+    collections::{BTreeMap, BTreeSet},
     fmt::Debug,
     ops::RangeInclusive,
     path::Path,
@@ -177,12 +177,9 @@ impl StateMachineTester {
         let network_configuration_service = Arc::new(FakeMithrilNetworkConfigurationProvider::new(
             fake_data::protocol_parameters(),
             SignedEntityTypeDiscriminants::all(),
-            HashMap::from([(
-                SignedEntityTypeDiscriminants::CardanoTransactions,
-                SignedEntityTypeConfiguration::CardanoTransactions(
-                    cardano_transactions_signing_config.clone(),
-                ),
-            )]),
+            SignedEntityTypeConfiguration {
+                cardano_transactions: Some(cardano_transactions_signing_config.clone()),
+            },
             ticker_service.clone(),
         ));
 

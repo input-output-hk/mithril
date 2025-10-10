@@ -489,9 +489,14 @@ impl StateMachine {
 mod tests {
     use anyhow::anyhow;
     use chrono::DateTime;
-    use mithril_protocol_config::model::MithrilNetworkConfiguration;
+    use mithril_protocol_config::model::{
+        MithrilNetworkConfiguration, SignedEntityTypeConfiguration,
+    };
 
-    use mithril_common::entities::{ChainPoint, Epoch, ProtocolMessage, SignedEntityType};
+    use mithril_common::entities::{
+        CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolMessage, SignedEntityType,
+        SignedEntityTypeDiscriminants,
+    };
     use mithril_common::test::double::{Dummy, fake_data};
 
     use crate::SignerEpochSettings;
@@ -565,8 +570,10 @@ mod tests {
                 Ok(MithrilNetworkConfiguration {
                     epoch: Epoch(999),
                     signer_registration_protocol_parameters: fake_data::protocol_parameters(),
-                    available_signed_entity_types: Default::default(),
-                    signed_entity_types_config: Default::default(),
+                    available_signed_entity_types: SignedEntityTypeDiscriminants::all(),
+                    signed_entity_types_config: SignedEntityTypeConfiguration {
+                        cardano_transactions: Some(CardanoTransactionsSigningConfig::dummy()),
+                    },
                 })
             });
         runner.expect_get_current_time_point().once().returning(|| {

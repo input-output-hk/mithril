@@ -360,7 +360,7 @@ mod tests {
     use mithril_protocol_config::model::SignedEntityTypeConfiguration;
     use mockall::mock;
     use mockall::predicate::eq;
-    use std::collections::{BTreeSet, HashMap};
+    use std::collections::BTreeSet;
     use std::{path::Path, sync::Arc};
     use tokio::sync::RwLock;
 
@@ -545,12 +545,9 @@ mod tests {
         let network_configuration_service = Arc::new(FakeMithrilNetworkConfigurationProvider::new(
             ProtocolParameters::new(1000, 100, 0.1234),
             SignedEntityTypeDiscriminants::all(),
-            HashMap::from([(
-                SignedEntityTypeDiscriminants::CardanoTransactions,
-                SignedEntityTypeConfiguration::CardanoTransactions(
-                    CardanoTransactionsSigningConfig::dummy(),
-                ),
-            )]),
+            SignedEntityTypeConfiguration {
+                cardano_transactions: Some(CardanoTransactionsSigningConfig::dummy()),
+            },
             ticker_service.clone(),
         ));
 
