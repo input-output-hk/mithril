@@ -7,7 +7,12 @@ use {
     std::ops::Neg,
 };
 
-#[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+#[cfg(any(
+    feature = "num-integer-backend",
+    target_family = "wasm",
+    target_env = "musl",
+    windows
+))]
 /// Checks that ev is successful in the lottery. In particular, it compares the output of `phi`
 /// (a real) to the output of `ev` (a hash).  It uses the same technique used in the
 /// [Cardano ledger](https://github.com/input-output-hk/cardano-ledger/). In particular,
@@ -49,7 +54,12 @@ pub(crate) fn is_lottery_won(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake
     taylor_comparison(1000, q, x)
 }
 
-#[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
+#[cfg(any(
+    feature = "num-integer-backend",
+    target_family = "wasm",
+    target_env = "musl",
+    windows
+))]
 /// Checks if cmp < exp(x). Uses error approximation for an early stop. Whenever the value being
 /// compared, `cmp`, is smaller (or greater) than the current approximation minus an `error_term`
 /// (plus an `error_term` respectively), then we stop approximating. The choice of the `error_term`
@@ -82,7 +92,12 @@ fn taylor_comparison(bound: usize, cmp: Ratio<BigInt>, x: Ratio<BigInt>) -> bool
     false
 }
 
-#[cfg(not(any(feature = "num-integer-backend", target_family = "wasm", windows)))]
+#[cfg(not(any(
+    feature = "num-integer-backend",
+    target_family = "wasm",
+    target_env = "musl",
+    windows
+)))]
 /// The crate `rug` has sufficient optimizations to not require a taylor approximation with early
 /// stop. The difference between the current implementation and the one using the optimization
 /// above is around 10% faster. We perform the computations with 117 significant bits of
