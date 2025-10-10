@@ -13,11 +13,17 @@ SCRIPT_DIRECTORY=$(dirname $0)
 # Init script
 . $SCRIPT_DIRECTORY/mkfiles/mkfiles-init.sh
 
-# Generate the topology
-. ${SCRIPT_DIRECTORY}/mkfiles/mkfiles-topology.sh
+# Generate the Cardano nodes topology
+. ${SCRIPT_DIRECTORY}/mkfiles/mkfiles-topology-cardano.sh
 
 # Generate Cardano devnet artifacts
 . $SCRIPT_DIRECTORY/mkfiles/mkfiles-cardano.sh
+
+# Generate the DMQ nodes topology
+. ${SCRIPT_DIRECTORY}/mkfiles/mkfiles-topology-dmq.sh
+
+# Generate Cardano DMQ artifacts
+. $SCRIPT_DIRECTORY/mkfiles/mkfiles-dmq.sh
 
 # Generate the start scripts
 . $SCRIPT_DIRECTORY/mkfiles/mkfiles-start.sh

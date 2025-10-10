@@ -1,5 +1,5 @@
 use crate::utils::MithrilCommand;
-use crate::{Aggregator, DEVNET_MAGIC_ID};
+use crate::{Aggregator, DEVNET_DMQ_MAGIC_ID};
 use mithril_common::StdResult;
 use std::collections::HashMap;
 use std::path::Path;
@@ -25,11 +25,11 @@ impl RelayAggregator {
     ) -> StdResult<Self> {
         let name = Aggregator::name_suffix(index);
         let listen_port_str = format!("{listen_port}");
-        let magic_id = DEVNET_MAGIC_ID.to_string();
+        let dmq_magic_id = DEVNET_DMQ_MAGIC_ID.to_string();
         let mut env = HashMap::from([
             ("LISTEN_PORT", listen_port_str.as_str()),
             ("NETWORK", "devnet"),
-            ("NETWORK_MAGIC", &magic_id),
+            ("DMQ_NETWORK_MAGIC", &dmq_magic_id),
             ("AGGREGATOR_ENDPOINT", aggregator_endpoint),
         ]);
         if let Some(dial_to) = &dial_to {

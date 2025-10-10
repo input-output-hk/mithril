@@ -122,7 +122,9 @@ mod tests {
     use std::{ops::RangeInclusive, time::Duration};
 
     use anyhow::anyhow;
-    use pallas_network::miniprotocols::localmsgsubmission::{DmqMsg, DmqMsgPayload};
+    use pallas_network::miniprotocols::localmsgsubmission::{
+        DmqMsg, DmqMsgOperationalCertificate, DmqMsgPayload,
+    };
     use tokio::time::sleep;
 
     use crate::model::MockUnixTimestampProvider;
@@ -138,7 +140,12 @@ mod tests {
                 expires_at: 100,
             },
             kes_signature: vec![0, 1, 2, 3],
-            operational_certificate: vec![0, 1, 2, 3, 4],
+            operational_certificate: DmqMsgOperationalCertificate {
+                kes_vk: vec![12, 13, 14],
+                issue_number: 15,
+                start_kes_period: 16,
+                cert_sig: vec![17],
+            },
             cold_verification_key: vec![0, 1, 2, 3, 4, 5],
         }
     }

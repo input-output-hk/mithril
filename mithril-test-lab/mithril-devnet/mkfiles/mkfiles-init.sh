@@ -79,6 +79,10 @@ if [[ "$SKIP_CARDANO_BIN_DOWNLOAD" != "true" ]]; then
   rm -f cardano-bin.tar.gz
 fi
 
+# TODO: remove this temporary implementation to copy DMQ node binary once the DMQ is part of the Cardano node bundle
+cp ./bin/dmq-node ${ARTIFACTS_DIR}/bin/
+
+
 # Switch to artifacts directory
 pushd "${ARTIFACTS_DIR}" > /dev/null || exit
 

@@ -74,6 +74,7 @@ impl AggregatorParameters {
         let full_node = FullNode {
             db_path: db_path.to_path_buf(),
             socket_path: PathBuf::new(),
+            dmq_socket_path: PathBuf::new(),
         };
         let tmp_dir = opts
             .temporary_path

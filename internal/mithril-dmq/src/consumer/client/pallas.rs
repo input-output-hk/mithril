@@ -6,7 +6,7 @@ use slog::{Logger, debug, error};
 use tokio::sync::{Mutex, MutexGuard};
 
 use mithril_common::{
-    CardanoNetwork, StdResult,
+    StdResult,
     crypto_helper::{
         OpCert, OpCertWithoutColdVerificationKey, TryFromBytes, ed25519::Ed25519VerificationKey,
     },
@@ -14,14 +14,14 @@ use mithril_common::{
     logging::LoggerExtensions,
 };
 
-use crate::DmqConsumerClient;
+use crate::{DmqConsumerClient, model::DmqNetwork};
 
 /// A DMQ client consumer implementation.
 ///
 /// This implementation is built upon the n2c mini-protocols DMQ implementation in Pallas.
 pub struct DmqConsumerClientPallas<M: TryFromBytes + Debug> {
     socket: PathBuf,
-    network: CardanoNetwork,
+    network: DmqNetwork,
     client: Mutex<Option<DmqClient>>,
     logger: Logger,
     phantom: PhantomData<M>,
@@ -29,7 +29,7 @@ pub struct DmqConsumerClientPallas<M: TryFromBytes + Debug> {
 
 impl<M: TryFromBytes + Debug> DmqConsumerClientPallas<M> {
     /// Creates a new `DmqConsumerClientPallas` instance.
-    pub fn new(socket: PathBuf, network: CardanoNetwork, logger: Logger) -> Self {
+    pub fn new(socket: PathBuf, network: DmqNetwork, logger: Logger) -> Self {
         Self {
             socket,
             network,
@@ -115,11 +115,13 @@ impl<M: TryFromBytes + Debug> DmqConsumerClientPallas<M> {
             .0
             .into_iter()
             .map(|dmq_message| {
-                let opcert_without_verification_key =
-                    OpCertWithoutColdVerificationKey::try_from_bytes(
-                        &dmq_message.operational_certificate,
-                    )
-                    .with_context(|| "Failed to parse operational certificate")?;
+                let opcert_without_verification_key = OpCertWithoutColdVerificationKey::try_new(
+                    &dmq_message.operational_certificate.kes_vk,
+                    dmq_message.operational_certificate.issue_number,
+                    dmq_message.operational_certificate.start_kes_period,
+                    &dmq_message.operational_certificate.cert_sig,
+                )
+                .with_context(|| "Failed to parse operational certificate")?;
                 let cold_verification_key =
                     Ed25519VerificationKey::from_bytes(&dmq_message.cold_verification_key)
                         .with_context(|| "Failed to parse cold verification key")?
@@ -171,7 +173,7 @@ mod tests {
         facades::DmqServer,
         miniprotocols::{
             localmsgnotification,
-            localmsgsubmission::{DmqMsg, DmqMsgPayload},
+            localmsgsubmission::{DmqMsg, DmqMsgOperationalCertificate, DmqMsgPayload},
         },
     };
     use tokio::{net::UnixListener, task::JoinHandle, time::sleep};
@@ -194,14 +196,20 @@ mod tests {
                     expires_at: 100,
                 },
                 kes_signature: vec![0, 1, 2, 3],
-                operational_certificate: vec![
-                    132, 88, 32, 230, 80, 215, 83, 21, 9, 187, 108, 255, 215, 153, 140, 40, 198,
-                    142, 78, 200, 250, 98, 26, 9, 82, 32, 110, 161, 30, 176, 63, 205, 125, 203, 41,
-                    0, 0, 88, 64, 212, 171, 206, 39, 218, 5, 255, 3, 193, 52, 44, 198, 171, 83, 19,
-                    80, 114, 225, 186, 191, 156, 192, 84, 146, 245, 159, 31, 240, 9, 247, 4, 87,
-                    170, 168, 98, 199, 21, 139, 19, 190, 12, 251, 65, 215, 169, 26, 86, 37, 137,
-                    188, 17, 14, 178, 205, 175, 93, 39, 86, 4, 138, 187, 234, 95, 5,
-                ],
+                operational_certificate: DmqMsgOperationalCertificate {
+                    kes_vk: vec![
+                        50, 45, 160, 42, 80, 78, 184, 20, 210, 77, 140, 152, 63, 49, 165, 168, 5,
+                        131, 101, 152, 110, 242, 144, 157, 176, 210, 5, 10, 166, 91, 196, 168,
+                    ],
+                    issue_number: 0,
+                    start_kes_period: 0,
+                    cert_sig: vec![
+                        207, 135, 144, 168, 238, 41, 179, 216, 245, 74, 164, 231, 4, 158, 234, 141,
+                        5, 19, 166, 11, 78, 34, 210, 211, 183, 72, 127, 83, 185, 156, 107, 55, 160,
+                        190, 73, 251, 204, 47, 197, 86, 174, 231, 13, 49, 7, 83, 173, 177, 27, 53,
+                        209, 66, 24, 203, 226, 152, 3, 91, 66, 56, 244, 206, 79, 0,
+                    ],
+                },
                 cold_verification_key: vec![
                     32, 253, 186, 201, 177, 11, 117, 135, 187, 167, 181, 188, 22, 59, 206, 105,
                     231, 150, 215, 30, 78, 212, 76, 16, 252, 180, 72, 134, 137, 247, 161, 68,
@@ -215,14 +223,20 @@ mod tests {
                     expires_at: 101,
                 },
                 kes_signature: vec![1, 2, 3, 4],
-                operational_certificate: vec![
-                    132, 88, 32, 230, 80, 215, 83, 21, 9, 187, 108, 255, 215, 153, 140, 40, 198,
-                    142, 78, 200, 250, 98, 26, 9, 82, 32, 110, 161, 30, 176, 63, 205, 125, 203, 41,
-                    0, 0, 88, 64, 212, 171, 206, 39, 218, 5, 255, 3, 193, 52, 44, 198, 171, 83, 19,
-                    80, 114, 225, 186, 191, 156, 192, 84, 146, 245, 159, 31, 240, 9, 247, 4, 87,
-                    170, 168, 98, 199, 21, 139, 19, 190, 12, 251, 65, 215, 169, 26, 86, 37, 137,
-                    188, 17, 14, 178, 205, 175, 93, 39, 86, 4, 138, 187, 234, 95, 5,
-                ],
+                operational_certificate: DmqMsgOperationalCertificate {
+                    kes_vk: vec![
+                        50, 45, 160, 42, 80, 78, 184, 20, 210, 77, 140, 152, 63, 49, 165, 168, 5,
+                        131, 101, 152, 110, 242, 144, 157, 176, 210, 5, 10, 166, 91, 196, 168,
+                    ],
+                    issue_number: 0,
+                    start_kes_period: 0,
+                    cert_sig: vec![
+                        207, 135, 144, 168, 238, 41, 179, 216, 245, 74, 164, 231, 4, 158, 234, 141,
+                        5, 19, 166, 11, 78, 34, 210, 211, 183, 72, 127, 83, 185, 156, 107, 55, 160,
+                        190, 73, 251, 204, 47, 197, 86, 174, 231, 13, 49, 7, 83, 173, 177, 27, 53,
+                        209, 66, 24, 203, 226, 152, 3, 91, 66, 56, 244, 206, 79, 0,
+                    ],
+                },
                 cold_verification_key: vec![
                     77, 75, 24, 6, 47, 133, 2, 89, 141, 224, 69, 202, 123, 105, 240, 103, 245, 159,
                     147, 177, 110, 58, 248, 115, 58, 152, 138, 220, 35, 65, 245, 200,
@@ -278,7 +292,7 @@ mod tests {
 
             let consumer = DmqConsumerClientPallas::new(
                 socket_path,
-                CardanoNetwork::TestNet(0),
+                DmqNetwork::TestNet(0),
                 TestLogger::stdout(),
             );
 
@@ -314,7 +328,7 @@ mod tests {
 
             let consumer = DmqConsumerClientPallas::<DmqMessageTestPayload>::new(
                 socket_path,
-                CardanoNetwork::TestNet(0),
+                DmqNetwork::TestNet(0),
                 TestLogger::stdout(),
             );
 
@@ -341,7 +355,7 @@ mod tests {
 
             let consumer = DmqConsumerClientPallas::<DmqMessageTestPayload>::new(
                 socket_path,
-                CardanoNetwork::TestNet(0),
+                DmqNetwork::TestNet(0),
                 TestLogger::stdout(),
             );
 

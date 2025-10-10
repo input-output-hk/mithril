@@ -1,9 +1,10 @@
-use anyhow::Context;
-use config::{ConfigError, Map, Source, Value, ValueKind};
-use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::PathBuf;
 use std::str::FromStr;
+
+use anyhow::Context;
+use config::{ConfigError, Map, Source, Value, ValueKind};
+use serde::{Deserialize, Serialize};
 
 use mithril_cardano_node_chain::chain_observer::ChainObserverType;
 use mithril_cli_helper::{register_config_value, serde_deserialization};
@@ -14,6 +15,7 @@ use mithril_common::entities::{
     SignedEntityTypeDiscriminants,
 };
 use mithril_common::{AggregateSignatureType, CardanoNetwork, StdResult};
+use mithril_dmq::DmqNetwork;
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use mithril_era::adapters::EraReaderAdapterType;
 
@@ -80,6 +82,11 @@ pub trait ConfigurationSource {
         panic!("cardano_node_version is not implemented.");
     }
 
+    /// Cardano network
+    fn network(&self) -> String {
+        panic!("network is not implemented.");
+    }
+
     /// Cardano Network Magic number
     ///
     /// useful for TestNet & DevNet
@@ -87,9 +94,12 @@ pub trait ConfigurationSource {
         panic!("network_magic is not implemented.");
     }
 
-    /// Cardano network
-    fn network(&self) -> String {
-        panic!("network is not implemented.");
+    /// DMQ Network Magic number
+    ///
+    /// useful for TestNet & DevNet
+    #[cfg(feature = "future_dmq")]
+    fn dmq_network_magic(&self) -> Option<u64> {
+        panic!("dmq_network_magic is not implemented.");
     }
 
     /// Cardano chain observer type
@@ -302,6 +312,13 @@ pub trait ConfigurationSource {
             .with_context(|| "Invalid network configuration")
     }
 
+    /// Get a representation of the DMQ network.
+    #[cfg(feature = "future_dmq")]
+    fn get_dmq_network(&self) -> StdResult<DmqNetwork> {
+        DmqNetwork::from_code(self.network(), self.dmq_network_magic())
+            .with_context(|| "Invalid DMQ network configuration")
+    }
+
     /// Get the directory of the SQLite stores.
     fn get_sqlite_dir(&self) -> PathBuf {
         let store_dir = &self.data_stores_directory();
@@ -414,15 +431,21 @@ pub struct ServeCommandConfiguration {
     /// is why it has to be manually given to the Aggregator
     pub cardano_node_version: String,
 
-    /// Cardano Network Magic number
+    /// Cardano network
+    #[example = "`mainnet` or `preprod` or `devnet`"]
+    pub network: String,
+
+    /// Cardano network magic number
     ///
     /// useful for TestNet & DevNet
     #[example = "`1097911063` or `42`"]
     pub network_magic: Option<u64>,
 
-    /// Cardano network
-    #[example = "`mainnet` or `preprod` or `devnet`"]
-    pub network: String,
+    /// Dmq network magic number
+    ///
+    /// useful for TestNet & DevNet
+    #[example = "`1097911063` or `42`"]
+    pub dmq_network_magic: Option<u64>,
 
     /// Cardano chain observer type
     pub chain_observer_type: ChainObserverType,
@@ -644,8 +667,9 @@ impl ServeCommandConfiguration {
             cardano_node_socket_path: PathBuf::new(),
             dmq_node_socket_path: None,
             cardano_node_version: "0.0.1".to_string(),
-            network_magic: Some(42),
             network: "devnet".to_string(),
+            network_magic: Some(42),
+            dmq_network_magic: Some(3141592),
             chain_observer_type: ChainObserverType::Fake,
             protocol_parameters: ProtocolParameters {
                 k: 5,
@@ -731,12 +755,16 @@ impl ConfigurationSource for ServeCommandConfiguration {
         self.cardano_node_version.clone()
     }
 
+    fn network(&self) -> String {
+        self.network.clone()
+    }
+
     fn network_magic(&self) -> Option<u64> {
         self.network_magic
     }
 
-    fn network(&self) -> String {
-        self.network.clone()
+    fn dmq_network_magic(&self) -> Option<u64> {
+        self.dmq_network_magic
     }
 
     fn chain_observer_type(&self) -> ChainObserverType {

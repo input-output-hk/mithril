@@ -4,11 +4,12 @@ use std::time::Duration;
 
 use clap::Parser;
 use libp2p::Multiaddr;
+
 use slog::error;
 
-#[cfg(feature = "future_dmq")]
-use mithril_common::CardanoNetwork;
 use mithril_common::StdResult;
+#[cfg(feature = "future_dmq")]
+use mithril_dmq::DmqNetwork;
 
 use crate::{SignerRelay, SignerRelayConfiguration, SignerRelayMode};
 
@@ -46,8 +47,8 @@ pub struct SignerCommand {
     /// Cardano Network Magic number
     /// useful for TestNet & DevNet
     #[cfg(feature = "future_dmq")]
-    #[clap(long, env = "NETWORK_MAGIC")]
-    pub network_magic: Option<u64>,
+    #[clap(long, env = "DMQ_NETWORK_MAGIC")]
+    pub dmq_network_magic: Option<u64>,
 
     /// Aggregator endpoint URL.
     #[clap(long, env = "AGGREGATOR_ENDPOINT")]
@@ -78,8 +79,7 @@ impl SignerCommand {
         let aggregator_endpoint = self.aggregator_endpoint.to_owned();
         let signer_repeater_delay = Duration::from_millis(self.signer_repeater_delay);
         #[cfg(feature = "future_dmq")]
-        let cardano_network =
-            CardanoNetwork::from_code(self.network.to_owned(), self.network_magic)?;
+        let dmq_network = DmqNetwork::from_code(self.network.to_owned(), self.dmq_network_magic)?;
 
         let mut relay = SignerRelay::start(SignerRelayConfiguration {
             address: &addr,
@@ -87,7 +87,7 @@ impl SignerCommand {
             #[cfg(feature = "future_dmq")]
             dmq_node_socket_path: &self.dmq_node_socket_path,
             #[cfg(feature = "future_dmq")]
-            cardano_network: &cardano_network,
+            dmq_network: &dmq_network,
             signer_registration_mode,
             signature_registration_mode,
             aggregator_endpoint: &aggregator_endpoint,

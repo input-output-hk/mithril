@@ -67,3 +67,14 @@ find . -type f -print | grep "node.log" | sort -n | xargs -i  sh -c 'echo '\${SE
 
 EOF
 chmod u+x log-cardano.sh
+
+cat >> log-dmq.sh <<EOF
+#!/usr/bin/env bash
+
+SEPARATOR="---------------------------------------------------------------------"
+
+# DMQ nodes logs
+find . -type f -print | grep "dmq.node.log" | sort -n | xargs -i  sh -c 'echo '\${SEPARATOR}' && echo tail -n '\${LINES}' {} && echo '\${SEPARATOR}' && tail -n '\${LINES}' {} && echo '\${SEPARATOR}' && echo'
+
+EOF
+chmod u+x log-dmq.sh

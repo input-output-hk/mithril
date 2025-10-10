@@ -137,6 +137,13 @@ pub struct Args {
     #[clap(long)]
     use_dmq: bool,
 
+    /// DMQ node flavor (used only when 'use_dmq' is set, can be 'haskell' or 'fake')
+    ///
+    /// 'haskell': will use the DMQ network created within the 'mithril-devnet'
+    /// 'fake': will use a fake DMQ network within created with the Mithril relay
+    #[clap(long, default_value = "haskell")]
+    dmq_node_flavor: Option<String>,
+
     /// Skip cardano binaries download
     #[clap(long)]
     skip_cardano_bin_download: bool,
@@ -377,6 +384,7 @@ impl App {
                 aggregate_signature_type: args.aggregate_signature_type,
                 run_only_mode,
                 use_dmq,
+                dmq_node_flavor: args.dmq_node_flavor,
                 use_relays,
                 relay_signer_registration_mode,
                 relay_signature_registration_mode,

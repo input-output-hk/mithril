@@ -38,6 +38,7 @@ pub async fn bootstrap_aggregator(
         chain_observer_type,
         leader_aggregator_endpoint: &None,
         use_dmq: false,
+        dmq_node_flavor: &None,
     })
     .unwrap();
 

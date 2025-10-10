@@ -31,8 +31,18 @@ echo
 # Change directory
 pushd ${ARTIFACTS_DIR} > /dev/null
 
+# Start devnet DMQ nodes
+if [[ "${NODES}" = *"dmq"* ]] || [[ "${NODES}" = "*" ]]; then
+    echo "====================================================================="
+    echo " Start DMQ nodes"
+    echo "====================================================================="
+    echo
+    ./start-dmq.sh
+    echo
+fi
+
 # Start devnet Cardano nodes
-if [ "${NODES}" = "cardano" ] || [ "${NODES}" = "*" ]; then 
+if [[ "${NODES}" = *"cardano"* ]] || [[ "${NODES}" = "*" ]]; then
     echo "====================================================================="
     echo " Start Cardano nodes"
     echo "====================================================================="
@@ -42,7 +52,7 @@ if [ "${NODES}" = "cardano" ] || [ "${NODES}" = "*" ]; then
 fi
 
 # Start devnet Mithril nodes
-if [ "${NODES}" = "mithril" ] || [ "${NODES}" = "*" ]; then 
+if [[ "${NODES}" = *"mithril"* ]] || [[ "${NODES}" = "*" ]]; then
     echo ">> Info: Mithril Aggregator will be attached to the first Cardano Full node"
     echo ">> Info: Mithril Signers will be attached to each Cardano SPO node"
     echo "====================================================================="
@@ -54,20 +64,23 @@ if [ "${NODES}" = "mithril" ] || [ "${NODES}" = "*" ]; then
 fi
 
 # Schedule stake delegation
-echo "====================================================================="
-echo " Schedule Cardano Stake Delegation"
-echo "====================================================================="
-echo
-DELEGATION_ROUND=0
-echo ">> Begin scheduled stakes delegation"
-while true
-do
-    echo ">> $(date +"%T"): Wait ${DELEGATE_PERIOD}s until next stakes delegation round..."
-    sleep ${DELEGATE_PERIOD}
-    DELEGATION_ROUND=$(( $DELEGATION_ROUND + 1 ))
-    echo ">> Run stakes delegation round #${DELEGATION_ROUND}!"
-    DELEGATION_ROUND=${DELEGATION_ROUND} ./delegate.sh
-done
-echo
+if [[ "${NODES}" = *"cardano"* ]] || [[ "${NODES}" = "*" ]]; then
+    echo "====================================================================="
+    echo " Schedule Cardano Stake Delegation"
+    echo "====================================================================="
+    echo
+    DELEGATION_ROUND=0
+    echo ">> Begin scheduled stakes delegation"
+    while true
+    do
+        echo ">> $(date +"%T"): Wait ${DELEGATE_PERIOD}s until next stakes delegation round..."
+        sleep ${DELEGATE_PERIOD}
+        DELEGATION_ROUND=$(( $DELEGATION_ROUND + 1 ))
+        echo ">> Run stakes delegation round #${DELEGATION_ROUND}!"
+        DELEGATION_ROUND=${DELEGATION_ROUND} ./delegate.sh
+    done
+    echo
+fi
+
 
 popd
