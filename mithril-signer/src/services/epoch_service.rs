@@ -192,7 +192,8 @@ impl EpochService for MithrilEpochService {
             mithril_network_configuration.available_signed_entity_types.clone();
 
         let cardano_transactions_signing_config = mithril_network_configuration
-            .get_cardano_transactions_signing_config()
+            .signed_entity_types_config
+            .cardano_transactions
             .clone();
 
         self.epoch_data = Some(EpochData {
@@ -424,7 +425,6 @@ pub(crate) mod mock_epoch_service {
 #[cfg(test)]
 mod tests {
     use mithril_protocol_config::model::SignedEntityTypeConfiguration;
-    use std::collections::HashMap;
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
@@ -727,7 +727,9 @@ mod tests {
 
         // Check cardano_transactions_signing_config
         assert_eq!(
-            mithril_network_configuration.get_cardano_transactions_signing_config(),
+            mithril_network_configuration
+                .signed_entity_types_config
+                .cardano_transactions,
             *service.cardano_transactions_signing_config().unwrap()
         );
     }
@@ -895,7 +897,9 @@ mod tests {
                     fake_data::beacon().epoch,
                     MithrilNetworkConfiguration {
                         available_signed_entity_types: BTreeSet::new(),
-                        signed_entity_types_config: HashMap::new(),
+                        signed_entity_types_config: SignedEntityTypeConfiguration {
+                            cardano_transactions: None,
+                        },
                         ..MithrilNetworkConfiguration::dummy()
                     },
                     current_signers,
@@ -914,13 +918,9 @@ mod tests {
             let allowed_discriminants =
                 BTreeSet::from([SignedEntityTypeDiscriminants::CardanoImmutableFilesFull]);
 
-            let mut signed_entity_types_config = HashMap::new();
-            signed_entity_types_config.insert(
-                SignedEntityTypeDiscriminants::CardanoTransactions,
-                SignedEntityTypeConfiguration::CardanoTransactions(
-                    CardanoTransactionsSigningConfig::dummy(),
-                ),
-            );
+            let signed_entity_types_config = SignedEntityTypeConfiguration {
+                cardano_transactions: Some(CardanoTransactionsSigningConfig::dummy()),
+            };
 
             // Signers
             let signers = fake_data::signers(5);

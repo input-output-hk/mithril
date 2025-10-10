@@ -1,8 +1,5 @@
 //! provides test doubles for MithrilNetworkConfigurationProvider
-use std::{
-    collections::{BTreeSet, HashMap},
-    sync::Arc,
-};
+use std::{collections::BTreeSet, sync::Arc};
 
 use tokio::sync::RwLock;
 
@@ -26,8 +23,7 @@ pub struct FakeMithrilNetworkConfigurationProvider {
     pub available_signed_entity_types: RwLock<BTreeSet<SignedEntityTypeDiscriminants>>,
 
     /// The configuration for each signed entity type
-    pub signed_entity_types_config:
-        HashMap<SignedEntityTypeDiscriminants, SignedEntityTypeConfiguration>,
+    pub signed_entity_types_config: SignedEntityTypeConfiguration,
 
     ticker_service: Arc<MithrilTickerService>,
 }
@@ -37,10 +33,7 @@ impl FakeMithrilNetworkConfigurationProvider {
     pub fn new(
         signer_registration_protocol_parameters: ProtocolParameters,
         available_signed_entity_types: BTreeSet<SignedEntityTypeDiscriminants>,
-        signed_entity_types_config: HashMap<
-            SignedEntityTypeDiscriminants,
-            SignedEntityTypeConfiguration,
-        >,
+        signed_entity_types_config: SignedEntityTypeConfiguration,
         ticker_service: Arc<MithrilTickerService>,
     ) -> Self {
         Self {
@@ -81,10 +74,7 @@ impl MithrilNetworkConfigurationProvider for FakeMithrilNetworkConfigurationProv
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        collections::{BTreeSet, HashMap},
-        sync::Arc,
-    };
+    use std::{collections::BTreeSet, sync::Arc};
 
     use mithril_common::{
         entities::{
@@ -128,13 +118,12 @@ mod tests {
             SignedEntityTypeDiscriminants::MithrilStakeDistribution,
             SignedEntityTypeDiscriminants::CardanoTransactions,
         ]);
-        let signed_entity_types_config = HashMap::from([(
-            SignedEntityTypeDiscriminants::CardanoTransactions,
-            SignedEntityTypeConfiguration::CardanoTransactions(CardanoTransactionsSigningConfig {
+        let signed_entity_types_config = SignedEntityTypeConfiguration {
+            cardano_transactions: Some(CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(12),
                 step: BlockNumber(10),
             }),
-        )]);
+        };
 
         let mithril_network_configuration_provider = FakeMithrilNetworkConfigurationProvider::new(
             signer_registration_protocol_parameters.clone(),
@@ -151,11 +140,7 @@ mod tests {
         assert_eq!(actual_config.epoch, Epoch(1));
         assert_eq!(
             actual_config.signer_registration_protocol_parameters,
-            ProtocolParameters {
-                k: 2,
-                m: 3,
-                phi_f: 0.5
-            }
+            signer_registration_protocol_parameters
         );
         assert_eq!(
             actual_config.available_signed_entity_types,

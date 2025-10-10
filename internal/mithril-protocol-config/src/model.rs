@@ -1,6 +1,6 @@
 //! Model definitions for Mithril Protocol Configuration.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 
 use mithril_common::entities::{
     CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityTypeDiscriminants,
@@ -9,9 +9,9 @@ use mithril_common::entities::{
 #[derive(PartialEq, Clone, Debug)]
 
 /// Custom configuration for a signed entity type
-pub enum SignedEntityTypeConfiguration {
+pub struct SignedEntityTypeConfiguration {
     /// Cardano Transactions
-    CardanoTransactions(CardanoTransactionsSigningConfig),
+    pub cardano_transactions: Option<CardanoTransactionsSigningConfig>,
 }
 
 /// A Mithril network configuration
@@ -27,70 +27,5 @@ pub struct MithrilNetworkConfiguration {
     pub available_signed_entity_types: BTreeSet<SignedEntityTypeDiscriminants>,
 
     /// Custom configurations for signed entity types
-    pub signed_entity_types_config:
-        HashMap<SignedEntityTypeDiscriminants, SignedEntityTypeConfiguration>,
-}
-
-impl MithrilNetworkConfiguration {
-    /// Get the Cardano Transactions signing configuration
-    pub fn get_cardano_transactions_signing_config(
-        &self,
-    ) -> Option<CardanoTransactionsSigningConfig> {
-        match self
-            .signed_entity_types_config
-            .get(&SignedEntityTypeDiscriminants::CardanoTransactions)
-        {
-            Some(SignedEntityTypeConfiguration::CardanoTransactions(config)) => {
-                Some(config.clone())
-            }
-            _ => None,
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::collections::HashMap;
-
-    use mithril_common::{
-        entities::{BlockNumber, CardanoTransactionsSigningConfig, SignedEntityTypeDiscriminants},
-        test::double::Dummy,
-    };
-
-    use crate::model::{MithrilNetworkConfiguration, SignedEntityTypeConfiguration};
-
-    #[test]
-    fn test_get_cardano_transactions_signing_config_should_return_config_if_cardano_transactions_exist()
-     {
-        let config = MithrilNetworkConfiguration {
-            signed_entity_types_config: HashMap::from([(
-                SignedEntityTypeDiscriminants::CardanoTransactions,
-                SignedEntityTypeConfiguration::CardanoTransactions(
-                    CardanoTransactionsSigningConfig {
-                        security_parameter: BlockNumber(42),
-                        step: BlockNumber(26),
-                    },
-                ),
-            )]),
-            ..Dummy::dummy()
-        };
-
-        let result = config.get_cardano_transactions_signing_config();
-        assert!(result.is_some());
-        let unwrapped_result = result.unwrap();
-        assert_eq!(unwrapped_result.security_parameter, BlockNumber(42));
-        assert_eq!(unwrapped_result.step, BlockNumber(26));
-    }
-
-    #[test]
-    fn test_get_cardano_transactions_signing_config_should_return_none_if_there_is_no_cardano_transactions()
-     {
-        let config = MithrilNetworkConfiguration {
-            signed_entity_types_config: HashMap::new(),
-            ..Dummy::dummy()
-        };
-
-        let result = config.get_cardano_transactions_signing_config();
-        assert!(result.is_none());
-    }
+    pub signed_entity_types_config: SignedEntityTypeConfiguration,
 }
