@@ -1,7 +1,11 @@
 //! HTTP implementation of MithrilNetworkConfigurationProvider.
 
 use anyhow::anyhow;
+use async_trait::async_trait;
 use std::{collections::HashMap, sync::Arc, time::Duration};
+
+use mithril_common::api_version::APIVersionProvider;
+use mithril_common::{StdResult, entities::SignedEntityTypeDiscriminants};
 
 use crate::{
     http_client::aggregator_client::{
@@ -10,9 +14,6 @@ use crate::{
     interface::MithrilNetworkConfigurationProvider,
     model::{MithrilNetworkConfiguration, SignedEntityTypeConfiguration},
 };
-use async_trait::async_trait;
-use mithril_common::api_version::APIVersionProvider;
-use mithril_common::{StdResult, entities::SignedEntityTypeDiscriminants};
 
 /// Structure implementing MithrilNetworkConfigurationProvider using HTTP.
 pub struct HttpMithrilNetworkConfigurationProvider {
