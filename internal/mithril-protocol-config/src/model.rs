@@ -8,7 +8,7 @@ use mithril_common::entities::{
 
 #[derive(PartialEq, Clone, Debug)]
 
-/// Custom configuration for a signed entity type
+/// Custom configuration for the signed entity types
 pub struct SignedEntityTypeConfiguration {
     /// Cardano Transactions
     pub cardano_transactions: Option<CardanoTransactionsSigningConfig>,

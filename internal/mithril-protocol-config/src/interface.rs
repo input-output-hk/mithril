@@ -1,4 +1,4 @@
-//! Interface definition for Mithril Protocol Configuration.
+//! Interface definition for Mithril Protocol Configuration provider.
 
 use async_trait::async_trait;
 use mithril_common::StdResult;
