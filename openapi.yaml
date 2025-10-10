@@ -286,17 +286,7 @@ paths:
           description: Epoch of the Cardano database snapshots to list
           required: true
           schema:
-            oneOf:
-              - type: integer
-                format: int64
-                examples:
-                  - 419
-              - description: Use the latest epoch with an optional offset
-                type: string
-                pattern: '^latest(-\d+)?$'
-                examples:
-                  - "latest"
-                  - "latest-5"
+            $ref: "#/components/schemas/EpochOrLatestParameter"
       responses:
         "200":
           description: Cardano database snapshots found
@@ -587,17 +577,7 @@ paths:
           description: Cardano Epoch at which the signer registrations are registered
           required: true
           schema:
-            oneOf:
-              - type: integer
-                format: int64
-                examples:
-                  - 419
-              - description: Use the latest epoch with an optional offset
-                type: string
-                pattern: '^latest(-\d+)?$'
-                examples:
-                  - "latest"
-                  - "latest-5"
+            $ref: "#/components/schemas/EpochOrLatestParameter"
       responses:
         "200":
           description: Registered Signers found
@@ -954,6 +934,23 @@ components:
       description: Cardano chain epoch number
       type: integer
       format: int64
+      examples:
+        - 419
+
+    EpochOrLatestParameter:
+      description: |
+        Specifies which epoch to target for the request. Can be either:
+        - A specific epoch number (e.g., 419)
+        - 'latest' for the most recent epoch
+        - 'latest' with a negative offset (e.g., 'latest-5') to target an epoch relative to the latest one
+      oneOf:
+        - $ref: "#/components/schemas/Epoch"
+        - description: Use the latest epoch with an optional offset
+          type: string
+          pattern: '^latest(-\d+)?$'
+          examples:
+            - "latest"
+            - "latest-5"
 
     EpochSettingsMessage:
       description: Epoch settings
