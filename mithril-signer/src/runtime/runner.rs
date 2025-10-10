@@ -46,7 +46,7 @@ pub trait Runner: Send + Sync {
     /// Register epoch information
     async fn inform_epoch_settings(
         &self,
-        signer_epoch: Epoch,
+        aggregator_signer_registration_epoch: Epoch,
         mithril_network_configuration: MithrilNetworkConfiguration,
         current_signer: Vec<Signer>,
         next_signer: Vec<Signer>,
@@ -265,14 +265,14 @@ impl Runner for SignerRunner {
 
     async fn inform_epoch_settings(
         &self,
-        signer_epoch: Epoch,
+        aggregator_signer_registration_epoch: Epoch,
         mithril_network_configuration: MithrilNetworkConfiguration,
         current_signer: Vec<Signer>,
         next_signer: Vec<Signer>,
     ) -> StdResult<()> {
         debug!(
             self.logger,
-            ">> inform_epoch_settings(epoch:{})", signer_epoch
+            ">> inform_epoch_settings(epoch:{})", aggregator_signer_registration_epoch
         );
 
         self.services
@@ -280,7 +280,7 @@ impl Runner for SignerRunner {
             .write()
             .await
             .inform_epoch_settings(
-                signer_epoch,
+                aggregator_signer_registration_epoch,
                 mithril_network_configuration,
                 current_signer,
                 next_signer,

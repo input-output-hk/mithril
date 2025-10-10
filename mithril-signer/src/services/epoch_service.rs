@@ -36,7 +36,7 @@ pub trait EpochService: Sync + Send {
     /// internal state for the new epoch.
     async fn inform_epoch_settings(
         &mut self,
-        signer_epoch: Epoch,
+        aggregator_signer_registration_epoch: Epoch,
         mithril_network_configuration: MithrilNetworkConfiguration,
         current_signers: Vec<Signer>,
         next_signers: Vec<Signer>,
@@ -170,12 +170,12 @@ impl MithrilEpochService {
 impl EpochService for MithrilEpochService {
     async fn inform_epoch_settings(
         &mut self,
-        signer_epoch: Epoch,
+        aggregator_signer_registration_epoch: Epoch,
         mithril_network_configuration: MithrilNetworkConfiguration,
         current_signers: Vec<Signer>,
         next_signers: Vec<Signer>,
     ) -> StdResult<()> {
-        debug!(self.logger, ">> inform_epoch_settings"; "signer_epoch" => ?signer_epoch, "mithril_network_configuration" => ?mithril_network_configuration, "current_signers" => ?current_signers, "next_signers" => ?next_signers);
+        debug!(self.logger, ">> inform_epoch_settings"; "aggregator_signer_registration_epoch" => ?aggregator_signer_registration_epoch, "mithril_network_configuration" => ?mithril_network_configuration, "current_signers" => ?current_signers, "next_signers" => ?next_signers);
 
         let registration_protocol_parameters = mithril_network_configuration
             .signer_registration_protocol_parameters
@@ -183,7 +183,9 @@ impl EpochService for MithrilEpochService {
 
         let protocol_initializer = self
             .protocol_initializer_store
-            .get_protocol_initializer(signer_epoch.offset_to_signer_retrieval_epoch()?)
+            .get_protocol_initializer(
+                aggregator_signer_registration_epoch.offset_to_signer_retrieval_epoch()?,
+            )
             .await?;
 
         let allowed_discriminants =
@@ -194,7 +196,7 @@ impl EpochService for MithrilEpochService {
             .clone();
 
         self.epoch_data = Some(EpochData {
-            epoch: signer_epoch,
+            epoch: aggregator_signer_registration_epoch,
             registration_protocol_parameters,
             protocol_initializer,
             current_signers,
@@ -377,7 +379,7 @@ pub(crate) mod mock_epoch_service {
         impl EpochService for EpochServiceImpl {
             async fn inform_epoch_settings(
                 &mut self,
-                signer_epoch: Epoch,
+                aggregator_signer_registration_epoch: Epoch,
                 mithril_network_configuration: MithrilNetworkConfiguration,
                 current_signers: Vec<Signer>,
                 next_signers: Vec<Signer>,

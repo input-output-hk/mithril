@@ -298,7 +298,7 @@ impl StateMachine {
     /// Launch the transition process from the `Unregistered` to `ReadyToSign` or `RegisteredNotAbleToSign` state.
     async fn transition_from_unregistered_to_one_of_registered_states(
         &self,
-        signer_epoch: Epoch,
+        aggregator_signer_registration_epoch: Epoch,
         mithril_network_configuration: MithrilNetworkConfiguration,
         current_signer: Vec<Signer>,
         next_signer: Vec<Signer>,
@@ -317,7 +317,7 @@ impl StateMachine {
             })?;
 
         self.runner
-            .inform_epoch_settings(signer_epoch, mithril_network_configuration, current_signer,  next_signer)
+            .inform_epoch_settings(aggregator_signer_registration_epoch, mithril_network_configuration, current_signer,  next_signer)
             .await
             .map_err(|e| RuntimeError::KeepState {
                 message: format!(
