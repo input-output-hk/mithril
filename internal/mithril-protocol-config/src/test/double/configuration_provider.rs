@@ -12,7 +12,7 @@ use mithril_common::{
     StdResult,
     entities::{ProtocolParameters, SignedEntityTypeDiscriminants},
 };
-use mithril_ticker::{MithrilTickerService, TickerService};
+use mithril_ticker::TickerService;
 
 /// A fake [MithrilNetworkConfigurationProvider] that return [MithrilNetworkConfiguration]
 pub struct FakeMithrilNetworkConfigurationProvider {
@@ -25,7 +25,7 @@ pub struct FakeMithrilNetworkConfigurationProvider {
     /// The configuration for each signed entity type
     pub signed_entity_types_config: SignedEntityTypeConfiguration,
 
-    ticker_service: Arc<MithrilTickerService>,
+    ticker_service: Arc<dyn TickerService>,
 }
 
 impl FakeMithrilNetworkConfigurationProvider {
@@ -34,7 +34,7 @@ impl FakeMithrilNetworkConfigurationProvider {
         signer_registration_protocol_parameters: ProtocolParameters,
         available_signed_entity_types: BTreeSet<SignedEntityTypeDiscriminants>,
         signed_entity_types_config: SignedEntityTypeConfiguration,
-        ticker_service: Arc<MithrilTickerService>,
+        ticker_service: Arc<dyn TickerService>,
     ) -> Self {
         Self {
             signer_registration_protocol_parameters,
