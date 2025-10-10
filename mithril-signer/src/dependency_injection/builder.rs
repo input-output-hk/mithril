@@ -41,10 +41,7 @@ use mithril_persistence::database::repository::CardanoTransactionRepository;
 use mithril_persistence::database::{ApplicationNodeType, SqlMigration};
 use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnection, SqliteConnectionPool};
 
-use mithril_protocol_config::{
-    http_client::http_impl::HttpMithrilNetworkConfigurationProvider,
-    interface::MithrilNetworkConfigurationProvider,
-};
+use mithril_protocol_config::http_client::http_impl::HttpMithrilNetworkConfigurationProvider;
 
 #[cfg(feature = "future_dmq")]
 use mithril_dmq::{DmqMessageBuilder, DmqPublisherClientPallas};
@@ -378,13 +375,12 @@ impl<'a> DependenciesBuilder<'a> {
             self.root_logger(),
         ));
         let metrics_service = Arc::new(MetricsService::new(self.root_logger())?);
-        let network_configuration_service: Arc<dyn MithrilNetworkConfigurationProvider> =
-            Arc::new(HttpMithrilNetworkConfigurationProvider::new(
-                self.config.aggregator_endpoint.clone(),
-                self.config.relay_endpoint.clone(),
-                api_version_provider.clone(),
-                self.root_logger(),
-            ));
+        let network_configuration_service = Arc::new(HttpMithrilNetworkConfigurationProvider::new(
+            self.config.aggregator_endpoint.clone(),
+            self.config.relay_endpoint.clone(),
+            api_version_provider.clone(),
+            self.root_logger(),
+        ));
         let preloader_activation = CardanoTransactionsPreloaderActivationSigner::new(
             network_configuration_service.clone(),
         );
