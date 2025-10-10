@@ -462,10 +462,7 @@ paths:
           description: Epoch of the Cardano stake distribution to retrieve
           required: true
           schema:
-            type: integer
-            format: int64
-            examples:
-              - 419
+            $ref: "#/components/schemas/EpochOrLatestParameter"
       responses:
         "200":
           description: Cardano stake distribution found
