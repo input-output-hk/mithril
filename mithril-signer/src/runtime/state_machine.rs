@@ -1,6 +1,5 @@
 use anyhow::Error;
 use chrono::Local;
-use mithril_protocol_config::model::MithrilNetworkConfiguration;
 use slog::{Logger, debug, info};
 use std::{fmt::Display, ops::Deref, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
@@ -10,6 +9,8 @@ use mithril_common::{
     entities::{Epoch, Signer, TimePoint},
     logging::LoggerExtensions,
 };
+
+use mithril_protocol_config::model::MithrilNetworkConfiguration;
 
 use crate::{MetricsService, entities::BeaconToSign, services::AggregatorClientError};
 
@@ -489,15 +490,13 @@ impl StateMachine {
 mod tests {
     use anyhow::anyhow;
     use chrono::DateTime;
-    use mithril_protocol_config::model::{
-        MithrilNetworkConfiguration, SignedEntityTypeConfiguration,
-    };
 
     use mithril_common::entities::{
         CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolMessage, SignedEntityType,
         SignedEntityTypeDiscriminants,
     };
     use mithril_common::test::double::{Dummy, fake_data};
+    use mithril_protocol_config::model::SignedEntityTypeConfiguration;
 
     use crate::SignerEpochSettings;
     use crate::runtime::runner::MockSignerRunner;
