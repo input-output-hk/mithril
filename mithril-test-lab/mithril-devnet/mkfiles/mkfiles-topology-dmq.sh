@@ -35,7 +35,7 @@ TOPOLOGY='
       "accessPoints": [],
       "advertise": false,
       "trustable": false,
-      "valency": 1
+      "valency": 2
     }
   ],
   "peerSnapshotFile": null,
