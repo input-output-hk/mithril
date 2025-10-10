@@ -30,13 +30,13 @@ rayon = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 
-[target.'cfg(any(target_family = "wasm", windows))'.dependencies]
+[target.'cfg(any(target_family = "wasm", target_env = "musl", windows))'.dependencies]
 # WASM and Windows don't support rug backend, fallback to num-integer only
 num-bigint = { version = "0.4.6" }
 num-rational = { version = "0.4.2" }
 num-traits = { version = "0.2.19" }
 
-[target.'cfg(not(any(target_family = "wasm", windows)))'.dependencies]
+[target.'cfg(not(any(target_family = "wasm", target_env = "musl", windows)))'.dependencies]
 num-bigint = { version = "0.4.6", optional = true }
 num-rational = { version = "0.4.2", optional = true }
 num-traits = { version = "0.2.19", optional = true }
