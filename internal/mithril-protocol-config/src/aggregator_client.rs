@@ -287,7 +287,7 @@ mod tests {
         logging::MemoryDrainForTestInspector,
     };
 
-    use crate::test_tools::TestLogger;
+    use crate::test::test_tools::TestLogger;
 
     use super::*;
 
