@@ -240,9 +240,9 @@ pub fn log_download_information(
 mod tests {
     use mithril_client::{
         MithrilCertificateMetadata,
-        common::{CardanoDbBeacon, ProtocolMessagePartKey, SignedEntityType},
+        common::{CardanoDbBeacon, ProtocolMessagePartKey, SignedEntityType, test::Dummy},
     };
-    use mithril_common::test::{TempDir, double::Dummy};
+    use mithril_common::test::TempDir;
 
     use crate::utils::ProgressOutputType;
 

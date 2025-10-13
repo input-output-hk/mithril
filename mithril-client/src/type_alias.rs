@@ -77,4 +77,11 @@ pub mod common {
     pub use mithril_common::messages::{
         AncillaryMessagePart, DigestsMessagePart, ImmutablesMessagePart,
     };
+
+    /// Test utilities.
+    ///
+    /// ⚠ Do not use in production code ⚠
+    pub mod test {
+        pub use mithril_common::test::double::Dummy;
+    }
 }

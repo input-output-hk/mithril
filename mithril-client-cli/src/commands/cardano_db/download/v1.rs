@@ -234,9 +234,9 @@ impl PreparedCardanoDbV1Download {
 mod tests {
     use mithril_client::{
         MithrilCertificateMetadata,
-        common::{CardanoDbBeacon, ProtocolMessagePartKey, SignedEntityType},
+        common::{CardanoDbBeacon, ProtocolMessagePartKey, SignedEntityType, test::Dummy},
     };
-    use mithril_common::test::{TempDir, double::Dummy};
+    use mithril_common::test::TempDir;
 
     use super::*;
 
