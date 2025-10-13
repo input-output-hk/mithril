@@ -44,7 +44,7 @@ pub trait SignedEntityStorer: Sync + Send {
         total: usize,
     ) -> StdResult<Vec<SignedEntityRecord>>;
 
-    /// Get Cardano database signed entities by epoch
+    /// Get signed entities by signed entity type and epoch
     async fn get_last_signed_entities_by_type_and_epoch(
         &self,
         signed_entity_type_id: &SignedEntityTypeDiscriminants,

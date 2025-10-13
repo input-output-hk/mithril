@@ -121,7 +121,7 @@ pub mod handlers {
         http_message_service: Arc<dyn MessageService>,
         metrics_service: Arc<MetricsService>,
         epoch_service: EpochServiceWrapper,
-        max_artifact_epoch_offset: u32,
+        max_artifact_epoch_offset: u64,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_artifact_detail_cardano_stake_distribution_total_served_since_startup()
@@ -141,11 +141,11 @@ pub mod handlers {
             }
         };
 
-        if expanded_epoch.has_offset_greater_than(max_artifact_epoch_offset as u64) {
+        if expanded_epoch.has_offset_greater_than(max_artifact_epoch_offset) {
             return Ok(reply::bad_request(
                 "invalid_epoch".to_string(),
                 format!(
-                    "offset greater than max configured: epoch:`{epoch}`, max offset:`{max_artifact_epoch_offset}`"
+                    "offset greater than maximum allowed value: epoch:`{epoch}`, max offset:`{max_artifact_epoch_offset}`"
                 ),
             ));
         }

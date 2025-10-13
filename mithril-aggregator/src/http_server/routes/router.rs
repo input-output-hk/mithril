@@ -31,7 +31,7 @@ pub struct RouterConfig {
     pub allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
     pub cardano_transactions_prover_max_hashes_allowed_by_request: usize,
     pub cardano_db_artifacts_directory: PathBuf,
-    pub max_artifact_epoch_offset: u32,
+    pub max_artifact_epoch_offset: u64,
     pub snapshot_directory: PathBuf,
     pub cardano_node_version: String,
     pub allow_http_serve_directory: bool,

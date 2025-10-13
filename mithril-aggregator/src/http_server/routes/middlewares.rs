@@ -276,7 +276,7 @@ pub mod parameters {
                 .epoch_of_current_data()
                 .map(ExpandedEpoch::Latest)
         } else if epoch_str.starts_with("latest-") {
-            let (_, offset_str) = epoch_str.split_at(7);
+            let (_, offset_str) = epoch_str.split_at("latest-".len());
             let offset = offset_str
                 .parse::<u64>()
                 .with_context(|| "Invalid epoch offset: must be a number")?;
@@ -503,6 +503,8 @@ mod tests {
                 "latest+",
                 "latest+0",
                 "latest+293",
+                "latest-4.5",
+                "latest+2.9",
                 "latest-invalid",
             ] {
                 parameters::expand_epoch(invalid_epoch, epoch_service.clone())

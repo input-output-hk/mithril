@@ -23,7 +23,7 @@ fn artifact_cardano_database_list(
         .and_then(handlers::list_artifacts)
 }
 
-/// GET /artifact/cardano-database/epoch/:epoch{-offset}
+/// GET /artifact/cardano-database/epoch/:epoch
 fn artifact_cardano_database_list_by_epoch(
     router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
@@ -113,7 +113,7 @@ mod handlers {
         logger: Logger,
         epoch_service: EpochServiceWrapper,
         http_message_service: Arc<dyn MessageService>,
-        max_artifact_epoch_offset: u32,
+        max_artifact_epoch_offset: u64,
     ) -> Result<impl warp::Reply, Infallible> {
         let expanded_epoch = match parameters::expand_epoch(&epoch, epoch_service).await {
             Ok(epoch) => epoch,
@@ -126,11 +126,11 @@ mod handlers {
             }
         };
 
-        if expanded_epoch.has_offset_greater_than(max_artifact_epoch_offset as u64) {
+        if expanded_epoch.has_offset_greater_than(max_artifact_epoch_offset) {
             return Ok(reply::bad_request(
                 "invalid_epoch".to_string(),
                 format!(
-                    "offset greater than max configured: epoch:`{epoch}`, max offset:`{max_artifact_epoch_offset}`"
+                    "offset greater than maximum allowed value: epoch:`{epoch}`, max offset:`{max_artifact_epoch_offset}`"
                 ),
             ));
         }
