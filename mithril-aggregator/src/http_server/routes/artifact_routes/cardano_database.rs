@@ -84,8 +84,7 @@ mod handlers {
 
     use crate::MetricsService;
     use crate::dependency_injection::EpochServiceWrapper;
-    use crate::http_server::routes::middlewares::{ClientMetadata, parameters};
-    use crate::http_server::routes::reply;
+    use crate::http_server::{parameters, routes::middlewares::ClientMetadata, routes::reply};
     use crate::services::MessageService;
 
     pub const LIST_MAX_ITEMS: usize = 20;

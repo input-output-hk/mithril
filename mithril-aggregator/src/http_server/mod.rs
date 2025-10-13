@@ -1,3 +1,4 @@
+pub mod parameters;
 pub mod routes;
 pub mod validators;
 

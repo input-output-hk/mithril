@@ -88,8 +88,9 @@ mod handlers {
             SignerRegistrationsMessage, SignerTickerListItemMessage, SignersTickersMessage,
         },
         event_store::{EventMessage, TransmitterService},
-        http_server::routes::{
-            middlewares::parameters, reply, signer_routes::fetch_epoch_header_value,
+        http_server::{
+            parameters,
+            routes::{reply, signer_routes::fetch_epoch_header_value},
         },
     };
 
