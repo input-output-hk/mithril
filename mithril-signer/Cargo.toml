@@ -1,6 +1,6 @@
 [package]
 name = "mithril-signer"
-version = "0.2.270"
+version = "0.2.271"
 description = "A Mithril Signer"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -32,6 +32,7 @@ mithril-doc = { path = "../internal/mithril-doc" }
 mithril-era = { path = "../internal/mithril-era" }
 mithril-metric = { path = "../internal/mithril-metric" }
 mithril-persistence = { path = "../internal/mithril-persistence" }
+mithril-protocol-config = { path = "../internal/mithril-protocol-config" }
 mithril-signed-entity-lock = { path = "../internal/signed-entity/mithril-signed-entity-lock" }
 mithril-signed-entity-preloader = { path = "../internal/signed-entity/mithril-signed-entity-preloader" }
 mithril-ticker = { path = "../internal/mithril-ticker" }

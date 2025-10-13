@@ -1,6 +1,10 @@
 #![allow(dead_code)]
 use anyhow::anyhow;
 use mithril_metric::{MetricCollector, MetricsServiceExporter};
+use mithril_protocol_config::{
+    model::SignedEntityTypeConfiguration,
+    test::double::configuration_provider::FakeMithrilNetworkConfigurationProvider,
+};
 use prometheus_parse::Value;
 use slog::Drain;
 use slog_scope::debug;
@@ -39,7 +43,7 @@ use mithril_common::{
         MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
         SignableBuilderServiceDependencies,
     },
-    test::double::Dummy,
+    test::double::{Dummy, fake_data},
 };
 use mithril_era::{EraChecker, EraMarker, EraReader, adapters::EraReaderDummyAdapter};
 use mithril_persistence::{
@@ -89,6 +93,7 @@ pub struct StateMachineTester {
     immutable_observer: Arc<DumbImmutableFileObserver>,
     chain_observer: Arc<FakeChainObserver>,
     certificate_handler: Arc<FakeAggregator>,
+    network_configuration_service: Arc<FakeMithrilNetworkConfigurationProvider>,
     protocol_initializer_store: Arc<dyn ProtocolInitializerStorer>,
     stake_store: Arc<dyn StakeStorer>,
     era_checker: Arc<EraChecker>,
@@ -169,6 +174,15 @@ impl StateMachineTester {
             },
             ticker_service.clone(),
         ));
+        let network_configuration_service = Arc::new(FakeMithrilNetworkConfigurationProvider::new(
+            fake_data::protocol_parameters(),
+            SignedEntityTypeDiscriminants::all(),
+            SignedEntityTypeConfiguration {
+                cardano_transactions: Some(cardano_transactions_signing_config.clone()),
+            },
+            ticker_service.clone(),
+        ));
+
         let digester = Arc::new(DumbImmutableDigester::default().with_digest("DIGEST"));
         let protocol_initializer_store = Arc::new(ProtocolInitializerRepository::new(
             sqlite_connection.clone(),
@@ -313,6 +327,7 @@ impl StateMachineTester {
             epoch_service,
             certifier,
             kes_signer,
+            network_configuration_service: network_configuration_service.clone(),
         };
         // set up stake distribution
         chain_observer.set_signers(signers_with_stake.to_owned()).await;
@@ -332,6 +347,7 @@ impl StateMachineTester {
             immutable_observer,
             chain_observer,
             certificate_handler,
+            network_configuration_service,
             protocol_initializer_store,
             stake_store,
             era_checker,
@@ -457,7 +473,7 @@ impl StateMachineTester {
         &mut self,
         discriminants: &[SignedEntityTypeDiscriminants],
     ) -> &mut Self {
-        self.certificate_handler
+        self.network_configuration_service
             .change_allowed_discriminants(&BTreeSet::from_iter(discriminants.iter().cloned()))
             .await;
         self
