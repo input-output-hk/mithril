@@ -4512,7 +4512,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-stm"
-version = "0.5.4"
+version = "0.5.5"
 dependencies = [
  "blake2 0.10.6",
  "blst",
