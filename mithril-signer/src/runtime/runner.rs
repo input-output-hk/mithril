@@ -211,6 +211,20 @@ impl Runner for SignerRunner {
             self.services.kes_signer.clone(),
             kes_period,
         )?;
+        self.services
+            .protocol_initializer_store
+            .save_protocol_initializer(epoch_offset_to_recording_epoch, protocol_initializer)
+            .await?;
+
+        let protocol_initializer = self
+            .services
+            .protocol_initializer_store
+            .get_protocol_initializer(epoch_offset_to_recording_epoch)
+            .await?.ok_or(RunnerError::NoValueError(
+                format!("no protocol_initializer available in store for epoch {epoch_offset_to_recording_epoch}"),
+            )).with_context(
+                || "register_signer_to_aggregator can not retrieve protocol initializer from store",
+            )?;
         let signer = Signer::new(
             self.services.single_signer.get_party_id(),
             protocol_initializer.verification_key().into(),
@@ -221,10 +235,6 @@ impl Runner for SignerRunner {
         self.services
             .certificate_handler
             .register_signer(epoch_offset_to_recording_epoch, &signer)
-            .await?;
-        self.services
-            .protocol_initializer_store
-            .save_protocol_initializer(epoch_offset_to_recording_epoch, protocol_initializer)
             .await?;
 
         Ok(())
@@ -682,14 +692,36 @@ mod tests {
             .await
             .expect("registering a signer to the aggregator should not fail");
 
-        assert!(certificate_handler.get_last_registered_signer().await.is_some());
-        let maybe_protocol_initializer = protocol_initializer_store
+        let last_registered_signer_first_registration =
+            certificate_handler.get_last_registered_signer().await.unwrap();
+        let maybe_protocol_initializer_first_registration = protocol_initializer_store
             .get_protocol_initializer(current_epoch.offset_to_recording_epoch())
             .await
             .expect("get_protocol_initializer should not fail");
         assert!(
-            maybe_protocol_initializer.is_some(),
+            maybe_protocol_initializer_first_registration.is_some(),
             "A protocol initializer should have been registered at the 'Recording' epoch"
+        );
+
+        runner
+            .register_signer_to_aggregator()
+            .await
+            .expect("registering a signer to the aggregator should not fail");
+
+        let last_registered_signer_second_registration =
+            certificate_handler.get_last_registered_signer().await.unwrap();
+        let maybe_protocol_initializer_second_registration = protocol_initializer_store
+            .get_protocol_initializer(current_epoch.offset_to_recording_epoch())
+            .await
+            .expect("get_protocol_initializer should not fail");
+        assert!(
+            maybe_protocol_initializer_second_registration.is_some(),
+            "A protocol initializer should have been registered at the 'Recording' epoch"
+        );
+        assert_eq!(
+            serde_json::to_string(&last_registered_signer_first_registration).unwrap(),
+            serde_json::to_string(&last_registered_signer_second_registration).unwrap(),
+            "The signer registration should be the same and should have been registered twice"
         );
     }
 
