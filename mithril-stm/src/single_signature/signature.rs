@@ -191,3 +191,61 @@ impl Ord for SingleSignature {
         self.signer_index.cmp(&other.signer_index)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    mod golden {
+        use blake2::{Blake2b, digest::consts::U32};
+        use rand_chacha::ChaCha20Rng;
+        use rand_core::SeedableRng;
+
+        use crate::bls_multi_signature::{BlsSigningKey, BlsVerificationKeyProofOfPossession};
+        use crate::{ClosedKeyRegistration, KeyRegistration, Parameters, Signer, SingleSignature};
+
+        type D = Blake2b<U32>;
+
+        const GOLDEN_JSON: &str = r#"
+        {
+            "sigma": [
+                149, 157, 201, 187, 140, 54, 0, 128, 209, 88, 16, 203, 61, 78, 77, 98, 161,
+                133, 58, 152, 29, 74, 217, 113, 64, 100, 10, 161, 186, 167, 133, 114, 211,
+                153, 218, 56, 223, 84, 105, 242, 41, 54, 224, 170, 208, 185, 126, 83
+            ],
+            "indexes": [1, 4, 5, 8],
+            "signer_index": 1
+        }"#;
+
+        fn golden_value() -> SingleSignature {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let msg = [0u8; 16];
+            let params = Parameters {
+                m: 10,
+                k: 5,
+                phi_f: 0.8,
+            };
+            let sk_1 = BlsSigningKey::generate(&mut rng);
+            let sk_2 = BlsSigningKey::generate(&mut rng);
+            let pk_1 = BlsVerificationKeyProofOfPossession::from(&sk_1);
+            let pk_2 = BlsVerificationKeyProofOfPossession::from(&sk_2);
+            let mut key_reg = KeyRegistration::init();
+            key_reg.register(1, pk_1).unwrap();
+            key_reg.register(1, pk_2).unwrap();
+            let closed_key_reg: ClosedKeyRegistration<D> = key_reg.close();
+            let signer = Signer::set_signer(1, 1, params, sk_1, pk_1.vk, closed_key_reg);
+            signer.sign(&msg).unwrap()
+        }
+
+        #[test]
+        fn golden_conversions() {
+            let value = serde_json::from_str(GOLDEN_JSON)
+                .expect("This JSON deserialization should not fail");
+            assert_eq!(golden_value(), value);
+
+            let serialized =
+                serde_json::to_string(&value).expect("This JSON serialization should not fail");
+            let golden_serialized = serde_json::to_string(&golden_value())
+                .expect("This JSON serialization should not fail");
+            assert_eq!(golden_serialized, serialized);
+        }
+    }
+}

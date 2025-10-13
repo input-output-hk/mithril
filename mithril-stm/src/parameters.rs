@@ -48,3 +48,41 @@ impl Parameters {
         Ok(Self { m, k, phi_f })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod golden {
+        use super::*;
+
+        const GOLDEN_JSON: &str = r#"
+            {
+                "m": 20973,
+                "k": 2422,
+                "phi_f": 0.2
+            }
+        "#;
+
+        fn golden_value() -> Parameters {
+            Parameters {
+                m: 20973,
+                k: 2422,
+                phi_f: 0.2,
+            }
+        }
+
+        #[test]
+        fn golden_conversions() {
+            let value = serde_json::from_str(GOLDEN_JSON)
+                .expect("This JSON deserialization should not fail");
+            assert_eq!(golden_value(), value);
+
+            let serialized =
+                serde_json::to_string(&value).expect("This JSON serialization should not fail");
+            let golden_serialized = serde_json::to_string(&golden_value())
+                .expect("This JSON serialization should not fail");
+            assert_eq!(golden_serialized, serialized);
+        }
+    }
+}
