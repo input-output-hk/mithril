@@ -1,5 +1,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+// TODO: Remove this allow once migration from deprecated AggregatorClient types is complete
+#![allow(deprecated)]
 
 //! Define all the tooling necessary to manipulate Mithril certified types from a
 //! [Mithril Aggregator](https://mithril.network/rust-doc/mithril_aggregator/index.html).
@@ -120,6 +122,7 @@ macro_rules! cfg_fs_unstable {
     }
 }
 
+#[deprecated(since = "0.12.33", note = "Will be removed soon")]
 pub mod aggregator_client;
 pub mod cardano_database_client;
 pub mod cardano_stake_distribution_client;
