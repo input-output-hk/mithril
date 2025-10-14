@@ -91,6 +91,18 @@ pub enum AggregatorRequest {
     /// Lists the aggregator [Cardano database snapshots][crate::CardanoDatabaseSnapshot]
     ListCardanoDatabaseSnapshots,
 
+    /// Lists the aggregator [Cardano database snapshots][crate::CardanoDatabaseSnapshot] for an epoch
+    ListCardanoDatabaseSnapshotByEpoch {
+        /// Epoch of the Cardano Database snapshots
+        epoch: Epoch,
+    },
+
+    /// Lists the aggregator [Cardano database snapshots][crate::CardanoDatabaseSnapshot] for the latest epoch
+    ListCardanoDatabaseSnapshotForLatestEpoch {
+        /// Optional offset to subtract to the latest epoch
+        offset: Option<u64>,
+    },
+
     /// Increments the aggregator Cardano database snapshot immutable files restored statistics
     IncrementCardanoDatabaseImmutablesRestoredStatistic {
         /// Number of immutable files restored
@@ -166,6 +178,15 @@ impl AggregatorRequest {
             }
             AggregatorRequest::ListCardanoDatabaseSnapshots => {
                 "artifact/cardano-database".to_string()
+            }
+            AggregatorRequest::ListCardanoDatabaseSnapshotByEpoch { epoch } => {
+                format!("artifact/cardano-database/epoch/{epoch}")
+            }
+            AggregatorRequest::ListCardanoDatabaseSnapshotForLatestEpoch { offset } => {
+                format!(
+                    "artifact/cardano-database/epoch/latest{}",
+                    offset.map(|o| format!("-{o}")).unwrap_or_default()
+                )
             }
             AggregatorRequest::IncrementCardanoDatabaseImmutablesRestoredStatistic {
                 number_of_immutables: _,
@@ -604,6 +625,22 @@ mod tests {
         assert_eq!(
             "artifact/cardano-database".to_string(),
             AggregatorRequest::ListCardanoDatabaseSnapshots.route()
+        );
+
+        assert_eq!(
+            "artifact/cardano-database/epoch/5".to_string(),
+            AggregatorRequest::ListCardanoDatabaseSnapshotByEpoch { epoch: Epoch(5) }.route()
+        );
+
+        assert_eq!(
+            "artifact/cardano-database/epoch/latest".to_string(),
+            AggregatorRequest::ListCardanoDatabaseSnapshotForLatestEpoch { offset: None }.route()
+        );
+
+        assert_eq!(
+            "artifact/cardano-database/epoch/latest-6".to_string(),
+            AggregatorRequest::ListCardanoDatabaseSnapshotForLatestEpoch { offset: Some(6) }
+                .route()
         );
 
         assert_eq!(

@@ -6,6 +6,7 @@ use serde::de::DeserializeOwned;
 use crate::{
     CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem, MithrilResult,
     aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest},
+    common::Epoch,
 };
 
 pub struct InternalArtifactRetriever {
@@ -20,15 +21,42 @@ impl InternalArtifactRetriever {
 
     /// Fetch a list of signed CardanoDatabase
     pub async fn list(&self) -> MithrilResult<Vec<CardanoDatabaseSnapshotListItem>> {
-        let response = self
-            .aggregator_client
-            .get_content(AggregatorRequest::ListCardanoDatabaseSnapshots)
+        self.fetch_list_with_aggregator_request(AggregatorRequest::ListCardanoDatabaseSnapshots)
             .await
-            .with_context(|| "CardanoDatabase client can not get the artifact list")?;
-        let items = serde_json::from_str::<Vec<CardanoDatabaseSnapshotListItem>>(&response)
-            .with_context(|| "CardanoDatabase client can not deserialize artifact list")?;
+    }
 
-        Ok(items)
+    /// Fetch a list of signed CardanoDatabase for a given epoch
+    pub async fn list_by_epoch(
+        &self,
+        epoch: Epoch,
+    ) -> MithrilResult<Vec<CardanoDatabaseSnapshotListItem>> {
+        self.fetch_list_with_aggregator_request(
+            AggregatorRequest::ListCardanoDatabaseSnapshotByEpoch { epoch },
+        )
+        .await
+    }
+
+    /// Fetch a list of signed CardanoDatabase for the latest epoch
+    pub async fn list_for_latest_epoch(
+        &self,
+    ) -> MithrilResult<Vec<CardanoDatabaseSnapshotListItem>> {
+        self.fetch_list_with_aggregator_request(
+            AggregatorRequest::ListCardanoDatabaseSnapshotForLatestEpoch { offset: None },
+        )
+        .await
+    }
+
+    /// Fetch a list of signed CardanoDatabase for the latest epoch minus the given offset
+    pub async fn list_for_latest_epoch_with_offset(
+        &self,
+        offset: u64,
+    ) -> MithrilResult<Vec<CardanoDatabaseSnapshotListItem>> {
+        self.fetch_list_with_aggregator_request(
+            AggregatorRequest::ListCardanoDatabaseSnapshotForLatestEpoch {
+                offset: Some(offset),
+            },
+        )
+        .await
     }
 
     /// Get the given Cardano database data by hash.
@@ -40,7 +68,7 @@ impl InternalArtifactRetriever {
     }
 
     /// Fetch the given Cardano database data with an aggregator request.
-    /// If it cannot be found, a None is returned.
+    /// If it cannot be found, None is returned.
     async fn fetch_with_aggregator_request<T: DeserializeOwned>(
         &self,
         request: AggregatorRequest,
@@ -56,6 +84,20 @@ impl InternalArtifactRetriever {
             Err(e) => Err(e.into()),
         }
     }
+
+    async fn fetch_list_with_aggregator_request(
+        &self,
+        request: AggregatorRequest,
+    ) -> MithrilResult<Vec<CardanoDatabaseSnapshotListItem>> {
+        let response = self
+            .aggregator_client
+            .get_content(request)
+            .await
+            .with_context(|| "CardanoDatabase client can not get the artifact list")?;
+
+        serde_json::from_str(&response)
+            .with_context(|| "CardanoDatabase client can not deserialize artifact list")
+    }
 }
 
 #[cfg(test)]
@@ -68,9 +110,18 @@ mod tests {
     use mithril_common::entities::{CardanoDbBeacon, Epoch};
     use mithril_common::test::double::Dummy;
 
+    use crate::aggregator_client;
     use crate::cardano_database_client::CardanoDatabaseClientDependencyInjector;
 
     use super::*;
+
+    fn config_aggregator_client_to_always_returns_invalid_json(
+        http_client: &mut aggregator_client::MockAggregatorClient,
+    ) {
+        http_client
+            .expect_get_content()
+            .returning(move |_| Ok("invalid json structure".to_string()));
+    }
 
     fn fake_messages() -> Vec<CardanoDatabaseSnapshotListItem> {
         vec![
@@ -132,15 +183,125 @@ mod tests {
         async fn list_cardano_database_snapshots_returns_error_when_invalid_json_structure_in_response()
          {
             let client = CardanoDatabaseClientDependencyInjector::new()
-                .with_aggregator_client_mock_config(|http_client| {
-                    http_client
-                        .expect_get_content()
-                        .return_once(move |_| Ok("invalid json structure".to_string()));
-                })
+                .with_aggregator_client_mock_config(
+                    config_aggregator_client_to_always_returns_invalid_json,
+                )
                 .build_cardano_database_client();
 
             client
                 .list()
+                .await
+                .expect_err("List Cardano databases should return an error");
+        }
+
+        #[tokio::test]
+        async fn list_cardano_database_snapshots_by_epoch_returns_messages() {
+            let message = fake_messages();
+            let client = CardanoDatabaseClientDependencyInjector::new()
+                .with_aggregator_client_mock_config(|http_client| {
+                    http_client
+                        .expect_get_content()
+                        .with(eq(AggregatorRequest::ListCardanoDatabaseSnapshotByEpoch {
+                            epoch: Epoch(4),
+                        }))
+                        .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
+                })
+                .build_cardano_database_client();
+
+            let messages = client.list_by_epoch(Epoch(4)).await.unwrap();
+
+            assert_eq!(2, messages.len());
+            assert_eq!("hash-123".to_string(), messages[0].hash);
+            assert_eq!("hash-456".to_string(), messages[1].hash);
+        }
+
+        #[tokio::test]
+        async fn list_cardano_database_snapshots_returns_by_epoch_error_when_invalid_json_structure_in_response()
+         {
+            let client = CardanoDatabaseClientDependencyInjector::new()
+                .with_aggregator_client_mock_config(
+                    config_aggregator_client_to_always_returns_invalid_json,
+                )
+                .build_cardano_database_client();
+
+            client
+                .list_by_epoch(Epoch(4))
+                .await
+                .expect_err("List Cardano databases should return an error");
+        }
+
+        #[tokio::test]
+        async fn list_cardano_database_snapshots_for_latest_epoch_returns_messages() {
+            let message = fake_messages();
+            let client = CardanoDatabaseClientDependencyInjector::new()
+                .with_aggregator_client_mock_config(|http_client| {
+                    http_client
+                        .expect_get_content()
+                        .with(eq(
+                            AggregatorRequest::ListCardanoDatabaseSnapshotForLatestEpoch {
+                                offset: None,
+                            },
+                        ))
+                        .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
+                })
+                .build_cardano_database_client();
+
+            let messages = client.list_for_latest_epoch().await.unwrap();
+
+            assert_eq!(2, messages.len());
+            assert_eq!("hash-123".to_string(), messages[0].hash);
+            assert_eq!("hash-456".to_string(), messages[1].hash);
+        }
+
+        #[tokio::test]
+        async fn list_cardano_database_snapshots_returns_for_latest_epoch_error_when_invalid_json_structure_in_response()
+         {
+            let client = CardanoDatabaseClientDependencyInjector::new()
+                .with_aggregator_client_mock_config(
+                    config_aggregator_client_to_always_returns_invalid_json,
+                )
+                .build_cardano_database_client();
+
+            client
+                .list_for_latest_epoch()
+                .await
+                .expect_err("List Cardano databases should return an error");
+        }
+
+        #[tokio::test]
+        async fn list_cardano_database_snapshots_for_latest_epoch_with_offset_returns_messages() {
+            let message = fake_messages();
+            let client = CardanoDatabaseClientDependencyInjector::new()
+                .with_aggregator_client_mock_config(|http_client| {
+                    http_client
+                        .expect_get_content()
+                        .with(eq(
+                            AggregatorRequest::ListCardanoDatabaseSnapshotForLatestEpoch {
+                                offset: Some(42),
+                            },
+                        ))
+                        .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
+                })
+                .build_cardano_database_client();
+
+            let messages = client.list_for_latest_epoch_with_offset(42).await.unwrap();
+
+            assert_eq!(2, messages.len());
+            assert_eq!("hash-123".to_string(), messages[0].hash);
+            assert_eq!("hash-456".to_string(), messages[1].hash);
+        }
+
+        #[tokio::test]
+        async fn list_cardano_database_snapshots_returns_for_latest_epoch_with_offset_error_when_invalid_json_structure_in_response()
+         {
+            let client = CardanoDatabaseClientDependencyInjector::new()
+                .with_aggregator_client_mock_config(
+                    config_aggregator_client_to_always_returns_invalid_json,
+                )
+                .build_cardano_database_client();
+
+            client
+                .list_for_latest_epoch_with_offset(42)
                 .await
                 .expect_err("List Cardano databases should return an error");
         }
@@ -180,11 +341,9 @@ mod tests {
         async fn get_cardano_database_snapshot_returns_error_when_invalid_json_structure_in_response()
          {
             let client = CardanoDatabaseClientDependencyInjector::new()
-                .with_aggregator_client_mock_config(|http_client| {
-                    http_client
-                        .expect_get_content()
-                        .return_once(move |_| Ok("invalid json structure".to_string()));
-                })
+                .with_aggregator_client_mock_config(
+                    config_aggregator_client_to_always_returns_invalid_json,
+                )
                 .build_cardano_database_client();
 
             client
