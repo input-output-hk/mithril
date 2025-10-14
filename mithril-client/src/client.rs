@@ -204,6 +204,7 @@ impl ClientBuilder {
     ///
     /// Use [ClientBuilder::aggregator] if you don't need to set a custom [AggregatorClient]
     /// to request data from the aggregator.
+    #[deprecated(since = "0.12.33", note = "Will be removed in 0.13.0")]
     pub fn new(genesis_verification_key: &str) -> ClientBuilder {
         Self {
             aggregator_endpoint: None,
@@ -382,6 +383,7 @@ impl ClientBuilder {
     }
 
     /// Set the [AggregatorClient] that will be used to request data to the aggregator.
+    #[deprecated(since = "0.12.33", note = "Will be removed in 0.13.0")]
     pub fn with_aggregator_client(
         mut self,
         aggregator_client: Arc<dyn AggregatorClient>,
@@ -485,7 +487,7 @@ mod tests {
     #[tokio::test]
     async fn compute_http_headers_returns_options_http_headers() {
         let http_headers = default_headers();
-        let client_builder = ClientBuilder::new("").with_options(ClientOptions {
+        let client_builder = ClientBuilder::aggregator("", "").with_options(ClientOptions {
             http_headers: Some(http_headers.clone()),
         });
 
@@ -497,7 +499,7 @@ mod tests {
     #[tokio::test]
     async fn compute_http_headers_with_origin_tag_returns_options_http_headers_with_origin_tag() {
         let http_headers = default_headers();
-        let client_builder = ClientBuilder::new("")
+        let client_builder = ClientBuilder::aggregator("", "")
             .with_options(ClientOptions {
                 http_headers: Some(http_headers.clone()),
             })
@@ -514,14 +516,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_with_origin_tag_not_overwrite_other_client_options_attributes() {
-        let builder = ClientBuilder::new("")
+        let builder = ClientBuilder::aggregator("", "")
             .with_options(ClientOptions { http_headers: None })
             .with_origin_tag(Some("TEST".to_string()));
         assert_eq!(None, builder.options.http_headers);
         assert_eq!(Some("TEST".to_string()), builder.origin_tag);
 
         let http_headers = HashMap::from([("Key".to_string(), "Value".to_string())]);
-        let builder = ClientBuilder::new("")
+        let builder = ClientBuilder::aggregator("", "")
             .with_options(ClientOptions {
                 http_headers: Some(http_headers.clone()),
             })
@@ -536,7 +538,7 @@ mod tests {
         let client_options = ClientOptions {
             http_headers: Some(http_headers.clone()),
         };
-        let builder = ClientBuilder::new("")
+        let builder = ClientBuilder::aggregator("", "")
             .with_options(client_options)
             .with_origin_tag(None);
 
@@ -547,7 +549,7 @@ mod tests {
     #[tokio::test]
     async fn compute_http_headers_with_client_type_returns_options_http_headers_with_client_type() {
         let http_headers = HashMap::from([("Key".to_string(), "Value".to_string())]);
-        let client_builder = ClientBuilder::new("")
+        let client_builder = ClientBuilder::aggregator("", "")
             .with_options(ClientOptions {
                 http_headers: Some(http_headers.clone()),
             })
@@ -573,7 +575,7 @@ mod tests {
             MITHRIL_CLIENT_TYPE_HEADER.to_string(),
             "client type from options".to_string(),
         )]);
-        let client_builder = ClientBuilder::new("").with_options(ClientOptions {
+        let client_builder = ClientBuilder::aggregator("", "").with_options(ClientOptions {
             http_headers: Some(http_headers.clone()),
         });
 
@@ -584,14 +586,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_with_client_type_not_overwrite_other_client_options_attributes() {
-        let builder = ClientBuilder::new("")
+        let builder = ClientBuilder::aggregator("", "")
             .with_options(ClientOptions { http_headers: None })
             .with_client_type(Some("TEST".to_string()));
         assert_eq!(None, builder.options.http_headers);
         assert_eq!(Some("TEST".to_string()), builder.client_type);
 
         let http_headers = HashMap::from([("Key".to_string(), "Value".to_string())]);
-        let builder = ClientBuilder::new("")
+        let builder = ClientBuilder::aggregator("", "")
             .with_options(ClientOptions {
                 http_headers: Some(http_headers.clone()),
             })
@@ -603,7 +605,7 @@ mod tests {
     #[tokio::test]
     async fn test_given_a_none_client_type_compute_http_headers_will_set_client_type_to_default_value()
      {
-        let builder_without_client_type = ClientBuilder::new("");
+        let builder_without_client_type = ClientBuilder::aggregator("", "");
         let computed_headers = builder_without_client_type.compute_http_headers();
 
         assert_eq!(
@@ -614,7 +616,8 @@ mod tests {
             )])
         );
 
-        let builder_with_none_client_type = ClientBuilder::new("").with_client_type(None);
+        let builder_with_none_client_type =
+            ClientBuilder::aggregator("", "").with_client_type(None);
         let computed_headers = builder_with_none_client_type.compute_http_headers();
 
         assert_eq!(
@@ -633,7 +636,7 @@ mod tests {
             MITHRIL_CLIENT_TYPE_HEADER.to_string(),
             "client type from options".to_string(),
         )]);
-        let client_builder = ClientBuilder::new("")
+        let client_builder = ClientBuilder::aggregator("", "")
             .with_options(ClientOptions {
                 http_headers: Some(http_headers.clone()),
             })
