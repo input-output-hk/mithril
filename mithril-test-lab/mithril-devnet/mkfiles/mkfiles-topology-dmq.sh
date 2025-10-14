@@ -26,7 +26,7 @@ ALL_NODES="${FULL_NODES} ${POOL_NODES}"
 
 # create the topology files
 NODE_ADDR=$LISTENING_ADDR
-NODE_PORT=NODE_PORT_START
+NODE_PORT=$NODE_PORT_START
 TOPOLOGY='
 {
   "bootstrapPeers": [],
