@@ -44,6 +44,10 @@ fn artifact_cardano_stake_distribution_by_epoch(
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_http_message_service(router_state))
         .and(middlewares::with_metrics_service(router_state))
+        .and(middlewares::with_epoch_service(router_state))
+        .and(middlewares::extract_config(router_state, |config| {
+            config.max_artifact_epoch_offset
+        }))
         .and_then(handlers::get_artifact_by_epoch)
 }
 
@@ -53,11 +57,9 @@ pub mod handlers {
     use std::sync::Arc;
     use warp::http::StatusCode;
 
-    use mithril_common::entities::Epoch;
-
     use crate::MetricsService;
-    use crate::http_server::routes::middlewares::ClientMetadata;
-    use crate::http_server::routes::reply;
+    use crate::dependency_injection::EpochServiceWrapper;
+    use crate::http_server::{parameters, routes::middlewares::ClientMetadata, routes::reply};
     use crate::services::MessageService;
 
     pub const LIST_MAX_ITEMS: usize = 20;
@@ -117,6 +119,8 @@ pub mod handlers {
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
         metrics_service: Arc<MetricsService>,
+        epoch_service: EpochServiceWrapper,
+        max_artifact_epoch_offset: u64,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_artifact_detail_cardano_stake_distribution_total_served_since_startup()
@@ -125,8 +129,8 @@ pub mod handlers {
                 client_metadata.client_type.as_deref().unwrap_or_default(),
             ]);
 
-        let artifact_epoch = match epoch.parse::<u64>() {
-            Ok(epoch) => Epoch(epoch),
+        let expanded_epoch = match parameters::expand_epoch(&epoch, epoch_service).await {
+            Ok(epoch) => epoch,
             Err(err) => {
                 warn!(logger, "get_artifact_by_epoch::invalid_epoch"; "error" => ?err);
                 return Ok(reply::bad_request(
@@ -136,8 +140,20 @@ pub mod handlers {
             }
         };
 
+        if expanded_epoch.has_offset_greater_than(max_artifact_epoch_offset) {
+            return Ok(reply::bad_request(
+                "invalid_epoch".to_string(),
+                format!(
+                    "offset greater than maximum allowed value: epoch:`{epoch}`, max offset:`{max_artifact_epoch_offset}`"
+                ),
+            ));
+        }
+
         match http_message_service
-            .get_cardano_stake_distribution_message_by_epoch(artifact_epoch)
+            .get_cardano_stake_distribution_message_by_epoch(
+                // Reminder: Cardano stake distribution is recorded with a `-1` epoch offset
+                expanded_epoch.apply_offset_for_latest(1),
+            )
             .await
         {
             Ok(Some(message)) => Ok(reply::json(&message, StatusCode::OK)),
@@ -161,6 +177,7 @@ pub mod tests {
     use anyhow::anyhow;
     use serde_json::Value::Null;
     use std::sync::Arc;
+    use tokio::sync::RwLock;
     use warp::{
         http::{Method, StatusCode},
         test::request,
@@ -169,11 +186,16 @@ pub mod tests {
     use mithril_api_spec::APISpec;
     use mithril_common::{
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
+        entities::Epoch,
         messages::{CardanoStakeDistributionListItemMessage, CardanoStakeDistributionMessage},
         test::double::Dummy,
     };
 
-    use crate::{initialize_dependencies, services::MockMessageService};
+    use crate::{
+        http_server::routes::router::RouterConfig,
+        initialize_dependencies,
+        services::{FakeEpochServiceBuilder, MockMessageService},
+    };
 
     use super::*;
 
@@ -472,6 +494,47 @@ pub mod tests {
             &StatusCode::BAD_REQUEST,
         )
         .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_cardano_stake_distribution_by_epoch_returns_400_bad_request_when_offset_greater_than_max_configured()
+     {
+        let epoch_service = FakeEpochServiceBuilder::dummy(Epoch(100)).build();
+        let mut mock_http_message_service = MockMessageService::new();
+        mock_http_message_service
+            .expect_get_cardano_stake_distribution_message_by_epoch()
+            .return_once(|_| Ok(Some(CardanoStakeDistributionMessage::dummy())))
+            .once();
+        let mut dependency_manager = initialize_dependencies!().await;
+        dependency_manager.epoch_service = Arc::new(RwLock::new(epoch_service));
+        dependency_manager.message_service = Arc::new(mock_http_message_service);
+
+        let method = Method::GET.as_str();
+        let base_path = "/artifact/cardano-stake-distribution/epoch";
+
+        let router = setup_router(RouterState::new(
+            Arc::new(dependency_manager),
+            RouterConfig {
+                max_artifact_epoch_offset: 10,
+                ..RouterConfig::dummy()
+            },
+        ));
+
+        let response = request()
+            .method(method)
+            .path(&format!("{base_path}/latest-10"))
+            .reply(&router)
+            .await;
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let response = request()
+            .method(method)
+            .path(&format!("{base_path}/latest-11"))
+            .reply(&router)
+            .await;
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 
     #[tokio::test]

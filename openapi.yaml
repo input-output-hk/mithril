@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.53
+  version: 0.1.54
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -275,6 +275,32 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /artifact/cardano-database/epoch/{epoch}:
+    get:
+      summary: Get most recent Cardano database snapshots for a specific epoch
+      description: |
+        Returns the list of the most recent Cardano database snapshots for a specific epoch
+      parameters:
+        - name: epoch
+          in: path
+          description: Epoch of the Cardano database snapshots to list
+          required: true
+          schema:
+            $ref: "#/components/schemas/EpochOrLatestParameter"
+      responses:
+        "200":
+          description: Cardano database snapshots found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardanoDatabaseSnapshotListMessage"
+        default:
+          description: Cardano database snapshots retrieval error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /artifact/cardano-database/digests:
     get:
       summary: Get Cardano database immutable file digests
@@ -436,10 +462,7 @@ paths:
           description: Epoch of the Cardano stake distribution to retrieve
           required: true
           schema:
-            type: integer
-            format: int64
-            examples:
-              - 419
+            $ref: "#/components/schemas/EpochOrLatestParameter"
       responses:
         "200":
           description: Cardano stake distribution found
@@ -551,13 +574,7 @@ paths:
           description: Cardano Epoch at which the signer registrations are registered
           required: true
           schema:
-            oneOf:
-              - description: Use the latest epoch
-                const: "latest"
-              - type: integer
-                format: int64
-                examples:
-                  - 419
+            $ref: "#/components/schemas/EpochOrLatestParameter"
       responses:
         "200":
           description: Registered Signers found
@@ -914,6 +931,23 @@ components:
       description: Cardano chain epoch number
       type: integer
       format: int64
+      examples:
+        - 419
+
+    EpochOrLatestParameter:
+      description: |
+        Specifies which epoch to target for the request. Can be either:
+        - A specific epoch number (e.g., 419)
+        - 'latest' for the most recent epoch
+        - 'latest' with a negative offset (e.g., 'latest-5') to target an epoch relative to the latest one
+      oneOf:
+        - $ref: "#/components/schemas/Epoch"
+        - description: Use the latest epoch with an optional offset
+          type: string
+          pattern: '^latest(-\d+)?$'
+          examples:
+            - "latest"
+            - "latest-5"
 
     EpochSettingsMessage:
       description: Epoch settings

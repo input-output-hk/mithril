@@ -610,7 +610,7 @@ mod tests {
                 snapshot: Snapshot,
             }
 
-            let snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
+            let snapshot = fake_data::snapshot(1);
 
             #[async_trait]
             impl ArtifactBuilder<CardanoDbBeacon, Snapshot> for LongArtifactBuilder {
@@ -800,13 +800,13 @@ mod tests {
     async fn build_snapshot_artifact_when_given_cardano_immutable_files_full_entity_type() {
         let mut mock_container = MockDependencyInjector::new();
 
-        let snapshot_expected = fake_data::snapshots(1).first().unwrap().to_owned();
+        let snapshot_expected = fake_data::snapshot(1);
 
         mock_container
             .mock_cardano_immutable_files_full_artifact_builder
             .expect_compute_artifact()
             .times(1)
-            .returning(|_, _| Ok(fake_data::snapshots(1).first().unwrap().to_owned()));
+            .returning(|_, _| Ok(fake_data::snapshot(1)));
 
         let artifact_builder_service = mock_container.build_artifact_builder_service();
 
@@ -825,7 +825,7 @@ mod tests {
     async fn should_store_the_artifact_when_creating_artifact_for_a_cardano_immutable_files() {
         generic_test_that_the_artifact_is_stored(
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default()),
-            fake_data::snapshots(1).first().unwrap().to_owned(),
+            fake_data::snapshot(1),
             &|mock_injector| &mut mock_injector.mock_cardano_immutable_files_full_artifact_builder,
         )
         .await;
@@ -876,16 +876,13 @@ mod tests {
     async fn build_cardano_database_artifact_when_given_cardano_database_entity_type() {
         let mut mock_container = MockDependencyInjector::new();
 
-        let cardano_database_expected =
-            fake_data::cardano_database_snapshots(1).first().unwrap().to_owned();
+        let cardano_database_expected = fake_data::cardano_database_snapshot(1);
 
         mock_container
             .mock_cardano_database_artifact_builder
             .expect_compute_artifact()
             .times(1)
-            .returning(|_, _| {
-                Ok(fake_data::cardano_database_snapshots(1).first().unwrap().to_owned())
-            });
+            .returning(|_, _| Ok(fake_data::cardano_database_snapshot(1)));
 
         let artifact_builder_service = mock_container.build_artifact_builder_service();
 
@@ -903,7 +900,7 @@ mod tests {
     async fn should_store_the_artifact_when_creating_artifact_for_a_cardano_database() {
         generic_test_that_the_artifact_is_stored(
             SignedEntityType::CardanoDatabase(CardanoDbBeacon::default()),
-            fake_data::cardano_database_snapshots(1).first().unwrap().to_owned(),
+            fake_data::cardano_database_snapshot(1),
             &|mock_injector| &mut mock_injector.mock_cardano_database_artifact_builder,
         )
         .await;

@@ -44,6 +44,14 @@ pub trait SignedEntityStorer: Sync + Send {
         total: usize,
     ) -> StdResult<Vec<SignedEntityRecord>>;
 
+    /// Get signed entities by signed entity type and epoch
+    async fn get_last_signed_entities_by_type_and_epoch(
+        &self,
+        signed_entity_type_id: &SignedEntityTypeDiscriminants,
+        epoch: Epoch,
+        total: usize,
+    ) -> StdResult<Vec<SignedEntityRecord>>;
+
     /// Get Cardano stake distribution signed entity by epoch
     async fn get_cardano_stake_distribution_signed_entity_by_epoch(
         &self,
@@ -133,12 +141,35 @@ impl SignedEntityStorer for SignedEntityStore {
         Ok(signed_entities)
     }
 
+    async fn get_last_signed_entities_by_type_and_epoch(
+        &self,
+        signed_entity_type_id: &SignedEntityTypeDiscriminants,
+        epoch: Epoch,
+        total: usize,
+    ) -> StdResult<Vec<SignedEntityRecord>> {
+        let cursor = self
+            .connection
+            .fetch(GetSignedEntityRecordQuery::by_signed_entity_type_and_epoch(
+                signed_entity_type_id,
+                epoch,
+            ))
+            .with_context(|| {
+                format!("get last signed entity by type and epoch failure, type: {signed_entity_type_id:?}, epoch: {epoch}")
+            })?;
+        let signed_entities: Vec<SignedEntityRecord> = cursor.take(total).collect();
+
+        Ok(signed_entities)
+    }
+
     async fn get_cardano_stake_distribution_signed_entity_by_epoch(
         &self,
         epoch: Epoch,
     ) -> StdResult<Option<SignedEntityRecord>> {
         self.connection
-            .fetch_first(GetSignedEntityRecordQuery::cardano_stake_distribution_by_epoch(epoch))
+            .fetch_first(GetSignedEntityRecordQuery::by_signed_entity_type_and_epoch(
+                &SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+                epoch,
+            ))
     }
 
     async fn update_signed_entities(
@@ -164,7 +195,7 @@ impl SignedEntityStorer for SignedEntityStore {
 #[cfg(test)]
 mod tests {
     use mithril_common::{
-        entities::{Epoch, MithrilStakeDistribution, Snapshot},
+        entities::{CardanoDbBeacon, Epoch, MithrilStakeDistribution, Snapshot},
         signable_builder::SignedEntity,
         test::double::fake_data,
     };
@@ -358,5 +389,74 @@ mod tests {
             .unwrap();
 
         assert_eq!(Some(expected_record), record);
+    }
+
+    #[tokio::test]
+    async fn get_last_signed_entities_by_type_and_epoch_when_nothing_found() {
+        let epoch_to_retrieve = Epoch(4);
+        let connection = main_db_connection().unwrap();
+        let store = SignedEntityStore::new(Arc::new(connection));
+
+        let record = store
+            .get_last_signed_entities_by_type_and_epoch(
+                &SignedEntityTypeDiscriminants::CardanoDatabase,
+                epoch_to_retrieve,
+                usize::MAX,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(Vec::<SignedEntityRecord>::new(), record);
+    }
+
+    #[tokio::test]
+    async fn get_last_signed_entities_by_type_and_epoch_when_signed_entity_found_for_epoch() {
+        let mut cardano_database_snapshot = fake_data::cardano_database_snapshot(50);
+        cardano_database_snapshot.beacon = CardanoDbBeacon::new(3, 50);
+        let cardano_stake_distribution = fake_data::cardano_stake_distribution(Epoch(3));
+
+        let expected_cdb_record: SignedEntityRecord = cardano_database_snapshot.into();
+        let expected_csd_record: SignedEntityRecord = cardano_stake_distribution.into();
+
+        let connection = main_db_connection().unwrap();
+        insert_signed_entities(
+            &connection,
+            vec![expected_cdb_record.clone(), expected_csd_record.clone()],
+        )
+        .unwrap();
+        let store = SignedEntityStore::new(Arc::new(connection));
+
+        // With limit = 0 no records should be returned even if some exists
+        let record = store
+            .get_last_signed_entities_by_type_and_epoch(
+                &SignedEntityTypeDiscriminants::CardanoDatabase,
+                Epoch(3),
+                0,
+            )
+            .await
+            .unwrap();
+        assert_eq!(Vec::<SignedEntityRecord>::new(), record);
+
+        let record = store
+            .get_last_signed_entities_by_type_and_epoch(
+                &SignedEntityTypeDiscriminants::CardanoDatabase,
+                Epoch(3),
+                usize::MAX,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(vec![expected_cdb_record], record);
+
+        let record = store
+            .get_last_signed_entities_by_type_and_epoch(
+                &SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+                Epoch(3),
+                usize::MAX,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(vec![expected_csd_record], record);
     }
 }

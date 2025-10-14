@@ -93,6 +93,8 @@ const SQLITE_FILE_CARDANO_TRANSACTION: &str = "cardano-transaction.sqlite3";
 const SQLITE_MONITORING_FILE: &str = "monitoring.sqlite3";
 const CARDANO_DB_ARTIFACTS_DIR: &str = "cardano-database";
 const SNAPSHOT_ARTIFACTS_DIR: &str = "cardano-immutable-files-full";
+/// Maximum offset that can be applied to the latest epoch when fetching artifacts.
+const MAX_ARTIFACT_EPOCH_OFFSET: u64 = 5;
 
 /// ## Dependencies container builder
 ///
@@ -449,6 +451,7 @@ impl DependenciesBuilder {
                     .configuration
                     .cardano_transactions_prover_max_hashes_allowed_by_request(),
                 cardano_db_artifacts_directory: self.get_cardano_db_artifacts_dir()?,
+                max_artifact_epoch_offset: MAX_ARTIFACT_EPOCH_OFFSET,
                 snapshot_directory: snapshot_dir.join(SNAPSHOT_ARTIFACTS_DIR),
                 cardano_node_version: self.configuration.cardano_node_version(),
                 allow_http_serve_directory: self.configuration.allow_http_serve_directory(),
