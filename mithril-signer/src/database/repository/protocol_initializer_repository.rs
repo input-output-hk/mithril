@@ -4,7 +4,7 @@ use anyhow::Ok;
 use async_trait::async_trait;
 
 use crate::database::query::{
-    DeleteProtocolInitializerQuery, InsertOrReplaceProtocolInitializerQuery,
+    DeleteProtocolInitializerQuery, InsertOrIgnoreProtocolInitializerQuery,
 };
 use crate::database::record::ProtocolInitializerRecord;
 use crate::{
@@ -62,7 +62,7 @@ impl ProtocolInitializerStorer for ProtocolInitializerRepository {
             created_at: chrono::Utc::now(),
         };
         self.connection
-            .apply(InsertOrReplaceProtocolInitializerQuery::one(record).unwrap())?;
+            .apply(InsertOrIgnoreProtocolInitializerQuery::one(record).unwrap())?;
 
         Ok(previous_protocol_initializer)
     }

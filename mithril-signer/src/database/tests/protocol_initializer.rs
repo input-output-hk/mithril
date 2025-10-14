@@ -13,7 +13,7 @@ fn setup_protocol_initializers(nb_epoch: u64) -> Vec<(Epoch, ProtocolInitializer
     let mut values: Vec<(Epoch, ProtocolInitializer)> = Vec::new();
     for epoch in 1..=nb_epoch {
         let stake = (epoch + 1) * 100;
-        let protocol_initializer = fake_data::protocol_initializer("1", stake);
+        let protocol_initializer = fake_data::protocol_initializer(format!("{epoch:?}"), stake);
         values.push((Epoch(epoch), protocol_initializer));
     }
     values
@@ -81,6 +81,37 @@ mod request {
         assert_eq!(
             protocol_initializers[0].1.get_stake(),
             res.unwrap().get_stake()
+        );
+    }
+
+    #[tokio::test]
+    async fn protocol_initializer_in_store_is_created_once_per_epoch_and_never_updated() {
+        let protocol_initializers = setup_protocol_initializers(2);
+        let epoch = protocol_initializers[0].0;
+        let first_protocol_initializer = protocol_initializers[0].1.clone();
+        let second_protocol_initializer = protocol_initializers[1].1.clone();
+
+        let store = init_store(&[], None).await;
+        store
+            .save_protocol_initializer(epoch, first_protocol_initializer.clone())
+            .await
+            .unwrap();
+
+        let res = store.get_protocol_initializer(epoch).await.unwrap().unwrap();
+        assert_eq!(
+            serde_json::to_string(&first_protocol_initializer).unwrap(),
+            serde_json::to_string(&res).unwrap()
+        );
+
+        store
+            .save_protocol_initializer(epoch, second_protocol_initializer.clone())
+            .await
+            .unwrap();
+
+        let res = store.get_protocol_initializer(epoch).await.unwrap().unwrap();
+        assert_eq!(
+            serde_json::to_string(&first_protocol_initializer).unwrap(),
+            serde_json::to_string(&res).unwrap()
         );
     }
 

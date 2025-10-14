@@ -5,12 +5,12 @@ use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereConditi
 
 use crate::database::record::ProtocolInitializerRecord;
 
-/// Query to insert or replace [ProtocolInitializerRecord] in the sqlite database
-pub struct InsertOrReplaceProtocolInitializerQuery {
+/// Query to insert or ignore [ProtocolInitializerRecord] in the sqlite database
+pub struct InsertOrIgnoreProtocolInitializerQuery {
     condition: WhereCondition,
 }
 
-impl InsertOrReplaceProtocolInitializerQuery {
+impl InsertOrIgnoreProtocolInitializerQuery {
     pub fn one(record: ProtocolInitializerRecord) -> StdResult<Self> {
         let value = serde_json::to_string(&record.protocol_initializer).unwrap();
         let condition = WhereCondition::new(
@@ -26,7 +26,7 @@ impl InsertOrReplaceProtocolInitializerQuery {
     }
 }
 
-impl Query for InsertOrReplaceProtocolInitializerQuery {
+impl Query for InsertOrIgnoreProtocolInitializerQuery {
     type Entity = ProtocolInitializerRecord;
 
     fn filters(&self) -> WhereCondition {
@@ -41,6 +41,6 @@ impl Query for InsertOrReplaceProtocolInitializerQuery {
             "protocol_initializer",
         )]));
 
-        format!("insert or replace into protocol_initializer {condition} returning {projection}")
+        format!("insert or ignore into protocol_initializer {condition} returning {projection} ")
     }
 }
