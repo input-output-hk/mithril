@@ -15,6 +15,7 @@ use mithril_common::entities::{
     SignedEntityTypeDiscriminants,
 };
 use mithril_common::{AggregateSignatureType, CardanoNetwork, StdResult};
+#[cfg(feature = "future_dmq")]
 use mithril_dmq::DmqNetwork;
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use mithril_era::adapters::EraReaderAdapterType;
@@ -763,6 +764,7 @@ impl ConfigurationSource for ServeCommandConfiguration {
         self.network_magic
     }
 
+    #[cfg(feature = "future_dmq")]
     fn dmq_network_magic(&self) -> Option<u64> {
         self.dmq_network_magic
     }
