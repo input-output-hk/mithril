@@ -145,6 +145,12 @@ pub enum AggregatorRequest {
         epoch: Epoch,
     },
 
+    /// Get a specific [Cardano stake distribution][crate::CardanoStakeDistribution] from the aggregator for the latest epoch
+    GetCardanoStakeDistributionForLatestEpoch {
+        /// Optional offset to subtract to the latest epoch
+        offset: Option<u64>,
+    },
+
     /// Lists the aggregator [Cardano stake distribution][crate::CardanoStakeDistribution]
     ListCardanoStakeDistributions,
 
@@ -217,6 +223,12 @@ impl AggregatorRequest {
             }
             AggregatorRequest::GetCardanoStakeDistributionByEpoch { epoch } => {
                 format!("artifact/cardano-stake-distribution/epoch/{epoch}")
+            }
+            AggregatorRequest::GetCardanoStakeDistributionForLatestEpoch { offset } => {
+                format!(
+                    "artifact/cardano-stake-distribution/epoch/latest{}",
+                    offset.map(|o| format!("-{o}")).unwrap_or_default()
+                )
             }
             AggregatorRequest::ListCardanoStakeDistributions => {
                 "artifact/cardano-stake-distributions".to_string()
@@ -703,6 +715,17 @@ mod tests {
         assert_eq!(
             "artifact/cardano-stake-distribution/epoch/123".to_string(),
             AggregatorRequest::GetCardanoStakeDistributionByEpoch { epoch: Epoch(123) }.route()
+        );
+
+        assert_eq!(
+            "artifact/cardano-stake-distribution/epoch/latest".to_string(),
+            AggregatorRequest::GetCardanoStakeDistributionForLatestEpoch { offset: None }.route()
+        );
+
+        assert_eq!(
+            "artifact/cardano-stake-distribution/epoch/latest-8".to_string(),
+            AggregatorRequest::GetCardanoStakeDistributionForLatestEpoch { offset: Some(8) }
+                .route()
         );
 
         assert_eq!(

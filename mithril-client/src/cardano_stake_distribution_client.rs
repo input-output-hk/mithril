@@ -47,15 +47,20 @@
 //! # Get a Cardano stake distribution by epoch
 //!
 //! To get a Cardano stake distribution by epoch using the [ClientBuilder][crate::client::ClientBuilder].
-//! The epoch represents the epoch at the end of which the Cardano stake distribution is computed by the Cardano node
+//!
+//! **Note:** The epoch represents the epoch at the end of which the Cardano stake distribution is computed by the Cardano node
 //!
 //! ```no_run
 //! # async fn run() -> mithril_client::MithrilResult<()> {
-//! use mithril_client::ClientBuilder;
-//! use mithril_client::common::Epoch;
+//! use mithril_client::{ClientBuilder, common::Epoch};
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! // For a specific epoch
 //! let cardano_stake_distribution = client.cardano_stake_distribution().get_by_epoch(Epoch(500)).await?.unwrap();
+//! // For the latest epoch known by the Mithril aggregator
+//! let cardano_stake_distribution = client.cardano_stake_distribution().get_for_latest_epoch().await?.unwrap();
+//! // For the latest epoch known by the Mithril aggregator with an offset
+//! let cardano_stake_distribution = client.cardano_stake_distribution().get_for_latest_epoch_with_offset(4).await?.unwrap();
 //!
 //! println!(
 //!     "Cardano stake distribution hash={}, epoch={}, stake_distribution={:?}",
@@ -114,6 +119,27 @@ impl CardanoStakeDistributionClient {
         self.fetch_with_aggregator_request(AggregatorRequest::GetCardanoStakeDistributionByEpoch {
             epoch,
         })
+        .await
+    }
+
+    /// Get the given Cardano stake distribution data by epoch.
+    pub async fn get_for_latest_epoch(&self) -> MithrilResult<Option<CardanoStakeDistribution>> {
+        self.fetch_with_aggregator_request(
+            AggregatorRequest::GetCardanoStakeDistributionForLatestEpoch { offset: None },
+        )
+        .await
+    }
+
+    /// Get the given Cardano stake distribution data by epoch.
+    pub async fn get_for_latest_epoch_with_offset(
+        &self,
+        offset: u64,
+    ) -> MithrilResult<Option<CardanoStakeDistribution>> {
+        self.fetch_with_aggregator_request(
+            AggregatorRequest::GetCardanoStakeDistributionForLatestEpoch {
+                offset: Some(offset),
+            },
+        )
         .await
     }
 
@@ -274,6 +300,52 @@ mod tests {
 
         let cardano_stake_distribution = client
             .get_by_epoch(expected_message.epoch)
+            .await
+            .unwrap()
+            .expect("This test returns a Cardano stake distribution");
+
+        assert_eq!(expected_message, cardano_stake_distribution);
+    }
+
+    #[tokio::test]
+    async fn get_cardano_stake_distribution_for_latest_epoch_returns_message() {
+        let expected_message = CardanoStakeDistribution::dummy();
+        let mut http_client = MockAggregatorClient::new();
+        http_client
+            .expect_get_content()
+            .with(eq(
+                AggregatorRequest::GetCardanoStakeDistributionForLatestEpoch { offset: None },
+            ))
+            .return_once(move |_| {
+                Ok(serde_json::to_string(&CardanoStakeDistribution::dummy()).unwrap())
+            });
+        let client = CardanoStakeDistributionClient::new(Arc::new(http_client));
+
+        let cardano_stake_distribution = client
+            .get_for_latest_epoch()
+            .await
+            .unwrap()
+            .expect("This test returns a Cardano stake distribution");
+
+        assert_eq!(expected_message, cardano_stake_distribution);
+    }
+
+    #[tokio::test]
+    async fn get_cardano_stake_distribution_for_latest_with_offset_epoch_returns_message() {
+        let expected_message = CardanoStakeDistribution::dummy();
+        let mut http_client = MockAggregatorClient::new();
+        http_client
+            .expect_get_content()
+            .with(eq(
+                AggregatorRequest::GetCardanoStakeDistributionForLatestEpoch { offset: Some(4) },
+            ))
+            .return_once(move |_| {
+                Ok(serde_json::to_string(&CardanoStakeDistribution::dummy()).unwrap())
+            });
+        let client = CardanoStakeDistributionClient::new(Arc::new(http_client));
+
+        let cardano_stake_distribution = client
+            .get_for_latest_epoch_with_offset(4)
             .await
             .unwrap()
             .expect("This test returns a Cardano stake distribution");
