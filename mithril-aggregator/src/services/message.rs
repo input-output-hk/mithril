@@ -14,13 +14,13 @@ use mithril_common::{
         CardanoStakeDistributionListMessage, CardanoStakeDistributionMessage,
         CardanoTransactionSnapshotListMessage, CardanoTransactionSnapshotMessage,
         CertificateListMessage, CertificateMessage, EpochSettingsMessage,
-        MithrilStakeDistributionListMessage, MithrilStakeDistributionMessage, SignerMessagePart,
-        SnapshotListMessage, SnapshotMessage,
+        MithrilStakeDistributionListMessage, MithrilStakeDistributionMessage,
+        ProtocolConfigurationMessage, SignerMessagePart, SnapshotListMessage, SnapshotMessage,
     },
 };
 
 use crate::{
-    ImmutableFileDigestMapper,
+    EpochSettingsStorer, ImmutableFileDigestMapper,
     database::repository::{CertificateRepository, SignedEntityStorer},
     dependency_injection::EpochServiceWrapper,
 };
@@ -34,6 +34,13 @@ pub trait MessageService: Sync + Send {
         &self,
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
     ) -> StdResult<EpochSettingsMessage>;
+
+    ///Return the protocol configuration message for the given epoch if it exists.
+    async fn get_protocol_configuration_message(
+        &self,
+        epoch: Epoch,
+        allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+    ) -> StdResult<ProtocolConfigurationMessage>;
 
     /// Return the message representation of a certificate if it exists.
     async fn get_certificate_message(
@@ -130,6 +137,7 @@ pub trait MessageService: Sync + Send {
 pub struct MithrilMessageService {
     certificate_repository: Arc<CertificateRepository>,
     signed_entity_storer: Arc<dyn SignedEntityStorer>,
+    epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
     immutable_file_digest_mapper: Arc<dyn ImmutableFileDigestMapper>,
     epoch_service: EpochServiceWrapper,
 }
@@ -139,12 +147,14 @@ impl MithrilMessageService {
     pub fn new(
         certificate_repository: Arc<CertificateRepository>,
         signed_entity_storer: Arc<dyn SignedEntityStorer>,
+        epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
         immutable_file_digest_mapper: Arc<dyn ImmutableFileDigestMapper>,
         epoch_service: EpochServiceWrapper,
     ) -> Self {
         Self {
             certificate_repository,
             signed_entity_storer,
+            epoch_settings_storer,
             immutable_file_digest_mapper,
             epoch_service,
         }
@@ -182,6 +192,27 @@ impl MessageService for MithrilMessageService {
         };
 
         Ok(epoch_settings_message)
+    }
+
+    async fn get_protocol_configuration_message(
+        &self,
+        epoch: Epoch,
+        enabled_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+    ) -> StdResult<ProtocolConfigurationMessage> {
+        let epoch_settings = self.epoch_settings_storer.get_epoch_settings(epoch).await?.unwrap();
+
+        let cardano_transactions_discriminant =
+            enabled_discriminants.get(&SignedEntityTypeDiscriminants::CardanoTransactions);
+
+        let cardano_transactions_signing_config = cardano_transactions_discriminant
+            .map(|_| epoch_settings.cardano_transactions_signing_config);
+
+        let protocol_configuration_message = ProtocolConfigurationMessage {
+            protocol_parameters: epoch_settings.protocol_parameters,
+            cardano_transactions_signing_config,
+            available_signed_entity_types: enabled_discriminants,
+        };
+        Ok(protocol_configuration_message)
     }
 
     async fn get_certificate_message(
@@ -362,7 +393,9 @@ mod tests {
     use tokio::sync::RwLock;
 
     use crate::database::record::SignedEntityRecord;
-    use crate::database::repository::{ImmutableFileDigestRepository, SignedEntityStore};
+    use crate::database::repository::{
+        EpochSettingsStore, ImmutableFileDigestRepository, SignedEntityStore,
+    };
     use crate::database::test_helper::main_db_connection;
     use crate::services::FakeEpochService;
 
@@ -419,6 +452,7 @@ mod tests {
             let connection = Arc::new(main_db_connection().unwrap());
             let certificate_repository = CertificateRepository::new(connection.clone());
             let signed_entity_store = SignedEntityStore::new(connection.clone());
+            let epoch_settings_storer = EpochSettingsStore::new(connection.clone(), None);
             let immutable_file_digest_mapper =
                 ImmutableFileDigestRepository::new(connection.clone());
             let epoch_service = self.epoch_service.unwrap_or(FakeEpochService::without_data());
@@ -444,6 +478,7 @@ mod tests {
             MithrilMessageService::new(
                 Arc::new(certificate_repository),
                 Arc::new(signed_entity_store),
+                Arc::new(epoch_settings_storer),
                 Arc::new(immutable_file_digest_mapper),
                 Arc::new(RwLock::new(epoch_service)),
             )

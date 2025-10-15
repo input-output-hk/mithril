@@ -420,6 +420,23 @@ mod messages {
         }
     }
 
+    impl Dummy for ProtocolConfigurationMessage {
+        /// Return a dummy [ProtocolConfigurationMessage] (test-only).
+        fn dummy() -> Self {
+            Self {
+                protocol_parameters: ProtocolParameters {
+                    k: 5,
+                    m: 100,
+                    phi_f: 0.65,
+                },
+                cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
+                available_signed_entity_types: BTreeSet::from([
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                ]),
+            }
+        }
+    }
+
     impl Dummy for MithrilStakeDistributionMessage {
         /// Return a dummy [MithrilStakeDistributionMessage] (test-only).
         fn dummy() -> Self {
