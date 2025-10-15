@@ -552,17 +552,17 @@ mod tests {
     async fn sends_accept_encoding_header_with_correct_values() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
-            when.matches(|req| {
-                let headers = req.headers.clone().expect("HTTP headers not found");
+            when.is_true(|req| {
+                let headers = req.headers();
                 let accept_encoding_header = headers
                     .iter()
-                    .find(|(name, _values)| name.to_lowercase() == "accept-encoding")
+                    .find(|(name, _values)| name.to_string().to_lowercase() == "accept-encoding")
                     .expect("Accept-Encoding header not found");
 
                 let header_value = accept_encoding_header.clone().1;
                 ["gzip", "br", "deflate", "zstd"]
                     .iter()
-                    .all(|&value| header_value.contains(value))
+                    .all(|&value| header_value.to_str().unwrap().contains(value))
             });
 
             then.status(200).body("ok");
@@ -602,7 +602,7 @@ mod tests {
         let mock = server.mock(|when, then| {
             when.method(POST)
                 .path("/register-signer")
-                .body_contains(serde_json::to_string(&message).unwrap());
+                .json_body_includes(serde_json::to_string(&message).unwrap());
             then.status(201).body("ok");
         });
 
@@ -653,7 +653,7 @@ mod tests {
         let mock = server.mock(|when, then| {
             when.method(POST)
                 .path("/register-signatures")
-                .body_contains(serde_json::to_string(&message).unwrap());
+                .json_body_includes(serde_json::to_string(&message).unwrap());
             then.status(201).body("ok");
         });
 
