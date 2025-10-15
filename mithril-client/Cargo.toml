@@ -80,7 +80,7 @@ zstd = { version = "0.13.3", optional = true }
 mithril-cardano-node-internal-database = { path = "../internal/cardano-node/mithril-cardano-node-internal-database", version = "=0.1" }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
-getrandom = { version = "0.3.4", features = ["js"] }
+getrandom = { version = "0.2.16", features = ["js"] }
 uuid = { version = "1.18.1", features = ["v4", "js"] }
 
 [dev-dependencies]
