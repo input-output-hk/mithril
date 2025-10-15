@@ -11,7 +11,7 @@ repository = { workspace = true }
 
 [dependencies]
 anyhow = { workspace = true }
-axum = { version = "0.8.4", features = ["tokio", "http1"] }
+axum = { version = "0.8.6", features = ["tokio", "http1"] }
 clap = { workspace = true }
 futures = "0.3.31"
 serde = { workspace = true }
