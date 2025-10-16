@@ -9,7 +9,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
     CommandContext,
-    commands::cardano_db::CardanoDbCommandsBackend,
+    commands::cardano_db::{CardanoDbCommandsBackend, warn_unused_parameter_with_v1_backend},
     configuration::{ConfigError, ConfigSource},
     utils::{self, JSON_CAUTION_KEY},
 };
@@ -89,7 +89,10 @@ impl CardanoDbDownloadCommand {
 
     fn prepare_v1(&self, context: &CommandContext) -> MithrilResult<PreparedCardanoDbV1Download> {
         if self.allow_override || self.start.is_some() || self.end.is_some() {
-            self.warn_unused_parameter_with_v1_backend(context);
+            warn_unused_parameter_with_v1_backend(
+                context,
+                ["--start", "--end", "--allow_override"],
+            );
         }
 
         let ancillary_verification_key = if self.include_ancillary {
@@ -162,17 +165,6 @@ For more information, please refer to the network configuration page of the docu
             eprintln!(r#"{{"{JSON_CAUTION_KEY}":"{message}"}}"#);
         } else {
             eprintln!("{message}");
-        }
-    }
-
-    fn warn_unused_parameter_with_v1_backend(&self, context: &CommandContext) {
-        let message = "`--start`, `--end`, and `--allow-override` are only available with the `v2` backend. They will be ignored.";
-        if context.is_json_output_enabled() {
-            eprintln!(r#"{{"{JSON_CAUTION_KEY}":"{message}"}}"#);
-        } else {
-            eprintln!("{message}");
-            // Add a blank line to separate this message from the one related to the fast bootstrap that comes next.
-            eprintln!();
         }
     }
 }
