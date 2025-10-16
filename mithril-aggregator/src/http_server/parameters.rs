@@ -1,10 +1,9 @@
 //! Helpers when working with parameters from either the query string or the path of an HTTP request
 
-use anyhow::Context;
 use std::ops::Deref;
 
 use mithril_common::StdResult;
-use mithril_common::entities::Epoch;
+use mithril_common::entities::{Epoch, EpochSpecifier};
 
 use crate::dependency_injection::EpochServiceWrapper;
 
@@ -61,26 +60,18 @@ pub async fn expand_epoch(
     epoch_service: EpochServiceWrapper,
 ) -> StdResult<ExpandedEpoch> {
     let epoch_str = epoch_str.to_lowercase();
-    if epoch_str == "latest" {
-        epoch_service
+    match Epoch::parse_specifier(&epoch_str)? {
+        EpochSpecifier::Number(epoch) => Ok(ExpandedEpoch::Parsed(epoch)),
+        EpochSpecifier::Latest => epoch_service
             .read()
             .await
             .epoch_of_current_data()
-            .map(ExpandedEpoch::Latest)
-    } else if epoch_str.starts_with("latest-") {
-        let (_, offset_str) = epoch_str.split_at("latest-".len());
-        let offset = offset_str
-            .parse::<u64>()
-            .with_context(|| "Invalid epoch offset: must be a number")?;
-
-        epoch_service.read().await.epoch_of_current_data().map(|epoch| {
-            ExpandedEpoch::LatestMinusOffset(Epoch(epoch.saturating_sub(offset)), offset)
-        })
-    } else {
-        epoch_str
-            .parse::<u64>()
-            .map(|epoch| ExpandedEpoch::Parsed(Epoch(epoch)))
-            .with_context(|| "Invalid epoch: must be a number or 'latest'")
+            .map(ExpandedEpoch::Latest),
+        EpochSpecifier::LatestMinusOffset(offset) => {
+            epoch_service.read().await.epoch_of_current_data().map(|epoch| {
+                ExpandedEpoch::LatestMinusOffset(Epoch(epoch.saturating_sub(offset)), offset)
+            })
+        }
     }
 }
 

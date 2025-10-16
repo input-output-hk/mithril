@@ -48,7 +48,7 @@ pub use cardano_transactions_snapshot::CardanoTransactionsSnapshot;
 pub use certificate::{Certificate, CertificateSignature};
 pub use certificate_metadata::{CertificateMetadata, StakeDistributionParty};
 pub use compression_algorithm::*;
-pub use epoch::{Epoch, EpochError};
+pub use epoch::{Epoch, EpochError, EpochSpecifier};
 pub use file_uri::{FileUri, MultiFilesUri, TemplateUri};
 pub use http_server_error::{ClientError, ServerError};
 pub use mithril_stake_distribution::MithrilStakeDistribution;
