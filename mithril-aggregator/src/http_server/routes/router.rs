@@ -1,8 +1,8 @@
 use crate::ServeCommandDependenciesContainer;
 use crate::http_server::SERVER_BASE_PATH;
 use crate::http_server::routes::{
-    artifact_routes, certificate_routes, epoch_routes, root_routes, signatures_routes,
-    signer_routes, statistics_routes, status,
+    artifact_routes, certificate_routes, epoch_routes, protocol_configuration_routes, root_routes,
+    signatures_routes, signer_routes, statistics_routes, status,
 };
 use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
 
@@ -140,6 +140,7 @@ pub fn routes(
                 .or(signer_routes::routes(&state))
                 .or(signatures_routes::routes(&state))
                 .or(epoch_routes::routes(&state))
+                .or(protocol_configuration_routes::routes(&state))
                 .or(statistics_routes::routes(&state))
                 .or(root_routes::routes(&state))
                 .or(status::routes(&state)),

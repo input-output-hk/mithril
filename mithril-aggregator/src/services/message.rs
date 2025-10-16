@@ -40,7 +40,7 @@ pub trait MessageService: Sync + Send {
         &self,
         epoch: Epoch,
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
-    ) -> StdResult<ProtocolConfigurationMessage>;
+    ) -> StdResult<Option<ProtocolConfigurationMessage>>;
 
     /// Return the message representation of a certificate if it exists.
     async fn get_certificate_message(
@@ -198,8 +198,11 @@ impl MessageService for MithrilMessageService {
         &self,
         epoch: Epoch,
         enabled_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
-    ) -> StdResult<ProtocolConfigurationMessage> {
-        let epoch_settings = self.epoch_settings_storer.get_epoch_settings(epoch).await?.unwrap();
+    ) -> StdResult<Option<ProtocolConfigurationMessage>> {
+        let epoch_settings = match self.epoch_settings_storer.get_epoch_settings(epoch).await? {
+            Some(settings) => settings,
+            None => return Ok(None),
+        };
 
         let cardano_transactions_discriminant =
             enabled_discriminants.get(&SignedEntityTypeDiscriminants::CardanoTransactions);
@@ -212,7 +215,7 @@ impl MessageService for MithrilMessageService {
             cardano_transactions_signing_config,
             available_signed_entity_types: enabled_discriminants,
         };
-        Ok(protocol_configuration_message)
+        Ok(Some(protocol_configuration_message))
     }
 
     async fn get_certificate_message(

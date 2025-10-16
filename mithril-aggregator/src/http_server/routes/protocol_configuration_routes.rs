@@ -26,6 +26,7 @@ fn protocol_configuration(
 mod handlers {
     use slog::{Logger, warn};
     use std::{collections::BTreeSet, convert::Infallible, sync::Arc};
+    use warp::http::StatusCode;
 
     use mithril_common::entities::{Epoch, SignedEntityTypeDiscriminants};
 
@@ -54,7 +55,11 @@ mod handlers {
             .await;
 
         match protocol_configuration_message {
-            Ok(message) => Ok(reply::json(&message, warp::http::StatusCode::OK)),
+            Ok(Some(message)) => Ok(reply::json(&message, warp::http::StatusCode::OK)),
+            Ok(None) => {
+                warn!(logger, "protocol_configuration::not_found");
+                Ok(reply::empty(StatusCode::NOT_FOUND))
+            }
             Err(err) => {
                 slog::warn!(logger, "protocol_configuration::error"; "error" => ?err);
                 Ok(reply::server_error(err))
@@ -100,7 +105,7 @@ mod tests {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_protocol_configuration_message()
-            .return_once(|_, _| Ok(ProtocolConfigurationMessage::dummy()))
+            .return_once(|_, _| Ok(Some(ProtocolConfigurationMessage::dummy())))
             .once();
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
@@ -120,6 +125,38 @@ mod tests {
             &Null,
             &response,
             &StatusCode::OK,
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_protocol_configuration_return_404_when_no_configuration_found() {
+        let method = Method::GET.as_str();
+        let base_path = "/protocol-configuration";
+        let mut dependency_manager = initialize_dependencies!().await;
+        let mut mock_http_message_service = MockMessageService::new();
+        mock_http_message_service
+            .expect_get_protocol_configuration_message()
+            .return_once(|_, _| Ok(None))
+            .once();
+        dependency_manager.message_service = Arc::new(mock_http_message_service);
+
+        let response = request()
+            .method(method)
+            .path(&format!("{base_path}/42"))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_default_spec_file_from(crate::http_server::API_SPEC_LOCATION),
+            method,
+            &format!("{base_path}/{{epoch}}"),
+            "application/json",
+            &Null,
+            &response,
+            &StatusCode::NOT_FOUND,
         )
         .unwrap();
     }

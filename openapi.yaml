@@ -129,6 +129,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProtocolConfigurationMessage"
+        "404":
+          description: protocol configuration not found
         default:
           description: protocol configuration error
           content:
@@ -1062,17 +1064,17 @@ components:
         cardano_transactions_signing_config:
           $ref: "#/components/schemas/CardanoTransactionsSigningConfig"
         available_signed_entity_types:
-            description: Available signed entity types that are signed by the aggregator
-            type: array
-            minItems: 1
-            items:
-              description: Signed entity types that can be signed
-              type: string
-              enum:
-                - MithrilStakeDistribution
-                - CardanoStakeDistribution
-                - CardanoImmutableFilesFull
-                - CardanoTransactions
+          description: Available signed entity types that are signed by the aggregator
+          type: array
+          minItems: 1
+          items:
+            description: Signed entity types that can be signed
+            type: string
+            enum:
+              - MithrilStakeDistribution
+              - CardanoStakeDistribution
+              - CardanoImmutableFilesFull
+              - CardanoTransactions
       examples:
         - {
             "protocol_parameters": { "k": 9, "m": 77, "phi_f": 0.5 },
