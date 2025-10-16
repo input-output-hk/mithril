@@ -257,7 +257,7 @@ mod tests {
                     .find(|(name, _values)| name.to_string().to_lowercase() == "accept-encoding")
                     .expect("Accept-Encoding header not found");
 
-                let header_value = accept_encoding_header.clone().1;
+                let header_value = accept_encoding_header.1;
                 ["gzip", "br", "deflate", "zstd"]
                     .iter()
                     .all(|&value| header_value.to_str().unwrap().contains(value))
