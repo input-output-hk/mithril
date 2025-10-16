@@ -16,7 +16,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-mithril-common = { path = "../../mithril-common", version = ">=0.5" }
+mithril-common = { path = "../../mithril-common", version = ">=0.6" }
 reqwest = { workspace = true }
 semver = { workspace = true }
 serde = { workspace = true }
