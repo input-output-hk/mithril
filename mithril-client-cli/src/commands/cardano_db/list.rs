@@ -1,12 +1,17 @@
 use clap::Parser;
 use cli_table::{Cell, Table, format::Justify, print_stdout};
 
+use mithril_client::common::{Epoch, EpochSpecifier};
+use mithril_client::{Client, MithrilResult};
+
 use crate::{
     CommandContext,
-    commands::{cardano_db::CardanoDbCommandsBackend, client_builder_with_fallback_genesis_key},
+    commands::{
+        cardano_db::{CardanoDbCommandsBackend, warn_unused_parameter_with_v1_backend},
+        client_builder_with_fallback_genesis_key,
+    },
     utils::CardanoDbUtils,
 };
-use mithril_client::{Client, MithrilResult};
 
 /// Clap command to list existing Cardano dbs
 #[derive(Parser, Debug, Clone)]
@@ -14,6 +19,10 @@ pub struct CardanoDbListCommand {
     ///Backend to use, either: `v1` (default, full database restoration only) or `v2` (full or partial database restoration)
     #[arg(short, long, value_enum, default_value_t)]
     backend: CardanoDbCommandsBackend,
+
+    /// [backend `v2` only] Epoch of the Cardano db snapshots to list, or `latest` for the latest artifact, or `latest-X` for the artifact of the latest epoch minus X.
+    #[clap(long)]
+    epoch: Option<String>,
 }
 
 impl CardanoDbListCommand {
@@ -32,6 +41,10 @@ impl CardanoDbListCommand {
     }
 
     async fn print_v1(&self, client: Client, context: CommandContext) -> MithrilResult<()> {
+        if self.epoch.is_some() {
+            warn_unused_parameter_with_v1_backend(&context, ["--epoch"]);
+        }
+
         let items = client.cardano_database().list().await?;
 
         if context.is_json_output_enabled() {
@@ -67,7 +80,17 @@ impl CardanoDbListCommand {
     }
 
     async fn print_v2(&self, client: Client, context: CommandContext) -> MithrilResult<()> {
-        let items = client.cardano_database_v2().list().await?;
+        let cdb_v2_client = client.cardano_database_v2();
+        let items = match &self.epoch {
+            None => cdb_v2_client.list().await?,
+            Some(epoch_str) => match Epoch::parse_specifier(epoch_str)? {
+                EpochSpecifier::Number(epoch) => cdb_v2_client.list_by_epoch(epoch).await?,
+                EpochSpecifier::Latest => cdb_v2_client.list_for_latest_epoch().await?,
+                EpochSpecifier::LatestMinusOffset(offset) => {
+                    cdb_v2_client.list_for_latest_epoch_with_offset(offset).await?
+                }
+            },
+        };
 
         if context.is_json_output_enabled() {
             println!("{}", serde_json::to_string(&items)?);
