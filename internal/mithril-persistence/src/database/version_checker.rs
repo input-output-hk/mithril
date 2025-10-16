@@ -200,11 +200,11 @@ insert into db_version (application_type, version, updated_at) values ('{applica
                 mithril-{} database migrate --stores-directory /path/to/stores-directory
             "#,
             migration_version,
-            self.application_type.to_string(),
+            self.application_type,
             fallback_distribution_version,
-            self.application_type.to_string(),
+            self.application_type,
             fallback_distribution_version,
-            self.application_type.to_string()
+            self.application_type
         )
     }
 }
