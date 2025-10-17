@@ -1,9 +1,12 @@
-use crate::utils::MithrilCommand;
-use crate::{ANCILLARY_MANIFEST_VERIFICATION_KEY, GENESIS_VERIFICATION_KEY};
 use anyhow::{Context, anyhow};
-use mithril_common::{StdResult, entities::TransactionHash};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+
+use mithril_common::StdResult;
+use mithril_common::entities::{EpochSpecifier, TransactionHash};
+
+use crate::utils::MithrilCommand;
+use crate::{ANCILLARY_MANIFEST_VERIFICATION_KEY, GENESIS_VERIFICATION_KEY};
 
 #[derive(Debug)]
 pub struct Client {
@@ -50,6 +53,7 @@ impl CardanoDbCommand {
 #[derive(Debug)]
 pub enum CardanoDbV2Command {
     List,
+    ListPerEpoch { epoch_specifier: EpochSpecifier },
     Show { hash: String },
     Download { hash: String },
 }
@@ -58,6 +62,9 @@ impl CardanoDbV2Command {
     fn name(&self) -> String {
         match self {
             CardanoDbV2Command::List => "list".to_string(),
+            CardanoDbV2Command::ListPerEpoch { epoch_specifier } => {
+                format!("list-epoch-{epoch_specifier}")
+            }
             CardanoDbV2Command::Show { hash } => format!("show-{hash}"),
             CardanoDbV2Command::Download { hash } => format!("download-{hash}"),
         }
@@ -67,6 +74,14 @@ impl CardanoDbV2Command {
         match self {
             CardanoDbV2Command::List => {
                 vec!["snapshot".to_string(), "list".to_string()]
+            }
+            CardanoDbV2Command::ListPerEpoch { epoch_specifier } => {
+                vec![
+                    "snapshot".to_string(),
+                    "list".to_string(),
+                    "--epoch".to_string(),
+                    epoch_specifier.to_string(),
+                ]
             }
             CardanoDbV2Command::Show { hash } => {
                 vec!["snapshot".to_string(), "show".to_string(), hash.clone()]

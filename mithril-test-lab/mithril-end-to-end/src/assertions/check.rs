@@ -7,7 +7,7 @@ use slog_scope::info;
 
 use mithril_common::{
     StdResult,
-    entities::{Epoch, TransactionHash},
+    entities::{Epoch, EpochSpecifier, TransactionHash},
     messages::{
         CardanoDatabaseDigestListMessage, CardanoDatabaseSnapshotListMessage,
         CardanoDatabaseSnapshotMessage, CardanoStakeDistributionListMessage,
@@ -557,6 +557,13 @@ pub async fn assert_client_can_verify_cardano_database(
 ) -> StdResult<()> {
     client
         .run(ClientCommand::CardanoDbV2(CardanoDbV2Command::List))
+        .await?;
+    client
+        .run(ClientCommand::CardanoDbV2(
+            CardanoDbV2Command::ListPerEpoch {
+                epoch_specifier: EpochSpecifier::LatestMinusOffset(5),
+            },
+        ))
         .await?;
     client
         .run(ClientCommand::CardanoDbV2(CardanoDbV2Command::Show {
