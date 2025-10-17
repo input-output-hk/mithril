@@ -555,14 +555,12 @@ mod tests {
             when.is_true(|req| {
                 let headers = req.headers();
                 let accept_encoding_header = headers
-                    .iter()
-                    .find(|(name, _values)| name.to_string().to_lowercase() == "accept-encoding")
+                    .get("accept-encoding")
                     .expect("Accept-Encoding header not found");
 
-                let header_value = accept_encoding_header.1;
-                ["gzip", "br", "deflate", "zstd"]
-                    .iter()
-                    .all(|&value| header_value.to_str().unwrap().contains(value))
+                ["gzip", "br", "deflate", "zstd"].iter().all(|&encoding| {
+                    accept_encoding_header.to_str().is_ok_and(|h| h.contains(encoding))
+                })
             });
 
             then.status(200).body("ok");
