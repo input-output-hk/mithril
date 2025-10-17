@@ -41,7 +41,7 @@ for MITHRIL_NETWORK in $(jq -r 'keys[]' "$JSON_FILE"); do
         for MITHRIL_NODE in $MITHRIL_NODES; do
             version=$(jq -r ".\"$MITHRIL_NETWORK\".\"cardano-minimum-version\".\"$MITHRIL_NODE\" // \"N/A\"" "$JSON_FILE")
             if [[ "$version" != "N/A" ]]; then
-                row="$row | Cardano \`$version+\`"
+                row="$row | Cardano \`$version+\`<sup>(*)</sup>"
             else
                 row="$row | N/A"
             fi
@@ -51,3 +51,6 @@ for MITHRIL_NETWORK in $(jq -r 'keys[]' "$JSON_FILE"); do
         echo "$row"
     done
 done
+
+echo ""
+echo "<sup>*</sup>: Up to the latest Cardano node version released at the time of this release."
