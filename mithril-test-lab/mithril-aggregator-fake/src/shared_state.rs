@@ -24,7 +24,9 @@ pub struct AppState {
     cardano_transaction_proofs: BTreeMap<String, String>,
     cardano_stake_distribution_list: String,
     cardano_stake_distributions: BTreeMap<String, String>,
+    cardano_stake_distributions_per_epoch: BTreeMap<u64, String>,
     cardano_database_snapshot_list: String,
+    cardano_database_snapshot_list_per_epoch: BTreeMap<u64, String>,
     cardano_database_snapshots: BTreeMap<String, String>,
 }
 
@@ -40,6 +42,17 @@ impl From<AppState> for SharedState {
 
 impl Default for AppState {
     fn default() -> Self {
+        let cardano_stake_distributions = default_values::cardano_stake_distributions();
+        let cardano_stake_distributions_per_epoch =
+            extract_cardano_stake_distribution_by_epoch(&cardano_stake_distributions)
+                .expect("Embedded default values are not valid JSON");
+
+        let cardano_database_snapshot_list =
+            default_values::cardano_database_snapshot_list().to_owned();
+        let cardano_database_snapshot_list_per_epoch =
+            extract_cardano_database_snapshots_for_epoch(&cardano_database_snapshot_list)
+                .expect("Embedded default values are not valid JSON");
+
         Self {
             status: default_values::status().to_owned(),
             epoch_settings: default_values::epoch_settings().to_owned(),
@@ -56,9 +69,10 @@ impl Default for AppState {
             cardano_transaction_proofs: default_values::cardano_transaction_proofs(),
             cardano_stake_distribution_list: default_values::cardano_stake_distribution_list()
                 .to_owned(),
-            cardano_stake_distributions: default_values::cardano_stake_distributions(),
-            cardano_database_snapshot_list: default_values::cardano_database_snapshot_list()
-                .to_owned(),
+            cardano_stake_distributions,
+            cardano_stake_distributions_per_epoch,
+            cardano_database_snapshot_list,
+            cardano_database_snapshot_list_per_epoch,
             cardano_database_snapshots: default_values::cardano_database_snapshots(),
         }
     }
@@ -83,6 +97,12 @@ impl AppState {
         let (cardano_database_snapshot_list, cardano_database_snapshots) =
             reader.read_files("cardano-database")?;
 
+        // derived values
+        let cardano_stake_distributions_per_epoch =
+            extract_cardano_stake_distribution_by_epoch(&cardano_stake_distributions)?;
+        let cardano_database_snapshot_list_per_epoch =
+            extract_cardano_database_snapshots_for_epoch(&cardano_database_snapshot_list)?;
+
         let instance = Self {
             status,
             epoch_settings,
@@ -96,8 +116,10 @@ impl AppState {
             cardano_transaction_snapshots,
             cardano_transaction_proofs,
             cardano_stake_distribution_list,
+            cardano_stake_distributions_per_epoch,
             cardano_stake_distributions,
             cardano_database_snapshot_list,
+            cardano_database_snapshot_list_per_epoch,
             cardano_database_snapshots,
         };
 
@@ -169,9 +191,55 @@ impl AppState {
         Ok(self.cardano_stake_distributions.get(key).cloned())
     }
 
+    /// return the Cardano stake distribution identified by the given epoch if any.
+    ///
+    /// `epoch` can be either a number, `latest`, or `latest-X` where x is a number
+    pub async fn get_cardano_stake_distribution_by_epoch(
+        &self,
+        epoch: &str,
+    ) -> StdResult<Option<String>> {
+        let stake_distribution = if epoch.starts_with("latest") {
+            let offset = parse_epoch_offset(epoch)?;
+            self.cardano_stake_distributions_per_epoch
+                .values()
+                .rev()
+                .nth(offset.unwrap_or_default())
+                .cloned()
+        } else {
+            self.cardano_stake_distributions_per_epoch
+                .get(&epoch.parse().with_context(|| "invalid epoch")?)
+                .cloned()
+        };
+
+        Ok(stake_distribution)
+    }
+
     /// return the list of Cardano database snapshots in the same order as they were read
     pub async fn get_cardano_database_snapshots(&self) -> StdResult<String> {
         Ok(self.cardano_database_snapshot_list.clone())
+    }
+
+    /// return the list of Cardano database snapshots for a given epoch in the same order as they were read
+    ///
+    /// `epoch` can be either a number, `latest`, or `latest-X` where x is a number
+    pub async fn get_cardano_database_snapshots_for_epoch(
+        &self,
+        epoch: &str,
+    ) -> StdResult<Option<String>> {
+        let snapshots = if epoch.starts_with("latest") {
+            let offset = parse_epoch_offset(epoch)?;
+            self.cardano_database_snapshot_list_per_epoch
+                .values()
+                .rev()
+                .nth(offset.unwrap_or_default())
+                .cloned()
+        } else {
+            self.cardano_database_snapshot_list_per_epoch
+                .get(&epoch.parse().with_context(|| "invalid epoch")?)
+                .cloned()
+        };
+
+        Ok(snapshots)
     }
 
     /// return the Cardano database snapshot identified by the given key if any.
@@ -262,6 +330,52 @@ impl DataDir {
     }
 }
 
+fn parse_epoch_offset(epoch: &str) -> StdResult<Option<usize>> {
+    epoch
+        .strip_prefix("latest-")
+        .map(|s| s.parse::<usize>())
+        .transpose()
+        .with_context(|| "invalid epoch offset")
+}
+
+fn extract_cardano_stake_distribution_by_epoch(
+    source: &BTreeMap<String, String>,
+) -> StdResult<BTreeMap<u64, String>> {
+    let mut res = BTreeMap::new();
+
+    for (key, value) in source {
+        let parsed_json: serde_json::Value = serde_json::from_str(value)
+            .with_context(|| format!("Could not parse JSON entity '{key}'"))?;
+        let epoch = parsed_json
+            .pointer("/epoch")
+            .with_context(|| format!("missing epoch for JSON entity '{key}'"))?
+            .as_u64()
+            .with_context(|| format!("epoch is not a number for JSON entity '{key}'"))?;
+        res.insert(epoch, value.clone());
+    }
+
+    Ok(res)
+}
+
+fn extract_cardano_database_snapshots_for_epoch(source: &str) -> StdResult<BTreeMap<u64, String>> {
+    let parsed_json: Vec<serde_json::Value> = serde_json::from_str(source)?;
+    let mut cardano_db_snapshots_per_epoch = BTreeMap::<u64, Vec<serde_json::Value>>::new();
+
+    for item in parsed_json {
+        let epoch = item
+            .pointer("/beacon/epoch")
+            .with_context(|| "missing beacon.epoch for a json value")?
+            .as_u64()
+            .with_context(|| "beacon.epoch is not a number")?;
+        cardano_db_snapshots_per_epoch.entry(epoch).or_default().push(item);
+    }
+
+    Ok(cardano_db_snapshots_per_epoch
+        .into_iter()
+        .map(|(k, v)| (k, serde_json::to_string(&v).unwrap()))
+        .collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -270,5 +384,68 @@ mod tests {
     fn build_appstate_from_default_data() {
         AppState::from_directory(Path::new("./default_data"))
             .expect("Should be able to construct an AppState from the default_data");
+    }
+
+    #[test]
+    fn test_extract_cardano_stake_distribution_by_epoch() {
+        let source = BTreeMap::from([
+            (
+                "hash1".to_string(),
+                r#"{"bar":4,"epoch":3,"foo":"...","hash":"2"}"#.to_string(),
+            ),
+            (
+                "hash2".to_string(),
+                r#"{"bar":7,"epoch":2,"foo":"...","hash":"1"}"#.to_string(),
+            ),
+        ]);
+        let extracted = extract_cardano_stake_distribution_by_epoch(&source).unwrap();
+
+        // note: values are not re-serialized, so they are kept as is
+        assert_eq!(
+            BTreeMap::from([
+                (3, source.get("hash1").unwrap().to_string()),
+                (2, source.get("hash2").unwrap().to_string())
+            ]),
+            extracted,
+        )
+    }
+
+    #[test]
+    fn test_extract_cardano_database_snapshots_for_epoch() {
+        let extracted = extract_cardano_database_snapshots_for_epoch(
+            r#"[
+            { "beacon": { "epoch": 1, "bar": 4 }, "hash":"3","foo":"..." },
+            { "beacon": { "epoch": 2}, "hash":"2","foo":"..." },
+            { "beacon": { "epoch": 1}, "hash":"1","foo":"..." }
+            ]"#,
+        )
+        .unwrap();
+
+        // note: values are re-serialized, so serde_json reorders the keys
+        assert_eq!(
+            BTreeMap::from([
+                (
+                    1,
+                    r#"[{"beacon":{"bar":4,"epoch":1},"foo":"...","hash":"3"},{"beacon":{"epoch":1},"foo":"...","hash":"1"}]"#
+                        .to_string()
+                ),
+                (2, r#"[{"beacon":{"epoch":2},"foo":"...","hash":"2"}]"#.to_string()),
+            ]),
+            extracted,
+        )
+    }
+
+    #[test]
+    fn extract_cardano_stake_distribution_by_epoch_from_default_data_dont_panic() {
+        extract_cardano_stake_distribution_by_epoch(&default_values::cardano_stake_distributions())
+            .unwrap();
+    }
+
+    #[test]
+    fn extract_cardano_database_snapshots_for_epoch_from_default_data_dont_panic() {
+        extract_cardano_database_snapshots_for_epoch(
+            default_values::cardano_database_snapshot_list(),
+        )
+        .unwrap();
     }
 }
