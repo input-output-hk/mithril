@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 
 use crate::entities::{
-    CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityTypeDiscriminants,
+    CardanoTransactionsSigningConfig, ProtocolParameters, SignedEntityTypeDiscriminants,
 };
 
 /// ProtocolConfiguration represents the protocol configuration of an epoch
