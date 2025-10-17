@@ -10,9 +10,9 @@ use thiserror::Error;
 use mithril_common::{
     MITHRIL_API_VERSION_HEADER, MITHRIL_SIGNER_VERSION_HEADER, StdError,
     api_version::APIVersionProvider,
-    entities::{ClientError, ServerError},
+    entities::{ClientError, Epoch, ServerError},
     logging::LoggerExtensions,
-    messages::{AggregatorFeaturesMessage, EpochSettingsMessage},
+    messages::{AggregatorFeaturesMessage, EpochSettingsMessage, ProtocolConfigurationMessage},
 };
 
 /// HTTP request timeout duration in milliseconds
@@ -125,6 +125,12 @@ pub trait AggregatorClient: Sync + Send {
     async fn retrieve_aggregator_features(
         &self,
     ) -> Result<AggregatorFeaturesMessage, AggregatorClientError>;
+
+    /// Retrieves protocol configuration for a given epoch from the aggregator
+    async fn retrieve_protocol_configuration(
+        &self,
+        epoch: Epoch,
+    ) -> Result<ProtocolConfigurationMessage, AggregatorClientError>;
 }
 
 /// AggregatorHTTPClient is a http client for an aggregator
@@ -271,6 +277,35 @@ impl AggregatorClient for AggregatorHTTPClient {
             Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
         }
     }
+
+    async fn retrieve_protocol_configuration(
+        &self,
+        epoch: Epoch,
+    ) -> Result<ProtocolConfigurationMessage, AggregatorClientError> {
+        debug!(self.logger, "Retrieve protocol configuration");
+        let url = format!(
+            "{}/protocol-configuration/{}",
+            self.aggregator_endpoint, epoch
+        );
+        let response = self
+            .prepare_request_builder(self.prepare_http_client()?.get(url.clone()))
+            .send()
+            .await;
+
+        match response {
+            Ok(response) => match response.status() {
+                StatusCode::OK => {
+                    self.warn_if_api_version_mismatch(&response);
+                    match response.json::<ProtocolConfigurationMessage>().await {
+                        Ok(message) => Ok(message),
+                        Err(err) => Err(AggregatorClientError::JsonParseFailed(anyhow!(err))),
+                    }
+                }
+                _ => Err(AggregatorClientError::from_response(response).await),
+            },
+            Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -361,6 +396,38 @@ mod tests {
                 $expect_contains,
             );
         };
+    }
+
+    mod protocol_configuration {
+
+        use super::*;
+
+        #[tokio::test]
+        async fn test_protocol_configuration_ok_200() {
+            let (server, client) = setup_server_and_client();
+            let message_expected = ProtocolConfigurationMessage::dummy();
+            let _server_mock = server.mock(|when, then| {
+                when.path("/protocol-configuration/42");
+                then.status(200).body(json!(message_expected).to_string());
+            });
+
+            let message = client.retrieve_protocol_configuration(Epoch(42)).await.unwrap();
+
+            assert_eq!(message_expected, message);
+        }
+
+        #[tokio::test]
+        async fn test_protocol_configuration_ko_500() {
+            let (server, client) = setup_server_and_client();
+            let _server_mock = server.mock(|when, then| {
+                when.path("/protocol-configuration/42");
+                then.status(500).body("an error occurred");
+            });
+
+            let error = client.retrieve_protocol_configuration(Epoch(42)).await.unwrap_err();
+
+            assert_is_error!(error, AggregatorClientError::RemoteServerTechnical(_));
+        }
     }
 
     mod epoch_settings {

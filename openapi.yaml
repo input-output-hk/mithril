@@ -1075,6 +1075,7 @@ components:
               - CardanoStakeDistribution
               - CardanoImmutableFilesFull
               - CardanoTransactions
+              - CardanoDatabase
       examples:
         - {
             "protocol_parameters": { "k": 9, "m": 77, "phi_f": 0.5 },
