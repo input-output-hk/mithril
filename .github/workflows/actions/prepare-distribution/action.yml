@@ -94,7 +94,7 @@ runs:
           jq -r '.packages | sort_by(.name) | .[] | select([.name] | inside(["mithril-stm", "mithril-aggregator", "mithril-client", "mithril-client-cli", "mithril-client-wasm", "mithril-signer", "mithril-common"])) | "| \(.name) | `\(.version)` |"' \
           >> ./release-notes-addon.txt
 
-    - name: Add compatibility table
+    - name: Add network compatibility table
       shell: bash
       run: |
         cat >> ./release-notes-addon.txt << EOF
@@ -106,6 +106,12 @@ runs:
 
         echo '${{ inputs.compatibility-table }}' \
           | jq -r 'keys_unsorted[] as $network | "| \($network) | \(.[$network]) |"' \
+          >> ./release-notes-addon.txt
+
+    - name: Add Cardano node compatibility table
+      shell: bash
+      run: |
+        ./.github/workflows/scripts/compute-cardano-compatibility.sh ./networks.json \
           >> ./release-notes-addon.txt
 
     - name: Add platform support table
