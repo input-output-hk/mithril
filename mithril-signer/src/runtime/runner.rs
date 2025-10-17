@@ -21,7 +21,10 @@ use crate::services::{EpochService, MithrilProtocolInitializerBuilder};
 #[async_trait]
 pub trait Runner: Send + Sync {
     /// Fetch the configuration parameters of the Mithril network
-    async fn get_mithril_network_configuration(&self) -> StdResult<MithrilNetworkConfiguration>;
+    async fn get_mithril_network_configuration(
+        &self,
+        epoch: Epoch,
+    ) -> StdResult<MithrilNetworkConfiguration>;
 
     /// Fetch the current epoch settings if any.
     async fn get_signer_registrations_from_aggregator(
@@ -114,12 +117,15 @@ impl SignerRunner {
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 impl Runner for SignerRunner {
-    async fn get_mithril_network_configuration(&self) -> StdResult<MithrilNetworkConfiguration> {
+    async fn get_mithril_network_configuration(
+        &self,
+        epoch: Epoch,
+    ) -> StdResult<MithrilNetworkConfiguration> {
         debug!(self.logger, ">> get_mithril_network_configuration");
 
         self.services
             .network_configuration_service
-            .get_network_configuration()
+            .get_network_configuration(epoch)
             .await
     }
 

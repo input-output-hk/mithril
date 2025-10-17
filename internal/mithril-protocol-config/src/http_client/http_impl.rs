@@ -4,8 +4,8 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use std::{sync::Arc, time::Duration};
 
-use mithril_common::StdResult;
 use mithril_common::api_version::APIVersionProvider;
+use mithril_common::{StdResult, entities::Epoch};
 
 use crate::{
     aggregator_client::{AggregatorClient, AggregatorHTTPClient, HTTP_REQUEST_TIMEOUT_DURATION},
@@ -40,7 +40,10 @@ impl HttpMithrilNetworkConfigurationProvider {
 
 #[async_trait]
 impl MithrilNetworkConfigurationProvider for HttpMithrilNetworkConfigurationProvider {
-    async fn get_network_configuration(&self) -> StdResult<MithrilNetworkConfiguration> {
+    async fn get_network_configuration(
+        &self,
+        epoch: Epoch, //TODO
+    ) -> StdResult<MithrilNetworkConfiguration> {
         let Some(epoch_settings) = self.aggregator_client.retrieve_epoch_settings().await? else {
             return Err(anyhow!("Failed to retrieve epoch settings"));
         };

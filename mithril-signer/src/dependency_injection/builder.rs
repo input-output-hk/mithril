@@ -383,6 +383,7 @@ impl<'a> DependenciesBuilder<'a> {
         ));
         let preloader_activation = CardanoTransactionsPreloaderActivationSigner::new(
             network_configuration_service.clone(),
+            ticker_service.clone(),
         );
         let cardano_transactions_preloader = Arc::new(CardanoTransactionsPreloader::new(
             signed_entity_type_lock.clone(),

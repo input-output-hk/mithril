@@ -177,7 +177,7 @@ impl StateMachine {
                     info!(self.logger, "→ Epoch Signer registrations found");
                     let network_configuration = self
                         .runner
-                        .get_mithril_network_configuration()
+                        .get_mithril_network_configuration(*epoch)
                         .await
                         .map_err(|e| RuntimeError::KeepState {
                             message: "could not retrieve Mithril network configuration".to_string(),
@@ -565,7 +565,7 @@ mod tests {
         runner
             .expect_get_mithril_network_configuration()
             .once()
-            .returning(|| {
+            .returning(|_| {
                 Ok(MithrilNetworkConfiguration {
                     epoch: Epoch(999),
                     signer_registration_protocol_parameters: fake_data::protocol_parameters(),
@@ -606,7 +606,7 @@ mod tests {
         runner
             .expect_get_mithril_network_configuration()
             .once()
-            .returning(|| Ok(MithrilNetworkConfiguration::dummy()));
+            .returning(|_| Ok(MithrilNetworkConfiguration::dummy()));
 
         runner
             .expect_inform_epoch_settings()
@@ -658,7 +658,7 @@ mod tests {
         runner
             .expect_get_mithril_network_configuration()
             .once()
-            .returning(|| Ok(MithrilNetworkConfiguration::dummy()));
+            .returning(|_| Ok(MithrilNetworkConfiguration::dummy()));
 
         runner
             .expect_inform_epoch_settings()
@@ -714,7 +714,7 @@ mod tests {
         runner
             .expect_get_mithril_network_configuration()
             .once()
-            .returning(|| Ok(MithrilNetworkConfiguration::dummy()));
+            .returning(|_| Ok(MithrilNetworkConfiguration::dummy()));
 
         runner
             .expect_inform_epoch_settings()

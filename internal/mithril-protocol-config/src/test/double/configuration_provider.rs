@@ -10,7 +10,7 @@ use crate::{
 use async_trait::async_trait;
 use mithril_common::{
     StdResult,
-    entities::{ProtocolParameters, SignedEntityTypeDiscriminants},
+    entities::{Epoch, ProtocolParameters, SignedEntityTypeDiscriminants},
 };
 use mithril_ticker::TickerService;
 
@@ -57,7 +57,10 @@ impl FakeMithrilNetworkConfigurationProvider {
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 impl MithrilNetworkConfigurationProvider for FakeMithrilNetworkConfigurationProvider {
-    async fn get_network_configuration(&self) -> StdResult<MithrilNetworkConfiguration> {
+    async fn get_network_configuration(
+        &self,
+        epoch: Epoch, //TODO
+    ) -> StdResult<MithrilNetworkConfiguration> {
         let time_point = self.ticker_service.get_current_time_point().await?;
         let available_signed_entity_types = self.available_signed_entity_types.read().await;
 
@@ -133,7 +136,7 @@ mod tests {
         );
 
         let actual_config = mithril_network_configuration_provider
-            .get_network_configuration()
+            .get_network_configuration(Epoch(1)) //TODO
             .await
             .unwrap();
 
