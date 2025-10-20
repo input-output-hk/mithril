@@ -585,8 +585,8 @@ mod tests {
             yield_now().await;
 
             let path = "/artifact/cardano-stake-distribution/epoch/{epoch}";
-            let epoch = default_values::cardano_stake_distribution_epochs()[0];
-            let response = http_request(PORT, &path.replace("{epoch}", epoch)).await;
+            let epoch = default_values::cardano_stake_distribution_epochs()[0].to_string();
+            let response = http_request(PORT, &path.replace("{epoch}", &epoch)).await;
 
             APISpec::verify_conformity(
                 get_spec_file(),

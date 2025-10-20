@@ -895,7 +895,7 @@ mod tests {
     #[wasm_bindgen_test]
     async fn get_cardano_stake_distribution_by_epoch_should_return_value_convertible_in_rust_type()
     {
-        let epoch: u64 = test_data::cardano_stake_distribution_epochs()[0].parse().unwrap();
+        let epoch = test_data::cardano_stake_distribution_epochs()[0];
         let csd_js_value = get_mithril_client_stable()
             .get_cardano_stake_distribution_by_epoch(epoch)
             .await
