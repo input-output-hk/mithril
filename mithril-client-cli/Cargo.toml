@@ -31,7 +31,7 @@ chrono = { workspace = true }
 clap = { workspace = true }
 cli-table = "0.5.0"
 config = { workspace = true }
-flate2 = "1.1.2"
+flate2 = "1.1.4"
 fs2 = "0.4.3"
 futures = "0.3.31"
 human_bytes = { version = "0.4.3", features = ["fast"] }
@@ -58,9 +58,9 @@ slog-term = { workspace = true }
 tar = "0.4.44"
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
-zip = "4.6.1"
+zip = "6.0.0"
 
 [dev-dependencies]
-httpmock = "0.7.0"
+httpmock = "0.8.1"
 mithril-common = { path = "../mithril-common" }
 mockall = { workspace = true }

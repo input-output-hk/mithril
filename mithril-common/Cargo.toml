@@ -1,6 +1,6 @@
 [package]
 name = "mithril-common"
-version = "0.6.22"
+version = "0.6.23"
 description = "Common types, interfaces, and utilities for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -50,26 +50,26 @@ kes-summed-ed25519 = { version = "0.2.1", features = [
     "serde_enabled",
     "sk_clone_enabled",
 ] }
-mithril-stm = { path = "../mithril-stm", version = ">=0.4", default-features = false }
+mithril-stm = { path = "../mithril-stm", version = ">=0.5", default-features = false }
 nom = "8.0.0"
 rand_chacha = { workspace = true }
 rand_core = { workspace = true }
 rayon = { workspace = true }
 semver = { workspace = true }
 serde = { workspace = true }
-serde_bytes = "0.11.17"
+serde_bytes = "0.11.19"
 serde_json = { workspace = true }
-serde_with = "3.14.0"
+serde_with = "3.15.0"
 sha2 = "0.10.9"
 slog = { workspace = true }
 strum = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
-typetag = "0.2.20"
+typetag = "0.2.21"
 walkdir = "2.5.0"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
-wasm-bindgen = "0.2.100"
+wasm-bindgen = "0.2.104"
 
 [build-dependencies]
 mithril-build-script = { path = "../internal/mithril-build-script", version = "=0.2" }

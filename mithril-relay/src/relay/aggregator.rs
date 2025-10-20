@@ -250,17 +250,15 @@ mod tests {
     async fn sends_accept_encoding_header_with_correct_values() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
-            when.matches(|req| {
-                let headers = req.headers.clone().expect("HTTP headers not found");
+            when.is_true(|req| {
+                let headers = req.headers();
                 let accept_encoding_header = headers
-                    .iter()
-                    .find(|(name, _values)| name.to_lowercase() == "accept-encoding")
+                    .get("accept-encoding")
                     .expect("Accept-Encoding header not found");
 
-                let header_value = accept_encoding_header.clone().1;
-                ["gzip", "br", "deflate", "zstd"]
-                    .iter()
-                    .all(|&value| header_value.contains(value))
+                ["gzip", "br", "deflate", "zstd"].iter().all(|&encoding| {
+                    accept_encoding_header.to_str().is_ok_and(|h| h.contains(encoding))
+                })
             });
 
             then.status(201).body("ok");

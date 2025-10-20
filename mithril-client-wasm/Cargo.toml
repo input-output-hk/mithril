@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client-wasm"
-version = "0.9.5"
+version = "0.9.6"
 description = "Mithril client WASM"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -34,12 +34,12 @@ mithril-client = { path = "../mithril-client", default-features = false, feature
 serde = { workspace = true }
 serde-wasm-bindgen = "0.6.5"
 serde_json = { workspace = true }
-wasm-bindgen = "0.2.100"
-wasm-bindgen-futures = "0.4.50"
-web-sys = { version = "0.3.77", features = ["BroadcastChannel", "console", "Storage", "Window"] }
+wasm-bindgen = "0.2.104"
+wasm-bindgen-futures = "0.4.54"
+web-sys = { version = "0.3.81", features = ["BroadcastChannel", "console", "Storage", "Window"] }
 
 [build-dependencies]
 mithril-build-script = { path = "../internal/mithril-build-script" }
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.50"
+wasm-bindgen-test = "0.3.54"

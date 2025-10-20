@@ -12,7 +12,6 @@ pub use signature::*;
 
 #[cfg(test)]
 mod tests {
-    use core::panic;
     use std::collections::{HashMap, HashSet};
 
     use blake2::{Blake2b, digest::consts::U32};

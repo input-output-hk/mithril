@@ -175,7 +175,7 @@ mod tests {
         let server = MockServer::start();
         let _mock = server.mock(|when, then| {
             when.method(GET).path("/endpoint");
-            then.status(StatusCode::INTERNAL_SERVER_ERROR.into());
+            then.status(StatusCode::INTERNAL_SERVER_ERROR.as_u16());
         });
         let client = ReqwestGitHubApiClient::new(None).unwrap();
 

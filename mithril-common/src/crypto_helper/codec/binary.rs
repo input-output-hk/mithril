@@ -20,12 +20,8 @@ pub trait TryFromBytes: Sized {
 
     /// Try to convert from hex string encoded bytes.
     fn try_from_bytes_hex(hex_string: &str) -> StdResult<Self> {
-        let bytes = Vec::from_hex(hex_string).map_err(|e| {
-            anyhow::anyhow!(
-                "Could not deserialize binary from hex string: {}",
-                e.to_string()
-            )
-        })?;
+        let bytes = Vec::from_hex(hex_string)
+            .map_err(|e| anyhow::anyhow!("Could not deserialize binary from hex string: {e}"))?;
 
         Self::try_from_bytes(&bytes)
     }

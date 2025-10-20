@@ -50,7 +50,7 @@ impl BlsSignature {
             .finalize();
 
         let mut output = [0u8; 64];
-        output.copy_from_slice(hasher.as_slice());
+        output.copy_from_slice(&hasher);
 
         output
     }
@@ -117,7 +117,7 @@ impl BlsSignature {
             let mut hasher = hashed_sigs.clone();
             hasher.update(index.to_be_bytes());
             signatures.push(sig.0);
-            scalars.extend_from_slice(hasher.finalize().as_slice());
+            scalars.extend_from_slice(&hasher.finalize());
         }
 
         let transmuted_vks: Vec<blst_p2> = vks.iter().map(vk_from_p2_affine).collect();
