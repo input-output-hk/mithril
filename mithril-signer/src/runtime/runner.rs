@@ -564,7 +564,6 @@ mod tests {
             SignedEntityTypeConfiguration {
                 cardano_transactions: Some(CardanoTransactionsSigningConfig::dummy()),
             },
-            ticker_service.clone(),
         ));
 
         SignerDependencyContainer {

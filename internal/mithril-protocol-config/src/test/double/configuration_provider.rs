@@ -1,5 +1,5 @@
 //! provides test doubles for MithrilNetworkConfigurationProvider
-use std::{collections::BTreeSet, sync::Arc};
+use std::collections::BTreeSet;
 
 use tokio::sync::RwLock;
 
@@ -12,7 +12,6 @@ use mithril_common::{
     StdResult,
     entities::{Epoch, ProtocolParameters, SignedEntityTypeDiscriminants},
 };
-use mithril_ticker::TickerService;
 
 /// A fake [MithrilNetworkConfigurationProvider] that return [MithrilNetworkConfiguration]
 pub struct FakeMithrilNetworkConfigurationProvider {
@@ -24,8 +23,6 @@ pub struct FakeMithrilNetworkConfigurationProvider {
 
     /// The configuration for each signed entity type
     pub signed_entity_types_config: SignedEntityTypeConfiguration,
-
-    ticker_service: Arc<dyn TickerService>,
 }
 
 impl FakeMithrilNetworkConfigurationProvider {
@@ -34,13 +31,11 @@ impl FakeMithrilNetworkConfigurationProvider {
         signer_registration_protocol_parameters: ProtocolParameters,
         available_signed_entity_types: BTreeSet<SignedEntityTypeDiscriminants>,
         signed_entity_types_config: SignedEntityTypeConfiguration,
-        ticker_service: Arc<dyn TickerService>,
     ) -> Self {
         Self {
             signer_registration_protocol_parameters,
             available_signed_entity_types: RwLock::new(available_signed_entity_types),
             signed_entity_types_config,
-            ticker_service,
         }
     }
 
@@ -59,13 +54,12 @@ impl FakeMithrilNetworkConfigurationProvider {
 impl MithrilNetworkConfigurationProvider for FakeMithrilNetworkConfigurationProvider {
     async fn get_network_configuration(
         &self,
-        epoch: Epoch, //TODO
+        epoch: Epoch,
     ) -> StdResult<MithrilNetworkConfiguration> {
-        let time_point = self.ticker_service.get_current_time_point().await?;
         let available_signed_entity_types = self.available_signed_entity_types.read().await;
 
         Ok(MithrilNetworkConfiguration {
-            epoch: time_point.epoch,
+            epoch,
             signer_registration_protocol_parameters: self
                 .signer_registration_protocol_parameters
                 .clone(),
@@ -77,38 +71,17 @@ impl MithrilNetworkConfigurationProvider for FakeMithrilNetworkConfigurationProv
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::BTreeSet, sync::Arc};
+    use std::collections::BTreeSet;
 
-    use mithril_common::{
-        entities::{
-            BlockNumber, CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolParameters,
-            SignedEntityTypeDiscriminants, TimePoint,
-        },
-        test::double::Dummy,
+    use mithril_common::entities::{
+        BlockNumber, CardanoTransactionsSigningConfig, Epoch, ProtocolParameters,
+        SignedEntityTypeDiscriminants,
     };
-    use mithril_ticker::MithrilTickerService;
 
     use crate::{
         interface::MithrilNetworkConfigurationProvider, model::SignedEntityTypeConfiguration,
         test::double::configuration_provider::FakeMithrilNetworkConfigurationProvider,
     };
-    use mithril_cardano_node_chain::test::double::FakeChainObserver;
-    use mithril_cardano_node_internal_database::test::double::DumbImmutableFileObserver;
-
-    async fn ticker_service() -> Arc<MithrilTickerService> {
-        let immutable_observer = Arc::new(DumbImmutableFileObserver::new());
-        immutable_observer.shall_return(Some(1)).await;
-        let chain_observer = Arc::new(FakeChainObserver::new(Some(TimePoint {
-            epoch: Epoch(1),
-            immutable_file_number: 1,
-            chain_point: ChainPoint::dummy(),
-        })));
-
-        Arc::new(MithrilTickerService::new(
-            chain_observer.clone(),
-            immutable_observer.clone(),
-        ))
-    }
 
     #[tokio::test]
     async fn test_get() {
@@ -132,11 +105,10 @@ mod tests {
             signer_registration_protocol_parameters.clone(),
             available_signed_entity_types.clone(),
             signed_entity_types_config.clone(),
-            ticker_service().await,
         );
 
         let actual_config = mithril_network_configuration_provider
-            .get_network_configuration(Epoch(1)) //TODO
+            .get_network_configuration(Epoch(1))
             .await
             .unwrap();
 

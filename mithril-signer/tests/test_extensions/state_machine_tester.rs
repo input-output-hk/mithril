@@ -180,7 +180,6 @@ impl StateMachineTester {
             SignedEntityTypeConfiguration {
                 cardano_transactions: Some(cardano_transactions_signing_config.clone()),
             },
-            ticker_service.clone(),
         ));
 
         let digester = Arc::new(DumbImmutableDigester::default().with_digest("DIGEST"));
