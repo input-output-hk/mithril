@@ -1,7 +1,7 @@
 use clap::Parser;
 use cli_table::{Cell, Table, format::Justify, print_stdout};
 
-use mithril_client::common::{Epoch, EpochSpecifier};
+use mithril_client::common::EpochSpecifier;
 use mithril_client::{Client, MithrilResult};
 
 use crate::{
@@ -83,7 +83,7 @@ impl CardanoDbListCommand {
         let cdb_v2_client = client.cardano_database_v2();
         let items = match &self.epoch {
             None => cdb_v2_client.list().await?,
-            Some(epoch_str) => match Epoch::parse_specifier(epoch_str)? {
+            Some(epoch_str) => match EpochSpecifier::parse(epoch_str)? {
                 EpochSpecifier::Number(epoch) => cdb_v2_client.list_by_epoch(epoch).await?,
                 EpochSpecifier::Latest => cdb_v2_client.list_for_latest_epoch().await?,
                 EpochSpecifier::LatestMinusOffset(offset) => {

@@ -7,10 +7,10 @@ use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::StdResult;
 use crate::entities::arithmetic_operation_wrapper::{
     impl_add_to_wrapper, impl_partial_eq_to_wrapper, impl_sub_to_wrapper,
 };
+use crate::{StdError, StdResult};
 
 const INVALID_EPOCH_SPECIFIER_ERROR: &str =
     "Invalid epoch: expected 'X', 'latest' or 'latest-X' where X is a positive 64-bit integer";
@@ -106,32 +106,6 @@ impl Epoch {
     pub fn has_gap_with(&self, other: &Epoch) -> bool {
         self.0.abs_diff(other.0) > 1
     }
-
-    /// Parses the given epoch string into an `EpochSpecifier`.
-    ///
-    /// Accepted values are:
-    /// - a `u64` number
-    /// - `latest`
-    /// - `latest-{offset}` where `{offset}` is a `u64` number
-    pub fn parse_specifier(epoch_str: &str) -> StdResult<EpochSpecifier> {
-        if epoch_str == "latest" {
-            Ok(EpochSpecifier::Latest)
-        } else if let Some(offset_str) = epoch_str.strip_prefix("latest-") {
-            if offset_str.is_empty() {
-                anyhow::bail!("Invalid epoch '{epoch_str}': offset cannot be empty");
-            }
-            let offset = offset_str.parse::<u64>().with_context(|| {
-                format!("Invalid epoch '{epoch_str}': offset must be a positive 64-bit integer")
-            })?;
-
-            Ok(EpochSpecifier::LatestMinusOffset(offset))
-        } else {
-            epoch_str
-                .parse::<Epoch>()
-                .map(EpochSpecifier::Number)
-                .with_context(|| INVALID_EPOCH_SPECIFIER_ERROR)
-        }
-    }
 }
 
 impl Deref for Epoch {
@@ -207,6 +181,42 @@ pub enum EpochSpecifier {
     Latest,
     /// Epoch was provided as "latest-{offset}" (e.g., "latest-100")
     LatestMinusOffset(u64),
+}
+
+impl EpochSpecifier {
+    /// Parses the given epoch string into an `EpochSpecifier`.
+    ///
+    /// Accepted values are:
+    /// - a `u64` number
+    /// - `latest`
+    /// - `latest-{offset}` where `{offset}` is a `u64` number
+    pub fn parse(epoch_str: &str) -> StdResult<Self> {
+        Self::from_str(epoch_str)
+    }
+}
+
+impl FromStr for EpochSpecifier {
+    type Err = StdError;
+
+    fn from_str(epoch_str: &str) -> Result<Self, Self::Err> {
+        if epoch_str == "latest" {
+            Ok(EpochSpecifier::Latest)
+        } else if let Some(offset_str) = epoch_str.strip_prefix("latest-") {
+            if offset_str.is_empty() {
+                anyhow::bail!("Invalid epoch '{epoch_str}': offset cannot be empty");
+            }
+            let offset = offset_str.parse::<u64>().with_context(|| {
+                format!("Invalid epoch '{epoch_str}': offset must be a positive 64-bit integer")
+            })?;
+
+            Ok(EpochSpecifier::LatestMinusOffset(offset))
+        } else {
+            epoch_str
+                .parse::<Epoch>()
+                .map(EpochSpecifier::Number)
+                .with_context(|| INVALID_EPOCH_SPECIFIER_ERROR)
+        }
+    }
 }
 
 impl Display for EpochSpecifier {
@@ -372,38 +382,38 @@ mod tests {
 
         #[test]
         fn parse_epoch_number() {
-            let parsed_value = Epoch::parse_specifier("5").unwrap();
+            let parsed_value = EpochSpecifier::parse("5").unwrap();
             assert_eq!(EpochSpecifier::Number(Epoch(5)), parsed_value);
         }
 
         #[test]
         fn parse_latest_epoch() {
-            let parsed_value = Epoch::parse_specifier("latest").unwrap();
+            let parsed_value = EpochSpecifier::parse("latest").unwrap();
             assert_eq!(EpochSpecifier::Latest, parsed_value);
         }
 
         #[test]
         fn parse_latest_epoch_with_offset() {
-            let parsed_value = Epoch::parse_specifier("latest-43").unwrap();
+            let parsed_value = EpochSpecifier::parse("latest-43").unwrap();
             assert_eq!(EpochSpecifier::LatestMinusOffset(43), parsed_value);
         }
 
         #[test]
         fn parse_invalid_str_yield_error() {
-            let error = Epoch::parse_specifier("invalid_string").unwrap_err();
+            let error = EpochSpecifier::parse("invalid_string").unwrap_err();
             assert!(error.to_string().contains(INVALID_EPOCH_SPECIFIER_ERROR));
         }
 
         #[test]
         fn parse_too_big_epoch_number_yield_error() {
-            let error = Epoch::parse_specifier(&format!("9{}", u64::MAX)).unwrap_err();
+            let error = EpochSpecifier::parse(&format!("9{}", u64::MAX)).unwrap_err();
             assert!(error.to_string().contains(INVALID_EPOCH_SPECIFIER_ERROR));
             println!("{:?}", error);
         }
 
         #[test]
         fn parse_latest_epoch_with_invalid_offset_yield_error() {
-            let error = Epoch::parse_specifier("latest-invalid").unwrap_err();
+            let error = EpochSpecifier::parse("latest-invalid").unwrap_err();
             assert!(error.to_string().contains(
                 "Invalid epoch 'latest-invalid': offset must be a positive 64-bit integer"
             ));
@@ -411,7 +421,7 @@ mod tests {
 
         #[test]
         fn parse_latest_epoch_with_empty_offset_yield_error() {
-            let error = Epoch::parse_specifier("latest-").unwrap_err();
+            let error = EpochSpecifier::parse("latest-").unwrap_err();
             assert!(
                 error
                     .to_string()
@@ -421,7 +431,7 @@ mod tests {
 
         #[test]
         fn parse_latest_epoch_with_too_big_offset_yield_error() {
-            let error = Epoch::parse_specifier(&format!("latest-9{}", u64::MAX)).unwrap_err();
+            let error = EpochSpecifier::parse(&format!("latest-9{}", u64::MAX)).unwrap_err();
             assert!(error.to_string().contains(
                 "Invalid epoch 'latest-918446744073709551615': offset must be a positive 64-bit integer"
             ))
@@ -434,7 +444,7 @@ mod tests {
                 EpochSpecifier::Latest,
                 EpochSpecifier::LatestMinusOffset(121),
             ] {
-                let value = Epoch::parse_specifier(&specifier.to_string()).unwrap();
+                let value = EpochSpecifier::parse(&specifier.to_string()).unwrap();
                 assert_eq!(value, specifier);
             }
         }

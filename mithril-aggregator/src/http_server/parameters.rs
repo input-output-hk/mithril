@@ -60,7 +60,7 @@ pub async fn expand_epoch(
     epoch_service: EpochServiceWrapper,
 ) -> StdResult<ExpandedEpoch> {
     let epoch_str = epoch_str.to_lowercase();
-    match Epoch::parse_specifier(&epoch_str)? {
+    match EpochSpecifier::parse(&epoch_str)? {
         EpochSpecifier::Number(epoch) => Ok(ExpandedEpoch::Parsed(epoch)),
         EpochSpecifier::Latest => epoch_service
             .read()
