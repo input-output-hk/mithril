@@ -460,6 +460,16 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
+      - name: Prepare environment variables
+        id: prepare
+        shell: bash
+        run: |
+          if [[ -n "${{ inputs.commit_sha }}" ]]; then
+            echo "sha=${{ inputs.commit_sha }}" >> $GITHUB_OUTPUT
+          else
+            echo "branch=main" >> $GITHUB_OUTPUT
+          fi
+
       - name: Download built artifacts
         uses: dawidd6/action-download-artifact@v6
         with:
