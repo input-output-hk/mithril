@@ -17,6 +17,7 @@ use mithril_cardano_node_internal_database::entities::ImmutableFile;
 use crate::aggregator_client::AggregatorClient;
 #[cfg(feature = "fs")]
 use crate::cardano_database_client::{VerifiedDigests, proving::CardanoDatabaseVerificationError};
+use crate::common::Epoch;
 #[cfg(feature = "fs")]
 use crate::feedback::FeedbackSender;
 #[cfg(feature = "fs")]
@@ -78,6 +79,31 @@ impl CardanoDatabaseClient {
     /// Fetch a list of signed CardanoDatabase
     pub async fn list(&self) -> MithrilResult<Vec<CardanoDatabaseSnapshotListItem>> {
         self.artifact_retriever.list().await
+    }
+
+    /// Fetch a list of signed CardanoDatabase for a given epoch
+    pub async fn list_by_epoch(
+        &self,
+        epoch: Epoch,
+    ) -> MithrilResult<Vec<CardanoDatabaseSnapshotListItem>> {
+        self.artifact_retriever.list_by_epoch(epoch).await
+    }
+
+    /// Fetch a list of signed CardanoDatabase for the latest epoch
+    pub async fn list_for_latest_epoch(
+        &self,
+    ) -> MithrilResult<Vec<CardanoDatabaseSnapshotListItem>> {
+        self.artifact_retriever.list_for_latest_epoch().await
+    }
+
+    /// Fetch a list of signed CardanoDatabase for the latest epoch minus the given offset
+    pub async fn list_for_latest_epoch_with_offset(
+        &self,
+        offset: u64,
+    ) -> MithrilResult<Vec<CardanoDatabaseSnapshotListItem>> {
+        self.artifact_retriever
+            .list_for_latest_epoch_with_offset(offset)
+            .await
     }
 
     /// Get the given Cardano database data by hash

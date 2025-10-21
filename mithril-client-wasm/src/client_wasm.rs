@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chrono::TimeDelta;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 
@@ -38,6 +38,24 @@ impl FeedbackReceiver for JSBroadcastChannelFeedbackReceiver {
         let bc = web_sys::BroadcastChannel::new(&self.channel).unwrap();
         let _ = bc.post_message(&serde_wasm_bindgen::to_value(&event).unwrap());
         bc.close();
+    }
+}
+
+/// Parameters that can be passed as a [JsValue] to methods that fetch data based on the latest epoch
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct LatestEpochOptions {
+    pub offset: Option<u64>,
+}
+
+impl LatestEpochOptions {
+    fn parse_from_js_value(js_value: JsValue) -> Result<Self, JsValue> {
+        let options = if js_value.is_object() {
+            serde_wasm_bindgen::from_value(js_value)
+                .map_err(|err| format!("Failed to parse options: {err:?}"))?
+        } else {
+            LatestEpochOptions::default()
+        };
+        Ok(options)
     }
 }
 
@@ -378,6 +396,7 @@ impl MithrilClient {
     }
 
     /// Call the client to get a cardano stake distribution from an epoch
+    ///
     /// The epoch represents the epoch at the end of which the Cardano stake distribution is computed by the Cardano node
     #[wasm_bindgen]
     pub async fn get_cardano_stake_distribution_by_epoch(&self, epoch: u64) -> WasmResult {
@@ -390,6 +409,28 @@ impl MithrilClient {
             .ok_or(JsValue::from_str(&format!(
                 "No cardano stake distribution found for epoch: '{epoch}'"
             )))?;
+
+        Ok(serde_wasm_bindgen::to_value(&result)?)
+    }
+
+    /// Call the client to get a cardano stake distribution from an epoch
+    #[wasm_bindgen]
+    pub async fn get_cardano_stake_distribution_for_latest_epoch(
+        &self,
+        param: JsValue,
+    ) -> WasmResult {
+        let options = LatestEpochOptions::parse_from_js_value(param)?;
+        let client = self.client.cardano_stake_distribution();
+
+        let result = match options.offset {
+            None => client.get_for_latest_epoch().await,
+            Some(offset) => client.get_for_latest_epoch_with_offset(offset).await,
+        }
+        .map_err(|err| format!("{err:?}"))?
+        .ok_or(JsValue::from_str(&format!(
+            "No cardano stake distribution found for latest epoch{}",
+            options.offset.map(|o| format!(" (offset: {o})")).unwrap_or_default()
+        )))?;
 
         Ok(serde_wasm_bindgen::to_value(&result)?)
     }
@@ -485,6 +526,43 @@ impl MithrilClient {
             .list()
             .await
             .map_err(|err| format!("{err:?}"))?;
+
+        Ok(serde_wasm_bindgen::to_value(&result)?)
+    }
+
+    /// Call the client for the list of available cardano database snapshots for a given epoch
+    ///
+    /// Warning: this function is unstable and may be modified in the future
+    #[wasm_bindgen]
+    pub async fn list_cardano_database_v2_per_epoch(&self, epoch: u64) -> WasmResult {
+        self.guard_unstable()?;
+
+        let result = self
+            .client
+            .cardano_database_v2()
+            .list_by_epoch(Epoch(epoch))
+            .await
+            .map_err(|err| format!("{err:?}"))?;
+
+        Ok(serde_wasm_bindgen::to_value(&result)?)
+    }
+
+    /// Call the client for the list of available cardano database snapshots for the latest epoch
+    ///
+    /// An optionnal offset can be provided
+    ///
+    /// Warning: this function is unstable and may be modified in the future
+    #[wasm_bindgen]
+    pub async fn list_cardano_database_v2_for_latest_epoch(&self, param: JsValue) -> WasmResult {
+        self.guard_unstable()?;
+        let options = LatestEpochOptions::parse_from_js_value(param)?;
+        let client = self.client.cardano_database_v2();
+
+        let result = match options.offset {
+            None => client.list_for_latest_epoch().await,
+            Some(offset) => client.list_for_latest_epoch_with_offset(offset).await,
+        }
+        .map_err(|err| format!("{err:?}"))?;
 
         Ok(serde_wasm_bindgen::to_value(&result)?)
     }
@@ -895,7 +973,7 @@ mod tests {
     #[wasm_bindgen_test]
     async fn get_cardano_stake_distribution_by_epoch_should_return_value_convertible_in_rust_type()
     {
-        let epoch: u64 = test_data::cardano_stake_distribution_epochs()[0].parse().unwrap();
+        let epoch = test_data::cardano_stake_distribution_epochs()[0];
         let csd_js_value = get_mithril_client_stable()
             .get_cardano_stake_distribution_by_epoch(epoch)
             .await
@@ -913,6 +991,42 @@ mod tests {
             .get_cardano_stake_distribution_by_epoch(u64::MAX)
             .await
             .expect_err("get_cardano_stake_distribution_by_epoch should fail");
+    }
+
+    #[wasm_bindgen_test]
+    async fn get_cardano_stake_distribution_for_latest_epoch_should_return_value_convertible_in_rust_type()
+     {
+        let latest_epoch = *test_data::cardano_stake_distribution_epochs().last().unwrap();
+        let csd_js_value = get_mithril_client_stable()
+            .get_cardano_stake_distribution_for_latest_epoch(JsValue::undefined())
+            .await
+            .expect("get_cardano_stake_distribution_by_epoch should not fail");
+
+        let csd = serde_wasm_bindgen::from_value::<CardanoStakeDistribution>(csd_js_value)
+            .expect("conversion should not fail");
+
+        assert_eq!(csd.epoch, latest_epoch);
+    }
+
+    #[wasm_bindgen_test]
+    async fn get_cardano_stake_distribution_for_latest_epoch_with_offset_should_return_value_convertible_in_rust_type()
+     {
+        let epoch = test_data::cardano_stake_distribution_epochs()
+            .into_iter()
+            .rev()
+            .nth(2)
+            .unwrap();
+        let csd_js_value = get_mithril_client_stable()
+            .get_cardano_stake_distribution_for_latest_epoch(
+                serde_wasm_bindgen::to_value(&LatestEpochOptions { offset: Some(2) }).unwrap(),
+            )
+            .await
+            .expect("get_cardano_stake_distribution_by_epoch should not fail");
+
+        let csd = serde_wasm_bindgen::from_value::<CardanoStakeDistribution>(csd_js_value)
+            .expect("conversion should not fail");
+
+        assert_eq!(csd.epoch, epoch);
     }
 
     #[wasm_bindgen_test]
@@ -952,6 +1066,64 @@ mod tests {
             // Aggregator return up to 20 items for a list route
             test_data::cardano_database_snapshot_hashes().len().min(20)
         );
+    }
+
+    #[wasm_bindgen_test]
+    async fn list_cardano_database_v2_per_epoch_should_return_value_convertible_in_rust_type() {
+        let cdb_list_js_value = get_mithril_client_unstable()
+            .list_cardano_database_v2_per_epoch(test_data::cardano_database_snapshot_epochs()[3])
+            .await
+            .expect("list_cardano_database_v2 should not fail");
+        let cdb_list = serde_wasm_bindgen::from_value::<Vec<CardanoDatabaseSnapshotListItem>>(
+            cdb_list_js_value,
+        )
+        .expect("conversion should not fail");
+
+        assert!(!cdb_list.is_empty());
+        assert_eq!(
+            cdb_list[0].beacon.epoch,
+            test_data::cardano_database_snapshot_epochs()[3]
+        );
+    }
+
+    #[wasm_bindgen_test]
+    async fn list_cardano_database_v2_for_latest_epoch_should_return_value_convertible_in_rust_type()
+     {
+        let latest_epoch = *test_data::cardano_database_snapshot_epochs().last().unwrap();
+        let cdb_list_js_value = get_mithril_client_unstable()
+            .list_cardano_database_v2_for_latest_epoch(JsValue::undefined())
+            .await
+            .expect("list_cardano_database_v2 should not fail");
+        let cdb_list = serde_wasm_bindgen::from_value::<Vec<CardanoDatabaseSnapshotListItem>>(
+            cdb_list_js_value,
+        )
+        .expect("conversion should not fail");
+
+        assert!(!cdb_list.is_empty());
+        assert_eq!(cdb_list[0].beacon.epoch, latest_epoch);
+    }
+
+    #[wasm_bindgen_test]
+    async fn list_cardano_database_v2_for_latest_epoch_with_offset_should_return_value_convertible_in_rust_type()
+     {
+        let epoch = test_data::cardano_database_snapshot_epochs()
+            .into_iter()
+            .rev()
+            .nth(3)
+            .unwrap();
+        let cdb_list_js_value = get_mithril_client_unstable()
+            .list_cardano_database_v2_for_latest_epoch(
+                serde_wasm_bindgen::to_value(&LatestEpochOptions { offset: Some(3) }).unwrap(),
+            )
+            .await
+            .expect("list_cardano_database_v2 should not fail");
+        let cdb_list = serde_wasm_bindgen::from_value::<Vec<CardanoDatabaseSnapshotListItem>>(
+            cdb_list_js_value,
+        )
+        .expect("conversion should not fail");
+
+        assert!(!cdb_list.is_empty());
+        assert_eq!(cdb_list[0].beacon.epoch, epoch);
     }
 
     #[wasm_bindgen_test]

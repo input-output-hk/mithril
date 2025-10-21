@@ -8,6 +8,8 @@ use anyhow::{Context, anyhow};
 use tokio::sync::RwLock;
 use tracing::{debug, trace};
 
+use mithril_build_script::fake_aggregator::{extract_item_by_epoch, extract_item_list_per_epoch};
+
 use crate::{StdResult, default_values};
 
 pub struct AppState {
@@ -24,7 +26,9 @@ pub struct AppState {
     cardano_transaction_proofs: BTreeMap<String, String>,
     cardano_stake_distribution_list: String,
     cardano_stake_distributions: BTreeMap<String, String>,
+    cardano_stake_distributions_per_epoch: BTreeMap<u64, String>,
     cardano_database_snapshot_list: String,
+    cardano_database_snapshot_list_per_epoch: BTreeMap<u64, String>,
     cardano_database_snapshots: BTreeMap<String, String>,
 }
 
@@ -57,8 +61,12 @@ impl Default for AppState {
             cardano_stake_distribution_list: default_values::cardano_stake_distribution_list()
                 .to_owned(),
             cardano_stake_distributions: default_values::cardano_stake_distributions(),
+            cardano_stake_distributions_per_epoch:
+                default_values::cardano_stake_distributions_per_epoch(),
             cardano_database_snapshot_list: default_values::cardano_database_snapshot_list()
                 .to_owned(),
+            cardano_database_snapshot_list_per_epoch:
+                default_values::cardano_database_snapshot_list_per_epoch(),
             cardano_database_snapshots: default_values::cardano_database_snapshots(),
         }
     }
@@ -83,6 +91,12 @@ impl AppState {
         let (cardano_database_snapshot_list, cardano_database_snapshots) =
             reader.read_files("cardano-database")?;
 
+        // derived values
+        let cardano_stake_distributions_per_epoch =
+            extract_item_by_epoch(&cardano_stake_distributions, "/epoch");
+        let cardano_database_snapshot_list_per_epoch =
+            extract_item_list_per_epoch(&cardano_database_snapshot_list, "/beacon/epoch");
+
         let instance = Self {
             status,
             epoch_settings,
@@ -96,8 +110,10 @@ impl AppState {
             cardano_transaction_snapshots,
             cardano_transaction_proofs,
             cardano_stake_distribution_list,
+            cardano_stake_distributions_per_epoch,
             cardano_stake_distributions,
             cardano_database_snapshot_list,
+            cardano_database_snapshot_list_per_epoch,
             cardano_database_snapshots,
         };
 
@@ -169,9 +185,55 @@ impl AppState {
         Ok(self.cardano_stake_distributions.get(key).cloned())
     }
 
+    /// return the Cardano stake distribution identified by the given epoch if any.
+    ///
+    /// `epoch` can be either a number, `latest`, or `latest-X` where x is a number
+    pub async fn get_cardano_stake_distribution_by_epoch(
+        &self,
+        epoch: &str,
+    ) -> StdResult<Option<String>> {
+        let stake_distribution = if epoch.starts_with("latest") {
+            let offset = parse_epoch_offset(epoch)?;
+            self.cardano_stake_distributions_per_epoch
+                .values()
+                .rev()
+                .nth(offset.unwrap_or_default())
+                .cloned()
+        } else {
+            self.cardano_stake_distributions_per_epoch
+                .get(&epoch.parse().with_context(|| "invalid epoch")?)
+                .cloned()
+        };
+
+        Ok(stake_distribution)
+    }
+
     /// return the list of Cardano database snapshots in the same order as they were read
     pub async fn get_cardano_database_snapshots(&self) -> StdResult<String> {
         Ok(self.cardano_database_snapshot_list.clone())
+    }
+
+    /// return the list of Cardano database snapshots for a given epoch in the same order as they were read
+    ///
+    /// `epoch` can be either a number, `latest`, or `latest-X` where x is a number
+    pub async fn get_cardano_database_snapshots_for_epoch(
+        &self,
+        epoch: &str,
+    ) -> StdResult<Option<String>> {
+        let snapshots = if epoch.starts_with("latest") {
+            let offset = parse_epoch_offset(epoch)?;
+            self.cardano_database_snapshot_list_per_epoch
+                .values()
+                .rev()
+                .nth(offset.unwrap_or_default())
+                .cloned()
+        } else {
+            self.cardano_database_snapshot_list_per_epoch
+                .get(&epoch.parse().with_context(|| "invalid epoch")?)
+                .cloned()
+        };
+
+        Ok(snapshots)
     }
 
     /// return the Cardano database snapshot identified by the given key if any.
@@ -260,6 +322,14 @@ impl DataDir {
 
         Ok((list, collection))
     }
+}
+
+fn parse_epoch_offset(epoch: &str) -> StdResult<Option<usize>> {
+    epoch
+        .strip_prefix("latest-")
+        .map(|s| s.parse::<usize>())
+        .transpose()
+        .with_context(|| "invalid epoch offset")
 }
 
 #[cfg(test)]

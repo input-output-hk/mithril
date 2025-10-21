@@ -40,7 +40,7 @@ impl CachedCertificate {
 impl LocalStorageCertificateVerifierCache {
     /// `LocalStorageCertificateVerifierCache` factory
     pub fn new(cache_key_prefix_seed: &str, expiration_delay: TimeDelta) -> Self {
-        const CACHE_KEY_BASE_PREFIX: &'static str = "certificate_cache";
+        const CACHE_KEY_BASE_PREFIX: &str = "certificate_cache";
 
         LocalStorageCertificateVerifierCache {
             cache_key_prefix: format!("{CACHE_KEY_BASE_PREFIX}_{cache_key_prefix_seed}_"),

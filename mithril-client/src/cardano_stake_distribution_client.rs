@@ -47,15 +47,20 @@
 //! # Get a Cardano stake distribution by epoch
 //!
 //! To get a Cardano stake distribution by epoch using the [ClientBuilder][crate::client::ClientBuilder].
-//! The epoch represents the epoch at the end of which the Cardano stake distribution is computed by the Cardano node
+//!
+//! **Note:** The epoch represents the epoch at the end of which the Cardano stake distribution is computed by the Cardano node
 //!
 //! ```no_run
 //! # async fn run() -> mithril_client::MithrilResult<()> {
-//! use mithril_client::ClientBuilder;
-//! use mithril_client::common::Epoch;
+//! use mithril_client::{ClientBuilder, common::Epoch};
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! // For a specific epoch
 //! let cardano_stake_distribution = client.cardano_stake_distribution().get_by_epoch(Epoch(500)).await?.unwrap();
+//! // For the latest epoch known by the Mithril aggregator
+//! let cardano_stake_distribution = client.cardano_stake_distribution().get_for_latest_epoch().await?.unwrap();
+//! // For the latest epoch known by the Mithril aggregator with an offset
+//! let cardano_stake_distribution = client.cardano_stake_distribution().get_for_latest_epoch_with_offset(4).await?.unwrap();
 //!
 //! println!(
 //!     "Cardano stake distribution hash={}, epoch={}, stake_distribution={:?}",
@@ -117,6 +122,27 @@ impl CardanoStakeDistributionClient {
         .await
     }
 
+    /// Get the given Cardano stake distribution data by epoch.
+    pub async fn get_for_latest_epoch(&self) -> MithrilResult<Option<CardanoStakeDistribution>> {
+        self.fetch_with_aggregator_request(
+            AggregatorRequest::GetCardanoStakeDistributionForLatestEpoch { offset: None },
+        )
+        .await
+    }
+
+    /// Get the given Cardano stake distribution data by epoch.
+    pub async fn get_for_latest_epoch_with_offset(
+        &self,
+        offset: u64,
+    ) -> MithrilResult<Option<CardanoStakeDistribution>> {
+        self.fetch_with_aggregator_request(
+            AggregatorRequest::GetCardanoStakeDistributionForLatestEpoch {
+                offset: Some(offset),
+            },
+        )
+        .await
+    }
+
     /// Fetch the given Cardano stake distribution data with an aggregator request.
     /// If it cannot be found, a None is returned.
     async fn fetch_with_aggregator_request(
@@ -145,7 +171,7 @@ mod tests {
     use mockall::predicate::eq;
 
     use crate::aggregator_client::MockAggregatorClient;
-    use crate::common::StakeDistribution;
+    use crate::common::test::Dummy;
 
     use super::*;
 
@@ -171,6 +197,54 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn fetching_cardano_stake_distribution_from_aggregator_client_returns_error_when_invalid_json_structure_in_response()
+     {
+        let mut http_client = MockAggregatorClient::new();
+        http_client
+            .expect_get_content()
+            .return_once(move |_| Ok("invalid json structure".to_string()));
+        let client = CardanoStakeDistributionClient::new(Arc::new(http_client));
+
+        client
+            .fetch_with_aggregator_request(AggregatorRequest::ListCardanoStakeDistributions)
+            .await
+            .expect_err("Get Cardano stake distribution should return an error");
+    }
+
+    #[tokio::test]
+    async fn fetching_cardano_stake_distribution_from_aggregator_client_returns_none_when_not_found_or_remote_server_logical_error()
+     {
+        let mut http_client = MockAggregatorClient::new();
+        http_client.expect_get_content().return_once(move |_| {
+            Err(AggregatorClientError::RemoteServerLogical(anyhow!(
+                "not found"
+            )))
+        });
+        let client = CardanoStakeDistributionClient::new(Arc::new(http_client));
+
+        let result = client
+            .fetch_with_aggregator_request(AggregatorRequest::ListCardanoStakeDistributions)
+            .await
+            .unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn fetching_cardano_stake_distribution_from_aggregator_client_returns_error() {
+        let mut http_client = MockAggregatorClient::new();
+        http_client
+            .expect_get_content()
+            .return_once(move |_| Err(AggregatorClientError::SubsystemError(anyhow!("error"))));
+        let client = CardanoStakeDistributionClient::new(Arc::new(http_client));
+
+        client
+            .fetch_with_aggregator_request(AggregatorRequest::ListCardanoStakeDistributions)
+            .await
+            .expect_err("Get Cardano stake distribution should return an error");
+    }
+
+    #[tokio::test]
     async fn list_cardano_stake_distributions_returns_messages() {
         let message = fake_messages();
         let mut http_client = MockAggregatorClient::new();
@@ -188,173 +262,94 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn list_cardano_stake_distributions_returns_error_when_invalid_json_structure_in_response()
-     {
-        let mut http_client = MockAggregatorClient::new();
-        http_client
-            .expect_get_content()
-            .return_once(move |_| Ok("invalid json structure".to_string()));
-        let client = CardanoStakeDistributionClient::new(Arc::new(http_client));
-
-        client
-            .list()
-            .await
-            .expect_err("List Cardano stake distributions should return an error");
-    }
-
-    #[tokio::test]
     async fn get_cardano_stake_distribution_returns_message() {
-        let expected_stake_distribution = StakeDistribution::from([("pool123".to_string(), 123)]);
-        let message = CardanoStakeDistribution {
-            epoch: Epoch(3),
-            hash: "hash-123".to_string(),
-            certificate_hash: "certificate-hash-123".to_string(),
-            stake_distribution: expected_stake_distribution.clone(),
-            created_at: DateTime::<Utc>::default(),
-        };
+        let expected_message = CardanoStakeDistribution::dummy();
         let mut http_client = MockAggregatorClient::new();
         http_client
             .expect_get_content()
             .with(eq(AggregatorRequest::GetCardanoStakeDistribution {
-                hash: "hash-123".to_string(),
+                hash: expected_message.hash.clone(),
             }))
-            .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
+            .return_once(move |_| {
+                Ok(serde_json::to_string(&CardanoStakeDistribution::dummy()).unwrap())
+            });
         let client = CardanoStakeDistributionClient::new(Arc::new(http_client));
 
         let cardano_stake_distribution = client
-            .get("hash-123")
+            .get(&expected_message.hash)
             .await
             .unwrap()
             .expect("This test returns a Cardano stake distribution");
 
-        assert_eq!("hash-123".to_string(), cardano_stake_distribution.hash);
-        assert_eq!(Epoch(3), cardano_stake_distribution.epoch);
-        assert_eq!(
-            expected_stake_distribution,
-            cardano_stake_distribution.stake_distribution
-        );
-    }
-
-    #[tokio::test]
-    async fn get_cardano_stake_distribution_returns_error_when_invalid_json_structure_in_response()
-    {
-        let mut http_client = MockAggregatorClient::new();
-        http_client
-            .expect_get_content()
-            .return_once(move |_| Ok("invalid json structure".to_string()));
-        let client = CardanoStakeDistributionClient::new(Arc::new(http_client));
-
-        client
-            .get("hash-123")
-            .await
-            .expect_err("Get Cardano stake distribution should return an error");
-    }
-
-    #[tokio::test]
-    async fn get_cardano_stake_distribution_returns_none_when_not_found_or_remote_server_logical_error()
-     {
-        let mut http_client = MockAggregatorClient::new();
-        http_client.expect_get_content().return_once(move |_| {
-            Err(AggregatorClientError::RemoteServerLogical(anyhow!(
-                "not found"
-            )))
-        });
-        let client = CardanoStakeDistributionClient::new(Arc::new(http_client));
-
-        let result = client.get("hash-123").await.unwrap();
-
-        assert!(result.is_none());
-    }
-
-    #[tokio::test]
-    async fn get_cardano_stake_distribution_returns_error() {
-        let mut http_client = MockAggregatorClient::new();
-        http_client
-            .expect_get_content()
-            .return_once(move |_| Err(AggregatorClientError::SubsystemError(anyhow!("error"))));
-        let client = CardanoStakeDistributionClient::new(Arc::new(http_client));
-
-        client
-            .get("hash-123")
-            .await
-            .expect_err("Get Cardano stake distribution should return an error");
+        assert_eq!(expected_message, cardano_stake_distribution);
     }
 
     #[tokio::test]
     async fn get_cardano_stake_distribution_by_epoch_returns_message() {
-        let expected_stake_distribution = StakeDistribution::from([("pool123".to_string(), 123)]);
-        let message = CardanoStakeDistribution {
-            epoch: Epoch(3),
-            hash: "hash-123".to_string(),
-            certificate_hash: "certificate-hash-123".to_string(),
-            stake_distribution: expected_stake_distribution.clone(),
-            created_at: DateTime::<Utc>::default(),
-        };
+        let expected_message = CardanoStakeDistribution::dummy();
         let mut http_client = MockAggregatorClient::new();
         http_client
             .expect_get_content()
             .with(eq(AggregatorRequest::GetCardanoStakeDistributionByEpoch {
-                epoch: Epoch(3),
+                epoch: expected_message.epoch,
             }))
-            .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
+            .return_once(move |_| {
+                Ok(serde_json::to_string(&CardanoStakeDistribution::dummy()).unwrap())
+            });
         let client = CardanoStakeDistributionClient::new(Arc::new(http_client));
 
         let cardano_stake_distribution = client
-            .get_by_epoch(Epoch(3))
+            .get_by_epoch(expected_message.epoch)
             .await
             .unwrap()
             .expect("This test returns a Cardano stake distribution");
 
-        assert_eq!("hash-123".to_string(), cardano_stake_distribution.hash);
-        assert_eq!(Epoch(3), cardano_stake_distribution.epoch);
-        assert_eq!(
-            expected_stake_distribution,
-            cardano_stake_distribution.stake_distribution
-        );
+        assert_eq!(expected_message, cardano_stake_distribution);
     }
 
     #[tokio::test]
-    async fn get_cardano_stake_distribution_by_epoch_returns_error_when_invalid_json_structure_in_response()
-     {
+    async fn get_cardano_stake_distribution_for_latest_epoch_returns_message() {
+        let expected_message = CardanoStakeDistribution::dummy();
         let mut http_client = MockAggregatorClient::new();
         http_client
             .expect_get_content()
-            .return_once(move |_| Ok("invalid json structure".to_string()));
+            .with(eq(
+                AggregatorRequest::GetCardanoStakeDistributionForLatestEpoch { offset: None },
+            ))
+            .return_once(move |_| {
+                Ok(serde_json::to_string(&CardanoStakeDistribution::dummy()).unwrap())
+            });
         let client = CardanoStakeDistributionClient::new(Arc::new(http_client));
 
-        client
-            .get_by_epoch(Epoch(3))
+        let cardano_stake_distribution = client
+            .get_for_latest_epoch()
             .await
-            .expect_err("Get Cardano stake distribution by epoch should return an error");
+            .unwrap()
+            .expect("This test returns a Cardano stake distribution");
+
+        assert_eq!(expected_message, cardano_stake_distribution);
     }
 
     #[tokio::test]
-    async fn get_cardano_stake_distribution_by_epoch_returns_none_when_not_found_or_remote_server_logical_error()
-     {
-        let mut http_client = MockAggregatorClient::new();
-        http_client.expect_get_content().return_once(move |_| {
-            Err(AggregatorClientError::RemoteServerLogical(anyhow!(
-                "not found"
-            )))
-        });
-        let client = CardanoStakeDistributionClient::new(Arc::new(http_client));
-
-        let result = client.get_by_epoch(Epoch(3)).await.unwrap();
-
-        assert!(result.is_none());
-    }
-
-    #[tokio::test]
-    async fn get_cardano_stake_distribution_by_epoch_returns_error() {
+    async fn get_cardano_stake_distribution_for_latest_with_offset_epoch_returns_message() {
+        let expected_message = CardanoStakeDistribution::dummy();
         let mut http_client = MockAggregatorClient::new();
         http_client
             .expect_get_content()
-            .return_once(move |_| Err(AggregatorClientError::SubsystemError(anyhow!("error"))));
+            .with(eq(
+                AggregatorRequest::GetCardanoStakeDistributionForLatestEpoch { offset: Some(4) },
+            ))
+            .return_once(move |_| {
+                Ok(serde_json::to_string(&CardanoStakeDistribution::dummy()).unwrap())
+            });
         let client = CardanoStakeDistributionClient::new(Arc::new(http_client));
 
-        client
-            .get_by_epoch(Epoch(3))
+        let cardano_stake_distribution = client
+            .get_for_latest_epoch_with_offset(4)
             .await
-            .expect_err("Get Cardano stake distribution by epoch should return an error");
+            .unwrap()
+            .expect("This test returns a Cardano stake distribution");
+
+        assert_eq!(expected_message, cardano_stake_distribution);
     }
 }

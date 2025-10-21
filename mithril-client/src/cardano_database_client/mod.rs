@@ -44,6 +44,30 @@
 //! # }
 //! ```
 //!
+//! # List available Cardano databases filtered by an epoch
+//!
+//! To list available Cardano databases using the [ClientBuilder][crate::client::ClientBuilder].
+//!
+//! ```no_run
+//! # async fn run() -> mithril_client::MithrilResult<()> {
+//! use mithril_client::{ClientBuilder, common::Epoch};
+//!
+//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//!
+//! // For a specific epoch
+//! let cardano_databases = client.cardano_database_v2().list_by_epoch(Epoch(8)).await?;
+//! // For the latest epoch known by the Mithril aggregator
+//! let cardano_databases = client.cardano_database_v2().list_for_latest_epoch().await?;
+//! // For the latest epoch known by the Mithril aggregator with an offset
+//! let cardano_databases = client.cardano_database_v2().list_for_latest_epoch_with_offset(4).await?;
+//!
+//! for cardano_database in cardano_databases {
+//!     println!("Cardano database hash={}, immutable_file_number={}", cardano_database.hash, cardano_database.beacon.immutable_file_number);
+//! }
+//! #    Ok(())
+//! # }
+//! ```
+//!
 //! # Download a Cardano database snapshot
 //! **Note:** _Available on crate feature_ **fs** _only._
 //!

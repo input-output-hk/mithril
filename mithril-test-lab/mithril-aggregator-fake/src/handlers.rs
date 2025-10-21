@@ -60,6 +60,10 @@ pub async fn aggregator_router() -> Router<SharedState> {
             get(cardano_database_snapshots),
         )
         .route(
+            "/artifact/cardano-database/epoch/{epoch}",
+            get(cardano_database_snapshots_by_epoch),
+        )
+        .route(
             "/artifact/cardano-database/{hash}",
             get(cardano_database_snapshot),
         )
@@ -234,34 +238,14 @@ pub async fn cardano_stake_distribution_by_epoch(
     Path(epoch): Path<String>,
     State(state): State<SharedState>,
 ) -> Result<Response<Body>, AppError> {
-    #[derive(Debug, serde::Deserialize)]
-    struct TmpCardanoStakeDistributionData {
-        hash: String,
-        epoch: u64,
-    }
-
     let app_state = state.read().await;
 
-    let cardano_stake_distributions = app_state.get_cardano_stake_distributions().await?;
-    let cardano_stake_distributions: Vec<TmpCardanoStakeDistributionData> =
-        serde_json::from_str(&cardano_stake_distributions)?;
-
-    // Find the cardano stake distribution hash corresponding to the epoch
-    let hash = cardano_stake_distributions
-        .into_iter()
-        .find(|csd| csd.epoch.to_string() == epoch)
-        .map(|csd| csd.hash)
-        .ok_or_else(|| {
-            debug!("No cardano stake distribution found for epoch={epoch}.");
-            AppError::NotFound
-        })?;
-
     app_state
-        .get_cardano_stake_distribution(&hash)
+        .get_cardano_stake_distribution_by_epoch(&epoch)
         .await?
         .map(|s| s.into_response())
         .ok_or_else(|| {
-            debug!("cardano stake distribution hash={hash} NOT FOUND.");
+            debug!("cardano stake distribution epoch={epoch} NOT FOUND.");
             AppError::NotFound
         })
 }
@@ -274,6 +258,23 @@ pub async fn cardano_database_snapshots(
     let cardano_database_snapshots = app_state.get_cardano_database_snapshots().await?;
 
     Ok(cardano_database_snapshots)
+}
+
+/// HTTP: return the list of cardano database snapshots.
+pub async fn cardano_database_snapshots_by_epoch(
+    Path(epoch): Path<String>,
+    State(state): State<SharedState>,
+) -> Result<Response<Body>, AppError> {
+    let app_state = state.read().await;
+
+    app_state
+        .get_cardano_database_snapshots_for_epoch(&epoch)
+        .await?
+        .map(|s| s.into_response())
+        .ok_or_else(|| {
+            debug!("cardano database epoch={epoch} NOT FOUND.");
+            AppError::NotFound
+        })
 }
 
 /// HTTP: return a cardano database snapshot identified by its hash.

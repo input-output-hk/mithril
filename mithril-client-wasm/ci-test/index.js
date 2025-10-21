@@ -201,9 +201,34 @@ if (aggregator_capabilities.includes("CardanoStakeDistribution")) {
   await run_test("get_cardano_stake_distribution_by_epoch", test_number, async () => {
     let epoch = BigInt(cardano_stake_distributions[0].epoch);
 
-    cardano_stake_distribution = await client.get_cardano_stake_distribution_by_epoch(epoch);
-    console.log("cardano_stake_distribution by epoch", cardano_stake_distribution);
+    let cardano_stake_distribution_by_epoch =
+      await client.get_cardano_stake_distribution_by_epoch(epoch);
+    console.log("cardano_stake_distribution by epoch", cardano_stake_distribution_by_epoch);
   });
+
+  test_number++;
+  await run_test("get_cardano_stake_distribution_for_latest_epoch", test_number, async () => {
+    let cardano_stake_distribution_for_latest_epoch =
+      await client.get_cardano_stake_distribution_for_latest_epoch();
+    console.log(
+      "cardano_stake_distribution for latest epoch",
+      cardano_stake_distribution_for_latest_epoch,
+    );
+  });
+
+  test_number++;
+  await run_test(
+    "get_cardano_stake_distribution_for_latest_epoch_with_offset",
+    test_number,
+    async () => {
+      let cardano_stake_distribution_for_latest_epoch_with_offset =
+        await client.get_cardano_stake_distribution_for_latest_epoch({ offset: 2 });
+      console.log(
+        "cardano_stake_distribution for latest epoch with offset",
+        cardano_stake_distribution_for_latest_epoch_with_offset,
+      );
+    },
+  );
 
   let certificate;
   test_number++;
@@ -240,24 +265,52 @@ if (aggregator_capabilities.includes("CardanoStakeDistribution")) {
       valid_cardano_stake_distribution_message,
     );
   });
+}
 
-  if (aggregator_capabilities.includes("CardanoDatabase")) {
-    let cardano_database_snapshots;
-    test_number++;
-    await run_test("list_cardano_database_v2", test_number, async () => {
-      cardano_database_snapshots = await client.list_cardano_database_v2();
-      console.log("cardano_database_snapshots", cardano_database_snapshots);
-    });
+if (aggregator_capabilities.includes("CardanoDatabase")) {
+  let cardano_database_snapshots;
+  test_number++;
+  await run_test("list_cardano_database_v2", test_number, async () => {
+    cardano_database_snapshots = await client.list_cardano_database_v2();
+    console.log("cardano_database_snapshots", cardano_database_snapshots);
+  });
 
-    let cardano_database_snapshot;
-    test_number++;
-    await run_test("get_cardano_database_v2", test_number, async () => {
-      cardano_database_snapshot = await client.get_cardano_database_v2(
-        cardano_database_snapshots[0].hash,
-      );
-      console.log("cardano_database_snapshot", cardano_database_snapshot);
-    });
-  }
+  test_number++;
+  await run_test("list_cardano_database_v2_per_epoch", test_number, async () => {
+    let epoch = BigInt(cardano_database_snapshots[0].beacon.epoch);
+    const cardano_database_snapshots_per_epoch =
+      await client.list_cardano_database_v2_per_epoch(epoch);
+    console.log("cardano_database_snapshots for epoch", cardano_database_snapshots_per_epoch);
+  });
+
+  test_number++;
+  await run_test("list_cardano_database_v2_for_latest_epoch", test_number, async () => {
+    const cardano_database_snapshots_for_latest_epoch =
+      await client.list_cardano_database_v2_for_latest_epoch();
+    console.log(
+      "cardano_database_snapshots for latest epoch",
+      cardano_database_snapshots_for_latest_epoch,
+    );
+  });
+
+  test_number++;
+  await run_test("list_cardano_database_v2_for_latest_epoch_with_offset", test_number, async () => {
+    const cardano_database_snapshots_for_latest_epoch_with_offset =
+      await client.list_cardano_database_v2_for_latest_epoch({ offset: 3 });
+    console.log(
+      "cardano_database_snapshots for latest epoch with offset",
+      cardano_database_snapshots_for_latest_epoch_with_offset,
+    );
+  });
+
+  let cardano_database_snapshot;
+  test_number++;
+  await run_test("get_cardano_database_v2", test_number, async () => {
+    cardano_database_snapshot = await client.get_cardano_database_v2(
+      cardano_database_snapshots[0].hash,
+    );
+    console.log("cardano_database_snapshot", cardano_database_snapshot);
+  });
 }
 
 add_finished_div();

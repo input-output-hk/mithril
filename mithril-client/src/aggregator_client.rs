@@ -91,6 +91,18 @@ pub enum AggregatorRequest {
     /// Lists the aggregator [Cardano database snapshots][crate::CardanoDatabaseSnapshot]
     ListCardanoDatabaseSnapshots,
 
+    /// Lists the aggregator [Cardano database snapshots][crate::CardanoDatabaseSnapshot] for an epoch
+    ListCardanoDatabaseSnapshotByEpoch {
+        /// Epoch of the Cardano Database snapshots
+        epoch: Epoch,
+    },
+
+    /// Lists the aggregator [Cardano database snapshots][crate::CardanoDatabaseSnapshot] for the latest epoch
+    ListCardanoDatabaseSnapshotForLatestEpoch {
+        /// Optional offset to subtract to the latest epoch
+        offset: Option<u64>,
+    },
+
     /// Increments the aggregator Cardano database snapshot immutable files restored statistics
     IncrementCardanoDatabaseImmutablesRestoredStatistic {
         /// Number of immutable files restored
@@ -133,6 +145,12 @@ pub enum AggregatorRequest {
         epoch: Epoch,
     },
 
+    /// Get a specific [Cardano stake distribution][crate::CardanoStakeDistribution] from the aggregator for the latest epoch
+    GetCardanoStakeDistributionForLatestEpoch {
+        /// Optional offset to subtract to the latest epoch
+        offset: Option<u64>,
+    },
+
     /// Lists the aggregator [Cardano stake distribution][crate::CardanoStakeDistribution]
     ListCardanoStakeDistributions,
 
@@ -167,6 +185,15 @@ impl AggregatorRequest {
             AggregatorRequest::ListCardanoDatabaseSnapshots => {
                 "artifact/cardano-database".to_string()
             }
+            AggregatorRequest::ListCardanoDatabaseSnapshotByEpoch { epoch } => {
+                format!("artifact/cardano-database/epoch/{epoch}")
+            }
+            AggregatorRequest::ListCardanoDatabaseSnapshotForLatestEpoch { offset } => {
+                format!(
+                    "artifact/cardano-database/epoch/latest{}",
+                    offset.map(|o| format!("-{o}")).unwrap_or_default()
+                )
+            }
             AggregatorRequest::IncrementCardanoDatabaseImmutablesRestoredStatistic {
                 number_of_immutables: _,
             } => "statistics/cardano-database/immutable-files-restored".to_string(),
@@ -196,6 +223,12 @@ impl AggregatorRequest {
             }
             AggregatorRequest::GetCardanoStakeDistributionByEpoch { epoch } => {
                 format!("artifact/cardano-stake-distribution/epoch/{epoch}")
+            }
+            AggregatorRequest::GetCardanoStakeDistributionForLatestEpoch { offset } => {
+                format!(
+                    "artifact/cardano-stake-distribution/epoch/latest{}",
+                    offset.map(|o| format!("-{o}")).unwrap_or_default()
+                )
             }
             AggregatorRequest::ListCardanoStakeDistributions => {
                 "artifact/cardano-stake-distributions".to_string()
@@ -607,6 +640,22 @@ mod tests {
         );
 
         assert_eq!(
+            "artifact/cardano-database/epoch/5".to_string(),
+            AggregatorRequest::ListCardanoDatabaseSnapshotByEpoch { epoch: Epoch(5) }.route()
+        );
+
+        assert_eq!(
+            "artifact/cardano-database/epoch/latest".to_string(),
+            AggregatorRequest::ListCardanoDatabaseSnapshotForLatestEpoch { offset: None }.route()
+        );
+
+        assert_eq!(
+            "artifact/cardano-database/epoch/latest-6".to_string(),
+            AggregatorRequest::ListCardanoDatabaseSnapshotForLatestEpoch { offset: Some(6) }
+                .route()
+        );
+
+        assert_eq!(
             "statistics/cardano-database/immutable-files-restored".to_string(),
             AggregatorRequest::IncrementCardanoDatabaseImmutablesRestoredStatistic {
                 number_of_immutables: 58
@@ -666,6 +715,17 @@ mod tests {
         assert_eq!(
             "artifact/cardano-stake-distribution/epoch/123".to_string(),
             AggregatorRequest::GetCardanoStakeDistributionByEpoch { epoch: Epoch(123) }.route()
+        );
+
+        assert_eq!(
+            "artifact/cardano-stake-distribution/epoch/latest".to_string(),
+            AggregatorRequest::GetCardanoStakeDistributionForLatestEpoch { offset: None }.route()
+        );
+
+        assert_eq!(
+            "artifact/cardano-stake-distribution/epoch/latest-8".to_string(),
+            AggregatorRequest::GetCardanoStakeDistributionForLatestEpoch { offset: Some(8) }
+                .route()
         );
 
         assert_eq!(
