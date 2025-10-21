@@ -430,9 +430,7 @@ mod messages {
                     phi_f: 0.65,
                 },
                 cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
-                available_signed_entity_types: BTreeSet::from([
-                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                ]),
+                available_signed_entity_types: SignedEntityTypeDiscriminants::all(),
             }
         }
     }
