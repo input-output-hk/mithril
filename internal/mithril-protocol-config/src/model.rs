@@ -24,7 +24,7 @@ pub struct MithrilNetworkConfiguration {
     pub signer_registration_protocol_parameters: ProtocolParameters,
 
     /// List of available types of certifications
-    pub available_signed_entity_types: BTreeSet<SignedEntityTypeDiscriminants>,
+    pub enabled_signed_entity_types: BTreeSet<SignedEntityTypeDiscriminants>,
 
     /// Custom configurations for signed entity types
     pub signed_entity_types_config: SignedEntityTypeConfiguration,

@@ -12,7 +12,7 @@ impl Dummy for MithrilNetworkConfiguration {
     fn dummy() -> Self {
         let beacon = fake_data::beacon();
         let signer_registration_protocol_parameters = fake_data::protocol_parameters();
-        let available_signed_entity_types =
+        let enabled_signed_entity_types =
             BTreeSet::from([SignedEntityTypeDiscriminants::CardanoTransactions]);
         let signed_entity_types_config = SignedEntityTypeConfiguration {
             cardano_transactions: Some(CardanoTransactionsSigningConfig::dummy()),
@@ -21,7 +21,7 @@ impl Dummy for MithrilNetworkConfiguration {
         Self {
             epoch: beacon.epoch,
             signer_registration_protocol_parameters,
-            available_signed_entity_types,
+            enabled_signed_entity_types,
             signed_entity_types_config,
         }
     }

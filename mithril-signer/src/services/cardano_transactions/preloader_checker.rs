@@ -39,7 +39,7 @@ impl CardanoTransactionsPreloaderChecker for CardanoTransactionsPreloaderActivat
                 "An error occurred while retrieving Mithril network configuration for epoch {epoch}"
             ))?;
 
-        let activated_signed_entity_types = configuration.available_signed_entity_types;
+        let activated_signed_entity_types = configuration.enabled_signed_entity_types;
 
         Ok(activated_signed_entity_types
             .contains(&SignedEntityTypeDiscriminants::CardanoTransactions))
@@ -86,7 +86,7 @@ mod tests {
             .times(1)
             .returning(|_| {
                 Ok(MithrilNetworkConfiguration {
-                    available_signed_entity_types: BTreeSet::from([
+                    enabled_signed_entity_types: BTreeSet::from([
                         SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                     ]),
                     ..Dummy::dummy()
@@ -117,7 +117,7 @@ mod tests {
             .times(1)
             .returning(|_| {
                 Ok(MithrilNetworkConfiguration {
-                    available_signed_entity_types: BTreeSet::from([
+                    enabled_signed_entity_types: BTreeSet::from([
                         SignedEntityTypeDiscriminants::CardanoTransactions,
                     ]),
                     ..Dummy::dummy()

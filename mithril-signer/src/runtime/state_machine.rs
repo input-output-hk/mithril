@@ -569,7 +569,7 @@ mod tests {
                 Ok(MithrilNetworkConfiguration {
                     epoch: Epoch(999),
                     signer_registration_protocol_parameters: fake_data::protocol_parameters(),
-                    available_signed_entity_types: SignedEntityTypeDiscriminants::all(),
+                    enabled_signed_entity_types: SignedEntityTypeDiscriminants::all(),
                     signed_entity_types_config: SignedEntityTypeConfiguration {
                         cardano_transactions: Some(CardanoTransactionsSigningConfig::dummy()),
                     },

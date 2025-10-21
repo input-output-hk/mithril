@@ -19,7 +19,7 @@ pub struct FakeMithrilNetworkConfigurationProvider {
     pub signer_registration_protocol_parameters: ProtocolParameters,
 
     /// The available signed entity types
-    pub available_signed_entity_types: RwLock<BTreeSet<SignedEntityTypeDiscriminants>>,
+    pub enabled_signed_entity_types: RwLock<BTreeSet<SignedEntityTypeDiscriminants>>,
 
     /// The configuration for each signed entity type
     pub signed_entity_types_config: SignedEntityTypeConfiguration,
@@ -29,12 +29,12 @@ impl FakeMithrilNetworkConfigurationProvider {
     /// FakeMithrilNetworkConfigurationProvider factory
     pub fn new(
         signer_registration_protocol_parameters: ProtocolParameters,
-        available_signed_entity_types: BTreeSet<SignedEntityTypeDiscriminants>,
+        enabled_signed_entity_types: BTreeSet<SignedEntityTypeDiscriminants>,
         signed_entity_types_config: SignedEntityTypeConfiguration,
     ) -> Self {
         Self {
             signer_registration_protocol_parameters,
-            available_signed_entity_types: RwLock::new(available_signed_entity_types),
+            enabled_signed_entity_types: RwLock::new(enabled_signed_entity_types),
             signed_entity_types_config,
         }
     }
@@ -44,8 +44,8 @@ impl FakeMithrilNetworkConfigurationProvider {
         &self,
         discriminants: &BTreeSet<SignedEntityTypeDiscriminants>,
     ) {
-        let mut available_signed_entity_types = self.available_signed_entity_types.write().await;
-        *available_signed_entity_types = discriminants.clone();
+        let mut enabled_signed_entity_types = self.enabled_signed_entity_types.write().await;
+        *enabled_signed_entity_types = discriminants.clone();
     }
 }
 
@@ -56,14 +56,14 @@ impl MithrilNetworkConfigurationProvider for FakeMithrilNetworkConfigurationProv
         &self,
         epoch: Epoch,
     ) -> StdResult<MithrilNetworkConfiguration> {
-        let available_signed_entity_types = self.available_signed_entity_types.read().await;
+        let enabled_signed_entity_types = self.enabled_signed_entity_types.read().await;
 
         Ok(MithrilNetworkConfiguration {
             epoch,
             signer_registration_protocol_parameters: self
                 .signer_registration_protocol_parameters
                 .clone(),
-            available_signed_entity_types: available_signed_entity_types.clone(),
+            enabled_signed_entity_types: enabled_signed_entity_types.clone(),
             signed_entity_types_config: self.signed_entity_types_config.clone(),
         })
     }
@@ -118,7 +118,7 @@ mod tests {
             signer_registration_protocol_parameters
         );
         assert_eq!(
-            actual_config.available_signed_entity_types,
+            actual_config.enabled_signed_entity_types,
             available_signed_entity_types
         );
         assert_eq!(

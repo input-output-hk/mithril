@@ -58,7 +58,7 @@ impl MithrilNetworkConfigurationProvider for HttpMithrilNetworkConfigurationProv
             .retrieve_protocol_configuration(signer_registration_epoch)
             .await?;
 
-        let available_signed_entity_types =
+        let enabled_signed_entity_types =
             protocol_configuration.available_signed_entity_types.clone();
 
         let cardano_transactions = protocol_configuration
@@ -75,7 +75,7 @@ impl MithrilNetworkConfigurationProvider for HttpMithrilNetworkConfigurationProv
             epoch,
             signer_registration_protocol_parameters: signer_registration_protocol_configuration
                 .protocol_parameters,
-            available_signed_entity_types,
+            enabled_signed_entity_types,
             signed_entity_types_config,
         })
     }
