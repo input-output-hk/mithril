@@ -250,6 +250,17 @@ jobs:
           ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db snapshot list
           echo "CARDANO_DATABASE_V2_SNAPSHOT_HASH=$(./mithril-client --origin-tag CI cardano-db snapshot list --json | jq -r '.[0].hash')" >> $GITHUB_ENV
 
+      - name: Cardano Database V2 Snapshot / list for latest epoch
+        if: steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_database_v2_enabled == 'true'
+        shell: bash
+        working-directory: ./bin
+        run: |
+          ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db snapshot list --epoch latest-1
+          if [ $(./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db snapshot list --epoch latest-1 --json | jq 'length') -eq 0 ]; then
+            echo "Error: No snapshots found for latest epoch"
+            exit 1
+          fi
+
       - name: Cardano Database V2 Snapshot / show snapshot
         if: steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
@@ -413,6 +424,16 @@ jobs:
         run: |
           ${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list
           echo "CARDANO_DATABASE_V2_SNAPSHOT_HASH=$(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --json | jq -r '.[0].hash')" >> $GITHUB_ENV
+
+      - name: Cardano Database V2 Snapshot / list for latest epoch
+        if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
+        shell: bash
+        run: |
+          ${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --epoch latest-1
+          if [ $(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --epoch latest-1 --json | jq 'length') -eq 0 ]; then
+            echo "Error: No snapshots found for latest epoch"
+            exit 1
+          fi
 
       - name: Cardano Database V2 Snapshot / show snapshot
         if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
