@@ -13,6 +13,17 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for multiple aggregate signature proof systems.
 
+- Mithril-Aggregator:
+  - Added a `/artifact/cardano-database/epoch/{epoch}` route to fetch the list of cardano database snapshots for a given epoch, `{epoch}` can be a number, `latest`, or `latest-{offset}`.
+  - Enhanced `/artifact/cardano-stake-distribution/epoch/{epoch}` route to support `latest` and `latest-{offset}` as `{epoch}` values.
+
+- Client library and WASM:
+  - Added listing of `cardano_database_v2` snapshots for a given epoch, the latest epoch, or the latest epoch with offset
+  - Added listing of `cardano_staked_distribution` snapshots for the latest epoch, or the latest epoch with offset
+
+- Client CLI:
+  - Added `--epoch` optional parameter to `cardano-database snapshot list` commands snapshots, the given value can be a number, `latest`, or `latest-{offset}`.
+
 - Crates versions:
 
 | Crate | Version |
@@ -21,7 +32,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [2537] - 2025-09-17
 
-- Client library, CI and WASM:
+- Client library, CLI and WASM:
   - Support for stable `cardano_database_v2` backend in the `mithril-client` library.
 
   - Support for stable `v2` backend of `cardano-db` command and decommission of the `cardano-db-v2` command in client CLI.
