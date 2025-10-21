@@ -145,7 +145,7 @@ variable "google_storage_bucket_force_destroy" {
 variable "google_storage_bucket_max_age" {
   type        = number
   description = "Number of days after which an object in the storage bucket expires"
-  default     = 14
+  default     = 28
 }
 
 variable "google_storage_bucket_prefix_with_lifecyle_rule" {
