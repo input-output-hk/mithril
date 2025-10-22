@@ -7,24 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 As a minor extension, we have adopted a slightly different versioning convention for the Mithril distributions (<https://mithril.network/doc/adr/3#decision>)
 
-## Mithril Distribution [XXXX] - UNRELEASED
+## Mithril Distribution [2543] - UNRELEASED
 
-- **BREAKING** changes in aggregator OpenAPI: removed the `next_cardano_transactions_signing_config` in `/epoch-settings` route.
+- Client library, CLI and WASM:
+  - **DEPRECATED**: The `with_aggregator_client` and `new` functions have been deprecated in the `ClientBuilder` struct of the library.
 
-- Support for multiple aggregate signature proof systems.
+  - Support for default incremental backend (`v2`) for Cardano database restoration in the client library, CLI and WASM.
 
-- Mithril-Aggregator:
-  - Added a `/artifact/cardano-database/epoch/{epoch}` route to fetch the list of cardano database snapshots for a given epoch, `{epoch}` can be a number, `latest`, or `latest-{offset}`.
-  - Enhanced `/artifact/cardano-stake-distribution/epoch/{epoch}` route to support `latest` and `latest-{offset}` as `{epoch}` values.
+  - Enhanced verification of a Cardano database which now provides a list of tampered and missing files in case of failure.
 
-- Client library and WASM:
-  - Added listing of `cardano_database_v2` snapshots for a given epoch, the latest epoch, or the latest epoch with offset
-  - Added listing of `cardano_staked_distribution` snapshots for the latest epoch, or the latest epoch with offset
+  - Support for artifacts retrieval by epoch for the Cardano database and Cardano stake distribution:
+    - Support for listing of Cardano database snapshots for a given epoch, the latest epoch, or the latest epoch with offset in the library.
 
-- Client CLI:
-  - Added `--epoch` optional parameter to `cardano-database snapshot list` commands snapshots, the given value can be a number, `latest`, or `latest-{offset}`.
+    - Support for listing of Cardano stake distribution snapshots for a given epoch, the latest epoch, or the latest epoch with offset in the library.
 
-- **UNSTABLE** :
+    - Support for `--epoch` optional parameter to `cardano-database snapshot list` commands snapshots, the given value can be a number, `latest`, or `latest-{offset}` in the CLI.
+
+- Aggregator:
+  - **BREAKING**: The deprecated field `next_cardano_transactions_signing_config` in the `/epoch-settings` route of the aggregator has been removed.
+
+  - Added the `/artifact/cardano-database/epoch/{epoch}` route to fetch the list of Cardano database snapshots for a given epoch, `{epoch}` can be a number, `latest`, or `latest-{offset}`.
+
+  - Enhanced the `/artifact/cardano-stake-distribution/epoch/{epoch}` route to support `latest` and `latest-{offset}` as `{epoch}` values.
+
+- **UNSTABLE**:
+  - Support for multiple aggregate signature proof systems in the STM library, aggregator and client.
+
+  - Support for decentralization of the configuration parameters of Mithril networks.
+
   - Support for Haskell DMQ node and modifications of the DMQ protocol.
 
 - Crates versions:
