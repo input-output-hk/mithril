@@ -24,6 +24,9 @@ As a minor extension, we have adopted a slightly different versioning convention
 - Client CLI:
   - Added `--epoch` optional parameter to `cardano-database snapshot list` commands snapshots, the given value can be a number, `latest`, or `latest-{offset}`.
 
+- **UNSTABLE** :
+  - Support for Haskell DMQ node and modifications of the DMQ protocol.
+
 - Crates versions:
 
 | Crate | Version |
