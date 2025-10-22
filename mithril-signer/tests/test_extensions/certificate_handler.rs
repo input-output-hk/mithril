@@ -10,7 +10,7 @@ use mithril_common::{
         SignedEntityType, SignedEntityTypeDiscriminants, Signer, SingleSignature, TimePoint,
     },
     messages::AggregatorFeaturesMessage,
-    test::double::{Dummy, fake_data},
+    test::double::Dummy,
 };
 use mithril_ticker::{MithrilTickerService, TickerService};
 
@@ -57,15 +57,6 @@ impl FakeAggregator {
         signed_entity_config.allowed_discriminants = discriminants.clone();
     }
 
-    pub async fn change_transaction_signing_config(
-        &self,
-        transaction_signing_config: &CardanoTransactionsSigningConfig,
-    ) {
-        let mut signed_entity_config = self.signed_entity_config.write().await;
-        signed_entity_config.cardano_transactions_signing_config =
-            transaction_signing_config.clone();
-    }
-
     async fn get_time_point(&self) -> Result<TimePoint, AggregatorClientError> {
         let time_point = self
             .ticker_service
@@ -109,7 +100,6 @@ impl AggregatorClient for FakeAggregator {
             Ok(None)
         } else {
             let store = self.registered_signers.read().await;
-            let signed_entity_config = self.signed_entity_config.read().await;
             let time_point = self.get_time_point().await?;
             let current_signers = self.get_current_signers(&store).await?;
             let next_signers = self.get_next_signers(&store).await?;
@@ -118,10 +108,6 @@ impl AggregatorClient for FakeAggregator {
                 epoch: time_point.epoch,
                 current_signers,
                 next_signers,
-                registration_protocol_parameters: fake_data::protocol_parameters(),
-                cardano_transactions_signing_config: Some(
-                    signed_entity_config.cardano_transactions_signing_config.clone(),
-                ),
             }))
         }
     }
@@ -168,7 +154,7 @@ mod tests {
     use mithril_cardano_node_chain::chain_observer::ChainObserver;
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_cardano_node_internal_database::test::double::DumbImmutableFileObserver;
-    use mithril_common::entities::{BlockNumber, ChainPoint};
+    use mithril_common::entities::ChainPoint;
     use mithril_common::test::double::fake_data;
 
     use super::*;
@@ -276,24 +262,6 @@ mod tests {
 
         assert_eq!(2, epoch_settings.current_signers.len());
         assert_eq!(1, epoch_settings.next_signers.len());
-
-        let new_transaction_signing_config = CardanoTransactionsSigningConfig {
-            security_parameter: BlockNumber(70),
-            step: BlockNumber(20),
-        };
-        fake_aggregator
-            .change_transaction_signing_config(&new_transaction_signing_config)
-            .await;
-
-        let epoch_settings = fake_aggregator
-            .retrieve_epoch_settings()
-            .await
-            .expect("we should have a result, None found!")
-            .expect("we should have an EpochSettings, None found!");
-        assert_eq!(
-            &Some(new_transaction_signing_config),
-            &epoch_settings.cardano_transactions_signing_config,
-        );
     }
 
     #[tokio::test]

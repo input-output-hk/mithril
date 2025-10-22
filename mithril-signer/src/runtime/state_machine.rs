@@ -175,14 +175,15 @@ impl StateMachine {
                     })?
                 {
                     info!(self.logger, "→ Epoch Signer registrations found");
-                    let network_configuration = self
-                        .runner
-                        .get_mithril_network_configuration(*epoch)
-                        .await
-                        .map_err(|e| RuntimeError::KeepState {
-                            message: "could not retrieve Mithril network configuration".to_string(),
-                            nested_error: Some(e),
-                        })?;
+                    let network_configuration: MithrilNetworkConfiguration =
+                        self.runner.get_mithril_network_configuration(*epoch).await.map_err(
+                            |e| RuntimeError::KeepState {
+                                message: format!(
+                                    "could not retrieve Mithril network configuration for epoch {epoch:?}"
+                                ),
+                                nested_error: Some(e),
+                            },
+                        )?;
                     info!(self.logger, "→ Mithril network configuration found");
 
                     if signer_registrations.epoch >= *epoch {
@@ -552,10 +553,8 @@ mod tests {
         let mut runner = MockSignerRunner::new();
         let epoch_settings = SignerEpochSettings {
             epoch: Epoch(3),
-            registration_protocol_parameters: fake_data::protocol_parameters(),
             current_signers: vec![],
             next_signers: vec![],
-            cardano_transactions_signing_config: None,
         };
         let known_epoch = Epoch(4);
         runner

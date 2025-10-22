@@ -14,12 +14,10 @@ impl TryFromMessageAdapter<EpochSettingsMessage, SignerEpochSettings> for FromEp
     fn try_adapt(message: EpochSettingsMessage) -> StdResult<SignerEpochSettings> {
         let epoch_settings = SignerEpochSettings {
             epoch: message.epoch,
-            registration_protocol_parameters: message.signer_registration_protocol_parameters,
             current_signers: SignerMessagePart::try_into_signers(message.current_signers)
                 .with_context(|| "'FromMessageAdapter' can not convert the current signers")?,
             next_signers: SignerMessagePart::try_into_signers(message.next_signers)
                 .with_context(|| "'FromMessageAdapter' can not convert the next signers")?,
-            cardano_transactions_signing_config: message.cardano_transactions_signing_config,
         };
         Ok(epoch_settings)
     }
