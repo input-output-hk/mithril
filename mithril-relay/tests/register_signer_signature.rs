@@ -7,10 +7,10 @@ use reqwest::StatusCode;
 use slog::{Drain, Level, Logger};
 use slog_scope::{error, info};
 
-#[cfg(feature = "future_dmq")]
-use mithril_common::CardanoNetwork;
 use mithril_common::messages::{RegisterSignatureMessageHttp, RegisterSignerMessage};
 use mithril_common::test::double::Dummy;
+#[cfg(feature = "future_dmq")]
+use mithril_dmq::DmqNetwork;
 use mithril_relay::{
     PassiveRelay, SignerRelay, SignerRelayConfiguration, SignerRelayMode,
     p2p::{BroadcastMessage, PeerBehaviourEvent, PeerEvent},
@@ -44,7 +44,7 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
     #[cfg(feature = "future_dmq")]
     let dmq_node_socket_path = PathBuf::new();
     #[cfg(feature = "future_dmq")]
-    let cardano_network = CardanoNetwork::TestNet(123);
+    let dmq_network = DmqNetwork::TestNet(123);
     let signer_registration_mode = SignerRelayMode::P2P;
     let signature_registration_mode = SignerRelayMode::P2P;
     let aggregator_endpoint = "http://0.0.0.0:1234".to_string();
@@ -55,7 +55,7 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
         #[cfg(feature = "future_dmq")]
         dmq_node_socket_path: &dmq_node_socket_path,
         #[cfg(feature = "future_dmq")]
-        cardano_network: &cardano_network,
+        dmq_network: &dmq_network,
         signer_registration_mode: &signer_registration_mode,
         signature_registration_mode: &signature_registration_mode,
         aggregator_endpoint: &aggregator_endpoint,

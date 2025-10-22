@@ -431,7 +431,7 @@ impl<'a> DependenciesBuilder<'a> {
             let first_publisher = SignaturePublisherRetrier::new(
                 match &self.config.dmq_node_socket_path {
                     Some(dmq_node_socket_path) => {
-                        let cardano_network = &self.config.get_network()?;
+                        let dmq_network = &self.config.get_dmq_network()?;
                         let dmq_message_builder = DmqMessageBuilder::new(
                             kes_signer
                                 .clone()
@@ -441,7 +441,7 @@ impl<'a> DependenciesBuilder<'a> {
                         Arc::new(SignaturePublisherDmq::new(Arc::new(
                             DmqPublisherClientPallas::<RegisterSignatureMessageDmq>::new(
                                 dmq_node_socket_path.to_owned(),
-                                *cardano_network,
+                                *dmq_network,
                                 dmq_message_builder,
                                 self.root_logger(),
                             ),

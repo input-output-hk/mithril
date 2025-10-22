@@ -3,8 +3,6 @@ use std::{path::Path, sync::Arc};
 
 use anyhow::anyhow;
 use libp2p::Multiaddr;
-#[cfg(feature = "future_dmq")]
-use mithril_dmq::{DmqConsumerServer, DmqConsumerServerPallas, DmqMessage};
 use reqwest::StatusCode;
 use slog::{Logger, error, info};
 #[cfg(feature = "future_dmq")]
@@ -13,13 +11,13 @@ use tokio::sync::{
     watch::{self, Receiver, Sender},
 };
 
-#[cfg(feature = "future_dmq")]
-use mithril_common::CardanoNetwork;
 use mithril_common::{
     StdResult,
     logging::LoggerExtensions,
     messages::{RegisterSignatureMessageHttp, RegisterSignerMessage},
 };
+#[cfg(feature = "future_dmq")]
+use mithril_dmq::{DmqConsumerServer, DmqConsumerServerPallas, DmqMessage, DmqNetwork};
 
 use crate::p2p::{BroadcastMessage, Peer, PeerEvent};
 
@@ -39,7 +37,7 @@ impl AggregatorRelay {
     pub async fn start(
         addr: &Multiaddr,
         #[cfg(feature = "future_dmq")] dmq_node_socket_path: &Path,
-        #[cfg(feature = "future_dmq")] cardano_network: &CardanoNetwork,
+        #[cfg(feature = "future_dmq")] dmq_network: &DmqNetwork,
         aggregator_endpoint: &str,
         logger: &Logger,
     ) -> StdResult<Self> {
@@ -52,7 +50,7 @@ impl AggregatorRelay {
             #[cfg(unix)]
             let _dmq_consumer_server = Self::start_dmq_consumer_server(
                 dmq_node_socket_path,
-                cardano_network,
+                dmq_network,
                 signature_dmq_rx,
                 stop_rx,
                 logger.clone(),
@@ -88,14 +86,14 @@ impl AggregatorRelay {
     #[cfg(feature = "future_dmq")]
     async fn start_dmq_consumer_server(
         socket: &Path,
-        cardano_network: &CardanoNetwork,
+        dmq_network: &DmqNetwork,
         signature_dmq_rx: UnboundedReceiver<DmqMessage>,
         stop_rx: Receiver<()>,
         logger: Logger,
     ) -> StdResult<Arc<DmqConsumerServerPallas>> {
         let dmq_consumer_server = Arc::new(DmqConsumerServerPallas::new(
             socket.to_path_buf(),
-            cardano_network.to_owned(),
+            dmq_network.to_owned(),
             stop_rx,
             logger.clone(),
         ));
@@ -269,7 +267,7 @@ mod tests {
             #[cfg(feature = "future_dmq")]
             Path::new("test"),
             #[cfg(feature = "future_dmq")]
-            &CardanoNetwork::TestNet(123),
+            &DmqNetwork::TestNet(123),
             &server.url(""),
             &TestLogger::stdout(),
         )

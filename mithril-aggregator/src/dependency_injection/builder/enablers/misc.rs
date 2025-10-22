@@ -92,7 +92,7 @@ impl DependenciesBuilder {
                 let dmq_consumer =
                     Arc::new(DmqConsumerClientPallas::<RegisterSignatureMessageDmq>::new(
                         dmq_node_socket_path,
-                        self.configuration.get_network()?,
+                        self.configuration.get_dmq_network()?,
                         self.root_logger(),
                     ));
                 Arc::new(SignatureConsumerDmq::new(dmq_consumer)) as Arc<dyn SignatureConsumer>

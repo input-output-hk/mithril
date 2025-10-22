@@ -1,4 +1,4 @@
-use crate::DEVNET_MAGIC_ID;
+use crate::DEVNET_DMQ_MAGIC_ID;
 use crate::utils::MithrilCommand;
 use mithril_common::StdResult;
 use mithril_common::entities::PartyId;
@@ -35,7 +35,7 @@ impl RelaySigner {
         let listen_port_str = format!("{}", configuration.listen_port);
         let server_port_str = format!("{}", configuration.server_port);
 
-        let magic_id = DEVNET_MAGIC_ID.to_string();
+        let dmq_magic_id = DEVNET_DMQ_MAGIC_ID.to_string();
         let relay_signer_registration_mode =
             configuration.relay_signer_registration_mode.to_string();
         let relay_signature_registration_mode =
@@ -44,7 +44,7 @@ impl RelaySigner {
             ("LISTEN_PORT", listen_port_str.as_str()),
             ("SERVER_PORT", server_port_str.as_str()),
             ("NETWORK", "devnet"),
-            ("NETWORK_MAGIC", &magic_id),
+            ("DMQ_NETWORK_MAGIC", &dmq_magic_id),
             ("AGGREGATOR_ENDPOINT", configuration.aggregator_endpoint),
             ("SIGNER_REPEATER_DELAY", "100"),
             (

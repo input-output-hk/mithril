@@ -3594,7 +3594,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.7.89"
+version = "0.7.90"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3867,7 +3867,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.6.24"
+version = "0.6.25"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3909,7 +3909,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-dmq"
-version = "0.1.12"
+version = "0.1.13"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3926,6 +3926,7 @@ dependencies = [
  "slog-async",
  "slog-scope",
  "slog-term",
+ "thiserror 2.0.17",
  "tokio",
 ]
 
@@ -3950,7 +3951,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.4.106"
+version = "0.4.107"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -4046,7 +4047,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-relay"
-version = "0.1.52"
+version = "0.1.53"
 dependencies = [
  "anyhow",
  "bincode",
@@ -4108,7 +4109,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.272"
+version = "0.2.273"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4696,7 +4697,7 @@ dependencies = [
 [[package]]
 name = "pallas-codec"
 version = "1.0.0-alpha.2"
-source = "git+https://github.com/txpipe/pallas.git?branch=main#d34b143f838c16e33759d63cd3aec8eaab539111"
+source = "git+https://github.com/txpipe/pallas.git?branch=main#2f179671e3d1632a65b385be1813a2a97aa431e1"
 dependencies = [
  "hex",
  "minicbor 0.26.5",
@@ -4722,7 +4723,7 @@ dependencies = [
 [[package]]
 name = "pallas-crypto"
 version = "1.0.0-alpha.2"
-source = "git+https://github.com/txpipe/pallas.git?branch=main#d34b143f838c16e33759d63cd3aec8eaab539111"
+source = "git+https://github.com/txpipe/pallas.git?branch=main#2f179671e3d1632a65b385be1813a2a97aa431e1"
 dependencies = [
  "cryptoxide",
  "hex",
@@ -4753,7 +4754,7 @@ dependencies = [
 [[package]]
 name = "pallas-network"
 version = "1.0.0-alpha.2"
-source = "git+https://github.com/txpipe/pallas.git?branch=main#d34b143f838c16e33759d63cd3aec8eaab539111"
+source = "git+https://github.com/txpipe/pallas.git?branch=main#2f179671e3d1632a65b385be1813a2a97aa431e1"
 dependencies = [
  "byteorder",
  "hex",
@@ -7540,7 +7541,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

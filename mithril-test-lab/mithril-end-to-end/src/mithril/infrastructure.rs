@@ -10,8 +10,8 @@ use mithril_common::{CardanoNetwork, StdResult};
 
 use crate::mithril::relay_signer::RelaySignerConfiguration;
 use crate::{
-    Aggregator, AggregatorConfig, Client, DEVNET_MAGIC_ID, Devnet, FullNode, PoolNode,
-    RelayAggregator, RelayPassive, RelaySigner, Signer, assertions,
+    Aggregator, AggregatorConfig, Client, DEVNET_MAGIC_ID, Devnet, DmqNodeFlavor, FullNode,
+    PoolNode, RelayAggregator, RelayPassive, RelaySigner, Signer, assertions,
 };
 
 use super::signer::SignerConfig;
@@ -38,6 +38,7 @@ pub struct MithrilInfrastructureConfig {
     pub use_p2p_passive_relays: bool,
     pub skip_signature_delayer: bool,
     pub use_dmq: bool,
+    pub dmq_node_flavor: Option<DmqNodeFlavor>,
     pub use_era_specific_work_dir: bool,
 }
 
@@ -74,6 +75,7 @@ impl MithrilInfrastructureConfig {
             use_p2p_passive_relays: false,
             skip_signature_delayer: false,
             use_dmq: false,
+            dmq_node_flavor: Some(DmqNodeFlavor::Fake),
             use_era_specific_work_dir: false,
         }
     }
@@ -99,6 +101,9 @@ impl MithrilInfrastructure {
     pub async fn start(config: &MithrilInfrastructureConfig) -> StdResult<Self> {
         let chain_observer_type = "pallas";
         config.devnet.run().await?;
+        if config.use_dmq && config.dmq_node_flavor == Some(DmqNodeFlavor::Haskell) {
+            config.devnet.run_dmq().await?;
+        }
         let devnet_topology = config.devnet.topology();
         let aggregator_cardano_nodes = &devnet_topology.full_nodes;
         let signer_cardano_nodes = &devnet_topology.pool_nodes;
@@ -263,6 +268,7 @@ impl MithrilInfrastructure {
             chain_observer_type,
             leader_aggregator_endpoint: &leader_aggregator_endpoint,
             use_dmq: config.use_dmq,
+            dmq_node_flavor: &config.dmq_node_flavor,
         })?;
 
         aggregator
@@ -402,6 +408,7 @@ impl MithrilInfrastructure {
                 enable_certification,
                 skip_signature_delayer: config.skip_signature_delayer,
                 use_dmq: config.use_dmq,
+                dmq_node_flavor: &config.dmq_node_flavor,
             })?;
             signer.start().await?;
 

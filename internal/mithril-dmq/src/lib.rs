@@ -9,7 +9,7 @@ pub mod test;
 #[cfg(unix)]
 pub use consumer::DmqConsumerServerPallas;
 pub use consumer::{DmqConsumerClient, DmqConsumerClientPallas, DmqConsumerServer};
-pub use model::{DmqMessage, DmqMessageBuilder};
+pub use model::{DmqMessage, DmqMessageBuilder, DmqNetwork};
 #[cfg(unix)]
 pub use publisher::DmqPublisherServerPallas;
 pub use publisher::{DmqPublisherClient, DmqPublisherClientPallas, DmqPublisherServer};

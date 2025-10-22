@@ -4,18 +4,16 @@ use anyhow::Context;
 use pallas_network::{facades::DmqClient, miniprotocols::localtxsubmission::Response};
 use slog::{Logger, debug, error};
 
-use mithril_common::{
-    CardanoNetwork, StdResult, crypto_helper::TryToBytes, logging::LoggerExtensions,
-};
+use mithril_common::{StdResult, crypto_helper::TryToBytes, logging::LoggerExtensions};
 
-use crate::{DmqMessageBuilder, DmqPublisherClient};
+use crate::{DmqMessageBuilder, DmqPublisherClient, model::DmqNetwork};
 
 /// A DMQ client publisher implementation.
 ///
 /// This implementation is built upon the n2c mini-protocols DMQ implementation in Pallas.
 pub struct DmqPublisherClientPallas<M: TryToBytes + Debug> {
     socket: PathBuf,
-    network: CardanoNetwork,
+    network: DmqNetwork,
     dmq_message_builder: DmqMessageBuilder,
     logger: Logger,
     phantom: PhantomData<M>,
@@ -25,7 +23,7 @@ impl<M: TryToBytes + Debug> DmqPublisherClientPallas<M> {
     /// Creates a new instance of [DmqPublisherClientPallas].
     pub fn new(
         socket: PathBuf,
-        network: CardanoNetwork,
+        network: DmqNetwork,
         dmq_message_builder: DmqMessageBuilder,
         logger: Logger,
     ) -> Self {
@@ -153,7 +151,7 @@ mod tests {
 
             let publisher = DmqPublisherClientPallas::new(
                 socket_path,
-                CardanoNetwork::TestNet(0),
+                DmqNetwork::TestNet(0),
                 DmqMessageBuilder::new(
                     {
                         let (kes_signature, operational_certificate) =
@@ -191,7 +189,7 @@ mod tests {
 
             let publisher = DmqPublisherClientPallas::new(
                 socket_path,
-                CardanoNetwork::TestNet(0),
+                DmqNetwork::TestNet(0),
                 DmqMessageBuilder::new(
                     {
                         let (kes_signature, operational_certificate) =
