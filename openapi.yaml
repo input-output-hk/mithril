@@ -83,12 +83,10 @@ paths:
       summary: Get current epoch settings
       description: |
         Returns the information related to the current epoch:
-          * protocol parameters for current epoch
           * protocol parameters for next epoch (to setup cryptography, allowing signers to register)
           * signers for current epoch
           * signers for next epoch
           * cardano transactions signing configuration for current epoch
-          * cardano transactions signing configuration for next epoch
       responses:
         "200":
           description: epoch settings found
