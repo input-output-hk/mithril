@@ -11,7 +11,7 @@ use tokio::sync::RwLock;
 
 use crate::devnet::PoolNode;
 use crate::utils::MithrilCommand;
-use crate::{DEVNET_DMQ_MAGIC_ID, DEVNET_MAGIC_ID, ERA_MARKERS_VERIFICATION_KEY};
+use crate::{DEVNET_DMQ_MAGIC_ID, DEVNET_MAGIC_ID, DmqNodeFlavor, ERA_MARKERS_VERIFICATION_KEY};
 
 #[derive(Debug)]
 pub struct SignerConfig<'a> {
@@ -29,7 +29,7 @@ pub struct SignerConfig<'a> {
     pub enable_certification: bool,
     pub skip_signature_delayer: bool,
     pub use_dmq: bool,
-    pub dmq_node_flavor: &'a Option<String>,
+    pub dmq_node_flavor: &'a Option<DmqNodeFlavor>,
 }
 
 #[derive(Debug)]
@@ -112,10 +112,10 @@ impl Signer {
         }
         let dmq_node_socket_path = if signer_config.use_dmq {
             match signer_config.dmq_node_flavor {
-                Some(flavor) if flavor == "haskell" => {
+                Some(DmqNodeFlavor::Haskell) => {
                     signer_config.pool_node.dmq_socket_path.to_str().unwrap().to_string()
                 }
-                Some(flavor) if flavor == "fake" => signer_config
+                Some(DmqNodeFlavor::Fake) => signer_config
                     .work_dir
                     .join(format!("dmq-signer-{}.socket", signer_config.signer_number))
                     .to_str()

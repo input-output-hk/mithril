@@ -15,9 +15,9 @@ use mithril_common::{CardanoNetwork, StdResult, entities};
 
 use crate::utils::MithrilCommand;
 use crate::{
-    ANCILLARY_MANIFEST_SECRET_KEY, DEVNET_DMQ_MAGIC_ID, DEVNET_MAGIC_ID, ERA_MARKERS_SECRET_KEY,
-    ERA_MARKERS_VERIFICATION_KEY, FullNode, GENESIS_SECRET_KEY, GENESIS_VERIFICATION_KEY,
-    RetryableDevnetError,
+    ANCILLARY_MANIFEST_SECRET_KEY, DEVNET_DMQ_MAGIC_ID, DEVNET_MAGIC_ID, DmqNodeFlavor,
+    ERA_MARKERS_SECRET_KEY, ERA_MARKERS_VERIFICATION_KEY, FullNode, GENESIS_SECRET_KEY,
+    GENESIS_VERIFICATION_KEY, RetryableDevnetError,
 };
 
 #[derive(Debug)]
@@ -41,7 +41,7 @@ pub struct AggregatorConfig<'a> {
     pub chain_observer_type: &'a str,
     pub leader_aggregator_endpoint: &'a Option<String>,
     pub use_dmq: bool,
-    pub dmq_node_flavor: &'a Option<String>,
+    pub dmq_node_flavor: &'a Option<DmqNodeFlavor>,
 }
 
 pub struct Aggregator {
@@ -140,13 +140,13 @@ impl Aggregator {
         }
         let dmq_node_socket_path = if aggregator_config.use_dmq {
             match aggregator_config.dmq_node_flavor {
-                Some(flavor) if flavor == "haskell" => aggregator_config
+                Some(DmqNodeFlavor::Haskell) => aggregator_config
                     .full_node
                     .dmq_socket_path
                     .to_str()
                     .unwrap()
                     .to_string(),
-                Some(flavor) if flavor == "fake" => aggregator_config
+                Some(DmqNodeFlavor::Fake) => aggregator_config
                     .work_dir
                     .join(format!("dmq-aggregator-{}.socket", aggregator_config.index))
                     .to_str()

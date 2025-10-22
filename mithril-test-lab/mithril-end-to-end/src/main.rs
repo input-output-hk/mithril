@@ -19,7 +19,7 @@ use tokio::{
 use mithril_common::StdResult;
 use mithril_doc::GenerateDocCommands;
 use mithril_end_to_end::{
-    Devnet, DevnetBootstrapArgs, MithrilInfrastructure, MithrilInfrastructureConfig,
+    Devnet, DevnetBootstrapArgs, DmqNodeFlavor, MithrilInfrastructure, MithrilInfrastructureConfig,
     RetryableDevnetError, RunOnly, Spec,
 };
 
@@ -141,8 +141,8 @@ pub struct Args {
     ///
     /// 'haskell': will use the DMQ network created within the 'mithril-devnet'
     /// 'fake': will use a fake DMQ network within created with the Mithril relay
-    #[clap(long, default_value = "haskell")]
-    dmq_node_flavor: Option<String>,
+    #[arg(long, value_enum, default_value = "haskell")]
+    dmq_node_flavor: Option<DmqNodeFlavor>,
 
     /// Skip cardano binaries download
     #[clap(long)]

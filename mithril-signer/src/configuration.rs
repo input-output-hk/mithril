@@ -61,6 +61,7 @@ pub struct Configuration {
     pub network_magic: Option<u64>,
 
     /// DMQ network magic number
+    ///
     /// useful for TestNet & DevNet
     #[example = "`1097911063` or `42`"]
     pub dmq_network_magic: Option<u64>,
