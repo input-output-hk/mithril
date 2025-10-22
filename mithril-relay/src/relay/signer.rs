@@ -238,7 +238,14 @@ impl SignerRelay {
                     .and(middlewares::with_aggregator_endpoint(
                         configuration.aggregator_endpoint.to_string(),
                     ))
-                    .and_then(handlers::epoch_settings_handler)),
+                    .and_then(handlers::epoch_settings_handler))
+                .or(warp::path!("protocol-configuration" / u64)
+                    .and(warp::get())
+                    .and(middlewares::with_logger(&server_logger))
+                    .and(middlewares::with_aggregator_endpoint(
+                        configuration.aggregator_endpoint.to_string(),
+                    ))
+                    .and_then(handlers::protocol_configuration_handler)),
             ([0, 0, 0, 0], *configuration.server_port).into(),
         )
     }
@@ -494,6 +501,21 @@ mod handlers {
         reply_response(logger, response).await
     }
 
+    pub async fn protocol_configuration_handler(
+        epoch: u64,
+        logger: Logger,
+        aggregator_endpoint: String,
+    ) -> Result<impl warp::Reply, Infallible> {
+        debug!(logger, "Serve HTTP route /protocol-configuration/{epoch}");
+        let response = reqwest::Client::new()
+            .get(format!(
+                "{aggregator_endpoint}/protocol-configuration/{epoch}"
+            ))
+            .send()
+            .await;
+        reply_response(logger, response).await
+    }
+
     pub async fn reply_response(
         logger: Logger,
         response: Result<Response, Error>,
@@ -581,6 +603,22 @@ mod tests {
         });
 
         handlers::epoch_settings_handler(test_logger, server.url(""))
+            .await
+            .unwrap();
+
+        mock.assert();
+    }
+
+    #[tokio::test]
+    async fn epoch_protocol_configuration_handler() {
+        let test_logger = TestLogger::stdout();
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/protocol-configuration/42");
+            then.status(201).body("ok");
+        });
+
+        handlers::protocol_configuration_handler(42, test_logger, server.url(""))
             .await
             .unwrap();
 
