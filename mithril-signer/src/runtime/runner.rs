@@ -372,8 +372,7 @@ impl Runner for SignerRunner {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::{CardanoTransactionsSigningConfig, ProtocolParameters};
-    use mithril_protocol_config::model::SignedEntityTypeConfiguration;
+    use mithril_protocol_config::model::EpochConfiguration;
     use mockall::mock;
     use mockall::predicate::eq;
     use std::collections::BTreeSet;
@@ -558,12 +557,14 @@ mod tests {
         ));
         let kes_signer = None;
 
+        let configuration_for_aggregation = EpochConfiguration::dummy();
+        let configuration_for_next_aggregation = EpochConfiguration::dummy();
+        let configuration_for_registration = EpochConfiguration::dummy();
+
         let network_configuration_service = Arc::new(FakeMithrilNetworkConfigurationProvider::new(
-            ProtocolParameters::new(1000, 100, 0.1234),
-            SignedEntityTypeDiscriminants::all(),
-            SignedEntityTypeConfiguration {
-                cardano_transactions: Some(CardanoTransactionsSigningConfig::dummy()),
-            },
+            configuration_for_aggregation,
+            configuration_for_next_aggregation,
+            configuration_for_registration,
         ));
 
         SignerDependencyContainer {
@@ -775,11 +776,14 @@ mod tests {
 
         let mithril_network_configuration = MithrilNetworkConfiguration {
             epoch,
-            enabled_signed_entity_types: BTreeSet::from([
-                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                SignedEntityTypeDiscriminants::CardanoTransactions,
-            ]),
-            ..MithrilNetworkConfiguration::dummy()
+            configuration_for_next_aggregation: EpochConfiguration {
+                enabled_signed_entity_types: BTreeSet::from([
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                    SignedEntityTypeDiscriminants::CardanoTransactions,
+                ]),
+                ..Dummy::dummy()
+            },
+            ..Dummy::dummy()
         };
 
         runner

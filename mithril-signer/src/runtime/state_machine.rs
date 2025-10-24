@@ -567,11 +567,9 @@ mod tests {
             .returning(|_| {
                 Ok(MithrilNetworkConfiguration {
                     epoch: Epoch(999),
-                    signer_registration_protocol_parameters: fake_data::protocol_parameters(),
-                    enabled_signed_entity_types: SignedEntityTypeDiscriminants::all(),
-                    signed_entity_types_config: SignedEntityTypeConfiguration {
-                        cardano_transactions: Some(CardanoTransactionsSigningConfig::dummy()),
-                    },
+                    configuration_for_aggregation: Dummy::dummy(),
+                    configuration_for_next_aggregation: Dummy::dummy(),
+                    configuration_for_registration: Dummy::dummy(),
                 })
             });
         runner.expect_get_current_time_point().once().returning(|| {

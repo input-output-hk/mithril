@@ -39,7 +39,9 @@ impl CardanoTransactionsPreloaderChecker for CardanoTransactionsPreloaderActivat
                 "An error occurred while retrieving Mithril network configuration for epoch {epoch}"
             ))?;
 
-        let activated_signed_entity_types = configuration.enabled_signed_entity_types;
+        let activated_signed_entity_types = configuration
+            .configuration_for_next_aggregation
+            .enabled_signed_entity_types;
 
         Ok(activated_signed_entity_types
             .contains(&SignedEntityTypeDiscriminants::CardanoTransactions))
@@ -53,7 +55,7 @@ mod tests {
         entities::{Epoch, SignedEntityTypeDiscriminants, TimePoint},
         test::double::Dummy,
     };
-    use mithril_protocol_config::model::MithrilNetworkConfiguration;
+    use mithril_protocol_config::model::{EpochConfiguration, MithrilNetworkConfiguration};
     use mockall::mock;
     use std::collections::BTreeSet;
 
@@ -86,9 +88,12 @@ mod tests {
             .times(1)
             .returning(|_| {
                 Ok(MithrilNetworkConfiguration {
-                    enabled_signed_entity_types: BTreeSet::from([
-                        SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                    ]),
+                    configuration_for_next_aggregation: EpochConfiguration {
+                        enabled_signed_entity_types: BTreeSet::from([
+                            SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                        ]),
+                        ..Dummy::dummy()
+                    },
                     ..Dummy::dummy()
                 })
             });
@@ -117,9 +122,12 @@ mod tests {
             .times(1)
             .returning(|_| {
                 Ok(MithrilNetworkConfiguration {
-                    enabled_signed_entity_types: BTreeSet::from([
-                        SignedEntityTypeDiscriminants::CardanoTransactions,
-                    ]),
+                    configuration_for_next_aggregation: EpochConfiguration {
+                        enabled_signed_entity_types: BTreeSet::from([
+                            SignedEntityTypeDiscriminants::CardanoTransactions,
+                        ]),
+                        ..Dummy::dummy()
+                    },
                     ..Dummy::dummy()
                 })
             });

@@ -1,51 +1,45 @@
 //! provides test doubles for MithrilNetworkConfigurationProvider
-use std::collections::BTreeSet;
 
 use tokio::sync::RwLock;
 
 use crate::{
     interface::MithrilNetworkConfigurationProvider,
-    model::{MithrilNetworkConfiguration, SignedEntityTypeConfiguration},
+    model::{EpochConfiguration, MithrilNetworkConfiguration},
 };
 use async_trait::async_trait;
-use mithril_common::{
-    StdResult,
-    entities::{Epoch, ProtocolParameters, SignedEntityTypeDiscriminants},
-};
+use mithril_common::{StdResult, entities::Epoch};
 
 /// A fake [MithrilNetworkConfigurationProvider] that return [MithrilNetworkConfiguration]
 pub struct FakeMithrilNetworkConfigurationProvider {
-    /// The protocol parameters for the signer registration
-    pub signer_registration_protocol_parameters: ProtocolParameters,
+    /// Configuration for aggregation
+    pub configuration_for_aggregation: EpochConfiguration,
 
-    /// The available signed entity types
-    pub enabled_signed_entity_types: RwLock<BTreeSet<SignedEntityTypeDiscriminants>>,
+    /// Configuration for next aggregation
+    pub configuration_for_next_aggregation: RwLock<EpochConfiguration>,
 
-    /// The configuration for each signed entity type
-    pub signed_entity_types_config: SignedEntityTypeConfiguration,
+    /// Configuration for registration
+    pub configuration_for_registration: EpochConfiguration,
 }
 
 impl FakeMithrilNetworkConfigurationProvider {
     /// FakeMithrilNetworkConfigurationProvider factory
     pub fn new(
-        signer_registration_protocol_parameters: ProtocolParameters,
-        enabled_signed_entity_types: BTreeSet<SignedEntityTypeDiscriminants>,
-        signed_entity_types_config: SignedEntityTypeConfiguration,
+        configuration_for_aggregation: EpochConfiguration,
+        configuration_for_next_aggregation: EpochConfiguration,
+        configuration_for_registration: EpochConfiguration,
     ) -> Self {
         Self {
-            signer_registration_protocol_parameters,
-            enabled_signed_entity_types: RwLock::new(enabled_signed_entity_types),
-            signed_entity_types_config,
+            configuration_for_aggregation,
+            configuration_for_next_aggregation: RwLock::new(configuration_for_next_aggregation),
+            configuration_for_registration,
         }
     }
 
-    /// Change the allowed signed entity discriminants (signed entity types) returned by the provider
-    pub async fn change_allowed_discriminants(
-        &self,
-        discriminants: &BTreeSet<SignedEntityTypeDiscriminants>,
-    ) {
-        let mut enabled_signed_entity_types = self.enabled_signed_entity_types.write().await;
-        *enabled_signed_entity_types = discriminants.clone();
+    ///Change the configuration of the next aggregation
+    pub async fn change_next_aggregation_configuration(&self, conf: EpochConfiguration) {
+        let mut configuration_for_next_aggregation =
+            self.configuration_for_next_aggregation.write().await;
+        *configuration_for_next_aggregation = conf;
     }
 }
 
@@ -56,55 +50,82 @@ impl MithrilNetworkConfigurationProvider for FakeMithrilNetworkConfigurationProv
         &self,
         epoch: Epoch,
     ) -> StdResult<MithrilNetworkConfiguration> {
-        let enabled_signed_entity_types = self.enabled_signed_entity_types.read().await;
+        let configuration_for_next_aggregation =
+            self.configuration_for_next_aggregation.read().await.clone();
 
         Ok(MithrilNetworkConfiguration {
             epoch,
-            signer_registration_protocol_parameters: self
-                .signer_registration_protocol_parameters
-                .clone(),
-            enabled_signed_entity_types: enabled_signed_entity_types.clone(),
-            signed_entity_types_config: self.signed_entity_types_config.clone(),
+            configuration_for_aggregation: self.configuration_for_aggregation.clone(),
+            configuration_for_next_aggregation,
+            configuration_for_registration: self.configuration_for_registration.clone(),
         })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
-
     use mithril_common::entities::{
         BlockNumber, CardanoTransactionsSigningConfig, Epoch, ProtocolParameters,
         SignedEntityTypeDiscriminants,
     };
 
     use crate::{
-        interface::MithrilNetworkConfigurationProvider, model::SignedEntityTypeConfiguration,
+        interface::MithrilNetworkConfigurationProvider,
+        model::{EpochConfiguration, SignedEntityTypeConfiguration},
         test::double::configuration_provider::FakeMithrilNetworkConfigurationProvider,
     };
 
     #[tokio::test]
-    async fn test_get() {
-        let signer_registration_protocol_parameters = ProtocolParameters {
-            k: 2,
-            m: 3,
-            phi_f: 0.5,
+    async fn test_get_network_configuration() {
+        let configuration_for_aggregation = EpochConfiguration {
+            protocol_parameters: ProtocolParameters {
+                k: 1,
+                m: 11,
+                phi_f: 0.1,
+            },
+            enabled_signed_entity_types: SignedEntityTypeDiscriminants::all(),
+            signed_entity_types_config: SignedEntityTypeConfiguration {
+                cardano_transactions: Some(CardanoTransactionsSigningConfig {
+                    step: BlockNumber(10),
+                    security_parameter: BlockNumber(100),
+                }),
+            },
         };
-        let available_signed_entity_types = BTreeSet::from([
-            SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-            SignedEntityTypeDiscriminants::CardanoTransactions,
-        ]);
-        let signed_entity_types_config = SignedEntityTypeConfiguration {
-            cardano_transactions: Some(CardanoTransactionsSigningConfig {
-                security_parameter: BlockNumber(12),
-                step: BlockNumber(10),
-            }),
+
+        let configuration_for_next_aggregation = EpochConfiguration {
+            protocol_parameters: ProtocolParameters {
+                k: 2,
+                m: 22,
+                phi_f: 0.2,
+            },
+            enabled_signed_entity_types: SignedEntityTypeDiscriminants::all(),
+            signed_entity_types_config: SignedEntityTypeConfiguration {
+                cardano_transactions: Some(CardanoTransactionsSigningConfig {
+                    step: BlockNumber(20),
+                    security_parameter: BlockNumber(200),
+                }),
+            },
+        };
+
+        let configuration_for_registration = EpochConfiguration {
+            protocol_parameters: ProtocolParameters {
+                k: 3,
+                m: 33,
+                phi_f: 0.3,
+            },
+            enabled_signed_entity_types: SignedEntityTypeDiscriminants::all(),
+            signed_entity_types_config: SignedEntityTypeConfiguration {
+                cardano_transactions: Some(CardanoTransactionsSigningConfig {
+                    step: BlockNumber(30),
+                    security_parameter: BlockNumber(300),
+                }),
+            },
         };
 
         let mithril_network_configuration_provider = FakeMithrilNetworkConfigurationProvider::new(
-            signer_registration_protocol_parameters.clone(),
-            available_signed_entity_types.clone(),
-            signed_entity_types_config.clone(),
+            configuration_for_aggregation.clone(),
+            configuration_for_next_aggregation.clone(),
+            configuration_for_registration.clone(),
         );
 
         let actual_config = mithril_network_configuration_provider
@@ -114,16 +135,16 @@ mod tests {
 
         assert_eq!(actual_config.epoch, Epoch(1));
         assert_eq!(
-            actual_config.signer_registration_protocol_parameters,
-            signer_registration_protocol_parameters
+            actual_config.configuration_for_aggregation,
+            configuration_for_aggregation
         );
         assert_eq!(
-            actual_config.enabled_signed_entity_types,
-            available_signed_entity_types
+            actual_config.configuration_for_next_aggregation,
+            configuration_for_next_aggregation
         );
         assert_eq!(
-            actual_config.signed_entity_types_config,
-            signed_entity_types_config
+            actual_config.configuration_for_registration,
+            configuration_for_registration
         );
     }
 }

@@ -9,7 +9,7 @@ use mithril_common::entities::Epoch;
 use mithril_common::messages::ProtocolConfigurationMessage;
 
 use crate::interface::MithrilNetworkConfigurationProvider;
-use crate::model::{MithrilNetworkConfiguration, SignedEntityTypeConfiguration};
+use crate::model::{EpochConfiguration, MithrilNetworkConfiguration};
 
 /// Trait to retrieve protocol configuration
 #[cfg_attr(test, mockall::automock)]
@@ -42,41 +42,41 @@ impl MithrilNetworkConfigurationProvider for HttpMithrilNetworkConfigurationProv
         &self,
         epoch: Epoch,
     ) -> StdResult<MithrilNetworkConfiguration> {
-        let signer_retrieval_epoch =
+        let aggregation_epoch =
             epoch.offset_to_signer_retrieval_epoch().with_context(|| {
-                format!("MithrilNetworkConfigurationProvider could not compute signer retrieval epoch from epoch: {epoch}")
+                format!("MithrilNetworkConfigurationProvider could not compute aggregation epoch from epoch: {epoch}")
             })?;
-        let signer_registration_epoch = epoch.offset_to_next_signer_retrieval_epoch().next();
+        let next_aggregation_epoch = epoch.offset_to_next_signer_retrieval_epoch();
+        let registration_epoch = epoch.offset_to_next_signer_retrieval_epoch().next();
 
-        let protocol_configuration = self
+        let configuration_for_aggregation: EpochConfiguration = self
             .protocol_configuration_retriever
-            .retrieve_protocol_configuration(signer_retrieval_epoch)
-            .await?;
+            .retrieve_protocol_configuration(aggregation_epoch)
+            .await?
+            .into();
 
-        let signer_registration_protocol_configuration = self
+        let configuration_for_next_aggregation = self
             .protocol_configuration_retriever
-            .retrieve_protocol_configuration(signer_registration_epoch)
-            .await?;
+            .retrieve_protocol_configuration(next_aggregation_epoch)
+            .await?
+            .into();
 
-        let enabled_signed_entity_types =
-            protocol_configuration.available_signed_entity_types.clone();
+        let configuration_for_registration = self
+            .protocol_configuration_retriever
+            .retrieve_protocol_configuration(registration_epoch)
+            .await?
+            .into();
 
-        let cardano_transactions = protocol_configuration
-            .cardano_transactions_signing_config
+        configuration_for_aggregation.signed_entity_types_config.cardano_transactions.clone()
             .ok_or_else(|| {
-                anyhow!(format!("Cardano transactions signing config is missing in protocol configuration for epoch {epoch}"))
+                anyhow!(format!("Cardano transactions signing config is missing in aggregation configuration for epoch {epoch}"))
             })?;
-
-        let signed_entity_types_config = SignedEntityTypeConfiguration {
-            cardano_transactions: Some(cardano_transactions),
-        };
 
         Ok(MithrilNetworkConfiguration {
             epoch,
-            signer_registration_protocol_parameters: signer_registration_protocol_configuration
-                .protocol_parameters,
-            enabled_signed_entity_types,
-            signed_entity_types_config,
+            configuration_for_aggregation,
+            configuration_for_next_aggregation,
+            configuration_for_registration,
         })
     }
 }
@@ -87,7 +87,7 @@ mod tests {
     use std::sync::Arc;
 
     use mithril_common::{
-        entities::{BlockNumber, CardanoTransactionsSigningConfig, Epoch, ProtocolParameters},
+        entities::{Epoch, ProtocolParameters},
         messages::ProtocolConfigurationMessage,
         test::double::Dummy,
     };
@@ -100,7 +100,8 @@ mod tests {
     };
 
     #[tokio::test]
-    async fn test_get_network_configuration_retrieve_signer_protocol_parameters_from_next_epoch() {
+    async fn test_get_network_configuration_retrieve_configurations_for_aggregation_next_aggregation_and_registration()
+     {
         let mut protocol_configuration_retriever = MockProtocolConfigurationRetriever::new();
 
         protocol_configuration_retriever
@@ -117,7 +118,7 @@ mod tests {
         protocol_configuration_retriever
             .expect_retrieve_protocol_configuration()
             .once()
-            .with(eq(Epoch(43)))
+            .with(eq(Epoch(42)))
             .returning(|_| {
                 Ok(ProtocolConfigurationMessage {
                     protocol_parameters: ProtocolParameters::new(2000, 200, 0.2),
@@ -125,50 +126,13 @@ mod tests {
                 })
             });
 
-        let mithril_configuration_provider = HttpMithrilNetworkConfigurationProvider::new(
-            Arc::new(protocol_configuration_retriever),
-        );
-
-        let configuration = mithril_configuration_provider
-            .get_network_configuration(Epoch(42))
-            .await
-            .expect("should have configuration");
-
-        assert_eq!(
-            configuration.signer_registration_protocol_parameters,
-            ProtocolParameters::new(2000, 200, 0.2)
-        );
-    }
-
-    #[tokio::test]
-    async fn test_get_network_configuration_retrieve_cardano_transaction_config_from_previous_epoch()
-     {
-        let mut protocol_configuration_retriever = MockProtocolConfigurationRetriever::new();
-
-        protocol_configuration_retriever
-            .expect_retrieve_protocol_configuration()
-            .once()
-            .with(eq(Epoch(41)))
-            .returning(|_| {
-                Ok(ProtocolConfigurationMessage {
-                    cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-                        security_parameter: BlockNumber(111),
-                        step: BlockNumber(222),
-                    }),
-                    ..Dummy::dummy()
-                })
-            });
-
         protocol_configuration_retriever
             .expect_retrieve_protocol_configuration()
             .once()
             .with(eq(Epoch(43)))
             .returning(|_| {
                 Ok(ProtocolConfigurationMessage {
-                    cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
-                        security_parameter: BlockNumber(333),
-                        step: BlockNumber(444),
-                    }),
+                    protocol_parameters: ProtocolParameters::new(3000, 300, 0.3),
                     ..Dummy::dummy()
                 })
             });
@@ -182,17 +146,9 @@ mod tests {
             .await
             .expect("should have configuration");
 
-        let actual_cardano_transations = configuration
-            .signed_entity_types_config
-            .cardano_transactions
-            .expect("should have cardano_transactions");
-
         assert_eq!(
-            actual_cardano_transations,
-            CardanoTransactionsSigningConfig {
-                security_parameter: BlockNumber(111),
-                step: BlockNumber(222),
-            }
+            configuration.configuration_for_registration.protocol_parameters,
+            ProtocolParameters::new(3000, 300, 0.3)
         );
     }
 }
