@@ -919,13 +919,8 @@ components:
               type: array
               minItems: 1
               items:
-                description: Signed entity types that can be signed
-                type: string
-                enum:
-                  - MithrilStakeDistribution
-                  - CardanoStakeDistribution
-                  - CardanoImmutableFilesFull
-                  - CardanoTransactions
+                $ref: "#/components/schemas/SignedEntityTypes"
+              
             aggregate_signature_type:
               description: Aggregate signature type used by the aggregator to create certificates
               type: string
@@ -982,6 +977,16 @@ components:
             - "latest"
             - "latest-5"
 
+    SignedEntityTypes:
+        description: Signed entity types that can be signed
+        type: string
+        enum:
+          - MithrilStakeDistribution
+          - CardanoStakeDistribution
+          - CardanoImmutableFilesFull
+          - CardanoTransactions
+          - CardanoDatabase
+      
     EpochSettingsMessage:
       description: Epoch settings
       type: object
@@ -1066,14 +1071,7 @@ components:
           type: array
           minItems: 1
           items:
-            description: Signed entity types that can be signed
-            type: string
-            enum:
-              - MithrilStakeDistribution
-              - CardanoStakeDistribution
-              - CardanoImmutableFilesFull
-              - CardanoTransactions
-              - CardanoDatabase
+            $ref: "#/components/schemas/SignedEntityTypes"
       examples:
         - {
             "protocol_parameters": { "k": 9, "m": 77, "phi_f": 0.5 },
