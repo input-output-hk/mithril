@@ -345,7 +345,7 @@ jobs:
         uses: ./.github/workflows/actions/publish-npm-package
         with:
           dry_run: "false"
-          package: ${{ matrix.package }}
+          package_dir: ${{ matrix.package }}
           scope: ${{ matrix.scope }}
           tag: next
           access: ${{ matrix.access }}

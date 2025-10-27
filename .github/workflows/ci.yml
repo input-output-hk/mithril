@@ -617,7 +617,7 @@ jobs:
         uses: ./.github/workflows/actions/publish-npm-package
         with:
           dry_run: "true"
-          package: ${{ matrix.package }}
+          package_dir: ${{ matrix.package }}
           scope: ${{ matrix.scope }}
           access: ${{ matrix.access }}
           api_token: ${{ secrets[matrix.api_token_secret_name] }}
