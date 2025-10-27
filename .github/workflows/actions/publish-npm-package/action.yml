@@ -125,13 +125,18 @@ runs:
         npm publish --tag ${{ inputs.tag }} --access ${{ inputs.access }} $dry_run_option
 
     - name: Promote package distribution tag to 'latest'
-      if: inputs.dry_run == 'false' && steps.check_version.outputs.deploy_mode == 'promote'
+      if: steps.check_version.outputs.deploy_mode == 'promote'
       shell: bash
       working-directory: ${{ inputs.package_dir }}
       env:
         NODE_AUTH_TOKEN: ${{ inputs.api_token }}
       run: |
         echo "Promote '${{ steps.prepare.outputs.package_name }}' package version '${{ steps.prepare.outputs.package_local_version }}' from 'next' to 'latest'"
-        npm whoami
-        npm dist-tag add ${{ steps.prepare.outputs.package_name }}"@${{ steps.prepare.outputs.package_local_version }} latest
-        npm dist-tag rm ${{ steps.prepare.outputs.package_name }}"@${{ steps.prepare.outputs.package_local_version }} next
+        if [ "${{ inputs.dry_run }}" == "false" ]; then
+          npm whoami
+          npm dist-tag add ${{ steps.prepare.outputs.package_name }}"@${{ steps.prepare.outputs.package_local_version }} latest
+          npm dist-tag rm ${{ steps.prepare.outputs.package_name }}"@${{ steps.prepare.outputs.package_local_version }} next
+        else
+          echo "Dry run: npm dist-tag add ${{ steps.prepare.outputs.package_name }}"@${{ steps.prepare.outputs.package_local_version }} latest
+          echo "Dry run: npm dist-tag rm ${{ steps.prepare.outputs.package_name }}"@${{ steps.prepare.outputs.package_local_version }} next
+        fi
