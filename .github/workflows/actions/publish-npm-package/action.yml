@@ -8,9 +8,6 @@ inputs:
   package_dir:
     description: directory containing the package.json file.
     required: true
-  scope:
-    description: npm package scope (must not include '@' prefix).
-    required: true
   tag:
     description: npm package tag.
     required: false
@@ -81,7 +78,7 @@ runs:
       shell: bash
       working-directory: ${{ inputs.package_dir }}
       env:
-        WASM_PACK_ARGS: --release --scope ${{ inputs.scope }}
+        WASM_PACK_ARGS: --release
       run: |
         echo "Build '${{ steps.prepare.outputs.package_name }}' package"
         make build

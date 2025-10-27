@@ -324,7 +324,6 @@ jobs:
         package: [mithril-client-wasm]
         include:
           - package: mithril-client-wasm
-            scope: mithril-dev
             tag: next
             access: public
             api_token_secret_name: NPM_API_TOKEN_MITHRIL_CLIENT_WASM
@@ -346,7 +345,6 @@ jobs:
         with:
           dry_run: "false"
           package_dir: ${{ matrix.package }}
-          scope: ${{ matrix.scope }}
           tag: next
           access: ${{ matrix.access }}
           api_token: ${{ secrets[matrix.api_token_secret_name] }}
