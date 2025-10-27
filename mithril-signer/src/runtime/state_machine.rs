@@ -492,12 +492,8 @@ mod tests {
     use anyhow::anyhow;
     use chrono::DateTime;
 
-    use mithril_common::entities::{
-        CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolMessage, SignedEntityType,
-        SignedEntityTypeDiscriminants,
-    };
-    use mithril_common::test::double::{Dummy, fake_data};
-    use mithril_protocol_config::model::SignedEntityTypeConfiguration;
+    use mithril_common::entities::{ChainPoint, Epoch, ProtocolMessage, SignedEntityType};
+    use mithril_common::test::double::Dummy;
 
     use crate::SignerEpochSettings;
     use crate::runtime::runner::MockSignerRunner;
