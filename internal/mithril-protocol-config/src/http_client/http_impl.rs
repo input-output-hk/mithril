@@ -147,6 +147,16 @@ mod tests {
             .expect("should have configuration");
 
         assert_eq!(
+            configuration.configuration_for_aggregation.protocol_parameters,
+            ProtocolParameters::new(1000, 100, 0.1)
+        );
+
+        assert_eq!(
+            configuration.configuration_for_next_aggregation.protocol_parameters,
+            ProtocolParameters::new(2000, 200, 0.2)
+        );
+
+        assert_eq!(
             configuration.configuration_for_registration.protocol_parameters,
             ProtocolParameters::new(3000, 300, 0.3)
         );
