@@ -776,7 +776,7 @@ mod tests {
 
         let mithril_network_configuration = MithrilNetworkConfiguration {
             epoch,
-            configuration_for_next_aggregation: EpochConfiguration {
+            configuration_for_aggregation: EpochConfiguration {
                 enabled_signed_entity_types: BTreeSet::from([
                     SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                     SignedEntityTypeDiscriminants::CardanoTransactions,

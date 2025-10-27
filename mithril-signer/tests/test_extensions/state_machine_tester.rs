@@ -179,13 +179,11 @@ impl StateMachineTester {
             signed_entity_types_config: SignedEntityTypeConfiguration {
                 cardano_transactions: Some(cardano_transactions_signing_config.clone()),
             },
-            ..Dummy::dummy()
-        };
-
-        let configuration_for_next_aggregation = EpochConfiguration {
             enabled_signed_entity_types: SignedEntityTypeDiscriminants::all(),
             ..Dummy::dummy()
         };
+
+        let configuration_for_next_aggregation = EpochConfiguration::dummy();
 
         let configuration_for_registration = EpochConfiguration {
             protocol_parameters: fake_data::protocol_parameters(),
@@ -492,13 +490,13 @@ impl StateMachineTester {
             enabled_signed_entity_types: BTreeSet::from_iter(discriminants.iter().cloned()),
             ..self
                 .network_configuration_service
-                .configuration_for_next_aggregation
+                .configuration_for_aggregation
                 .read()
                 .await
                 .clone()
         };
         self.network_configuration_service
-            .change_next_aggregation_configuration(config)
+            .change_aggregation_configuration(config)
             .await;
         self
     }

@@ -40,7 +40,7 @@ impl CardanoTransactionsPreloaderChecker for CardanoTransactionsPreloaderActivat
             ))?;
 
         let activated_signed_entity_types = configuration
-            .configuration_for_next_aggregation
+            .configuration_for_aggregation
             .enabled_signed_entity_types;
 
         Ok(activated_signed_entity_types
@@ -88,7 +88,7 @@ mod tests {
             .times(1)
             .returning(|_| {
                 Ok(MithrilNetworkConfiguration {
-                    configuration_for_next_aggregation: EpochConfiguration {
+                    configuration_for_aggregation: EpochConfiguration {
                         enabled_signed_entity_types: BTreeSet::from([
                             SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                         ]),
@@ -122,7 +122,7 @@ mod tests {
             .times(1)
             .returning(|_| {
                 Ok(MithrilNetworkConfiguration {
-                    configuration_for_next_aggregation: EpochConfiguration {
+                    configuration_for_aggregation: EpochConfiguration {
                         enabled_signed_entity_types: BTreeSet::from([
                             SignedEntityTypeDiscriminants::CardanoTransactions,
                         ]),

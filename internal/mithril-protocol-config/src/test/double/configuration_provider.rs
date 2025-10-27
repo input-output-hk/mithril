@@ -12,13 +12,13 @@ use mithril_common::{StdResult, entities::Epoch};
 /// A fake [MithrilNetworkConfigurationProvider] that return [MithrilNetworkConfiguration]
 pub struct FakeMithrilNetworkConfigurationProvider {
     /// Configuration for aggregation
-    pub configuration_for_aggregation: EpochConfiguration,
+    pub configuration_for_aggregation: RwLock<EpochConfiguration>,
 
     /// Configuration for next aggregation
     pub configuration_for_next_aggregation: RwLock<EpochConfiguration>,
 
     /// Configuration for registration
-    pub configuration_for_registration: EpochConfiguration,
+    pub configuration_for_registration: RwLock<EpochConfiguration>,
 }
 
 impl FakeMithrilNetworkConfigurationProvider {
@@ -29,17 +29,16 @@ impl FakeMithrilNetworkConfigurationProvider {
         configuration_for_registration: EpochConfiguration,
     ) -> Self {
         Self {
-            configuration_for_aggregation,
+            configuration_for_aggregation: RwLock::new(configuration_for_aggregation),
             configuration_for_next_aggregation: RwLock::new(configuration_for_next_aggregation),
-            configuration_for_registration,
+            configuration_for_registration: RwLock::new(configuration_for_registration),
         }
     }
 
-    ///Change the configuration of the next aggregation
-    pub async fn change_next_aggregation_configuration(&self, conf: EpochConfiguration) {
-        let mut configuration_for_next_aggregation =
-            self.configuration_for_next_aggregation.write().await;
-        *configuration_for_next_aggregation = conf;
+    ///Change the configuration of the aggregation
+    pub async fn change_aggregation_configuration(&self, conf: EpochConfiguration) {
+        let mut configuration_for_aggregation = self.configuration_for_aggregation.write().await;
+        *configuration_for_aggregation = conf;
     }
 }
 
@@ -50,14 +49,19 @@ impl MithrilNetworkConfigurationProvider for FakeMithrilNetworkConfigurationProv
         &self,
         epoch: Epoch,
     ) -> StdResult<MithrilNetworkConfiguration> {
+        let configuration_for_aggregation = self.configuration_for_aggregation.read().await.clone();
+
         let configuration_for_next_aggregation =
             self.configuration_for_next_aggregation.read().await.clone();
 
+        let configuration_for_registration =
+            self.configuration_for_registration.read().await.clone();
+
         Ok(MithrilNetworkConfiguration {
             epoch,
-            configuration_for_aggregation: self.configuration_for_aggregation.clone(),
+            configuration_for_aggregation,
             configuration_for_next_aggregation,
-            configuration_for_registration: self.configuration_for_registration.clone(),
+            configuration_for_registration,
         })
     }
 }
