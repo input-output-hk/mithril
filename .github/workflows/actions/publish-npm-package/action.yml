@@ -87,8 +87,9 @@ runs:
       env:
         WASM_PACK_ARGS: --release
       run: |
-        echo "Build '${{ steps.prepare.outputs.package_name }}' package"
+        echo "::group::Build '${{ steps.prepare.outputs.package_name }}' package"
         make build
+        echo "::endgroup::"
 
     - name: Prepare publish
       shell: bash
