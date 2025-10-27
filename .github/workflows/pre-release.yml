@@ -316,7 +316,7 @@ jobs:
           dry_run: "true"
           package: ${{ matrix.package }}
 
-  publish-wasm-test:
+  publish-next-wasm-package:
     strategy:
       fail-fast: false
       max-parallel: 1

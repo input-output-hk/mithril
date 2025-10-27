@@ -613,7 +613,7 @@ jobs:
           cargo-tools: wasm-pack
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish package to npm
+      - name: Publish package to npm (dry-run)
         uses: ./.github/workflows/actions/publish-npm-package
         with:
           dry_run: "true"
