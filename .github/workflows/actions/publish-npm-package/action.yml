@@ -23,6 +23,13 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - uses: actions/setup-node@v6
+      with:
+        node-version: "lts/*"
+        package-manager-cache: "false"
+        # Note: setting up the registry allows auth to be passed via env.NODE_AUTH_TOKEN
+        registry-url: https://registry.npmjs.org
+
     - name: Prepare
       id: prepare
       shell: bash
@@ -100,16 +107,15 @@ runs:
       shell: bash
       working-directory: ${{ inputs.package_dir }}
       env:
-        NPM_TOKEN: ${{ inputs.api_token }}
+        NODE_AUTH_TOKEN: ${{ inputs.api_token }}
       run: |
         echo "Publish '${{ steps.prepare.outputs.package_name }}' package"
-        npm set "//registry.npmjs.org/:_authToken=${NPM_TOKEN}"
-        if [ -z "${NPM_TOKEN}" -a "${{ inputs.dry_run }}" == "true" ]; then
+        if [ -z "${NODE_AUTH_TOKEN}" -a "${{ inputs.dry_run }}" == "true" ]; then
           echo "Warning: An NPM access token is required for authentication and has not been provided."
         else
           npm whoami
         fi
-        
+
         if [ "${{ inputs.dry_run }}" == "false" ]; then
           dry_run_option=""
         else
@@ -122,10 +128,9 @@ runs:
       shell: bash
       working-directory: ${{ inputs.package_dir }}
       env:
-        NPM_TOKEN: ${{ inputs.api_token }}
+        NODE_AUTH_TOKEN: ${{ inputs.api_token }}
       run: |
         echo "Promote '${{ steps.prepare.outputs.package_name }}' package version '${{ steps.prepare.outputs.package_local_version }}' from 'next' to 'latest'"
-        npm set "//registry.npmjs.org/:_authToken=${NPM_TOKEN}"
         npm whoami
         npm dist-tag add ${{ steps.prepare.outputs.package_name }}"@${{ steps.prepare.outputs.package_local_version }} latest
         npm dist-tag rm ${{ steps.prepare.outputs.package_name }}"@${{ steps.prepare.outputs.package_local_version }} next
