@@ -80,7 +80,10 @@ This repository consists of the following parts:
 - [**Mithril signer**](./mithril-signer): the node of the **Mithril network** responsible for producing individual signatures that are collected and aggregated by the **Mithril aggregator**.
 
 - [**Internal**](./internal): the shared tools and API used by **Mithril** crates.
-  - [**Mithril aggregator client**](./internal/mithril-aggregator-client): a client to request data from a Mithril Aggregator, used by **Mithril network** nodes and client library.
+
+  - [**Mithril aggregator client**](./internal/mithril-aggregator-client): a client to request data from a Mithril aggregator, used by **Mithril network** nodes and client library.
+
+  - [**Mithril aggregator discovery**](./internal/mithril-aggregator-discovery): mechanisms to discover available Mithril aggregator, used by **Mithril network** nodes and client library.
 
   - [**Mithril build script**](./internal/mithril-build-script): a toolbox for Mithril crates that uses a build script phase.
 
@@ -113,11 +116,13 @@ This repository consists of the following parts:
   - [**Mithril signed entity prealoader**](./internal/signed-entity/mithril-signed-entity-preloader): a **preload** mechanism for the Cardano transaction signed entity, used by **Mithril network** nodes.
 
   - [**tests**](./internal/tests): shared testing tools used by **Mithril** crates.
+
     - [**Mithril api spec**](./internal/tests/mithril-api-spec): toolset to verify conformity of http routes against an Open Api specification, used by **Mithril network** nodes.
 
     - [**Mithril test http server**](internal/tests/mithril-test-http-server): provides a test http server, used by **Mithril network** nodes.
 
 - [**Mithril test lab**](./mithril-test-lab): the suite of tools that allow us to test and stress the **Mithril** protocol implementations.
+
   - [**Mithril devnet**](./mithril-test-lab/mithril-devnet): the private **Mithril/Cardano network** used to scaffold a **Mithril network** on top of a **Cardano network**.
 
   - [**Mithril end to end**](./mithril-test-lab/mithril-end-to-end): the tool used to run test scenarios against a **Mithril devnet**.
