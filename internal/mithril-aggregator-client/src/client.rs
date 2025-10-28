@@ -2,6 +2,7 @@ use anyhow::{Context, anyhow};
 use reqwest::{IntoUrl, Response, Url, header::HeaderMap};
 use semver::Version;
 use slog::{Logger, error, warn};
+use std::sync::Arc;
 use std::time::Duration;
 
 use mithril_common::MITHRIL_API_VERSION_HEADER;
@@ -17,7 +18,7 @@ const API_VERSION_MISMATCH_WARNING_MESSAGE: &str = "OpenAPI version may be incom
 /// A client to send HTTP requests to a Mithril Aggregator
 pub struct AggregatorClient {
     pub(super) aggregator_endpoint: Url,
-    pub(super) api_version_provider: APIVersionProvider,
+    pub(super) api_version_provider: Arc<APIVersionProvider>,
     pub(super) additional_headers: HeaderMap,
     pub(super) timeout_duration: Option<Duration>,
     pub(super) client: reqwest::Client,
@@ -240,8 +241,9 @@ mod tests {
     #[tokio::test]
     async fn test_query_send_mithril_api_version_header() {
         let (server, mut client) = setup_server_and_client();
-        client.api_version_provider =
-            APIVersionProvider::new_with_default_version(Version::parse("1.2.9").unwrap());
+        client.api_version_provider = Arc::new(APIVersionProvider::new_with_default_version(
+            Version::parse("1.2.9").unwrap(),
+        ));
         server.mock(|when, then| {
             when.method(httpmock::Method::GET)
                 .header(MITHRIL_API_VERSION_HEADER, "1.2.9");
@@ -254,8 +256,9 @@ mod tests {
     #[tokio::test]
     async fn test_query_send_additional_header_and_dont_override_mithril_api_version_header() {
         let (server, mut client) = setup_server_and_client();
-        client.api_version_provider =
-            APIVersionProvider::new_with_default_version(Version::parse("1.2.9").unwrap());
+        client.api_version_provider = Arc::new(APIVersionProvider::new_with_default_version(
+            Version::parse("1.2.9").unwrap(),
+        ));
         client.additional_headers = {
             let mut headers = HeaderMap::new();
             headers.insert(MITHRIL_API_VERSION_HEADER, "9.4.5".parse().unwrap());
@@ -336,9 +339,9 @@ mod tests {
             let (logger, log_inspector) = TestLogger::memory();
             let client = AggregatorClient::builder("http://whatever")
                 .with_logger(logger)
-                .with_api_version_provider(APIVersionProvider::new_with_default_version(
+                .with_api_version_provider(Arc::new(APIVersionProvider::new_with_default_version(
                     Version::parse(client_version).unwrap(),
-                ))
+                )))
                 .build()
                 .unwrap();
             let response =
@@ -360,9 +363,9 @@ mod tests {
             let (logger, log_inspector) = TestLogger::memory();
             let client = AggregatorClient::builder("http://whatever")
                 .with_logger(logger)
-                .with_api_version_provider(APIVersionProvider::new_with_default_version(
+                .with_api_version_provider(Arc::new(APIVersionProvider::new_with_default_version(
                     Version::parse(version).unwrap(),
-                ))
+                )))
                 .build()
                 .unwrap();
             let response = build_fake_response_with_header(MITHRIL_API_VERSION_HEADER, version);
@@ -379,9 +382,9 @@ mod tests {
             let (logger, log_inspector) = TestLogger::memory();
             let client = AggregatorClient::builder("http://whatever")
                 .with_logger(logger)
-                .with_api_version_provider(APIVersionProvider::new_with_default_version(
+                .with_api_version_provider(Arc::new(APIVersionProvider::new_with_default_version(
                     Version::parse(client_version).unwrap(),
-                ))
+                )))
                 .build()
                 .unwrap();
             let response =
@@ -402,7 +405,7 @@ mod tests {
             let (logger, log_inspector) = TestLogger::memory();
             let client = AggregatorClient::builder("http://whatever")
                 .with_logger(logger)
-                .with_api_version_provider(APIVersionProvider::default())
+                .with_api_version_provider(Arc::new(APIVersionProvider::default()))
                 .build()
                 .unwrap();
             let response =
@@ -418,7 +421,7 @@ mod tests {
             let (logger, log_inspector) = TestLogger::memory();
             let client = AggregatorClient::builder("http://whatever")
                 .with_logger(logger)
-                .with_api_version_provider(APIVersionProvider::default())
+                .with_api_version_provider(Arc::new(APIVersionProvider::default()))
                 .build()
                 .unwrap();
             let response =
@@ -434,7 +437,7 @@ mod tests {
             let (logger, log_inspector) = TestLogger::memory();
             let client = AggregatorClient::builder("http://whatever")
                 .with_logger(logger)
-                .with_api_version_provider(APIVersionProvider::new_failing())
+                .with_api_version_provider(Arc::new(APIVersionProvider::new_failing()))
                 .build()
                 .unwrap();
             let response = build_fake_response_with_header(MITHRIL_API_VERSION_HEADER, "1.0.0");
@@ -450,9 +453,9 @@ mod tests {
             let client_version = "1.0.0";
             let (server, mut client) = setup_server_and_client();
             let (logger, log_inspector) = TestLogger::memory();
-            client.api_version_provider = APIVersionProvider::new_with_default_version(
+            client.api_version_provider = Arc::new(APIVersionProvider::new_with_default_version(
                 Version::parse(client_version).unwrap(),
-            );
+            ));
             client.logger = logger;
             server.mock(|_, then| {
                 then.status(StatusCode::CREATED.as_u16())
