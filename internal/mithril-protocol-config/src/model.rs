@@ -36,7 +36,7 @@ pub struct MithrilNetworkConfiguration {
 //A epoch configuration
 #[derive(PartialEq, Clone, Debug)]
 
-/// A epoch configuration
+/// A network configuration available for an epoch
 pub struct EpochConfiguration {
     /// Cryptographic protocol parameters (`k`, `m` and `phi_f`)
     pub protocol_parameters: ProtocolParameters,

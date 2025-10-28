@@ -5,10 +5,10 @@ use mithril_common::{StdResult, entities::Epoch};
 
 use crate::model::MithrilNetworkConfiguration;
 
-/// A provider for the Mithril network configuration of the current epoch.
+/// A provider for the Mithril network configuration of the a given epoch.
 #[async_trait]
 pub trait MithrilNetworkConfigurationProvider: Sync + Send {
-    /// Get the Mithril network configuration for the current epoch.
+    /// Get the Mithril network configuration for a given epoch.
     async fn get_network_configuration(
         &self,
         epoch: Epoch,
