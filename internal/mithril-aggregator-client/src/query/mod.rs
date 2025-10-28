@@ -5,6 +5,8 @@
 //!
 mod api;
 mod get;
+mod post;
 
 pub(crate) use api::*;
 pub use get::*;
+pub use post::*;

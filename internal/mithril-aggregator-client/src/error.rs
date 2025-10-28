@@ -63,7 +63,7 @@ impl AggregatorHttpClientError {
         }
     }
 
-    async fn get_root_cause(response: Response) -> String {
+    pub(crate) async fn get_root_cause(response: Response) -> String {
         let error_code = response.status();
         let canonical_reason = error_code.canonical_reason().unwrap_or_default().to_lowercase();
         let is_json = response
