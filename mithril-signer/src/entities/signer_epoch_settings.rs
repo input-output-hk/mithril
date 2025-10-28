@@ -1,7 +1,6 @@
 use mithril_common::entities::{Epoch, Signer};
 
 /// SignerEpochSettings represents the settings of an epoch
-/// TODO: rename SignerRegistration ? SignerRegistrationSettings ?
 #[derive(Clone, Debug, PartialEq)]
 pub struct SignerEpochSettings {
     /// Current Epoch

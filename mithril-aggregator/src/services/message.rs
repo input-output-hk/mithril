@@ -35,7 +35,7 @@ pub trait MessageService: Sync + Send {
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
     ) -> StdResult<EpochSettingsMessage>;
 
-    ///Return the protocol configuration message for the given epoch if it exists.
+    /// Return the protocol configuration message for the given epoch if it exists.
     async fn get_protocol_configuration_message(
         &self,
         epoch: Epoch,

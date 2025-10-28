@@ -9,10 +9,10 @@ use crate::entities::{
 /// ProtocolConfiguration represents the protocol configuration of an epoch
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProtocolConfigurationMessage {
-    /// Signer Registration Protocol parameters
+    /// Protocol parameters
     pub protocol_parameters: ProtocolParameters,
 
-    /// Cardano transactions signing configuration for the current epoch
+    /// Cardano transactions signing configuration
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
 
