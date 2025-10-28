@@ -5,6 +5,7 @@
 mod builder;
 mod client;
 mod error;
+mod external_trait_impls;
 pub mod query;
 #[cfg(test)]
 mod test;
