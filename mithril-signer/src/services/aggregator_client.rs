@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use mithril_common::StdResult;
 use mithril_common::messages::ProtocolConfigurationMessage;
-use mithril_protocol_config::http_client::http_impl::ProtocolConfigurationRetriever;
+use mithril_protocol_config::http_client::http_impl::ProtocolConfigurationRetrieverFromAggregator;
 use reqwest::header::{self, HeaderValue};
 use reqwest::{self, Client, Proxy, RequestBuilder, Response, StatusCode};
 use semver::Version;
@@ -382,7 +382,7 @@ impl AggregatorClient for AggregatorHTTPClient {
 }
 
 #[async_trait]
-impl ProtocolConfigurationRetriever for AggregatorHTTPClient {
+impl ProtocolConfigurationRetrieverFromAggregator for AggregatorHTTPClient {
     async fn retrieve_protocol_configuration(
         &self,
         epoch: Epoch,

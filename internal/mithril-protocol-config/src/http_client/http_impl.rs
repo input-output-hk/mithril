@@ -14,7 +14,7 @@ use crate::model::{MithrilNetworkConfiguration, MithrilNetworkConfigurationForEp
 /// Trait to retrieve protocol configuration
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
-pub trait ProtocolConfigurationRetriever: Sync + Send {
+pub trait ProtocolConfigurationRetrieverFromAggregator: Sync + Send {
     /// Retrieves protocol configuration for a given epoch from the aggregator
     async fn retrieve_protocol_configuration(
         &self,
@@ -24,12 +24,14 @@ pub trait ProtocolConfigurationRetriever: Sync + Send {
 
 /// Structure implementing MithrilNetworkConfigurationProvider using HTTP.
 pub struct HttpMithrilNetworkConfigurationProvider {
-    protocol_configuration_retriever: Arc<dyn ProtocolConfigurationRetriever>,
+    protocol_configuration_retriever: Arc<dyn ProtocolConfigurationRetrieverFromAggregator>,
 }
 
 impl HttpMithrilNetworkConfigurationProvider {
     /// HttpMithrilNetworkConfigurationProvider factory
-    pub fn new(protocol_configuration_retriever: Arc<dyn ProtocolConfigurationRetriever>) -> Self {
+    pub fn new(
+        protocol_configuration_retriever: Arc<dyn ProtocolConfigurationRetrieverFromAggregator>,
+    ) -> Self {
         Self {
             protocol_configuration_retriever,
         }
@@ -94,7 +96,8 @@ mod tests {
 
     use crate::{
         http_client::http_impl::{
-            HttpMithrilNetworkConfigurationProvider, MockProtocolConfigurationRetriever,
+            HttpMithrilNetworkConfigurationProvider,
+            MockProtocolConfigurationRetrieverFromAggregator,
         },
         interface::MithrilNetworkConfigurationProvider,
     };
@@ -102,7 +105,8 @@ mod tests {
     #[tokio::test]
     async fn test_get_network_configuration_retrieve_configurations_for_aggregation_next_aggregation_and_registration()
      {
-        let mut protocol_configuration_retriever = MockProtocolConfigurationRetriever::new();
+        let mut protocol_configuration_retriever =
+            MockProtocolConfigurationRetrieverFromAggregator::new();
 
         protocol_configuration_retriever
             .expect_retrieve_protocol_configuration()

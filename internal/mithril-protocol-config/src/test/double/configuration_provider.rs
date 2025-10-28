@@ -4,7 +4,7 @@ use tokio::sync::RwLock;
 
 use crate::{
     interface::MithrilNetworkConfigurationProvider,
-    model::{MithrilNetworkConfigurationForEpoch, MithrilNetworkConfiguration},
+    model::{MithrilNetworkConfiguration, MithrilNetworkConfigurationForEpoch},
 };
 use async_trait::async_trait;
 use mithril_common::{StdResult, entities::Epoch};
@@ -36,7 +36,10 @@ impl FakeMithrilNetworkConfigurationProvider {
     }
 
     ///Change the configuration of the aggregation
-    pub async fn change_aggregation_configuration(&self, conf: MithrilNetworkConfigurationForEpoch) {
+    pub async fn change_aggregation_configuration(
+        &self,
+        conf: MithrilNetworkConfigurationForEpoch,
+    ) {
         let mut configuration_for_aggregation = self.configuration_for_aggregation.write().await;
         *configuration_for_aggregation = conf;
     }

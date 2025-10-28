@@ -6,7 +6,7 @@ use mithril_common::{
 };
 
 use crate::model::{
-    MithrilNetworkConfigurationForEpoch, MithrilNetworkConfiguration, SignedEntityTypeConfiguration,
+    MithrilNetworkConfiguration, MithrilNetworkConfigurationForEpoch, SignedEntityTypeConfiguration,
 };
 
 impl Dummy for MithrilNetworkConfiguration {

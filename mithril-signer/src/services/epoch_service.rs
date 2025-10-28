@@ -437,7 +437,9 @@ mod tests {
         double::{Dummy, fake_data},
     };
 
-    use mithril_protocol_config::model::{MithrilNetworkConfigurationForEpoch, SignedEntityTypeConfiguration};
+    use mithril_protocol_config::model::{
+        MithrilNetworkConfigurationForEpoch, SignedEntityTypeConfiguration,
+    };
 
     use crate::database::repository::{ProtocolInitializerRepository, StakePoolStore};
     use crate::database::test_helper::main_db_connection;
