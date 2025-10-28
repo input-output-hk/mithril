@@ -51,12 +51,11 @@ use crate::dependency_injection::SignerDependencyContainer;
 #[cfg(feature = "future_dmq")]
 use crate::services::SignaturePublisherDmq;
 use crate::services::{
-    AggregatorHTTPClient, CardanoTransactionsImporter,
-    CardanoTransactionsPreloaderActivationSigner, MithrilEpochService, MithrilSingleSigner,
-    SignaturePublishRetryPolicy, SignaturePublisherDelayer, SignaturePublisherNoop,
-    SignaturePublisherRetrier, SignerCertifierService, SignerSignableSeedBuilder,
-    SignerSignedEntityConfigProvider, SignerUpkeepService, TransactionsImporterByChunk,
-    TransactionsImporterWithPruner, TransactionsImporterWithVacuum,
+    CardanoTransactionsImporter, CardanoTransactionsPreloaderActivationSigner, MithrilEpochService,
+    MithrilSingleSigner, SignaturePublishRetryPolicy, SignaturePublisherDelayer,
+    SignaturePublisherNoop, SignaturePublisherRetrier, SignerCertifierService,
+    SignerSignableSeedBuilder, SignerSignedEntityConfigProvider, SignerUpkeepService,
+    TransactionsImporterByChunk, TransactionsImporterWithPruner, TransactionsImporterWithVacuum,
 };
 use crate::store::MKTreeStoreSqlite;
 use crate::{
@@ -270,7 +269,7 @@ impl<'a> DependenciesBuilder<'a> {
         ));
 
         let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
-        let aggregator_client_for_network_config = Arc::new(
+        let aggregator_client = Arc::new(
             AggregatorHttpClient::builder(self.config.aggregator_endpoint.clone())
                 .with_relay_endpoint(self.config.relay_endpoint.clone())
                 .with_api_version_provider(api_version_provider.clone())
@@ -278,13 +277,6 @@ impl<'a> DependenciesBuilder<'a> {
                 .with_logger(self.root_logger())
                 .build()?,
         );
-        let aggregator_client = Arc::new(AggregatorHTTPClient::new(
-            self.config.aggregator_endpoint.clone(),
-            self.config.relay_endpoint.clone(),
-            api_version_provider.clone(),
-            Some(Duration::from_millis(HTTP_REQUEST_TIMEOUT_DURATION)),
-            self.root_logger(),
-        ));
 
         let cardano_immutable_snapshot_builder =
             Arc::new(CardanoImmutableFilesFullSignableBuilder::new(
@@ -385,7 +377,7 @@ impl<'a> DependenciesBuilder<'a> {
         ));
         let metrics_service = Arc::new(MetricsService::new(self.root_logger())?);
         let network_configuration_service = Arc::new(HttpMithrilNetworkConfigurationProvider::new(
-            aggregator_client_for_network_config,
+            aggregator_client.clone(),
         ));
         let preloader_activation = CardanoTransactionsPreloaderActivationSigner::new(
             network_configuration_service.clone(),

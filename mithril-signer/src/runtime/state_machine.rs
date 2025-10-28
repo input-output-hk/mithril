@@ -10,9 +10,10 @@ use mithril_common::{
     logging::LoggerExtensions,
 };
 
+use mithril_aggregator_client::AggregatorHttpClientError;
 use mithril_protocol_config::model::MithrilNetworkConfiguration;
 
-use crate::{MetricsService, entities::BeaconToSign, services::AggregatorClientError};
+use crate::{MetricsService, entities::BeaconToSign};
 
 use super::{Runner, RuntimeError};
 
@@ -333,8 +334,8 @@ impl StateMachine {
             epoch: Epoch,
         ) -> Result<Option<SignerState>, RuntimeError> {
             if let Err(e) = register_result {
-                if let Some(AggregatorClientError::RegistrationRoundNotYetOpened(_)) =
-                    e.downcast_ref::<AggregatorClientError>()
+                if let Some(AggregatorHttpClientError::RegistrationRoundNotYetOpened(_)) =
+                    e.downcast_ref::<AggregatorHttpClientError>()
                 {
                     Ok(Some(SignerState::Unregistered { epoch }))
                 } else if e.downcast_ref::<ProtocolInitializerError>().is_some() {
@@ -497,7 +498,6 @@ mod tests {
 
     use crate::SignerEpochSettings;
     use crate::runtime::runner::MockSignerRunner;
-    use crate::services::AggregatorClientError;
     use crate::test_tools::TestLogger;
 
     use super::*;
@@ -720,7 +720,7 @@ mod tests {
             .returning(|| Ok(TimePoint::dummy()));
         runner.expect_update_stake_distribution().once().returning(|_| Ok(()));
         runner.expect_register_signer_to_aggregator().once().returning(|| {
-            Err(AggregatorClientError::RegistrationRoundNotYetOpened(
+            Err(AggregatorHttpClientError::RegistrationRoundNotYetOpened(
                 anyhow!("Not yet opened"),
             ))?
         });

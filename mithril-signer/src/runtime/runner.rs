@@ -134,11 +134,7 @@ impl Runner for SignerRunner {
     ) -> StdResult<Option<SignerEpochSettings>> {
         debug!(self.logger, ">> get_epoch_settings");
 
-        self.services
-            .certificate_handler
-            .retrieve_epoch_settings()
-            .await
-            .map_err(|e| e.into())
+        self.services.certificate_handler.retrieve_epoch_settings().await
     }
 
     async fn get_beacon_to_sign(&self, time_point: TimePoint) -> StdResult<Option<BeaconToSign>> {
