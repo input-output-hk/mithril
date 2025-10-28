@@ -9,12 +9,12 @@ use crate::AggregatorClientResult;
 use crate::error::AggregatorClientError;
 use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
 
-/// Get the details of a certificate
-pub struct CertificateDetailsQuery {
+/// Query to get the details of a certificate
+pub struct GetCertificateQuery {
     hash: String,
 }
 
-impl CertificateDetailsQuery {
+impl GetCertificateQuery {
     /// Instantiate a query to get a certificate by hash
     pub fn by_hash<H: Into<String>>(hash: H) -> Self {
         Self { hash: hash.into() }
@@ -30,7 +30,7 @@ impl CertificateDetailsQuery {
 
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
-impl AggregatorQuery for CertificateDetailsQuery {
+impl AggregatorQuery for GetCertificateQuery {
     type Response = Option<CertificateMessage>;
     type Body = ();
 
@@ -65,7 +65,7 @@ mod tests {
 
     use mithril_common::test::double::Dummy;
 
-    use crate::test::setup_server_and_client;
+    use crate::test::{assert_error_matches, setup_server_and_client};
 
     use super::*;
 
@@ -79,7 +79,7 @@ mod tests {
         });
 
         let fetched_message = client
-            .send(CertificateDetailsQuery::by_hash(&expected_message.hash))
+            .send(GetCertificateQuery::by_hash(&expected_message.hash))
             .await
             .unwrap();
 
@@ -94,10 +94,7 @@ mod tests {
             then.status(404);
         });
 
-        let fetched_message = client
-            .send(CertificateDetailsQuery::by_hash("whatever"))
-            .await
-            .unwrap();
+        let fetched_message = client.send(GetCertificateQuery::by_hash("whatever")).await.unwrap();
 
         assert_eq!(None, fetched_message);
     }
@@ -110,14 +107,12 @@ mod tests {
             then.status(500).body("an error occurred");
         });
 
-        match client
-            .send(CertificateDetailsQuery::by_hash("whatever"))
+        let error = client
+            .send(GetCertificateQuery::by_hash("whatever"))
             .await
-            .unwrap_err()
-        {
-            AggregatorClientError::RemoteServerTechnical(_) => (),
-            e => panic!("Expected Aggregator::RemoteServerTechnical error, got '{e:?}'."),
-        };
+            .unwrap_err();
+
+        assert_error_matches!(error, AggregatorClientError::RemoteServerTechnical(_));
     }
 
     #[tokio::test]
@@ -129,7 +124,7 @@ mod tests {
             then.status(200).body(json!(genesis_message).to_string());
         });
 
-        let fetched = client.send(CertificateDetailsQuery::latest_genesis()).await.unwrap();
+        let fetched = client.send(GetCertificateQuery::latest_genesis()).await.unwrap();
 
         assert_eq!(Some(genesis_message), fetched);
     }
@@ -142,7 +137,7 @@ mod tests {
             then.status(404);
         });
 
-        let fetched = client.send(CertificateDetailsQuery::latest_genesis()).await.unwrap();
+        let fetched = client.send(GetCertificateQuery::latest_genesis()).await.unwrap();
 
         assert_eq!(None, fetched);
     }
@@ -155,14 +150,8 @@ mod tests {
             then.status(500).body("an error occurred");
         });
 
-        let error = client
-            .send(CertificateDetailsQuery::latest_genesis())
-            .await
-            .unwrap_err();
+        let error = client.send(GetCertificateQuery::latest_genesis()).await.unwrap_err();
 
-        assert!(
-            matches!(error, AggregatorClientError::RemoteServerTechnical(_)),
-            "Expected Aggregator::RemoteServerTechnical error, got {error:?}"
-        );
+        assert_error_matches!(error, AggregatorClientError::RemoteServerTechnical(_));
     }
 }
