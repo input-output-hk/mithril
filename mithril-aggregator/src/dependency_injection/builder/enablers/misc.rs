@@ -4,11 +4,12 @@
 //! - group these enablers into more logical categories
 //! - redefine the actual categories so those miscellaneous enablers fit into them
 
-use anyhow::{Context, anyhow};
-use reqwest::Url;
+use anyhow::anyhow;
 use std::sync::Arc;
 use std::time::Duration;
 
+use mithril_aggregator_client::AggregatorHttpClient;
+use mithril_common::logging::LoggerExtensions;
 #[cfg(feature = "future_dmq")]
 use mithril_common::messages::RegisterSignatureMessageDmq;
 #[cfg(feature = "future_dmq")]
@@ -21,9 +22,10 @@ use crate::get_dependency;
 #[cfg(feature = "future_dmq")]
 use crate::services::SignatureConsumerDmq;
 use crate::services::{
-    AggregatorHTTPClient, MessageService, MithrilMessageService, SequentialSignatureProcessor,
-    SignatureConsumer, SignatureConsumerNoop, SignatureProcessor,
+    MessageService, MithrilMessageService, SequentialSignatureProcessor, SignatureConsumer,
+    SignatureConsumerNoop, SignatureProcessor,
 };
+
 impl DependenciesBuilder {
     async fn build_signed_entity_type_lock(&mut self) -> Result<Arc<SignedEntityTypeLock>> {
         let signed_entity_lock = Arc::new(SignedEntityTypeLock::default());
@@ -60,29 +62,23 @@ impl DependenciesBuilder {
         get_dependency!(self.message_service)
     }
 
-    /// Builds an [AggregatorHTTPClient]
-    pub async fn build_leader_aggregator_client(&mut self) -> Result<Arc<AggregatorHTTPClient>> {
+    /// Builds an [AggregatorHttpClient]
+    pub async fn build_leader_aggregator_client(&mut self) -> Result<Arc<AggregatorHttpClient>> {
         let leader_aggregator_endpoint = self.configuration.leader_aggregator_endpoint().ok_or(
             anyhow!("Leader Aggregator endpoint is mandatory for follower Aggregator"),
         )?;
 
-        let aggregator_client = AggregatorHTTPClient::new(
-            Url::parse(&leader_aggregator_endpoint).with_context(|| {
-                format!(
-                    "Failed to parse leader aggregator endpoint: '{leader_aggregator_endpoint}'"
-                )
-            })?,
-            None,
-            self.get_api_version_provider().await?,
-            Some(Duration::from_secs(30)),
-            self.root_logger(),
-        );
+        let aggregator_client = AggregatorHttpClient::builder(&leader_aggregator_endpoint)
+            .with_api_version_provider(self.get_api_version_provider().await?)
+            .with_timeout(Duration::from_secs(30))
+            .with_logger(self.root_logger.new_with_name("LeaderAggregatorClient"))
+            .build()?;
 
         Ok(Arc::new(aggregator_client))
     }
 
-    /// Returns a leader [AggregatorHTTPClient]
-    pub async fn get_leader_aggregator_client(&mut self) -> Result<Arc<AggregatorHTTPClient>> {
+    /// Returns a leader [AggregatorHttpClient]
+    pub async fn get_leader_aggregator_client(&mut self) -> Result<Arc<AggregatorHttpClient>> {
         get_dependency!(self.leader_aggregator_client)
     }
 

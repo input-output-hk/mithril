@@ -26,7 +26,6 @@ mod stake_distribution;
 mod upkeep;
 mod usage_reporter;
 
-pub use aggregator_client::*;
 pub use cardano_transactions_importer::*;
 pub use certificate_chain_synchronizer::*;
 pub use certifier::*;

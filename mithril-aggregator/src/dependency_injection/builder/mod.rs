@@ -15,6 +15,7 @@ use tokio::{
 };
 use warp::Filter;
 
+use mithril_aggregator_client::AggregatorHttpClient;
 use mithril_cardano_node_chain::{
     chain_observer::{CardanoCliRunner, ChainObserver},
     chain_reader::ChainBlockReader,
@@ -56,7 +57,7 @@ use crate::{
     file_uploaders::FileUploader,
     http_server::routes::router::{self, RouterConfig, RouterState},
     services::{
-        AggregatorHTTPClient, CertificateChainSynchronizer, CertifierService, MessageService,
+        CertificateChainSynchronizer, CertifierService, MessageService,
         MithrilSignerRegistrationFollower, ProverService, SignedEntityService, SignerSynchronizer,
         Snapshotter, StakeDistributionService, UpkeepService,
     },
@@ -278,7 +279,7 @@ pub struct DependenciesBuilder {
     pub metrics_service: Option<Arc<MetricsService>>,
 
     /// Leader aggregator client
-    pub leader_aggregator_client: Option<Arc<AggregatorHTTPClient>>,
+    pub leader_aggregator_client: Option<Arc<AggregatorHttpClient>>,
 
     /// Protocol parameters retriever
     pub protocol_parameters_retriever: Option<Arc<dyn ProtocolParametersRetriever>>,

@@ -3610,6 +3610,7 @@ dependencies = [
  "hex",
  "http",
  "httpmock",
+ "mithril-aggregator-client",
  "mithril-api-spec",
  "mithril-cardano-node-chain",
  "mithril-cardano-node-internal-database",
