@@ -13,7 +13,7 @@ pub fn routes(
 fn protocol_configuration(
     router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply + use<>,), Error = warp::Rejection> + Clone + use<> {
-    warp::path!("protocol-configuration" / String)
+    warp::path!("protocol-configuration" / u64)
         .and(warp::get())
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_http_message_service(router_state))
@@ -34,21 +34,12 @@ mod handlers {
 
     /// Protocol Configuration
     pub async fn protocol_configuration(
-        epoch: String,
+        epoch: u64,
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
     ) -> Result<impl warp::Reply, Infallible> {
-        let epoch = match epoch.parse::<u64>() {
-            Ok(epoch) => Epoch(epoch),
-            Err(err) => {
-                warn!(logger, "protocol_configuration::invalid_epoch"; "error" => ?err);
-                return Ok(reply::bad_request(
-                    "invalid_epoch".to_string(),
-                    err.to_string(),
-                ));
-            }
-        };
+        let epoch = Epoch(epoch);
 
         let protocol_configuration_message = http_message_service
             .get_protocol_configuration_message(epoch, allowed_discriminants)
