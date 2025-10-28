@@ -43,8 +43,13 @@ impl CardanoTransactionsPreloaderChecker for CardanoTransactionsPreloaderActivat
             .configuration_for_aggregation
             .enabled_signed_entity_types;
 
+        let next_activated_signed_entity_types = configuration
+            .configuration_for_next_aggregation
+            .enabled_signed_entity_types;
+
         Ok(activated_signed_entity_types
-            .contains(&SignedEntityTypeDiscriminants::CardanoTransactions))
+            .union(&next_activated_signed_entity_types)
+            .any(|s| s == &SignedEntityTypeDiscriminants::CardanoTransactions))
     }
 }
 
@@ -82,7 +87,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn preloader_activation_state_activate_preloader_when_cardano_transactions_not_in_aggregator_capabilities()
+    async fn preloader_activation_is_not_activated_when_cardano_transactions_not_in_current_or_next_configuration_for_aggregation()
      {
         let mut network_configuration_provider = MockMithrilNetworkConfigurationProvider::new();
         network_configuration_provider
@@ -91,9 +96,11 @@ mod tests {
             .returning(|_| {
                 Ok(MithrilNetworkConfiguration {
                     configuration_for_aggregation: MithrilNetworkConfigurationForEpoch {
-                        enabled_signed_entity_types: BTreeSet::from([
-                            SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                        ]),
+                        enabled_signed_entity_types: BTreeSet::from([]),
+                        ..Dummy::dummy()
+                    },
+                    configuration_for_next_aggregation: MithrilNetworkConfigurationForEpoch {
+                        enabled_signed_entity_types: BTreeSet::from([]),
                         ..Dummy::dummy()
                     },
                     ..Dummy::dummy()
@@ -116,7 +123,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn preloader_activation_state_activate_preloader_when_cardano_transactions_in_aggregator_capabilities()
+    async fn preloader_activation_is_activated_when_cardano_transactions_is_in_configuration_for_aggregation()
      {
         let mut network_configuration_provider = MockMithrilNetworkConfigurationProvider::new();
         network_configuration_provider
@@ -125,6 +132,49 @@ mod tests {
             .returning(|_| {
                 Ok(MithrilNetworkConfiguration {
                     configuration_for_aggregation: MithrilNetworkConfigurationForEpoch {
+                        enabled_signed_entity_types: BTreeSet::from([
+                            SignedEntityTypeDiscriminants::CardanoTransactions,
+                        ]),
+                        ..Dummy::dummy()
+                    },
+                    configuration_for_next_aggregation: MithrilNetworkConfigurationForEpoch {
+                        enabled_signed_entity_types: BTreeSet::from([]),
+                        ..Dummy::dummy()
+                    },
+                    ..Dummy::dummy()
+                })
+            });
+
+        let mut ticker_service = MockTickerService::new();
+        ticker_service
+            .expect_get_current_epoch()
+            .times(1)
+            .returning(|| Ok(Epoch(1)));
+
+        let preloader = CardanoTransactionsPreloaderActivationSigner::new(
+            Arc::new(network_configuration_provider),
+            Arc::new(ticker_service),
+        );
+
+        let is_activated = preloader.is_activated().await.unwrap();
+
+        assert!(is_activated);
+    }
+
+    #[tokio::test]
+    async fn preloader_activation_is_activated_when_cardano_transactions_is_in_configuration_for_next_aggregation()
+     {
+        let mut network_configuration_provider = MockMithrilNetworkConfigurationProvider::new();
+        network_configuration_provider
+            .expect_get_network_configuration()
+            .times(1)
+            .returning(|_| {
+                Ok(MithrilNetworkConfiguration {
+                    configuration_for_aggregation: MithrilNetworkConfigurationForEpoch {
+                        enabled_signed_entity_types: BTreeSet::from([]),
+                        ..Dummy::dummy()
+                    },
+                    configuration_for_next_aggregation: MithrilNetworkConfigurationForEpoch {
                         enabled_signed_entity_types: BTreeSet::from([
                             SignedEntityTypeDiscriminants::CardanoTransactions,
                         ]),
