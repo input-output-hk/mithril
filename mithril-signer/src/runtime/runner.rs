@@ -372,7 +372,7 @@ impl Runner for SignerRunner {
 
 #[cfg(test)]
 mod tests {
-    use mithril_protocol_config::model::EpochConfiguration;
+    use mithril_protocol_config::model::MithrilNetworkConfigurationForEpoch;
     use mockall::mock;
     use mockall::predicate::eq;
     use std::collections::BTreeSet;
@@ -557,9 +557,9 @@ mod tests {
         ));
         let kes_signer = None;
 
-        let configuration_for_aggregation = EpochConfiguration::dummy();
-        let configuration_for_next_aggregation = EpochConfiguration::dummy();
-        let configuration_for_registration = EpochConfiguration::dummy();
+        let configuration_for_aggregation = MithrilNetworkConfigurationForEpoch::dummy();
+        let configuration_for_next_aggregation = MithrilNetworkConfigurationForEpoch::dummy();
+        let configuration_for_registration = MithrilNetworkConfigurationForEpoch::dummy();
 
         let network_configuration_service = Arc::new(FakeMithrilNetworkConfigurationProvider::new(
             configuration_for_aggregation,
@@ -776,7 +776,7 @@ mod tests {
 
         let mithril_network_configuration = MithrilNetworkConfiguration {
             epoch,
-            configuration_for_aggregation: EpochConfiguration {
+            configuration_for_aggregation: MithrilNetworkConfigurationForEpoch {
                 enabled_signed_entity_types: BTreeSet::from([
                     SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                     SignedEntityTypeDiscriminants::CardanoTransactions,

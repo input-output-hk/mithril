@@ -55,7 +55,9 @@ mod tests {
         entities::{Epoch, SignedEntityTypeDiscriminants, TimePoint},
         test::double::Dummy,
     };
-    use mithril_protocol_config::model::{EpochConfiguration, MithrilNetworkConfiguration};
+    use mithril_protocol_config::model::{
+        MithrilNetworkConfiguration, MithrilNetworkConfigurationForEpoch,
+    };
     use mockall::mock;
     use std::collections::BTreeSet;
 
@@ -88,7 +90,7 @@ mod tests {
             .times(1)
             .returning(|_| {
                 Ok(MithrilNetworkConfiguration {
-                    configuration_for_aggregation: EpochConfiguration {
+                    configuration_for_aggregation: MithrilNetworkConfigurationForEpoch {
                         enabled_signed_entity_types: BTreeSet::from([
                             SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                         ]),
@@ -122,7 +124,7 @@ mod tests {
             .times(1)
             .returning(|_| {
                 Ok(MithrilNetworkConfiguration {
-                    configuration_for_aggregation: EpochConfiguration {
+                    configuration_for_aggregation: MithrilNetworkConfigurationForEpoch {
                         enabled_signed_entity_types: BTreeSet::from([
                             SignedEntityTypeDiscriminants::CardanoTransactions,
                         ]),

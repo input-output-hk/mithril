@@ -6,7 +6,7 @@ use mithril_common::{
 };
 
 use crate::model::{
-    EpochConfiguration, MithrilNetworkConfiguration, SignedEntityTypeConfiguration,
+    MithrilNetworkConfigurationForEpoch, MithrilNetworkConfiguration, SignedEntityTypeConfiguration,
 };
 
 impl Dummy for MithrilNetworkConfiguration {
@@ -16,14 +16,14 @@ impl Dummy for MithrilNetworkConfiguration {
 
         Self {
             epoch: beacon.epoch,
-            configuration_for_aggregation: EpochConfiguration::dummy(),
-            configuration_for_next_aggregation: EpochConfiguration::dummy(),
-            configuration_for_registration: EpochConfiguration::dummy(),
+            configuration_for_aggregation: MithrilNetworkConfigurationForEpoch::dummy(),
+            configuration_for_next_aggregation: MithrilNetworkConfigurationForEpoch::dummy(),
+            configuration_for_registration: MithrilNetworkConfigurationForEpoch::dummy(),
         }
     }
 }
 
-impl Dummy for EpochConfiguration {
+impl Dummy for MithrilNetworkConfigurationForEpoch {
     /// Return a dummy for [EpochConfiguration] (test-only).
     fn dummy() -> Self {
         Self {

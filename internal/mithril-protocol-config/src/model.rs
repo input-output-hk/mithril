@@ -24,20 +24,20 @@ pub struct MithrilNetworkConfiguration {
     pub epoch: Epoch,
 
     /// Configuration for aggregation
-    pub configuration_for_aggregation: EpochConfiguration,
+    pub configuration_for_aggregation: MithrilNetworkConfigurationForEpoch,
 
     /// Configuration for next aggregation
-    pub configuration_for_next_aggregation: EpochConfiguration,
+    pub configuration_for_next_aggregation: MithrilNetworkConfigurationForEpoch,
 
     /// Configuration for registration
-    pub configuration_for_registration: EpochConfiguration,
+    pub configuration_for_registration: MithrilNetworkConfigurationForEpoch,
 }
 
 //A epoch configuration
 #[derive(PartialEq, Clone, Debug)]
 
 /// A network configuration available for an epoch
-pub struct EpochConfiguration {
+pub struct MithrilNetworkConfigurationForEpoch {
     /// Cryptographic protocol parameters (`k`, `m` and `phi_f`)
     pub protocol_parameters: ProtocolParameters,
 
@@ -48,9 +48,9 @@ pub struct EpochConfiguration {
     pub signed_entity_types_config: SignedEntityTypeConfiguration,
 }
 
-impl From<ProtocolConfigurationMessage> for EpochConfiguration {
+impl From<ProtocolConfigurationMessage> for MithrilNetworkConfigurationForEpoch {
     fn from(message: ProtocolConfigurationMessage) -> Self {
-        EpochConfiguration {
+        MithrilNetworkConfigurationForEpoch {
             protocol_parameters: message.protocol_parameters,
             enabled_signed_entity_types: message.available_signed_entity_types,
             signed_entity_types_config: SignedEntityTypeConfiguration {

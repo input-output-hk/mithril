@@ -4,7 +4,7 @@ use tokio::sync::RwLock;
 
 use crate::{
     interface::MithrilNetworkConfigurationProvider,
-    model::{EpochConfiguration, MithrilNetworkConfiguration},
+    model::{MithrilNetworkConfigurationForEpoch, MithrilNetworkConfiguration},
 };
 use async_trait::async_trait;
 use mithril_common::{StdResult, entities::Epoch};
@@ -12,21 +12,21 @@ use mithril_common::{StdResult, entities::Epoch};
 /// A fake [MithrilNetworkConfigurationProvider] that return [MithrilNetworkConfiguration]
 pub struct FakeMithrilNetworkConfigurationProvider {
     /// Configuration for aggregation
-    pub configuration_for_aggregation: RwLock<EpochConfiguration>,
+    pub configuration_for_aggregation: RwLock<MithrilNetworkConfigurationForEpoch>,
 
     /// Configuration for next aggregation
-    pub configuration_for_next_aggregation: RwLock<EpochConfiguration>,
+    pub configuration_for_next_aggregation: RwLock<MithrilNetworkConfigurationForEpoch>,
 
     /// Configuration for registration
-    pub configuration_for_registration: RwLock<EpochConfiguration>,
+    pub configuration_for_registration: RwLock<MithrilNetworkConfigurationForEpoch>,
 }
 
 impl FakeMithrilNetworkConfigurationProvider {
     /// FakeMithrilNetworkConfigurationProvider factory
     pub fn new(
-        configuration_for_aggregation: EpochConfiguration,
-        configuration_for_next_aggregation: EpochConfiguration,
-        configuration_for_registration: EpochConfiguration,
+        configuration_for_aggregation: MithrilNetworkConfigurationForEpoch,
+        configuration_for_next_aggregation: MithrilNetworkConfigurationForEpoch,
+        configuration_for_registration: MithrilNetworkConfigurationForEpoch,
     ) -> Self {
         Self {
             configuration_for_aggregation: RwLock::new(configuration_for_aggregation),
@@ -36,7 +36,7 @@ impl FakeMithrilNetworkConfigurationProvider {
     }
 
     ///Change the configuration of the aggregation
-    pub async fn change_aggregation_configuration(&self, conf: EpochConfiguration) {
+    pub async fn change_aggregation_configuration(&self, conf: MithrilNetworkConfigurationForEpoch) {
         let mut configuration_for_aggregation = self.configuration_for_aggregation.write().await;
         *configuration_for_aggregation = conf;
     }
@@ -75,13 +75,13 @@ mod tests {
 
     use crate::{
         interface::MithrilNetworkConfigurationProvider,
-        model::{EpochConfiguration, SignedEntityTypeConfiguration},
+        model::{MithrilNetworkConfigurationForEpoch, SignedEntityTypeConfiguration},
         test::double::configuration_provider::FakeMithrilNetworkConfigurationProvider,
     };
 
     #[tokio::test]
     async fn test_get_network_configuration() {
-        let configuration_for_aggregation = EpochConfiguration {
+        let configuration_for_aggregation = MithrilNetworkConfigurationForEpoch {
             protocol_parameters: ProtocolParameters {
                 k: 1,
                 m: 11,
@@ -96,7 +96,7 @@ mod tests {
             },
         };
 
-        let configuration_for_next_aggregation = EpochConfiguration {
+        let configuration_for_next_aggregation = MithrilNetworkConfigurationForEpoch {
             protocol_parameters: ProtocolParameters {
                 k: 2,
                 m: 22,
@@ -111,7 +111,7 @@ mod tests {
             },
         };
 
-        let configuration_for_registration = EpochConfiguration {
+        let configuration_for_registration = MithrilNetworkConfigurationForEpoch {
             protocol_parameters: ProtocolParameters {
                 k: 3,
                 m: 33,

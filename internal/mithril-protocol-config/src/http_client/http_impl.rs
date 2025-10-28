@@ -9,7 +9,7 @@ use mithril_common::entities::Epoch;
 use mithril_common::messages::ProtocolConfigurationMessage;
 
 use crate::interface::MithrilNetworkConfigurationProvider;
-use crate::model::{EpochConfiguration, MithrilNetworkConfiguration};
+use crate::model::{MithrilNetworkConfiguration, MithrilNetworkConfigurationForEpoch};
 
 /// Trait to retrieve protocol configuration
 #[cfg_attr(test, mockall::automock)]
@@ -49,7 +49,7 @@ impl MithrilNetworkConfigurationProvider for HttpMithrilNetworkConfigurationProv
         let next_aggregation_epoch = epoch.offset_to_next_signer_retrieval_epoch();
         let registration_epoch = epoch.offset_to_next_signer_retrieval_epoch().next();
 
-        let configuration_for_aggregation: EpochConfiguration = self
+        let configuration_for_aggregation: MithrilNetworkConfigurationForEpoch = self
             .protocol_configuration_retriever
             .retrieve_protocol_configuration(aggregation_epoch)
             .await?

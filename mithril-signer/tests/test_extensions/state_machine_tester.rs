@@ -2,7 +2,7 @@
 use anyhow::anyhow;
 use mithril_metric::{MetricCollector, MetricsServiceExporter};
 use mithril_protocol_config::{
-    model::{EpochConfiguration, SignedEntityTypeConfiguration},
+    model::{MithrilNetworkConfigurationForEpoch, SignedEntityTypeConfiguration},
     test::double::configuration_provider::FakeMithrilNetworkConfigurationProvider,
 };
 use prometheus_parse::Value;
@@ -175,7 +175,7 @@ impl StateMachineTester {
             ticker_service.clone(),
         ));
 
-        let configuration_for_aggregation = EpochConfiguration {
+        let configuration_for_aggregation = MithrilNetworkConfigurationForEpoch {
             signed_entity_types_config: SignedEntityTypeConfiguration {
                 cardano_transactions: Some(cardano_transactions_signing_config.clone()),
             },
@@ -183,9 +183,9 @@ impl StateMachineTester {
             ..Dummy::dummy()
         };
 
-        let configuration_for_next_aggregation = EpochConfiguration::dummy();
+        let configuration_for_next_aggregation = MithrilNetworkConfigurationForEpoch::dummy();
 
-        let configuration_for_registration = EpochConfiguration {
+        let configuration_for_registration = MithrilNetworkConfigurationForEpoch {
             protocol_parameters: fake_data::protocol_parameters(),
             ..Dummy::dummy()
         };
@@ -486,7 +486,7 @@ impl StateMachineTester {
         &mut self,
         discriminants: &[SignedEntityTypeDiscriminants],
     ) -> &mut Self {
-        let config = EpochConfiguration {
+        let config = MithrilNetworkConfigurationForEpoch {
             enabled_signed_entity_types: BTreeSet::from_iter(discriminants.iter().cloned()),
             ..self
                 .network_configuration_service
