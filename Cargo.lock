@@ -3802,6 +3802,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "mithril-aggregator-discovery"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "mithril-common",
+ "mockall",
+ "serde",
+ "slog",
+ "slog-async",
+ "slog-scope",
+ "slog-term",
+ "thiserror 2.0.17",
+ "tokio",
+]
+
+[[package]]
 name = "mithril-aggregator-fake"
 version = "0.4.15"
 dependencies = [

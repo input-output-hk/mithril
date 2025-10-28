@@ -1,0 +1,30 @@
+[package]
+name = "mithril-aggregator-discovery"
+description = "Mechanisms to discover aggregator available in a Mithril network."
+version = "0.1.0"
+authors.workspace = true
+documentation.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
+
+[lib]
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+mithril-common = { path = "../../mithril-common" }
+serde = { workspace = true }
+slog = { workspace = true }
+slog-scope = "4.4.0"
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+
+[dev-dependencies]
+mockall = { workspace = true }
+slog-async = { workspace = true }
+slog-term = { workspace = true }
+tokio = { workspace = true, features = ["macros"] }
