@@ -3,6 +3,7 @@
 
 mod interface;
 mod model;
+pub mod test;
 
 pub use interface::AggregatorDiscoverer;
 pub use model::{AggregatorEndpoint, MithrilNetwork};
