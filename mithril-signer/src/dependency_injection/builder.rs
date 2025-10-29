@@ -6,6 +6,7 @@ use anyhow::{Context, anyhow};
 use slog::Logger;
 use tokio::sync::{Mutex, RwLock};
 
+use mithril_aggregator_client::AggregatorHttpClient;
 use mithril_cardano_node_chain::{
     chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType},
     chain_reader::PallasChainReader,
@@ -41,7 +42,7 @@ use mithril_persistence::database::repository::CardanoTransactionRepository;
 use mithril_persistence::database::{ApplicationNodeType, SqlMigration};
 use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnection, SqliteConnectionPool};
 
-use mithril_protocol_config::http_client::http_impl::HttpMithrilNetworkConfigurationProvider;
+use mithril_protocol_config::http::HttpMithrilNetworkConfigurationProvider;
 
 #[cfg(feature = "future_dmq")]
 use mithril_dmq::{DmqMessageBuilder, DmqPublisherClientPallas};
@@ -269,6 +270,14 @@ impl<'a> DependenciesBuilder<'a> {
         ));
 
         let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
+        let aggregator_client_for_network_config = Arc::new(
+            AggregatorHttpClient::builder(self.config.aggregator_endpoint.clone())
+                .with_relay_endpoint(self.config.relay_endpoint.clone())
+                .with_api_version_provider(api_version_provider.clone())
+                .with_timeout(Duration::from_millis(HTTP_REQUEST_TIMEOUT_DURATION))
+                .with_logger(self.root_logger())
+                .build()?,
+        );
         let aggregator_client = Arc::new(AggregatorHTTPClient::new(
             self.config.aggregator_endpoint.clone(),
             self.config.relay_endpoint.clone(),
@@ -376,7 +385,7 @@ impl<'a> DependenciesBuilder<'a> {
         ));
         let metrics_service = Arc::new(MetricsService::new(self.root_logger())?);
         let network_configuration_service = Arc::new(HttpMithrilNetworkConfigurationProvider::new(
-            aggregator_client.clone(),
+            aggregator_client_for_network_config,
         ));
         let preloader_activation = CardanoTransactionsPreloaderActivationSigner::new(
             network_configuration_service.clone(),
