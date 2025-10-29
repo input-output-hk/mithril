@@ -5,8 +5,8 @@ use slog::debug;
 
 use mithril_common::messages::CertificateMessage;
 
-use crate::AggregatorClientResult;
-use crate::error::AggregatorClientError;
+use crate::AggregatorHttpClientResult;
+use crate::error::AggregatorHttpClientError;
 use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
 
 /// Query to get the details of a certificate
@@ -45,13 +45,13 @@ impl AggregatorQuery for GetCertificateQuery {
     async fn handle_response(
         &self,
         context: QueryContext,
-    ) -> AggregatorClientResult<Self::Response> {
+    ) -> AggregatorHttpClientResult<Self::Response> {
         debug!(context.logger, "Retrieve certificate details"; "certificate_hash" => %self.hash);
 
         match context.response.status() {
             StatusCode::OK => match context.response.json::<CertificateMessage>().await {
                 Ok(message) => Ok(Some(message)),
-                Err(err) => Err(AggregatorClientError::JsonParseFailed(anyhow!(err))),
+                Err(err) => Err(AggregatorHttpClientError::JsonParseFailed(anyhow!(err))),
             },
             StatusCode::NOT_FOUND => Ok(None),
             _ => Err(context.unhandled_status_code().await),
@@ -112,7 +112,7 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert_error_matches!(error, AggregatorClientError::RemoteServerTechnical(_));
+        assert_error_matches!(error, AggregatorHttpClientError::RemoteServerTechnical(_));
     }
 
     #[tokio::test]
@@ -152,6 +152,6 @@ mod tests {
 
         let error = client.send(GetCertificateQuery::latest_genesis()).await.unwrap_err();
 
-        assert_error_matches!(error, AggregatorClientError::RemoteServerTechnical(_));
+        assert_error_matches!(error, AggregatorHttpClientError::RemoteServerTechnical(_));
     }
 }

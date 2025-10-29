@@ -8,15 +8,15 @@ use std::time::Duration;
 use mithril_common::MITHRIL_API_VERSION_HEADER;
 use mithril_common::api_version::APIVersionProvider;
 
-use crate::AggregatorClientResult;
+use crate::AggregatorHttpClientResult;
 use crate::builder::AggregatorClientBuilder;
-use crate::error::AggregatorClientError;
+use crate::error::AggregatorHttpClientError;
 use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
 
 const API_VERSION_MISMATCH_WARNING_MESSAGE: &str = "OpenAPI version may be incompatible, please update Mithril client library to the latest version.";
 
 /// A client to send HTTP requests to a Mithril Aggregator
-pub struct AggregatorClient {
+pub struct AggregatorHttpClient {
     pub(super) aggregator_endpoint: Url,
     pub(super) api_version_provider: Arc<APIVersionProvider>,
     pub(super) additional_headers: HeaderMap,
@@ -25,7 +25,7 @@ pub struct AggregatorClient {
     pub(super) logger: Logger,
 }
 
-impl AggregatorClient {
+impl AggregatorHttpClient {
     /// Creates a [AggregatorClientBuilder] to configure a `AggregatorClient`.
     //
     // This is the same as `AggregatorClient::builder()`.
@@ -34,7 +34,10 @@ impl AggregatorClient {
     }
 
     /// Send the given query to the Mithril Aggregator
-    pub async fn send<Q: AggregatorQuery>(&self, query: Q) -> AggregatorClientResult<Q::Response> {
+    pub async fn send<Q: AggregatorQuery>(
+        &self,
+        query: Q,
+    ) -> AggregatorHttpClientResult<Q::Response> {
         // Todo: error handling ? Reuse the version in `warn_if_api_version_mismatch` ?
         let current_api_version = self.api_version_provider.compute_current_version().unwrap();
         let mut request_builder = match Q::method() {
@@ -62,11 +65,13 @@ impl AggregatorClient {
                 };
                 query.handle_response(context).await
             }
-            Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
+            Err(err) => Err(AggregatorHttpClientError::RemoteServerUnreachable(anyhow!(
+                err
+            ))),
         }
     }
 
-    fn join_aggregator_endpoint(&self, endpoint: &str) -> AggregatorClientResult<Url> {
+    fn join_aggregator_endpoint(&self, endpoint: &str) -> AggregatorHttpClientResult<Url> {
         self.aggregator_endpoint
             .join(endpoint)
             .with_context(|| {
@@ -75,7 +80,7 @@ impl AggregatorClient {
                     self.aggregator_endpoint
                 )
             })
-            .map_err(AggregatorClientError::InvalidEndpoint)
+            .map_err(AggregatorHttpClientError::InvalidEndpoint)
     }
 
     /// Check API version mismatch and log a warning if the aggregator's version is more recent.
@@ -141,13 +146,13 @@ mod tests {
         async fn handle_response(
             &self,
             context: QueryContext,
-        ) -> AggregatorClientResult<Self::Response> {
+        ) -> AggregatorHttpClientResult<Self::Response> {
             match context.response.status() {
                 StatusCode::OK => context
                     .response
                     .json::<TestResponse>()
                     .await
-                    .map_err(|err| AggregatorClientError::JsonParseFailed(anyhow!(err))),
+                    .map_err(|err| AggregatorHttpClientError::JsonParseFailed(anyhow!(err))),
                 _ => Err(context.unhandled_status_code().await),
             }
         }
@@ -192,7 +197,7 @@ mod tests {
         async fn handle_response(
             &self,
             context: QueryContext,
-        ) -> AggregatorClientResult<Self::Response> {
+        ) -> AggregatorHttpClientResult<Self::Response> {
             match context.response.status() {
                 StatusCode::CREATED => Ok(()),
                 _ => Err(context.unhandled_status_code().await),
@@ -293,7 +298,7 @@ mod tests {
         let error = client.send(TestGetQuery).await.expect_err("should not fail");
 
         assert!(
-            matches!(error, AggregatorClientError::RemoteServerUnreachable(_)),
+            matches!(error, AggregatorHttpClientError::RemoteServerUnreachable(_)),
             "unexpected error type: {error:?}"
         );
     }
@@ -337,7 +342,7 @@ mod tests {
             let aggregator_version = "2.0.0";
             let client_version = "1.0.0";
             let (logger, log_inspector) = TestLogger::memory();
-            let client = AggregatorClient::builder("http://whatever")
+            let client = AggregatorHttpClient::builder("http://whatever")
                 .with_logger(logger)
                 .with_api_version_provider(Arc::new(APIVersionProvider::new_with_default_version(
                     Version::parse(client_version).unwrap(),
@@ -361,7 +366,7 @@ mod tests {
         fn test_no_warning_logged_when_versions_match() {
             let version = "1.0.0";
             let (logger, log_inspector) = TestLogger::memory();
-            let client = AggregatorClient::builder("http://whatever")
+            let client = AggregatorHttpClient::builder("http://whatever")
                 .with_logger(logger)
                 .with_api_version_provider(Arc::new(APIVersionProvider::new_with_default_version(
                     Version::parse(version).unwrap(),
@@ -380,7 +385,7 @@ mod tests {
             let aggregator_version = "1.0.0";
             let client_version = "2.0.0";
             let (logger, log_inspector) = TestLogger::memory();
-            let client = AggregatorClient::builder("http://whatever")
+            let client = AggregatorHttpClient::builder("http://whatever")
                 .with_logger(logger)
                 .with_api_version_provider(Arc::new(APIVersionProvider::new_with_default_version(
                     Version::parse(client_version).unwrap(),
@@ -403,7 +408,7 @@ mod tests {
         #[test]
         fn test_does_not_log_or_fail_when_header_is_missing() {
             let (logger, log_inspector) = TestLogger::memory();
-            let client = AggregatorClient::builder("http://whatever")
+            let client = AggregatorHttpClient::builder("http://whatever")
                 .with_logger(logger)
                 .with_api_version_provider(Arc::new(APIVersionProvider::default()))
                 .build()
@@ -419,7 +424,7 @@ mod tests {
         #[test]
         fn test_does_not_log_or_fail_when_header_is_not_a_version() {
             let (logger, log_inspector) = TestLogger::memory();
-            let client = AggregatorClient::builder("http://whatever")
+            let client = AggregatorHttpClient::builder("http://whatever")
                 .with_logger(logger)
                 .with_api_version_provider(Arc::new(APIVersionProvider::default()))
                 .build()
@@ -435,7 +440,7 @@ mod tests {
         #[test]
         fn test_logs_error_when_client_version_cannot_be_computed() {
             let (logger, log_inspector) = TestLogger::memory();
-            let client = AggregatorClient::builder("http://whatever")
+            let client = AggregatorHttpClient::builder("http://whatever")
                 .with_logger(logger)
                 .with_api_version_provider(Arc::new(APIVersionProvider::new_failing()))
                 .build()

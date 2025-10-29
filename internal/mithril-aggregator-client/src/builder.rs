@@ -8,9 +8,9 @@ use std::time::Duration;
 use mithril_common::StdResult;
 use mithril_common::api_version::APIVersionProvider;
 
-use crate::client::AggregatorClient;
+use crate::client::AggregatorHttpClient;
 
-/// A builder of [AggregatorClient]
+/// A builder of [AggregatorHttpClient]
 pub struct AggregatorClientBuilder {
     aggregator_url_result: reqwest::Result<Url>,
     api_version_provider: Option<Arc<APIVersionProvider>>,
@@ -68,8 +68,8 @@ impl AggregatorClientBuilder {
         self
     }
 
-    /// Returns an [AggregatorClient] based on the builder configuration
-    pub fn build(self) -> StdResult<AggregatorClient> {
+    /// Returns an [AggregatorHttpClient] based on the builder configuration
+    pub fn build(self) -> StdResult<AggregatorHttpClient> {
         let aggregator_endpoint =
             enforce_trailing_slash(self.aggregator_url_result.with_context(
                 || "Invalid aggregator endpoint, it must be a correctly formed url",
@@ -84,7 +84,7 @@ impl AggregatorClientBuilder {
                 .proxy(Proxy::all(relay_endpoint).with_context(|| "Relay proxy creation failed")?)
         }
 
-        Ok(AggregatorClient {
+        Ok(AggregatorHttpClient {
             aggregator_endpoint,
             api_version_provider,
             additional_headers: (&additional_headers)
