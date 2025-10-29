@@ -175,14 +175,15 @@ impl StateMachine {
                     })?
                 {
                     info!(self.logger, "→ Epoch Signer registrations found");
-                    let network_configuration = self
-                        .runner
-                        .get_mithril_network_configuration()
-                        .await
-                        .map_err(|e| RuntimeError::KeepState {
-                            message: "could not retrieve Mithril network configuration".to_string(),
-                            nested_error: Some(e),
-                        })?;
+                    let network_configuration: MithrilNetworkConfiguration =
+                        self.runner.get_mithril_network_configuration(*epoch).await.map_err(
+                            |e| RuntimeError::KeepState {
+                                message: format!(
+                                    "could not retrieve Mithril network configuration for epoch {epoch:?}"
+                                ),
+                                nested_error: Some(e),
+                            },
+                        )?;
                     info!(self.logger, "→ Mithril network configuration found");
 
                     if signer_registrations.epoch >= *epoch {
@@ -491,12 +492,8 @@ mod tests {
     use anyhow::anyhow;
     use chrono::DateTime;
 
-    use mithril_common::entities::{
-        CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolMessage, SignedEntityType,
-        SignedEntityTypeDiscriminants,
-    };
-    use mithril_common::test::double::{Dummy, fake_data};
-    use mithril_protocol_config::model::SignedEntityTypeConfiguration;
+    use mithril_common::entities::{ChainPoint, Epoch, ProtocolMessage, SignedEntityType};
+    use mithril_common::test::double::Dummy;
 
     use crate::SignerEpochSettings;
     use crate::runtime::runner::MockSignerRunner;
@@ -552,10 +549,8 @@ mod tests {
         let mut runner = MockSignerRunner::new();
         let epoch_settings = SignerEpochSettings {
             epoch: Epoch(3),
-            registration_protocol_parameters: fake_data::protocol_parameters(),
             current_signers: vec![],
             next_signers: vec![],
-            cardano_transactions_signing_config: None,
         };
         let known_epoch = Epoch(4);
         runner
@@ -565,14 +560,12 @@ mod tests {
         runner
             .expect_get_mithril_network_configuration()
             .once()
-            .returning(|| {
+            .returning(|_| {
                 Ok(MithrilNetworkConfiguration {
                     epoch: Epoch(999),
-                    signer_registration_protocol_parameters: fake_data::protocol_parameters(),
-                    available_signed_entity_types: SignedEntityTypeDiscriminants::all(),
-                    signed_entity_types_config: SignedEntityTypeConfiguration {
-                        cardano_transactions: Some(CardanoTransactionsSigningConfig::dummy()),
-                    },
+                    configuration_for_aggregation: Dummy::dummy(),
+                    configuration_for_next_aggregation: Dummy::dummy(),
+                    configuration_for_registration: Dummy::dummy(),
                 })
             });
         runner.expect_get_current_time_point().once().returning(|| {
@@ -606,7 +599,7 @@ mod tests {
         runner
             .expect_get_mithril_network_configuration()
             .once()
-            .returning(|| Ok(MithrilNetworkConfiguration::dummy()));
+            .returning(|_| Ok(MithrilNetworkConfiguration::dummy()));
 
         runner
             .expect_inform_epoch_settings()
@@ -658,7 +651,7 @@ mod tests {
         runner
             .expect_get_mithril_network_configuration()
             .once()
-            .returning(|| Ok(MithrilNetworkConfiguration::dummy()));
+            .returning(|_| Ok(MithrilNetworkConfiguration::dummy()));
 
         runner
             .expect_inform_epoch_settings()
@@ -714,7 +707,7 @@ mod tests {
         runner
             .expect_get_mithril_network_configuration()
             .once()
-            .returning(|| Ok(MithrilNetworkConfiguration::dummy()));
+            .returning(|_| Ok(MithrilNetworkConfiguration::dummy()));
 
         runner
             .expect_inform_epoch_settings()

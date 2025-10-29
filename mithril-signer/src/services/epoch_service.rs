@@ -178,7 +178,8 @@ impl EpochService for MithrilEpochService {
         debug!(self.logger, ">> inform_epoch_settings"; "aggregator_signer_registration_epoch" => ?aggregator_signer_registration_epoch, "mithril_network_configuration" => ?mithril_network_configuration, "current_signers" => ?current_signers, "next_signers" => ?next_signers);
 
         let registration_protocol_parameters = mithril_network_configuration
-            .signer_registration_protocol_parameters
+            .configuration_for_registration
+            .protocol_parameters
             .clone();
 
         let protocol_initializer = self
@@ -188,10 +189,13 @@ impl EpochService for MithrilEpochService {
             )
             .await?;
 
-        let allowed_discriminants =
-            mithril_network_configuration.available_signed_entity_types.clone();
+        let allowed_discriminants = mithril_network_configuration
+            .configuration_for_aggregation
+            .enabled_signed_entity_types
+            .clone();
 
         let cardano_transactions_signing_config = mithril_network_configuration
+            .configuration_for_aggregation
             .signed_entity_types_config
             .cardano_transactions
             .clone();
@@ -433,7 +437,9 @@ mod tests {
         double::{Dummy, fake_data},
     };
 
-    use mithril_protocol_config::model::SignedEntityTypeConfiguration;
+    use mithril_protocol_config::model::{
+        MithrilNetworkConfigurationForEpoch, SignedEntityTypeConfiguration,
+    };
 
     use crate::database::repository::{ProtocolInitializerRepository, StakePoolStore};
     use crate::database::test_helper::main_db_connection;
@@ -482,8 +488,11 @@ mod tests {
         let epoch = Epoch(12);
         let mithril_network_configuration = MithrilNetworkConfiguration {
             epoch,
-            available_signed_entity_types: BTreeSet::new(),
-            ..MithrilNetworkConfiguration::dummy().clone()
+            configuration_for_aggregation: MithrilNetworkConfigurationForEpoch {
+                enabled_signed_entity_types: BTreeSet::new(),
+                ..Dummy::dummy()
+            },
+            ..Dummy::dummy()
         };
 
         let signers = fixtures.signers();
@@ -666,10 +675,13 @@ mod tests {
         let epoch = Epoch(12);
         let mithril_network_configuration = MithrilNetworkConfiguration {
             epoch,
-            available_signed_entity_types: BTreeSet::from([
-                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            ]),
-            ..MithrilNetworkConfiguration::dummy().clone()
+            configuration_for_aggregation: MithrilNetworkConfigurationForEpoch {
+                enabled_signed_entity_types: BTreeSet::from([
+                    SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+                ]),
+                ..Dummy::dummy()
+            },
+            ..Dummy::dummy()
         };
 
         let signers = fake_data::signers(10);
@@ -712,7 +724,9 @@ mod tests {
             service.epoch_of_current_data().unwrap()
         );
         assert_eq!(
-            mithril_network_configuration.signer_registration_protocol_parameters,
+            mithril_network_configuration
+                .configuration_for_registration
+                .protocol_parameters,
             *service.registration_protocol_parameters().unwrap()
         );
         assert!(
@@ -729,6 +743,7 @@ mod tests {
         // Check cardano_transactions_signing_config
         assert_eq!(
             mithril_network_configuration
+                .configuration_for_aggregation
                 .signed_entity_types_config
                 .cardano_transactions,
             *service.cardano_transactions_signing_config().unwrap()
@@ -777,8 +792,11 @@ mod tests {
         // MithrilNetworkConfiguration
         let mithril_network_configuration = MithrilNetworkConfiguration {
             epoch,
-            available_signed_entity_types: BTreeSet::new(),
-            ..MithrilNetworkConfiguration::dummy().clone()
+            configuration_for_aggregation: MithrilNetworkConfigurationForEpoch {
+                enabled_signed_entity_types: BTreeSet::new(),
+                ..Dummy::dummy()
+            },
+            ..Dummy::dummy()
         };
 
         let current_signers = signers[2..5].to_vec();
@@ -847,8 +865,11 @@ mod tests {
 
         let mithril_network_configuration = MithrilNetworkConfiguration {
             epoch,
-            available_signed_entity_types: BTreeSet::new(),
-            ..MithrilNetworkConfiguration::dummy().clone()
+            configuration_for_aggregation: MithrilNetworkConfigurationForEpoch {
+                enabled_signed_entity_types: BTreeSet::new(),
+                ..Dummy::dummy()
+            },
+            ..Dummy::dummy()
         };
 
         service
@@ -890,17 +911,24 @@ mod tests {
             let current_signers = signers[1..3].to_vec();
             let next_signers = signers[2..5].to_vec();
 
+            let configuration_for_aggregation = MithrilNetworkConfigurationForEpoch {
+                signed_entity_types_config: SignedEntityTypeConfiguration {
+                    cardano_transactions: None,
+                },
+                enabled_signed_entity_types: BTreeSet::new(),
+                ..Dummy::dummy()
+            };
+            let configuration_for_next_aggregation = MithrilNetworkConfigurationForEpoch::dummy();
+
             epoch_service
                 .write()
                 .await
                 .inform_epoch_settings(
                     fake_data::beacon().epoch,
                     MithrilNetworkConfiguration {
-                        available_signed_entity_types: BTreeSet::new(),
-                        signed_entity_types_config: SignedEntityTypeConfiguration {
-                            cardano_transactions: None,
-                        },
-                        ..MithrilNetworkConfiguration::dummy()
+                        configuration_for_aggregation,
+                        configuration_for_next_aggregation,
+                        ..Dummy::dummy()
                     },
                     current_signers,
                     next_signers,
@@ -918,8 +946,9 @@ mod tests {
             let allowed_discriminants =
                 BTreeSet::from([SignedEntityTypeDiscriminants::CardanoImmutableFilesFull]);
 
-            let signed_entity_types_config = SignedEntityTypeConfiguration {
-                cardano_transactions: Some(CardanoTransactionsSigningConfig::dummy()),
+            let configuration_for_aggregation = MithrilNetworkConfigurationForEpoch {
+                enabled_signed_entity_types: allowed_discriminants.clone(),
+                ..Dummy::dummy()
             };
 
             let signers = fake_data::signers(5);
@@ -932,9 +961,8 @@ mod tests {
                 .inform_epoch_settings(
                     fake_data::beacon().epoch,
                     MithrilNetworkConfiguration {
-                        available_signed_entity_types: allowed_discriminants.clone(),
-                        signed_entity_types_config,
-                        ..MithrilNetworkConfiguration::dummy()
+                        configuration_for_aggregation,
+                        ..Dummy::dummy()
                     },
                     current_signers,
                     next_signers,

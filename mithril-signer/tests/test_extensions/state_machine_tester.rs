@@ -2,7 +2,7 @@
 use anyhow::anyhow;
 use mithril_metric::{MetricCollector, MetricsServiceExporter};
 use mithril_protocol_config::{
-    model::SignedEntityTypeConfiguration,
+    model::{MithrilNetworkConfigurationForEpoch, SignedEntityTypeConfiguration},
     test::double::configuration_provider::FakeMithrilNetworkConfigurationProvider,
 };
 use prometheus_parse::Value;
@@ -174,13 +174,26 @@ impl StateMachineTester {
             },
             ticker_service.clone(),
         ));
-        let network_configuration_service = Arc::new(FakeMithrilNetworkConfigurationProvider::new(
-            fake_data::protocol_parameters(),
-            SignedEntityTypeDiscriminants::all(),
-            SignedEntityTypeConfiguration {
+
+        let configuration_for_aggregation = MithrilNetworkConfigurationForEpoch {
+            signed_entity_types_config: SignedEntityTypeConfiguration {
                 cardano_transactions: Some(cardano_transactions_signing_config.clone()),
             },
-            ticker_service.clone(),
+            enabled_signed_entity_types: SignedEntityTypeDiscriminants::all(),
+            ..Dummy::dummy()
+        };
+
+        let configuration_for_next_aggregation = MithrilNetworkConfigurationForEpoch::dummy();
+
+        let configuration_for_registration = MithrilNetworkConfigurationForEpoch {
+            protocol_parameters: fake_data::protocol_parameters(),
+            ..Dummy::dummy()
+        };
+
+        let network_configuration_service = Arc::new(FakeMithrilNetworkConfigurationProvider::new(
+            configuration_for_aggregation,
+            configuration_for_next_aggregation,
+            configuration_for_registration,
         ));
 
         let digester = Arc::new(DumbImmutableDigester::default().with_digest("DIGEST"));
@@ -468,13 +481,22 @@ impl StateMachineTester {
         self
     }
 
-    /// change the signed entities allowed by the aggregator (returned by its '/' endpoint)
+    /// change the signed entities allowed by the aggregator
     pub async fn aggregator_allow_signed_entities(
         &mut self,
         discriminants: &[SignedEntityTypeDiscriminants],
     ) -> &mut Self {
+        let config = MithrilNetworkConfigurationForEpoch {
+            enabled_signed_entity_types: BTreeSet::from_iter(discriminants.iter().cloned()),
+            ..self
+                .network_configuration_service
+                .configuration_for_aggregation
+                .read()
+                .await
+                .clone()
+        };
         self.network_configuration_service
-            .change_allowed_discriminants(&BTreeSet::from_iter(discriminants.iter().cloned()))
+            .change_aggregation_configuration(config)
             .await;
         self
     }

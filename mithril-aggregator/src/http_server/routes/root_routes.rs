@@ -125,7 +125,10 @@ mod tests {
                 SignedEntityTypeDiscriminants::CardanoStakeDistribution,
                 SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
                 SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                SignedEntityTypeDiscriminants::CardanoTransactions,
+                SignedEntityTypeDiscriminants::CardanoDatabase,
             ]),
+            cardano_transactions_prover_max_hashes_allowed_by_request: 500,
             ..RouterConfig::dummy()
         };
         let dependency_manager = initialize_dependencies!().await;
@@ -161,9 +164,13 @@ mod tests {
                         SignedEntityTypeDiscriminants::CardanoStakeDistribution,
                         SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
                         SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                        SignedEntityTypeDiscriminants::CardanoTransactions,
+                        SignedEntityTypeDiscriminants::CardanoDatabase,
                     ]),
                     aggregate_signature_type: AggregateSignatureType::Concatenation,
-                    cardano_transactions_prover: None,
+                    cardano_transactions_prover: Some(CardanoTransactionsProverCapabilities {
+                        max_hashes_allowed_by_request: 500
+                    }),
                 },
             }
         );

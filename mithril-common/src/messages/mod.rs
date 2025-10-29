@@ -18,6 +18,7 @@ mod interface;
 mod message_parts;
 mod mithril_stake_distribution;
 mod mithril_stake_distribution_list;
+mod protocol_configuration;
 mod register_signature;
 mod register_signer;
 mod snapshot;
@@ -61,6 +62,7 @@ pub use mithril_stake_distribution::MithrilStakeDistributionMessage;
 pub use mithril_stake_distribution_list::{
     MithrilStakeDistributionListItemMessage, MithrilStakeDistributionListMessage,
 };
+pub use protocol_configuration::ProtocolConfigurationMessage;
 pub use register_signature::{RegisterSignatureMessageDmq, RegisterSignatureMessageHttp};
 pub use register_signer::RegisterSignerMessage;
 pub use snapshot::SnapshotMessage;

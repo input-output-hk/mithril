@@ -1,68 +1,168 @@
 //! HTTP implementation of MithrilNetworkConfigurationProvider.
 
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use mithril_common::StdResult;
-use mithril_common::api_version::APIVersionProvider;
+use mithril_common::entities::Epoch;
+use mithril_common::messages::ProtocolConfigurationMessage;
 
-use crate::{
-    aggregator_client::{AggregatorClient, AggregatorHTTPClient, HTTP_REQUEST_TIMEOUT_DURATION},
-    interface::MithrilNetworkConfigurationProvider,
-    model::{MithrilNetworkConfiguration, SignedEntityTypeConfiguration},
-};
+use crate::interface::MithrilNetworkConfigurationProvider;
+use crate::model::{MithrilNetworkConfiguration, MithrilNetworkConfigurationForEpoch};
+
+/// Trait to retrieve protocol configuration
+#[cfg_attr(test, mockall::automock)]
+#[async_trait]
+pub trait ProtocolConfigurationRetrieverFromAggregator: Sync + Send {
+    /// Retrieves protocol configuration for a given epoch from the aggregator
+    async fn retrieve_protocol_configuration(
+        &self,
+        epoch: Epoch,
+    ) -> StdResult<ProtocolConfigurationMessage>;
+}
 
 /// Structure implementing MithrilNetworkConfigurationProvider using HTTP.
 pub struct HttpMithrilNetworkConfigurationProvider {
-    aggregator_client: AggregatorHTTPClient,
+    protocol_configuration_retriever: Arc<dyn ProtocolConfigurationRetrieverFromAggregator>,
 }
 
 impl HttpMithrilNetworkConfigurationProvider {
     /// HttpMithrilNetworkConfigurationProvider factory
     pub fn new(
-        aggregator_endpoint: String,
-        relay_endpoint: Option<String>,
-        api_version_provider: Arc<APIVersionProvider>,
-        logger: slog::Logger,
+        protocol_configuration_retriever: Arc<dyn ProtocolConfigurationRetrieverFromAggregator>,
     ) -> Self {
-        let aggregator_client = AggregatorHTTPClient::new(
-            aggregator_endpoint.clone(),
-            relay_endpoint.clone(),
-            api_version_provider.clone(),
-            Some(Duration::from_millis(HTTP_REQUEST_TIMEOUT_DURATION)),
-            logger.clone(),
-        );
-
-        Self { aggregator_client }
+        Self {
+            protocol_configuration_retriever,
+        }
     }
 }
 
 #[async_trait]
 impl MithrilNetworkConfigurationProvider for HttpMithrilNetworkConfigurationProvider {
-    async fn get_network_configuration(&self) -> StdResult<MithrilNetworkConfiguration> {
-        let Some(epoch_settings) = self.aggregator_client.retrieve_epoch_settings().await? else {
-            return Err(anyhow!("Failed to retrieve epoch settings"));
-        };
+    async fn get_network_configuration(
+        &self,
+        epoch: Epoch,
+    ) -> StdResult<MithrilNetworkConfiguration> {
+        let aggregation_epoch =
+            epoch.offset_to_signer_retrieval_epoch().with_context(|| {
+                format!("MithrilNetworkConfigurationProvider could not compute aggregation epoch from epoch: {epoch}")
+            })?;
+        let next_aggregation_epoch = epoch.offset_to_next_signer_retrieval_epoch();
+        let registration_epoch = epoch.offset_to_next_signer_retrieval_epoch().next();
 
-        let aggregator_features = self.aggregator_client.retrieve_aggregator_features().await?;
-        let available_signed_entity_types = aggregator_features.capabilities.signed_entity_types;
+        let configuration_for_aggregation: MithrilNetworkConfigurationForEpoch = self
+            .protocol_configuration_retriever
+            .retrieve_protocol_configuration(aggregation_epoch)
+            .await?
+            .into();
 
-        let cardano_transactions =
-            epoch_settings.cardano_transactions_signing_config.ok_or_else(|| {
-                anyhow!("Cardano transactions signing config is missing in epoch settings")
+        let configuration_for_next_aggregation = self
+            .protocol_configuration_retriever
+            .retrieve_protocol_configuration(next_aggregation_epoch)
+            .await?
+            .into();
+
+        let configuration_for_registration = self
+            .protocol_configuration_retriever
+            .retrieve_protocol_configuration(registration_epoch)
+            .await?
+            .into();
+
+        configuration_for_aggregation.signed_entity_types_config.cardano_transactions.clone()
+            .ok_or_else(|| {
+                anyhow!(format!("Cardano transactions signing config is missing in aggregation configuration for epoch {epoch}"))
             })?;
 
-        let signed_entity_types_config = SignedEntityTypeConfiguration {
-            cardano_transactions: Some(cardano_transactions),
-        };
-
         Ok(MithrilNetworkConfiguration {
-            epoch: epoch_settings.epoch,
-            signer_registration_protocol_parameters: epoch_settings
-                .signer_registration_protocol_parameters,
-            available_signed_entity_types,
-            signed_entity_types_config,
+            epoch,
+            configuration_for_aggregation,
+            configuration_for_next_aggregation,
+            configuration_for_registration,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use mockall::predicate::eq;
+    use std::sync::Arc;
+
+    use mithril_common::{
+        entities::{Epoch, ProtocolParameters},
+        messages::ProtocolConfigurationMessage,
+        test::double::Dummy,
+    };
+
+    use crate::{
+        http_client::http_impl::{
+            HttpMithrilNetworkConfigurationProvider,
+            MockProtocolConfigurationRetrieverFromAggregator,
+        },
+        interface::MithrilNetworkConfigurationProvider,
+    };
+
+    #[tokio::test]
+    async fn test_get_network_configuration_retrieve_configurations_for_aggregation_next_aggregation_and_registration()
+     {
+        let mut protocol_configuration_retriever =
+            MockProtocolConfigurationRetrieverFromAggregator::new();
+
+        protocol_configuration_retriever
+            .expect_retrieve_protocol_configuration()
+            .once()
+            .with(eq(Epoch(41)))
+            .returning(|_| {
+                Ok(ProtocolConfigurationMessage {
+                    protocol_parameters: ProtocolParameters::new(1000, 100, 0.1),
+                    ..Dummy::dummy()
+                })
+            });
+
+        protocol_configuration_retriever
+            .expect_retrieve_protocol_configuration()
+            .once()
+            .with(eq(Epoch(42)))
+            .returning(|_| {
+                Ok(ProtocolConfigurationMessage {
+                    protocol_parameters: ProtocolParameters::new(2000, 200, 0.2),
+                    ..Dummy::dummy()
+                })
+            });
+
+        protocol_configuration_retriever
+            .expect_retrieve_protocol_configuration()
+            .once()
+            .with(eq(Epoch(43)))
+            .returning(|_| {
+                Ok(ProtocolConfigurationMessage {
+                    protocol_parameters: ProtocolParameters::new(3000, 300, 0.3),
+                    ..Dummy::dummy()
+                })
+            });
+
+        let mithril_configuration_provider = HttpMithrilNetworkConfigurationProvider::new(
+            Arc::new(protocol_configuration_retriever),
+        );
+
+        let configuration = mithril_configuration_provider
+            .get_network_configuration(Epoch(42))
+            .await
+            .expect("should have configuration");
+
+        assert_eq!(
+            configuration.configuration_for_aggregation.protocol_parameters,
+            ProtocolParameters::new(1000, 100, 0.1)
+        );
+
+        assert_eq!(
+            configuration.configuration_for_next_aggregation.protocol_parameters,
+            ProtocolParameters::new(2000, 200, 0.2)
+        );
+
+        assert_eq!(
+            configuration.configuration_for_registration.protocol_parameters,
+            ProtocolParameters::new(3000, 300, 0.3)
+        );
     }
 }

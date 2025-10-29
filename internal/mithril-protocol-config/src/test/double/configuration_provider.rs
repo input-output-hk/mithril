@@ -1,154 +1,157 @@
 //! provides test doubles for MithrilNetworkConfigurationProvider
-use std::{collections::BTreeSet, sync::Arc};
 
 use tokio::sync::RwLock;
 
 use crate::{
     interface::MithrilNetworkConfigurationProvider,
-    model::{MithrilNetworkConfiguration, SignedEntityTypeConfiguration},
+    model::{MithrilNetworkConfiguration, MithrilNetworkConfigurationForEpoch},
 };
 use async_trait::async_trait;
-use mithril_common::{
-    StdResult,
-    entities::{ProtocolParameters, SignedEntityTypeDiscriminants},
-};
-use mithril_ticker::TickerService;
+use mithril_common::{StdResult, entities::Epoch};
 
 /// A fake [MithrilNetworkConfigurationProvider] that return [MithrilNetworkConfiguration]
 pub struct FakeMithrilNetworkConfigurationProvider {
-    /// The protocol parameters for the signer registration
-    pub signer_registration_protocol_parameters: ProtocolParameters,
+    /// Configuration for aggregation
+    pub configuration_for_aggregation: RwLock<MithrilNetworkConfigurationForEpoch>,
 
-    /// The available signed entity types
-    pub available_signed_entity_types: RwLock<BTreeSet<SignedEntityTypeDiscriminants>>,
+    /// Configuration for next aggregation
+    pub configuration_for_next_aggregation: RwLock<MithrilNetworkConfigurationForEpoch>,
 
-    /// The configuration for each signed entity type
-    pub signed_entity_types_config: SignedEntityTypeConfiguration,
-
-    ticker_service: Arc<dyn TickerService>,
+    /// Configuration for registration
+    pub configuration_for_registration: RwLock<MithrilNetworkConfigurationForEpoch>,
 }
 
 impl FakeMithrilNetworkConfigurationProvider {
     /// FakeMithrilNetworkConfigurationProvider factory
     pub fn new(
-        signer_registration_protocol_parameters: ProtocolParameters,
-        available_signed_entity_types: BTreeSet<SignedEntityTypeDiscriminants>,
-        signed_entity_types_config: SignedEntityTypeConfiguration,
-        ticker_service: Arc<dyn TickerService>,
+        configuration_for_aggregation: MithrilNetworkConfigurationForEpoch,
+        configuration_for_next_aggregation: MithrilNetworkConfigurationForEpoch,
+        configuration_for_registration: MithrilNetworkConfigurationForEpoch,
     ) -> Self {
         Self {
-            signer_registration_protocol_parameters,
-            available_signed_entity_types: RwLock::new(available_signed_entity_types),
-            signed_entity_types_config,
-            ticker_service,
+            configuration_for_aggregation: RwLock::new(configuration_for_aggregation),
+            configuration_for_next_aggregation: RwLock::new(configuration_for_next_aggregation),
+            configuration_for_registration: RwLock::new(configuration_for_registration),
         }
     }
 
-    /// Change the allowed signed entity discriminants (signed entity types) returned by the provider
-    pub async fn change_allowed_discriminants(
+    ///Change the configuration of the aggregation
+    pub async fn change_aggregation_configuration(
         &self,
-        discriminants: &BTreeSet<SignedEntityTypeDiscriminants>,
+        conf: MithrilNetworkConfigurationForEpoch,
     ) {
-        let mut available_signed_entity_types = self.available_signed_entity_types.write().await;
-        *available_signed_entity_types = discriminants.clone();
+        let mut configuration_for_aggregation = self.configuration_for_aggregation.write().await;
+        *configuration_for_aggregation = conf;
     }
 }
 
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 impl MithrilNetworkConfigurationProvider for FakeMithrilNetworkConfigurationProvider {
-    async fn get_network_configuration(&self) -> StdResult<MithrilNetworkConfiguration> {
-        let time_point = self.ticker_service.get_current_time_point().await?;
-        let available_signed_entity_types = self.available_signed_entity_types.read().await;
+    async fn get_network_configuration(
+        &self,
+        epoch: Epoch,
+    ) -> StdResult<MithrilNetworkConfiguration> {
+        let configuration_for_aggregation = self.configuration_for_aggregation.read().await.clone();
+
+        let configuration_for_next_aggregation =
+            self.configuration_for_next_aggregation.read().await.clone();
+
+        let configuration_for_registration =
+            self.configuration_for_registration.read().await.clone();
 
         Ok(MithrilNetworkConfiguration {
-            epoch: time_point.epoch,
-            signer_registration_protocol_parameters: self
-                .signer_registration_protocol_parameters
-                .clone(),
-            available_signed_entity_types: available_signed_entity_types.clone(),
-            signed_entity_types_config: self.signed_entity_types_config.clone(),
+            epoch,
+            configuration_for_aggregation,
+            configuration_for_next_aggregation,
+            configuration_for_registration,
         })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::BTreeSet, sync::Arc};
-
-    use mithril_common::{
-        entities::{
-            BlockNumber, CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolParameters,
-            SignedEntityTypeDiscriminants, TimePoint,
-        },
-        test::double::Dummy,
+    use mithril_common::entities::{
+        BlockNumber, CardanoTransactionsSigningConfig, Epoch, ProtocolParameters,
+        SignedEntityTypeDiscriminants,
     };
-    use mithril_ticker::MithrilTickerService;
 
     use crate::{
-        interface::MithrilNetworkConfigurationProvider, model::SignedEntityTypeConfiguration,
+        interface::MithrilNetworkConfigurationProvider,
+        model::{MithrilNetworkConfigurationForEpoch, SignedEntityTypeConfiguration},
         test::double::configuration_provider::FakeMithrilNetworkConfigurationProvider,
     };
-    use mithril_cardano_node_chain::test::double::FakeChainObserver;
-    use mithril_cardano_node_internal_database::test::double::DumbImmutableFileObserver;
-
-    async fn ticker_service() -> Arc<MithrilTickerService> {
-        let immutable_observer = Arc::new(DumbImmutableFileObserver::new());
-        immutable_observer.shall_return(Some(1)).await;
-        let chain_observer = Arc::new(FakeChainObserver::new(Some(TimePoint {
-            epoch: Epoch(1),
-            immutable_file_number: 1,
-            chain_point: ChainPoint::dummy(),
-        })));
-
-        Arc::new(MithrilTickerService::new(
-            chain_observer.clone(),
-            immutable_observer.clone(),
-        ))
-    }
 
     #[tokio::test]
-    async fn test_get() {
-        let signer_registration_protocol_parameters = ProtocolParameters {
-            k: 2,
-            m: 3,
-            phi_f: 0.5,
+    async fn test_get_network_configuration() {
+        let configuration_for_aggregation = MithrilNetworkConfigurationForEpoch {
+            protocol_parameters: ProtocolParameters {
+                k: 1,
+                m: 11,
+                phi_f: 0.1,
+            },
+            enabled_signed_entity_types: SignedEntityTypeDiscriminants::all(),
+            signed_entity_types_config: SignedEntityTypeConfiguration {
+                cardano_transactions: Some(CardanoTransactionsSigningConfig {
+                    step: BlockNumber(10),
+                    security_parameter: BlockNumber(100),
+                }),
+            },
         };
-        let available_signed_entity_types = BTreeSet::from([
-            SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-            SignedEntityTypeDiscriminants::CardanoTransactions,
-        ]);
-        let signed_entity_types_config = SignedEntityTypeConfiguration {
-            cardano_transactions: Some(CardanoTransactionsSigningConfig {
-                security_parameter: BlockNumber(12),
-                step: BlockNumber(10),
-            }),
+
+        let configuration_for_next_aggregation = MithrilNetworkConfigurationForEpoch {
+            protocol_parameters: ProtocolParameters {
+                k: 2,
+                m: 22,
+                phi_f: 0.2,
+            },
+            enabled_signed_entity_types: SignedEntityTypeDiscriminants::all(),
+            signed_entity_types_config: SignedEntityTypeConfiguration {
+                cardano_transactions: Some(CardanoTransactionsSigningConfig {
+                    step: BlockNumber(20),
+                    security_parameter: BlockNumber(200),
+                }),
+            },
+        };
+
+        let configuration_for_registration = MithrilNetworkConfigurationForEpoch {
+            protocol_parameters: ProtocolParameters {
+                k: 3,
+                m: 33,
+                phi_f: 0.3,
+            },
+            enabled_signed_entity_types: SignedEntityTypeDiscriminants::all(),
+            signed_entity_types_config: SignedEntityTypeConfiguration {
+                cardano_transactions: Some(CardanoTransactionsSigningConfig {
+                    step: BlockNumber(30),
+                    security_parameter: BlockNumber(300),
+                }),
+            },
         };
 
         let mithril_network_configuration_provider = FakeMithrilNetworkConfigurationProvider::new(
-            signer_registration_protocol_parameters.clone(),
-            available_signed_entity_types.clone(),
-            signed_entity_types_config.clone(),
-            ticker_service().await,
+            configuration_for_aggregation.clone(),
+            configuration_for_next_aggregation.clone(),
+            configuration_for_registration.clone(),
         );
 
         let actual_config = mithril_network_configuration_provider
-            .get_network_configuration()
+            .get_network_configuration(Epoch(1))
             .await
             .unwrap();
 
         assert_eq!(actual_config.epoch, Epoch(1));
         assert_eq!(
-            actual_config.signer_registration_protocol_parameters,
-            signer_registration_protocol_parameters
+            actual_config.configuration_for_aggregation,
+            configuration_for_aggregation
         );
         assert_eq!(
-            actual_config.available_signed_entity_types,
-            available_signed_entity_types
+            actual_config.configuration_for_next_aggregation,
+            configuration_for_next_aggregation
         );
         assert_eq!(
-            actual_config.signed_entity_types_config,
-            signed_entity_types_config
+            actual_config.configuration_for_registration,
+            configuration_for_registration
         );
     }
 }

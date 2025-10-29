@@ -376,13 +376,11 @@ impl<'a> DependenciesBuilder<'a> {
         ));
         let metrics_service = Arc::new(MetricsService::new(self.root_logger())?);
         let network_configuration_service = Arc::new(HttpMithrilNetworkConfigurationProvider::new(
-            self.config.aggregator_endpoint.clone(),
-            self.config.relay_endpoint.clone(),
-            api_version_provider.clone(),
-            self.root_logger(),
+            aggregator_client.clone(),
         ));
         let preloader_activation = CardanoTransactionsPreloaderActivationSigner::new(
             network_configuration_service.clone(),
+            ticker_service.clone(),
         );
         let cardano_transactions_preloader = Arc::new(CardanoTransactionsPreloader::new(
             signed_entity_type_lock.clone(),

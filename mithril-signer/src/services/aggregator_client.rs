@@ -1,5 +1,8 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
+use mithril_common::StdResult;
+use mithril_common::messages::ProtocolConfigurationMessage;
+use mithril_protocol_config::http_client::http_impl::ProtocolConfigurationRetrieverFromAggregator;
 use reqwest::header::{self, HeaderValue};
 use reqwest::{self, Client, Proxy, RequestBuilder, Response, StatusCode};
 use semver::Version;
@@ -378,6 +381,40 @@ impl AggregatorClient for AggregatorHTTPClient {
     }
 }
 
+#[async_trait]
+impl ProtocolConfigurationRetrieverFromAggregator for AggregatorHTTPClient {
+    async fn retrieve_protocol_configuration(
+        &self,
+        epoch: Epoch,
+    ) -> StdResult<ProtocolConfigurationMessage> {
+        debug!(self.logger, "Retrieve protocol configuration");
+        let url = format!(
+            "{}/protocol-configuration/{}",
+            self.aggregator_endpoint, epoch
+        );
+        let response = self
+            .prepare_request_builder(self.prepare_http_client()?.get(url.clone()))
+            .send()
+            .await;
+
+        match response {
+            Ok(response) => match response.status() {
+                StatusCode::OK => {
+                    self.warn_if_api_version_mismatch(&response);
+                    match response.json::<ProtocolConfigurationMessage>().await {
+                        Ok(message) => Ok(message),
+                        Err(err) => {
+                            Err(AggregatorClientError::JsonParseFailed(anyhow!(err)).into())
+                        }
+                    }
+                }
+                _ => Err(AggregatorClientError::from_response(response).await.into()),
+            },
+            Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err)).into()),
+        }
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod dumb {
     use mithril_common::test::double::Dummy;
@@ -642,6 +679,39 @@ mod tests {
             matches!(error, AggregatorClientError::RemoteServerUnreachable(_)),
             "unexpected error type: {error:?}"
         );
+    }
+
+    mod protocol_configuration {
+
+        use super::*;
+
+        #[tokio::test]
+        async fn test_ok_200() {
+            let (server, client) = setup_server_and_client();
+            let message_expected = ProtocolConfigurationMessage::dummy();
+            let _server_mock = server.mock(|when, then| {
+                when.path("/protocol-configuration/42");
+                then.status(200).body(json!(message_expected).to_string());
+            });
+
+            let message = client.retrieve_protocol_configuration(Epoch(42)).await.unwrap();
+
+            assert_eq!(message_expected, message);
+        }
+
+        #[tokio::test]
+        async fn test_ko_500() {
+            let (server, client) = setup_server_and_client();
+            let _server_mock = server.mock(|when, then| {
+                when.path("/protocol-configuration/42");
+                then.status(500).body("an error occurred");
+            });
+
+            client
+                .retrieve_protocol_configuration(Epoch(42))
+                .await
+                .expect_err("should throw a error");
+        }
     }
 
     #[tokio::test]

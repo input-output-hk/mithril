@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 As a minor extension, we have adopted a slightly different versioning convention for the Mithril distributions (<https://mithril.network/doc/adr/3#decision>)
 
+## Mithril Distribution [XXXX] - UNRELEASED
+
+- **UNSTABLE**:
+  - Added the `/protocol-configuration/{epoch}` route to fetch aggregator configuration for a given epoch, `{epoch}` must be a number.
+
+  - Enhanced `MithrilNetworkConfigurationProvider` to return configuration with a window of three epoch.
+  - Adapt Signer to read configurations from HttpMithrilNetworkConfigurationProvider
+
+- Crates versions:
+
+| Crate | Version |
+| ----- | ------- |
+| N/A   | `-`     |
+
 ## Mithril Distribution [2543] - UNRELEASED
 
 - Client library, CLI and WASM:
