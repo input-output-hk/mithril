@@ -15,6 +15,11 @@ impl MithrilNetwork {
     pub fn dummy() -> Self {
         Self("dummy".to_string())
     }
+
+    /// Retrieve the name of the Mithril network
+    pub fn name(&self) -> &str {
+        &self.0
+    }
 }
 
 /// Representation of an aggregator endpoint
