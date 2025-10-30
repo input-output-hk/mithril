@@ -3807,9 +3807,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "httpmock",
  "mithril-common",
  "mockall",
+ "reqwest",
  "serde",
+ "serde_json",
  "slog",
  "slog-async",
  "slog-scope",
