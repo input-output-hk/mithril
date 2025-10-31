@@ -527,7 +527,7 @@ mod tests {
         #[tokio::test]
         async fn return_chain_ordered_from_genesis_to_latest() {
             let base_certificate = fake_data::certificate("whatever");
-            let chain = vec![
+            let chain = [
                 Certificate {
                     epoch: Epoch(2),
                     ..fake_data::genesis_certificate("genesis")
