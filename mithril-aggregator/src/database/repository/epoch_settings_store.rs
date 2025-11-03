@@ -8,8 +8,9 @@ use mithril_common::entities::{Epoch, ProtocolParameters};
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
 use crate::database::query::{
-    DeleteEpochSettingsQuery, GetEpochSettingsQuery, UpdateEpochSettingsQuery,
+    DeleteEpochSettingsQuery, GetEpochSettingsQuery, InsertOrIgnoreEpochSettingsQuery,
 };
+use crate::database::record::EpochSettingsRecord;
 use crate::entities::AggregatorEpochSettings;
 use crate::services::EpochPruningTask;
 use crate::{EpochSettingsStorer, ProtocolParametersRetriever};
@@ -50,13 +51,17 @@ impl EpochSettingsStorer for EpochSettingsStore {
         epoch: Epoch,
         epoch_settings: AggregatorEpochSettings,
     ) -> StdResult<Option<AggregatorEpochSettings>> {
+        let record_to_insert = EpochSettingsRecord {
+            epoch_settings_id: epoch,
+            cardano_transactions_signing_config: epoch_settings.cardano_transactions_signing_config,
+            protocol_parameters: epoch_settings.protocol_parameters,
+        };
         let epoch_settings_record = self
             .connection
-            .fetch_first(UpdateEpochSettingsQuery::one(epoch, epoch_settings))
-            .with_context(|| format!("persist epoch settings failure for epoch {epoch:?}"))?
-            .unwrap_or_else(|| panic!("No entity returned by the persister, epoch = {epoch:?}"));
+            .fetch_first(InsertOrIgnoreEpochSettingsQuery::one(record_to_insert))
+            .with_context(|| format!("persist epoch settings failure for epoch {epoch:?}"))?;
 
-        Ok(Some(epoch_settings_record.into()))
+        Ok(epoch_settings_record.map(Into::into))
     }
 
     async fn get_epoch_settings(&self, epoch: Epoch) -> StdResult<Option<AggregatorEpochSettings>> {
@@ -170,5 +175,35 @@ mod tests {
             let epoch_settings = store.get_epoch_settings(Epoch(3)).await.unwrap();
             assert_eq!(None, epoch_settings);
         }
+    }
+
+    #[tokio::test]
+    async fn save_epoch_settings_does_not_replace_existing_value_in_database() {
+        let connection = main_db_connection().unwrap();
+
+        let store = EpochSettingsStore::new(Arc::new(connection), None);
+        let expected_epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: ProtocolParameters::new(1, 1, 0.5),
+            ..Dummy::dummy()
+        };
+
+        store
+            .save_epoch_settings(Epoch(2), expected_epoch_settings.clone())
+            .await
+            .expect("saving epoch settings should not fails");
+
+        store
+            .save_epoch_settings(
+                Epoch(2),
+                AggregatorEpochSettings {
+                    protocol_parameters: ProtocolParameters::new(2, 2, 1.5),
+                    ..Dummy::dummy()
+                },
+            )
+            .await
+            .expect("saving epoch settings should not fails");
+
+        let epoch_settings = store.get_epoch_settings(Epoch(2)).await.unwrap().unwrap();
+        assert_eq!(expected_epoch_settings, epoch_settings);
     }
 }
