@@ -1,4 +1,4 @@
-use super::*;
+use crate::snark_friendly::*;
 
 pub enum AggregateSignatureType {
     Concatenation,

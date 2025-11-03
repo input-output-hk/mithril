@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 
-use super::*;
+use crate::snark_friendly::*;
 
 pub struct Initializer {
     pub stake: Stake,
@@ -8,9 +8,9 @@ pub struct Initializer {
     pub bls_signing_key: BlsSigningKey,
     pub bls_public_key: BlsVerificationKeyProofOfPossession,
     #[cfg(feature = "future_snark")]
-    pub schnorr_signing_key: Option<SchnorrSigningKey>,
+    pub schnorr_signing_key: Option<JubjubSigningKey>,
     #[cfg(feature = "future_snark")]
-    pub schnorr_public_key: Option<SchnorrVerificationKeyProofOfPossession>,
+    pub schnorr_public_key: Option<JubjubVerificationKeyProofOfPossession>,
 }
 
 impl Initializer {
@@ -19,9 +19,9 @@ impl Initializer {
         parameters: Parameters,
         bls_signing_key: BlsSigningKey,
         bls_public_key: BlsVerificationKeyProofOfPossession,
-        #[cfg(feature = "future_snark")] schnorr_signing_key: Option<SchnorrSigningKey>,
+        #[cfg(feature = "future_snark")] schnorr_signing_key: Option<JubjubSigningKey>,
         #[cfg(feature = "future_snark")] schnorr_public_key: Option<
-            SchnorrVerificationKeyProofOfPossession,
+            JubjubVerificationKeyProofOfPossession,
         >,
     ) -> Self {
         Self {
@@ -47,11 +47,11 @@ impl Initializer {
             .ok_or(anyhow!("Signer registration not found in key registration"))?;
         let concatenation_proof_individual_signature_generator =
             ConcatenationProofSingleSignatureGenerator::new(
-                todo!(),
+                signer_index.clone(),
                 self.stake.clone(),
                 self.parameters.clone(),
                 BlsCryptoSigner::new(self.bls_signing_key.clone()),
-                key_registration.clone().into_merkle_tree(),
+                key_registration.clone().into_merkle_tree_for_concatenation(),
             );
         #[cfg(feature = "future_snark")]
         let snark_proof_individual_signature_generator =
@@ -59,18 +59,18 @@ impl Initializer {
                 (&self.schnorr_signing_key, &self.schnorr_public_key)
             {
                 Some(SnarkProofSingleSignatureGenerator::new(
-                    todo!(),
+                    signer_index.clone(),
                     self.stake.clone(),
                     self.parameters.clone(),
                     SchnorrCryptoSigner::new(schnorr_signing_key.clone()),
-                    key_registration.clone().into_merkle_tree(),
+                    key_registration.clone().into_merkle_tree_for_snark(),
                 ))
             } else {
                 None
             };
 
         Ok(Signer::new(
-            todo!(),
+            signer_index.clone(),
             self.stake.clone(),
             self.parameters.clone(),
             BlsCryptoSigner::new(self.bls_signing_key.clone()),

@@ -1,4 +1,4 @@
-use super::*;
+use crate::snark_friendly::*;
 
 pub trait CryptoSigner {
     type SigningKey;
@@ -30,33 +30,4 @@ pub trait CryptoInitializer {
     fn get_verification_key(&self) -> &Self::VerificationKey;
 
     fn get_verification_key_proof_of_possession(&self) -> &Self::VerificationKeyProofOfPossession;
-}
-
-pub trait SignerRegistrationCommitmentGenerator {
-    fn create_signer_registration_commitment(&self) -> StdResult<()>;
-}
-
-pub trait SignerRegistrationRevealProver {
-    type SignerRevealInput;
-    type SignerRevealProof;
-
-    fn create_reveal_proof(
-        &self,
-        reveal: &Self::SignerRevealInput,
-    ) -> StdResult<Self::SignerRevealProof>;
-}
-
-pub trait SignerRegistrationRevealVerifier {
-    type SignerRevealProof;
-
-    fn verify_reveal_proof(&self, proof: &Self::SignerRevealProof) -> StdResult<()>;
-}
-
-pub trait ProofSystemSingleSignatureGenerator {
-    type ProofSystemSingleSignature;
-
-    fn create_individual_signature(
-        &self,
-        message: &[u8],
-    ) -> StdResult<Self::ProofSystemSingleSignature>;
 }

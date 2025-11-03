@@ -1,4 +1,12 @@
-use super::*;
+use crate::snark_friendly::*;
+
+#[derive(PartialEq, Eq, Clone)]
+pub struct SignerRegistration {
+    pub stake: Stake,
+    pub bls_public_key: BlsVerificationKeyProofOfPossession,
+    #[cfg(feature = "future_snark")]
+    pub schnorr_public_key: Option<JubjubVerificationKeyProofOfPossession>,
+}
 
 #[derive(Clone)]
 pub struct KeyRegistration {
@@ -22,12 +30,19 @@ impl KeyRegistration {
             .map(|s| s.into())
     }
 
-    pub fn into_merkle_tree<D: Digest>(self) -> MerkleTree<D> {
-        todo!("Implement conversion of KeyRegistration into MerkleTree")
+    pub fn into_merkle_tree_for_concatenation<D: Digest>(self) -> MerkleTree<D> {
+        // Uses (bls_verification_key,stake) as leaves
+        todo!("Implement conversion of KeyRegistration into MerkleTree for Concatenation proof")
     }
 
     #[cfg(feature = "future_snark")]
-    // In case we need it for reccursive snarks
+    pub fn into_merkle_tree_for_snark<D: Digest>(self) -> MerkleTree<D> {
+        // Uses (jubjub_verification_key,ev) as leaves
+        todo!("Implement conversion of KeyRegistration into MerkleTree for SNARK proof")
+    }
+
+    #[cfg(feature = "future_snark")]
+    // In case we need it for recursive snarks
     pub fn into_pedersen_commitment(self) -> PedersenCommitment {
         todo!("Implement conversion of KeyRegistration into PedersenCommitment")
     }

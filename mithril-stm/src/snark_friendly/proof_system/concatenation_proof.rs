@@ -1,13 +1,16 @@
-use super::*;
+use crate::snark_friendly::*;
+
+use super::interface::*;
 
 pub struct BlakeDigest;
 
 impl Digest for BlakeDigest {
-    fn digest(data: &[u8]) -> Vec<u8> {
+    fn digest(_data: &[u8]) -> Vec<u8> {
         todo!("Implement Blake digest")
     }
 }
 
+#[derive(Default)]
 pub struct ConcatenationSingleSignature {
     pub signature: BlsSignature,
     pub lottery_indices: Vec<u64>,

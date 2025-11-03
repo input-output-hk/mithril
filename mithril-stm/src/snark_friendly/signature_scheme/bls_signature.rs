@@ -1,15 +1,23 @@
-use super::*;
+use crate::snark_friendly::*;
 
-#[derive(Clone)]
+use super::interface::*;
+
+/// BLS signing key
+#[derive(Default, Clone)]
 pub struct BlsSigningKey {}
 
+/// BLS verification key
 pub struct BlsVerificationKey {}
 
-#[derive(PartialEq, Eq, Clone)]
+/// BLS verification key proof of possession
+#[derive(Default, PartialEq, Eq, Clone)]
 pub struct BlsVerificationKeyProofOfPossession {}
 
+/// BLS signature
+#[derive(Default)]
 pub struct BlsSignature {}
 
+/// BLS crypto initializer
 pub struct BlsCryptoInitializer {
     seed: Vec<u8>,
 }
@@ -20,18 +28,19 @@ impl CryptoInitializer for BlsCryptoInitializer {
     type VerificationKeyProofOfPossession = BlsVerificationKeyProofOfPossession;
 
     fn get_signing_key(&self) -> &Self::SigningKey {
-        todo!("Implement get_signing_key")
+        &BlsSigningKey {}
     }
 
     fn get_verification_key(&self) -> &Self::VerificationKey {
-        todo!("Implement get_verification_key")
+        &BlsVerificationKey {}
     }
 
     fn get_verification_key_proof_of_possession(&self) -> &Self::VerificationKeyProofOfPossession {
-        todo!("Implement get_verification_key_proof_of_possession")
+        &BlsVerificationKeyProofOfPossession {}
     }
 }
 
+/// BLS crypto signer
 pub struct BlsCryptoSigner {
     pub bls_signing_key: BlsSigningKey,
 }
@@ -49,10 +58,11 @@ impl CryptoSigner for BlsCryptoSigner {
     type Signature = BlsSignature;
 
     fn sign(message: &[u8], signing_key: &Self::SigningKey) -> StdResult<Self::Signature> {
-        todo!("Implement BLS sign")
+        Ok(BlsSignature::default())
     }
 }
 
+/// BLS crypto verifier
 pub struct BlsCryptoVerifier {
     pub bls_verification_key: BlsVerificationKey,
 }
@@ -66,6 +76,6 @@ impl CryptoVerifier for BlsCryptoVerifier {
         signature: &Self::Signature,
         verification_key: &Self::VerificationKey,
     ) -> StdResult<()> {
-        todo!("Implement BLS verify")
+        Ok(())
     }
 }

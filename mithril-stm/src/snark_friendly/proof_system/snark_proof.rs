@@ -1,4 +1,6 @@
-use super::*;
+use crate::snark_friendly::*;
+
+use super::interface::*;
 
 pub struct PoseidonDigest;
 
@@ -9,7 +11,7 @@ impl Digest for PoseidonDigest {
 }
 
 pub struct SnarkSingleSignature {
-    pub signature: SchnorrSignature,
+    pub signature: JubjubSignature,
     pub lottery_indices: Vec<u64>, // TODO: this field could be removed or left empty and indices would be recomputed at aggregation time
 }
 

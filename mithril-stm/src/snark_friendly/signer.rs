@@ -1,4 +1,4 @@
-use super::*;
+use crate::snark_friendly::*;
 
 pub struct Signer {
     pub signer_index: SignerIndex,
