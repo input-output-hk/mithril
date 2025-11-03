@@ -1,10 +1,10 @@
-use anyhow::anyhow;
 use async_trait::async_trait;
 use std::collections::BTreeSet;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 
 use mithril_common::{
+    StdResult,
     entities::{
         CardanoTransactionsSigningConfig, Epoch, ProtocolMessage, SignedEntityConfig,
         SignedEntityType, SignedEntityTypeDiscriminants, Signer, SingleSignature, TimePoint,
@@ -14,10 +14,7 @@ use mithril_common::{
 };
 use mithril_ticker::{MithrilTickerService, TickerService};
 
-use mithril_signer::{
-    entities::SignerEpochSettings,
-    services::{AggregatorClient, AggregatorClientError},
-};
+use mithril_signer::{entities::SignerEpochSettings, services::AggregatorClient};
 
 pub struct FakeAggregator {
     signed_entity_config: RwLock<SignedEntityConfig>,
@@ -57,25 +54,17 @@ impl FakeAggregator {
         signed_entity_config.allowed_discriminants = discriminants.clone();
     }
 
-    async fn get_time_point(&self) -> Result<TimePoint, AggregatorClientError> {
-        let time_point = self
-            .ticker_service
-            .get_current_time_point()
-            .await
-            .map_err(|e| AggregatorClientError::RemoteServerTechnical(anyhow!(e)))?;
-
+    async fn get_time_point(&self) -> StdResult<TimePoint> {
+        let time_point = self.ticker_service.get_current_time_point().await?;
         Ok(time_point)
     }
 
     async fn get_current_signers(
         &self,
         store: &HashMap<Epoch, Vec<Signer>>,
-    ) -> Result<Vec<Signer>, AggregatorClientError> {
+    ) -> StdResult<Vec<Signer>> {
         let time_point = self.get_time_point().await?;
-        let epoch = time_point
-            .epoch
-            .offset_to_signer_retrieval_epoch()
-            .map_err(|e| AggregatorClientError::RemoteServerTechnical(anyhow!(e)))?;
+        let epoch = time_point.epoch.offset_to_signer_retrieval_epoch()?;
 
         Ok(store.get(&epoch).cloned().unwrap_or_default())
     }
@@ -83,7 +72,7 @@ impl FakeAggregator {
     async fn get_next_signers(
         &self,
         store: &HashMap<Epoch, Vec<Signer>>,
-    ) -> Result<Vec<Signer>, AggregatorClientError> {
+    ) -> StdResult<Vec<Signer>> {
         let time_point = self.get_time_point().await?;
         let epoch = time_point.epoch.offset_to_next_signer_retrieval_epoch();
 
@@ -93,9 +82,7 @@ impl FakeAggregator {
 
 #[async_trait]
 impl AggregatorClient for FakeAggregator {
-    async fn retrieve_epoch_settings(
-        &self,
-    ) -> Result<Option<SignerEpochSettings>, AggregatorClientError> {
+    async fn retrieve_epoch_settings(&self) -> StdResult<Option<SignerEpochSettings>> {
         if *self.withhold_epoch_settings.read().await {
             Ok(None)
         } else {
@@ -113,11 +100,7 @@ impl AggregatorClient for FakeAggregator {
     }
 
     /// Registers signer with the aggregator
-    async fn register_signer(
-        &self,
-        epoch: Epoch,
-        signer: &Signer,
-    ) -> Result<(), AggregatorClientError> {
+    async fn register_signer(&self, epoch: Epoch, signer: &Signer) -> StdResult<()> {
         let mut store = self.registered_signers.write().await;
         let mut signers = store.get(&epoch).cloned().unwrap_or_default();
         signers.push(signer.clone());
@@ -132,13 +115,11 @@ impl AggregatorClient for FakeAggregator {
         _signed_entity_type: &SignedEntityType,
         _signature: &SingleSignature,
         _protocol_message: &ProtocolMessage,
-    ) -> Result<(), AggregatorClientError> {
+    ) -> StdResult<()> {
         Ok(())
     }
 
-    async fn retrieve_aggregator_features(
-        &self,
-    ) -> Result<AggregatorFeaturesMessage, AggregatorClientError> {
+    async fn retrieve_aggregator_features(&self) -> StdResult<AggregatorFeaturesMessage> {
         let signed_entity_config = self.signed_entity_config.read().await;
 
         let mut message = AggregatorFeaturesMessage::dummy();

@@ -4,7 +4,9 @@
 //! - Certificate: Get by hash, get latest genesis certificate
 //!
 mod api;
-mod certificate;
+mod get;
+mod post;
 
 pub(crate) use api::*;
-pub use certificate::*;
+pub use get::*;
+pub use post::*;

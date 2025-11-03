@@ -696,7 +696,7 @@ impl StateMachineTester {
             self.certificate_handler
                 .register_signer(epoch, &signer_with_stake.to_owned().into())
                 .await
-                .map_err(|e| TestError::SubsystemError(e.into()))?;
+                .map_err(TestError::SubsystemError)?;
         }
 
         Ok(self)

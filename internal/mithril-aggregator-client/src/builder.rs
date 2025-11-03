@@ -2,17 +2,18 @@ use anyhow::Context;
 use reqwest::{Client, IntoUrl, Proxy, Url};
 use slog::{Logger, o};
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 
 use mithril_common::StdResult;
 use mithril_common::api_version::APIVersionProvider;
 
-use crate::client::AggregatorClient;
+use crate::client::AggregatorHttpClient;
 
-/// A builder of [AggregatorClient]
+/// A builder of [AggregatorHttpClient]
 pub struct AggregatorClientBuilder {
     aggregator_url_result: reqwest::Result<Url>,
-    api_version_provider: Option<APIVersionProvider>,
+    api_version_provider: Option<Arc<APIVersionProvider>>,
     additional_headers: Option<HashMap<String, String>>,
     timeout_duration: Option<Duration>,
     relay_endpoint: Option<String>,
@@ -41,7 +42,10 @@ impl AggregatorClientBuilder {
     }
 
     /// Set the [APIVersionProvider] to use.
-    pub fn with_api_version_provider(mut self, api_version_provider: APIVersionProvider) -> Self {
+    pub fn with_api_version_provider(
+        mut self,
+        api_version_provider: Arc<APIVersionProvider>,
+    ) -> Self {
         self.api_version_provider = Some(api_version_provider);
         self
     }
@@ -59,13 +63,13 @@ impl AggregatorClientBuilder {
     }
 
     /// Set the address of the relay
-    pub fn with_relay_endpoint(mut self, relay_endpoint: String) -> Self {
-        self.relay_endpoint = Some(relay_endpoint);
+    pub fn with_relay_endpoint(mut self, relay_endpoint: Option<String>) -> Self {
+        self.relay_endpoint = relay_endpoint;
         self
     }
 
-    /// Returns an [AggregatorClient] based on the builder configuration
-    pub fn build(self) -> StdResult<AggregatorClient> {
+    /// Returns an [AggregatorHttpClient] based on the builder configuration
+    pub fn build(self) -> StdResult<AggregatorHttpClient> {
         let aggregator_endpoint =
             enforce_trailing_slash(self.aggregator_url_result.with_context(
                 || "Invalid aggregator endpoint, it must be a correctly formed url",
@@ -80,7 +84,7 @@ impl AggregatorClientBuilder {
                 .proxy(Proxy::all(relay_endpoint).with_context(|| "Relay proxy creation failed")?)
         }
 
-        Ok(AggregatorClient {
+        Ok(AggregatorHttpClient {
             aggregator_endpoint,
             api_version_provider,
             additional_headers: (&additional_headers)

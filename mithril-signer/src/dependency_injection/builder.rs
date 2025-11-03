@@ -6,6 +6,7 @@ use anyhow::{Context, anyhow};
 use slog::Logger;
 use tokio::sync::{Mutex, RwLock};
 
+use mithril_aggregator_client::AggregatorHttpClient;
 use mithril_cardano_node_chain::{
     chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType},
     chain_reader::PallasChainReader,
@@ -41,7 +42,7 @@ use mithril_persistence::database::repository::CardanoTransactionRepository;
 use mithril_persistence::database::{ApplicationNodeType, SqlMigration};
 use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnection, SqliteConnectionPool};
 
-use mithril_protocol_config::http_client::http_impl::HttpMithrilNetworkConfigurationProvider;
+use mithril_protocol_config::http::HttpMithrilNetworkConfigurationProvider;
 
 #[cfg(feature = "future_dmq")]
 use mithril_dmq::{DmqMessageBuilder, DmqPublisherClientPallas};
@@ -50,12 +51,11 @@ use crate::dependency_injection::SignerDependencyContainer;
 #[cfg(feature = "future_dmq")]
 use crate::services::SignaturePublisherDmq;
 use crate::services::{
-    AggregatorHTTPClient, CardanoTransactionsImporter,
-    CardanoTransactionsPreloaderActivationSigner, MithrilEpochService, MithrilSingleSigner,
-    SignaturePublishRetryPolicy, SignaturePublisherDelayer, SignaturePublisherNoop,
-    SignaturePublisherRetrier, SignerCertifierService, SignerSignableSeedBuilder,
-    SignerSignedEntityConfigProvider, SignerUpkeepService, TransactionsImporterByChunk,
-    TransactionsImporterWithPruner, TransactionsImporterWithVacuum,
+    CardanoTransactionsImporter, CardanoTransactionsPreloaderActivationSigner, MithrilEpochService,
+    MithrilSingleSigner, SignaturePublishRetryPolicy, SignaturePublisherDelayer,
+    SignaturePublisherNoop, SignaturePublisherRetrier, SignerCertifierService,
+    SignerSignableSeedBuilder, SignerSignedEntityConfigProvider, SignerUpkeepService,
+    TransactionsImporterByChunk, TransactionsImporterWithPruner, TransactionsImporterWithVacuum,
 };
 use crate::store::MKTreeStoreSqlite;
 use crate::{
@@ -269,13 +269,14 @@ impl<'a> DependenciesBuilder<'a> {
         ));
 
         let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
-        let aggregator_client = Arc::new(AggregatorHTTPClient::new(
-            self.config.aggregator_endpoint.clone(),
-            self.config.relay_endpoint.clone(),
-            api_version_provider.clone(),
-            Some(Duration::from_millis(HTTP_REQUEST_TIMEOUT_DURATION)),
-            self.root_logger(),
-        ));
+        let aggregator_client = Arc::new(
+            AggregatorHttpClient::builder(self.config.aggregator_endpoint.clone())
+                .with_relay_endpoint(self.config.relay_endpoint.clone())
+                .with_api_version_provider(api_version_provider.clone())
+                .with_timeout(Duration::from_millis(HTTP_REQUEST_TIMEOUT_DURATION))
+                .with_logger(self.root_logger())
+                .build()?,
+        );
 
         let cardano_immutable_snapshot_builder =
             Arc::new(CardanoImmutableFilesFullSignableBuilder::new(

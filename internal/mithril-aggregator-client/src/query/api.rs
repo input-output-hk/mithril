@@ -2,8 +2,8 @@ use reqwest::Response;
 use serde::de::DeserializeOwned;
 use slog::Logger;
 
-use crate::AggregatorClientResult;
-use crate::error::AggregatorClientError;
+use crate::AggregatorHttpClientResult;
+use crate::error::AggregatorHttpClientError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QueryMethod {
@@ -28,7 +28,7 @@ pub trait AggregatorQuery {
     async fn handle_response(
         &self,
         context: QueryContext,
-    ) -> AggregatorClientResult<Self::Response>;
+    ) -> AggregatorHttpClientResult<Self::Response>;
 }
 
 pub struct QueryContext {
@@ -37,7 +37,7 @@ pub struct QueryContext {
 }
 
 impl QueryContext {
-    pub async fn unhandled_status_code(self) -> AggregatorClientError {
-        AggregatorClientError::from_response(self.response).await
+    pub async fn unhandled_status_code(self) -> AggregatorHttpClientError {
+        AggregatorHttpClientError::from_response(self.response).await
     }
 }

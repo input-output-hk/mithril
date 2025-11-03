@@ -3594,7 +3594,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.7.92"
+version = "0.7.93"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3610,6 +3610,7 @@ dependencies = [
  "hex",
  "http",
  "httpmock",
+ "mithril-aggregator-client",
  "mithril-api-spec",
  "mithril-cardano-node-chain",
  "mithril-cardano-node-internal-database",
@@ -3653,7 +3654,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator-client"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4023,14 +4024,14 @@ dependencies = [
 
 [[package]]
 name = "mithril-protocol-config"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "async-trait",
- "http",
  "httpmock",
+ "mithril-aggregator-client",
  "mithril-common",
- "mockall",
+ "serde_json",
  "slog",
  "slog-async",
  "slog-term",
@@ -4101,7 +4102,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.274"
+version = "0.2.275"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4110,8 +4111,8 @@ dependencies = [
  "config",
  "criterion",
  "hex",
- "http",
  "httpmock",
+ "mithril-aggregator-client",
  "mithril-cardano-node-chain",
  "mithril-cardano-node-internal-database",
  "mithril-cli-helper",
@@ -4129,7 +4130,6 @@ dependencies = [
  "prometheus-parse",
  "rand_core 0.6.4",
  "reqwest",
- "semver",
  "serde",
  "serde_json",
  "slog",

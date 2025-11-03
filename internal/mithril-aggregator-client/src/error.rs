@@ -9,7 +9,7 @@ use crate::JSON_CONTENT_TYPE;
 
 /// Error structure for the Aggregator Client.
 #[derive(Error, Debug)]
-pub enum AggregatorClientError {
+pub enum AggregatorHttpClientError {
     /// Error raised when querying the aggregator returned a 5XX error.
     #[error("Internal error of the Aggregator")]
     RemoteServerTechnical(#[source] StdError),
@@ -39,7 +39,7 @@ pub enum AggregatorClientError {
     RegistrationRoundNotYetOpened(#[source] StdError),
 }
 
-impl AggregatorClientError {
+impl AggregatorHttpClientError {
     /// Create an `AggregatorClientError` from a response.
     ///
     /// This method is meant to be used after handling domain-specific cases leaving only
@@ -63,7 +63,7 @@ impl AggregatorClientError {
         }
     }
 
-    async fn get_root_cause(response: Response) -> String {
+    pub(crate) async fn get_root_cause(response: Response) -> String {
         let error_code = response.status();
         let canonical_reason = error_code.canonical_reason().unwrap_or_default().to_lowercase();
         let is_json = response
@@ -133,12 +133,12 @@ mod tests {
     #[tokio::test]
     async fn test_4xx_errors_are_handled_as_remote_server_logical() {
         let response = build_text_response(StatusCode::BAD_REQUEST, "error text");
-        let handled_error = AggregatorClientError::from_response(response).await;
+        let handled_error = AggregatorHttpClientError::from_response(response).await;
 
         assert!(
             matches!(
                 handled_error,
-                AggregatorClientError::RemoteServerLogical(..)
+                AggregatorHttpClientError::RemoteServerLogical(..)
             ),
             "Expected error to be RemoteServerLogical\ngot '{handled_error:?}'",
         );
@@ -147,12 +147,12 @@ mod tests {
     #[tokio::test]
     async fn test_5xx_errors_are_handled_as_remote_server_technical() {
         let response = build_text_response(StatusCode::INTERNAL_SERVER_ERROR, "error text");
-        let handled_error = AggregatorClientError::from_response(response).await;
+        let handled_error = AggregatorHttpClientError::from_response(response).await;
 
         assert!(
             matches!(
                 handled_error,
-                AggregatorClientError::RemoteServerTechnical(..)
+                AggregatorHttpClientError::RemoteServerTechnical(..)
             ),
             "Expected error to be RemoteServerLogical\ngot '{handled_error:?}'",
         );
@@ -161,12 +161,12 @@ mod tests {
     #[tokio::test]
     async fn test_550_error_is_handled_as_registration_round_not_yet_opened() {
         let response = build_text_response(StatusCode::from_u16(550).unwrap(), "Not yet available");
-        let handled_error = AggregatorClientError::from_response(response).await;
+        let handled_error = AggregatorHttpClientError::from_response(response).await;
 
         assert!(
             matches!(
                 handled_error,
-                AggregatorClientError::RegistrationRoundNotYetOpened(..)
+                AggregatorHttpClientError::RegistrationRoundNotYetOpened(..)
             ),
             "Expected error to be RegistrationRoundNotYetOpened\ngot '{handled_error:?}'",
         );
@@ -176,12 +176,12 @@ mod tests {
     async fn test_non_4xx_or_5xx_errors_are_handled_as_unhandled_status_code_and_contains_response_text()
      {
         let response = build_text_response(StatusCode::OK, "ok text");
-        let handled_error = AggregatorClientError::from_response(response).await;
+        let handled_error = AggregatorHttpClientError::from_response(response).await;
 
         assert!(
             matches!(
                 handled_error,
-                AggregatorClientError::UnhandledStatusCode(..) if format!("{handled_error:?}").contains("ok text")
+                AggregatorHttpClientError::UnhandledStatusCode(..) if format!("{handled_error:?}").contains("ok text")
             ),
             "Expected error to be UnhandledStatusCode with 'ok text' in error text\ngot '{handled_error:?}'",
         );
@@ -193,7 +193,7 @@ mod tests {
         let response = build_text_response(StatusCode::EXPECTATION_FAILED, error_text);
 
         assert_error_text_contains!(
-            AggregatorClientError::get_root_cause(response).await,
+            AggregatorHttpClientError::get_root_cause(response).await,
             "expectation failed: An error occurred; please try again later."
         );
     }
@@ -205,7 +205,7 @@ mod tests {
         let response = build_json_response(StatusCode::BAD_REQUEST, &client_error);
 
         assert_error_text_contains!(
-            AggregatorClientError::get_root_cause(response).await,
+            AggregatorHttpClientError::get_root_cause(response).await,
             "bad request: label: message"
         );
     }
@@ -217,7 +217,7 @@ mod tests {
         let response = build_json_response(StatusCode::BAD_REQUEST, &server_error);
 
         assert_error_text_contains!(
-            AggregatorClientError::get_root_cause(response).await,
+            AggregatorHttpClientError::get_root_cause(response).await,
             "bad request: message"
         );
     }
@@ -230,7 +230,7 @@ mod tests {
         );
 
         assert_error_text_contains!(
-            AggregatorClientError::get_root_cause(response).await,
+            AggregatorHttpClientError::get_root_cause(response).await,
             r#"internal server error: {"first":"foreign","second":"unknown"}"#
         );
     }
@@ -244,7 +244,7 @@ mod tests {
             .unwrap()
             .into();
 
-        let root_cause = AggregatorClientError::get_root_cause(response).await;
+        let root_cause = AggregatorHttpClientError::get_root_cause(response).await;
 
         assert_error_text_contains!(root_cause, "bad request");
         assert!(
