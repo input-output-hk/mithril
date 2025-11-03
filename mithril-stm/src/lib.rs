@@ -119,6 +119,8 @@ mod key_registration;
 mod merkle_tree;
 mod parameters;
 mod participant;
+#[cfg(feature = "future_snark")]
+mod schnorr_signature;
 mod single_signature;
 
 pub use aggregate_signature::{
