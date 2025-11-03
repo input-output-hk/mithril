@@ -120,6 +120,8 @@ mod merkle_tree;
 mod parameters;
 mod participant;
 mod single_signature;
+#[cfg(feature = "future_snark")]
+mod schnorr_signatures;
 
 pub use aggregate_signature::{
     AggregateSignature, AggregateSignatureType, AggregateVerificationKey, BasicVerifier, Clerk,
