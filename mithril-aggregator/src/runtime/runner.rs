@@ -78,9 +78,6 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         force_sync: bool,
     ) -> StdResult<()>;
 
-    /// Ask the EpochService to update the epoch settings.
-    async fn update_epoch_settings(&self) -> StdResult<()>;
-
     /// Compute the protocol message
     async fn compute_protocol_message(
         &self,
@@ -296,16 +293,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .synchronize_all_signers()
             .await
             .map_err(|e| e.into())
-    }
-
-    async fn update_epoch_settings(&self) -> StdResult<()> {
-        debug!(self.logger, ">> update_epoch_settings");
-        self.dependencies
-            .epoch_service
-            .write()
-            .await
-            .update_epoch_settings()
-            .await
     }
 
     async fn compute_protocol_message(
@@ -906,48 +893,6 @@ pub mod tests {
         let runner = AggregatorRunner::new(Arc::new(deps));
 
         runner.upkeep(Epoch(5)).await.unwrap();
-    }
-
-    #[tokio::test]
-    async fn test_update_epoch_settings() {
-        let mut mock_certifier_service = MockCertifierService::new();
-        mock_certifier_service
-            .expect_inform_epoch()
-            .returning(|_| Ok(()))
-            .times(1);
-
-        let config = ServeCommandConfiguration::new_sample(temp_dir!());
-        let mut deps = DependenciesBuilder::new_with_stdout_logger(Arc::new(config.clone()))
-            .build_serve_dependencies_container()
-            .await
-            .unwrap();
-        deps.certifier_service = Arc::new(mock_certifier_service);
-        let epoch_settings_storer = deps.epoch_settings_storer.clone();
-        let current_epoch = deps.ticker_service.get_current_epoch().await.unwrap();
-        let insert_epoch = current_epoch.offset_to_epoch_settings_recording_epoch();
-
-        let runner = build_runner_with_fixture_data(deps).await;
-        runner.inform_new_epoch(current_epoch).await.unwrap();
-        runner
-            .update_epoch_settings()
-            .await
-            .expect("update_epoch_settings should not fail");
-
-        let saved_epoch_settings = epoch_settings_storer
-            .get_epoch_settings(insert_epoch)
-            .await
-            .unwrap()
-            .unwrap_or_else(|| panic!("should have epoch settings for epoch {insert_epoch}",));
-
-        assert_eq!(
-            AggregatorEpochSettings {
-                protocol_parameters: config.protocol_parameters.clone(),
-                cardano_transactions_signing_config: config
-                    .cardano_transactions_signing_config
-                    .clone(),
-            },
-            saved_epoch_settings
-        );
     }
 
     #[tokio::test]

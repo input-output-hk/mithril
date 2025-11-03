@@ -401,9 +401,6 @@ impl DependenciesBuilder {
             signed_entity_service: self.get_signed_entity_service().await?,
             certifier_service: self.get_certifier_service().await?,
             epoch_service: self.get_epoch_service().await?,
-            mithril_network_configuration_provider: self
-                .get_mithril_network_configuration_provider()
-                .await?,
             ticker_service: self.get_ticker_service().await?,
             signed_entity_storer: self.get_signed_entity_storer().await?,
             signer_getter: self.get_signer_store().await?,

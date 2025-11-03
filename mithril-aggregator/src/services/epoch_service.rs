@@ -1,7 +1,6 @@
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use mithril_protocol_config::interface::MithrilNetworkConfigurationProvider;
-use mithril_protocol_config::model::MithrilNetworkConfiguration;
 use slog::{Logger, debug};
 use std::collections::BTreeSet;
 use std::sync::Arc;
@@ -45,11 +44,6 @@ pub trait EpochService: Sync + Send {
     /// Inform the service a new epoch has been detected, telling it to update its
     /// internal state for the new epoch.
     async fn inform_epoch(&mut self, epoch: Epoch) -> StdResult<()>;
-
-    /// Insert future epoch settings in the store based on this service current epoch (epoch offset +2).
-    ///
-    /// Note: must be called after `inform_epoch`.
-    async fn update_epoch_settings(&mut self) -> StdResult<()>;
 
     /// Update the next signers with stake for the next epoch.
     async fn update_next_signers_with_stake(&mut self) -> StdResult<()>;
@@ -390,11 +384,6 @@ impl EpochService for MithrilEpochService {
         Ok(())
     }
 
-    async fn update_epoch_settings(&mut self) -> StdResult<()> {
-        debug!(self.logger, ">> update_epoch_settings");
-        todo!("remove")
-    }
-
     async fn update_next_signers_with_stake(&mut self) -> StdResult<()> {
         debug!(self.logger, ">> update_next_signers_with_stake");
 
@@ -542,7 +531,6 @@ pub(crate) struct FakeEpochService {
     epoch_data: Option<EpochData>,
     computed_epoch_data: Option<ComputedEpochData>,
     inform_epoch_error: bool,
-    update_epoch_settings_error: bool,
     precompute_epoch_data_error: bool,
     update_next_signers_with_stake_error: bool,
 }
@@ -631,7 +619,6 @@ impl FakeEpochServiceBuilder {
                 next_protocol_multi_signer,
             }),
             inform_epoch_error: false,
-            update_epoch_settings_error: false,
             precompute_epoch_data_error: false,
             update_next_signers_with_stake_error: false,
         }
@@ -678,7 +665,6 @@ impl FakeEpochService {
             epoch_data: None,
             computed_epoch_data: None,
             inform_epoch_error: false,
-            update_epoch_settings_error: false,
             precompute_epoch_data_error: false,
             update_next_signers_with_stake_error: false,
         }
@@ -687,12 +673,10 @@ impl FakeEpochService {
     pub fn toggle_errors(
         &mut self,
         inform_epoch: bool,
-        update_protocol_parameters: bool,
         precompute_epoch: bool,
         update_next_signers_with_stake: bool,
     ) {
         self.inform_epoch_error = inform_epoch;
-        self.update_epoch_settings_error = update_protocol_parameters;
         self.precompute_epoch_data_error = precompute_epoch;
         self.update_next_signers_with_stake_error = update_next_signers_with_stake;
     }
@@ -716,13 +700,6 @@ impl EpochService for FakeEpochService {
     async fn inform_epoch(&mut self, epoch: Epoch) -> StdResult<()> {
         if self.inform_epoch_error {
             anyhow::bail!("inform_epoch fake error, given epoch: {epoch}");
-        }
-        Ok(())
-    }
-
-    async fn update_epoch_settings(&mut self) -> StdResult<()> {
-        if self.update_epoch_settings_error {
-            anyhow::bail!("update_epoch_settings fake error");
         }
         Ok(())
     }

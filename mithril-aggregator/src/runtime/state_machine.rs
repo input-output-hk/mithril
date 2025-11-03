@@ -268,7 +268,6 @@ impl AggregatorRuntime {
             self.runner.inform_new_epoch(new_time_point.epoch).await?;
             self.runner.upkeep(new_time_point.epoch).await?;
             self.runner.open_signer_registration_round(&new_time_point).await?;
-            self.runner.update_epoch_settings().await?;
             if self.config.is_follower {
                 self.runner
                     .synchronize_follower_aggregator_signer_registration()
@@ -447,7 +446,6 @@ mod tests {
                 .with(predicate::eq(TimePoint::dummy().epoch))
                 .once()
                 .returning(|_| Ok(()));
-            runner.expect_update_epoch_settings().once().returning(|| Ok(()));
             runner.expect_precompute_epoch_data().once().returning(|| Ok(()));
             runner
                 .expect_upkeep()
@@ -510,7 +508,6 @@ mod tests {
                 .with(predicate::eq(TimePoint::dummy().epoch))
                 .once()
                 .returning(|_| Ok(()));
-            runner.expect_update_epoch_settings().once().returning(|| Ok(()));
             runner.expect_precompute_epoch_data().once().returning(|| Ok(()));
             runner
                 .expect_upkeep()
@@ -936,7 +933,6 @@ mod tests {
                 .with(predicate::eq(new_time_point_clone.clone().epoch))
                 .once()
                 .returning(|_| Ok(()));
-            runner.expect_update_epoch_settings().once().returning(|| Ok(()));
             runner.expect_precompute_epoch_data().once().returning(|| Ok(()));
             runner
                 .expect_upkeep()
