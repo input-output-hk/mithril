@@ -136,7 +136,7 @@ jobs:
         shell: bash
         working-directory: mithril-client-wasm
         env:
-          WASM_PACK_ARGS: --release --scope mithril-dev
+          WASM_PACK_ARGS: --release
         run: make build
 
       - name: Prepare 'mithril-client-wasm' package
@@ -594,7 +594,6 @@ jobs:
         package: [mithril-client-wasm]
         include:
           - package: mithril-client-wasm
-            scope: mithril-dev
             tag: latest
             access: public
             api_token_secret_name: NPM_API_TOKEN_MITHRIL_CLIENT_WASM
@@ -613,12 +612,11 @@ jobs:
           cargo-tools: wasm-pack
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish package to npm
+      - name: Publish package to npm (dry-run)
         uses: ./.github/workflows/actions/publish-npm-package
         with:
           dry_run: "true"
-          package: ${{ matrix.package }}
-          scope: ${{ matrix.scope }}
+          package_dir: ${{ matrix.package }}
           access: ${{ matrix.access }}
           api_token: ${{ secrets[matrix.api_token_secret_name] }}
 

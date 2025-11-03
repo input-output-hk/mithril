@@ -39,7 +39,6 @@ jobs:
         package: [mithril-client-wasm]
         include:
           - package: mithril-client-wasm
-            scope: mithril-dev
             tag: latest
             access: public
             api_token_secret_name: NPM_API_TOKEN_MITHRIL_CLIENT_WASM
@@ -65,8 +64,7 @@ jobs:
         uses: ./.github/workflows/actions/publish-npm-package
         with:
           dry_run: ${{ inputs.dry_run }}
-          package: ${{ matrix.package }}
-          scope: ${{ matrix.scope }}
+          package_dir: ${{ matrix.package }}
           tag: ${{ matrix.tag }}
           access: ${{ matrix.access }}
           api_token: ${{ secrets[matrix.api_token_secret_name] }}
