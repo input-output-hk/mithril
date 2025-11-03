@@ -69,3 +69,8 @@ use tikv_jemallocator::Jemalloc;
 #[cfg(all(not(target_env = "msvc"), feature = "jemallocator"))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
+
+#[cfg(test)]
+mod tests {
+    mithril_aggregator_client::test_http_compression_is_enabled!();
+}

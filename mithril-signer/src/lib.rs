@@ -43,3 +43,8 @@ static GLOBAL: Jemalloc = Jemalloc;
 pub(crate) mod test_tools {
     mithril_common::define_test_logger!();
 }
+
+#[cfg(test)]
+mod tests {
+    mithril_aggregator_client::test_http_compression_is_enabled!();
+}
