@@ -5,20 +5,15 @@ pub use midnight_curves::{
 };
 
 use midnight_circuits::{
-    ecc::{
-        hash_to_curve::HashToCurveGadget,
-        native::EccChip,
-    },
+    ecc::{hash_to_curve::HashToCurveGadget, native::EccChip},
     hash::poseidon::PoseidonChip,
-    instructions::{
-        HashToCurveCPU,
-        hash::HashCPU,
-    },
+    instructions::{HashToCurveCPU, hash::HashCPU},
     types::AssignedNative,
 };
 
-use ff::{Field};
+use ff::Field;
 use group::Group;
+use sha2::{Digest, Sha256};
 
 use subtle::{Choice, ConstantTimeEq};
 use thiserror::Error;
@@ -28,11 +23,10 @@ mod signature;
 mod signing_key;
 mod verification_key;
 
+pub use helper::*;
 pub use signature::*;
 pub use signing_key::*;
 pub use verification_key::*;
-
-
 
 type JubjubHashToCurve = HashToCurveGadget<
     JubjubBase,
@@ -46,7 +40,6 @@ type PoseidonHash = PoseidonChip<JubjubBase>;
 
 pub(crate) const DST_SIGNATURE: JubjubBase = JubjubBase::from_raw([2u64, 0, 0, 0]);
 
-
 #[derive(Debug, Error)]
 pub enum SignatureError {
     #[error("Verification failed: Signature is invalid.")]
@@ -56,20 +49,30 @@ pub enum SignatureError {
     SerializationError,
 }
 
-
+fn u64s_from_bytes(bytes: &[u8; 32]) -> [u64; 4] {
+    [
+        u64::from_le_bytes(bytes[0..8].try_into().unwrap()),
+        u64::from_le_bytes(bytes[8..16].try_into().unwrap()),
+        u64::from_le_bytes(bytes[16..24].try_into().unwrap()),
+        u64::from_le_bytes(bytes[24..32].try_into().unwrap()),
+    ]
+}
 
 #[cfg(test)]
 mod tests {
     // use blst::{blst_p1, blst_p2};
     use proptest::prelude::*;
     use rand_chacha::ChaCha20Rng;
-    use rand_core::{RngCore, SeedableRng, OsRng};
+    use rand_core::{OsRng, RngCore, SeedableRng};
 
     // use crate::bls_multi_signature::helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk};
     use crate::error::{MultiSignatureError, RegisterError};
     use crate::key_registration::KeyRegistration;
 
-    use blake2::{Blake2b, Blake2s256,Blake2b512, digest::{Digest, FixedOutput, consts::U32}};
+    use blake2::{
+        Blake2b, Blake2b512, Blake2s256,
+        digest::{Digest, FixedOutput, consts::U32},
+    };
 
     type Blake2b256 = Blake2b<U32>;
 
@@ -89,14 +92,35 @@ mod tests {
 
     impl Eq for SchnorrSigningKey {}
 
+    // Testing conversion from arbitrary message to base field element
     #[test]
-    fn test_sig(
-    ) {
+    fn test_hash_msg_to_bas() {
+        let msg = vec![0, 0, 0, 1];
+        let h = hash_msg_to_base(&msg);
+        println!("{:?}", h);
+    }
 
-        let msg = vec![0,0,0,1];
-
+    // Testing basic signature using Sha256 to hash the message
+    #[test]
+    fn test_sig() {
+        let msg = vec![0, 0, 0, 1];
         let mut rng = OsRng;
 
+        let sk = SchnorrSigningKey::generate(&mut ChaCha20Rng::from_entropy());
+        let vk = SchnorrVerificationKey::from(&sk);
+
+        let msg = hash_msg_to_base(&msg);
+
+        let sig = sk.sign(msg, &mut rng);
+
+        sig.verify(msg, &vk).unwrap();
+    }
+
+    // Testing basic signature using Blake2b256 to hash the message
+    #[test]
+    fn test_sig_blake() {
+        let mut rng = OsRng;
+        let msg = vec![0, 0, 0, 1];
         let sk = SchnorrSigningKey::generate(&mut ChaCha20Rng::from_entropy());
         let vk = SchnorrVerificationKey::from(&sk);
 
@@ -107,22 +131,15 @@ mod tests {
         output.copy_from_slice(hmsg.as_slice());
 
         let msg = JubjubBase::from_bytes_be(&output).unwrap();
-
         let sig = sk.sign(msg, &mut rng);
-
         sig.verify(msg, &vk).unwrap();
     }
 
     /// Test signing functionality.
     #[test]
     fn test_signature_verification_valid() {
-        let msg = vec![0,0,0,1];
-        let mut hash = Blake2b256::new();
-        hash.update(msg);
-        let hmsg = hash.finalize();
-        let mut output = [0u8; 32];
-        output.copy_from_slice(hmsg.as_slice());
-        let msg = JubjubBase::from_bytes_be(&output).unwrap();
+        let msg = vec![0, 0, 0, 1];
+        let msg = hash_msg_to_base(&msg);
 
         let mut rng = OsRng;
         let sk = SchnorrSigningKey::generate(&mut rng);
@@ -190,6 +207,4 @@ mod tests {
         let sk2 = SchnorrSigningKey::from_bytes(&sk_bytes).unwrap();
         assert_eq!(sk, sk2);
     }
-
-
 }
