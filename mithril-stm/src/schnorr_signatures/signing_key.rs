@@ -1,22 +1,20 @@
 use midnight_circuits::instructions::{HashToCurveCPU, hash::HashCPU};
 pub use midnight_curves::{
-    Fq as JubjubBase, Fr as JubjubScalar, JubjubExtended as Jubjub, JubjubExtended, JubjubSubgroup,
+    Fq as JubjubBase, Fr as JubjubScalar, JubjubSubgroup,
 };
 
 use ff::Field;
 use group::Group;
 use rand_core::{CryptoRng, RngCore};
-use subtle::CtOption;
-use thiserror::Error;
 
 use crate::schnorr_signatures::signature::*;
 use crate::schnorr_signatures::verification_key::*;
 use crate::{
     error::MultiSignatureError,
-    schnorr_signatures::helper::{get_coordinates, is_on_curve, jubjub_base_to_scalar},
+    schnorr_signatures::helper::{get_coordinates, jubjub_base_to_scalar},
 };
 
-use crate::schnorr_signatures::{DST_SIGNATURE, JubjubHashToCurve, PoseidonHash, SignatureError};
+use crate::schnorr_signatures::{DST_SIGNATURE, JubjubHashToCurve, PoseidonHash};
 
 /// The signing key is a scalar from the Jubjub scalar field
 #[derive(Debug, Clone)]
@@ -34,13 +32,13 @@ impl SchnorrSigningKey {
     /// and the secret key as it is used for the lottery process
     pub fn sign(&self, msg: JubjubBase, rng: &mut (impl RngCore + CryptoRng)) -> SchnorrSignature {
         let g = JubjubSubgroup::generator();
-        let vk = &g * &self.0;
+        let vk = g * self.0;
 
         let hash = JubjubHashToCurve::hash_to_curve(&[msg]);
-        let sigma = &hash * &self.0;
+        let sigma = hash * self.0;
         let r = JubjubScalar::random(rng);
-        let cap_r_1 = &hash * &r;
-        let cap_r_2 = &g * &r;
+        let cap_r_1 = hash * r;
+        let cap_r_2 = g * r;
 
         let (hx, hy) = get_coordinates(hash);
         let (vk_x, vk_y) = get_coordinates(vk);
@@ -100,7 +98,7 @@ impl SchnorrSigningKey {
 impl From<&SchnorrSigningKey> for SchnorrVerificationKey {
     fn from(sk: &SchnorrSigningKey) -> Self {
         let g = JubjubSubgroup::generator();
-        let vk = &g * &sk.0;
+        let vk = g * sk.0;
         SchnorrVerificationKey(vk)
     }
 }

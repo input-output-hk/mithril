@@ -6,7 +6,6 @@ use ff::Field;
 use sha2::{Digest, Sha256};
 use subtle::{Choice, ConstantTimeEq};
 
-use std::slice;
 
 pub fn get_coordinates(point: JubjubSubgroup) -> (JubjubBase, JubjubBase) {
     let extended: JubjubExtended = point.into(); // Convert to JubjubExtended
