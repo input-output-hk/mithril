@@ -12,7 +12,6 @@ use rayon::{prelude::*, vec};
 
 type H = Blake2b<U32>;
 
-#[test]
 pub fn select_sig_test() {
     let nparties = 3000; // Use a small number of parties for this example
     type D = Blake2b<U32>; // Setting the hash function for convenience
@@ -93,8 +92,12 @@ pub fn select_sig_test() {
     // let mut vec_single_sig =
     //     BasicVerifier::valid_signatures_from_k_indices(&params, idx_by_mtidx, btm).unwrap();
     // vec_single_sig.sort_unstable();
+    let nb_loop = 20;
     let now = Instant::now();
-    for _ in 0..100 {
+    let mut time_rework = 0;
+    let mut time_rework_opti = 0;
+    for _ in 0..nb_loop {
+        let now = Instant::now();
         let _ = BasicVerifier::reworked_select_valid_signatures_for_k_indices(
             &closed_reg.total_stake,
             &params,
@@ -102,10 +105,24 @@ pub fn select_sig_test() {
             &sig_reg_list,
         )
         .unwrap();
+        time_rework += now.elapsed().as_millis();
+        let now = Instant::now();
+        let _ = BasicVerifier::reworked_select_valid_signatures_for_k_indices_opti(
+            &closed_reg.total_stake,
+            &params,
+            &msgp,
+            &sig_reg_list,
+        )
+        .unwrap();
+        time_rework_opti += now.elapsed().as_millis();
     }
+    println!("Rework loop took: {:?}ms.", time_rework);
+    println!("Rework opti loop took: {:?}ms.", time_rework_opti);
+
+
     println!(
         "Time to get the indices NEW: {:?} ms.",
-        ((Instant::now() - now)/100).as_millis()
+        ((Instant::now() - now)/nb_loop).as_millis()
     );
     let mut new_unique_sigs = BasicVerifier::reworked_select_valid_signatures_for_k_indices(
         &closed_reg.total_stake,
@@ -117,8 +134,8 @@ pub fn select_sig_test() {
     new_unique_sigs.sort_unstable();
 
     let now = Instant::now();
-    for _ in 0..100 {
-        let _ = BasicVerifier::reworked_select_valid_signatures_for_k_indices(
+    for _ in 0..nb_loop {
+        let _ = BasicVerifier::select_valid_signatures_for_k_indices(
             &closed_reg.total_stake,
             &params,
             &msgp,
@@ -128,50 +145,12 @@ pub fn select_sig_test() {
     }
     println!(
         "Time to get the indices OLD: {:?} ms.",
-        ((Instant::now() - now)/100).as_millis()
+        ((Instant::now() - now)/nb_loop).as_millis()
     );
 
-    let mut unique_sigs = BasicVerifier::select_valid_signatures_for_k_indices(
-        &closed_reg.total_stake,
-        &params,
-        &msgp,
-        &sig_reg_list,
-    )
-    .unwrap();
-    unique_sigs.sort_unstable();
 
-    // println!("bytes sigma: {:?}", vec_single_sig[0].sig.sigma.to_bytes().len());
-
-    for sig_new in new_unique_sigs.iter_mut() {
-        sig_new.sig.indexes.sort();
-        // println!("sig new: {:?}", sig_new.sig.indexes);
-    }
-    println!();
-    for sig_old in unique_sigs.iter_mut() {
-        sig_old.sig.indexes.sort();
-        // println!("sig old: {:?}", sig_old.sig.indexes);
-    }
-
-    let nb_bytes_new: usize = new_unique_sigs.iter().map(|s| s.to_bytes().len()).sum();
-    let nb_bytes_old: usize = unique_sigs.iter().map(|s| s.to_bytes().len()).sum();
-
-    println!("nb_bytes_new: {:?}", nb_bytes_new);
-    println!("nb_bytes_old: {:?}", nb_bytes_old);
-
-    let mt_index_list = unique_sigs
-        .iter()
-        .map(|sig_reg| sig_reg.sig.signer_index as usize)
-        .collect::<Vec<usize>>();
-
-    println!("batch_proof_old: {:?}", mt_index_list);
-    let batch_proof_old = closed_reg.merkle_tree.get_batched_path(mt_index_list);
-
-    let mt_index_list = new_unique_sigs
-        .iter()
-        .map(|sig_reg| sig_reg.sig.signer_index as usize)
-        .collect::<Vec<usize>>();
-
-    println!("batch_proof_new: {:?}", mt_index_list);
-    let batch_proof_new = closed_reg.merkle_tree.get_batched_path(mt_index_list);
 }
 
+fn main() {
+    select_sig_test();
+}

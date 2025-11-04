@@ -63,3 +63,7 @@ harness = false
 [[bench]]
 name = "size_benches"
 harness = false
+
+[[bench]]
+name = "select_function"
+harness = false

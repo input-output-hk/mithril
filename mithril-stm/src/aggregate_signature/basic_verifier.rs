@@ -1,4 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::time::Instant;
+
+use rug::integer::IsPrime;
 
 use crate::bls_multi_signature::{BlsSignature, BlsVerificationKey};
 use crate::key_registration::RegisteredParty;
@@ -99,7 +102,10 @@ impl BasicVerifier {
         let mut removal_idx_by_vk: HashMap<&SingleSignatureWithRegisteredParty, Vec<Index>> =
             HashMap::new();
 
+        let mut basic_verif_time = 0;
+        let now = Instant::now();
         for sig_reg in sigs.iter() {
+            let now = Instant::now();
             if sig_reg
                 .sig
                 .basic_verify(
@@ -113,6 +119,7 @@ impl BasicVerifier {
             {
                 continue;
             }
+            basic_verif_time += now.elapsed().as_millis();
             for index in sig_reg.sig.indexes.iter() {
                 let mut insert_this_sig = false;
                 if let Some(&previous_sig) = sig_by_index.get(index) {
@@ -137,10 +144,13 @@ impl BasicVerifier {
                 }
             }
         }
+        // println!("First loop took: {:?}ms.", now.elapsed().as_millis());
+        // println!("Basic verif took: {:?}ms.", basic_verif_time);
+
 
         let mut dedup_sigs: HashSet<SingleSignatureWithRegisteredParty> = HashSet::new();
         let mut count: u64 = 0;
-
+        let now = Instant::now();
         for (_, &sig_reg) in sig_by_index.iter() {
             if dedup_sigs.contains(sig_reg) {
                 continue;
@@ -165,10 +175,12 @@ impl BasicVerifier {
                 count += size;
 
                 if count >= params.k {
+                    // println!("Second loop took: {:?}micros.", now.elapsed().as_micros());
                     return Ok(dedup_sigs.into_iter().collect());
                 }
             }
         }
+        // println!("Second loop took: {:?}micros.", now.elapsed().as_micros());
         Err(AggregationError::NotEnoughSignatures(count, params.k))
     }
 
@@ -181,9 +193,32 @@ impl BasicVerifier {
         msg: &[u8],
         sigs: &[SingleSignatureWithRegisteredParty],
     ) -> Result<Vec<SingleSignatureWithRegisteredParty>, AggregationError> {
+        let now = Instant::now();
         let (idx_by_mtidx, btm) = Self::get_k_indices(total_stake, params, msg, sigs);
+        // println!("First function took: {:?}ms.", now.elapsed().as_millis());
 
-        Self::valid_signatures_from_k_indices(params, idx_by_mtidx, btm)
+        let now = Instant::now();
+        let result = Self::valid_signatures_from_k_indices(params, idx_by_mtidx, btm);
+        // println!("Second function took: {:?}micros.", now.elapsed().as_micros());
+
+        result
+    }
+
+    pub fn reworked_select_valid_signatures_for_k_indices_opti(
+        total_stake: &Stake,
+        params: &Parameters,
+        msg: &[u8],
+        sigs: &[SingleSignatureWithRegisteredParty],
+    ) -> Result<Vec<SingleSignatureWithRegisteredParty>, AggregationError> {
+        let now = Instant::now();
+        let btm = Self::get_k_indices_opti(total_stake, params, msg, sigs);
+        // println!("First function OPTI? took: {:?}ms.\n", now.elapsed().as_millis());
+
+        let now = Instant::now();
+        let result = Self::valid_signatures_from_k_indices_opti(params, btm);
+        // println!("Second function took: {:?}micros.", now.elapsed().as_micros());
+
+        result
     }
 
     /// Iterates over the indices list in each signature to select the tuple (index, signature) with the smallest corresponding sigma.
@@ -237,6 +272,54 @@ impl BasicVerifier {
         (indices_by_mt_idx, sig_by_mt_index)
     }
 
+        /// Iterates over the indices list in each signature to select the tuple (index, signature) with the smallest corresponding sigma.
+    /// Uses a BTreeMap to keep track of the correspondance between merkle tree index and signature
+    /// and a HashMap to connect the selected indices to the merkle tree index of the signature.
+    /// TODO: Merge those two as the MT index is already in the signature
+    pub fn get_k_indices_opti<'a>(
+        total_stake: &Stake,
+        params: &Parameters,
+        msg: &[u8],
+        sigs: &'a [SingleSignatureWithRegisteredParty],
+    // ) -> BTreeMap<Index, &'a SingleSignatureWithRegisteredParty>
+    ) -> HashMap<Index, &'a SingleSignatureWithRegisteredParty>
+    {
+        // let mut indices_by_sig: BTreeMap<Index, &SingleSignatureWithRegisteredParty> =
+        //     BTreeMap::new();
+        let mut indices_by_sig: HashMap<Index, &SingleSignatureWithRegisteredParty> =
+            HashMap::new();
+
+        for sig_reg in sigs.iter() {
+            if sig_reg
+                .sig
+                .basic_verify(
+                    params,
+                    &sig_reg.reg_party.0,
+                    &sig_reg.reg_party.1,
+                    msg,
+                    total_stake,
+                )
+                .is_err()
+            {
+                continue;
+            }
+            for index in sig_reg.sig.indexes.iter() {
+                if let Some(&prev_sig) = indices_by_sig.get(index) {
+                    // if let Some(prev_sig) = sig_by_mt_index.get(mt_idx) {
+                        if prev_sig.sig.sigma < sig_reg.sig.sigma {
+                            continue;
+                        } else {
+                            indices_by_sig.insert(*index, sig_reg);
+                        }
+                    } else {
+                    // Should we test for k indices here?
+                    indices_by_sig.insert(*index, sig_reg);
+                }
+            }
+        }
+        indices_by_sig
+    }
+
     /// Takes a list of tuples (selected index, MT index) and outputs a list of signatures with a total of k valid indices
     /// First iterates over the tuples to create a vector of selected indices for each signature.
     /// Then modify and aggregates the signatures starting with the signature with the most valid indices.
@@ -247,6 +330,7 @@ impl BasicVerifier {
         sig_by_mt_index: BTreeMap<Index, &SingleSignatureWithRegisteredParty>,
     ) -> Result<Vec<SingleSignatureWithRegisteredParty>, AggregationError> {
         let mut valid_idx_for_mt_idx: HashMap<u64, Vec<u64>> = HashMap::new();
+        let mut valid_idx_for_sig: HashMap<&SingleSignatureWithRegisteredParty, Vec<u64>> = HashMap::new();
 
         // Uses the HashMap of tuples (index, MT index) to create a vector of indices connected to one signature
         for (&valid_idx, &mt_idx) in list_k_valid_indices.iter() {
@@ -271,6 +355,50 @@ impl BasicVerifier {
                 // Change the error
                 return Err(AggregationError::NotEnoughSignatures(0, params.k));
             };
+            if indices.len() > (params.k - count_idx) as usize {
+                single_sig.sig.indexes = indices[0..(params.k - count_idx) as usize].to_vec();
+                count_idx += params.k - count_idx;
+            } else {
+                count_idx += indices.len() as u64;
+                single_sig.sig.indexes = indices;
+            }
+            uniques_sig.push(single_sig);
+
+            if count_idx >= params.k {
+                return Ok(uniques_sig);
+            }
+        }
+
+        Err(AggregationError::NotEnoughSignatures(count_idx, params.k))
+    }
+
+    pub fn valid_signatures_from_k_indices_opti(
+        params: &Parameters,
+        sig_by_mt_index: HashMap<Index, &SingleSignatureWithRegisteredParty>,
+    ) -> Result<Vec<SingleSignatureWithRegisteredParty>, AggregationError> {
+        // let mut valid_idx_for_mt_idx: HashMap<u64, Vec<u64>> = HashMap::new();
+        let mut valid_idx_for_sig: HashMap<&SingleSignatureWithRegisteredParty, Vec<u64>> = HashMap::new();
+
+        // Uses the HashMap of tuples (index, MT index) to create a vector of indices connected to one signature
+        for (&valid_idx, &sig) in sig_by_mt_index.iter() {
+            if let Some(val) = valid_idx_for_sig.get_mut(sig) {
+                val.push(valid_idx);
+            } else {
+                // valid_idx_for_mt_idx.insert(mt_idx, vec![valid_idx]);
+                valid_idx_for_sig.insert(sig, vec![valid_idx]);
+
+            }
+        }
+
+        // sort the HashMap according to the number of selected indices of each signature
+        let mut vec_valid_idx_per_mt_idx = valid_idx_for_sig.into_iter().collect::<Vec<_>>();
+        vec_valid_idx_per_mt_idx.sort_by(|(_, v1), (_, v2)| v2.len().cmp(&v1.len()));
+
+        let mut uniques_sig: Vec<SingleSignatureWithRegisteredParty> = Vec::new();
+        let mut count_idx = 0;
+        // Modify and aggregate the signatures
+        for (sig, indices) in vec_valid_idx_per_mt_idx.into_iter() {
+            let mut single_sig = (*sig).clone();
             if indices.len() > (params.k - count_idx) as usize {
                 single_sig.sig.indexes = indices[0..(params.k - count_idx) as usize].to_vec();
                 count_idx += params.k - count_idx;
