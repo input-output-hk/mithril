@@ -29,7 +29,7 @@ pub struct SchnorrSignature {
 
 impl SchnorrSignature {
     /// Verify a signature against a verification key.
-    pub fn verify(&self, msg: JubjubBase, vk: &VerificationKey) -> Result<(), SignatureError> {
+    pub fn verify(&self, msg: JubjubBase, vk: &SchnorrVerificationKey) -> Result<(), SignatureError> {
         let g = JubjubSubgroup::generator();
         let hash = JubjubHashToCurve::hash_to_curve(&[msg]);
         let c_scalar = jubjub_base_to_scalar(self.c);
