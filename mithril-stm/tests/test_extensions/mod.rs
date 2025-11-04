@@ -2,4 +2,5 @@
 // is a different compilation target).
 #![allow(dead_code)]
 
+pub mod basic_verifier_tests;
 pub mod protocol_phase;
