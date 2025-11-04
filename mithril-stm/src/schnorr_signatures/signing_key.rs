@@ -1,6 +1,6 @@
 
 pub use midnight_curves::{Fq as JubjubBase, Fr as JubjubScalar,
-    JubjubExtended as Jubjub, JubjubExtended, JubjubSubgroup,
+    JubjubExtended as Jubjub, JubjubExtended, JubjubSubgroup
 };
 use midnight_circuits::{
     instructions::{
@@ -12,9 +12,10 @@ use midnight_circuits::{
 use ff::Field;
 use group::Group;
 use rand_core::{CryptoRng, RngCore};
+use subtle::CtOption;
 use thiserror::Error;
 
-use crate::schnorr_signatures::helper::{get_coordinates, jubjub_base_to_scalar, is_on_curve};
+use crate::{error::MultiSignatureError, schnorr_signatures::helper::{get_coordinates, is_on_curve, jubjub_base_to_scalar}};
 use crate::schnorr_signatures::verification_key::*;
 use crate::schnorr_signatures::signature::*;
 
@@ -24,13 +25,13 @@ use crate::schnorr_signatures::{JubjubHashToCurve, SignatureError, PoseidonHash,
 
 /// The signing key is a scalar from the Jubjub scalar field
 #[derive(Debug, Clone)]
-pub struct SigningKey(JubjubScalar);
+pub struct SchnorrSigningKey(JubjubScalar);
 
 /// Implementation of the Schnorr signature scheme using the Jubjub curve
-impl SigningKey {
+impl SchnorrSigningKey {
     pub fn generate(rng: &mut (impl RngCore + CryptoRng)) -> Self {
         let sk = JubjubScalar::random(rng);
-        SigningKey(sk)
+        SchnorrSigningKey(sk)
     }
 
     /// A slightly modified version of the regular Schnorr signature (I think)
@@ -71,13 +72,34 @@ impl SigningKey {
         SchnorrSignature { sigma, s, c }
     }
 
+    /// Convert the schnorr secret key into byte string.
+    /// Uses midnight curve implem for the conversion
+    pub fn to_bytes(&self) -> [u8; 32] {
+        self.0.to_bytes()
+    }
+
+    /// Convert a string of bytes into a `SchnorrSigningKey`.
+    ///
+    /// # Error
+    /// Fails if the byte string represents a scalar larger than the group order.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
+        // This is a bit ugly, I'll try to find a better way to do it
+        let bytes = bytes.get(..32).ok_or(MultiSignatureError::SerializationError)?.try_into().unwrap();
+        // Jubjub returs a CtChoice so I convert it to an option that looses the const time property
+        match JubjubScalar::from_bytes(bytes).into_option().ok_or(MultiSignatureError::SerializationError) {
+            Ok(sk) => Ok(Self(sk)),
+            // the error should be updated
+            Err(e) => Err(e)
+        }
+    }
+
 }
 
-
-impl From<&SigningKey> for VerificationKey {
-    fn from(sk: &SigningKey) -> Self {
+// Should we have this implementation?
+impl From<&SchnorrSigningKey> for SchnorrVerificationKey {
+    fn from(sk: &SchnorrSigningKey) -> Self {
         let g = JubjubSubgroup::generator();
         let vk = &g * &sk.0;
-        VerificationKey(vk)
+        SchnorrVerificationKey(vk)
     }
 }

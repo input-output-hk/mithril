@@ -44,7 +44,7 @@ type JubjubHashToCurve = HashToCurveGadget<
 
 type PoseidonHash = PoseidonChip<JubjubBase>;
 
-pub const DST_SIGNATURE: JubjubBase = JubjubBase::from_raw([2u64, 0, 0, 0]);
+pub(crate) const DST_SIGNATURE: JubjubBase = JubjubBase::from_raw([2u64, 0, 0, 0]);
 
 
 #[derive(Debug, Error)]
@@ -58,59 +58,81 @@ pub enum SignatureError {
 
 
 
-
 #[cfg(test)]
 mod tests {
+    // use blst::{blst_p1, blst_p2};
+    use proptest::prelude::*;
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::{RngCore, SeedableRng, OsRng};
+
+    // use crate::bls_multi_signature::helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk};
+    use crate::error::{MultiSignatureError, RegisterError};
+    use crate::key_registration::KeyRegistration;
+
     use super::*;
-    use rand_core::OsRng;
 
-    /// Test signing functionality.
-    #[test]
-    fn test_signature_verification_valid() {
-        let mut rng = OsRng;
-        let sk = SigningKey::generate(&mut rng);
-        let msg = JubjubBase::random(&mut rng);
-
-        // Sign the message
-        let signature = sk.sign(msg, &mut rng);
-
-        // Ensure the components of the signature are non-default values
-        assert_ne!(
-            signature.sigma,
-            JubjubSubgroup::identity(),
-            "Signature sigma should not be the identity element."
-        );
-        assert_ne!(
-            signature.s,
-            JubjubScalar::ZERO,
-            "Signature s component should not be zero."
-        );
-        assert_ne!(
-            signature.c,
-            JubjubBase::ZERO,
-            "Signature c component should not be zero."
-        );
-
-        signature.verify(msg, &VerificationKey::from(&sk)).unwrap();
+    impl PartialEq for SchnorrSigningKey {
+        fn eq(&self, other: &Self) -> bool {
+            self.to_bytes() == other.to_bytes()
+        }
     }
 
-    #[test]
-    fn test_signature_verification_invalid_signature() {
-        let mut rng = OsRng;
-        let sk = SigningKey::generate(&mut rng);
-        let msg = JubjubBase::random(&mut rng);
-        let vk: VerificationKey = (&sk).into();
+    // impl Eq for SchnorrSigningKey {}
 
-        // Generate signature and tamper with it
-        let mut signature = sk.sign(msg, &mut rng);
-        signature.s = JubjubScalar::random(&mut rng); // Modify `s` component
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(1000))]
+    
+        /// Test signing functionality.
+        #[test]
+        fn test_signature_verification_valid(seed in any::<u64>()) {
+            let mut rng = OsRng;
+            let sk = SchnorrSigningKey::generate(&mut rng);
+            let msg = JubjubBase::random(&mut rng);
 
-        // Verify the modified signature
-        let result = signature.verify(msg, &vk);
-        assert!(
-            result.is_err(),
-            "Invalid signature should fail verification, but it passed."
-        );
+            // Sign the message
+            let signature = sk.sign(msg, &mut rng);
+
+            // Ensure the components of the signature are non-default values
+            assert_ne!(
+                signature.sigma,
+                JubjubSubgroup::identity(),
+                "Signature sigma should not be the identity element."
+            );
+            assert_ne!(
+                signature.s,
+                JubjubScalar::ZERO,
+                "Signature s component should not be zero."
+            );
+            assert_ne!(
+                signature.c,
+                JubjubBase::ZERO,
+                "Signature c component should not be zero."
+            );
+
+            signature.verify(msg, &SchnorrVerificationKey::from(&sk)).unwrap();
+        }
+
+        #[test]
+        fn test_signature_verification_invalid_signature(seed in any::<u64>()) {
+            let mut rng = OsRng;
+            let sk = SchnorrSigningKey::generate(&mut rng);
+            let msg = JubjubBase::random(&mut rng);
+            let vk: SchnorrVerificationKey = (&sk).into();
+
+            // Generate signature and tamper with it
+            let mut signature = sk.sign(msg, &mut rng);
+            signature.s = JubjubScalar::random(&mut rng); // Modify `s` component
+
+            // Verify the modified signature
+            let result = signature.verify(msg, &vk);
+            assert!(
+                result.is_err(),
+                "Invalid signature should fail verification, but it passed."
+            );
+        }
+    
+    
     }
+
 
 }

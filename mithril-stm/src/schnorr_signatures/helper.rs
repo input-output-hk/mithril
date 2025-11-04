@@ -1,32 +1,12 @@
-use midnight_circuits::{
-    ecc::{
-        hash_to_curve::HashToCurveGadget,
-        native::EccChip,
-    },
-    hash::poseidon::PoseidonChip,
-    instructions::{
-        HashToCurveCPU,
-        hash::HashCPU,
-    },
-    types::AssignedNative,
-};
-
 pub use midnight_curves::{
-    Bls12, EDWARDS_D, Fq as JubjubBase, Fq as BlsScalar, Fr as JubjubScalar,
-    G1Affine as BlstG1Affine, G1Projective as BlstG1, G2Affine as BlstG2Affine, JubjubAffine,
-    JubjubExtended as Jubjub, JubjubExtended, JubjubSubgroup, MODULUS,
+    EDWARDS_D, Fq as JubjubBase, Fr as JubjubScalar,
+    JubjubAffine, JubjubExtended, JubjubSubgroup,
 };
-
-
 
 use ff::Field;
-use group::Group;
-use rand_core::{CryptoRng, RngCore};
 use subtle::{Choice, ConstantTimeEq};
-use thiserror::Error;
 
-// use crate::schnorr_signatures::{get_coordinates, jubjub_base_to_scalar, is_on_curve};
-
+use std::slice;
 
 
 pub fn get_coordinates(point: JubjubSubgroup) -> (JubjubBase, JubjubBase) {

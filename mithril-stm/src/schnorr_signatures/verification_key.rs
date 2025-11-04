@@ -27,10 +27,10 @@ use crate::schnorr_signatures::{JubjubHashToCurve, SignatureError, PoseidonHash,
 
 
 #[derive(Debug, Clone, Copy, Default)]
-pub struct VerificationKey(pub JubjubSubgroup);
+pub struct SchnorrVerificationKey(pub JubjubSubgroup);
 
 
-impl VerificationKey {
+impl SchnorrVerificationKey {
     pub fn to_field(&self) -> [JubjubBase; 2] {
         let (x, y) = get_coordinates(self.0);
         [x, y]
@@ -66,6 +66,6 @@ impl VerificationKey {
             return Err(SignatureError::SerializationError);
         }
 
-        Ok(VerificationKey(point))
+        Ok(SchnorrVerificationKey(point))
     }
 }
