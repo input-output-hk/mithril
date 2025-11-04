@@ -98,7 +98,7 @@ async fn create_certificate_follower() {
         },
     };
     let leader_configuration = ServeCommandConfiguration {
-        protocol_parameters: protocol_parameters.clone(),
+        protocol_parameters: Some(protocol_parameters.clone()),
         data_stores_directory: get_test_dir("create_certificate_leader"),
         signed_entity_types: Some(
             SignedEntityTypeDiscriminants::CardanoStakeDistribution.to_string(),

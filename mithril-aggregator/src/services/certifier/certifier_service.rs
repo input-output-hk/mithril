@@ -481,7 +481,7 @@ mod tests {
         dependency_manager
             .init_state_from_fixture(
                 fixture,
-                &cardano_transactions_signing_config,
+                &cardano_transactions_signing_config.unwrap(),
                 epochs_with_signers,
             )
             .await;

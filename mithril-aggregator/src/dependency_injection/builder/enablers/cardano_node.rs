@@ -134,9 +134,7 @@ impl DependenciesBuilder {
         let cardano_transactions_preloader = CardanoTransactionsPreloader::new(
             self.get_signed_entity_type_lock().await?,
             self.get_transactions_importer().await?,
-            self.configuration
-                .cardano_transactions_signing_config()
-                .security_parameter,
+            self.configuration.preload_security_parameter(),
             self.get_chain_observer().await?,
             self.root_logger(),
             Arc::new(CardanoTransactionsPreloaderActivation::new(activation)),

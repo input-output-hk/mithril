@@ -115,7 +115,9 @@ impl DependenciesBuilder {
                 error: Some(e.into()),
             })?;
 
-        let epoch_settings_configuration = self.configuration.get_epoch_settings_configuration();
+        let epoch_settings_configuration = self
+            .configuration
+            .get_leader_aggregator_epoch_settings_configuration()?;
         debug!(
             logger,
             "Handle discrepancies at startup of epoch settings store, will record epoch settings from the configuration for epoch {retrieval_epoch}";

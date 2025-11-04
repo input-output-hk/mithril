@@ -160,7 +160,7 @@ impl RuntimeTester {
         let global_logger = slog_scope::set_global_logger(logger.clone());
         let network = configuration.network.clone();
         let cardano_transactions_signing_config =
-            configuration.cardano_transactions_signing_config.clone();
+            configuration.cardano_transactions_signing_config.clone().unwrap();
         let snapshot_uploader = Arc::new(DumbUploader::default());
         let immutable_file_observer = Arc::new(DumbImmutableFileObserver::new());
         immutable_file_observer

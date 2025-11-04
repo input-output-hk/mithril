@@ -109,7 +109,7 @@ pub trait ConfigurationSource {
     }
 
     /// Protocol parameters
-    fn protocol_parameters(&self) -> ProtocolParameters {
+    fn protocol_parameters(&self) -> Option<ProtocolParameters> {
         panic!("protocol_parameters is not implemented.");
     }
 
@@ -251,7 +251,7 @@ pub trait ConfigurationSource {
     }
 
     /// Cardano transactions signing configuration
-    fn cardano_transactions_signing_config(&self) -> CardanoTransactionsSigningConfig {
+    fn cardano_transactions_signing_config(&self) -> Option<CardanoTransactionsSigningConfig> {
         panic!("cardano_transactions_signing_config is not implemented.");
     }
 
@@ -378,12 +378,20 @@ pub trait ConfigurationSource {
         }
     }
 
-    /// Infer the [AggregatorEpochSettings] from the configuration.
-    fn get_epoch_settings_configuration(&self) -> AggregatorEpochSettings {
-        AggregatorEpochSettings {
-            protocol_parameters: self.protocol_parameters(),
-            cardano_transactions_signing_config: self.cardano_transactions_signing_config(),
-        }
+    /// `leader aggregator only` Infer the [AggregatorEpochSettings] from the configuration.
+    fn get_leader_aggregator_epoch_settings_configuration(
+        &self,
+    ) -> StdResult<AggregatorEpochSettings> {
+        Ok(AggregatorEpochSettings {
+            protocol_parameters: self.protocol_parameters().with_context(
+                || "Configuration `protocol_parameter` is mandatory for a Leader Aggregator",
+            )?,
+            cardano_transactions_signing_config: self
+                .cardano_transactions_signing_config()
+                .with_context(
+                || "Configuration `cardano_transactions_signing_config` is mandatory for a Leader Aggregator",
+                )?,
+        })
     }
 
     /// Check if the aggregator is running in follower mode.
@@ -458,7 +466,7 @@ pub struct ServeCommandConfiguration {
 
     /// Protocol parameters
     #[example = "`{ k: 5, m: 100, phi_f: 0.65 }`"]
-    pub protocol_parameters: ProtocolParameters,
+    pub protocol_parameters: Option<ProtocolParameters>,
 
     /// Type of snapshot uploader to use
     #[example = "`gcp` or `local`"]
@@ -561,7 +569,7 @@ pub struct ServeCommandConfiguration {
 
     /// Cardano transactions signing configuration
     #[example = "`{ security_parameter: 3000, step: 120 }`"]
-    pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
+    pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
 
     /// Blocks offset, from the tip of the chain, to exclude during the cardano transactions preload
     /// `[default: 2160]`.
@@ -681,11 +689,11 @@ impl ServeCommandConfiguration {
             network_magic: Some(42),
             dmq_network_magic: Some(3141592),
             chain_observer_type: ChainObserverType::Fake,
-            protocol_parameters: ProtocolParameters {
+            protocol_parameters: Some(ProtocolParameters {
                 k: 5,
                 m: 100,
                 phi_f: 0.95,
-            },
+            }),
             snapshot_uploader_type: SnapshotUploaderType::Local,
             snapshot_bucket_name: None,
             snapshot_use_cdn_domain: false,
@@ -719,10 +727,10 @@ impl ServeCommandConfiguration {
             allow_unparsable_block: false,
             cardano_transactions_prover_cache_pool_size: 3,
             cardano_transactions_database_connection_pool_size: 5,
-            cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+            cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(120),
                 step: BlockNumber(15),
-            },
+            }),
             preload_security_parameter: BlockNumber(30),
             cardano_transactions_prover_max_hashes_allowed_by_request: 100,
             cardano_transactions_block_streamer_max_roll_forwards_per_poll: 1000,
@@ -783,7 +791,7 @@ impl ConfigurationSource for ServeCommandConfiguration {
         self.chain_observer_type.clone()
     }
 
-    fn protocol_parameters(&self) -> ProtocolParameters {
+    fn protocol_parameters(&self) -> Option<ProtocolParameters> {
         self.protocol_parameters.clone()
     }
 
@@ -887,7 +895,7 @@ impl ConfigurationSource for ServeCommandConfiguration {
         self.cardano_transactions_database_connection_pool_size
     }
 
-    fn cardano_transactions_signing_config(&self) -> CardanoTransactionsSigningConfig {
+    fn cardano_transactions_signing_config(&self) -> Option<CardanoTransactionsSigningConfig> {
         self.cardano_transactions_signing_config.clone()
     }
 

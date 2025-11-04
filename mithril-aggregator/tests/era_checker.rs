@@ -22,7 +22,7 @@ async fn testing_eras() {
         phi_f: 0.95,
     };
     let configuration = ServeCommandConfiguration {
-        protocol_parameters: protocol_parameters.clone(),
+        protocol_parameters: Some(protocol_parameters.clone()),
         data_stores_directory: get_test_dir("testing_eras"),
         ..ServeCommandConfiguration::new_sample(temp_dir!())
     };

@@ -53,7 +53,8 @@ impl DependenciesBuilder {
                 ))
             } else {
                 Arc::new(LocalMithrilNetworkConfigurationProvider::new(
-                    self.configuration.get_epoch_settings_configuration(),
+                    self.configuration
+                        .get_leader_aggregator_epoch_settings_configuration()?,
                     self.configuration
                         .compute_allowed_signed_entity_types_discriminants()?,
                     self.get_epoch_settings_store().await?,
