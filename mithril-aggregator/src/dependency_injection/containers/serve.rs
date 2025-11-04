@@ -2,13 +2,9 @@ use slog::Logger;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_common::{
     api_version::APIVersionProvider,
-    entities::{
-        CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignerWithStake,
-        StakeDistribution,
-    },
+    entities::{Epoch, SignerWithStake, StakeDistribution},
     signable_builder::SignableBuilderService,
     test::builder::MithrilFixture,
 };
@@ -24,7 +20,6 @@ use crate::{
     database::repository::{
         CertificateRepository, SignedEntityStorer, SignerGetter, StakePoolStore,
     },
-    entities::AggregatorEpochSettings,
     event_store::{EventMessage, TransmitterService},
     services::{
         CertificateChainSynchronizer, CertifierService, EpochService, MessageService,
@@ -54,9 +49,6 @@ pub struct ServeCommandDependenciesContainer {
 
     /// Epoch settings storer.
     pub epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
-
-    /// Chain observer service.
-    pub(crate) chain_observer: Arc<dyn ChainObserver>,
 
     /// Certificate chain synchronizer service
     pub(crate) certificate_chain_synchronizer: Arc<dyn CertificateChainSynchronizer>,
@@ -132,94 +124,64 @@ pub struct ServeCommandDependenciesContainer {
 impl ServeCommandDependenciesContainer {
     /// `TEST METHOD ONLY`
     ///
-    /// Get the first two epochs that will be used by a newly started aggregator
-    pub async fn get_genesis_epochs(&self) -> (Epoch, Epoch) {
-        let current_epoch = self
-            .chain_observer
-            .get_current_epoch()
-            .await
-            .expect("get_current_epoch should not fail")
-            .expect("an epoch should've been set to the chain observer");
-        let work_epoch = current_epoch
-            .offset_to_signer_retrieval_epoch()
-            .expect("epoch.offset_by SIGNER_EPOCH_RETRIEVAL_OFFSET should not fail");
-        let epoch_to_sign = current_epoch.offset_to_next_signer_retrieval_epoch();
-
-        (work_epoch, epoch_to_sign)
-    }
-
-    /// `TEST METHOD ONLY`
-    ///
-    /// Fill the stores of a [DependencyManager] in a way to simulate an aggregator state
+    /// Fill the stores of this container in a way to simulate an aggregator state
     /// using the data from a precomputed fixture.
+    ///
+    /// Data will be inserted in the given `next_aggregation_epoch`, the current aggregation epoch
+    /// (`next_aggregation_epoch - 1`), and the signer registration epoch (`next_aggregation_epoch + 1`).
+    ///
+    /// Note: `epoch_settings` store must have data for the inserted epochs, this should be done
+    /// automatically when building the [ServeCommandDependenciesContainer] by `handle_discrepancies_at_startup`
     pub async fn init_state_from_fixture(
         &self,
         fixture: &MithrilFixture,
-        cardano_transactions_signing_config: &CardanoTransactionsSigningConfig,
-        target_epochs: &[Epoch],
+        next_aggregation_epoch: Epoch,
     ) {
-        for epoch in target_epochs {
-            self.epoch_settings_storer
-                .save_epoch_settings(
-                    *epoch,
-                    AggregatorEpochSettings {
-                        protocol_parameters: fixture.protocol_parameters(),
-                        cardano_transactions_signing_config: cardano_transactions_signing_config
-                            .clone(),
-                    },
-                )
-                .await
-                .expect("save_epoch_settings should not fail");
-            self.fill_verification_key_store(*epoch, &fixture.signers_with_stake())
-                .await;
-            self.fill_stakes_store(*epoch, fixture.signers_with_stake()).await;
-        }
+        self.init_state_from_fixture_internal(
+            fixture,
+            [
+                next_aggregation_epoch.offset_to_signer_retrieval_epoch().unwrap(),
+                next_aggregation_epoch,
+                next_aggregation_epoch.offset_to_recording_epoch(),
+            ],
+        )
+        .await
     }
 
     /// `TEST METHOD ONLY`
     ///
-    /// Fill the stores of a [DependencyManager] in a way to simulate an aggregator genesis state.
+    /// Fill the stores of this container in a way to simulate an aggregator state ready to sign a
+    /// genesis certificate using the data from a precomputed fixture.
     ///
-    /// For the current and the next epoch:
-    /// * Fill the [VerificationKeyStorer] with the given signers keys.
-    /// * Fill the [StakeStore] with the given signers stakes.
-    /// * Fill the [ProtocolParametersStore] with the given parameters.
-    pub async fn prepare_for_genesis(
+    /// Data will be inserted in the given `next_aggregation_epoch`, the current aggregation epoch
+    /// (`next_aggregation_epoch - 1`).
+    ///
+    /// Note: `epoch_settings` store must have data for the inserted epochs, this should be done
+    /// automatically when building the [ServeCommandDependenciesContainer] by `handle_discrepancies_at_startup`
+    pub async fn init_state_from_fixture_for_genesis(
         &self,
-        genesis_signers: Vec<SignerWithStake>,
-        second_epoch_signers: Vec<SignerWithStake>,
-        genesis_protocol_parameters: &ProtocolParameters,
-        cardano_transactions_signing_config: &CardanoTransactionsSigningConfig,
+        fixture: &MithrilFixture,
+        next_aggregation_epoch: Epoch,
     ) {
-        self.init_epoch_settings_storer(&AggregatorEpochSettings {
-            protocol_parameters: genesis_protocol_parameters.clone(),
-            cardano_transactions_signing_config: cardano_transactions_signing_config.clone(),
-        })
-        .await;
-
-        let (work_epoch, epoch_to_sign) = self.get_genesis_epochs().await;
-        for (epoch, signers) in
-            [(work_epoch, genesis_signers), (epoch_to_sign, second_epoch_signers)]
-        {
-            self.fill_verification_key_store(epoch, &signers).await;
-            self.fill_stakes_store(epoch, signers).await;
-        }
+        self.init_state_from_fixture_internal(
+            fixture,
+            [
+                next_aggregation_epoch.offset_to_signer_retrieval_epoch().unwrap(),
+                next_aggregation_epoch,
+            ],
+        )
+        .await
     }
 
-    /// `TEST METHOD ONLY`
-    ///
-    /// Fill up to the first three epochs of the [EpochSettingsStorer] with the given value.
-    pub async fn init_epoch_settings_storer(&self, epoch_settings: &AggregatorEpochSettings) {
-        let (work_epoch, epoch_to_sign) = self.get_genesis_epochs().await;
-        let mut epochs_to_save = Vec::new();
-        epochs_to_save.push(work_epoch);
-        epochs_to_save.push(epoch_to_sign);
-        epochs_to_save.push(epoch_to_sign.next());
-        for epoch in epochs_to_save {
-            self.epoch_settings_storer
-                .save_epoch_settings(epoch, epoch_settings.clone())
-                .await
-                .expect("save_epoch_settings should not fail");
+    async fn init_state_from_fixture_internal<const N: usize>(
+        &self,
+        fixture: &MithrilFixture,
+        epochs_to_fill: [Epoch; N],
+    ) {
+        for epoch in epochs_to_fill {
+            self.fill_verification_key_store(epoch, &fixture.signers_with_stake())
+                .await;
+            self.fill_stakes_store(epoch, fixture.signers_with_stake()).await;
         }
     }
 
@@ -250,13 +212,11 @@ impl ServeCommandDependenciesContainer {
 
 #[cfg(test)]
 pub(crate) mod tests {
+    use std::path::PathBuf;
 
-    use std::{path::PathBuf, sync::Arc};
+    use crate::{ServeCommandConfiguration, dependency_injection::DependenciesBuilder};
 
-    use crate::{
-        ServeCommandConfiguration, ServeCommandDependenciesContainer,
-        dependency_injection::DependenciesBuilder,
-    };
+    use super::*;
 
     /// Initialize dependency container with a unique temporary snapshot directory build from test path.
     /// This macro should used directly in a function test to be able to retrieve the function name.

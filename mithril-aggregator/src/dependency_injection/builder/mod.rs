@@ -386,7 +386,6 @@ impl DependenciesBuilder {
             certificate_repository: self.get_certificate_repository().await?,
             verification_key_store: self.get_verification_key_store().await?,
             epoch_settings_storer: self.get_epoch_settings_store().await?,
-            chain_observer: self.get_chain_observer().await?,
             certificate_chain_synchronizer: self.get_certificate_chain_synchronizer().await?,
             signer_registerer: self.get_signer_registerer().await?,
             signer_synchronizer: self.get_signer_synchronizer().await?,
