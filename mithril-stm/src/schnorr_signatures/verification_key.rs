@@ -1,21 +1,11 @@
-use midnight_circuits::{
-    ecc::{hash_to_curve::HashToCurveGadget, native::EccChip},
-    hash::poseidon::PoseidonChip,
-    instructions::{HashToCurveCPU, hash::HashCPU},
-    types::AssignedNative,
-};
 
 pub use midnight_curves::{
-    Fq as JubjubBase, Fr as JubjubScalar, JubjubExtended as Jubjub, JubjubExtended, JubjubSubgroup,
+    Fq as JubjubBase, JubjubExtended, JubjubSubgroup,
 };
 
-use ff::Field;
-use group::Group;
-use rand_core::{CryptoRng, RngCore};
-use thiserror::Error;
 
-use crate::schnorr_signatures::helper::{get_coordinates, is_on_curve, jubjub_base_to_scalar};
-use crate::schnorr_signatures::{DST_SIGNATURE, JubjubHashToCurve, PoseidonHash, SignatureError};
+use crate::schnorr_signatures::helper::{get_coordinates, is_on_curve};
+use crate::schnorr_signatures::SignatureError;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct SchnorrVerificationKey(pub JubjubSubgroup);
