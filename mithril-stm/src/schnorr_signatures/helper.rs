@@ -1,13 +1,12 @@
 pub use midnight_curves::{
-    EDWARDS_D, Fq as JubjubBase, Fr as JubjubScalar,
-    JubjubAffine, JubjubExtended, JubjubSubgroup,
+    EDWARDS_D, Fq as JubjubBase, Fr as JubjubScalar, JubjubAffine, JubjubExtended, JubjubSubgroup,
 };
 
 use ff::Field;
+use sha2::{Digest, Sha256};
 use subtle::{Choice, ConstantTimeEq};
 
 use std::slice;
-
 
 pub fn get_coordinates(point: JubjubSubgroup) -> (JubjubBase, JubjubBase) {
     let extended: JubjubExtended = point.into(); // Convert to JubjubExtended
@@ -27,7 +26,6 @@ pub fn jubjub_base_to_scalar(x: JubjubBase) -> JubjubScalar {
     ])
 }
 
-
 pub fn is_on_curve(u: JubjubBase, v: JubjubBase) -> Choice {
     let u2 = u.square();
     let v2 = v.square();
@@ -40,4 +38,16 @@ pub fn is_on_curve(u: JubjubBase, v: JubjubBase) -> Choice {
 
     // Compare in constant time
     lhs.ct_eq(&rhs)
+}
+
+pub fn hash_msg_to_base(msg: &[u8]) -> JubjubBase {
+    let mut hash = Sha256::new();
+    hash.update(msg);
+    let hmsg = hash.finalize();
+    let mut output = [0u8; 32];
+    output.copy_from_slice(hmsg.as_slice());
+
+    output[31] &= 0x0f;
+
+    JubjubBase::from_bytes_le(&output).unwrap()
 }

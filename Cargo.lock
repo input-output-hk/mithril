@@ -4163,6 +4163,8 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.17",
+ "sha2",
+ "subtle",
 ]
 
 [[package]]

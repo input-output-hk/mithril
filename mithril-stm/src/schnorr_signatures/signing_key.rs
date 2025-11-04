@@ -1,12 +1,6 @@
-
-pub use midnight_curves::{Fq as JubjubBase, Fr as JubjubScalar,
-    JubjubExtended as Jubjub, JubjubExtended, JubjubSubgroup
-};
-use midnight_circuits::{
-    instructions::{
-        HashToCurveCPU,
-        hash::HashCPU,
-    },
+use midnight_circuits::instructions::{HashToCurveCPU, hash::HashCPU};
+pub use midnight_curves::{
+    Fq as JubjubBase, Fr as JubjubScalar, JubjubExtended as Jubjub, JubjubExtended, JubjubSubgroup,
 };
 
 use ff::Field;
@@ -15,13 +9,14 @@ use rand_core::{CryptoRng, RngCore};
 use subtle::CtOption;
 use thiserror::Error;
 
-use crate::{error::MultiSignatureError, schnorr_signatures::helper::{get_coordinates, is_on_curve, jubjub_base_to_scalar}};
-use crate::schnorr_signatures::verification_key::*;
 use crate::schnorr_signatures::signature::*;
+use crate::schnorr_signatures::verification_key::*;
+use crate::{
+    error::MultiSignatureError,
+    schnorr_signatures::helper::{get_coordinates, is_on_curve, jubjub_base_to_scalar},
+};
 
-use crate::schnorr_signatures::{JubjubHashToCurve, SignatureError, PoseidonHash, DST_SIGNATURE};
-
-
+use crate::schnorr_signatures::{DST_SIGNATURE, JubjubHashToCurve, PoseidonHash, SignatureError};
 
 /// The signing key is a scalar from the Jubjub scalar field
 #[derive(Debug, Clone)]
@@ -35,7 +30,7 @@ impl SchnorrSigningKey {
     }
 
     /// A slightly modified version of the regular Schnorr signature (I think)
-    /// We include the computation of sigma, a value depending only on the msg 
+    /// We include the computation of sigma, a value depending only on the msg
     /// and the secret key as it is used for the lottery process
     pub fn sign(&self, msg: JubjubBase, rng: &mut (impl RngCore + CryptoRng)) -> SchnorrSignature {
         let g = JubjubSubgroup::generator();
@@ -84,15 +79,21 @@ impl SchnorrSigningKey {
     /// Fails if the byte string represents a scalar larger than the group order.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         // This is a bit ugly, I'll try to find a better way to do it
-        let bytes = bytes.get(..32).ok_or(MultiSignatureError::SerializationError)?.try_into().unwrap();
+        let bytes = bytes
+            .get(..32)
+            .ok_or(MultiSignatureError::SerializationError)?
+            .try_into()
+            .unwrap();
         // Jubjub returs a CtChoice so I convert it to an option that looses the const time property
-        match JubjubScalar::from_bytes(bytes).into_option().ok_or(MultiSignatureError::SerializationError) {
+        match JubjubScalar::from_bytes(bytes)
+            .into_option()
+            .ok_or(MultiSignatureError::SerializationError)
+        {
             Ok(sk) => Ok(Self(sk)),
             // the error should be updated
-            Err(e) => Err(e)
+            Err(e) => Err(e),
         }
     }
-
 }
 
 // Should we have this implementation?
