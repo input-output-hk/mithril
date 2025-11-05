@@ -144,6 +144,12 @@ pub type Stake = u64;
 /// An aggregate signature (`StmMultiSig`) must have at least `k` unique indices.
 pub type Index = u64;
 
+/// Mithril-stm error type
+pub type StmError = anyhow::Error;
+
+/// Mithril-stm result type
+pub type StmResult<T> = anyhow::Result<T, StmError>;
+
 // Aliases
 #[deprecated(since = "0.5.0", note = "Use `AggregateSignature` instead")]
 pub use aggregate_signature::AggregateSignature as StmAggrSig;
