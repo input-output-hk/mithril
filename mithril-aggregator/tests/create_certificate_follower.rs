@@ -117,6 +117,9 @@ async fn create_certificate_follower() {
             "create_certificate_follower",
         ),
         leader_aggregator_endpoint: Some(leader_aggregator_http_server.url().to_string()),
+        // Follower must retrieve parameters from the network configuration (today through the leader)
+        // so this parameters should not be read
+        protocol_parameters: None,
         ..leader_configuration
     };
     let mut follower_tester = RuntimeTester::build(start_time_point, follower_configuration).await;

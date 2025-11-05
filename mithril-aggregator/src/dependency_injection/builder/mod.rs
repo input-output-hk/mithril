@@ -3,7 +3,7 @@ mod protocol;
 mod support;
 
 use anyhow::Context;
-use slog::Logger;
+use slog::{Logger, debug};
 use std::{path::PathBuf, sync::Arc};
 use tokio::{
     sync::{
@@ -45,10 +45,11 @@ use super::{
     GenesisCommandDependenciesContainer, Result, ToolsCommandDependenciesContainer,
 };
 use crate::{
-    AggregatorConfig, AggregatorRunner, AggregatorRuntime, ImmutableFileDigestMapper,
-    MetricsService, MithrilSignerRegistrationLeader, MultiSigner, ProtocolParametersRetriever,
-    ServeCommandDependenciesContainer, SignerRegisterer, SignerRegistrationRoundOpener,
-    SignerRegistrationVerifier, SingleSignatureAuthenticator, VerificationKeyStorer,
+    AggregatorConfig, AggregatorRunner, AggregatorRuntime, EpochSettingsStorer,
+    ImmutableFileDigestMapper, MetricsService, MithrilSignerRegistrationLeader, MultiSigner,
+    ProtocolParametersRetriever, ServeCommandDependenciesContainer, SignerRegisterer,
+    SignerRegistrationRoundOpener, SignerRegistrationVerifier, SingleSignatureAuthenticator,
+    VerificationKeyStorer,
     configuration::ConfigurationSource,
     database::repository::{
         CertificateRepository, EpochSettingsStore, OpenMessageRepository, SignedEntityStorer,
@@ -411,6 +412,8 @@ impl DependenciesBuilder {
             metrics_service: self.get_metrics_service().await?,
         };
 
+        self.handle_discrepancies_at_startup().await?;
+
         Ok(dependencies_manager)
     }
 
@@ -525,6 +528,53 @@ impl DependenciesBuilder {
         let dependencies = ToolsCommandDependenciesContainer { db_connection };
 
         Ok(dependencies)
+    }
+
+    /// Look for discrepancies in stored data and fix them.
+    ///
+    /// Fix discrepancies for:
+    /// - epoch settings: ensure that the network configuration parameters for the three working epochs
+    ///   window are stored in the database (see [mithril_protocol_config::model::MithrilNetworkConfiguration])
+    pub async fn handle_discrepancies_at_startup(&mut self) -> Result<()> {
+        let logger = self.root_logger();
+        let current_epoch = self
+            .get_chain_observer()
+            .await?
+            .get_current_epoch()
+            .await
+            .map_err(|e| DependenciesBuilderError::Initialization {
+                message: "cannot handle startup discrepancies: failed to retrieve current epoch."
+                    .to_string(),
+                error: Some(e.into()),
+            })?
+            .ok_or(DependenciesBuilderError::Initialization {
+                message: "cannot handle startup discrepancies: no epoch returned.".to_string(),
+                error: None,
+            })?;
+        let network_configuration = self
+            .get_mithril_network_configuration_provider()
+            .await?
+            .get_network_configuration(current_epoch)
+            .await
+            .map_err(|e| DependenciesBuilderError::Initialization {
+                message: format!("cannot handle startup discrepancies: failed to retrieve network configuration for epoch {current_epoch}"),
+                error: Some(e),
+            })?;
+        let epoch_settings_store = self.get_epoch_settings_store().await?;
+
+        debug!(
+            logger,
+            "Handle discrepancies at startup of epoch settings store, will record epoch settings from the configuration for epoch {current_epoch}";
+            "network_configuration" => ?network_configuration,
+        );
+        epoch_settings_store
+            .handle_discrepancies_at_startup(&network_configuration)
+            .await
+            .map_err(|e| DependenciesBuilderError::Initialization {
+                message: "can not create aggregator runner".to_string(),
+                error: Some(e),
+            })?;
+        Ok(())
     }
 
     /// Remove the dependencies builder from memory to release Arc instances.

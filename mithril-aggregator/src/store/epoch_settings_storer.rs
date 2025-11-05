@@ -1,12 +1,13 @@
+use anyhow::anyhow;
+use async_trait::async_trait;
 #[cfg(test)]
 use std::collections::HashMap;
-
-use async_trait::async_trait;
-use mithril_common::StdResult;
 #[cfg(test)]
 use tokio::sync::RwLock;
 
+use mithril_common::StdResult;
 use mithril_common::entities::{Epoch, ProtocolParameters};
+use mithril_protocol_config::model::MithrilNetworkConfiguration;
 
 use crate::{entities::AggregatorEpochSettings, services::EpochPruningTask};
 
@@ -43,14 +44,37 @@ pub trait EpochSettingsStorer:
     /// call and the epoch service call.
     async fn handle_discrepancies_at_startup(
         &self,
-        current_epoch: Epoch,
-        epoch_settings_configuration: &AggregatorEpochSettings,
+        network_configuration: &MithrilNetworkConfiguration,
     ) -> StdResult<()> {
-        for epoch_offset in 0..=3 {
-            let epoch = current_epoch + epoch_offset;
+        for (epoch, epoch_configuration) in [
+            (
+                network_configuration.epoch.offset_to_signer_retrieval_epoch()?,
+                &network_configuration.configuration_for_aggregation,
+            ),
+            (
+                network_configuration.epoch,
+                &network_configuration.configuration_for_next_aggregation,
+            ),
+            (
+                network_configuration.epoch.offset_to_recording_epoch(),
+                &network_configuration.configuration_for_registration,
+            ),
+        ] {
             if self.get_epoch_settings(epoch).await?.is_none() {
-                self.save_epoch_settings(epoch, epoch_settings_configuration.clone())
-                    .await?;
+                self.save_epoch_settings(
+                    epoch,
+                    AggregatorEpochSettings {
+                        protocol_parameters: epoch_configuration.protocol_parameters.clone(),
+                        cardano_transactions_signing_config: epoch_configuration
+                            .signed_entity_types_config
+                            .cardano_transactions
+                            .clone()
+                            .ok_or(anyhow!(
+                                "missing cardano transactions signing config for epoch {epoch}"
+                            ))?,
+                    },
+                )
+                .await?;
             }
         }
 
@@ -116,7 +140,8 @@ impl EpochPruningTask for FakeEpochSettingsStorer {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::CardanoTransactionsSigningConfig;
+    use std::collections::BTreeSet;
+
     use mithril_common::test::double::Dummy;
 
     use super::*;
@@ -178,40 +203,43 @@ mod tests {
     #[tokio::test]
     async fn test_handle_discrepancies_at_startup_should_complete_at_least_four_epochs() {
         let epoch_settings = AggregatorEpochSettings::dummy();
-        let epoch_settings_new = AggregatorEpochSettings {
-            protocol_parameters: ProtocolParameters {
-                k: epoch_settings.protocol_parameters.k + 1,
-                ..epoch_settings.protocol_parameters
-            },
-            cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
-                step: epoch_settings.cardano_transactions_signing_config.step + 1,
-                ..epoch_settings.cardano_transactions_signing_config
-            },
-        };
-        let epoch = Epoch(1);
-        let store = FakeEpochSettingsStorer::new(vec![
-            (epoch, epoch_settings.clone()),
-            (epoch + 1, epoch_settings.clone()),
-        ]);
+        let mut aggregation_epoch_settings = epoch_settings.clone();
+        aggregation_epoch_settings.protocol_parameters.k += 15;
 
+        let mut next_aggregation_epoch_settings = epoch_settings.clone();
+        next_aggregation_epoch_settings.protocol_parameters.k += 26;
+
+        let mut registration_epoch_settings = epoch_settings.clone();
+        registration_epoch_settings.protocol_parameters.k += 37;
+
+        let epoch = Epoch(5);
+        let store = FakeEpochSettingsStorer::new(vec![]);
         store
-            .handle_discrepancies_at_startup(epoch, &epoch_settings_new)
+            .handle_discrepancies_at_startup(&MithrilNetworkConfiguration {
+                epoch,
+                configuration_for_aggregation: aggregation_epoch_settings
+                    .clone()
+                    .into_network_configuration_for_epoch(BTreeSet::new()),
+                configuration_for_next_aggregation: next_aggregation_epoch_settings
+                    .clone()
+                    .into_network_configuration_for_epoch(BTreeSet::new()),
+                configuration_for_registration: registration_epoch_settings
+                    .clone()
+                    .into_network_configuration_for_epoch(BTreeSet::new()),
+            })
             .await
             .unwrap();
 
+        let epoch_settings_stored = store.get_epoch_settings(epoch - 1).await.unwrap();
+        assert_eq!(Some(aggregation_epoch_settings), epoch_settings_stored);
+
         let epoch_settings_stored = store.get_epoch_settings(epoch).await.unwrap();
-        assert_eq!(Some(epoch_settings.clone()), epoch_settings_stored);
+        assert_eq!(Some(next_aggregation_epoch_settings), epoch_settings_stored);
 
         let epoch_settings_stored = store.get_epoch_settings(epoch + 1).await.unwrap();
-        assert_eq!(Some(epoch_settings.clone()), epoch_settings_stored);
+        assert_eq!(Some(registration_epoch_settings), epoch_settings_stored);
 
         let epoch_settings_stored = store.get_epoch_settings(epoch + 2).await.unwrap();
-        assert_eq!(Some(epoch_settings_new.clone()), epoch_settings_stored);
-
-        let epoch_settings_stored = store.get_epoch_settings(epoch + 3).await.unwrap();
-        assert_eq!(Some(epoch_settings_new.clone()), epoch_settings_stored);
-
-        let epoch_settings_stored = store.get_epoch_settings(epoch + 4).await.unwrap();
         assert!(epoch_settings_stored.is_none());
     }
 }

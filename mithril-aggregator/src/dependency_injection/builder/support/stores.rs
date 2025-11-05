@@ -1,5 +1,4 @@
 use anyhow::Context;
-use slog::debug;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -11,11 +10,11 @@ use crate::database::repository::{
     OpenMessageRepository, SignedEntityStore, SignedEntityStorer, SignerRegistrationStore,
     SignerStore, StakePoolStore,
 };
-use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
+use crate::dependency_injection::{DependenciesBuilder, Result};
 use crate::get_dependency;
 use crate::{
-    CExplorerSignerRetriever, EpochSettingsStorer, ImmutableFileDigestMapper,
-    ProtocolParametersRetriever, SignersImporter, VerificationKeyStorer,
+    CExplorerSignerRetriever, ImmutableFileDigestMapper, ProtocolParametersRetriever,
+    SignersImporter, VerificationKeyStorer,
 };
 
 impl DependenciesBuilder {
@@ -89,52 +88,15 @@ impl DependenciesBuilder {
     }
 
     async fn build_epoch_settings_store(&mut self) -> Result<Arc<EpochSettingsStore>> {
-        let logger = self.root_logger();
         let epoch_settings_store = EpochSettingsStore::new(
             self.get_sqlite_connection().await?,
             self.configuration.safe_epoch_retention_limit(),
         );
-        let current_epoch = self
-            .get_chain_observer()
-            .await?
-            .get_current_epoch()
-            .await
-            .map_err(|e| DependenciesBuilderError::Initialization {
-                message: "cannot create aggregator runner: failed to retrieve current epoch."
-                    .to_string(),
-                error: Some(e.into()),
-            })?
-            .ok_or(DependenciesBuilderError::Initialization {
-                message: "cannot build aggregator runner: no epoch returned.".to_string(),
-                error: None,
-            })?;
-        let retrieval_epoch = current_epoch
-            .offset_to_signer_retrieval_epoch()
-            .map_err(|e| DependenciesBuilderError::Initialization {
-                message: format!("cannot create aggregator runner: failed to offset current epoch '{current_epoch}' to signer retrieval epoch."),
-                error: Some(e.into()),
-            })?;
-
-        let epoch_settings_configuration = self
-            .configuration
-            .get_leader_aggregator_epoch_settings_configuration()?;
-        debug!(
-            logger,
-            "Handle discrepancies at startup of epoch settings store, will record epoch settings from the configuration for epoch {retrieval_epoch}";
-            "epoch_settings_configuration" => ?epoch_settings_configuration,
-        );
-        epoch_settings_store
-            .handle_discrepancies_at_startup(retrieval_epoch, &epoch_settings_configuration)
-            .await
-            .map_err(|e| DependenciesBuilderError::Initialization {
-                message: "can not create aggregator runner".to_string(),
-                error: Some(e),
-            })?;
 
         Ok(Arc::new(epoch_settings_store))
     }
 
-    /// Get a configured [EpochSettingsStorer].
+    /// Get a configured [EpochSettingsStore].
     pub async fn get_epoch_settings_store(&mut self) -> Result<Arc<EpochSettingsStore>> {
         get_dependency!(self.epoch_settings_store)
     }

@@ -61,8 +61,6 @@ impl DependenciesBuilder {
                 ))
             };
 
-        //TODO handle discrepency here
-
         Ok(network_configuration_provider)
     }
 
