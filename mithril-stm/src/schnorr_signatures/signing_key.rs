@@ -7,6 +7,7 @@ use ff::Field;
 use group::Group;
 use rand_core::{CryptoRng, RngCore};
 
+use crate::schnorr_signatures::hash_msg_to_base;
 use crate::schnorr_signatures::signature::*;
 use crate::schnorr_signatures::verification_key::*;
 use crate::{
@@ -30,11 +31,11 @@ impl SchnorrSigningKey {
     /// A slightly modified version of the regular Schnorr signature (I think)
     /// We include the computation of sigma, a value depending only on the msg
     /// and the secret key as it is used for the lottery process
-    pub fn sign(&self, msg: JubjubBase, rng: &mut (impl RngCore + CryptoRng)) -> SchnorrSignature {
+    pub fn sign(&self, msg: &[u8], rng: &mut (impl RngCore + CryptoRng)) -> SchnorrSignature {
         let g = JubjubSubgroup::generator();
         let vk = g * self.0;
 
-        let hash = JubjubHashToCurve::hash_to_curve(&[msg]);
+        let hash = JubjubHashToCurve::hash_to_curve(&[hash_msg_to_base(msg)]);
         let sigma = hash * self.0;
         let r = JubjubScalar::random(rng);
         let cap_r_1 = hash * r;
@@ -72,9 +73,6 @@ impl SchnorrSigningKey {
     }
 
     /// Convert a string of bytes into a `SchnorrSigningKey`.
-    ///
-    /// # Error
-    /// Fails if the byte string represents a scalar larger than the group order.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         // This is a bit ugly, I'll try to find a better way to do it
         let bytes = bytes
