@@ -255,6 +255,11 @@ pub trait ConfigurationSource {
         panic!("cardano_transactions_signing_config is not implemented.");
     }
 
+    /// Blocks offset, from the tip of the chain, to exclude during the cardano transactions preload
+    fn preload_security_parameter(&self) -> BlockNumber {
+        panic!("preload_security_parameter is not implemented.");
+    }
+
     /// Maximum number of transactions hashes allowed by request to the prover of the Cardano transactions
     fn cardano_transactions_prover_max_hashes_allowed_by_request(&self) -> usize {
         panic!("cardano_transactions_prover_max_hashes_allowed_by_request is not implemented.");
@@ -558,6 +563,10 @@ pub struct ServeCommandConfiguration {
     #[example = "`{ security_parameter: 3000, step: 120 }`"]
     pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
 
+    /// Blocks offset, from the tip of the chain, to exclude during the cardano transactions preload
+    /// `[default: 2160]`.
+    pub preload_security_parameter: BlockNumber,
+
     /// Maximum number of transactions hashes allowed by request to the prover of the Cardano transactions
     pub cardano_transactions_prover_max_hashes_allowed_by_request: usize,
 
@@ -714,6 +723,7 @@ impl ServeCommandConfiguration {
                 security_parameter: BlockNumber(120),
                 step: BlockNumber(15),
             },
+            preload_security_parameter: BlockNumber(30),
             cardano_transactions_prover_max_hashes_allowed_by_request: 100,
             cardano_transactions_block_streamer_max_roll_forwards_per_poll: 1000,
             enable_metrics_server: true,
@@ -881,6 +891,10 @@ impl ConfigurationSource for ServeCommandConfiguration {
         self.cardano_transactions_signing_config.clone()
     }
 
+    fn preload_security_parameter(&self) -> BlockNumber {
+        self.preload_security_parameter
+    }
+
     fn cardano_transactions_prover_max_hashes_allowed_by_request(&self) -> usize {
         self.cardano_transactions_prover_max_hashes_allowed_by_request
     }
@@ -981,6 +995,9 @@ pub struct DefaultConfiguration {
     /// Cardano transactions signing configuration
     pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
 
+    /// Blocks offset, from the tip of the chain, to exclude during the cardano transactions preload
+    pub preload_security_parameter: u64,
+
     /// Maximum number of transactions hashes allowed by request to the prover of the Cardano transactions
     pub cardano_transactions_prover_max_hashes_allowed_by_request: u32,
 
@@ -1026,6 +1043,7 @@ impl Default for DefaultConfiguration {
                 security_parameter: BlockNumber(3000),
                 step: BlockNumber(120),
             },
+            preload_security_parameter: 2160,
             cardano_transactions_prover_max_hashes_allowed_by_request: 100,
             cardano_transactions_block_streamer_max_roll_forwards_per_poll: 10000,
             enable_metrics_server: "false".to_string(),
@@ -1104,6 +1122,7 @@ impl Source for DefaultConfiguration {
             &namespace,
             myself.persist_usage_report_interval_in_seconds
         );
+        register_config_value!(result, &namespace, myself.preload_security_parameter);
         register_config_value!(
             result,
             &namespace,
@@ -1111,7 +1130,7 @@ impl Source for DefaultConfiguration {
             |v: CardanoTransactionsSigningConfig| HashMap::from([
                 (
                     "security_parameter".to_string(),
-                    ValueKind::from(*v.security_parameter,),
+                    ValueKind::from(*v.security_parameter),
                 ),
                 ("step".to_string(), ValueKind::from(*v.step),)
             ])
