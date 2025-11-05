@@ -9,8 +9,10 @@ use serde::{Deserialize, Serialize};
 use crate::bls_multi_signature::BlsSignature;
 use crate::eligibility_check::is_lottery_won;
 use crate::{
-    AggregateVerificationKey, Index, Parameters, Stake, StmSignatureError, VerificationKey,
+    AggregateVerificationKey, Index, Parameters, Stake, StmResult, StmSignatureError,
+    VerificationKey,
 };
+use anyhow::{Context, anyhow};
 
 /// Signature created by a single party who has won the lottery.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33,9 +35,15 @@ impl SingleSignature {
         stake: &Stake,
         avk: &AggregateVerificationKey<D>,
         msg: &[u8],
-    ) -> Result<(), StmSignatureError> {
+    ) -> StmResult<()> {
         let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
-        self.basic_verify(params, pk, stake, &msgp, &avk.get_total_stake())?;
+        self.basic_verify(params, pk, stake, &msgp, &avk.get_total_stake())
+            .with_context(|| {
+                format!(
+                    "Single signature verification failed for signer index {}.",
+                    self.signer_index
+                )
+            })?;
         Ok(())
     }
 
@@ -46,16 +54,18 @@ impl SingleSignature {
         stake: &Stake,
         msg: &[u8],
         total_stake: &Stake,
-    ) -> Result<(), StmSignatureError> {
+    ) -> StmResult<()> {
         for &index in &self.indexes {
             if index > params.m {
-                return Err(StmSignatureError::IndexBoundFailed(index, params.m));
+                return Err(anyhow!(StmSignatureError::IndexBoundFailed(
+                    index, params.m
+                )));
             }
 
             let ev = self.sigma.evaluate_dense_mapping(msg, index);
 
             if !is_lottery_won(params.phi_f, ev, *stake, *total_stake) {
-                return Err(StmSignatureError::LotteryLost);
+                return Err(anyhow!(StmSignatureError::LotteryLost));
             }
         }
 
@@ -86,9 +96,7 @@ impl SingleSignature {
     }
 
     /// Extract a batch compatible `SingleSignature` from a byte slice.
-    pub fn from_bytes<D: Clone + Digest + FixedOutput>(
-        bytes: &[u8],
-    ) -> Result<SingleSignature, StmSignatureError> {
+    pub fn from_bytes<D: Clone + Digest + FixedOutput>(bytes: &[u8]) -> StmResult<SingleSignature> {
         let mut u64_bytes = [0u8; 8];
 
         u64_bytes.copy_from_slice(bytes.get(0..8).ok_or(StmSignatureError::SerializationError)?);
@@ -145,9 +153,12 @@ impl SingleSignature {
         stake: &Stake,
         msg: &[u8],
         total_stake: &Stake,
-    ) -> Result<(), StmSignatureError> {
-        self.sigma.verify(msg, pk)?;
-        self.check_indices(params, stake, msg, total_stake)?;
+    ) -> StmResult<()> {
+        self.sigma
+            .verify(msg, pk)
+            .with_context(|| "Basic verification of single signature failed.")?;
+        self.check_indices(params, stake, msg, total_stake)
+            .with_context(|| "Basic verification of single signature failed.")?;
 
         Ok(())
     }
@@ -161,7 +172,7 @@ impl SingleSignature {
         stake: &Stake,
         msg: &[u8],
         total_stake: &Stake,
-    ) -> Result<(), StmSignatureError> {
+    ) -> StmResult<()> {
         Self::basic_verify(self, params, pk, stake, msg, total_stake)
     }
 }

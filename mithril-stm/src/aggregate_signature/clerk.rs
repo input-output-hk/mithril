@@ -1,10 +1,16 @@
-use blake2::digest::{Digest, FixedOutput};
-
 use crate::{
-    AggregateSignature, AggregateSignatureType, AggregateVerificationKey, AggregationError,
-    ClosedKeyRegistration, Index, Parameters, Signer, SingleSignature, Stake, VerificationKey,
+    AggregateSignature, AggregateSignatureType, AggregateVerificationKey, ClosedKeyRegistration,
+    Index, Parameters, Signer, SingleSignature, Stake, StmResult, VerificationKey,
     aggregate_signature::ConcatenationProof,
 };
+use anyhow::Context;
+use blake2::digest::{Digest, FixedOutput};
+
+#[cfg(feature = "future_proof_system")]
+use anyhow::anyhow;
+
+#[cfg(feature = "future_proof_system")]
+use crate::AggregationError;
 
 /// `Clerk` can verify and aggregate `SingleSignature`s and verify `AggregateSignature`s.
 /// Clerks can only be generated with the registration closed.
@@ -62,7 +68,7 @@ impl<D: Digest + Clone + FixedOutput + Send + Sync> Clerk<D> {
         &self,
         sigs: &[SingleSignature],
         msg: &[u8],
-    ) -> Result<AggregateSignature<D>, AggregationError> {
+    ) -> StmResult<AggregateSignature<D>> {
         self.aggregate_signatures_with_type(sigs, msg, AggregateSignatureType::default())
     }
 
@@ -72,14 +78,19 @@ impl<D: Digest + Clone + FixedOutput + Send + Sync> Clerk<D> {
         sigs: &[SingleSignature],
         msg: &[u8],
         aggregate_signature_type: AggregateSignatureType,
-    ) -> Result<AggregateSignature<D>, AggregationError> {
+    ) -> StmResult<AggregateSignature<D>> {
         match aggregate_signature_type {
             AggregateSignatureType::Concatenation => Ok(AggregateSignature::Concatenation(
-                ConcatenationProof::aggregate_signatures(self, sigs, msg)?,
+                ConcatenationProof::aggregate_signatures(self, sigs, msg).with_context(|| {
+                    format!(
+                        "Signatures failed to aggregate for type {}",
+                        AggregateSignatureType::Concatenation
+                    )
+                })?,
             )),
             #[cfg(feature = "future_proof_system")]
-            AggregateSignatureType::Future => Err(AggregationError::UnsupportedProofSystem(
-                aggregate_signature_type,
+            AggregateSignatureType::Future => Err(anyhow!(
+                AggregationError::UnsupportedProofSystem(aggregate_signature_type)
             )),
         }
     }
@@ -96,7 +107,7 @@ impl<D: Digest + Clone + FixedOutput + Send + Sync> Clerk<D> {
         &self,
         sigs: &[SingleSignature],
         msg: &[u8],
-    ) -> Result<AggregateSignature<D>, AggregationError> {
+    ) -> StmResult<AggregateSignature<D>> {
         Self::aggregate_signatures(self, sigs, msg)
     }
 

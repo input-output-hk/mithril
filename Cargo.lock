@@ -4148,6 +4148,7 @@ dependencies = [
 name = "mithril-stm"
 version = "0.5.5"
 dependencies = [
+ "anyhow",
  "blake2 0.10.6",
  "blst",
  "criterion",

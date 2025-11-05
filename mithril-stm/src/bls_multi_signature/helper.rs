@@ -1,4 +1,5 @@
 pub(crate) mod unsafe_helpers {
+    use anyhow::anyhow;
     use blst::{
         blst_fp12, blst_fp12_finalverify, blst_p1, blst_p1_affine, blst_p1_affine_generator,
         blst_p1_compress, blst_p1_from_affine, blst_p1_to_affine, blst_p1_uncompress, blst_p2,
@@ -7,8 +8,11 @@ pub(crate) mod unsafe_helpers {
         min_sig::{PublicKey as BlstVk, SecretKey as BlstSk, Signature as BlstSig},
     };
 
-    use crate::bls_multi_signature::{BlsProofOfPossession, BlsVerificationKey};
-    use crate::error::{MultiSignatureError, MultiSignatureError::SerializationError};
+    use crate::error::MultiSignatureError::SerializationError;
+    use crate::{
+        StmResult,
+        bls_multi_signature::{BlsProofOfPossession, BlsVerificationKey},
+    };
 
     /// Check manually if the pairing `e(g1,mvk) = e(k2,g2)` holds.
     pub(crate) fn verify_pairing(vk: &BlsVerificationKey, pop: &BlsProofOfPossession) -> bool {
@@ -33,7 +37,7 @@ pub(crate) mod unsafe_helpers {
         bytes
     }
 
-    pub(crate) fn uncompress_p1(bytes: &[u8]) -> Result<blst_p1, MultiSignatureError> {
+    pub(crate) fn uncompress_p1(bytes: &[u8]) -> StmResult<blst_p1> {
         unsafe {
             if bytes.len() == 48 {
                 let mut point = blst_p1_affine::default();
@@ -42,7 +46,7 @@ pub(crate) mod unsafe_helpers {
                 blst_p1_from_affine(&mut out, &point);
                 Ok(out)
             } else {
-                Err(SerializationError)
+                Err(anyhow!(SerializationError))
             }
         }
     }

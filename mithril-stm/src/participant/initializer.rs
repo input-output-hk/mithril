@@ -4,8 +4,9 @@ use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 
 use crate::bls_multi_signature::{BlsSigningKey, BlsVerificationKeyProofOfPossession};
-use crate::key_registration::*;
 use crate::{Parameters, RegisterError, Signer, Stake};
+use crate::{StmResult, key_registration::*};
+use anyhow::anyhow;
 
 /// Wrapper of the MultiSignature Verification key with proof of possession
 pub type VerificationKeyProofOfPossession = BlsVerificationKeyProofOfPossession;
@@ -75,7 +76,7 @@ impl Initializer {
     pub fn create_signer<D: Digest + Clone + FixedOutput>(
         self,
         closed_reg: ClosedKeyRegistration<D>,
-    ) -> Result<Signer<D>, RegisterError> {
+    ) -> StmResult<Signer<D>> {
         let mut my_index = None;
         for (i, rp) in closed_reg.reg_parties.iter().enumerate() {
             if rp.0 == self.pk.vk {
@@ -84,7 +85,7 @@ impl Initializer {
             }
         }
         if my_index.is_none() {
-            return Err(RegisterError::UnregisteredInitializer);
+            return Err(anyhow!(RegisterError::UnregisteredInitializer));
         }
 
         Ok(Signer::set_signer(
@@ -113,7 +114,7 @@ impl Initializer {
     pub fn new_signer<D: Digest + Clone + FixedOutput>(
         self,
         closed_reg: ClosedKeyRegistration<D>,
-    ) -> Result<Signer<D>, RegisterError> {
+    ) -> StmResult<Signer<D>> {
         Self::create_signer(self, closed_reg)
     }
 
@@ -177,7 +178,7 @@ impl Initializer {
     /// Convert a slice of bytes to an `Initializer`
     /// # Error
     /// The function fails if the given string of bytes is not of required size.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Initializer, RegisterError> {
+    pub fn from_bytes(bytes: &[u8]) -> StmResult<Initializer> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(bytes.get(..8).ok_or(RegisterError::SerializationError)?);
         let stake = u64::from_be_bytes(u64_bytes);

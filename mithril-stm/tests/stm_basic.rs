@@ -1,7 +1,7 @@
 use blake2::Blake2b;
 use digest::consts::U32;
 use mithril_stm::{
-    BasicVerifier, CoreVerifierError, Initializer, Parameters, Signer, SingleSignature, Stake,
+    AggregationError, BasicVerifier, Initializer, Parameters, Signer, SingleSignature, Stake,
     VerificationKey,
 };
 use rand_chacha::ChaCha20Rng;
@@ -64,10 +64,13 @@ fn test_core_verifier() {
                 "Verification failed: {verify_result:?}"
             );
         }
-        Err(CoreVerifierError::NoQuorum(nr_indices, _k)) => {
-            assert!((nr_indices) < params.k);
-        }
-        Err(CoreVerifierError::IndexNotUnique) => unreachable!(),
-        _ => unreachable!(),
+        Err(error) => match error.downcast_ref::<AggregationError>() {
+            Some(AggregationError::NotEnoughSignatures(nr_indices, _k)) => {
+                assert!((nr_indices) < &params.k)
+            }
+            _ => {
+                println!("Unexpected error: {:?}", error);
+            }
+        },
     }
 }

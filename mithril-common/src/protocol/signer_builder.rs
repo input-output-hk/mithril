@@ -177,7 +177,7 @@ mod test {
     use mithril_stm::RegisterError;
 
     use crate::{
-        crypto_helper::{KesSignerStandard, ProtocolRegistrationErrorWrapper},
+        crypto_helper::KesSignerStandard,
         test::{builder::MithrilFixtureBuilder, double::fake_data},
     };
 
@@ -220,8 +220,8 @@ mod test {
             "We should not be able to construct a signer builder if a signer registration fail",
         );
 
-        match error.downcast_ref::<ProtocolRegistrationErrorWrapper>() {
-            Some(ProtocolRegistrationErrorWrapper::CoreRegister(_)) => (),
+        match error.downcast_ref::<RegisterError>() {
+            Some(RegisterError::KeyRegistered { .. }) => (),
             _ => panic!("Expected an CoreRegister error, got: {error:?}"),
         }
     }
@@ -264,10 +264,8 @@ mod test {
             "We should not be able to construct a single signer from a not registered party",
         );
 
-        match error.downcast_ref::<ProtocolRegistrationErrorWrapper>() {
-            Some(ProtocolRegistrationErrorWrapper::CoreRegister(
-                RegisterError::UnregisteredInitializer,
-            )) => (),
+        match error.downcast_ref::<RegisterError>() {
+            Some(RegisterError::UnregisteredInitializer) => (),
             _ => panic!(
                 "Expected an ProtocolRegistrationErrorWrapper::CoreRegister error, got: {error:?}"
             ),
