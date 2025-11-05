@@ -82,6 +82,7 @@ macro_rules! get_dependency {
     ( $self:ident.$attribute:ident = $builder:expr ) => {{
         paste::paste! {
             if $self.$attribute.is_none() {
+                slog::debug!($self.root_logger(), "Building dependency {}", stringify!($attribute));
                 $self.$attribute = Some($builder);
             }
 
