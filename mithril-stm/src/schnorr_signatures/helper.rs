@@ -44,9 +44,11 @@ pub fn hash_msg_to_base(msg: &[u8]) -> JubjubBase {
     hash.update(msg);
     let hmsg = hash.finalize();
     let mut output = [0u8; 32];
-    output.copy_from_slice(hmsg.as_slice());
-
-    output[31] &= 0x0f;
-
-    JubjubBase::from_bytes_le(&output).unwrap()
+    output.copy_from_slice(&hmsg);
+    JubjubBase::from_raw([
+        u64::from_le_bytes(output[0..8].try_into().unwrap()),
+        u64::from_le_bytes(output[8..16].try_into().unwrap()),
+        u64::from_le_bytes(output[16..24].try_into().unwrap()),
+        u64::from_le_bytes(output[24..32].try_into().unwrap()),
+    ])
 }
