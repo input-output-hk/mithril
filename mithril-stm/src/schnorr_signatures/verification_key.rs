@@ -24,6 +24,7 @@ impl SchnorrVerificationKey {
         bytes
     }
 
+    /// Do we really need to separate the coordinates?
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, SignatureError> {
         let bytes = bytes.get(0..64).ok_or(SignatureError::SerializationError)?;
         let mut u_bytes = [0u8; 32];

@@ -1,5 +1,5 @@
 pub use midnight_curves::{
-    EDWARDS_D, Fq as JubjubBase, Fr as JubjubScalar, JubjubAffine, JubjubExtended, JubjubSubgroup,
+    EDWARDS_D, Fq as JubjubBase, Fr as JubjubScalar, JubjubAffine, JubjubExtended, JubjubSubgroup, batch_normalize
 };
 
 use ff::Field;
@@ -13,6 +13,20 @@ pub fn get_coordinates(point: JubjubSubgroup) -> (JubjubBase, JubjubBase) {
     let x = affine.get_u(); // Get x-coordinate
     let y = affine.get_v(); // Get y-coordinate
     (x, y)
+}
+
+
+pub fn batch_get_coordinates(points: &[JubjubSubgroup]) -> Vec<(JubjubBase, JubjubBase)> {
+
+    let mut extended = points.iter().map(|&p| p.into()).collect::<Vec<JubjubExtended>>();
+
+    // Convert to JubjubAffine (affine coordinates)
+    let affine: Vec<JubjubAffine> = batch_normalize(&mut extended).collect();
+    let coordinates: Vec<(JubjubBase,JubjubBase)> = affine
+        .iter()
+        .map(|a| (a.get_u(), a.get_v()))
+        .collect();
+    coordinates
 }
 
 pub fn jubjub_base_to_scalar(x: JubjubBase) -> JubjubScalar {
