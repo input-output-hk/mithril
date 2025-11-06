@@ -207,37 +207,41 @@ impl Runner for SignerRunner {
             ),
             None => None,
         };
-        let protocol_initializer = MithrilProtocolInitializerBuilder::build(
-            stake,
-            &protocol_parameters,
-            self.services.kes_signer.clone(),
-            kes_period,
-        )?;
-        self.services
-            .protocol_initializer_store
-            .save_protocol_initializer(epoch_offset_to_recording_epoch, protocol_initializer)
-            .await?;
 
         let protocol_initializer = self
             .services
             .protocol_initializer_store
             .get_protocol_initializer(epoch_offset_to_recording_epoch)
-            .await?.ok_or(RunnerError::NoValueError(
-                format!("no protocol_initializer available in store for epoch {epoch_offset_to_recording_epoch}"),
-            )).with_context(
+            .await
+            .with_context(
                 || "register_signer_to_aggregator can not retrieve protocol initializer from store",
             )?;
-        let signer = Signer::new(
-            self.services.single_signer.get_party_id(),
-            protocol_initializer.verification_key().into(),
-            protocol_initializer.verification_key_signature(),
-            protocol_operational_certificate,
-            kes_period,
-        );
-        self.services
-            .certificate_handler
-            .register_signer(epoch_offset_to_recording_epoch, &signer)
-            .await?;
+
+        if protocol_initializer.is_none() {
+            let protocol_initializer = MithrilProtocolInitializerBuilder::build(
+                stake,
+                &protocol_parameters,
+                self.services.kes_signer.clone(),
+                kes_period,
+            )?;
+
+            let signer = Signer::new(
+                self.services.single_signer.get_party_id(),
+                protocol_initializer.verification_key().into(),
+                protocol_initializer.verification_key_signature(),
+                protocol_operational_certificate,
+                kes_period,
+            );
+            self.services
+                .certificate_handler
+                .register_signer(epoch_offset_to_recording_epoch, &signer)
+                .await?;
+
+            self.services
+                .protocol_initializer_store
+                .save_protocol_initializer(epoch_offset_to_recording_epoch, protocol_initializer)
+                .await?;
+        }
 
         Ok(())
     }
@@ -705,6 +709,9 @@ mod tests {
             "A protocol initializer should have been registered at the 'Recording' epoch"
         );
 
+        let total_registered_signers = certificate_handler.get_total_registered_signers().await;
+        assert_eq!(1, total_registered_signers);
+
         runner
             .register_signer_to_aggregator()
             .await
@@ -725,6 +732,9 @@ mod tests {
             serde_json::to_string(&last_registered_signer_second_registration).unwrap(),
             "The signer registration should be the same and should have been registered twice"
         );
+
+        let total_registered_signers = certificate_handler.get_total_registered_signers().await;
+        assert_eq!(1, total_registered_signers);
     }
 
     #[tokio::test]
