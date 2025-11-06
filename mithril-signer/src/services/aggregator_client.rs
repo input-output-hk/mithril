@@ -392,12 +392,18 @@ pub(crate) mod dumb {
         epoch_settings: RwLock<Option<SignerEpochSettings>>,
         last_registered_signer: RwLock<Option<Signer>>,
         aggregator_features: RwLock<AggregatorFeaturesMessage>,
+        total_registered_signers: RwLock<u32>,
     }
 
     impl DumbAggregatorClient {
         /// Return the last signer that called with the `register` method.
         pub async fn get_last_registered_signer(&self) -> Option<Signer> {
             self.last_registered_signer.read().await.clone()
+        }
+
+        /// Return the total number of signers that called with the `register` method.
+        pub async fn get_total_registered_signers(&self) -> u32 {
+            *self.total_registered_signers.read().await
         }
     }
 
@@ -407,6 +413,7 @@ pub(crate) mod dumb {
                 epoch_settings: RwLock::new(Some(SignerEpochSettings::dummy())),
                 last_registered_signer: RwLock::new(None),
                 aggregator_features: RwLock::new(AggregatorFeaturesMessage::dummy()),
+                total_registered_signers: RwLock::new(0),
             }
         }
     }
@@ -430,6 +437,9 @@ pub(crate) mod dumb {
             let mut last_registered_signer = self.last_registered_signer.write().await;
             let signer = signer.clone();
             *last_registered_signer = Some(signer);
+
+            let mut total_registered_signers = self.total_registered_signers.write().await;
+            *total_registered_signers += 1;
 
             Ok(())
         }
