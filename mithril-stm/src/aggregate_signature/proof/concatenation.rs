@@ -83,7 +83,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
         msg: &[u8],
         avk: &AggregateVerificationKey<D>,
         parameters: &Parameters,
-    ) -> Result<(Vec<BlsSignature>, Vec<BlsVerificationKey>), StmAggregateSignatureError<D>> {
+    ) -> Result<(Vec<BlsSignature>, Vec<BlsVerificationKey>), StmAggregateSignatureError> {
         let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
         BasicVerifier::preliminary_verify(
             &avk.get_total_stake(),
@@ -117,7 +117,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
         msg: &[u8],
         avk: &AggregateVerificationKey<D>,
         parameters: &Parameters,
-    ) -> Result<(), StmAggregateSignatureError<D>> {
+    ) -> Result<(), StmAggregateSignatureError> {
         let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
         let (sigs, vks) = self.preliminary_verify(msg, avk, parameters)?;
 
@@ -131,7 +131,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
         msgs: &[Vec<u8>],
         avks: &[AggregateVerificationKey<D>],
         parameters: &[Parameters],
-    ) -> Result<(), StmAggregateSignatureError<D>> {
+    ) -> Result<(), StmAggregateSignatureError> {
         let batch_size = stm_signatures.len();
         assert_eq!(
             batch_size,
@@ -195,9 +195,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
     }
 
     ///Extract a concatenation proof from a byte slice.
-    pub fn from_bytes(
-        bytes: &[u8],
-    ) -> Result<ConcatenationProof<D>, StmAggregateSignatureError<D>> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<ConcatenationProof<D>, StmAggregateSignatureError> {
         let mut bytes_index = 0;
 
         let mut u64_bytes = [0u8; 8];

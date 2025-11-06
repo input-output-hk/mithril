@@ -95,7 +95,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
         msg: &[u8],
         avk: &AggregateVerificationKey<D>,
         parameters: &Parameters,
-    ) -> Result<(), StmAggregateSignatureError<D>> {
+    ) -> Result<(), StmAggregateSignatureError> {
         match self {
             AggregateSignature::Concatenation(concatenation_proof) => {
                 concatenation_proof.verify(msg, avk, parameters)
@@ -113,7 +113,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
         msgs: &[Vec<u8>],
         avks: &[AggregateVerificationKey<D>],
         parameters: &[Parameters],
-    ) -> Result<(), StmAggregateSignatureError<D>> {
+    ) -> Result<(), StmAggregateSignatureError> {
         let stm_signatures: HashMap<AggregateSignatureType, Vec<Self>> =
             stm_signatures.iter().fold(HashMap::new(), |mut acc, sig| {
                 acc.entry(sig.into()).or_default().push(sig.clone());
@@ -171,7 +171,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
     }
 
     /// Extract an aggregate signature from a byte slice.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, StmAggregateSignatureError<D>> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, StmAggregateSignatureError> {
         let proof_type_byte =
             bytes.first().ok_or(StmAggregateSignatureError::SerializationError)?;
         let proof_bytes = &bytes[1..];

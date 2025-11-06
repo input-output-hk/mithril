@@ -1,12 +1,10 @@
 //! Crate specific errors
-use blake2::digest::{Digest, FixedOutput};
 use blst::BLST_ERROR;
 
 use crate::aggregate_signature::AggregateSignatureType;
 use crate::bls_multi_signature::{
     BlsSignature, BlsVerificationKey, BlsVerificationKeyProofOfPossession,
 };
-use crate::merkle_tree::{MerkleBatchPath, MerklePath};
 
 /// Error types for multi signatures.
 #[derive(Debug, thiserror::Error, Eq, PartialEq)]
@@ -42,18 +40,18 @@ pub enum MultiSignatureError {
 
 /// Error types related to merkle trees.
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum MerkleTreeError<D: Digest + FixedOutput> {
+pub enum MerkleTreeError {
     /// Serialization error
     #[error("Serialization of a merkle tree failed")]
     SerializationError,
 
     /// Invalid merkle path
     #[error("Path does not verify against root")]
-    PathInvalid(MerklePath<D>),
+    PathInvalid(Vec<u8>),
 
     /// Invalid merkle batch path
     #[error("Batch path does not verify against root")]
-    BatchPathInvalid(MerkleBatchPath<D>),
+    BatchPathInvalid(Vec<u8>),
 }
 
 /// Errors which can be output by Mithril single signature verification.
@@ -98,8 +96,8 @@ impl From<MultiSignatureError> for StmSignatureError {
     }
 }
 
-impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSignatureError {
-    fn from(e: MerkleTreeError<D>) -> Self {
+impl From<MerkleTreeError> for StmSignatureError {
+    fn from(e: MerkleTreeError) -> Self {
         match e {
             MerkleTreeError::SerializationError => Self::SerializationError,
             _ => unreachable!(),
@@ -175,7 +173,7 @@ impl From<StmSignatureError> for CoreVerifierError {
 
 /// Errors which can be output by Mithril aggregate verification.
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
+pub enum StmAggregateSignatureError {
     /// The IVK is invalid after aggregating the keys
     #[error("Aggregated key does not correspond to the expected key.")]
     IvkInvalid(Box<BlsVerificationKey>),
@@ -186,7 +184,7 @@ pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
 
     /// Invalid merkle batch path
     #[error("Batch path does not verify against root")]
-    PathInvalid(MerkleBatchPath<D>),
+    PathInvalid(Vec<u8>),
 
     /// Batch verification of STM aggregate signatures failed
     #[error("Batch verification of STM aggregate signatures failed")]
@@ -201,8 +199,8 @@ pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
     UnsupportedProofSystem(AggregateSignatureType),
 }
 
-impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmAggregateSignatureError<D> {
-    fn from(e: MerkleTreeError<D>) -> Self {
+impl From<MerkleTreeError> for StmAggregateSignatureError {
+    fn from(e: MerkleTreeError) -> Self {
         match e {
             MerkleTreeError::BatchPathInvalid(e) => Self::PathInvalid(e),
             MerkleTreeError::SerializationError => Self::SerializationError,
@@ -211,7 +209,7 @@ impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmAggregateSignature
     }
 }
 
-impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmAggregateSignatureError<D> {
+impl From<MultiSignatureError> for StmAggregateSignatureError {
     fn from(e: MultiSignatureError) -> Self {
         match e {
             MultiSignatureError::AggregateSignatureInvalid => {
@@ -233,13 +231,13 @@ impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmAggregateSignatur
     }
 }
 
-impl<D: Digest + FixedOutput> From<CoreVerifierError> for StmAggregateSignatureError<D> {
+impl From<CoreVerifierError> for StmAggregateSignatureError {
     fn from(e: CoreVerifierError) -> Self {
         Self::CoreVerificationError(e)
     }
 }
 
-impl<D: Digest + FixedOutput> From<StmSignatureError> for StmAggregateSignatureError<D> {
+impl From<StmSignatureError> for StmAggregateSignatureError {
     fn from(e: StmSignatureError) -> Self {
         match e {
             StmSignatureError::SerializationError => Self::SerializationError,

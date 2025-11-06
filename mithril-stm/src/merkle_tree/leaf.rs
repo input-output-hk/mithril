@@ -1,7 +1,5 @@
 use std::cmp::Ordering;
 
-use blake2::Blake2b;
-use digest::consts::U32;
 use serde::{Deserialize, Serialize};
 
 use crate::bls_multi_signature::BlsVerificationKey;
@@ -14,7 +12,7 @@ use crate::{Stake, VerificationKey};
 pub struct MerkleTreeLeaf(pub BlsVerificationKey, pub Stake);
 
 impl MerkleTreeLeaf {
-    pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self, MerkleTreeError<Blake2b<U32>>> {
+    pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self, MerkleTreeError> {
         let pk =
             VerificationKey::from_bytes(bytes).map_err(|_| MerkleTreeError::SerializationError)?;
         let mut u64_bytes = [0u8; 8];

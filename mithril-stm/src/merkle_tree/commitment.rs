@@ -31,7 +31,7 @@ impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
         &self,
         val: &MerkleTreeLeaf,
         proof: &MerklePath<D>,
-    ) -> Result<(), MerkleTreeError<D>>
+    ) -> Result<(), MerkleTreeError>
     where
         D: FixedOutput + Clone,
     {
@@ -50,7 +50,7 @@ impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
         if h == self.root {
             return Ok(());
         }
-        Err(MerkleTreeError::PathInvalid(proof.clone()))
+        Err(MerkleTreeError::PathInvalid(proof.to_bytes()))
     }
 
     /// Check an inclusion proof that `val` is part of the tree by traveling the whole path until the root.
@@ -60,11 +60,7 @@ impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
         since = "0.5.0",
         note = "Use `verify_leaf_membership_from_path` instead"
     )]
-    pub fn check(
-        &self,
-        val: &MerkleTreeLeaf,
-        proof: &MerklePath<D>,
-    ) -> Result<(), MerkleTreeError<D>>
+    pub fn check(&self, val: &MerkleTreeLeaf, proof: &MerklePath<D>) -> Result<(), MerkleTreeError>
     where
         D: FixedOutput + Clone,
     {
@@ -104,7 +100,7 @@ impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
     }
 
     /// Extract a `MerkleTreeCommitment` from a byte slice.
-    pub fn from_bytes(bytes: &[u8]) -> Result<MerkleTreeCommitment<D>, MerkleTreeError<D>> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<MerkleTreeCommitment<D>, MerkleTreeError> {
         let root = bytes.to_vec();
 
         Ok(Self {
@@ -171,18 +167,18 @@ impl<D: Digest + FixedOutput> MerkleTreeBatchCommitment<D> {
         &self,
         batch_val: &[MerkleTreeLeaf],
         proof: &MerkleBatchPath<D>,
-    ) -> Result<(), MerkleTreeError<D>>
+    ) -> Result<(), MerkleTreeError>
     where
         D: FixedOutput + Clone,
     {
         if batch_val.len() != proof.indices.len() {
-            return Err(MerkleTreeError::BatchPathInvalid(proof.clone()));
+            return Err(MerkleTreeError::BatchPathInvalid(proof.to_bytes()));
         }
         let mut ordered_indices: Vec<usize> = proof.indices.clone();
         ordered_indices.sort_unstable();
 
         if ordered_indices != proof.indices {
-            return Err(MerkleTreeError::BatchPathInvalid(proof.clone()));
+            return Err(MerkleTreeError::BatchPathInvalid(proof.to_bytes()));
         }
 
         let nr_nodes = self.nr_leaves + self.nr_leaves.next_power_of_two() - 1;
@@ -249,7 +245,7 @@ impl<D: Digest + FixedOutput> MerkleTreeBatchCommitment<D> {
             return Ok(());
         }
 
-        Err(MerkleTreeError::BatchPathInvalid(proof.clone()))
+        Err(MerkleTreeError::BatchPathInvalid(proof.to_bytes()))
     }
 
     /// Check a proof of a batched opening. The indices must be ordered.
@@ -267,7 +263,7 @@ impl<D: Digest + FixedOutput> MerkleTreeBatchCommitment<D> {
         &self,
         batch_val: &[MerkleTreeLeaf],
         proof: &MerkleBatchPath<D>,
-    ) -> Result<(), MerkleTreeError<D>>
+    ) -> Result<(), MerkleTreeError>
     where
         D: FixedOutput + Clone,
     {
@@ -286,7 +282,7 @@ impl<D: Digest + FixedOutput> MerkleTreeBatchCommitment<D> {
     }
 
     /// Extract a `MerkleTreeBatchCommitment` from a byte slice.
-    pub fn from_bytes(bytes: &[u8]) -> Result<MerkleTreeBatchCommitment<D>, MerkleTreeError<D>> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<MerkleTreeBatchCommitment<D>, MerkleTreeError> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(bytes.get(..8).ok_or(MerkleTreeError::SerializationError)?);
         let nr_leaves = usize::try_from(u64::from_be_bytes(u64_bytes))
