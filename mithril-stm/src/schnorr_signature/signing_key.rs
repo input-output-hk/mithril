@@ -56,15 +56,20 @@ impl SchnorrSigningKey {
             gx, gy, hashx, hashy, vkx, vky, sigmax, sigmay, r1x, r1y, r2x, r2y,
         ]);
 
-        // TODO: remove the unwrap and handle the error
-        let c_scalar = JubjubScalar::from_bytes(&c.to_bytes_le()).into_option().unwrap();
+        // We want to use the from_raw function because the result of
+        // the poseidon hash might not fit into the smaller modulus
+        // the Fr scalar field
+        // TODO: Refactor this
+        let bytes = c.to_bytes_le();
+        let c_scalar = JubjubScalar::from_raw([
+            u64::from_le_bytes(bytes[0..8].try_into().unwrap()),
+            u64::from_le_bytes(bytes[8..16].try_into().unwrap()),
+            u64::from_le_bytes(bytes[16..24].try_into().unwrap()),
+            u64::from_le_bytes(bytes[24..32].try_into().unwrap()),
+        ]);
         let s = r - c_scalar * self.0;
 
-        SchnorrSignature {
-            sigma,
-            s,
-            c,
-        }
+        SchnorrSignature { sigma, s, c }
     }
 }
 

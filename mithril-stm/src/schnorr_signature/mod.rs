@@ -50,6 +50,7 @@ pub(crate) fn get_coordinates(point: JubjubSubgroup) -> (JubjubBase, JubjubBase)
 mod tests {
 
     use super::*;
+    use group::Group;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
@@ -62,12 +63,25 @@ mod tests {
     fn test_hash_msg_to_jubjubbase() {
         let msg = vec![0, 0, 0, 1];
         let h = hash_msg_to_jubjubbase(&msg);
+        // Correct value corresponding to the message [0,0,0,1]
         let bytes_le = [
             179, 7, 17, 168, 141, 112, 57, 117, 112, 92, 169, 56, 36, 70, 1, 217, 9, 13, 255, 42,
             100, 207, 166, 110, 188, 47, 35, 211, 35, 168, 100, 25,
         ];
         let field_elem = JubjubBase::from_bytes_le(&bytes_le).unwrap();
         assert_eq!(h, field_elem)
+    }
+
+    // Testing conversion from EC point to scalar coordinates
+    // For now only printing, next step is to try to generate a point
+    // from x and y values to check if they match with the result of the function
+    #[test]
+    fn test_get_coordinates() {
+        let seed = [0u8; 32];
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let point = JubjubSubgroup::random(&mut rng);
+        let (x, y) = get_coordinates(point);
+        println!("{:?}", (x, y));
     }
 
     // TODO: Complete the test once the verification function is implemented
