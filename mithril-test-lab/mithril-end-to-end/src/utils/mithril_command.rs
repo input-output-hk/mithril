@@ -1,4 +1,4 @@
-use crate::utils::file_utils;
+use crate::utils::{LogGroup, file_utils};
 use anyhow::{Context, anyhow};
 use mithril_common::StdResult;
 use slog_scope::info;
@@ -146,7 +146,10 @@ impl MithrilCommand {
             ));
         }
 
-        self.print_header(name, &format!("LAST {number_of_line} LINES"));
+        let _log_group_guard = LogGroup::new(
+            name.unwrap_or(&self.name),
+            &format!("LAST {number_of_line} LINES"),
+        );
 
         println!(
             "{}",
@@ -172,7 +175,10 @@ impl MithrilCommand {
             ));
         }
 
-        self.print_header(name, &format!("LAST {number_of_error} ERROR(S)"));
+        let _log_group_guard = LogGroup::new(
+            name.unwrap_or(&self.name),
+            &format!("LAST {number_of_error} ERROR(S)"),
+        );
 
         println!(
             "{}",
@@ -182,19 +188,5 @@ impl MithrilCommand {
         );
 
         Ok(())
-    }
-
-    fn print_header(&self, name: Option<&str>, title: &str) {
-        let name = match name {
-            Some(n) => n,
-            None => &self.name,
-        };
-
-        println!("{:-^100}", "");
-        println!(
-            "{:^30}",
-            format!("{} LOGS - {}:", name.to_uppercase(), title)
-        );
-        println!("{:-^100}", "");
     }
 }
