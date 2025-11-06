@@ -136,7 +136,9 @@ impl Spec {
             "epoch after which the protocol parameters will change".to_string(),
         )
         .await?;
-        assertions::update_protocol_parameters(aggregator).await?;
+        if aggregator.is_first() {
+            assertions::update_protocol_parameters(aggregator).await?;
+        }
 
         // Wait 6 epochs after protocol parameters update, so that we make sure that we use new protocol parameters as well as new stake distribution a few times
         target_epoch += 6;
