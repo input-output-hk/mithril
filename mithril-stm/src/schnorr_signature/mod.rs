@@ -1,16 +1,30 @@
 #![allow(dead_code)]
 
-use midnight_curves::Fq as JubjubBase;
+use midnight_circuits::{
+    ecc::{hash_to_curve::HashToCurveGadget, native::EccChip},
+    hash::poseidon::PoseidonChip,
+    types::AssignedNative,
+};
+use midnight_curves::{Fq as JubjubBase, JubjubAffine, JubjubExtended, JubjubSubgroup};
 use sha2::{Digest, Sha256};
 
 mod signature;
 mod signing_key;
 mod verification_key;
 
+/// Defining a type for the CPU hash to curve gadget
+type JubjubHashToCurve = HashToCurveGadget<
+    JubjubBase,
+    JubjubExtended,
+    AssignedNative<JubjubBase>,
+    PoseidonChip<JubjubBase>,
+    EccChip<JubjubExtended>,
+>;
+
 /// Convert an arbitrary array of bytes into a Jubjub scalar field element
 /// First hash the message to 256 bits use Sha256 then perform the conversion
 /// TODO: Handle the unwrap properly
-pub fn hash_msg_to_jubjubbase(msg: &[u8]) -> JubjubBase {
+pub(crate) fn hash_msg_to_jubjubbase(msg: &[u8]) -> JubjubBase {
     let mut hash = Sha256::new();
     hash.update(msg);
     let hmsg = hash.finalize();
@@ -24,11 +38,26 @@ pub fn hash_msg_to_jubjubbase(msg: &[u8]) -> JubjubBase {
     ])
 }
 
+pub(crate) fn get_coordinates(point: JubjubSubgroup) -> (JubjubBase, JubjubBase) {
+    let extended = JubjubExtended::from(point); // Convert to JubjubExtended
+    let affine = JubjubAffine::from(extended); // Convert to JubjubAffine (affine coordinates)
+    let x = affine.get_u(); // Get x-coordinate
+    let y = affine.get_v(); // Get y-coordinate
+    (x, y)
+}
+
 #[cfg(test)]
 mod tests {
 
     use super::*;
-    // Testing conversion from arbitrary message to base field element
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    use crate::schnorr_signature::{
+        signing_key::SchnorrSigningKey, verification_key::SchnorrVerificationKey,
+    };
+
+    // Testing conversion from arbitrary message to scalar field element
     #[test]
     fn test_hash_msg_to_jubjubbase() {
         let msg = vec![0, 0, 0, 1];
@@ -39,5 +68,16 @@ mod tests {
         ];
         let field_elem = JubjubBase::from_bytes_le(&bytes_le).unwrap();
         assert_eq!(h, field_elem)
+    }
+
+    // TODO: Complete the test once the verification function is implemented
+    #[test]
+    fn test_sig() {
+        let msg = vec![0, 0, 0, 1];
+        let seed = [0u8; 32];
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let sk = SchnorrSigningKey::generate(&mut rng);
+        let _vk = SchnorrVerificationKey::from(&sk);
+        let _sig = sk.sign(&msg, &mut rng);
     }
 }

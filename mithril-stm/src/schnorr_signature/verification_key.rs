@@ -3,7 +3,7 @@ pub use midnight_curves::JubjubSubgroup;
 
 use crate::schnorr_signature::signing_key::SchnorrSigningKey;
 
-pub struct SchnorrVerificationKey(JubjubSubgroup);
+pub struct SchnorrVerificationKey(pub(crate) JubjubSubgroup);
 
 impl From<&SchnorrSigningKey> for SchnorrVerificationKey {
     /// Convert a Shnorr secret key into a verification key
