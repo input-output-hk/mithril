@@ -14,7 +14,7 @@ include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [features]
-default = ["rug-backend", "future_snark"]
+default = ["rug-backend"]
 rug-backend = ["rug/default"]
 num-integer-backend = ["num-bigint", "num-rational", "num-traits"]
 benchmark-internals = [] # For benchmarking multi_sig
@@ -27,18 +27,17 @@ blake2 = "0.10.6"
 # Enforce blst portable feature for runtime detection of Intel ADX instruction set.
 blst = { version = "0.3.16", features = ["portable"] }
 digest = { workspace = true }
+ff = "0.13.1"
+group = "0.13.0"
+midnight-circuits = { git = "https://github.com/midnightntwrk/midnight-zk", rev = "c88a50c2169f060120a52ad0980de90f08bc9535" }
+midnight-curves = { git = "https://github.com/midnightntwrk/midnight-zk", rev = "c88a50c2169f060120a52ad0980de90f08bc9535" }
+num-traits = "0.2.19"
 rand_core = { workspace = true }
 rayon = { workspace = true }
 serde = { workspace = true }
-thiserror = { workspace = true }
-midnight-circuits = { git = "https://github.com/midnightntwrk/midnight-zk", rev = "c88a50c2169f060120a52ad0980de90f08bc9535" }
-midnight-curves = { git = "https://github.com/midnightntwrk/midnight-zk", rev = "c88a50c2169f060120a52ad0980de90f08bc9535" }
-ff = "0.13.1"
-group = "0.13.0"
-num-traits = "0.2.19"
-subtle = "2.6.1"
 sha2 = "0.10.9"
-
+subtle = "2.6.1"
+thiserror = { workspace = true }
 
 [target.'cfg(any(target_family = "wasm", target_env = "musl", windows))'.dependencies]
 # WASM and Windows don't support rug backend, fallback to num-integer only
