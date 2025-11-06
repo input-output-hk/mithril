@@ -4,7 +4,9 @@ use rand_core::{CryptoRng, RngCore};
 
 use group::Group;
 
-use crate::schnorr_signature::signature::SchnorrSignature;
+use crate::schnorr_signature::{
+    signature::SchnorrSignature, verification_key::SchnorrVerificationKey,
+};
 
 pub(crate) struct SchnorrSigningKey(pub(crate) JubjubScalar);
 
@@ -16,7 +18,7 @@ impl SchnorrSigningKey {
     fn sign(&self, msg: &[u8], rng: &mut (impl RngCore + CryptoRng)) -> SchnorrSignature {
         // Use the subgroup generator to compute the curve points
         let g = JubjubSubgroup::generator();
-        let vk = todo!();
+        let vk = SchnorrVerificationKey::from(self);
 
         // SchnorrSignature {
         //     sigma: 0,
