@@ -54,8 +54,11 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use crate::schnorr_signature::{
-        signing_key::SchnorrSigningKey, verification_key::SchnorrVerificationKey,
+    use crate::{
+        error::MultiSignatureError,
+        schnorr_signature::{
+            signing_key::SchnorrSigningKey, verification_key::SchnorrVerificationKey,
+        },
     };
 
     // Testing conversion from arbitrary message to scalar field element
@@ -84,14 +87,40 @@ mod tests {
         println!("{:?}", (x, y));
     }
 
-    // TODO: Complete the test once the verification function is implemented
     #[test]
     fn test_sig() {
         let msg = vec![0, 0, 0, 1];
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
         let sk = SchnorrSigningKey::generate(&mut rng);
-        let _vk = SchnorrVerificationKey::from(&sk);
-        let _sig = sk.sign(&msg, &mut rng);
+        let vk = SchnorrVerificationKey::from(&sk);
+        let sig = sk.sign(&msg, &mut rng);
+        sig.verify(&msg, &vk).unwrap();
+    }
+
+    // TODO: Change the errors
+    #[test]
+    fn test_invalid_sig() {
+        let msg = vec![0, 0, 0, 1];
+        let msg2 = vec![0, 0, 0, 2];
+        let seed = [0u8; 32];
+        let mut rng = ChaCha20Rng::from_seed(seed);
+
+        let sk = SchnorrSigningKey::generate(&mut rng);
+        let vk = SchnorrVerificationKey::from(&sk);
+
+        let sk2 = SchnorrSigningKey::generate(&mut rng);
+        let vk2 = SchnorrVerificationKey::from(&sk2);
+
+        let sig = sk.sign(&msg, &mut rng);
+        let sig2 = sk.sign(&msg2, &mut rng);
+
+        // Wrong verification key is used
+        let result = sig.verify(&msg, &vk2);
+        assert_eq!(result, Err(MultiSignatureError::BatchInvalid));
+
+        // Wrong message is verified
+        let result = sig2.verify(&msg, &vk);
+        assert_eq!(result, Err(MultiSignatureError::BatchInvalid));
     }
 }
