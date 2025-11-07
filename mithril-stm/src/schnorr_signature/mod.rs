@@ -8,9 +8,14 @@ use midnight_circuits::{
 use midnight_curves::{Fq as JubjubBase, JubjubAffine, JubjubExtended, JubjubSubgroup};
 use sha2::{Digest, Sha256};
 
+use anyhow::{Result, anyhow};
+
 mod signature;
 mod signing_key;
 mod verification_key;
+
+/// A DST to distinguish between use of Poseidon hash
+pub const DST_SIGNATURE: JubjubBase = JubjubBase::from_raw([2u64, 0, 0, 0]);
 
 /// Defining a type for the CPU hash to curve gadget
 type JubjubHashToCurve = HashToCurveGadget<
@@ -24,18 +29,25 @@ type JubjubHashToCurve = HashToCurveGadget<
 /// Convert an arbitrary array of bytes into a Jubjub scalar field element
 /// First hash the message to 256 bits use Sha256 then perform the conversion
 /// TODO: Handle the unwrap properly
-pub(crate) fn hash_msg_to_jubjubbase(msg: &[u8]) -> JubjubBase {
+pub(crate) fn hash_msg_to_jubjubbase(msg: &[u8]) -> Result<JubjubBase> {
     let mut hash = Sha256::new();
     hash.update(msg);
     let hmsg = hash.finalize();
     let mut output = [0u8; 32];
-    output.copy_from_slice(&hmsg);
-    JubjubBase::from_raw([
-        u64::from_le_bytes(output[0..8].try_into().unwrap()),
-        u64::from_le_bytes(output[8..16].try_into().unwrap()),
-        u64::from_le_bytes(output[16..24].try_into().unwrap()),
-        u64::from_le_bytes(output[24..32].try_into().unwrap()),
-    ])
+    // Adding a check here but this
+    if hmsg.len() == output.len() {
+        output.copy_from_slice(&hmsg);
+    } else {
+        return Err(anyhow!(
+            "Hash of the message does not have the correct lenght."
+        ));
+    }
+    Ok(JubjubBase::from_raw([
+        u64::from_le_bytes(output[0..8].try_into()?),
+        u64::from_le_bytes(output[8..16].try_into()?),
+        u64::from_le_bytes(output[16..24].try_into()?),
+        u64::from_le_bytes(output[24..32].try_into()?),
+    ]))
 }
 
 pub(crate) fn get_coordinates(point: JubjubSubgroup) -> (JubjubBase, JubjubBase) {
@@ -54,18 +66,15 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use crate::{
-        error::MultiSignatureError,
-        schnorr_signature::{
-            signing_key::SchnorrSigningKey, verification_key::SchnorrVerificationKey,
-        },
+    use crate::schnorr_signature::{
+        signing_key::SchnorrSigningKey, verification_key::SchnorrVerificationKey,
     };
 
     // Testing conversion from arbitrary message to scalar field element
     #[test]
     fn test_hash_msg_to_jubjubbase() {
         let msg = vec![0, 0, 0, 1];
-        let h = hash_msg_to_jubjubbase(&msg);
+        let h = hash_msg_to_jubjubbase(&msg).unwrap();
         // Correct value corresponding to the message [0,0,0,1]
         let bytes_le = [
             179, 7, 17, 168, 141, 112, 57, 117, 112, 92, 169, 56, 36, 70, 1, 217, 9, 13, 255, 42,
@@ -94,7 +103,7 @@ mod tests {
         let mut rng = ChaCha20Rng::from_seed(seed);
         let sk = SchnorrSigningKey::generate(&mut rng);
         let vk = SchnorrVerificationKey::from(&sk);
-        let sig = sk.sign(&msg, &mut rng);
+        let sig = sk.sign(&msg, &mut rng).unwrap();
         sig.verify(&msg, &vk).unwrap();
     }
 
@@ -112,15 +121,18 @@ mod tests {
         let sk2 = SchnorrSigningKey::generate(&mut rng);
         let vk2 = SchnorrVerificationKey::from(&sk2);
 
-        let sig = sk.sign(&msg, &mut rng);
-        let sig2 = sk.sign(&msg2, &mut rng);
+        let sig = sk.sign(&msg, &mut rng).unwrap();
+        let sig2 = sk.sign(&msg2, &mut rng).unwrap();
 
         // Wrong verification key is used
         let result = sig.verify(&msg, &vk2);
-        assert_eq!(result, Err(MultiSignatureError::BatchInvalid));
+        assert!(
+            result.is_err(),
+            "Wrong verfication key used, test should fail."
+        );
 
         // Wrong message is verified
         let result = sig2.verify(&msg, &vk);
-        assert_eq!(result, Err(MultiSignatureError::BatchInvalid));
+        assert!(result.is_err(), "Wrong message used, test should fail.");
     }
 }
