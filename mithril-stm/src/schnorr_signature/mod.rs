@@ -17,7 +17,8 @@ mod signing_key;
 mod verification_key;
 
 /// A DST to distinguish between use of Poseidon hash
-pub const DST_SIGNATURE: JubjubBase = JubjubBase::from_raw([2u64, 0, 0, 0]);
+pub const DST_SIGNATURE: JubjubBase = JubjubBase::from_raw([0u64, 0, 0, 0]);
+pub const DST_LOTTERY: JubjubBase = JubjubBase::from_raw([1u64, 0, 0, 0]);
 
 /// Defining a type for the CPU hash to curve gadget
 type JubjubHashToCurve = HashToCurveGadget<

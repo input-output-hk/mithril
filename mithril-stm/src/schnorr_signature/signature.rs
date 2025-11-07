@@ -6,9 +6,12 @@ use midnight_curves::{Fq as JubjubBase, Fr as JubjubScalar, JubjubSubgroup};
 
 use group::Group;
 
-use crate::schnorr_signature::{
-    DST_SIGNATURE, JubjubHashToCurve, get_coordinates, hash_msg_to_jubjubbase,
-    jubjub_base_to_scalar, verification_key::SchnorrVerificationKey,
+use crate::{
+    Index,
+    schnorr_signature::{
+        DST_LOTTERY, DST_SIGNATURE, JubjubHashToCurve, get_coordinates, hash_msg_to_jubjubbase,
+        jubjub_base_to_scalar, verification_key::SchnorrVerificationKey,
+    },
 };
 
 /// Structure of the Schnorr signature to use with the SNARK
@@ -66,5 +69,20 @@ impl SchnorrSignature {
         }
 
         Ok(())
+    }
+
+    /// Dense mapping function indexed by the index to be evaluated
+    /// adapted to the Schnorr signature.
+    /// We need to convert the inputs to fit in a Poseidon hash.
+    /// The order of the hash input must be the same as the one in the SNARK circuit
+    /// `ev = H(DST || msg || index || σ) <- MSP.Eval(msg,index,σ)` given in paper.
+    fn evaluate_dense_mapping(&self, msg: &[u8], index: Index) -> Result<[u8; 32]> {
+        let msg = JubjubHashToCurve::hash_to_curve(&[hash_msg_to_jubjubbase(msg)?]);
+        let (msgx, msgy) = get_coordinates(msg);
+        // TODO: Check if this is the correct way to add the index
+        let idx = JubjubBase::from_raw([0, 0, 0, index]);
+        let (sigmax, sigmay) = get_coordinates(self.sigma);
+        let ev = PoseidonChip::<JubjubBase>::hash(&[DST_LOTTERY, msgx, msgy, idx, sigmax, sigmay]);
+        Ok(ev.to_bytes_le())
     }
 }
