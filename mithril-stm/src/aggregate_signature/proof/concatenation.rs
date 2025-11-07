@@ -7,8 +7,8 @@ use crate::bls_multi_signature::{BlsSignature, BlsVerificationKey};
 use crate::key_registration::RegisteredParty;
 use crate::merkle_tree::MerkleBatchPath;
 use crate::{
-    AggregateVerificationKey, AggregationError, BasicVerifier, Parameters, SingleSignature,
-    SingleSignatureWithRegisteredParty, StmAggregateSignatureError,
+    AggregateVerificationKey, BasicVerifier, Parameters, SingleSignature,
+    SingleSignatureWithRegisteredParty, StmAggregateSignatureError, StmResult,
 };
 
 /// `ConcatenationProof` uses the "concatenation" proving system (as described in Section 4.3 of the original paper.)
@@ -36,7 +36,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
         clerk: &Clerk<D>,
         sigs: &[SingleSignature],
         msg: &[u8],
-    ) -> Result<ConcatenationProof<D>, AggregationError> {
+    ) -> StmResult<ConcatenationProof<D>> {
         let sig_reg_list = sigs
             .iter()
             .map(|sig| SingleSignatureWithRegisteredParty {
@@ -83,7 +83,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
         msg: &[u8],
         avk: &AggregateVerificationKey<D>,
         parameters: &Parameters,
-    ) -> Result<(Vec<BlsSignature>, Vec<BlsVerificationKey>), StmAggregateSignatureError> {
+    ) -> StmResult<(Vec<BlsSignature>, Vec<BlsVerificationKey>)> {
         let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
         BasicVerifier::preliminary_verify(
             &avk.get_total_stake(),
@@ -117,7 +117,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
         msg: &[u8],
         avk: &AggregateVerificationKey<D>,
         parameters: &Parameters,
-    ) -> Result<(), StmAggregateSignatureError> {
+    ) -> StmResult<()> {
         let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
         let (sigs, vks) = self.preliminary_verify(msg, avk, parameters)?;
 
@@ -131,7 +131,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
         msgs: &[Vec<u8>],
         avks: &[AggregateVerificationKey<D>],
         parameters: &[Parameters],
-    ) -> Result<(), StmAggregateSignatureError> {
+    ) -> StmResult<()> {
         let batch_size = stm_signatures.len();
         assert_eq!(
             batch_size,

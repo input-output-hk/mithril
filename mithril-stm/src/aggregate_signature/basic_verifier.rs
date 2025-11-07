@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::bls_multi_signature::{BlsSignature, BlsVerificationKey};
@@ -5,7 +6,7 @@ use crate::key_registration::RegisteredParty;
 use crate::merkle_tree::MerkleTreeLeaf;
 use crate::{
     AggregationError, CoreVerifierError, Index, Parameters, SingleSignature,
-    SingleSignatureWithRegisteredParty, Stake,
+    SingleSignatureWithRegisteredParty, Stake, StmResult,
 };
 
 /// Full node verifier including the list of eligible signers and the total stake of the system.
@@ -56,7 +57,7 @@ impl BasicVerifier {
         signatures: &[SingleSignatureWithRegisteredParty],
         parameters: &Parameters,
         msg: &[u8],
-    ) -> Result<(), CoreVerifierError> {
+    ) -> StmResult<()> {
         let mut nr_indices = 0;
         let mut unique_indices = HashSet::new();
 
@@ -71,10 +72,13 @@ impl BasicVerifier {
         }
 
         if nr_indices != unique_indices.len() {
-            return Err(CoreVerifierError::IndexNotUnique);
+            return Err(anyhow!(CoreVerifierError::IndexNotUnique));
         }
         if (nr_indices as u64) < parameters.k {
-            return Err(CoreVerifierError::NoQuorum(nr_indices as u64, parameters.k));
+            return Err(anyhow!(CoreVerifierError::NoQuorum(
+                nr_indices as u64,
+                parameters.k
+            )));
         }
 
         Ok(())
@@ -93,7 +97,7 @@ impl BasicVerifier {
         params: &Parameters,
         msg: &[u8],
         sigs: &[SingleSignatureWithRegisteredParty],
-    ) -> Result<Vec<SingleSignatureWithRegisteredParty>, AggregationError> {
+    ) -> StmResult<Vec<SingleSignatureWithRegisteredParty>> {
         let mut sig_by_index: BTreeMap<Index, &SingleSignatureWithRegisteredParty> =
             BTreeMap::new();
         let mut removal_idx_by_vk: HashMap<&SingleSignatureWithRegisteredParty, Vec<Index>> =
@@ -169,7 +173,9 @@ impl BasicVerifier {
                 }
             }
         }
-        Err(AggregationError::NotEnoughSignatures(count, params.k))
+        Err(anyhow!(AggregationError::NotEnoughSignatures(
+            count, params.k
+        )))
     }
 
     /// Given a slice of `sig_reg_list`, this function returns a new list of `sig_reg_list` with only valid indices.
@@ -189,7 +195,7 @@ impl BasicVerifier {
         params: &Parameters,
         msg: &[u8],
         sigs: &[SingleSignatureWithRegisteredParty],
-    ) -> Result<Vec<SingleSignatureWithRegisteredParty>, AggregationError> {
+    ) -> StmResult<Vec<SingleSignatureWithRegisteredParty>> {
         Self::select_valid_signatures_for_k_indices(total_stake, params, msg, sigs)
     }
 
@@ -218,7 +224,7 @@ impl BasicVerifier {
         signatures: &[SingleSignature],
         parameters: &Parameters,
         msg: &[u8],
-    ) -> Result<(), CoreVerifierError> {
+    ) -> StmResult<()> {
         let sig_reg_list = signatures
             .iter()
             .map(|sig| SingleSignatureWithRegisteredParty {
