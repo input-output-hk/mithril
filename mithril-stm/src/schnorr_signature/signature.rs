@@ -15,6 +15,7 @@ use crate::schnorr_signature::{
 /// This signature includes a value `sigma` which depends only on
 /// the message and the signing key.
 /// This value is used in the lottery process to determine the correct indices.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SchnorrSignature {
     pub(crate) sigma: JubjubSubgroup,
     pub(crate) s: JubjubScalar,
