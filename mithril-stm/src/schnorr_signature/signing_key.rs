@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use ff::Field;
 use midnight_circuits::hash::poseidon::PoseidonChip;
 use midnight_circuits::instructions::hash::HashCPU;
@@ -17,6 +17,8 @@ use crate::schnorr_signature::{
     signature::SchnorrSignature, verification_key::SchnorrVerificationKey,
 };
 
+/// Schnorr Signing key, it is essentially a random scalar of the Jubjub scalar field
+#[derive(Debug, Clone)]
 pub(crate) struct SchnorrSigningKey(pub(crate) JubjubScalar);
 
 impl SchnorrSigningKey {
@@ -24,6 +26,7 @@ impl SchnorrSigningKey {
         SchnorrSigningKey(JubjubScalar::random(rng))
     }
 
+    // TODO: Check if we want the sign function to handle the randomness by itself
     pub(crate) fn sign(
         &self,
         msg: &[u8],
@@ -78,13 +81,44 @@ impl SchnorrSigningKey {
 
         Ok(SchnorrSignature { sigma, s, c })
     }
+
+    fn to_bytes(&self) -> [u8; 32] {
+        self.0.to_bytes()
+    }
+
+    /// Convert a string of bytes into a `SchnorrSigningKey`.
+    /// The bytes must represent a Jubjub scalar or the conversion will fail
+    // TODO: Maybe rework this function, do we want to allow any bytes representation
+    // to be convertible to a sk?
+    fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        // This is a bit ugly, I'll try to find a better way to do it
+        let bytes = bytes
+            .get(..32)
+            .ok_or(anyhow!("Not enough bytes to create a signing key."))?
+            .try_into()?;
+        // Jubjub returs a CtChoice so I convert it to an option that looses the const time property
+        match JubjubScalar::from_bytes(bytes).into_option() {
+            Some(sk) => Ok(Self(sk)),
+            // the error should be updated
+            None => Err(anyhow!(
+                "Failed to create a Jubjub scalar from the given bytes."
+            )),
+        }
+    }
 }
 
+//
 #[cfg(test)]
 mod tests {
     use super::*;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
+
+    impl PartialEq for SchnorrSigningKey {
+        fn eq(&self, other: &Self) -> bool {
+            self.0 == other.0
+        }
+    }
 
     #[test]
     fn test_generate_signing_key() {
@@ -93,8 +127,28 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_signature() {
+    fn test_to_from_bytes() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let _sk = SchnorrSigningKey::generate(&mut rng);
+        let sk = SchnorrSigningKey::generate(&mut rng);
+        let bytes = sk.to_bytes();
+        let recovered_sk = SchnorrSigningKey::from_bytes(&bytes).unwrap();
+        assert_eq!(sk, recovered_sk);
+    }
+
+    // For now failing test, maybe change it later depending on what
+    // we want for from_bytes
+    #[test]
+    fn failing_test_from_bytes() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let mut sk = [0; 32];
+        rng.fill_bytes(&mut sk);
+        // Setting the msb to 1 to make sk bigger than the modulus
+        sk[0] |= 0xff;
+        let result = SchnorrSigningKey::from_bytes(&sk);
+
+        assert!(
+            result.is_err(),
+            "Value is not a proper sk, test should fail."
+        );
     }
 }
