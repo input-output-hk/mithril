@@ -1,3 +1,4 @@
+use anyhow::Result;
 use ff::Field;
 use midnight_circuits::hash::poseidon::PoseidonChip;
 use midnight_circuits::instructions::hash::HashCPU;
@@ -8,7 +9,9 @@ use midnight_circuits::instructions::HashToCurveCPU;
 
 use group::Group;
 
-use crate::schnorr_signature::{JubjubHashToCurve, get_coordinates, hash_msg_to_jubjubbase};
+use crate::schnorr_signature::{
+    DST_SIGNATURE, JubjubHashToCurve, get_coordinates, hash_msg_to_jubjubbase,
+};
 use crate::schnorr_signature::{
     signature::SchnorrSignature, verification_key::SchnorrVerificationKey,
 };
@@ -24,13 +27,13 @@ impl SchnorrSigningKey {
         &self,
         msg: &[u8],
         rng: &mut (impl RngCore + CryptoRng),
-    ) -> SchnorrSignature {
+    ) -> Result<SchnorrSignature> {
         // Use the subgroup generator to compute the curve points
         let g = JubjubSubgroup::generator();
         let vk = SchnorrVerificationKey::from(self);
 
         // First hashing the message to a scalar then hashing it to a curve point
-        let hash = JubjubHashToCurve::hash_to_curve(&[hash_msg_to_jubjubbase(msg)]);
+        let hash = JubjubHashToCurve::hash_to_curve(&[hash_msg_to_jubjubbase(msg)?]);
 
         // sigma = H(msg) * sk
         let sigma = hash * self.0;
@@ -45,7 +48,6 @@ impl SchnorrSigningKey {
         // Since the hash function takes as input scalar elements
         // We need to convert the EC points to their coordinates
         // I use gx and gy for now but maybe we can replace them by a DST?
-        let (gx, gy) = get_coordinates(g);
         let (hashx, hashy) = get_coordinates(hash);
         let (vkx, vky) = get_coordinates(vk.0);
         let (sigmax, sigmay) = get_coordinates(sigma);
@@ -53,7 +55,17 @@ impl SchnorrSigningKey {
         let (r2x, r2y) = get_coordinates(r2);
 
         let c = PoseidonChip::<JubjubBase>::hash(&[
-            gx, gy, hashx, hashy, vkx, vky, sigmax, sigmay, r1x, r1y, r2x, r2y,
+            DST_SIGNATURE,
+            hashx,
+            hashy,
+            vkx,
+            vky,
+            sigmax,
+            sigmay,
+            r1x,
+            r1y,
+            r2x,
+            r2y,
         ]);
 
         // We want to use the from_raw function because the result of
@@ -62,14 +74,14 @@ impl SchnorrSigningKey {
         // TODO: Refactor this
         let bytes = c.to_bytes_le();
         let c_scalar = JubjubScalar::from_raw([
-            u64::from_le_bytes(bytes[0..8].try_into().unwrap()),
-            u64::from_le_bytes(bytes[8..16].try_into().unwrap()),
-            u64::from_le_bytes(bytes[16..24].try_into().unwrap()),
-            u64::from_le_bytes(bytes[24..32].try_into().unwrap()),
+            u64::from_le_bytes(bytes[0..8].try_into()?),
+            u64::from_le_bytes(bytes[8..16].try_into()?),
+            u64::from_le_bytes(bytes[16..24].try_into()?),
+            u64::from_le_bytes(bytes[24..32].try_into()?),
         ]);
         let s = r - c_scalar * self.0;
 
-        SchnorrSignature { sigma, s, c }
+        Ok(SchnorrSignature { sigma, s, c })
     }
 }
 
