@@ -195,7 +195,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
     }
 
     ///Extract a concatenation proof from a byte slice.
-    pub fn from_bytes(bytes: &[u8]) -> Result<ConcatenationProof<D>, StmAggregateSignatureError> {
+    pub fn from_bytes(bytes: &[u8]) -> StmResult<ConcatenationProof<D>> {
         let mut bytes_index = 0;
 
         let mut u64_bytes = [0u8; 8];
