@@ -4,12 +4,13 @@ use std::{
     sync::Arc,
 };
 
+use anyhow::anyhow;
 use blake2::digest::{Digest, FixedOutput};
 
-use crate::Stake;
 use crate::bls_multi_signature::{BlsVerificationKey, BlsVerificationKeyProofOfPossession};
 use crate::error::RegisterError;
 use crate::merkle_tree::{MerkleTree, MerkleTreeLeaf};
+use crate::{Stake, StmResult};
 
 /// Stores a registered party with its public key and the associated stake.
 pub type RegisteredParty = MerkleTreeLeaf;
@@ -35,13 +36,13 @@ impl KeyRegistration {
         &mut self,
         stake: Stake,
         pk: BlsVerificationKeyProofOfPossession,
-    ) -> Result<(), RegisterError> {
+    ) -> StmResult<()> {
         if let Entry::Vacant(e) = self.keys.entry(pk.vk) {
             pk.verify_proof_of_possession()?;
             e.insert(stake);
             return Ok(());
         }
-        Err(RegisterError::KeyRegistered(Box::new(pk.vk)))
+        Err(anyhow!(RegisterError::KeyRegistered(Box::new(pk.vk))))
     }
 
     /// Finalize the key registration.
