@@ -1,8 +1,9 @@
 use blst::min_sig::SecretKey as BlstSk;
 use rand_core::{CryptoRng, RngCore};
 
+use crate::StmResult;
 use crate::bls_multi_signature::signature::BlsSignature;
-use crate::error::{MultiSignatureError, blst_err_to_mithril};
+use crate::error::{MultiSignatureError, blst_error_to_stm_error};
 
 /// MultiSig secret key, which is a wrapper over the BlstSk type from the blst
 /// library.
@@ -34,11 +35,11 @@ impl BlsSigningKey {
     ///
     /// # Error
     /// Fails if the byte string represents a scalar larger than the group order.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
+    pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let bytes = bytes.get(..32).ok_or(MultiSignatureError::SerializationError)?;
         match BlstSk::from_bytes(bytes) {
             Ok(sk) => Ok(Self(sk)),
-            Err(e) => Err(blst_err_to_mithril(e, None, None)
+            Err(e) => Err(blst_error_to_stm_error(e, None, None)
                 .expect_err("If deserialization is not successful, blst returns and error different to SUCCESS."))
         }
     }

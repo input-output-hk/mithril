@@ -1,6 +1,8 @@
 //! Crate specific errors
+use anyhow::anyhow;
 use blst::BLST_ERROR;
 
+use crate::StmResult;
 use crate::aggregate_signature::AggregateSignatureType;
 use crate::bls_multi_signature::{
     BlsSignature, BlsVerificationKey, BlsVerificationKeyProofOfPossession,
@@ -283,6 +285,7 @@ impl From<MultiSignatureError> for RegisterError {
 
 /// If verifying a single signature, the signature should be provided. If verifying a multi-sig,
 /// no need to provide the signature
+#[allow(dead_code)]
 pub(crate) fn blst_err_to_mithril(
     e: BLST_ERROR,
     sig: Option<BlsSignature>,
@@ -307,5 +310,34 @@ pub(crate) fn blst_err_to_mithril(
             }
         }
         _ => Err(MultiSignatureError::SerializationError),
+    }
+}
+
+pub(crate) fn blst_error_to_stm_error(
+    e: BLST_ERROR,
+    sig: Option<BlsSignature>,
+    key: Option<BlsVerificationKey>,
+) -> StmResult<()> {
+    match e {
+        BLST_ERROR::BLST_SUCCESS => Ok(()),
+        BLST_ERROR::BLST_PK_IS_INFINITY => {
+            if let Some(s) = sig {
+                return Err(anyhow!(MultiSignatureError::SignatureInfinity(s)));
+            }
+            if let Some(vk) = key {
+                return Err(anyhow!(MultiSignatureError::VerificationKeyInfinity(
+                    Box::new(vk)
+                )));
+            }
+            Err(anyhow!(MultiSignatureError::SerializationError))
+        }
+        BLST_ERROR::BLST_VERIFY_FAIL => {
+            if let Some(s) = sig {
+                Err(anyhow!(MultiSignatureError::SignatureInvalid(s)))
+            } else {
+                Err(anyhow!(MultiSignatureError::AggregateSignatureInvalid))
+            }
+        }
+        _ => Err(anyhow!(MultiSignatureError::SerializationError)),
     }
 }
