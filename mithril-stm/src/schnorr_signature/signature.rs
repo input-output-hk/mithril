@@ -8,7 +8,7 @@ use group::Group;
 
 use crate::schnorr_signature::{
     DST_SIGNATURE, JubjubHashToCurve, get_coordinates, hash_msg_to_jubjubbase,
-    verification_key::SchnorrVerificationKey,
+    jubjub_base_to_scalar, verification_key::SchnorrVerificationKey,
 };
 
 /// Structure of the Schnorr signature to use with the SNARK
@@ -29,13 +29,7 @@ impl SchnorrSignature {
         let hash = JubjubHashToCurve::hash_to_curve(&[hash_msg_to_jubjubbase(msg)?]);
 
         // Computing R1 = H(msg) * s + sigma * c
-        let c_bytes = self.c.to_bytes_le();
-        let c_scalar = JubjubScalar::from_raw([
-            u64::from_le_bytes(c_bytes[0..8].try_into()?),
-            u64::from_le_bytes(c_bytes[8..16].try_into()?),
-            u64::from_le_bytes(c_bytes[16..24].try_into()?),
-            u64::from_le_bytes(c_bytes[24..32].try_into()?),
-        ]);
+        let c_scalar = jubjub_base_to_scalar(&self.c)?;
         let h_s = hash * self.s;
         let sigma_c = self.sigma * c_scalar;
         let r1_tilde = h_s + sigma_c;

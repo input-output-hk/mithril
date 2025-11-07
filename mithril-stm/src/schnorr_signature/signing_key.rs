@@ -11,6 +11,7 @@ use group::Group;
 
 use crate::schnorr_signature::{
     DST_SIGNATURE, JubjubHashToCurve, get_coordinates, hash_msg_to_jubjubbase,
+    jubjub_base_to_scalar,
 };
 use crate::schnorr_signature::{
     signature::SchnorrSignature, verification_key::SchnorrVerificationKey,
@@ -72,13 +73,7 @@ impl SchnorrSigningKey {
         // the poseidon hash might not fit into the smaller modulus
         // the Fr scalar field
         // TODO: Refactor this
-        let bytes = c.to_bytes_le();
-        let c_scalar = JubjubScalar::from_raw([
-            u64::from_le_bytes(bytes[0..8].try_into()?),
-            u64::from_le_bytes(bytes[8..16].try_into()?),
-            u64::from_le_bytes(bytes[16..24].try_into()?),
-            u64::from_le_bytes(bytes[24..32].try_into()?),
-        ]);
+        let c_scalar = jubjub_base_to_scalar(&c)?;
         let s = r - c_scalar * self.0;
 
         Ok(SchnorrSignature { sigma, s, c })
