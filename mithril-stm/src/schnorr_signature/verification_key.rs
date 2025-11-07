@@ -3,6 +3,9 @@ pub use midnight_curves::JubjubSubgroup;
 
 use crate::schnorr_signature::signing_key::SchnorrSigningKey;
 
+/// Schnorr verification key, it consists of a point on the Jubjub curve
+/// vk = g * sk, where g is a generator
+#[derive(Debug, Clone, Copy, Default)]
 pub struct SchnorrVerificationKey(pub(crate) JubjubSubgroup);
 
 impl From<&SchnorrSigningKey> for SchnorrVerificationKey {
