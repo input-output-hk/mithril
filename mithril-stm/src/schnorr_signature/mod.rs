@@ -5,7 +5,9 @@ use midnight_circuits::{
     hash::poseidon::PoseidonChip,
     types::AssignedNative,
 };
-use midnight_curves::{Fq as JubjubBase, JubjubAffine, JubjubExtended, JubjubSubgroup};
+use midnight_curves::{
+    Fq as JubjubBase, Fr as JubjubScalar, JubjubAffine, JubjubExtended, JubjubSubgroup,
+};
 use sha2::{Digest, Sha256};
 
 use anyhow::{Result, anyhow};
@@ -50,12 +52,26 @@ pub(crate) fn hash_msg_to_jubjubbase(msg: &[u8]) -> Result<JubjubBase> {
     ]))
 }
 
+/// Extract the coordinates of a given point
+/// This is mainly use to feed the Poseidon hash function
 pub(crate) fn get_coordinates(point: JubjubSubgroup) -> (JubjubBase, JubjubBase) {
     let extended = JubjubExtended::from(point); // Convert to JubjubExtended
     let affine = JubjubAffine::from(extended); // Convert to JubjubAffine (affine coordinates)
     let x = affine.get_u(); // Get x-coordinate
     let y = affine.get_v(); // Get y-coordinate
     (x, y)
+}
+
+/// Convert an element of the BLS12-381 base field to
+/// one of the Jubjub base field
+pub fn jubjub_base_to_scalar(x: &JubjubBase) -> Result<JubjubScalar> {
+    let bytes = x.to_bytes_le();
+    Ok(JubjubScalar::from_raw([
+        u64::from_le_bytes(bytes[0..8].try_into()?),
+        u64::from_le_bytes(bytes[8..16].try_into()?),
+        u64::from_le_bytes(bytes[16..24].try_into()?),
+        u64::from_le_bytes(bytes[24..32].try_into()?),
+    ]))
 }
 
 #[cfg(test)]
@@ -96,8 +112,21 @@ mod tests {
         println!("{:?}", (x, y));
     }
 
+    // Testing conversion from BLS12-381 base field to Jubjub base field
+    // TODO: Add randomness to val
     #[test]
-    fn test_sig() {
+    fn test_jubjub_ase_to_scalar() {
+        let val = vec![0, 0, 0, 1];
+        let jjbase = JubjubBase::from_raw(val.clone().try_into().unwrap());
+        let jjscalar = JubjubScalar::from_raw(val.try_into().unwrap());
+
+        let converted_base = jubjub_base_to_scalar(&jjbase).unwrap();
+
+        assert_eq!(jjscalar, converted_base);
+    }
+
+    #[test]
+    fn test_sig_and_verify() {
         let msg = vec![0, 0, 0, 1];
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
