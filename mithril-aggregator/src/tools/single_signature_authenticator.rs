@@ -40,29 +40,33 @@ impl SingleSignatureAuthenticator {
                 );
                 true
             }
-            Err(_error) => {
+            Err(current_stake_distribution_error) => {
                 // Signers may detect epoch changes before the aggregator and send
                 // new signatures using the next epoch stake distribution
-                if self
+                match self
                     .multi_signer
                     .verify_single_signature_for_next_stake_distribution(
                         signed_message,
                         single_signature,
                     )
                     .await
-                    .is_ok()
                 {
-                    debug!(
-                        self.logger, "Single signature party authenticated for next stake distribution";
-                        "party_id" => &single_signature.party_id,
-                    );
-                    true
-                } else {
-                    debug!(
-                        self.logger, "Single signature party not authenticated";
-                        "party_id" => &single_signature.party_id,
-                    );
-                    false
+                    Ok(_) => {
+                        debug!(
+                            self.logger, "Single signature party authenticated for next stake distribution";
+                            "party_id" => &single_signature.party_id,
+                        );
+                        true
+                    }
+                    Err(next_stake_distribution_error) => {
+                        debug!(
+                            self.logger, "Single signature party not authenticated";
+                            "party_id" => &single_signature.party_id,
+                            "current_stake_distribution_error" => ?current_stake_distribution_error,
+                            "next_stake_distribution_error" => ?next_stake_distribution_error,
+                        );
+                        false
+                    }
                 }
             }
         };
