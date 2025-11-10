@@ -1,6 +1,7 @@
 #![warn(missing_docs)]
 //! This crate provides mechanisms to discover aggregators in a Mithril network.
 
+mod capabilities_discoverer;
 mod http_config_discoverer;
 mod interface;
 mod model;
