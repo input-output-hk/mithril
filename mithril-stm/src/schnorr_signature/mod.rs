@@ -1,3 +1,4 @@
+// TODO: Remove
 #![allow(dead_code)]
 
 use midnight_circuits::{
@@ -15,6 +16,10 @@ use anyhow::{Result, anyhow};
 mod signature;
 mod signing_key;
 mod verification_key;
+
+use signature::*;
+// use signing_key::*;
+use verification_key::*;
 
 /// A DST to distinguish between use of Poseidon hash
 pub const DST_SIGNATURE: JubjubBase = JubjubBase::from_raw([0u64, 0, 0, 0]);
@@ -65,7 +70,7 @@ pub(crate) fn get_coordinates(point: JubjubSubgroup) -> (JubjubBase, JubjubBase)
 
 /// Convert an element of the BLS12-381 base field to
 /// one of the Jubjub base field
-pub fn jubjub_base_to_scalar(x: &JubjubBase) -> Result<JubjubScalar> {
+pub(crate) fn jubjub_base_to_scalar(x: &JubjubBase) -> Result<JubjubScalar> {
     let bytes = x.to_bytes_le();
     Ok(JubjubScalar::from_raw([
         u64::from_le_bytes(bytes[0..8].try_into()?),
