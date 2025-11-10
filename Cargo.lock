@@ -3808,6 +3808,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "httpmock",
+ "mithril-aggregator-client",
  "mithril-common",
  "mockall",
  "rand 0.9.2",

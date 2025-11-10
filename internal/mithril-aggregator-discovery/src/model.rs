@@ -1,4 +1,5 @@
-use mithril_common::StdResult;
+use mithril_aggregator_client::{AggregatorHttpClient, query::GetAggregatorFeaturesQuery};
+use mithril_common::{StdResult, messages::AggregatorCapabilities};
 
 /// Representation of a Mithril network
 // TODO: to move to mithril common
@@ -35,8 +36,13 @@ impl AggregatorEndpoint {
     }
 
     /// Retrieve the capabilities of the aggregator
-    pub fn capabilities(&self) -> StdResult<()> {
-        todo!("Implement capabilities retrieval")
+    pub async fn retrieve_capabilities(&self) -> StdResult<AggregatorCapabilities> {
+        let aggregator_client = AggregatorHttpClient::builder(self.url.clone()).build()?;
+
+        Ok(aggregator_client
+            .send(GetAggregatorFeaturesQuery::current())
+            .await?
+            .capabilities)
     }
 }
 
