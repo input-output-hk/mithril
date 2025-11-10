@@ -1,15 +1,10 @@
 use async_trait::async_trait;
-use std::collections::BTreeSet;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 
 use mithril_common::{
     StdResult,
-    entities::{
-        CardanoTransactionsSigningConfig, Epoch, ProtocolMessage, SignedEntityConfig,
-        SignedEntityType, SignedEntityTypeDiscriminants, Signer, SingleSignature, TimePoint,
-    },
-    messages::AggregatorFeaturesMessage,
+    entities::{Epoch, ProtocolMessage, SignedEntityType, Signer, SingleSignature, TimePoint},
     test::double::Dummy,
 };
 use mithril_ticker::{MithrilTickerService, TickerService};
@@ -18,19 +13,14 @@ use mithril_signer::services::{SignaturePublisher, SignerRegistrationPublisher};
 use mithril_signer::{entities::SignerEpochSettings, services::AggregatorClient};
 
 pub struct FakeAggregator {
-    signed_entity_config: RwLock<SignedEntityConfig>,
     registered_signers: RwLock<HashMap<Epoch, Vec<Signer>>>,
     ticker_service: Arc<MithrilTickerService>,
     withhold_epoch_settings: RwLock<bool>,
 }
 
 impl FakeAggregator {
-    pub fn new(
-        signed_entity_config: SignedEntityConfig,
-        ticker_service: Arc<MithrilTickerService>,
-    ) -> Self {
+    pub fn new(ticker_service: Arc<MithrilTickerService>) -> Self {
         Self {
-            signed_entity_config: RwLock::new(signed_entity_config),
             registered_signers: RwLock::new(HashMap::new()),
             ticker_service,
             withhold_epoch_settings: RwLock::new(true),
@@ -45,14 +35,6 @@ impl FakeAggregator {
     pub async fn release_epoch_settings(&self) {
         let mut settings = self.withhold_epoch_settings.write().await;
         *settings = false;
-    }
-
-    pub async fn change_allowed_discriminants(
-        &self,
-        discriminants: &BTreeSet<SignedEntityTypeDiscriminants>,
-    ) {
-        let mut signed_entity_config = self.signed_entity_config.write().await;
-        signed_entity_config.allowed_discriminants = discriminants.clone();
     }
 
     async fn get_time_point(&self) -> StdResult<TimePoint> {
@@ -123,16 +105,6 @@ impl AggregatorClient for FakeAggregator {
             }))
         }
     }
-
-    async fn retrieve_aggregator_features(&self) -> StdResult<AggregatorFeaturesMessage> {
-        let signed_entity_config = self.signed_entity_config.read().await;
-
-        let mut message = AggregatorFeaturesMessage::dummy();
-        message.capabilities.signed_entity_types =
-            signed_entity_config.allowed_discriminants.clone();
-
-        Ok(message)
-    }
 }
 
 #[cfg(test)]
@@ -158,10 +130,7 @@ mod tests {
             immutable_observer.clone(),
         ));
 
-        (
-            chain_observer,
-            FakeAggregator::new(SignedEntityConfig::dummy(), ticker_service),
-        )
+        (chain_observer, FakeAggregator::new(ticker_service))
     }
 
     #[tokio::test]
@@ -248,36 +217,5 @@ mod tests {
 
         assert_eq!(2, epoch_settings.current_signers.len());
         assert_eq!(1, epoch_settings.next_signers.len());
-    }
-
-    #[tokio::test]
-    async fn retrieve_aggregator_features() {
-        let (_chain_observer, fake_aggregator) = init().await;
-
-        {
-            let mut signing_config = fake_aggregator.signed_entity_config.write().await;
-            signing_config.allowed_discriminants = SignedEntityTypeDiscriminants::all();
-            signing_config.cardano_transactions_signing_config =
-                CardanoTransactionsSigningConfig::dummy();
-        }
-
-        let features = fake_aggregator.retrieve_aggregator_features().await.unwrap();
-        assert_eq!(
-            &SignedEntityTypeDiscriminants::all(),
-            &features.capabilities.signed_entity_types,
-        );
-
-        let new_discriminants = BTreeSet::from([
-            SignedEntityTypeDiscriminants::CardanoTransactions,
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-        ]);
-
-        fake_aggregator.change_allowed_discriminants(&new_discriminants).await;
-
-        let updated_features = fake_aggregator.retrieve_aggregator_features().await.unwrap();
-        assert_eq!(
-            &new_discriminants,
-            &updated_features.capabilities.signed_entity_types,
-        );
     }
 }
