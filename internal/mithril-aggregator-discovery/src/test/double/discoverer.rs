@@ -27,14 +27,14 @@ impl AggregatorDiscoverer for AggregatorDiscovererFake {
     async fn get_available_aggregators(
         &self,
         _network: MithrilNetwork,
-    ) -> StdResult<Vec<AggregatorEndpoint>> {
+    ) -> StdResult<Box<dyn Iterator<Item = AggregatorEndpoint>>> {
         let mut results = self.results.lock().await;
 
         let endpoints = results.pop_front().ok_or_else(|| {
             anyhow::anyhow!("No more results available in AggregatorDiscovererFake")
         })??;
 
-        Ok(endpoints)
+        Ok(Box::new(endpoints.into_iter()))
     }
 }
 
@@ -57,7 +57,7 @@ mod tests {
 
         assert_eq!(
             vec![AggregatorEndpoint::new("test-1".to_string())],
-            messages
+            messages.collect::<Vec<_>>()
         );
     }
 
@@ -68,9 +68,11 @@ mod tests {
             Ok(vec![AggregatorEndpoint::new("test-2".to_string())]),
         ]);
 
-        consumer
-            .get_available_aggregators(MithrilNetwork::dummy())
-            .await
-            .expect_err("AggregatorDiscovererFake should return an error");
+        let result = consumer.get_available_aggregators(MithrilNetwork::dummy()).await;
+
+        assert!(
+            result.is_err(),
+            "AggregatorDiscovererFake should return an error"
+        );
     }
 }
