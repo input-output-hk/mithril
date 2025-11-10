@@ -95,7 +95,7 @@ mod tests {
     use rand_core::{RngCore, SeedableRng};
 
     use crate::bls_multi_signature::helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk};
-    use crate::error::{MultiSignatureError, RegisterError};
+    use crate::error::MultiSignatureError;
     use crate::key_registration::KeyRegistration;
 
     use super::*;
@@ -131,8 +131,14 @@ mod tests {
             let sk2 = BlsSigningKey::generate(&mut rng);
             let fake_sig = sk2.sign(&msg);
 
-            let result = fake_sig.verify(&msg, &vk1);
-            assert_eq!(result, Err(MultiSignatureError::SignatureInvalid(fake_sig)));
+            let error = fake_sig.verify(&msg, &vk1).expect_err("Fake signature should not be verified");
+
+            assert!(
+                matches!(
+                    error.downcast_ref::<MultiSignatureError>(),
+                    Some(MultiSignatureError::SignatureInvalid(_))
+                ),
+                "Unexpected error: {error:?}");
         }
 
         #[test]
@@ -144,8 +150,13 @@ mod tests {
             let p1 = blst_p1::default();
             let sig_infinity = BlsSignature(p1_affine_to_sig(&p1));
 
-            let result = sig_infinity.verify(&msg, &vk);
-            assert_eq!(result, Err(MultiSignatureError::SignatureInfinity(sig_infinity)));
+            let error = sig_infinity.verify(&msg, &vk).expect_err("Verification should fail");
+            assert!(
+                matches!(
+                    error.downcast_ref::<MultiSignatureError>(),
+                    Some(MultiSignatureError::SignatureInfinity(_))
+                ),
+                "Unexpected error: {error:?}");
         }
 
         #[test]
@@ -158,8 +169,13 @@ mod tests {
             let vk_infinity = BlsVerificationKey(p2_affine_to_vk(&p2));
             let vkpop_infinity = BlsVerificationKeyProofOfPossession { vk: vk_infinity, pop };
 
-            let result = vkpop_infinity.verify_proof_of_possession();
-            assert_eq!(result, Err(MultiSignatureError::VerificationKeyInfinity(Box::new(vkpop_infinity.vk))));
+            let error = vkpop_infinity.verify_proof_of_possession().expect_err("VK pop infinity should fail");
+            assert!(
+                matches!(
+                    error.downcast_ref::<MultiSignatureError>(),
+                    Some(MultiSignatureError::VerificationKeyInfinity(_))
+                ),
+                "Unexpected error: {error:?}");
         }
 
         #[test]
@@ -179,8 +195,14 @@ mod tests {
                 let _ = kr.register(1, vkpop);
             }
 
-            let result = kr.register(1, vkpop_infinity);
-            assert_eq!(result, Err(RegisterError::VerificationKeyInfinity(Box::new(vkpop_infinity.vk))));
+            let error = kr.register(1, vkpop_infinity).expect_err("VK pop infinity should not be registered");
+
+            assert!(
+                matches!(
+                    error.downcast_ref::<MultiSignatureError>(),
+                    Some(MultiSignatureError::VerificationKeyInfinity(_))
+                ),
+                "Unexpected error: {error:?}");
         }
 
         #[test]
@@ -272,8 +294,13 @@ mod tests {
             let fake_sig = sk.sign(&msg);
             batch_sig[0] = fake_sig;
 
-            let batch_result = BlsSignature::batch_verify_aggregates(&batch_msgs, &batch_vk, &batch_sig);
-            assert_eq!(batch_result, Err(MultiSignatureError::BatchInvalid));
+            let error = BlsSignature::batch_verify_aggregates(&batch_msgs, &batch_vk, &batch_sig).expect_err("Batch verify should fail");
+            assert!(
+                matches!(
+                    error.downcast_ref::<MultiSignatureError>(),
+                    Some(MultiSignatureError::BatchInvalid)
+                ),
+                "Unexpected error: {error:?}");
         }
     }
 }

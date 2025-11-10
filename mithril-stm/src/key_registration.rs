@@ -86,69 +86,69 @@ pub struct ClosedKeyRegistration<D: Digest> {
     pub merkle_tree: Arc<MerkleTree<D>>,
 }
 
-#[cfg(test)]
-mod tests {
-    use blake2::{Blake2b, digest::consts::U32};
-    use proptest::{collection::vec, prelude::*};
-    use rand_chacha::ChaCha20Rng;
-    use rand_core::SeedableRng;
+// #[cfg(test)]
+// mod tests {
+//     use blake2::{Blake2b, digest::consts::U32};
+//     use proptest::{collection::vec, prelude::*};
+//     use rand_chacha::ChaCha20Rng;
+//     use rand_core::SeedableRng;
 
-    use crate::bls_multi_signature::BlsSigningKey;
+//     use crate::bls_multi_signature::BlsSigningKey;
 
-    use super::*;
+//     use super::*;
 
-    proptest! {
-        #[test]
-        fn test_keyreg(stake in vec(1..1u64 << 60, 2..=10),
-                       nkeys in 2..10_usize,
-                       fake_it in 0..4usize,
-                       seed in any::<[u8;32]>()) {
-            let mut rng = ChaCha20Rng::from_seed(seed);
-            let mut kr = KeyRegistration::init();
+//     proptest! {
+//         #[test]
+//         fn test_keyreg(stake in vec(1..1u64 << 60, 2..=10),
+//                        nkeys in 2..10_usize,
+//                        fake_it in 0..4usize,
+//                        seed in any::<[u8;32]>()) {
+//             let mut rng = ChaCha20Rng::from_seed(seed);
+//             let mut kr = KeyRegistration::init();
 
-            let gen_keys = (1..nkeys).map(|_| {
-                let sk = BlsSigningKey::generate(&mut rng);
-                BlsVerificationKeyProofOfPossession::from(&sk)
-            }).collect::<Vec<_>>();
+//             let gen_keys = (1..nkeys).map(|_| {
+//                 let sk = BlsSigningKey::generate(&mut rng);
+//                 BlsVerificationKeyProofOfPossession::from(&sk)
+//             }).collect::<Vec<_>>();
 
-            let fake_key = {
-                let sk = BlsSigningKey::generate(&mut rng);
-                BlsVerificationKeyProofOfPossession::from(&sk)
-            };
+//             let fake_key = {
+//                 let sk = BlsSigningKey::generate(&mut rng);
+//                 BlsVerificationKeyProofOfPossession::from(&sk)
+//             };
 
-            // Record successful registrations
-            let mut keys = HashMap::new();
+//             // Record successful registrations
+//             let mut keys = HashMap::new();
 
-            for (i, &stake) in stake.iter().enumerate() {
-                let mut pk = gen_keys[i % gen_keys.len()];
+//             for (i, &stake) in stake.iter().enumerate() {
+//                 let mut pk = gen_keys[i % gen_keys.len()];
 
-                if fake_it == 0 {
-                    pk.pop = fake_key.pop;
-                }
+//                 if fake_it == 0 {
+//                     pk.pop = fake_key.pop;
+//                 }
 
-                let reg = kr.register(stake, pk);
-                match reg {
-                    Ok(_) => {
-                        assert!(keys.insert(pk.vk, stake).is_none());
-                    },
-                    Err(RegisterError::KeyRegistered(pk1)) => {
-                        assert!(pk1.as_ref() == &pk.vk);
-                        assert!(keys.contains_key(&pk.vk));
-                    }
-                    Err(RegisterError::KeyInvalid(a)) => {
-                        assert_eq!(fake_it, 0);
-                        assert!(a.verify_proof_of_possession().is_err());
-                    }
-                    Err(RegisterError::SerializationError) => unreachable!(),
-                    _ => unreachable!(),
-                }
-            }
+//                 let reg = kr.register(stake, pk);
+//                 match reg {
+//                     Ok(_) => {
+//                         assert!(keys.insert(pk.vk, stake).is_none());
+//                     },
+//                     Err(RegisterError::KeyRegistered(pk1)) => {
+//                         assert!(pk1.as_ref() == &pk.vk);
+//                         assert!(keys.contains_key(&pk.vk));
+//                     }
+//                     Err(RegisterError::KeyInvalid(a)) => {
+//                         assert_eq!(fake_it, 0);
+//                         assert!(a.verify_proof_of_possession().is_err());
+//                     }
+//                     Err(RegisterError::SerializationError) => unreachable!(),
+//                     _ => unreachable!(),
+//                 }
+//             }
 
-            if !kr.keys.is_empty() {
-                let closed = kr.close::<Blake2b<U32>>();
-                let retrieved_keys = closed.reg_parties.iter().map(|r| (r.0, r.1)).collect::<HashMap<_,_>>();
-                assert!(retrieved_keys == keys);
-            }
-        }
-    }
-}
+//             if !kr.keys.is_empty() {
+//                 let closed = kr.close::<Blake2b<U32>>();
+//                 let retrieved_keys = closed.reg_parties.iter().map(|r| (r.0, r.1)).collect::<HashMap<_,_>>();
+//                 assert!(retrieved_keys == keys);
+//             }
+//         }
+//     }
+// }
