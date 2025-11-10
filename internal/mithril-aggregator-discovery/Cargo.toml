@@ -13,10 +13,14 @@ include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 [lib]
 crate-type = ["lib", "cdylib", "staticlib"]
 
+[features]
+rand = ["dep:rand"]
+
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 mithril-common = { path = "../../mithril-common" }
+rand = { version = "0.9.2", optional = true}
 reqwest = { workspace = true, features = [
     "default",
     "gzip",
