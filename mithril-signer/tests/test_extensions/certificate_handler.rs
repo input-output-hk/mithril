@@ -14,6 +14,7 @@ use mithril_common::{
 };
 use mithril_ticker::{MithrilTickerService, TickerService};
 
+use mithril_signer::services::SignaturePublisher;
 use mithril_signer::{entities::SignerEpochSettings, services::AggregatorClient};
 
 pub struct FakeAggregator {
@@ -81,6 +82,18 @@ impl FakeAggregator {
 }
 
 #[async_trait]
+impl SignaturePublisher for FakeAggregator {
+    async fn publish(
+        &self,
+        _signed_entity_type: &SignedEntityType,
+        _signature: &SingleSignature,
+        _protocol_message: &ProtocolMessage,
+    ) -> StdResult<()> {
+        Ok(())
+    }
+}
+
+#[async_trait]
 impl AggregatorClient for FakeAggregator {
     async fn retrieve_epoch_settings(&self) -> StdResult<Option<SignerEpochSettings>> {
         if *self.withhold_epoch_settings.read().await {
@@ -106,16 +119,6 @@ impl AggregatorClient for FakeAggregator {
         signers.push(signer.clone());
         let _ = store.insert(epoch, signers);
 
-        Ok(())
-    }
-
-    /// Registers single signatures with the aggregator
-    async fn register_signature(
-        &self,
-        _signed_entity_type: &SignedEntityType,
-        _signature: &SingleSignature,
-        _protocol_message: &ProtocolMessage,
-    ) -> StdResult<()> {
         Ok(())
     }
 

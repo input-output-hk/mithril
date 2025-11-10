@@ -1,21 +1,17 @@
-use anyhow::anyhow;
 use async_trait::async_trait;
 
+use mithril_aggregator_client::AggregatorHttpClient;
 use mithril_aggregator_client::query::{
-    GetAggregatorFeaturesQuery, GetEpochSettingsQuery, PostRegisterSignatureQuery,
-    PostRegisterSignerQuery,
+    GetAggregatorFeaturesQuery, GetEpochSettingsQuery, PostRegisterSignerQuery,
 };
-use mithril_aggregator_client::{AggregatorHttpClient, AggregatorHttpClientError};
 use mithril_common::{
     StdResult,
-    entities::{Epoch, ProtocolMessage, SignedEntityType, Signer, SingleSignature},
+    entities::{Epoch, Signer},
     messages::{AggregatorFeaturesMessage, TryFromMessageAdapter, TryToMessageAdapter},
 };
 
 use crate::entities::SignerEpochSettings;
-use crate::message_adapters::{
-    FromEpochSettingsAdapter, ToRegisterSignatureMessageAdapter, ToRegisterSignerMessageAdapter,
-};
+use crate::message_adapters::{FromEpochSettingsAdapter, ToRegisterSignerMessageAdapter};
 
 /// Trait for mocking and testing a `AggregatorClient`
 #[cfg_attr(test, mockall::automock)]
@@ -26,14 +22,6 @@ pub trait AggregatorClient: Sync + Send {
 
     /// Registers signer with the aggregator.
     async fn register_signer(&self, epoch: Epoch, signer: &Signer) -> StdResult<()>;
-
-    /// Registers single signature with the aggregator.
-    async fn register_signature(
-        &self,
-        signed_entity_type: &SignedEntityType,
-        signature: &SingleSignature,
-        protocol_message: &ProtocolMessage,
-    ) -> StdResult<()>;
 
     /// Retrieves aggregator features message from the aggregator
     async fn retrieve_aggregator_features(&self) -> StdResult<AggregatorFeaturesMessage>;
@@ -54,27 +42,6 @@ impl AggregatorClient for AggregatorHttpClient {
 
         self.send(PostRegisterSignerQuery::new(register_signer_message))
             .await?;
-
-        Ok(())
-    }
-
-    async fn register_signature(
-        &self,
-        signed_entity_type: &SignedEntityType,
-        signature: &SingleSignature,
-        protocol_message: &ProtocolMessage,
-    ) -> StdResult<()> {
-        let register_single_signature_message = ToRegisterSignatureMessageAdapter::try_adapt((
-            signed_entity_type.to_owned(),
-            signature.to_owned(),
-            protocol_message,
-        ))
-        .map_err(|e| AggregatorHttpClientError::JsonParseFailed(anyhow!(e)))?;
-
-        self.send(PostRegisterSignatureQuery::new(
-            register_single_signature_message,
-        ))
-        .await?;
 
         Ok(())
     }
@@ -142,16 +109,6 @@ pub(crate) mod dumb {
             let mut total_registered_signers = self.total_registered_signers.write().await;
             *total_registered_signers += 1;
 
-            Ok(())
-        }
-
-        /// Registers single signature with the aggregator
-        async fn register_signature(
-            &self,
-            _signed_entity_type: &SignedEntityType,
-            _signature: &SingleSignature,
-            _protocol_message: &ProtocolMessage,
-        ) -> StdResult<()> {
             Ok(())
         }
 

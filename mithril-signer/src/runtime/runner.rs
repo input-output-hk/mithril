@@ -415,8 +415,8 @@ mod tests {
     use crate::metrics::MetricsService;
     use crate::services::{
         CardanoTransactionsImporter, DumbAggregatorClient, MithrilEpochService,
-        MithrilSingleSigner, MockTransactionStore, MockUpkeepService, SignerCertifierService,
-        SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
+        MithrilSingleSigner, MockTransactionStore, MockUpkeepService, SignaturePublisherNoop,
+        SignerCertifierService, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
     };
     use crate::test_tools::TestLogger;
 
@@ -552,7 +552,7 @@ mod tests {
             Arc::new(SignerSignedEntityConfigProvider::new(epoch_service.clone())),
             signed_entity_type_lock.clone(),
             single_signer.clone(),
-            aggregator_client.clone(),
+            Arc::new(SignaturePublisherNoop),
             logger.clone(),
         ));
         let kes_signer = None;
