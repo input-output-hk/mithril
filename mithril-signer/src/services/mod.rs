@@ -15,6 +15,7 @@ mod certifier;
 mod epoch_service;
 mod signable_builder;
 mod signature_publisher;
+mod signer_registration;
 mod single_signer;
 mod upkeep_service;
 
@@ -26,5 +27,6 @@ pub use certifier::*;
 pub use epoch_service::*;
 pub use signable_builder::*;
 pub use signature_publisher::*;
+pub use signer_registration::*;
 pub use single_signer::*;
 pub use upkeep_service::*;

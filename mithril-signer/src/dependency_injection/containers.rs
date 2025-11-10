@@ -16,7 +16,8 @@ use mithril_ticker::TickerService;
 
 use crate::MetricsService;
 use crate::services::{
-    AggregatorClient, CertifierService, EpochService, SingleSigner, UpkeepService,
+    AggregatorClient, CertifierService, EpochService, SignerRegistrationPublisher, SingleSigner,
+    UpkeepService,
 };
 use crate::store::ProtocolInitializerStorer;
 
@@ -84,6 +85,9 @@ pub struct SignerDependencyContainer {
 
     /// Certifier service
     pub certifier: Arc<dyn CertifierService>,
+
+    /// Signer registration publisher
+    pub signer_registration_publisher: Arc<dyn SignerRegistrationPublisher>,
 
     /// Kes signer service
     pub kes_signer: Option<Arc<dyn KesSigner>>,

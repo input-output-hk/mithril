@@ -233,7 +233,7 @@ impl Runner for SignerRunner {
                 kes_period,
             );
             self.services
-                .certificate_handler
+                .signer_registration_publisher
                 .register_signer(epoch_offset_to_recording_epoch, &signer)
                 .await?;
 
@@ -417,6 +417,7 @@ mod tests {
         CardanoTransactionsImporter, DumbAggregatorClient, MithrilEpochService,
         MithrilSingleSigner, MockTransactionStore, MockUpkeepService, SignaturePublisherNoop,
         SignerCertifierService, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
+        SpySignerRegistrationPublisher,
     };
     use crate::test_tools::TestLogger;
 
@@ -585,6 +586,7 @@ mod tests {
             upkeep_service,
             epoch_service,
             certifier,
+            signer_registration_publisher: Arc::new(SpySignerRegistrationPublisher::default()),
             kes_signer,
             network_configuration_service,
         }
@@ -659,8 +661,8 @@ mod tests {
     async fn test_register_signer_to_aggregator() {
         let mut services = init_services().await;
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
-        let certificate_handler = Arc::new(DumbAggregatorClient::default());
-        services.certificate_handler = certificate_handler.clone();
+        let registration_publisher_spy = Arc::new(SpySignerRegistrationPublisher::default());
+        services.signer_registration_publisher = registration_publisher_spy.clone();
         let protocol_initializer_store = services.protocol_initializer_store.clone();
         let current_epoch = services.ticker_service.get_current_epoch().await.unwrap();
 
@@ -699,7 +701,7 @@ mod tests {
             .expect("registering a signer to the aggregator should not fail");
 
         let last_registered_signer_first_registration =
-            certificate_handler.get_last_registered_signer().await.unwrap();
+            registration_publisher_spy.get_last_registered_signer().await.unwrap();
         let maybe_protocol_initializer_first_registration = protocol_initializer_store
             .get_protocol_initializer(current_epoch.offset_to_recording_epoch())
             .await
@@ -709,7 +711,8 @@ mod tests {
             "A protocol initializer should have been registered at the 'Recording' epoch"
         );
 
-        let total_registered_signers = certificate_handler.get_total_registered_signers().await;
+        let total_registered_signers =
+            registration_publisher_spy.get_total_registered_signers().await;
         assert_eq!(1, total_registered_signers);
 
         runner
@@ -718,7 +721,7 @@ mod tests {
             .expect("registering a signer to the aggregator should not fail");
 
         let last_registered_signer_second_registration =
-            certificate_handler.get_last_registered_signer().await.unwrap();
+            registration_publisher_spy.get_last_registered_signer().await.unwrap();
         let maybe_protocol_initializer_second_registration = protocol_initializer_store
             .get_protocol_initializer(current_epoch.offset_to_recording_epoch())
             .await
@@ -733,7 +736,8 @@ mod tests {
             "The signer registration should be the same and should have been registered twice"
         );
 
-        let total_registered_signers = certificate_handler.get_total_registered_signers().await;
+        let total_registered_signers =
+            registration_publisher_spy.get_total_registered_signers().await;
         assert_eq!(1, total_registered_signers);
     }
 

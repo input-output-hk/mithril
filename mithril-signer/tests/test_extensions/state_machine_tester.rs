@@ -61,9 +61,9 @@ use mithril_signer::{
     database::repository::{ProtocolInitializerRepository, SignedBeaconRepository, StakePoolStore},
     dependency_injection::{DependenciesBuilder, SignerDependencyContainer},
     services::{
-        AggregatorClient, CardanoTransactionsImporter, MithrilEpochService, MithrilSingleSigner,
-        SignerCertifierService, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
-        SignerUpkeepService,
+        CardanoTransactionsImporter, MithrilEpochService, MithrilSingleSigner,
+        SignerCertifierService, SignerRegistrationPublisher, SignerSignableSeedBuilder,
+        SignerSignedEntityConfigProvider, SignerUpkeepService,
     },
     store::{MKTreeStoreSqlite, ProtocolInitializerStorer},
 };
@@ -339,6 +339,7 @@ impl StateMachineTester {
             upkeep_service,
             epoch_service,
             certifier,
+            signer_registration_publisher: certificate_handler.clone(),
             kes_signer,
             network_configuration_service: network_configuration_service.clone(),
         };
