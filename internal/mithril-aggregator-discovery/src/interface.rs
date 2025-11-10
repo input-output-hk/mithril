@@ -14,5 +14,5 @@ pub trait AggregatorDiscoverer: Sync + Send {
     async fn get_available_aggregators(
         &self,
         network: MithrilNetwork,
-    ) -> StdResult<Vec<AggregatorEndpoint>>;
+    ) -> StdResult<Box<dyn Iterator<Item = AggregatorEndpoint>>>;
 }

@@ -72,7 +72,7 @@ impl AggregatorDiscoverer for HttpConfigAggregatorDiscoverer {
     async fn get_available_aggregators(
         &self,
         network: MithrilNetwork,
-    ) -> StdResult<Vec<AggregatorEndpoint>> {
+    ) -> StdResult<Box<dyn Iterator<Item = AggregatorEndpoint>>> {
         let client = self.build_client()?;
         let networks_configuration_response = client
             .get(&self.configuration_file_url)
@@ -92,8 +92,7 @@ impl AggregatorDiscoverer for HttpConfigAggregatorDiscoverer {
                     &self.configuration_file_url
                 )
             })?;
-
-        Ok(networks_configuration_response
+        let aggregator_endpoints = networks_configuration_response
             .networks
             .values()
             .flat_map(|env| &env.mithril_networks)
@@ -101,7 +100,9 @@ impl AggregatorDiscoverer for HttpConfigAggregatorDiscoverer {
             .filter(|(name, _)| *name == network.name())
             .flat_map(|(_, network)| &network.aggregators)
             .map(|aggregator_msg| AggregatorEndpoint::new(aggregator_msg.url.clone()))
-            .collect())
+            .collect::<Vec<_>>();
+
+        Ok(Box::new(aggregator_endpoints.into_iter()))
     }
 }
 
@@ -173,24 +174,27 @@ mod tests {
                 AggregatorEndpoint::new("https://release-devnet-aggregator1".into()),
                 AggregatorEndpoint::new("https://release-devnet-aggregator2".into()),
             ],
-            aggregators
+            aggregators.collect::<Vec<_>>()
         );
 
-        let aggregators = discoverer
+        let mut aggregators = discoverer
             .get_available_aggregators(MithrilNetwork::new("unknown".into()))
             .await
             .unwrap();
 
-        assert!(aggregators.is_empty());
+        assert!(aggregators.next().is_none());
     }
 
     #[tokio::test]
     async fn get_available_aggregators_failure() {
         let content = TEST_NETWORKS_CONFIG_JSON_FAILURE;
         let (_server, discoverer) = create_server_and_discoverer(content);
-        discoverer
+        let result = discoverer
             .get_available_aggregators(MithrilNetwork::new("release-devnet".into()))
-            .await
-            .expect_err("The retrieval of the aggregators should fail");
+            .await;
+        assert!(
+            result.is_err(),
+            "The retrieval of the aggregators should fail"
+        );
     }
 }
