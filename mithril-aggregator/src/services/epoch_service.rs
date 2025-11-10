@@ -353,7 +353,15 @@ impl EpochService for MithrilEpochService {
         let total_next_stakes_signers = next_signers_with_stake.iter().map(|s| s.stake).sum();
 
         let signed_entity_config = SignedEntityConfig {
-            allowed_discriminants: self.allowed_signed_entity_discriminants.clone(),
+            allowed_discriminants: self
+                .allowed_signed_entity_discriminants
+                .intersection(
+                    &network_configuration
+                        .configuration_for_aggregation
+                        .enabled_signed_entity_types,
+                )
+                .cloned()
+                .collect(),
             cardano_transactions_signing_config: current_epoch_settings
                 .cardano_transactions_signing_config
                 .clone(),
@@ -1131,6 +1139,58 @@ mod tests {
                 allowed_discriminants,
                 cardano_transactions_signing_config,
             }
+        );
+    }
+
+    #[tokio::test]
+    async fn inform_epoch_compute_allowed_discriminants_from_intersection_of_aggregation_network_config_and_configured_discriminants()
+     {
+        let epoch = Epoch(5);
+        let allowed_discriminants = BTreeSet::from([
+            SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            SignedEntityTypeDiscriminants::CardanoTransactions,
+        ]);
+        let enabled_discriminants = BTreeSet::from([
+            SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+            SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+            SignedEntityTypeDiscriminants::CardanoTransactions,
+        ]);
+
+        let mut service = MithrilEpochService {
+            mithril_network_configuration_provider: Arc::new(
+                FakeMithrilNetworkConfigurationProvider::new(
+                    MithrilNetworkConfigurationForEpoch {
+                        enabled_signed_entity_types: enabled_discriminants,
+                        ..Dummy::dummy()
+                    },
+                    MithrilNetworkConfigurationForEpoch::dummy(),
+                    MithrilNetworkConfigurationForEpoch::dummy(),
+                ),
+            ),
+            ..EpochServiceBuilder {
+                allowed_discriminants: allowed_discriminants.clone(),
+                ..EpochServiceBuilder::new(epoch, MithrilFixtureBuilder::default().build())
+            }
+            .build()
+            .await
+        };
+
+        service
+            .inform_epoch(epoch)
+            .await
+            .expect("inform_epoch should not fail");
+
+        let signed_entity_config = service
+            .signed_entity_config()
+            .expect("extracting data from service should not fail");
+
+        assert_eq!(
+            BTreeSet::from([
+                SignedEntityTypeDiscriminants::CardanoTransactions,
+                SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+            ]),
+            signed_entity_config.allowed_discriminants
         );
     }
 
