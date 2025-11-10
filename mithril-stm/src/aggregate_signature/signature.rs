@@ -120,27 +120,36 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
                 acc.entry(sig.into()).or_default().push(sig.clone());
                 acc
             });
-        stm_signatures.into_iter().try_for_each(
-            |(aggregate_signature_type, aggregate_signatures)| match aggregate_signature_type {
-                AggregateSignatureType::Concatenation => {
-                    let aggregate_signatures_length = aggregate_signatures.len();
-                    let concatenation_proofs = aggregate_signatures
-                        .into_iter()
-                        .filter_map(|s| s.to_concatenation_proof().cloned())
-                        .collect::<Vec<_>>();
-                    if concatenation_proofs.len() != aggregate_signatures_length {
-                        return Err(anyhow!(StmAggregateSignatureError::BatchInvalid));
-                    }
+        stm_signatures
+            .into_iter()
+            .try_for_each(|(aggregate_signature_type, aggregate_signatures)| {
+                match aggregate_signature_type {
+                    AggregateSignatureType::Concatenation => {
+                        let aggregate_signatures_length = aggregate_signatures.len();
+                        let concatenation_proofs = aggregate_signatures
+                            .into_iter()
+                            .filter_map(|s| s.to_concatenation_proof().cloned())
+                            .collect::<Vec<_>>();
+                        if concatenation_proofs.len() != aggregate_signatures_length {
+                            return Err(anyhow!(StmAggregateSignatureError::BatchInvalid));
+                        }
 
-                    ConcatenationProof::batch_verify(&concatenation_proofs, msgs, avks, parameters)
+                        ConcatenationProof::batch_verify(
+                            &concatenation_proofs,
+                            msgs,
+                            avks,
+                            parameters,
+                        )
+                    }
+                    #[cfg(feature = "future_proof_system")]
+                    AggregateSignatureType::Future => {
+                        Err(anyhow!(StmAggregateSignatureError::UnsupportedProofSystem(
+                            aggregate_signature_type
+                        )))
+                    }
                 }
-                #[cfg(feature = "future_proof_system")]
-                AggregateSignatureType::Future => Err(anyhow!(
-                    StmAggregateSignatureError::UnsupportedProofSystem(aggregate_signature_type)
-                )),
-            },
-        )
-        // .map_err(|_| StmAggregateSignatureError::BatchInvalid)
+            })
+            .map_err(|_| anyhow!(StmAggregateSignatureError::BatchInvalid))
     }
 
     /// Convert an aggregate signature to bytes

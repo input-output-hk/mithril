@@ -99,11 +99,13 @@
 //!             .verify(&msg, &clerk.compute_avk(), &params)
 //!             .is_ok());
 //!     }
-//!     Err(AggregationError::NotEnoughSignatures(n, k)) => {
-//!         println!("Not enough signatures");
-//!         assert!(n < params.k && k == params.k)
-//!     }
-//!     Err(_) => unreachable!(),
+//!     Err(error) => assert!(
+//!         matches!(
+//!             error.downcast_ref::<AggregationError>(),
+//!             Some(AggregationError::NotEnoughSignatures { .. })
+//!         ),
+//!         "Unexpected error: {error}"
+//!     ),
 //! }
 //! # Ok(())
 //! # }

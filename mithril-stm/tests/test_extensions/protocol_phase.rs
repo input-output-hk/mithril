@@ -4,8 +4,8 @@ use rand_core::RngCore;
 use rayon::prelude::*;
 
 use mithril_stm::{
-    AggregateSignature, AggregateSignatureType, AggregateVerificationKey, AggregationError, Clerk,
-    Initializer, KeyRegistration, Parameters, Signer, SingleSignature, Stake, VerificationKey,
+    AggregateSignature, AggregateSignatureType, AggregateVerificationKey, Clerk, Initializer,
+    KeyRegistration, Parameters, Signer, SingleSignature, Stake, StmResult, VerificationKey,
 };
 
 type H = Blake2b<U32>;
@@ -19,7 +19,7 @@ pub struct InitializationPhaseResult {
 
 /// The result of the operation phase of the STM protocol.
 pub struct OperationPhaseResult {
-    pub msig: Result<AggregateSignature<H>, AggregationError>,
+    pub msig: StmResult<AggregateSignature<H>>,
     pub avk: AggregateVerificationKey<H>,
     pub sigs: Vec<SingleSignature>,
 }

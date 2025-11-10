@@ -182,7 +182,7 @@ impl BlsSignature {
             None,
             None,
         )
-        // .map_err(|_| MultiSignatureError::BatchInvalid)
+        .map_err(|_| anyhow!(MultiSignatureError::BatchInvalid))
     }
 }
 
