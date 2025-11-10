@@ -315,7 +315,7 @@ impl StateMachineTester {
         )) as Arc<dyn KesSigner>);
 
         let services = SignerDependencyContainer {
-            certificate_handler: certificate_handler.clone(),
+            signers_registration_retriever: certificate_handler.clone(),
             ticker_service: ticker_service.clone(),
             chain_observer: chain_observer.clone(),
             digester: digester.clone(),

@@ -135,7 +135,7 @@ impl Runner for SignerRunner {
         debug!(self.logger, ">> get_epoch_settings");
 
         self.services
-            .certificate_handler
+            .signers_registration_retriever
             .retrieve_all_signer_registrations()
             .await
     }
@@ -417,7 +417,7 @@ mod tests {
     use crate::database::test_helper::main_db_connection;
     use crate::metrics::MetricsService;
     use crate::services::{
-        CardanoTransactionsImporter, DumbAggregatorClient, MithrilEpochService,
+        CardanoTransactionsImporter, DumbSignersRegistrationRetriever, MithrilEpochService,
         MithrilSingleSigner, MockTransactionStore, MockUpkeepService, SignaturePublisherNoop,
         SignerCertifierService, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
         SpySignerRegistrationPublisher,
@@ -550,7 +550,6 @@ mod tests {
             Arc::new(CardanoTransactionsPreloaderActivation::new(true)),
         ));
         let upkeep_service = Arc::new(MockUpkeepService::new());
-        let aggregator_client = Arc::new(DumbAggregatorClient::default());
         let certifier = Arc::new(SignerCertifierService::new(
             Arc::new(SignedBeaconRepository::new(sqlite_connection.clone(), None)),
             Arc::new(SignerSignedEntityConfigProvider::new(epoch_service.clone())),
@@ -573,7 +572,6 @@ mod tests {
 
         SignerDependencyContainer {
             stake_store,
-            certificate_handler: aggregator_client,
             chain_observer,
             digester,
             single_signer,
@@ -590,6 +588,7 @@ mod tests {
             epoch_service,
             certifier,
             signer_registration_publisher: Arc::new(SpySignerRegistrationPublisher::default()),
+            signers_registration_retriever: Arc::new(DumbSignersRegistrationRetriever::default()),
             kes_signer,
             network_configuration_service,
         }
@@ -776,10 +775,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_inform_epoch_setting_pass_available_signed_entity_types_to_epoch_service() {
-        let mut services = init_services().await;
-        let certificate_handler = Arc::new(DumbAggregatorClient::default());
-
-        services.certificate_handler = certificate_handler;
+        let services = init_services().await;
         let runner = init_runner(Some(services), None).await;
 
         let epoch = Epoch(1);

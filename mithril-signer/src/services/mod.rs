@@ -9,24 +9,24 @@
 //!
 //! Each service is defined by a public API (a trait) that is used in the controllers (runtimes).
 
-mod aggregator_client;
 mod cardano_transactions;
 mod certifier;
 mod epoch_service;
 mod signable_builder;
 mod signature_publisher;
 mod signer_registration;
+mod signers_registration_retriever;
 mod single_signer;
 mod upkeep_service;
 
-#[cfg(test)]
-pub(crate) use aggregator_client::dumb::DumbAggregatorClient;
-pub use aggregator_client::*;
 pub use cardano_transactions::*;
 pub use certifier::*;
 pub use epoch_service::*;
 pub use signable_builder::*;
 pub use signature_publisher::*;
 pub use signer_registration::*;
+#[cfg(test)]
+pub(crate) use signers_registration_retriever::dumb::DumbSignersRegistrationRetriever;
+pub use signers_registration_retriever::*;
 pub use single_signer::*;
 pub use upkeep_service::*;

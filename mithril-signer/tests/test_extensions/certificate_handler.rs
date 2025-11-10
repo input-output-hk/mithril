@@ -10,7 +10,7 @@ use mithril_common::{
 use mithril_ticker::{MithrilTickerService, TickerService};
 
 use mithril_signer::services::{SignaturePublisher, SignerRegistrationPublisher};
-use mithril_signer::{entities::RegisteredSigners, services::AggregatorClient};
+use mithril_signer::{entities::RegisteredSigners, services::SignersRegistrationRetriever};
 
 pub struct FakeAggregator {
     registered_signers: RwLock<HashMap<Epoch, Vec<Signer>>>,
@@ -88,7 +88,7 @@ impl SignerRegistrationPublisher for FakeAggregator {
 }
 
 #[async_trait]
-impl AggregatorClient for FakeAggregator {
+impl SignersRegistrationRetriever for FakeAggregator {
     async fn retrieve_all_signer_registrations(&self) -> StdResult<Option<RegisteredSigners>> {
         if *self.withhold_epoch_settings.read().await {
             Ok(None)
