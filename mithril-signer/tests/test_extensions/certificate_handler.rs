@@ -10,7 +10,7 @@ use mithril_common::{
 use mithril_ticker::{MithrilTickerService, TickerService};
 
 use mithril_signer::services::{SignaturePublisher, SignerRegistrationPublisher};
-use mithril_signer::{entities::SignerEpochSettings, services::AggregatorClient};
+use mithril_signer::{entities::RegisteredSigners, services::AggregatorClient};
 
 pub struct FakeAggregator {
     registered_signers: RwLock<HashMap<Epoch, Vec<Signer>>>,
@@ -89,7 +89,7 @@ impl SignerRegistrationPublisher for FakeAggregator {
 
 #[async_trait]
 impl AggregatorClient for FakeAggregator {
-    async fn retrieve_epoch_settings(&self) -> StdResult<Option<SignerEpochSettings>> {
+    async fn retrieve_all_signer_registrations(&self) -> StdResult<Option<RegisteredSigners>> {
         if *self.withhold_epoch_settings.read().await {
             Ok(None)
         } else {
@@ -98,7 +98,7 @@ impl AggregatorClient for FakeAggregator {
             let current_signers = self.get_current_signers(&store).await?;
             let next_signers = self.get_next_signers(&store).await?;
 
-            Ok(Some(SignerEpochSettings {
+            Ok(Some(RegisteredSigners {
                 epoch: time_point.epoch,
                 current_signers,
                 next_signers,
@@ -183,7 +183,7 @@ mod tests {
             .await
             .expect("aggregator client should not fail while registering a user");
         let epoch_settings = fake_aggregator
-            .retrieve_epoch_settings()
+            .retrieve_all_signer_registrations()
             .await
             .expect("we should have a result, None found!")
             .expect("we should have an EpochSettings, None found!");
@@ -196,7 +196,7 @@ mod tests {
             .await
             .expect("aggregator client should not fail while registering a user");
         let epoch_settings = fake_aggregator
-            .retrieve_epoch_settings()
+            .retrieve_all_signer_registrations()
             .await
             .expect("we should have a result, None found!")
             .expect("we should have an EpochSettings, None found!");
@@ -210,7 +210,7 @@ mod tests {
             .await
             .expect("aggregator client should not fail while registering a user");
         let epoch_settings = fake_aggregator
-            .retrieve_epoch_settings()
+            .retrieve_all_signer_registrations()
             .await
             .expect("we should have a result, None found!")
             .expect("we should have an EpochSettings, None found!");

@@ -496,7 +496,7 @@ mod tests {
     use mithril_common::entities::{ChainPoint, Epoch, ProtocolMessage, SignedEntityType};
     use mithril_common::test::double::Dummy;
 
-    use crate::SignerEpochSettings;
+    use crate::RegisteredSigners;
     use crate::runtime::runner::MockSignerRunner;
     use crate::test_tools::TestLogger;
 
@@ -547,7 +547,7 @@ mod tests {
     #[tokio::test]
     async fn unregistered_epoch_settings_behind_known_epoch() {
         let mut runner = MockSignerRunner::new();
-        let epoch_settings = SignerEpochSettings {
+        let epoch_settings = RegisteredSigners {
             epoch: Epoch(3),
             current_signers: vec![],
             next_signers: vec![],
@@ -594,7 +594,7 @@ mod tests {
         runner
             .expect_get_signer_registrations_from_aggregator()
             .once()
-            .returning(|| Ok(Some(SignerEpochSettings::dummy())));
+            .returning(|| Ok(Some(RegisteredSigners::dummy())));
 
         runner
             .expect_get_mithril_network_configuration()
@@ -646,7 +646,7 @@ mod tests {
         runner
             .expect_get_signer_registrations_from_aggregator()
             .once()
-            .returning(|| Ok(Some(SignerEpochSettings::dummy())));
+            .returning(|| Ok(Some(RegisteredSigners::dummy())));
 
         runner
             .expect_get_mithril_network_configuration()
@@ -702,7 +702,7 @@ mod tests {
         runner
             .expect_get_signer_registrations_from_aggregator()
             .once()
-            .returning(|| Ok(Some(SignerEpochSettings::dummy())));
+            .returning(|| Ok(Some(RegisteredSigners::dummy())));
 
         runner
             .expect_get_mithril_network_configuration()

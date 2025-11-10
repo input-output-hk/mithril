@@ -14,7 +14,7 @@ use mithril_protocol_config::model::MithrilNetworkConfiguration;
 
 use crate::Configuration;
 use crate::dependency_injection::SignerDependencyContainer;
-use crate::entities::{BeaconToSign, SignerEpochSettings};
+use crate::entities::{BeaconToSign, RegisteredSigners};
 use crate::services::{EpochService, MithrilProtocolInitializerBuilder};
 
 /// This trait is mainly intended for mocking.
@@ -29,7 +29,7 @@ pub trait Runner: Send + Sync {
     /// Fetch the current epoch settings if any.
     async fn get_signer_registrations_from_aggregator(
         &self,
-    ) -> StdResult<Option<SignerEpochSettings>>;
+    ) -> StdResult<Option<RegisteredSigners>>;
 
     /// Fetch the beacon to sign if any.
     async fn get_beacon_to_sign(&self, time_point: TimePoint) -> StdResult<Option<BeaconToSign>>;
@@ -131,10 +131,13 @@ impl Runner for SignerRunner {
 
     async fn get_signer_registrations_from_aggregator(
         &self,
-    ) -> StdResult<Option<SignerEpochSettings>> {
+    ) -> StdResult<Option<RegisteredSigners>> {
         debug!(self.logger, ">> get_epoch_settings");
 
-        self.services.certificate_handler.retrieve_epoch_settings().await
+        self.services
+            .certificate_handler
+            .retrieve_all_signer_registrations()
+            .await
     }
 
     async fn get_beacon_to_sign(&self, time_point: TimePoint) -> StdResult<Option<BeaconToSign>> {
