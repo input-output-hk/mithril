@@ -15,7 +15,6 @@ mod epoch_service;
 mod signable_builder;
 mod signature_publisher;
 mod signer_registration;
-mod signers_registration_retriever;
 mod single_signer;
 mod upkeep_service;
 
@@ -25,8 +24,5 @@ pub use epoch_service::*;
 pub use signable_builder::*;
 pub use signature_publisher::*;
 pub use signer_registration::*;
-#[cfg(test)]
-pub(crate) use signers_registration_retriever::dumb::DumbSignersRegistrationRetriever;
-pub use signers_registration_retriever::*;
 pub use single_signer::*;
 pub use upkeep_service::*;

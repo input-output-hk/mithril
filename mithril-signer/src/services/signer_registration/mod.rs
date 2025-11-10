@@ -1,8 +1,5 @@
-mod http;
-mod interface;
-#[cfg(test)]
-mod spy;
+mod publisher;
+mod retriever;
 
-pub use interface::*;
-#[cfg(test)]
-pub use spy::*;
+pub use publisher::*;
+pub use retriever::*;
