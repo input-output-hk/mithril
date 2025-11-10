@@ -118,7 +118,6 @@ mod merkle_tree;
 mod parameters;
 mod participant;
 mod single_signature;
-mod snark_friendly;
 
 pub use aggregate_signature::{
     AggregateSignature, AggregateSignatureType, AggregateVerificationKey, BasicVerifier, Clerk,

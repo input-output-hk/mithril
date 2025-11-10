@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 
-use crate::snark_friendly::*;
+use crate::*;
 
 pub struct Initializer {
     pub stake: Stake,

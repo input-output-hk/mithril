@@ -1,0 +1,56 @@
+[package]
+name = "mithril-stm-snark-friendly"
+version = "0.5.5"
+edition = { workspace = true }
+authors = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+description = "A Rust implementation of Mithril Stake-based Threshold Multisignatures (STMs)."
+categories = ["cryptography"]
+include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
+
+[lib]
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[features]
+default = ["rug-backend", "future_snark"]
+rug-backend = ["rug/default"]
+num-integer-backend = ["num-bigint", "num-rational", "num-traits"]
+benchmark-internals = [] # For benchmarking multi_sig
+future_proof_system = [] # For activating future proof systems
+future_snark = [] # For activating future snark proofs
+
+[dependencies]
+anyhow = { workspace = true }
+blake2 = "0.10.6"
+# Enforce blst portable feature for runtime detection of Intel ADX instruction set.
+blst = { version = "0.3.16", features = ["portable"] }
+digest = { workspace = true }
+rand_core = { workspace = true }
+rayon = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[target.'cfg(any(target_family = "wasm", target_env = "musl", windows))'.dependencies]
+# WASM and Windows don't support rug backend, fallback to num-integer only
+num-bigint = { version = "0.4.6" }
+num-rational = { version = "0.4.2" }
+num-traits = { version = "0.2.19" }
+
+[target.'cfg(not(any(target_family = "wasm", target_env = "musl", windows)))'.dependencies]
+num-bigint = { version = "0.4.6", optional = true }
+num-rational = { version = "0.4.2", optional = true }
+num-traits = { version = "0.2.19", optional = true }
+# only unix supports the rug backend
+rug = { version = "1.28.0", optional = true }
+
+[dev-dependencies]
+criterion = { version = "0.7.0", features = ["html_reports"] }
+num-bigint = "0.4.6"
+num-rational = "0.4.2"
+proptest = "1.8.0"
+rand = "0.9.2"
+rand_chacha = { workspace = true }
+serde_json = { workspace = true }
+

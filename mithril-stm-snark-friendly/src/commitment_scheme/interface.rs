@@ -1,4 +1,4 @@
-use crate::snark_friendly::*;
+use crate::*;
 
 pub trait SignerRegistrationCommitmentGenerator {
     fn create_signer_registration_commitment(&self) -> StdResult<()>;

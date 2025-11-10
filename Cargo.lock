@@ -4167,6 +4167,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "mithril-stm-snark-friendly"
+version = "0.5.5"
+dependencies = [
+ "anyhow",
+ "blake2 0.10.6",
+ "blst",
+ "criterion",
+ "digest 0.10.7",
+ "num-bigint",
+ "num-rational",
+ "num-traits",
+ "proptest",
+ "rand 0.9.2",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
+ "rayon",
+ "rug",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+]
+
+[[package]]
 name = "mithril-test-http-server"
 version = "0.1.1"
 dependencies = [

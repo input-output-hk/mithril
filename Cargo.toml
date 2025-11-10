@@ -35,6 +35,7 @@ members = [
     "mithril-relay",
     "mithril-signer",
     "mithril-stm",
+    "mithril-stm-snark-friendly",
     "mithril-test-lab/mithril-aggregator-fake",
     "mithril-test-lab/mithril-end-to-end",
 ]

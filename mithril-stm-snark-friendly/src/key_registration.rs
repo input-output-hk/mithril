@@ -1,4 +1,4 @@
-use crate::snark_friendly::*;
+use crate::*;
 
 #[derive(PartialEq, Eq, Clone)]
 pub struct SignerRegistration {

@@ -1,4 +1,4 @@
-use crate::snark_friendly::*;
+use crate::*;
 
 pub struct SingleSignature {
     pub signer_index: SignerIndex,
