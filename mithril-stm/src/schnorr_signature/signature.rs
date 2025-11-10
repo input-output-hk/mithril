@@ -9,8 +9,8 @@ use group::Group;
 use crate::{
     Index,
     schnorr_signature::{
-        DST_LOTTERY, DST_SIGNATURE, JubjubHashToCurve, get_coordinates, hash_msg_to_jubjubbase,
-        jubjub_base_to_scalar, verification_key::SchnorrVerificationKey,
+        DST_LOTTERY, DST_SIGNATURE, JubjubHashToCurve, SchnorrVerificationKey, get_coordinates,
+        hash_msg_to_jubjubbase, jubjub_base_to_scalar,
     },
 };
 
@@ -21,11 +21,12 @@ use crate::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SchnorrSignature {
     pub(crate) sigma: JubjubSubgroup,
-    pub(crate) s: JubjubScalar,
-    pub(crate) c: JubjubBase,
+    pub(crate) signature: JubjubScalar,
+    pub(crate) challenge: JubjubBase,
 }
 
 impl SchnorrSignature {
+    /// Description of the verification for Schnorr
     pub(crate) fn verify(&self, msg: &[u8], vk: &SchnorrVerificationKey) -> Result<()> {
         let g = JubjubSubgroup::generator();
 
@@ -33,13 +34,13 @@ impl SchnorrSignature {
         let hash = JubjubHashToCurve::hash_to_curve(&[hash_msg_to_jubjubbase(msg)?]);
 
         // Computing R1 = H(msg) * s + sigma * c
-        let c_scalar = jubjub_base_to_scalar(&self.c)?;
-        let h_s = hash * self.s;
+        let c_scalar = jubjub_base_to_scalar(&self.challenge)?;
+        let h_s = hash * self.signature;
         let sigma_c = self.sigma * c_scalar;
         let r1_tilde = h_s + sigma_c;
 
         // Computing R2 = g * s + vk * c
-        let g_s = g * self.s;
+        let g_s = g * self.signature;
         let vk_c = vk.0 * c_scalar;
         let r2_tilde = g_s + vk_c;
 
@@ -63,7 +64,7 @@ impl SchnorrSignature {
             r2y,
         ]);
 
-        if c_tilde != self.c {
+        if c_tilde != self.challenge {
             // TODO: Wrong error for now, need to change that once the errors are added
             return Err(anyhow!("Signature failed to verify."));
         }

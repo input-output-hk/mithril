@@ -13,9 +13,7 @@ use crate::schnorr_signature::{
     DST_SIGNATURE, JubjubHashToCurve, get_coordinates, hash_msg_to_jubjubbase,
     jubjub_base_to_scalar,
 };
-use crate::schnorr_signature::{
-    signature::SchnorrSignature, verification_key::SchnorrVerificationKey,
-};
+use crate::schnorr_signature::{SchnorrSignature, SchnorrVerificationKey};
 
 /// Schnorr Signing key, it is essentially a random scalar of the Jubjub scalar field
 #[derive(Debug, Clone)]
@@ -27,6 +25,38 @@ impl SchnorrSigningKey {
     }
 
     // TODO: Check if we want the sign function to handle the randomness by itself
+    /// Explanation of the signature scheme
+    /// This function is an adapted version of the Schnorr signature scheme
+    /// and works with the Jubjub elliptic curve and the Poseidon hash function.
+    /// The scheme works as follows:
+    /// Input:
+    ///     - a message: some bytes
+    ///     - a secret key: a element of the scalar field of the Jubjub curve
+    ///     - a verification key: a value depending on the secret key
+    /// Output:
+    ///     - a signature of the form (sigma, signature, challenge) where sigma is deterministic based
+    /// on the message and the secret key and the signature and challenge are computed using randomness
+    ///
+    /// The protocol:
+    ///
+    /// The signature follows closely the regular Schnorr signature computation but uses elliptic curve
+    /// based computation (without pairings). The first step is the convert the message bytes into a point
+    /// on the elliptic curve. This is done by hashing the bytes, using for example Sha2, to a 256 bits value
+    /// that can be converted to a scalar of the BLS12-381 field. This scalar is converted to a point on the
+    /// elliptic curve using the `hash_to_curve` function. This allows to compute the deterministic value
+    /// sigma = H(Sha256(msg)) * secret_key which is needed later in the Mithril protocol.
+    ///
+    /// The rest of the protocol follows the regular Schnorr signature:
+    ///     - Choose a random value r, here is the scalar field of Jubjub
+    ///     - Compute two values based on r:
+    ///         - R1 = H(Sha256(msg)) * r
+    ///         - R2 = g * r, where g is a generator of the prime-order subgroup of Jubjub
+    ///     - Compute the challenge, that does not depend on sk, as:
+    ///         - challenge = Poseidon(DST || H(Sha256(msg)) || vk || sigma || R1 || R2), since the Poseidon
+    /// hash function takes as input element of the scalar field of BLS21-381, we need to convert
+    /// the elliptic curve points to their coordinates representation to feed them to the hash function.
+    ///     - Convert the challenge into an element of the scalar field of Jubjub and compute: signature = r - challenge * sk
+    ///     - Output the signature (sigma, signature, challenge)
     pub(crate) fn sign(
         &self,
         msg: &[u8],
@@ -39,7 +69,7 @@ impl SchnorrSigningKey {
         // First hashing the message to a scalar then hashing it to a curve point
         let hash = JubjubHashToCurve::hash_to_curve(&[hash_msg_to_jubjubbase(msg)?]);
 
-        // sigma = H(msg) * sk
+        // sigma = H(Sha256(msg)) * sk
         let sigma = hash * self.0;
 
         // Compute the random part of the signature with
@@ -58,7 +88,7 @@ impl SchnorrSigningKey {
         let (r1x, r1y) = get_coordinates(r1);
         let (r2x, r2y) = get_coordinates(r2);
 
-        let c = PoseidonChip::<JubjubBase>::hash(&[
+        let challenge = PoseidonChip::<JubjubBase>::hash(&[
             DST_SIGNATURE,
             hashx,
             hashy,
@@ -76,10 +106,14 @@ impl SchnorrSigningKey {
         // the poseidon hash might not fit into the smaller modulus
         // the Fr scalar field
         // TODO: Refactor this
-        let c_scalar = jubjub_base_to_scalar(&c)?;
-        let s = r - c_scalar * self.0;
+        let challenge_scalar = jubjub_base_to_scalar(&challenge)?;
+        let signature = r - challenge_scalar * self.0;
 
-        Ok(SchnorrSignature { sigma, s, c })
+        Ok(SchnorrSignature {
+            sigma,
+            signature,
+            challenge,
+        })
     }
 
     fn to_bytes(&self) -> [u8; 32] {
