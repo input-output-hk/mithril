@@ -91,7 +91,7 @@ pub struct StateMachineTester {
     state_machine: StateMachine,
     immutable_observer: Arc<DumbImmutableFileObserver>,
     chain_observer: Arc<FakeChainObserver>,
-    certificate_handler: Arc<FakeAggregator>,
+    fake_aggregator: Arc<FakeAggregator>,
     network_configuration_service: Arc<FakeMithrilNetworkConfigurationProvider>,
     protocol_initializer_store: Arc<dyn ProtocolInitializerStorer>,
     stake_store: Arc<dyn StakeStorer>,
@@ -166,7 +166,7 @@ impl StateMachineTester {
             security_parameter: BlockNumber(0),
             step: BlockNumber(30),
         };
-        let certificate_handler = Arc::new(FakeAggregator::new(ticker_service.clone()));
+        let fake_aggregator = Arc::new(FakeAggregator::new(ticker_service.clone()));
 
         let configuration_for_aggregation = MithrilNetworkConfigurationForEpoch {
             signed_entity_types_config: SignedEntityTypeConfiguration {
@@ -306,7 +306,7 @@ impl StateMachineTester {
             Arc::new(SignerSignedEntityConfigProvider::new(epoch_service.clone())),
             signed_entity_type_lock.clone(),
             single_signer.clone(),
-            certificate_handler.clone(),
+            fake_aggregator.clone(),
             logger.clone(),
         ));
         let kes_signer = Some(Arc::new(KesSignerStandard::new(
@@ -315,7 +315,7 @@ impl StateMachineTester {
         )) as Arc<dyn KesSigner>);
 
         let services = SignerDependencyContainer {
-            signers_registration_retriever: certificate_handler.clone(),
+            signers_registration_retriever: fake_aggregator.clone(),
             ticker_service: ticker_service.clone(),
             chain_observer: chain_observer.clone(),
             digester: digester.clone(),
@@ -332,7 +332,7 @@ impl StateMachineTester {
             upkeep_service,
             epoch_service,
             certifier,
-            signer_registration_publisher: certificate_handler.clone(),
+            signer_registration_publisher: fake_aggregator.clone(),
             kes_signer,
             network_configuration_service: network_configuration_service.clone(),
         };
@@ -353,7 +353,7 @@ impl StateMachineTester {
             state_machine,
             immutable_observer,
             chain_observer,
-            certificate_handler,
+            fake_aggregator,
             network_configuration_service,
             protocol_initializer_store,
             stake_store,
@@ -471,7 +471,7 @@ impl StateMachineTester {
 
     /// make the aggregator send the epoch settings from now on
     pub async fn aggregator_send_epoch_settings(&mut self) -> &mut Self {
-        self.certificate_handler.release_epoch_settings().await;
+        self.fake_aggregator.release_epoch_settings().await;
         self
     }
 
@@ -687,7 +687,7 @@ impl StateMachineTester {
             .unwrap()
             .epoch;
         for signer_with_stake in signers_with_stake {
-            self.certificate_handler
+            self.fake_aggregator
                 .register_signer(epoch, &signer_with_stake.to_owned().into())
                 .await
                 .map_err(TestError::SubsystemError)?;
