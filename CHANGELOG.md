@@ -21,7 +21,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 | ----- | ------- |
 | N/A   | `-`     |
 
-## Mithril Distribution [2543] - 2025-11-03
+## Mithril Distribution [2543.1] - 2025-11-03
 
 - Client library, CLI and WASM:
   - **DEPRECATED**: The `with_aggregator_client` and `new` functions have been deprecated in the `ClientBuilder` struct of the library.
@@ -60,10 +60,10 @@ As a minor extension, we have adopted a slightly different versioning convention
 | mithril-client-cli  | `0.12.33` |
 | mithril-client-wasm | `0.9.7`   |
 | mithril-common      | `0.6.25`  |
-| mithril-signer      | `0.2.273` |
+| mithril-signer      | `0.2.276` |
 | mithril-stm         | `0.5.5`   |
 
-## Mithril Distribution [2537] - 2025-09-17
+## Mithril Distribution [2537.0] - 2025-09-17
 
 - Client library, CLI and WASM:
   - Support for stable `cardano_database_v2` backend in the `mithril-client` library.
