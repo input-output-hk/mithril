@@ -114,8 +114,8 @@ mod tests {
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
         let point = JubjubSubgroup::random(&mut rng);
-        let (x, y) = get_coordinates(point);
-        println!("{:?}", (x, y));
+        let (_x, _y) = get_coordinates(point);
+        // println!("{:?}", (x, y));
     }
 
     // Testing conversion from BLS12-381 base field to Jubjub base field
@@ -169,5 +169,40 @@ mod tests {
         // Wrong message is verified
         let result = sig2.verify(&msg, &vk);
         assert!(result.is_err(), "Wrong message used, test should fail.");
+    }
+
+    #[test]
+    fn serialize_deserialize_vk() {
+        let seed = 0;
+        let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
+        let sk = SchnorrSigningKey::generate(&mut rng);
+        let vk = SchnorrVerificationKey::from(&sk);
+        let vk_bytes = vk.to_bytes();
+        let vk2 = SchnorrVerificationKey::from_bytes(&vk_bytes).unwrap();
+        assert_eq!(vk.0, vk2.0);
+    }
+
+    #[test]
+    fn serialize_deserialize_sk() {
+        let seed = 0;
+        let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
+        let sk = SchnorrSigningKey::generate(&mut rng);
+        let sk_bytes: [u8; 32] = sk.to_bytes();
+        let sk2 = SchnorrSigningKey::from_bytes(&sk_bytes).unwrap();
+        assert_eq!(sk, sk2);
+    }
+
+    #[test]
+    fn serialize_deserialize_signature() {
+        let seed = 0;
+        let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
+        let msg = vec![0, 0, 0, 1];
+        let sk = SchnorrSigningKey::generate(&mut rng);
+
+        let sig = sk.sign(&msg, &mut rng).unwrap();
+
+        let sig_bytes: [u8; 96] = sig.clone().to_bytes();
+        let sig2 = SchnorrSignature::from_bytes(&sig_bytes).unwrap();
+        assert_eq!(sig, sig2);
     }
 }

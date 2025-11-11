@@ -116,7 +116,7 @@ impl SchnorrSigningKey {
         Ok(SchnorrSignature { sigma, s, c })
     }
 
-    fn to_bytes(&self) -> [u8; 32] {
+    pub(crate) fn to_bytes(&self) -> [u8; 32] {
         self.0.to_bytes()
     }
 
@@ -124,7 +124,7 @@ impl SchnorrSigningKey {
     /// The bytes must represent a Jubjub scalar or the conversion will fail
     // TODO: Maybe rework this function, do we want to allow any bytes representation
     // to be convertible to a sk?
-    fn from_bytes(bytes: &[u8]) -> Result<Self> {
+    pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self> {
         // This is a bit ugly, I'll try to find a better way to do it
         let bytes = bytes
             .get(..32)
