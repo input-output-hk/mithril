@@ -85,6 +85,7 @@ case "$ARCH" in
     ARCH_NAME="x64"
     ;;
   arm64)
+  aarch64)
     ARCH_NAME="arm64"
     ;;
   *)
