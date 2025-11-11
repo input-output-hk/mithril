@@ -4,7 +4,7 @@ use midnight_circuits::instructions::HashToCurveCPU;
 use midnight_circuits::instructions::hash::HashCPU;
 use midnight_curves::{Fq as JubjubBase, Fr as JubjubScalar, JubjubSubgroup};
 
-use group::Group;
+use group::{Group, GroupEncoding};
 
 use crate::{
     Index,
@@ -112,5 +112,33 @@ impl SchnorrSignature {
         let ev =
             PoseidonChip::<JubjubBase>::hash(&[DST_LOTTERY, hashx, hashy, idx, sigmax, sigmay]);
         Ok(ev.to_bytes_le())
+    }
+
+    /// Convert an `SchnorrSignature` to a byte representation.
+    pub(crate) fn to_bytes(self) -> [u8; 96] {
+        let mut out = [0; 96];
+        out[0..32].copy_from_slice(&self.sigma.to_bytes());
+        out[32..64].copy_from_slice(&self.s.to_bytes());
+        out[64..96].copy_from_slice(&self.c.to_bytes_le());
+        out
+    }
+
+    /// Convert a string of bytes into a `SchnorrSignature`.
+    /// Not sure the sigma, s and c creation can fail if the 96 bytes are correctly extracted.
+    /// TODO: Do we want to fail conversion if there are more than 96 bytes?
+    pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        let bytes = bytes
+            .get(..96)
+            .ok_or(anyhow!("Not enough bytes to create a signature."))?;
+        let sigma = JubjubSubgroup::from_bytes(&bytes[0..32].try_into()?)
+            .into_option()
+            .ok_or(anyhow!("Unable to convert bytes into a sigma value."))?;
+        let s = JubjubScalar::from_bytes(&bytes[32..64].try_into()?)
+            .into_option()
+            .ok_or(anyhow!("Unable to convert bytes into an s value."))?;
+        let c = JubjubBase::from_bytes_le(&bytes[64..96].try_into()?)
+            .into_option()
+            .ok_or(anyhow!("Unable to convert bytes into a c value."))?;
+        Ok(Self { sigma, s, c })
     }
 }
