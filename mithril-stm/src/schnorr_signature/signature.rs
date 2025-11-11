@@ -21,12 +21,38 @@ use crate::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SchnorrSignature {
     pub(crate) sigma: JubjubSubgroup,
-    pub(crate) signature: JubjubScalar,
-    pub(crate) challenge: JubjubBase,
+    pub(crate) s: JubjubScalar,
+    pub(crate) c: JubjubBase,
 }
 
 impl SchnorrSignature {
     /// Description of the verification for Schnorr
+    /// This function performs the verification of a Schnorr signature given the signature, the signed message
+    /// and a verification key derived from the secret key used to sign.
+    ///
+    /// Input:
+    ///     - a Schnorr signature
+    ///     - a message: some bytes
+    ///     - a verification key: a value depending on the secret key
+    ///
+    /// Output:
+    ///     - Ok(()) if the signature verifies and an error if not
+    ///
+    /// Description of the verification algorithm:
+    ///
+    /// The verification algorithm follows the verification protocol of the Schnorr signature. It consists in
+    /// recomputing the challenge value based on the value of the signature and checking the equality between
+    /// the recomputed challenge and the one present in the Schnorr Signature.
+    ///
+    /// The step are the following:
+    ///     - Compute the Hash of the message: H(Sha256(msg))
+    ///     - Recompute the value R1 as: r1_tilde = h * s + sigma * c
+    ///     - Recompute the value R2 as: r2_tilde = g * s + vk * c
+    ///     - Use the recomputed values to recompute the Poseidon hash:
+    /// c_tilde = Poseidon(DST || H(Sha256(msg)) || vk || sigma || R1 || R2), where each elliptic curve  point is converted
+    /// to their coordinates representation to feed them to the hash function.
+    ///     - Check: c == c_tilde
+    ///     
     pub(crate) fn verify(&self, msg: &[u8], vk: &SchnorrVerificationKey) -> Result<()> {
         let g = JubjubSubgroup::generator();
 
@@ -34,13 +60,13 @@ impl SchnorrSignature {
         let hash = JubjubHashToCurve::hash_to_curve(&[hash_msg_to_jubjubbase(msg)?]);
 
         // Computing R1 = H(msg) * s + sigma * c
-        let c_scalar = jubjub_base_to_scalar(&self.challenge)?;
-        let h_s = hash * self.signature;
+        let c_scalar = jubjub_base_to_scalar(&self.c)?;
+        let h_s = hash * self.s;
         let sigma_c = self.sigma * c_scalar;
         let r1_tilde = h_s + sigma_c;
 
         // Computing R2 = g * s + vk * c
-        let g_s = g * self.signature;
+        let g_s = g * self.s;
         let vk_c = vk.0 * c_scalar;
         let r2_tilde = g_s + vk_c;
 
@@ -64,7 +90,7 @@ impl SchnorrSignature {
             r2y,
         ]);
 
-        if c_tilde != self.challenge {
+        if c_tilde != self.c {
             // TODO: Wrong error for now, need to change that once the errors are added
             return Err(anyhow!("Signature failed to verify."));
         }
@@ -78,12 +104,13 @@ impl SchnorrSignature {
     /// The order of the hash input must be the same as the one in the SNARK circuit
     /// `ev = H(DST || msg || index || σ) <- MSP.Eval(msg,index,σ)` given in paper.
     fn evaluate_dense_mapping(&self, msg: &[u8], index: Index) -> Result<[u8; 32]> {
-        let msg = JubjubHashToCurve::hash_to_curve(&[hash_msg_to_jubjubbase(msg)?]);
-        let (msgx, msgy) = get_coordinates(msg);
+        let hash = JubjubHashToCurve::hash_to_curve(&[hash_msg_to_jubjubbase(msg)?]);
+        let (hashx, hashy) = get_coordinates(hash);
         // TODO: Check if this is the correct way to add the index
         let idx = JubjubBase::from_raw([0, 0, 0, index]);
         let (sigmax, sigmay) = get_coordinates(self.sigma);
-        let ev = PoseidonChip::<JubjubBase>::hash(&[DST_LOTTERY, msgx, msgy, idx, sigmax, sigmay]);
+        let ev =
+            PoseidonChip::<JubjubBase>::hash(&[DST_LOTTERY, hashx, hashy, idx, sigmax, sigmay]);
         Ok(ev.to_bytes_le())
     }
 }

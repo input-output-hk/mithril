@@ -25,7 +25,6 @@ impl SchnorrSigningKey {
     }
 
     // TODO: Check if we want the sign function to handle the randomness by itself
-    /// Explanation of the signature scheme
     /// This function is an adapted version of the Schnorr signature scheme
     /// and works with the Jubjub elliptic curve and the Poseidon hash function.
     /// The scheme works as follows:
@@ -55,8 +54,13 @@ impl SchnorrSigningKey {
     ///         - challenge = Poseidon(DST || H(Sha256(msg)) || vk || sigma || R1 || R2), since the Poseidon
     /// hash function takes as input element of the scalar field of BLS21-381, we need to convert
     /// the elliptic curve points to their coordinates representation to feed them to the hash function.
-    ///     - Convert the challenge into an element of the scalar field of Jubjub and compute: signature = r - challenge * sk
+    ///     - Convert the challenge into an element of the scalar field of Jubjub and compute:
+    ///         - signature = r - challenge * sk
     ///     - Output the signature (sigma, signature, challenge)
+    ///
+    /// The verification algorithm consists in recomputing the challenge from the signature value and
+    /// checking it matches the challenge value in the Schnorr signature. It is described in more
+    /// details in the implementation of the SchnorrSignature.
     pub(crate) fn sign(
         &self,
         msg: &[u8],
@@ -88,7 +92,7 @@ impl SchnorrSigningKey {
         let (r1x, r1y) = get_coordinates(r1);
         let (r2x, r2y) = get_coordinates(r2);
 
-        let challenge = PoseidonChip::<JubjubBase>::hash(&[
+        let c = PoseidonChip::<JubjubBase>::hash(&[
             DST_SIGNATURE,
             hashx,
             hashy,
@@ -106,14 +110,10 @@ impl SchnorrSigningKey {
         // the poseidon hash might not fit into the smaller modulus
         // the Fr scalar field
         // TODO: Refactor this
-        let challenge_scalar = jubjub_base_to_scalar(&challenge)?;
-        let signature = r - challenge_scalar * self.0;
+        let c_scalar = jubjub_base_to_scalar(&c)?;
+        let s = r - c_scalar * self.0;
 
-        Ok(SchnorrSignature {
-            sigma,
-            signature,
-            challenge,
-        })
+        Ok(SchnorrSignature { sigma, s, c })
     }
 
     fn to_bytes(&self) -> [u8; 32] {
