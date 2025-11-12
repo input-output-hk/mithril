@@ -21,8 +21,8 @@ use crate::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SchnorrSignature {
     pub(crate) sigma: JubjubSubgroup,
-    pub(crate) s: JubjubScalar,
-    pub(crate) c: JubjubBase,
+    pub(crate) signature: JubjubScalar,
+    pub(crate) challenge: JubjubBase,
 }
 
 impl SchnorrSignature {
@@ -60,13 +60,13 @@ impl SchnorrSignature {
         let hash = JubjubHashToCurve::hash_to_curve(&[hash_msg_to_jubjubbase(msg)?]);
 
         // Computing R1 = H(msg) * s + sigma * c
-        let c_scalar = jubjub_base_to_scalar(&self.c)?;
-        let h_s = hash * self.s;
+        let c_scalar = jubjub_base_to_scalar(&self.challenge)?;
+        let h_s = hash * self.signature;
         let sigma_c = self.sigma * c_scalar;
         let r1_tilde = h_s + sigma_c;
 
         // Computing R2 = g * s + vk * c
-        let g_s = g * self.s;
+        let g_s = g * self.signature;
         let vk_c = vk.0 * c_scalar;
         let r2_tilde = g_s + vk_c;
 
@@ -90,7 +90,7 @@ impl SchnorrSignature {
             r2y,
         ]);
 
-        if c_tilde != self.c {
+        if c_tilde != self.challenge {
             // TODO: Wrong error for now, need to change that once the errors are added
             return Err(anyhow!("Signature failed to verify."));
         }
@@ -111,6 +111,7 @@ impl SchnorrSignature {
         let (sigmax, sigmay) = get_coordinates(self.sigma);
         let ev =
             PoseidonChip::<JubjubBase>::hash(&[DST_LOTTERY, hashx, hashy, idx, sigmax, sigmay]);
+
         Ok(ev.to_bytes_le())
     }
 
@@ -118,8 +119,9 @@ impl SchnorrSignature {
     pub(crate) fn to_bytes(self) -> [u8; 96] {
         let mut out = [0; 96];
         out[0..32].copy_from_slice(&self.sigma.to_bytes());
-        out[32..64].copy_from_slice(&self.s.to_bytes());
-        out[64..96].copy_from_slice(&self.c.to_bytes_le());
+        out[32..64].copy_from_slice(&self.signature.to_bytes());
+        out[64..96].copy_from_slice(&self.challenge.to_bytes_le());
+
         out
     }
 
@@ -133,12 +135,13 @@ impl SchnorrSignature {
         let sigma = JubjubSubgroup::from_bytes(&bytes[0..32].try_into()?)
             .into_option()
             .ok_or(anyhow!("Unable to convert bytes into a sigma value."))?;
-        let s = JubjubScalar::from_bytes(&bytes[32..64].try_into()?)
+        let signature = JubjubScalar::from_bytes(&bytes[32..64].try_into()?)
             .into_option()
             .ok_or(anyhow!("Unable to convert bytes into an s value."))?;
-        let c = JubjubBase::from_bytes_le(&bytes[64..96].try_into()?)
+        let challenge = JubjubBase::from_bytes_le(&bytes[64..96].try_into()?)
             .into_option()
             .ok_or(anyhow!("Unable to convert bytes into a c value."))?;
-        Ok(Self { sigma, s, c })
+
+        Ok(Self { sigma, signature, challenge })
     }
 }

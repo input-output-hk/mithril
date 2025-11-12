@@ -1,6 +1,11 @@
 // TODO: Remove
 #![allow(dead_code)]
 
+mod signature;
+mod signing_key;
+mod verification_key;
+
+
 use midnight_circuits::{
     ecc::{hash_to_curve::HashToCurveGadget, native::EccChip},
     hash::poseidon::PoseidonChip,
@@ -13,20 +18,17 @@ use sha2::{Digest, Sha256};
 
 use anyhow::{Result, anyhow};
 
-mod signature;
-mod signing_key;
-mod verification_key;
-
 use signature::*;
-// use signing_key::*;
 use verification_key::*;
+
+
 
 /// A DST to distinguish between use of Poseidon hash
 pub const DST_SIGNATURE: JubjubBase = JubjubBase::from_raw([0u64, 0, 0, 0]);
 pub const DST_LOTTERY: JubjubBase = JubjubBase::from_raw([1u64, 0, 0, 0]);
 
 /// Defining a type for the CPU hash to curve gadget
-type JubjubHashToCurve = HashToCurveGadget<
+pub(crate) type JubjubHashToCurve = HashToCurveGadget<
     JubjubBase,
     JubjubExtended,
     AssignedNative<JubjubBase>,
@@ -36,7 +38,6 @@ type JubjubHashToCurve = HashToCurveGadget<
 
 /// Convert an arbitrary array of bytes into a Jubjub scalar field element
 /// First hash the message to 256 bits use Sha256 then perform the conversion
-/// TODO: Handle the unwrap properly
 pub(crate) fn hash_msg_to_jubjubbase(msg: &[u8]) -> Result<JubjubBase> {
     let mut hash = Sha256::new();
     hash.update(msg);
@@ -50,6 +51,7 @@ pub(crate) fn hash_msg_to_jubjubbase(msg: &[u8]) -> Result<JubjubBase> {
             "Hash of the message does not have the correct lenght."
         ));
     }
+
     Ok(JubjubBase::from_raw([
         u64::from_le_bytes(output[0..8].try_into()?),
         u64::from_le_bytes(output[8..16].try_into()?),
@@ -65,6 +67,7 @@ pub(crate) fn get_coordinates(point: JubjubSubgroup) -> (JubjubBase, JubjubBase)
     let affine = JubjubAffine::from(extended); // Convert to JubjubAffine (affine coordinates)
     let x = affine.get_u(); // Get x-coordinate
     let y = affine.get_v(); // Get y-coordinate
+
     (x, y)
 }
 
@@ -72,6 +75,7 @@ pub(crate) fn get_coordinates(point: JubjubSubgroup) -> (JubjubBase, JubjubBase)
 /// one of the Jubjub base field
 pub(crate) fn jubjub_base_to_scalar(x: &JubjubBase) -> Result<JubjubScalar> {
     let bytes = x.to_bytes_le();
+
     Ok(JubjubScalar::from_raw([
         u64::from_le_bytes(bytes[0..8].try_into()?),
         u64::from_le_bytes(bytes[8..16].try_into()?),
@@ -121,7 +125,7 @@ mod tests {
     // Testing conversion from BLS12-381 base field to Jubjub base field
     // TODO: Add randomness to val
     #[test]
-    fn test_jubjub_ase_to_scalar() {
+    fn test_jubjub_base_to_scalar() {
         let val = vec![0, 0, 0, 1];
         let jjbase = JubjubBase::from_raw(val.clone().try_into().unwrap());
         let jjscalar = JubjubScalar::from_raw(val.try_into().unwrap());
@@ -142,7 +146,6 @@ mod tests {
         sig.verify(&msg, &vk).unwrap();
     }
 
-    // TODO: Change the errors
     #[test]
     fn test_invalid_sig() {
         let msg = vec![0, 0, 0, 1];

@@ -9,7 +9,7 @@ use midnight_circuits::instructions::HashToCurveCPU;
 
 use group::Group;
 
-use crate::schnorr_signature::{
+pub(crate) use crate::schnorr_signature::{
     DST_SIGNATURE, JubjubHashToCurve, get_coordinates, hash_msg_to_jubjubbase,
     jubjub_base_to_scalar,
 };
@@ -67,53 +67,52 @@ impl SchnorrSigningKey {
         rng: &mut (impl RngCore + CryptoRng),
     ) -> Result<SchnorrSignature> {
         // Use the subgroup generator to compute the curve points
-        let g = JubjubSubgroup::generator();
-        let vk = SchnorrVerificationKey::from(self);
+        let generator = JubjubSubgroup::generator();
+        let verification_key = SchnorrVerificationKey::from(self);
 
         // First hashing the message to a scalar then hashing it to a curve point
-        let hash = JubjubHashToCurve::hash_to_curve(&[hash_msg_to_jubjubbase(msg)?]);
+        let hash_msg = JubjubHashToCurve::hash_to_curve(&[hash_msg_to_jubjubbase(msg)?]);
 
         // sigma = H(Sha256(msg)) * sk
-        let sigma = hash * self.0;
+        let sigma = hash_msg * self.0;
 
         // Compute the random part of the signature with
         // r1 = H(msg) * r
         // r2 = g * r
-        let r = JubjubScalar::random(rng);
-        let r1 = hash * r;
-        let r2 = g * r;
+        let random_scalar = JubjubScalar::random(rng);
+        let random_value_1 = hash_msg * random_scalar;
+        let random_value_2 = generator * random_scalar;
 
         // Since the hash function takes as input scalar elements
         // We need to convert the EC points to their coordinates
         // I use gx and gy for now but maybe we can replace them by a DST?
-        let (hashx, hashy) = get_coordinates(hash);
-        let (vkx, vky) = get_coordinates(vk.0);
-        let (sigmax, sigmay) = get_coordinates(sigma);
-        let (r1x, r1y) = get_coordinates(r1);
-        let (r2x, r2y) = get_coordinates(r2);
+        let (hash_msg_x, hash_msg_y) = get_coordinates(hash_msg);
+        let (verification_key_x, verification_key_y) = get_coordinates(verification_key.0);
+        let (sigma_x, sigma_y) = get_coordinates(sigma);
+        let (random_value_1_x, random_value_1_y) = get_coordinates(random_value_1);
+        let (random_value_2_x, random_value_2_y) = get_coordinates(random_value_2);
 
-        let c = PoseidonChip::<JubjubBase>::hash(&[
+        let challenge = PoseidonChip::<JubjubBase>::hash(&[
             DST_SIGNATURE,
-            hashx,
-            hashy,
-            vkx,
-            vky,
-            sigmax,
-            sigmay,
-            r1x,
-            r1y,
-            r2x,
-            r2y,
+            hash_msg_x,
+            hash_msg_y,
+            verification_key_x,
+            verification_key_y,
+            sigma_x,
+            sigma_y,
+            random_value_1_x,
+            random_value_1_y,
+            random_value_2_x,
+            random_value_2_y,
         ]);
 
         // We want to use the from_raw function because the result of
         // the poseidon hash might not fit into the smaller modulus
         // the Fr scalar field
-        // TODO: Refactor this
-        let c_scalar = jubjub_base_to_scalar(&c)?;
-        let s = r - c_scalar * self.0;
+        let challenge_scalar = jubjub_base_to_scalar(&challenge)?;
+        let signature = random_scalar - challenge_scalar * self.0;
 
-        Ok(SchnorrSignature { sigma, s, c })
+        Ok(SchnorrSignature { sigma, signature, challenge })
     }
 
     pub(crate) fn to_bytes(&self) -> [u8; 32] {
@@ -130,6 +129,7 @@ impl SchnorrSigningKey {
             .get(..32)
             .ok_or(anyhow!("Not enough bytes to create a signing key."))?
             .try_into()?;
+
         // Jubjub returs a CtChoice so I convert it to an option that looses the const time property
         match JubjubScalar::from_bytes(bytes).into_option() {
             Some(sk) => Ok(Self(sk)),
@@ -144,7 +144,7 @@ impl SchnorrSigningKey {
 //
 #[cfg(test)]
 mod tests {
-    use super::*;
+    pub(crate) use super::*;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 

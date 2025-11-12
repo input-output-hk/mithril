@@ -22,7 +22,6 @@ impl SchnorrVerificationKey {
     }
 
     /// Do we really need to separate the coordinates?
-    /// TODO: Make sure this is correct with some tests
     pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self> {
         let bytes = bytes
             .get(0..32)
@@ -42,6 +41,7 @@ impl From<&SchnorrSigningKey> for SchnorrVerificationKey {
     /// of the subgroup and sk is the schnorr secret key
     fn from(sk: &SchnorrSigningKey) -> Self {
         let g = JubjubSubgroup::generator();
+
         SchnorrVerificationKey(g * sk.0)
     }
 }
