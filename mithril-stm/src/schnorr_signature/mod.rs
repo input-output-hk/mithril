@@ -43,7 +43,6 @@ mod tests {
         signing_key::SchnorrSigningKey, verification_key::SchnorrVerificationKey,
     };
 
-    // Testing conversion from arbitrary message to scalar field element
     #[test]
     fn test_hash_msg_to_jubjubbase() {
         let msg = vec![0, 0, 0, 1];
@@ -53,23 +52,21 @@ mod tests {
             179, 7, 17, 168, 141, 112, 57, 117, 112, 92, 169, 56, 36, 70, 1, 217, 9, 13, 255, 42,
             100, 207, 166, 110, 188, 47, 35, 211, 35, 168, 100, 25,
         ];
+
         let field_elem = JubjubBase::from_bytes_le(&bytes_le).unwrap();
+
         assert_eq!(h, field_elem)
     }
 
-    // Testing conversion from EC point to scalar coordinates
-    // For now only printing, next step is to try to generate a point
-    // from x and y values to check if they match with the result of the function
     #[test]
     fn test_get_coordinates() {
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
         let point = JubjubSubgroup::random(&mut rng);
+
         let (_x, _y) = get_coordinates(point);
-        // println!("{:?}", (x, y));
     }
 
-    // Testing conversion from BLS12-381 base field to Jubjub base field
     // TODO: Add randomness to val
     #[test]
     fn test_jubjub_base_to_scalar() {
@@ -89,7 +86,9 @@ mod tests {
         let mut rng = ChaCha20Rng::from_seed(seed);
         let sk = SchnorrSigningKey::generate(&mut rng);
         let vk = SchnorrVerificationKey::from(&sk);
+
         let sig = sk.sign(&msg, &mut rng).unwrap();
+
         sig.verify(&msg, &vk).unwrap();
     }
 
@@ -99,10 +98,8 @@ mod tests {
         let msg2 = vec![0, 0, 0, 2];
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
-
         let sk = SchnorrSigningKey::generate(&mut rng);
         let vk = SchnorrVerificationKey::from(&sk);
-
         let sk2 = SchnorrSigningKey::generate(&mut rng);
         let vk2 = SchnorrVerificationKey::from(&sk2);
 
@@ -110,15 +107,15 @@ mod tests {
         let sig2 = sk.sign(&msg2, &mut rng).unwrap();
 
         // Wrong verification key is used
-        let result = sig.verify(&msg, &vk2);
+        let result1 = sig.verify(&msg, &vk2);
+        let result2 = sig2.verify(&msg, &vk);
+
         assert!(
-            result.is_err(),
+            result1.is_err(),
             "Wrong verfication key used, test should fail."
         );
-
         // Wrong message is verified
-        let result = sig2.verify(&msg, &vk);
-        assert!(result.is_err(), "Wrong message used, test should fail.");
+        assert!(result2.is_err(), "Wrong message used, test should fail.");
     }
 
     #[test]
@@ -127,8 +124,10 @@ mod tests {
         let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
         let sk = SchnorrSigningKey::generate(&mut rng);
         let vk = SchnorrVerificationKey::from(&sk);
+
         let vk_bytes = vk.to_bytes();
         let vk2 = SchnorrVerificationKey::from_bytes(&vk_bytes).unwrap();
+
         assert_eq!(vk.0, vk2.0);
     }
 
@@ -137,8 +136,10 @@ mod tests {
         let seed = 0;
         let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
         let sk = SchnorrSigningKey::generate(&mut rng);
+
         let sk_bytes: [u8; 32] = sk.to_bytes();
         let sk2 = SchnorrSigningKey::from_bytes(&sk_bytes).unwrap();
+
         assert_eq!(sk, sk2);
     }
 
@@ -150,9 +151,9 @@ mod tests {
         let sk = SchnorrSigningKey::generate(&mut rng);
 
         let sig = sk.sign(&msg, &mut rng).unwrap();
-
         let sig_bytes: [u8; 96] = sig.clone().to_bytes();
         let sig2 = SchnorrSignature::from_bytes(&sig_bytes).unwrap();
+
         assert_eq!(sig, sig2);
     }
 }
