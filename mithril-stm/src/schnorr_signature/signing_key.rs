@@ -10,8 +10,8 @@ use midnight_circuits::instructions::HashToCurveCPU;
 use group::Group;
 
 pub(crate) use crate::schnorr_signature::{
-    DST_SIGNATURE, JubjubHashToCurve, get_coordinates, hash_msg_to_jubjubbase,
-    jubjub_base_to_scalar,
+    DST_SIGNATURE, JubjubHashToCurve,
+    utils::{get_coordinates, hash_msg_to_jubjubbase, jubjub_base_to_scalar},
 };
 use crate::schnorr_signature::{SchnorrSignature, SchnorrVerificationKey};
 
@@ -112,7 +112,11 @@ impl SchnorrSigningKey {
         let challenge_scalar = jubjub_base_to_scalar(&challenge)?;
         let signature = random_scalar - challenge_scalar * self.0;
 
-        Ok(SchnorrSignature { sigma, signature, challenge })
+        Ok(SchnorrSignature {
+            sigma,
+            signature,
+            challenge,
+        })
     }
 
     pub(crate) fn to_bytes(&self) -> [u8; 32] {
