@@ -3,27 +3,21 @@
 
 mod signature;
 mod signing_key;
+mod utils;
 mod verification_key;
-
 
 use midnight_circuits::{
     ecc::{hash_to_curve::HashToCurveGadget, native::EccChip},
     hash::poseidon::PoseidonChip,
     types::AssignedNative,
 };
-use midnight_curves::{
-    Fq as JubjubBase, Fr as JubjubScalar, JubjubAffine, JubjubExtended, JubjubSubgroup,
-};
-use sha2::{Digest, Sha256};
-
-use anyhow::{Result, anyhow};
+use midnight_curves::{Fq as JubjubBase, JubjubExtended};
 
 use signature::*;
+use utils::*;
 use verification_key::*;
 
-
-
-/// A DST to distinguish between use of Poseidon hash
+/// A DST (Domain Separation Tag) to distinguish between use of Poseidon hash
 pub const DST_SIGNATURE: JubjubBase = JubjubBase::from_raw([0u64, 0, 0, 0]);
 pub const DST_LOTTERY: JubjubBase = JubjubBase::from_raw([1u64, 0, 0, 0]);
 
@@ -36,59 +30,12 @@ pub(crate) type JubjubHashToCurve = HashToCurveGadget<
     EccChip<JubjubExtended>,
 >;
 
-/// Convert an arbitrary array of bytes into a Jubjub scalar field element
-/// First hash the message to 256 bits use Sha256 then perform the conversion
-pub(crate) fn hash_msg_to_jubjubbase(msg: &[u8]) -> Result<JubjubBase> {
-    let mut hash = Sha256::new();
-    hash.update(msg);
-    let hmsg = hash.finalize();
-    let mut output = [0u8; 32];
-    // Adding a check here but this
-    if hmsg.len() == output.len() {
-        output.copy_from_slice(&hmsg);
-    } else {
-        return Err(anyhow!(
-            "Hash of the message does not have the correct lenght."
-        ));
-    }
-
-    Ok(JubjubBase::from_raw([
-        u64::from_le_bytes(output[0..8].try_into()?),
-        u64::from_le_bytes(output[8..16].try_into()?),
-        u64::from_le_bytes(output[16..24].try_into()?),
-        u64::from_le_bytes(output[24..32].try_into()?),
-    ]))
-}
-
-/// Extract the coordinates of a given point
-/// This is mainly use to feed the Poseidon hash function
-pub(crate) fn get_coordinates(point: JubjubSubgroup) -> (JubjubBase, JubjubBase) {
-    let extended = JubjubExtended::from(point); // Convert to JubjubExtended
-    let affine = JubjubAffine::from(extended); // Convert to JubjubAffine (affine coordinates)
-    let x = affine.get_u(); // Get x-coordinate
-    let y = affine.get_v(); // Get y-coordinate
-
-    (x, y)
-}
-
-/// Convert an element of the BLS12-381 base field to
-/// one of the Jubjub base field
-pub(crate) fn jubjub_base_to_scalar(x: &JubjubBase) -> Result<JubjubScalar> {
-    let bytes = x.to_bytes_le();
-
-    Ok(JubjubScalar::from_raw([
-        u64::from_le_bytes(bytes[0..8].try_into()?),
-        u64::from_le_bytes(bytes[8..16].try_into()?),
-        u64::from_le_bytes(bytes[16..24].try_into()?),
-        u64::from_le_bytes(bytes[24..32].try_into()?),
-    ]))
-}
-
 #[cfg(test)]
 mod tests {
 
     use super::*;
     use group::Group;
+    use midnight_curves::Fr as JubjubScalar;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 

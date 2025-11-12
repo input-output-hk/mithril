@@ -142,6 +142,10 @@ impl SchnorrSignature {
             .into_option()
             .ok_or(anyhow!("Unable to convert bytes into a c value."))?;
 
-        Ok(Self { sigma, signature, challenge })
+        Ok(Self {
+            sigma,
+            signature,
+            challenge,
+        })
     }
 }
