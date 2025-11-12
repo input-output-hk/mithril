@@ -15,18 +15,23 @@ use crate::{
 };
 
 /// Structure of the Schnorr signature to use with the SNARK
+///
 /// This signature includes a value `sigma` which depends only on
 /// the message and the signing key.
 /// This value is used in the lottery process to determine the correct indices.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SchnorrSignature {
+    /// Deterministic value depending on the message and secret key
     pub(crate) sigma: JubjubSubgroup,
+    /// Part of the Schnorr signature depending on the secret key
     pub(crate) signature: JubjubScalar,
+    /// Part of the Schnorr signature NOT depending on the secret key
     pub(crate) challenge: JubjubBase,
 }
 
 impl SchnorrSignature {
     /// Description of the verification for Schnorr
+    ///
     /// This function performs the verification of a Schnorr signature given the signature, the signed message
     /// and a verification key derived from the secret key used to sign.
     ///
@@ -98,8 +103,8 @@ impl SchnorrSignature {
         Ok(())
     }
 
-    /// Dense mapping function indexed by the index to be evaluated
-    /// adapted to the Schnorr signature.
+    /// Dense mapping function indexed by the index to be evaluated adapted to the Schnorr signature.
+    ///
     /// We need to convert the inputs to fit in a Poseidon hash.
     /// The order of the hash input must be the same as the one in the SNARK circuit
     /// `ev = H(DST || msg || index || σ) <- MSP.Eval(msg,index,σ)` given in paper.
@@ -126,6 +131,7 @@ impl SchnorrSignature {
     }
 
     /// Convert a string of bytes into a `SchnorrSignature`.
+    ///
     /// Not sure the sigma, s and c creation can fail if the 96 bytes are correctly extracted.
     /// TODO: Do we want to fail conversion if there are more than 96 bytes?
     pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self> {
