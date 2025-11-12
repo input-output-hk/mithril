@@ -406,6 +406,7 @@ mod messages {
     impl Dummy for EpochSettingsMessage {
         /// Return a dummy [EpochSettingsMessage] (test-only).
         fn dummy() -> Self {
+            #[allow(deprecated)]
             Self {
                 epoch: Epoch(10),
                 signer_registration_protocol_parameters: Some(ProtocolParameters {

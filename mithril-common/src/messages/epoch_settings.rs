@@ -9,6 +9,10 @@ pub struct EpochSettingsMessage {
     pub epoch: Epoch,
 
     /// Signer Registration Protocol parameters
+    #[deprecated(
+        since = "0.6.27",
+        note = "Will be removed soon. use `mithril_protocol_config` crate instead."
+    )]
     #[serde(
         rename = "signer_registration_protocol",
         skip_serializing_if = "Option::is_none"
@@ -22,6 +26,10 @@ pub struct EpochSettingsMessage {
     pub next_signers: Vec<SignerMessagePart>,
 
     /// Cardano transactions signing configuration for the current epoch
+    #[deprecated(
+        since = "0.6.27",
+        note = "Will be removed soon. use `mithril_protocol_config` crate instead."
+    )]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
 }
@@ -139,6 +147,7 @@ mod tests {
     }
 
     fn golden_current_message() -> EpochSettingsMessage {
+        #[allow(deprecated)]
         EpochSettingsMessage {
             epoch: Epoch(10),
             signer_registration_protocol_parameters: Some(ProtocolParameters {

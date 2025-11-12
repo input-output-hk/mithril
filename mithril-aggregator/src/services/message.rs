@@ -183,6 +183,7 @@ impl MessageService for MithrilMessageService {
             .transpose()?
             .cloned();
 
+        #[allow(deprecated)]
         let epoch_settings_message = EpochSettingsMessage {
             epoch,
             signer_registration_protocol_parameters: Some(signer_registration_protocol_parameters),
@@ -509,6 +510,7 @@ mod tests {
         }
     }
 
+    #[allow(deprecated)]
     mod epoch_settings {
         use mithril_common::{
             entities::{CardanoTransactionsSigningConfig, ProtocolParameters},
