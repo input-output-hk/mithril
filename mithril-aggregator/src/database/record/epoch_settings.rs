@@ -4,7 +4,7 @@ use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
 use crate::entities::AggregatorEpochSettings;
 
 /// Settings for an epoch, including the protocol parameters.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct EpochSettingsRecord {
     /// Epoch settings id, i.e. the epoch number.
     pub epoch_settings_id: Epoch,

@@ -11,7 +11,7 @@ use axum_test::TestServer;
 use reqwest::Url;
 
 use mithril_aggregator::services::MessageService;
-use mithril_common::entities::SignedEntityTypeDiscriminants;
+use mithril_common::entities::{Epoch, SignedEntityTypeDiscriminants};
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::{StdError, StdResult};
 
@@ -33,6 +33,10 @@ impl LeaderAggregatorHttpServer {
             .route("/certificates", get(certificates_list))
             .route("/certificate/genesis", get(certificate_last_genesis))
             .route("/certificate/{hash}", get(certificate_by_hash))
+            .route(
+                "/protocol-configuration/{epoch}",
+                get(protocol_configuration_by_epoch),
+            )
             .with_state(state);
 
         let server = TestServer::builder().http_transport().build(router)?;
@@ -93,6 +97,22 @@ async fn certificate_by_hash(
 ) -> Response {
     slog::debug!(state.logger, "/certificate/{hash}");
     match state.message_service.get_certificate_message(&hash).await {
+        Ok(Some(message)) => (StatusCode::OK, Json(message)).into_response(),
+        Ok(None) => StatusCode::NOT_FOUND.into_response(),
+        Err(err) => internal_server_error(err).into_response(),
+    }
+}
+
+async fn protocol_configuration_by_epoch(
+    Path(epoch): Path<u64>,
+    state: State<LeaderAggregatorRoutesState>,
+) -> Response {
+    slog::debug!(state.logger, "/protocol-configuration/{epoch}");
+    match state
+        .message_service
+        .get_protocol_configuration_message(Epoch(epoch), SignedEntityTypeDiscriminants::all())
+        .await
+    {
         Ok(Some(message)) => (StatusCode::OK, Json(message)).into_response(),
         Ok(None) => StatusCode::NOT_FOUND.into_response(),
         Err(err) => internal_server_error(err).into_response(),

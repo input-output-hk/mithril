@@ -406,13 +406,14 @@ mod messages {
     impl Dummy for EpochSettingsMessage {
         /// Return a dummy [EpochSettingsMessage] (test-only).
         fn dummy() -> Self {
+            #[allow(deprecated)]
             Self {
                 epoch: Epoch(10),
-                signer_registration_protocol_parameters: ProtocolParameters {
+                signer_registration_protocol_parameters: Some(ProtocolParameters {
                     k: 5,
                     m: 100,
                     phi_f: 0.65,
-                },
+                }),
                 current_signers: [SignerMessagePart::dummy()].to_vec(),
                 next_signers: [SignerMessagePart::dummy()].to_vec(),
                 cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),

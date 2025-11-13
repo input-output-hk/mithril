@@ -12,16 +12,15 @@ use mithril_persistence::sqlite::{
 };
 
 use crate::database::query::{
-    ImportSignerRecordQuery, InsertCertificateRecordQuery,
+    ImportSignerRecordQuery, InsertCertificateRecordQuery, InsertOrIgnoreEpochSettingsQuery,
     InsertOrReplaceBufferedSingleSignatureRecordQuery,
     InsertOrReplaceSignerRegistrationRecordQuery, InsertOrReplaceStakePoolQuery,
-    InsertSignedEntityRecordQuery, UpdateEpochSettingsQuery, UpdateSingleSignatureRecordQuery,
+    InsertSignedEntityRecordQuery, UpdateSingleSignatureRecordQuery,
 };
 use crate::database::record::{
-    BufferedSingleSignatureRecord, CertificateRecord, SignedEntityRecord, SignerRecord,
-    SignerRegistrationRecord, SingleSignatureRecord,
+    BufferedSingleSignatureRecord, CertificateRecord, EpochSettingsRecord, SignedEntityRecord,
+    SignerRecord, SignerRegistrationRecord, SingleSignatureRecord,
 };
-use crate::entities::AggregatorEpochSettings;
 
 /// In-memory sqlite database without foreign key support with migrations applied
 pub fn main_db_connection() -> StdResult<SqliteConnection> {
@@ -206,16 +205,14 @@ pub fn insert_epoch_settings(
     let query = {
         // leverage the expanded parameter from this query which is unit
         // tested on its own above.
-        let (sql_values, _) = UpdateEpochSettingsQuery::one(
-            Epoch(1),
-            AggregatorEpochSettings {
-                protocol_parameters: ProtocolParameters::new(1, 2, 1.0),
-                cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
-                    security_parameter: BlockNumber(0),
-                    step: BlockNumber(0),
-                },
+        let (sql_values, _) = InsertOrIgnoreEpochSettingsQuery::one(EpochSettingsRecord {
+            epoch_settings_id: Epoch(1),
+            protocol_parameters: ProtocolParameters::new(1, 2, 1.0),
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(0),
+                step: BlockNumber(0),
             },
-        )
+        })
         .filters()
         .expand();
 

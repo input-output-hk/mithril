@@ -9,8 +9,15 @@ pub struct EpochSettingsMessage {
     pub epoch: Epoch,
 
     /// Signer Registration Protocol parameters
-    #[serde(rename = "signer_registration_protocol")]
-    pub signer_registration_protocol_parameters: ProtocolParameters,
+    #[deprecated(
+        since = "0.6.27",
+        note = "Will be removed soon. use `mithril-protocol-config` crate instead."
+    )]
+    #[serde(
+        rename = "signer_registration_protocol",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub signer_registration_protocol_parameters: Option<ProtocolParameters>,
 
     /// Current Signers
     pub current_signers: Vec<SignerMessagePart>,
@@ -19,13 +26,16 @@ pub struct EpochSettingsMessage {
     pub next_signers: Vec<SignerMessagePart>,
 
     /// Cardano transactions signing configuration for the current epoch
+    #[deprecated(
+        since = "0.6.27",
+        note = "Will be removed soon. use `mithril-protocol-config` crate instead."
+    )]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
 }
 
 #[cfg(test)]
 mod tests {
-
     use crate::entities::BlockNumber;
 
     use super::*;
@@ -56,19 +66,25 @@ mod tests {
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     struct EpochSettingsMessageUntilV0_1_51 {
         pub epoch: Epoch,
-
         #[serde(rename = "signer_registration_protocol")]
         pub signer_registration_protocol_parameters: ProtocolParameters,
-
         pub current_signers: Vec<SignerMessagePart>,
-
         pub next_signers: Vec<SignerMessagePart>,
-
         #[serde(skip_serializing_if = "Option::is_none")]
         pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
-
         #[serde(skip_serializing_if = "Option::is_none")]
         pub next_cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
+    }
+
+    #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+    pub struct EpochSettingsMessageUntilV0_1_55 {
+        pub epoch: Epoch,
+        #[serde(rename = "signer_registration_protocol")]
+        pub signer_registration_protocol_parameters: ProtocolParameters,
+        pub current_signers: Vec<SignerMessagePart>,
+        pub next_signers: Vec<SignerMessagePart>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
     }
 
     fn golden_message_until_open_api_0_1_51() -> EpochSettingsMessageUntilV0_1_51 {
@@ -101,8 +117,8 @@ mod tests {
         }
     }
 
-    fn golden_current_message() -> EpochSettingsMessage {
-        EpochSettingsMessage {
+    fn golden_message_until_open_api_0_1_55() -> EpochSettingsMessageUntilV0_1_55 {
+        EpochSettingsMessageUntilV0_1_55 {
             epoch: Epoch(10),
             signer_registration_protocol_parameters: ProtocolParameters {
                 k: 500,
@@ -130,12 +146,50 @@ mod tests {
         }
     }
 
+    fn golden_current_message() -> EpochSettingsMessage {
+        #[allow(deprecated)]
+        EpochSettingsMessage {
+            epoch: Epoch(10),
+            signer_registration_protocol_parameters: Some(ProtocolParameters {
+                k: 500,
+                m: 10000,
+                phi_f: 0.65,
+            }),
+            current_signers: vec![SignerMessagePart {
+                party_id: "123".to_string(),
+                verification_key: "key_123".to_string(),
+                verification_key_signature: Some("signature_123".to_string()),
+                operational_certificate: Some("certificate_123".to_string()),
+                kes_period: Some(12),
+            }],
+            next_signers: vec![SignerMessagePart {
+                party_id: "456".to_string(),
+                verification_key: "key_456".to_string(),
+                verification_key_signature: Some("signature_456".to_string()),
+                operational_certificate: Some("certificate_456".to_string()),
+                kes_period: Some(45),
+            }],
+            cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(70),
+                step: BlockNumber(20),
+            }),
+        }
+    }
+
     #[test]
     fn test_current_json_deserialized_into_message_supported_until_open_api_0_1_51() {
         let json = CURRENT_JSON;
         let message: EpochSettingsMessageUntilV0_1_51 = serde_json::from_str(json).unwrap();
 
         assert_eq!(golden_message_until_open_api_0_1_51(), message);
+    }
+
+    #[test]
+    fn test_current_json_deserialized_into_message_supported_until_open_api_0_1_55() {
+        let json = CURRENT_JSON;
+        let message: EpochSettingsMessageUntilV0_1_55 = serde_json::from_str(json).unwrap();
+
+        assert_eq!(golden_message_until_open_api_0_1_55(), message);
     }
 
     #[test]

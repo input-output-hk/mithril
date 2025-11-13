@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.55
+  version: 0.1.56
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -995,11 +995,11 @@ components:
         - epoch
         - current_signers
         - next_signers
-        - signer_registration_protocol
       properties:
         epoch:
           $ref: "#/components/schemas/Epoch"
         signer_registration_protocol:
+          deprecated: true
           $ref: "#/components/schemas/ProtocolParameters"
         current_signers:
           type: array
@@ -1010,6 +1010,7 @@ components:
           items:
             $ref: "#/components/schemas/Signer"
         cardano_transactions_signing_config:
+          deprecated: true
           $ref: "#/components/schemas/CardanoTransactionsSigningConfig"
       examples:
         - {

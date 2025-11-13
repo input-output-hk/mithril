@@ -24,10 +24,9 @@ use mithril_common::{
     StdResult,
     crypto_helper::ProtocolGenesisSigner,
     entities::{
-        BlockNumber, CardanoTransactionsSigningConfig, Certificate, CertificateSignature,
-        ChainPoint, Epoch, ImmutableFileNumber, SignedEntityType, SignedEntityTypeDiscriminants,
-        SingleSignatureAuthenticationStatus, SlotNumber, StakeDistribution, SupportedEra,
-        TimePoint,
+        BlockNumber, Certificate, CertificateSignature, ChainPoint, Epoch, ImmutableFileNumber,
+        SignedEntityType, SignedEntityTypeDiscriminants, SingleSignatureAuthenticationStatus,
+        SlotNumber, StakeDistribution, SupportedEra, TimePoint,
     },
     test::{
         builder::{
@@ -127,7 +126,6 @@ macro_rules! assert_metrics_eq {
 
 pub struct RuntimeTester {
     pub network: String,
-    pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
     pub snapshot_uploader: Arc<DumbUploader>,
     pub chain_observer: Arc<FakeChainObserver>,
     pub immutable_file_observer: Arc<DumbImmutableFileObserver>,
@@ -159,8 +157,6 @@ impl RuntimeTester {
         let logger = build_logger();
         let global_logger = slog_scope::set_global_logger(logger.clone());
         let network = configuration.network.clone();
-        let cardano_transactions_signing_config =
-            configuration.cardano_transactions_signing_config.clone();
         let snapshot_uploader = Arc::new(DumbUploader::default());
         let immutable_file_observer = Arc::new(DumbImmutableFileObserver::new());
         immutable_file_observer
@@ -196,7 +192,6 @@ impl RuntimeTester {
 
         Self {
             network,
-            cardano_transactions_signing_config,
             snapshot_uploader,
             chain_observer,
             immutable_file_observer,
@@ -228,13 +223,9 @@ impl RuntimeTester {
         self.chain_observer.set_signers(fixture.signers_with_stake()).await;
 
         // Init the stores needed for a genesis certificate
-        let genesis_epochs = self.dependencies.get_genesis_epochs().await;
+        let time_point = self.observer.current_time_point().await;
         self.dependencies
-            .init_state_from_fixture(
-                fixture,
-                &self.cardano_transactions_signing_config,
-                &[genesis_epochs.0, genesis_epochs.1],
-            )
+            .init_state_from_fixture_for_genesis(fixture, time_point.epoch)
             .await;
         Ok(())
     }

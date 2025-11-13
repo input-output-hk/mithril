@@ -22,7 +22,7 @@ async fn cardano_stake_distribution_verify_stakes() {
         phi_f: 0.95,
     };
     let configuration = ServeCommandConfiguration {
-        protocol_parameters: protocol_parameters.clone(),
+        protocol_parameters: Some(protocol_parameters.clone()),
         signed_entity_types: Some(
             SignedEntityTypeDiscriminants::CardanoStakeDistribution.to_string(),
         ),

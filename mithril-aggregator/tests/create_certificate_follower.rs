@@ -98,7 +98,7 @@ async fn create_certificate_follower() {
         },
     };
     let leader_configuration = ServeCommandConfiguration {
-        protocol_parameters: protocol_parameters.clone(),
+        protocol_parameters: Some(protocol_parameters.clone()),
         data_stores_directory: get_test_dir("create_certificate_leader"),
         signed_entity_types: Some(
             SignedEntityTypeDiscriminants::CardanoStakeDistribution.to_string(),
@@ -117,6 +117,9 @@ async fn create_certificate_follower() {
             "create_certificate_follower",
         ),
         leader_aggregator_endpoint: Some(leader_aggregator_http_server.url().to_string()),
+        // Follower must retrieve parameters from the network configuration (today through the leader)
+        // so this parameters should not be read
+        protocol_parameters: None,
         ..leader_configuration
     };
     let mut follower_tester = RuntimeTester::build(start_time_point, follower_configuration).await;

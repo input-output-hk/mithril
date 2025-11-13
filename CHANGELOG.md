@@ -9,11 +9,10 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
-- **UNSTABLE**:
+- Decentralization of the configuration parameters of Mithril networks:
   - Added the `/protocol-configuration/{epoch}` route to fetch aggregator configuration for a given epoch, `{epoch}` must be a number.
-
-  - Enhanced `MithrilNetworkConfigurationProvider` to return configuration with a window of three epoch.
-  - Adapt Signer to read configurations from HttpMithrilNetworkConfigurationProvider
+  - Refactor Signer and Aggregator (leader, follower) to read network configurations from a `MithrilNetworkConfigurationProvider`
+  - Support for reading network configurations from its leader aggregator for the follower aggregators.
 
 - Crates versions:
 

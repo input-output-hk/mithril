@@ -70,8 +70,9 @@ pub struct Configuration {
     /// be considered final, preventing any further rollback `[default: 2160]`.
     pub network_security_parameter: BlockNumber,
 
-    /// Blocks offset, from the tip of the chain, to exclude during the cardano transactions preload
-    /// `[default: 3000]`.
+    /// Blocks offset, from the tip of the chain, to exclude during the Cardano transactions preload,
+    /// default to 2160.
+    #[example = "`2160`"]
     pub preload_security_parameter: BlockNumber,
 
     /// Aggregator endpoint
@@ -302,7 +303,7 @@ impl Default for DefaultConfiguration {
             metrics_server_ip: "0.0.0.0".to_string(),
             metrics_server_port: 9090,
             network_security_parameter: 2160, // 2160 is the mainnet value
-            preload_security_parameter: 1000,
+            preload_security_parameter: 2160,
             enable_transaction_pruning: true,
             transactions_import_block_chunk_size: 1500,
             cardano_transactions_block_streamer_max_roll_forwards_per_poll: 10000,

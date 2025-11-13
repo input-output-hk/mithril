@@ -22,7 +22,7 @@ async fn create_certificate() {
         phi_f: 0.95,
     };
     let configuration = ServeCommandConfiguration {
-        protocol_parameters: protocol_parameters.clone(),
+        protocol_parameters: Some(protocol_parameters.clone()),
         signed_entity_types: Some(
             [
                 SignedEntityTypeDiscriminants::CardanoTransactions.to_string(),
@@ -31,10 +31,10 @@ async fn create_certificate() {
             .join(","),
         ),
         data_stores_directory: get_test_dir("create_certificate"),
-        cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+        cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
             security_parameter: BlockNumber(0),
             step: BlockNumber(30),
-        },
+        }),
         ..ServeCommandConfiguration::new_sample(temp_dir!())
     };
     let mut tester = RuntimeTester::build(

@@ -5,7 +5,7 @@ use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereConditi
 
 use crate::database::record::ProtocolInitializerRecord;
 
-/// Query to insert or ignore [ProtocolInitializerRecord] in the sqlite database
+/// Query to insert a [ProtocolInitializerRecord] into the sqlite database if it does not already exist.
 pub struct InsertOrIgnoreProtocolInitializerQuery {
     condition: WhereCondition,
 }

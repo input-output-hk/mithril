@@ -1,5 +1,6 @@
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
+use mithril_protocol_config::interface::MithrilNetworkConfigurationProvider;
 use slog::{Logger, debug};
 use std::collections::BTreeSet;
 use std::sync::Arc;
@@ -43,11 +44,6 @@ pub trait EpochService: Sync + Send {
     /// Inform the service a new epoch has been detected, telling it to update its
     /// internal state for the new epoch.
     async fn inform_epoch(&mut self, epoch: Epoch) -> StdResult<()>;
-
-    /// Insert future epoch settings in the store based on this service current epoch (epoch offset +2).
-    ///
-    /// Note: must be called after `inform_epoch`.
-    async fn update_epoch_settings(&mut self) -> StdResult<()>;
 
     /// Update the next signers with stake for the next epoch.
     async fn update_next_signers_with_stake(&mut self) -> StdResult<()>;
@@ -151,6 +147,7 @@ struct ComputedEpochData {
 
 /// Dependencies required by the [MithrilEpochService].
 pub struct EpochServiceDependencies {
+    mithril_network_configuration_provider: Arc<dyn MithrilNetworkConfigurationProvider>,
     epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
     verification_key_store: Arc<dyn VerificationKeyStorer>,
     chain_observer: Arc<dyn ChainObserver>,
@@ -161,6 +158,7 @@ pub struct EpochServiceDependencies {
 impl EpochServiceDependencies {
     /// Create a new instance of [EpochServiceDependencies].
     pub fn new(
+        mithril_network_configuration_provider: Arc<dyn MithrilNetworkConfigurationProvider>,
         epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
         verification_key_store: Arc<dyn VerificationKeyStorer>,
         chain_observer: Arc<dyn ChainObserver>,
@@ -168,6 +166,7 @@ impl EpochServiceDependencies {
         stake_store: Arc<dyn StakeStorer>,
     ) -> Self {
         Self {
+            mithril_network_configuration_provider,
             epoch_settings_storer,
             verification_key_store,
             chain_observer,
@@ -179,10 +178,9 @@ impl EpochServiceDependencies {
 
 /// Implementation of the [epoch service][EpochService].
 pub struct MithrilEpochService {
-    /// Epoch settings that will be inserted when inform_epoch is called
-    future_epoch_settings: AggregatorEpochSettings,
     epoch_data: Option<EpochData>,
     computed_epoch_data: Option<ComputedEpochData>,
+    mithril_network_configuration_provider: Arc<dyn MithrilNetworkConfigurationProvider>,
     epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
     verification_key_store: Arc<dyn VerificationKeyStorer>,
     chain_observer: Arc<dyn ChainObserver>,
@@ -195,15 +193,15 @@ pub struct MithrilEpochService {
 impl MithrilEpochService {
     /// Create a new service instance
     pub fn new(
-        future_epoch_settings: AggregatorEpochSettings,
         dependencies: EpochServiceDependencies,
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
         logger: Logger,
     ) -> Self {
         Self {
-            future_epoch_settings,
             epoch_data: None,
             computed_epoch_data: None,
+            mithril_network_configuration_provider: dependencies
+                .mithril_network_configuration_provider,
             epoch_settings_storer: dependencies.epoch_settings_storer,
             verification_key_store: dependencies.verification_key_store,
             chain_observer: dependencies.chain_observer,
@@ -248,33 +246,15 @@ impl MithrilEpochService {
         Ok(signers)
     }
 
-    async fn get_epoch_settings(
+    async fn insert_epoch_settings(
         &self,
-        epoch: Epoch,
-        name: &str,
-    ) -> StdResult<AggregatorEpochSettings> {
-        let epoch_settings = self
-            .epoch_settings_storer
-            .get_epoch_settings(epoch)
-            .await
-            .with_context(|| format!("Epoch service failed to obtain {name}"))?
-            .ok_or(EpochServiceError::UnavailableData(epoch, name.to_string()))?;
-
-        Ok(epoch_settings)
-    }
-
-    async fn insert_future_epoch_settings(&self, actual_epoch: Epoch) -> StdResult<()> {
-        let recording_epoch = actual_epoch.offset_to_epoch_settings_recording_epoch();
-
-        debug!(
-            self.logger, "Inserting epoch settings in epoch {recording_epoch}";
-            "epoch_settings" => ?self.future_epoch_settings
-        );
-
+        recording_epoch: Epoch,
+        epoch_settings: &AggregatorEpochSettings,
+    ) -> StdResult<()> {
         self.epoch_settings_storer
             .save_epoch_settings(
                 recording_epoch,
-                self.future_epoch_settings.clone(),
+                epoch_settings.clone()
             )
             .await
             .with_context(|| format!("Epoch service failed to insert future_epoch_settings to epoch {recording_epoch}"))
@@ -308,21 +288,59 @@ impl EpochService for MithrilEpochService {
                 format!("EpochService could not compute signer retrieval epoch from epoch: {epoch}")
             })?;
         let next_signer_retrieval_epoch = epoch.offset_to_next_signer_retrieval_epoch();
+        let signer_registration_epoch = epoch.offset_to_recording_epoch();
 
-        let current_epoch_settings = self
-            .get_epoch_settings(signer_retrieval_epoch, "current epoch settings")
+        let network_configuration = self
+            .mithril_network_configuration_provider
+            .get_network_configuration(epoch)
             .await?;
 
-        let next_epoch_settings = self
-            .get_epoch_settings(next_signer_retrieval_epoch, "next epoch settings")
-            .await?;
+        let current_epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: network_configuration
+                .configuration_for_aggregation
+                .protocol_parameters,
+            cardano_transactions_signing_config: network_configuration
+                .configuration_for_aggregation
+                .signed_entity_types_config
+                .cardano_transactions
+                .ok_or(anyhow!(
+                    "Missing cardano transactions signing config for aggregation epoch {:?}",
+                    epoch
+                ))?,
+        };
 
-        let signer_registration_epoch_settings = self
-            .get_epoch_settings(
-                next_signer_retrieval_epoch.next(),
-                "signer registration epoch settings",
-            )
-            .await?;
+        let next_epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: network_configuration
+                .configuration_for_next_aggregation
+                .protocol_parameters,
+            cardano_transactions_signing_config: network_configuration
+                .configuration_for_next_aggregation
+                .signed_entity_types_config
+                .cardano_transactions
+                .ok_or(anyhow!(
+                    "Missing cardano transactions signing config for next aggregation epoch {:?}",
+                    epoch
+                ))?,
+        };
+
+        let signer_registration_epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: network_configuration
+                .configuration_for_registration
+                .protocol_parameters,
+            cardano_transactions_signing_config: network_configuration
+                .configuration_for_registration
+                .signed_entity_types_config
+                .cardano_transactions
+                .ok_or(anyhow!(
+                    "Missing cardano transactions signing config for registration epoch {:?}",
+                    epoch
+                ))?,
+        };
+        self.insert_epoch_settings(
+            signer_registration_epoch,
+            &signer_registration_epoch_settings,
+        )
+        .await?;
 
         let current_signers_with_stake =
             self.get_signers_with_stake_at_epoch(signer_retrieval_epoch).await?;
@@ -335,7 +353,15 @@ impl EpochService for MithrilEpochService {
         let total_next_stakes_signers = next_signers_with_stake.iter().map(|s| s.stake).sum();
 
         let signed_entity_config = SignedEntityConfig {
-            allowed_discriminants: self.allowed_signed_entity_discriminants.clone(),
+            allowed_discriminants: self
+                .allowed_signed_entity_discriminants
+                .intersection(
+                    &network_configuration
+                        .configuration_for_aggregation
+                        .enabled_signed_entity_types,
+                )
+                .cloned()
+                .collect(),
             cardano_transactions_signing_config: current_epoch_settings
                 .cardano_transactions_signing_config
                 .clone(),
@@ -364,16 +390,6 @@ impl EpochService for MithrilEpochService {
         self.computed_epoch_data = None;
 
         Ok(())
-    }
-
-    async fn update_epoch_settings(&mut self) -> StdResult<()> {
-        debug!(self.logger, ">> update_epoch_settings");
-
-        let data = self.unwrap_data().with_context(
-            || "can't update epoch settings if inform_epoch has not been called first",
-        )?;
-
-        self.insert_future_epoch_settings(data.epoch).await
     }
 
     async fn update_next_signers_with_stake(&mut self) -> StdResult<()> {
@@ -523,7 +539,6 @@ pub(crate) struct FakeEpochService {
     epoch_data: Option<EpochData>,
     computed_epoch_data: Option<ComputedEpochData>,
     inform_epoch_error: bool,
-    update_epoch_settings_error: bool,
     precompute_epoch_data_error: bool,
     update_next_signers_with_stake_error: bool,
 }
@@ -612,7 +627,6 @@ impl FakeEpochServiceBuilder {
                 next_protocol_multi_signer,
             }),
             inform_epoch_error: false,
-            update_epoch_settings_error: false,
             precompute_epoch_data_error: false,
             update_next_signers_with_stake_error: false,
         }
@@ -659,7 +673,6 @@ impl FakeEpochService {
             epoch_data: None,
             computed_epoch_data: None,
             inform_epoch_error: false,
-            update_epoch_settings_error: false,
             precompute_epoch_data_error: false,
             update_next_signers_with_stake_error: false,
         }
@@ -668,12 +681,10 @@ impl FakeEpochService {
     pub fn toggle_errors(
         &mut self,
         inform_epoch: bool,
-        update_protocol_parameters: bool,
         precompute_epoch: bool,
         update_next_signers_with_stake: bool,
     ) {
         self.inform_epoch_error = inform_epoch;
-        self.update_epoch_settings_error = update_protocol_parameters;
         self.precompute_epoch_data_error = precompute_epoch;
         self.update_next_signers_with_stake_error = update_next_signers_with_stake;
     }
@@ -697,13 +708,6 @@ impl EpochService for FakeEpochService {
     async fn inform_epoch(&mut self, epoch: Epoch) -> StdResult<()> {
         if self.inform_epoch_error {
             anyhow::bail!("inform_epoch fake error, given epoch: {epoch}");
-        }
-        Ok(())
-    }
-
-    async fn update_epoch_settings(&mut self) -> StdResult<()> {
-        if self.update_epoch_settings_error {
-            anyhow::bail!("update_epoch_settings fake error");
         }
         Ok(())
     }
@@ -823,6 +827,10 @@ mod tests {
         builder::{MithrilFixture, MithrilFixtureBuilder, StakeDistributionGenerationMethod},
         double::{Dummy, fake_data},
     };
+    use mithril_protocol_config::{
+        model::{MithrilNetworkConfigurationForEpoch, SignedEntityTypeConfiguration},
+        test::double::configuration_provider::FakeMithrilNetworkConfigurationProvider,
+    };
 
     use crate::store::{FakeEpochSettingsStorer, MockVerificationKeyStorer};
     use crate::test::TestLogger;
@@ -909,8 +917,6 @@ mod tests {
     }
 
     struct EpochServiceBuilder {
-        cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
-        future_protocol_parameters: ProtocolParameters,
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
         cardano_era: CardanoEra,
         mithril_era: SupportedEra,
@@ -927,8 +933,6 @@ mod tests {
     impl EpochServiceBuilder {
         fn new(epoch: Epoch, epoch_fixture: MithrilFixture) -> Self {
             Self {
-                cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
-                future_protocol_parameters: epoch_fixture.protocol_parameters(),
                 allowed_discriminants: BTreeSet::new(),
                 cardano_era: String::new(),
                 mithril_era: SupportedEra::dummy(),
@@ -957,18 +961,6 @@ mod tests {
                 self.current_epoch.offset_to_signer_retrieval_epoch().unwrap();
             let next_signer_retrieval_epoch =
                 self.current_epoch.offset_to_next_signer_retrieval_epoch();
-
-            let epoch_settings_storer = FakeEpochSettingsStorer::new(vec![
-                (signer_retrieval_epoch, self.stored_current_epoch_settings),
-                (
-                    next_signer_retrieval_epoch,
-                    self.stored_next_epoch_settings.clone(),
-                ),
-                (
-                    next_signer_retrieval_epoch.next(),
-                    self.stored_signer_registration_epoch_settings.clone(),
-                ),
-            ]);
 
             let verification_key_store = {
                 let mut store = MockVerificationKeyStorer::new();
@@ -1009,13 +1001,28 @@ mod tests {
                 stake_store
             };
 
+            let configuration_for_aggregation = self
+                .stored_current_epoch_settings
+                .into_network_configuration_for_epoch(self.allowed_discriminants.clone());
+
+            let configuration_for_next_aggregation = self
+                .stored_next_epoch_settings
+                .into_network_configuration_for_epoch(self.allowed_discriminants.clone());
+
+            let configuration_for_registration = self
+                .stored_signer_registration_epoch_settings
+                .into_network_configuration_for_epoch(self.allowed_discriminants.clone());
+
+            let network_configuration_provider = FakeMithrilNetworkConfigurationProvider::new(
+                configuration_for_aggregation,
+                configuration_for_next_aggregation,
+                configuration_for_registration,
+            );
+
             MithrilEpochService::new(
-                AggregatorEpochSettings {
-                    protocol_parameters: self.future_protocol_parameters,
-                    cardano_transactions_signing_config: self.cardano_transactions_signing_config,
-                },
                 EpochServiceDependencies::new(
-                    Arc::new(epoch_settings_storer),
+                    Arc::new(network_configuration_provider),
+                    Arc::new(FakeEpochSettingsStorer::new(Vec::new())),
                     Arc::new(verification_key_store),
                     Arc::new(chain_observer),
                     Arc::new(era_checker),
@@ -1136,6 +1143,58 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn inform_epoch_compute_allowed_discriminants_from_intersection_of_aggregation_network_config_and_configured_discriminants()
+     {
+        let epoch = Epoch(5);
+        let allowed_discriminants = BTreeSet::from([
+            SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            SignedEntityTypeDiscriminants::CardanoTransactions,
+        ]);
+        let enabled_discriminants = BTreeSet::from([
+            SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+            SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+            SignedEntityTypeDiscriminants::CardanoTransactions,
+        ]);
+
+        let mut service = MithrilEpochService {
+            mithril_network_configuration_provider: Arc::new(
+                FakeMithrilNetworkConfigurationProvider::new(
+                    MithrilNetworkConfigurationForEpoch {
+                        enabled_signed_entity_types: enabled_discriminants,
+                        ..Dummy::dummy()
+                    },
+                    MithrilNetworkConfigurationForEpoch::dummy(),
+                    MithrilNetworkConfigurationForEpoch::dummy(),
+                ),
+            ),
+            ..EpochServiceBuilder {
+                allowed_discriminants: allowed_discriminants.clone(),
+                ..EpochServiceBuilder::new(epoch, MithrilFixtureBuilder::default().build())
+            }
+            .build()
+            .await
+        };
+
+        service
+            .inform_epoch(epoch)
+            .await
+            .expect("inform_epoch should not fail");
+
+        let signed_entity_config = service
+            .signed_entity_config()
+            .expect("extracting data from service should not fail");
+
+        assert_eq!(
+            BTreeSet::from([
+                SignedEntityTypeDiscriminants::CardanoTransactions,
+                SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+            ]),
+            signed_entity_config.allowed_discriminants
+        );
+    }
+
+    #[tokio::test]
     async fn compute_data_with_data_from_inform_epoch() {
         let current_epoch_fixture = MithrilFixtureBuilder::default().with_signers(3).build();
         let next_epoch_fixture = MithrilFixtureBuilder::default()
@@ -1243,41 +1302,55 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn update_epoch_settings_insert_future_epoch_settings_in_the_store() {
-        let future_protocol_parameters = ProtocolParameters::new(6, 89, 0.124);
+    async fn inform_epoch_insert_registration_epoch_settings_in_the_store() {
+        let expected_epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: ProtocolParameters::new(6, 89, 0.124),
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(10),
+                step: BlockNumber(15),
+            },
+        };
+
         let epoch = Epoch(4);
-        let mut service = EpochServiceBuilder {
-            future_protocol_parameters: future_protocol_parameters.clone(),
+        let mut service = MithrilEpochService {
+            mithril_network_configuration_provider: Arc::new(
+                FakeMithrilNetworkConfigurationProvider::new(
+                    MithrilNetworkConfigurationForEpoch::dummy(),
+                    MithrilNetworkConfigurationForEpoch::dummy(),
+                    MithrilNetworkConfigurationForEpoch {
+                        protocol_parameters: expected_epoch_settings.protocol_parameters.clone(),
+                        signed_entity_types_config: SignedEntityTypeConfiguration {
+                            cardano_transactions: Some(
+                                expected_epoch_settings.cardano_transactions_signing_config.clone(),
+                            ),
+                        },
+                        ..Dummy::dummy()
+                    },
+                ),
+            ),
             ..EpochServiceBuilder::new(epoch, MithrilFixtureBuilder::default().build())
-        }
-        .build()
-        .await;
+                .build()
+                .await
+        };
 
         service
             .inform_epoch(epoch)
             .await
             .expect("inform_epoch should not fail");
-        service
-            .update_epoch_settings()
-            .await
-            .expect("update_epoch_settings should not fail");
 
         let inserted_epoch_settings = service
             .epoch_settings_storer
-            .get_epoch_settings(epoch.offset_to_epoch_settings_recording_epoch())
+            .get_epoch_settings(epoch.offset_to_recording_epoch())
             .await
             .unwrap_or_else(|_| {
                 panic!(
                     "epoch settings should have been inserted for epoch {}",
-                    epoch.offset_to_epoch_settings_recording_epoch()
+                    epoch.offset_to_recording_epoch()
                 )
             })
             .unwrap();
 
-        assert_eq!(
-            inserted_epoch_settings.protocol_parameters,
-            future_protocol_parameters
-        );
+        assert_eq!(inserted_epoch_settings, expected_epoch_settings);
     }
 
     #[tokio::test]

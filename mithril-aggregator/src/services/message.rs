@@ -183,9 +183,10 @@ impl MessageService for MithrilMessageService {
             .transpose()?
             .cloned();
 
+        #[allow(deprecated)]
         let epoch_settings_message = EpochSettingsMessage {
             epoch,
-            signer_registration_protocol_parameters,
+            signer_registration_protocol_parameters: Some(signer_registration_protocol_parameters),
             current_signers: SignerMessagePart::from_signers(current_signers.to_vec()),
             next_signers: SignerMessagePart::from_signers(next_signers.to_vec()),
             cardano_transactions_signing_config,
@@ -509,6 +510,7 @@ mod tests {
         }
     }
 
+    #[allow(deprecated)]
     mod epoch_settings {
         use mithril_common::{
             entities::{CardanoTransactionsSigningConfig, ProtocolParameters},
@@ -536,7 +538,7 @@ mod tests {
             assert_eq!(message.epoch, Epoch(4));
             assert_eq!(
                 message.signer_registration_protocol_parameters,
-                ProtocolParameters::new(5, 100, 0.65)
+                Some(ProtocolParameters::new(5, 100, 0.65))
             );
             assert_eq!(message.current_signers.len(), 3);
             assert_eq!(message.next_signers.len(), 3);
@@ -620,7 +622,7 @@ mod tests {
 
             assert_eq!(
                 message.signer_registration_protocol_parameters,
-                signer_registration_epoch_settings.protocol_parameters
+                Some(signer_registration_epoch_settings.protocol_parameters)
             );
         }
 

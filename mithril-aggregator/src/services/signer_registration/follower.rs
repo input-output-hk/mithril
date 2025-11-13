@@ -456,7 +456,7 @@ mod tests {
         let signer_registration_follower = MithrilSignerRegistrationFollowerBuilder::default()
             .with_epoch_service({
                 let mut epoch_service = FakeEpochService::without_data();
-                epoch_service.toggle_errors(false, false, false, true);
+                epoch_service.toggle_errors(false, false, true);
 
                 epoch_service
             })
