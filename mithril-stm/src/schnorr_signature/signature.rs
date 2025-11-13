@@ -66,22 +66,22 @@ impl SchnorrSignature {
 
         // Computing R1 = H(msg) * s + sigma * c
         let challenge_scalar = jubjub_base_to_scalar(&self.challenge)?;
-        let h_s = hash_msg * self.signature;
-        let sigma_c = self.sigma * challenge_scalar;
-        let r1_tilde = h_s + sigma_c;
+        let hash_msg_times_sig = hash_msg * self.signature;
+        let sigma_times_challenge = self.sigma * challenge_scalar;
+        let random_value_1_recomputed = hash_msg_times_sig + sigma_times_challenge;
 
         // Computing R2 = g * s + vk * c
-        let g_s = generator * self.signature;
-        let vk_c = vk.0 * challenge_scalar;
-        let r2_tilde = g_s + vk_c;
+        let generator_times_s = generator * self.signature;
+        let vk_times_challenge = vk.0 * challenge_scalar;
+        let random_value_2_recomputed = generator_times_s + vk_times_challenge;
 
         let (hashx, hashy) = get_coordinates(hash_msg);
         let (vkx, vky) = get_coordinates(vk.0);
         let (sigmax, sigmay) = get_coordinates(self.sigma);
-        let (r1x, r1y) = get_coordinates(r1_tilde);
-        let (r2x, r2y) = get_coordinates(r2_tilde);
+        let (r1x, r1y) = get_coordinates(random_value_1_recomputed);
+        let (r2x, r2y) = get_coordinates(random_value_2_recomputed);
 
-        let c_tilde = PoseidonChip::<JubjubBase>::hash(&[
+        let challenge_recomputed = PoseidonChip::<JubjubBase>::hash(&[
             DST_SIGNATURE,
             hashx,
             hashy,
@@ -95,7 +95,7 @@ impl SchnorrSignature {
             r2y,
         ]);
 
-        if c_tilde != self.challenge {
+        if challenge_recomputed != self.challenge {
             // TODO: Wrong error for now, need to change that once the errors are added
             return Err(anyhow!("Signature failed to verify."));
         }

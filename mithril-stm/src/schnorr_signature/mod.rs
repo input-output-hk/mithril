@@ -80,6 +80,18 @@ mod tests {
     }
 
     #[test]
+    fn test_generate_signing_key() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let sk = SchnorrSigningKey::generate(&mut rng);
+        let g = JubjubSubgroup::generator();
+        let vk = g * sk.0;
+
+        let vk_from_sk = SchnorrVerificationKey::from(&sk);
+
+        assert_eq!(vk, vk_from_sk.0);
+    }
+
+    #[test]
     fn test_sig_and_verify() {
         let msg = vec![0, 0, 0, 1];
         let seed = [0u8; 32];
