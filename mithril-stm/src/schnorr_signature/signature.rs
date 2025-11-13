@@ -20,7 +20,7 @@ use crate::{
 /// the message and the signing key.
 /// This value is used in the lottery process to determine the correct indices.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct SchnorrSignature {
+pub struct SchnorrSignature {
     /// Deterministic value depending on the message and secret key
     pub(crate) sigma: JubjubSubgroup,
     /// Part of the Schnorr signature depending on the secret key
@@ -58,24 +58,24 @@ impl SchnorrSignature {
     /// to their coordinates representation to feed them to the hash function.
     ///     - Check: c == c_tilde
     ///     
-    pub(crate) fn verify(&self, msg: &[u8], vk: &SchnorrVerificationKey) -> Result<()> {
-        let g = JubjubSubgroup::generator();
+    pub fn verify(&self, msg: &[u8], vk: &SchnorrVerificationKey) -> Result<()> {
+        let generator = JubjubSubgroup::generator();
 
         // First hashing the message to a scalar then hashing it to a curve point
-        let hash = JubjubHashToCurve::hash_to_curve(&[hash_msg_to_jubjubbase(msg)?]);
+        let hash_msg = JubjubHashToCurve::hash_to_curve(&[hash_msg_to_jubjubbase(msg)?]);
 
         // Computing R1 = H(msg) * s + sigma * c
-        let c_scalar = jubjub_base_to_scalar(&self.challenge)?;
-        let h_s = hash * self.signature;
-        let sigma_c = self.sigma * c_scalar;
+        let challenge_scalar = jubjub_base_to_scalar(&self.challenge)?;
+        let h_s = hash_msg * self.signature;
+        let sigma_c = self.sigma * challenge_scalar;
         let r1_tilde = h_s + sigma_c;
 
         // Computing R2 = g * s + vk * c
-        let g_s = g * self.signature;
-        let vk_c = vk.0 * c_scalar;
+        let g_s = generator * self.signature;
+        let vk_c = vk.0 * challenge_scalar;
         let r2_tilde = g_s + vk_c;
 
-        let (hashx, hashy) = get_coordinates(hash);
+        let (hashx, hashy) = get_coordinates(hash_msg);
         let (vkx, vky) = get_coordinates(vk.0);
         let (sigmax, sigmay) = get_coordinates(self.sigma);
         let (r1x, r1y) = get_coordinates(r1_tilde);
@@ -108,7 +108,7 @@ impl SchnorrSignature {
     /// We need to convert the inputs to fit in a Poseidon hash.
     /// The order of the hash input must be the same as the one in the SNARK circuit
     /// `ev = H(DST || msg || index || σ) <- MSP.Eval(msg,index,σ)` given in paper.
-    fn evaluate_dense_mapping(&self, msg: &[u8], index: Index) -> Result<[u8; 32]> {
+    pub(crate) fn evaluate_dense_mapping(&self, msg: &[u8], index: Index) -> Result<[u8; 32]> {
         let hash = JubjubHashToCurve::hash_to_curve(&[hash_msg_to_jubjubbase(msg)?]);
         let (hashx, hashy) = get_coordinates(hash);
         // TODO: Check if this is the correct way to add the index
@@ -121,7 +121,7 @@ impl SchnorrSignature {
     }
 
     /// Convert an `SchnorrSignature` to a byte representation.
-    pub(crate) fn to_bytes(self) -> [u8; 96] {
+    pub fn to_bytes(self) -> [u8; 96] {
         let mut out = [0; 96];
         out[0..32].copy_from_slice(&self.sigma.to_bytes());
         out[32..64].copy_from_slice(&self.signature.to_bytes());
@@ -133,11 +133,8 @@ impl SchnorrSignature {
     /// Convert a string of bytes into a `SchnorrSignature`.
     ///
     /// Not sure the sigma, s and c creation can fail if the 96 bytes are correctly extracted.
-    /// TODO: Do we want to fail conversion if there are more than 96 bytes?
-    pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        let bytes = bytes
-            .get(..96)
-            .ok_or(anyhow!("Not enough bytes to create a signature."))?;
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        let bytes: [u8; 96] = bytes.try_into()?;
         let sigma = JubjubSubgroup::from_bytes(&bytes[0..32].try_into()?)
             .into_option()
             .ok_or(anyhow!("Unable to convert bytes into a sigma value."))?;

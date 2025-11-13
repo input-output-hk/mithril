@@ -8,7 +8,7 @@ use anyhow::{Result, anyhow};
 /// Convert an arbitrary array of bytes into a Jubjub scalar field element
 ///
 /// First hash the message to 256 bits use Sha256 then perform the conversion
-pub(crate) fn hash_msg_to_jubjubbase(msg: &[u8]) -> Result<JubjubBase> {
+pub fn hash_msg_to_jubjubbase(msg: &[u8]) -> Result<JubjubBase> {
     let mut hash = Sha256::new();
     hash.update(msg);
     let hmsg = hash.finalize();
@@ -32,7 +32,7 @@ pub(crate) fn hash_msg_to_jubjubbase(msg: &[u8]) -> Result<JubjubBase> {
 /// Extract the coordinates of a given point
 ///
 /// This is mainly use to feed the Poseidon hash function
-pub(crate) fn get_coordinates(point: JubjubSubgroup) -> (JubjubBase, JubjubBase) {
+pub fn get_coordinates(point: JubjubSubgroup) -> (JubjubBase, JubjubBase) {
     let point_extended_representation = JubjubExtended::from(point);
     let point_affine_representation = JubjubAffine::from(point_extended_representation);
     let x_coordinate = point_affine_representation.get_u();
@@ -42,7 +42,7 @@ pub(crate) fn get_coordinates(point: JubjubSubgroup) -> (JubjubBase, JubjubBase)
 }
 
 /// Convert an element of the BLS12-381 base field to one of the Jubjub base field
-pub(crate) fn jubjub_base_to_scalar(x: &JubjubBase) -> Result<JubjubScalar> {
+pub fn jubjub_base_to_scalar(x: &JubjubBase) -> Result<JubjubScalar> {
     let bytes = x.to_bytes_le();
 
     Ok(JubjubScalar::from_raw([

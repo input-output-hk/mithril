@@ -1,23 +1,22 @@
 use anyhow::{Result, anyhow};
 use ff::Field;
-use midnight_circuits::hash::poseidon::PoseidonChip;
-use midnight_circuits::instructions::hash::HashCPU;
+use midnight_circuits::{
+    hash::poseidon::PoseidonChip,
+    instructions::{HashToCurveCPU, hash::HashCPU},
+};
 use midnight_curves::{Fq as JubjubBase, Fr as JubjubScalar, JubjubSubgroup};
 use rand_core::{CryptoRng, RngCore};
 
-use midnight_circuits::instructions::HashToCurveCPU;
-
 use group::Group;
 
-pub(crate) use crate::schnorr_signature::{
-    DST_SIGNATURE, JubjubHashToCurve,
+use crate::schnorr_signature::{
+    DST_SIGNATURE, JubjubHashToCurve, SchnorrSignature, SchnorrVerificationKey,
     utils::{get_coordinates, hash_msg_to_jubjubbase, jubjub_base_to_scalar},
 };
-use crate::schnorr_signature::{SchnorrSignature, SchnorrVerificationKey};
 
 /// Schnorr Signing key, it is essentially a random scalar of the Jubjub scalar field
 #[derive(Debug, Clone)]
-pub(crate) struct SchnorrSigningKey(pub(crate) JubjubScalar);
+pub struct SchnorrSigningKey(pub(crate) JubjubScalar);
 
 impl SchnorrSigningKey {
     pub(crate) fn generate(rng: &mut (impl RngCore + CryptoRng)) -> Self {
