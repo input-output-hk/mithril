@@ -2,6 +2,7 @@ use crate::*;
 
 use super::interface::*;
 
+/// Poseidon hash function digest
 pub struct PoseidonDigest;
 
 impl Digest for PoseidonDigest {
@@ -10,11 +11,13 @@ impl Digest for PoseidonDigest {
     }
 }
 
+/// SNARK proof individual signature structure
 pub struct SnarkSingleSignature {
     pub signature: JubjubSignature,
     pub lottery_indices: Vec<u64>, // TODO: this field could be removed or left empty and indices would be recomputed at aggregation time
 }
 
+/// SNARK proof individual signature generator
 pub struct SnarkProofSingleSignatureGenerator {
     pub signer_index: SignerIndex,
     pub stake: Stake,
@@ -24,6 +27,7 @@ pub struct SnarkProofSingleSignatureGenerator {
 }
 
 impl SnarkProofSingleSignatureGenerator {
+    /// Creates a new SnarkProofSingleSignatureGenerator
     pub fn new(
         signer_index: SignerIndex,
         stake: Stake,
@@ -40,6 +44,7 @@ impl SnarkProofSingleSignatureGenerator {
         }
     }
 
+    /// Computes the message prefix for SNARK proof
     fn compute_message_prefix(&self) -> Vec<u8> {
         todo!("Implement message prefix computation for SNARK proof")
     }
@@ -59,8 +64,25 @@ impl ProofSystemSingleSignatureGenerator for SnarkProofSingleSignatureGenerator 
     }
 }
 
+/// Aggregate verification key for SNARK proof
+pub type SnarkAggregateVerificationKey = (); // TODO: to be defined
+
+/// SNARK proof structure
 pub struct SnarkProof {}
 
+impl SnarkProof {
+    /// Verifies the SNARK proof
+    pub fn verify(
+        &self,
+        message: &[u8],
+        verification_key: &SnarkAggregateVerificationKey,
+    ) -> StdResult<()> {
+        // Implement verification logic here
+        todo!("Implement SNARK proof verification")
+    }
+}
+
+/// SNARK proof generator
 pub struct SnarkProofGenerator {
     pub parameters: Parameters,
     pub snark_proof_individual_signature_generator: SnarkProofSingleSignatureGenerator,
@@ -68,21 +90,44 @@ pub struct SnarkProofGenerator {
 }
 
 impl SnarkProofGenerator {
+    /// Creates a new SnarkProofGenerator
     pub fn new(parameters: &Parameters, key_registrations: &KeyRegistration) -> Self {
         todo!("Implement new for SnarkProofGenerator")
     }
 
+    /// Creates a SNARK proof from the given signatures
     pub fn create_snark_proof(
         &self,
         message: &[u8],
         signatures: &[SingleSignature],
     ) -> StdResult<SnarkProof> {
         // Implement snark proof creation logic here
-        todo!("Implement snark proof creation")
+        todo!("Implement SNARK proof creation")
     }
+}
 
-    pub fn verify(&self) -> StdResult<bool> {
-        // Implement snark proof verification logic here
-        todo!("Implement snark proof verification")
+impl ProofSystemAggregateSignatureProver for SnarkProofGenerator {
+    type ProofSystemAggregateSignature = SnarkProof;
+
+    fn create_aggregate_signature(
+        &self,
+        message: &[u8],
+        signatures: &[SingleSignature],
+    ) -> StdResult<Self::ProofSystemAggregateSignature> {
+        self.create_snark_proof(message, signatures)
+    }
+}
+
+impl ProofSystemAggregateSignatureVerifier for SnarkProofGenerator {
+    type ProofSystemAggregateSignature = SnarkProof;
+    type ProofSystemAggregateVerificationKey = SnarkAggregateVerificationKey;
+
+    fn verify_multi_signature(
+        &self,
+        message: &[u8],
+        multi_signature: &Self::ProofSystemAggregateSignature,
+        verification_key: &Self::ProofSystemAggregateVerificationKey,
+    ) -> StdResult<()> {
+        multi_signature.verify(message, verification_key)
     }
 }

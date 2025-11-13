@@ -2,6 +2,7 @@ use anyhow::anyhow;
 
 use crate::*;
 
+/// The initializer for a signer
 pub struct Initializer {
     pub stake: Stake,
     pub parameters: Parameters,
@@ -14,6 +15,7 @@ pub struct Initializer {
 }
 
 impl Initializer {
+    /// Creates a new signer initializer
     pub fn new(
         stake: Stake,
         parameters: Parameters,
@@ -36,6 +38,7 @@ impl Initializer {
         }
     }
 
+    /// Tries to create a signer from the given key registration
     pub fn try_create_signer(&self, key_registration: KeyRegistration) -> StdResult<Signer> {
         let signer_index = key_registration
             .get_signer_index_for_registration(&SignerRegistration {

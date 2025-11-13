@@ -1,5 +1,6 @@
 use crate::*;
 
+/// The signer structure
 pub struct Signer {
     pub signer_index: SignerIndex,
     pub stake: Stake,
@@ -11,6 +12,7 @@ pub struct Signer {
 }
 
 impl Signer {
+    /// Creates a new Signer
     pub fn new(
         signer_index: SignerIndex,
         stake: Stake,
@@ -31,6 +33,7 @@ impl Signer {
         }
     }
 
+    /// Signs a message and produces a single signature
     pub fn sign(&self, message: &[u8]) -> StdResult<SingleSignature> {
         let concatenation_individual_signature = self
             .concatenation_proof_individual_signature_generator

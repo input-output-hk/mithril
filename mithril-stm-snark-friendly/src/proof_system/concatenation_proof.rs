@@ -2,6 +2,7 @@ use crate::*;
 
 use super::interface::*;
 
+/// Blake digest implementation
 pub struct BlakeDigest;
 
 impl Digest for BlakeDigest {
@@ -10,12 +11,14 @@ impl Digest for BlakeDigest {
     }
 }
 
+/// Concatenation proof individual signature structure
 #[derive(Default)]
 pub struct ConcatenationSingleSignature {
     pub signature: BlsSignature,
     pub lottery_indices: Vec<u64>,
 }
 
+/// Concatenation proof individual signature generator
 pub struct ConcatenationProofSingleSignatureGenerator {
     pub signer_index: SignerIndex,
     pub stake: Stake,
@@ -25,6 +28,7 @@ pub struct ConcatenationProofSingleSignatureGenerator {
 }
 
 impl ConcatenationProofSingleSignatureGenerator {
+    /// Creates a new ConcatenationProofSingleSignatureGenerator
     pub fn new(
         signer_index: SignerIndex,
         stake: Stake,
@@ -41,6 +45,7 @@ impl ConcatenationProofSingleSignatureGenerator {
         }
     }
 
+    /// Computes the message prefix for concatenation proof
     fn compute_message_prefix(&self) -> Vec<u8> {
         todo!("Implement message prefix computation for concatenation proof")
     }
@@ -62,8 +67,25 @@ impl ProofSystemSingleSignatureGenerator for ConcatenationProofSingleSignatureGe
     }
 }
 
+/// Aggregate verification key for concatenation proof
+pub type ConcatenationAggregateVerificationKey = (); // TODO: to be defined
+
+/// Concatenation proof structure
 pub struct ConcatenationProof {}
 
+impl ConcatenationProof {
+    /// Verifies the concatenation proof
+    pub fn verify(
+        &self,
+        message: &[u8],
+        verification_key: &ConcatenationAggregateVerificationKey,
+    ) -> StdResult<()> {
+        // Implement verification logic here
+        todo!("Implement concatenation proof verification")
+    }
+}
+
+/// Concatenation proof generator
 pub struct ConcatenationProofGenerator {
     pub parameters: Parameters,
     pub concatenation_proof_individual_signature_generator:
@@ -72,10 +94,12 @@ pub struct ConcatenationProofGenerator {
 }
 
 impl ConcatenationProofGenerator {
+    /// Creates a new ConcatenationProofGenerator
     pub fn new(parameters: &Parameters, key_registrations: &KeyRegistration) -> Self {
         todo!("Implement new for ConcatenationProofGenerator")
     }
 
+    /// Creates a concatenation proof from the given signatures
     pub fn create_concatenation_proof(
         &self,
         message: &[u8],
@@ -84,9 +108,30 @@ impl ConcatenationProofGenerator {
         // Implement concatenation proof creation logic here
         todo!("Implement concatenation proof creation")
     }
+}
 
-    pub fn verify(&self) -> StdResult<bool> {
-        // Implement concatenation proof verification logic here
-        todo!("Implement concatenation proof verification")
+impl ProofSystemAggregateSignatureProver for ConcatenationProofGenerator {
+    type ProofSystemAggregateSignature = ConcatenationProof;
+
+    fn create_aggregate_signature(
+        &self,
+        message: &[u8],
+        signatures: &[SingleSignature],
+    ) -> StdResult<Self::ProofSystemAggregateSignature> {
+        self.create_concatenation_proof(message, signatures)
+    }
+}
+
+impl ProofSystemAggregateSignatureVerifier for ConcatenationProofGenerator {
+    type ProofSystemAggregateSignature = ConcatenationProof;
+    type ProofSystemAggregateVerificationKey = ConcatenationAggregateVerificationKey;
+
+    fn verify_multi_signature(
+        &self,
+        message: &[u8],
+        multi_signature: &Self::ProofSystemAggregateSignature,
+        verification_key: &Self::ProofSystemAggregateVerificationKey,
+    ) -> StdResult<()> {
+        multi_signature.verify(message, verification_key)
     }
 }

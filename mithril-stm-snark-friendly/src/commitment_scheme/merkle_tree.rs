@@ -60,13 +60,13 @@ impl<D: Digest> MerkleTree<D> {
 }
 
 impl<D: Digest> SignerRegistrationRegisterer for MerkleTree<D> {
-    type SignerRegistrationInput = usize;
-    type SignerregistrationIndex = usize;
+    type RegistrationInput = usize;
+    type RegistrationIndex = usize;
 
     fn register_entry(
         &self,
-        reveal: &Self::SignerRegistrationInput,
-    ) -> StdResult<Self::SignerregistrationIndex> {
+        reveal: &Self::RegistrationInput,
+    ) -> StdResult<Self::RegistrationIndex> {
         Ok(*reveal)
     }
 }
@@ -80,21 +80,18 @@ impl<D: Digest> SignerRegistrationCommitmentGenerator for MerkleTree<D> {
 }
 
 impl<D: Digest> SignerRegistrationRevealProver for MerkleTree<D> {
-    type SignerRevealInput = usize;
-    type SignerRevealProof = MerklePath;
+    type RevealInput = usize;
+    type RevealProof = MerklePath;
 
-    fn create_reveal_proof(
-        &self,
-        reveal: &Self::SignerRevealInput,
-    ) -> StdResult<Self::SignerRevealProof> {
+    fn create_reveal_proof(&self, reveal: &Self::RevealInput) -> StdResult<Self::RevealProof> {
         self.compute_merkle_path(*reveal)
     }
 }
 
 impl<D: Digest> SignerRegistrationRevealVerifier for MerkleTree<D> {
-    type SignerRevealProof = MerklePath;
+    type RevealProof = MerklePath;
 
-    fn verify_reveal_proof(&self, proof: &Self::SignerRevealProof) -> StdResult<()> {
+    fn verify_reveal_proof(&self, proof: &Self::RevealProof) -> StdResult<()> {
         proof.verify()
     }
 }

@@ -1,24 +1,28 @@
 use crate::*;
 
+/// The type of aggregate signature to produce
 pub enum AggregateSignatureType {
     Concatenation,
     #[cfg(feature = "future_snark")]
     Snark,
 }
 
+/// The aggregate signature produced by the aggregator
 pub enum AggregateSignature {
     Concatenation(ConcatenationProof),
     #[cfg(feature = "future_snark")]
     Snark(SnarkProof),
 }
 
-pub struct Aggregator {
+/// The signature aggregator structure
+pub struct SignatureAggregator {
     aggregate_signature_type: AggregateSignatureType,
     parameters: Parameters,
-    key_registrations: KeyRegistration, //TODO: Maybe we want a generic representing the commitment for the specific proof system we are aggregating
+    key_registrations: KeyRegistration,
 }
 
-impl Aggregator {
+impl SignatureAggregator {
+    /// Creates a new SignatureAggregator
     pub fn new(
         aggregate_signature_type: AggregateSignatureType,
         parameters: Parameters,
@@ -31,6 +35,7 @@ impl Aggregator {
         }
     }
 
+    /// Aggregates the given signatures into an aggregate signature
     pub fn aggregate_signatures(
         &self,
         message: &[u8],

@@ -1,5 +1,6 @@
 use crate::*;
 
+/// Single signature produced by a signer
 pub struct SingleSignature {
     pub signer_index: SignerIndex,
     pub bls_signature: BlsSignature,

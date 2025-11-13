@@ -34,12 +34,14 @@ pub struct KeyRegistration {
 }
 
 impl KeyRegistration {
+    /// Creates a new KeyRegistration
     pub fn new(signer_registrations: Vec<SignerRegistration>) -> Self {
         Self {
             signer_registrations,
         }
     }
 
+    /// Gets the index of a signer registration
     pub fn get_signer_index_for_registration(
         &self,
         signer_registration: &SignerRegistration,
@@ -50,6 +52,7 @@ impl KeyRegistration {
             .map(|s| s.into())
     }
 
+    /// Converts the KeyRegistration into a Merkle tree for the Concatenation proof system
     pub fn into_merkle_tree_for_concatenation<D: Digest>(self) -> StdResult<MerkleTree<D>> {
         Ok(MerkleTree::new(
             &self
@@ -68,6 +71,7 @@ impl KeyRegistration {
         ))
     }
 
+    /// Converts the KeyRegistration into a Merkle tree for the SNARK proof system
     #[cfg(feature = "future_snark")]
     pub fn into_merkle_tree_for_snark<D: Digest>(self) -> StdResult<MerkleTree<D>> {
         Ok(MerkleTree::new(
@@ -90,8 +94,8 @@ impl KeyRegistration {
         ))
     }
 
+    /// Converts the KeyRegistration into a Pedersen commitment for the SNARK proof system (as an example if we need it later for recursive snarks)
     #[cfg(feature = "future_snark")]
-    // In case we need it for recursive snarks
     pub fn into_pedersen_commitment(self) -> PedersenCommitment {
         todo!("Implement conversion of KeyRegistration into PedersenCommitment")
     }
