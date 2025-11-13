@@ -19,7 +19,7 @@ pub mod store;
 
 pub use commands::*;
 pub use configuration::{Configuration, DefaultConfiguration};
-pub use entities::SignerEpochSettings;
+pub use entities::RegisteredSigners;
 pub use message_adapters::{FromEpochSettingsAdapter, ToRegisterSignerMessageAdapter};
 pub use metrics::*;
 pub use runtime::*;

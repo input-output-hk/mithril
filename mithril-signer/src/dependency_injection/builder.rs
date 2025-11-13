@@ -513,7 +513,6 @@ impl<'a> DependenciesBuilder<'a> {
 
         let services = SignerDependencyContainer {
             ticker_service,
-            certificate_handler: aggregator_client,
             chain_observer,
             digester,
             single_signer,
@@ -529,6 +528,8 @@ impl<'a> DependenciesBuilder<'a> {
             upkeep_service,
             epoch_service,
             certifier,
+            signer_registration_publisher: aggregator_client.clone(),
+            signers_registration_retriever: aggregator_client,
             kes_signer,
             network_configuration_service,
         };

@@ -14,7 +14,7 @@ use mithril_protocol_config::model::MithrilNetworkConfiguration;
 
 use crate::Configuration;
 use crate::dependency_injection::SignerDependencyContainer;
-use crate::entities::{BeaconToSign, SignerEpochSettings};
+use crate::entities::{BeaconToSign, RegisteredSigners};
 use crate::services::{EpochService, MithrilProtocolInitializerBuilder};
 
 /// This trait is mainly intended for mocking.
@@ -29,7 +29,7 @@ pub trait Runner: Send + Sync {
     /// Fetch the current epoch settings if any.
     async fn get_signer_registrations_from_aggregator(
         &self,
-    ) -> StdResult<Option<SignerEpochSettings>>;
+    ) -> StdResult<Option<RegisteredSigners>>;
 
     /// Fetch the beacon to sign if any.
     async fn get_beacon_to_sign(&self, time_point: TimePoint) -> StdResult<Option<BeaconToSign>>;
@@ -131,10 +131,13 @@ impl Runner for SignerRunner {
 
     async fn get_signer_registrations_from_aggregator(
         &self,
-    ) -> StdResult<Option<SignerEpochSettings>> {
+    ) -> StdResult<Option<RegisteredSigners>> {
         debug!(self.logger, ">> get_epoch_settings");
 
-        self.services.certificate_handler.retrieve_epoch_settings().await
+        self.services
+            .signers_registration_retriever
+            .retrieve_all_signer_registrations()
+            .await
     }
 
     async fn get_beacon_to_sign(&self, time_point: TimePoint) -> StdResult<Option<BeaconToSign>> {
@@ -233,7 +236,7 @@ impl Runner for SignerRunner {
                 kes_period,
             );
             self.services
-                .certificate_handler
+                .signer_registration_publisher
                 .register_signer(epoch_offset_to_recording_epoch, &signer)
                 .await?;
 
@@ -414,9 +417,10 @@ mod tests {
     use crate::database::test_helper::main_db_connection;
     use crate::metrics::MetricsService;
     use crate::services::{
-        CardanoTransactionsImporter, DumbAggregatorClient, MithrilEpochService,
-        MithrilSingleSigner, MockTransactionStore, MockUpkeepService, SignerCertifierService,
-        SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
+        CardanoTransactionsImporter, DumbSignersRegistrationRetriever, MithrilEpochService,
+        MithrilSingleSigner, MockTransactionStore, MockUpkeepService, SignaturePublisherNoop,
+        SignerCertifierService, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
+        SpySignerRegistrationPublisher,
     };
     use crate::test_tools::TestLogger;
 
@@ -546,13 +550,12 @@ mod tests {
             Arc::new(CardanoTransactionsPreloaderActivation::new(true)),
         ));
         let upkeep_service = Arc::new(MockUpkeepService::new());
-        let aggregator_client = Arc::new(DumbAggregatorClient::default());
         let certifier = Arc::new(SignerCertifierService::new(
             Arc::new(SignedBeaconRepository::new(sqlite_connection.clone(), None)),
             Arc::new(SignerSignedEntityConfigProvider::new(epoch_service.clone())),
             signed_entity_type_lock.clone(),
             single_signer.clone(),
-            aggregator_client.clone(),
+            Arc::new(SignaturePublisherNoop),
             logger.clone(),
         ));
         let kes_signer = None;
@@ -569,7 +572,6 @@ mod tests {
 
         SignerDependencyContainer {
             stake_store,
-            certificate_handler: aggregator_client,
             chain_observer,
             digester,
             single_signer,
@@ -585,6 +587,8 @@ mod tests {
             upkeep_service,
             epoch_service,
             certifier,
+            signer_registration_publisher: Arc::new(SpySignerRegistrationPublisher::default()),
+            signers_registration_retriever: Arc::new(DumbSignersRegistrationRetriever::default()),
             kes_signer,
             network_configuration_service,
         }
@@ -659,8 +663,8 @@ mod tests {
     async fn test_register_signer_to_aggregator() {
         let mut services = init_services().await;
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
-        let certificate_handler = Arc::new(DumbAggregatorClient::default());
-        services.certificate_handler = certificate_handler.clone();
+        let registration_publisher_spy = Arc::new(SpySignerRegistrationPublisher::default());
+        services.signer_registration_publisher = registration_publisher_spy.clone();
         let protocol_initializer_store = services.protocol_initializer_store.clone();
         let current_epoch = services.ticker_service.get_current_epoch().await.unwrap();
 
@@ -699,7 +703,7 @@ mod tests {
             .expect("registering a signer to the aggregator should not fail");
 
         let last_registered_signer_first_registration =
-            certificate_handler.get_last_registered_signer().await.unwrap();
+            registration_publisher_spy.get_last_registered_signer().await.unwrap();
         let maybe_protocol_initializer_first_registration = protocol_initializer_store
             .get_protocol_initializer(current_epoch.offset_to_recording_epoch())
             .await
@@ -709,7 +713,8 @@ mod tests {
             "A protocol initializer should have been registered at the 'Recording' epoch"
         );
 
-        let total_registered_signers = certificate_handler.get_total_registered_signers().await;
+        let total_registered_signers =
+            registration_publisher_spy.get_total_registered_signers().await;
         assert_eq!(1, total_registered_signers);
 
         runner
@@ -718,7 +723,7 @@ mod tests {
             .expect("registering a signer to the aggregator should not fail");
 
         let last_registered_signer_second_registration =
-            certificate_handler.get_last_registered_signer().await.unwrap();
+            registration_publisher_spy.get_last_registered_signer().await.unwrap();
         let maybe_protocol_initializer_second_registration = protocol_initializer_store
             .get_protocol_initializer(current_epoch.offset_to_recording_epoch())
             .await
@@ -733,7 +738,8 @@ mod tests {
             "The signer registration should be the same and should have been registered twice"
         );
 
-        let total_registered_signers = certificate_handler.get_total_registered_signers().await;
+        let total_registered_signers =
+            registration_publisher_spy.get_total_registered_signers().await;
         assert_eq!(1, total_registered_signers);
     }
 
@@ -769,10 +775,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_inform_epoch_setting_pass_available_signed_entity_types_to_epoch_service() {
-        let mut services = init_services().await;
-        let certificate_handler = Arc::new(DumbAggregatorClient::default());
-
-        services.certificate_handler = certificate_handler;
+        let services = init_services().await;
         let runner = init_runner(Some(services), None).await;
 
         let epoch = Epoch(1);

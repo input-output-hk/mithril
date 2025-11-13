@@ -1,35 +1,26 @@
 use async_trait::async_trait;
-use std::collections::BTreeSet;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 
 use mithril_common::{
     StdResult,
-    entities::{
-        CardanoTransactionsSigningConfig, Epoch, ProtocolMessage, SignedEntityConfig,
-        SignedEntityType, SignedEntityTypeDiscriminants, Signer, SingleSignature, TimePoint,
-    },
-    messages::AggregatorFeaturesMessage,
+    entities::{Epoch, ProtocolMessage, SignedEntityType, Signer, SingleSignature, TimePoint},
     test::double::Dummy,
 };
 use mithril_ticker::{MithrilTickerService, TickerService};
 
-use mithril_signer::{entities::SignerEpochSettings, services::AggregatorClient};
+use mithril_signer::services::{SignaturePublisher, SignerRegistrationPublisher};
+use mithril_signer::{entities::RegisteredSigners, services::SignersRegistrationRetriever};
 
 pub struct FakeAggregator {
-    signed_entity_config: RwLock<SignedEntityConfig>,
     registered_signers: RwLock<HashMap<Epoch, Vec<Signer>>>,
     ticker_service: Arc<MithrilTickerService>,
     withhold_epoch_settings: RwLock<bool>,
 }
 
 impl FakeAggregator {
-    pub fn new(
-        signed_entity_config: SignedEntityConfig,
-        ticker_service: Arc<MithrilTickerService>,
-    ) -> Self {
+    pub fn new(ticker_service: Arc<MithrilTickerService>) -> Self {
         Self {
-            signed_entity_config: RwLock::new(signed_entity_config),
             registered_signers: RwLock::new(HashMap::new()),
             ticker_service,
             withhold_epoch_settings: RwLock::new(true),
@@ -44,14 +35,6 @@ impl FakeAggregator {
     pub async fn release_epoch_settings(&self) {
         let mut settings = self.withhold_epoch_settings.write().await;
         *settings = false;
-    }
-
-    pub async fn change_allowed_discriminants(
-        &self,
-        discriminants: &BTreeSet<SignedEntityTypeDiscriminants>,
-    ) {
-        let mut signed_entity_config = self.signed_entity_config.write().await;
-        signed_entity_config.allowed_discriminants = discriminants.clone();
     }
 
     async fn get_time_point(&self) -> StdResult<TimePoint> {
@@ -81,25 +64,19 @@ impl FakeAggregator {
 }
 
 #[async_trait]
-impl AggregatorClient for FakeAggregator {
-    async fn retrieve_epoch_settings(&self) -> StdResult<Option<SignerEpochSettings>> {
-        if *self.withhold_epoch_settings.read().await {
-            Ok(None)
-        } else {
-            let store = self.registered_signers.read().await;
-            let time_point = self.get_time_point().await?;
-            let current_signers = self.get_current_signers(&store).await?;
-            let next_signers = self.get_next_signers(&store).await?;
-
-            Ok(Some(SignerEpochSettings {
-                epoch: time_point.epoch,
-                current_signers,
-                next_signers,
-            }))
-        }
+impl SignaturePublisher for FakeAggregator {
+    async fn publish(
+        &self,
+        _signed_entity_type: &SignedEntityType,
+        _signature: &SingleSignature,
+        _protocol_message: &ProtocolMessage,
+    ) -> StdResult<()> {
+        Ok(())
     }
+}
 
-    /// Registers signer with the aggregator
+#[async_trait]
+impl SignerRegistrationPublisher for FakeAggregator {
     async fn register_signer(&self, epoch: Epoch, signer: &Signer) -> StdResult<()> {
         let mut store = self.registered_signers.write().await;
         let mut signers = store.get(&epoch).cloned().unwrap_or_default();
@@ -108,25 +85,25 @@ impl AggregatorClient for FakeAggregator {
 
         Ok(())
     }
+}
 
-    /// Registers single signatures with the aggregator
-    async fn register_signature(
-        &self,
-        _signed_entity_type: &SignedEntityType,
-        _signature: &SingleSignature,
-        _protocol_message: &ProtocolMessage,
-    ) -> StdResult<()> {
-        Ok(())
-    }
+#[async_trait]
+impl SignersRegistrationRetriever for FakeAggregator {
+    async fn retrieve_all_signer_registrations(&self) -> StdResult<Option<RegisteredSigners>> {
+        if *self.withhold_epoch_settings.read().await {
+            Ok(None)
+        } else {
+            let store = self.registered_signers.read().await;
+            let time_point = self.get_time_point().await?;
+            let current_signers = self.get_current_signers(&store).await?;
+            let next_signers = self.get_next_signers(&store).await?;
 
-    async fn retrieve_aggregator_features(&self) -> StdResult<AggregatorFeaturesMessage> {
-        let signed_entity_config = self.signed_entity_config.read().await;
-
-        let mut message = AggregatorFeaturesMessage::dummy();
-        message.capabilities.signed_entity_types =
-            signed_entity_config.allowed_discriminants.clone();
-
-        Ok(message)
+            Ok(Some(RegisteredSigners {
+                epoch: time_point.epoch,
+                current_signers,
+                next_signers,
+            }))
+        }
     }
 }
 
@@ -153,10 +130,7 @@ mod tests {
             immutable_observer.clone(),
         ));
 
-        (
-            chain_observer,
-            FakeAggregator::new(SignedEntityConfig::dummy(), ticker_service),
-        )
+        (chain_observer, FakeAggregator::new(ticker_service))
     }
 
     #[tokio::test]
@@ -209,7 +183,7 @@ mod tests {
             .await
             .expect("aggregator client should not fail while registering a user");
         let epoch_settings = fake_aggregator
-            .retrieve_epoch_settings()
+            .retrieve_all_signer_registrations()
             .await
             .expect("we should have a result, None found!")
             .expect("we should have an EpochSettings, None found!");
@@ -222,7 +196,7 @@ mod tests {
             .await
             .expect("aggregator client should not fail while registering a user");
         let epoch_settings = fake_aggregator
-            .retrieve_epoch_settings()
+            .retrieve_all_signer_registrations()
             .await
             .expect("we should have a result, None found!")
             .expect("we should have an EpochSettings, None found!");
@@ -236,43 +210,12 @@ mod tests {
             .await
             .expect("aggregator client should not fail while registering a user");
         let epoch_settings = fake_aggregator
-            .retrieve_epoch_settings()
+            .retrieve_all_signer_registrations()
             .await
             .expect("we should have a result, None found!")
             .expect("we should have an EpochSettings, None found!");
 
         assert_eq!(2, epoch_settings.current_signers.len());
         assert_eq!(1, epoch_settings.next_signers.len());
-    }
-
-    #[tokio::test]
-    async fn retrieve_aggregator_features() {
-        let (_chain_observer, fake_aggregator) = init().await;
-
-        {
-            let mut signing_config = fake_aggregator.signed_entity_config.write().await;
-            signing_config.allowed_discriminants = SignedEntityTypeDiscriminants::all();
-            signing_config.cardano_transactions_signing_config =
-                CardanoTransactionsSigningConfig::dummy();
-        }
-
-        let features = fake_aggregator.retrieve_aggregator_features().await.unwrap();
-        assert_eq!(
-            &SignedEntityTypeDiscriminants::all(),
-            &features.capabilities.signed_entity_types,
-        );
-
-        let new_discriminants = BTreeSet::from([
-            SignedEntityTypeDiscriminants::CardanoTransactions,
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-        ]);
-
-        fake_aggregator.change_allowed_discriminants(&new_discriminants).await;
-
-        let updated_features = fake_aggregator.retrieve_aggregator_features().await.unwrap();
-        assert_eq!(
-            &new_discriminants,
-            &updated_features.capabilities.signed_entity_types,
-        );
     }
 }

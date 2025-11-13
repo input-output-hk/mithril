@@ -4,15 +4,15 @@ use mithril_common::{
     messages::{EpochSettingsMessage, SignerMessagePart, TryFromMessageAdapter},
 };
 
-use crate::entities::SignerEpochSettings;
+use crate::entities::RegisteredSigners;
 
-/// Adapter to convert [EpochSettingsMessage] to [SignerEpochSettings].
+/// Adapter to convert [EpochSettingsMessage] to [RegisteredSigners].
 pub struct FromEpochSettingsAdapter;
 
-impl TryFromMessageAdapter<EpochSettingsMessage, SignerEpochSettings> for FromEpochSettingsAdapter {
+impl TryFromMessageAdapter<EpochSettingsMessage, RegisteredSigners> for FromEpochSettingsAdapter {
     /// Method to convert.
-    fn try_adapt(message: EpochSettingsMessage) -> StdResult<SignerEpochSettings> {
-        let epoch_settings = SignerEpochSettings {
+    fn try_adapt(message: EpochSettingsMessage) -> StdResult<RegisteredSigners> {
+        let epoch_settings = RegisteredSigners {
             epoch: message.epoch,
             current_signers: SignerMessagePart::try_into_signers(message.current_signers)
                 .with_context(|| "'FromMessageAdapter' can not convert the current signers")?,
