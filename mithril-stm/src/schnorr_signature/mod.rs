@@ -3,8 +3,12 @@
 
 mod signature;
 mod signing_key;
-mod utils;
+pub(super) mod utils;
 mod verification_key;
+
+pub use signature::*;
+pub use utils::*;
+pub use verification_key::*;
 
 use midnight_circuits::{
     ecc::{hash_to_curve::HashToCurveGadget, native::EccChip},
@@ -13,13 +17,9 @@ use midnight_circuits::{
 };
 use midnight_curves::{Fq as JubjubBase, JubjubExtended};
 
-use signature::*;
-use utils::*;
-use verification_key::*;
-
 /// A DST (Domain Separation Tag) to distinguish between use of Poseidon hash
-pub const DST_SIGNATURE: JubjubBase = JubjubBase::from_raw([0u64, 0, 0, 0]);
-pub const DST_LOTTERY: JubjubBase = JubjubBase::from_raw([1u64, 0, 0, 0]);
+pub(crate) const DST_SIGNATURE: JubjubBase = JubjubBase::from_raw([0u64, 0, 0, 0]);
+pub(crate) const DST_LOTTERY: JubjubBase = JubjubBase::from_raw([1u64, 0, 0, 0]);
 
 /// Defining a type for the CPU hash to curve gadget
 pub(crate) type JubjubHashToCurve = HashToCurveGadget<
@@ -151,9 +151,18 @@ mod tests {
         let sk = SchnorrSigningKey::generate(&mut rng);
 
         let sig = sk.sign(&msg, &mut rng).unwrap();
-        let sig_bytes: [u8; 96] = sig.clone().to_bytes();
+        let sig_bytes: [u8; 96] = sig.to_bytes();
         let sig2 = SchnorrSignature::from_bytes(&sig_bytes).unwrap();
 
         assert_eq!(sig, sig2);
+    }
+
+    #[test]
+    fn test_from_bytes_signature_too_many_bytes() {
+        let msg = vec![0u8; 97];
+
+        let result = SchnorrSignature::from_bytes(&msg);
+
+        assert!(result.is_err());
     }
 }

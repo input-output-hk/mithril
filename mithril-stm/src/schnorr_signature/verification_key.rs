@@ -2,12 +2,12 @@ use anyhow::{Result, anyhow};
 use group::{Group, GroupEncoding};
 pub use midnight_curves::JubjubSubgroup;
 
-use crate::schnorr_signature::signing_key::SchnorrSigningKey;
+pub(crate) use crate::schnorr_signature::signing_key::SchnorrSigningKey;
 
 /// Schnorr verification key, it consists of a point on the Jubjub curve
 /// vk = g * sk, where g is a generator
 #[derive(Debug, Clone, Copy, Default)]
-pub(crate) struct SchnorrVerificationKey(pub(crate) JubjubSubgroup);
+pub struct SchnorrVerificationKey(pub(crate) JubjubSubgroup);
 
 impl SchnorrVerificationKey {
     /// TODO: Make sure this is correct as the previous implementation is
