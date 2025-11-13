@@ -1,6 +1,7 @@
-use crate::*;
-
-use super::interface::*;
+use crate::{
+    signature_scheme::{CryptoInitializer, CryptoSigner, CryptoVerifier},
+    *,
+};
 
 /// BLS signing key
 #[derive(Default, Clone)]

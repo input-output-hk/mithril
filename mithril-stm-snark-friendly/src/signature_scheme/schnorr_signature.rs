@@ -1,6 +1,7 @@
-use crate::*;
-
-use super::interface::*;
+use crate::{
+    signature_scheme::{CryptoInitializer, CryptoSigner, CryptoVerifier},
+    *,
+};
 
 /// Jubjub signing key
 #[derive(Default, Clone)]
@@ -49,12 +50,12 @@ impl CryptoInitializer for SchnorrCryptoInitializer {
 
 /// Schnorr crypto signer
 pub struct SchnorrCryptoSigner {
-    pub bls_signing_key: JubjubSigningKey,
+    pub jubjub_signing_key: JubjubSigningKey,
 }
 
 impl SchnorrCryptoSigner {
-    pub fn new(bls_signing_key: JubjubSigningKey) -> Self {
-        Self { bls_signing_key }
+    pub fn new(jubjub_signing_key: JubjubSigningKey) -> Self {
+        Self { jubjub_signing_key }
     }
 }
 

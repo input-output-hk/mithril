@@ -1,4 +1,6 @@
-use crate::*;
+#[cfg(feature = "future_snark")]
+use crate::signature_scheme::schnorr_signature::JubjubSignature;
+use crate::{core::SignerIndex, signature_scheme::bls_signature::BlsSignature, *};
 
 /// Single signature produced by a signer
 pub struct SingleSignature {

@@ -1,6 +1,25 @@
 use anyhow::anyhow;
 
-use crate::*;
+use crate::{
+    core::{
+        Parameters, Stake,
+        key_registration::{KeyRegistration, SignerRegistration},
+        signer::Signer,
+    },
+    proof_system::concatenation_proof::ConcatenationProofSingleSignatureGenerator,
+    signature_scheme::bls_signature::{
+        BlsCryptoSigner, BlsSigningKey, BlsVerificationKeyProofOfPossession,
+    },
+    *,
+};
+#[cfg(feature = "future_snark")]
+use crate::{
+    proof_system::snark_proof::SnarkProofSingleSignatureGenerator,
+    signature_scheme::schnorr_signature::SchnorrCryptoSigner,
+    signature_scheme::schnorr_signature::{
+        JubjubSigningKey, JubjubVerificationKeyProofOfPossession,
+    },
+};
 
 /// The initializer for a signer
 pub struct Initializer {

@@ -1,4 +1,4 @@
-use crate::Stake;
+use crate::core::Stake;
 
 /// The type used for eligibility evaluation
 pub struct EligibilityValue {}

@@ -1,6 +1,16 @@
-use crate::*;
-
-use super::interface::*;
+use crate::{
+    commitment_scheme::merkle_tree::MerkleTree,
+    core::{
+        Digest, Parameters, SignerIndex, Stake, key_registration::KeyRegistration,
+        single_signature::SingleSignature,
+    },
+    proof_system::{
+        ProofSystemAggregateSignatureProver, ProofSystemAggregateSignatureVerifier,
+        ProofSystemSingleSignatureGenerator,
+    },
+    signature_scheme::schnorr_signature::{JubjubSignature, SchnorrCryptoSigner},
+    *,
+};
 
 /// Poseidon hash function digest
 pub struct PoseidonDigest;

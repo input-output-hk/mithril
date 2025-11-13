@@ -1,4 +1,13 @@
-use crate::*;
+#[cfg(feature = "future_snark")]
+use crate::proof_system::snark_proof::SnarkProofSingleSignatureGenerator;
+use crate::{
+    core::{Parameters, SignerIndex, Stake, single_signature::SingleSignature},
+    proof_system::{
+        ProofSystemSingleSignatureGenerator,
+        concatenation_proof::ConcatenationProofSingleSignatureGenerator,
+    },
+    *,
+};
 
 /// The signer structure
 pub struct Signer {

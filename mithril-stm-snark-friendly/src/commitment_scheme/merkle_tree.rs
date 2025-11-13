@@ -1,10 +1,11 @@
 use std::marker::PhantomData;
 
 use crate::{
-    commitment_scheme::interface::{
+    commitment_scheme::{
         SignerRegistrationCommitmentGenerator, SignerRegistrationRegisterer,
         SignerRegistrationRevealProver, SignerRegistrationRevealVerifier,
     },
+    core::Digest,
     *,
 };
 
@@ -37,6 +38,7 @@ pub struct MerkleTree<D: Digest> {
 }
 
 impl<D: Digest> MerkleTree<D> {
+    /// Creates a new Merkle Tree from the given leaves
     pub fn new<L: MerkleTreeLeaf>(leaves: &[L]) -> MerkleTree<D> {
         let leaves = leaves
             .iter()
@@ -50,10 +52,12 @@ impl<D: Digest> MerkleTree<D> {
         }
     }
 
+    /// Converts the Merkle Tree to a Merkle Tree Commitment
     pub fn to_merkle_tree_commitment(&self) -> StdResult<MerkleTreeCommitment> {
         Ok(MerkleTreeCommitment { root: vec![] })
     }
 
+    /// Computes the Merkle Path for a given index
     pub fn compute_merkle_path(&self, _index: usize) -> StdResult<MerklePath> {
         Ok(MerklePath { root: vec![] })
     }

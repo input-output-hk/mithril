@@ -1,4 +1,10 @@
-use crate::*;
+#[cfg(feature = "future_snark")]
+use crate::proof_system::snark_proof::SnarkProof;
+use crate::{
+    core::{Parameters, key_registration::KeyRegistration, single_signature::SingleSignature},
+    proof_system::concatenation_proof::{ConcatenationProof, ConcatenationProofGenerator},
+    *,
+};
 
 /// The type of aggregate signature to produce
 pub enum AggregateSignatureType {
@@ -52,6 +58,8 @@ impl SignatureAggregator {
             }
             #[cfg(feature = "future_snark")]
             AggregateSignatureType::Snark => {
+                use crate::proof_system::snark_proof::SnarkProofGenerator;
+
                 let snark_proof_generator =
                     SnarkProofGenerator::new(&self.parameters, &self.key_registrations);
                 let snark_proof = snark_proof_generator.create_snark_proof(message, &signatures)?;

@@ -1,4 +1,17 @@
-use crate::*;
+use crate::{
+    commitment_scheme::merkle_tree::{MerkleTree, MerkleTreeLeaf},
+    core::{Digest, SignerIndex, Stake, eligibility::EligibilityValue},
+    signature_scheme::{
+        bls_signature::{BlsVerificationKey, BlsVerificationKeyProofOfPossession},
+        schnorr_signature::JubjubVerificationKey,
+    },
+    *,
+};
+#[cfg(feature = "future_snark")]
+use crate::{
+    commitment_scheme::pedersen_commitment::PedersenCommitment,
+    signature_scheme::schnorr_signature::JubjubVerificationKeyProofOfPossession,
+};
 
 /// Represents a signer registration entry
 #[derive(PartialEq, Eq, Clone)]

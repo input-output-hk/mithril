@@ -1,6 +1,16 @@
-use crate::*;
-
-use super::interface::*;
+use crate::{
+    commitment_scheme::merkle_tree::MerkleTree,
+    core::{
+        Digest, Parameters, SignerIndex, Stake, key_registration::KeyRegistration,
+        single_signature::SingleSignature,
+    },
+    proof_system::{
+        ProofSystemAggregateSignatureProver, ProofSystemAggregateSignatureVerifier,
+        ProofSystemSingleSignatureGenerator,
+    },
+    signature_scheme::bls_signature::{BlsCryptoSigner, BlsSignature},
+    *,
+};
 
 /// Blake digest implementation
 pub struct BlakeDigest;
