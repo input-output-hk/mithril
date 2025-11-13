@@ -53,6 +53,7 @@ where
         })
     });
 
+
     let closed_reg = key_reg.close();
 
     let signers = initializers
@@ -287,13 +288,13 @@ fn core_verifier_benches_blake_2000(c: &mut Criterion) {
 }
 
 criterion_group!(name = benches;
-                 config = Criterion::default().nresamples(1000);
+                 config = Criterion::default().nresamples(10).sample_size(10);
                  targets =
-    core_verifier_benches_blake_300,
-    core_verifier_benches_blake_2000,
+    // core_verifier_benches_blake_300,
+    // core_verifier_benches_blake_2000,
     stm_benches_blake_300,
     stm_benches_blake_2000,
-    batch_stm_benches_blake_300,
-    batch_stm_benches_blake_2000,
+    // batch_stm_benches_blake_300,
+    // batch_stm_benches_blake_2000,
 );
 criterion_main!(benches);
