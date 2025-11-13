@@ -11,7 +11,7 @@ pub struct EpochSettingsMessage {
     /// Signer Registration Protocol parameters
     #[deprecated(
         since = "0.6.27",
-        note = "Will be removed soon. use `mithril_protocol_config` crate instead."
+        note = "Will be removed soon. use `mithril-protocol-config` crate instead."
     )]
     #[serde(
         rename = "signer_registration_protocol",
@@ -28,7 +28,7 @@ pub struct EpochSettingsMessage {
     /// Cardano transactions signing configuration for the current epoch
     #[deprecated(
         since = "0.6.27",
-        note = "Will be removed soon. use `mithril_protocol_config` crate instead."
+        note = "Will be removed soon. use `mithril-protocol-config` crate instead."
     )]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,

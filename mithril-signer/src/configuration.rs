@@ -70,8 +70,9 @@ pub struct Configuration {
     /// be considered final, preventing any further rollback `[default: 2160]`.
     pub network_security_parameter: BlockNumber,
 
-    /// Blocks offset, from the tip of the chain, to exclude during the cardano transactions preload
-    /// `[default: 3000]`.
+    /// Blocks offset, from the tip of the chain, to exclude during the Cardano transactions preload,
+    /// default to 1000.
+    #[example = "`2160`"]
     pub preload_security_parameter: BlockNumber,
 
     /// Aggregator endpoint

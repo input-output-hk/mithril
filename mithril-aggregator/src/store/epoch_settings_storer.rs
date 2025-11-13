@@ -70,7 +70,7 @@ pub trait EpochSettingsStorer:
                             .cardano_transactions
                             .clone()
                             .ok_or(anyhow!(
-                                "missing cardano transactions signing config for epoch {epoch}"
+                                "Missing cardano transactions signing config for epoch {epoch}"
                             ))?,
                     },
                 )

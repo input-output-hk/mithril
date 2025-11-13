@@ -4,7 +4,7 @@ use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereConditi
 
 use crate::database::record::EpochSettingsRecord;
 
-/// Query to update [EpochSettingsRecord] in the sqlite database
+/// Query to insert a [EpochSettingsRecord] into the sqlite database if it does not already exist.
 pub struct InsertOrIgnoreEpochSettingsQuery {
     condition: WhereCondition,
 }

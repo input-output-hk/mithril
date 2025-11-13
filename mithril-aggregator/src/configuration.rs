@@ -384,7 +384,7 @@ pub trait ConfigurationSource {
     ) -> StdResult<AggregatorEpochSettings> {
         Ok(AggregatorEpochSettings {
             protocol_parameters: self.protocol_parameters().with_context(
-                || "Configuration `protocol_parameter` is mandatory for a Leader Aggregator",
+                || "Configuration `protocol_parameters` is mandatory for a Leader Aggregator",
             )?,
             cardano_transactions_signing_config: self
                 .cardano_transactions_signing_config()
@@ -571,8 +571,9 @@ pub struct ServeCommandConfiguration {
     #[example = "`{ security_parameter: 3000, step: 120 }`"]
     pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
 
-    /// Blocks offset, from the tip of the chain, to exclude during the cardano transactions preload
-    /// `[default: 2160]`.
+    /// Blocks offset, from the tip of the chain, to exclude during the Cardano transactions preload,
+    /// default to 2160.
+    #[example = "`2160`"]
     pub preload_security_parameter: BlockNumber,
 
     /// Maximum number of transactions hashes allowed by request to the prover of the Cardano transactions
@@ -1003,7 +1004,7 @@ pub struct DefaultConfiguration {
     /// Cardano transactions signing configuration
     pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
 
-    /// Blocks offset, from the tip of the chain, to exclude during the cardano transactions preload
+    /// Blocks offset, from the tip of the chain, to exclude during the Cardano transactions preload
     pub preload_security_parameter: u64,
 
     /// Maximum number of transactions hashes allowed by request to the prover of the Cardano transactions
