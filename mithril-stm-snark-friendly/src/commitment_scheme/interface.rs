@@ -1,7 +1,19 @@
 use crate::*;
 
 pub trait SignerRegistrationCommitmentGenerator {
-    fn create_signer_registration_commitment(&self) -> StdResult<()>;
+    type SignerCommitment;
+
+    fn create_signer_registration_commitment(&self) -> StdResult<Self::SignerCommitment>;
+}
+
+pub trait SignerRegistrationRegisterer {
+    type SignerRegistrationInput;
+    type SignerregistrationIndex;
+
+    fn register_entry(
+        &self,
+        reveal: &Self::SignerRegistrationInput,
+    ) -> StdResult<Self::SignerregistrationIndex>;
 }
 
 pub trait SignerRegistrationRevealProver {

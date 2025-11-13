@@ -13,6 +13,12 @@ pub struct BlsVerificationKey {}
 #[derive(Default, PartialEq, Eq, Clone)]
 pub struct BlsVerificationKeyProofOfPossession {}
 
+impl BlsVerificationKeyProofOfPossession {
+    pub fn into_verification_key(self) -> BlsVerificationKey {
+        BlsVerificationKey {}
+    }
+}
+
 /// BLS signature
 #[derive(Default)]
 pub struct BlsSignature {}

@@ -40,9 +40,9 @@ impl Initializer {
         let signer_index = key_registration
             .get_signer_index_for_registration(&SignerRegistration {
                 stake: self.stake.clone(),
-                bls_public_key: self.bls_public_key.clone(),
+                bls_public_key_proof_of_possession: self.bls_public_key.clone(),
                 #[cfg(feature = "future_snark")]
-                schnorr_public_key: self.schnorr_public_key.clone(),
+                schnorr_public_key_proof_of_possession: self.schnorr_public_key.clone(),
             })
             .ok_or(anyhow!("Signer registration not found in key registration"))?;
         let concatenation_proof_individual_signature_generator =
@@ -51,7 +51,7 @@ impl Initializer {
                 self.stake.clone(),
                 self.parameters.clone(),
                 BlsCryptoSigner::new(self.bls_signing_key.clone()),
-                key_registration.clone().into_merkle_tree_for_concatenation(),
+                key_registration.clone().into_merkle_tree_for_concatenation()?,
             );
         #[cfg(feature = "future_snark")]
         let snark_proof_individual_signature_generator =
@@ -63,7 +63,7 @@ impl Initializer {
                     self.stake.clone(),
                     self.parameters.clone(),
                     SchnorrCryptoSigner::new(schnorr_signing_key.clone()),
-                    key_registration.clone().into_merkle_tree_for_snark(),
+                    key_registration.clone().into_merkle_tree_for_snark()?,
                 ))
             } else {
                 None
@@ -73,7 +73,6 @@ impl Initializer {
             signer_index.clone(),
             self.stake.clone(),
             self.parameters.clone(),
-            BlsCryptoSigner::new(self.bls_signing_key.clone()),
             concatenation_proof_individual_signature_generator,
             #[cfg(feature = "future_snark")]
             snark_proof_individual_signature_generator,

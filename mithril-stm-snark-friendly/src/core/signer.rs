@@ -15,7 +15,6 @@ impl Signer {
         signer_index: SignerIndex,
         stake: Stake,
         parameters: Parameters,
-        bls_crypto_signer: BlsCryptoSigner,
         concatenation_proof_individual_signature_generator:
             ConcatenationProofSingleSignatureGenerator,
         #[cfg(feature = "future_snark")] snark_proof_individual_signature_generator: Option<

@@ -14,6 +14,12 @@ pub struct JubjubVerificationKey {}
 #[derive(PartialEq, Eq, Clone)]
 pub struct JubjubVerificationKeyProofOfPossession {}
 
+impl JubjubVerificationKeyProofOfPossession {
+    pub fn into_verification_key(self) -> JubjubVerificationKey {
+        JubjubVerificationKey {}
+    }
+}
+
 /// Jubjub signature
 #[derive(Default)]
 pub struct JubjubSignature {}
