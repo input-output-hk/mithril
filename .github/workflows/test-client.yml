@@ -88,6 +88,7 @@ jobs:
       cardano_stake_distribution_enabled: ${{ steps.prepare.outputs.cardano_stake_distribution_enabled }}
       cardano_database_v2_enabled: ${{ steps.prepare.outputs.cardano_database_v2_enabled }}
       available_cardano_database_backends: ${{ steps.prepare.outputs.available_cardano_database_backends }}
+      bin-cdb-download-matrix-include: ${{ steps.prepare.outputs.bin-cdb-download-matrix-include }}
     steps:
       - name: Prepare
         id: prepare
@@ -115,8 +116,10 @@ jobs:
 
           if [[ $CARDANO_DATABASE_V2_CAPABILITY == "true" ]]; then
             echo 'available_cardano_database_backends=["v1","v2"]' >> $GITHUB_OUTPUT
+            echo 'bin-cdb-download-matrix-include=[{"backend":"v2","os":"ubuntu-24.04","ledger_backend":"lmdb","extra_args":"--include-ancillary"}]' >> $GITHUB_OUTPUT
           else
             echo 'available_cardano_database_backends=["v1"]' >> $GITHUB_OUTPUT
+            echo 'bin-cdb-download-matrix-include=[]' >> $GITHUB_OUTPUT
           fi
 
   bin:
@@ -247,7 +250,10 @@ jobs:
       matrix:
         backend: ${{ fromJson(needs.prepare.outputs.available_cardano_database_backends) }}
         os: [ubuntu-24.04, ubuntu-24.04-arm, macos-14, windows-latest]
+        ledger_backend: ["in-memory"]
         extra_args: ["", "--include-ancillary"]
+
+        include: ${{ fromJson(needs.prepare.outputs.bin-cdb-download-matrix-include) }}
 
     runs-on: ${{ matrix.os }}
     env:
@@ -291,12 +297,12 @@ jobs:
 
       - name: Ledger state snapshot conversion from InMemory to LMDB
         # The 'snapshot-converter' binary is not currently supported on Linux ARM64 platforms.
-        if: matrix.os != 'ubuntu-24.04-arm' && matrix.extra_args == '--include-ancillary' && matrix.backend == 'v2'
+        if: matrix.os != 'ubuntu-24.04-arm' && matrix.extra_args == '--include-ancillary' && matrix.ledger_backend == 'lmdb'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ needs.prepare.outputs.debug_level }} tools utxo-hd snapshot-converter --db-directory v2/db --cardano-node-version latest --utxo-hd-flavor LMDB --commit
+        run: ./mithril-client ${{ needs.prepare.outputs.debug_level }} tools utxo-hd snapshot-converter --db-directory ${{ matrix.backend }}/db --cardano-node-version latest --utxo-hd-flavor LMDB --commit
 
       - name: Cardano Database V2 Snapshot / verify immutables
         if: matrix.backend == 'v2'
@@ -307,7 +313,7 @@ jobs:
       - name: Cardano Database Snapshot / verify Cardano node starts successfully
         if: matrix.os == 'ubuntu-24.04'
         shell: bash
-        run: .github/workflows/scripts/verify-cardano-db-restoration.sh ./bin/cdb-${{ matrix.backend }}-download-output.txt "${{ matrix.extra_args }}"
+        run: .github/workflows/scripts/verify-cardano-db-restoration.sh ./bin/cdb-${{ matrix.backend }}-download-output.txt --ledger-backend ${{ matrix.ledger_backend }} ${{ matrix.extra_args }}
 
       - name: Cardano Database V2 Snapshot / verify tampered and missing immutables from a specific range
         if: matrix.backend == 'v2'
