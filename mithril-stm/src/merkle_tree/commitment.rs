@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::StmResult;
 use crate::error::MerkleTreeError;
 use crate::merkle_tree::{MerkleBatchPath, MerklePath, MerkleTreeLeaf, parent, sibling};
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 /// `MerkleTree` commitment.
 /// This structure differs from `MerkleTree` in that it does not contain all elements, which are not always necessary.
 /// Instead, it only contains the root of the tree.
@@ -208,7 +208,14 @@ impl<D: Digest + FixedOutput> MerkleTreeBatchCommitment<D> {
                 if ordered_indices[i] & 1 == 0 {
                     new_hashes.push(
                         D::new()
-                            .chain(values.first().ok_or(MerkleTreeError::SerializationError)?)
+                            .chain(
+                                values
+                                    .first()
+                                    .ok_or(MerkleTreeError::SerializationError)
+                                    .with_context(|| {
+                                        format!("Could not verify leave membership from batch path for idx = {} and ordered_indices[{}]", idx, i)
+                                    })?,
+                            )
                             .chain(&leaves[i])
                             .finalize()
                             .to_vec(),
@@ -225,7 +232,16 @@ impl<D: Digest + FixedOutput> MerkleTreeBatchCommitment<D> {
                         new_hashes.push(
                             D::new()
                                 .chain(&leaves[i])
-                                .chain(values.first().ok_or(MerkleTreeError::SerializationError)?)
+                                .chain(
+                                    values
+                                        .first()
+                                        .ok_or(MerkleTreeError::SerializationError)
+                                        .with_context(|| {
+                                            format!(
+                                                "Could not verify leave membership from batch path for idx = {} where sibling < nr_nodes", idx
+                                            )
+                                        })?,
+                                )
                                 .finalize()
                                 .to_vec(),
                         );

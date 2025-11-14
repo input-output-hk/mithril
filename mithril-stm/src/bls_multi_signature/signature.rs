@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use std::{cmp::Ordering, iter::Sum};
 
 use blake2::{Blake2b, Blake2b512, Digest};
@@ -143,7 +143,7 @@ impl BlsSignature {
         vks: &[BlsVerificationKey],
         sigs: &[BlsSignature],
     ) -> StmResult<()> {
-        let (aggr_vk, aggr_sig) = Self::aggregate(vks, sigs)?;
+        let (aggr_vk, aggr_sig) = Self::aggregate(vks, sigs).with_context(|| "Multi signature verification failed in aggregation of verification keys and signatures.")?;
 
         blst_error_to_stm_error(
             aggr_sig.0.verify(

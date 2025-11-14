@@ -12,7 +12,7 @@ use crate::{
     AggregateVerificationKey, Index, Parameters, Stake, StmResult, StmSignatureError,
     VerificationKey,
 };
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 
 /// Signature created by a single party who has won the lottery.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -37,7 +37,13 @@ impl SingleSignature {
         msg: &[u8],
     ) -> StmResult<()> {
         let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
-        self.basic_verify(params, pk, stake, &msgp, &avk.get_total_stake())?;
+        self.basic_verify(params, pk, stake, &msgp, &avk.get_total_stake())
+            .with_context(|| {
+                format!(
+                    "Single signature verification failed for signer index {}.",
+                    self.signer_index
+                )
+            })?;
         Ok(())
     }
 
@@ -148,8 +154,11 @@ impl SingleSignature {
         msg: &[u8],
         total_stake: &Stake,
     ) -> StmResult<()> {
-        self.sigma.verify(msg, pk)?;
-        self.check_indices(params, stake, msg, total_stake)?;
+        self.sigma
+            .verify(msg, pk)
+            .with_context(|| "Basic verification of single signature failed.")?;
+        self.check_indices(params, stake, msg, total_stake)
+            .with_context(|| "Basic verification of single signature failed.")?;
 
         Ok(())
     }

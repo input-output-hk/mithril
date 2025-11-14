@@ -3,6 +3,7 @@ use crate::{
     Index, Parameters, Signer, SingleSignature, Stake, StmResult, VerificationKey,
     aggregate_signature::ConcatenationProof,
 };
+use anyhow::Context;
 use blake2::digest::{Digest, FixedOutput};
 
 #[cfg(feature = "future_proof_system")]
@@ -80,7 +81,12 @@ impl<D: Digest + Clone + FixedOutput + Send + Sync> Clerk<D> {
     ) -> StmResult<AggregateSignature<D>> {
         match aggregate_signature_type {
             AggregateSignatureType::Concatenation => Ok(AggregateSignature::Concatenation(
-                ConcatenationProof::aggregate_signatures(self, sigs, msg)?,
+                ConcatenationProof::aggregate_signatures(self, sigs, msg).with_context(|| {
+                    format!(
+                        "Signatures failed to aggregate for type {}",
+                        AggregateSignatureType::Concatenation
+                    )
+                })?,
             )),
             #[cfg(feature = "future_proof_system")]
             AggregateSignatureType::Future => Err(anyhow!(

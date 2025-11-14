@@ -1,3 +1,4 @@
+use anyhow::Context;
 use blake2::digest::{Digest, FixedOutput};
 
 use serde::{Deserialize, Serialize};
@@ -52,6 +53,9 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
             &clerk.params,
             &msgp,
             &sig_reg_list,
+        )
+        .with_context(
+            || "Failed to aggregate unique signatures during selection for the k indices.",
         )?;
 
         unique_sigs.sort_unstable();
@@ -90,7 +94,8 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
             &self.signatures,
             parameters,
             &msgp,
-        )?;
+        )
+        .with_context(|| "Preliminary verification of aggregate signatures failed.")?;
 
         let leaves = self
             .signatures
@@ -99,7 +104,8 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
             .collect::<Vec<RegisteredParty>>();
 
         avk.get_merkle_tree_batch_commitment()
-            .verify_leaves_membership_from_batch_path(&leaves, &self.batch_proof)?;
+            .verify_leaves_membership_from_batch_path(&leaves, &self.batch_proof)
+            .with_context(|| "Batch proof is invalid in preliminary verification.")?;
 
         Ok(BasicVerifier::collect_signatures_verification_keys(
             &self.signatures,
@@ -119,9 +125,12 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
         parameters: &Parameters,
     ) -> StmResult<()> {
         let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
-        let (sigs, vks) = self.preliminary_verify(msg, avk, parameters)?;
+        let (sigs, vks) = self
+            .preliminary_verify(msg, avk, parameters)
+            .with_context(|| "Aggregate signature verification failed")?;
 
-        BlsSignature::verify_aggregate(msgp.as_slice(), &vks, &sigs)?;
+        BlsSignature::verify_aggregate(msgp.as_slice(), &vks, &sigs)
+            .with_context(|| "Aggregate signature verification failed")?;
         Ok(())
     }
 

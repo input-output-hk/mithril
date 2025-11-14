@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::bls_multi_signature::{BlsSignature, BlsVerificationKey};
@@ -64,7 +64,8 @@ impl BasicVerifier {
         for sig_reg in signatures {
             sig_reg
                 .sig
-                .check_indices(parameters, &sig_reg.reg_party.1, msg, total_stake)?;
+                .check_indices(parameters, &sig_reg.reg_party.1, msg, total_stake)
+                .with_context(|| "Preliminary verification for basic verifier failed.")?;
             for &index in &sig_reg.sig.indexes {
                 unique_indices.insert(index);
                 nr_indices += 1;
@@ -238,13 +239,15 @@ impl BasicVerifier {
             parameters,
             msg,
             &sig_reg_list,
-        )?;
+        )
+        .with_context(|| "Basic verification failed during selection of unique k indices.")?;
 
         Self::preliminary_verify(&self.total_stake, &unique_sigs, parameters, msg)?;
 
         let (sigs, vks) = Self::collect_signatures_verification_keys(&unique_sigs);
 
-        BlsSignature::verify_aggregate(msg.to_vec().as_slice(), &vks, &sigs)?;
+        BlsSignature::verify_aggregate(msg.to_vec().as_slice(), &vks, &sigs)
+            .with_context(|| "Basic verifier failed in multisignature verification.")?;
 
         Ok(())
     }
