@@ -16,6 +16,7 @@ pub struct AggregatorDiscovererFake {
 impl AggregatorDiscovererFake {
     /// Creates a new `AggregatorDiscovererFake` instance with the provided results.
     pub fn new(results: Vec<AggregatorListReturn>) -> Self {
+        dbg!(&results);
         Self {
             results: Mutex::new(VecDeque::from(results)),
         }

@@ -94,14 +94,28 @@ impl AggregatorDiscoverer for CapableAggregatorDiscoverer {
 mod tests {
     use std::collections::BTreeSet;
 
+    use httpmock::MockServer;
+    use serde_json::json;
+
     use mithril_common::{
         AggregateSignatureType,
         entities::SignedEntityTypeDiscriminants::{
             CardanoDatabase, CardanoStakeDistribution, CardanoTransactions,
         },
+        messages::AggregatorFeaturesMessage,
     };
 
     use super::*;
+
+    fn create_aggregator_features_message(
+        capabilities: AggregatorCapabilities,
+    ) -> AggregatorFeaturesMessage {
+        AggregatorFeaturesMessage {
+            open_api_version: "1.0.0".to_string(),
+            documentation_url: "https://docs".to_string(),
+            capabilities,
+        }
+    }
 
     #[test]
     fn capabilities_match_success() {
@@ -145,18 +159,192 @@ mod tests {
         ));
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn get_available_aggregators_success() {
-        todo!()
+        let capabilities = AggregatorCapabilities {
+            aggregate_signature_type: AggregateSignatureType::Concatenation,
+            signed_entity_types: BTreeSet::from([CardanoStakeDistribution, CardanoTransactions]),
+            cardano_transactions_prover: None,
+        };
+        let aggregator_server = MockServer::start();
+        let aggregator_server_mock = aggregator_server.mock(|when, then| {
+            when.path("/");
+            then.status(200)
+                .body(json!(create_aggregator_features_message(capabilities)).to_string());
+        });
+        let discoverer = CapableAggregatorDiscoverer::new(
+            AggregatorCapabilities {
+                aggregate_signature_type: AggregateSignatureType::Concatenation,
+                signed_entity_types: BTreeSet::from([CardanoTransactions]),
+                cardano_transactions_prover: None,
+            },
+            Arc::new(crate::test::double::AggregatorDiscovererFake::new(vec![
+                Ok(vec![AggregatorEndpoint::new(aggregator_server.url("/"))]),
+            ])),
+        );
+
+        let mut aggregators = discoverer
+            .get_available_aggregators(MithrilNetwork::new("release-devnet".into()))
+            .await
+            .unwrap();
+
+        let next_aggregator = aggregators.next();
+        aggregator_server_mock.assert();
+        assert_eq!(
+            Some(AggregatorEndpoint::new(aggregator_server.url("/"))),
+            next_aggregator
+        );
     }
 
-    #[tokio::test]
-    async fn get_available_aggregators_success_when_one_aggregator_capabilities_does_not_match() {
-        todo!()
+    #[tokio::test(flavor = "multi_thread")]
+    async fn get_available_aggregators_succeeds_when_aggregator_capabilities_do_not_match() {
+        let capabilities = AggregatorCapabilities {
+            aggregate_signature_type: AggregateSignatureType::Concatenation,
+            signed_entity_types: BTreeSet::from([CardanoTransactions]),
+            cardano_transactions_prover: None,
+        };
+        let aggregator_server = MockServer::start();
+        let aggregator_server_mock = aggregator_server.mock(|when, then| {
+            when.path("/");
+            then.status(200)
+                .body(json!(create_aggregator_features_message(capabilities)).to_string());
+        });
+        let discoverer = CapableAggregatorDiscoverer::new(
+            AggregatorCapabilities {
+                aggregate_signature_type: AggregateSignatureType::Concatenation,
+                signed_entity_types: BTreeSet::from([CardanoDatabase]),
+                cardano_transactions_prover: None,
+            },
+            Arc::new(crate::test::double::AggregatorDiscovererFake::new(vec![
+                Ok(vec![AggregatorEndpoint::new(aggregator_server.url("/"))]),
+            ])),
+        );
+
+        let mut aggregators = discoverer
+            .get_available_aggregators(MithrilNetwork::new("release-devnet".into()))
+            .await
+            .unwrap();
+
+        let next_aggregator = aggregators.next();
+        aggregator_server_mock.assert();
+        assert!(next_aggregator.is_none());
     }
 
-    #[tokio::test]
-    async fn get_available_aggregators_success_when_one_aggregator_retruns_an_error() {
-        todo!()
+    #[tokio::test(flavor = "multi_thread")]
+    async fn get_available_aggregators_succeeds_when_one_aggregator_returns_an_error() {
+        let aggregator_server_1 = MockServer::start();
+        let aggregator_server_mock_1 = aggregator_server_1.mock(|when, then| {
+            when.path("/");
+            then.status(500);
+        });
+        let capabilities_2 = AggregatorCapabilities {
+            aggregate_signature_type: AggregateSignatureType::Concatenation,
+            signed_entity_types: BTreeSet::from([CardanoStakeDistribution, CardanoDatabase]),
+            cardano_transactions_prover: None,
+        };
+        let aggregator_server_2 = MockServer::start();
+        let aggregator_server_mock_2 = aggregator_server_2.mock(|when, then| {
+            when.path("/");
+            then.status(200)
+                .body(json!(create_aggregator_features_message(capabilities_2)).to_string());
+        });
+        let discoverer = CapableAggregatorDiscoverer::new(
+            AggregatorCapabilities {
+                aggregate_signature_type: AggregateSignatureType::Concatenation,
+                signed_entity_types: BTreeSet::from([CardanoDatabase]),
+                cardano_transactions_prover: None,
+            },
+            Arc::new(crate::test::double::AggregatorDiscovererFake::new(vec![
+                Ok(vec![
+                    AggregatorEndpoint::new(aggregator_server_1.url("/")),
+                    AggregatorEndpoint::new(aggregator_server_2.url("/")),
+                ]),
+            ])),
+        );
+
+        let mut aggregators = discoverer
+            .get_available_aggregators(MithrilNetwork::new("release-devnet".into()))
+            .await
+            .unwrap();
+
+        let next_aggregator = aggregators.next();
+        aggregator_server_mock_1.assert();
+        aggregator_server_mock_2.assert();
+        assert_eq!(
+            Some(AggregatorEndpoint::new(aggregator_server_2.url("/"))),
+            next_aggregator
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn get_available_aggregators_succeeds_and_makes_minimum_calls_to_aggregators() {
+        let aggregator_server_1 = MockServer::start();
+        let aggregator_server_mock_1 = aggregator_server_1.mock(|when, then| {
+            when.path("/");
+            then.status(500);
+        });
+        let capabilities_2 = AggregatorCapabilities {
+            aggregate_signature_type: AggregateSignatureType::Concatenation,
+            signed_entity_types: BTreeSet::from([CardanoStakeDistribution]),
+            cardano_transactions_prover: None,
+        };
+        let aggregator_server_2 = MockServer::start();
+        let aggregator_server_mock_2 = aggregator_server_2.mock(|when, then| {
+            when.path("/");
+            then.status(200)
+                .body(json!(create_aggregator_features_message(capabilities_2)).to_string());
+        });
+        let capabilities_3 = AggregatorCapabilities {
+            aggregate_signature_type: AggregateSignatureType::Concatenation,
+            signed_entity_types: BTreeSet::from([CardanoDatabase]),
+            cardano_transactions_prover: None,
+        };
+        let aggregator_server_3 = MockServer::start();
+        let aggregator_server_mock_3 = aggregator_server_3.mock(|when, then| {
+            when.path("/");
+            then.status(200)
+                .body(json!(create_aggregator_features_message(capabilities_3)).to_string());
+        });
+        let capabilities_4 = AggregatorCapabilities {
+            aggregate_signature_type: AggregateSignatureType::Concatenation,
+            signed_entity_types: BTreeSet::from([CardanoDatabase]),
+            cardano_transactions_prover: None,
+        };
+        let aggregator_server_4 = MockServer::start();
+        let aggregator_server_mock_4 = aggregator_server_4.mock(|when, then| {
+            when.path("/");
+            then.status(200)
+                .body(json!(create_aggregator_features_message(capabilities_4)).to_string());
+        });
+        let discoverer = CapableAggregatorDiscoverer::new(
+            AggregatorCapabilities {
+                aggregate_signature_type: AggregateSignatureType::Concatenation,
+                signed_entity_types: BTreeSet::from([CardanoDatabase]),
+                cardano_transactions_prover: None,
+            },
+            Arc::new(crate::test::double::AggregatorDiscovererFake::new(vec![
+                Ok(vec![
+                    AggregatorEndpoint::new(aggregator_server_1.url("/")),
+                    AggregatorEndpoint::new(aggregator_server_2.url("/")),
+                    AggregatorEndpoint::new(aggregator_server_3.url("/")),
+                    AggregatorEndpoint::new(aggregator_server_4.url("/")),
+                ]),
+            ])),
+        );
+
+        let mut aggregators = discoverer
+            .get_available_aggregators(MithrilNetwork::new("release-devnet".into()))
+            .await
+            .unwrap();
+
+        let next_aggregator = aggregators.next();
+        aggregator_server_mock_1.assert();
+        aggregator_server_mock_2.assert();
+        aggregator_server_mock_3.assert();
+        assert_eq!(0, aggregator_server_mock_4.calls());
+        assert_eq!(
+            Some(AggregatorEndpoint::new(aggregator_server_3.url("/"))),
+            next_aggregator
+        );
     }
 }
