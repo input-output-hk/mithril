@@ -73,7 +73,7 @@ impl Initializer {
                 self.stake.clone(),
                 self.parameters.clone(),
                 BlsCryptoSigner::new(self.bls_signing_key.clone()),
-                key_registration.clone().into_merkle_tree_for_concatenation()?,
+                key_registration.clone().into_merkle_tree()?,
             );
         #[cfg(feature = "future_snark")]
         let snark_proof_individual_signature_generator =
@@ -85,7 +85,7 @@ impl Initializer {
                     self.stake.clone(),
                     self.parameters.clone(),
                     SchnorrCryptoSigner::new(schnorr_signing_key.clone()),
-                    key_registration.clone().into_merkle_tree_for_snark()?,
+                    key_registration.clone().into_merkle_tree()?,
                 ))
             } else {
                 None

@@ -1,6 +1,6 @@
 use crate::{
     commitment_scheme::merkle_tree::{MerkleTree, MerkleTreeLeaf},
-    core::{Digest, SignerIndex, Stake, eligibility::EligibilityValue},
+    core::{Digest, SignerIndex, Stake, eligibility::EligibilityValue, signer},
     signature_scheme::{
         bls_signature::{BlsVerificationKey, BlsVerificationKeyProofOfPossession},
         schnorr_signature::JubjubVerificationKey,
@@ -20,6 +20,31 @@ pub struct SignerRegistration {
     pub bls_public_key_proof_of_possession: BlsVerificationKeyProofOfPossession,
     #[cfg(feature = "future_snark")]
     pub schnorr_public_key_proof_of_possession: Option<JubjubVerificationKeyProofOfPossession>,
+}
+
+impl From<SignerRegistration> for SignerRegistrationEntryConcatenation {
+    fn from(signer_registration: SignerRegistration) -> Self {
+        (
+            signer_registration
+                .bls_public_key_proof_of_possession
+                .into_verification_key(),
+            signer_registration.stake,
+        )
+    }
+}
+
+#[cfg(feature = "future_snark")]
+impl From<SignerRegistration> for SignerRegistrationEntrySnark {
+    fn from(signer_registration: SignerRegistration) -> Self {
+        (
+            signer_registration
+                .schnorr_public_key_proof_of_possession
+                .clone()
+                .map(|pk| pk.into_verification_key())
+                .unwrap(),
+            EligibilityValue::compute_eligibility_value(signer_registration.stake),
+        )
+    }
 }
 
 /// The type used for committing signer registrations for the Concatenation proof system.
@@ -65,49 +90,16 @@ impl KeyRegistration {
             .map(|s| s.into())
     }
 
-    /// Converts the KeyRegistration into a Merkle tree for the Concatenation proof system
-    pub fn into_merkle_tree_for_concatenation<D: Digest>(
+    /// Converts the KeyRegistration into a Merkle tree
+    pub fn into_merkle_tree<D: Digest, L: From<SignerRegistration> + MerkleTreeLeaf>(
         self,
-    ) -> StdResult<MerkleTree<D, SignerRegistrationEntryConcatenation>> {
+    ) -> StdResult<MerkleTree<D, L>> {
         Ok(MerkleTree::new(
             &self
                 .signer_registrations
                 .iter()
-                .map(|signer_registration| {
-                    (
-                        signer_registration
-                            .bls_public_key_proof_of_possession
-                            .clone()
-                            .into_verification_key(),
-                        signer_registration.stake.clone(),
-                    )
-                })
-                .collect::<Vec<SignerRegistrationEntryConcatenation>>(),
-        ))
-    }
-
-    /// Converts the KeyRegistration into a Merkle tree for the SNARK proof system
-    #[cfg(feature = "future_snark")]
-    pub fn into_merkle_tree_for_snark<D: Digest>(
-        self,
-    ) -> StdResult<MerkleTree<D, SignerRegistrationEntrySnark>> {
-        Ok(MerkleTree::new(
-            &self
-                .signer_registrations
-                .iter()
-                .map(|signer_registration| {
-                    (
-                        signer_registration
-                            .schnorr_public_key_proof_of_possession
-                            .clone()
-                            .map(|pk| pk.into_verification_key())
-                            .unwrap(),
-                        EligibilityValue::compute_eligibility_value(
-                            signer_registration.stake.clone(),
-                        ),
-                    )
-                })
-                .collect::<Vec<SignerRegistrationEntrySnark>>(),
+                .map(|signer_registration| signer_registration.clone().into())
+                .collect::<Vec<L>>(),
         ))
     }
 
