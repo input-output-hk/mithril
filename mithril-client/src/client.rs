@@ -1,6 +1,7 @@
 use anyhow::{Context, anyhow};
 #[cfg(feature = "fs")]
 use chrono::Utc;
+use mithril_common::messages::AggregatorCapabilities;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use slog::{Logger, o};
@@ -38,6 +39,20 @@ const DEFAULT_CLIENT_TYPE: &str = "LIBRARY";
 #[cfg(target_family = "wasm")]
 const fn one_week_in_seconds() -> u32 {
     604800
+}
+
+/// The type of discovery to use to find the aggregator to connect to.
+pub enum AggregatorDiscoveryType {
+    /// Automatically discover the aggregator.
+    Automatic,
+    /// Use a specific URL to connect to the aggregator.
+    Url(String),
+}
+
+/// The genesis verification key.
+pub enum GenesisVerificationKey {
+    /// The verification key is provided as a JSON Hex-encoded string.
+    JsonHex(String),
 }
 
 /// Options that can be used to configure the client.
@@ -153,8 +168,9 @@ impl Client {
 
 /// Builder than can be used to create a [Client] easily or with custom dependencies.
 pub struct ClientBuilder {
-    aggregator_endpoint: Option<String>,
-    genesis_verification_key: String,
+    aggregator_discovery: AggregatorDiscoveryType,
+    aggregator_capabilities: Option<AggregatorCapabilities>,
+    genesis_verification_key: Option<GenesisVerificationKey>,
     origin_tag: Option<String>,
     client_type: Option<String>,
     #[cfg(feature = "fs")]
@@ -175,9 +191,17 @@ impl ClientBuilder {
     /// Constructs a new `ClientBuilder` that fetches data from the aggregator at the given
     /// endpoint and with the given genesis verification key.
     pub fn aggregator(endpoint: &str, genesis_verification_key: &str) -> ClientBuilder {
+        Self::new(AggregatorDiscoveryType::Url(endpoint.to_string())).with_genesis_verification_key(
+            GenesisVerificationKey::JsonHex(genesis_verification_key.to_string()),
+        )
+    }
+
+    /// Constructs a new `ClientBuilder` without any dependency set.
+    pub fn new(aggregator_discovery: AggregatorDiscoveryType) -> ClientBuilder {
         Self {
-            aggregator_endpoint: Some(endpoint.to_string()),
-            genesis_verification_key: genesis_verification_key.to_string(),
+            aggregator_discovery,
+            aggregator_capabilities: None,
+            genesis_verification_key: None,
             origin_tag: None,
             client_type: None,
             #[cfg(feature = "fs")]
@@ -195,30 +219,21 @@ impl ClientBuilder {
         }
     }
 
-    /// Constructs a new `ClientBuilder` without any dependency set.
-    ///
-    /// Use [ClientBuilder::aggregator] if you don't need to set a custom [AggregatorClient]
-    /// to request data from the aggregator.
-    #[deprecated(since = "0.12.33", note = "Will be removed in 0.13.0")]
-    pub fn new(genesis_verification_key: &str) -> ClientBuilder {
-        Self {
-            aggregator_endpoint: None,
-            genesis_verification_key: genesis_verification_key.to_string(),
-            origin_tag: None,
-            client_type: None,
-            #[cfg(feature = "fs")]
-            ancillary_verification_key: None,
-            aggregator_client: None,
-            certificate_verifier: None,
-            #[cfg(feature = "fs")]
-            http_file_downloader: None,
-            #[cfg(feature = "unstable")]
-            certificate_verifier_cache: None,
-            era_fetcher: None,
-            logger: None,
-            feedback_receivers: vec![],
-            options: ClientOptions::default(),
-        }
+    /// Sets the genesis verification key to use when verifying certificates.
+    pub fn with_genesis_verification_key(
+        mut self,
+        genesis_verification_key: GenesisVerificationKey,
+    ) -> ClientBuilder {
+        self.genesis_verification_key = Some(genesis_verification_key);
+
+        self
+    }
+
+    /// Sets the aggregator capabilities expected to be matched by the aggregator with which the client will interact.
+    pub fn with_capabilities(mut self, capabilities: AggregatorCapabilities) -> ClientBuilder {
+        self.aggregator_capabilities = Some(capabilities);
+
+        self
     }
 
     /// Returns a `Client` that uses the dependencies provided to this `ClientBuilder`.
@@ -230,6 +245,16 @@ impl ClientBuilder {
             .logger
             .clone()
             .unwrap_or_else(|| Logger::root(slog::Discard, o!()));
+
+        let genesis_verification_key = match self.genesis_verification_key {
+            Some(GenesisVerificationKey::JsonHex(ref key)) => key,
+            None => {
+                return Err(anyhow!(
+                    "The genesis verification key must be provided to build the client with the 'with_genesis_verification_key' function"
+                )
+                .into());
+            }
+        };
 
         let feedback_sender = FeedbackSender::new(&self.feedback_receivers);
 
@@ -249,7 +274,7 @@ impl ClientBuilder {
             None => Arc::new(
                 MithrilCertificateVerifier::new(
                     aggregator_client.clone(),
-                    &self.genesis_verification_key,
+                    genesis_verification_key,
                     feedback_sender.clone(),
                     #[cfg(feature = "unstable")]
                     self.certificate_verifier_cache,
@@ -341,12 +366,14 @@ impl ClientBuilder {
         &self,
         logger: Logger,
     ) -> Result<AggregatorHTTPClient, anyhow::Error> {
-        let endpoint = self
-            .aggregator_endpoint.as_ref()
-            .ok_or(anyhow!("No aggregator endpoint set: \
-                    You must either provide an aggregator endpoint or your own AggregatorClient implementation"))?;
-        let endpoint_url = Url::parse(endpoint).with_context(|| {
-            format!("Invalid aggregator endpoint, it must be a correctly formed url: '{endpoint}'")
+        let aggregator_endpoint = match self.aggregator_discovery {
+            AggregatorDiscoveryType::Url(ref url) => url.clone(),
+            AggregatorDiscoveryType::Automatic => {
+                todo!("Implement automatic aggregator discovery")
+            }
+        };
+        let endpoint_url = Url::parse(&aggregator_endpoint).with_context(|| {
+            format!("Invalid aggregator endpoint, it must be a correctly formed url: '{aggregator_endpoint}'")
         })?;
 
         let headers = self.compute_http_headers();
