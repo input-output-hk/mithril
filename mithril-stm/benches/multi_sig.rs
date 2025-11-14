@@ -47,14 +47,24 @@ fn aggregate_and_verify(c: &mut Criterion, nr_sigs: usize) {
     let mut msg = [0u8; 32];
     rng.fill_bytes(&mut msg);
     let mut mvks = Vec::new();
+    let mut msks = Vec::new();
     let mut sigs = Vec::new();
     for _ in 0..nr_sigs {
         let sk = BlsSigningKey::generate(&mut rng);
         let vk = BlsVerificationKey::from(&sk);
         let sig = sk.sign(&msg);
         sigs.push(sig);
+        msks.push(sk);
         mvks.push(vk);
     }
+
+    group.bench_function(BenchmarkId::new("Signature", nr_sigs), |b| {
+        b.iter(|| {
+            for sk in msks.iter() {
+                let _ = sk.sign(&msg);
+            }
+        })
+    });
 
     group.bench_function(BenchmarkId::new("Individual verif", nr_sigs), |b| {
         b.iter(|| {
@@ -81,13 +91,13 @@ fn batch_multi_sig_benches(c: &mut Criterion) {
     batch_benches(c, &[1, 10, 20, 50, 100], 300);
 }
 fn batch_bls_benches(c: &mut Criterion) {
-    aggregate_and_verify(c, 856);
+    aggregate_and_verify(c, 1000);
 }
 
 criterion_group!(name = benches;
                  config = Criterion::default().nresamples(1000);
                  targets =
-    batch_multi_sig_benches,
+    // batch_multi_sig_benches,
     batch_bls_benches
 );
 criterion_main!(benches);

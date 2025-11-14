@@ -1,54 +1,132 @@
-use midnight_curves::{
-    Fq as JubjubBase, Fr as JubjubScalar, JubjubAffine, JubjubExtended, JubjubSubgroup,
+use anyhow::{Context, Ok, anyhow};
+use dusk_jubjub::{
+    AffinePoint as JubjubAffine, EDWARDS_D, ExtendedPoint as JubjubExtended, Fq as JubjubBase,
+    Fr as JubjubScalar,
 };
-use sha2::{Digest, Sha256};
+use ff::Field;
 
-use anyhow::{Result, anyhow};
+use crate::{StmResult, error::SchnorrSignatureError};
 
-/// Convert an arbitrary array of bytes into a Jubjub scalar field element
-///
-/// First hash the message to 256 bits use Sha256 then perform the conversion
-pub fn hash_msg_to_jubjubbase(msg: &[u8]) -> Result<JubjubBase> {
-    let mut hash = Sha256::new();
-    hash.update(msg);
-    let hmsg = hash.finalize();
-    let mut output = [0u8; 32];
-    if hmsg.len() == output.len() {
-        output.copy_from_slice(&hmsg);
-    } else {
-        return Err(anyhow!(
-            "Hash of the message does not have the correct lenght."
-        ));
-    }
+/// Check if the given point is on the curve using its coordinates
+pub fn is_on_curve(point: JubjubExtended) -> bool {
+    let point_affine_representation = JubjubAffine::from(point);
+    let (x, y) = (
+        point_affine_representation.get_u(),
+        point_affine_representation.get_v(),
+    );
+    let x_square = x.square();
+    let y_square = y.square();
 
-    Ok(JubjubBase::from_raw([
-        u64::from_le_bytes(output[0..8].try_into()?),
-        u64::from_le_bytes(output[8..16].try_into()?),
-        u64::from_le_bytes(output[16..24].try_into()?),
-        u64::from_le_bytes(output[24..32].try_into()?),
-    ]))
+    let lhs = y_square - x_square;
+    let rhs = JubjubBase::ONE + EDWARDS_D * x_square * y_square;
+
+    lhs == rhs
 }
 
-/// Extract the coordinates of a given point
+/// Extract the coordinates of a given point in an Extended form
 ///
-/// This is mainly use to feed the Poseidon hash function
-pub fn get_coordinates(point: JubjubSubgroup) -> (JubjubBase, JubjubBase) {
-    let point_extended_representation = JubjubExtended::from(point);
-    let point_affine_representation = JubjubAffine::from(point_extended_representation);
+/// This is mainly used to feed the Poseidon hash function
+pub fn get_coordinates_extended(point: JubjubExtended) -> (JubjubBase, JubjubBase) {
+    let point_affine_representation = JubjubAffine::from(point);
     let x_coordinate = point_affine_representation.get_u();
     let y_coordinate = point_affine_representation.get_v();
 
     (x_coordinate, y_coordinate)
 }
 
+/// Extract the coordinates of given points in an Extended form
+///
+/// This is mainly used to feed the Poseidon hash function, the order is maintained
+/// from input to output which is important for the hash function
+pub fn get_coordinates_several_points(points: &[JubjubExtended]) -> Vec<JubjubBase> {
+    let mut points_coordinates = vec![];
+    for p in points {
+        let point_affine_representation = JubjubAffine::from(p);
+        let x_coordinate = point_affine_representation.get_u();
+        let y_coordinate = point_affine_representation.get_v();
+        points_coordinates.push(x_coordinate);
+        points_coordinates.push(y_coordinate);
+    }
+    points_coordinates
+}
+
 /// Convert an element of the BLS12-381 base field to one of the Jubjub base field
-pub fn jubjub_base_to_scalar(x: &JubjubBase) -> Result<JubjubScalar> {
-    let bytes = x.to_bytes_le();
+pub fn jubjub_base_to_scalar(x: &JubjubBase) -> StmResult<JubjubScalar> {
+    let bytes = x.to_bytes();
+
+    if bytes.len() < 32 {
+        return Err(anyhow!(SchnorrSignatureError::SerializationError))
+            .with_context(|| "Not enough bytes to convert to a jubjub scalar");
+    }
 
     Ok(JubjubScalar::from_raw([
-        u64::from_le_bytes(bytes[0..8].try_into()?),
-        u64::from_le_bytes(bytes[8..16].try_into()?),
-        u64::from_le_bytes(bytes[16..24].try_into()?),
-        u64::from_le_bytes(bytes[24..32].try_into()?),
+        u64::from_le_bytes(
+            bytes[0..8]
+                .try_into()
+                .map_err(|_| anyhow!(SchnorrSignatureError::SerializationError))
+                .with_context(|| "Failed to convert bls scalar to jubjub scalar")?,
+        ),
+        u64::from_le_bytes(
+            bytes[8..16]
+                .try_into()
+                .map_err(|_| anyhow!(SchnorrSignatureError::SerializationError))
+                .with_context(|| "Failed to convert bls scalar to jubjub scalar")?,
+        ),
+        u64::from_le_bytes(
+            bytes[16..24]
+                .try_into()
+                .map_err(|_| anyhow!(SchnorrSignatureError::SerializationError))
+                .with_context(|| "Failed to convert bls scalar to jubjub scalar")?,
+        ),
+        u64::from_le_bytes(
+            bytes[24..32]
+                .try_into()
+                .map_err(|_| anyhow!(SchnorrSignatureError::SerializationError))
+                .with_context(|| "Failed to convert bls scalar to jubjub scalar")?,
+        ),
     ]))
+}
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+    use dusk_jubjub::{JubJubAffine, JubJubExtended, SubgroupPoint as JubjubSubgroup};
+    use group::Group;
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    #[test]
+    fn get_coordinates_extended_from_point() {
+        let seed = [0u8; 32];
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let point = JubjubSubgroup::random(&mut rng);
+
+        let (x, y) = get_coordinates_extended(point.into());
+        let point_subgroup = JubjubSubgroup::from_raw_unchecked(x, y);
+
+        assert_eq!(point, point_subgroup);
+    }
+
+    #[test]
+    fn get_coordinates_from_several_points() {
+        let seed = [0u8; 32];
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let points = vec![
+            JubJubExtended::random(&mut rng),
+            JubJubExtended::random(&mut rng),
+            JubJubExtended::random(&mut rng),
+        ];
+
+        let coordinates = get_coordinates_several_points(&points);
+
+        let mut coordinates_iter = coordinates.iter();
+        for i in 0..3 {
+            let x = coordinates_iter.next().unwrap();
+            let y = coordinates_iter.next().unwrap();
+            let point_affine = JubJubAffine::from_raw_unchecked(*x, *y);
+            let point_extended = JubJubExtended::from_affine(point_affine);
+            assert_eq!(points[i], point_extended);
+        }
+    }
 }

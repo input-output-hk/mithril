@@ -1,117 +1,92 @@
-use anyhow::{Result, anyhow};
-use ff::Field;
-use midnight_circuits::{
-    hash::poseidon::PoseidonChip,
-    instructions::{HashToCurveCPU, hash::HashCPU},
+use anyhow::{Context, anyhow};
+use dusk_jubjub::{
+    ExtendedPoint as JubjubExtended, Fr as JubjubScalar, SubgroupPoint as JubjubSubgroup,
 };
-use midnight_curves::{Fq as JubjubBase, Fr as JubjubScalar, JubjubSubgroup};
+use dusk_poseidon::{Domain, Hash};
+use ff::Field;
+use group::Group;
 use rand_core::{CryptoRng, RngCore};
 
-use group::Group;
-
-use crate::schnorr_signature::{
-    DST_SIGNATURE, JubjubHashToCurve, SchnorrSignature, SchnorrVerificationKey,
-    utils::{get_coordinates, hash_msg_to_jubjubbase, jubjub_base_to_scalar},
+use crate::{
+    StmResult,
+    error::SchnorrSignatureError,
+    schnorr_signature::{
+        DST_SIGNATURE, SchnorrSignature, SchnorrVerificationKey, get_coordinates_several_points,
+    },
 };
 
 /// Schnorr Signing key, it is essentially a random scalar of the Jubjub scalar field
 #[derive(Debug, Clone)]
-pub struct SchnorrSigningKey(pub(crate) JubjubScalar);
+pub struct SchnorrSigningKey(pub JubjubScalar);
 
 impl SchnorrSigningKey {
-    pub(crate) fn generate(rng: &mut (impl RngCore + CryptoRng)) -> Self {
-        SchnorrSigningKey(JubjubScalar::random(rng))
+    /// Generate a random scalar value to use as signing key
+    pub fn generate(rng: &mut (impl RngCore + CryptoRng)) -> StmResult<Self> {
+        for _ in 0..100 {
+            let signing_key = JubjubScalar::random(&mut *rng);
+            if signing_key != JubjubScalar::ZERO {
+                return Ok(SchnorrSigningKey(signing_key));
+            }
+        }
+        Err(anyhow!(SchnorrSignatureError::SigningKeyGenerationError))
+            .with_context(|| "Failed to generate a non zero signing key after 100 attempts.")
     }
 
     /// This function is an adapted version of the Schnorr signature scheme
     /// and works with the Jubjub elliptic curve and the Poseidon hash function.
     ///
-    /// The scheme works as follows:
     /// Input:
     ///     - a message: some bytes
     ///     - a secret key: a element of the scalar field of the Jubjub curve
-    ///     - a verification key: a value depending on the secret key
     /// Output:
-    ///     - a signature of the form (sigma, signature, challenge) where sigma is deterministic based
-    /// on the message and the secret key and the signature and challenge are computed using randomness
+    ///     - a signature of the form (sigma, signature, challenge):
+    ///         - sigma is deterministic depending only on the message and secret key
+    ///         - the signature and challenge depends on a random value generated during the signature
     ///
-    /// The protocol:
+    /// The protocol computes:
+    ///     - sigma = H(Sha256(msg)) * secret_key
+    ///     - random_scalar, a random value
+    ///     - random_point_1 = H(Sha256(msg)) * random_scalar
+    ///     - random_point_2 = generator * random_scalar, where generator is a generator of the prime-order subgroup of Jubjub
+    ///     - challenge = Poseidon(DST || H(Sha256(msg)) || verification_key || sigma || random_point_1 || random_point_2)
+    ///     - signature = random_scalar - challenge * signing_key
     ///
-    /// The signature follows closely the regular Schnorr signature computation but uses elliptic curve
-    /// based computation (without pairings). The first step is the convert the message bytes into a point
-    /// on the elliptic curve. This is done by hashing the bytes, using for example Sha2, to a 256 bits value
-    /// that can be converted to a scalar of the BLS12-381 field. This scalar is converted to a point on the
-    /// elliptic curve using the `hash_to_curve` function. This allows to compute the deterministic value
-    /// sigma = H(Sha256(msg)) * secret_key which is needed later in the Mithril protocol.
+    /// Output the signature (sigma, signature, challenge)
     ///
-    /// The rest of the protocol follows the regular Schnorr signature:
-    ///     - Choose a random value r, here is the scalar field of Jubjub
-    ///     - Compute two values based on r:
-    ///         - R1 = H(Sha256(msg)) * r
-    ///         - R2 = g * r, where g is a generator of the prime-order subgroup of Jubjub
-    ///     - Compute the challenge, that does not depend on sk, as:
-    ///         - challenge = Poseidon(DST || H(Sha256(msg)) || vk || sigma || R1 || R2), since the Poseidon
-    /// hash function takes as input element of the scalar field of BLS21-381, we need to convert
-    /// the elliptic curve points to their coordinates representation to feed them to the hash function.
-    ///     - Convert the challenge into an element of the scalar field of Jubjub and compute:
-    ///         - signature = r - challenge * sk
-    ///     - Output the signature (sigma, signature, challenge)
-    ///
-    /// The verification algorithm consists in recomputing the challenge from the signature value and
-    /// checking it matches the challenge value in the Schnorr signature. It is described in more
-    /// details in the implementation of the SchnorrSignature.
-    ///
-    // TODO: Check if we want the sign function to handle the randomness by itself
-    pub(crate) fn sign(
+    pub fn sign(
         &self,
         msg: &[u8],
         rng: &mut (impl RngCore + CryptoRng),
-    ) -> Result<SchnorrSignature> {
+    ) -> StmResult<SchnorrSignature> {
         // Use the subgroup generator to compute the curve points
         let generator = JubjubSubgroup::generator();
         let verification_key = SchnorrVerificationKey::from(self);
 
         // First hashing the message to a scalar then hashing it to a curve point
-        let hash_msg = JubjubHashToCurve::hash_to_curve(&[hash_msg_to_jubjubbase(msg)?]);
+        let msg_hash = JubjubExtended::hash_to_point(msg);
 
-        // sigma = H(Sha256(msg)) * sk
-        let sigma = hash_msg * self.0;
+        let sigma = msg_hash * self.0;
 
-        // Compute the random part of the signature with
-        // r1 = H(msg) * r
-        // r2 = g * r
+        // r1 = H(msg) * r, r2 = g * r
         let random_scalar = JubjubScalar::random(rng);
-        let random_value_1 = hash_msg * random_scalar;
-        let random_value_2 = generator * random_scalar;
+        let random_point_1 = msg_hash * random_scalar;
+        let random_point_2 = generator * random_scalar;
 
         // Since the hash function takes as input scalar elements
         // We need to convert the EC points to their coordinates
-        // I use gx and gy for now but maybe we can replace them by a DST?
-        let (hash_msg_x, hash_msg_y) = get_coordinates(hash_msg);
-        let (verification_key_x, verification_key_y) = get_coordinates(verification_key.0);
-        let (sigma_x, sigma_y) = get_coordinates(sigma);
-        let (random_value_1_x, random_value_1_y) = get_coordinates(random_value_1);
-        let (random_value_2_x, random_value_2_y) = get_coordinates(random_value_2);
-
-        let challenge = PoseidonChip::<JubjubBase>::hash(&[
-            DST_SIGNATURE,
-            hash_msg_x,
-            hash_msg_y,
-            verification_key_x,
-            verification_key_y,
-            sigma_x,
-            sigma_y,
-            random_value_1_x,
-            random_value_1_y,
-            random_value_2_x,
-            random_value_2_y,
+        // The order must be preserved
+        let points_coordinates = get_coordinates_several_points(&[
+            msg_hash,
+            verification_key.0.into(),
+            sigma,
+            random_point_1,
+            random_point_2.into(),
         ]);
 
-        // We want to use the from_raw function because the result of
-        // the poseidon hash might not fit into the smaller modulus
-        // the Fr scalar field
-        let challenge_scalar = jubjub_base_to_scalar(&challenge)?;
-        let signature = random_scalar - challenge_scalar * self.0;
+        let mut poseidon_input = vec![DST_SIGNATURE];
+        poseidon_input.extend(points_coordinates);
+        let challenge = Hash::digest_truncated(Domain::Other, &poseidon_input)[0];
+        let signature = random_scalar - challenge * self.0;
 
         Ok(SchnorrSignature {
             sigma,
@@ -120,6 +95,7 @@ impl SchnorrSigningKey {
         })
     }
 
+    /// Convert a `SchnorrSigningKey` into a string of bytes.
     pub(crate) fn to_bytes(&self) -> [u8; 32] {
         self.0.to_bytes()
     }
@@ -127,27 +103,25 @@ impl SchnorrSigningKey {
     /// Convert a string of bytes into a `SchnorrSigningKey`.
     ///
     /// The bytes must represent a Jubjub scalar or the conversion will fail
-    // TODO: Maybe rework this function, do we want to allow any bytes representation
-    // to be convertible to a sk?
-    pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        // This is a bit ugly, I'll try to find a better way to do it
-        let bytes = bytes
-            .get(..32)
-            .ok_or(anyhow!("Not enough bytes to create a signing key."))?
-            .try_into()?;
+    pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
+        if bytes.len() < 32 {
+            return Err(anyhow!(SchnorrSignatureError::SerializationError))
+                .with_context(|| "Not enough bytes provided to create a Schnorr signing key.");
+        }
 
-        // Jubjub returs a CtChoice so I convert it to an option that looses the const time property
-        match JubjubScalar::from_bytes(bytes).into_option() {
-            Some(sk) => Ok(Self(sk)),
-            // the error should be updated
-            None => Err(anyhow!(
-                "Failed to create a Jubjub scalar from the given bytes."
-            )),
+        let signing_key_bytes = bytes[0..32]
+            .try_into()
+            .map_err(|_| anyhow!(SchnorrSignatureError::SerializationError))
+            .with_context(|| "Failed to obtain the Schnorr signing key's bytes.")?;
+
+        match JubjubScalar::from_bytes(&signing_key_bytes).into_option() {
+            Some(signing_key) => Ok(Self(signing_key)),
+            None => Err(anyhow!(SchnorrSignatureError::SerializationError))
+                .with_context(|| "Failed to generate a Jubjub scalar from the given bytes."),
         }
     }
 }
 
-//
 #[cfg(test)]
 mod tests {
     pub(crate) use super::*;
@@ -161,24 +135,24 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_signing_key() {
+    fn generate_signing_key() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
         let _sk = SchnorrSigningKey::generate(&mut rng);
     }
 
     #[test]
-    fn test_to_from_bytes() {
+    fn to_from_bytes() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let sk = SchnorrSigningKey::generate(&mut rng);
+        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
 
-        let bytes = sk.to_bytes();
-        let recovered_sk = SchnorrSigningKey::from_bytes(&bytes).unwrap();
+        let sk_bytes = sk.to_bytes();
+        let recovered_sk = SchnorrSigningKey::from_bytes(&sk_bytes).unwrap();
 
         assert_eq!(sk, recovered_sk);
     }
 
-    // For now failing test, maybe change it later depending on what
-    // we want for from_bytes
+    // Failing test as the generated bytes represent a value too big to be converted
+    // in this manner (greater than the jubjub modulus)
     #[test]
     fn failing_test_from_bytes() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
@@ -193,5 +167,14 @@ mod tests {
             result.is_err(),
             "Value is not a proper sk, test should fail."
         );
+    }
+
+    #[test]
+    fn from_bytes_signing_key_not_enough_bytes() {
+        let msg = vec![0u8; 31];
+
+        let result = SchnorrSigningKey::from_bytes(&msg);
+
+        assert!(result.is_err());
     }
 }
