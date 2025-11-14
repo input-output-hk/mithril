@@ -14,8 +14,17 @@ if [[ ! -f "$1" ]]; then
   exit 1
 fi
 
-CLIENT_CMD_OUTPUT=$(cat "$1")
-INCLUDE_ANCILLARY="$2"
+CLIENT_CMD_OUTPUT=$(cat "$1"); shift
+INCLUDE_ANCILLARY="false"
+LEDGER_BACKEND="in-memory"
+
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --include-ancillary) INCLUDE_ANCILLARY="true" ;;
+        --ledger-backend) LEDGER_BACKEND="$2"; shift ;;
+    esac
+    shift
+done
 
 DOCKER_CMD=$(echo "$CLIENT_CMD_OUTPUT" | grep -E '^\s*docker run')
 if [[ -z "$DOCKER_CMD" ]]; then
@@ -25,6 +34,11 @@ fi
 
 echo "Extracted Docker command:"
 echo "$DOCKER_CMD"
+
+# Note: ledger conversion to lmdb can only be executed if ancillary files are included
+if [[ ${LEDGER_BACKEND,,} == "lmdb" && "$INCLUDE_ANCILLARY" == "true" ]]; then
+  DOCKER_CMD="${DOCKER_CMD/ ghcr/" -e CARDANO_CONFIG_JSON_MERGE='{\"LedgerDB\":{\"Backend\":\"V1LMDB\"}}' ghcr"}"
+fi
 
 DOCKER_CMD_DETACHED="${DOCKER_CMD/docker run/docker run -d}"
 echo "Running Docker command in detached mode:"
@@ -58,7 +72,7 @@ else
   exit 1
 fi
 
-if [[ "$INCLUDE_ANCILLARY" == "--include-ancillary" ]]; then
+if [[ "$INCLUDE_ANCILLARY" == "true" ]]; then
   echo "Parameter '--include-ancillary' is set."
   if wait_for_log "$CONTAINER_ID" 30 "Chain extended, new tip"; then
     echo "✅ The Cardano node started successfully from the Mithril snapshot with the ancillary files."
