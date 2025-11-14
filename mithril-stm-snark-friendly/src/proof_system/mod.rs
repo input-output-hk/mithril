@@ -35,6 +35,6 @@ pub trait ProofSystemAggregateSignatureVerifier {
         &self,
         message: &[u8],
         multi_signature: &Self::ProofSystemAggregateSignature,
-        verification_key: &Self::ProofSystemAggregateVerificationKey,
+        aggregate_verification_key: &Self::ProofSystemAggregateVerificationKey,
     ) -> StdResult<()>;
 }

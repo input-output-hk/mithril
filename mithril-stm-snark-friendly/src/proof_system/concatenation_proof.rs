@@ -1,7 +1,8 @@
 use crate::{
     commitment_scheme::merkle_tree::MerkleTree,
     core::{
-        Digest, Parameters, SignerIndex, Stake, key_registration::KeyRegistration,
+        Digest, Parameters, SignerIndex, Stake,
+        key_registration::{KeyRegistration, SignerRegistrationEntryConcatenation},
         single_signature::SingleSignature,
     },
     proof_system::{
@@ -34,7 +35,7 @@ pub struct ConcatenationProofSingleSignatureGenerator {
     pub stake: Stake,
     pub parameters: Parameters,
     pub bls_crypto_signer: BlsCryptoSigner,
-    pub key_registration_commitment: MerkleTree<BlakeDigest>,
+    pub key_registration_commitment: MerkleTree<BlakeDigest, SignerRegistrationEntryConcatenation>,
 }
 
 impl ConcatenationProofSingleSignatureGenerator {
@@ -44,7 +45,7 @@ impl ConcatenationProofSingleSignatureGenerator {
         stake: Stake,
         parameters: Parameters,
         bls_crypto_signer: BlsCryptoSigner,
-        key_registration: MerkleTree<BlakeDigest>,
+        key_registration: MerkleTree<BlakeDigest, SignerRegistrationEntryConcatenation>,
     ) -> Self {
         Self {
             signer_index,
@@ -100,7 +101,7 @@ pub struct ConcatenationProofGenerator {
     pub parameters: Parameters,
     pub concatenation_proof_individual_signature_generator:
         ConcatenationProofSingleSignatureGenerator,
-    pub key_registration: MerkleTree<BlakeDigest>,
+    pub key_registration: MerkleTree<BlakeDigest, SignerRegistrationEntryConcatenation>,
 }
 
 impl ConcatenationProofGenerator {
@@ -140,8 +141,8 @@ impl ProofSystemAggregateSignatureVerifier for ConcatenationProofGenerator {
         &self,
         message: &[u8],
         multi_signature: &Self::ProofSystemAggregateSignature,
-        verification_key: &Self::ProofSystemAggregateVerificationKey,
+        aggregate_verification_key: &Self::ProofSystemAggregateVerificationKey,
     ) -> StdResult<()> {
-        multi_signature.verify(message, verification_key)
+        multi_signature.verify(message, aggregate_verification_key)
     }
 }

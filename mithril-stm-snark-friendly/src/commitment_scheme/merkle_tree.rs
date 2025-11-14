@@ -21,25 +21,28 @@ pub struct MerkleTreeCommitment {
 }
 
 /// Merkle Path structure
-pub struct MerklePath {
-    pub root: Vec<u8>,
+pub struct MerklePath<D: Digest> {
+    pub values: Vec<Vec<u8>>,
+    pub index: usize,
+    hasher: PhantomData<D>,
 }
 
-impl MerklePath {
+impl<D: Digest> MerklePath<D> {
     pub fn verify(&self) -> StdResult<()> {
         Ok(())
     }
 }
 
 /// Merkle Tree structure
-pub struct MerkleTree<D: Digest> {
+pub struct MerkleTree<D: Digest, L: MerkleTreeLeaf> {
     nodes: Vec<Vec<u8>>,
     hasher: PhantomData<D>,
+    leaves: PhantomData<L>,
 }
 
-impl<D: Digest> MerkleTree<D> {
+impl<D: Digest, L: MerkleTreeLeaf> MerkleTree<D, L> {
     /// Creates a new Merkle Tree from the given leaves
-    pub fn new<L: MerkleTreeLeaf>(leaves: &[L]) -> MerkleTree<D> {
+    pub fn new(leaves: &[L]) -> MerkleTree<D, L> {
         let leaves = leaves
             .iter()
             .map(|leaf| D::digest(&leaf.to_bytes()).to_vec())
@@ -49,6 +52,7 @@ impl<D: Digest> MerkleTree<D> {
         Self {
             nodes,
             hasher: PhantomData,
+            leaves: PhantomData,
         }
     }
 
@@ -58,12 +62,16 @@ impl<D: Digest> MerkleTree<D> {
     }
 
     /// Computes the Merkle Path for a given index
-    pub fn compute_merkle_path(&self, _index: usize) -> StdResult<MerklePath> {
-        Ok(MerklePath { root: vec![] })
+    pub fn compute_merkle_path(&self, _index: usize) -> StdResult<MerklePath<D>> {
+        Ok(MerklePath {
+            values: vec![],
+            index: 0,
+            hasher: PhantomData,
+        })
     }
 }
 
-impl<D: Digest> SignerRegistrationRegisterer for MerkleTree<D> {
+impl<D: Digest, L: MerkleTreeLeaf> SignerRegistrationRegisterer for MerkleTree<D, L> {
     type RegistrationInput = usize;
     type RegistrationIndex = usize;
 
@@ -75,7 +83,7 @@ impl<D: Digest> SignerRegistrationRegisterer for MerkleTree<D> {
     }
 }
 
-impl<D: Digest> SignerRegistrationCommitmentGenerator for MerkleTree<D> {
+impl<D: Digest, L: MerkleTreeLeaf> SignerRegistrationCommitmentGenerator for MerkleTree<D, L> {
     type SignerCommitment = MerkleTreeCommitment;
 
     fn create_signer_registration_commitment(&self) -> StdResult<Self::SignerCommitment> {
@@ -83,17 +91,17 @@ impl<D: Digest> SignerRegistrationCommitmentGenerator for MerkleTree<D> {
     }
 }
 
-impl<D: Digest> SignerRegistrationRevealProver for MerkleTree<D> {
+impl<D: Digest, L: MerkleTreeLeaf> SignerRegistrationRevealProver for MerkleTree<D, L> {
     type RevealInput = usize;
-    type RevealProof = MerklePath;
+    type RevealProof = MerklePath<D>;
 
     fn create_reveal_proof(&self, reveal: &Self::RevealInput) -> StdResult<Self::RevealProof> {
         self.compute_merkle_path(*reveal)
     }
 }
 
-impl<D: Digest> SignerRegistrationRevealVerifier for MerkleTree<D> {
-    type RevealProof = MerklePath;
+impl<D: Digest, L: MerkleTreeLeaf> SignerRegistrationRevealVerifier for MerkleTree<D, L> {
+    type RevealProof = MerklePath<D>;
 
     fn verify_reveal_proof(&self, proof: &Self::RevealProof) -> StdResult<()> {
         proof.verify()

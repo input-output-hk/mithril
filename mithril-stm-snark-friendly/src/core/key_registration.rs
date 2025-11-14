@@ -23,7 +23,7 @@ pub struct SignerRegistration {
 }
 
 /// The type used for committing signer registrations for the Concatenation proof system.
-type SignerRegistrationEntryConcatenation = (BlsVerificationKey, Stake);
+pub type SignerRegistrationEntryConcatenation = (BlsVerificationKey, Stake);
 
 impl MerkleTreeLeaf for SignerRegistrationEntryConcatenation {
     fn to_bytes(&self) -> Vec<u8> {
@@ -32,7 +32,7 @@ impl MerkleTreeLeaf for SignerRegistrationEntryConcatenation {
 }
 
 /// The type used for committing signer registrations for the SNARK proof system.
-type SignerRegistrationEntrySnark = (JubjubVerificationKey, EligibilityValue);
+pub type SignerRegistrationEntrySnark = (JubjubVerificationKey, EligibilityValue);
 
 impl MerkleTreeLeaf for SignerRegistrationEntrySnark {
     fn to_bytes(&self) -> Vec<u8> {
@@ -66,7 +66,9 @@ impl KeyRegistration {
     }
 
     /// Converts the KeyRegistration into a Merkle tree for the Concatenation proof system
-    pub fn into_merkle_tree_for_concatenation<D: Digest>(self) -> StdResult<MerkleTree<D>> {
+    pub fn into_merkle_tree_for_concatenation<D: Digest>(
+        self,
+    ) -> StdResult<MerkleTree<D, SignerRegistrationEntryConcatenation>> {
         Ok(MerkleTree::new(
             &self
                 .signer_registrations
@@ -86,7 +88,9 @@ impl KeyRegistration {
 
     /// Converts the KeyRegistration into a Merkle tree for the SNARK proof system
     #[cfg(feature = "future_snark")]
-    pub fn into_merkle_tree_for_snark<D: Digest>(self) -> StdResult<MerkleTree<D>> {
+    pub fn into_merkle_tree_for_snark<D: Digest>(
+        self,
+    ) -> StdResult<MerkleTree<D, SignerRegistrationEntrySnark>> {
         Ok(MerkleTree::new(
             &self
                 .signer_registrations

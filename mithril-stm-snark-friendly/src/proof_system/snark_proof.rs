@@ -1,7 +1,8 @@
 use crate::{
     commitment_scheme::merkle_tree::MerkleTree,
     core::{
-        Digest, Parameters, SignerIndex, Stake, key_registration::KeyRegistration,
+        Digest, Parameters, SignerIndex, Stake,
+        key_registration::{KeyRegistration, SignerRegistrationEntrySnark},
         single_signature::SingleSignature,
     },
     proof_system::{
@@ -33,7 +34,7 @@ pub struct SnarkProofSingleSignatureGenerator {
     pub stake: Stake,
     pub parameters: Parameters,
     pub schnorr_crypto_signer: SchnorrCryptoSigner,
-    pub key_registration_commitment: MerkleTree<PoseidonDigest>,
+    pub key_registration_commitment: MerkleTree<PoseidonDigest, SignerRegistrationEntrySnark>,
 }
 
 impl SnarkProofSingleSignatureGenerator {
@@ -43,7 +44,7 @@ impl SnarkProofSingleSignatureGenerator {
         stake: Stake,
         parameters: Parameters,
         schnorr_crypto_signer: SchnorrCryptoSigner,
-        key_registration: MerkleTree<PoseidonDigest>,
+        key_registration: MerkleTree<PoseidonDigest, SignerRegistrationEntrySnark>,
     ) -> Self {
         Self {
             signer_index,
@@ -96,7 +97,7 @@ impl SnarkProof {
 pub struct SnarkProofGenerator {
     pub parameters: Parameters,
     pub snark_proof_individual_signature_generator: SnarkProofSingleSignatureGenerator,
-    pub key_registration: MerkleTree<PoseidonDigest>,
+    pub key_registration: MerkleTree<PoseidonDigest, SignerRegistrationEntrySnark>,
 }
 
 impl SnarkProofGenerator {
@@ -136,8 +137,8 @@ impl ProofSystemAggregateSignatureVerifier for SnarkProofGenerator {
         &self,
         message: &[u8],
         multi_signature: &Self::ProofSystemAggregateSignature,
-        verification_key: &Self::ProofSystemAggregateVerificationKey,
+        aggregate_verification_key: &Self::ProofSystemAggregateVerificationKey,
     ) -> StdResult<()> {
-        multi_signature.verify(message, verification_key)
+        multi_signature.verify(message, aggregate_verification_key)
     }
 }
