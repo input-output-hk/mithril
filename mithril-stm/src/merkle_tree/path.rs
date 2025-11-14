@@ -1,9 +1,9 @@
 use std::marker::PhantomData;
 
+use crate::StmResult;
+use crate::error::MerkleTreeError;
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
-
-use crate::error::MerkleTreeError;
 
 /// Path of hashes from root to leaf in a Merkle Tree.
 /// Contains all hashes on the path, and the index of the leaf.
@@ -43,7 +43,7 @@ impl<D: Digest + FixedOutput> MerklePath<D> {
     /// Extract a `Path` from a byte slice.
     /// # Error
     /// This function fails if the bytes cannot retrieve path.
-    pub fn from_bytes(bytes: &[u8]) -> Result<MerklePath<D>, MerkleTreeError<D>> {
+    pub fn from_bytes(bytes: &[u8]) -> StmResult<MerklePath<D>> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(bytes.get(..8).ok_or(MerkleTreeError::SerializationError)?);
         let index = usize::try_from(u64::from_be_bytes(u64_bytes))
@@ -118,7 +118,7 @@ impl<D: Digest + FixedOutput> MerkleBatchPath<D> {
     }
 
     /// Try to convert a byte string into a `BatchPath`.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MerkleTreeError<D>> {
+    pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[..8]);
         let len_v = usize::try_from(u64::from_be_bytes(u64_bytes))

@@ -1,3 +1,4 @@
+use anyhow::Context;
 use blake2::digest::{Digest, FixedOutput};
 
 use serde::{Deserialize, Serialize};
@@ -7,8 +8,8 @@ use crate::bls_multi_signature::{BlsSignature, BlsVerificationKey};
 use crate::key_registration::RegisteredParty;
 use crate::merkle_tree::MerkleBatchPath;
 use crate::{
-    AggregateVerificationKey, AggregationError, BasicVerifier, Parameters, SingleSignature,
-    SingleSignatureWithRegisteredParty, StmAggregateSignatureError,
+    AggregateVerificationKey, BasicVerifier, Parameters, SingleSignature,
+    SingleSignatureWithRegisteredParty, StmAggregateSignatureError, StmResult,
 };
 
 /// `ConcatenationProof` uses the "concatenation" proving system (as described in Section 4.3 of the original paper.)
@@ -36,7 +37,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
         clerk: &Clerk<D>,
         sigs: &[SingleSignature],
         msg: &[u8],
-    ) -> Result<ConcatenationProof<D>, AggregationError> {
+    ) -> StmResult<ConcatenationProof<D>> {
         let sig_reg_list = sigs
             .iter()
             .map(|sig| SingleSignatureWithRegisteredParty {
@@ -52,6 +53,9 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
             &clerk.params,
             &msgp,
             &sig_reg_list,
+        )
+        .with_context(
+            || "Failed to aggregate unique signatures during selection for the k indices.",
         )?;
 
         unique_sigs.sort_unstable();
@@ -83,14 +87,15 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
         msg: &[u8],
         avk: &AggregateVerificationKey<D>,
         parameters: &Parameters,
-    ) -> Result<(Vec<BlsSignature>, Vec<BlsVerificationKey>), StmAggregateSignatureError<D>> {
+    ) -> StmResult<(Vec<BlsSignature>, Vec<BlsVerificationKey>)> {
         let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
         BasicVerifier::preliminary_verify(
             &avk.get_total_stake(),
             &self.signatures,
             parameters,
             &msgp,
-        )?;
+        )
+        .with_context(|| "Preliminary verification of aggregate signatures failed.")?;
 
         let leaves = self
             .signatures
@@ -99,7 +104,8 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
             .collect::<Vec<RegisteredParty>>();
 
         avk.get_merkle_tree_batch_commitment()
-            .verify_leaves_membership_from_batch_path(&leaves, &self.batch_proof)?;
+            .verify_leaves_membership_from_batch_path(&leaves, &self.batch_proof)
+            .with_context(|| "Batch proof is invalid in preliminary verification.")?;
 
         Ok(BasicVerifier::collect_signatures_verification_keys(
             &self.signatures,
@@ -117,11 +123,14 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
         msg: &[u8],
         avk: &AggregateVerificationKey<D>,
         parameters: &Parameters,
-    ) -> Result<(), StmAggregateSignatureError<D>> {
+    ) -> StmResult<()> {
         let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
-        let (sigs, vks) = self.preliminary_verify(msg, avk, parameters)?;
+        let (sigs, vks) = self
+            .preliminary_verify(msg, avk, parameters)
+            .with_context(|| "Aggregate signature verification failed")?;
 
-        BlsSignature::verify_aggregate(msgp.as_slice(), &vks, &sigs)?;
+        BlsSignature::verify_aggregate(msgp.as_slice(), &vks, &sigs)
+            .with_context(|| "Aggregate signature verification failed")?;
         Ok(())
     }
 
@@ -131,7 +140,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
         msgs: &[Vec<u8>],
         avks: &[AggregateVerificationKey<D>],
         parameters: &[Parameters],
-    ) -> Result<(), StmAggregateSignatureError<D>> {
+    ) -> StmResult<()> {
         let batch_size = stm_signatures.len();
         assert_eq!(
             batch_size,
@@ -195,9 +204,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
     }
 
     ///Extract a concatenation proof from a byte slice.
-    pub fn from_bytes(
-        bytes: &[u8],
-    ) -> Result<ConcatenationProof<D>, StmAggregateSignatureError<D>> {
+    pub fn from_bytes(bytes: &[u8]) -> StmResult<ConcatenationProof<D>> {
         let mut bytes_index = 0;
 
         let mut u64_bytes = [0u8; 8];

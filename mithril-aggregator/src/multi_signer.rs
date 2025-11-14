@@ -130,17 +130,19 @@ impl MultiSigner for MultiSignerImpl {
             self.aggregate_signature_type,
         ) {
             Ok(multi_signature) => Ok(Some(multi_signature)),
-            Err(ProtocolAggregationError::NotEnoughSignatures(actual, expected)) => {
-                warn!(
-                    self.logger,
-                    "Could not compute multi-signature: Not enough signatures. Got only {actual} out of {expected}."
-                );
-                Ok(None)
-            }
-            Err(err) => Err(anyhow!(err).context(format!(
-                "Multi Signer can not create multi-signature for entity type '{:?}'",
-                open_message.signed_entity_type
-            ))),
+            Err(err) => match err.downcast_ref::<ProtocolAggregationError>() {
+                Some(ProtocolAggregationError::NotEnoughSignatures(actual, expected)) => {
+                    warn!(
+                        self.logger,
+                        "Could not compute multi-signature: Not enough signatures. Got only {actual} out of {expected}."
+                    );
+                    Ok(None)
+                }
+                _ => Err(anyhow!(err).context(format!(
+                    "Multi Signer can not create multi-signature for entity type '{:?}'",
+                    open_message.signed_entity_type
+                ))),
+            },
         }
     }
 }

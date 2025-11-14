@@ -34,16 +34,15 @@ fn test_full_protocol() {
             println!("Aggregate ok");
             assert!(aggr.verify(&msg, &avk, &params).is_ok());
         }
-        Err(AggregationError::NotEnoughSignatures(n, k)) => {
-            println!("Not enough signatures");
-            assert!(n < params.k && k == params.k)
-        }
-        Err(AggregationError::UsizeConversionInvalid) => {
-            println!("Invalid usize conversion");
-        }
-        Err(AggregationError::UnsupportedProofSystem(_)) => {
-            println!("Unsupported proof system");
-        }
+        Err(error) => assert!(
+            matches!(
+                error.downcast_ref::<AggregationError>(),
+                Some(AggregationError::NotEnoughSignatures { .. })
+                    | Some(AggregationError::UsizeConversionInvalid)
+                    | Some(AggregationError::UnsupportedProofSystem { .. })
+            ),
+            "Unexpected error: {error}"
+        ),
     }
 }
 

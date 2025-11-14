@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -7,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::StmAggregateSignatureError;
 use crate::merkle_tree::MerkleBatchPath;
-use crate::{AggregateVerificationKey, Parameters};
+use crate::{AggregateVerificationKey, Parameters, StmResult};
 
 use super::ConcatenationProof;
 
@@ -95,14 +96,14 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
         msg: &[u8],
         avk: &AggregateVerificationKey<D>,
         parameters: &Parameters,
-    ) -> Result<(), StmAggregateSignatureError<D>> {
+    ) -> StmResult<()> {
         match self {
             AggregateSignature::Concatenation(concatenation_proof) => {
                 concatenation_proof.verify(msg, avk, parameters)
             }
             #[cfg(feature = "future_proof_system")]
-            AggregateSignature::Future => Err(StmAggregateSignatureError::UnsupportedProofSystem(
-                self.into(),
+            AggregateSignature::Future => Err(anyhow!(
+                StmAggregateSignatureError::UnsupportedProofSystem(self.into())
             )),
         }
     }
@@ -113,7 +114,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
         msgs: &[Vec<u8>],
         avks: &[AggregateVerificationKey<D>],
         parameters: &[Parameters],
-    ) -> Result<(), StmAggregateSignatureError<D>> {
+    ) -> StmResult<()> {
         let stm_signatures: HashMap<AggregateSignatureType, Vec<Self>> =
             stm_signatures.iter().fold(HashMap::new(), |mut acc, sig| {
                 acc.entry(sig.into()).or_default().push(sig.clone());
@@ -130,7 +131,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
                             .filter_map(|s| s.to_concatenation_proof().cloned())
                             .collect::<Vec<_>>();
                         if concatenation_proofs.len() != aggregate_signatures_length {
-                            return Err(StmAggregateSignatureError::BatchInvalid);
+                            return Err(anyhow!(StmAggregateSignatureError::BatchInvalid));
                         }
 
                         ConcatenationProof::batch_verify(
@@ -142,13 +143,13 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
                     }
                     #[cfg(feature = "future_proof_system")]
                     AggregateSignatureType::Future => {
-                        Err(StmAggregateSignatureError::UnsupportedProofSystem(
-                            aggregate_signature_type,
-                        ))
+                        Err(anyhow!(StmAggregateSignatureError::UnsupportedProofSystem(
+                            aggregate_signature_type
+                        )))
                     }
                 }
             })
-            .map_err(|_| StmAggregateSignatureError::BatchInvalid)
+            .map_err(|_| anyhow!(StmAggregateSignatureError::BatchInvalid))
     }
 
     /// Convert an aggregate signature to bytes
@@ -171,7 +172,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
     }
 
     /// Extract an aggregate signature from a byte slice.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, StmAggregateSignatureError<D>> {
+    pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let proof_type_byte =
             bytes.first().ok_or(StmAggregateSignatureError::SerializationError)?;
         let proof_bytes = &bytes[1..];

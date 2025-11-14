@@ -3,9 +3,10 @@ use std::marker::PhantomData;
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
+use crate::StmResult;
 use crate::error::MerkleTreeError;
 use crate::merkle_tree::{MerkleBatchPath, MerklePath, MerkleTreeLeaf, parent, sibling};
-
+use anyhow::{Context, anyhow};
 /// `MerkleTree` commitment.
 /// This structure differs from `MerkleTree` in that it does not contain all elements, which are not always necessary.
 /// Instead, it only contains the root of the tree.
@@ -31,7 +32,7 @@ impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
         &self,
         val: &MerkleTreeLeaf,
         proof: &MerklePath<D>,
-    ) -> Result<(), MerkleTreeError<D>>
+    ) -> StmResult<()>
     where
         D: FixedOutput + Clone,
     {
@@ -50,7 +51,7 @@ impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
         if h == self.root {
             return Ok(());
         }
-        Err(MerkleTreeError::PathInvalid(proof.clone()))
+        Err(anyhow!(MerkleTreeError::PathInvalid(proof.to_bytes())))
     }
 
     /// Check an inclusion proof that `val` is part of the tree by traveling the whole path until the root.
@@ -60,11 +61,7 @@ impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
         since = "0.5.0",
         note = "Use `verify_leaf_membership_from_path` instead"
     )]
-    pub fn check(
-        &self,
-        val: &MerkleTreeLeaf,
-        proof: &MerklePath<D>,
-    ) -> Result<(), MerkleTreeError<D>>
+    pub fn check(&self, val: &MerkleTreeLeaf, proof: &MerklePath<D>) -> StmResult<()>
     where
         D: FixedOutput + Clone,
     {
@@ -104,7 +101,7 @@ impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
     }
 
     /// Extract a `MerkleTreeCommitment` from a byte slice.
-    pub fn from_bytes(bytes: &[u8]) -> Result<MerkleTreeCommitment<D>, MerkleTreeError<D>> {
+    pub fn from_bytes(bytes: &[u8]) -> StmResult<MerkleTreeCommitment<D>> {
         let root = bytes.to_vec();
 
         Ok(Self {
@@ -171,18 +168,18 @@ impl<D: Digest + FixedOutput> MerkleTreeBatchCommitment<D> {
         &self,
         batch_val: &[MerkleTreeLeaf],
         proof: &MerkleBatchPath<D>,
-    ) -> Result<(), MerkleTreeError<D>>
+    ) -> StmResult<()>
     where
         D: FixedOutput + Clone,
     {
         if batch_val.len() != proof.indices.len() {
-            return Err(MerkleTreeError::BatchPathInvalid(proof.clone()));
+            return Err(anyhow!(MerkleTreeError::BatchPathInvalid(proof.to_bytes())));
         }
         let mut ordered_indices: Vec<usize> = proof.indices.clone();
         ordered_indices.sort_unstable();
 
         if ordered_indices != proof.indices {
-            return Err(MerkleTreeError::BatchPathInvalid(proof.clone()));
+            return Err(anyhow!(MerkleTreeError::BatchPathInvalid(proof.to_bytes())));
         }
 
         let nr_nodes = self.nr_leaves + self.nr_leaves.next_power_of_two() - 1;
@@ -211,7 +208,14 @@ impl<D: Digest + FixedOutput> MerkleTreeBatchCommitment<D> {
                 if ordered_indices[i] & 1 == 0 {
                     new_hashes.push(
                         D::new()
-                            .chain(values.first().ok_or(MerkleTreeError::SerializationError)?)
+                            .chain(
+                                values
+                                    .first()
+                                    .ok_or(MerkleTreeError::SerializationError)
+                                    .with_context(|| {
+                                        format!("Could not verify leave membership from batch path for idx = {} and ordered_indices[{}]", idx, i)
+                                    })?,
+                            )
                             .chain(&leaves[i])
                             .finalize()
                             .to_vec(),
@@ -228,7 +232,16 @@ impl<D: Digest + FixedOutput> MerkleTreeBatchCommitment<D> {
                         new_hashes.push(
                             D::new()
                                 .chain(&leaves[i])
-                                .chain(values.first().ok_or(MerkleTreeError::SerializationError)?)
+                                .chain(
+                                    values
+                                        .first()
+                                        .ok_or(MerkleTreeError::SerializationError)
+                                        .with_context(|| {
+                                            format!(
+                                                "Could not verify leave membership from batch path for idx = {} where sibling < nr_nodes", idx
+                                            )
+                                        })?,
+                                )
                                 .finalize()
                                 .to_vec(),
                         );
@@ -249,7 +262,7 @@ impl<D: Digest + FixedOutput> MerkleTreeBatchCommitment<D> {
             return Ok(());
         }
 
-        Err(MerkleTreeError::BatchPathInvalid(proof.clone()))
+        Err(anyhow!(MerkleTreeError::BatchPathInvalid(proof.to_bytes())))
     }
 
     /// Check a proof of a batched opening. The indices must be ordered.
@@ -263,11 +276,7 @@ impl<D: Digest + FixedOutput> MerkleTreeBatchCommitment<D> {
         since = "0.5.0",
         note = "Use `verify_leaves_membership_from_batch_path` instead"
     )]
-    pub fn check(
-        &self,
-        batch_val: &[MerkleTreeLeaf],
-        proof: &MerkleBatchPath<D>,
-    ) -> Result<(), MerkleTreeError<D>>
+    pub fn check(&self, batch_val: &[MerkleTreeLeaf], proof: &MerkleBatchPath<D>) -> StmResult<()>
     where
         D: FixedOutput + Clone,
     {
@@ -286,7 +295,7 @@ impl<D: Digest + FixedOutput> MerkleTreeBatchCommitment<D> {
     }
 
     /// Extract a `MerkleTreeBatchCommitment` from a byte slice.
-    pub fn from_bytes(bytes: &[u8]) -> Result<MerkleTreeBatchCommitment<D>, MerkleTreeError<D>> {
+    pub fn from_bytes(bytes: &[u8]) -> StmResult<MerkleTreeBatchCommitment<D>> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(bytes.get(..8).ok_or(MerkleTreeError::SerializationError)?);
         let nr_leaves = usize::try_from(u64::from_be_bytes(u64_bytes))

@@ -1,12 +1,12 @@
 //! Crate specific errors
-use blake2::digest::{Digest, FixedOutput};
+use anyhow::anyhow;
 use blst::BLST_ERROR;
 
+use crate::StmResult;
 use crate::aggregate_signature::AggregateSignatureType;
 use crate::bls_multi_signature::{
     BlsSignature, BlsVerificationKey, BlsVerificationKeyProofOfPossession,
 };
-use crate::merkle_tree::{MerkleBatchPath, MerklePath};
 
 /// Error types for multi signatures.
 #[derive(Debug, thiserror::Error, Eq, PartialEq)]
@@ -42,18 +42,18 @@ pub enum MultiSignatureError {
 
 /// Error types related to merkle trees.
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum MerkleTreeError<D: Digest + FixedOutput> {
+pub enum MerkleTreeError {
     /// Serialization error
     #[error("Serialization of a merkle tree failed")]
     SerializationError,
 
     /// Invalid merkle path
     #[error("Path does not verify against root")]
-    PathInvalid(MerklePath<D>),
+    PathInvalid(Vec<u8>),
 
     /// Invalid merkle batch path
     #[error("Batch path does not verify against root")]
-    BatchPathInvalid(MerkleBatchPath<D>),
+    BatchPathInvalid(Vec<u8>),
 }
 
 /// Errors which can be output by Mithril single signature verification.
@@ -82,29 +82,6 @@ pub enum StmSignatureError {
     /// This error occurs when the the serialization of the raw bytes failed
     #[error("Invalid bytes")]
     SerializationError,
-}
-
-impl From<MultiSignatureError> for StmSignatureError {
-    fn from(e: MultiSignatureError) -> Self {
-        match e {
-            MultiSignatureError::SerializationError => Self::SerializationError,
-            MultiSignatureError::SignatureInvalid(e) => Self::SignatureInvalid(e),
-            MultiSignatureError::BatchInvalid => unreachable!(),
-            MultiSignatureError::KeyInvalid(_) => unreachable!(),
-            MultiSignatureError::AggregateSignatureInvalid => unreachable!(),
-            MultiSignatureError::SignatureInfinity(_) => unreachable!(),
-            MultiSignatureError::VerificationKeyInfinity(_) => unreachable!(),
-        }
-    }
-}
-
-impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSignatureError {
-    fn from(e: MerkleTreeError<D>) -> Self {
-        match e {
-            MerkleTreeError::SerializationError => Self::SerializationError,
-            _ => unreachable!(),
-        }
-    }
 }
 
 /// Error types for aggregation.
@@ -143,39 +120,9 @@ pub enum CoreVerifierError {
     IndividualSignatureInvalid(#[source] StmSignatureError),
 }
 
-impl From<AggregationError> for CoreVerifierError {
-    fn from(e: AggregationError) -> Self {
-        match e {
-            AggregationError::NotEnoughSignatures(e, _e) => Self::NoQuorum(e, e),
-            AggregationError::UsizeConversionInvalid => unreachable!(),
-            AggregationError::UnsupportedProofSystem(_) => unreachable!(),
-        }
-    }
-}
-
-impl From<MultiSignatureError> for CoreVerifierError {
-    fn from(e: MultiSignatureError) -> Self {
-        match e {
-            MultiSignatureError::AggregateSignatureInvalid => Self::AggregateSignatureInvalid,
-            MultiSignatureError::BatchInvalid => unreachable!(),
-            MultiSignatureError::SerializationError => unreachable!(),
-            MultiSignatureError::KeyInvalid(_) => unreachable!(),
-            MultiSignatureError::SignatureInvalid(_e) => unreachable!(),
-            MultiSignatureError::SignatureInfinity(_) => unreachable!(),
-            MultiSignatureError::VerificationKeyInfinity(_) => unreachable!(),
-        }
-    }
-}
-
-impl From<StmSignatureError> for CoreVerifierError {
-    fn from(e: StmSignatureError) -> Self {
-        CoreVerifierError::IndividualSignatureInvalid(e)
-    }
-}
-
 /// Errors which can be output by Mithril aggregate verification.
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
+pub enum StmAggregateSignatureError {
     /// The IVK is invalid after aggregating the keys
     #[error("Aggregated key does not correspond to the expected key.")]
     IvkInvalid(Box<BlsVerificationKey>),
@@ -186,7 +133,7 @@ pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
 
     /// Invalid merkle batch path
     #[error("Batch path does not verify against root")]
-    PathInvalid(MerkleBatchPath<D>),
+    PathInvalid(Vec<u8>),
 
     /// Batch verification of STM aggregate signatures failed
     #[error("Batch verification of STM aggregate signatures failed")]
@@ -199,53 +146,6 @@ pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
     /// The proof system used in the aggregate signature is not supported
     #[error("Unsupported proof system: {0}")]
     UnsupportedProofSystem(AggregateSignatureType),
-}
-
-impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmAggregateSignatureError<D> {
-    fn from(e: MerkleTreeError<D>) -> Self {
-        match e {
-            MerkleTreeError::BatchPathInvalid(e) => Self::PathInvalid(e),
-            MerkleTreeError::SerializationError => Self::SerializationError,
-            MerkleTreeError::PathInvalid(_e) => unreachable!(),
-        }
-    }
-}
-
-impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmAggregateSignatureError<D> {
-    fn from(e: MultiSignatureError) -> Self {
-        match e {
-            MultiSignatureError::AggregateSignatureInvalid => {
-                Self::from(CoreVerifierError::from(e))
-            }
-            MultiSignatureError::BatchInvalid => Self::BatchInvalid,
-            MultiSignatureError::SerializationError => unreachable!(),
-            MultiSignatureError::KeyInvalid(_) => unreachable!(),
-            MultiSignatureError::SignatureInvalid(_) => {
-                Self::CoreVerificationError(CoreVerifierError::from(e))
-            }
-            MultiSignatureError::SignatureInfinity(_) => {
-                Self::CoreVerificationError(CoreVerifierError::from(e))
-            }
-            MultiSignatureError::VerificationKeyInfinity(_) => {
-                Self::CoreVerificationError(CoreVerifierError::from(e))
-            }
-        }
-    }
-}
-
-impl<D: Digest + FixedOutput> From<CoreVerifierError> for StmAggregateSignatureError<D> {
-    fn from(e: CoreVerifierError) -> Self {
-        Self::CoreVerificationError(e)
-    }
-}
-
-impl<D: Digest + FixedOutput> From<StmSignatureError> for StmAggregateSignatureError<D> {
-    fn from(e: StmSignatureError) -> Self {
-        match e {
-            StmSignatureError::SerializationError => Self::SerializationError,
-            _ => unreachable!(),
-        }
-    }
 }
 
 /// Errors which can be outputted by key registration.
@@ -272,42 +172,31 @@ pub enum RegisterError {
     UnregisteredInitializer,
 }
 
-impl From<MultiSignatureError> for RegisterError {
-    fn from(e: MultiSignatureError) -> Self {
-        match e {
-            MultiSignatureError::SerializationError => Self::SerializationError,
-            MultiSignatureError::KeyInvalid(e) => Self::KeyInvalid(e),
-            MultiSignatureError::VerificationKeyInfinity(e) => Self::VerificationKeyInfinity(e),
-            _ => unreachable!(),
-        }
-    }
-}
-
-/// If verifying a single signature, the signature should be provided. If verifying a multi-sig,
-/// no need to provide the signature
-pub(crate) fn blst_err_to_mithril(
+pub(crate) fn blst_error_to_stm_error(
     e: BLST_ERROR,
     sig: Option<BlsSignature>,
     key: Option<BlsVerificationKey>,
-) -> Result<(), MultiSignatureError> {
+) -> StmResult<()> {
     match e {
         BLST_ERROR::BLST_SUCCESS => Ok(()),
         BLST_ERROR::BLST_PK_IS_INFINITY => {
             if let Some(s) = sig {
-                return Err(MultiSignatureError::SignatureInfinity(s));
+                return Err(anyhow!(MultiSignatureError::SignatureInfinity(s)));
             }
             if let Some(vk) = key {
-                return Err(MultiSignatureError::VerificationKeyInfinity(Box::new(vk)));
+                return Err(anyhow!(MultiSignatureError::VerificationKeyInfinity(
+                    Box::new(vk)
+                )));
             }
-            Err(MultiSignatureError::SerializationError)
+            Err(anyhow!(MultiSignatureError::SerializationError))
         }
         BLST_ERROR::BLST_VERIFY_FAIL => {
             if let Some(s) = sig {
-                Err(MultiSignatureError::SignatureInvalid(s))
+                Err(anyhow!(MultiSignatureError::SignatureInvalid(s)))
             } else {
-                Err(MultiSignatureError::AggregateSignatureInvalid)
+                Err(anyhow!(MultiSignatureError::AggregateSignatureInvalid))
             }
         }
-        _ => Err(MultiSignatureError::SerializationError),
+        _ => Err(anyhow!(MultiSignatureError::SerializationError)),
     }
 }

@@ -1,3 +1,4 @@
+use anyhow::{Context, anyhow};
 use std::{cmp::Ordering, iter::Sum};
 
 use blake2::{Blake2b, Blake2b512, Digest};
@@ -8,13 +9,16 @@ use blst::{
 };
 use digest::consts::U16;
 
-use crate::bls_multi_signature::{
-    BlsVerificationKey,
-    helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk, sig_to_p1, vk_from_p2_affine},
-};
 use crate::{
     Index,
-    error::{MultiSignatureError, blst_err_to_mithril},
+    error::{MultiSignatureError, blst_error_to_stm_error},
+};
+use crate::{
+    StmResult,
+    bls_multi_signature::{
+        BlsVerificationKey,
+        helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk, sig_to_p1, vk_from_p2_affine},
+    },
 };
 
 /// MultiSig signature, which is a wrapper over the `BlstSig` type.
@@ -23,8 +27,8 @@ pub struct BlsSignature(pub BlstSig);
 
 impl BlsSignature {
     /// Verify a signature against a verification key.
-    pub fn verify(&self, msg: &[u8], mvk: &BlsVerificationKey) -> Result<(), MultiSignatureError> {
-        blst_err_to_mithril(
+    pub fn verify(&self, msg: &[u8], mvk: &BlsVerificationKey) -> StmResult<()> {
+        blst_error_to_stm_error(
             self.0.validate(true).map_or_else(
                 |e| e,
                 |_| {
@@ -64,11 +68,11 @@ impl BlsSignature {
     ///
     /// # Error
     /// Returns an error if the byte string does not represent a point in the curve.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
+    pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let bytes = bytes.get(..48).ok_or(MultiSignatureError::SerializationError)?;
         match BlstSig::sig_validate(bytes, true) {
             Ok(sig) => Ok(Self(sig)),
-            Err(e) => Err(blst_err_to_mithril(e, None, None)
+            Err(e) => Err(blst_error_to_stm_error(e, None, None)
                 .expect_err("If deserialization is not successful, blst returns and error different to SUCCESS."))
         }
     }
@@ -96,9 +100,9 @@ impl BlsSignature {
     pub fn aggregate(
         vks: &[BlsVerificationKey],
         sigs: &[BlsSignature],
-    ) -> Result<(BlsVerificationKey, BlsSignature), MultiSignatureError> {
+    ) -> StmResult<(BlsVerificationKey, BlsSignature)> {
         if vks.len() != sigs.len() || vks.is_empty() {
-            return Err(MultiSignatureError::AggregateSignatureInvalid);
+            return Err(anyhow!(MultiSignatureError::AggregateSignatureInvalid));
         }
 
         if vks.len() < 2 {
@@ -138,10 +142,10 @@ impl BlsSignature {
         msg: &[u8],
         vks: &[BlsVerificationKey],
         sigs: &[BlsSignature],
-    ) -> Result<(), MultiSignatureError> {
-        let (aggr_vk, aggr_sig) = Self::aggregate(vks, sigs)?;
+    ) -> StmResult<()> {
+        let (aggr_vk, aggr_sig) = Self::aggregate(vks, sigs).with_context(|| "Multi signature verification failed in aggregation of verification keys and signatures.")?;
 
-        blst_err_to_mithril(
+        blst_error_to_stm_error(
             aggr_sig.0.verify(
                 false,
                 msg,
@@ -160,25 +164,25 @@ impl BlsSignature {
         msgs: &[Vec<u8>],
         vks: &[BlsVerificationKey],
         sigs: &[BlsSignature],
-    ) -> Result<(), MultiSignatureError> {
+    ) -> StmResult<()> {
         let batched_sig: BlstSig = match AggregateSignature::aggregate(
             &(sigs.iter().map(|sig| &sig.0).collect::<Vec<&BlstSig>>()),
             false,
         ) {
             Ok(sig) => BlstSig::from_aggregate(&sig),
-            Err(e) => return blst_err_to_mithril(e, None, None),
+            Err(e) => return blst_error_to_stm_error(e, None, None),
         };
 
         let p2_vks: Vec<BlstVk> = vks.iter().map(|vk| vk.to_blst_verification_key()).collect();
         let p2_vks_ref: Vec<&BlstVk> = p2_vks.iter().collect();
         let slice_msgs = msgs.iter().map(|msg| msg.as_slice()).collect::<Vec<&[u8]>>();
 
-        blst_err_to_mithril(
+        blst_error_to_stm_error(
             batched_sig.aggregate_verify(false, &slice_msgs, &[], &p2_vks_ref, false),
             None,
             None,
         )
-        .map_err(|_| MultiSignatureError::BatchInvalid)
+        .map_err(|_| anyhow!(MultiSignatureError::BatchInvalid))
     }
 }
 

@@ -1,6 +1,7 @@
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize, Serializer, ser::SerializeTuple};
 
+use crate::StmResult;
 use crate::key_registration::RegisteredParty;
 use crate::{SingleSignature, StmSignatureError};
 
@@ -28,7 +29,7 @@ impl SingleSignatureWithRegisteredParty {
     ///Extract a `SingleSignatureWithRegisteredParty` from a byte slice.
     pub fn from_bytes<D: Digest + Clone + FixedOutput>(
         bytes: &[u8],
-    ) -> Result<SingleSignatureWithRegisteredParty, StmSignatureError> {
+    ) -> StmResult<SingleSignatureWithRegisteredParty> {
         let reg_party = RegisteredParty::from_bytes(
             bytes.get(0..104).ok_or(StmSignatureError::SerializationError)?,
         )?;
