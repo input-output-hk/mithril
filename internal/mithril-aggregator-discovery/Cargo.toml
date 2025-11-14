@@ -34,7 +34,7 @@ serde_json = { workspace = true }
 slog = { workspace = true }
 slog-scope = "4.4.0"
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["sync"] }
+tokio = { workspace = true, features = ["sync", "rt-multi-thread"] }
 
 [dev-dependencies]
 mockall = { workspace = true }
