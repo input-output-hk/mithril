@@ -5,6 +5,7 @@
 
 use std::{collections::HashMap, sync::Arc};
 
+use anyhow::anyhow;
 use blake2::{
     Blake2b, Digest,
     digest::{FixedOutput, consts::U32},
@@ -173,13 +174,8 @@ impl StmInitializerWrapper {
     /// * the current total stake (according to the registration service)
     /// # Error
     /// This function fails if the initializer is not registered.
-    pub fn new_signer(
-        self,
-        closed_reg: ClosedKeyRegistration<D>,
-    ) -> Result<Signer<D>, ProtocolRegistrationErrorWrapper> {
-        self.stm_initializer
-            .create_signer(closed_reg)
-            .map_err(ProtocolRegistrationErrorWrapper::CoreRegister)
+    pub fn new_signer(self, closed_reg: ClosedKeyRegistration<D>) -> StdResult<Signer<D>> {
+        self.stm_initializer.create_signer(closed_reg)
     }
 
     /// Convert to bytes
@@ -199,7 +195,7 @@ impl StmInitializerWrapper {
     /// Convert a slice of bytes to an `StmInitializerWrapper`
     /// # Error
     /// The function fails if the given string of bytes is not of required size.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, RegisterError> {
+    pub fn from_bytes(bytes: &[u8]) -> StdResult<Self> {
         let stm_initializer =
             Initializer::from_bytes(bytes.get(..256).ok_or(RegisterError::SerializationError)?)?;
         let bytes = bytes.get(256..).ok_or(RegisterError::SerializationError)?;
@@ -250,7 +246,7 @@ impl KeyRegWrapper {
         kes_sig: Option<ProtocolSignerVerificationKeySignature>, // Used for only for testing when SPO pool id is not certified
         kes_period: Option<KesPeriod>,
         pk: ProtocolSignerVerificationKey,
-    ) -> Result<ProtocolPartyId, ProtocolRegistrationErrorWrapper> {
+    ) -> StdResult<ProtocolPartyId> {
         let pool_id_bech32: ProtocolPartyId = if let Some(opcert) = opcert {
             let signature = kes_sig.ok_or(ProtocolRegistrationErrorWrapper::KesSignatureMissing)?;
             let kes_period =
@@ -264,9 +260,11 @@ impl KeyRegWrapper {
                     .compute_protocol_party_id()
                     .map_err(|_| ProtocolRegistrationErrorWrapper::PoolAddressEncoding)?
             } else {
-                return Err(ProtocolRegistrationErrorWrapper::KesSignatureInvalid(
-                    kes_period,
-                    opcert.get_start_kes_period(),
+                return Err(anyhow!(
+                    ProtocolRegistrationErrorWrapper::KesSignatureInvalid(
+                        kes_period,
+                        opcert.get_start_kes_period(),
+                    )
                 ));
             }
         } else {
@@ -277,12 +275,12 @@ impl KeyRegWrapper {
         };
 
         if let Some(&stake) = self.stake_distribution.get(&pool_id_bech32) {
-            self.stm_key_reg
-                .register(stake, pk.into())
-                .map_err(ProtocolRegistrationErrorWrapper::CoreRegister)?;
+            self.stm_key_reg.register(stake, pk.into())?;
             return Ok(pool_id_bech32);
         }
-        Err(ProtocolRegistrationErrorWrapper::PartyIdNonExisting)
+        Err(anyhow!(
+            ProtocolRegistrationErrorWrapper::PartyIdNonExisting
+        ))
     }
 
     /// Finalize the key registration.
