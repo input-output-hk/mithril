@@ -54,14 +54,20 @@ impl Iterator for CapableAggregatorDiscovererIterator {
     type Item = AggregatorEndpoint;
 
     fn next(&mut self) -> Option<Self::Item> {
-        for aggregator_endpoint in &mut self.inner_iterator {
-            let aggregator_capabilities = tokio::runtime::Handle::current()
-                .block_on(async { aggregator_endpoint.retrieve_capabilities().await });
-            if CapableAggregatorDiscoverer::capabilities_match(
-                &self.capabilities,
-                &aggregator_capabilities.ok()?,
-            ) {
-                return Some(aggregator_endpoint);
+        while let Some(aggregator_endpoint) = self.inner_iterator.next() {
+            let aggregator_endpoint_clone = aggregator_endpoint.clone();
+            let aggregator_capabilities = tokio::task::block_in_place(move || {
+                tokio::runtime::Handle::current().block_on(async move {
+                    aggregator_endpoint_clone.retrieve_capabilities().await
+                })
+            });
+            if let Ok(aggregator_capabilities) = aggregator_capabilities {
+                if CapableAggregatorDiscoverer::capabilities_match(
+                    &self.capabilities,
+                    &aggregator_capabilities,
+                ) {
+                    return Some(aggregator_endpoint);
+                }
             }
         }
 
