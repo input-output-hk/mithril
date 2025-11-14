@@ -1,7 +1,10 @@
 use anyhow::{Result, anyhow};
-use midnight_circuits::hash::poseidon::PoseidonChip;
-use midnight_circuits::instructions::HashToCurveCPU;
-use midnight_circuits::instructions::hash::HashCPU;
+
+use midnight_circuits::{
+    hash::poseidon::PoseidonChip,
+    instructions::{HashToCurveCPU, hash::HashCPU},
+};
+
 use midnight_curves::{Fq as JubjubBase, Fr as JubjubScalar, JubjubSubgroup};
 
 use group::{Group, GroupEncoding};
