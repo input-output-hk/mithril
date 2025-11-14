@@ -10,32 +10,18 @@ pub use signature::*;
 pub use utils::*;
 pub use verification_key::*;
 
-use midnight_circuits::{
-    ecc::{hash_to_curve::HashToCurveGadget, native::EccChip},
-    hash::poseidon::PoseidonChip,
-    types::AssignedNative,
-};
-use midnight_curves::{Fq as JubjubBase, JubjubExtended};
+use dusk_jubjub::Fq as JubjubBase;
 
 /// A DST (Domain Separation Tag) to distinguish between use of Poseidon hash
 pub(crate) const DST_SIGNATURE: JubjubBase = JubjubBase::from_raw([0u64, 0, 0, 0]);
 pub(crate) const DST_LOTTERY: JubjubBase = JubjubBase::from_raw([1u64, 0, 0, 0]);
 
-/// Defining a type for the CPU hash to curve gadget
-pub(crate) type JubjubHashToCurve = HashToCurveGadget<
-    JubjubBase,
-    JubjubExtended,
-    AssignedNative<JubjubBase>,
-    PoseidonChip<JubjubBase>,
-    EccChip<JubjubExtended>,
->;
-
 #[cfg(test)]
 mod tests {
 
     use super::*;
+    use dusk_jubjub::SubgroupPoint as JubjubSubgroup;
     use group::Group;
-    use midnight_curves::Fr as JubjubScalar;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
@@ -53,7 +39,7 @@ mod tests {
             100, 207, 166, 110, 188, 47, 35, 211, 35, 168, 100, 25,
         ];
 
-        let field_elem = JubjubBase::from_bytes_le(&bytes_le).unwrap();
+        let field_elem = JubjubBase::from_bytes(&bytes_le).unwrap();
 
         assert_eq!(h, field_elem)
     }
@@ -64,19 +50,7 @@ mod tests {
         let mut rng = ChaCha20Rng::from_seed(seed);
         let point = JubjubSubgroup::random(&mut rng);
 
-        let (_x, _y) = get_coordinates(point);
-    }
-
-    // TODO: Add randomness to val
-    #[test]
-    fn test_jubjub_base_to_scalar() {
-        let val = vec![0, 0, 0, 1];
-        let jjbase = JubjubBase::from_raw(val.clone().try_into().unwrap());
-        let jjscalar = JubjubScalar::from_raw(val.try_into().unwrap());
-
-        let converted_base = jubjub_base_to_scalar(&jjbase).unwrap();
-
-        assert_eq!(jjscalar, converted_base);
+        let (_x, _y) = get_coordinates_subgroup(point);
     }
 
     #[test]

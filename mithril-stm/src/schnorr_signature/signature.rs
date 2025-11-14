@@ -1,19 +1,17 @@
 use anyhow::{Result, anyhow};
 
-use midnight_circuits::{
-    hash::poseidon::PoseidonChip,
-    instructions::{HashToCurveCPU, hash::HashCPU},
+use dusk_jubjub::{
+    ExtendedPoint as JubjubExtended, Fq as JubjubBase, Fr as JubjubScalar,
+    SubgroupPoint as JubjubSubgroup,
 };
-
-use midnight_curves::{Fq as JubjubBase, Fr as JubjubScalar, JubjubSubgroup};
-
+use dusk_poseidon::{Domain, Hash};
 use group::{Group, GroupEncoding};
 
 use crate::{
     Index,
     schnorr_signature::{
-        DST_LOTTERY, DST_SIGNATURE, JubjubHashToCurve, SchnorrVerificationKey, get_coordinates,
-        hash_msg_to_jubjubbase, jubjub_base_to_scalar,
+        DST_LOTTERY, DST_SIGNATURE, SchnorrVerificationKey, get_coordinates_extended,
+        get_coordinates_subgroup,
     },
 };
 
@@ -25,11 +23,12 @@ use crate::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SchnorrSignature {
     /// Deterministic value depending on the message and secret key
-    pub(crate) sigma: JubjubSubgroup,
+    pub(crate) sigma: JubjubExtended,
     /// Part of the Schnorr signature depending on the secret key
     pub(crate) signature: JubjubScalar,
     /// Part of the Schnorr signature NOT depending on the secret key
-    pub(crate) challenge: JubjubBase,
+    // pub(crate) challenge: JubjubBase,
+    pub(crate) challenge: JubjubScalar,
 }
 
 impl SchnorrSignature {
@@ -65,38 +64,40 @@ impl SchnorrSignature {
         let generator = JubjubSubgroup::generator();
 
         // First hashing the message to a scalar then hashing it to a curve point
-        let hash_msg = JubjubHashToCurve::hash_to_curve(&[hash_msg_to_jubjubbase(msg)?]);
+        let hash_msg = JubjubExtended::hash_to_point(msg);
 
         // Computing R1 = H(msg) * s + sigma * c
-        let challenge_scalar = jubjub_base_to_scalar(&self.challenge)?;
         let hash_msg_times_sig = hash_msg * self.signature;
-        let sigma_times_challenge = self.sigma * challenge_scalar;
+        let sigma_times_challenge = self.sigma * self.challenge;
         let random_value_1_recomputed = hash_msg_times_sig + sigma_times_challenge;
 
         // Computing R2 = g * s + vk * c
         let generator_times_s = generator * self.signature;
-        let vk_times_challenge = vk.0 * challenge_scalar;
+        let vk_times_challenge = vk.0 * self.challenge;
         let random_value_2_recomputed = generator_times_s + vk_times_challenge;
 
-        let (hashx, hashy) = get_coordinates(hash_msg);
-        let (vkx, vky) = get_coordinates(vk.0);
-        let (sigmax, sigmay) = get_coordinates(self.sigma);
-        let (r1x, r1y) = get_coordinates(random_value_1_recomputed);
-        let (r2x, r2y) = get_coordinates(random_value_2_recomputed);
+        let (hashx, hashy) = get_coordinates_extended(hash_msg);
+        let (vkx, vky) = get_coordinates_subgroup(vk.0);
+        let (sigmax, sigmay) = get_coordinates_extended(self.sigma);
+        let (r1x, r1y) = get_coordinates_extended(random_value_1_recomputed);
+        let (r2x, r2y) = get_coordinates_subgroup(random_value_2_recomputed);
 
-        let challenge_recomputed = PoseidonChip::<JubjubBase>::hash(&[
-            DST_SIGNATURE,
-            hashx,
-            hashy,
-            vkx,
-            vky,
-            sigmax,
-            sigmay,
-            r1x,
-            r1y,
-            r2x,
-            r2y,
-        ]);
+        let challenge_recomputed = Hash::digest_truncated(
+            Domain::Other,
+            &[
+                DST_SIGNATURE,
+                hashx,
+                hashy,
+                vkx,
+                vky,
+                sigmax,
+                sigmay,
+                r1x,
+                r1y,
+                r2x,
+                r2y,
+            ],
+        )[0];
 
         if challenge_recomputed != self.challenge {
             // TODO: Wrong error for now, need to change that once the errors are added
@@ -112,15 +113,17 @@ impl SchnorrSignature {
     /// The order of the hash input must be the same as the one in the SNARK circuit
     /// `ev = H(DST || msg || index || σ) <- MSP.Eval(msg,index,σ)` given in paper.
     pub(crate) fn evaluate_dense_mapping(&self, msg: &[u8], index: Index) -> Result<[u8; 32]> {
-        let hash = JubjubHashToCurve::hash_to_curve(&[hash_msg_to_jubjubbase(msg)?]);
-        let (hashx, hashy) = get_coordinates(hash);
+        let hash = JubjubExtended::hash_to_point(msg);
+        let (hashx, hashy) = get_coordinates_extended(hash);
         // TODO: Check if this is the correct way to add the index
         let idx = JubjubBase::from_raw([0, 0, 0, index]);
-        let (sigmax, sigmay) = get_coordinates(self.sigma);
-        let ev =
-            PoseidonChip::<JubjubBase>::hash(&[DST_LOTTERY, hashx, hashy, idx, sigmax, sigmay]);
+        let (sigmax, sigmay) = get_coordinates_extended(self.sigma);
+        let ev = Hash::digest_truncated(
+            Domain::Other,
+            &[DST_LOTTERY, hashx, hashy, idx, sigmax, sigmay],
+        )[0];
 
-        Ok(ev.to_bytes_le())
+        Ok(ev.to_bytes())
     }
 
     /// Convert an `SchnorrSignature` to a byte representation.
@@ -128,7 +131,7 @@ impl SchnorrSignature {
         let mut out = [0; 96];
         out[0..32].copy_from_slice(&self.sigma.to_bytes());
         out[32..64].copy_from_slice(&self.signature.to_bytes());
-        out[64..96].copy_from_slice(&self.challenge.to_bytes_le());
+        out[64..96].copy_from_slice(&self.challenge.to_bytes());
 
         out
     }
@@ -138,13 +141,13 @@ impl SchnorrSignature {
     /// Not sure the sigma, s and c creation can fail if the 96 bytes are correctly extracted.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         let bytes: [u8; 96] = bytes.try_into()?;
-        let sigma = JubjubSubgroup::from_bytes(&bytes[0..32].try_into()?)
+        let sigma = JubjubExtended::from_bytes(&bytes[0..32].try_into()?)
             .into_option()
             .ok_or(anyhow!("Unable to convert bytes into a sigma value."))?;
         let signature = JubjubScalar::from_bytes(&bytes[32..64].try_into()?)
             .into_option()
             .ok_or(anyhow!("Unable to convert bytes into an s value."))?;
-        let challenge = JubjubBase::from_bytes_le(&bytes[64..96].try_into()?)
+        let challenge = JubjubScalar::from_bytes(&bytes[64..96].try_into()?)
             .into_option()
             .ok_or(anyhow!("Unable to convert bytes into a c value."))?;
 

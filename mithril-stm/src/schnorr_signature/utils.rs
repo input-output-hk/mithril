@@ -1,6 +1,8 @@
-use midnight_curves::{
-    Fq as JubjubBase, Fr as JubjubScalar, JubjubAffine, JubjubExtended, JubjubSubgroup,
+use dusk_jubjub::{
+    AffinePoint as JubjubAffine, ExtendedPoint as JubjubExtended, Fq as JubjubBase,
+    Fr as JubjubScalar, SubgroupPoint as JubjubSubgroup,
 };
+
 use sha2::{Digest, Sha256};
 
 use anyhow::{Result, anyhow};
@@ -32,7 +34,15 @@ pub fn hash_msg_to_jubjubbase(msg: &[u8]) -> Result<JubjubBase> {
 /// Extract the coordinates of a given point
 ///
 /// This is mainly use to feed the Poseidon hash function
-pub fn get_coordinates(point: JubjubSubgroup) -> (JubjubBase, JubjubBase) {
+pub fn get_coordinates_extended(point: JubjubExtended) -> (JubjubBase, JubjubBase) {
+    let point_affine_representation = JubjubAffine::from(point);
+    let x_coordinate = point_affine_representation.get_u();
+    let y_coordinate = point_affine_representation.get_v();
+
+    (x_coordinate, y_coordinate)
+}
+
+pub fn get_coordinates_subgroup(point: JubjubSubgroup) -> (JubjubBase, JubjubBase) {
     let point_extended_representation = JubjubExtended::from(point);
     let point_affine_representation = JubjubAffine::from(point_extended_representation);
     let x_coordinate = point_affine_representation.get_u();
@@ -43,7 +53,7 @@ pub fn get_coordinates(point: JubjubSubgroup) -> (JubjubBase, JubjubBase) {
 
 /// Convert an element of the BLS12-381 base field to one of the Jubjub base field
 pub fn jubjub_base_to_scalar(x: &JubjubBase) -> Result<JubjubScalar> {
-    let bytes = x.to_bytes_le();
+    let bytes = x.to_bytes();
 
     Ok(JubjubScalar::from_raw([
         u64::from_le_bytes(bytes[0..8].try_into()?),
