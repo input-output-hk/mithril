@@ -1,6 +1,6 @@
 use anyhow::{Result, anyhow};
+use dusk_jubjub::SubgroupPoint as JubjubSubgroup;
 use group::{Group, GroupEncoding};
-pub use midnight_curves::JubjubSubgroup;
 
 pub(crate) use crate::schnorr_signature::signing_key::SchnorrSigningKey;
 

@@ -1,17 +1,16 @@
 use anyhow::{Result, anyhow};
-use ff::Field;
-use midnight_circuits::{
-    hash::poseidon::PoseidonChip,
-    instructions::{HashToCurveCPU, hash::HashCPU},
+use dusk_jubjub::{
+    ExtendedPoint as JubjubExtended, Fr as JubjubScalar, SubgroupPoint as JubjubSubgroup,
 };
-use midnight_curves::{Fq as JubjubBase, Fr as JubjubScalar, JubjubSubgroup};
+use dusk_poseidon::{Domain, Hash};
+use ff::Field;
 use rand_core::{CryptoRng, RngCore};
 
 use group::Group;
 
 use crate::schnorr_signature::{
-    DST_SIGNATURE, JubjubHashToCurve, SchnorrSignature, SchnorrVerificationKey,
-    utils::{get_coordinates, hash_msg_to_jubjubbase, jubjub_base_to_scalar},
+    DST_SIGNATURE, SchnorrSignature, SchnorrVerificationKey,
+    utils::{get_coordinates_extended, get_coordinates_subgroup},
 };
 
 /// Schnorr Signing key, it is essentially a random scalar of the Jubjub scalar field
@@ -72,9 +71,8 @@ impl SchnorrSigningKey {
         let verification_key = SchnorrVerificationKey::from(self);
 
         // First hashing the message to a scalar then hashing it to a curve point
-        let hash_msg = JubjubHashToCurve::hash_to_curve(&[hash_msg_to_jubjubbase(msg)?]);
+        let hash_msg = JubjubExtended::hash_to_point(msg);
 
-        // sigma = H(Sha256(msg)) * sk
         let sigma = hash_msg * self.0;
 
         // Compute the random part of the signature with
@@ -87,31 +85,33 @@ impl SchnorrSigningKey {
         // Since the hash function takes as input scalar elements
         // We need to convert the EC points to their coordinates
         // I use gx and gy for now but maybe we can replace them by a DST?
-        let (hash_msg_x, hash_msg_y) = get_coordinates(hash_msg);
-        let (verification_key_x, verification_key_y) = get_coordinates(verification_key.0);
-        let (sigma_x, sigma_y) = get_coordinates(sigma);
-        let (random_value_1_x, random_value_1_y) = get_coordinates(random_value_1);
-        let (random_value_2_x, random_value_2_y) = get_coordinates(random_value_2);
+        let (hash_msg_x, hash_msg_y) = get_coordinates_extended(hash_msg);
+        let (verification_key_x, verification_key_y) = get_coordinates_subgroup(verification_key.0);
+        let (sigma_x, sigma_y) = get_coordinates_extended(sigma);
+        let (random_value_1_x, random_value_1_y) = get_coordinates_extended(random_value_1);
+        let (random_value_2_x, random_value_2_y) = get_coordinates_subgroup(random_value_2);
 
-        let challenge = PoseidonChip::<JubjubBase>::hash(&[
-            DST_SIGNATURE,
-            hash_msg_x,
-            hash_msg_y,
-            verification_key_x,
-            verification_key_y,
-            sigma_x,
-            sigma_y,
-            random_value_1_x,
-            random_value_1_y,
-            random_value_2_x,
-            random_value_2_y,
-        ]);
+        let challenge = Hash::digest_truncated(
+            Domain::Other,
+            &[
+                DST_SIGNATURE,
+                hash_msg_x,
+                hash_msg_y,
+                verification_key_x,
+                verification_key_y,
+                sigma_x,
+                sigma_y,
+                random_value_1_x,
+                random_value_1_y,
+                random_value_2_x,
+                random_value_2_y,
+            ],
+        )[0];
 
         // We want to use the from_raw function because the result of
         // the poseidon hash might not fit into the smaller modulus
         // the Fr scalar field
-        let challenge_scalar = jubjub_base_to_scalar(&challenge)?;
-        let signature = random_scalar - challenge_scalar * self.0;
+        let signature = random_scalar - challenge * self.0;
 
         Ok(SchnorrSignature {
             sigma,
