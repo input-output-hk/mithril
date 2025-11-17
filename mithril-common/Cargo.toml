@@ -18,9 +18,6 @@ rustdoc-args = ["--cfg", "docsrs"]
 # `serde_bytes` is used for OpCert serialization
 ignored = ["serde_bytes"]
 
-[lib]
-crate-type = ["lib", "cdylib", "staticlib"]
-
 [features]
 default = ["rug-backend"]
 
