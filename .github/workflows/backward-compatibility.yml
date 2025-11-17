@@ -64,7 +64,7 @@ jobs:
       tags: ${{ steps.tags-test-lab.outputs.tags }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -90,7 +90,7 @@ jobs:
           cp ./target/release/mithril-end-to-end ./mithril-binaries/e2e-${{ inputs.e2e-release }}
 
       - name: Upload Mithril binaries
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: mithril-binaries
           path: ./mithril-binaries
@@ -116,10 +116,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Download binaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: mithril-binaries
           path: ./mithril-binaries
@@ -201,14 +201,14 @@ jobs:
 
       - name: Upload test result JSON
         if: success() || failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ env.RESULT_FILE_NAME }}
           path: ./${{ env.RESULT_FILE_NAME }}.json
 
       - name: Upload E2E Tests Artifacts
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: mithril-e2e-tests-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}-tag_${{ matrix.tag }}-node-${{ matrix.node }}-cardano-${{ matrix.cardano_node_version }}-run_id_${{ matrix.run_id }}
           path: |
@@ -226,7 +226,7 @@ jobs:
 
     steps:
       - name: Download all test result artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           path: ./test-results
           pattern: e2e-test-result*

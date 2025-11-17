@@ -63,7 +63,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Get short SHA
         id: slug
@@ -80,7 +80,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Download built artifacts (Linux-x64)
-        uses: dawidd6/action-download-artifact@v6
+        uses: dawidd6/action-download-artifact@v11
         with:
           name: mithril-distribution-Linux-X64
           path: ${{ matrix.project }}/bin-linux-amd64
@@ -89,7 +89,7 @@ jobs:
           workflow_conclusion: completed
 
       - name: Download built artifacts (Linux-arm64)
-        uses: dawidd6/action-download-artifact@v6
+        uses: dawidd6/action-download-artifact@v11
         with:
           name: mithril-distribution-Linux-ARM64
           path: ${{ matrix.project }}/bin-linux-arm64
