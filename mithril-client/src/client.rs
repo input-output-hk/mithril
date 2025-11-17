@@ -1,17 +1,19 @@
 use anyhow::{Context, anyhow};
 #[cfg(feature = "fs")]
 use chrono::Utc;
-use mithril_aggregator_discovery::{
-    AggregatorDiscoverer, HttpConfigAggregatorDiscoverer, MithrilNetwork,
-};
-use mithril_common::messages::AggregatorCapabilities;
+
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use slog::{Logger, o};
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use mithril_aggregator_discovery::{
+    AggregatorDiscoverer, CapableAggregatorDiscoverer, HttpConfigAggregatorDiscoverer,
+    MithrilNetwork,
+};
 use mithril_common::api_version::APIVersionProvider;
+use mithril_common::messages::AggregatorCapabilities;
 use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
 
 use crate::MithrilResult;
@@ -195,11 +197,9 @@ impl ClientBuilder {
     /// Constructs a new `ClientBuilder` that fetches data from the aggregator at the given
     /// endpoint and with the given genesis verification key.
     pub fn aggregator(endpoint: &str, genesis_verification_key: &str) -> ClientBuilder {
-        Self::new(AggregatorDiscoveryType::Url(endpoint.to_string()))
-            .with_genesis_verification_key(GenesisVerificationKey::JsonHex(
-                genesis_verification_key.to_string(),
-            ))
-            .with_aggregator_discoverer(Arc::new(HttpConfigAggregatorDiscoverer::default()))
+        Self::new(AggregatorDiscoveryType::Url(endpoint.to_string())).with_genesis_verification_key(
+            GenesisVerificationKey::JsonHex(genesis_verification_key.to_string()),
+        )
     }
 
     /// Constructs a new `ClientBuilder` without any dependency set.
@@ -253,6 +253,13 @@ impl ClientBuilder {
         self
     }
 
+    /// Sets the default aggregator discoverer to use to find the aggregator endpoint when in automatic discovery.
+    pub fn with_default_aggregator_discoverer(mut self) -> ClientBuilder {
+        self.aggregator_discoverer = Some(Arc::new(HttpConfigAggregatorDiscoverer::default()));
+
+        self
+    }
+
     /// Returns a `Client` that uses the dependencies provided to this `ClientBuilder`.
     ///
     /// The builder will try to create the missing dependencies using default implementations
@@ -276,7 +283,7 @@ impl ClientBuilder {
         let feedback_sender = FeedbackSender::new(&self.feedback_receivers);
 
         let aggregator_client = match self.aggregator_client {
-            None => Arc::new(self.build_aggregator_client(logger.clone()).await?),
+            None => Arc::new(self.build_aggregator_client(logger.clone())?),
             Some(client) => client,
         };
 
@@ -379,24 +386,40 @@ impl ClientBuilder {
         })
     }
 
-    async fn build_aggregator_client(
+    fn build_aggregator_client(
         &self,
         logger: Logger,
     ) -> Result<AggregatorHTTPClient, anyhow::Error> {
         let aggregator_endpoint = match self.aggregator_discovery {
             AggregatorDiscoveryType::Url(ref url) => url.clone(),
-            AggregatorDiscoveryType::Automatic(ref network) => match &self.aggregator_discoverer {
-                Some(discoverer) => discoverer
-                    .get_available_aggregators(network.to_owned())
-                    .await
-                    .with_context(|| "Discovering aggregator endpoint failed")?
-                    .next()
-                    .unwrap()
-                    .into(),
-                None => {
-                    return Err(anyhow!("The aggregator discoverer must be provided to build the client with automatic discovery using the 'with_aggregator_discoverer' function").into());
+            AggregatorDiscoveryType::Automatic(ref network) => {
+                match self.aggregator_discoverer.clone() {
+                    Some(discoverer) => {
+                        let discoverer = if let Some(capabilities) = &self.aggregator_capabilities {
+                            Arc::new(CapableAggregatorDiscoverer::new(
+                                capabilities.to_owned(),
+                                discoverer.clone(),
+                            )) as Arc<dyn AggregatorDiscoverer>
+                        } else {
+                            discoverer as Arc<dyn AggregatorDiscoverer>
+                        };
+                        tokio::task::block_in_place(move || {
+                            tokio::runtime::Handle::current().block_on(async move {
+                                discoverer
+                                    .get_available_aggregators(network.to_owned())
+                                    .await
+                                    .with_context(|| "Discovering aggregator endpoint failed")?
+                                    .next()
+                                    .ok_or(anyhow!("No aggregator was available through discovery"))
+                            })
+                        })?
+                        .into()
+                    }
+                    None => {
+                        return Err(anyhow!("The aggregator discoverer must be provided to build the client with automatic discovery using the 'with_aggregator_discoverer' function").into());
+                    }
                 }
-            },
+            }
         };
         let endpoint_url = Url::parse(&aggregator_endpoint).with_context(|| {
             format!("Invalid aggregator endpoint, it must be a correctly formed url: '{aggregator_endpoint}'")
