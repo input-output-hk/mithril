@@ -2,7 +2,9 @@
 use crate::proof_system::snark_proof::SnarkProof;
 use crate::{
     core::{Parameters, key_registration::KeyRegistration, single_signature::SingleSignature},
-    proof_system::concatenation_proof::{ConcatenationProof, ConcatenationProofGenerator},
+    proof_system::concatenation_proof::{
+        ConcatenationProof, full::ConcatenationProofFullGenerator,
+    },
     *,
 };
 
@@ -50,7 +52,7 @@ impl SignatureAggregator {
         match self.aggregate_signature_type {
             AggregateSignatureType::Concatenation => {
                 let concatenation_proof_generator =
-                    ConcatenationProofGenerator::new(&self.parameters, &self.key_registrations);
+                    ConcatenationProofFullGenerator::new(&self.parameters, &self.key_registrations);
                 let concatenation_proof = concatenation_proof_generator
                     .create_concatenation_proof(message, &signatures)?;
 

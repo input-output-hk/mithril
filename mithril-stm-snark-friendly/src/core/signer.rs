@@ -4,7 +4,7 @@ use crate::{
     core::{Parameters, SignerIndex, Stake, single_signature::SingleSignature},
     proof_system::{
         ProofSystemSingleSignatureGenerator,
-        concatenation_proof::ConcatenationProofSingleSignatureGenerator,
+        concatenation_proof::full::ConcatenationProofFullSingleSignatureGenerator,
     },
     *,
 };
@@ -15,7 +15,7 @@ pub struct Signer {
     pub stake: Stake,
     pub parameters: Parameters,
     pub concatenation_proof_individual_signature_generator:
-        ConcatenationProofSingleSignatureGenerator,
+        ConcatenationProofFullSingleSignatureGenerator,
     #[cfg(feature = "future_snark")]
     pub snark_proof_individual_signature_generator: Option<SnarkProofSingleSignatureGenerator>,
 }
@@ -27,7 +27,7 @@ impl Signer {
         stake: Stake,
         parameters: Parameters,
         concatenation_proof_individual_signature_generator:
-            ConcatenationProofSingleSignatureGenerator,
+            ConcatenationProofFullSingleSignatureGenerator,
         #[cfg(feature = "future_snark")] snark_proof_individual_signature_generator: Option<
             SnarkProofSingleSignatureGenerator,
         >,

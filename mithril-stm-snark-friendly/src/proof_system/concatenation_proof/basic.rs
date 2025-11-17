@@ -8,29 +8,17 @@ use crate::{
     proof_system::{
         ProofSystemAggregateSignatureProver, ProofSystemAggregateSignatureVerifier,
         ProofSystemSingleSignatureGenerator,
+        concatenation_proof::{
+            BlakeDigest, ConcatenationAggregateVerificationKey, ConcatenationProof,
+            ConcatenationSingleSignature,
+        },
     },
     signature_scheme::bls_signature::{BlsCryptoSigner, BlsSignature},
     *,
 };
 
-/// Blake digest implementation
-pub struct BlakeDigest;
-
-impl Digest for BlakeDigest {
-    fn digest(_data: &[u8]) -> Vec<u8> {
-        todo!("Implement Blake digest")
-    }
-}
-
-/// Concatenation proof individual signature structure
-#[derive(Default)]
-pub struct ConcatenationSingleSignature {
-    pub signature: BlsSignature,
-    pub lottery_indices: Vec<u64>,
-}
-
-/// Concatenation proof individual signature generator
-pub struct ConcatenationProofSingleSignatureGenerator {
+/// Concatenation proof individual basic signature generator
+pub struct ConcatenationProofBasicSingleSignatureGenerator {
     pub signer_index: SignerIndex,
     pub stake: Stake,
     pub parameters: Parameters,
@@ -38,8 +26,8 @@ pub struct ConcatenationProofSingleSignatureGenerator {
     pub key_registration_commitment: MerkleTree<BlakeDigest, SignerRegistrationEntryConcatenation>,
 }
 
-impl ConcatenationProofSingleSignatureGenerator {
-    /// Creates a new ConcatenationProofSingleSignatureGenerator
+impl ConcatenationProofBasicSingleSignatureGenerator {
+    /// Creates a new ConcatenationProofBasicSingleSignatureGenerator
     pub fn new(
         signer_index: SignerIndex,
         stake: Stake,
@@ -62,7 +50,7 @@ impl ConcatenationProofSingleSignatureGenerator {
     }
 }
 
-impl ProofSystemSingleSignatureGenerator for ConcatenationProofSingleSignatureGenerator {
+impl ProofSystemSingleSignatureGenerator for ConcatenationProofBasicSingleSignatureGenerator {
     type ProofSystemSingleSignature = ConcatenationSingleSignature;
 
     fn create_individual_signature(
@@ -78,34 +66,16 @@ impl ProofSystemSingleSignatureGenerator for ConcatenationProofSingleSignatureGe
     }
 }
 
-/// Aggregate verification key for concatenation proof
-pub type ConcatenationAggregateVerificationKey = (); // TODO: to be defined
-
-/// Concatenation proof structure
-pub struct ConcatenationProof {}
-
-impl ConcatenationProof {
-    /// Verifies the concatenation proof
-    pub fn verify(
-        &self,
-        message: &[u8],
-        verification_key: &ConcatenationAggregateVerificationKey,
-    ) -> StdResult<()> {
-        // Implement verification logic here
-        todo!("Implement concatenation proof verification")
-    }
-}
-
-/// Concatenation proof generator
-pub struct ConcatenationProofGenerator {
+/// Concatenation basic proof generator
+pub struct ConcatenationProofBasicGenerator {
     pub parameters: Parameters,
     pub concatenation_proof_individual_signature_generator:
-        ConcatenationProofSingleSignatureGenerator,
+        ConcatenationProofBasicSingleSignatureGenerator,
     pub key_registration: MerkleTree<BlakeDigest, SignerRegistrationEntryConcatenation>,
 }
 
-impl ConcatenationProofGenerator {
-    /// Creates a new ConcatenationProofGenerator
+impl ConcatenationProofBasicGenerator {
+    /// Creates a new ConcatenationProofBasicGenerator
     pub fn new(parameters: &Parameters, key_registrations: &KeyRegistration) -> Self {
         todo!("Implement new for ConcatenationProofGenerator")
     }
@@ -121,7 +91,7 @@ impl ConcatenationProofGenerator {
     }
 }
 
-impl ProofSystemAggregateSignatureProver for ConcatenationProofGenerator {
+impl ProofSystemAggregateSignatureProver for ConcatenationProofBasicGenerator {
     type ProofSystemAggregateSignature = ConcatenationProof;
 
     fn create_aggregate_signature(
@@ -133,7 +103,7 @@ impl ProofSystemAggregateSignatureProver for ConcatenationProofGenerator {
     }
 }
 
-impl ProofSystemAggregateSignatureVerifier for ConcatenationProofGenerator {
+impl ProofSystemAggregateSignatureVerifier for ConcatenationProofBasicGenerator {
     type ProofSystemAggregateSignature = ConcatenationProof;
     type ProofSystemAggregateVerificationKey = ConcatenationAggregateVerificationKey;
 
@@ -143,6 +113,6 @@ impl ProofSystemAggregateSignatureVerifier for ConcatenationProofGenerator {
         multi_signature: &Self::ProofSystemAggregateSignature,
         aggregate_verification_key: &Self::ProofSystemAggregateVerificationKey,
     ) -> StdResult<()> {
-        multi_signature.verify(message, aggregate_verification_key)
+        multi_signature.verify_basic(message, aggregate_verification_key)
     }
 }

@@ -6,7 +6,7 @@ use crate::{
         key_registration::{KeyRegistration, SignerRegistration},
         signer::Signer,
     },
-    proof_system::concatenation_proof::ConcatenationProofSingleSignatureGenerator,
+    proof_system::concatenation_proof::full::ConcatenationProofFullSingleSignatureGenerator,
     signature_scheme::bls_signature::{
         BlsCryptoSigner, BlsSigningKey, BlsVerificationKeyProofOfPossession,
     },
@@ -68,7 +68,7 @@ impl Initializer {
             })
             .ok_or(anyhow!("Signer registration not found in key registration"))?;
         let concatenation_proof_individual_signature_generator =
-            ConcatenationProofSingleSignatureGenerator::new(
+            ConcatenationProofFullSingleSignatureGenerator::new(
                 signer_index.clone(),
                 self.stake.clone(),
                 self.parameters.clone(),
