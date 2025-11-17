@@ -3944,6 +3944,7 @@ dependencies = [
  "hex",
  "http",
  "httpmock",
+ "mithril-aggregator-discovery",
  "mithril-cardano-node-internal-database",
  "mithril-common",
  "mockall",
