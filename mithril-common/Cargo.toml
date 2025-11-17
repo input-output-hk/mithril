@@ -1,6 +1,6 @@
 [package]
 name = "mithril-common"
-version = "0.6.27"
+version = "0.6.28"
 description = "Common types, interfaces, and utilities for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -17,9 +17,6 @@ rustdoc-args = ["--cfg", "docsrs"]
 [package.metadata.cargo-machete]
 # `serde_bytes` is used for OpCert serialization
 ignored = ["serde_bytes"]
-
-[lib]
-crate-type = ["lib", "cdylib", "staticlib"]
 
 [features]
 default = ["rug-backend"]
