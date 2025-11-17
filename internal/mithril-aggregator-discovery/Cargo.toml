@@ -10,9 +10,6 @@ license.workspace = true
 repository.workspace = true
 include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 
-[lib]
-crate-type = ["lib", "cdylib", "staticlib"]
-
 [features]
 rand = ["dep:rand"]
 
