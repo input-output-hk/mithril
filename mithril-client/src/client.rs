@@ -1,6 +1,9 @@
 use anyhow::{Context, anyhow};
 #[cfg(feature = "fs")]
 use chrono::Utc;
+use mithril_aggregator_discovery::{
+    AggregatorDiscoverer, HttpConfigAggregatorDiscoverer, MithrilNetwork,
+};
 use mithril_common::messages::AggregatorCapabilities;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
@@ -44,7 +47,7 @@ const fn one_week_in_seconds() -> u32 {
 /// The type of discovery to use to find the aggregator to connect to.
 pub enum AggregatorDiscoveryType {
     /// Automatically discover the aggregator.
-    Automatic,
+    Automatic(MithrilNetwork),
     /// Use a specific URL to connect to the aggregator.
     Url(String),
 }
@@ -170,6 +173,7 @@ impl Client {
 pub struct ClientBuilder {
     aggregator_discovery: AggregatorDiscoveryType,
     aggregator_capabilities: Option<AggregatorCapabilities>,
+    aggregator_discoverer: Option<Arc<dyn AggregatorDiscoverer>>,
     genesis_verification_key: Option<GenesisVerificationKey>,
     origin_tag: Option<String>,
     client_type: Option<String>,
@@ -191,9 +195,11 @@ impl ClientBuilder {
     /// Constructs a new `ClientBuilder` that fetches data from the aggregator at the given
     /// endpoint and with the given genesis verification key.
     pub fn aggregator(endpoint: &str, genesis_verification_key: &str) -> ClientBuilder {
-        Self::new(AggregatorDiscoveryType::Url(endpoint.to_string())).with_genesis_verification_key(
-            GenesisVerificationKey::JsonHex(genesis_verification_key.to_string()),
-        )
+        Self::new(AggregatorDiscoveryType::Url(endpoint.to_string()))
+            .with_genesis_verification_key(GenesisVerificationKey::JsonHex(
+                genesis_verification_key.to_string(),
+            ))
+            .with_aggregator_discoverer(Arc::new(HttpConfigAggregatorDiscoverer::default()))
     }
 
     /// Constructs a new `ClientBuilder` without any dependency set.
@@ -201,6 +207,7 @@ impl ClientBuilder {
         Self {
             aggregator_discovery,
             aggregator_capabilities: None,
+            aggregator_discoverer: None,
             genesis_verification_key: None,
             origin_tag: None,
             client_type: None,
@@ -236,6 +243,16 @@ impl ClientBuilder {
         self
     }
 
+    /// Sets the aggregator discoverer to use to find the aggregator endpoint when in automatic discovery.
+    pub fn with_aggregator_discoverer(
+        mut self,
+        discoverer: Arc<dyn AggregatorDiscoverer>,
+    ) -> ClientBuilder {
+        self.aggregator_discoverer = Some(discoverer);
+
+        self
+    }
+
     /// Returns a `Client` that uses the dependencies provided to this `ClientBuilder`.
     ///
     /// The builder will try to create the missing dependencies using default implementations
@@ -259,7 +276,7 @@ impl ClientBuilder {
         let feedback_sender = FeedbackSender::new(&self.feedback_receivers);
 
         let aggregator_client = match self.aggregator_client {
-            None => Arc::new(self.build_aggregator_client(logger.clone())?),
+            None => Arc::new(self.build_aggregator_client(logger.clone()).await?),
             Some(client) => client,
         };
 
@@ -362,15 +379,24 @@ impl ClientBuilder {
         })
     }
 
-    fn build_aggregator_client(
+    async fn build_aggregator_client(
         &self,
         logger: Logger,
     ) -> Result<AggregatorHTTPClient, anyhow::Error> {
         let aggregator_endpoint = match self.aggregator_discovery {
             AggregatorDiscoveryType::Url(ref url) => url.clone(),
-            AggregatorDiscoveryType::Automatic => {
-                todo!("Implement automatic aggregator discovery")
-            }
+            AggregatorDiscoveryType::Automatic(ref network) => match &self.aggregator_discoverer {
+                Some(discoverer) => discoverer
+                    .get_available_aggregators(network.to_owned())
+                    .await
+                    .with_context(|| "Discovering aggregator endpoint failed")?
+                    .next()
+                    .unwrap()
+                    .into(),
+                None => {
+                    return Err(anyhow!("The aggregator discoverer must be provided to build the client with automatic discovery using the 'with_aggregator_discoverer' function").into());
+                }
+            },
         };
         let endpoint_url = Url::parse(&aggregator_endpoint).with_context(|| {
             format!("Invalid aggregator endpoint, it must be a correctly formed url: '{aggregator_endpoint}'")
