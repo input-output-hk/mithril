@@ -71,20 +71,26 @@ on:
         type: boolean
         default: false
 
+env:
+  NETWORK: ${{ inputs.network }}
+  AGGREGATOR_ENDPOINT: ${{ inputs.aggregator_endpoint }}
+
 jobs:
-  test-binaries:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-14, windows-latest]
-        extra_args: ["", "--include-ancillary"]
-
-    runs-on: ${{ matrix.os }}
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      sha: ${{ steps.prepare.outputs.sha }}
+      branch: ${{ steps.prepare.outputs.branch }}
+      debug_level: ${{ steps.prepare.outputs.debug_level }}
+      genesis_verification_key: ${{ steps.prepare.outputs.genesis_verification_key }}
+      ancillary_verification_key: ${{ steps.prepare.outputs.ancillary_verification_key }}
+      cardano_transactions_enabled: ${{ steps.prepare.outputs.cardano_transactions_enabled }}
+      cardano_stake_distribution_enabled: ${{ steps.prepare.outputs.cardano_stake_distribution_enabled }}
+      cardano_database_v2_enabled: ${{ steps.prepare.outputs.cardano_database_v2_enabled }}
+      available_cardano_database_backends: ${{ steps.prepare.outputs.available_cardano_database_backends }}
+      bin-cdb-download-matrix-include: ${{ steps.prepare.outputs.bin-cdb-download-matrix-include }}
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-
-      - name: Prepare environment variables
+      - name: Prepare
         id: prepare
         shell: bash
         run: |
@@ -98,45 +104,46 @@ jobs:
             echo "debug_level=-vvv" >> $GITHUB_OUTPUT
           fi
 
-          echo "NETWORK=${{ inputs.network }}" >> $GITHUB_ENV
-          echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" >> $GITHUB_ENV
-          echo "GENESIS_VERIFICATION_KEY=$(curl -s ${{ inputs.genesis_verification_key }})" >> $GITHUB_ENV
-          echo "TRANSACTIONS_HASHES_TO_CERTIFY=${{ inputs.transactions_hashes_to_certify }}" >> $GITHUB_ENV
+          echo "GENESIS_VERIFICATION_KEY=$(curl -s ${{ inputs.genesis_verification_key }})" >> $GITHUB_OUTPUT
+          echo "ANCILLARY_VERIFICATION_KEY=$(curl -s ${{ inputs.ancillary_verification_key }})" >> $GITHUB_OUTPUT 
 
-          echo "ANCILLARY_VERIFICATION_KEY=$(curl -s ${{ inputs.ancillary_verification_key }})" >> $GITHUB_ENV
-
-      - name: Assessing aggregator capabilities (Unix)
-        id: aggregator_capability_unix
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          CARDANO_TRANSACTIONS_CAPABILITY=$(wget -q -O - $AGGREGATOR_ENDPOINT | jq '.capabilities.signed_entity_types | contains(["CardanoTransactions"])')
-          CARDANO_STAKE_DISTRIBUTION_CAPABILITY=$(wget -q -O - $AGGREGATOR_ENDPOINT | jq '.capabilities.signed_entity_types | contains(["CardanoStakeDistribution"])')
-          CARDANO_DATABASE_V2_CAPABILITY=$(wget -q -O - $AGGREGATOR_ENDPOINT | jq '.capabilities.signed_entity_types | contains(["CardanoDatabase"])')
-          echo "cardano_transactions_enabled=$CARDANO_TRANSACTIONS_CAPABILITY" >> $GITHUB_OUTPUT
-          echo "cardano_stake_distribution_enabled=$CARDANO_STAKE_DISTRIBUTION_CAPABILITY" >> $GITHUB_OUTPUT
-          echo "cardano_database_v2_enabled=$CARDANO_DATABASE_V2_CAPABILITY" >> $GITHUB_OUTPUT
-
-      - name: Assessing aggregator capabilities (Windows)
-        id: aggregator_capability_windows
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          aria2c -o aggregator_capabilities.json $AGGREGATOR_ENDPOINT
-          CARDANO_TRANSACTIONS_CAPABILITY=$(jq '.capabilities.signed_entity_types | contains(["CardanoTransactions"])' aggregator_capabilities.json)
-          CARDANO_STAKE_DISTRIBUTION_CAPABILITY=$(jq '.capabilities.signed_entity_types | contains(["CardanoStakeDistribution"])' aggregator_capabilities.json)
+          wget -q -O - ${{ inputs.aggregator_endpoint }} > aggregator_capabilities.json
           CARDANO_DATABASE_V2_CAPABILITY=$(jq '.capabilities.signed_entity_types | contains(["CardanoDatabase"])' aggregator_capabilities.json)
-          echo "cardano_transactions_enabled=$CARDANO_TRANSACTIONS_CAPABILITY" >> $GITHUB_OUTPUT
-          echo "cardano_stake_distribution_enabled=$CARDANO_STAKE_DISTRIBUTION_CAPABILITY" >> $GITHUB_OUTPUT
+
+          echo "cardano_transactions_enabled=$(jq '.capabilities.signed_entity_types | contains(["CardanoTransactions"])' aggregator_capabilities.json)" >> $GITHUB_OUTPUT
+          echo "cardano_stake_distribution_enabled=$(jq '.capabilities.signed_entity_types | contains(["CardanoStakeDistribution"])' aggregator_capabilities.json)" >> $GITHUB_OUTPUT
           echo "cardano_database_v2_enabled=$CARDANO_DATABASE_V2_CAPABILITY" >> $GITHUB_OUTPUT
+
+          if [[ $CARDANO_DATABASE_V2_CAPABILITY == "true" ]]; then
+            echo 'available_cardano_database_backends=["v1","v2"]' >> $GITHUB_OUTPUT
+            echo 'bin-cdb-download-matrix-include=[{"backend":"v2","os":"ubuntu-24.04","ledger_backend":"lmdb","extra_args":"--include-ancillary"}]' >> $GITHUB_OUTPUT
+          else
+            echo 'available_cardano_database_backends=["v1"]' >> $GITHUB_OUTPUT
+            echo 'bin-cdb-download-matrix-include=[]' >> $GITHUB_OUTPUT
+          fi
+
+  bin:
+    needs: [prepare]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-14, windows-latest]
+
+    runs-on: ${{ matrix.os }}
+    env:
+      GENESIS_VERIFICATION_KEY: ${{ needs.prepare.outputs.genesis_verification_key }}
+      ANCILLARY_VERIFICATION_KEY: ${{ needs.prepare.outputs.ancillary_verification_key }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
 
       - name: Checkout binary
         uses: dawidd6/action-download-artifact@v6
         with:
           name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
           path: ./bin
-          commit: ${{ steps.prepare.outputs.sha }}
-          branch: ${{ steps.prepare.outputs.branch }}
+          commit: ${{ needs.prepare.outputs.sha }}
+          branch: ${{ needs.prepare.outputs.branch }}
           workflow: ci.yml
           workflow_conclusion: success
 
@@ -148,144 +155,168 @@ jobs:
       - name: Show client version
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --version
+        run: ./mithril-client ${{ needs.prepare.outputs.debug_level }} --version
 
       - name: Cardano Database Snapshot / list and get last digest
         shell: bash
         working-directory: ./bin
         run: |
-          ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db snapshot list --backend v1
+          ./mithril-client ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-db snapshot list --backend v1
           echo "CDB_SNAPSHOT_DIGEST=$(./mithril-client --origin-tag CI cardano-db snapshot list --backend v1 --json | jq -r '.[0].digest')" >> $GITHUB_ENV
-
-      - name: Cardano Database Snapshot / download & restore latest
-        shell: bash
-        working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST --backend v1 --download-dir v1 ${{ matrix.extra_args }} 2>&1 | tee cdb-download-output.txt
-
-      - name: Cardano Database Snapshot / verify Cardano node starts successfully
-        if: matrix.os == 'ubuntu-24.04'
-        shell: bash
-        run: .github/workflows/scripts/verify-cardano-db-restoration.sh ./bin/cdb-download-output.txt "${{ matrix.extra_args }}"
-
-      # The 'snapshot-converter' binary is not currently supported on Linux ARM64 platforms.
-      - name: Ledger state snapshot conversion from InMemory to LMDB
-        if: matrix.os != 'ubuntu-24.04-arm' && matrix.extra_args == '--include-ancillary'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} tools utxo-hd snapshot-converter --db-directory v1/db --cardano-node-version latest --utxo-hd-flavor LMDB --commit
-
-      - name: Remove downloaded artifacts to free up disk space (Linux, Windows)
-        if: runner.os != 'macOS'
-        shell: bash
-        working-directory: ./bin
-        run: rm --force v1/db/immutable/*.{chunk,primary,secondary}
-
-      - name: Remove downloaded artifacts to free up disk space (macOs)
-        if: runner.os == 'macOS'
-        shell: bash
-        working-directory: ./bin
-        run: sudo rm -rf v1/db/
 
       - name: Mithril Stake Distribution / list and get last hash
         shell: bash
         working-directory: ./bin
         run: |
-          ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI mithril-stake-distribution list
+          ./mithril-client ${{ needs.prepare.outputs.debug_level }} --origin-tag CI mithril-stake-distribution list
           echo "MITHRIL_STAKE_DISTRIBUTION_HASH=$(./mithril-client --origin-tag CI mithril-stake-distribution list --json | jq -r '.[0].hash')" >> $GITHUB_ENV
 
       - name: Mithril Stake Distribution / download & restore latest
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI mithril-stake-distribution download $MITHRIL_STAKE_DISTRIBUTION_HASH
+        run: ./mithril-client ${{ needs.prepare.outputs.debug_level }} --origin-tag CI mithril-stake-distribution download $MITHRIL_STAKE_DISTRIBUTION_HASH
 
       - name: Cardano transaction / list and get last snapshot
-        if: steps.aggregator_capability_unix.outputs.cardano_transactions_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_transactions_enabled == 'true'
+        if: needs.prepare.outputs.cardano_transactions_enabled == 'true'
         shell: bash
         working-directory: ./bin
         run: |
-          ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-transaction snapshot list
+          ./mithril-client ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-transaction snapshot list
           echo "CTX_SNAPSHOT_HASH=$(./mithril-client --origin-tag CI cardano-transaction snapshot list --json | jq -r '.[0].hash')" >> $GITHUB_ENV
 
       - name: Cardano transaction / show snapshot
-        if: steps.aggregator_capability_unix.outputs.cardano_transactions_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_transactions_enabled == 'true'
+        if: needs.prepare.outputs.cardano_transactions_enabled == 'true'
         shell: bash
         working-directory: ./bin
         run: ./mithril-client --origin-tag CI cardano-transaction snapshot show $CTX_SNAPSHOT_HASH
 
       - name: Cardano transaction certify
-        if: steps.aggregator_capability_unix.outputs.cardano_transactions_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_transactions_enabled == 'true'
+        if: needs.prepare.outputs.cardano_transactions_enabled == 'true'
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-transaction certify $TRANSACTIONS_HASHES_TO_CERTIFY
+        run: ./mithril-client ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-transaction certify ${{ inputs.transactions_hashes_to_certify }}
 
       - name: Cardano Stake Distribution / list and get last epoch and hash
-        if: steps.aggregator_capability_unix.outputs.cardano_stake_distribution_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_stake_distribution_enabled == 'true'
+        if: needs.prepare.outputs.cardano_stake_distribution_enabled == 'true'
         shell: bash
         working-directory: ./bin
         run: |
-          ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-stake-distribution list
+          ./mithril-client ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-stake-distribution list
           CMD_OUTPUT=$(./mithril-client --origin-tag CI cardano-stake-distribution list --json)
           echo "CARDANO_STAKE_DISTRIBUTION_EPOCH=$(echo "$CMD_OUTPUT" | jq -r '.[0].epoch')" >> $GITHUB_ENV
           echo "CARDANO_STAKE_DISTRIBUTION_HASH=$(echo "$CMD_OUTPUT" | jq -r '.[0].hash')" >> $GITHUB_ENV
 
       - name: Cardano Stake Distribution / download & restore latest by epoch
-        if: steps.aggregator_capability_unix.outputs.cardano_stake_distribution_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_stake_distribution_enabled == 'true'
+        if: needs.prepare.outputs.cardano_stake_distribution_enabled == 'true'
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_EPOCH
+        run: ./mithril-client ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_EPOCH
 
       - name: Cardano Stake Distribution / download & restore latest by hash
-        if: steps.aggregator_capability_unix.outputs.cardano_stake_distribution_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_stake_distribution_enabled == 'true'
+        if: needs.prepare.outputs.cardano_stake_distribution_enabled == 'true'
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_HASH
+        run: ./mithril-client ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_HASH
 
       - name: Cardano Database V2 Snapshot / list and get last hash
-        if: steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_database_v2_enabled == 'true'
+        if: needs.prepare.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
         working-directory: ./bin
         run: |
-          ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db snapshot list
+          ./mithril-client ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-db snapshot list
           echo "CARDANO_DATABASE_V2_SNAPSHOT_HASH=$(./mithril-client --origin-tag CI cardano-db snapshot list --json | jq -r '.[0].hash')" >> $GITHUB_ENV
 
       - name: Cardano Database V2 Snapshot / list for latest epoch
-        if: steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_database_v2_enabled == 'true'
+        if: needs.prepare.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
         working-directory: ./bin
         run: |
-          ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db snapshot list --epoch latest-1
-          if [ $(./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db snapshot list --epoch latest-1 --json | jq 'length') -eq 0 ]; then
+          ./mithril-client ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-db snapshot list --epoch latest-1
+          if [ $(./mithril-client ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-db snapshot list --epoch latest-1 --json | jq 'length') -eq 0 ]; then
             echo "Error: No snapshots found for latest epoch"
             exit 1
           fi
 
       - name: Cardano Database V2 Snapshot / show snapshot
-        if: steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_database_v2_enabled == 'true'
+        if: needs.prepare.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
         working-directory: ./bin
         run: ./mithril-client --origin-tag CI cardano-db snapshot show $CARDANO_DATABASE_V2_SNAPSHOT_HASH
 
-      - name: Cardano Database V2 Snapshot / download & restore latest (Full restoration)
-        if: steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_database_v2_enabled == 'true'
+  bin-cdb-download:
+    needs: [prepare]
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: ${{ fromJson(needs.prepare.outputs.available_cardano_database_backends) }}
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-14, windows-latest]
+        ledger_backend: ["in-memory"]
+        extra_args: ["", "--include-ancillary"]
+
+        include: ${{ fromJson(needs.prepare.outputs.bin-cdb-download-matrix-include) }}
+
+    runs-on: ${{ matrix.os }}
+    env:
+      GENESIS_VERIFICATION_KEY: ${{ needs.prepare.outputs.genesis_verification_key }}
+      ANCILLARY_VERIFICATION_KEY: ${{ needs.prepare.outputs.ancillary_verification_key }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Checkout binary
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
+          path: ./bin
+          commit: ${{ needs.prepare.outputs.sha }}
+          branch: ${{ needs.prepare.outputs.branch }}
+          workflow: ci.yml
+          workflow_conclusion: success
+
+      - name: Set permissions
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download --download-dir v2 $CARDANO_DATABASE_V2_SNAPSHOT_HASH ${{ matrix.extra_args }} 2>&1 | tee cdb-v2-download-output.txt
+        run: chmod +x ./mithril-client
+
+      - name: fetch latest snapshot hash
+        id: last_snapshot
+        shell: bash
+        working-directory: ./bin
+        run: |
+          if [ "${{ matrix.backend }}" == "v1" ]; then
+            echo "hash=$(./mithril-client --origin-tag CI cardano-db snapshot list --backend ${{ matrix.backend }} --json | jq -r '.[0].digest')" >> $GITHUB_OUTPUT
+          else
+            echo "hash=$(./mithril-client --origin-tag CI cardano-db snapshot list --backend ${{ matrix.backend }} --json | jq -r '.[0].hash')" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Cardano Database Snapshot / download & restore latest
+        shell: bash
+        working-directory: ./bin
+        run: |
+          ./mithril-client ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-db download ${{ steps.last_snapshot.outputs.hash }} --backend ${{ matrix.backend }} --download-dir "${{ matrix.backend }}" ${{ matrix.extra_args }} 2>&1 | tee cdb-${{ matrix.backend }}-download-output.txt
+
+      - name: Ledger state snapshot conversion from InMemory to LMDB
+        # The 'snapshot-converter' binary is not currently supported on Linux ARM64 platforms.
+        if: matrix.os != 'ubuntu-24.04-arm' && matrix.extra_args == '--include-ancillary' && matrix.ledger_backend == 'lmdb'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        working-directory: ./bin
+        run: ./mithril-client ${{ needs.prepare.outputs.debug_level }} tools utxo-hd snapshot-converter --db-directory ${{ matrix.backend }}/db --cardano-node-version latest --utxo-hd-flavor LMDB --commit
 
       - name: Cardano Database V2 Snapshot / verify immutables
-        if: steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_database_v2_enabled == 'true'
+        if: matrix.backend == 'v2'
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db verify --db-dir v2/db $CARDANO_DATABASE_V2_SNAPSHOT_HASH | tee cdb-v2-verify-output.txt
+        run: ./mithril-client ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-db verify --db-dir v2/db ${{ steps.last_snapshot.outputs.hash }}
 
-      - name: Cardano Database V2 Snapshot / verify Cardano node starts successfully
-        if: matrix.os == 'ubuntu-24.04' && steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true'
+      - name: Cardano Database Snapshot / verify Cardano node starts successfully
+        if: matrix.os == 'ubuntu-24.04'
         shell: bash
-        run: .github/workflows/scripts/verify-cardano-db-restoration.sh ./bin/cdb-v2-download-output.txt "${{ matrix.extra_args }}"
+        run: .github/workflows/scripts/verify-cardano-db-restoration.sh ./bin/cdb-${{ matrix.backend }}-download-output.txt --ledger-backend ${{ matrix.ledger_backend }} ${{ matrix.extra_args }}
 
       - name: Cardano Database V2 Snapshot / verify tampered and missing immutables from a specific range
-        if: steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_database_v2_enabled == 'true'
+        if: matrix.backend == 'v2'
         shell: bash
         working-directory: ./bin
         run: |
@@ -296,7 +327,7 @@ jobs:
           echo "tampered chunk 5" > v2/db/immutable/00005.chunk
           echo "tampered primary 9" > v2/db/immutable/00009.primary
           echo "tampered outside verification range" > v2/db/immutable/00012.chunk
-          ./mithril-client ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db verify --end 10 --db-dir v2/db $CARDANO_DATABASE_V2_SNAPSHOT_HASH
+          ./mithril-client ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-db verify --end 10 --db-dir v2/db ${{ steps.last_snapshot.outputs.hash }}
           # Check missing files in immutables_verification_error-*.json
           jq -r '.["missing-files"] | sort | @csv' immutables_verification_error-*.json | grep -qx '"00007.chunk","00007.primary","00007.secondary"' || { echo "Error: missing-files array does not match expected values!"; exit 1; }
           # Check tampered files in immutables_verification_error-*.json
@@ -304,40 +335,21 @@ jobs:
           # check that non-verifiable-files list is empty
           jq -e '.["non-verifiable-files"] | length == 0' immutables_verification_error-*.json || { echo "ERROR: non-verifiable-files is not empty!"; exit 1; }
 
-  test-docker:
+  docker:
+    needs: [prepare]
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04]
-        extra_args: ["", "--include-ancillary"]
     runs-on: ${{ matrix.os }}
+    env:
+      GENESIS_VERIFICATION_KEY: ${{ needs.prepare.outputs.genesis_verification_key }}
+      ANCILLARY_VERIFICATION_KEY: ${{ needs.prepare.outputs.ancillary_verification_key }}
     steps:
       - name: Prepare environment variables
-        id: prepare
         shell: bash
         run: |
-          if [[ "${{ inputs.enable_debug }}" == "true" ]]; then
-            echo "debug_level=-vvv" >> $GITHUB_OUTPUT
-          fi
-
           echo "MITHRIL_IMAGE_ID=${{ inputs.docker_image_id }}" >> $GITHUB_ENV
-          echo "NETWORK=${{ inputs.network }}" >> $GITHUB_ENV
-          echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" >> $GITHUB_ENV
-          echo "GENESIS_VERIFICATION_KEY=$(curl -s ${{ inputs.genesis_verification_key }})" >> $GITHUB_ENV
-          echo "TRANSACTIONS_HASHES_TO_CERTIFY=${{ inputs.transactions_hashes_to_certify }}" >> $GITHUB_ENV
-
-          echo "ANCILLARY_VERIFICATION_KEY=$(curl -s ${{ inputs.ancillary_verification_key }})" >> $GITHUB_ENV
-
-      - name: Assessing aggregator capabilities
-        id: aggregator_capability
-        shell: bash
-        run: |
-          CARDANO_TRANSACTIONS_CAPABILITY=$(wget -q -O - $AGGREGATOR_ENDPOINT | jq '.capabilities.signed_entity_types | contains(["CardanoTransactions"])')
-          CARDANO_STAKE_DISTRIBUTION_CAPABILITY=$(wget -q -O - $AGGREGATOR_ENDPOINT | jq '.capabilities.signed_entity_types | contains(["CardanoStakeDistribution"])')
-          CARDANO_DATABASE_V2_CAPABILITY=$(wget -q -O - $AGGREGATOR_ENDPOINT | jq '.capabilities.signed_entity_types | contains(["CardanoDatabase"])')
-          echo "cardano_transactions_enabled=$CARDANO_TRANSACTIONS_CAPABILITY" >> $GITHUB_OUTPUT
-          echo "cardano_stake_distribution_enabled=$CARDANO_STAKE_DISTRIBUTION_CAPABILITY" >> $GITHUB_OUTPUT
-          echo "cardano_database_v2_enabled=$CARDANO_DATABASE_V2_CAPABILITY" >> $GITHUB_OUTPUT
 
       - name: Prepare Mithril client command
         id: command
@@ -351,26 +363,13 @@ jobs:
 
       - name: Show client version
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --version
+        run: ${{ steps.command.outputs.mithril_client }} ${{ needs.prepare.outputs.debug_level }} --version
 
       - name: Cardano Database Snapshot / list and get last digest
         shell: bash
         run: |
           ${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --backend v1
           echo "CDB_SNAPSHOT_DIGEST=$(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --backend v1 --json | jq -r '.[0].digest')" >> $GITHUB_ENV
-
-      - name: Cardano Database Snapshot / download & restore latest
-        shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CDB_SNAPSHOT_DIGEST --backend v1 --download-dir /app/data/v1 ${{ matrix.extra_args }}
-
-      - name: Ledger state snapshot conversion from InMemory to LMDB
-        if: matrix.extra_args == '--include-ancillary'
-        shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }}  tools utxo-hd snapshot-converter --db-directory /app/data/v1/db --cardano-node-version latest --utxo-hd-flavor LMDB --commit
-
-      - name: Remove downloaded artifacts to free up disk space
-        shell: bash
-        run: sudo rm -rf $PWD/data/v1/db/
 
       - name: Mithril Stake Distribution / list and get last hash
         shell: bash
@@ -380,27 +379,27 @@ jobs:
 
       - name: Mithril Stake Distribution / download & restore latest
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }}  ${{ steps.prepare.outputs.debug_level }} --origin-tag CI mithril-stake-distribution download $MITHRIL_STAKE_DISTRIBUTION_HASH --download-dir /app/data
+        run: ${{ steps.command.outputs.mithril_client }}  ${{ needs.prepare.outputs.debug_level }} --origin-tag CI mithril-stake-distribution download $MITHRIL_STAKE_DISTRIBUTION_HASH --download-dir /app/data
 
       - name: Cardano transaction / list and get last snapshot
-        if: steps.aggregator_capability.outputs.cardano_transactions_enabled == 'true'
+        if: needs.prepare.outputs.cardano_transactions_enabled == 'true'
         shell: bash
         run: |
           ${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-transaction snapshot list
           echo "CTX_SNAPSHOT_HASH=$(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-transaction snapshot list --json | jq -r '.[0].hash')" >> $GITHUB_ENV
 
       - name: Cardano transaction / show snapshot
-        if: steps.aggregator_capability.outputs.cardano_transactions_enabled == 'true'
+        if: needs.prepare.outputs.cardano_transactions_enabled == 'true'
         shell: bash
         run: ${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-transaction snapshot show $CTX_SNAPSHOT_HASH
 
       - name: Cardano transaction certify
-        if: steps.aggregator_capability.outputs.cardano_transactions_enabled == 'true'
+        if: needs.prepare.outputs.cardano_transactions_enabled == 'true'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-transaction certify $TRANSACTIONS_HASHES_TO_CERTIFY
+        run: ${{ steps.command.outputs.mithril_client }} ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-transaction certify ${{ inputs.transactions_hashes_to_certify }}
 
       - name: Cardano Stake Distribution / list and get last epoch and hash
-        if: steps.aggregator_capability.outputs.cardano_stake_distribution_enabled == 'true'
+        if: needs.prepare.outputs.cardano_stake_distribution_enabled == 'true'
         shell: bash
         run: |
           ${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-stake-distribution list
@@ -409,24 +408,24 @@ jobs:
           echo "CARDANO_STAKE_DISTRIBUTION_HASH=$(echo "$CMD_OUTPUT" | jq -r '.[0].hash')" >> $GITHUB_ENV
 
       - name: Cardano Stake Distribution / download & restore latest by epoch
-        if: steps.aggregator_capability.outputs.cardano_stake_distribution_enabled == 'true'
+        if: needs.prepare.outputs.cardano_stake_distribution_enabled == 'true'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_EPOCH --download-dir /app/data
+        run: ${{ steps.command.outputs.mithril_client }} ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_EPOCH --download-dir /app/data
 
       - name: Cardano Stake Distribution / download & restore latest by hash
-        if: steps.aggregator_capability.outputs.cardano_stake_distribution_enabled == 'true'
+        if: needs.prepare.outputs.cardano_stake_distribution_enabled == 'true'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_HASH --download-dir /app/data
+        run: ${{ steps.command.outputs.mithril_client }} ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_HASH --download-dir /app/data
 
       - name: Cardano Database V2 Snapshot / list and get last digest
-        if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
+        if: needs.prepare.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
         run: |
           ${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list
           echo "CARDANO_DATABASE_V2_SNAPSHOT_HASH=$(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --json | jq -r '.[0].hash')" >> $GITHUB_ENV
 
       - name: Cardano Database V2 Snapshot / list for latest epoch
-        if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
+        if: needs.prepare.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
         run: |
           ${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --epoch latest-1
@@ -436,21 +435,66 @@ jobs:
           fi
 
       - name: Cardano Database V2 Snapshot / show snapshot
-        if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
+        if: needs.prepare.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
         run: ${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot show $CARDANO_DATABASE_V2_SNAPSHOT_HASH
 
-      - name: Cardano Database V2 Snapshot / download & restore latest (Full restoration)
-        if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
+  docker-cdb-download:
+    needs: [prepare]
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: ${{ fromJson(needs.prepare.outputs.available_cardano_database_backends) }}
+        os: [ubuntu-24.04]
+        extra_args: ["", "--include-ancillary"]
+
+    runs-on: ${{ matrix.os }}
+    env:
+      GENESIS_VERIFICATION_KEY: ${{ needs.prepare.outputs.genesis_verification_key }}
+      ANCILLARY_VERIFICATION_KEY: ${{ needs.prepare.outputs.ancillary_verification_key }}
+    steps:
+      - name: Prepare environment variables
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db download $CARDANO_DATABASE_V2_SNAPSHOT_HASH --download-dir /app/data/v2 ${{ matrix.extra_args }}
+        run: |
+          echo "MITHRIL_IMAGE_ID=${{ inputs.docker_image_id }}" >> $GITHUB_ENV
+
+      - name: Prepare Mithril client command
+        id: command
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          mkdir -p $PWD/data
+          chmod -R a+w $PWD/data
+          echo "mithril_client=docker run --rm -e NETWORK=$NETWORK -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e ANCILLARY_VERIFICATION_KEY=$ANCILLARY_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT -e GITHUB_TOKEN=$GITHUB_TOKEN --name='mithril-client' -v $PWD/data:/app/data ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID"  >> $GITHUB_OUTPUT
+
+      - name: fetch latest snapshot hash
+        id: last_snapshot
+        shell: bash
+        run: |
+          if [ "${{ matrix.backend }}" == "v1" ]; then
+            echo "hash=$(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --backend ${{ matrix.backend }} --json | jq -r '.[0].digest')" >> $GITHUB_OUTPUT
+          else
+            echo "hash=$(${{ steps.command.outputs.mithril_client }} --origin-tag CI cardano-db snapshot list --backend ${{ matrix.backend }} --json | jq -r '.[0].hash')" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Cardano Database Snapshot / download & restore latest
+        shell: bash
+        run: |
+          ${{ steps.command.outputs.mithril_client }} ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-db download ${{ steps.last_snapshot.outputs.hash }} --backend ${{ matrix.backend }} --download-dir "/app/data/${{ matrix.backend }}" ${{ matrix.extra_args }}
+
+      - name: Ledger state snapshot conversion from InMemory to LMDB
+        if: matrix.extra_args == '--include-ancillary' && matrix.backend == 'v2'
+        shell: bash
+        run: ${{ steps.command.outputs.mithril_client }} ${{ needs.prepare.outputs.debug_level }} tools utxo-hd snapshot-converter --db-directory /app/data/v2/db --cardano-node-version latest --utxo-hd-flavor LMDB --commit
 
       - name: Cardano Database V2 Snapshot / verify immutables
-        if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
+        if: matrix.backend == 'v2'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --origin-tag CI cardano-db verify $CARDANO_DATABASE_V2_SNAPSHOT_HASH --db-dir /app/data/v2/db
+        run: ${{ steps.command.outputs.mithril_client }} ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-db verify --db-dir /app/data/v2/db ${{ steps.last_snapshot.outputs.hash }}
 
-  test-mithril-client-wasm:
+  wasm:
+    needs: [prepare]
     strategy:
       fail-fast: false
       matrix:
@@ -460,23 +504,13 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
-      - name: Prepare environment variables
-        id: prepare
-        shell: bash
-        run: |
-          if [[ -n "${{ inputs.commit_sha }}" ]]; then
-            echo "sha=${{ inputs.commit_sha }}" >> $GITHUB_OUTPUT
-          else
-            echo "branch=main" >> $GITHUB_OUTPUT
-          fi
-
       - name: Download built artifacts
         uses: dawidd6/action-download-artifact@v6
         with:
           name: mithril-distribution-wasm
           path: ./mithril-client-wasm
-          commit: ${{ steps.prepare.outputs.sha }}
-          branch: ${{ steps.prepare.outputs.branch }}
+          commit: ${{ needs.prepare.outputs.sha }}
+          branch: ${{ needs.prepare.outputs.branch }}
           workflow: ci.yml
           workflow_conclusion: success
 
@@ -492,7 +526,7 @@ jobs:
         working-directory: mithril-client-wasm
         run: |
           echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" > ./ci-test/.env
-          echo "GENESIS_VERIFICATION_KEY=$(curl -s ${{ inputs.genesis_verification_key }})" >> ./ci-test/.env
+          echo "GENESIS_VERIFICATION_KEY=${{ needs.prepare.outputs.genesis_verification_key }}" >> ./ci-test/.env
           echo "TRANSACTIONS_HASHES_TO_CERTIFY=${{ inputs.transactions_hashes_to_certify }}" >> ./ci-test/.env
 
       - name: Start the server
