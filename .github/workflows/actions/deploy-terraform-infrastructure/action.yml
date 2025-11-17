@@ -211,7 +211,7 @@ runs:
   using: "composite"
   steps:
     - name: Checkout sources
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3

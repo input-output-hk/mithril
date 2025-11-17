@@ -139,7 +139,7 @@ jobs:
     steps:
       - name: Checkout sources
         if: inputs.environment == matrix.environment
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: ${{ inputs.dry_run == true && 'Plan' || 'Apply' }} terraform infrastructure
         if: inputs.environment == matrix.environment

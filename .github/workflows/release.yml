@@ -29,7 +29,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Get short SHA
         id: slug
@@ -58,7 +58,7 @@ jobs:
             type=raw,value=${{ github.ref_name }}-${{ steps.slug.outputs.sha8 }}
 
       - name: Download built artifacts (Linux-x64)
-        uses: dawidd6/action-download-artifact@v6
+        uses: dawidd6/action-download-artifact@v11
         with:
           name: mithril-distribution-Linux-X64
           path: ${{ matrix.project }}/bin-linux-amd64
@@ -67,7 +67,7 @@ jobs:
           workflow_conclusion: success
 
       - name: Download built artifacts (Linux-arm64)
-        uses: dawidd6/action-download-artifact@v6
+        uses: dawidd6/action-download-artifact@v11
         with:
           name: mithril-distribution-Linux-ARM64
           path: ${{ matrix.project }}/bin-linux-arm64
@@ -146,7 +146,7 @@ jobs:
         working-directory: mithril-infra
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Get Docker image id
         run: echo "DOCKER_IMAGE_ID=${{ github.ref_name }}-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
@@ -234,7 +234,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@master
@@ -263,7 +263,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install stable toolchain, tools, and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache

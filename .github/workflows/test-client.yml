@@ -135,10 +135,10 @@ jobs:
       ANCILLARY_VERIFICATION_KEY: ${{ needs.prepare.outputs.ancillary_verification_key }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout binary
-        uses: dawidd6/action-download-artifact@v6
+        uses: dawidd6/action-download-artifact@v11
         with:
           name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
           path: ./bin
@@ -261,10 +261,10 @@ jobs:
       ANCILLARY_VERIFICATION_KEY: ${{ needs.prepare.outputs.ancillary_verification_key }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout binary
-        uses: dawidd6/action-download-artifact@v6
+        uses: dawidd6/action-download-artifact@v11
         with:
           name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
           path: ./bin
@@ -502,10 +502,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Download built artifacts
-        uses: dawidd6/action-download-artifact@v6
+        uses: dawidd6/action-download-artifact@v11
         with:
           name: mithril-distribution-wasm
           path: ./mithril-client-wasm
@@ -571,7 +571,7 @@ jobs:
 
       - name: Upload Results Artifacts
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: mithril-client-wasm-tests-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}-os_${{ matrix.os }}
           path: |
