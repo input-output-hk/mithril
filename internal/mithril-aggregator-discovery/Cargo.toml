@@ -10,15 +10,12 @@ license.workspace = true
 repository.workspace = true
 include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 
-[features]
-rand = ["dep:rand"]
-
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 mithril-common = { path = "../../mithril-common" }
 mithril-aggregator-client = { path = "../mithril-aggregator-client" }
-rand = { version = "0.9.2", optional = true}
+rand = { version = "0.9.2"}
 reqwest = { workspace = true, features = [
     "default",
     "gzip",
