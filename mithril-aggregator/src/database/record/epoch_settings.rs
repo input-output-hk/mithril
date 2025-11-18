@@ -13,14 +13,14 @@ pub struct EpochSettingsRecord {
     pub protocol_parameters: ProtocolParameters,
 
     /// Cardano transactions signing configuration.
-    pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
+    pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
 }
 
 impl From<EpochSettingsRecord> for AggregatorEpochSettings {
     fn from(other: EpochSettingsRecord) -> Self {
         Self {
             protocol_parameters: other.protocol_parameters,
-            cardano_transactions_signing_config: Some(other.cardano_transactions_signing_config),
+            cardano_transactions_signing_config: other.cardano_transactions_signing_config,
         }
     }
 }
@@ -32,7 +32,7 @@ impl SqLiteEntity for EpochSettingsRecord {
     {
         let epoch_settings_id_int = row.read::<i64, _>(0);
         let protocol_parameters_string = &row.read::<&str, _>(1);
-        let cardano_transactions_signing_config_string = &row.read::<&str, _>(2);
+        let cardano_transactions_signing_config_string = &row.read::<Option<&str>, _>(2);
 
         let epoch_settings_record = Self {
             epoch_settings_id: Epoch(epoch_settings_id_int.try_into().map_err(|e| {
@@ -47,13 +47,13 @@ impl SqLiteEntity for EpochSettingsRecord {
                     ))
                 },
             )?,
-            cardano_transactions_signing_config: serde_json::from_str(cardano_transactions_signing_config_string).map_err(
+            cardano_transactions_signing_config: cardano_transactions_signing_config_string.map(|config| serde_json::from_str(config).map_err(
                 |e| {
                     HydrationError::InvalidData(format!(
-                        "Could not turn string '{cardano_transactions_signing_config_string}' to CardanoTransactionsSigningConfig. Error: {e}"
+                        "Could not turn string '{config}' to CardanoTransactionsSigningConfig. Error: {e}"
                     ))
                 },
-            )?,
+            )).transpose()?,
 
         };
 

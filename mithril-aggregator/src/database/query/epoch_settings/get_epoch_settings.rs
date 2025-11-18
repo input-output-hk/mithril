@@ -69,10 +69,10 @@ mod tests {
         );
 
         assert_eq!(
-            CardanoTransactionsSigningConfig {
+            Some(CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(10),
                 step: BlockNumber(15)
-            },
+            }),
             epoch_settings_record.cardano_transactions_signing_config
         );
 
@@ -86,10 +86,10 @@ mod tests {
             epoch_settings_record.protocol_parameters
         );
         assert_eq!(
-            CardanoTransactionsSigningConfig {
+            Some(CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(30),
                 step: BlockNumber(15),
-            },
+            }),
             epoch_settings_record.cardano_transactions_signing_config
         );
 

@@ -19,10 +19,10 @@ impl InsertOrIgnoreEpochSettingsQuery {
                     Value::String(
                         serde_json::to_string(&epoch_settings.protocol_parameters).unwrap(),
                     ),
-                    Value::String(
-                        serde_json::to_string(&epoch_settings.cardano_transactions_signing_config)
-                            .unwrap(),
-                    ),
+                    match &epoch_settings.cardano_transactions_signing_config {
+                        Some(config) => Value::String(serde_json::to_string(config).unwrap()),
+                        None => Value::Null,
+                    },
                 ],
             ),
         }
@@ -64,10 +64,10 @@ mod tests {
         let expected_epoch_settings = EpochSettingsRecord {
             epoch_settings_id: Epoch(3),
             protocol_parameters: fake_data::protocol_parameters(),
-            cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+            cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(24),
                 step: BlockNumber(62),
-            },
+            }),
         };
         let record = connection
             .fetch_first(InsertOrIgnoreEpochSettingsQuery::one(
@@ -76,6 +76,19 @@ mod tests {
             .unwrap();
 
         assert_eq!(Some(expected_epoch_settings), record);
+
+        let expected_epoch_settings_without_ctx_config = EpochSettingsRecord {
+            epoch_settings_id: Epoch(4),
+            protocol_parameters: fake_data::protocol_parameters(),
+            cardano_transactions_signing_config: None,
+        };
+        let record = connection
+            .fetch_first(InsertOrIgnoreEpochSettingsQuery::one(
+                expected_epoch_settings_without_ctx_config.clone(),
+            ))
+            .unwrap();
+
+        assert_eq!(Some(expected_epoch_settings_without_ctx_config), record);
     }
 
     #[test]
@@ -85,10 +98,10 @@ mod tests {
         let expected_epoch_settings = EpochSettingsRecord {
             epoch_settings_id: Epoch(3),
             protocol_parameters: fake_data::protocol_parameters(),
-            cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+            cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(24),
                 step: BlockNumber(62),
-            },
+            }),
         };
         let record = connection
             .fetch_first(InsertOrIgnoreEpochSettingsQuery::one(
@@ -99,10 +112,10 @@ mod tests {
 
         let record = connection
             .fetch_first(InsertOrIgnoreEpochSettingsQuery::one(EpochSettingsRecord {
-                cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+                cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
                     security_parameter: BlockNumber(134),
                     step: BlockNumber(872),
-                },
+                }),
                 ..expected_epoch_settings.clone()
             }))
             .unwrap();
