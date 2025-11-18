@@ -14,7 +14,6 @@ use dusk_jubjub::Fq as JubjubBase;
 
 /// A DST (Domain Separation Tag) to distinguish between use of Poseidon hash
 pub(crate) const DST_SIGNATURE: JubjubBase = JubjubBase::from_raw([0u64, 0, 0, 0]);
-pub(crate) const DST_LOTTERY: JubjubBase = JubjubBase::from_raw([1u64, 0, 0, 0]);
 
 #[cfg(test)]
 mod tests {

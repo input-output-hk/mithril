@@ -1,18 +1,13 @@
 use anyhow::{Result, anyhow};
 
 use dusk_jubjub::{
-    ExtendedPoint as JubjubExtended, Fq as JubjubBase, Fr as JubjubScalar,
-    SubgroupPoint as JubjubSubgroup,
+    ExtendedPoint as JubjubExtended, Fr as JubjubScalar, SubgroupPoint as JubjubSubgroup,
 };
 use dusk_poseidon::{Domain, Hash};
 use group::{Group, GroupEncoding};
 
-use crate::{
-    Index,
-    schnorr_signature::{
-        DST_LOTTERY, DST_SIGNATURE, SchnorrVerificationKey, get_coordinates_extended,
-        get_coordinates_subgroup,
-    },
+use crate::schnorr_signature::{
+    DST_SIGNATURE, SchnorrVerificationKey, get_coordinates_extended, get_coordinates_subgroup,
 };
 
 /// Structure of the Schnorr signature to use with the SNARK
@@ -73,14 +68,16 @@ impl SchnorrSignature {
 
         // Computing R2 = g * s + vk * c
         let generator_times_s = generator * self.signature;
-        let vk_times_challenge = vk.0 * self.challenge;
+        let vk_times_challenge = verification_key.0 * self.challenge;
         let random_value_2_recomputed = generator_times_s + vk_times_challenge;
 
         let (hash_msg_x, hash_msg_y) = get_coordinates_extended(hash_msg);
         let (verification_key_x, verification_key_y) = get_coordinates_subgroup(verification_key.0);
         let (sigma_x, sigma_y) = get_coordinates_extended(self.sigma);
-        let (random_value_1_recomputed_x, random_value_1_recomputed_y) = get_coordinates_extended(random_value_1_recomputed);
-        let (random_value_2_recomputed_x, random_value_2_recomputed_y) = get_coordinates_subgroup(random_value_2_recomputed);
+        let (random_value_1_recomputed_x, random_value_1_recomputed_y) =
+            get_coordinates_extended(random_value_1_recomputed);
+        let (random_value_2_recomputed_x, random_value_2_recomputed_y) =
+            get_coordinates_subgroup(random_value_2_recomputed);
         let challenge_recomputed = Hash::digest_truncated(
             Domain::Other,
             &[
@@ -105,7 +102,6 @@ impl SchnorrSignature {
 
         Ok(())
     }
-
 
     /// Convert an `SchnorrSignature` to a byte representation.
     pub fn to_bytes(self) -> [u8; 96] {
