@@ -66,13 +66,14 @@ pub use mithril_common::messages::CardanoStakeDistributionListItemMessage as Car
 
 /// `mithril-common` re-exports
 pub mod common {
+    pub use mithril_common::AggregateSignatureType;
     pub use mithril_common::crypto_helper::MKProof;
     pub use mithril_common::entities::{
         AncillaryLocation, BlockHash, BlockNumber, CardanoDbBeacon, CardanoNetwork, ChainPoint,
         CompressionAlgorithm, DigestLocation, Epoch, EpochSpecifier, ImmutableFileNumber,
         ImmutablesLocation, MagicId, MultiFilesUri, ProtocolMessage, ProtocolMessagePartKey,
-        ProtocolParameters, SignedEntityType, SlotNumber, StakeDistribution, SupportedEra,
-        TemplateUri, TransactionHash,
+        ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants, SlotNumber,
+        StakeDistribution, SupportedEra, TemplateUri, TransactionHash,
     };
     pub use mithril_common::messages::{
         AncillaryMessagePart, DigestsMessagePart, ImmutablesMessagePart,
@@ -85,3 +86,6 @@ pub mod common {
         pub use mithril_common::test::double::Dummy;
     }
 }
+
+/// Required capabilities for an aggregator.
+pub use mithril_aggregator_discovery::RequiredAggregatorCapabilities;
