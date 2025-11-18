@@ -60,7 +60,7 @@ impl SchnorrSignature {
     /// to their coordinates representation to feed them to the hash function.
     ///     - Check: c == c_tilde
     ///     
-    pub fn verify(&self, msg: &[u8], vk: &SchnorrVerificationKey) -> Result<()> {
+    pub fn verify(&self, msg: &[u8], verification_key: &SchnorrVerificationKey) -> Result<()> {
         let generator = JubjubSubgroup::generator();
 
         // First hashing the message to a scalar then hashing it to a curve point
@@ -76,26 +76,25 @@ impl SchnorrSignature {
         let vk_times_challenge = vk.0 * self.challenge;
         let random_value_2_recomputed = generator_times_s + vk_times_challenge;
 
-        let (hashx, hashy) = get_coordinates_extended(hash_msg);
-        let (vkx, vky) = get_coordinates_subgroup(vk.0);
-        let (sigmax, sigmay) = get_coordinates_extended(self.sigma);
-        let (r1x, r1y) = get_coordinates_extended(random_value_1_recomputed);
-        let (r2x, r2y) = get_coordinates_subgroup(random_value_2_recomputed);
-
+        let (hash_msg_x, hash_msg_y) = get_coordinates_extended(hash_msg);
+        let (verification_key_x, verification_key_y) = get_coordinates_subgroup(verification_key.0);
+        let (sigma_x, sigma_y) = get_coordinates_extended(self.sigma);
+        let (random_value_1_recomputed_x, random_value_1_recomputed_y) = get_coordinates_extended(random_value_1_recomputed);
+        let (random_value_2_recomputed_x, random_value_2_recomputed_y) = get_coordinates_subgroup(random_value_2_recomputed);
         let challenge_recomputed = Hash::digest_truncated(
             Domain::Other,
             &[
                 DST_SIGNATURE,
-                hashx,
-                hashy,
-                vkx,
-                vky,
-                sigmax,
-                sigmay,
-                r1x,
-                r1y,
-                r2x,
-                r2y,
+                hash_msg_x,
+                hash_msg_y,
+                verification_key_x,
+                verification_key_y,
+                sigma_x,
+                sigma_y,
+                random_value_1_recomputed_x,
+                random_value_1_recomputed_y,
+                random_value_2_recomputed_x,
+                random_value_2_recomputed_y,
             ],
         )[0];
 
@@ -107,24 +106,6 @@ impl SchnorrSignature {
         Ok(())
     }
 
-    /// Dense mapping function indexed by the index to be evaluated adapted to the Schnorr signature.
-    ///
-    /// We need to convert the inputs to fit in a Poseidon hash.
-    /// The order of the hash input must be the same as the one in the SNARK circuit
-    /// `ev = H(DST || msg || index || σ) <- MSP.Eval(msg,index,σ)` given in paper.
-    pub(crate) fn evaluate_dense_mapping(&self, msg: &[u8], index: Index) -> Result<[u8; 32]> {
-        let hash = JubjubExtended::hash_to_point(msg);
-        let (hashx, hashy) = get_coordinates_extended(hash);
-        // TODO: Check if this is the correct way to add the index
-        let idx = JubjubBase::from_raw([0, 0, 0, index]);
-        let (sigmax, sigmay) = get_coordinates_extended(self.sigma);
-        let ev = Hash::digest_truncated(
-            Domain::Other,
-            &[DST_LOTTERY, hashx, hashy, idx, sigmax, sigmay],
-        )[0];
-
-        Ok(ev.to_bytes())
-    }
 
     /// Convert an `SchnorrSignature` to a byte representation.
     pub fn to_bytes(self) -> [u8; 96] {
