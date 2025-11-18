@@ -10,10 +10,9 @@ use std::sync::Arc;
 
 use mithril_aggregator_discovery::{
     AggregatorDiscoverer, CapableAggregatorDiscoverer, HttpConfigAggregatorDiscoverer,
-    MithrilNetwork,
+    MithrilNetwork, RequiredAggregatorCapabilities,
 };
 use mithril_common::api_version::APIVersionProvider;
-use mithril_common::messages::AggregatorCapabilities;
 use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
 
 use crate::MithrilResult;
@@ -174,7 +173,7 @@ impl Client {
 /// Builder than can be used to create a [Client] easily or with custom dependencies.
 pub struct ClientBuilder {
     aggregator_discovery: AggregatorDiscoveryType,
-    aggregator_capabilities: Option<AggregatorCapabilities>,
+    aggregator_capabilities: Option<RequiredAggregatorCapabilities>,
     aggregator_discoverer: Option<Arc<dyn AggregatorDiscoverer>>,
     genesis_verification_key: Option<GenesisVerificationKey>,
     origin_tag: Option<String>,
@@ -200,6 +199,18 @@ impl ClientBuilder {
         Self::new(AggregatorDiscoveryType::Url(endpoint.to_string())).with_genesis_verification_key(
             GenesisVerificationKey::JsonHex(genesis_verification_key.to_string()),
         )
+    }
+
+    /// Constructs a new `ClientBuilder` that automatically discovers the aggregator for the given
+    /// Mithril network and with the given genesis verification key.
+    pub fn automatic(network: &str, genesis_verification_key: &str) -> ClientBuilder {
+        Self::new(AggregatorDiscoveryType::Automatic(MithrilNetwork::new(
+            network.to_string(),
+        )))
+        .with_genesis_verification_key(GenesisVerificationKey::JsonHex(
+            genesis_verification_key.to_string(),
+        ))
+        .with_default_aggregator_discoverer()
     }
 
     /// Constructs a new `ClientBuilder` without any dependency set.
@@ -237,7 +248,10 @@ impl ClientBuilder {
     }
 
     /// Sets the aggregator capabilities expected to be matched by the aggregator with which the client will interact.
-    pub fn with_capabilities(mut self, capabilities: AggregatorCapabilities) -> ClientBuilder {
+    pub fn with_capabilities(
+        mut self,
+        capabilities: RequiredAggregatorCapabilities,
+    ) -> ClientBuilder {
         self.aggregator_capabilities = Some(capabilities);
 
         self
