@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 use anyhow::Context;
 use reqwest::Client;
@@ -45,6 +45,8 @@ pub struct HttpConfigAggregatorDiscoverer {
 }
 
 impl HttpConfigAggregatorDiscoverer {
+    const HTTP_TIMEOUT: Duration = Duration::from_secs(10);
+
     /// Creates a new `HttpConfigAggregatorDiscoverer` instance with the provided results.
     pub fn new(configuration_file_url: &str) -> Self {
         Self {
@@ -54,7 +56,7 @@ impl HttpConfigAggregatorDiscoverer {
 
     /// Builds a reqwest HTTP client.
     fn build_client(&self) -> StdResult<Client> {
-        let client_builder = Client::builder();
+        let client_builder = Client::builder().timeout(Self::HTTP_TIMEOUT);
         let client = client_builder.build()?;
 
         Ok(client)
