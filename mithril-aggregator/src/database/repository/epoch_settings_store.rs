@@ -53,7 +53,10 @@ impl EpochSettingsStorer for EpochSettingsStore {
     ) -> StdResult<Option<AggregatorEpochSettings>> {
         let record_to_insert = EpochSettingsRecord {
             epoch_settings_id: epoch,
-            cardano_transactions_signing_config: epoch_settings.cardano_transactions_signing_config,
+            // Todo: make this field optional allowing removal of the unwrap()
+            cardano_transactions_signing_config: epoch_settings
+                .cardano_transactions_signing_config
+                .unwrap(),
             protocol_parameters: epoch_settings.protocol_parameters,
         };
         let epoch_settings_record = self

@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use async_trait::async_trait;
 #[cfg(test)]
 use std::collections::HashMap;
@@ -68,10 +67,7 @@ pub trait EpochSettingsStorer:
                         cardano_transactions_signing_config: epoch_configuration
                             .signed_entity_types_config
                             .cardano_transactions
-                            .clone()
-                            .ok_or(anyhow!(
-                                "Missing cardano transactions signing config for epoch {epoch}"
-                            ))?,
+                            .clone(),
                     },
                 )
                 .await?;

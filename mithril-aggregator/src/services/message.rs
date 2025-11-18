@@ -210,7 +210,7 @@ impl MessageService for MithrilMessageService {
             enabled_discriminants.get(&SignedEntityTypeDiscriminants::CardanoTransactions);
 
         let cardano_transactions_signing_config = cardano_transactions_discriminant
-            .map(|_| epoch_settings.cardano_transactions_signing_config);
+            .and(epoch_settings.cardano_transactions_signing_config);
 
         let protocol_configuration_message = ProtocolConfigurationMessage {
             protocol_parameters: epoch_settings.protocol_parameters,
@@ -670,10 +670,10 @@ mod tests {
             let epoch = Epoch(4);
             let aggregator_epoch_settings = AggregatorEpochSettings {
                 protocol_parameters: ProtocolParameters::new(5, 100, 0.65),
-                cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+                cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
                     security_parameter: BlockNumber(0),
                     step: BlockNumber(15),
-                },
+                }),
             };
             let message_service = MessageServiceBuilder::new()
                 .with_epoch_settings(BTreeMap::from([(epoch, aggregator_epoch_settings)]))

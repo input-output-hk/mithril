@@ -316,10 +316,7 @@ impl EpochService for MithrilEpochService {
                 .configuration_for_registration
                 .signed_entity_types_config
                 .cardano_transactions
-                .clone()
-                .ok_or(anyhow!(
-                    "Missing cardano transactions signing config for registration epoch {epoch:?}"
-                ))?,
+                .clone(),
         };
         self.insert_epoch_settings(
             signer_registration_epoch,
@@ -635,15 +632,15 @@ impl FakeEpochService {
 
         let current_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: fixture.protocol_parameters(),
-            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+            cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
         };
         let next_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: fixture.protocol_parameters(),
-            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+            cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
         };
         let signer_registration_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: fixture.protocol_parameters(),
-            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+            cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
         };
 
         FakeEpochServiceBuilder {
@@ -908,15 +905,21 @@ mod tests {
                 next_signers_with_stake: epoch_fixture.signers_with_stake(),
                 stored_current_epoch_settings: AggregatorEpochSettings {
                     protocol_parameters: epoch_fixture.protocol_parameters(),
-                    cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+                    cardano_transactions_signing_config: Some(
+                        CardanoTransactionsSigningConfig::dummy(),
+                    ),
                 },
                 stored_next_epoch_settings: AggregatorEpochSettings {
                     protocol_parameters: epoch_fixture.protocol_parameters(),
-                    cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+                    cardano_transactions_signing_config: Some(
+                        CardanoTransactionsSigningConfig::dummy(),
+                    ),
                 },
                 stored_signer_registration_epoch_settings: AggregatorEpochSettings {
                     protocol_parameters: epoch_fixture.protocol_parameters(),
-                    cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+                    cardano_transactions_signing_config: Some(
+                        CardanoTransactionsSigningConfig::dummy(),
+                    ),
                 },
                 total_spo: 1,
                 total_stake: 0,
@@ -1082,7 +1085,9 @@ mod tests {
         let mut service = EpochServiceBuilder {
             allowed_discriminants: allowed_discriminants.clone(),
             stored_current_epoch_settings: AggregatorEpochSettings {
-                cardano_transactions_signing_config: cardano_transactions_signing_config.clone(),
+                cardano_transactions_signing_config: Some(
+                    cardano_transactions_signing_config.clone(),
+                ),
                 ..AggregatorEpochSettings::dummy()
             },
             ..EpochServiceBuilder::new(epoch, MithrilFixtureBuilder::default().build())
@@ -1169,16 +1174,19 @@ mod tests {
             .build();
 
         let epoch = Epoch(5);
-        let mut service = EpochServiceBuilder {
-            stored_next_epoch_settings: AggregatorEpochSettings {
-                protocol_parameters: next_epoch_fixture.protocol_parameters(),
-                cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
-            },
-            next_signers_with_stake: next_epoch_fixture.signers_with_stake().clone(),
-            ..EpochServiceBuilder::new(epoch, current_epoch_fixture.clone())
-        }
-        .build()
-        .await;
+        let mut service =
+            EpochServiceBuilder {
+                stored_next_epoch_settings: AggregatorEpochSettings {
+                    protocol_parameters: next_epoch_fixture.protocol_parameters(),
+                    cardano_transactions_signing_config: Some(
+                        CardanoTransactionsSigningConfig::dummy(),
+                    ),
+                },
+                next_signers_with_stake: next_epoch_fixture.signers_with_stake().clone(),
+                ..EpochServiceBuilder::new(epoch, current_epoch_fixture.clone())
+            }
+            .build()
+            .await;
 
         service
             .inform_epoch(epoch)
@@ -1271,10 +1279,10 @@ mod tests {
     async fn inform_epoch_insert_registration_epoch_settings_in_the_store() {
         let expected_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: ProtocolParameters::new(6, 89, 0.124),
-            cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+            cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(10),
                 step: BlockNumber(15),
-            },
+            }),
         };
 
         let epoch = Epoch(4);
@@ -1286,9 +1294,9 @@ mod tests {
                     MithrilNetworkConfigurationForEpoch {
                         protocol_parameters: expected_epoch_settings.protocol_parameters.clone(),
                         signed_entity_types_config: SignedEntityTypeConfiguration {
-                            cardano_transactions: Some(
-                                expected_epoch_settings.cardano_transactions_signing_config.clone(),
-                            ),
+                            cardano_transactions: expected_epoch_settings
+                                .cardano_transactions_signing_config
+                                .clone(),
                         },
                         ..Dummy::dummy()
                     },

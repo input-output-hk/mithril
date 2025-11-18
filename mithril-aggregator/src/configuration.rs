@@ -382,15 +382,25 @@ pub trait ConfigurationSource {
     fn get_leader_aggregator_epoch_settings_configuration(
         &self,
     ) -> StdResult<AggregatorEpochSettings> {
+        let allowed_discriminants = self.compute_allowed_signed_entity_types_discriminants()?;
+
+        let cardano_transactions_signing_config = if allowed_discriminants
+            .contains(&SignedEntityTypeDiscriminants::CardanoTransactions)
+        {
+            let cardano_transactions_signing_config =
+                self.cardano_transactions_signing_config().with_context(
+                    || "Configuration `cardano_transactions_signing_config` is mandatory for a Leader Aggregator when `CardanoTransactions` is enabled in `signed_entity_types`"
+                )?;
+            Some(cardano_transactions_signing_config)
+        } else {
+            None
+        };
+
         Ok(AggregatorEpochSettings {
             protocol_parameters: self.protocol_parameters().with_context(
                 || "Configuration `protocol_parameters` is mandatory for a Leader Aggregator",
             )?,
-            cardano_transactions_signing_config: self
-                .cardano_transactions_signing_config()
-                .with_context(
-                || "Configuration `cardano_transactions_signing_config` is mandatory for a Leader Aggregator",
-                )?,
+            cardano_transactions_signing_config,
         })
     }
 
@@ -1152,6 +1162,7 @@ impl Source for DefaultConfiguration {
 #[cfg(test)]
 mod test {
     use mithril_common::temp_dir;
+    use mithril_common::test::double::fake_data;
 
     use super::*;
 
@@ -1313,6 +1324,80 @@ mod test {
         };
 
         assert!(!config.is_follower_aggregator());
+    }
+
+    mod get_leader_aggregator_epoch_settings_configuration {
+        use super::*;
+
+        #[test]
+        fn succeed_when_cardano_transactions_is_disabled_and_cardano_transactions_signing_config_is_not_set()
+         {
+            let epoch_settings = ServeCommandConfiguration {
+                signed_entity_types: None,
+                cardano_transactions_signing_config: None,
+                protocol_parameters: Some(ProtocolParameters::new(1, 2, 3.1)),
+                ..ServeCommandConfiguration::new_sample(temp_dir!())
+            }
+            .get_leader_aggregator_epoch_settings_configuration()
+            .unwrap();
+
+            assert_eq!(
+                AggregatorEpochSettings {
+                    protocol_parameters: ProtocolParameters::new(1, 2, 3.1),
+                    cardano_transactions_signing_config: None
+                },
+                epoch_settings
+            );
+        }
+
+        #[test]
+        fn succeed_when_cardano_transactions_is_enabled_and_cardano_transactions_signing_config_is_set()
+         {
+            let epoch_settings = ServeCommandConfiguration {
+                signed_entity_types: Some(
+                    SignedEntityTypeDiscriminants::CardanoTransactions.to_string(),
+                ),
+                cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
+                    security_parameter: BlockNumber(10),
+                    step: BlockNumber(30),
+                }),
+                protocol_parameters: Some(ProtocolParameters::new(2, 3, 4.1)),
+                ..ServeCommandConfiguration::new_sample(temp_dir!())
+            }
+            .get_leader_aggregator_epoch_settings_configuration()
+            .unwrap();
+
+            assert_eq!(
+                AggregatorEpochSettings {
+                    protocol_parameters: ProtocolParameters::new(2, 3, 4.1),
+                    cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
+                        security_parameter: BlockNumber(10),
+                        step: BlockNumber(30),
+                    },)
+                },
+                epoch_settings
+            );
+        }
+
+        #[test]
+        fn fails_when_cardano_transactions_is_enabled_without_associated_config() {
+            let error = ServeCommandConfiguration {
+                cardano_transactions_signing_config: None,
+                signed_entity_types: Some(
+                    SignedEntityTypeDiscriminants::CardanoTransactions.to_string(),
+                ),
+                protocol_parameters: Some(fake_data::protocol_parameters()),
+                ..ServeCommandConfiguration::new_sample(temp_dir!())
+            }
+            .get_leader_aggregator_epoch_settings_configuration()
+            .unwrap_err();
+
+            assert!(
+                error
+                    .to_string()
+                    .contains("Configuration `cardano_transactions_signing_config` is mandatory")
+            );
+        }
     }
 
     #[test]

@@ -20,7 +20,7 @@ impl From<EpochSettingsRecord> for AggregatorEpochSettings {
     fn from(other: EpochSettingsRecord) -> Self {
         Self {
             protocol_parameters: other.protocol_parameters,
-            cardano_transactions_signing_config: other.cardano_transactions_signing_config,
+            cardano_transactions_signing_config: Some(other.cardano_transactions_signing_config),
         }
     }
 }
