@@ -190,7 +190,7 @@ impl MessageService for MithrilMessageService {
             current_signers: SignerMessagePart::from_signers(current_signers.to_vec()),
             next_signers: SignerMessagePart::from_signers(next_signers.to_vec()),
             cardano_transactions_signing_config: signed_entity_config
-                .map(|c| c.cardano_transactions_signing_config),
+                .and_then(|c| c.cardano_transactions_signing_config),
         };
 
         Ok(epoch_settings_message)
@@ -635,7 +635,7 @@ mod tests {
             };
             let epoch_service = FakeEpochServiceBuilder {
                 signed_entity_config: SignedEntityConfig {
-                    cardano_transactions_signing_config: expected_ctx_config.clone(),
+                    cardano_transactions_signing_config: Some(expected_ctx_config.clone()),
                     ..Dummy::dummy()
                 },
                 ..FakeEpochServiceBuilder::dummy(Epoch(1))

@@ -348,10 +348,7 @@ impl EpochService for MithrilEpochService {
                 .configuration_for_aggregation
                 .signed_entity_types_config
                 .cardano_transactions
-                .clone()
-                .ok_or(anyhow!(
-                    "Missing cardano transactions signing config for current epoch {epoch:?}"
-                ))?,
+                .clone(),
         };
 
         let (total_spo, total_stake) =
@@ -1073,10 +1070,10 @@ mod tests {
     async fn inform_epoch_get_signed_entity_config_from_its_dependencies_and_store() {
         let epoch = Epoch(5);
 
-        let cardano_transactions_signing_config = CardanoTransactionsSigningConfig {
+        let cardano_transactions_signing_config = Some(CardanoTransactionsSigningConfig {
             security_parameter: BlockNumber(29),
             step: BlockNumber(986),
-        };
+        });
         let allowed_discriminants = BTreeSet::from([
             SignedEntityTypeDiscriminants::CardanoTransactions,
             SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
@@ -1085,9 +1082,7 @@ mod tests {
         let mut service = EpochServiceBuilder {
             allowed_discriminants: allowed_discriminants.clone(),
             stored_current_epoch_settings: AggregatorEpochSettings {
-                cardano_transactions_signing_config: Some(
-                    cardano_transactions_signing_config.clone(),
-                ),
+                cardano_transactions_signing_config: cardano_transactions_signing_config.clone(),
                 ..AggregatorEpochSettings::dummy()
             },
             ..EpochServiceBuilder::new(epoch, MithrilFixtureBuilder::default().build())

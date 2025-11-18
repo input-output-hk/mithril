@@ -41,7 +41,7 @@ mod entities {
         fn dummy() -> Self {
             Self {
                 allowed_discriminants: SignedEntityTypeDiscriminants::all(),
-                cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+                cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
             }
         }
     }
