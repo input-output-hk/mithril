@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use mithril_aggregator_client::{AggregatorHttpClient, query::GetAggregatorFeaturesQuery};
 use mithril_common::{StdResult, messages::AggregatorCapabilities};
 
@@ -30,6 +32,8 @@ pub struct AggregatorEndpoint {
 }
 
 impl AggregatorEndpoint {
+    const HTTP_TIMEOUT: Duration = Duration::from_secs(5);
+
     /// Create a new AggregatorEndpoint instance
     pub fn new(url: String) -> Self {
         Self { url }
@@ -37,7 +41,9 @@ impl AggregatorEndpoint {
 
     /// Retrieve the capabilities of the aggregator
     pub async fn retrieve_capabilities(&self) -> StdResult<AggregatorCapabilities> {
-        let aggregator_client = AggregatorHttpClient::builder(self.url.clone()).build()?;
+        let aggregator_client = AggregatorHttpClient::builder(self.url.clone())
+            .with_timeout(Self::HTTP_TIMEOUT)
+            .build()?;
 
         Ok(aggregator_client
             .send(GetAggregatorFeaturesQuery::current())
