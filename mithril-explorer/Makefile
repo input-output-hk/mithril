@@ -10,10 +10,10 @@ build: package-lock.json
 	# Fix to allow refresh & direct linking to the navigation page on static hosting such as Github Pages
 	# this is because the nextJs router is only active for the home page at start.
 	# A 'cleaner' way to do that must exist.
-	mkdir out/registrations
+	mkdir -p out/registrations
 	cp out/registrations.html out/registrations/index.html
 	cp out/registrations.txt out/registrations/index.txt
-	mkdir out/registrations-in-out
+	mkdir -p out/registrations-in-out
 	cp out/registrations-in-out.html out/registrations-in-out/index.html
 	cp out/registrations-in-out.txt out/registrations-in-out/index.txt
 
