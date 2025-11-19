@@ -73,6 +73,11 @@ harness = false
 required-features = ["benchmark-internals"]
 
 [[bench]]
+name = "schnorr_sig"
+harness = false
+required-features = ["future_snark"]
+
+[[bench]]
 name = "stm"
 harness = false
 

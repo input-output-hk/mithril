@@ -32,9 +32,9 @@ impl From<&SchnorrSigningKey> for SchnorrVerificationKey {
     ///
     /// This is done by computing `vk = g * sk` where g is the generator
     /// of the subgroup and sk is the schnorr secret key
-    fn from(sk: &SchnorrSigningKey) -> Self {
-        let g = JubjubSubgroup::generator();
+    fn from(signing_key: &SchnorrSigningKey) -> Self {
+        let generator = JubjubSubgroup::generator();
 
-        SchnorrVerificationKey(g * sk.0)
+        SchnorrVerificationKey(generator * signing_key.0)
     }
 }

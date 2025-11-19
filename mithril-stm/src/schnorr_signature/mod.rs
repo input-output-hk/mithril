@@ -7,6 +7,7 @@ pub(super) mod utils;
 mod verification_key;
 
 pub use signature::*;
+pub use signing_key::*;
 pub use utils::*;
 pub use verification_key::*;
 
@@ -24,9 +25,7 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use crate::schnorr_signature::{
-        signing_key::SchnorrSigningKey, verification_key::SchnorrVerificationKey,
-    };
+    use crate::schnorr_signature::{SchnorrSigningKey, SchnorrVerificationKey};
 
     #[test]
     fn test_hash_msg_to_jubjubbase() {

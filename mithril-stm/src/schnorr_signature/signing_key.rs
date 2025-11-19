@@ -9,16 +9,16 @@ use rand_core::{CryptoRng, RngCore};
 use group::Group;
 
 use crate::schnorr_signature::{
-    DST_SIGNATURE, SchnorrSignature, SchnorrVerificationKey,
-    utils::{get_coordinates_extended, get_coordinates_subgroup},
+    DST_SIGNATURE, SchnorrSignature, SchnorrVerificationKey, get_coordinates_extended,
+    get_coordinates_subgroup,
 };
 
 /// Schnorr Signing key, it is essentially a random scalar of the Jubjub scalar field
 #[derive(Debug, Clone)]
-pub struct SchnorrSigningKey(pub(crate) JubjubScalar);
+pub struct SchnorrSigningKey(pub JubjubScalar);
 
 impl SchnorrSigningKey {
-    pub(crate) fn generate(rng: &mut (impl RngCore + CryptoRng)) -> Self {
+    pub fn generate(rng: &mut (impl RngCore + CryptoRng)) -> Self {
         SchnorrSigningKey(JubjubScalar::random(rng))
     }
 
@@ -61,7 +61,7 @@ impl SchnorrSigningKey {
     /// details in the implementation of the SchnorrSignature.
     ///
     // TODO: Check if we want the sign function to handle the randomness by itself
-    pub(crate) fn sign(
+    pub fn sign(
         &self,
         msg: &[u8],
         rng: &mut (impl RngCore + CryptoRng),
@@ -71,40 +71,40 @@ impl SchnorrSigningKey {
         let verification_key = SchnorrVerificationKey::from(self);
 
         // First hashing the message to a scalar then hashing it to a curve point
-        let hash_msg = JubjubExtended::hash_to_point(msg);
+        let msg_hash = JubjubExtended::hash_to_point(msg);
 
-        let sigma = hash_msg * self.0;
+        let sigma = msg_hash * self.0;
 
         // Compute the random part of the signature with
         // r1 = H(msg) * r
         // r2 = g * r
         let random_scalar = JubjubScalar::random(rng);
-        let random_value_1 = hash_msg * random_scalar;
-        let random_value_2 = generator * random_scalar;
+        let random_point_1 = msg_hash * random_scalar;
+        let random_point_2 = generator * random_scalar;
 
         // Since the hash function takes as input scalar elements
         // We need to convert the EC points to their coordinates
         // I use gx and gy for now but maybe we can replace them by a DST?
-        let (hash_msg_x, hash_msg_y) = get_coordinates_extended(hash_msg);
+        let (msg_hash_x, msg_hash_y) = get_coordinates_extended(msg_hash);
         let (verification_key_x, verification_key_y) = get_coordinates_subgroup(verification_key.0);
         let (sigma_x, sigma_y) = get_coordinates_extended(sigma);
-        let (random_value_1_x, random_value_1_y) = get_coordinates_extended(random_value_1);
-        let (random_value_2_x, random_value_2_y) = get_coordinates_subgroup(random_value_2);
+        let (random_point_1_x, random_point_1_y) = get_coordinates_extended(random_point_1);
+        let (random_point_2_x, random_point_2_y) = get_coordinates_subgroup(random_point_2);
 
         let challenge = Hash::digest_truncated(
             Domain::Other,
             &[
                 DST_SIGNATURE,
-                hash_msg_x,
-                hash_msg_y,
+                msg_hash_x,
+                msg_hash_y,
                 verification_key_x,
                 verification_key_y,
                 sigma_x,
                 sigma_y,
-                random_value_1_x,
-                random_value_1_y,
-                random_value_2_x,
-                random_value_2_y,
+                random_point_1_x,
+                random_point_1_y,
+                random_point_2_x,
+                random_point_2_y,
             ],
         )[0];
 

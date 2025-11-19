@@ -59,39 +59,40 @@ impl SchnorrSignature {
         let generator = JubjubSubgroup::generator();
 
         // First hashing the message to a scalar then hashing it to a curve point
-        let hash_msg = JubjubExtended::hash_to_point(msg);
+        let msg_hash = JubjubExtended::hash_to_point(msg);
 
         // Computing R1 = H(msg) * s + sigma * c
-        let hash_msg_times_sig = hash_msg * self.signature;
+        let msg_hash_times_signature = msg_hash * self.signature;
         let sigma_times_challenge = self.sigma * self.challenge;
-        let random_value_1_recomputed = hash_msg_times_sig + sigma_times_challenge;
+        let random_point_1_recomputed = msg_hash_times_signature + sigma_times_challenge;
 
         // Computing R2 = g * s + vk * c
-        let generator_times_s = generator * self.signature;
+        let generator_times_signature = generator * self.signature;
         let vk_times_challenge = verification_key.0 * self.challenge;
-        let random_value_2_recomputed = generator_times_s + vk_times_challenge;
+        let random_point_2_recomputed = generator_times_signature + vk_times_challenge;
 
-        let (hash_msg_x, hash_msg_y) = get_coordinates_extended(hash_msg);
+        let (msg_hash_x, msg_hash_y) = get_coordinates_extended(msg_hash);
         let (verification_key_x, verification_key_y) = get_coordinates_subgroup(verification_key.0);
         let (sigma_x, sigma_y) = get_coordinates_extended(self.sigma);
-        let (random_value_1_recomputed_x, random_value_1_recomputed_y) =
-            get_coordinates_extended(random_value_1_recomputed);
-        let (random_value_2_recomputed_x, random_value_2_recomputed_y) =
-            get_coordinates_subgroup(random_value_2_recomputed);
+        let (random_point_1_recomputed_x, random_point_1_recomputed_y) =
+            get_coordinates_extended(random_point_1_recomputed);
+        let (random_point_2_recomputed_x, random_point_2_recomputed_y) =
+            get_coordinates_subgroup(random_point_2_recomputed);
+
         let challenge_recomputed = Hash::digest_truncated(
             Domain::Other,
             &[
                 DST_SIGNATURE,
-                hash_msg_x,
-                hash_msg_y,
+                msg_hash_x,
+                msg_hash_y,
                 verification_key_x,
                 verification_key_y,
                 sigma_x,
                 sigma_y,
-                random_value_1_recomputed_x,
-                random_value_1_recomputed_y,
-                random_value_2_recomputed_x,
-                random_value_2_recomputed_y,
+                random_point_1_recomputed_x,
+                random_point_1_recomputed_y,
+                random_point_2_recomputed_x,
+                random_point_2_recomputed_y,
             ],
         )[0];
 

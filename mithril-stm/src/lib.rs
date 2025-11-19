@@ -140,6 +140,9 @@ pub use bls_multi_signature::{
     BlsVerificationKeyProofOfPossession,
 };
 
+#[cfg(feature = "future_snark")]
+pub use schnorr_signature::{SchnorrSignature, SchnorrSigningKey, SchnorrVerificationKey};
+
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
 
