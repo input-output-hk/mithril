@@ -259,7 +259,7 @@ jobs:
           # Transform summary.json into Markdown table rows
           jq -r --arg CHECK_MARK "$CHECK_MARK" --arg CROSS_MARK "$CROSS_MARK" \
             'group_by(.tag) |
-            sort_by(.[0].tag | tonumber) | reverse |
+            sort_by(.[0].tag | sub("-[a-z]+$"; "") | tonumber) | reverse |
             .[] |
             {
               tag: .[0].tag, 
