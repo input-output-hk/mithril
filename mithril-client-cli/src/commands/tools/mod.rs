@@ -3,8 +3,10 @@
 //! Provides utility subcommands such as converting restored InMemory UTxO-HD ledger snapshot
 //! to different flavors (Legacy, LMDB).
 
+mod aggregator_discovery;
 mod snapshot_converter;
 
+pub use aggregator_discovery::*;
 pub use snapshot_converter::*;
 
 use anyhow::anyhow;
@@ -18,6 +20,9 @@ pub enum ToolsCommands {
     /// UTxO-HD related commands
     #[clap(subcommand, name = "utxo-hd")]
     UTxOHD(UTxOHDCommands),
+    /// Aggregator discovery related commands
+    #[clap(subcommand, name = "aggregator-discovery")]
+    AggregatorDiscovery(AggregatorDiscoveryCommands),
 }
 
 impl ToolsCommands {
@@ -25,6 +30,7 @@ impl ToolsCommands {
     pub async fn execute(&self) -> MithrilResult<()> {
         match self {
             Self::UTxOHD(cmd) => cmd.execute().await,
+            Self::AggregatorDiscovery(cmd) => cmd.execute().await,
         }
     }
 }
@@ -49,6 +55,23 @@ impl UTxOHDCommands {
                 }
                 cmd.execute().await
             }
+        }
+    }
+}
+
+/// Aggregator discovery related commands
+#[derive(Subcommand, Debug, Clone)]
+pub enum AggregatorDiscoveryCommands {
+    /// Select an aggregator from the available ones with automatic discovery
+    #[clap(arg_required_else_help = false)]
+    Select(AggregatorSelectCommand),
+}
+
+impl AggregatorDiscoveryCommands {
+    /// Execute Aggregator discovery command
+    pub async fn execute(&self) -> MithrilResult<()> {
+        match self {
+            Self::Select(cmd) => cmd.execute().await,
         }
     }
 }

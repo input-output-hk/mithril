@@ -25,6 +25,12 @@ impl MithrilNetwork {
     }
 }
 
+impl From<String> for MithrilNetwork {
+    fn from(name: String) -> Self {
+        MithrilNetwork::new(name)
+    }
+}
+
 /// Representation of an aggregator endpoint
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AggregatorEndpoint {
