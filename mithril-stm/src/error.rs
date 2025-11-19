@@ -63,21 +63,9 @@ pub enum StmSignatureError {
     #[error("Received index, {0}, is higher than what the security parameter allows, {1}.")]
     IndexBoundFailed(u64, u64),
 
-    /// MSP.Eval was computed incorrectly
-    #[error("The claimed evaluation of function phi is incorrect.")]
-    EvalInvalid([u8; 64]),
-
     /// The lottery was actually lost for the signature
     #[error("Lottery for this epoch was lost.")]
     LotteryLost,
-
-    /// A party submitted an invalid signature
-    #[error("A provided signature is invalid")]
-    SignatureInvalid(BlsSignature),
-
-    /// Batch verification of STM signatures failed
-    #[error("Batch verification of STM signatures failed")]
-    BatchInvalid,
 
     /// This error occurs when the the serialization of the raw bytes failed
     #[error("Invalid bytes")]
@@ -91,57 +79,24 @@ pub enum AggregationError {
     #[error("Not enough signatures. Got only {0} out of {1}.")]
     NotEnoughSignatures(u64, u64),
 
-    /// This error happens when we try to convert a u64 to a usize and it does not fit
-    #[error("Invalid usize conversion")]
-    UsizeConversionInvalid,
-
-    /// The proof system used in the aggregate signature is not supported
     #[error("Unsupported proof system: {0}")]
     UnsupportedProofSystem(AggregateSignatureType),
-}
-
-/// Errors which can be output by `CoreVerifier`.
-#[derive(Debug, Clone, thiserror::Error)]
-pub enum CoreVerifierError {
-    /// No quorum was found
-    #[error("No Quorum was found. Expected {0} signatures but got {1}")]
-    NoQuorum(u64, u64),
 
     /// There is a duplicate index
     #[error("Indices are not unique.")]
     IndexNotUnique,
-
-    /// The aggregated signature is invalid
-    #[error("Aggregate signature is invalid")]
-    AggregateSignatureInvalid,
-
-    /// One of the aggregated signatures is invalid
-    #[error("Individual signature is invalid: {0}")]
-    IndividualSignatureInvalid(#[source] StmSignatureError),
 }
 
 /// Errors which can be output by Mithril aggregate verification.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum StmAggregateSignatureError {
-    /// The IVK is invalid after aggregating the keys
-    #[error("Aggregated key does not correspond to the expected key.")]
-    IvkInvalid(Box<BlsVerificationKey>),
-
     /// This error occurs when the the serialization of the raw bytes failed
     #[error("Invalid bytes")]
     SerializationError,
 
-    /// Invalid merkle batch path
-    #[error("Batch path does not verify against root")]
-    PathInvalid(Vec<u8>),
-
     /// Batch verification of STM aggregate signatures failed
     #[error("Batch verification of STM aggregate signatures failed")]
     BatchInvalid,
-
-    /// `CoreVerifier` check failed
-    #[error("Core verification error: {0}")]
-    CoreVerificationError(#[source] CoreVerifierError),
 
     /// The proof system used in the aggregate signature is not supported
     #[error("Unsupported proof system: {0}")]
@@ -154,10 +109,6 @@ pub enum RegisterError {
     /// This key has already been registered by a participant
     #[error("This key has already been registered.")]
     KeyRegistered(Box<BlsVerificationKey>),
-
-    /// Verification key is the infinity
-    #[error("Verification key is the infinity")]
-    VerificationKeyInfinity(Box<BlsVerificationKey>),
 
     /// The supplied key is not valid
     #[error("The verification of correctness of the supplied key is invalid.")]

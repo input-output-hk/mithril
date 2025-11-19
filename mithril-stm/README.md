@@ -141,13 +141,13 @@ match msig {
             println!("Not enough signatures");
             assert!(n < &params.k && k == &params.k)
         },
-        Some(AggregationError::UsizeConversionInvalid) => {
-            println!("Invalid usize conversion");
-        },
+        // Some(AggregationError::UsizeConversionInvalid) => {
+        //     println!("Invalid usize conversion");
+        // },
         Some(AggregationError::UnsupportedProofSystem(aggregate_signature_type)) => {
             println!("Unsupported proof system: {:?}", aggregate_signature_type);
         },
-        None => {
+        _ => {
             println!("Unexpected error during aggregation: {:?}", error);
         }
     },

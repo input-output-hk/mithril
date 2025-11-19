@@ -5,8 +5,8 @@ use crate::bls_multi_signature::{BlsSignature, BlsVerificationKey};
 use crate::key_registration::RegisteredParty;
 use crate::merkle_tree::MerkleTreeLeaf;
 use crate::{
-    AggregationError, CoreVerifierError, Index, Parameters, SingleSignature,
-    SingleSignatureWithRegisteredParty, Stake, StmResult,
+    AggregationError, Index, Parameters, SingleSignature, SingleSignatureWithRegisteredParty,
+    Stake, StmResult,
 };
 
 /// Full node verifier including the list of eligible signers and the total stake of the system.
@@ -73,10 +73,10 @@ impl BasicVerifier {
         }
 
         if nr_indices != unique_indices.len() {
-            return Err(anyhow!(CoreVerifierError::IndexNotUnique));
+            return Err(anyhow!(AggregationError::IndexNotUnique));
         }
         if (nr_indices as u64) < parameters.k {
-            return Err(anyhow!(CoreVerifierError::NoQuorum(
+            return Err(anyhow!(AggregationError::NotEnoughSignatures(
                 nr_indices as u64,
                 parameters.k
             )));
