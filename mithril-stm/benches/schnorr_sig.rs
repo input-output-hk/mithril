@@ -30,11 +30,11 @@ fn sign_and_verify(c: &mut Criterion, nr_sigs: usize) {
 }
 
 fn schnorr_benches(c: &mut Criterion) {
-    sign_and_verify(c, 1000);
+    sign_and_verify(c, 300);
 }
 
 criterion_group!(name = benches;
-                 config = Criterion::default().nresamples(10);
+                 config = Criterion::default().nresamples(1000);
                  targets =
     schnorr_benches
 );
