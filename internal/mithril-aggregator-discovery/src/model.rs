@@ -63,3 +63,9 @@ impl From<AggregatorEndpoint> for String {
         endpoint.url
     }
 }
+
+impl std::fmt::Display for AggregatorEndpoint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.url)
+    }
+}

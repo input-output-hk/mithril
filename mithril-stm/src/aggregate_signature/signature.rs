@@ -59,6 +59,17 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> From<&AggregateSignature<D>>
     }
 }
 
+impl From<String> for AggregateSignatureType {
+    fn from(s: String) -> Self {
+        match s.as_str() {
+            "Concatenation" => AggregateSignatureType::Concatenation,
+            #[cfg(feature = "future_proof_system")]
+            "Future" => AggregateSignatureType::Future,
+            _ => panic!("Unknown aggregate signature type: {}", s),
+        }
+    }
+}
+
 impl Display for AggregateSignatureType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
