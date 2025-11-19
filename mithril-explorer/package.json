@@ -3,8 +3,8 @@
   "version": "0.7.40",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
     "icons-font": "fantasticon",
     "lint": "next lint",
     "pretty:check": "prettier . --check",
