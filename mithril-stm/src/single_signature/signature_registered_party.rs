@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize, Serializer, ser::SerializeTuple};
 
 use crate::StmResult;
 use crate::key_registration::RegisteredParty;
-use crate::{SingleSignature, StmSignatureError};
+use crate::{SignatureError, SingleSignature};
 
 /// Signature with its registered party.
 #[derive(Debug, Clone, Hash, Deserialize, Eq, PartialEq, Ord, PartialOrd)]
@@ -31,10 +31,10 @@ impl SingleSignatureWithRegisteredParty {
         bytes: &[u8],
     ) -> StmResult<SingleSignatureWithRegisteredParty> {
         let reg_party = RegisteredParty::from_bytes(
-            bytes.get(0..104).ok_or(StmSignatureError::SerializationError)?,
+            bytes.get(0..104).ok_or(SignatureError::SerializationError)?,
         )?;
         let sig = SingleSignature::from_bytes::<D>(
-            bytes.get(104..).ok_or(StmSignatureError::SerializationError)?,
+            bytes.get(104..).ok_or(SignatureError::SerializationError)?,
         )?;
 
         Ok(SingleSignatureWithRegisteredParty { sig, reg_party })

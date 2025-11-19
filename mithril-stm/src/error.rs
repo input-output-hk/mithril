@@ -58,7 +58,7 @@ pub enum MerkleTreeError {
 
 /// Errors which can be output by Mithril single signature verification.
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum StmSignatureError {
+pub enum SignatureError {
     /// There is an index out of bounds
     #[error("Received index, {0}, is higher than what the security parameter allows, {1}.")]
     IndexBoundFailed(u64, u64),
@@ -89,7 +89,7 @@ pub enum AggregationError {
 
 /// Errors which can be output by Mithril aggregate verification.
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum StmAggregateSignatureError {
+pub enum AggregateSignatureError {
     /// This error occurs when the the serialization of the raw bytes failed
     #[error("Invalid bytes")]
     SerializationError,

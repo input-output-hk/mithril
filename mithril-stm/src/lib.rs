@@ -125,8 +125,7 @@ pub use aggregate_signature::{
     AggregateSignature, AggregateSignatureType, AggregateVerificationKey, BasicVerifier, Clerk,
 };
 pub use error::{
-    AggregationError, MultiSignatureError, RegisterError, StmAggregateSignatureError,
-    StmSignatureError,
+    AggregateSignatureError, AggregationError, MultiSignatureError, RegisterError, SignatureError,
 };
 pub use key_registration::{ClosedKeyRegistration, KeyRegistration};
 pub use parameters::Parameters;

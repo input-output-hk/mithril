@@ -69,7 +69,7 @@ fn test_core_verifier() {
                 assert!((nr_indices) < &params.k)
             }
             _ => {
-                println!("Unexpected error: {:?}", error);
+                panic!("Unexpected error: {:?}", error);
             }
         },
     }

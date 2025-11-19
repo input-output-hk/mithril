@@ -94,6 +94,7 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::{RngCore, SeedableRng};
 
+    use crate::RegisterError;
     use crate::bls_multi_signature::helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk};
     use crate::error::MultiSignatureError;
     use crate::key_registration::KeyRegistration;
@@ -199,8 +200,8 @@ mod tests {
 
             assert!(
                 matches!(
-                    error.downcast_ref::<MultiSignatureError>(),
-                    Some(MultiSignatureError::VerificationKeyInfinity(_))
+                    error.downcast_ref::<RegisterError>(),
+                    Some(RegisterError::KeyInvalid(_))
                 ),
                 "Unexpected error: {error:?}");
         }

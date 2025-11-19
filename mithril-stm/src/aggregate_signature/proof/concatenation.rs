@@ -8,8 +8,8 @@ use crate::bls_multi_signature::{BlsSignature, BlsVerificationKey};
 use crate::key_registration::RegisteredParty;
 use crate::merkle_tree::MerkleBatchPath;
 use crate::{
-    AggregateVerificationKey, BasicVerifier, Parameters, SingleSignature,
-    SingleSignatureWithRegisteredParty, StmAggregateSignatureError, StmResult,
+    AggregateSignatureError, AggregateVerificationKey, BasicVerifier, Parameters, SingleSignature,
+    SingleSignatureWithRegisteredParty, StmResult,
 };
 
 /// `ConcatenationProof` uses the "concatenation" proving system (as described in Section 4.3 of the original paper.)
@@ -211,10 +211,10 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
         u64_bytes.copy_from_slice(
             bytes
                 .get(bytes_index..bytes_index + 8)
-                .ok_or(StmAggregateSignatureError::SerializationError)?,
+                .ok_or(AggregateSignatureError::SerializationError)?,
         );
         let total_sigs = usize::try_from(u64::from_be_bytes(u64_bytes))
-            .map_err(|_| StmAggregateSignatureError::SerializationError)?;
+            .map_err(|_| AggregateSignatureError::SerializationError)?;
         bytes_index += 8;
 
         let mut sig_reg_list = Vec::with_capacity(total_sigs);
@@ -222,14 +222,14 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
             u64_bytes.copy_from_slice(
                 bytes
                     .get(bytes_index..bytes_index + 8)
-                    .ok_or(StmAggregateSignatureError::SerializationError)?,
+                    .ok_or(AggregateSignatureError::SerializationError)?,
             );
             let sig_reg_size = usize::try_from(u64::from_be_bytes(u64_bytes))
-                .map_err(|_| StmAggregateSignatureError::SerializationError)?;
+                .map_err(|_| AggregateSignatureError::SerializationError)?;
             let sig_reg = SingleSignatureWithRegisteredParty::from_bytes::<D>(
                 bytes
                     .get(bytes_index + 8..bytes_index + 8 + sig_reg_size)
-                    .ok_or(StmAggregateSignatureError::SerializationError)?,
+                    .ok_or(AggregateSignatureError::SerializationError)?,
             )?;
             bytes_index += 8 + sig_reg_size;
             sig_reg_list.push(sig_reg);
@@ -238,7 +238,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
         let batch_proof = MerkleBatchPath::from_bytes(
             bytes
                 .get(bytes_index..)
-                .ok_or(StmAggregateSignatureError::SerializationError)?,
+                .ok_or(AggregateSignatureError::SerializationError)?,
         )?;
 
         Ok(ConcatenationProof {

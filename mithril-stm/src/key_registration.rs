@@ -38,7 +38,8 @@ impl KeyRegistration {
         pk: BlsVerificationKeyProofOfPossession,
     ) -> StmResult<()> {
         if let Entry::Vacant(e) = self.keys.entry(pk.vk) {
-            pk.verify_proof_of_possession()?;
+            pk.verify_proof_of_possession()
+                .map_err(|_| RegisterError::KeyInvalid(Box::new(pk)))?;
             e.insert(stake);
             return Ok(());
         }
@@ -141,7 +142,7 @@ mod tests {
                             assert_eq!(fake_it, 0);
                             assert!(a.verify_proof_of_possession().is_err());
                         },
-                        _ => {println!("Unexpected error: {error}")}
+                        _ => {panic!("Unexpected error: {error}")}
                     }
                 }
             }

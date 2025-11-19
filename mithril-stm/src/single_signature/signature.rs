@@ -9,8 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::bls_multi_signature::BlsSignature;
 use crate::eligibility_check::is_lottery_won;
 use crate::{
-    AggregateVerificationKey, Index, Parameters, Stake, StmResult, StmSignatureError,
-    VerificationKey,
+    AggregateVerificationKey, Index, Parameters, SignatureError, Stake, StmResult, VerificationKey,
 };
 use anyhow::{Context, anyhow};
 
@@ -57,15 +56,13 @@ impl SingleSignature {
     ) -> StmResult<()> {
         for &index in &self.indexes {
             if index > params.m {
-                return Err(anyhow!(StmSignatureError::IndexBoundFailed(
-                    index, params.m
-                )));
+                return Err(anyhow!(SignatureError::IndexBoundFailed(index, params.m)));
             }
 
             let ev = self.sigma.evaluate_dense_mapping(msg, index);
 
             if !is_lottery_won(params.phi_f, ev, *stake, *total_stake) {
-                return Err(anyhow!(StmSignatureError::LotteryLost));
+                return Err(anyhow!(SignatureError::LotteryLost));
             }
         }
 
@@ -99,7 +96,7 @@ impl SingleSignature {
     pub fn from_bytes<D: Clone + Digest + FixedOutput>(bytes: &[u8]) -> StmResult<SingleSignature> {
         let mut u64_bytes = [0u8; 8];
 
-        u64_bytes.copy_from_slice(bytes.get(0..8).ok_or(StmSignatureError::SerializationError)?);
+        u64_bytes.copy_from_slice(bytes.get(0..8).ok_or(SignatureError::SerializationError)?);
         let nr_indexes = u64::from_be_bytes(u64_bytes) as usize;
 
         let mut indexes = Vec::new();
@@ -107,7 +104,7 @@ impl SingleSignature {
             u64_bytes.copy_from_slice(
                 bytes
                     .get(8 + i * 8..16 + i * 8)
-                    .ok_or(StmSignatureError::SerializationError)?,
+                    .ok_or(SignatureError::SerializationError)?,
             );
             indexes.push(u64::from_be_bytes(u64_bytes));
         }
@@ -116,13 +113,13 @@ impl SingleSignature {
         let sigma = BlsSignature::from_bytes(
             bytes
                 .get(offset..offset + 48)
-                .ok_or(StmSignatureError::SerializationError)?,
+                .ok_or(SignatureError::SerializationError)?,
         )?;
 
         u64_bytes.copy_from_slice(
             bytes
                 .get(offset + 48..offset + 56)
-                .ok_or(StmSignatureError::SerializationError)?,
+                .ok_or(SignatureError::SerializationError)?,
         );
         let signer_index = u64::from_be_bytes(u64_bytes);
 
