@@ -136,16 +136,19 @@ match msig {
         println!("Aggregate ok");
         assert!(aggr.verify(&msg, &clerk.compute_aggregate_verification_key(), &params).is_ok());
     }
-    Err(AggregationError::NotEnoughSignatures(n, k)) => {
-        println!("Not enough signatures");
-        assert!(n < params.k && k == params.k)
-    }
-    Err(AggregationError::UsizeConversionInvalid) => {
-        println!("Invalid usize conversion");
-    }
-    Err(AggregationError::UnsupportedProofSystem(aggregate_signature_type)) => {
-        println!("Unsupported proof system: {:?}", aggregate_signature_type);
-    }
+    Err(error) => match error.downcast_ref::<AggregationError>() {
+        Some(AggregationError::NotEnoughSignatures(n, k)) => {
+            println!("Not enough signatures");
+            assert!(n < &params.k && k == &params.k)
+        },
+
+        Some(AggregationError::UnsupportedProofSystem(aggregate_signature_type)) => {
+            println!("Unsupported proof system: {:?}", aggregate_signature_type);
+        },
+        _ => {
+            println!("Unexpected error during aggregation: {:?}", error);
+        }
+    },
 }
 ```
 

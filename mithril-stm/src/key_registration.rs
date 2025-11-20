@@ -4,12 +4,13 @@ use std::{
     sync::Arc,
 };
 
+use anyhow::anyhow;
 use blake2::digest::{Digest, FixedOutput};
 
-use crate::Stake;
 use crate::bls_multi_signature::{BlsVerificationKey, BlsVerificationKeyProofOfPossession};
 use crate::error::RegisterError;
 use crate::merkle_tree::{MerkleTree, MerkleTreeLeaf};
+use crate::{Stake, StmResult};
 
 /// Stores a registered party with its public key and the associated stake.
 pub type RegisteredParty = MerkleTreeLeaf;
@@ -35,13 +36,14 @@ impl KeyRegistration {
         &mut self,
         stake: Stake,
         pk: BlsVerificationKeyProofOfPossession,
-    ) -> Result<(), RegisterError> {
+    ) -> StmResult<()> {
         if let Entry::Vacant(e) = self.keys.entry(pk.vk) {
-            pk.verify_proof_of_possession()?;
+            pk.verify_proof_of_possession()
+                .map_err(|_| RegisterError::KeyInvalid(Box::new(pk)))?;
             e.insert(stake);
             return Ok(());
         }
-        Err(RegisterError::KeyRegistered(Box::new(pk.vk)))
+        Err(anyhow!(RegisterError::KeyRegistered(Box::new(pk.vk))))
     }
 
     /// Finalize the key registration.
@@ -126,23 +128,24 @@ mod tests {
                 }
 
                 let reg = kr.register(stake, pk);
+
                 match reg {
                     Ok(_) => {
                         assert!(keys.insert(pk.vk, stake).is_none());
                     },
-                    Err(RegisterError::KeyRegistered(pk1)) => {
-                        assert!(pk1.as_ref() == &pk.vk);
-                        assert!(keys.contains_key(&pk.vk));
+                    Err(error) =>  match error.downcast_ref::<RegisterError>(){
+                        Some(RegisterError::KeyRegistered(pk1)) => {
+                            assert!(pk1.as_ref() == &pk.vk);
+                            assert!(keys.contains_key(&pk.vk));
+                        },
+                        Some(RegisterError::KeyInvalid(a)) => {
+                            assert_eq!(fake_it, 0);
+                            assert!(a.verify_proof_of_possession().is_err());
+                        },
+                        _ => {panic!("Unexpected error: {error}")}
                     }
-                    Err(RegisterError::KeyInvalid(a)) => {
-                        assert_eq!(fake_it, 0);
-                        assert!(a.verify_proof_of_possession().is_err());
-                    }
-                    Err(RegisterError::SerializationError) => unreachable!(),
-                    _ => unreachable!(),
                 }
             }
-
             if !kr.keys.is_empty() {
                 let closed = kr.close::<Blake2b<U32>>();
                 let retrieved_keys = closed.reg_parties.iter().map(|r| (r.0, r.1)).collect::<HashMap<_,_>>();

@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
+use crate::StmResult;
 use crate::error::MerkleTreeError;
 use crate::merkle_tree::{
     MerkleBatchPath, MerklePath, MerkleTreeBatchCommitment, MerkleTreeCommitment, MerkleTreeLeaf,
@@ -194,7 +195,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
     /// Try to convert a byte string into a `MerkleTree`.
     /// # Error
     /// It returns error if conversion fails.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MerkleTreeError<D>> {
+    pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(bytes.get(..8).ok_or(MerkleTreeError::SerializationError)?);
         let n = usize::try_from(u64::from_be_bytes(u64_bytes))

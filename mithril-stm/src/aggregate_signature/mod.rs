@@ -23,12 +23,12 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::{RngCore, SeedableRng};
 
-    use crate::merkle_tree::MerkleBatchPath;
     use crate::{
         AggregateSignature, AggregateSignatureType, AggregationError, BasicVerifier, Clerk,
-        CoreVerifierError, Initializer, KeyRegistration, Parameters, Signer, SingleSignature,
+        Initializer, KeyRegistration, Parameters, Signer, SingleSignature,
         SingleSignatureWithRegisteredParty, Stake, bls_multi_signature::BlsVerificationKey,
     };
+    use crate::{StmResult, merkle_tree::MerkleBatchPath};
 
     type Sig = AggregateSignature<D>;
     type D = Blake2b<U32>;
@@ -147,7 +147,7 @@ mod tests {
 
     #[derive(Debug)]
     struct ProofTest {
-        msig: Result<Sig, AggregationError>,
+        msig: StmResult<Sig>,
         clerk: Clerk<D>,
         msg: [u8; 16],
     }
@@ -259,15 +259,21 @@ mod tests {
 
             match msig {
                 Ok(aggr) => {
-                    let verify_result = aggr.verify(&msg, &clerk.compute_aggregate_verification_key(), &params);
-                    assert!(verify_result.is_ok(), "Verification failed: {verify_result:?}");
+                    println!("Aggregate ok");
+                    assert!(aggr.verify(&msg, &clerk.compute_aggregate_verification_key(), &params).is_ok());
                 }
-                Err(AggregationError::NotEnoughSignatures(n, k)) =>
-                    assert!(n < params.k || k == params.k),
-                Err(AggregationError::UsizeConversionInvalid) =>
-                    unreachable!(),
-                Err(AggregationError::UnsupportedProofSystem(_)) =>
-                    unreachable!(),
+                Err(error) => match error.downcast_ref::<AggregationError>() {
+                    Some(AggregationError::NotEnoughSignatures(n, k)) => {
+                        println!("Not enough signatures");
+                        assert!(n < &params.k && k == &params.k)
+                    },
+                    Some(AggregationError::UnsupportedProofSystem(aggregate_signature_type)) => {
+                        panic!("Unsupported proof system: {:?}", aggregate_signature_type);
+                    },
+                    _ => {
+                        panic!("Unexpected error during aggregation: {:?}", error);
+                    }
+                },
             }
         }
 
@@ -303,11 +309,13 @@ mod tests {
                         batch_msgs.push(msg.to_vec());
                         batch_params.push(params);
                     }
-                    Err(AggregationError::NotEnoughSignatures(_n, _k)) => {
-                        assert!(sigs.len() < params.k as usize)
+                    Err(error) => { assert!(
+                        matches!(
+                            error.downcast_ref::<AggregationError>(),
+                            Some(AggregationError::NotEnoughSignatures{..})
+                        ),
+                        "Unexpected error: {error:?}");
                     }
-                    Err(AggregationError::UsizeConversionInvalid) => unreachable!(),
-                    Err(AggregationError::UnsupportedProofSystem(_)) => unreachable!(),
                 }
             }
 
@@ -428,14 +436,14 @@ mod tests {
             let clerk = Clerk::new_clerk_from_signer(&ps[0]);
             let aggr_sig_type = AggregateSignatureType::Concatenation;
 
-            let msig = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type);
-            match msig {
-                Err(AggregationError::NotEnoughSignatures(n, k)) =>
-                    assert!(n < params.k && params.k == k),
-                _ =>
-                    unreachable!(),
+            let error = clerk.aggregate_signatures_with_type(&sigs, &msg, aggr_sig_type).expect_err("Not enough quorum should fail!");
+            assert!(
+                matches!(
+                    error.downcast_ref::<AggregationError>(),
+                    Some(AggregationError::NotEnoughSignatures{..})
+                ),
+                "Unexpected error: {error:?}");
             }
-        }
     }
 
     proptest! {
@@ -561,11 +569,13 @@ mod tests {
                 Ok(_) => {
                     assert!(verify_result.is_ok(), "Verification failed: {verify_result:?}");
                 }
-                Err(CoreVerifierError::NoQuorum(nr_indices, _k)) => {
-                    assert!((nr_indices) < params.k);
+                Err(error) => { assert!(
+                    matches!(
+                        error.downcast_ref::<AggregationError>(),
+                        Some(AggregationError::NotEnoughSignatures{..})
+                    ),
+                    "Unexpected error: {error:?}");
                 }
-                Err(CoreVerifierError::IndexNotUnique) => unreachable!(),
-                _ => unreachable!(),
             }
         }
 

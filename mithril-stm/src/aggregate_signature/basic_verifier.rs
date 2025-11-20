@@ -1,11 +1,12 @@
+use anyhow::{Context, anyhow};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::bls_multi_signature::{BlsSignature, BlsVerificationKey};
 use crate::key_registration::RegisteredParty;
 use crate::merkle_tree::MerkleTreeLeaf;
 use crate::{
-    AggregationError, CoreVerifierError, Index, Parameters, SingleSignature,
-    SingleSignatureWithRegisteredParty, Stake,
+    AggregationError, Index, Parameters, SingleSignature, SingleSignatureWithRegisteredParty,
+    Stake, StmResult,
 };
 
 /// Full node verifier including the list of eligible signers and the total stake of the system.
@@ -56,14 +57,15 @@ impl BasicVerifier {
         signatures: &[SingleSignatureWithRegisteredParty],
         parameters: &Parameters,
         msg: &[u8],
-    ) -> Result<(), CoreVerifierError> {
+    ) -> StmResult<()> {
         let mut nr_indices = 0;
         let mut unique_indices = HashSet::new();
 
         for sig_reg in signatures {
             sig_reg
                 .sig
-                .check_indices(parameters, &sig_reg.reg_party.1, msg, total_stake)?;
+                .check_indices(parameters, &sig_reg.reg_party.1, msg, total_stake)
+                .with_context(|| "Preliminary verification for basic verifier failed.")?;
             for &index in &sig_reg.sig.indexes {
                 unique_indices.insert(index);
                 nr_indices += 1;
@@ -71,10 +73,13 @@ impl BasicVerifier {
         }
 
         if nr_indices != unique_indices.len() {
-            return Err(CoreVerifierError::IndexNotUnique);
+            return Err(anyhow!(AggregationError::IndexNotUnique));
         }
         if (nr_indices as u64) < parameters.k {
-            return Err(CoreVerifierError::NoQuorum(nr_indices as u64, parameters.k));
+            return Err(anyhow!(AggregationError::NotEnoughSignatures(
+                nr_indices as u64,
+                parameters.k
+            )));
         }
 
         Ok(())
@@ -93,7 +98,7 @@ impl BasicVerifier {
         params: &Parameters,
         msg: &[u8],
         sigs: &[SingleSignatureWithRegisteredParty],
-    ) -> Result<Vec<SingleSignatureWithRegisteredParty>, AggregationError> {
+    ) -> StmResult<Vec<SingleSignatureWithRegisteredParty>> {
         let mut sig_by_index: BTreeMap<Index, &SingleSignatureWithRegisteredParty> =
             BTreeMap::new();
         let mut removal_idx_by_vk: HashMap<&SingleSignatureWithRegisteredParty, Vec<Index>> =
@@ -169,7 +174,9 @@ impl BasicVerifier {
                 }
             }
         }
-        Err(AggregationError::NotEnoughSignatures(count, params.k))
+        Err(anyhow!(AggregationError::NotEnoughSignatures(
+            count, params.k
+        )))
     }
 
     /// Given a slice of `sig_reg_list`, this function returns a new list of `sig_reg_list` with only valid indices.
@@ -189,7 +196,7 @@ impl BasicVerifier {
         params: &Parameters,
         msg: &[u8],
         sigs: &[SingleSignatureWithRegisteredParty],
-    ) -> Result<Vec<SingleSignatureWithRegisteredParty>, AggregationError> {
+    ) -> StmResult<Vec<SingleSignatureWithRegisteredParty>> {
         Self::select_valid_signatures_for_k_indices(total_stake, params, msg, sigs)
     }
 
@@ -218,7 +225,7 @@ impl BasicVerifier {
         signatures: &[SingleSignature],
         parameters: &Parameters,
         msg: &[u8],
-    ) -> Result<(), CoreVerifierError> {
+    ) -> StmResult<()> {
         let sig_reg_list = signatures
             .iter()
             .map(|sig| SingleSignatureWithRegisteredParty {
@@ -232,13 +239,16 @@ impl BasicVerifier {
             parameters,
             msg,
             &sig_reg_list,
-        )?;
+        )
+        .with_context(|| "Basic verification failed during selection of unique k indices.")?;
 
         Self::preliminary_verify(&self.total_stake, &unique_sigs, parameters, msg)?;
 
         let (sigs, vks) = Self::collect_signatures_verification_keys(&unique_sigs);
 
-        BlsSignature::verify_aggregate(msg.to_vec().as_slice(), &vks, &sigs)?;
+        BlsSignature::verify_aggregate(msg.to_vec().as_slice(), &vks, &sigs).with_context(
+            || "Basic verifier failed during BLS aggregate signature verification.",
+        )?;
 
         Ok(())
     }

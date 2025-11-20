@@ -3,10 +3,7 @@ use mithril_stm::{AggregateSignatureType, Parameters};
 
 use crate::{
     StdResult,
-    crypto_helper::{
-        ProtocolAggregateVerificationKey, ProtocolAggregationError, ProtocolClerk,
-        ProtocolMultiSignature,
-    },
+    crypto_helper::{ProtocolAggregateVerificationKey, ProtocolClerk, ProtocolMultiSignature},
     entities::SingleSignature,
     protocol::ToMessage,
 };
@@ -31,7 +28,7 @@ impl MultiSigner {
         single_signatures: &[SingleSignature],
         message: &T,
         aggregate_signature_type: AggregateSignatureType,
-    ) -> Result<ProtocolMultiSignature, ProtocolAggregationError> {
+    ) -> StdResult<ProtocolMultiSignature> {
         let protocol_signatures: Vec<_> = single_signatures
             .iter()
             .map(|single_signature| single_signature.to_protocol_signature())
@@ -94,9 +91,10 @@ impl MultiSigner {
 
 #[cfg(test)]
 mod test {
-    use mithril_stm::StmSignatureError;
+    use mithril_stm::MultiSignatureError;
 
     use crate::{
+        crypto_helper::ProtocolAggregationError,
         entities::{ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters},
         protocol::SignerBuilder,
         test::{
@@ -129,7 +127,10 @@ mod test {
             );
 
         assert!(
-            matches!(error, ProtocolAggregationError::NotEnoughSignatures(_, _)),
+            matches!(
+                error.downcast_ref::<ProtocolAggregationError>(),
+                Some(ProtocolAggregationError::NotEnoughSignatures(_, _))
+            ),
             "Expected ProtocolAggregationError::NotEnoughSignatures, got: {error:?}"
         )
     }
@@ -194,8 +195,8 @@ mod test {
                 "Verify single signature should fail if the signer isn't in the registered parties",
             );
 
-        match error.downcast_ref::<StmSignatureError>() {
-            Some(StmSignatureError::SignatureInvalid(_)) => (),
+        match error.downcast_ref::<MultiSignatureError>() {
+            Some(MultiSignatureError::SignatureInvalid(_)) => (),
             _ => panic!("Expected an SignatureInvalid error, got: {error:?}"),
         }
     }
@@ -220,8 +221,8 @@ mod test {
             .verify_single_signature(&ProtocolMessage::default(), &single_signature)
             .expect_err("Verify single signature should fail");
 
-        match error.downcast_ref::<StmSignatureError>() {
-            Some(StmSignatureError::SignatureInvalid(_)) => (),
+        match error.downcast_ref::<MultiSignatureError>() {
+            Some(MultiSignatureError::SignatureInvalid(_)) => (),
             _ => panic!("Expected an SignatureInvalid error, got: {error:?}"),
         }
     }

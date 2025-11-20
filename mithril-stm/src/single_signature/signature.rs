@@ -9,8 +9,9 @@ use serde::{Deserialize, Serialize};
 use crate::bls_multi_signature::BlsSignature;
 use crate::eligibility_check::is_lottery_won;
 use crate::{
-    AggregateVerificationKey, Index, Parameters, Stake, StmSignatureError, VerificationKey,
+    AggregateVerificationKey, Index, Parameters, SignatureError, Stake, StmResult, VerificationKey,
 };
+use anyhow::{Context, anyhow};
 
 /// Signature created by a single party who has won the lottery.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33,9 +34,15 @@ impl SingleSignature {
         stake: &Stake,
         avk: &AggregateVerificationKey<D>,
         msg: &[u8],
-    ) -> Result<(), StmSignatureError> {
+    ) -> StmResult<()> {
         let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
-        self.basic_verify(params, pk, stake, &msgp, &avk.get_total_stake())?;
+        self.basic_verify(params, pk, stake, &msgp, &avk.get_total_stake())
+            .with_context(|| {
+                format!(
+                    "Single signature verification failed for signer index {}.",
+                    self.signer_index
+                )
+            })?;
         Ok(())
     }
 
@@ -46,16 +53,16 @@ impl SingleSignature {
         stake: &Stake,
         msg: &[u8],
         total_stake: &Stake,
-    ) -> Result<(), StmSignatureError> {
+    ) -> StmResult<()> {
         for &index in &self.indexes {
             if index > params.m {
-                return Err(StmSignatureError::IndexBoundFailed(index, params.m));
+                return Err(anyhow!(SignatureError::IndexBoundFailed(index, params.m)));
             }
 
             let ev = self.sigma.evaluate_dense_mapping(msg, index);
 
             if !is_lottery_won(params.phi_f, ev, *stake, *total_stake) {
-                return Err(StmSignatureError::LotteryLost);
+                return Err(anyhow!(SignatureError::LotteryLost));
             }
         }
 
@@ -86,12 +93,10 @@ impl SingleSignature {
     }
 
     /// Extract a batch compatible `SingleSignature` from a byte slice.
-    pub fn from_bytes<D: Clone + Digest + FixedOutput>(
-        bytes: &[u8],
-    ) -> Result<SingleSignature, StmSignatureError> {
+    pub fn from_bytes<D: Clone + Digest + FixedOutput>(bytes: &[u8]) -> StmResult<SingleSignature> {
         let mut u64_bytes = [0u8; 8];
 
-        u64_bytes.copy_from_slice(bytes.get(0..8).ok_or(StmSignatureError::SerializationError)?);
+        u64_bytes.copy_from_slice(bytes.get(0..8).ok_or(SignatureError::SerializationError)?);
         let nr_indexes = u64::from_be_bytes(u64_bytes) as usize;
 
         let mut indexes = Vec::new();
@@ -99,7 +104,7 @@ impl SingleSignature {
             u64_bytes.copy_from_slice(
                 bytes
                     .get(8 + i * 8..16 + i * 8)
-                    .ok_or(StmSignatureError::SerializationError)?,
+                    .ok_or(SignatureError::SerializationError)?,
             );
             indexes.push(u64::from_be_bytes(u64_bytes));
         }
@@ -108,13 +113,13 @@ impl SingleSignature {
         let sigma = BlsSignature::from_bytes(
             bytes
                 .get(offset..offset + 48)
-                .ok_or(StmSignatureError::SerializationError)?,
+                .ok_or(SignatureError::SerializationError)?,
         )?;
 
         u64_bytes.copy_from_slice(
             bytes
                 .get(offset + 48..offset + 56)
-                .ok_or(StmSignatureError::SerializationError)?,
+                .ok_or(SignatureError::SerializationError)?,
         );
         let signer_index = u64::from_be_bytes(u64_bytes);
 
@@ -145,9 +150,12 @@ impl SingleSignature {
         stake: &Stake,
         msg: &[u8],
         total_stake: &Stake,
-    ) -> Result<(), StmSignatureError> {
-        self.sigma.verify(msg, pk)?;
-        self.check_indices(params, stake, msg, total_stake)?;
+    ) -> StmResult<()> {
+        self.sigma
+            .verify(msg, pk)
+            .with_context(|| "Basic verification of single signature failed.")?;
+        self.check_indices(params, stake, msg, total_stake)
+            .with_context(|| "Basic verification of single signature failed.")?;
 
         Ok(())
     }
@@ -161,7 +169,7 @@ impl SingleSignature {
         stake: &Stake,
         msg: &[u8],
         total_stake: &Stake,
-    ) -> Result<(), StmSignatureError> {
+    ) -> StmResult<()> {
         Self::basic_verify(self, params, pk, stake, msg, total_stake)
     }
 }

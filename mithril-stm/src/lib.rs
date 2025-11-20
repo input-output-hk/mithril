@@ -99,11 +99,13 @@
 //!             .verify(&msg, &clerk.compute_avk(), &params)
 //!             .is_ok());
 //!     }
-//!     Err(AggregationError::NotEnoughSignatures(n, k)) => {
-//!         println!("Not enough signatures");
-//!         assert!(n < params.k && k == params.k)
-//!     }
-//!     Err(_) => unreachable!(),
+//!     Err(error) => assert!(
+//!         matches!(
+//!             error.downcast_ref::<AggregationError>(),
+//!             Some(AggregationError::NotEnoughSignatures { .. })
+//!         ),
+//!         "Unexpected error: {error}"
+//!     ),
 //! }
 //! # Ok(())
 //! # }
@@ -123,8 +125,7 @@ pub use aggregate_signature::{
     AggregateSignature, AggregateSignatureType, AggregateVerificationKey, BasicVerifier, Clerk,
 };
 pub use error::{
-    AggregationError, CoreVerifierError, RegisterError, StmAggregateSignatureError,
-    StmSignatureError,
+    AggregateSignatureError, AggregationError, MultiSignatureError, RegisterError, SignatureError,
 };
 pub use key_registration::{ClosedKeyRegistration, KeyRegistration};
 pub use parameters::Parameters;
@@ -143,6 +144,12 @@ pub type Stake = u64;
 /// Quorum index for signatures.
 /// An aggregate signature (`StmMultiSig`) must have at least `k` unique indices.
 pub type Index = u64;
+
+/// Mithril-stm error type
+pub type StmError = anyhow::Error;
+
+/// Mithril-stm result type
+pub type StmResult<T> = anyhow::Result<T, StmError>;
 
 // Aliases
 #[deprecated(since = "0.5.0", note = "Use `AggregateSignature` instead")]

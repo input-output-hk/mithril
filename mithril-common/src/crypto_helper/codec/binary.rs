@@ -61,7 +61,7 @@ mod binary_mithril_stm {
 
     impl TryFromBytes for SingleSignature {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
-            Self::from_bytes::<D>(bytes).map_err(|e| e.into())
+            Self::from_bytes::<D>(bytes)
         }
     }
 
@@ -73,7 +73,7 @@ mod binary_mithril_stm {
 
     impl TryFromBytes for SingleSignatureWithRegisteredParty {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
-            Self::from_bytes::<D>(bytes).map_err(|e| e.into())
+            Self::from_bytes::<D>(bytes)
         }
     }
 
@@ -97,7 +97,7 @@ mod binary_mithril_stm {
 
     impl TryFromBytes for VerificationKey {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
-            Self::from_bytes(bytes).map_err(|e| e.into())
+            Self::from_bytes(bytes)
         }
     }
 
@@ -109,7 +109,7 @@ mod binary_mithril_stm {
 
     impl TryFromBytes for VerificationKeyProofOfPossession {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
-            Self::from_bytes(bytes).map_err(|e| e.into())
+            Self::from_bytes(bytes)
         }
     }
 
@@ -139,7 +139,7 @@ mod binary_mithril_stm {
 
     impl TryFromBytes for Initializer {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
-            Self::from_bytes(bytes).map_err(|e| e.into())
+            Self::from_bytes(bytes)
         }
     }
 }

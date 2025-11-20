@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use std::{
     cmp::Ordering,
     fmt::{Display, Formatter},
@@ -11,10 +12,13 @@ use blst::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::bls_multi_signature::{
-    BlsProofOfPossession, BlsSigningKey, POP, helper::unsafe_helpers::verify_pairing,
+use crate::error::{MultiSignatureError, blst_error_to_stm_error};
+use crate::{
+    StmResult,
+    bls_multi_signature::{
+        BlsProofOfPossession, BlsSigningKey, POP, helper::unsafe_helpers::verify_pairing,
+    },
 };
-use crate::error::{MultiSignatureError, blst_err_to_mithril};
 
 /// MultiSig verification key, which is a wrapper over the BlstVk (element in G2)
 /// from the blst library.
@@ -32,11 +36,11 @@ impl BlsVerificationKey {
     /// # Error
     /// This function fails if the bytes do not represent a compressed point of the prime
     /// order subgroup of the curve Bls12-381.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
+    pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let bytes = bytes.get(..96).ok_or(MultiSignatureError::SerializationError)?;
         match BlstVk::key_validate(bytes) {
             Ok(vk) => Ok(Self(vk)),
-            Err(e) => Err(blst_err_to_mithril(e, None, None)
+            Err(e) => Err(blst_error_to_stm_error(e, None, None)
                 .expect_err("If deserialization is not successful, blst returns and error different to SUCCESS."))
         }
     }
@@ -136,7 +140,7 @@ impl BlsVerificationKeyProofOfPossession {
     /// manually.
     // If we are really looking for performance improvements, we can combine the
     // two final exponentiations (for verifying k1 and k2) into a single one.
-    pub(crate) fn verify_proof_of_possession(&self) -> Result<(), MultiSignatureError> {
+    pub(crate) fn verify_proof_of_possession(&self) -> StmResult<()> {
         match self.vk.to_blst_verification_key().validate() {
             Ok(_) => {
                 let result = verify_pairing(&self.vk, &self.pop);
@@ -150,11 +154,11 @@ impl BlsVerificationKeyProofOfPossession {
                 ) == BLST_ERROR::BLST_SUCCESS
                     && result)
                 {
-                    return Err(MultiSignatureError::KeyInvalid(Box::new(*self)));
+                    return Err(anyhow!(MultiSignatureError::KeyInvalid(Box::new(*self))));
                 }
                 Ok(())
             }
-            Err(e) => blst_err_to_mithril(e, None, Some(self.vk)),
+            Err(e) => blst_error_to_stm_error(e, None, Some(self.vk)),
         }
     }
 
@@ -168,7 +172,7 @@ impl BlsVerificationKeyProofOfPossession {
         since = "0.5.0",
         note = "The verification of the proof of possession is not part of the public API any more"
     )]
-    pub fn check(&self) -> Result<(), MultiSignatureError> {
+    pub fn check(&self) -> StmResult<()> {
         Self::verify_proof_of_possession(self)
     }
 
@@ -186,7 +190,7 @@ impl BlsVerificationKeyProofOfPossession {
     }
 
     /// Deserialize a byte string to a `BlsVerificationKeyProofOfPossession`.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
+    pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let mvk = BlsVerificationKey::from_bytes(
             bytes.get(..96).ok_or(MultiSignatureError::SerializationError)?,
         )?;
