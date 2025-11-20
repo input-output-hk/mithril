@@ -1,7 +1,7 @@
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
-use crate::merkle_tree::{MerkleBatchPath, MerkleTreeBatchCommitment};
+use crate::membership_commitment::{MerkleBatchPath, MerkleTreeBatchCommitment};
 use crate::{ClosedKeyRegistration, Stake};
 
 /// Stm aggregate key (batch compatible), which contains the merkle tree commitment and the total stake of the system.

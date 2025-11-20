@@ -28,7 +28,7 @@ mod tests {
         Initializer, KeyRegistration, Parameters, Signer, SingleSignature,
         SingleSignatureWithRegisteredParty, Stake, bls_multi_signature::BlsVerificationKey,
     };
-    use crate::{StmResult, merkle_tree::MerkleBatchPath};
+    use crate::{StmResult, membership_commitment::MerkleBatchPath};
 
     type Sig = AggregateSignature<D>;
     type D = Blake2b<U32>;

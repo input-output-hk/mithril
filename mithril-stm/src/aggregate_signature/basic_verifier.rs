@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::bls_multi_signature::{BlsSignature, BlsVerificationKey};
 use crate::key_registration::RegisteredParty;
-use crate::merkle_tree::MerkleTreeLeaf;
+use crate::membership_commitment::MerkleTreeLeaf;
 use crate::{
     AggregationError, Index, Parameters, SingleSignature, SingleSignatureWithRegisteredParty,
     Stake, StmResult,

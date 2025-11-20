@@ -7,7 +7,7 @@ use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
 use crate::error::AggregateSignatureError;
-use crate::merkle_tree::MerkleBatchPath;
+use crate::membership_commitment::MerkleBatchPath;
 use crate::{AggregateVerificationKey, Parameters, StmResult};
 
 use super::ConcatenationProof;

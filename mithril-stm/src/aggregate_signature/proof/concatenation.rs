@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::aggregate_signature::clerk::Clerk;
 use crate::bls_multi_signature::{BlsSignature, BlsVerificationKey};
 use crate::key_registration::RegisteredParty;
-use crate::merkle_tree::MerkleBatchPath;
+use crate::membership_commitment::MerkleBatchPath;
 use crate::{
     AggregateSignatureError, AggregateVerificationKey, BasicVerifier, Parameters, SingleSignature,
     SingleSignatureWithRegisteredParty, StmResult,

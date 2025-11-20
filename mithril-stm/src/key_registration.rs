@@ -9,7 +9,7 @@ use blake2::digest::{Digest, FixedOutput};
 
 use crate::bls_multi_signature::{BlsVerificationKey, BlsVerificationKeyProofOfPossession};
 use crate::error::RegisterError;
-use crate::merkle_tree::{MerkleTree, MerkleTreeLeaf};
+use crate::membership_commitment::{MerkleTree, MerkleTreeLeaf};
 use crate::{Stake, StmResult};
 
 /// Stores a registered party with its public key and the associated stake.

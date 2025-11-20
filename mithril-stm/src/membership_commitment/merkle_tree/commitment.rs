@@ -5,7 +5,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::StmResult;
 use crate::error::MerkleTreeError;
-use crate::merkle_tree::{MerkleBatchPath, MerklePath, MerkleTreeLeaf, parent, sibling};
+use crate::membership_commitment::merkle_tree::{
+    MerkleBatchPath, MerklePath, MerkleTreeLeaf, parent, sibling,
+};
 use anyhow::{Context, anyhow};
 /// `MerkleTree` commitment.
 /// This structure differs from `MerkleTree` in that it does not contain all elements, which are not always necessary.

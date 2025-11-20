@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::StmResult;
 use crate::error::MerkleTreeError;
-use crate::merkle_tree::{
+use crate::membership_commitment::merkle_tree::{
     MerkleBatchPath, MerklePath, MerkleTreeBatchCommitment, MerkleTreeCommitment, MerkleTreeLeaf,
     left_child, parent, right_child, sibling,
 };
