@@ -118,6 +118,7 @@ mod key_registration;
 mod membership_commitment;
 mod parameters;
 mod participant;
+mod proof_system;
 mod signature_scheme;
 mod single_signature;
 

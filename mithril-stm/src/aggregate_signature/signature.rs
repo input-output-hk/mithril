@@ -8,9 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::AggregateSignatureError;
 use crate::membership_commitment::MerkleBatchPath;
-use crate::{AggregateVerificationKey, Parameters, StmResult};
-
-use super::ConcatenationProof;
+use crate::{AggregateVerificationKey, Parameters, StmResult, proof_system::ConcatenationProof};
 
 /// The type of STM aggregate signature.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
