@@ -9,6 +9,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
+- Support for removal of `cardano_transactions_signing_config` from the diffused mithril network configuration.
+
 - Decentralization of the configuration parameters of Mithril networks:
   - Added the `/protocol-configuration/{epoch}` route to fetch aggregator configuration for a given epoch, `{epoch}` must be a number.
   - Refactor Signer and Aggregator (leader, follower) to read network configurations from a `MithrilNetworkConfigurationProvider`
