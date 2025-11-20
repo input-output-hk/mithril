@@ -95,9 +95,9 @@ mod tests {
     use rand_core::{RngCore, SeedableRng};
 
     use crate::RegisterError;
-    use crate::bls_multi_signature::helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk};
     use crate::error::MultiSignatureError;
     use crate::key_registration::KeyRegistration;
+    use crate::signature_scheme::helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk};
 
     use super::*;
 

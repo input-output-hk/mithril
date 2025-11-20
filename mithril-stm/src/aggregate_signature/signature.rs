@@ -7,10 +7,8 @@ use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
 use crate::error::AggregateSignatureError;
-use crate::merkle_tree::MerkleBatchPath;
-use crate::{AggregateVerificationKey, Parameters, StmResult};
-
-use super::ConcatenationProof;
+use crate::membership_commitment::MerkleBatchPath;
+use crate::{AggregateVerificationKey, Parameters, StmResult, proof_system::ConcatenationProof};
 
 /// The type of STM aggregate signature.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -211,7 +209,7 @@ mod tests {
         use rand_chacha::ChaCha20Rng;
         use rand_core::SeedableRng;
 
-        use crate::bls_multi_signature::{BlsSigningKey, BlsVerificationKeyProofOfPossession};
+        use crate::signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession};
         use crate::{
             AggregateSignature, AggregateSignatureType, Clerk, ClosedKeyRegistration,
             KeyRegistration, Parameters, Signer,

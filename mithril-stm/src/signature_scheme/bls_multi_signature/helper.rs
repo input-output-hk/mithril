@@ -11,7 +11,7 @@ pub(crate) mod unsafe_helpers {
     use crate::error::MultiSignatureError::SerializationError;
     use crate::{
         StmResult,
-        bls_multi_signature::{BlsProofOfPossession, BlsVerificationKey},
+        signature_scheme::{BlsProofOfPossession, BlsVerificationKey},
     };
 
     /// Check manually if the pairing `e(g1,mvk) = e(k2,g2)` holds.

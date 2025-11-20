@@ -4,7 +4,7 @@ use blst::BLST_ERROR;
 
 use crate::StmResult;
 use crate::aggregate_signature::AggregateSignatureType;
-use crate::bls_multi_signature::{
+use crate::signature_scheme::{
     BlsSignature, BlsVerificationKey, BlsVerificationKeyProofOfPossession,
 };
 

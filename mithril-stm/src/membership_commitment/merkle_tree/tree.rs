@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::StmResult;
 use crate::error::MerkleTreeError;
-use crate::merkle_tree::{
+use crate::membership_commitment::merkle_tree::{
     MerkleBatchPath, MerklePath, MerkleTreeBatchCommitment, MerkleTreeCommitment, MerkleTreeLeaf,
     left_child, parent, right_child, sibling,
 };
@@ -270,7 +270,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bls_multi_signature::BlsVerificationKey;
+    use crate::signature_scheme::BlsVerificationKey;
     use blake2::{Blake2b, digest::consts::U32};
     use proptest::collection::vec;
     use proptest::prelude::*;

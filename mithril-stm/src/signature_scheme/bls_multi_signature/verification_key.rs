@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::{MultiSignatureError, blst_error_to_stm_error};
 use crate::{
     StmResult,
-    bls_multi_signature::{
+    signature_scheme::{
         BlsProofOfPossession, BlsSigningKey, POP, helper::unsafe_helpers::verify_pairing,
     },
 };

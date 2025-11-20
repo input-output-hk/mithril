@@ -60,7 +60,7 @@ mod tests {
         use rand_chacha::ChaCha20Rng;
         use rand_core::SeedableRng;
 
-        use crate::bls_multi_signature::{BlsSigningKey, BlsVerificationKeyProofOfPossession};
+        use crate::signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession};
         use crate::{
             ClosedKeyRegistration, KeyRegistration, Parameters, Signer,
             SingleSignatureWithRegisteredParty,

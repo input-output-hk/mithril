@@ -1,7 +1,7 @@
 use crate::{
     AggregateSignature, AggregateSignatureType, AggregateVerificationKey, ClosedKeyRegistration,
     Index, Parameters, Signer, SingleSignature, Stake, StmResult, VerificationKey,
-    aggregate_signature::ConcatenationProof,
+    proof_system::ConcatenationProof,
 };
 use anyhow::Context;
 use blake2::digest::{Digest, FixedOutput};

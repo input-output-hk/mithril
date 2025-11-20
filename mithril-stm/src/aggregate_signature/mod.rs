@@ -1,13 +1,11 @@
 mod aggregate_key;
 mod basic_verifier;
 mod clerk;
-mod proof;
 mod signature;
 
 pub use aggregate_key::*;
 pub use basic_verifier::*;
 pub use clerk::*;
-pub use proof::*;
 pub use signature::*;
 
 #[cfg(test)]
@@ -26,9 +24,9 @@ mod tests {
     use crate::{
         AggregateSignature, AggregateSignatureType, AggregationError, BasicVerifier, Clerk,
         Initializer, KeyRegistration, Parameters, Signer, SingleSignature,
-        SingleSignatureWithRegisteredParty, Stake, bls_multi_signature::BlsVerificationKey,
+        SingleSignatureWithRegisteredParty, Stake, signature_scheme::BlsVerificationKey,
     };
-    use crate::{StmResult, merkle_tree::MerkleBatchPath};
+    use crate::{StmResult, membership_commitment::MerkleBatchPath};
 
     type Sig = AggregateSignature<D>;
     type D = Blake2b<U32>;

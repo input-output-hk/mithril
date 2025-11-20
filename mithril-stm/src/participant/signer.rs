@@ -1,8 +1,8 @@
 use blake2::digest::{Digest, FixedOutput};
 
-use crate::bls_multi_signature::{BlsSignature, BlsSigningKey, BlsVerificationKey};
 use crate::eligibility_check::is_lottery_won;
 use crate::key_registration::ClosedKeyRegistration;
+use crate::signature_scheme::{BlsSignature, BlsSigningKey, BlsVerificationKey};
 use crate::{Parameters, SingleSignature, Stake};
 
 /// Wrapper of the MultiSignature Verification key
