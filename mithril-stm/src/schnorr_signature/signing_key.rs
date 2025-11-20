@@ -12,8 +12,7 @@ use crate::{
     StmResult,
     error::SchnorrSignatureError,
     schnorr_signature::{
-        DST_SIGNATURE, SchnorrSignature, SchnorrVerificationKey, get_coordinates_extended,
-        get_coordinates_subgroup,
+        DST_SIGNATURE, SchnorrSignature, SchnorrVerificationKey, get_coordinates_several_points,
     },
 };
 
@@ -68,28 +67,19 @@ impl SchnorrSigningKey {
 
         // Since the hash function takes as input scalar elements
         // We need to convert the EC points to their coordinates
-        let (msg_hash_x, msg_hash_y) = get_coordinates_extended(msg_hash);
-        let (verification_key_x, verification_key_y) = get_coordinates_subgroup(verification_key.0);
-        let (sigma_x, sigma_y) = get_coordinates_extended(sigma);
-        let (random_point_1_x, random_point_1_y) = get_coordinates_extended(random_point_1);
-        let (random_point_2_x, random_point_2_y) = get_coordinates_subgroup(random_point_2);
+        // The order must be preserved
+        let points_coordinates = get_coordinates_several_points(&[
+            msg_hash,
+            verification_key.0.into(),
+            sigma,
+            random_point_1,
+            random_point_2.into(),
+        ]);
 
-        let challenge = Hash::digest_truncated(
-            Domain::Other,
-            &[
-                DST_SIGNATURE,
-                msg_hash_x,
-                msg_hash_y,
-                verification_key_x,
-                verification_key_y,
-                sigma_x,
-                sigma_y,
-                random_point_1_x,
-                random_point_1_y,
-                random_point_2_x,
-                random_point_2_y,
-            ],
-        )[0];
+        let mut poseidon_input = vec![DST_SIGNATURE];
+        poseidon_input.extend(points_coordinates);
+
+        let challenge = Hash::digest_truncated(Domain::Other, &poseidon_input)[0];
 
         let signature = random_scalar - challenge * self.0;
 

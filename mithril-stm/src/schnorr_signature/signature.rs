@@ -9,9 +9,7 @@ use group::{Group, GroupEncoding};
 use crate::{
     StmResult,
     error::SchnorrSignatureError,
-    schnorr_signature::{
-        DST_SIGNATURE, SchnorrVerificationKey, get_coordinates_extended, get_coordinates_subgroup,
-    },
+    schnorr_signature::{DST_SIGNATURE, SchnorrVerificationKey, get_coordinates_several_points},
 };
 
 /// Structure of the Schnorr signature to use with the SNARK
@@ -68,30 +66,18 @@ impl SchnorrSignature {
 
         // Since the hash function takes as input scalar elements
         // We need to convert the EC points to their coordinates
-        let (msg_hash_x, msg_hash_y) = get_coordinates_extended(msg_hash);
-        let (verification_key_x, verification_key_y) = get_coordinates_subgroup(verification_key.0);
-        let (sigma_x, sigma_y) = get_coordinates_extended(self.sigma);
-        let (random_point_1_recomputed_x, random_point_1_recomputed_y) =
-            get_coordinates_extended(random_point_1_recomputed);
-        let (random_point_2_recomputed_x, random_point_2_recomputed_y) =
-            get_coordinates_subgroup(random_point_2_recomputed);
+        let points_coordinates = get_coordinates_several_points(&[
+            msg_hash,
+            verification_key.0.into(),
+            self.sigma,
+            random_point_1_recomputed,
+            random_point_2_recomputed.into(),
+        ]);
 
-        let challenge_recomputed = Hash::digest_truncated(
-            Domain::Other,
-            &[
-                DST_SIGNATURE,
-                msg_hash_x,
-                msg_hash_y,
-                verification_key_x,
-                verification_key_y,
-                sigma_x,
-                sigma_y,
-                random_point_1_recomputed_x,
-                random_point_1_recomputed_y,
-                random_point_2_recomputed_x,
-                random_point_2_recomputed_y,
-            ],
-        )[0];
+        let mut poseidon_input = vec![DST_SIGNATURE];
+        poseidon_input.extend(points_coordinates);
+
+        let challenge_recomputed = Hash::digest_truncated(Domain::Other, &poseidon_input)[0];
 
         if challenge_recomputed != self.challenge {
             return Err(anyhow!(SchnorrSignatureError::SignatureInvalid(Box::new(

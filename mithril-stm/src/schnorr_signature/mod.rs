@@ -48,7 +48,7 @@ mod tests {
         let mut rng = ChaCha20Rng::from_seed(seed);
         let point = JubjubSubgroup::random(&mut rng);
 
-        let (_x, _y) = get_coordinates_subgroup(point);
+        let (_x, _y) = get_coordinates_extended(point.into());
     }
 
     #[test]

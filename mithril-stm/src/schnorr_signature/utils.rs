@@ -1,6 +1,6 @@
 use dusk_jubjub::{
     AffinePoint as JubjubAffine, ExtendedPoint as JubjubExtended, Fq as JubjubBase,
-    Fr as JubjubScalar, SubgroupPoint as JubjubSubgroup,
+    Fr as JubjubScalar,
 };
 
 use sha2::{Digest, Sha256};
@@ -44,16 +44,20 @@ pub fn get_coordinates_extended(point: JubjubExtended) -> (JubjubBase, JubjubBas
     (x_coordinate, y_coordinate)
 }
 
-/// Extract the coordinates of a given point a Subgroup form
+/// Extract the coordinates of given points in an Extended form
 ///
-/// This is mainly use to feed the Poseidon hash function
-pub fn get_coordinates_subgroup(point: JubjubSubgroup) -> (JubjubBase, JubjubBase) {
-    let point_extended_representation = JubjubExtended::from(point);
-    let point_affine_representation = JubjubAffine::from(point_extended_representation);
-    let x_coordinate = point_affine_representation.get_u();
-    let y_coordinate = point_affine_representation.get_v();
-
-    (x_coordinate, y_coordinate)
+/// This is mainly use to feed the Poseidon hash function, the order is maintained
+/// from input to output which is important for the hash function
+pub fn get_coordinates_several_points(points: &[JubjubExtended]) -> Vec<JubjubBase> {
+    let mut points_coordinates = vec![];
+    for p in points {
+        let point_affine_representation = JubjubAffine::from(p);
+        let x_coordinate = point_affine_representation.get_u();
+        let y_coordinate = point_affine_representation.get_v();
+        points_coordinates.push(x_coordinate);
+        points_coordinates.push(y_coordinate);
+    }
+    points_coordinates
 }
 
 /// Convert an element of the BLS12-381 base field to one of the Jubjub base field
