@@ -11,10 +11,14 @@ use crate::{StmResult, error::SchnorrSignatureError};
 pub struct SchnorrVerificationKey(pub(crate) JubjubSubgroup);
 
 impl SchnorrVerificationKey {
+    /// Convert a `SchnorrVerificationKey` into a string of bytes.
     pub(crate) fn to_bytes(self) -> [u8; 32] {
         self.0.to_bytes()
     }
 
+    /// Convert a string of bytes into a `SchnorrVerificationKey`.
+    ///
+    /// The bytes must represent a Jubjub Subgroup point or the conversion will fail
     pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let mut verification_key_bytes: [u8; 32] = [0u8; 32];
         verification_key_bytes.copy_from_slice(

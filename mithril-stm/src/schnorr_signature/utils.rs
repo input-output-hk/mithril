@@ -33,7 +33,7 @@ pub fn hash_msg_to_jubjubbase(msg: &[u8]) -> StmResult<JubjubBase> {
     ]))
 }
 
-/// Extract the coordinates of a given point
+/// Extract the coordinates of a given point in an Extended form
 ///
 /// This is mainly use to feed the Poseidon hash function
 pub fn get_coordinates_extended(point: JubjubExtended) -> (JubjubBase, JubjubBase) {
@@ -44,6 +44,9 @@ pub fn get_coordinates_extended(point: JubjubExtended) -> (JubjubBase, JubjubBas
     (x_coordinate, y_coordinate)
 }
 
+/// Extract the coordinates of a given point a Subgroup form
+///
+/// This is mainly use to feed the Poseidon hash function
 pub fn get_coordinates_subgroup(point: JubjubSubgroup) -> (JubjubBase, JubjubBase) {
     let point_extended_representation = JubjubExtended::from(point);
     let point_affine_representation = JubjubAffine::from(point_extended_representation);

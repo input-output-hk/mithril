@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 
 use dusk_jubjub::{
     ExtendedPoint as JubjubExtended, Fr as JubjubScalar, SubgroupPoint as JubjubSubgroup,
@@ -31,8 +31,6 @@ pub struct SchnorrSignature {
 }
 
 impl SchnorrSignature {
-    /// Description of the verification for Schnorr
-    ///
     /// This function performs the verification of a Schnorr signature given the signature, the signed message
     /// and a verification key derived from the secret key used to sign.
     ///
@@ -40,24 +38,17 @@ impl SchnorrSignature {
     ///     - a Schnorr signature
     ///     - a message: some bytes
     ///     - a verification key: a value depending on the secret key
-    ///
     /// Output:
     ///     - Ok(()) if the signature verifies and an error if not
     ///
-    /// Description of the verification algorithm:
+    /// The protocol computes:
+    ///     - msg_hash = H(Sha256(msg))
+    ///     - random_point_1_recomputed = msg_hash * signature + sigma * challenge
+    ///     - random_point_2_recomputed = generator * signature + verification_key * challenge
+    ///     - challenge_recomputed = Poseidon(DST || H(Sha256(msg)) || verification_key
+    ///     || sigma || random_point_1_recomputed || random_point_2_recomputed)
     ///
-    /// The verification algorithm follows the verification protocol of the Schnorr signature. It consists in
-    /// recomputing the challenge value based on the value of the signature and checking the equality between
-    /// the recomputed challenge and the one present in the Schnorr Signature.
-    ///
-    /// The step are the following:
-    ///     - Compute the Hash of the message: H(Sha256(msg))
-    ///     - Recompute the value R1 as: r1_tilde = h * s + sigma * c
-    ///     - Recompute the value R2 as: r2_tilde = g * s + vk * c
-    ///     - Use the recomputed values to recompute the Poseidon hash:
-    /// c_tilde = Poseidon(DST || H(Sha256(msg)) || vk || sigma || R1 || R2), where each elliptic curve  point is converted
-    /// to their coordinates representation to feed them to the hash function.
-    ///     - Check: c == c_tilde
+    /// Check: challenge == challenge_recomputed
     ///     
     pub fn verify(&self, msg: &[u8], verification_key: &SchnorrVerificationKey) -> StmResult<()> {
         let generator = JubjubSubgroup::generator();
@@ -75,6 +66,8 @@ impl SchnorrSignature {
         let vk_times_challenge = verification_key.0 * self.challenge;
         let random_point_2_recomputed = generator_times_signature + vk_times_challenge;
 
+        // Since the hash function takes as input scalar elements
+        // We need to convert the EC points to their coordinates
         let (msg_hash_x, msg_hash_y) = get_coordinates_extended(msg_hash);
         let (verification_key_x, verification_key_y) = get_coordinates_subgroup(verification_key.0);
         let (sigma_x, sigma_y) = get_coordinates_extended(self.sigma);
@@ -101,8 +94,9 @@ impl SchnorrSignature {
         )[0];
 
         if challenge_recomputed != self.challenge {
-            // TODO: Wrong error for now, need to change that once the errors are added
-            return Err(anyhow!(SchnorrSignatureError::SignatureInvalid(Box::new(*self))));
+            return Err(anyhow!(SchnorrSignatureError::SignatureInvalid(Box::new(
+                *self
+            ))));
         }
 
         Ok(())
@@ -128,28 +122,40 @@ impl SchnorrSignature {
                 .get(0..32)
                 .ok_or(anyhow!(SchnorrSignatureError::SerializationError))?,
         );
+        let sigma = if let Some(s) = JubjubExtended::from_bytes(&sigma_bytes).into_option() {
+            s
+        } else {
+            return Err(anyhow!(SchnorrSignatureError::SerializationError))
+                .with_context(|| "Unable to convert bytes into a sigma value.");
+        };
+
         let mut signature_bytes: [u8; 32] = [0u8; 32];
         signature_bytes.copy_from_slice(
             bytes
                 .get(32..64)
                 .ok_or(anyhow!(SchnorrSignatureError::SerializationError))?,
         );
+        let signature = if let Some(sig) = JubjubScalar::from_bytes(&signature_bytes).into_option()
+        {
+            sig
+        } else {
+            return Err(anyhow!(SchnorrSignatureError::SerializationError))
+                .with_context(|| "Unable to convert bytes into a signature value.");
+        };
+
         let mut challenge_bytes: [u8; 32] = [0u8; 32];
         challenge_bytes.copy_from_slice(
             bytes
                 .get(64..96)
                 .ok_or(anyhow!(SchnorrSignatureError::SerializationError))?,
         );
-
-        let sigma = JubjubExtended::from_bytes(&sigma_bytes)
-            .into_option()
-            .ok_or(anyhow!("Unable to convert bytes into a sigma value."))?;
-        let signature = JubjubScalar::from_bytes(&signature_bytes)
-            .into_option()
-            .ok_or(anyhow!("Unable to convert bytes into an s value."))?;
-        let challenge = JubjubScalar::from_bytes(&challenge_bytes)
-            .into_option()
-            .ok_or(anyhow!("Unable to convert bytes into a c value."))?;
+        let challenge = if let Some(chal) = JubjubScalar::from_bytes(&challenge_bytes).into_option()
+        {
+            chal
+        } else {
+            return Err(anyhow!(SchnorrSignatureError::SerializationError))
+                .with_context(|| "Unable to convert bytes into a signature value.");
+        };
 
         Ok(Self {
             sigma,

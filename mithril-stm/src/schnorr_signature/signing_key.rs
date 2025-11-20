@@ -30,40 +30,21 @@ impl SchnorrSigningKey {
     /// This function is an adapted version of the Schnorr signature scheme
     /// and works with the Jubjub elliptic curve and the Poseidon hash function.
     ///
-    /// The scheme works as follows:
     /// Input:
     ///     - a message: some bytes
     ///     - a secret key: a element of the scalar field of the Jubjub curve
-    ///     - a verification key: a value depending on the secret key
     /// Output:
     ///     - a signature of the form (sigma, signature, challenge) where sigma is deterministic based
     /// on the message and the secret key and the signature and challenge are computed using randomness
     ///
-    /// The protocol:
-    ///
-    /// The signature follows closely the regular Schnorr signature computation but uses elliptic curve
-    /// based computation (without pairings). The first step is the convert the message bytes into a point
-    /// on the elliptic curve. This is done by hashing the bytes, using for example Sha2, to a 256 bits value
-    /// that can be converted to a scalar of the BLS12-381 field. This scalar is converted to a point on the
-    /// elliptic curve using the `hash_to_curve` function. This allows to compute the deterministic value
-    /// sigma = H(Sha256(msg)) * secret_key which is needed later in the Mithril protocol.
-    ///
-    /// The rest of the protocol follows the regular Schnorr signature:
-    ///     - Choose a random value r, here is the scalar field of Jubjub
-    ///     - Compute two values based on r:
-    ///         - R1 = H(Sha256(msg)) * r
-    ///         - R2 = g * r, where g is a generator of the prime-order subgroup of Jubjub
-    ///     - Compute the challenge, that does not depend on sk, as:
-    ///         - challenge = Poseidon(DST || H(Sha256(msg)) || vk || sigma || R1 || R2), since the Poseidon
-    /// hash function takes as input element of the scalar field of BLS21-381, we need to convert
-    /// the elliptic curve points to their coordinates representation to feed them to the hash function.
-    ///     - Convert the challenge into an element of the scalar field of Jubjub and compute:
-    ///         - signature = r - challenge * sk
-    ///     - Output the signature (sigma, signature, challenge)
-    ///
-    /// The verification algorithm consists in recomputing the challenge from the signature value and
-    /// checking it matches the challenge value in the Schnorr signature. It is described in more
-    /// details in the implementation of the SchnorrSignature.
+    /// The protocol computes:
+    /// - sigma = H(Sha256(msg)) * secret_key
+    /// - random_scalar, a random value
+    /// - random_point_1 = H(Sha256(msg)) * random_scalar
+    /// - random_point_2 = g * random_scalar, where g is a generator of the prime-order subgroup of Jubjub
+    /// - challenge = Poseidon(DST || H(Sha256(msg)) || vk || sigma || R1 || R2)
+    /// - signature = random_scalar - challenge * signing_key
+    /// - Output the signature (sigma, signature, challenge)
     ///
     pub fn sign(
         &self,
@@ -119,6 +100,7 @@ impl SchnorrSigningKey {
         })
     }
 
+    /// Convert a `SchnorrSigningKey` into a string of bytes.
     pub(crate) fn to_bytes(&self) -> [u8; 32] {
         self.0.to_bytes()
     }
@@ -142,7 +124,6 @@ impl SchnorrSigningKey {
     }
 }
 
-//
 #[cfg(test)]
 mod tests {
     pub(crate) use super::*;
