@@ -116,46 +116,37 @@ impl SchnorrSignature {
     ///
     /// Not sure the sigma, s and c creation can fail if the 96 bytes are correctly extracted.
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
-        let mut sigma_bytes: [u8; 32] = [0u8; 32];
-        sigma_bytes.copy_from_slice(
-            bytes
-                .get(0..32)
-                .ok_or(anyhow!(SchnorrSignatureError::SerializationError))?,
-        );
-        let sigma = if let Some(s) = JubjubExtended::from_bytes(&sigma_bytes).into_option() {
-            s
-        } else {
+        if bytes.len() < 96 {
             return Err(anyhow!(SchnorrSignatureError::SerializationError))
-                .with_context(|| "Unable to convert bytes into a sigma value.");
-        };
+                .with_context(|| "Not enough bytes provided.");
+        }
 
-        let mut signature_bytes: [u8; 32] = [0u8; 32];
-        signature_bytes.copy_from_slice(
-            bytes
-                .get(32..64)
-                .ok_or(anyhow!(SchnorrSignatureError::SerializationError))?,
-        );
-        let signature = if let Some(sig) = JubjubScalar::from_bytes(&signature_bytes).into_option()
-        {
-            sig
-        } else {
-            return Err(anyhow!(SchnorrSignatureError::SerializationError))
-                .with_context(|| "Unable to convert bytes into a signature value.");
-        };
+        let sigma_bytes = bytes[0..32]
+            .try_into()
+            .map_err(|_| anyhow!(SchnorrSignatureError::SerializationError))
+            .with_context(|| "Failed to obtain sigma's bytes.")?;
+        let sigma = JubjubExtended::from_bytes(&sigma_bytes)
+            .into_option()
+            .ok_or(anyhow!(SchnorrSignatureError::SerializationError))
+            .with_context(|| "Unable to convert bytes into a sigma value.")?;
 
-        let mut challenge_bytes: [u8; 32] = [0u8; 32];
-        challenge_bytes.copy_from_slice(
-            bytes
-                .get(64..96)
-                .ok_or(anyhow!(SchnorrSignatureError::SerializationError))?,
-        );
-        let challenge = if let Some(chal) = JubjubScalar::from_bytes(&challenge_bytes).into_option()
-        {
-            chal
-        } else {
-            return Err(anyhow!(SchnorrSignatureError::SerializationError))
-                .with_context(|| "Unable to convert bytes into a signature value.");
-        };
+        let signature_bytes = bytes[64..96]
+            .try_into()
+            .map_err(|_| anyhow!(SchnorrSignatureError::SerializationError))
+            .with_context(|| "Failed to obtain signature's bytes.")?;
+        let signature = JubjubScalar::from_bytes(&signature_bytes)
+            .into_option()
+            .ok_or(anyhow!(SchnorrSignatureError::SerializationError))
+            .with_context(|| "Unable to convert bytes into a signature value.")?;
+
+        let challenge_bytes = bytes[64..96]
+            .try_into()
+            .map_err(|_| anyhow!(SchnorrSignatureError::SerializationError))
+            .with_context(|| "Failed to obtain challenge's bytes.")?;
+        let challenge = JubjubScalar::from_bytes(&challenge_bytes)
+            .into_option()
+            .ok_or(anyhow!(SchnorrSignatureError::SerializationError))
+            .with_context(|| "Unable to convert bytes into a challenge value.")?;
 
         Ok(Self {
             sigma,

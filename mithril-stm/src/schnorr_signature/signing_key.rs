@@ -38,13 +38,14 @@ impl SchnorrSigningKey {
     /// on the message and the secret key and the signature and challenge are computed using randomness
     ///
     /// The protocol computes:
-    /// - sigma = H(Sha256(msg)) * secret_key
-    /// - random_scalar, a random value
-    /// - random_point_1 = H(Sha256(msg)) * random_scalar
-    /// - random_point_2 = g * random_scalar, where g is a generator of the prime-order subgroup of Jubjub
-    /// - challenge = Poseidon(DST || H(Sha256(msg)) || vk || sigma || R1 || R2)
-    /// - signature = random_scalar - challenge * signing_key
-    /// - Output the signature (sigma, signature, challenge)
+    ///     - sigma = H(Sha256(msg)) * secret_key
+    ///     - random_scalar, a random value
+    ///     - random_point_1 = H(Sha256(msg)) * random_scalar
+    ///     - random_point_2 = generator * random_scalar, where generator is a generator of the prime-order subgroup of Jubjub
+    ///     - challenge = Poseidon(DST || H(Sha256(msg)) || verification_key || sigma || random_point_1 || random_point_2)
+    ///     - signature = random_scalar - challenge * signing_key
+    ///
+    /// Output the signature (sigma, signature, challenge)
     ///
     pub fn sign(
         &self,
@@ -67,7 +68,6 @@ impl SchnorrSigningKey {
 
         // Since the hash function takes as input scalar elements
         // We need to convert the EC points to their coordinates
-        // I use gx and gy for now but maybe we can replace them by a DST?
         let (msg_hash_x, msg_hash_y) = get_coordinates_extended(msg_hash);
         let (verification_key_x, verification_key_y) = get_coordinates_subgroup(verification_key.0);
         let (sigma_x, sigma_y) = get_coordinates_extended(sigma);
