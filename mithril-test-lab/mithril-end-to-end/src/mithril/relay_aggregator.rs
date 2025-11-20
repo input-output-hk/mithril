@@ -1,9 +1,11 @@
-use crate::utils::MithrilCommand;
-use crate::{Aggregator, DEVNET_DMQ_MAGIC_ID};
-use mithril_common::StdResult;
 use std::collections::HashMap;
 use std::path::Path;
 use tokio::process::Child;
+
+use mithril_common::StdResult;
+
+use crate::utils::{MithrilCommand, NodeVersion};
+use crate::{Aggregator, DEVNET_DMQ_MAGIC_ID};
 
 #[derive(Debug)]
 pub struct RelayAggregator {
@@ -11,9 +13,12 @@ pub struct RelayAggregator {
     listen_port: u64,
     command: MithrilCommand,
     process: Option<Child>,
+    version: NodeVersion,
 }
 
 impl RelayAggregator {
+    const BIN_NAME: &'static str = "mithril-relay";
+
     pub fn new(
         index: usize,
         listen_port: u64,
@@ -23,6 +28,7 @@ impl RelayAggregator {
         bin_dir: &Path,
         use_dmq: bool,
     ) -> StdResult<Self> {
+        let version = NodeVersion::fetch(Self::BIN_NAME, bin_dir)?;
         let name = Aggregator::name_suffix(index);
         let listen_port_str = format!("{listen_port}");
         let dmq_magic_id = DEVNET_DMQ_MAGIC_ID.to_string();
@@ -44,7 +50,7 @@ impl RelayAggregator {
         }
         let args = vec!["-vvv", "aggregator"];
 
-        let mut command = MithrilCommand::new("mithril-relay", work_dir, bin_dir, env, &args)?;
+        let mut command = MithrilCommand::new(Self::BIN_NAME, work_dir, bin_dir, env, &args)?;
         command.set_log_name(&format!("mithril-relay-aggregator-{name}",));
 
         Ok(Self {
@@ -52,6 +58,7 @@ impl RelayAggregator {
             listen_port,
             command,
             process: None,
+            version,
         })
     }
 
@@ -61,6 +68,11 @@ impl RelayAggregator {
 
     pub fn name_suffix(&self) -> String {
         self.name_suffix.clone()
+    }
+
+    /// Get the version of the mithril-relay binary.
+    pub fn version(&self) -> &NodeVersion {
+        &self.version
     }
 
     pub fn start(&mut self) -> StdResult<()> {
