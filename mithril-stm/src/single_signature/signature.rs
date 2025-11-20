@@ -6,8 +6,8 @@ use std::{
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
-use crate::bls_multi_signature::BlsSignature;
 use crate::eligibility_check::is_lottery_won;
+use crate::signature_scheme::BlsSignature;
 use crate::{
     AggregateVerificationKey, Index, Parameters, SignatureError, Stake, StmResult, VerificationKey,
 };
@@ -207,7 +207,7 @@ mod tests {
         use rand_chacha::ChaCha20Rng;
         use rand_core::SeedableRng;
 
-        use crate::bls_multi_signature::{BlsSigningKey, BlsVerificationKeyProofOfPossession};
+        use crate::signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession};
         use crate::{ClosedKeyRegistration, KeyRegistration, Parameters, Signer, SingleSignature};
 
         type D = Blake2b<U32>;

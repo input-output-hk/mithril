@@ -26,7 +26,7 @@ mod tests {
     use crate::{
         AggregateSignature, AggregateSignatureType, AggregationError, BasicVerifier, Clerk,
         Initializer, KeyRegistration, Parameters, Signer, SingleSignature,
-        SingleSignatureWithRegisteredParty, Stake, bls_multi_signature::BlsVerificationKey,
+        SingleSignatureWithRegisteredParty, Stake, signature_scheme::BlsVerificationKey,
     };
     use crate::{StmResult, membership_commitment::MerkleBatchPath};
 

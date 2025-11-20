@@ -112,14 +112,13 @@
 //! ```
 
 mod aggregate_signature;
-mod bls_multi_signature;
 mod eligibility_check;
 mod error;
 mod key_registration;
 mod membership_commitment;
-// mod merkle_tree;
 mod parameters;
 mod participant;
+mod signature_scheme;
 mod single_signature;
 
 pub use aggregate_signature::{
@@ -134,7 +133,7 @@ pub use participant::{Initializer, Signer, VerificationKey, VerificationKeyProof
 pub use single_signature::{SingleSignature, SingleSignatureWithRegisteredParty};
 
 #[cfg(feature = "benchmark-internals")]
-pub use bls_multi_signature::{
+pub use signature_scheme::{
     BlsProofOfPossession, BlsSignature, BlsSigningKey, BlsVerificationKey,
     BlsVerificationKeyProofOfPossession,
 };

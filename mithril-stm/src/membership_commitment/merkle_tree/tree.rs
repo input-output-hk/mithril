@@ -270,7 +270,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bls_multi_signature::BlsVerificationKey;
+    use crate::signature_scheme::BlsVerificationKey;
     use blake2::{Blake2b, digest::consts::U32};
     use proptest::collection::vec;
     use proptest::prelude::*;

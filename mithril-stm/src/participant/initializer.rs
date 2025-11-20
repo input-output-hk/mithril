@@ -3,7 +3,7 @@ use digest::FixedOutput;
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 
-use crate::bls_multi_signature::{BlsSigningKey, BlsVerificationKeyProofOfPossession};
+use crate::signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession};
 use crate::{Parameters, RegisterError, Signer, Stake};
 use crate::{StmResult, key_registration::*};
 use anyhow::anyhow;
