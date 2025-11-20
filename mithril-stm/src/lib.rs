@@ -111,31 +111,18 @@
 //! # }
 //! ```
 
-mod aggregate_signature;
-mod bls_multi_signature;
-mod eligibility_check;
-mod error;
-mod key_registration;
-mod merkle_tree;
-mod parameters;
-mod participant;
+mod membership_commitment;
 #[cfg(feature = "future_snark")]
 mod schnorr_signature;
-mod single_signature;
 
-pub use aggregate_signature::{
-    AggregateSignature, AggregateSignatureType, AggregateVerificationKey, BasicVerifier, Clerk,
-};
-pub use error::{
-    AggregateSignatureError, AggregationError, MultiSignatureError, RegisterError, SignatureError,
-};
-pub use key_registration::{ClosedKeyRegistration, KeyRegistration};
-pub use parameters::Parameters;
-pub use participant::{Initializer, Signer, VerificationKey, VerificationKeyProofOfPossession};
-pub use single_signature::{SingleSignature, SingleSignatureWithRegisteredParty};
+mod proof_system;
+mod protocol;
+mod signature_scheme;
+
+pub use protocol::*;
 
 #[cfg(feature = "benchmark-internals")]
-pub use bls_multi_signature::{
+pub use signature_scheme::{
     BlsProofOfPossession, BlsSignature, BlsSigningKey, BlsVerificationKey,
     BlsVerificationKeyProofOfPossession,
 };
@@ -155,49 +142,3 @@ pub type StmError = anyhow::Error;
 
 /// Mithril-stm result type
 pub type StmResult<T> = anyhow::Result<T, StmError>;
-
-// Aliases
-#[deprecated(since = "0.5.0", note = "Use `AggregateSignature` instead")]
-pub use aggregate_signature::AggregateSignature as StmAggrSig;
-
-#[deprecated(since = "0.5.0", note = "Use `AggregateVerificationKey` instead")]
-pub use aggregate_signature::AggregateVerificationKey as StmAggrVerificationKey;
-
-#[deprecated(since = "0.5.0", note = "Use `Clerk` instead")]
-pub use aggregate_signature::Clerk as StmClerk;
-
-#[deprecated(since = "0.5.0", note = "Use `ClosedKeyRegistration` instead")]
-pub use key_registration::ClosedKeyRegistration as ClosedKeyReg;
-
-#[deprecated(since = "0.5.0", note = "Use `KeyRegistration` instead")]
-pub use key_registration::KeyRegistration as KeyReg;
-
-#[deprecated(since = "0.5.0", note = "Use `Parameters` instead")]
-pub use parameters::Parameters as StmParameters;
-
-#[deprecated(since = "0.5.0", note = "Use `Initializer` instead")]
-pub use participant::Initializer as StmInitializer;
-
-#[deprecated(since = "0.5.0", note = "Use `Signer` instead")]
-pub use participant::Signer as StmSigner;
-
-#[deprecated(since = "0.5.0", note = "Use `VerificationKey` instead")]
-pub use participant::VerificationKey as StmVerificationKey;
-
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `VerificationKeyProofOfPossession` instead"
-)]
-pub use participant::VerificationKeyProofOfPossession as StmVerificationKeyPoP;
-
-#[deprecated(since = "0.5.0", note = "Use `SingleSignature` instead")]
-pub use single_signature::SingleSignature as StmSig;
-
-#[deprecated(since = "0.5.0", note = "Use `BasicVerifier` instead")]
-pub use aggregate_signature::BasicVerifier as CoreVerifier;
-
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `SingleSignatureWithRegisteredParty` instead"
-)]
-pub use single_signature::SingleSignatureWithRegisteredParty as StmSigRegParty;
