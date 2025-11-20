@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["extract_item_by_epoch","extract_item_list_per_epoch","generate_artifact_getter","generate_artifact_per_epoch_getter","generate_epoch_array","generate_ids_array","generate_list_getter","list_json_files_in_folder"],"struct":["FakeAggregatorData"],"type":["ArtifactId","FileContent"]};
