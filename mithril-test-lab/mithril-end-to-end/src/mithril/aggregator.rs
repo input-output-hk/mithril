@@ -13,7 +13,7 @@ use tokio::sync::RwLock;
 use mithril_cardano_node_chain::chain_observer::{ChainObserver, PallasChainObserver};
 use mithril_common::{CardanoNetwork, StdResult, entities};
 
-use crate::utils::MithrilCommand;
+use crate::utils::{MithrilCommand, NodeVersion};
 use crate::{
     ANCILLARY_MANIFEST_SECRET_KEY, DEVNET_DMQ_MAGIC_ID, DEVNET_MAGIC_ID, DmqNodeFlavor,
     ERA_MARKERS_SECRET_KEY, ERA_MARKERS_VERIFICATION_KEY, FullNode, GENESIS_SECRET_KEY,
@@ -50,13 +50,18 @@ pub struct Aggregator {
     server_port: u64,
     db_directory: PathBuf,
     mithril_run_interval: u32,
+    version: NodeVersion,
     command: Arc<RwLock<MithrilCommand>>,
     process: RwLock<Option<Child>>,
     chain_observer: Arc<dyn ChainObserver>,
 }
 
 impl Aggregator {
+    const BIN_NAME: &'static str = "mithril-aggregator";
+
     pub fn new(aggregator_config: &AggregatorConfig) -> StdResult<Self> {
+        let version = NodeVersion::fetch(Self::BIN_NAME, aggregator_config.bin_dir)?;
+
         let magic_id = DEVNET_MAGIC_ID.to_string();
         let dmq_magic_id = DEVNET_DMQ_MAGIC_ID.to_string();
         let server_port_parameter = aggregator_config.server_port.to_string();
@@ -172,7 +177,7 @@ impl Aggregator {
         ];
 
         let command = MithrilCommand::new(
-            "mithril-aggregator",
+            Self::BIN_NAME,
             aggregator_config.work_dir,
             aggregator_config.bin_dir,
             env,
@@ -189,6 +194,7 @@ impl Aggregator {
             server_port: aggregator_config.server_port,
             db_directory: aggregator_config.full_node.db_path.clone(),
             mithril_run_interval: aggregator_config.mithril_run_interval,
+            version,
             command: Arc::new(RwLock::new(command)),
             process: RwLock::new(None),
             chain_observer,
@@ -206,6 +212,7 @@ impl Aggregator {
             server_port: other.server_port,
             db_directory: other.db_directory.clone(),
             mithril_run_interval: other.mithril_run_interval,
+            version: other.version.clone(),
             command: other.command.clone(),
             process: RwLock::new(None),
             chain_observer: other.chain_observer.clone(),
@@ -238,6 +245,11 @@ impl Aggregator {
 
     pub fn chain_observer(&self) -> Arc<dyn ChainObserver> {
         self.chain_observer.clone()
+    }
+
+    /// Get the version of the mithril-aggregator binary.
+    pub fn version(&self) -> &NodeVersion {
+        &self.version
     }
 
     pub async fn serve(&self) -> StdResult<()> {

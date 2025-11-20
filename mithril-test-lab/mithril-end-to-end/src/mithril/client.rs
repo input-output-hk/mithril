@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use mithril_common::StdResult;
 use mithril_common::entities::{EpochSpecifier, TransactionHash};
 
-use crate::utils::MithrilCommand;
+use crate::utils::{MithrilCommand, NodeVersion};
 use crate::{ANCILLARY_MANIFEST_VERIFICATION_KEY, GENESIS_VERIFICATION_KEY};
 
 #[derive(Debug)]
@@ -249,6 +249,8 @@ impl ClientCommand {
 }
 
 impl Client {
+    const BIN_NAME: &'static str = "mithril-client";
+
     pub fn new(aggregator_endpoint: String, work_dir: &Path, bin_dir: &Path) -> StdResult<Self> {
         let env = HashMap::from([
             ("GENESIS_VERIFICATION_KEY", GENESIS_VERIFICATION_KEY),
@@ -258,17 +260,19 @@ impl Client {
                 ANCILLARY_MANIFEST_VERIFICATION_KEY,
             ),
         ]);
-        let args = vec!["-vvv", "--origin-tag", "E2E"];
-        let command = MithrilCommand::new("mithril-client", work_dir, bin_dir, env, &args)?;
+        let version = NodeVersion::fetch(Self::BIN_NAME, bin_dir)?;
 
-        Ok(Self { command })
+        let args = vec!["-vvv", "--origin-tag", "E2E"];
+        let command = MithrilCommand::new(Self::BIN_NAME, work_dir, bin_dir, env, &args)?;
+
+        Ok(Self { command, version })
     }
 
     pub async fn run(&mut self, command: ClientCommand) -> StdResult<PathBuf> {
         let output_path = self
             .command
             .set_output_filename(&format!("mithril-client-{}", command.name()));
-        let args = command.cli_arg();
+        let args = command.cli_arg(self.version());
 
         let exit_status = self
             .command
@@ -289,5 +293,10 @@ impl Client {
                 None => anyhow!("mithril-client was terminated with a signal"),
             })
         }
+    }
+
+    /// Get the version of the mithril-client binary.
+    pub fn version(&self) -> &NodeVersion {
+        &self.version
     }
 }

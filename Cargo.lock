@@ -4091,6 +4091,7 @@ dependencies = [
  "mithril-common",
  "mithril-doc",
  "reqwest",
+ "semver",
  "serde",
  "serde_json",
  "slog",
