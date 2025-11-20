@@ -57,7 +57,7 @@ impl LocalMithrilNetworkConfigurationProvider {
             enabled_signed_entity_types: self.allowed_discriminants.clone(),
             protocol_parameters: epoch_settings.protocol_parameters,
             signed_entity_types_config: SignedEntityTypeConfiguration {
-                cardano_transactions: Some(epoch_settings.cardano_transactions_signing_config),
+                cardano_transactions: epoch_settings.cardano_transactions_signing_config,
             },
         })
     }
@@ -165,10 +165,10 @@ mod tests {
      {
         let local_configuration_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: ProtocolParameters::new(3000, 300, 0.3),
-            cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+            cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(3),
                 step: BlockNumber(30),
-            },
+            }),
         };
 
         // Nothing stored at 44, should fallback to configuration
@@ -180,20 +180,24 @@ mod tests {
                     Epoch(42),
                     AggregatorEpochSettings {
                         protocol_parameters: ProtocolParameters::new(1000, 100, 0.1),
-                        cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
-                            security_parameter: BlockNumber(1),
-                            step: BlockNumber(10),
-                        },
+                        cardano_transactions_signing_config: Some(
+                            CardanoTransactionsSigningConfig {
+                                security_parameter: BlockNumber(1),
+                                step: BlockNumber(10),
+                            },
+                        ),
                     },
                 ),
                 (
                     Epoch(43),
                     AggregatorEpochSettings {
                         protocol_parameters: ProtocolParameters::new(2000, 200, 0.2),
-                        cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
-                            security_parameter: BlockNumber(2),
-                            step: BlockNumber(20),
-                        },
+                        cardano_transactions_signing_config: Some(
+                            CardanoTransactionsSigningConfig {
+                                security_parameter: BlockNumber(2),
+                                step: BlockNumber(20),
+                            },
+                        ),
                     },
                 ),
             ])),

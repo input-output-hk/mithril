@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use async_trait::async_trait;
 use mithril_protocol_config::model::MithrilNetworkConfiguration;
 use slog::{Logger, debug, trace, warn};
@@ -308,15 +307,12 @@ impl SignerSignedEntityConfigProvider {
 impl SignedEntityConfigProvider for SignerSignedEntityConfigProvider {
     async fn get(&self) -> StdResult<SignedEntityConfig> {
         let epoch_service = self.epoch_service.read().await;
-        let cardano_transactions_signing_config =
-            match epoch_service.cardano_transactions_signing_config()? {
-                Some(config) => Ok(config.clone()),
-                None => Err(anyhow!("No cardano transaction signing config available")),
-            }?;
 
         Ok(SignedEntityConfig {
             allowed_discriminants: epoch_service.allowed_discriminants()?.clone(),
-            cardano_transactions_signing_config,
+            cardano_transactions_signing_config: epoch_service
+                .cardano_transactions_signing_config()?
+                .clone(),
         })
     }
 }
@@ -905,17 +901,19 @@ mod tests {
                 "Should fail since sources data are not set before the first inform_epoch_settings",
             );
         }
-        // Fail after `inform_epoch_settings` if `cardano_transactions_signing_config` is not set
+        // Success after `inform_epoch_settings` even if `cardano_transactions_signing_config` is not set
         {
             let signers = fake_data::signers(5);
             let current_signers = signers[1..3].to_vec();
             let next_signers = signers[2..5].to_vec();
+            let allowed_discriminants =
+                BTreeSet::from([SignedEntityTypeDiscriminants::CardanoStakeDistribution]);
 
             let configuration_for_aggregation = MithrilNetworkConfigurationForEpoch {
                 signed_entity_types_config: SignedEntityTypeConfiguration {
                     cardano_transactions: None,
                 },
-                enabled_signed_entity_types: BTreeSet::new(),
+                enabled_signed_entity_types: allowed_discriminants.clone(),
                 ..Dummy::dummy()
             };
             let configuration_for_next_aggregation = MithrilNetworkConfigurationForEpoch::dummy();
@@ -936,10 +934,15 @@ mod tests {
                 .await
                 .unwrap();
 
-            config_provider
-                .get()
-                .await
-                .expect_err("Should fail since cardano_transactions_signing_config is not set");
+            let config = config_provider.get().await.unwrap();
+
+            assert_eq!(
+                SignedEntityConfig {
+                    allowed_discriminants,
+                    cardano_transactions_signing_config: None,
+                },
+                config
+            );
         }
         // Success after `inform_epoch_settings` if `cardano_transactions_signing_config` is set
         {
@@ -975,7 +978,9 @@ mod tests {
             assert_eq!(
                 SignedEntityConfig {
                     allowed_discriminants,
-                    cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+                    cardano_transactions_signing_config: Some(
+                        CardanoTransactionsSigningConfig::dummy()
+                    ),
                 },
                 config
             );

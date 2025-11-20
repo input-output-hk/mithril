@@ -66,11 +66,6 @@ impl MithrilNetworkConfigurationProvider for HttpMithrilNetworkConfigurationProv
             ))?
             .into();
 
-        configuration_for_aggregation.signed_entity_types_config.cardano_transactions.clone()
-            .ok_or_else(|| {
-                anyhow!(format!("Cardano transactions signing config is missing in aggregation configuration for epoch {epoch}"))
-            })?;
-
         Ok(MithrilNetworkConfiguration {
             epoch,
             configuration_for_aggregation,

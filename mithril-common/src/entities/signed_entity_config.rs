@@ -15,7 +15,7 @@ pub struct SignedEntityConfig {
     /// List of discriminants that the node is allowed to sign
     pub allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
     /// Cardano transactions signing configuration
-    pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
+    pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
 }
 
 impl SignedEntityConfig {
@@ -66,11 +66,18 @@ impl SignedEntityConfig {
                 ))
             }
             SignedEntityTypeDiscriminants::CardanoTransactions => {
-                SignedEntityType::CardanoTransactions(
-                    time_point.epoch,
-                    self.cardano_transactions_signing_config
-                        .compute_block_number_to_be_signed(time_point.chain_point.block_number),
-                )
+                match &self.cardano_transactions_signing_config {
+                    Some(config) => SignedEntityType::CardanoTransactions(
+                        time_point.epoch,
+                        config
+                            .compute_block_number_to_be_signed(time_point.chain_point.block_number),
+                    ),
+                    None => {
+                        anyhow::bail!(
+                            "Can't derive a CardanoTransactions signed entity type from a time point without a `CardanoTransactionsSigningConfig`"
+                        )
+                    }
+                }
             }
             SignedEntityTypeDiscriminants::CardanoDatabase => SignedEntityType::CardanoDatabase(
                 CardanoDbBeacon::new(*time_point.epoch, time_point.immutable_file_number),
@@ -163,10 +170,10 @@ mod tests {
         };
         let config = SignedEntityConfig {
             allowed_discriminants: SignedEntityTypeDiscriminants::all(),
-            cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+            cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(0),
                 step: BlockNumber(15),
-            },
+            }),
         };
 
         assert_eq!(
@@ -221,6 +228,36 @@ mod tests {
                     &time_point
                 )
                 .unwrap()
+        );
+    }
+
+    #[test]
+    fn can_not_convert_time_point_to_cardano_transaction_without_the_associated_config() {
+        let time_point = TimePoint {
+            epoch: Epoch(1),
+            immutable_file_number: 5,
+            chain_point: ChainPoint {
+                slot_number: SlotNumber(73),
+                block_number: BlockNumber(20),
+                block_hash: "block_hash-20".to_string(),
+            },
+        };
+        let config = SignedEntityConfig {
+            allowed_discriminants: SignedEntityTypeDiscriminants::all(),
+            cardano_transactions_signing_config: None,
+        };
+
+        let error = config
+            .time_point_to_signed_entity(
+                SignedEntityTypeDiscriminants::CardanoTransactions,
+                &time_point,
+            )
+            .unwrap_err();
+
+        let expected_error = "Can't derive a CardanoTransactions signed entity type from a time point without a `CardanoTransactionsSigningConfig`";
+        assert!(
+            error.to_string().contains(expected_error),
+            "Error message: {error:?}\nshould contains: {expected_error}\n"
         );
     }
 
@@ -422,10 +459,10 @@ mod tests {
                 SignedEntityTypeDiscriminants::CardanoStakeDistribution,
                 SignedEntityTypeDiscriminants::CardanoTransactions,
             ]),
-            cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+            cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(0),
                 step: BlockNumber(15),
-            },
+            }),
         };
 
         let signed_entity_types = config.list_allowed_signed_entity_types(&time_point).unwrap();

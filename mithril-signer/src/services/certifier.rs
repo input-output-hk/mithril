@@ -525,7 +525,7 @@ mod tests {
             ) -> Self {
                 Self {
                     config: SignedEntityConfig {
-                        cardano_transactions_signing_config: config,
+                        cardano_transactions_signing_config: Some(config),
                         allowed_discriminants,
                     },
                 }

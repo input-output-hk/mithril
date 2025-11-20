@@ -54,7 +54,8 @@ mod entities {
         /// Create a dummy `AggregatorEpochSettings`
         fn dummy() -> Self {
             let protocol_parameters = fake_data::protocol_parameters();
-            let cardano_transactions_signing_config = CardanoTransactionsSigningConfig::dummy();
+            let cardano_transactions_signing_config =
+                Some(CardanoTransactionsSigningConfig::dummy());
 
             // Aggregator Epoch settings
             AggregatorEpochSettings {

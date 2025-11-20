@@ -251,5 +251,30 @@ alter table signed_entity add column epoch as (coalesce(json_extract(beacon, '$.
 create index signed_entity_epoch on signed_entity(epoch);
         "#,
         ),
+        // Migration 37
+        // Update `epoch_setting` table to make `cardano_transactions_signing_config` optional.
+        SqlMigration::new(
+            37,
+            r#"
+-- disable foreign keys since `signer_registration` has a foreign key constraint on `epoch_setting`
+pragma foreign_keys=false;
+
+create table if not exists new_epoch_setting (
+    epoch_setting_id                    integer     not null,
+    protocol_parameters                 json        not null,
+    cardano_transactions_signing_config json,
+    primary key (epoch_setting_id)
+);
+insert into new_epoch_setting (epoch_setting_id, protocol_parameters, cardano_transactions_signing_config)
+    select epoch_setting_id, protocol_parameters, cardano_transactions_signing_config
+    from epoch_setting order by rowid asc;
+drop table epoch_setting;
+alter table new_epoch_setting rename to epoch_setting;
+
+-- reenable foreign keys
+pragma foreign_key_check;
+pragma foreign_keys=true;
+        "#,
+        ),
     ]
 }

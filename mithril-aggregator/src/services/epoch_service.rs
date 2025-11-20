@@ -1,6 +1,5 @@
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
-use mithril_protocol_config::interface::MithrilNetworkConfigurationProvider;
 use slog::{Logger, debug};
 use std::collections::BTreeSet;
 use std::sync::Arc;
@@ -10,13 +9,15 @@ use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_common::StdResult;
 use mithril_common::crypto_helper::ProtocolAggregateVerificationKey;
 use mithril_common::entities::{
-    CardanoEra, CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityConfig,
-    SignedEntityTypeDiscriminants, Signer, SignerWithStake, Stake, SupportedEra, TotalSPOs,
+    CardanoEra, Epoch, ProtocolParameters, SignedEntityConfig, SignedEntityTypeDiscriminants,
+    Signer, SignerWithStake, Stake, SupportedEra, TotalSPOs,
 };
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder};
 use mithril_era::EraChecker;
 use mithril_persistence::store::StakeStorer;
+use mithril_protocol_config::interface::MithrilNetworkConfigurationProvider;
+use mithril_protocol_config::model::MithrilNetworkConfiguration;
 
 use crate::{EpochSettingsStorer, VerificationKeyStorer, entities::AggregatorEpochSettings};
 
@@ -62,19 +63,32 @@ pub trait EpochService: Sync + Send {
     /// Get the current epoch for which the data stored in this service are computed.
     fn epoch_of_current_data(&self) -> StdResult<Epoch>;
 
+    /// Get the network configuration for the current epoch.
+    fn network_configuration(&self) -> StdResult<&MithrilNetworkConfiguration>;
+
     /// Get protocol parameters used for signing in the current epoch.
-    fn current_protocol_parameters(&self) -> StdResult<&ProtocolParameters>;
+    fn current_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
+        Ok(&self
+            .network_configuration()?
+            .configuration_for_aggregation
+            .protocol_parameters)
+    }
 
     /// Get protocol parameters used for signing in the next epoch.
-    fn next_protocol_parameters(&self) -> StdResult<&ProtocolParameters>;
+    fn next_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
+        Ok(&self
+            .network_configuration()?
+            .configuration_for_next_aggregation
+            .protocol_parameters)
+    }
 
     /// Get protocol parameters for signer registration.
-    fn signer_registration_protocol_parameters(&self) -> StdResult<&ProtocolParameters>;
-
-    /// Get cardano transactions signing configuration used in current epoch
-    fn current_cardano_transactions_signing_config(
-        &self,
-    ) -> StdResult<&CardanoTransactionsSigningConfig>;
+    fn signer_registration_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
+        Ok(&self
+            .network_configuration()?
+            .configuration_for_registration
+            .protocol_parameters)
+    }
 
     /// Get aggregate verification key for current epoch
     fn current_aggregate_verification_key(&self) -> StdResult<&ProtocolAggregateVerificationKey>;
@@ -124,9 +138,7 @@ struct EpochData {
     cardano_era: CardanoEra,
     mithril_era: SupportedEra,
     epoch: Epoch,
-    current_epoch_settings: AggregatorEpochSettings,
-    next_epoch_settings: AggregatorEpochSettings,
-    signer_registration_epoch_settings: AggregatorEpochSettings,
+    network_configuration: MithrilNetworkConfiguration,
     current_signers_with_stake: Vec<SignerWithStake>,
     next_signers_with_stake: Vec<SignerWithStake>,
     current_signers: Vec<Signer>,
@@ -295,46 +307,16 @@ impl EpochService for MithrilEpochService {
             .get_network_configuration(epoch)
             .await?;
 
-        let current_epoch_settings = AggregatorEpochSettings {
-            protocol_parameters: network_configuration
-                .configuration_for_aggregation
-                .protocol_parameters,
-            cardano_transactions_signing_config: network_configuration
-                .configuration_for_aggregation
-                .signed_entity_types_config
-                .cardano_transactions
-                .ok_or(anyhow!(
-                    "Missing cardano transactions signing config for aggregation epoch {:?}",
-                    epoch
-                ))?,
-        };
-
-        let next_epoch_settings = AggregatorEpochSettings {
-            protocol_parameters: network_configuration
-                .configuration_for_next_aggregation
-                .protocol_parameters,
-            cardano_transactions_signing_config: network_configuration
-                .configuration_for_next_aggregation
-                .signed_entity_types_config
-                .cardano_transactions
-                .ok_or(anyhow!(
-                    "Missing cardano transactions signing config for next aggregation epoch {:?}",
-                    epoch
-                ))?,
-        };
-
         let signer_registration_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: network_configuration
                 .configuration_for_registration
-                .protocol_parameters,
+                .protocol_parameters
+                .clone(),
             cardano_transactions_signing_config: network_configuration
                 .configuration_for_registration
                 .signed_entity_types_config
                 .cardano_transactions
-                .ok_or(anyhow!(
-                    "Missing cardano transactions signing config for registration epoch {:?}",
-                    epoch
-                ))?,
+                .clone(),
         };
         self.insert_epoch_settings(
             signer_registration_epoch,
@@ -362,8 +344,10 @@ impl EpochService for MithrilEpochService {
                 )
                 .cloned()
                 .collect(),
-            cardano_transactions_signing_config: current_epoch_settings
-                .cardano_transactions_signing_config
+            cardano_transactions_signing_config: network_configuration
+                .configuration_for_aggregation
+                .signed_entity_types_config
+                .cardano_transactions
                 .clone(),
         };
 
@@ -374,9 +358,7 @@ impl EpochService for MithrilEpochService {
             cardano_era,
             mithril_era,
             epoch,
-            current_epoch_settings,
-            next_epoch_settings,
-            signer_registration_epoch_settings,
+            network_configuration,
             current_signers_with_stake,
             next_signers_with_stake,
             current_signers,
@@ -422,14 +404,20 @@ impl EpochService for MithrilEpochService {
 
         let protocol_multi_signer = SignerBuilder::new(
             &data.current_signers_with_stake,
-            &data.current_epoch_settings.protocol_parameters,
+            &data
+                .network_configuration
+                .configuration_for_aggregation
+                .protocol_parameters,
         )
         .with_context(|| "Epoch service failed to build protocol multi signer")?
         .build_multi_signer();
 
         let next_protocol_multi_signer = SignerBuilder::new(
             &data.next_signers_with_stake,
-            &data.next_epoch_settings.protocol_parameters,
+            &data
+                .network_configuration
+                .configuration_for_next_aggregation
+                .protocol_parameters,
         )
         .with_context(|| "Epoch service failed to build next protocol multi signer")?
         .build_multi_signer();
@@ -457,28 +445,8 @@ impl EpochService for MithrilEpochService {
         Ok(self.unwrap_data()?.epoch)
     }
 
-    fn current_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
-        Ok(&self.unwrap_data()?.current_epoch_settings.protocol_parameters)
-    }
-
-    fn next_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
-        Ok(&self.unwrap_data()?.next_epoch_settings.protocol_parameters)
-    }
-
-    fn signer_registration_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
-        Ok(&self
-            .unwrap_data()?
-            .signer_registration_epoch_settings
-            .protocol_parameters)
-    }
-
-    fn current_cardano_transactions_signing_config(
-        &self,
-    ) -> StdResult<&CardanoTransactionsSigningConfig> {
-        Ok(&self
-            .unwrap_data()?
-            .current_epoch_settings
-            .cardano_transactions_signing_config)
+    fn network_configuration(&self) -> StdResult<&MithrilNetworkConfiguration> {
+        Ok(&self.unwrap_data()?.network_configuration)
     }
 
     fn current_aggregate_verification_key(&self) -> StdResult<&ProtocolAggregateVerificationKey> {
@@ -600,14 +568,31 @@ impl FakeEpochServiceBuilder {
         .unwrap()
         .build_multi_signer();
 
+        let network_configuration = MithrilNetworkConfiguration {
+            epoch: self.epoch,
+            configuration_for_aggregation: self
+                .current_epoch_settings
+                .into_network_configuration_for_epoch(
+                    self.signed_entity_config.allowed_discriminants.clone(),
+                ),
+            configuration_for_next_aggregation: self
+                .next_epoch_settings
+                .into_network_configuration_for_epoch(
+                    self.signed_entity_config.allowed_discriminants.clone(),
+                ),
+            configuration_for_registration: self
+                .signer_registration_epoch_settings
+                .into_network_configuration_for_epoch(
+                    self.signed_entity_config.allowed_discriminants.clone(),
+                ),
+        };
+
         FakeEpochService {
             epoch_data: Some(EpochData {
                 cardano_era: self.cardano_era,
                 mithril_era: self.mithril_era,
                 epoch: self.epoch,
-                current_epoch_settings: self.current_epoch_settings,
-                next_epoch_settings: self.next_epoch_settings,
-                signer_registration_epoch_settings: self.signer_registration_epoch_settings,
+                network_configuration,
                 current_signers_with_stake: self.current_signers_with_stake,
                 next_signers_with_stake: self.next_signers_with_stake,
                 current_signers,
@@ -644,15 +629,15 @@ impl FakeEpochService {
 
         let current_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: fixture.protocol_parameters(),
-            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+            cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
         };
         let next_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: fixture.protocol_parameters(),
-            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+            cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
         };
         let signer_registration_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: fixture.protocol_parameters(),
-            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+            cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
         };
 
         FakeEpochServiceBuilder {
@@ -712,16 +697,16 @@ impl EpochService for FakeEpochService {
         Ok(())
     }
 
-    async fn precompute_epoch_data(&mut self) -> StdResult<()> {
-        if self.precompute_epoch_data_error {
-            anyhow::bail!("precompute_epoch_data fake error");
+    async fn update_next_signers_with_stake(&mut self) -> StdResult<()> {
+        if self.update_next_signers_with_stake_error {
+            anyhow::bail!("update_next_signers_with_stake fake error");
         }
         Ok(())
     }
 
-    async fn update_next_signers_with_stake(&mut self) -> StdResult<()> {
-        if self.update_next_signers_with_stake_error {
-            anyhow::bail!("update_next_signers_with_stake fake error");
+    async fn precompute_epoch_data(&mut self) -> StdResult<()> {
+        if self.precompute_epoch_data_error {
+            anyhow::bail!("precompute_epoch_data fake error");
         }
         Ok(())
     }
@@ -738,28 +723,8 @@ impl EpochService for FakeEpochService {
         Ok(self.unwrap_data()?.epoch)
     }
 
-    fn current_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
-        Ok(&self.unwrap_data()?.current_epoch_settings.protocol_parameters)
-    }
-
-    fn next_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
-        Ok(&self.unwrap_data()?.next_epoch_settings.protocol_parameters)
-    }
-
-    fn signer_registration_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
-        Ok(&self
-            .unwrap_data()?
-            .signer_registration_epoch_settings
-            .protocol_parameters)
-    }
-
-    fn current_cardano_transactions_signing_config(
-        &self,
-    ) -> StdResult<&CardanoTransactionsSigningConfig> {
-        Ok(&self
-            .unwrap_data()?
-            .current_epoch_settings
-            .cardano_transactions_signing_config)
+    fn network_configuration(&self) -> StdResult<&MithrilNetworkConfiguration> {
+        Ok(&self.unwrap_data()?.network_configuration)
     }
 
     fn current_aggregate_verification_key(&self) -> StdResult<&ProtocolAggregateVerificationKey> {
@@ -857,7 +822,6 @@ mod tests {
         epoch: Epoch,
         protocol_parameters: ProtocolParameters,
         next_protocol_parameters: ProtocolParameters,
-        cardano_signing_config: CardanoTransactionsSigningConfig,
         signer_registration_protocol_parameters: ProtocolParameters,
         current_signers_with_stake: BTreeSet<SignerWithStake>,
         next_signers_with_stake: BTreeSet<SignerWithStake>,
@@ -884,9 +848,6 @@ mod tests {
                 next_protocol_parameters: service.next_protocol_parameters()?.clone(),
                 signer_registration_protocol_parameters: service
                     .signer_registration_protocol_parameters()?
-                    .clone(),
-                cardano_signing_config: service
-                    .current_cardano_transactions_signing_config()?
                     .clone(),
                 current_signers_with_stake: service
                     .current_signers_with_stake()?
@@ -941,15 +902,21 @@ mod tests {
                 next_signers_with_stake: epoch_fixture.signers_with_stake(),
                 stored_current_epoch_settings: AggregatorEpochSettings {
                     protocol_parameters: epoch_fixture.protocol_parameters(),
-                    cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+                    cardano_transactions_signing_config: Some(
+                        CardanoTransactionsSigningConfig::dummy(),
+                    ),
                 },
                 stored_next_epoch_settings: AggregatorEpochSettings {
                     protocol_parameters: epoch_fixture.protocol_parameters(),
-                    cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+                    cardano_transactions_signing_config: Some(
+                        CardanoTransactionsSigningConfig::dummy(),
+                    ),
                 },
                 stored_signer_registration_epoch_settings: AggregatorEpochSettings {
                     protocol_parameters: epoch_fixture.protocol_parameters(),
-                    cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+                    cardano_transactions_signing_config: Some(
+                        CardanoTransactionsSigningConfig::dummy(),
+                    ),
                 },
                 total_spo: 1,
                 total_stake: 0,
@@ -1082,7 +1049,6 @@ mod tests {
                 protocol_parameters: current_epoch_fixture.protocol_parameters(),
                 next_protocol_parameters: next_epoch_fixture.protocol_parameters(),
                 signer_registration_protocol_parameters,
-                cardano_signing_config: CardanoTransactionsSigningConfig::dummy(),
                 current_signers_with_stake: current_epoch_fixture
                     .signers_with_stake()
                     .into_iter()
@@ -1104,10 +1070,10 @@ mod tests {
     async fn inform_epoch_get_signed_entity_config_from_its_dependencies_and_store() {
         let epoch = Epoch(5);
 
-        let cardano_transactions_signing_config = CardanoTransactionsSigningConfig {
+        let cardano_transactions_signing_config = Some(CardanoTransactionsSigningConfig {
             security_parameter: BlockNumber(29),
             step: BlockNumber(986),
-        };
+        });
         let allowed_discriminants = BTreeSet::from([
             SignedEntityTypeDiscriminants::CardanoTransactions,
             SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
@@ -1203,16 +1169,19 @@ mod tests {
             .build();
 
         let epoch = Epoch(5);
-        let mut service = EpochServiceBuilder {
-            stored_next_epoch_settings: AggregatorEpochSettings {
-                protocol_parameters: next_epoch_fixture.protocol_parameters(),
-                cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
-            },
-            next_signers_with_stake: next_epoch_fixture.signers_with_stake().clone(),
-            ..EpochServiceBuilder::new(epoch, current_epoch_fixture.clone())
-        }
-        .build()
-        .await;
+        let mut service =
+            EpochServiceBuilder {
+                stored_next_epoch_settings: AggregatorEpochSettings {
+                    protocol_parameters: next_epoch_fixture.protocol_parameters(),
+                    cardano_transactions_signing_config: Some(
+                        CardanoTransactionsSigningConfig::dummy(),
+                    ),
+                },
+                next_signers_with_stake: next_epoch_fixture.signers_with_stake().clone(),
+                ..EpochServiceBuilder::new(epoch, current_epoch_fixture.clone())
+            }
+            .build()
+            .await;
 
         service
             .inform_epoch(epoch)
@@ -1305,10 +1274,10 @@ mod tests {
     async fn inform_epoch_insert_registration_epoch_settings_in_the_store() {
         let expected_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: ProtocolParameters::new(6, 89, 0.124),
-            cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+            cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(10),
                 step: BlockNumber(15),
-            },
+            }),
         };
 
         let epoch = Epoch(4);
@@ -1320,9 +1289,9 @@ mod tests {
                     MithrilNetworkConfigurationForEpoch {
                         protocol_parameters: expected_epoch_settings.protocol_parameters.clone(),
                         signed_entity_types_config: SignedEntityTypeConfiguration {
-                            cardano_transactions: Some(
-                                expected_epoch_settings.cardano_transactions_signing_config.clone(),
-                            ),
+                            cardano_transactions: expected_epoch_settings
+                                .cardano_transactions_signing_config
+                                .clone(),
                         },
                         ..Dummy::dummy()
                     },
@@ -1378,10 +1347,6 @@ mod tests {
                 service.signer_registration_protocol_parameters().err(),
             ),
             (
-                "current_cardano_transactions_signing_config",
-                service.current_cardano_transactions_signing_config().err(),
-            ),
-            (
                 "current_signers_with_stake",
                 service.current_signers_with_stake().err(),
             ),
@@ -1434,7 +1399,6 @@ mod tests {
         assert!(service.current_protocol_parameters().is_ok());
         assert!(service.next_protocol_parameters().is_ok());
         assert!(service.signer_registration_protocol_parameters().is_ok());
-        assert!(service.current_cardano_transactions_signing_config().is_ok());
         assert!(service.current_signers_with_stake().is_ok());
         assert!(service.next_signers_with_stake().is_ok());
         assert!(service.current_signers().is_ok());

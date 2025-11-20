@@ -7,7 +7,7 @@ pub struct AggregatorEpochSettings {
     pub protocol_parameters: ProtocolParameters,
 
     /// Cardano transactions signing configuration
-    pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
+    pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
 }
 
 #[cfg(test)]
@@ -31,7 +31,7 @@ mod test_utils {
                 protocol_parameters: self.protocol_parameters,
                 enabled_signed_entity_types,
                 signed_entity_types_config: SignedEntityTypeConfiguration {
-                    cardano_transactions: Some(self.cardano_transactions_signing_config),
+                    cardano_transactions: self.cardano_transactions_signing_config,
                 },
             }
         }
