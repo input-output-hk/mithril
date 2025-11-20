@@ -30,7 +30,7 @@ fn sign_and_verify(c: &mut Criterion, nr_sigs: usize) {
 }
 
 fn schnorr_benches(c: &mut Criterion) {
-    sign_and_verify(c, 300);
+    sign_and_verify(c, 856);
 }
 
 criterion_group!(name = benches;

@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::anyhow;
 use dusk_jubjub::{
     ExtendedPoint as JubjubExtended, Fr as JubjubScalar, SubgroupPoint as JubjubSubgroup,
 };
@@ -8,9 +8,13 @@ use rand_core::{CryptoRng, RngCore};
 
 use group::Group;
 
-use crate::schnorr_signature::{
-    DST_SIGNATURE, SchnorrSignature, SchnorrVerificationKey, get_coordinates_extended,
-    get_coordinates_subgroup,
+use crate::{
+    StmResult,
+    error::SchnorrSignatureError,
+    schnorr_signature::{
+        DST_SIGNATURE, SchnorrSignature, SchnorrVerificationKey, get_coordinates_extended,
+        get_coordinates_subgroup,
+    },
 };
 
 /// Schnorr Signing key, it is essentially a random scalar of the Jubjub scalar field
@@ -18,6 +22,7 @@ use crate::schnorr_signature::{
 pub struct SchnorrSigningKey(pub JubjubScalar);
 
 impl SchnorrSigningKey {
+    /// Generate a random scalar value to use as signing key
     pub fn generate(rng: &mut (impl RngCore + CryptoRng)) -> Self {
         SchnorrSigningKey(JubjubScalar::random(rng))
     }
@@ -60,12 +65,11 @@ impl SchnorrSigningKey {
     /// checking it matches the challenge value in the Schnorr signature. It is described in more
     /// details in the implementation of the SchnorrSignature.
     ///
-    // TODO: Check if we want the sign function to handle the randomness by itself
     pub fn sign(
         &self,
         msg: &[u8],
         rng: &mut (impl RngCore + CryptoRng),
-    ) -> Result<SchnorrSignature> {
+    ) -> StmResult<SchnorrSignature> {
         // Use the subgroup generator to compute the curve points
         let generator = JubjubSubgroup::generator();
         let verification_key = SchnorrVerificationKey::from(self);
@@ -75,9 +79,7 @@ impl SchnorrSigningKey {
 
         let sigma = msg_hash * self.0;
 
-        // Compute the random part of the signature with
-        // r1 = H(msg) * r
-        // r2 = g * r
+        // r1 = H(msg) * r, r2 = g * r
         let random_scalar = JubjubScalar::random(rng);
         let random_point_1 = msg_hash * random_scalar;
         let random_point_2 = generator * random_scalar;
@@ -108,9 +110,6 @@ impl SchnorrSigningKey {
             ],
         )[0];
 
-        // We want to use the from_raw function because the result of
-        // the poseidon hash might not fit into the smaller modulus
-        // the Fr scalar field
         let signature = random_scalar - challenge * self.0;
 
         Ok(SchnorrSignature {
@@ -127,22 +126,18 @@ impl SchnorrSigningKey {
     /// Convert a string of bytes into a `SchnorrSigningKey`.
     ///
     /// The bytes must represent a Jubjub scalar or the conversion will fail
-    // TODO: Maybe rework this function, do we want to allow any bytes representation
-    // to be convertible to a sk?
-    pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        // This is a bit ugly, I'll try to find a better way to do it
-        let bytes = bytes
-            .get(..32)
-            .ok_or(anyhow!("Not enough bytes to create a signing key."))?
-            .try_into()?;
+    pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
+        let mut signing_key_bytes: [u8; 32] = [0u8; 32];
+        signing_key_bytes.copy_from_slice(
+            bytes
+                .get(0..32)
+                .ok_or(anyhow!(SchnorrSignatureError::SerializationError))?,
+        );
 
         // Jubjub returs a CtChoice so I convert it to an option that looses the const time property
-        match JubjubScalar::from_bytes(bytes).into_option() {
-            Some(sk) => Ok(Self(sk)),
-            // the error should be updated
-            None => Err(anyhow!(
-                "Failed to create a Jubjub scalar from the given bytes."
-            )),
+        match JubjubScalar::from_bytes(&signing_key_bytes).into_option() {
+            Some(signing_key) => Ok(Self(signing_key)),
+            None => Err(anyhow!(SchnorrSignatureError::SerializationError)),
         }
     }
 }

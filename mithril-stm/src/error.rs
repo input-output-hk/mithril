@@ -2,6 +2,8 @@
 use anyhow::anyhow;
 use blst::BLST_ERROR;
 
+#[cfg(feature = "future_snark")]
+use crate::SchnorrSignature;
 use crate::StmResult;
 use crate::aggregate_signature::AggregateSignatureType;
 use crate::bls_multi_signature::{
@@ -38,6 +40,19 @@ pub enum MultiSignatureError {
     /// Verification key is the infinity
     #[error("Verification key is the infinity")]
     VerificationKeyInfinity(Box<BlsVerificationKey>),
+}
+
+/// Error types for Schnorr signatures.
+#[cfg(feature = "future_snark")]
+#[derive(Debug, thiserror::Error, Eq, PartialEq)]
+pub enum SchnorrSignatureError {
+    /// Invalid Single signature
+    #[error("Invalid Schnorr single signature")]
+    SignatureInvalid(Box<SchnorrSignature>),
+
+    /// This error occurs when the the serialization of the raw bytes failed
+    #[error("Invalid bytes")]
+    SerializationError,
 }
 
 /// Error types related to merkle trees.

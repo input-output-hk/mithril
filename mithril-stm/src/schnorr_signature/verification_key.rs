@@ -1,8 +1,9 @@
-use anyhow::{Result, anyhow};
+use anyhow::anyhow;
 use dusk_jubjub::SubgroupPoint as JubjubSubgroup;
 use group::{Group, GroupEncoding};
 
 pub(crate) use crate::schnorr_signature::signing_key::SchnorrSigningKey;
+use crate::{StmResult, error::SchnorrSignatureError};
 
 /// Schnorr verification key, it consists of a point on the Jubjub curve
 /// vk = g * sk, where g is a generator
@@ -14,14 +15,16 @@ impl SchnorrVerificationKey {
         self.0.to_bytes()
     }
 
-    pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        let bytes = bytes
-            .get(0..32)
-            .ok_or(anyhow!("Not enough bytes to create a verification key."))?;
-
-        let point = JubjubSubgroup::from_bytes(bytes.try_into()?)
+    pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
+        let mut verification_key_bytes: [u8; 32] = [0u8; 32];
+        verification_key_bytes.copy_from_slice(
+            bytes
+                .get(0..32)
+                .ok_or(anyhow!(SchnorrSignatureError::SerializationError))?,
+        );
+        let point = JubjubSubgroup::from_bytes(&verification_key_bytes)
             .into_option()
-            .ok_or(anyhow!("Failed to create the JubjubSubGroup element."))?;
+            .ok_or(anyhow!(SchnorrSignatureError::SerializationError))?;
 
         Ok(SchnorrVerificationKey(point))
     }

@@ -5,12 +5,14 @@ use dusk_jubjub::{
 
 use sha2::{Digest, Sha256};
 
-use anyhow::{Result, anyhow};
+use anyhow::anyhow;
+
+use crate::StmResult;
 
 /// Convert an arbitrary array of bytes into a Jubjub scalar field element
 ///
 /// First hash the message to 256 bits use Sha256 then perform the conversion
-pub fn hash_msg_to_jubjubbase(msg: &[u8]) -> Result<JubjubBase> {
+pub fn hash_msg_to_jubjubbase(msg: &[u8]) -> StmResult<JubjubBase> {
     let mut hash = Sha256::new();
     hash.update(msg);
     let hmsg = hash.finalize();
@@ -52,7 +54,7 @@ pub fn get_coordinates_subgroup(point: JubjubSubgroup) -> (JubjubBase, JubjubBas
 }
 
 /// Convert an element of the BLS12-381 base field to one of the Jubjub base field
-pub fn jubjub_base_to_scalar(x: &JubjubBase) -> Result<JubjubScalar> {
+pub fn jubjub_base_to_scalar(x: &JubjubBase) -> StmResult<JubjubScalar> {
     let bytes = x.to_bytes();
 
     Ok(JubjubScalar::from_raw([

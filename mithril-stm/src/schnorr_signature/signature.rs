@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::anyhow;
 
 use dusk_jubjub::{
     ExtendedPoint as JubjubExtended, Fr as JubjubScalar, SubgroupPoint as JubjubSubgroup,
@@ -6,8 +6,12 @@ use dusk_jubjub::{
 use dusk_poseidon::{Domain, Hash};
 use group::{Group, GroupEncoding};
 
-use crate::schnorr_signature::{
-    DST_SIGNATURE, SchnorrVerificationKey, get_coordinates_extended, get_coordinates_subgroup,
+use crate::{
+    StmResult,
+    error::SchnorrSignatureError,
+    schnorr_signature::{
+        DST_SIGNATURE, SchnorrVerificationKey, get_coordinates_extended, get_coordinates_subgroup,
+    },
 };
 
 /// Structure of the Schnorr signature to use with the SNARK
@@ -55,7 +59,7 @@ impl SchnorrSignature {
     /// to their coordinates representation to feed them to the hash function.
     ///     - Check: c == c_tilde
     ///     
-    pub fn verify(&self, msg: &[u8], verification_key: &SchnorrVerificationKey) -> Result<()> {
+    pub fn verify(&self, msg: &[u8], verification_key: &SchnorrVerificationKey) -> StmResult<()> {
         let generator = JubjubSubgroup::generator();
 
         // First hashing the message to a scalar then hashing it to a curve point
@@ -98,7 +102,7 @@ impl SchnorrSignature {
 
         if challenge_recomputed != self.challenge {
             // TODO: Wrong error for now, need to change that once the errors are added
-            return Err(anyhow!("Signature failed to verify."));
+            return Err(anyhow!(SchnorrSignatureError::SignatureInvalid(Box::new(*self))));
         }
 
         Ok(())
@@ -117,15 +121,33 @@ impl SchnorrSignature {
     /// Convert a string of bytes into a `SchnorrSignature`.
     ///
     /// Not sure the sigma, s and c creation can fail if the 96 bytes are correctly extracted.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        let bytes: [u8; 96] = bytes.try_into()?;
-        let sigma = JubjubExtended::from_bytes(&bytes[0..32].try_into()?)
+    pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
+        let mut sigma_bytes: [u8; 32] = [0u8; 32];
+        sigma_bytes.copy_from_slice(
+            bytes
+                .get(0..32)
+                .ok_or(anyhow!(SchnorrSignatureError::SerializationError))?,
+        );
+        let mut signature_bytes: [u8; 32] = [0u8; 32];
+        signature_bytes.copy_from_slice(
+            bytes
+                .get(32..64)
+                .ok_or(anyhow!(SchnorrSignatureError::SerializationError))?,
+        );
+        let mut challenge_bytes: [u8; 32] = [0u8; 32];
+        challenge_bytes.copy_from_slice(
+            bytes
+                .get(64..96)
+                .ok_or(anyhow!(SchnorrSignatureError::SerializationError))?,
+        );
+
+        let sigma = JubjubExtended::from_bytes(&sigma_bytes)
             .into_option()
             .ok_or(anyhow!("Unable to convert bytes into a sigma value."))?;
-        let signature = JubjubScalar::from_bytes(&bytes[32..64].try_into()?)
+        let signature = JubjubScalar::from_bytes(&signature_bytes)
             .into_option()
             .ok_or(anyhow!("Unable to convert bytes into an s value."))?;
-        let challenge = JubjubScalar::from_bytes(&bytes[64..96].try_into()?)
+        let challenge = JubjubScalar::from_bytes(&challenge_bytes)
             .into_option()
             .ok_or(anyhow!("Unable to convert bytes into a c value."))?;
 
