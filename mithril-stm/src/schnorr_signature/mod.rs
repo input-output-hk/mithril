@@ -1,0 +1,173 @@
+// TODO: Remove
+#![allow(dead_code)]
+
+mod signature;
+mod signing_key;
+pub(super) mod utils;
+mod verification_key;
+
+pub use signature::*;
+pub use signing_key::*;
+pub use utils::*;
+pub use verification_key::*;
+
+use dusk_jubjub::Fq as JubjubBase;
+
+/// A DST (Domain Separation Tag) to distinguish between use of Poseidon hash
+pub(crate) const DST_SIGNATURE: JubjubBase = JubjubBase::from_raw([0u64, 0, 0, 0]);
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use dusk_jubjub::SubgroupPoint as JubjubSubgroup;
+    use ff::Field;
+    use group::Group;
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    use crate::schnorr_signature::{SchnorrSigningKey, SchnorrVerificationKey};
+
+    #[test]
+    fn test_get_coordinates() {
+        let seed = [0u8; 32];
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let point = JubjubSubgroup::random(&mut rng);
+
+        let (_x, _y) = get_coordinates_extended(point.into());
+    }
+
+    #[test]
+    fn test_generate_verification_key() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let sk = SchnorrSigningKey::generate(&mut rng);
+        let g = JubjubSubgroup::generator();
+        let vk = g * sk.0;
+
+        let vk_from_sk = SchnorrVerificationKey::from(&sk);
+
+        assert_eq!(vk, vk_from_sk.0);
+    }
+
+    #[test]
+    fn test_sign_and_verify() {
+        let msg = vec![0, 0, 0, 1];
+        let seed = [0u8; 32];
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let sk = SchnorrSigningKey::generate(&mut rng);
+        let vk = SchnorrVerificationKey::from(&sk);
+
+        let sig = sk.sign(&msg, &mut rng).unwrap();
+
+        sig.verify(&msg, &vk).unwrap();
+    }
+
+    #[test]
+    fn test_invalid_sig() {
+        let msg = vec![0, 0, 0, 1];
+        let msg2 = vec![0, 0, 0, 2];
+        let seed = [0u8; 32];
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let sk = SchnorrSigningKey::generate(&mut rng);
+        let vk = SchnorrVerificationKey::from(&sk);
+        let sk2 = SchnorrSigningKey::generate(&mut rng);
+        let vk2 = SchnorrVerificationKey::from(&sk2);
+
+        let sig = sk.sign(&msg, &mut rng).unwrap();
+        let sig2 = sk.sign(&msg2, &mut rng).unwrap();
+
+        // Wrong verification key is used
+        let result1 = sig.verify(&msg, &vk2);
+        let result2 = sig2.verify(&msg, &vk);
+
+        assert!(
+            result1.is_err(),
+            "Wrong verfication key used, test should fail."
+        );
+        // Wrong message is verified
+        assert!(result2.is_err(), "Wrong message used, test should fail.");
+    }
+
+    #[test]
+    fn serialize_deserialize_vk() {
+        let seed = 0;
+        let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
+        let sk = SchnorrSigningKey::generate(&mut rng);
+        let vk = SchnorrVerificationKey::from(&sk);
+
+        let vk_bytes = vk.to_bytes();
+        let vk2 = SchnorrVerificationKey::from_bytes(&vk_bytes).unwrap();
+
+        assert_eq!(vk.0, vk2.0);
+    }
+
+    #[test]
+    fn serialize_deserialize_sk() {
+        let seed = 0;
+        let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
+        let sk = SchnorrSigningKey::generate(&mut rng);
+
+        let sk_bytes: [u8; 32] = sk.to_bytes();
+        let sk2 = SchnorrSigningKey::from_bytes(&sk_bytes).unwrap();
+
+        assert_eq!(sk, sk2);
+    }
+
+    #[test]
+    fn serialize_deserialize_signature() {
+        let seed = 0;
+        let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
+        let msg = vec![0, 0, 0, 1];
+        let sk = SchnorrSigningKey::generate(&mut rng);
+
+        let sig = sk.sign(&msg, &mut rng).unwrap();
+        let sig_bytes: [u8; 96] = sig.to_bytes();
+        let sig2 = SchnorrSignature::from_bytes(&sig_bytes).unwrap();
+
+        assert_eq!(sig, sig2);
+    }
+
+    #[test]
+    fn from_bytes_signature_not_enough_bytes() {
+        let msg = vec![0u8; 95];
+
+        let result = SchnorrSignature::from_bytes(&msg);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn from_bytes_signing_key_not_enough_bytes() {
+        let msg = vec![0u8; 31];
+
+        let result = SchnorrSigningKey::from_bytes(&msg);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn verify_fail_verification_key_not_on_curve() {
+        let msg = vec![0, 0, 0, 1];
+        let seed = [0u8; 32];
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let sk = SchnorrSigningKey::generate(&mut rng);
+        let vk1 = SchnorrVerificationKey::from(&sk);
+        let sig = sk.sign(&msg, &mut rng).unwrap();
+        let vk2 = SchnorrVerificationKey(JubjubSubgroup::from_raw_unchecked(
+            JubjubBase::ONE,
+            JubjubBase::ONE,
+        ));
+
+        let result1 = sig.verify(&msg, &vk1);
+        let result2 = sig.verify(&msg, &vk2);
+
+        assert!(
+            result1.is_ok(),
+            "Correct verification key used, test should pass."
+        );
+        assert!(
+            result2.is_err(),
+            "Invalid verification key used, test should fail."
+        );
+    }
+}

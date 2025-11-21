@@ -119,6 +119,8 @@ mod key_registration;
 mod merkle_tree;
 mod parameters;
 mod participant;
+#[cfg(feature = "future_snark")]
+mod schnorr_signature;
 mod single_signature;
 
 pub use aggregate_signature::{
@@ -137,6 +139,9 @@ pub use bls_multi_signature::{
     BlsProofOfPossession, BlsSignature, BlsSigningKey, BlsVerificationKey,
     BlsVerificationKeyProofOfPossession,
 };
+
+#[cfg(feature = "future_snark")]
+pub use schnorr_signature::{SchnorrSignature, SchnorrSigningKey, SchnorrVerificationKey};
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
