@@ -558,13 +558,15 @@ pub async fn assert_client_can_verify_cardano_database(
     client
         .run(ClientCommand::CardanoDbV2(CardanoDbV2Command::List))
         .await?;
-    client
-        .run(ClientCommand::CardanoDbV2(
-            CardanoDbV2Command::ListPerEpoch {
-                epoch_specifier: EpochSpecifier::LatestMinusOffset(5),
-            },
-        ))
-        .await?;
+    if client.version().is_above_or_equal("0.12.34") {
+        client
+            .run(ClientCommand::CardanoDbV2(
+                CardanoDbV2Command::ListPerEpoch {
+                    epoch_specifier: EpochSpecifier::LatestMinusOffset(5),
+                },
+            ))
+            .await?;
+    }
     client
         .run(ClientCommand::CardanoDbV2(CardanoDbV2Command::Show {
             hash: hash.to_string(),

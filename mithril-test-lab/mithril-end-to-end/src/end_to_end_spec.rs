@@ -136,7 +136,10 @@ impl Spec {
             "epoch after which the protocol parameters will change".to_string(),
         )
         .await?;
-        if aggregator.is_first() {
+
+        if aggregator.is_first() && aggregator.version().is_above_or_equal("0.7.94") {
+            assertions::update_protocol_parameters(aggregator).await?;
+        } else {
             assertions::update_protocol_parameters(aggregator).await?;
         }
 
