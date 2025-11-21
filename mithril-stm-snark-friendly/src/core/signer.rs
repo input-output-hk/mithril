@@ -1,6 +1,7 @@
 #[cfg(feature = "future_snark")]
 use crate::proof_system::snark_proof::SnarkProofSingleSignatureGenerator;
 use crate::{
+    commitment_scheme::MembershipCommitmentConstraints,
     core::{Parameters, SignerIndex, Stake, single_signature::SingleSignature},
     proof_system::{
         ProofSystemSingleSignatureGenerator,
@@ -10,26 +11,26 @@ use crate::{
 };
 
 /// The signer structure
-pub struct Signer {
+pub struct Signer<C: MembershipCommitmentConstraints> {
     pub signer_index: SignerIndex,
     pub stake: Stake,
     pub parameters: Parameters,
     pub concatenation_proof_individual_signature_generator:
-        ConcatenationProofFullSingleSignatureGenerator,
+        ConcatenationProofFullSingleSignatureGenerator<C>,
     #[cfg(feature = "future_snark")]
-    pub snark_proof_individual_signature_generator: Option<SnarkProofSingleSignatureGenerator>,
+    pub snark_proof_individual_signature_generator: Option<SnarkProofSingleSignatureGenerator<C>>,
 }
 
-impl Signer {
+impl<C: MembershipCommitmentConstraints> Signer<C> {
     /// Creates a new Signer
     pub fn new(
         signer_index: SignerIndex,
         stake: Stake,
         parameters: Parameters,
         concatenation_proof_individual_signature_generator:
-            ConcatenationProofFullSingleSignatureGenerator,
+            ConcatenationProofFullSingleSignatureGenerator<C>,
         #[cfg(feature = "future_snark")] snark_proof_individual_signature_generator: Option<
-            SnarkProofSingleSignatureGenerator,
+            SnarkProofSingleSignatureGenerator<C>,
         >,
     ) -> Self {
         Self {

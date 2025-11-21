@@ -1,4 +1,8 @@
-use crate::StdResult;
+use crate::{
+    StdResult,
+    commitment_scheme::merkle_tree::MerkleTreeLeaf,
+    core::{Digest, key_registration::SignerRegistration},
+};
 
 pub mod merkle_tree;
 pub mod pedersen_commitment;
@@ -38,4 +42,14 @@ pub trait SignerRegistrationRevealVerifier {
 
     /// Verifies a reveal proof
     fn verify_reveal_proof(&self, proof: &Self::RevealProof) -> StdResult<()>;
+}
+
+/// CommitmentConstraints defines the associated types needed for commitment schemes
+pub trait MembershipCommitmentConstraints {
+    type ConcatenationHash: Digest;
+    type ConcatenationCommittedData: From<SignerRegistration> + MerkleTreeLeaf;
+    #[cfg(feature = "future_snark")]
+    type SnarkHash: Digest;
+    #[cfg(feature = "future_snark")]
+    type SnarkCommittedData: From<SignerRegistration> + MerkleTreeLeaf;
 }

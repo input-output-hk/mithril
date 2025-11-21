@@ -1,6 +1,7 @@
 use anyhow::anyhow;
 
 use crate::{
+    commitment_scheme::MembershipCommitmentConstraints,
     core::{
         Parameters, Stake,
         key_registration::{KeyRegistration, SignerRegistration},
@@ -22,6 +23,7 @@ use crate::{
 };
 
 /// The initializer for a signer
+#[derive(Default)]
 pub struct Initializer {
     pub stake: Stake,
     pub parameters: Parameters,
@@ -58,7 +60,10 @@ impl Initializer {
     }
 
     /// Tries to create a signer from the given key registration
-    pub fn try_create_signer(&self, key_registration: KeyRegistration) -> StdResult<Signer> {
+    pub fn try_create_signer<C: MembershipCommitmentConstraints>(
+        &self,
+        key_registration: KeyRegistration,
+    ) -> StdResult<Signer<C>> {
         let signer_index = key_registration
             .get_signer_index_for_registration(&SignerRegistration {
                 stake: self.stake.clone(),
@@ -99,5 +104,40 @@ impl Initializer {
             #[cfg(feature = "future_snark")]
             snark_proof_individual_signature_generator,
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        core::key_registration::SignerRegistrationEntryConcatenation,
+        proof_system::concatenation_proof::BlakeDigest,
+    };
+    #[cfg(feature = "future_snark")]
+    use crate::{
+        core::key_registration::SignerRegistrationEntrySnark,
+        proof_system::snark_proof::PoseidonDigest,
+    };
+
+    use super::*;
+
+    #[test]
+    fn create_signer() {
+        let initializer = Initializer::default();
+
+        let key_registration = KeyRegistration::new(vec![]);
+
+        struct CustomMembershipCommitmentConstraints {}
+        impl MembershipCommitmentConstraints for CustomMembershipCommitmentConstraints {
+            type ConcatenationHash = BlakeDigest;
+            type ConcatenationCommittedData = SignerRegistrationEntryConcatenation;
+            #[cfg(feature = "future_snark")]
+            type SnarkHash = PoseidonDigest;
+            #[cfg(feature = "future_snark")]
+            type SnarkCommittedData = SignerRegistrationEntrySnark;
+        }
+
+        let signer: Signer<CustomMembershipCommitmentConstraints> =
+            initializer.try_create_signer(key_registration).unwrap();
     }
 }

@@ -1,5 +1,5 @@
 use crate::{
-    commitment_scheme::merkle_tree::MerkleTree,
+    commitment_scheme::{MembershipCommitmentConstraints, merkle_tree::MerkleTree},
     core::{
         Digest, Parameters, SignerIndex, Stake,
         key_registration::{KeyRegistration, SignerRegistrationEntryConcatenation},
@@ -21,18 +21,18 @@ use crate::{
 };
 
 /// Concatenation proof individual full signature generator
-pub struct ConcatenationProofFullSingleSignatureGenerator {
-    pub basic_generator: ConcatenationProofBasicSingleSignatureGenerator,
+pub struct ConcatenationProofFullSingleSignatureGenerator<C: MembershipCommitmentConstraints> {
+    pub basic_generator: ConcatenationProofBasicSingleSignatureGenerator<C>,
 }
 
-impl ConcatenationProofFullSingleSignatureGenerator {
+impl<C: MembershipCommitmentConstraints> ConcatenationProofFullSingleSignatureGenerator<C> {
     /// Creates a new ConcatenationProofFullSingleSignatureGenerator
     pub fn new(
         signer_index: SignerIndex,
         stake: Stake,
         parameters: Parameters,
         bls_crypto_signer: BlsCryptoSigner,
-        key_registration: MerkleTree<BlakeDigest, SignerRegistrationEntryConcatenation>,
+        key_registration: MerkleTree<C::ConcatenationHash, C::ConcatenationCommittedData>,
     ) -> Self {
         Self {
             basic_generator: ConcatenationProofBasicSingleSignatureGenerator::new(
@@ -46,7 +46,9 @@ impl ConcatenationProofFullSingleSignatureGenerator {
     }
 }
 
-impl ProofSystemSingleSignatureGenerator for ConcatenationProofFullSingleSignatureGenerator {
+impl<C: MembershipCommitmentConstraints> ProofSystemSingleSignatureGenerator
+    for ConcatenationProofFullSingleSignatureGenerator<C>
+{
     type ProofSystemSingleSignature = ConcatenationSingleSignature;
 
     fn create_individual_signature(
@@ -58,11 +60,11 @@ impl ProofSystemSingleSignatureGenerator for ConcatenationProofFullSingleSignatu
 }
 
 /// Concatenation full proof generator
-pub struct ConcatenationProofFullGenerator {
-    pub basic_generator: ConcatenationProofBasicGenerator,
+pub struct ConcatenationProofFullGenerator<C: MembershipCommitmentConstraints> {
+    pub basic_generator: ConcatenationProofBasicGenerator<C>,
 }
 
-impl ConcatenationProofFullGenerator {
+impl<C: MembershipCommitmentConstraints> ConcatenationProofFullGenerator<C> {
     /// Creates a new ConcatenationProofFullGenerator
     pub fn new(parameters: &Parameters, key_registrations: &KeyRegistration) -> Self {
         todo!("Implement new for ConcatenationProofFullGenerator")
@@ -79,7 +81,9 @@ impl ConcatenationProofFullGenerator {
     }
 }
 
-impl ProofSystemAggregateSignatureProver for ConcatenationProofFullGenerator {
+impl<C: MembershipCommitmentConstraints> ProofSystemAggregateSignatureProver
+    for ConcatenationProofFullGenerator<C>
+{
     type ProofSystemAggregateSignature = ConcatenationProof;
 
     fn create_aggregate_signature(
@@ -91,7 +95,9 @@ impl ProofSystemAggregateSignatureProver for ConcatenationProofFullGenerator {
     }
 }
 
-impl ProofSystemAggregateSignatureVerifier for ConcatenationProofFullGenerator {
+impl<C: MembershipCommitmentConstraints> ProofSystemAggregateSignatureVerifier
+    for ConcatenationProofFullGenerator<C>
+{
     type ProofSystemAggregateSignature = ConcatenationProof;
     type ProofSystemAggregateVerificationKey = ConcatenationAggregateVerificationKey;
 

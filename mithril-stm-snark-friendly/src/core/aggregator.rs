@@ -1,6 +1,7 @@
 #[cfg(feature = "future_snark")]
 use crate::proof_system::snark_proof::SnarkProof;
 use crate::{
+    commitment_scheme::MembershipCommitmentConstraints,
     core::{Parameters, key_registration::KeyRegistration, single_signature::SingleSignature},
     proof_system::concatenation_proof::{
         ConcatenationProof, full::ConcatenationProofFullGenerator,
@@ -44,14 +45,14 @@ impl SignatureAggregator {
     }
 
     /// Aggregates the given signatures into an aggregate signature
-    pub fn aggregate_signatures(
+    pub fn aggregate_signatures<C: MembershipCommitmentConstraints>(
         &self,
         message: &[u8],
         signatures: Vec<SingleSignature>,
     ) -> StdResult<AggregateSignature> {
         match self.aggregate_signature_type {
             AggregateSignatureType::Concatenation => {
-                let concatenation_proof_generator =
+                let concatenation_proof_generator: ConcatenationProofFullGenerator<C> =
                     ConcatenationProofFullGenerator::new(&self.parameters, &self.key_registrations);
                 let concatenation_proof = concatenation_proof_generator
                     .create_concatenation_proof(message, &signatures)?;
@@ -62,7 +63,7 @@ impl SignatureAggregator {
             AggregateSignatureType::Snark => {
                 use crate::proof_system::snark_proof::SnarkProofGenerator;
 
-                let snark_proof_generator =
+                let snark_proof_generator: SnarkProofGenerator<C> =
                     SnarkProofGenerator::new(&self.parameters, &self.key_registrations);
                 let snark_proof = snark_proof_generator.create_snark_proof(message, &signatures)?;
 

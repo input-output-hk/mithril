@@ -1,5 +1,5 @@
 use crate::{
-    commitment_scheme::merkle_tree::MerkleTree,
+    commitment_scheme::{MembershipCommitmentConstraints, merkle_tree::MerkleTree},
     core::{
         Digest, Parameters, SignerIndex, Stake,
         key_registration::{KeyRegistration, SignerRegistrationEntrySnark},
@@ -29,22 +29,22 @@ pub struct SnarkSingleSignature {
 }
 
 /// SNARK proof individual signature generator
-pub struct SnarkProofSingleSignatureGenerator {
+pub struct SnarkProofSingleSignatureGenerator<C: MembershipCommitmentConstraints> {
     pub signer_index: SignerIndex,
     pub stake: Stake,
     pub parameters: Parameters,
     pub schnorr_crypto_signer: SchnorrCryptoSigner,
-    pub key_registration_commitment: MerkleTree<PoseidonDigest, SignerRegistrationEntrySnark>,
+    pub key_registration_commitment: MerkleTree<C::SnarkHash, C::SnarkCommittedData>,
 }
 
-impl SnarkProofSingleSignatureGenerator {
+impl<C: MembershipCommitmentConstraints> SnarkProofSingleSignatureGenerator<C> {
     /// Creates a new SnarkProofSingleSignatureGenerator
     pub fn new(
         signer_index: SignerIndex,
         stake: Stake,
         parameters: Parameters,
         schnorr_crypto_signer: SchnorrCryptoSigner,
-        key_registration: MerkleTree<PoseidonDigest, SignerRegistrationEntrySnark>,
+        key_registration: MerkleTree<C::SnarkHash, C::SnarkCommittedData>,
     ) -> Self {
         Self {
             signer_index,
@@ -61,7 +61,9 @@ impl SnarkProofSingleSignatureGenerator {
     }
 }
 
-impl ProofSystemSingleSignatureGenerator for SnarkProofSingleSignatureGenerator {
+impl<C: MembershipCommitmentConstraints> ProofSystemSingleSignatureGenerator
+    for SnarkProofSingleSignatureGenerator<C>
+{
     type ProofSystemSingleSignature = SnarkSingleSignature;
 
     fn create_individual_signature(
@@ -94,13 +96,13 @@ impl SnarkProof {
 }
 
 /// SNARK proof generator
-pub struct SnarkProofGenerator {
+pub struct SnarkProofGenerator<C: MembershipCommitmentConstraints> {
     pub parameters: Parameters,
-    pub snark_proof_individual_signature_generator: SnarkProofSingleSignatureGenerator,
-    pub key_registration: MerkleTree<PoseidonDigest, SignerRegistrationEntrySnark>,
+    pub snark_proof_individual_signature_generator: SnarkProofSingleSignatureGenerator<C>,
+    pub key_registration: MerkleTree<C::SnarkHash, C::SnarkCommittedData>,
 }
 
-impl SnarkProofGenerator {
+impl<C: MembershipCommitmentConstraints> SnarkProofGenerator<C> {
     /// Creates a new SnarkProofGenerator
     pub fn new(parameters: &Parameters, key_registrations: &KeyRegistration) -> Self {
         todo!("Implement new for SnarkProofGenerator")
@@ -117,7 +119,9 @@ impl SnarkProofGenerator {
     }
 }
 
-impl ProofSystemAggregateSignatureProver for SnarkProofGenerator {
+impl<C: MembershipCommitmentConstraints> ProofSystemAggregateSignatureProver
+    for SnarkProofGenerator<C>
+{
     type ProofSystemAggregateSignature = SnarkProof;
 
     fn create_aggregate_signature(
@@ -129,7 +133,9 @@ impl ProofSystemAggregateSignatureProver for SnarkProofGenerator {
     }
 }
 
-impl ProofSystemAggregateSignatureVerifier for SnarkProofGenerator {
+impl<C: MembershipCommitmentConstraints> ProofSystemAggregateSignatureVerifier
+    for SnarkProofGenerator<C>
+{
     type ProofSystemAggregateSignature = SnarkProof;
     type ProofSystemAggregateVerificationKey = SnarkAggregateVerificationKey;
 
