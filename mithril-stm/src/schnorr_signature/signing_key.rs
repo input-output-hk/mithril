@@ -23,7 +23,12 @@ pub struct SchnorrSigningKey(pub JubjubScalar);
 impl SchnorrSigningKey {
     /// Generate a random scalar value to use as signing key
     pub fn generate(rng: &mut (impl RngCore + CryptoRng)) -> Self {
-        SchnorrSigningKey(JubjubScalar::random(rng))
+        loop {
+            let signing_key = JubjubScalar::random(&mut *rng);
+            if signing_key != JubjubScalar::ZERO {
+                return SchnorrSigningKey(signing_key);
+            }
+        }
     }
 
     /// This function is an adapted version of the Schnorr signature scheme

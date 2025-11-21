@@ -7,7 +7,7 @@ use crate::{StmResult, error::SchnorrSignatureError};
 
 /// Schnorr verification key, it consists of a point on the Jubjub curve
 /// vk = g * sk, where g is a generator
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct SchnorrVerificationKey(pub(crate) JubjubSubgroup);
 
 impl SchnorrVerificationKey {

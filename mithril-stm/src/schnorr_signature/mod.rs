@@ -142,8 +142,8 @@ mod tests {
     }
 
     #[test]
-    fn test_from_bytes_signature_too_many_bytes() {
-        let msg = vec![0u8; 97];
+    fn test_from_bytes_signature_not_enough_bytes() {
+        let msg = vec![0u8; 95];
 
         let result = SchnorrSignature::from_bytes(&msg);
 

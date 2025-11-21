@@ -1,13 +1,14 @@
 use dusk_jubjub::{
-    AffinePoint as JubjubAffine, ExtendedPoint as JubjubExtended, Fq as JubjubBase,
+    AffinePoint as JubjubAffine, EDWARDS_D, ExtendedPoint as JubjubExtended, Fq as JubjubBase,
     Fr as JubjubScalar,
 };
 
+use ff::Field;
 use sha2::{Digest, Sha256};
 
-use anyhow::anyhow;
+use anyhow::{Context, Ok, anyhow};
 
-use crate::StmResult;
+use crate::{StmResult, error::SchnorrSignatureError};
 
 /// Convert an arbitrary array of bytes into a Jubjub scalar field element
 ///
@@ -20,9 +21,8 @@ pub fn hash_msg_to_jubjubbase(msg: &[u8]) -> StmResult<JubjubBase> {
     if hmsg.len() == output.len() {
         output.copy_from_slice(&hmsg);
     } else {
-        return Err(anyhow!(
-            "Hash of the message does not have the correct lenght."
-        ));
+        return Err(anyhow!(SchnorrSignatureError::SerializationError))
+            .with_context(|| "Hash of the message does not have the correct lenght.");
     }
 
     Ok(JubjubBase::from_raw([
@@ -31,6 +31,22 @@ pub fn hash_msg_to_jubjubbase(msg: &[u8]) -> StmResult<JubjubBase> {
         u64::from_le_bytes(output[16..24].try_into()?),
         u64::from_le_bytes(output[24..32].try_into()?),
     ]))
+}
+
+/// Check if the given point is on the curve using its coordinates
+pub fn is_on_curve(point: JubjubExtended) -> bool {
+    let point_affine_representation = JubjubAffine::from(point);
+    let (x, y) = (
+        point_affine_representation.get_u(),
+        point_affine_representation.get_v(),
+    );
+    let x_square = x.square();
+    let y_square = y.square();
+
+    let lhs = y_square - x_square;
+    let rhs = JubjubBase::ONE + EDWARDS_D * x_square * y_square;
+
+    lhs == rhs
 }
 
 /// Extract the coordinates of a given point in an Extended form

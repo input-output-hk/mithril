@@ -9,7 +9,9 @@ use group::{Group, GroupEncoding};
 use crate::{
     StmResult,
     error::SchnorrSignatureError,
-    schnorr_signature::{DST_SIGNATURE, SchnorrVerificationKey, get_coordinates_several_points},
+    schnorr_signature::{
+        DST_SIGNATURE, SchnorrVerificationKey, get_coordinates_several_points, is_on_curve,
+    },
 };
 
 /// Structure of the Schnorr signature to use with the SNARK
@@ -49,6 +51,13 @@ impl SchnorrSignature {
     /// Check: challenge == challenge_recomputed
     ///     
     pub fn verify(&self, msg: &[u8], verification_key: &SchnorrVerificationKey) -> StmResult<()> {
+        // Check that the verification key is on the curve
+        if !is_on_curve(verification_key.0.into()) {
+            return Err(anyhow!(SchnorrSignatureError::VerificationKeyInvalid(
+                Box::new(*verification_key)
+            )));
+        }
+
         let generator = JubjubSubgroup::generator();
 
         // First hashing the message to a scalar then hashing it to a curve point
@@ -116,7 +125,7 @@ impl SchnorrSignature {
             .ok_or(anyhow!(SchnorrSignatureError::SerializationError))
             .with_context(|| "Unable to convert bytes into a sigma value.")?;
 
-        let signature_bytes = bytes[64..96]
+        let signature_bytes = bytes[32..64]
             .try_into()
             .map_err(|_| anyhow!(SchnorrSignatureError::SerializationError))
             .with_context(|| "Failed to obtain signature's bytes.")?;
