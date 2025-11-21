@@ -298,7 +298,8 @@ impl Client {
         ]);
         let version = NodeVersion::fetch(Self::BIN_NAME, bin_dir)?;
 
-        let mut args = vec!["-vvv"];
+        // Always use the unstable flag as the e2e tests are not meant to check the coherence of the client commands
+        let mut args = vec!["-vvv", "--unstable"];
         if version.is_above_or_equal("0.11.13") {
             args.extend_from_slice(&["--origin-tag", "E2E"]);
         } else {
