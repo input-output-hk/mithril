@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use dusk_jubjub::{
     ExtendedPoint as JubjubExtended, Fr as JubjubScalar, SubgroupPoint as JubjubSubgroup,
 };
@@ -104,14 +104,17 @@ impl SchnorrSigningKey {
     ///
     /// The bytes must represent a Jubjub scalar or the conversion will fail
     pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
-        let mut signing_key_bytes: [u8; 32] = [0u8; 32];
-        signing_key_bytes.copy_from_slice(
-            bytes
-                .get(0..32)
-                .ok_or(anyhow!(SchnorrSignatureError::SerializationError))?,
-        );
+        if bytes.len() < 32 {
+            return Err(anyhow!(SchnorrSignatureError::SerializationError))
+                .with_context(|| "Not enough bytes provided to create a signing key.");
+        }
 
-        // Jubjub returs a CtChoice so I convert it to an option that looses the const time property
+        let signing_key_bytes = bytes[0..32]
+            .try_into()
+            .map_err(|_| anyhow!(SchnorrSignatureError::SerializationError))
+            .with_context(|| "Failed to obtain signing key's bytes.")?;
+
+        // Jubjub returns a CtChoice so I convert it to an option that looses the const time property
         match JubjubScalar::from_bytes(&signing_key_bytes).into_option() {
             Some(signing_key) => Ok(Self(signing_key)),
             None => Err(anyhow!(SchnorrSignatureError::SerializationError)),

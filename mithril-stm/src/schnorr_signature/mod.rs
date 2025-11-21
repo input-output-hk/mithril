@@ -21,26 +21,12 @@ mod tests {
 
     use super::*;
     use dusk_jubjub::SubgroupPoint as JubjubSubgroup;
+    use ff::Field;
     use group::Group;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
     use crate::schnorr_signature::{SchnorrSigningKey, SchnorrVerificationKey};
-
-    #[test]
-    fn test_hash_msg_to_jubjubbase() {
-        let msg = vec![0, 0, 0, 1];
-        let h = hash_msg_to_jubjubbase(&msg).unwrap();
-        // Correct value corresponding to the message [0,0,0,1]
-        let bytes_le = [
-            179, 7, 17, 168, 141, 112, 57, 117, 112, 92, 169, 56, 36, 70, 1, 217, 9, 13, 255, 42,
-            100, 207, 166, 110, 188, 47, 35, 211, 35, 168, 100, 25,
-        ];
-
-        let field_elem = JubjubBase::from_bytes(&bytes_le).unwrap();
-
-        assert_eq!(h, field_elem)
-    }
 
     #[test]
     fn test_get_coordinates() {
@@ -52,7 +38,7 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_signing_key() {
+    fn test_generate_verification_key() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
         let sk = SchnorrSigningKey::generate(&mut rng);
         let g = JubjubSubgroup::generator();
@@ -64,7 +50,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sig_and_verify() {
+    fn test_sign_and_verify() {
         let msg = vec![0, 0, 0, 1];
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
@@ -142,11 +128,46 @@ mod tests {
     }
 
     #[test]
-    fn test_from_bytes_signature_not_enough_bytes() {
+    fn from_bytes_signature_not_enough_bytes() {
         let msg = vec![0u8; 95];
 
         let result = SchnorrSignature::from_bytes(&msg);
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn from_bytes_signing_key_not_enough_bytes() {
+        let msg = vec![0u8; 31];
+
+        let result = SchnorrSigningKey::from_bytes(&msg);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn verify_fail_verification_key_not_on_curve() {
+        let msg = vec![0, 0, 0, 1];
+        let seed = [0u8; 32];
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let sk = SchnorrSigningKey::generate(&mut rng);
+        let vk1 = SchnorrVerificationKey::from(&sk);
+        let sig = sk.sign(&msg, &mut rng).unwrap();
+        let vk2 = SchnorrVerificationKey(JubjubSubgroup::from_raw_unchecked(
+            JubjubBase::ONE,
+            JubjubBase::ONE,
+        ));
+
+        let result1 = sig.verify(&msg, &vk1);
+        let result2 = sig.verify(&msg, &vk2);
+
+        assert!(
+            result1.is_ok(),
+            "Correct verification key used, test should pass."
+        );
+        assert!(
+            result2.is_err(),
+            "Invalid verification key used, test should fail."
+        );
     }
 }

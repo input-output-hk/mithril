@@ -113,7 +113,7 @@ impl SchnorrSignature {
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         if bytes.len() < 96 {
             return Err(anyhow!(SchnorrSignatureError::SerializationError))
-                .with_context(|| "Not enough bytes provided.");
+                .with_context(|| "Not enough bytes provided to create a signature.");
         }
 
         let sigma_bytes = bytes[0..32]

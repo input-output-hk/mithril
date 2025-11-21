@@ -4,34 +4,10 @@ use dusk_jubjub::{
 };
 
 use ff::Field;
-use sha2::{Digest, Sha256};
 
 use anyhow::{Context, Ok, anyhow};
 
 use crate::{StmResult, error::SchnorrSignatureError};
-
-/// Convert an arbitrary array of bytes into a Jubjub scalar field element
-///
-/// First hash the message to 256 bits use Sha256 then perform the conversion
-pub fn hash_msg_to_jubjubbase(msg: &[u8]) -> StmResult<JubjubBase> {
-    let mut hash = Sha256::new();
-    hash.update(msg);
-    let hmsg = hash.finalize();
-    let mut output = [0u8; 32];
-    if hmsg.len() == output.len() {
-        output.copy_from_slice(&hmsg);
-    } else {
-        return Err(anyhow!(SchnorrSignatureError::SerializationError))
-            .with_context(|| "Hash of the message does not have the correct lenght.");
-    }
-
-    Ok(JubjubBase::from_raw([
-        u64::from_le_bytes(output[0..8].try_into()?),
-        u64::from_le_bytes(output[8..16].try_into()?),
-        u64::from_le_bytes(output[16..24].try_into()?),
-        u64::from_le_bytes(output[24..32].try_into()?),
-    ]))
-}
 
 /// Check if the given point is on the curve using its coordinates
 pub fn is_on_curve(point: JubjubExtended) -> bool {
@@ -80,10 +56,35 @@ pub fn get_coordinates_several_points(points: &[JubjubExtended]) -> Vec<JubjubBa
 pub fn jubjub_base_to_scalar(x: &JubjubBase) -> StmResult<JubjubScalar> {
     let bytes = x.to_bytes();
 
+    if bytes.len() < 32 {
+        return Err(anyhow!(SchnorrSignatureError::SerializationError))
+            .with_context(|| "Not enough bytes to convert to a jubjub scalar");
+    }
+
     Ok(JubjubScalar::from_raw([
-        u64::from_le_bytes(bytes[0..8].try_into()?),
-        u64::from_le_bytes(bytes[8..16].try_into()?),
-        u64::from_le_bytes(bytes[16..24].try_into()?),
-        u64::from_le_bytes(bytes[24..32].try_into()?),
+        u64::from_le_bytes(
+            bytes[0..8]
+                .try_into()
+                .map_err(|_| anyhow!(SchnorrSignatureError::SerializationError))
+                .with_context(|| "Failed to convert bls scalar to jubjub scalar")?,
+        ),
+        u64::from_le_bytes(
+            bytes[8..16]
+                .try_into()
+                .map_err(|_| anyhow!(SchnorrSignatureError::SerializationError))
+                .with_context(|| "Failed to convert bls scalar to jubjub scalar")?,
+        ),
+        u64::from_le_bytes(
+            bytes[16..24]
+                .try_into()
+                .map_err(|_| anyhow!(SchnorrSignatureError::SerializationError))
+                .with_context(|| "Failed to convert bls scalar to jubjub scalar")?,
+        ),
+        u64::from_le_bytes(
+            bytes[24..32]
+                .try_into()
+                .map_err(|_| anyhow!(SchnorrSignatureError::SerializationError))
+                .with_context(|| "Failed to convert bls scalar to jubjub scalar")?,
+        ),
     ]))
 }
