@@ -94,9 +94,10 @@ impl PallasChainReader {
         next: NextResponse<BlockContent>,
     ) -> StdResult<Option<ChainBlockNextAction>> {
         match next {
-            NextResponse::RollForward(raw_block, _forward_tip) => {
-                let multi_era_block = MultiEraBlock::decode(&raw_block)
-                    .with_context(|| "PallasChainReader failed to decode raw block")?;
+            NextResponse::RollForward(raw_block, forward_tip) => {
+                let multi_era_block = MultiEraBlock::decode(&raw_block).with_context(|| {
+                    format!("PallasChainReader failed to decode raw block at {forward_tip:?}: {raw_block:?} ")
+                })?;
                 let parsed_block = ScannedBlock::convert(multi_era_block);
                 Ok(Some(ChainBlockNextAction::RollForward { parsed_block }))
             }
