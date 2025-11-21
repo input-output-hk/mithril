@@ -3,7 +3,7 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use reqwest::StatusCode;
 use serde::de::DeserializeOwned;
-use slog_scope::info;
+use slog_scope::{info, warn};
 
 use mithril_common::{
     StdResult,
@@ -558,13 +558,21 @@ pub async fn assert_client_can_verify_cardano_database(
     client
         .run(ClientCommand::CardanoDbV2(CardanoDbV2Command::List))
         .await?;
-    client
-        .run(ClientCommand::CardanoDbV2(
-            CardanoDbV2Command::ListPerEpoch {
-                epoch_specifier: EpochSpecifier::LatestMinusOffset(5),
-            },
-        ))
-        .await?;
+
+    if client.version().is_above_or_equal("0.12.34") {
+        client
+            .run(ClientCommand::CardanoDbV2(
+                CardanoDbV2Command::ListPerEpoch {
+                    epoch_specifier: EpochSpecifier::LatestMinusOffset(5),
+                },
+            ))
+            .await?;
+    } else {
+        warn!(
+            "Client version is below 0.12.34, skipping `cardano-db snapshot list --epoch latest-5` check"
+        );
+    }
+
     client
         .run(ClientCommand::CardanoDbV2(CardanoDbV2Command::Show {
             hash: hash.to_string(),

@@ -1,4 +1,5 @@
 use anyhow::{Context, anyhow};
+use slog_scope::warn;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -11,6 +12,7 @@ use crate::{ANCILLARY_MANIFEST_VERIFICATION_KEY, GENESIS_VERIFICATION_KEY};
 #[derive(Debug)]
 pub struct Client {
     command: MithrilCommand,
+    version: NodeVersion,
 }
 
 #[derive(Debug)]
@@ -29,7 +31,7 @@ impl CardanoDbCommand {
         }
     }
 
-    fn cli_arg(&self) -> Vec<String> {
+    fn cli_arg(&self, client_version: &NodeVersion) -> Vec<String> {
         match self {
             CardanoDbCommand::List() => {
                 vec!["snapshot".to_string(), "list".to_string()]
@@ -38,13 +40,25 @@ impl CardanoDbCommand {
                 vec!["snapshot".to_string(), "show".to_string(), digest.clone()]
             }
             CardanoDbCommand::Download { digest } => {
-                vec![
-                    "download".to_string(),
-                    "--include-ancillary".to_string(),
-                    "--download-dir".to_string(),
-                    "v1".to_string(),
-                    digest.clone(),
-                ]
+                if client_version.is_below("0.11.14") {
+                    warn!(
+                        "client version is below 0.11.14, skip unsupported `--include-ancillary` flag for `cardano-db download`"
+                    );
+                    vec![
+                        "download".to_string(),
+                        "--download-dir".to_string(),
+                        "v1".to_string(),
+                        digest.clone(),
+                    ]
+                } else {
+                    vec![
+                        "download".to_string(),
+                        "--include-ancillary".to_string(),
+                        "--download-dir".to_string(),
+                        "v1".to_string(),
+                        digest.clone(),
+                    ]
+                }
             }
         }
     }
@@ -70,7 +84,7 @@ impl CardanoDbV2Command {
         }
     }
 
-    fn cli_arg(&self) -> Vec<String> {
+    fn cli_arg(&self, _client_version: &NodeVersion) -> Vec<String> {
         match self {
             CardanoDbV2Command::List => {
                 vec!["snapshot".to_string(), "list".to_string()]
@@ -113,7 +127,7 @@ impl MithrilStakeDistributionCommand {
         }
     }
 
-    fn cli_arg(&self) -> Vec<String> {
+    fn cli_arg(&self, _client_version: &NodeVersion) -> Vec<String> {
         match self {
             MithrilStakeDistributionCommand::List => {
                 vec!["list".to_string()]
@@ -147,7 +161,7 @@ impl CardanoTransactionCommand {
         }
     }
 
-    fn cli_arg(&self) -> Vec<String> {
+    fn cli_arg(&self, _client_version: &NodeVersion) -> Vec<String> {
         match self {
             CardanoTransactionCommand::ListSnapshot => {
                 vec!["snapshot".to_string(), "list".to_string()]
@@ -178,7 +192,7 @@ impl CardanoStakeDistributionCommand {
         }
     }
 
-    fn cli_arg(&self) -> Vec<String> {
+    fn cli_arg(&self, _client_version: &NodeVersion) -> Vec<String> {
         match self {
             CardanoStakeDistributionCommand::List => {
                 vec!["list".to_string()]
@@ -218,29 +232,51 @@ impl ClientCommand {
         }
     }
 
-    fn cli_arg(&self) -> Vec<String> {
+    fn cli_arg(&self, client_version: &NodeVersion) -> Vec<String> {
         let mut args = match self {
-            ClientCommand::CardanoDb(cmd) => [
-                vec!["cardano-db".to_string()],
-                cmd.cli_arg(),
-                vec!["--backend".to_string(), "v1".to_string()],
+            ClientCommand::CardanoDb(cmd) => {
+                if client_version.is_below("0.12.11") {
+                    warn!(
+                        "client version is below 0.12.11, skip unsupported `--backend` flag for `cardano-db`"
+                    );
+                    [vec!["cardano-db".to_string()], cmd.cli_arg(client_version)].concat()
+                } else {
+                    [
+                        vec!["cardano-db".to_string()],
+                        cmd.cli_arg(client_version),
+                        vec!["--backend".to_string(), "v1".to_string()],
+                    ]
+                    .concat()
+                }
+            }
+            ClientCommand::MithrilStakeDistribution(cmd) => [
+                vec!["mithril-stake-distribution".to_string()],
+                cmd.cli_arg(client_version),
             ]
             .concat(),
-            ClientCommand::MithrilStakeDistribution(cmd) => {
-                [vec!["mithril-stake-distribution".to_string()], cmd.cli_arg()].concat()
-            }
             ClientCommand::CardanoTransaction(cmd) => {
-                [vec!["cardano-transaction".to_string()], cmd.cli_arg()].concat()
+                [vec!["cardano-transaction".to_string()], cmd.cli_arg(client_version)].concat()
             }
-            ClientCommand::CardanoStakeDistribution(cmd) => {
-                [vec!["cardano-stake-distribution".to_string()], cmd.cli_arg()].concat()
-            }
-            ClientCommand::CardanoDbV2(cmd) => [
-                vec!["cardano-db".to_string()],
-                cmd.cli_arg(),
-                vec!["--backend".to_string(), "v2".to_string()],
+            ClientCommand::CardanoStakeDistribution(cmd) => [
+                vec!["cardano-stake-distribution".to_string()],
+                cmd.cli_arg(client_version),
             ]
             .concat(),
+            ClientCommand::CardanoDbV2(cmd) => {
+                if client_version.is_below("0.12.11") {
+                    warn!(
+                        "client version is below 0.12.11, fallback to `cardano-db-v2` command instead of unsupported `cardano-db --backend v2`"
+                    );
+                    [vec!["cardano-db-v2".to_string()], cmd.cli_arg(client_version)].concat()
+                } else {
+                    [
+                        vec!["cardano-db".to_string()],
+                        cmd.cli_arg(client_version),
+                        vec!["--backend".to_string(), "v2".to_string()],
+                    ]
+                    .concat()
+                }
+            }
         };
         args.push("--json".to_string());
 
@@ -262,7 +298,13 @@ impl Client {
         ]);
         let version = NodeVersion::fetch(Self::BIN_NAME, bin_dir)?;
 
-        let args = vec!["-vvv", "--origin-tag", "E2E"];
+        let mut args = vec!["-vvv"];
+        if version.is_above_or_equal("0.11.13") {
+            args.extend_from_slice(&["--origin-tag", "E2E"]);
+        } else {
+            warn!("client version is below 0.11.13, skip unsupported `--origin-tag` flag");
+        }
+
         let command = MithrilCommand::new(Self::BIN_NAME, work_dir, bin_dir, env, &args)?;
 
         Ok(Self { command, version })
