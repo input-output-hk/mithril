@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::hash::Hash;
+use std::str::FromStr;
 
 use anyhow::anyhow;
 use blake2::digest::{Digest, FixedOutput};
@@ -8,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::AggregateSignatureError;
 use crate::merkle_tree::MerkleBatchPath;
-use crate::{AggregateVerificationKey, Parameters, StmResult};
+use crate::{AggregateVerificationKey, Parameters, StmError, StmResult};
 
 use super::ConcatenationProof;
 
@@ -56,6 +57,19 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> From<&AggregateSignature<D>>
             AggregateSignature::Concatenation(_) => AggregateSignatureType::Concatenation,
             #[cfg(feature = "future_proof_system")]
             AggregateSignature::Future => AggregateSignatureType::Future,
+        }
+    }
+}
+
+impl FromStr for AggregateSignatureType {
+    type Err = StmError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Concatenation" => Ok(AggregateSignatureType::Concatenation),
+            #[cfg(feature = "future_proof_system")]
+            "Future" => Ok(AggregateSignatureType::Future),
+            _ => Err(anyhow!("Unknown aggregate signature type: {}", s)),
         }
     }
 }

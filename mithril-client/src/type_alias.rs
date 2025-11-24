@@ -89,3 +89,6 @@ pub mod common {
 
 /// Required capabilities for an aggregator.
 pub use mithril_aggregator_discovery::RequiredAggregatorCapabilities;
+
+/// Mithril network
+pub use mithril_aggregator_discovery::MithrilNetwork;
