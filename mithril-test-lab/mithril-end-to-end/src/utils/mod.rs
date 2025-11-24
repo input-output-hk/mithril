@@ -1,10 +1,12 @@
 mod mithril_command;
 #[macro_use]
 mod spec_utils;
+mod compatibility_checker;
 mod file_utils;
 mod formatting;
 mod version_req;
 
+pub use compatibility_checker::*;
 pub use formatting::*;
 pub use mithril_command::MithrilCommand;
 pub use spec_utils::AttemptResult;
