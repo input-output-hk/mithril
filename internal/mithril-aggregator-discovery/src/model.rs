@@ -25,6 +25,12 @@ impl MithrilNetwork {
     }
 }
 
+impl From<String> for MithrilNetwork {
+    fn from(name: String) -> Self {
+        MithrilNetwork::new(name)
+    }
+}
+
 /// Representation of an aggregator endpoint
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AggregatorEndpoint {
@@ -55,5 +61,11 @@ impl AggregatorEndpoint {
 impl From<AggregatorEndpoint> for String {
     fn from(endpoint: AggregatorEndpoint) -> Self {
         endpoint.url
+    }
+}
+
+impl std::fmt::Display for AggregatorEndpoint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.url)
     }
 }
