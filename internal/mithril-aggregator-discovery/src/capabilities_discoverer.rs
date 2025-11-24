@@ -8,12 +8,15 @@ use mithril_common::{
 use crate::{AggregatorDiscoverer, AggregatorEndpoint, MithrilNetwork};
 
 /// Required capabilities for an aggregator.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub enum RequiredAggregatorCapabilities {
+    /// All
+    All,
     /// Signed entity type.
     SignedEntityType(SignedEntityTypeDiscriminants),
     /// Aggregate signature type.
     AggregateSignatureType(AggregateSignatureType),
+    ///
     /// Logical OR of required capabilities.
     Or(Vec<RequiredAggregatorCapabilities>),
     /// Logical AND of required capabilities.
@@ -24,6 +27,7 @@ impl RequiredAggregatorCapabilities {
     /// Check if the available capabilities match the required capabilities.
     fn matches(&self, available: &AggregatorCapabilities) -> bool {
         match self {
+            RequiredAggregatorCapabilities::All => true,
             RequiredAggregatorCapabilities::SignedEntityType(required_signed_entity_type) => {
                 available
                     .signed_entity_types
@@ -125,6 +129,18 @@ mod tests {
 
     mod required_capabilities {
         use super::*;
+
+        #[test]
+        fn required_capabilities_match_all_success() {
+            let required = RequiredAggregatorCapabilities::All;
+            let available = AggregatorCapabilities {
+                aggregate_signature_type: Concatenation,
+                signed_entity_types: BTreeSet::from([]),
+                cardano_transactions_prover: None,
+            };
+
+            assert!(required.matches(&available));
+        }
 
         #[test]
         fn required_capabilities_match_signed_entity_types_success() {
