@@ -81,6 +81,12 @@ impl NodeVersion {
     }
 }
 
+impl From<&NodeVersion> for semver::Version {
+    fn from(value: &NodeVersion) -> Self {
+        value.semver_version.clone()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

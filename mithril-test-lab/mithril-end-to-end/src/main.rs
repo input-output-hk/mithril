@@ -3,6 +3,7 @@ use clap::{CommandFactory, Parser, Subcommand};
 use slog::{Drain, Level, Logger};
 use slog_scope::{error, info};
 use std::{
+    collections::BTreeMap,
     fmt, fs,
     path::{Path, PathBuf},
     process::{ExitCode, Termination},
@@ -19,8 +20,8 @@ use tokio::{
 use mithril_common::StdResult;
 use mithril_doc::GenerateDocCommands;
 use mithril_end_to_end::{
-    CompatibilityCheckerError, Devnet, DevnetBootstrapArgs, DmqNodeFlavor, MithrilInfrastructure,
-    MithrilInfrastructureConfig, RetryableDevnetError, RunOnly, Spec,
+    CompatibilityChecker, CompatibilityCheckerError, Devnet, DevnetBootstrapArgs, DmqNodeFlavor,
+    MithrilInfrastructure, MithrilInfrastructureConfig, RetryableDevnetError, RunOnly, Spec,
 };
 
 /// Tests args
@@ -381,7 +382,7 @@ impl App {
                 store_dir,
                 artifacts_dir,
                 bin_dir: args.bin_directory,
-                cardano_node_version: args.cardano_node_version,
+                cardano_node_version: args.cardano_node_version.clone(),
                 mithril_run_interval: args.mithril_run_interval,
                 mithril_era: args.mithril_era,
                 mithril_era_reader_adapter: args.mithril_era_reader_adapter,
@@ -400,6 +401,26 @@ impl App {
             .await?,
         );
         *self.infrastructure.lock().await = Some(infrastructure.clone());
+
+        CompatibilityChecker::default().check(BTreeMap::from([
+            (
+                "mithril-aggregator",
+                infrastructure.leader_aggregator().version().into(),
+            ),
+            (
+                "mithril-signer",
+                infrastructure.signers()[0].version().into(),
+            ),
+            (
+                "mithril-client",
+                infrastructure
+                    .build_client(infrastructure.leader_aggregator())
+                    .await?
+                    .version()
+                    .into(),
+            ),
+            ("cardano-node", args.cardano_node_version),
+        ]))?;
 
         let runner: StdResult<()> = match run_only_mode {
             true => RunOnly::new(infrastructure).run().await,
