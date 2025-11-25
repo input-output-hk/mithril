@@ -1,6 +1,6 @@
 [package]
 name = "mithril-aggregator-discovery"
-description = "Mechanisms to discover aggregator available in a Mithril network."
+description = "Mechanisms to discover aggregators available in a Mithril network."
 version = "0.1.0"
 authors.workspace = true
 documentation.workspace = true

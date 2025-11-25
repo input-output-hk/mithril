@@ -9,7 +9,7 @@ use mithril_client::{
 /// Clap command to select an aggregator from the available ones with automatic discovery.
 #[derive(Parser, Debug, Clone)]
 pub struct AggregatorSelectCommand {
-    /// Path to the Cardano node database directory.
+    /// Mithril network name
     #[clap(long)]
     network: MithrilNetwork,
 
@@ -90,9 +90,9 @@ impl AggregatorSelectCommand {
             ));
         }
         if required_capabilities.len() == 1 {
-            return required_capabilities.into_iter().next().unwrap();
+            required_capabilities.into_iter().next().unwrap()
         } else {
-            return RequiredAggregatorCapabilities::And(required_capabilities);
+            RequiredAggregatorCapabilities::And(required_capabilities)
         }
     }
 }

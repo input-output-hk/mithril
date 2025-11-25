@@ -10,7 +10,7 @@ use crate::model::{AggregatorEndpoint, MithrilNetwork};
 pub trait AggregatorDiscoverer: Sync + Send {
     /// Get an iterator over a list of available aggregators in a Mithril network.
     ///
-    /// Note: there is no guarantee that the returned aggregators is sorted, complete or up-to-date.
+    /// Note: there is no guarantee that the returned aggregators are sorted, complete or up-to-date.
     async fn get_available_aggregators(
         &self,
         network: MithrilNetwork,

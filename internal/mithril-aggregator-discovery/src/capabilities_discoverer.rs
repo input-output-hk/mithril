@@ -16,7 +16,6 @@ pub enum RequiredAggregatorCapabilities {
     SignedEntityType(SignedEntityTypeDiscriminants),
     /// Aggregate signature type.
     AggregateSignatureType(AggregateSignatureType),
-    ///
     /// Logical OR of required capabilities.
     Or(Vec<RequiredAggregatorCapabilities>),
     /// Logical AND of required capabilities.
