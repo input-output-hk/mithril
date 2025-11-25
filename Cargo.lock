@@ -3815,11 +3815,8 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "slog",
  "slog-async",
- "slog-scope",
  "slog-term",
- "thiserror 2.0.17",
  "tokio",
 ]
 
