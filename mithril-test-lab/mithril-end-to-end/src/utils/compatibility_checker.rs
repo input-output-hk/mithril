@@ -6,6 +6,32 @@ pub struct CompatibilityChecker {
     rules: Vec<CompatibilityRule>,
 }
 
+impl Default for CompatibilityChecker {
+    fn default() -> Self {
+        Self::new(vec![
+            incompatibility_rule!(
+                "mithril-client", below_version: semver::Version::new(0, 11, 14),
+                is_incompatible_with: "mithril-aggregator", starting_version: semver::Version::new(0, 7, 31),
+                context: "below versions doesn't support properly cardano db verification without ancillary files"
+            ),
+            incompatibility_rule!(
+                "mithril-aggregator", below_version: semver::Version::new(0, 7, 91),
+                is_incompatible_with: "mithril-signer", starting_version: semver::Version::new(0, 2, 277),
+                context: "signers starting `0.2.277` needs the `/protocol-parameters/{epoch}` route which is not available in aggregator older versions"
+            ),
+            incompatibility_rule!(
+                "mithril-aggregator", below_version: semver::Version::new(0, 7, 55),
+                is_incompatible_with: "cardano-node", starting_version: semver::Version::new(10, 4, 1),
+                context: "older aggregator doesn't support UTxO-HD ledgers"
+            ),
+            incompatibility_rule!(
+                "mithril-signer", min_supported_version: semver::Version::new(0, 2, 221),
+                context: "older signers raise errors when an aggregator propagate a signed entity types that they don't know (i.e. CardanoDatabase signed entity type)"
+            ),
+        ])
+    }
+}
+
 /// Error returned by the compatibility checker when the nodes are incompatible with one or more rules
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompatibilityCheckerError {
