@@ -4,9 +4,9 @@ use anyhow::Context;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-use mithril_common::StdResult;
+use mithril_common::{StdResult, entities::MithrilNetwork};
 
-use crate::{AggregatorDiscoverer, AggregatorEndpoint, MithrilNetwork};
+use crate::{AggregatorDiscoverer, AggregatorEndpoint};
 
 const DEFAULT_REMOTE_NETWORKS_CONFIG_URL: &str =
     "https://raw.githubusercontent.com/input-output-hk/mithril/main/networks.json";
@@ -47,7 +47,7 @@ pub struct HttpConfigAggregatorDiscoverer {
 impl HttpConfigAggregatorDiscoverer {
     const HTTP_TIMEOUT: Duration = Duration::from_secs(10);
 
-    /// Creates a new `HttpConfigAggregatorDiscoverer` instance with the provided results.
+    /// Creates a new `HttpConfigAggregatorDiscoverer` instance with the configuration file URL.
     pub fn new(configuration_file_url: &str) -> Self {
         Self {
             configuration_file_url: configuration_file_url.to_string(),
