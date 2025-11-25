@@ -36,8 +36,7 @@ impl AggregatorSelectCommand {
         let required_capabilities = self.build_required_capabilities();
         let client_builder =
             ClientBuilder::new(AggregatorDiscoveryType::Automatic(self.network.clone()))
-                .with_capabilities(required_capabilities)
-                .with_default_aggregator_discoverer();
+                .with_capabilities(required_capabilities);
         let aggregator_endpoints = client_builder
             .discover_aggregator(&self.network)?
             .take(self.max_entries);

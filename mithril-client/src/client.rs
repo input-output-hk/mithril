@@ -3,6 +3,8 @@ use anyhow::{Context, anyhow};
 use chrono::Utc;
 
 use mithril_common::entities::MithrilNetwork;
+use rand::SeedableRng;
+use rand::rngs::StdRng;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use slog::{Logger, o};
@@ -211,7 +213,20 @@ impl ClientBuilder {
         .with_genesis_verification_key(GenesisVerificationKey::JsonHex(
             genesis_verification_key.to_string(),
         ))
-        .with_default_aggregator_discoverer()
+    }
+
+    /// Default aggregator discoverer to use to find the aggregator endpoint when in automatic discovery.
+    fn default_aggregator_discoverer() -> Arc<dyn AggregatorDiscoverer> {
+        Arc::new(ShuffleAggregatorDiscoverer::new(
+            Arc::new(HttpConfigAggregatorDiscoverer::default()),
+            {
+                let mut seed = [0u8; 32];
+                let timestamp = Utc::now().timestamp_nanos_opt().unwrap_or(0);
+                seed[..8].copy_from_slice(&timestamp.to_le_bytes());
+
+                StdRng::from_seed(seed)
+            },
+        ))
     }
 
     /// Constructs a new `ClientBuilder` without any dependency set.
@@ -264,17 +279,6 @@ impl ClientBuilder {
         discoverer: Arc<dyn AggregatorDiscoverer>,
     ) -> ClientBuilder {
         self.aggregator_discoverer = Some(discoverer);
-
-        self
-    }
-
-    /// Sets the default aggregator discoverer to use to find the aggregator endpoint when in automatic discovery.
-    pub fn with_default_aggregator_discoverer(mut self) -> ClientBuilder {
-        /* self.aggregator_discoverer = Some(Arc::new(HttpConfigAggregatorDiscoverer::default())); */
-        self.aggregator_discoverer = Some(Arc::new(ShuffleAggregatorDiscoverer::new(
-            Arc::new(HttpConfigAggregatorDiscoverer::default()),
-            Arc::new(rand::rand_core::OsRng) as Arc<dyn rand::RngCore>, // Explicitly cast to trait object
-        )?));
 
         self
     }
@@ -409,29 +413,27 @@ impl ClientBuilder {
         &self,
         network: &MithrilNetwork,
     ) -> MithrilResult<impl Iterator<Item = AggregatorEndpoint>> {
-        match self.aggregator_discoverer.clone() {
-            Some(discoverer) => {
-                let discoverer = if let Some(capabilities) = &self.aggregator_capabilities {
-                    Arc::new(CapableAggregatorDiscoverer::new(
-                        capabilities to_owned(),
-                        discoverer.clone(),
-                    )) as Arc<dyn AggregatorDiscoverer>
-                } else {
-                    discoverer as Arc<dyn AggregatorDiscoverer>
-                };
-                tokio::task::block_in_place(move || {
-                    tokio::runtime::Handle::current().block_on(async move {
-                        discoverer
-                            .get_available_aggregators(network.to_owned())
-                            .await
-                            .with_context(|| "Discovering aggregator endpoint failed")
-                    })
-                })
-            }
-            None => Err(anyhow!(
-                "The aggregator discoverer must be provided to build the client with automatic discovery using the 'with_aggregator_discoverer' function"
-            )),
-        }
+        let discoverer = self
+            .aggregator_discoverer
+            .clone()
+            .unwrap_or_else(|| Self::default_aggregator_discoverer());
+        let discoverer = if let Some(capabilities) = &self.aggregator_capabilities {
+            Arc::new(CapableAggregatorDiscoverer::new(
+                capabilities.to_owned(),
+                discoverer.clone(),
+            )) as Arc<dyn AggregatorDiscoverer>
+        } else {
+            discoverer as Arc<dyn AggregatorDiscoverer>
+        };
+
+        tokio::task::block_in_place(move || {
+            tokio::runtime::Handle::current().block_on(async move {
+                discoverer
+                    .get_available_aggregators(network.to_owned())
+                    .await
+                    .with_context(|| "Discovering aggregator endpoint failed")
+            })
+        })
     }
 
     fn build_aggregator_client(
