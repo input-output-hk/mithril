@@ -67,9 +67,9 @@ pub struct Args {
     #[clap(long, default_value_t = 30.0)]
     cardano_epoch_length: f64,
 
-    /// Cardano node version
+    /// Cardano node version, must be a valid semver version
     #[clap(long, default_value = "10.5.1")]
-    cardano_node_version: String,
+    cardano_node_version: semver::Version,
 
     /// Epoch at which hard fork to the latest Cardano era will be made (starts with the latest era by default)
     #[clap(long, default_value_t = 0)]

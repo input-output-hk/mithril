@@ -31,7 +31,7 @@ pub struct AggregatorConfig<'a> {
     pub store_dir: &'a Path,
     pub artifacts_dir: &'a Path,
     pub bin_dir: &'a Path,
-    pub cardano_node_version: &'a str,
+    pub cardano_node_version: &'a semver::Version,
     pub mithril_run_interval: u32,
     pub mithril_era: &'a str,
     pub mithril_era_reader_adapter: &'a str,
@@ -82,6 +82,7 @@ impl Aggregator {
         let signed_entity_types = aggregator_config.signed_entity_types.join(",");
         let mithril_run_interval = format!("{}", aggregator_config.mithril_run_interval);
         let public_server_url = format!("http://localhost:{server_port_parameter}/aggregator");
+        let cardano_node_version = aggregator_config.cardano_node_version.to_string();
         let mut env = HashMap::from([
             ("NETWORK", "devnet"),
             ("NETWORK_MAGIC", &magic_id),
@@ -125,10 +126,7 @@ impl Aggregator {
                 "AGGREGATE_SIGNATURE_TYPE",
                 aggregator_config.aggregate_signature_type,
             ),
-            (
-                "CARDANO_NODE_VERSION",
-                aggregator_config.cardano_node_version,
-            ),
+            ("CARDANO_NODE_VERSION", &cardano_node_version),
             ("CHAIN_OBSERVER_TYPE", aggregator_config.chain_observer_type),
             ("CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE", "5"),
             ("CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE", "5"),

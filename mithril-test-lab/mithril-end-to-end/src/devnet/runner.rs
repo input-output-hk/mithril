@@ -68,7 +68,7 @@ pub struct DevnetBootstrapArgs {
     pub number_of_full_nodes: u8,
     pub cardano_slot_length: f64,
     pub cardano_epoch_length: f64,
-    pub cardano_node_version: String,
+    pub cardano_node_version: semver::Version,
     pub cardano_hard_fork_latest_era_at_epoch: u16,
     pub skip_cardano_bin_download: bool,
 }
@@ -118,7 +118,10 @@ impl Devnet {
             "EPOCH_LENGTH",
             bootstrap_args.cardano_epoch_length.to_string(),
         );
-        bootstrap_command.env("CARDANO_NODE_VERSION", &bootstrap_args.cardano_node_version);
+        bootstrap_command.env(
+            "CARDANO_NODE_VERSION",
+            bootstrap_args.cardano_node_version.to_string(),
+        );
         bootstrap_command.env(
             "CARDANO_HARD_FORK_LATEST_ERA_AT_EPOCH",
             bootstrap_args.cardano_hard_fork_latest_era_at_epoch.to_string(),
