@@ -17,7 +17,7 @@ pub struct RelayAggregator {
 }
 
 impl RelayAggregator {
-    const BIN_NAME: &'static str = "mithril-relay";
+    pub const BIN_NAME: &'static str = "mithril-relay";
 
     pub fn new(
         index: usize,

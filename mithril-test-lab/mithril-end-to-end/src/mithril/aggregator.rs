@@ -57,7 +57,7 @@ pub struct Aggregator {
 }
 
 impl Aggregator {
-    const BIN_NAME: &'static str = "mithril-aggregator";
+    pub const BIN_NAME: &'static str = "mithril-aggregator";
 
     pub fn new(aggregator_config: &AggregatorConfig) -> StdResult<Self> {
         let version = NodeVersion::fetch(Self::BIN_NAME, aggregator_config.bin_dir)?;

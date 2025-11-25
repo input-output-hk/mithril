@@ -42,7 +42,7 @@ pub struct Signer {
 }
 
 impl Signer {
-    const BIN_NAME: &'static str = "mithril-signer";
+    pub const BIN_NAME: &'static str = "mithril-signer";
 
     pub fn new(signer_config: &SignerConfig) -> StdResult<Self> {
         let version = NodeVersion::fetch(Self::BIN_NAME, signer_config.bin_dir)?;

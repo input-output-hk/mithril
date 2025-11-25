@@ -16,11 +16,19 @@ impl NodeVersion {
         Self { semver_version }
     }
 
-    /// Fetch the semver version of a binary
+    /// Fetch the `NodeVersion` of a binary
     ///
     /// The binary must have a `--version` command which returns the version in the following forms:
     /// `string x.y.z` where `x.y.z` is a semver version.
     pub fn fetch(bin_name: &str, bin_dir: &Path) -> StdResult<NodeVersion> {
+        Self::fetch_semver(bin_name, bin_dir).map(NodeVersion::new)
+    }
+
+    /// Fetch the semver version of a binary
+    ///
+    /// The binary must have a `--version` command which returns the version in the following forms:
+    /// `string x.y.z` where `x.y.z` is a semver version.
+    pub fn fetch_semver(bin_name: &str, bin_dir: &Path) -> StdResult<semver::Version> {
         let process_path = get_process_path(bin_name, bin_dir)?;
         // Note: usage of blocking std::process::Command instead of tokio::process::Command to avoid making this method async
         // example output: mithril-client 0.12.33+3063c3e
@@ -36,13 +44,9 @@ impl NodeVersion {
                 format!("could not find `{bin_name}` semver version; output: `{raw_output}`",)
             })?;
 
-            semver::Version::parse(version_string)
-                .with_context(|| {
-                    format!(
-                        "failed to parse `{bin_name}` semver version; input: `{version_string}`"
-                    )
-                })
-                .map(NodeVersion::new)
+            semver::Version::parse(version_string).with_context(|| {
+                format!("failed to parse `{bin_name}` semver version; input: `{version_string}`")
+            })
         } else {
             let stdout = String::from_utf8(output.stdout).ok();
             let stderr = String::from_utf8(output.stderr).ok();

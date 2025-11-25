@@ -16,7 +16,7 @@ pub struct RelayPassive {
 }
 
 impl RelayPassive {
-    const BIN_NAME: &'static str = "mithril-relay";
+    pub const BIN_NAME: &'static str = "mithril-relay";
 
     pub fn new(
         listen_port: u64,

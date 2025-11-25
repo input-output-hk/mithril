@@ -285,7 +285,7 @@ impl ClientCommand {
 }
 
 impl Client {
-    const BIN_NAME: &'static str = "mithril-client";
+    pub const BIN_NAME: &'static str = "mithril-client";
 
     pub fn new(aggregator_endpoint: String, work_dir: &Path, bin_dir: &Path) -> StdResult<Self> {
         let env = HashMap::from([

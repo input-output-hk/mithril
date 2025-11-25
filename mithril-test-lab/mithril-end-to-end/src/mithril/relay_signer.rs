@@ -33,7 +33,7 @@ pub struct RelaySigner {
 }
 
 impl RelaySigner {
-    const BIN_NAME: &'static str = "mithril-relay";
+    pub const BIN_NAME: &'static str = "mithril-relay";
 
     pub fn new(configuration: &RelaySignerConfiguration) -> StdResult<Self> {
         let version = NodeVersion::fetch(Self::BIN_NAME, configuration.bin_dir)?;

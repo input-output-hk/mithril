@@ -20,8 +20,9 @@ use tokio::{
 use mithril_common::StdResult;
 use mithril_doc::GenerateDocCommands;
 use mithril_end_to_end::{
-    CompatibilityChecker, CompatibilityCheckerError, Devnet, DevnetBootstrapArgs, DmqNodeFlavor,
-    MithrilInfrastructure, MithrilInfrastructureConfig, RetryableDevnetError, RunOnly, Spec,
+    Aggregator, Client, CompatibilityChecker, CompatibilityCheckerError, Devnet,
+    DevnetBootstrapArgs, DmqNodeFlavor, MithrilInfrastructure, MithrilInfrastructureConfig,
+    NodeVersion, RelaySigner, RetryableDevnetError, RunOnly, Signer, Spec,
 };
 
 /// Tests args
@@ -358,6 +359,26 @@ impl App {
 
         let use_p2p_passive_relays = args.use_p2p_passive_relays;
 
+        CompatibilityChecker::default().check(BTreeMap::from([
+            (
+                Aggregator::BIN_NAME,
+                NodeVersion::fetch_semver(Aggregator::BIN_NAME, &args.bin_directory)?,
+            ),
+            (
+                Signer::BIN_NAME,
+                NodeVersion::fetch_semver(Signer::BIN_NAME, &args.bin_directory)?,
+            ),
+            (
+                Client::BIN_NAME,
+                NodeVersion::fetch_semver(Client::BIN_NAME, &args.bin_directory)?,
+            ),
+            (
+                RelaySigner::BIN_NAME,
+                NodeVersion::fetch_semver(RelaySigner::BIN_NAME, &args.bin_directory)?,
+            ),
+            ("cardano-node", args.cardano_node_version.to_owned()),
+        ]))?;
+
         let devnet = Devnet::bootstrap(&DevnetBootstrapArgs {
             devnet_scripts_dir: args.devnet_scripts_directory,
             artifacts_target_dir: work_dir.join("devnet"),
@@ -382,7 +403,7 @@ impl App {
                 store_dir,
                 artifacts_dir,
                 bin_dir: args.bin_directory,
-                cardano_node_version: args.cardano_node_version.clone(),
+                cardano_node_version: args.cardano_node_version,
                 mithril_run_interval: args.mithril_run_interval,
                 mithril_era: args.mithril_era,
                 mithril_era_reader_adapter: args.mithril_era_reader_adapter,
@@ -401,26 +422,6 @@ impl App {
             .await?,
         );
         *self.infrastructure.lock().await = Some(infrastructure.clone());
-
-        CompatibilityChecker::default().check(BTreeMap::from([
-            (
-                "mithril-aggregator",
-                infrastructure.leader_aggregator().version().into(),
-            ),
-            (
-                "mithril-signer",
-                infrastructure.signers()[0].version().into(),
-            ),
-            (
-                "mithril-client",
-                infrastructure
-                    .build_client(infrastructure.leader_aggregator())
-                    .await?
-                    .version()
-                    .into(),
-            ),
-            ("cardano-node", args.cardano_node_version),
-        ]))?;
 
         let runner: StdResult<()> = match run_only_mode {
             true => RunOnly::new(infrastructure).run().await,
