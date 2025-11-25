@@ -1,8 +1,8 @@
 //! Interface definition for Mithril Protocol Configuration provider.
 
-use mithril_common::StdResult;
+use mithril_common::{StdResult, entities::MithrilNetwork};
 
-use crate::model::{AggregatorEndpoint, MithrilNetwork};
+use crate::model::AggregatorEndpoint;
 
 /// An aggregator discoverer.
 #[cfg_attr(test, mockall::automock)]

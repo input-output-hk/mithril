@@ -91,4 +91,4 @@ pub mod common {
 pub use mithril_aggregator_discovery::RequiredAggregatorCapabilities;
 
 /// Mithril network
-pub use mithril_aggregator_discovery::MithrilNetwork;
+pub use mithril_common::entities::MithrilNetwork;

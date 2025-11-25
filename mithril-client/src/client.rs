@@ -2,6 +2,7 @@ use anyhow::{Context, anyhow};
 #[cfg(feature = "fs")]
 use chrono::Utc;
 
+use mithril_common::entities::MithrilNetwork;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use slog::{Logger, o};
@@ -10,7 +11,7 @@ use std::sync::Arc;
 
 use mithril_aggregator_discovery::{
     AggregatorDiscoverer, AggregatorEndpoint, CapableAggregatorDiscoverer,
-    HttpConfigAggregatorDiscoverer, MithrilNetwork, RequiredAggregatorCapabilities,
+    HttpConfigAggregatorDiscoverer, RequiredAggregatorCapabilities, ShuffleAggregatorDiscoverer,
 };
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
@@ -269,7 +270,11 @@ impl ClientBuilder {
 
     /// Sets the default aggregator discoverer to use to find the aggregator endpoint when in automatic discovery.
     pub fn with_default_aggregator_discoverer(mut self) -> ClientBuilder {
-        self.aggregator_discoverer = Some(Arc::new(HttpConfigAggregatorDiscoverer::default()));
+        /* self.aggregator_discoverer = Some(Arc::new(HttpConfigAggregatorDiscoverer::default())); */
+        self.aggregator_discoverer = Some(Arc::new(ShuffleAggregatorDiscoverer::new(
+            Arc::new(HttpConfigAggregatorDiscoverer::default()),
+            Arc::new(rand::rand_core::OsRng) as Arc<dyn rand::RngCore>, // Explicitly cast to trait object
+        )?));
 
         self
     }
@@ -408,7 +413,7 @@ impl ClientBuilder {
             Some(discoverer) => {
                 let discoverer = if let Some(capabilities) = &self.aggregator_capabilities {
                     Arc::new(CapableAggregatorDiscoverer::new(
-                        capabilities.to_owned(),
+                        capabilities to_owned(),
                         discoverer.clone(),
                     )) as Arc<dyn AggregatorDiscoverer>
                 } else {

@@ -3,13 +3,13 @@ use std::sync::Arc;
 use rand::{Rng, seq::SliceRandom};
 use tokio::sync::Mutex;
 
-use mithril_common::StdResult;
+use mithril_common::{StdResult, entities::MithrilNetwork};
 
-use crate::{AggregatorDiscoverer, AggregatorEndpoint, MithrilNetwork};
+use crate::{AggregatorDiscoverer, AggregatorEndpoint};
 
 /// A discoverer that returns a random set of aggregators
 pub struct ShuffleAggregatorDiscoverer<R: Rng + Send + Sized> {
-    random_generator: Arc<Mutex<R>>,
+    random_generator: Arc<Mutex<Box<R>>>,
     inner_discoverer: Arc<dyn AggregatorDiscoverer>,
 }
 
@@ -18,7 +18,7 @@ impl<R: Rng + Send + Sized> ShuffleAggregatorDiscoverer<R> {
     pub fn new(inner_discoverer: Arc<dyn AggregatorDiscoverer>, random_generator: R) -> Self {
         Self {
             inner_discoverer,
-            random_generator: Arc::new(Mutex::new(random_generator)),
+            random_generator: Arc::new(Mutex::new(Box::new(random_generator))),
         }
     }
 }

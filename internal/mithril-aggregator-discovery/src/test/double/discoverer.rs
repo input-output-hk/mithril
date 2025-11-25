@@ -2,9 +2,9 @@ use std::collections::VecDeque;
 
 use tokio::sync::Mutex;
 
-use mithril_common::StdResult;
+use mithril_common::{StdResult, entities::MithrilNetwork};
 
-use crate::{AggregatorDiscoverer, AggregatorEndpoint, MithrilNetwork};
+use crate::{AggregatorDiscoverer, AggregatorEndpoint};
 
 type AggregatorListReturn = StdResult<Vec<AggregatorEndpoint>>;
 

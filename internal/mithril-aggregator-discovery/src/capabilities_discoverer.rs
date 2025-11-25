@@ -1,11 +1,12 @@
 use std::sync::Arc;
 
 use mithril_common::{
-    AggregateSignatureType, StdResult, entities::SignedEntityTypeDiscriminants,
+    AggregateSignatureType, StdResult,
+    entities::{MithrilNetwork, SignedEntityTypeDiscriminants},
     messages::AggregatorCapabilities,
 };
 
-use crate::{AggregatorDiscoverer, AggregatorEndpoint, MithrilNetwork};
+use crate::{AggregatorDiscoverer, AggregatorEndpoint};
 
 /// Required capabilities for an aggregator.
 #[derive(Clone, PartialEq, Eq, Debug)]
