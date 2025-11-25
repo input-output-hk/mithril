@@ -250,7 +250,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "**Signed entity types**: ${{ inputs.signed-entity-types }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Cardano nodes**: ${{ inputs.cardano_node_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Cardano nodes**: ${{ inputs.cardano-node-version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "| Compatibility | mithril-signer | mithril-aggregator | mithril-client |" >> $GITHUB_STEP_SUMMARY
