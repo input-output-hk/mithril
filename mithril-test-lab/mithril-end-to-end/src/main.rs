@@ -19,8 +19,8 @@ use tokio::{
 use mithril_common::StdResult;
 use mithril_doc::GenerateDocCommands;
 use mithril_end_to_end::{
-    Devnet, DevnetBootstrapArgs, DmqNodeFlavor, MithrilInfrastructure, MithrilInfrastructureConfig,
-    RetryableDevnetError, RunOnly, Spec,
+    CompatibilityCheckerError, Devnet, DevnetBootstrapArgs, DmqNodeFlavor, MithrilInfrastructure,
+    MithrilInfrastructureConfig, RetryableDevnetError, RunOnly, Spec,
 };
 
 /// Tests args
@@ -253,14 +253,16 @@ enum AppResult {
     UnretryableError(anyhow::Error),
     RetryableError(anyhow::Error),
     Cancelled(anyhow::Error),
+    IncompatibleNode(anyhow::Error),
 }
 
 impl AppResult {
     fn exit_code(&self) -> ExitCode {
         match self {
             AppResult::Success() => ExitCode::SUCCESS,
-            AppResult::UnretryableError(_) | AppResult::Cancelled(_) => ExitCode::FAILURE,
-            AppResult::RetryableError(_) => ExitCode::from(2),
+            AppResult::UnretryableError(..) | AppResult::Cancelled(..) => ExitCode::FAILURE,
+            AppResult::RetryableError(..) => ExitCode::from(2),
+            AppResult::IncompatibleNode(..) => ExitCode::from(3),
         }
     }
 }
@@ -272,6 +274,7 @@ impl fmt::Display for AppResult {
             AppResult::UnretryableError(error) => write!(f, "Error(Unretryable): {error:?}"),
             AppResult::RetryableError(error) => write!(f, "Error(Retryable): {error:?}"),
             AppResult::Cancelled(error) => write!(f, "Cancelled: {error:?}"),
+            AppResult::IncompatibleNode(error) => write!(f, "{error:?}"),
         }
     }
 }
@@ -298,6 +301,8 @@ impl From<StdResult<()>> for AppResult {
                     AppResult::RetryableError(error)
                 } else if error.is::<SignalError>() {
                     AppResult::Cancelled(error)
+                } else if error.is::<CompatibilityCheckerError>() {
+                    AppResult::IncompatibleNode(error)
                 } else {
                     AppResult::UnretryableError(error)
                 }
