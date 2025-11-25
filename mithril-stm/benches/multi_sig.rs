@@ -1,8 +1,9 @@
 use blake2::{Blake2b, Digest, digest::consts::U64};
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use mithril_stm::{BlsSignature, BlsSigningKey, BlsVerificationKey};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
+
+use mithril_stm::{BlsSignature, BlsSigningKey, BlsVerificationKey};
 
 fn batch_benches(c: &mut Criterion, array_batches: &[usize], nr_sigs: usize) {
     let mut group = c.benchmark_group("MultiSig".to_string());
@@ -66,7 +67,7 @@ fn aggregate_and_verify(c: &mut Criterion, nr_sigs: usize) {
         })
     });
 
-    group.bench_function(BenchmarkId::new("Individual verif", nr_sigs), |b| {
+    group.bench_function(BenchmarkId::new("Verification", nr_sigs), |b| {
         b.iter(|| {
             for (vk, sig) in mvks.iter().zip(sigs.iter()) {
                 assert!(sig.verify(&msg, vk).is_ok());
@@ -97,7 +98,7 @@ fn batch_bls_benches(c: &mut Criterion) {
 criterion_group!(name = benches;
                  config = Criterion::default().nresamples(1000);
                  targets =
-    // batch_multi_sig_benches,
+    batch_multi_sig_benches,
     batch_bls_benches
 );
 criterion_main!(benches);

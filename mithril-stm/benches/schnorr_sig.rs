@@ -1,10 +1,10 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use dusk_jubjub::Fq as JubjubBase;
 use dusk_poseidon::{Domain, Hash};
-
-use mithril_stm::{SchnorrSigningKey, SchnorrVerificationKey};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
+
+use mithril_stm::{SchnorrSigningKey, SchnorrVerificationKey};
 
 fn dusk_poseidon_hash(c: &mut Criterion, nr_sigs: usize) {
     let mut group = c.benchmark_group("Schnorr".to_string());
@@ -45,7 +45,7 @@ fn sign_and_verify(c: &mut Criterion, nr_sigs: usize) {
     let mut msks = Vec::new();
     let mut sigs = Vec::new();
     for _ in 0..nr_sigs {
-        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk = SchnorrSigningKey::try_generate(&mut rng).unwrap();
         let vk = SchnorrVerificationKey::from(&sk);
         let sig = sk.sign(&msg, &mut rng_sig).unwrap();
         sigs.push(sig);

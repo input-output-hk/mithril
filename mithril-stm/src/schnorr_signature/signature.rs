@@ -1,15 +1,16 @@
 use anyhow::{Context, anyhow};
 use dusk_jubjub::{
-    ExtendedPoint as JubjubExtended, Fr as JubjubScalar, SubgroupPoint as JubjubSubgroup,
+    ExtendedPoint as JubjubExtended, Fq as JubjubBase, Fr as JubjubScalar,
+    SubgroupPoint as JubjubSubgroup,
 };
 use dusk_poseidon::{Domain, Hash};
 use group::{Group, GroupEncoding};
 
 use crate::{
     StmResult,
-    error::SchnorrSignatureError,
     schnorr_signature::{
-        DST_SIGNATURE, SchnorrVerificationKey, get_coordinates_several_points, is_on_curve,
+        DST_SIGNATURE, SchnorrSignatureError, SchnorrVerificationKey,
+        get_coordinates_several_points, is_on_curve,
     },
 };
 
@@ -25,7 +26,6 @@ pub struct SchnorrSignature {
     /// Part of the Schnorr signature depending on the secret key
     pub(crate) signature: JubjubScalar,
     /// Part of the Schnorr signature NOT depending on the secret key
-    // pub(crate) challenge: JubjubBase,
     pub(crate) challenge: JubjubScalar,
 }
 
@@ -48,7 +48,7 @@ impl SchnorrSignature {
     ///     || sigma || random_point_1_recomputed || random_point_2_recomputed)
     ///
     /// Check: challenge == challenge_recomputed
-    ///     
+    ///
     pub fn verify(&self, msg: &[u8], verification_key: &SchnorrVerificationKey) -> StmResult<()> {
         // Check that the verification key is on the curve
         if !is_on_curve(verification_key.0.into()) {
@@ -83,7 +83,12 @@ impl SchnorrSignature {
         ]);
 
         let mut poseidon_input = vec![DST_SIGNATURE];
-        poseidon_input.extend(points_coordinates);
+        poseidon_input.extend(
+            points_coordinates
+                .into_iter()
+                .flat_map(|(x, y)| [x, y])
+                .collect::<Vec<JubjubBase>>(),
+        );
 
         let challenge_recomputed = Hash::digest_truncated(Domain::Other, &poseidon_input)[0];
 
@@ -96,7 +101,7 @@ impl SchnorrSignature {
         Ok(())
     }
 
-    /// Convert an `SchnorrSignature` to a byte representation.
+    /// Convert an `SchnorrSignature` into bytes.
     pub fn to_bytes(self) -> [u8; 96] {
         let mut out = [0; 96];
         out[0..32].copy_from_slice(&self.sigma.to_bytes());
@@ -106,9 +111,7 @@ impl SchnorrSignature {
         out
     }
 
-    /// Convert a string of bytes into a `SchnorrSignature`.
-    ///
-    /// Not sure the sigma, s and c creation can fail if the 96 bytes are correctly extracted.
+    /// Convert bytes into a `SchnorrSignature`.
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         if bytes.len() < 96 {
             return Err(anyhow!(SchnorrSignatureError::SerializationError))
@@ -151,18 +154,41 @@ impl SchnorrSignature {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
 
-    use crate::{SchnorrSignature, SchnorrSigningKey};
+    use crate::{SchnorrSignature, SchnorrSigningKey, SchnorrVerificationKey};
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
+
+    #[test]
+    fn invalid_sig() {
+        let msg = vec![0, 0, 0, 1];
+        let msg2 = vec![0, 0, 0, 2];
+        let seed = [0u8; 32];
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let sk = SchnorrSigningKey::try_generate(&mut rng).unwrap();
+        let vk = SchnorrVerificationKey::from(&sk);
+        let sk2 = SchnorrSigningKey::try_generate(&mut rng).unwrap();
+        let vk2 = SchnorrVerificationKey::from(&sk2);
+
+        let sig = sk.sign(&msg, &mut rng).unwrap();
+        let sig2 = sk.sign(&msg2, &mut rng).unwrap();
+
+        // Wrong verification key is used
+        let result1 = sig.verify(&msg, &vk2);
+        let result2 = sig2.verify(&msg, &vk);
+
+        result1.expect_err("Wrong verification key used, test should fail.");
+        // Wrong message is verified
+        result2.expect_err("Wrong message used, test should fail.");
+    }
 
     #[test]
     fn serialize_deserialize_signature() {
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
 
         let msg = vec![0, 0, 0, 1];
-        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let sk = SchnorrSigningKey::try_generate(&mut rng).unwrap();
 
         let sig = sk.sign(&msg, &mut rng).unwrap();
         let sig_bytes: [u8; 96] = sig.to_bytes();
@@ -177,6 +203,41 @@ mod test {
 
         let result = SchnorrSignature::from_bytes(&msg);
 
-        assert!(result.is_err());
+        result.expect_err("Not enough bytes.");
+    }
+
+    mod golden {
+
+        use rand_chacha::ChaCha20Rng;
+        use rand_core::SeedableRng;
+
+        use crate::schnorr_signature::{SchnorrSignature, SchnorrSigningKey};
+
+        const GOLDEN_BYTES: &[u8; 96] = &[
+            143, 53, 198, 62, 178, 1, 88, 253, 21, 92, 100, 13, 72, 180, 198, 127, 39, 175, 102,
+            69, 147, 249, 244, 224, 122, 121, 248, 68, 217, 242, 158, 113, 94, 57, 200, 241, 208,
+            145, 251, 8, 92, 119, 163, 38, 81, 85, 54, 36, 193, 221, 254, 242, 21, 129, 110, 161,
+            142, 184, 107, 156, 100, 34, 190, 9, 200, 20, 178, 142, 61, 253, 193, 11, 5, 180, 97,
+            73, 125, 88, 162, 36, 30, 177, 225, 52, 136, 21, 138, 93, 81, 23, 19, 64, 82, 78, 229,
+            3,
+        ];
+
+        fn golden_value() -> SchnorrSignature {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let sk = SchnorrSigningKey::try_generate(&mut rng).unwrap();
+            let msg = [0u8; 32];
+            sk.sign(&msg, &mut rng).unwrap()
+        }
+
+        #[test]
+        fn golden_conversions() {
+            let value = SchnorrSignature::from_bytes(GOLDEN_BYTES)
+                .expect("This from bytes should not fail");
+            assert_eq!(golden_value(), value);
+
+            let serialized = SchnorrSignature::to_bytes(value);
+            let golden_serialized = SchnorrSignature::to_bytes(golden_value());
+            assert_eq!(golden_serialized, serialized);
+        }
     }
 }
