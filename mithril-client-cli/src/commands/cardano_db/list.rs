@@ -7,7 +7,10 @@ use mithril_client::{Client, MithrilResult};
 use crate::{
     CommandContext,
     commands::{
-        cardano_db::{CardanoDbCommandsBackend, warn_unused_parameter_with_v1_backend},
+        cardano_db::{
+            CardanoDbCommandsBackend, warn_deprecated_v1_backend,
+            warn_unused_parameter_with_v1_backend,
+        },
         client_builder_with_fallback_genesis_key,
     },
     utils::CardanoDbUtils,
@@ -42,6 +45,7 @@ impl CardanoDbListCommand {
 
     #[allow(deprecated)]
     async fn print_v1(&self, client: Client, context: CommandContext) -> MithrilResult<()> {
+        warn_deprecated_v1_backend(&context);
         if self.epoch.is_some() {
             warn_unused_parameter_with_v1_backend(&context, ["--epoch"]);
         }
