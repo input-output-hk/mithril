@@ -22,6 +22,12 @@ jobs:
 
   notify-on-failure:
     uses: ./.github/workflows/test-notify-on-failure.yml
-    needs: [docker-builds, aggregator-stress-test, test-client]
+    needs:
+      [
+        backward-compatibility,
+        docker-builds,
+        aggregator-stress-test,
+        test-client,
+      ]
     if: failure()
     secrets: inherit
