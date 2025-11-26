@@ -47,6 +47,7 @@ pub struct Args {
 }
 
 #[tokio::main]
+#[allow(deprecated)]
 async fn main() -> MithrilResult<()> {
     let args = Args::parse();
     let work_dir = get_temp_dir()?;

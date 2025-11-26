@@ -40,6 +40,7 @@ impl CardanoDbListCommand {
         Ok(())
     }
 
+    #[allow(deprecated)]
     async fn print_v1(&self, client: Client, context: CommandContext) -> MithrilResult<()> {
         if self.epoch.is_some() {
             warn_unused_parameter_with_v1_backend(&context, ["--epoch"]);

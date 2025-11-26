@@ -36,10 +36,10 @@
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
 //!
-//! let snapshots = client.snapshot().list().await?;
+//! let snapshots = client.cardano_database().list().await?;
 //!
 //! let last_digest = snapshots.first().unwrap().digest.as_ref();
-//! let snapshot = client.snapshot().get(last_digest).await?.unwrap();
+//! let snapshot = client.cardano_database().get(last_digest).await?.unwrap();
 //!
 //! let certificate = client
 //!     .certificate()
@@ -49,11 +49,11 @@
 //! // Note: the directory must already exist, and the user running the binary must have read/write access to it.
 //! let target_directory = Path::new("/home/user/download/");
 //! client
-//!     .snapshot()
+//!     .cardano_database()
 //!     .download_unpack(&snapshot, &target_directory)
 //!     .await?;
 //!
-//! if let Err(e) = client.snapshot().add_statistics(&snapshot).await {
+//! if let Err(e) = client.cardano_database().add_statistics(&snapshot).await {
 //!     println!("Could not increment snapshot download statistics: {:?}", e);
 //! }
 //!

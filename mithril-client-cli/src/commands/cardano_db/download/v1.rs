@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use anyhow::{Context, anyhow};
 use slog::{Logger, debug, warn};
 use std::{fs::File, path::Path, sync::Arc};

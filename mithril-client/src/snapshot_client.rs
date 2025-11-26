@@ -95,7 +95,7 @@
 //!    .download_unpack(&snapshot, target_directory)
 //!    .await?;
 //!
-//! client.snapshot().add_statistics(&snapshot).await.unwrap();
+//! client.cardano_database().add_statistics(&snapshot).await.unwrap();
 //! #
 //! #    Ok(())
 //! # }
@@ -147,6 +147,7 @@ pub enum SnapshotClientError {
 }
 
 /// Aggregator client for the snapshot artifact
+#[deprecated(since = "0.12.35", note = "superseded by `CardanoDatabaseClient`")]
 pub struct SnapshotClient {
     aggregator_client: Arc<dyn AggregatorClient>,
     #[cfg(feature = "fs")]

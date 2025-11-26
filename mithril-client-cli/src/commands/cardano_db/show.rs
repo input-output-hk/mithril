@@ -39,6 +39,7 @@ impl CardanoDbShowCommand {
         Ok(())
     }
 
+    #[allow(deprecated)]
     async fn print_v1(&self, client: Client, context: &CommandContext) -> MithrilResult<()> {
         let get_list_of_artifact_ids = || async {
             let cardano_dbs = client.cardano_database().list().await.with_context(|| {
