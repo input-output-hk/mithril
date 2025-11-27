@@ -1,8 +1,10 @@
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
-use crate::membership_commitment::{MerkleBatchPath, MerkleTreeBatchCommitment};
-use crate::{ClosedKeyRegistration, Stake};
+use crate::{
+    ClosedKeyRegistration, Stake,
+    membership_commitment::{MerkleBatchPath, MerkleTreeBatchCommitment},
+};
 
 /// Stm aggregate key (batch compatible), which contains the merkle tree commitment and the total stake of the system.
 /// Batch Compat Merkle tree commitment includes the number of leaves in the tree in order to obtain batch path.

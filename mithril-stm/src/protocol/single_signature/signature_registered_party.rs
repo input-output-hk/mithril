@@ -1,7 +1,8 @@
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize, Serializer, ser::SerializeTuple};
 
-use crate::{RegisteredParty, SignatureError, SingleSignature, StmResult};
+use super::SingleSignature;
+use crate::{RegisteredParty, SignatureError, StmResult};
 
 /// Signature with its registered party.
 #[derive(Debug, Clone, Hash, Deserialize, Eq, PartialEq, Ord, PartialOrd)]
@@ -58,10 +59,10 @@ mod tests {
         use rand_chacha::ChaCha20Rng;
         use rand_core::SeedableRng;
 
-        use crate::signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession};
         use crate::{
             ClosedKeyRegistration, KeyRegistration, Parameters, Signer,
             SingleSignatureWithRegisteredParty,
+            signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
         };
 
         type D = Blake2b<U32>;

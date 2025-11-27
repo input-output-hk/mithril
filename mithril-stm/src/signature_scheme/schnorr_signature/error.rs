@@ -1,5 +1,5 @@
 #[cfg(feature = "future_snark")]
-use crate::{SchnorrSignature, SchnorrVerificationKey};
+use super::{SchnorrSignature, SchnorrVerificationKey};
 
 /// Error types for Schnorr signatures.
 #[cfg(feature = "future_snark")]

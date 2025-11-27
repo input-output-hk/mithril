@@ -1,13 +1,12 @@
 use anyhow::Context;
 use blake2::digest::{Digest, FixedOutput};
-
 use serde::{Deserialize, Serialize};
 
-use crate::membership_commitment::MerkleBatchPath;
-use crate::signature_scheme::{BlsSignature, BlsVerificationKey};
 use crate::{
     AggregateSignatureError, AggregateVerificationKey, BasicVerifier, Clerk, Parameters,
     RegisteredParty, SingleSignature, SingleSignatureWithRegisteredParty, StmResult,
+    membership_commitment::MerkleBatchPath,
+    signature_scheme::{BlsSignature, BlsVerificationKey},
 };
 
 /// `ConcatenationProof` uses the "concatenation" proving system (as described in Section 4.3 of the original paper.)

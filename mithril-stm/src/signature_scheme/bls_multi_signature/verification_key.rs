@@ -12,12 +12,8 @@ use blst::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    MultiSignatureError, StmResult, blst_error_to_stm_error,
-    signature_scheme::{
-        BlsProofOfPossession, BlsSigningKey, POP, helper::unsafe_helpers::verify_pairing,
-    },
-};
+use super::{BlsProofOfPossession, BlsSigningKey, POP, helper::unsafe_helpers::verify_pairing};
+use crate::{MultiSignatureError, StmResult, blst_error_to_stm_error};
 
 /// MultiSig verification key, which is a wrapper over the BlstVk (element in G2)
 /// from the blst library.

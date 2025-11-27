@@ -10,9 +10,10 @@ pub use aggregate_signature::{
     AggregateSignature, AggregateSignatureType, AggregateVerificationKey, BasicVerifier, Clerk,
 };
 pub(crate) use eligibility_check::is_lottery_won;
+pub(crate) use error::blst_error_to_stm_error;
 pub use error::{
     AggregateSignatureError, AggregationError, MerkleTreeError, MultiSignatureError, RegisterError,
-    SignatureError, blst_error_to_stm_error,
+    SignatureError,
 };
 pub use key_registration::{ClosedKeyRegistration, KeyRegistration, RegisteredParty};
 pub use parameters::Parameters;

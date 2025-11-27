@@ -3,15 +3,14 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+use anyhow::{Context, anyhow};
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
-use crate::protocol::eligibility_check::is_lottery_won;
-use crate::signature_scheme::BlsSignature;
 use crate::{
     AggregateVerificationKey, Index, Parameters, SignatureError, Stake, StmResult, VerificationKey,
+    is_lottery_won, signature_scheme::BlsSignature,
 };
-use anyhow::{Context, anyhow};
 
 /// Signature created by a single party who has won the lottery.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -207,8 +206,10 @@ mod tests {
         use rand_chacha::ChaCha20Rng;
         use rand_core::SeedableRng;
 
-        use crate::signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession};
-        use crate::{ClosedKeyRegistration, KeyRegistration, Parameters, Signer, SingleSignature};
+        use crate::{
+            ClosedKeyRegistration, KeyRegistration, Parameters, Signer, SingleSignature,
+            signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
+        };
 
         type D = Blake2b<U32>;
 

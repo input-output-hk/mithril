@@ -2,10 +2,10 @@
 use anyhow::anyhow;
 use blst::BLST_ERROR;
 
-use crate::signature_scheme::{
-    BlsSignature, BlsVerificationKey, BlsVerificationKeyProofOfPossession,
+use crate::{
+    AggregateSignatureType, StmResult,
+    signature_scheme::{BlsSignature, BlsVerificationKey, BlsVerificationKeyProofOfPossession},
 };
-use crate::{AggregateSignatureType, StmResult};
 
 /// Error types for multi signatures.
 #[derive(Debug, thiserror::Error, Eq, PartialEq)]

@@ -1,6 +1,4 @@
 use anyhow::{Context, anyhow};
-use std::{cmp::Ordering, iter::Sum};
-
 use blake2::{Blake2b, Blake2b512, Digest};
 use blst::{
     blst_p1, blst_p2,
@@ -8,14 +6,13 @@ use blst::{
     p1_affines, p2_affines,
 };
 use digest::consts::U16;
+use std::{cmp::Ordering, iter::Sum};
 
-use crate::{
-    Index, MultiSignatureError, StmResult, blst_error_to_stm_error,
-    signature_scheme::{
-        BlsVerificationKey,
-        helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk, sig_to_p1, vk_from_p2_affine},
-    },
+use super::{
+    BlsVerificationKey,
+    helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk, sig_to_p1, vk_from_p2_affine},
 };
+use crate::{Index, MultiSignatureError, StmResult, blst_error_to_stm_error};
 
 /// MultiSig signature, which is a wrapper over the `BlstSig` type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

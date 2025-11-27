@@ -1,14 +1,12 @@
-use std::collections::HashMap;
-use std::fmt::Display;
-use std::hash::Hash;
+use std::{collections::HashMap, fmt::Display, hash::Hash};
 
 use anyhow::anyhow;
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
-use crate::membership_commitment::MerkleBatchPath;
+use super::AggregateVerificationKey;
 use crate::{
-    AggregateSignatureError, AggregateVerificationKey, Parameters, StmResult,
+    AggregateSignatureError, Parameters, StmResult, membership_commitment::MerkleBatchPath,
     proof_system::ConcatenationProof,
 };
 
@@ -211,10 +209,10 @@ mod tests {
         use rand_chacha::ChaCha20Rng;
         use rand_core::SeedableRng;
 
-        use crate::signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession};
+        use super::{AggregateSignature, AggregateSignatureType};
         use crate::{
-            AggregateSignature, AggregateSignatureType, Clerk, ClosedKeyRegistration,
-            KeyRegistration, Parameters, Signer,
+            Clerk, ClosedKeyRegistration, KeyRegistration, Parameters, Signer,
+            signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
         };
 
         type D = Blake2b<U32>;
