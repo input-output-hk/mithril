@@ -1,6 +1,6 @@
 [package]
 name = "mithril-stm"
-version = "0.6.0"
+version = "0.6.1"
 edition = { workspace = true }
 authors = { workspace = true }
 homepage = { workspace = true }
@@ -16,7 +16,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 [features]
 default = ["rug-backend"]
 rug-backend = ["rug/default"]
-num-integer-backend = ["num-bigint", "num-rational", "dep:num-traits"]
+num-integer-backend = ["dep:num-bigint", "dep:num-rational", "dep:num-traits"]
 benchmark-internals = [] # For benchmarking multi_sig
 future_proof_system = [] # For activating future proof systems
 future_snark = [
