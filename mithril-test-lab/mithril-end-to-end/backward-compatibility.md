@@ -7,13 +7,13 @@ This is achieved by differentiating the scenarios based on the version of the no
 There are multiple ways to do this:
 
 - disabling part of the scenarios
-- adding or removing arguments to the binaries (i.e. `--backend` flag for the client-cli)
+- adding or removing arguments to the binaries (e.g. `--backend` flag for the client-cli)
 
 > [!TIP]
-> Node versions and distribution versions below are the ones that first included the changes, has node versions evolve
+> Node versions and distribution versions below are the ones that first included the changes, as node versions evolve
 > faster than distribution versions the actual node version included in the distribution may be higher.
 >
-> i.e. `--origin-tag` flag for the client-cli was introduced in version `0.11.13`, the first distribution that included
+> e.g. `--origin-tag` flag for the client-cli was introduced in version `0.11.13`, the first distribution that included
 > that change is `2517.0`, which include client-cli `0.12.0`.
 
 ---
@@ -22,47 +22,47 @@ There are multiple ways to do this:
 
 List of breaking changes that are supported by the end-to-end tests.
 
-format is: `- since 'X.Y.Z' (distribution version) [to 'X.Y.Z' (distribution version) (optional)]: supported change`
+format is: `- **since 'X.Y.Z' (distribution version) [to 'X.Y.Z' (distribution version) (optional)]**: supported change`
 
 ### Mithril client
 
-- since `0.12.34` (2543.0): test of new `--epoch` filter to `cardano-db list` (disabled on lower versions)
-- since `0.12.11` (2524.0): removal of `cardano-db-v2` replaced with `cardano-db [command] --backend [v1,v2]`
-- since `0.11.14` (2517.0): addition of `--include-ancillary` flag to `cardano-db download`
-- since `0.11.13` (2517.0): addition of global `--origin-tag` parameter
+- **since `0.12.34` (2543.0)**: test of new `--epoch` filter to `cardano-db list` (disabled on lower versions)
+- **since `0.12.11` (2524.0)**: removal of `cardano-db-v2` replaced with `cardano-db [command] --backend [v1,v2]`
+- **since `0.11.14` (2517.0)**: addition of `--include-ancillary` flag to `cardano-db download`
+- **since `0.11.13` (2517.0)**: addition of global `--origin-tag` parameter
 
 ### Mithril aggregator
 
-- since `0.7.94` (next to 2543.1): only the leader aggregator must be restarted when updating protocol parameters
+- **since `0.7.94` (next to 2543.1)**: only the leader aggregator must be restarted when updating protocol parameters
 
 ### Mithril signer
 
 ---
 
-## Not supported changes
+## Unsupported changes
 
-List of breaking changes that are NOT supported by the end-to-end tests, running a node with those versions against
-`unstable` will result in an error and an exit code of `3`.
+List of breaking changes that are NOT supported by the end-to-end tests, running the tests with nodes versions
+violating at least one of the case below will result in an error and an exit code of `3`.
 
 format is:
 
 - for an incompatibility of a node below a specific version:
-  `- 'min supported version is 'X.Y.Z' (distribution version): explanatory message`
+  `- **min supported version is 'X.Y.Z' (distribution version)**: explanatory message`
 - for an incompatibility between two nodes:
-  `- below 'X.Y.Z' (distribution version) with {other node} `X.Y.Z` (other distribution version) and up: explanatory message`
+  `- **below 'X.Y.Z' (distribution version) with {other node} `X.Y.Z` (other distribution version) and up**: explanatory message`
 
 ### Mithril client
 
-- below `0.11.14` (2517.0) with aggregator `0.7.31` (2517.0) and up: split ancillary files are not correctly supported
+- **below `0.11.14` (2517.0) with aggregator `0.7.31` (2517.0) and up**: split ancillary files are not correctly supported
   for older clients, causing the verification to fail because the incomplete immutable files trio is missing.
 
 ### Mithril aggregator
 
-- below `0.7.91` (next to 2543.1) with signer `0.2.277` (next to 2543.1) and up: new `/protocol-configuration/{epoch}`aggregator
+- **below `0.7.91` (next to 2543.1) with signer `0.2.277` (next to 2543.1) and up**: new `/protocol-configuration/{epoch}`aggregator
   route to update network parameters (required by signer`0.2.277` and up)
-- below `0.7.55` (2524.0) with cardano-node version `10.4.1` and up: support of UTxO-HD was added only on aggregator `0.7.55` and up
+- **below `0.7.55` (2524.0) with cardano-node version `10.4.1` and up**: support of UTxO-HD was added only on aggregator `0.7.55` and up
 
 ### Mithril signer
 
-- min supported version is `0.2.221` (2450.0): addition of the `CardanoDatabase` signed entity type, previous signers
+- **min supported version is `0.2.221` (2450.0)**: addition of the `CardanoDatabase` signed entity type, previous signers
   are not able to handle unknown signed entities

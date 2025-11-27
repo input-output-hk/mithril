@@ -146,7 +146,7 @@ impl Display for CompatibilityRule {
             } => {
                 write!(
                     f,
-                    "{other_node_name} version `{other_node_min_compatible_version}` is incompatible with {name} with a version below `{min_compatible_version}`{context}",
+                    "{other_node_name} starting version `{other_node_min_compatible_version}` is incompatible with {name} with a version below `{min_compatible_version}`{context}",
                     name = self.node_name,
                 )
             }
@@ -302,7 +302,7 @@ mod tests {
         assert_eq!(
             "Incompatible nodes detected:\
             \n- minimum supported node alpha version is `2.0.0`, first error context\
-            \n- node beta version `5.0.0` is incompatible with node alpha with a version below `2.0.0`, second error context\
+            \n- node beta starting version `5.0.0` is incompatible with node alpha with a version below `2.0.0`, second error context\
             \n- minimum supported node gamma version is `3.0.0`\
             \n\
             \nActual nodes versions:\
