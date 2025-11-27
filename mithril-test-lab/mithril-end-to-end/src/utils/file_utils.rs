@@ -1,7 +1,8 @@
 use anyhow::Context;
-use mithril_common::StdResult;
 use std::{path::Path, process::Stdio};
 use tokio::process::Command;
+
+use mithril_common::StdResult;
 
 /// Tail a file into into the given stream
 ///
@@ -61,6 +62,28 @@ pub async fn last_errors(file_path: &Path, number_of_error: u64) -> StdResult<St
     String::from_utf8(result.stdout)
         .map(|s| s.replace("\\n", "\n"))
         .with_context(|| "Failed to parse command output to utf8")
+}
+
+/// Join the bin_dir with the bin_name and return the absolute path to the process, failing if the process does not exist.
+pub fn get_process_path(bin_name: &str, bin_dir: &Path) -> StdResult<std::path::PathBuf> {
+    use anyhow::Context;
+
+    let process_path = std::path::absolute(bin_dir)
+        .with_context(|| {
+            format!(
+                "failed to get absolute path for '{bin_dir}/{bin_name}'",
+                bin_dir = bin_dir.display(),
+            )
+        })?
+        .join(bin_name);
+
+    if !process_path.exists() {
+        anyhow::bail!(
+            "cannot find '{bin_name}' executable in expected location '{bin_dir}'",
+            bin_dir = bin_dir.display(),
+        );
+    }
+    Ok(process_path)
 }
 
 #[cfg(test)]

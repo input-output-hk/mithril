@@ -1,6 +1,4 @@
 use anyhow::{Context, anyhow};
-use mithril_common::StdResult;
-use mithril_common::entities::{PartyId, TransactionHash};
 use slog_scope::info;
 use std::fs::{self, File, read_to_string};
 use std::io::Read;
@@ -8,6 +6,11 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use thiserror::Error;
 use tokio::process::Command;
+
+use mithril_common::StdResult;
+use mithril_common::entities::{PartyId, TransactionHash};
+
+use crate::utils::file_utils;
 
 #[derive(Error, Debug, PartialEq, Eq)]
 #[error("Retryable devnet error: `{0}`")]
@@ -76,17 +79,8 @@ pub struct DevnetBootstrapArgs {
 impl Devnet {
     pub async fn bootstrap(bootstrap_args: &DevnetBootstrapArgs) -> StdResult<Devnet> {
         let bootstrap_script = "devnet-mkfiles.sh";
-        let bootstrap_script_path = bootstrap_args
-            .devnet_scripts_dir
-            .canonicalize()
-            .with_context(|| {
-                format!(
-                    "Can't find bootstrap script '{}' in {}",
-                    bootstrap_script,
-                    bootstrap_args.devnet_scripts_dir.display(),
-                )
-            })?
-            .join(bootstrap_script);
+        let bootstrap_script_path =
+            file_utils::get_process_path(bootstrap_script, &bootstrap_args.devnet_scripts_dir)?;
 
         if bootstrap_args.artifacts_target_dir.exists() {
             fs::remove_dir_all(&bootstrap_args.artifacts_target_dir)

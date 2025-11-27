@@ -205,19 +205,24 @@ async fn main_exec() -> StdResult<()> {
         return cmd.execute(&mut Args::command()).map_err(|message| anyhow!(message));
     }
 
-    let work_dir = match &args.work_directory {
-        Some(path) => {
-            create_workdir_if_not_exist_clean_otherwise(path);
-            path.canonicalize()?
-        }
-        None => {
-            #[cfg(target_os = "macos")]
-            let work_dir = PathBuf::from("./mithril_end_to_end");
-            #[cfg(not(target_os = "macos"))]
-            let work_dir = std::env::temp_dir().join("mithril_end_to_end");
-            create_workdir_if_not_exist_clean_otherwise(&work_dir);
-            work_dir.canonicalize()?
-        }
+    let work_dir = {
+        let dir = match &args.work_directory {
+            Some(path) => path.to_owned(),
+            None => {
+                if cfg!(target_os = "macos") {
+                    PathBuf::from("./mithril_end_to_end")
+                } else {
+                    std::env::temp_dir().join("mithril_end_to_end")
+                }
+            }
+        };
+        create_workdir_if_not_exist_clean_otherwise(&dir);
+        std::path::absolute(&dir).with_context(|| {
+            format!(
+                "Failed to resolve absolute work directory path: {}",
+                &dir.display()
+            )
+        })?
     };
     let artifacts_dir = {
         let path = work_dir.join("artifacts");

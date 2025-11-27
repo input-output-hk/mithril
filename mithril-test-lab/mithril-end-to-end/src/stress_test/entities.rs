@@ -92,7 +92,12 @@ impl AggregatorParameters {
         std::fs::create_dir_all(&tmp_dir)
             .with_context(|| format!("Could not create temp directory '{}'.", tmp_dir.display()))?;
 
-        let tmp_dir = tmp_dir.canonicalize().unwrap();
+        let tmp_dir = std::path::absolute(&tmp_dir).with_context(|| {
+            format!(
+                "Could not get absolute path to the temp directory '{}'.",
+                tmp_dir.display()
+            )
+        })?;
 
         let cardano_cli_path = {
             if !opts.cardano_cli_path.exists() {
@@ -102,9 +107,9 @@ impl AggregatorParameters {
                 ))?
             }
 
-            opts.cardano_cli_path.canonicalize().with_context(|| {
+            std::path::absolute(&opts.cardano_cli_path).with_context(|| {
                 format!(
-                    "Could not canonicalize path to the cardano-cli, path: '{}'",
+                    "Could not get absolute path to the cardano-cli; path: '{}'",
                     opts.cardano_cli_path.display()
                 )
             })?

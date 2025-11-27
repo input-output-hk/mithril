@@ -3,7 +3,7 @@ use std::path::Path;
 
 use mithril_common::StdResult;
 
-use crate::utils::get_process_path;
+use crate::utils::file_utils;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct NodeVersion {
@@ -29,13 +29,19 @@ impl NodeVersion {
     /// The binary must have a `--version` command which returns the version in the following forms:
     /// `string x.y.z` where `x.y.z` is a semver version.
     pub fn fetch_semver(bin_name: &str, bin_dir: &Path) -> StdResult<semver::Version> {
-        let process_path = get_process_path(bin_name, bin_dir)?;
+        let process_path = file_utils::get_process_path(bin_name, bin_dir)?;
         // Note: usage of blocking std::process::Command instead of tokio::process::Command to avoid making this method async
         // example output: mithril-client 0.12.33+3063c3e
-        let output = std::process::Command::new(process_path)
+        let output = std::process::Command::new(&process_path)
             .args(["--version"])
             .output()
-            .with_context(|| format!("failed to run `{bin_name} --version`"))?;
+            .with_context(|| {
+                format!(
+                    "failed to run `{bin_name} --version`; bin_dir: `{}`; expanded process_path: `{}`",
+                    bin_dir.display(),
+                    process_path.display()
+                )
+            })?;
 
         if output.status.success() {
             let raw_output = String::from_utf8(output.stdout)

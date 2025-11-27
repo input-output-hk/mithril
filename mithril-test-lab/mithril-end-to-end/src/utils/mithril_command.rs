@@ -6,7 +6,7 @@ use tokio::process::{Child, Command};
 
 use mithril_common::StdResult;
 
-use crate::utils::{LogGroup, file_utils, get_process_path};
+use crate::utils::{LogGroup, file_utils};
 
 #[derive(Debug, Clone)]
 pub struct MithrilCommand {
@@ -27,7 +27,7 @@ impl MithrilCommand {
         env_vars: HashMap<&str, &str>,
         default_args: &[&str],
     ) -> StdResult<MithrilCommand> {
-        let process_path = get_process_path(name, bin_dir)?;
+        let process_path = file_utils::get_process_path(name, bin_dir)?;
         let log_path = work_dir.join(format!("{name}.log"));
 
         // ugly but it's far easier for callers to manipulate string literals
