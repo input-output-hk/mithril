@@ -1,6 +1,6 @@
 [package]
 name = "mithril-stm"
-version = "0.6.0"
+version = "0.6.1"
 edition = { workspace = true }
 authors = { workspace = true }
 homepage = { workspace = true }
@@ -16,9 +16,16 @@ crate-type = ["lib", "cdylib", "staticlib"]
 [features]
 default = ["rug-backend"]
 rug-backend = ["rug/default"]
-num-integer-backend = ["num-bigint", "num-rational", "num-traits"]
+num-integer-backend = ["dep:num-bigint", "dep:num-rational", "dep:num-traits"]
 benchmark-internals = [] # For benchmarking multi_sig
 future_proof_system = [] # For activating future proof systems
+future_snark = [
+    "dep:ff",
+    "dep:group",
+    "dep:num-traits",
+    "dep:dusk-poseidon",
+    "dep:dusk-jubjub",
+] # For activating snark features
 
 [dependencies]
 anyhow = { workspace = true }
@@ -26,6 +33,11 @@ blake2 = "0.10.6"
 # Enforce blst portable feature for runtime detection of Intel ADX instruction set.
 blst = { version = "0.3.16", features = ["portable"] }
 digest = { workspace = true }
+dusk-jubjub = { version = "0.15.1", optional = true }
+dusk-poseidon = { version = "0.41.0", optional = true }
+ff = { version = "0.13.1", optional = true }
+group = { version = "0.13.0", optional = true }
+num-traits = { version = "0.2.19", optional = true }
 rand_core = { workspace = true }
 rayon = { workspace = true }
 serde = { workspace = true }
@@ -57,6 +69,11 @@ serde_json = { workspace = true }
 name = "multi_sig"
 harness = false
 required-features = ["benchmark-internals"]
+
+[[bench]]
+name = "schnorr_sig"
+harness = false
+required-features = ["future_snark"]
 
 [[bench]]
 name = "stm"

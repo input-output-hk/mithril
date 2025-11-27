@@ -3,14 +3,15 @@ use blake2::{
     Blake2b, Digest,
     digest::consts::{U32, U64},
 };
-use mithril_stm::{
-    AggregateSignatureType, BasicVerifier, Clerk, Initializer, KeyRegistration, Parameters, Signer,
-    SingleSignature, SingleSignatureWithRegisteredParty, Stake, VerificationKey,
-};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::iter::ParallelIterator;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator};
+
+use mithril_stm::{
+    AggregateSignatureType, BasicVerifier, Clerk, Initializer, KeyRegistration, Parameters, Signer,
+    SingleSignature, SingleSignatureWithRegisteredParty, Stake, VerificationKey,
+};
 
 fn size<H>(k: u64, m: u64, nparties: usize, hash_name: &str)
 where
