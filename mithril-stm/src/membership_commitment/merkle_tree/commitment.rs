@@ -3,9 +3,7 @@ use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
-use crate::membership_commitment::merkle_tree::{
-    MerkleBatchPath, MerklePath, MerkleTreeLeaf, parent, sibling,
-};
+use super::{MerkleBatchPath, MerklePath, MerkleTreeLeaf, parent, sibling};
 use crate::{MerkleTreeError, StmResult};
 
 /// `MerkleTree` commitment.

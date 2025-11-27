@@ -1,12 +1,10 @@
 use blst::{blst_p1, min_sig::Signature as BlstSig};
 
-use crate::{
-    MultiSignatureError, StmResult, blst_error_to_stm_error,
-    signature_scheme::{
-        BlsSigningKey, POP,
-        helper::unsafe_helpers::{compress_p1, scalar_to_pk_in_g1, uncompress_p1},
-    },
+use super::{
+    BlsSigningKey, POP,
+    helper::unsafe_helpers::{compress_p1, scalar_to_pk_in_g1, uncompress_p1},
 };
+use crate::{MultiSignatureError, StmResult, blst_error_to_stm_error};
 
 /// MultiSig proof of possession, which contains two elements from G1. However,
 /// the two elements have different types: `k1` is represented as a BlstSig

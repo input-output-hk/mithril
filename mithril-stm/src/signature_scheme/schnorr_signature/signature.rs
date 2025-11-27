@@ -6,13 +6,11 @@ use dusk_jubjub::{
 use dusk_poseidon::{Domain, Hash};
 use group::{Group, GroupEncoding};
 
-use crate::{
-    StmResult,
-    signature_scheme::{
-        SchnorrSignatureError, SchnorrVerificationKey, get_coordinates_several_points, is_on_curve,
-        schnorr_signature::DST_SIGNATURE,
-    },
+use super::{
+    DST_SIGNATURE, SchnorrSignatureError, SchnorrVerificationKey, get_coordinates_several_points,
+    is_on_curve,
 };
+use crate::StmResult;
 
 /// Structure of the Schnorr signature to use with the SNARK
 ///

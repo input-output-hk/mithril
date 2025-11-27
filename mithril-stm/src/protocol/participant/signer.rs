@@ -1,7 +1,9 @@
 use blake2::digest::{Digest, FixedOutput};
 
-use crate::signature_scheme::{BlsSignature, BlsSigningKey, BlsVerificationKey};
-use crate::{ClosedKeyRegistration, Parameters, SingleSignature, Stake, is_lottery_won};
+use crate::{
+    ClosedKeyRegistration, Parameters, SingleSignature, Stake, is_lottery_won,
+    signature_scheme::{BlsSignature, BlsSigningKey, BlsVerificationKey},
+};
 
 /// Wrapper of the MultiSignature Verification key
 pub type VerificationKey = BlsVerificationKey;

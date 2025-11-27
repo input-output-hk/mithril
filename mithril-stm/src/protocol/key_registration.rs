@@ -1,15 +1,16 @@
 //! Key registration functionality.
+use anyhow::anyhow;
+use blake2::digest::{Digest, FixedOutput};
 use std::{
     collections::{HashMap, hash_map::Entry},
     sync::Arc,
 };
 
-use anyhow::anyhow;
-use blake2::digest::{Digest, FixedOutput};
-
-use crate::membership_commitment::{MerkleTree, MerkleTreeLeaf};
-use crate::signature_scheme::{BlsVerificationKey, BlsVerificationKeyProofOfPossession};
-use crate::{RegisterError, Stake, StmResult};
+use crate::{
+    RegisterError, Stake, StmResult,
+    membership_commitment::{MerkleTree, MerkleTreeLeaf},
+    signature_scheme::{BlsVerificationKey, BlsVerificationKeyProofOfPossession},
+};
 
 /// Stores a registered party with its public key and the associated stake.
 pub type RegisteredParty = MerkleTreeLeaf;

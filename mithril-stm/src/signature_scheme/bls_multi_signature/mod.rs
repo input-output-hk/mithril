@@ -94,7 +94,7 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::{RngCore, SeedableRng};
 
-    use crate::signature_scheme::helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk};
+    use super::helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk};
     use crate::{KeyRegistration, MultiSignatureError, RegisterError};
 
     use super::*;

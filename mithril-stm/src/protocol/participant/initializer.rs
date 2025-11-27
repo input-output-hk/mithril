@@ -1,13 +1,14 @@
+use anyhow::anyhow;
 use blake2::digest::Digest;
 use digest::FixedOutput;
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 
-use crate::signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession};
+use super::Signer;
 use crate::{
-    ClosedKeyRegistration, Parameters, RegisterError, RegisteredParty, Signer, Stake, StmResult,
+    ClosedKeyRegistration, Parameters, RegisterError, RegisteredParty, Stake, StmResult,
+    signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
 };
-use anyhow::anyhow;
 
 /// Wrapper of the MultiSignature Verification key with proof of possession
 pub type VerificationKeyProofOfPossession = BlsVerificationKeyProofOfPossession;

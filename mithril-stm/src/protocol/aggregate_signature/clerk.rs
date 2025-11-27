@@ -1,8 +1,3 @@
-use crate::{
-    AggregateSignature, AggregateSignatureType, AggregateVerificationKey, ClosedKeyRegistration,
-    Index, Parameters, Signer, SingleSignature, Stake, StmResult, VerificationKey,
-    proof_system::ConcatenationProof,
-};
 use anyhow::Context;
 use blake2::digest::{Digest, FixedOutput};
 
@@ -11,6 +6,12 @@ use anyhow::anyhow;
 
 #[cfg(feature = "future_proof_system")]
 use crate::AggregationError;
+
+use super::{AggregateSignature, AggregateSignatureType, AggregateVerificationKey};
+use crate::{
+    ClosedKeyRegistration, Index, Parameters, Signer, SingleSignature, Stake, StmResult,
+    VerificationKey, proof_system::ConcatenationProof,
+};
 
 /// `Clerk` can verify and aggregate `SingleSignature`s and verify `AggregateSignature`s.
 /// Clerks can only be generated with the registration closed.

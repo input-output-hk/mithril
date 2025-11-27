@@ -1,11 +1,11 @@
 use anyhow::{Context, anyhow};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::membership_commitment::MerkleTreeLeaf;
-use crate::signature_scheme::{BlsSignature, BlsVerificationKey};
 use crate::{
     AggregationError, Index, Parameters, RegisteredParty, SingleSignature,
     SingleSignatureWithRegisteredParty, Stake, StmResult,
+    membership_commitment::MerkleTreeLeaf,
+    signature_scheme::{BlsSignature, BlsVerificationKey},
 };
 
 /// Full node verifier including the list of eligible signers and the total stake of the system.

@@ -1,9 +1,8 @@
-use std::marker::PhantomData;
-
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
+use std::marker::PhantomData;
 
-use crate::membership_commitment::merkle_tree::{
+use super::{
     MerkleBatchPath, MerklePath, MerkleTreeBatchCommitment, MerkleTreeCommitment, MerkleTreeLeaf,
     left_child, parent, right_child, sibling,
 };
@@ -268,12 +267,13 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::signature_scheme::BlsVerificationKey;
     use blake2::{Blake2b, digest::consts::U32};
-    use proptest::collection::vec;
-    use proptest::prelude::*;
+    use proptest::{collection::vec, prelude::*};
     use rand::{rng, seq::IteratorRandom};
+
+    use crate::signature_scheme::BlsVerificationKey;
+
+    use super::*;
 
     fn pow2_plus1(h: usize) -> usize {
         1 + 2_usize.pow(h as u32)
