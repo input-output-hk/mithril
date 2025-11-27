@@ -512,7 +512,7 @@ mod tests {
 
     macro_rules! assert_error_eq {
         ($left:expr, $right:expr) => {
-            assert_eq!(format!("{:?}", &$left), format!("{:?}", &$right),);
+            assert_eq!(format!("{}", &$left), format!("{}", &$right),);
         };
     }
 
