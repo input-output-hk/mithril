@@ -1,5 +1,6 @@
 use anyhow::Context;
 use std::path::Path;
+use std::process::{Command, Output};
 
 use mithril_common::StdResult;
 
@@ -31,8 +32,7 @@ impl NodeVersion {
     pub fn fetch_semver(bin_name: &str, bin_dir: &Path) -> StdResult<semver::Version> {
         let process_path = file_utils::get_process_path(bin_name, bin_dir)?;
         // Note: usage of blocking std::process::Command instead of tokio::process::Command to avoid making this method async
-        // example output: mithril-client 0.12.33+3063c3e
-        let output = std::process::Command::new(&process_path)
+        let output = Command::new(&process_path)
             .args(["--version"])
             .output()
             .with_context(|| {
@@ -43,23 +43,7 @@ impl NodeVersion {
                 )
             })?;
 
-        if output.status.success() {
-            let raw_output = String::from_utf8(output.stdout)
-                .with_context(|| format!("failed to parse `{bin_name}` raw version to uft8"))?;
-            let version_string = raw_output.split_whitespace().nth(1).with_context(|| {
-                format!("could not find `{bin_name}` semver version; output: `{raw_output}`",)
-            })?;
-
-            semver::Version::parse(version_string).with_context(|| {
-                format!("failed to parse `{bin_name}` semver version; input: `{version_string}`")
-            })
-        } else {
-            let stdout = String::from_utf8(output.stdout).ok();
-            let stderr = String::from_utf8(output.stderr).ok();
-            anyhow::bail!(
-                "`failed to fetch `{bin_name}` version; stdout: `{stdout:?}`; stderr: `{stderr:?}`"
-            );
-        }
+        parse_semver_version_from_process_output(bin_name, output)
     }
 
     /// Checks if the node version is strictly below the given version.
@@ -91,6 +75,32 @@ impl NodeVersion {
     }
 }
 
+/// Parse a semver version from a [Command::output]
+///
+/// Expect stdout to be in the form of: `mithril-client 0.12.33+3063c3e`
+fn parse_semver_version_from_process_output(
+    bin_name: &str,
+    output: Output,
+) -> StdResult<semver::Version> {
+    if !output.status.success() {
+        let stdout = String::from_utf8(output.stdout).ok();
+        let stderr = String::from_utf8(output.stderr).ok();
+        anyhow::bail!(
+            "`failed to fetch `{bin_name}` version; stdout: `{stdout:?}`; stderr: `{stderr:?}`"
+        );
+    }
+
+    let raw_output = String::from_utf8(output.stdout)
+        .with_context(|| format!("failed to parse `{bin_name}` raw version to uft8"))?;
+    let version_string = raw_output.split_whitespace().nth(1).with_context(|| {
+        format!("could not find `{bin_name}` semver version; output: `{raw_output}`",)
+    })?;
+
+    semver::Version::parse(version_string).with_context(|| {
+        format!("failed to parse `{bin_name}` semver version; input: `{version_string}`")
+    })
+}
+
 impl From<&NodeVersion> for semver::Version {
     fn from(value: &NodeVersion) -> Self {
         value.semver_version.clone()
@@ -99,6 +109,8 @@ impl From<&NodeVersion> for semver::Version {
 
 #[cfg(test)]
 mod tests {
+    use std::process::ExitStatus;
+
     use super::*;
 
     #[test]
@@ -131,43 +143,22 @@ mod tests {
         assert!(!version.is_between("2.4.4", "2.5.0"));
     }
 
-    // Unix only has those tests leverage shell scripts and unix permissions
-    #[cfg(all(test, unix))]
-    mod unix_only {
-        use std::io::Write;
-        use std::os::unix::fs::OpenOptionsExt;
+    #[test]
+    #[cfg(any(unix, windows))]
+    fn test_version_output_parsing() {
+        #[cfg(unix)]
+        use std::os::unix::process::ExitStatusExt;
+        #[cfg(windows)]
+        use std::os::windows::process::ExitStatusExt;
 
-        use mithril_common::temp_dir_create;
+        let output = Output {
+            status: ExitStatus::from_raw(0),
+            stdout: "test-program 1.24.109+2f7e87".as_bytes().to_vec(),
+            stderr: vec![],
+        };
 
-        use super::*;
+        let version = parse_semver_version_from_process_output("test-program", output).unwrap();
 
-        fn write_shell_script(file_name: &str, folder: &Path, content: &str) {
-            let script_path = folder.join(file_name);
-            let mut file = std::fs::OpenOptions::new()
-                .create_new(true)
-                .write(true)
-                .mode(0o755)
-                .open(&script_path)
-                .unwrap();
-            file.write_all(format!("#!/bin/bash\n\n{content}\n").as_ref())
-                .unwrap();
-        }
-
-        #[test]
-        fn fetch_version() {
-            let temp_dir = temp_dir_create!();
-            write_shell_script(
-                "test-program",
-                &temp_dir,
-                r#"echo "test-program 1.24.109+2f7e87""#,
-            );
-
-            let version = NodeVersion::fetch("test-program", &temp_dir).unwrap();
-
-            assert_eq!(
-                NodeVersion::new(semver::Version::parse("1.24.109+2f7e87").unwrap()),
-                version
-            );
-        }
+        assert_eq!(semver::Version::parse("1.24.109+2f7e87").unwrap(), version);
     }
 }
