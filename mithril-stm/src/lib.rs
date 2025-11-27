@@ -112,9 +112,6 @@
 //! ```
 
 mod membership_commitment;
-#[cfg(feature = "future_snark")]
-mod schnorr_signature;
-
 mod proof_system;
 mod protocol;
 mod signature_scheme;
@@ -127,8 +124,8 @@ pub use signature_scheme::{
     BlsVerificationKeyProofOfPossession,
 };
 
-#[cfg(feature = "future_snark")]
-pub use schnorr_signature::{SchnorrSignature, SchnorrSigningKey, SchnorrVerificationKey};
+#[cfg(all(feature = "benchmark-internals", feature = "future_snark"))]
+pub use signature_scheme::{SchnorrSignature, SchnorrSigningKey, SchnorrVerificationKey};
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;

@@ -9,9 +9,9 @@ use rand_core::{CryptoRng, RngCore};
 
 use crate::{
     StmResult,
-    schnorr_signature::{
-        DST_SIGNATURE, SchnorrSignature, SchnorrSignatureError, SchnorrVerificationKey,
-        generate_non_zero_scalar, get_coordinates_several_points,
+    signature_scheme::{
+        SchnorrSignature, SchnorrSignatureError, SchnorrVerificationKey, generate_non_zero_scalar,
+        get_coordinates_several_points, schnorr_signature::DST_SIGNATURE,
     },
 };
 
@@ -193,7 +193,7 @@ mod tests {
         use rand_chacha::ChaCha20Rng;
         use rand_core::SeedableRng;
 
-        use crate::schnorr_signature::SchnorrSigningKey;
+        use crate::SchnorrSigningKey;
 
         const GOLDEN_BYTES: &[u8; 32] = &[
             126, 191, 239, 197, 88, 151, 248, 254, 187, 143, 86, 35, 29, 62, 90, 13, 196, 71, 234,

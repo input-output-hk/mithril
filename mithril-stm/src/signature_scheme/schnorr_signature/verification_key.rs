@@ -2,7 +2,7 @@ use anyhow::{Context, anyhow};
 use dusk_jubjub::SubgroupPoint as JubjubSubgroup;
 use group::{Group, GroupEncoding};
 
-use crate::{StmResult, schnorr_signature::SchnorrSignatureError};
+use crate::{StmResult, signature_scheme::SchnorrSignatureError};
 
 /// Schnorr verification key, it consists of a point on the Jubjub curve
 /// vk = g * sk, where g is a generator
@@ -59,7 +59,7 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use crate::schnorr_signature::{SchnorrSigningKey, SchnorrVerificationKey};
+    use crate::signature_scheme::{SchnorrSigningKey, SchnorrVerificationKey};
 
     #[test]
     fn generate_verification_key() {
@@ -112,7 +112,7 @@ mod tests {
         use rand_chacha::ChaCha20Rng;
         use rand_core::SeedableRng;
 
-        use crate::schnorr_signature::{SchnorrSigningKey, SchnorrVerificationKey};
+        use crate::signature_scheme::{SchnorrSigningKey, SchnorrVerificationKey};
 
         const GOLDEN_BYTES: &[u8; 32] = &[
             144, 52, 95, 161, 127, 253, 49, 32, 140, 217, 231, 207, 32, 238, 244, 196, 97, 241, 47,

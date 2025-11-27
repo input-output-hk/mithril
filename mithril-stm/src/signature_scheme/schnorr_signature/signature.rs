@@ -8,9 +8,9 @@ use group::{Group, GroupEncoding};
 
 use crate::{
     StmResult,
-    schnorr_signature::{
-        DST_SIGNATURE, SchnorrSignatureError, SchnorrVerificationKey,
-        get_coordinates_several_points, is_on_curve,
+    signature_scheme::{
+        SchnorrSignatureError, SchnorrVerificationKey, get_coordinates_several_points, is_on_curve,
+        schnorr_signature::DST_SIGNATURE,
     },
 };
 
@@ -211,7 +211,7 @@ mod tests {
         use rand_chacha::ChaCha20Rng;
         use rand_core::SeedableRng;
 
-        use crate::schnorr_signature::{SchnorrSignature, SchnorrSigningKey};
+        use crate::{SchnorrSignature, SchnorrSigningKey};
 
         const GOLDEN_BYTES: &[u8; 96] = &[
             143, 53, 198, 62, 178, 1, 88, 253, 21, 92, 100, 13, 72, 180, 198, 127, 39, 175, 102,
