@@ -250,7 +250,7 @@ impl ArtifactCommands {
             Self::GenerateDoc(cmd) => {
                 cmd.execute(&mut Args::command()).map_err(|message| anyhow!(message))
             }
-            Self::Tools(cmd) => cmd.execute().await,
+            Self::Tools(cmd) => cmd.execute(context).await,
         }
     }
 }

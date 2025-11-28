@@ -6,6 +6,11 @@ use mithril_client::{
     common::{AggregateSignatureType, SignedEntityTypeDiscriminants},
 };
 
+use crate::{
+    CommandContext,
+    utils::{ProgressOutputType, ProgressPrinter},
+};
+
 /// Clap command to select an aggregator from the available ones with automatic discovery.
 #[derive(Parser, Debug, Clone)]
 pub struct AggregatorSelectCommand {
@@ -32,7 +37,13 @@ pub struct AggregatorSelectCommand {
 
 impl AggregatorSelectCommand {
     /// Main command execution
-    pub async fn execute(&self) -> MithrilResult<()> {
+    pub async fn execute(&self, context: &CommandContext) -> MithrilResult<()> {
+        let progress_output_type = if context.is_json_output_enabled() {
+            ProgressOutputType::JsonReporter
+        } else {
+            ProgressOutputType::Tty
+        };
+        let progress_printer = ProgressPrinter::new(progress_output_type, 1);
         let required_capabilities = self.build_required_capabilities();
         let client_builder =
             ClientBuilder::new(AggregatorDiscoveryType::Automatic(self.network.clone()))
@@ -40,18 +51,23 @@ impl AggregatorSelectCommand {
         let aggregator_endpoints = client_builder
             .discover_aggregator(&self.network)?
             .take(self.max_entries);
-
-        println!(
-            "Discovering at most {} aggregator endpoints:",
-            self.max_entries,
-        );
+        progress_printer.report_step(
+            1,
+            &format!(
+                "Discovering at most {} aggregator endpoints:",
+                self.max_entries
+            ),
+        )?;
         let mut found_aggregators = 0;
         for endpoint in aggregator_endpoints {
-            println!("- Found: {endpoint}");
+            progress_printer.report_step(1, &format!("Found: {endpoint}"))?;
             found_aggregators += 1;
         }
         if found_aggregators == 0 {
-            println!("- No aggregator endpoint found matching the requirements.");
+            progress_printer.report_step(
+                1,
+                "- No aggregator endpoint found matching the requirements.",
+            )?;
         }
 
         Ok(())
