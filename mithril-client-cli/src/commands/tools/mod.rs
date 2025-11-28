@@ -13,6 +13,8 @@ use anyhow::anyhow;
 use clap::Subcommand;
 use mithril_client::MithrilResult;
 
+use crate::CommandContext;
+
 /// Tools commands
 #[derive(Subcommand, Debug, Clone)]
 #[command(about = "Tools commands")]
@@ -27,10 +29,10 @@ pub enum ToolsCommands {
 
 impl ToolsCommands {
     /// Execute Tools command
-    pub async fn execute(&self) -> MithrilResult<()> {
+    pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         match self {
-            Self::UTxOHD(cmd) => cmd.execute().await,
-            Self::AggregatorDiscovery(cmd) => cmd.execute().await,
+            Self::UTxOHD(cmd) => cmd.execute(context).await,
+            Self::AggregatorDiscovery(cmd) => cmd.execute(context).await,
         }
     }
 }
@@ -45,7 +47,7 @@ pub enum UTxOHDCommands {
 
 impl UTxOHDCommands {
     /// Execute UTxO-HD command
-    pub async fn execute(&self) -> MithrilResult<()> {
+    pub async fn execute(&self, _context: CommandContext) -> MithrilResult<()> {
         match self {
             Self::SnapshotConverter(cmd) => {
                 if cfg!(target_os = "linux") && cfg!(target_arch = "aarch64") {
@@ -69,9 +71,9 @@ pub enum AggregatorDiscoveryCommands {
 
 impl AggregatorDiscoveryCommands {
     /// Execute Aggregator discovery command
-    pub async fn execute(&self) -> MithrilResult<()> {
+    pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         match self {
-            Self::Select(cmd) => cmd.execute().await,
+            Self::Select(cmd) => cmd.execute(&context).await,
         }
     }
 }
