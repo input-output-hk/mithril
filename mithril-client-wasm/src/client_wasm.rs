@@ -159,8 +159,11 @@ impl MithrilClient {
     }
 
     /// Call the client to get a snapshot from a digest
+    ///
+    /// @deprecated superseded by `get_cardano_database_v2_snapshot`
     #[wasm_bindgen]
     pub async fn get_cardano_database_snapshot(&self, digest: &str) -> WasmResult {
+        #[allow(deprecated)]
         let result = self
             .client
             .cardano_database()
@@ -175,8 +178,11 @@ impl MithrilClient {
     }
 
     /// Call the client to get the list of available snapshots
+    ///
+    /// @deprecated superseded by `list_cardano_database_v2`
     #[wasm_bindgen]
     pub async fn list_cardano_database_snapshots(&self) -> WasmResult {
+        #[allow(deprecated)]
         let result = self
             .client
             .cardano_database()
