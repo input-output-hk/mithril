@@ -88,6 +88,7 @@ pub mod common {
 }
 
 /// Required capabilities for an aggregator.
+#[cfg(not(target_family = "wasm"))]
 pub use mithril_aggregator_discovery::RequiredAggregatorCapabilities;
 
 /// Mithril network
