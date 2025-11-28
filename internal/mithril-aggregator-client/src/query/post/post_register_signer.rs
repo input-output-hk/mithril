@@ -41,7 +41,7 @@ impl AggregatorQuery for PostRegisterSignerQuery {
         &self,
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
-        debug!(context.logger, "Register signer"; "epoch" => *self.message.epoch, "party_id" => &self.message.party_id);
+        debug!(context.logger, "POST: Register signer"; "epoch" => *self.message.epoch, "party_id" => &self.message.party_id);
 
         match context.response.status() {
             StatusCode::CREATED => Ok(()),

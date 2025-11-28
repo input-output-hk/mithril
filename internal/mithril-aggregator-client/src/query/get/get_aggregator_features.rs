@@ -36,7 +36,7 @@ impl AggregatorQuery for GetAggregatorFeaturesQuery {
         &self,
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
-        debug!(context.logger, "Retrieve aggregator features message");
+        debug!(context.logger, "/GET: Retrieve aggregator features message");
 
         match context.response.status() {
             StatusCode::OK => Ok(context
