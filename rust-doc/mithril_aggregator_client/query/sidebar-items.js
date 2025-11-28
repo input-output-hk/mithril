@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["GetAggregatorFeaturesQuery","GetCertificateQuery","GetCertificatesListQuery","GetEpochSettingsQuery","GetProtocolConfigurationQuery","PostRegisterSignatureQuery","PostRegisterSignerQuery"]};

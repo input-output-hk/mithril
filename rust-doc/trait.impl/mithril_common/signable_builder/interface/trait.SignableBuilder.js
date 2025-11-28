@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["mithril_cardano_node_internal_database",[["impl <a class=\"trait\" href=\"mithril_common/signable_builder/interface/trait.SignableBuilder.html\" title=\"trait mithril_common::signable_builder::interface::SignableBuilder\">SignableBuilder</a>&lt;<a class=\"struct\" href=\"mithril_common/entities/cardano_db_beacon/struct.CardanoDbBeacon.html\" title=\"struct mithril_common::entities::cardano_db_beacon::CardanoDbBeacon\">CardanoDbBeacon</a>&gt; for <a class=\"struct\" href=\"mithril_cardano_node_internal_database/signable_builder/struct.CardanoDatabaseSignableBuilder.html\" title=\"struct mithril_cardano_node_internal_database::signable_builder::CardanoDatabaseSignableBuilder\">CardanoDatabaseSignableBuilder</a>"],["impl <a class=\"trait\" href=\"mithril_common/signable_builder/interface/trait.SignableBuilder.html\" title=\"trait mithril_common::signable_builder::interface::SignableBuilder\">SignableBuilder</a>&lt;<a class=\"struct\" href=\"mithril_common/entities/cardano_db_beacon/struct.CardanoDbBeacon.html\" title=\"struct mithril_common::entities::cardano_db_beacon::CardanoDbBeacon\">CardanoDbBeacon</a>&gt; for <a class=\"struct\" href=\"mithril_cardano_node_internal_database/signable_builder/struct.CardanoImmutableFilesFullSignableBuilder.html\" title=\"struct mithril_cardano_node_internal_database::signable_builder::CardanoImmutableFilesFullSignableBuilder\">CardanoImmutableFilesFullSignableBuilder</a>"]]],["mithril_common",[]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[1434,22]}
