@@ -7,7 +7,7 @@ use reqwest::StatusCode;
 use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
 use crate::{AggregatorHttpClientError, AggregatorHttpClientResult};
 
-/// Query to get the current epoch settings
+/// Query to get the protocol configuration of a given epoch
 pub struct GetProtocolConfigurationQuery {
     epoch: Epoch,
 }
