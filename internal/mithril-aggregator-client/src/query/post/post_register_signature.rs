@@ -41,7 +41,7 @@ impl AggregatorQuery for PostRegisterSignatureQuery {
         &self,
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
-        debug!(context.logger, "Register signature"; "signed_entity" => ?self.message.signed_entity_type);
+        debug!(context.logger, "POST: Register signature"; "signed_entity" => ?self.message.signed_entity_type);
 
         match context.response.status() {
             StatusCode::CREATED | StatusCode::ACCEPTED => Ok(()),

@@ -1,8 +1,10 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
+use reqwest::StatusCode;
+use slog::debug;
+
 use mithril_common::entities::Epoch;
 use mithril_common::messages::ProtocolConfigurationMessage;
-use reqwest::StatusCode;
 
 use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
 use crate::{AggregatorHttpClientError, AggregatorHttpClientResult};
@@ -37,6 +39,8 @@ impl AggregatorQuery for GetProtocolConfigurationQuery {
         &self,
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
+        debug!(context.logger, "GET: Retrieve protocol configuration"; "epoch" => %self.epoch);
+
         match context.response.status() {
             StatusCode::OK => match context.response.json::<ProtocolConfigurationMessage>().await {
                 Ok(message) => Ok(Some(message)),
