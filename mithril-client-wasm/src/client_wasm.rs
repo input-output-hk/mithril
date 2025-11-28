@@ -187,6 +187,65 @@ impl MithrilClient {
         Ok(serde_wasm_bindgen::to_value(&result)?)
     }
 
+    /// Call the client to get a cardano database snapshot from a hash
+    #[wasm_bindgen]
+    pub async fn get_cardano_database_v2(&self, hash: &str) -> WasmResult {
+        let result = self
+            .client
+            .cardano_database_v2()
+            .get(hash)
+            .await
+            .map_err(|err| format!("{err:?}"))?
+            .ok_or(JsValue::from_str(&format!(
+                "No cardano database snapshot found for hash: '{hash}'"
+            )))?;
+
+        Ok(serde_wasm_bindgen::to_value(&result)?)
+    }
+
+    /// Call the client for the list of available cardano database snapshots
+    #[wasm_bindgen]
+    pub async fn list_cardano_database_v2(&self) -> WasmResult {
+        let result = self
+            .client
+            .cardano_database_v2()
+            .list()
+            .await
+            .map_err(|err| format!("{err:?}"))?;
+
+        Ok(serde_wasm_bindgen::to_value(&result)?)
+    }
+
+    /// Call the client for the list of available cardano database snapshots for a given epoch
+    #[wasm_bindgen]
+    pub async fn list_cardano_database_v2_per_epoch(&self, epoch: u64) -> WasmResult {
+        let result = self
+            .client
+            .cardano_database_v2()
+            .list_by_epoch(Epoch(epoch))
+            .await
+            .map_err(|err| format!("{err:?}"))?;
+
+        Ok(serde_wasm_bindgen::to_value(&result)?)
+    }
+
+    /// Call the client for the list of available cardano database snapshots for the latest epoch
+    ///
+    /// An optional offset can be provided
+    #[wasm_bindgen]
+    pub async fn list_cardano_database_v2_for_latest_epoch(&self, param: JsValue) -> WasmResult {
+        let options = LatestEpochOptions::parse_from_js_value(param)?;
+        let client = self.client.cardano_database_v2();
+
+        let result = match options.offset {
+            None => client.list_for_latest_epoch().await,
+            Some(offset) => client.list_for_latest_epoch_with_offset(offset).await,
+        }
+        .map_err(|err| format!("{err:?}"))?;
+
+        Ok(serde_wasm_bindgen::to_value(&result)?)
+    }
+
     /// Call the client to get a mithril stake distribution from a hash
     #[wasm_bindgen]
     pub async fn get_mithril_stake_distribution(&self, hash: &str) -> WasmResult {
@@ -474,80 +533,6 @@ impl MithrilClient {
         }
 
         Ok(())
-    }
-
-    /// Call the client to get a cardano database snapshot from a hash
-    ///
-    /// Warning: this function is unstable and may be modified in the future
-    #[wasm_bindgen]
-    pub async fn get_cardano_database_v2(&self, hash: &str) -> WasmResult {
-        self.guard_unstable()?;
-
-        let result = self
-            .client
-            .cardano_database_v2()
-            .get(hash)
-            .await
-            .map_err(|err| format!("{err:?}"))?
-            .ok_or(JsValue::from_str(&format!(
-                "No cardano database snapshot found for hash: '{hash}'"
-            )))?;
-
-        Ok(serde_wasm_bindgen::to_value(&result)?)
-    }
-
-    /// Call the client for the list of available cardano database snapshots
-    ///
-    /// Warning: this function is unstable and may be modified in the future
-    #[wasm_bindgen]
-    pub async fn list_cardano_database_v2(&self) -> WasmResult {
-        self.guard_unstable()?;
-
-        let result = self
-            .client
-            .cardano_database_v2()
-            .list()
-            .await
-            .map_err(|err| format!("{err:?}"))?;
-
-        Ok(serde_wasm_bindgen::to_value(&result)?)
-    }
-
-    /// Call the client for the list of available cardano database snapshots for a given epoch
-    ///
-    /// Warning: this function is unstable and may be modified in the future
-    #[wasm_bindgen]
-    pub async fn list_cardano_database_v2_per_epoch(&self, epoch: u64) -> WasmResult {
-        self.guard_unstable()?;
-
-        let result = self
-            .client
-            .cardano_database_v2()
-            .list_by_epoch(Epoch(epoch))
-            .await
-            .map_err(|err| format!("{err:?}"))?;
-
-        Ok(serde_wasm_bindgen::to_value(&result)?)
-    }
-
-    /// Call the client for the list of available cardano database snapshots for the latest epoch
-    ///
-    /// An optionnal offset can be provided
-    ///
-    /// Warning: this function is unstable and may be modified in the future
-    #[wasm_bindgen]
-    pub async fn list_cardano_database_v2_for_latest_epoch(&self, param: JsValue) -> WasmResult {
-        self.guard_unstable()?;
-        let options = LatestEpochOptions::parse_from_js_value(param)?;
-        let client = self.client.cardano_database_v2();
-
-        let result = match options.offset {
-            None => client.list_for_latest_epoch().await,
-            Some(offset) => client.list_for_latest_epoch_with_offset(offset).await,
-        }
-        .map_err(|err| format!("{err:?}"))?;
-
-        Ok(serde_wasm_bindgen::to_value(&result)?)
     }
 
     /// `unstable` Reset the certificate verifier cache if enabled
