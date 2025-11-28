@@ -2,8 +2,11 @@ use anyhow::{Context, anyhow};
 #[cfg(feature = "fs")]
 use chrono::Utc;
 
+#[cfg(not(target_family = "wasm"))]
 use mithril_common::entities::MithrilNetwork;
+#[cfg(not(target_family = "wasm"))]
 use rand::SeedableRng;
+#[cfg(not(target_family = "wasm"))]
 use rand::rngs::StdRng;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
@@ -11,6 +14,7 @@ use slog::{Logger, o};
 use std::collections::HashMap;
 use std::sync::Arc;
 
+#[cfg(not(target_family = "wasm"))]
 use mithril_aggregator_discovery::{
     AggregatorDiscoverer, AggregatorEndpoint, CapableAggregatorDiscoverer,
     HttpConfigAggregatorDiscoverer, RequiredAggregatorCapabilities, ShuffleAggregatorDiscoverer,
@@ -50,10 +54,11 @@ const fn one_week_in_seconds() -> u32 {
 
 /// The type of discovery to use to find the aggregator to connect to.
 pub enum AggregatorDiscoveryType {
-    /// Automatically discover the aggregator.
-    Automatic(MithrilNetwork),
     /// Use a specific URL to connect to the aggregator.
     Url(String),
+    /// Automatically discover the aggregator.
+    #[cfg(not(target_family = "wasm"))]
+    Automatic(MithrilNetwork),
 }
 
 /// The genesis verification key.
@@ -176,7 +181,9 @@ impl Client {
 /// Builder than can be used to create a [Client] easily or with custom dependencies.
 pub struct ClientBuilder {
     aggregator_discovery: AggregatorDiscoveryType,
+    #[cfg(not(target_family = "wasm"))]
     aggregator_capabilities: Option<RequiredAggregatorCapabilities>,
+    #[cfg(not(target_family = "wasm"))]
     aggregator_discoverer: Option<Arc<dyn AggregatorDiscoverer>>,
     genesis_verification_key: Option<GenesisVerificationKey>,
     origin_tag: Option<String>,
@@ -206,6 +213,7 @@ impl ClientBuilder {
 
     /// Constructs a new `ClientBuilder` that automatically discovers the aggregator for the given
     /// Mithril network and with the given genesis verification key.
+    #[cfg(not(target_family = "wasm"))]
     pub fn automatic(network: &str, genesis_verification_key: &str) -> ClientBuilder {
         Self::new(AggregatorDiscoveryType::Automatic(MithrilNetwork::new(
             network.to_string(),
@@ -216,6 +224,7 @@ impl ClientBuilder {
     }
 
     /// Default aggregator discoverer to use to find the aggregator endpoint when in automatic discovery.
+    #[cfg(not(target_family = "wasm"))]
     fn default_aggregator_discoverer() -> Arc<dyn AggregatorDiscoverer> {
         Arc::new(ShuffleAggregatorDiscoverer::new(
             Arc::new(HttpConfigAggregatorDiscoverer::default()),
@@ -233,7 +242,9 @@ impl ClientBuilder {
     pub fn new(aggregator_discovery: AggregatorDiscoveryType) -> ClientBuilder {
         Self {
             aggregator_discovery,
+            #[cfg(not(target_family = "wasm"))]
             aggregator_capabilities: None,
+            #[cfg(not(target_family = "wasm"))]
             aggregator_discoverer: None,
             genesis_verification_key: None,
             origin_tag: None,
@@ -264,6 +275,7 @@ impl ClientBuilder {
     }
 
     /// Sets the aggregator capabilities expected to be matched by the aggregator with which the client will interact.
+    #[cfg(not(target_family = "wasm"))]
     pub fn with_capabilities(
         mut self,
         capabilities: RequiredAggregatorCapabilities,
@@ -274,6 +286,7 @@ impl ClientBuilder {
     }
 
     /// Sets the aggregator discoverer to use to find the aggregator endpoint when in automatic discovery.
+    #[cfg(not(target_family = "wasm"))]
     pub fn with_aggregator_discoverer(
         mut self,
         discoverer: Arc<dyn AggregatorDiscoverer>,
@@ -409,6 +422,7 @@ impl ClientBuilder {
     }
 
     /// Discover available aggregator endpoints for the given Mithril network and required capabilities.
+    #[cfg(not(target_family = "wasm"))]
     pub fn discover_aggregator(
         &self,
         network: &MithrilNetwork,
@@ -442,6 +456,7 @@ impl ClientBuilder {
     ) -> Result<AggregatorHTTPClient, anyhow::Error> {
         let aggregator_endpoint = match self.aggregator_discovery {
             AggregatorDiscoveryType::Url(ref url) => url.clone(),
+            #[cfg(not(target_family = "wasm"))]
             AggregatorDiscoveryType::Automatic(ref network) => self
                 .discover_aggregator(network)?
                 .next()
