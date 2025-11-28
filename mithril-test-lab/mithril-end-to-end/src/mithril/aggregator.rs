@@ -13,7 +13,7 @@ use tokio::sync::RwLock;
 use mithril_cardano_node_chain::chain_observer::{ChainObserver, PallasChainObserver};
 use mithril_common::{CardanoNetwork, StdResult, entities};
 
-use crate::utils::MithrilCommand;
+use crate::utils::{MithrilCommand, NodeVersion};
 use crate::{
     ANCILLARY_MANIFEST_SECRET_KEY, DEVNET_DMQ_MAGIC_ID, DEVNET_MAGIC_ID, DmqNodeFlavor,
     ERA_MARKERS_SECRET_KEY, ERA_MARKERS_VERIFICATION_KEY, FullNode, GENESIS_SECRET_KEY,
@@ -31,7 +31,7 @@ pub struct AggregatorConfig<'a> {
     pub store_dir: &'a Path,
     pub artifacts_dir: &'a Path,
     pub bin_dir: &'a Path,
-    pub cardano_node_version: &'a str,
+    pub cardano_node_version: &'a semver::Version,
     pub mithril_run_interval: u32,
     pub mithril_era: &'a str,
     pub mithril_era_reader_adapter: &'a str,
@@ -50,13 +50,18 @@ pub struct Aggregator {
     server_port: u64,
     db_directory: PathBuf,
     mithril_run_interval: u32,
+    version: NodeVersion,
     command: Arc<RwLock<MithrilCommand>>,
     process: RwLock<Option<Child>>,
     chain_observer: Arc<dyn ChainObserver>,
 }
 
 impl Aggregator {
+    pub const BIN_NAME: &'static str = "mithril-aggregator";
+
     pub fn new(aggregator_config: &AggregatorConfig) -> StdResult<Self> {
+        let version = NodeVersion::fetch(Self::BIN_NAME, aggregator_config.bin_dir)?;
+
         let magic_id = DEVNET_MAGIC_ID.to_string();
         let dmq_magic_id = DEVNET_DMQ_MAGIC_ID.to_string();
         let server_port_parameter = aggregator_config.server_port.to_string();
@@ -77,6 +82,7 @@ impl Aggregator {
         let signed_entity_types = aggregator_config.signed_entity_types.join(",");
         let mithril_run_interval = format!("{}", aggregator_config.mithril_run_interval);
         let public_server_url = format!("http://localhost:{server_port_parameter}/aggregator");
+        let cardano_node_version = aggregator_config.cardano_node_version.to_string();
         let mut env = HashMap::from([
             ("NETWORK", "devnet"),
             ("NETWORK_MAGIC", &magic_id),
@@ -120,10 +126,7 @@ impl Aggregator {
                 "AGGREGATE_SIGNATURE_TYPE",
                 aggregator_config.aggregate_signature_type,
             ),
-            (
-                "CARDANO_NODE_VERSION",
-                aggregator_config.cardano_node_version,
-            ),
+            ("CARDANO_NODE_VERSION", &cardano_node_version),
             ("CHAIN_OBSERVER_TYPE", aggregator_config.chain_observer_type),
             ("CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE", "5"),
             ("CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE", "5"),
@@ -172,7 +175,7 @@ impl Aggregator {
         ];
 
         let command = MithrilCommand::new(
-            "mithril-aggregator",
+            Self::BIN_NAME,
             aggregator_config.work_dir,
             aggregator_config.bin_dir,
             env,
@@ -189,6 +192,7 @@ impl Aggregator {
             server_port: aggregator_config.server_port,
             db_directory: aggregator_config.full_node.db_path.clone(),
             mithril_run_interval: aggregator_config.mithril_run_interval,
+            version,
             command: Arc::new(RwLock::new(command)),
             process: RwLock::new(None),
             chain_observer,
@@ -206,6 +210,7 @@ impl Aggregator {
             server_port: other.server_port,
             db_directory: other.db_directory.clone(),
             mithril_run_interval: other.mithril_run_interval,
+            version: other.version.clone(),
             command: other.command.clone(),
             process: RwLock::new(None),
             chain_observer: other.chain_observer.clone(),
@@ -238,6 +243,11 @@ impl Aggregator {
 
     pub fn chain_observer(&self) -> Arc<dyn ChainObserver> {
         self.chain_observer.clone()
+    }
+
+    /// Get the version of the mithril-aggregator binary.
+    pub fn version(&self) -> &NodeVersion {
+        &self.version
     }
 
     pub async fn serve(&self) -> StdResult<()> {

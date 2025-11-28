@@ -1,8 +1,10 @@
-use crate::utils::MithrilCommand;
-use mithril_common::StdResult;
 use std::collections::HashMap;
 use std::path::Path;
 use tokio::process::Child;
+
+use mithril_common::StdResult;
+
+use crate::utils::{MithrilCommand, NodeVersion};
 
 #[derive(Debug)]
 pub struct RelayPassive {
@@ -10,9 +12,12 @@ pub struct RelayPassive {
     relay_id: String,
     command: MithrilCommand,
     process: Option<Child>,
+    version: NodeVersion,
 }
 
 impl RelayPassive {
+    pub const BIN_NAME: &'static str = "mithril-relay";
+
     pub fn new(
         listen_port: u64,
         dial_to: Option<String>,
@@ -20,6 +25,8 @@ impl RelayPassive {
         work_dir: &Path,
         bin_dir: &Path,
     ) -> StdResult<Self> {
+        let version = NodeVersion::fetch(Self::BIN_NAME, bin_dir)?;
+
         let listen_port_str = format!("{listen_port}");
         let mut env = HashMap::from([("LISTEN_PORT", listen_port_str.as_str())]);
         if let Some(dial_to) = &dial_to {
@@ -35,11 +42,17 @@ impl RelayPassive {
             relay_id,
             command,
             process: None,
+            version,
         })
     }
 
     pub fn peer_addr(&self) -> String {
         format!("/ip4/127.0.0.1/tcp/{}", self.listen_port)
+    }
+
+    /// Get the version of the mithril-relay binary.
+    pub fn version(&self) -> &NodeVersion {
+        &self.version
     }
 
     pub fn start(&mut self) -> StdResult<()> {

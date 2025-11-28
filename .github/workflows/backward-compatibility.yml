@@ -158,9 +158,12 @@ jobs:
               --signed-entity-types ${{ inputs.signed-entity-types }}
             EXIT_CODE=$?
             if [ $EXIT_CODE -eq 0 ]; then
-              echo "SUCCESS=true" >> $GITHUB_ENV
+              echo "RESULT=success" >> $GITHUB_ENV
+            elif [ $EXIT_CODE -eq 3 ]; then
+              echo "RESULT=incompatible" >> $GITHUB_ENV
+              exit 0
             else
-              echo "SUCCESS=false" >> $GITHUB_ENV
+              echo "RESULT=failure" >> $GITHUB_ENV
             fi
             exit $EXIT_CODE
 
@@ -195,8 +198,8 @@ jobs:
                 --arg AGGREGATOR "$AGGREGATOR_TAG" \
                 --arg SIGNER "$SIGNER_TAG" \
                 --arg CLIENT "$CLIENT_TAG" \
-                --argjson SUCCESS "${{ env.SUCCESS }}" \
-                '{tag: $TAG, node: $NODE, mithril_signer: $SIGNER, mithril_aggregator: $AGGREGATOR, mithril_client: $CLIENT, cardano_node_version: $CARDANO_NODE, success: $SUCCESS}' \
+                --arg RESULT "${{ env.RESULT }}" \
+                '{tag: $TAG, node: $NODE, mithril_signer: $SIGNER, mithril_aggregator: $AGGREGATOR, mithril_client: $CLIENT, cardano_node_version: $CARDANO_NODE, result: $RESULT}' \
                 > ./${{ env.RESULT_FILE_NAME }}.json
 
       - name: Upload test result JSON
@@ -241,6 +244,7 @@ jobs:
         shell: bash
         run: |
           CHECK_MARK=":heavy_check_mark:"
+          WARN_MARK=":warning:"
           CROSS_MARK=":no_entry:"
 
           echo "## Distributions backward compatibility" >> $GITHUB_STEP_SUMMARY
@@ -250,22 +254,22 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "**Signed entity types**: ${{ inputs.signed-entity-types }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Cardano nodes**: ${{ inputs.cardano_node_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Cardano nodes**: ${{ inputs.cardano-node-version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "| Compatibility | mithril-signer | mithril-aggregator | mithril-client |" >> $GITHUB_STEP_SUMMARY
           echo "| --- | :---: | :---: | :---: |" >> $GITHUB_STEP_SUMMARY
 
           # Transform summary.json into Markdown table rows
-          jq -r --arg CHECK_MARK "$CHECK_MARK" --arg CROSS_MARK "$CROSS_MARK" \
-            'group_by(.tag) |
-            sort_by(.[0].tag | sub("-[a-z]+$"; "") | tonumber) | reverse |
+          jq -r --arg CHECK_MARK "$CHECK_MARK" --arg WARN_MARK "$WARN_MARK" --arg CROSS_MARK "$CROSS_MARK" \
+            'def parseresult(result): if result == "success" then $CHECK_MARK elif result == "incompatible" then $WARN_MARK else $CROSS_MARK end;
+            group_by(.tag) | sort_by(.[0].tag | sub("-[a-z]+$"; "") | tonumber) | reverse |
             .[] |
             {
               tag: .[0].tag, 
-              signer: (map(select(.node == "mithril-signer") | if .success then $CHECK_MARK else $CROSS_MARK end) | join("")),
-              aggregator: (map(select(.node == "mithril-aggregator") | if .success then $CHECK_MARK else $CROSS_MARK end) | join("")),
-              client: (map(select(.node == "mithril-client") | if .success then $CHECK_MARK else $CROSS_MARK end) | join(""))
+              signer: (map(select(.node == "mithril-signer") | parseresult(.result)) | join("")),
+              aggregator: (map(select(.node == "mithril-aggregator") | parseresult(.result)) | join("")),
+              client: (map(select(.node == "mithril-client") | parseresult(.result)) | join(""))
             } |
             "| `\(.tag)` | \(.signer) | \(.aggregator) | \(.client) |"' "./test-results/summary.json" >> $GITHUB_STEP_SUMMARY
 

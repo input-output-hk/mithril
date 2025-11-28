@@ -28,7 +28,7 @@ pub async fn bootstrap_aggregator(
         store_dir: &args.work_dir.join("aggregator_store"),
         artifacts_dir: &args.work_dir.join("aggregator_artifacts"),
         bin_dir: &args.bin_dir,
-        cardano_node_version: "1.2.3",
+        cardano_node_version: &semver::Version::new(1, 2, 3),
         mithril_run_interval: 1000,
         mithril_era: &args.mithril_era,
         mithril_era_marker_address: "",

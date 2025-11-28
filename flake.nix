@@ -91,7 +91,7 @@
               cargoArtifacts = buildDeps cargoToml baseCargoArtifacts;
             }
             // {
-              cargoTestCommand = "cargo test";
+              cargoTestCommand = "RUST_BACKTRACE=1 cargo test";
             }
             // args);
 

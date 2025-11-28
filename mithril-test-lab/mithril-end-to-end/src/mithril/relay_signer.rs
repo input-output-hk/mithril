@@ -1,10 +1,12 @@
-use crate::DEVNET_DMQ_MAGIC_ID;
-use crate::utils::MithrilCommand;
-use mithril_common::StdResult;
-use mithril_common::entities::PartyId;
 use std::collections::HashMap;
 use std::path::Path;
 use tokio::process::Child;
+
+use mithril_common::StdResult;
+use mithril_common::entities::PartyId;
+
+use crate::DEVNET_DMQ_MAGIC_ID;
+use crate::utils::{MithrilCommand, NodeVersion};
 
 pub struct RelaySignerConfiguration<'a> {
     pub signer_number: usize,
@@ -27,10 +29,15 @@ pub struct RelaySigner {
     party_id: PartyId,
     command: MithrilCommand,
     process: Option<Child>,
+    version: NodeVersion,
 }
 
 impl RelaySigner {
+    pub const BIN_NAME: &'static str = "mithril-relay";
+
     pub fn new(configuration: &RelaySignerConfiguration) -> StdResult<Self> {
+        let version = NodeVersion::fetch(Self::BIN_NAME, configuration.bin_dir)?;
+
         let party_id = configuration.party_id.to_owned();
         let listen_port_str = format!("{}", configuration.listen_port);
         let server_port_str = format!("{}", configuration.server_port);
@@ -85,6 +92,7 @@ impl RelaySigner {
             party_id,
             command,
             process: None,
+            version,
         })
     }
 
@@ -94,6 +102,11 @@ impl RelaySigner {
 
     pub fn endpoint(&self) -> String {
         format!("http://localhost:{}", &self.server_port)
+    }
+
+    /// Get the version of the mithril-relay binary.
+    pub fn version(&self) -> &NodeVersion {
+        &self.version
     }
 
     pub fn start(&mut self) -> StdResult<()> {

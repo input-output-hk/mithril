@@ -1,6 +1,6 @@
 [package]
 name = "mithril-end-to-end"
-version = "0.4.108"
+version = "0.4.109"
 authors = { workspace = true }
 edition = { workspace = true }
 documentation = { workspace = true }
@@ -29,6 +29,7 @@ mithril-cardano-node-internal-database = { path = "../../internal/cardano-node/m
 mithril-common = { path = "../../mithril-common" }
 mithril-doc = { path = "../../internal/mithril-doc" }
 reqwest = { workspace = true, features = ["default"] }
+semver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 slog = { workspace = true, features = [

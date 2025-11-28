@@ -1,10 +1,12 @@
-use crate::utils::{LogGroup, file_utils};
 use anyhow::{Context, anyhow};
-use mithril_common::StdResult;
 use slog_scope::info;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::process::{Child, Command};
+
+use mithril_common::StdResult;
+
+use crate::utils::{LogGroup, file_utils};
 
 #[derive(Debug, Clone)]
 pub struct MithrilCommand {
@@ -25,17 +27,7 @@ impl MithrilCommand {
         env_vars: HashMap<&str, &str>,
         default_args: &[&str],
     ) -> StdResult<MithrilCommand> {
-        let current_dir = std::env::current_dir().unwrap();
-        let process_path = bin_dir
-            .canonicalize()
-            .unwrap_or_else(|_| {
-                panic!(
-                    "expected '{}/{name}' to be an existing executable. Current dir: {}",
-                    bin_dir.display(),
-                    current_dir.display(),
-                )
-            })
-            .join(name);
+        let process_path = file_utils::get_process_path(name, bin_dir)?;
         let log_path = work_dir.join(format!("{name}.log"));
 
         // ugly but it's far easier for callers to manipulate string literals
@@ -44,14 +36,6 @@ impl MithrilCommand {
         let default_args = default_args.iter().map(|s| s.to_string()).collect();
 
         env_vars.insert("RUST_BACKTRACE".to_string(), "full".to_string());
-
-        if !process_path.exists() {
-            return Err(anyhow!(
-                "cannot find {} executable in expected location \"{}\"",
-                name,
-                bin_dir.display()
-            ));
-        }
 
         Ok(MithrilCommand {
             name: name.to_string(),

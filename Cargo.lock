@@ -4080,7 +4080,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.4.108"
+version = "0.4.109"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -4091,6 +4091,7 @@ dependencies = [
  "mithril-common",
  "mithril-doc",
  "reqwest",
+ "semver",
  "serde",
  "serde_json",
  "slog",

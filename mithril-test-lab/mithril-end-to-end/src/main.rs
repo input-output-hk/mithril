@@ -3,6 +3,7 @@ use clap::{CommandFactory, Parser, Subcommand};
 use slog::{Drain, Level, Logger};
 use slog_scope::{error, info};
 use std::{
+    collections::BTreeMap,
     fmt, fs,
     path::{Path, PathBuf},
     process::{ExitCode, Termination},
@@ -19,8 +20,9 @@ use tokio::{
 use mithril_common::StdResult;
 use mithril_doc::GenerateDocCommands;
 use mithril_end_to_end::{
-    Devnet, DevnetBootstrapArgs, DmqNodeFlavor, MithrilInfrastructure, MithrilInfrastructureConfig,
-    RetryableDevnetError, RunOnly, Spec,
+    Aggregator, Client, CompatibilityChecker, CompatibilityCheckerError, Devnet,
+    DevnetBootstrapArgs, DmqNodeFlavor, MithrilInfrastructure, MithrilInfrastructureConfig,
+    NodeVersion, RelaySigner, RetryableDevnetError, RunOnly, Signer, Spec,
 };
 
 /// Tests args
@@ -67,9 +69,9 @@ pub struct Args {
     #[clap(long, default_value_t = 30.0)]
     cardano_epoch_length: f64,
 
-    /// Cardano node version
+    /// Cardano node version, must be a valid semver version
     #[clap(long, default_value = "10.5.1")]
-    cardano_node_version: String,
+    cardano_node_version: semver::Version,
 
     /// Epoch at which hard fork to the latest Cardano era will be made (starts with the latest era by default)
     #[clap(long, default_value_t = 0)]
@@ -203,19 +205,24 @@ async fn main_exec() -> StdResult<()> {
         return cmd.execute(&mut Args::command()).map_err(|message| anyhow!(message));
     }
 
-    let work_dir = match &args.work_directory {
-        Some(path) => {
-            create_workdir_if_not_exist_clean_otherwise(path);
-            path.canonicalize()?
-        }
-        None => {
-            #[cfg(target_os = "macos")]
-            let work_dir = PathBuf::from("./mithril_end_to_end");
-            #[cfg(not(target_os = "macos"))]
-            let work_dir = std::env::temp_dir().join("mithril_end_to_end");
-            create_workdir_if_not_exist_clean_otherwise(&work_dir);
-            work_dir.canonicalize()?
-        }
+    let work_dir = {
+        let dir = match &args.work_directory {
+            Some(path) => path.to_owned(),
+            None => {
+                if cfg!(target_os = "macos") {
+                    PathBuf::from("./mithril_end_to_end")
+                } else {
+                    std::env::temp_dir().join("mithril_end_to_end")
+                }
+            }
+        };
+        create_workdir_if_not_exist_clean_otherwise(&dir);
+        std::path::absolute(&dir).with_context(|| {
+            format!(
+                "Failed to resolve absolute work directory path: {}",
+                &dir.display()
+            )
+        })?
     };
     let artifacts_dir = {
         let path = work_dir.join("artifacts");
@@ -253,14 +260,16 @@ enum AppResult {
     UnretryableError(anyhow::Error),
     RetryableError(anyhow::Error),
     Cancelled(anyhow::Error),
+    IncompatibleNode(anyhow::Error),
 }
 
 impl AppResult {
     fn exit_code(&self) -> ExitCode {
         match self {
             AppResult::Success() => ExitCode::SUCCESS,
-            AppResult::UnretryableError(_) | AppResult::Cancelled(_) => ExitCode::FAILURE,
-            AppResult::RetryableError(_) => ExitCode::from(2),
+            AppResult::UnretryableError(..) | AppResult::Cancelled(..) => ExitCode::FAILURE,
+            AppResult::RetryableError(..) => ExitCode::from(2),
+            AppResult::IncompatibleNode(..) => ExitCode::from(3),
         }
     }
 }
@@ -272,6 +281,7 @@ impl fmt::Display for AppResult {
             AppResult::UnretryableError(error) => write!(f, "Error(Unretryable): {error:?}"),
             AppResult::RetryableError(error) => write!(f, "Error(Retryable): {error:?}"),
             AppResult::Cancelled(error) => write!(f, "Cancelled: {error:?}"),
+            AppResult::IncompatibleNode(error) => write!(f, "{error:?}"),
         }
     }
 }
@@ -298,6 +308,8 @@ impl From<StdResult<()>> for AppResult {
                     AppResult::RetryableError(error)
                 } else if error.is::<SignalError>() {
                     AppResult::Cancelled(error)
+                } else if error.is::<CompatibilityCheckerError>() {
+                    AppResult::IncompatibleNode(error)
                 } else {
                     AppResult::UnretryableError(error)
                 }
@@ -351,6 +363,26 @@ impl App {
         let use_dmq = args.use_dmq;
 
         let use_p2p_passive_relays = args.use_p2p_passive_relays;
+
+        CompatibilityChecker::default().check(BTreeMap::from([
+            (
+                Aggregator::BIN_NAME,
+                NodeVersion::fetch_semver(Aggregator::BIN_NAME, &args.bin_directory)?,
+            ),
+            (
+                Signer::BIN_NAME,
+                NodeVersion::fetch_semver(Signer::BIN_NAME, &args.bin_directory)?,
+            ),
+            (
+                Client::BIN_NAME,
+                NodeVersion::fetch_semver(Client::BIN_NAME, &args.bin_directory)?,
+            ),
+            (
+                RelaySigner::BIN_NAME,
+                NodeVersion::fetch_semver(RelaySigner::BIN_NAME, &args.bin_directory)?,
+            ),
+            ("cardano-node", args.cardano_node_version.to_owned()),
+        ]))?;
 
         let devnet = Devnet::bootstrap(&DevnetBootstrapArgs {
             devnet_scripts_dir: args.devnet_scripts_directory,

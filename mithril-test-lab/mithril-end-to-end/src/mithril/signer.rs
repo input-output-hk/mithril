@@ -10,7 +10,7 @@ use tokio::process::Child;
 use tokio::sync::RwLock;
 
 use crate::devnet::PoolNode;
-use crate::utils::MithrilCommand;
+use crate::utils::{MithrilCommand, NodeVersion};
 use crate::{DEVNET_DMQ_MAGIC_ID, DEVNET_MAGIC_ID, DmqNodeFlavor, ERA_MARKERS_VERIFICATION_KEY};
 
 #[derive(Debug)]
@@ -38,10 +38,15 @@ pub struct Signer {
     party_id: PartyId,
     command: Arc<RwLock<MithrilCommand>>,
     process: RwLock<Option<Child>>,
+    version: NodeVersion,
 }
 
 impl Signer {
+    pub const BIN_NAME: &'static str = "mithril-signer";
+
     pub fn new(signer_config: &SignerConfig) -> StdResult<Self> {
+        let version = NodeVersion::fetch(Self::BIN_NAME, signer_config.bin_dir)?;
+
         let party_id = signer_config.pool_node.party_id()?;
         let magic_id = DEVNET_MAGIC_ID.to_string();
         let dmq_magic_id = DEVNET_DMQ_MAGIC_ID.to_string();
@@ -151,7 +156,13 @@ impl Signer {
             party_id,
             command: Arc::new(RwLock::new(command)),
             process: RwLock::new(None),
+            version,
         })
+    }
+
+    /// Get the version of the mithril-signer binary.
+    pub fn version(&self) -> &NodeVersion {
+        &self.version
     }
 
     pub async fn start(&self) -> StdResult<()> {
@@ -164,8 +175,7 @@ impl Signer {
     pub async fn stop(&self) -> StdResult<()> {
         let mut process_option = self.process.write().await;
         if let Some(process) = process_option.as_mut() {
-            let name = self.name.as_str();
-            info!("Stopping {name}");
+            info!("Stopping {}", &self.name);
             process.kill().await.with_context(|| "Could not kill signer")?;
             *process_option = None;
         }
