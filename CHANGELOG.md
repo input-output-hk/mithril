@@ -9,6 +9,11 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
+- Client library, CLI and WASM:
+  - **DEPRECATED**: The `cardano_db` function have been deprecated and the `snapshot` function was removed in the `Client` struct of the library.
+
+  - **DEPRECATED**: The flag `--backend v1` of the `cardano-db` command has been deprecated CLI, use the `--backend v2` instead.
+
 - Support for removal of `cardano_transactions_signing_config` from the diffused mithril network configuration.
 
 - Decentralization of the configuration parameters of Mithril networks:

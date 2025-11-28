@@ -32,33 +32,77 @@
 //! # #[cfg(feature = "fs")]
 //! # async fn run() -> mithril_client::MithrilResult<()> {
 //! use mithril_client::{ClientBuilder, MessageBuilder};
+//! use mithril_client::cardano_database_client::{DownloadUnpackOptions, ImmutableFileRange};
 //! use std::path::Path;
 //!
-//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
-//!
-//! let snapshots = client.snapshot().list().await?;
-//!
-//! let last_digest = snapshots.first().unwrap().digest.as_ref();
-//! let snapshot = client.snapshot().get(last_digest).await?.unwrap();
+//! let client =
+//!     ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY")
+//!         .build()?;
+//! let cardano_database_snapshot = client
+//!     .cardano_database_v2()
+//!     .get("CARDANO_DATABASE_HASH")
+//!     .await?
+//!     .unwrap();
 //!
 //! let certificate = client
 //!     .certificate()
-//!     .verify_chain(&snapshot.certificate_hash)
+//!     .verify_chain(&cardano_database_snapshot.certificate_hash)
 //!     .await?;
 //!
 //! // Note: the directory must already exist, and the user running the binary must have read/write access to it.
 //! let target_directory = Path::new("/home/user/download/");
+//! let immutable_file_range = ImmutableFileRange::Range(3, 6);
+//! let download_unpack_options = DownloadUnpackOptions {
+//!     allow_override: true,
+//!     include_ancillary: true,
+//!     ..DownloadUnpackOptions::default()
+//! };
 //! client
-//!     .snapshot()
-//!     .download_unpack(&snapshot, &target_directory)
+//!     .cardano_database_v2()
+//!     .download_unpack(
+//!         &cardano_database_snapshot,
+//!         &immutable_file_range,
+//!         &target_directory,
+//!         download_unpack_options,
+//!     )
 //!     .await?;
 //!
-//! if let Err(e) = client.snapshot().add_statistics(&snapshot).await {
-//!     println!("Could not increment snapshot download statistics: {:?}", e);
+//! let verified_digests = client
+//!     .cardano_database_v2()
+//!     .download_and_verify_digests(&certificate, &cardano_database_snapshot)
+//!     .await?;
+//!
+//! let full_restoration = immutable_file_range == ImmutableFileRange::Full;
+//! let include_ancillary = download_unpack_options.include_ancillary;
+//! let number_of_immutable_files_restored =
+//!     immutable_file_range.length(cardano_database_snapshot.beacon.immutable_file_number);
+//! if let Err(error) = client
+//!     .cardano_database_v2()
+//!     .add_statistics(
+//!         full_restoration,
+//!         include_ancillary,
+//!         number_of_immutable_files_restored,
+//!     )
+//!     .await
+//! {
+//!     println!("Could not increment snapshot download statistics: {error:?}");
 //! }
 //!
+//! let allow_missing_immutables_files = false;
+//! let merkle_proof = client
+//!     .cardano_database_v2()
+//!     .verify_cardano_database(
+//!         &certificate,
+//!         &cardano_database_snapshot,
+//!         &immutable_file_range,
+//!         allow_missing_immutables_files,
+//!         &target_directory,
+//!         &verified_digests,
+//!     )
+//!     .await?;
+//!
 //! let message = MessageBuilder::new()
-//!     .compute_snapshot_message(&certificate, &target_directory)
+//!     .compute_cardano_database_message(&certificate, &merkle_proof)
 //!     .await?;
 //!
 //! assert!(certificate.match_message(&message));

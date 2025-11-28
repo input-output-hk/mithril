@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use anyhow::{Context, anyhow};
 use slog::{Logger, debug, warn};
 use std::{fs::File, path::Path, sync::Arc};
@@ -10,7 +11,7 @@ use mithril_client::{
 use crate::{
     CommandContext,
     commands::{
-        cardano_db::{download::DB_DIRECTORY_NAME, shared_steps},
+        cardano_db::{download::DB_DIRECTORY_NAME, shared_steps, warn_deprecated_v1_backend},
         client_builder,
     },
     utils::{
@@ -30,6 +31,7 @@ pub(super) struct PreparedCardanoDbV1Download {
 impl PreparedCardanoDbV1Download {
     /// Command execution
     pub async fn execute(&self, context: &CommandContext) -> MithrilResult<()> {
+        warn_deprecated_v1_backend(context);
         let db_dir = Path::new(&self.download_dir).join(DB_DIRECTORY_NAME);
 
         let progress_output_type = if context.is_json_output_enabled() {

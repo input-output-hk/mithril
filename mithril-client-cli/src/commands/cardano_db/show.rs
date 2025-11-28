@@ -9,7 +9,10 @@ use mithril_client::{
 
 use crate::{
     CommandContext,
-    commands::{cardano_db::CardanoDbCommandsBackend, client_builder_with_fallback_genesis_key},
+    commands::{
+        cardano_db::{CardanoDbCommandsBackend, warn_deprecated_v1_backend},
+        client_builder_with_fallback_genesis_key,
+    },
     utils::{CardanoDbUtils, ExpanderUtils},
 };
 
@@ -39,7 +42,9 @@ impl CardanoDbShowCommand {
         Ok(())
     }
 
+    #[allow(deprecated)]
     async fn print_v1(&self, client: Client, context: &CommandContext) -> MithrilResult<()> {
+        warn_deprecated_v1_backend(context);
         let get_list_of_artifact_ids = || async {
             let cardano_dbs = client.cardano_database().list().await.with_context(|| {
                 "Can not get the list of artifacts while retrieving the latest cardano db digest"

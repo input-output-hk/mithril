@@ -18,7 +18,7 @@ use mithril_client::MithrilResult;
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, ValueEnum)]
 pub enum CardanoDbCommandsBackend {
     /// Legacy backend
-    #[clap(help = "Legacy backend, full database restoration only")]
+    #[clap(help = "(deprecated) Legacy backend, full database restoration only")]
     V1,
     /// V2 backend
     #[default]
@@ -72,6 +72,21 @@ impl CardanoDbSnapshotCommands {
             Self::List(cmd) => cmd.execute(config_builder).await,
             Self::Show(cmd) => cmd.execute(config_builder).await,
         }
+    }
+}
+
+/// Print in stderr a warning about the deprecation of the v1 backend and its scheduled removal in 2026
+pub fn warn_deprecated_v1_backend(context: &CommandContext) {
+    use crate::utils::JSON_CAUTION_KEY;
+
+    let message = "The `v1` backend is deprecated and is scheduled to be removed early 2026. \
+    Please use the `v2` backend instead. \
+    No other change is required in your command line.";
+
+    if context.is_json_output_enabled() {
+        eprintln!(r#"{{"{JSON_CAUTION_KEY}":"{message}"}}"#);
+    } else {
+        eprintln!("Warning: {message}");
     }
 }
 
