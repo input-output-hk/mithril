@@ -7,7 +7,9 @@ use clap::Parser;
 use slog::info;
 use std::sync::Arc;
 
-use mithril_client::{ClientBuilder, MessageBuilder, MithrilResult};
+use mithril_client::{
+    AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder, MithrilResult,
+};
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -33,11 +35,15 @@ pub struct Args {
 async fn main() -> MithrilResult<()> {
     let args = Args::parse();
     let logger = build_logger();
-    let client =
-        ClientBuilder::aggregator(&args.aggregator_endpoint, &args.genesis_verification_key)
-            .with_origin_tag(Some("EXAMPLE".to_string()))
-            .with_logger(logger.clone())
-            .build()?;
+    let client = ClientBuilder::new(AggregatorDiscoveryType::Url(
+        args.aggregator_endpoint.clone(),
+    ))
+    .set_genesis_verification_key(GenesisVerificationKey::JsonHex(
+        args.genesis_verification_key.clone(),
+    ))
+    .with_origin_tag(Some("EXAMPLE".to_string()))
+    .with_logger(logger.clone())
+    .build()?;
 
     let cardano_stake_distributions = client.cardano_stake_distribution().list().await?;
     info!(

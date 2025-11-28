@@ -178,7 +178,7 @@ impl Client {
     }
 }
 
-/// Builder than can be used to create a [Client] easily or with custom dependencies.
+/// Builder that can be used to create a [Client] easily or with custom dependencies.
 pub struct ClientBuilder {
     aggregator_discovery: AggregatorDiscoveryType,
     #[cfg(not(target_family = "wasm"))]
@@ -205,8 +205,12 @@ pub struct ClientBuilder {
 impl ClientBuilder {
     /// Constructs a new `ClientBuilder` that fetches data from the aggregator at the given
     /// endpoint and with the given genesis verification key.
+    #[deprecated(
+        since = "0.12.36",
+        note = "Use `new` function instead and set the genesis verification key with `set_genesis_verification_key`"
+    )]
     pub fn aggregator(endpoint: &str, genesis_verification_key: &str) -> ClientBuilder {
-        Self::new(AggregatorDiscoveryType::Url(endpoint.to_string())).with_genesis_verification_key(
+        Self::new(AggregatorDiscoveryType::Url(endpoint.to_string())).set_genesis_verification_key(
             GenesisVerificationKey::JsonHex(genesis_verification_key.to_string()),
         )
     }
@@ -218,7 +222,7 @@ impl ClientBuilder {
         Self::new(AggregatorDiscoveryType::Automatic(MithrilNetwork::new(
             network.to_string(),
         )))
-        .with_genesis_verification_key(GenesisVerificationKey::JsonHex(
+        .set_genesis_verification_key(GenesisVerificationKey::JsonHex(
             genesis_verification_key.to_string(),
         ))
     }
@@ -265,7 +269,7 @@ impl ClientBuilder {
     }
 
     /// Sets the genesis verification key to use when verifying certificates.
-    pub fn with_genesis_verification_key(
+    pub fn set_genesis_verification_key(
         mut self,
         genesis_verification_key: GenesisVerificationKey,
     ) -> ClientBuilder {
@@ -310,7 +314,7 @@ impl ClientBuilder {
             Some(GenesisVerificationKey::JsonHex(ref key)) => key,
             None => {
                 return Err(anyhow!(
-                    "The genesis verification key must be provided to build the client with the 'with_genesis_verification_key' function"
+                    "The genesis verification key must be provided to build the client with the 'set_genesis_verification_key' function"
                 ));
             }
         };
