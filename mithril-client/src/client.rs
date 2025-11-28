@@ -1,5 +1,5 @@
 use anyhow::{Context, anyhow};
-#[cfg(feature = "fs")]
+#[cfg(any(feature = "fs", not(target_family = "wasm")))]
 use chrono::Utc;
 
 #[cfg(not(target_family = "wasm"))]
@@ -207,7 +207,7 @@ impl ClientBuilder {
     /// endpoint and with the given genesis verification key.
     #[deprecated(
         since = "0.12.36",
-        note = "Use `new` function instead and set the genesis verification key with `set_genesis_verification_key`"
+        note = "Use `new` method instead and set the genesis verification key with `set_genesis_verification_key`"
     )]
     pub fn aggregator(endpoint: &str, genesis_verification_key: &str) -> ClientBuilder {
         Self::new(AggregatorDiscoveryType::Url(endpoint.to_string())).set_genesis_verification_key(

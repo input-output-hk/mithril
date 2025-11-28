@@ -56,10 +56,7 @@ impl HttpConfigAggregatorDiscoverer {
 
     /// Builds a reqwest HTTP client.
     fn build_client(&self) -> StdResult<Client> {
-        let client_builder = Client::builder().timeout(Self::HTTP_TIMEOUT);
-        let client = client_builder.build()?;
-
-        Ok(client)
+        Ok(Client::builder().timeout(Self::HTTP_TIMEOUT).build()?)
     }
 }
 
