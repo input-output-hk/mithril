@@ -5,6 +5,7 @@
 //!   - Aggregator features: [Get current aggregator features][GetAggregatorFeaturesQuery]
 //!   - Certificate: [List][GetCertificatesListQuery], [Get by hash, get latest genesis certificate][GetCertificateQuery]
 //!   - Epoch settings: [Get current epoch settings][GetEpochSettingsQuery]
+//!   - Mithril stake distribution: [List][GetMithrilStakeDistributionsListQuery], [Get by hash][GetMithrilStakeDistributionQuery]
 //!   - Protocol Configuration: [Get for a given epoch][GetProtocolConfigurationQuery]
 //! - Post:
 //!   - Signature: [Register a signature][PostRegisterSignatureQuery]
