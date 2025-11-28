@@ -1,5 +1,5 @@
 use anyhow::{Context, anyhow};
-#[cfg(feature = "fs")]
+#[cfg(any(feature = "fs", not(target_family = "wasm")))]
 use chrono::Utc;
 
 #[cfg(not(target_family = "wasm"))]
