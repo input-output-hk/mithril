@@ -158,13 +158,6 @@ impl MithrilClient {
         )))
     }
 
-    #[deprecated(since = "0.8.4", note = "supersede by `get_cardano_database_snapshot`")]
-    /// Call the client to get a snapshot from a digest
-    #[wasm_bindgen]
-    pub async fn get_snapshot(&self, digest: &str) -> WasmResult {
-        self.get_cardano_database_snapshot(digest).await
-    }
-
     /// Call the client to get a snapshot from a digest
     #[wasm_bindgen]
     pub async fn get_cardano_database_snapshot(&self, digest: &str) -> WasmResult {
@@ -179,16 +172,6 @@ impl MithrilClient {
             )))?;
 
         Ok(serde_wasm_bindgen::to_value(&result)?)
-    }
-
-    #[deprecated(
-        since = "0.8.4",
-        note = "supersede by `list_cardano_database_snapshots`"
-    )]
-    /// Call the client to get the list of available snapshots
-    #[wasm_bindgen]
-    pub async fn list_snapshots(&self) -> WasmResult {
-        self.list_cardano_database_snapshots().await
     }
 
     /// Call the client to get the list of available snapshots
@@ -693,11 +676,11 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    async fn list_snapshots_should_return_value_convertible_in_rust_type() {
+    async fn list_cardano_database_snapshots_should_return_value_convertible_in_rust_type() {
         let snapshots_list_js_value = get_mithril_client_stable()
-            .list_snapshots()
+            .list_cardano_database_snapshots()
             .await
-            .expect("list_snapshots should not fail");
+            .expect("list_cardano_database_snapshots should not fail");
         let snapshots_list =
             serde_wasm_bindgen::from_value::<Vec<SnapshotListItem>>(snapshots_list_js_value)
                 .expect("conversion should not fail");
@@ -710,11 +693,11 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    async fn get_snapshot_should_return_value_convertible_in_rust_type() {
+    async fn get_cardano_database_snapshot_should_return_value_convertible_in_rust_type() {
         let snapshot_js_value = get_mithril_client_stable()
-            .get_snapshot(test_data::snapshot_digests()[0])
+            .get_cardano_database_snapshot(test_data::snapshot_digests()[0])
             .await
-            .expect("get_snapshot should not fail");
+            .expect("get_cardano_database_snapshot should not fail");
         let snapshot = serde_wasm_bindgen::from_value::<Snapshot>(snapshot_js_value)
             .expect("conversion should not fail");
 
@@ -722,11 +705,11 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    async fn get_snapshot_should_fail_with_unknown_digest() {
+    async fn get_cardano_database_snapshot_should_fail_with_unknown_digest() {
         get_mithril_client_stable()
-            .get_snapshot("whatever")
+            .get_cardano_database_snapshot("whatever")
             .await
-            .expect_err("get_snapshot should fail");
+            .expect_err("get_cardano_database_snapshot should fail");
     }
 
     #[wasm_bindgen_test]
