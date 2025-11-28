@@ -8,7 +8,9 @@ use std::sync::Arc;
 use mithril_cardano_node_internal_database::test::DummyCardanoDbBuilder;
 use mithril_client::aggregator_client::AggregatorRequest;
 use mithril_client::feedback::SlogFeedbackReceiver;
-use mithril_client::{ClientBuilder, MessageBuilder};
+use mithril_client::{
+    AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder,
+};
 use mithril_common::crypto_helper::ManifestSigner;
 use mithril_common::test::double::fake_keys;
 
@@ -37,20 +39,22 @@ async fn snapshot_list_get_show_download_verify() {
         ancillary_manifest_signing_key,
     )
     .await;
-    let client =
-        ClientBuilder::aggregator(&fake_aggregator.server_root_url(), genesis_verification_key)
-            .set_ancillary_verification_key(
-                ancillary_manifest_signer_verification_key.to_json_hex().unwrap(),
-            )
-            .with_certificate_verifier(
-                FakeCertificateVerifier::build_that_validate_any_certificate(),
-            )
-            .add_feedback_receiver(Arc::new(SlogFeedbackReceiver::new(
-                extensions::test_logger(),
-            )))
-            .with_logger(extensions::test_logger())
-            .build()
-            .expect("Should be able to create a Client");
+    let client = ClientBuilder::new(AggregatorDiscoveryType::Url(
+        fake_aggregator.server_root_url(),
+    ))
+    .set_genesis_verification_key(GenesisVerificationKey::JsonHex(
+        genesis_verification_key.to_string(),
+    ))
+    .set_ancillary_verification_key(
+        ancillary_manifest_signer_verification_key.to_json_hex().unwrap(),
+    )
+    .with_certificate_verifier(FakeCertificateVerifier::build_that_validate_any_certificate())
+    .add_feedback_receiver(Arc::new(SlogFeedbackReceiver::new(
+        extensions::test_logger(),
+    )))
+    .with_logger(extensions::test_logger())
+    .build()
+    .expect("Should be able to create a Client");
 
     let snapshots = client
         .cardano_database()

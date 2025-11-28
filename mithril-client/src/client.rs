@@ -178,7 +178,7 @@ impl Client {
     }
 }
 
-/// Builder than can be used to create a [Client] easily or with custom dependencies.
+/// Builder that can be used to create a [Client] easily or with custom dependencies.
 pub struct ClientBuilder {
     aggregator_discovery: AggregatorDiscoveryType,
     #[cfg(not(target_family = "wasm"))]
@@ -205,8 +205,12 @@ pub struct ClientBuilder {
 impl ClientBuilder {
     /// Constructs a new `ClientBuilder` that fetches data from the aggregator at the given
     /// endpoint and with the given genesis verification key.
+    #[deprecated(
+        since = "0.12.36",
+        note = "Use `new` function instead and set the genesis verification key with `set_genesis_verification_key`"
+    )]
     pub fn aggregator(endpoint: &str, genesis_verification_key: &str) -> ClientBuilder {
-        Self::new(AggregatorDiscoveryType::Url(endpoint.to_string())).with_genesis_verification_key(
+        Self::new(AggregatorDiscoveryType::Url(endpoint.to_string())).set_genesis_verification_key(
             GenesisVerificationKey::JsonHex(genesis_verification_key.to_string()),
         )
     }
@@ -218,7 +222,7 @@ impl ClientBuilder {
         Self::new(AggregatorDiscoveryType::Automatic(MithrilNetwork::new(
             network.to_string(),
         )))
-        .with_genesis_verification_key(GenesisVerificationKey::JsonHex(
+        .set_genesis_verification_key(GenesisVerificationKey::JsonHex(
             genesis_verification_key.to_string(),
         ))
     }
@@ -265,7 +269,7 @@ impl ClientBuilder {
     }
 
     /// Sets the genesis verification key to use when verifying certificates.
-    pub fn with_genesis_verification_key(
+    pub fn set_genesis_verification_key(
         mut self,
         genesis_verification_key: GenesisVerificationKey,
     ) -> ClientBuilder {
@@ -310,7 +314,7 @@ impl ClientBuilder {
             Some(GenesisVerificationKey::JsonHex(ref key)) => key,
             None => {
                 return Err(anyhow!(
-                    "The genesis verification key must be provided to build the client with the 'with_genesis_verification_key' function"
+                    "The genesis verification key must be provided to build the client with the 'set_genesis_verification_key' function"
                 ));
             }
         };
@@ -600,9 +604,10 @@ mod tests {
     #[tokio::test]
     async fn compute_http_headers_returns_options_http_headers() {
         let http_headers = default_headers();
-        let client_builder = ClientBuilder::aggregator("", "").with_options(ClientOptions {
-            http_headers: Some(http_headers.clone()),
-        });
+        let client_builder = ClientBuilder::new(AggregatorDiscoveryType::Url("".to_string()))
+            .with_options(ClientOptions {
+                http_headers: Some(http_headers.clone()),
+            });
 
         let computed_headers = client_builder.compute_http_headers();
 
@@ -612,7 +617,7 @@ mod tests {
     #[tokio::test]
     async fn compute_http_headers_with_origin_tag_returns_options_http_headers_with_origin_tag() {
         let http_headers = default_headers();
-        let client_builder = ClientBuilder::aggregator("", "")
+        let client_builder = ClientBuilder::new(AggregatorDiscoveryType::Url("".to_string()))
             .with_options(ClientOptions {
                 http_headers: Some(http_headers.clone()),
             })
@@ -629,14 +634,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_with_origin_tag_not_overwrite_other_client_options_attributes() {
-        let builder = ClientBuilder::aggregator("", "")
+        let builder = ClientBuilder::new(AggregatorDiscoveryType::Url("".to_string()))
             .with_options(ClientOptions { http_headers: None })
             .with_origin_tag(Some("TEST".to_string()));
         assert_eq!(None, builder.options.http_headers);
         assert_eq!(Some("TEST".to_string()), builder.origin_tag);
 
         let http_headers = HashMap::from([("Key".to_string(), "Value".to_string())]);
-        let builder = ClientBuilder::aggregator("", "")
+        let builder = ClientBuilder::new(AggregatorDiscoveryType::Url("".to_string()))
             .with_options(ClientOptions {
                 http_headers: Some(http_headers.clone()),
             })
@@ -651,7 +656,7 @@ mod tests {
         let client_options = ClientOptions {
             http_headers: Some(http_headers.clone()),
         };
-        let builder = ClientBuilder::aggregator("", "")
+        let builder = ClientBuilder::new(AggregatorDiscoveryType::Url("".to_string()))
             .with_options(client_options)
             .with_origin_tag(None);
 
@@ -662,7 +667,7 @@ mod tests {
     #[tokio::test]
     async fn compute_http_headers_with_client_type_returns_options_http_headers_with_client_type() {
         let http_headers = HashMap::from([("Key".to_string(), "Value".to_string())]);
-        let client_builder = ClientBuilder::aggregator("", "")
+        let client_builder = ClientBuilder::new(AggregatorDiscoveryType::Url("".to_string()))
             .with_options(ClientOptions {
                 http_headers: Some(http_headers.clone()),
             })
@@ -688,9 +693,10 @@ mod tests {
             MITHRIL_CLIENT_TYPE_HEADER.to_string(),
             "client type from options".to_string(),
         )]);
-        let client_builder = ClientBuilder::aggregator("", "").with_options(ClientOptions {
-            http_headers: Some(http_headers.clone()),
-        });
+        let client_builder = ClientBuilder::new(AggregatorDiscoveryType::Url("".to_string()))
+            .with_options(ClientOptions {
+                http_headers: Some(http_headers.clone()),
+            });
 
         let computed_headers = client_builder.compute_http_headers();
 
@@ -699,14 +705,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_with_client_type_not_overwrite_other_client_options_attributes() {
-        let builder = ClientBuilder::aggregator("", "")
+        let builder = ClientBuilder::new(AggregatorDiscoveryType::Url("".to_string()))
             .with_options(ClientOptions { http_headers: None })
             .with_client_type(Some("TEST".to_string()));
         assert_eq!(None, builder.options.http_headers);
         assert_eq!(Some("TEST".to_string()), builder.client_type);
 
         let http_headers = HashMap::from([("Key".to_string(), "Value".to_string())]);
-        let builder = ClientBuilder::aggregator("", "")
+        let builder = ClientBuilder::new(AggregatorDiscoveryType::Url("".to_string()))
             .with_options(ClientOptions {
                 http_headers: Some(http_headers.clone()),
             })
@@ -718,7 +724,8 @@ mod tests {
     #[tokio::test]
     async fn test_given_a_none_client_type_compute_http_headers_will_set_client_type_to_default_value()
      {
-        let builder_without_client_type = ClientBuilder::aggregator("", "");
+        let builder_without_client_type =
+            ClientBuilder::new(AggregatorDiscoveryType::Url("".to_string()));
         let computed_headers = builder_without_client_type.compute_http_headers();
 
         assert_eq!(
@@ -730,7 +737,7 @@ mod tests {
         );
 
         let builder_with_none_client_type =
-            ClientBuilder::aggregator("", "").with_client_type(None);
+            ClientBuilder::new(AggregatorDiscoveryType::Url("".to_string())).with_client_type(None);
         let computed_headers = builder_with_none_client_type.compute_http_headers();
 
         assert_eq!(
@@ -749,7 +756,7 @@ mod tests {
             MITHRIL_CLIENT_TYPE_HEADER.to_string(),
             "client type from options".to_string(),
         )]);
-        let client_builder = ClientBuilder::aggregator("", "")
+        let client_builder = ClientBuilder::new(AggregatorDiscoveryType::Url("".to_string()))
             .with_options(ClientOptions {
                 http_headers: Some(http_headers.clone()),
             })

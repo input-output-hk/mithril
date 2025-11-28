@@ -3,7 +3,10 @@
 
 mod extensions;
 
-use mithril_client::{ClientBuilder, MessageBuilder, aggregator_client::AggregatorRequest};
+use mithril_client::{
+    AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder,
+    aggregator_client::AggregatorRequest,
+};
 use mithril_common::test::double::fake_keys;
 
 use crate::extensions::fake_aggregator::{FakeAggregator, FakeCertificateVerifier};
@@ -15,13 +18,15 @@ async fn mithril_stake_distribution_list_get_show_verify() {
     let certificate_hash = "certificate_hash";
     let fake_aggregator =
         FakeAggregator::spawn_with_mithril_stake_distribution(msd_hash, certificate_hash);
-    let client =
-        ClientBuilder::aggregator(&fake_aggregator.server_root_url(), genesis_verification_key)
-            .with_certificate_verifier(
-                FakeCertificateVerifier::build_that_validate_any_certificate(),
-            )
-            .build()
-            .expect("Should be able to create a Client");
+    let client = ClientBuilder::new(AggregatorDiscoveryType::Url(
+        fake_aggregator.server_root_url(),
+    ))
+    .set_genesis_verification_key(GenesisVerificationKey::JsonHex(
+        genesis_verification_key.to_string(),
+    ))
+    .with_certificate_verifier(FakeCertificateVerifier::build_that_validate_any_certificate())
+    .build()
+    .expect("Should be able to create a Client");
     let mithril_stake_distribution_client = client.mithril_stake_distribution();
 
     let mithril_stake_distributions = mithril_stake_distribution_client

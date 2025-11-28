@@ -16,7 +16,9 @@ use std::time::Duration;
 use tokio::sync::RwLock;
 
 use mithril_client::feedback::{FeedbackReceiver, MithrilEvent};
-use mithril_client::{ClientBuilder, MessageBuilder, MithrilResult};
+use mithril_client::{
+    AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder, MithrilResult,
+};
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -52,12 +54,16 @@ async fn main() -> MithrilResult<()> {
     let args = Args::parse();
     let work_dir = get_temp_dir()?;
     let progress_bar = indicatif::MultiProgress::new();
-    let client =
-        ClientBuilder::aggregator(&args.aggregator_endpoint, &args.genesis_verification_key)
-            .set_ancillary_verification_key(args.ancillary_verification_key)
-            .with_origin_tag(Some("EXAMPLE".to_string()))
-            .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(&progress_bar)))
-            .build()?;
+    let client = ClientBuilder::new(AggregatorDiscoveryType::Url(
+        args.aggregator_endpoint.clone(),
+    ))
+    .set_genesis_verification_key(GenesisVerificationKey::JsonHex(
+        args.genesis_verification_key.clone(),
+    ))
+    .set_ancillary_verification_key(args.ancillary_verification_key)
+    .with_origin_tag(Some("EXAMPLE".to_string()))
+    .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(&progress_bar)))
+    .build()?;
 
     let snapshots = client.cardano_database().list().await?;
 
