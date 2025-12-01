@@ -104,13 +104,8 @@ mod tests {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
-            then.status(400).body(
-                serde_json::to_vec(&ClientError::new(
-                    "error".to_string(),
-                    "an error".to_string(),
-                ))
-                .unwrap(),
-            );
+            then.status(400)
+                .body(serde_json::to_vec(&ClientError::dummy()).unwrap());
         });
 
         let error = client

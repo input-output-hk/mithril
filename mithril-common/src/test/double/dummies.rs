@@ -76,6 +76,20 @@ mod entities {
             Self::new(10, 100, ChainPoint::dummy())
         }
     }
+
+    impl Dummy for ClientError {
+        /// Return a dummy [ClientError] (test-only).
+        fn dummy() -> Self {
+            Self::new("error", "error message")
+        }
+    }
+
+    impl Dummy for ServerError {
+        /// Return a dummy [ServerError] (test-only).
+        fn dummy() -> Self {
+            Self::new("error")
+        }
+    }
 }
 
 mod messages {
