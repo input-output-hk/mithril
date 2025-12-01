@@ -95,7 +95,7 @@ mod tests {
 
         assert!(
             log_inspector.contains_log("src") && log_inspector.contains_log("TestStruct"),
-            "log should contain `src` key for `TestStruct` as component name was provided, logs:\n{log_inspector}"
+            "log should contain `src` key for `TestStruct` as component name was provided"
         );
     }
 
@@ -108,7 +108,7 @@ mod tests {
 
         assert!(
             log_inspector.contains_log("src") && log_inspector.contains_log(expected_name),
-            "log should contain `src` key for `{expected_name}` as a name was provided, logs:\n{log_inspector}"
+            "log should contain `src` key for `{expected_name}` as a name was provided"
         );
     }
 }

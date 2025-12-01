@@ -541,10 +541,7 @@ mod tests {
                 )
                 .await;
 
-            assert!(
-                log_inspector.contains_log("Failed downloading snapshot"),
-                "Expected log message not found, logs: {log_inspector}"
-            );
+            assert!(log_inspector.contains_log("Failed downloading snapshot"));
         }
 
         #[tokio::test]
@@ -717,7 +714,6 @@ mod tests {
 
             assert!(
                 log_inspector.contains_log("WARN The fast bootstrap of the Cardano node is not available with the current parameters used in this command: the ledger state will be recomputed from genesis at startup of the Cardano node. Use the extra function download_unpack_full to allow it."),
-                "Expected log message not found, logs: {log_inspector}"
             );
         }
 
@@ -781,7 +777,6 @@ mod tests {
 
             assert!(
                 log_inspector.contains_log(&format!("WARN {ANCILLARIES_NOT_SIGNED_BY_MITHRIL}")),
-                "Expected log message not found, logs: {log_inspector}"
             );
         }
 

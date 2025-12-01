@@ -5,7 +5,7 @@ use std::sync::{Arc, RwLock};
 use slog::{Drain, KV, OwnedKVList, Record};
 
 /// A testing infrastructure for logging that consists of two main components:
-/// - [MemoryDrainForTest]: A slog Drain that stores records in memory
+/// - [MemoryDrainForTest]: A slog Drain that stores records in memory while still logging them to stdout
 /// - [MemoryDrainForTestInspector]: A component that provides methods to analyze stored logs
 ///
 /// Records are stored as formatted strings in a thread-safe vector using `Arc<RwLock>`.
@@ -96,6 +96,8 @@ impl Drain for MemoryDrainForTest {
             record.msg(),
             kv_serializer.content
         );
+        // Print to stdout as well for easier debugging when `contains_log` fails
+        println!("{msg}");
 
         self.records.write().unwrap().push(msg);
         Ok(())
