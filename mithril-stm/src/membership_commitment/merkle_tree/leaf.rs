@@ -1,6 +1,5 @@
-use std::cmp::Ordering;
-
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 
 use crate::{
     MerkleTreeError, Stake, StmResult, VerificationKey, signature_scheme::BlsVerificationKey,

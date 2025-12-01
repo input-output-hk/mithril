@@ -1,8 +1,7 @@
-use std::{collections::HashMap, fmt::Display, hash::Hash};
-
 use anyhow::anyhow;
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, fmt::Display, hash::Hash};
 
 use super::AggregateVerificationKey;
 use crate::{

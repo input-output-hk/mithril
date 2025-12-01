@@ -1,11 +1,10 @@
 //! Key registration functionality.
+use anyhow::anyhow;
+use blake2::digest::{Digest, FixedOutput};
 use std::{
     collections::{HashMap, hash_map::Entry},
     sync::Arc,
 };
-
-use anyhow::anyhow;
-use blake2::digest::{Digest, FixedOutput};
 
 use crate::{
     RegisterError, Stake, StmResult,
@@ -95,9 +94,8 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use crate::signature_scheme::BlsSigningKey;
-
     use super::*;
+    use crate::signature_scheme::BlsSigningKey;
 
     proptest! {
         #[test]

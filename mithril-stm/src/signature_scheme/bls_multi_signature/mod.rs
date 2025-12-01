@@ -95,9 +95,8 @@ mod tests {
     use rand_core::{RngCore, SeedableRng};
 
     use super::helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk};
-    use crate::{KeyRegistration, MultiSignatureError, RegisterError};
-
     use super::*;
+    use crate::{KeyRegistration, MultiSignatureError, RegisterError};
 
     impl PartialEq for BlsSigningKey {
         fn eq(&self, other: &Self) -> bool {
