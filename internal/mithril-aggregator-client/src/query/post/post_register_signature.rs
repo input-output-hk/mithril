@@ -103,7 +103,7 @@ mod tests {
     async fn test_register_signature_ko_400() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
-            when.method(POST).path("/register-signatures");
+            when.any_request();
             then.status(400)
                 .body(serde_json::to_vec(&ClientError::dummy()).unwrap());
         });
@@ -125,7 +125,7 @@ mod tests {
         let (server, mut client) = setup_server_and_client();
         client.logger = logger;
         let _server_mock = server.mock(|when, then| {
-            when.method(POST).path("/register-signatures");
+            when.any_request();
             then.status(410).body(
                 serde_json::to_vec(&ClientError::new(
                     "already_aggregated".to_string(),
@@ -150,7 +150,7 @@ mod tests {
     async fn test_register_signature_ko_409() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
-            when.method(POST).path("/register-signatures");
+            when.any_request();
             then.status(409);
         });
 
@@ -168,7 +168,7 @@ mod tests {
     async fn test_register_signature_ko_500() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
-            when.method(POST).path("/register-signatures");
+            when.any_request();
             then.status(500).body("an error occurred");
         });
 

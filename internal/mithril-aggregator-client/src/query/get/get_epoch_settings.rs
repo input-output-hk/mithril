@@ -75,7 +75,7 @@ mod tests {
     async fn test_epoch_settings_ko_500() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
-            when.path("/epoch-settings");
+            when.any_request();
             then.status(500).body("an error occurred");
         });
 

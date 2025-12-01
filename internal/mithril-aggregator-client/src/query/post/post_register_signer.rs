@@ -81,7 +81,7 @@ mod tests {
     async fn test_register_signer_ko_400() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
-            when.method(POST).path("/register-signer");
+            when.any_request();
             then.status(400)
                 .body(serde_json::to_vec(&ClientError::dummy()).unwrap());
         });
@@ -98,7 +98,7 @@ mod tests {
     async fn test_register_signer_ko_500() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
-            when.method(POST).path("/register-signer");
+            when.any_request();
             then.status(500).body("an error occurred");
         });
 

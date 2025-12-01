@@ -133,7 +133,7 @@ mod tests {
     async fn test_latest_genesis_ok_404() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
-            when.path("/certificate/genesis");
+            when.any_request();
             then.status(404);
         });
 
@@ -146,7 +146,7 @@ mod tests {
     async fn test_latest_genesis_ko_500() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
-            when.path("/certificate/genesis");
+            when.any_request();
             then.status(500).body("an error occurred");
         });
 

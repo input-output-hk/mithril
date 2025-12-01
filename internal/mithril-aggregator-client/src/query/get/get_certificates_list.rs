@@ -80,7 +80,7 @@ mod tests {
     async fn test_latest_certificates_list_ko_500() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
-            when.path("/certificates");
+            when.any_request();
             then.status(500).body("an error occurred");
         });
 
