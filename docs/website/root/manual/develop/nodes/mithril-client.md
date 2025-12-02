@@ -227,27 +227,47 @@ Commands:
 
 Options:
       --run-mode <RUN_MODE>
-          Run Mode [env: RUN_MODE=] [default: dev]
+          Run Mode
+
+          [env: RUN_MODE=]
+          [default: dev]
+
   -v, --verbose...
           Verbosity level (-v=warning, -vv=info, -vvv=debug, -vvvv=trace)
+
       --config-directory <CONFIG_DIRECTORY>
-          Directory where configuration file is located [default: ./config]
+          Directory where configuration file is located
+
+          [default: ./config]
+
       --aggregator-endpoint <AGGREGATOR_ENDPOINT>
-          Override configuration Aggregator endpoint URL [env: AGGREGATOR_ENDPOINT=]
+          Override configuration Aggregator endpoint URL.
+
+          Either the full URL of the aggregator endpoint (e.g., "https://aggregator.release-preprod.api.mithril.network/aggregator") or a string formatted as "auto:<mithril_network>" to use automatic discovery (e.g., "auto:release-preprod") (unstable).
+
+          [env: AGGREGATOR_ENDPOINT=auto:pre-release-preview]
+
       --json
           Enable JSON output for command results
+
       --log-format-json
           Enable JSON output for logs displayed according to verbosity level
+
       --log-output <LOG_OUTPUT>
           Redirect the logs to a file
+
       --unstable
           Enable unstable commands
+
       --origin-tag <ORIGIN_TAG>
           Request origin tag
+
       --era <ERA>
           Override the Mithril era
+
   -h, --help
-          Print help
+          Print help (see a summary with '-h')
+
   -V, --version
           Print version
 ```

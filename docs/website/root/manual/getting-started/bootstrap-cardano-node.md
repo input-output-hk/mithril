@@ -103,7 +103,7 @@ To verify that the Mithril client binary is functioning correctly, run the follo
 You should see:
 
 ```bash
-This program shows, downloads, and verifies certified blockchain artifacts.
+This program shows, downloads and verifies certified blockchain artifacts.
 
 Usage: mithril-client [OPTIONS] <COMMAND>
 
@@ -112,25 +112,52 @@ Commands:
   mithril-stake-distribution  Mithril stake distribution management (alias: msd)
   cardano-transaction         Cardano transactions management (alias: ctx)
   cardano-stake-distribution  Cardano stake distribution management (alias: csd)
+  tools                       Tools commands
   help                        Print this message or the help of the given subcommand(s)
 
 Options:
       --run-mode <RUN_MODE>
-          Run Mode [env: RUN_MODE=] [default: dev]
+          Run Mode
+
+          [env: RUN_MODE=]
+          [default: dev]
+
   -v, --verbose...
-          Verbosity level (-v=warning, -vv=info, -vvv=debug)
+          Verbosity level (-v=warning, -vv=info, -vvv=debug, -vvvv=trace)
+
       --config-directory <CONFIG_DIRECTORY>
-          Directory where the configuration file is located [default: ./config]
+          Directory where configuration file is located
+
+          [default: ./config]
+
       --aggregator-endpoint <AGGREGATOR_ENDPOINT>
-          Override configuration aggregator endpoint URL [env: AGGREGATOR_ENDPOINT=]
+          Override configuration Aggregator endpoint URL.
+
+          Either the full URL of the aggregator endpoint (e.g., "https://aggregator.release-preprod.api.mithril.network/aggregator") or a string formatted as "auto:<mithril_network>" to use automatic discovery (e.g., "auto:release-preprod") (unstable).
+
+          [env: AGGREGATOR_ENDPOINT=auto:pre-release-preview]
+
+      --json
+          Enable JSON output for command results
+
       --log-format-json
           Enable JSON output for logs displayed according to verbosity level
+
       --log-output <LOG_OUTPUT>
           Redirect the logs to a file
+
       --unstable
           Enable unstable commands
+
+      --origin-tag <ORIGIN_TAG>
+          Request origin tag
+
+      --era <ERA>
+          Override the Mithril era
+
   -h, --help
-          Print help
+          Print help (see a summary with '-h')
+
   -V, --version
           Print version
 ```
