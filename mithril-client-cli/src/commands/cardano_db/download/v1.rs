@@ -4,7 +4,8 @@ use slog::{Logger, debug, warn};
 use std::{fs::File, path::Path, sync::Arc};
 
 use mithril_client::{
-    MessageBuilder, MithrilCertificate, MithrilResult, Snapshot, common::ProtocolMessage,
+    MessageBuilder, MithrilCertificate, MithrilResult, RequiredAggregatorCapabilities, Snapshot,
+    common::{ProtocolMessage, SignedEntityTypeDiscriminants},
     snapshot_client::SnapshotClient,
 };
 
@@ -41,6 +42,9 @@ impl PreparedCardanoDbV1Download {
         };
         let progress_printer = ProgressPrinter::new(progress_output_type, 5);
         let client = client_builder(context.config_parameters())?
+            .with_capabilities(RequiredAggregatorCapabilities::SignedEntityType(
+                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            ))
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
                 progress_output_type,
                 context.logger().clone(),

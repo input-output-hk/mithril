@@ -1,5 +1,6 @@
 use anyhow::Context;
 use clap::Parser;
+use mithril_client::common::SignedEntityTypeDiscriminants;
 use std::sync::Arc;
 use std::{
     collections::HashMap,
@@ -13,8 +14,8 @@ use crate::{
     configuration::{ConfigError, ConfigSource},
     utils::ExpanderUtils,
 };
-use mithril_client::MessageBuilder;
 use mithril_client::MithrilResult;
+use mithril_client::{MessageBuilder, RequiredAggregatorCapabilities};
 
 /// Download and verify a Mithril stake distribution information. If the
 /// verification fails, the file is not persisted.
@@ -50,6 +51,9 @@ impl MithrilStakeDistributionDownloadCommand {
         };
         let progress_printer = ProgressPrinter::new(progress_output_type, 4);
         let client = client_builder(context.config_parameters())?
+            .with_capabilities(RequiredAggregatorCapabilities::SignedEntityType(
+                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+            ))
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
                 progress_output_type,
                 logger.clone(),

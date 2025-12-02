@@ -8,10 +8,11 @@ use anyhow::Context;
 use chrono::{DateTime, Utc};
 use clap::Parser;
 use mithril_client::{
-    CardanoDatabaseSnapshot, MithrilResult,
-    cardano_database_client::ImmutableFileRange,
-    cardano_database_client::{CardanoDatabaseVerificationError, ImmutableVerificationResult},
-    common::ImmutableFileNumber,
+    CardanoDatabaseSnapshot, MithrilResult, RequiredAggregatorCapabilities,
+    cardano_database_client::{
+        CardanoDatabaseVerificationError, ImmutableFileRange, ImmutableVerificationResult,
+    },
+    common::{ImmutableFileNumber, SignedEntityTypeDiscriminants},
 };
 
 use crate::{
@@ -89,6 +90,14 @@ impl CardanoDbVerifyCommand {
         };
         let progress_printer = ProgressPrinter::new(progress_output_type, 5);
         let client = client_builder(context.config_parameters())?
+            .with_capabilities(RequiredAggregatorCapabilities::And(vec![
+                RequiredAggregatorCapabilities::SignedEntityType(
+                    SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+                ),
+                RequiredAggregatorCapabilities::SignedEntityType(
+                    SignedEntityTypeDiscriminants::CardanoDatabase,
+                ),
+            ]))
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
                 progress_output_type,
                 context.logger().clone(),

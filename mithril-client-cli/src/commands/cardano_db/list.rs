@@ -1,8 +1,8 @@
 use clap::Parser;
 use cli_table::{Cell, Table, format::Justify, print_stdout};
 
-use mithril_client::common::EpochSpecifier;
-use mithril_client::{Client, MithrilResult};
+use mithril_client::common::{EpochSpecifier, SignedEntityTypeDiscriminants};
+use mithril_client::{Client, MithrilResult, RequiredAggregatorCapabilities};
 
 use crate::{
     CommandContext,
@@ -32,6 +32,14 @@ impl CardanoDbListCommand {
     /// Main command execution
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         let client = client_builder_with_fallback_genesis_key(context.config_parameters())?
+            .with_capabilities(RequiredAggregatorCapabilities::And(vec![
+                RequiredAggregatorCapabilities::SignedEntityType(
+                    SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+                ),
+                RequiredAggregatorCapabilities::SignedEntityType(
+                    SignedEntityTypeDiscriminants::CardanoDatabase,
+                ),
+            ]))
             .with_logger(context.logger().clone())
             .build()?;
 
