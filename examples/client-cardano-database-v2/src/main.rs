@@ -42,6 +42,10 @@ pub struct Args {
     ancillary_verification_key: String,
 
     /// Aggregator endpoint URL.
+    ///
+    /// Either:
+    /// - Full URL of the aggregator endpoint (e.g., "https://aggregator.release-preprod.api.mithril.network/aggregator").
+    /// - "auto:<mithril_network>" to use automatic discovery (e.g., "auto:release-preprod") (unstable).
     #[clap(
         long,
         env = "AGGREGATOR_ENDPOINT",
