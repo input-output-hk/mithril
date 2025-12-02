@@ -104,7 +104,7 @@ mod messages {
         CardanoTransactionsSigningConfig, CompressionAlgorithm, DigestLocation, Epoch,
         ImmutablesLocation, MultiFilesUri, ProtocolMessage, ProtocolMessagePartKey,
         ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants, StakeDistribution,
-        StakeDistributionParty, TemplateUri,
+        StakeDistributionParty, SupportedEra, TemplateUri,
     };
     use crate::messages::*;
 
@@ -188,6 +188,28 @@ mod messages {
                     aggregate_signature_type: AggregateSignatureType::Concatenation,
                     cardano_transactions_prover: None,
                 },
+            }
+        }
+    }
+
+    impl Dummy for AggregatorStatusMessage {
+        /// Return a dummy [AggregatorStatusMessage] (test-only).
+        fn dummy() -> Self {
+            AggregatorStatusMessage {
+                epoch: Epoch(10),
+                cardano_era: "conway".to_string(),
+                cardano_network: "devnet".to_string(),
+                mithril_era: SupportedEra::Pythagoras,
+                cardano_node_version: "10.4.1".to_string(),
+                aggregator_node_version: "0.6.24".to_string(),
+                protocol_parameters: ProtocolParameters::new(1000, 100, 0.123),
+                next_protocol_parameters: ProtocolParameters::new(2000, 200, 0.321),
+                total_signers: 10,
+                total_next_signers: 15,
+                total_stakes_signers: 100_000,
+                total_next_stakes_signers: 150_000,
+                total_cardano_spo: 100,
+                total_cardano_stake: 1_000_000,
             }
         }
     }
