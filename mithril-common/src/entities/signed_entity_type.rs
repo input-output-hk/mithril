@@ -127,10 +127,11 @@ impl SignedEntityType {
     /// Return the associated open message timeout
     pub fn get_open_message_timeout(&self) -> Option<Duration> {
         match self {
-            Self::MithrilStakeDistribution(_) | Self::CardanoImmutableFilesFull(_) => None,
-            Self::CardanoStakeDistribution(_) => Some(Duration::from_secs(600)),
-            Self::CardanoTransactions(_, _) => Some(Duration::from_secs(1800)),
-            Self::CardanoDatabase(_) => Some(Duration::from_secs(1800)),
+            Self::MithrilStakeDistribution(_) => Some(Duration::from_secs(3600)),
+            Self::CardanoImmutableFilesFull(_) => Some(Duration::from_secs(600)),
+            Self::CardanoStakeDistribution(_) => Some(Duration::from_secs(1800)),
+            Self::CardanoTransactions(_, _) => Some(Duration::from_secs(600)),
+            Self::CardanoDatabase(_) => Some(Duration::from_secs(600)),
         }
     }
 
@@ -374,6 +375,33 @@ mod tests {
             hash(SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(
                 12, 123
             )))
+        );
+    }
+
+    #[test]
+    fn get_open_message_timeout() {
+        assert_eq!(
+            SignedEntityType::MithrilStakeDistribution(Epoch(1)).get_open_message_timeout(),
+            Some(Duration::from_secs(3600))
+        );
+        assert_eq!(
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(1, 1))
+                .get_open_message_timeout(),
+            Some(Duration::from_secs(600))
+        );
+        assert_eq!(
+            SignedEntityType::CardanoStakeDistribution(Epoch(1)).get_open_message_timeout(),
+            Some(Duration::from_secs(1800))
+        );
+        assert_eq!(
+            SignedEntityType::CardanoTransactions(Epoch(1), BlockNumber(1))
+                .get_open_message_timeout(),
+            Some(Duration::from_secs(600))
+        );
+        assert_eq!(
+            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(1, 1))
+                .get_open_message_timeout(),
+            Some(Duration::from_secs(600))
         );
     }
 

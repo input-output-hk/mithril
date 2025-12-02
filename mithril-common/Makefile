@@ -5,10 +5,10 @@ CARGO = cargo
 all: test build
 
 build:
-	${CARGO} build --release --features full
+	${CARGO} build --release
 
 test:
-	${CARGO} test --features full
+	${CARGO} test
 
 check:
 	${CARGO} check --release --all-features --all-targets
@@ -16,7 +16,7 @@ check:
 	${CARGO} fmt --check
 
 doc:
-	${CARGO} doc --no-deps --open --features full
+	${CARGO} doc --no-deps --open
 
 bench:
-	${CARGO} bench --features full --verbose
+	${CARGO} bench --verbose
