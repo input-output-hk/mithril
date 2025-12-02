@@ -1,4 +1,6 @@
 mod get_aggregator_features;
+mod get_cardano_database;
+mod get_cardano_database_list;
 mod get_certificate;
 mod get_certificates_list;
 mod get_epoch_settings;
@@ -9,6 +11,8 @@ mod get_snapshot;
 mod get_snapshots_list;
 
 pub use get_aggregator_features::*;
+pub use get_cardano_database::*;
+pub use get_cardano_database_list::*;
 pub use get_certificate::*;
 pub use get_certificates_list::*;
 pub use get_epoch_settings::*;
