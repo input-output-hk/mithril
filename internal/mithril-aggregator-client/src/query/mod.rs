@@ -7,6 +7,7 @@
 //!   - Cardano database v2: [List latest, list for an epoch, list for latest epoch, list for latest epoch with an offset][GetCardanoDatabaseListQuery], [Get by hash][GetCardanoDatabaseQuery]
 //!   - Cardano stake distribution: [List][GetCardanoStakeDistributionsListQuery], [Get by hash, get for an epoch, get for latest epoch, get for latest epoch with an offset][GetCardanoStakeDistributionQuery]
 //!   - Cardano transactions snapshot: [List][GetCardanoTransactionsListQuery], [Get by hash][GetCardanoTransactionQuery]
+//!   - Cardano transactions proof: [Get for a list of transactions hashes][GetCardanoTransactionProofQuery]
 //!   - Certificate: [List][GetCertificatesListQuery], [Get by hash, get latest genesis certificate][GetCertificateQuery]
 //!   - Epoch settings: [Get current epoch settings][GetEpochSettingsQuery]
 //!   - Mithril stake distribution: [List][GetMithrilStakeDistributionsListQuery], [Get by hash][GetMithrilStakeDistributionQuery]
