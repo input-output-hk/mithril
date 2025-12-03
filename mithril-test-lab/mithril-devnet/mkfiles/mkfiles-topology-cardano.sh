@@ -41,17 +41,36 @@ done
 # create the topology files
 NODE_ADDR=$LISTENING_ADDR
 NODE_PORT=$NODE_PORT_START
-TOPOLOGY='{"Producers": []}'
+TOPOLOGY='{
+  "_comment": "\"Producers\" is used for Cardano 10.5 and earlier, \"localRoots\" and \"publicRoots\" are used for 10.6 and later",
+  "Producers": [],
+  "localRoots": [
+    {
+      "accessPoints": [],
+      "advertise": false,
+      "trustable": false,
+      "valency": 1
+    }
+  ],
+  "publicRoots": [
+    {
+      "accessPoints": [],
+      "advertise": false
+    }
+  ]
+}'
 TOPOLOGY_DOCKER=$TOPOLOGY
 for NODE in ${FULL_NODES}; do
   NODE_PORT=$(( ${NODE_PORT} + 1))
   echo ${NODE_PORT} > ${NODE}/port
   echo ${LISTENING_ADDR} > ${NODE}/host
 done
+
 for NODE in ${POOL_NODES}; do
   NODE_PORT=$(( ${NODE_PORT} + 1))
   echo ${NODE_PORT} > ${NODE}/port
   TOPOLOGY=$(echo ${TOPOLOGY} | jq '.Producers[.Producers| length] |= . + {"addr": "'${NODE_ADDR}'","port": '${NODE_PORT}', "valency": 1}')
+  TOPOLOGY=$(echo ${TOPOLOGY} | jq '.localRoots[0].accessPoints[.localRoots[0].accessPoints| length] |= . + {"address": "'${NODE_ADDR}'","port": '${NODE_PORT}'}')
   echo ${LISTENING_ADDR} > ${NODE}/host
 done
 echo $TOPOLOGY | jq . > topology.json
@@ -62,5 +81,6 @@ done
 NODE_IX=0
 for NODE in ${POOL_NODES}; do
   cat topology.json |  jq '.Producers |= del(.['${NODE_IX}'])' > ${NODE}/topology.json
+  cat topology.json |  jq '.localRoots[0].accessPoints |= del(.['${NODE_IX}'])' > ${NODE}/topology.json
   NODE_IX=$(( ${NODE_IX} + 1))
 done
