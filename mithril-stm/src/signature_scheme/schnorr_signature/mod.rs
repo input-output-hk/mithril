@@ -163,7 +163,7 @@ mod tests {
             assert_eq!(signature, recovered_signature, "Recovered signature does not match with the original!");
 
             // Test invalid `commitment_point`
-            let mut corrupted_bytes = signature_bytes.clone();
+            let mut corrupted_bytes = signature_bytes;
             corrupted_bytes[31] |= 0xff;
             let result = SchnorrSignature::from_bytes(&corrupted_bytes).expect_err("From bytes conversion of signature should fail");
             assert!(
@@ -175,7 +175,7 @@ mod tests {
             );
 
             // Test invalid `response`
-            let mut corrupted_bytes = signature_bytes.clone();
+            let mut corrupted_bytes = signature_bytes;
             corrupted_bytes[63] |= 0xff;
             let result = SchnorrSignature::from_bytes(&corrupted_bytes).expect_err("From bytes conversion should fail");
             assert!(
@@ -187,7 +187,7 @@ mod tests {
             );
 
             // Test invalid `challenge`
-            let mut corrupted_bytes = signature_bytes.clone();
+            let mut corrupted_bytes = signature_bytes;
             corrupted_bytes[95] |= 0xff;
             let result = SchnorrSignature::from_bytes(&corrupted_bytes).expect_err("From bytes conversion should fail");
             assert!(
