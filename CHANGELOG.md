@@ -23,6 +23,8 @@ As a minor extension, we have adopted a slightly different versioning convention
   - Refactor Signer and Aggregator (leader, follower) to read network configurations from a `MithrilNetworkConfigurationProvider`
   - Support for reading network configurations from its leader aggregator for the follower aggregators.
 
+- Support for new `Lagrange` Mithril era.
+
 - Crates versions:
 
 | Crate | Version |
