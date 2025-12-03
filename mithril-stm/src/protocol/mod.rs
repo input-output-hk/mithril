@@ -6,8 +6,10 @@ mod parameters;
 mod participant;
 mod single_signature;
 
+#[cfg(feature = "basic_verifier")]
+pub use aggregate_signature::BasicVerifier;
 pub use aggregate_signature::{
-    AggregateSignature, AggregateSignatureType, AggregateVerificationKey, BasicVerifier, Clerk,
+    AggregateSignature, AggregateSignatureType, AggregateVerificationKey, Clerk,
 };
 pub(crate) use eligibility_check::is_lottery_won;
 pub(crate) use error::blst_error_to_stm_error;
@@ -30,6 +32,7 @@ pub use aggregate_signature::AggregateVerificationKey as StmAggrVerificationKey;
 #[deprecated(since = "0.5.0", note = "Use `Clerk` instead")]
 pub use aggregate_signature::Clerk as StmClerk;
 
+#[cfg(feature = "basic_verifier")]
 #[deprecated(since = "0.5.0", note = "Use `BasicVerifier` instead")]
 pub use aggregate_signature::BasicVerifier as CoreVerifier;
 

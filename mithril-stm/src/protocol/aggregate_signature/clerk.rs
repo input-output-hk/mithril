@@ -1,16 +1,18 @@
-use anyhow::Context;
+use anyhow::{Context, anyhow};
 use blake2::digest::{Digest, FixedOutput};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
-#[cfg(feature = "future_proof_system")]
-use anyhow::anyhow;
+// #[cfg(feature = "future_proof_system")]
+// use anyhow::anyhow;
 
-#[cfg(feature = "future_proof_system")]
-use crate::AggregationError;
+// #[cfg(feature = "future_proof_system")]
+// use crate::AggregationError;
 
 use super::{AggregateSignature, AggregateSignatureType, AggregateVerificationKey};
 use crate::{
-    ClosedKeyRegistration, Index, Parameters, Signer, SingleSignature, Stake, StmResult,
-    VerificationKey, proof_system::ConcatenationProof,
+    AggregationError, ClosedKeyRegistration, Index, Parameters, Signer, SingleSignature,
+    SingleSignatureWithRegisteredParty, Stake, StmResult, VerificationKey,
+    proof_system::ConcatenationProof,
 };
 
 /// `Clerk` can verify and aggregate `SingleSignature`s and verify `AggregateSignature`s.
@@ -141,5 +143,99 @@ impl<D: Digest + Clone + FixedOutput + Send + Sync> Clerk<D> {
     #[deprecated(since = "0.5.0", note = "Use `get_registered_party_for_index` instead")]
     pub fn get_reg_party(&self, party_index: &Index) -> Option<(VerificationKey, Stake)> {
         Self::get_registered_party_for_index(self, party_index)
+    }
+
+    /// Given a slice of `sig_reg_list`, this function returns a new list of `sig_reg_list` with only valid indices.
+    /// In case of conflict (having several signatures for the same index)
+    /// it selects the smallest signature (i.e. takes the signature with the smallest scalar).
+    /// The function selects at least `self.k` indexes.
+    ///  # Error
+    /// If there is no sufficient signatures, then the function fails.
+    // todo: We need to agree on a criteria to dedup (by default we use a BTreeMap that guarantees keys order)
+    // todo: not good, because it only removes index if there is a conflict (see benches)
+    pub fn select_valid_signatures_for_k_indices(
+        &self,
+        msg: &[u8],
+        sigs: &[SingleSignatureWithRegisteredParty],
+    ) -> StmResult<Vec<SingleSignatureWithRegisteredParty>> {
+        let mut sig_by_index: BTreeMap<Index, &SingleSignatureWithRegisteredParty> =
+            BTreeMap::new();
+        let mut removal_idx_by_vk: HashMap<&SingleSignatureWithRegisteredParty, Vec<Index>> =
+            HashMap::new();
+
+        for sig_reg in sigs.iter() {
+            if sig_reg
+                .sig
+                .basic_verify(
+                    &self.params,
+                    &sig_reg.reg_party.0,
+                    &sig_reg.reg_party.1,
+                    msg,
+                    &self.closed_reg.total_stake,
+                )
+                .is_err()
+            {
+                continue;
+            }
+            for index in sig_reg.sig.indexes.iter() {
+                let mut insert_this_sig = false;
+                if let Some(&previous_sig) = sig_by_index.get(index) {
+                    let sig_to_remove_index = if sig_reg.sig.sigma < previous_sig.sig.sigma {
+                        insert_this_sig = true;
+                        previous_sig
+                    } else {
+                        sig_reg
+                    };
+
+                    if let Some(indexes) = removal_idx_by_vk.get_mut(sig_to_remove_index) {
+                        indexes.push(*index);
+                    } else {
+                        removal_idx_by_vk.insert(sig_to_remove_index, vec![*index]);
+                    }
+                } else {
+                    insert_this_sig = true;
+                }
+
+                if insert_this_sig {
+                    sig_by_index.insert(*index, sig_reg);
+                }
+            }
+        }
+
+        let mut dedup_sigs: HashSet<SingleSignatureWithRegisteredParty> = HashSet::new();
+        let mut count: u64 = 0;
+
+        for (_, &sig_reg) in sig_by_index.iter() {
+            if dedup_sigs.contains(sig_reg) {
+                continue;
+            }
+            let mut deduped_sig = sig_reg.clone();
+            if let Some(indexes) = removal_idx_by_vk.get(sig_reg) {
+                deduped_sig.sig.indexes = deduped_sig
+                    .sig
+                    .indexes
+                    .clone()
+                    .into_iter()
+                    .filter(|i| !indexes.contains(i))
+                    .collect();
+            }
+
+            let size: Result<u64, _> = deduped_sig.sig.indexes.len().try_into();
+            if let Ok(size) = size {
+                if dedup_sigs.contains(&deduped_sig) {
+                    panic!("Should not reach!");
+                }
+                dedup_sigs.insert(deduped_sig);
+                count += size;
+
+                if count >= self.params.k {
+                    return Ok(dedup_sigs.into_iter().collect());
+                }
+            }
+        }
+        Err(anyhow!(AggregationError::NotEnoughSignatures(
+            count,
+            self.params.k
+        )))
     }
 }
