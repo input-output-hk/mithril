@@ -1,18 +1,16 @@
-use anyhow::Context;
+use anyhow::{Context, anyhow};
 use blake2::digest::{Digest, FixedOutput};
-
-#[cfg(feature = "future_snark")]
-use anyhow::anyhow;
-
-#[cfg(feature = "future_snark")]
-use super::AggregationError;
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::{
-    ClosedKeyRegistration, Index, Parameters, Signer, SingleSignature, Stake, StmResult,
-    VerificationKey, proof_system::ConcatenationProof,
+    ClosedKeyRegistration, Index, Parameters, Signer, SingleSignature,
+    SingleSignatureWithRegisteredParty, Stake, StmResult, VerificationKey,
+    proof_system::ConcatenationProof,
 };
 
-use super::{AggregateSignature, AggregateSignatureType, AggregateVerificationKey};
+use super::{
+    AggregateSignature, AggregateSignatureType, AggregateVerificationKey, AggregationError,
+};
 
 /// `Clerk` can verify and aggregate `SingleSignature`s and verify `AggregateSignature`s.
 /// Clerks can only be generated with the registration closed.
@@ -142,5 +140,198 @@ impl<D: Digest + Clone + FixedOutput + Send + Sync> Clerk<D> {
     #[deprecated(since = "0.5.0", note = "Use `get_registered_party_for_index` instead")]
     pub fn get_reg_party(&self, party_index: &Index) -> Option<(VerificationKey, Stake)> {
         Self::get_registered_party_for_index(self, party_index)
+    }
+
+    /// Given a slice of `sig_reg_list`, this function returns a new list of `sig_reg_list` with only valid indices.
+    /// In case of conflict (having several signatures for the same index)
+    /// it selects the smallest signature (i.e. takes the signature with the smallest scalar).
+    /// The function selects at least `self.k` indexes.
+    ///  # Error
+    /// If there is no sufficient signatures, then the function fails.
+    // todo: We need to agree on a criteria to dedup (by default we use a BTreeMap that guarantees keys order)
+    // todo: not good, because it only removes index if there is a conflict (see benches)
+    pub fn select_valid_signatures_for_k_indices(
+        &self,
+        msg: &[u8],
+        signatures: &[SingleSignatureWithRegisteredParty],
+    ) -> StmResult<Vec<SingleSignatureWithRegisteredParty>> {
+        let (signatures_by_index, signatures_by_indices_to_remove) =
+            self.select_canonical_signatures_by_index_with_conflict_resolution(msg, signatures);
+
+        let mut deduplicated_signatures: HashSet<SingleSignatureWithRegisteredParty> =
+            HashSet::new();
+        let mut total_number_of_indices: u64 = 0;
+
+        for (_, current_signature) in signatures_by_index.iter() {
+            if !deduplicated_signatures.contains(current_signature) {
+                let mut signature_to_deduplicate = current_signature.clone();
+                if let Some(indices) = signatures_by_indices_to_remove.get(current_signature) {
+                    signature_to_deduplicate.sig.indexes = signature_to_deduplicate
+                        .sig
+                        .indexes
+                        .clone()
+                        .into_iter()
+                        .filter(|i| !indices.contains(i))
+                        .collect();
+                }
+                let result: Result<u64, _> = signature_to_deduplicate.sig.indexes.len().try_into();
+                if let Ok(number_of_indices) = result {
+                    if deduplicated_signatures.contains(&signature_to_deduplicate) {
+                        panic!("Should not reach!");
+                    }
+                    deduplicated_signatures.insert(signature_to_deduplicate);
+                    total_number_of_indices += number_of_indices;
+
+                    if total_number_of_indices >= self.params.k {
+                        return Ok(deduplicated_signatures.into_iter().collect());
+                    }
+                }
+            }
+        }
+        Err(anyhow!(AggregationError::NotEnoughSignatures(
+            total_number_of_indices,
+            self.params.k
+        )))
+    }
+
+    /// Helper function to process a collection of signatures and construct a canonical mapping from
+    /// each index to a single valid signature.
+    ///
+    /// - Signatures that fail verification are ignored.
+    /// - For each index, at most one signature is retained.
+    /// - If multiple valid signatures claim the same index, the conflict is resolved by selecting
+    ///   the signature with the minimal `sigma` value as the canonical representative.
+    /// - All non-canonical signatures are recorded together with the indices for which they were superseded.
+    fn select_canonical_signatures_by_index_with_conflict_resolution(
+        &self,
+        msg: &[u8],
+        signatures: &[SingleSignatureWithRegisteredParty],
+    ) -> (
+        BTreeMap<Index, SingleSignatureWithRegisteredParty>,
+        HashMap<SingleSignatureWithRegisteredParty, Vec<Index>>,
+    ) {
+        let mut signatures_by_index: BTreeMap<Index, SingleSignatureWithRegisteredParty> =
+            BTreeMap::new();
+        let mut signatures_by_indices_to_remove: HashMap<
+            SingleSignatureWithRegisteredParty,
+            Vec<Index>,
+        > = HashMap::new();
+
+        let avk: AggregateVerificationKey<D> = self.compute_aggregate_verification_key();
+
+        for current_signature in signatures.iter() {
+            // Skip signatures that fail verification
+            if current_signature
+                .sig
+                .verify(
+                    &self.params,
+                    &current_signature.reg_party.0,
+                    &current_signature.reg_party.1,
+                    &avk,
+                    msg,
+                )
+                .is_ok()
+            {
+                // Process each index claimed by the current signature
+                for index in current_signature.sig.indexes.iter() {
+                    let mut insert_this_signature = false;
+
+                    // Check whether an existing signature already claims this index
+                    if let Some(previous_signature) = signatures_by_index.get(index) {
+                        // Resolve conflict by selecting the signature with smaller `sigma`
+                        let signature_to_remove_index =
+                            if current_signature.sig.sigma < previous_signature.sig.sigma {
+                                insert_this_signature = true;
+                                previous_signature
+                            } else {
+                                current_signature
+                            };
+                        // Record the index for which the losing signature was superseded
+                        if let Some(indexes) =
+                            signatures_by_indices_to_remove.get_mut(signature_to_remove_index)
+                        {
+                            indexes.push(*index);
+                        } else {
+                            signatures_by_indices_to_remove
+                                .insert(signature_to_remove_index.clone(), vec![*index]);
+                        }
+                    } else {
+                        insert_this_signature = true;
+                    }
+                    if insert_this_signature {
+                        signatures_by_index.insert(*index, current_signature.clone());
+                    }
+                }
+            }
+        }
+        (signatures_by_index, signatures_by_indices_to_remove)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use blake2::{Blake2b, digest::consts::U32};
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    use crate::{
+        Clerk, ClosedKeyRegistration, Initializer, KeyRegistration, Parameters,
+        SingleSignatureWithRegisteredParty,
+    };
+    type D = Blake2b<U32>;
+
+    #[test]
+    fn test_dedup() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+
+        let msg = [0u8; 16];
+        let false_msg = [1u8; 20];
+
+        let params = Parameters {
+            m: 1,
+            k: 1,
+            phi_f: 1.0,
+        };
+
+        let initializer = Initializer::new(params, 1, &mut rng);
+
+        let mut key_registration = KeyRegistration::init();
+        key_registration.register(initializer.stake, initializer.pk).unwrap();
+        let closed_registration: ClosedKeyRegistration<D> = key_registration.close();
+
+        let signer = initializer.create_signer(closed_registration.clone()).unwrap();
+
+        let clerk = Clerk::new_clerk_from_signer(&signer);
+        let avk = clerk.compute_aggregate_verification_key();
+
+        let mut sigs = Vec::with_capacity(2);
+        if let Some(sig) = signer.sign(&false_msg) {
+            sigs.push(sig);
+        }
+        if let Some(sig) = signer.sign(&msg) {
+            sigs.push(sig);
+        }
+
+        let sig_reg_list = sigs
+            .iter()
+            .map(|sig| SingleSignatureWithRegisteredParty {
+                sig: sig.clone(),
+                reg_party: clerk.closed_reg.reg_parties[sig.signer_index as usize],
+            })
+            .collect::<Vec<SingleSignatureWithRegisteredParty>>();
+
+        let dedup_result = clerk.select_valid_signatures_for_k_indices(&msg, &sig_reg_list);
+        assert!(dedup_result.is_ok(), "dedup failure {dedup_result:?}");
+
+        for passed_sigs in dedup_result.unwrap() {
+            let verify_result = passed_sigs.sig.verify(
+                &params,
+                &signer.get_verification_key(),
+                &signer.get_stake(),
+                &avk,
+                &msg,
+            );
+            assert!(verify_result.is_ok(), "verify {verify_result:?}");
+        }
     }
 }
