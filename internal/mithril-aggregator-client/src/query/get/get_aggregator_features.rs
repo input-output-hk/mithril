@@ -28,7 +28,7 @@ impl AggregatorQuery for GetAggregatorFeaturesQuery {
     }
 
     fn route(&self) -> String {
-        "/".to_string()
+        "".to_string()
     }
 
     async fn handle_response(
