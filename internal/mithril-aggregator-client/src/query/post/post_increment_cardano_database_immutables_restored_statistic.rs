@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use reqwest::StatusCode;
-use slog::debug;
 
 use mithril_common::messages::CardanoDatabaseImmutableFilesRestoredMessage;
 
@@ -44,11 +43,6 @@ impl AggregatorQuery for PostIncrementCardanoDatabaseImmutablesRestoredStatistic
         &self,
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
-        debug!(
-            context.logger, "POST: Increment Cardano database immutables files restored statistic";
-            "nb_immutable_files" => self.message.nb_immutable_files
-        );
-
         match context.response.status() {
             StatusCode::CREATED => Ok(()),
             _ => Err(context.unhandled_status_code().await),

@@ -1,7 +1,6 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
 use reqwest::StatusCode;
-use slog::debug;
 
 use mithril_common::messages::AggregatorStatusMessage;
 
@@ -36,8 +35,6 @@ impl AggregatorQuery for GetAggregatorStatusQuery {
         &self,
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
-        debug!(context.logger, "/GET: Retrieve aggregator status message");
-
         match context.response.status() {
             StatusCode::OK => Ok(context
                 .response

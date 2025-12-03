@@ -1,7 +1,6 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
 use reqwest::StatusCode;
-use slog::debug;
 
 use mithril_common::messages::CardanoTransactionSnapshotListMessage;
 
@@ -36,8 +35,6 @@ impl AggregatorQuery for GetCardanoTransactionsListQuery {
         &self,
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
-        debug!(context.logger, "/GET: List latest cardano transactions snapshots";);
-
         match context.response.status() {
             StatusCode::OK => {
                 match context.response.json::<CardanoTransactionSnapshotListMessage>().await {

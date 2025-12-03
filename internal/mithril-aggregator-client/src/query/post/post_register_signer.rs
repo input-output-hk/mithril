@@ -1,11 +1,10 @@
 use async_trait::async_trait;
 use reqwest::StatusCode;
-use slog::debug;
 
 use mithril_common::messages::RegisterSignerMessage;
 
 use crate::AggregatorHttpClientResult;
-use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
+use crate::query::{AggregatorQuery, QueryContext, QueryLogFields, QueryMethod};
 
 /// Query to register a signer to a Mithril Aggregator.
 pub struct PostRegisterSignerQuery {
@@ -37,12 +36,17 @@ impl AggregatorQuery for PostRegisterSignerQuery {
         Some(self.message.clone())
     }
 
+    fn entry_log_additional_fields(&self) -> QueryLogFields {
+        QueryLogFields::from([
+            ("epoch", format!("{}", *self.message.epoch)),
+            ("party_id", self.message.party_id.clone()),
+        ])
+    }
+
     async fn handle_response(
         &self,
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
-        debug!(context.logger, "POST: Register signer"; "epoch" => *self.message.epoch, "party_id" => &self.message.party_id);
-
         match context.response.status() {
             StatusCode::CREATED => Ok(()),
             _ => Err(context.unhandled_status_code().await),

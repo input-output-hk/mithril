@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use reqwest::StatusCode;
-use slog::debug;
 use std::fmt::{Display, Formatter};
 
 use crate::AggregatorHttpClientResult;
@@ -68,11 +67,6 @@ impl AggregatorQuery for PostIncrementCardanoDatabaseRestorationStatisticQuery {
         &self,
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
-        debug!(
-            context.logger,
-            "POST: Increment Cardano database {} restoration statistic", self.restoration_type
-        );
-
         match context.response.status() {
             StatusCode::CREATED => Ok(()),
             _ => Err(context.unhandled_status_code().await),

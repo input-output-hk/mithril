@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use reqwest::StatusCode;
-use slog::debug;
 
 use crate::AggregatorHttpClientResult;
 use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
@@ -30,11 +29,6 @@ impl AggregatorQuery for PostIncrementCardanoDatabaseAncillaryRestoredStatisticQ
         &self,
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
-        debug!(
-            context.logger,
-            "POST: Increment Cardano database ancillary files restored statistic"
-        );
-
         match context.response.status() {
             StatusCode::CREATED => Ok(()),
             _ => Err(context.unhandled_status_code().await),

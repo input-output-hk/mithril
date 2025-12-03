@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use reqwest::StatusCode;
-use slog::debug;
 
 use mithril_common::messages::SnapshotDownloadMessage;
 
@@ -41,8 +40,6 @@ impl AggregatorQuery for PostIncrementSnapshotDownloadStatisticQuery {
         &self,
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
-        debug!(context.logger, "POST: Increment Snapshot download statistic"; "snapshot_digest" => &self.message.digest);
-
         match context.response.status() {
             StatusCode::CREATED => Ok(()),
             _ => Err(context.unhandled_status_code().await),

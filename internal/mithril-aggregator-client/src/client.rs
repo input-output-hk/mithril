@@ -1,7 +1,7 @@
 use anyhow::{Context, anyhow};
 use reqwest::{IntoUrl, Response, Url, header::HeaderMap};
 use semver::Version;
-use slog::{Logger, error, warn};
+use slog::{Logger, debug, error, warn};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -39,6 +39,12 @@ impl AggregatorHttpClient {
         &self,
         query: Q,
     ) -> AggregatorHttpClientResult<Q::Response> {
+        let route = query.route();
+        debug!(
+            self.logger, "{} /{route}", Q::method();
+            "aggregator" => %self.aggregator_endpoint, query.entry_log_additional_fields(),
+        );
+
         let current_api_version = self
             .api_version_provider
             .compute_current_version()
@@ -46,9 +52,10 @@ impl AggregatorHttpClient {
                 |err| error!(self.logger, "{API_VERSION_COMPUTE_FAILURE_MESSAGE}"; "error" => ?err),
             )
             .ok();
+
         let mut request_builder = match Q::method() {
-            QueryMethod::Get => self.client.get(self.join_aggregator_endpoint(&query.route())?),
-            QueryMethod::Post => self.client.post(self.join_aggregator_endpoint(&query.route())?),
+            QueryMethod::Get => self.client.get(self.join_aggregator_endpoint(&route)?),
+            QueryMethod::Post => self.client.post(self.join_aggregator_endpoint(&route)?),
         }
         .headers(self.additional_headers.clone());
 
@@ -120,6 +127,7 @@ mod tests {
 
     use mithril_common::test::api_version_extensions::ApiVersionProviderTestExtension;
 
+    use crate::query::QueryLogFields;
     use crate::test::{TestLogger, setup_server_and_client};
 
     use super::*;
@@ -142,7 +150,7 @@ mod tests {
         }
 
         fn route(&self) -> String {
-            "/dummy-get-route".to_string()
+            "dummy-get-route".to_string()
         }
 
         async fn handle_response(
@@ -189,11 +197,18 @@ mod tests {
         }
 
         fn route(&self) -> String {
-            "/dummy-post-route".to_string()
+            "dummy-post-route".to_string()
         }
 
         fn body(&self) -> Option<Self::Body> {
             Some(self.body.clone())
+        }
+
+        fn entry_log_additional_fields(&self) -> QueryLogFields {
+            QueryLogFields::from([
+                ("pika", self.body.pika.clone()),
+                ("chuu", format!("{:04}", self.body.chu)),
+            ])
         }
 
         async fn handle_response(
@@ -274,6 +289,38 @@ mod tests {
         client.send(TestGetQuery).await.expect("should not fail");
 
         assert!(log_inspector.contains_log(API_VERSION_COMPUTE_FAILURE_MESSAGE));
+    }
+
+    #[tokio::test]
+    async fn test_log_before_query_execution() {
+        let (logger, log_inspector) = TestLogger::memory();
+        let (server, mut client) = setup_server_and_client();
+        client.logger = logger;
+        server.mock(|when, then| {
+            when.method(httpmock::Method::GET);
+            then.status(200).body(r#"{"foo": "a", "bar": 1}"#);
+        });
+        server.mock(|when, then| {
+            when.method(httpmock::Method::POST);
+            then.status(201);
+        });
+
+        client.send(TestGetQuery).await.expect("should not fail");
+        assert!(log_inspector.contains_log(&format!(
+            "DEBUG GET /dummy-get-route; aggregator={}/",
+            server.base_url()
+        )));
+
+        client
+            .send(TestPostQuery {
+                body: TestBody::new("miaouss", 4),
+            })
+            .await
+            .unwrap();
+        assert!(log_inspector.contains_log(&format!(
+            "DEBUG POST /dummy-post-route; chuu=0004, pika=miaouss, aggregator={}/",
+            server.base_url()
+        )));
     }
 
     #[tokio::test]

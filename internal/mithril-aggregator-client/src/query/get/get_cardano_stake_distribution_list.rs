@@ -1,7 +1,6 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
 use reqwest::StatusCode;
-use slog::debug;
 
 use mithril_common::messages::CardanoStakeDistributionListMessage;
 
@@ -36,8 +35,6 @@ impl AggregatorQuery for GetCardanoStakeDistributionsListQuery {
         &self,
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
-        debug!(context.logger, "/GET: List latest mithril stake distributions";);
-
         match context.response.status() {
             StatusCode::OK => {
                 match context.response.json::<CardanoStakeDistributionListMessage>().await {

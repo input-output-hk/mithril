@@ -1,7 +1,6 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
 use reqwest::StatusCode;
-use slog::debug;
 
 use mithril_common::messages::CardanoTransactionsProofsMessage;
 
@@ -44,8 +43,6 @@ impl AggregatorQuery for GetCardanoTransactionProofQuery {
         &self,
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
-        debug!(context.logger, "GET: Retrieve cardano transaction proof"; "hashes" => ?self.transactions_hashes, "route" => self.route());
-
         match context.response.status() {
             StatusCode::OK => {
                 match context.response.json::<CardanoTransactionsProofsMessage>().await {

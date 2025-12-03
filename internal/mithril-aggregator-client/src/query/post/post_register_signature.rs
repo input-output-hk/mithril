@@ -4,7 +4,7 @@ use slog::debug;
 
 use mithril_common::messages::RegisterSignatureMessageHttp;
 
-use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
+use crate::query::{AggregatorQuery, QueryContext, QueryLogFields, QueryMethod};
 use crate::{AggregatorHttpClientError, AggregatorHttpClientResult};
 
 /// Query to register a signature to a Mithril Aggregator.
@@ -37,12 +37,20 @@ impl AggregatorQuery for PostRegisterSignatureQuery {
         Some(self.message.clone())
     }
 
+    fn entry_log_additional_fields(&self) -> QueryLogFields {
+        QueryLogFields::from([
+            ("party_id", self.message.party_id.clone()),
+            (
+                "signed_entity",
+                format!("{:?}", self.message.signed_entity_type),
+            ),
+        ])
+    }
+
     async fn handle_response(
         &self,
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
-        debug!(context.logger, "POST: Register signature"; "signed_entity" => ?self.message.signed_entity_type);
-
         match context.response.status() {
             StatusCode::CREATED | StatusCode::ACCEPTED => Ok(()),
             StatusCode::GONE => {

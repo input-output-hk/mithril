@@ -1,7 +1,6 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
 use reqwest::StatusCode;
-use slog::debug;
 
 use mithril_common::messages::CertificateMessage;
 
@@ -46,8 +45,6 @@ impl AggregatorQuery for GetCertificateQuery {
         &self,
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
-        debug!(context.logger, "GET: Retrieve certificate details"; "certificate_hash" => %self.hash);
-
         match context.response.status() {
             StatusCode::OK => match context.response.json::<CertificateMessage>().await {
                 Ok(message) => Ok(Some(message)),

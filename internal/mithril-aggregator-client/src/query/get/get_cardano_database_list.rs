@@ -1,7 +1,6 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
 use reqwest::StatusCode;
-use slog::debug;
 use std::fmt::{Display, Formatter};
 
 use mithril_common::entities::EpochSpecifier;
@@ -74,8 +73,6 @@ impl AggregatorQuery for GetCardanoDatabaseListQuery {
         &self,
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
-        debug!(context.logger, "/GET: List cardano database snapshots"; "scope" => %self.scope);
-
         match context.response.status() {
             StatusCode::OK => {
                 match context.response.json::<CardanoDatabaseDigestListMessage>().await {

@@ -1,7 +1,6 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
 use reqwest::StatusCode;
-use slog::debug;
 
 use mithril_common::messages::SnapshotMessage;
 
@@ -39,8 +38,6 @@ impl AggregatorQuery for GetSnapshotQuery {
         &self,
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
-        debug!(context.logger, "GET: Retrieve snapshot details"; "hash" => %self.hash);
-
         match context.response.status() {
             StatusCode::OK => match context.response.json::<SnapshotMessage>().await {
                 Ok(message) => Ok(Some(message)),
