@@ -10,6 +10,9 @@ use strum::{Display, EnumIter, EnumString, IntoEnumIterator};
 pub enum SupportedEra {
     /// Pythagoras era
     Pythagoras,
+
+    /// Lagrange era
+    Lagrange,
 }
 
 impl SupportedEra {
