@@ -74,6 +74,13 @@ for SIGNER_TYPE in $SIGNER_TYPES; do
       rm -f $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json
       mv $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json.new $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json
 
+      # Create the config-bp.json file if not exists
+      # From version `10.6`, it is no more needed to have a separate config-bp.json file
+      # The support for the config-bp.json file is kept for backward compatibility with older Cardano node versions and will be removed once the minimum supported version is `10.6`
+      if [ ! -f "$SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config-bp.json" ]; then
+        cp $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config-bp.json
+      fi
+
       # Copy config-bp.json to the signer
       cat $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config-bp.json | jq ".hasPrometheus[0] |= \"cardano-node-$SIGNER_TYPE-signer-${each.key}\"" > $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config-bp.json.new
       rm -f $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config-bp.json
