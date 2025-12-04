@@ -1,6 +1,6 @@
 {
   "name": "mithril-explorer",
-  "version": "0.7.42",
+  "version": "0.7.43",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
@@ -19,23 +19,23 @@
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",
     "chart.js": "^4.5.1",
-    "next": "^16.0.6",
-    "react": "^19.2.0",
+    "next": "^16.0.7",
+    "react": "^19.2.1",
     "react-bootstrap": "^2.10.10",
     "react-chartjs-2": "^5.3.1",
-    "react-dom": "^19.2.0",
+    "react-dom": "^19.2.1",
     "react-redux": "^9.2.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
     "eslint": "^9.39.1",
-    "eslint-config-next": "^16.0.6",
+    "eslint-config-next": "^16.0.7",
     "fantasticon": "^3.0.0",
     "jest": "^30.2.0",
     "jest-environment-jsdom": "^30.2.0",
     "next-router-mock": "^1.0.4",
-    "prettier": "^3.7.3",
+    "prettier": "^3.7.4",
     "prettier-eslint": "^16.4.2"
   }
 }
