@@ -12,7 +12,7 @@ pub mod tools;
 
 pub use deprecation::{DeprecatedCommand, Deprecation};
 
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use mithril_client::{
     AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MithrilResult,
@@ -23,10 +23,12 @@ use crate::{configuration::ConfigParameters, utils::ForcedEraFetcher};
 const CLIENT_TYPE_CLI: &str = "CLI";
 
 pub(crate) fn client_builder(params: &ConfigParameters) -> MithrilResult<ClientBuilder> {
-    let builder = ClientBuilder::new(compute_aggregator_discovery_type(params)?)
-        .set_genesis_verification_key(GenesisVerificationKey::JsonHex(
-            params.require("genesis_verification_key")?,
-        ));
+    let builder = ClientBuilder::new(AggregatorDiscoveryType::from_str(
+        &params.require("aggregator_endpoint")?,
+    )?)
+    .set_genesis_verification_key(GenesisVerificationKey::JsonHex(
+        params.require("genesis_verification_key")?,
+    ));
 
     Ok(finalize_builder_config(builder, params))
 }
@@ -40,26 +42,15 @@ pub(crate) fn client_builder_with_fallback_genesis_key(
         382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c323\
         5322c3138302c37322c3133342c3133372c3234372c3136312c36385d";
 
-    let builder = ClientBuilder::new(compute_aggregator_discovery_type(params)?)
-        .set_genesis_verification_key(GenesisVerificationKey::JsonHex(params.get_or(
-            "genesis_verification_key",
-            fallback_genesis_verification_key,
-        )));
+    let builder = ClientBuilder::new(AggregatorDiscoveryType::from_str(
+        &params.require("aggregator_endpoint")?,
+    )?)
+    .set_genesis_verification_key(GenesisVerificationKey::JsonHex(params.get_or(
+        "genesis_verification_key",
+        fallback_genesis_verification_key,
+    )));
 
     Ok(finalize_builder_config(builder, params))
-}
-
-fn compute_aggregator_discovery_type(
-    params: &ConfigParameters,
-) -> MithrilResult<AggregatorDiscoveryType> {
-    let endpoint = params.require("aggregator_endpoint")?;
-    let aggregator_discovery_type = if let Some(network) = endpoint.strip_prefix("auto:") {
-        AggregatorDiscoveryType::Automatic(network.into())
-    } else {
-        AggregatorDiscoveryType::Url(endpoint.to_string())
-    };
-
-    Ok(aggregator_discovery_type)
 }
 
 fn finalize_builder_config(mut builder: ClientBuilder, params: &ConfigParameters) -> ClientBuilder {

@@ -10,6 +10,7 @@ use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use slog::{Logger, o};
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Arc;
 
 #[cfg(not(target_family = "wasm"))]
@@ -59,6 +60,20 @@ pub enum AggregatorDiscoveryType {
     /// Automatically discover the aggregator.
     #[cfg(not(target_family = "wasm"))]
     Automatic(MithrilNetwork),
+}
+
+impl FromStr for AggregatorDiscoveryType {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some(network) = s.strip_prefix("auto:") {
+            Ok(AggregatorDiscoveryType::Automatic(MithrilNetwork::new(
+                network.to_string(),
+            )))
+        } else {
+            Ok(AggregatorDiscoveryType::Url(s.to_string()))
+        }
+    }
 }
 
 /// The genesis verification key.
