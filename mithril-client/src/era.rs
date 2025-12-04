@@ -49,15 +49,6 @@ pub struct MithrilEraClient {
     era_fetcher: Arc<dyn EraFetcher>,
 }
 
-/// Define the requests against an Aggregator related to Mithril era.
-#[cfg_attr(test, mockall::automock)]
-#[cfg_attr(target_family = "wasm", async_trait::async_trait(?Send))]
-#[cfg_attr(not(target_family = "wasm"), async_trait::async_trait)]
-pub trait MithrilEraAggregatorRequest: Send + Sync {
-    /// Fetch the current Mithril era from the Aggregator.
-    async fn get_current_era(&self) -> MithrilResult<FetchedEra>;
-}
-
 impl MithrilEraClient {
     /// Constructs a new [MithrilEraClient].
     pub fn new(era_fetcher: Arc<dyn EraFetcher>) -> Self {

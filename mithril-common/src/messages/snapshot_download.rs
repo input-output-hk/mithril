@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::entities::{CardanoDbBeacon, CompressionAlgorithm};
+use crate::messages::SnapshotMessage;
 
 /// Message structure of a snapshot
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -35,9 +36,26 @@ pub struct SnapshotDownloadMessage {
     pub cardano_node_version: String,
 }
 
+impl From<SnapshotMessage> for SnapshotDownloadMessage {
+    fn from(message: SnapshotMessage) -> Self {
+        Self {
+            digest: message.digest,
+            network: message.network,
+            beacon: message.beacon,
+            size: message.size,
+            ancillary_size: message.ancillary_size,
+            locations: message.locations,
+            ancillary_locations: message.ancillary_locations,
+            compression_algorithm: message.compression_algorithm,
+            cardano_node_version: message.cardano_node_version,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::entities::Epoch;
+    use crate::test::double::Dummy;
 
     use super::*;
 
@@ -117,5 +135,26 @@ mod tests {
         let message: SnapshotDownloadMessage = serde_json::from_str(json).unwrap();
 
         assert_eq!(golden_message_current(), message);
+    }
+
+    #[test]
+    fn convert_from_snapshot_message() {
+        let snapshot_message = SnapshotMessage::dummy();
+        let snapshot_download_message = SnapshotDownloadMessage::from(snapshot_message.clone());
+
+        assert_eq!(
+            snapshot_download_message,
+            SnapshotDownloadMessage {
+                digest: snapshot_message.digest,
+                network: snapshot_message.network,
+                beacon: snapshot_message.beacon,
+                size: snapshot_message.size,
+                ancillary_size: snapshot_message.ancillary_size,
+                locations: snapshot_message.locations,
+                ancillary_locations: snapshot_message.ancillary_locations,
+                compression_algorithm: snapshot_message.compression_algorithm,
+                cardano_node_version: snapshot_message.cardano_node_version,
+            }
+        )
     }
 }
