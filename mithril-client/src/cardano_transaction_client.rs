@@ -87,6 +87,25 @@ pub struct CardanoTransactionClient {
     aggregator_client: Arc<dyn AggregatorClient>,
 }
 
+/// Define the requests against an Aggregator related to Cardano transactions.
+#[cfg_attr(test, mockall::automock)]
+#[cfg_attr(target_family = "wasm", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_family = "wasm"), async_trait::async_trait)]
+pub trait CardanoTransactionAggregatorRequest: Send + Sync {
+    /// Get a proof of membership for the given transactions hashes from the Aggregator.
+    async fn get_proof(
+        &self,
+        hashes: &[String],
+    ) -> MithrilResult<Option<CardanoTransactionsProofs>>;
+
+    /// Fetch the list of latest signed Cardano transaction snapshots from the Aggregator
+    async fn list_latest_snapshots(&self)
+    -> MithrilResult<Vec<CardanoTransactionSnapshotListItem>>;
+
+    /// Fetch a Cardano transaction snapshot by its hash from the Aggregator.
+    async fn get_snapshot(&self, hash: &str) -> MithrilResult<Option<CardanoTransactionSnapshot>>;
+}
+
 impl CardanoTransactionClient {
     /// Constructs a new `CardanoTransactionClient`.
     pub fn new(aggregator_client: Arc<dyn AggregatorClient>) -> Self {

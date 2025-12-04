@@ -76,12 +76,30 @@ use anyhow::Context;
 use std::sync::Arc;
 
 use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest};
-use crate::common::Epoch;
+use crate::common::{Epoch, EpochSpecifier};
 use crate::{CardanoStakeDistribution, CardanoStakeDistributionListItem, MithrilResult};
 
 /// HTTP client for CardanoStakeDistribution API from the Aggregator
 pub struct CardanoStakeDistributionClient {
     aggregator_client: Arc<dyn AggregatorClient>,
+}
+
+/// Define the requests against an Aggregator related to Cardano stake distribution.
+#[cfg_attr(test, mockall::automock)]
+#[cfg_attr(target_family = "wasm", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_family = "wasm"), async_trait::async_trait)]
+pub trait CardanoStakeDistributionAggregatorRequest: Send + Sync {
+    /// Get the list of latest Cardano stake distributions from the Aggregator.
+    async fn list_latest(&self) -> MithrilResult<Vec<CardanoStakeDistributionListItem>>;
+
+    /// Get a Cardano stake distribution for a given hash from the Aggregator.
+    async fn get_by_hash(&self, hash: &str) -> MithrilResult<Option<CardanoStakeDistribution>>;
+
+    /// Get a Cardano stake distribution for an [EpochSpecifier] from the Aggregator.
+    async fn get_by_epoch(
+        &self,
+        specifier: EpochSpecifier,
+    ) -> MithrilResult<Option<CardanoStakeDistribution>>;
 }
 
 impl CardanoStakeDistributionClient {
