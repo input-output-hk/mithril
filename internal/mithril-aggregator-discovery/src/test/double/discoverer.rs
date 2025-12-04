@@ -23,7 +23,7 @@ impl AggregatorDiscovererFake {
 }
 
 #[async_trait::async_trait]
-impl AggregatorDiscoverer for AggregatorDiscovererFake {
+impl AggregatorDiscoverer<AggregatorEndpoint> for AggregatorDiscovererFake {
     async fn get_available_aggregators(
         &self,
         _network: MithrilNetwork,
