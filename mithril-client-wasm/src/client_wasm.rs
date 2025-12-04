@@ -1,12 +1,13 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use chrono::TimeDelta;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 
 use mithril_client::{
-    CardanoTransactionsProofs, Client, ClientBuilder, ClientOptions, MessageBuilder,
-    MithrilCertificate,
+    AggregatorDiscoveryType, CardanoTransactionsProofs, Client, ClientBuilder, ClientOptions,
+    GenesisVerificationKey, MessageBuilder, MithrilCertificate,
     certificate_client::CertificateVerifierCache,
     common::Epoch,
     feedback::{FeedbackReceiver, MithrilEvent},
@@ -116,15 +117,20 @@ impl MithrilClient {
             None
         };
 
-        let client = ClientBuilder::aggregator(aggregator_endpoint, genesis_verification_key)
-            .add_feedback_receiver(feedback_receiver)
-            .with_options(client_options.clone())
-            .with_origin_tag(client_options.origin_tag.clone())
-            .with_client_type(Some(CLIENT_TYPE_WASM.to_string()))
-            .with_certificate_verifier_cache(certificate_verifier_cache.clone())
-            .build()
-            .map_err(|err| format!("{err:?}"))
-            .unwrap();
+        let client = ClientBuilder::new(AggregatorDiscoveryType::Url(
+            aggregator_endpoint.to_string(),
+        ))
+        .set_genesis_verification_key(GenesisVerificationKey::JsonHex(
+            genesis_verification_key.to_string(),
+        ))
+        .add_feedback_receiver(feedback_receiver)
+        .with_options(client_options.clone())
+        .with_origin_tag(client_options.origin_tag.clone())
+        .with_client_type(Some(CLIENT_TYPE_WASM.to_string()))
+        .with_certificate_verifier_cache(certificate_verifier_cache.clone())
+        .build()
+        .map_err(|err| format!("{err:?}"))
+        .unwrap();
 
         MithrilClient {
             client,

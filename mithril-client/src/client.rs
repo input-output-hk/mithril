@@ -1,7 +1,11 @@
+use std::collections::HashMap;
+#[cfg(not(target_family = "wasm"))]
+use std::str::FromStr;
+use std::sync::Arc;
+
 use anyhow::{Context, anyhow};
 #[cfg(any(feature = "fs", not(target_family = "wasm")))]
 use chrono::Utc;
-
 #[cfg(not(target_family = "wasm"))]
 use rand::SeedableRng;
 #[cfg(not(target_family = "wasm"))]
@@ -9,9 +13,6 @@ use rand::rngs::StdRng;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use slog::{Logger, o};
-use std::collections::HashMap;
-use std::str::FromStr;
-use std::sync::Arc;
 
 #[cfg(not(target_family = "wasm"))]
 use mithril_aggregator_discovery::{
@@ -62,6 +63,7 @@ pub enum AggregatorDiscoveryType {
     Automatic(MithrilNetwork),
 }
 
+#[cfg(not(target_family = "wasm"))]
 impl FromStr for AggregatorDiscoveryType {
     type Err = anyhow::Error;
 
