@@ -84,7 +84,7 @@ impl AggregatorDiscoveryCommand {
                     RequiredAggregatorCapabilities::SignedEntityType(*signed_entity_type),
                 );
             }
-            required_capabilities.push(RequiredAggregatorCapabilities::Or(
+            required_capabilities.push(RequiredAggregatorCapabilities::And(
                 required_capabilities_signed_entity_types,
             ));
         }
@@ -98,7 +98,7 @@ impl AggregatorDiscoveryCommand {
                     ),
                 );
             }
-            required_capabilities.push(RequiredAggregatorCapabilities::Or(
+            required_capabilities.push(RequiredAggregatorCapabilities::And(
                 required_capabilities_aggregate_signature_types,
             ));
         }
@@ -144,7 +144,7 @@ mod tests {
 
         assert_eq!(
             required_capabilities,
-            RequiredAggregatorCapabilities::Or(vec![
+            RequiredAggregatorCapabilities::And(vec![
                 RequiredAggregatorCapabilities::SignedEntityType(
                     SignedEntityTypeDiscriminants::CardanoTransactions
                 ),
@@ -167,7 +167,7 @@ mod tests {
 
         assert_eq!(
             required_capabilities,
-            RequiredAggregatorCapabilities::Or(vec![
+            RequiredAggregatorCapabilities::And(vec![
                 RequiredAggregatorCapabilities::AggregateSignatureType(
                     AggregateSignatureType::Concatenation
                 ),
@@ -191,7 +191,7 @@ mod tests {
         assert_eq!(
             required_capabilities,
             RequiredAggregatorCapabilities::And(vec![
-                RequiredAggregatorCapabilities::Or(vec![
+                RequiredAggregatorCapabilities::And(vec![
                     RequiredAggregatorCapabilities::SignedEntityType(
                         SignedEntityTypeDiscriminants::CardanoTransactions
                     ),
@@ -199,7 +199,7 @@ mod tests {
                         SignedEntityTypeDiscriminants::CardanoStakeDistribution
                     ),
                 ]),
-                RequiredAggregatorCapabilities::Or(vec![
+                RequiredAggregatorCapabilities::And(vec![
                     RequiredAggregatorCapabilities::AggregateSignatureType(
                         AggregateSignatureType::Concatenation
                     ),
