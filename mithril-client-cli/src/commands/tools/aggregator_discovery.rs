@@ -1,14 +1,12 @@
 use clap::Parser;
+use cli_table::{Cell, Table, print_stdout};
 
 use mithril_client::{
     AggregatorDiscoveryType, ClientBuilder, MithrilResult, RequiredAggregatorCapabilities,
     common::{AggregateSignatureType, MithrilNetwork, SignedEntityTypeDiscriminants},
 };
 
-use crate::{
-    CommandContext,
-    utils::{ProgressOutputType, ProgressPrinter},
-};
+use crate::CommandContext;
 
 /// Clap command to select an aggregator from the available ones with automatic discovery.
 #[derive(Parser, Debug, Clone)]
@@ -36,12 +34,6 @@ pub struct AggregatorDiscoveryCommand {
 impl AggregatorDiscoveryCommand {
     /// Main command execution
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
-        let progress_output_type = if context.is_json_output_enabled() {
-            ProgressOutputType::JsonReporter
-        } else {
-            ProgressOutputType::Tty
-        };
-        let progress_printer = ProgressPrinter::new(progress_output_type, 1);
         let required_capabilities = self.build_required_capabilities();
         let client_builder =
             ClientBuilder::new(AggregatorDiscoveryType::Automatic(self.network.clone()))
@@ -49,23 +41,18 @@ impl AggregatorDiscoveryCommand {
         let aggregator_endpoints = client_builder
             .discover_aggregator(&self.network)?
             .take(self.max_entries);
-        progress_printer.report_step(
-            1,
-            &format!(
-                "Discovering at most {} aggregator endpoints:",
-                self.max_entries
-            ),
-        )?;
-        let mut found_aggregators = 0;
-        for endpoint in aggregator_endpoints {
-            progress_printer.report_step(1, &format!("Found: {endpoint}"))?;
-            found_aggregators += 1;
-        }
-        if found_aggregators == 0 {
-            progress_printer.report_step(
-                1,
-                "- No aggregator endpoint found matching the requirements.",
-            )?;
+        let lines = aggregator_endpoints.collect::<Vec<_>>();
+
+        if context.is_json_output_enabled() {
+            println!("{}", serde_json::to_string(&lines)?);
+        } else {
+            let lines = lines
+                .into_iter()
+                .map(|endpoint| vec![endpoint.cell()])
+                .collect::<Vec<_>>()
+                .table()
+                .title(vec!["Aggregator Endpoint".cell()]);
+            print_stdout(lines)?;
         }
 
         Ok(())
