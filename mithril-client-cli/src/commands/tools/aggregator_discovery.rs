@@ -12,7 +12,7 @@ use crate::{
 
 /// Clap command to select an aggregator from the available ones with automatic discovery.
 #[derive(Parser, Debug, Clone)]
-pub struct AggregatorSelectCommand {
+pub struct AggregatorDiscoveryCommand {
     /// Mithril network name
     network: MithrilNetwork,
 
@@ -33,9 +33,9 @@ pub struct AggregatorSelectCommand {
     aggregate_signature_types: Vec<AggregateSignatureType>,
 }
 
-impl AggregatorSelectCommand {
+impl AggregatorDiscoveryCommand {
     /// Main command execution
-    pub async fn execute(&self, context: &CommandContext) -> MithrilResult<()> {
+    pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         let progress_output_type = if context.is_json_output_enabled() {
             ProgressOutputType::JsonReporter
         } else {
@@ -117,7 +117,7 @@ mod tests {
 
     #[test]
     fn test_build_required_capabilities_all() {
-        let command = AggregatorSelectCommand {
+        let command = AggregatorDiscoveryCommand {
             network: MithrilNetwork::dummy(),
             max_entries: 1,
             signed_entity_types: vec![],
@@ -130,7 +130,7 @@ mod tests {
 
     #[test]
     fn test_build_required_capabilities_signed_entity_types() {
-        let command = AggregatorSelectCommand {
+        let command = AggregatorDiscoveryCommand {
             network: MithrilNetwork::dummy(),
             max_entries: 1,
             signed_entity_types: vec![
@@ -157,7 +157,7 @@ mod tests {
 
     #[test]
     fn test_build_required_capabilities_aggregate_signature_types() {
-        let command = AggregatorSelectCommand {
+        let command = AggregatorDiscoveryCommand {
             network: MithrilNetwork::dummy(),
             max_entries: 1,
             signed_entity_types: vec![],
@@ -177,7 +177,7 @@ mod tests {
 
     #[test]
     fn test_build_required_capabilities_both() {
-        let command = AggregatorSelectCommand {
+        let command = AggregatorDiscoveryCommand {
             network: MithrilNetwork::dummy(),
             max_entries: 1,
             signed_entity_types: vec![

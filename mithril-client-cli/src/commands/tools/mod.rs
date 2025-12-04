@@ -4,13 +4,13 @@
 //! to different flavors (Legacy, LMDB).
 
 mod aggregator_discovery;
-mod snapshot_converter;
+mod utxo_hd;
 
 pub use aggregator_discovery::*;
-pub use snapshot_converter::*;
+pub use utxo_hd::*;
 
-use anyhow::anyhow;
 use clap::Subcommand;
+
 use mithril_client::MithrilResult;
 
 use crate::CommandContext;
@@ -22,9 +22,9 @@ pub enum ToolsCommands {
     /// UTxO-HD related commands
     #[clap(subcommand, name = "utxo-hd")]
     UTxOHD(UTxOHDCommands),
-    /// Aggregator discovery related commands (unstable)
-    #[clap(subcommand, name = "aggregator-discovery")]
-    AggregatorDiscovery(AggregatorDiscoveryCommands),
+    /// Aggregator discovery command (unstable)
+    #[clap(name = "discover-aggregator")]
+    AggregatorDiscovery(AggregatorDiscoveryCommand),
 }
 
 impl ToolsCommands {
@@ -33,54 +33,10 @@ impl ToolsCommands {
         match self {
             Self::UTxOHD(cmd) => cmd.execute(context).await,
             Self::AggregatorDiscovery(cmd) => {
-                context.require_unstable(
-                    "tools aggregator-discovery select",
-                    Some("--network mainnet"),
-                )?;
+                context.require_unstable("tools discover-aggregator", Some("release-mainnet"))?;
 
                 cmd.execute(context).await
             }
-        }
-    }
-}
-
-/// UTxO-HD related commands
-#[derive(Subcommand, Debug, Clone)]
-pub enum UTxOHDCommands {
-    /// Convert a restored `InMemory` ledger snapshot to another flavor.
-    #[clap(arg_required_else_help = false)]
-    SnapshotConverter(SnapshotConverterCommand),
-}
-
-impl UTxOHDCommands {
-    /// Execute UTxO-HD command
-    pub async fn execute(&self, _context: CommandContext) -> MithrilResult<()> {
-        match self {
-            Self::SnapshotConverter(cmd) => {
-                if cfg!(target_os = "linux") && cfg!(target_arch = "aarch64") {
-                    return Err(anyhow!(
-                        "'snapshot-converter' command is not supported on Linux ARM"
-                    ));
-                }
-                cmd.execute().await
-            }
-        }
-    }
-}
-
-/// Aggregator discovery related commands
-#[derive(Subcommand, Debug, Clone)]
-pub enum AggregatorDiscoveryCommands {
-    /// Select an aggregator from the available ones with automatic discovery
-    #[clap(arg_required_else_help = false)]
-    Select(AggregatorSelectCommand),
-}
-
-impl AggregatorDiscoveryCommands {
-    /// Execute Aggregator discovery command
-    pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
-        match self {
-            Self::Select(cmd) => cmd.execute(&context).await,
         }
     }
 }
