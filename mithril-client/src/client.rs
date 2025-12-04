@@ -3,8 +3,6 @@ use anyhow::{Context, anyhow};
 use chrono::Utc;
 
 #[cfg(not(target_family = "wasm"))]
-use mithril_common::entities::MithrilNetwork;
-#[cfg(not(target_family = "wasm"))]
 use rand::SeedableRng;
 #[cfg(not(target_family = "wasm"))]
 use rand::rngs::StdRng;
@@ -32,6 +30,8 @@ use crate::certificate_client::CertificateVerifierCache;
 use crate::certificate_client::{
     CertificateClient, CertificateVerifier, MithrilCertificateVerifier,
 };
+#[cfg(not(target_family = "wasm"))]
+use crate::common::MithrilNetwork;
 use crate::era::{AggregatorHttpEraFetcher, EraFetcher, MithrilEraClient};
 use crate::feedback::{FeedbackReceiver, FeedbackSender};
 #[cfg(feature = "fs")]
@@ -224,21 +224,6 @@ impl ClientBuilder {
         )))
         .set_genesis_verification_key(GenesisVerificationKey::JsonHex(
             genesis_verification_key.to_string(),
-        ))
-    }
-
-    /// Default aggregator discoverer to use to find the aggregator endpoint when in automatic discovery.
-    #[cfg(not(target_family = "wasm"))]
-    fn default_aggregator_discoverer() -> Arc<dyn AggregatorDiscoverer> {
-        Arc::new(ShuffleAggregatorDiscoverer::new(
-            Arc::new(HttpConfigAggregatorDiscoverer::default()),
-            {
-                let mut seed = [0u8; 32];
-                let timestamp = Utc::now().timestamp_nanos_opt().unwrap_or(0);
-                seed[..8].copy_from_slice(&timestamp.to_le_bytes());
-
-                StdRng::from_seed(seed)
-            },
         ))
     }
 
@@ -454,10 +439,22 @@ impl ClientBuilder {
         })
     }
 
-    fn build_aggregator_client(
-        &self,
-        logger: Logger,
-    ) -> Result<AggregatorHTTPClient, anyhow::Error> {
+    /// Default aggregator discoverer to use to find the aggregator endpoint when in automatic discovery.
+    #[cfg(not(target_family = "wasm"))]
+    fn default_aggregator_discoverer() -> Arc<dyn AggregatorDiscoverer> {
+        Arc::new(ShuffleAggregatorDiscoverer::new(
+            Arc::new(HttpConfigAggregatorDiscoverer::default()),
+            {
+                let mut seed = [0u8; 32];
+                let timestamp = Utc::now().timestamp_nanos_opt().unwrap_or(0);
+                seed[..8].copy_from_slice(&timestamp.to_le_bytes());
+
+                StdRng::from_seed(seed)
+            },
+        ))
+    }
+
+    fn build_aggregator_client(&self, logger: Logger) -> MithrilResult<AggregatorHTTPClient> {
         let aggregator_endpoint = match self.aggregator_discovery {
             AggregatorDiscoveryType::Url(ref url) => url.clone(),
             #[cfg(not(target_family = "wasm"))]

@@ -71,9 +71,10 @@ pub mod common {
     pub use mithril_common::entities::{
         AncillaryLocation, BlockHash, BlockNumber, CardanoDbBeacon, CardanoNetwork, ChainPoint,
         CompressionAlgorithm, DigestLocation, Epoch, EpochSpecifier, ImmutableFileNumber,
-        ImmutablesLocation, MagicId, MultiFilesUri, ProtocolMessage, ProtocolMessagePartKey,
-        ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants, SlotNumber,
-        StakeDistribution, SupportedEra, TemplateUri, TransactionHash,
+        ImmutablesLocation, MagicId, MithrilNetwork, MultiFilesUri, ProtocolMessage,
+        ProtocolMessagePartKey, ProtocolParameters, SignedEntityType,
+        SignedEntityTypeDiscriminants, SlotNumber, StakeDistribution, SupportedEra, TemplateUri,
+        TransactionHash,
     };
     pub use mithril_common::messages::{
         AncillaryMessagePart, DigestsMessagePart, ImmutablesMessagePart,
@@ -90,6 +91,3 @@ pub mod common {
 /// Required capabilities for an aggregator.
 #[cfg(not(target_family = "wasm"))]
 pub use mithril_aggregator_discovery::RequiredAggregatorCapabilities;
-
-/// Mithril network
-pub use mithril_common::entities::MithrilNetwork;

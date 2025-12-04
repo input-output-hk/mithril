@@ -73,7 +73,7 @@ impl AggregatorDiscoverer for HttpConfigAggregatorDiscoverer {
         network: MithrilNetwork,
     ) -> StdResult<Box<dyn Iterator<Item = AggregatorEndpoint>>> {
         let client = self.build_client()?;
-        let networks_configuration_response = client
+        let networks_configuration_response: NetworksConfigMessage = client
             .get(&self.configuration_file_url)
             .send()
             .await

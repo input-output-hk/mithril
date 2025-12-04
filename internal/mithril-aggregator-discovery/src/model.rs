@@ -1,10 +1,12 @@
 use std::time::Duration;
 
+use serde::Serialize;
+
 use mithril_aggregator_client::{AggregatorHttpClient, query::GetAggregatorFeaturesQuery};
 use mithril_common::{StdResult, messages::AggregatorCapabilities};
 
 /// Representation of an aggregator endpoint
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct AggregatorEndpoint {
     url: String,
 }

@@ -33,24 +33,14 @@ impl ToolsCommands {
         match self {
             Self::UTxOHD(cmd) => cmd.execute(context).await,
             Self::AggregatorDiscovery(cmd) => {
-                if !context.is_unstable_enabled() {
-                    Err(anyhow!(Self::unstable_flag_missing_message(
-                        "aggregator discovery",
-                        "tools"
-                    )))
-                } else {
-                    cmd.execute(context).await
-                }
+                context.require_unstable(
+                    "tools aggregator-discovery select",
+                    Some("--network mainnet"),
+                )?;
+
+                cmd.execute(context).await
             }
         }
-    }
-
-    fn unstable_flag_missing_message(sub_command: &str, command: &str) -> String {
-        format!(
-            "The \"{}\" subcommand is only accepted using the --unstable flag.\n\n\
-            e.g.: \"mithril-client --unstable {} {}\"",
-            sub_command, command, sub_command
-        )
     }
 }
 

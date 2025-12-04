@@ -92,9 +92,6 @@ impl CardanoDbVerifyCommand {
         let client = client_builder(context.config_parameters())?
             .with_capabilities(RequiredAggregatorCapabilities::And(vec![
                 RequiredAggregatorCapabilities::SignedEntityType(
-                    SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-                ),
-                RequiredAggregatorCapabilities::SignedEntityType(
                     SignedEntityTypeDiscriminants::CardanoDatabase,
                 ),
             ]))

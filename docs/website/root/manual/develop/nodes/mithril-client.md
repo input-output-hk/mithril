@@ -245,6 +245,8 @@ Options:
 
           Either the full URL of the aggregator endpoint (e.g., "https://aggregator.release-preprod.api.mithril.network/aggregator") or a string formatted as "auto:<mithril_network>" to use automatic discovery (e.g., "auto:release-preprod") (unstable).
 
+          [env: AGGREGATOR_ENDPOINT=]
+
       --json
           Enable JSON output for command results
 

@@ -1,9 +1,8 @@
 use clap::Parser;
 
 use mithril_client::{
-    AggregatorDiscoveryType, ClientBuilder, MithrilNetwork, MithrilResult,
-    RequiredAggregatorCapabilities,
-    common::{AggregateSignatureType, SignedEntityTypeDiscriminants},
+    AggregatorDiscoveryType, ClientBuilder, MithrilResult, RequiredAggregatorCapabilities,
+    common::{AggregateSignatureType, MithrilNetwork, SignedEntityTypeDiscriminants},
 };
 
 use crate::{
@@ -15,7 +14,6 @@ use crate::{
 #[derive(Parser, Debug, Clone)]
 pub struct AggregatorSelectCommand {
     /// Mithril network name
-    #[clap(long)]
     network: MithrilNetwork,
 
     /// Maximum number of entries to retrieve
