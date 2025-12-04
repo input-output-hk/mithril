@@ -67,7 +67,7 @@ impl Default for HttpConfigAggregatorDiscoverer {
 }
 
 #[async_trait::async_trait]
-impl AggregatorDiscoverer for HttpConfigAggregatorDiscoverer {
+impl AggregatorDiscoverer<AggregatorEndpoint> for HttpConfigAggregatorDiscoverer {
     async fn get_available_aggregators(
         &self,
         network: MithrilNetwork,

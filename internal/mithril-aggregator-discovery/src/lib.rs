@@ -11,5 +11,5 @@ pub mod test;
 pub use capabilities_discoverer::{CapableAggregatorDiscoverer, RequiredAggregatorCapabilities};
 pub use http_config_discoverer::HttpConfigAggregatorDiscoverer;
 pub use interface::AggregatorDiscoverer;
-pub use model::AggregatorEndpoint;
+pub use model::{AggregatorEndpoint, AggregatorEndpointWithCapabilities};
 pub use rand_discoverer::ShuffleAggregatorDiscoverer;

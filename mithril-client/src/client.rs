@@ -16,8 +16,9 @@ use slog::{Logger, o};
 use mithril_aggregator_client::AggregatorHttpClient;
 #[cfg(not(target_family = "wasm"))]
 use mithril_aggregator_discovery::{
-    AggregatorDiscoverer, AggregatorEndpoint, CapableAggregatorDiscoverer,
-    HttpConfigAggregatorDiscoverer, RequiredAggregatorCapabilities, ShuffleAggregatorDiscoverer,
+    AggregatorDiscoverer, AggregatorEndpoint, AggregatorEndpointWithCapabilities,
+    CapableAggregatorDiscoverer, HttpConfigAggregatorDiscoverer, RequiredAggregatorCapabilities,
+    ShuffleAggregatorDiscoverer,
 };
 use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
 
@@ -199,7 +200,7 @@ pub struct ClientBuilder {
     #[cfg(not(target_family = "wasm"))]
     aggregator_capabilities: Option<RequiredAggregatorCapabilities>,
     #[cfg(not(target_family = "wasm"))]
-    aggregator_discoverer: Option<Arc<dyn AggregatorDiscoverer>>,
+    aggregator_discoverer: Option<Arc<dyn AggregatorDiscoverer<AggregatorEndpoint>>>,
     genesis_verification_key: Option<GenesisVerificationKey>,
     origin_tag: Option<String>,
     client_type: Option<String>,
@@ -291,7 +292,7 @@ impl ClientBuilder {
     #[cfg(not(target_family = "wasm"))]
     pub fn with_aggregator_discoverer(
         mut self,
-        discoverer: Arc<dyn AggregatorDiscoverer>,
+        discoverer: Arc<dyn AggregatorDiscoverer<AggregatorEndpoint>>,
     ) -> ClientBuilder {
         self.aggregator_discoverer = Some(discoverer);
 
@@ -423,7 +424,7 @@ impl ClientBuilder {
     pub fn discover_aggregator(
         &self,
         network: &MithrilNetwork,
-    ) -> MithrilResult<impl Iterator<Item = AggregatorEndpoint>> {
+    ) -> MithrilResult<impl Iterator<Item = AggregatorEndpointWithCapabilities>> {
         let discoverer = self
             .aggregator_discoverer
             .clone()
@@ -432,9 +433,12 @@ impl ClientBuilder {
             Arc::new(CapableAggregatorDiscoverer::new(
                 capabilities.to_owned(),
                 discoverer.clone(),
-            )) as Arc<dyn AggregatorDiscoverer>
+            )) as Arc<dyn AggregatorDiscoverer<AggregatorEndpointWithCapabilities>>
         } else {
-            discoverer as Arc<dyn AggregatorDiscoverer>
+            Arc::new(CapableAggregatorDiscoverer::new(
+                RequiredAggregatorCapabilities::All,
+                discoverer.clone(),
+            )) as Arc<dyn AggregatorDiscoverer<AggregatorEndpointWithCapabilities>>
         };
 
         tokio::task::block_in_place(move || {
@@ -449,7 +453,7 @@ impl ClientBuilder {
 
     /// Default aggregator discoverer to use to find the aggregator endpoint when in automatic discovery.
     #[cfg(not(target_family = "wasm"))]
-    fn default_aggregator_discoverer() -> Arc<dyn AggregatorDiscoverer> {
+    fn default_aggregator_discoverer() -> Arc<dyn AggregatorDiscoverer<AggregatorEndpoint>> {
         Arc::new(ShuffleAggregatorDiscoverer::new(
             Arc::new(HttpConfigAggregatorDiscoverer::default()),
             {
