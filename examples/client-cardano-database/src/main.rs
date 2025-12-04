@@ -11,6 +11,7 @@ use futures::Future;
 use indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
 use std::fmt::Write;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
@@ -58,9 +59,9 @@ async fn main() -> MithrilResult<()> {
     let args = Args::parse();
     let work_dir = get_temp_dir()?;
     let progress_bar = indicatif::MultiProgress::new();
-    let client = ClientBuilder::new(AggregatorDiscoveryType::Url(
-        args.aggregator_endpoint.clone(),
-    ))
+    let client = ClientBuilder::new(AggregatorDiscoveryType::from_str(
+        &args.aggregator_endpoint,
+    )?)
     .set_genesis_verification_key(GenesisVerificationKey::JsonHex(
         args.genesis_verification_key.clone(),
     ))

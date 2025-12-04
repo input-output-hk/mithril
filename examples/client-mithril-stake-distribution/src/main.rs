@@ -5,7 +5,7 @@
 use anyhow::anyhow;
 use clap::Parser;
 use slog::info;
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use mithril_client::{
     AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder, MithrilResult,
@@ -39,9 +39,9 @@ pub struct Args {
 async fn main() -> MithrilResult<()> {
     let args = Args::parse();
     let logger = build_logger();
-    let client = ClientBuilder::new(AggregatorDiscoveryType::Url(
-        args.aggregator_endpoint.clone(),
-    ))
+    let client = ClientBuilder::new(AggregatorDiscoveryType::from_str(
+        &args.aggregator_endpoint,
+    )?)
     .set_genesis_verification_key(GenesisVerificationKey::JsonHex(
         args.genesis_verification_key.clone(),
     ))

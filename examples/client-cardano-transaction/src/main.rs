@@ -5,6 +5,7 @@
 use anyhow::anyhow;
 use clap::Parser;
 use slog::info;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use mithril_client::common::TransactionHash;
@@ -50,9 +51,9 @@ async fn main() -> MithrilResult<()> {
         .map(|s| s.as_str())
         .collect::<Vec<&str>>();
     let logger = build_logger();
-    let client = ClientBuilder::new(AggregatorDiscoveryType::Url(
-        args.aggregator_endpoint.clone(),
-    ))
+    let client = ClientBuilder::new(AggregatorDiscoveryType::from_str(
+        &args.aggregator_endpoint,
+    )?)
     .set_genesis_verification_key(GenesisVerificationKey::JsonHex(
         args.genesis_verification_key.clone(),
     ))
