@@ -2,16 +2,16 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use reqwest::StatusCode;
 
-use mithril_common::messages::CertificateListMessage;
+use mithril_common::messages::CardanoStakeDistributionListMessage;
 
 use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
 use crate::{AggregatorHttpClientError, AggregatorHttpClientResult};
 
-/// Query to get a list of certificates
-pub struct GetCertificatesListQuery {}
+/// Query to get a list of Cardano stake distributions
+pub struct GetCardanoStakeDistributionsListQuery {}
 
-impl GetCertificatesListQuery {
-    /// Instantiate a query to get the latest certificates list
+impl GetCardanoStakeDistributionsListQuery {
+    /// Instantiate a query to get the latest Cardano stake distributions list
     pub fn latest() -> Self {
         Self {}
     }
@@ -19,8 +19,8 @@ impl GetCertificatesListQuery {
 
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
-impl AggregatorQuery for GetCertificatesListQuery {
-    type Response = CertificateListMessage;
+impl AggregatorQuery for GetCardanoStakeDistributionsListQuery {
+    type Response = CardanoStakeDistributionListMessage;
     type Body = ();
 
     fn method() -> QueryMethod {
@@ -28,7 +28,7 @@ impl AggregatorQuery for GetCertificatesListQuery {
     }
 
     fn route(&self) -> String {
-        "certificates".to_string()
+        "artifact/cardano-stake-distributions".to_string()
     }
 
     async fn handle_response(
@@ -36,10 +36,12 @@ impl AggregatorQuery for GetCertificatesListQuery {
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
         match context.response.status() {
-            StatusCode::OK => match context.response.json::<CertificateListMessage>().await {
-                Ok(message) => Ok(message),
-                Err(err) => Err(AggregatorHttpClientError::JsonParseFailed(anyhow!(err))),
-            },
+            StatusCode::OK => {
+                match context.response.json::<CardanoStakeDistributionListMessage>().await {
+                    Ok(message) => Ok(message),
+                    Err(err) => Err(AggregatorHttpClientError::JsonParseFailed(anyhow!(err))),
+                }
+            }
             _ => Err(context.unhandled_status_code().await),
         }
     }
@@ -49,7 +51,7 @@ impl AggregatorQuery for GetCertificatesListQuery {
 mod tests {
     use serde_json::json;
 
-    use mithril_common::messages::CertificateListItemMessage;
+    use mithril_common::messages::CardanoStakeDistributionListItemMessage;
     use mithril_common::test::double::Dummy;
 
     use crate::test::{assert_error_matches, setup_server_and_client};
@@ -57,31 +59,37 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_latest_certificates_list_ok_200() {
+    async fn test_latest_mithril_stake_distributions_list_ok_200() {
         let (server, client) = setup_server_and_client();
         let expected_list = vec![
-            CertificateListItemMessage::dummy(),
-            CertificateListItemMessage::dummy(),
+            CardanoStakeDistributionListItemMessage::dummy(),
+            CardanoStakeDistributionListItemMessage::dummy(),
         ];
         let _server_mock = server.mock(|when, then| {
-            when.path("/certificates");
+            when.path("/artifact/cardano-stake-distributions");
             then.status(200).body(json!(expected_list).to_string());
         });
 
-        let fetched_list = client.send(GetCertificatesListQuery::latest()).await.unwrap();
+        let fetched_list = client
+            .send(GetCardanoStakeDistributionsListQuery::latest())
+            .await
+            .unwrap();
 
         assert_eq!(expected_list, fetched_list);
     }
 
     #[tokio::test]
-    async fn test_latest_certificates_list_ko_500() {
+    async fn test_latest_mithril_stake_distributions_list_ko_500() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.any_request();
             then.status(500).body("an error occurred");
         });
 
-        let error = client.send(GetCertificatesListQuery::latest()).await.unwrap_err();
+        let error = client
+            .send(GetCardanoStakeDistributionsListQuery::latest())
+            .await
+            .unwrap_err();
 
         assert_error_matches!(error, AggregatorHttpClientError::RemoteServerTechnical(_));
     }

@@ -2,28 +2,28 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use reqwest::StatusCode;
 
-use mithril_common::entities::Epoch;
-use mithril_common::messages::ProtocolConfigurationMessage;
+use mithril_common::messages::CardanoDatabaseSnapshotMessage;
 
+use crate::AggregatorHttpClientResult;
+use crate::error::AggregatorHttpClientError;
 use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
-use crate::{AggregatorHttpClientError, AggregatorHttpClientResult};
 
-/// Query to get the protocol configuration of a given epoch
-pub struct GetProtocolConfigurationQuery {
-    epoch: Epoch,
+/// Query to get the details of a Cardano database v2 snapshot
+pub struct GetCardanoDatabaseQuery {
+    hash: String,
 }
 
-impl GetProtocolConfigurationQuery {
-    /// Instantiate a query to get the current epoch settings
-    pub fn epoch(epoch: Epoch) -> Self {
-        Self { epoch }
+impl GetCardanoDatabaseQuery {
+    /// Instantiate a query to get Cardano database v2 snapshot by hash
+    pub fn by_hash<H: Into<String>>(hash: H) -> Self {
+        Self { hash: hash.into() }
     }
 }
 
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
-impl AggregatorQuery for GetProtocolConfigurationQuery {
-    type Response = Option<ProtocolConfigurationMessage>;
+impl AggregatorQuery for GetCardanoDatabaseQuery {
+    type Response = Option<CardanoDatabaseSnapshotMessage>;
     type Body = ();
 
     fn method() -> QueryMethod {
@@ -31,7 +31,7 @@ impl AggregatorQuery for GetProtocolConfigurationQuery {
     }
 
     fn route(&self) -> String {
-        format!("protocol-configuration/{}", self.epoch)
+        format!("artifact/cardano-database/{}", self.hash)
     }
 
     async fn handle_response(
@@ -39,7 +39,8 @@ impl AggregatorQuery for GetProtocolConfigurationQuery {
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
         match context.response.status() {
-            StatusCode::OK => match context.response.json::<ProtocolConfigurationMessage>().await {
+            StatusCode::OK => match context.response.json::<CardanoDatabaseSnapshotMessage>().await
+            {
                 Ok(message) => Ok(Some(message)),
                 Err(err) => Err(AggregatorHttpClientError::JsonParseFailed(anyhow!(err))),
             },
@@ -60,40 +61,43 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_ok_200() {
+    async fn test_cardano_database_snapshot_ok_200() {
         let (server, client) = setup_server_and_client();
-        let message_expected = ProtocolConfigurationMessage::dummy();
+        let expected_message = CardanoDatabaseSnapshotMessage::dummy();
         let _server_mock = server.mock(|when, then| {
-            when.path("/protocol-configuration/42");
-            then.status(200).body(json!(message_expected).to_string());
+            when.path(format!(
+                "/artifact/cardano-database/{}",
+                expected_message.hash
+            ));
+            then.status(200).body(json!(expected_message).to_string());
         });
 
-        let message = client
-            .send(GetProtocolConfigurationQuery::epoch(Epoch(42)))
+        let fetched_message = client
+            .send(GetCardanoDatabaseQuery::by_hash(&expected_message.hash))
             .await
             .unwrap();
 
-        assert_eq!(Some(message_expected), message);
+        assert_eq!(Some(expected_message), fetched_message);
     }
 
     #[tokio::test]
-    async fn test_ok_404() {
+    async fn test_cardano_database_snapshot_ok_404() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.any_request();
             then.status(404);
         });
 
-        let message = client
-            .send(GetProtocolConfigurationQuery::epoch(Epoch(42)))
+        let fetched_message = client
+            .send(GetCardanoDatabaseQuery::by_hash("whatever"))
             .await
             .unwrap();
 
-        assert_eq!(None, message);
+        assert_eq!(None, fetched_message);
     }
 
     #[tokio::test]
-    async fn test_ko_500() {
+    async fn test_cardano_database_snapshot_ko_500() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.any_request();
@@ -101,9 +105,9 @@ mod tests {
         });
 
         let error = client
-            .send(GetProtocolConfigurationQuery::epoch(Epoch(42)))
+            .send(GetCardanoDatabaseQuery::by_hash("whatever"))
             .await
-            .expect_err("should throw a error");
+            .unwrap_err();
 
         assert_error_matches!(error, AggregatorHttpClientError::RemoteServerTechnical(_));
     }

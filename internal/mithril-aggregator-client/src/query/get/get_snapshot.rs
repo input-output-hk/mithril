@@ -2,28 +2,28 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use reqwest::StatusCode;
 
-use mithril_common::entities::Epoch;
-use mithril_common::messages::ProtocolConfigurationMessage;
+use mithril_common::messages::SnapshotMessage;
 
+use crate::AggregatorHttpClientResult;
+use crate::error::AggregatorHttpClientError;
 use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
-use crate::{AggregatorHttpClientError, AggregatorHttpClientResult};
 
-/// Query to get the protocol configuration of a given epoch
-pub struct GetProtocolConfigurationQuery {
-    epoch: Epoch,
+/// Query to get the details of a Cardano database v1 snapshot
+pub struct GetSnapshotQuery {
+    hash: String,
 }
 
-impl GetProtocolConfigurationQuery {
-    /// Instantiate a query to get the current epoch settings
-    pub fn epoch(epoch: Epoch) -> Self {
-        Self { epoch }
+impl GetSnapshotQuery {
+    /// Instantiate a query to get Cardano database v1 snapshot by hash
+    pub fn by_hash<H: Into<String>>(hash: H) -> Self {
+        Self { hash: hash.into() }
     }
 }
 
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
-impl AggregatorQuery for GetProtocolConfigurationQuery {
-    type Response = Option<ProtocolConfigurationMessage>;
+impl AggregatorQuery for GetSnapshotQuery {
+    type Response = Option<SnapshotMessage>;
     type Body = ();
 
     fn method() -> QueryMethod {
@@ -31,7 +31,7 @@ impl AggregatorQuery for GetProtocolConfigurationQuery {
     }
 
     fn route(&self) -> String {
-        format!("protocol-configuration/{}", self.epoch)
+        format!("artifact/snapshot/{}", self.hash)
     }
 
     async fn handle_response(
@@ -39,7 +39,7 @@ impl AggregatorQuery for GetProtocolConfigurationQuery {
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
         match context.response.status() {
-            StatusCode::OK => match context.response.json::<ProtocolConfigurationMessage>().await {
+            StatusCode::OK => match context.response.json::<SnapshotMessage>().await {
                 Ok(message) => Ok(Some(message)),
                 Err(err) => Err(AggregatorHttpClientError::JsonParseFailed(anyhow!(err))),
             },
@@ -60,50 +60,44 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_ok_200() {
+    async fn test_snapshot_details_ok_200() {
         let (server, client) = setup_server_and_client();
-        let message_expected = ProtocolConfigurationMessage::dummy();
+        let expected_message = SnapshotMessage::dummy();
         let _server_mock = server.mock(|when, then| {
-            when.path("/protocol-configuration/42");
-            then.status(200).body(json!(message_expected).to_string());
+            when.path(format!("/artifact/snapshot/{}", expected_message.digest));
+            then.status(200).body(json!(expected_message).to_string());
         });
 
-        let message = client
-            .send(GetProtocolConfigurationQuery::epoch(Epoch(42)))
+        let fetched_message = client
+            .send(GetSnapshotQuery::by_hash(&expected_message.digest))
             .await
             .unwrap();
 
-        assert_eq!(Some(message_expected), message);
+        assert_eq!(Some(expected_message), fetched_message);
     }
 
     #[tokio::test]
-    async fn test_ok_404() {
+    async fn test_snapshot_details_ok_404() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.any_request();
             then.status(404);
         });
 
-        let message = client
-            .send(GetProtocolConfigurationQuery::epoch(Epoch(42)))
-            .await
-            .unwrap();
+        let fetched_message = client.send(GetSnapshotQuery::by_hash("whatever")).await.unwrap();
 
-        assert_eq!(None, message);
+        assert_eq!(None, fetched_message);
     }
 
     #[tokio::test]
-    async fn test_ko_500() {
+    async fn test_snapshot_details_ko_500() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.any_request();
             then.status(500).body("an error occurred");
         });
 
-        let error = client
-            .send(GetProtocolConfigurationQuery::epoch(Epoch(42)))
-            .await
-            .expect_err("should throw a error");
+        let error = client.send(GetSnapshotQuery::by_hash("whatever")).await.unwrap_err();
 
         assert_error_matches!(error, AggregatorHttpClientError::RemoteServerTechnical(_));
     }

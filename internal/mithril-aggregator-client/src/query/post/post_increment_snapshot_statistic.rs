@@ -1,46 +1,39 @@
 use async_trait::async_trait;
 use reqwest::StatusCode;
 
-use mithril_common::messages::RegisterSignerMessage;
+use mithril_common::messages::SnapshotDownloadMessage;
 
 use crate::AggregatorHttpClientResult;
-use crate::query::{AggregatorQuery, QueryContext, QueryLogFields, QueryMethod};
+use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
 
-/// Query to register a signer to a Mithril Aggregator.
-pub struct PostRegisterSignerQuery {
-    message: RegisterSignerMessage,
+/// Query to notify the aggregator that a snapshot has been downloaded.
+pub struct PostIncrementSnapshotDownloadStatisticQuery {
+    message: SnapshotDownloadMessage,
 }
 
-impl PostRegisterSignerQuery {
-    /// Instantiate a new query to register a signer
-    pub fn new(message: RegisterSignerMessage) -> Self {
+impl PostIncrementSnapshotDownloadStatisticQuery {
+    /// Instantiate a new query that will notify the aggregator that a snapshot has been downloaded.
+    pub fn new(message: SnapshotDownloadMessage) -> Self {
         Self { message }
     }
 }
 
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
-impl AggregatorQuery for PostRegisterSignerQuery {
+impl AggregatorQuery for PostIncrementSnapshotDownloadStatisticQuery {
     type Response = ();
-    type Body = RegisterSignerMessage;
+    type Body = SnapshotDownloadMessage;
 
     fn method() -> QueryMethod {
         QueryMethod::Post
     }
 
     fn route(&self) -> String {
-        "register-signer".to_string()
+        "statistics/snapshot".to_string()
     }
 
     fn body(&self) -> Option<Self::Body> {
         Some(self.message.clone())
-    }
-
-    fn entry_log_additional_fields(&self) -> QueryLogFields {
-        QueryLogFields::from([
-            ("epoch", format!("{}", *self.message.epoch)),
-            ("party_id", self.message.party_id.clone()),
-        ])
     }
 
     async fn handle_response(
@@ -67,31 +60,37 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_register_signer_ok_201() {
-        let expected_message = RegisterSignerMessage::dummy();
+    async fn test_increment_snapshot_download_statistics_ok_201() {
+        let expected_message = SnapshotDownloadMessage::dummy();
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.method(POST)
-                .path("/register-signer")
+                .path("/statistics/snapshot")
                 .body(serde_json::to_string(&expected_message).unwrap());
             then.status(201);
         });
 
-        let register_signer = client.send(PostRegisterSignerQuery::new(expected_message)).await;
-        register_signer.expect("unexpected error");
+        let statistic_query = client
+            .send(PostIncrementSnapshotDownloadStatisticQuery::new(
+                expected_message,
+            ))
+            .await;
+        statistic_query.expect("unexpected error");
     }
 
     #[tokio::test]
-    async fn test_register_signer_ko_400() {
+    async fn test_increment_snapshot_download_statistics_ko_400() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
-            when.any_request();
+            when.method(POST).any_request();
             then.status(400)
                 .body(serde_json::to_vec(&ClientError::dummy()).unwrap());
         });
 
         let error = client
-            .send(PostRegisterSignerQuery::new(RegisterSignerMessage::dummy()))
+            .send(PostIncrementSnapshotDownloadStatisticQuery::new(
+                SnapshotDownloadMessage::dummy(),
+            ))
             .await
             .unwrap_err();
 
@@ -99,15 +98,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signer_ko_500() {
+    async fn test_increment_snapshot_download_statistics_ko_500() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
-            when.any_request();
+            when.method(POST).any_request();
             then.status(500).body("an error occurred");
         });
 
         let error = client
-            .send(PostRegisterSignerQuery::new(RegisterSignerMessage::dummy()))
+            .send(PostIncrementSnapshotDownloadStatisticQuery::new(
+                SnapshotDownloadMessage::dummy(),
+            ))
             .await
             .unwrap_err();
 

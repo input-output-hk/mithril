@@ -1,7 +1,6 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
 use reqwest::StatusCode;
-use slog::debug;
 
 use mithril_common::messages::CertificateMessage;
 
@@ -46,8 +45,6 @@ impl AggregatorQuery for GetCertificateQuery {
         &self,
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
-        debug!(context.logger, "Retrieve certificate details"; "certificate_hash" => %self.hash);
-
         match context.response.status() {
             StatusCode::OK => match context.response.json::<CertificateMessage>().await {
                 Ok(message) => Ok(Some(message)),
@@ -133,7 +130,7 @@ mod tests {
     async fn test_latest_genesis_ok_404() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
-            when.path("/certificate/genesis");
+            when.any_request();
             then.status(404);
         });
 
@@ -146,7 +143,7 @@ mod tests {
     async fn test_latest_genesis_ko_500() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
-            when.path("/certificate/genesis");
+            when.any_request();
             then.status(500).body("an error occurred");
         });
 

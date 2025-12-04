@@ -1,46 +1,28 @@
 use async_trait::async_trait;
 use reqwest::StatusCode;
 
-use mithril_common::messages::RegisterSignerMessage;
-
 use crate::AggregatorHttpClientResult;
-use crate::query::{AggregatorQuery, QueryContext, QueryLogFields, QueryMethod};
+use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
 
-/// Query to register a signer to a Mithril Aggregator.
-pub struct PostRegisterSignerQuery {
-    message: RegisterSignerMessage,
-}
-
-impl PostRegisterSignerQuery {
-    /// Instantiate a new query to register a signer
-    pub fn new(message: RegisterSignerMessage) -> Self {
-        Self { message }
-    }
-}
+/// Query to notify the aggregator that Cardano database ancillary files have been restored.
+pub struct PostIncrementCardanoDatabaseAncillaryRestoredStatisticQuery;
 
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
-impl AggregatorQuery for PostRegisterSignerQuery {
+impl AggregatorQuery for PostIncrementCardanoDatabaseAncillaryRestoredStatisticQuery {
     type Response = ();
-    type Body = RegisterSignerMessage;
+    type Body = ();
 
     fn method() -> QueryMethod {
         QueryMethod::Post
     }
 
     fn route(&self) -> String {
-        "register-signer".to_string()
+        "statistics/cardano-database/ancillary-files-restored".to_string()
     }
 
     fn body(&self) -> Option<Self::Body> {
-        Some(self.message.clone())
-    }
-
-    fn entry_log_additional_fields(&self) -> QueryLogFields {
-        QueryLogFields::from([
-            ("epoch", format!("{}", *self.message.epoch)),
-            ("party_id", self.message.party_id.clone()),
-        ])
+        None
     }
 
     async fn handle_response(
@@ -67,31 +49,32 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_register_signer_ok_201() {
-        let expected_message = RegisterSignerMessage::dummy();
+    async fn test_increment_cdb_ancillary_restored_statistics_ok_201() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.method(POST)
-                .path("/register-signer")
-                .body(serde_json::to_string(&expected_message).unwrap());
+                .path("/statistics/cardano-database/ancillary-files-restored")
+                .body("");
             then.status(201);
         });
 
-        let register_signer = client.send(PostRegisterSignerQuery::new(expected_message)).await;
-        register_signer.expect("unexpected error");
+        let statistic_query = client
+            .send(PostIncrementCardanoDatabaseAncillaryRestoredStatisticQuery)
+            .await;
+        statistic_query.expect("unexpected error");
     }
 
     #[tokio::test]
-    async fn test_register_signer_ko_400() {
+    async fn test_increment_cdb_ancillary_restored_statistics_ko_400() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
-            when.any_request();
+            when.method(POST).any_request();
             then.status(400)
                 .body(serde_json::to_vec(&ClientError::dummy()).unwrap());
         });
 
         let error = client
-            .send(PostRegisterSignerQuery::new(RegisterSignerMessage::dummy()))
+            .send(PostIncrementCardanoDatabaseAncillaryRestoredStatisticQuery)
             .await
             .unwrap_err();
 
@@ -99,15 +82,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signer_ko_500() {
+    async fn test_increment_cdb_ancillary_restored_statistics_ko_500() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
-            when.any_request();
+            when.method(POST).any_request();
             then.status(500).body("an error occurred");
         });
 
         let error = client
-            .send(PostRegisterSignerQuery::new(RegisterSignerMessage::dummy()))
+            .send(PostIncrementCardanoDatabaseAncillaryRestoredStatisticQuery)
             .await
             .unwrap_err();
 

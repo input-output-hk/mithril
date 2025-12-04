@@ -622,7 +622,6 @@ mod tests {
 
             assert!(
                 log_inspector.contains_log(&format!("WARN {ANCILLARIES_NOT_SIGNED_BY_MITHRIL}")),
-                "Expected log message not found, logs: {log_inspector}"
             );
         }
 
@@ -677,7 +676,6 @@ mod tests {
 
             assert!(
                 log_inspector.contains_log("The fast bootstrap of the Cardano node is not available with the current parameters used in this command: the ledger state will be recomputed from genesis at startup of the Cardano node. Set the include_ancillary entry to true in the DownloadUnpackOptions."),
-                "Expected log message not found, logs: {log_inspector}"
             );
         }
 

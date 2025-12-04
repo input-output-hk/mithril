@@ -392,7 +392,6 @@ mod tests {
             assert!(
                 log_inspector
                     .contains_log(&format!(r#"WARN Unexpected files removed after downloads; removed_entries=["{IMMUTABLE_DIR}/dir_1/", "{IMMUTABLE_DIR}/dir_2/", "{IMMUTABLE_DIR}/file_1.txt", "{IMMUTABLE_DIR}/file_2.txt"]"#)),
-                "Expected log message not found, logs: {log_inspector}"
             );
         }
     }
