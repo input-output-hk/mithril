@@ -50,6 +50,18 @@ pub struct MithrilStakeDistributionClient {
     aggregator_client: Arc<dyn AggregatorClient>,
 }
 
+/// Define the requests against an Aggregator related to Mithril stake distribution.
+#[cfg_attr(test, mockall::automock)]
+#[cfg_attr(target_family = "wasm", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_family = "wasm"), async_trait::async_trait)]
+pub trait MithrilStakeDistributionAggregatorRequest: Send + Sync {
+    /// Get the list of latest Mithril stake distributions from the Aggregator.
+    async fn list_latest(&self) -> MithrilResult<Vec<MithrilStakeDistributionListItem>>;
+
+    /// Get a Mithril stake distribution for a given hash from the Aggregator.
+    async fn get_by_hash(&self, hash: &str) -> MithrilResult<Option<MithrilStakeDistribution>>;
+}
+
 impl MithrilStakeDistributionClient {
     /// Constructs a new `MithrilStakeDistributionClient`.
     pub fn new(aggregator_client: Arc<dyn AggregatorClient>) -> Self {

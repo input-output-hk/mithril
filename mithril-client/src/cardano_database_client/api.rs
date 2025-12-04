@@ -17,7 +17,7 @@ use mithril_cardano_node_internal_database::entities::ImmutableFile;
 use crate::aggregator_client::AggregatorClient;
 #[cfg(feature = "fs")]
 use crate::cardano_database_client::{VerifiedDigests, proving::CardanoDatabaseVerificationError};
-use crate::common::Epoch;
+use crate::common::{Epoch, EpochSpecifier};
 #[cfg(feature = "fs")]
 use crate::feedback::FeedbackSender;
 #[cfg(feature = "fs")]
@@ -42,6 +42,39 @@ pub struct CardanoDatabaseClient {
     #[cfg(feature = "fs")]
     pub(super) artifact_prover: InternalArtifactProver,
     pub(super) statistics_sender: InternalStatisticsSender,
+}
+
+/// Define the requests against an Aggregator related to Cardano database v2 snapshots.
+#[cfg_attr(test, mockall::automock)]
+#[cfg_attr(target_family = "wasm", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_family = "wasm"), async_trait::async_trait)]
+pub trait CardanoDatabaseAggregatorRequest: Send + Sync {
+    /// Get the list of the latest Cardano database v2 snapshots from the Aggregator.
+    async fn list_latest(&self) -> MithrilResult<Vec<CardanoDatabaseSnapshotListItem>>;
+
+    /// Get the list of the latest Cardano database v2 snapshots for an [EpochSpecifier] from the Aggregator.
+    async fn list_by_epoch(
+        &self,
+        specifier: EpochSpecifier,
+    ) -> MithrilResult<Vec<CardanoDatabaseSnapshotListItem>>;
+
+    /// Get the details of a Cardano database v2 snapshot for a given hash from the Aggregator.
+    async fn get_by_hash(&self, hash: &str) -> MithrilResult<Option<CardanoDatabaseSnapshot>>;
+
+    /// Notify the aggregator that a complete Cardano database v2 restoration has been performed.
+    async fn increment_cardano_database_complete_restoration_statistic(&self) -> MithrilResult<()>;
+
+    /// Notify the aggregator that a partial Cardano database v2 restoration has been performed.
+    async fn increment_cardano_database_partial_restoration_statistic(&self) -> MithrilResult<()>;
+
+    /// Notify the aggregator that a given number of immutable files has been downloaded.
+    async fn increment_immutables_snapshot_restored_statistic(
+        &self,
+        number_of_immutable_files_restored: u32,
+    ) -> MithrilResult<()>;
+
+    /// Notify the aggregator that a Cardano database v2 ancillary file has been downloaded.
+    async fn increment_ancillary_downloaded_statistic(&self) -> MithrilResult<()>;
 }
 
 impl CardanoDatabaseClient {

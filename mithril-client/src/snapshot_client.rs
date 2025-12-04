@@ -160,6 +160,24 @@ pub struct SnapshotClient {
     logger: Logger,
 }
 
+/// Define the requests against an Aggregator related to Cardano database v1 snapshots.
+#[cfg_attr(test, mockall::automock)]
+#[cfg_attr(target_family = "wasm", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_family = "wasm"), async_trait::async_trait)]
+pub trait SnapshotAggregatorRequest: Send + Sync {
+    /// Get the list of the latest Cardano database v1 snapshots from the Aggregator.
+    async fn list_latest(&self) -> MithrilResult<Vec<SnapshotListItem>>;
+
+    /// Get the details of a Cardano database v1 snapshot for a given hash from the Aggregator.
+    async fn get_by_hash(&self, hash: &str) -> MithrilResult<Option<Snapshot>>;
+
+    /// Notify the aggregator that a Cardano database v1 snapshot has been downloaded.
+    async fn increment_snapshot_downloaded_statistic(
+        &self,
+        snapshot: Snapshot,
+    ) -> MithrilResult<()>;
+}
+
 impl SnapshotClient {
     /// Constructs a new `SnapshotClient`.
     pub fn new(
