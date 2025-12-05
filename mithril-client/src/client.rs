@@ -326,11 +326,6 @@ impl ClientBuilder {
 
         let aggregator_client = Arc::new(self.build_aggregator_client(logger.clone())?);
 
-        let aggregator_client_old = match self.aggregator_client {
-            None => Arc::new(self.build_old_aggregator_client(logger.clone())?),
-            Some(client) => client,
-        };
-
         let mithril_era_client = match self.era_fetcher {
             None => Arc::new(MithrilEraClient::new(aggregator_client.clone())),
             Some(era_fetcher) => Arc::new(MithrilEraClient::new(era_fetcher)),
@@ -395,7 +390,7 @@ impl ClientBuilder {
         ));
 
         let cardano_database_client = Arc::new(CardanoDatabaseClient::new(
-            aggregator_client_old.clone(),
+            aggregator_client.clone(),
             #[cfg(feature = "fs")]
             http_file_downloader,
             #[cfg(feature = "fs")]
