@@ -14,7 +14,6 @@ use mithril_common::{
 #[cfg(feature = "fs")]
 use mithril_cardano_node_internal_database::entities::ImmutableFile;
 
-use crate::aggregator_client::AggregatorClient;
 #[cfg(feature = "fs")]
 use crate::cardano_database_client::{VerifiedDigests, proving::CardanoDatabaseVerificationError};
 use crate::common::{Epoch, EpochSpecifier};
@@ -80,7 +79,7 @@ pub trait CardanoDatabaseAggregatorRequest: Send + Sync {
 impl CardanoDatabaseClient {
     /// Constructs a new `CardanoDatabase`.
     pub fn new(
-        aggregator_client: Arc<dyn AggregatorClient>,
+        aggregator_requester: Arc<dyn CardanoDatabaseAggregatorRequest>,
         #[cfg(feature = "fs")] http_file_downloader: Arc<dyn FileDownloader>,
         #[cfg(feature = "fs")] ancillary_verifier: Option<Arc<AncillaryVerifier>>,
         #[cfg(feature = "fs")] feedback_sender: FeedbackSender,
@@ -91,7 +90,7 @@ impl CardanoDatabaseClient {
         let logger =
             mithril_common::logging::LoggerExtensions::new_with_component_name::<Self>(&logger);
         Self {
-            artifact_retriever: InternalArtifactRetriever::new(aggregator_client.clone()),
+            artifact_retriever: InternalArtifactRetriever::new(aggregator_requester.clone()),
             #[cfg(feature = "fs")]
             artifact_downloader: InternalArtifactDownloader::new(
                 http_file_downloader.clone(),
@@ -105,7 +104,7 @@ impl CardanoDatabaseClient {
                 temp_directory_provider.clone(),
                 logger.clone(),
             ),
-            statistics_sender: InternalStatisticsSender::new(aggregator_client.clone()),
+            statistics_sender: InternalStatisticsSender::new(aggregator_requester.clone()),
         }
     }
 
@@ -229,7 +228,6 @@ pub(crate) mod test_dependency_injector {
     #[cfg(feature = "fs")]
     use mithril_common::crypto_helper::ManifestVerifierVerificationKey;
 
-    use crate::aggregator_client::MockAggregatorClient;
     #[cfg(feature = "fs")]
     use crate::file_downloader::{FileDownloader, MockFileDownloaderBuilder};
     #[cfg(feature = "fs")]
@@ -239,7 +237,7 @@ pub(crate) mod test_dependency_injector {
 
     /// Dependency injector for `CardanoDatabaseClient` for testing purposes.
     pub(crate) struct CardanoDatabaseClientDependencyInjector {
-        aggregator_client: MockAggregatorClient,
+        aggregator_requester: MockCardanoDatabaseAggregatorRequest,
         #[cfg(feature = "fs")]
         http_file_downloader: Arc<dyn FileDownloader>,
         #[cfg(feature = "fs")]
@@ -255,7 +253,7 @@ pub(crate) mod test_dependency_injector {
     impl CardanoDatabaseClientDependencyInjector {
         pub(crate) fn new() -> Self {
             Self {
-                aggregator_client: MockAggregatorClient::new(),
+                aggregator_requester: MockCardanoDatabaseAggregatorRequest::new(),
                 #[cfg(feature = "fs")]
                 http_file_downloader: Arc::new(
                     MockFileDownloaderBuilder::default()
@@ -283,11 +281,11 @@ pub(crate) mod test_dependency_injector {
             Self { logger, ..self }
         }
 
-        pub(crate) fn with_aggregator_client_mock_config<F>(mut self, config: F) -> Self
+        pub(crate) fn with_aggregator_requester_mock_config<F>(mut self, config: F) -> Self
         where
-            F: FnOnce(&mut MockAggregatorClient),
+            F: FnOnce(&mut MockCardanoDatabaseAggregatorRequest),
         {
-            config(&mut self.aggregator_client);
+            config(&mut self.aggregator_requester);
 
             self
         }
@@ -342,7 +340,7 @@ pub(crate) mod test_dependency_injector {
         #[cfg(feature = "fs")]
         pub(crate) fn build_cardano_database_client(self) -> CardanoDatabaseClient {
             CardanoDatabaseClient::new(
-                Arc::new(self.aggregator_client),
+                Arc::new(self.aggregator_requester),
                 self.http_file_downloader,
                 self.ancillary_verifier,
                 FeedbackSender::new(&self.feedback_receivers),
@@ -353,17 +351,15 @@ pub(crate) mod test_dependency_injector {
 
         #[cfg(not(feature = "fs"))]
         pub(crate) fn build_cardano_database_client(self) -> CardanoDatabaseClient {
-            CardanoDatabaseClient::new(Arc::new(self.aggregator_client))
+            CardanoDatabaseClient::new(Arc::new(self.aggregator_requester))
         }
     }
 
     mod tests {
-        use mithril_common::test::double::Dummy;
-        use mockall::predicate;
-
-        use crate::aggregator_client::AggregatorRequest;
         #[cfg(feature = "fs")]
         use crate::feedback::StackFeedbackReceiver;
+
+        use crate::common::test::Dummy;
 
         use super::*;
 
@@ -371,17 +367,12 @@ pub(crate) mod test_dependency_injector {
         #[test]
         fn test_cardano_database_client_dependency_injector_builds() {
             let _ = CardanoDatabaseClientDependencyInjector::new()
-                .with_aggregator_client_mock_config(|http_client| {
+                .with_aggregator_requester_mock_config(|requester| {
                     let message = vec![CardanoDatabaseSnapshotListItem {
                         hash: "hash-123".to_string(),
                         ..CardanoDatabaseSnapshotListItem::dummy()
                     }];
-                    http_client
-                        .expect_get_content()
-                        .with(predicate::eq(
-                            AggregatorRequest::ListCardanoDatabaseSnapshots,
-                        ))
-                        .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
+                    requester.expect_list_latest().return_once(move || Ok(message));
                 })
                 .with_http_file_downloader(Arc::new(
                     MockFileDownloaderBuilder::default()
@@ -397,17 +388,12 @@ pub(crate) mod test_dependency_injector {
         #[test]
         fn test_cardano_database_client_dependency_injector_builds() {
             let _ = CardanoDatabaseClientDependencyInjector::new()
-                .with_aggregator_client_mock_config(|http_client| {
+                .with_aggregator_requester_mock_config(|requester| {
                     let message = vec![CardanoDatabaseSnapshotListItem {
                         hash: "hash-123".to_string(),
                         ..CardanoDatabaseSnapshotListItem::dummy()
                     }];
-                    http_client
-                        .expect_get_content()
-                        .with(predicate::eq(
-                            AggregatorRequest::ListCardanoDatabaseSnapshots,
-                        ))
-                        .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
+                    requester.expect_list_latest().return_once(move || Ok(message));
                 })
                 .build_cardano_database_client();
         }
