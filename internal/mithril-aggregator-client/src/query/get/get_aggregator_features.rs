@@ -1,7 +1,6 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
 use reqwest::StatusCode;
-use slog::debug;
 
 use mithril_common::messages::AggregatorFeaturesMessage;
 
@@ -29,15 +28,13 @@ impl AggregatorQuery for GetAggregatorFeaturesQuery {
     }
 
     fn route(&self) -> String {
-        "/".to_string()
+        "".to_string()
     }
 
     async fn handle_response(
         &self,
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
-        debug!(context.logger, "Retrieve aggregator features message");
-
         match context.response.status() {
             StatusCode::OK => Ok(context
                 .response

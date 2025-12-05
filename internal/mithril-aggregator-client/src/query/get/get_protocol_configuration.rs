@@ -1,13 +1,14 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
+use reqwest::StatusCode;
+
 use mithril_common::entities::Epoch;
 use mithril_common::messages::ProtocolConfigurationMessage;
-use reqwest::StatusCode;
 
 use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
 use crate::{AggregatorHttpClientError, AggregatorHttpClientResult};
 
-/// Query to get the current epoch settings
+/// Query to get the protocol configuration of a given epoch
 pub struct GetProtocolConfigurationQuery {
     epoch: Epoch,
 }
@@ -79,7 +80,7 @@ mod tests {
     async fn test_ok_404() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
-            when.path("/protocol-configuration/42");
+            when.any_request();
             then.status(404);
         });
 
@@ -95,7 +96,7 @@ mod tests {
     async fn test_ko_500() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
-            when.path("/protocol-configuration/42");
+            when.any_request();
             then.status(500).body("an error occurred");
         });
 

@@ -5,7 +5,9 @@ use cli_table::{Cell, Table, print_stdout};
 use crate::{
     CommandContext, commands::client_builder_with_fallback_genesis_key, utils::ExpanderUtils,
 };
-use mithril_client::MithrilResult;
+use mithril_client::{
+    MithrilResult, RequiredAggregatorCapabilities, common::SignedEntityTypeDiscriminants,
+};
 
 /// Clap command to show a given Cardano transaction snapshot
 #[derive(Parser, Debug, Clone)]
@@ -18,6 +20,9 @@ impl CardanoTransactionsSnapshotShowCommand {
     /// Cardano transaction snapshot Show command
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         let client = client_builder_with_fallback_genesis_key(context.config_parameters())?
+            .with_capabilities(RequiredAggregatorCapabilities::SignedEntityType(
+                SignedEntityTypeDiscriminants::CardanoTransactions,
+            ))
             .with_logger(context.logger().clone())
             .build()?;
 

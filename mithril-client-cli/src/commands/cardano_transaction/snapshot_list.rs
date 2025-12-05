@@ -1,10 +1,11 @@
 use clap::Parser;
 use cli_table::format::Justify;
 use cli_table::{Cell, Table, print_stdout};
+use mithril_client::common::SignedEntityTypeDiscriminants;
 
 use crate::CommandContext;
 use crate::commands::client_builder_with_fallback_genesis_key;
-use mithril_client::MithrilResult;
+use mithril_client::{MithrilResult, RequiredAggregatorCapabilities};
 
 /// Cardano transaction snapshot list command
 #[derive(Parser, Debug, Clone)]
@@ -14,6 +15,9 @@ impl CardanoTransactionSnapshotListCommand {
     /// Main command execution
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         let client = client_builder_with_fallback_genesis_key(context.config_parameters())?
+            .with_capabilities(RequiredAggregatorCapabilities::SignedEntityType(
+                SignedEntityTypeDiscriminants::CardanoTransactions,
+            ))
             .with_logger(context.logger().clone())
             .build()?;
         let lines = client.cardano_transaction().list_snapshots().await?;

@@ -1,11 +1,10 @@
 use async_trait::async_trait;
 use reqwest::StatusCode;
-use slog::debug;
 
 use mithril_common::messages::RegisterSignerMessage;
 
 use crate::AggregatorHttpClientResult;
-use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
+use crate::query::{AggregatorQuery, QueryContext, QueryLogFields, QueryMethod};
 
 /// Query to register a signer to a Mithril Aggregator.
 pub struct PostRegisterSignerQuery {
@@ -37,12 +36,17 @@ impl AggregatorQuery for PostRegisterSignerQuery {
         Some(self.message.clone())
     }
 
+    fn entry_log_additional_fields(&self) -> QueryLogFields {
+        QueryLogFields::from([
+            ("epoch", format!("{}", *self.message.epoch)),
+            ("party_id", self.message.party_id.clone()),
+        ])
+    }
+
     async fn handle_response(
         &self,
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
-        debug!(context.logger, "Register signer"; "epoch" => *self.message.epoch, "party_id" => &self.message.party_id);
-
         match context.response.status() {
             StatusCode::CREATED => Ok(()),
             _ => Err(context.unhandled_status_code().await),
@@ -81,14 +85,9 @@ mod tests {
     async fn test_register_signer_ko_400() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
-            when.method(POST).path("/register-signer");
-            then.status(400).body(
-                serde_json::to_vec(&ClientError::new(
-                    "error".to_string(),
-                    "an error".to_string(),
-                ))
-                .unwrap(),
-            );
+            when.any_request();
+            then.status(400)
+                .body(serde_json::to_vec(&ClientError::dummy()).unwrap());
         });
 
         let error = client
@@ -103,7 +102,7 @@ mod tests {
     async fn test_register_signer_ko_500() {
         let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
-            when.method(POST).path("/register-signer");
+            when.any_request();
             then.status(500).body("an error occurred");
         });
 

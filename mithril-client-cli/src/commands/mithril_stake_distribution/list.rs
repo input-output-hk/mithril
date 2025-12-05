@@ -2,7 +2,9 @@ use clap::Parser;
 use cli_table::{Cell, Table, format::Justify, print_stdout};
 
 use crate::{CommandContext, commands::client_builder_with_fallback_genesis_key};
-use mithril_client::MithrilResult;
+use mithril_client::{
+    MithrilResult, RequiredAggregatorCapabilities, common::SignedEntityTypeDiscriminants,
+};
 
 /// Mithril stake distribution LIST command
 #[derive(Parser, Debug, Clone)]
@@ -12,6 +14,9 @@ impl MithrilStakeDistributionListCommand {
     /// Main command execution
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         let client = client_builder_with_fallback_genesis_key(context.config_parameters())?
+            .with_capabilities(RequiredAggregatorCapabilities::SignedEntityType(
+                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+            ))
             .with_logger(context.logger().clone())
             .build()?;
         let lines = client.mithril_stake_distribution().list().await?;

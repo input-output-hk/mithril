@@ -1,5 +1,13 @@
+mod post_increment_cardano_database_ancillary_restored_statistic;
+mod post_increment_cardano_database_immutables_restored_statistic;
+mod post_increment_cardano_database_restoration_statistic;
+mod post_increment_snapshot_statistic;
 mod post_register_signature;
 mod post_register_signer;
 
+pub use post_increment_cardano_database_ancillary_restored_statistic::*;
+pub use post_increment_cardano_database_immutables_restored_statistic::*;
+pub use post_increment_cardano_database_restoration_statistic::*;
+pub use post_increment_snapshot_statistic::*;
 pub use post_register_signature::*;
 pub use post_register_signer::*;

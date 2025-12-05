@@ -5,10 +5,14 @@
 use anyhow::anyhow;
 use clap::Parser;
 use slog::info;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use mithril_client::common::TransactionHash;
-use mithril_client::{ClientBuilder, MessageBuilder, MithrilResult, VerifiedCardanoTransactions};
+use mithril_client::{
+    AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder, MithrilResult,
+    VerifiedCardanoTransactions,
+};
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -22,6 +26,10 @@ pub struct Args {
     genesis_verification_key: String,
 
     /// Aggregator endpoint URL.
+    ///
+    /// Either:
+    /// - Full URL of the aggregator endpoint (e.g., "https://aggregator.release-preprod.api.mithril.network/aggregator").
+    /// - "auto:<mithril_network>" to use automatic discovery (e.g., "auto:release-preprod") (unstable).
     #[clap(
         long,
         env = "AGGREGATOR_ENDPOINT",
@@ -43,11 +51,15 @@ async fn main() -> MithrilResult<()> {
         .map(|s| s.as_str())
         .collect::<Vec<&str>>();
     let logger = build_logger();
-    let client =
-        ClientBuilder::aggregator(&args.aggregator_endpoint, &args.genesis_verification_key)
-            .with_origin_tag(Some("EXAMPLE".to_string()))
-            .with_logger(logger.clone())
-            .build()?;
+    let client = ClientBuilder::new(AggregatorDiscoveryType::from_str(
+        &args.aggregator_endpoint,
+    )?)
+    .set_genesis_verification_key(GenesisVerificationKey::JsonHex(
+        args.genesis_verification_key.clone(),
+    ))
+    .with_origin_tag(Some("EXAMPLE".to_string()))
+    .with_logger(logger.clone())
+    .build()?;
 
     info!(logger, "Fetching a proof for the given transactions...",);
     let cardano_transaction_proof = client

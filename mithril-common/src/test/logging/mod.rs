@@ -12,42 +12,43 @@ pub use memory_logger::*;
 /// ## Methods
 ///
 /// - `TestLogger::stdout()` - Logger that outputs to stdout.
-/// - `TestLogger::memory()` - Logger that stores messages in memory for inspection.
+/// - `TestLogger::memory()` - Logger that stores messages in memory for inspection and still outputs stdout.
 ///   Returns `(Logger, MemoryDrainForTestInspector)` tuple
 ///
 /// Requires: `slog`, `slog_async`, `slog_term`
 #[macro_export]
 macro_rules! define_test_logger {
     () => {
+        /// Logger builder for tests
         #[cfg(test)]
         pub(crate) struct TestLogger;
 
         #[cfg(test)]
         mod test_logger_impl {
             use std::io;
-            use std::sync::Arc;
 
             use slog::{Drain, Logger};
             use slog_async::Async;
-            use slog_term::{CompactFormat, PlainDecorator};
+            use slog_term::{CompactFormat, PlainDecorator, TestStdoutWriter};
 
             use $crate::test::logging::{MemoryDrainForTest, MemoryDrainForTestInspector};
 
             impl super::TestLogger {
-                fn from_writer<W: io::Write + Send + 'static>(writer: W) -> Logger {
+                fn from_writer<W: io::Write + Send + 'static>(writer: W) -> Async {
                     let decorator = PlainDecorator::new(writer);
                     let drain = CompactFormat::new(decorator).build().fuse();
-                    let drain = Async::new(drain).build().fuse();
-                    Logger::root(Arc::new(drain), slog::o!())
+                    Async::new(drain).build()
                 }
 
+                /// Create a logger that outputs to stdout.
                 pub(crate) fn stdout() -> Logger {
-                    Self::from_writer(slog_term::TestStdoutWriter)
+                    Logger::root(Self::from_writer(TestStdoutWriter).fuse(), slog::o!())
                 }
 
+                /// Create a logger that stores messages in memory for inspection and still outputs stdout.
                 pub(crate) fn memory() -> (Logger, MemoryDrainForTestInspector) {
-                    let (drain, inspector) = MemoryDrainForTest::new();
-                    (Logger::root(drain.fuse(), slog::o!()), inspector)
+                    let (memory_drain, inspector) = MemoryDrainForTest::new();
+                    (Logger::root(memory_drain.fuse(), slog::o!()), inspector)
                 }
             }
         }

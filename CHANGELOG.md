@@ -10,7 +10,9 @@ As a minor extension, we have adopted a slightly different versioning convention
 ## Mithril Distribution [XXXX] - UNRELEASED
 
 - Client library, CLI and WASM:
-  - **DEPRECATED**: The `cardano_db` function have been deprecated and the `snapshot` function was removed in the `Client` struct of the library.
+  - Support for stable cardano database v2 methods in the client WASM library.
+
+  - **DEPRECATED**: The `cardano_db` function has been deprecated and the `snapshot` function was removed in the `Client` struct of the library, there WASM counterparts were deprecated too.
 
   - **DEPRECATED**: The flag `--backend v1` of the `cardano-db` command has been deprecated CLI, use the `--backend v2` instead.
 
@@ -20,6 +22,11 @@ As a minor extension, we have adopted a slightly different versioning convention
   - Added the `/protocol-configuration/{epoch}` route to fetch aggregator configuration for a given epoch, `{epoch}` must be a number.
   - Refactor Signer and Aggregator (leader, follower) to read network configurations from a `MithrilNetworkConfigurationProvider`
   - Support for reading network configurations from its leader aggregator for the follower aggregators.
+
+- Support for new `Lagrange` Mithril era.
+
+- **UNSTABLE**:
+  - Support for aggregator discovery mechanism in the client library and CLI.
 
 - Crates versions:
 
@@ -32,7 +39,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 - Client library, CLI and WASM:
   - **DEPRECATED**: The `with_aggregator_client` and `new` functions have been deprecated in the `ClientBuilder` struct of the library.
 
-  - Support for default incremental backend (`v2`) for Cardano database restoration in the client library, CLI and WASM.
+  - Support for default incremental backend (`v2`) for Cardano database restoration in the client library and CLI.
 
   - Enhanced verification of a Cardano database which now provides a list of tampered and missing files in case of failure.
 

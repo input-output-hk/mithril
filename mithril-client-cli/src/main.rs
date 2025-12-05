@@ -67,6 +67,9 @@ pub struct Args {
     pub config_directory: PathBuf,
 
     /// Override configuration Aggregator endpoint URL.
+    ///
+    /// Either the full URL of the aggregator endpoint (e.g., "https://aggregator.release-preprod.api.mithril.network/aggregator")
+    /// or a string formatted as "auto:<mithril_network>" to use automatic discovery (e.g., "auto:release-preprod") (unstable).
     #[clap(long, env = "AGGREGATOR_ENDPOINT", global = true)]
     #[example = "`https://aggregator.pre-release-preview.api.mithril.network/aggregator`"]
     aggregator_endpoint: Option<String>,
@@ -250,7 +253,7 @@ impl ArtifactCommands {
             Self::GenerateDoc(cmd) => {
                 cmd.execute(&mut Args::command()).map_err(|message| anyhow!(message))
             }
-            Self::Tools(cmd) => cmd.execute().await,
+            Self::Tools(cmd) => cmd.execute(context).await,
         }
     }
 }

@@ -1,12 +1,24 @@
+use std::collections::HashMap;
+#[cfg(not(target_family = "wasm"))]
+use std::str::FromStr;
+use std::sync::Arc;
+
 use anyhow::{Context, anyhow};
-#[cfg(feature = "fs")]
+#[cfg(any(feature = "fs", not(target_family = "wasm")))]
 use chrono::Utc;
+#[cfg(not(target_family = "wasm"))]
+use rand::SeedableRng;
+#[cfg(not(target_family = "wasm"))]
+use rand::rngs::StdRng;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use slog::{Logger, o};
-use std::collections::HashMap;
-use std::sync::Arc;
 
+#[cfg(not(target_family = "wasm"))]
+use mithril_aggregator_discovery::{
+    AggregatorDiscoverer, AggregatorEndpoint, CapableAggregatorDiscoverer,
+    HttpConfigAggregatorDiscoverer, RequiredAggregatorCapabilities, ShuffleAggregatorDiscoverer,
+};
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
 
@@ -20,6 +32,8 @@ use crate::certificate_client::CertificateVerifierCache;
 use crate::certificate_client::{
     CertificateClient, CertificateVerifier, MithrilCertificateVerifier,
 };
+#[cfg(not(target_family = "wasm"))]
+use crate::common::MithrilNetwork;
 use crate::era::{AggregatorHttpEraFetcher, EraFetcher, MithrilEraClient};
 use crate::feedback::{FeedbackReceiver, FeedbackSender};
 #[cfg(feature = "fs")]
@@ -38,6 +52,36 @@ const DEFAULT_CLIENT_TYPE: &str = "LIBRARY";
 #[cfg(target_family = "wasm")]
 const fn one_week_in_seconds() -> u32 {
     604800
+}
+
+/// The type of discovery to use to find the aggregator to connect to.
+pub enum AggregatorDiscoveryType {
+    /// Use a specific URL to connect to the aggregator.
+    Url(String),
+    /// Automatically discover the aggregator.
+    #[cfg(not(target_family = "wasm"))]
+    Automatic(MithrilNetwork),
+}
+
+#[cfg(not(target_family = "wasm"))]
+impl FromStr for AggregatorDiscoveryType {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some(network) = s.strip_prefix("auto:") {
+            Ok(AggregatorDiscoveryType::Automatic(MithrilNetwork::new(
+                network.to_string(),
+            )))
+        } else {
+            Ok(AggregatorDiscoveryType::Url(s.to_string()))
+        }
+    }
+}
+
+/// The genesis verification key.
+pub enum GenesisVerificationKey {
+    /// The verification key is provided as a JSON Hex-encoded string.
+    JsonHex(String),
 }
 
 /// Options that can be used to configure the client.
@@ -151,10 +195,14 @@ impl Client {
     }
 }
 
-/// Builder than can be used to create a [Client] easily or with custom dependencies.
+/// Builder that can be used to create a [Client] easily or with custom dependencies.
 pub struct ClientBuilder {
-    aggregator_endpoint: Option<String>,
-    genesis_verification_key: String,
+    aggregator_discovery: AggregatorDiscoveryType,
+    #[cfg(not(target_family = "wasm"))]
+    aggregator_capabilities: Option<RequiredAggregatorCapabilities>,
+    #[cfg(not(target_family = "wasm"))]
+    aggregator_discoverer: Option<Arc<dyn AggregatorDiscoverer>>,
+    genesis_verification_key: Option<GenesisVerificationKey>,
     origin_tag: Option<String>,
     client_type: Option<String>,
     #[cfg(feature = "fs")]
@@ -174,10 +222,37 @@ pub struct ClientBuilder {
 impl ClientBuilder {
     /// Constructs a new `ClientBuilder` that fetches data from the aggregator at the given
     /// endpoint and with the given genesis verification key.
+    #[deprecated(
+        since = "0.12.36",
+        note = "Use `new` method instead and set the genesis verification key with `set_genesis_verification_key`"
+    )]
     pub fn aggregator(endpoint: &str, genesis_verification_key: &str) -> ClientBuilder {
+        Self::new(AggregatorDiscoveryType::Url(endpoint.to_string())).set_genesis_verification_key(
+            GenesisVerificationKey::JsonHex(genesis_verification_key.to_string()),
+        )
+    }
+
+    /// Constructs a new `ClientBuilder` that automatically discovers the aggregator for the given
+    /// Mithril network and with the given genesis verification key.
+    #[cfg(not(target_family = "wasm"))]
+    pub fn automatic(network: &str, genesis_verification_key: &str) -> ClientBuilder {
+        Self::new(AggregatorDiscoveryType::Automatic(MithrilNetwork::new(
+            network.to_string(),
+        )))
+        .set_genesis_verification_key(GenesisVerificationKey::JsonHex(
+            genesis_verification_key.to_string(),
+        ))
+    }
+
+    /// Constructs a new `ClientBuilder` without any dependency set.
+    pub fn new(aggregator_discovery: AggregatorDiscoveryType) -> ClientBuilder {
         Self {
-            aggregator_endpoint: Some(endpoint.to_string()),
-            genesis_verification_key: genesis_verification_key.to_string(),
+            aggregator_discovery,
+            #[cfg(not(target_family = "wasm"))]
+            aggregator_capabilities: None,
+            #[cfg(not(target_family = "wasm"))]
+            aggregator_discoverer: None,
+            genesis_verification_key: None,
             origin_tag: None,
             client_type: None,
             #[cfg(feature = "fs")]
@@ -195,30 +270,36 @@ impl ClientBuilder {
         }
     }
 
-    /// Constructs a new `ClientBuilder` without any dependency set.
-    ///
-    /// Use [ClientBuilder::aggregator] if you don't need to set a custom [AggregatorClient]
-    /// to request data from the aggregator.
-    #[deprecated(since = "0.12.33", note = "Will be removed in 0.13.0")]
-    pub fn new(genesis_verification_key: &str) -> ClientBuilder {
-        Self {
-            aggregator_endpoint: None,
-            genesis_verification_key: genesis_verification_key.to_string(),
-            origin_tag: None,
-            client_type: None,
-            #[cfg(feature = "fs")]
-            ancillary_verification_key: None,
-            aggregator_client: None,
-            certificate_verifier: None,
-            #[cfg(feature = "fs")]
-            http_file_downloader: None,
-            #[cfg(feature = "unstable")]
-            certificate_verifier_cache: None,
-            era_fetcher: None,
-            logger: None,
-            feedback_receivers: vec![],
-            options: ClientOptions::default(),
-        }
+    /// Sets the genesis verification key to use when verifying certificates.
+    pub fn set_genesis_verification_key(
+        mut self,
+        genesis_verification_key: GenesisVerificationKey,
+    ) -> ClientBuilder {
+        self.genesis_verification_key = Some(genesis_verification_key);
+
+        self
+    }
+
+    /// Sets the aggregator capabilities expected to be matched by the aggregator with which the client will interact.
+    #[cfg(not(target_family = "wasm"))]
+    pub fn with_capabilities(
+        mut self,
+        capabilities: RequiredAggregatorCapabilities,
+    ) -> ClientBuilder {
+        self.aggregator_capabilities = Some(capabilities);
+
+        self
+    }
+
+    /// Sets the aggregator discoverer to use to find the aggregator endpoint when in automatic discovery.
+    #[cfg(not(target_family = "wasm"))]
+    pub fn with_aggregator_discoverer(
+        mut self,
+        discoverer: Arc<dyn AggregatorDiscoverer>,
+    ) -> ClientBuilder {
+        self.aggregator_discoverer = Some(discoverer);
+
+        self
     }
 
     /// Returns a `Client` that uses the dependencies provided to this `ClientBuilder`.
@@ -230,6 +311,15 @@ impl ClientBuilder {
             .logger
             .clone()
             .unwrap_or_else(|| Logger::root(slog::Discard, o!()));
+
+        let genesis_verification_key = match self.genesis_verification_key {
+            Some(GenesisVerificationKey::JsonHex(ref key)) => key,
+            None => {
+                return Err(anyhow!(
+                    "The genesis verification key must be provided to build the client with the 'set_genesis_verification_key' function"
+                ));
+            }
+        };
 
         let feedback_sender = FeedbackSender::new(&self.feedback_receivers);
 
@@ -249,7 +339,7 @@ impl ClientBuilder {
             None => Arc::new(
                 MithrilCertificateVerifier::new(
                     aggregator_client.clone(),
-                    &self.genesis_verification_key,
+                    genesis_verification_key,
                     feedback_sender.clone(),
                     #[cfg(feature = "unstable")]
                     self.certificate_verifier_cache,
@@ -337,16 +427,62 @@ impl ClientBuilder {
         })
     }
 
-    fn build_aggregator_client(
+    /// Discover available aggregator endpoints for the given Mithril network and required capabilities.
+    #[cfg(not(target_family = "wasm"))]
+    pub fn discover_aggregator(
         &self,
-        logger: Logger,
-    ) -> Result<AggregatorHTTPClient, anyhow::Error> {
-        let endpoint = self
-            .aggregator_endpoint.as_ref()
-            .ok_or(anyhow!("No aggregator endpoint set: \
-                    You must either provide an aggregator endpoint or your own AggregatorClient implementation"))?;
-        let endpoint_url = Url::parse(endpoint).with_context(|| {
-            format!("Invalid aggregator endpoint, it must be a correctly formed url: '{endpoint}'")
+        network: &MithrilNetwork,
+    ) -> MithrilResult<impl Iterator<Item = AggregatorEndpoint>> {
+        let discoverer = self
+            .aggregator_discoverer
+            .clone()
+            .unwrap_or_else(|| Self::default_aggregator_discoverer());
+        let discoverer = if let Some(capabilities) = &self.aggregator_capabilities {
+            Arc::new(CapableAggregatorDiscoverer::new(
+                capabilities.to_owned(),
+                discoverer.clone(),
+            )) as Arc<dyn AggregatorDiscoverer>
+        } else {
+            discoverer as Arc<dyn AggregatorDiscoverer>
+        };
+
+        tokio::task::block_in_place(move || {
+            tokio::runtime::Handle::current().block_on(async move {
+                discoverer
+                    .get_available_aggregators(network.to_owned())
+                    .await
+                    .with_context(|| "Discovering aggregator endpoint failed")
+            })
+        })
+    }
+
+    /// Default aggregator discoverer to use to find the aggregator endpoint when in automatic discovery.
+    #[cfg(not(target_family = "wasm"))]
+    fn default_aggregator_discoverer() -> Arc<dyn AggregatorDiscoverer> {
+        Arc::new(ShuffleAggregatorDiscoverer::new(
+            Arc::new(HttpConfigAggregatorDiscoverer::default()),
+            {
+                let mut seed = [0u8; 32];
+                let timestamp = Utc::now().timestamp_nanos_opt().unwrap_or(0);
+                seed[..8].copy_from_slice(&timestamp.to_le_bytes());
+
+                StdRng::from_seed(seed)
+            },
+        ))
+    }
+
+    fn build_aggregator_client(&self, logger: Logger) -> MithrilResult<AggregatorHTTPClient> {
+        let aggregator_endpoint = match self.aggregator_discovery {
+            AggregatorDiscoveryType::Url(ref url) => url.clone(),
+            #[cfg(not(target_family = "wasm"))]
+            AggregatorDiscoveryType::Automatic(ref network) => self
+                .discover_aggregator(network)?
+                .next()
+                .ok_or_else(|| anyhow!("No aggregator was available through discovery"))?
+                .into(),
+        };
+        let endpoint_url = Url::parse(&aggregator_endpoint).with_context(|| {
+            format!("Invalid aggregator endpoint, it must be a correctly formed url: '{aggregator_endpoint}'")
         })?;
 
         let headers = self.compute_http_headers();
@@ -482,9 +618,10 @@ mod tests {
     #[tokio::test]
     async fn compute_http_headers_returns_options_http_headers() {
         let http_headers = default_headers();
-        let client_builder = ClientBuilder::aggregator("", "").with_options(ClientOptions {
-            http_headers: Some(http_headers.clone()),
-        });
+        let client_builder = ClientBuilder::new(AggregatorDiscoveryType::Url("".to_string()))
+            .with_options(ClientOptions {
+                http_headers: Some(http_headers.clone()),
+            });
 
         let computed_headers = client_builder.compute_http_headers();
 
@@ -494,7 +631,7 @@ mod tests {
     #[tokio::test]
     async fn compute_http_headers_with_origin_tag_returns_options_http_headers_with_origin_tag() {
         let http_headers = default_headers();
-        let client_builder = ClientBuilder::aggregator("", "")
+        let client_builder = ClientBuilder::new(AggregatorDiscoveryType::Url("".to_string()))
             .with_options(ClientOptions {
                 http_headers: Some(http_headers.clone()),
             })
@@ -511,14 +648,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_with_origin_tag_not_overwrite_other_client_options_attributes() {
-        let builder = ClientBuilder::aggregator("", "")
+        let builder = ClientBuilder::new(AggregatorDiscoveryType::Url("".to_string()))
             .with_options(ClientOptions { http_headers: None })
             .with_origin_tag(Some("TEST".to_string()));
         assert_eq!(None, builder.options.http_headers);
         assert_eq!(Some("TEST".to_string()), builder.origin_tag);
 
         let http_headers = HashMap::from([("Key".to_string(), "Value".to_string())]);
-        let builder = ClientBuilder::aggregator("", "")
+        let builder = ClientBuilder::new(AggregatorDiscoveryType::Url("".to_string()))
             .with_options(ClientOptions {
                 http_headers: Some(http_headers.clone()),
             })
@@ -533,7 +670,7 @@ mod tests {
         let client_options = ClientOptions {
             http_headers: Some(http_headers.clone()),
         };
-        let builder = ClientBuilder::aggregator("", "")
+        let builder = ClientBuilder::new(AggregatorDiscoveryType::Url("".to_string()))
             .with_options(client_options)
             .with_origin_tag(None);
 
@@ -544,7 +681,7 @@ mod tests {
     #[tokio::test]
     async fn compute_http_headers_with_client_type_returns_options_http_headers_with_client_type() {
         let http_headers = HashMap::from([("Key".to_string(), "Value".to_string())]);
-        let client_builder = ClientBuilder::aggregator("", "")
+        let client_builder = ClientBuilder::new(AggregatorDiscoveryType::Url("".to_string()))
             .with_options(ClientOptions {
                 http_headers: Some(http_headers.clone()),
             })
@@ -570,9 +707,10 @@ mod tests {
             MITHRIL_CLIENT_TYPE_HEADER.to_string(),
             "client type from options".to_string(),
         )]);
-        let client_builder = ClientBuilder::aggregator("", "").with_options(ClientOptions {
-            http_headers: Some(http_headers.clone()),
-        });
+        let client_builder = ClientBuilder::new(AggregatorDiscoveryType::Url("".to_string()))
+            .with_options(ClientOptions {
+                http_headers: Some(http_headers.clone()),
+            });
 
         let computed_headers = client_builder.compute_http_headers();
 
@@ -581,14 +719,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_with_client_type_not_overwrite_other_client_options_attributes() {
-        let builder = ClientBuilder::aggregator("", "")
+        let builder = ClientBuilder::new(AggregatorDiscoveryType::Url("".to_string()))
             .with_options(ClientOptions { http_headers: None })
             .with_client_type(Some("TEST".to_string()));
         assert_eq!(None, builder.options.http_headers);
         assert_eq!(Some("TEST".to_string()), builder.client_type);
 
         let http_headers = HashMap::from([("Key".to_string(), "Value".to_string())]);
-        let builder = ClientBuilder::aggregator("", "")
+        let builder = ClientBuilder::new(AggregatorDiscoveryType::Url("".to_string()))
             .with_options(ClientOptions {
                 http_headers: Some(http_headers.clone()),
             })
@@ -600,7 +738,8 @@ mod tests {
     #[tokio::test]
     async fn test_given_a_none_client_type_compute_http_headers_will_set_client_type_to_default_value()
      {
-        let builder_without_client_type = ClientBuilder::aggregator("", "");
+        let builder_without_client_type =
+            ClientBuilder::new(AggregatorDiscoveryType::Url("".to_string()));
         let computed_headers = builder_without_client_type.compute_http_headers();
 
         assert_eq!(
@@ -612,7 +751,7 @@ mod tests {
         );
 
         let builder_with_none_client_type =
-            ClientBuilder::aggregator("", "").with_client_type(None);
+            ClientBuilder::new(AggregatorDiscoveryType::Url("".to_string())).with_client_type(None);
         let computed_headers = builder_with_none_client_type.compute_http_headers();
 
         assert_eq!(
@@ -631,7 +770,7 @@ mod tests {
             MITHRIL_CLIENT_TYPE_HEADER.to_string(),
             "client type from options".to_string(),
         )]);
-        let client_builder = ClientBuilder::aggregator("", "")
+        let client_builder = ClientBuilder::new(AggregatorDiscoveryType::Url("".to_string()))
             .with_options(ClientOptions {
                 http_headers: Some(http_headers.clone()),
             })

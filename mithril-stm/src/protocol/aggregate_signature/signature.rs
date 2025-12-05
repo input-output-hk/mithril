@@ -1,3 +1,5 @@
+use std::{collections::HashMap, fmt::Display, hash::Hash, str::FromStr};
+
 use anyhow::anyhow;
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
@@ -5,8 +7,8 @@ use std::{collections::HashMap, fmt::Display, hash::Hash};
 
 use super::AggregateVerificationKey;
 use crate::{
-    AggregateSignatureError, Parameters, StmResult, membership_commitment::MerkleBatchPath,
-    proof_system::ConcatenationProof,
+    AggregateSignatureError, Parameters, StmError, StmResult,
+    membership_commitment::MerkleBatchPath, proof_system::ConcatenationProof,
 };
 
 /// The type of STM aggregate signature.
@@ -53,6 +55,19 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> From<&AggregateSignature<D>>
             AggregateSignature::Concatenation(_) => AggregateSignatureType::Concatenation,
             #[cfg(feature = "future_proof_system")]
             AggregateSignature::Future => AggregateSignatureType::Future,
+        }
+    }
+}
+
+impl FromStr for AggregateSignatureType {
+    type Err = StmError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Concatenation" => Ok(AggregateSignatureType::Concatenation),
+            #[cfg(feature = "future_proof_system")]
+            "Future" => Ok(AggregateSignatureType::Future),
+            _ => Err(anyhow!("Unknown aggregate signature type: {}", s)),
         }
     }
 }

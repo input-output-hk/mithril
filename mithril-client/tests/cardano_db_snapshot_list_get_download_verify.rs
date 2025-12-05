@@ -9,7 +9,7 @@ use mithril_cardano_node_internal_database::{
     digesters::CardanoImmutableDigester, test::DummyCardanoDbBuilder,
 };
 use mithril_client::{
-    ClientBuilder, MessageBuilder,
+    AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder,
     aggregator_client::AggregatorRequest,
     cardano_database_client::{DownloadUnpackOptions, ImmutableFileRange},
     feedback::SlogFeedbackReceiver,
@@ -51,19 +51,21 @@ async fn cardano_db_snapshot_list_get_download_verify() {
         digester,
     )
     .await;
-    let client =
-        ClientBuilder::aggregator(&fake_aggregator.server_root_url(), genesis_verification_key)
-            .with_certificate_verifier(
-                FakeCertificateVerifier::build_that_validate_any_certificate(),
-            )
-            .set_ancillary_verification_key(
-                ancillary_manifest_signer_verification_key.to_json_hex().unwrap(),
-            )
-            .add_feedback_receiver(Arc::new(SlogFeedbackReceiver::new(
-                extensions::test_logger(),
-            )))
-            .build()
-            .expect("Should be able to create a Client");
+    let client = ClientBuilder::new(AggregatorDiscoveryType::Url(
+        fake_aggregator.server_root_url(),
+    ))
+    .set_genesis_verification_key(GenesisVerificationKey::JsonHex(
+        genesis_verification_key.to_string(),
+    ))
+    .with_certificate_verifier(FakeCertificateVerifier::build_that_validate_any_certificate())
+    .set_ancillary_verification_key(
+        ancillary_manifest_signer_verification_key.to_json_hex().unwrap(),
+    )
+    .add_feedback_receiver(Arc::new(SlogFeedbackReceiver::new(
+        extensions::test_logger(),
+    )))
+    .build()
+    .expect("Should be able to create a Client");
 
     let cardano_db_snapshots = client
         .cardano_database_v2()
