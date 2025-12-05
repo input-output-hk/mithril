@@ -139,3 +139,37 @@ impl PrimeOrderProjectivePoint {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod golden {
+        use rand_chacha::ChaCha20Rng;
+        use rand_core::SeedableRng;
+
+        use super::*;
+
+        const GOLDEN_JSON: &str = r#"[144, 52, 95, 161, 127, 253, 49, 32, 140, 217, 231, 207, 32, 238, 244, 196, 97, 241, 47, 95, 101, 9, 70, 136, 194, 66, 187, 253, 200, 32, 218, 43]"#;
+
+        fn golden_value() -> PrimeOrderProjectivePoint {
+            let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+            let scalar = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
+            let point = PrimeOrderProjectivePoint::create_generator();
+            point.scalar_multiplication(&scalar)
+        }
+
+        #[test]
+        fn golden_conversions() {
+            let value = serde_json::from_str(GOLDEN_JSON)
+                .expect("This JSON deserialization should not fail");
+            assert_eq!(golden_value(), value);
+
+            let serialized =
+                serde_json::to_string(&value).expect("This JSON serialization should not fail");
+            let golden_serialized = serde_json::to_string(&golden_value())
+                .expect("This JSON serialization should not fail");
+            assert_eq!(golden_serialized, serialized);
+        }
+    }
+}

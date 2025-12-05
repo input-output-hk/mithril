@@ -1,4 +1,5 @@
 use anyhow::{Context, anyhow};
+use serde::{Deserialize, Serialize};
 
 use super::{
     BaseFieldElement, PrimeOrderProjectivePoint, ProjectivePoint, ScalarFieldElement,
@@ -11,7 +12,7 @@ use crate::StmResult;
 /// This signature includes a value `commitment_point` which depends only on
 /// the message and the signing key.
 /// This value is used in the lottery process to determine the correct indices.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SchnorrSignature {
     /// Deterministic value depending on the message and secret key
     pub(crate) commitment_point: ProjectivePoint,
@@ -150,14 +151,12 @@ mod tests {
 
         use crate::signature_scheme::{SchnorrSignature, SchnorrSigningKey};
 
-        const GOLDEN_BYTES: &[u8; 96] = &[
-            143, 53, 198, 62, 178, 1, 88, 253, 21, 92, 100, 13, 72, 180, 198, 127, 39, 175, 102,
-            69, 147, 249, 244, 224, 122, 121, 248, 68, 217, 242, 158, 113, 94, 57, 200, 241, 208,
-            145, 251, 8, 92, 119, 163, 38, 81, 85, 54, 36, 193, 221, 254, 242, 21, 129, 110, 161,
-            142, 184, 107, 156, 100, 34, 190, 9, 200, 20, 178, 142, 61, 253, 193, 11, 5, 180, 97,
-            73, 125, 88, 162, 36, 30, 177, 225, 52, 136, 21, 138, 93, 81, 23, 19, 64, 82, 78, 229,
-            3,
-        ];
+        const GOLDEN_JSON: &str = r#"
+        {
+            "commitment_point": [143, 53, 198, 62, 178, 1, 88, 253, 21, 92, 100, 13, 72, 180, 198, 127, 39, 175, 102, 69, 147, 249, 244, 224, 122, 121, 248, 68, 217, 242, 158, 113],
+            "response": [94, 57, 200, 241, 208, 145, 251, 8, 92, 119, 163, 38, 81, 85, 54, 36, 193, 221, 254, 242, 21, 129, 110, 161, 142, 184, 107, 156, 100, 34, 190, 9],
+            "challenge": [200, 20, 178, 142, 61, 253, 193, 11, 5, 180, 97, 73, 125, 88, 162, 36, 30, 177, 225, 52, 136, 21, 138, 93, 81, 23, 19, 64, 82, 78, 229, 3]
+        }"#;
 
         fn golden_value() -> SchnorrSignature {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
@@ -168,12 +167,14 @@ mod tests {
 
         #[test]
         fn golden_conversions() {
-            let value = SchnorrSignature::from_bytes(GOLDEN_BYTES)
-                .expect("This from bytes should not fail");
+            let value = serde_json::from_str(GOLDEN_JSON)
+                .expect("This JSON deserialization should not fail");
             assert_eq!(golden_value(), value);
 
-            let serialized = SchnorrSignature::to_bytes(value);
-            let golden_serialized = SchnorrSignature::to_bytes(golden_value());
+            let serialized =
+                serde_json::to_string(&value).expect("This JSON serialization should not fail");
+            let golden_serialized = serde_json::to_string(&golden_value())
+                .expect("This JSON serialization should not fail");
             assert_eq!(golden_serialized, serialized);
         }
     }

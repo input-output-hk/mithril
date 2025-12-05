@@ -1,11 +1,12 @@
 use anyhow::{Context, Ok, anyhow};
+use serde::{Deserialize, Serialize};
 
 use super::{PrimeOrderProjectivePoint, ProjectivePoint, SchnorrSignatureError, SchnorrSigningKey};
 use crate::StmResult;
 
 /// Schnorr verification key, it consists of a point on the Jubjub curve
 /// vk = g * sk, where g is a generator
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SchnorrVerificationKey(pub(crate) PrimeOrderProjectivePoint);
 
 impl SchnorrVerificationKey {
@@ -67,10 +68,7 @@ mod tests {
 
         use crate::signature_scheme::{SchnorrSigningKey, SchnorrVerificationKey};
 
-        const GOLDEN_BYTES: &[u8; 32] = &[
-            144, 52, 95, 161, 127, 253, 49, 32, 140, 217, 231, 207, 32, 238, 244, 196, 97, 241, 47,
-            95, 101, 9, 70, 136, 194, 66, 187, 253, 200, 32, 218, 43,
-        ];
+        const GOLDEN_JSON: &str = r#"[144, 52, 95, 161, 127, 253, 49, 32, 140, 217, 231, 207, 32, 238, 244, 196, 97, 241, 47, 95, 101, 9, 70, 136, 194, 66, 187, 253, 200, 32, 218, 43]"#;
 
         fn golden_value() -> SchnorrVerificationKey {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
@@ -80,12 +78,14 @@ mod tests {
 
         #[test]
         fn golden_conversions() {
-            let value = SchnorrVerificationKey::from_bytes(GOLDEN_BYTES)
-                .expect("This from bytes should not fail");
+            let value = serde_json::from_str(GOLDEN_JSON)
+                .expect("This JSON deserialization should not fail");
             assert_eq!(golden_value(), value);
 
-            let serialized = SchnorrVerificationKey::to_bytes(value);
-            let golden_serialized = SchnorrVerificationKey::to_bytes(golden_value());
+            let serialized =
+                serde_json::to_string(&value).expect("This JSON serialization should not fail");
+            let golden_serialized = serde_json::to_string(&golden_value())
+                .expect("This JSON serialization should not fail");
             assert_eq!(golden_serialized, serialized);
         }
     }

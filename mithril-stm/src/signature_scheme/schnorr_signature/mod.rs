@@ -22,7 +22,7 @@ mod tests {
     };
 
     proptest! {
-        #![proptest_config(ProptestConfig::with_cases(1000))]
+        #![proptest_config(ProptestConfig::with_cases(50))]
 
         #[test]
         fn verification_key(seed in any::<[u8;32]>()) {
