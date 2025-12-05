@@ -14,6 +14,7 @@ use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use slog::{Logger, o};
 
+use mithril_aggregator_client::AggregatorHttpClient;
 #[cfg(not(target_family = "wasm"))]
 use mithril_aggregator_discovery::{
     AggregatorDiscoverer, AggregatorEndpoint, CapableAggregatorDiscoverer,
@@ -34,7 +35,7 @@ use crate::certificate_client::{
 };
 #[cfg(not(target_family = "wasm"))]
 use crate::common::MithrilNetwork;
-use crate::era::{AggregatorHttpEraFetcher, EraFetcher, MithrilEraClient};
+use crate::era::{EraFetcher, MithrilEraClient};
 use crate::feedback::{FeedbackReceiver, FeedbackSender};
 #[cfg(feature = "fs")]
 use crate::file_downloader::{
@@ -323,22 +324,22 @@ impl ClientBuilder {
 
         let feedback_sender = FeedbackSender::new(&self.feedback_receivers);
 
-        let aggregator_client = match self.aggregator_client {
-            None => Arc::new(self.build_aggregator_client(logger.clone())?),
+        let aggregator_client = Arc::new(self.build_aggregator_client(logger.clone())?);
+
+        let aggregator_client_old = match self.aggregator_client {
+            None => Arc::new(self.build_old_aggregator_client(logger.clone())?),
             Some(client) => client,
         };
 
         let mithril_era_client = match self.era_fetcher {
-            None => Arc::new(MithrilEraClient::new(Arc::new(
-                AggregatorHttpEraFetcher::new(aggregator_client.clone()),
-            ))),
+            None => Arc::new(MithrilEraClient::new(aggregator_client.clone())),
             Some(era_fetcher) => Arc::new(MithrilEraClient::new(era_fetcher)),
         };
 
         let certificate_verifier = match self.certificate_verifier {
             None => Arc::new(
                 MithrilCertificateVerifier::new(
-                    aggregator_client.clone(),
+                    aggregator_client_old.clone(),
                     genesis_verification_key,
                     feedback_sender.clone(),
                     #[cfg(feature = "unstable")]
@@ -350,13 +351,13 @@ impl ClientBuilder {
             Some(verifier) => verifier,
         };
         let certificate_client = Arc::new(CertificateClient::new(
-            aggregator_client.clone(),
+            aggregator_client_old.clone(),
             certificate_verifier,
             logger.clone(),
         ));
 
         let mithril_stake_distribution_client = Arc::new(MithrilStakeDistributionClient::new(
-            aggregator_client.clone(),
+            aggregator_client_old.clone(),
         ));
 
         #[cfg(feature = "fs")]
@@ -382,7 +383,7 @@ impl ClientBuilder {
         };
 
         let snapshot_client = Arc::new(SnapshotClient::new(
-            aggregator_client.clone(),
+            aggregator_client_old.clone(),
             #[cfg(feature = "fs")]
             http_file_downloader.clone(),
             #[cfg(feature = "fs")]
@@ -394,7 +395,7 @@ impl ClientBuilder {
         ));
 
         let cardano_database_client = Arc::new(CardanoDatabaseClient::new(
-            aggregator_client.clone(),
+            aggregator_client_old.clone(),
             #[cfg(feature = "fs")]
             http_file_downloader,
             #[cfg(feature = "fs")]
@@ -411,10 +412,10 @@ impl ClientBuilder {
         ));
 
         let cardano_transaction_client =
-            Arc::new(CardanoTransactionClient::new(aggregator_client.clone()));
+            Arc::new(CardanoTransactionClient::new(aggregator_client_old.clone()));
 
         let cardano_stake_distribution_client =
-            Arc::new(CardanoStakeDistributionClient::new(aggregator_client));
+            Arc::new(CardanoStakeDistributionClient::new(aggregator_client_old));
 
         Ok(Client {
             certificate_client,
@@ -471,7 +472,26 @@ impl ClientBuilder {
         ))
     }
 
-    fn build_aggregator_client(&self, logger: Logger) -> MithrilResult<AggregatorHTTPClient> {
+    fn build_aggregator_client(&self, logger: Logger) -> MithrilResult<AggregatorHttpClient> {
+        let aggregator_endpoint = match self.aggregator_discovery {
+            AggregatorDiscoveryType::Url(ref url) => url.clone(),
+            #[cfg(not(target_family = "wasm"))]
+            AggregatorDiscoveryType::Automatic(ref network) => self
+                .discover_aggregator(network)?
+                .next()
+                .ok_or_else(|| anyhow!("No aggregator was available through discovery"))?
+                .into(),
+        };
+        let headers = self.compute_http_headers();
+
+        AggregatorHttpClient::builder(aggregator_endpoint)
+            .with_logger(logger)
+            .with_headers(headers)
+            .build()
+    }
+
+    // todo: remove
+    fn build_old_aggregator_client(&self, logger: Logger) -> MithrilResult<AggregatorHTTPClient> {
         let aggregator_endpoint = match self.aggregator_discovery {
             AggregatorDiscoveryType::Url(ref url) => url.clone(),
             #[cfg(not(target_family = "wasm"))]
