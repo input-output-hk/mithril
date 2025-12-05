@@ -10,12 +10,15 @@ use crate::{AggregatorDiscoverer, AggregatorEndpoint};
 /// A discoverer that returns a random set of aggregators
 pub struct ShuffleAggregatorDiscoverer<R: Rng + Send + Sized> {
     random_generator: Arc<Mutex<Box<R>>>,
-    inner_discoverer: Arc<dyn AggregatorDiscoverer>,
+    inner_discoverer: Arc<dyn AggregatorDiscoverer<AggregatorEndpoint>>,
 }
 
 impl<R: Rng + Send + Sized> ShuffleAggregatorDiscoverer<R> {
     /// Creates a new `ShuffleAggregatorDiscoverer` instance with the provided inner discoverer.
-    pub fn new(inner_discoverer: Arc<dyn AggregatorDiscoverer>, random_generator: R) -> Self {
+    pub fn new(
+        inner_discoverer: Arc<dyn AggregatorDiscoverer<AggregatorEndpoint>>,
+        random_generator: R,
+    ) -> Self {
         Self {
             inner_discoverer,
             random_generator: Arc::new(Mutex::new(Box::new(random_generator))),
@@ -24,7 +27,9 @@ impl<R: Rng + Send + Sized> ShuffleAggregatorDiscoverer<R> {
 }
 
 #[async_trait::async_trait]
-impl<R: Rng + Send + Sized> AggregatorDiscoverer for ShuffleAggregatorDiscoverer<R> {
+impl<R: Rng + Send + Sized> AggregatorDiscoverer<AggregatorEndpoint>
+    for ShuffleAggregatorDiscoverer<R>
+{
     async fn get_available_aggregators(
         &self,
         network: MithrilNetwork,
