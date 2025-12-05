@@ -1,8 +1,8 @@
 {
   "mainnet": {
     "cardano-minimum-version": {
-      "mithril-signer": "10.4.1",
-      "mithril-aggregator": "10.4.1"
+      "mithril-signer": "10.5.2",
+      "mithril-aggregator": "10.5.2"
     },
     "mithril-networks": [
       {
@@ -37,8 +37,8 @@
   },
   "preprod": {
     "cardano-minimum-version": {
-      "mithril-signer": "10.4.1",
-      "mithril-aggregator": "10.4.1"
+      "mithril-signer": "10.5.2",
+      "mithril-aggregator": "10.5.2"
     },
     "mithril-networks": [
       {
@@ -73,8 +73,8 @@
   },
   "preview": {
     "cardano-minimum-version": {
-      "mithril-signer": "10.4.1",
-      "mithril-aggregator": "10.4.1"
+      "mithril-signer": "10.5.2",
+      "mithril-aggregator": "10.5.2"
     },
     "mithril-networks": [
       {

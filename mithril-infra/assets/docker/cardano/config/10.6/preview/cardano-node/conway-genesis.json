@@ -18,9 +18,9 @@
     "ppGovGroup": 0.75,
     "treasuryWithdrawal": 0.67
   },
-  "committeeMinSize": 7,
-  "committeeMaxTermLength": 146,
-  "govActionLifetime": 6,
+  "committeeMinSize": 0,
+  "committeeMaxTermLength": 365,
+  "govActionLifetime": 30,
   "govActionDeposit": 100000000000,
   "dRepDeposit": 500000000,
   "dRepActivity": 20,
@@ -287,13 +287,7 @@
   },
   "committee": {
     "members": {
-        "scriptHash-a6a5e006fd4e8f51062dc431362369b2a43140abced8aa2ff2256d7b": 229,
-        "scriptHash-6095e643ea6f1cccb6e463ec34349026b3a48621aac5d512655ab1bf": 229,
-        "scriptHash-94c0de47e7ae32e3f7234ada5cf976506b68e3bb88c54dc53b4ba984": 229,
-        "scriptHash-5098dfd0deba725fadd692198fc33ee959fbe7e6edf1b5a695e06e61": 229,
-        "scriptHash-5a71f17f4ce4c1c0be053575d717ade6ad8a1d5453d02a65ce40d4b1": 229,
-        "scriptHash-2f4a6c6f098e20ee4bfd5b39942c164575f8ceb348e754df5d0ec04f": 229,
-        "scriptHash-94f51c795a6c11adb9c1e30f0b6def4230cbd0b8bc800098e2d2307b": 229
+        "scriptHash-ff9babf23fef3f54ec29132c07a8e23807d7b395b143ecd8ff79f4c7": 1000
     },
     "threshold": {
       "numerator": 2,
