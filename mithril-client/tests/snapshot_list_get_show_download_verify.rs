@@ -6,7 +6,6 @@ mod extensions;
 use std::sync::Arc;
 
 use mithril_cardano_node_internal_database::test::DummyCardanoDbBuilder;
-use mithril_client::aggregator_client::AggregatorRequest;
 use mithril_client::feedback::SlogFeedbackReceiver;
 use mithril_client::{
     AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder,
@@ -63,7 +62,7 @@ async fn snapshot_list_get_show_download_verify() {
         .expect("List MithrilStakeDistribution should not fail");
     assert_eq!(
         fake_aggregator.get_last_call().await,
-        Some(format!("/{}", AggregatorRequest::ListSnapshots.route()))
+        Some("/artifact/snapshots".to_string())
     );
 
     let last_digest = snapshots.first().unwrap().digest.as_ref();
@@ -76,13 +75,7 @@ async fn snapshot_list_get_show_download_verify() {
         .unwrap_or_else(|| panic!("A Snapshot should exist for hash '{last_digest}'"));
     assert_eq!(
         fake_aggregator.get_last_call().await,
-        Some(format!(
-            "/{}",
-            AggregatorRequest::GetSnapshot {
-                digest: (last_digest.to_string())
-            }
-            .route()
-        ))
+        Some(format!("/artifact/snapshot/{last_digest}",))
     );
 
     let unpacked_dir = work_dir.join("unpack");
@@ -96,11 +89,8 @@ async fn snapshot_list_get_show_download_verify() {
     assert_eq!(
         fake_aggregator.get_last_call().await,
         Some(format!(
-            "/{}",
-            AggregatorRequest::GetCertificate {
-                hash: (snapshot.certificate_hash.clone())
-            }
-            .route()
+            "/certificate/{}",
+            snapshot.certificate_hash.clone()
         ))
     );
 
@@ -117,13 +107,7 @@ async fn snapshot_list_get_show_download_verify() {
         .expect("add_statistics should not fail");
     assert_eq!(
         fake_aggregator.get_last_call().await,
-        Some(format!(
-            "/{}",
-            AggregatorRequest::IncrementSnapshotStatistic {
-                snapshot: "whatever".to_string()
-            }
-            .route()
-        ))
+        Some("/statistics/snapshot".to_string())
     );
 
     let message = MessageBuilder::new()

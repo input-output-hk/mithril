@@ -10,7 +10,6 @@ use chrono::Utc;
 use rand::SeedableRng;
 #[cfg(not(target_family = "wasm"))]
 use rand::rngs::StdRng;
-use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use slog::{Logger, o};
 
@@ -20,11 +19,9 @@ use mithril_aggregator_discovery::{
     AggregatorDiscoverer, AggregatorEndpoint, CapableAggregatorDiscoverer,
     HttpConfigAggregatorDiscoverer, RequiredAggregatorCapabilities, ShuffleAggregatorDiscoverer,
 };
-use mithril_common::api_version::APIVersionProvider;
 use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
 
 use crate::MithrilResult;
-use crate::aggregator_client::{AggregatorClient, AggregatorHTTPClient};
 use crate::cardano_database_client::CardanoDatabaseClient;
 use crate::cardano_stake_distribution_client::CardanoStakeDistributionClient;
 use crate::cardano_transaction_client::CardanoTransactionClient;
@@ -208,7 +205,6 @@ pub struct ClientBuilder {
     client_type: Option<String>,
     #[cfg(feature = "fs")]
     ancillary_verification_key: Option<String>,
-    aggregator_client: Option<Arc<dyn AggregatorClient>>,
     certificate_verifier: Option<Arc<dyn CertificateVerifier>>,
     #[cfg(feature = "fs")]
     http_file_downloader: Option<Arc<dyn FileDownloader>>,
@@ -258,7 +254,6 @@ impl ClientBuilder {
             client_type: None,
             #[cfg(feature = "fs")]
             ancillary_verification_key: None,
-            aggregator_client: None,
             certificate_verifier: None,
             #[cfg(feature = "fs")]
             http_file_downloader: None,
@@ -485,32 +480,6 @@ impl ClientBuilder {
             .build()
     }
 
-    // todo: remove
-    fn build_old_aggregator_client(&self, logger: Logger) -> MithrilResult<AggregatorHTTPClient> {
-        let aggregator_endpoint = match self.aggregator_discovery {
-            AggregatorDiscoveryType::Url(ref url) => url.clone(),
-            #[cfg(not(target_family = "wasm"))]
-            AggregatorDiscoveryType::Automatic(ref network) => self
-                .discover_aggregator(network)?
-                .next()
-                .ok_or_else(|| anyhow!("No aggregator was available through discovery"))?
-                .into(),
-        };
-        let endpoint_url = Url::parse(&aggregator_endpoint).with_context(|| {
-            format!("Invalid aggregator endpoint, it must be a correctly formed url: '{aggregator_endpoint}'")
-        })?;
-
-        let headers = self.compute_http_headers();
-
-        AggregatorHTTPClient::new(
-            endpoint_url,
-            APIVersionProvider::compute_all_versions_sorted(),
-            logger,
-            Some(headers),
-        )
-        .with_context(|| "Building aggregator client failed")
-    }
-
     fn compute_http_headers(&self) -> HashMap<String, String> {
         let mut headers = self.options.http_headers.clone().unwrap_or_default();
         if let Some(origin_tag) = self.origin_tag.clone() {
@@ -526,16 +495,6 @@ impl ClientBuilder {
         }
 
         headers
-    }
-
-    /// Set the [AggregatorClient] that will be used to request data to the aggregator.
-    #[deprecated(since = "0.12.33", note = "Will be removed in 0.13.0")]
-    pub fn with_aggregator_client(
-        mut self,
-        aggregator_client: Arc<dyn AggregatorClient>,
-    ) -> ClientBuilder {
-        self.aggregator_client = Some(aggregator_client);
-        self
     }
 
     /// Sets the [EraFetcher] that will be used by the client to retrieve the current Mithril era.

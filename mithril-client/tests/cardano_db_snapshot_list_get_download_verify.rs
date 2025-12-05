@@ -10,7 +10,6 @@ use mithril_cardano_node_internal_database::{
 };
 use mithril_client::{
     AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder,
-    aggregator_client::AggregatorRequest,
     cardano_database_client::{DownloadUnpackOptions, ImmutableFileRange},
     feedback::SlogFeedbackReceiver,
 };
@@ -121,21 +120,17 @@ async fn cardano_db_snapshot_list_get_download_verify() {
         .await
         .expect("add_statistics should not fail");
     let last_api_calls = fake_aggregator.get_latest_calls(3).await;
-    assert!(last_api_calls.contains(&format!(
-        "/{}",
-        AggregatorRequest::IncrementCardanoDatabaseAncillaryStatistic.route()
-    )));
-    assert!(last_api_calls.contains(&format!(
-        "/{}",
-        AggregatorRequest::IncrementCardanoDatabasePartialRestorationStatistic.route()
-    )));
-    assert!(last_api_calls.contains(&format!(
-        "/{}",
-        AggregatorRequest::IncrementCardanoDatabaseImmutablesRestoredStatistic {
-            number_of_immutables: number_of_immutable_files_restored
-        }
-        .route()
-    )));
+    assert!(
+        last_api_calls
+            .contains(&"/statistics/cardano-database/ancillary-files-restored".to_string())
+    );
+    assert!(
+        last_api_calls.contains(&"/statistics/cardano-database/partial-restoration".to_string())
+    );
+    assert!(
+        last_api_calls
+            .contains(&"/statistics/cardano-database/immutable-files-restored".to_string())
+    );
 
     let verified_digests = client
         .cardano_database_v2()
