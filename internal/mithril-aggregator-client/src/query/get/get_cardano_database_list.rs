@@ -4,7 +4,7 @@ use reqwest::StatusCode;
 use std::fmt::{Display, Formatter};
 
 use mithril_common::entities::EpochSpecifier;
-use mithril_common::messages::CardanoDatabaseDigestListMessage;
+use mithril_common::messages::CardanoDatabaseSnapshotListMessage;
 
 use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
 use crate::{AggregatorHttpClientError, AggregatorHttpClientResult};
@@ -53,7 +53,7 @@ impl GetCardanoDatabaseListQuery {
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 impl AggregatorQuery for GetCardanoDatabaseListQuery {
-    type Response = CardanoDatabaseDigestListMessage;
+    type Response = CardanoDatabaseSnapshotListMessage;
     type Body = ();
 
     fn method() -> QueryMethod {
@@ -75,7 +75,7 @@ impl AggregatorQuery for GetCardanoDatabaseListQuery {
     ) -> AggregatorHttpClientResult<Self::Response> {
         match context.response.status() {
             StatusCode::OK => {
-                match context.response.json::<CardanoDatabaseDigestListMessage>().await {
+                match context.response.json::<CardanoDatabaseSnapshotListMessage>().await {
                     Ok(message) => Ok(message),
                     Err(err) => Err(AggregatorHttpClientError::JsonParseFailed(anyhow!(err))),
                 }
@@ -90,7 +90,7 @@ mod tests {
     use serde_json::json;
 
     use mithril_common::entities::Epoch;
-    use mithril_common::messages::CardanoDatabaseDigestListItemMessage;
+    use mithril_common::messages::CardanoDatabaseSnapshotListItemMessage;
     use mithril_common::test::double::Dummy;
 
     use crate::test::{assert_error_matches, setup_server_and_client};
@@ -101,8 +101,8 @@ mod tests {
     async fn test_latest_cardano_database_list_ok_200() {
         let (server, client) = setup_server_and_client();
         let expected_list = vec![
-            CardanoDatabaseDigestListItemMessage::dummy(),
-            CardanoDatabaseDigestListItemMessage::dummy(),
+            CardanoDatabaseSnapshotListItemMessage::dummy(),
+            CardanoDatabaseSnapshotListItemMessage::dummy(),
         ];
         let _server_mock = server.mock(|when, then| {
             when.path("/artifact/cardano-database");
@@ -118,8 +118,8 @@ mod tests {
     async fn test_specific_epoch_cardano_database_list_ok_200() {
         let (server, client) = setup_server_and_client();
         let expected_list = vec![
-            CardanoDatabaseDigestListItemMessage::dummy(),
-            CardanoDatabaseDigestListItemMessage::dummy(),
+            CardanoDatabaseSnapshotListItemMessage::dummy(),
+            CardanoDatabaseSnapshotListItemMessage::dummy(),
         ];
         let _server_mock = server.mock(|when, then| {
             when.path("/artifact/cardano-database/epoch/12");
@@ -140,8 +140,8 @@ mod tests {
     async fn test_latest_epoch_cardano_database_list_ok_200() {
         let (server, client) = setup_server_and_client();
         let expected_list = vec![
-            CardanoDatabaseDigestListItemMessage::dummy(),
-            CardanoDatabaseDigestListItemMessage::dummy(),
+            CardanoDatabaseSnapshotListItemMessage::dummy(),
+            CardanoDatabaseSnapshotListItemMessage::dummy(),
         ];
         let _server_mock = server.mock(|when, then| {
             when.path("/artifact/cardano-database/epoch/latest");
@@ -162,8 +162,8 @@ mod tests {
     async fn test_latest_epoch_with_offset_cardano_database_list_ok_200() {
         let (server, client) = setup_server_and_client();
         let expected_list = vec![
-            CardanoDatabaseDigestListItemMessage::dummy(),
-            CardanoDatabaseDigestListItemMessage::dummy(),
+            CardanoDatabaseSnapshotListItemMessage::dummy(),
+            CardanoDatabaseSnapshotListItemMessage::dummy(),
         ];
         let _server_mock = server.mock(|when, then| {
             when.path("/artifact/cardano-database/epoch/latest-3");
