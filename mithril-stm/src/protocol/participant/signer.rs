@@ -22,7 +22,7 @@ pub struct Signer<D: Digest> {
     params: Parameters,
     sk: BlsSigningKey,
     vk: VerificationKey,
-    closed_reg: Option<ClosedKeyRegistration<D>>,
+    closed_reg: ClosedKeyRegistration<D>,
 }
 
 impl<D: Clone + Digest + FixedOutput> Signer<D> {
@@ -41,7 +41,7 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
             params,
             sk,
             vk,
-            closed_reg: Some(closed_reg),
+            closed_reg,
         }
     }
 
@@ -72,7 +72,7 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
             params,
             sk,
             vk,
-            closed_reg: None,
+            closed_reg: todo!(),
         }
     }
 
@@ -95,18 +95,26 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
     /// If it wins at least one lottery, it stores the signer's merkle tree index. The proof of membership
     /// will be handled by the aggregator.
     pub fn sign(&self, msg: &[u8]) -> Option<SingleSignature> {
-        let closed_reg = self.closed_reg.as_ref().expect("Closed registration not found! Cannot produce SingleSignatures. Use core_sign to produce core signatures (not valid for an StmCertificate).");
-        let msgp = closed_reg
+        // let closed_reg = self.closed_reg.as_ref().expect("Closed registration not found! Cannot produce SingleSignatures. Use core_sign to produce core signatures (not valid for an StmCertificate).");
+        let msgp = self
+            .closed_reg
             .merkle_tree
             .to_merkle_tree_batch_commitment()
             .concatenate_with_message(msg);
-        let signature = self.basic_sign(&msgp, closed_reg.total_stake)?;
+        let sigma = self.sk.sign(&msgp);
 
-        Some(SingleSignature {
-            sigma: signature.sigma,
-            signer_index: self.signer_index,
-            indexes: signature.indexes,
-        })
+        let indexes = self.check_lottery(&msgp, &sigma, self.closed_reg.total_stake);
+
+        // let signature = self.basic_sign(&msgp, closed_reg.total_stake)?;
+        if !indexes.is_empty() {
+            Some(SingleSignature {
+                sigma,
+                signer_index: self.signer_index,
+                indexes,
+            })
+        } else {
+            None
+        }
     }
 
     /// Extract the verification key.
@@ -184,7 +192,7 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
 
     /// Get closed key registration
     pub(crate) fn get_closed_key_registration(&self) -> Option<ClosedKeyRegistration<D>> {
-        self.closed_reg.clone()
+        Some(self.closed_reg.clone())
     }
 
     /// Get closed key registration
