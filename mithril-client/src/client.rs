@@ -357,7 +357,7 @@ impl ClientBuilder {
         ));
 
         let mithril_stake_distribution_client = Arc::new(MithrilStakeDistributionClient::new(
-            aggregator_client_old.clone(),
+            aggregator_client.clone(),
         ));
 
         #[cfg(feature = "fs")]
