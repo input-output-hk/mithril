@@ -35,7 +35,13 @@ impl SingleSignature {
         msg: &[u8],
     ) -> StmResult<()> {
         let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
-        self.basic_verify(params, pk, stake, &msgp, &avk.get_total_stake())
+        self.sigma.verify(&msgp, pk).with_context(|| {
+            format!(
+                "Single signature verification failed for signer index {}.",
+                self.signer_index
+            )
+        })?;
+        self.check_indices(params, stake, &msgp, &avk.get_total_stake())
             .with_context(|| {
                 format!(
                     "Single signature verification failed for signer index {}.",
