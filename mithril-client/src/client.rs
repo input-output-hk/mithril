@@ -383,7 +383,7 @@ impl ClientBuilder {
         };
 
         let snapshot_client = Arc::new(SnapshotClient::new(
-            aggregator_client_old.clone(),
+            aggregator_client.clone(),
             #[cfg(feature = "fs")]
             http_file_downloader.clone(),
             #[cfg(feature = "fs")]

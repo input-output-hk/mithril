@@ -101,6 +101,7 @@
 //! # }
 //! ```
 
+#[cfg(feature = "fs")]
 use anyhow::Context;
 #[cfg(feature = "fs")]
 use slog::Logger;
@@ -112,7 +113,6 @@ use thiserror::Error;
 #[cfg(feature = "fs")]
 use mithril_common::entities::CompressionAlgorithm;
 
-use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest};
 #[cfg(feature = "fs")]
 use crate::feedback::FeedbackSender;
 #[cfg(feature = "fs")]
@@ -149,7 +149,7 @@ pub enum SnapshotClientError {
 /// Aggregator client for the snapshot artifact
 #[deprecated(since = "0.12.35", note = "superseded by `CardanoDatabaseClient`")]
 pub struct SnapshotClient {
-    aggregator_client: Arc<dyn AggregatorClient>,
+    aggregator_requester: Arc<dyn SnapshotAggregatorRequest>,
     #[cfg(feature = "fs")]
     http_file_downloader: Arc<dyn FileDownloader>,
     #[cfg(feature = "fs")]
@@ -181,14 +181,14 @@ pub trait SnapshotAggregatorRequest: Send + Sync {
 impl SnapshotClient {
     /// Constructs a new `SnapshotClient`.
     pub fn new(
-        aggregator_client: Arc<dyn AggregatorClient>,
+        aggregator_requester: Arc<dyn SnapshotAggregatorRequest>,
         #[cfg(feature = "fs")] http_file_downloader: Arc<dyn FileDownloader>,
         #[cfg(feature = "fs")] ancillary_verifier: Option<Arc<AncillaryVerifier>>,
         #[cfg(feature = "fs")] feedback_sender: FeedbackSender,
         #[cfg(feature = "fs")] logger: Logger,
     ) -> Self {
         Self {
-            aggregator_client,
+            aggregator_requester,
             #[cfg(feature = "fs")]
             http_file_downloader,
             #[cfg(feature = "fs")]
@@ -205,35 +205,12 @@ impl SnapshotClient {
 
     /// Return a list of available snapshots
     pub async fn list(&self) -> MithrilResult<Vec<SnapshotListItem>> {
-        let response = self
-            .aggregator_client
-            .get_content(AggregatorRequest::ListSnapshots)
-            .await
-            .with_context(|| "Snapshot Client can not get the artifact list")?;
-        let items = serde_json::from_str::<Vec<SnapshotListItem>>(&response)
-            .with_context(|| "Snapshot Client can not deserialize artifact list")?;
-
-        Ok(items)
+        self.aggregator_requester.list_latest().await
     }
 
-    /// Get the given snapshot data. If it cannot be found, a None is returned.
+    /// Get the given snapshot data. If it cannot be found, None is returned.
     pub async fn get(&self, digest: &str) -> MithrilResult<Option<Snapshot>> {
-        match self
-            .aggregator_client
-            .get_content(AggregatorRequest::GetSnapshot {
-                digest: digest.to_string(),
-            })
-            .await
-        {
-            Ok(content) => {
-                let snapshot: Snapshot = serde_json::from_str(&content)
-                    .with_context(|| "Snapshot Client can not deserialize artifact")?;
-
-                Ok(Some(snapshot))
-            }
-            Err(AggregatorClientError::RemoteServerLogical(_)) => Ok(None),
-            Err(e) => Err(e.into()),
-        }
+        self.aggregator_requester.get_by_hash(digest).await
     }
 
     cfg_fs! {
@@ -478,21 +455,15 @@ impl SnapshotClient {
 
     /// Increments the aggregator snapshot download statistics
     pub async fn add_statistics(&self, snapshot: &Snapshot) -> MithrilResult<()> {
-        let _response = self
-            .aggregator_client
-            .post_content(AggregatorRequest::IncrementSnapshotStatistic {
-                snapshot: serde_json::to_string(snapshot)?,
-            })
-            .await?;
-
-        Ok(())
+        self.aggregator_requester
+            .increment_snapshot_downloaded_statistic(snapshot.clone())
+            .await
     }
 }
 
 #[cfg(all(test, feature = "fs"))]
 mod tests {
     use crate::{
-        aggregator_client::MockAggregatorClient,
         common::CompressionAlgorithm,
         feedback::MithrilEvent,
         file_downloader::{MockFileDownloader, MockFileDownloaderBuilder},
@@ -500,8 +471,10 @@ mod tests {
     };
 
     use mithril_cardano_node_internal_database::IMMUTABLE_DIR;
-    use mithril_common::test::double::{Dummy, fake_keys};
+    use mithril_common::test::double::fake_keys;
     use mithril_common::{assert_dir_eq, crypto_helper::ManifestSigner, temp_dir_create};
+
+    use crate::common::test::Dummy;
 
     use super::*;
 
@@ -516,7 +489,7 @@ mod tests {
         file_downloader: Arc<dyn FileDownloader>,
         ancillary_verifier: Option<Arc<AncillaryVerifier>>,
     ) -> SnapshotClient {
-        let aggregator_client = Arc::new(MockAggregatorClient::new());
+        let aggregator_client = Arc::new(MockSnapshotAggregatorRequest::new());
         let logger = TestLogger::stdout();
 
         SnapshotClient::new(
@@ -526,6 +499,70 @@ mod tests {
             FeedbackSender::new(&[]),
             logger.clone(),
         )
+    }
+
+    mod fetch {
+        use mockall::predicate::eq;
+
+        use mithril_common::test::mock_extensions::MockBuilder;
+
+        use super::*;
+
+        #[tokio::test]
+        async fn get_snapshots_list() {
+            let requester = MockBuilder::<MockSnapshotAggregatorRequest>::configure(|mock| {
+                let messages = vec![
+                    SnapshotListItem {
+                        digest: "hash-123".to_string(),
+                        ..Dummy::dummy()
+                    },
+                    SnapshotListItem {
+                        digest: "hash-456".to_string(),
+                        ..Dummy::dummy()
+                    },
+                ];
+                mock.expect_list_latest().return_once(move || Ok(messages));
+            });
+            let client = SnapshotClient::new(
+                requester,
+                Arc::new(MockFileDownloader::new()),
+                None,
+                FeedbackSender::new(&[]),
+                TestLogger::stdout(),
+            );
+
+            let items = client.list().await.unwrap();
+
+            assert_eq!(2, items.len());
+            assert_eq!("hash-123".to_string(), items[0].digest);
+            assert_eq!("hash-456".to_string(), items[1].digest);
+        }
+
+        #[tokio::test]
+        async fn get_snapshot() {
+            let requester = MockBuilder::<MockSnapshotAggregatorRequest>::configure(|mock| {
+                let message = Snapshot {
+                    digest: "hash".to_string(),
+                    ancillary_size: Some(123),
+                    ..Dummy::dummy()
+                };
+                mock.expect_get_by_hash()
+                    .with(eq(message.digest.clone()))
+                    .return_once(move |_| Ok(Some(message)));
+            });
+            let client = SnapshotClient::new(
+                requester,
+                Arc::new(MockFileDownloader::new()),
+                None,
+                FeedbackSender::new(&[]),
+                TestLogger::stdout(),
+            );
+
+            let snapshot = client.get("hash").await.unwrap().expect("should return a snapshot");
+
+            assert_eq!("hash", &snapshot.digest);
+            assert_eq!(Some(123), snapshot.ancillary_size);
+        }
     }
 
     mod download_unpack_file {
