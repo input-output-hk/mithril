@@ -339,7 +339,7 @@ impl ClientBuilder {
         let certificate_verifier = match self.certificate_verifier {
             None => Arc::new(
                 MithrilCertificateVerifier::new(
-                    aggregator_client_old.clone(),
+                    aggregator_client.clone(),
                     genesis_verification_key,
                     feedback_sender.clone(),
                     #[cfg(feature = "unstable")]
@@ -351,7 +351,7 @@ impl ClientBuilder {
             Some(verifier) => verifier,
         };
         let certificate_client = Arc::new(CertificateClient::new(
-            aggregator_client_old.clone(),
+            aggregator_client.clone(),
             certificate_verifier,
             logger.clone(),
         ));

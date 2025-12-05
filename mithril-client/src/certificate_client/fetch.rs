@@ -1,29 +1,18 @@
-use anyhow::{Context, anyhow};
+use anyhow::anyhow;
 use async_trait::async_trait;
-use slog::{Logger, crit};
 use std::sync::Arc;
 
 use mithril_common::certificate_chain::{CertificateRetriever, CertificateRetrieverError};
 use mithril_common::entities::Certificate;
-use mithril_common::messages::CertificateMessage;
 
-use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest};
-use crate::certificate_client::CertificateClient;
+use crate::certificate_client::{CertificateAggregatorRequest, CertificateClient};
 use crate::{MithrilCertificate, MithrilCertificateListItem, MithrilResult};
 
 #[inline]
 pub(super) async fn list(
     client: &CertificateClient,
 ) -> MithrilResult<Vec<MithrilCertificateListItem>> {
-    let response = client
-        .aggregator_client
-        .get_content(AggregatorRequest::ListCertificates)
-        .await
-        .with_context(|| "CertificateClient can not get the certificate list")?;
-    let items = serde_json::from_str::<Vec<MithrilCertificateListItem>>(&response)
-        .with_context(|| "CertificateClient can not deserialize certificate list")?;
-
-    Ok(items)
+    client.aggregator_requester.list_latest().await
 }
 
 #[inline]
@@ -38,18 +27,15 @@ pub(super) async fn get(
 /// dependency between the [CertificateClient] and the [CommonMithrilCertificateVerifier] that need
 /// a [CertificateRetriever] as a dependency.
 pub(super) struct InternalCertificateRetriever {
-    aggregator_client: Arc<dyn AggregatorClient>,
-    logger: Logger,
+    aggregator_requester: Arc<dyn CertificateAggregatorRequest>,
 }
 
 impl InternalCertificateRetriever {
     pub(super) fn new(
-        aggregator_client: Arc<dyn AggregatorClient>,
-        logger: Logger,
+        aggregator_requester: Arc<dyn CertificateAggregatorRequest>,
     ) -> InternalCertificateRetriever {
         InternalCertificateRetriever {
-            aggregator_client,
-            logger,
+            aggregator_requester,
         }
     }
 
@@ -57,29 +43,7 @@ impl InternalCertificateRetriever {
         &self,
         certificate_hash: &str,
     ) -> MithrilResult<Option<MithrilCertificate>> {
-        let response = self
-            .aggregator_client
-            .get_content(AggregatorRequest::GetCertificate {
-                hash: certificate_hash.to_string(),
-            })
-            .await;
-
-        match response {
-            Err(AggregatorClientError::RemoteServerLogical(_)) => Ok(None),
-            Err(e) => Err(e.into()),
-            Ok(response) => {
-                let message =
-                    serde_json::from_str::<CertificateMessage>(&response).inspect_err(|e| {
-                        crit!(
-                            self.logger, "Could not create certificate from API message";
-                            "error" => e.to_string(),
-                            "raw_message" => response
-                        );
-                    })?;
-
-                Ok(Some(message))
-            }
-        }
+        self.aggregator_requester.get_by_hash(certificate_hash).await
     }
 }
 
@@ -125,9 +89,8 @@ mod tests {
         ];
         let message = expected.clone();
         let certificate_client = CertificateClientTestBuilder::default()
-            .config_aggregator_client_mock(|mock| {
-                mock.expect_get_content()
-                    .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
+            .config_aggregator_requester_mock(|mock| {
+                mock.expect_list_latest().return_once(move || Ok(message));
             })
             .build();
         let items = certificate_client.list().await.unwrap();
@@ -138,10 +101,8 @@ mod tests {
     #[tokio::test]
     async fn get_certificate_empty_list() {
         let certificate_client = CertificateClientTestBuilder::default()
-            .config_aggregator_client_mock(|mock| {
-                mock.expect_get_content().return_once(move |_| {
-                    Ok(serde_json::to_string::<Vec<MithrilCertificateListItem>>(&vec![]).unwrap())
-                });
+            .config_aggregator_requester_mock(|mock| {
+                mock.expect_list_latest().return_once(move || Ok(Vec::new()));
             })
             .build();
         let items = certificate_client.list().await.unwrap();
@@ -156,11 +117,11 @@ mod tests {
         let expected_certificate = certificate.clone();
 
         let certificate_client = CertificateClientTestBuilder::default()
-            .config_aggregator_client_mock(|mock| {
-                mock.expect_get_content()
+            .config_aggregator_requester_mock(|mock| {
+                mock.expect_get_by_hash()
                     .return_once(move |_| {
-                        let message: CertificateMessage = certificate.try_into().unwrap();
-                        Ok(serde_json::to_string(&message).unwrap())
+                        let message: MithrilCertificate = certificate.try_into().unwrap();
+                        Ok(Some(message))
                     })
                     .times(1);
             })
@@ -180,14 +141,8 @@ mod tests {
     #[tokio::test]
     async fn test_show_ok_none() {
         let certificate_client = CertificateClientTestBuilder::default()
-            .config_aggregator_client_mock(|mock| {
-                mock.expect_get_content()
-                    .return_once(move |_| {
-                        Err(AggregatorClientError::RemoteServerLogical(anyhow!(
-                            "an error"
-                        )))
-                    })
-                    .times(1);
+            .config_aggregator_requester_mock(|mock| {
+                mock.expect_get_by_hash().return_once(move |_| Ok(None)).times(1);
             })
             .build();
 
@@ -197,13 +152,9 @@ mod tests {
     #[tokio::test]
     async fn test_show_ko() {
         let certificate_client = CertificateClientTestBuilder::default()
-            .config_aggregator_client_mock(|mock| {
-                mock.expect_get_content()
-                    .return_once(move |_| {
-                        Err(AggregatorClientError::RemoteServerTechnical(anyhow!(
-                            "an error"
-                        )))
-                    })
+            .config_aggregator_requester_mock(|mock| {
+                mock.expect_get_by_hash()
+                    .return_once(move |_| Err(anyhow!("an error")))
                     .times(1);
             })
             .build();
