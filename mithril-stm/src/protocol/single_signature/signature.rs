@@ -1,11 +1,10 @@
+use anyhow::{Context, anyhow};
+use blake2::digest::{Digest, FixedOutput};
+use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
     hash::{Hash, Hasher},
 };
-
-use anyhow::{Context, anyhow};
-use blake2::digest::{Digest, FixedOutput};
-use serde::{Deserialize, Serialize};
 
 use crate::{
     AggregateVerificationKey, Index, Parameters, SignatureError, Stake, StmResult, VerificationKey,

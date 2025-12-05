@@ -271,9 +271,8 @@ mod tests {
     use proptest::{collection::vec, prelude::*};
     use rand::{rng, seq::IteratorRandom};
 
-    use crate::signature_scheme::BlsVerificationKey;
-
     use super::*;
+    use crate::signature_scheme::BlsVerificationKey;
 
     fn pow2_plus1(h: usize) -> usize {
         1 + 2_usize.pow(h as u32)
