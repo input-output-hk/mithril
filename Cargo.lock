@@ -911,7 +911,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-database"
-version = "0.1.37"
+version = "0.1.38"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -924,7 +924,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-database-v2"
-version = "0.0.14"
+version = "0.0.15"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -937,7 +937,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-stake-distribution"
-version = "0.1.13"
+version = "0.1.14"
 dependencies = [
  "anyhow",
  "clap",
@@ -950,7 +950,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-transaction"
-version = "0.1.23"
+version = "0.1.24"
 dependencies = [
  "anyhow",
  "clap",
@@ -963,7 +963,7 @@ dependencies = [
 
 [[package]]
 name = "client-mithril-stake-distribution"
-version = "0.2.11"
+version = "0.2.12"
 dependencies = [
  "anyhow",
  "clap",
@@ -3803,7 +3803,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator-discovery"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3925,7 +3925,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.12.36"
+version = "0.12.37"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3965,7 +3965,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.12.34"
+version = "0.12.35"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3999,7 +3999,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-wasm"
-version = "0.9.8"
+version = "0.9.9"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4017,7 +4017,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.6.32"
+version = "0.6.33"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4295,7 +4295,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-stm"
-version = "0.6.2"
+version = "0.6.3"
 dependencies = [
  "anyhow",
  "blake2 0.10.6",
