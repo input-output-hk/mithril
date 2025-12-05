@@ -5,8 +5,10 @@ use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 
 use super::Signer;
+#[cfg(feature = "basic_verifier")]
+use crate::RegisteredParty;
 use crate::{
-    ClosedKeyRegistration, Parameters, RegisterError, RegisteredParty, Stake, StmResult,
+    ClosedKeyRegistration, Parameters, RegisterError, Stake, StmResult,
     signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
 };
 
@@ -120,48 +122,6 @@ impl Initializer {
         Self::create_signer(self, closed_reg)
     }
 
-    /// Creates a new basic signer that does not include closed registration.
-    /// Takes `eligible_parties` as a parameter and determines the signer's index in the parties.
-    /// `eligible_parties` is verified and trusted which is only run by a full-node
-    /// that has already verified the parties.
-    pub fn create_basic_signer<D: Digest + Clone + FixedOutput>(
-        self,
-        eligible_parties: &[RegisteredParty],
-    ) -> Option<Signer<D>> {
-        let mut parties = eligible_parties.to_vec();
-        parties.sort_unstable();
-        let mut my_index = None;
-        for (i, rp) in parties.iter().enumerate() {
-            if rp.0 == self.pk.vk {
-                my_index = Some(i as u64);
-                break;
-            }
-        }
-        if let Some(index) = my_index {
-            Some(Signer::set_basic_signer(
-                index,
-                self.stake,
-                self.params,
-                self.sk,
-                self.pk.vk,
-            ))
-        } else {
-            None
-        }
-    }
-
-    /// Creates a new basic signer that does not include closed registration.
-    /// Takes `eligible_parties` as a parameter and determines the signer's index in the parties.
-    /// `eligible_parties` is verified and trusted which is only run by a full-node
-    /// that has already verified the parties.
-    #[deprecated(since = "0.5.0", note = "Use `create_basic_signer` instead")]
-    pub fn new_core_signer<D: Digest + Clone + FixedOutput>(
-        self,
-        eligible_parties: &[RegisteredParty],
-    ) -> Option<Signer<D>> {
-        Self::create_basic_signer(self, eligible_parties)
-    }
-
     /// Convert to bytes
     /// # Layout
     /// * Stake (u64)
@@ -198,6 +158,50 @@ impl Initializer {
             sk,
             pk,
         })
+    }
+
+    /// Creates a new basic signer that does not include closed registration.
+    /// Takes `eligible_parties` as a parameter and determines the signer's index in the parties.
+    /// `eligible_parties` is verified and trusted which is only run by a full-node
+    /// that has already verified the parties.
+    #[cfg(feature = "basic_verifier")]
+    pub fn create_basic_signer<D: Digest + Clone + FixedOutput>(
+        self,
+        eligible_parties: &[RegisteredParty],
+    ) -> Option<Signer<D>> {
+        let mut parties = eligible_parties.to_vec();
+        parties.sort_unstable();
+        let mut my_index = None;
+        for (i, rp) in parties.iter().enumerate() {
+            if rp.0 == self.pk.vk {
+                my_index = Some(i as u64);
+                break;
+            }
+        }
+        if let Some(index) = my_index {
+            Some(Signer::set_basic_signer(
+                index,
+                self.stake,
+                self.params,
+                self.sk,
+                self.pk.vk,
+            ))
+        } else {
+            None
+        }
+    }
+
+    /// Creates a new basic signer that does not include closed registration.
+    /// Takes `eligible_parties` as a parameter and determines the signer's index in the parties.
+    /// `eligible_parties` is verified and trusted which is only run by a full-node
+    /// that has already verified the parties.
+    #[deprecated(since = "0.5.0", note = "Use `create_basic_signer` instead")]
+    #[cfg(feature = "basic_verifier")]
+    pub fn new_core_signer<D: Digest + Clone + FixedOutput>(
+        self,
+        eligible_parties: &[RegisteredParty],
+    ) -> Option<Signer<D>> {
+        Self::create_basic_signer(self, eligible_parties)
     }
 }
 
