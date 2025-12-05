@@ -14,9 +14,9 @@ use crate::{
     commands::client_builder,
     configuration::{ConfigError, ConfigSource},
 };
-use mithril_client::Client;
-use mithril_client::common::Epoch;
+use mithril_client::common::{Epoch, SignedEntityTypeDiscriminants};
 use mithril_client::{CardanoStakeDistribution, MessageBuilder, MithrilResult};
+use mithril_client::{Client, RequiredAggregatorCapabilities};
 
 /// Download and verify a Cardano stake distribution information.
 #[derive(Parser, Debug, Clone)]
@@ -50,6 +50,9 @@ impl CardanoStakeDistributionDownloadCommand {
         };
         let progress_printer = ProgressPrinter::new(progress_output_type, 4);
         let client = client_builder(context.config_parameters())?
+            .with_capabilities(RequiredAggregatorCapabilities::SignedEntityType(
+                SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+            ))
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
                 progress_output_type,
                 logger.clone(),

@@ -25,6 +25,9 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for new `Lagrange` Mithril era.
 
+- **UNSTABLE**:
+  - Support for aggregator discovery mechanism in the client library and CLI.
+
 - Crates versions:
 
 | Crate | Version |

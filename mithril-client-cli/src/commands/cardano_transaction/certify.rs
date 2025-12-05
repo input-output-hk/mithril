@@ -1,6 +1,8 @@
 use anyhow::{Context, anyhow};
 use clap::Parser;
 use cli_table::{Cell, Table, print_stdout};
+use mithril_client::RequiredAggregatorCapabilities;
+use mithril_client::common::SignedEntityTypeDiscriminants;
 use slog::debug;
 use std::{collections::HashMap, sync::Arc};
 
@@ -41,6 +43,9 @@ impl CardanoTransactionsCertifyCommand {
         };
         let progress_printer = ProgressPrinter::new(progress_output_type, 4);
         let client = client_builder(context.config_parameters())?
+            .with_capabilities(RequiredAggregatorCapabilities::SignedEntityType(
+                SignedEntityTypeDiscriminants::CardanoTransactions,
+            ))
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
                 progress_output_type,
                 logger.clone(),

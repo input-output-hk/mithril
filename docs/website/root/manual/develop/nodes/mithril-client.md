@@ -227,27 +227,47 @@ Commands:
 
 Options:
       --run-mode <RUN_MODE>
-          Run Mode [env: RUN_MODE=] [default: dev]
+          Run Mode
+
+          [env: RUN_MODE=]
+          [default: dev]
+
   -v, --verbose...
           Verbosity level (-v=warning, -vv=info, -vvv=debug, -vvvv=trace)
+
       --config-directory <CONFIG_DIRECTORY>
-          Directory where configuration file is located [default: ./config]
+          Directory where configuration file is located
+
+          [default: ./config]
+
       --aggregator-endpoint <AGGREGATOR_ENDPOINT>
-          Override configuration Aggregator endpoint URL [env: AGGREGATOR_ENDPOINT=]
+          Override configuration Aggregator endpoint URL.
+
+          Either the full URL of the aggregator endpoint (e.g., "https://aggregator.release-preprod.api.mithril.network/aggregator") or a string formatted as "auto:<mithril_network>" to use automatic discovery (e.g., "auto:release-preprod") (unstable).
+
+          [env: AGGREGATOR_ENDPOINT=]
+
       --json
           Enable JSON output for command results
+
       --log-format-json
           Enable JSON output for logs displayed according to verbosity level
+
       --log-output <LOG_OUTPUT>
           Redirect the logs to a file
+
       --unstable
           Enable unstable commands
+
       --origin-tag <ORIGIN_TAG>
           Request origin tag
+
       --era <ERA>
           Override the Mithril era
+
   -h, --help
-          Print help
+          Print help (see a summary with '-h')
+
   -V, --version
           Print version
 ```
@@ -521,10 +541,11 @@ Here are the subcommands available:
 
 ### Tools
 
-| Subcommand  | Performed action                                                                      |
-| ----------- | ------------------------------------------------------------------------------------- |
-| **utxo-hd** | UTxO-HD related commands (e.g., converting a ledger state snapshot to another flavor) |
-| **help**    | Prints this message or the help for the given subcommand(s)                           |
+| Subcommand              | Performed action                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------- |
+| **utxo-hd**             | UTxO-HD related commands (e.g., converting a ledger state snapshot to another flavor) |
+| **discover-aggregator** | Aggregator discovery command (unstable)                                               |
+| **help**                | Prints this message or the help for the given subcommand(s)                           |
 
 ## Configuration parameters
 
@@ -782,3 +803,29 @@ This command is not compatible with **Linux ARM environments**.
 | `origin_tag`           | `--origin-tag`           |          -           | -                     | Request origin tag                                                                                                                                      | -             | -       |         -          |
 | `era`                  | `--era`                  |          -           | -                     | Override the Mithril era                                                                                                                                | -             | -       |         -          |
 | `help`                 | `--help`                 |         `-h`         | -                     | Print help (see more with '--help')                                                                                                                     | -             | -       |         -          |
+
+`mithril-client tools discover-aggregator` command:
+
+:::warning
+
+This command is unstable.
+
+:::
+
+| Parameter                   | Command line (long)           | Command line (short) | Environment variable  | Description                                                        | Default value | Example |     Mandatory      |
+| --------------------------- | ----------------------------- | :------------------: | --------------------- | ------------------------------------------------------------------ | ------------- | ------- | :----------------: |
+| `network`                   | -                             |          -           | -                     | Mithril network name                                               | -             | -       | :heavy_check_mark: |
+| `max_entries`               | `--max-entries`               |          -           | -                     | Maximum number of entries to retrieve                              | `1`           | -       |         -          |
+| `signed_entity_types`       | `--signed-entity-types`       |          -           | -                     | Signed entity types to consider for the discovery                  | -             | -       |         -          |
+| `aggregate_signature_types` | `--aggregate-signature-types` |          -           | -                     | Aggregate signature types to consider for the discovery            | -             | -       |         -          |
+| `run_mode`                  | `--run-mode`                  |          -           | `RUN_MODE`            | Run Mode                                                           | `dev`         | -       |         -          |
+| `verbose`                   | `--verbose`                   |         `-v`         | -                     | Verbosity level (-v=warning, -vv=info, -vvv=debug, -vvvv=trace)    | `0`           | -       |         -          |
+| `config_directory`          | `--config-directory`          |          -           | -                     | Directory where configuration file is located                      | `./config`    | -       |         -          |
+| `aggregator_endpoint`       | `--aggregator-endpoint`       |          -           | `AGGREGATOR_ENDPOINT` | Override configuration Aggregator endpoint URL                     | -             | -       |         -          |
+| `json`                      | `--json`                      |          -           | -                     | Enable JSON output for command results                             | `false`       | -       |         -          |
+| `log_format_json`           | `--log-format-json`           |          -           | -                     | Enable JSON output for logs displayed according to verbosity level | `false`       | -       |         -          |
+| `log_output`                | `--log-output`                |          -           | -                     | Redirect the logs to a file                                        | -             | -       |         -          |
+| `unstable`                  | `--unstable`                  |          -           | -                     | Enable unstable commands                                           | `false`       | -       |         -          |
+| `origin_tag`                | `--origin-tag`                |          -           | -                     | Request origin tag                                                 | -             | -       |         -          |
+| `era`                       | `--era`                       |          -           | -                     | Override the Mithril era                                           | -             | -       |         -          |
+| `help`                      | `--help`                      |         `-h`         | -                     | Print help (see more with '--help')                                | -             | -       |         -          |

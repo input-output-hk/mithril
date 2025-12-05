@@ -80,7 +80,9 @@ This repository consists of the following parts:
 - [**Mithril signer**](./mithril-signer): the node of the **Mithril network** responsible for producing individual signatures that are collected and aggregated by the **Mithril aggregator**.
 
 - [**Internal**](./internal): the shared tools and API used by **Mithril** crates.
-  - [**Mithril aggregator client**](./internal/mithril-aggregator-client): a client to request data from a Mithril Aggregator, used by **Mithril network** nodes and client library.
+  - [**Mithril aggregator client**](./internal/mithril-aggregator-client): a client to request data from a Mithril aggregator, used by **Mithril network** nodes and client library.
+
+  - [**Mithril aggregator discovery**](./internal/mithril-aggregator-discovery): mechanisms to discover available Mithril aggregators, used by **Mithril network** nodes and client library.
 
   - [**Mithril build script**](./internal/mithril-build-script): a toolbox for Mithril crates that uses a build script phase.
 

@@ -3,8 +3,11 @@ use clap::Parser;
 use cli_table::{Cell, CellStruct, Table, print_stdout};
 
 use mithril_client::{
-    Client, MithrilResult,
-    common::{AncillaryLocation, DigestLocation, ImmutablesLocation, MultiFilesUri},
+    Client, MithrilResult, RequiredAggregatorCapabilities,
+    common::{
+        AncillaryLocation, DigestLocation, ImmutablesLocation, MultiFilesUri,
+        SignedEntityTypeDiscriminants,
+    },
 };
 
 use crate::{
@@ -30,13 +33,29 @@ pub struct CardanoDbShowCommand {
 impl CardanoDbShowCommand {
     /// Cardano DB Show command
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
-        let client = client_builder_with_fallback_genesis_key(context.config_parameters())?
-            .with_logger(context.logger().clone())
-            .build()?;
-
         match self.backend {
-            CardanoDbCommandsBackend::V1 => self.print_v1(client, &context).await?,
-            CardanoDbCommandsBackend::V2 => self.print_v2(client, &context).await?,
+            CardanoDbCommandsBackend::V1 => {
+                let client = client_builder_with_fallback_genesis_key(context.config_parameters())?
+                    .with_capabilities(RequiredAggregatorCapabilities::And(vec![
+                        RequiredAggregatorCapabilities::SignedEntityType(
+                            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+                        ),
+                    ]))
+                    .with_logger(context.logger().clone())
+                    .build()?;
+                self.print_v1(client, &context).await?;
+            }
+            CardanoDbCommandsBackend::V2 => {
+                let client = client_builder_with_fallback_genesis_key(context.config_parameters())?
+                    .with_capabilities(RequiredAggregatorCapabilities::And(vec![
+                        RequiredAggregatorCapabilities::SignedEntityType(
+                            SignedEntityTypeDiscriminants::CardanoDatabase,
+                        ),
+                    ]))
+                    .with_logger(context.logger().clone())
+                    .build()?;
+                self.print_v2(client, &context).await?;
+            }
         }
 
         Ok(())

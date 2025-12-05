@@ -7,9 +7,9 @@ use std::{
 };
 
 use mithril_client::{
-    CardanoDatabaseSnapshot, MithrilResult,
+    CardanoDatabaseSnapshot, MithrilResult, RequiredAggregatorCapabilities,
     cardano_database_client::{CardanoDatabaseClient, DownloadUnpackOptions, ImmutableFileRange},
-    common::ImmutableFileNumber,
+    common::{ImmutableFileNumber, SignedEntityTypeDiscriminants},
 };
 
 use crate::{
@@ -67,6 +67,9 @@ impl PreparedCardanoDbV2Download {
         };
         let progress_printer = ProgressPrinter::new(progress_output_type, 7);
         let client = client_builder(context.config_parameters())?
+            .with_capabilities(RequiredAggregatorCapabilities::SignedEntityType(
+                SignedEntityTypeDiscriminants::CardanoDatabase,
+            ))
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
                 progress_output_type,
                 context.logger().clone(),
