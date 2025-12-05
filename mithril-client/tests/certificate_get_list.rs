@@ -3,10 +3,7 @@
 
 mod extensions;
 
-use mithril_client::{
-    AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey,
-    aggregator_client::AggregatorRequest,
-};
+use mithril_client::{AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey};
 use mithril_common::test::double::fake_keys;
 
 use crate::extensions::fake_aggregator::FakeAggregator;
@@ -32,7 +29,7 @@ async fn certificate_get_list() {
         .expect("List Certificate should not fail");
     assert_eq!(
         fake_aggregator.get_last_call().await,
-        Some(format!("/{}", AggregatorRequest::ListCertificates.route()))
+        Some("/certificates".to_string())
     );
 
     let mut hashes: Vec<String> = certificates.into_iter().map(|c| c.hash).collect();
