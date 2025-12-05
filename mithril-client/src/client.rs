@@ -412,7 +412,7 @@ impl ClientBuilder {
         ));
 
         let cardano_transaction_client =
-            Arc::new(CardanoTransactionClient::new(aggregator_client_old.clone()));
+            Arc::new(CardanoTransactionClient::new(aggregator_client.clone()));
 
         let cardano_stake_distribution_client =
             Arc::new(CardanoStakeDistributionClient::new(aggregator_client));
