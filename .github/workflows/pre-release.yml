@@ -296,6 +296,8 @@ jobs:
             mithril-stm,
             mithril-build-script,
             mithril-common,
+            mithril-aggregator-client,
+            mithril-aggregator-discovery,
             mithril-cardano-node-internal-database,
             mithril-client,
           ]
