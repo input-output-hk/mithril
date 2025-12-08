@@ -1,0 +1,68 @@
+name: Check Licenses
+
+on:
+  push:
+    branches:
+      - "main"
+      - "hotfix**"
+    paths:
+      - "**/Cargo.lock"
+      - "**/Cargo.toml"
+      - "**/deny.toml"
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - "**/Cargo.lock"
+      - "**/Cargo.toml"
+      - "**/deny.toml"
+    branches-ignore:
+      - "hotfix**" # hotfix are handled by the push trigger
+
+concurrency:
+  group: licences-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cargo-deny:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          ## Note about deny command options:
+          ## `--no-default-features` is only available when running against one crate
+
+          # Global
+          - deny-args: ""
+            manifest-path: ./Cargo.toml
+          - deny-args: "--all-features"
+            manifest-path: ./Cargo.toml
+          - deny-args: "--features rug-backend"
+            manifest-path: ./Cargo.toml
+          - deny-args: "--features num-integer-backend"
+            manifest-path: ./Cargo.toml
+          - deny-args: "--features jemallocator"
+            manifest-path: ./Cargo.toml
+          - deny-args: "--features bundle_tls"
+            manifest-path: ./Cargo.toml
+
+          # Mithril Client
+          - deny-args: ""
+            manifest-path: mithril-client/Cargo.toml
+          - deny-args: "--all-features"
+            manifest-path: mithril-client/Cargo.toml
+          - deny-args: "--no-default-features"
+            manifest-path: mithril-client/Cargo.toml
+
+          # Mithril Client WASM
+          - deny-args: ""
+            manifest-path: mithril-client-wasm/Cargo.toml
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check licenses
+          arguments: ${{ matrix.deny-args }}
+          log-level: error
+          manifest-path: ${{ matrix.manifest-path }}
