@@ -1,4 +1,4 @@
-//! A client which retrieves and validates certificates from an Aggregator.
+//! A client which retrieves and validates certificates from an aggregator.
 //!
 //! In order to do so it defines a [CertificateClient] exposes the following features:
 //!  - [get][CertificateClient::get]: get a certificate data from its hash
@@ -74,7 +74,6 @@ pub(crate) mod tests_utils {
     use mockall::predicate::eq;
     use std::sync::Arc;
 
-    use crate::aggregator_client::{AggregatorRequest, MockAggregatorClient};
     use crate::feedback::{FeedbackReceiver, FeedbackSender};
     use crate::test_utils::TestLogger;
 
@@ -82,7 +81,7 @@ pub(crate) mod tests_utils {
 
     #[derive(Default)]
     pub(crate) struct CertificateClientTestBuilder {
-        aggregator_client: MockAggregatorClient,
+        aggregator_requester: MockCertificateAggregatorRequest,
         genesis_verification_key: Option<String>,
         feedback_receivers: Vec<Arc<dyn FeedbackReceiver>>,
         #[cfg(feature = "unstable")]
@@ -90,11 +89,11 @@ pub(crate) mod tests_utils {
     }
 
     impl CertificateClientTestBuilder {
-        pub fn config_aggregator_client_mock(
+        pub fn config_aggregator_requester_mock(
             mut self,
-            config: impl FnOnce(&mut MockAggregatorClient),
+            config: impl FnOnce(&mut MockCertificateAggregatorRequest),
         ) -> Self {
-            config(&mut self.aggregator_client);
+            config(&mut self.aggregator_requester);
             self
         }
 
@@ -129,7 +128,7 @@ pub(crate) mod tests_utils {
         /// else a [MithrilCertificateVerifier] will be used.
         pub fn build(self) -> CertificateClient {
             let logger = TestLogger::stdout();
-            let aggregator_client = Arc::new(self.aggregator_client);
+            let aggregator_client = Arc::new(self.aggregator_requester);
 
             let certificate_verifier: Arc<dyn CertificateVerifier> =
                 match self.genesis_verification_key {
@@ -151,18 +150,16 @@ pub(crate) mod tests_utils {
         }
     }
 
-    impl MockAggregatorClient {
+    impl MockCertificateAggregatorRequest {
         pub(crate) fn expect_certificate_chain(&mut self, certificate_chain: Vec<Certificate>) {
             for certificate in certificate_chain {
                 let hash = certificate.hash.clone();
-                let message = serde_json::to_string(
-                    &TryInto::<CertificateMessage>::try_into(certificate).unwrap(),
-                )
-                .unwrap();
-                self.expect_get_content()
-                    .with(eq(AggregatorRequest::GetCertificate { hash }))
+                let message: CertificateMessage = certificate.try_into().unwrap();
+
+                self.expect_get_by_hash()
+                    .with(eq(hash))
                     .once()
-                    .returning(move |_| Ok(message.to_owned()));
+                    .returning(move |_| Ok(Some(message.to_owned())));
             }
         }
     }

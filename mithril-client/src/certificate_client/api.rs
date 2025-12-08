@@ -1,34 +1,45 @@
 use async_trait::async_trait;
-use mithril_common::logging::LoggerExtensions;
 use std::sync::Arc;
 
-use crate::aggregator_client::AggregatorClient;
+use mithril_common::logging::LoggerExtensions;
+
 use crate::certificate_client::fetch::InternalCertificateRetriever;
 use crate::certificate_client::{fetch, verify};
 use crate::{MithrilCertificate, MithrilCertificateListItem, MithrilResult};
 
 /// Aggregator client for the Certificate
 pub struct CertificateClient {
-    pub(super) aggregator_client: Arc<dyn AggregatorClient>,
+    pub(super) aggregator_requester: Arc<dyn CertificateAggregatorRequest>,
     pub(super) retriever: Arc<InternalCertificateRetriever>,
     pub(super) verifier: Arc<dyn CertificateVerifier>,
+}
+
+/// Define the requests against an aggregator related to Mithril certificate.
+#[cfg_attr(test, mockall::automock)]
+#[cfg_attr(target_family = "wasm", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_family = "wasm"), async_trait::async_trait)]
+pub trait CertificateAggregatorRequest: Send + Sync {
+    /// Get the list of latest Mithril Certificates from the aggregator.
+    async fn list_latest(&self) -> MithrilResult<Vec<MithrilCertificateListItem>>;
+
+    /// Get a Mithril Certificate for a given hash from the aggregator.
+    async fn get_by_hash(&self, hash: &str) -> MithrilResult<Option<MithrilCertificate>>;
 }
 
 impl CertificateClient {
     /// Constructs a new `CertificateClient`.
     pub fn new(
-        aggregator_client: Arc<dyn AggregatorClient>,
+        aggregator_requester: Arc<dyn CertificateAggregatorRequest>,
         verifier: Arc<dyn CertificateVerifier>,
         logger: slog::Logger,
     ) -> Self {
-        let logger = logger.new_with_component_name::<Self>();
+        let _logger = logger.new_with_component_name::<Self>();
         let retriever = Arc::new(InternalCertificateRetriever::new(
-            aggregator_client.clone(),
-            logger,
+            aggregator_requester.clone(),
         ));
 
         Self {
-            aggregator_client,
+            aggregator_requester,
             retriever,
             verifier,
         }

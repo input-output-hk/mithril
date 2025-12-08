@@ -5,7 +5,6 @@ mod extensions;
 
 use mithril_client::{
     AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder,
-    aggregator_client::AggregatorRequest,
 };
 use mithril_common::test::double::fake_keys;
 
@@ -35,10 +34,7 @@ async fn mithril_stake_distribution_list_get_show_verify() {
         .expect("List MithrilStakeDistribution should not fail");
     assert_eq!(
         fake_aggregator.get_last_call().await,
-        Some(format!(
-            "/{}",
-            AggregatorRequest::ListMithrilStakeDistributions.route()
-        ))
+        Some("/artifact/mithril-stake-distributions".to_string())
     );
 
     let last_hash = mithril_stake_distributions.first().unwrap().hash.as_ref();
@@ -52,13 +48,7 @@ async fn mithril_stake_distribution_list_get_show_verify() {
         });
     assert_eq!(
         fake_aggregator.get_last_call().await,
-        Some(format!(
-            "/{}",
-            AggregatorRequest::GetMithrilStakeDistribution {
-                hash: (last_hash).to_string()
-            }
-            .route()
-        ))
+        Some(format!("/artifact/mithril-stake-distribution/{last_hash}",))
     );
 
     let certificate = client
@@ -69,11 +59,8 @@ async fn mithril_stake_distribution_list_get_show_verify() {
     assert_eq!(
         fake_aggregator.get_last_call().await,
         Some(format!(
-            "/{}",
-            AggregatorRequest::GetCertificate {
-                hash: mithril_stake_distribution.certificate_hash.clone()
-            }
-            .route()
+            "/certificate/{}",
+            mithril_stake_distribution.certificate_hash
         ))
     );
 

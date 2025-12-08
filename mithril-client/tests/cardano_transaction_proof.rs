@@ -5,7 +5,6 @@ mod extensions;
 
 use mithril_client::{
     AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder,
-    aggregator_client::AggregatorRequest,
 };
 use mithril_common::test::double::fake_keys;
 
@@ -38,11 +37,8 @@ async fn cardano_transaction_proof_get_validate() {
     assert_eq!(
         fake_aggregator.get_last_call().await,
         Some(format!(
-            "/{}",
-            AggregatorRequest::GetTransactionsProofs {
-                transactions_hashes: transactions_hashes.iter().map(|h| h.to_string()).collect(),
-            }
-            .route()
+            "/proof/cardano-transaction?transaction_hashes={}",
+            transactions_hashes.join(","),
         ))
     );
 
@@ -57,13 +53,7 @@ async fn cardano_transaction_proof_get_validate() {
         .expect("Validating the chain should not fail");
     assert_eq!(
         fake_aggregator.get_last_call().await,
-        Some(format!(
-            "/{}",
-            AggregatorRequest::GetCertificate {
-                hash: proofs.certificate_hash.clone()
-            }
-            .route()
-        ))
+        Some(format!("/certificate/{}", proofs.certificate_hash.clone()))
     );
 
     // 4 - validate that the verified transactions proof is signed by the certificate

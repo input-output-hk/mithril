@@ -166,8 +166,7 @@ macro_rules! cfg_fs_unstable {
     }
 }
 
-#[deprecated(since = "0.12.33", note = "Will be removed soon")]
-pub mod aggregator_client;
+mod aggregator_client;
 pub mod cardano_database_client;
 pub mod cardano_stake_distribution_client;
 pub mod cardano_transaction_client;

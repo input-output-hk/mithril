@@ -1,18 +1,17 @@
 use std::sync::Arc;
 
-use crate::{
-    MithrilResult,
-    aggregator_client::{AggregatorClient, AggregatorRequest},
-};
+use crate::{MithrilResult, cardano_database_client::CardanoDatabaseAggregatorRequest};
 
 pub struct InternalStatisticsSender {
-    pub(super) aggregator_client: Arc<dyn AggregatorClient>,
+    pub(super) aggregator_requester: Arc<dyn CardanoDatabaseAggregatorRequest>,
 }
 
 impl InternalStatisticsSender {
     /// Constructs a new `InternalStaticticsSender`.
-    pub fn new(aggregator_client: Arc<dyn AggregatorClient>) -> Self {
-        Self { aggregator_client }
+    pub fn new(aggregator_requester: Arc<dyn CardanoDatabaseAggregatorRequest>) -> Self {
+        Self {
+            aggregator_requester,
+        }
     }
 
     /// Increments the aggregator Cardano database snapshot download statistics
@@ -23,26 +22,28 @@ impl InternalStatisticsSender {
         number_of_immutable_files_restored: u64,
     ) -> MithrilResult<()> {
         if include_ancillary {
-            self.aggregator_client
-                .post_content(AggregatorRequest::IncrementCardanoDatabaseAncillaryStatistic)
+            self.aggregator_requester
+                .increment_ancillary_downloaded_statistic()
                 .await?;
         };
 
-        let restoration_request = if full_restoration {
-            AggregatorRequest::IncrementCardanoDatabaseCompleteRestorationStatistic
+        if full_restoration {
+            self.aggregator_requester
+                .increment_cardano_database_complete_restoration_statistic()
+                .await?;
         } else {
-            AggregatorRequest::IncrementCardanoDatabasePartialRestorationStatistic
+            self.aggregator_requester
+                .increment_cardano_database_partial_restoration_statistic()
+                .await?;
         };
 
-        self.aggregator_client.post_content(restoration_request).await?;
-
-        self.aggregator_client
-            .post_content(
-                AggregatorRequest::IncrementCardanoDatabaseImmutablesRestoredStatistic {
-                    number_of_immutables: number_of_immutable_files_restored,
-                },
-            )
-            .await?;
+        if number_of_immutable_files_restored > 0 {
+            self.aggregator_requester
+                .increment_immutables_snapshot_restored_statistic(
+                    number_of_immutable_files_restored as u32,
+                )
+                .await?;
+        }
 
         Ok(())
     }
@@ -50,29 +51,26 @@ impl InternalStatisticsSender {
 
 #[cfg(test)]
 mod tests {
-    use mockall::predicate::{self, eq};
+    use mockall::predicate::eq;
 
-    use crate::{
-        aggregator_client::AggregatorRequest,
-        cardano_database_client::CardanoDatabaseClientDependencyInjector,
-    };
+    use crate::cardano_database_client::CardanoDatabaseClientDependencyInjector;
 
     #[tokio::test]
     async fn add_statistics_with_ancillary() {
         let include_ancillary = true;
         let client = CardanoDatabaseClientDependencyInjector::new()
-            .with_aggregator_client_mock_config(|http_client| {
-                http_client
-                    .expect_post_content()
-                    .with(eq(
-                        AggregatorRequest::IncrementCardanoDatabaseAncillaryStatistic,
-                    ))
+            .with_aggregator_requester_mock_config(|requester| {
+                requester
+                    .expect_increment_ancillary_downloaded_statistic()
                     .times(1)
-                    .return_once(|_| Ok("whatever".to_string()));
+                    .return_once(|| Ok(()));
 
-                http_client
-                    .expect_post_content()
-                    .returning(|_| Ok("whatever".to_string()));
+                requester
+                    .expect_increment_cardano_database_partial_restoration_statistic()
+                    .returning(|| Ok(()));
+                requester
+                    .expect_increment_immutables_snapshot_restored_statistic()
+                    .returning(|_| Ok(()));
             })
             .build_cardano_database_client();
 
@@ -83,17 +81,15 @@ mod tests {
     async fn add_statistics_without_ancillary() {
         let include_ancillary = false;
         let client = CardanoDatabaseClientDependencyInjector::new()
-            .with_aggregator_client_mock_config(|http_client| {
-                http_client
-                    .expect_post_content()
-                    .with(eq(
-                        AggregatorRequest::IncrementCardanoDatabaseAncillaryStatistic,
-                    ))
-                    .never();
+            .with_aggregator_requester_mock_config(|requester| {
+                requester.expect_increment_ancillary_downloaded_statistic().never();
 
-                http_client
-                    .expect_post_content()
-                    .returning(|_| Ok("whatever".to_string()));
+                requester
+                    .expect_increment_cardano_database_partial_restoration_statistic()
+                    .returning(|| Ok(()));
+                requester
+                    .expect_increment_immutables_snapshot_restored_statistic()
+                    .returning(|_| Ok(()));
             })
             .build_cardano_database_client();
 
@@ -104,25 +100,21 @@ mod tests {
     async fn add_statistics_with_full_restoration() {
         let full_restoration = true;
         let client = CardanoDatabaseClientDependencyInjector::new()
-            .with_aggregator_client_mock_config(|http_client| {
-                http_client
-                    .expect_post_content()
-                    .with(eq(
-                        AggregatorRequest::IncrementCardanoDatabaseCompleteRestorationStatistic,
-                    ))
-                    .times(1)
-                    .return_once(|_| Ok("whatever".to_string()));
-
-                http_client
-                    .expect_post_content()
-                    .with(eq(
-                        AggregatorRequest::IncrementCardanoDatabasePartialRestorationStatistic,
-                    ))
+            .with_aggregator_requester_mock_config(|requester| {
+                requester
+                    .expect_increment_cardano_database_complete_restoration_statistic()
+                    .returning(|| Ok(()))
+                    .times(1);
+                requester
+                    .expect_increment_cardano_database_partial_restoration_statistic()
                     .never();
 
-                http_client
-                    .expect_post_content()
-                    .returning(|_| Ok("whatever".to_string()));
+                requester
+                    .expect_increment_ancillary_downloaded_statistic()
+                    .returning(|| Ok(()));
+                requester
+                    .expect_increment_immutables_snapshot_restored_statistic()
+                    .returning(|_| Ok(()));
             })
             .build_cardano_database_client();
 
@@ -133,25 +125,18 @@ mod tests {
     async fn add_statistics_with_partial_restoration() {
         let full_restoration = false;
         let client = CardanoDatabaseClientDependencyInjector::new()
-            .with_aggregator_client_mock_config(|http_client| {
-                http_client
-                    .expect_post_content()
-                    .with(eq(
-                        AggregatorRequest::IncrementCardanoDatabasePartialRestorationStatistic,
-                    ))
-                    .times(1)
-                    .return_once(|_| Ok("whatever".to_string()));
-
-                http_client
-                    .expect_post_content()
-                    .with(eq(
-                        AggregatorRequest::IncrementCardanoDatabaseCompleteRestorationStatistic,
-                    ))
+            .with_aggregator_requester_mock_config(|requester| {
+                requester
+                    .expect_increment_cardano_database_partial_restoration_statistic()
+                    .returning(|| Ok(()))
+                    .times(1);
+                requester
+                    .expect_increment_cardano_database_complete_restoration_statistic()
                     .never();
 
-                http_client
-                    .expect_post_content()
-                    .returning(|_| Ok("whatever".to_string()));
+                requester
+                    .expect_increment_immutables_snapshot_restored_statistic()
+                    .returning(|_| Ok(()));
             })
             .build_cardano_database_client();
 
@@ -162,20 +147,16 @@ mod tests {
     async fn add_statistics_increments_immutable_files_restored() {
         let immutable_files_restored = 123456;
         let client = CardanoDatabaseClientDependencyInjector::new()
-            .with_aggregator_client_mock_config(|http_client| {
-                http_client
-                    .expect_post_content()
-                    .with(eq(
-                        AggregatorRequest::IncrementCardanoDatabaseImmutablesRestoredStatistic {
-                            number_of_immutables: immutable_files_restored,
-                        },
-                    ))
+            .with_aggregator_requester_mock_config(|requester| {
+                requester
+                    .expect_increment_immutables_snapshot_restored_statistic()
                     .times(1)
-                    .return_once(|_| Ok("whatever".to_string()));
+                    .with(eq(immutable_files_restored as u32))
+                    .returning(|_| Ok(()));
 
-                http_client
-                    .expect_post_content()
-                    .returning(|_| Ok("whatever".to_string()));
+                requester
+                    .expect_increment_cardano_database_partial_restoration_statistic()
+                    .returning(|| Ok(()));
             })
             .build_cardano_database_client();
 
@@ -189,15 +170,15 @@ mod tests {
     async fn add_statistics_does_not_increment_immutable_files_restored_when_none_restored() {
         let immutable_files_restored = 0;
         let client = CardanoDatabaseClientDependencyInjector::new()
-            .with_aggregator_client_mock_config(|http_client| {
-                http_client
-                    .expect_post_content()
-                    .with(predicate::function(|req| matches!(req, AggregatorRequest::IncrementCardanoDatabaseImmutablesRestoredStatistic { .. })))
-                    .never();
+            .with_aggregator_requester_mock_config(|requester| {
+                requester
+                    .expect_increment_immutables_snapshot_restored_statistic()
+                    .never()
+                    .returning(|_| Ok(()));
 
-                http_client
-                    .expect_post_content()
-                    .returning(|_| Ok("whatever".to_string()));
+                requester
+                    .expect_increment_cardano_database_partial_restoration_statistic()
+                    .returning(|| Ok(()));
             })
             .build_cardano_database_client();
 

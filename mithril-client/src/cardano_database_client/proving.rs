@@ -449,11 +449,11 @@ mod tests {
         current_function,
         entities::{CardanoDbBeacon, Epoch, HexEncodedDigest},
         messages::CardanoDatabaseDigestListItemMessage,
-        test::{TempDir, double::Dummy},
+        test::TempDir,
     };
 
     use crate::{
-        cardano_database_client::CardanoDatabaseClientDependencyInjector,
+        cardano_database_client::CardanoDatabaseClientDependencyInjector, common::test::Dummy,
         file_downloader::MockFileDownloaderBuilder, test_utils::TestLogger,
         utils::TimestampTempDirectoryProvider,
     };
@@ -1079,10 +1079,10 @@ mod tests {
         use mithril_common::{
             entities::{CardanoDbBeacon, Epoch, ImmutableFileNumber, ProtocolMessage},
             messages::CertificateMessage,
-            test::double::Dummy,
         };
 
         use crate::cardano_database_client::ImmutableFileRange;
+        use crate::common::test::Dummy;
         use crate::{cardano_database_client::VerifiedDigests, test_utils::TestLogger};
 
         use super::*;

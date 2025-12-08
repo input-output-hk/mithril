@@ -1,5 +1,5 @@
 use anyhow::Context;
-use reqwest::{Client, IntoUrl, Proxy, Url};
+use reqwest::{Client, IntoUrl, Url};
 use slog::{Logger, o};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -16,6 +16,7 @@ pub struct AggregatorClientBuilder {
     api_version_provider: Option<Arc<APIVersionProvider>>,
     additional_headers: Option<HashMap<String, String>>,
     timeout_duration: Option<Duration>,
+    #[cfg(not(target_family = "wasm"))]
     relay_endpoint: Option<String>,
     logger: Option<Logger>,
 }
@@ -30,6 +31,7 @@ impl AggregatorClientBuilder {
             api_version_provider: None,
             additional_headers: None,
             timeout_duration: None,
+            #[cfg(not(target_family = "wasm"))]
             relay_endpoint: None,
             logger: None,
         }
@@ -63,6 +65,9 @@ impl AggregatorClientBuilder {
     }
 
     /// Set the address of the relay
+    ///
+    /// _Not available on wasm platforms_
+    #[cfg(not(target_family = "wasm"))]
     pub fn with_relay_endpoint(mut self, relay_endpoint: Option<String>) -> Self {
         self.relay_endpoint = relay_endpoint;
         self
@@ -77,9 +82,15 @@ impl AggregatorClientBuilder {
         let logger = self.logger.unwrap_or_else(|| Logger::root(slog::Discard, o!()));
         let api_version_provider = self.api_version_provider.unwrap_or_default();
         let additional_headers = self.additional_headers.unwrap_or_default();
+        #[cfg(not(target_family = "wasm"))]
         let mut client_builder = Client::builder();
+        #[cfg(target_family = "wasm")]
+        let client_builder = Client::builder();
 
+        #[cfg(not(target_family = "wasm"))]
         if let Some(relay_endpoint) = self.relay_endpoint {
+            use reqwest::Proxy;
+
             client_builder = client_builder
                 .proxy(Proxy::all(relay_endpoint).with_context(|| "Relay proxy creation failed")?)
         }

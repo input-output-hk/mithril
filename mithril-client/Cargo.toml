@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client"
-version = "0.12.37"
+version = "0.13.0"
 description = "Mithril client library"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -52,12 +52,12 @@ num-integer-backend = ["mithril-common/num-integer-backend"]
 
 [dependencies]
 anyhow = { workspace = true }
-async-recursion = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 flate2 = { version = "1.1.4", optional = true }
 flume = { version = "0.11.1", optional = true }
 futures = "0.3.31"
+mithril-aggregator-client = { path = "../internal/mithril-aggregator-client", version = ">=0.1.4" }
 mithril-common = { path = "../mithril-common", version = ">=0.6", default-features = false }
 reqwest = { workspace = true, default-features = false, features = [
     "charset",
@@ -65,7 +65,6 @@ reqwest = { workspace = true, default-features = false, features = [
     "macos-system-configuration",
     "stream",
 ] }
-semver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 slog = { workspace = true }

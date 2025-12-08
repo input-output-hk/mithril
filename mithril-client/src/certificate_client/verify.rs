@@ -13,11 +13,12 @@ use mithril_common::{
     logging::LoggerExtensions,
 };
 
-use crate::aggregator_client::AggregatorClient;
 #[cfg(feature = "unstable")]
 use crate::certificate_client::CertificateVerifierCache;
 use crate::certificate_client::fetch::InternalCertificateRetriever;
-use crate::certificate_client::{CertificateClient, CertificateVerifier};
+use crate::certificate_client::{
+    CertificateAggregatorRequest, CertificateClient, CertificateVerifier,
+};
 use crate::feedback::{FeedbackSender, MithrilEvent};
 use crate::{MithrilCertificate, MithrilResult};
 
@@ -52,17 +53,14 @@ pub struct MithrilCertificateVerifier {
 impl MithrilCertificateVerifier {
     /// Constructs a new `MithrilCertificateVerifier`.
     pub fn new(
-        aggregator_client: Arc<dyn AggregatorClient>,
+        aggregator_requester: Arc<dyn CertificateAggregatorRequest>,
         genesis_verification_key: &str,
         feedback_sender: FeedbackSender,
         #[cfg(feature = "unstable")] verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
         logger: Logger,
     ) -> MithrilResult<MithrilCertificateVerifier> {
         let logger = logger.new_with_component_name::<Self>();
-        let retriever = Arc::new(InternalCertificateRetriever::new(
-            aggregator_client,
-            logger.clone(),
-        ));
+        let retriever = Arc::new(InternalCertificateRetriever::new(aggregator_requester));
         let internal_verifier = Arc::new(CommonMithrilCertificateVerifier::new(
             logger.clone(),
             retriever.clone(),
@@ -261,7 +259,7 @@ mod tests {
 
         let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
         let certificate_client = CertificateClientTestBuilder::default()
-            .config_aggregator_client_mock(|mock| {
+            .config_aggregator_requester_mock(|mock| {
                 mock.expect_certificate_chain(chain.certificates_chained.clone())
             })
             .with_genesis_verification_key(chain.genesis_verifier.to_verification_key())
@@ -304,7 +302,7 @@ mod tests {
         let last_certificate_hash = chain.first().unwrap().hash.clone();
 
         let certificate_client = CertificateClientTestBuilder::default()
-            .config_aggregator_client_mock(|mock| {
+            .config_aggregator_requester_mock(|mock| {
                 mock.expect_certificate_chain(chain.certificates_chained.clone())
             })
             .with_genesis_verification_key(chain.genesis_verifier.to_verification_key())
@@ -324,19 +322,20 @@ mod tests {
         use mithril_common::test::builder::CertificateChainingMethod;
         use mockall::predicate::eq;
 
-        use crate::aggregator_client::MockAggregatorClient;
-        use crate::certificate_client::MockCertificateVerifierCache;
         use crate::certificate_client::verify_cache::MemoryCertificateVerifierCache;
+        use crate::certificate_client::{
+            MockCertificateAggregatorRequest, MockCertificateVerifierCache,
+        };
         use crate::test_utils::TestLogger;
 
         use super::*;
 
         fn build_verifier_with_cache(
-            aggregator_client_mock_config: impl FnOnce(&mut MockAggregatorClient),
+            aggregator_client_mock_config: impl FnOnce(&mut MockCertificateAggregatorRequest),
             genesis_verification_key: ProtocolGenesisVerificationKey,
             cache: Arc<dyn CertificateVerifierCache>,
         ) -> MithrilCertificateVerifier {
-            let mut aggregator_client = MockAggregatorClient::new();
+            let mut aggregator_client = MockCertificateAggregatorRequest::new();
             aggregator_client_mock_config(&mut aggregator_client);
             let genesis_verification_key: String = genesis_verification_key.try_into().unwrap();
 
@@ -429,7 +428,7 @@ mod tests {
                     .with_items_from_chain(&vec![first_certificate.clone()]),
             );
             let certificate_client = CertificateClientTestBuilder::default()
-                .config_aggregator_client_mock(|mock| {
+                .config_aggregator_requester_mock(|mock| {
                     // Expect to fetch the first certificate from the network
                     mock.expect_certificate_chain(chain.certificates_chained.clone());
                 })
@@ -489,7 +488,7 @@ mod tests {
             };
 
             let certificate_client = CertificateClientTestBuilder::default()
-                .config_aggregator_client_mock(|mock| {
+                .config_aggregator_requester_mock(|mock| {
                     mock.expect_certificate_chain(certificates_that_must_be_fully_verified);
                 })
                 .with_genesis_verification_key(chain.genesis_verifier.to_verification_key())
@@ -515,7 +514,7 @@ mod tests {
                 .with_items_from_chain(&chain[2..4]);
 
             let certificate_client = CertificateClientTestBuilder::default()
-                .config_aggregator_client_mock(|mock| {
+                .config_aggregator_requester_mock(|mock| {
                     mock.expect_certificate_chain(
                         [chain[0..3].to_vec(), vec![chain.last().unwrap().clone()]].concat(),
                     )

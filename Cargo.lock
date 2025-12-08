@@ -3782,7 +3782,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator-client"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3925,10 +3925,9 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.12.37"
+version = "0.13.0"
 dependencies = [
  "anyhow",
- "async-recursion",
  "async-trait",
  "axum",
  "axum-test",
@@ -3941,13 +3940,13 @@ dependencies = [
  "hex",
  "http",
  "httpmock",
+ "mithril-aggregator-client",
  "mithril-aggregator-discovery",
  "mithril-cardano-node-internal-database",
  "mithril-common",
  "mockall",
  "rand 0.9.2",
  "reqwest",
- "semver",
  "serde",
  "serde_json",
  "sha2",
@@ -4017,7 +4016,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.6.33"
+version = "0.6.34"
 dependencies = [
  "anyhow",
  "async-trait",
