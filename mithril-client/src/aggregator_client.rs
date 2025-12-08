@@ -1,4 +1,4 @@
-//! Mechanisms to exchange data with an Aggregator.
+//! Mechanisms to exchange data with an aggregator.
 //!
 
 use anyhow::Context;

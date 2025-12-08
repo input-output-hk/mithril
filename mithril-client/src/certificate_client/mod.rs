@@ -1,4 +1,4 @@
-//! A client which retrieves and validates certificates from an Aggregator.
+//! A client which retrieves and validates certificates from an aggregator.
 //!
 //! In order to do so it defines a [CertificateClient] exposes the following features:
 //!  - [get][CertificateClient::get]: get a certificate data from its hash

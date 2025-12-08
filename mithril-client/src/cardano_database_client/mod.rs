@@ -1,4 +1,4 @@
-//! A client to retrieve Cardano databases data from an Aggregator.
+//! A client to retrieve Cardano databases data from an aggregator.
 //!
 //! In order to do so it defines a [CardanoDatabaseClient] which exposes the following features:
 //!  - [get][CardanoDatabaseClient::get]: get a Cardano database data from its hash

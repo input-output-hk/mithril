@@ -1,4 +1,4 @@
-//! A client to retrieve Cardano stake distributions data from an Aggregator.
+//! A client to retrieve Cardano stake distributions data from an aggregator.
 //!
 //! In order to do so it defines a [CardanoStakeDistributionClient] which exposes the following features:
 //!  - [get][CardanoStakeDistributionClient::get]: get a Cardano stake distribution data from its hash
@@ -77,23 +77,23 @@ use std::sync::Arc;
 use crate::common::{Epoch, EpochSpecifier};
 use crate::{CardanoStakeDistribution, CardanoStakeDistributionListItem, MithrilResult};
 
-/// HTTP client for CardanoStakeDistribution API from the Aggregator
+/// HTTP client for CardanoStakeDistribution API from the aggregator
 pub struct CardanoStakeDistributionClient {
     aggregator_requester: Arc<dyn CardanoStakeDistributionAggregatorRequest>,
 }
 
-/// Define the requests against an Aggregator related to Cardano stake distribution.
+/// Define the requests against an aggregator related to Cardano stake distribution.
 #[cfg_attr(test, mockall::automock)]
 #[cfg_attr(target_family = "wasm", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait::async_trait)]
 pub trait CardanoStakeDistributionAggregatorRequest: Send + Sync {
-    /// Get the list of latest Cardano stake distributions from the Aggregator.
+    /// Get the list of the latest Cardano stake distributions from the aggregator.
     async fn list_latest(&self) -> MithrilResult<Vec<CardanoStakeDistributionListItem>>;
 
-    /// Get a Cardano stake distribution for a given hash from the Aggregator.
+    /// Get a Cardano stake distribution for a given hash from the aggregator.
     async fn get_by_hash(&self, hash: &str) -> MithrilResult<Option<CardanoStakeDistribution>>;
 
-    /// Get a Cardano stake distribution for an [EpochSpecifier] from the Aggregator.
+    /// Get a Cardano stake distribution for an [EpochSpecifier] from the aggregator.
     async fn get_by_epoch(
         &self,
         specifier: EpochSpecifier,

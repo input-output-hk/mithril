@@ -1,4 +1,4 @@
-//! A client to retrieve Mithril stake distributions data from an Aggregator.
+//! A client to retrieve Mithril stake distributions data from an aggregator.
 //!
 //! In order to do so it defines a [MithrilStakeDistributionClient] which exposes the following features:
 //!  - [get][MithrilStakeDistributionClient::get]: get a Mithril stake distribution data from its hash
@@ -42,20 +42,20 @@ use std::sync::Arc;
 
 use crate::{MithrilResult, MithrilStakeDistribution, MithrilStakeDistributionListItem};
 
-/// HTTP client for MithrilStakeDistribution API from the Aggregator
+/// HTTP client for MithrilStakeDistribution API from the aggregator
 pub struct MithrilStakeDistributionClient {
     aggregator_requester: Arc<dyn MithrilStakeDistributionAggregatorRequest>,
 }
 
-/// Define the requests against an Aggregator related to Mithril stake distribution.
+/// Define the requests against an aggregator related to Mithril stake distribution.
 #[cfg_attr(test, mockall::automock)]
 #[cfg_attr(target_family = "wasm", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait::async_trait)]
 pub trait MithrilStakeDistributionAggregatorRequest: Send + Sync {
-    /// Get the list of latest Mithril stake distributions from the Aggregator.
+    /// Get the list of latest Mithril stake distributions from the aggregator.
     async fn list_latest(&self) -> MithrilResult<Vec<MithrilStakeDistributionListItem>>;
 
-    /// Get a Mithril stake distribution for a given hash from the Aggregator.
+    /// Get a Mithril stake distribution for a given hash from the aggregator.
     async fn get_by_hash(&self, hash: &str) -> MithrilResult<Option<MithrilStakeDistribution>>;
 }
 

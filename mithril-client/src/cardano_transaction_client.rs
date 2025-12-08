@@ -82,27 +82,27 @@ use crate::{
     MithrilResult,
 };
 
-/// HTTP client for CardanoTransactionsAPI from the Aggregator
+/// HTTP client for CardanoTransactionsAPI from the aggregator
 pub struct CardanoTransactionClient {
     aggregator_requester: Arc<dyn CardanoTransactionAggregatorRequest>,
 }
 
-/// Define the requests against an Aggregator related to Cardano transactions.
+/// Define the requests against an aggregator related to Cardano transactions.
 #[cfg_attr(test, mockall::automock)]
 #[cfg_attr(target_family = "wasm", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait::async_trait)]
 pub trait CardanoTransactionAggregatorRequest: Send + Sync {
-    /// Get a proof of membership for the given transactions hashes from the Aggregator.
+    /// Get a proof of membership for the given transactions hashes from the aggregator.
     async fn get_proof(
         &self,
         hashes: &[String],
     ) -> MithrilResult<Option<CardanoTransactionsProofs>>;
 
-    /// Fetch the list of latest signed Cardano transaction snapshots from the Aggregator
+    /// Fetch the list of latest signed Cardano transactions snapshots from the aggregator
     async fn list_latest_snapshots(&self)
     -> MithrilResult<Vec<CardanoTransactionSnapshotListItem>>;
 
-    /// Fetch a Cardano transaction snapshot by its hash from the Aggregator.
+    /// Fetch a Cardano transactions snapshot by its hash from the aggregator.
     async fn get_snapshot(&self, hash: &str) -> MithrilResult<Option<CardanoTransactionSnapshot>>;
 }
 

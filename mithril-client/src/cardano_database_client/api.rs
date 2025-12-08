@@ -33,7 +33,7 @@ use super::{
     proving::InternalArtifactProver,
 };
 
-/// HTTP client for CardanoDatabase API from the Aggregator
+/// HTTP client for CardanoDatabase API from the aggregator
 pub struct CardanoDatabaseClient {
     pub(super) artifact_retriever: InternalArtifactRetriever,
     #[cfg(feature = "fs")]
@@ -43,21 +43,21 @@ pub struct CardanoDatabaseClient {
     pub(super) statistics_sender: InternalStatisticsSender,
 }
 
-/// Define the requests against an Aggregator related to Cardano database v2 snapshots.
+/// Define the requests against an aggregator related to Cardano database v2 snapshots.
 #[cfg_attr(test, mockall::automock)]
 #[cfg_attr(target_family = "wasm", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait::async_trait)]
 pub trait CardanoDatabaseAggregatorRequest: Send + Sync {
-    /// Get the list of the latest Cardano database v2 snapshots from the Aggregator.
+    /// Get the list of the latest Cardano database v2 snapshots from the aggregator.
     async fn list_latest(&self) -> MithrilResult<Vec<CardanoDatabaseSnapshotListItem>>;
 
-    /// Get the list of the latest Cardano database v2 snapshots for an [EpochSpecifier] from the Aggregator.
+    /// Get the list of the latest Cardano database v2 snapshots for an [EpochSpecifier] from the aggregator.
     async fn list_by_epoch(
         &self,
         specifier: EpochSpecifier,
     ) -> MithrilResult<Vec<CardanoDatabaseSnapshotListItem>>;
 
-    /// Get the details of a Cardano database v2 snapshot for a given hash from the Aggregator.
+    /// Get the details of a Cardano database v2 snapshot for a given hash from the aggregator.
     async fn get_by_hash(&self, hash: &str) -> MithrilResult<Option<CardanoDatabaseSnapshot>>;
 
     /// Notify the aggregator that a complete Cardano database v2 restoration has been performed.
