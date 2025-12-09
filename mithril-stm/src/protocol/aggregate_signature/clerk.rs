@@ -163,15 +163,17 @@ impl<D: Digest + Clone + FixedOutput + Send + Sync> Clerk<D> {
         let mut removal_idx_by_vk: HashMap<&SingleSignatureWithRegisteredParty, Vec<Index>> =
             HashMap::new();
 
+        let avk = self.compute_aggregate_verification_key();
+
         for sig_reg in sigs.iter() {
             if sig_reg
                 .sig
-                .basic_verify(
+                .verify(
                     &self.params,
                     &sig_reg.reg_party.0,
                     &sig_reg.reg_party.1,
+                    &avk,
                     msg,
-                    &self.closed_reg.total_stake,
                 )
                 .is_err()
             {

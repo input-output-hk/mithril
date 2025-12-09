@@ -6,8 +6,6 @@ mod parameters;
 mod participant;
 mod single_signature;
 
-#[cfg(feature = "basic_verifier")]
-pub use aggregate_signature::BasicVerifier;
 pub use aggregate_signature::{
     AggregateSignature, AggregateSignatureType, AggregateVerificationKey, Clerk,
 };
@@ -31,10 +29,6 @@ pub use aggregate_signature::AggregateVerificationKey as StmAggrVerificationKey;
 
 #[deprecated(since = "0.5.0", note = "Use `Clerk` instead")]
 pub use aggregate_signature::Clerk as StmClerk;
-
-#[cfg(feature = "basic_verifier")]
-#[deprecated(since = "0.5.0", note = "Use `BasicVerifier` instead")]
-pub use aggregate_signature::BasicVerifier as CoreVerifier;
 
 #[deprecated(since = "0.5.0", note = "Use `Parameters` instead")]
 pub use parameters::Parameters as StmParameters;
