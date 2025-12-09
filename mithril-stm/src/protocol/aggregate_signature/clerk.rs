@@ -1,10 +1,10 @@
 use anyhow::Context;
 use blake2::digest::{Digest, FixedOutput};
 
-#[cfg(feature = "future_proof_system")]
+#[cfg(feature = "future_snark")]
 use anyhow::anyhow;
 
-#[cfg(feature = "future_proof_system")]
+#[cfg(feature = "future_snark")]
 use super::AggregationError;
 
 use super::{AggregateSignature, AggregateSignatureType, AggregateVerificationKey};
@@ -89,7 +89,7 @@ impl<D: Digest + Clone + FixedOutput + Send + Sync> Clerk<D> {
                     )
                 })?,
             )),
-            #[cfg(feature = "future_proof_system")]
+            #[cfg(feature = "future_snark")]
             AggregateSignatureType::Future => Err(anyhow!(
                 AggregationError::UnsupportedProofSystem(aggregate_signature_type)
             )),

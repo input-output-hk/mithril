@@ -18,7 +18,6 @@ default = ["rug-backend"]
 rug-backend = ["rug/default"]
 num-integer-backend = ["dep:num-bigint", "dep:num-rational", "dep:num-traits"]
 benchmark-internals = [] # For benchmarking multi_sig
-future_proof_system = [] # For activating future proof systems
 future_snark = [
     "dep:ff",
     "dep:group",
