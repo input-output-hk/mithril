@@ -140,7 +140,6 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
     }
 
     /// Create a basic signer (no registration data) for given input
-    #[cfg(feature = "basic_verifier")]
     pub(crate) fn set_basic_signer(
         signer_index: u64,
         stake: Stake,
@@ -160,7 +159,6 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
 
     /// Create a core signer (no registration data) for given input
     #[deprecated(since = "0.5.0", note = "Use `set_basic_signer` instead")]
-    #[cfg(feature = "basic_verifier")]
     pub fn set_core_signer(
         signer_index: u64,
         stake: Stake,
@@ -176,7 +174,6 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
     /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
     /// wins the lottery by evaluating the dense mapping.
     /// It records all the winning indexes in `Self.indexes`.
-    #[cfg(feature = "basic_verifier")]
     pub fn basic_sign(&self, msg: &[u8], total_stake: Stake) -> Option<SingleSignature> {
         let sigma = self.sk.sign(msg);
 
@@ -198,7 +195,6 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
     /// wins the lottery by evaluating the dense mapping.
     /// It records all the winning indexes in `Self.indexes`.
     #[deprecated(since = "0.5.0", note = "Use `basic_sign` instead")]
-    #[cfg(feature = "basic_verifier")]
     pub fn core_sign(&self, msg: &[u8], total_stake: Stake) -> Option<SingleSignature> {
         Self::basic_sign(self, msg, total_stake)
     }

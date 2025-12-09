@@ -1,5 +1,3 @@
-#[cfg(feature = "basic_verifier")]
-
 mod basic_verifier {
 
     use blake2::Blake2b;

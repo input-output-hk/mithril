@@ -19,7 +19,6 @@ rug-backend = ["rug/default"]
 num-integer-backend = ["dep:num-bigint", "dep:num-rational", "dep:num-traits"]
 benchmark-internals = [] # For benchmarking multi_sig
 future_proof_system = [] # For activating future proof systems
-basic_verifier = [] # For activating basic verifier
 future_snark = [
     "dep:ff",
     "dep:group",
@@ -70,18 +69,6 @@ serde_json = { workspace = true }
 name = "multi_sig"
 harness = false
 required-features = ["benchmark-internals"]
-
-[[bench]]
-name = "basic_verifier_size"
-harness = false
-required-features = ["basic_verifier"]
-path = "benches/basic_verifier/size.rs"
-
-[[bench]]
-name = "basic_verifier_protocol"
-harness = false
-required-features = ["basic_verifier"]
-path = "benches/basic_verifier/protocol.rs"
 
 [[bench]]
 name = "schnorr_sig"

@@ -5,10 +5,8 @@ use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 
 use super::Signer;
-#[cfg(feature = "basic_verifier")]
-use crate::RegisteredParty;
 use crate::{
-    ClosedKeyRegistration, Parameters, RegisterError, Stake, StmResult,
+    ClosedKeyRegistration, Parameters, RegisterError, RegisteredParty, Stake, StmResult,
     signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
 };
 
@@ -164,7 +162,6 @@ impl Initializer {
     /// Takes `eligible_parties` as a parameter and determines the signer's index in the parties.
     /// `eligible_parties` is verified and trusted which is only run by a full-node
     /// that has already verified the parties.
-    #[cfg(feature = "basic_verifier")]
     pub fn create_basic_signer<D: Digest + Clone + FixedOutput>(
         self,
         eligible_parties: &[RegisteredParty],
@@ -196,7 +193,6 @@ impl Initializer {
     /// `eligible_parties` is verified and trusted which is only run by a full-node
     /// that has already verified the parties.
     #[deprecated(since = "0.5.0", note = "Use `create_basic_signer` instead")]
-    #[cfg(feature = "basic_verifier")]
     pub fn new_core_signer<D: Digest + Clone + FixedOutput>(
         self,
         eligible_parties: &[RegisteredParty],
