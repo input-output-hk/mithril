@@ -1,0 +1,33 @@
+# Cargo-deny configuration file
+
+[graph]
+targets = [
+    "aarch64-apple-darwin",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-pc-windows-msvc",
+    "x86_64-unknown-linux-gnu",
+    "x86_64-unknown-linux-musl",
+    "wasm32-unknown-unknown"
+]
+
+[licenses]
+# We want really high confidence when inferring licenses from text
+confidence-threshold = 0.93
+# This list of allowed licenses is not final and is currently under legal investigation. It may be updated in the future.
+allow = [
+    "Apache-2.0",
+    "BlueOak-1.0.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "bzip2-1.0.6",
+    "CC0-1.0",
+    "CDLA-Permissive-2.0",
+    "ISC",
+    "LGPL-3.0-or-later",
+    "MIT",
+    "MIT-0",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Zlib",
+]
+
