@@ -3,8 +3,8 @@ use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
-use super::{MerkleBatchPath, MerklePath, MerkleTreeLeaf, parent, sibling};
-use crate::{MerkleTreeError, StmResult};
+use super::{MerkleBatchPath, MerklePath, MerkleTreeError, MerkleTreeLeaf, parent, sibling};
+use crate::StmResult;
 
 /// `MerkleTree` commitment.
 /// This structure differs from `MerkleTree` in that it does not contain all elements, which are not always necessary.

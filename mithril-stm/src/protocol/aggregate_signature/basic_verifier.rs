@@ -1,9 +1,10 @@
 use anyhow::{Context, anyhow};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
+use super::AggregationError;
 use crate::{
-    AggregationError, Index, Parameters, RegisteredParty, SingleSignature,
-    SingleSignatureWithRegisteredParty, Stake, StmResult,
+    Index, Parameters, RegisteredParty, SingleSignature, SingleSignatureWithRegisteredParty, Stake,
+    StmResult,
     membership_commitment::MerkleTreeLeaf,
     signature_scheme::{BlsSignature, BlsVerificationKey},
 };

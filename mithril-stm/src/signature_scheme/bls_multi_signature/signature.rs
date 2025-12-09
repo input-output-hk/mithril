@@ -9,10 +9,10 @@ use digest::consts::U16;
 use std::{cmp::Ordering, iter::Sum};
 
 use super::{
-    BlsVerificationKey,
+    BlsSignatureError, BlsVerificationKey, blst_error_to_stm_error,
     helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk, sig_to_p1, vk_from_p2_affine},
 };
-use crate::{Index, MultiSignatureError, StmResult, blst_error_to_stm_error};
+use crate::{Index, StmResult};
 
 /// MultiSig signature, which is a wrapper over the `BlstSig` type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -62,7 +62,7 @@ impl BlsSignature {
     /// # Error
     /// Returns an error if the byte string does not represent a point in the curve.
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
-        let bytes = bytes.get(..48).ok_or(MultiSignatureError::SerializationError)?;
+        let bytes = bytes.get(..48).ok_or(BlsSignatureError::SerializationError)?;
         match BlstSig::sig_validate(bytes, true) {
             Ok(sig) => Ok(Self(sig)),
             Err(e) => Err(blst_error_to_stm_error(e, None, None)
@@ -95,7 +95,7 @@ impl BlsSignature {
         sigs: &[BlsSignature],
     ) -> StmResult<(BlsVerificationKey, BlsSignature)> {
         if vks.len() != sigs.len() || vks.is_empty() {
-            return Err(anyhow!(MultiSignatureError::AggregateSignatureInvalid));
+            return Err(anyhow!(BlsSignatureError::AggregateSignatureInvalid));
         }
 
         if vks.len() < 2 {
@@ -175,7 +175,7 @@ impl BlsSignature {
             None,
             None,
         )
-        .map_err(|_| anyhow!(MultiSignatureError::BatchInvalid))
+        .map_err(|_| anyhow!(BlsSignatureError::BatchInvalid))
     }
 }
 

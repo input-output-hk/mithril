@@ -3,10 +3,10 @@ use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
 use super::{
-    MerkleBatchPath, MerklePath, MerkleTreeBatchCommitment, MerkleTreeCommitment, MerkleTreeLeaf,
-    left_child, parent, right_child, sibling,
+    MerkleBatchPath, MerklePath, MerkleTreeBatchCommitment, MerkleTreeCommitment, MerkleTreeError,
+    MerkleTreeLeaf, left_child, parent, right_child, sibling,
 };
-use crate::{MerkleTreeError, StmResult};
+use crate::StmResult;
 
 /// Tree of hashes, providing a commitment of data and its ordering.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -4,10 +4,10 @@ use anyhow::anyhow;
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
-use super::AggregateVerificationKey;
+use super::{AggregateSignatureError, AggregateVerificationKey};
 use crate::{
-    AggregateSignatureError, Parameters, StmError, StmResult,
-    membership_commitment::MerkleBatchPath, proof_system::ConcatenationProof,
+    Parameters, StmError, StmResult, membership_commitment::MerkleBatchPath,
+    proof_system::ConcatenationProof,
 };
 
 /// The type of STM aggregate signature.

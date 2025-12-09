@@ -5,7 +5,7 @@ use blake2::digest::{Digest, FixedOutput};
 use anyhow::anyhow;
 
 #[cfg(feature = "future_proof_system")]
-use crate::AggregationError;
+use super::AggregationError;
 
 use super::{AggregateSignature, AggregateSignatureType, AggregateVerificationKey};
 use crate::{

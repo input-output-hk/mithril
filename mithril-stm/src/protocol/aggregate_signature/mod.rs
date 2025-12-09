@@ -1,11 +1,13 @@
 mod aggregate_key;
 mod basic_verifier;
 mod clerk;
+mod error;
 mod signature;
 
 pub use aggregate_key::*;
 pub use basic_verifier::*;
 pub use clerk::*;
+pub use error::*;
 pub use signature::*;
 
 #[cfg(test)]
@@ -20,9 +22,11 @@ mod tests {
     use rand_core::{RngCore, SeedableRng};
     use std::collections::{HashMap, HashSet};
 
-    use super::{AggregateSignature, AggregateSignatureType, BasicVerifier, Clerk};
+    use super::{
+        AggregateSignature, AggregateSignatureType, AggregationError, BasicVerifier, Clerk,
+    };
     use crate::{
-        AggregationError, Initializer, KeyRegistration, Parameters, Signer, SingleSignature,
+        Initializer, KeyRegistration, Parameters, Signer, SingleSignature,
         SingleSignatureWithRegisteredParty, Stake, StmResult,
         membership_commitment::MerkleBatchPath, signature_scheme::BlsVerificationKey,
     };

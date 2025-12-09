@@ -1,8 +1,8 @@
 use blst::min_sig::SecretKey as BlstSk;
 use rand_core::{CryptoRng, RngCore};
 
-use super::BlsSignature;
-use crate::{MultiSignatureError, StmResult, blst_error_to_stm_error};
+use super::{BlsSignature, BlsSignatureError, blst_error_to_stm_error};
+use crate::StmResult;
 
 /// MultiSig secret key, which is a wrapper over the BlstSk type from the blst
 /// library.
@@ -35,7 +35,7 @@ impl BlsSigningKey {
     /// # Error
     /// Fails if the byte string represents a scalar larger than the group order.
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
-        let bytes = bytes.get(..32).ok_or(MultiSignatureError::SerializationError)?;
+        let bytes = bytes.get(..32).ok_or(BlsSignatureError::SerializationError)?;
         match BlstSk::from_bytes(bytes) {
             Ok(sk) => Ok(Self(sk)),
             Err(e) => Err(blst_error_to_stm_error(e, None, None)
