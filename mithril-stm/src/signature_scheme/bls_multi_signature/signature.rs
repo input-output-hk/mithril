@@ -8,11 +8,12 @@ use blst::{
 use digest::consts::U16;
 use std::{cmp::Ordering, iter::Sum};
 
+use crate::{Index, StmResult};
+
 use super::{
     BlsSignatureError, BlsVerificationKey, blst_error_to_stm_error,
     helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk, sig_to_p1, vk_from_p2_affine},
 };
-use crate::{Index, StmResult};
 
 /// MultiSig signature, which is a wrapper over the `BlstSig` type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

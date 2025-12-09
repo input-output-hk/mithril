@@ -6,11 +6,12 @@ use dusk_jubjub::{
 use dusk_poseidon::{Domain, Hash};
 use group::{Group, GroupEncoding};
 
+use crate::StmResult;
+
 use super::{
     DST_SIGNATURE, SchnorrSignatureError, SchnorrVerificationKey, get_coordinates_several_points,
     is_on_curve,
 };
-use crate::StmResult;
 
 /// Structure of the Schnorr signature to use with the SNARK
 ///
@@ -153,10 +154,10 @@ impl SchnorrSignature {
 
 #[cfg(test)]
 mod tests {
-
-    use crate::{SchnorrSignature, SchnorrSigningKey, SchnorrVerificationKey};
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
+
+    use crate::signature_scheme::{SchnorrSignature, SchnorrSigningKey, SchnorrVerificationKey};
 
     #[test]
     fn invalid_sig() {
@@ -209,7 +210,7 @@ mod tests {
         use rand_chacha::ChaCha20Rng;
         use rand_core::SeedableRng;
 
-        use crate::{SchnorrSignature, SchnorrSigningKey};
+        use crate::signature_scheme::{SchnorrSignature, SchnorrSigningKey};
 
         const GOLDEN_BYTES: &[u8; 96] = &[
             143, 53, 198, 62, 178, 1, 88, 253, 21, 92, 100, 13, 72, 180, 198, 127, 39, 175, 102,

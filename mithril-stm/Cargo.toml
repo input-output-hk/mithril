@@ -72,7 +72,7 @@ required-features = ["benchmark-internals"]
 [[bench]]
 name = "schnorr_sig"
 harness = false
-required-features = ["future_snark"]
+required-features = ["future_snark", "benchmark-internals"]
 
 [[bench]]
 name = "stm"

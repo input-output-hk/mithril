@@ -7,8 +7,9 @@ use ff::Field;
 use group::Curve;
 use rand_core::{CryptoRng, RngCore};
 
-use super::SchnorrSignatureError;
 use crate::StmResult;
+
+use super::SchnorrSignatureError;
 
 /// Check if the given point is on the curve using its coordinates
 pub fn is_on_curve(point: JubjubExtended) -> bool {
@@ -57,12 +58,12 @@ pub fn generate_non_zero_scalar<R: RngCore + CryptoRng>(rng: &mut R) -> StmResul
 
 #[cfg(test)]
 mod tests {
-
-    use super::*;
     use dusk_jubjub::{AffinePoint as JubjubAffine, ExtendedPoint as JubjubExtended};
     use group::Group;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
+
+    use super::*;
 
     #[test]
     fn get_coordinates_from_several_points() {

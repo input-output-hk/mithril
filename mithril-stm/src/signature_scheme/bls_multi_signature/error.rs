@@ -2,9 +2,9 @@
 use anyhow::anyhow;
 use blst::BLST_ERROR;
 
-use super::{BlsSignature, BlsVerificationKey, BlsVerificationKeyProofOfPossession};
-
 use crate::StmResult;
+
+use super::{BlsSignature, BlsVerificationKey, BlsVerificationKeyProofOfPossession};
 
 /// Error types for multi signatures.
 #[derive(Debug, thiserror::Error, Eq, PartialEq)]
@@ -17,7 +17,7 @@ pub enum BlsSignatureError {
     #[error("Invalid aggregated signature")]
     AggregateSignatureInvalid,
 
-    /// This error occurs when the the serialization of the raw bytes failed
+    /// This error occurs when the serialization of the raw bytes failed
     #[error("Invalid bytes")]
     SerializationError,
 
