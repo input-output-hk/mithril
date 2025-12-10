@@ -1,0 +1,50 @@
+services:
+  mithril-aggregator:
+    volumes:
+      - ../data/${NETWORK}/mithril-aggregator/dmq/ipc:/ipc-dmq
+    environment:
+      - DMQ_NODE_SOCKET_PATH=/ipc-dmq/dmq.socket
+      - SIGNATURE_PROCESSOR_WAIT_DELAY_ON_ERROR_MS=15000
+
+  dmq-node:
+    image: dmq-node-${MITHRIL_IMAGE_ID}
+    container_name: dmq-node-aggregator
+    restart: always
+    user: ${CURRENT_UID}
+    profiles:
+      - dmq
+      - all
+    build:
+      context: .
+      dockerfile: Dockerfile.dmq
+      args:
+        DMQ_NODE_BINARY_URL: ${DMQ_NODE_BINARY_URL}
+        MITHRIL_IMAGE_ID: ${MITHRIL_IMAGE_ID}
+    volumes:
+      - ../data/${NETWORK}/mithril-aggregator/dmq/config:/config
+      - ../data/${NETWORK}/mithril-aggregator/dmq/ipc:/ipc
+      - ../data/${NETWORK}/mithril-aggregator/cardano/ipc:/ipc-cardano
+    ports:
+      - "${AGGREGATOR_DMQ_PORT}:${AGGREGATOR_DMQ_PORT}"
+    logging:
+      driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+    command:
+      [
+        "--configuration-file",
+        "/config/config.json",
+        "--topology-file",
+        "/config/topology.json",
+        "--local-socket",
+        "/ipc/dmq.socket",
+        "--host-addr",
+        "${AGGREGATOR_DMQ_ADDR}",
+        "--port",
+        "${AGGREGATOR_DMQ_PORT}"
+      ]
+
+networks:
+  default:
+    name: mithril_network
+    external: true

@@ -24,6 +24,16 @@ variable "cardano_network_magic_map" {
   }
 }
 
+variable "dmq_network_magic_map" {
+  type        = map(number)
+  description = "The DMQ network magic number mapping from Cardano network name"
+  default = {
+    "mainnet" = 2912307721,
+    "preprod" = 2147483649,
+    "preview" = 2147483650,
+  }
+}
+
 locals {
   environment_name_short = format("%s%s", "${var.environment_prefix}-${var.cardano_network}", var.environment_suffix != "" ? "-${var.environment_suffix}" : "")
   environment_name       = "mithril-${local.environment_name_short}"
@@ -198,6 +208,19 @@ variable "mithril_p2p_use_dmq_protocol" {
   type        = bool
   description = "Use the Decentralized Message Queue protocol (DMQ) (experimental, for test only)"
   default     = false
+}
+
+variable "mithril_p2p_use_real_dmq_node" {
+  type        = bool
+  description = "Use the real Decentralized Message Queue (DMQ) node (experimental, for test only)"
+  default     = false
+}
+
+
+variable "mithril_p2p_dmq_node_binary_url" {
+  type        = string
+  description = "The url to download the DMQ node binary (experimental, for test only)"
+  default     = ""
 }
 
 variable "mithril_p2p_network_bootstrap_peer" {

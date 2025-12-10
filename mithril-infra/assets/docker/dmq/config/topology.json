@@ -1,0 +1,18 @@
+{
+  "bootstrapPeers": [],
+  "localRoots": [
+    {
+      "accessPoints": [],
+      "advertise": false,
+      "trustable": false,
+      "valency": 3
+    }
+  ],
+  "peerSnapshotFile": null,
+  "publicRoots": [
+    {
+      "accessPoints": [],
+      "advertise": false
+    }
+  ]
+}
