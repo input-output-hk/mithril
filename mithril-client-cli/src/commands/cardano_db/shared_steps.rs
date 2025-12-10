@@ -9,7 +9,7 @@ use mithril_client::{
     common::{ImmutableFileNumber, MKProof, ProtocolMessage},
 };
 
-use crate::utils::{CardanoDbUtils, ProgressPrinter};
+use crate::utils::{CardanoDbUtils, LedgerFormat, ProgressPrinter};
 
 pub struct ComputeCardanoDatabaseMessageOptions {
     pub db_dir: PathBuf,
@@ -163,11 +163,12 @@ pub fn log_download_information(
         .canonicalize()
         .with_context(|| format!("Could not get canonical filepath of '{}'", db_dir.display()))?;
 
-    let docker_cmd = format!(
-        "docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source=\"{}\",target=/data/db/ -e NETWORK={} ghcr.io/intersectmbo/cardano-node:{}",
-        canonical_filepath.display(),
+    let docker_cmd = CardanoDbUtils::get_docker_run_command(
+        canonical_filepath,
         cardano_network,
-        cardano_node_version
+        cardano_node_version,
+        // Aggregators are only using UTxO-HD in memory format as other format are deprecated or non portable
+        LedgerFormat::InMemory,
     );
 
     let snapshot_converter_cmd = |flavor| {
