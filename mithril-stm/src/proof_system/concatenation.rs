@@ -1,12 +1,11 @@
 use anyhow::{Context, anyhow};
-use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 use crate::{
     AggregateSignatureError, AggregateVerificationKey, AggregationError, Clerk, Parameters,
     RegisteredParty, SingleSignature, SingleSignatureWithRegisteredParty, StmResult,
-    membership_commitment::MerkleBatchPath,
+    membership_commitment::{MembershipDigest, MerkleBatchPath},
     signature_scheme::{BlsSignature, BlsVerificationKey},
 };
 
@@ -15,16 +14,16 @@ use crate::{
 /// BatchPath is also a part of the aggregate signature which covers path for all signatures.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(
-    serialize = "MerkleBatchPath<D>: Serialize",
-    deserialize = "MerkleBatchPath<D>: Deserialize<'de>"
+    serialize = "MerkleBatchPath<D::ConcatenationHash>: Serialize",
+    deserialize = "MerkleBatchPath<D::ConcatenationHash>: Deserialize<'de>"
 ))]
-pub struct ConcatenationProof<D: Clone + Digest + FixedOutput> {
+pub struct ConcatenationProof<D: MembershipDigest> {
     pub(crate) signatures: Vec<SingleSignatureWithRegisteredParty>,
     /// The list of unique merkle tree nodes that covers path for all signatures.
-    pub batch_proof: MerkleBatchPath<D>,
+    pub batch_proof: MerkleBatchPath<D::ConcatenationHash>,
 }
 
-impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
+impl<D: MembershipDigest + Clone> ConcatenationProof<D> {
     /// Aggregate a set of signatures for their corresponding indices.
     ///
     /// This function first deduplicates the repeated signatures, and if there are enough signatures, it collects the merkle tree indexes of unique signatures.

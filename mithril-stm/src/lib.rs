@@ -15,11 +15,11 @@
 //!
 //! use mithril_stm::{
 //!    AggregateSignatureType, AggregationError, Clerk, Initializer, KeyRegistration, Parameters,
-//!    Signer, SingleSignature,
+//!    Signer, SingleSignature, CustomMembershipDigest
 //! };
 //!
 //! let nparties = 4; // Use a small number of parties for this example
-//! type D = Blake2b<U32>; // Setting the hash function for convenience
+//! type D = CustomMembershipDigest; // Setting the hash function for convenience
 //!
 //! let mut rng = ChaCha20Rng::from_seed([0u8; 32]); // create and initialize rng
 //! let mut msg = [0u8; 16]; // setting an arbitrary message
@@ -116,6 +116,7 @@ mod proof_system;
 mod protocol;
 mod signature_scheme;
 
+pub use membership_commitment::{CustomMembershipDigest, MembershipDigest};
 pub use protocol::*;
 pub use signature_scheme::BlsSignatureError;
 

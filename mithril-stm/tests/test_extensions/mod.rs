@@ -2,4 +2,16 @@
 // is a different compilation target).
 #![allow(dead_code)]
 
+use blake2::{Blake2b, digest::consts::U32};
+
+use mithril_stm::MembershipDigest;
+
 pub mod protocol_phase;
+
+#[derive(Clone, Debug)]
+pub struct CustomMembershipDigest {}
+impl MembershipDigest for CustomMembershipDigest {
+    type ConcatenationHash = Blake2b<U32>;
+    #[cfg(feature = "future_snark")]
+    type SnarkHash = Blake2b<U32>;
+}

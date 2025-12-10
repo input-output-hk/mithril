@@ -1,14 +1,18 @@
 mod test_extensions;
 
-use blake2::{Blake2b, digest::consts::U32};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
 use mithril_stm::{AggregateSignature, Initializer, Parameters, SingleSignature, VerificationKey};
 
-use test_extensions::protocol_phase::{
-    InitializationPhaseResult, OperationPhaseResult, initialization_phase, operation_phase,
+use test_extensions::{
+    CustomMembershipDigest,
+    protocol_phase::{
+        InitializationPhaseResult, OperationPhaseResult, initialization_phase, operation_phase,
+    },
 };
+
+type H = CustomMembershipDigest;
 
 #[test]
 fn test_stm_parameters_serialization() {
@@ -65,15 +69,15 @@ fn test_binary_conversions() {
 
     let sig = &sigs[0];
     let encoded = sig.to_bytes();
-    SingleSignature::from_bytes::<Blake2b<U32>>(&encoded[1..])
+    SingleSignature::from_bytes::<H>(&encoded[1..])
         .expect_err("SingleSignature decoding should fail with invalid bytes");
-    let decoded = SingleSignature::from_bytes::<Blake2b<U32>>(&encoded).unwrap();
+    let decoded = SingleSignature::from_bytes::<H>(&encoded).unwrap();
     assert_eq!(sig, &decoded);
 
     let msig = msig.unwrap();
     let encoded = msig.to_bytes();
-    AggregateSignature::<Blake2b<U32>>::from_bytes(&encoded[1..])
+    AggregateSignature::<H>::from_bytes(&encoded[1..])
         .expect_err("AggregateSignature decoding should fail with invalid bytes");
-    let decoded = AggregateSignature::<Blake2b<U32>>::from_bytes(&encoded).unwrap();
+    let decoded = AggregateSignature::<H>::from_bytes(&encoded).unwrap();
     assert_eq!(msig.to_bytes(), decoded.to_bytes());
 }

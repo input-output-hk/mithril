@@ -1,4 +1,3 @@
-use blake2::{Blake2b, digest::consts::U32};
 use rand_chacha::ChaCha20Rng;
 use rand_core::RngCore;
 use rayon::prelude::*;
@@ -8,7 +7,9 @@ use mithril_stm::{
     KeyRegistration, Parameters, Signer, SingleSignature, Stake, StmResult, VerificationKey,
 };
 
-type H = Blake2b<U32>;
+use super::CustomMembershipDigest;
+
+type H = CustomMembershipDigest;
 
 /// The result of the initialization phase of the STM protocol.
 pub struct InitializationPhaseResult {

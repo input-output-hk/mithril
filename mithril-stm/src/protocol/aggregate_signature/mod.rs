@@ -10,7 +10,6 @@ pub use signature::*;
 
 #[cfg(test)]
 mod tests {
-    use blake2::{Blake2b, digest::consts::U32};
     use proptest::{
         collection::{hash_map, vec},
         prelude::*,
@@ -22,13 +21,13 @@ mod tests {
 
     use crate::{
         Initializer, KeyRegistration, Parameters, Signer, SingleSignature, Stake, StmResult,
-        membership_commitment::MerkleBatchPath,
+        membership_commitment::{CustomMembershipDigest, MerkleBatchPath},
     };
 
     use super::{AggregateSignature, AggregateSignatureType, AggregationError, Clerk};
 
     type Sig = AggregateSignature<D>;
-    type D = Blake2b<U32>;
+    type D = CustomMembershipDigest;
 
     fn setup_equal_parties(params: Parameters, nparties: usize) -> Vec<Signer<D>> {
         let stake = vec![1; nparties];

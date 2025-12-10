@@ -6,11 +6,19 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
 use mithril_stm::{
-    AggregateSignatureType, Clerk, ClosedKeyRegistration, Initializer, KeyRegistration, Parameters,
-    Stake, VerificationKeyProofOfPossession,
+    AggregateSignatureType, Clerk, ClosedKeyRegistration, Initializer, KeyRegistration,
+    MembershipDigest, Parameters, Stake, VerificationKeyProofOfPossession,
 };
 
-type H = Blake2b<U32>;
+#[derive(Clone, Debug)]
+pub struct CustomMembershipDigest {}
+impl MembershipDigest for CustomMembershipDigest {
+    type ConcatenationHash = Blake2b<U32>;
+    #[cfg(feature = "future_snark")]
+    type SnarkHash = Blake2b<U32>;
+}
+
+type H = CustomMembershipDigest;
 
 fn main() {
     let nparties = 4;

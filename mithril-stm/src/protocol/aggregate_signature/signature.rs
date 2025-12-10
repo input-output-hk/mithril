@@ -1,11 +1,10 @@
 use std::{collections::HashMap, fmt::Display, hash::Hash, str::FromStr};
 
 use anyhow::anyhow;
-use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Parameters, StmError, StmResult, membership_commitment::MerkleBatchPath,
+    MembershipDigest, Parameters, StmError, StmResult, membership_commitment::MerkleBatchPath,
     proof_system::ConcatenationProof,
 };
 
@@ -47,9 +46,7 @@ impl AggregateSignatureType {
     }
 }
 
-impl<D: Clone + Digest + FixedOutput + Send + Sync> From<&AggregateSignature<D>>
-    for AggregateSignatureType
-{
+impl<D: MembershipDigest> From<&AggregateSignature<D>> for AggregateSignatureType {
     fn from(aggr_sig: &AggregateSignature<D>) -> Self {
         match aggr_sig {
             AggregateSignature::Concatenation(_) => AggregateSignatureType::Concatenation,
@@ -85,10 +82,10 @@ impl Display for AggregateSignatureType {
 /// An STM aggregate signature.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(
-    serialize = "MerkleBatchPath<D>: Serialize",
-    deserialize = "MerkleBatchPath<D>: Deserialize<'de>"
+    serialize = "MerkleBatchPath<D::ConcatenationHash>: Serialize",
+    deserialize = "MerkleBatchPath<D::ConcatenationHash>: Deserialize<'de>"
 ))]
-pub enum AggregateSignature<D: Clone + Digest + FixedOutput + Send + Sync> {
+pub enum AggregateSignature<D: MembershipDigest> {
     /// A future proof system.
     #[cfg(feature = "future_snark")]
     Future,
@@ -101,7 +98,7 @@ pub enum AggregateSignature<D: Clone + Digest + FixedOutput + Send + Sync> {
     Concatenation(ConcatenationProof<D>),
 }
 
-impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
+impl<D: MembershipDigest + Clone> AggregateSignature<D> {
     /// Verify an aggregate signature
     pub fn verify(
         &self,
@@ -219,17 +216,17 @@ mod tests {
     }
 
     mod aggregate_signature_golden_concatenation {
-        use blake2::{Blake2b, digest::consts::U32};
         use rand_chacha::ChaCha20Rng;
         use rand_core::SeedableRng;
 
         use super::{AggregateSignature, AggregateSignatureType};
         use crate::{
             Clerk, ClosedKeyRegistration, KeyRegistration, Parameters, Signer,
+            membership_commitment::CustomMembershipDigest,
             signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
         };
 
-        type D = Blake2b<U32>;
+        type D = CustomMembershipDigest;
 
         const GOLDEN_JSON: &str = r#"
         {
