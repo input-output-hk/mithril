@@ -91,7 +91,7 @@
               cargoArtifacts = buildDeps cargoToml baseCargoArtifacts;
             }
             // {
-              cargoTestCommand = "RUST_BACKTRACE=1 cargo test";
+              cargoTestCommand = "RUST_BACKTRACE=1 cargo test --profile release";
             }
             // args);
 
@@ -108,8 +108,8 @@
           mithril-client-cli = buildPackage ./mithril-client-cli/Cargo.toml mithril.cargoArtifacts {
             pname = "mithril-client";
           };
-          mithril-aggregator = buildPackage ./mithril-aggregator/Cargo.toml mithril.cargoArtifacts { cargoTestCommand = "cargo test --no-default-features"; };
-          mithril-signer = buildPackage ./mithril-signer/Cargo.toml mithril.cargoArtifacts { cargoTestCommand = "cargo test --no-default-features"; };
+          mithril-aggregator = buildPackage ./mithril-aggregator/Cargo.toml mithril.cargoArtifacts { cargoTestExtraArgs = "--no-default-features"; };
+          mithril-signer = buildPackage ./mithril-signer/Cargo.toml mithril.cargoArtifacts { cargoTestExtraArgs = "--no-default-features"; };
           mithril-end-to-end = buildPackage ./mithril-test-lab/mithril-end-to-end/Cargo.toml null {};
         };
 
