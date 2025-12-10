@@ -1,7 +1,6 @@
-use blake2::digest::{Digest, FixedOutput};
-
 use crate::{
     ClosedKeyRegistration, Parameters, SingleSignature, Stake, is_lottery_won,
+    membership_commitment::MembershipDigest,
     signature_scheme::{BlsSignature, BlsSigningKey, BlsVerificationKey},
 };
 
@@ -16,7 +15,7 @@ pub type VerificationKey = BlsVerificationKey;
 ///     * This kind of signer cannot participate certificate generation.
 ///     * Signature generated can be verified by a full node verifier (core verifier).
 #[derive(Debug, Clone)]
-pub struct Signer<D: Digest> {
+pub struct Signer<D: MembershipDigest> {
     signer_index: u64,
     stake: Stake,
     params: Parameters,
@@ -25,7 +24,7 @@ pub struct Signer<D: Digest> {
     closed_reg: Option<ClosedKeyRegistration<D>>,
 }
 
-impl<D: Clone + Digest + FixedOutput> Signer<D> {
+impl<D: MembershipDigest + Clone> Signer<D> {
     /// Create a Signer for given input
     pub(crate) fn set_signer(
         signer_index: u64,

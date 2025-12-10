@@ -1,12 +1,12 @@
-use blake2::Blake2b;
-use digest::consts::U32;
+mod test_extensions;
 use mithril_stm::{
     AggregationError, BasicVerifier, Initializer, Parameters, Signer, SingleSignature, Stake,
     VerificationKey,
 };
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
-type D = Blake2b<U32>;
+use test_extensions::CustomMembershipDigest;
+type D = CustomMembershipDigest;
 
 #[test]
 fn test_core_verifier() {

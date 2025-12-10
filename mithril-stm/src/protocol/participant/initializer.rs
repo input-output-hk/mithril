@@ -1,12 +1,11 @@
 use anyhow::anyhow;
-use blake2::digest::Digest;
-use digest::FixedOutput;
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 
 use super::Signer;
 use crate::{
     ClosedKeyRegistration, Parameters, RegisterError, RegisteredParty, Stake, StmResult,
+    membership_commitment::MembershipDigest,
     signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
 };
 
@@ -75,7 +74,7 @@ impl Initializer {
     /// * the current total stake (according to the registration service)
     /// # Error
     /// This function fails if the initializer is not registered.
-    pub fn create_signer<D: Digest + Clone + FixedOutput>(
+    pub fn create_signer<D: MembershipDigest + Clone>(
         self,
         closed_reg: ClosedKeyRegistration<D>,
     ) -> StmResult<Signer<D>> {
@@ -113,7 +112,7 @@ impl Initializer {
     /// # Error
     /// This function fails if the initializer is not registered.
     #[deprecated(since = "0.5.0", note = "Use `create_signer` instead")]
-    pub fn new_signer<D: Digest + Clone + FixedOutput>(
+    pub fn new_signer<D: MembershipDigest + Clone>(
         self,
         closed_reg: ClosedKeyRegistration<D>,
     ) -> StmResult<Signer<D>> {
@@ -124,7 +123,7 @@ impl Initializer {
     /// Takes `eligible_parties` as a parameter and determines the signer's index in the parties.
     /// `eligible_parties` is verified and trusted which is only run by a full-node
     /// that has already verified the parties.
-    pub fn create_basic_signer<D: Digest + Clone + FixedOutput>(
+    pub fn create_basic_signer<D: MembershipDigest + Clone>(
         self,
         eligible_parties: &[RegisteredParty],
     ) -> Option<Signer<D>> {
@@ -155,7 +154,7 @@ impl Initializer {
     /// `eligible_parties` is verified and trusted which is only run by a full-node
     /// that has already verified the parties.
     #[deprecated(since = "0.5.0", note = "Use `create_basic_signer` instead")]
-    pub fn new_core_signer<D: Digest + Clone + FixedOutput>(
+    pub fn new_core_signer<D: MembershipDigest + Clone>(
         self,
         eligible_parties: &[RegisteredParty],
     ) -> Option<Signer<D>> {

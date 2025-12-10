@@ -1,5 +1,4 @@
 use anyhow::Context;
-use blake2::digest::{Digest, FixedOutput};
 
 #[cfg(feature = "future_proof_system")]
 use anyhow::anyhow;
@@ -10,19 +9,19 @@ use crate::AggregationError;
 use super::{AggregateSignature, AggregateSignatureType, AggregateVerificationKey};
 use crate::{
     ClosedKeyRegistration, Index, Parameters, Signer, SingleSignature, Stake, StmResult,
-    VerificationKey, proof_system::ConcatenationProof,
+    VerificationKey, membership_commitment::MembershipDigest, proof_system::ConcatenationProof,
 };
 
 /// `Clerk` can verify and aggregate `SingleSignature`s and verify `AggregateSignature`s.
 /// Clerks can only be generated with the registration closed.
 /// This avoids that a Merkle Tree is computed before all parties have registered.
 #[derive(Debug, Clone)]
-pub struct Clerk<D: Clone + Digest> {
+pub struct Clerk<D: MembershipDigest> {
     pub(crate) closed_reg: ClosedKeyRegistration<D>,
     pub(crate) params: Parameters,
 }
 
-impl<D: Digest + Clone + FixedOutput + Send + Sync> Clerk<D> {
+impl<D: MembershipDigest + Clone> Clerk<D> {
     /// Create a new `Clerk` from a closed registration instance.
     pub fn new_clerk_from_closed_key_registration(
         params: &Parameters,
