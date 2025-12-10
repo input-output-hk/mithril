@@ -1,0 +1,33 @@
+services:
+  mithril-aggregator:
+    environment:
+      - DMQ_NODE_SOCKET_PATH=/ipc/dmq.socket
+      - NETWORK=${NETWORK}
+      - NETWORK_MAGIC=${NETWORK_MAGIC}
+
+  dmq-node:
+    # TODO: gather logs and send to loki
+    image: dmq-node
+    container_name: dmq-node-aggregator
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile.dmq
+      args:
+        DMQ_NODE_BINARY_URL: ${DMQ_NODE_BINARY_URL}
+    volumes:
+      - ../data/${NETWORK}/mithril-aggregator/dmq/config:/config
+      - ../data/${NETWORK}/mithril-aggregator/dmq/ipc:/ipc
+    command:
+      [
+        "--configuration-file",
+        "/config/config.json",
+        "--topology-file",
+        "/config/topology.json",
+        "--local-socket",
+        "/ipc/dmq.socket",
+        "--host-addr",
+        "${AGGREGATOR_DMQ_ADDR}",
+        "--port",
+        "${AGGREGATOR_DMQ_PORT}",
+      ]

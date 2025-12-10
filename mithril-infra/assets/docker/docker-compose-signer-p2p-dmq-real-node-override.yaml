@@ -1,0 +1,31 @@
+services:
+  mithril-signer:
+    environment:
+      - DMQ_NODE_SOCKET_PATH=/ipc/dmq.socket
+      - NETWORK_MAGIC=${NETWORK_MAGIC}
+  dmq-node:
+    # TODO: gather logs and send to loki
+    image: dmq-node
+    container_name: dmq-node-signer-${SIGNER_ID}
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile.dmq
+      args:
+        DMQ_NODE_BINARY_URL: ${DMQ_NODE_BINARY_URL}
+    volumes:
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/dmq/config:/config
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/dmq/ipc:/ipc
+    command:
+      [
+        "--configuration-file",
+        "/config/config.json",
+        "--topology-file",
+        "/config/topology.json",
+        "--local-socket",
+        "/ipc/dmq.socket",
+        "--host-addr",
+        "${SIGNER_DMQ_ADDR}",
+        "--port",
+        "${SIGNER_DMQ_PORT}",
+      ]

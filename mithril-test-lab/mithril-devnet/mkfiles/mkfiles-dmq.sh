@@ -1,6 +1,7 @@
 for NODE in ${ALL_NODES}; do
   cat >> ${NODE}/config.dmq.json <<EOF
 {
+  "CardanoNodeSocket": "",
   "LocalMsgSubmissionTracer": true,
   "LocalMsgNotificationTracer": true,
   "ConnectionManagerTracer": true,
