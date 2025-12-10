@@ -23,7 +23,7 @@ runs:
       shell: bash
       run: |
         echo "Check crate latest published version for '${{ inputs.package }}' package"
-        LATEST_REMOTE_VERSION=$(curl -sL https://crates.io/api/v1/crates/${{ inputs.package }} | jq -r '.crate.newest_version')
+        LATEST_REMOTE_VERSION=$(curl -sL https://crates.io/api/v1/crates/${{ inputs.package }}  --user-agent "iog/mithril (https://github.com/input-output-hk/mithril)" | jq -r '.crate.newest_version')
         LOCAL_VERSION=$(cargo metadata --quiet --no-deps | jq -r '.packages[] | select(.name=="${{ inputs.package }}") | .version')
         echo "Latest crate.io version: $LATEST_REMOTE_VERSION"
         echo "Local version: $LOCAL_VERSION"
