@@ -1,0 +1,11 @@
+FROM alpine:latest
+ARG DMQ_NODE_BINARY_URL
+ARG MITHRIL_IMAGE_ID # Only for triggering rebuilds when mithril image changes
+
+RUN apk add --no-cache wget
+
+RUN wget -O /bin/dmq-node $DMQ_NODE_BINARY_URL 
+RUN chmod +x /bin/dmq-node
+RUN /bin/dmq-node --version
+
+ENTRYPOINT ["/bin/dmq-node"]
