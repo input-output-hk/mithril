@@ -14,8 +14,9 @@ use mithril_client::{
 };
 
 use crate::utils::{
-    ArchiveUnpacker, GitHubReleaseRetriever, HttpDownloader, ReqwestGitHubApiClient,
-    ReqwestHttpDownloader, copy_dir, remove_dir_contents,
+    ArchiveUnpacker, CardanoDbUtils, GitHubReleaseRetriever, HttpDownloader, LedgerFormat,
+    ReqwestGitHubApiClient, ReqwestHttpDownloader, copy_dir, print_simple_warning,
+    remove_dir_contents,
 };
 
 const GITHUB_ORGANIZATION: &str = "IntersectMBO";
@@ -52,6 +53,15 @@ impl fmt::Display for UTxOHDFlavor {
         match self {
             Self::Legacy => write!(f, "Legacy"),
             Self::Lmdb => write!(f, "LMDB"),
+        }
+    }
+}
+
+impl From<&UTxOHDFlavor> for LedgerFormat {
+    fn from(value: &UTxOHDFlavor) -> Self {
+        match value {
+            UTxOHDFlavor::Legacy => LedgerFormat::Legacy,
+            UTxOHDFlavor::Lmdb => LedgerFormat::Lmdb,
         }
     }
 }
@@ -226,6 +236,7 @@ impl SnapshotConverterCommand {
                 &distribution_dir,
                 &cardano_network,
                 &self.utxo_hd_flavor,
+                &self.cardano_node_version,
                 self.commit,
             )
             .with_context(|| {
@@ -297,6 +308,7 @@ impl SnapshotConverterCommand {
         distribution_dir: &Path,
         cardano_network: &CardanoNetworkCliArg,
         utxo_hd_flavor: &UTxOHDFlavor,
+        cardano_node_version: &str,
         commit: bool,
     ) -> MithrilResult<()> {
         println!("Converting ledger state snapshot to '{utxo_hd_flavor}' flavor");
@@ -305,6 +317,9 @@ impl SnapshotConverterCommand {
         let config_path =
             Self::get_snapshot_converter_config_path(distribution_dir, cardano_network);
         let snapshots = Self::find_most_recent_snapshots(db_dir, CONVERSION_FALLBACK_LIMIT)?;
+        let canonical_db_dir = &db_dir
+            .canonicalize()
+            .with_context(|| format!("Could not get canonical path of '{}'", db_dir.display()))?;
         let converter_bin = SnapshotConverterBin {
             converter_bin,
             config_path,
@@ -321,6 +336,30 @@ impl SnapshotConverterCommand {
             Self::commit_converted_snapshot(db_dir, &converted_snapshot_path).with_context(
                 || "Failed to overwrite the ledger state with the converted snapshot.",
             )?;
+
+            let docker_cmd = CardanoDbUtils::get_docker_run_command(
+                canonical_db_dir,
+                &cardano_network.to_string(),
+                cardano_node_version,
+                utxo_hd_flavor.into(),
+            );
+
+            if matches!(&utxo_hd_flavor, UTxOHDFlavor::Legacy) {
+                print_simple_warning(
+                    "Legacy ledger format is only compatible with cardano-node up to `10.3.1`.",
+                    false,
+                );
+            }
+
+            println!(
+                r###"Ledger state have been successfully converted to {utxo_hd_flavor}.
+
+   If you are using the Cardano Docker image, you can start the Cardano node with:
+
+    {docker_cmd}
+
+    "###,
+            );
         } else {
             println!("Snapshot location: {}", converted_snapshot_path.display());
         }
