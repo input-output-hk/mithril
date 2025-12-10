@@ -1,0 +1,50 @@
+services:
+  mithril-signer:
+    volumes:
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/dmq/ipc:/ipc-dmq
+    environment:
+      - DMQ_NODE_SOCKET_PATH=/ipc-dmq/dmq.socket
+      - NETWORK_MAGIC=${NETWORK_MAGIC}
+      - SIGNATURE_PUBLISHER_SKIP_DELAYER=true # TODO: remove
+  dmq-node:
+    image: dmq-node-${MITHRIL_IMAGE_ID}
+    container_name: dmq-node-signer-${SIGNER_ID}
+    restart: always
+    user: ${CURRENT_UID}
+    profiles:
+      - dmq
+      - all
+    build:
+      context: .
+      dockerfile: Dockerfile.dmq
+      args:
+        DMQ_NODE_BINARY_URL: ${DMQ_NODE_BINARY_URL}
+        MITHRIL_IMAGE_ID: ${MITHRIL_IMAGE_ID}
+    volumes:
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/dmq/config:/config
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/dmq/ipc:/ipc
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc-cardano
+    ports:
+      - "${SIGNER_DMQ_PORT}:${SIGNER_DMQ_PORT}"
+    logging:
+      driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+    command:
+      [
+        "--configuration-file",
+        "/config/config.json",
+        "--topology-file",
+        "/config/topology.json",
+        "--local-socket",
+        "/ipc/dmq.socket",
+        "--host-addr",
+        "${SIGNER_DMQ_ADDR}",
+        "--port",
+        "${SIGNER_DMQ_PORT}"
+      ]
+
+networks:
+  default:
+    name: mithril_network
+    external: true

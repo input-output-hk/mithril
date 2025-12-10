@@ -200,6 +200,19 @@ variable "mithril_p2p_use_dmq_protocol" {
   default     = false
 }
 
+variable "mithril_p2p_use_real_dmq_node" {
+  type        = bool
+  description = "Use the real Decentralized Message Queue (DMQ) node (experimental, for test only)"
+  default     = false
+}
+
+
+variable "mithril_p2p_dmq_node_binary_url" {
+  type        = string
+  description = "The url to download the DMQ node binary (experimental, for test only)"
+  default     = ""
+}
+
 variable "mithril_p2p_network_bootstrap_peer" {
   type        = string
   description = "The dial to address of a bootstrap peer of the P2P network layer. Useful when setting-up a follower aggregator and signers in a different VM. (experimental, for test only)"
