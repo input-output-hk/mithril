@@ -24,7 +24,7 @@ impl From<ProgressOutputType> for ProgressDrawTarget {
     fn from(value: ProgressOutputType) -> Self {
         match value {
             ProgressOutputType::JsonReporter => ProgressDrawTarget::hidden(),
-            ProgressOutputType::Tty => ProgressDrawTarget::stdout(),
+            ProgressOutputType::Tty => ProgressDrawTarget::stderr(),
             ProgressOutputType::Hidden => ProgressDrawTarget::hidden(),
         }
     }
