@@ -16,6 +16,13 @@ As a minor extension, we have adopted a slightly different versioning convention
 
   - **DEPRECATED**: The flag `--backend v1` of the `cardano-db` command has been deprecated CLI, use the `--backend v2` instead.
 
+  - Reworked the client CLI `snapshot-converter` command outputs:
+    - Print all progress messages to stderr instead of stdout.
+    - Add support for `--json` parameter
+    - Add a docker run command in the final output that can be used to start the Cardano node with the converted ledger
+
+  - **BREAKING**: Progress bars and spinners of the client CLI are now outputted to stderr instead of stdout.
+
 - Support for removal of `cardano_transactions_signing_config` from the diffused mithril network configuration.
 
 - Decentralization of the configuration parameters of Mithril networks:
