@@ -565,21 +565,17 @@ impl<'a> CertificateChainBuilder<'a> {
                     .map(|c| c.epoch != certificate.epoch)
                     .unwrap_or(true);
 
-                certificates_chained
-                    .iter()
-                    .rev()
-                    .filter(|c| {
-                        if is_certificate_first_of_epoch {
-                            // The previous certificate of the first certificate of an epoch
-                            // is the first certificate of the previous epoch
-                            c.epoch == certificate.epoch.previous().unwrap()
-                        } else {
-                            // The previous certificate of not the first certificate of an epoch
-                            // is the first certificate of the epoch
-                            c.epoch == certificate.epoch
-                        }
-                    })
-                    .next_back()
+                certificates_chained.iter().rev().rfind(|c| {
+                    if is_certificate_first_of_epoch {
+                        // The previous certificate of the first certificate of an epoch
+                        // is the first certificate of the previous epoch
+                        c.epoch == certificate.epoch.previous().unwrap()
+                    } else {
+                        // The previous certificate of not the first certificate of an epoch
+                        // is the first certificate of the epoch
+                        c.epoch == certificate.epoch
+                    }
+                })
             }
             CertificateChainingMethod::Sequential => certificates_chained.last(),
         }
