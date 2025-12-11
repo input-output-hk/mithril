@@ -128,8 +128,8 @@ impl Party {
         println!(
             "Party #{}: {}",
             self.party_id,
-            if signature.is_some() {
-                format!("lottery #{:?} won", signature.as_ref().unwrap().indexes)
+            if let Some(sig) = &signature {
+                format!("lottery #{:?} won", sig.indexes)
             } else {
                 "lost all lotteries".to_string()
             }
