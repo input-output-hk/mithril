@@ -1,10 +1,11 @@
-use anyhow::anyhow;
 use std::{
     cmp::Ordering,
     fmt::{Display, Formatter},
     hash::{Hash, Hasher},
     iter::Sum,
 };
+
+use anyhow::anyhow;
 
 use blst::{
     BLST_ERROR,

@@ -17,7 +17,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 default = ["rug-backend"]
 rug-backend = ["rug/default"]
 num-integer-backend = ["dep:num-bigint", "dep:num-rational", "dep:num-traits"]
-benchmark-internals = [] # For benchmarking multi_sig
+benchmark-internals = [] # For benchmarking
 future_snark = [
     "dep:ff",
     "dep:group",

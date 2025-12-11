@@ -1,5 +1,6 @@
-use anyhow::{Context, anyhow};
 use std::collections::{BTreeMap, HashMap, HashSet};
+
+use anyhow::{Context, anyhow};
 
 use crate::{
     Index, Parameters, RegisteredParty, SingleSignature, SingleSignatureWithRegisteredParty, Stake,

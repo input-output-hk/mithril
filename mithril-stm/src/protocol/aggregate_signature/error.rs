@@ -1,4 +1,4 @@
-use crate::AggregateSignatureType;
+use super::AggregateSignatureType;
 
 /// Error types for aggregation.
 #[derive(Debug, Clone, thiserror::Error)]

@@ -1,3 +1,5 @@
+use std::{cmp::Ordering, iter::Sum};
+
 use anyhow::{Context, anyhow};
 use blake2::{Blake2b, Blake2b512, Digest};
 use blst::{
@@ -6,7 +8,6 @@ use blst::{
     p1_affines, p2_affines,
 };
 use digest::consts::U16;
-use std::{cmp::Ordering, iter::Sum};
 
 use crate::{Index, StmResult};
 
