@@ -7,13 +7,14 @@ use v2::PreparedCardanoDbV2Download;
 use clap::Parser;
 use std::{collections::HashMap, path::PathBuf};
 
+use mithril_client::{MithrilResult, common::ImmutableFileNumber};
+
 use crate::{
     CommandContext,
     commands::cardano_db::{CardanoDbCommandsBackend, warn_unused_parameter_with_v1_backend},
     configuration::{ConfigError, ConfigSource},
-    utils::{self, JSON_CAUTION_KEY},
+    utils::{self, JSON_CAUTION_KEY, print_simple_warning},
 };
-use mithril_client::{MithrilResult, common::ImmutableFileNumber};
 
 const DB_DIRECTORY_NAME: &str = "db";
 
@@ -161,11 +162,8 @@ For more information, please refer to the network configuration page of the docu
 
     fn warn_ancillary_not_signed_by_mithril(&self, context: &CommandContext) {
         let message = "Ancillary verification does not use the Mithril certification: as a mitigation, IOG owned keys are used to sign these files.";
-        if context.is_json_output_enabled() {
-            eprintln!(r#"{{"{JSON_CAUTION_KEY}":"{message}"}}"#);
-        } else {
-            eprintln!("{message}");
-        }
+
+        print_simple_warning(message, context.is_json_output_enabled());
     }
 }
 

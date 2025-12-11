@@ -32,6 +32,19 @@ use std::path::Path;
 /// The key used to store the caution message when printing a JSON directly to stderr
 pub(crate) const JSON_CAUTION_KEY: &str = "caution";
 
+/// Prints a simple warning message to stderr
+///
+/// The message should be no more than one or two lines, else the json output would be too large,
+/// and it would be best to break it down in a structured object. (See `warn_fast_bootstrap_not_available`
+/// in cardano db download command for an example.)
+pub(crate) fn print_simple_warning(message: &str, is_json_output_enabled: bool) {
+    if is_json_output_enabled {
+        eprintln!(r#"{{"{JSON_CAUTION_KEY}":"{message}"}}"#);
+    } else {
+        eprintln!("Warning: {message}");
+    }
+}
+
 /// Converts a [Path] to a [String], returning an error if the path is not valid UTF-8.
 pub(crate) fn path_to_string(path: &Path) -> MithrilResult<String> {
     let path = path

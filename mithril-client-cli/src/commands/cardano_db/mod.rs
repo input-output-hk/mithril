@@ -10,9 +10,11 @@ pub use list::*;
 pub use show::*;
 pub use verify::*;
 
-use crate::CommandContext;
 use clap::{Subcommand, ValueEnum};
+
 use mithril_client::MithrilResult;
+
+use crate::{CommandContext, utils::print_simple_warning};
 
 /// Backend to use for Cardano Database commands
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, ValueEnum)]
@@ -77,17 +79,11 @@ impl CardanoDbSnapshotCommands {
 
 /// Print in stderr a warning about the deprecation of the v1 backend and its scheduled removal in 2026
 pub fn warn_deprecated_v1_backend(context: &CommandContext) {
-    use crate::utils::JSON_CAUTION_KEY;
-
     let message = "The `v1` backend is deprecated and is scheduled to be removed early 2026. \
     Please use the `v2` backend instead. \
     No other change is required in your command line.";
 
-    if context.is_json_output_enabled() {
-        eprintln!(r#"{{"{JSON_CAUTION_KEY}":"{message}"}}"#);
-    } else {
-        eprintln!("Warning: {message}");
-    }
+    print_simple_warning(message, context.is_json_output_enabled());
 }
 
 /// Print in stderr that the given parameters are not available with the v1 backend and will be ignored
@@ -95,13 +91,10 @@ pub fn warn_unused_parameter_with_v1_backend<const N: usize>(
     context: &CommandContext,
     v2_only_parameters: [&str; N],
 ) {
-    use crate::utils::JSON_CAUTION_KEY;
-
     let message = format_unused_parameter_with_v1_backend(v2_only_parameters);
-    if context.is_json_output_enabled() {
-        eprintln!(r#"{{"{JSON_CAUTION_KEY}":"{message}"}}"#);
-    } else {
-        eprintln!("{message}");
+    print_simple_warning(&message, context.is_json_output_enabled());
+
+    if !context.is_json_output_enabled() {
         // Add a blank line to separate this message from the one related to the fast bootstrap that comes next.
         eprintln!();
     }
