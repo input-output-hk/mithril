@@ -2,10 +2,11 @@ use std::{
     env, fmt,
     fs::{create_dir, read_dir, remove_dir_all, rename},
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Stdio},
 };
 
 use anyhow::{Context, anyhow};
+use chrono::Utc;
 use clap::{Parser, ValueEnum};
 
 use mithril_client::{
@@ -13,10 +14,11 @@ use mithril_client::{
     common::{CardanoNetwork, MagicId},
 };
 
+use crate::CommandContext;
 use crate::utils::{
     ArchiveUnpacker, CardanoDbUtils, GitHubReleaseRetriever, HttpDownloader, LedgerFormat,
-    ReqwestGitHubApiClient, ReqwestHttpDownloader, copy_dir, print_simple_warning,
-    remove_dir_contents,
+    ProgressOutputType, ProgressPrinter, ReqwestGitHubApiClient, ReqwestHttpDownloader, copy_dir,
+    print_simple_warning, remove_dir_contents,
 };
 
 const GITHUB_ORGANIZATION: &str = "IntersectMBO";
@@ -109,10 +111,19 @@ struct SnapshotConverterBin {
     pub converter_bin: PathBuf,
     pub config_path: PathBuf,
     pub utxo_hd_flavor: UTxOHDFlavor,
+    pub hide_output: bool,
 }
 
 impl SnapshotConverter for SnapshotConverterBin {
     fn convert(&self, input_path: &Path, output_path: &Path) -> MithrilResult<()> {
+        // Hide output when JSON output is enabled (as they are not JSON formatted), else
+        // redirect to stderr to keep stdout dedicated to the command result.
+        let outputs = if self.hide_output {
+            Stdio::null()
+        } else {
+            std::io::stderr().into()
+        };
+
         let status = Command::new(self.converter_bin.clone())
             .arg("Mem")
             .arg(input_path)
@@ -121,6 +132,7 @@ impl SnapshotConverter for SnapshotConverterBin {
             .arg("cardano")
             .arg("--config")
             .arg(self.config_path.clone())
+            .stdout(outputs)
             .status()
             .with_context(|| {
                 format!(
@@ -176,7 +188,15 @@ pub struct SnapshotConverterCommand {
 
 impl SnapshotConverterCommand {
     /// Main command execution
-    pub async fn execute(&self) -> MithrilResult<()> {
+    pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
+        let progress_output_type = if context.is_json_output_enabled() {
+            ProgressOutputType::JsonReporter
+        } else {
+            ProgressOutputType::Tty
+        };
+        let number_of_steps = if self.commit { 4 } else { 3 };
+        let progress_printer = ProgressPrinter::new(progress_output_type, number_of_steps);
+
         let work_dir = self.db_directory.join(WORK_DIR);
         create_dir(&work_dir).with_context(|| {
             format!(
@@ -194,6 +214,8 @@ impl SnapshotConverterCommand {
                 )
             })?;
             let archive_path = Self::download_cardano_node_distribution(
+                1,
+                &progress_printer,
                 ReqwestGitHubApiClient::new(self.github_token.clone())?,
                 ReqwestHttpDownloader::new()?,
                 &self.cardano_node_version,
@@ -202,10 +224,13 @@ impl SnapshotConverterCommand {
             .await
             .with_context(|| "Failed to download Cardano node distribution")?;
 
-            println!(
-                "Unpacking distribution from archive: {}",
-                archive_path.display()
-            );
+            progress_printer.report_step(
+                2,
+                &format!(
+                    "Unpacking distribution from archive: {}",
+                    archive_path.display()
+                ),
+            )?;
             ArchiveUnpacker::default()
                 .unpack(&archive_path, &distribution_dir)
                 .with_context(|| {
@@ -214,10 +239,10 @@ impl SnapshotConverterCommand {
                         distribution_dir.display()
                     )
                 })?;
-            println!(
+            progress_printer.print_message(&format!(
                 "Distribution unpacked successfully to: {}",
                 distribution_dir.display()
-            );
+            ))?;
 
             #[allow(deprecated)]
             let cardano_network = if let Some(network) = &self.cardano_network {
@@ -230,14 +255,14 @@ impl SnapshotConverterCommand {
                     )
                 })?
             };
-            Self::convert_ledger_state_snapshot(
+            let converted_snapshot_path = Self::convert_ledger_state_snapshot(
+                3,
+                &progress_printer,
                 &work_dir,
                 &self.db_directory,
                 &distribution_dir,
                 &cardano_network,
                 &self.utxo_hd_flavor,
-                &self.cardano_node_version,
-                self.commit,
             )
             .with_context(|| {
                 format!(
@@ -246,27 +271,53 @@ impl SnapshotConverterCommand {
                 )
             })?;
 
+            if self.commit {
+                Self::commit_converted_snapshot(
+                    4,
+                    &progress_printer,
+                    &self.db_directory,
+                    &converted_snapshot_path,
+                )
+                .with_context(
+                    || "Failed to overwrite the ledger state with the converted snapshot.",
+                )?;
+            }
+
+            Self::print_successful_result(
+                &self.db_directory,
+                &converted_snapshot_path,
+                &cardano_network,
+                &self.utxo_hd_flavor,
+                &self.cardano_node_version,
+                self.commit,
+                context.is_json_output_enabled(),
+            )?;
+
             Ok(())
         };
 
         if let Err(e) = Self::cleanup(&work_dir, &distribution_dir, self.commit, result.is_ok()) {
-            eprintln!(
-                "Failed to clean up temporary directory {} after execution: {}",
-                distribution_dir.display(),
-                e
-            );
+            progress_printer.print_message(&format!(
+                "Failed to clean up temporary directory '{distribution_dir}' after execution: {e:?}",
+                distribution_dir = distribution_dir.display(),
+            ))?;
         }
 
         result
     }
 
     async fn download_cardano_node_distribution(
+        step_number: u16,
+        progress_printer: &ProgressPrinter,
         github_api_client: impl GitHubReleaseRetriever,
         http_downloader: impl HttpDownloader,
         tag: &str,
         target_dir: &Path,
     ) -> MithrilResult<PathBuf> {
-        println!("Downloading Cardano node distribution for tag: '{tag}'...");
+        progress_printer.report_step(
+            step_number,
+            &format!("Downloading Cardano node distribution for tag: '{tag}'..."),
+        )?;
         let release = match tag {
             LATEST_DISTRIBUTION_TAG => github_api_client
                 .get_latest_release(GITHUB_ORGANIZATION, GITHUB_REPOSITORY)
@@ -294,49 +345,68 @@ impl SnapshotConverterCommand {
             .download_file(asset.browser_download_url.parse()?, target_dir, &asset.name)
             .await?;
 
-        println!(
+        progress_printer.print_message(&format!(
             "Distribution downloaded successfully. Archive location: {}",
             archive_path.display()
-        );
+        ))?;
 
         Ok(archive_path)
     }
 
     fn convert_ledger_state_snapshot(
+        step_number: u16,
+        progress_printer: &ProgressPrinter,
         work_dir: &Path,
         db_dir: &Path,
         distribution_dir: &Path,
         cardano_network: &CardanoNetworkCliArg,
         utxo_hd_flavor: &UTxOHDFlavor,
-        cardano_node_version: &str,
-        commit: bool,
-    ) -> MithrilResult<()> {
-        println!("Converting ledger state snapshot to '{utxo_hd_flavor}' flavor");
+    ) -> MithrilResult<PathBuf> {
+        progress_printer.report_step(
+            step_number,
+            &format!("Converting ledger state snapshot to '{utxo_hd_flavor}' flavor"),
+        )?;
         let converter_bin =
             Self::get_snapshot_converter_binary_path(distribution_dir, env::consts::OS)?;
         let config_path =
             Self::get_snapshot_converter_config_path(distribution_dir, cardano_network);
         let snapshots = Self::find_most_recent_snapshots(db_dir, CONVERSION_FALLBACK_LIMIT)?;
-        let canonical_db_dir = &db_dir
-            .canonicalize()
-            .with_context(|| format!("Could not get canonical path of '{}'", db_dir.display()))?;
         let converter_bin = SnapshotConverterBin {
             converter_bin,
             config_path,
             utxo_hd_flavor: utxo_hd_flavor.clone(),
+            hide_output: matches!(
+                progress_printer.output_type(),
+                ProgressOutputType::JsonReporter | ProgressOutputType::Hidden
+            ),
         };
-        let converted_snapshot_path = Self::try_convert(
+
+        Self::try_convert(
+            progress_printer,
             work_dir,
             utxo_hd_flavor,
             &snapshots,
             Box::new(converter_bin),
-        )?;
+        )
+    }
+
+    fn print_successful_result(
+        db_dir: &Path,
+        converted_snapshot_path: &Path,
+        cardano_network: &CardanoNetworkCliArg,
+        utxo_hd_flavor: &UTxOHDFlavor,
+        cardano_node_version: &str,
+        commit: bool,
+        is_json_output_enabled: bool,
+    ) -> MithrilResult<()> {
+        let canonical_db_dir = &db_dir
+            .canonicalize()
+            .with_context(|| format!("Could not get canonical path of '{}'", db_dir.display()))?;
+        let message =
+            format!("Ledger state have been successfully converted to {utxo_hd_flavor} format");
+        let timestamp = Utc::now().to_rfc3339();
 
         if commit {
-            Self::commit_converted_snapshot(db_dir, &converted_snapshot_path).with_context(
-                || "Failed to overwrite the ledger state with the converted snapshot.",
-            )?;
-
             let docker_cmd = CardanoDbUtils::get_docker_run_command(
                 canonical_db_dir,
                 &cardano_network.to_string(),
@@ -347,27 +417,53 @@ impl SnapshotConverterCommand {
             if matches!(&utxo_hd_flavor, UTxOHDFlavor::Legacy) {
                 print_simple_warning(
                     "Legacy ledger format is only compatible with cardano-node up to `10.3.1`.",
-                    false,
+                    is_json_output_enabled,
                 );
             }
 
+            if is_json_output_enabled {
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "message": message,
+                        "timestamp": timestamp,
+                        "run_docker_cmd": docker_cmd,
+                    })
+                );
+            } else {
+                println!(
+                    r###"{message}.
+
+If you are using the Cardano Docker image, you can start the Cardano node with:
+
+   {docker_cmd}
+"###,
+                );
+            }
+        } else if is_json_output_enabled {
             println!(
-                r###"Ledger state have been successfully converted to {utxo_hd_flavor}.
-
-   If you are using the Cardano Docker image, you can start the Cardano node with:
-
-    {docker_cmd}
-
-    "###,
+                "{}",
+                serde_json::json!({
+                    "message": message,
+                    "timestamp": timestamp,
+                    "converted_snapshot_path": converted_snapshot_path,
+                })
             );
         } else {
-            println!("Snapshot location: {}", converted_snapshot_path.display());
+            println!(
+                r###"{message}.
+
+Snapshot location: {}
+"###,
+                converted_snapshot_path.display()
+            );
         }
 
         Ok(())
     }
 
     fn try_convert(
+        progress_printer: &ProgressPrinter,
         work_dir: &Path,
         utxo_hd_flavor: &UTxOHDFlavor,
         snapshots: &[PathBuf],
@@ -377,7 +473,10 @@ impl SnapshotConverterCommand {
 
         for (i, snapshot) in snapshots.iter().enumerate() {
             let attempt = i + 1;
-            println!("Converting '{}' (attempt #{})", snapshot.display(), attempt);
+            let snapshot_path_display = snapshot.display();
+            progress_printer.print_message(&format!(
+                "Converting '{snapshot_path_display}' (attempt #{attempt})",
+            ))?;
 
             let input_path = copy_dir(snapshot, &snapshots_dir)?;
             let output_path = Self::compute_converted_snapshot_output_path(
@@ -388,20 +487,15 @@ impl SnapshotConverterCommand {
 
             match converter.convert(&input_path, &output_path) {
                 Ok(()) => {
-                    return {
-                        println!(
-                            "Successfully converted ledger state snapshot: '{}'",
-                            snapshot.display()
-                        );
-
-                        Ok(output_path)
-                    };
+                    progress_printer.print_message(&format!(
+                        "Successfully converted ledger state snapshot: '{snapshot_path_display}'",
+                    ))?;
+                    return Ok(output_path);
                 }
                 Err(e) => {
-                    eprintln!(
-                        "Failed to convert ledger state snapshot '{}': {e}",
-                        snapshot.display()
-                    );
+                    progress_printer.print_message(&format!(
+                        "Failed to convert ledger state snapshot '{snapshot_path_display}': {e}",
+                    ))?;
                     continue;
                 }
             };
@@ -519,22 +613,28 @@ impl SnapshotConverterCommand {
 
     /// Commits the converted snapshot by replacing the current ledger state snapshots in the database directory.
     fn commit_converted_snapshot(
+        step_number: u16,
+        progress_printer: &ProgressPrinter,
         db_dir: &Path,
         converted_snapshot_path: &Path,
     ) -> MithrilResult<()> {
         let ledger_dir = db_dir.join(LEDGER_DIR);
-        println!(
-            "Upgrading and replacing ledger state in {} with converted snapshot: {}",
-            ledger_dir.display(),
-            converted_snapshot_path.display()
-        );
+        progress_printer.report_step(
+            step_number,
+            &format!(
+                "Upgrading and replacing ledger state in {} with converted snapshot: {}",
+                ledger_dir.display(),
+                converted_snapshot_path.display()
+            ),
+        )?;
+
         let filename = converted_snapshot_path
             .file_name()
             .ok_or_else(|| anyhow!("Missing filename in converted snapshot path"))?
             .to_string_lossy();
         let (slot_number, _) = filename
             .split_once('_')
-            .ok_or_else(|| anyhow!("Invalid converted snapshot name format: {}", filename))?;
+            .with_context(|| format!("Invalid converted snapshot name format: {}", filename))?;
         remove_dir_contents(&ledger_dir).with_context(|| {
             format!(
                 "Failed to remove contents of ledger directory: {}",
@@ -633,6 +733,8 @@ mod tests {
                 .returning(|_, _, _| Ok(PathBuf::new()));
 
             SnapshotConverterCommand::download_cardano_node_distribution(
+                1,
+                &ProgressPrinter::new(ProgressOutputType::Hidden, 1),
                 github_api_client,
                 http_downloader,
                 LATEST_DISTRIBUTION_TAG,
@@ -666,6 +768,8 @@ mod tests {
                 .returning(|_, _, _| Ok(PathBuf::new()));
 
             SnapshotConverterCommand::download_cardano_node_distribution(
+                1,
+                &ProgressPrinter::new(ProgressOutputType::Hidden, 1),
                 github_api_client,
                 http_downloader,
                 PRERELEASE_DISTRIBUTION_TAG,
@@ -704,6 +808,8 @@ mod tests {
                 .returning(|_, _, _| Ok(PathBuf::new()));
 
             SnapshotConverterCommand::download_cardano_node_distribution(
+                1,
+                &ProgressPrinter::new(ProgressOutputType::Hidden, 1),
                 github_api_client,
                 http_downloader,
                 cardano_node_version,
@@ -924,8 +1030,13 @@ mod tests {
             File::create(&converted_snapshot).unwrap();
 
             assert!(previous_snapshot.exists());
-            SnapshotConverterCommand::commit_converted_snapshot(&tmp_dir, &converted_snapshot)
-                .unwrap();
+            SnapshotConverterCommand::commit_converted_snapshot(
+                1,
+                &ProgressPrinter::new(ProgressOutputType::Hidden, 1),
+                &tmp_dir,
+                &converted_snapshot,
+            )
+            .unwrap();
 
             assert!(!previous_snapshot.exists());
             assert!(ledger_dir.join("456").exists());
@@ -942,8 +1053,13 @@ mod tests {
             let converted_snapshot = tmp_dir.join("456");
             File::create(&converted_snapshot).unwrap();
 
-            SnapshotConverterCommand::commit_converted_snapshot(&tmp_dir, &converted_snapshot)
-                .expect_err("Should fail if converted snapshot has invalid filename");
+            SnapshotConverterCommand::commit_converted_snapshot(
+                1,
+                &ProgressPrinter::new(ProgressOutputType::Hidden, 1),
+                &tmp_dir,
+                &converted_snapshot,
+            )
+            .expect_err("Should fail if converted snapshot has invalid filename");
 
             assert!(previous_snapshot.exists());
         }
@@ -1236,6 +1352,7 @@ mod tests {
                 .once();
 
             SnapshotConverterCommand::try_convert(
+                &ProgressPrinter::new(ProgressOutputType::Hidden, 1),
                 Path::new(""),
                 &UTxOHDFlavor::Lmdb,
                 &snapshots,
@@ -1268,6 +1385,7 @@ mod tests {
                 .once();
 
             SnapshotConverterCommand::try_convert(
+                &ProgressPrinter::new(ProgressOutputType::Hidden, 1),
                 Path::new(""),
                 &UTxOHDFlavor::Lmdb,
                 &snapshots,
@@ -1287,6 +1405,7 @@ mod tests {
                 .times(2);
 
             SnapshotConverterCommand::try_convert(
+                &ProgressPrinter::new(ProgressOutputType::Hidden, 1),
                 Path::new(""),
                 &UTxOHDFlavor::Lmdb,
                 &snapshots,

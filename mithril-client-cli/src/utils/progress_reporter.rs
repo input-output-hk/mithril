@@ -54,6 +54,11 @@ impl ProgressPrinter {
         }
     }
 
+    /// Return the output type of the progress printer
+    pub fn output_type(&self) -> ProgressOutputType {
+        self.output_type
+    }
+
     /// Report the current step
     pub fn report_step(&self, step_number: u16, text: &str) -> MithrilResult<()> {
         match self.output_type {
@@ -65,6 +70,20 @@ impl ProgressPrinter {
             ProgressOutputType::Tty => self
                 .multi_progress
                 .println(format!("{step_number}/{} - {text}", self.number_of_steps))?,
+            ProgressOutputType::Hidden => (),
+        };
+
+        Ok(())
+    }
+
+    /// Print a message to the output
+    pub fn print_message(&self, text: &str) -> MithrilResult<()> {
+        match self.output_type {
+            ProgressOutputType::JsonReporter => eprintln!(
+                r#"{{"timestamp": "{timestamp}", "message": "{text}"}}"#,
+                timestamp = Utc::now().to_rfc3339(),
+            ),
+            ProgressOutputType::Tty => self.multi_progress.println(text)?,
             ProgressOutputType::Hidden => (),
         };
 

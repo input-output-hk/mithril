@@ -20,7 +20,7 @@ pub enum UTxOHDCommands {
 
 impl UTxOHDCommands {
     /// Execute UTxO-HD command
-    pub async fn execute(&self, _context: CommandContext) -> MithrilResult<()> {
+    pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         match self {
             Self::SnapshotConverter(cmd) => {
                 if cfg!(target_os = "linux") && cfg!(target_arch = "aarch64") {
@@ -28,7 +28,7 @@ impl UTxOHDCommands {
                         "'snapshot-converter' command is not supported on Linux ARM"
                     ));
                 }
-                cmd.execute().await
+                cmd.execute(context).await
             }
         }
     }
