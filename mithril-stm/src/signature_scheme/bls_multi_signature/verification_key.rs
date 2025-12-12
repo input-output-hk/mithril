@@ -6,7 +6,6 @@ use std::{
 };
 
 use anyhow::anyhow;
-
 use blst::{
     BLST_ERROR,
     min_sig::{AggregatePublicKey, PublicKey as BlstVk},
