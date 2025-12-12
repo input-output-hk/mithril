@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use async_trait::async_trait;
 use reqwest::StatusCode;
 use std::fmt::{Display, Formatter};
@@ -6,8 +5,8 @@ use std::fmt::{Display, Formatter};
 use mithril_common::entities::EpochSpecifier;
 use mithril_common::messages::CardanoDatabaseSnapshotListMessage;
 
-use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
-use crate::{AggregatorHttpClientError, AggregatorHttpClientResult};
+use crate::AggregatorHttpClientResult;
+use crate::query::{AggregatorQuery, QueryContext, QueryMethod, ResponseExt};
 
 /// Query to get a list of Cardano database v2 snapshots
 pub struct GetCardanoDatabaseListQuery {
@@ -74,12 +73,7 @@ impl AggregatorQuery for GetCardanoDatabaseListQuery {
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
         match context.response.status() {
-            StatusCode::OK => {
-                match context.response.json::<CardanoDatabaseSnapshotListMessage>().await {
-                    Ok(message) => Ok(message),
-                    Err(err) => Err(AggregatorHttpClientError::JsonParseFailed(anyhow!(err))),
-                }
-            }
+            StatusCode::OK => context.response.parse_json().await,
             _ => Err(context.unhandled_status_code().await),
         }
     }
@@ -93,6 +87,7 @@ mod tests {
     use mithril_common::messages::CardanoDatabaseSnapshotListItemMessage;
     use mithril_common::test::double::Dummy;
 
+    use crate::AggregatorHttpClientError;
     use crate::test::{assert_error_matches, setup_server_and_client};
 
     use super::*;

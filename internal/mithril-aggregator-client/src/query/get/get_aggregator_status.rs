@@ -1,11 +1,10 @@
-use anyhow::anyhow;
 use async_trait::async_trait;
 use reqwest::StatusCode;
 
 use mithril_common::messages::AggregatorStatusMessage;
 
-use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
-use crate::{AggregatorHttpClientError, AggregatorHttpClientResult};
+use crate::AggregatorHttpClientResult;
+use crate::query::{AggregatorQuery, QueryContext, QueryMethod, ResponseExt};
 
 /// Query to get the status of the aggregator
 pub struct GetAggregatorStatusQuery {}
@@ -36,11 +35,7 @@ impl AggregatorQuery for GetAggregatorStatusQuery {
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
         match context.response.status() {
-            StatusCode::OK => Ok(context
-                .response
-                .json::<AggregatorStatusMessage>()
-                .await
-                .map_err(|e| AggregatorHttpClientError::JsonParseFailed(anyhow!(e)))?),
+            StatusCode::OK => context.response.parse_json().await,
             _ => Err(context.unhandled_status_code().await),
         }
     }
@@ -52,6 +47,7 @@ mod tests {
 
     use mithril_common::test::double::Dummy;
 
+    use crate::AggregatorHttpClientError;
     use crate::test::{assert_error_matches, setup_server_and_client};
 
     use super::*;
