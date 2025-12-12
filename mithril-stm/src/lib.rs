@@ -117,6 +117,7 @@ mod protocol;
 mod signature_scheme;
 
 pub use protocol::*;
+pub use signature_scheme::BlsSignatureError;
 
 #[cfg(feature = "benchmark-internals")]
 pub use signature_scheme::{

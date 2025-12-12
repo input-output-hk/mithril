@@ -7,11 +7,12 @@ use dusk_poseidon::{Domain, Hash};
 use group::Group;
 use rand_core::{CryptoRng, RngCore};
 
+use crate::StmResult;
+
 use super::{
     DST_SIGNATURE, SchnorrSignature, SchnorrSignatureError, SchnorrVerificationKey,
     generate_non_zero_scalar, get_coordinates_several_points,
 };
-use crate::StmResult;
 
 /// Schnorr Signing key, it is essentially a random scalar of the Jubjub scalar field
 #[derive(Debug, Clone)]
@@ -128,9 +129,10 @@ impl SchnorrSigningKey {
 
 #[cfg(test)]
 mod tests {
-    pub(crate) use super::*;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
+
+    use super::*;
 
     #[test]
     fn generate_signing_key() {
@@ -191,7 +193,7 @@ mod tests {
         use rand_chacha::ChaCha20Rng;
         use rand_core::SeedableRng;
 
-        use crate::SchnorrSigningKey;
+        use crate::signature_scheme::SchnorrSigningKey;
 
         const GOLDEN_BYTES: &[u8; 32] = &[
             126, 191, 239, 197, 88, 151, 248, 254, 187, 143, 86, 35, 29, 62, 90, 13, 196, 71, 234,

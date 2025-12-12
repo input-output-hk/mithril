@@ -91,7 +91,7 @@ impl MultiSigner {
 
 #[cfg(test)]
 mod test {
-    use mithril_stm::MultiSignatureError;
+    use mithril_stm::BlsSignatureError;
 
     use crate::{
         crypto_helper::ProtocolAggregationError,
@@ -195,8 +195,8 @@ mod test {
                 "Verify single signature should fail if the signer isn't in the registered parties",
             );
 
-        match error.downcast_ref::<MultiSignatureError>() {
-            Some(MultiSignatureError::SignatureInvalid(_)) => (),
+        match error.downcast_ref::<BlsSignatureError>() {
+            Some(BlsSignatureError::SignatureInvalid(_)) => (),
             _ => panic!("Expected an SignatureInvalid error, got: {error:?}"),
         }
     }
@@ -221,8 +221,8 @@ mod test {
             .verify_single_signature(&ProtocolMessage::default(), &single_signature)
             .expect_err("Verify single signature should fail");
 
-        match error.downcast_ref::<MultiSignatureError>() {
-            Some(MultiSignatureError::SignatureInvalid(_)) => (),
+        match error.downcast_ref::<BlsSignatureError>() {
+            Some(BlsSignatureError::SignatureInvalid(_)) => (),
             _ => panic!("Expected an SignatureInvalid error, got: {error:?}"),
         }
     }

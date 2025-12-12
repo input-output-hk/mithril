@@ -1,11 +1,13 @@
 //! Merkle tree implementation for STM
 
 mod commitment;
+mod error;
 mod leaf;
 mod path;
 mod tree;
 
 pub use commitment::*;
+pub use error::*;
 pub use leaf::*;
 pub use path::*;
 pub use tree::*;

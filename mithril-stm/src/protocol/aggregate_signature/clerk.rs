@@ -1,17 +1,18 @@
 use anyhow::Context;
 use blake2::digest::{Digest, FixedOutput};
 
-#[cfg(feature = "future_proof_system")]
+#[cfg(feature = "future_snark")]
 use anyhow::anyhow;
 
-#[cfg(feature = "future_proof_system")]
-use crate::AggregationError;
+#[cfg(feature = "future_snark")]
+use super::AggregationError;
 
-use super::{AggregateSignature, AggregateSignatureType, AggregateVerificationKey};
 use crate::{
     ClosedKeyRegistration, Index, Parameters, Signer, SingleSignature, Stake, StmResult,
     VerificationKey, proof_system::ConcatenationProof,
 };
+
+use super::{AggregateSignature, AggregateSignatureType, AggregateVerificationKey};
 
 /// `Clerk` can verify and aggregate `SingleSignature`s and verify `AggregateSignature`s.
 /// Clerks can only be generated with the registration closed.
@@ -89,7 +90,7 @@ impl<D: Digest + Clone + FixedOutput + Send + Sync> Clerk<D> {
                     )
                 })?,
             )),
-            #[cfg(feature = "future_proof_system")]
+            #[cfg(feature = "future_snark")]
             AggregateSignatureType::Future => Err(anyhow!(
                 AggregationError::UnsupportedProofSystem(aggregate_signature_type)
             )),

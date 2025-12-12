@@ -2,8 +2,9 @@ use anyhow::{Context, anyhow};
 use dusk_jubjub::SubgroupPoint as JubjubSubgroup;
 use group::{Group, GroupEncoding};
 
-use super::SchnorrSignatureError;
 use crate::StmResult;
+
+use super::{SchnorrSignatureError, SchnorrSigningKey};
 
 /// Schnorr verification key, it consists of a point on the Jubjub curve
 /// vk = g * sk, where g is a generator
@@ -38,12 +39,12 @@ impl SchnorrVerificationKey {
     }
 }
 
-impl From<&crate::SchnorrSigningKey> for SchnorrVerificationKey {
+impl From<&SchnorrSigningKey> for SchnorrVerificationKey {
     /// Convert a Schnorr secret key into a verification key
     ///
     /// This is done by computing `vk = g * sk` where g is the generator
     /// of the subgroup and sk is the schnorr secret key
-    fn from(signing_key: &crate::SchnorrSigningKey) -> Self {
+    fn from(signing_key: &SchnorrSigningKey) -> Self {
         let generator = JubjubSubgroup::generator();
 
         SchnorrVerificationKey(generator * signing_key.0)
@@ -52,7 +53,6 @@ impl From<&crate::SchnorrSigningKey> for SchnorrVerificationKey {
 
 #[cfg(test)]
 mod tests {
-
     use dusk_jubjub::Fq as JubjubBase;
     use dusk_jubjub::SubgroupPoint as JubjubSubgroup;
     use ff::Field;

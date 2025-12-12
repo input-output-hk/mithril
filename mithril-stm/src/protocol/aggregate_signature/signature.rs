@@ -4,11 +4,12 @@ use anyhow::anyhow;
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
-use super::AggregateVerificationKey;
 use crate::{
-    AggregateSignatureError, Parameters, StmError, StmResult,
-    membership_commitment::MerkleBatchPath, proof_system::ConcatenationProof,
+    Parameters, StmError, StmResult, membership_commitment::MerkleBatchPath,
+    proof_system::ConcatenationProof,
 };
+
+use super::{AggregateSignatureError, AggregateVerificationKey};
 
 /// The type of STM aggregate signature.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -17,7 +18,7 @@ pub enum AggregateSignatureType {
     #[default]
     Concatenation,
     /// Future proof system. Not suitable for production.
-    #[cfg(feature = "future_proof_system")]
+    #[cfg(feature = "future_snark")]
     Future,
 }
 
@@ -28,7 +29,7 @@ impl AggregateSignatureType {
     pub fn get_byte_encoding_prefix(&self) -> u8 {
         match self {
             AggregateSignatureType::Concatenation => 0,
-            #[cfg(feature = "future_proof_system")]
+            #[cfg(feature = "future_snark")]
             AggregateSignatureType::Future => 255,
         }
     }
@@ -39,7 +40,7 @@ impl AggregateSignatureType {
     pub fn from_byte_encoding_prefix(byte: u8) -> Option<Self> {
         match byte {
             0 => Some(AggregateSignatureType::Concatenation),
-            #[cfg(feature = "future_proof_system")]
+            #[cfg(feature = "future_snark")]
             255 => Some(AggregateSignatureType::Future),
             _ => None,
         }
@@ -52,7 +53,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> From<&AggregateSignature<D>>
     fn from(aggr_sig: &AggregateSignature<D>) -> Self {
         match aggr_sig {
             AggregateSignature::Concatenation(_) => AggregateSignatureType::Concatenation,
-            #[cfg(feature = "future_proof_system")]
+            #[cfg(feature = "future_snark")]
             AggregateSignature::Future => AggregateSignatureType::Future,
         }
     }
@@ -64,7 +65,7 @@ impl FromStr for AggregateSignatureType {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "Concatenation" => Ok(AggregateSignatureType::Concatenation),
-            #[cfg(feature = "future_proof_system")]
+            #[cfg(feature = "future_snark")]
             "Future" => Ok(AggregateSignatureType::Future),
             _ => Err(anyhow!("Unknown aggregate signature type: {}", s)),
         }
@@ -75,7 +76,7 @@ impl Display for AggregateSignatureType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AggregateSignatureType::Concatenation => write!(f, "Concatenation"),
-            #[cfg(feature = "future_proof_system")]
+            #[cfg(feature = "future_snark")]
             AggregateSignatureType::Future => write!(f, "Future"),
         }
     }
@@ -89,7 +90,7 @@ impl Display for AggregateSignatureType {
 ))]
 pub enum AggregateSignature<D: Clone + Digest + FixedOutput + Send + Sync> {
     /// A future proof system.
-    #[cfg(feature = "future_proof_system")]
+    #[cfg(feature = "future_snark")]
     Future,
 
     /// Concatenation proof system.
@@ -112,7 +113,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
             AggregateSignature::Concatenation(concatenation_proof) => {
                 concatenation_proof.verify(msg, avk, parameters)
             }
-            #[cfg(feature = "future_proof_system")]
+            #[cfg(feature = "future_snark")]
             AggregateSignature::Future => Err(anyhow!(
                 AggregateSignatureError::UnsupportedProofSystem(self.into())
             )),
@@ -145,7 +146,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
 
                     ConcatenationProof::batch_verify(&concatenation_proofs, msgs, avks, parameters)
                 }
-                #[cfg(feature = "future_proof_system")]
+                #[cfg(feature = "future_snark")]
                 AggregateSignatureType::Future => Err(anyhow!(
                     AggregateSignatureError::UnsupportedProofSystem(aggregate_signature_type)
                 )),
@@ -164,7 +165,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
             AggregateSignature::Concatenation(concatenation_proof) => {
                 concatenation_proof.to_bytes()
             }
-            #[cfg(feature = "future_proof_system")]
+            #[cfg(feature = "future_snark")]
             AggregateSignature::Future => vec![],
         };
         aggregate_signature_bytes.append(&mut proof_bytes);
@@ -182,7 +183,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
             AggregateSignatureType::Concatenation => Ok(AggregateSignature::Concatenation(
                 ConcatenationProof::from_bytes(proof_bytes)?,
             )),
-            #[cfg(feature = "future_proof_system")]
+            #[cfg(feature = "future_snark")]
             AggregateSignatureType::Future => Ok(AggregateSignature::Future),
         }
     }
@@ -191,7 +192,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> AggregateSignature<D> {
     pub fn to_concatenation_proof(&self) -> Option<&ConcatenationProof<D>> {
         match self {
             AggregateSignature::Concatenation(proof) => Some(proof),
-            #[cfg(feature = "future_proof_system")]
+            #[cfg(feature = "future_snark")]
             AggregateSignature::Future => None,
         }
     }

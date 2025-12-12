@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use std::{
     cmp::Ordering,
     fmt::{Display, Formatter},
@@ -6,14 +5,19 @@ use std::{
     iter::Sum,
 };
 
+use anyhow::anyhow;
 use blst::{
     BLST_ERROR,
     min_sig::{AggregatePublicKey, PublicKey as BlstVk},
 };
 use serde::{Deserialize, Serialize};
 
-use super::{BlsProofOfPossession, BlsSigningKey, POP, helper::unsafe_helpers::verify_pairing};
-use crate::{MultiSignatureError, StmResult, blst_error_to_stm_error};
+use crate::StmResult;
+
+use super::{
+    BlsProofOfPossession, BlsSignatureError, BlsSigningKey, POP, blst_error_to_stm_error,
+    helper::unsafe_helpers::verify_pairing,
+};
 
 /// MultiSig verification key, which is a wrapper over the BlstVk (element in G2)
 /// from the blst library.
@@ -32,7 +36,7 @@ impl BlsVerificationKey {
     /// This function fails if the bytes do not represent a compressed point of the prime
     /// order subgroup of the curve Bls12-381.
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
-        let bytes = bytes.get(..96).ok_or(MultiSignatureError::SerializationError)?;
+        let bytes = bytes.get(..96).ok_or(BlsSignatureError::SerializationError)?;
         match BlstVk::key_validate(bytes) {
             Ok(vk) => Ok(Self(vk)),
             Err(e) => Err(blst_error_to_stm_error(e, None, None)
@@ -149,7 +153,7 @@ impl BlsVerificationKeyProofOfPossession {
                 ) == BLST_ERROR::BLST_SUCCESS
                     && result)
                 {
-                    return Err(anyhow!(MultiSignatureError::KeyInvalid(Box::new(*self))));
+                    return Err(anyhow!(BlsSignatureError::KeyInvalid(Box::new(*self))));
                 }
                 Ok(())
             }
@@ -187,11 +191,11 @@ impl BlsVerificationKeyProofOfPossession {
     /// Deserialize a byte string to a `BlsVerificationKeyProofOfPossession`.
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let mvk = BlsVerificationKey::from_bytes(
-            bytes.get(..96).ok_or(MultiSignatureError::SerializationError)?,
+            bytes.get(..96).ok_or(BlsSignatureError::SerializationError)?,
         )?;
 
         let pop = BlsProofOfPossession::from_bytes(
-            bytes.get(96..).ok_or(MultiSignatureError::SerializationError)?,
+            bytes.get(96..).ok_or(BlsSignatureError::SerializationError)?,
         )?;
 
         Ok(Self { vk: mvk, pop })
