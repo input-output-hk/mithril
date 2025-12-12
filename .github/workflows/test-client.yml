@@ -116,7 +116,7 @@ jobs:
 
           if [[ $CARDANO_DATABASE_V2_CAPABILITY == "true" ]]; then
             echo 'available_cardano_database_backends=["v1","v2"]' >> $GITHUB_OUTPUT
-            echo 'bin-cdb-download-matrix-include=[{"backend":"v2","os":"ubuntu-24.04","ledger_backend":"lmdb","extra_args":"--include-ancillary"}]' >> $GITHUB_OUTPUT
+            echo 'bin-cdb-download-matrix-include=[{"backend":"v2","os":"ubuntu-24.04","ledger_backend":"lmdb","extra_args":"--include-ancillary"},{"backend":"v2","os":"ubuntu-24.04","ledger_backend":"legacy","extra_args":"--include-ancillary"}]' >> $GITHUB_OUTPUT
           else
             echo 'available_cardano_database_backends=["v1"]' >> $GITHUB_OUTPUT
             echo 'bin-cdb-download-matrix-include=[]' >> $GITHUB_OUTPUT
@@ -293,16 +293,28 @@ jobs:
         shell: bash
         working-directory: ./bin
         run: |
-          ./mithril-client ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-db download ${{ steps.last_snapshot.outputs.hash }} --backend ${{ matrix.backend }} --download-dir "${{ matrix.backend }}" ${{ matrix.extra_args }} 2>&1 | tee cdb-${{ matrix.backend }}-download-output.txt
+          ./mithril-client ${{ needs.prepare.outputs.debug_level }} --origin-tag CI cardano-db download ${{ steps.last_snapshot.outputs.hash }} \
+                          --backend ${{ matrix.backend }} --download-dir "${{ matrix.backend }}" ${{ matrix.extra_args }} --json \
+                          | tee cdb-${{ matrix.backend }}-download-output.json
 
-      - name: Ledger state snapshot conversion from InMemory to LMDB
+      - name: Ledger state snapshot conversion from InMemory to ${{ matrix.ledger_backend }}
         # The 'snapshot-converter' binary is not currently supported on Linux ARM64 platforms.
-        if: matrix.os != 'ubuntu-24.04-arm' && matrix.extra_args == '--include-ancillary' && matrix.ledger_backend == 'lmdb'
+        if: matrix.os != 'ubuntu-24.04-arm' && matrix.extra_args == '--include-ancillary' && contains(fromJSON('["lmdb", "legacy"]'), matrix.ledger_backend)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ needs.prepare.outputs.debug_level }} tools utxo-hd snapshot-converter --db-directory ${{ matrix.backend }}/db --cardano-node-version latest --utxo-hd-flavor LMDB --commit
+        run: |
+          LEDGER_BACKEND="${{ matrix.ledger_backend }}"
+          if [[ ${LEDGER_BACKEND,,} == "lmdb" ]]; then 
+            UTXO_HD_FLAVOR="LMDB"
+          elif [[ ${LEDGER_BACKEND,,} == "legacy" ]]; then
+            UTXO_HD_FLAVOR="Legacy"
+          fi
+
+          ./mithril-client ${{ needs.prepare.outputs.debug_level }} tools utxo-hd snapshot-converter --db-directory ${{ matrix.backend }}/db \
+                          --cardano-node-version latest --utxo-hd-flavor $UTXO_HD_FLAVOR --commit --json \
+                          | tee cdb-${{ matrix.backend }}-converter-output.json
 
       - name: Cardano Database V2 Snapshot / verify immutables
         if: matrix.backend == 'v2'
@@ -313,7 +325,14 @@ jobs:
       - name: Cardano Database Snapshot / verify Cardano node starts successfully
         if: matrix.os == 'ubuntu-24.04'
         shell: bash
-        run: .github/workflows/scripts/verify-cardano-db-restoration.sh ./bin/cdb-${{ matrix.backend }}-download-output.txt --ledger-backend ${{ matrix.ledger_backend }} ${{ matrix.extra_args }}
+        run: |
+          if [[ -e "./bin/cdb-${{ matrix.backend }}-converter-output.json" ]]; then
+            DOCKER_CMD=$(jq -r ".run_docker_cmd" ./bin/cdb-${{ matrix.backend }}-converter-output.json)
+          else
+            DOCKER_CMD=$(jq -r ".run_docker_cmd" ./bin/cdb-${{ matrix.backend }}-download-output.json)
+          fi
+
+          .github/workflows/scripts/verify-cardano-db-restoration.sh --docker-cmd "$DOCKER_CMD" --ledger-backend ${{ matrix.ledger_backend }} ${{ matrix.extra_args }}
 
       - name: Cardano Database V2 Snapshot / verify tampered and missing immutables from a specific range
         if: matrix.backend == 'v2'
