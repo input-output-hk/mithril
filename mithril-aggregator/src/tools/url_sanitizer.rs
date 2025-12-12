@@ -73,8 +73,7 @@ pub fn sanitize_url_path(url: &Url) -> StdResult<SanitizedUrlWithTrailingSlash> 
     {
         let mut url_path_segments = url
             .path_segments_mut()
-            .map_err(|e| anyhow!("error parsing URL: {e:?}"))
-            .with_context(|| "while sanitizing URL path: {url}")?;
+            .map_err(|e| anyhow!("error parsing URL: {e:?}"))?;
         let url_path_segments_cleared = url_path_segments.clear();
         for segment in segments_non_empty {
             url_path_segments_cleared.push(segment);

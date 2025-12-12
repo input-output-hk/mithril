@@ -1,4 +1,4 @@
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use std::sync::Arc;
 
 use mithril_aggregator::{
@@ -89,9 +89,7 @@ impl AggregatorObserver {
             .await
             .with_context(|| "Querying last certificate should not fail")?
             .pop()
-            .ok_or(anyhow!(
-                "No certificate have been produced by the aggregator"
-            ))?;
+            .with_context(|| "No certificate have been produced by the aggregator")?;
         Ok(certificate)
     }
 
@@ -104,9 +102,9 @@ impl AggregatorObserver {
             .get_last_cardano_transaction_snapshot()
             .await
             .with_context(|| "Querying last cardano transactions snapshot should not fail")?
-            .ok_or(anyhow!(
-                "No cardano transactions snapshot have been produced by the aggregator"
-            ))?;
+            .with_context(
+                || "No cardano transactions snapshot have been produced by the aggregator",
+            )?;
         Ok(last_tx_snapshot)
     }
 

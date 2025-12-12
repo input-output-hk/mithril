@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use mithril_metric::{MetricCollector, MetricsServiceExporter};
 use mithril_protocol_config::{
     model::{MithrilNetworkConfigurationForEpoch, SignedEntityTypeConfiguration},
@@ -619,7 +619,7 @@ impl StateMachineTester {
             .get_current_chain_point()
             .await
             .map_err(|err| TestError::SubsystemError(anyhow!(err)))?
-            .ok_or_else(|| anyhow!("no chain point returned".to_string()))?;
+            .with_context(|| "no chain point returned")?;
 
         let decrement_slot_number = chain_point.slot_number - rollback_to_slot_number;
         let decrement_block_number = chain_point.block_number - rollback_to_block_number;

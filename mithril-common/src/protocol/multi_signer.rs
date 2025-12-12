@@ -1,4 +1,4 @@
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use mithril_stm::{AggregateSignatureType, Parameters};
 
 use crate::{
@@ -63,12 +63,7 @@ impl MultiSigner {
         let (vk, stake) = self
             .protocol_clerk
             .get_registered_party_for_index(&protocol_signature.signer_index)
-            .ok_or_else(|| {
-                anyhow!(format!(
-                    "Unregistered party: '{}'",
-                    single_signature.party_id
-                ))
-            })?;
+            .with_context(|| format!("Unregistered party: '{}'", single_signature.party_id))?;
 
         protocol_signature
             .verify(

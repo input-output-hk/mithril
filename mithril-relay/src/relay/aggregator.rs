@@ -1,6 +1,8 @@
 #[cfg(feature = "future_dmq")]
 use std::{path::Path, sync::Arc};
 
+#[cfg(feature = "future_dmq")]
+use anyhow::Context;
 use anyhow::anyhow;
 use libp2p::Multiaddr;
 use reqwest::StatusCode;
@@ -78,7 +80,7 @@ impl AggregatorRelay {
         #[cfg(feature = "future_dmq")]
         self.stop_tx
             .send(())
-            .map_err(|e| anyhow!("Failed to send stop signal to DMQ consumer server: {e}"))?;
+            .with_context(|| "Failed to send stop signal to DMQ consumer server")?;
 
         Ok(())
     }
@@ -206,9 +208,9 @@ impl AggregatorRelay {
                 }
                 #[cfg(feature = "future_dmq")]
                 Ok(Some(BroadcastMessage::RegisterSignatureDmq(signature_message_received))) => {
-                    self.signature_dmq_tx.send(signature_message_received).map_err(|e| {
-                        anyhow!("Failed to send signature message to DMQ consumer server: {e}")
-                    })?;
+                    self.signature_dmq_tx.send(signature_message_received).with_context(
+                        || "Failed to send signature message to DMQ consumer server",
+                    )?;
                 }
                 Ok(None) => {}
                 Err(e) => return Err(e),

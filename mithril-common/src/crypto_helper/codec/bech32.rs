@@ -1,12 +1,14 @@
-use anyhow::anyhow;
+use anyhow::Context;
 use bech32::{self, Bech32, Hrp};
 
 use crate::StdResult;
 
 /// Encode to bech32 given Human Readable Part (hrp) and data
 pub fn encode_bech32(human_readable_part: &str, data: &[u8]) -> StdResult<String> {
-    let human_readable_part = Hrp::parse(human_readable_part).map_err(|e| anyhow!(e))?;
-    bech32::encode::<Bech32>(human_readable_part, data).map_err(|e| anyhow!(e))
+    let human_readable_part = Hrp::parse(human_readable_part)
+        .with_context(|| format!("Failed to parse HRP: '{human_readable_part}'"))?;
+    bech32::encode::<Bech32>(human_readable_part, data)
+        .with_context(|| format!("Failed to encode HRP to bech32: '{human_readable_part}'"))
 }
 
 #[cfg(test)]

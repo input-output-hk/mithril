@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use chrono::TimeDelta;
 use clap::Parser;
 
@@ -287,9 +287,7 @@ impl ServeCommand {
         join_set.shutdown().await;
 
         // Send the stop signal
-        stop_tx
-            .send(())
-            .map_err(|e| anyhow!("Stop signal could not be sent: {e:?}"))?;
+        stop_tx.send(()).with_context(|| "Stop signal could not be sent")?;
 
         if !preload_task.is_finished() {
             preload_task.abort();

@@ -53,7 +53,7 @@ impl FileUploader for DumbUploader {
         let mut uploads_history = self
             .uploads_history
             .write()
-            .map_err(|e| anyhow!("Error while saving filepath location: {e}"))?;
+            .map_err(|e| anyhow!(e.to_string()).context("Error while saving filepath location"))?;
 
         let location = FileUri(filepath.to_string_lossy().to_string());
         uploads_history.push(location.clone());

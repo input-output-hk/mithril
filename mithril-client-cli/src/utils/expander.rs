@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::Context;
 use futures::Future;
 use mithril_client::MithrilResult;
 
@@ -15,7 +15,7 @@ impl ExpanderUtils {
     ) -> MithrilResult<String> {
         if id.to_lowercase() == "latest" {
             let list = get_list_of_ids.await?;
-            let last_element = list.first().ok_or_else(|| anyhow!("Entity not found"))?;
+            let last_element = list.first().with_context(|| "Entity not found")?;
             Ok(last_element.to_string())
         } else {
             Ok(id.to_string())

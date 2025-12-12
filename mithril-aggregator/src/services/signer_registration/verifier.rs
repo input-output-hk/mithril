@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use async_trait::async_trait;
 
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
@@ -64,11 +64,10 @@ impl SignerRegistrationVerifier for MithrilSignerRegistrationVerifier {
                 format!(
                     "KeyRegwrapper can not register signer with party_id: '{party_id_register:?}'"
                 )
-            })
-            .map_err(|e| anyhow!(e))?;
+            })?;
         let party_id_registered_stake = *stake_distribution
             .get(&party_id_registered)
-            .ok_or(anyhow!("Stake not found"))?;
+            .with_context(|| "Stake not found")?;
 
         Ok(SignerWithStake {
             party_id: party_id_registered,

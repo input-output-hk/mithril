@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use async_trait::async_trait;
 use mithril_common::{
     StdResult,
@@ -38,9 +38,7 @@ impl ArtifactBuilder<BlockNumber, CardanoTransactionsSnapshot>
         let merkle_root = certificate
             .protocol_message
             .get_message_part(&ProtocolMessagePartKey::CardanoTransactionsMerkleRoot)
-            .ok_or(anyhow!(
-                "Can not find CardanoTransactionsMerkleRoot protocol message part in certificate"
-            ))
+            .with_context(|| "Can not find CardanoTransactionsMerkleRoot protocol message part in certificate")
             .with_context(|| {
                 format!(
                     "Can not compute CardanoTransactionsSnapshot artifact for signed_entity: {:?}",

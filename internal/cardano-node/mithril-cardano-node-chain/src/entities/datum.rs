@@ -1,4 +1,4 @@
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use pallas_codec::minicbor::{Decode, Decoder, decode};
 use pallas_primitives::{ToCanonicalJson, alonzo::PlutusData};
 use serde::{Deserialize, Serialize};
@@ -31,9 +31,7 @@ pub fn try_inspect<R>(inner: Vec<u8>) -> StdResult<R>
 where
     for<'b> R: Decode<'b, ()>,
 {
-    decode(&inner)
-        .map_err(|e| anyhow!(e))
-        .with_context(|| format!("failed to decode datum: {}", hex::encode(&inner)))
+    decode(&inner).with_context(|| format!("failed to decode datum: {}", hex::encode(&inner)))
 }
 
 /// [Datums] represents a list of [TxDatum].
@@ -60,25 +58,24 @@ impl TxDatum {
     pub fn get_fields_by_type(&self, type_name: &TxDatumFieldTypeName) -> StdResult<Vec<Value>> {
         let tx_datum_raw = &self.0;
         // 1- Parse the Utxo raw data to a hashmap
-        let v: HashMap<String, Value> = serde_json::from_str(tx_datum_raw).map_err(|e| {
-            TxDatumError::InvalidContent(anyhow!(e).context("tx datum was = '{tx_datum_raw}'"))
-        })?;
+        let v: HashMap<String, Value> = serde_json::from_str(tx_datum_raw)
+            .with_context(|| format!("tx datum was = '{tx_datum_raw}'"))
+            .map_err(TxDatumError::InvalidContent)?;
+
         // 2- Convert the 'fields' entry to a vec of json objects
-        let fields = v.get("fields").ok_or_else(|| {
-            TxDatumError::InvalidContent(
-                anyhow!("Error: missing 'fields' entry, tx datum was = '{tx_datum_raw}'"),
-            )
-        })?.as_array().ok_or_else(|| {
-            TxDatumError::InvalidContent(
-                anyhow!("Error: 'fields' entry is not correctly structured, tx datum was = '{tx_datum_raw}'"),
-            )
-        })?;
+        let fields = v.get("fields")
+            .with_context(|| format!("Error: missing 'fields' entry, tx datum was = '{tx_datum_raw}'"))
+            .map_err(TxDatumError::InvalidContent)?
+            .as_array()
+            .with_context(|| format!("Error: 'fields' entry is not correctly structured, tx datum was = '{tx_datum_raw}'"))
+            .map_err(TxDatumError::InvalidContent)?;
+
         // 3- Filter the vec (keep the ones that match the given type), and retrieve the nth entry of this filtered vec
         Ok(fields
             .iter()
             .filter(|&field| field.get(type_name.to_string()).is_some())
             .map(|field| field.get(type_name.to_string()).unwrap().to_owned())
-            .collect::<_>())
+            .collect())
     }
 
     /// Retrieves the nth field of the datum with given type
@@ -90,9 +87,8 @@ impl TxDatum {
         Ok(self
             .get_fields_by_type(type_name)?
             .get(index)
-            .ok_or_else(|| {
-                TxDatumError::InvalidContent(anyhow!("Error: missing field at index {index}"))
-            })?
+            .with_context(|| format!("Error: missing field at index {index}"))
+            .map_err(TxDatumError::InvalidContent)?
             .to_owned())
     }
 }

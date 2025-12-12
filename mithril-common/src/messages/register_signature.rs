@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Formatter};
 
-use anyhow::anyhow;
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -94,14 +94,14 @@ impl RegisterSignatureMessageDmq {
         u16_bytes.copy_from_slice(
             bytes
                 .get(bytes_index..bytes_index + SIGNED_ENTITY_TYPE_LENGTH_BYTES_SIZE)
-                .ok_or(anyhow!("Failed to read `Signed entity type length` bytes"))?,
+                .with_context(|| "Failed to read `Signed entity type length` bytes")?,
         );
         let signed_entity_bytes_length = u16::from_be_bytes(u16_bytes) as usize;
         bytes_index += SIGNED_ENTITY_TYPE_LENGTH_BYTES_SIZE;
 
         let signed_entity_bytes = bytes
             .get(bytes_index..bytes_index + signed_entity_bytes_length)
-            .ok_or(anyhow!("Failed to read `Signed entity type` bytes"))?;
+            .with_context(|| "Failed to read `Signed entity type` bytes")?;
         let signed_entity_type = SignedEntityType::try_from_bytes(signed_entity_bytes)?;
         bytes_index += signed_entity_bytes_length;
 
@@ -109,14 +109,14 @@ impl RegisterSignatureMessageDmq {
         u32_bytes.copy_from_slice(
             bytes
                 .get(bytes_index..bytes_index + SIGNATURE_LENGTH_BYTES_SIZE)
-                .ok_or(anyhow!("Failed to read `Signature length` bytes"))?,
+                .with_context(|| "Failed to read `Signature length` bytes")?,
         );
         let signature_bytes_length = u32::from_be_bytes(u32_bytes) as usize;
         bytes_index += SIGNATURE_LENGTH_BYTES_SIZE;
 
         let signature_bytes = bytes
             .get(bytes_index..bytes_index + signature_bytes_length)
-            .ok_or(anyhow!("Failed to read `Signature` bytes"))?;
+            .with_context(|| "Failed to read `Signature` bytes")?;
         let signature = ProtocolSingleSignature::from_bytes(signature_bytes)?;
 
         Ok(Self {

@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::Context;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -67,7 +67,7 @@ impl SignableBuilder<Epoch> for CardanoStakeDistributionSignableBuilder {
         let pools_with_stake = self
             .cardano_stake_distribution_retriever
             .retrieve(epoch.offset_to_cardano_stake_distribution_snapshot_epoch())
-            .await?.ok_or(anyhow!(
+            .await?.with_context(|| format!(
                 "CardanoStakeDistributionSignableBuilder could not find the stake distribution for epoch: '{epoch}'"
             ))?;
 
