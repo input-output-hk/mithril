@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use reqwest::Response;
 use serde::de::DeserializeOwned;
 use slog::{Logger, Record, Serializer};
@@ -76,5 +77,34 @@ impl slog::KV for QueryLogFields {
             serializer.emit_arguments(k, &format_args!("{v}"))?;
         }
         Ok(())
+    }
+}
+
+/// Extension trait for [reqwest::Response] to reduce boilerplate with our library.
+#[cfg_attr(target_family = "wasm", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_family = "wasm"), async_trait::async_trait)]
+pub trait ResponseExt {
+    /// Try to deserialize the response body as JSON, wrapping the error in
+    /// [AggregatorHttpClientError::JsonParseFailed].
+    async fn parse_json<T: DeserializeOwned>(self) -> AggregatorHttpClientResult<T>;
+
+    /// Try to deserialize the response body as JSON, wrapping a successful result in `Some` and
+    /// an error in [AggregatorHttpClientError::JsonParseFailed].
+    async fn parse_json_option<T: DeserializeOwned>(self) -> AggregatorHttpClientResult<Option<T>>;
+}
+
+#[cfg_attr(target_family = "wasm", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_family = "wasm"), async_trait::async_trait)]
+impl ResponseExt for Response {
+    async fn parse_json<T: DeserializeOwned>(self) -> AggregatorHttpClientResult<T> {
+        let json = self
+            .json()
+            .await
+            .map_err(|err| AggregatorHttpClientError::JsonParseFailed(anyhow!(err)))?;
+        Ok(json)
+    }
+
+    async fn parse_json_option<T: DeserializeOwned>(self) -> AggregatorHttpClientResult<Option<T>> {
+        self.parse_json().await.map(Some)
     }
 }

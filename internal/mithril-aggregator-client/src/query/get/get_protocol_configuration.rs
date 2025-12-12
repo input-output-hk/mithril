@@ -1,12 +1,11 @@
-use anyhow::anyhow;
 use async_trait::async_trait;
 use reqwest::StatusCode;
 
 use mithril_common::entities::Epoch;
 use mithril_common::messages::ProtocolConfigurationMessage;
 
-use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
-use crate::{AggregatorHttpClientError, AggregatorHttpClientResult};
+use crate::AggregatorHttpClientResult;
+use crate::query::{AggregatorQuery, QueryContext, QueryMethod, ResponseExt};
 
 /// Query to get the protocol configuration of a given epoch
 pub struct GetProtocolConfigurationQuery {
@@ -39,10 +38,7 @@ impl AggregatorQuery for GetProtocolConfigurationQuery {
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
         match context.response.status() {
-            StatusCode::OK => match context.response.json::<ProtocolConfigurationMessage>().await {
-                Ok(message) => Ok(Some(message)),
-                Err(err) => Err(AggregatorHttpClientError::JsonParseFailed(anyhow!(err))),
-            },
+            StatusCode::OK => context.response.parse_json_option().await,
             StatusCode::NOT_FOUND => Ok(None),
             _ => Err(context.unhandled_status_code().await),
         }
@@ -55,6 +51,7 @@ mod tests {
 
     use mithril_common::test::double::Dummy;
 
+    use crate::AggregatorHttpClientError;
     use crate::test::{assert_error_matches, setup_server_and_client};
 
     use super::*;
