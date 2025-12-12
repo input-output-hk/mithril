@@ -58,36 +58,6 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
         Self::set_signer(signer_index, stake, params, sk, vk, closed_reg)
     }
 
-    /// Create a basic signer (no registration data) for given input
-    pub(crate) fn set_basic_signer(
-        signer_index: u64,
-        stake: Stake,
-        params: Parameters,
-        sk: BlsSigningKey,
-        vk: VerificationKey,
-    ) -> Signer<D> {
-        Self {
-            signer_index,
-            stake,
-            params,
-            sk,
-            vk,
-            closed_reg: None,
-        }
-    }
-
-    /// Create a core signer (no registration data) for given input
-    #[deprecated(since = "0.5.0", note = "Use `set_basic_signer` instead")]
-    pub fn set_core_signer(
-        signer_index: u64,
-        stake: Stake,
-        params: Parameters,
-        sk: BlsSigningKey,
-        vk: VerificationKey,
-    ) -> Signer<D> {
-        Self::set_basic_signer(signer_index, stake, params, sk, vk)
-    }
-
     /// This function produces a signature following the description of Section 2.4.
     /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
     /// wins the lottery by evaluating the dense mapping.
@@ -100,13 +70,19 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
             .merkle_tree
             .to_merkle_tree_batch_commitment()
             .concatenate_with_message(msg);
-        let signature = self.basic_sign(&msgp, closed_reg.total_stake)?;
+        let sigma = self.sk.sign(&msgp);
 
-        Some(SingleSignature {
-            sigma: signature.sigma,
-            signer_index: self.signer_index,
-            indexes: signature.indexes,
-        })
+        let indexes = self.check_lottery(&msgp, &sigma, closed_reg.total_stake);
+
+        if !indexes.is_empty() {
+            Some(SingleSignature {
+                sigma,
+                indexes,
+                signer_index: self.signer_index,
+            })
+        } else {
+            None
+        }
     }
 
     /// Extract the verification key.
@@ -123,36 +99,6 @@ impl<D: Clone + Digest + FixedOutput> Signer<D> {
     /// Extract stake from the signer.
     pub fn get_stake(&self) -> Stake {
         self.stake
-    }
-
-    /// A basic signature generated without closed key registration.
-    /// The basic signature can be verified by basic verifier.
-    /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
-    /// wins the lottery by evaluating the dense mapping.
-    /// It records all the winning indexes in `Self.indexes`.
-    pub fn basic_sign(&self, msg: &[u8], total_stake: Stake) -> Option<SingleSignature> {
-        let sigma = self.sk.sign(msg);
-
-        let indexes = self.check_lottery(msg, &sigma, total_stake);
-        if !indexes.is_empty() {
-            Some(SingleSignature {
-                sigma,
-                indexes,
-                signer_index: self.signer_index,
-            })
-        } else {
-            None
-        }
-    }
-
-    /// A basic signature generated without closed key registration.
-    /// The basic signature can be verified by basic verifier.
-    /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
-    /// wins the lottery by evaluating the dense mapping.
-    /// It records all the winning indexes in `Self.indexes`.
-    #[deprecated(since = "0.5.0", note = "Use `basic_sign` instead")]
-    pub fn core_sign(&self, msg: &[u8], total_stake: Stake) -> Option<SingleSignature> {
-        Self::basic_sign(self, msg, total_stake)
     }
 
     /// Collects and returns the winning indices.

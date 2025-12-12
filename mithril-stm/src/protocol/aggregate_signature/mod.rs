@@ -1,10 +1,8 @@
 mod aggregate_key;
-mod basic_verifier;
 mod clerk;
 mod signature;
 
 pub use aggregate_key::*;
-pub use basic_verifier::*;
 pub use clerk::*;
 pub use signature::*;
 
@@ -20,11 +18,11 @@ mod tests {
     use rand_core::{RngCore, SeedableRng};
     use std::collections::{HashMap, HashSet};
 
-    use super::{AggregateSignature, AggregateSignatureType, BasicVerifier, Clerk};
+    use super::{AggregateSignature, AggregateSignatureType, Clerk};
     use crate::{
         AggregationError, Initializer, KeyRegistration, Parameters, Signer, SingleSignature,
         SingleSignatureWithRegisteredParty, Stake, StmResult,
-        membership_commitment::MerkleBatchPath, signature_scheme::BlsVerificationKey,
+        membership_commitment::MerkleBatchPath,
     };
 
     type Sig = AggregateSignature<D>;
@@ -220,11 +218,8 @@ mod tests {
             })
             .collect::<Vec<SingleSignatureWithRegisteredParty>>();
 
-            let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(&msg);
-            let dedup_result = BasicVerifier::select_valid_signatures_for_k_indices(
-                &clerk.closed_reg.total_stake,
-                &params,
-                &msgp,
+            let dedup_result = clerk.select_valid_signatures_for_k_indices(
+                &msg,
                 &sig_reg_list,
             );
             assert!(dedup_result.is_ok(), "dedup failure {dedup_result:?}");
@@ -489,101 +484,6 @@ mod tests {
                 concatenation_proof.batch_proof = batch_proof;
                 *aggr = AggregateSignature::Concatenation(concatenation_proof);
             })
-        }
-    }
-
-    // ---------------------------------------------------------------------
-    // Basic verifier
-    // ---------------------------------------------------------------------
-    fn setup_equal_core_parties(
-        params: Parameters,
-        nparties: usize,
-    ) -> (Vec<Initializer>, Vec<(BlsVerificationKey, Stake)>) {
-        let stake = vec![1; nparties];
-        setup_core_parties(params, stake)
-    }
-
-    fn setup_core_parties(
-        params: Parameters,
-        stake: Vec<Stake>,
-    ) -> (Vec<Initializer>, Vec<(BlsVerificationKey, Stake)>) {
-        let mut trng = TestRng::deterministic_rng(ChaCha);
-        let mut rng = ChaCha20Rng::from_seed(trng.random());
-
-        let ps = stake
-            .into_iter()
-            .map(|stake| Initializer::new(params, stake, &mut rng))
-            .collect::<Vec<Initializer>>();
-
-        let public_signers = ps
-            .iter()
-            .map(|s| (s.pk.vk, s.stake))
-            .collect::<Vec<(BlsVerificationKey, Stake)>>();
-
-        (ps, public_signers)
-    }
-
-    fn find_core_signatures(
-        msg: &[u8],
-        ps: &[Signer<D>],
-        total_stake: Stake,
-        is: &[usize],
-    ) -> Vec<SingleSignature> {
-        let mut sigs = Vec::new();
-        for i in is {
-            if let Some(sig) = ps[*i].basic_sign(msg, total_stake) {
-                sigs.push(sig);
-            }
-        }
-        sigs
-    }
-
-    proptest! {
-        #![proptest_config(ProptestConfig::with_cases(50))]
-
-        #[test]
-        fn test_core_verifier(nparties in 2_usize..30,
-                              m in 10_u64..20,
-                              k in 1_u64..5,
-                              msg in any::<[u8;16]>()) {
-
-            let params = Parameters { m, k, phi_f: 0.2 };
-            let (initializers, public_signers) = setup_equal_core_parties(params, nparties);
-            let all_ps: Vec<usize> = (0..nparties).collect();
-
-            let core_verifier = BasicVerifier::new(&public_signers);
-
-            let signers = initializers
-                .into_iter()
-                .filter_map(|s| s.create_basic_signer(&core_verifier.eligible_parties))
-                .collect::<Vec<Signer<D>>>();
-
-            let signatures = find_core_signatures(&msg, &signers, core_verifier.total_stake, &all_ps);
-
-            let verify_result = core_verifier.verify(&signatures, &params, &msg);
-
-            match verify_result{
-                Ok(_) => {
-                    assert!(verify_result.is_ok(), "Verification failed: {verify_result:?}");
-                }
-                Err(error) => { assert!(
-                    matches!(
-                        error.downcast_ref::<AggregationError>(),
-                        Some(AggregationError::NotEnoughSignatures{..})
-                    ),
-                    "Unexpected error: {error:?}");
-                }
-            }
-        }
-
-        #[test]
-        fn test_total_stake_core_verifier(nparties in 2_usize..30,
-                              m in 10_u64..20,
-                              k in 1_u64..5,) {
-            let params = Parameters { m, k, phi_f: 0.2 };
-            let (_initializers, public_signers) = setup_equal_core_parties(params, nparties);
-            let core_verifier = BasicVerifier::new(&public_signers);
-            assert_eq!(nparties as u64, core_verifier.total_stake, "Total stake expected: {}, got: {}.", nparties, core_verifier.total_stake);
         }
     }
 }
