@@ -1,16 +1,15 @@
 use anyhow::anyhow;
+use blst::{
+    BLST_ERROR,
+    min_sig::{AggregatePublicKey, PublicKey as BlstVk},
+};
+use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
     fmt::{Display, Formatter},
     hash::{Hash, Hasher},
     iter::Sum,
 };
-
-use blst::{
-    BLST_ERROR,
-    min_sig::{AggregatePublicKey, PublicKey as BlstVk},
-};
-use serde::{Deserialize, Serialize};
 
 use super::{BlsProofOfPossession, BlsSigningKey, POP, helper::unsafe_helpers::verify_pairing};
 use crate::{MultiSignatureError, StmResult, blst_error_to_stm_error};
