@@ -233,7 +233,7 @@ impl FileArchiver {
         let unpack_temp_dir = self
             .verification_temp_dir
             // Add the archive name to the directory to allow two verifications at the same time
-            .join(archive.filepath.file_name().ok_or(anyhow!(
+            .join(archive.filepath.file_name().with_context(|| format!(
                 "Verify archive error: Could not append archive name to temp directory: archive `{}`",
                 archive.filepath.display(),
             ))?);

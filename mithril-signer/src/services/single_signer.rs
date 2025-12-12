@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use async_trait::async_trait;
 use hex::ToHex;
 use slog::{Logger, info, trace, warn};
@@ -90,10 +90,12 @@ impl MithrilSingleSigner {
     async fn build_protocol_single_signer(&self) -> StdResult<ProtocolSingleSigner> {
         let epoch_service = self.epoch_service.read().await;
         let protocol_initializer =
-            epoch_service.protocol_initializer()?.as_ref().ok_or(anyhow!(
-                "Can not Sign or Compute AVK, No protocol initializer found for party_id: '{}'",
-                self.party_id.clone()
-            ))?;
+            epoch_service.protocol_initializer()?.as_ref().with_context(|| {
+                format!(
+                    "Can not Sign or Compute AVK, No protocol initializer found for party_id: '{}'",
+                    self.party_id.clone()
+                )
+            })?;
 
         let builder = SignerBuilder::new(
             &epoch_service.current_signers_with_stake().await?,

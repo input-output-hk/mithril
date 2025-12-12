@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use async_trait::async_trait;
 use pallas_network::{
     facades::NodeClient,
@@ -41,7 +41,6 @@ impl PallasChainReader {
         let magic = self.network.magic_id();
         NodeClient::connect(&self.socket, magic)
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainReader failed to create a new client")
     }
 

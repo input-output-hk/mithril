@@ -1,4 +1,4 @@
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use async_trait::async_trait;
 use slog::{Logger, debug, warn};
 
@@ -138,7 +138,7 @@ impl MultiSigner for MultiSignerImpl {
                     );
                     Ok(None)
                 }
-                _ => Err(anyhow!(err).context(format!(
+                _ => Err(err.context(format!(
                     "Multi Signer can not create multi-signature for entity type '{:?}'",
                     open_message.signed_entity_type
                 ))),

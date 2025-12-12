@@ -66,7 +66,6 @@ impl PallasChainObserver {
     async fn get_client(&self) -> StdResult<NodeClient> {
         self.new_client()
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to create new client")
     }
 
@@ -75,12 +74,10 @@ impl PallasChainObserver {
         statequery
             .acquire(None)
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to acquire statequery")?;
 
         let era = queries_v16::get_current_era(statequery)
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to get current era")?;
 
         Ok(era)
@@ -91,17 +88,14 @@ impl PallasChainObserver {
         statequery
             .acquire(None)
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to acquire statequery")?;
 
         let era = queries_v16::get_current_era(statequery)
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to get current era")?;
 
         let epoch = queries_v16::get_block_epoch_number(statequery, era)
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to get block epoch number")?;
 
         Ok(epoch)
@@ -129,7 +123,6 @@ impl PallasChainObserver {
     fn serialize_datum(&self, utxo: &PostAlonsoTransactionOutput) -> StdResult<TxDatum> {
         let datum = self.inspect_datum(utxo)?;
         let serialized = serde_json::to_string(&datum.to_json())
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to serialize datum")?;
 
         Ok(TxDatum(serialized))
@@ -170,23 +163,19 @@ impl PallasChainObserver {
         statequery
             .acquire(None)
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to acquire statequery")?;
 
         let era = queries_v16::get_current_era(statequery)
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to get current era")?;
 
         let addr: Address = Address::from_bech32(address)
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to parse address")?;
 
         let addr: Addr = addr.to_vec().into();
         let addrs: Addrs = vec![addr];
         let utxo = queries_v16::get_utxo_by_address(statequery, era, addrs)
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to get utxo")?;
 
         Ok(utxo)
@@ -200,17 +189,14 @@ impl PallasChainObserver {
         statequery
             .acquire(None)
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to acquire statequery")?;
 
         let era = queries_v16::get_current_era(statequery)
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to get current era")?;
 
         let state_snapshot = queries_v16::get_stake_snapshots(statequery, era, BTreeSet::new())
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to get stake snapshot")?;
 
         Ok(state_snapshot)
@@ -219,7 +205,6 @@ impl PallasChainObserver {
     /// Returns the stake pool hash from the given bytestring.
     fn get_stake_pool_hash(&self, key: &Bytes) -> Result<String, ChainObserverError> {
         let pool_id_bech32 = encode_bech32("pool", key)
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to encode stake pool hash")?;
         Ok(pool_id_bech32)
     }
@@ -282,7 +267,6 @@ impl PallasChainObserver {
 
         let current_kes_period = chain_point.slot_or_default() / slots_per_kes_period;
         Ok(u32::try_from(current_kes_period)
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to convert kes period")?)
     }
 
@@ -290,7 +274,6 @@ impl PallasChainObserver {
     async fn do_get_chain_point_state_query(&self, statequery: &mut Client) -> StdResult<Point> {
         let chain_point = queries_v16::get_chain_point(statequery)
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to get chain point")?;
 
         Ok(chain_point)
@@ -300,7 +283,6 @@ impl PallasChainObserver {
     async fn do_get_chain_block_no(&self, statequery: &mut Client) -> StdResult<ChainBlockNumber> {
         let chain_block_number = queries_v16::get_chain_block_no(statequery)
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to get chain block number")?;
 
         Ok(chain_block_number)
@@ -310,7 +292,6 @@ impl PallasChainObserver {
     async fn do_get_current_era_state_query(&self, statequery: &mut Client) -> StdResult<u16> {
         let era = queries_v16::get_current_era(statequery)
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to get current era")?;
 
         Ok(era)
@@ -324,7 +305,6 @@ impl PallasChainObserver {
         let era = self.do_get_current_era_state_query(statequery).await?;
         let genesis_config = queries_v16::get_genesis_config(statequery, era)
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to get genesis config")?;
 
         Ok(genesis_config)
@@ -335,7 +315,6 @@ impl PallasChainObserver {
         statequery
             .acquire(None)
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to acquire statequery")?;
 
         let chain_point = self.do_get_chain_point_state_query(statequery).await?;
@@ -365,7 +344,6 @@ impl PallasChainObserver {
         statequery
             .acquire(None)
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to acquire statequery")?;
 
         let chain_point = self.do_get_chain_point_state_query(statequery).await?;
@@ -389,13 +367,11 @@ impl PallasChainObserver {
         statequery
             .send_release()
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver send release failed")?;
 
         statequery
             .send_done()
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver send done failed")?;
 
         Ok(())
@@ -407,7 +383,6 @@ impl PallasChainObserver {
             .chainsync()
             .send_done()
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver chainsync send done failed")?;
         Ok(())
     }

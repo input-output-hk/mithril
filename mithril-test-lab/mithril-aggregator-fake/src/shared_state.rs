@@ -250,17 +250,11 @@ impl DataDir {
     /// public constructor
     pub fn new(data_dir: &Path) -> StdResult<Self> {
         if !data_dir.exists() {
-            return Err(anyhow!(format!(
-                "Path '{}' does not exist.",
-                data_dir.display()
-            )));
+            return Err(anyhow!("Path '{}' does not exist.", data_dir.display()));
         }
 
         if !data_dir.is_dir() {
-            return Err(anyhow!(format!(
-                "Path '{}' is not a directory!",
-                data_dir.display()
-            )));
+            return Err(anyhow!("Path '{}' is not a directory!", data_dir.display()));
         }
 
         let instance = Self {

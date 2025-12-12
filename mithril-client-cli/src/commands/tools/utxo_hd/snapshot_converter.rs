@@ -332,15 +332,12 @@ impl SnapshotConverterCommand {
                 .await
                 .with_context(|| format!("Failed to get release by tag: {tag}"))?,
         };
-        let asset = release
-            .get_asset_for_os(env::consts::OS)?
-            .ok_or_else(|| anyhow!("No asset found for platform: {}", env::consts::OS))
-            .with_context(|| {
-                format!(
-                    "Failed to find asset for current platform: {}",
-                    env::consts::OS
-                )
-            })?;
+        let asset = release.get_asset_for_os(env::consts::OS)?.with_context(|| {
+            format!(
+                "Failed to find asset for current platform: {}",
+                env::consts::OS
+            )
+        })?;
         let archive_path = http_downloader
             .download_file(asset.browser_download_url.parse()?, target_dir, &asset.name)
             .await?;
@@ -601,10 +598,10 @@ Snapshot location: {}
     fn extract_slot_number(path: &Path) -> MithrilResult<u64> {
         let file_name = path
             .file_name()
-            .ok_or_else(|| anyhow!("No filename in path: {}", path.display()))?;
+            .with_context(|| format!("No filename in path: {}", path.display()))?;
         let file_name_str = file_name
             .to_str()
-            .ok_or_else(|| anyhow!("Invalid UTF-8 in path filename: {:?}", file_name))?;
+            .with_context(|| format!("Invalid UTF-8 in path filename: {:?}", file_name))?;
 
         file_name_str
             .parse::<u64>()
@@ -630,7 +627,7 @@ Snapshot location: {}
 
         let filename = converted_snapshot_path
             .file_name()
-            .ok_or_else(|| anyhow!("Missing filename in converted snapshot path"))?
+            .with_context(|| "Missing filename in converted snapshot path")?
             .to_string_lossy();
         let (slot_number, _) = filename
             .split_once('_')

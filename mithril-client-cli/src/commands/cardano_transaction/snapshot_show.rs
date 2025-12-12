@@ -1,4 +1,4 @@
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use clap::Parser;
 use cli_table::{Cell, Table, print_stdout};
 
@@ -44,10 +44,10 @@ impl CardanoTransactionsSnapshotShowCommand {
                     .await?,
             )
             .await?
-            .ok_or_else(|| {
-                anyhow!(
+            .with_context(|| {
+                format!(
                     "Cardano transaction snapshot not found for hash: '{}'",
-                    &self.hash
+                    self.hash
                 )
             })?;
 

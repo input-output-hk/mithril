@@ -82,7 +82,7 @@ impl FileDownloader for RetryDownloader {
             {
                 Ok(result) => return Ok(result),
                 Err(e) if nb_attempts >= retry_policy.attempts => {
-                    return Err(anyhow::anyhow!(e).context(format!(
+                    return Err(e.context(format!(
                         "Download of location {location:?} failed after {nb_attempts} attempts",
                     )));
                 }
@@ -94,7 +94,6 @@ impl FileDownloader for RetryDownloader {
 
 #[cfg(test)]
 mod tests {
-
     use std::{sync::Mutex, time::Instant};
 
     use mithril_common::entities::FileUri;

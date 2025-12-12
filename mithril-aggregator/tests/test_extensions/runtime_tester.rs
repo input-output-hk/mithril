@@ -279,7 +279,7 @@ impl RuntimeTester {
             .chain_observer
             .next_epoch()
             .await
-            .ok_or(anyhow!("a new epoch should have been issued"))?;
+            .with_context(|| "a new epoch should have been issued")?;
         self.update_digester_digest().await;
         self.dependencies
             .certifier_service
@@ -301,13 +301,13 @@ impl RuntimeTester {
             .chain_observer
             .increase_slot_number(increment)
             .await
-            .ok_or_else(|| anyhow!("no slot number returned".to_string()))?;
+            .with_context(|| "no slot number returned")?;
 
         let new_block_number = self
             .chain_observer
             .increase_block_number(increment)
             .await
-            .ok_or_else(|| anyhow!("no block number returned".to_string()))?;
+            .with_context(|| "no block number returned")?;
 
         anyhow::ensure!(
             expected_slot_number == new_slot_number,
@@ -349,7 +349,7 @@ impl RuntimeTester {
             .chain_observer
             .get_current_chain_point()
             .await?
-            .ok_or_else(|| anyhow!("no chain point returned".to_string()))?;
+            .with_context(|| "no chain point returned")?;
 
         let decrement_slot_number = chain_point.slot_number - rollback_to_slot_number;
         let decrement_block_number = chain_point.block_number - rollback_to_block_number;
@@ -358,13 +358,13 @@ impl RuntimeTester {
             .chain_observer
             .decrease_slot_number(*decrement_slot_number)
             .await
-            .ok_or_else(|| anyhow!("no slot number returned".to_string()))?;
+            .with_context(|| "no slot number returned")?;
 
         let new_block_number = self
             .chain_observer
             .decrease_block_number(*decrement_block_number)
             .await
-            .ok_or_else(|| anyhow!("no block number returned".to_string()))?;
+            .with_context(|| "no block number returned")?;
 
         anyhow::ensure!(
             rollback_to_slot_number == new_slot_number,
@@ -492,9 +492,7 @@ impl RuntimeTester {
             .get_protocol_parameters(epoch.offset_to_recording_epoch())
             .await
             .with_context(|| "Querying the recording epoch protocol_parameters should not fail")?
-            .ok_or(anyhow!(
-                "A protocol parameters for the recording epoch should be available"
-            ))?;
+            .with_context(|| "A protocol parameters for the recording epoch should be available")?;
 
         let fixture = MithrilFixtureBuilder::default()
             .with_signers(new_stake_distribution.len())
@@ -542,7 +540,7 @@ impl RuntimeTester {
             .get_open_message(&signed_entity_type)
             .await
             .with_context(|| "Querying open message should not fail")?
-            .ok_or(anyhow!("An open message should exist"))?;
+            .with_context(|| "An open message should exist")?;
         open_message.expires_at = Some(Utc::now() + timeout);
         self.open_message_repository
             .update_open_message(&open_message)
@@ -566,9 +564,7 @@ impl RuntimeTester {
                     .get_signed_entity_by_certificate_id(&certificate.hash)
                     .await
                     .with_context(|| "Querying certificate should not fail")?
-                    .ok_or(anyhow!(
-                        "A signed entity must exist for non genesis certificate"
-                    ))?;
+                    .with_context(|| "A signed entity must exist for non genesis certificate")?;
                 Some(record)
             }
         };
@@ -595,9 +591,10 @@ impl RuntimeTester {
                 .await?;
 
             if !is_synchronized_from_leader && !certificate.is_genesis() {
-                self.get_last_signed_entity(&certificate).await?.ok_or(anyhow!(
-                    "A certificate should always have a SignedEntity if it's not a genesis certificate"
-                ))?;
+                self
+                    .get_last_signed_entity(&certificate)
+                    .await?
+                    .with_context(|| "A certificate should always have a SignedEntity if it's not a genesis certificate")?;
             }
 
             ExpectedCertificate::new(
@@ -623,10 +620,7 @@ impl RuntimeTester {
             .get_certificate::<Certificate>(certificate_hash)
             .await
             .with_context(|| format!("Failed to query certificate with hash {certificate_hash}"))?
-            .ok_or(anyhow!(
-                "A certificate should exist with hash {}",
-                certificate_hash
-            ))?;
+            .with_context(|| format!("A certificate should exist with hash {certificate_hash}"))?;
 
         let cert_identifier = if certificate.is_genesis() {
             ExpectedCertificate::genesis_identifier(certificate.epoch)

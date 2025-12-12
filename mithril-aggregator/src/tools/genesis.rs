@@ -1,4 +1,4 @@
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use std::{
     fs::File,
     io::{Write, prelude::*},
@@ -57,7 +57,7 @@ impl GenesisTools {
             .chain_observer
             .get_current_epoch()
             .await?
-            .ok_or(anyhow!("Chain observer can not retrieve current epoch"))?;
+            .with_context(|| "Chain observer can not retrieve current epoch")?;
         let certificate_verifier = dependencies.certificate_verifier.clone();
         let certificate_repository = dependencies.certificate_repository.clone();
         let protocol_parameters_retriever = dependencies.protocol_parameters_retriever.clone();
@@ -65,12 +65,14 @@ impl GenesisTools {
         let genesis_protocol_parameters = protocol_parameters_retriever
             .get_protocol_parameters(epoch.offset_to_signer_retrieval_epoch()?)
             .await?
-            .ok_or_else(|| anyhow!("Missing protocol parameters for epoch {genesis_avk_epoch}"))?;
+            .with_context(|| {
+                format!("Missing protocol parameters for epoch {genesis_avk_epoch}")
+            })?;
         let genesis_signers = dependencies
             .verification_key_store
             .get_signers(genesis_avk_epoch)
             .await?
-            .ok_or_else(|| anyhow!("Missing signers for epoch {genesis_avk_epoch}"))?;
+            .with_context(|| format!("Missing signers for epoch {genesis_avk_epoch}"))?;
 
         let protocol_multi_signer =
             SignerBuilder::new(&genesis_signers, &genesis_protocol_parameters)

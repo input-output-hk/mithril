@@ -1,6 +1,6 @@
 //! API Version provider service
 include!(concat!(env!("OUT_DIR"), "/open_api.rs"));
-use anyhow::anyhow;
+use anyhow::Context;
 use semver::{Version, VersionReq};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -39,7 +39,7 @@ impl APIVersionProvider {
         let open_api_version = self.open_api_versions.get(open_api_spec_file_name_era).unwrap_or(
             self.open_api_versions
                 .get(open_api_spec_file_name_default)
-                .ok_or_else(|| anyhow!("Missing default API version"))?,
+                .with_context(|| "Missing default API version")?,
         );
 
         Ok(open_api_version.clone())

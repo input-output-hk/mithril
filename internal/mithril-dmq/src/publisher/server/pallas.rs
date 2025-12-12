@@ -60,18 +60,15 @@ impl DmqPublisherServerPallas {
         if self.socket.exists() {
             fs::remove_file(self.socket.clone())?;
         }
-        let listener = UnixListener::bind(&self.socket)
-            .map_err(|err| anyhow!(err))
-            .with_context(|| {
-                format!(
-                    "DmqPublisherServerPallas failed to bind Unix socket at {}",
-                    self.socket.display()
-                )
-            })?;
+        let listener = UnixListener::bind(&self.socket).with_context(|| {
+            format!(
+                "DmqPublisherServerPallas failed to bind Unix socket at {}",
+                self.socket.display()
+            )
+        })?;
 
         DmqServer::accept(&listener, magic)
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "DmqPublisherServerPallas failed to create a new server")
     }
 
@@ -132,13 +129,13 @@ impl DmqPublisherServer for DmqPublisherServerPallas {
         let mut server_guard = self.get_server().await?;
         let server = server_guard
             .as_mut()
-            .ok_or(anyhow!("DMQ publisher server does not exist"))?;
+            .with_context(|| "DMQ publisher server does not exist")?;
 
         let request = server
             .msg_submission()
             .recv_next_request()
             .await
-            .map_err(|err| anyhow!("Failed to receive next DMQ message: {}", err))?;
+            .with_context(|| "Failed to receive next DMQ message")?;
         let (dmq_message, response) = match request {
             Request::Submit(dmq_message) => {
                 debug!(self.logger, "Received message to publish to DMQ");
@@ -161,7 +158,7 @@ impl DmqPublisherServer for DmqPublisherServerPallas {
             .msg_submission()
             .send_submit_tx_response(response)
             .await
-            .map_err(|err| anyhow!("Failed to send response to DMQ publisher client: {}", err))?;
+            .with_context(|| "Failed to send response to DMQ publisher client")?;
 
         if let Some(dmq_message) = dmq_message {
             for transmitter in self.transmitters.lock().await.iter() {
@@ -175,12 +172,11 @@ impl DmqPublisherServer for DmqPublisherServerPallas {
             }
         }
 
-        let request = server.msg_submission().recv_next_request().await.map_err(|err| {
-            anyhow!(
-                "Failed to receive next request from DMQ publisher client: {}",
-                err
-            )
-        })?;
+        let request = server
+            .msg_submission()
+            .recv_next_request()
+            .await
+            .with_context(|| "Failed to receive next request from DMQ publisher client")?;
         match request {
             Request::Done => {
                 debug!(

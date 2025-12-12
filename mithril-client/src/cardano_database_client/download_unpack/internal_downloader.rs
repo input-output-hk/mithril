@@ -3,7 +3,7 @@ use std::ops::RangeInclusive;
 use std::path::Path;
 use std::sync::Arc;
 
-use anyhow::anyhow;
+use anyhow::Context;
 use tokio::task::JoinSet;
 
 use mithril_common::entities::{AncillaryLocation, ImmutableFileNumber, ImmutablesLocation};
@@ -197,9 +197,9 @@ impl InternalArtifactDownloader {
         target_dir: &Path,
         download_id: &str,
     ) -> MithrilResult<DownloadTask> {
-        let ancillary_verifier = self.ancillary_verifier.clone().ok_or(anyhow!(
-            "ancillary verifier is not set, please use `set_ancillary_verification_key` when creating the client"
-        ))?;
+        let ancillary_verifier = self.ancillary_verifier.clone().with_context(
+            || "ancillary verifier is not set, please use `set_ancillary_verification_key` when creating the client"
+        )?;
 
         let mut locations_to_try = vec![];
         let mut locations_sorted = locations.sanitized_locations()?;

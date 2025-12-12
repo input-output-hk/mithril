@@ -74,10 +74,12 @@ async fn main() -> MithrilResult<()> {
 
     let last_digest = snapshots
         .first()
-        .ok_or(anyhow!(
-            "No snapshots could be listed from aggregator: '{}'",
-            args.aggregator_endpoint
-        ))?
+        .with_context(|| {
+            format!(
+                "No snapshots could be listed from aggregator: '{}'",
+                args.aggregator_endpoint
+            )
+        })?
         .digest
         .as_ref();
 
@@ -85,7 +87,7 @@ async fn main() -> MithrilResult<()> {
         .cardano_database()
         .get(last_digest)
         .await?
-        .ok_or(anyhow!("A snapshot should exist for hash '{last_digest}'"))?;
+        .with_context(|| format!("A snapshot should exist for hash '{last_digest}'"))?;
 
     let unpacked_dir = work_dir.join("unpack");
     std::fs::create_dir(&unpacked_dir).unwrap();

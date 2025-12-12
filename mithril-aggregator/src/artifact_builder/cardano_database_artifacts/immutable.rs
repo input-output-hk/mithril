@@ -57,17 +57,15 @@ impl ImmutableFilesUploader for DumbUploader {
         filepaths: &[PathBuf],
         compression_algorithm: Option<CompressionAlgorithm>,
     ) -> StdResult<ImmutablesLocation> {
-        let last_file_path = filepaths.last().ok_or_else(|| {
-            anyhow!("No file to upload with 'DumbUploader' as the filepaths list is empty")
-        })?;
+        let last_file_path = filepaths.last().with_context(
+            || "No file to upload with 'DumbUploader' as the filepaths list is empty",
+        )?;
 
         let template_uri = MultiFilesUri::extract_template_from_uris(
             vec![self.upload(last_file_path).await?.into()],
             immutable_file_number_extractor,
         )?
-        .ok_or_else(|| {
-            anyhow!("No matching template found in the uploaded files with 'DumbUploader'")
-        })?;
+        .with_context(|| "No matching template found in the uploaded files with 'DumbUploader'")?;
 
         Ok(ImmutablesLocation::CloudStorage {
             uri: MultiFilesUri::Template(template_uri),
@@ -90,9 +88,9 @@ impl ImmutableFilesUploader for LocalUploader {
 
         let template_uri =
             MultiFilesUri::extract_template_from_uris(file_uris, immutable_file_number_extractor)?
-                .ok_or_else(|| {
-                    anyhow!("No matching template found in the uploaded files with 'LocalUploader'")
-                })?;
+                .with_context(
+                    || "No matching template found in the uploaded files with 'LocalUploader'",
+                )?;
 
         Ok(ImmutablesLocation::CloudStorage {
             uri: MultiFilesUri::Template(template_uri),
@@ -115,9 +113,9 @@ impl ImmutableFilesUploader for CloudUploader {
 
         let template_uri =
             MultiFilesUri::extract_template_from_uris(file_uris, immutable_file_number_extractor)?
-                .ok_or_else(|| {
-                    anyhow!("No matching template found in the uploaded files with 'CloudUploader'")
-                })?;
+                .with_context(
+                    || "No matching template found in the uploaded files with 'CloudUploader'",
+                )?;
 
         Ok(ImmutablesLocation::CloudStorage {
             uri: MultiFilesUri::Template(template_uri),

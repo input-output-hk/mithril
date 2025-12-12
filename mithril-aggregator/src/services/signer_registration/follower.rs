@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use async_trait::async_trait;
 
 use mithril_common::{
@@ -70,7 +70,7 @@ impl MithrilSignerRegistrationFollower {
                 .signer_registration_verifier
                 .verify(signer, stake_distribution)
                 .await
-                .map_err(|e| SignerRegistrationError::FailedSignerRegistration(anyhow!(e)))?;
+                .map_err(SignerRegistrationError::FailedSignerRegistration)?;
 
             self.signer_recorder
                 .record_signer_registration(signer_with_stake.party_id.clone())
@@ -88,7 +88,7 @@ impl MithrilSignerRegistrationFollower {
                         epoch
                     )
                 })
-                .map_err(|e| SignerRegistrationError::Store(anyhow!(e)))?;
+                .map_err(SignerRegistrationError::Store)?;
         }
 
         self.epoch_service
@@ -96,7 +96,7 @@ impl MithrilSignerRegistrationFollower {
             .await
             .update_next_signers_with_stake()
             .await
-            .map_err(|e| SignerRegistrationError::EpochService(anyhow!(e)))?;
+            .map_err(SignerRegistrationError::EpochService)?;
 
         Ok(())
     }
@@ -121,11 +121,8 @@ impl SignerSynchronizer for MithrilSignerRegistrationFollower {
             .await
             .with_context(|| "synchronize_all_signers failed")
             .map_err(SignerRegistrationError::FailedFetchingLeaderAggregatorEpochSettings)?
-            .ok_or(
-                SignerRegistrationError::FailedFetchingLeaderAggregatorEpochSettings(
-                    anyhow::anyhow!("Leader aggregator did not return any epoch settings"),
-                ),
-            )?;
+            .with_context(|| "Leader aggregator did not return any epoch settings")
+            .map_err(SignerRegistrationError::FailedFetchingLeaderAggregatorEpochSettings)?;
         let registration_epoch =
             leader_epoch_settings.epoch.offset_to_leader_synchronization_epoch();
         let next_signers = leader_epoch_settings.next_signers;
@@ -135,9 +132,8 @@ impl SignerSynchronizer for MithrilSignerRegistrationFollower {
             .await
             .with_context(|| "synchronize_all_signers failed")
             .map_err(SignerRegistrationError::Store)?
-            .ok_or(SignerRegistrationError::Store(anyhow::anyhow!(
-                "Follower aggregator did not return any stake distribution"
-            )))?;
+            .with_context(|| "Follower aggregator did not return any stake distribution")
+            .map_err(SignerRegistrationError::Store)?;
         self.synchronize_signers(registration_epoch, &next_signers, &stake_distribution)
             .await?;
 
@@ -177,6 +173,8 @@ impl SignerRegistrationRoundOpener for MithrilSignerRegistrationFollower {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::anyhow;
+
     use mithril_common::messages::{
         EpochSettingsMessage, SignerMessagePart, TryFromMessageAdapter,
     };

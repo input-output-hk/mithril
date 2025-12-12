@@ -330,7 +330,7 @@ impl<K: MKMapKey> MKMapProof<K> {
 
         contains_leaf
             .then_some(())
-            .ok_or(anyhow!("MKMapProof does not contain leaf {:?}", leaf))
+            .with_context(|| format!("MKMapProof does not contain leaf {leaf:?}"))
     }
 
     /// List the leaves of the merkelized map proof

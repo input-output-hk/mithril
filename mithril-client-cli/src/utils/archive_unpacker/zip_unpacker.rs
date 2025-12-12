@@ -24,7 +24,7 @@ impl ArchiveFormat for ZipUnpacker {
             let mut file = archive.by_index(i)?;
             let rel_path = file
                 .enclosed_name()
-                .ok_or_else(|| anyhow::anyhow!("File path is unsafe or malformed"))?;
+                .with_context(|| "File path is unsafe or malformed")?;
             let outpath = unpack_dir.join(rel_path);
 
             if file.is_dir() {

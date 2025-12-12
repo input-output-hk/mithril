@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use anyhow::anyhow;
+use anyhow::Context;
 
 use mithril_client::MithrilResult;
 
@@ -24,7 +24,7 @@ impl ArchiveUnpacker {
             .iter()
             .find(|f| f.supports(archive_path))
             .map(|f| f.as_ref())
-            .ok_or_else(|| anyhow!("Unsupported archive format: {}", archive_path.display()))
+            .with_context(|| format!("Unsupported archive format: {}", archive_path.display()))
     }
 
     pub fn unpack(&self, archive_path: &Path, unpack_dir: &Path) -> MithrilResult<()> {

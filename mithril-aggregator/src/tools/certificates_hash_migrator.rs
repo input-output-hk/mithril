@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use slog::{Logger, debug, info, trace};
 
 use mithril_common::logging::LoggerExtensions;
@@ -75,7 +75,7 @@ impl CertificatesHashMigrator {
                 let old_previous_hash = certificate.previous_hash.clone();
                 old_and_new_hashes
                     .get(&certificate.previous_hash)
-                    .ok_or(anyhow!(
+                    .with_context(|| format!(
                         "Could not migrate certificate previous_hash: The hash '{}' doesn't exist in the certificate table",
                         &certificate.previous_hash
                     ))?.clone_into(&mut certificate.previous_hash);
@@ -165,7 +165,7 @@ impl CertificatesHashMigrator {
                 let new_certificate_hash =
                     old_and_new_certificate_hashes
                         .get(&signed_entity_record.certificate_id)
-                        .ok_or( anyhow!(
+                        .with_context(|| format!(
                             "Migration Error: no migrated hash found for signed entity with certificate id: {}",
                             signed_entity_record.certificate_id
                         ))?

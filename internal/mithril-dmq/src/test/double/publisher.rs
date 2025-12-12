@@ -1,5 +1,5 @@
+use anyhow::Context;
 use std::{collections::VecDeque, fmt::Debug, marker::PhantomData};
-
 use tokio::sync::Mutex;
 
 use mithril_common::{StdResult, crypto_helper::TryToBytes};
@@ -29,7 +29,7 @@ impl<M: TryToBytes + Debug + Send + Sync> DmqPublisherClient<M> for DmqPublisher
 
         results
             .pop_front()
-            .ok_or_else(|| anyhow::anyhow!("No more results available in DmqPublisherFake"))?
+            .with_context(|| "No more results available in DmqPublisherFake")?
     }
 }
 

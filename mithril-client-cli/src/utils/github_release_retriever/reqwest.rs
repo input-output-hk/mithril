@@ -40,10 +40,12 @@ impl ReqwestGitHubApiClient {
         match response.status() {
             reqwest::StatusCode::OK => {}
             status => {
+                let body = response
+                    .text()
+                    .await
+                    .with_context(|| "Failed to read response body")?;
                 return Err(anyhow!(
-                    "GitHub API request failed with status code '{}': {}",
-                    status,
-                    response.text().await.unwrap()
+                    "GitHub API request failed with status code '{status}': {body}",
                 ));
             }
         }
@@ -91,7 +93,7 @@ impl GitHubReleaseRetriever for ReqwestGitHubApiClient {
         let prerelease = releases
             .into_iter()
             .find(|release| release.prerelease)
-            .ok_or_else(|| anyhow!("No pre-release found"))?;
+            .with_context(|| "No pre-release found")?;
 
         Ok(prerelease)
     }

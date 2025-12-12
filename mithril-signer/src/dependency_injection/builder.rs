@@ -163,7 +163,7 @@ impl<'a> DependenciesBuilder<'a> {
                 .config
                 .party_id
                 .to_owned()
-                .ok_or(anyhow!("A party_id should at least be provided"))?),
+                .with_context(|| "A party_id should at least be provided")?),
         }
     }
 
@@ -432,9 +432,9 @@ impl<'a> DependenciesBuilder<'a> {
                     Some(dmq_node_socket_path) => {
                         let dmq_network = &self.config.get_dmq_network()?;
                         let dmq_message_builder = DmqMessageBuilder::new(
-                            kes_signer
-                                .clone()
-                                .ok_or(anyhow!("A KES signer is mandatory to sign DMQ messages"))?,
+                            kes_signer.clone().with_context(
+                                || "A KES signer is mandatory to sign DMQ messages",
+                            )?,
                             chain_observer.clone(),
                         );
                         Arc::new(SignaturePublisherDmq::new(Arc::new(

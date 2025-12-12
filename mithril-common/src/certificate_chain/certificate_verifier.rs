@@ -153,7 +153,6 @@ impl MithrilCertificateVerifier {
         self.certificate_retriever
             .get_certificate_details(&certificate.previous_hash)
             .await
-            .map_err(|e| anyhow!(e))
             .with_context(|| "Can not retrieve previous certificate during verification")
     }
 

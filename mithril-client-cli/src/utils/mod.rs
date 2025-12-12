@@ -25,7 +25,7 @@ pub use http_downloader::*;
 pub use multi_download_progress_reporter::*;
 pub use progress_reporter::*;
 
-use anyhow::anyhow;
+use anyhow::Context;
 use mithril_client::MithrilResult;
 use std::path::Path;
 
@@ -49,8 +49,8 @@ pub(crate) fn print_simple_warning(message: &str, is_json_output_enabled: bool) 
 pub(crate) fn path_to_string(path: &Path) -> MithrilResult<String> {
     let path = path
         .to_str()
-        .ok_or_else(|| {
-            anyhow!(
+        .with_context(|| {
+            format!(
                 "Path '{}' contains invalid UTF-8 characters.",
                 path.display()
             )

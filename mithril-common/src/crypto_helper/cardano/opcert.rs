@@ -60,11 +60,11 @@ impl OpCertWithoutColdVerificationKey {
     ) -> StdResult<Self> {
         Ok(Self {
             kes_vk: KesPublicKey::from_bytes(kes_vk)
-                .map_err(|_| anyhow!("KES vk serialisation error"))?,
+                .map_err(|e| anyhow!("{e:?}").context("KES vk serialisation error"))?,
             issue_number,
             start_kes_period,
             cert_sig: EdSignature::from_slice(cert_sig)
-                .map_err(|_| anyhow!("ed25519 signature serialisation error"))?,
+                .map_err(|e| anyhow!("{e:?}").context("ed25519 signature serialisation error"))?,
         })
     }
 

@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 
 use mithril_client::MithrilResult;
 
@@ -11,7 +11,7 @@ use mithril_client::MithrilResult;
 pub fn copy_dir(source_dir: &Path, target_dir: &Path) -> MithrilResult<PathBuf> {
     let source_dir_name = source_dir
         .file_name()
-        .ok_or_else(|| anyhow!("Invalid source directory: {}", source_dir.display()))?;
+        .with_context(|| format!("Invalid source directory: {}", source_dir.display()))?;
     let destination_path = target_dir.join(source_dir_name);
     copy_dir_contents(source_dir, &destination_path)?;
 

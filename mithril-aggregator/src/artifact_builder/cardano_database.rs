@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use async_trait::async_trait;
 use semver::Version;
 
@@ -53,9 +53,9 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
         let merkle_root = certificate
             .protocol_message
             .get_message_part(&ProtocolMessagePartKey::CardanoDatabaseMerkleRoot)
-            .ok_or(anyhow!(
-                "Can not find CardanoDatabaseMerkleRoot protocol message part in certificate"
-            ))
+            .with_context(
+                || "Can not find CardanoDatabaseMerkleRoot protocol message part in certificate",
+            )
             .with_context(|| {
                 format!(
                     "Can not compute CardanoDatabase artifact for signed_entity: {:?}",

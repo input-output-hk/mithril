@@ -1,3 +1,4 @@
+use anyhow::Context;
 use hex::{FromHex, ToHex};
 
 use crate::StdResult;
@@ -21,7 +22,7 @@ pub trait TryFromBytes: Sized {
     /// Try to convert from hex string encoded bytes.
     fn try_from_bytes_hex(hex_string: &str) -> StdResult<Self> {
         let bytes = Vec::from_hex(hex_string)
-            .map_err(|e| anyhow::anyhow!("Could not deserialize binary from hex string: {e}"))?;
+            .with_context(|| "Could not deserialize binary from hex string")?;
 
         Self::try_from_bytes(&bytes)
     }
@@ -85,7 +86,8 @@ mod binary_mithril_stm {
 
     impl TryFromBytes for AggregateSignature<D> {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
-            Self::from_bytes(bytes).map_err(|e| anyhow!("{e}"))
+            Self::from_bytes(bytes)
+                .with_context(|| "Could not deserialize aggregate signature from bytes")
         }
     }
 
@@ -200,38 +202,43 @@ mod binary_kes_sig {
 
     impl TryFromBytes for Sum6KesSig {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
-            Self::from_bytes(bytes).map_err(|e| anyhow!(format!("{e:?}")))
+            Self::from_bytes(bytes).map_err(|e| {
+                anyhow!("{e:?}").context("Could not deserialize KES signature from bytes")
+            })
         }
     }
 }
 
 mod binary_opcert {
     use crate::crypto_helper::{OpCert, OpCertWithoutColdVerificationKey, SerDeShelleyFileFormat};
-    use anyhow::anyhow;
 
     use super::*;
 
     impl TryToBytes for OpCert {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
-            self.to_cbor_bytes().map_err(|e| anyhow!(format!("{e:?}")))
+            self.to_cbor_bytes()
+                .with_context(|| "Could not serialize OpCert to bytes")
         }
     }
 
     impl TryFromBytes for OpCert {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
-            Self::from_cbor_bytes(bytes).map_err(|e| anyhow!(format!("{e:?}")))
+            Self::from_cbor_bytes(bytes).with_context(|| "Could not deserialize OpCert from bytes")
         }
     }
 
     impl TryToBytes for OpCertWithoutColdVerificationKey {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
-            self.to_cbor_bytes().map_err(|e| anyhow!(format!("{e:?}")))
+            self.to_cbor_bytes()
+                .with_context(|| "Could not serialize OpCertWithoutColdVerificationKey to bytes")
         }
     }
 
     impl TryFromBytes for OpCertWithoutColdVerificationKey {
         fn try_from_bytes(bytes: &[u8]) -> StdResult<Self> {
-            Self::from_cbor_bytes(bytes).map_err(|e| anyhow!(format!("{e:?}")))
+            Self::from_cbor_bytes(bytes).with_context(
+                || "Could not deserialize OpCertWithoutColdVerificationKey from bytes",
+            )
         }
     }
 }

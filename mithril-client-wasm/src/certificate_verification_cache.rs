@@ -62,7 +62,7 @@ impl LocalStorageCertificateVerifierCache {
                     previous_certificate_hash,
                     expire_at,
                 ))
-                .map_err(|err| anyhow!("Error serializing cache: {err:?}"))?,
+                .with_context(|| "Error serializing cache")?,
             )
             .map_err(|err| anyhow!("Error storing key `{key}` in local storage: {err:?}"))?;
 
@@ -70,8 +70,7 @@ impl LocalStorageCertificateVerifierCache {
     }
 
     fn parse_cached_certificate(value: String) -> MithrilResult<CachedCertificate> {
-        serde_json::from_str(&value)
-            .map_err(|err| anyhow!("Error deserializing cached certificate: {err:?}"))
+        serde_json::from_str(&value).with_context(|| "Error deserializing cached certificate")
     }
 
     fn cache_key(&self, certificate_hash: &CertificateHash) -> String {

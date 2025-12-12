@@ -1,6 +1,6 @@
 //! HTTP implementation of MithrilNetworkConfigurationProvider.
 
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -43,27 +43,29 @@ impl MithrilNetworkConfigurationProvider for HttpMithrilNetworkConfigurationProv
             .aggregator_http_client
             .send(GetProtocolConfigurationQuery::epoch(aggregation_epoch))
             .await?
-            .ok_or(anyhow!(
-                "Missing network configuration for aggregation epoch {aggregation_epoch}"
-            ))?
+            .with_context(|| {
+                format!("Missing network configuration for aggregation epoch {aggregation_epoch}")
+            })?
             .into();
 
         let configuration_for_next_aggregation = self
             .aggregator_http_client
             .send(GetProtocolConfigurationQuery::epoch(next_aggregation_epoch))
             .await?
-            .ok_or(anyhow!(
-                "Missing network configuration for next aggregation epoch {next_aggregation_epoch}"
-            ))?
+            .with_context(|| {
+                format!("Missing network configuration for next aggregation epoch {next_aggregation_epoch}")
+            })?
             .into();
 
         let configuration_for_registration = self
             .aggregator_http_client
             .send(GetProtocolConfigurationQuery::epoch(registration_epoch))
             .await?
-            .ok_or(anyhow!(
-                "Missing network configuration for registration epoch {registration_epoch}"
-            ))?
+            .with_context(|| {
+                format!(
+                    "Missing network configuration for registration epoch {next_aggregation_epoch}"
+                )
+            })?
             .into();
 
         Ok(MithrilNetworkConfiguration {

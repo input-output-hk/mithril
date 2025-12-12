@@ -63,10 +63,10 @@ pub trait SerDeShelleyFileFormat: Serialize + DeserializeOwned {
     fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, CodecParseError> {
         let data = fs::read_to_string(path)
             .with_context(|| "SerDeShelleyFileFormat can not read data from file {}")
-            .map_err(|e| CodecParseError(anyhow!(e)))?;
+            .map_err(CodecParseError)?;
         let file: ShelleyFileFormat = serde_json::from_str(&data)
             .with_context(|| "SerDeShelleyFileFormat can not unserialize json data")
-            .map_err(|e| CodecParseError(anyhow!(e)))?;
+            .map_err(CodecParseError)?;
 
         Self::from_cbor_hex(&file.cbor_hex)
     }
@@ -77,7 +77,7 @@ pub trait SerDeShelleyFileFormat: Serialize + DeserializeOwned {
         let cbor_string = self
             .to_cbor_hex()
             .with_context(|| "SerDeShelleyFileFormat can not serialize data to cbor")
-            .map_err(|e| CodecParseError(anyhow!(e)))?;
+            .map_err(CodecParseError)?;
 
         let file_format = ShelleyFileFormat {
             file_type: Self::TYPE.to_string(),
@@ -87,14 +87,14 @@ pub trait SerDeShelleyFileFormat: Serialize + DeserializeOwned {
 
         let mut file = fs::File::create(path)
             .with_context(|| "SerDeShelleyFileFormat can not create file")
-            .map_err(|e| CodecParseError(anyhow!(e)))?;
+            .map_err(CodecParseError)?;
         let json_str = serde_json::to_string(&file_format)
             .with_context(|| "SerDeShelleyFileFormat can not serialize data to json")
-            .map_err(|e| CodecParseError(anyhow!(e)))?;
+            .map_err(CodecParseError)?;
 
         write!(file, "{json_str}")
             .with_context(|| "SerDeShelleyFileFormat can not write data to file")
-            .map_err(|e| CodecParseError(anyhow!(e)))?;
+            .map_err(CodecParseError)?;
         Ok(())
     }
 
@@ -103,7 +103,7 @@ pub trait SerDeShelleyFileFormat: Serialize + DeserializeOwned {
         let mut cursor = std::io::Cursor::new(Vec::new());
         ciborium::ser::into_writer(&self, &mut cursor)
             .with_context(|| "SerDeShelleyFileFormat can not serialize data to cbor")
-            .map_err(|e| CodecParseError(anyhow!(e)))?;
+            .map_err(CodecParseError)?;
 
         Ok(cursor.into_inner())
     }
@@ -118,7 +118,7 @@ pub trait SerDeShelleyFileFormat: Serialize + DeserializeOwned {
         let mut cursor = std::io::Cursor::new(&bytes);
         let a: Self = ciborium::de::from_reader(&mut cursor)
             .with_context(|| "SerDeShelleyFileFormat can not unserialize cbor data")
-            .map_err(|e| CodecParseError(anyhow!(e)))?;
+            .map_err(CodecParseError)?;
 
         Ok(a)
     }
@@ -127,11 +127,11 @@ pub trait SerDeShelleyFileFormat: Serialize + DeserializeOwned {
     fn from_cbor_hex(hex: &str) -> Result<Self, CodecParseError> {
         let hex_vector = Vec::from_hex(hex)
             .with_context(|| "SerDeShelleyFileFormat can not unserialize hex data")
-            .map_err(|e| CodecParseError(anyhow!(e)))?;
+            .map_err(CodecParseError)?;
 
         Self::from_cbor_bytes(&hex_vector)
             .with_context(|| "SerDeShelleyFileFormat can not unserialize cbor data")
-            .map_err(|e| CodecParseError(anyhow!(e)))
+            .map_err(CodecParseError)
     }
 }
 
@@ -145,13 +145,13 @@ impl SerDeShelleyFileFormat for Sum6KesBytes {
     fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, CodecParseError> {
         let data = fs::read_to_string(path)
             .with_context(|| "Sum6KesBytes can not read data from file")
-            .map_err(|e| CodecParseError(anyhow!(e)))?;
+            .map_err(CodecParseError)?;
         let file: ShelleyFileFormat = serde_json::from_str(&data)
             .with_context(|| "Sum6KesBytes can not unserialize json data")
-            .map_err(|e| CodecParseError(anyhow!(e)))?;
+            .map_err(CodecParseError)?;
         let mut hex_vector = Vec::from_hex(file.cbor_hex)
             .with_context(|| "Sum6KesBytes can not unserialize hex data")
-            .map_err(|e| CodecParseError(anyhow!(e)))?;
+            .map_err(CodecParseError)?;
 
         // We check whether the serialisation was performed by the haskell library or the rust library
         if (hex_vector[2] & 4u8) == 0 {
@@ -164,7 +164,7 @@ impl SerDeShelleyFileFormat for Sum6KesBytes {
         let mut cursor = std::io::Cursor::new(&hex_vector);
         let a: Self = ciborium::from_reader(&mut cursor)
             .with_context(|| "Sum6KesBytes can not unserialize cbor data")
-            .map_err(|e| CodecParseError(anyhow!(e)))?;
+            .map_err(CodecParseError)?;
         Ok(a)
     }
 }

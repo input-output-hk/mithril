@@ -4,7 +4,7 @@
 //! - group these enablers into more logical categories
 //! - redefine the actual categories so those miscellaneous enablers fit into them
 
-use anyhow::anyhow;
+use anyhow::Context;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -64,9 +64,10 @@ impl DependenciesBuilder {
 
     /// Builds an [AggregatorHttpClient]
     pub async fn build_leader_aggregator_client(&mut self) -> Result<Arc<AggregatorHttpClient>> {
-        let leader_aggregator_endpoint = self.configuration.leader_aggregator_endpoint().ok_or(
-            anyhow!("Leader Aggregator endpoint is mandatory for follower Aggregator"),
-        )?;
+        let leader_aggregator_endpoint = self
+            .configuration
+            .leader_aggregator_endpoint()
+            .with_context(|| "Leader Aggregator endpoint is mandatory for follower Aggregator")?;
 
         let aggregator_client = AggregatorHttpClient::builder(&leader_aggregator_endpoint)
             .with_api_version_provider(self.get_api_version_provider().await?)

@@ -2,7 +2,7 @@
 //!
 //! In this example, the client interacts by default with a real aggregator (`release-preprod`) to get the data.
 
-use anyhow::anyhow;
+use anyhow::Context;
 use clap::Parser;
 use slog::info;
 use std::{str::FromStr, sync::Arc};
@@ -57,10 +57,12 @@ async fn main() -> MithrilResult<()> {
 
     let last_hash = mithril_stake_distributions
         .first()
-        .ok_or(anyhow!(
-            "No Mithril stake distributions could be listed from aggregator: '{}'",
-            args.aggregator_endpoint
-        ))?
+        .with_context(|| {
+            format!(
+                "No Mithril stake distributions could be listed from aggregator: '{}'",
+                args.aggregator_endpoint
+            )
+        })?
         .hash
         .as_ref();
 
@@ -68,9 +70,9 @@ async fn main() -> MithrilResult<()> {
         .mithril_stake_distribution()
         .get(last_hash)
         .await?
-        .ok_or(anyhow!(
-            "A Mithril stake distribution should exist for hash '{last_hash}'"
-        ))?;
+        .with_context(|| {
+            format!("A Mithril stake distribution should exist for hash '{last_hash}'")
+        })?;
     info!(
         logger,
         "Fetched details of last Mithril stake distribution:\n{mithril_stake_distribution:#?}",

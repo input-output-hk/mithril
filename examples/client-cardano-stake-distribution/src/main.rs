@@ -2,7 +2,7 @@
 //!
 //! In this example, the client interacts by default with a real aggregator (`release-preprod`) to get the data.
 
-use anyhow::anyhow;
+use anyhow::Context;
 use clap::Parser;
 use slog::info;
 use std::{str::FromStr, sync::Arc};
@@ -57,19 +57,21 @@ async fn main() -> MithrilResult<()> {
 
     let last_epoch = cardano_stake_distributions
         .first()
-        .ok_or(anyhow!(
-            "No Cardano stake distributions could be listed from aggregator: '{}'",
-            args.aggregator_endpoint
-        ))?
+        .with_context(|| {
+            format!(
+                "No Cardano stake distributions could be listed from aggregator: '{}'",
+                args.aggregator_endpoint
+            )
+        })?
         .epoch;
 
     let cardano_stake_distribution = client
         .cardano_stake_distribution()
         .get_by_epoch(last_epoch)
         .await?
-        .ok_or(anyhow!(
-            "A Cardano stake distribution should exist for hash '{last_epoch}'"
-        ))?;
+        .with_context(|| {
+            format!("A Cardano stake distribution should exist for hash '{last_epoch}'")
+        })?;
     info!(
         logger,
         "Fetched details of last Cardano stake distribution:\n{cardano_stake_distribution:#?}",

@@ -3,7 +3,7 @@ use std::path::Path;
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 #[cfg(feature = "future_dmq")]
-use anyhow::anyhow;
+use anyhow::Context;
 use clap::ValueEnum;
 use libp2p::Multiaddr;
 #[cfg(feature = "future_dmq")]
@@ -161,7 +161,7 @@ impl SignerRelay {
         #[cfg(feature = "future_dmq")]
         self.stop_tx
             .send(())
-            .map_err(|e| anyhow!("Failed to send stop signal to DMQ publisher server: {e}"))?;
+            .with_context(|| "Failed to send stop signal to DMQ publisher server")?;
 
         Ok(())
     }

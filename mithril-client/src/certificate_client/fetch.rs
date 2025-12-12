@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::Context;
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -60,15 +60,15 @@ impl CertificateRetriever for InternalCertificateRetriever {
             .map(|message| message.try_into())
             .transpose()
             .map_err(CertificateRetrieverError)?
-            .ok_or(CertificateRetrieverError(anyhow!(format!(
-                "Certificate does not exist: '{}'",
-                certificate_hash
-            ))))
+            .with_context(|| format!("Certificate does not exist: '{certificate_hash}'"))
+            .map_err(CertificateRetrieverError)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use anyhow::anyhow;
+
     use mithril_common::test::double::{Dummy, fake_data};
 
     use crate::certificate_client::tests_utils::CertificateClientTestBuilder;

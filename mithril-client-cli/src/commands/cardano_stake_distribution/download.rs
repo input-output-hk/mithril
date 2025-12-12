@@ -166,10 +166,11 @@ impl CardanoStakeDistributionDownloadCommand {
                         "Can not download and verify the artifact for hash: '{unique_identifier}'"
                     )
                 })?
-                .ok_or(anyhow!(
-                    "No Cardano stake distribution could be found for hash: '{}'",
-                    unique_identifier
-                ))
+                .with_context(||
+                    format!(
+                        "No Cardano stake distribution could be found for hash: '{unique_identifier}'"
+                    )
+                )
         } else {
             let epoch = {
                 let get_list_of_artifact_epochs = || async {
@@ -203,10 +204,9 @@ impl CardanoStakeDistributionDownloadCommand {
                 .with_context(|| {
                     format!("Can not download and verify the artifact for epoch: '{epoch}'")
                 })?
-                .ok_or(anyhow!(
-                    "No Cardano stake distribution could be found for epoch: '{}'",
-                    epoch
-                ))
+                .with_context(|| {
+                    format!("No Cardano stake distribution could be found for epoch: '{epoch}'")
+                })
         }
     }
 }

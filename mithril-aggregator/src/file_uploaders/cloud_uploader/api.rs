@@ -1,4 +1,4 @@
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use async_trait::async_trait;
 use std::{path::Path, sync::Arc};
 
@@ -13,8 +13,8 @@ fn get_file_name(file_path: &Path) -> StdResult<&str> {
     file_path
         .file_name()
         .map(|s| s.to_str())
-        .ok_or(anyhow!("Could not convert file path to file name"))?
-        .ok_or(anyhow!("Could not find the final component of the path"))
+        .with_context(|| "Could not convert file path to file name")?
+        .with_context(|| "Could not find the final component of the path")
 }
 
 /// The `CloudUploader` struct is responsible for managing the upload of files to a cloud storage backend.
@@ -76,6 +76,7 @@ impl FileUploader for CloudUploader {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::anyhow;
     use std::time::Duration;
 
     use mockall::predicate::eq;

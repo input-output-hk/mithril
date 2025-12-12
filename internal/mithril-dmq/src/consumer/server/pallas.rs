@@ -59,18 +59,15 @@ impl DmqConsumerServerPallas {
         if self.socket.exists() {
             fs::remove_file(self.socket.clone())?;
         }
-        let listener = UnixListener::bind(&self.socket)
-            .map_err(|err| anyhow!(err))
-            .with_context(|| {
-                format!(
-                    "DmqConsumerServerPallas failed to bind Unix socket at {}",
-                    self.socket.display()
-                )
-            })?;
+        let listener = UnixListener::bind(&self.socket).with_context(|| {
+            format!(
+                "DmqConsumerServerPallas failed to bind Unix socket at {}",
+                self.socket.display()
+            )
+        })?;
 
         DmqServer::accept(&listener, magic)
             .await
-            .map_err(|err| anyhow!(err))
             .with_context(|| "DmqConsumerServerPallas failed to create a new server")
     }
 
@@ -197,12 +194,12 @@ impl DmqConsumerServer for DmqConsumerServerPallas {
         );
 
         let mut server_guard = self.get_server().await?;
-        let server = server_guard.as_mut().ok_or(anyhow!("DMQ server does not exist"))?;
+        let server = server_guard.as_mut().with_context(|| "DMQ server does not exist")?;
         let request = server
             .msg_notification()
             .recv_next_request()
             .await
-            .map_err(|err| anyhow!("Failed to receive next DMQ message: {}", err))?;
+            .with_context(|| "Failed to receive next DMQ message")?;
 
         match request {
             Request::Blocking => {

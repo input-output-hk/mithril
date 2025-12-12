@@ -311,7 +311,7 @@ async fn main() -> StdResult<()> {
         sigterm
             .recv()
             .await
-            .ok_or(anyhow!("Failed to receive SIGTERM"))
+            .with_context(|| "Failed to receive SIGTERM")
             .map(|_| Some("Received SIGTERM".to_string()))
     });
 
@@ -320,7 +320,7 @@ async fn main() -> StdResult<()> {
         sigterm
             .recv()
             .await
-            .ok_or(anyhow!("Failed to receive SIGQUIT"))
+            .with_context(|| "Failed to receive SIGQUIT")
             .map(|_| Some("Received SIGQUIT".to_string()))
     });
 
@@ -333,9 +333,7 @@ async fn main() -> StdResult<()> {
         None => None,
     };
 
-    stop_tx
-        .send(())
-        .map_err(|e| anyhow!("Stop signal could not be sent: {e:?}"))?;
+    stop_tx.send(()).with_context(|| "Stop signal could not be sent")?;
 
     join_set.shutdown().await;
 

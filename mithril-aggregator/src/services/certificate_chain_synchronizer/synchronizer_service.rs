@@ -177,10 +177,8 @@ impl CertificateChainSynchronizer for MithrilCertificateChainSynchronizer {
             .remote_certificate_retriever
             .get_latest_certificate_details()
             .await?
-            .ok_or(
-                anyhow!("Remote aggregator doesn't have a chain yet")
-                    .context("Failed to retrieve latest remote certificate details"),
-            )?;
+            .with_context(|| "Failed to retrieve latest remote certificate details")
+            .with_context(|| "Remote aggregator doesn't have a chain yet")?;
         let remote_certificate_chain = self
             .retrieve_and_validate_remote_certificate_chain(starting_point)
             .await
@@ -188,7 +186,7 @@ impl CertificateChainSynchronizer for MithrilCertificateChainSynchronizer {
         let open_message = prepare_open_message_to_store(
             remote_certificate_chain
                 .last()
-                .ok_or(anyhow!("Retrieved certificate chain is empty"))?,
+                .with_context(|| "Retrieved certificate chain is empty")?,
         );
         self.store_certificate_chain(remote_certificate_chain)
             .await

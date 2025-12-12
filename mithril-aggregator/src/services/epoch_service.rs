@@ -1,4 +1,4 @@
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use async_trait::async_trait;
 use slog::{Logger, debug};
 use std::collections::BTreeSet;
@@ -225,10 +225,11 @@ impl MithrilEpochService {
     }
 
     async fn get_cardano_era(&self) -> StdResult<CardanoEra> {
-        let cardano_era =
-            self.chain_observer.get_current_era().await?.ok_or_else(|| {
-                anyhow!("No Cardano era returned by the chain observer".to_string())
-            })?;
+        let cardano_era = self
+            .chain_observer
+            .get_current_era()
+            .await?
+            .with_context(|| "No Cardano era returned by the chain observer")?;
 
         Ok(cardano_era)
     }

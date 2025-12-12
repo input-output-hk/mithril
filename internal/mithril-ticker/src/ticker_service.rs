@@ -3,7 +3,7 @@
 //! This service read time information from the chain and helps create beacons
 //! for every message types.
 
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use async_trait::async_trait;
 use std::sync::Arc;
 use thiserror::Error;
@@ -70,7 +70,6 @@ impl TickerService for MithrilTickerService {
             .chain_observer
             .get_current_epoch()
             .await
-            .map_err(|e| anyhow!(e))
             .with_context(|| "TimePoint Provider can not get current epoch")?
             .ok_or(TickerServiceError::NoEpoch)?;
 
@@ -88,7 +87,6 @@ impl TickerService for MithrilTickerService {
             .chain_observer
             .get_current_chain_point()
             .await
-            .map_err(|e| anyhow!(e))
             .with_context(|| "TimePoint Provider can not get current chain point")?
             .ok_or(TickerServiceError::NoChainPoint)?;
 
