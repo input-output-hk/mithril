@@ -56,13 +56,14 @@ mod handlers {
             .get_signature_registration_total_received_since_startup()
             .increment(&[METRICS_HTTP_ORIGIN]);
 
+        let payload = message.clone();
         let signed_entity_type = message.signed_entity_type.clone();
         let signed_message = message.signed_message.clone();
 
         let mut single_signature = match FromRegisterSingleSignatureAdapter::try_adapt(message) {
             Ok(signature) => signature,
             Err(err) => {
-                warn!(logger,"register_signatures::payload decoding error"; "error" => ?err);
+                warn!(logger,"register_signatures::payload decoding error"; "full_payload" => #?payload,"error" => ?err);
 
                 return Ok(reply::bad_request(
                     "Could not decode signature payload".to_string(),
@@ -92,22 +93,22 @@ mod handlers {
         {
             Err(err) => match err.downcast_ref::<CertifierServiceError>() {
                 Some(CertifierServiceError::AlreadyCertified(signed_entity_type)) => {
-                    debug!(logger,"register_signatures::open_message_already_certified"; "signed_entity_type" => ?signed_entity_type);
+                    debug!(logger, "register_signatures::open_message_already_certified"; "signed_entity_type" => ?signed_entity_type, "party_id" => &single_signature.party_id);
                     Ok(reply::gone(
                         "already_certified".to_string(),
                         err.to_string(),
                     ))
                 }
                 Some(CertifierServiceError::Expired(signed_entity_type)) => {
-                    debug!(logger,"register_signatures::open_message_expired"; "signed_entity_type" => ?signed_entity_type);
+                    debug!(logger, "register_signatures::open_message_expired"; "signed_entity_type" => ?signed_entity_type, "party_id" => &single_signature.party_id);
                     Ok(reply::gone("expired".to_string(), err.to_string()))
                 }
                 Some(CertifierServiceError::NotFound(signed_entity_type)) => {
-                    debug!(logger,"register_signatures::not_found"; "signed_entity_type" => ?signed_entity_type);
+                    debug!(logger, "register_signatures::not_found"; "signed_entity_type" => ?signed_entity_type, "party_id" => &single_signature.party_id);
                     Ok(reply::empty(StatusCode::NOT_FOUND))
                 }
                 Some(_) | None => {
-                    warn!(logger,"register_signatures::error"; "error" => ?err);
+                    warn!(logger,"register_signatures::error"; "full_payload" => #?payload, "error" => ?err);
                     Ok(reply::server_error(err))
                 }
             },
