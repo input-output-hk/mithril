@@ -1,3 +1,5 @@
 style_edition = "2024"
-array_width=70
-chain_width=70
+array_width = 70
+chain_width = 70
+group_imports = "StdExternalCrate"
+unstable_features = true
