@@ -72,22 +72,20 @@ impl AggregatorHttpClient {
             request_builder = request_builder.timeout(timeout);
         }
 
-        match request_builder.send().await {
-            Ok(response) => {
-                if let Some(version) = &current_api_version {
-                    self.warn_if_api_version_mismatch(&response, version);
-                }
+        let response = request_builder
+            .send()
+            .await
+            .map_err(|e| AggregatorHttpClientError::RemoteServerUnreachable(anyhow!(e)))?;
 
-                let context = QueryContext {
-                    response,
-                    logger: self.logger.clone(),
-                };
-                query.handle_response(context).await
-            }
-            Err(err) => Err(AggregatorHttpClientError::RemoteServerUnreachable(anyhow!(
-                err
-            ))),
+        if let Some(version) = &current_api_version {
+            self.warn_if_api_version_mismatch(&response, version);
         }
+
+        let context = QueryContext {
+            response,
+            logger: self.logger.clone(),
+        };
+        query.handle_response(context).await
     }
 
     fn join_aggregator_endpoint(&self, endpoint: &str) -> AggregatorHttpClientResult<Url> {

@@ -32,12 +32,9 @@ impl KesSignerStandard {
 
 impl KesSigner for KesSignerStandard {
     fn sign(&self, message: &[u8], kes_period: KesPeriod) -> StdResult<(Sum6KesSig, OpCert)> {
-        let mut kes_sk_bytes =
-            Sum6KesBytes::from_file(&self.kes_sk_path)
-                .map_err(|e| anyhow!(e))
-                .with_context(|| "StandardKesSigner can not read KES secret key from file")?;
+        let mut kes_sk_bytes = Sum6KesBytes::from_file(&self.kes_sk_path)
+            .with_context(|| "StandardKesSigner can not read KES secret key from file")?;
         let mut kes_sk = Sum6Kes::try_from(&mut kes_sk_bytes)
-            .map_err(|e| anyhow!(e))
             .with_context(|| "StandardKesSigner can not use KES secret key")?;
         let kes_sk_period = kes_sk.get_period();
         if kes_sk_period > kes_period {
@@ -53,7 +50,6 @@ impl KesSigner for KesSignerStandard {
         }
 
         let operational_certificate = OpCert::from_file(&self.operational_certificate_path)
-            .map_err(|e| anyhow!(e))
             .with_context(|| "StandardKesSigner can not read operational certificate from file")?;
 
         Ok((kes_sk.sign(message), operational_certificate))

@@ -75,16 +75,20 @@ async fn main() -> MithrilResult<()> {
 
     let latest_hash = cardano_database_snapshots
         .first()
-        .ok_or(anyhow!(
-            "No Cardano database snapshot could be listed from aggregator: '{}'",
-            args.aggregator_endpoint
-        ))?
+        .with_context(|| {
+            format!(
+                "No Cardano database snapshot could be listed from aggregator: '{}'",
+                args.aggregator_endpoint
+            )
+        })?
         .hash
         .as_ref();
 
-    let cardano_database_snapshot = client.cardano_database_v2().get(latest_hash).await?.ok_or(
-        anyhow!("A Cardano database should exist for hash '{latest_hash}'"),
-    )?;
+    let cardano_database_snapshot = client
+        .cardano_database_v2()
+        .get(latest_hash)
+        .await?
+        .with_context(|| format!("A Cardano database should exist for hash '{latest_hash}'"))?;
 
     let unpacked_dir = work_dir.join("unpack");
     std::fs::create_dir(&unpacked_dir).unwrap();

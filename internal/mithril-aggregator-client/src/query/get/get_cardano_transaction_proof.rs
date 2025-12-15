@@ -1,12 +1,10 @@
-use anyhow::anyhow;
 use async_trait::async_trait;
 use reqwest::StatusCode;
 
 use mithril_common::messages::CardanoTransactionsProofsMessage;
 
 use crate::AggregatorHttpClientResult;
-use crate::error::AggregatorHttpClientError;
-use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
+use crate::query::{AggregatorQuery, QueryContext, QueryMethod, ResponseExt};
 
 /// Query to get a proof of membership for a list of Cardano transaction hashes
 pub struct GetCardanoTransactionProofQuery {
@@ -44,12 +42,7 @@ impl AggregatorQuery for GetCardanoTransactionProofQuery {
         context: QueryContext,
     ) -> AggregatorHttpClientResult<Self::Response> {
         match context.response.status() {
-            StatusCode::OK => {
-                match context.response.json::<CardanoTransactionsProofsMessage>().await {
-                    Ok(message) => Ok(Some(message)),
-                    Err(err) => Err(AggregatorHttpClientError::JsonParseFailed(anyhow!(err))),
-                }
-            }
+            StatusCode::OK => context.response.parse_json_option().await,
             StatusCode::NOT_FOUND => Ok(None),
             _ => Err(context.unhandled_status_code().await),
         }
@@ -60,6 +53,7 @@ impl AggregatorQuery for GetCardanoTransactionProofQuery {
 mod tests {
     use serde_json::json;
 
+    use crate::AggregatorHttpClientError;
     use crate::test::{assert_error_matches, setup_server_and_client};
 
     use super::*;

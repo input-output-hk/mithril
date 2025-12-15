@@ -48,7 +48,6 @@ impl ImmutableFileSystemObserver {
 impl ImmutableFileObserver for ImmutableFileSystemObserver {
     async fn get_last_immutable_number(&self) -> StdResult<u64> {
         let immutable_file_number = ImmutableFile::list_completed_in_dir(&self.db_path)
-            .map_err(|e| anyhow!(e))
             .with_context(|| "Immutable File System Observer can not list all immutable files")?
             .into_iter()
             .next_back()

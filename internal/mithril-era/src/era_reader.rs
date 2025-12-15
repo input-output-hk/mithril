@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::Context;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::{str::FromStr, sync::Arc};
@@ -58,7 +58,7 @@ impl EraEpochToken {
     /// software.
     pub fn get_current_supported_era(&self) -> StdResult<SupportedEra> {
         SupportedEra::from_str(&self.current_era.name)
-            .map_err(|_| anyhow!(format!("Unsupported era '{}'.", &self.current_era.name)))
+            .with_context(|| format!("Unsupported era '{}'.", &self.current_era.name))
     }
 
     /// Return the [EraMarker] of the current Era.
@@ -79,7 +79,7 @@ impl EraEpochToken {
         match self.next_era.as_ref() {
             Some(marker) => Ok(Some(
                 SupportedEra::from_str(&marker.name)
-                    .map_err(|_| anyhow!(format!("Unsupported era '{}'.", &marker.name)))?,
+                    .with_context(|| format!("Unsupported era '{}'.", &marker.name))?,
             )),
             None => Ok(None),
         }

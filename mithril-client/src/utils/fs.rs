@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::anyhow;
+use anyhow::Context;
 
 use crate::MithrilResult;
 
@@ -13,13 +13,13 @@ pub fn create_directory_if_not_exists(dir: &Path) -> MithrilResult<()> {
         return Ok(());
     }
 
-    fs::create_dir_all(dir).map_err(|e| anyhow!("Failed creating directory: {e}"))
+    fs::create_dir_all(dir).with_context(|| "Failed creating directory")
 }
 
 /// Delete a directory if it exists
 pub fn delete_directory(dir: &Path) -> MithrilResult<()> {
     if dir.exists() {
-        fs::remove_dir_all(dir).map_err(|e| anyhow!("Failed deleting directory: {e}"))?;
+        fs::remove_dir_all(dir).with_context(|| "Failed deleting directory")?;
     }
 
     Ok(())

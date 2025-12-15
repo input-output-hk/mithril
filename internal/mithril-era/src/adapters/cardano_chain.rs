@@ -1,4 +1,4 @@
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -56,16 +56,13 @@ impl EraMarkersPayload {
 
     /// Encode this payload to a json hex string
     pub fn to_json_hex(&self) -> StdResult<String> {
-        key_encode_hex(self)
-            .map_err(|e| anyhow!(e).context("era markers payload could not be json hex encoded"))
+        key_encode_hex(self).with_context(|| "era markers payload could not be json hex encoded")
     }
 
     /// Decode a [EraMarkersPayload] from a json hex string
     pub fn from_json_hex(payload: &str) -> StdResult<Self> {
-        let payload = key_decode_hex(payload).map_err(|e| {
-            anyhow!(e).context("era markers payload could not be decoded from json hex")
-        })?;
-        Ok(payload)
+        key_decode_hex(payload)
+            .with_context(|| "era markers payload could not be decoded from json hex")
     }
 
     /// Verify the signature an era markers payload

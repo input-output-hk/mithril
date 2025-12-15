@@ -469,7 +469,7 @@ impl ClientBuilder {
             AggregatorDiscoveryType::Automatic(ref network) => self
                 .discover_aggregator(network)?
                 .next()
-                .ok_or_else(|| anyhow!("No aggregator was available through discovery"))?
+                .with_context(|| "No aggregator was available through discovery")?
                 .into(),
         };
         let headers = self.compute_http_headers();

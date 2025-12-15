@@ -1,6 +1,6 @@
 use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
 
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use pallas_network::{facades::DmqClient, miniprotocols::localmsgnotification::State};
 use slog::{Logger, debug, error};
 use tokio::sync::{Mutex, MutexGuard};
@@ -95,7 +95,7 @@ impl<M: TryFromBytes + Debug> DmqConsumerClientPallas<M> {
     async fn consume_messages_internal(&self) -> StdResult<Vec<(M, PartyId)>> {
         debug!(self.logger, "Waiting for messages from DMQ...");
         let mut client_guard = self.get_client().await?;
-        let client = client_guard.as_mut().ok_or(anyhow!("DMQ client does not exist"))?;
+        let client = client_guard.as_mut().with_context(|| "DMQ client does not exist")?;
         if *client.msg_notification().state() == State::Idle {
             client
                 .msg_notification()
@@ -165,10 +165,7 @@ impl<M: TryFromBytes + Debug> Drop for DmqConsumerClientPallas<M> {
 
 #[cfg(all(test, unix))]
 mod tests {
-
-    use std::{fs, future, time::Duration, vec};
-
-    use mithril_common::{crypto_helper::TryToBytes, current_function, test::TempDir};
+    use anyhow::anyhow;
     use pallas_network::{
         facades::DmqServer,
         miniprotocols::{
@@ -176,7 +173,10 @@ mod tests {
             localmsgsubmission::{DmqMsg, DmqMsgOperationalCertificate, DmqMsgPayload},
         },
     };
+    use std::{fs, future, time::Duration, vec};
     use tokio::{net::UnixListener, task::JoinHandle, time::sleep};
+
+    use mithril_common::{crypto_helper::TryToBytes, current_function, test::TempDir};
 
     use crate::test::{TestLogger, payload::DmqMessageTestPayload};
 

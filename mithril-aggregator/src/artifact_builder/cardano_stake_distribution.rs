@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::Context;
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -35,7 +35,7 @@ impl ArtifactBuilder<Epoch, CardanoStakeDistribution> for CardanoStakeDistributi
             .stake_distribution_retriever
             .retrieve(epoch.offset_to_cardano_stake_distribution_snapshot_epoch())
             .await?
-            .ok_or_else(|| anyhow!("No stake distribution found for epoch '{}'", epoch))?;
+            .with_context(|| format!("No stake distribution found for epoch '{}'", epoch))?;
 
         Ok(CardanoStakeDistribution::new(epoch, stake_distribution))
     }

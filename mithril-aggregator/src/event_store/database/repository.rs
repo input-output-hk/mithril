@@ -1,6 +1,6 @@
 //! Migration module
 //!
-use anyhow::anyhow;
+use anyhow::Context;
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
@@ -25,9 +25,9 @@ impl EventPersister {
         let log_message = message.clone();
         let mut rows = self.connection.fetch(InsertEventQuery::one(message)?)?;
 
-        rows.next().ok_or(anyhow!(
-            "No record from the database after saving event message {log_message:?}"
-        ))
+        rows.next().with_context(|| {
+            format!("No record from the database after saving event message {log_message:?}")
+        })
     }
 }
 

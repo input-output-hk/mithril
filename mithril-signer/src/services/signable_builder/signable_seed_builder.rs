@@ -3,7 +3,7 @@
 //! This service is responsible for computing the seed protocol message
 //! that is used by the [SignableBuilder] to compute the final protocol message.
 //!
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -68,8 +68,8 @@ impl SignableSeedBuilder for SignerSignableSeedBuilder {
             .protocol_initializer_store
             .get_protocol_initializer(next_signer_retrieval_epoch)
             .await?
-            .ok_or_else(|| {
-                anyhow!("can not get protocol_initializer at epoch {next_signer_retrieval_epoch}")
+            .with_context(|| {
+                format!("can not get protocol_initializer at epoch {next_signer_retrieval_epoch}")
             })?;
         let next_signers_with_stake = epoch_service.next_signers_with_stake().await?;
         let next_aggregate_verification_key =
@@ -86,8 +86,8 @@ impl SignableSeedBuilder for SignerSignableSeedBuilder {
             .protocol_initializer_store
             .get_protocol_initializer(next_signer_retrieval_epoch)
             .await?
-            .ok_or_else(|| {
-                anyhow!("can not get protocol_initializer at epoch {next_signer_retrieval_epoch}")
+            .with_context(|| {
+                format!("can not get protocol_initializer at epoch {next_signer_retrieval_epoch}")
             })?;
         let next_protocol_parameters: ProtocolParameters =
             next_protocol_initializer.get_protocol_parameters().into();

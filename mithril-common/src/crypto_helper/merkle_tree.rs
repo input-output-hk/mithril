@@ -149,7 +149,7 @@ impl MKProof {
         )
         .verify(self.inner_root.to_owned(), self.inner_leaves.to_owned())?
         .then_some(())
-        .ok_or(anyhow!("Invalid MKProof"))
+        .with_context(|| "Invalid MKProof")
     }
 
     /// Check if the proof contains the given leaves
@@ -158,7 +158,7 @@ impl MKProof {
             .iter()
             .all(|leaf| self.inner_leaves.iter().any(|(_, l)| l.deref() == leaf))
             .then_some(())
-            .ok_or(anyhow!("Leaves not found in the MKProof"))
+            .with_context(|| "Leaves not found in the MKProof")
     }
 
     /// List the leaves of the proof

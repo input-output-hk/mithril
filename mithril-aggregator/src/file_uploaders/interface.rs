@@ -54,7 +54,7 @@ pub trait FileUploader: Sync + Send {
             match self.upload_without_retry(filepath).await {
                 Ok(result) => return Ok(result),
                 Err(e) if nb_attempts >= retry_policy.attempts => {
-                    return Err(anyhow::anyhow!(e).context(format!(
+                    return Err(e.context(format!(
                         "Upload failed after {nb_attempts} attempts. Uploaded file path: {}",
                         filepath.display()
                     )));

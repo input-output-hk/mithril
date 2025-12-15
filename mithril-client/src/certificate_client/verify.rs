@@ -1,4 +1,4 @@
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use async_trait::async_trait;
 use slog::{Logger, trace};
 use std::sync::Arc;
@@ -27,9 +27,11 @@ pub(super) async fn verify_chain(
     client: &CertificateClient,
     certificate_hash: &str,
 ) -> MithrilResult<MithrilCertificate> {
-    let certificate = client.retriever.get(certificate_hash).await?.ok_or(anyhow!(
-        "No certificate exist for hash '{certificate_hash}'"
-    ))?;
+    let certificate = client
+        .retriever
+        .get(certificate_hash)
+        .await?
+        .with_context(|| format!("No certificate exist for hash '{certificate_hash}'"))?;
 
     client.verifier.verify_chain(&certificate).await.with_context(|| {
         format!("Certificate chain of certificate '{certificate_hash}' is invalid")

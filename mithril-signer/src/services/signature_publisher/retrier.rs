@@ -74,8 +74,7 @@ impl SignaturePublisher for SignaturePublisherRetrier {
             {
                 Ok(_) => return Ok(()),
                 Err(e) if nb_attempts >= self.retry_policy.attempts => {
-                    return Err(anyhow::anyhow!(e)
-                        .context(format!("Publish failed after {nb_attempts} attempts")));
+                    return Err(e.context(format!("Publish failed after {nb_attempts} attempts")));
                 }
                 _ => tokio::time::sleep(self.retry_policy.delay_between_attempts).await,
             }

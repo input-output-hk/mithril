@@ -1,4 +1,4 @@
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use clap::Parser;
 use cli_table::{Cell, CellStruct, Table, print_stdout};
 
@@ -82,7 +82,7 @@ impl CardanoDbShowCommand {
                     .await?,
             )
             .await?
-            .ok_or_else(|| anyhow!("Cardano DB not found for digest: '{}'", &self.digest))?;
+            .with_context(|| format!("Cardano DB not found for digest: '{}'", self.digest))?;
 
         if context.is_json_output_enabled() {
             println!("{}", serde_json::to_string(&cardano_db_message)?);
@@ -137,7 +137,9 @@ impl CardanoDbShowCommand {
                     .await?,
             )
             .await?
-            .ok_or_else(|| anyhow!("Cardano DB snapshot not found for hash: '{}'", &self.digest))?;
+            .with_context(|| {
+                format!("Cardano DB snapshot not found for hash: '{}'", self.digest)
+            })?;
 
         if context.is_json_output_enabled() {
             println!("{}", serde_json::to_string(&cardano_db_message)?);

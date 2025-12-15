@@ -1,5 +1,5 @@
+use anyhow::Context;
 use std::{collections::VecDeque, fmt::Debug};
-
 use tokio::sync::Mutex;
 
 use mithril_common::{StdResult, crypto_helper::TryFromBytes, entities::PartyId};
@@ -29,7 +29,7 @@ impl<M: TryFromBytes + Debug + Send + Sync> DmqConsumerClient<M> for DmqConsumer
 
         results
             .pop_front()
-            .ok_or_else(|| anyhow::anyhow!("No more results available in DmqConsumerFake"))?
+            .with_context(|| "No more results available in DmqConsumerFake")?
     }
 }
 

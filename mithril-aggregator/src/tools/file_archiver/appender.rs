@@ -72,8 +72,8 @@ impl AppenderFile {
 
         let location_in_archive = target_file
             .file_name()
-            .ok_or_else(|| {
-                anyhow!(
+            .with_context(|| {
+                format!(
                     "Can not get the file name from the target file path: '{}'",
                     target_file.display()
                 )

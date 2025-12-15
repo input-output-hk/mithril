@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use async_trait::async_trait;
 use tokio::sync::RwLock;
 
@@ -98,7 +98,7 @@ impl SignerRegisterer for MithrilSignerRegistrationLeader {
             .signer_registration_verifier
             .verify(signer, &registration_round.stake_distribution)
             .await
-            .map_err(|e| SignerRegistrationError::FailedSignerRegistration(anyhow!(e)))?;
+            .map_err(SignerRegistrationError::FailedSignerRegistration)?;
 
         self.signer_recorder
             .record_signer_registration(signer_save.party_id.clone())
@@ -116,7 +116,7 @@ impl SignerRegisterer for MithrilSignerRegistrationLeader {
                     registration_round.epoch
                 )
             })
-            .map_err(|e| SignerRegistrationError::Store(anyhow!(e)))?
+            .map_err(SignerRegistrationError::Store)?
         {
             Some(_) => Err(SignerRegistrationError::ExistingSigner(Box::new(
                 signer_save,
