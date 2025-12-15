@@ -1,7 +1,7 @@
-use async_trait::async_trait;
-use mithril_common::StdResult;
 use std::collections::HashMap;
 
+use async_trait::async_trait;
+use mithril_common::StdResult;
 use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake};
 
 /// Store and get signers verification keys for given epoch.

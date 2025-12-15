@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 
-use crate::{Aggregator, Devnet};
 use mithril_common::StdResult;
 use mithril_common::entities::{Epoch, ProtocolParameters};
 use slog_scope::info;
+
+use crate::{Aggregator, Devnet};
 
 pub async fn bootstrap_genesis_certificate(aggregator: &Aggregator) -> StdResult<()> {
     info!("Bootstrap genesis certificate"; "aggregator" => &aggregator.name());

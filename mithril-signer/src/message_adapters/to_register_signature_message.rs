@@ -1,5 +1,4 @@
 use anyhow::Context;
-
 use mithril_common::StdResult;
 use mithril_common::entities::{ProtocolMessage, SignedEntityType, SingleSignature};
 use mithril_common::messages::{RegisterSignatureMessageHttp, TryToMessageAdapter};

@@ -2,13 +2,11 @@
 //!
 //! This service is responsible for dealing with [SignedEntity] type.
 //! It creates [Artifact] that can be accessed by clients.
+use std::sync::Arc;
+
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use chrono::Utc;
-use slog::{Logger, info, warn};
-use std::sync::Arc;
-use tokio::task::JoinHandle;
-
 use mithril_common::{
     StdResult,
     entities::{
@@ -19,13 +17,15 @@ use mithril_common::{
     logging::LoggerExtensions,
     signable_builder::{Artifact, SignedEntity},
 };
+use mithril_signed_entity_lock::SignedEntityTypeLock;
+use slog::{Logger, info, warn};
+use tokio::task::JoinHandle;
 
 use crate::{
     MetricsService,
     artifact_builder::ArtifactBuilder,
     database::{record::SignedEntityRecord, repository::SignedEntityStorer},
 };
-use mithril_signed_entity_lock::SignedEntityTypeLock;
 
 /// ArtifactBuilder Service trait
 #[cfg_attr(test, mockall::automock)]
@@ -499,6 +499,7 @@ impl SignedEntityService for MithrilSignedEntityService {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::AtomicBool;
     use std::{sync::atomic::Ordering, time::Duration};
 
     use mithril_common::{
@@ -508,13 +509,11 @@ mod tests {
     };
     use mithril_metric::CounterValue;
     use serde::{Serialize, de::DeserializeOwned};
-    use std::sync::atomic::AtomicBool;
 
+    use super::*;
     use crate::artifact_builder::MockArtifactBuilder;
     use crate::database::repository::MockSignedEntityStorer;
     use crate::test::TestLogger;
-
-    use super::*;
 
     fn create_stake_distribution(epoch: Epoch, signers: usize) -> MithrilStakeDistribution {
         MithrilStakeDistribution::new(

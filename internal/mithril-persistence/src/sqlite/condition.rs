@@ -1,5 +1,6 @@
-use sqlite::Value;
 use std::iter::repeat_n;
+
+use sqlite::Value;
 
 /// Internal Boolean representation
 #[derive(Debug, Clone)]

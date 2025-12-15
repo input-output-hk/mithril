@@ -7,9 +7,8 @@ use ff::Field;
 use group::Curve;
 use rand_core::{CryptoRng, RngCore};
 
-use crate::StmResult;
-
 use super::SchnorrSignatureError;
+use crate::StmResult;
 
 /// Check if the given point is on the curve using its coordinates
 pub fn is_on_curve(point: JubjubExtended) -> bool {

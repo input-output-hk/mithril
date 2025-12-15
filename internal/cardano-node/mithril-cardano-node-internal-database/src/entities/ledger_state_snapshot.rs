@@ -3,10 +3,10 @@ use std::{
     ffi::OsString,
     path::{Path, PathBuf},
 };
-use thiserror::Error;
-use walkdir::WalkDir;
 
 use mithril_common::entities::SlotNumber;
+use thiserror::Error;
+use walkdir::WalkDir;
 
 use crate::LEDGER_DIR;
 

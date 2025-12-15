@@ -4,24 +4,24 @@
 //!
 //! A [FeedbackReceiver] using [indicatif] is used to nicely report the progress to the console.
 
+use std::fmt::Write;
+use std::path::PathBuf;
+use std::str::FromStr;
+use std::sync::Arc;
+use std::time::Duration;
+
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use clap::Parser;
 use futures::Future;
 use indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
 use mithril_client::cardano_database_client::{DownloadUnpackOptions, ImmutableFileRange};
-use std::fmt::Write;
-use std::path::PathBuf;
-use std::str::FromStr;
-use std::sync::Arc;
-use std::time::Duration;
-use tokio::sync::RwLock;
-
 use mithril_client::feedback::{FeedbackReceiver, MithrilEvent, MithrilEventCardanoDatabase};
 use mithril_client::{
     AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder, MithrilError,
     MithrilResult,
 };
+use tokio::sync::RwLock;
 
 #[derive(Parser, Debug)]
 #[command(version)]

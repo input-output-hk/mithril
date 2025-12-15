@@ -1,12 +1,11 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use slog::{Logger, debug, trace};
-use tokio::sync::Mutex;
-
 use mithril_common::StdResult;
 use mithril_common::entities::BlockNumber;
 use mithril_common::logging::LoggerExtensions;
+use slog::{Logger, debug, trace};
+use tokio::sync::Mutex;
 
 use crate::chain_reader::ChainBlockReader;
 use crate::chain_scanner::{BlockStreamer, ChainScannedBlocks};
@@ -173,11 +172,10 @@ impl ChainReaderBlockStreamer {
 mod tests {
     use mithril_common::entities::SlotNumber;
 
+    use super::*;
     use crate::entities::ScannedBlock;
     use crate::test::TestLogger;
     use crate::test::double::FakeChainReader;
-
-    use super::*;
 
     /// The maximum number of roll forwards during a poll
     const MAX_ROLL_FORWARDS_PER_POLL: usize = 100;

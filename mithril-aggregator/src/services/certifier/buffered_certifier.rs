@@ -1,13 +1,13 @@
-use async_trait::async_trait;
-use slog::{Logger, debug, trace, warn};
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use mithril_common::StdResult;
 use mithril_common::entities::{
     Certificate, Epoch, ProtocolMessage, SignedEntityType, SignedEntityTypeDiscriminants,
     SingleSignature,
 };
 use mithril_common::logging::LoggerExtensions;
+use slog::{Logger, debug, trace, warn};
 
 use crate::entities::OpenMessage;
 use crate::services::{
@@ -184,23 +184,21 @@ impl CertifierService for BufferedCertifierService {
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
-    use mockall::predicate::eq;
-
     use mithril_common::entities::SignedEntityTypeDiscriminants::{
         CardanoTransactions, MithrilStakeDistribution,
     };
     use mithril_common::entities::SingleSignatureAuthenticationStatus;
     use mithril_common::test::double::{Dummy, fake_data};
     use mithril_common::test::entities_extensions::SingleSignatureTestExtension;
+    use mockall::predicate::eq;
 
+    use super::*;
     use crate::database::repository::BufferedSingleSignatureRepository;
     use crate::database::test_helper::main_db_connection;
     use crate::services::{
         CertifierServiceError, MockBufferedSingleSignatureStore, MockCertifierService,
     };
     use crate::test::TestLogger;
-
-    use super::*;
 
     fn mock_certifier(
         certifier_mock_config: impl FnOnce(&mut MockCertifierService),

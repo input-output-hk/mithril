@@ -1,10 +1,9 @@
 use async_trait::async_trait;
-use slog::{Logger, debug};
-
 use mithril_cardano_node_internal_database::entities::AncillaryFilesManifest;
 use mithril_common::StdResult;
 use mithril_common::crypto_helper::{ManifestSignature, ManifestSigner};
 use mithril_common::logging::LoggerExtensions;
+use slog::{Logger, debug};
 
 use super::AncillarySigner;
 
@@ -41,9 +40,8 @@ mod tests {
     use std::collections::BTreeMap;
     use std::path::PathBuf;
 
-    use crate::test::TestLogger;
-
     use super::*;
+    use crate::test::TestLogger;
 
     #[tokio::test]
     async fn computed_signature_signs_manifest_hash() {

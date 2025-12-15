@@ -1,9 +1,9 @@
-use async_trait::async_trait;
 use std::fs;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 
+use async_trait::async_trait;
 use mithril_common::StdResult;
 use mithril_common::entities::{CompressionAlgorithm, ImmutableFileNumber};
 

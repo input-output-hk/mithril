@@ -2,6 +2,9 @@ use std::sync::Arc;
 
 use anyhow::Ok;
 use async_trait::async_trait;
+use mithril_common::{StdResult, crypto_helper::ProtocolInitializer, entities::Epoch};
+use mithril_persistence::sqlite::ConnectionExtensions;
+use mithril_persistence::{sqlite::SqliteConnection /*store::adapter::StoreAdapter*/};
 
 use crate::database::query::{
     DeleteProtocolInitializerQuery, InsertOrIgnoreProtocolInitializerQuery,
@@ -11,9 +14,6 @@ use crate::{
     database::query::GetProtocolInitializerQuery, services::EpochPruningTask,
     store::ProtocolInitializerStorer,
 };
-use mithril_common::{StdResult, crypto_helper::ProtocolInitializer, entities::Epoch};
-use mithril_persistence::sqlite::ConnectionExtensions;
-use mithril_persistence::{sqlite::SqliteConnection /*store::adapter::StoreAdapter*/};
 
 /// Implementation of the ProtocolInitializerStorer
 pub struct ProtocolInitializerRepository {

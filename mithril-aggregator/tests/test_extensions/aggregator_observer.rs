@@ -1,6 +1,6 @@
-use anyhow::{Context, anyhow};
 use std::sync::Arc;
 
+use anyhow::{Context, anyhow};
 use mithril_aggregator::{
     dependency_injection::{DependenciesBuilder, EpochServiceWrapper},
     entities::OpenMessage,

@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
 use std::fmt::Display;
-use thiserror::Error;
 
 use mithril_common::MagicId;
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum DmqNetworkError {

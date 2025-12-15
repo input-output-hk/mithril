@@ -1,9 +1,9 @@
-use anyhow::Context;
-use semver::Version;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use anyhow::Context;
 use mithril_common::crypto_helper::ManifestSigner;
+use semver::Version;
 
 use crate::artifact_builder::{
     AncillaryArtifactBuilder, AncillaryFileUploader, CardanoDatabaseArtifactBuilder,
@@ -422,10 +422,9 @@ mod tests {
     use mithril_common::temp_dir_create;
     use mithril_persistence::sqlite::ConnectionBuilder;
 
+    use super::*;
     use crate::ServeCommandConfiguration;
     use crate::dependency_injection::builder::CARDANO_DB_ARTIFACTS_DIR;
-
-    use super::*;
 
     #[tokio::test]
     async fn if_not_local_uploader_create_cardano_database_immutable_dirs() {

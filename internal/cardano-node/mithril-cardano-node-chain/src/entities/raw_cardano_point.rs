@@ -1,7 +1,7 @@
-use pallas_network::miniprotocols::Point as PallasPoint;
 use std::fmt::{Debug, Formatter};
 
 use mithril_common::entities::{ChainPoint, SlotNumber};
+use pallas_network::miniprotocols::Point as PallasPoint;
 
 use crate::entities::ScannedBlock;
 

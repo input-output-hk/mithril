@@ -1,11 +1,10 @@
 use async_trait::async_trait;
-use thiserror::Error;
-
 use mithril_common::entities::{
     Certificate, Epoch, ProtocolMessage, SignedEntityType, SignedEntityTypeDiscriminants,
     SingleSignature,
 };
 use mithril_common::{StdError, StdResult};
+use thiserror::Error;
 
 use crate::entities::OpenMessage;
 

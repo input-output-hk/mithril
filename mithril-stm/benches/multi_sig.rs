@@ -1,9 +1,8 @@
 use blake2::{Blake2b, Digest, digest::consts::U64};
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
+use mithril_stm::{BlsSignature, BlsSigningKey, BlsVerificationKey};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
-
-use mithril_stm::{BlsSignature, BlsSigningKey, BlsVerificationKey};
 
 fn batch_benches(c: &mut Criterion, array_batches: &[usize], nr_sigs: usize) {
     let mut group = c.benchmark_group("MultiSig".to_string());

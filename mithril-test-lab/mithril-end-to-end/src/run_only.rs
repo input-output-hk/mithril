@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
-use slog_scope::info;
-
 use mithril_common::StdResult;
+use slog_scope::info;
 
 use crate::{MithrilInfrastructure, assertions};
 

@@ -3,14 +3,13 @@ use std::num::TryFromIntError;
 use std::ops::{Deref, DerefMut};
 
 use serde::{Deserialize, Serialize};
+#[cfg(target_family = "wasm")]
+use wasm_bindgen::prelude::*;
 
 use crate::entities::arithmetic_operation_wrapper::{
     impl_add_to_wrapper, impl_div_to_wrapper, impl_mul_to_wrapper, impl_partial_eq_to_wrapper,
     impl_rem_to_wrapper, impl_sub_to_wrapper,
 };
-
-#[cfg(target_family = "wasm")]
-use wasm_bindgen::prelude::*;
 
 /// BlockNumber is the block number of a Cardano transaction.
 #[derive(
@@ -57,9 +56,8 @@ impl_partial_eq_to_wrapper!(BlockNumber, u64);
 
 #[cfg(test)]
 mod tests {
-    use crate::entities::arithmetic_operation_wrapper::tests::test_op_assign;
-
     use super::*;
+    use crate::entities::arithmetic_operation_wrapper::tests::test_op_assign;
 
     #[test]
     fn test_display() {

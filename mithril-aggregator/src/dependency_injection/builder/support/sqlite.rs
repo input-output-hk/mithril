@@ -1,10 +1,10 @@
-use anyhow::Context;
+use std::sync::Arc;
 
+use anyhow::Context;
 use mithril_persistence::database::{ApplicationNodeType, SqlMigration};
 use mithril_persistence::sqlite::{
     ConnectionBuilder, ConnectionOptions, SqliteConnection, SqliteConnectionPool,
 };
-use std::sync::Arc;
 
 use crate::dependency_injection::builder::{
     SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION, SQLITE_MONITORING_FILE,

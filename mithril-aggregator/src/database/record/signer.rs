@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-
 use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
 
 /// Signer record is the representation of a stored signer.

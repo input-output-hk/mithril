@@ -1,7 +1,6 @@
-use slog::{Logger, debug};
-
 use mithril_common::StdResult;
 use mithril_common::logging::LoggerExtensions;
+use slog::{Logger, debug};
 
 use crate::sqlite::SqliteConnection;
 
@@ -97,9 +96,8 @@ mod tests {
 
     use mithril_common::test::TempDir;
 
-    use crate::sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection};
-
     use super::*;
+    use crate::sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection};
 
     fn add_test_table(connection: &SqliteConnection) {
         connection

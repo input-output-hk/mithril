@@ -1,5 +1,3 @@
-use criterion::{Criterion, criterion_group, criterion_main};
-use slog::Drain;
 use std::{
     fs,
     fs::File,
@@ -8,6 +6,7 @@ use std::{
     sync::Arc,
 };
 
+use criterion::{Criterion, criterion_group, criterion_main};
 use mithril_cardano_node_internal_database::IMMUTABLE_DIR;
 use mithril_cardano_node_internal_database::digesters::cache::{
     ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProvider,
@@ -17,6 +16,7 @@ use mithril_cardano_node_internal_database::digesters::{
     CardanoImmutableDigester, ImmutableDigester,
 };
 use mithril_common::entities::{CardanoDbBeacon, ImmutableFileNumber};
+use slog::Drain;
 
 fn temp_dir() -> PathBuf {
     std::env::temp_dir().join("mithril_benches").join("digester")

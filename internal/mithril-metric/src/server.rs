@@ -1,3 +1,6 @@
+use std::net::SocketAddr;
+use std::sync::Arc;
+
 use axum::{
     Router,
     body::Body,
@@ -6,14 +9,11 @@ use axum::{
     response::IntoResponse,
     routing::get,
 };
-use slog::{Logger, error, info, warn};
-use std::net::SocketAddr;
-use std::sync::Arc;
-use tokio::net::TcpListener;
-use tokio::sync::watch::Receiver;
-
 use mithril_common::StdResult;
 use mithril_common::logging::LoggerExtensions;
+use slog::{Logger, error, info, warn};
+use tokio::net::TcpListener;
+use tokio::sync::watch::Receiver;
 
 /// Metrics service exporter gives the possibility of exporting metrics.
 pub trait MetricsServiceExporter: Send + Sync {
@@ -148,14 +148,14 @@ impl<T: MetricsServiceExporter + 'static> MetricsServerBuilder<T> {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use anyhow::anyhow;
     use reqwest::StatusCode;
-    use std::time::Duration;
     use tokio::{sync::watch, task::yield_now, time::sleep};
 
-    use crate::helper::test_tools::TestLogger;
-
     use super::*;
+    use crate::helper::test_tools::TestLogger;
 
     pub struct PseudoMetricsService {}
 

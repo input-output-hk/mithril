@@ -74,8 +74,9 @@
 //! # }
 //! ```
 
-use anyhow::Context;
 use std::sync::Arc;
+
+use anyhow::Context;
 
 use crate::{
     CardanoTransactionSnapshot, CardanoTransactionSnapshotListItem, CardanoTransactionsProofs,
@@ -146,17 +147,15 @@ impl CardanoTransactionClient {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::test::mock_extensions::MockBuilder;
     use mockall::predicate::eq;
 
-    use mithril_common::test::mock_extensions::MockBuilder;
-
+    use super::*;
     use crate::common::{BlockNumber, test::Dummy};
     use crate::{
         CardanoTransactionSnapshot, CardanoTransactionSnapshotListItem, CardanoTransactionsProofs,
         CardanoTransactionsSetProof,
     };
-
-    use super::*;
 
     #[tokio::test]
     async fn get_cardano_transactions_snapshot_list() {

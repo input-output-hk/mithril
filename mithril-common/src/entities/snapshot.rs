@@ -1,5 +1,6 @@
-use crate::entities::{CardanoDbBeacon, CompressionAlgorithm};
 use serde::{Deserialize, Serialize};
+
+use crate::entities::{CardanoDbBeacon, CompressionAlgorithm};
 
 /// Snapshot represents a snapshot file and its metadata
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]

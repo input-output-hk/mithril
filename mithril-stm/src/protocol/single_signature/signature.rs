@@ -7,12 +7,11 @@ use anyhow::{Context, anyhow};
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
+use super::SignatureError;
 use crate::{
     AggregateVerificationKey, Index, Parameters, Stake, StmResult, VerificationKey, is_lottery_won,
     signature_scheme::BlsSignature,
 };
-
-use super::SignatureError;
 
 /// Signature created by a single party who has won the lottery.
 #[derive(Debug, Clone, Serialize, Deserialize)]

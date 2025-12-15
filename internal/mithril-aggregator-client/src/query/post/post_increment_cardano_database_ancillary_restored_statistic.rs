@@ -39,14 +39,12 @@ impl AggregatorQuery for PostIncrementCardanoDatabaseAncillaryRestoredStatisticQ
 #[cfg(test)]
 mod tests {
     use httpmock::Method::POST;
-
     use mithril_common::entities::ClientError;
     use mithril_common::test::double::Dummy;
 
+    use super::*;
     use crate::AggregatorHttpClientError;
     use crate::test::{assert_error_matches, setup_server_and_client};
-
-    use super::*;
 
     #[tokio::test]
     async fn test_increment_cdb_ancillary_restored_statistics_ok_201() {

@@ -30,7 +30,6 @@ pub trait TryFromBytes: Sized {
 mod binary_mithril_stm {
     use anyhow::anyhow;
     use blake2::Blake2b;
-
     use digest::consts::U32;
     use mithril_stm::{
         AggregateSignature, AggregateVerificationKey, Initializer, Parameters, SingleSignature,
@@ -206,10 +205,10 @@ mod binary_kes_sig {
 }
 
 mod binary_opcert {
-    use crate::crypto_helper::{OpCert, OpCertWithoutColdVerificationKey, SerDeShelleyFileFormat};
     use anyhow::anyhow;
 
     use super::*;
+    use crate::crypto_helper::{OpCert, OpCertWithoutColdVerificationKey, SerDeShelleyFileFormat};
 
     impl TryToBytes for OpCert {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {
@@ -239,9 +238,8 @@ mod binary_opcert {
 mod binary_mk_proof {
     use serde::{Deserialize, Serialize};
 
-    use crate::crypto_helper::{MKMapKey, MKMapProof, MKProof};
-
     use super::*;
+    use crate::crypto_helper::{MKMapKey, MKMapProof, MKProof};
 
     impl<T: MKMapKey + Serialize + for<'de> Deserialize<'de>> TryToBytes for MKMapProof<T> {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {

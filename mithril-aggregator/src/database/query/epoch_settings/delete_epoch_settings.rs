@@ -1,7 +1,6 @@
-use sqlite::Value;
-
 use mithril_common::entities::Epoch;
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
+use sqlite::Value;
 
 use crate::database::record::EpochSettingsRecord;
 
@@ -50,11 +49,11 @@ impl DeleteEpochSettingsQuery {
 
 #[cfg(test)]
 mod tests {
-    use crate::database::query::GetEpochSettingsQuery;
-    use crate::database::test_helper::{insert_epoch_settings, main_db_connection};
     use mithril_persistence::sqlite::ConnectionExtensions;
 
     use super::*;
+    use crate::database::query::GetEpochSettingsQuery;
+    use crate::database::test_helper::{insert_epoch_settings, main_db_connection};
 
     #[test]
     fn test_delete_by_epoch() {

@@ -37,10 +37,9 @@ mod tests {
     use mithril_common::test::double::Dummy;
     use mithril_persistence::sqlite::ConnectionExtensions;
 
+    use super::*;
     use crate::database::query::GetOpenMessageQuery;
     use crate::database::test_helper::main_db_connection;
-
-    use super::*;
 
     #[test]
     fn test_insert_one() {

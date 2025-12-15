@@ -1,9 +1,9 @@
-use slog::{Logger, debug};
 use std::sync::Arc;
 
 use mithril_common::StdResult;
 use mithril_common::entities::{SingleSignature, SingleSignatureAuthenticationStatus};
 use mithril_common::logging::LoggerExtensions;
+use slog::{Logger, debug};
 
 use crate::MultiSigner;
 
@@ -115,13 +115,11 @@ impl SingleSignatureAuthenticator {
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
-
     use mithril_common::test::entities_extensions::SingleSignatureTestExtension;
 
+    use super::*;
     use crate::multi_signer::MockMultiSigner;
     use crate::test::TestLogger;
-
-    use super::*;
 
     fn mock_multi_signer(
         multi_signer_mock_config: impl FnOnce(&mut MockMultiSigner),

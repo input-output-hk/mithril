@@ -49,9 +49,8 @@ mod tests {
     };
     use mithril_persistence::sqlite::ConnectionExtensions;
 
-    use crate::database::test_helper::{insert_epoch_settings, main_db_connection};
-
     use super::*;
+    use crate::database::test_helper::{insert_epoch_settings, main_db_connection};
 
     #[test]
     fn test_get_epoch_settings() {

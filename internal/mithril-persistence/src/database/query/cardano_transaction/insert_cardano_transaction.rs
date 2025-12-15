@@ -1,8 +1,7 @@
 use std::iter::repeat_n;
 
-use sqlite::Value;
-
 use mithril_common::StdResult;
+use sqlite::Value;
 
 use crate::database::record::CardanoTransactionRecord;
 use crate::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};

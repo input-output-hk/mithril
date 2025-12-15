@@ -1,10 +1,6 @@
-use crate::ServeCommandDependenciesContainer;
-use crate::http_server::SERVER_BASE_PATH;
-use crate::http_server::routes::{
-    artifact_routes, certificate_routes, epoch_routes, protocol_configuration_routes, root_routes,
-    signatures_routes, signer_routes, statistics_routes, status,
-};
-use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
+use std::collections::{BTreeSet, HashSet};
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::entities::SignedEntityTypeDiscriminants;
@@ -14,15 +10,18 @@ use mithril_common::{
     AggregateSignatureType, CardanoNetwork, MITHRIL_API_VERSION_HEADER, MITHRIL_CLIENT_TYPE_HEADER,
     MITHRIL_ORIGIN_TAG_HEADER,
 };
-
-use std::collections::{BTreeSet, HashSet};
-use std::path::PathBuf;
-use std::sync::Arc;
 use warp::http::Method;
 use warp::http::StatusCode;
 use warp::{Filter, Rejection, Reply};
 
 use super::{middlewares, proof_routes};
+use crate::ServeCommandDependenciesContainer;
+use crate::http_server::SERVER_BASE_PATH;
+use crate::http_server::routes::{
+    artifact_routes, certificate_routes, epoch_routes, protocol_configuration_routes, root_routes,
+    signatures_routes, signer_routes, statistics_routes, status,
+};
+use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
 
 /// HTTP Server configuration
 pub struct RouterConfig {
@@ -168,13 +167,11 @@ pub async fn handle_custom(reject: Rejection) -> Result<impl Reply, Rejection> {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
     use warp::test::RequestBuilder;
 
-    use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
-
-    use crate::initialize_dependencies;
-
     use super::*;
+    use crate::initialize_dependencies;
 
     #[tokio::test]
     async fn test_404_response_should_include_status_code_and_headers() {

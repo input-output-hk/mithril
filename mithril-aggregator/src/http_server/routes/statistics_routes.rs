@@ -79,13 +79,13 @@ fn post_cardano_database_partial_restoration(
 }
 
 mod handlers {
-    use slog::warn;
     use std::{convert::Infallible, sync::Arc};
-    use warp::http::StatusCode;
 
     use mithril_common::messages::{
         CardanoDatabaseImmutableFilesRestoredMessage, SnapshotDownloadMessage,
     };
+    use slog::warn;
+    use warp::http::StatusCode;
 
     use crate::MetricsService;
     use crate::event_store::{EventMessage, TransmitterService};
@@ -219,14 +219,8 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::Value;
     use std::path::PathBuf;
     use std::sync::Arc;
-    use tokio::sync::mpsc::UnboundedReceiver;
-    use warp::{
-        http::{Method, StatusCode},
-        test::request,
-    };
 
     use mithril_api_spec::APISpec;
     use mithril_common::messages::{
@@ -235,15 +229,20 @@ mod tests {
     use mithril_common::{
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER, temp_dir, test::double::Dummy,
     };
+    use serde_json::Value;
+    use tokio::sync::mpsc::UnboundedReceiver;
+    use warp::{
+        http::{Method, StatusCode},
+        test::request,
+    };
 
+    use super::*;
     use crate::ServeCommandDependenciesContainer;
     use crate::event_store::EventMessage;
     use crate::{
         ServeCommandConfiguration, dependency_injection::DependenciesBuilder,
         initialize_dependencies,
     };
-
-    use super::*;
 
     fn setup_router(
         state: RouterState,

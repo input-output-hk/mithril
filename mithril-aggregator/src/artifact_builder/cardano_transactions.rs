@@ -10,9 +10,8 @@ use mithril_common::{
     },
 };
 
-use crate::services::ProverService;
-
 use super::ArtifactBuilder;
+use crate::services::ProverService;
 
 /// A [CardanoTransactionsArtifact] builder
 pub struct CardanoTransactionsArtifactBuilder {
@@ -60,9 +59,8 @@ impl ArtifactBuilder<BlockNumber, CardanoTransactionsSnapshot>
 mod tests {
     use mithril_common::{entities::ProtocolMessage, test::double::fake_data};
 
-    use crate::services::MockProverService;
-
     use super::*;
+    use crate::services::MockProverService;
 
     #[tokio::test]
     async fn should_compute_valid_artifact_with_merkleroot() {

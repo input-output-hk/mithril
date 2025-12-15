@@ -2,14 +2,13 @@ use std::{fs, path::PathBuf, sync::Arc};
 
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
-use regex::Regex;
-use slog::{Logger, error};
-
 use mithril_common::{
     StdResult,
     entities::{CompressionAlgorithm, ImmutableFileNumber, ImmutablesLocation, MultiFilesUri},
     logging::LoggerExtensions,
 };
+use regex::Regex;
+use slog::{Logger, error};
 
 use crate::{
     DumbUploader, FileUploader,
@@ -284,12 +283,11 @@ mod tests {
         test::{TempDir, assert_equivalent, equivalent_to},
     };
 
+    use super::*;
     use crate::services::ancillary_signer::MockAncillarySigner;
     use crate::services::{CompressedArchiveSnapshotter, DumbSnapshotter, MockSnapshotter};
     use crate::test::TestLogger;
     use crate::tools::file_archiver::FileArchiver;
-
-    use super::*;
 
     fn fake_uploader(
         archive_paths: Vec<&str>,
@@ -697,7 +695,6 @@ mod tests {
 
     mod upload {
         use super::MockImmutableFilesUploader;
-
         use super::*;
 
         #[test]
@@ -855,10 +852,9 @@ mod tests {
     mod batch_upload {
         use mithril_common::test::TempDir;
 
+        use super::*;
         use crate::file_uploaders::FileUploadRetryPolicy;
         use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
-
-        use super::*;
 
         fn create_fake_archive(dir: &Path, name: &str) -> PathBuf {
             let file_path = dir.join(name);

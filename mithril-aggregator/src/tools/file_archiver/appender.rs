@@ -1,10 +1,10 @@
-use anyhow::{Context, anyhow};
-use serde::Serialize;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
+use anyhow::{Context, anyhow};
 use mithril_common::StdResult;
+use serde::Serialize;
 
 use crate::tools::file_size;
 
@@ -263,10 +263,9 @@ mod tests {
     use mithril_common::entities::CompressionAlgorithm;
     use mithril_common::{assert_dir_eq, temp_dir_create};
 
+    use super::*;
     use crate::tools::file_archiver::test_tools::*;
     use crate::tools::file_archiver::{ArchiveParameters, FileArchiver};
-
-    use super::*;
 
     mod appender_entries {
         use super::*;

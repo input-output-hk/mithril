@@ -1,7 +1,7 @@
-use crate::entities::{ProtocolParameters, ProtocolVersion, StakeDistributionParty};
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
+use crate::entities::{ProtocolParameters, ProtocolVersion, StakeDistributionParty};
 
 /// CertificateMetadata represents the metadata associated to a Certificate
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

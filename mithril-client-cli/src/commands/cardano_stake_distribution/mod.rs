@@ -2,12 +2,12 @@
 mod download;
 mod list;
 
+use clap::Subcommand;
 pub use download::*;
 pub use list::*;
+use mithril_client::MithrilResult;
 
 use crate::CommandContext;
-use clap::Subcommand;
-use mithril_client::MithrilResult;
 
 /// Cardano stake distribution management (alias: csd)
 #[derive(Subcommand, Debug, Clone)]

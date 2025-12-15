@@ -90,9 +90,10 @@ impl Deprecation {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use clap::error::{ContextKind, ContextValue, ErrorKind};
     use clap::{CommandFactory, Parser, Subcommand};
+
+    use super::*;
 
     #[derive(Parser, Debug, Clone)]
     pub struct MyCommand {

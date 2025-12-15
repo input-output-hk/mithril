@@ -8,8 +8,9 @@ mod routes;
 #[cfg(feature = "fs")]
 mod snapshot_archives;
 
-use mithril_common::test::TempDir;
 use std::path::PathBuf;
+
+use mithril_common::test::TempDir;
 
 pub fn get_test_dir(subdir_name: &str) -> PathBuf {
     TempDir::create("client_integration", subdir_name)

@@ -75,10 +75,12 @@ impl FileArchive {
     /// An 'unpack' directory will be created in the given parent directory.
     #[cfg(test)]
     pub fn unpack_gzip<P: AsRef<Path>>(&self, parent_dir: P) -> PathBuf {
-        use super::test_tools::create_dir;
-        use flate2::read::GzDecoder;
         use std::fs::File;
+
+        use flate2::read::GzDecoder;
         use tar::Archive;
+
+        use super::test_tools::create_dir;
         if self.compression_algorithm != CompressionAlgorithm::Gzip {
             panic!("Only Gzip compression is supported");
         }

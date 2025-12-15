@@ -110,7 +110,6 @@ impl CertificateGenesisProducer {
 #[cfg(test)]
 mod tests {
     use super::*;
-
     use crate::{entities::ProtocolMessagePartKey, test::builder::MithrilFixtureBuilder};
 
     #[test]

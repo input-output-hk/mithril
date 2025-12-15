@@ -158,9 +158,8 @@ pub struct CardanoDatabaseSnapshotMessage {
 
 #[cfg(test)]
 mod tests {
-    use crate::entities::{CompressionAlgorithm, Epoch, MultiFilesUri, TemplateUri};
-
     use super::*;
+    use crate::entities::{CompressionAlgorithm, Epoch, MultiFilesUri, TemplateUri};
 
     const CURRENT_JSON: &str = r#"
     {

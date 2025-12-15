@@ -1,11 +1,12 @@
 mod demonstrator;
 mod types;
 
-use crate::demonstrator::{Demonstrator, ProtocolDemonstrator};
 use clap::{CommandFactory, Parser, Subcommand};
 use mithril_doc::GenerateDocCommands;
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
+
+use crate::demonstrator::{Demonstrator, ProtocolDemonstrator};
 
 /// Simple demonstration of the Mithril protocol
 #[derive(Parser, Debug, PartialEq)]

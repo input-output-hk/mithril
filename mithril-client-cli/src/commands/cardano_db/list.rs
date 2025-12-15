@@ -1,6 +1,5 @@
 use clap::Parser;
 use cli_table::{Cell, Table, format::Justify, print_stdout};
-
 use mithril_client::common::{EpochSpecifier, SignedEntityTypeDiscriminants};
 use mithril_client::{Client, MithrilResult, RequiredAggregatorCapabilities};
 

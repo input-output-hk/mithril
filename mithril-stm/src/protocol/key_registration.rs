@@ -95,9 +95,8 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use crate::signature_scheme::BlsSigningKey;
-
     use super::*;
+    use crate::signature_scheme::BlsSigningKey;
 
     proptest! {
         #[test]

@@ -1,5 +1,6 @@
-use sqlite::CursorWithOwnership;
 use std::marker::PhantomData;
+
+use sqlite::CursorWithOwnership;
 
 use super::SqLiteEntity;
 

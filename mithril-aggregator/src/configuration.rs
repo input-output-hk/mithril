@@ -4,8 +4,6 @@ use std::str::FromStr;
 
 use anyhow::Context;
 use config::{ConfigError, Map, Source, Value, ValueKind};
-use serde::{Deserialize, Serialize};
-
 use mithril_cardano_node_chain::chain_observer::ChainObserverType;
 use mithril_cli_helper::{register_config_value, serde_deserialization};
 use mithril_common::crypto_helper::{ManifestSigner, ProtocolGenesisSigner};
@@ -19,6 +17,7 @@ use mithril_common::{AggregateSignatureType, CardanoNetwork, StdResult};
 use mithril_dmq::DmqNetwork;
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use mithril_era::adapters::EraReaderAdapterType;
+use serde::{Deserialize, Serialize};
 
 use crate::entities::AggregatorEpochSettings;
 use crate::http_server::SERVER_BASE_PATH;

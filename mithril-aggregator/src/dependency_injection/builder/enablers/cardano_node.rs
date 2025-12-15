@@ -1,7 +1,6 @@
-use anyhow::Context;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 
+use anyhow::Context;
 use mithril_cardano_node_chain::{
     chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType},
     chain_reader::{ChainBlockReader, PallasChainReader},
@@ -15,6 +14,7 @@ use mithril_common::entities::SignedEntityTypeDiscriminants;
 use mithril_signed_entity_preloader::{
     CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
 };
+use tokio::sync::Mutex;
 
 use crate::ExecutionEnvironment;
 use crate::dependency_injection::{DependenciesBuilder, Result};
@@ -166,9 +166,8 @@ impl DependenciesBuilder {
 mod tests {
     use mithril_common::{entities::SignedEntityTypeDiscriminants, temp_dir};
 
-    use crate::ServeCommandConfiguration;
-
     use super::*;
+    use crate::ServeCommandConfiguration;
 
     #[tokio::test]
     async fn cardano_transactions_preloader_activated_with_cardano_transactions_signed_entity_type_in_configuration()

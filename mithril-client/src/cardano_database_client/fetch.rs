@@ -62,14 +62,12 @@ mod tests {
 
     use anyhow::anyhow;
     use chrono::{DateTime, Utc};
+    use mithril_common::entities::{CardanoDbBeacon, Epoch};
     use mockall::predicate::eq;
 
-    use mithril_common::entities::{CardanoDbBeacon, Epoch};
-
+    use super::*;
     use crate::cardano_database_client::CardanoDatabaseClientDependencyInjector;
     use crate::common::test::Dummy;
-
-    use super::*;
 
     fn fake_messages() -> Vec<CardanoDatabaseSnapshotListItem> {
         vec![

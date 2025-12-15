@@ -1,6 +1,5 @@
-use sqlite::Value;
-
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
+use sqlite::Value;
 
 use crate::database::record::SignerRegistrationRecord;
 
@@ -66,9 +65,8 @@ mod tests {
     use mithril_common::test::builder::MithrilFixtureBuilder;
     use mithril_persistence::sqlite::ConnectionExtensions;
 
-    use crate::database::test_helper::main_db_connection;
-
     use super::*;
+    use crate::database::test_helper::main_db_connection;
 
     #[test]
     fn test_update_signer_registration_record() {

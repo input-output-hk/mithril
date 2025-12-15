@@ -3,14 +3,13 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use slog::{Logger, info};
-
 use mithril_common::{
     StdResult,
     entities::{CardanoDbBeacon, ProtocolMessage, ProtocolMessagePartKey},
     logging::LoggerExtensions,
     signable_builder::SignableBuilder,
 };
+use slog::{Logger, info};
 
 use crate::digesters::ImmutableDigester;
 
@@ -69,10 +68,9 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoDatabaseSignableBuilder {
 mod tests {
     use mithril_common::crypto_helper::{MKTree, MKTreeStoreInMemory};
 
+    use super::*;
     use crate::test::TestLogger;
     use crate::test::double::DumbImmutableDigester;
-
-    use super::*;
 
     #[tokio::test]
     async fn compute_signable() {

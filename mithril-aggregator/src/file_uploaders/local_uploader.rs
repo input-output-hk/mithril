@@ -1,10 +1,10 @@
-use anyhow::Context;
-use async_trait::async_trait;
-use slog::{Logger, debug};
 use std::path::{Path, PathBuf};
 
+use anyhow::Context;
+use async_trait::async_trait;
 use mithril_common::StdResult;
 use mithril_common::{entities::FileUri, logging::LoggerExtensions};
+use slog::{Logger, debug};
 
 use crate::file_uploaders::{FileUploadRetryPolicy, FileUploader};
 use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
@@ -94,9 +94,8 @@ mod tests {
 
     use mithril_common::test::TempDir;
 
-    use crate::test::TestLogger;
-
     use super::*;
+    use crate::test::TestLogger;
 
     fn create_fake_archive(dir: &Path, name: &str) -> PathBuf {
         let file_path = dir.join(format!("{name}.tar.gz"));

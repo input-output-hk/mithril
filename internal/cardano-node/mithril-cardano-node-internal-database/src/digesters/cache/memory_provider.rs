@@ -1,8 +1,8 @@
-use async_trait::async_trait;
 use std::collections::{BTreeMap, HashMap};
-use tokio::sync::RwLock;
 
+use async_trait::async_trait;
 use mithril_common::entities::{HexEncodedDigest, ImmutableFileName};
+use tokio::sync::RwLock;
 
 use crate::entities::ImmutableFile;
 use crate::{

@@ -2,10 +2,9 @@ use std::collections::BTreeMap;
 use std::io;
 
 use async_trait::async_trait;
-use thiserror::Error;
-
 use mithril_common::StdError;
 use mithril_common::entities::{HexEncodedDigest, ImmutableFileName};
+use thiserror::Error;
 
 use crate::entities::ImmutableFile;
 

@@ -1,7 +1,6 @@
-use sqlite::Row;
-
 use mithril_common::crypto_helper::MKTreeNode;
 use mithril_common::entities::{BlockNumber, BlockRange};
+use sqlite::Row;
 
 use crate::database::Hydrator;
 use crate::sqlite::{HydrationError, Projection, SqLiteEntity};

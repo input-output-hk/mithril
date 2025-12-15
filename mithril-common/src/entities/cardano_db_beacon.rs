@@ -1,6 +1,7 @@
+use std::fmt::{Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::fmt::{Display, Formatter};
 
 use crate::entities::{Epoch, ImmutableFileNumber};
 

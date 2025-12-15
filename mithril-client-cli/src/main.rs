@@ -1,19 +1,15 @@
 #![doc = include_str!("../README.md")]
 
-use anyhow::{Context, anyhow};
-use clap::{CommandFactory, Parser, Subcommand};
-use config::{Map, Source, Value};
-use mithril_cli_helper::{register_config_value, register_config_value_option};
-use slog::{Drain, Fuse, Level, Logger, debug};
-use slog_term::Decorator;
 use std::collections::HashMap;
 use std::io::Write;
 use std::sync::Arc;
 use std::{fs::File, path::PathBuf};
 
+use anyhow::{Context, anyhow};
+use clap::{CommandFactory, Parser, Subcommand};
+use config::{Map, Source, Value};
+use mithril_cli_helper::{register_config_value, register_config_value_option};
 use mithril_client::MithrilResult;
-use mithril_doc::{Documenter, GenerateDocCommands, StructDoc};
-
 use mithril_client_cli::commands::{
     DeprecatedCommand, Deprecation, cardano_db::CardanoDbCommands,
     cardano_stake_distribution::CardanoStakeDistributionCommands,
@@ -21,6 +17,9 @@ use mithril_client_cli::commands::{
     mithril_stake_distribution::MithrilStakeDistributionCommands, tools::ToolsCommands,
 };
 use mithril_client_cli::{ClapError, CommandContext, ConfigParameters};
+use mithril_doc::{Documenter, GenerateDocCommands, StructDoc};
+use slog::{Drain, Fuse, Level, Logger, debug};
+use slog_term::Decorator;
 
 enum LogOutputType {
     StdErr,

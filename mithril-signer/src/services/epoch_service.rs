@@ -1,14 +1,7 @@
-use async_trait::async_trait;
-use mithril_protocol_config::model::MithrilNetworkConfiguration;
-use slog::{Logger, debug, trace, warn};
 use std::collections::BTreeSet;
 use std::sync::Arc;
-use thiserror::Error;
 
-use crate::RunnerError;
-use crate::dependency_injection::EpochServiceWrapper;
-use crate::services::SignedEntityConfigProvider;
-use crate::store::ProtocolInitializerStorer;
+use async_trait::async_trait;
 use mithril_common::StdResult;
 use mithril_common::crypto_helper::ProtocolInitializer;
 use mithril_common::entities::{
@@ -17,6 +10,14 @@ use mithril_common::entities::{
 };
 use mithril_common::logging::LoggerExtensions;
 use mithril_persistence::store::StakeStorer;
+use mithril_protocol_config::model::MithrilNetworkConfiguration;
+use slog::{Logger, debug, trace, warn};
+use thiserror::Error;
+
+use crate::RunnerError;
+use crate::dependency_injection::EpochServiceWrapper;
+use crate::services::SignedEntityConfigProvider;
+use crate::store::ProtocolInitializerStorer;
 
 /// Errors dedicated to the EpochService.
 #[derive(Debug, Error)]
@@ -425,24 +426,22 @@ pub(crate) mod mock_epoch_service {
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
-    use tokio::sync::RwLock;
 
     use mithril_common::entities::{Epoch, StakeDistribution};
     use mithril_common::test::{
         builder::MithrilFixtureBuilder,
         double::{Dummy, fake_data},
     };
-
     use mithril_protocol_config::model::{
         MithrilNetworkConfigurationForEpoch, SignedEntityTypeConfiguration,
     };
+    use tokio::sync::RwLock;
 
+    use super::*;
     use crate::database::repository::{ProtocolInitializerRepository, StakePoolStore};
     use crate::database::test_helper::main_db_connection;
     use crate::services::MithrilProtocolInitializerBuilder;
     use crate::test_tools::TestLogger;
-
-    use super::*;
 
     #[test]
     fn test_is_signer_included_in_current_stake_distribution_returns_error_when_epoch_settings_is_not_set()

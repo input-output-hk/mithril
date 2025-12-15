@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
-use mithril_metric::{MetricCounterWithLabels, MetricsServiceExporter, build_metrics_service};
-
 use mithril_metric::metric::{MetricCollector, MetricCounter};
+use mithril_metric::{MetricCounterWithLabels, MetricsServiceExporter, build_metrics_service};
 use prometheus::proto::{LabelPair, Metric, MetricFamily};
 
 // Those are three differents dimensions, they use the same value to simplify usage in Grafana
@@ -198,9 +197,8 @@ impl Default for MetricLabelValueMap {
 
 #[cfg(test)]
 mod tests {
-    use crate::test::TestLogger;
-
     use super::*;
+    use crate::test::TestLogger;
 
     #[test]
     fn should_export_counter_metrics_in_a_map() {

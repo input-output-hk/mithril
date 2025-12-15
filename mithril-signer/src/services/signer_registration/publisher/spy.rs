@@ -1,7 +1,6 @@
-use tokio::sync::RwLock;
-
 use mithril_common::StdResult;
 use mithril_common::entities::{Epoch, Signer};
+use tokio::sync::RwLock;
 
 use crate::services::SignerRegistrationPublisher;
 

@@ -74,12 +74,14 @@ async fn fetch_epoch_header_value(
 }
 
 mod handlers {
-    use mithril_common::messages::{RegisterSignerMessage, TryFromMessageAdapter};
-    use slog::{Logger, debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
+
+    use mithril_common::messages::{RegisterSignerMessage, TryFromMessageAdapter};
+    use slog::{Logger, debug, warn};
     use warp::http::StatusCode;
 
+    use super::*;
     use crate::{
         FromRegisterSignerAdapter, MetricsService, SignerRegisterer, SignerRegistrationError,
         VerificationKeyStorer,
@@ -93,8 +95,6 @@ mod handlers {
             routes::{reply, signer_routes::fetch_epoch_header_value},
         },
     };
-
-    use super::*;
 
     /// Register Signer
     #[allow(clippy::too_many_arguments)]
@@ -241,16 +241,9 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::anyhow;
-    use mockall::predicate::eq;
-    use serde_json::Value::Null;
     use std::sync::Arc;
-    use tokio::sync::RwLock;
-    use warp::{
-        http::{Method, StatusCode},
-        test::request,
-    };
 
+    use anyhow::anyhow;
     use mithril_api_spec::APISpec;
     use mithril_common::{
         MITHRIL_ORIGIN_TAG_HEADER,
@@ -262,7 +255,15 @@ mod tests {
             double::{Dummy, fake_data},
         },
     };
+    use mockall::predicate::eq;
+    use serde_json::Value::Null;
+    use tokio::sync::RwLock;
+    use warp::{
+        http::{Method, StatusCode},
+        test::request,
+    };
 
+    use super::*;
     use crate::{
         SignerRegistrationError,
         database::{record::SignerRecord, repository::MockSignerGetter},
@@ -272,8 +273,6 @@ mod tests {
         store::MockVerificationKeyStorer,
         test::TestLogger,
     };
-
-    use super::*;
 
     fn setup_router(
         state: RouterState,

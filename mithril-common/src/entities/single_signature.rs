@@ -1,6 +1,7 @@
+use std::fmt::{Debug, Formatter};
+
 use mithril_stm::SingleSignature as StmSingleSignature;
 use serde::{Deserialize, Serialize};
-use std::fmt::{Debug, Formatter};
 
 use crate::{
     crypto_helper::ProtocolSingleSignature,
@@ -81,9 +82,8 @@ impl Debug for SingleSignature {
 
 #[cfg(test)]
 mod tests {
-    use crate::test::{builder::MithrilFixtureBuilder, crypto_helper::setup_message};
-
     use super::*;
+    use crate::test::{builder::MithrilFixtureBuilder, crypto_helper::setup_message};
 
     #[test]
     fn single_signatures_should_convert_to_protocol_signatures() {

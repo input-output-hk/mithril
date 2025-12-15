@@ -4,16 +4,13 @@ use std::time::Duration;
 
 use clap::Parser;
 use libp2p::Multiaddr;
-
-use slog::error;
-
 use mithril_common::StdResult;
 #[cfg(feature = "future_dmq")]
 use mithril_dmq::DmqNetwork;
-
-use crate::{SignerRelay, SignerRelayConfiguration, SignerRelayMode};
+use slog::error;
 
 use super::CommandContext;
+use crate::{SignerRelay, SignerRelayConfiguration, SignerRelayMode};
 
 #[derive(Parser, Debug, Clone)]
 pub struct SignerCommand {

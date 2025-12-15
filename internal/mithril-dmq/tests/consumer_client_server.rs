@@ -1,14 +1,13 @@
 #![cfg(unix)]
 use std::sync::Arc;
 
-use tokio::sync::{mpsc::unbounded_channel, watch};
-
 use mithril_common::{current_function, test::TempDir};
 use mithril_dmq::{
     DmqConsumerClient, DmqConsumerClientPallas, DmqConsumerServer, DmqConsumerServerPallas,
     DmqMessage, DmqNetwork,
     test::{fake_message::compute_fake_msg, payload::DmqMessageTestPayload},
 };
+use tokio::sync::{mpsc::unbounded_channel, watch};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn dmq_consumer_client_server() {

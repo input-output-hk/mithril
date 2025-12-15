@@ -1,21 +1,20 @@
-use anyhow::{Context, anyhow};
-use async_trait::async_trait;
-use hex::FromHex;
-use nom::IResult;
-use rand_core::RngCore;
-use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use tokio::process::Command;
 
+use anyhow::{Context, anyhow};
+use async_trait::async_trait;
+use hex::FromHex;
 use mithril_common::crypto_helper::{KesPeriod, encode_bech32};
 use mithril_common::entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, StakeDistribution};
 use mithril_common::{CardanoNetwork, StdResult};
-
-use crate::entities::{ChainAddress, TxDatum};
+use nom::IResult;
+use rand_core::RngCore;
+use serde_json::Value;
+use tokio::process::Command;
 
 use super::interface::{ChainObserver, ChainObserverError};
+use crate::entities::{ChainAddress, TxDatum};
 
 const CARDANO_ERA: &str = "latest";
 
@@ -569,9 +568,8 @@ mod tests {
     use std::collections::BTreeMap;
     use std::ffi::OsStr;
 
-    use crate::test::test_cli_runner::{TestCliRunner, test_expected};
-
     use super::*;
+    use crate::test::test_cli_runner::{TestCliRunner, test_expected};
 
     macro_rules! assert_cli_command {
         ($command:expr, $expected_shell:expr, envs: $envs:expr) => {

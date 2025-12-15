@@ -287,28 +287,27 @@ impl DigestArtifactBuilder {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::anyhow;
-    use flate2::read::GzDecoder;
     use std::{
         collections::BTreeMap,
         fs::{File, read_to_string},
     };
-    use tar::Archive;
 
+    use anyhow::anyhow;
+    use flate2::read::GzDecoder;
     use mithril_common::{
         current_function,
         entities::{CardanoDbBeacon, CompressionAlgorithm},
         messages::{CardanoDatabaseDigestListItemMessage, CardanoDatabaseDigestListMessage},
         test::{TempDir, assert_equivalent, double::Dummy},
     };
+    use tar::Archive;
 
+    use super::*;
     use crate::{
         file_uploaders::FileUploadRetryPolicy,
         immutable_file_digest_mapper::MockImmutableFileDigestMapper, test::TestLogger,
         tools::file_archiver::FileArchiver,
     };
-
-    use super::*;
 
     fn fake_uploader_returning_error() -> MockDigestFileUploader {
         let mut uploader = MockDigestFileUploader::new();

@@ -1,12 +1,12 @@
-use anyhow::Context;
-use reqwest::{Client, IntoUrl, Url};
-use slog::{Logger, o};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
+use anyhow::Context;
 use mithril_common::StdResult;
 use mithril_common::api_version::APIVersionProvider;
+use reqwest::{Client, IntoUrl, Url};
+use slog::{Logger, o};
 
 use crate::client::AggregatorHttpClient;
 

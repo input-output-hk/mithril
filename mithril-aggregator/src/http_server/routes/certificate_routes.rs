@@ -49,9 +49,10 @@ fn certificate_certificate_hash(
 }
 
 mod handlers {
-    use slog::{Logger, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
+
+    use slog::{Logger, warn};
     use warp::http::StatusCode;
 
     use crate::MetricsService;
@@ -129,23 +130,22 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::anyhow;
-    use serde_json::Value::Null;
     use std::sync::Arc;
-    use warp::{
-        http::{Method, StatusCode},
-        test::request,
-    };
 
+    use anyhow::anyhow;
     use mithril_api_spec::APISpec;
     use mithril_common::{
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER, messages::CertificateMessage,
         test::double::fake_data,
     };
-
-    use crate::{initialize_dependencies, services::MockMessageService};
+    use serde_json::Value::Null;
+    use warp::{
+        http::{Method, StatusCode},
+        test::request,
+    };
 
     use super::*;
+    use crate::{initialize_dependencies, services::MockMessageService};
 
     fn setup_router(
         state: RouterState,

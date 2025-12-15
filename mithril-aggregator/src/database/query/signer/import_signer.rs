@@ -1,8 +1,7 @@
 use std::iter::repeat_n;
 
-use sqlite::Value;
-
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
+use sqlite::Value;
 
 use crate::database::record::SignerRecord;
 
@@ -73,9 +72,8 @@ mod tests {
     use chrono::Duration;
     use mithril_persistence::sqlite::ConnectionExtensions;
 
-    use crate::database::test_helper::{insert_signers, main_db_connection};
-
     use super::*;
+    use crate::database::test_helper::{insert_signers, main_db_connection};
 
     #[test]
     fn test_update_signer_record() {

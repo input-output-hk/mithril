@@ -2,6 +2,9 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
+use mithril_common::StdResult;
+use mithril_common::entities::CardanoNetwork;
+use mithril_common::logging::LoggerExtensions;
 use pallas_network::{
     facades::NodeClient,
     miniprotocols::chainsync::{BlockContent, NextResponse},
@@ -9,13 +12,8 @@ use pallas_network::{
 use pallas_traverse::MultiEraBlock;
 use slog::{Logger, debug};
 
-use mithril_common::StdResult;
-use mithril_common::entities::CardanoNetwork;
-use mithril_common::logging::LoggerExtensions;
-
-use crate::entities::{ChainBlockNextAction, RawCardanoPoint, ScannedBlock};
-
 use super::ChainBlockReader;
+use crate::entities::{ChainBlockNextAction, RawCardanoPoint, ScannedBlock};
 
 /// [PallasChainReader] reads blocks with 'chainsync' mini-protocol
 pub struct PallasChainReader {
@@ -150,6 +148,9 @@ impl ChainBlockReader for PallasChainReader {
 // Windows does not support Unix sockets, nor pallas_network::facades::NodeServer
 #[cfg(all(test, unix))]
 mod tests {
+    use std::fs;
+
+    use mithril_common::{current_function, entities::BlockNumber, test::TempDir};
     use pallas_network::{
         facades::NodeServer,
         miniprotocols::{
@@ -157,14 +158,10 @@ mod tests {
             chainsync::{BlockContent, Tip},
         },
     };
-    use std::fs;
     use tokio::net::UnixListener;
 
-    use mithril_common::{current_function, entities::BlockNumber, test::TempDir};
-
-    use crate::test::TestLogger;
-
     use super::*;
+    use crate::test::TestLogger;
 
     /// Enum representing the action to be performed by the server.
     enum ServerAction {

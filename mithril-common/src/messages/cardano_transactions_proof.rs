@@ -1,14 +1,14 @@
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
+#[cfg(target_family = "wasm")]
+use wasm_bindgen::prelude::*;
+
 use crate::StdError;
 use crate::entities::{
     BlockNumber, CardanoTransactionsSetProof, ProtocolMessage, ProtocolMessagePartKey,
     TransactionHash,
 };
 use crate::messages::CardanoTransactionsSetProofMessagePart;
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
-
-#[cfg(target_family = "wasm")]
-use wasm_bindgen::prelude::*;
 
 /// A cryptographic proof for a set of Cardano transactions
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
@@ -183,6 +183,7 @@ impl CardanoTransactionsProofsMessage {
 mod tests {
     use std::sync::Arc;
 
+    use super::*;
     use crate::crypto_helper::{MKMap, MKMapNode, MKProof, MKTreeStoreInMemory};
     use crate::entities::{BlockNumber, BlockRange, CardanoTransaction, SlotNumber};
     use crate::signable_builder::{
@@ -192,8 +193,6 @@ mod tests {
     use crate::test::crypto_helper::MKProofTestExtension;
     use crate::test::double::Dummy;
     use crate::test::entities_extensions::CardanoTransactionsSetProofTestExtension;
-
-    use super::*;
 
     #[test]
     fn verify_malformed_proofs_fail() {

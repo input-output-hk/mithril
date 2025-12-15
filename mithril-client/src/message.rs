@@ -1,21 +1,20 @@
-use anyhow::Context;
-use slog::{Logger, o};
 #[cfg(feature = "fs")]
 use std::{path::Path, sync::Arc};
 
+use anyhow::Context;
 #[cfg(feature = "fs")]
 use mithril_cardano_node_internal_database::digesters::{
     CardanoImmutableDigester, ImmutableDigester,
 };
+#[cfg(feature = "fs")]
+use mithril_common::crypto_helper::MKProof;
 #[cfg(feature = "fs")]
 use mithril_common::entities::SignedEntityType;
 use mithril_common::{
     logging::LoggerExtensions, protocol::SignerBuilder,
     signable_builder::CardanoStakeDistributionSignableBuilder,
 };
-
-#[cfg(feature = "fs")]
-use mithril_common::crypto_helper::MKProof;
+use slog::{Logger, o};
 
 use crate::{
     CardanoStakeDistribution, MithrilCertificate, MithrilResult, MithrilSigner,

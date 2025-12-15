@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-
 use mithril_common::StdResult;
 use mithril_common::entities::{Epoch, StakeDistribution};
 use mithril_common::signable_builder::StakeDistributionRetriever;
@@ -97,9 +96,8 @@ impl EpochPruningTask for StakePoolStore {
 
 #[cfg(test)]
 mod tests {
-    use crate::database::test_helper::{insert_stake_pool, main_db_connection};
-
     use super::*;
+    use crate::database::test_helper::{insert_stake_pool, main_db_connection};
 
     #[tokio::test]
     async fn prune_epoch_settings_older_than_threshold() {

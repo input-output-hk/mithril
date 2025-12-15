@@ -1,9 +1,10 @@
 //! API Version provider service
 include!(concat!(env!("OUT_DIR"), "/open_api.rs"));
-use anyhow::anyhow;
-use semver::{Version, VersionReq};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+use anyhow::anyhow;
+use semver::{Version, VersionReq};
 
 use crate::StdResult;
 
@@ -102,10 +103,9 @@ impl crate::test::api_version_extensions::ApiVersionProviderTestExtension for AP
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use crate::test::api_version_extensions::ApiVersionProviderTestExtension;
     use crate::test::double::DummyApiVersionDiscriminantSource;
-
-    use super::*;
 
     #[test]
     fn test_compute_current_version_default() {

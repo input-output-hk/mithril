@@ -1,11 +1,11 @@
 use async_trait::async_trait;
-
-use super::ArtifactBuilder;
-use crate::dependency_injection::EpochServiceWrapper;
 use mithril_common::{
     StdResult,
     entities::{Certificate, Epoch, MithrilStakeDistribution},
 };
+
+use super::ArtifactBuilder;
+use crate::dependency_injection::EpochServiceWrapper;
 
 /// A [MithrilStakeDistributionArtifact] builder
 pub struct MithrilStakeDistributionArtifactBuilder {
@@ -38,15 +38,15 @@ impl ArtifactBuilder<Epoch, MithrilStakeDistribution> for MithrilStakeDistributi
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use mithril_common::{
         crypto_helper::ProtocolParameters,
         test::double::{Dummy, fake_data},
     };
-    use std::sync::Arc;
     use tokio::sync::RwLock;
 
     use super::*;
-
     use crate::{entities::AggregatorEpochSettings, services::FakeEpochServiceBuilder};
 
     #[tokio::test]

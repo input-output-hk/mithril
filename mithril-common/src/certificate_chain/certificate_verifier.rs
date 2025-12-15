@@ -1,10 +1,13 @@
 //! A module used to validate the Certificate Chain created by an aggregator
 //!
+use std::sync::Arc;
+
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use hex::ToHex;
+#[cfg(test)]
+use mockall::automock;
 use slog::{Logger, debug};
-use std::sync::Arc;
 use thiserror::Error;
 
 use super::CertificateRetriever;
@@ -17,9 +20,6 @@ use crate::entities::{
     Certificate, CertificateSignature, ProtocolMessagePartKey, ProtocolParameters,
 };
 use crate::logging::LoggerExtensions;
-
-#[cfg(test)]
-use mockall::automock;
 
 /// [CertificateVerifier] related errors.
 #[derive(Error, Debug)]
@@ -420,10 +420,10 @@ mod tests {
     use std::collections::HashMap;
 
     use async_trait::async_trait;
+    use mithril_stm::AggregateSignatureType;
     use tokio::sync::Mutex;
 
-    use mithril_stm::AggregateSignatureType;
-
+    use super::*;
     use crate::test::{
         TestLogger,
         builder::{CertificateChainBuilder, CertificateChainBuilderContext, MithrilFixtureBuilder},
@@ -434,8 +434,6 @@ mod tests {
         certificate_chain::certificate_retriever::MockCertificateRetriever,
         crypto_helper::ProtocolClerk,
     };
-
-    use super::*;
 
     macro_rules! assert_error_matches {
         ( $expected_error:path, $error:expr ) => {{

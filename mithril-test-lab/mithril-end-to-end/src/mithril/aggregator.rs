@@ -6,12 +6,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
+use mithril_cardano_node_chain::chain_observer::{ChainObserver, PallasChainObserver};
+use mithril_common::{CardanoNetwork, StdResult, entities};
 use slog_scope::info;
 use tokio::process::Child;
 use tokio::sync::RwLock;
-
-use mithril_cardano_node_chain::chain_observer::{ChainObserver, PallasChainObserver};
-use mithril_common::{CardanoNetwork, StdResult, entities};
 
 use crate::utils::{MithrilCommand, NodeVersion};
 use crate::{

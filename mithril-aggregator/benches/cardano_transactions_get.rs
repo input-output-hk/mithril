@@ -1,13 +1,12 @@
 use std::sync::Arc;
 
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use sqlite::ConnectionThreadSafe;
-
 use mithril_aggregator::services::TransactionStore;
 use mithril_common::entities::{BlockNumber, CardanoTransaction, SlotNumber};
 use mithril_common::test::TempDir;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnectionPool};
+use sqlite::ConnectionThreadSafe;
 
 fn cardano_tx_db_connection(db_file_name: &str) -> ConnectionThreadSafe {
     let db_path =

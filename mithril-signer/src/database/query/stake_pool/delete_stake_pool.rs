@@ -1,7 +1,6 @@
-use sqlite::Value;
-
 use mithril_common::{StdResult, entities::Epoch};
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
+use sqlite::Value;
 
 use crate::database::record::StakePool;
 
@@ -48,11 +47,11 @@ impl DeleteStakePoolQuery {
 
 #[cfg(test)]
 mod tests {
-    use crate::database::query::GetStakePoolQuery;
-    use crate::database::test_helper::{insert_stake_pool, main_db_connection};
     use mithril_persistence::sqlite::ConnectionExtensions;
 
     use super::*;
+    use crate::database::query::GetStakePoolQuery;
+    use crate::database::test_helper::{insert_stake_pool, main_db_connection};
 
     #[test]
     fn test_prune_below_epoch_threshold() {

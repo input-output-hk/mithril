@@ -1,13 +1,13 @@
+use std::collections::HashMap;
+
 use anyhow::{Context, anyhow};
+use mithril_common::{StdError, StdResult};
 use pallas_codec::minicbor::{Decode, Decoder, decode};
 use pallas_primitives::{ToCanonicalJson, alonzo::PlutusData};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
 use strum::{Display, EnumDiscriminants};
 use thiserror::Error;
-
-use mithril_common::{StdError, StdResult};
 
 /// [Datum] represents an inline datum from UTxO.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]

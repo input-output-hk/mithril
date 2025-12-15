@@ -5,10 +5,9 @@ use std::{
 };
 
 use anyhow::{Context, anyhow};
+use mithril_build_script::fake_aggregator::{extract_item_by_epoch, extract_item_list_per_epoch};
 use tokio::sync::RwLock;
 use tracing::{debug, trace};
-
-use mithril_build_script::fake_aggregator::{extract_item_by_epoch, extract_item_list_per_epoch};
 
 use crate::{StdResult, default_values};
 

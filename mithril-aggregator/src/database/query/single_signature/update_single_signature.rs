@@ -1,6 +1,5 @@
-use sqlite::Value;
-
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
+use sqlite::Value;
 
 use crate::database::record::SingleSignatureRecord;
 
@@ -55,10 +54,10 @@ impl Query for UpdateSingleSignatureRecordQuery {
 
 #[cfg(test)]
 mod tests {
-    use crate::database::test_helper::{main_db_connection, setup_single_signature_records};
     use mithril_persistence::sqlite::ConnectionExtensions;
 
     use super::*;
+    use crate::database::test_helper::{main_db_connection, setup_single_signature_records};
 
     #[test]
     fn test_update_single_signature_record() {

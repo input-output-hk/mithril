@@ -1,13 +1,11 @@
 use async_trait::async_trait;
-
 use mithril_cardano_node_chain::chain_observer::{ChainObserver, ChainObserverError};
 use mithril_cardano_node_chain::entities::{ChainAddress, TxDatum};
+use mithril_common::StdResult;
 use mithril_common::certificate_chain::CertificateVerifier;
 use mithril_common::crypto_helper::{KesPeriod, ProtocolGenesisVerificationKey};
 use mithril_common::entities::{Certificate, ChainPoint, Epoch, StakeDistribution};
 use mithril_persistence::store::StakeStorer;
-
-use mithril_common::StdResult;
 use mockall::mock;
 
 mock! {

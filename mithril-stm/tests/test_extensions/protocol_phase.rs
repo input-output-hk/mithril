@@ -1,12 +1,11 @@
 use blake2::{Blake2b, digest::consts::U32};
-use rand_chacha::ChaCha20Rng;
-use rand_core::RngCore;
-use rayon::prelude::*;
-
 use mithril_stm::{
     AggregateSignature, AggregateSignatureType, AggregateVerificationKey, Clerk, Initializer,
     KeyRegistration, Parameters, Signer, SingleSignature, Stake, StmResult, VerificationKey,
 };
+use rand_chacha::ChaCha20Rng;
+use rand_core::RngCore;
+use rayon::prelude::*;
 
 type H = Blake2b<U32>;
 

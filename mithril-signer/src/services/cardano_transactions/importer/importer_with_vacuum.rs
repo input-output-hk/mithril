@@ -1,13 +1,12 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use slog::{Logger, debug};
-
 use mithril_common::StdResult;
 use mithril_common::entities::BlockNumber;
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::signable_builder::TransactionsImporter;
 use mithril_persistence::sqlite::{SqliteCleaner, SqliteCleaningTask, SqliteConnectionPool};
+use slog::{Logger, debug};
 
 /// A decorator of [TransactionsImporter] that vacuums the database after running the import.
 pub struct TransactionsImporterWithVacuum {
@@ -52,15 +51,13 @@ impl TransactionsImporter for TransactionsImporterWithVacuum {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::test::TempDir;
+    use mithril_persistence::sqlite::SqliteConnection;
     use mockall::mock;
     use sqlite::Connection;
 
-    use mithril_common::test::TempDir;
-    use mithril_persistence::sqlite::SqliteConnection;
-
-    use crate::test_tools::TestLogger;
-
     use super::*;
+    use crate::test_tools::TestLogger;
 
     mock! {
         pub TransactionImporterImpl {}

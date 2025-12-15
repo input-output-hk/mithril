@@ -51,11 +51,12 @@
 //! Nov 08 14:42:05.477 INFO Certificate chain validated, certificate_chain_validation_id: ab623989-b0ac-4031-8522-1370958bbb4e
 //! ```
 
+use std::sync::{Arc, RwLock};
+
 use async_trait::async_trait;
 use mithril_common::entities::ImmutableFileNumber;
 use serde::Serialize;
 use slog::{Logger, info};
-use std::sync::{Arc, RwLock};
 use strum::Display;
 use uuid::Uuid;
 
@@ -581,11 +582,13 @@ impl FeedbackReceiver for StackFeedbackReceiver {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
+    use tokio::task::JoinSet;
+
     use super::*;
     use crate::feedback::MithrilEvent::{SnapshotDownloadCompleted, SnapshotDownloadStarted};
     use crate::test_utils::TestLogger;
-    use std::time::Duration;
-    use tokio::task::JoinSet;
 
     #[tokio::test]
     async fn send_event_same_thread() {

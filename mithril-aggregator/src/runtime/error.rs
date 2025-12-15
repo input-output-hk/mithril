@@ -1,7 +1,6 @@
+use mithril_common::StdError;
 use slog::{Logger, crit, error};
 use thiserror::Error;
-
-use mithril_common::StdError;
 
 /// Error encountered or produced by the Runtime.
 /// This enum represents the faith of the errors produced during the state
@@ -93,9 +92,8 @@ impl From<StdError> for RuntimeError {
 mod tests {
     use anyhow::anyhow;
 
-    use crate::test::TestLogger;
-
     use super::*;
+    use crate::test::TestLogger;
 
     fn nested_error_debug_string(error: &RuntimeError) -> String {
         let error = match error {

@@ -5,9 +5,8 @@
 
 use std::collections::BTreeSet;
 
-use tokio::sync::RwLock;
-
 use mithril_common::entities::SignedEntityTypeDiscriminants;
+use tokio::sync::RwLock;
 
 /// Non-blocking lock mechanism for signed entity types to prevent multiple
 /// modifications on a same entity type at the same time.

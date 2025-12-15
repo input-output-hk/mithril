@@ -1,9 +1,7 @@
+use std::sync::Arc;
+
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use thiserror::Error;
-
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_cardano_node_chain::entities::{ChainAddress, TxDatumFieldTypeName};
 use mithril_common::crypto_helper::{
@@ -11,6 +9,8 @@ use mithril_common::crypto_helper::{
     EraMarkersVerifierVerificationKey, key_decode_hex, key_encode_hex,
 };
 use mithril_common::{StdError, StdResult};
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 use crate::{EraMarker, EraReaderAdapter};
 

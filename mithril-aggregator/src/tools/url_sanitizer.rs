@@ -1,9 +1,9 @@
-use anyhow::{Context, anyhow};
-use reqwest::Url;
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
 
+use anyhow::{Context, anyhow};
 use mithril_common::StdResult;
+use reqwest::Url;
 
 /// A sanitized URL, guaranteed to have a trailing slash and no empty segments
 ///

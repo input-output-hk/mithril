@@ -4,9 +4,6 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use slog::{Logger, debug};
-use tokio::{runtime::Handle, sync::Mutex, task};
-
 use mithril_cardano_node_chain::chain_scanner::{BlockScanner, ChainScannedBlocks};
 use mithril_cardano_node_chain::entities::RawCardanoPoint;
 use mithril_common::StdResult;
@@ -16,6 +13,8 @@ use mithril_common::entities::{
 };
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::signable_builder::TransactionsImporter;
+use slog::{Logger, debug};
+use tokio::{runtime::Handle, sync::Mutex, task};
 
 /// Cardano transactions store
 #[cfg_attr(test, mockall::automock)]
@@ -219,8 +218,6 @@ mod tests {
     use std::sync::atomic::AtomicUsize;
     use std::time::Duration;
 
-    use mockall::mock;
-
     use mithril_cardano_node_chain::chain_scanner::BlockStreamer;
     use mithril_cardano_node_chain::entities::ScannedBlock;
     use mithril_cardano_node_chain::test::double::{DumbBlockScanner, DumbBlockStreamer};
@@ -228,11 +225,11 @@ mod tests {
     use mithril_common::entities::{BlockNumber, BlockRangesSequence};
     use mithril_persistence::database::repository::CardanoTransactionRepository;
     use mithril_persistence::sqlite::SqliteConnectionPool;
-
-    use crate::database::test_helper::cardano_tx_db_connection;
-    use crate::test::TestLogger;
+    use mockall::mock;
 
     use super::*;
+    use crate::database::test_helper::cardano_tx_db_connection;
+    use crate::test::TestLogger;
 
     mock! {
         pub BlockScannerImpl { }

@@ -1,11 +1,12 @@
-use anyhow::anyhow;
-use futures::Future;
-use indicatif::{MultiProgress, ProgressBar};
 use std::path::Path;
 use std::time::Duration;
 
-use super::CardanoDbDownloadCheckerError;
+use anyhow::anyhow;
+use futures::Future;
+use indicatif::{MultiProgress, ProgressBar};
 use mithril_client::{MithrilError, MithrilResult};
+
+use super::CardanoDbDownloadCheckerError;
 
 /// Utility functions for to the CardanoDb commands
 pub struct CardanoDbUtils;
@@ -95,8 +96,9 @@ impl CardanoDbUtils {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use std::path::PathBuf;
+
+    use super::*;
 
     #[test]
     fn check_disk_space_error_should_return_warning_message_if_error_is_not_enough_space_for_archive()

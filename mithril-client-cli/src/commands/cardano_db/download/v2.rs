@@ -1,16 +1,16 @@
-use anyhow::Context;
-use slog::{Logger, warn};
 use std::{
     fs::File,
     path::{Path, PathBuf},
     sync::Arc,
 };
 
+use anyhow::Context;
 use mithril_client::{
     CardanoDatabaseSnapshot, MithrilResult, RequiredAggregatorCapabilities,
     cardano_database_client::{CardanoDatabaseClient, DownloadUnpackOptions, ImmutableFileRange},
     common::{ImmutableFileNumber, SignedEntityTypeDiscriminants},
 };
+use slog::{Logger, warn};
 
 use crate::{
     CommandContext,

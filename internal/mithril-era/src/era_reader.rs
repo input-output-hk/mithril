@@ -1,11 +1,11 @@
+use std::{str::FromStr, sync::Arc};
+
 use anyhow::anyhow;
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
-use std::{str::FromStr, sync::Arc};
-use thiserror::Error;
-
 use mithril_common::entities::{Epoch, SupportedEra};
 use mithril_common::{StdError, StdResult};
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 /// Value object that represents a tag of Era change.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

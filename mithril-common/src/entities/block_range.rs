@@ -202,9 +202,8 @@ impl ExactSizeIterator for BlockRangesSequence {
 }
 
 mod test_extensions {
-    use crate::test::entities_extensions::BlockRangeTestExtension;
-
     use super::*;
+    use crate::test::entities_extensions::BlockRangeTestExtension;
 
     impl BlockRangeTestExtension for BlockRange {
         fn new(start: u64, end: u64) -> Self {
@@ -236,9 +235,8 @@ mod test_extensions {
 mod tests {
     use std::ops::Not;
 
-    use crate::test::entities_extensions::BlockRangeTestExtension;
-
     use super::*;
+    use crate::test::entities_extensions::BlockRangeTestExtension;
 
     #[test]
     fn test_block_range_contains() {

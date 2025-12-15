@@ -1,15 +1,15 @@
-use anyhow::anyhow;
-use chrono::{DateTime, Utc};
-use mithril_common::StdResult;
-use sqlite::{Row, Value};
 use std::{
     cmp::Ordering,
     fmt::{Debug, Display},
 };
 
-use crate::sqlite::{HydrationError, Projection, Query, SourceAlias, SqLiteEntity, WhereCondition};
+use anyhow::anyhow;
+use chrono::{DateTime, Utc};
+use mithril_common::StdResult;
+use sqlite::{Row, Value};
 
 use super::DbVersion;
+use crate::sqlite::{HydrationError, Projection, Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 /// Application using a database
 #[derive(Debug, Clone, PartialEq, Eq)]

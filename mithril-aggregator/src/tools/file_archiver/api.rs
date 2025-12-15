@@ -1,24 +1,23 @@
-use anyhow::{Context, anyhow};
-use flate2::{Compression, read::GzDecoder, write::GzEncoder};
-use slog::{Logger, info, warn};
 use std::{
     fs,
     fs::File,
     io::{Read, Seek, SeekFrom},
     path::{Path, PathBuf},
 };
-use tar::{Archive, Entry, EntryType};
-use zstd::{Decoder, Encoder};
 
+use anyhow::{Context, anyhow};
+use flate2::{Compression, read::GzDecoder, write::GzEncoder};
 use mithril_common::StdResult;
 use mithril_common::entities::CompressionAlgorithm;
 use mithril_common::logging::LoggerExtensions;
-
-use crate::ZstandardCompressionParameters;
-use crate::tools::file_size;
+use slog::{Logger, info, warn};
+use tar::{Archive, Entry, EntryType};
+use zstd::{Decoder, Encoder};
 
 use super::appender::TarAppender;
 use super::{ArchiveParameters, FileArchive};
+use crate::ZstandardCompressionParameters;
+use crate::tools::file_size;
 
 /// Tool to archive files and directories.
 pub struct FileArchiver {
@@ -299,10 +298,9 @@ mod tests {
 
     use mithril_common::test::assert_equivalent;
 
+    use super::*;
     use crate::tools::file_archiver::appender::{AppenderDirAll, AppenderFile};
     use crate::tools::file_archiver::test_tools::*;
-
-    use super::*;
 
     fn list_remaining_files(test_dir: &Path) -> Vec<String> {
         fs::read_dir(test_dir)

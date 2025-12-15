@@ -3,11 +3,10 @@
 //! This service is responsible for computing the seed protocol message
 //! that is used by the [SignableBuilder] to compute the final protocol message.
 //!
+use std::sync::Arc;
+
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
-use std::sync::Arc;
-use tokio::sync::RwLock;
-
 use mithril_common::{
     StdResult,
     crypto_helper::ProtocolInitializer,
@@ -15,6 +14,7 @@ use mithril_common::{
     protocol::SignerBuilder,
     signable_builder::SignableSeedBuilder,
 };
+use tokio::sync::RwLock;
 
 use crate::{services::EpochService, store::ProtocolInitializerStorer};
 
@@ -110,11 +110,10 @@ mod tests {
         entities::Epoch, entities::ProtocolParameters, test::builder::MithrilFixtureBuilder,
     };
 
+    use super::*;
     use crate::{
         services::mock_epoch_service::MockEpochServiceImpl, store::MockProtocolInitializerStorer,
     };
-
-    use super::*;
 
     struct MockDependencyInjector {
         mock_epoch_service: MockEpochServiceImpl,

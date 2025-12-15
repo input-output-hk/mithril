@@ -10,10 +10,9 @@ mod deprecation;
 pub mod mithril_stake_distribution;
 pub mod tools;
 
-pub use deprecation::{DeprecatedCommand, Deprecation};
-
 use std::{str::FromStr, sync::Arc};
 
+pub use deprecation::{DeprecatedCommand, Deprecation};
 use mithril_client::{
     AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MithrilResult,
 };

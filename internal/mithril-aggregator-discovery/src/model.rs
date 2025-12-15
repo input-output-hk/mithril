@@ -1,9 +1,8 @@
 use std::time::Duration;
 
-use serde::Serialize;
-
 use mithril_aggregator_client::{AggregatorHttpClient, query::GetAggregatorFeaturesQuery};
 use mithril_common::{StdResult, messages::AggregatorCapabilities};
+use serde::Serialize;
 
 /// Representation of an aggregator endpoint
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

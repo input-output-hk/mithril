@@ -1,6 +1,5 @@
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
-
 use mithril_common::certificate_chain::{CertificateRetriever, CertificateRetrieverError};
 use mithril_common::entities::Certificate;
 

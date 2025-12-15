@@ -7,9 +7,6 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use mithril_signed_entity_lock::SignedEntityTypeLock;
-use slog::{Logger, debug, info};
-
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_common::{
     StdResult,
@@ -17,9 +14,10 @@ use mithril_common::{
     logging::LoggerExtensions,
     signable_builder::TransactionsImporter,
 };
-
+use mithril_signed_entity_lock::SignedEntityTypeLock;
 #[cfg(test)]
 use mockall::automock;
+use slog::{Logger, debug, info};
 
 /// CardanoTransactionsPreloaderChecker gives the ability to determine
 /// if the Cardano Transactions Preloader should import the transactions.
@@ -123,16 +121,14 @@ impl CardanoTransactionsPreloader {
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;
-    use mockall::mock;
-    use mockall::predicate::eq;
-
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_common::entities::{BlockNumber, ChainPoint, TimePoint};
     use mithril_common::test::double::Dummy;
-
-    use crate::test_tools::TestLogger;
+    use mockall::mock;
+    use mockall::predicate::eq;
 
     use super::*;
+    use crate::test_tools::TestLogger;
 
     mock! {
         pub TransactionsImporterImpl { }

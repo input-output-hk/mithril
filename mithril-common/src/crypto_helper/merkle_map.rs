@@ -1,16 +1,16 @@
 //! Merkelized map and associated proof
 
-use anyhow::{Context, anyhow};
-use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     hash::Hash,
     sync::Arc,
 };
 
-use crate::{StdError, StdResult};
+use anyhow::{Context, anyhow};
+use serde::{Deserialize, Serialize};
 
 use super::{MKProof, MKTree, MKTreeNode, MKTreeStorer};
+use crate::{StdError, StdResult};
 
 /// The trait implemented by the keys of a MKMap
 pub trait MKMapKey: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode> {}
@@ -465,13 +465,12 @@ impl<K: MKMapKey, S: MKTreeStorer> TryFrom<MKMapNode<K, S>> for MKTreeNode {
 mod tests {
     use std::collections::BTreeSet;
 
+    use super::*;
     use crate::{
         crypto_helper::MKTreeStoreInMemory,
         entities::{BlockNumber, BlockRange},
         test::entities_extensions::BlockRangeTestExtension,
     };
-
-    use super::*;
 
     fn generate_merkle_trees(
         total_leaves: u64,

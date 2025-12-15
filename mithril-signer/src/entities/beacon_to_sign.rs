@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-
 use mithril_common::entities::{Epoch, SignedEntityType};
 
 /// Beacon to sign

@@ -1,9 +1,9 @@
-use pallas_traverse::MultiEraBlock;
 use std::fmt::{Debug, Formatter};
 
 use mithril_common::entities::{
     BlockNumber, CardanoTransaction, ChainPoint, SlotNumber, TransactionHash,
 };
+use pallas_traverse::MultiEraBlock;
 
 /// A block scanned from a Cardano database
 #[derive(Clone, PartialEq)]

@@ -2,17 +2,17 @@
 //!
 //! In this example, the client interacts with an aggregator whose URL must be specified in the command to get the data.
 
-use anyhow::anyhow;
-use clap::Parser;
-use slog::info;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use anyhow::anyhow;
+use clap::Parser;
 use mithril_client::common::TransactionHash;
 use mithril_client::{
     AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder, MithrilResult,
     VerifiedCardanoTransactions,
 };
+use slog::info;
 
 #[derive(Parser, Debug)]
 #[command(version)]

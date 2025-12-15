@@ -3,11 +3,10 @@ use chrono::{DateTime, Utc};
 use crate::test::double::{Dummy, fake_data, fake_keys};
 
 mod entities {
+    use super::*;
     use crate::crypto_helper::MKTreeStoreInMemory;
     use crate::entities::*;
     use crate::test::entities_extensions::CardanoTransactionsSetProofTestExtension;
-
-    use super::*;
 
     impl Dummy for ChainPoint {
         /// Return a dummy [ChainPoint] (test-only).
@@ -96,9 +95,9 @@ mod messages {
     use std::collections::BTreeSet;
 
     use chrono::Duration;
-
     use mithril_stm::AggregateSignatureType;
 
+    use super::*;
     use crate::entities::{
         AncillaryLocation, BlockNumber, CardanoDbBeacon, CardanoTransactionsSetProof,
         CardanoTransactionsSigningConfig, CompressionAlgorithm, DigestLocation, Epoch,
@@ -107,8 +106,6 @@ mod messages {
         StakeDistributionParty, SupportedEra, TemplateUri,
     };
     use crate::messages::*;
-
-    use super::*;
 
     impl Dummy for CardanoTransactionsSetProofMessagePart {
         /// Return a dummy [CardanoTransactionsSetProofMessagePart] (test-only).
@@ -619,13 +616,12 @@ mod messages {
 }
 
 mod signable_builder {
+    use super::*;
     use crate::entities::{
         CardanoDbBeacon, CardanoStakeDistribution, CardanoTransactionsSnapshot, Epoch,
         MithrilStakeDistribution, SignedEntityType, Snapshot,
     };
     use crate::signable_builder::SignedEntity;
-
-    use super::*;
 
     impl Dummy for SignedEntity<Snapshot> {
         /// Create a dummy [SignedEntity] for [Snapshot] entity

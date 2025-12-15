@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-
 use mithril_client::{
     MithrilResult,
     era::{EraFetcher, FetchedEra},

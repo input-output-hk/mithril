@@ -1,7 +1,7 @@
-use async_trait::async_trait;
-use chrono::Utc;
 use std::sync::Arc;
 
+use async_trait::async_trait;
+use chrono::Utc;
 use mithril_common::StdResult;
 use mithril_common::entities::{Epoch, ProtocolMessage, SignedEntityType};
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
@@ -142,13 +142,12 @@ mod tests {
     use mithril_common::entities::{BlockNumber, CardanoDbBeacon};
     use mithril_common::test::double::Dummy;
 
+    use super::*;
     use crate::database::record::SingleSignatureRecord;
     use crate::database::test_helper::{
         insert_epoch_settings, insert_single_signatures_in_db, main_db_connection,
         setup_single_signature_records,
     };
-
-    use super::*;
 
     async fn get_connection() -> Arc<SqliteConnection> {
         let connection = main_db_connection().unwrap();

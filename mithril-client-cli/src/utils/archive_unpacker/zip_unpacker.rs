@@ -5,9 +5,8 @@ use std::{
 };
 
 use anyhow::Context;
-use zip::ZipArchive;
-
 use mithril_client::MithrilResult;
+use zip::ZipArchive;
 
 use super::ArchiveFormat;
 
@@ -58,9 +57,8 @@ impl ArchiveFormat for ZipUnpacker {
 mod tests {
     use std::io::Write;
 
-    use zip::{ZipWriter, write::FileOptions};
-
     use mithril_common::{assert_dir_eq, temp_dir_create};
+    use zip::{ZipWriter, write::FileOptions};
 
     use super::*;
 

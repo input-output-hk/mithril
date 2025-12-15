@@ -1,8 +1,7 @@
-use sqlite::Value;
-
 use mithril_common::StdResult;
 use mithril_common::entities::{Epoch, SignedEntityTypeDiscriminants};
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
+use sqlite::Value;
 
 use crate::database::record::SignedEntityRecord;
 
@@ -99,9 +98,8 @@ mod tests {
     use mithril_persistence::sqlite::ConnectionExtensions;
     use sqlite::ConnectionThreadSafe;
 
-    use crate::database::test_helper::{insert_signed_entities, main_db_connection};
-
     use super::*;
+    use crate::database::test_helper::{insert_signed_entities, main_db_connection};
 
     fn create_database(records: &[SignedEntityRecord]) -> ConnectionThreadSafe {
         let connection = main_db_connection().unwrap();

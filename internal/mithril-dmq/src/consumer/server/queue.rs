@@ -127,9 +127,8 @@ mod tests {
     };
     use tokio::time::sleep;
 
-    use crate::model::MockUnixTimestampProvider;
-
     use super::*;
+    use crate::model::MockUnixTimestampProvider;
 
     fn fake_msg() -> DmqMsg {
         DmqMsg {

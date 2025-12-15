@@ -1,5 +1,4 @@
 use chrono::Utc;
-
 use mithril_common::StdResult;
 use mithril_common::entities::{Epoch, ProtocolMessage, SignedEntityType};
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
@@ -56,10 +55,9 @@ mod tests {
     use mithril_common::entities::ProtocolMessagePartKey;
     use mithril_persistence::sqlite::ConnectionExtensions;
 
+    use super::*;
     use crate::database::query::GetOpenMessageQuery;
     use crate::database::test_helper::main_db_connection;
-
-    use super::*;
 
     #[test]
     fn test_insert_one() {

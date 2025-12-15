@@ -30,9 +30,8 @@ impl From<&entities::SignerWithStake> for (types::ProtocolPartyId, types::Protoc
 #[cfg(test)]
 pub mod tests {
 
-    use crate::test::builder::MithrilFixtureBuilder;
-
     use super::*;
+    use crate::test::builder::MithrilFixtureBuilder;
 
     #[test]
     fn test_protocol_parameters_from_into() {

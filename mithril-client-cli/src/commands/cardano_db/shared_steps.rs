@@ -1,13 +1,13 @@
-use anyhow::{Context, anyhow};
-use chrono::Utc;
-use slog::{Logger, debug, warn};
 use std::path::{Path, PathBuf};
 
+use anyhow::{Context, anyhow};
+use chrono::Utc;
 use mithril_client::{
     CardanoDatabaseSnapshot, Client, MessageBuilder, MithrilCertificate, MithrilResult,
     cardano_database_client::{ImmutableFileRange, VerifiedDigests},
     common::{ImmutableFileNumber, MKProof, ProtocolMessage},
 };
+use slog::{Logger, debug, warn};
 
 use crate::utils::{CardanoDbUtils, LedgerFormat, ProgressPrinter};
 
@@ -245,9 +245,8 @@ mod tests {
     };
     use mithril_common::test::TempDir;
 
-    use crate::utils::ProgressOutputType;
-
     use super::*;
+    use crate::utils::ProgressOutputType;
 
     fn dummy_certificate() -> MithrilCertificate {
         let mut protocol_message = ProtocolMessage::new();

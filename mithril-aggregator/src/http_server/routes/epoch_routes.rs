@@ -24,13 +24,13 @@ fn epoch_settings(
 }
 
 mod handlers {
-    use slog::{Logger, warn};
     use std::collections::BTreeSet;
     use std::convert::Infallible;
     use std::sync::Arc;
-    use warp::http::StatusCode;
 
     use mithril_common::entities::SignedEntityTypeDiscriminants;
+    use slog::{Logger, warn};
+    use warp::http::StatusCode;
 
     use crate::http_server::routes::reply;
     use crate::services::MessageService;
@@ -57,21 +57,20 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::anyhow;
-    use serde_json::Value::Null;
     use std::sync::Arc;
+
+    use anyhow::anyhow;
+    use mithril_api_spec::APISpec;
+    use mithril_common::messages::EpochSettingsMessage;
+    use mithril_common::test::double::Dummy;
+    use serde_json::Value::Null;
     use warp::{
         http::{Method, StatusCode},
         test::request,
     };
 
-    use mithril_api_spec::APISpec;
-    use mithril_common::messages::EpochSettingsMessage;
-    use mithril_common::test::double::Dummy;
-
-    use crate::{initialize_dependencies, services::MockMessageService};
-
     use super::*;
+    use crate::{initialize_dependencies, services::MockMessageService};
 
     fn setup_router(
         state: RouterState,

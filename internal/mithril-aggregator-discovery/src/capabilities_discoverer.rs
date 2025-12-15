@@ -114,8 +114,6 @@ mod tests {
     use std::collections::BTreeSet;
 
     use httpmock::MockServer;
-    use serde_json::json;
-
     use mithril_common::{
         AggregateSignatureType::Concatenation,
         entities::SignedEntityTypeDiscriminants::{
@@ -124,6 +122,7 @@ mod tests {
         },
         messages::AggregatorFeaturesMessage,
     };
+    use serde_json::json;
 
     use super::*;
 

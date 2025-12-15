@@ -2,14 +2,14 @@
 //!
 //! In this example, the client interacts by default with a real aggregator (`release-preprod`) to get the data.
 
-use anyhow::anyhow;
-use clap::Parser;
-use slog::info;
 use std::{str::FromStr, sync::Arc};
 
+use anyhow::anyhow;
+use clap::Parser;
 use mithril_client::{
     AggregatorDiscoveryType, ClientBuilder, GenesisVerificationKey, MessageBuilder, MithrilResult,
 };
+use slog::info;
 
 #[derive(Parser, Debug)]
 #[command(version)]

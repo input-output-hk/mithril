@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-
 use mithril_common::StdResult;
 use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake};
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
@@ -139,16 +138,15 @@ impl EpochPruningTask for SignerRegistrationStore {
 
 #[cfg(test)]
 mod tests {
-    use crate::database::test_helper::{insert_signer_registrations, main_db_connection};
-
-    use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake};
-    use mithril_common::test::double::fake_keys;
     use std::collections::HashMap;
     use std::sync::Arc;
 
-    use crate::VerificationKeyStorer;
+    use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake};
+    use mithril_common::test::double::fake_keys;
 
     use super::*;
+    use crate::VerificationKeyStorer;
+    use crate::database::test_helper::{insert_signer_registrations, main_db_connection};
 
     /// Build simple fake signers with stakes.
     /// It could be done by `fake_data::signers_with_stakes` which produce verification keys dynamically

@@ -13,6 +13,9 @@ mod http_downloader;
 mod multi_download_progress_reporter;
 mod progress_reporter;
 
+use std::path::Path;
+
+use anyhow::anyhow;
 pub use archive_unpacker::*;
 pub use cardano_db::*;
 pub use cardano_db_download_checker::*;
@@ -22,12 +25,9 @@ pub use forced_era_fetcher::*;
 pub use fs::*;
 pub use github_release_retriever::*;
 pub use http_downloader::*;
+use mithril_client::MithrilResult;
 pub use multi_download_progress_reporter::*;
 pub use progress_reporter::*;
-
-use anyhow::anyhow;
-use mithril_client::MithrilResult;
-use std::path::Path;
 
 /// The key used to store the caution message when printing a JSON directly to stderr
 pub(crate) const JSON_CAUTION_KEY: &str = "caution";

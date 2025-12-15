@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-
 use mithril_common::StdResult;
 use mithril_common::entities::{Epoch, StakeDistribution};
 use mithril_common::signable_builder::StakeDistributionRetriever;

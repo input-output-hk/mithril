@@ -1,18 +1,17 @@
-use mithril_common::crypto_helper::KesSigner;
 use std::sync::Arc;
-use tokio::sync::RwLock;
-
-use mithril_common::api_version::APIVersionProvider;
-use mithril_common::signable_builder::SignableBuilderService;
 
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_cardano_node_internal_database::digesters::ImmutableDigester;
+use mithril_common::api_version::APIVersionProvider;
+use mithril_common::crypto_helper::KesSigner;
+use mithril_common::signable_builder::SignableBuilderService;
 use mithril_era::{EraChecker, EraReader};
 use mithril_persistence::store::StakeStorer;
 use mithril_protocol_config::interface::MithrilNetworkConfigurationProvider;
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 use mithril_signed_entity_preloader::CardanoTransactionsPreloader;
 use mithril_ticker::TickerService;
+use tokio::sync::RwLock;
 
 use crate::MetricsService;
 use crate::services::{

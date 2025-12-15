@@ -1,8 +1,7 @@
 use anyhow::Context;
-use sqlite::Value;
-
 use mithril_common::StdResult;
 use mithril_common::entities::BlockNumber;
+use sqlite::Value;
 
 use crate::database::record::CardanoTransactionRecord;
 use crate::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
@@ -53,13 +52,12 @@ impl DeleteCardanoTransactionQuery {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::entities::SlotNumber;
+
+    use super::*;
     use crate::database::query::{GetCardanoTransactionQuery, InsertCardanoTransactionQuery};
     use crate::database::test_helper::cardano_tx_db_connection;
     use crate::sqlite::{ConnectionExtensions, SqliteConnection};
-
-    use super::*;
-
-    use mithril_common::entities::SlotNumber;
 
     fn insert_transactions(connection: &SqliteConnection, records: Vec<CardanoTransactionRecord>) {
         connection

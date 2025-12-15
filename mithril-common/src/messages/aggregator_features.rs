@@ -1,8 +1,7 @@
 use std::collections::BTreeSet;
 
-use serde::{Deserialize, Serialize};
-
 use mithril_stm::AggregateSignatureType;
+use serde::{Deserialize, Serialize};
 
 use crate::entities::SignedEntityTypeDiscriminants;
 
@@ -43,9 +42,8 @@ pub struct CardanoTransactionsProverCapabilities {
 
 #[cfg(test)]
 mod tests {
-    use crate::entities::CardanoTransactionsSigningConfig;
-
     use super::*;
+    use crate::entities::CardanoTransactionsSigningConfig;
 
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     struct AggregatorFeaturesMessageUntilV0_1_45 {

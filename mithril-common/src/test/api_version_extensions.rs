@@ -1,7 +1,8 @@
 //! A set of extension traits to add test utilities to this crate `APIVersionProvider`
 
-use semver::Version;
 use std::collections::HashMap;
+
+use semver::Version;
 
 use crate::api_version::{APIVersionProvider, OpenAPIFileName};
 

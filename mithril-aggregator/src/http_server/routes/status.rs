@@ -1,6 +1,5 @@
-use warp::Filter;
-
 use mithril_common::{StdResult, messages::AggregatorStatusMessage};
+use warp::Filter;
 
 use crate::{
     dependency_injection::EpochServiceWrapper,
@@ -104,13 +103,7 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::Value::Null;
     use std::sync::Arc;
-    use tokio::sync::RwLock;
-    use warp::{
-        http::{Method, StatusCode},
-        test::request,
-    };
 
     use mithril_api_spec::APISpec;
     use mithril_common::{
@@ -120,14 +113,19 @@ mod tests {
             double::{Dummy, fake_data},
         },
     };
+    use serde_json::Value::Null;
+    use tokio::sync::RwLock;
+    use warp::{
+        http::{Method, StatusCode},
+        test::request,
+    };
 
+    use super::*;
     use crate::{
         entities::AggregatorEpochSettings,
         initialize_dependencies,
         services::{FakeEpochService, FakeEpochServiceBuilder},
     };
-
-    use super::*;
 
     fn setup_router(
         state: RouterState,

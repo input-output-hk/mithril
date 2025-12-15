@@ -47,9 +47,8 @@ pub struct SnapshotListItemMessage {
 
 #[cfg(test)]
 mod tests {
-    use crate::entities::Epoch;
-
     use super::*;
+    use crate::entities::Epoch;
 
     pub type SnapshotListMessageUntilV0_1_47 = Vec<SnapshotListItemMessageUntilV0_1_47>;
 

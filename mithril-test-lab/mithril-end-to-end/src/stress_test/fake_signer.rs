@@ -1,16 +1,16 @@
+use std::time::Duration;
+
 use async_recursion::async_recursion;
 use indicatif::{ProgressBar, ProgressDrawTarget};
-use reqwest::{RequestBuilder, StatusCode};
-use slog_scope::{debug, info, warn};
-use std::time::Duration;
-use thiserror::Error;
-use tokio::task::JoinSet;
-
 use mithril_common::{
     StdResult,
     entities::{Epoch, PartyId, Signer},
     messages::RegisterSignatureMessageHttp,
 };
+use reqwest::{RequestBuilder, StatusCode};
+use slog_scope::{debug, info, warn};
+use thiserror::Error;
+use tokio::task::JoinSet;
 
 use crate::Aggregator;
 use crate::stress_test::payload_builder;

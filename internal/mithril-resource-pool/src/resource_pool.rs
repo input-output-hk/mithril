@@ -1,18 +1,18 @@
 //! Resource pool implementation
 
-use anyhow::Context;
 use std::{
     collections::VecDeque,
     ops::{Deref, DerefMut},
     sync::{Condvar, Mutex},
     time::Duration,
 };
-use thiserror::Error;
 
+use anyhow::Context;
 use mithril_common::{
     StdResult,
     crypto_helper::{MKMap, MKMapKey, MKMapValue, MKTreeStorer},
 };
+use thiserror::Error;
 
 /// [ResourcePool] related errors.
 #[derive(Error, Debug)]

@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-
 use mithril_common::StdResult;
 use mithril_common::entities::{Epoch, SignedEntityTypeDiscriminants};
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
@@ -200,9 +199,8 @@ mod tests {
         test::double::fake_data,
     };
 
-    use crate::database::test_helper::{insert_signed_entities, main_db_connection};
-
     use super::*;
+    use crate::database::test_helper::{insert_signed_entities, main_db_connection};
 
     fn insert_golden_signed_entities(connection: &SqliteConnection) {
         connection

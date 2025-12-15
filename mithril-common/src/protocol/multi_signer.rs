@@ -93,6 +93,7 @@ impl MultiSigner {
 mod test {
     use mithril_stm::BlsSignatureError;
 
+    use super::*;
     use crate::{
         crypto_helper::ProtocolAggregationError,
         entities::{ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters},
@@ -102,8 +103,6 @@ mod test {
             double::fake_keys,
         },
     };
-
-    use super::*;
 
     fn build_multi_signer(fixture: &MithrilFixture) -> MultiSigner {
         SignerBuilder::new(

@@ -204,11 +204,10 @@ impl TryFrom<Certificate> for CertificateMessage {
 mod tests {
     use chrono::{DateTime, Utc};
 
+    use super::*;
     use crate::entities::{
         CardanoDbBeacon, ProtocolMessagePartKey, ProtocolParameters, StakeDistributionParty,
     };
-
-    use super::*;
 
     fn golden_certificate_message() -> CertificateMessage {
         CertificateMessage {

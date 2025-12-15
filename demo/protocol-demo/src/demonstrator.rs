@@ -1,14 +1,14 @@
-use hex::ToHex;
-use mithril_stm::AggregateSignatureType;
-use rand_core::{CryptoRng, RngCore};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::io::Write;
 use std::path;
 
+use hex::ToHex;
 use mithril_common::crypto_helper::{key_decode_hex, key_encode_hex};
+use mithril_stm::AggregateSignatureType;
+use rand_core::{CryptoRng, RngCore};
+use serde::{Deserialize, Serialize};
 
 use crate::types::{
     ProtocolClerk, ProtocolInitializerNotCertified, ProtocolKeyRegistrationNotCertified,
@@ -481,9 +481,10 @@ pub fn write_artifacts<T: Serialize>(artifact_name: &str, value: &T) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
+
+    use super::*;
 
     fn setup_protocol_parameters() -> ProtocolParameters {
         ProtocolParameters {

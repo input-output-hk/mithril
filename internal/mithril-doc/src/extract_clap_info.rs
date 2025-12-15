@@ -42,8 +42,9 @@ pub fn extract_parameters(cmd: &Command) -> StructDoc {
 #[cfg(test)]
 mod tests {
 
-    use super::*;
     use clap::{CommandFactory, Parser};
+
+    use super::*;
 
     #[derive(Parser, Debug, Clone)]
     #[command(version)]

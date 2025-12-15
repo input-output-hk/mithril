@@ -1,10 +1,11 @@
-use rayon::prelude::*;
-use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
     sync::Arc,
 };
+
+use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     StdResult,

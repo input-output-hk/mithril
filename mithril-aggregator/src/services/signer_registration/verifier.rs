@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
-
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_common::{
     StdResult,

@@ -1,7 +1,6 @@
 use async_trait::async_trait;
-use reqwest::StatusCode;
-
 use mithril_common::messages::RegisterSignerMessage;
+use reqwest::StatusCode;
 
 use crate::AggregatorHttpClientResult;
 use crate::query::{AggregatorQuery, QueryContext, QueryLogFields, QueryMethod};
@@ -57,14 +56,12 @@ impl AggregatorQuery for PostRegisterSignerQuery {
 #[cfg(test)]
 mod tests {
     use httpmock::Method::POST;
-
     use mithril_common::entities::ClientError;
     use mithril_common::test::double::Dummy;
 
+    use super::*;
     use crate::AggregatorHttpClientError;
     use crate::test::{assert_error_matches, setup_server_and_client};
-
-    use super::*;
 
     #[tokio::test]
     async fn test_register_signer_ok_201() {

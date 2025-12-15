@@ -1,10 +1,9 @@
 //! Shared hydrator helpers for persistence
 
-use serde::Deserialize;
-
 use mithril_common::entities::{
     BlockNumber, CardanoDbBeacon, Epoch, SignedEntityType, SignedEntityTypeDiscriminants,
 };
+use serde::Deserialize;
 
 use crate::sqlite::HydrationError;
 

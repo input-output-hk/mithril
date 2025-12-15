@@ -1,10 +1,9 @@
 use std::{collections::HashMap, time::Duration};
 
 use anyhow::Context;
+use mithril_common::{StdResult, entities::MithrilNetwork};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-
-use mithril_common::{StdResult, entities::MithrilNetwork};
 
 use crate::{AggregatorDiscoverer, AggregatorEndpoint};
 

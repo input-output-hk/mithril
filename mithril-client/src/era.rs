@@ -35,9 +35,8 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
-
 use mithril_common::entities::SupportedEra;
+use serde::{Deserialize, Serialize};
 
 use crate::MithrilResult;
 

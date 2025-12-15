@@ -3,17 +3,22 @@ use std::path::Path;
 use std::sync::Arc;
 
 #[cfg(feature = "fs")]
-use slog::Logger;
-
+use mithril_cardano_node_internal_database::entities::ImmutableFile;
 #[cfg(feature = "fs")]
 use mithril_common::{
     crypto_helper::MKProof,
     messages::{CardanoDatabaseSnapshotMessage, CertificateMessage},
 };
-
 #[cfg(feature = "fs")]
-use mithril_cardano_node_internal_database::entities::ImmutableFile;
+use slog::Logger;
 
+use super::fetch::InternalArtifactRetriever;
+use super::statistics::InternalStatisticsSender;
+#[cfg(feature = "fs")]
+use super::{
+    DownloadUnpackOptions, ImmutableFileRange, download_unpack::InternalArtifactDownloader,
+    proving::InternalArtifactProver,
+};
 #[cfg(feature = "fs")]
 use crate::cardano_database_client::{VerifiedDigests, proving::CardanoDatabaseVerificationError};
 use crate::common::{Epoch, EpochSpecifier};
@@ -24,14 +29,6 @@ use crate::file_downloader::FileDownloader;
 #[cfg(feature = "fs")]
 use crate::utils::{AncillaryVerifier, TempDirectoryProvider};
 use crate::{CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem, MithrilResult};
-
-use super::fetch::InternalArtifactRetriever;
-use super::statistics::InternalStatisticsSender;
-#[cfg(feature = "fs")]
-use super::{
-    DownloadUnpackOptions, ImmutableFileRange, download_unpack::InternalArtifactDownloader,
-    proving::InternalArtifactProver,
-};
 
 /// HTTP client for CardanoDatabase API from the aggregator
 pub struct CardanoDatabaseClient {
@@ -223,11 +220,10 @@ impl CardanoDatabaseClient {
 
 #[cfg(test)]
 pub(crate) mod test_dependency_injector {
-    use super::*;
-
     #[cfg(feature = "fs")]
     use mithril_common::crypto_helper::ManifestVerifierVerificationKey;
 
+    use super::*;
     #[cfg(feature = "fs")]
     use crate::file_downloader::{FileDownloader, MockFileDownloaderBuilder};
     #[cfg(feature = "fs")]
@@ -356,12 +352,10 @@ pub(crate) mod test_dependency_injector {
     }
 
     mod tests {
+        use super::*;
+        use crate::common::test::Dummy;
         #[cfg(feature = "fs")]
         use crate::feedback::StackFeedbackReceiver;
-
-        use crate::common::test::Dummy;
-
-        use super::*;
 
         #[cfg(feature = "fs")]
         #[test]

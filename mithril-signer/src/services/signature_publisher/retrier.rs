@@ -87,9 +87,8 @@ impl SignaturePublisher for SignaturePublisherRetrier {
 mod tests {
     use mithril_common::{entities::Epoch, test::double::fake_data};
 
-    use crate::services::MockSignaturePublisher;
-
     use super::*;
+    use crate::services::MockSignaturePublisher;
 
     #[tokio::test]
     async fn should_call_publish_once_when_no_retry_policy() {

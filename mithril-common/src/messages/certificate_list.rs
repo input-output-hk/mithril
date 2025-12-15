@@ -1,6 +1,7 @@
+use std::fmt::{Debug, Formatter};
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::fmt::{Debug, Formatter};
 
 use crate::entities::{
     Epoch, ProtocolMessage, ProtocolParameters, ProtocolVersion, SignedEntityType,
@@ -114,9 +115,8 @@ impl Debug for CertificateListItemMessage {
 
 #[cfg(test)]
 mod tests {
-    use crate::entities::{CardanoDbBeacon, ProtocolMessagePartKey};
-
     use super::*;
+    use crate::entities::{CardanoDbBeacon, ProtocolMessagePartKey};
 
     const CURRENT_JSON: &str = r#"[{
             "hash": "hash",

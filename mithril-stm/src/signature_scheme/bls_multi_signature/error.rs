@@ -2,9 +2,8 @@
 use anyhow::anyhow;
 use blst::BLST_ERROR;
 
-use crate::StmResult;
-
 use super::{BlsSignature, BlsVerificationKey, BlsVerificationKeyProofOfPossession};
+use crate::StmResult;
 
 /// Error types for multi signatures.
 #[derive(Debug, thiserror::Error, Eq, PartialEq)]

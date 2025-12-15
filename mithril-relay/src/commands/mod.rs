@@ -4,17 +4,17 @@ mod passive;
 mod relay;
 mod signer;
 
-pub use aggregator::AggregatorCommand;
-pub use passive::PassiveCommand;
-pub use relay::RelayCommands;
-pub use signer::SignerCommand;
+use std::path::PathBuf;
 
+pub use aggregator::AggregatorCommand;
 use clap::Parser;
 use config::{ConfigBuilder, Map, Source, Value, builder::DefaultState};
 use context::CommandContext;
 use mithril_common::StdResult;
+pub use passive::PassiveCommand;
+pub use relay::RelayCommands;
+pub use signer::SignerCommand;
 use slog::{Level, Logger, debug};
-use std::path::PathBuf;
 
 /// Relay for Mithril Node
 #[derive(Parser, Debug, Clone)]

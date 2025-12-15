@@ -3,15 +3,13 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use libp2p::Multiaddr;
-use slog::error;
-
 use mithril_common::StdResult;
 #[cfg(feature = "future_dmq")]
 use mithril_dmq::DmqNetwork;
-
-use crate::AggregatorRelay;
+use slog::error;
 
 use super::CommandContext;
+use crate::AggregatorRelay;
 
 #[derive(Parser, Debug, Clone)]
 pub struct AggregatorCommand {

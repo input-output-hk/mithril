@@ -1,9 +1,10 @@
 // build.rs
 
-use mithril_build_script::fake_aggregator::FakeAggregatorData;
 use std::env;
 use std::fs;
 use std::path::Path;
+
+use mithril_build_script::fake_aggregator::FakeAggregatorData;
 
 fn main() {
     let out_dir = env::var_os("OUT_DIR").unwrap();

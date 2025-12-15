@@ -3,14 +3,13 @@ use std::fmt::Debug;
 use blake2::digest::{Digest, FixedOutput};
 use blake2::{Blake2b, digest::consts::U32};
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use rand_chacha::ChaCha20Rng;
-use rand_core::{RngCore, SeedableRng};
-use rayon::prelude::*;
-
 use mithril_stm::{
     AggregateSignature, AggregateSignatureType, BasicVerifier, Clerk, Initializer, KeyRegistration,
     Parameters, Signer, Stake, VerificationKey,
 };
+use rand_chacha::ChaCha20Rng;
+use rand_core::{RngCore, SeedableRng};
+use rayon::prelude::*;
 
 /// This benchmark framework is not ideal. We really have to think what is the best mechanism for
 /// benchmarking these signatures, over which parameters, how many times to run them, etc:

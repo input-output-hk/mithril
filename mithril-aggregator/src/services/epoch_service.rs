@@ -1,10 +1,8 @@
-use anyhow::{Context, anyhow};
-use async_trait::async_trait;
-use slog::{Logger, debug};
 use std::collections::BTreeSet;
 use std::sync::Arc;
-use thiserror::Error;
 
+use anyhow::{Context, anyhow};
+use async_trait::async_trait;
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_common::StdResult;
 use mithril_common::crypto_helper::ProtocolAggregateVerificationKey;
@@ -18,6 +16,8 @@ use mithril_era::EraChecker;
 use mithril_persistence::store::StakeStorer;
 use mithril_protocol_config::interface::MithrilNetworkConfigurationProvider;
 use mithril_protocol_config::model::MithrilNetworkConfiguration;
+use slog::{Logger, debug};
+use thiserror::Error;
 
 use crate::{EpochSettingsStorer, VerificationKeyStorer, entities::AggregatorEpochSettings};
 
@@ -782,8 +782,6 @@ impl EpochService for FakeEpochService {
 
 #[cfg(test)]
 mod tests {
-    use mockall::predicate::eq;
-
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_common::entities::{
         BlockNumber, CardanoTransactionsSigningConfig, Stake, StakeDistribution, SupportedEra,
@@ -796,12 +794,12 @@ mod tests {
         model::{MithrilNetworkConfigurationForEpoch, SignedEntityTypeConfiguration},
         test::double::configuration_provider::FakeMithrilNetworkConfigurationProvider,
     };
+    use mockall::predicate::eq;
 
+    use super::*;
     use crate::store::{FakeEpochSettingsStorer, MockVerificationKeyStorer};
     use crate::test::TestLogger;
     use crate::test::double::mocks::MockStakeStore;
-
-    use super::*;
 
     fn build_uniform_stake_distribution(
         total_spo: TotalSPOs,

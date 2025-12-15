@@ -1,14 +1,12 @@
 use chrono::Utc;
-use uuid::Uuid;
-
 use mithril_common::test::double::{Dummy, fake_data};
+use uuid::Uuid;
 
 mod record {
     use mithril_common::entities::{ProtocolMessage, SignedEntityType};
 
-    use crate::database::record::{ImmutableFileDigestRecord, OpenMessageRecord};
-
     use super::*;
+    use crate::database::record::{ImmutableFileDigestRecord, OpenMessageRecord};
 
     impl Dummy for ImmutableFileDigestRecord {
         /// Create a dumb ImmutableFileDigestRecord instance mainly for test purposes
@@ -46,9 +44,8 @@ mod entities {
         CardanoTransactionsSigningConfig, ProtocolMessage, SignedEntityType,
     };
 
-    use crate::entities::{AggregatorEpochSettings, LeaderAggregatorEpochSettings, OpenMessage};
-
     use super::*;
+    use crate::entities::{AggregatorEpochSettings, LeaderAggregatorEpochSettings, OpenMessage};
 
     impl Dummy for AggregatorEpochSettings {
         /// Create a dummy `AggregatorEpochSettings`

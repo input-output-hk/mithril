@@ -235,9 +235,8 @@ impl Display for EpochSpecifier {
 
 #[cfg(test)]
 mod tests {
-    use crate::entities::arithmetic_operation_wrapper::tests::test_op_assign;
-
     use super::*;
+    use crate::entities::arithmetic_operation_wrapper::tests::test_op_assign;
 
     #[test]
     fn test_display() {

@@ -5,6 +5,8 @@ mod genesis_command;
 mod serve_command;
 mod tools_command;
 
+use std::{collections::HashMap, path::PathBuf};
+
 use anyhow::anyhow;
 use clap::{CommandFactory, Parser, Subcommand};
 use config::{ConfigBuilder, Map, Source, Value, builder::DefaultState};
@@ -12,7 +14,6 @@ use mithril_cli_helper::{register_config_value, register_config_value_option};
 use mithril_common::StdResult;
 use mithril_doc::{Documenter, GenerateDocCommands, StructDoc};
 use slog::{Level, Logger, debug};
-use std::{collections::HashMap, path::PathBuf};
 
 use crate::{DefaultConfiguration, extract_all};
 

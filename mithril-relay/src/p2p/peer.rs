@@ -1,4 +1,6 @@
 #![allow(missing_docs)]
+use std::{collections::HashMap, time::Duration};
+
 use anyhow::{Context, anyhow};
 use libp2p::{
     Multiaddr, PeerId, Swarm, SwarmBuilder,
@@ -19,7 +21,6 @@ use mithril_common::{
 use mithril_dmq::DmqMessage;
 use serde::{Deserialize, Serialize};
 use slog::{Logger, debug, info};
-use std::{collections::HashMap, time::Duration};
 
 use crate::{mithril_p2p_topic, p2p::PeerError};
 

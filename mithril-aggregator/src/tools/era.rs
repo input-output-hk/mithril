@@ -1,7 +1,6 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::anyhow;
-
 use mithril_cardano_node_chain::entities::{TxDatumBuilder, TxDatumFieldValue};
 use mithril_common::{
     StdResult,
@@ -76,11 +75,12 @@ impl EraTools {
 
 #[cfg(test)]
 mod tests {
+    use std::fs::read_to_string;
+
     use mithril_common::{
         crypto_helper::{EraMarkersVerifierSecretKey, EraMarkersVerifierVerificationKey},
         test::TempDir,
     };
-    use std::fs::read_to_string;
 
     use super::*;
 

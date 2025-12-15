@@ -1,12 +1,10 @@
 //! Commands for UTxO-HD
 mod snapshot_converter;
 
-pub use snapshot_converter::*;
-
 use anyhow::anyhow;
 use clap::Subcommand;
-
 use mithril_client::MithrilResult;
+pub use snapshot_converter::*;
 
 use crate::CommandContext;
 

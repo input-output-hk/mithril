@@ -6,10 +6,6 @@ mod cardano_transaction;
 mod certificate;
 mod mithril_stake_distribution;
 
-#[cfg(feature = "fs")]
-#[allow(unused_imports)]
-pub use cardano_db_v2::CardanoDatabaseSnapshotV2Fixture;
-
 use std::sync::Arc;
 
 use axum::{
@@ -19,9 +15,11 @@ use axum::{
     response::Response,
 };
 use axum_test::TestServer;
-use tokio::sync::Mutex;
-
+#[cfg(feature = "fs")]
+#[allow(unused_imports)]
+pub use cardano_db_v2::CardanoDatabaseSnapshotV2Fixture;
 use mithril_client::certificate_client::CertificateVerifier;
+use tokio::sync::Mutex;
 
 use crate::extensions::mock;
 

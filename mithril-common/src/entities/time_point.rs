@@ -61,9 +61,8 @@ impl Display for TimePoint {
 mod tests {
     use std::cmp::Ordering;
 
-    use crate::entities::{BlockNumber, SlotNumber};
-
     use super::*;
+    use crate::entities::{BlockNumber, SlotNumber};
 
     #[test]
     fn time_point_ord_cmp_epochs_take_precedence_over_other_fields() {

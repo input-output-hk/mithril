@@ -1,15 +1,12 @@
-use clap::Parser;
-use slog_scope::info;
 use std::{sync::Arc, time::Duration};
-use tokio::sync::oneshot;
 
+use clap::Parser;
 use mithril_cardano_node_internal_database::test::{DummyCardanoDb, DummyCardanoDbBuilder};
 use mithril_common::{
     StdResult,
     entities::{Epoch, ProtocolParameters},
     test::builder::MithrilFixture,
 };
-
 use mithril_end_to_end::{
     Aggregator,
     stress_test::{
@@ -17,6 +14,8 @@ use mithril_end_to_end::{
         payload_builder, wait,
     },
 };
+use slog_scope::info;
+use tokio::sync::oneshot;
 
 fn init_logger(opts: &MainOpts) -> slog_scope::GlobalLoggerGuard {
     use slog::Drain;

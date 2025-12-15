@@ -1,10 +1,9 @@
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::{Context, anyhow};
-use slog::{Logger, debug, info, trace};
-
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::{StdResult, entities::Certificate};
+use slog::{Logger, debug, info, trace};
 
 use crate::database::repository::{CertificateRepository, SignedEntityStorer};
 
@@ -219,11 +218,10 @@ mod test {
     use mithril_common::test::double::Dummy;
     use mithril_persistence::sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection};
 
+    use super::*;
     use crate::database::record::{CertificateRecord, SignedEntityRecord};
     use crate::database::repository::SignedEntityStore;
     use crate::test::TestLogger;
-
-    use super::*;
 
     fn connection_with_foreign_key_support() -> SqliteConnection {
         ConnectionBuilder::open_memory()

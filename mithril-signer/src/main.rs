@@ -1,23 +1,22 @@
-use anyhow::{Context, anyhow};
-use clap::{CommandFactory, Parser, Subcommand};
-use config::{Map, Value};
-
-use slog::{Drain, Level, Logger, crit, debug, info, o};
 use std::sync::Arc;
 use std::time::Duration;
 use std::{collections::HashMap, path::PathBuf};
-use tokio::{
-    signal::unix::{SignalKind, signal},
-    sync::watch,
-    task::JoinSet,
-};
 
+use anyhow::{Context, anyhow};
+use clap::{CommandFactory, Parser, Subcommand};
+use config::{Map, Value};
 use mithril_common::StdResult;
 use mithril_doc::{Documenter, DocumenterDefault, GenerateDocCommands, StructDoc};
 use mithril_metric::MetricsServer;
 use mithril_signer::{
     Configuration, DatabaseCommand, DefaultConfiguration, SignerRunner, SignerState, StateMachine,
     dependency_injection::DependenciesBuilder,
+};
+use slog::{Drain, Level, Logger, crit, debug, info, o};
+use tokio::{
+    signal::unix::{SignalKind, signal},
+    sync::watch,
+    task::JoinSet,
 };
 
 /// CLI args

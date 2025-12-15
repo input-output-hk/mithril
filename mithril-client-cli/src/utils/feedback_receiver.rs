@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use indicatif::{ProgressBar, ProgressDrawTarget};
+use mithril_client::feedback::{FeedbackReceiver, MithrilEvent, MithrilEventCardanoDatabase};
 use slog::Logger;
 use tokio::sync::RwLock;
 
@@ -7,8 +8,6 @@ use super::{
     DownloadProgressReporter, DownloadProgressReporterParams, MultiDownloadProgressReporter,
     ProgressBarKind, ProgressOutputType,
 };
-
-use mithril_client::feedback::{FeedbackReceiver, MithrilEvent, MithrilEventCardanoDatabase};
 
 /// Custom [FeedbackReceiver] for Cardano DB to handle events sent
 /// by the `mithril-client` library
@@ -234,10 +233,10 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
 
 #[cfg(test)]
 mod tests {
-    use slog::o;
     use std::sync::Arc;
 
     use mithril_client::feedback::FeedbackSender;
+    use slog::o;
 
     use super::*;
 

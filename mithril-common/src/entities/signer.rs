@@ -1,3 +1,8 @@
+use std::fmt::{Debug, Formatter};
+
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+
 use crate::{
     crypto_helper::{
         KesPeriod, ProtocolOpCert, ProtocolSignerVerificationKey,
@@ -5,10 +10,6 @@ use crate::{
     },
     entities::{PartyId, Stake},
 };
-use std::fmt::{Debug, Formatter};
-
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
 /// Signer represents a signing participant in the network
 #[derive(Clone, Eq, Serialize, Deserialize)]
@@ -264,9 +265,8 @@ impl Debug for SignerWithStake {
 
 #[cfg(test)]
 mod tests {
-    use crate::test::{builder::MithrilFixtureBuilder, double::fake_keys};
-
     use super::*;
+    use crate::test::{builder::MithrilFixtureBuilder, double::fake_keys};
 
     #[test]
     fn test_stake_signers_from_into() {

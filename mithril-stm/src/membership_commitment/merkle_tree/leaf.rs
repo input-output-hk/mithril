@@ -2,9 +2,8 @@ use std::cmp::Ordering;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Stake, StmResult, VerificationKey, signature_scheme::BlsVerificationKey};
-
 use super::MerkleTreeError;
+use crate::{Stake, StmResult, VerificationKey, signature_scheme::BlsVerificationKey};
 
 /// The values that are committed in the Merkle Tree.
 /// Namely, a verified `VerificationKey` and its corresponding stake.

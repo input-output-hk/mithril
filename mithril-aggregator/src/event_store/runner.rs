@@ -1,9 +1,10 @@
+use std::sync::Arc;
+
 use anyhow::Context;
 use mithril_common::StdResult;
 use mithril_common::logging::LoggerExtensions;
 use mithril_persistence::sqlite::SqliteConnection;
 use slog::{Logger, debug, info};
-use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use super::EventMessage;

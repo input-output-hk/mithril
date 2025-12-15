@@ -1,11 +1,12 @@
-use anyhow::{Context, anyhow};
-use clap::Parser;
-use mithril_common::StdResult;
-use slog::Level;
 use std::{
     path::{Path, PathBuf},
     time::Duration,
 };
+
+use anyhow::{Context, anyhow};
+use clap::Parser;
+use mithril_common::StdResult;
+use slog::Level;
 use tokio::time::Instant;
 
 use crate::FullNode;

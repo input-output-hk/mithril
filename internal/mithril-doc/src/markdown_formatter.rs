@@ -2,9 +2,8 @@ use std::collections::HashMap;
 
 use clap::{Arg, Command, builder::StyledStr};
 
-use crate::extract_clap_info;
-
 use super::StructDoc;
+use crate::extract_clap_info;
 
 mod markdown {
     /// Format a list of label and a list of text list into a markdown table.
@@ -239,9 +238,10 @@ pub fn doc_config_to_markdown(struct_doc: &StructDoc) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use clap::{Args, CommandFactory, Parser, Subcommand};
     use regex::Regex;
+
+    use super::*;
 
     #[derive(Args, Clone, Debug)]
     struct StructSubCommandB {

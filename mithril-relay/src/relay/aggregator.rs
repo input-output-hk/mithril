@@ -3,14 +3,6 @@ use std::{path::Path, sync::Arc};
 
 use anyhow::anyhow;
 use libp2p::Multiaddr;
-use reqwest::StatusCode;
-use slog::{Logger, error, info};
-#[cfg(feature = "future_dmq")]
-use tokio::sync::{
-    mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
-    watch::{self, Receiver, Sender},
-};
-
 use mithril_common::{
     StdResult,
     logging::LoggerExtensions,
@@ -18,6 +10,13 @@ use mithril_common::{
 };
 #[cfg(feature = "future_dmq")]
 use mithril_dmq::{DmqConsumerServer, DmqConsumerServerPallas, DmqMessage, DmqNetwork};
+use reqwest::StatusCode;
+use slog::{Logger, error, info};
+#[cfg(feature = "future_dmq")]
+use tokio::sync::{
+    mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
+    watch::{self, Receiver, Sender},
+};
 
 use crate::p2p::{BroadcastMessage, Peer, PeerEvent};
 
@@ -240,9 +239,8 @@ mod tests {
     use httpmock::MockServer;
     use mithril_common::test::double::Dummy;
 
-    use crate::test_tools::TestLogger;
-
     use super::*;
+    use crate::test_tools::TestLogger;
 
     #[tokio::test]
     async fn sends_accept_encoding_header_with_correct_values() {

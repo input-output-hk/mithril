@@ -2,9 +2,8 @@ use std::{fs::File, path::Path};
 
 use anyhow::Context;
 use flate2::read::GzDecoder;
-use tar::Archive;
-
 use mithril_client::MithrilResult;
+use tar::Archive;
 
 use super::ArchiveFormat;
 
@@ -38,9 +37,8 @@ mod tests {
     use std::fs::{self, File};
 
     use flate2::{Compression, write::GzEncoder};
-    use tar::{Builder, Header};
-
     use mithril_common::{assert_dir_eq, temp_dir_create};
+    use tar::{Builder, Header};
 
     use super::*;
 

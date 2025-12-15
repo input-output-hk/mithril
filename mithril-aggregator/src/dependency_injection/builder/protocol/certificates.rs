@@ -1,6 +1,6 @@
-use anyhow::Context;
 use std::sync::Arc;
 
+use anyhow::Context;
 use mithril_common::certificate_chain::{CertificateVerifier, MithrilCertificateVerifier};
 use mithril_common::crypto_helper::{
     ProtocolGenesisSigner, ProtocolGenesisVerificationKey, ProtocolGenesisVerifier,

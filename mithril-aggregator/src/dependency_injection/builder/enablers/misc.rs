@@ -4,10 +4,10 @@
 //! - group these enablers into more logical categories
 //! - redefine the actual categories so those miscellaneous enablers fit into them
 
-use anyhow::anyhow;
 use std::sync::Arc;
 use std::time::Duration;
 
+use anyhow::anyhow;
 use mithril_aggregator_client::AggregatorHttpClient;
 use mithril_common::logging::LoggerExtensions;
 #[cfg(feature = "future_dmq")]

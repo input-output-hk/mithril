@@ -1,6 +1,7 @@
+use warp::Filter;
+
 use crate::http_server::routes::middlewares;
 use crate::http_server::routes::router::RouterState;
-use warp::Filter;
 
 pub fn routes(
     router_state: &RouterState,
@@ -65,13 +66,13 @@ fn serve_snapshots_dir(
 }
 
 mod handlers {
-    use slog::{Logger, debug, warn};
     use std::convert::Infallible;
     use std::str::FromStr;
     use std::sync::Arc;
-    use warp::http::{StatusCode, Uri};
 
     use mithril_common::StdResult;
+    use slog::{Logger, debug, warn};
+    use warp::http::{StatusCode, Uri};
 
     use crate::http_server::routes::middlewares::ClientMetadata;
     use crate::http_server::routes::reply;
@@ -203,12 +204,7 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::Value::Null;
     use std::sync::Arc;
-    use warp::{
-        http::{Method, StatusCode},
-        test::request,
-    };
 
     use mithril_api_spec::APISpec;
     use mithril_common::{
@@ -218,15 +214,19 @@ mod tests {
         test::double::{Dummy, fake_data},
     };
     use mithril_persistence::sqlite::HydrationError;
+    use serde_json::Value::Null;
+    use warp::{
+        http::{Method, StatusCode},
+        test::request,
+    };
 
+    use super::*;
     use crate::{
         http_server::routes::{artifact_routes::test_utils::*, router::RouterConfig},
         initialize_dependencies,
         services::{MockMessageService, MockSignedEntityService},
         tools::url_sanitizer::SanitizedUrlWithTrailingSlash,
     };
-
-    use super::*;
 
     fn setup_router(
         state: RouterState,

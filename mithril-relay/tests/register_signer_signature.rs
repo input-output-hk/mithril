@@ -3,10 +3,6 @@ use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
 
 use libp2p::{Multiaddr, gossipsub};
-use reqwest::StatusCode;
-use slog::{Drain, Level, Logger};
-use slog_scope::{error, info};
-
 use mithril_common::messages::{RegisterSignatureMessageHttp, RegisterSignerMessage};
 use mithril_common::test::double::Dummy;
 #[cfg(feature = "future_dmq")]
@@ -15,6 +11,9 @@ use mithril_relay::{
     PassiveRelay, SignerRelay, SignerRelayConfiguration, SignerRelayMode,
     p2p::{BroadcastMessage, PeerBehaviourEvent, PeerEvent},
 };
+use reqwest::StatusCode;
+use slog::{Drain, Level, Logger};
+use slog_scope::{error, info};
 
 // Launch a relay that connects to P2P network. The relay is a peer in the P2P
 // network. The relay sends some signer registrations that must be received by other

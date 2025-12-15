@@ -1,5 +1,6 @@
-use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
+
+use serde::{Deserialize, Serialize};
 
 use crate::crypto_helper::KesPeriod;
 use crate::entities::{

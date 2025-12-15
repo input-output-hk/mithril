@@ -3,10 +3,9 @@ use std::sync::Arc;
 use axum::extract::{Path, State};
 use axum::routing::get;
 use axum::{Json, Router};
+use mithril_client::{CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem};
 use tokio::sync::RwLock;
 use tower_http::services::fs::ServeDir;
-
-use mithril_client::{CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem};
 
 #[derive(Debug, Clone)]
 struct CardanoDbSnapshotRoutesState {

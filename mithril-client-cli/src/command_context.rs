@@ -1,7 +1,6 @@
 use anyhow::anyhow;
-use slog::Logger;
-
 use mithril_client::MithrilResult;
+use slog::Logger;
 
 use crate::configuration::ConfigParameters;
 
@@ -74,12 +73,12 @@ impl CommandContext {
 
 #[cfg(test)]
 mod tests {
-    use slog::o;
     use std::collections::HashMap;
 
-    use crate::configuration::{ConfigError, ConfigSource};
+    use slog::o;
 
     use super::*;
+    use crate::configuration::{ConfigError, ConfigSource};
 
     #[test]
     fn require_unstable_return_ok_if_unstable_enabled() {

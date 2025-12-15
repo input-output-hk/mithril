@@ -4,12 +4,12 @@ mod snapshot_list;
 mod snapshot_show;
 
 pub use certify::*;
+use clap::Subcommand;
+use mithril_client::MithrilResult;
 pub use snapshot_list::*;
 pub use snapshot_show::*;
 
 use crate::CommandContext;
-use clap::Subcommand;
-use mithril_client::MithrilResult;
 
 /// Cardano transactions management
 #[derive(Subcommand, Debug, Clone)]

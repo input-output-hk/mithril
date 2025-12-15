@@ -1,6 +1,7 @@
+use std::{path::Path, time::Duration};
+
 use async_trait::async_trait;
 use mithril_common::{StdResult, entities::FileUri};
-use std::{path::Path, time::Duration};
 
 /// Policy for retrying file uploads.
 #[derive(Debug, PartialEq, Clone)]
@@ -69,9 +70,10 @@ pub trait FileUploader: Sync + Send {
 mod tests {
     use std::{path::PathBuf, sync::Mutex, time::Instant};
 
-    use super::*;
     use anyhow::anyhow;
     use mockall::{mock, predicate::eq};
+
+    use super::*;
 
     mock! {
         TestFileUploaderWithDefaultRetryPolicy {

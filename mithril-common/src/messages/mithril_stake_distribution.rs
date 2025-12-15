@@ -2,10 +2,9 @@ use chrono::DateTime;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
+use super::SignerWithStakeMessagePart;
 use crate::entities::Epoch;
 use crate::entities::ProtocolParameters;
-
-use super::SignerWithStakeMessagePart;
 /// Message structure of a Mithril Stake Distribution
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MithrilStakeDistributionMessage {
@@ -31,9 +30,8 @@ pub struct MithrilStakeDistributionMessage {
 
 #[cfg(test)]
 mod tests {
-    use crate::test::double::fake_data;
-
     use super::*;
+    use crate::test::double::fake_data;
 
     fn golden_message_current() -> MithrilStakeDistributionMessage {
         MithrilStakeDistributionMessage {

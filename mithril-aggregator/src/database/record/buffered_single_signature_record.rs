@@ -1,12 +1,10 @@
 use chrono::{DateTime, Utc};
-
 use mithril_common::entities::{
     HexEncodedSingleSignature, LotteryIndex, SignedEntityTypeDiscriminants, SingleSignature,
 };
 #[cfg(test)]
 use mithril_common::test::entities_extensions::SingleSignatureTestExtension;
 use mithril_common::{StdError, StdResult};
-
 use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
 
 /// `BufferedSingleSignatureRecord` record is the representation of a buffered single_signature

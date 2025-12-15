@@ -1,17 +1,15 @@
 use std::sync::Arc;
 
-use slog::{Logger, error, warn};
-
 use mithril_common::{
     StdResult,
     entities::{SingleSignature, SingleSignatureAuthenticationStatus},
     logging::LoggerExtensions,
 };
+use slog::{Logger, error, warn};
 use tokio::{select, sync::watch::Receiver};
 
-use crate::MetricsService;
-
 use super::{CertifierService, SignatureConsumer};
+use crate::MetricsService;
 
 /// A signature processor which receives signature and processes them.
 #[cfg_attr(test, mockall::automock)]
@@ -119,6 +117,7 @@ mod tests {
         time::{Duration, sleep},
     };
 
+    use super::*;
     use crate::{
         services::{
             FakeSignatureConsumer, MockCertifierService, MockSignatureConsumer,
@@ -126,8 +125,6 @@ mod tests {
         },
         test::TestLogger,
     };
-
-    use super::*;
 
     #[tokio::test]
     async fn processor_process_signatures_succeeds() {

@@ -3,9 +3,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
-use slog::Logger;
-use tokio::sync::{Mutex, RwLock};
-
 use mithril_aggregator_client::AggregatorHttpClient;
 use mithril_cardano_node_chain::{
     chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType},
@@ -32,20 +29,18 @@ use mithril_common::signable_builder::{
     MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
     SignableBuilderServiceDependencies,
 };
-
+#[cfg(feature = "future_dmq")]
+use mithril_dmq::{DmqMessageBuilder, DmqPublisherClientPallas};
 use mithril_era::{EraChecker, EraReader};
-use mithril_signed_entity_lock::SignedEntityTypeLock;
-use mithril_signed_entity_preloader::CardanoTransactionsPreloader;
-use mithril_ticker::{MithrilTickerService, TickerService};
-
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 use mithril_persistence::database::{ApplicationNodeType, SqlMigration};
 use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnection, SqliteConnectionPool};
-
 use mithril_protocol_config::http::HttpMithrilNetworkConfigurationProvider;
-
-#[cfg(feature = "future_dmq")]
-use mithril_dmq::{DmqMessageBuilder, DmqPublisherClientPallas};
+use mithril_signed_entity_lock::SignedEntityTypeLock;
+use mithril_signed_entity_preloader::CardanoTransactionsPreloader;
+use mithril_ticker::{MithrilTickerService, TickerService};
+use slog::Logger;
+use tokio::sync::{Mutex, RwLock};
 
 use crate::dependency_injection::SignerDependencyContainer;
 #[cfg(feature = "future_dmq")]
@@ -547,9 +542,8 @@ mod tests {
     use mithril_common::test::double::Dummy;
     use mithril_common::{entities::TimePoint, test::TempDir};
 
-    use crate::test_tools::TestLogger;
-
     use super::*;
+    use crate::test_tools::TestLogger;
 
     fn get_test_dir(test_name: &str) -> PathBuf {
         TempDir::create("signer_service", test_name)

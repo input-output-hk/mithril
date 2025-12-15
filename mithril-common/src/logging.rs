@@ -35,9 +35,10 @@ fn component_name<T>() -> &'static str {
 
 #[cfg(test)]
 mod tests {
+    use slog::info;
+
     use super::*;
     use crate::test::TestLogger;
-    use slog::info;
 
     struct TestStruct;
     // The `allow(dead_code)` is used because a field is needed to add the lifetime but is unused.

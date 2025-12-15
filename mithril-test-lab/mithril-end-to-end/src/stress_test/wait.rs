@@ -1,11 +1,7 @@
+use std::time::Duration;
+
 use anyhow::anyhow;
 use async_recursion::async_recursion;
-use reqwest::StatusCode;
-use serde::Deserialize;
-use slog_scope::warn;
-use std::time::Duration;
-use tokio::time::sleep;
-
 use mithril_common::{
     StdResult,
     entities::Epoch,
@@ -14,6 +10,10 @@ use mithril_common::{
         MithrilStakeDistributionListItemMessage,
     },
 };
+use reqwest::StatusCode;
+use serde::Deserialize;
+use slog_scope::warn;
+use tokio::time::sleep;
 
 use crate::Aggregator;
 

@@ -1,6 +1,6 @@
-use async_trait::async_trait;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use mithril_common::logging::LoggerExtensions;
 
 use crate::certificate_client::fetch::InternalCertificateRetriever;

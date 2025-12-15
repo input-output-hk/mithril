@@ -1,13 +1,12 @@
 mod v1;
 mod v2;
 
-use v1::PreparedCardanoDbV1Download;
-use v2::PreparedCardanoDbV2Download;
-
-use clap::Parser;
 use std::{collections::HashMap, path::PathBuf};
 
+use clap::Parser;
 use mithril_client::{MithrilResult, common::ImmutableFileNumber};
+use v1::PreparedCardanoDbV1Download;
+use v2::PreparedCardanoDbV2Download;
 
 use crate::{
     CommandContext,
@@ -202,9 +201,8 @@ impl ConfigSource for CardanoDbDownloadCommand {
 mod tests {
     use slog::Logger;
 
-    use crate::ConfigParameters;
-
     use super::*;
+    use crate::ConfigParameters;
 
     fn dummy_command() -> CardanoDbDownloadCommand {
         CardanoDbDownloadCommand {

@@ -1,9 +1,9 @@
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 use mithril_protocol_config::{
     http::HttpMithrilNetworkConfigurationProvider, interface::MithrilNetworkConfigurationProvider,
 };
+use tokio::sync::RwLock;
 
 use crate::dependency_injection::{DependenciesBuilder, EpochServiceWrapper, Result};
 use crate::get_dependency;

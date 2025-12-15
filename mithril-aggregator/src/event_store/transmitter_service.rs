@@ -1,9 +1,9 @@
-use anyhow::Context;
-use slog::{Logger, warn};
 use std::fmt::Debug;
-use tokio::sync::mpsc::UnboundedSender;
 
+use anyhow::Context;
 use mithril_common::{StdResult, logging::LoggerExtensions};
+use slog::{Logger, warn};
+use tokio::sync::mpsc::UnboundedSender;
 
 use super::EventMessage;
 

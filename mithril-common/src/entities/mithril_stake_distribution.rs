@@ -1,9 +1,8 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::entities::{Epoch, SignerWithStake};
-
 use super::ProtocolParameters;
+use crate::entities::{Epoch, SignerWithStake};
 
 /// Mithril Stake Distribution
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
@@ -56,9 +55,8 @@ impl MithrilStakeDistribution {
 
 #[cfg(test)]
 mod tests {
-    use crate::test::{builder::MithrilFixtureBuilder, double::fake_data};
-
     use super::*;
+    use crate::test::{builder::MithrilFixtureBuilder, double::fake_data};
 
     const EXPECTED_HASH: &str = "c5c1ff02e37c751329e3db7625c77fa2a24e86b2a75422c54f1b9f9232374d6f";
 

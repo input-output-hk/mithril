@@ -1,8 +1,7 @@
-use sqlite::Value;
-
 use mithril_common::StdResult;
 use mithril_common::entities::{Epoch, SignedEntityType};
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
+use sqlite::Value;
 
 use crate::database::record::OpenMessageWithSingleSignaturesRecord;
 

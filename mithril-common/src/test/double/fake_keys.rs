@@ -389,7 +389,8 @@ pub const fn aggregate_verification_key<'a>() -> [&'a str; 3] {
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use std::any::type_name;
+
     use ed25519_dalek::VerifyingKey;
     use kes_summed_ed25519::kes::Sum6KesSig;
     use mithril_stm::{
@@ -397,8 +398,8 @@ mod test {
         VerificationKeyProofOfPossession,
     };
     use serde::{Serialize, de::DeserializeOwned};
-    use std::any::type_name;
 
+    use super::*;
     use crate::crypto_helper::{
         D, ManifestSignature, OpCert, ProtocolGenesisSignature, ProtocolKey, ProtocolKeyCodec,
         TryFromBytes, TryToBytes, key_decode_hex,

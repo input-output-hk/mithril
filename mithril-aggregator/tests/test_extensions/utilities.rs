@@ -1,9 +1,10 @@
-use mithril_common::test::TempDir;
-use slog_scope::debug;
 use std::{
     path::PathBuf,
     sync::atomic::{AtomicUsize, Ordering},
 };
+
+use mithril_common::test::TempDir;
+use slog_scope::debug;
 
 pub static COMMENT_COUNT: AtomicUsize = AtomicUsize::new(0);
 

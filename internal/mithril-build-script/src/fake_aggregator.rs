@@ -485,9 +485,8 @@ pub fn generate_epoch_array(array_name: &str, epoch: BTreeSet<u64>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::get_temp_dir;
-
     use super::*;
+    use crate::get_temp_dir;
 
     #[test]
     fn generate_ids_array_with_empty_data() {

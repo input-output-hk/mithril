@@ -1,7 +1,7 @@
-use anyhow::anyhow;
-use async_trait::async_trait;
 use std::sync::Arc;
 
+use anyhow::anyhow;
+use async_trait::async_trait;
 use mithril_common::{
     StdResult,
     entities::{CardanoStakeDistribution, Certificate, Epoch},

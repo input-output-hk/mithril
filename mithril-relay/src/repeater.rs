@@ -1,8 +1,9 @@
+use std::{fmt::Debug, sync::Arc, time::Duration};
+
 use anyhow::anyhow;
 use mithril_common::StdResult;
 use mithril_common::logging::LoggerExtensions;
 use slog::{Logger, debug};
-use std::{fmt::Debug, sync::Arc, time::Duration};
 use tokio::{
     sync::{Mutex, mpsc::UnboundedSender},
     time::Instant,
@@ -69,9 +70,8 @@ impl<M: Clone + Debug + Sync + Send + 'static> MessageRepeater<M> {
 mod tests {
     use tokio::{sync::mpsc, time};
 
-    use crate::test_tools::TestLogger;
-
     use super::*;
+    use crate::test_tools::TestLogger;
 
     #[tokio::test]
     async fn should_repeat_message_when_exists() {

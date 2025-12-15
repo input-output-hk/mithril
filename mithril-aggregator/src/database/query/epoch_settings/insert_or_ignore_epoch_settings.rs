@@ -1,6 +1,5 @@
-use sqlite::Value;
-
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
+use sqlite::Value;
 
 use crate::database::record::EpochSettingsRecord;
 
@@ -52,10 +51,9 @@ mod tests {
     use mithril_common::test::double::fake_data;
     use mithril_persistence::sqlite::ConnectionExtensions;
 
+    use super::*;
     use crate::database::query::GetEpochSettingsQuery;
     use crate::database::test_helper::main_db_connection;
-
-    use super::*;
 
     #[test]
     fn test_insert_epoch_setting_in_empty_db() {

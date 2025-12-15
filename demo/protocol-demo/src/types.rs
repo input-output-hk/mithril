@@ -1,9 +1,8 @@
+use blake2::{Blake2b, digest::consts::U32};
 use mithril_stm::{
     AggregateSignature, Clerk, Initializer, KeyRegistration, Parameters, Signer, SingleSignature,
     Stake, VerificationKeyProofOfPossession,
 };
-
-use blake2::{Blake2b, digest::consts::U32};
 
 // Protocol types alias
 type D = Blake2b<U32>;

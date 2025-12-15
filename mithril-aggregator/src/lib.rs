@@ -31,15 +31,12 @@ mod store;
 pub mod test;
 mod tools;
 
-pub use crate::artifact_builder::ArtifactBuilder;
-pub use crate::configuration::{
-    ConfigurationSource, DefaultConfiguration, ExecutionEnvironment, ServeCommandConfiguration,
-    SnapshotUploaderType, ZstandardCompressionParameters,
-};
-pub use crate::multi_signer::{MultiSigner, MultiSignerImpl};
 pub use commands::{CommandType, MainOpts};
 pub use dependency_injection::ServeCommandDependenciesContainer;
+#[cfg(test)]
+pub(crate) use dependency_injection::tests::initialize_dependencies;
 pub use file_uploaders::{DumbUploader, FileUploader};
+pub use immutable_file_digest_mapper::ImmutableFileDigestMapper;
 pub use message_adapters::FromRegisterSignerAdapter;
 pub use metrics::*;
 pub use runtime::{
@@ -52,19 +49,20 @@ pub use services::{
     SignerSynchronizer,
 };
 pub use store::{EpochSettingsStorer, ProtocolParametersRetriever, VerificationKeyStorer};
+// Memory allocator (to handle properly memory fragmentation)
+#[cfg(all(not(target_env = "msvc"), feature = "jemallocator"))]
+use tikv_jemallocator::Jemalloc;
 pub use tools::{
     CExplorerSignerRetriever, SignersImporter, SignersImporterPersister, SignersImporterRetriever,
     SingleSignatureAuthenticator,
 };
 
-pub use immutable_file_digest_mapper::ImmutableFileDigestMapper;
-
-#[cfg(test)]
-pub(crate) use dependency_injection::tests::initialize_dependencies;
-
-// Memory allocator (to handle properly memory fragmentation)
-#[cfg(all(not(target_env = "msvc"), feature = "jemallocator"))]
-use tikv_jemallocator::Jemalloc;
+pub use crate::artifact_builder::ArtifactBuilder;
+pub use crate::configuration::{
+    ConfigurationSource, DefaultConfiguration, ExecutionEnvironment, ServeCommandConfiguration,
+    SnapshotUploaderType, ZstandardCompressionParameters,
+};
+pub use crate::multi_signer::{MultiSigner, MultiSignerImpl};
 
 #[cfg(all(not(target_env = "msvc"), feature = "jemallocator"))]
 #[global_allocator]

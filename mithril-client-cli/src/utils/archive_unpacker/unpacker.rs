@@ -1,7 +1,6 @@
 use std::path::Path;
 
 use anyhow::anyhow;
-
 use mithril_client::MithrilResult;
 
 use super::{ArchiveFormat, tar_gz_unpacker::TarGzUnpacker, zip_unpacker::ZipUnpacker};
@@ -38,10 +37,9 @@ mod tests {
     use std::{fs::File, io::Write, path::Path};
 
     use flate2::{Compression, write::GzEncoder};
+    use mithril_common::temp_dir_create;
     use tar::{Builder, Header};
     use zip::{ZipWriter, write::FileOptions};
-
-    use mithril_common::temp_dir_create;
 
     use super::*;
 

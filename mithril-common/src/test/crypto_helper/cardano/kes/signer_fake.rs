@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
+use std::sync::Mutex;
 
 use kes_summed_ed25519::kes::Sum6KesSig;
-use std::sync::Mutex;
 
 use crate::{
     StdResult,

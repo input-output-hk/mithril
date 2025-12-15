@@ -1,13 +1,13 @@
 #![allow(deprecated)]
-use anyhow::{Context, anyhow};
-use slog::{Logger, debug, warn};
 use std::{fs::File, path::Path, sync::Arc};
 
+use anyhow::{Context, anyhow};
 use mithril_client::{
     MessageBuilder, MithrilCertificate, MithrilResult, RequiredAggregatorCapabilities, Snapshot,
     common::{ProtocolMessage, SignedEntityTypeDiscriminants},
     snapshot_client::SnapshotClient,
 };
+use slog::{Logger, debug, warn};
 
 use crate::{
     CommandContext,

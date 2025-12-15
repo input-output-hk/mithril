@@ -1,8 +1,9 @@
-use crate::event_store::{Event, EventMessage};
 use chrono::Utc;
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 use serde_json::json;
+
+use crate::event_store::{Event, EventMessage};
 
 /// Queries to insert [EventMessage] to the sqlite database.
 pub struct InsertEventQuery {

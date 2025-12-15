@@ -1,8 +1,6 @@
-use chrono::Utc;
-use sqlite::{ConnectionThreadSafe, Value};
 use std::path::Path;
-use uuid::Uuid;
 
+use chrono::Utc;
 use mithril_common::entities::{
     BlockNumber, CardanoTransactionsSigningConfig, ProtocolParameters, SignerWithStake,
 };
@@ -10,6 +8,8 @@ use mithril_common::{StdError, StdResult, entities::Epoch, test::double::fake_ke
 use mithril_persistence::sqlite::{
     ConnectionBuilder, ConnectionExtensions, ConnectionOptions, Query, SqliteConnection,
 };
+use sqlite::{ConnectionThreadSafe, Value};
+use uuid::Uuid;
 
 use crate::database::query::{
     ImportSignerRecordQuery, InsertCertificateRecordQuery, InsertOrIgnoreEpochSettingsQuery,

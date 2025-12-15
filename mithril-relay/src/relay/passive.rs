@@ -1,8 +1,9 @@
-use crate::p2p::{BroadcastMessage, Peer, PeerEvent};
 use libp2p::Multiaddr;
 use mithril_common::StdResult;
 use mithril_common::logging::LoggerExtensions;
 use slog::{Logger, debug, info};
+
+use crate::p2p::{BroadcastMessage, Peer, PeerEvent};
 
 /// A passive relay
 pub struct PassiveRelay {

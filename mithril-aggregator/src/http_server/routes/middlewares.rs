@@ -1,10 +1,10 @@
-use slog::{Logger, debug};
 use std::convert::Infallible;
 use std::sync::Arc;
-use warp::Filter;
 
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
+use slog::{Logger, debug};
+use warp::Filter;
 
 use crate::database::repository::SignerGetter;
 use crate::dependency_injection::EpochServiceWrapper;
@@ -190,9 +190,8 @@ pub struct ClientMetadata {
 }
 
 pub mod validators {
-    use crate::http_server::validators::ProverTransactionsHashValidator;
-
     use super::*;
+    use crate::http_server::validators::ProverTransactionsHashValidator;
 
     /// With Prover Transactions Hash Validator
     pub fn with_prover_transactions_hash_validator(
@@ -209,8 +208,10 @@ pub mod validators {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::Value;
     use std::convert::Infallible;
+
+    use mithril_common::test::double::Dummy;
+    use serde_json::Value;
     use warp::{
         Filter,
         http::{Method, Response, StatusCode},
@@ -218,12 +219,9 @@ mod tests {
         test::request,
     };
 
-    use mithril_common::test::double::Dummy;
-
+    use super::*;
     use crate::http_server::routes::reply;
     use crate::initialize_dependencies;
-
-    use super::*;
 
     async fn route_handler(value: Option<String>) -> Result<impl warp::Reply, Infallible> {
         Ok(reply::json(&value, StatusCode::OK))
@@ -235,10 +233,11 @@ mod tests {
     }
 
     mod origin_tag {
-        use super::*;
         use std::{collections::HashSet, path::PathBuf};
 
         use mithril_common::temp_dir;
+
+        use super::*;
 
         fn route_with_origin_tag(
             router_state: &RouterState,

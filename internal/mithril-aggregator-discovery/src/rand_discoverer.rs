@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
+use mithril_common::{StdResult, entities::MithrilNetwork};
 use rand::{Rng, seq::SliceRandom};
 use tokio::sync::Mutex;
-
-use mithril_common::{StdResult, entities::MithrilNetwork};
 
 use crate::{AggregatorDiscoverer, AggregatorEndpoint};
 
@@ -45,9 +44,8 @@ impl<R: Rng + Send + Sized> AggregatorDiscoverer for ShuffleAggregatorDiscoverer
 mod tests {
     use rand::{SeedableRng, rngs::StdRng};
 
-    use crate::test::double::AggregatorDiscovererFake;
-
     use super::*;
+    use crate::test::double::AggregatorDiscovererFake;
 
     #[tokio::test]
     async fn shuffle_aggregator_discoverer() {

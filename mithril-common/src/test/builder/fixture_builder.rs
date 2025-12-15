@@ -226,8 +226,9 @@ impl MithrilFixtureBuilder {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::collections::BTreeSet;
+
+    use super::*;
 
     #[test]
     fn with_protocol_params() {

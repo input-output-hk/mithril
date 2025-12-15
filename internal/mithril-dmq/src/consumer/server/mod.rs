@@ -5,6 +5,5 @@ mod pallas;
 mod queue;
 
 pub use interface::*;
-
 #[cfg(unix)]
 pub use pallas::*;

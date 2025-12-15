@@ -2,20 +2,18 @@ use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
-
 use mithril_common::{
     StdResult,
     entities::{Epoch, Signer, SignerWithStake, StakeDistribution},
 };
 use mithril_persistence::store::StakeStorer;
 
-use crate::{
-    SignerRegistrationVerifier, VerificationKeyStorer, dependency_injection::EpochServiceWrapper,
-};
-
 use super::{
     LeaderAggregatorClient, SignerRecorder, SignerRegisterer, SignerRegistrationError,
     SignerRegistrationRound, SignerRegistrationRoundOpener, SignerSynchronizer,
+};
+use crate::{
+    SignerRegistrationVerifier, VerificationKeyStorer, dependency_injection::EpochServiceWrapper,
 };
 
 /// A [MithrilSignerRegistrationFollower] supports signer registrations in a follower aggregator
@@ -181,7 +179,9 @@ mod tests {
         EpochSettingsMessage, SignerMessagePart, TryFromMessageAdapter,
     };
     use mithril_common::test::{builder::MithrilFixtureBuilder, double::Dummy};
+    use test_utils::*;
 
+    use super::*;
     use crate::{
         database::{repository::SignerRegistrationStore, test_helper::main_db_connection},
         message_adapters::FromEpochSettingsAdapter,
@@ -191,10 +191,6 @@ mod tests {
         },
         test::double::mocks::MockStakeStore,
     };
-
-    use super::*;
-
-    use test_utils::*;
 
     mod test_utils {
         use tokio::sync::RwLock;

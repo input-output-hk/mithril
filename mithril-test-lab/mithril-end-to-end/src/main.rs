@@ -1,7 +1,3 @@
-use anyhow::{Context, anyhow};
-use clap::{CommandFactory, Parser, Subcommand};
-use slog::{Drain, Level, Logger};
-use slog_scope::{error, info};
 use std::{
     collections::BTreeMap,
     fmt, fs,
@@ -10,19 +6,23 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use thiserror::Error;
-use tokio::{
-    signal::unix::{SignalKind, signal},
-    sync::Mutex,
-    task::JoinSet,
-};
 
+use anyhow::{Context, anyhow};
+use clap::{CommandFactory, Parser, Subcommand};
 use mithril_common::StdResult;
 use mithril_doc::GenerateDocCommands;
 use mithril_end_to_end::{
     Aggregator, Client, CompatibilityChecker, CompatibilityCheckerError, Devnet,
     DevnetBootstrapArgs, DmqNodeFlavor, MithrilInfrastructure, MithrilInfrastructureConfig,
     NodeVersion, RelaySigner, RetryableDevnetError, RunOnly, Signer, Spec,
+};
+use slog::{Drain, Level, Logger};
+use slog_scope::{error, info};
+use thiserror::Error;
+use tokio::{
+    signal::unix::{SignalKind, signal},
+    sync::Mutex,
+    task::JoinSet,
 };
 
 /// Tests args

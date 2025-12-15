@@ -52,8 +52,9 @@ macro_rules! register_config_value {
 
 #[cfg(test)]
 mod tests {
-    use config::{ConfigError, Map, Source, Value, ValueKind};
     use std::collections::HashMap;
+
+    use config::{ConfigError, Map, Source, Value, ValueKind};
 
     #[test]
     fn test_register_config_value_macro_with_the_value() {

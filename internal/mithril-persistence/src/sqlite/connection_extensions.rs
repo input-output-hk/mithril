@@ -1,7 +1,6 @@
 use anyhow::Context;
-use sqlite::{ReadableWithIndex, Value};
-
 use mithril_common::StdResult;
+use sqlite::{ReadableWithIndex, Value};
 
 use crate::sqlite::{EntityCursor, Query, SqliteConnection, Transaction};
 
@@ -81,9 +80,8 @@ fn prepare_statement<'conn>(
 mod tests {
     use sqlite::Connection;
 
-    use crate::sqlite::{HydrationError, SqLiteEntity, WhereCondition};
-
     use super::*;
+    use crate::sqlite::{HydrationError, SqLiteEntity, WhereCondition};
 
     #[test]
     fn test_query_string() {

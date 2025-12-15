@@ -1,9 +1,9 @@
 //! Shared `WhereCondition` across certificates queries
 
-use sqlite::Value;
 use std::iter::repeat_n;
 
 use mithril_persistence::sqlite::WhereCondition;
+use sqlite::Value;
 
 use crate::database::record::CertificateRecord;
 

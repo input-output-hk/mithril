@@ -1,11 +1,11 @@
-use anyhow::Context;
-use chrono::Local;
-use slog::{Logger, info, trace};
 use std::fmt::Display;
 use std::sync::Arc;
 
+use anyhow::Context;
+use chrono::Local;
 use mithril_common::entities::TimePoint;
 use mithril_common::logging::LoggerExtensions;
+use slog::{Logger, info, trace};
 
 use crate::AggregatorConfig;
 use crate::entities::OpenMessage;
@@ -382,17 +382,16 @@ impl AggregatorRuntime {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::anyhow;
-    use mockall::predicate;
     use std::time::Duration;
 
+    use anyhow::anyhow;
     use mithril_common::test::double::{Dummy, fake_data};
-
-    use crate::entities::OpenMessage;
-    use crate::test::TestLogger;
+    use mockall::predicate;
 
     use super::super::runner::MockAggregatorRunner;
     use super::*;
+    use crate::entities::OpenMessage;
+    use crate::test::TestLogger;
 
     async fn init_runtime(
         init_state: Option<AggregatorState>,

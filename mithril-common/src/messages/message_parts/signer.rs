@@ -1,6 +1,7 @@
+use std::fmt::{Debug, Formatter};
+
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
-use std::fmt::{Debug, Formatter};
 
 use crate::{
     StdError, StdResult,

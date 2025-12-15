@@ -1,7 +1,8 @@
+use std::sync::Arc;
+
 use anyhow::Context;
 use async_trait::async_trait;
 use slog::{Logger, debug};
-use std::sync::Arc;
 
 use crate::{
     StdResult,
@@ -175,17 +176,16 @@ impl SignableBuilderService for MithrilSignableBuilderService {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use async_trait::async_trait;
+    use mockall::mock;
 
+    use super::*;
     use crate::{
         StdResult,
         entities::{BlockNumber, Epoch, ProtocolMessage},
         signable_builder::{Beacon as Beaconnable, MockSignableSeedBuilder, SignableBuilder},
         test::TestLogger,
     };
-
-    use async_trait::async_trait;
-    use mockall::mock;
 
     mock! {
         SignableBuilderImpl<U> { }

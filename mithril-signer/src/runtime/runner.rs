@@ -1,9 +1,5 @@
 use anyhow::Context;
 use async_trait::async_trait;
-use slog::{Logger, debug, warn};
-use thiserror::Error;
-use tokio::sync::RwLockReadGuard;
-
 use mithril_common::StdResult;
 use mithril_common::crypto_helper::{KesPeriod, OpCert, ProtocolOpCert, SerDeShelleyFileFormat};
 use mithril_common::entities::{
@@ -11,6 +7,9 @@ use mithril_common::entities::{
 };
 use mithril_common::logging::LoggerExtensions;
 use mithril_protocol_config::model::MithrilNetworkConfiguration;
+use slog::{Logger, debug, warn};
+use thiserror::Error;
+use tokio::sync::RwLockReadGuard;
 
 use crate::Configuration;
 use crate::dependency_injection::SignerDependencyContainer;
@@ -375,12 +374,8 @@ impl Runner for SignerRunner {
 
 #[cfg(test)]
 mod tests {
-    use mithril_protocol_config::model::MithrilNetworkConfigurationForEpoch;
-    use mockall::mock;
-    use mockall::predicate::eq;
     use std::collections::BTreeSet;
     use std::{path::Path, sync::Arc};
-    use tokio::sync::RwLock;
 
     use mithril_cardano_node_chain::test::double::{DumbBlockScanner, FakeChainObserver};
     use mithril_cardano_node_internal_database::{
@@ -404,13 +399,18 @@ mod tests {
         },
     };
     use mithril_era::{EraChecker, EraReader, adapters::EraReaderBootstrapAdapter};
+    use mithril_protocol_config::model::MithrilNetworkConfigurationForEpoch;
     use mithril_protocol_config::test::double::configuration_provider::FakeMithrilNetworkConfigurationProvider;
     use mithril_signed_entity_lock::SignedEntityTypeLock;
     use mithril_signed_entity_preloader::{
         CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
     };
     use mithril_ticker::{MithrilTickerService, TickerService};
+    use mockall::mock;
+    use mockall::predicate::eq;
+    use tokio::sync::RwLock;
 
+    use super::*;
     use crate::database::repository::{
         ProtocolInitializerRepository, SignedBeaconRepository, StakePoolStore,
     };
@@ -423,8 +423,6 @@ mod tests {
         SpySignerRegistrationPublisher,
     };
     use crate::test_tools::TestLogger;
-
-    use super::*;
 
     const DIGESTER_RESULT: &str = "a digest";
 

@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::path::Path;
-use tokio::process::Child;
 
 use mithril_common::StdResult;
+use tokio::process::Child;
 
 use crate::utils::{MithrilCommand, NodeVersion};
 

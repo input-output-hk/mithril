@@ -7,11 +7,9 @@ mod aggregator_discovery;
 mod utxo_hd;
 
 pub use aggregator_discovery::*;
-pub use utxo_hd::*;
-
 use clap::Subcommand;
-
 use mithril_client::MithrilResult;
+pub use utxo_hd::*;
 
 use crate::CommandContext;
 

@@ -11,13 +11,13 @@ mod error;
 mod handlers;
 mod shared_state;
 
+use std::path::PathBuf;
+
 use clap::Parser;
 use tracing::{Level, debug, error};
 
 use crate::application::Application;
 use crate::error::*;
-
-use std::path::PathBuf;
 
 type StdResult<T> = anyhow::Result<T>;
 

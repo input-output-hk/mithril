@@ -1,16 +1,15 @@
-use async_trait::async_trait;
 use std::{collections::HashMap, sync::Arc};
-use tokio::sync::RwLock;
 
+use async_trait::async_trait;
 use mithril_common::{
     StdResult,
     entities::{Epoch, ProtocolMessage, SignedEntityType, Signer, SingleSignature, TimePoint},
     test::double::Dummy,
 };
-use mithril_ticker::{MithrilTickerService, TickerService};
-
 use mithril_signer::services::{SignaturePublisher, SignerRegistrationPublisher};
 use mithril_signer::{entities::RegisteredSigners, services::SignersRegistrationRetriever};
+use mithril_ticker::{MithrilTickerService, TickerService};
+use tokio::sync::RwLock;
 
 pub struct FakeAggregator {
     registered_signers: RwLock<HashMap<Epoch, Vec<Signer>>>,

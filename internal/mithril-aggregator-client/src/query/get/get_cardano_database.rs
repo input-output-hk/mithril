@@ -1,8 +1,7 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
-use reqwest::StatusCode;
-
 use mithril_common::messages::CardanoDatabaseSnapshotMessage;
+use reqwest::StatusCode;
 
 use crate::AggregatorHttpClientResult;
 use crate::error::AggregatorHttpClientError;
@@ -52,13 +51,11 @@ impl AggregatorQuery for GetCardanoDatabaseQuery {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::test::double::Dummy;
     use serde_json::json;
 
-    use mithril_common::test::double::Dummy;
-
-    use crate::test::{assert_error_matches, setup_server_and_client};
-
     use super::*;
+    use crate::test::{assert_error_matches, setup_server_and_client};
 
     #[tokio::test]
     async fn test_cardano_database_snapshot_ok_200() {

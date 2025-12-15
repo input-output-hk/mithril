@@ -1,7 +1,6 @@
 use anyhow::anyhow;
-use serde::Deserialize;
-
 use mithril_client::MithrilResult;
+use serde::Deserialize;
 
 pub const ASSET_PLATFORM_LINUX: &str = "linux";
 pub const ASSET_PLATFORM_MACOS: &str = "macos";

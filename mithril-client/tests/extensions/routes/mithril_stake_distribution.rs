@@ -1,7 +1,6 @@
 use axum::extract::{Path, State};
 use axum::routing::get;
 use axum::{Json, Router};
-
 use mithril_common::messages::{
     MithrilStakeDistributionListItemMessage, MithrilStakeDistributionMessage,
 };

@@ -1,9 +1,10 @@
 //! A module used for a fake implementation of a certificate chain retriever
 //!
 
+use std::collections::HashMap;
+
 use anyhow::anyhow;
 use async_trait::async_trait;
-use std::collections::HashMap;
 use tokio::sync::RwLock;
 
 use crate::certificate_chain::{CertificateRetriever, CertificateRetrieverError};
@@ -44,9 +45,8 @@ impl CertificateRetriever for FakeCertificaterRetriever {
 
 #[cfg(test)]
 mod tests {
-    use crate::test::double::fake_data;
-
     use super::*;
+    use crate::test::double::fake_data;
 
     #[tokio::test]
     async fn fake_certificate_retriever_retrieves_existing_certificate() {

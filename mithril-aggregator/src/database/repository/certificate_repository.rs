@@ -2,12 +2,11 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use sqlite::ConnectionThreadSafe;
-
 use mithril_common::certificate_chain::{CertificateRetriever, CertificateRetrieverError};
 use mithril_common::entities::{Certificate, Epoch};
 use mithril_common::{StdError, StdResult};
 use mithril_persistence::sqlite::ConnectionExtensions;
+use sqlite::ConnectionThreadSafe;
 
 use crate::database::query::{
     DeleteCertificateQuery, GetCertificateRecordQuery, InsertCertificateRecordQuery,
@@ -177,9 +176,8 @@ impl SynchronizedCertificateStorer for CertificateRepository {
 mod tests {
     use mithril_common::test::crypto_helper::setup_certificate_chain;
 
-    use crate::database::test_helper::{insert_certificate_records, main_db_connection};
-
     use super::*;
+    use crate::database::test_helper::{insert_certificate_records, main_db_connection};
 
     fn insert_golden_certificate(connection: &ConnectionThreadSafe) {
         connection

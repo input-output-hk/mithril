@@ -1,6 +1,6 @@
-use async_trait::async_trait;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use mithril_common::StdResult;
 use mithril_common::entities::{Epoch, SignedEntityType};
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
@@ -86,18 +86,16 @@ impl EpochPruningTask for SignedBeaconRepository {
 #[cfg(test)]
 mod tests {
     use chrono::Utc;
-
     use mithril_common::entities::{
         BlockNumber, Epoch, SignedEntityConfig, SignedEntityTypeDiscriminants, TimePoint,
     };
     use mithril_common::test::double::Dummy;
     use mithril_persistence::sqlite::ConnectionExtensions;
 
+    use super::*;
     use crate::database::query::GetSignedBeaconQuery;
     use crate::database::record::SignedBeaconRecord;
     use crate::database::test_helper::{insert_signed_beacons, main_db_connection};
-
-    use super::*;
 
     fn all_signed_entity_type_for(time_point: &TimePoint) -> Vec<SignedEntityType> {
         let config = SignedEntityConfig {

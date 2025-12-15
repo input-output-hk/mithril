@@ -7,9 +7,8 @@ use rand_chacha::rand_core::{CryptoRng, RngCore, SeedableRng};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{StdError, StdResult};
-
 use super::ProtocolKey;
+use crate::{StdError, StdResult};
 
 /// Wrapper of [Ed25519:PublicKey](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.VerifyingKey.html).
 pub type Ed25519VerificationKey = ProtocolKey<ed25519_dalek::VerifyingKey>;

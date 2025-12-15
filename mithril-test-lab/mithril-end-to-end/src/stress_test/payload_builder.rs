@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use anyhow::Context;
-
 use mithril_cardano_node_internal_database::{
     digesters::{CardanoImmutableDigester, ImmutableDigester},
     test::DummyCardanoDb,

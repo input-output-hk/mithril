@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-
 use mithril_common::StdError;
 use mithril_common::entities::{
     Certificate, CertificateMetadata, CertificateSignature, Epoch,

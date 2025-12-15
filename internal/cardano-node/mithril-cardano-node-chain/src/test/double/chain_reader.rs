@@ -1,12 +1,10 @@
 use std::{collections::VecDeque, sync::Mutex};
 
 use async_trait::async_trait;
-
 use mithril_common::StdResult;
 
-use crate::entities::{ChainBlockNextAction, RawCardanoPoint};
-
 use crate::chain_reader::ChainBlockReader;
+use crate::entities::{ChainBlockNextAction, RawCardanoPoint};
 
 /// [FakeChainReader] is a fake implementation of [ChainBlockReader] for testing purposes.
 pub struct FakeChainReader {
@@ -42,9 +40,8 @@ impl ChainBlockReader for FakeChainReader {
 mod tests {
     use mithril_common::entities::{BlockNumber, SlotNumber};
 
-    use crate::entities::ScannedBlock;
-
     use super::*;
+    use crate::entities::ScannedBlock;
 
     #[tokio::test]
     async fn test_get_next_chain_block() {

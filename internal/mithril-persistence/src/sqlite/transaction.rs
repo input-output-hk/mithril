@@ -54,13 +54,11 @@ impl Drop for Transaction<'_> {
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
+    use mithril_common::StdResult;
     use sqlite::Connection;
 
-    use mithril_common::StdResult;
-
-    use crate::sqlite::ConnectionExtensions;
-
     use super::*;
+    use crate::sqlite::ConnectionExtensions;
 
     fn init_database() -> SqliteConnection {
         let connection = Connection::open_thread_safe(":memory:").unwrap();

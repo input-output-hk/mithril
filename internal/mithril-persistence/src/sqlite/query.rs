@@ -20,12 +20,11 @@ pub trait Query {
 mod tests {
     use sqlite::{Connection, Value};
 
+    use super::super::{SqLiteEntity, entity::HydrationError};
+    use super::*;
     use crate::sqlite::{
         ConnectionExtensions, GetAllCondition, Projection, SourceAlias, SqliteConnection,
     };
-
-    use super::super::{SqLiteEntity, entity::HydrationError};
-    use super::*;
 
     #[derive(Debug, PartialEq)]
     struct TestEntity {

@@ -8,11 +8,11 @@ mod extract_clap_info;
 mod markdown_formatter;
 mod test_doc_macro;
 
-use clap::{Command, Parser};
 use std::collections::{BTreeMap, HashMap};
 use std::fs::File;
 use std::io::Write;
 
+use clap::{Command, Parser};
 pub use mithril_doc_derive::{self, *};
 
 const DEFAULT_OUTPUT_FILE_TEMPLATE: &str = "[PROGRAM NAME]-command-line.md";

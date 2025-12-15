@@ -1,10 +1,6 @@
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
-use reqwest::StatusCode;
-use serde::de::DeserializeOwned;
-use slog_scope::{info, warn};
-
 use mithril_common::{
     StdResult,
     entities::{Epoch, EpochSpecifier, TransactionHash},
@@ -16,6 +12,9 @@ use mithril_common::{
         MithrilStakeDistributionMessage, SnapshotMessage,
     },
 };
+use reqwest::StatusCode;
+use serde::de::DeserializeOwned;
+use slog_scope::{info, warn};
 
 use crate::{
     Aggregator, CardanoDbCommand, CardanoDbV2Command, CardanoStakeDistributionCommand,

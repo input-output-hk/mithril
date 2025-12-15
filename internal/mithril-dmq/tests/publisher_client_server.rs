@@ -1,8 +1,6 @@
 #![cfg(unix)]
 use std::sync::Arc;
 
-use tokio::sync::{mpsc::unbounded_channel, watch};
-
 use mithril_cardano_node_chain::test::double::FakeChainObserver;
 use mithril_common::{
     current_function,
@@ -16,6 +14,7 @@ use mithril_dmq::{
         payload::DmqMessageTestPayload,
     },
 };
+use tokio::sync::{mpsc::unbounded_channel, watch};
 
 #[tokio::test]
 async fn dmq_publisher_client_server() {

@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-
 use mithril_common::{
     StdResult,
     entities::{ProtocolMessage, SignedEntityType, SingleSignature},

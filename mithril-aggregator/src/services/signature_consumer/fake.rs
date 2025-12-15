@@ -1,12 +1,11 @@
 use std::{collections::VecDeque, future};
 
 use async_trait::async_trait;
-use tokio::sync::Mutex;
-
 use mithril_common::{
     StdResult,
     entities::{SignedEntityType, SingleSignature},
 };
+use tokio::sync::Mutex;
 
 use super::SignatureConsumer;
 
@@ -44,9 +43,9 @@ impl SignatureConsumer for FakeSignatureConsumer {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use mithril_common::{entities::Epoch, test::double::fake_data};
+
+    use super::*;
 
     #[tokio::test]
     async fn fake_signature_consumer_returns_signature_batches_in_expected_order() {

@@ -1,6 +1,7 @@
+use warp::Filter;
+
 use crate::http_server::routes::middlewares;
 use crate::http_server::routes::router::RouterState;
-use warp::Filter;
 
 pub fn routes(
     router_state: &RouterState,
@@ -33,9 +34,10 @@ fn artifact_cardano_transaction_by_id(
 }
 
 pub mod handlers {
-    use slog::{Logger, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
+
+    use slog::{Logger, warn};
     use warp::http::StatusCode;
 
     use crate::MetricsService;
@@ -97,12 +99,7 @@ pub mod handlers {
 
 #[cfg(test)]
 pub mod tests {
-    use serde_json::Value::Null;
     use std::sync::Arc;
-    use warp::{
-        http::{Method, StatusCode},
-        test::request,
-    };
 
     use mithril_api_spec::APISpec;
     use mithril_common::{
@@ -111,10 +108,14 @@ pub mod tests {
         test::double::Dummy,
     };
     use mithril_persistence::sqlite::HydrationError;
-
-    use crate::{initialize_dependencies, services::MockMessageService};
+    use serde_json::Value::Null;
+    use warp::{
+        http::{Method, StatusCode},
+        test::request,
+    };
 
     use super::*;
+    use crate::{initialize_dependencies, services::MockMessageService};
 
     fn setup_router(
         state: RouterState,

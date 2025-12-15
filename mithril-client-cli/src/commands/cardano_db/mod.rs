@@ -5,14 +5,12 @@ mod shared_steps;
 mod show;
 mod verify;
 
+use clap::{Subcommand, ValueEnum};
 pub use download::*;
 pub use list::*;
+use mithril_client::MithrilResult;
 pub use show::*;
 pub use verify::*;
-
-use clap::{Subcommand, ValueEnum};
-
-use mithril_client::MithrilResult;
 
 use crate::{CommandContext, utils::print_simple_warning};
 

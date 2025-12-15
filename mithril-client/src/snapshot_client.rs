@@ -102,16 +102,16 @@
 //! ```
 
 #[cfg(feature = "fs")]
-use anyhow::Context;
-#[cfg(feature = "fs")]
-use slog::Logger;
-#[cfg(feature = "fs")]
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use thiserror::Error;
 
 #[cfg(feature = "fs")]
+use anyhow::Context;
+#[cfg(feature = "fs")]
 use mithril_common::entities::CompressionAlgorithm;
+#[cfg(feature = "fs")]
+use slog::Logger;
+use thiserror::Error;
 
 #[cfg(feature = "fs")]
 use crate::feedback::FeedbackSender;
@@ -463,20 +463,18 @@ impl SnapshotClient {
 
 #[cfg(all(test, feature = "fs"))]
 mod tests {
+    use mithril_cardano_node_internal_database::IMMUTABLE_DIR;
+    use mithril_common::test::double::fake_keys;
+    use mithril_common::{assert_dir_eq, crypto_helper::ManifestSigner, temp_dir_create};
+
+    use super::*;
+    use crate::common::test::Dummy;
     use crate::{
         common::CompressionAlgorithm,
         feedback::MithrilEvent,
         file_downloader::{MockFileDownloader, MockFileDownloaderBuilder},
         test_utils::TestLogger,
     };
-
-    use mithril_cardano_node_internal_database::IMMUTABLE_DIR;
-    use mithril_common::test::double::fake_keys;
-    use mithril_common::{assert_dir_eq, crypto_helper::ManifestSigner, temp_dir_create};
-
-    use crate::common::test::Dummy;
-
-    use super::*;
 
     fn dummy_download_event() -> DownloadEvent {
         DownloadEvent::Full {
@@ -502,9 +500,8 @@ mod tests {
     }
 
     mod fetch {
-        use mockall::predicate::eq;
-
         use mithril_common::test::mock_extensions::MockBuilder;
+        use mockall::predicate::eq;
 
         use super::*;
 
@@ -799,9 +796,8 @@ mod tests {
     }
 
     mod download_unpack_ancillary {
-        use crate::file_downloader::FakeAncillaryFileBuilder;
-
         use super::*;
+        use crate::file_downloader::FakeAncillaryFileBuilder;
 
         #[tokio::test]
         async fn log_a_info_message_telling_that_the_feature_does_not_use_mithril_certification() {

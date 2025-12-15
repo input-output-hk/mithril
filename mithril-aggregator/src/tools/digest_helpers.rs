@@ -1,4 +1,5 @@
 use std::path::Path;
+
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq, Eq)]
@@ -48,9 +49,10 @@ pub fn extract_digest_from_path(filepath: &Path) -> Result<String, DigestExtract
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use super::extract_digest_from_path;
     use crate::tools::digest_helpers::DigestExtractError;
-    use std::path::Path;
 
     #[test]
     fn should_extract_digest_from_path() {

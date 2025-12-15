@@ -19,25 +19,24 @@
 //!    of the last epoch synchronized)
 //! 6. End
 //!
-use anyhow::{Context, anyhow};
-use async_trait::async_trait;
-use chrono::Utc;
-use slog::{Logger, debug, info};
 use std::collections::VecDeque;
 use std::sync::Arc;
 
+use anyhow::{Context, anyhow};
+use async_trait::async_trait;
+use chrono::Utc;
 use mithril_common::StdResult;
 use mithril_common::certificate_chain::CertificateVerifier;
 use mithril_common::crypto_helper::ProtocolGenesisVerifier;
 use mithril_common::entities::{Certificate, SignedEntityType};
 use mithril_common::logging::LoggerExtensions;
-
-use crate::entities::OpenMessage;
+use slog::{Logger, debug, info};
 
 use super::{
     CertificateChainSynchronizer, OpenMessageStorer, RemoteCertificateRetriever,
     SynchronizedCertificateStorer,
 };
+use crate::entities::OpenMessage;
 
 /// Service that synchronizes the certificate chain with a remote aggregator
 pub struct MithrilCertificateChainSynchronizer {
@@ -221,9 +220,9 @@ fn prepare_open_message_to_store(latest_certificate: &Certificate) -> OpenMessag
 
 #[cfg(test)]
 mod tests {
-    use anyhow::anyhow;
     use std::sync::RwLock;
 
+    use anyhow::anyhow;
     use mithril_common::certificate_chain::MithrilCertificateVerifier;
     use mithril_common::test::{
         builder::{CertificateChainBuilder, CertificateChainFixture},
@@ -231,13 +230,12 @@ mod tests {
         mock_extensions::MockBuilder,
     };
 
+    use super::*;
     use crate::services::{
         MockOpenMessageStorer, MockRemoteCertificateRetriever, MockSynchronizedCertificateStorer,
     };
     use crate::test::TestLogger;
     use crate::test::double::mocks::MockCertificateVerifier;
-
-    use super::*;
 
     impl MithrilCertificateChainSynchronizer {
         fn default_for_test() -> Self {
@@ -459,9 +457,8 @@ mod tests {
     }
 
     mod retrieve_validate_remote_certificate_chain {
-        use mockall::predicate::{always, eq};
-
         use mithril_common::entities::Epoch;
+        use mockall::predicate::{always, eq};
 
         use super::*;
 

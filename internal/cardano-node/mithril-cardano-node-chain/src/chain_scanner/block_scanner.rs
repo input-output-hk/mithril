@@ -1,17 +1,15 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use mithril_common::StdResult;
+use mithril_common::entities::BlockNumber;
 use slog::Logger;
 use tokio::sync::Mutex;
 
-use mithril_common::StdResult;
-use mithril_common::entities::BlockNumber;
-
+use super::ChainReaderBlockStreamer;
 use crate::chain_reader::ChainBlockReader;
 use crate::chain_scanner::{BlockScanner, BlockStreamer};
 use crate::entities::RawCardanoPoint;
-
-use super::ChainReaderBlockStreamer;
 
 /// Cardano block scanner
 ///

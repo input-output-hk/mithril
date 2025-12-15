@@ -3,12 +3,11 @@ use std::marker::PhantomData;
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
 
-use crate::StmResult;
-
 use super::{
     MerkleBatchPath, MerklePath, MerkleTreeBatchCommitment, MerkleTreeCommitment, MerkleTreeError,
     MerkleTreeLeaf, left_child, parent, right_child, sibling,
 };
+use crate::StmResult;
 
 /// Tree of hashes, providing a commitment of data and its ordering.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -273,9 +272,8 @@ mod tests {
     use proptest::{collection::vec, prelude::*};
     use rand::{rng, seq::IteratorRandom};
 
-    use crate::signature_scheme::BlsVerificationKey;
-
     use super::*;
+    use crate::signature_scheme::BlsVerificationKey;
 
     fn pow2_plus1(h: usize) -> usize {
         1 + 2_usize.pow(h as u32)

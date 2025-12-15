@@ -1,15 +1,15 @@
-use anyhow::Context;
-use async_trait::async_trait;
-use reqwest::{IntoUrl, Url};
-use serde::{Deserialize, Serialize};
-use slog::{Logger, info, warn};
 use std::collections::HashMap;
 use std::ops::Not;
 use std::sync::Arc;
 use std::time::Duration;
 
+use anyhow::Context;
+use async_trait::async_trait;
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::{StdResult, entities::PartyId};
+use reqwest::{IntoUrl, Url};
+use serde::{Deserialize, Serialize};
+use slog::{Logger, info, warn};
 
 use crate::database::repository::SignerStore;
 
@@ -192,18 +192,17 @@ mod tests {
     use std::collections::{BTreeMap, BTreeSet};
     use std::convert::Infallible;
     use std::sync::Arc;
-    use warp::Filter;
 
     use mithril_common::StdResult;
     use mithril_persistence::sqlite::SqliteConnection;
     use mithril_test_http_server::test_http_server;
+    use warp::Filter;
 
+    use super::*;
     use crate::database::repository::{SignerGetter, SignerStore};
     use crate::database::test_helper::main_db_connection;
     use crate::http_server::routes::reply;
     use crate::test::TestLogger;
-
-    use super::*;
 
     #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
     struct TestSigner {

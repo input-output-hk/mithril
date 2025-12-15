@@ -18,9 +18,8 @@ pub type DbVersion = i64;
 
 #[cfg(test)]
 pub(crate) mod test_helper {
-    use sqlite::ConnectionThreadSafe;
-
     use mithril_common::StdResult;
+    use sqlite::ConnectionThreadSafe;
 
     use crate::sqlite::{ConnectionBuilder, ConnectionOptions};
 

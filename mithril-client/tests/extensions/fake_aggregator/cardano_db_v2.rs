@@ -2,8 +2,6 @@ use std::ops::RangeInclusive;
 use std::path::Path;
 use std::sync::Arc;
 
-use tokio::sync::RwLock;
-
 use mithril_cardano_node_internal_database::digesters::{
     CardanoImmutableDigester, ImmutableDigester,
 };
@@ -18,10 +16,10 @@ use mithril_client::{
 };
 use mithril_common::crypto_helper::ManifestVerifierSecretKey;
 use mithril_common::test::double::{Dummy, fake_data};
-
-use crate::extensions::{routes, snapshot_archives};
+use tokio::sync::RwLock;
 
 use super::FakeAggregator;
+use crate::extensions::{routes, snapshot_archives};
 
 pub struct CardanoDatabaseSnapshotV2Fixture<'a> {
     pub snapshot_hash: &'a str,

@@ -1,12 +1,12 @@
 use anyhow::{Context, anyhow};
 use clap::Parser;
 use cli_table::{Cell, Table, print_stdout};
+use mithril_client::{
+    MithrilResult, RequiredAggregatorCapabilities, common::SignedEntityTypeDiscriminants,
+};
 
 use crate::{
     CommandContext, commands::client_builder_with_fallback_genesis_key, utils::ExpanderUtils,
-};
-use mithril_client::{
-    MithrilResult, RequiredAggregatorCapabilities, common::SignedEntityTypeDiscriminants,
 };
 
 /// Clap command to show a given Cardano transaction snapshot

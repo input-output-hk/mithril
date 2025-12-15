@@ -3,9 +3,8 @@ use mithril_client::{
 };
 use mithril_common::test::double::Dummy;
 
-use crate::extensions::routes;
-
 use super::FakeAggregator;
+use crate::extensions::routes;
 
 impl FakeAggregator {
     pub fn spawn_with_mithril_stake_distribution(msd_hash: &str, certificate_hash: &str) -> Self {

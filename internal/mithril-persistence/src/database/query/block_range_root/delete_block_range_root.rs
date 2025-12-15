@@ -1,8 +1,7 @@
 use anyhow::Context;
-use sqlite::Value;
-
 use mithril_common::StdResult;
 use mithril_common::entities::{BlockNumber, BlockRange};
+use sqlite::Value;
 
 use crate::database::record::BlockRangeRootRecord;
 use crate::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
@@ -49,12 +48,11 @@ mod tests {
     use mithril_common::crypto_helper::MKTreeNode;
     use mithril_common::entities::BlockRange;
 
+    use super::*;
     use crate::database::query::GetBlockRangeRootQuery;
     use crate::database::query::block_range_root::test_helper::insert_block_range_roots;
     use crate::database::test_helper::cardano_tx_db_connection;
     use crate::sqlite::ConnectionExtensions;
-
-    use super::*;
 
     fn block_range_root_dataset() -> Vec<BlockRangeRootRecord> {
         [

@@ -1,8 +1,7 @@
-use sqlite::Row;
-
 use mithril_common::entities::{
     BlockHash, BlockNumber, CardanoTransaction, SlotNumber, TransactionHash,
 };
+use sqlite::Row;
 
 use crate::database::Hydrator;
 use crate::sqlite::{HydrationError, Projection, SqLiteEntity};

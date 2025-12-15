@@ -1,10 +1,14 @@
-use anyhow::{Context, anyhow};
-use clap::Parser;
 use std::sync::Arc;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
 };
+
+use anyhow::{Context, anyhow};
+use clap::Parser;
+use mithril_client::common::{Epoch, SignedEntityTypeDiscriminants};
+use mithril_client::{CardanoStakeDistribution, MessageBuilder, MithrilResult};
+use mithril_client::{Client, RequiredAggregatorCapabilities};
 
 use crate::utils::{
     self, ExpanderUtils, IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter,
@@ -14,9 +18,6 @@ use crate::{
     commands::client_builder,
     configuration::{ConfigError, ConfigSource},
 };
-use mithril_client::common::{Epoch, SignedEntityTypeDiscriminants};
-use mithril_client::{CardanoStakeDistribution, MessageBuilder, MithrilResult};
-use mithril_client::{Client, RequiredAggregatorCapabilities};
 
 /// Download and verify a Cardano stake distribution information.
 #[derive(Parser, Debug, Clone)]

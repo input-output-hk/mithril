@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-
 use mithril_common::{crypto_helper::ProtocolInitializer, entities::Epoch};
 use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
 

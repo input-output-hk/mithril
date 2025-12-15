@@ -2,11 +2,10 @@ use std::ops::Not;
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
-use slog::{Logger, debug};
-use sqlite::{Connection, ConnectionThreadSafe};
-
 use mithril_common::StdResult;
 use mithril_common::logging::LoggerExtensions;
+use slog::{Logger, debug};
+use sqlite::{Connection, ConnectionThreadSafe};
 
 use crate::database::{ApplicationNodeType, DatabaseVersionChecker, SqlMigration};
 
@@ -142,13 +141,11 @@ impl ConnectionBuilder {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::test::TempDir;
     use sqlite::Value;
 
-    use mithril_common::test::TempDir;
-
-    use crate::sqlite::ConnectionOptions::ForceDisableForeignKeys;
-
     use super::*;
+    use crate::sqlite::ConnectionOptions::ForceDisableForeignKeys;
 
     // see: https://www.sqlite.org/pragma.html#pragma_journal_mode
     const DEFAULT_SQLITE_JOURNAL_MODE: &str = "delete";

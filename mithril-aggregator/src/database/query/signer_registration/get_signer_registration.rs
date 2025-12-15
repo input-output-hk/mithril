@@ -1,7 +1,6 @@
-use sqlite::Value;
-
 use mithril_common::{StdResult, entities::Epoch};
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
+use sqlite::Value;
 
 use crate::database::record::SignerRegistrationRecord;
 
@@ -57,14 +56,12 @@ impl Query for GetSignerRegistrationRecordQuery {
 #[cfg(test)]
 mod tests {
     use chrono::{DateTime, Utc};
-
     use mithril_common::entities::SignerWithStake;
     use mithril_common::test::builder::MithrilFixtureBuilder;
     use mithril_persistence::sqlite::ConnectionExtensions;
 
-    use crate::database::test_helper::{insert_signer_registrations, main_db_connection};
-
     use super::*;
+    use crate::database::test_helper::{insert_signer_registrations, main_db_connection};
 
     fn reset_created_at(
         signer_registration_records: Vec<SignerRegistrationRecord>,

@@ -8,12 +8,11 @@ use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use strum::{AsRefStr, Display, EnumDiscriminants, EnumIter, EnumString, IntoEnumIterator};
 
+use super::{BlockNumber, CardanoDbBeacon, Epoch};
 use crate::{
     StdResult,
     crypto_helper::{TryFromBytes, TryToBytes},
 };
-
-use super::{BlockNumber, CardanoDbBeacon, Epoch};
 
 /// Database representation of the SignedEntityType::MithrilStakeDistribution value
 const ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION: usize = 0;
@@ -250,9 +249,8 @@ Accepted values are (case-sensitive): {}."#,
 mod tests {
     use digest::Digest;
 
-    use crate::test::assert_same_json;
-
     use super::*;
+    use crate::test::assert_same_json;
 
     #[test]
     fn get_epoch_when_signed_entity_type_is_signed_for_cardano_stake_distribution_return_epoch_with_offset()

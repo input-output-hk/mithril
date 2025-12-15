@@ -113,17 +113,17 @@ pub(crate) mod test_tools {
 mod tests {
     use std::collections::BTreeMap;
 
-    use crate::{
-        MetricCollector, MetricCounter, MetricCounterWithLabels, MetricGauge,
-        MetricsServiceExporter,
-    };
-
-    use super::*;
     use mithril_common::{StdResult, entities::Epoch};
     use prometheus::{Registry, TextEncoder};
     use prometheus_parse::Value;
     use slog::Logger;
     use test_tools::TestLogger;
+
+    use super::*;
+    use crate::{
+        MetricCollector, MetricCounter, MetricCounterWithLabels, MetricGauge,
+        MetricsServiceExporter,
+    };
 
     fn parse_metrics(raw_metrics: &str) -> StdResult<BTreeMap<String, Value>> {
         Ok(

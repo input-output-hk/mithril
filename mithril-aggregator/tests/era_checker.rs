@@ -8,7 +8,6 @@ use mithril_common::{
     test::{builder::MithrilFixtureBuilder, double::Dummy},
 };
 use mithril_era::EraMarker;
-
 use test_extensions::{RuntimeTester, utilities::get_test_dir};
 
 // NOTE: Due to the shared nature of the Logger, there cannot be two methods in

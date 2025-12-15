@@ -2,7 +2,6 @@
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-
 use mithril_common::StdResult;
 
 use crate::chain_observer::CliRunner;

@@ -1,6 +1,7 @@
+use warp::Filter;
+
 use crate::http_server::routes::middlewares;
 use crate::http_server::routes::router::RouterState;
-use warp::Filter;
 
 pub fn routes(
     router_state: &RouterState,
@@ -77,9 +78,10 @@ fn serve_cardano_database_dir(
 }
 
 mod handlers {
-    use slog::{Logger, debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
+
+    use slog::{Logger, debug, warn};
     use warp::http::StatusCode;
 
     use crate::MetricsService;
@@ -226,14 +228,7 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    use mockall::predicate::{always, eq};
-    use serde_json::Value::Null;
     use std::sync::Arc;
-    use tokio::sync::RwLock;
-    use warp::{
-        http::{Method, StatusCode},
-        test::request,
-    };
 
     use mithril_api_spec::APISpec;
     use mithril_common::entities::Epoch;
@@ -244,14 +239,20 @@ mod tests {
     use mithril_common::test::double::Dummy;
     use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
     use mithril_persistence::sqlite::HydrationError;
+    use mockall::predicate::{always, eq};
+    use serde_json::Value::Null;
+    use tokio::sync::RwLock;
+    use warp::{
+        http::{Method, StatusCode},
+        test::request,
+    };
 
+    use super::*;
     use crate::{
         http_server::routes::router::RouterConfig,
         initialize_dependencies,
         services::{FakeEpochServiceBuilder, MockMessageService},
     };
-
-    use super::*;
 
     fn setup_router(
         state: RouterState,

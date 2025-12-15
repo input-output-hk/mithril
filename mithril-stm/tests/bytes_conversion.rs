@@ -1,11 +1,9 @@
 mod test_extensions;
 
 use blake2::{Blake2b, digest::consts::U32};
+use mithril_stm::{AggregateSignature, Initializer, Parameters, SingleSignature, VerificationKey};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
-
-use mithril_stm::{AggregateSignature, Initializer, Parameters, SingleSignature, VerificationKey};
-
 use test_extensions::protocol_phase::{
     InitializationPhaseResult, OperationPhaseResult, initialization_phase, operation_phase,
 };

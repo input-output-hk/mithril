@@ -76,8 +76,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use config::Source;
     use std::collections::HashMap;
+
+    use config::Source;
 
     use super::*;
 

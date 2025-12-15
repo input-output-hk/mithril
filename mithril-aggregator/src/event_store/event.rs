@@ -1,8 +1,8 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
 use mithril_common::entities::SignerWithStake;
 use serde::Serialize;
-
-use std::collections::HashMap;
 
 /// Event that is sent from a thread to be persisted.
 #[derive(Debug, Clone, PartialEq)]

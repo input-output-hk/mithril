@@ -1,11 +1,11 @@
+use std::ops::Add;
+
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use chrono::{DateTime, TimeDelta, Utc};
-use std::ops::Add;
-use web_sys::{Storage, window};
-
 use mithril_client::MithrilResult;
 use mithril_client::certificate_client::CertificateVerifierCache;
+use web_sys::{Storage, window};
 
 pub type CertificateHash = str;
 pub type PreviousCertificateHash = str;
@@ -252,6 +252,7 @@ pub(crate) mod test_tools {
 #[cfg(all(test, not(feature = "test-node")))]
 mod tests {
     use std::collections::HashMap;
+
     use wasm_bindgen_test::*;
 
     use super::{test_tools::*, *};

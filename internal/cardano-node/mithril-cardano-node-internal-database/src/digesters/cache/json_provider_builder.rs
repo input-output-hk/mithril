@@ -1,10 +1,10 @@
-use anyhow::Context;
-use slog::{Logger, info};
 use std::path::Path;
-use tokio::fs;
 
+use anyhow::Context;
 use mithril_common::StdResult;
 use mithril_common::logging::LoggerExtensions;
+use slog::{Logger, info};
+use tokio::fs;
 
 use crate::digesters::cache::{
     ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProvider,

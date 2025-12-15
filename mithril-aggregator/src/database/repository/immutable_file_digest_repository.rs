@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-
 use mithril_cardano_node_internal_database::digesters::cache::{
     CacheProviderResult, ImmutableDigesterCacheGetError, ImmutableDigesterCacheStoreError,
     ImmutableFileDigestCacheProvider,
@@ -128,9 +127,8 @@ impl ImmutableFileDigestMapper for ImmutableFileDigestRepository {
 #[cfg(test)]
 mod tests {
 
-    use crate::database::test_helper::main_db_connection;
-
     use super::*;
+    use crate::database::test_helper::main_db_connection;
 
     async fn get_connection() -> Arc<SqliteConnection> {
         let connection = main_db_connection().unwrap();

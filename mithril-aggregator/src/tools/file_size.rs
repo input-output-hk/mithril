@@ -1,9 +1,9 @@
-use anyhow::Context;
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},
 };
 
+use anyhow::Context;
 use mithril_common::StdResult;
 
 /// Compute the size of the given paths that could be files or folders.

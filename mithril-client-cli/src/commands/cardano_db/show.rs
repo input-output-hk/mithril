@@ -1,7 +1,6 @@
 use anyhow::{Context, anyhow};
 use clap::Parser;
 use cli_table::{Cell, CellStruct, Table, print_stdout};
-
 use mithril_client::{
     Client, MithrilResult, RequiredAggregatorCapabilities,
     common::{

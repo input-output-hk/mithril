@@ -1,6 +1,7 @@
+use serde::{Deserialize, Serialize};
+
 use crate::entities::{CardanoTransactionsSigningConfig, Epoch, ProtocolParameters};
 use crate::messages::SignerMessagePart;
-use serde::{Deserialize, Serialize};
 
 /// EpochSettings represents the settings of an epoch
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -36,9 +37,8 @@ pub struct EpochSettingsMessage {
 
 #[cfg(test)]
 mod tests {
-    use crate::entities::BlockNumber;
-
     use super::*;
+    use crate::entities::BlockNumber;
 
     const CURRENT_JSON: &str = r#"{
         "epoch": 10,

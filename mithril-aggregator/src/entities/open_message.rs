@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-
 use mithril_common::entities::{
     Epoch, PartyId, ProtocolMessage, SignedEntityType, SingleSignature,
 };
@@ -81,16 +80,14 @@ impl From<OpenMessageWithSingleSignaturesRecord> for OpenMessage {
 #[cfg(test)]
 mod test {
     use chrono::Utc;
-    use uuid::Uuid;
-
     use mithril_common::{
         entities::{Epoch, ProtocolMessage, SignedEntityType},
         test::double::{Dummy, fake_data},
     };
-
-    use crate::database::record::{OpenMessageRecord, OpenMessageWithSingleSignaturesRecord};
+    use uuid::Uuid;
 
     use super::OpenMessage;
+    use crate::database::record::{OpenMessageRecord, OpenMessageWithSingleSignaturesRecord};
 
     #[test]
     fn test_from_record() {

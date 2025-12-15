@@ -9,14 +9,13 @@ mod verification_key;
 
 pub use error::*;
 pub use proof_of_possession::*;
-pub use signature::*;
-pub use signing_key::*;
-pub use verification_key::*;
-
 use serde::{
     de::Visitor,
     {Deserialize, Deserializer, Serialize, Serializer},
 };
+pub use signature::*;
+pub use signing_key::*;
+pub use verification_key::*;
 
 /// String used to generate the proofs of possession.
 pub(crate) const POP: &[u8] = b"PoP";
@@ -98,9 +97,8 @@ mod tests {
 
     use super::error::BlsSignatureError;
     use super::helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk};
-    use crate::{KeyRegistration, RegisterError};
-
     use super::*;
+    use crate::{KeyRegistration, RegisterError};
 
     impl PartialEq for BlsSigningKey {
         fn eq(&self, other: &Self) -> bool {

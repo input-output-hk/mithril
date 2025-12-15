@@ -1,21 +1,21 @@
-use anyhow::Context;
-use config::{ConfigError, Map, Source, Value};
-#[cfg(feature = "future_dmq")]
-use mithril_dmq::DmqNetwork;
-use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
-use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};
 
+use anyhow::Context;
+use config::{ConfigError, Map, Source, Value};
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_cli_helper::register_config_value;
 use mithril_common::{
     CardanoNetwork, StdResult,
     entities::{BlockNumber, PartyId},
 };
+#[cfg(feature = "future_dmq")]
+use mithril_dmq::DmqNetwork;
+use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use mithril_era::{
     EraReaderAdapter,
     adapters::{EraReaderAdapterBuilder, EraReaderAdapterType},
 };
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SignaturePublisherConfig {

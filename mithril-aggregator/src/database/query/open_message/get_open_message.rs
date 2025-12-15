@@ -1,11 +1,10 @@
 use chrono::{DateTime, Utc};
-use sqlite::Value;
-
 use mithril_common::{
     StdResult,
     entities::{Epoch, SignedEntityType},
 };
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
+use sqlite::Value;
 
 use crate::database::record::OpenMessageRecord;
 

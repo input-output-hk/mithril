@@ -1,8 +1,7 @@
-use sqlite::Value;
-
 use mithril_common::StdResult;
 use mithril_common::entities::ImmutableFileName;
 use mithril_persistence::sqlite::{Query, WhereCondition};
+use sqlite::Value;
 
 use crate::database::record::ImmutableFileDigestRecord;
 

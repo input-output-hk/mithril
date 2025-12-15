@@ -1,13 +1,11 @@
 use async_trait::async_trait;
-
 use mithril_common::{
     StdResult,
     entities::{Epoch, Signer, SignerWithStake, StakeDistribution},
 };
 
-use crate::entities::LeaderAggregatorEpochSettings;
-
 use super::SignerRegistrationError;
+use crate::entities::LeaderAggregatorEpochSettings;
 
 /// Represents the information needed to handle a signer registration round
 #[derive(Debug, Clone, PartialEq, Eq)]

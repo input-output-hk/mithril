@@ -30,7 +30,6 @@ macro_rules! define_test_logger {
             use slog::{Drain, Logger};
             use slog_async::Async;
             use slog_term::{CompactFormat, PlainDecorator, TestStdoutWriter};
-
             use $crate::test::logging::{MemoryDrainForTest, MemoryDrainForTestInspector};
 
             impl super::TestLogger {

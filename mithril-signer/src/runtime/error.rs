@@ -1,8 +1,7 @@
-use slog::{Logger, crit, error};
-use thiserror::Error;
-
 use mithril_common::StdError;
 use mithril_common::entities::EpochError;
+use slog::{Logger, crit, error};
+use thiserror::Error;
 
 use crate::RunnerError;
 
@@ -83,9 +82,8 @@ impl From<EpochError> for RuntimeError {
 mod tests {
     use anyhow::anyhow;
 
-    use crate::test_tools::TestLogger;
-
     use super::*;
+    use crate::test_tools::TestLogger;
 
     fn nested_error_debug_string(error: &RuntimeError) -> String {
         let error = match error {

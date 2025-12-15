@@ -50,10 +50,10 @@ impl Query for GetSignerRecordQuery {
 
 #[cfg(test)]
 mod tests {
-    use crate::database::test_helper::{insert_signers, main_db_connection};
     use mithril_persistence::sqlite::ConnectionExtensions;
 
     use super::*;
+    use crate::database::test_helper::{insert_signers, main_db_connection};
 
     #[test]
     fn test_get_signer_records_by_id() {

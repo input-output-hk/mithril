@@ -1,9 +1,8 @@
 use chrono::{DateTime, Utc};
-use uuid::Uuid;
-
 use mithril_common::entities::{Epoch, HexEncodedSingleSignature, LotteryIndex, SingleSignature};
 use mithril_common::{StdError, StdResult};
 use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
+use uuid::Uuid;
 
 /// SingleSignature record is the representation of a stored single_signature.
 #[derive(Debug, PartialEq, Clone)]

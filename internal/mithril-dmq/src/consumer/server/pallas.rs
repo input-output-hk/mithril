@@ -1,7 +1,9 @@
 use std::{fs, path::PathBuf};
 
 use anyhow::{Context, anyhow};
+use mithril_common::{StdResult, logging::LoggerExtensions};
 use pallas_network::{facades::DmqServer, miniprotocols::localmsgnotification::Request};
+use slog::{Logger, debug, error, info, warn};
 use tokio::{
     join,
     net::UnixListener,
@@ -9,13 +11,8 @@ use tokio::{
     sync::{Mutex, MutexGuard, mpsc::UnboundedReceiver, watch::Receiver},
 };
 
-use slog::{Logger, debug, error, info, warn};
-
-use mithril_common::{StdResult, logging::LoggerExtensions};
-
-use crate::{DmqConsumerServer, DmqMessage, DmqNetwork};
-
 use super::queue::MessageQueue;
+use crate::{DmqConsumerServer, DmqMessage, DmqNetwork};
 
 /// A DMQ server implementation for messages notification from a DMQ node.
 pub struct DmqConsumerServerPallas {
@@ -280,6 +277,7 @@ impl Drop for DmqConsumerServerPallas {
 mod tests {
     use std::{sync::Arc, time::Duration};
 
+    use mithril_common::{current_function, test::TempDir};
     use pallas_network::{
         facades::DmqClient,
         miniprotocols::{localmsgnotification, localmsgsubmission::DmqMsg},
@@ -287,11 +285,8 @@ mod tests {
     use tokio::sync::{mpsc::unbounded_channel, watch};
     use tokio::time::sleep;
 
-    use mithril_common::{current_function, test::TempDir};
-
-    use crate::{test::fake_message::compute_fake_msg, test_tools::TestLogger};
-
     use super::*;
+    use crate::{test::fake_message::compute_fake_msg, test_tools::TestLogger};
 
     fn create_temp_dir(folder_name: &str) -> PathBuf {
         TempDir::create_with_short_path("dmq_consumer_server", folder_name)

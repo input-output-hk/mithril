@@ -78,9 +78,8 @@ impl SignaturePublisher for SignaturePublisherDelayer {
 mod tests {
     use mithril_common::{entities::Epoch, test::double::fake_data};
 
-    use crate::{services::MockSignaturePublisher, test_tools::TestLogger};
-
     use super::*;
+    use crate::{services::MockSignaturePublisher, test_tools::TestLogger};
 
     #[tokio::test]
     async fn should_call_both_publishers_when_first_succeeds() {

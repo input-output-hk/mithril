@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::Utc;
-
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
@@ -108,9 +107,8 @@ impl SignerGetter for SignerStore {
 mod tests {
     use std::collections::BTreeMap;
 
-    use crate::database::test_helper::{insert_signers, main_db_connection};
-
     use super::*;
+    use crate::database::test_helper::{insert_signers, main_db_connection};
 
     #[tokio::test]
     async fn test_get_all_signers() {

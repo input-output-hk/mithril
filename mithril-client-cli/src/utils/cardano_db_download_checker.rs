@@ -6,9 +6,8 @@ use std::{
 
 use anyhow::Context;
 use human_bytes::human_bytes;
-use thiserror::Error;
-
 use mithril_client::{MithrilError, MithrilResult, common::CompressionAlgorithm};
+use thiserror::Error;
 
 /// Checks to apply before downloading a Cardano Db archive to a given directory.
 pub struct CardanoDbDownloadChecker;

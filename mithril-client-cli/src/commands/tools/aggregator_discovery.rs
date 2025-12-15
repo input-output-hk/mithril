@@ -1,6 +1,5 @@
 use clap::Parser;
 use cli_table::{Cell, Table, print_stdout};
-
 use mithril_client::{
     AggregatorDiscoveryType, ClientBuilder, MithrilResult, RequiredAggregatorCapabilities,
     common::{AggregateSignatureType, MithrilNetwork, SignedEntityTypeDiscriminants},
@@ -99,8 +98,9 @@ impl AggregatorDiscoveryCommand {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use mithril_client::common::SignedEntityTypeDiscriminants;
+
+    use super::*;
 
     #[test]
     fn test_build_required_capabilities_all() {

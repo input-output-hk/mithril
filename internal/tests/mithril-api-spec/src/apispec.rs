@@ -338,7 +338,6 @@ fn check_query_parameter_limitations(url: &Url, operation_object: &Value) {
 mod tests {
     use std::fs;
     use std::path::{Path, PathBuf};
-    use warp::http::Method;
 
     use mithril_common::entities;
     use mithril_common::messages::{AggregatorFeaturesMessage, SignerMessagePart};
@@ -346,6 +345,7 @@ mod tests {
         TempDir,
         double::{Dummy, fake_data},
     };
+    use warp::http::Method;
 
     use super::*;
 

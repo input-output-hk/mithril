@@ -2,6 +2,8 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
+#[cfg(test)]
+use mockall::automock;
 
 use crate::{
     StdResult,
@@ -9,9 +11,6 @@ use crate::{
     entities::{BlockNumber, BlockRange, ProtocolMessage, ProtocolMessagePartKey},
     signable_builder::SignableBuilder,
 };
-
-#[cfg(test)]
-use mockall::automock;
 
 /// Cardano transactions importer
 #[cfg_attr(test, automock)]
@@ -94,12 +93,11 @@ impl<S: MKTreeStorer> SignableBuilder<BlockNumber> for CardanoTransactionsSignab
 #[cfg(test)]
 mod tests {
 
+    use super::*;
     use crate::{
         crypto_helper::MKTreeStoreInMemory, entities::CardanoTransaction,
         test::builder::CardanoTransactionsBuilder,
     };
-
-    use super::*;
 
     fn compute_mk_map_from_transactions(
         transactions: Vec<CardanoTransaction>,

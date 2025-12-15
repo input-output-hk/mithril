@@ -1,7 +1,6 @@
-use sqlite::Row;
-
 use mithril_common::entities::{HexEncodedDigest, ImmutableFileName};
 use mithril_persistence::sqlite::{HydrationError, Projection, SourceAlias, SqLiteEntity};
+use sqlite::Row;
 
 /// ImmutableFileDigestRecord is the record that stores the digest of an immutable file.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

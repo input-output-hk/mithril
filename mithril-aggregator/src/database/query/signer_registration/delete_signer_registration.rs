@@ -1,7 +1,6 @@
-use sqlite::Value;
-
 use mithril_common::entities::Epoch;
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
+use sqlite::Value;
 
 use crate::database::record::SignerRegistrationRecord;
 

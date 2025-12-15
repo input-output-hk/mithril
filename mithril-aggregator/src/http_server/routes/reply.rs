@@ -1,11 +1,10 @@
 use std::path::Path;
 
-use serde::Serialize;
-use warp::http::StatusCode;
-
 use mithril_common::StdError;
 use mithril_common::entities::{ClientError, ServerError};
 use mithril_persistence::sqlite::error::{SQLITE_BUSY, SqliteError};
+use serde::Serialize;
+use warp::http::StatusCode;
 
 use crate::SignerRegistrationError;
 use crate::tools::downcast_check;

@@ -1,8 +1,7 @@
-use sqlite::Value;
-
 use mithril_common::StdResult;
 use mithril_common::entities::Epoch;
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
+use sqlite::Value;
 
 use crate::database::record::StakePool;
 
@@ -46,9 +45,10 @@ impl Query for GetStakePoolQuery {
 
 #[cfg(test)]
 mod tests {
+    use mithril_persistence::sqlite::ConnectionExtensions;
+
     use super::*;
     use crate::database::{query::InsertOrReplaceStakePoolQuery, test_helper::main_db_connection};
-    use mithril_persistence::sqlite::ConnectionExtensions;
 
     #[test]
     fn test_query_sorts_the_return_stake_pool_by_epoch_stack_and_stake_pool_id() {

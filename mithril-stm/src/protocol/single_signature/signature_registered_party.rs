@@ -1,9 +1,8 @@
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize, Serializer, ser::SerializeTuple};
 
-use crate::{RegisteredParty, StmResult};
-
 use super::{SignatureError, SingleSignature};
+use crate::{RegisteredParty, StmResult};
 
 /// Signature with its registered party.
 #[derive(Debug, Clone, Hash, Deserialize, Eq, PartialEq, Ord, PartialOrd)]

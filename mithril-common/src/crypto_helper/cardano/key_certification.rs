@@ -11,14 +11,13 @@ use blake2::{
     digest::{FixedOutput, consts::U32},
 };
 use kes_summed_ed25519::kes::Sum6KesSig;
-use rand_core::{CryptoRng, RngCore};
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
-
 use mithril_stm::{
     ClosedKeyRegistration, Initializer, KeyRegistration, Parameters, RegisterError, Signer, Stake,
     VerificationKeyProofOfPossession,
 };
+use rand_core::{CryptoRng, RngCore};
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 use crate::{
     StdError, StdResult,
@@ -291,9 +290,8 @@ impl KeyRegWrapper {
 }
 
 mod test_extensions {
-    use crate::test::crypto_helper::ProtocolInitializerTestExtension;
-
     use super::*;
+    use crate::test::crypto_helper::ProtocolInitializerTestExtension;
 
     impl ProtocolInitializerTestExtension for StmInitializerWrapper {
         fn override_protocol_parameters(&mut self, protocol_parameters: &ProtocolParameters) {
@@ -304,16 +302,15 @@ mod test_extensions {
 
 #[cfg(test)]
 mod test {
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    use super::*;
     use crate::crypto_helper::cardano::kes::KesSignerStandard;
     use crate::crypto_helper::{OpCert, SerDeShelleyFileFormat};
     use crate::test::crypto_helper::{
         KesCryptographicMaterialForTest, KesPartyIndexForTest, create_kes_cryptographic_material,
     };
-
-    use rand_chacha::ChaCha20Rng;
-    use rand_core::SeedableRng;
-
-    use super::*;
 
     #[test]
     fn test_vector_key_reg() {

@@ -1,4 +1,3 @@
-use digest::{Digest, Output};
 use std::{
     cmp::Ordering,
     fs::File,
@@ -6,10 +5,11 @@ use std::{
     num::ParseIntError,
     path::{Path, PathBuf},
 };
+
+use digest::{Digest, Output};
+use mithril_common::entities::{ImmutableFileName, ImmutableFileNumber};
 use thiserror::Error;
 use walkdir::{DirEntry, WalkDir};
-
-use mithril_common::entities::{ImmutableFileName, ImmutableFileNumber};
 
 use crate::IMMUTABLE_DIR;
 use crate::entities::ImmutableFileListingError::{MissingImmutableFiles, MissingImmutableFolder};

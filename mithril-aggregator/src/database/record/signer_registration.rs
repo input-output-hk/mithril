@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-
 use mithril_common::crypto_helper::KesPeriod;
 use mithril_common::entities::{
     Epoch, HexEncodedOpCert, HexEncodedVerificationKey, HexEncodedVerificationKeySignature, Signer,

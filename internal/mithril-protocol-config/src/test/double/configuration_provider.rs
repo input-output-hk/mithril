@@ -1,13 +1,13 @@
 //! provides test doubles for MithrilNetworkConfigurationProvider
 
+use async_trait::async_trait;
+use mithril_common::{StdResult, entities::Epoch};
 use tokio::sync::RwLock;
 
 use crate::{
     interface::MithrilNetworkConfigurationProvider,
     model::{MithrilNetworkConfiguration, MithrilNetworkConfigurationForEpoch},
 };
-use async_trait::async_trait;
-use mithril_common::{StdResult, entities::Epoch};
 
 /// A fake [MithrilNetworkConfigurationProvider] that return [MithrilNetworkConfiguration]
 pub struct FakeMithrilNetworkConfigurationProvider {

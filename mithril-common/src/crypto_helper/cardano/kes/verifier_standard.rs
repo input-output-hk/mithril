@@ -51,12 +51,11 @@ impl KesVerifier for KesVerifierStandard {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::crypto_helper::cardano::kes::{KesSigner, KesSignerStandard};
     use crate::test::crypto_helper::{
         KesCryptographicMaterialForTest, KesPartyIndexForTest, create_kes_cryptographic_material,
     };
-
-    use super::*;
 
     #[test]
     fn verify_valid_signature_succeeds() {

@@ -63,7 +63,6 @@ impl KesSigner for KesSignerStandard {
 #[cfg(test)]
 mod tests {
     use super::*;
-
     use crate::crypto_helper::cardano::kes::{KesVerifier, KesVerifierStandard};
     use crate::test::crypto_helper::{
         KesCryptographicMaterialForTest, KesPartyIndexForTest, create_kes_cryptographic_material,

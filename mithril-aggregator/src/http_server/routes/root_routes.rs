@@ -1,6 +1,7 @@
+use warp::Filter;
+
 use super::middlewares;
 use crate::http_server::routes::router::RouterState;
-use warp::Filter;
 
 pub fn routes(
     router_state: &RouterState,
@@ -32,14 +33,13 @@ mod handlers {
     use std::{convert::Infallible, sync::Arc};
 
     use mithril_common::AggregateSignatureType;
-    use slog::Logger;
-    use warp::http::StatusCode;
-
     use mithril_common::api_version::APIVersionProvider;
     use mithril_common::entities::SignedEntityTypeDiscriminants;
     use mithril_common::messages::{
         AggregatorCapabilities, AggregatorFeaturesMessage, CardanoTransactionsProverCapabilities,
     };
+    use slog::Logger;
+    use warp::http::StatusCode;
 
     use crate::http_server::routes::reply::json;
     use crate::unwrap_to_internal_server_error;
@@ -86,11 +86,8 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::Value::Null;
     use std::collections::BTreeSet;
     use std::sync::Arc;
-    use warp::http::{Method, StatusCode};
-    use warp::test::request;
 
     use mithril_api_spec::APISpec;
     use mithril_common::AggregateSignatureType;
@@ -99,11 +96,13 @@ mod tests {
         AggregatorCapabilities, AggregatorFeaturesMessage, CardanoTransactionsProverCapabilities,
     };
     use mithril_common::test::double::Dummy;
-
-    use crate::http_server::routes::router::RouterConfig;
-    use crate::initialize_dependencies;
+    use serde_json::Value::Null;
+    use warp::http::{Method, StatusCode};
+    use warp::test::request;
 
     use super::*;
+    use crate::http_server::routes::router::RouterConfig;
+    use crate::initialize_dependencies;
 
     fn setup_router(
         state: RouterState,

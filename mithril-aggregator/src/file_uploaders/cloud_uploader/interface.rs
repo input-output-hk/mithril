@@ -2,7 +2,6 @@ use std::fmt::Display;
 use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
-
 use mithril_common::StdResult;
 use mithril_common::entities::FileUri;
 

@@ -1,9 +1,8 @@
 //! Shared `WhereCondition` across open message queries
 
-use sqlite::Value;
-
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::WhereCondition;
+use sqlite::Value;
 
 use crate::database::record::OpenMessageRecord;
 

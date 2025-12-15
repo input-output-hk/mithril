@@ -7,12 +7,11 @@ use dusk_poseidon::{Domain, Hash};
 use group::Group;
 use rand_core::{CryptoRng, RngCore};
 
-use crate::StmResult;
-
 use super::{
     DST_SIGNATURE, SchnorrSignature, SchnorrSignatureError, SchnorrVerificationKey,
     generate_non_zero_scalar, get_coordinates_several_points,
 };
+use crate::StmResult;
 
 /// Schnorr Signing key, it is essentially a random scalar of the Jubjub scalar field
 #[derive(Debug, Clone)]

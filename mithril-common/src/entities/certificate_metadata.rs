@@ -2,9 +2,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::entities::{ProtocolParameters, ProtocolVersion, SignerWithStake, StakeDistribution};
-
 use super::{PartyId, Stake};
+use crate::entities::{ProtocolParameters, ProtocolVersion, SignerWithStake, StakeDistribution};
 
 /// This represents a stakeholder.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

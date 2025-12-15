@@ -5,7 +5,6 @@ mod interface;
 pub use api::*;
 pub use gcloud_backend::*;
 pub use interface::*;
-
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
 
 const ENCODE_SET: &AsciiSet = &NON_ALPHANUMERIC.remove(b'*').remove(b'-').remove(b'.').remove(b'_');

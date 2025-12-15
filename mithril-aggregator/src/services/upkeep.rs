@@ -192,6 +192,7 @@ mod tests {
     use mithril_common::{entities::SignedEntityTypeDiscriminants, temp_dir_create};
     use mockall::predicate::eq;
 
+    use super::*;
     use crate::database::test_helper::{
         cardano_tx_db_connection, cardano_tx_db_file_connection, main_db_connection,
         main_db_file_connection,
@@ -200,8 +201,6 @@ mod tests {
         event_store_db_connection, event_store_db_file_connection,
     };
     use crate::test::TestLogger;
-
-    use super::*;
 
     fn mock_epoch_pruning_task(
         mock_config: impl FnOnce(&mut MockEpochPruningTask),

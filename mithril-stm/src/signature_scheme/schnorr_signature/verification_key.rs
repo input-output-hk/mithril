@@ -2,9 +2,8 @@ use anyhow::{Context, anyhow};
 use dusk_jubjub::SubgroupPoint as JubjubSubgroup;
 use group::{Group, GroupEncoding};
 
-use crate::StmResult;
-
 use super::{SchnorrSignatureError, SchnorrSigningKey};
+use crate::StmResult;
 
 /// Schnorr verification key, it consists of a point on the Jubjub curve
 /// vk = g * sk, where g is a generator

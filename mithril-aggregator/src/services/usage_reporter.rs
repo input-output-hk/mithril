@@ -1,14 +1,15 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
+use chrono::{DateTime, Utc};
+use mithril_common::logging::LoggerExtensions;
+use serde::{Deserialize, Serialize};
+use slog::{Logger, info};
+
 use crate::metrics::MetricLabelValueMap;
 use crate::{
     MetricsService,
     event_store::{EventMessage, TransmitterService},
 };
-use chrono::{DateTime, Utc};
-use mithril_common::logging::LoggerExtensions;
-use serde::{Deserialize, Serialize};
-use slog::{Logger, info};
 
 /// Message sent to the event store to report a metric value.
 #[derive(Serialize, Deserialize)]

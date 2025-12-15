@@ -1,12 +1,11 @@
 mod genesis;
 mod serve;
 
-pub use genesis::GenesisCommandDependenciesContainer;
-pub use serve::*;
-
 use std::sync::Arc;
 
+pub use genesis::GenesisCommandDependenciesContainer;
 use mithril_persistence::sqlite::SqliteConnection;
+pub use serve::*;
 
 /// Dependencies container for the database commands
 pub struct DatabaseCommandDependenciesContainer {

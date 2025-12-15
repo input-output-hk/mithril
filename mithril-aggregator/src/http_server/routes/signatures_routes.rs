@@ -1,6 +1,7 @@
+use warp::Filter;
+
 use crate::http_server::routes::middlewares;
 use crate::http_server::routes::router::RouterState;
-use warp::Filter;
 
 pub fn routes(
     router_state: &RouterState,
@@ -25,12 +26,12 @@ fn register_signatures(
 }
 
 mod handlers {
-    use slog::{Logger, debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
-    use warp::http::StatusCode;
 
     use mithril_common::messages::{RegisterSignatureMessageHttp, TryFromMessageAdapter};
+    use slog::{Logger, debug, warn};
+    use warp::http::StatusCode;
 
     use crate::{
         MetricsService, SingleSignatureAuthenticator,
@@ -119,23 +120,22 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::anyhow;
-    use mithril_common::entities::ClientError;
     use std::sync::Arc;
-    use warp::http::{Method, StatusCode};
-    use warp::test::request;
 
+    use anyhow::anyhow;
     use mithril_api_spec::APISpec;
+    use mithril_common::entities::ClientError;
     use mithril_common::{
         entities::SignedEntityType, messages::RegisterSignatureMessageHttp, test::double::Dummy,
     };
+    use warp::http::{Method, StatusCode};
+    use warp::test::request;
 
+    use super::*;
     use crate::{
         SingleSignatureAuthenticator, initialize_dependencies,
         services::{CertifierServiceError, MockCertifierService, SignatureRegistrationStatus},
     };
-
-    use super::*;
 
     fn setup_router(
         state: RouterState,

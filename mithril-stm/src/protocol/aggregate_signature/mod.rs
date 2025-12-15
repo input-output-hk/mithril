@@ -12,6 +12,8 @@ pub use signature::*;
 
 #[cfg(test)]
 mod tests {
+    use std::collections::{HashMap, HashSet};
+
     use blake2::{Blake2b, digest::consts::U32};
     use proptest::{
         collection::{hash_map, vec},
@@ -20,16 +22,14 @@ mod tests {
     };
     use rand_chacha::ChaCha20Rng;
     use rand_core::{RngCore, SeedableRng};
-    use std::collections::{HashMap, HashSet};
 
+    use super::{
+        AggregateSignature, AggregateSignatureType, AggregationError, BasicVerifier, Clerk,
+    };
     use crate::{
         Initializer, KeyRegistration, Parameters, Signer, SingleSignature,
         SingleSignatureWithRegisteredParty, Stake, StmResult,
         membership_commitment::MerkleBatchPath, signature_scheme::BlsVerificationKey,
-    };
-
-    use super::{
-        AggregateSignature, AggregateSignatureType, AggregationError, BasicVerifier, Clerk,
     };
 
     type Sig = AggregateSignature<D>;

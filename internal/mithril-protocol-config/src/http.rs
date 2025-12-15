@@ -1,9 +1,9 @@
 //! HTTP implementation of MithrilNetworkConfigurationProvider.
 
-use anyhow::{Context, anyhow};
-use async_trait::async_trait;
 use std::sync::Arc;
 
+use anyhow::{Context, anyhow};
+use async_trait::async_trait;
 use mithril_aggregator_client::AggregatorHttpClient;
 use mithril_aggregator_client::query::GetProtocolConfigurationQuery;
 use mithril_common::StdResult;
@@ -77,16 +77,15 @@ impl MithrilNetworkConfigurationProvider for HttpMithrilNetworkConfigurationProv
 
 #[cfg(test)]
 mod tests {
-    use httpmock::MockServer;
     use std::sync::Arc;
 
+    use httpmock::MockServer;
     use mithril_common::entities::ProtocolParameters;
     use mithril_common::messages::ProtocolConfigurationMessage;
     use mithril_common::test::double::Dummy;
 
-    use crate::test::test_tools::TestLogger;
-
     use super::*;
+    use crate::test::test_tools::TestLogger;
 
     #[tokio::test]
     async fn test_get_network_configuration_retrieve_configurations_for_aggregation_next_aggregation_and_registration()

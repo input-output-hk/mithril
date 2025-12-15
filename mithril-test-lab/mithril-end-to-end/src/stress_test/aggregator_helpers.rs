@@ -1,7 +1,7 @@
-use slog_scope::info;
 use std::time::Duration;
 
 use mithril_common::{StdResult, entities::Epoch, test::builder::MithrilFixture};
+use slog_scope::info;
 
 use crate::{
     Aggregator, AggregatorConfig,

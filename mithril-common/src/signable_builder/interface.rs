@@ -1,5 +1,8 @@
-use async_trait::async_trait;
 use std::fmt::Debug;
+
+use async_trait::async_trait;
+#[cfg(test)]
+use mockall::automock;
 
 use crate::{
     StdResult,
@@ -9,9 +12,6 @@ use crate::{
         ProtocolMessagePartValue, Snapshot,
     },
 };
-
-#[cfg(test)]
-use mockall::automock;
 
 /// Beacon trait
 pub trait Beacon: Send + Sync {}

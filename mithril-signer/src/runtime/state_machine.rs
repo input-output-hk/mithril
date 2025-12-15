@@ -1,21 +1,19 @@
+use std::{fmt::Display, ops::Deref, sync::Arc, time::Duration};
+
 use anyhow::Error;
 use chrono::Local;
-use slog::{Logger, debug, info};
-use std::{fmt::Display, ops::Deref, sync::Arc, time::Duration};
-use tokio::sync::Mutex;
-
+use mithril_aggregator_client::AggregatorHttpClientError;
 use mithril_common::{
     crypto_helper::ProtocolInitializerError,
     entities::{Epoch, Signer, TimePoint},
     logging::LoggerExtensions,
 };
-
-use mithril_aggregator_client::AggregatorHttpClientError;
 use mithril_protocol_config::model::MithrilNetworkConfiguration;
-
-use crate::{MetricsService, entities::BeaconToSign};
+use slog::{Logger, debug, info};
+use tokio::sync::Mutex;
 
 use super::{Runner, RuntimeError};
+use crate::{MetricsService, entities::BeaconToSign};
 
 /// Different possible states of the state machine.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -492,15 +490,13 @@ impl StateMachine {
 mod tests {
     use anyhow::anyhow;
     use chrono::DateTime;
-
     use mithril_common::entities::{ChainPoint, Epoch, ProtocolMessage, SignedEntityType};
     use mithril_common::test::double::Dummy;
 
+    use super::*;
     use crate::RegisteredSigners;
     use crate::runtime::runner::MockSignerRunner;
     use crate::test_tools::TestLogger;
-
-    use super::*;
 
     fn init_state_machine(init_state: SignerState, runner: MockSignerRunner) -> StateMachine {
         let logger = TestLogger::stdout();

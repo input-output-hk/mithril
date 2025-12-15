@@ -4,7 +4,6 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-
 use mithril_common::{
     StdResult,
     entities::{Epoch, SignedEntityTypeDiscriminants},
@@ -399,6 +398,7 @@ mod tests {
     use mithril_common::test::double::{Dummy, fake_data};
     use tokio::sync::RwLock;
 
+    use super::*;
     use crate::database::record::SignedEntityRecord;
     use crate::database::repository::{
         EpochSettingsStore, ImmutableFileDigestRepository, SignedEntityStore,
@@ -406,8 +406,6 @@ mod tests {
     use crate::database::test_helper::main_db_connection;
     use crate::entities::AggregatorEpochSettings;
     use crate::services::FakeEpochService;
-
-    use super::*;
 
     struct MessageServiceBuilder {
         certificates: Vec<Certificate>,
@@ -518,9 +516,8 @@ mod tests {
             test::builder::MithrilFixtureBuilder,
         };
 
-        use crate::{entities::AggregatorEpochSettings, services::FakeEpochServiceBuilder};
-
         use super::*;
+        use crate::{entities::AggregatorEpochSettings, services::FakeEpochServiceBuilder};
 
         #[tokio::test]
         async fn get_epoch_settings_message() {
@@ -659,10 +656,9 @@ mod tests {
     }
 
     mod protocol_configuration {
-        use super::*;
-
         use mithril_common::entities::{CardanoTransactionsSigningConfig, ProtocolParameters};
 
+        use super::*;
         use crate::entities::AggregatorEpochSettings;
 
         #[tokio::test]

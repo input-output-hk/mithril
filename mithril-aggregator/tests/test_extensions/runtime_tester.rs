@@ -1,10 +1,8 @@
-use anyhow::{Context, anyhow};
-use chrono::Utc;
-use slog::Drain;
-use slog_scope::debug;
 use std::sync::Arc;
 use std::time::Duration;
 
+use anyhow::{Context, anyhow};
+use chrono::Utc;
 use mithril_aggregator::{
     AggregatorRuntime, ConfigurationSource, DumbUploader, MetricsService,
     ServeCommandConfiguration, ServeCommandDependenciesContainer, SignerRegistrationError,
@@ -36,6 +34,8 @@ use mithril_common::{
     },
 };
 use mithril_era::{EraMarker, EraReader, adapters::EraReaderDummyAdapter};
+use slog::Drain;
+use slog_scope::debug;
 
 use crate::test_extensions::leader_aggregator_http_server::LeaderAggregatorHttpServer;
 use crate::test_extensions::utilities::{async_wait, tx_hash};

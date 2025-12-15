@@ -26,9 +26,8 @@ impl SupportedEra {
 mod tests {
     use std::str::FromStr;
 
-    use crate::test::double::Dummy;
-
     use super::*;
+    use crate::test::double::Dummy;
 
     #[test]
     fn correct_number_of_eras() {

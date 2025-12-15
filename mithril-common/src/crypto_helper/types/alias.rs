@@ -1,13 +1,12 @@
-use crate::crypto_helper::cardano::{
-    KeyRegWrapper, ProtocolInitializerErrorWrapper, ProtocolRegistrationErrorWrapper,
-    StmInitializerWrapper,
-};
-
+use blake2::{Blake2b, digest::consts::U32};
 use mithril_stm::{
     AggregationError, Clerk, ClosedKeyRegistration, Index, Parameters, Signer, Stake,
 };
 
-use blake2::{Blake2b, digest::consts::U32};
+use crate::crypto_helper::cardano::{
+    KeyRegWrapper, ProtocolInitializerErrorWrapper, ProtocolRegistrationErrorWrapper,
+    StmInitializerWrapper,
+};
 
 /// A protocol version
 pub type ProtocolVersion<'a> = &'a str;

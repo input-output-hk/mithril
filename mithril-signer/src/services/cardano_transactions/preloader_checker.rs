@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-
 use mithril_common::{StdResult, entities::SignedEntityTypeDiscriminants};
 use mithril_protocol_config::interface::MithrilNetworkConfigurationProvider;
 use mithril_signed_entity_preloader::CardanoTransactionsPreloaderChecker;
@@ -55,6 +54,8 @@ impl CardanoTransactionsPreloaderChecker for CardanoTransactionsPreloaderActivat
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use anyhow::anyhow;
     use mithril_common::{
         entities::{Epoch, SignedEntityTypeDiscriminants, TimePoint},
@@ -64,7 +65,6 @@ mod tests {
         MithrilNetworkConfiguration, MithrilNetworkConfigurationForEpoch,
     };
     use mockall::mock;
-    use std::collections::BTreeSet;
 
     use super::*;
 

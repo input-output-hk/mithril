@@ -1,8 +1,7 @@
-use anyhow::{Context, anyhow};
-use async_trait::async_trait;
-use slog::{Logger, trace};
 use std::sync::Arc;
 
+use anyhow::{Context, anyhow};
+use async_trait::async_trait;
 use mithril_common::{
     certificate_chain::{
         CertificateRetriever, CertificateVerifier as CommonCertificateVerifier,
@@ -12,6 +11,7 @@ use mithril_common::{
     entities::Certificate,
     logging::LoggerExtensions,
 };
+use slog::{Logger, trace};
 
 #[cfg(feature = "unstable")]
 use crate::certificate_client::CertificateVerifierCache;
@@ -244,10 +244,9 @@ impl CertificateVerifier for MithrilCertificateVerifier {
 mod tests {
     use mithril_common::test::builder::CertificateChainBuilder;
 
+    use super::*;
     use crate::certificate_client::tests_utils::CertificateClientTestBuilder;
     use crate::feedback::StackFeedbackReceiver;
-
-    use super::*;
 
     #[tokio::test]
     async fn validating_chain_send_feedbacks() {
@@ -322,13 +321,12 @@ mod tests {
         use mithril_common::test::builder::CertificateChainingMethod;
         use mockall::predicate::eq;
 
+        use super::*;
         use crate::certificate_client::verify_cache::MemoryCertificateVerifierCache;
         use crate::certificate_client::{
             MockCertificateAggregatorRequest, MockCertificateVerifierCache,
         };
         use crate::test_utils::TestLogger;
-
-        use super::*;
 
         fn build_verifier_with_cache(
             aggregator_client_mock_config: impl FnOnce(&mut MockCertificateAggregatorRequest),

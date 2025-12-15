@@ -6,15 +6,6 @@ use std::{net::SocketAddr, sync::Arc, time::Duration};
 use anyhow::anyhow;
 use clap::ValueEnum;
 use libp2p::Multiaddr;
-#[cfg(feature = "future_dmq")]
-use slog::error;
-use slog::{Logger, debug, info};
-use strum::Display;
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
-#[cfg(feature = "future_dmq")]
-use tokio::sync::watch::{self, Receiver, Sender};
-use warp::Filter;
-
 use mithril_common::{
     StdResult,
     logging::LoggerExtensions,
@@ -23,6 +14,14 @@ use mithril_common::{
 #[cfg(feature = "future_dmq")]
 use mithril_dmq::{DmqMessage, DmqNetwork, DmqPublisherServer, DmqPublisherServerPallas};
 use mithril_test_http_server::{TestHttpServer, test_http_server_with_socket_address};
+#[cfg(feature = "future_dmq")]
+use slog::error;
+use slog::{Logger, debug, info};
+use strum::Display;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
+#[cfg(feature = "future_dmq")]
+use tokio::sync::watch::{self, Receiver, Sender};
+use warp::Filter;
 
 use crate::{
     p2p::{Peer, PeerEvent},
@@ -362,12 +361,12 @@ impl SignerRelay {
 
 mod middlewares {
     use std::{convert::Infallible, fmt::Debug, sync::Arc};
+
     use tokio::sync::mpsc::UnboundedSender;
     use warp::Filter;
 
-    use crate::repeater::MessageRepeater;
-
     use super::SignerRelayMode;
+    use crate::repeater::MessageRepeater;
 
     pub fn with_logger(
         logger: &slog::Logger,
@@ -402,16 +401,16 @@ mod middlewares {
 }
 
 mod handlers {
+    use std::{convert::Infallible, sync::Arc};
+
     use mithril_common::messages::{RegisterSignatureMessageHttp, RegisterSignerMessage};
     use reqwest::{Error, Response};
     use slog::{Logger, debug};
-    use std::{convert::Infallible, sync::Arc};
     use tokio::sync::mpsc::{UnboundedSender, error::SendError};
     use warp::{http::StatusCode, reply::WithStatus};
 
-    use crate::repeater;
-
     use super::SignerRelayMode;
+    use crate::repeater;
 
     pub async fn aggregator_features_handler(
         logger: Logger,
@@ -564,9 +563,8 @@ mod tests {
     use mithril_common::test::double::Dummy;
     use tokio::sync::mpsc::error::TryRecvError;
 
-    use crate::{repeater, test_tools::TestLogger};
-
     use super::*;
+    use crate::{repeater, test_tools::TestLogger};
 
     #[tokio::test]
     async fn sends_accept_encoding_header_with_correct_values() {

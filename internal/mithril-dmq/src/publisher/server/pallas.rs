@@ -1,6 +1,7 @@
 use std::{fs, path::PathBuf};
 
 use anyhow::{Context, anyhow};
+use mithril_common::{StdResult, logging::LoggerExtensions};
 use pallas_network::{
     facades::DmqServer,
     miniprotocols::{
@@ -8,15 +9,12 @@ use pallas_network::{
         localtxsubmission::{Request, Response},
     },
 };
+use slog::{Logger, debug, error, info, warn};
 use tokio::{
     net::UnixListener,
     select,
     sync::{Mutex, MutexGuard, mpsc::UnboundedSender, watch::Receiver},
 };
-
-use slog::{Logger, debug, error, info, warn};
-
-use mithril_common::{StdResult, logging::LoggerExtensions};
 
 use crate::{DmqMessage, DmqNetwork, DmqPublisherServer};
 
@@ -240,6 +238,7 @@ impl DmqPublisherServer for DmqPublisherServerPallas {
 mod tests {
     use std::sync::Arc;
 
+    use mithril_common::{current_function, test::TempDir};
     use pallas_network::{
         facades::DmqClient,
         miniprotocols::{
@@ -249,11 +248,8 @@ mod tests {
     };
     use tokio::sync::{mpsc::unbounded_channel, watch};
 
-    use mithril_common::{current_function, test::TempDir};
-
-    use crate::test_tools::TestLogger;
-
     use super::*;
+    use crate::test_tools::TestLogger;
 
     fn create_temp_dir(folder_name: &str) -> PathBuf {
         TempDir::create_with_short_path("dmq_publisher_server", folder_name)

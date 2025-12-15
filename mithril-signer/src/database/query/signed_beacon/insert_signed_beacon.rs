@@ -1,7 +1,6 @@
-use sqlite::Value;
-
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
+use sqlite::Value;
 
 use crate::database::record::SignedBeaconRecord;
 
@@ -49,9 +48,8 @@ mod tests {
     use mithril_common::entities::{Epoch, SignedEntityType};
     use mithril_persistence::sqlite::ConnectionExtensions;
 
-    use crate::database::test_helper::main_db_connection;
-
     use super::*;
+    use crate::database::test_helper::main_db_connection;
 
     #[test]
     fn insert_records_in_empty_db() {

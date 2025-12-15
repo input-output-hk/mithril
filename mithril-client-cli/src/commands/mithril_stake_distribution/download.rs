@@ -1,11 +1,14 @@
-use anyhow::Context;
-use clap::Parser;
-use mithril_client::common::SignedEntityTypeDiscriminants;
 use std::sync::Arc;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
 };
+
+use anyhow::Context;
+use clap::Parser;
+use mithril_client::MithrilResult;
+use mithril_client::common::SignedEntityTypeDiscriminants;
+use mithril_client::{MessageBuilder, RequiredAggregatorCapabilities};
 
 use crate::utils::{self, IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter};
 use crate::{
@@ -14,8 +17,6 @@ use crate::{
     configuration::{ConfigError, ConfigSource},
     utils::ExpanderUtils,
 };
-use mithril_client::MithrilResult;
-use mithril_client::{MessageBuilder, RequiredAggregatorCapabilities};
 
 /// Download and verify a Mithril stake distribution information. If the
 /// verification fails, the file is not persisted.

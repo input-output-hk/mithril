@@ -1,6 +1,5 @@
-use sqlite::Value;
-
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
+use sqlite::Value;
 
 use crate::database::record::CertificateRecord;
 

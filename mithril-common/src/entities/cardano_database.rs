@@ -2,9 +2,8 @@ use semver::Version;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::entities::{CardanoDbBeacon, CompressionAlgorithm};
-
 use super::{CardanoNetwork, MultiFilesUri};
+use crate::entities::{CardanoDbBeacon, CompressionAlgorithm};
 
 /// Structure holding artifacts data needed to create a Cardano database snapshot.
 pub struct CardanoDatabaseSnapshotArtifactData {
@@ -179,9 +178,8 @@ pub struct AncillaryLocations {
 
 #[cfg(test)]
 mod tests {
-    use crate::entities::TemplateUri;
-
     use super::*;
+    use crate::entities::TemplateUri;
 
     fn dummy() -> CardanoDatabaseSnapshot {
         CardanoDatabaseSnapshot::new(

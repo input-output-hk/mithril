@@ -1,8 +1,9 @@
+use std::collections::BTreeMap;
+
 use mithril_common::entities::{
     Epoch, HexEncodedAggregateVerificationKey, PartyId, SignedEntityType, Stake,
     StakeDistributionParty,
 };
-use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExpectedCertificate {

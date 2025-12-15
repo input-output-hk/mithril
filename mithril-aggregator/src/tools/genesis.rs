@@ -1,4 +1,3 @@
-use anyhow::{Context, anyhow};
 use std::{
     fs::File,
     io::{Write, prelude::*},
@@ -6,6 +5,7 @@ use std::{
     sync::Arc,
 };
 
+use anyhow::{Context, anyhow};
 use mithril_common::{
     CardanoNetwork, StdResult,
     certificate_chain::{CertificateGenesisProducer, CertificateVerifier},
@@ -200,6 +200,8 @@ impl GenesisTools {
 
 #[cfg(test)]
 mod tests {
+    use std::{fs::read_to_string, path::PathBuf};
+
     use mithril_common::{
         certificate_chain::MithrilCertificateVerifier,
         crypto_helper::{
@@ -208,12 +210,10 @@ mod tests {
         },
         test::{TempDir, builder::MithrilFixtureBuilder, double::fake_data},
     };
-    use std::{fs::read_to_string, path::PathBuf};
-
-    use crate::database::test_helper::main_db_connection;
-    use crate::test::TestLogger;
 
     use super::*;
+    use crate::database::test_helper::main_db_connection;
+    use crate::test::TestLogger;
 
     fn get_temp_dir(dir_name: &str) -> PathBuf {
         TempDir::create("genesis", dir_name)

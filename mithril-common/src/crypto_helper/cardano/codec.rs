@@ -11,6 +11,10 @@
 //! The trait `SerDeShelleyFileFormat` can be implemented for any structure that implements
 //! `Serialize` and `Deserialize`.
 
+use std::fs;
+use std::io::Write;
+use std::path::Path;
+
 use anyhow::{Context, anyhow};
 use hex::FromHex;
 use kes_summed_ed25519::kes::Sum6Kes;
@@ -18,9 +22,6 @@ use kes_summed_ed25519::traits::KesSk;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_with::{As, Bytes};
-use std::fs;
-use std::io::Write;
-use std::path::Path;
 use thiserror::Error;
 
 use crate::StdError;

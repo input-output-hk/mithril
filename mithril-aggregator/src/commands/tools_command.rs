@@ -1,13 +1,13 @@
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
+
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use config::{ConfigBuilder, Map, Value, builder::DefaultState};
-use serde::{Deserialize, Serialize};
-use slog::{Logger, debug};
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
-
 use mithril_common::StdResult;
 use mithril_doc::{Documenter, StructDoc};
 use mithril_persistence::sqlite::{SqliteCleaner, SqliteCleaningTask};
+use serde::{Deserialize, Serialize};
+use slog::{Logger, debug};
 
 use crate::{
     ConfigurationSource, ExecutionEnvironment,
@@ -140,9 +140,8 @@ mod tests {
 
     use mithril_common::temp_dir;
 
-    use crate::test::TestLogger;
-
     use super::*;
+    use crate::test::TestLogger;
 
     #[tokio::test]
     async fn create_container_does_not_panic() {

@@ -346,9 +346,8 @@ pub async fn set_json_app_header(
 
 #[cfg(test)]
 mod tests {
-    use crate::{default_values, shared_state::AppState};
-
     pub use super::*;
+    use crate::{default_values, shared_state::AppState};
 
     #[tokio::test]
     async fn invalid_snapshot_digest() {

@@ -1,7 +1,9 @@
-use anyhow::anyhow;
 use std::sync::Arc;
 
+use anyhow::anyhow;
 use async_trait::async_trait;
+#[cfg(test)]
+use mockall::automock;
 
 use crate::{
     StdResult,
@@ -9,9 +11,6 @@ use crate::{
     entities::{Epoch, ProtocolMessage, ProtocolMessagePartKey, StakeDistribution},
     signable_builder::SignableBuilder,
 };
-
-#[cfg(test)]
-use mockall::automock;
 
 /// Stake Distribution Retriever
 #[cfg_attr(test, automock)]
@@ -91,9 +90,8 @@ impl SignableBuilder<Epoch> for CardanoStakeDistributionSignableBuilder {
 mod tests {
     use mockall::predicate::eq;
 
-    use crate::entities::ProtocolMessagePartKey;
-
     use super::*;
+    use crate::entities::ProtocolMessagePartKey;
 
     fn is_merkle_tree_equals(
         first_pools_with_stake: StakeDistribution,

@@ -1,10 +1,9 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use dusk_jubjub::Fq as JubjubBase;
 use dusk_poseidon::{Domain, Hash};
+use mithril_stm::{SchnorrSigningKey, SchnorrVerificationKey};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
-
-use mithril_stm::{SchnorrSigningKey, SchnorrVerificationKey};
 
 fn dusk_poseidon_hash(c: &mut Criterion, nr_sigs: usize) {
     let mut group = c.benchmark_group("Schnorr".to_string());

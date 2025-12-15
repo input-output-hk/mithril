@@ -1,8 +1,7 @@
 use std::{collections::VecDeque, fmt::Debug, marker::PhantomData};
 
-use tokio::sync::Mutex;
-
 use mithril_common::{StdResult, crypto_helper::TryToBytes};
+use tokio::sync::Mutex;
 
 use crate::DmqPublisherClient;
 
@@ -35,9 +34,8 @@ impl<M: TryToBytes + Debug + Send + Sync> DmqPublisherClient<M> for DmqPublisher
 
 #[cfg(test)]
 mod tests {
-    use crate::test::payload::DmqMessageTestPayload;
-
     use super::*;
+    use crate::test::payload::DmqMessageTestPayload;
 
     #[tokio::test]
     async fn publish_messages_success() {

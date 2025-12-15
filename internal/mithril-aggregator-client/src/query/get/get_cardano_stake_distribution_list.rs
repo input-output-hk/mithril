@@ -1,8 +1,7 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
-use reqwest::StatusCode;
-
 use mithril_common::messages::CardanoStakeDistributionListMessage;
+use reqwest::StatusCode;
 
 use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
 use crate::{AggregatorHttpClientError, AggregatorHttpClientResult};
@@ -49,14 +48,12 @@ impl AggregatorQuery for GetCardanoStakeDistributionsListQuery {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::json;
-
     use mithril_common::messages::CardanoStakeDistributionListItemMessage;
     use mithril_common::test::double::Dummy;
-
-    use crate::test::{assert_error_matches, setup_server_and_client};
+    use serde_json::json;
 
     use super::*;
+    use crate::test::{assert_error_matches, setup_server_and_client};
 
     #[tokio::test]
     async fn test_latest_mithril_stake_distributions_list_ok_200() {

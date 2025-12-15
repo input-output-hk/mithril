@@ -1,9 +1,8 @@
 use mithril_client::{MithrilCertificate, MithrilCertificateListItem};
 use mithril_common::test::double::Dummy;
 
-use crate::extensions::routes;
-
 use super::FakeAggregator;
+use crate::extensions::routes;
 
 impl FakeAggregator {
     pub fn spawn_with_certificate(certificate_hash_list: &[String]) -> Self {

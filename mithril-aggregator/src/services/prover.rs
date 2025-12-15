@@ -1,12 +1,10 @@
-use async_trait::async_trait;
-use rayon::prelude::*;
-use slog::{Logger, debug, info};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     sync::Arc,
     time::Duration,
 };
 
+use async_trait::async_trait;
 use mithril_common::{
     StdResult,
     crypto_helper::{MKMap, MKMapNode, MKTree, MKTreeStorer},
@@ -17,6 +15,8 @@ use mithril_common::{
     signable_builder::BlockRangeRootRetriever,
 };
 use mithril_resource_pool::ResourcePool;
+use rayon::prelude::*;
+use slog::{Logger, debug, info};
 
 /// Prover service is the cryptographic engine in charge of producing cryptographic proofs for transactions
 #[cfg_attr(test, mockall::automock)]
@@ -217,9 +217,8 @@ mod tests {
     use mockall::mock;
     use mockall::predicate::eq;
 
-    use crate::test::TestLogger;
-
     use super::*;
+    use crate::test::TestLogger;
 
     mock! {
         pub BlockRangeRootRetrieverImpl<S: MKTreeStorer> { }

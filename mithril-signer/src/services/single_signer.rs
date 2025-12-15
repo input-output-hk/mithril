@@ -3,9 +3,6 @@ use std::sync::Arc;
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use hex::ToHex;
-use slog::{Logger, info, trace, warn};
-use thiserror::Error;
-
 use mithril_common::crypto_helper::{KesPeriod, KesSigner, ProtocolInitializer};
 use mithril_common::entities::{
     PartyId, ProtocolMessage, ProtocolParameters, SingleSignature, Stake,
@@ -13,6 +10,8 @@ use mithril_common::entities::{
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::{SignerBuilder, SingleSigner as ProtocolSingleSigner};
 use mithril_common::{StdError, StdResult};
+use slog::{Logger, info, trace, warn};
+use thiserror::Error;
 
 use crate::dependency_injection::EpochServiceWrapper;
 
@@ -165,18 +164,18 @@ impl SingleSigner for MithrilSingleSigner {
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
-    use tokio::sync::RwLock;
 
-    use crate::database::repository::{ProtocolInitializerRepository, StakePoolStore};
-    use crate::database::test_helper::main_db_connection;
-    use crate::services::MithrilEpochService;
-    use crate::test_tools::TestLogger;
     use mithril_common::crypto_helper::ProtocolClerk;
     use mithril_common::entities::{Epoch, ProtocolMessagePartKey};
     use mithril_common::test::builder::MithrilFixtureBuilder;
     use mithril_persistence::store::StakeStorer;
+    use tokio::sync::RwLock;
 
     use super::*;
+    use crate::database::repository::{ProtocolInitializerRepository, StakePoolStore};
+    use crate::database::test_helper::main_db_connection;
+    use crate::services::MithrilEpochService;
+    use crate::test_tools::TestLogger;
 
     #[tokio::test]
     async fn compute_single_signature_success() {

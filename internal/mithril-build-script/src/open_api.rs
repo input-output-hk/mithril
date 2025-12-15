@@ -71,9 +71,10 @@ pub fn get_open_api_versions_mapping() -> HashMap<OpenAPIFileName, semver::Versi
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use super::*;
     use crate::get_temp_dir;
-    use std::path::Path;
 
     fn write_minimal_open_api_file(version: &str, path: &Path) {
         fs::write(

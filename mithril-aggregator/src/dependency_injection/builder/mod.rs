@@ -2,19 +2,9 @@ mod enablers;
 mod protocol;
 mod support;
 
-use anyhow::Context;
-use slog::{Logger, debug};
 use std::{path::PathBuf, sync::Arc};
-use tokio::{
-    sync::{
-        Mutex,
-        mpsc::{UnboundedReceiver, UnboundedSender},
-        watch,
-    },
-    time::Duration,
-};
-use warp::Filter;
 
+use anyhow::Context;
 use mithril_aggregator_client::AggregatorHttpClient;
 use mithril_cardano_node_chain::{
     chain_observer::{CardanoCliRunner, ChainObserver},
@@ -39,6 +29,16 @@ use mithril_persistence::{
 use mithril_protocol_config::interface::MithrilNetworkConfigurationProvider;
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 use mithril_ticker::TickerService;
+use slog::{Logger, debug};
+use tokio::{
+    sync::{
+        Mutex,
+        mpsc::{UnboundedReceiver, UnboundedSender},
+        watch,
+    },
+    time::Duration,
+};
+use warp::Filter;
 
 use super::{
     DatabaseCommandDependenciesContainer, DependenciesBuilderError, EpochServiceWrapper,

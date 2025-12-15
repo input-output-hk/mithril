@@ -6,13 +6,6 @@ use std::sync::Arc;
 use anyhow::{Context, anyhow};
 #[cfg(any(feature = "fs", not(target_family = "wasm")))]
 use chrono::Utc;
-#[cfg(not(target_family = "wasm"))]
-use rand::SeedableRng;
-#[cfg(not(target_family = "wasm"))]
-use rand::rngs::StdRng;
-use serde::{Deserialize, Serialize};
-use slog::{Logger, o};
-
 use mithril_aggregator_client::AggregatorHttpClient;
 #[cfg(not(target_family = "wasm"))]
 use mithril_aggregator_discovery::{
@@ -20,6 +13,12 @@ use mithril_aggregator_discovery::{
     HttpConfigAggregatorDiscoverer, RequiredAggregatorCapabilities, ShuffleAggregatorDiscoverer,
 };
 use mithril_common::{MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER};
+#[cfg(not(target_family = "wasm"))]
+use rand::SeedableRng;
+#[cfg(not(target_family = "wasm"))]
+use rand::rngs::StdRng;
+use serde::{Deserialize, Serialize};
+use slog::{Logger, o};
 
 use crate::MithrilResult;
 use crate::cardano_database_client::CardanoDatabaseClient;

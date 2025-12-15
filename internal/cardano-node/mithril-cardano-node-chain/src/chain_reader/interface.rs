@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-
 use mithril_common::StdResult;
 
 use crate::entities::{ChainBlockNextAction, RawCardanoPoint};

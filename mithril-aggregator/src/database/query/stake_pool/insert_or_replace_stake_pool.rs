@@ -1,10 +1,9 @@
 use std::iter::repeat_n;
 
 use chrono::Utc;
-use sqlite::Value;
-
 use mithril_common::entities::{Epoch, PartyId, Stake};
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
+use sqlite::Value;
 
 use crate::database::record::StakePool;
 
@@ -56,11 +55,11 @@ impl Query for InsertOrReplaceStakePoolQuery {
 
 #[cfg(test)]
 mod tests {
-    use crate::database::query::GetStakePoolQuery;
-    use crate::database::test_helper::{insert_stake_pool, main_db_connection};
     use mithril_persistence::sqlite::ConnectionExtensions;
 
     use super::*;
+    use crate::database::query::GetStakePoolQuery;
+    use crate::database::test_helper::{insert_stake_pool, main_db_connection};
 
     #[test]
     fn test_update_stakes() {

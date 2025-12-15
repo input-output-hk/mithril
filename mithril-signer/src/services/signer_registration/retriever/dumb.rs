@@ -1,7 +1,6 @@
-use tokio::sync::RwLock;
-
 use mithril_common::StdResult;
 use mithril_common::test::double::Dummy;
+use tokio::sync::RwLock;
 
 use crate::RegisteredSigners;
 use crate::services::signer_registration::retriever::interface::SignersRegistrationRetriever;

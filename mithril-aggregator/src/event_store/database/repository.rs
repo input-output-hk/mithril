@@ -1,10 +1,10 @@
 //! Migration module
 //!
+use std::sync::Arc;
+
 use anyhow::anyhow;
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
-
-use std::sync::Arc;
 
 use crate::event_store::database::query::InsertEventQuery;
 use crate::event_store::{EventMessage, event::Event};
@@ -33,9 +33,10 @@ impl EventPersister {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::StdResult;
+
     use super::*;
     use crate::event_store::database::test_helper::event_store_db_connection;
-    use mithril_common::StdResult;
 
     #[test]
     fn can_persist_event() -> StdResult<()> {
@@ -63,17 +64,15 @@ mod tests {
 
         use std::time::Duration;
 
-        use crate::{
-            event_store::database::test_helper::event_store_db_connection, services::UsageReporter,
-        };
         use chrono::{DateTime, Utc};
-
         use mithril_common::StdResult;
-
         use serde::{Deserialize, Serialize};
         use sqlite::ConnectionThreadSafe;
 
         use super::*;
+        use crate::{
+            event_store::database::test_helper::event_store_db_connection, services::UsageReporter,
+        };
 
         fn get_all_metrics(
             connection: Arc<ConnectionThreadSafe>,
@@ -435,12 +434,12 @@ mod tests {
     mod signer_registration_summary {
         use std::sync::Arc;
 
-        use crate::event_store::database::test_helper::event_store_db_connection;
         use mithril_common::entities::{SignerWithStake, Stake};
         use mithril_common::{StdResult, test::double::fake_data};
         use sqlite::ConnectionThreadSafe;
 
         use super::{EventMessage, EventPersister};
+        use crate::event_store::database::test_helper::event_store_db_connection;
 
         /// Insert a signer registration event in the database.
         fn insert_registration_event(

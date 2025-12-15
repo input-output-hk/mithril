@@ -1,9 +1,9 @@
-use crate::entities::{HexEncodedKey, HexEncodedKeySlice};
-
 use hex::{FromHex, ToHex};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use thiserror::Error;
+
+use crate::entities::{HexEncodedKey, HexEncodedKeySlice};
 
 /// Error raised when the encoding or decoding fails
 #[derive(Error, Debug)]

@@ -3,6 +3,9 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
+use mithril_common::crypto_helper::{KesPeriod, encode_bech32};
+use mithril_common::entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, StakeDistribution};
+use mithril_common::{CardanoNetwork, StdResult};
 use pallas_addresses::Address;
 use pallas_codec::utils::{Bytes, CborWrap, TagWrap};
 use pallas_network::{
@@ -21,13 +24,8 @@ use pallas_network::{
 use pallas_primitives::ToCanonicalJson;
 use pallas_traverse::Era;
 
-use mithril_common::crypto_helper::{KesPeriod, encode_bech32};
-use mithril_common::entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, StakeDistribution};
-use mithril_common::{CardanoNetwork, StdResult};
-
-use crate::entities::{ChainAddress, Datum, Datums, TxDatum, try_inspect};
-
 use super::{ChainObserver, ChainObserverError};
+use crate::entities::{ChainAddress, Datum, Datums, TxDatum, try_inspect};
 
 // The era value returned from the queries_v16::get_current_era has an offset of -1 with the era value of the pallas_traverse::Era due to Cardano node implementation.
 // It needs to be compensated to get the correct era display name.
@@ -509,6 +507,7 @@ impl ChainObserver for PallasChainObserver {
 mod tests {
     use std::fs;
 
+    use mithril_common::test::TempDir;
     use pallas_codec::utils::{AnyCbor, AnyUInt, KeyValuePairs, TagWrap};
     use pallas_crypto::hash::Hash;
     use pallas_network::facades::NodeServer;
@@ -523,8 +522,6 @@ mod tests {
         },
     };
     use tokio::net::UnixListener;
-
-    use mithril_common::test::TempDir;
 
     use super::*;
 

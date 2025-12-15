@@ -13,11 +13,10 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Sha256;
 use thiserror::Error;
 
+use super::SerDeShelleyFileFormat;
 use crate::StdResult;
 use crate::crypto_helper::cardano::ProtocolRegistrationErrorWrapper;
 use crate::crypto_helper::{ProtocolPartyId, encode_bech32};
-
-use super::SerDeShelleyFileFormat;
 
 /// Operational certificate error
 #[derive(Error, Debug, PartialEq, Eq)]
@@ -316,12 +315,13 @@ impl From<(OpCertWithoutColdVerificationKey, EdVerificationKey)> for OpCert {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
+    use kes_summed_ed25519::{kes::Sum6Kes, traits::KesSk};
+
     use super::*;
     use crate::crypto_helper::cardano::ColdKeyGenerator;
     use crate::test::TempDir;
-
-    use kes_summed_ed25519::{kes::Sum6Kes, traits::KesSk};
-    use std::path::PathBuf;
 
     fn setup_temp_directory(test_name: &str) -> PathBuf {
         TempDir::create("mithril_cardano_opcert", test_name)

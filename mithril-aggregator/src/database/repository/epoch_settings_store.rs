@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-
 use mithril_common::StdResult;
 use mithril_common::entities::{Epoch, ProtocolParameters};
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
@@ -99,9 +98,8 @@ impl EpochPruningTask for EpochSettingsStore {
 mod tests {
     use mithril_common::test::double::Dummy;
 
-    use crate::database::test_helper::{insert_epoch_settings, main_db_connection};
-
     use super::*;
+    use crate::database::test_helper::{insert_epoch_settings, main_db_connection};
 
     #[tokio::test]
     async fn prune_epoch_settings_older_than_threshold() {

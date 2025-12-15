@@ -1,14 +1,14 @@
-use anyhow::{Context, anyhow};
-use slog_scope::info;
 use std::fs::{self, File, read_to_string};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
-use thiserror::Error;
-use tokio::process::Command;
 
+use anyhow::{Context, anyhow};
 use mithril_common::StdResult;
 use mithril_common::entities::{PartyId, TransactionHash};
+use slog_scope::info;
+use thiserror::Error;
+use tokio::process::Command;
 
 use crate::utils::file_utils;
 
@@ -363,9 +363,10 @@ impl Devnet {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use crate::devnet::DevnetTopology;
     use crate::devnet::runner::{Devnet, FullNode, PoolNode};
-    use std::path::PathBuf;
 
     #[test]
     pub fn yield_empty_topology_with_0_nodes() {

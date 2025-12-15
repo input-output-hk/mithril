@@ -1,6 +1,7 @@
+use warp::Filter;
+
 use crate::http_server::routes::middlewares;
 use crate::http_server::routes::router::RouterState;
-use warp::Filter;
 
 pub fn routes(
     router_state: &RouterState,
@@ -52,9 +53,10 @@ fn artifact_cardano_stake_distribution_by_epoch(
 }
 
 pub mod handlers {
-    use slog::{Logger, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
+
+    use slog::{Logger, warn};
     use warp::http::StatusCode;
 
     use crate::MetricsService;
@@ -174,15 +176,9 @@ pub mod handlers {
 
 #[cfg(test)]
 pub mod tests {
-    use anyhow::anyhow;
-    use serde_json::Value::Null;
     use std::sync::Arc;
-    use tokio::sync::RwLock;
-    use warp::{
-        http::{Method, StatusCode},
-        test::request,
-    };
 
+    use anyhow::anyhow;
     use mithril_api_spec::APISpec;
     use mithril_common::{
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
@@ -190,14 +186,19 @@ pub mod tests {
         messages::{CardanoStakeDistributionListItemMessage, CardanoStakeDistributionMessage},
         test::double::Dummy,
     };
+    use serde_json::Value::Null;
+    use tokio::sync::RwLock;
+    use warp::{
+        http::{Method, StatusCode},
+        test::request,
+    };
 
+    use super::*;
     use crate::{
         http_server::routes::router::RouterConfig,
         initialize_dependencies,
         services::{FakeEpochServiceBuilder, MockMessageService},
     };
-
-    use super::*;
 
     fn setup_router(
         state: RouterState,

@@ -3,9 +3,6 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use config::{ConfigBuilder, Map, Value, builder::DefaultState};
-use serde::{Deserialize, Serialize};
-use slog::{Logger, debug};
-
 use mithril_cardano_node_chain::chain_observer::ChainObserverType;
 use mithril_common::{
     StdResult,
@@ -15,6 +12,8 @@ use mithril_common::{
     entities::{HexEncodedGenesisSecretKey, HexEncodedGenesisVerificationKey},
 };
 use mithril_doc::{Documenter, StructDoc};
+use serde::{Deserialize, Serialize};
+use slog::{Logger, debug};
 
 use crate::{
     ConfigurationSource, ExecutionEnvironment, dependency_injection::DependenciesBuilder,
@@ -368,9 +367,8 @@ mod tests {
 
     use mithril_common::temp_dir;
 
-    use crate::test::TestLogger;
-
     use super::*;
+    use crate::test::TestLogger;
 
     #[tokio::test]
     async fn create_container_does_not_panic() {

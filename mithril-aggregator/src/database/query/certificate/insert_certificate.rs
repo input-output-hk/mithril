@@ -1,8 +1,7 @@
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
-use crate::database::record::CertificateRecord;
-
 use super::conditions;
+use crate::database::record::CertificateRecord;
 
 /// Query to insert [CertificateRecord] in the sqlite database
 pub struct InsertCertificateRecordQuery {
@@ -43,9 +42,8 @@ mod tests {
     use mithril_common::test::crypto_helper::setup_certificate_chain;
     use mithril_persistence::sqlite::ConnectionExtensions;
 
-    use crate::database::test_helper::main_db_connection;
-
     use super::*;
+    use crate::database::test_helper::main_db_connection;
 
     #[test]
     fn test_insert_certificate_record() {

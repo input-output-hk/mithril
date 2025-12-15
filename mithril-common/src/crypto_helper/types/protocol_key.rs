@@ -290,12 +290,13 @@ macro_rules! impl_codec_and_type_conversions_for_protocol_key {
 
 #[cfg(test)]
 mod test {
+    use mithril_stm::VerificationKeyProofOfPossession;
+    use serde::{Deserialize, Serialize};
+
     use crate::{
         crypto_helper::ProtocolKey,
         test::{TempDir, double::fake_keys},
     };
-    use mithril_stm::VerificationKeyProofOfPossession;
-    use serde::{Deserialize, Serialize};
 
     static VERIFICATION_KEY_JSON_HEX: &str = fake_keys::signer_verification_key()[0];
 

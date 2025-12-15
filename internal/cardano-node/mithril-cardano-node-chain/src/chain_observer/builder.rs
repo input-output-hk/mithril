@@ -1,14 +1,13 @@
-use serde::{Deserialize, Serialize};
 use std::{fmt::Display, path::PathBuf, sync::Arc};
-use thiserror::Error;
 
 use mithril_common::StdResult;
 use mithril_common::entities::CardanoNetwork;
-
-use crate::chain_observer::ChainObserver;
-use crate::test::double::FakeChainObserver;
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 use super::{CardanoCliChainObserver, CardanoCliRunner, PallasChainObserver};
+use crate::chain_observer::ChainObserver;
+use crate::test::double::FakeChainObserver;
 
 /// Type of chain observers available
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

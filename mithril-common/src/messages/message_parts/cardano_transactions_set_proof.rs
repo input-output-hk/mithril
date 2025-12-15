@@ -1,12 +1,12 @@
+use serde::{Deserialize, Serialize};
+#[cfg(target_family = "wasm")]
+use wasm_bindgen::prelude::*;
+
 use crate::{
     StdError,
     crypto_helper::ProtocolMkProof,
     entities::{CardanoTransactionsSetProof, HexEncodedKey, TransactionHash},
 };
-use serde::{Deserialize, Serialize};
-
-#[cfg(target_family = "wasm")]
-use wasm_bindgen::prelude::*;
 
 /// A cryptographic proof of a set of Cardano transactions is included in the global Cardano transactions set
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

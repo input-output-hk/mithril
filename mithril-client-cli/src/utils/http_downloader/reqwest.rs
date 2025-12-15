@@ -6,9 +6,8 @@ use std::{
 
 use anyhow::Context;
 use async_trait::async_trait;
-use reqwest::{Client, Url};
-
 use mithril_client::MithrilResult;
+use reqwest::{Client, Url};
 
 use super::HttpDownloader;
 

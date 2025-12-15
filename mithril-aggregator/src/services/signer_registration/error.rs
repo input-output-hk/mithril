@@ -1,11 +1,9 @@
-use thiserror::Error;
-
+use mithril_cardano_node_chain::chain_observer::ChainObserverError;
 use mithril_common::{
     StdError,
     entities::{Epoch, SignerWithStake},
 };
-
-use mithril_cardano_node_chain::chain_observer::ChainObserverError;
+use thiserror::Error;
 
 /// Error type for signer registerer service.
 #[derive(Error, Debug)]

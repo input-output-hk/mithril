@@ -1,6 +1,5 @@
 use anyhow::Context;
 use async_trait::async_trait;
-
 use mithril_aggregator_client::{AggregatorHttpClient, query::PostRegisterSignatureQuery};
 use mithril_common::{
     StdResult,
@@ -8,9 +7,8 @@ use mithril_common::{
     messages::TryToMessageAdapter,
 };
 
-use crate::message_adapters::ToRegisterSignatureMessageAdapter;
-
 use super::SignaturePublisher;
+use crate::message_adapters::ToRegisterSignatureMessageAdapter;
 
 #[async_trait]
 impl SignaturePublisher for AggregatorHttpClient {

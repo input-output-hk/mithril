@@ -1,11 +1,11 @@
-use serde::{Deserialize, Serialize};
 use std::{fmt::Display, path::PathBuf, sync::Arc};
-use thiserror::Error;
 
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_cardano_node_chain::entities::ChainAddress;
 use mithril_common::StdError;
 use mithril_common::crypto_helper::EraMarkersVerifierVerificationKey;
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 use crate::{
     EraMarker, EraReaderAdapter,

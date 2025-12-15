@@ -9,8 +9,6 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use slog::{Logger, info};
-
 use mithril_common::StdResult;
 use mithril_common::entities::Epoch;
 use mithril_common::logging::LoggerExtensions;
@@ -18,6 +16,7 @@ use mithril_persistence::sqlite::{
     SqliteCleaner, SqliteCleaningTask, SqliteConnection, SqliteConnectionPool,
 };
 use mithril_signed_entity_lock::SignedEntityTypeLock;
+use slog::{Logger, info};
 
 /// Define the service responsible for the upkeep of the application.
 #[cfg_attr(test, mockall::automock)]
@@ -140,18 +139,16 @@ impl UpkeepService for SignerUpkeepService {
 
 #[cfg(test)]
 mod tests {
-    use mockall::predicate::eq;
-
     use mithril_common::entities::SignedEntityTypeDiscriminants;
     use mithril_common::test::TempDir;
+    use mockall::predicate::eq;
 
+    use super::*;
     use crate::database::test_helper::{
         cardano_tx_db_connection, cardano_tx_db_file_connection, main_db_connection,
         main_db_file_connection,
     };
     use crate::test_tools::TestLogger;
-
-    use super::*;
 
     fn mock_epoch_pruning_task(
         mock_config: impl FnOnce(&mut MockEpochPruningTask),

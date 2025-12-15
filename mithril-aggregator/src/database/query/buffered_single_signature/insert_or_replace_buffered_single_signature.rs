@@ -1,6 +1,5 @@
-use sqlite::Value;
-
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
+use sqlite::Value;
 
 use crate::database::record::BufferedSingleSignatureRecord;
 
@@ -55,10 +54,9 @@ mod tests {
     };
     use mithril_persistence::sqlite::ConnectionExtensions;
 
+    use super::*;
     use crate::database::query::GetBufferedSingleSignatureQuery;
     use crate::database::test_helper::main_db_connection;
-
-    use super::*;
 
     #[test]
     fn insert_records_in_empty_db() {

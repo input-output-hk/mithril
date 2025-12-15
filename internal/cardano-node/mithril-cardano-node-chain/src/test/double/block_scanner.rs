@@ -2,7 +2,6 @@ use std::collections::VecDeque;
 use std::sync::RwLock;
 
 use async_trait::async_trait;
-
 use mithril_common::StdResult;
 use mithril_common::entities::{BlockNumber, ChainPoint};
 

@@ -1,7 +1,6 @@
-use sqlite::Value;
-
 use mithril_common::entities::SignedEntityTypeDiscriminants;
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
+use sqlite::Value;
 
 use crate::database::record::BufferedSingleSignatureRecord;
 
@@ -51,9 +50,8 @@ mod tests {
     };
     use mithril_persistence::sqlite::ConnectionExtensions;
 
-    use crate::database::test_helper::{insert_buffered_single_signatures, main_db_connection};
-
     use super::*;
+    use crate::database::test_helper::{insert_buffered_single_signatures, main_db_connection};
 
     #[test]
     fn test_get_all() {

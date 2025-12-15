@@ -5,6 +5,7 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 use thiserror::Error;
 
+use super::SingleSigner;
 use crate::{
     StdResult,
     crypto_helper::{
@@ -14,8 +15,6 @@ use crate::{
     entities::{PartyId, ProtocolParameters, SignerWithStake},
     protocol::MultiSigner,
 };
-
-use super::SingleSigner;
 
 /// Allow to build Single Or Multi signers to generate a single signature or aggregate them
 #[derive(Debug)]
@@ -176,12 +175,11 @@ impl SignerBuilder {
 mod test {
     use mithril_stm::RegisterError;
 
+    use super::*;
     use crate::{
         crypto_helper::KesSignerStandard,
         test::{builder::MithrilFixtureBuilder, double::fake_data},
     };
-
-    use super::*;
 
     #[test]
     fn cant_construct_signer_builder_with_an_empty_signers_list() {

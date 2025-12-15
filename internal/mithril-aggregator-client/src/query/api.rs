@@ -1,8 +1,9 @@
+use std::collections::BTreeSet;
+use std::fmt::{Display, Formatter};
+
 use reqwest::Response;
 use serde::de::DeserializeOwned;
 use slog::{Logger, Record, Serializer};
-use std::collections::BTreeSet;
-use std::fmt::{Display, Formatter};
 
 use crate::AggregatorHttpClientResult;
 use crate::error::AggregatorHttpClientError;

@@ -1,9 +1,8 @@
 use chrono::{DateTime, Utc};
-use sqlite::Row;
-use uuid::Uuid;
-
 use mithril_common::entities::{Epoch, ProtocolMessage, SignedEntityType, SingleSignature};
 use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
+use sqlite::Row;
+use uuid::Uuid;
 
 use crate::database::record::OpenMessageRecord;
 

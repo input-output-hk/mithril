@@ -2,19 +2,17 @@ use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
-use tokio::sync::RwLock;
-
 use mithril_common::{
     StdResult,
     entities::{Epoch, Signer, SignerWithStake, StakeDistribution},
 };
-
-use crate::{SignerRegistrationVerifier, VerificationKeyStorer};
+use tokio::sync::RwLock;
 
 use super::{
     SignerRecorder, SignerRegisterer, SignerRegistrationError, SignerRegistrationRound,
     SignerRegistrationRoundOpener, SignerSynchronizer,
 };
+use crate::{SignerRegistrationVerifier, VerificationKeyStorer};
 
 /// A [MithrilSignerRegistrationLeader] supports signer registrations in a leader aggregator
 pub struct MithrilSignerRegistrationLeader {
@@ -152,17 +150,15 @@ mod tests {
         entities::{Epoch, Signer, SignerWithStake},
         test::builder::MithrilFixtureBuilder,
     };
+    use test_utils::*;
 
+    use super::*;
     use crate::{
         MithrilSignerRegistrationLeader, SignerRegisterer, SignerRegistrationRoundOpener,
         VerificationKeyStorer,
         database::{repository::SignerRegistrationStore, test_helper::main_db_connection},
         services::{MockSignerRecorder, MockSignerRegistrationVerifier, SignerSynchronizer},
     };
-
-    use test_utils::*;
-
-    use super::*;
 
     mod test_utils {
         use super::*;

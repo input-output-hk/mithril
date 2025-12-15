@@ -2,14 +2,13 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use anyhow::{Context, anyhow};
 
+use super::AggregationError;
 use crate::{
     Index, Parameters, RegisteredParty, SingleSignature, SingleSignatureWithRegisteredParty, Stake,
     StmResult,
     membership_commitment::MerkleTreeLeaf,
     signature_scheme::{BlsSignature, BlsVerificationKey},
 };
-
-use super::AggregationError;
 
 /// Full node verifier including the list of eligible signers and the total stake of the system.
 pub struct BasicVerifier {

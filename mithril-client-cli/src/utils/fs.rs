@@ -4,7 +4,6 @@ use std::{
 };
 
 use anyhow::{Context, anyhow};
-
 use mithril_client::MithrilResult;
 
 /// Copies a directory and its contents to a new location.

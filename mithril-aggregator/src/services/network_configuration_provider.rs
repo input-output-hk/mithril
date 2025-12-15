@@ -1,8 +1,8 @@
-use anyhow::Context;
-use async_trait::async_trait;
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
+use anyhow::Context;
+use async_trait::async_trait;
 use mithril_common::StdResult;
 use mithril_common::entities::{Epoch, SignedEntityTypeDiscriminants};
 use mithril_protocol_config::interface::MithrilNetworkConfigurationProvider;
@@ -101,9 +101,8 @@ mod tests {
         test::double::Dummy,
     };
 
-    use crate::store::FakeEpochSettingsStorer;
-
     use super::*;
+    use crate::store::FakeEpochSettingsStorer;
 
     #[tokio::test]
     async fn get_stored_configuration_with_stored_value_returns_them() {

@@ -2,10 +2,10 @@ use clap::Parser;
 use cli_table::format::Justify;
 use cli_table::{Cell, Table, print_stdout};
 use mithril_client::common::SignedEntityTypeDiscriminants;
+use mithril_client::{MithrilResult, RequiredAggregatorCapabilities};
 
 use crate::CommandContext;
 use crate::commands::client_builder_with_fallback_genesis_key;
-use mithril_client::{MithrilResult, RequiredAggregatorCapabilities};
 
 /// Cardano transaction snapshot list command
 #[derive(Parser, Debug, Clone)]

@@ -1,8 +1,7 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
-use reqwest::StatusCode;
-
 use mithril_common::messages::EpochSettingsMessage;
+use reqwest::StatusCode;
 
 use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
 use crate::{AggregatorHttpClientError, AggregatorHttpClientResult};
@@ -47,13 +46,11 @@ impl AggregatorQuery for GetEpochSettingsQuery {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::test::double::Dummy;
     use serde_json::json;
 
-    use mithril_common::test::double::Dummy;
-
-    use crate::test::{assert_error_matches, setup_server_and_client};
-
     use super::*;
+    use crate::test::{assert_error_matches, setup_server_and_client};
 
     #[tokio::test]
     async fn test_epoch_settings_ok_200() {

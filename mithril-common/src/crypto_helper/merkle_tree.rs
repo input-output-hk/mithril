@@ -1,3 +1,10 @@
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt::Display,
+    ops::{Add, Deref},
+    sync::{Arc, RwLock},
+};
+
 use anyhow::{Context, anyhow};
 use blake2::{Blake2s256, Digest};
 use ckb_merkle_mountain_range::{
@@ -5,12 +12,6 @@ use ckb_merkle_mountain_range::{
     Result as MMRResult,
 };
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::{BTreeMap, HashMap},
-    fmt::Display,
-    ops::{Add, Deref},
-    sync::{Arc, RwLock},
-};
 
 use crate::{StdError, StdResult};
 
@@ -438,9 +439,8 @@ impl<S: MKTreeStorer> Clone for MKTree<S> {
 
 #[cfg(test)]
 mod tests {
-    use crate::test::crypto_helper::MKProofTestExtension;
-
     use super::*;
+    use crate::test::crypto_helper::MKProofTestExtension;
 
     fn generate_leaves(total_leaves: usize) -> Vec<MKTreeNode> {
         (0..total_leaves).map(|i| format!("test-{i}").into()).collect()

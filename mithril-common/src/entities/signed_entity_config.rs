@@ -150,12 +150,11 @@ impl CardanoTransactionsSigningConfig {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::entities::{
         CardanoDbBeacon, ChainPoint, Epoch, SignedEntityType, SlotNumber, TimePoint,
     };
     use crate::test::{double::Dummy, double::fake_data};
-
-    use super::*;
 
     #[test]
     fn given_discriminant_convert_to_signed_entity() {

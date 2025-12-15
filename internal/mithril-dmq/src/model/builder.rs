@@ -2,14 +2,13 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use blake2::{Blake2b, Digest, digest::consts::U64};
-use pallas_network::miniprotocols::localmsgsubmission::{
-    DmqMsg, DmqMsgOperationalCertificate, DmqMsgPayload,
-};
-
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_common::{
     StdResult,
     crypto_helper::{KesSigner, TryToBytes},
+};
+use pallas_network::miniprotocols::localmsgsubmission::{
+    DmqMsg, DmqMsgOperationalCertificate, DmqMsgPayload,
 };
 
 use crate::model::{DmqMessage, SystemUnixTimestampProvider, UnixTimestampProvider};
@@ -131,9 +130,8 @@ mod tests {
         test::{crypto_helper::KesSignerFake, double::Dummy},
     };
 
-    use crate::model::MockUnixTimestampProvider;
-
     use super::*;
+    use crate::model::MockUnixTimestampProvider;
 
     mod test_utils {
         use super::*;

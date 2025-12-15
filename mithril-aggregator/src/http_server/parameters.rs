@@ -78,11 +78,11 @@ pub async fn expand_epoch(
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
+
     use tokio::sync::RwLock;
 
-    use crate::services::FakeEpochServiceBuilder;
-
     use super::*;
+    use crate::services::FakeEpochServiceBuilder;
 
     fn fake_epoch_service(returned_epoch: Epoch) -> EpochServiceWrapper {
         Arc::new(RwLock::new(

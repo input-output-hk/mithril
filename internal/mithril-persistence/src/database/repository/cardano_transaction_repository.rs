@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-
 use mithril_common::StdResult;
 use mithril_common::crypto_helper::{MKTreeNode, MKTreeStorer};
 use mithril_common::entities::{
@@ -327,10 +326,9 @@ impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for CardanoTransactionRepositor
 mod tests {
     use mithril_common::test::builder::CardanoTransactionsBuilder;
 
+    use super::*;
     use crate::database::query::GetBlockRangeRootQuery;
     use crate::database::test_helper::cardano_tx_db_connection;
-
-    use super::*;
 
     #[tokio::test]
     async fn repository_create_and_get_transaction() {

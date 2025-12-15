@@ -1,9 +1,8 @@
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
-use serde::{Deserialize, Deserializer, Serialize};
-
 use mithril_common::StdResult;
+use serde::{Deserialize, Deserializer, Serialize};
 
 /// Name of a CryptoKeyVersion that represents an individual cryptographic key and the associated key material.
 ///

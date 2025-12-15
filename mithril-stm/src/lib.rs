@@ -118,13 +118,11 @@ mod signature_scheme;
 
 pub use protocol::*;
 pub use signature_scheme::BlsSignatureError;
-
 #[cfg(feature = "benchmark-internals")]
 pub use signature_scheme::{
     BlsProofOfPossession, BlsSignature, BlsSigningKey, BlsVerificationKey,
     BlsVerificationKeyProofOfPossession,
 };
-
 #[cfg(all(feature = "benchmark-internals", feature = "future_snark"))]
 pub use signature_scheme::{SchnorrSignature, SchnorrSigningKey, SchnorrVerificationKey};
 

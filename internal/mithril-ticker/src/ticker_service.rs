@@ -3,15 +3,15 @@
 //! This service read time information from the chain and helps create beacons
 //! for every message types.
 
+use std::sync::Arc;
+
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
-use std::sync::Arc;
-use thiserror::Error;
-
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_cardano_node_internal_database::ImmutableFileObserver;
 use mithril_common::StdResult;
 use mithril_common::entities::{Epoch, TimePoint};
+use thiserror::Error;
 
 /// ## TickerService
 ///
@@ -103,7 +103,6 @@ impl TickerService for MithrilTickerService {
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
-
     use mithril_cardano_node_chain::chain_observer::{ChainObserver, ChainObserverError};
     use mithril_cardano_node_chain::entities::{ChainAddress, TxDatum};
     use mithril_cardano_node_internal_database::test::double::DumbImmutableFileObserver;

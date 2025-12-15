@@ -1,7 +1,6 @@
-use sqlite::Value;
-
 use mithril_common::entities::Epoch;
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
+use sqlite::Value;
 
 use crate::database::record::SignedBeaconRecord;
 
@@ -43,10 +42,9 @@ mod tests {
     use mithril_common::entities::{BlockNumber, SignedEntityType};
     use mithril_persistence::sqlite::ConnectionExtensions;
 
+    use super::*;
     use crate::database::query::GetSignedBeaconQuery;
     use crate::database::test_helper::{insert_signed_beacons, main_db_connection};
-
-    use super::*;
 
     // Epoch of the signed entities is irrelevant for those tests, only SignedBeacon.epoch matter
     const WHATEVER_EPOCH: Epoch = Epoch(378);

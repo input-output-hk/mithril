@@ -3,6 +3,7 @@
 use chrono::{DateTime, Utc};
 use semver::Version;
 
+use super::fake_keys;
 use crate::CardanoNetwork;
 use crate::crypto_helper::{self, ProtocolMultiSignature};
 use crate::entities::{
@@ -12,8 +13,6 @@ use crate::entities::{
     SingleSignature, SlotNumber, StakeDistribution, StakeDistributionParty,
 };
 use crate::test::{builder::MithrilFixtureBuilder, double::Dummy};
-
-use super::fake_keys;
 
 /// Fake network
 pub fn network() -> CardanoNetwork {

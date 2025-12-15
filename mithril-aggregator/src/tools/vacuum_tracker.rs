@@ -5,9 +5,8 @@ use std::{
 
 use anyhow::Context;
 use chrono::{DateTime, TimeDelta, Utc};
-use slog::{Logger, debug, info};
-
 use mithril_common::StdResult;
+use slog::{Logger, debug, info};
 
 const LAST_VACUUM_TIME_FILENAME: &str = "last_vacuum_time";
 
@@ -90,9 +89,8 @@ impl VacuumTracker {
 mod tests {
     use mithril_common::temp_dir_create;
 
-    use crate::test::TestLogger;
-
     use super::*;
+    use crate::test::TestLogger;
 
     const DUMMY_INTERVAL: TimeDelta = TimeDelta::milliseconds(99);
 

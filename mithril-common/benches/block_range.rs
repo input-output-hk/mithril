@@ -1,5 +1,4 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-
 use mithril_common::entities::{BlockNumber, BlockRange};
 
 fn all_block_ranges_in(c: &mut Criterion) {

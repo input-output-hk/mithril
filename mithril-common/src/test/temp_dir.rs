@@ -1,5 +1,6 @@
-use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
+
+use sha2::{Digest, Sha256};
 
 /// A builder of temp directory for tests purpose.
 #[derive(Clone)]
@@ -140,8 +141,9 @@ pub use temp_dir_create;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::{fs, io::Write, ops::Not};
+
+    use super::*;
 
     #[test]
     fn non_short_path_are_in_a_mithril_test_slash_module_folder_structure() {

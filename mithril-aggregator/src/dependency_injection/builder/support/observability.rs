@@ -1,5 +1,6 @@
-use slog::Logger;
 use std::sync::Arc;
+
+use slog::Logger;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::MetricsService;

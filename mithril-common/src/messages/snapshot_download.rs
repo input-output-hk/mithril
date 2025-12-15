@@ -54,10 +54,9 @@ impl From<SnapshotMessage> for SnapshotDownloadMessage {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::entities::Epoch;
     use crate::test::double::Dummy;
-
-    use super::*;
 
     #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
     pub struct SnapshotDownloadMessageUntilV0_1_47 {

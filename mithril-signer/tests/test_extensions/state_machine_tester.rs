@@ -1,13 +1,4 @@
 #![allow(dead_code)]
-use anyhow::anyhow;
-use mithril_metric::{MetricCollector, MetricsServiceExporter};
-use mithril_protocol_config::{
-    model::{MithrilNetworkConfigurationForEpoch, SignedEntityTypeConfiguration},
-    test::double::configuration_provider::FakeMithrilNetworkConfigurationProvider,
-};
-use prometheus_parse::Value;
-use slog::Drain;
-use slog_scope::debug;
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt::Debug,
@@ -16,9 +7,8 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use thiserror::Error;
-use tokio::sync::RwLock;
 
+use anyhow::anyhow;
 use mithril_cardano_node_chain::{
     chain_observer::ChainObserver,
     entities::ScannedBlock,
@@ -45,16 +35,19 @@ use mithril_common::{
     test::double::{Dummy, fake_data},
 };
 use mithril_era::{EraChecker, EraMarker, EraReader, adapters::EraReaderDummyAdapter};
+use mithril_metric::{MetricCollector, MetricsServiceExporter};
 use mithril_persistence::{
     database::repository::CardanoTransactionRepository, sqlite::SqliteConnectionPool,
     store::StakeStorer,
+};
+use mithril_protocol_config::{
+    model::{MithrilNetworkConfigurationForEpoch, SignedEntityTypeConfiguration},
+    test::double::configuration_provider::FakeMithrilNetworkConfigurationProvider,
 };
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 use mithril_signed_entity_preloader::{
     CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
 };
-use mithril_ticker::{MithrilTickerService, TickerService};
-
 use mithril_signer::{
     Configuration, MetricsService, RuntimeError, SignerRunner, SignerState, StateMachine,
     database::repository::{ProtocolInitializerRepository, SignedBeaconRepository, StakePoolStore},
@@ -66,6 +59,12 @@ use mithril_signer::{
     },
     store::{MKTreeStoreSqlite, ProtocolInitializerStorer},
 };
+use mithril_ticker::{MithrilTickerService, TickerService};
+use prometheus_parse::Value;
+use slog::Drain;
+use slog_scope::debug;
+use thiserror::Error;
+use tokio::sync::RwLock;
 
 use super::FakeAggregator;
 

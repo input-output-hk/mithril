@@ -2,9 +2,8 @@ use std::path::PathBuf;
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
-use slog::{Logger, debug};
-
 use mithril_common::StdResult;
+use slog::{Logger, debug};
 
 use crate::{
     Configuration, SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,

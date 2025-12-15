@@ -1,13 +1,14 @@
-use chrono::Utc;
-use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle};
-use mithril_client::MithrilResult;
-use slog::{Logger, warn};
 use std::{
     fmt::Write,
     ops::Deref,
     sync::{Arc, RwLock},
     time::{Duration, Instant},
 };
+
+use chrono::Utc;
+use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle};
+use mithril_client::MithrilResult;
+use slog::{Logger, warn};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Output type of a [ProgressPrinter] or a [DownloadProgressReporter]
@@ -293,9 +294,10 @@ impl DownloadProgressReporter {
 mod tests {
     use std::thread::sleep;
 
-    use super::*;
     use indicatif::ProgressBar;
     use serde_json::Value;
+
+    use super::*;
 
     #[test]
     fn json_reporter_change_downloaded_and_total_key_prefix_based_on_progress_bar_kind() {

@@ -1,15 +1,15 @@
+use std::{collections::HashMap, sync::Arc};
+
 use anyhow::{Context, anyhow};
 use clap::Parser;
 use cli_table::{Cell, Table, print_stdout};
 use mithril_client::RequiredAggregatorCapabilities;
 use mithril_client::common::SignedEntityTypeDiscriminants;
-use slog::debug;
-use std::{collections::HashMap, sync::Arc};
-
 use mithril_client::{
     CardanoTransactionsProofs, MessageBuilder, MithrilCertificate, MithrilResult,
     VerifiedCardanoTransactions, VerifyCardanoTransactionsProofsError, common::TransactionHash,
 };
+use slog::debug;
 
 use crate::utils::{IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter};
 use crate::{

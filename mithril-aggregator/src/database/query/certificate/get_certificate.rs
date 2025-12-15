@@ -1,10 +1,9 @@
-use sqlite::Value;
-
 #[cfg(test)]
 use mithril_common::StdResult;
 #[cfg(test)]
 use mithril_common::entities::Epoch;
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
+use sqlite::Value;
 
 use crate::database::record::CertificateRecord;
 
@@ -62,12 +61,10 @@ mod tests {
     use mithril_common::crypto_helper::ProtocolParameters;
     use mithril_common::test::builder::CertificateChainBuilder;
     use mithril_common::test::crypto_helper::setup_certificate_chain;
-
     use mithril_persistence::sqlite::ConnectionExtensions;
 
-    use crate::database::test_helper::{insert_certificate_records, main_db_connection};
-
     use super::*;
+    use crate::database::test_helper::{insert_certificate_records, main_db_connection};
 
     #[test]
     fn test_get_certificate_records_by_epoch() {

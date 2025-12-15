@@ -1,7 +1,5 @@
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
-use slog::{Logger, debug, warn};
-
 use mithril_common::{
     AggregateSignatureType, StdResult,
     crypto_helper::{ProtocolAggregationError, ProtocolMultiSignature},
@@ -9,6 +7,7 @@ use mithril_common::{
     logging::LoggerExtensions,
     protocol::MultiSigner as ProtocolMultiSigner,
 };
+use slog::{Logger, debug, warn};
 
 use crate::dependency_injection::EpochServiceWrapper;
 use crate::entities::OpenMessage;
@@ -150,7 +149,6 @@ impl MultiSigner for MultiSignerImpl {
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
-    use tokio::sync::RwLock;
 
     use mithril_common::entities::{CardanoDbBeacon, Epoch, SignedEntityType, SignerWithStake};
     use mithril_common::protocol::ToMessage;
@@ -159,12 +157,12 @@ mod tests {
         crypto_helper::setup_message,
         double::{Dummy, fake_data},
     };
+    use tokio::sync::RwLock;
 
+    use super::*;
     use crate::entities::AggregatorEpochSettings;
     use crate::services::{FakeEpochService, FakeEpochServiceBuilder};
     use crate::test::TestLogger;
-
-    use super::*;
 
     fn take_signatures_until_quorum_is_almost_reached(
         signatures: &mut Vec<entities::SingleSignature>,

@@ -146,13 +146,11 @@ impl CardanoStakeDistributionClient {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::test::mock_extensions::MockBuilder;
     use mockall::predicate::eq;
 
-    use mithril_common::test::mock_extensions::MockBuilder;
-
-    use crate::common::test::Dummy;
-
     use super::*;
+    use crate::common::test::Dummy;
 
     #[tokio::test]
     async fn list_cardano_stake_distributions_returns_messages() {

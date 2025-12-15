@@ -1,9 +1,8 @@
+use std::sync::Arc;
+
 use anyhow::Context;
 use async_trait::async_trait;
 use chrono::Utc;
-use slog::{Logger, debug, info, trace, warn};
-use std::sync::Arc;
-
 use mithril_common::certificate_chain::CertificateVerifier;
 use mithril_common::crypto_helper::{PROTOCOL_VERSION, ProtocolGenesisVerifier};
 use mithril_common::entities::{
@@ -13,6 +12,7 @@ use mithril_common::entities::{
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::ToMessage;
 use mithril_common::{CardanoNetwork, StdResult};
+use slog::{Logger, debug, info, trace, warn};
 
 use crate::MultiSigner;
 use crate::database::record::{OpenMessageRecord, OpenMessageWithSingleSignaturesRecord};
@@ -409,10 +409,9 @@ impl CertifierService for MithrilCertifierService {
 
 #[cfg(test)]
 mod tests {
-    use chrono::{DateTime, Days};
     use std::path::PathBuf;
-    use tokio::sync::RwLock;
 
+    use chrono::{DateTime, Days};
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_common::{
         entities::{CardanoDbBeacon, ProtocolMessagePartKey, TimePoint},
@@ -422,13 +421,13 @@ mod tests {
             double::{Dummy, fake_data},
         },
     };
+    use tokio::sync::RwLock;
 
+    use super::*;
     use crate::{
         ServeCommandConfiguration, dependency_injection::DependenciesBuilder,
         multi_signer::MockMultiSigner, services::FakeEpochService, test::TestLogger,
     };
-
-    use super::*;
 
     impl MithrilCertifierService {
         async fn from_deps(

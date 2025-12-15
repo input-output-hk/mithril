@@ -2,9 +2,6 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::TimeDelta;
-use serde::{Deserialize, Serialize};
-use wasm_bindgen::prelude::*;
-
 use mithril_client::{
     AggregatorDiscoveryType, CardanoTransactionsProofs, Client, ClientBuilder, ClientOptions,
     GenesisVerificationKey, MessageBuilder, MithrilCertificate,
@@ -12,6 +9,8 @@ use mithril_client::{
     common::Epoch,
     feedback::{FeedbackReceiver, MithrilEvent},
 };
+use serde::{Deserialize, Serialize};
+use wasm_bindgen::prelude::*;
 
 use crate::WasmResult;
 use crate::certificate_verification_cache::LocalStorageCertificateVerifierCache;
@@ -571,7 +570,6 @@ impl MithrilClient {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use wasm_bindgen_test::*;
 
     use mithril_client::{
         CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem, CardanoStakeDistribution,
@@ -579,10 +577,10 @@ mod tests {
         MithrilStakeDistribution, MithrilStakeDistributionListItem, Snapshot, SnapshotListItem,
         common::ProtocolMessage, common::SupportedEra, era::FetchedEra,
     };
-
-    use crate::test_data;
+    use wasm_bindgen_test::*;
 
     use super::*;
+    use crate::test_data;
 
     const GENESIS_VERIFICATION_KEY: &str = "5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d";
     const FAKE_AGGREGATOR_IP: &str = "127.0.0.1";

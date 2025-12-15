@@ -1,12 +1,11 @@
 use std::{collections::BTreeMap, ops::RangeInclusive, path::Path};
 
 use async_trait::async_trait;
-use tokio::sync::RwLock;
-
 use mithril_common::{
     crypto_helper::{MKTree, MKTreeStoreInMemory},
     entities::{CardanoDbBeacon, ImmutableFileNumber},
 };
+use tokio::sync::RwLock;
 
 use crate::digesters::{ComputedImmutablesDigests, ImmutableDigester, ImmutableDigesterError};
 use crate::entities::ImmutableFile;

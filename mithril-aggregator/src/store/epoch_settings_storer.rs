@@ -1,12 +1,12 @@
-use async_trait::async_trait;
 #[cfg(test)]
 use std::collections::HashMap;
-#[cfg(test)]
-use tokio::sync::RwLock;
 
+use async_trait::async_trait;
 use mithril_common::StdResult;
 use mithril_common::entities::{Epoch, ProtocolParameters};
 use mithril_protocol_config::model::MithrilNetworkConfiguration;
+#[cfg(test)]
+use tokio::sync::RwLock;
 
 use crate::{entities::AggregatorEpochSettings, services::EpochPruningTask};
 

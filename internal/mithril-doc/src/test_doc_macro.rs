@@ -1,8 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use crate::{Documenter, DocumenterDefault, StructDoc};
     use config::{Map, Source, Value};
     use mithril_cli_helper::register_config_value;
+
+    use crate::{Documenter, DocumenterDefault, StructDoc};
 
     #[allow(dead_code)]
     #[derive(Debug, Clone, mithril_doc_derive::Documenter)]

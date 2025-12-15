@@ -1,12 +1,12 @@
-use anyhow::{Context, anyhow};
-use reqwest::{IntoUrl, Response, Url, header::HeaderMap};
-use semver::Version;
-use slog::{Logger, debug, error, warn};
 use std::sync::Arc;
 use std::time::Duration;
 
+use anyhow::{Context, anyhow};
 use mithril_common::MITHRIL_API_VERSION_HEADER;
 use mithril_common::api_version::APIVersionProvider;
+use reqwest::{IntoUrl, Response, Url, header::HeaderMap};
+use semver::Version;
+use slog::{Logger, debug, error, warn};
 
 use crate::AggregatorHttpClientResult;
 use crate::builder::AggregatorClientBuilder;
@@ -124,13 +124,11 @@ impl AggregatorHttpClient {
 #[cfg(test)]
 mod tests {
     use http::StatusCode;
-
     use mithril_common::test::api_version_extensions::ApiVersionProviderTestExtension;
 
+    use super::*;
     use crate::query::QueryLogFields;
     use crate::test::{TestLogger, setup_server_and_client};
-
-    use super::*;
 
     #[derive(Debug, Eq, PartialEq, serde::Deserialize)]
     struct TestResponse {
@@ -369,11 +367,11 @@ mod tests {
     }
 
     mod warn_if_api_version_mismatch {
-        use http::response::Builder as HttpResponseBuilder;
-        use reqwest::Response;
         use std::fmt::Display;
 
+        use http::response::Builder as HttpResponseBuilder;
         use mithril_common::test::logging::MemoryDrainForTestInspector;
+        use reqwest::Response;
 
         use super::*;
 

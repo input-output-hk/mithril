@@ -8,12 +8,11 @@ use axum::{
     routing::get,
 };
 use axum_test::TestServer;
-use reqwest::Url;
-
 use mithril_aggregator::services::MessageService;
 use mithril_common::entities::{Epoch, SignedEntityTypeDiscriminants};
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::{StdError, StdResult};
+use reqwest::Url;
 
 use crate::test_extensions::RuntimeTester;
 

@@ -1,12 +1,12 @@
-use async_trait::async_trait;
-use chrono::Utc;
-use slog::{Logger, debug};
 use std::sync::Arc;
 
+use async_trait::async_trait;
+use chrono::Utc;
 use mithril_common::StdResult;
 use mithril_common::entities::{ProtocolMessage, SignedEntityConfig, SignedEntityType, TimePoint};
 use mithril_common::logging::LoggerExtensions;
 use mithril_signed_entity_lock::SignedEntityTypeLock;
+use slog::{Logger, debug};
 
 use crate::entities::BeaconToSign;
 use crate::services::{SignaturePublisher, SingleSigner};
@@ -150,17 +150,15 @@ impl CertifierService for SignerCertifierService {
 
 #[cfg(test)]
 mod tests {
-    use mockall::predicate::eq;
-
     use mithril_common::entities::{
         CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolMessagePartKey,
         SignedEntityTypeDiscriminants,
     };
     use mithril_common::test::double::{Dummy, fake_data};
-
-    use crate::services::{MockSignaturePublisher, MockSingleSigner};
+    use mockall::predicate::eq;
 
     use super::{tests::tests_tooling::*, *};
+    use crate::services::{MockSignaturePublisher, MockSingleSigner};
 
     #[tokio::test]
     async fn no_beacon_can_be_signed_if_all_entities_are_locked() {
@@ -492,11 +490,11 @@ mod tests {
 
     pub mod tests_tooling {
         use std::collections::BTreeSet;
+
         use tokio::sync::RwLock;
 
-        use crate::test_tools::TestLogger;
-
         use super::*;
+        use crate::test_tools::TestLogger;
 
         impl SignerCertifierService {
             pub(crate) fn dumb_dependencies() -> Self {

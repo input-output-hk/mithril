@@ -8,7 +8,6 @@ use std::{
 use anyhow::{Context, anyhow};
 use chrono::Utc;
 use clap::{Parser, ValueEnum};
-
 use mithril_client::{
     MithrilError, MithrilResult,
     common::{CardanoNetwork, MagicId},
@@ -705,9 +704,8 @@ mod tests {
         use mockall::predicate::eq;
         use reqwest::Url;
 
-        use crate::utils::{GitHubRelease, MockGitHubReleaseRetriever, MockHttpDownloader};
-
         use super::*;
+        use crate::utils::{GitHubRelease, MockGitHubReleaseRetriever, MockHttpDownloader};
 
         #[tokio::test]
         async fn downloads_latest_release_distribution() {

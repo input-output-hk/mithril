@@ -3,7 +3,6 @@ mod test_extensions;
 use mithril_stm::{AggregateSignature, AggregationError, Parameters};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
-
 use test_extensions::protocol_phase::{
     InitializationPhaseResult, OperationPhaseResult, initialization_phase, operation_phase,
 };

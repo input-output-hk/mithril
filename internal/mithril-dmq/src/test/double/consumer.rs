@@ -1,8 +1,7 @@
 use std::{collections::VecDeque, fmt::Debug};
 
-use tokio::sync::Mutex;
-
 use mithril_common::{StdResult, crypto_helper::TryFromBytes, entities::PartyId};
+use tokio::sync::Mutex;
 
 use crate::DmqConsumerClient;
 
@@ -35,9 +34,8 @@ impl<M: TryFromBytes + Debug + Send + Sync> DmqConsumerClient<M> for DmqConsumer
 
 #[cfg(test)]
 mod tests {
-    use crate::test::payload::DmqMessageTestPayload;
-
     use super::*;
+    use crate::test::payload::DmqMessageTestPayload;
 
     #[tokio::test]
     async fn consume_messages_success() {

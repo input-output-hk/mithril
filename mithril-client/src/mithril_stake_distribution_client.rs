@@ -80,15 +80,13 @@ impl MithrilStakeDistributionClient {
 
 #[cfg(test)]
 mod tests {
-    use mockall::predicate::eq;
-
     use mithril_common::test::double::fake_data;
     use mithril_common::test::mock_extensions::MockBuilder;
-
-    use crate::MithrilSigner;
-    use crate::common::test::Dummy;
+    use mockall::predicate::eq;
 
     use super::*;
+    use crate::MithrilSigner;
+    use crate::common::test::Dummy;
 
     #[tokio::test]
     async fn get_mithril_stake_distribution_list() {

@@ -1,6 +1,7 @@
+use std::sync::Arc;
+
 use mithril_aggregator::MetricsService;
 use mithril_metric::MetricCollector;
-use std::sync::Arc;
 
 pub struct ExpectedMetrics {
     certificate_total: Option<u32>,

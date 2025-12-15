@@ -1,10 +1,10 @@
-use anyhow::anyhow;
-use async_trait::async_trait;
-use reqwest::StatusCode;
 use std::fmt::{Display, Formatter};
 
+use anyhow::anyhow;
+use async_trait::async_trait;
 use mithril_common::entities::EpochSpecifier;
 use mithril_common::messages::CardanoStakeDistributionMessage;
+use reqwest::StatusCode;
 
 use crate::query::{AggregatorQuery, QueryContext, QueryMethod};
 use crate::{AggregatorHttpClientError, AggregatorHttpClientResult};
@@ -86,14 +86,12 @@ impl AggregatorQuery for GetCardanoStakeDistributionQuery {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::json;
-
     use mithril_common::entities::Epoch;
     use mithril_common::test::double::Dummy;
-
-    use crate::test::{assert_error_matches, setup_server_and_client};
+    use serde_json::json;
 
     use super::*;
+    use crate::test::{assert_error_matches, setup_server_and_client};
 
     #[tokio::test]
     async fn test_cardano_stake_distribution_by_hash_ok_200() {

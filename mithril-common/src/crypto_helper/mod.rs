@@ -10,7 +10,6 @@ mod merkle_tree;
 mod types;
 
 pub use cardano::ColdKeyGenerator;
-
 pub use cardano::{
     KesPeriod, KesSigner, KesSignerStandard, KesVerifier, KesVerifierStandard, KesVerifyError,
     OpCert, OpCertWithoutColdVerificationKey, ProtocolInitializerErrorWrapper,

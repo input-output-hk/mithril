@@ -1,9 +1,8 @@
 use anyhow::anyhow;
-use reqwest::{Response, StatusCode, header};
-use thiserror::Error;
-
 use mithril_common::StdError;
 use mithril_common::entities::{ClientError, ServerError};
+use reqwest::{Response, StatusCode, header};
+use thiserror::Error;
 
 use crate::JSON_CONTENT_TYPE;
 

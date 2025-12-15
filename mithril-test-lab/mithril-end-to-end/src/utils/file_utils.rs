@@ -1,8 +1,8 @@
-use anyhow::Context;
 use std::{path::Path, process::Stdio};
-use tokio::process::Command;
 
+use anyhow::Context;
 use mithril_common::StdResult;
+use tokio::process::Command;
 
 /// Tail a file into into the given stream
 ///
@@ -88,11 +88,13 @@ pub fn get_process_path(bin_name: &str, bin_dir: &Path) -> StdResult<std::path::
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::file_utils;
-    use mithril_common::test::TempDir;
     use std::fs::File;
     use std::io::prelude::*;
     use std::path::{Path, PathBuf};
+
+    use mithril_common::test::TempDir;
+
+    use crate::utils::file_utils;
 
     fn get_temp_dir(subfolder_name: &str) -> PathBuf {
         TempDir::create("e2e-file-utils", subfolder_name)

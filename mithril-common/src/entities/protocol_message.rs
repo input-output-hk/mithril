@@ -1,6 +1,7 @@
+use std::{collections::BTreeMap, fmt::Display};
+
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{collections::BTreeMap, fmt::Display};
 
 /// The key of a ProtocolMessage
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]

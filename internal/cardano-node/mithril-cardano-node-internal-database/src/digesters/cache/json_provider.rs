@@ -1,15 +1,15 @@
-use async_trait::async_trait;
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
 };
+
+use async_trait::async_trait;
+use mithril_common::entities::{HexEncodedDigest, ImmutableFileName};
 use tokio::{
     fs,
     fs::File,
     io::{AsyncReadExt, AsyncWriteExt},
 };
-
-use mithril_common::entities::{HexEncodedDigest, ImmutableFileName};
 
 use crate::digesters::{
     cache::CacheProviderResult,

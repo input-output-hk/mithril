@@ -33,9 +33,8 @@ pub struct CardanoDatabaseSnapshotListItemMessage {
 
 #[cfg(test)]
 mod tests {
-    use crate::entities::Epoch;
-
     use super::*;
+    use crate::entities::Epoch;
 
     const CURRENT_JSON: &str = r#"
     [

@@ -4,9 +4,8 @@ use mithril_common::crypto_helper::{MKProof, ProtocolMkProof};
 use mithril_common::test::crypto_helper::MKProofTestExtension;
 use mithril_common::test::double::Dummy;
 
-use crate::extensions::routes;
-
 use super::FakeAggregator;
+use crate::extensions::routes;
 
 impl FakeAggregator {
     pub fn spawn_with_transactions_proofs(tx_hashes: &[&str], certificate_hash: &str) -> Self {

@@ -1,16 +1,16 @@
+use std::sync::Arc;
+
 use anyhow::Context;
 use async_trait::async_trait;
 use mithril_common::entities::{FileUri, ImmutableFileNumber};
-use semver::Version;
-use slog::{Logger, debug, warn};
-use std::sync::Arc;
-use thiserror::Error;
-
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::{
     CardanoNetwork, StdResult,
     entities::{CardanoDbBeacon, Certificate, ProtocolMessagePartKey, Snapshot},
 };
+use semver::Version;
+use slog::{Logger, debug, warn};
+use thiserror::Error;
 
 use super::ArtifactBuilder;
 use crate::{FileUploader, services::Snapshotter, tools::file_archiver::FileArchive};
@@ -204,15 +204,13 @@ impl ArtifactBuilder<CardanoDbBeacon, Snapshot> for CardanoImmutableFilesFullArt
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
+    use mithril_common::{entities::CompressionAlgorithm, test::double::fake_data};
     use tempfile::NamedTempFile;
 
-    use mithril_common::{entities::CompressionAlgorithm, test::double::fake_data};
-
+    use super::*;
     use crate::{
         DumbUploader, file_uploaders::MockFileUploader, services::DumbSnapshotter, test::TestLogger,
     };
-
-    use super::*;
 
     #[tokio::test]
     async fn should_compute_valid_artifact() {

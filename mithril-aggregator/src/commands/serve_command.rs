@@ -9,18 +9,15 @@ use std::{
 use anyhow::{Context, anyhow};
 use chrono::TimeDelta;
 use clap::Parser;
-
 use config::{ConfigBuilder, Map, Source, Value, builder::DefaultState};
-
-use slog::{Logger, crit, debug, info, warn};
-use tokio::task::JoinSet;
-
 use mithril_cli_helper::{
     register_config_value, register_config_value_bool, register_config_value_option,
 };
 use mithril_common::StdResult;
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use mithril_metric::MetricsServer;
+use slog::{Logger, crit, debug, info, warn};
+use tokio::task::JoinSet;
 
 use crate::{
     DefaultConfiguration, ServeCommandConfiguration, dependency_injection::DependenciesBuilder,

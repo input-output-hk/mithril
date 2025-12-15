@@ -1,9 +1,8 @@
 //! This module contains wrapper to prometheus metrics for use in a metrics service.
 
+use mithril_common::StdResult;
 use prometheus::{Counter, CounterVec, Gauge, Opts, core::Collector};
 use slog::{Logger, debug};
-
-use mithril_common::StdResult;
 
 /// Type alias for a metric name.
 pub type MetricName = str;
@@ -184,9 +183,8 @@ impl MetricCollector for MetricGauge {
 
 #[cfg(test)]
 mod tests {
-    use crate::helper::test_tools::TestLogger;
-
     use super::*;
+    use crate::helper::test_tools::TestLogger;
 
     #[test]
     fn test_metric_counter_can_be_incremented() {

@@ -1,10 +1,11 @@
+use std::fmt::{Debug, Formatter};
+
+use sha2::{Digest, Sha256};
+
 use crate::crypto_helper::{
     ProtocolAggregateVerificationKey, ProtocolGenesisSignature, ProtocolMultiSignature,
 };
 use crate::entities::{CertificateMetadata, Epoch, ProtocolMessage, SignedEntityType};
-use std::fmt::{Debug, Formatter};
-
-use sha2::{Digest, Sha256};
 
 /// The signature of a [Certificate]
 #[derive(Clone, Debug)]
@@ -165,6 +166,7 @@ impl Debug for Certificate {
 mod tests {
     use chrono::{DateTime, Duration, Utc};
 
+    use super::*;
     use crate::entities::SignedEntityType::CardanoStakeDistribution;
     use crate::{
         entities::{
@@ -173,8 +175,6 @@ mod tests {
         },
         test::double::fake_keys,
     };
-
-    use super::*;
 
     fn get_parties() -> Vec<StakeDistributionParty> {
         vec![

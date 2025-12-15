@@ -1,15 +1,14 @@
-use anyhow::{Context, anyhow};
-use chrono::Utc;
-use slog::{Logger, debug, error, info};
 use std::{cmp::Ordering, collections::BTreeSet};
 
+use anyhow::{Context, anyhow};
+use chrono::Utc;
 use mithril_common::{StdError, StdResult, logging::LoggerExtensions};
+use slog::{Logger, debug, error, info};
 
 use super::{
     ApplicationNodeType, DatabaseVersion, DbVersion, GetDatabaseVersionQuery,
     UpdateDatabaseVersionQuery,
 };
-
 use crate::sqlite::{ConnectionExtensions, SqliteConnection};
 
 /// Struct to perform application version check in the database.
@@ -268,11 +267,12 @@ impl Eq for SqlMigration {}
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use anyhow::Context;
     use mithril_common::test::TempDir;
     use mithril_common::{StdResult, current_function};
     use sqlite::{Connection, ConnectionThreadSafe};
-    use std::path::PathBuf;
 
     use super::*;
 

@@ -1,5 +1,4 @@
 use anyhow::Context;
-
 use mithril_aggregator_client::{AggregatorHttpClient, query::PostRegisterSignerQuery};
 use mithril_common::{
     StdResult,

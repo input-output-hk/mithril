@@ -2,13 +2,12 @@ use std::{path::Path, sync::Arc};
 
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
-use slog::{Logger, debug, error, warn};
-
 use mithril_common::{
     CardanoNetwork, StdResult,
     entities::{AncillaryLocation, CardanoDbBeacon, CompressionAlgorithm},
     logging::LoggerExtensions,
 };
+use slog::{Logger, debug, error, warn};
 
 use crate::{
     DumbUploader, FileUploader,
@@ -208,10 +207,9 @@ mod tests {
 
     use mithril_common::test::{TempDir, assert_equivalent, double::Dummy};
 
+    use super::*;
     use crate::services::{DumbSnapshotter, MockSnapshotter};
     use crate::test::TestLogger;
-
-    use super::*;
 
     fn fake_uploader_returning_error() -> MockAncillaryFileUploader {
         let mut uploader = MockAncillaryFileUploader::new();

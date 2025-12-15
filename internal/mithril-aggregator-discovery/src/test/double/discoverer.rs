@@ -1,8 +1,7 @@
 use std::collections::VecDeque;
 
-use tokio::sync::Mutex;
-
 use mithril_common::{StdResult, entities::MithrilNetwork};
+use tokio::sync::Mutex;
 
 use crate::{AggregatorDiscoverer, AggregatorEndpoint};
 

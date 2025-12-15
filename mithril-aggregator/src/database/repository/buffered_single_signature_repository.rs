@@ -1,7 +1,7 @@
-use anyhow::Context;
-use async_trait::async_trait;
 use std::sync::Arc;
 
+use anyhow::Context;
+use async_trait::async_trait;
 use mithril_common::entities::{SignedEntityTypeDiscriminants, SingleSignature};
 use mithril_common::{StdError, StdResult};
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
@@ -106,10 +106,9 @@ mod tests {
     };
     use mithril_common::test::double::fake_keys;
 
+    use super::*;
     use crate::database::record::{BufferedSingleSignatureRecord, strip_buffered_sigs_date};
     use crate::database::test_helper::{insert_buffered_single_signatures, main_db_connection};
-
-    use super::*;
 
     #[test]
     fn retrieve_all() {

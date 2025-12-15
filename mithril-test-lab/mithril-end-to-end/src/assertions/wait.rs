@@ -1,10 +1,10 @@
-use anyhow::{Context, anyhow};
-use reqwest::StatusCode;
-use slog_scope::{info, warn};
 use std::time::Duration;
 
+use anyhow::{Context, anyhow};
 use mithril_cardano_node_internal_database::entities::ImmutableFile;
 use mithril_common::{StdResult, entities::Epoch, messages::EpochSettingsMessage};
+use reqwest::StatusCode;
+use slog_scope::{info, warn};
 
 use crate::{Aggregator, attempt, utils::AttemptResult};
 

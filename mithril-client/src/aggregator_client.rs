@@ -3,7 +3,6 @@
 
 use anyhow::Context;
 use async_trait::async_trait;
-
 use mithril_aggregator_client::AggregatorHttpClient;
 use mithril_aggregator_client::query::{
     GetAggregatorStatusQuery, GetCardanoDatabaseListQuery, GetCardanoDatabaseQuery,
@@ -227,14 +226,12 @@ impl SnapshotAggregatorRequest for AggregatorHttpClient {
 #[cfg(test)]
 mod tests {
     use httpmock::MockServer;
+    use mithril_common::messages::AggregatorStatusMessage;
     use serde_json::json;
 
-    use mithril_common::messages::AggregatorStatusMessage;
-
+    use super::*;
     use crate::common::{SupportedEra, test::Dummy};
     use crate::test_utils::TestLogger;
-
-    use super::*;
 
     fn setup_server_and_client() -> (MockServer, AggregatorHttpClient) {
         let server = MockServer::start();

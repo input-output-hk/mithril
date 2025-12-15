@@ -1,6 +1,6 @@
-use async_trait::async_trait;
 use std::sync::RwLock;
 
+use async_trait::async_trait;
 use mithril_common::StdResult;
 
 use crate::{EraMarker, EraReaderAdapter};

@@ -1,12 +1,11 @@
 use std::sync::Arc;
 
-use slog_scope::info;
-use tokio::task::JoinSet;
-
 use mithril_common::{
     StdResult,
     entities::{Epoch, SignedEntityTypeDiscriminants},
 };
+use slog_scope::info;
+use tokio::task::JoinSet;
 
 use crate::{Aggregator, MithrilInfrastructure, assertions};
 

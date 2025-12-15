@@ -45,15 +45,16 @@ fn proof_cardano_transaction(
 }
 
 mod handlers {
-    use slog::{Logger, debug, warn};
     use std::{convert::Infallible, sync::Arc};
-    use warp::http::StatusCode;
 
     use mithril_common::{
         StdResult, entities::CardanoTransactionsSnapshot,
         messages::CardanoTransactionsProofsMessage, signable_builder::SignedEntity,
     };
+    use slog::{Logger, debug, warn};
+    use warp::http::StatusCode;
 
+    use super::CardanoTransactionProofQueryParams;
     use crate::{
         MetricsService,
         http_server::{
@@ -64,8 +65,6 @@ mod handlers {
         services::{ProverService, SignedEntityService},
         unwrap_to_internal_server_error,
     };
-
-    use super::CardanoTransactionProofQueryParams;
 
     pub async fn proof_cardano_transaction(
         client_metadata: ClientMetadata,
@@ -150,15 +149,10 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::anyhow;
-    use serde_json::Value::Null;
     use std::sync::Arc;
     use std::vec;
-    use warp::{
-        http::{Method, StatusCode},
-        test::request,
-    };
 
+    use anyhow::anyhow;
     use mithril_api_spec::APISpec;
     use mithril_common::{
         MITHRIL_CLIENT_TYPE_HEADER, MITHRIL_ORIGIN_TAG_HEADER,
@@ -169,11 +163,15 @@ mod tests {
             double::{Dummy, fake_data},
         },
     };
-
-    use crate::services::MockProverService;
-    use crate::{initialize_dependencies, services::MockSignedEntityService};
+    use serde_json::Value::Null;
+    use warp::{
+        http::{Method, StatusCode},
+        test::request,
+    };
 
     use super::*;
+    use crate::services::MockProverService;
+    use crate::{initialize_dependencies, services::MockSignedEntityService};
 
     fn setup_router(
         state: RouterState,

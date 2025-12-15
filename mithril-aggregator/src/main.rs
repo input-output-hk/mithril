@@ -1,12 +1,12 @@
 #![doc = include_str!("../README.md")]
 
-use clap::Parser;
-use slog::{Drain, Fuse, Level, Logger};
-use slog_async::Async;
 use std::sync::Arc;
 
+use clap::Parser;
 use mithril_aggregator::{CommandType, MainOpts};
 use mithril_common::StdResult;
+use slog::{Drain, Fuse, Level, Logger};
+use slog_async::Async;
 
 fn build_io_logger<W: std::io::Write + Send + 'static>(log_level: Level, io: W) -> Fuse<Async> {
     let drain = slog_bunyan::with_name("mithril-aggregator", io)

@@ -1,19 +1,19 @@
 //! Stake Pool manager for the Runners
 //!
 
-use async_trait::async_trait;
 use std::{
     fmt::Display,
     sync::{Arc, RwLock},
 };
-use tokio::sync::{Mutex, MutexGuard};
 
+use async_trait::async_trait;
 use mithril_cardano_node_chain::chain_observer::ChainObserver;
 use mithril_common::{
     StdError, StdResult,
     entities::{Epoch, StakeDistribution},
 };
 use mithril_persistence::store::StakeStorer;
+use tokio::sync::{Mutex, MutexGuard};
 
 use crate::database::repository::StakePoolStore;
 
@@ -226,10 +226,9 @@ impl StakeDistributionService for MithrilStakeDistributionService {
 mod tests {
     use mithril_common::temp_dir;
 
+    use super::*;
     use crate::dependency_injection::DependenciesBuilder;
     use crate::test::double::mocks::MockChainObserver;
-
-    use super::*;
 
     async fn get_service(chain_observer: MockChainObserver) -> MithrilStakeDistributionService {
         let mut builder = DependenciesBuilder::new_with_stdout_logger(Arc::new(

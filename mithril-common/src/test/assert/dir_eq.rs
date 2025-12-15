@@ -177,9 +177,8 @@ pub use assert_dir_eq;
 mod tests {
     use std::fs::{File, create_dir};
 
-    use crate::test::temp_dir_create;
-
     use super::*;
+    use crate::test::temp_dir_create;
 
     fn create_multiple_dirs<P: AsRef<Path>>(dirs: &[P]) {
         for dir in dirs {

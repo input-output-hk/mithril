@@ -1,10 +1,6 @@
 use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
 
 use anyhow::{Context, anyhow};
-use pallas_network::{facades::DmqClient, miniprotocols::localmsgnotification::State};
-use slog::{Logger, debug, error};
-use tokio::sync::{Mutex, MutexGuard};
-
 use mithril_common::{
     StdResult,
     crypto_helper::{
@@ -13,6 +9,9 @@ use mithril_common::{
     entities::PartyId,
     logging::LoggerExtensions,
 };
+use pallas_network::{facades::DmqClient, miniprotocols::localmsgnotification::State};
+use slog::{Logger, debug, error};
+use tokio::sync::{Mutex, MutexGuard};
 
 use crate::{DmqConsumerClient, model::DmqNetwork};
 
@@ -178,9 +177,8 @@ mod tests {
     };
     use tokio::{net::UnixListener, task::JoinHandle, time::sleep};
 
-    use crate::test::{TestLogger, payload::DmqMessageTestPayload};
-
     use super::*;
+    use crate::test::{TestLogger, payload::DmqMessageTestPayload};
 
     fn create_temp_dir(folder_name: &str) -> PathBuf {
         TempDir::create_with_short_path("dmq_consumer", folder_name)

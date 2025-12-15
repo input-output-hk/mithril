@@ -1,8 +1,7 @@
 use std::ops::Range;
 
-use sqlite::Value;
-
 use mithril_common::entities::{BlockNumber, BlockRange, SlotNumber, TransactionHash};
+use sqlite::Value;
 
 use crate::database::record::CardanoTransactionRecord;
 use crate::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
@@ -110,11 +109,10 @@ impl Query for GetCardanoTransactionQuery {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::database::query::InsertCardanoTransactionQuery;
     use crate::database::test_helper::cardano_tx_db_connection;
     use crate::sqlite::{ConnectionExtensions, SqliteConnection};
-
-    use super::*;
 
     fn insert_transactions(connection: &SqliteConnection, records: Vec<CardanoTransactionRecord>) {
         connection

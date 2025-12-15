@@ -1,10 +1,9 @@
 use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
 
 use anyhow::Context;
+use mithril_common::{StdResult, crypto_helper::TryToBytes, logging::LoggerExtensions};
 use pallas_network::{facades::DmqClient, miniprotocols::localtxsubmission::Response};
 use slog::{Logger, debug, error};
-
-use mithril_common::{StdResult, crypto_helper::TryToBytes, logging::LoggerExtensions};
 
 use crate::{DmqMessageBuilder, DmqPublisherClient, model::DmqNetwork};
 
@@ -82,20 +81,18 @@ impl<M: TryToBytes + Debug + Sync + Send> DmqPublisherClient<M> for DmqPublisher
 mod tests {
     use std::{fs, sync::Arc, time::Duration};
 
-    use pallas_network::miniprotocols::{
-        localmsgsubmission::DmqMsgValidationError, localtxsubmission,
-    };
-    use tokio::{net::UnixListener, task::JoinHandle};
-
     use mithril_cardano_node_chain::test::double::FakeChainObserver;
     use mithril_common::{
         current_function,
         test::{TempDir, crypto_helper::KesSignerFake, double::Dummy},
     };
-
-    use crate::test::{TestLogger, payload::DmqMessageTestPayload};
+    use pallas_network::miniprotocols::{
+        localmsgsubmission::DmqMsgValidationError, localtxsubmission,
+    };
+    use tokio::{net::UnixListener, task::JoinHandle};
 
     use super::*;
+    use crate::test::{TestLogger, payload::DmqMessageTestPayload};
 
     fn create_temp_dir(folder_name: &str) -> PathBuf {
         TempDir::create_with_short_path("dmq_publisher", folder_name)

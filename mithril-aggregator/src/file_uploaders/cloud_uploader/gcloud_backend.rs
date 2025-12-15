@@ -10,11 +10,10 @@ use gcloud_storage::http::object_access_controls::insert::{
 };
 use gcloud_storage::http::objects::get::GetObjectRequest;
 use gcloud_storage::http::objects::upload::{Media, UploadObjectRequest, UploadType};
-use slog::{Logger, info};
-use tokio_util::codec::{BytesCodec, FramedRead};
-
 use mithril_common::StdResult;
 use mithril_common::entities::FileUri;
+use slog::{Logger, info};
+use tokio_util::codec::{BytesCodec, FramedRead};
 
 use crate::file_uploaders::CloudRemotePath;
 use crate::file_uploaders::cloud_uploader::{CloudBackendUploader, gcp_percent_encode};

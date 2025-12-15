@@ -1,7 +1,6 @@
-use sqlite::Value;
-
 use mithril_common::entities::{PartyId, SignedEntityTypeDiscriminants};
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
+use sqlite::Value;
 
 use crate::database::record::BufferedSingleSignatureRecord;
 
@@ -53,11 +52,10 @@ mod tests {
     };
     use mithril_persistence::sqlite::ConnectionExtensions;
 
+    use super::*;
     use crate::database::query::GetBufferedSingleSignatureQuery;
     use crate::database::record::strip_buffered_sigs_date;
     use crate::database::test_helper::{insert_buffered_single_signatures, main_db_connection};
-
-    use super::*;
 
     #[test]
     fn test_delete_buffered_single_signature_records_by_discriminant_and_party_ids() {

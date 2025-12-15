@@ -1,10 +1,10 @@
 use clap::Parser;
 use cli_table::{Cell, Table, format::Justify, print_stdout};
-
-use crate::{CommandContext, commands::client_builder_with_fallback_genesis_key};
 use mithril_client::{
     MithrilResult, RequiredAggregatorCapabilities, common::SignedEntityTypeDiscriminants,
 };
+
+use crate::{CommandContext, commands::client_builder_with_fallback_genesis_key};
 
 /// Mithril stake distribution LIST command
 #[derive(Parser, Debug, Clone)]

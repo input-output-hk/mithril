@@ -1,23 +1,22 @@
-use anyhow::{Context, anyhow};
-use async_trait::async_trait;
-use slog::{Logger, debug, warn};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use anyhow::{Context, anyhow};
+use async_trait::async_trait;
 use mithril_cardano_node_internal_database::entities::AncillaryFilesManifest;
 use mithril_cardano_node_internal_database::entities::{ImmutableFile, LedgerStateSnapshot};
 use mithril_cardano_node_internal_database::{IMMUTABLE_DIR, LEDGER_DIR, immutable_trio_names};
 use mithril_common::StdResult;
 use mithril_common::entities::{CompressionAlgorithm, ImmutableFileNumber};
 use mithril_common::logging::LoggerExtensions;
+use slog::{Logger, debug, warn};
 
+use super::{Snapshotter, ancillary_signer::AncillarySigner};
 use crate::dependency_injection::DependenciesBuilderError;
 use crate::tools::file_archiver::appender::{AppenderData, AppenderEntries, TarAppender};
 use crate::tools::file_archiver::{ArchiveParameters, FileArchive, FileArchiver};
 use crate::tools::file_size;
-
-use super::{Snapshotter, ancillary_signer::AncillarySigner};
 
 /// Compressed Archive Snapshotter create a compressed file.
 pub struct CompressedArchiveSnapshotter {
@@ -328,10 +327,9 @@ mod tests {
     use mithril_common::test::assert_equivalent;
     use mithril_common::{assert_dir_eq, current_function, temp_dir_create};
 
+    use super::*;
     use crate::services::ancillary_signer::MockAncillarySigner;
     use crate::test::TestLogger;
-
-    use super::*;
 
     fn list_files(test_dir: &Path) -> Vec<String> {
         fs::read_dir(test_dir)

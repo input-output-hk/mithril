@@ -2,8 +2,6 @@ use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
-use semver::Version;
-
 use mithril_common::{
     CardanoNetwork, StdResult,
     entities::{
@@ -12,10 +10,10 @@ use mithril_common::{
         ProtocolMessagePartKey, SignedEntityType,
     },
 };
-
-use crate::artifact_builder::{AncillaryArtifactBuilder, ArtifactBuilder};
+use semver::Version;
 
 use super::{DigestArtifactBuilder, ImmutableArtifactBuilder};
+use crate::artifact_builder::{AncillaryArtifactBuilder, ArtifactBuilder};
 
 pub struct CardanoDatabaseArtifactBuilder {
     network: CardanoNetwork,
@@ -97,14 +95,12 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
 
 #[cfg(test)]
 mod tests {
-    use mockall::{Predicate, predicate};
     use std::path::Path;
     use std::{collections::BTreeMap, path::PathBuf};
 
     use mithril_cardano_node_internal_database::entities::AncillaryFilesManifest;
     use mithril_cardano_node_internal_database::test::DummyCardanoDbBuilder;
     use mithril_cardano_node_internal_database::{IMMUTABLE_DIR, LEDGER_DIR, immutable_trio_names};
-
     use mithril_common::{
         CardanoNetwork,
         entities::{
@@ -117,7 +113,9 @@ mod tests {
             double::{fake_data, fake_keys},
         },
     };
+    use mockall::{Predicate, predicate};
 
+    use super::*;
     use crate::{
         artifact_builder::{
             DigestSnapshotter, MockAncillaryFileUploader, MockImmutableFilesUploader,
@@ -128,8 +126,6 @@ mod tests {
         test::TestLogger,
         tools::{file_archiver::FileArchiver, url_sanitizer::SanitizedUrlWithTrailingSlash},
     };
-
-    use super::*;
 
     fn get_test_directory(dir_name: &str) -> PathBuf {
         TempDir::create("cardano_database", dir_name)

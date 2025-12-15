@@ -1,9 +1,8 @@
 use anyhow::{Context, anyhow};
 use async_trait::async_trait;
+use mithril_client::MithrilResult;
 use reqwest::{Client, IntoUrl};
 use serde::de::DeserializeOwned;
-
-use mithril_client::MithrilResult;
 
 use super::{GitHubRelease, GitHubReleaseRetriever};
 

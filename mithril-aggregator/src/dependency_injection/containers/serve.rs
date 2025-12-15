@@ -1,6 +1,4 @@
-use slog::Logger;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 use mithril_common::{
     api_version::APIVersionProvider,
@@ -8,11 +6,12 @@ use mithril_common::{
     signable_builder::SignableBuilderService,
     test::builder::MithrilFixture,
 };
-
 use mithril_era::{EraChecker, EraReader};
 use mithril_persistence::store::StakeStorer;
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 use mithril_ticker::TickerService;
+use slog::Logger;
+use tokio::sync::RwLock;
 
 use crate::{
     EpochSettingsStorer, MetricsService, SignerRegisterer, SignerRegistrationRoundOpener,
@@ -214,9 +213,8 @@ impl ServeCommandDependenciesContainer {
 pub(crate) mod tests {
     use std::path::PathBuf;
 
-    use crate::{ServeCommandConfiguration, dependency_injection::DependenciesBuilder};
-
     use super::*;
+    use crate::{ServeCommandConfiguration, dependency_injection::DependenciesBuilder};
 
     /// Initialize dependency container with a unique temporary snapshot directory build from test path.
     /// This macro should used directly in a function test to be able to retrieve the function name.

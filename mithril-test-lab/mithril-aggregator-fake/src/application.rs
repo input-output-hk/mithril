@@ -89,8 +89,10 @@ impl Application {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::Value::Null;
     use std::time::Duration;
+
+    use mithril_api_spec::APISpec;
+    use serde_json::Value::Null;
     use tokio::{
         task::{JoinHandle, yield_now},
         time::sleep,
@@ -98,11 +100,8 @@ mod tests {
     use warp::http::{Response, StatusCode};
     use warp::hyper::body::Bytes;
 
-    use mithril_api_spec::APISpec;
-
-    use crate::{CliArguments, default_values};
-
     use super::*;
+    use crate::{CliArguments, default_values};
 
     const BASE_URL: &str = "http://127.0.0.1:PORT/aggregator";
 

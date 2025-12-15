@@ -31,6 +31,7 @@ macro_rules! attempt {
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
+
     use tokio::time::Instant;
 
     use crate::utils::AttemptResult;

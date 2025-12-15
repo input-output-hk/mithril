@@ -68,16 +68,16 @@ pub use verify_cache::MemoryCertificateVerifierCache;
 
 #[cfg(test)]
 pub(crate) mod tests_utils {
+    use std::sync::Arc;
+
     use mithril_common::crypto_helper::ProtocolGenesisVerificationKey;
     use mithril_common::entities::Certificate;
     use mithril_common::messages::CertificateMessage;
     use mockall::predicate::eq;
-    use std::sync::Arc;
-
-    use crate::feedback::{FeedbackReceiver, FeedbackSender};
-    use crate::test_utils::TestLogger;
 
     use super::*;
+    use crate::feedback::{FeedbackReceiver, FeedbackSender};
+    use crate::test_utils::TestLogger;
 
     #[derive(Default)]
     pub(crate) struct CertificateClientTestBuilder {

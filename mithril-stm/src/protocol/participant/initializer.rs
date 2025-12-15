@@ -4,12 +4,11 @@ use digest::FixedOutput;
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 
+use super::Signer;
 use crate::{
     ClosedKeyRegistration, Parameters, RegisterError, RegisteredParty, Stake, StmResult,
     signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
 };
-
-use super::Signer;
 
 /// Wrapper of the MultiSignature Verification key with proof of possession
 pub type VerificationKeyProofOfPossession = BlsVerificationKeyProofOfPossession;

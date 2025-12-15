@@ -1,8 +1,8 @@
-use serde::Deserialize;
 use std::collections::HashMap;
-use thiserror::Error;
 
 use mithril_client::MithrilError;
+use serde::Deserialize;
+use thiserror::Error;
 
 /// Configuration error
 #[derive(Debug, Error)]

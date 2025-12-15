@@ -1,8 +1,7 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
-use reqwest::StatusCode;
-
 use mithril_common::messages::CertificateMessage;
+use reqwest::StatusCode;
 
 use crate::AggregatorHttpClientResult;
 use crate::error::AggregatorHttpClientError;
@@ -58,13 +57,11 @@ impl AggregatorQuery for GetCertificateQuery {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::test::double::Dummy;
     use serde_json::json;
 
-    use mithril_common::test::double::Dummy;
-
-    use crate::test::{assert_error_matches, setup_server_and_client};
-
     use super::*;
+    use crate::test::{assert_error_matches, setup_server_and_client};
 
     #[tokio::test]
     async fn test_certificates_details_ok_200() {

@@ -1,4 +1,3 @@
-use crate::Stake;
 #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
 use {
     num_bigint::{BigInt, Sign},
@@ -6,6 +5,8 @@ use {
     num_traits::{One, Signed},
     std::ops::Neg,
 };
+
+use crate::Stake;
 
 #[cfg(any(
     feature = "num-integer-backend",
@@ -126,10 +127,11 @@ pub(crate) fn is_lottery_won(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use num_bigint::{BigInt, Sign};
     use num_rational::Ratio;
     use proptest::prelude::*;
+
+    use super::*;
     // Implementation of `is_lottery_won` without approximation. We only get the precision of f64 here.
     fn trivial_is_lottery_won(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> bool {
         let ev_max = BigInt::from(2u8).pow(512);

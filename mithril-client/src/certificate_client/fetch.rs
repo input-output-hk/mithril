@@ -1,7 +1,7 @@
-use anyhow::anyhow;
-use async_trait::async_trait;
 use std::sync::Arc;
 
+use anyhow::anyhow;
+use async_trait::async_trait;
 use mithril_common::certificate_chain::{CertificateRetriever, CertificateRetrieverError};
 use mithril_common::entities::Certificate;
 
@@ -71,9 +71,8 @@ impl CertificateRetriever for InternalCertificateRetriever {
 mod tests {
     use mithril_common::test::double::{Dummy, fake_data};
 
-    use crate::certificate_client::tests_utils::CertificateClientTestBuilder;
-
     use super::*;
+    use crate::certificate_client::tests_utils::CertificateClientTestBuilder;
 
     #[tokio::test]
     async fn get_certificate_list() {

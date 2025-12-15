@@ -1,8 +1,7 @@
+use super::BlockRange;
 use crate::StdResult;
 use crate::crypto_helper::{MKMapProof, ProtocolMkProof};
 use crate::entities::TransactionHash;
-
-use super::BlockRange;
 
 /// A cryptographic proof of a set of Cardano transactions is included in the global Cardano transactions set
 #[derive(Clone, Debug, PartialEq)]
@@ -49,11 +48,10 @@ impl CardanoTransactionsSetProof {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::crypto_helper::MKTreeStoreInMemory;
     use crate::entities::BlockNumber;
     use crate::test::entities_extensions::CardanoTransactionsSetProofTestExtension;
-
-    use super::*;
 
     #[test]
     fn should_verify_where_all_hashes_are_contained_in_the_proof() {

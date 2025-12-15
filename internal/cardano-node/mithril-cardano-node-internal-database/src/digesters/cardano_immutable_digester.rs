@@ -1,20 +1,19 @@
-use async_trait::async_trait;
-use sha2::{Digest, Sha256};
-use slog::{Logger, debug, info, warn};
 use std::{collections::BTreeMap, io, ops::RangeInclusive, path::Path, sync::Arc};
 
+use async_trait::async_trait;
 use mithril_common::crypto_helper::{MKTree, MKTreeStoreInMemory};
 use mithril_common::entities::{CardanoDbBeacon, HexEncodedDigest, ImmutableFileNumber};
 use mithril_common::logging::LoggerExtensions;
+use sha2::{Digest, Sha256};
+use slog::{Logger, debug, info, warn};
 
+use super::immutable_digester::ComputedImmutablesDigests;
 use crate::{
     digesters::{
         ImmutableDigester, ImmutableDigesterError, cache::ImmutableFileDigestCacheProvider,
     },
     entities::ImmutableFile,
 };
-
-use super::immutable_digester::ComputedImmutablesDigests;
 
 /// A digester working directly on a Cardano DB immutables files
 pub struct CardanoImmutableDigester {
@@ -222,18 +221,18 @@ fn compute_beacon_hash(network: &str, cardano_db_beacon: &CardanoDbBeacon) -> St
 
 #[cfg(test)]
 mod tests {
-    use sha2::Sha256;
     use std::{collections::BTreeMap, io, sync::Arc};
+
+    use sha2::Sha256;
     use tokio::time::Instant;
 
+    use super::*;
     use crate::digesters::cache::{
         ImmutableDigesterCacheGetError, ImmutableDigesterCacheProviderError,
         ImmutableDigesterCacheStoreError, MemoryImmutableFileDigestCacheProvider,
         MockImmutableFileDigestCacheProvider,
     };
     use crate::test::{DummyCardanoDbBuilder, TestLogger};
-
-    use super::*;
 
     fn db_builder(dir_name: &str) -> DummyCardanoDbBuilder {
         DummyCardanoDbBuilder::new(&format!("cardano_immutable_digester/{dir_name}"))
