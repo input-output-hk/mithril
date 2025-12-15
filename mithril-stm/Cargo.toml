@@ -1,6 +1,6 @@
 [package]
 name = "mithril-stm"
-version = "0.6.3"
+version = "0.6.4"
 edition = { workspace = true }
 authors = { workspace = true }
 homepage = { workspace = true }
@@ -17,8 +17,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 default = ["rug-backend"]
 rug-backend = ["rug/default"]
 num-integer-backend = ["dep:num-bigint", "dep:num-rational", "dep:num-traits"]
-benchmark-internals = [] # For benchmarking multi_sig
-future_proof_system = [] # For activating future proof systems
+benchmark-internals = [] # For benchmarking
 future_snark = [
     "dep:ff",
     "dep:group",
@@ -73,7 +72,7 @@ required-features = ["benchmark-internals"]
 [[bench]]
 name = "schnorr_sig"
 harness = false
-required-features = ["future_snark"]
+required-features = ["future_snark", "benchmark-internals"]
 
 [[bench]]
 name = "stm"

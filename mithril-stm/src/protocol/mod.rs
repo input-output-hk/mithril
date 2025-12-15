@@ -7,18 +7,15 @@ mod participant;
 mod single_signature;
 
 pub use aggregate_signature::{
-    AggregateSignature, AggregateSignatureType, AggregateVerificationKey, BasicVerifier, Clerk,
+    AggregateSignature, AggregateSignatureError, AggregateSignatureType, AggregateVerificationKey,
+    AggregationError, BasicVerifier, Clerk,
 };
 pub(crate) use eligibility_check::is_lottery_won;
-pub(crate) use error::blst_error_to_stm_error;
-pub use error::{
-    AggregateSignatureError, AggregationError, MerkleTreeError, MultiSignatureError, RegisterError,
-    SignatureError,
-};
+pub use error::RegisterError;
 pub use key_registration::{ClosedKeyRegistration, KeyRegistration, RegisteredParty};
 pub use parameters::Parameters;
 pub use participant::{Initializer, Signer, VerificationKey, VerificationKeyProofOfPossession};
-pub use single_signature::{SingleSignature, SingleSignatureWithRegisteredParty};
+pub use single_signature::{SignatureError, SingleSignature, SingleSignatureWithRegisteredParty};
 
 // Aliases
 #[deprecated(since = "0.5.0", note = "Use `AggregateSignature` instead")]

@@ -1,11 +1,13 @@
 //! BLST Multi-signature module
 
+mod error;
 pub(super) mod helper;
 mod proof_of_possession;
 mod signature;
 mod signing_key;
 mod verification_key;
 
+pub use error::*;
 pub use proof_of_possession::*;
 pub use signature::*;
 pub use signing_key::*;
@@ -94,8 +96,9 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::{RngCore, SeedableRng};
 
+    use super::error::BlsSignatureError;
     use super::helper::unsafe_helpers::{p1_affine_to_sig, p2_affine_to_vk};
-    use crate::{KeyRegistration, MultiSignatureError, RegisterError};
+    use crate::{KeyRegistration, RegisterError};
 
     use super::*;
 
@@ -134,8 +137,8 @@ mod tests {
 
             assert!(
                 matches!(
-                    error.downcast_ref::<MultiSignatureError>(),
-                    Some(MultiSignatureError::SignatureInvalid(_))
+                    error.downcast_ref::<BlsSignatureError>(),
+                    Some(BlsSignatureError::SignatureInvalid(_))
                 ),
                 "Unexpected error: {error:?}");
         }
@@ -152,8 +155,8 @@ mod tests {
             let error = sig_infinity.verify(&msg, &vk).expect_err("Verification should fail");
             assert!(
                 matches!(
-                    error.downcast_ref::<MultiSignatureError>(),
-                    Some(MultiSignatureError::SignatureInfinity(_))
+                    error.downcast_ref::<BlsSignatureError>(),
+                    Some(BlsSignatureError::SignatureInfinity(_))
                 ),
                 "Unexpected error: {error:?}");
         }
@@ -171,8 +174,8 @@ mod tests {
             let error = vkpop_infinity.verify_proof_of_possession().expect_err("VK pop infinity should fail");
             assert!(
                 matches!(
-                    error.downcast_ref::<MultiSignatureError>(),
-                    Some(MultiSignatureError::VerificationKeyInfinity(_))
+                    error.downcast_ref::<BlsSignatureError>(),
+                    Some(BlsSignatureError::VerificationKeyInfinity(_))
                 ),
                 "Unexpected error: {error:?}");
         }
@@ -296,8 +299,8 @@ mod tests {
             let error = BlsSignature::batch_verify_aggregates(&batch_msgs, &batch_vk, &batch_sig).expect_err("Batch verify should fail");
             assert!(
                 matches!(
-                    error.downcast_ref::<MultiSignatureError>(),
-                    Some(MultiSignatureError::BatchInvalid)
+                    error.downcast_ref::<BlsSignatureError>(),
+                    Some(BlsSignatureError::BatchInvalid)
                 ),
                 "Unexpected error: {error:?}");
         }

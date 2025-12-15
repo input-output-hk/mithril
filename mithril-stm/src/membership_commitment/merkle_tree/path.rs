@@ -1,8 +1,11 @@
-use blake2::digest::{Digest, FixedOutput};
-use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
-use crate::{MerkleTreeError, StmResult};
+use blake2::digest::{Digest, FixedOutput};
+use serde::{Deserialize, Serialize};
+
+use crate::StmResult;
+
+use super::MerkleTreeError;
 
 /// Path of hashes from root to leaf in a Merkle Tree.
 /// Contains all hashes on the path, and the index of the leaf.

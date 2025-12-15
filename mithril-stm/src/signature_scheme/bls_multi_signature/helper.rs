@@ -9,8 +9,8 @@ pub(crate) mod unsafe_helpers {
     };
 
     use crate::{
-        MultiSignatureError::SerializationError,
         StmResult,
+        signature_scheme::bls_multi_signature::error::BlsSignatureError::SerializationError,
         signature_scheme::{BlsProofOfPossession, BlsVerificationKey},
     };
 
