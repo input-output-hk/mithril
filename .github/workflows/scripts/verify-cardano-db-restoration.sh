@@ -3,36 +3,34 @@
 set -e
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <file containing 'mithril-client' CLI download output> [--include-ancillary]"
-  echo "The first argument must be the file path containing the raw output (stdout) of the mithril-client CLI download command."
-  echo "The second optional argument must be '--include-ancillary' if ancillary files are included."
+  echo "Usage: $0 --docker-cmd [docker run command string] [--include-ancillary] [--ledger-backend <in-memory|lmdb|legacy>]"
+  echo ""
+  echo "Parameters:"
+  echo "  --docker-cmd <command>            (Required) The 'docker run' command output in the result of a mithril-client CLI download or snapshot converter command."
+  echo "  --include-ancillary               (Optional) Does the ancillary files were included in the restoration."
+  echo "  --ledger-backend <in-memory|lmdb> (Optional) Specify the ledger backend. Default is 'in-memory'. Note: lmdb backend requires --include-ancillary to be set."
   exit 1
 fi
 
-if [[ ! -f "$1" ]]; then
-  echo "Error: File '$1' not found."
-  exit 1
-fi
-
-CLIENT_CMD_OUTPUT=$(cat "$1"); shift
+DOCKER_CMD=""
 INCLUDE_ANCILLARY="false"
 LEDGER_BACKEND="in-memory"
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
+        --docker-cmd) DOCKER_CMD="$2"; shift;;
         --include-ancillary) INCLUDE_ANCILLARY="true" ;;
         --ledger-backend) LEDGER_BACKEND="$2"; shift ;;
     esac
     shift
 done
 
-DOCKER_CMD=$(echo "$CLIENT_CMD_OUTPUT" | grep -E '^\s*docker run')
 if [[ -z "$DOCKER_CMD" ]]; then
-  echo "No Docker command found in mithril-client CLI command output."
+  echo "Error: argument '--docker-cmd \"docker run ...\"' is mandatory."
   exit 1
 fi
 
-echo "Extracted Docker command:"
+echo "Docker command:"
 echo "$DOCKER_CMD"
 
 # Note: ledger conversion to lmdb can only be executed if ancillary files are included
