@@ -24,6 +24,16 @@ variable "cardano_network_magic_map" {
   }
 }
 
+variable "dmq_network_magic_map" {
+  type        = map(number)
+  description = "The DMQ network magic number mapping from Cardano network name"
+  default = {
+    "mainnet" = 2912307721,
+    "preprod" = 2147483649,
+    "preview" = 2147483650,
+  }
+}
+
 locals {
   environment_name_short = format("%s%s", "${var.environment_prefix}-${var.cardano_network}", var.environment_suffix != "" ? "-${var.environment_suffix}" : "")
   environment_name       = "mithril-${local.environment_name_short}"

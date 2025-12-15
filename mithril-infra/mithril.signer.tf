@@ -108,7 +108,7 @@ cp -R /home/curry/docker/dmq/config/ $SIGNER_TYPE_CONFIG_DIRECTORY
 mkdir -p $SIGNER_TYPE_CONFIG_DIRECTORY/ipc
 
 # Setup dmq node config
-cat $SIGNER_TYPE_CONFIG_DIRECTORY/config/config.json | jq '. + {"CardanoNetworkMagic": ${var.cardano_network_magic_map[var.cardano_network]}, "CardanoNodeSocket": "/ipc-cardano/node.socket"}' > $SIGNER_TYPE_CONFIG_DIRECTORY/config/config.json.new
+cat $SIGNER_TYPE_CONFIG_DIRECTORY/config/config.json | jq '. + {"NetworkMagic": ${var.dmq_network_magic_map[var.cardano_network]}, "CardanoNetworkMagic": ${var.cardano_network_magic_map[var.cardano_network]}, "CardanoNodeSocket": "/ipc-cardano/node.socket"}' > $SIGNER_TYPE_CONFIG_DIRECTORY/config/config.json.new
 rm -f $SIGNER_TYPE_CONFIG_DIRECTORY/config/config.json
 mv $SIGNER_TYPE_CONFIG_DIRECTORY/config/config.json.new $SIGNER_TYPE_CONFIG_DIRECTORY/config/config.json
 

@@ -83,7 +83,7 @@ cp -R /home/curry/docker/dmq/config/ $AGGREGATOR_CONFIG_DIRECTORY
 mkdir -p $AGGREGATOR_CONFIG_DIRECTORY/ipc
 
 # Setup dmq node config
-cat $AGGREGATOR_CONFIG_DIRECTORY/config/config.json | jq '. + {"CardanoNetworkMagic": ${var.cardano_network_magic_map[var.cardano_network]}, "CardanoNodeSocket": "/ipc-cardano/node.socket"}' > $AGGREGATOR_CONFIG_DIRECTORY/config/config.json.new
+cat $AGGREGATOR_CONFIG_DIRECTORY/config/config.json | jq '. + {"NetworkMagic": ${var.dmq_network_magic_map[var.cardano_network]}, "CardanoNetworkMagic": ${var.cardano_network_magic_map[var.cardano_network]}, "CardanoNodeSocket": "/ipc-cardano/node.socket"}' > $AGGREGATOR_CONFIG_DIRECTORY/config/config.json.new
 rm -f $AGGREGATOR_CONFIG_DIRECTORY/config/config.json
 mv $AGGREGATOR_CONFIG_DIRECTORY/config/config.json.new $AGGREGATOR_CONFIG_DIRECTORY/config/config.json
 
