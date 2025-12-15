@@ -114,12 +114,13 @@ mod handlers {
             .get_signer_registration_total_received_since_startup()
             .increment(&[origin_tag.as_deref().unwrap_or_default()]);
 
+        let payload = register_signer_message.clone();
         let registration_epoch = register_signer_message.epoch;
 
         let signer = match FromRegisterSignerAdapter::try_adapt(register_signer_message) {
             Ok(signer) => signer,
             Err(err) => {
-                warn!(logger,"register_signer::payload decoding error"; "error" => ?err);
+                warn!(logger,"register_signer::payload decoding error"; "full_payload" => #?payload, "error" => ?err);
                 return Ok(reply::bad_request(
                     "Could not decode signer payload".to_string(),
                     err.to_string(),
@@ -141,32 +142,42 @@ mod handlers {
                 Ok(reply::empty(StatusCode::CREATED))
             }
             Err(SignerRegistrationError::ExistingSigner(signer_with_stake)) => {
-                debug!(logger, "register_signer::already_registered");
+                debug!(
+                    logger, "register_signer::already_registered";
+                    "registration_epoch" => ?registration_epoch, "party_id" => &signer.party_id,
+                );
 
                 event_transmitter.send(EventMessage::signer_registration(
                     "HTTP::signer_register",
                     &signer_with_stake,
                     signer_node_version,
-                    epoch_str.as_str(),
+                    &epoch_str,
                 ));
 
                 Ok(reply::empty(StatusCode::CREATED))
             }
-            Err(SignerRegistrationError::FailedSignerRegistration(err)) => {
-                warn!(logger,"register_signer::failed_signer_registration"; "error" => ?err);
+            Err(SignerRegistrationError::InvalidSignerRegistration(
+                _party_id,
+                _registration_epoch,
+                err,
+            )) => {
+                warn!(logger,"register_signer::failed_signer_registration"; "full_payload" => #?payload, "error" => ?err);
                 Ok(reply::bad_request(
                     "failed_signer_registration".to_string(),
                     err.to_string(),
                 ))
             }
             Err(SignerRegistrationError::RegistrationRoundNotYetOpened) => {
-                warn!(logger, "register_signer::registration_round_not_yed_opened");
+                warn!(
+                    logger, "register_signer::registration_round_not_yed_opened";
+                    "registration_epoch" => ?registration_epoch, "party_id" => &signer.party_id,
+                );
                 Ok(reply::server_error(
                     SignerRegistrationError::RegistrationRoundNotYetOpened,
                 ))
             }
             Err(err) => {
-                warn!(logger,"register_signer::error"; "error" => ?err);
+                warn!(logger,"register_signer::error"; "full_payload" => #?payload, "error" => ?err);
                 Ok(reply::server_error(err))
             }
         }
@@ -395,9 +406,11 @@ mod tests {
     async fn test_register_signer_post_ko_400() {
         let mut mock_signer_registerer = MockSignerRegisterer::new();
         mock_signer_registerer.expect_register_signer().return_once(|_, _| {
-            Err(SignerRegistrationError::FailedSignerRegistration(anyhow!(
-                ProtocolRegistrationError::OpCertInvalid
-            )))
+            Err(SignerRegistrationError::InvalidSignerRegistration(
+                "party_2".to_string(),
+                Epoch(4),
+                anyhow!(ProtocolRegistrationError::OpCertInvalid),
+            ))
         });
         let mut dependency_manager = initialize_dependencies!().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
@@ -433,7 +446,9 @@ mod tests {
         let mut mock_signer_registerer = MockSignerRegisterer::new();
         mock_signer_registerer.expect_register_signer().return_once(|_, _| {
             Err(SignerRegistrationError::FailedSignerRecorder(
-                "an error occurred".to_string(),
+                "party_1".to_string(),
+                Epoch(4),
+                anyhow!("an error occurred"),
             ))
         });
         let mut dependency_manager = initialize_dependencies!().await;
