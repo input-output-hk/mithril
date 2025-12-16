@@ -1,4 +1,3 @@
-#[cfg(feature = "future_dmq")]
 use std::path::PathBuf;
 
 use clap::Parser;
@@ -6,7 +5,6 @@ use libp2p::Multiaddr;
 use slog::error;
 
 use mithril_common::StdResult;
-#[cfg(feature = "future_dmq")]
 use mithril_dmq::DmqNetwork;
 
 use crate::AggregatorRelay;
@@ -24,7 +22,6 @@ pub struct AggregatorCommand {
     dial_to: Option<Multiaddr>,
 
     /// Path to the DMQ socket file
-    #[cfg(feature = "future_dmq")]
     #[clap(
         long,
         env = "DMQ_NODE_SOCKET_PATH",
@@ -34,13 +31,11 @@ pub struct AggregatorCommand {
     dmq_node_socket_path: PathBuf,
 
     /// DMQ network
-    #[cfg(feature = "future_dmq")]
     #[clap(long, env = "NETWORK")]
     pub network: String,
 
     /// DMQ Network Magic number
     /// useful for TestNet & DevNet
-    #[cfg(feature = "future_dmq")]
     #[clap(long, env = "DMQ_NETWORK_MAGIC")]
     pub dmq_network_magic: Option<u64>,
 
@@ -56,14 +51,11 @@ impl AggregatorCommand {
         let dial_to = self.dial_to.to_owned();
         let addr: Multiaddr = format!("/ip4/0.0.0.0/tcp/{}", self.listen_port).parse()?;
         let aggregator_endpoint = self.aggregator_endpoint.to_owned();
-        #[cfg(feature = "future_dmq")]
         let dmq_network = DmqNetwork::from_code(self.network.to_owned(), self.dmq_network_magic)?;
 
         let mut relay = AggregatorRelay::start(
             &addr,
-            #[cfg(feature = "future_dmq")]
             &self.dmq_node_socket_path,
-            #[cfg(feature = "future_dmq")]
             &dmq_network,
             &aggregator_endpoint,
             logger,
