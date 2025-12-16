@@ -1,6 +1,6 @@
 [package]
 name = "mithril-cardano-node-chain"
-version = "0.1.11"
+version = "0.1.12"
 authors.workspace = true
 documentation.workspace = true
 edition.workspace = true
