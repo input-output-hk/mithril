@@ -38,7 +38,6 @@ impl PassiveRelay {
                 Ok(Some(BroadcastMessage::RegisterSignatureHttp(signature_message_received))) => {
                     info!(self.logger, "Received HTTP signature message from P2P network"; "signature_message" => #?signature_message_received);
                 }
-                #[cfg(feature = "future_dmq")]
                 Ok(Some(BroadcastMessage::RegisterSignatureDmq(signature_message_received))) => {
                     info!(self.logger, "Received DMQ signature message from P2P network"; "signature_message" => #?signature_message_received);
                 }

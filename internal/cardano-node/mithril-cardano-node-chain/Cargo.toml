@@ -1,6 +1,6 @@
 [package]
 name = "mithril-cardano-node-chain"
-version = "0.1.11"
+version = "0.1.12"
 authors.workspace = true
 documentation.workspace = true
 edition.workspace = true
@@ -14,11 +14,11 @@ async-trait = { workspace = true }
 hex = { workspace = true }
 mithril-common = { path = "../../../mithril-common" }
 nom = "8.0.0"
-pallas-addresses = { version = "0.33.0" }
-pallas-codec = { version = "0.33.0" }
-pallas-network = { version = "0.33.0" }
-pallas-primitives = { version = "0.33.0" }
-pallas-traverse = { version = "0.33.0" }
+pallas-addresses = { version = "0.34.0" }
+pallas-codec = { version = "0.34.0" }
+pallas-network = { version = "0.34.0" }
+pallas-primitives = { version = "0.34.0" }
+pallas-traverse = { version = "0.34.0" }
 rand_core = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -33,7 +33,7 @@ kes-summed-ed25519 = { version = "0.2.1", features = [
     "sk_clone_enabled",
 ] }
 mockall = { workspace = true }
-pallas-crypto = "0.33.0"
+pallas-crypto = "0.34.0"
 slog-async = { workspace = true }
 slog-term = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }

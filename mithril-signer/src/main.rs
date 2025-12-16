@@ -110,11 +110,6 @@ pub struct Args {
     signature_publisher_delayer_delay_ms: u64,
 
     /// Whether to skip the delayer when publishing the signature
-    ///
-    /// If set to true, the signatures will be published only once:
-    /// - if the 'future_dmq` feature is used to compile, the signatures will be published only with the DMQ protocol
-    /// - if the `future_dmq` feature is not used, the signatures will be published with the regular HTTP protocol
-
     #[clap(
         long,
         env = "SIGNATURE_PUBLISHER_SKIP_DELAYER",

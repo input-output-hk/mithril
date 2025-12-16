@@ -1,7 +1,7 @@
 [package]
 name = "mithril-dmq"
 description = "Mechanisms to publish and consume messages of a 'Decentralized Message Queue network' through a DMQ node"
-version = "0.1.15"
+version = "0.1.16"
 authors.workspace = true
 documentation.workspace = true
 edition.workspace = true
@@ -21,8 +21,8 @@ bincode = { version = "2.0.1" }
 blake2 = "0.10.6"
 mithril-cardano-node-chain = { path = "../cardano-node/mithril-cardano-node-chain" }
 mithril-common = { path = "../../mithril-common" }
-pallas-codec = { git = "https://github.com/txpipe/pallas.git", branch = "main" }
-pallas-network = { git = "https://github.com/txpipe/pallas.git", branch = "main" }
+pallas-codec = { version = "0.34.0" }
+pallas-network = { version = "0.34.0" }
 serde = { workspace = true }
 serde_bytes = "0.11.19"
 slog = { workspace = true }

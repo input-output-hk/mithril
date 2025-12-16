@@ -10,16 +10,13 @@ use std::time::Duration;
 
 use mithril_aggregator_client::AggregatorHttpClient;
 use mithril_common::logging::LoggerExtensions;
-#[cfg(feature = "future_dmq")]
 use mithril_common::messages::RegisterSignatureMessageDmq;
-#[cfg(feature = "future_dmq")]
 use mithril_dmq::DmqConsumerClientPallas;
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 
 use crate::database::repository::CertificateRepository;
 use crate::dependency_injection::{DependenciesBuilder, Result};
 use crate::get_dependency;
-#[cfg(feature = "future_dmq")]
 use crate::services::SignatureConsumerDmq;
 use crate::services::{
     MessageService, MithrilMessageService, SequentialSignatureProcessor, SignatureConsumer,
@@ -85,7 +82,6 @@ impl DependenciesBuilder {
 
     /// Builds a [SignatureConsumer]
     pub async fn build_signature_consumer(&mut self) -> Result<Arc<dyn SignatureConsumer>> {
-        #[cfg(feature = "future_dmq")]
         let signature_consumer = match self.configuration.dmq_node_socket_path() {
             Some(dmq_node_socket_path) => {
                 let dmq_consumer =
@@ -98,8 +94,6 @@ impl DependenciesBuilder {
             }
             _ => Arc::new(SignatureConsumerNoop) as Arc<dyn SignatureConsumer>,
         };
-        #[cfg(not(feature = "future_dmq"))]
-        let signature_consumer = Arc::new(SignatureConsumerNoop) as Arc<dyn SignatureConsumer>;
 
         Ok(signature_consumer)
     }

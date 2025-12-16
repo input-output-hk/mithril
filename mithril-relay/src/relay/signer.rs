@@ -1,17 +1,13 @@
-#[cfg(feature = "future_dmq")]
 use std::path::Path;
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
-#[cfg(feature = "future_dmq")]
 use anyhow::Context;
 use clap::ValueEnum;
 use libp2p::Multiaddr;
-#[cfg(feature = "future_dmq")]
 use slog::error;
 use slog::{Logger, debug, info};
 use strum::Display;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
-#[cfg(feature = "future_dmq")]
 use tokio::sync::watch::{self, Receiver, Sender};
 use warp::Filter;
 
@@ -20,7 +16,6 @@ use mithril_common::{
     logging::LoggerExtensions,
     messages::{RegisterSignatureMessageHttp, RegisterSignerMessage},
 };
-#[cfg(feature = "future_dmq")]
 use mithril_dmq::{DmqMessage, DmqNetwork, DmqPublisherServer, DmqPublisherServerPallas};
 use mithril_test_http_server::{TestHttpServer, test_http_server_with_socket_address};
 
@@ -63,10 +58,8 @@ pub struct SignerRelayConfiguration<'a> {
     /// Port on which the HTTP server will listen
     pub server_port: &'a u16,
     /// Path to the DMQ node socket file
-    #[cfg(feature = "future_dmq")]
     pub dmq_node_socket_path: &'a Path,
     /// DMQ network
-    #[cfg(feature = "future_dmq")]
     pub dmq_network: &'a DmqNetwork,
     /// Signer registration mode
     pub signer_registration_mode: &'a SignerRelayMode,
@@ -85,11 +78,9 @@ pub struct SignerRelay {
     http_server: TestHttpServer,
     peer: Peer,
     signature_http_rx: UnboundedReceiver<RegisterSignatureMessageHttp>,
-    #[cfg(feature = "future_dmq")]
     signature_dmq_rx: UnboundedReceiver<DmqMessage>,
     signer_http_rx: UnboundedReceiver<RegisterSignerMessage>,
     signer_repeater: Arc<MessageRepeater<RegisterSignerMessage>>,
-    #[cfg(feature = "future_dmq")]
     stop_tx: Sender<()>,
     logger: Logger,
 }
@@ -120,7 +111,6 @@ impl SignerRelay {
         .await;
         info!(relay_logger, "Listening on"; "address" => ?http_server.address());
 
-        #[cfg(feature = "future_dmq")]
         {
             let (stop_tx, stop_rx) = watch::channel(());
             let (signature_dmq_tx, signature_dmq_rx) = unbounded_channel::<DmqMessage>();
@@ -145,20 +135,10 @@ impl SignerRelay {
                 logger: relay_logger,
             })
         }
-        #[cfg(not(feature = "future_dmq"))]
-        Ok(Self {
-            http_server,
-            peer,
-            signature_http_rx: signature_rx,
-            signer_http_rx: signer_rx,
-            signer_repeater,
-            logger: relay_logger,
-        })
     }
 
     /// Stop the signer relay
     pub async fn stop(&self) -> StdResult<()> {
-        #[cfg(feature = "future_dmq")]
         self.stop_tx
             .send(())
             .with_context(|| "Failed to send stop signal to DMQ publisher server")?;
@@ -166,7 +146,6 @@ impl SignerRelay {
         Ok(())
     }
 
-    #[cfg(feature = "future_dmq")]
     async fn start_dmq_publisher_server(
         socket: &Path,
         dmq_network: &DmqNetwork,
@@ -288,7 +267,6 @@ impl SignerRelay {
         }
     }
 
-    #[cfg(feature = "future_dmq")]
     fn process_register_signature_dmq_message(
         &mut self,
         message: Option<DmqMessage>,
@@ -306,7 +284,6 @@ impl SignerRelay {
 
     /// Tick the signer relay
     pub async fn tick(&mut self) -> StdResult<()> {
-        #[cfg(feature = "future_dmq")]
         tokio::select! {
             message = self.signature_http_rx.recv()  => {
                 self.process_register_signature_http_message(message)
@@ -316,17 +293,6 @@ impl SignerRelay {
             },
             message = self.signature_dmq_rx.recv()  => {
                 self.process_register_signature_dmq_message(message)
-            },
-            _ = self.signer_repeater.repeat_message() => {Ok(())},
-            _event =  self.peer.tick_swarm() => {Ok(())}
-        }
-        #[cfg(not(feature = "future_dmq"))]
-        tokio::select! {
-            message = self.signature_http_rx.recv()  => {
-                self.process_register_signature_http_message(message)
-            },
-            message = self.signer_http_rx.recv()  => {
-                self.process_register_signer_http_message(message)
             },
             _ = self.signer_repeater.repeat_message() => {Ok(())},
             _event =  self.peer.tick_swarm() => {Ok(())}

@@ -1,4 +1,3 @@
-#[cfg(feature = "future_dmq")]
 use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
 
@@ -9,7 +8,6 @@ use slog_scope::{error, info};
 
 use mithril_common::messages::{RegisterSignatureMessageHttp, RegisterSignerMessage};
 use mithril_common::test::double::Dummy;
-#[cfg(feature = "future_dmq")]
 use mithril_dmq::DmqNetwork;
 use mithril_relay::{
     PassiveRelay, SignerRelay, SignerRelayConfiguration, SignerRelayMode,
@@ -41,9 +39,7 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
     let total_peers = 1 + total_p2p_client;
     let addr: Multiaddr = "/ip4/0.0.0.0/tcp/0".parse().unwrap();
     let server_port = 0;
-    #[cfg(feature = "future_dmq")]
     let dmq_node_socket_path = PathBuf::new();
-    #[cfg(feature = "future_dmq")]
     let dmq_network = DmqNetwork::TestNet(123);
     let signer_registration_mode = SignerRelayMode::P2P;
     let signature_registration_mode = SignerRelayMode::P2P;
@@ -52,9 +48,7 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
     let mut signer_relay = SignerRelay::start(SignerRelayConfiguration {
         address: &addr,
         server_port: &server_port,
-        #[cfg(feature = "future_dmq")]
         dmq_node_socket_path: &dmq_node_socket_path,
-        #[cfg(feature = "future_dmq")]
         dmq_network: &dmq_network,
         signer_registration_mode: &signer_registration_mode,
         signature_registration_mode: &signature_registration_mode,

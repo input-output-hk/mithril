@@ -1,13 +1,10 @@
-#[cfg(feature = "future_dmq")]
 use std::{path::Path, sync::Arc};
 
-#[cfg(feature = "future_dmq")]
 use anyhow::Context;
 use anyhow::anyhow;
 use libp2p::Multiaddr;
 use reqwest::StatusCode;
 use slog::{Logger, error, info};
-#[cfg(feature = "future_dmq")]
 use tokio::sync::{
     mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
     watch::{self, Receiver, Sender},
@@ -18,7 +15,6 @@ use mithril_common::{
     logging::LoggerExtensions,
     messages::{RegisterSignatureMessageHttp, RegisterSignerMessage},
 };
-#[cfg(feature = "future_dmq")]
 use mithril_dmq::{DmqConsumerServer, DmqConsumerServerPallas, DmqMessage, DmqNetwork};
 
 use crate::p2p::{BroadcastMessage, Peer, PeerEvent};
@@ -27,9 +23,7 @@ use crate::p2p::{BroadcastMessage, Peer, PeerEvent};
 pub struct AggregatorRelay {
     aggregator_endpoint: String,
     peer: Peer,
-    #[cfg(feature = "future_dmq")]
     signature_dmq_tx: UnboundedSender<DmqMessage>,
-    #[cfg(feature = "future_dmq")]
     stop_tx: Sender<()>,
     logger: Logger,
 }
@@ -38,14 +32,13 @@ impl AggregatorRelay {
     /// Start a relay for a Mithril aggregator
     pub async fn start(
         addr: &Multiaddr,
-        #[cfg(feature = "future_dmq")] dmq_node_socket_path: &Path,
-        #[cfg(feature = "future_dmq")] dmq_network: &DmqNetwork,
+        dmq_node_socket_path: &Path,
+        dmq_network: &DmqNetwork,
         aggregator_endpoint: &str,
         logger: &Logger,
     ) -> StdResult<Self> {
         let peer = Peer::new(addr).with_logger(logger).start().await?;
         let logger = logger.new_with_component_name::<Self>();
-        #[cfg(feature = "future_dmq")]
         {
             let (stop_tx, stop_rx) = watch::channel(());
             let (signature_dmq_tx, signature_dmq_rx) = unbounded_channel::<DmqMessage>();
@@ -67,17 +60,10 @@ impl AggregatorRelay {
                 logger,
             })
         }
-        #[cfg(not(feature = "future_dmq"))]
-        Ok(Self {
-            aggregator_endpoint: aggregator_endpoint.to_owned(),
-            peer,
-            logger,
-        })
     }
 
     /// Stop the aggregator relay
     pub async fn stop(&self) -> StdResult<()> {
-        #[cfg(feature = "future_dmq")]
         self.stop_tx
             .send(())
             .with_context(|| "Failed to send stop signal to DMQ consumer server")?;
@@ -85,7 +71,6 @@ impl AggregatorRelay {
         Ok(())
     }
 
-    #[cfg(feature = "future_dmq")]
     async fn start_dmq_consumer_server(
         socket: &Path,
         dmq_network: &DmqNetwork,
@@ -206,7 +191,6 @@ impl AggregatorRelay {
                         }
                     }
                 }
-                #[cfg(feature = "future_dmq")]
                 Ok(Some(BroadcastMessage::RegisterSignatureDmq(signature_message_received))) => {
                     self.signature_dmq_tx.send(signature_message_received).with_context(
                         || "Failed to send signature message to DMQ consumer server",
@@ -266,9 +250,7 @@ mod tests {
         let addr: Multiaddr = "/ip4/0.0.0.0/tcp/0".parse().unwrap();
         let relay = AggregatorRelay::start(
             &addr,
-            #[cfg(feature = "future_dmq")]
             Path::new("test"),
-            #[cfg(feature = "future_dmq")]
             &DmqNetwork::TestNet(123),
             &server.url(""),
             &TestLogger::stdout(),
