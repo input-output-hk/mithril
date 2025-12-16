@@ -70,12 +70,24 @@ impl MithrilSignerRegistrationFollower {
                 .signer_registration_verifier
                 .verify(signer, stake_distribution)
                 .await
-                .map_err(SignerRegistrationError::FailedSignerRegistration)?;
+                .map_err(|err| {
+                    SignerRegistrationError::InvalidSignerRegistration(
+                        signer.party_id.clone(),
+                        epoch,
+                        err,
+                    )
+                })?;
 
             self.signer_recorder
                 .record_signer_registration(signer_with_stake.party_id.clone())
                 .await
-                .map_err(|e| SignerRegistrationError::FailedSignerRecorder(e.to_string()))?;
+                .map_err(|err| {
+                    SignerRegistrationError::FailedSignerRecorder(
+                        signer_with_stake.party_id.clone(),
+                        epoch,
+                        err,
+                    )
+                })?;
 
             self
                 .verification_key_store

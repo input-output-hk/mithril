@@ -1,9 +1,7 @@
 use thiserror::Error;
 
-use mithril_common::{
-    StdError,
-    entities::{Epoch, SignerWithStake},
-};
+use mithril_common::StdError;
+use mithril_common::entities::{Epoch, PartyId, SignerWithStake};
 
 use mithril_cardano_node_chain::chain_observer::ChainObserverError;
 
@@ -42,12 +40,12 @@ pub enum SignerRegistrationError {
     EpochService(#[source] StdError),
 
     /// Signer registration failed.
-    #[error("signer registration failed")]
-    FailedSignerRegistration(#[source] StdError),
+    #[error("Signer registration is invalid for party '{0}' and epoch {1}")]
+    InvalidSignerRegistration(PartyId, Epoch, #[source] StdError),
 
     /// Signer recorder failed.
-    #[error("signer recorder failed: '{0}'")]
-    FailedSignerRecorder(String),
+    #[error("Recording signer registration failed for party '{0}' and epoch {1}")]
+    FailedSignerRecorder(PartyId, Epoch, #[source] StdError),
 
     /// Signer registration is always closed on a follower aggregator.
     #[error("signer registration is always closed on a follower aggregator")]

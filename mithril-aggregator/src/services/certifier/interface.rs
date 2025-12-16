@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use thiserror::Error;
 
 use mithril_common::entities::{
-    Certificate, Epoch, ProtocolMessage, SignedEntityType, SignedEntityTypeDiscriminants,
+    Certificate, Epoch, PartyId, ProtocolMessage, SignedEntityType, SignedEntityTypeDiscriminants,
     SingleSignature,
 };
 use mithril_common::{StdError, StdResult};
@@ -27,8 +27,8 @@ pub enum CertifierServiceError {
     Expired(SignedEntityType),
 
     /// An invalid signature was provided.
-    #[error("Invalid single signature for {0:?}.")]
-    InvalidSingleSignature(SignedEntityType, #[source] StdError),
+    #[error("Invalid single signature for {0:?} from party '{1}'.")]
+    InvalidSingleSignature(SignedEntityType, PartyId, #[source] StdError),
 
     /// No parent certificate could be found, this certifier cannot create genesis certificates.
     #[error(

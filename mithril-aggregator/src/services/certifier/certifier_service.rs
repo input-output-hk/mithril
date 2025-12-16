@@ -108,22 +108,27 @@ impl CertifierService for MithrilCertifierService {
     ) -> StdResult<SignatureRegistrationStatus> {
         debug!(
             self.logger,
-            ">> register_single_signature(signed_entity_type: {signed_entity_type:?}, single_signatures: {signature:?}"
+            ">> register_single_signature(signed_entity_type: {signed_entity_type:?}, single_signature: {signature:?}"
         );
-        trace!(self.logger, ">> register_single_signature"; "complete_single_signatures" => #?signature);
+        trace!(self.logger, ">> register_single_signature"; "complete_single_signature" => #?signature);
 
         let open_message = self
             .get_open_message_record(signed_entity_type)
-            .await.with_context(|| format!("CertifierService can not get open message record for signed_entity_type: '{signed_entity_type}'"))?
+            .await
+            .with_context(|| format!("CertifierService can not get open message record for signed_entity_type: '{signed_entity_type}'"))?
             .ok_or_else(|| {
-                warn!(self.logger, "register_single_signature: OpenMessage not found for type {signed_entity_type:?}.");
+                warn!(
+                    self.logger, "register_single_signature: OpenMessage not found for type {signed_entity_type:?}";
+                    "party_id" => &signature.party_id
+                );
                 CertifierServiceError::NotFound(signed_entity_type.clone())
             })?;
 
         if open_message.is_certified {
             warn!(
                 self.logger,
-                "register_single_signature: open message {signed_entity_type:?} is already certified, cannot register single signature."
+                "register_single_signature: open message {signed_entity_type:?} is already certified, cannot register single signature.";
+                "party_id" => &signature.party_id
             );
 
             return Err(CertifierServiceError::AlreadyCertified(signed_entity_type.clone()).into());
@@ -132,7 +137,8 @@ impl CertifierService for MithrilCertifierService {
         if open_message.is_expired {
             warn!(
                 self.logger,
-                "register_single_signature: open message {signed_entity_type:?} has expired, cannot register single signature."
+                "register_single_signature: open message {signed_entity_type:?} has expired, cannot register single signature.";
+                "party_id" => &signature.party_id
             );
 
             return Err(CertifierServiceError::Expired(signed_entity_type.clone()).into());
@@ -142,13 +148,18 @@ impl CertifierService for MithrilCertifierService {
             .verify_single_signature(&open_message.protocol_message.to_message(), signature)
             .await
             .map_err(|err| {
-                CertifierServiceError::InvalidSingleSignature(signed_entity_type.clone(), err)
+                CertifierServiceError::InvalidSingleSignature(
+                    signed_entity_type.clone(),
+                    signature.party_id.clone(),
+                    err,
+                )
             })?;
 
         let single_signature = self
             .single_signature_repository
             .create_single_signature(signature, &open_message.clone().into())
-            .await.with_context(|| format!("Certifier can not create the single signature from single_signature: '{signature:?}', open_message: '{open_message:?}'"))?;
+            .await
+            .with_context(|| format!("Certifier can not create the single signature from single_signature: '{signature:?}', open_message: '{open_message:?}'"))?;
         info!(
             self.logger,
             "register_single_signature: created pool '{}' single signature for {signed_entity_type:?}.",
@@ -826,7 +837,7 @@ mod tests {
         if let Some(err) = error.downcast_ref::<CertifierServiceError>() {
             assert!(matches!(
                 err,
-                CertifierServiceError::AlreadyCertified(signed_entity) if signed_entity == &signed_entity_type
+                CertifierServiceError::AlreadyCertified(signed_entity, ..) if signed_entity == &signed_entity_type
             ),);
         } else {
             panic!("Unexpected error {error:?}");

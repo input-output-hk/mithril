@@ -62,12 +62,12 @@ impl SignerRegistrationVerifier for MithrilSignerRegistrationVerifier {
             )
             .with_context(|| {
                 format!(
-                    "KeyRegwrapper can not register signer with party_id: '{party_id_register:?}'"
+                    "KeyRegwrapper can not register signer with party_id: '{party_id_register:?}', kes_period: '{kes_period:?}'"
                 )
             })?;
         let party_id_registered_stake = *stake_distribution
             .get(&party_id_registered)
-            .with_context(|| "Stake not found")?;
+            .with_context(|| format!("Stake not found for party_id: '{party_id_registered}"))?;
 
         Ok(SignerWithStake {
             party_id: party_id_registered,

@@ -427,6 +427,7 @@ mod tests {
                         .returning(|_, _| {
                             Err(CertifierServiceError::InvalidSingleSignature(
                                 OpenMessage::dummy().signed_entity_type,
+                                "party_1".to_string(),
                                 anyhow!("Invalid signature"),
                             )
                             .into())

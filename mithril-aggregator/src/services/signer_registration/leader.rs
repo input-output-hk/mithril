@@ -98,12 +98,24 @@ impl SignerRegisterer for MithrilSignerRegistrationLeader {
             .signer_registration_verifier
             .verify(signer, &registration_round.stake_distribution)
             .await
-            .map_err(SignerRegistrationError::FailedSignerRegistration)?;
+            .map_err(|err| {
+                SignerRegistrationError::InvalidSignerRegistration(
+                    signer.party_id.clone(),
+                    epoch,
+                    err,
+                )
+            })?;
 
         self.signer_recorder
             .record_signer_registration(signer_save.party_id.clone())
             .await
-            .map_err(|e| SignerRegistrationError::FailedSignerRecorder(e.to_string()))?;
+            .map_err(|err| {
+                SignerRegistrationError::FailedSignerRecorder(
+                    signer_save.party_id.clone(),
+                    registration_round.epoch,
+                    err,
+                )
+            })?;
 
         match self
             .verification_key_store
