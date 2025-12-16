@@ -44,9 +44,10 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
             })
             .collect::<Vec<SingleSignatureWithRegisteredParty>>();
 
-        let mut unique_sigs = clerk
-            .select_valid_signatures_for_k_indices(msg, &sig_reg_list)
-            .with_context(
+        let avk = clerk.compute_aggregate_verification_key();
+        let mut unique_sigs =
+            Clerk::select_valid_signatures_for_k_indices(&clerk.params, msg, &sig_reg_list, &avk)
+                .with_context(
                 || "Failed to aggregate unique signatures during selection for the k indices.",
             )?;
 

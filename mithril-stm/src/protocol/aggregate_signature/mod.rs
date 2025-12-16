@@ -290,6 +290,8 @@ mod tests {
     }
 
     proptest! {
+        #![proptest_config(ProptestConfig::with_cases(50))]
+
         #[test]
         /// Test that when a party creates a signature it can be verified
         fn test_sig(msg in any::<[u8;16]>()) {
@@ -305,7 +307,7 @@ mod tests {
     }
 
     proptest! {
-        #![proptest_config(ProptestConfig::with_cases(10))]
+        #![proptest_config(ProptestConfig::with_cases(50))]
         #[test]
         fn test_parameters_serialize_deserialize(m in any::<u64>(), k in any::<u64>(), phi_f in any::<f64>()) {
             let params = Parameters { m, k, phi_f };
@@ -360,7 +362,7 @@ mod tests {
     }
 
     proptest! {
-        #![proptest_config(ProptestConfig::with_cases(10))]
+        #![proptest_config(ProptestConfig::with_cases(50))]
 
         #[test]
         /// Test that when the adversaries do not hold sufficient stake, they can not form a quorum
@@ -400,6 +402,8 @@ mod tests {
     }
 
     proptest! {
+        #![proptest_config(ProptestConfig::with_cases(50))]
+
         // Each of the tests below corresponds to falsifying a conjunct in the
         // definition of a valid signature
         #[test]
