@@ -23,6 +23,49 @@ To complete
 To complete
 -->
 
+### 5. Guidelines for writing useful log messages, error context, or error structure
+
+**Date:** 2025-07-25
+**Status:** Accepted
+
+### Context
+
+Some errors and logs currently lack enough context to understand the cause of an issue.
+
+This is especially true for failures that occur during requests to or from external sources.
+
+At the same time, adding too much context can make logs noisy and hard to read, and can flood log storage with low-value
+or sensitive data.
+
+### Decision
+
+When writing log messages, adding error context, or designing error structures, follow these guidelines:
+
+- **Prefer structured logging for internal context.**
+  - Add identifiers as structured fields rather than embedding them in the message text (e.g., party id, signed entity
+    type, beacon, request id, entity id).
+  - Keep the human-readable message short, put “what happened” in the message and “what it relates to” in structured fields.
+
+- **Avoid unnecessary or sensitive context in logs by default.**
+  - Do not log secrets or high-risk material (e.g., cryptographic keys, seeds, tokens, credentials).
+  - Do not log large payloads unless they are required for troubleshooting (see “External sources” below).
+
+- **Handle large debug output explicitly.**
+  - If a type’s `Debug` output is too large or contains sensitive fields, implement `Debug` manually to provide a safe,
+    non-exhaustive representation by default.
+  - Optionally support an “alternate” representation (e.g., `{:#?}`) that includes additional detail when it is safe and useful.
+
+- **External sources: allow exceptions when needed to troubleshoot.**
+  - For interactions with external sources, it can be acceptable to include additional context such as request/response
+    payloads **only when necessary** to diagnose issues.
+  - When logging external payloads, prefer safeguards such as truncation/size limits and logging only at error/debug
+    level (and redaction when applicable).
+
+### Consequences
+
+- Logs are more readable and actionable.
+- Errors are easier to understand and troubleshoot without routinely leaking sensitive data or producing excessive log volume.
+
 ### 4. Guidelines for crate test utilities
 
 **Date:** 2025-07-25
