@@ -23,6 +23,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
   - **BREAKING**: Progress bars and spinners of the client CLI are now outputted to stderr instead of stdout.
 
+- Support for DMQ protocol in the signer, aggregator and relay.
+
 - Support for removal of `cardano_transactions_signing_config` from the diffused mithril network configuration.
 
 - Decentralization of the configuration parameters of Mithril networks:
