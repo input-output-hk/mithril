@@ -15,7 +15,6 @@ use mithril_common::entities::{
     SignedEntityTypeDiscriminants,
 };
 use mithril_common::{AggregateSignatureType, CardanoNetwork, StdResult};
-#[cfg(feature = "future_dmq")]
 use mithril_dmq::DmqNetwork;
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use mithril_era::adapters::EraReaderAdapterType;
@@ -98,7 +97,6 @@ pub trait ConfigurationSource {
     /// DMQ Network Magic number
     ///
     /// useful for TestNet & DevNet
-    #[cfg(feature = "future_dmq")]
     fn dmq_network_magic(&self) -> Option<u64> {
         panic!("dmq_network_magic is not implemented.");
     }
@@ -319,7 +317,6 @@ pub trait ConfigurationSource {
     }
 
     /// Get a representation of the DMQ network.
-    #[cfg(feature = "future_dmq")]
     fn get_dmq_network(&self) -> StdResult<DmqNetwork> {
         DmqNetwork::from_code(self.network(), self.dmq_network_magic())
             .with_context(|| "Invalid DMQ network configuration")
@@ -793,7 +790,6 @@ impl ConfigurationSource for ServeCommandConfiguration {
         self.network_magic
     }
 
-    #[cfg(feature = "future_dmq")]
     fn dmq_network_magic(&self) -> Option<u64> {
         self.dmq_network_magic
     }
