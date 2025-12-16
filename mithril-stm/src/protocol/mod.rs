@@ -8,7 +8,7 @@ mod single_signature;
 
 pub use aggregate_signature::{
     AggregateSignature, AggregateSignatureError, AggregateSignatureType, AggregateVerificationKey,
-    AggregationError, BasicVerifier, Clerk,
+    AggregationError, Clerk,
 };
 pub(crate) use eligibility_check::is_lottery_won;
 pub use error::RegisterError;
@@ -26,9 +26,6 @@ pub use aggregate_signature::AggregateVerificationKey as StmAggrVerificationKey;
 
 #[deprecated(since = "0.5.0", note = "Use `Clerk` instead")]
 pub use aggregate_signature::Clerk as StmClerk;
-
-#[deprecated(since = "0.5.0", note = "Use `BasicVerifier` instead")]
-pub use aggregate_signature::BasicVerifier as CoreVerifier;
 
 #[deprecated(since = "0.5.0", note = "Use `Parameters` instead")]
 pub use parameters::Parameters as StmParameters;

@@ -1,9 +1,10 @@
-use anyhow::Context;
+use anyhow::{Context, anyhow};
 use blake2::digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 use crate::{
-    AggregateSignatureError, AggregateVerificationKey, BasicVerifier, Clerk, Parameters,
+    AggregateSignatureError, AggregateVerificationKey, AggregationError, Clerk, Parameters,
     RegisteredParty, SingleSignature, SingleSignatureWithRegisteredParty, StmResult,
     membership_commitment::MerkleBatchPath,
     signature_scheme::{BlsSignature, BlsVerificationKey},
@@ -43,17 +44,12 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
             })
             .collect::<Vec<SingleSignatureWithRegisteredParty>>();
 
-        let avk = AggregateVerificationKey::from(&clerk.closed_reg);
-        let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
-        let mut unique_sigs = BasicVerifier::select_valid_signatures_for_k_indices(
-            &clerk.closed_reg.total_stake,
-            &clerk.params,
-            &msgp,
-            &sig_reg_list,
-        )
-        .with_context(
-            || "Failed to aggregate unique signatures during selection for the k indices.",
-        )?;
+        let avk = clerk.compute_aggregate_verification_key();
+        let mut unique_sigs =
+            Clerk::select_valid_signatures_for_k_indices(&clerk.params, msg, &sig_reg_list, &avk)
+                .with_context(
+                || "Failed to aggregate unique signatures during selection for the k indices.",
+            )?;
 
         unique_sigs.sort_unstable();
 
@@ -86,13 +82,35 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
         parameters: &Parameters,
     ) -> StmResult<(Vec<BlsSignature>, Vec<BlsVerificationKey>)> {
         let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
-        BasicVerifier::preliminary_verify(
-            &avk.get_total_stake(),
-            &self.signatures,
-            parameters,
-            &msgp,
-        )
-        .with_context(|| "Preliminary verification of aggregate signatures failed.")?;
+
+        let mut nr_indices = 0;
+        let mut unique_indices = HashSet::new();
+
+        for sig_reg in self.signatures.clone() {
+            sig_reg
+                .sig
+                .check_indices(
+                    parameters,
+                    &sig_reg.reg_party.1,
+                    &msgp,
+                    &avk.get_total_stake(),
+                )
+                .with_context(|| "Preliminary verification for basic verifier failed.")?;
+            for &index in &sig_reg.sig.indexes {
+                unique_indices.insert(index);
+                nr_indices += 1;
+            }
+        }
+
+        if nr_indices != unique_indices.len() {
+            return Err(anyhow!(AggregationError::IndexNotUnique));
+        }
+        if (nr_indices as u64) < parameters.k {
+            return Err(anyhow!(AggregationError::NotEnoughSignatures(
+                nr_indices as u64,
+                parameters.k
+            )));
+        }
 
         let leaves = self
             .signatures
@@ -104,9 +122,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
             .verify_leaves_membership_from_batch_path(&leaves, &self.batch_proof)
             .with_context(|| "Batch proof is invalid in preliminary verification.")?;
 
-        Ok(BasicVerifier::collect_signatures_verification_keys(
-            &self.signatures,
-        ))
+        Ok(self.collect_signatures_verification_keys())
     }
 
     /// Verify concatenation proof, by checking that
@@ -242,5 +258,24 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> ConcatenationProof<D> {
             signatures: sig_reg_list,
             batch_proof,
         })
+    }
+
+    /// Collect and return `Vec<BlsSignature>, Vec<BlsVerificationKey>` which will be used
+    /// by the aggregate verification.
+    pub(crate) fn collect_signatures_verification_keys(
+        &self,
+    ) -> (Vec<BlsSignature>, Vec<BlsVerificationKey>) {
+        let sigs = self
+            .signatures
+            .iter()
+            .map(|sig_reg| sig_reg.sig.sigma)
+            .collect::<Vec<BlsSignature>>();
+        let vks = self
+            .signatures
+            .iter()
+            .map(|sig_reg| sig_reg.reg_party.0)
+            .collect::<Vec<BlsVerificationKey>>();
+
+        (sigs, vks)
     }
 }

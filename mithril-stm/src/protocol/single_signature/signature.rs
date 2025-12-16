@@ -37,7 +37,13 @@ impl SingleSignature {
         msg: &[u8],
     ) -> StmResult<()> {
         let msgp = avk.get_merkle_tree_batch_commitment().concatenate_with_message(msg);
-        self.basic_verify(params, pk, stake, &msgp, &avk.get_total_stake())
+        self.sigma.verify(&msgp, pk).with_context(|| {
+            format!(
+                "Single signature verification failed for signer index {}.",
+                self.signer_index
+            )
+        })?;
+        self.check_indices(params, stake, &msgp, &avk.get_total_stake())
             .with_context(|| {
                 format!(
                     "Single signature verification failed for signer index {}.",
@@ -140,38 +146,6 @@ impl SingleSignature {
     #[deprecated(since = "0.5.0", note = "This function will be removed")]
     pub fn cmp_stm_sig(&self, other: &Self) -> Ordering {
         Self::compare_signer_index(self, other)
-    }
-
-    /// Verify a basic signature by checking that the lottery was won,
-    /// the indexes are in the desired range and the underlying multi signature validates.
-    pub(crate) fn basic_verify(
-        &self,
-        params: &Parameters,
-        pk: &VerificationKey,
-        stake: &Stake,
-        msg: &[u8],
-        total_stake: &Stake,
-    ) -> StmResult<()> {
-        self.sigma
-            .verify(msg, pk)
-            .with_context(|| "Basic verification of single signature failed.")?;
-        self.check_indices(params, stake, msg, total_stake)
-            .with_context(|| "Basic verification of single signature failed.")?;
-
-        Ok(())
-    }
-
-    /// Will be deprecated. Use `basic_verify` instead.
-    #[deprecated(since = "0.5.0", note = "Use `basic_verify` instead")]
-    pub fn core_verify(
-        &self,
-        params: &Parameters,
-        pk: &VerificationKey,
-        stake: &Stake,
-        msg: &[u8],
-        total_stake: &Stake,
-    ) -> StmResult<()> {
-        Self::basic_verify(self, params, pk, stake, msg, total_stake)
     }
 }
 
