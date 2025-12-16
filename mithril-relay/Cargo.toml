@@ -10,6 +10,7 @@ license = { workspace = true }
 repository = { workspace = true }
 
 [features]
+default = ["future_dmq"]
 bundle_tls = ["reqwest/native-tls-vendored"]
 future_dmq = ["dep:mithril-dmq"]
 
