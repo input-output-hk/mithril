@@ -184,9 +184,9 @@ jobs:
 
         include:
           - os: ubuntu-24.04
-            test-args: --features full,unstable,future_dmq --workspace
+            test-args: --features full,unstable --workspace
           - os: ubuntu-24.04-arm
-            test-args: --features full,unstable,future_dmq --workspace
+            test-args: --features full,unstable --workspace
           # Exclude nodes not officially supported on Windows and macOS (only mithril-client is supported)
           - os: macos-14
             test-args: >
@@ -392,6 +392,14 @@ jobs:
         extra_args: ["--aggregate-signature-type=Concatenation"]
 
         include:
+          # Include a test for partial decentralization with leader/follower signer registration and P2P signature registration with fake DMQ node
+          - mode: "leader-follower"
+            era: ${{ fromJSON(needs.build-ubuntu.outputs.eras)[0] }}
+            next_era: [""]
+            cardano_node_version: "10.5.1"
+            hard_fork_latest_era_at_epoch: 0
+            run_id: "#1"
+            extra_args: "--number-of-aggregators=2 --use-relays --relay-signer-registration-mode=passthrough --relay-signature-registration-mode=p2p --aggregate-signature-type=Concatenation --use-dmq --dmq-node-flavor=fake"
           # Include a test for partial decentralization with leader/follower signer registration and P2P signature registration
           - mode: "leader-follower"
             era: ${{ fromJSON(needs.build-ubuntu.outputs.eras)[0] }}
