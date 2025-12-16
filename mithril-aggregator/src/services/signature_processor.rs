@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use slog::{Logger, error, warn};
+use slog::{Logger, error, trace, warn};
 
 use mithril_common::{
     StdResult,
@@ -62,8 +62,17 @@ impl SequentialSignatureProcessor {
 #[async_trait::async_trait]
 impl SignatureProcessor for SequentialSignatureProcessor {
     async fn process_signatures(&self) -> StdResult<()> {
+        let origin_network = self.consumer.get_origin_tag();
+
         match self.consumer.get_signatures().await {
             Ok(signatures) => {
+                let number_of_signatures = signatures.len() as u32;
+                trace!(self.logger, "Received {} signatures", number_of_signatures);
+
+                self.metrics_service
+                    .get_signature_registration_total_received_since_startup()
+                    .increment_by(&[&origin_network], number_of_signatures);
+
                 for (mut signature, signed_entity_type) in signatures {
                     self.authenticate_signature(&mut signature);
                     match self
@@ -71,14 +80,13 @@ impl SignatureProcessor for SequentialSignatureProcessor {
                         .register_single_signature(&signed_entity_type, &signature)
                         .await
                     {
+                        Ok(_registration_status) => {
+                            self.metrics_service
+                                .get_signature_registration_total_successful_since_startup()
+                                .increment(&[&origin_network]);
+                        }
                         Err(e) => {
                             error!(self.logger, "Error dispatching single signature"; "error" => ?e);
-                        }
-                        _ => {
-                            let origin_network = self.consumer.get_origin_tag();
-                            self.metrics_service
-                                .get_signature_registration_total_received_since_startup()
-                                .increment(&[&origin_network]);
                         }
                     }
                 }
@@ -109,23 +117,22 @@ impl SignatureProcessor for SequentialSignatureProcessor {
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
-    use mithril_common::{
-        entities::{Epoch, SignedEntityType},
-        test::double::fake_data,
-    };
     use mockall::predicate::eq;
     use tokio::{
         sync::watch::channel,
         time::{Duration, sleep},
     };
 
-    use crate::{
-        services::{
-            FakeSignatureConsumer, MockCertifierService, MockSignatureConsumer,
-            SignatureRegistrationStatus,
-        },
-        test::TestLogger,
+    use mithril_common::{
+        entities::{Epoch, SignedEntityType},
+        test::{double::fake_data, mock_extensions::MockBuilder},
     };
+
+    use crate::services::{
+        FakeSignatureConsumer, MockCertifierService, MockSignatureConsumer,
+        SignatureRegistrationStatus,
+    };
+    use crate::test::TestLogger;
 
     use super::*;
 
@@ -142,24 +149,16 @@ mod tests {
                 SignedEntityType::MithrilStakeDistribution(Epoch(2)),
             ),
         ];
-        let single_signatures_length = single_signatures.len();
-        let network_origin = "test_network";
-        let mock_consumer = {
-            let mut mock_consumer = MockSignatureConsumer::new();
-            mock_consumer
-                .expect_get_signatures()
+        let mock_consumer = MockBuilder::<MockSignatureConsumer>::configure(|mock| {
+            mock.expect_get_signatures()
                 .returning(move || Ok(single_signatures.clone()))
                 .times(1);
-            mock_consumer
-                .expect_get_origin_tag()
-                .returning(|| network_origin.to_string())
-                .times(single_signatures_length);
-            mock_consumer
-        };
-        let mock_certifier = {
-            let mut mock_certifier = MockCertifierService::new();
-            mock_certifier
-                .expect_register_single_signature()
+            mock.expect_get_origin_tag()
+                .returning(|| "whatever".to_string())
+                .times(1);
+        });
+        let mock_certifier = MockBuilder::<MockCertifierService>::configure(|mock| {
+            mock.expect_register_single_signature()
                 .with(
                     eq(SignedEntityType::MithrilStakeDistribution(Epoch(1))),
                     eq(SingleSignature {
@@ -175,8 +174,7 @@ mod tests {
                     Ok(SignatureRegistrationStatus::Registered)
                 })
                 .times(1);
-            mock_certifier
-                .expect_register_single_signature()
+            mock.expect_register_single_signature()
                 .with(
                     eq(SignedEntityType::MithrilStakeDistribution(Epoch(2))),
                     eq(SingleSignature {
@@ -186,33 +184,113 @@ mod tests {
                 )
                 .returning(|_, _| Ok(SignatureRegistrationStatus::Registered))
                 .times(1);
-            mock_certifier
-        };
+        });
         let (_stop_tx, stop_rx) = channel(());
-        let metrics_service = MetricsService::new(TestLogger::stdout()).unwrap();
-        let initial_counter_value = metrics_service
-            .get_signature_registration_total_received_since_startup()
-            .get(&[network_origin]);
-        let metrics_service = Arc::new(metrics_service);
         let processor = SequentialSignatureProcessor::new(
-            Arc::new(mock_consumer),
-            Arc::new(mock_certifier),
+            mock_consumer,
+            mock_certifier,
             stop_rx,
             logger,
-            metrics_service.clone(),
+            Arc::new(MetricsService::new(TestLogger::stdout()).unwrap()),
         );
 
         processor
             .process_signatures()
             .await
             .expect("Failed to process signatures");
+    }
+
+    #[tokio::test]
+    async fn processor_process_signatures_send_total_received_and_successful_statistics_if_successful()
+     {
+        let logger = TestLogger::stdout();
+        let fake_consumer = FakeSignatureConsumer::new(vec![Ok(vec![(
+            fake_data::single_signature(vec![1, 2, 3]),
+            SignedEntityType::MithrilStakeDistribution(Epoch(1)),
+        )])]);
+        let network_origin = fake_consumer.get_origin_tag();
+
+        let mock_certifier = MockBuilder::<MockCertifierService>::configure(|mock| {
+            mock.expect_register_single_signature()
+                .returning(|_, _| Ok(SignatureRegistrationStatus::Registered));
+        });
+        let (_stop_tx, stop_rx) = channel(());
+        let metrics_service = Arc::new(MetricsService::new(logger.clone()).unwrap());
+        let processor = SequentialSignatureProcessor::new(
+            Arc::new(fake_consumer),
+            mock_certifier,
+            stop_rx,
+            logger,
+            metrics_service.clone(),
+        );
+
+        let initial_received_counter_value = metrics_service
+            .get_signature_registration_total_received_since_startup()
+            .get(&[&network_origin]);
+        let initial_successful_counter_value = metrics_service
+            .get_signature_registration_total_successful_since_startup()
+            .get(&[&network_origin]);
+
+        processor.process_signatures().await.unwrap();
 
         assert_eq!(
-            initial_counter_value + single_signatures_length as u32,
+            initial_received_counter_value + 1,
             metrics_service
                 .get_signature_registration_total_received_since_startup()
-                .get(&[network_origin])
-        )
+                .get(&[&network_origin])
+        );
+        assert_eq!(
+            initial_successful_counter_value + 1,
+            metrics_service
+                .get_signature_registration_total_successful_since_startup()
+                .get(&[&network_origin])
+        );
+    }
+
+    #[tokio::test]
+    async fn processor_process_signatures_send_only_total_received_statistic_if_failure() {
+        let logger = TestLogger::stdout();
+        let fake_consumer = FakeSignatureConsumer::new(vec![Ok(vec![(
+            fake_data::single_signature(vec![1, 2, 3]),
+            SignedEntityType::MithrilStakeDistribution(Epoch(1)),
+        )])]);
+        let network_origin = fake_consumer.get_origin_tag();
+
+        let mock_certifier = MockBuilder::<MockCertifierService>::configure(|mock| {
+            mock.expect_register_single_signature()
+                .returning(|_, _| Err(anyhow!("Error registering signature")));
+        });
+        let (_stop_tx, stop_rx) = channel(());
+        let metrics_service = Arc::new(MetricsService::new(logger.clone()).unwrap());
+        let processor = SequentialSignatureProcessor::new(
+            Arc::new(fake_consumer),
+            mock_certifier,
+            stop_rx,
+            logger,
+            metrics_service.clone(),
+        );
+
+        let initial_received_counter_value = metrics_service
+            .get_signature_registration_total_received_since_startup()
+            .get(&[&network_origin]);
+        let initial_successful_counter_value = metrics_service
+            .get_signature_registration_total_successful_since_startup()
+            .get(&[&network_origin]);
+
+        processor.process_signatures().await.unwrap();
+
+        assert_eq!(
+            initial_received_counter_value + 1,
+            metrics_service
+                .get_signature_registration_total_received_since_startup()
+                .get(&[&network_origin])
+        );
+        assert_eq!(
+            initial_successful_counter_value,
+            metrics_service
+                .get_signature_registration_total_successful_since_startup()
+                .get(&[&network_origin])
+        );
     }
 
     #[tokio::test]
@@ -225,10 +303,8 @@ mod tests {
                 SignedEntityType::MithrilStakeDistribution(Epoch(1)),
             )]),
         ]);
-        let mock_certifier = {
-            let mut mock_certifier = MockCertifierService::new();
-            mock_certifier
-                .expect_register_single_signature()
+        let mock_certifier = MockBuilder::<MockCertifierService>::configure(|mock| {
+            mock.expect_register_single_signature()
                 .with(
                     eq(SignedEntityType::MithrilStakeDistribution(Epoch(1))),
                     eq(SingleSignature {
@@ -238,20 +314,18 @@ mod tests {
                 )
                 .returning(|_, _| Ok(SignatureRegistrationStatus::Registered))
                 .times(1);
-
-            mock_certifier
-        };
+        });
         let (stop_tx, stop_rx) = channel(());
-        let metrics_service = MetricsService::new(TestLogger::stdout()).unwrap();
+        let metrics_service = MetricsService::new(logger.clone()).unwrap();
         let processor = SequentialSignatureProcessor::new(
             Arc::new(fake_consumer),
-            Arc::new(mock_certifier),
+            mock_certifier,
             stop_rx,
             logger,
             Arc::new(metrics_service),
         );
 
-        tokio::select!(
+        select!(
             _res =  processor.run() => {},
             _res = sleep(Duration::from_millis(10)) => {
                 println!("Stopping signature processor...");
