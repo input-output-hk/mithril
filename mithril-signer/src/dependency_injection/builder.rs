@@ -25,7 +25,6 @@ use mithril_common::api_version::APIVersionProvider;
 use mithril_common::crypto_helper::{
     KesSigner, KesSignerStandard, OpCert, ProtocolPartyId, SerDeShelleyFileFormat,
 };
-#[cfg(feature = "future_dmq")]
 use mithril_common::messages::RegisterSignatureMessageDmq;
 use mithril_common::signable_builder::{
     CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,
@@ -44,11 +43,9 @@ use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnection, SqliteCon
 
 use mithril_protocol_config::http::HttpMithrilNetworkConfigurationProvider;
 
-#[cfg(feature = "future_dmq")]
 use mithril_dmq::{DmqMessageBuilder, DmqPublisherClientPallas};
 
 use crate::dependency_injection::SignerDependencyContainer;
-#[cfg(feature = "future_dmq")]
 use crate::services::SignaturePublisherDmq;
 use crate::services::{
     CardanoTransactionsImporter, CardanoTransactionsPreloaderActivationSigner, MithrilEpochService,
@@ -425,7 +422,6 @@ impl<'a> DependenciesBuilder<'a> {
             _ => None,
         };
 
-        #[cfg(feature = "future_dmq")]
         let signature_publisher = {
             let first_publisher = SignaturePublisherRetrier::new(
                 match &self.config.dmq_node_socket_path {
@@ -463,35 +459,6 @@ impl<'a> DependenciesBuilder<'a> {
 
             if self.config.signature_publisher_config.skip_delayer {
                 Arc::new(first_publisher) as Arc<dyn SignaturePublisher>
-            } else {
-                Arc::new(SignaturePublisherDelayer::new(
-                    Arc::new(first_publisher),
-                    Arc::new(second_publisher),
-                    Duration::from_millis(self.config.signature_publisher_config.delayer_delay_ms),
-                    self.root_logger(),
-                )) as Arc<dyn SignaturePublisher>
-            }
-        };
-
-        #[cfg(not(feature = "future_dmq"))]
-        let signature_publisher = {
-            let first_publisher = SignaturePublisherRetrier::new(
-                Arc::new(SignaturePublisherNoop) as Arc<dyn SignaturePublisher>,
-                SignaturePublishRetryPolicy::never(),
-            );
-
-            let second_publisher = SignaturePublisherRetrier::new(
-                aggregator_client.clone(),
-                SignaturePublishRetryPolicy {
-                    attempts: self.config.signature_publisher_config.retry_attempts,
-                    delay_between_attempts: Duration::from_millis(
-                        self.config.signature_publisher_config.retry_delay_ms,
-                    ),
-                },
-            );
-
-            if self.config.signature_publisher_config.skip_delayer {
-                Arc::new(second_publisher) as Arc<dyn SignaturePublisher>
             } else {
                 Arc::new(SignaturePublisherDelayer::new(
                     Arc::new(first_publisher),

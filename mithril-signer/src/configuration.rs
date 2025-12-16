@@ -1,6 +1,5 @@
 use anyhow::Context;
 use config::{ConfigError, Map, Source, Value};
-#[cfg(feature = "future_dmq")]
 use mithril_dmq::DmqNetwork;
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use serde::{Deserialize, Serialize};
@@ -29,10 +28,6 @@ pub struct SignaturePublisherConfig {
     pub delayer_delay_ms: u64,
 
     /// Whether to skip the delayer when publishing the signature
-    ///
-    /// If set to true, the signatures will be published only once:
-    /// - if the 'future_dmq` feature is used to compile, the signatures will be published only with the DMQ protocol
-    /// - if the `future_dmq` feature is not used, the signatures will be published with the regular HTTP protocol
     pub skip_delayer: bool,
 }
 
@@ -216,7 +211,6 @@ impl Configuration {
     }
 
     /// Return the DMQ network value from the configuration.
-    #[cfg(feature = "future_dmq")]
     pub fn get_dmq_network(&self) -> StdResult<DmqNetwork> {
         DmqNetwork::from_code(self.network.clone(), self.dmq_network_magic).with_context(|| {
             format!(
