@@ -4,16 +4,15 @@ use crate::crypto_helper::cardano::{
 };
 
 use mithril_stm::{
-    AggregationError, Clerk, ClosedKeyRegistration, Index, Parameters, Signer, Stake,
+    AggregationError, Clerk, ClosedKeyRegistration, CustomMembershipDigest, Index, Parameters,
+    Signer, Stake,
 };
-
-use blake2::{Blake2b, digest::consts::U32};
 
 /// A protocol version
 pub type ProtocolVersion<'a> = &'a str;
 
 // Protocol types alias
-pub(crate) type D = Blake2b<U32>;
+pub(crate) type D = CustomMembershipDigest;
 
 /// The id of a mithril party.
 pub type ProtocolPartyId = String;

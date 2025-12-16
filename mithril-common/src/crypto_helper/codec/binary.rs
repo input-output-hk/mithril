@@ -30,17 +30,15 @@ pub trait TryFromBytes: Sized {
 
 mod binary_mithril_stm {
     use anyhow::anyhow;
-    use blake2::Blake2b;
-
-    use digest::consts::U32;
     use mithril_stm::{
-        AggregateSignature, AggregateVerificationKey, Initializer, Parameters, SingleSignature,
-        SingleSignatureWithRegisteredParty, VerificationKey, VerificationKeyProofOfPossession,
+        AggregateSignature, AggregateVerificationKey, CustomMembershipDigest, Initializer,
+        Parameters, SingleSignature, SingleSignatureWithRegisteredParty, VerificationKey,
+        VerificationKeyProofOfPossession,
     };
 
     use super::*;
 
-    type D = Blake2b<U32>;
+    type D = CustomMembershipDigest;
 
     impl TryToBytes for Parameters {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {

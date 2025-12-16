@@ -1,21 +1,17 @@
-use blake2::digest::FixedOutput;
-use blake2::{
-    Blake2b, Digest,
-    digest::consts::{U32, U64},
-};
+use blake2::{Blake2b, digest::consts::U64};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::iter::ParallelIterator;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator};
 
 use mithril_stm::{
-    AggregateSignatureType, Clerk, Initializer, KeyRegistration, Parameters, Signer,
-    SingleSignature,
+    AggregateSignatureType, Clerk, CustomMembershipDigest, Initializer, KeyRegistration,
+    MembershipDigest, Parameters, Signer, SingleSignature,
 };
 
 fn size<H>(k: u64, m: u64, nparties: usize, hash_name: &str)
 where
-    H: Digest + Clone + Sync + Send + Default + FixedOutput,
+    H: MembershipDigest + Clone,
 {
     println!("+-------------------+");
     println!("| Hash: {hash_name} |");
@@ -65,6 +61,15 @@ where
         aggr.to_bytes().len(),
     );
 }
+/// Only for size benches
+#[derive(Clone, Debug, Default)]
+pub struct MembershipDigestU64 {}
+
+impl MembershipDigest for MembershipDigestU64 {
+    type ConcatenationHash = Blake2b<U64>;
+    #[cfg(feature = "future_snark")]
+    type SnarkHash = Blake2b<U64>;
+}
 
 fn main() {
     println!("+-------------------+");
@@ -75,8 +80,8 @@ fn main() {
 
     let params: [(u64, u64, usize); 2] = [(445, 2728, 3000), (554, 3597, 3000)];
     for (k, m, nparties) in params {
-        size::<Blake2b<U64>>(k, m, nparties, "Blake2b 512");
-        size::<Blake2b<U32>>(k, m, nparties, "Blake2b 256");
+        size::<MembershipDigestU64>(k, m, nparties, "Blake2b 512");
+        size::<CustomMembershipDigest>(k, m, nparties, "Blake2b 256");
     }
     println!("+-------------------------+");
 }

@@ -1,15 +1,11 @@
-use std::fmt::Debug;
-
-use blake2::digest::{Digest, FixedOutput};
-use blake2::{Blake2b, digest::consts::U32};
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;
 
 use mithril_stm::{
-    AggregateSignature, AggregateSignatureType, Clerk, Initializer, KeyRegistration, Parameters,
-    Signer,
+    AggregateSignature, AggregateSignatureType, Clerk, CustomMembershipDigest, Initializer,
+    KeyRegistration, MembershipDigest, Parameters, Signer,
 };
 
 /// This benchmark framework is not ideal. We really have to think what is the best mechanism for
@@ -17,10 +13,12 @@ use mithril_stm::{
 /// * Registration depends on the number of parties (should be constant, as it is a lookup table)
 /// * Signing depends on the parameter `m`, as it defines the number of lotteries a user can play
 /// * Aggregation depends on `k`.
-fn stm_benches<H>(c: &mut Criterion, nr_parties: usize, params: Parameters, hashing_alg: &str)
-where
-    H: Clone + Debug + Digest + Send + Sync + FixedOutput + Default,
-{
+fn stm_benches<H: MembershipDigest + Clone>(
+    c: &mut Criterion,
+    nr_parties: usize,
+    params: Parameters,
+    hashing_alg: &str,
+) {
     let mut group = c.benchmark_group(format!("STM/{hashing_alg}"));
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let mut msg = [0u8; 16];
@@ -55,10 +53,10 @@ where
 
     let closed_reg = key_reg.close();
 
-    let signers = initializers
+    let signers: Vec<Signer<H>> = initializers
         .into_par_iter()
         .map(|p| p.create_signer(closed_reg.clone()).unwrap())
-        .collect::<Vec<Signer<H>>>();
+        .collect();
 
     group.bench_function(BenchmarkId::new("Play all lotteries", &param_string), |b| {
         b.iter(|| {
@@ -83,7 +81,7 @@ fn batch_benches<H>(
     params: Parameters,
     hashing_alg: &str,
 ) where
-    H: Clone + Debug + Digest + FixedOutput + Send + Sync,
+    H: MembershipDigest + Clone,
 {
     let mut group = c.benchmark_group(format!("STM/{hashing_alg}"));
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
@@ -156,7 +154,7 @@ fn batch_benches<H>(
 }
 
 fn batch_stm_benches_blake_300(c: &mut Criterion) {
-    batch_benches::<Blake2b<U32>>(
+    batch_benches::<CustomMembershipDigest>(
         c,
         &[1, 10, 20, 100],
         300,
@@ -170,7 +168,7 @@ fn batch_stm_benches_blake_300(c: &mut Criterion) {
 }
 
 fn stm_benches_blake_300(c: &mut Criterion) {
-    stm_benches::<Blake2b<U32>>(
+    stm_benches::<CustomMembershipDigest>(
         c,
         300,
         Parameters {
@@ -183,7 +181,7 @@ fn stm_benches_blake_300(c: &mut Criterion) {
 }
 
 fn batch_stm_benches_blake_2000(c: &mut Criterion) {
-    batch_benches::<Blake2b<U32>>(
+    batch_benches::<CustomMembershipDigest>(
         c,
         &[1, 10, 20, 100],
         2000,
@@ -197,7 +195,7 @@ fn batch_stm_benches_blake_2000(c: &mut Criterion) {
 }
 
 fn stm_benches_blake_2000(c: &mut Criterion) {
-    stm_benches::<Blake2b<U32>>(
+    stm_benches::<CustomMembershipDigest>(
         c,
         2000,
         Parameters {
