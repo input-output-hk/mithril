@@ -134,8 +134,6 @@ pub struct Args {
     skip_signature_delayer: bool,
 
     /// Use DMQ protocol (used to broadcast signatures)
-    ///
-    /// Requires the Mithril nodes to be compiled with the 'future_dmq' feature
     #[clap(long)]
     use_dmq: bool,
 
