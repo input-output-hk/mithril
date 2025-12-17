@@ -20,14 +20,14 @@ mod tests {
     use std::collections::{HashMap, HashSet};
 
     use crate::{
-        Initializer, KeyRegistration, Parameters, Signer, SingleSignature, Stake, StmResult,
-        membership_commitment::{CustomMembershipDigest, MerkleBatchPath},
+        Initializer, KeyRegistration, MithrilMembershipDigest, Parameters, Signer, SingleSignature,
+        Stake, StmResult, membership_commitment::MerkleBatchPath,
     };
 
     use super::{AggregateSignature, AggregateSignatureType, AggregationError, Clerk};
 
     type Sig = AggregateSignature<D>;
-    type D = CustomMembershipDigest;
+    type D = MithrilMembershipDigest;
 
     fn setup_equal_parties(params: Parameters, nparties: usize) -> Vec<Signer<D>> {
         let stake = vec![1; nparties];

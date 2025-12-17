@@ -1,10 +1,10 @@
 use mithril_stm::{
-    AggregateSignature, Clerk, CustomMembershipDigest, Initializer, KeyRegistration, Parameters,
+    AggregateSignature, Clerk, Initializer, KeyRegistration, MithrilMembershipDigest, Parameters,
     Signer, SingleSignature, Stake, VerificationKeyProofOfPossession,
 };
 
 // Protocol types alias
-type D = CustomMembershipDigest;
+type D = MithrilMembershipDigest;
 
 /// The id of a mithril party.
 pub type ProtocolPartyId = String;

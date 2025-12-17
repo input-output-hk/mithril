@@ -1,24 +1,15 @@
 //! This example shows how Key Registration is held. It is not held by a single central party,
 //! but instead by all the participants in the signature process. Contrarily to the full protocol
 //! run presented in `tests/integration.rs`, we explicitly treat each party individually.
-use blake2::{Blake2b, digest::consts::U32};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
 use mithril_stm::{
     AggregateSignatureType, Clerk, ClosedKeyRegistration, Initializer, KeyRegistration,
-    MembershipDigest, Parameters, Stake, VerificationKeyProofOfPossession,
+    MithrilMembershipDigest, Parameters, Stake, VerificationKeyProofOfPossession,
 };
 
-#[derive(Clone, Debug)]
-pub struct CustomMembershipDigest {}
-impl MembershipDigest for CustomMembershipDigest {
-    type ConcatenationHash = Blake2b<U32>;
-    #[cfg(feature = "future_snark")]
-    type SnarkHash = Blake2b<U32>;
-}
-
-type H = CustomMembershipDigest;
+type H = MithrilMembershipDigest;
 
 fn main() {
     let nparties = 4;

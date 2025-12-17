@@ -1,6 +1,5 @@
 use crate::{
-    ClosedKeyRegistration, Parameters, SingleSignature, Stake, is_lottery_won,
-    membership_commitment::MembershipDigest,
+    ClosedKeyRegistration, MembershipDigest, Parameters, SingleSignature, Stake, is_lottery_won,
     signature_scheme::{BlsSignature, BlsSigningKey, BlsVerificationKey},
 };
 
@@ -24,7 +23,7 @@ pub struct Signer<D: MembershipDigest> {
     closed_reg: Option<ClosedKeyRegistration<D>>,
 }
 
-impl<D: MembershipDigest + Clone> Signer<D> {
+impl<D: MembershipDigest> Signer<D> {
     /// Create a Signer for given input
     pub(crate) fn set_signer(
         signer_index: u64,

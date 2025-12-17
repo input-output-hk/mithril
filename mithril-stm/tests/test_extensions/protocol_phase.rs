@@ -4,12 +4,11 @@ use rayon::prelude::*;
 
 use mithril_stm::{
     AggregateSignature, AggregateSignatureType, AggregateVerificationKey, Clerk, Initializer,
-    KeyRegistration, Parameters, Signer, SingleSignature, Stake, StmResult, VerificationKey,
+    KeyRegistration, MithrilMembershipDigest, Parameters, Signer, SingleSignature, Stake,
+    StmResult, VerificationKey,
 };
 
-use super::CustomMembershipDigest;
-
-type H = CustomMembershipDigest;
+type H = MithrilMembershipDigest;
 
 /// The result of the initialization phase of the STM protocol.
 pub struct InitializationPhaseResult {

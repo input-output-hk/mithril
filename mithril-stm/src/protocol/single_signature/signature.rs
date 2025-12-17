@@ -181,8 +181,8 @@ mod tests {
         use rand_core::SeedableRng;
 
         use crate::{
-            ClosedKeyRegistration, KeyRegistration, Parameters, Signer, SingleSignature,
-            membership_commitment::CustomMembershipDigest,
+            ClosedKeyRegistration, KeyRegistration, MithrilMembershipDigest, Parameters, Signer,
+            SingleSignature,
             signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
         };
 
@@ -212,7 +212,7 @@ mod tests {
             let mut key_reg = KeyRegistration::init();
             key_reg.register(1, pk_1).unwrap();
             key_reg.register(1, pk_2).unwrap();
-            let closed_key_reg: ClosedKeyRegistration<CustomMembershipDigest> = key_reg.close();
+            let closed_key_reg: ClosedKeyRegistration<MithrilMembershipDigest> = key_reg.close();
             let signer = Signer::set_signer(1, 1, params, sk_1, pk_1.vk, closed_key_reg);
             signer.sign(&msg).unwrap()
         }

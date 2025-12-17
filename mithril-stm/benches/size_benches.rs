@@ -5,13 +5,13 @@ use rayon::iter::ParallelIterator;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator};
 
 use mithril_stm::{
-    AggregateSignatureType, Clerk, CustomMembershipDigest, Initializer, KeyRegistration,
-    MembershipDigest, Parameters, Signer, SingleSignature,
+    AggregateSignatureType, Clerk, Initializer, KeyRegistration, MembershipDigest,
+    MithrilMembershipDigest, Parameters, Signer, SingleSignature,
 };
 
 fn size<H>(k: u64, m: u64, nparties: usize, hash_name: &str)
 where
-    H: MembershipDigest + Clone,
+    H: MembershipDigest,
 {
     println!("+-------------------+");
     println!("| Hash: {hash_name} |");
@@ -81,7 +81,7 @@ fn main() {
     let params: [(u64, u64, usize); 2] = [(445, 2728, 3000), (554, 3597, 3000)];
     for (k, m, nparties) in params {
         size::<MembershipDigestU64>(k, m, nparties, "Blake2b 512");
-        size::<CustomMembershipDigest>(k, m, nparties, "Blake2b 256");
+        size::<MithrilMembershipDigest>(k, m, nparties, "Blake2b 256");
     }
     println!("+-------------------------+");
 }

@@ -3,8 +3,7 @@ use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ClosedKeyRegistration, Parameters, RegisterError, Stake, StmResult,
-    membership_commitment::MembershipDigest,
+    ClosedKeyRegistration, MembershipDigest, Parameters, RegisterError, Stake, StmResult,
     signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
 };
 
@@ -75,7 +74,7 @@ impl Initializer {
     /// * the current total stake (according to the registration service)
     /// # Error
     /// This function fails if the initializer is not registered.
-    pub fn create_signer<D: MembershipDigest + Clone>(
+    pub fn create_signer<D: MembershipDigest>(
         self,
         closed_reg: ClosedKeyRegistration<D>,
     ) -> StmResult<Signer<D>> {
@@ -113,7 +112,7 @@ impl Initializer {
     /// # Error
     /// This function fails if the initializer is not registered.
     #[deprecated(since = "0.5.0", note = "Use `create_signer` instead")]
-    pub fn new_signer<D: MembershipDigest + Clone>(
+    pub fn new_signer<D: MembershipDigest>(
         self,
         closed_reg: ClosedKeyRegistration<D>,
     ) -> StmResult<Signer<D>> {

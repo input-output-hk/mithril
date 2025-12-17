@@ -3,16 +3,16 @@ mod test_extensions;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
-use mithril_stm::{AggregateSignature, Initializer, Parameters, SingleSignature, VerificationKey};
-
-use test_extensions::{
-    CustomMembershipDigest,
-    protocol_phase::{
-        InitializationPhaseResult, OperationPhaseResult, initialization_phase, operation_phase,
-    },
+use mithril_stm::{
+    AggregateSignature, Initializer, MithrilMembershipDigest, Parameters, SingleSignature,
+    VerificationKey,
 };
 
-type H = CustomMembershipDigest;
+use test_extensions::protocol_phase::{
+    InitializationPhaseResult, OperationPhaseResult, initialization_phase, operation_phase,
+};
+
+type H = MithrilMembershipDigest;
 
 #[test]
 fn test_stm_parameters_serialization() {

@@ -15,11 +15,11 @@
 //!
 //! use mithril_stm::{
 //!    AggregateSignatureType, AggregationError, Clerk, Initializer, KeyRegistration, Parameters,
-//!    Signer, SingleSignature, CustomMembershipDigest
+//!    Signer, SingleSignature, MithrilMembershipDigest
 //! };
 //!
 //! let nparties = 4; // Use a small number of parties for this example
-//! type D = CustomMembershipDigest; // Setting the hash function for convenience
+//! type D = MithrilMembershipDigest; // Setting the hash function for convenience
 //!
 //! let mut rng = ChaCha20Rng::from_seed([0u8; 32]); // create and initialize rng
 //! let mut msg = [0u8; 16]; // setting an arbitrary message
@@ -116,7 +116,6 @@ mod proof_system;
 mod protocol;
 mod signature_scheme;
 
-pub use membership_commitment::{CustomMembershipDigest, MembershipDigest};
 pub use protocol::*;
 pub use signature_scheme::BlsSignatureError;
 
@@ -128,6 +127,12 @@ pub use signature_scheme::{
 
 #[cfg(all(feature = "benchmark-internals", feature = "future_snark"))]
 pub use signature_scheme::{SchnorrSignature, SchnorrSigningKey, SchnorrVerificationKey};
+
+#[cfg(feature = "future_snark")]
+use blake2::digest::consts::U64;
+use blake2::{Blake2b, digest::consts::U32};
+use digest::{Digest, FixedOutput};
+use std::fmt::Debug;
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
@@ -141,3 +146,23 @@ pub type StmError = anyhow::Error;
 
 /// Mithril-stm result type
 pub type StmResult<T> = anyhow::Result<T, StmError>;
+
+/// Trait defining the different hash types for different proof systems.
+pub trait MembershipDigest: Clone {
+    type ConcatenationHash: Digest + FixedOutput + Clone + Debug + Send + Sync;
+    #[cfg(feature = "future_snark")]
+    type SnarkHash: Digest + FixedOutput + Clone + Debug + Send + Sync;
+}
+
+/// Default Mithril Membership Digest
+#[derive(Clone, Debug, Default)]
+pub struct MithrilMembershipDigest {}
+
+/// Default implementation of MembershipDigest for Mithril
+/// TODO: `SnarkHash` will be changed with Poseidon. For now, we use `Blake2b<U64>` (`U64` is set
+/// for having something different than the `ConcatenationHash`) as a placeholder.
+impl MembershipDigest for MithrilMembershipDigest {
+    type ConcatenationHash = Blake2b<U32>;
+    #[cfg(feature = "future_snark")]
+    type SnarkHash = Blake2b<U64>;
+}

@@ -2,9 +2,9 @@ use anyhow::{Context, anyhow};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::{
-    ClosedKeyRegistration, Index, Parameters, Signer, SingleSignature,
+    ClosedKeyRegistration, Index, MembershipDigest, Parameters, Signer, SingleSignature,
     SingleSignatureWithRegisteredParty, Stake, StmResult, VerificationKey,
-    membership_commitment::MembershipDigest, proof_system::ConcatenationProof,
+    proof_system::ConcatenationProof,
 };
 
 use super::{
@@ -20,7 +20,7 @@ pub struct Clerk<D: MembershipDigest> {
     pub(crate) params: Parameters,
 }
 
-impl<D: MembershipDigest + Clone> Clerk<D> {
+impl<D: MembershipDigest> Clerk<D> {
     /// Create a new `Clerk` from a closed registration instance.
     pub fn new_clerk_from_closed_key_registration(
         params: &Parameters,
@@ -237,13 +237,13 @@ mod tests {
     use rand_core::{RngCore, SeedableRng};
 
     use crate::{
-        Clerk, ClosedKeyRegistration, CustomMembershipDigest, Initializer, KeyRegistration,
+        Clerk, ClosedKeyRegistration, Initializer, KeyRegistration, MithrilMembershipDigest,
         Parameters, SingleSignatureWithRegisteredParty,
     };
 
     use super::AggregationError;
 
-    type D = CustomMembershipDigest;
+    type D = MithrilMembershipDigest;
 
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(50))]

@@ -4,7 +4,7 @@ use crate::crypto_helper::cardano::{
 };
 
 use mithril_stm::{
-    AggregationError, Clerk, ClosedKeyRegistration, CustomMembershipDigest, Index, Parameters,
+    AggregationError, Clerk, ClosedKeyRegistration, Index, MithrilMembershipDigest, Parameters,
     Signer, Stake,
 };
 
@@ -12,7 +12,7 @@ use mithril_stm::{
 pub type ProtocolVersion<'a> = &'a str;
 
 // Protocol types alias
-pub(crate) type D = CustomMembershipDigest;
+pub(crate) type D = MithrilMembershipDigest;
 
 /// The id of a mithril party.
 pub type ProtocolPartyId = String;

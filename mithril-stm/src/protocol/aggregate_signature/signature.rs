@@ -98,7 +98,7 @@ pub enum AggregateSignature<D: MembershipDigest> {
     Concatenation(ConcatenationProof<D>),
 }
 
-impl<D: MembershipDigest + Clone> AggregateSignature<D> {
+impl<D: MembershipDigest> AggregateSignature<D> {
     /// Verify an aggregate signature
     pub fn verify(
         &self,
@@ -221,12 +221,12 @@ mod tests {
 
         use super::{AggregateSignature, AggregateSignatureType};
         use crate::{
-            Clerk, ClosedKeyRegistration, KeyRegistration, Parameters, Signer,
-            membership_commitment::CustomMembershipDigest,
+            Clerk, ClosedKeyRegistration, KeyRegistration, MithrilMembershipDigest, Parameters,
+            Signer,
             signature_scheme::{BlsSigningKey, BlsVerificationKeyProofOfPossession},
         };
 
-        type D = CustomMembershipDigest;
+        type D = MithrilMembershipDigest;
 
         const GOLDEN_JSON: &str = r#"
         {

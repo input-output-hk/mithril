@@ -7,8 +7,8 @@ use std::{
 use anyhow::anyhow;
 
 use crate::{
-    RegisterError, Stake, StmResult,
-    membership_commitment::{MembershipDigest, MerkleTree, MerkleTreeLeaf},
+    MembershipDigest, RegisterError, Stake, StmResult,
+    membership_commitment::{MerkleTree, MerkleTreeLeaf},
     signature_scheme::{BlsVerificationKey, BlsVerificationKeyProofOfPossession},
 };
 
@@ -93,7 +93,7 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    use crate::{membership_commitment::CustomMembershipDigest, signature_scheme::BlsSigningKey};
+    use crate::{MithrilMembershipDigest, signature_scheme::BlsSigningKey};
 
     use super::*;
 
@@ -146,7 +146,7 @@ mod tests {
                 }
             }
             if !kr.keys.is_empty() {
-                let closed = kr.close::<CustomMembershipDigest>();
+                let closed = kr.close::<MithrilMembershipDigest>();
                 let retrieved_keys = closed.reg_parties.iter().map(|r| (r.0, r.1)).collect::<HashMap<_,_>>();
                 assert!(retrieved_keys == keys);
             }

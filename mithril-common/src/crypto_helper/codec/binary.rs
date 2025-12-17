@@ -31,14 +31,14 @@ pub trait TryFromBytes: Sized {
 mod binary_mithril_stm {
     use anyhow::anyhow;
     use mithril_stm::{
-        AggregateSignature, AggregateVerificationKey, CustomMembershipDigest, Initializer,
+        AggregateSignature, AggregateVerificationKey, Initializer, MithrilMembershipDigest,
         Parameters, SingleSignature, SingleSignatureWithRegisteredParty, VerificationKey,
         VerificationKeyProofOfPossession,
     };
 
     use super::*;
 
-    type D = CustomMembershipDigest;
+    type D = MithrilMembershipDigest;
 
     impl TryToBytes for Parameters {
         fn to_bytes_vec(&self) -> StdResult<Vec<u8>> {

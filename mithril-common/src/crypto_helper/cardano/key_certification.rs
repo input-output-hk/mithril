@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use mithril_stm::{
-    ClosedKeyRegistration, CustomMembershipDigest, Initializer, KeyRegistration, MembershipDigest,
+    ClosedKeyRegistration, Initializer, KeyRegistration, MembershipDigest, MithrilMembershipDigest,
     Parameters, RegisterError, Signer, Stake, VerificationKeyProofOfPossession,
 };
 
@@ -29,7 +29,7 @@ use crate::{
 };
 
 // Protocol types alias
-type D = CustomMembershipDigest;
+type D = MithrilMembershipDigest;
 
 /// The KES period that is used to check if the KES keys is expired
 pub type KesPeriod = u32;

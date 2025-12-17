@@ -4,8 +4,8 @@ use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;
 
 use mithril_stm::{
-    AggregateSignature, AggregateSignatureType, Clerk, CustomMembershipDigest, Initializer,
-    KeyRegistration, MembershipDigest, Parameters, Signer,
+    AggregateSignature, AggregateSignatureType, Clerk, Initializer, KeyRegistration,
+    MembershipDigest, MithrilMembershipDigest, Parameters, Signer,
 };
 
 /// This benchmark framework is not ideal. We really have to think what is the best mechanism for
@@ -13,7 +13,7 @@ use mithril_stm::{
 /// * Registration depends on the number of parties (should be constant, as it is a lookup table)
 /// * Signing depends on the parameter `m`, as it defines the number of lotteries a user can play
 /// * Aggregation depends on `k`.
-fn stm_benches<H: MembershipDigest + Clone>(
+fn stm_benches<H: MembershipDigest>(
     c: &mut Criterion,
     nr_parties: usize,
     params: Parameters,
@@ -81,7 +81,7 @@ fn batch_benches<H>(
     params: Parameters,
     hashing_alg: &str,
 ) where
-    H: MembershipDigest + Clone,
+    H: MembershipDigest,
 {
     let mut group = c.benchmark_group(format!("STM/{hashing_alg}"));
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
@@ -154,7 +154,7 @@ fn batch_benches<H>(
 }
 
 fn batch_stm_benches_blake_300(c: &mut Criterion) {
-    batch_benches::<CustomMembershipDigest>(
+    batch_benches::<MithrilMembershipDigest>(
         c,
         &[1, 10, 20, 100],
         300,
@@ -168,7 +168,7 @@ fn batch_stm_benches_blake_300(c: &mut Criterion) {
 }
 
 fn stm_benches_blake_300(c: &mut Criterion) {
-    stm_benches::<CustomMembershipDigest>(
+    stm_benches::<MithrilMembershipDigest>(
         c,
         300,
         Parameters {
@@ -181,7 +181,7 @@ fn stm_benches_blake_300(c: &mut Criterion) {
 }
 
 fn batch_stm_benches_blake_2000(c: &mut Criterion) {
-    batch_benches::<CustomMembershipDigest>(
+    batch_benches::<MithrilMembershipDigest>(
         c,
         &[1, 10, 20, 100],
         2000,
@@ -195,7 +195,7 @@ fn batch_stm_benches_blake_2000(c: &mut Criterion) {
 }
 
 fn stm_benches_blake_2000(c: &mut Criterion) {
-    stm_benches::<CustomMembershipDigest>(
+    stm_benches::<MithrilMembershipDigest>(
         c,
         2000,
         Parameters {

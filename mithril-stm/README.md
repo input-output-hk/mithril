@@ -69,10 +69,10 @@ use rayon::prelude::*;
 
 use mithril_stm::{
     AggregateSignatureType, AggregationError, Clerk, Initializer, KeyRegistration, Parameters,
-    Signer, SingleSignature, CustomMembershipDigest
+    Signer, SingleSignature, MithrilMembershipDigest
 };
 
-type H = CustomMembershipDigest;
+type H = MithrilMembershipDigest;
 
 let nparties = 32;
 let mut rng = ChaCha20Rng::from_seed([0u8; 32]);

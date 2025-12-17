@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ClosedKeyRegistration, Stake,
-    membership_commitment::{MembershipDigest, MerkleBatchPath, MerkleTreeBatchCommitment},
+    ClosedKeyRegistration, MembershipDigest, Stake,
+    membership_commitment::{MerkleBatchPath, MerkleTreeBatchCommitment},
 };
 
 /// Stm aggregate key (batch compatible), which contains the merkle tree commitment and the total stake of the system.

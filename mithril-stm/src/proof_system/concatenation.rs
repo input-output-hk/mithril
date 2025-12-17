@@ -3,9 +3,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 use crate::{
-    AggregateSignatureError, AggregateVerificationKey, AggregationError, Clerk, Parameters,
-    RegisteredParty, SingleSignature, SingleSignatureWithRegisteredParty, StmResult,
-    membership_commitment::{MembershipDigest, MerkleBatchPath},
+    AggregateSignatureError, AggregateVerificationKey, AggregationError, Clerk, MembershipDigest,
+    Parameters, RegisteredParty, SingleSignature, SingleSignatureWithRegisteredParty, StmResult,
+    membership_commitment::MerkleBatchPath,
     signature_scheme::{BlsSignature, BlsVerificationKey},
 };
 
@@ -23,7 +23,7 @@ pub struct ConcatenationProof<D: MembershipDigest> {
     pub batch_proof: MerkleBatchPath<D::ConcatenationHash>,
 }
 
-impl<D: MembershipDigest + Clone> ConcatenationProof<D> {
+impl<D: MembershipDigest> ConcatenationProof<D> {
     /// Aggregate a set of signatures for their corresponding indices.
     ///
     /// This function first deduplicates the repeated signatures, and if there are enough signatures, it collects the merkle tree indexes of unique signatures.
