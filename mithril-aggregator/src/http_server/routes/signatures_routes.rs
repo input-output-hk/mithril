@@ -112,8 +112,18 @@ mod handlers {
                     Ok(reply::server_error(err))
                 }
             },
-            Ok(SignatureRegistrationStatus::Registered) => Ok(reply::empty(StatusCode::CREATED)),
-            Ok(SignatureRegistrationStatus::Buffered) => Ok(reply::empty(StatusCode::ACCEPTED)),
+            Ok(registration_status) => {
+                metrics_service
+                    .get_signature_registration_total_successful_since_startup()
+                    .increment(&[METRICS_HTTP_ORIGIN]);
+
+                match registration_status {
+                    SignatureRegistrationStatus::Registered => {
+                        Ok(reply::empty(StatusCode::CREATED))
+                    }
+                    SignatureRegistrationStatus::Buffered => Ok(reply::empty(StatusCode::ACCEPTED)),
+                }
+            }
         }
     }
 }
@@ -127,6 +137,7 @@ mod tests {
     use warp::test::request;
 
     use mithril_api_spec::APISpec;
+    use mithril_common::test::mock_extensions::MockBuilder;
     use mithril_common::{
         entities::SignedEntityType, messages::RegisterSignatureMessageHttp, test::double::Dummy,
     };
@@ -150,14 +161,27 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signatures_increments_signature_registration_total_received_since_startup_metric()
+    async fn test_register_signatures_increments_signature_registration_total_received_and_successful_since_startup_metric_if_successful()
      {
         let method = Method::POST.as_str();
         let path = "/register-signatures";
-        let dependency_manager = Arc::new(initialize_dependencies!().await);
-        let initial_counter_value = dependency_manager
+        let dependency_manager = {
+            let mut deps = initialize_dependencies!().await;
+            deps.certifier_service = MockBuilder::<MockCertifierService>::configure(|mock| {
+                mock.expect_register_single_signature()
+                    .returning(|_, _| Ok(SignatureRegistrationStatus::Registered));
+            });
+            deps.single_signer_authenticator =
+                Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());
+            Arc::new(deps)
+        };
+        let initial_received_counter_value = dependency_manager
             .metrics_service
             .get_signature_registration_total_received_since_startup()
+            .get(&["HTTP"]);
+        let initial_successful_counter_value = dependency_manager
+            .metrics_service
+            .get_signature_registration_total_successful_since_startup()
             .get(&["HTTP"]);
 
         request()
@@ -170,10 +194,63 @@ mod tests {
             .await;
 
         assert_eq!(
-            initial_counter_value + 1,
+            initial_received_counter_value + 1,
             dependency_manager
                 .metrics_service
                 .get_signature_registration_total_received_since_startup()
+                .get(&["HTTP"])
+        );
+        assert_eq!(
+            initial_successful_counter_value + 1,
+            dependency_manager
+                .metrics_service
+                .get_signature_registration_total_successful_since_startup()
+                .get(&["HTTP"])
+        );
+    }
+
+    #[tokio::test]
+    async fn test_register_signatures_only_increments_signature_registration_total_received_since_startup_metric_if_failure()
+     {
+        let method = Method::POST.as_str();
+        let path = "/register-signatures";
+        let dependency_manager = {
+            let mut deps = initialize_dependencies!().await;
+            deps.single_signer_authenticator =
+                Arc::new(SingleSignatureAuthenticator::new_that_reject_everything());
+            Arc::new(deps)
+        };
+
+        let initial_received_counter_value = dependency_manager
+            .metrics_service
+            .get_signature_registration_total_received_since_startup()
+            .get(&["HTTP"]);
+        let initial_successful_counter_value = dependency_manager
+            .metrics_service
+            .get_signature_registration_total_successful_since_startup()
+            .get(&["HTTP"]);
+
+        request()
+            .method(method)
+            .path(path)
+            .json(&RegisterSignatureMessageHttp::dummy())
+            .reply(&setup_router(RouterState::new_with_dummy_config(
+                dependency_manager.clone(),
+            )))
+            .await;
+
+        assert_eq!(
+            initial_received_counter_value + 1,
+            dependency_manager
+                .metrics_service
+                .get_signature_registration_total_received_since_startup()
+                .get(&["HTTP"])
+        );
+        assert_eq!(
+            initial_successful_counter_value,
+            dependency_manager
+                .metrics_service
+                .get_signature_registration_total_successful_since_startup()
                 .get(&["HTTP"])
         );
     }

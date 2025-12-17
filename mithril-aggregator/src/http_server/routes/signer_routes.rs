@@ -139,6 +139,10 @@ mod handlers {
                     epoch_str.as_str(),
                 ));
 
+                metrics_service
+                    .get_signer_registration_total_successful_since_startup()
+                    .increment(&[origin_tag.as_deref().unwrap_or_default()]);
+
                 Ok(reply::empty(StatusCode::CREATED))
             }
             Err(SignerRegistrationError::ExistingSigner(signer_with_stake)) => {
@@ -271,6 +275,7 @@ mod tests {
         test::{
             builder::MithrilFixtureBuilder,
             double::{Dummy, fake_data},
+            mock_extensions::MockBuilder,
         },
     };
 
@@ -334,15 +339,27 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signer_post_increments_signer_registration_total_received_since_startup_metric()
+    async fn test_register_signer_increments_signer_registration_total_received_and_successful_since_startup_metric_if_successful()
      {
         let method = Method::POST.as_str();
         let path = "/register-signer";
-        let dependency_manager = Arc::new(initialize_dependencies!().await);
-        let initial_counter_value = dependency_manager
+        let dependency_manager = {
+            let mut deps = initialize_dependencies!().await;
+            deps.signer_registerer = MockBuilder::<MockSignerRegisterer>::configure(|mock| {
+                mock.expect_register_signer()
+                    .returning(|_, _| Ok(fake_data::signers_with_stakes(1).pop().unwrap()));
+            });
+            Arc::new(deps)
+        };
+
+        let initial_received_counter_value = dependency_manager
             .metrics_service
             .get_signer_registration_total_received_since_startup()
             .get(&["TEST"]);
+        let initial_successful_counter_value = dependency_manager
+            .metrics_service
+            .get_signer_registration_total_successful_since_startup()
+            .get(&["HTTP"]);
 
         request()
             .method(method)
@@ -356,10 +373,67 @@ mod tests {
             .await;
 
         assert_eq!(
-            initial_counter_value + 1,
+            initial_received_counter_value + 1,
             dependency_manager
                 .metrics_service
                 .get_signer_registration_total_received_since_startup()
+                .get(&["TEST"])
+        );
+        assert_eq!(
+            initial_successful_counter_value + 1,
+            dependency_manager
+                .metrics_service
+                .get_signer_registration_total_successful_since_startup()
+                .get(&["TEST"])
+        );
+    }
+
+    #[tokio::test]
+    async fn test_register_signer_only_increments_signer_registration_total_received_since_startup_metric_if_failure()
+     {
+        let method = Method::POST.as_str();
+        let path = "/register-signer";
+        let dependency_manager = {
+            let mut deps = initialize_dependencies!().await;
+            deps.signer_registerer = MockBuilder::<MockSignerRegisterer>::configure(|mock| {
+                mock.expect_register_signer()
+                    .returning(|_, _| Err(SignerRegistrationError::RegistrationRoundNotYetOpened));
+            });
+            Arc::new(deps)
+        };
+
+        let initial_received_counter_value = dependency_manager
+            .metrics_service
+            .get_signer_registration_total_received_since_startup()
+            .get(&["TEST"]);
+        let initial_successful_counter_value = dependency_manager
+            .metrics_service
+            .get_signer_registration_total_successful_since_startup()
+            .get(&["HTTP"]);
+
+        request()
+            .method(method)
+            .path(path)
+            .json(&RegisterSignerMessage::dummy())
+            .header(MITHRIL_ORIGIN_TAG_HEADER, "TEST")
+            .reply(&setup_router(RouterState::new_with_origin_tag_white_list(
+                dependency_manager.clone(),
+                &["TEST"],
+            )))
+            .await;
+
+        assert_eq!(
+            initial_received_counter_value + 1,
+            dependency_manager
+                .metrics_service
+                .get_signer_registration_total_received_since_startup()
+                .get(&["TEST"])
+        );
+        assert_eq!(
+            initial_successful_counter_value,
+            dependency_manager
+                .metrics_service
+                .get_signer_registration_total_successful_since_startup()
                 .get(&["TEST"])
         );
     }

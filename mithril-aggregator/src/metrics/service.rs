@@ -84,9 +84,19 @@ build_metrics_service!(
         "Number of signer registrations received since startup on a Mithril aggregator node",
         &[SIGNER_REGISTRATION_ORIGIN_TAG_LABEL]
     ),
+    signer_registration_total_successful_since_startup:MetricCounterWithLabels(
+        "mithril_aggregator_signer_registration_total_successful_since_startup",
+        "Number of successful signer registrations received since startup on a Mithril aggregator node",
+        &[SIGNER_REGISTRATION_ORIGIN_TAG_LABEL]
+    ),
     signature_registration_total_received_since_startup:MetricCounterWithLabels(
         "mithril_aggregator_signature_registration_total_received_since_startup",
         "Number of signature registrations received since startup on a Mithril aggregator node",
+        &[SIGNER_SIGNATURE_ORIGIN_TAG_LABEL]
+    ),
+    signature_registration_total_successful_since_startup:MetricCounterWithLabels(
+        "mithril_aggregator_signature_registration_total_successful_since_startup",
+        "Number of successful signature registrations received since startup on a Mithril aggregator node",
         &[SIGNER_SIGNATURE_ORIGIN_TAG_LABEL]
     ),
     certificate_total_produced_since_startup:MetricCounter(
