@@ -153,81 +153,120 @@ impl<D: Digest + Clone + FixedOutput + Send + Sync> Clerk<D> {
     pub fn select_valid_signatures_for_k_indices(
         params: &Parameters,
         msg: &[u8],
-        sigs: &[SingleSignatureWithRegisteredParty],
+        signatures: &[SingleSignatureWithRegisteredParty],
         avk: &AggregateVerificationKey<D>,
     ) -> StmResult<Vec<SingleSignatureWithRegisteredParty>> {
-        let mut sig_by_index: BTreeMap<Index, &SingleSignatureWithRegisteredParty> =
-            BTreeMap::new();
-        let mut removal_idx_by_vk: HashMap<&SingleSignatureWithRegisteredParty, Vec<Index>> =
-            HashMap::new();
+        let (signatures_by_index, signatures_by_indices_to_remove) =
+            Clerk::select_canonical_signatures_by_index_with_conflict_resolution(
+                params, msg, signatures, avk,
+            );
 
-        for sig_reg in sigs.iter() {
-            if sig_reg
-                .sig
-                .verify(params, &sig_reg.reg_party.0, &sig_reg.reg_party.1, avk, msg)
-                .is_err()
-            {
-                continue;
-            }
-            for index in sig_reg.sig.indexes.iter() {
-                let mut insert_this_sig = false;
-                if let Some(&previous_sig) = sig_by_index.get(index) {
-                    let sig_to_remove_index = if sig_reg.sig.sigma < previous_sig.sig.sigma {
-                        insert_this_sig = true;
-                        previous_sig
-                    } else {
-                        sig_reg
-                    };
+        let mut deduplicated_signatures: HashSet<SingleSignatureWithRegisteredParty> =
+            HashSet::new();
+        let mut total_number_of_indices: u64 = 0;
 
-                    if let Some(indexes) = removal_idx_by_vk.get_mut(sig_to_remove_index) {
-                        indexes.push(*index);
-                    } else {
-                        removal_idx_by_vk.insert(sig_to_remove_index, vec![*index]);
+        for (_, current_signature) in signatures_by_index.iter() {
+            if !deduplicated_signatures.contains(current_signature) {
+                let mut signature_to_deduplicate = current_signature.clone();
+                if let Some(indices) = signatures_by_indices_to_remove.get(current_signature) {
+                    signature_to_deduplicate.sig.indexes = signature_to_deduplicate
+                        .sig
+                        .indexes
+                        .clone()
+                        .into_iter()
+                        .filter(|i| !indices.contains(i))
+                        .collect();
+                }
+                let result: Result<u64, _> = signature_to_deduplicate.sig.indexes.len().try_into();
+                if let Ok(number_of_indices) = result {
+                    if deduplicated_signatures.contains(&signature_to_deduplicate) {
+                        panic!("Should not reach!");
                     }
-                } else {
-                    insert_this_sig = true;
-                }
+                    deduplicated_signatures.insert(signature_to_deduplicate);
+                    total_number_of_indices += number_of_indices;
 
-                if insert_this_sig {
-                    sig_by_index.insert(*index, sig_reg);
-                }
-            }
-        }
-
-        let mut dedup_sigs: HashSet<SingleSignatureWithRegisteredParty> = HashSet::new();
-        let mut count: u64 = 0;
-
-        for (_, &sig_reg) in sig_by_index.iter() {
-            if dedup_sigs.contains(sig_reg) {
-                continue;
-            }
-            let mut deduped_sig = sig_reg.clone();
-            if let Some(indexes) = removal_idx_by_vk.get(sig_reg) {
-                deduped_sig.sig.indexes = deduped_sig
-                    .sig
-                    .indexes
-                    .clone()
-                    .into_iter()
-                    .filter(|i| !indexes.contains(i))
-                    .collect();
-            }
-
-            let size: Result<u64, _> = deduped_sig.sig.indexes.len().try_into();
-            if let Ok(size) = size {
-                if dedup_sigs.contains(&deduped_sig) {
-                    panic!("Should not reach!");
-                }
-                dedup_sigs.insert(deduped_sig);
-                count += size;
-
-                if count >= params.k {
-                    return Ok(dedup_sigs.into_iter().collect());
+                    if total_number_of_indices >= params.k {
+                        return Ok(deduplicated_signatures.into_iter().collect());
+                    }
                 }
             }
         }
         Err(anyhow!(AggregationError::NotEnoughSignatures(
-            count, params.k
+            total_number_of_indices,
+            params.k
         )))
+    }
+
+    /// Helper function to process a collection of signatures and construct a canonical mapping from
+    /// each index to a single valid signature.
+    ///
+    /// - Signatures that fail verification are ignored.
+    /// - For each index, at most one signature is retained.
+    /// - If multiple valid signatures claim the same index, the conflict is resolved by selecting
+    ///   the signature with the minimal `sigma` value as the canonical representative.
+    /// - All non-canonical signatures are recorded together with the indices for which they were superseded.
+    fn select_canonical_signatures_by_index_with_conflict_resolution(
+        params: &Parameters,
+        msg: &[u8],
+        signatures: &[SingleSignatureWithRegisteredParty],
+        avk: &AggregateVerificationKey<D>,
+    ) -> (
+        BTreeMap<Index, SingleSignatureWithRegisteredParty>,
+        HashMap<SingleSignatureWithRegisteredParty, Vec<Index>>,
+    ) {
+        let mut signatures_by_index: BTreeMap<Index, SingleSignatureWithRegisteredParty> =
+            BTreeMap::new();
+        let mut signatures_by_indices_to_remove: HashMap<
+            SingleSignatureWithRegisteredParty,
+            Vec<Index>,
+        > = HashMap::new();
+
+        for current_signature in signatures.iter() {
+            // Skip signatures that fail verification
+            if current_signature
+                .sig
+                .verify(
+                    &params,
+                    &current_signature.reg_party.0,
+                    &current_signature.reg_party.1,
+                    &avk,
+                    msg,
+                )
+                .is_ok()
+            {
+                // Process each index claimed by the current signature
+                for index in current_signature.sig.indexes.iter() {
+                    let mut insert_this_signature = false;
+
+                    // Check whether an existing signature already claims this index
+                    if let Some(previous_signature) = signatures_by_index.get(index) {
+                        // Resolve conflict by selecting the signature with smaller `sigma`
+                        let signature_to_remove_index =
+                            if current_signature.sig.sigma < previous_signature.sig.sigma {
+                                insert_this_signature = true;
+                                previous_signature
+                            } else {
+                                current_signature
+                            };
+                        // Record the index for which the losing signature was superseded
+                        if let Some(indexes) =
+                            signatures_by_indices_to_remove.get_mut(signature_to_remove_index)
+                        {
+                            indexes.push(*index);
+                        } else {
+                            signatures_by_indices_to_remove
+                                .insert(signature_to_remove_index.clone(), vec![*index]);
+                        }
+                    } else {
+                        insert_this_signature = true;
+                    }
+                    if insert_this_signature {
+                        signatures_by_index.insert(*index, current_signature.clone());
+                    }
+                }
+            }
+        }
+        (signatures_by_index, signatures_by_indices_to_remove)
     }
 }
 
