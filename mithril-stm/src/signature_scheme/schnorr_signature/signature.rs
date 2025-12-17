@@ -139,6 +139,56 @@ impl SchnorrSignature {
 
 #[cfg(test)]
 mod tests {
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    use crate::signature_scheme::{SchnorrSignature, SchnorrSigningKey, SchnorrVerificationKey};
+
+    #[test]
+    fn invalid_sig() {
+        let msg = vec![0, 0, 0, 1];
+        let msg2 = vec![0, 0, 0, 2];
+        let seed = [0u8; 32];
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let vk = SchnorrVerificationKey::new_from_signing_key(sk.clone()).unwrap();
+        let sk2 = SchnorrSigningKey::generate(&mut rng).unwrap();
+        let vk2 = SchnorrVerificationKey::new_from_signing_key(sk2).unwrap();
+
+        let sig = sk.sign(&msg, &mut rng).unwrap();
+        let sig2 = sk.sign(&msg2, &mut rng).unwrap();
+
+        // Wrong verification key is used
+        let result1 = sig.verify(&msg, &vk2);
+        let result2 = sig2.verify(&msg, &vk);
+
+        result1.expect_err("Wrong verification key used, test should fail.");
+        // Wrong message is verified
+        result2.expect_err("Wrong message used, test should fail.");
+    }
+
+    #[test]
+    fn serialize_deserialize_signature() {
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+
+        let msg = vec![0, 0, 0, 1];
+        let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+
+        let sig = sk.sign(&msg, &mut rng).unwrap();
+        let sig_bytes: [u8; 96] = sig.to_bytes();
+        let sig2 = SchnorrSignature::from_bytes(&sig_bytes).unwrap();
+
+        assert_eq!(sig, sig2);
+    }
+
+    #[test]
+    fn from_bytes_signature_not_enough_bytes() {
+        let msg = vec![0u8; 95];
+
+        let result = SchnorrSignature::from_bytes(&msg);
+
+        result.expect_err("Not enough bytes.");
+    }
 
     mod golden {
 
