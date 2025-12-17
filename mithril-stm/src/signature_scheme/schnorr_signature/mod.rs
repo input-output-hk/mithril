@@ -29,7 +29,7 @@ mod tests {
             // Valid generation check
             let sk = SchnorrSigningKey::generate(&mut ChaCha20Rng::from_seed(seed)).unwrap();
             let g = PrimeOrderProjectivePoint::create_generator();
-            let vk = g.scalar_multiplication(&sk.0);
+            let vk = sk.0 * g;
             let vk_from_sk = SchnorrVerificationKey::new_from_signing_key(sk).unwrap();
             assert_eq!(vk, vk_from_sk.0);
 
@@ -110,7 +110,7 @@ mod tests {
             assert!(
                 matches!(
                     result.downcast_ref::<SchnorrSignatureError>(),
-                    Some(SchnorrSignatureError::ScalarFieldElementSerializationError)
+                    Some(SchnorrSignatureError::ScalarFieldElementSerialization)
                 ),
                 "Unexpected error: {result:?}"
             );
@@ -145,7 +145,7 @@ mod tests {
             assert!(
                 matches!(
                     result.downcast_ref::<SchnorrSignatureError>(),
-                    Some(SchnorrSignatureError::PrimeOrderProjectivePointSerializationError)
+                    Some(SchnorrSignatureError::PrimeOrderProjectivePointSerialization)
                 ),
                 "Unexpected error: {result:?}"
             );
@@ -169,7 +169,7 @@ mod tests {
             assert!(
                 matches!(
                     result.downcast_ref::<SchnorrSignatureError>(),
-                    Some(SchnorrSignatureError::ProjectivePointSerializationError)
+                    Some(SchnorrSignatureError::ProjectivePointSerialization)
                 ),
                 "Unexpected error: {result:?}"
             );
@@ -181,7 +181,7 @@ mod tests {
             assert!(
                 matches!(
                     result.downcast_ref::<SchnorrSignatureError>(),
-                    Some(SchnorrSignatureError::ScalarFieldElementSerializationError)
+                    Some(SchnorrSignatureError::ScalarFieldElementSerialization)
                 ),
                 "Unexpected error: {result:?}"
             );
@@ -193,7 +193,7 @@ mod tests {
             assert!(
                 matches!(
                     result.downcast_ref::<SchnorrSignatureError>(),
-                    Some(SchnorrSignatureError::ScalarFieldElementSerializationError)
+                    Some(SchnorrSignatureError::ScalarFieldElementSerialization)
                 ),
                 "Unexpected error: {result:?}"
             );

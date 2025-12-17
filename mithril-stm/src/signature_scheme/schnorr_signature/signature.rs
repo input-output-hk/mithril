@@ -54,27 +54,28 @@ impl SchnorrSignature {
         let msg_hash_point = ProjectivePoint::hash_to_projective_point(msg);
 
         // Computing random_point_1_recomputed = response *  H(msg) + challenge * commitment_point
-        let response_time_msg_hash_point = msg_hash_point.scalar_multiplication(&self.response);
-        let challenge_times_commitment_point =
-            self.commitment_point.scalar_multiplication(&self.challenge);
         let random_point_1_recomputed =
-            response_time_msg_hash_point.add(challenge_times_commitment_point);
+            self.response * msg_hash_point + self.challenge * self.commitment_point;
 
         // Computing random_point_2_recomputed = response * prime_order_generator_point + challenge * vk
-        let response_times_generator_point =
-            prime_order_generator_point.scalar_multiplication(&self.response);
-        let challenge_times_vk = verification_key.0.scalar_multiplication(&self.challenge);
-        let random_point_2_recomputed = response_times_generator_point.add(challenge_times_vk);
+        let random_point_2_recomputed =
+            self.response * prime_order_generator_point + self.challenge * verification_key.0;
 
         // Since the hash function takes as input scalar elements
         // We need to convert the EC points to their coordinates
-        let points_coordinates = BaseFieldElement::collect_coordinates_of_list_of_points(&[
+        let points_coordinates: Vec<BaseFieldElement> = [
             msg_hash_point,
-            ProjectivePoint::from_prime_order_projective_point(verification_key.0),
+            ProjectivePoint::from(verification_key.0),
             self.commitment_point,
             random_point_1_recomputed,
-            ProjectivePoint::from_prime_order_projective_point(random_point_2_recomputed),
-        ]);
+            ProjectivePoint::from(random_point_2_recomputed),
+        ]
+        .iter()
+        .flat_map(|point| {
+            let (u, v) = point.get_coordinates();
+            [u, v]
+        })
+        .collect();
 
         let challenge_recomputed = compute_truncated_digest(&points_coordinates);
 
@@ -87,7 +88,7 @@ impl SchnorrSignature {
         Ok(())
     }
 
-    /// Convert an `SchnorrSignature` into bytes.
+    /// Convert a `SchnorrSignature` into bytes.
     pub fn to_bytes(self) -> [u8; 96] {
         let mut out = [0; 96];
         out[0..32].copy_from_slice(&self.commitment_point.to_bytes());
@@ -104,34 +105,29 @@ impl SchnorrSignature {
                 .with_context(|| "Not enough bytes provided to create a signature.");
         }
 
-        let mut u8bytes = [0u8; 32];
-
-        u8bytes.copy_from_slice(
+        let commitment_point = ProjectivePoint::from_bytes(
             bytes
                 .get(0..32)
                 .ok_or(SchnorrSignatureError::SerializationError)
                 .with_context(|| "Could not get the bytes of `commitment_point`")?,
-        );
-        let commitment_point = ProjectivePoint::from_bytes(&u8bytes)
-            .with_context(|| "Could not convert bytes to `commitment_point`")?;
+        )
+        .with_context(|| "Could not convert bytes to `commitment_point`")?;
 
-        u8bytes.copy_from_slice(
+        let response = ScalarFieldElement::from_bytes(
             bytes
                 .get(32..64)
                 .ok_or(SchnorrSignatureError::SerializationError)
                 .with_context(|| "Could not get the bytes of `response`")?,
-        );
-        let response = ScalarFieldElement::from_bytes(&u8bytes)
-            .with_context(|| "Could not convert the bytes to `response`")?;
+        )
+        .with_context(|| "Could not convert the bytes to `response`")?;
 
-        u8bytes.copy_from_slice(
+        let challenge = ScalarFieldElement::from_bytes(
             bytes
                 .get(64..96)
                 .ok_or(SchnorrSignatureError::SerializationError)
                 .with_context(|| "Could not get the bytes of `challenge`")?,
-        );
-        let challenge = ScalarFieldElement::from_bytes(&u8bytes)
-            .with_context(|| "Could not convert bytes to `challenge`")?;
+        )
+        .with_context(|| "Could not convert bytes to `challenge`")?;
 
         Ok(Self {
             commitment_point,

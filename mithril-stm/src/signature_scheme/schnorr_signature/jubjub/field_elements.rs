@@ -2,44 +2,48 @@ use anyhow::anyhow;
 use dusk_jubjub::{Fq as JubjubBase, Fr as JubjubScalar};
 use ff::Field;
 use rand_core::{CryptoRng, RngCore};
+use std::ops::{Add, Mul, Sub};
 
-use super::ProjectivePoint;
 use crate::{StmResult, signature_scheme::SchnorrSignatureError};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct BaseFieldElement(pub(crate) JubjubBase);
 
 impl BaseFieldElement {
-    pub(crate) fn add(&self, other: &Self) -> Self {
-        BaseFieldElement(self.0 + other.0)
-    }
-
-    pub(crate) fn sub(&self, other: &Self) -> Self {
-        BaseFieldElement(self.0 - other.0)
-    }
-
-    pub(crate) fn mul(&self, other: &Self) -> Self {
-        BaseFieldElement(self.0 * other.0)
-    }
-
-    pub(crate) fn square(&self) -> Self {
-        BaseFieldElement(self.0.square())
-    }
-
     pub(crate) fn get_one() -> Self {
         BaseFieldElement(JubjubBase::ONE)
     }
+}
 
-    pub(crate) fn collect_coordinates_of_list_of_points(
-        point_list: &[ProjectivePoint],
-    ) -> Vec<Self> {
-        let mut coordinates: Vec<BaseFieldElement> = Vec::new();
-        for point in point_list {
-            let (u, v) = point.get_coordinates();
-            coordinates.push(u);
-            coordinates.push(v);
-        }
-        coordinates
+impl Add for BaseFieldElement {
+    type Output = BaseFieldElement;
+
+    fn add(self, other: BaseFieldElement) -> BaseFieldElement {
+        BaseFieldElement(self.0 + other.0)
+    }
+}
+
+impl Sub for &BaseFieldElement {
+    type Output = BaseFieldElement;
+
+    fn sub(self, other: &BaseFieldElement) -> BaseFieldElement {
+        BaseFieldElement(self.0 - other.0)
+    }
+}
+
+impl Mul for BaseFieldElement {
+    type Output = BaseFieldElement;
+
+    fn mul(self, other: BaseFieldElement) -> BaseFieldElement {
+        BaseFieldElement(self.0 * other.0)
+    }
+}
+
+impl Mul for &BaseFieldElement {
+    type Output = BaseFieldElement;
+
+    fn mul(self, other: &BaseFieldElement) -> BaseFieldElement {
+        BaseFieldElement(self.0 * other.0)
     }
 }
 
@@ -74,15 +78,7 @@ impl ScalarFieldElement {
                 return Ok(random_scalar);
             }
         }
-        Err(anyhow!(SchnorrSignatureError::RandomScalarGenerationError))
-    }
-
-    pub(crate) fn sub(&self, other: &Self) -> Self {
-        ScalarFieldElement(self.0 - other.0)
-    }
-
-    pub(crate) fn mul(&self, other: &Self) -> Self {
-        ScalarFieldElement(self.0 * other.0)
+        Err(anyhow!(SchnorrSignatureError::RandomScalarGeneration))
     }
 
     pub(crate) fn to_bytes(self) -> [u8; 32] {
@@ -94,15 +90,31 @@ impl ScalarFieldElement {
         scalar_bytes.copy_from_slice(
             bytes
                 .get(..32)
-                .ok_or(SchnorrSignatureError::ScalarFieldElementSerializationError)?,
+                .ok_or(SchnorrSignatureError::ScalarFieldElementSerialization)?,
         );
 
         match JubjubScalar::from_bytes(&scalar_bytes).into_option() {
             Some(scalar_field_element) => Ok(Self(scalar_field_element)),
             None => Err(anyhow!(
-                SchnorrSignatureError::ScalarFieldElementSerializationError
+                SchnorrSignatureError::ScalarFieldElementSerialization
             )),
         }
+    }
+}
+
+impl Mul for ScalarFieldElement {
+    type Output = ScalarFieldElement;
+
+    fn mul(self, other: ScalarFieldElement) -> ScalarFieldElement {
+        ScalarFieldElement(self.0 * other.0)
+    }
+}
+
+impl Sub for ScalarFieldElement {
+    type Output = ScalarFieldElement;
+
+    fn sub(self, other: ScalarFieldElement) -> ScalarFieldElement {
+        ScalarFieldElement(self.0 - other.0)
     }
 }
 

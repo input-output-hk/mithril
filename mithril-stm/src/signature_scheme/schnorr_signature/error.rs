@@ -13,21 +13,21 @@ pub enum SchnorrSignatureError {
     #[error("Invalid bytes")]
     SerializationError,
 
-    /// This error occurs when the serialization of the signing key bytes failed
+    /// This error occurs when the serialization of the scalar field bytes failed
     #[error("Invalid scalar field element bytes")]
-    ScalarFieldElementSerializationError,
+    ScalarFieldElementSerialization,
 
     /// This error occurs when the serialization of the projective point bytes failed
     #[error("Invalid projective point bytes")]
-    ProjectivePointSerializationError,
+    ProjectivePointSerialization,
 
     /// This error occurs when the serialization of the prime order projective point bytes failed
     #[error("Invalid prime order projective point bytes")]
-    PrimeOrderProjectivePointSerializationError,
+    PrimeOrderProjectivePointSerialization,
 
     /// This error occurs when the random scalar fails to generate during the signature
     #[error("Failed generation of the signature's random scalar")]
-    RandomScalarGenerationError,
+    RandomScalarGeneration,
 
     /// This error occurs when signing key is zero or one.
     #[error("The signing key is invalid.")]

@@ -21,13 +21,11 @@ impl SchnorrVerificationKey {
         }
         let generator = PrimeOrderProjectivePoint::create_generator();
 
-        Ok(SchnorrVerificationKey(
-            generator.scalar_multiplication(&signing_key.0),
-        ))
+        Ok(SchnorrVerificationKey(signing_key.0 * generator))
     }
 
     pub fn is_valid(&self) -> StmResult<Self> {
-        let projective_point = ProjectivePoint::from_prime_order_projective_point(self.0);
+        let projective_point = ProjectivePoint::from(self.0);
         if !projective_point.is_prime_order() {
             return Err(anyhow!(SchnorrSignatureError::PointIsNotPrimeOrder(
                 Box::new(self.0)

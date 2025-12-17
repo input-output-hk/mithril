@@ -4,6 +4,7 @@ use dusk_jubjub::{
     SubgroupPoint as JubjubSubgroup,
 };
 use group::{Group, GroupEncoding};
+use std::ops::{Add, Mul};
 
 use super::{BaseFieldElement, ScalarFieldElement};
 use crate::{StmResult, signature_scheme::SchnorrSignatureError};
@@ -16,14 +17,6 @@ impl AffinePoint {
         AffinePoint(JubjubAffinePoint::from(projective_point.0))
     }
 
-    pub(crate) fn from_prime_order_projective_point(
-        prime_order_projective_point: &PrimeOrderProjectivePoint,
-    ) -> Self {
-        AffinePoint(JubjubAffinePoint::from(
-            ProjectivePoint::from_prime_order_projective_point(*prime_order_projective_point).0,
-        ))
-    }
-
     pub(crate) fn get_u(&self) -> BaseFieldElement {
         BaseFieldElement(self.0.get_u())
     }
@@ -33,20 +26,20 @@ impl AffinePoint {
     }
 }
 
+impl From<&PrimeOrderProjectivePoint> for AffinePoint {
+    fn from(prime_order_projective_point: &PrimeOrderProjectivePoint) -> Self {
+        AffinePoint(JubjubAffinePoint::from(JubjubExtended::from(
+            prime_order_projective_point.0,
+        )))
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ProjectivePoint(pub(crate) JubjubExtended);
 
 impl ProjectivePoint {
     pub(crate) fn hash_to_projective_point(input: &[u8]) -> Self {
         ProjectivePoint(JubjubExtended::hash_to_point(input))
-    }
-
-    pub(crate) fn add(&self, other: Self) -> Self {
-        ProjectivePoint(self.0 + other.0)
-    }
-
-    pub(crate) fn scalar_multiplication(&self, scalar: &ScalarFieldElement) -> Self {
-        ProjectivePoint(self.0 * scalar.0)
     }
 
     pub(crate) fn get_coordinates(&self) -> (BaseFieldElement, BaseFieldElement) {
@@ -66,20 +59,34 @@ impl ProjectivePoint {
 
         match JubjubExtended::from_bytes(&projective_point_bytes).into_option() {
             Some(projective_point) => Ok(Self(projective_point)),
-            None => Err(anyhow!(
-                SchnorrSignatureError::ProjectivePointSerializationError
-            )),
+            None => Err(anyhow!(SchnorrSignatureError::ProjectivePointSerialization)),
         }
-    }
-
-    pub(crate) fn from_prime_order_projective_point(
-        prime_order_projective_point: PrimeOrderProjectivePoint,
-    ) -> Self {
-        ProjectivePoint(JubjubExtended::from(prime_order_projective_point.0))
     }
 
     pub(crate) fn is_prime_order(self) -> bool {
         self.0.is_prime_order().into()
+    }
+}
+
+impl Add for ProjectivePoint {
+    type Output = ProjectivePoint;
+
+    fn add(self, other: ProjectivePoint) -> ProjectivePoint {
+        ProjectivePoint(self.0 + other.0)
+    }
+}
+
+impl Mul<ProjectivePoint> for ScalarFieldElement {
+    type Output = ProjectivePoint;
+
+    fn mul(self, point: ProjectivePoint) -> ProjectivePoint {
+        ProjectivePoint(point.0 * self.0)
+    }
+}
+
+impl From<PrimeOrderProjectivePoint> for ProjectivePoint {
+    fn from(prime_order_projective_point: PrimeOrderProjectivePoint) -> Self {
+        ProjectivePoint(JubjubExtended::from(prime_order_projective_point.0))
     }
 }
 
@@ -91,28 +98,18 @@ impl PrimeOrderProjectivePoint {
         PrimeOrderProjectivePoint(JubjubSubgroup::generator())
     }
 
-    pub(crate) fn add(&self, other: Self) -> Self {
-        PrimeOrderProjectivePoint(self.0 + other.0)
-    }
-
-    pub(crate) fn scalar_multiplication(&self, scalar: &ScalarFieldElement) -> Self {
-        PrimeOrderProjectivePoint(self.0 * scalar.0)
-    }
-
     /// Check if the given point is on the curve using its coordinates
     pub(crate) fn is_on_curve(&self) -> StmResult<PrimeOrderProjectivePoint> {
-        let point_affine_representation = AffinePoint::from_prime_order_projective_point(self);
+        let point_affine_representation = AffinePoint::from(self);
         let (x, y) = (
             point_affine_representation.get_u(),
             point_affine_representation.get_v(),
         );
-        let x_square = x.square();
-        let y_square = y.square();
+        let x_square = &x * &x;
+        let y_square = &y * &y;
 
-        let lhs = y_square.sub(&x_square);
-        let mut rhs = x_square.mul(&y_square);
-        rhs = rhs.mul(&BaseFieldElement(EDWARDS_D));
-        rhs = rhs.add(&BaseFieldElement::get_one());
+        let lhs = &y_square - &x_square;
+        let rhs = (x_square * y_square) * BaseFieldElement(EDWARDS_D) + BaseFieldElement::get_one();
 
         if lhs != rhs {
             return Err(anyhow!(SchnorrSignatureError::PointIsNotOnCurve(Box::new(
@@ -134,9 +131,25 @@ impl PrimeOrderProjectivePoint {
         match JubjubSubgroup::from_bytes(&prime_order_projective_point_bytes).into_option() {
             Some(prime_order_projective_point) => Ok(Self(prime_order_projective_point)),
             None => Err(anyhow!(
-                SchnorrSignatureError::PrimeOrderProjectivePointSerializationError
+                SchnorrSignatureError::PrimeOrderProjectivePointSerialization
             )),
         }
+    }
+}
+
+impl Add for PrimeOrderProjectivePoint {
+    type Output = PrimeOrderProjectivePoint;
+
+    fn add(self, other: PrimeOrderProjectivePoint) -> PrimeOrderProjectivePoint {
+        PrimeOrderProjectivePoint(self.0 + other.0)
+    }
+}
+
+impl Mul<PrimeOrderProjectivePoint> for ScalarFieldElement {
+    type Output = PrimeOrderProjectivePoint;
+
+    fn mul(self, point: PrimeOrderProjectivePoint) -> PrimeOrderProjectivePoint {
+        PrimeOrderProjectivePoint(point.0 * self.0)
     }
 }
 
@@ -156,7 +169,7 @@ mod tests {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
             let scalar = ScalarFieldElement::new_random_nonzero_scalar(&mut rng).unwrap();
             let point = PrimeOrderProjectivePoint::create_generator();
-            point.scalar_multiplication(&scalar)
+            PrimeOrderProjectivePoint(point.0 * scalar.0)
         }
 
         #[test]

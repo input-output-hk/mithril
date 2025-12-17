@@ -55,28 +55,34 @@ impl SchnorrSigningKey {
         // First hashing the message to a scalar then hashing it to a curve point
         let msg_hash_point = ProjectivePoint::hash_to_projective_point(msg);
 
-        let commitment_point = msg_hash_point.scalar_multiplication(&self.0);
+        let commitment_point = self.0 * msg_hash_point;
 
         let random_scalar = ScalarFieldElement::new_random_nonzero_scalar(rng)
             .with_context(|| "Random scalar generation failed during signing.")?;
 
-        let random_point_1 = msg_hash_point.scalar_multiplication(&random_scalar);
-        let random_point_2 = prime_order_generator_point.scalar_multiplication(&random_scalar);
+        let random_point_1 = random_scalar * msg_hash_point;
+        let random_point_2 = random_scalar * prime_order_generator_point;
 
         // Since the hash function takes as input scalar elements
         // We need to convert the EC points to their coordinates
         // The order must be preserved
-        let points_coordinates = BaseFieldElement::collect_coordinates_of_list_of_points(&[
+        let points_coordinates: Vec<BaseFieldElement> = [
             msg_hash_point,
-            ProjectivePoint::from_prime_order_projective_point(verification_key.0),
+            ProjectivePoint::from(verification_key.0),
             commitment_point,
             random_point_1,
-            ProjectivePoint::from_prime_order_projective_point(random_point_2),
-        ]);
+            ProjectivePoint::from(random_point_2),
+        ]
+        .iter()
+        .flat_map(|point| {
+            let (u, v) = point.get_coordinates();
+            [u, v]
+        })
+        .collect();
 
         let challenge = compute_truncated_digest(&points_coordinates);
-        let mut response = challenge.mul(&self.0);
-        response = random_scalar.sub(&response);
+        let challenge_times_sk = challenge * self.0;
+        let response = random_scalar - challenge_times_sk;
 
         Ok(SchnorrSignature {
             commitment_point,
