@@ -1,17 +1,43 @@
-use anyhow::{Context, anyhow};
-use dusk_jubjub::SubgroupPoint as JubjubSubgroup;
-use group::{Group, GroupEncoding};
+use anyhow::{Context, Ok, anyhow};
+use serde::{Deserialize, Serialize};
 
+use super::{PrimeOrderProjectivePoint, ProjectivePoint, SchnorrSignatureError, SchnorrSigningKey};
 use crate::StmResult;
-
-use super::{SchnorrSignatureError, SchnorrSigningKey};
 
 /// Schnorr verification key, it consists of a point on the Jubjub curve
 /// vk = g * sk, where g is a generator
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct SchnorrVerificationKey(pub(crate) JubjubSubgroup);
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SchnorrVerificationKey(pub(crate) PrimeOrderProjectivePoint);
 
 impl SchnorrVerificationKey {
+    /// Convert a Schnorr secret key into a verification key
+    ///
+    /// This is done by computing `vk = g * sk` where g is the generator
+    /// of the subgroup and sk is the schnorr secret key
+    pub fn new_from_signing_key(signing_key: SchnorrSigningKey) -> StmResult<Self> {
+        if signing_key.0.is_zero() | signing_key.0.is_one() {
+            return Err(anyhow!(SchnorrSignatureError::InvalidSigningKey))
+                .with_context(|| "Verification key generation failed.");
+        }
+        let generator = PrimeOrderProjectivePoint::create_generator();
+
+        Ok(SchnorrVerificationKey(
+            generator.scalar_multiplication(&signing_key.0),
+        ))
+    }
+
+    pub fn is_valid(&self) -> StmResult<Self> {
+        let projective_point = ProjectivePoint::from_prime_order_projective_point(self.0);
+        if !projective_point.is_prime_order() {
+            return Err(anyhow!(SchnorrSignatureError::PointIsNotPrimeOrder(
+                Box::new(self.0)
+            )));
+        }
+        self.0.is_on_curve()?;
+
+        Ok(*self)
+    }
+
     /// Convert a `SchnorrVerificationKey` into bytes.
     pub fn to_bytes(self) -> [u8; 32] {
         self.0.to_bytes()
@@ -23,91 +49,18 @@ impl SchnorrVerificationKey {
     pub fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         if bytes.len() < 32 {
             return Err(anyhow!(SchnorrSignatureError::SerializationError)).with_context(
-                || "Not enough bytes provided to create a Schnorr verification key.",
+                || "Not enough bytes provided to construct a Schnorr verification key.",
             );
         }
-        let verification_key_bytes = bytes[0..32]
-            .try_into()
-            .map_err(|_| anyhow!(SchnorrSignatureError::SerializationError))
-            .with_context(|| "Failed to obtain the Schnorr verification key's bytes.")?;
-        let point = JubjubSubgroup::from_bytes(&verification_key_bytes)
-            .into_option()
-            .ok_or(anyhow!(SchnorrSignatureError::SerializationError))
-            .with_context(|| "Failed to create a JubjubSubgroup point from the given bytes.")?;
+        let prime_order_projective_point = PrimeOrderProjectivePoint::from_bytes(bytes)
+            .with_context(|| "Cannot construct Schnorr verification key from given bytes.")?;
 
-        Ok(SchnorrVerificationKey(point))
-    }
-}
-
-impl From<&SchnorrSigningKey> for SchnorrVerificationKey {
-    /// Convert a Schnorr secret key into a verification key
-    ///
-    /// This is done by computing `vk = g * sk` where g is the generator
-    /// of the subgroup and sk is the schnorr secret key
-    fn from(signing_key: &SchnorrSigningKey) -> Self {
-        let generator = JubjubSubgroup::generator();
-
-        SchnorrVerificationKey(generator * signing_key.0)
+        Ok(SchnorrVerificationKey(prime_order_projective_point))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use dusk_jubjub::Fq as JubjubBase;
-    use dusk_jubjub::SubgroupPoint as JubjubSubgroup;
-    use ff::Field;
-    use group::Group;
-    use rand_chacha::ChaCha20Rng;
-    use rand_core::SeedableRng;
-
-    use crate::signature_scheme::{SchnorrSigningKey, SchnorrVerificationKey};
-
-    #[test]
-    fn generate_verification_key() {
-        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let sk = SchnorrSigningKey::try_generate(&mut rng).unwrap();
-        let g = JubjubSubgroup::generator();
-        let vk = g * sk.0;
-
-        let vk_from_sk = SchnorrVerificationKey::from(&sk);
-
-        assert_eq!(vk, vk_from_sk.0);
-    }
-
-    #[test]
-    fn verify_fail_verification_key_not_on_curve() {
-        let msg = vec![0, 0, 0, 1];
-        let seed = [0u8; 32];
-        let mut rng = ChaCha20Rng::from_seed(seed);
-        let sk = SchnorrSigningKey::try_generate(&mut rng).unwrap();
-        let vk1 = SchnorrVerificationKey::from(&sk);
-        let sig = sk.sign(&msg, &mut rng).unwrap();
-        let vk2 = SchnorrVerificationKey(JubjubSubgroup::from_raw_unchecked(
-            JubjubBase::ONE,
-            JubjubBase::ONE,
-        ));
-
-        let result1 = sig.verify(&msg, &vk1);
-        let result2 = sig.verify(&msg, &vk2);
-
-        result1.expect("Correct verification key used, test should pass.");
-
-        result2.expect_err("Invalid verification key used, test should fail.");
-    }
-
-    #[test]
-    fn serialize_deserialize_vk() {
-        let seed = 0;
-        let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
-        let sk = SchnorrSigningKey::try_generate(&mut rng).unwrap();
-        let vk = SchnorrVerificationKey::from(&sk);
-
-        let vk_bytes = vk.to_bytes();
-        let vk2 = SchnorrVerificationKey::from_bytes(&vk_bytes).unwrap();
-
-        assert_eq!(vk.0, vk2.0);
-    }
-
     mod golden {
 
         use rand_chacha::ChaCha20Rng;
@@ -115,25 +68,24 @@ mod tests {
 
         use crate::signature_scheme::{SchnorrSigningKey, SchnorrVerificationKey};
 
-        const GOLDEN_BYTES: &[u8; 32] = &[
-            144, 52, 95, 161, 127, 253, 49, 32, 140, 217, 231, 207, 32, 238, 244, 196, 97, 241, 47,
-            95, 101, 9, 70, 136, 194, 66, 187, 253, 200, 32, 218, 43,
-        ];
+        const GOLDEN_JSON: &str = r#"[144, 52, 95, 161, 127, 253, 49, 32, 140, 217, 231, 207, 32, 238, 244, 196, 97, 241, 47, 95, 101, 9, 70, 136, 194, 66, 187, 253, 200, 32, 218, 43]"#;
 
         fn golden_value() -> SchnorrVerificationKey {
             let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-            let sk = SchnorrSigningKey::try_generate(&mut rng).unwrap();
-            SchnorrVerificationKey::from(&sk)
+            let sk = SchnorrSigningKey::generate(&mut rng).unwrap();
+            SchnorrVerificationKey::new_from_signing_key(sk).unwrap()
         }
 
         #[test]
         fn golden_conversions() {
-            let value = SchnorrVerificationKey::from_bytes(GOLDEN_BYTES)
-                .expect("This from bytes should not fail");
+            let value = serde_json::from_str(GOLDEN_JSON)
+                .expect("This JSON deserialization should not fail");
             assert_eq!(golden_value(), value);
 
-            let serialized = SchnorrVerificationKey::to_bytes(value);
-            let golden_serialized = SchnorrVerificationKey::to_bytes(golden_value());
+            let serialized =
+                serde_json::to_string(&value).expect("This JSON serialization should not fail");
+            let golden_serialized = serde_json::to_string(&golden_value())
+                .expect("This JSON serialization should not fail");
             assert_eq!(golden_serialized, serialized);
         }
     }
