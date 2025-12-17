@@ -86,7 +86,10 @@ impl SignatureProcessor for SequentialSignatureProcessor {
                                 .increment(&[&origin_network]);
                         }
                         Err(e) => {
-                            error!(self.logger, "Error dispatching single signature"; "error" => ?e);
+                            error!(
+                                self.logger, "Error dispatching single signature";
+                                "full_payload" => #?signature, "error" => ?e
+                            );
                         }
                     }
                 }
