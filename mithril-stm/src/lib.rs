@@ -15,7 +15,7 @@
 //!
 //! use mithril_stm::{
 //!    AggregateSignatureType, AggregationError, Clerk, Initializer, KeyRegistration, Parameters,
-//!    Signer, SingleSignature, MithrilMembershipDigest
+//!    Signer, SingleSignature, MithrilMembershipDigest,
 //! };
 //!
 //! let nparties = 4; // Use a small number of parties for this example

@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- The `Digest` generic is changed with a trait supporting multiple hash functions for different proof systems.
+- The `D: Digest` generic is changed with a `D: MembershipDigest` trait supporting multiple hash functions for different proof systems.
 
 ## 0.7.0 (12-16-2025)
 

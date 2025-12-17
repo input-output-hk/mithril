@@ -9,9 +9,9 @@ use mithril_stm::{
     MithrilMembershipDigest, Parameters, Signer, SingleSignature,
 };
 
-fn size<H>(k: u64, m: u64, nparties: usize, hash_name: &str)
+fn size<D>(k: u64, m: u64, nparties: usize, hash_name: &str)
 where
-    H: MembershipDigest,
+    D: MembershipDigest,
 {
     println!("+-------------------+");
     println!("| Hash: {hash_name} |");
@@ -34,12 +34,12 @@ where
         ps.push(p);
     }
 
-    let closed_reg = key_reg.close::<H>();
+    let closed_reg = key_reg.close::<D>();
 
     let ps = ps
         .into_par_iter()
         .map(|p| p.create_signer(closed_reg.clone()).unwrap())
-        .collect::<Vec<Signer<H>>>();
+        .collect::<Vec<Signer<D>>>();
 
     let sigs = ps
         .par_iter()

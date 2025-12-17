@@ -90,7 +90,6 @@ impl SchnorrSignature {
         );
 
         let challenge_recomputed = Hash::digest_truncated(Domain::Other, &poseidon_input)[0];
-        let _hasher = Hash::new(Domain::Other);
 
         if challenge_recomputed != self.challenge {
             return Err(anyhow!(SchnorrSignatureError::SignatureInvalid(Box::new(

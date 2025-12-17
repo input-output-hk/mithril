@@ -12,7 +12,7 @@ use test_extensions::protocol_phase::{
     InitializationPhaseResult, OperationPhaseResult, initialization_phase, operation_phase,
 };
 
-type H = MithrilMembershipDigest;
+type D = MithrilMembershipDigest;
 
 #[test]
 fn test_stm_parameters_serialization() {
@@ -69,15 +69,15 @@ fn test_binary_conversions() {
 
     let sig = &sigs[0];
     let encoded = sig.to_bytes();
-    SingleSignature::from_bytes::<H>(&encoded[1..])
+    SingleSignature::from_bytes::<D>(&encoded[1..])
         .expect_err("SingleSignature decoding should fail with invalid bytes");
-    let decoded = SingleSignature::from_bytes::<H>(&encoded).unwrap();
+    let decoded = SingleSignature::from_bytes::<D>(&encoded).unwrap();
     assert_eq!(sig, &decoded);
 
     let msig = msig.unwrap();
     let encoded = msig.to_bytes();
-    AggregateSignature::<H>::from_bytes(&encoded[1..])
+    AggregateSignature::<D>::from_bytes(&encoded[1..])
         .expect_err("AggregateSignature decoding should fail with invalid bytes");
-    let decoded = AggregateSignature::<H>::from_bytes(&encoded).unwrap();
+    let decoded = AggregateSignature::<D>::from_bytes(&encoded).unwrap();
     assert_eq!(msig.to_bytes(), decoded.to_bytes());
 }

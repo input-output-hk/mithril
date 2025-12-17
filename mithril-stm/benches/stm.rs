@@ -13,7 +13,7 @@ use mithril_stm::{
 /// * Registration depends on the number of parties (should be constant, as it is a lookup table)
 /// * Signing depends on the parameter `m`, as it defines the number of lotteries a user can play
 /// * Aggregation depends on `k`.
-fn stm_benches<H: MembershipDigest>(
+fn stm_benches<D: MembershipDigest>(
     c: &mut Criterion,
     nr_parties: usize,
     params: Parameters,
@@ -53,7 +53,7 @@ fn stm_benches<H: MembershipDigest>(
 
     let closed_reg = key_reg.close();
 
-    let signers: Vec<Signer<H>> = initializers
+    let signers: Vec<Signer<D>> = initializers
         .into_par_iter()
         .map(|p| p.create_signer(closed_reg.clone()).unwrap())
         .collect();
@@ -74,14 +74,14 @@ fn stm_benches<H: MembershipDigest>(
     });
 }
 
-fn batch_benches<H>(
+fn batch_benches<D>(
     c: &mut Criterion,
     array_batches: &[usize],
     nr_parties: usize,
     params: Parameters,
     hashing_alg: &str,
 ) where
-    H: MembershipDigest,
+    D: MembershipDigest,
 {
     let mut group = c.benchmark_group(format!("STM/{hashing_alg}"));
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
@@ -125,7 +125,7 @@ fn batch_benches<H>(
             let signers = initializers
                 .into_par_iter()
                 .map(|p| p.create_signer(closed_reg.clone()).unwrap())
-                .collect::<Vec<Signer<H>>>();
+                .collect::<Vec<Signer<D>>>();
 
             let sigs = signers.par_iter().filter_map(|p| p.sign(&msg)).collect::<Vec<_>>();
 

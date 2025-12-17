@@ -69,10 +69,10 @@ use rayon::prelude::*;
 
 use mithril_stm::{
     AggregateSignatureType, AggregationError, Clerk, Initializer, KeyRegistration, Parameters,
-    Signer, SingleSignature, MithrilMembershipDigest
+    Signer, SingleSignature, MithrilMembershipDigest,
 };
 
-type H = MithrilMembershipDigest;
+type D = MithrilMembershipDigest;
 
 let nparties = 32;
 let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
@@ -108,7 +108,7 @@ let closed_reg = key_reg.close();
 let ps = ps
     .into_par_iter()
     .map(|p| p.create_signer(closed_reg.clone()).unwrap())
-    .collect::<Vec<Signer<H>>>();
+    .collect::<Vec<Signer<D>>>();
 
 /////////////////////
 // operation phase //
