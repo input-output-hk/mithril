@@ -9,24 +9,29 @@ use std::ops::{Add, Mul};
 use super::{BaseFieldElement, ScalarFieldElement};
 use crate::{StmResult, signature_scheme::SchnorrSignatureError};
 
+/// Represents a point in affine coordinates on the Jubjub curve
 #[derive(Clone)]
 pub(crate) struct AffinePoint(JubjubAffinePoint);
 
 impl AffinePoint {
+    /// Converts a projective point to its affine representation
     pub(crate) fn from_projective_point(projective_point: ProjectivePoint) -> Self {
         AffinePoint(JubjubAffinePoint::from(projective_point.0))
     }
 
+    /// Retrieves the u-coordinate of the affine point
     pub(crate) fn get_u(&self) -> BaseFieldElement {
         BaseFieldElement(self.0.get_u())
     }
 
+    /// Retrieves the v-coordinate of the affine point
     pub(crate) fn get_v(&self) -> BaseFieldElement {
         BaseFieldElement(self.0.get_v())
     }
 }
 
 impl From<&PrimeOrderProjectivePoint> for AffinePoint {
+    /// Converts a prime order projective point to its affine representation
     fn from(prime_order_projective_point: &PrimeOrderProjectivePoint) -> Self {
         AffinePoint(JubjubAffinePoint::from(JubjubExtended::from(
             prime_order_projective_point.0,
@@ -34,24 +39,29 @@ impl From<&PrimeOrderProjectivePoint> for AffinePoint {
     }
 }
 
+/// Represents a point in projective coordinates on the Jubjub curve
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ProjectivePoint(pub(crate) JubjubExtended);
 
 impl ProjectivePoint {
+    /// Hashes input bytes to a projective point on the Jubjub curve
     pub(crate) fn hash_to_projective_point(input: &[u8]) -> Self {
         ProjectivePoint(JubjubExtended::hash_to_point(input))
     }
 
+    /// Retrieves the (u, v) coordinates of the projective point in affine representation
     pub(crate) fn get_coordinates(&self) -> (BaseFieldElement, BaseFieldElement) {
         let affine_point = AffinePoint::from_projective_point(*self);
 
         (affine_point.get_u(), affine_point.get_v())
     }
 
+    /// Converts the projective point to its byte representation
     pub(crate) fn to_bytes(self) -> [u8; 32] {
         self.0.to_bytes()
     }
 
+    /// Constructs a projective point from its byte representation
     pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let mut projective_point_bytes = [0u8; 32];
         projective_point_bytes
@@ -63,6 +73,7 @@ impl ProjectivePoint {
         }
     }
 
+    /// Checks if the projective point is of prime order
     pub(crate) fn is_prime_order(self) -> bool {
         self.0.is_prime_order().into()
     }
@@ -71,6 +82,7 @@ impl ProjectivePoint {
 impl Add for ProjectivePoint {
     type Output = ProjectivePoint;
 
+    /// Adds two projective points
     fn add(self, other: ProjectivePoint) -> ProjectivePoint {
         ProjectivePoint(self.0 + other.0)
     }
@@ -79,26 +91,31 @@ impl Add for ProjectivePoint {
 impl Mul<ProjectivePoint> for ScalarFieldElement {
     type Output = ProjectivePoint;
 
+    /// Multiplies a projective point by a scalar field element
+    /// Returns the resulting projective point
     fn mul(self, point: ProjectivePoint) -> ProjectivePoint {
         ProjectivePoint(point.0 * self.0)
     }
 }
 
 impl From<PrimeOrderProjectivePoint> for ProjectivePoint {
+    /// Converts a prime order projective point to a projective point
     fn from(prime_order_projective_point: PrimeOrderProjectivePoint) -> Self {
         ProjectivePoint(JubjubExtended::from(prime_order_projective_point.0))
     }
 }
 
+/// Represents a point of prime order in projective coordinates on the Jubjub curve
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) struct PrimeOrderProjectivePoint(pub(crate) JubjubSubgroup);
 
 impl PrimeOrderProjectivePoint {
+    /// Creates the generator point of the prime order subgroup
     pub(crate) fn create_generator() -> Self {
         PrimeOrderProjectivePoint(JubjubSubgroup::generator())
     }
 
-    /// Check if the given point is on the curve using its coordinates
+    /// Checks if the given point is on the curve using its coordinates
     pub(crate) fn is_on_curve(&self) -> StmResult<PrimeOrderProjectivePoint> {
         let point_affine_representation = AffinePoint::from(self);
         let (x, y) = (
@@ -119,10 +136,12 @@ impl PrimeOrderProjectivePoint {
         Ok(*self)
     }
 
+    /// Converts the prime order projective point to its byte representation
     pub(crate) fn to_bytes(self) -> [u8; 32] {
         self.0.to_bytes()
     }
 
+    /// Constructs a prime order projective point from its byte representation
     pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let mut prime_order_projective_point_bytes = [0u8; 32];
         prime_order_projective_point_bytes
@@ -140,6 +159,7 @@ impl PrimeOrderProjectivePoint {
 impl Add for PrimeOrderProjectivePoint {
     type Output = PrimeOrderProjectivePoint;
 
+    /// Adds two prime order projective points
     fn add(self, other: PrimeOrderProjectivePoint) -> PrimeOrderProjectivePoint {
         PrimeOrderProjectivePoint(self.0 + other.0)
     }
@@ -148,6 +168,8 @@ impl Add for PrimeOrderProjectivePoint {
 impl Mul<PrimeOrderProjectivePoint> for ScalarFieldElement {
     type Output = PrimeOrderProjectivePoint;
 
+    /// Multiplies a prime order projective point by a scalar field element
+    /// Returns the resulting prime order projective point
     fn mul(self, point: PrimeOrderProjectivePoint) -> PrimeOrderProjectivePoint {
         PrimeOrderProjectivePoint(point.0 * self.0)
     }

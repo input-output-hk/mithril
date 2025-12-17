@@ -6,10 +6,12 @@ use std::ops::{Add, Mul, Sub};
 
 use crate::{StmResult, signature_scheme::SchnorrSignatureError};
 
+/// Represents an element in the base field of the Jubjub curve
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct BaseFieldElement(pub(crate) JubjubBase);
 
 impl BaseFieldElement {
+    /// Retrieves the multiplicative identity element of the base field
     pub(crate) fn get_one() -> Self {
         BaseFieldElement(JubjubBase::ONE)
     }
@@ -18,6 +20,7 @@ impl BaseFieldElement {
 impl Add for BaseFieldElement {
     type Output = BaseFieldElement;
 
+    /// Adds two base field elements
     fn add(self, other: BaseFieldElement) -> BaseFieldElement {
         BaseFieldElement(self.0 + other.0)
     }
@@ -26,6 +29,7 @@ impl Add for BaseFieldElement {
 impl Sub for &BaseFieldElement {
     type Output = BaseFieldElement;
 
+    /// Subtracts one base field element from another
     fn sub(self, other: &BaseFieldElement) -> BaseFieldElement {
         BaseFieldElement(self.0 - other.0)
     }
@@ -34,6 +38,7 @@ impl Sub for &BaseFieldElement {
 impl Mul for BaseFieldElement {
     type Output = BaseFieldElement;
 
+    /// Multiplies two base field elements
     fn mul(self, other: BaseFieldElement) -> BaseFieldElement {
         BaseFieldElement(self.0 * other.0)
     }
@@ -42,19 +47,23 @@ impl Mul for BaseFieldElement {
 impl Mul for &BaseFieldElement {
     type Output = BaseFieldElement;
 
+    /// Multiplies a base field element by another base field element
     fn mul(self, other: &BaseFieldElement) -> BaseFieldElement {
         BaseFieldElement(self.0 * other.0)
     }
 }
 
+/// Represents an element in the scalar field of the Jubjub curve
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScalarFieldElement(pub(crate) JubjubScalar);
 
 impl ScalarFieldElement {
+    /// Generates a new random scalar field element
     pub(crate) fn new_random_scalar(rng: &mut (impl RngCore + CryptoRng)) -> Self {
         ScalarFieldElement(JubjubScalar::random(rng))
     }
 
+    /// Checks if the scalar field element is zero
     pub(crate) fn is_zero(&self) -> bool {
         if self.0 == JubjubScalar::zero() {
             return true;
@@ -62,6 +71,7 @@ impl ScalarFieldElement {
         false
     }
 
+    /// Checks if the scalar field element is one
     pub(crate) fn is_one(&self) -> bool {
         if self.0 == JubjubScalar::one() {
             return true;
@@ -69,6 +79,8 @@ impl ScalarFieldElement {
         false
     }
 
+    /// Generates a new random non-zero scalar field element
+    /// Returns an error if unable to generate a non-zero scalar after 100 attempts
     pub(crate) fn new_random_nonzero_scalar(
         rng: &mut (impl RngCore + CryptoRng),
     ) -> StmResult<Self> {
@@ -81,10 +93,12 @@ impl ScalarFieldElement {
         Err(anyhow!(SchnorrSignatureError::RandomScalarGeneration))
     }
 
+    /// Converts the scalar field element to its byte representation
     pub(crate) fn to_bytes(self) -> [u8; 32] {
         self.0.to_bytes()
     }
 
+    /// Constructs a scalar field element from its byte representation
     pub(crate) fn from_bytes(bytes: &[u8]) -> StmResult<Self> {
         let mut scalar_bytes = [0u8; 32];
         scalar_bytes.copy_from_slice(
@@ -105,6 +119,7 @@ impl ScalarFieldElement {
 impl Mul for ScalarFieldElement {
     type Output = ScalarFieldElement;
 
+    /// Multiplies two scalar field elements
     fn mul(self, other: ScalarFieldElement) -> ScalarFieldElement {
         ScalarFieldElement(self.0 * other.0)
     }
@@ -113,6 +128,7 @@ impl Mul for ScalarFieldElement {
 impl Sub for ScalarFieldElement {
     type Output = ScalarFieldElement;
 
+    /// Subtracts one scalar field element from another
     fn sub(self, other: ScalarFieldElement) -> ScalarFieldElement {
         ScalarFieldElement(self.0 - other.0)
     }
