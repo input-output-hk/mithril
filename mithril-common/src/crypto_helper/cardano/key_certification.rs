@@ -239,21 +239,23 @@ impl KeyRegWrapper {
     /// Register a new party. For a successful registration, the registrar needs to
     /// provide the OpCert (in cbor form), the cold VK, a KES signature, and a
     /// Mithril key (with its corresponding Proof of Possession).
+    ///
+    /// kes_evolutions: The number of evolutions since the start KES period of the operational certificate.
     pub fn register(
         &mut self,
         party_id: Option<ProtocolPartyId>, // Used for only for testing when SPO pool id is not certified
         opcert: Option<ProtocolOpCert>, // Used for only for testing when SPO pool id is not certified
         kes_sig: Option<ProtocolSignerVerificationKeySignature>, // Used for only for testing when SPO pool id is not certified
-        kes_period: Option<KesPeriod>,
+        kes_evolutions: Option<KesPeriod>,
         pk: ProtocolSignerVerificationKey,
     ) -> StdResult<ProtocolPartyId> {
         let pool_id_bech32: ProtocolPartyId = if let Some(opcert) = opcert {
             let signature = kes_sig.ok_or(ProtocolRegistrationErrorWrapper::KesSignatureMissing)?;
-            let kes_period =
-                kes_period.ok_or(ProtocolRegistrationErrorWrapper::KesPeriodMissing)?;
+            let kes_evolutions =
+                kes_evolutions.ok_or(ProtocolRegistrationErrorWrapper::KesPeriodMissing)?;
             if self
                 .kes_verifier
-                .verify(&pk.to_bytes(), &signature, &opcert, kes_period)
+                .verify(&pk.to_bytes(), &signature, &opcert, kes_evolutions)
                 .is_ok()
             {
                 opcert
@@ -262,7 +264,7 @@ impl KeyRegWrapper {
             } else {
                 return Err(anyhow!(
                     ProtocolRegistrationErrorWrapper::KesSignatureInvalid(
-                        kes_period,
+                        kes_evolutions,
                         opcert.get_start_kes_period(),
                     )
                 ));

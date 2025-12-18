@@ -24,11 +24,13 @@ pub trait KesSigner: Send + Sync {
 #[cfg_attr(test, mockall::automock)]
 pub trait KesVerifier: Send + Sync + Debug {
     /// Verify the signed message and return the original message.
+    ///
+    /// kes_evolutions: The KES evolutions used to verify the signature (computed from the current KES period at the time of signing minus the start KES period in the operational certificate)
     fn verify(
         &self,
         message: &[u8],
         signature: &Sum6KesSig,
         operational_certificate: &OpCert,
-        kes_period: KesPeriod,
+        kes_evolutions: KesPeriod,
     ) -> StdResult<()>;
 }

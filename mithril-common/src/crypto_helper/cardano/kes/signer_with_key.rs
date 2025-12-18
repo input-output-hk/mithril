@@ -66,82 +66,82 @@ mod tests {
     use super::*;
 
     use crate::crypto_helper::cardano::kes::{KesVerifier, KesVerifierStandard};
+    use crate::current_function;
     use crate::test::crypto_helper::{
         KesCryptographicMaterialForTest, KesPartyIndexForTest, create_kes_cryptographic_material,
     };
 
     #[test]
     fn create_valid_signature_for_message() {
+        let start_kes_period = 10 as KesPeriod;
+        let kes_evolutions = 1;
+        let signing_kes_period = start_kes_period + kes_evolutions;
         let KesCryptographicMaterialForTest {
             party_id: _,
             operational_certificate_file,
             kes_secret_key_file,
         } = create_kes_cryptographic_material(
             1 as KesPartyIndexForTest,
-            0 as KesPeriod,
-            "create_valid_signature_for_message",
+            start_kes_period,
+            current_function!(),
         );
         let message = b"Test message for KES signing";
         let kes_signer = KesSignerStandard::new(kes_secret_key_file, operational_certificate_file);
-        let kes_signing_period = 1;
 
         let (signature, op_cert) = kes_signer
-            .sign(message, kes_signing_period)
+            .sign(message, signing_kes_period)
             .expect("Signing should not fail");
 
         KesVerifierStandard
-            .verify(message, &signature, &op_cert, kes_signing_period)
+            .verify(message, &signature, &op_cert, kes_evolutions)
             .expect("Signature verification should not fail");
     }
 
     #[test]
     fn create_invalid_signature_for_different_message() {
+        let start_kes_period = 10 as KesPeriod;
+        let kes_evolutions = 1;
+        let signing_kes_period = start_kes_period + kes_evolutions;
         let KesCryptographicMaterialForTest {
             party_id: _,
             operational_certificate_file,
             kes_secret_key_file,
         } = create_kes_cryptographic_material(
             1 as KesPartyIndexForTest,
-            0 as KesPeriod,
-            "create_invalid_signature_for_different_message",
+            start_kes_period,
+            current_function!(),
         );
         let message = b"Test message for KES signing";
         let kes_signer = KesSignerStandard::new(kes_secret_key_file, operational_certificate_file);
-        let kes_signing_period = 1;
 
         let (signature, op_cert) = kes_signer
-            .sign(message, kes_signing_period)
+            .sign(message, signing_kes_period)
             .expect("Signing should not fail");
 
         KesVerifierStandard
-            .verify(
-                b"Different message",
-                &signature,
-                &op_cert,
-                kes_signing_period,
-            )
+            .verify(b"Different message", &signature, &op_cert, kes_evolutions)
             .expect_err("Signature verification should fail");
     }
 
     #[test]
     fn create_invalid_signature_for_invalid_kes_evolution() {
         const MAX_KES_EVOLUTIONS: KesPeriod = 63;
-        let kes_period_start = 5 as KesPeriod;
+        let start_kes_period = 10 as KesPeriod;
+        let signing_kes_period = start_kes_period + MAX_KES_EVOLUTIONS + 1;
         let KesCryptographicMaterialForTest {
             party_id: _,
             operational_certificate_file,
             kes_secret_key_file,
         } = create_kes_cryptographic_material(
             1 as KesPartyIndexForTest,
-            kes_period_start,
-            "create_invalid_signature_for_invalid_kes_period",
+            start_kes_period,
+            current_function!(),
         );
         let message = b"Test message for KES signing";
         let kes_signer = KesSignerStandard::new(kes_secret_key_file, operational_certificate_file);
-        let kes_signing_period = kes_period_start + MAX_KES_EVOLUTIONS + 1;
 
         kes_signer
-            .sign(message, kes_signing_period)
+            .sign(message, signing_kes_period)
             .expect_err("Signing should fail");
     }
 }
