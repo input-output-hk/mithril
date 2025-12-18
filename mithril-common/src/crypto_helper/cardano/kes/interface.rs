@@ -11,7 +11,13 @@ use crate::{
 #[cfg_attr(test, mockall::automock)]
 pub trait KesSigner: Send + Sync {
     /// Return signed bytes with the KES secret key and the associated Operational Certificate
-    fn sign(&self, message: &[u8], kes_period: KesPeriod) -> StdResult<(Sum6KesSig, OpCert)>;
+    ///
+    /// current_kes_period: The KES period used to sign the message (absolute period computed from the chain at the moment of signature)
+    fn sign(
+        &self,
+        message: &[u8],
+        current_kes_period: KesPeriod,
+    ) -> StdResult<(Sum6KesSig, OpCert)>;
 }
 
 /// Trait for KES (Key Evolving Signature) verification operation.

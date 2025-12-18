@@ -31,26 +31,31 @@ impl KesSignerStandard {
 }
 
 impl KesSigner for KesSignerStandard {
-    fn sign(&self, message: &[u8], kes_period: KesPeriod) -> StdResult<(Sum6KesSig, OpCert)> {
+    fn sign(
+        &self,
+        message: &[u8],
+        current_kes_period: KesPeriod,
+    ) -> StdResult<(Sum6KesSig, OpCert)> {
         let mut kes_sk_bytes = Sum6KesBytes::from_file(&self.kes_sk_path)
             .with_context(|| "StandardKesSigner can not read KES secret key from file")?;
         let mut kes_sk = Sum6Kes::try_from(&mut kes_sk_bytes)
             .with_context(|| "StandardKesSigner can not use KES secret key")?;
+        let operational_certificate = OpCert::from_file(&self.operational_certificate_path)
+            .with_context(|| "StandardKesSigner can not read operational certificate from file")?;
+        let kes_period_start = operational_certificate.get_start_kes_period() as u32;
         let kes_sk_period = kes_sk.get_period();
-        if kes_sk_period > kes_period {
+        let kes_evolutions = current_kes_period.saturating_sub(kes_period_start);
+        if kes_sk_period > kes_evolutions {
             return Err(anyhow!(KesSignError::PeriodMismatch(
                 kes_sk_period,
-                kes_period
+                kes_evolutions
             )));
         }
 
         // We need to perform the evolutions
-        for period in kes_sk_period..kes_period {
-            kes_sk.update().map_err(|_| KesSignError::UpdateKey(period))?;
+        for evolution in kes_sk_period..kes_evolutions {
+            kes_sk.update().map_err(|_| KesSignError::UpdateKey(evolution))?;
         }
-
-        let operational_certificate = OpCert::from_file(&self.operational_certificate_path)
-            .with_context(|| "StandardKesSigner can not read operational certificate from file")?;
 
         Ok((kes_sk.sign(message), operational_certificate))
     }
@@ -119,7 +124,8 @@ mod tests {
     }
 
     #[test]
-    fn create_invalid_signature_for_invalid_kes_period() {
+    fn create_invalid_signature_for_invalid_kes_evolution() {
+        const MAX_KES_EVOLUTIONS: KesPeriod = 63;
         let kes_period_start = 5 as KesPeriod;
         let KesCryptographicMaterialForTest {
             party_id: _,
@@ -132,11 +138,7 @@ mod tests {
         );
         let message = b"Test message for KES signing";
         let kes_signer = KesSignerStandard::new(kes_secret_key_file, operational_certificate_file);
-        let kes_signing_period = 2;
-        assert!(
-            kes_signing_period < kes_period_start,
-            "KES signing period should be less than the KES period of the key"
-        );
+        let kes_signing_period = kes_period_start + MAX_KES_EVOLUTIONS + 1;
 
         kes_signer
             .sign(message, kes_signing_period)

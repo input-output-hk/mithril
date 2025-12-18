@@ -63,7 +63,7 @@ impl KesSignerFake {
 }
 
 impl KesSigner for KesSignerFake {
-    fn sign(&self, message: &[u8], _kes_period: KesPeriod) -> KesSignatureResult {
+    fn sign(&self, message: &[u8], _current_kes_period: KesPeriod) -> KesSignatureResult {
         let mut messages = self.signed_messages.lock().unwrap();
         messages.push_back(message.to_vec());
 

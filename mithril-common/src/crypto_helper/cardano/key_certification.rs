@@ -88,7 +88,7 @@ pub enum ProtocolInitializerErrorWrapper {
     ProtocolInitializer(#[source] StdError),
 
     /// Error raised when a KES update error occurs
-    #[error("KES key cannot be updated for period {0}")]
+    #[error("KES key cannot be updated for evolution {0}")]
     KesUpdate(KesPeriod),
 
     /// Period of key file does not match with period provided by user
