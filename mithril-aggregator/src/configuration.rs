@@ -425,6 +425,11 @@ pub trait ConfigurationSource {
     fn aggregate_signature_type(&self) -> AggregateSignatureType {
         panic!("get_aggregate_signature_type is not implemented.");
     }
+
+    /// Signature processor wait delay on error in milliseconds
+    fn signature_processor_wait_delay_on_error_ms(&self) -> u64 {
+        panic!("signature_processor_wait_delay_on_error_ms is not implemented.");
+    }
 }
 
 /// Serve command configuration
@@ -614,6 +619,9 @@ pub struct ServeCommandConfiguration {
 
     /// Aggregate signature type used to create certificates
     pub aggregate_signature_type: AggregateSignatureType,
+
+    /// Delay to wait between two signature processing attempts after an error
+    pub signature_processor_wait_delay_on_error_ms: u64,
 }
 
 /// Uploader needed to copy the snapshot once computed.
@@ -749,6 +757,7 @@ impl ServeCommandConfiguration {
             leader_aggregator_endpoint: None,
             custom_origin_tag_white_list: None,
             aggregate_signature_type: AggregateSignatureType::Concatenation,
+            signature_processor_wait_delay_on_error_ms: 5000,
         }
     }
 
@@ -952,6 +961,10 @@ impl ConfigurationSource for ServeCommandConfiguration {
     fn aggregate_signature_type(&self) -> AggregateSignatureType {
         self.aggregate_signature_type
     }
+
+    fn signature_processor_wait_delay_on_error_ms(&self) -> u64 {
+        self.signature_processor_wait_delay_on_error_ms
+    }
 }
 
 /// Default configuration with all the default values for configurations.
@@ -1033,6 +1046,9 @@ pub struct DefaultConfiguration {
 
     /// Aggregate signature type used to create certificates
     pub aggregate_signature_type: String,
+
+    /// Delay to wait between two signature processing attempts after an error
+    pub signature_processor_wait_delay_on_error_ms: u64,
 }
 
 impl Default for DefaultConfiguration {
@@ -1066,6 +1082,7 @@ impl Default for DefaultConfiguration {
             metrics_server_port: 9090,
             persist_usage_report_interval_in_seconds: 10,
             aggregate_signature_type: "Concatenation".to_string(),
+            signature_processor_wait_delay_on_error_ms: 1000,
         }
     }
 }
@@ -1151,6 +1168,11 @@ impl Source for DefaultConfiguration {
             ])
         );
         register_config_value!(result, &namespace, myself.aggregate_signature_type);
+        register_config_value!(
+            result,
+            &namespace,
+            myself.signature_processor_wait_delay_on_error_ms
+        );
         Ok(result)
     }
 }

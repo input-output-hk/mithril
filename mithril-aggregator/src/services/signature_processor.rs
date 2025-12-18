@@ -36,9 +36,6 @@ pub struct SequentialSignatureProcessor {
 }
 
 impl SequentialSignatureProcessor {
-    /// Delay to wait between two signature processing attempts after an error
-    pub const DEFAULT_WAIT_DELAY_ON_ERROR: Duration = Duration::from_secs(10);
-
     /// Creates a new `SignatureProcessor` instance.
     pub fn new(
         consumer: Arc<dyn SignatureConsumer>,

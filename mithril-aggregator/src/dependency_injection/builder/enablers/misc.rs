@@ -106,7 +106,7 @@ impl DependenciesBuilder {
             self.get_certifier_service().await?,
             stop_rx,
             self.get_metrics_service().await?,
-            SequentialSignatureProcessor::DEFAULT_WAIT_DELAY_ON_ERROR,
+            Duration::from_millis(self.configuration.signature_processor_wait_delay_on_error_ms()),
             self.root_logger(),
         );
 
